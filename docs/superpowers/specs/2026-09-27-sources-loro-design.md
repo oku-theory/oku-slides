@@ -1,538 +1,540 @@
-# Sources du deck en CRDT Loro : historique et fusion — design
+# Deck sources as a Loro CRDT: history and merge — design
 
-Date : 2026-09-27 · Tâche : t-188
+Date: 2026-09-27 · Task: t-188
 
-## Objectif
+## Goal
 
-Le blob des sources rangé dans le PDF devient un document **Loro** (CRDT) :
+The sources blob stored in the PDF becomes a **Loro** document (CRDT):
 
-1. **Historique dans le fichier** : toute version passée d'un deck se revoit
-   et se restaure à partir du seul PDF, avec un curseur temporel.
-2. **Fusion** : deux copies d'un même deck modifiées séparément (mail,
-   dossier partagé) se fusionnent sans dialogue de conflit.
-3. **Temps réel plus tard** : le format ne l'empêche pas (mises à jour Loro
-   échangées entre pairs). Le temps réel lui-même est hors périmètre.
+1. **History in the file**: any past version of a deck can be reviewed
+   and restored from the PDF alone, with a time slider.
+2. **Merge**: two copies of the same deck modified separately (mail,
+   shared folder) merge without a conflict dialog.
+3. **Real time later**: the format does not prevent it (Loro updates
+   exchanged between peers). Real time itself is out of scope.
 
-L'historique complet voyage **toujours** avec le PDF (pas d'export
-« propre », pas d'aplatissement).
+The full history **always** travels with the PDF (no "clean" export, no
+flattening).
 
-Hors périmètre : temps réel, diff visuel de slides, aplatissement de
-l'historique, lecture des PDF au format v1.
+Out of scope: real time, visual diff of slides, flattening the
+history, reading PDFs in the v1 format.
 
-## Décisions
+## Decisions
 
-- **Loro plutôt que Git ou un journal d'ops maison.**
-  - `git bundle` + merge à trois voies : fusion structurelle et résolution
-    de conflits à écrire nous-mêmes, aucune issue vers le temps réel.
-  - Journal d'`Op` rejoué : les ops ne commutent pas (déplacer ‖ supprimer,
-    éditer le même texte) ; ce serait réinventer un CRDT.
-  - Loro (Rust, 1.x) : historique, fusion, `checkout`, annulation par pair
-    et protocole de synchronisation dans un seul format.
-- **Réconciliation plutôt que traduction des ops.** Les `Op` s'appliquent
-  sur `Deck` comme aujourd'hui ; le `LoroDoc` est ensuite réconcilié avec le
-  nouveau `Deck` par diff structurel. Les variantes d'`Op` ne sont pas
-  traduites une à une.
-- **Vide = absent** pour toute prose (voir « Schéma »).
-- **Annulation par `UndoManager` de Loro**, non persistée : la pile
-  d'annulation repart de zéro au relancement (recul assumé sur t-145).
-- **PDF v1 ignorés** : un blob v1 est traité comme absent. Pas de
+- **Loro rather than Git or a home-made op log.**
+  - `git bundle` + three-way merge: structural merge and conflict resolution
+    to write ourselves, no path to real time.
+  - Replayed `Op` log: ops do not commute (move ‖ delete,
+    edit the same text); that would be reinventing a CRDT.
+  - Loro (Rust, 1.x): history, merge, `checkout`, per-peer undo
+    and sync protocol in a single format.
+- **Reconciliation rather than translating ops.** `Op`s apply
+  to `Deck` as today; the `LoroDoc` is then reconciled with the
+  new `Deck` by structural diff. `Op` variants are not
+  translated one by one.
+- **Empty = absent** for all prose (see "Schema").
+- **Undo through Loro's `UndoManager`**, not persisted: the undo
+  stack starts from scratch on relaunch (accepted regression on t-145).
+- **v1 PDFs ignored**: a v1 blob is treated as absent. No
   conversion.
 
-## Spike (jetable, hors dépôt)
+## Spike (throwaway, outside the repo)
 
-Loro 1.16.2, `fixtures/roadmap.json` (8 slides) et un deck synthétique de
-40 slides :
+Loro 1.16.2, `fixtures/roadmap.json` (8 slides) and a synthetic deck of
+40 slides:
 
-| Mesure | Résultat |
+| Measure | Result |
 |---|---|
-| Aller-retour `Deck → Loro → Deck` | identique |
-| Réconcilier le même deck | 0 op, ~1 ms (40 slides) |
-| Fusion de deux branches (titre édité des deux côtés, déplacement, suppression, ajout) | convergence, `Brouillon : Contexte (révisé)`, `validate` sans problème |
-| Retour à la version d'origine depuis le snapshot | identique |
-| `UndoManager` après fusion | défait le changement local, garde le distant |
-| 539 commits d'un caractère | +~330 o, ~40 µs par commit |
-| Snapshot avec historique | 5,5 Ko (roadmap), contre 1 Ko pour le zip v1 |
+| Round trip `Deck → Loro → Deck` | identical |
+| Reconcile the same deck | 0 ops, ~1 ms (40 slides) |
+| Merge of two branches (title edited on both sides, move, delete, add) | convergence, `Brouillon : Contexte (révisé)`, `validate` without issues |
+| Back to the original version from the snapshot | identical |
+| `UndoManager` after merge | undoes the local change, keeps the remote one |
+| 539 one-character commits | +~330 B, ~40 µs per commit |
+| Snapshot with history | 5.5 KB (roadmap), versus 1 KB for the v1 zip |
 
-Limites observées, reproduites sur Loro brut :
+Observed limits, reproduced on raw Loro:
 
-1. Runs de texte riche réconciliés par index : gras ‖ frappe donne
-   `Le  [ajout B]**marché** a doublé…`. **Parade vérifiée** : un
-   `LoroText` avec marques par bloc de paragraphes.
-2. Création concurrente d'un même champ texte absent : un seul texte
-   survit. Un texte préexistant, même vide, fusionne (`AB`). **Parade** :
-   champs de prose toujours créés.
-3. Déplacer ‖ supprimer : l'élément réapparaît.
-4. Éditer ‖ supprimer : la suppression gagne.
-5. Deux ajouts avec le même `id` : deux éléments ; `validate` le signale.
+1. Rich text runs reconciled by index: bold ‖ typing gives
+   `Le  [ajout B]**marché** a doublé…`. **Verified workaround**: one
+   `LoroText` with marks per block of paragraphs.
+2. Concurrent creation of the same absent text field: only one text
+   survives. A pre-existing text, even empty, merges (`AB`). **Workaround**:
+   prose fields always created.
+3. Move ‖ delete: the element reappears.
+4. Edit ‖ delete: the delete wins.
+5. Two adds with the same `id`: two elements; `validate` reports it.
 
-## Schéma du `LoroDoc`
+## `LoroDoc` schema
 
-Racine `deck` (`LoroMap`), plus deux maps racines :
+Root `deck` (`LoroMap`), plus two root maps:
 
-- `meta` : `deck_uid` (aléatoire, posé à la création, jamais modifié).
-- `peers` : `{ <PeerID>: "<nom d'auteur>" }`, une entrée par pair, inscrite
-  avant sa première édition, dans le même commit (`claim_author`). Le nom
-  vient du réglage `[author] name`, sinon de l'utilisateur système
-  (`USER`/`USERNAME`) ; blanc des deux côtés → pair sans entrée, ses
-  modifications restent anonymes dans un `MergeReport`. L'inscription fait
-  partie de l'étape annulable : annuler la première édition d'un pair retire
-  aussi son entrée (une édition entièrement annulée n'a rien laissé à
-  signer), jusqu'à sa prochaine édition, qui l'inscrit de nouveau.
+- `meta`: `deck_uid` (random, set at creation, never modified).
+- `peers`: `{ <PeerID>: "<author name>" }`, one entry per peer, registered
+  before its first edit, in the same commit (`claim_author`). The name
+  comes from the `[author] name` setting, otherwise from the system user
+  (`USER`/`USERNAME`); blank on both sides → peer without an entry, its
+  changes stay anonymous in a `MergeReport`. The registration is
+  part of the undoable step: undoing a peer's first edit also removes
+  its entry (a fully undone edit left nothing to
+  sign), until its next edit, which registers it again.
 
-Chaque champ du modèle relève d'une catégorie :
+Each model field belongs to a category:
 
-| Catégorie | Conteneur | Champs |
+| Category | Container | Fields |
 |---|---|---|
-| Collection ordonnée à `id` | `LoroMovableList` de `LoroMap` | `slides`, `blocks`, `elements`, `children` |
-| Prose simple | `LoroText` | slide : `name`, `description`, `title`, `subtitle`, `kicker`, `text`, `notes` ; `params` : `title`, `subtitle`, `author`, `organization`, `date` ; carte : `title`, `kicker` |
-| Prose riche | un `LoroText` avec marques | `text: Vec<Paragraph>` des éléments `text` et `card` |
-| Scalaire LWW | valeur | `id`, `kind`, `layout`, `theme`, `templates`, `version`, `params.lang`, `asset`, `fit`, `shape`, chaque champ de `frame`, `cell`, `style`, `grid`, `layout` de groupe ; chaque entrée de `vars` ; chaque feuille de `tokens` et de `params.extra` |
-| Atome JSON LWW | une valeur (JSON entier) | `chart.option` |
+| Ordered collection with `id` | `LoroMovableList` of `LoroMap` | `slides`, `blocks`, `elements`, `children` |
+| Plain prose | `LoroText` | slide: `name`, `description`, `title`, `subtitle`, `kicker`, `text`, `notes`; `params`: `title`, `subtitle`, `author`, `organization`, `date`; card: `title`, `kicker` |
+| Rich prose | one `LoroText` with marks | `text: Vec<Paragraph>` of the `text` and `card` elements |
+| LWW scalar | value | `id`, `kind`, `layout`, `theme`, `templates`, `version`, `params.lang`, `asset`, `fit`, `shape`, each field of `frame`, `cell`, `style`, `grid`, group `layout`; each entry of `vars`; each leaf of `tokens` and of `params.extra` |
+| LWW JSON atom | one value (whole JSON) | `chart.option` |
 
-- **Prose riche.** Paragraphes joints par `\n`. Marques de run : `bold`,
+- **Rich prose.** Paragraphs joined by `\n`. Run marks: `bold`,
   `italic`, `color`, `size`, `highlight` (`expand: After`), `link`
-  (`expand: None`). Le `list` d'un paragraphe est une marque sur son `\n`.
-  La lecture reconstruit les `Run` depuis `to_delta()`.
-- **Prose et collections toujours présentes.** À la création du deck, d'une
-  slide ou d'un élément, tous ses `LoroText` de prose et toutes ses
-  collections à `id` (`slides`, `blocks`, `elements`, `children`) sont
-  créés, vides au besoin. Une valeur absente du JSON vide le conteneur,
-  sans jamais retirer la clé. Sinon, deux pairs qui créent la même clé
-  en concurrence (premier élément d'une slide vide, premier titre) font
-  chacun leur conteneur, et un seul survit.
-- **Séparateur de paragraphes** : `U+2029` (et non `\n`, qu'un run peut
-  contenir). Chaque paragraphe se termine par ce séparateur, le dernier
-  compris. Les runs adjacents de même mise en forme sont fusionnés à la
-  lecture (forme canonique).
-- **Vide = absent, invariant du modèle.** `opt_string` (`ops.rs`) convertit
-  une chaîne vide ou faite d'espaces en `None` (même règle que l'UI) (couvre `SetSlideField` et `SetParam`) ; la lecture Loro
-  ramène un texte vide à `None`. Les normalisations de l'UI
-  (`deck.ts:76`, `a2ui/panelActions.ts:25`, `App.tsx:494`) disparaissent.
-  Audit : aucun modèle ni test ne s'appuie sur `Some("")` ; seul effet
-  perdu, forcer un titre vide sur une slide de titre.
-- **Graphique en atome** : `consistent_chart` refuse des options
-  incohérentes ; une fusion champ par champ pourrait en produire. Règle
-  générale : un sous-arbre qui porte un invariant global est un atome.
-- **`frame` champ par champ** : déplacer ‖ redimensionner garde les deux.
+  (`expand: None`). A paragraph's `list` is a mark on its `\n`.
+  Reading rebuilds the `Run`s from `to_delta()`.
+- **Prose and collections always present.** When the deck, a
+  slide or an element is created, all its prose `LoroText`s and all its
+  `id` collections (`slides`, `blocks`, `elements`, `children`) are
+  created, empty if need be. A value absent from the JSON empties the container,
+  without ever removing the key. Otherwise, two peers that create the same key
+  concurrently (first element of an empty slide, first title) each make
+  their own container, and only one survives.
+- **Paragraph separator**: `U+2029` (and not `\n`, which a run can
+  contain). Each paragraph ends with this separator, the last one
+  included. Adjacent runs with the same formatting are merged on
+  read (canonical form).
+- **Empty = absent, a model invariant.** `opt_string` (`ops.rs`) converts
+  an empty or whitespace-only string to `None` (same rule as the UI) (covers `SetSlideField` and `SetParam`); the Loro read
+  turns an empty text into `None`. The UI normalizations
+  (`deck.ts:76`, `a2ui/panelActions.ts:25`, `App.tsx:494`) go away.
+  Audit: no template or test relies on `Some("")`; the only effect
+  lost is forcing an empty title on a title slide.
+- **Chart as an atom**: `consistent_chart` rejects inconsistent
+  options; a field-by-field merge could produce some. General
+  rule: a subtree that carries a global invariant is an atom.
+- **`frame` field by field**: move ‖ resize keeps both.
 
 ## Code
 
-- **`oku-slides-core::replica`** (`replica.rs`, tests `replica_tests.rs`) :
-  `DeckReplica`, enveloppe d'un `LoroDoc`.
-  - `DeckReplica::new(deck)` (nouveau `deck_uid`), `from_snapshot(bytes)`
-    (rend aussi la première lecture, faite sous garde), `snapshot()`.
-  - `reconcile(&Deck)` puis `commit(label)`.
-  - `deck() -> (Deck, Vec<Issue>)` : **lecture totale**.
-  - `merge(&DeckReplica)` : vérifie `deck_uid`, importe.
-  - Historique : `versions()` (ordre topologique, repères de session et de
-    fusion), `deck_at(index)`, `restore(index)`.
-- **`SourceBundle`** gagne `replica: DeckReplica`. `deck` reste une vue
-  matérialisée utilisée par le rendu, `validate`, `locate` et les ops.
-  **Invariant : la vue est égale à la relecture du replica**
-  (`replica().deck().0 == *deck()`). La relecture étant canonique, la vue
-  doit l'être : `oku_slides_core::canonicalize(&mut Deck)` (`canonical.rs`)
-  est appelé en fin d'`apply_all` et dans `SourceBundle::new`. Règles :
-  runs vides retirés, runs voisins de même format fusionnés, `U+2029` dans
-  le texte d'un run remplacé par `\n` (le contenu est gardé, sans nouveau
-  paragraphe) ; prose facultative faite d'espaces → `None`, autre prose
-  rognée (règle d'`opt_string`) ; notes faites d'espaces → `""` ; entier
-  JSON au-delà d'`i64` (`vars`, extras de `params`, `tokens`) → flottant,
-  comme Loro le stocke ; `tokens` vide → `null`. `SourceBundle::apply`
-  attend un deck canonique et le vérifie par `debug_assert!` (builds de
-  débogage). Une propriété (`canonical_tests.rs`, proptest) le garantit :
-  pour tout deck canonique `d`, `DeckReplica::new(&d).deck().0 == d`.
-  Reste hors de l'invariant : une valeur imbriquée au-delà de
-  `MAX_DEPTH` (64) dans `vars`, `tokens` ou `params`, tronquée à la lecture.
-- **`oku-slides-core` supprime** `History` (`history.rs`) et les inverses :
-  `apply_all` applique atomiquement et ne renvoie rien.
-- Dépendance nouvelle : `loro` (espace de travail). Dev : `proptest`.
+- **`oku-slides-core::replica`** (`replica.rs`, tests `replica_tests.rs`):
+  `DeckReplica`, wrapper around a `LoroDoc`.
+  - `DeckReplica::new(deck)` (new `deck_uid`), `from_snapshot(bytes)`
+    (also returns the first read, done under guard), `snapshot()`.
+  - `reconcile(&Deck)` then `commit(label)`.
+  - `deck() -> (Deck, Vec<Issue>)`: **total read**.
+  - `merge(&DeckReplica)`: checks `deck_uid`, imports.
+  - History: `versions()` (topological order, session and merge
+    markers), `deck_at(index)`, `restore(index)`.
+- **`SourceBundle`** gains `replica: DeckReplica`. `deck` stays a
+  materialized view used by rendering, `validate`, `locate` and the ops.
+  **Invariant: the view equals the read-back of the replica**
+  (`replica().deck().0 == *deck()`). Since the read-back is canonical, the view
+  must be too: `oku_slides_core::canonicalize(&mut Deck)` (`canonical.rs`)
+  is called at the end of `apply_all` and in `SourceBundle::new`. Rules:
+  empty runs removed, neighbouring runs with the same format merged, `U+2029` in
+  a run's text replaced by `\n` (the content is kept, without a new
+  paragraph); optional whitespace-only prose → `None`, other prose
+  trimmed (`opt_string` rule); whitespace-only notes → `""`; JSON
+  integer beyond `i64` (`vars`, `params` extras, `tokens`) → float,
+  as Loro stores it; empty `tokens` → `null`. `SourceBundle::apply`
+  expects a canonical deck and checks it with `debug_assert!` (debug
+  builds). A property (`canonical_tests.rs`, proptest) guarantees it:
+  for any canonical deck `d`, `DeckReplica::new(&d).deck().0 == d`.
+  Still outside the invariant: a value nested beyond
+  `MAX_DEPTH` (64) in `vars`, `tokens` or `params`, truncated on read.
+- **`oku-slides-core` removes** `History` (`history.rs`) and the inverses:
+  `apply_all` applies atomically and returns nothing.
+- New dependency: `loro` (workspace). Dev: `proptest`.
 
-## Flux d'écriture
+## Write flow
 
-`Session::apply` :
+`Session::apply`:
 
 1. `canonicalize_charts(ops)`.
-2. `deck' = apply_all(clone(deck), ops)` (forme canonique) ; erreur → rien n'a bougé.
-3. Rendu de `deck'` ; erreur → rien n'a bougé.
+2. `deck' = apply_all(clone(deck), ops)` (canonical form); error → nothing moved.
+3. Render `deck'`; error → nothing moved.
 4. `replica.apply(&deck', label)`, `deck = deck'`.
 
-Le rendu passe **avant** le commit : l'historique Loro est définitif, un
-rendu raté ne doit pas y laisser de trace.
+Rendering happens **before** the commit: the Loro history is final, a
+failed render must not leave a trace in it.
 
-- **Un commit = un *change* Loro.** `set_change_merge_interval(-1)` désactive
-  la fusion automatique des commits locaux d'une fenêtre de temps (1000 s par
-  défaut) ; sans elle, Loro regrouperait plusieurs commits en un seul
-  *change* et « N modifications » (fusion, curseur du mode historique) ne
-  voudrait plus rien dire. Le libellé de l'application (`apply(deck, label)`)
-  est aussi posé comme message du *change* (`set_next_commit_message`), pour
-  qu'un outil externe qui lit l'historique Loro retrouve l'intention de
-  chaque étape sans passer par l'app.
-- **Un `mov` par commit** (t-263). Loro 1.16.2 défait mal un item
-  d'annulation qui porte plusieurs `mov` sur une liste de conteneurs : un
-  élément est supprimé (durablement, dans l'oplog), ou Loro panique. La
-  réconciliation committe donc juste avant chaque `mov` ; une application
-  qui réordonne `k` fois fait `k + 1` *changes*. Les commits
-  intermédiaires portent le message `oku-part:<libellé>` : l'état qui les
-  suit n'est pas une version du deck (le mode historique les saute).
-- **Pair** : `PeerID` aléatoire à chaque chargement (ouverture, reprise,
-  nouvel onglet), jamais persisté. Deux écrivains d'un même pair
-  corrompraient le document.
-- **Horodatage** : `set_record_timestamp(true)`.
-- **Annuler / rétablir** : un `UndoManager` par session, `merge_interval
-  = 0`, sous une pile d'**étapes** à nous (`undo.rs`) : une étape = une
-  application (ou un groupe), faite des items Loro de ses commits (comptés
-  par `on_push`), défaits ou rétablis tous ensemble. Libellés, groupes (un
-  tour de l'agent) et limite (`settings.history.limit` étapes) vivent dans
-  cette pile ; jamais de `group_start` de Loro, qui fusionnerait les items
-  d'un groupe en un seul et ramènerait le bogue des `mov`. Loro garde au
-  plus 64 items par étape de la limite ; une étape qu'il a en partie
-  écartée n'est plus annulable (jamais défaite à moitié).
-  Après un undo ou un redo : relecture du deck, rendu ; un rendu raté garde
-  l'état et remonte l'erreur.
-- **Mode modèles** : même `SourceBundle`, replica jamais enregistré en PDF.
+- **One commit = one Loro *change*.** `set_change_merge_interval(-1)` disables
+  the automatic merging of local commits within a time window (1000 s by
+  default); without it, Loro would group several commits into a single
+  *change* and "N changes" (merge, history mode slider) would
+  no longer mean anything. The application label (`apply(deck, label)`)
+  is also set as the *change*'s message (`set_next_commit_message`), so
+  that an external tool reading the Loro history finds the intent of
+  each step without going through the app.
+- **One `mov` per commit** (t-263). Loro 1.16.2 badly undoes an undo
+  item that carries several `mov`s on a list of containers: an
+  element is deleted (durably, in the oplog), or Loro panics. The
+  reconciliation therefore commits just before each `mov`; an application
+  that reorders `k` times makes `k + 1` *changes*. The intermediate
+  commits carry the message `oku-part:<label>`: the state that
+  follows them is not a deck version (history mode skips them).
+- **Peer**: random `PeerID` on each load (open, resume,
+  new tab), never persisted. Two writers of the same peer
+  would corrupt the document.
+- **Timestamps**: `set_record_timestamp(true)`.
+- **Undo / redo**: one `UndoManager` per session, `merge_interval
+  = 0`, under a stack of our own **steps** (`undo.rs`): a step = one
+  application (or a group), made of the Loro items of its commits (counted
+  by `on_push`), undone or redone all together. Labels, groups (an
+  agent turn) and limit (`settings.history.limit` steps) live in
+  this stack; never Loro's `group_start`, which would merge the items
+  of a group into one and bring back the `mov` bug. Loro keeps at
+  most 64 items per step of the limit; a step it has partly
+  discarded is no longer undoable (never half undone).
+  After an undo or a redo: deck read-back, render; a failed render keeps
+  the state and surfaces the error.
+- **Templates mode**: same `SourceBundle`, replica never saved to PDF.
 
-## Reprise
+## Resume
 
-`tabs/t-<n>/deck/` :
+`tabs/t-<n>/deck/`:
 
 ```
-deck.loro       snapshot, écriture atomique
+deck.loro       snapshot, atomic write
 document.json   { path, dirty, saved_hash }
-assets/<hex>    inchangé
-fonts/<nom>     inchangé
+assets/<hex>    unchanged
+fonts/<name>    unchanged
 ```
 
-`history` disparaît de `document.json` et de `resume.rs`. La spec de
-reprise (`2026-09-26-resume-state-design.md`) est mise à jour : la pile
-d'annulation ne survit plus au relancement. `TabInfo` gagne `deck_uid`
-(dans `workspace.json`), pour détecter un deck déjà ouvert sans réveiller
-d'onglet (ADR-0001).
+`history` disappears from `document.json` and from `resume.rs`. The resume
+spec (`2026-09-26-resume-state-design.md`) is updated: the undo
+stack no longer survives relaunch. `TabInfo` gains `deck_uid`
+(in `workspace.json`), to detect an already open deck without waking
+a tab (ADR-0001).
 
-## Format dans le PDF
+## Format in the PDF
 
-Enveloppe inchangée (`/PieceInfo/OkuSlides/Private`), `/Version 2`.
-`extract_sources` : version < 2 → `Ok(None)` (ouverture : `NotOkuSlides`) ;
+Envelope unchanged (`/PieceInfo/OkuSlides/Private`), `/Version 2`.
+`extract_sources`: version < 2 → `Ok(None)` (open: `NotOkuSlides`);
 version > 2 → `UnsupportedVersion`.
 
-Zip des sources v2 :
+v2 sources zip:
 
 ```
 manifest.json    { format: "oku-slides-sources", version: 2 }
-deck.loro        snapshot complet (ExportMode::Snapshot)
-assets/<hex>     tels quels
-fonts/<nom>      tels quels
+deck.loro        full snapshot (ExportMode::Snapshot)
+assets/<hex>     as is
+fonts/<name>     as is
 ```
 
-- Plus de `deck.json` : le deck se reconstruit depuis `deck.loro`.
-- **Assets et polices en ajout seul** : jamais retirés, une ancienne
-  version doit se rendre. Fusion = union.
-- **Blob non fiable** : import **et première lecture complète**
-  (`deck_uid`, tout l'arbre `deck`) sous `catch_unwind`, car Loro ne
-  décode l'état d'un conteneur qu'au premier accès (`from_snapshot` rend
-  cette lecture, que `SourceBundle::from_replica` reprend sans relire) ;
-  taille maximale de `deck.loro` (`[sources] max_replica_mib = 32`) ;
-  panique ou octets refusés → `Corrupted`. Après une panique, le doc
-  (verrous empoisonnés) est abandonné sans drop. `merge` essaie l'import et
-  la relecture sous garde sur une copie avant d'importer. Restent hors garde
-  les conteneurs que la première lecture n'atteint pas (hors `deck`/`meta`,
-  au-delà de `MAX_DEPTH`).
-- **Zip non fiable** : chaque entrée est lue avec une capacité initiale
-  plafonnée (1 Mio, la taille annoncée n'est qu'indicative) et une lecture
-  bornée (`take`) ; le total décompressé est borné par `[sources]
-  max_sources_mib = 256` (anti-bombe), dépassement → `SourcesErrorKind::TooLarge`
-  (`sources-too-large`). Les entrées inconnues ne sont pas lues.
-- **Lecture totale, trois niveaux** : un élément illisible est écarté
-  (`issue-unreadable-element`), puis une slide (`issue-unreadable-slide`),
-  puis un champ de haut niveau du deck (`theme`, `params`, `vars`,
-  `templates`), remis à sa valeur par défaut (`issue-unreadable-field`).
+- No more `deck.json`: the deck is rebuilt from `deck.loro`.
+- **Assets and fonts append-only**: never removed, an old
+  version must still render. Merge = union.
+- **Untrusted blob**: import **and first complete read**
+  (`deck_uid`, the whole `deck` tree) under `catch_unwind`, because Loro only
+  decodes a container's state on first access (`from_snapshot` returns
+  this read, which `SourceBundle::from_replica` takes over without reading again);
+  maximum size of `deck.loro` (`[sources] max_replica_mib = 32`);
+  panic or rejected bytes → `Corrupted`. After a panic, the doc
+  (poisoned locks) is abandoned without drop. `merge` tries the import and
+  the read-back under guard on a copy before importing. Still outside the guard:
+  the containers the first read does not reach (outside `deck`/`meta`,
+  beyond `MAX_DEPTH`).
+- **Untrusted zip**: each entry is read with a capped initial capacity
+  (1 MiB, the announced size is only indicative) and a bounded
+  read (`take`); the total decompressed size is bounded by `[sources]
+  max_sources_mib = 256` (anti-bomb), overflow → `SourcesErrorKind::TooLarge`
+  (`sources-too-large`). Unknown entries are not read.
+- **Total read, three levels**: an unreadable element is discarded
+  (`issue-unreadable-element`), then a slide (`issue-unreadable-slide`),
+  then a top-level deck field (`theme`, `params`, `vars`,
+  `templates`), reset to its default value (`issue-unreadable-field`).
 
-## Fusion
+## Merge
 
-- **Parenté** : deux replicas ne fusionnent que si leur `deck_uid` est égal ;
-  sinon `Unrelated` (« ces deux présentations n'ont pas d'origine
-  commune »).
-- **Étapes** (`SourceBundle::merge`, appelé par `Session::absorb`) : lire le
-  blob entrant, vérifier `deck_uid`, `import`, union des assets et polices,
-  relire (lecture totale), rendre. L'avis et `dirty` sont posés dès la
-  fusion faite, avant le rendu : un rendu raté ne doit pas laisser passer un
-  contenu fusionné pour enregistré. Une fusion sans rien de nouveau (0
-  modification, aucun asset ni police ajouté) ne marque pas le document
-  modifié ; demandée (`merge_file`), elle pose quand même l'avis « 0 » ; à
-  l'enregistrement, elle n'en pose aucun (le toast « Enregistré » suffit).
-- **Avis** : `notice-merged` (« Fusionné avec *x.pdf* — modifications
-  importées : N (auteurs) ») quand la fusion importe au moins un pair nommé,
-  `notice-merged-anonymous` (sans la liste d'auteurs) sinon — pairs sans
-  entrée dans `peers`, ou fusion à 0 modification. N compte les *changes*
-  importés, pas seulement les éditions : annulations et rétablissements,
-  canonicalisations silencieuses et inscriptions d'auteur en sont aussi.
-  L'avis ne nomme que les auteurs inscrits et ne mentionne pas les pairs
-  anonymes (le `MergeReport` les compte, `anonymous`). Un avis s'ajoute à
-  celui qui attend encore (onglet endormi réveillé par la fusion et relu
-  avec son propre avis, fichier ouvert avec des parties illisibles…),
-  séparé par une ligne vide ; chacun ne se montre qu'une fois.
-- **Déclencheurs**, tels que construits (trois écarts à la conception
-  initiale, ci-dessous) :
-  1. *Fichier → Fusionner avec un PDF…* sur l'onglet actif (`merge_file`,
-     refusé en mode modèles).
-  2. **À l'enregistrement** (`save_checked`) : si le fichier sur disque a
-     changé depuis l'ouverture ou le dernier enregistrement (empreinte de
-     `saved_hash`, comparée aux octets avant tout décodage) et porte le même
-     `deck_uid`, fusion puis écriture. S'il porte un autre deck, plus de
-     sources Oku Slides, ou est illisible : rien n'est écrit, le prochain
-     snapshot porte `disk_replaced: true` (une fois, comme `notice`) ; l'UI
-     propose d'écraser ou d'enregistrer sous un autre nom (`ui/src/merge.ts`,
-     `saveGuarded`). Les deux choix rappellent `save` avec `overwrite: true` :
-     après « Enregistrer sous… », le dialogue système d'enregistrement a déjà
-     fait confirmer le remplacement du fichier choisi, même quand c'est le
-     même fichier qu'avant. Une réponse qui porte encore `disk_replaced`
-     (l'utilisateur a visé un chemin lui aussi remplacé entre-temps) vaut
-     pour `saveGuarded` « rien n'a été enregistré ». Seul un fichier absent
-     (`StorageErrorKind::NotFound`) compte comme inchangé — toute autre
-     erreur de lecture (droits, disque réseau, fichier trop gros) est
-     traitée comme un remplacement, par prudence. Limite acceptée : la
-     vérification et l'écriture (`write_atomic`) ne sont pas atomiques
-     ensemble ; sur un disque synchronisé, un autre écrivain qui dépose sa
-     version entre les deux est écrasé sans fusion.
-  3. **À l'ouverture**, deux voies selon que l'hôte peut poser une question :
-     - *Ouvrir…*, glisser-déposer sur la fenêtre : la requête en lecture
-       seule `SameDeck { path }` (`Workspace::same_deck`, sans effet) cherche
-       l'onglet non vierge qui tient déjà ce `deck_uid` sous un autre
-       chemin (un onglet en mode modèles ne compte pas : il refuserait la
-       fusion). S'il y en a un, l'UI demande « Fusionner dans cet onglet » ou
-       « Ouvrir à part » puis, selon le choix, envoie `Request::Merge` à cet
-       onglet ou ouvre un nouvel onglet. L'avis de fusion s'affiche dans
-       l'onglet fusionné ; s'il est dans une autre fenêtre, dans l'onglet
-       actif de la fenêtre d'où l'on a ouvert (`mergedNotice`), sans amener
-       l'autre fenêtre au premier plan.
-     - **Fichiers remis par l'OS** (Finder, glisser-déposer sur l'icône,
-       ligne de commande — `open_files`) : l'hôte ne peut pas poser de
-       question à l'ouverture, le fichier s'ouvre toujours à part ; l'avis
-       `notice-same-deck-open` se pose sur le nouvel onglet et nomme
-       l'onglet déjà ouvert (« Cette présentation est déjà ouverte dans
-       l'onglet « … » »), sans rien fusionner.
-- Sous Tauri, ce détour par une requête en lecture seule est nécessaire
-  parce qu'une requête d'espace de travail qui changerait la structure rend
-  la vue synchronisée à la place de sa réponse
-  (`src-tauri/src/commands.rs:77-95`) : `SameDeck` ne change rien, seule la
-  fusion qui suit (sur l'onglet trouvé) le fait.
-- Pas de dialogue de conflit : chaque conflit a une issue déterministe ;
-  on corrige après coup, ou on restaure la version d'avant la fusion.
+- **Kinship**: two replicas merge only if their `deck_uid` is equal;
+  otherwise `Unrelated` ("these two presentations have no common
+  origin").
+- **Steps** (`SourceBundle::merge`, called by `Session::absorb`): read the
+  incoming blob, check `deck_uid`, `import`, union of assets and fonts,
+  read back (total read), render. The notice and `dirty` are set as soon as the
+  merge is done, before the render: a failed render must not let merged
+  content pass for saved. A merge with nothing new (0
+  changes, no asset or font added) does not mark the document
+  modified; when requested (`merge_file`), it still sets the "0" notice; on
+  save, it sets none (the "Enregistré" (Saved) toast is enough).
+- **Notice**: `notice-merged` ("Fusionné avec *x.pdf* — modifications
+  importées : N (auteurs)", i.e. "Merged with *x.pdf* — imported changes: N (authors)")
+  when the merge imports at least one named peer,
+  `notice-merged-anonymous` (without the author list) otherwise — peers without an
+  entry in `peers`, or a merge with 0 changes. N counts the imported *changes*,
+  not only the edits: undos and redos,
+  silent canonicalizations and author registrations count too.
+  The notice names only registered authors and does not mention anonymous
+  peers (the `MergeReport` counts them, `anonymous`). A notice is appended to
+  the one still pending (dormant tab woken by the merge and read back
+  with its own notice, file opened with unreadable parts…),
+  separated by a blank line; each is shown only once.
+- **Triggers**, as built (three deviations from the initial
+  design, below):
+  1. *Fichier → Fusionner avec un PDF…* (File → Merge with a PDF…) on the active tab
+     (`merge_file`, refused in templates mode).
+  2. **On save** (`save_checked`): if the file on disk has
+     changed since opening or the last save (`saved_hash` fingerprint,
+     compared on the bytes before any decoding) and carries the same
+     `deck_uid`, merge then write. If it carries another deck, no longer has
+     Oku Slides sources, or is unreadable: nothing is written, the next
+     snapshot carries `disk_replaced: true` (once, like `notice`); the UI
+     offers to overwrite or save under another name (`ui/src/merge.ts`,
+     `saveGuarded`). Both choices call `save` again with `overwrite: true`:
+     after "Enregistrer sous…" (Save As…), the system save dialog has already
+     had the replacement of the chosen file confirmed, even when it is the
+     same file as before. A response that still carries `disk_replaced`
+     (the user targeted a path that was also replaced in the meantime) means
+     "nothing was saved" for `saveGuarded`. Only a missing file
+     (`StorageErrorKind::NotFound`) counts as unchanged — any other
+     read error (permissions, network drive, file too large) is
+     treated as a replacement, out of caution. Accepted limit: the
+     check and the write (`write_atomic`) are not atomic
+     together; on a synced drive, another writer that drops its
+     version between the two is overwritten without merge.
+  3. **On open**, two paths depending on whether the host can ask a question:
+     - *Ouvrir…* (Open…), drag and drop onto the window: the read-only
+       request `SameDeck { path }` (`Workspace::same_deck`, no side effect) looks for
+       the non-blank tab that already holds this `deck_uid` under another
+       path (a tab in templates mode does not count: it would refuse the
+       merge). If there is one, the UI asks "Fusionner dans cet onglet" (Merge into
+       this tab) or "Ouvrir à part" (Open separately) then, depending on the choice,
+       sends `Request::Merge` to that tab or opens a new tab. The merge notice is
+       shown in the merged tab; if it is in another window, in the active tab
+       of the window from which the file was opened (`mergedNotice`), without
+       bringing the other window to the front.
+     - **Files handed over by the OS** (Finder, drag and drop onto the icon,
+       command line — `open_files`): the host cannot ask a
+       question on open, the file always opens separately; the notice
+       `notice-same-deck-open` is set on the new tab and names
+       the already open tab ("Cette présentation est déjà ouverte dans
+       l'onglet « … »", i.e. "This presentation is already open in the tab '…'"),
+       without merging anything.
+- Under Tauri, this detour through a read-only request is needed
+  because a workspace request that would change the structure returns
+  the synced view instead of its response
+  (`src-tauri/src/commands.rs:77-95`): `SameDeck` changes nothing, only the
+  merge that follows (on the tab found) does.
+- No conflict dialog: each conflict has a deterministic outcome;
+  one fixes it afterwards, or restores the version from before the merge.
 
-## Mode historique
+## History mode
 
-`Mode::History { stash, history }`, sur le patron de `Mode::Templates` : le
-deck courant attend de côté, la version choisie s'affiche en lecture seule
-(`history` porte les versions et la coupe montrée, `HistoryMode`).
+`Mode::History { stash, history }`, on the pattern of `Mode::Templates`: the
+current deck waits aside, the chosen version is shown read-only
+(`history` carries the versions and the cut shown, `HistoryMode`).
 
-- **Ordre** : tri topologique des changements (Lamport, puis pair). Tout
-  préfixe est une coupe causale valide (`vv_to_frontiers` du vecteur de
-  versions du préfixe, pas seulement l'histoire causale du dernier
-  changement) : chaque cran du curseur est un état cohérent, y compris une
-  branche concurrente plus ancienne dans l'ordre — écart à la conception
-  initiale (couper l'histoire causale seule l'aurait fait disparaître d'un
-  cran à l'autre). L'heure est affichée, jamais utilisée pour trier
-  (horloges divergentes).
-- **Session d'édition** : le premier commit d'un pair dans l'ordre — sa
-  création du deck comme sa première édition — porte le repère de début de
-  session ; création puis éditions du même replica ne comptent que pour
-  une session.
-- **Curseur** : un cran par édition (application, restauration, commit
-  silencieux) : les commits intermédiaires `oku-part:` d'une édition qui
-  déplace des slides n'ont pas de cran, celui de son commit final les
-  contient. Repères au début de chaque session et à chaque fusion (une
-  édition dont un commit réunit des branches). ←/→ : un cran ; ⇧←/⇧→ : une
-  session. Pas de bulle
-  sur le pouce du curseur : l'étiquette du bandeau suit le curseur pendant
-  le glissement (auteur, heure, libellé) et en tient lieu.
-- **Bandeau** : « Version du … · auteur · libellé », **Restaurer**,
-  **Revenir**.
-- **Pile** : slides ajoutées, supprimées, modifiées par rapport au deck
-  courant — comparaison des slides par `id` entre la version montrée et le
-  deck courant (`slide_changes`, tous deux déjà lus), pas `doc.diff` : même
-  résultat, sans remonter des conteneurs Loro aux slides.
-- **Rendu** : l'aperçu (`HistoryPreview`) est un fork fait à l'entrée ;
-  `checkout` d'un cran à l'autre. Pendant le glissement, seul le dernier
-  cran demandé est rendu (patron de `ui/src/latest.ts`) ; le cache SVG par
-  empreinte évite de redessiner les pages inchangées. Mesuré (tâche 3,
-  `oku-slides bench fixtures/roadmap.json --iterations 20`, 50 modifications
-  de titre, lecture + rendu par cran) : 5,3 ms en moyenne, p50 5,3 ms — sous
-  le seuil de ~100 ms, le rendu se fait donc pendant le glissement, sans
-  vignette basse résolution.
-- **Restaurer** : le deck de la version (`deck_at`, celui que l'aperçu
-  montre) est appliqué comme toute édition — inscription de l'auteur, puis
-  `apply(deck, « Restaurer la version du … »)` : une seule nouvelle étape
-  annulable (un seul cran, même à travers un réordonnancement), dont le
-  résultat est exactement cette version.
-  Écart à la conception initiale (`revert_to(frontiers)`) : sur la liste
-  `slides` (`LoroMovableList`, dont les slides sont déplacées par `mov`),
-  `revert_to` perdait des slides ou échouait (`ContainerDeleted`) dès
-  qu'un déplacement suivait la version visée. La réconciliation n'écrit que
-  la racine `deck` : la map `peers` n'est pas touchée, les noms des
-  sessions plus récentes restent. Tout ou rien : Loro n'annule pas un
-  commit, et `apply`, qui committe avant chaque `mov`, n'est pas atomique ;
-  la réconciliation est donc d'abord essayée sous garde sur une copie ; un échec laisse le replica égal à sa vue, rien en
-  attente. Une version lue en partie est restaurée telle que lue (comme à
-  l'ouverture ou à la fusion), ses parties illisibles journalisées. Restaurer
-  la version courante ne fait aucun commit. `$date` est le timestamp de la
-  version restaurée, à l'heure locale (repli UTC), AAAA-MM-JJ HH:MM.
-- **Requêtes** : `HistoryOpen`, `HistorySeek { index }`, `HistoryRestore`,
-  `HistoryClose`, `HistoryVersions` (la liste complète des versions part une
-  fois ; le snapshot d'un cran ne porte que son index, sa version et ses
-  changements de slides).
-- **Dictée** : reste montée pendant l'historique ; un texte dicté suit le
-  chemin normal d'écriture et reçoit le refus `InHistory` de la session,
-  affiché (pas de perte silencieuse, micro visible et arrêtable).
+- **Order**: topological sort of the changes (Lamport, then peer). Every
+  prefix is a valid causal cut (`vv_to_frontiers` of the prefix's version
+  vector, not only the causal history of the last
+  change): each slider step is a consistent state, including a
+  concurrent branch that is older in the order — a deviation from the initial
+  design (cutting the causal history alone would have made it disappear from one
+  step to the next). The time is displayed, never used for sorting
+  (diverging clocks).
+- **Editing session**: a peer's first commit in the order — its
+  creation of the deck as well as its first edit — carries the session start
+  marker; creation followed by edits of the same replica count as only
+  one session.
+- **Slider**: one step per edit (application, restore, silent
+  commit): the intermediate `oku-part:` commits of an edit that
+  moves slides have no step, the step of its final commit
+  contains them. Markers at the start of each session and at each merge (an
+  edit one of whose commits joins branches). ←/→: one step; ⇧←/⇧→: one
+  session. No tooltip
+  on the slider thumb: the banner label follows the slider during
+  the drag (author, time, label) and stands in for it.
+- **Banner**: "Version du … · auteur · libellé" (Version of … · author · label),
+  **Restaurer** (Restore), **Revenir** (Go back).
+- **Pile**: slides added, deleted, modified relative to the current
+  deck — comparison of slides by `id` between the shown version and the
+  current deck (`slide_changes`, both already read), not `doc.diff`: same
+  result, without going up from Loro containers to slides.
+- **Rendering**: the preview (`HistoryPreview`) is a fork made on entry;
+  `checkout` from one step to another. During the drag, only the last
+  requested step is rendered (pattern of `ui/src/latest.ts`); the SVG cache by
+  fingerprint avoids redrawing unchanged pages. Measured (task 3,
+  `oku-slides bench fixtures/roadmap.json --iterations 20`, 50 title
+  changes, read + render per step): 5.3 ms on average, p50 5.3 ms — under
+  the ~100 ms threshold, so rendering happens during the drag, without a
+  low-resolution thumbnail.
+- **Restore**: the version's deck (`deck_at`, the one the preview
+  shows) is applied like any edit — author registration, then
+  `apply(deck, "Restaurer la version du …")` (Restore the version of …): a single new
+  undoable step (a single slider step, even across a reordering), whose
+  result is exactly that version.
+  Deviation from the initial design (`revert_to(frontiers)`): on the
+  `slides` list (`LoroMovableList`, whose slides are moved by `mov`),
+  `revert_to` lost slides or failed (`ContainerDeleted`) as soon as
+  a move followed the target version. The reconciliation writes only
+  the `deck` root: the `peers` map is not touched, the names of
+  more recent sessions remain. All or nothing: Loro does not undo a
+  commit, and `apply`, which commits before each `mov`, is not atomic;
+  the reconciliation is therefore first tried under guard on a copy; a failure leaves the replica equal to its view, nothing
+  pending. A partly read version is restored as read (as on
+  open or merge), its unreadable parts logged. Restoring
+  the current version makes no commit. `$date` is the timestamp of the
+  restored version, in local time (UTC fallback), YYYY-MM-DD HH:MM.
+- **Requests**: `HistoryOpen`, `HistorySeek { index }`, `HistoryRestore`,
+  `HistoryClose`, `HistoryVersions` (the full list of versions is sent
+  once; a step's snapshot carries only its index, its version and its
+  slide changes).
+- **Dictation**: stays mounted during history; dictated text follows the
+  normal write path and receives the session's `InHistory` refusal,
+  displayed (no silent loss, microphone visible and stoppable).
 
-## Erreurs
+## Errors
 
-| Où | Type | `kind` |
+| Where | Type | `kind` |
 |---|---|---|
-| `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge`, `Write` ; `Unrelated` avec la fusion |
-| `oku-slides-core::sources` | `SourcesError` | existants ; `MissingDeck` couvre l'absence de `deck.loro` |
-| `oku-slides-session` | erreur de session | `MergeUnrelated`, `HistoryNotOpen`, `InHistory` (mode historique, plan 3) |
+| `oku-slides-core::replica` | `ReplicaError` | `Corrupted`, `TooLarge`, `Write`; `Unrelated` with the merge |
+| `oku-slides-core::sources` | `SourcesError` | existing ones; `MissingDeck` covers the absence of `deck.loro` |
+| `oku-slides-session` | session error | `MergeUnrelated`, `HistoryNotOpen`, `InHistory` (history mode, plan 3) |
 
-- **`MergeUnrelated`** reprend le message existant `replica-unrelated`
-  (« ces deux présentations n'ont pas d'origine commune ») : pas de nouvelle
-  clé Fluent.
-- **`HistoryNotOpen`** : une requête d'historique (`HistorySeek`,
-  `HistoryRestore`, `HistoryClose`, `HistoryVersions`) hors du mode
-  historique. **`InHistory`** : modifier, enregistrer ou fusionner pendant
-  que l'historique est ouvert.
-- **Lire une version** (`HistoryPreview::deck_at`) peut échouer
-  (`ReplicaError`) ; côté session, cette variante interne se mappe sur le
-  `kind` existant `InvalidDocument`, sans nouveau `kind` ni nouvelle clé
-  Fluent — même famille d'erreurs que « sources ou deck illisibles ».
-  Le retour à la version (`checkout`) et sa lecture sont gardés
-  (`catch_unwind`) ; après une panique, l'aperçu est empoisonné et toute
-  lecture suivante échoue. Un parcours ou une restauration qui échoue
-  laisse l'historique ouvert, le deck mis de côté intact, images et polices
-  dans l'aperçu.
-- **`DiskReplaced` n'est pas une erreur.** Les erreurs de session n'arrivent
-  à l'UI que sous forme de texte déjà traduit (`state.refuse` → `localize`),
-  qui ne se distingue pas d'un autre message ; or l'UI doit réagir
-  différemment (proposer d'écraser ou d'enregistrer sous). Le disque
-  remplacé devient donc l'indicateur `disk_replaced: bool` du `Snapshot`
-  (`views.rs`), posé une fois par `save_checked` et effacé au prochain
-  rendu — même patron que `notice`.
+- **`MergeUnrelated`** reuses the existing message `replica-unrelated`
+  ("these two presentations have no common origin"): no new
+  Fluent key.
+- **`HistoryNotOpen`**: a history request (`HistorySeek`,
+  `HistoryRestore`, `HistoryClose`, `HistoryVersions`) outside history
+  mode. **`InHistory`**: editing, saving or merging while
+  the history is open.
+- **Reading a version** (`HistoryPreview::deck_at`) can fail
+  (`ReplicaError`); on the session side, this internal variant maps to the
+  existing `kind` `InvalidDocument`, with no new `kind` or new Fluent
+  key — same family of errors as "unreadable sources or deck".
+  Going back to the version (`checkout`) and reading it are guarded
+  (`catch_unwind`); after a panic, the preview is poisoned and every
+  later read fails. A seek or a restore that fails
+  leaves the history open, the deck set aside intact, images and fonts
+  in the preview.
+- **`DiskReplaced` is not an error.** Session errors reach
+  the UI only as already translated text (`state.refuse` → `localize`),
+  which cannot be told apart from another message; yet the UI must react
+  differently (offer to overwrite or save as). The replaced
+  disk therefore becomes the `disk_replaced: bool` flag of the `Snapshot`
+  (`views.rs`), set once by `save_checked` and cleared on the next
+  render — same pattern as `notice`.
 
-Ne sont pas des erreurs : un sous-arbre illisible après fusion (écarté,
-signalé par un `Issue`) ; un rendu raté pendant un apply (rien n'est
-validé, l'erreur remonte comme aujourd'hui) ; un disque remplacé par un
-autre deck à l'enregistrement (`disk_replaced`, ci-dessus). Messages en
-Fluent : anglais d'abord, puis les langues existantes.
+Not errors: a subtree unreadable after merge (discarded,
+reported by an `Issue`); a failed render during an apply (nothing is
+committed, the error surfaces as today); a disk replaced by another
+deck on save (`disk_replaced`, above). Messages in
+Fluent: English first, then the existing languages.
 
 ## Tests (TDD)
 
-Les scénarios du spike sont les premiers tests rouges.
+The spike scenarios are the first red tests.
 
-- **`replica_tests.rs`** : aller-retour ; réconciliation sans changement =
-  0 op ; vide = absent ; prose toujours présente (création concurrente sans
-  perte) ; prose riche (gras ‖ frappe, lien qui ne s'étend pas, `list` sur
-  le `\n`) ; graphique atome ; lecture totale (`kind` inconnu, graphique
-  incohérent → `Issue`, reste du deck lu) ; `deck_uid` différent →
+- **`replica_tests.rs`**: round trip; reconciliation without change =
+  0 ops; empty = absent; prose always present (concurrent creation without
+  loss); rich prose (bold ‖ typing, link that does not extend, `list` on
+  the `\n`); chart atom; total read (unknown `kind`, inconsistent
+  chart → `Issue`, rest of the deck read); different `deck_uid` →
   `Unrelated`.
-- **`tests/convergence.rs`** (proptest) : N pairs, ops aléatoires, fusions
-  dans des ordres aléatoires → tous convergent, la lecture ne panique
-  jamais.
-- **`tests/untrusted.rs`** : snapshot tronqué, aléatoire, énorme →
-  `Corrupted` / `TooLarge`, jamais de panique.
-- **`oku-slides-pdf`** : aller-retour v2 ; blob v1 → `Ok(None)` ; v3 →
+- **`tests/convergence.rs`** (proptest): N peers, random ops, merges
+  in random orders → all converge, the read never
+  panics.
+- **`tests/untrusted.rs`**: truncated, random, huge snapshot →
+  `Corrupted` / `TooLarge`, never a panic.
+- **`oku-slides-pdf`**: v2 round trip; v1 blob → `Ok(None)`; v3 →
   `UnsupportedVersion`.
-- **`replica/history_tests.rs`** (cœur) : ordre (création, puis un cran par
-  édition, libellé et auteur) ; un réordonnancement de plusieurs slides
-  (plusieurs *changes*) fait un seul cran, à l'état d'après ; début de session au premier cran d'un pair,
-  création comprise (ruling 1) ; `deck_at` lit l'état après chaque version ;
-  une fusion marque son cran et chaque préfixe avant elle garde les deux
-  branches concurrentes (pas seulement les ancêtres du dernier changement) ;
-  restaurer = un nouveau commit annulable (`undo` ramène l'ancien titre) ;
-  restaurer garde les auteurs des sessions plus récentes ; restaurer sans
-  édition préalable ne laisse pas de cran parasite sans libellé ;
-  restaurer rend exactement `deck_at(i)` (nombre de slides compris), sous
-  le libellé donné, `undo` revenant au deck d'avant — après un déplacement
-  de slide, après suppression puis déplacement (chaque version antérieure),
-  après un aller-retour par le zip ; après suppression puis échange de deux
-  slides, chaque version antérieure est rendue exactement ; restaurer à
-  travers un échange de slides s'annule sans perte et fait un seul cran ; un aperçu
-  empoisonné fait échouer la restauration sans rien laisser en attente ;
-  `slide_changes` compare des slides par `id` (ajoutée, supprimée,
-  modifiée).
-- **Session** : rendu raté → replica intact ; libellés d'annulation ;
-  reprise sans pile d'annulation ; fusion à l'ouverture et à
-  l'enregistrement (fichier remplacé : `Saved::DiskReplaced`, indicateur
-  `disk_replaced`) ; mode historique — `tests/history.rs` : ouvrir montre la
-  dernière version en lecture seule et refuse une édition (`InHistory`) ;
-  `seek` montre une version antérieure, borne au-delà de la dernière, marque
-  les slides ajoutées depuis la première version ; fermer revient au deck
-  courant intact (thème, `dirty`, pile d'annulation) ; restaurer = un
-  nouveau commit annulable, `undo` y revient ; les requêtes d'historique
-  hors du mode renvoient `HistoryNotOpen` ; dans le mode, éditer,
-  enregistrer, fusionner, ouvrir ou éditer les modèles renvoient `InHistory`
-  sans rien changer ; `history_versions` liste les libellés dans l'ordre ;
-  images et polices traversent ouvrir/parcourir/fermer et
-  ouvrir/parcourir/restaurer sans perte ; la barre de l'onglet ne change pas
-  pendant l'historique ; `history_tests.rs` : un parcours vers une version
-  dont le rendu échoue (`Render`) garde la version montrée, images et
-  polices dans l'aperçu ; une restauration qui échoue (aperçu empoisonné,
-  `InvalidDocument`) garde l'historique ouvert et le deck mis de côté égal
-  à la relecture de son replica.
-- **UI (Bun, `history.test.ts`)** : `markers` place un repère à chaque début
-  de session et à chaque fusion ; `step` avance d'un cran (borné) ou, avec
-  ⇧, jusqu'au début de session précédent ou suivant ; `pileMarks` marque les
-  slides supprimées et modifiées, pas les ajoutées ; `Seeker` n'affiche que
-  la réponse du cran demandé en dernier (les réponses dépassées, arrivées
-  après, sont ignorées) et `cancel` fait qu'une réponse encore en vol ne
-  s'affiche plus après coup (Revenir, Restaurer).
-- **Mesure au plan (tâche 3)** : coût d'un rendu en mode historique — lu en
-  tâche 3 (`oku-slides bench`, 50 modifications de titre) à 5,3 ms en
-  moyenne, p50 5,3 ms, sous le seuil de ~100 ms : décision et détail en
-  « Mode historique ».
+- **`replica/history_tests.rs`** (core): order (creation, then one step per
+  edit, label and author); a reordering of several slides
+  (several *changes*) makes a single step, at the state after it; session start at a peer's first step,
+  creation included (ruling 1); `deck_at` reads the state after each version;
+  a merge marks its step and each prefix before it keeps both
+  concurrent branches (not only the ancestors of the last change);
+  restore = a new undoable commit (`undo` brings back the old title);
+  restore keeps the authors of more recent sessions; restoring without
+  a prior edit leaves no stray step without a label;
+  restore returns exactly `deck_at(i)` (slide count included), under
+  the given label, `undo` going back to the previous deck — after a slide
+  move, after delete then move (each earlier version),
+  after a round trip through the zip; after delete then swap of two
+  slides, each earlier version is returned exactly; restoring
+  across a slide swap undoes without loss and makes a single step; a poisoned
+  preview makes the restore fail without leaving anything pending;
+  `slide_changes` compares slides by `id` (added, deleted,
+  modified).
+- **Session**: failed render → replica intact; undo labels;
+  resume without an undo stack; merge on open and on
+  save (replaced file: `Saved::DiskReplaced`, flag
+  `disk_replaced`); history mode — `tests/history.rs`: opening shows the
+  latest version read-only and refuses an edit (`InHistory`);
+  `seek` shows an earlier version, clamps beyond the last one, marks
+  the slides added since the first version; closing returns to the current
+  deck intact (theme, `dirty`, undo stack); restore = a
+  new undoable commit, `undo` goes back to it; history requests
+  outside the mode return `HistoryNotOpen`; in the mode, editing,
+  saving, merging, opening or editing the templates return `InHistory`
+  without changing anything; `history_versions` lists the labels in order;
+  images and fonts survive open/seek/close and
+  open/seek/restore without loss; the tab bar does not change
+  during history; `history_tests.rs`: a seek to a version
+  whose render fails (`Render`) keeps the shown version, images and
+  fonts in the preview; a restore that fails (poisoned preview,
+  `InvalidDocument`) keeps the history open and the deck set aside equal
+  to the read-back of its replica.
+- **UI (Bun, `history.test.ts`)**: `markers` places a marker at each session
+  start and at each merge; `step` moves one step (clamped) or, with
+  ⇧, to the previous or next session start; `pileMarks` marks the
+  deleted and modified slides, not the added ones; `Seeker` displays only
+  the response of the last requested step (outdated responses, arriving
+  later, are ignored) and `cancel` makes a response still in flight
+  no longer display afterwards (Go back, Restore).
+- **Measure in the plan (task 3)**: cost of a render in history mode — read in
+  task 3 (`oku-slides bench`, 50 title changes) at 5.3 ms on
+  average, p50 5.3 ms, under the ~100 ms threshold: decision and detail in
+  "History mode".
 
-## Limites connues
+## Known limits
 
-- Déplacer ‖ supprimer : l'élément réapparaît.
-- Éditer ‖ supprimer : l'édition est perdue.
-- Deux ajouts concurrents au même `id` : doublon, signalé par `validate`.
-  Les ids de l'UI sont aléatoires (`deck.ts:newId`) ; à vérifier pour les
-  ids produits par l'agent vocal.
-- Déplacer un élément d'un groupe ou d'une slide à l'autre = suppression +
-  insertion : doublon possible en concurrence (non testé au spike).
-- Texte inséré au bord d'une marque : il en hérite.
-- Le PDF ne maigrit jamais (historique et assets en ajout seul).
-- **Confidentialité** : chaque PDF partagé porte tout le contenu passé du
-  deck (slides, éléments et textes supprimés, anciennes versions des
-  textes, assets retirés), l'horodatage de chaque modification et le nom
-  d'auteur de chaque pair qui a édité (map `peers` : réglage `[author]
-  name`, sinon le nom d'utilisateur système). Tout destinataire peut le
-  relire.
-  Accepté par conception (pas d'aplatissement de l'historique).
-  Atténuation : l'export sans sources, `oku-slides strip <entrée> <sortie>`
-  (`oku_slides_pdf::strip_sources`), pour l'instant en ligne de commande
-  seulement.
-- La pile d'annulation est perdue au relancement (recul sur t-145).
-- Les commits silencieux (canonicalisation au chargement, enregistrement
-  de modèles) apparaissent dans l'historique comme des crans sans libellé.
-- Mode historique : un cran d'un autre pair, concurrent d'un
-  réordonnancement et classé (Lamport, pair) entre ses commits
-  intermédiaires, montre ce réordonnancement à moitié fait. Le cran de
-  l'édition elle-même, et tous ceux d'après, sont complets.
-- Les PDF v1 ne s'ouvrent plus.
-- Le décodeur de Loro lui-même peut faire déborder la pile sur un snapshot
-  forgé, avec une valeur plate imbriquée sur des dizaines de milliers de
-  niveaux (quelques Kio compressés) : Loro la décode récursivement au
-  premier accès et la libère au drop, pas à l'`import`, hors de notre code,
-  hors de portée de `catch_unwind` et du plafond d'octets. Déni de service
-  local à l'ouverture d'un PDF forgé. Suivi comme un correctif à part
-  (piste : accéder et libérer dans un fil à grosse pile, ou correctif
-  amont Loro).
-- La reprise écrit `deck.loro` puis `document.json` : un arrêt brutal entre
-  les deux peut laisser un replica neuf à côté d'un `document.json`
-  d'avant (`dirty` / `saved_hash` périmés). L'ancien format n'écrivait
-  qu'un seul fichier.
-- Un pair qui annule sa première édition apparaît anonyme dans l'historique
-  (son seul commit, celui qui portait son nom dans `peers`, disparaît).
-- L'heure affichée dans l'historique est celle de la machine de l'auteur,
-  jamais recalée : deux pairs aux horloges décalées peuvent voir des heures
-  qui ne concordent pas avec l'ordre des versions (l'ordre lui-même reste
-  correct, voir « Mode historique »).
+- Move ‖ delete: the element reappears.
+- Edit ‖ delete: the edit is lost.
+- Two concurrent adds with the same `id`: duplicate, reported by `validate`.
+  UI ids are random (`deck.ts:newId`); to be checked for the
+  ids produced by the voice agent.
+- Moving an element from one group or slide to another = delete +
+  insert: possible duplicate under concurrency (not tested in the spike).
+- Text inserted at the edge of a mark: inherits it.
+- The PDF never shrinks (history and assets append-only).
+- **Privacy**: each shared PDF carries all the past content of the
+  deck (deleted slides, elements and texts, old versions of
+  texts, removed assets), the timestamp of each change and the author
+  name of each peer that edited (`peers` map: `[author]
+  name` setting, otherwise the system user name). Any recipient can
+  read it.
+  Accepted by design (no history flattening).
+  Mitigation: export without sources, `oku-slides strip <entrée> <sortie>`
+  (`oku_slides_pdf::strip_sources`), for now from the command line
+  only.
+- The undo stack is lost on relaunch (regression on t-145).
+- Silent commits (canonicalization on load, saving
+  templates) show up in the history as steps without a label.
+- History mode: a step of another peer, concurrent with a
+  reordering and sorted (Lamport, peer) between its intermediate
+  commits, shows that reordering half done. The step of
+  the edit itself, and all those after, are complete.
+- v1 PDFs no longer open.
+- Loro's decoder itself can overflow the stack on a forged
+  snapshot, with a flat value nested tens of thousands of
+  levels deep (a few KiB compressed): Loro decodes it recursively on
+  first access and frees it on drop, not on `import`, outside our code,
+  out of reach of `catch_unwind` and of the byte cap. Local denial of service
+  when opening a forged PDF. Tracked as a separate fix
+  (lead: access and free on a thread with a large stack, or an upstream
+  Loro fix).
+- Resume writes `deck.loro` then `document.json`: an abrupt stop between
+  the two can leave a new replica next to an older `document.json`
+  (stale `dirty` / `saved_hash`). The old format wrote
+  only one file.
+- A peer that undoes its first edit appears anonymous in the history
+  (its only commit, the one that carried its name in `peers`, disappears).
+- The time displayed in the history is that of the author's machine,
+  never corrected: two peers with offset clocks may see times
+  that do not match the order of the versions (the order itself stays
+  correct, see "History mode").
 
-Les trois premiers points sont des reculs assumés, à consigner dans un ADR.
+The first three points are accepted regressions, to be recorded in an ADR.

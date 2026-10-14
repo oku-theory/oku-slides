@@ -1,234 +1,235 @@
-# Édition de widgets avec l'agent, dans la zone A2UI — design
+# Editing widgets with the agent, in the A2UI area — design
 
-Tâche : t-423. Dépend de t-416 (`2026-10-03-agent-a2ui-design.md`), étape 5
-(dock) fusionnée, pour le dock et le composant A2UI de texte riche. Suite de
-t-394 (widgets en sous-onglets) et t-422 (aperçu en haut, code dessous).
+Task: t-423. Depends on t-416 (`2026-10-03-agent-a2ui-design.md`), step 5
+(dock) merged, for the dock and the rich text A2UI component. Follow-up to
+t-394 (widgets in sub-tabs) and t-422 (preview on top, code below).
 
-## Problème
+## Problem
 
-En mode modèles, le panneau de droite montre « Ce modèle » et « Grille »
-même quand un sous-onglet de widget est actif : ces réglages portent sur le
-modèle caché derrière, pas sur le widget édité. Le widget, lui, n'a aucun
-réglage : son aperçu prend toujours les valeurs par défaut ou d'exemple de
-`preview_params`. L'agent écrit des widgets (`set_widget`) sans que
-l'éditeur le suive, et ne sait pas quel widget l'utilisateur regarde.
+In templates mode, the right panel shows "Ce modèle" (This template) and "Grille" (Grid)
+even when a widget sub-tab is active: these settings apply to the
+template hidden behind, not to the edited widget. The widget itself has no
+settings: its preview always takes the default or sample values from
+`preview_params`. The agent writes widgets (`set_widget`) without the
+editor following it, and does not know which widget the user is looking at.
 
-## Décisions
+## Decisions
 
-- **Une seule zone de réglages : le dock de t-416.** Les réglages vivants
-  de l'hôte (modèle, widget) et ceux de l'agent (`show_params`) y vivent.
-  `PanelSurface` et le chemin `panel` à part de `App.tsx` disparaissent.
-- **Un seul constructeur de champs** : celui de `show_params`
-  (`agent/forms.rs`). Les réglages du modèle et du widget sont des
-  `ShowParams` construits par l'hôte, pas un second constructeur A2UI.
-- **Chaque champ de l'hôte est adressé par une clé**, jamais par sa
-  position : `name`, `description`, `columns`, `rows` pour le modèle, le
-  nom du paramètre pour un widget. La clé voyage dans l'action du champ.
-- **Valeurs d'essai en session**, par widget, en mémoire, dans
-  `Mode::Templates` : jamais écrites dans le pack, perdues en quittant les
-  modèles ou en changeant de pack. L'aperçu, l'interface et l'agent lisent
-  la même source. Un essai n'est pas un changement du deck.
-- **L'agent règle les essais par un outil dédié**, `set_widget_trial`
-  (voir plus bas), et non par une cible widget de `show_params` : l'hôte
-  connaît le schéma, l'agent ne donne que des valeurs.
-- **`set_grid` est une op du deck** (`Op::SetGrid`), visible de l'agent dans
-  le schéma des ops : elle change la grille et recadre les éléments. Cela
-  revient, à dessein, sur t-294, qui avait retiré `set_grid` du schéma
-  quand la grille est devenue un paramètre `grid`.
-- **Les frappes de l'utilisateur gagnent** sur une écriture de l'agent dans
-  un fichier non enregistré ; l'agent en est informé au tour suivant. Une
-  **suppression** par l'agent gagne en revanche sur les frappes en attente
-  de ce fichier.
+- **A single settings area: the t-416 dock.** The host's live settings
+  (template, widget) and the agent's (`show_params`) live there.
+  `PanelSurface` and the separate `panel` path in `App.tsx` go away.
+- **A single field builder**: the one from `show_params`
+  (`agent/forms.rs`). The template and widget settings are
+  `ShowParams` built by the host, not a second A2UI builder.
+- **Each host field is addressed by a key**, never by its
+  position: `name`, `description`, `columns`, `rows` for the template, the
+  parameter name for a widget. The key travels in the field's action.
+- **Trial values in the session**, per widget, in memory, in
+  `Mode::Templates`: never written to the pack, lost when leaving
+  templates or switching pack. The preview, the interface and the agent read
+  the same source. A trial is not a change to the deck.
+- **The agent sets trials through a dedicated tool**, `set_widget_trial`
+  (see below), and not through a widget target of `show_params`: the host
+  knows the schema, the agent gives only values.
+- **`set_grid` is a deck op** (`Op::SetGrid`), visible to the agent in
+  the ops schema: it changes the grid and refits the elements. This
+  deliberately reverses t-294, which had removed `set_grid` from the schema
+  when the grid became a `grid` parameter.
+- **The user's keystrokes win** over an agent write to
+  an unsaved file; the agent is told on the next turn. An
+  agent **deletion**, however, wins over the pending keystrokes
+  of that file.
 
-## Réglages du modèle
+## Template settings
 
-- `panel.rs` ne construit plus de surface A2UI : il produit un `ShowParams`
-  (nom, description en `Text` ; colonnes et lignes en `Stepper`, 1 à 24),
-  dont les champs portent l'op qu'ils appliquent, comme un `show_params` de
-  l'agent. Nom et description : `set_slide_field` (`name`, `description`).
-  Une slide à blocs n'a pas de champs de grille.
-- **Grille.** Nouvelle op `set_grid {slide, columns?, rows?}` dans
-  `oku-slides-core` : un champ absent reste inchangé ; 1 à 24 pistes ; même
-  grille : rien ne change. Elle écrit le paramètre `grid` (la gouttière,
-  y compris celle du défaut déclaré, est gardée ; le paramètre est relu
-  comme une `Grid`, d'autres clés n'y survivent pas) et recadre, avec les
-  mêmes proportions arrondies (règle de l'ancien `rescaleCell`), la cellule
-  des éléments des slots libres (`SlotMode::Free`) de la slide ; seules les
-  cellules bougent, jamais les cadres. Elle s'annule en un pas.
-- **Grille de départ** : le paramètre `grid` de la slide, sinon la grille
-  par défaut déclarée par le widget de la slide (`p.grid(default: …)`, lue
-  dans le registre), sinon 12 × 6 (`Slide::resolved_grid`). `set_cell`, la
-  validation du deck et l'aperçu des widgets utilisent la même grille, et le
-  panneau la montre. Les champs de grille n'apparaissent que si le widget de
-  la slide déclare un paramètre `grid`, que la slide a une zone libre, et
-  qu'elle n'a pas de blocs.
-- `rescaleCell` passe en Rust et disparaît de `grid.ts` (seul
-  `panelActions.ts` l'utilise) : une seule implémentation.
-- `panelActionOps` (`ui/src/a2ui/panelActions.ts`) disparaît : la surface
-  applique ses ops comme toute surface de réglages.
-- Surface d'id `host-template`, `live: true`, `turn: None`, montrée tant
-  qu'un modèle est affiché et qu'aucun sous-onglet widget n'est actif.
+- `panel.rs` no longer builds an A2UI surface: it produces a `ShowParams`
+  (name, description as `Text`; columns and rows as `Stepper`, 1 to 24),
+  whose fields carry the op they apply, like an agent `show_params`.
+  Name and description: `set_slide_field` (`name`, `description`).
+  A block slide has no grid fields.
+- **Grid.** New op `set_grid {slide, columns?, rows?}` in
+  `oku-slides-core`: an absent field stays unchanged; 1 to 24 tracks; same
+  grid: nothing changes. It writes the `grid` parameter (the gutter,
+  including that of the declared default, is kept; the parameter is read back
+  as a `Grid`, other keys do not survive in it) and refits, with the
+  same rounded proportions (rule of the old `rescaleCell`), the cell
+  of the elements of the slide's free slots (`SlotMode::Free`); only the
+  cells move, never the frames. It undoes in one step.
+- **Starting grid**: the slide's `grid` parameter, otherwise the default grid
+  declared by the slide's widget (`p.grid(default: …)`, read
+  from the registry), otherwise 12 × 6 (`Slide::resolved_grid`). `set_cell`, deck
+  validation and the widget preview use the same grid, and the
+  panel shows it. The grid fields appear only if the slide's widget
+  declares a `grid` parameter, the slide has a free zone, and
+  it has no blocks.
+- `rescaleCell` moves to Rust and disappears from `grid.ts` (only
+  `panelActions.ts` uses it): a single implementation.
+- `panelActionOps` (`ui/src/a2ui/panelActions.ts`) goes away: the surface
+  applies its ops like any settings surface.
+- Surface with id `host-template`, `live: true`, `turn: None`, shown as long
+  as a template is displayed and no widget sub-tab is active.
 
-## Réglages du widget
+## Widget settings
 
-- `Session::widget_settings(name)` : un champ par paramètre déclaré, dans
-  l'ordre du schéma, et des lignes en lecture seule. `None` pour Commun
-  (la carte du modèle reste alors affichée).
+- `Session::widget_settings(name)`: one field per declared parameter, in
+  schema order, and read-only rows. `None` for Commun (Common)
+  (the template card then stays displayed).
 
-  | Type | Champ |
+  | Type | Field |
   |---|---|
   | `plain` | `Text` |
-  | `rich` | `RichText` (nouveau composant A2UI, voir plus bas) |
-  | `number` avec `min` et `max` | `Slider` (pas : centième de l'étendue si elle est ≤ 10, sinon 1) |
-  | `number` sinon | `Text` (le texte est lu comme un nombre) |
-  | `choice` | `Select` (ses valeurs) |
-  | `flag` | `Select` (oui / non) |
-  | `asset`, `slot`, `grid`, `host` | ligne en lecture seule « non réglable dans l'aperçu » |
+  | `rich` | `RichText` (new A2UI component, see below) |
+  | `number` with `min` and `max` | `Slider` (step: a hundredth of the range if it is ≤ 10, otherwise 1) |
+  | `number` otherwise | `Text` (the text is read as a number) |
+  | `choice` | `Select` (its values) |
+  | `flag` | `Select` (yes / no) |
+  | `asset`, `slot`, `grid`, `host` | read-only row "non réglable dans l'aperçu" (not adjustable in the preview) |
 
-- Valeur de chaque champ : la valeur d'essai si elle existe, sinon celle de
-  `preview_params` (défaut du schéma, exemple localisé, valeur neutre).
-  Ce que montre le champ est donc ce que dessine l'aperçu.
-- Un champ de widget porte la clé de son paramètre ; il ne porte pas d'op
-  du deck : rien n'entre dans l'historique.
-- Widget sans paramètre : la carte dit « Ce widget n'a pas de paramètre ».
-- **Fichier invalide** (en cours de frappe) : la carte `host-widget` reste,
-  avec la seule ligne « Fichier invalide : réglages indisponibles » ; les
-  essais sont gardés.
-- Surface d'id `host-widget`, `live: true`, `turn: None`, montrée tant que
-  le sous-onglet de ce widget est actif ; elle remplace `host-template`.
+- Value of each field: the trial value if it exists, otherwise the one from
+  `preview_params` (schema default, localized sample, neutral value).
+  What the field shows is therefore what the preview draws.
+- A widget field carries its parameter's key; it carries no deck
+  op: nothing goes into the history.
+- Widget without parameters: the card says "Ce widget n'a pas de paramètre"
+  (This widget has no parameters).
+- **Invalid file** (while typing): the `host-widget` card stays,
+  with the single row "Fichier invalide : réglages indisponibles" (Invalid file:
+  settings unavailable); the trials are kept.
+- Surface with id `host-widget`, `live: true`, `turn: None`, shown as long as
+  this widget's sub-tab is active; it replaces `host-template`.
 
-## Texte riche dans le dock
+## Rich text in the dock
 
-- Nouveau composant du catalogue A2UI, `RichTextField {label, value,
-  action}` : un éditeur multiligne où le markdown d'édition se met en forme
-  à la frappe (gras, italique, liens, pastilles, listes `- ` et `1. `),
-  avec ⌘B et ⌘I. Il réutilise ce qu'utilise l'éditeur de la scène
+- New A2UI catalog component, `RichTextField {label, value,
+  action}`: a multiline editor where the editing markdown is formatted
+  as you type (bold, italic, links, highlights, `- ` and `1. ` lists),
+  with ⌘B and ⌘I. It reuses what the scene editor uses
   (`markdownDecorations`, `toggleEmphasis`).
-- Le champ lit deux chemins du modèle de données : le markdown d'édition
-  (`paragraphs_to_text`, montré) et les paragraphes d'origine. À la
-  validation (perte du focus, ⌘↩), il écrit les deux et l'action part avec
-  les paragraphes, construits par `textToParagraphs` à partir des
-  paragraphes d'origine : la couleur et la taille d'une ligne inchangée sont
-  gardées. Le chemin du markdown reste un texte.
-- `show_params` gagne le genre de champ `rich` : l'agent donne sa valeur en
-  paragraphes ; il peut ainsi proposer un réglage de texte riche du deck.
+- The field reads two paths of the data model: the editing markdown
+  (`paragraphs_to_text`, shown) and the original paragraphs. On
+  commit (focus loss, ⌘↩), it writes both and the action goes out with
+  the paragraphs, built by `textToParagraphs` from the
+  original paragraphs: the colour and size of an unchanged line are
+  kept. The markdown path stays a text.
+- `show_params` gains the `rich` field kind: the agent gives its value as
+  paragraphs; it can thus offer a rich text setting of the deck.
 
-## Valeurs d'essai (session)
+## Trial values (session)
 
-- `Mode::Templates` gagne les essais de chaque widget et les widgets écrits
-  par l'agent (voir « Agent »), tous deux remis à zéro à l'entrée, au
-  changement de pack et à la reprise d'un onglet.
-- `set_widget_trials(name, {param: value})` : tout ou rien ; contrôle
-  chaque valeur contre le type déclaré (erreur Snafu sinon, qui nomme le
-  paramètre). `null`, un texte vide, une liste de paragraphes vide, ou une
-  valeur égale à celle de `preview_params` (nombres comparés comme nombres)
-  efface l'essai. Un texte `plain` de plus de
-  4 Kio, ou un `rich` de plus de 64 paragraphes ou 16 Kio, est refusé.
-- `preview_widget(name, params)` : paramètres donnés, puis essais, puis
-  `preview_params`. L'interface n'envoie plus de paramètres.
-- Renommage d'un widget : ses essais le suivent. Suppression : ils sont
-  effacés. Écriture d'un widget : les essais des paramètres qui ne sont plus
-  déclarés, ou dont le type a changé, sont effacés.
-- Une révision des essais (`Snapshot.widget_trials`) relance les aperçus.
+- `Mode::Templates` gains each widget's trials and the widgets written
+  by the agent (see "Agent"), both reset on entry, on
+  pack switch and on tab resume.
+- `set_widget_trials(name, {param: value})`: all or nothing; checks
+  each value against the declared type (Snafu error otherwise, naming the
+  parameter). `null`, an empty text, an empty paragraph list, or a
+  value equal to the one from `preview_params` (numbers compared as numbers)
+  clears the trial. A `plain` text of more than
+  4 KiB, or a `rich` of more than 64 paragraphs or 16 KiB, is refused.
+- `preview_widget(name, params)`: given parameters, then trials, then
+  `preview_params`. The interface no longer sends parameters.
+- Renaming a widget: its trials follow it. Deletion: they are
+  cleared. Writing a widget: the trials of parameters that are no longer
+  declared, or whose type changed, are cleared.
+- A trials revision (`Snapshot.widget_trials`) reruns the previews.
 
 ## Agent
 
-- **Contexte** : `AgentUi` gagne `widget: Option<String>` (le sous-onglet
-  actif). Le bloc `<oku-slides-context>` dit le widget ouvert et ses
-  valeurs d'essai (`widget: carte · trial: "title" = "Météo"`), les noms
-  entre guillemets JSON, chaque valeur coupée à 80 caractères, 10 essais
-  au plus ; un nom de widget invalide n'est pas cité.
-- **Outil `set_widget_trial`** `{name, values: {param: value}}` : règle
-  les essais (tout ou rien), renvoie les valeurs retenues ; la carte
-  `host-widget` et l'aperçu suivent. Refusé hors du mode modèles.
-- **`preview_widget`** sans paramètres prend les essais : l'agent voit ce
-  que voit l'utilisateur.
-- **Provenance** : l'outil `set_widget` de l'agent appelle une fonction
-  dédiée de la session (`set_widget_by_agent`) ; la requête de l'interface
-  ne porte aucun drapeau d'origine. Une écriture enregistrée de l'agent
-  marque le widget ; la première écriture enregistrée de l'utilisateur sur
-  un widget marqué note pour l'agent « user edited widget <nom> after
-  you ». Le renommage déplace la marque, la suppression l'efface.
-- **L'éditeur suit l'agent** : en mode modèles seulement, `set_widget` et
-  `remove_widget` réussis émettent `McpEvent::WidgetTouched {name,
-  removed}`. L'interface ouvre le sous-onglet du widget écrit et l'active,
-  sauf si le sous-onglet actif a des frappes non envoyées ou non
-  enregistrées : il s'ouvre alors en arrière-plan. Un widget créé par
-  l'agent s'ouvre dès que la liste des fichiers le contient.
-- **Conflit** : si le fichier écrit par l'agent a des frappes non envoyées
-  ou non enregistrées, ces frappes sont écrites (elles gagnent) ; la note
-  ci-dessus en informe l'agent. **Suppression** : les frappes en attente du
-  fichier supprimé sont abandonnées, le sous-onglet se ferme, et un message
-  dit que l'agent a supprimé le widget.
-- Instructions de l'agent : une phrase pour `set_widget_trial` et
-  `preview_widget` en mode modèles, et une pour `set_grid`, dans les 20
-  langues.
+- **Context**: `AgentUi` gains `widget: Option<String>` (the active
+  sub-tab). The `<oku-slides-context>` block states the open widget and its
+  trial values (`widget: carte · trial: "title" = "Météo"`), names
+  in JSON quotes, each value cut at 80 characters, 10 trials
+  at most; an invalid widget name is not quoted.
+- **Tool `set_widget_trial`** `{name, values: {param: value}}`: sets
+  the trials (all or nothing), returns the retained values; the
+  `host-widget` card and the preview follow. Refused outside templates mode.
+- **`preview_widget`** without parameters takes the trials: the agent sees what
+  the user sees.
+- **Provenance**: the agent's `set_widget` tool calls a dedicated
+  session function (`set_widget_by_agent`); the interface request
+  carries no origin flag. A saved agent write
+  marks the widget; the user's first saved write to
+  a marked widget notes for the agent "user edited widget <nom> after
+  you". Renaming moves the mark, deletion clears it.
+- **The editor follows the agent**: in templates mode only, successful `set_widget` and
+  `remove_widget` emit `McpEvent::WidgetTouched {name,
+  removed}`. The interface opens the written widget's sub-tab and activates it,
+  unless the active sub-tab has unsent or unsaved
+  keystrokes: it then opens in the background. A widget created by
+  the agent opens as soon as the file list contains it.
+- **Conflict**: if the file written by the agent has unsent
+  or unsaved keystrokes, those keystrokes are written (they win); the note
+  above informs the agent. **Deletion**: the pending keystrokes of the
+  deleted file are abandoned, the sub-tab closes, and a message
+  says the agent deleted the widget.
+- Agent instructions: one sentence for `set_widget_trial` and
+  `preview_widget` in templates mode, and one for `set_grid`, in the 20
+  languages.
 
 ## Dock (UI)
 
-- `AgentDock` (t-416) accepte, en plus des surfaces vivantes de l'agent,
-  la surface de réglages de l'hôte (`host-template` ou `host-widget`),
-  fournie par `App`.
-- Ordre, du micro vers le haut : question en attente, réglages de l'agent,
-  réglages de l'hôte. Quand une question attend, les réglages se replient
-  sur leur ligne d'en-tête (règle de t-416), ceux de l'hôte compris.
-- Un `show_params` de l'agent sur la slide affichée et `host-template`
-  coexistent ; il n'y a jamais deux surfaces de réglages pour un même
-  widget (l'agent passe par `set_widget_trial`, qui met à jour
+- `AgentDock` (t-416) accepts, besides the agent's live surfaces,
+  the host settings surface (`host-template` or `host-widget`),
+  provided by `App`.
+- Order, from the microphone upwards: pending question, agent settings,
+  host settings. When a question is pending, the settings collapse
+  to their header row (t-416 rule), the host's included.
+- An agent `show_params` on the displayed slide and `host-template`
+  coexist; there are never two settings surfaces for the same
+  widget (the agent goes through `set_widget_trial`, which updates
   `host-widget`).
-- Les réglages de l'hôte n'ont pas de « × » : ils suivent ce qui est
-  affiché. Ils ne se figent jamais dans un tour. Ils ne sont pas montrés
-  pendant l'historique.
-- La surface n'est relue que si la slide, le widget, le pack, la révision
-  des essais ou l'état du deck (empreinte et nom de la slide, annulation)
-  changent ; une action part avec la slide et le widget de la surface
-  affichée, jamais ceux d'un état plus récent.
-- Un widget dont le sous-onglet est périmé (supprimé, renommé) donne la
-  carte du modèle, sans erreur. Chaque réglage du modèle validé fait un pas
-  d'annulation.
+- The host settings have no "×": they follow what is
+  displayed. They never freeze in a turn. They are not shown
+  during history.
+- The surface is read again only if the slide, the widget, the pack, the trials
+  revision or the deck state (fingerprint and name of the slide, undo)
+  change; an action goes out with the slide and widget of the displayed
+  surface, never those of a more recent state.
+- A widget whose sub-tab is stale (deleted, renamed) gives the
+  template card, without error. Each committed template setting makes one
+  undo step.
 
-## Erreurs
+## Errors
 
-- Valeur d'essai hors type, hors bornes ou trop longue : erreur Snafu
-  localisée qui nomme le paramètre, toast côté UI ; côté agent, résultat
-  d'outil en erreur.
-- `set_widget_trials` sur un widget inconnu ou Commun (`UnknownWidget`),
-  invalide (`WidgetInvalid`) ou hors mode modèles (`NotEditingTemplates`) :
-  refus explicite.
-- Réglage de l'hôte hors mode modèles, ou clé inconnue : refus.
-- Aperçu en échec : diagnostics comme aujourd'hui ; les réglages restent.
+- Trial value of the wrong type, out of bounds or too long: localized Snafu
+  error naming the parameter, toast on the UI side; on the agent side, tool
+  result in error.
+- `set_widget_trials` on an unknown widget or Commun (`UnknownWidget`),
+  invalid (`WidgetInvalid`) or outside templates mode (`NotEditingTemplates`):
+  explicit refusal.
+- Host setting outside templates mode, or unknown key: refusal.
+- Failed preview: diagnostics as today; the settings remain.
 
 ## Tests
 
-- Rust (`oku-slides-core`) : `set_grid` recadre comme l'ancien
-  `rescaleCell` (arrondis compris), part de la grille déclarée par le
-  widget, ne touche ni aux cadres ni à la gouttière, refuse 0 et 25,
-  ne change rien à grille égale ; le schéma des ops nomme `set_grid`.
-- Rust (`oku-slides-session`) : `widget_settings` donne le bon champ par
-  type, les valeurs égales à `preview_params`, rien pour Commun, la carte
-  vide sans paramètre, la ligne « fichier invalide » ; `set_widget_trials`
-  contrôle le type et la longueur, efface l'essai égal au défaut ou vide,
-  suit un renommage, élague à l'écriture ; `preview_widget` rend les
-  essais ; le bloc de contexte cite le widget et ses essais, sans
-  injection ; la note « after you » ; `template_params` et ses clés ;
-  `set_grid` par un réglage de l'hôte s'annule en un pas.
-- Rust (`oku-slides-mcp`) : `set_widget_trial` refusé hors modèles et
-  émet `Changed` ; `set_widget`/`remove_widget` émettent `WidgetTouched` en
-  mode modèles seulement.
-- UI : le dock montre `host-template`, puis `host-widget` au changement de
-  sous-onglet ; un champ changé redemande l'aperçu ; `WidgetTouched` ouvre
-  et active le sous-onglet, en arrière-plan si des frappes attendent, y
-  compris pour un widget nouveau ; les frappes non enregistrées ne sont pas
-  écrasées ; une suppression par l'agent abandonne les frappes en attente ;
-  `RichTextField` met en forme et renvoie des paragraphes.
-- i18n : nouvelles clés dans les 20 langues (`i18n-keys.test` et
+- Rust (`oku-slides-core`): `set_grid` refits like the old
+  `rescaleCell` (rounding included), starts from the grid declared by the
+  widget, touches neither the frames nor the gutter, refuses 0 and 25,
+  changes nothing for an equal grid; the ops schema names `set_grid`.
+- Rust (`oku-slides-session`): `widget_settings` gives the right field per
+  type, the values equal to `preview_params`, nothing for Commun, the empty
+  card without parameters, the "invalid file" row; `set_widget_trials`
+  checks type and length, clears a trial equal to the default or empty,
+  follows a rename, prunes on write; `preview_widget` renders the
+  trials; the context block quotes the widget and its trials, without
+  injection; the "after you" note; `template_params` and its keys;
+  `set_grid` through a host setting undoes in one step.
+- Rust (`oku-slides-mcp`): `set_widget_trial` refused outside templates and
+  emits `Changed`; `set_widget`/`remove_widget` emit `WidgetTouched` in
+  templates mode only.
+- UI: the dock shows `host-template`, then `host-widget` on sub-tab
+  change; a changed field requests the preview again; `WidgetTouched` opens
+  and activates the sub-tab, in the background if keystrokes are pending,
+  including for a new widget; unsaved keystrokes are not
+  overwritten; an agent deletion abandons the pending keystrokes;
+  `RichTextField` formats and returns paragraphs.
+- i18n: new keys in the 20 languages (`i18n-keys.test` and
   `oku-slides-i18n`).
-- e2e : `panel.cjs` passe par le dock ; un parcours widget (réglage →
-  contenu de l'aperçu changé). Vérification visuelle en clair et en sombre.
+- e2e: `panel.cjs` goes through the dock; a widget walkthrough (setting →
+  preview content changed). Visual check in light and dark.
 
-## Hors champ
+## Out of scope
 
-- Garder les essais entre deux sessions, ou les écrire comme exemples dans
-  le pack.
-- Régler `asset`, `slot`, `grid` ou `host` dans l'aperçu.
-- Écrire la couleur et la taille d'un run en markdown d'édition.
+- Keeping trials between two sessions, or writing them as samples in
+  the pack.
+- Setting `asset`, `slot`, `grid` or `host` in the preview.
+- Writing a run's colour and size in editing markdown.

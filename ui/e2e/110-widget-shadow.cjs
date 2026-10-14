@@ -2,7 +2,7 @@
 // Deux formes : l'image seule (aperçu sans champs) et la scène de l'aperçu (champs éditables),
 // cadrée comme la scène le fait (au plus grand qui tient dans sa place).
 // Sans serveur : la feuille de styles réelle sur un sous-onglet de widget reconstitué.
-// Lancer : bun e2e/widget-shadow.cjs.
+// Lancer : bun e2e/110-widget-shadow.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

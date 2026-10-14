@@ -1,9 +1,9 @@
 // Alignement : l'éditeur ouvert recouvre exactement le texte rendu (bord gauche,
 // ligne de base de chaque ligne à 1 px près à l'échelle 1, mêmes retours à la ligne).
-// Lancer : just e2e. À la main : bun e2e/fields.cjs, E2E_URL = adresse d'un serveur neuf.
+// Lancer : just e2e. À la main : bun e2e/100-fields.cjs, E2E_URL = adresse d'un serveur neuf.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
+const { post } = require('./lib/http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TOL = 1;
 

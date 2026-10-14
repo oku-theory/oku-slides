@@ -1,90 +1,90 @@
-# Écriture d'un widget annulable en mode modèles — design
+# Undoable widget write in templates mode — design
 
-Date : 2026-10-04 · Tâche : t-504
+Date: 2026-10-04 · Task: t-504
 
-## Problème
+## Problem
 
-En mode modèles, quand l'agent modifie le code d'un widget (`set_widget`),
-le bouton annuler reste grisé. Un tour de l'agent doit être **une** étape
-d'annulation, quel que soit le nombre d'appels MCP qu'il fait.
+In templates mode, when the agent modifies a widget's code (`set_widget`),
+the undo button stays greyed out. An agent turn must be **one** undo
+step, whatever the number of MCP calls it makes.
 
-Cause : `adopt_session_version` (`templates_mode.rs`) fait passer le
-document des modèles à la nouvelle version du pack par `apply_silent`.
-Aucune étape n'est empilée sur ce document ; le groupe du tour
-(`begin_turn`) n'a rien à attraper. Seul le deck mis de côté (`stash`)
-reçoit une étape, invisible tant qu'on reste en mode modèles. En mode
-deck, la même écriture passe par `apply(SetTemplates)` et rejoint le tour.
+Cause: `adopt_session_version` (`templates_mode.rs`) moves the
+templates document to the new pack version through `apply_silent`.
+No step is pushed on this document; the turn's group
+(`begin_turn`) has nothing to catch. Only the deck set aside (`stash`)
+receives a step, invisible as long as one stays in templates mode. In deck
+mode, the same write goes through `apply(SetTemplates)` and joins the turn.
 
-Reproduit par `set_widget_by_agent_in_templates_turn_can_be_undone`
+Reproduced by `set_widget_by_agent_in_templates_turn_can_be_undone`
 (`widgets_edit_tests.rs`).
 
-## Décisions
+## Decisions
 
-1. **Une écriture de widget en mode modèles est une étape du document des
-   modèles**, comme en mode deck : `apply(SetTemplates)` sous le libellé
-   `widgets-edit-label`, avec la clé de séance `adopt_merge_key(id, parent)`.
-   Dans un tour, le groupe l'emporte : tout le tour est une étape. Hors
-   tour, des écritures successives sans autre action entre elles fusionnent
-   en une étape (comme en mode deck).
-2. **L'enregistrement des modèles (`save_templates`) reste silencieux** :
-   il fige l'état, il ne le change pas (les modèles édités sont déjà des
-   étapes). Hors périmètre de cette tâche.
-3. **La version éditée suit le document.** La seule source est
-   `deck.templates` du document des modèles. `TemplateMode` garde ses
-   champs (vue `editing` et reprise `SavedMode::Templates`, format
-   inchangé), mais après chaque annuler ou rétablir en mode modèles,
-   `realign_templates` les réaligne : `base` = cette version ;
-   `session_version` = cette version si elle n'est pas `parent`, sinon
+1. **A widget write in templates mode is a step of the templates
+   document**, as in deck mode: `apply(SetTemplates)` under the label
+   `widgets-edit-label`, with the editing session key `adopt_merge_key(id, parent)`.
+   Within a turn, the group wins: the whole turn is one step. Outside a
+   turn, successive writes with no other action between them merge
+   into one step (as in deck mode).
+2. **Saving templates (`save_templates`) stays silent**:
+   it freezes the state, it does not change it (the edited templates are already
+   steps). Out of scope for this task.
+3. **The edited version follows the document.** The only source is
+   `deck.templates` of the templates document. `TemplateMode` keeps its
+   fields (`editing` view and `SavedMode::Templates` resume, format
+   unchanged), but after each undo or redo in templates mode,
+   `realign_templates` realigns them: `base` = that version;
+   `session_version` = that version if it is not `parent`, otherwise
    `None`.
-4. **Versions remplacées.** Le document des modèles ne retire plus aucune
-   version de ses sources pendant la séance : une étape peut toujours y
-   ramener (un rétablir après un enregistrement silencieux, par exemple).
-   La bibliothèque garde « une version par séance » à l'écriture
-   (`replace_version`) ; une version atteinte par annuler ou rétablir y est
-   remise (`add_version`, sans effet si elle y est). Le deck mis de côté
-   garde sa règle actuelle (fusionnée → retirée de ses sources). Une
-   version devenue inaccessible après une nouvelle écriture reste dans la
-   bibliothèque (pas de nettoyage, accepté).
-5. **Le deck mis de côté suit le document des modèles.** Après un annuler
-   ou un rétablir en mode modèles qui change la version du pack, le deck
-   mis de côté passe à cette version (`apply` avec la même clé de séance) :
-   à la fermeture, le deck embarque la version que l'utilisateur voyait.
-6. **La bibliothèque garde la version créée** à l'annulation (comme en mode
-   deck) : annuler ne change pas sa version courante. Après un annuler, la version
-   courante de la bibliothèque reste donc celle qui a été annulée : rouvrir
-   les modèles montre cette version, comme en mode deck.
-7. **Interface : rien à ajouter.** `useTemplateWidgets` relit les fichiers
-   quand `editing.base` change (`revision`) ; avec la décision 3, un annuler
-   recharge les onglets de widgets.
+4. **Replaced versions.** The templates document no longer removes any
+   version from its sources during the editing session: a step can always
+   lead back to it (a redo after a silent save, for example).
+   The library keeps "one version per editing session" on write
+   (`replace_version`); a version reached by undo or redo is
+   put back into it (`add_version`, no effect if it is there). The deck set aside
+   keeps its current rule (merged → removed from its sources). A
+   version that became unreachable after a new write stays in the
+   library (no cleanup, accepted).
+5. **The deck set aside follows the templates document.** After an undo
+   or a redo in templates mode that changes the pack version, the deck
+   set aside moves to that version (`apply` with the same editing session key):
+   on closing, the deck embeds the version the user was seeing.
+6. **The library keeps the version created** on undo (as in deck
+   mode): undo does not change its current version. After an undo, the
+   library's current version therefore stays the one that was undone: reopening
+   the templates shows that version, as in deck mode.
+7. **Interface: nothing to add.** `useTemplateWidgets` re-reads the files
+   when `editing.base` changes (`revision`); with decision 3, an undo
+   reloads the widget tabs.
 
-Plan : `docs/superpowers/plans/2026-10-04-widget-agent-annulable-modeles.md`.
+Plan: `docs/superpowers/plans/2026-10-04-widget-agent-annulable-modeles.md`.
 
-## Comportement attendu
+## Expected behavior
 
-- Tour de l'agent en mode modèles avec une ou plusieurs écritures de
-  widgets (et éventuellement des éditions de modèles) → un seul ⌘Z, libellé
-  « Agent : … », qui ramène le code de chaque widget, et les modèles, à leur
-  état d'avant le tour.
-- ⌘⇧Z rétablit le tour entier.
-- Après annuler, fermer les modèles : le deck embarque la version d'avant
-  le tour.
-- Écriture de l'utilisateur sur un widget (onglet de code, enregistrée) :
-  devient aussi une étape du document des modèles. L'historique propre de
-  l'éditeur de code (CodeMirror) reste celui de la frappe dans l'onglet.
+- Agent turn in templates mode with one or more widget
+  writes (and possibly template edits) → a single ⌘Z, labeled
+  "Agent : …", which brings the code of each widget, and the templates, back to their
+  state before the turn.
+- ⌘⇧Z redoes the whole turn.
+- After undo, closing the templates: the deck embeds the version from before
+  the turn.
+- A user write on a widget (code tab, saved):
+  also becomes a step of the templates document. The code editor's own
+  history (CodeMirror) stays that of the typing in the tab.
 
-## Tests (RED d'abord)
+## Tests (RED first)
 
-Session (`widgets_edit_tests.rs`, `templates_mode_tests.rs`) :
-- tour avec deux `set_widget_by_agent` → `can_undo`, une étape, libellé du
-  tour ; `undo` → source du widget d'avant le tour, `editing.base` = parent ;
-- `redo` → source du tour, `editing.base` = version du tour ;
-- annuler puis fermer les modèles → le deck embarque la version d'avant ;
-- annuler, puis nouvelle écriture → nouvelle version, l'ancienne reste dans
-  la bibliothèque si une étape y mène encore ;
-- deux écritures hors tour sans action entre elles → une étape.
+Session (`widgets_edit_tests.rs`, `templates_mode_tests.rs`):
+- turn with two `set_widget_by_agent` → `can_undo`, one step, label of the
+  turn; `undo` → widget source from before the turn, `editing.base` = parent;
+- `redo` → source of the turn, `editing.base` = version of the turn;
+- undo then close the templates → the deck embeds the earlier version;
+- undo, then a new write → new version, the old one stays in
+  the library if a step still leads to it;
+- two writes outside a turn with no action between them → one step.
 
-MCP (`tests/widgets.rs`) : `set_widget` deux fois dans un tour en mode
-modèles → `undo_label` du tour.
+MCP (`tests/widgets.rs`): `set_widget` twice in a turn in templates
+mode → the turn's `undo_label`.
 
-Les tests existants de séance de modèles (`session_version`, une version
-par séance) restent verts.
+The existing template editing session tests (`session_version`, one version
+per editing session) stay green.

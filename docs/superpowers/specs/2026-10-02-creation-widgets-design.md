@@ -1,253 +1,253 @@
-# Création de widgets par l'agent et éditeur Typst — design
+# Widget creation by the agent and Typst editor — design
 
-Date : 2026-10-02 · Tâche : t-329
+Date: 2026-10-02 · Task: t-329
 
-## Objectif
+## Goal
 
-L'utilisateur fait créer ou modifier des widgets par l'agent (« fais-moi un
-widget KPI »), ou les écrit lui-même dans un éditeur Typst. Un widget est un
-fichier Typst d'un pack de modèles ; il voyage avec le deck (t-328) et
-s'exécute dans le processus de rendu borné (t-327).
+The user has the agent create or modify widgets ("make me a
+KPI widget"), or writes them themselves in a Typst editor. A widget is a
+Typst file of a template pack; it travels with the deck (t-328) and
+runs in the bounded render process (t-327).
 
-Programme « widgets portables » : 0. compilation bornée (t-327, livrée) ;
-1. packs portables (t-328, livrée) ; 2. **création de widgets** (cette
+"Portable widgets" program: 0. bounded compilation (t-327, delivered);
+1. portable packs (t-328, delivered); 2. **widget creation** (this
 spec).
 
-Hors périmètre : autocomplétion et LSP Typst, renommage d'un widget déjà
-utilisé dans des decks (on renomme dans la version éditée ; les decks
-gardent la leur), partage de widgets entre packs.
+Out of scope: Typst autocompletion and LSP, renaming a widget already
+used in decks (it is renamed in the edited version; the decks
+keep theirs), sharing widgets between packs.
 
-## Décisions
+## Decisions
 
-- **Un fichier par widget** dans une version de pack, plus un fichier
-  partagé facultatif `_commun`. L'app génère le `registry`.
-- **Disponible en mode modèles et en mode deck.** Modifier un widget
-  modifie le pack de l'utilisateur, quel que soit l'endroit : la version
-  produite devient sa version courante.
-- **Une version par séance** (règle de t-328) : des modifications de widget
-  successives remplacent la même version ; la séance se termine en quittant
-  le mode modèles, ou, en mode deck, à la première opération qui n'est pas
-  une modification de widget.
-- **Aperçu dédié** `preview_widget` : le widget seul sur une slide
-  temporaire, sans rien ajouter au pack.
-- **Erreurs isolées** : chaque widget se compile à part ; un widget cassé
-  est écarté du registre avec ses diagnostics, les autres restent.
-- **Rupture de format** : `SOURCES_VERSION` passe à 5 (`widgets/<nom>.typ`
-  remplace `widgets.typ`) ; pas de rétrocompatibilité.
+- **One file per widget** in a pack version, plus an optional shared
+  file `_commun`. The app generates the `registry`.
+- **Available in template mode and in deck mode.** Modifying a widget
+  modifies the user's pack, wherever it happens: the version
+  produced becomes its current version.
+- **One version per sitting** (t-328 rule): successive widget
+  modifications replace the same version; the sitting ends when leaving
+  template mode, or, in deck mode, at the first operation that is not
+  a widget modification.
+- **Dedicated preview** `preview_widget`: the widget alone on a temporary
+  slide, without adding anything to the pack.
+- **Isolated errors**: each widget compiles separately; a broken widget
+  is left out of the registry with its diagnostics, the others stay.
+- **Format break**: `SOURCES_VERSION` moves to 5 (`widgets/<nom>.typ`
+  replaces `widgets.typ`); no backward compatibility.
 
-## Format du pack (core)
+## Pack format (core)
 
 ```rust
 pub struct PackFiles { pub pack_json: Vec<u8>, pub widgets: BTreeMap<WidgetFile, String> }
-pub struct WidgetFile(String);   // "[a-z][a-z0-9-]*" ou "_commun"
+pub struct WidgetFile(String);   // "[a-z][a-z0-9-]*" or "_commun"
 ```
 
-- Le nom du fichier est le nom du widget ; `_commun` n'est pas un widget.
-- **Contenu canonique** : `pack.json` canonique (t-328), octet `0`, puis
-  pour chaque fichier dans l'ordre des noms : nom, `0`, source, `0`. Un
-  fichier vide vaut absent. `PackVersion` est le sha-256 de ce contenu.
-- Zip des sources (v5) : `packs/<hex>/pack.json`,
-  `packs/<hex>/widgets/<nom>.typ`. Bibliothèque :
-  `<uuid>/versions/<hex>/widgets/<nom>.typ`. Un nom de fichier invalide
-  sous `packs/<hex>/widgets/` refuse le zip (`BadName`), comme un chemin
-  `packs/` invalide.
-- Limites (`[render]`) : `max_widget_kib = 256` par fichier,
-  `max_widgets = 64` par version ; les fichiers comptent dans
+- The file name is the widget's name; `_commun` is not a widget.
+- **Canonical content**: canonical `pack.json` (t-328), byte `0`, then
+  for each file in name order: name, `0`, source, `0`. An
+  empty file counts as absent. `PackVersion` is the sha-256 of this content.
+- Sources zip (v5): `packs/<hex>/pack.json`,
+  `packs/<hex>/widgets/<nom>.typ`. Library:
+  `<uuid>/versions/<hex>/widgets/<nom>.typ`. An invalid file name
+  under `packs/<hex>/widgets/` rejects the zip (`BadName`), like an invalid
+  `packs/` path.
+- Limits (`[render]`): `max_widget_kib = 256` per file,
+  `max_widgets = 64` per version; the files count toward
   `max_sources_mib`.
 
-## Assemblage et sonde (render, render-worker)
+## Assembly and probe (render, render-worker)
 
-- Chaque `widgets/<nom>.typ` exporte la liaison `widget`, résultat de
-  `widget("<nom>", …)`. Il peut importer `"_commun.typ"` et la bibliothèque
-  `oku-slides`. Le monde Typst sert `/packs/<hex>/widgets/<nom>.typ`.
-- L'hôte génère un module d'assemblage qui importe chaque widget et forme
-  `registry` ; `_commun` n'y entre pas.
-- **Sonde par fichier**, dans le processus de rendu : chaque widget est
-  compilé seul ; le résultat est, par fichier, son schéma ou ses
-  diagnostics (fichier, ligne, colonne, message). Le registre du pack ne
-  contient que les widgets valides. Un widget dont le nom déclaré diffère
-  du nom de fichier est refusé avec un diagnostic. Le cache des sondes est
-  indexé par (nom, hash du fichier, hash de `_commun`).
-- Un délai ou un dépassement de mémoire pendant la sonde d'un fichier donne
-  un diagnostic pour ce fichier. Pendant l'édition, le pack n'est pas
-  écarté (on le corrige) ; l'écartement de t-327 reste celui du rendu du
-  deck.
+- Each `widgets/<nom>.typ` exports the `widget` binding, result of
+  `widget("<nom>", …)`. It may import `"_commun.typ"` and the `oku-slides`
+  library. The Typst world serves `/packs/<hex>/widgets/<nom>.typ`.
+- The host generates an assembly module that imports each widget and forms
+  `registry`; `_commun` does not go into it.
+- **Per-file probe**, in the render process: each widget is
+  compiled alone; the result is, per file, its schema or its
+  diagnostics (file, line, column, message). The pack's registry
+  contains only the valid widgets. A widget whose declared name differs
+  from the file name is rejected with a diagnostic. The probe cache is
+  keyed by (name, file hash, hash of `_commun`).
+- A timeout or memory overrun during a file's probe gives
+  a diagnostic for that file. During editing, the pack is not
+  set aside (it is being fixed); the setting aside of t-327 remains that of the deck
+  render.
 
 ## Session
 
 - `WidgetStatus { name, schema: Option<WidgetSchema>, diagnostics }`,
-  `widget_status() -> Vec<WidgetStatus>` pour le pack en cours.
-- Opérations (mode modèles et mode deck) :
-  - `set_widget(name, source)` : crée ou remplace un fichier ; rend le
-    statut de ce widget et celui des widgets que la modification a fait
-    passer de valides à cassés (un `_commun` modifié).
-  - `remove_widget(name)` : refusé si des modèles du pack l'utilisent
-    (liste des modèles dans l'erreur).
+  `widget_status() -> Vec<WidgetStatus>` for the current pack.
+- Operations (template mode and deck mode):
+  - `set_widget(name, source)`: creates or replaces a file; returns the
+    status of that widget and that of the widgets the modification turned
+    from valid to broken (a modified `_commun`).
+  - `remove_widget(name)`: refused if templates of the pack use it
+    (list of templates in the error).
   - `widget_source(name)`.
-- **En mode modèles** : les opérations modifient le pack édité ; la version
-  de la séance suit la règle de t-328 (première modification : nouvelle
-  version, `parent` = courante au début de la séance, rendue courante ;
-  suivantes : `replace_version`).
-- **En mode deck** : la première modification crée une version du pack du
-  deck (`parent` = version embarquée), l'ajoute à la bibliothèque, la rend
-  courante, l'ajoute au bundle et fait passer le deck dessus par un
-  `SetTemplates` ; les suivantes de la même séance remplacent cette version
-  (`replace_version`, nouveau `SetTemplates`), fusionnées en une étape
-  d'annulation (clé `templates-adopt:<id>:<parent>`). Annuler fait revenir
-  le deck à sa version d'avant ; la bibliothèque garde la version créée
-  (comme pour un enregistrement en mode modèles).
-- `preview_widget(name, params)` : slide temporaire dans un emplacement
-  dédié du processus de rendu, thème et jetons du deck ; paramètres
-  manquants : `default` du schéma, sinon un exemple localisé (`plain`,
-  `rich`) ou la valeur neutre du type. Rend PNG (agent) ou SVG (UI) et les
-  diagnostics. Un délai dépassé donne un diagnostic.
+- **In template mode**: the operations modify the edited pack; the sitting's
+  version follows the t-328 rule (first modification: new
+  version, `parent` = current at the start of the sitting, made current;
+  subsequent ones: `replace_version`).
+- **In deck mode**: the first modification creates a version of the deck's
+  pack (`parent` = embedded version), adds it to the library, makes it
+  current, adds it to the bundle and switches the deck onto it through a
+  `SetTemplates`; the following ones in the same sitting replace that version
+  (`replace_version`, new `SetTemplates`), merged into a single undo
+  step (key `templates-adopt:<id>:<parent>`). Undo brings the
+  deck back to its previous version; the library keeps the created version
+  (as for a save in template mode).
+- `preview_widget(name, params)`: temporary slide in a dedicated
+  slot of the render process, the deck's theme and tokens; missing
+  parameters: the schema's `default`, otherwise a localized example (`plain`,
+  `rich`) or the type's neutral value. Returns PNG (agent) or SVG (UI) and the
+  diagnostics. An exceeded timeout gives a diagnostic.
 
 ## Agent (MCP)
 
-Outils, disponibles dans les deux modes :
+Tools, available in both modes:
 
-| Outil | Rôle |
+| Tool | Role |
 |---|---|
-| `widget_sources` | fichiers du pack, avec leur statut |
-| `widget_source(name)` | source d'un fichier |
-| `set_widget(name, source)` | crée ou remplace ; rend le statut et les widgets cassés |
-| `remove_widget(name)` | supprime (refusé s'il est utilisé par un modèle) |
-| `preview_widget(name, params?)` | image PNG du widget seul |
+| `widget_sources` | the pack's files, with their status |
+| `widget_source(name)` | source of a file |
+| `set_widget(name, source)` | creates or replaces; returns the status and the broken widgets |
+| `remove_widget(name)` | deletes (refused if a template uses it) |
+| `preview_widget(name, params?)` | PNG image of the widget alone |
 
-Le prompt de l'agent gagne une section « Créer un widget » : forme d'un
-fichier (imports, `widget("<nom>", params: …, (args, ctx) => …)`,
-`field(ctx, …)` pour les champs éditables, `fields-stack`), descripteurs
-`p.*`, jetons du thème (`color-of`, `size-of`) plutôt que des valeurs en
-dur, `_commun` pour le code partagé, et la boucle écrire → statut → aperçu →
-corriger. Un widget exemple est fourni dans le README de `typst/oku-slides`.
-Insérer le widget dans le deck reste un `add_element` ordinaire.
+The agent's prompt gains a "Create a widget" section: shape of a
+file (imports, `widget("<nom>", params: …, (args, ctx) => …)`,
+`field(ctx, …)` for the editable fields, `fields-stack`), `p.*`
+descriptors, theme tokens (`color-of`, `size-of`) rather than hard-coded
+values, `_commun` for shared code, and the loop write → status → preview →
+fix. An example widget is provided in the `typst/oku-slides` README.
+Inserting the widget into the deck remains an ordinary `add_element`.
 
-## Éditeur Typst (UI)
+## Typst editor (UI)
 
-- Panneau **Widgets**, accessible en mode modèles et en mode deck : liste
-  des fichiers (`_commun` en tête, libellé « Commun ») avec une pastille
-  d'état (valide, erreurs) ; actions Nouveau, Renommer (dans la version
-  éditée), Supprimer.
-- Éditeur CodeMirror (déjà présent) du fichier choisi, coloration Typst
-  minimale (commentaires, chaînes, mots-clés, `#`, `p.*`), diagnostics en
-  soulignés et en marge à leur ligne et colonne.
-- Aperçu à droite, mis à jour 400 ms après la dernière frappe, avec ses
+- **Widgets** panel, accessible in template mode and in deck mode: list
+  of files (`_commun` first, labeled "Commun") with a status
+  badge (valid, errors); actions New, Rename (in the edited
+  version), Delete.
+- CodeMirror editor (already present) for the chosen file, minimal Typst
+  highlighting (comments, strings, keywords, `#`, `p.*`), diagnostics as
+  underlines and in the gutter at their line and column.
+- Preview on the right, updated 400 ms after the last keystroke, with its
   diagnostics.
-- La frappe passe par `set_widget` ; l'agent et l'éditeur utilisent les
-  mêmes opérations et se voient l'un l'autre.
+- Typing goes through `set_widget`; the agent and the editor use the
+  same operations and see each other.
 
-## Erreurs
+## Errors
 
-- core : nom de fichier invalide → `BadName` à la lecture du zip ;
-  `WidgetFile` refuse un nom invalide.
-- session : `InvalidWidgetName { name }`, `WidgetTooLarge { name, max }`,
+- core: invalid file name → `BadName` when reading the zip;
+  `WidgetFile` rejects an invalid name.
+- session: `InvalidWidgetName { name }`, `WidgetTooLarge { name, max }`,
   `TooManyWidgets { max }`, `WidgetInUse { name, templates }`,
-  `UnknownWidget { name }` (Snafu, backtrace, minuscules).
-- Fluent, 20 langues : ces erreurs, les exemples de l'aperçu, l'UI du
-  panneau.
+  `UnknownWidget { name }` (Snafu, backtrace, lowercase).
+- Fluent, 20 languages: these errors, the preview examples, the
+  panel UI.
 
-## Dépôt
+## Repository
 
-- Tests et fixtures de t-328 qui utilisent `widgets.typ` réécrits en
-  `widgets/<nom>.typ`. Les packs intégrés n'ont pas de widgets.
-- README de `typst/oku-slides` : forme d'un fichier widget, `_commun`,
-  exemple.
+- t-328 tests and fixtures that use `widgets.typ` rewritten as
+  `widgets/<nom>.typ`. The built-in packs have no widgets.
+- `typst/oku-slides` README: shape of a widget file, `_commun`,
+  example.
 
 ## Tests
 
-Dans l'ordre de construction, en TDD :
+In build order, in TDD:
 
-1. **Core** : contenu canonique multi-fichiers (ordre des noms, fichier
-   vide = absent), vecteur sha-256 figé ; zip v5 : `widgets/<nom>.typ` lu
-   et vérifié, nom invalide refusé ; `WidgetFile` accepte `kpi`, `_commun`,
-   refuse `Kpi`, `../x`, `_autre`.
-2. **Render** : registre assemblé égal à celui d'un `widgets.typ`
-   équivalent écrit à la main ; widget cassé écarté, les autres gardés ;
-   `_commun` importé, absent du registre ; nom déclaré ≠ nom de fichier
-   refusé ; cache de sonde : modifier un widget ne recompile que lui,
-   modifier `_commun` recompile tous les widgets (t-390 : le hash de
-   `_commun` entre toujours dans la clé, l'import n'est plus détecté au
-   texte).
-3. **Session** : mode modèles : `set_widget` ×2 puis enregistrement → une
-   version avec le fichier ; mode deck : `set_widget` ×2 → une version
-   courante, le deck y passe, une seule étape d'annulation, annuler rend la
-   version d'avant ; `remove_widget` refusé si un modèle l'utilise ;
-   `preview_widget` remplit les défauts ; widget qui boucle dans l'aperçu →
-   diagnostic, pack non écarté ; `_commun` cassé → `set_widget` rend les
-   widgets cassés.
-4. **MCP** : les cinq outils dans les deux modes ; réponse de `set_widget`
-   avec diagnostics et widgets cassés.
-5. **UI** : liste et états ; diagnostics à la bonne ligne ; aperçu après le
-   délai de frappe (bun).
-6. **Régression** : un widget qui ne compile pas n'empêche pas les autres
-   widgets du même pack de se rendre dans le deck.
+1. **Core**: multi-file canonical content (name order, empty
+   file = absent), frozen sha-256 vector; v5 zip: `widgets/<nom>.typ` read
+   and checked, invalid name rejected; `WidgetFile` accepts `kpi`, `_commun`,
+   rejects `Kpi`, `../x`, `_autre`.
+2. **Render**: assembled registry equal to that of an equivalent
+   hand-written `widgets.typ`; broken widget left out, the others kept;
+   `_commun` imported, absent from the registry; declared name ≠ file name
+   rejected; probe cache: modifying a widget recompiles only that one,
+   modifying `_commun` recompiles all widgets (t-390: the hash of
+   `_commun` always goes into the key, the import is no longer detected from the
+   text).
+3. **Session**: template mode: `set_widget` ×2 then save → one
+   version with the file; deck mode: `set_widget` ×2 → one current
+   version, the deck switches to it, a single undo step, undo returns the
+   previous version; `remove_widget` refused if a template uses it;
+   `preview_widget` fills in the defaults; widget that loops in the preview →
+   diagnostic, pack not set aside; broken `_commun` → `set_widget` returns the
+   broken widgets.
+4. **MCP**: the five tools in both modes; `set_widget` response
+   with diagnostics and broken widgets.
+5. **UI**: list and states; diagnostics at the right line; preview after the
+   typing delay (bun).
+6. **Regression**: a widget that does not compile does not prevent the other
+   widgets of the same pack from rendering in the deck.
 
-## Décisions d'implémentation
+## Implementation decisions
 
-- `rename_widget` existe dans la session (`widgets_edit.rs`) mais n'est pas
-  exposé à MCP : l'agent écrit un nouveau widget puis retire l'ancien.
-- En mode modèles, une modification de widget enregistre immédiatement la
-  version de séance (`adopt_session_version`) ; pas de « enregistrer » séparé.
-- Un widget cassé du pack embarqué est écarté et signalé par l'avis
-  `session-widgets-broken` ; les widgets valides restent rendus.
-- Un widget d'élément est prévisualisé sur une diapositive vierge, dans un
-  emplacement d'essai qui n'accuse jamais le pack.
-- Mode deck (revue finale) : la version de la séance est embarquée et le
-  deck rendu (`apply`) avant toute écriture dans la bibliothèque. Un échec,
-  y compris un corps de widget qui échoue au rendu, ne change ni la
-  bibliothèque, ni la séance, ni le deck ; `set_widget` rend alors les
-  diagnostics du rendu dans le statut (`WidgetChange`), pas une erreur. Une
-  écriture dans la bibliothèque qui échoue après le rendu est journalisée et
-  pose l'avis `session-widgets-not-saved` (t-390) : le deck embarque déjà
-  la version, la bibliothèque ne l'a pas.
-- Mode modèles (revue finale) : choix « diagnostics + succès ». La version
-  est enregistrée, puis le document des modèles rendu ; si ce rendu échoue,
-  la version reste et ses diagnostics sont rendus avec les statuts, comme un
-  modèle fautif. `adopt_session_version` ne rend plus : l'appelant rend.
-  `save_templates` suit le même choix (t-390) : la version adoptée, un
-  rendu du document des modèles qui échoue ensuite n'est pas une erreur ;
-  l'enregistrement réussit et un avis (`set_notice`) donne la cause.
-- Garde no-op : une écriture dont les fichiers de widgets sont identiques à
-  ceux de la version en cours n'enregistre rien (les deux modes).
-- Croissance du bundle : la version de séance remplacée quitte les sources
-  du document (et, en mode modèles, celles du deck mis de côté) **seulement
-  si l'écriture a rejoint l'étape d'annulation qui l'avait introduite** :
-  `SourceBundle::undo_steps` (étapes empilées, jamais décrémenté) est
-  inchangé par l'application. Sinon (nouvelle étape, par exemple après le
-  groupe d'un tour de l'agent), annuler y revient : elle reste dans les
-  sources (ajout seul) et dans la bibliothèque — en mode deck, la nouvelle
-  version y est ajoutée sans `replace_version` ; en mode modèles (bibliothèque
-  écrite d'abord), l'ancienne y est réajoutée. L'historique qui montrerait
-  une étape fusionnée retombe sur l'avis « pack manquant ». Choisi plutôt
-  que « ne pas embarquer avant la fin de séance », qui laisserait le deck
-  référencer une version absente de ses sources.
-- La séance de widgets du mode deck finit aussi à `begin_turn` et
-  `end_turn` : elle ne chevauche jamais l'étape d'un tour de l'agent. En
-  mode modèles, un tour commencé en mode modèles groupe le document des
-  modèles, pas le deck mis de côté : ses enregistrements s'y fusionnent par
-  clé. Correction (t-390) : un tour commencé en mode deck groupe le deck,
-  qui passe de côté si le tour entre en mode modèles ; `end_turn` ferme ce
-  groupe. Un enregistrement après le tour fait alors une nouvelle étape : le
-  chemin non fusionné est atteignable (la version du tour reste dans les
-  sources et est réajoutée à la bibliothèque ; annuler y revient).
-- Octet NUL : une source de widget qui en contient un est refusée, à la
-  lecture (`PackFiles::from_bytes` → `None` : zip, bibliothèque, reprise
-  l'écartent) et à l'écriture (`set_widget` → `WidgetHasNul`, Fluent
-  `session-widget-nul`). Le `pack.json` canonique (JSON compact) échappe
-  déjà NUL : rien à refuser de ce côté.
-- Sonde d'un pack (revue finale) : budget total `timeout_ms` par appel de
-  `probe_pack`. Épuisé, les fichiers restants hors cache ne sont pas
-  exécutés (diagnostic localisé `probe-*`, dans la langue des emplacements
-  du travailleur, comme les autres diagnostics de limite) et ne sont pas
-  gardés : ils sont sondés au prochain appel (`PackProbe::unprobed` les
-  nomme ; un échec de préparation du lien y range aussi le fichier). Tant qu'il en reste pour le pack installé du document ouvert,
-  chaque rendu du deck résout de nouveau ses widgets, un budget par rendu,
-  (t-390). Un fichier seulement non sondé n'est pas dit cassé : l'avis
-  `session-widgets-broken` l'omet, et aucun autre avis ne le signale (il
-  est sondé au rendu suivant, l'avis serait aussitôt périmé). La reprise
-  qui le juge cassé pose l'avis, réduit aux fichiers jusque-là non sondés.
-  Un fichier dont la sonde dépasse le délai est
-  gardé cassé : il ne compte plus parmi les non sondés, pas de boucle sans
-  fin. `RenderWorker::probe` (sonde
-  du pack entier, sans isolation) est retiré ; ses tests passent par
-  `probe_pack` ou `set_widgets`.
+- `rename_widget` exists in the session (`widgets_edit.rs`) but is not
+  exposed to MCP: the agent writes a new widget then removes the old one.
+- In template mode, a widget modification immediately saves the
+  sitting's version (`adopt_session_version`); no separate "save".
+- A broken widget of the embedded pack is left out and reported by the
+  `session-widgets-broken` notice; the valid widgets are still rendered.
+- An element widget is previewed on a blank slide, in a
+  trial slot that never blames the pack.
+- Deck mode (final review): the sitting's version is embedded and the
+  deck rendered (`apply`) before any write to the library. A failure,
+  including a widget body that fails at render, changes neither the
+  library, nor the sitting, nor the deck; `set_widget` then returns the
+  render diagnostics in the status (`WidgetChange`), not an error. A
+  library write that fails after the render is logged and
+  sets the `session-widgets-not-saved` notice (t-390): the deck already embeds
+  the version, the library does not have it.
+- Template mode (final review): "diagnostics + success" choice. The version
+  is saved, then the templates document rendered; if that render fails,
+  the version stays and its diagnostics are returned with the statuses, like a
+  faulty template. `adopt_session_version` no longer renders: the caller renders.
+  `save_templates` follows the same choice (t-390): once the version is adopted, a
+  render of the templates document that then fails is not an error;
+  the save succeeds and a notice (`set_notice`) gives the cause.
+- No-op guard: a write whose widget files are identical to
+  those of the current version saves nothing (both modes).
+- Bundle growth: the replaced sitting version leaves the sources
+  of the document (and, in template mode, those of the deck set aside) **only
+  if the write joined the undo step that had introduced it**:
+  `SourceBundle::undo_steps` (stacked steps, never decremented) is
+  unchanged by the apply. Otherwise (new step, for example after the
+  group of an agent turn), undo comes back to it: it stays in the
+  sources (append only) and in the library — in deck mode, the new
+  version is added there without `replace_version`; in template mode (library
+  written first), the old one is added back. History that would show
+  a merged step falls back on the "pack manquant" (missing pack) notice. Chosen over
+  "do not embed before the end of the sitting", which would leave the deck
+  referencing a version absent from its sources.
+- The deck-mode widget sitting also ends at `begin_turn` and
+  `end_turn`: it never overlaps an agent turn's step. In
+  template mode, a turn started in template mode groups the templates
+  document, not the deck set aside: its saves merge into it by
+  key. Fix (t-390): a turn started in deck mode groups the deck,
+  which is set aside if the turn enters template mode; `end_turn` closes that
+  group. A save after the turn then makes a new step: the
+  non-merged path is reachable (the turn's version stays in the
+  sources and is added back to the library; undo comes back to it).
+- NUL byte: a widget source that contains one is rejected, on
+  read (`PackFiles::from_bytes` → `None`: zip, library, resume
+  drop it) and on write (`set_widget` → `WidgetHasNul`, Fluent
+  `session-widget-nul`). The canonical `pack.json` (compact JSON) already escapes
+  NUL: nothing to reject on that side.
+- Pack probe (final review): total `timeout_ms` budget per call of
+  `probe_pack`. Once exhausted, the remaining uncached files are not
+  executed (localized `probe-*` diagnostic, in the language of the worker's
+  slots, like the other limit diagnostics) and are not
+  kept: they are probed at the next call (`PackProbe::unprobed` names
+  them; a failure preparing the link also files the file there). As long as some remain for the installed pack of the open document,
+  each deck render resolves its widgets again, one budget per render,
+  (t-390). A file that is merely unprobed is not called broken: the
+  `session-widgets-broken` notice omits it, and no other notice reports it (it
+  is probed at the next render, the notice would be stale at once). The resume
+  that judges it broken sets the notice, reduced to the files unprobed until then.
+  A file whose probe exceeds the timeout is
+  kept broken: it no longer counts among the unprobed, no endless
+  loop. `RenderWorker::probe` (probe
+  of the whole pack, without isolation) is removed; its tests go through
+  `probe_pack` or `set_widgets`.

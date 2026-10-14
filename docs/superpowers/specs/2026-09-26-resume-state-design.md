@@ -1,115 +1,115 @@
-# Reprise de l'état de l'application — design
+# Resuming the application state — design
 
-Date : 2026-09-26
+Date: 2026-09-26
 
-## Objectif
+## Goal
 
-Quitter puis relancer l'app ramène exactement au même état : deck ouvert
-(même non enregistré), slide courante, thème (porté par le deck), mode
-édition de modèles, préférence de grille, taille et position de la fenêtre.
-L'état est enregistré à chaque modification.
+Quitting then relaunching the app brings back exactly the same state: open deck
+(even unsaved), current slide, theme (carried by the deck), template
+editing mode, grid preference, window size and position.
+The state is saved on every change.
 
-> Mise à jour (t-188, [ADR-0002](../../adr/0002-sources-du-deck-en-crdt-loro.md)) :
-> la pile d'annulation ne fait plus partie de ce qui revient au relancement.
-> Le deck redevient le replica Loro (`deck.loro`) ; son `UndoManager` est
-> reconstruit vide à chaque ouverture, comme à l'ouverture d'un PDF. Les
-> sections ci-dessous décrivent encore l'historique JSON d'origine (v1) là
-> où le reste n'a pas changé ; le format des fichiers de `deck/` est celui
-> du replica (voir ci-dessous).
+> Update (t-188, [ADR-0002](../../adr/0002-sources-du-deck-en-crdt-loro.md)):
+> the undo stack is no longer part of what comes back on relaunch.
+> The deck becomes the Loro replica again (`deck.loro`); its `UndoManager` is
+> rebuilt empty on every open, as when opening a PDF. The
+> sections below still describe the original JSON history (v1) where
+> the rest has not changed; the format of the files in `deck/` is that of
+> the replica (see below).
 
-Hors périmètre : préférences de dictée (déjà dans `<models>/config.json`),
-langue (`config.toml`, lecture seule).
+Out of scope: dictation preferences (already in `<models>/config.json`),
+language (`config.toml`, read-only).
 
 ## Architecture
 
-- Nouveau module `crates/oku-slides-session/src/resume.rs` (tests :
-  `resume_tests.rs`). La persistance est optionnelle : seule l'app Tauri
-  l'active, via `Session::resume_from(dir)`. Le serveur de développement et
-  les tests existants ne changent pas.
-- `Session::handle` enregistre l'état après chaque commande réussie
+- New module `crates/oku-slides-session/src/resume.rs` (tests:
+  `resume_tests.rs`). Persistence is optional: only the Tauri app
+  enables it, via `Session::resume_from(dir)`. The development server and
+  the existing tests do not change.
+- `Session::handle` saves the state after each successful command
   (`New`, `Open`, `Save`, `Apply`, `ChartKind`, `Undo`, `Redo`,
-  `EditTemplates`, `SaveTemplates`, `CloseTemplates`, `Ui`). Une écriture
-  ratée est journalisée (`warn`) ; la requête ne l'est pas.
-- ~~`oku-slides-core` : `History` et `Transaction` dérivent `Serialize` /
-  `Deserialize`~~ — obsolète depuis t-188 : `History` a disparu, remplacé
-  par le replica Loro (`DeckReplica`), sérialisé en snapshot binaire
-  (`deck.loro`), pas en JSON.
+  `EditTemplates`, `SaveTemplates`, `CloseTemplates`, `Ui`). A failed
+  write is logged (`warn`); the request is not failed.
+- ~~`oku-slides-core`: `History` and `Transaction` derive `Serialize` /
+  `Deserialize`~~ — obsolete since t-188: `History` is gone, replaced
+  by the Loro replica (`DeckReplica`), serialized as a binary snapshot
+  (`deck.loro`), not as JSON.
 
-## Fichiers
+## Files
 
-Sous `<data>/resume/` (`<data>` = `settings.paths.data()`), écrits via
-`Storage::write_atomic` :
+Under `<data>/resume/` (`<data>` = `settings.paths.data()`), written via
+`Storage::write_atomic`:
 
 ```
 resume/
   state.json        { version, mode, ui: { slide, grid } }
-  deck/             le document du deck (ou le deck mis de côté pendant l'édition des modèles)
-    deck.loro       snapshot complet du replica (oku-slides-core::DeckReplica), écriture atomique
-    document.json   { path, dirty, saved_hash, blank } — écrit après deck.loro
-    assets/<hex>    écrit s'il n'existe pas ; orphelins supprimés
-    fonts/<nom>     idem
-  templates/        même forme ; lu seulement quand `mode` est l'édition de modèles
+  deck/             the deck document (or the deck set aside while editing templates)
+    deck.loro       full snapshot of the replica (oku-slides-core::DeckReplica), atomic write
+    document.json   { path, dirty, saved_hash, blank } — written after deck.loro
+    assets/<hex>    written if it does not exist; orphans deleted
+    fonts/<nom>     same
+  templates/        same shape; read only when `mode` is template editing
 ```
 
-> Mise à jour (t-188) : `deck/` ne contient plus le deck ni son historique
-> en JSON dans `document.json` ; le deck redevient une vue du replica lu
-> depuis `deck.loro`. L'ordre d'écriture (`deck.loro` puis `document.json`)
-> laisse une fenêtre de crash : un `deck.loro` neuf peut se retrouver à côté
-> d'un `document.json` d'avant (ancien `dirty` / `saved_hash`), l'ancien
-> format n'écrivant qu'un seul fichier. Conséquence mineure : au pire, un
-> `dirty` ou un `saved_hash` périmé d'une écriture ; le deck lui-même reste
-> cohérent (`deck.loro` est toujours écrit en entier).
+> Update (t-188): `deck/` no longer holds the deck or its history
+> as JSON in `document.json`; the deck becomes a view of the replica read
+> from `deck.loro` again. The write order (`deck.loro` then `document.json`)
+> leaves a crash window: a new `deck.loro` can end up next to
+> an older `document.json` (old `dirty` / `saved_hash`), since the old
+> format wrote a single file. Minor consequence: at worst, a
+> `dirty` or a `saved_hash` one write out of date; the deck itself stays
+> consistent (`deck.loro` is always written in full).
 
-- `mode` : `"deck"` ou `{ "templates": { set, name, builtin } }`.
-- `saved_hash` : sha256 (`asset_id`) du fichier `path` au moment de
-  l'ouverture ou du dernier enregistrement.
-- `version` : `1`. Une version inconnue est traitée comme un état illisible.
-- Les avis (`notice`) ne sont pas persistés : ils ne s'affichent qu'une fois.
-- Écriture : documents d'abord (`deck.loro` puis `document.json`),
-  `state.json` ensuite. Une requête `Ui` n'écrit que `state.json`.
+- `mode`: `"deck"` or `{ "templates": { set, name, builtin } }`.
+- `saved_hash`: sha256 (`asset_id`) of the `path` file at the time of
+  opening or of the last save.
+- `version`: `1`. An unknown version is treated as an unreadable state.
+- Notices (`notice`) are not persisted: they are shown only once.
+- Write: documents first (`deck.loro` then `document.json`),
+  `state.json` next. A `Ui` request writes only `state.json`.
 
-## Restauration (démarrage de l'app)
+## Restore (app startup)
 
-1. Lire `state.json`, puis `deck/` (et `templates/` si le mode l'indique).
-2. Document non modifié, `path` présent et hash du fichier différent de
-   `saved_hash` : rouvrir depuis le disque. Fichier absent ou illisible : la
-   copie de travail est gardée.
-3. Sinon : deck (replica relu depuis `deck.loro`) + `dirty` + `path` depuis
-   la copie de travail. La pile d'annulation ne fait pas partie de la copie
-   de travail : elle repart toujours de zéro (t-188, ADR-0002).
-4. Document des modèles illisible : retour au deck. État, `deck.loro` ou
-   `document.json` illisible : journalisé, deck vierge.
-5. Fichier passé en argument (« ouvrir avec… ») : il est ouvert, **sauf** si
-   l'état restauré contient des modifications non enregistrées. Dans ce cas le
-   travail restauré est gardé et un avis (`notice`) le signale.
+1. Read `state.json`, then `deck/` (and `templates/` if the mode says so).
+2. Unmodified document, `path` present and file hash different from
+   `saved_hash`: reopen from disk. Missing or unreadable file: the
+   working copy is kept.
+3. Otherwise: deck (replica read back from `deck.loro`) + `dirty` + `path` from
+   the working copy. The undo stack is not part of the working
+   copy: it always starts from zero (t-188, ADR-0002).
+4. Unreadable templates document: back to the deck. Unreadable state, `deck.loro` or
+   `document.json`: logged, blank deck.
+5. File passed as an argument ("open with…"): it is opened, **unless**
+   the restored state contains unsaved changes. In that case the
+   restored work is kept and a notice (`notice`) reports it.
 
-## Interface ↔ session
+## UI ↔ session
 
-- Nouvelle requête `Request::Ui { slide: Option<String>, grid: bool }` :
-  l'UI l'envoie quand la slide courante ou la grille change. Pas
-  d'historique, pas de rendu ; renvoie le snapshot.
-- `Snapshot` gagne `ui: { slide, grid }`. Au montage, `App.tsx` initialise
-  `current` et `gridAlways` depuis ce champ.
-- `localStorage["oku-slides.grid"]` est supprimé (pas de migration).
-- Sans reprise (serveur de dev), `Ui` garde l'état en mémoire seulement.
+- New request `Request::Ui { slide: Option<String>, grid: bool }`:
+  the UI sends it when the current slide or the grid changes. No
+  history, no render; returns the snapshot.
+- `Snapshot` gains `ui: { slide, grid }`. On mount, `App.tsx` initializes
+  `current` and `gridAlways` from this field.
+- `localStorage["oku-slides.grid"]` is removed (no migration).
+- Without resume (dev server), `Ui` keeps the state in memory only.
 
-## Fenêtre
+## Window
 
-`tauri-plugin-window-state` (taille, position, maximisé). Enregistrement sur
-`Moved` / `Resized` en plus de la fermeture.
+`tauri-plugin-window-state` (size, position, maximized). Saved on
+`Moved` / `Resized` in addition to close.
 
 ## Tests (TDD)
 
-- Core : aller-retour du replica (`deck.loro`), voir
-  `crates/oku-slides-core/src/replica/`. ~~aller-retour serde de
-  `History` ; undo / redo identiques ensuite~~ (obsolète, `History` a
-  disparu en t-188).
-- `resume_tests` : aller-retour complet (deck, dirty, chemin, slide,
-  grille) ; mode édition de modèles ; fichier modifié ailleurs → relu
-  depuis le disque ; état corrompu → deck vierge ; `deck.loro` corrompu →
-  deck vierge ; assets orphelins supprimés ; argument ignoré si travail non
-  enregistré.
-- Intégration `tests/session.rs` : session A modifie puis est détruite ;
-  session B sur le même dossier retrouve le même snapshot ; `undo` n'y
-  trouve rien à défaire (pile reconstruite vide, t-188).
-- UI (`bun test`) : initialisation depuis `snap.ui`.
+- Core: replica round trip (`deck.loro`), see
+  `crates/oku-slides-core/src/replica/`. ~~serde round trip of
+  `History`; identical undo / redo afterwards~~ (obsolete, `History`
+  disappeared in t-188).
+- `resume_tests`: full round trip (deck, dirty, path, slide,
+  grid); template editing mode; file modified elsewhere → read again
+  from disk; corrupted state → blank deck; corrupted `deck.loro` →
+  blank deck; orphan assets deleted; argument ignored if unsaved
+  work.
+- Integration `tests/session.rs`: session A modifies then is dropped;
+  session B on the same directory finds the same snapshot; `undo` finds
+  nothing to undo there (stack rebuilt empty, t-188).
+- UI (`bun test`): initialization from `snap.ui`.

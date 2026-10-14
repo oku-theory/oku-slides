@@ -1,67 +1,67 @@
-# Widget tableau — design
+# Table widget — design
 
-Date : 2026-10-08 · Tâche : t-578 · Révisé après la revue d'équipe du plan.
+Date: 2026-10-08 · Task: t-578 · Revised after the team review of the plan.
 
-## Objectif
+## Goal
 
-Un nouveau widget d'élément **`table`** affiche un tableau de données dans une
-slide. Il réutilise les données des graphiques : le même `Dataset`
-(`source: Vec<Vec<Cell>>`), les mêmes opérations d'édition (insérer ou
-supprimer une ligne ou une colonne, régler une cellule, tout remplacer) et la
-même grille d'édition dans l'interface. Un graphique peut s'afficher en
-tableau et inversement, en gardant ses données.
+A new element widget **`table`** displays a data table in a
+slide. It reuses chart data: the same `Dataset`
+(`source: Vec<Vec<Cell>>`), the same editing operations (insert or
+delete a row or a column, set a cell, replace everything) and the
+same editing grid in the UI. A chart can be shown as a
+table and vice versa, keeping its data.
 
-Options de la V1 : ligne d'en-tête, première colonne en en-tête, lignes
-zébrées, alignement par colonne.
+V1 options: header row, first column as header, striped
+rows, per-column alignment.
 
-Hors périmètre, à traiter dans des tâches du backlog :
-- cellules fusionnées, texte riche dans les cellules, tri, pagination d'un
-  tableau sur plusieurs slides ;
-- format des nombres selon la langue (t-590) ;
-- fusion fine des éditions concurrentes (t-589) ;
-- aller-retour graphique → tableau → graphique sans perte du type (t-593).
+Out of scope, to be handled in backlog tasks:
+- merged cells, rich text in cells, sorting, paginating a
+  table over several slides;
+- locale-aware number formatting (t-590);
+- fine-grained merging of concurrent edits (t-589);
+- chart → table → chart round trip without losing the type (t-593).
 
-## Décisions
+## Decisions
 
-- **Rendu en Typst natif** (`table(...)`), pas en SVG. Le texte reste net et
-  sélectionnable dans le PDF, et il suit les jetons du thème.
-- **Nouveau type d'hôte `host("table")`** (`HostType::Table`). Le widget
-  Typst déclare `params: (data: p.host("table"))`.
-- **Les données restent dans `oku-slides-chart`**, qui gagne un module `table`
-  et s'occupe désormais des « graphiques et tableaux ». `Dataset`, `Cell` et
-  l'op de données sont partagés tels quels (G11). Le crate garde son nom, mais
-  sa description et son nouvel `ARCHITECTURE.md` le disent.
-- **Op de données générique.** `ChartDataOp` devient **`DataOp`** et
-  `Op::SetChartData` devient **`Op::SetData`**. C'est un changement cassant du
-  format des ops, ce que le MVP permet. Le pendant de `SetChartOption` est
-  **`Op::SetTableOption`**, un merge patch qui refuse `dataset`.
-- **Conversion côté Rust.** La requête de session **`show_as`** (`view: "table"`
-  ou `"chart"`) est exposée à l'interface et à l'agent (outil MCP `show_as`),
-  sur le modèle de `chart_kind`. Le crate fournit
-  `chart_to_table`/`table_to_chart` :
-  - les lignes trop courtes sont complétées ;
-  - les limites sont vérifiées ;
-  - un graphique reçoit une série par colonne de valeurs.
+- **Native Typst rendering** (`table(...)`), not SVG. The text stays sharp and
+  selectable in the PDF, and it follows the theme tokens.
+- **New host type `host("table")`** (`HostType::Table`). The Typst
+  widget declares `params: (data: p.host("table"))`.
+- **The data stays in `oku-slides-chart`**, which gains a `table` module
+  and now handles "charts and tables". `Dataset`, `Cell` and
+  the data op are shared as is (G11). The crate keeps its name, but
+  its description and its new `ARCHITECTURE.md` say so.
+- **Generic data op.** `ChartDataOp` becomes **`DataOp`** and
+  `Op::SetChartData` becomes **`Op::SetData`**. This is a breaking change to the
+  op format, which the MVP allows. The counterpart of `SetChartOption` is
+  **`Op::SetTableOption`**, a merge patch that rejects `dataset`.
+- **Conversion on the Rust side.** The session request **`show_as`** (`view: "table"`
+  or `"chart"`) is exposed to the UI and to the agent (MCP tool `show_as`),
+  modeled on `chart_kind`. The crate provides
+  `chart_to_table`/`table_to_chart`:
+  - rows that are too short are padded;
+  - limits are checked;
+  - a chart gets one series per value column.
 
-  Le remplacement se fait par un seul `ReplaceElement`, ce qui donne une seule
-  étape d'annulation, et garde l'id, le cadre, la case et le style.
-- **Débordement : mise à l'échelle.** Le tableau est mesuré à la largeur
-  disponible : les cellules passent à la ligne. Il n'est réduit (`scale`) que
-  s'il dépasse encore, surtout en hauteur. Il n'y a pas de pagination.
-- **Garde au rendu.** Un deck ouvert n'est pas refusé : `validate` ne fait que
-  signaler. Avant Typst, le rendu passe donc chaque valeur `host(table)` par
-  `parse_table` :
-  - si elle est valide, Typst reçoit la forme canonique ;
-  - sinon, il reçoit `null`, le widget affiche son substitut et un `warn` est
-    journalisé.
+  The replacement is done by a single `ReplaceElement`, which gives a single
+  undo step, and keeps the id, the frame, the slot and the style.
+- **Overflow: scaling.** The table is measured at the available
+  width: cells wrap. It is shrunk (`scale`) only
+  if it still overflows, mostly in height. There is no pagination.
+- **Render guard.** An open deck is not rejected: `validate` only
+  reports. Before Typst, the render therefore passes each `host(table)` value through
+  `parse_table`:
+  - if it is valid, Typst receives the canonical form;
+  - otherwise, it receives `null`, the widget shows its placeholder and a `warn` is
+    logged.
 
-  Le widget Typst vérifie lui aussi les types, en défense en profondeur.
-- **Détection par `kind` dans l'interface**, comme pour le graphique. Le
-  panneau dédié s'ouvre pour `kind: "table"` et lit le param `data`. Un widget
-  de pack qui déclare `host("table")` sous un autre nom n'a pas de panneau
-  dédié. C'est un écart assumé à la règle de détection par hôte.
+  The Typst widget also checks types, as defense in depth.
+- **Detection by `kind` in the UI**, as for the chart. The
+  dedicated panel opens for `kind: "table"` and reads the `data` param. A pack
+  widget that declares `host("table")` under another name has no dedicated
+  panel. This is a deliberate departure from the detection-by-host rule.
 
-## Modèle (`oku-slides-chart::table`)
+## Model (`oku-slides-chart::table`)
 
 ```rust
 pub struct TableOption {
@@ -72,216 +72,217 @@ pub struct TableOption {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub align: Vec<ColumnAlign>,
 }
-pub enum ColumnAlign { Auto, Start, Center, End }   // sérialisé en minuscules
+pub enum ColumnAlign { Auto, Start, Center, End }   // serialized in lowercase
 ```
 
-- Le JSON est en kebab-case, avec `deny_unknown_fields` : `header-row`,
+- The JSON is kebab-case, with `deny_unknown_fields`: `header-row`,
   `header-column`, `striped`, `align`, `dataset`.
-- `align[i]` s'applique à la colonne `i`. Une colonne sans entrée vaut `auto`.
-  `auto` aligne à la fin une colonne dont les cellules hors en-tête sont toutes
-  des nombres ou vides, avec au moins un nombre. Sinon, l'alignement est au
-  début, ce qui vaut aussi pour une colonne entièrement vide.
-- Limites : `MAX_TABLE_ROWS = 100` (en-tête compris), `MAX_TABLE_COLUMNS = 20`
-  et `MAX_TABLE_CELL_CHARS = 1000` caractères par cellule de texte.
-- `validate_table` vérifie, dans cet ordre :
-  1. les tailles, avant tout parcours ;
-  2. au moins une ligne et une colonne ;
-  3. des lignes de même largeur ;
-  4. la longueur des textes ;
-  5. des nombres finis ;
-  6. `align.len() <= colonnes`.
+- `align[i]` applies to column `i`. A column with no entry is `auto`.
+  `auto` aligns to the end a column whose non-header cells are all
+  numbers or empty, with at least one number. Otherwise, alignment is at the
+  start, which also holds for an entirely empty column.
+- Limits: `MAX_TABLE_ROWS = 100` (header included), `MAX_TABLE_COLUMNS = 20`
+  and `MAX_TABLE_CELL_CHARS = 1000` characters per text cell.
+- `validate_table` checks, in this order:
+  1. the sizes, before any walk;
+  2. at least one row and one column;
+  3. rows of equal width;
+  4. the length of texts;
+  5. finite numbers;
+  6. `align.len() <= columns`.
 
-  Elle est `pub(crate)`. Les erreurs passent par `ChartError::Inconsistent`
-  avec des clés `chart-table-*`. Aucune variante n'est ajoutée : `kind()`
-  suffit, et l'affichage de `Inconsistent` devient « inconsistent data ».
-- `parse_table(&Value)` lit (sans clonage) puis valide.
-- `table_data(&TableOption, &DataOp) -> TableOption`, sans inverse (le cœur
-  n'en utilise pas : l'historique passe par le replica) :
-  - refuse avant tout clonage une op qui dépasserait les limites ;
-  - applique l'op, puis recale `align` :
-    - une colonne insérée reçoit `auto`, mais seulement si `align` couvre
-      déjà cette position ;
-    - une colonne supprimée retire son entrée ;
-    - un `replace` tronque `align` ;
-  - valide le résultat.
-- `chart_data(&ChartOption, &DataOp) -> ChartOption` rejoint le crate, depuis
-  le cœur, pour faire pendant à `table_data`.
-- `patch_table` partage avec `apply_option_patch` un helper `merge_patch<T>`,
-  qui garde `dataset`, applique le merge et calcule l'inverse.
-- La ligne 0 garde le sens qu'elle a dans un graphique : les noms de colonnes.
-  `DataOp` la protège (ni insertion ni suppression en 0). `header-row` ne
-  décide que de son affichage.
-- Conversion :
-  - `chart_to_table(&ChartOption)` : refusée si le graphique n'a pas de
-    dataset ; les lignes courtes sont complétées par `null` ; le résultat est
-    validé ; `header-column: true`.
-  - `table_to_chart(&TableOption)` : barres sur le même dataset, `xAxis`
-    catégorie, une série par colonne de valeurs (`sync_series_with_columns`),
-    puis normalisation.
+  It is `pub(crate)`. Errors go through `ChartError::Inconsistent`
+  with `chart-table-*` keys. No variant is added: `kind()`
+  is enough, and the display of `Inconsistent` becomes "inconsistent data".
+- `parse_table(&Value)` reads (without cloning) then validates.
+- `table_data(&TableOption, &DataOp) -> TableOption`, with no inverse (the core
+  does not use one: history goes through the replica):
+  - rejects, before any cloning, an op that would exceed the limits;
+  - applies the op, then realigns `align`:
+    - an inserted column gets `auto`, but only if `align` already covers
+      that position;
+    - a deleted column removes its entry;
+    - a `replace` truncates `align`;
+  - validates the result.
+- `chart_data(&ChartOption, &DataOp) -> ChartOption` joins the crate, from
+  the core, as the counterpart of `table_data`.
+- `patch_table` shares with `apply_option_patch` a `merge_patch<T>` helper,
+  which keeps `dataset`, applies the merge and computes the inverse.
+- Row 0 keeps the meaning it has in a chart: the column names.
+  `DataOp` protects it (no insertion or deletion at 0). `header-row` only
+  decides how it is displayed.
+- Conversion:
+  - `chart_to_table(&ChartOption)`: rejected if the chart has no
+    dataset; short rows are padded with `null`; the result is
+    validated; `header-column: true`.
+  - `table_to_chart(&TableOption)`: bars on the same dataset, `xAxis`
+    category, one series per value column (`sync_series_with_columns`),
+    then normalization.
 
-## Cœur (`oku-slides-core`)
+## Core (`oku-slides-core`)
 
-- `HostType::Table`, plus deux helpers publics dans `widget.rs` :
-  - `ParamType::host() -> Option<HostType>` ;
+- `HostType::Table`, plus two public helpers in `widget.rs`:
+  - `ParamType::host() -> Option<HostType>`;
   - `WidgetSchema::host_param(HostType) -> Option<&ParamSchema>`.
 
-  Ils servent dans `ops/host.rs`, dans `render/src/charts.rs` et dans
+  They are used in `ops/host.rs`, in `render/src/charts.rs` and in
   `session/src/charts.rs`.
-- **`ops/host.rs`** reçoit tout ce qui touche aux hôtes :
-  - `host_option`, `expected_host` ;
-  - le contrôle à l'insertion : `check_host_params` et `check_hosts` ;
-  - un seul `set_option(.., HostType, ..)` pour `set_chart_option` et
-    `set_table_option` ;
+- **`ops/host.rs`** receives everything related to hosts:
+  - `host_option`, `expected_host`;
+  - the insertion check: `check_host_params` and `check_hosts`;
+  - a single `set_option(.., HostType, ..)` for `set_chart_option` and
+    `set_table_option`;
   - `set_data`.
 
-  Les `pub(super)` de `value.rs` et des helpers de `mod.rs` restent privés : un
-  module enfant les voit déjà.
-- `validate.rs` (`fits`) réutilise `host_option` : un seul bras `Host`.
-- `replica/schema.rs` : rien à changer, un `host` tombe déjà en `Atom`.
-- Erreurs : `OpInner::Table`, `OpErrorKind::InvalidTable`, clé
-  `op-invalid-table` (« Tableau t1 : … »).
-- `ARCHITECTURE.md` du cœur : ajouter `ops/host.rs` et le point d'extension
-  « nouveau type d'hôte ».
+  The `pub(super)` items of `value.rs` and the helpers of `mod.rs` stay private: a
+  child module already sees them.
+- `validate.rs` (`fits`) reuses `host_option`: a single `Host` arm.
+- `replica/schema.rs`: nothing to change, a `host` already falls into `Atom`.
+- Errors: `OpInner::Table`, `OpErrorKind::InvalidTable`, key
+  `op-invalid-table` ("Tableau t1 : …", i.e. "Table t1: …").
+- Core `ARCHITECTURE.md`: add `ops/host.rs` and the "new host type"
+  extension point.
 
 ## Session
 
-- Requête `show_as`, implémentée dans le nouveau module `tables.rs`
-  (`lib.rs` approche déjà 1000 lignes). Elle est exposée par MCP (`show_as`),
-  et `SessionErrorKind::NoTable` signale qu'un élément n'a pas de tableau.
-- `charts.rs` ignore les tableaux (la canonicalisation porte sur `Chart`
-  seulement) et utilise `ParamType::host()`.
-- `target_params.rs`, `param_fields.rs`, `widget_preview.rs` : rien à changer,
-  puisque `Host { .. }` n'est jamais réglable dans l'aperçu.
-- i18n : `session-no-table`, plus les jetons du thème.
+- Request `show_as`, implemented in the new module `tables.rs`
+  (`lib.rs` is already close to 1000 lines). It is exposed over MCP (`show_as`),
+  and `SessionErrorKind::NoTable` reports that an element has no table.
+- `charts.rs` ignores tables (canonicalization applies to `Chart`
+  only) and uses `ParamType::host()`.
+- `target_params.rs`, `param_fields.rs`, `widget_preview.rs`: nothing to change,
+  since `Host { .. }` is never settable in the preview.
+- i18n: `session-no-table`, plus the theme tokens.
 
-## Rendu
+## Rendering
 
-- `render/src/tables.rs` : le garde décrit plus haut, appelé dans `set_deck`
-  avant les graphiques. `for_each_element` est partagé avec `charts.rs`.
-- `typst/oku-slides/src/widgets.typ` : `_table`, inséré dans `registry` après
-  `_chart`. Il garde le substitut sur toute donnée mal formée :
-  - `source` qui n'est pas une liste de listes ;
-  - drapeau qui n'est pas un booléen ;
-  - `align` qui n'est pas une liste ;
-  - cellule d'un type inconnu, rendue vide ;
-  - ligne trop longue, tronquée ;
-  - plus de 100 lignes ou 20 colonnes.
+- `render/src/tables.rs`: the guard described above, called in `set_deck`
+  before the charts. `for_each_element` is shared with `charts.rs`.
+- `typst/oku-slides/src/widgets.typ`: `_table`, inserted in `registry` after
+  `_chart`. It keeps the placeholder for any malformed data:
+  - `source` that is not a list of lists;
+  - a flag that is not a boolean;
+  - `align` that is not a list;
+  - a cell of an unknown type, rendered empty;
+  - a row that is too long, truncated;
+  - more than 100 rows or 20 columns.
 
-  Le rendu lui-même :
-  - les alignements sont précalculés par colonne ;
-  - la ligne d'en-tête va en `table.header`, en gras sur le fond
-    `header-bg` ;
-  - la 1re colonne en en-tête est en gras seulement : un fond de colonne
-    concurrencerait le zébrage ;
-  - le zébrage alterne `stripe-bg` sur les lignes de données ;
-  - la mesure se fait à la largeur disponible ; la réduction n'a lieu que si le
-    tableau dépasse encore, et jamais à partir d'une mesure nulle.
+  The rendering itself:
+  - alignments are precomputed per column;
+  - the header row goes into `table.header`, in bold on the
+    `header-bg` background;
+  - the 1st column as header is bold only: a column background
+    would compete with the striping;
+  - the striping alternates `stripe-bg` on data rows;
+  - measurement is done at the available width; shrinking happens only if the
+    table still overflows, and never from a zero measurement.
 
-  Le substitut fait une hauteur fixe dans un flux, et remplit son cadre sinon.
-- `data.typ:154` : la boîte d'un `table` en flux est mesurée dans la hauteur
-  disponible, comme celle d'un `chart`, sinon le cadre de sélection ne
-  correspond pas au dessin.
-- Cellules :
-  - un nombre entier s'affiche sans décimales ;
-  - un texte s'affiche tel quel ;
-  - un booléen vaut `✓` (vrai) ou rien (faux) ;
-  - `null` est vide.
+  The placeholder has a fixed height in a flow, and fills its frame otherwise.
+- `data.typ:154`: the box of a `table` in a flow is measured within the available
+  height, like that of a `chart`, otherwise the selection frame does not
+  match the drawing.
+- Cells:
+  - an integer number is displayed without decimals;
+  - a text is displayed as is;
+  - a boolean is `✓` (true) or nothing (false);
+  - `null` is empty.
 
-  Les textes sont des données, jamais du balisage.
-- Jetons `component.table` dans `default-tokens.json` (la fusion
-  `default-tokens ← thème` les donne à `papier`) et dans `pro.json`, qui est un
-  instantané complet : `size`, `header-bg`, `header-color`, `header-weight`,
-  `stripe-bg`, `rule-color`, `rule-width`, `padding-x`, `padding-y`. Dans
-  `pro`, `stripe-bg` diffère de `rule`.
-- Ces jetons sont décrits dans `theme_schema.json` (section `components`) et
-  ont leurs clés `theme-token-component-table-*` dans les 20 locales.
-- Le tableau ne grandit pas dans une slide de contenu (pas de `grow`).
-- Le registre figé (fixture, triée par nom) et le widget Typst arrivent dans
-  le même commit.
-- Docs à mettre à jour :
-  - README (« 14 widgets », ligne `p.host`) ;
-  - `params.typ` ;
-  - `ARCHITECTURE.md` du rendu (le tableau est rendu par Typst, sans passe
-    Rust de dessin).
+  Texts are data, never markup.
+- `component.table` tokens in `default-tokens.json` (the merge
+  `default-tokens ← theme` gives them to `papier`) and in `pro.json`, which is a
+  full snapshot: `size`, `header-bg`, `header-color`, `header-weight`,
+  `stripe-bg`, `rule-color`, `rule-width`, `padding-x`, `padding-y`. In
+  `pro`, `stripe-bg` differs from `rule`.
+- These tokens are described in `theme_schema.json` (`components` section) and
+  have their `theme-token-component-table-*` keys in the 20 locales.
+- The table does not grow in a content slide (no `grow`).
+- The frozen registry (fixture, sorted by name) and the Typst widget land in
+  the same commit.
+- Docs to update:
+  - README ("14 widgets", `p.host` line);
+  - `params.typ`;
+  - the render `ARCHITECTURE.md` (the table is rendered by Typst, with no Rust
+    drawing pass).
 
-## Interface (`ui/`)
+## UI (`ui/`)
 
-- `ChartDataOp` devient `DataOp` dans `chart/chartTypes.ts`, et l'op
-  `set_data` est envoyée.
-- Insertion :
-  - `ADD_KINDS` gagne `"table"` ;
-  - `newElement` utilise `starterTable()`, avec des en-têtes « Colonne n »
-    dans la langue de l'utilisateur ;
-  - `Icon.table` ;
-  - les branches `[table]` de `ui-add-kind` et `ui-undo-add`.
-- `hasOwnPanel(kind)` vit dans un module neutre (`ownPanel.ts`) et sert à
-  `TargetPanel` comme à `useTargetSettings`.
-- `ui/src/table/TablePanel.tsx` :
-  - les bascules en-tête, 1re colonne et zébrage, qui envoient
-    `set_table_option` ;
-  - **un sélecteur d'alignement par colonne** (la grille n'expose pas de
-    colonne sélectionnée) ;
-  - `ChartDataGrid` :
-    - avec `firstColumnIsLabel` qui suit `header-column` ;
-    - avec une nouvelle prop `newColumnName`, pour que « Ajouter une colonne »
-      nomme la colonne « Colonne n » et non « Série n » ;
-  - le bouton « Afficher en graphique ».
-- `ChartPanel` gagne le bouton « Afficher en tableau ». Son groupe a sa propre
-  classe, pour ne pas détourner le test de l'empilement.
-- Les deux boutons appellent `api.showAs`, une seule requête annulable. Si la
-  conversion est refusée (texte dans une colonne de valeurs, tableau trop
-  grand), l'erreur s'affiche.
-- CSS : `.table-align`, dans `ChartDataGrid.css`, avec des jetons existants.
-- L'e2e `toolbar.cjs` compte 5 boutons d'ajout.
-- i18n `ui-table-*` et `ui-undo-*` dans les 20 locales, dans le même ordre de
-  clés partout.
-- L'aide (`docs/aide/en.json` et `fr.json`) est mise à jour :
-  - les listes d'ajout et de widgets (14) ;
-  - le type `p.host` (chart, table) ;
-  - un paragraphe sur le tableau.
+- `ChartDataOp` becomes `DataOp` in `chart/chartTypes.ts`, and the
+  `set_data` op is sent.
+- Insertion:
+  - `ADD_KINDS` gains `"table"`;
+  - `newElement` uses `starterTable()`, with "Colonne n" (Column n) headers
+    in the user's language;
+  - `Icon.table`;
+  - the `[table]` branches of `ui-add-kind` and `ui-undo-add`.
+- `hasOwnPanel(kind)` lives in a neutral module (`ownPanel.ts`) and serves
+  `TargetPanel` as well as `useTargetSettings`.
+- `ui/src/table/TablePanel.tsx`:
+  - the header, 1st column and striping toggles, which send
+    `set_table_option`;
+  - **a per-column alignment selector** (the grid exposes no selected
+    column);
+  - `ChartDataGrid`:
+    - with `firstColumnIsLabel` following `header-column`;
+    - with a new `newColumnName` prop, so that "Ajouter une colonne" (Add a
+      column) names the column "Colonne n" (Column n) and not "Série n"
+      (Series n);
+  - the "Afficher en graphique" (Show as chart) button.
+- `ChartPanel` gains the "Afficher en tableau" (Show as table) button. Its group
+  has its own class, so as not to hijack the stacking test.
+- Both buttons call `api.showAs`, a single undoable request. If the
+  conversion is rejected (text in a value column, table too
+  large), the error is shown.
+- CSS: `.table-align`, in `ChartDataGrid.css`, with existing tokens.
+- The `toolbar.cjs` e2e counts 5 add buttons.
+- i18n `ui-table-*` and `ui-undo-*` in the 20 locales, in the same key order
+  everywhere.
+- The help (`docs/aide/en.json` and `fr.json`) is updated:
+  - the add and widget lists (14);
+  - the `p.host` type (chart, table);
+  - a paragraph about the table.
 
 ## Tests
 
-- `oku-slides-chart`, `table_tests.rs` :
-  - les bornes de validation, y compris pile à la limite ;
-  - lignes irrégulières, texte trop long, `align` trop long ;
-  - la synchronisation de `align` (insertion en 0, à `align.len()`, au-delà ;
-    suppression ; remplacement) ;
-  - le refus d'une op qui dépasse les limites ;
-  - le patch qui refuse `dataset` ;
-  - la localisation des raisons ;
-  - la conversion dans les deux sens (lignes courtes, limites, une série par
-    colonne).
-- `oku-slides-core`, `tests/tables.rs` :
-  - l'ajout, le remplacement et l'imbrication dans une pile d'un tableau,
-    valide ou non ;
-  - `SetParam` d'un objet invalide ;
-  - `SetData` et `SetTableOption`, et les refus qui laissent le deck intact ;
-  - `set_chart_option` appliqué à un tableau ;
-  - `validate`, sur un tableau valide comme invalide ;
+- `oku-slides-chart`, `table_tests.rs`:
+  - the validation bounds, including exactly at the limit;
+  - irregular rows, text too long, `align` too long;
+  - the synchronization of `align` (insertion at 0, at `align.len()`, beyond;
+    deletion; replacement);
+  - rejection of an op that exceeds the limits;
+  - the patch that rejects `dataset`;
+  - localization of the reasons;
+  - conversion in both directions (short rows, limits, one series per
+    column).
+- `oku-slides-core`, `tests/tables.rs`:
+  - adding, replacing and nesting in a stack a table,
+    valid or not;
+  - `SetParam` of an invalid object;
+  - `SetData` and `SetTableOption`, and the rejections that leave the deck intact;
+  - `set_chart_option` applied to a table;
+  - `validate`, on a valid as well as an invalid table;
   - `ops_schema`.
 
-  `value_tests.rs` gagne ses cas `host(table)`.
-- `oku-slides-render`, `tests/tables.rs`, par empreintes de page :
-  - un tableau réduit tient dans son cadre : un rectangle opaque qui couvre le
-    cadre rend la page identique avec ou sans tableau ;
-  - en flux, la boîte d'un tableau haut reste dans la page ;
-  - le substitut diffère d'un élément inconnu ;
-  - l'en-tête de colonne, l'alignement, le zébrage et les jetons changent la
-    page, et `end` égale `auto` sur une colonne de nombres ;
-  - les données mal formées ou trop grandes d'un deck donnent le substitut et
-    compilent ;
-  - le texte balisé (`#panic`, `$x$`…) reste littéral ;
-  - un golden pixel.
-- `oku-slides-session` :
-  - `show_as` dans les deux sens, en une étape annulable ;
-  - l'annulation de `set_data` et de `set_table_option` ;
-  - le refus d'un tableau trop grand.
-- `oku-slides-mcp` : le schéma d'`apply` nomme `set_data` et
-  `set_table_option`, et l'outil `show_as` existe.
-- UI :
-  - `tableDeck`, `ownPanel`, `TablePanel` (options, alignement, grille,
-    conversion) ;
-  - `TargetPanel` et `useTargetSettings` pour un tableau ;
-  - `newElement`, `slideTools` ;
-  - le test d'empilement de `ChartPanel`.
+  `value_tests.rs` gains its `host(table)` cases.
+- `oku-slides-render`, `tests/tables.rs`, by page fingerprints:
+  - a shrunk table fits in its frame: an opaque rectangle covering the
+    frame renders the page identically with or without the table;
+  - in a flow, the box of a tall table stays within the page;
+  - the placeholder differs from an unknown element;
+  - the column header, alignment, striping and tokens change the
+    page, and `end` equals `auto` on a column of numbers;
+  - malformed or oversized data in a deck give the placeholder and
+    compile;
+  - marked-up text (`#panic`, `$x$`…) stays literal;
+  - a pixel golden.
+- `oku-slides-session`:
+  - `show_as` in both directions, in a single undoable step;
+  - undoing `set_data` and `set_table_option`;
+  - rejection of a table that is too large.
+- `oku-slides-mcp`: the `apply` schema names `set_data` and
+  `set_table_option`, and the `show_as` tool exists.
+- UI:
+  - `tableDeck`, `ownPanel`, `TablePanel` (options, alignment, grid,
+    conversion);
+  - `TargetPanel` and `useTargetSettings` for a table;
+  - `newElement`, `slideTools`;
+  - the `ChartPanel` stacking test.

@@ -1,177 +1,177 @@
-# ADR-0006 : Le deck en un seul arbre Loro, suppression douce
+# ADR-0006: Deck as a single Loro tree, soft delete
 
-- **Statut :** accepté
-- **Remplacé en partie par :** [ADR-0007](0007-compaction-des-noeuds-morts.md)
+- **Status:** accepted
+- **Partly superseded by:** [ADR-0007](0007-compaction-des-noeuds-morts.md)
   (compaction)
-- **Date :** 2026-10-10
-- **Tâches :** t-746, t-747, t-776, t-809
-- **Remplace en partie :**
-  [ADR-0005](0005-elements-d-une-slide-en-arbre-loro.md) (un arbre par
-  slide, `@slot` par id de parent, suppression par `tree.delete`) et
-  [ADR-0002](0002-sources-du-deck-en-crdt-loro.md) (slides en
+- **Date:** 2026-10-10
+- **Tasks:** t-746, t-747, t-776, t-809
+- **Partly supersedes:**
+  [ADR-0005](0005-elements-d-une-slide-en-arbre-loro.md) (one tree per
+  slide, `@slot` by parent id, deletion by `tree.delete`) and
+  [ADR-0002](0002-sources-du-deck-en-crdt-loro.md) (slides as
   `LoroMovableList`)
-- **Sonde :** `crates/oku-slides-core/tests/loro_deck_tree_probe.rs`
-  (complète `loro_tree_probe.rs`)
+- **Probe:** `crates/oku-slides-core/tests/loro_deck_tree_probe.rs`
+  (complements `loro_tree_probe.rs`)
 
-## Contexte
+## Context
 
-- **Un arbre par slide.** Passer un élément d'une slide à l'autre est une
-  copie suivie d'une suppression : l'édition concurrente est perdue.
-  L'interface ne déplaçait d'ailleurs jamais un élément d'une slide à l'autre :
-  couper retirait l'élément, coller posait une copie aux ids renouvelés.
-- **`tree.delete`.** Loro ne ressuscite jamais un nœud. Défaire un retrait
-  recrée une copie, et le `mov` ou l'édition concurrente d'un pair est perdue.
-- **Slides en `LoroMovableList`.** Défaire un retrait face au `mov` d'un pair
-  laisse deux slides (t-652), et la parade t-263 impose un commit par `mov`.
+- **One tree per slide.** Moving an element from one slide to another is a
+  copy followed by a deletion: the concurrent edit is lost.
+  The interface, for that matter, never moved an element from one slide to another:
+  cut removed the element, paste placed a copy with renewed ids.
+- **`tree.delete`.** Loro never resurrects a node. Undoing a removal
+  recreates a copy, and a peer's concurrent `mov` or edit is lost.
+- **Slides as `LoroMovableList`.** Undoing a removal against a peer's `mov`
+  leaves two slides (t-652), and the t-263 workaround requires one commit per `mov`.
 
-## Décision
+## Decision
 
-- **Un seul `LoroTree`**, sous `deck.slides`. Les racines, et elles seules,
-  sont les slides : leur méta est la slide sans ses slots, plus
-  `@slide = true`. Les descendants sont les éléments. Ordre fractionnaire,
+- **A single `LoroTree`**, under `deck.slides`. The roots, and only they,
+  are the slides: their meta is the slide without its slots, plus
+  `@slide = true`. The descendants are the elements. Fractional order,
   jitter 0.
-- **`@slot`** est une carte **fusionnable** (`ensure_mergeable_map`) :
-  { `TreeID` du parent, en `counter@peer` → nom du slot }, à tous les
-  niveaux (slide, élément, élément imbriqué). Deux pairs qui la créent en
-  parallèle gardent leurs deux entrées (t-188).
-- **Suppression douce.** Retirer un nœud pose une marque `@deleted/<pair>` =
-  l'heure Unix de sa pose (t-770) dans sa méta, jamais `tree.delete`. La marque
-  est par pair, et non partagée : avec une marque commune, l'annulation de A effacerait la suppression
-  concurrente de B (sonde, `p1_concurrent_double_soft_delete_then_one_undo`
-  contre `p1_per_peer_mark_keys_survive_a_concurrent_undo`). Un nœud est
-  supprimé tant qu'il porte une marque. La réconciliation ne retire jamais la
-  marque d'un retrait, et un id réajouté crée un nœud neuf.
-- **Naissance marquée (t-776).** Une création, dans une étape annulable, naît
-  marquée dans un commit silencieux, puis la marque est retirée dans l'étape :
-  défaire l'ajout remet la marque au lieu d'un `tree.delete` de Loro. Tous les
-  nœuds d'une réconciliation naissent ensemble, en un seul commit (créés en fin
-  de leur parent, dans l'ordre des propriétaires), avant le placement ; le
-  placement les traite comme présents et ne les déplace que s'ils sont mal
-  rangés. Sans étape (`new`, `apply_silent`), la création reste directe.
-- **Lecture et écriture ne descendent jamais sous un nœud marqué** : un nœud
-  vivant sous un parent marqué est caché avec lui.
-- **Entrée stricte.** À l'import et à la fusion, sont refusés (`Corrupted`) :
-  une `@slide` hors racine, une marque ou un `@slot` mal formé. Seul ce
-  qu'aucun chemin du code ne produit, annuler et rétablir compris, est
-  refusé ; chaque refus se justifie ainsi. Une racine sans `@slide` est
-  acceptée et ignorée avec son sous-arbre : c'est le nœud vide que Loro crée en
-  défaisant un `mov` dont la cible a disparu.
-  L'état d'un snapshot reçu n'est jamais lu : ses opérations sont rejouées
-  dans un document neuf (un snapshot *shallow* est refusé). Sur ce document,
-  avant tout autre contrôle : aucun arbre autre que `deck.slides` ; tous les
-  nœuds, supprimés compris, à 1024 niveaux au plus (t-809, sonde
+- **`@slot`** is a **mergeable** map (`ensure_mergeable_map`):
+  { parent `TreeID`, as `counter@peer` → slot name }, at every
+  level (slide, element, nested element). Two peers that create it in
+  parallel keep both their entries (t-188).
+- **Soft delete.** Removing a node sets a mark `@deleted/<peer>` =
+  the Unix time it was set (t-770) in its meta, never `tree.delete`. The mark
+  is per peer, and not shared: with a common mark, A's undo would erase B's concurrent
+  deletion (probe, `p1_concurrent_double_soft_delete_then_one_undo`
+  versus `p1_per_peer_mark_keys_survive_a_concurrent_undo`). A node is
+  deleted as long as it carries a mark. Reconciliation never removes the
+  mark of a removal, and a re-added id creates a new node.
+- **Marked birth (t-776).** A creation, within an undoable step, is born
+  marked in a silent commit, then the mark is removed within the step:
+  undoing the addition restores the mark instead of a Loro `tree.delete`. All the
+  nodes of a reconciliation are born together, in a single commit (created at the end
+  of their parent, in owner order), before placement; the
+  placement treats them as present and moves them only if they are
+  misplaced. Without a step (`new`, `apply_silent`), creation stays direct.
+- **Reading and writing never descend below a marked node**: a
+  live node under a marked parent is hidden with it.
+- **Strict input.** On import and on merge, the following are rejected (`Corrupted`):
+  a `@slide` outside the roots, a malformed mark or `@slot`. Only what
+  no code path produces, undo and redo included, is
+  rejected; each rejection is justified that way. A root without `@slide` is
+  accepted and ignored with its subtree: it is the empty node that Loro creates when
+  undoing a `mov` whose target has disappeared.
+  The state of a received snapshot is never read: its operations are replayed
+  into a new document (a *shallow* snapshot is rejected). On that document,
+  before any other check: no tree other than `deck.slides`; all
+  nodes, deleted ones included, at most 1024 levels deep (t-809, probe
   `tests/loro_depth_probe.rs`).
-- **Appariement.** L'identité d'un objet est l'`id` de sa méta, jamais le
-  `TreeID`. Les slides s'apparient d'abord, puis les éléments dans leur slide,
-  puis d'une slide à l'autre, **seulement** pour un déplacement annoncé par
-  `move_element`, ou déduit sans ambiguïté : un id unique des deux côtés, entre
-  deux slides gardées, de même `kind`. Un nœud marqué n'est jamais apparié.
-- **Un déplacement annoncé fait foi**, même si la slide d'origine est retirée
-  dans la même transaction (vider une slide dans une autre, puis la retirer) :
-  l'élément en sort avec l'édition concurrente du pair, et ses descendants
-  non voulus sont marqués. Une slide retirée n'est jamais l'origine d'un
-  déplacement déduit.
-- **Chemins qui produisent un déplacement entre slides :** l'op
-  `move_element` (outil `apply` de l'agent, couper-coller de l'interface), et
-  un `apply` qui retire un id d'une slide et l'ajoute dans une autre, sous les
-  conditions du déplacement déduit.
-- **La parade t-263 ne reste que pour les listes** (items, `dataset`).
+- **Matching.** An object's identity is the `id` of its meta, never the
+  `TreeID`. Slides are matched first, then elements within their slide,
+  then from one slide to another, **only** for a move announced by
+  `move_element`, or inferred without ambiguity: an id unique on both sides, between
+  two kept slides, with the same `kind`. A marked node is never matched.
+- **An announced move is authoritative**, even if the source slide is removed
+  in the same transaction (emptying a slide into another, then removing it):
+  the element leaves it with the peer's concurrent edit, and its unwanted
+  descendants are marked. A removed slide is never the source of an
+  inferred move.
+- **Paths that produce a move between slides:** the
+  `move_element` op (the agent's `apply` tool, the interface's cut and paste), and
+  an `apply` that removes an id from one slide and adds it to another, under the
+  conditions of the inferred move.
+- **The t-263 workaround remains only for lists** (items, `dataset`).
 
-### Lecture
+### Reading
 
-- **Nœud vide.** Un nœud dont la méta n'a aucune clé est ignoré avec son
-  sous-arbre, sans `Issue` : il naît d'un chemin normal (deux annulations
-  croisées) et ne porte aucune donnée.
-- **Slot résolu.** Les clés de `@slot` sont relues par `TreeID::try_from` et
-  ne comptent que si elles sont canoniques. Quand le parent a changé (parent
-  recréé par « rétablir »), la réparation est silencieuse si les clés des
-  parents disparus donnent toutes le même slot ; les entrées de parents
-  vivants mais périmés sont ignorées. Sinon `issue-slot-repaired` est émise
-  (sonde, `p9_tree_id_string_key_is_stable_across_snapshot_and_peers`).
-- **Ordre des slides.** Les racines non marquées qui portent `@slide = true`,
-  dans l'ordre de Loro.
+- **Empty node.** A node whose meta has no key is ignored with its
+  subtree, without an `Issue`: it is born from a normal path (two crossed
+  undos) and carries no data.
+- **Resolved slot.** The `@slot` keys are read back through `TreeID::try_from` and
+  count only if they are canonical. When the parent has changed (parent
+  recreated by "redo"), the repair is silent if the keys of the
+  vanished parents all give the same slot; entries of live but stale
+  parents are ignored. Otherwise `issue-slot-repaired` is emitted
+  (probe, `p9_tree_id_string_key_is_stable_across_snapshot_and_peers`).
+- **Slide order.** The unmarked roots that carry `@slide = true`,
+  in Loro's order.
 
-## Compatibilité
+## Compatibility
 
-Aucune. `REPLICA_FORMAT` passe de 2 à 3 et `SOURCES_VERSION` de 8 à 9.
+None. `REPLICA_FORMAT` goes from 2 to 3 and `SOURCES_VERSION` from 8 to 9.
 
-- Un `deck.loro` v8 relu hors zip est refusé
-  (`replica-unsupported-version`), et la reprise de session est mise de côté
+- A v8 `deck.loro` read back outside a zip is rejected
+  (`replica-unsupported-version`), and the session resume is set aside
   (`.failed-*`).
-- Le JSON du deck ne change pas (`DECK_VERSION` reste 5). Le comportement de
-  « couper » change : couper marque l'élément, coller le déplace.
+- The deck JSON does not change (`DECK_VERSION` stays 5). The behavior of
+  "cut" changes: cut marks the element, paste moves it.
 
-## Conséquences
+## Consequences
 
-- Un déplacement entre slides, ou entre slots, garde les éditions
-  concurrentes.
-- Annuler un retrait rend le même nœud, avec le `mov` et l'édition d'un pair,
-  même reçus entre le retrait et l'annulation
+- A move between slides, or between slots, keeps the concurrent
+  edits.
+- Undoing a removal brings back the same node, with a peer's `mov` and edit,
+  even when received between the removal and the undo
   (`p1_undo_soft_delete_after_receiving_move_does_not_move_back`).
-- Un enfant qu'un pair a déplacé sous un parent retiré revient avec lui à
-  l'annulation (`p3_move_under_soft_deleted_parent_reappears_on_undo`).
-- Réordonner les slides se fait en un commit.
-- Coût mesuré par la sonde (`p8_cost_single_tree_vs_tree_per_slide`, deck de
-  40 slides × 20 éléments, une exécution debug et une release) : construction
-  6-7 ms contre 4-15 ms pour un arbre par slide, lecture brute de l'arbre
-  0,4-1,0 ms contre 0,6-1,3 ms, snapshot après 200 passages d'environ 100 Ko
-  contre 120 Ko. Ces chiffres sont indicatifs et ne couvrent pas les nœuds
-  marqués. La lecture complète du deck (`deck()`, 40×20, release) mesure
-  environ 6,5 ms, comme avant la migration.
+- A child that a peer moved under a removed parent comes back with it on
+  undo (`p3_move_under_soft_deleted_parent_reappears_on_undo`).
+- Reordering slides takes one commit.
+- Cost measured by the probe (`p8_cost_single_tree_vs_tree_per_slide`, deck of
+  40 slides × 20 elements, one debug run and one release run): build
+  6-7 ms versus 4-15 ms for one tree per slide, raw tree read
+  0.4-1.0 ms versus 0.6-1.3 ms, snapshot after 200 passes of about 100 KB
+  versus 120 KB. These figures are indicative and do not cover marked
+  nodes. A full deck read (`deck()`, 40×20, release) measures
+  about 6.5 ms, as before the migration.
 
-## Limites
+## Limits
 
-- **Les nœuds marqués restent jusqu'à `compact_after_days` d'activité
-  (ADR-0007).** Le snapshot grandit entre-temps, et la lecture comme chaque
-  `apply` coûtent O(vivants + marqués), car `children()` rend aussi les
-  marqués. `max_replica_bytes` n'est vérifié qu'à l'import : un deck très
-  retouché peut un jour être refusé à la reprise.
-- **Le contrôle d'entrée (`check_trees`) coûte O(tous les nœuds)**, marqués
-  et descendants de marqués compris, à chaque import et chaque fusion. Mesure
-  de la revue finale, 40×20 après environ 10 000 nœuds marqués :
-  `from_snapshot` 69 ms contre 22 ms avant la migration, `merge` 96 ms contre
+- **Marked nodes remain until `compact_after_days` of activity
+  (ADR-0007).** The snapshot grows in the meantime, and reading as well as each
+  `apply` cost O(live + marked), because `children()` also returns the
+  marked ones. `max_replica_bytes` is checked only on import: a heavily
+  edited deck may one day be rejected on resume.
+- **The input check (`check_trees`) costs O(all nodes)**, marked ones
+  and descendants of marked ones included, on every import and every merge. Measurement
+  from the final review, 40×20 after about 10,000 marked nodes:
+  `from_snapshot` 69 ms versus 22 ms before the migration, `merge` 96 ms versus
   55 ms.
-- **L'ouverture rejoue tout l'historique** (chaîne de 100 000 ops : ~60 ms ;
-  1 M : ~0,8 s ; arbre large d'un million de nœuds : ~10 s). Les valeurs
-  plates imbriquées (t-223) restent hors borne.
-- Le rejeu à l'ouverture (t-809), comme une fusion, réunit en un seul change
-  les changes consécutifs d'un même pair, de même message, dans la même
-  seconde (Loro 1.16.2, intervalle fixe) : deux éditions de même libellé dans
-  la même seconde ne font plus qu'une version après réouverture.
-- Une marque d'une session close ne s'annule plus : la pile d'annulation repart
-  de zéro à la reprise.
-- **Défaire un ajout cache aussi ce qu'un pair a déplacé dessous** ; le ⌘Z du
-  pair, ou le rétablir, le rend. Défaire l'ajout laisse le nœud, réduit à sa
-  marque (son `id` part avec l'étape). Une application qui crée des nœuds coûte
-  un commit silencieux de plus (et une partie), quel que soit leur nombre, et l'étape reste à un item. Mesure (release, médianes de 5 en
-  alternance, machine très chargée, load ~370), collage de n éléments, sans
-  puis avec naissance marquée : n=50 à plat apply 2,7 → 2,2 ms, ⌘Z 3,0 → 2,4 ms ;
-  n=50 imbriqués 6,0 → 5,7 ms, 5,9 → 8,7 ms ; n=500 à plat 23 → 20 ms, 26 → 37 ms ;
-  n=500 imbriqués 53 → 50 ms, 90 → 97 ms (⌘Z ×1,1 à ×1,5). Naître marqué
-  nœud par nœud coupait l'étape en un item par nœud (⌘Z de 500 imbriqués :
-  82 s) : d'où la naissance groupée. Le rapport de fusion ne compte pas les
-  parties.
-- Un élément déplacé sous un élément, ou dans une slide, retiré en parallèle
-  est caché avec lui ; l'annulation du retrait le rend.
-- Sans `move_element`, un id qui figure dans plusieurs slides n'est jamais
-  apparié d'une slide à l'autre : son édition concurrente suit la règle
-  d'avant (perdue).
-- Retirer un id d'une slide et l'ajouter dans une autre, dans un même
-  `apply`, vaut déplacement quand le déplacement est déduit : l'édition
-  concurrente du pair suit le nœud.
-- Un id réajouté, puis l'annulation de l'ancien retrait, laissent deux nœuds
-  au même id, réparés à la lecture (t-652).
-- Le jitter 0 et le `Rearrange` implicite touchent désormais aussi **l'ordre
-  des slides** : deux insertions concurrentes de slides au même rang, puis une
-  insertion entre elles, peuvent ramener une slide qu'un pair déplaçait.
-- Un replica forgé dont l'arbre est mal formé est refusé en bloc, à l'import
-  comme à la fusion.
-- **Limite de confiance.** Un pair peut supprimer n'importe quel nœud, slide
-  ou élément, par une marque `@deleted/<pair>`, comme il le pouvait par
-  `tree.delete`. La marque est bien formée, donc acceptée. Seule l'annulation
-  du pair qui l'a posée la retire : la marque d'un pair absent, ou d'une
-  session close, cache le nœud pour de bon, sans `Issue`.
-- Un nœud vide naît d'un `mov` défait dont la cible a été compactée (ADR-0007).
-- Loro reste figé par `Cargo.lock` (1.16.2). Pas de `cargo update -p loro`
-  sans relancer `tests/loro_tree_probe.rs` et
+- **Opening replays the whole history** (chain of 100,000 ops: ~60 ms;
+  1 M: ~0.8 s; wide tree of one million nodes: ~10 s). Nested flat
+  values (t-223) remain unbounded.
+- The replay on opening (t-809), like a merge, combines into a single change
+  the consecutive changes of the same peer, with the same message, within the same
+  second (Loro 1.16.2, fixed interval): two edits with the same label within
+  the same second become a single version after reopening.
+- A mark from a closed session can no longer be undone: the undo stack starts
+  from scratch on resume.
+- **Undoing an addition also hides what a peer moved beneath it**; the peer's
+  ⌘Z, or redo, brings it back. Undoing the addition leaves the node, reduced to its
+  mark (its `id` goes away with the step). An application that creates nodes costs
+  one more silent commit (and one more part), whatever their number, and the step stays at one item. Measurement (release, medians of 5
+  alternating, heavily loaded machine, load ~370), pasting n elements, without
+  then with marked birth: n=50 flat apply 2.7 → 2.2 ms, ⌘Z 3.0 → 2.4 ms;
+  n=50 nested 6.0 → 5.7 ms, 5.9 → 8.7 ms; n=500 flat 23 → 20 ms, 26 → 37 ms;
+  n=500 nested 53 → 50 ms, 90 → 97 ms (⌘Z ×1.1 to ×1.5). Being born marked
+  node by node split the step into one item per node (⌘Z of 500 nested:
+  82 s): hence the grouped birth. The merge report does not count the
+  parts.
+- An element moved under an element, or into a slide, removed in parallel
+  is hidden with it; undoing the removal brings it back.
+- Without `move_element`, an id that appears in several slides is never
+  matched from one slide to another: its concurrent edit follows the earlier
+  rule (lost).
+- Removing an id from one slide and adding it to another, in the same
+  `apply`, counts as a move when the move is inferred: the peer's concurrent
+  edit follows the node.
+- A re-added id, followed by undoing the earlier removal, leaves two nodes
+  with the same id, repaired on read (t-652).
+- Jitter 0 and the implicit `Rearrange` now also affect **slide
+  order**: two concurrent slide insertions at the same rank, followed by an
+  insertion between them, can bring back a slide that a peer was moving.
+- A forged replica whose tree is malformed is rejected as a whole, on import
+  as on merge.
+- **Trust limit.** A peer can delete any node, slide
+  or element, with a `@deleted/<peer>` mark, as it could with
+  `tree.delete`. The mark is well formed, hence accepted. Only the undo
+  of the peer that set it removes it: the mark of an absent peer, or of a
+  closed session, hides the node for good, without an `Issue`.
+- An empty node is born from an undone `mov` whose target was compacted (ADR-0007).
+- Loro stays pinned by `Cargo.lock` (1.16.2). No `cargo update -p loro`
+  without rerunning `tests/loro_tree_probe.rs` and
   `tests/loro_deck_tree_probe.rs`.

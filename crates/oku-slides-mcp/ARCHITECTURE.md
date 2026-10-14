@@ -1,110 +1,48 @@
 # oku-slides-mcp
 
-Sert les outils MCP de l'agent d'Oku Slides, en HTTP streamable sur
-`127.0.0.1` avec un jeton par lancement.
+Serves the agent's MCP tools for one tab, over streamable HTTP on `127.0.0.1` with a random
+bearer token per launch, and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent
+thread and dock.
 
 ## Modules
 
-- `error` : `McpError`, opaque, `Localize` → `agent-tools-unavailable`.
-- `settings` : `SettingsPort` (hôte), `Applied`, liste blanche des clés écrites par l'agent.
-- `hub` : `SurfaceHub` (surfaces ouvertes, identifiants, évènements vers
-  l'interface via `McpEvent`). La liste des surfaces ouvertes n'est changée
-  que par `emit` (et par `act`, qui en retire une question répondue ou y
-  recopie un réglage) ; `resync` annonce la portée vue (`Viewing`) puis la renvoie entière (`McpEvent::Surfaces`),
-  remplie par `emit` sous le même verrou. `close` (onglet fermé) relâche les
-  questions en attente et rend `Cancelled` à toute question ultérieure.
-  Plusieurs questions peuvent attendre ensemble (appels `ask_*` parallèles) : chacune est
-  vivante au dock et répond à son identifiant (`act`) ; une consigne en réponse (`answer`)
-  nomme aussi la question : celle que l'interface désigne aux touches 1–4 (`quickTarget`), le
-  hub ne devine pas (il ne voit pas la slide affichée). Une question entre dans la liste des
-  ouvertes sous le verrou qui l'enregistre : une question en attente est toujours affichée.
-  Découpé en `hub/asks.rs` (questions en attente, confirmations, permissions) et
-  `hub/actions.rs` (actions des surfaces persistantes, `SurfaceAction`, élagage `prune`).
-  Une action refusée rend une `HubError` (`hub/error.rs`, `HubErrorKind`) : `Localize` la dit dans
-  la langue de l'utilisateur (clés `agent-error-*`), avec des arguments sûrs seulement (nom d'action) ;
-  l'hôte l'envoie telle quelle à l'interface, qui l'affiche, et journalise l'erreur complète.
-- `hub_turns` : les tours du fil (numéros, tour ouvert `turn`, rangement dans le tour de l'appel,
-  gel des questions répondues, éviction, `STATIC_PER_TURN`) ; `McpEvent::SurfacePatch` met à
-  jour une surface ouverte.
-- `surface_tools` : `report` (fin de tour, reçu ; hors tour : refusé) et `render` (composition A2UI
-  libre, validée par `oku-slides-session`) avec les outils `ask_*` et `show_*`.
-  `ask_choice` et `ask_rewrite` ancrés vérifient d'abord la portée du tour (`check_anchor_scope` : une portée
-  Widget est refusée par `ToolError::AnchorScope`), puis l'adresse contre le deck ; ces contrôles précèdent
-  l'affichage de toute surface.
-- `tools` : `Tools`, la liste des outils et leurs schémas d'entrée
-  (`nest_schema` adapte JSON Schema à MCP 1.x).
-- `read_tools` : outils de lecture (`deck_outline`, `slide`, `render_slide`, `templates`, `widgets`, `settings`).
-- `widget_tools.rs` : sources, écriture (`widget_touched` en mode modèles), aperçu et essais
-  (`set_widget_trial`) des widgets. Un `widget_touched` perdu quand le relais prend du retard n'est
-  pas rejoué (seuls `Changed` et `Surfaces` le sont) ; le widget s'ouvre alors au prochain clic.
-- `tool_error` : `ToolError` (Snafu), l'erreur de tout outil. `Tools::fail_with` la journalise en
-  entier et la dit à l'agent dans la langue de l'utilisateur (clés `agent-error-*`, arguments sûrs
-  seulement : nom d'outil, clé de réglage, nom d'action, et pour des arguments invalides le
-  reproche de serde sans position, pour que l'agent corrige son appel) ; `Tools::parse`, `with_session`,
-  `json_result` et `reply` y passent. `error::say_session` dit une erreur de la session sans chemin
-  de fichier : aucune erreur envoyée à l'agent ou à l'interface ne contient de chemin absolu.
-- `guarded_tools` : outils confirmés par l'utilisateur (`save`, `open`, `new`, `save_templates`,
-  `delete_template_set`, `edit_theme`, `set_setting`). `edit_theme` édite ou renomme un thème depuis
-  le mode deck (requête `EditTheme`) : l'agent n'entre pas dans l'atelier pour un thème.
-- `handler` : `ServerHandler` pour `Tools` (liste et appel, journalisés).
-- `server` : `ToolServer`, le serveur HTTP (port choisi par le système,
-  jeton porteur).
-- Bornes du serveur : `[serve] header_timeout_ms` / `max_connections` (lues par `Tools::new`) via `oku_slides_platform::serve_connections`, arrêt borné par `SHUTDOWN_GRACE` (1 s), 401 avec `Connection: close` ; le jeton est comparé par condensat SHA-256 (`token_matches`), le middleware ne garde pas le jeton en clair.
+- `server` : `ToolServer`, the HTTP server (system-chosen port, token compared by SHA-256 in
+  `token_matches`, bounded by `[serve]` limits and `SHUTDOWN_GRACE`).
+- `handler` : the `ServerHandler`; `Tools::call` dispatches a call to its tool.
+- `tools` : `Tools`, the tool list (`list`) and input schemas (`nest_schema` adapts JSON Schema
+  to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
+- Tool families: `read_tools` (outline, slide, render, templates, widgets, settings),
+  `edit_tools` (undoable deck edits), `widget_tools` (sources, preview, trials),
+  `guarded_tools` (user-confirmed: `save`, `open`, `new`, `edit_theme`, `set_setting`…),
+  `surface_tools` (`report`, `render`, `ask_*`, `show_*`).
+- `tool_error` : `ToolError`; `Tools::fail_with` logs it whole and tells the agent a localized
+  message. `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.
+- `settings` : `SettingsPort` (implemented by the host), `Applied`, the agent's key whitelist.
+- `hub` : `SurfaceHub`, open surfaces and events to the UI (`McpEvent`); `emit` alone changes
+  the open list; `resync` resends it whole. `hub/asks` (pending questions, confirmations,
+  permissions), `hub/actions` (`SurfaceAction`, `act`, `prune`), `hub/error` (`HubError`,
+  `HubErrorKind`).
+- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`),
+  freezing answered questions, eviction past `KEPT_TURNS` per scope.
+- `hub_scopes` : turns filed by scope; only the viewed thread is sent. The hub never touches
+  the session; the agent's tab keeper persists the thread.
 
-## Tour d'un appel d'outil
+## Turn of a tool call
 
-Une surface du fil va dans le tour **pendant lequel son appel est arrivé**, jamais dans celui
-qui est ouvert quand elle s'affiche. `Tools::call` lit le tour ouvert (`SurfaceHub::turn`)
-avant tout travail et le passe explicitement au hub : `show_static(turn, …)` (`render`),
-`show_report(turn, …)`, `ask_then(turn, …)` (question sans ancre), `show_params(turn, …)`.
-Le hub n'accepte une surface d'outil que si `turn` est encore le tour ouvert : l'appel tardif
-d'un tour annulé ou clos (resté bloqué sur la session pendant que le tour suivant s'ouvrait)
-est refusé, et ne touche jamais au reçu (de repli ou non) d'un autre tour. Seuls le gel d'une
-question et le reçu de repli (`end_turn`) visent un tour qui n'est plus ouvert, tant qu'il est
-dans le fil. Une question hors fil (`ask`) n'a pas de tour.
-`show_params` et une `ask_choice` sans ancre qui arrivent entre deux tours sont toujours acceptés, sans tour (comportement inchangé).
+A thread surface goes in the turn open **when its call arrived**, not when it shows: `Tools::call`
+reads `SurfaceHub::turn` first and passes it on (`show_static`, `show_report`, `ask_then`,
+`show_params`). A late call from a closed turn is refused. The server stamps calls itself
+because the agent does not know turn numbers; ACP events carry theirs (`oku-slides-agent`).
 
-Choix du mécanisme : un jeton de tour que l'agent renverrait à chaque appel (argument d'outil,
-ou une session MCP par tour) dépendrait de l'agent et alourdirait chaque schéma ; le serveur
-estampille donc l'appel à son arrivée. Reste une fenêtre étroite : une requête envoyée par
-l'agent avant la fin de son tour mais reçue après l'ouverture du suivant (en pratique, l'agent
-envoie ses appels avant de rendre la réponse du tour). Les évènements ACP, eux, portent leur
-tour (`oku-slides-agent`, `AgentEvent`).
+## Extension points
 
-## Éviction d'un tour
+- New settings host: implement `SettingsPort`.
+- New tool: an entry in `tools::list` and an arm in `Tools::call`; its errors are `ToolError`
+  variants with a Fluent key.
 
-L'éviction se fait **par portée**, dans `begin_turn` : au-delà de `KEPT_TURNS` tours
-(`oku-slides-session::agent`) d'une même portée, tours relus compris, les plus anciens de cette
-portée sont évincés ; les autres portées gardent les leurs. `close_turn` ferme **toutes** les
-surfaces d'un tour évincé, vivantes comprises. L'éviction du réducteur des tours de l'agent
-(`TurnOut::Evict`, même règle par portée) rappelle `close_turn` sur un tour déjà fermé : redondant
-mais sans effet (idempotent). Des réglages (`show_params`) restés au dock
-depuis ce tour disparaissent donc sans être figés (leur tour n'est plus là pour les recevoir) ;
-une action tardive sur eux est refusée. C'est voulu : un réglage n'appartient qu'à son tour, et
-ce cas suppose `KEPT_TURNS` tours sans nouveaux réglages ni fermeture. Une question en attente
-d'un tour évincé n'existe pas en pratique : chaque nouveau tour relâche les questions (`cancel_asks`).
+## Dependencies
 
-## Points d'extension
-
-- Un nouvel hôte de réglages : implémenter `SettingsPort`.
-- Un nouvel outil : une entrée dans `tools::list` et un bras dans
-  `Tools::call` (`handler.rs`) ; ses erreurs passent par `ToolError` et `Tools::fail_with`
-  (une variante, sa clé Fluent dans les 20 langues).
-
-## Dépendances
-
-`oku-slides-session` pour la session éditée : `Tools` et `SurfaceHub` la
-reçoivent sous la forme d'une `TabSession` (un onglet, fourni par l'hôte) ;
-`rust-mcp-sdk` et
-`rust-mcp-axum` en 1.x, car cette version du protocole (`2025-11-25`) est
-celle que les clients des agents embarquent encore, alors que la 2.0 du SDK
-n'accepte que le protocole `2026-07-28`. La migration vers 2.x restera
-locale à `server.rs`, `handler.rs` et `tools.rs`.
-
-## Sécurité
-
-Le serveur n'écoute que sur `127.0.0.1`, sur un port choisi par le système.
-Chaque lancement tire un jeton aléatoire, exigé en en-tête `Authorization`
-(`Bearer <jeton>`) ; il n'est jamais journalisé.
-
-Le hub range chaque tour dans sa portée et n'envoie que le fil vu (`hub_scopes.rs`) ; il ne touche pas à la session.
+`oku-slides-session` (the tab's `TabSession`, agent surfaces), `oku-slides-core`,
+`oku-slides-a2ui`, `oku-slides-chart`, `oku-slides-i18n`, `oku-slides-platform` (listener),
+`rust-mcp-sdk` and `rust-mcp-axum` 1.x (protocol `2025-11-25`); a 2.x migration stays local to
+`server.rs`, `handler.rs` and `tools.rs`.

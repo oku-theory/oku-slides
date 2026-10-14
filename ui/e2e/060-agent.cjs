@@ -5,8 +5,8 @@
 // (`config.toml` du dossier de données isolé ; just e2e s'en charge).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
-const { until } = require('./until.cjs');
+const { post } = require('./lib/http.cjs');
+const { until } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
 const api = (p, req, tab = 't-1') => post(p, '/api', { tab, req });
@@ -118,7 +118,7 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  // tabs.cjs laisse un autre onglet actif : celui du fichier (t-1) repasse devant.
+  // 040-tabs.cjs laisse un autre onglet actif : celui du fichier (t-1) repasse devant.
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
   await p.waitForSelector('.stage img');

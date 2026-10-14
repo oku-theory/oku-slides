@@ -1,10 +1,10 @@
 // Trois colonnes : pile, feuille, fil de l'agent avec la dictée ; aucune ne chevauche sa voisine,
 // et le fil (surfaces a2ui) occupe une large part de la table.
-// Lancer : just e2e (serveur neuf, port 4872). À la main : bun e2e/layout.cjs, E2E_URL = adresse du serveur.
+// Lancer : just e2e (serveur neuf, port 4872). À la main : bun e2e/090-layout.cjs, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
-const { until, stable } = require('./until.cjs');
+const { post } = require('./lib/http.cjs');
+const { until, stable } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const COLUMNS = ['.pile', '.stage', '.notes', '.device'];
 const hostNotes = async (p) => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.notes; // null : largeur par défaut

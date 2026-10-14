@@ -4,11 +4,11 @@
 // roadmap.json n'a pas de graphique : le cas « graphique sélectionné, pas de carte » n'est pas couvert ici
 // (il l'est par les tests de session et de rendu).
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e
-// (avant widgets.cjs : l'onglet est encore en mode deck).
+// (avant 160-widgets.cjs : l'onglet est encore en mode deck).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
-const { until } = require('./until.cjs');
+const { post } = require('./lib/http.cjs');
+const { until } = require('./lib/until.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const FRISE = fs.readFileSync(path.join(__dirname, '../../fixtures/widgets/frise-test.typ'), 'utf8');
@@ -35,7 +35,7 @@ const stageReady = (p, n) =>
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   const set = await post(p, '/api', { tab: 't-1', req: { cmd: 'set_widget', name: 'frise', source: FRISE } });
   assert.ok(!set?.error, JSON.stringify(set));
-  // Dans la suite, lists.cjs a déjà posé la frise `f` sur s-constat : on la réutilise telle quelle.
+  // Dans la suite, 140-lists.cjs a déjà posé la frise `f` sur s-constat : on la réutilise telle quelle.
   if (!(await view(p)).targets?.some((t) => t.id === 'f')) {
     const made = await post(p, '/api', {
       tab: 't-1',

@@ -1,10 +1,10 @@
 // Liste au dock d'un widget du pack : le tableau (ajout, retrait) ; l'aperçu revient à l'identique.
 // Le popover d'une cellule riche s'ouvre sous sa cellule, dans le tableau.
-// Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (après widgets.cjs).
+// Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (après 160-widgets.cjs).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
-const { until } = require('./until.cjs');
+const { post } = require('./lib/http.cjs');
+const { until } = require('./lib/until.cjs');
 
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 

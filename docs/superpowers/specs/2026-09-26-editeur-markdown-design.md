@@ -1,134 +1,135 @@
-# Éditeur de texte avec rendu markdown — design
+# Text editor with markdown rendering — design
 
-Date : 2026-09-26 (revu après la revue d'équipe du plan)
+Date: 2026-09-26 (revised after the team review of the plan)
 
-## Objectif
+## Goal
 
-Dans l'éditeur posé sur une zone de texte, le markdown reste écrit tel quel
-(les marques restent visibles) mais s'affiche déjà mis en forme :
-`**montrer**` apparaît en gras, `*mot*` en italique, un lien dans l'accent du
-thème, une pastille sur son fond coloré. L'éditeur montre la même mise en
-forme que la slide ; seuls les retours à la ligne peuvent différer (les
-marques visibles prennent de la place).
+In the editor laid over a text box, markdown stays written as is
+(the marks stay visible) but is already displayed formatted:
+`**montrer**` appears in bold, `*mot*` in italic, a link in the theme
+accent, a highlight on its colored background. The editor shows the same
+formatting as the slide; only line breaks may differ (the visible marks take
+up space).
 
-Hors périmètre : masquer les marques hors de la ligne du curseur (façon
-Obsidian) ; mise en forme dans les champs (titre, sous-titre, kicker), qui
-restent du texte brut ; suivre un changement de thème pendant une édition
-(la palette est lue à l'ouverture, `t-127`) ; arbitrer une écriture
-concurrente sur le texte ouvert (agent vocal, `t-130`) : aujourd'hui la
-dernière validation l'emporte.
+Out of scope: hiding marks outside the cursor's line (Obsidian
+style); formatting in fields (title, subtitle, kicker), which stay plain
+text; following a theme change during an edit (the palette is read on open,
+`t-127`); arbitrating a concurrent write to the open text (voice agent,
+`t-130`): today the last commit wins.
 
-## Choix : CodeMirror 6
+## Choice: CodeMirror 6
 
-Une `<textarea>` n'affiche qu'un seul style. Écartés :
+A `<textarea>` displays only one style. Rejected:
 
-- `contentEditable` maison : réécrire le DOM à chaque frappe casse la
-  composition IME (japonais) et l'annulation native.
-- Calque stylé sous une textarea transparente : le vrai gras est plus large,
-  le curseur se décale.
+- Home-made `contentEditable`: rewriting the DOM on every keystroke breaks
+  IME composition (Japanese) and native undo.
+- A styled layer under a transparent textarea: real bold is wider,
+  the cursor drifts.
 
-CodeMirror 6 gère IME, sélection, collage et historique. Dépendances directes :
-`@codemirror/state`, `@codemirror/view`, `@codemirror/commands` (toutes MIT).
-`commands` tire `@codemirror/language` et le runtime Lezer (`@lezer/common`,
-`@lezer/highlight`, `@lezer/lr`) : ils sont installés, mais on ne charge
-aucune grammaire — pas de `@codemirror/lang-markdown`, les styles viennent de
-notre parseur. `useEffectEvent` demande React 19.2 au moins : les versions
-minimales de `react`, `react-dom` et de leurs types passent à `^19.3.0`.
+CodeMirror 6 handles IME, selection, paste and history. Direct dependencies:
+`@codemirror/state`, `@codemirror/view`, `@codemirror/commands` (all MIT).
+`commands` pulls in `@codemirror/language` and the Lezer runtime (`@lezer/common`,
+`@lezer/highlight`, `@lezer/lr`): they are installed, but we load no grammar
+— no `@codemirror/lang-markdown`, the styles come from our parser.
+`useEffectEvent` requires React 19.2 at least: the minimum versions of
+`react`, `react-dom` and their types move to `^19.3.0`.
 
 ## Architecture
 
-- `ui/src/markdown.ts` : le parcours du parseur enregistre des positions.
-  `markdownSpans(line): Span[]`, où `Span = { from, to, kind }` et `kind`
-  vaut `mark` (délimiteurs, `\`, `](`, `)`, `{n}`), `bold`, `italic`,
-  `link`, `url` ou `highlight` (avec `highlight: n`). `markdownToRuns`
-  repose sur le même parcours : une seule implémentation. Nouvelle
-  `listPrefix(line)` (préfixe `- ` / `1. `), partagée par `textToParagraphs`
-  (`deck.ts`) et l'éditeur : une seule règle des listes.
-- `ui/src/textEdits.ts` (nouveau) : éditions pures sur (texte, sélection) —
-  `toggleEmphasis` et `insertLink` (déplacés de `markdown.ts`, inchangés),
-  `insertDictated` (sorti de l'effet de dictée de `Stage.tsx`) et
-  `minimalChange` (le plus petit remplacement entre deux textes).
-- `ui/src/color.ts` (nouveau) : `luminance` (déplacée de `Stage.tsx`, lit
-  aussi `#rgb`) et le seuil fond clair / fond foncé, calculé exactement comme
-  `ink-on` de Typst (luma > 60 %, soit ((0,6 + 0,055) / 1,055)^2,4 en WCAG).
-- `ui/src/markdownDecorations.ts` (nouveau) : `lineDecorations(line, palette)`
-  pure, et l'extension CodeMirror (`ViewPlugin`) qui l'applique à tout le
-  document. La palette n'est acceptée que sous forme `#rgb` / `#rrggbb`.
-- `ui/src/TextEditor.tsx` (nouveau) : enveloppe React de CodeMirror. Props :
-  `initial`, `field` (champ d'une ligne, sinon bloc markdown), `palette`,
-  `label` (aria-label), `style` (géométrie), `onChange(text)`,
-  `onCommit(text)`, `onCancel()`, et `ref` (prop React 19) vers
-  `{ insertAtCursor(text) }` pour la dictée. Les raccourcis ⌘B / ⌘I / ⌘K
-  vivent ici (keymap CodeMirror), pas dans `Stage`. Touches de base :
-  `standardKeymap` (pas `defaultKeymap`, fait pour le code).
-- `ui/src/Stage.tsx` : garde `editorGeometry`, le masque, l'aide ; remplace
-  la `<textarea>` par `TextEditor`. `commit(text)` reçoit le texte de
-  CodeMirror : c'est la seule source de vérité ; `draft` ne sert plus qu'à la
-  largeur d'un champ.
+- `ui/src/markdown.ts`: the parser walk records positions.
+  `markdownSpans(line): Span[]`, where `Span = { from, to, kind }` and `kind`
+  is `mark` (delimiters, `\`, `](`, `)`, `{n}`), `bold`, `italic`,
+  `link`, `url` or `highlight` (with `highlight: n`). `markdownToRuns`
+  relies on the same walk: a single implementation. New
+  `listPrefix(line)` (prefix `- ` / `1. `), shared by `textToParagraphs`
+  (`deck.ts`) and the editor: a single list rule.
+- `ui/src/textEdits.ts` (new): pure edits on (text, selection) —
+  `toggleEmphasis` and `insertLink` (moved from `markdown.ts`, unchanged),
+  `insertDictated` (taken out of the dictation effect in `Stage.tsx`) and
+  `minimalChange` (the smallest replacement between two texts).
+- `ui/src/color.ts` (new): `luminance` (moved from `Stage.tsx`, also reads
+  `#rgb`) and the light background / dark background threshold, computed
+  exactly like Typst's `ink-on` (luma > 60 %, i.e. ((0.6 + 0.055) / 1.055)^2.4
+  in WCAG).
+- `ui/src/markdownDecorations.ts` (new): pure `lineDecorations(line, palette)`,
+  and the CodeMirror extension (`ViewPlugin`) that applies it to the whole
+  document. The palette is accepted only in `#rgb` / `#rrggbb` form.
+- `ui/src/TextEditor.tsx` (new): React wrapper around CodeMirror. Props:
+  `initial`, `field` (one-line field, otherwise a markdown block), `palette`,
+  `label` (aria-label), `style` (geometry), `onChange(text)`,
+  `onCommit(text)`, `onCancel()`, and `ref` (React 19 prop) to
+  `{ insertAtCursor(text) }` for dictation. The ⌘B / ⌘I / ⌘K shortcuts
+  live here (CodeMirror keymap), not in `Stage`. Base keys:
+  `standardKeymap` (not `defaultKeymap`, which is made for code).
+- `ui/src/Stage.tsx`: keeps `editorGeometry`, the mask, the help; replaces
+  the `<textarea>` with `TextEditor`. `commit(text)` receives the text from
+  CodeMirror: it is the single source of truth; `draft` now only serves for
+  the width of a field.
 
-## Rendu dans l'éditeur
+## Rendering in the editor
 
-| Plage | Style |
+| Span | Style |
 |---|---|
-| `mark`, `url`, préfixe de liste (`- `, `1. `) | couleur du texte à 40 % d'opacité |
+| `mark`, `url`, list prefix (`- `, `1. `) | text color at 40 % opacity |
 | `bold` | `font-weight: bolder` |
 | `italic` | `font-style: italic` |
-| `link` | accent du thème (`--t-accent`), souligné |
-| `highlight` | fond `palette[(n − 1) mod longueur]` (modulo positif, comme Typst : `{0}` donne la dernière couleur), texte `--t-ink` ou `--t-bg` selon la luminance |
+| `link` | theme accent (`--t-accent`), underlined |
+| `highlight` | background `palette[(n − 1) mod length]` (positive modulo, as in Typst: `{0}` gives the last color), text `--t-ink` or `--t-bg` depending on luminance |
 
-Les styles se cumulent. Une pastille est un simple fond, sans coins arrondis
-ni marge : CodeMirror découpe une plage décorée autour des plages imbriquées,
-des coins arrondis se répéteraient sur chaque morceau. La palette est
-`appearance.chart_palette` (`#rgb` ou `#rrggbb`). Les réglages de
-CodeMirror (police, interligne, marges, couleur du curseur) passent par
-`EditorView.theme`, avec des sélecteurs au moins aussi précis que ceux de son
-thème de base.
+Styles combine. A highlight is a plain background, with no rounded corners
+or margin: CodeMirror splits a decorated span around nested spans, so
+rounded corners would repeat on each piece. The palette is
+`appearance.chart_palette` (`#rgb` or `#rrggbb`). CodeMirror settings
+(font, line height, margins, cursor color) go through
+`EditorView.theme`, with selectors at least as specific as those of its
+base theme.
 
-## Comportement
+## Behavior
 
-- Bloc : ⌘Entrée valide ; Entrée insère un simple retour à la ligne (sans
-  recopier d'indentation). Champ : Entrée et Maj+Entrée valident ; un retour
-  à la ligne collé, dicté ou déjà présent devient une espace, et la
-  modification garde son pas d'annulation. Échap annule. Perte du focus :
-  valide.
-- Une Entrée qui confirme une conversion IME ne valide pas : CodeMirror
-  l'ignore déjà (y compris l'Entrée que WebKit envoie juste après
-  `compositionend`) ; pas de garde maison.
-- Pas de mise en forme native : ⌘U partout, ⌘B / ⌘I / ⌘K dans un champ, ne
-  font rien.
-- Un clic dans la marge de l'éditeur garde le focus (ne valide pas).
-- ⌘Z / ⇧⌘Z : historique de CodeMirror, limité à l'édition en cours ; chaque
-  raccourci (⌘B, ⌘I, ⌘K) et chaque dictée est un pas d'annulation à part.
-  Les commandes d'éditeur de code (déplacer une ligne, indenter…) ne sont pas
-  liées.
-- Collage : texte brut seulement (CodeMirror ne lit que `text/plain`).
-- L'éditeur grandit avec son contenu, fond `editorBackground`, retour à la
-  ligne dans la largeur de la boîte ; un champ s'élargit en tapant.
-- Dictée : le texte dicté s'insère à la sélection, mêmes règles d'espaces.
-- `spellcheck`, `autocorrect`, `aria-label`, `aria-multiline` (faux pour un
-  champ), direction par ligne (`perLineTextDirection`).
-- Le composant supporte le double montage du StrictMode de React.
-- Défense en profondeur : les raccourcis globaux de `App.tsx` ignorent aussi
-  un `[contenteditable="true"]` (ils s'arrêtent déjà pendant l'édition).
+- Block: ⌘Enter commits; Enter inserts a plain line break (without
+  copying indentation). Field: Enter and Shift+Enter commit; a pasted,
+  dictated or already present line break becomes a space, and the
+  change keeps its undo step. Escape cancels. Focus loss:
+  commits.
+- An Enter that confirms an IME conversion does not commit: CodeMirror
+  already ignores it (including the Enter WebKit sends right after
+  `compositionend`); no home-made guard.
+- No native formatting: ⌘U everywhere, ⌘B / ⌘I / ⌘K in a field, do
+  nothing.
+- A click in the editor's margin keeps focus (does not commit).
+- ⌘Z / ⇧⌘Z: CodeMirror history, limited to the current edit; each
+  shortcut (⌘B, ⌘I, ⌘K) and each dictation is a separate undo step.
+  Code editor commands (move a line, indent…) are not
+  bound.
+- Paste: plain text only (CodeMirror reads only `text/plain`).
+- The editor grows with its content, background `editorBackground`, line
+  wrapping within the box width; a field widens as you type.
+- Dictation: dictated text is inserted at the selection, same spacing rules.
+- `spellcheck`, `autocorrect`, `aria-label`, `aria-multiline` (false for a
+  field), per-line direction (`perLineTextDirection`).
+- The component supports React StrictMode's double mount.
+- Defense in depth: the global shortcuts in `App.tsx` also ignore
+  a `[contenteditable="true"]` (they already stop during editing).
 
 ## Tests (TDD)
 
-- `markdown.test.ts` : `markdownSpans` (gras, italique, imbrication, lien,
-  lien vide, pastille avec et sans `{n}`, échappements, emoji, délimiteurs
-  sans fermeture) et `listPrefix`. La fixture partagée avec Rust reste le
-  contrat de `markdownToRuns`.
-- `textEdits.test.ts`, `color.test.ts`, `markdownDecorations.test.ts` :
-  fonctions pures, sans DOM. `TextEditor.test.ts` : le filtre d'une ligne
-  sur un `EditorState` (collage, annulation).
-- e2e `editor.cjs` (Chromium, autonome, lancé en premier) : mise en forme
-  pendant la saisie et couleur de la pastille, police, interligne et curseur
-  de CodeMirror égaux à ceux de l'hôte, Échap ferme sans rien changer, clic
-  dans la marge, ⌘B isolé dans l'historique, collage, Entrée dans un bloc,
-  perte du focus, aller-retour (rouvrir redonne le même texte), champ
-  (Entrée, Maj+Entrée, collage multiligne), ⌘Z qui ne touche pas
-  l'historique du deck.
-- Vérification en mode développement (`just web`, StrictMode actif) :
-  ouvrir, annuler, rouvrir, valider → une seule entrée d'annulation.
-- Vérification dans l'app de bureau (WebKit, `just dev`) : conversion IME
-  japonaise avec Entrée dans un titre et un bloc, dictée système,
-  Édition > Annuler du menu (après une frappe et juste après ⌘B).
+- `markdown.test.ts`: `markdownSpans` (bold, italic, nesting, link,
+  empty link, highlight with and without `{n}`, escapes, emoji, delimiters
+  without closing) and `listPrefix`. The fixture shared with Rust remains the
+  contract of `markdownToRuns`.
+- `textEdits.test.ts`, `color.test.ts`, `markdownDecorations.test.ts`:
+  pure functions, no DOM. `TextEditor.test.ts`: the one-line filter
+  on an `EditorState` (paste, undo).
+- e2e `editor.cjs` (Chromium, standalone, run first): formatting
+  while typing and highlight color, CodeMirror font, line height and cursor
+  equal to the host's, Escape closes without changing anything, click
+  in the margin, ⌘B isolated in the history, paste, Enter in a block,
+  focus loss, round trip (reopening gives back the same text), field
+  (Enter, Shift+Enter, multiline paste), ⌘Z that does not touch the
+  deck history.
+- Check in development mode (`just web`, StrictMode on):
+  open, cancel, reopen, commit → a single undo entry.
+- Check in the desktop app (WebKit, `just dev`): Japanese IME conversion
+  with Enter in a title and a block, system dictation,
+  Édition > Annuler (Edit > Undo) from the menu (after a keystroke and right
+  after ⌘B).

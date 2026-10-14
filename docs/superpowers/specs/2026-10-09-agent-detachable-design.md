@@ -1,295 +1,297 @@
-# Zone agent détachable dans une fenêtre séparée
+# Agent area detachable into a separate window
 
-Tâche t-654. Aujourd'hui l'agent vit dans la colonne de droite (`notes`) de
-chaque fenêtre de l'espace de travail : son fil, le dock des surfaces A2UI
-vivantes, le brouillon et l'appareil de dictée. Cette spec permet de le
-**détacher dans une fenêtre à part**, pensée pour un second écran : la
-fenêtre principale rend toute sa largeur à la slide.
+Task t-654. Today the agent lives in the right-hand column (`notes`) of
+each workspace window: its thread, the dock of live A2UI
+surfaces, the draft and the dictation device. This spec makes it possible to
+**detach it into a window of its own**, designed for a second screen: the
+main window gives its full width back to the slide.
 
-S'appuie sur `2026-09-26-onglets-fenetres-design.md` (fenêtres de l'espace
-de travail) et `2026-10-08-sessions-par-perspective-design.md` (une session
-par portée, état dans l'hôte).
+Builds on `2026-09-26-onglets-fenetres-design.md` (workspace
+windows) and `2026-10-08-sessions-par-perspective-design.md` (one session
+per scope, state in the host).
 
-## Décisions (choisies le 2026-10-09)
+## Decisions (made on 2026-10-09)
 
-1. **Usage : second écran.** Une fenêtre normale, ni flottante ni « toujours
-   devant » (hors périmètre).
-2. **Une seule fenêtre agent pour toute l'application**, de label `agent`.
-   Elle suit **l'onglet actif de la dernière fenêtre de l'espace de travail
-   au premier plan** (`WorkspaceView.focused` → `active`).
-3. **Ce qui part :** le fil (`AgentThread`), son dock, le brouillon
-   (`DictationDraft`) et l'appareil de dictée (`Dictation`). **Ce qui
-   reste** sur la scène de la fenêtre principale : les surfaces ancrées
-   (`sheet`), le tiroir des variantes (`drawer`) et les modales (`modal`) —
-   elles parlent de la slide.
-4. **Persisté.** L'état détaché est gardé avec la mise en page de l'espace
-   de travail ; taille, position et écran par `tauri-plugin-window-state`
-   (label `agent`). Fermer la fenêtre agent la rattache.
-5. **Le brouillon survit** au détachement, au rattachement et au changement
-   d'onglet : il est tenu par l'hôte, par onglet, en mémoire (pas au
-   redémarrage).
-6. **L'hôte reste la seule source de vérité** (approche A) : la fenêtre agent
-   s'abonne elle-même aux événements de l'agent, lit la portée et le
-   brouillon à l'hôte. Le seul canal entre fenêtres porte ce qui n'existe
-   que dans la fenêtre principale : où écrire un texte.
-7. **Tauri seulement.** En mode navigateur (serveur de dev), ni bouton ni
-   menu de détachement.
+1. **Use: second screen.** A normal window, neither floating nor "always
+   on top" (out of scope).
+2. **A single agent window for the whole application**, with label `agent`.
+   It follows **the active tab of the last workspace window
+   brought to the foreground** (`WorkspaceView.focused` → `active`).
+3. **What moves:** the thread (`AgentThread`), its dock, the draft
+   (`DictationDraft`) and the dictation device (`Dictation`). **What
+   stays** on the main window's stage: anchored surfaces
+   (`sheet`), the variants drawer (`drawer`) and modals (`modal`) —
+   they are about the slide.
+4. **Persisted.** The detached state is kept with the workspace
+   layout; size, position and screen through `tauri-plugin-window-state`
+   (label `agent`). Closing the agent window reattaches it.
+5. **The draft survives** detaching, reattaching and switching
+   tabs: it is held by the host, per tab, in memory (not across
+   restarts).
+6. **The host stays the single source of truth** (approach A): the agent window
+   subscribes to the agent events itself, and reads the scope and the
+   draft from the host. The only channel between windows carries what exists
+   only in the main window: where to write a text.
+7. **Tauri only.** In browser mode (dev server), no detach button or
+   menu.
 
-Écartées : une fenêtre « miroir » pilotée par la fenêtre principale (second
-protocole, état doublé) ; une fenêtre agent qui recalcule la portée (elle
-dépend d'un état d'interface propre à la fenêtre principale).
+Rejected: a "mirror" window driven by the main window (a second
+protocol, doubled state); an agent window that recomputes the scope (it
+depends on UI state specific to the main window).
 
 ## Architecture
 
-### Hôte (Rust)
+### Host (Rust)
 
-- **Espace de travail** (`oku-slides-session`) : `agent_detached: bool`
-  dans la mise en page, exposé dans `WorkspaceView`, sauvé et relu par
-  `workspace_resume`. Méthodes `detach_agent()` / `attach_agent()`.
-  Commandes `workspace` correspondantes ; chacune rediffuse `workspace`.
-- **Focus** : `Workspace::focus` ne reçoit que les labels de fenêtres de
-  l'espace de travail ; `commands::focused` ignore explicitement le label
-  `agent` (aujourd'hui rejeté par accident, en « focus ignoré »). Donner le
-  focus à la fenêtre agent ne change jamais la cible.
-- **Fenêtres** (`src-tauri/src/windows.rs`) : `sync` réconcilie aussi la
-  fenêtre `agent` — ouverte si `agent_detached`, fermée sinon. La décision
-  (ouvrir / fermer / rien) est une fonction pure, testée sans Tauri. Taille
-  par défaut 420×800, minimale 320×400 ; géométrie restaurée par
-  window-state. Sa demande de fermeture (`CloseRequested`) appelle
-  `attach_agent` au lieu de toucher aux onglets. Elle se ferme avec la
-  dernière fenêtre de l'espace de travail, sans changer `agent_detached`.
-- **Capability** : `src-tauri/capabilities/default.json` couvre
-  `["w-*", "agent"]` (mêmes commandes : `agent`, `workspace`, `stt`, `draft`,
-  et `core:event` pour `emitTo`).
-- **Portée affichée** : le hub la tient déjà (`HubState.viewing`, posée par
-  `resync`). Nouvelle sous-commande `agent` → `scope { tab }` qui la lit, et
-  nouvel événement `AgentEvent::Scope { scope }` émis par `resync` quand
-  elle change. La fenêtre principale reste seule à décider de la portée
-  (`useAgentScope`) ; la fenêtre agent la suit.
-- **Brouillon** : `draft: Option<String>` en mémoire dans la session de
-  l'onglet. Commande `draft` : `get { tab }`, `set { tab, text | null }` ;
-  `set` diffuse `oku-slides:agent` → `{ kind: "draft", text }`. Le dernier
-  écrit gagne.
-- **Menu** : dans le menu « Fenêtre », une case à cocher « Agent dans une
-  fenêtre séparée » (`CheckMenuItem`), tenue à jour d'après
-  `agent_detached`. Libellés via Fluent.
+- **Workspace** (`oku-slides-session`): `agent_detached: bool`
+  in the layout, exposed in `WorkspaceView`, saved and read back by
+  `workspace_resume`. Methods `detach_agent()` / `attach_agent()`.
+  Matching `workspace` commands; each one rebroadcasts `workspace`.
+- **Focus**: `Workspace::focus` only receives the labels of workspace
+  windows; `commands::focused` explicitly ignores the `agent` label
+  (today rejected by accident, as "focus ignoré" (focus ignored)). Giving
+  focus to the agent window never changes the target.
+- **Windows** (`src-tauri/src/windows.rs`): `sync` also reconciles the
+  `agent` window — open if `agent_detached`, closed otherwise. The decision
+  (open / close / nothing) is a pure function, tested without Tauri. Default
+  size 420×800, minimum 320×400; geometry restored by
+  window-state. Its close request (`CloseRequested`) calls
+  `attach_agent` instead of touching the tabs. It closes with the
+  last workspace window, without changing `agent_detached`.
+- **Capability**: `src-tauri/capabilities/default.json` covers
+  `["w-*", "agent"]` (same commands: `agent`, `workspace`, `stt`, `draft`,
+  and `core:event` for `emitTo`).
+- **Displayed scope**: the hub already holds it (`HubState.viewing`, set by
+  `resync`). New subcommand `agent` → `scope { tab }` that reads it, and
+  new event `AgentEvent::Scope { scope }` emitted by `resync` when
+  it changes. The main window alone decides the scope
+  (`useAgentScope`); the agent window follows it.
+- **Draft**: `draft: Option<String>` in memory in the tab's
+  session. Command `draft`: `get { tab }`, `set { tab, text | null }`;
+  `set` broadcasts `oku-slides:agent` → `{ kind: "draft", text }`. The last
+  write wins.
+- **Menu**: in the "Fenêtre" (Window) menu, an "Agent dans une fenêtre
+  séparée" (Agent in a separate window) checkbox (`CheckMenuItem`), kept up to
+  date from `agent_detached`. Labels via Fluent.
 
-### Interface (React)
+### UI (React)
 
-- **Racine** : `main.tsx` monte `AgentWindow` si le label de la fenêtre est
-  `agent`, sinon `Workspace`.
-- **`agentTarget(view)`** (pur) : l'onglet cible, `null` si aucun.
-- **`AgentWindow`** : écoute `workspace`, en déduit l'onglet cible ; à chaque
-  changement d'onglet : `subscribeHost(tab, …)`, `agent.scope(tab)`,
-  `draft.get(tab)`, puis `agent-link:hello`. Monte `AgentThread` (surfaces
-  routées par `routeSurfaces`, seules celles du fil), `DictationDraft` et
-  `Dictation`. Bouton « Rattacher ». Onglet en lecture seule ou aide : état
-  vide (« Pas d'agent pour cet onglet »), l'appareil de dictée reste.
-- **`App`, agent détaché** : la colonne `notes` ne monte plus le fil, le
-  brouillon ni la dictée ; elle se réduit à 0 hors de l'onglet « Thème »
-  (`ThemePanel` reste). Les surfaces `sheet` / `drawer` / `modal` restent
-  rendues ici. `App` publie son contexte d'écriture (ci-dessous) et applique
-  les `insert` reçus.
-- **`useDraft(tab)`** remplace le `useState` du brouillon, dans `App`
-  (rattaché) comme dans `AgentWindow` : lit `draft.get`, suit l'événement
-  `draft`, écrit par `draft.set` — frappe en debounce (~300 ms) ; dictée,
-  Envoyer, Insérer, Abandonner tout de suite. Les compteurs `dictations` /
-  `typing` (focus, défilement) restent locaux.
-- **Bouton ⧉** dans l'en-tête de `AgentThread`, à côté de « Nouvelle
-  conversation » : `detach_agent`. Caché hors Tauri.
+- **Root**: `main.tsx` mounts `AgentWindow` if the window label is
+  `agent`, otherwise `Workspace`.
+- **`agentTarget(view)`** (pure): the target tab, `null` if none.
+- **`AgentWindow`**: listens to `workspace`, derives the target tab from it; on each
+  tab change: `subscribeHost(tab, …)`, `agent.scope(tab)`,
+  `draft.get(tab)`, then `agent-link:hello`. Mounts `AgentThread` (surfaces
+  routed by `routeSurfaces`, only those of the thread), `DictationDraft` and
+  `Dictation`. "Rattacher" (Reattach) button. Read-only or help tab: empty
+  state ("Pas d'agent pour cet onglet" (No agent for this tab)), the dictation
+  device stays.
+- **`App`, agent detached**: the `notes` column no longer mounts the thread, the
+  draft or the dictation; it shrinks to 0 outside the "Thème" (Theme) tab
+  (`ThemePanel` stays). The `sheet` / `drawer` / `modal` surfaces are still
+  rendered here. `App` publishes its writing context (below) and applies
+  the `insert` messages it receives.
+- **`useDraft(tab)`** replaces the draft's `useState`, in `App`
+  (attached) as in `AgentWindow`: reads `draft.get`, follows the `draft`
+  event, writes through `draft.set` — typing debounced (~300 ms); dictation,
+  Send, Insert, Discard immediately. The `dictations` /
+  `typing` counters (focus, scrolling) stay local.
+- **⧉ button** in the `AgentThread` header, next to "Nouvelle
+  conversation" (New conversation): `detach_agent`. Hidden outside Tauri.
 
-Le câblage de l'agent dans `App.tsx` est à extraire en même temps (voir
-t-462) : `App` ne doit pas porter deux branches (rattaché / détaché) partout.
+The agent wiring in `App.tsx` is to be extracted at the same time (see
+t-462): `App` must not carry two branches (attached / detached) everywhere.
 
-## Canal entre fenêtres : `agent-link`
+## Channel between windows: `agent-link`
 
-Événements Tauri ciblés ; tous portent `tab`, un message dont l'onglet ne
-correspond plus est ignoré.
+Targeted Tauri events; all carry `tab`, and a message whose tab no longer
+matches is ignored.
 
-| Événement | Sens | Contenu | Quand |
+| Event | Direction | Content | When |
 |---|---|---|---|
-| `agent-link:context` | principale → `agent` | `{ tab, editing, insertTo, vocabulary, readOnly }` | à chaque changement, et en réponse à `hello` |
-| `agent-link:hello` | `agent` → toutes | `{ tab }` | ouverture, changement d'onglet cible |
-| `agent-link:insert` | `agent` → `focused` | `{ tab, id, text }` | dictée vers le curseur, « Insérer » du brouillon |
-| `agent-link:insert-ack` | principale → `agent` | `{ tab, id, ok }` | après `insert` |
-| `agent-link:shortcut` | principale → `agent` | `{ tab, key: "dictate" \| "draft" }` | ⌘D / ⌘K pressés dans la fenêtre principale |
+| `agent-link:context` | main → `agent` | `{ tab, editing, insertTo, vocabulary, readOnly }` | on each change, and in response to `hello` |
+| `agent-link:hello` | `agent` → all | `{ tab }` | opening, change of target tab |
+| `agent-link:insert` | `agent` → `focused` | `{ tab, id, text }` | dictation to the cursor, the draft's "Insérer" (Insert) |
+| `agent-link:insert-ack` | main → `agent` | `{ tab, id, ok }` | after `insert` |
+| `agent-link:shortcut` | main → `agent` | `{ tab, key: "dictate" \| "draft" }` | ⌘D / ⌘K pressed in the main window |
 
-- `editing` : une édition de texte est en cours ; `insertTo` : le libellé
-  « Insérer dans … » (`null` : nulle part où écrire) ; `vocabulary` : titres
-  du deck et des slides, pour la dictée.
-- Seule la fenêtre principale qui affiche l'onglet cible répond à `hello`.
+- `editing`: a text edit is in progress; `insertTo`: the label
+  "Insérer dans …" (Insert into …) (`null`: nowhere to write); `vocabulary`:
+  deck and slide titles, for dictation.
+- Only the main window that displays the target tab answers `hello`.
 
-## Flux
+## Flows
 
-- **Dictée.** La fenêtre agent route avec `dictationRoute(mode,
-  context.editing)` : vers le curseur → `insert` ; sinon dans le brouillon
+- **Dictation.** The agent window routes with `dictationRoute(mode,
+  context.editing)`: to the cursor → `insert`; otherwise into the draft
   (`draft.set`).
-- **Insérer.** `insert` → la fenêtre principale appelle `insertText` (curseur
-  pendant l'édition, champ sélectionné, nouveau bloc, ou toast « choisir une
-  zone ») et répond `insert-ack`. Sans `ack` sous 1 s, ou `ok: false` (onglet
-  changé, rien où écrire), la fenêtre agent remet le texte dans le brouillon
-  avec un toast « Texte gardé dans le brouillon ».
-- **Envoyer.** `agent.prompt(scope, text)` depuis la fenêtre agent.
-- **Raccourcis.** ⌘D dans la fenêtre principale → `shortcut: dictate` : la
-  fenêtre agent démarre ou arrête l'écoute **sans prendre le focus**
-  (l'édition garde son curseur). ⌘K → `shortcut: draft` : la fenêtre agent
-  passe devant et ouvre le brouillon en saisie. Dans la fenêtre agent, ⌘D et
-  ⌘K agissent sur place.
-- **Focus perdu pendant l'édition.** Cliquer le micro de la fenêtre agent
-  fait perdre le focus à la fenêtre principale : `editing` et la position du
-  curseur doivent y survivre, pour que `insert` écrive au bon endroit.
-- **Détacher / rattacher en cours de tour.** Le tour vit dans l'hôte : la
-  nouvelle vue fait `resync` et reprend le flux. Le brouillon est relu à
-  l'hôte.
+- **Insert.** `insert` → the main window calls `insertText` (cursor
+  during editing, selected field, new block, or the "choisir une
+  zone" (pick a box) toast) and answers `insert-ack`. With no `ack` within 1 s,
+  or `ok: false` (tab changed, nowhere to write), the agent window puts the
+  text back into the draft with a "Texte gardé dans le brouillon" (Text kept in
+  the draft) toast.
+- **Send.** `agent.prompt(scope, text)` from the agent window.
+- **Shortcuts.** ⌘D in the main window → `shortcut: dictate`: the
+  agent window starts or stops listening **without taking focus**
+  (the edit keeps its cursor). ⌘K → `shortcut: draft`: the agent window
+  comes to the front and opens the draft for typing. In the agent window, ⌘D and
+  ⌘K act in place.
+- **Focus lost during editing.** Clicking the agent window's microphone
+  makes the main window lose focus: `editing` and the cursor position must
+  survive there, so that `insert` writes in the right place.
+- **Detach / reattach during a turn.** The turn lives in the host: the
+  new view does `resync` and resumes the stream. The draft is read back from
+  the host.
 
-## Cas limites
+## Edge cases
 
-| Situation | Comportement |
+| Situation | Behavior |
 |---|---|
-| La fenêtre au premier plan change, ou son onglet actif | `AgentWindow` change de cible (réabonnement, portée, brouillon, `hello`). |
-| Dernière fenêtre de l'espace de travail fermée | La fenêtre agent se ferme avec l'app ; `agent_detached` reste. |
-| Onglet cible en lecture seule / aide | État vide ; dictée visible, son texte reçoit le refus de la session via `insert`. |
-| Écran restauré absent | window-state replie la fenêtre sur un écran visible (vérifié). |
-| Aucun onglet cible (vue pas encore reçue) | État de chargement, aucune commande envoyée. |
+| The foreground window changes, or its active tab | `AgentWindow` changes target (resubscription, scope, draft, `hello`). |
+| Last workspace window closed | The agent window closes with the app; `agent_detached` stays. |
+| Target tab read-only / help | Empty state; dictation visible, its text receives the session's rejection via `insert`. |
+| Restored screen missing | window-state moves the window back onto a visible screen (checked). |
+| No target tab (view not received yet) | Loading state, no command sent. |
 
 ## Tests
 
 **Rust**
-- `detach_agent` / `attach_agent` ; `agent_detached` sauvé puis relu par la reprise.
-- Le focus d'un label hors des fenêtres de l'espace de travail ne change pas `focused`.
-- Décision de réconciliation de la fenêtre `agent` (ouvrir / fermer / rien).
-- `resync` émet `Scope` au changement de portée, pas sinon ; `scope { tab }` la renvoie.
-- `draft` : `set` puis `get` ; diffusion ; isolation entre onglets ; `null` efface.
+- `detach_agent` / `attach_agent`; `agent_detached` saved then read back by resume.
+- Focusing a label outside the workspace windows does not change `focused`.
+- Reconciliation decision for the `agent` window (open / close / nothing).
+- `resync` emits `Scope` when the scope changes, not otherwise; `scope { tab }` returns it.
+- `draft`: `set` then `get`; broadcast; isolation between tabs; `null` clears.
 
 **TypeScript (`bun test`)**
-- `agentTarget` : fenêtre au premier plan, onglet actif, vue vide.
-- `routeSurfaces` côté fenêtre agent : seules les surfaces du fil.
-- `useDraft` : debounce de la frappe, envois immédiats, suivi de l'événement.
-- Canal `agent-link` en modules purs : routage de la dictée, `ack`, repli
-  dans le brouillon sur refus ou délai, message d'un autre onglet ignoré.
+- `agentTarget`: foreground window, active tab, empty view.
+- `routeSurfaces` on the agent window side: only the thread's surfaces.
+- `useDraft`: typing debounce, immediate sends, following the event.
+- `agent-link` channel as pure modules: dictation routing, `ack`, fallback
+  into the draft on rejection or timeout, message from another tab ignored.
 
-**e2e** (port libre, données isolées)
-- Détacher → dicter (texte simulé) → Insérer dans le champ sélectionné →
-  rattacher : le brouillon est conservé.
-- Redémarrage : la fenêtre agent est restaurée détachée.
-- Édition en cours, micro cliqué dans la fenêtre agent : le texte arrive au curseur.
+**e2e** (free port, isolated data)
+- Detach → dictate (simulated text) → Insert into the selected field →
+  reattach: the draft is kept.
+- Restart: the agent window is restored detached.
+- Editing in progress, microphone clicked in the agent window: the text arrives at the cursor.
 
-## Précisions du plan (2026-10-09, révisées après la revue d'équipe et t-638)
+## Plan clarifications (2026-10-09, revised after the team review and t-638)
 
-Le plan (`docs/superpowers/plans/2026-10-09-agent-detachable.md`) précise la
-mécanique. Ces points remplacent tout ce qui les contredit plus haut.
+The plan (`docs/superpowers/plans/2026-10-09-agent-detachable.md`) details the
+mechanics. These points replace anything above that contradicts them.
 
-1. **Portée vue.** Le hub la tient (`HubState.viewing`) et la diffuse comme
-   `McpEvent::Viewing { scope }` :
-   - `resync` l'émet avant la liste ;
-   - `rename_scope` l'émet quand la portée vue est renommée ;
-   - le relais en retard la renvoie avec la liste.
+1. **Viewed scope.** The hub holds it (`HubState.viewing`) and broadcasts it as
+   `McpEvent::Viewing { scope }`:
+   - `resync` emits it before the list;
+   - `rename_scope` emits it when the viewed scope is renamed;
+   - the lagging relay sends it again with the list.
 
-   La commande `agent` → `follow { tab }` rejoue l'état et le brouillon, puis
-   envoie au gardien l'ordre `Keep::Replay`. Le gardien lit la portée
-   **quand il traite l'ordre**, si bien qu'un `resync` envoyé juste avant
-   passe toujours d'abord. Il n'y a ni `AgentEvent::Scope` ni requête
-   `agent.scope`.
-2. **Brouillon.** La pile le tient en mémoire, dans la vue de l'onglet
-   (`TabLink`). On l'écrit par `agent` → `set_draft { tab, text, origin }`,
-   qui diffuse `AgentEvent::Draft { text, origin }`.
-   - Chaque vue ignore l'écho de ses propres envois (`origin`) et les envoie
-     dans l'ordre, un à la fois.
-   - Le brouillon est plafonné à 256 Kio : au-delà, la commande est refusée.
-   - `follow` et `set_draft` ne démarrent jamais un onglet. Sur un onglet sans
-     agent démarré, `follow` rejoue « rien » (repos, aucun brouillon, `slides`,
-     aucune surface), et `set_draft` est refusé par une erreur localisée.
-   - L'`origin` d'un brouillon est plafonnée à 64 octets.
-   - Chaque envoi d'une vue porte son numéro dans l'origine (`v-xxx:n`).
-     Tant que l'écho du dernier n'est pas revenu, un brouillon venu
-     d'ailleurs est plus ancien que sa dernière écriture, et elle l'ignore.
-   - Un rejeu (`origin` nulle) alors que l'hôte n'a pas la dernière écriture
-     de la vue (écho manquant, ou envoi refusé faute d'onglet démarré) : la
-     vue lui renvoie son brouillon local. Ainsi un ⌘K ou une dictée faits
-     avant le premier `resync` survivent au démarrage de l'onglet.
-3. **Interface.** `AgentPanel` (t-638) a deux modes de portée :
-   - **pilote** : la portée vient de la vue, c'est le mode de la fenêtre
-     principale ;
-   - **suiveur** : la portée vient de `viewing` après `follow`, c'est le mode
-     de la fenêtre de l'agent.
+   The command `agent` → `follow { tab }` replays the state and the draft, then
+   sends the keeper the `Keep::Replay` order. The keeper reads the scope
+   **when it processes the order**, so that a `resync` sent just before
+   always goes first. There is neither `AgentEvent::Scope` nor an
+   `agent.scope` request.
+2. **Draft.** The stack holds it in memory, in the tab's view
+   (`TabLink`). It is written through `agent` → `set_draft { tab, text, origin }`,
+   which broadcasts `AgentEvent::Draft { text, origin }`.
+   - Each view ignores the echo of its own sends (`origin`) and sends them
+     in order, one at a time.
+   - The draft is capped at 256 KiB: beyond that, the command is rejected.
+   - `follow` and `set_draft` never start a tab. On a tab with no
+     started agent, `follow` replays "nothing" (idle, no draft, `slides`,
+     no surface), and `set_draft` is rejected with a localized error.
+   - A draft's `origin` is capped at 64 bytes.
+   - Each send from a view carries its number in the origin (`v-xxx:n`).
+     As long as the echo of the last one has not come back, a draft coming
+     from elsewhere is older than the view's last write, and the view ignores it.
+   - A replay (null `origin`) while the host does not have the view's last
+     write (missing echo, or send rejected for lack of a started tab): the
+     view sends its local draft back to it. This way a ⌘K or a dictation made
+     before the first `resync` survives the tab's startup.
+3. **UI.** `AgentPanel` (t-638) has two scope modes:
+   - **driver**: the scope comes from the view; this is the main window's
+     mode;
+   - **follower**: the scope comes from `viewing` after `follow`; this is the
+     agent window's mode.
 
-   Une fois l'agent détaché :
-   - la fenêtre principale garde un panneau pilote sans fil (fiches, tiroir,
-     fenêtre de confirmation, touches rapides) ;
-   - la fenêtre de l'agent monte un panneau suiveur avec le fil. Ses touches
-     rapides ne visent que le dock, et elle route les fiches d'après celle
-     que la scène montre (`staged`).
+   Once the agent is detached:
+   - the main window keeps a driver panel without the thread (sheets, drawer,
+     confirmation window, quick keys);
+   - the agent window mounts a follower panel with the thread. Its quick
+     keys only target the dock, and it routes the sheets according to the one
+     the stage shows (`staged`).
 
-   Tant que l'hôte n'a pas annoncé la portée, l'envoi d'une consigne reste
-   désactivé, comme sans agent. La fenêtre de l'agent n'affiche son état de
-   chargement qu'avant la première vue de l'espace de travail.
+   As long as the host has not announced the scope, sending a prompt stays
+   disabled, as with no agent. The agent window shows its loading state
+   only before the first workspace view.
 
-   Une fois l'agent détaché, les touches rapides de la fenêtre principale ne
-   visent plus le dock.
+   Once the agent is detached, the main window's quick keys no longer
+   target the dock.
 
-   Sous macOS, la fenêtre de l'agent pose la même barre de saisie
-   (`.titlebar`) que les autres fenêtres : sans elle, on ne pourrait pas la
-   déplacer.
+   On macOS, the agent window sets the same title bar
+   (`.titlebar`) as the other windows: without it, it could not be
+   moved.
 
-   Sur un onglet en lecture seule, la fenêtre de l'agent montre un état vide,
-   mais la dictée reste visible.
-4. **Contexte d'écriture.** `agent-link:context` porte
-   `{ editing, insertTo, ui, staged, keysOff }`. La fenêtre de l'agent relit
-   elle-même dans l'instantané de l'onglet le vocabulaire, la lecture seule,
-   les miniatures et l'apparence du deck. Le contexte porte aussi `look`,
-   l'empreinte de cette apparence : quand elle change, la fenêtre de l'agent
-   relit l'instantané. Le schéma (clair, sombre) vaut pour l'app : l'hôte
-   diffuse le choix (`scheme`) à toutes les fenêtres.
-5. **Transport.** Un seul évènement Tauri, `agent-link`, diffusé à toutes les
-   fenêtres (l'émettrice comprise).
-   - Chaque page n'écoute qu'une fois et garde les messages qui lui sont
-     adressés (`to`, `tab`).
-   - Chaque message est validé par un schéma zod.
-   - Hors Tauri, le canal est un `BroadcastChannel` et la fenêtre de l'agent
-     est la page `/?window=agent` (e2e).
-   - `hello` ne part qu'une fois l'écoute en place.
-   - `insert` attend un accusé pendant 3 s. Faute de réponse, il envoie
-     `insert-cancel`, que la fenêtre principale respecte, et le texte revient
-     au brouillon avec un toast.
-   - Limite connue : si la fenêtre principale a déjà écrit un texte dont
-     l'accusé arrive après l'échéance, ce texte se retrouve aussi au
-     brouillon. Il faudrait plus de 3 s pour écrire un texte.
-   - Les champs des messages sont bornés : 64 caractères pour un
-     identifiant, 256 pour un libellé, la taille du brouillon pour un texte.
-6. **Raccourcis.** La fenêtre principale relaie ⌘D, ⌘⇧D et ⌘K **bruts**
-   (`auto`, `draft`, `type`). La fenêtre de l'agent les applique avec son
-   propre état : ⌘⇧D arrête le tour seulement s'il n'y a pas d'écoute en
-   cours. ⌘K met la fenêtre de l'agent devant ; ⌘D ne lui prend pas le focus.
-   Limite connue : Échap dans la fenêtre principale n'arrête pas une écoute de
-   la fenêtre de l'agent ; ⌘D le fait.
+   On a read-only tab, the agent window shows an empty state,
+   but dictation stays visible.
+4. **Writing context.** `agent-link:context` carries
+   `{ editing, insertTo, ui, staged, keysOff }`. The agent window reads
+   the vocabulary, read-only status, thumbnails and deck appearance from the
+   tab's snapshot itself. The context also carries `look`,
+   the fingerprint of this appearance: when it changes, the agent window
+   reads the snapshot again. The scheme (light, dark) applies to the app: the host
+   broadcasts the choice (`scheme`) to all windows.
+5. **Transport.** A single Tauri event, `agent-link`, broadcast to all
+   windows (the sender included).
+   - Each page listens only once and keeps the messages addressed
+     to it (`to`, `tab`).
+   - Each message is validated by a zod schema.
+   - Outside Tauri, the channel is a `BroadcastChannel` and the agent window
+     is the page `/?window=agent` (e2e).
+   - `hello` is sent only once listening is in place.
+   - `insert` waits 3 s for an acknowledgement. Without an answer, it sends
+     `insert-cancel`, which the main window honors, and the text returns
+     to the draft with a toast.
+   - Known limit: if the main window has already written a text whose
+     acknowledgement arrives after the deadline, that text also ends up in the
+     draft. Writing a text would have to take more than 3 s.
+   - Message fields are bounded: 64 characters for an
+     identifier, 256 for a label, the draft size for a text.
+6. **Shortcuts.** The main window relays ⌘D, ⌘⇧D and ⌘K **raw**
+   (`auto`, `draft`, `type`). The agent window applies them with its
+   own state: ⌘⇧D stops the turn only if no listening is in
+   progress. ⌘K brings the agent window to the front; ⌘D does not take focus.
+   Known limit: Escape in the main window does not stop listening in
+   the agent window; ⌘D does.
 7. **Focus.**
-   - Un changement de fenêtre au premier plan diffuse la vue `workspace`, et la
-     fenêtre de l'agent la suit.
-   - La fenêtre `agent` ne change jamais `focused`.
-   - Elle n'est pas une cible de lâcher d'onglet.
-   - L'éditeur de texte ne termine plus l'édition quand le document perd le
-     focus (`document.hasFocus()` faux), pour une autre fenêtre ou une autre
-     app. Ce changement vaut aussi sans agent détaché.
-8. **Fermeture.** La fermeture système de la fenêtre de l'agent passe par sa
-   page (`close-requested`), qui vide la frappe en attente puis rattache
-   l'agent. Le bouton « Rattacher » fait de même.
-9. **Menu.** Seul macOS a un menu d'app : la case à cocher n'existe que là.
-   La case reflète l'espace de travail, et un clic bascule l'état lu dans
-   l'espace de travail. Rattacher par le menu passe par la page de la
-   fenêtre de l'agent (`close-requested`), comme la fermeture système ; sans
-   cette fenêtre (ouverture échouée), l'hôte rattache directement.
-10. **Tests.** L'e2e tourne dans un navigateur, sans Tauri. Il couvre :
-    détacher, envoyer depuis la fenêtre de l'agent, ⌘K relayé, insérer dans
-    la zone sélectionnée et brouillon gardé au rattachement.
+   - A change of foreground window broadcasts the `workspace` view, and the
+     agent window follows it.
+   - The `agent` window never changes `focused`.
+   - It is not a tab drop target.
+   - The text editor no longer ends the edit when the document loses
+     focus (`document.hasFocus()` false), to another window or another
+     app. This change also applies with no detached agent.
+8. **Closing.** The system close of the agent window goes through its
+   page (`close-requested`), which flushes pending typing then reattaches
+   the agent. The "Rattacher" (Reattach) button does the same.
+9. **Menu.** Only macOS has an app menu: the checkbox exists only there.
+   The checkbox reflects the workspace, and a click toggles the state read from
+   the workspace. Reattaching through the menu goes through the agent
+   window's page (`close-requested`), like the system close; without
+   this window (failed opening), the host reattaches directly.
+10. **Tests.** The e2e runs in a browser, without Tauri. It covers:
+    detaching, sending from the agent window, relayed ⌘K, inserting into
+    the selected box and draft kept on reattach.
 
-    Le reste est couvert au niveau unitaire, puis vérifié à la main dans l'app
-    à la dernière tâche : redémarrage, perte de focus pendant l'édition, suivi
-    du focus des fenêtres, micro dans une seconde webview, menu.
+    The rest is covered at unit level, then checked by hand in the app
+    in the last task: restart, focus loss during editing, tracking
+    window focus, microphone in a second webview, menu.
 
-    La dictée parlée est remplacée par la saisie au clavier : l'e2e n'a pas
-    de faux moteur de reconnaissance vocale.
+    Spoken dictation is replaced by keyboard input: the e2e has no
+    fake speech recognition engine.
 
-## Hors périmètre
+## Out of scope
 
-Fenêtre « toujours devant » ; plusieurs fenêtres agent ; détacher en mode
-navigateur ; brouillon gardé au redémarrage ; détacher les surfaces de scène.
+"Always on top" window; several agent windows; detaching in browser
+mode; draft kept across restarts; detaching the stage surfaces.

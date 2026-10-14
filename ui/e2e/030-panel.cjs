@@ -3,7 +3,7 @@
 // À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { untilValue } = require('./until.cjs');
+const { untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 // Modèle « libre » (6e) : sans blocs, il a une carte de grille (les blocs n'en ont pas, t-292).
 const LIBRE = 5;

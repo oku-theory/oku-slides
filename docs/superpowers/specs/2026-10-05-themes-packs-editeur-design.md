@@ -1,70 +1,70 @@
-# Thèmes en packs versionnés et éditeur de jetons — design
+# Themes as versioned packs and token editor — design
 
-Date : 2026-10-05 · Tâche : t-554
+Date: 2026-10-05 · Task: t-554
 
-## Objectif
+## Goal
 
-Les thèmes `papier` et `pro` ne sont plus codés en dur : ce sont des thèmes
-intégrés d'une **bibliothèque de thèmes versionnée**, jumelle de celle des
-packs de modèles (t-328). Un deck référence un thème dans une version et
-l'embarque. La perspective modèles gagne un onglet **Thème** qui édite tous
-les jetons de design : couleurs, polices, tailles, graisses, interlignage,
-espacements, rayons, traits, page, palette des graphiques, composants,
-couleurs de l'interface, repli CJK.
+The `papier` and `pro` themes are no longer hard-coded: they are built-in
+themes of a **versioned theme library**, twin of the template pack
+library (t-328). A deck references a theme at a version and
+embeds it. The templates perspective gains a **Theme** tab that edits all
+the design tokens: colors, fonts, sizes, weights, leading,
+spacing, radii, strokes, page, chart palette, components,
+UI colors, CJK fallback.
 
-Deux phases dans un même plan : 1. thèmes en packs (aucun changement visible
-hors du menu des thèmes) ; 2. éditeur.
+Two phases in a single plan: 1. themes as packs (no visible change
+outside the theme menu); 2. editor.
 
-Hors périmètre : import/export d'un thème seul, polices embarquées dans un
-thème (elles restent dans `fonts/` du deck), ménage des versions, bandeau
-« version plus récente du thème » (la relation est calculée, l'affichage
-viendra avec une tâche dédiée si besoin).
+Out of scope: import/export of a theme alone, fonts embedded in a
+theme (they stay in the deck's `fonts/`), cleanup of versions, the
+"newer version of the theme" banner (the relation is computed, the display
+will come with a dedicated task if needed).
 
-## Décisions
+## Decisions
 
-- **Un thème est un fichier à part.** Les packs de modèles restent
-  indépendants du thème (« Un ensemble ne dépend pas du thème »).
-- **Même mécanique que les packs.** Id UUID v4, versions adressées par
-  contenu (`sha256:<hex>`), une version courante par thème, parente de
-  version (généalogie seule, sans effet sur le rendu), intégrés en lecture
-  seule et d'id constant. Le cache fait foi au rendu : un deck se rend avec la
-  version qu'il embarque.
-- **`Library` générique** sur une sorte (`LibraryKind`) : modèles et thèmes
-  partagent stockage, versions, `current`, `relation`, intégrés (G11).
-- **Une version de thème est un instantané complet.** Pas d'héritage entre
-  thèmes : la fusion reste `default-tokens ← thème ← deck.tokens`. Une copie
-  recopie tous les jetons ; `parent` n'en garde que la généalogie.
-- **Le JSON est la seule source de vérité des jetons.** `default-tokens` et
-  les thèmes intégrés deviennent des fichiers JSON du paquet Typst, lus par
-  Typst (`json(...)`) et embarqués par Rust (`include_str!`).
-- **Enregistrer un thème intégré crée une copie** (nouvel id, nom « <nom>
-  (copie) », parente = la version intégrée). Un thème de l'utilisateur gagne
-  une version, qui devient courante. Le deck mis de côté adopte la version
-  enregistrée.
-- **Panneau des jetons à droite** de la scène, onglet « Thème » fixe après
-  « Modèles ».
-- **Pas de rétrocompatibilité** : `DECK_VERSION` 3 → 4, `SOURCES_VERSION`
-  5 → 6 ; les anciens decks et zips ne sont plus lus.
+- **A theme is a separate file.** Template packs stay
+  independent of the theme ("Un ensemble ne dépend pas du thème", a set does not depend on the theme).
+- **Same mechanics as packs.** UUID v4 id, content-addressed versions
+  (`sha256:<hex>`), one current version per theme, version parent
+  (genealogy only, no effect on rendering), built-ins read-only
+  and with a constant id. The cache is authoritative at render: a deck renders with the
+  version it embeds.
+- **Generic `Library`** over a kind (`LibraryKind`): templates and themes
+  share storage, versions, `current`, `relation`, built-ins (G11).
+- **A theme version is a complete snapshot.** No inheritance between
+  themes: the merge stays `default-tokens ← theme ← deck.tokens`. A copy
+  copies all tokens; `parent` only keeps the genealogy.
+- **The JSON is the only source of truth for tokens.** `default-tokens` and
+  the built-in themes become JSON files of the Typst package, read by
+  Typst (`json(...)`) and embedded by Rust (`include_str!`).
+- **Saving a built-in theme creates a copy** (new id, name "<nom>
+  (copie)" ("<name> (copy)"), parent = the built-in version). A user theme gains
+  a version, which becomes current. The deck set aside adopts the saved
+  version.
+- **Token panel on the right** of the stage, fixed "Thème" (Theme) tab after
+  "Modèles" (Templates).
+- **No backward compatibility**: `DECK_VERSION` 3 → 4, `SOURCES_VERSION`
+  5 → 6; old decks and zips are no longer read.
 
-## Modèle (core)
+## Model (core)
 
 ```rust
 pub struct ThemeRef { pub id: Uuid, pub version: PackVersion }
-pub struct Deck { …, pub theme: Option<ThemeRef>, … }   // était Option<String>
+pub struct Deck { …, pub theme: Option<ThemeRef>, … }   // was Option<String>
 ```
 
-- `PackVersion` et `PackFiles` servent aux deux sortes. Une version de thème
-  est un `PackFiles` dont le manifeste est `theme.json` et qui n'a aucun
-  fichier de widget : même contenu canonique, même empreinte.
-- `theme: None` : le thème par défaut (`papier`, id constant), dans sa version
-  courante, embarqué et référencé au chargement (`adopt_default_theme`,
-  comme `adopt_default_pack`).
-- Dans le replica Loro, `theme` est un atome (dernier écrivain gagne), comme
+- `PackVersion` and `PackFiles` serve both kinds. A theme version
+  is a `PackFiles` whose manifest is `theme.json` and which has no
+  widget file: same canonical content, same fingerprint.
+- `theme: None`: the default theme (`papier`, constant id), at its current
+  version, embedded and referenced on load (`adopt_default_theme`,
+  like `adopt_default_pack`).
+- In the Loro replica, `theme` is an atom (last writer wins), like
   `templates`.
 - **Ops.** `SetTheme { theme: Option<ThemeRef> }`. `SetToken { path, value }`
-  pose `value`, `null` compris (« vider » une clé qui l'accepte) ; nouvelle
-  `UnsetToken { path }` retire la clé (retour à la couche inférieure). Le
-  schéma MCP et l'agent suivent.
+  sets `value`, `null` included ("clearing" a key that accepts it); new
+  `UnsetToken { path }` removes the key (back to the lower layer). The
+  MCP schema and the agent follow.
 
 ### `theme.json`
 
@@ -74,158 +74,158 @@ pub struct Deck { …, pub theme: Option<ThemeRef>, … }   // était Option<Str
 ```
 
 `ThemeManifest { id, name, description, parent, created, tokens: Map }`
-(session), à côté de `PackManifest`.
+(session), next to `PackManifest`.
 
-## Fichier (zip des sources, version 6)
+## File (sources zip, version 6)
 
 ```
 themes/<hex>/theme.json
 ```
 
-- `SourceBundle.themes: BTreeMap<PackVersion, PackFiles>`, en ajout seul,
-  unie par `merge`, gardée si référencée par le deck ou son historique.
-- À la lecture, une version dont l'empreinte ne correspond pas est seule
-  écartée (`Issue::ThemeVersionMismatch`) ; la version du deck absente donne
-  `Issue::ThemeVersionMissing`, et le deck se rend avec le thème par défaut.
-  Un chemin `themes/` invalide (dossier autre que 64 hex minuscules,
-  sous-dossier, fichier autre que `theme.json`) refuse tout le zip.
+- `SourceBundle.themes: BTreeMap<PackVersion, PackFiles>`, append only,
+  unioned by `merge`, kept if referenced by the deck or its history.
+- On read, a version whose fingerprint does not match is the only one
+  dropped (`Issue::ThemeVersionMismatch`); a missing deck version gives
+  `Issue::ThemeVersionMissing`, and the deck renders with the default theme.
+  An invalid `themes/` path (folder other than 64 lowercase hex,
+  subfolder, file other than `theme.json`) rejects the whole zip.
 
-## Bibliothèque (session)
+## Library (session)
 
 ```text
 <data>/themes/<uuid>/current
 <data>/themes/<uuid>/versions/<hex>/theme.json
 ```
 
-- `Library<K: LibraryKind>` : `K::DIR` (`templates` / `themes`),
+- `Library<K: LibraryKind>`: `K::DIR` (`templates` / `themes`),
   `K::MANIFEST_FILE` (`pack.json` / `theme.json`), `K::Manifest` (trait
-  `VersionManifest` : `id`, `name`, `parent`, `created`, `from_files`),
-  `K::builtins()`. Alias : `PackLibrary`, `ThemeLibrary`.
-- Intégrés : `PAPIER_THEME` (défaut) et `PRO_THEME`, UUID constants.
-- `ThemeInfo { id, version, name, builtin, default }` pour la liste.
+  `VersionManifest`: `id`, `name`, `parent`, `created`, `from_files`),
+  `K::builtins()`. Aliases: `PackLibrary`, `ThemeLibrary`.
+- Built-ins: `PAPIER_THEME` (default) and `PRO_THEME`, constant UUIDs.
+- `ThemeInfo { id, version, name, builtin, default }` for the list.
 
-## Rendu
+## Rendering
 
-- `typst/oku-slides/src/default-tokens.json` ; `tokens.typ` :
+- `typst/oku-slides/src/default-tokens.json`; `tokens.typ`:
   `#let default-tokens = json("default-tokens.json")`.
-- `typst/oku-slides/themes/papier.json`, `pro.json` (le `theme.json` complet) ;
-  `lib.typ` : `#let papier = json("themes/papier.json").tokens` (usage
-  `theme: papier` du paquet Typst inchangé). `papier.typ`, `pro.typ`,
-  `THEMES` disparaissent.
-- `Renderer::set_theme(Option<serde_json::Map>)` (et `Request::SetTheme` du
-  worker) : le monde sert `/theme.json`, la source principale passe
-  `theme: json("/theme.json")` ou `none`.
-- Police des graphiques : lue dans les jetons résolus (`font.body`, première
-  famille), en second passage comme la palette ; `charts.rs::body_font`
-  disparaît.
+- `typst/oku-slides/themes/papier.json`, `pro.json` (the complete `theme.json`);
+  `lib.typ`: `#let papier = json("themes/papier.json").tokens` (the Typst
+  package's `theme: papier` usage unchanged). `papier.typ`, `pro.typ`,
+  `THEMES` go away.
+- `Renderer::set_theme(Option<serde_json::Map>)` (and the worker's
+  `Request::SetTheme`): the world serves `/theme.json`, the main source passes
+  `theme: json("/theme.json")` or `none`.
+- Chart font: read from the resolved tokens (`font.body`, first
+  family), in a second pass like the palette; `charts.rs::body_font`
+  goes away.
 
 ## Session
 
-- `Session::deck_theme()` : la version embarquée ; `embed_theme_from_library`
-  comme `embed_from_library`. À chaque changement de version, le renderer
-  reçoit `set_theme`.
-- Snapshot : `theme: Option<ThemeRef>`, `themes: Vec<ThemeInfo>`.
-- Requête `set_theme { id }` : embarque la version courante de `id` et applique
-  `SetTheme` (annulable).
+- `Session::deck_theme()`: the embedded version; `embed_theme_from_library`
+  like `embed_from_library`. On every version change, the renderer
+  receives `set_theme`.
+- Snapshot: `theme: Option<ThemeRef>`, `themes: Vec<ThemeInfo>`.
+- `set_theme { id }` request: embeds the current version of `id` and applies
+  `SetTheme` (undoable).
 
-## Éditeur (phase 2)
+## Editor (phase 2)
 
-### Mode modèles
+### Template mode
 
-- À l'entrée, le deck de travail a `theme: None` et `tokens` = **tous les
-  jetons du thème édité** (le thème du deck mis de côté). Les surcharges
-  propres au deck ne s'y appliquent plus : les modèles se voient avec le thème
-  pur, comme dans tout deck qui l'utilise.
-- `Mode::Templates` garde `theme_edit: ThemeEdit { base: ThemeRef, name }`.
-- Chaque réglage est un `SetToken` / `UnsetToken` sur le deck de travail :
-  rendu, miniatures, apparence de l'app et annuler/rétablir suivent d'office.
-- Choisir un autre thème dans l'onglet : `ThemeEdit.base` change et les jetons
-  du deck de travail sont remplacés en une étape annulable (`SetTokens {
-  tokens }`, nouvelle op qui remplace tout `deck.tokens`).
-- À l'enregistrement (`save_templates`), si les jetons ou le nom diffèrent de
-  la version de base : nouvelle version de thème (copie pour un intégré),
-  embarquée, courante, et le deck mis de côté passe à ce `ThemeRef`. Sinon, si
-  `base` diffère du thème du deck, le deck adopte `base`.
-- Fermer sans enregistrer abandonne le brouillon, comme pour les modèles.
+- On entry, the working deck has `theme: None` and `tokens` = **all the
+  tokens of the edited theme** (the theme of the deck set aside). The deck's own
+  overrides no longer apply: the templates are seen with the pure
+  theme, as in any deck that uses it.
+- `Mode::Templates` keeps `theme_edit: ThemeEdit { base: ThemeRef, name }`.
+- Each setting is a `SetToken` / `UnsetToken` on the working deck:
+  render, thumbnails, app appearance and undo/redo follow automatically.
+- Choosing another theme in the tab: `ThemeEdit.base` changes and the tokens
+  of the working deck are replaced in one undoable step (`SetTokens {
+  tokens }`, new op that replaces the whole `deck.tokens`).
+- On save (`save_templates`), if the tokens or the name differ from
+  the base version: new theme version (a copy for a built-in),
+  embedded, current, and the deck set aside switches to that `ThemeRef`. Otherwise, if
+  `base` differs from the deck's theme, the deck adopts `base`.
+- Closing without saving discards the draft, as for templates.
 
-### Schéma des jetons
+### Token schema
 
-`crates/oku-slides-session/src/theme_schema.json` : pour chaque chemin, un
-contrôle et ses contraintes.
+`crates/oku-slides-session/src/theme_schema.json`: for each path, a
+control and its constraints.
 
-| Contrôle | Chemins | Valeur |
+| Control | Paths | Value |
 |---|---|---|
-| `color` | `color.*`, `app*.*` couleurs, composants couleur | `#rrggbb[aa]` ou nom d'un jeton `color` |
-| `pt` | `size`, `space`, `radius`, `stroke`, `page` (sauf `width`/`height`), composants dimension | nombre borné, ou nom d'un jeton de la catégorie référencée |
-| `em` | `leading.*` | nombre 0 à 2 |
-| `weight` | `weight.*`, composants graisse | 100 à 900 par 100, ou nom d'un jeton `weight` |
-| `fonts` | `font.*` | liste ordonnée de familles |
-| `choice` | `script-style.*`, `app.scheme`, `layout`, `case`… | une des valeurs listées |
-| `bool` | `bar`, `rule`… | booléen |
-| `text` | gabarits (`footer.left`…) | chaîne |
-| `palette` | `chart.palette` | liste de couleurs ou de noms de jetons `color` |
-| `number` | `opacity`, `ratio`, `tracking`, `elevation` | nombre borné |
+| `color` | `color.*`, `app*.*` colors, color components | `#rrggbb[aa]` or name of a `color` token |
+| `pt` | `size`, `space`, `radius`, `stroke`, `page` (except `width`/`height`), dimension components | bounded number, or name of a token of the referenced category |
+| `em` | `leading.*` | number 0 to 2 |
+| `weight` | `weight.*`, weight components | 100 to 900 in steps of 100, or name of a `weight` token |
+| `fonts` | `font.*` | ordered list of families |
+| `choice` | `script-style.*`, `app.scheme`, `layout`, `case`… | one of the listed values |
+| `bool` | `bar`, `rule`… | boolean |
+| `text` | templates (`footer.left`…) | string |
+| `palette` | `chart.palette` | list of colors or of `color` token names |
+| `number` | `opacity`, `ratio`, `tracking`, `elevation` | bounded number |
 
-Chaque entrée a `nullable` (« vider » permis) et une catégorie d'affichage.
-`page.width` et `page.height` ne sont pas éditables (grille 1920 × 1080).
-Les couleurs propres à un thème (`brand-ink`…) sont éditables comme `color.*`
-et on peut en ajouter ou en retirer (nom `[a-z][a-z0-9-]*`).
+Each entry has `nullable` ("clearing" allowed) and a display category.
+`page.width` and `page.height` are not editable (1920 × 1080 grid).
+A theme's own colors (`brand-ink`…) are editable like `color.*`
+and can be added or removed (name `[a-z][a-z0-9-]*`).
 
-**Validation** côté session à chaque `SetToken`/`UnsetToken` en mode
-modèles : valeur conforme au contrôle, référence vers un jeton existant de la
-bonne catégorie, retrait refusé si d'autres jetons y renvoient (le message les
-nomme). Hors mode modèles, la validation des couleurs s'applique aussi aux
-surcharges du deck (règle t-194).
+**Validation** on the session side at each `SetToken`/`UnsetToken` in template
+mode: value conforming to the control, reference to an existing token of the
+right category, removal refused if other tokens refer to it (the message
+names them). Outside template mode, color validation also applies to the
+deck's overrides (rule t-194).
 
-**Couverture** : un test vérifie que le schéma et `default-tokens.json` ont
-exactement les mêmes chemins (hors couleurs libres de `color.*`).
+**Coverage**: a test checks that the schema and `default-tokens.json` have
+exactly the same paths (except the free colors of `color.*`).
 
-### Surface `host-theme`
+### `host-theme` surface
 
-Construite en Rust (`theme_panel.rs`, à côté de `panel.rs`), rendue par
-`HostSettings` avec les contrôles A2UI existants (`Color`, `Stepper`,
-`Slider`, `Select`, `Text`, `List`), complétés au besoin. Une section par
-catégorie (Couleurs, Typographie, Espacements, Formes, Page, Graphiques,
-Composants — un sous-groupe par composant —, Interface clair, Interface
-sombre, Écritures CJK). Chaque ligne montre son état :
+Built in Rust (`theme_panel.rs`, next to `panel.rs`), rendered by
+`HostSettings` with the existing A2UI controls (`Color`, `Stepper`,
+`Slider`, `Select`, `Text`, `List`), extended as needed. One section per
+category (Colors, Typography, Spacing, Shapes, Page, Charts,
+Components — one subgroup per component —, Light UI, Dark
+UI, CJK scripts). Each row shows its state:
 
-| État | Sens | Action |
+| State | Meaning | Action |
 |---|---|---|
-| Par défaut | absent du brouillon, vient de `default-tokens` | modifier → la clé entre |
-| Défini | dans le brouillon, égal à la version de base | « Retirer du thème » (`UnsetToken`) |
-| Modifié | différent de la version de base | ↺ → valeur de la version de base |
+| Default | absent from the draft, comes from `default-tokens` | modify → the key enters |
+| Set | in the draft, equal to the base version | "Retirer du thème" (Remove from theme; `UnsetToken`) |
+| Modified | different from the base version | ↺ → value of the base version |
 
 ### UI
 
-- `TemplateTabs` : onglet fixe « Thème » après « Modèles ».
-- Onglet actif : pile des modèles à gauche, scène du modèle choisi au centre,
-  panneau `ThemePanel` à droite (en-tête : sélecteur de thème, nom, champ de
-  filtre ; puis la surface `host-theme` en sections repliables).
-- Le sélecteur de thème du menu ⋯ disparaît du mode modèles.
-- Libellés : Fluent, `ui-theme-*` (interface) et `theme-token-*` (libellés de
-  la surface, côté session) dans les 20 langues.
+- `TemplateTabs`: fixed "Thème" tab after "Modèles".
+- Active tab: template pile on the left, stage of the chosen template in the center,
+  `ThemePanel` panel on the right (header: theme selector, name, filter
+  field; then the `host-theme` surface in collapsible sections).
+- The theme selector of the ⋯ menu disappears from template mode.
+- Labels: Fluent, `ui-theme-*` (UI) and `theme-token-*` (labels of
+  the surface, session side) in the 20 languages.
 
-## Erreurs
+## Errors
 
-Snafu, messages traduits : `UnknownTheme`, `ThemeVersionMissing`,
+Snafu, translated messages: `UnknownTheme`, `ThemeVersionMissing`,
 `ThemeIdMismatch`, `ThemeJson`, `InvalidTokenValue { path, reason }`,
-`TokenInUse { path, users }`, `NoThemesDir`. Une version illisible de la
-bibliothèque est ignorée avec un `warn` ; les intégrés restent toujours
-disponibles.
+`TokenInUse { path, users }`, `NoThemesDir`. An unreadable version of the
+library is ignored with a `warn`; the built-ins always stay
+available.
 
 ## Tests
 
-- Core : `ThemeRef` sérialisé, contenu canonique d'un thème, aller-retour du
-  zip `themes/`, chemins invalides, `ThemeVersionMismatch`, `SetToken null`,
-  `UnsetToken`, `SetTokens`, replica Loro (atome `theme`, jetons `null`).
-- Session : `Library` générique (tests existants des packs + jumeaux thèmes),
-  adoption du thème par défaut, `set_theme`, enregistrement en mode modèles
-  (copie d'un intégré, version d'un thème utilisateur, rien si inchangé,
-  abandon à la fermeture), schéma (couverture, validation, `TokenInUse`),
-  surface `host-theme` (états par défaut/défini/modifié).
-- Rendu : snapshots golden de `papier` et `pro` **inchangés** après le passage
-  en JSON ; régression : police des graphiques lue dans `font.body`.
-- UI : rendu de `ThemePanel` et de l'onglet ; e2e (données isolées) : modifier
-  `color.accent` de Papier, voir la scène changer, enregistrer, « Papier
-  (copie) » existe et le deck l'utilise.
-- i18n : `i18n-keys.test.ts` (en/fr), 18 autres langues complétées.
+- Core: serialized `ThemeRef`, canonical content of a theme, round trip of the
+  `themes/` zip, invalid paths, `ThemeVersionMismatch`, `SetToken null`,
+  `UnsetToken`, `SetTokens`, Loro replica (`theme` atom, `null` tokens).
+- Session: generic `Library` (existing pack tests + theme twins),
+  adoption of the default theme, `set_theme`, save in template mode
+  (copy of a built-in, version of a user theme, nothing if unchanged,
+  discard on close), schema (coverage, validation, `TokenInUse`),
+  `host-theme` surface (default/set/modified states).
+- Render: golden snapshots of `papier` and `pro` **unchanged** after the switch
+  to JSON; regression: chart font read from `font.body`.
+- UI: render of `ThemePanel` and of the tab; e2e (isolated data): modify
+  Papier's `color.accent`, see the stage change, save, "Papier
+  (copie)" exists and the deck uses it.
+- i18n: `i18n-keys.test.ts` (en/fr), 18 other languages completed.

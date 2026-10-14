@@ -1,6 +1,6 @@
 // Ce que rognent les zones qui défilent : l'anneau du champ de nom d'un widget dans la pile,
 // l'ombre du dock de l'agent dans le fil. Sans serveur : les vraies feuilles de styles sur un DOM
-// reconstitué. Lancer : bun e2e/clipping.cjs.
+// reconstitué. Lancer : bun e2e/120-clipping.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

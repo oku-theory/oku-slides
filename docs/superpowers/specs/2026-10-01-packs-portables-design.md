@@ -1,226 +1,226 @@
-# Packs portables : identité, versions et pack embarqué — design
+# Portable packs: identity, versions and embedded pack — design
 
-Date : 2026-10-01 · Tâche : t-328
+Date: 2026-10-01 · Task: t-328
 
-## Objectif
+## Goal
 
-Un deck se rend partout comme chez son auteur. Le fichier embarque la
-version exacte du pack de modèles qu'il utilise (modèles de slides et
-widgets) ; la bibliothèque de l'utilisateur devient versionnée et
-identifie chaque pack par un id unique.
+A deck renders everywhere as it does on its author's machine. The file embeds the
+exact version of the template pack it uses (slide templates and
+widgets); the user's library becomes versioned and
+identifies each pack by a unique id.
 
-Programme « widgets portables » : 0. compilation bornée (t-327, livrée) ;
-1. **packs portables** (cette spec) ; 2. création de widgets par l'agent et
-éditeur Typst (t-329).
+"Portable widgets" programme: 0. bounded compilation (t-327, shipped);
+1. **portable packs** (this spec); 2. widget creation by the agent and
+Typst editor (t-329).
 
-Hors périmètre : le ménage des versions, le choix d'une version arbitraire
-d'un pack (au-delà des deux actions du bandeau), la création de widgets.
+Out of scope: pruning versions, choosing an arbitrary version
+of a pack (beyond the banner's two actions), widget creation.
 
-## Décisions
+## Decisions
 
-- **Référence et cache.** Le deck référence un pack (id) dans une version ;
-  le fichier embarque cette version. Écarté : le pack vivant dans le
-  replica Loro (code Typst fusionné au caractère).
-- **Le cache fait foi au rendu.** Le deck se rend avec la version qu'il
-  embarque, jamais avec celle de la bibliothèque. Une autre version dans la
-  bibliothèque donne un bandeau, jamais un rendu différent.
-- **Tout deck embarque son pack**, intégré ou non. Un pack intégré est un
-  pack préinstallé, d'id connu.
-- **Bibliothèque versionnée.** Un pack est un ensemble de versions
-  adressées par contenu sous un même id ; chaque version connaît sa
-  parente. Une version **courante** par pack, qui ne change que par une
-  action de l'utilisateur.
-- **Les versions reçues s'ajoutent en silence** à la bibliothèque, sans
-  toucher la version courante.
-- **Id = UUID v4** : dépendance `uuid` (features `v4`, `serde`), déjà
-  présente de façon transitive dans `Cargo.lock`, déclarée au workspace.
-- **Pas de rétrocompatibilité.** `DECK_VERSION` passe à 3,
-  `SOURCES_VERSION` à 4 ; les decks v2 et les packs au format slug ne sont
-  plus lus.
+- **Reference and cache.** The deck references a pack (id) at a version;
+  the file embeds that version. Rejected: the pack living in the
+  Loro replica (Typst code merged character by character).
+- **The cache is authoritative for rendering.** The deck renders with the version it
+  embeds, never with the library's. Another version in the
+  library gives a banner, never a different render.
+- **Every deck embeds its pack**, built-in or not. A built-in pack is a
+  preinstalled pack with a known id.
+- **Versioned library.** A pack is a set of content-addressed versions
+  under one id; each version knows its
+  parent. One **current** version per pack, which changes only through a
+  user action.
+- **Received versions are added silently** to the library, without
+  touching the current version.
+- **Id = UUID v4**: dependency `uuid` (features `v4`, `serde`), already
+  present transitively in `Cargo.lock`, declared in the workspace.
+- **No backward compatibility.** `DECK_VERSION` goes to 3,
+  `SOURCES_VERSION` to 4; v2 decks and slug-format packs are no
+  longer read.
 
-## Modèle (core)
+## Model (core)
 
 ```rust
 pub struct PackRef { pub id: Uuid, pub version: PackVersion }
-pub struct PackVersion(String);   // "sha256:<hex>", contenu canonique
+pub struct PackVersion(String);   // "sha256:<hex>", canonical content
 pub struct Deck { …, pub templates: Option<PackRef>, … }
 ```
 
-- `templates: None` : le pack par défaut (`essentiel`, id constant). Au
-  chargement, la version courante de la bibliothèque est embarquée dans le
-  bundle et référencée explicitement (sans étape d'annulation).
-- **Contenu canonique** d'une version : `pack.json` sérialisé en JSON à
-  clés triées, un octet `0`, puis `widgets.typ` tel quel (vide s'il est
-  absent). `PackVersion` est son sha-256. Nom et description sont dans
-  `pack.json` : les changer crée une version.
-- `pack.json` : `{ id, name, description, parent: Option<PackVersion>,
-  created, templates }`. Le slug disparaît.
-- Dans le replica Loro, `templates` est un atome (dernier écrivain gagne).
+- `templates: None`: the default pack (`essentiel`, constant id). On
+  load, the library's current version is embedded in the
+  bundle and referenced explicitly (without an undo step).
+- **Canonical content** of a version: `pack.json` serialized as JSON with
+  sorted keys, a `0` byte, then `widgets.typ` as is (empty if it is
+  absent). `PackVersion` is its sha-256. Name and description are in
+  `pack.json`: changing them creates a version.
+- `pack.json`: `{ id, name, description, parent: Option<PackVersion>,
+  created, templates }`. The slug goes away.
+- In the Loro replica, `templates` is an atom (last writer wins).
 
-## Fichier (zip des sources, version 4)
+## File (sources zip, version 4)
 
 ```
 manifest.json     { format: "oku-slides-sources", version: 4 }
 deck.loro
 assets/<hex>
-fonts/<nom>
+fonts/<name>
 packs/<hex>/pack.json
-packs/<hex>/widgets.typ    (absent si le pack n'a pas de widgets)
+packs/<hex>/widgets.typ    (absent if the pack has no widgets)
 ```
 
-- `SourceBundle.packs: BTreeMap<PackVersion, PackFiles>`, en ajout seul,
-  comme `assets` et `fonts`. `merge` fait l'union ; `deck.templates`
-  suit la fusion du replica.
-- À l'enregistrement, le bundle garde toute version référencée par le deck
-  courant ou par l'historique du replica (le mode historique restaure aussi
-  le pack d'une version passée).
-- À la lecture, une version dont le hash ne correspond pas au contenu est
-  seule écartée et signalée (`Issue::PackVersionMismatch`) ; le reste du
-  fichier s'ouvre. Un chemin `packs/` invalide (dossier autre que `<hex>`
-  de 64 chiffres hexadécimaux minuscules, sous-dossier) refuse tout le zip
-  (`SourcesErrorKind::BadName`). Les entrées de répertoire `packs/` et
-  `packs/<hex>/`, et les fichiers inconnus d'un dossier de version, sont
-  ignorés. Les packs comptent dans `max_sources_mib`.
+- `SourceBundle.packs: BTreeMap<PackVersion, PackFiles>`, append-only,
+  like `assets` and `fonts`. `merge` takes the union; `deck.templates`
+  follows the replica merge.
+- On save, the bundle keeps every version referenced by the current
+  deck or by the replica history (history mode also restores
+  the pack of a past version).
+- On read, a version whose hash does not match the content is
+  the only thing discarded and reported (`Issue::PackVersionMismatch`); the rest of the
+  file opens. An invalid `packs/` path (folder other than a `<hex>`
+  of 64 lowercase hexadecimal digits, subfolder) refuses the whole zip
+  (`SourcesErrorKind::BadName`). The `packs/` and
+  `packs/<hex>/` directory entries, and unknown files in a version folder, are
+  ignored. Packs count towards `max_sources_mib`.
 
-## Bibliothèque (session)
+## Library (session)
 
 ```
-<data>/templates/<uuid>/current            # PackVersion de la version courante
+<data>/templates/<uuid>/current            # PackVersion of the current version
 <data>/templates/<uuid>/versions/<hex>/pack.json
 <data>/templates/<uuid>/versions/<hex>/widgets.typ
 ```
 
-- `Library` : `packs()` (id, nom de la version courante, intégré ou non),
+- `Library`: `packs()` (id, name of the current version, built-in or not),
   `versions(id)`, `version(id, v) -> Option<PackFiles>`,
-  `current(id) -> Option<PackVersion>`, `add_version(id, files)` (sans
-  toucher `current`), `set_current(id, v)`, `relation(id, a, b) ->
-  {Same, Ancestor, Descendant, Sibling}` (par la chaîne des `parent`).
-  Écriture atomique, via `Storage`.
-- **Packs intégrés** (`templates/essentiel`, `templates/grilles` du dépôt,
-  embarqués dans l'app) : id constant dans leur `pack.json`, version lue en
-  lecture seule. Leur version courante est celle de l'app tant que
-  l'utilisateur n'a pas de version à lui (pas de fichier `current`) ; dès
-  qu'il en a une, c'est la sienne, et une nouvelle version de l'app n'ajoute
-  qu'une version sœur.
-- `current` qui pointe vers une version absente : la plus récente par
-  `created`, avertissement journalisé. Un dossier de version illisible est
-  journalisé et ignoré.
+  `current(id) -> Option<PackVersion>`, `add_version(id, files)` (without
+  touching `current`), `set_current(id, v)`, `relation(id, a, b) ->
+  {Same, Ancestor, Descendant, Sibling}` (through the chain of `parent`s).
+  Atomic write, through `Storage`.
+- **Built-in packs** (`templates/essentiel`, `templates/grilles` from the repo,
+  embedded in the app): constant id in their `pack.json`, version read
+  read-only. Their current version is the app's as long as
+  the user has no version of their own (no `current` file); as soon
+  as they have one, it is theirs, and a new app version only adds
+  a sibling version.
+- `current` pointing to an absent version: the most recent by
+  `created`, warning logged. An unreadable version folder is
+  logged and ignored.
 
-## Flux
+## Flows
 
-### Rendu
+### Rendering
 
-- `resolve_widgets` lit le pack dans les sources du deck :
-  `bundle.packs[templates.version]`, et le charge par
-  `RenderWorker::probe(PackWidgets::new(<hex>, widgets.typ))` — l'id de
-  pack dans le monde Typst devient le hash.
-- Version référencée absente du bundle (deck JSON de développement,
-  fichier abîmé) : widgets de base et avis `session-pack-missing`.
-- Pas de `widgets.typ` : widgets de base, sans avis.
+- `resolve_widgets` reads the pack from the deck's sources:
+  `bundle.packs[templates.version]`, and loads it through
+  `RenderWorker::probe(PackWidgets::new(<hex>, widgets.typ))` — the pack id
+  in the Typst world becomes the hash.
+- Referenced version absent from the bundle (development JSON deck,
+  damaged file): base widgets and notice `session-pack-missing`.
+- No `widgets.typ`: base widgets, without a notice.
 
-### Ouverture d'un fichier
+### Opening a file
 
-1. Chaque version embarquée absente de la bibliothèque y est ajoutée
-   (`add_version`). Un id inconnu crée le pack, avec cette version comme
-   courante.
-2. Si la version du deck diffère de la version courante de son pack, la
-   session pose un **bandeau** (vue `pack_notice`) : pack, relation
-   (`Ancestor` : plus ancienne ; `Descendant` : plus récente ; `Sibling` :
-   parallèle), et deux actions :
-   - **Passer à ma version** : `SetTemplates` vers la version courante,
-     dans une transaction annulable ; la version est ajoutée au bundle.
-   - **Faire de la sienne ma version courante** : `Library::set_current`.
-     Proposée seulement si la bibliothèque a la version du deck (sinon,
-     copie embarquée écartée ou ajout échoué : `make_current` est `null`
-     et le bouton masqué).
-   Le bandeau se ferme pour la session ; il ne bloque jamais l'ouverture.
+1. Each embedded version absent from the library is added to it
+   (`add_version`). An unknown id creates the pack, with this version as
+   current.
+2. If the deck's version differs from the current version of its pack, the
+   session sets a **banner** (view `pack_notice`): pack, relation
+   (`Ancestor`: older; `Descendant`: newer; `Sibling`:
+   parallel), and two actions:
+   - **Passer à ma version** (Switch to my version): `SetTemplates` to the current version,
+     in an undoable transaction; the version is added to the bundle.
+   - **Faire de la sienne ma version courante** (Make theirs my current version): `Library::set_current`.
+     Offered only if the library has the deck's version (otherwise,
+     embedded copy discarded or failed add: `make_current` is `null`
+     and the button hidden).
+   The banner closes for the session; it never blocks opening.
 
-### Mode modèles
+### Templates mode
 
-- Il modifie la version **courante** du pack du deck. Enregistrer crée une
-  version (`parent` = l'ancienne courante, `created` = maintenant), la rend
-  courante, l'ajoute au bundle du deck mis de côté, qui y passe
+- It modifies the **current** version of the deck's pack. Saving creates a
+  version (`parent` = the old current one, `created` = now), makes it
+  current, adds it to the bundle of the deck set aside, which switches to it
   (`SetTemplates`).
-- **Une version par session d'édition.** Le premier enregistrement (manuel
-  ou automatique) d'une session du mode modèles crée la version (`parent` =
-  la courante au début de la session) et la rend courante ; chaque
-  enregistrement suivant de la même session la **remplace** (même `parent`) :
-  la version intermédiaire est supprimée de la bibliothèque (le bundle du deck
-  reste en ajout seul), jusqu'à la sortie du mode modèles.
-- `PackMakeCurrent` et `PackUseMine` sont refusés pendant le mode modèles.
-  La clé de fusion d'annulation donne une seule étape d'annulation par
-  session d'édition.
-- « Enregistrer comme copie » : un nouvel id, sans `parent` ; la session
-  continue sur la version de la copie.
-- Modifier un pack intégré crée la version de l'utilisateur sous l'id du
-  pack intégré (plus de copie séparée).
+- **One version per editing session.** The first save (manual
+  or automatic) of a templates mode session creates the version (`parent` =
+  the current one at the start of the session) and makes it current; each
+  later save in the same session **replaces** it (same `parent`):
+  the intermediate version is deleted from the library (the deck's bundle
+  stays append-only), until templates mode is exited.
+- `PackMakeCurrent` and `PackUseMine` are refused during templates mode.
+  The undo merge key gives a single undo step per
+  editing session.
+- "Enregistrer comme copie" (Save as copy): a new id, without `parent`; the session
+  continues on the copy's version.
+- Modifying a built-in pack creates the user's version under the
+  built-in pack's id (no more separate copy).
 
-### Nouveau deck
+### New deck
 
-Comme tout deck sans `templates` : la version courante du pack par défaut
-est ajoutée à son bundle et référencée dès le chargement.
+Like any deck without `templates`: the current version of the default pack
+is added to its bundle and referenced from load.
 
 ### CLI
 
-`render` et `save` d'un deck dont le pack a des widgets passent par le
-processus de rendu (`RenderWorker`) : le code d'un pack reçu y est isolé
-(spec t-327). Sans widgets de pack, le `Renderer` en mémoire reste.
+`render` and `save` of a deck whose pack has widgets go through the
+render process (`RenderWorker`): the code of a received pack is isolated there
+(spec t-327). Without pack widgets, the in-memory `Renderer` stays.
 
-`open --out` extrait aussi `packs/<hex>/{pack.json,widgets.typ}`. `save`
-prend la version référencée d'abord dans `<dossier du deck>/packs/<hex>`
-(vérifiée par `PackFiles::matches`), puis dans la bibliothèque ;
-introuvable partout : `save` échoue (`session-pack-version-missing`).
+`open --out` also extracts `packs/<hex>/{pack.json,widgets.typ}`. `save`
+takes the referenced version first from `<deck folder>/packs/<hex>`
+(checked by `PackFiles::matches`), then from the library;
+found nowhere: `save` fails (`session-pack-version-missing`).
 
-### MCP et agent
+### MCP and agent
 
-L'outil `widgets` décrit les widgets de la version embarquée. Aucun nouvel
-outil.
+The `widgets` tool describes the widgets of the embedded version. No new
+tool.
 
-## Erreurs
+## Errors
 
-- core : `Issue::PackVersionMismatch { version }` (hash faux : la version
-  seule est écartée), `Issue::PackVersionMissing { version }` ; chemin
-  `packs/` invalide : tout le zip est refusé (`SourcesErrorKind::BadName`).
-- session : `UnknownPack { id }`, `PackVersionMissing { id, version }`,
-  `PackIdMismatch { id, found }` (`SetTemplates` vers une version d'un
-  autre pack que `id`, refusé) (Snafu, backtrace, minuscules).
-- Clés Fluent, 20 langues : erreurs ci-dessus, `session-pack-missing`,
-  bandeau (`pack-notice-older`, `pack-notice-newer`, `pack-notice-parallel`,
+- core: `Issue::PackVersionMismatch { version }` (wrong hash: only the version
+  is discarded), `Issue::PackVersionMissing { version }`; invalid
+  `packs/` path: the whole zip is refused (`SourcesErrorKind::BadName`).
+- session: `UnknownPack { id }`, `PackVersionMissing { id, version }`,
+  `PackIdMismatch { id, found }` (`SetTemplates` to a version of a
+  pack other than `id`, refused) (Snafu, backtrace, lowercase).
+- Fluent keys, 20 languages: errors above, `session-pack-missing`,
+  banner (`pack-notice-older`, `pack-notice-newer`, `pack-notice-parallel`,
   `pack-notice-use-mine`, `pack-notice-make-current`).
 
-## Dépôt
+## Repository
 
-- `templates/essentiel/pack.json`, `templates/grilles/pack.json` : id
-  constant, `parent: null`, `created` fixe.
-- Fixtures, tests CLI, MCP, session, agent et README de `typst/oku-slides`
-  réécrits en v3 (`templates` : `PackRef`, bundles avec `packs/`).
-- `Library` réécrite ; `free_id`, `slug`, `is_builtin` par slug
-  disparaissent.
-- UI : `api.ts` (`PackRef`, `pack_notice`), bandeau dans la vue du deck,
-  liste des packs par id.
+- `templates/essentiel/pack.json`, `templates/grilles/pack.json`: constant
+  id, `parent: null`, fixed `created`.
+- Fixtures, CLI, MCP, session and agent tests, and the `typst/oku-slides` README
+  rewritten for v3 (`templates`: `PackRef`, bundles with `packs/`).
+- `Library` rewritten; `free_id`, `slug`, `is_builtin` by slug
+  go away.
+- UI: `api.ts` (`PackRef`, `pack_notice`), banner in the deck view,
+  pack list by id.
 
 ## Tests
 
-Dans l'ordre de construction, en TDD :
+In build order, with TDD:
 
-1. **Core** : `PackVersion` du contenu canonique stable et indépendant de
-   l'ordre des clés ; `PackRef` aller-retour ; zip : version intègre lue,
-   hash faux écarté et signalé, chemin invalide refusé ; fusion de deux
-   bundles = union des versions ; versions référencées par l'historique
-   gardées à l'enregistrement.
-2. **Bibliothèque** : `add_version` ne change pas `current` ;
-   `set_current` ; `relation` (même, ancêtre, descendante, sœur) ; version
-   intégrée en lecture seule et courante par défaut ; `current` vers une
-   version absente.
-3. **Session** : le rendu utilise la version embarquée même si la
-   bibliothèque en a une autre ; ouverture : version reçue ajoutée en
-   silence ; bandeau et ses deux actions (dont annuler « Passer à ma
-   version ») ; mode modèles : nouvelle version dont `parent` est
-   l'ancienne courante ; copie : nouvel id ; historique : restaurer une
-   version passée restaure son pack ; version absente du bundle : base et
-   avis.
-4. **CLI** : `render` d'un PDF à pack embarqué passe par le processus de
-   rendu ; un pack qui boucle ne la gèle pas.
-5. **Régression** : un deck reçu avec le même id de pack mais un autre
-   contenu ne change jamais la version courante de la bibliothèque.
-6. **i18n** : nouvelles clés dans les 20 langues.
+1. **Core**: `PackVersion` of the canonical content stable and independent of
+   key order; `PackRef` round trip; zip: intact version read,
+   wrong hash discarded and reported, invalid path refused; merging two
+   bundles = union of the versions; versions referenced by the history
+   kept on save.
+2. **Library**: `add_version` does not change `current`;
+   `set_current`; `relation` (same, ancestor, descendant, sibling); built-in
+   version read-only and current by default; `current` pointing to an
+   absent version.
+3. **Session**: rendering uses the embedded version even if the
+   library has another one; opening: received version added
+   silently; banner and its two actions (including undoing "Passer à ma
+   version"); templates mode: new version whose `parent` is
+   the old current one; copy: new id; history: restoring a
+   past version restores its pack; version absent from the bundle: base and
+   notice.
+4. **CLI**: `render` of a PDF with an embedded pack goes through the render
+   process; a looping pack does not freeze it.
+5. **Regression**: a received deck with the same pack id but different
+   content never changes the library's current version.
+6. **i18n**: new keys in the 20 languages.

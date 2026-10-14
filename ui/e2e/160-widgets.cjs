@@ -2,7 +2,7 @@
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { until, settled } = require('./until.cjs');
+const { until, settled } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const IMG = '.widget-tab:not([hidden]) .widget-tab-preview img';
 const svgOf = (p) => p.evaluate(async (sel) => {

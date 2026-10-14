@@ -37,7 +37,7 @@ const ruleOf = (sheet: string, selector: string) => {
 };
 
 // L'alignement des pastilles sur plusieurs lignes (RTL compris) et la pastille « ↓ Tour en cours »
-// se vérifient sur la mise en page, dans e2e/agent.cjs (`assertPills`).
+// se vérifient sur la mise en page, dans e2e/060-agent.cjs (`assertPills`).
 
 test("la pile des slides repliée vers la gauche ne garde qu'un rail", () => {
   const rule = ruleOf(own("styles.css"), '.table:has(> .pile-column[data-folded="true"])');

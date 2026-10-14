@@ -170,6 +170,22 @@ agents-lint-test:
     echo "agents-lint-test : $pass ok, $failed en échec"
     [ "$failed" = 0 ]
 
+# Revue du harnais : ADR, specs, plans et tickets livrés depuis la dernière revue
+# (marque « Last review: <commit> » de docs/harness-review.md)
+agents-review:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    since=$(sed -n 's/^Last review: \([0-9a-f]\{7,40\}\).*/\1/p' docs/harness-review.md | head -1)
+    [ -n "$since" ] || { echo "agents-review : pas de « Last review: <commit> » dans docs/harness-review.md" >&2; exit 2; }
+    git cat-file -e "$since^{commit}" 2>/dev/null || { echo "agents-review : commit $since inconnu" >&2; exit 2; }
+    echo "Depuis $since ($(git log -1 --format=%ad --date=short "$since")) :"
+    echo "— Documents (A ajouté, M modifié, D supprimé, R renommé) :"
+    docs=$(git diff --name-status --diff-filter=AMDR "$since" HEAD -- docs/adr docs/superpowers)
+    echo "${docs:-(aucun)}" | sed 's/^/  /'
+    echo "— Tickets cités dans les messages de commit :"
+    tickets=$(git log --format=%B "$since..HEAD" | { grep -o -E '\bt-[0-9]+\b' || true; } | sort -t- -k2 -n -u | tr '\n' ' ')
+    echo "  ${tickets:-(aucun)}"
+
 # Harnais AGENTS.md : aucun CLAUDE.md, références, sources, budgets, carte racine
 agents-lint root=".":
     #!/usr/bin/env bash

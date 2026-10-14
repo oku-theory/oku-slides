@@ -1,5 +1,5 @@
 // Poignées des séparateurs : une petite pastille visible au repos dit qu'une zone se redimensionne.
-// Sans serveur : la vraie feuille de styles sur des séparateurs reconstitués. Lancer : bun e2e/handles.cjs.
+// Sans serveur : la vraie feuille de styles sur des séparateurs reconstitués. Lancer : bun e2e/130-handles.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

@@ -1,122 +1,122 @@
-# Compilation Typst bornée dans un processus de travail — design
+# Bounded Typst compilation in a worker process — design
 
-Date : 2026-09-29 · Tâche : t-327
+Date: 2026-09-29 · Task: t-327
 
-## Objectif
+## Goal
 
-Aucune compilation Typst ne peut plus geler ni faire tomber l'app. Tout ce
-qui exécute du Typst venu d'un pack — rendu du deck, sonde du registre,
-graphiques, export — tourne dans un **sous-processus persistant**, borné en
-temps et en mémoire ; au-delà, l'hôte le tue, le relance et se replie sur
-les widgets de base.
+No Typst compilation can freeze or crash the app anymore. Everything
+that runs Typst coming from a pack — deck render, registry probe,
+charts, export — runs in a **persistent subprocess**, bounded in
+time and memory; beyond that, the host kills it, restarts it and falls back to
+the base widgets.
 
-Programme « widgets portables », trois sous-projets, chacun avec sa spec :
+"Portable widgets" program, three sub-projects, each with its own spec:
 
-0. **Compilation bornée** (cette spec, t-327).
-1. Packs portables (t-328) : identité unique et version des packs, copie
-   du pack embarquée dans le fichier, qui fait foi au rendu.
-2. Création de widgets (t-329) : l'agent écrit et corrige `widgets.typ`,
-   éditeur Typst avancé dans le mode modèles.
+0. **Bounded compilation** (this spec, t-327).
+1. Portable packs (t-328): unique identity and version of packs, copy
+   of the pack embedded in the file, which is authoritative at render time.
+2. Widget creation (t-329): the agent writes and fixes `widgets.typ`,
+   advanced Typst editor in template mode.
 
-Le sous-projet 1 fait exécuter à l'app le Typst d'un PDF reçu ; le 2, du
-Typst écrit par essais et erreurs. Ce sous-projet est leur prérequis.
+Sub-project 1 makes the app run the Typst of a received PDF; sub-project 2, Typst
+written by trial and error. This sub-project is their prerequisite.
 
-Hors périmètre : une porte de confiance (« faire confiance à ce pack »),
-l'isolation réseau et fichiers au niveau de l'OS (le `World` Typst ne sert
-déjà que son système de fichiers virtuel), un pool de travailleurs.
+Out of scope: a trust gate ("trust this pack"),
+OS-level network and file isolation (the Typst `World` already serves
+only its virtual file system), a worker pool.
 
-## Constats
+## Findings
 
-- `typst::compile` n'a pas d'API d'annulation (0.15.1). Ses gardes internes
-  (itérations d'un `while`, profondeur d'appel, passes d'introspection) ne
-  couvrent ni `for _ in range(1e12)` ni l'allocation : ni le temps ni la
-  mémoire ne sont bornés.
-- Le code d'un pack s'exécute à **chaque rendu** (le `render` de chaque
-  widget), pas seulement dans la sonde : valider un pack une fois ne suffit
-  pas, un widget peut ne boucler qu'avec certains paramètres.
-- Un thread Rust ne se tue pas : l'abandonner laisse le CPU consommé
-  jusqu'à la sortie de l'app, et la mémoire reste non bornée.
-- `Compiled` enveloppe un `PagedDocument`, non sérialisable. `Layout` et
-  ses boîtes le sont déjà (`serde`).
-- macOS n'applique pas `RLIMIT_AS`/`RLIMIT_DATA` : la limite mémoire se
-  mesure depuis l'hôte.
+- `typst::compile` has no cancellation API (0.15.1). Its internal guards
+  (`while` iterations, call depth, introspection passes) cover
+  neither `for _ in range(1e12)` nor allocation: neither time nor
+  memory is bounded.
+- A pack's code runs on **every render** (the `render` of each
+  widget), not only in the probe: validating a pack once is not enough,
+  a widget may loop only with certain parameters.
+- A Rust thread cannot be killed: abandoning it leaves the CPU consumed
+  until the app exits, and memory stays unbounded.
+- `Compiled` wraps a `PagedDocument`, which is not serializable. `Layout` and
+  its boxes already are (`serde`).
+- macOS does not enforce `RLIMIT_AS`/`RLIMIT_DATA`: the memory limit is
+  measured from the host.
 
-## Décisions
+## Decisions
 
-- **Un sous-processus par session**, persistant pour garder le cache
-  incrémental (`comemo`) entre deux rendus ; une requête en vol à la fois,
-  comme aujourd'hui sous la session. Il héberge plusieurs **emplacements**
-  (`slot`), un `Renderer` chacun : le deck, les aperçus de modèles, les
-  variantes de l'agent. Une mise à mort les relance tous.
-- **Deux transports, un protocole.** `Process` (sous-processus, bornes
-  appliquées) et `InProcess` (`serve` sur un fil, tubes en mémoire, délai
-  signalé mais rien n'est tué). `Platform::load()` — les binaires — choisit
-  `Process(current_exe)` ; `Platform::with_settings()` — tests et outils —
+- **One subprocess per session**, persistent to keep the incremental
+  cache (`comemo`) between two renders; one request in flight at a time,
+  as today under the session. It hosts several **slots**
+  (`slot`), one `Renderer` each: the deck, the template previews, the
+  agent's variants. A kill restarts them all.
+- **Two transports, one protocol.** `Process` (subprocess, bounds
+  enforced) and `InProcess` (`serve` on a thread, in-memory pipes, timeout
+  reported but nothing is killed). `Platform::load()` — the binaries — chooses
+  `Process(current_exe)`; `Platform::with_settings()` — tests and tools —
   `InProcess`.
-- **Ré-exécution de soi-même** : `std::env::current_exe()` lancé avec
-  `--render-worker`. Pas de binaire à part : l'hôte et le travailleur sont
-  toujours de la même version.
-- **Chien de garde dans l'hôte** : délai par requête, relevé de la mémoire
-  résidente (RSS) du travailleur toutes les 100 ms ; au-delà, `kill`. Même
-  mécanisme sur les trois OS.
-- **Le registre de base reste dans l'hôte**, chargé une fois par processus
-  (`registry.rs`) : code embarqué, de confiance ; la session en a besoin
-  pour valider sans aller-retour. Seuls les packs passent par le
-  travailleur.
-- **Le registre d'un pack se construit dans l'hôte.** Le travailleur rend
-  le JSON brut de la sonde ; l'hôte en tire le `WidgetRegistry`
-  (`registry_from_probe`) et le garde par empreinte : la session compare
-  les registres par `Arc::ptr_eq`, et `WidgetRegistry` n'a pas à se
-  sérialiser.
-- **La politique de repli est dans la session**, pas dans le client :
-  l'invariant de `deck_widgets.rs` (un registre pour la session, les
-  sources et le rendu) interdit au client de changer seul de widgets. Le
-  client signale et marque l'empreinte fautive ; la session bascule.
-- **Mémoire résidente lue par `sysinfo`** (sans fonctions par défaut,
-  `system` seul) : nouvelle dépendance, aucune du workspace ne lit la RSS
-  d'un processus fils sur les trois OS.
-- **`Renderer` reste le moteur**, public et inchangé dans
-  `oku-slides-render` ; le travailleur l'héberge.
+- **Self re-execution**: `std::env::current_exe()` launched with
+  `--render-worker`. No separate binary: the host and the worker are
+  always the same version.
+- **Watchdog in the host**: per-request timeout, sampling of the worker's
+  resident memory (RSS) every 100 ms; beyond the limit, `kill`. Same
+  mechanism on all three OSes.
+- **The base registry stays in the host**, loaded once per process
+  (`registry.rs`): embedded, trusted code; the session needs it
+  to validate without a round trip. Only packs go through the
+  worker.
+- **A pack's registry is built in the host.** The worker returns
+  the raw JSON of the probe; the host derives the `WidgetRegistry` from it
+  (`registry_from_probe`) and keeps it by fingerprint: the session compares
+  registries with `Arc::ptr_eq`, and `WidgetRegistry` does not need to be
+  serialized.
+- **The fallback policy lives in the session**, not in the client:
+  the invariant of `deck_widgets.rs` (one registry for the session, the
+  sources and the render) forbids the client from switching widgets on its own. The
+  client reports and marks the faulty fingerprint; the session switches.
+- **Resident memory read by `sysinfo`** (without default features,
+  `system` only): new dependency, none in the workspace reads the RSS
+  of a child process on all three OSes.
+- **`Renderer` stays the engine**, public and unchanged in
+  `oku-slides-render`; the worker hosts it.
 
 ## Architecture
 
-Nouveau crate `oku-slides-render-worker` (dépend de `oku-slides-render`,
-`oku-slides-core`, `oku-slides-platform`, `oku-slides-i18n`) :
+New crate `oku-slides-render-worker` (depends on `oku-slides-render`,
+`oku-slides-core`, `oku-slides-platform`, `oku-slides-i18n`):
 
-- `frame` : trames à longueur préfixée.
-- `serve(reader, writer, fonts)` : boucle du travailleur. Lit les requêtes,
-  les exécute sur un `Renderer`, répond. Garde le dernier `Compiled` sous un
-  numéro de **génération** (`u64`, croissant) et les assets reçus par
-  identifiant.
-- `RenderWorker` : côté hôte, le lien partagé (`Arc<Mutex<…>>`) avec un
-  travailleur : transport, chien de garde, relance, empreintes fautives,
+- `frame`: length-prefixed frames.
+- `serve(reader, writer, fonts)`: the worker loop. Reads requests,
+  runs them on a `Renderer`, replies. Keeps the last `Compiled` under a
+  **generation** number (`u64`, increasing) and the received assets by
+  identifier.
+- `RenderWorker`: host side, the shared link (`Arc<Mutex<…>>`) with a
+  worker: transport, watchdog, restart, faulty fingerprints,
   `probe(pack)`.
-- `RenderSlot` : un emplacement, même surface que `Renderer` :
+- `RenderSlot`: a slot, same surface as `Renderer`:
   `set_language`, `set_widgets`, `render`, `registry`, `chart_palette`.
-  `render` renvoie un `RemoteCompiled`.
-- `RemoteCompiled` : poignée d'une génération. Locaux : `page_count`,
-  `page_hash`, `layout()`, `warnings`. Par requête : `svg`, `png`, `pdf`.
-- `Limits { timeout, memory }` : lus dans la configuration.
+  `render` returns a `RemoteCompiled`.
+- `RemoteCompiled`: handle to a generation. Local: `page_count`,
+  `page_hash`, `layout()`, `warnings`. Per request: `svg`, `png`, `pdf`.
+- `Limits { timeout, memory }`: read from the configuration.
 
-Le point d'entrée des deux binaires (CLI `oku-slides`, app Tauri) teste
-`--render-worker` en tête de `main`, avant toute autre initialisation, et
-appelle `oku_slides_render_worker::run_from_args()` qui ne rend pas la main.
+The entry point of both binaries (CLI `oku-slides`, Tauri app) tests
+`--render-worker` at the top of `main`, before any other initialization, and
+calls `oku_slides_render_worker::run_from_args()`, which never returns.
 
-## Protocole
+## Protocol
 
-Trame : longueur de l'en-tête (`u32` big-endian), en-tête JSON
-(`serde_json`), longueur de la charge (`u32`), charge binaire brute
-(éventuellement vide). PNG, PDF, assets et polices voyagent tels quels. Une
-longueur au-delà de `render.max_frame_mib` est refusée (`Frame`), des deux
-côtés.
+Frame: header length (`u32` big-endian), JSON header
+(`serde_json`), payload length (`u32`), raw binary payload
+(possibly empty). PNG, PDF, assets and fonts travel as is. A
+length above `render.max_frame_mib` is rejected (`Frame`), on both
+sides.
 
-| Requête | Charge | Réponse |
+| Request | Payload | Response |
 |---|---|---|
 | `SetLanguage { locale }` | — | `Ok` |
-| `PutFont { name }` | octets | `Ok` |
-| `PutAsset { id }` | octets | `Ok` |
-| `Probe { pack: { id, source } }` | — | `Probe { json }` (sortie brute de la sonde) |
-| `OpenSlot { slot, fonts: [empreinte] }` | — | `Ok` |
+| `PutFont { name }` | bytes | `Ok` |
+| `PutAsset { id }` | bytes | `Ok` |
+| `Probe { pack: { id, source } }` | — | `Probe { json }` (raw probe output) |
+| `OpenSlot { slot, fonts: [fingerprint] }` | — | `Ok` |
 | `CloseSlot { slot }` | — | `Ok` |
 | `SetWidgets { slot, pack: Option<{ id, source }> }` | — | `Ok` |
 | `Render { slot, deck, assets: [id] }` | — | `Compiled { generation, page_count, page_hashes, layout, tokens, warnings, chart_palette }` |
@@ -124,105 +124,105 @@ côtés.
 | `Png { slot, generation, page, pixel_per_pt }` | — | `Bytes` |
 | `Pdf { slot, generation }` | — | `Bytes` |
 
-`PutFont` et `PutAsset` portent une empreinte (sha-256) ; `OpenSlot` et
-`Render` ne citent que des empreintes déjà envoyées.
+`PutFont` and `PutAsset` carry a fingerprint (sha-256); `OpenSlot` and
+`Render` only cite fingerprints already sent.
 
-Toute requête peut répondre `Error { kind, message, diagnostics }`, qui
-transporte un `RenderError` ou un `RegistryError` sérialisé. `Svg`, `Png`
-et `Pdf` d'une génération qui n'est plus la dernière répondent `Stale`.
+Any request may answer `Error { kind, message, diagnostics }`, which
+carries a serialized `RenderError` or `RegistryError`. `Svg`, `Png`
+and `Pdf` for a generation that is no longer the latest answer `Stale`.
 
-L'hôte n'envoie un asset que si le travailleur ne l'a pas (ensemble des ids
-envoyés tenu par le client, vidé à la relance). `Registries` (mémoïsation
-par empreinte) vit dans le travailleur.
+The host sends an asset only if the worker does not have it (set of ids
+sent, kept by the client, cleared on restart). `Registries` (memoization
+by fingerprint) lives in the worker.
 
 ## Configuration
 
-`config.default.toml` de `oku-slides-platform` :
+`config.default.toml` of `oku-slides-platform`:
 
 ```toml
 [render]
-# Durée maximale d'une compilation ou d'un export Typst (ms) ; au-delà, le
-# processus de rendu est relancé et le deck se rend avec les widgets de base.
+# Maximum duration of a Typst compilation or export (ms); beyond it, the
+# render process is restarted and the deck renders with the base widgets.
 timeout_ms = 10000
-# Mémoire maximale du processus de rendu (Mio).
+# Maximum memory of the render process (MiB).
 memory_mib = 2048
-# Taille maximale d'un message échangé avec le processus de rendu (Mio).
+# Maximum size of a message exchanged with the render process (MiB).
 max_frame_mib = 512
 ```
 
-Surchargeable par `OKU_SLIDES_RENDER__TIMEOUT_MS`, etc.
+Overridable with `OKU_SLIDES_RENDER__TIMEOUT_MS`, etc.
 
-## Échecs et repli
+## Failures and fallback
 
-`RenderErrorKind` gagne `Timeout`, `OutOfMemory` et `WorkerLost` (fin
-inattendue du travailleur, y compris une panique de Typst, qui aujourd'hui
-ferait tomber l'app), et `Frame` (message illisible ou trop grand). Snafu
-avec backtrace, messages en minuscules, localisés via Fluent dans les 20
-langues.
+`RenderErrorKind` gains `Timeout`, `OutOfMemory` and `WorkerLost` (unexpected
+end of the worker, including a Typst panic, which today
+would crash the app), and `Frame` (unreadable or oversized message). Snafu
+with backtrace, lowercase messages, localized via Fluent in the 20
+languages.
 
-Sur `Timeout`, `OutOfMemory` ou `WorkerLost` :
+On `Timeout`, `OutOfMemory` or `WorkerLost`:
 
-1. **Pendant `Probe`, `SetWidgets` ou un `Render` avec un pack** : le
-   client marque l'empreinte (sha-256 de la source du pack) **fautive pour
-   la session** ; le travailleur est relancé à la requête suivante, l'état
-   rejoué (langue, polices, emplacements, widgets). La session, sur une
-   erreur bornée avec un pack installé, installe les widgets de base
-   (`install_widgets`), refait le rendu une fois et affiche un avis qui
-   nomme le pack et la cause. Le deck se rend avec les
-   widgets de base : ses éléments de widgets propres au pack montrent
-   l'encart « élément inconnu », leurs paramètres sont conservés.
-2. **Avec les widgets de base** (deck démesuré) : l'erreur remonte telle
-   quelle, comme une erreur de compilation aujourd'hui ; le deck reste
-   éditable, le dernier rendu réussi reste affiché. Le travailleur est
-   relancé pour la requête suivante.
-3. **Un pack fautif n'est pas retenté** dans la session. Le modifier change
-   son empreinte : il est retenté.
+1. **During `Probe`, `SetWidgets` or a `Render` with a pack**: the
+   client marks the fingerprint (sha-256 of the pack source) **faulty for
+   the session**; the worker is restarted on the next request, its state
+   replayed (language, fonts, slots, widgets). The session, on a
+   bounded error with a pack installed, installs the base widgets
+   (`install_widgets`), renders again once and shows a notice that
+   names the pack and the cause. The deck renders with the
+   base widgets: its pack-specific widget elements show
+   the "unknown element" box, their parameters are kept.
+2. **With the base widgets** (oversized deck): the error is reported as
+   is, like a compilation error today; the deck stays
+   editable, the last successful render stays displayed. The worker is
+   restarted for the next request.
+3. **A faulty pack is not retried** in the session. Modifying it changes
+   its fingerprint: it is retried.
 
-**Poignée périmée.** Après un nouveau rendu ou une relance, une
-`RemoteCompiled` ancienne reçoit `Stale` ; la session re-rend une fois et
-ne remonte l'erreur à l'UI que si ce re-rendu échoue.
+**Stale handle.** After a new render or a restart, an old
+`RemoteCompiled` receives `Stale`; the session re-renders once and
+reports the error to the UI only if that re-render fails.
 
-## Consommateurs
+## Consumers
 
-- **Session** : détient un `RenderWorker` ; `new_renderer` ouvre un `RenderSlot`.
-  `deck_widgets.rs` obtient le registre d'un pack par `RenderWorker::probe`
-  (JSON de la sonde, `registry_from_probe` dans l'hôte, gardé par
-  empreinte) et l'installe par `RenderSlot::set_widgets`.
-  L'arrêt de la session ferme le travailleur (fermeture de stdin, puis
-  `kill` après un court délai).
-- **CLI** : `render` et `save` gardent le `Renderer` en mémoire : ils ne
-  chargent aucun pack (widgets de base, de confiance). À revoir avec t-328,
-  quand la CLI lira le pack embarqué. `main` gère `--render-worker` :
-  `oku-slides serve` fait tourner un `Workspace`, donc des sessions.
-- **Workspace** : son `Registries` (base seule) devient `base_registry`.
-- **MCP** : passe par la session, rien à changer.
-- **Tauri** : drapeau en tête de `main.rs`.
-- Les ARCHITECTURE.md de `render`, `session` et du nouveau crate sont mis à
-  jour.
+- **Session**: owns a `RenderWorker`; `new_renderer` opens a `RenderSlot`.
+  `deck_widgets.rs` gets a pack's registry through `RenderWorker::probe`
+  (probe JSON, `registry_from_probe` in the host, kept by
+  fingerprint) and installs it through `RenderSlot::set_widgets`.
+  Stopping the session closes the worker (closing stdin, then
+  `kill` after a short delay).
+- **CLI**: `render` and `save` keep the in-memory `Renderer`: they
+  load no pack (base widgets, trusted). To be revisited with t-328,
+  when the CLI reads the embedded pack. `main` handles `--render-worker`:
+  `oku-slides serve` runs a `Workspace`, hence sessions.
+- **Workspace**: its `Registries` (base only) becomes `base_registry`.
+- **MCP**: goes through the session, nothing to change.
+- **Tauri**: flag at the top of `main.rs`.
+- The ARCHITECTURE.md files of `render`, `session` and the new crate are
+  updated.
 
 ## Tests
 
-Dans l'ordre de construction, en TDD :
+In build order, with TDD:
 
-1. **Trames** : aller-retour en-tête et charge ; trame tronquée ;
-   longueur au-delà de `max_frame_mib` refusée.
-2. **`serve` en mémoire** (tubes, sans sous-processus) : `Render` puis `Svg`
-   de la même génération ; `Stale` après un second `Render` ; `PutAsset`
-   puis un deck qui l'utilise.
-3. **`RenderWorker` avec un vrai sous-processus** (binaire
-   `oku-slides-render-worker` du crate, réservé aux tests, jamais
-   empaqueté) :
-   - rendu identique octet pour octet au rendu en mémoire pour
-     `fixtures/roadmap` (SVG de chaque page, `Layout`) ;
-   - pack qui boucle (`for _ in range(1000000000000) {}` dans un widget) :
-     `Timeout`, repli sur la base, empreinte fautive, second rendu sans
-     nouvelle tentative ;
-   - pack qui alloue sans fin, sous un `memory_mib` de test bas :
-     `OutOfMemory` ;
-   - travailleur tué de l'extérieur : `WorkerLost`, relance, rejeu, rendu
-     identique.
-4. **Régression** (session, test `harness = false` qui gère lui-même
-   `--render-worker`) : un pack qui boucle ne gèle plus la session — le
-   rendu rend la main en moins de `timeout_ms` plus une marge, avec les
-   widgets de base et un avis.
-5. **i18n** : clés des nouvelles erreurs dans les 20 langues.
+1. **Frames**: header and payload round trip; truncated frame;
+   length above `max_frame_mib` rejected.
+2. **In-memory `serve`** (pipes, no subprocess): `Render` then `Svg`
+   of the same generation; `Stale` after a second `Render`; `PutAsset`
+   then a deck that uses it.
+3. **`RenderWorker` with a real subprocess** (the crate's
+   `oku-slides-render-worker` binary, reserved for tests, never
+   packaged):
+   - render identical byte for byte to the in-memory render for
+     `fixtures/roadmap` (SVG of each page, `Layout`);
+   - looping pack (`for _ in range(1000000000000) {}` in a widget):
+     `Timeout`, fallback to the base, faulty fingerprint, second render without
+     a new attempt;
+   - pack that allocates endlessly, under a low test `memory_mib`:
+     `OutOfMemory`;
+   - worker killed from outside: `WorkerLost`, restart, replay, identical
+     render.
+4. **Regression** (session, `harness = false` test that handles
+   `--render-worker` itself): a looping pack no longer freezes the session — the
+   render returns in less than `timeout_ms` plus a margin, with the
+   base widgets and a notice.
+5. **i18n**: keys of the new errors in the 20 languages.

@@ -1,104 +1,101 @@
-# ADR-0001 : Espace de travail, une session par onglet, reprise v2 paresseuse
+# ADR-0001: Workspace, one session per tab, lazy v2 resume
 
-- **Statut :** accepté
-- **Date :** 2026-09-26
-- **Tâches :** t-142 (onglets et fenêtres), t-158 (restauration paresseuse), t-156 (cet ADR)
-- **Spec :** [onglets-fenetres-design.md](../superpowers/specs/2026-09-26-onglets-fenetres-design.md)
+- **Status:** accepted
+- **Date:** 2026-09-26
+- **Tasks:** t-142 (tabs and windows), t-158 (lazy restore), t-156 (this ADR)
+- **Spec:** [onglets-fenetres-design.md](../superpowers/specs/2026-09-26-onglets-fenetres-design.md)
 
-## Contexte
+## Context
 
-Jusqu'à t-142, l'app n'ouvrait qu'une présentation à la fois : une `Session`
-unique, reprise au lancement depuis `<data>/resume/` (format v1 :
-`state.json`, `deck/`, `templates/`). L'utilisateur veut plusieurs
-présentations ouvertes, en onglets répartis sur plusieurs fenêtres (plusieurs
-écrans), dans une seule instance de l'app. Chaque onglet garde un état lourd
-(rendu Typst, cache SVG, historique, mode modèles), et deux fenêtres doivent
-pouvoir rendre en même temps. Tout doit revenir au relancement, sans que le
-lancement coûte le rendu de chaque onglet.
+Until t-142, the app opened only one presentation at a time: a single `Session`,
+resumed at launch from `<data>/resume/` (v1 format: `state.json`, `deck/`,
+`templates/`). The user wants several presentations open, in tabs spread over
+several windows (several screens), in a single instance of the app. Each tab keeps a
+heavy state (Typst rendering, SVG cache, history, templates mode), and two windows must
+be able to render at the same time. Everything must come back on relaunch, without the
+launch costing the rendering of every tab.
 
-## Décision
+## Decision
 
-**Une `Session` par onglet, tenue par un `Workspace`.**
+**One `Session` per tab, held by a `Workspace`.**
 
-- `Workspace` (crate `oku-slides-session`) tient les fenêtres (`w-<n>`), leurs
-  onglets ordonnés (`t-<n>`), l'onglet actif de chacune, la fenêtre active,
-  et une session par onglet derrière un `Arc<Mutex<Slot>>`.
-- `Slot` : `Ready(Session)`, `Dormant` (onglet repris, pas encore relu) ou
-  `Closed` (fermé avant d'avoir été relu, plus jamais réveillé).
-- **Ordre des verrous :** l'espace de travail, puis une session, jamais
-  l'inverse. Une requête d'onglet ne verrouille que sa session. Aucune
-  attente sur une session sous le verrou de l'espace de travail
-  (`try_lock` seulement). Une session neuve se construit hors verrou.
-  Un verrou empoisonné est repris.
-- Identifiants jamais réutilisés (compteurs dans `workspace.json`), validés
-  à la relecture (`t-`/`w-` et 1 à 18 chiffres) : ils deviennent des chemins
-  et des labels de fenêtre Tauri.
+- `Workspace` (crate `oku-slides-session`) holds the windows (`w-<n>`), their
+  ordered tabs (`t-<n>`), the active tab of each, the focused window,
+  and one session per tab behind an `Arc<Mutex<Slot>>`.
+- `Slot`: `Ready(Session)`, `Dormant` (tab resumed, not yet read back) or
+  `Closed` (closed before being read back, never woken again).
+- **Lock order:** the workspace, then a session, never the reverse. A tab request
+  locks only its session. No waiting on a session under the workspace lock
+  (`try_lock` only). A new session is built outside the lock.
+  A poisoned lock is recovered.
+- Identifiers are never reused (counters in `workspace.json`), validated
+  on read-back (`t-`/`w-` and 1 to 18 digits): they become paths
+  and Tauri window labels.
 
-**Reprise v2 :**
+**v2 resume:**
 
 ```
 resume/
   workspace.json   { version: 2, next_tab, next_window, focused,
                      windows: [{ label, tabs, active }], kept, info: { t-<n>: TabInfo } }
-  tabs/t-<n>/      la forme v1 : state.json, deck/, templates/
+  tabs/t-<n>/      the v1 shape: state.json, deck/, templates/
 ```
 
-- Un écrivain par fichier : chaque session écrit `tabs/<id>/`, seul le
-  `Workspace` écrit `workspace.json`.
-- **Restauration paresseuse (t-158) :** aucune session n'est relue au
-  lancement. La barre vient de `info` ; une session est relue à la
-  première requête de son onglet. Les infos pouvant être en retard (arrêt
-  brutal entre deux écritures), toute décision destructrice (fermer sans
-  question, remplacer un onglet vierge) relit d'abord l'onglet ; relecture
-  impossible = décision prudente.
-- **Pas de migration v1 :** l'ancien `resume/state.json` est ignoré, jamais
-  converti. On efface `<data>/resume/` à la main une fois.
+- One writer per file: each session writes `tabs/<id>/`, only the
+  `Workspace` writes `workspace.json`.
+- **Lazy restore (t-158):** no session is read back at launch. The tab bar comes
+  from `info`; a session is read back on the first request to its tab. Since the
+  info can lag behind (abrupt stop between two writes), any destructive decision
+  (closing without asking, replacing a blank tab) reads the tab back first; a
+  failed read-back means the cautious decision.
+- **No v1 migration:** the old `resume/state.json` is ignored, never
+  converted. `<data>/resume/` is deleted by hand once.
 
-**Hors périmètre :** un même deck dans deux fenêtres, onglets fermés
-récupérables, migration de l'ancien format.
+**Out of scope:** the same deck in two windows, recoverable closed tabs, migration of the
+old format.
 
-## Conséquences
+## Consequences
 
-**Positives**
+**Positive**
 
-- Deux fenêtres rendent en parallèle : chaque onglet a son verrou.
-- `Session` change à peine : reprise, historique et mode modèles restent
-  ceux d'un onglet unique, dans son propre dossier.
-- Le lancement ne coûte plus le rendu de chaque onglet ; un onglet corrompu
-  ne se découvre qu'à son usage, et ne coûte que lui (mis de côté, avis).
-- Une entrée altérée de `workspace.json` ne coûte que son onglet.
+- Two windows render in parallel: each tab has its own lock.
+- `Session` barely changes: resume, history and templates mode stay
+  those of a single tab, in its own folder.
+- Launch no longer costs the rendering of every tab; a corrupted tab
+  is only discovered when used, and costs only itself (set aside, notice).
+- A tampered entry in `workspace.json` costs only its tab.
 
-**Négatives**
+**Negative**
 
-- Deux sources pour l'état d'un onglet endormi (`info` et son dossier) :
-  il faut relire l'onglet avant toute décision qui détruit, et les tests
-  doivent couvrir les infos en retard.
-- L'ordre des verrous est une règle à tenir à la main, que le compilateur
-  ne vérifie pas (documentée dans `ARCHITECTURE.md` du crate).
-- `workspace.json` est réécrit à chaque changement de titre ou d'état d'un
-  onglet (écriture sous le verrou de l'espace de travail).
-- `Resync` (l'interface s'abonne à un onglet affiché) réveille la session de
-  cet onglet pour relire ses conversations : un onglet n'est plus relu à son
-  premier prompt mais à son premier affichage.
+- Two sources for the state of a dormant tab (`info` and its folder):
+  the tab must be read back before any destructive decision, and the tests
+  must cover lagging info.
+- The lock order is a rule to uphold by hand, which the compiler does
+  not check (documented in the crate's `ARCHITECTURE.md`).
+- `workspace.json` is rewritten on every change of a tab's title or state
+  (written under the workspace lock).
+- `Resync` (the interface subscribes to a displayed tab) wakes the session of
+  that tab to read back its conversations: a tab is no longer read back on its
+  first prompt but on its first display.
 
-**Neutres**
+**Neutral**
 
-- Les utilisateurs de la v1 perdent une fois leur reprise (dossier ignoré,
-  pas supprimé).
-- Un onglet illisible découvert tard reste dans la barre, vierge, au lieu
-  d'être retiré au lancement.
+- v1 users lose their resume once (folder ignored,
+  not deleted).
+- An unreadable tab discovered late stays in the tab bar, blank, instead of
+  being removed at launch.
 
-## Alternatives écartées
+## Rejected alternatives
 
-- **Une session unique qui change de deck à chaque onglet :** un seul
-  rendu à la fois, historique et cache à sauvegarder et recharger à chaque
-  changement d'onglet ; lent, et deux fenêtres se bloqueraient.
-- **Un processus (ou une instance) par fenêtre :** pas d'instance unique,
-  glisser un onglet entre fenêtres devient un transfert entre processus,
-  et « ouvrir avec… » ne sait pas quelle instance viser.
-- **Un seul `Mutex<Workspace>` englobant les sessions :** simple, mais tout
-  rendu bloque toutes les fenêtres.
-- **Migrer le format v1 :** code de compatibilité à garder pour un seul
-  passage, contraire à la règle « pas de shim » du projet (MVP).
-- **Tout relire au lancement (t-142 initial) :** simple et sans état en
-  double, mais le lancement coûte le rendu de chaque onglet ouvert.
+- **A single session that switches deck on each tab:** only one
+  render at a time, history and cache to save and reload on every
+  tab switch; slow, and two windows would block each other.
+- **One process (or instance) per window:** no single instance,
+  dragging a tab between windows becomes a transfer between processes,
+  and "open with…" does not know which instance to target.
+- **A single `Mutex<Workspace>` wrapping the sessions:** simple, but any
+  render blocks every window.
+- **Migrate the v1 format:** compatibility code kept for a single
+  pass, against the project's "no shim" rule (MVP).
+- **Read everything back at launch (initial t-142):** simple and without duplicated
+  state, but launch costs the rendering of every open tab.

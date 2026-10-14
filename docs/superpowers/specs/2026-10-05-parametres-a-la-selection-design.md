@@ -1,118 +1,118 @@
-# Paramètres à la sélection — design
+# Parameters on selection — design
 
-Date : 2026-10-05. Tâche parente : t-548 (sous-tâches t-549 à t-553) (voir le plan `docs/superpowers/plans/2026-10-05-parametres-a-la-selection.md`).
+Date: 2026-10-05. Parent task: t-548 (subtasks t-549 to t-553) (see the plan `docs/superpowers/plans/2026-10-05-parametres-a-la-selection.md`).
 
-## But
+## Goal
 
-Les paramètres d'un widget s'éditent comme les données d'un graphique : quand un
-widget est la cible, un panneau à droite montre tous ses paramètres réglables, une
-liste en tableau (`ListTable`). L'ajout d'item sur la slide (les « + ») disparaît :
-on ajoute par le tableau.
+A widget's parameters are edited like a chart's data: when a
+widget is the target, a panel on the right shows all its settable parameters, a
+list as a table (`ListTable`). Adding an item on the slide (the "+") goes away:
+items are added through the table.
 
-## Comportement
+## Behavior
 
-- **Cible** : l'élément sélectionné ; rien de sélectionné, le widget de la slide.
-- **Panneau** : la carte « Paramètres de *nom* », en tête de la colonne des notes
-  (`aside.notes`), là où se monte `ChartPanel`. Un champ par paramètre réglable :
-  `plain` (texte), `rich` (texte riche), `number` (curseur si bornes valides, sinon
-  texte), `choice` et `flag` (sélection), `list` (tableau).
-  - Valeurs lues dans le deck ; absentes, le `default` du schéma ; jamais de valeur
-    d'exemple ni neutre. Une liste absente du deck est vide (comme au rendu) : tableau vide.
-  - Paramètre lié à une variable du deck (`bind`) : pas de champ, une ligne de note
-    « *label* suit la variable *clé* ».
-  - Types non réglables (`asset`, `slot`, `grid`, `host`) : omis, sans note.
-  - Aucun champ (des notes seules ne comptent pas) : pas de panneau.
-  - Un graphique (widget à paramètre `host(chart)`) garde `ChartPanel`, sans panneau de paramètres.
-  - Sélection périmée (élément disparu) : l'interface résout la sélection dans la vue ;
-    un élément disparu n'est plus sélectionné et le panneau montre celui de la slide,
-    sans erreur. La session, elle, ne renvoie aucune surface pour un id d'élément inconnu.
-  - Nom montré : le `label` du widget et de chaque paramètre ; sans `label` (widgets de
-    base), un nom traduit (`session-widget-kind-<kind>`, `session-param-<kind>-<nom>`),
-    sinon le nom brut.
-  - Le graphique sélectionné ne demande pas de surface de paramètres à la session.
-- **Modes** : deck et Modèles (slides modèles). En mode Modèles la carte « Ce
-  modèle » reste sous la scène ; le panneau de paramètres est à droite. L'atelier de
-  widget (`host-widget`) ne change pas et, ouvert, masque le panneau de droite. Pas de panneau en lecture seule ni dans
-  l'historique.
-- **Scène et aperçu de l'atelier** : plus de « + » (entre items, avant, après, au
-  centre d'une liste vide). Les poignées « × » et ⋮⋮ restent.
-- **Annulation** : chaque réglage est un pas, « Réglage : *label* » ; seuls les réglages
-  successifs d'un même curseur (glissé) fusionnent en un pas. Les autres valeurs et les
-  remplacements de liste ne fusionnent jamais.
-- **Insertion** : le tableau ajoute en fin de liste ; l'insertion à une position précise
-  (les « + » entre items) disparaît, on glisse la ligne ensuite.
+- **Target**: the selected element; with nothing selected, the slide's widget.
+- **Panel**: the "Paramètres de *nom*" (Parameters of *name*) card, at the top of the notes column
+  (`aside.notes`), where `ChartPanel` mounts. One field per settable parameter:
+  `plain` (text), `rich` (rich text), `number` (slider if bounds are valid, otherwise
+  text), `choice` and `flag` (select), `list` (table).
+  - Values read from the deck; when absent, the schema's `default`; never a sample
+    or neutral value. A list absent from the deck is empty (as in rendering): empty table.
+  - Parameter bound to a deck variable (`bind`): no field, a note line
+    "*label* follows the variable *key*".
+  - Non-settable types (`asset`, `slot`, `grid`, `host`): omitted, without a note.
+  - No field (notes alone do not count): no panel.
+  - A chart (widget with a `host(chart)` parameter) keeps `ChartPanel`, without a parameters panel.
+  - Stale selection (element gone): the interface resolves the selection in the view;
+    a vanished element is no longer selected and the panel shows the slide's one,
+    without error. The session, for its part, returns no surface for an unknown element id.
+  - Name shown: the `label` of the widget and of each parameter; without a `label` (base
+    widgets), a translated name (`session-widget-kind-<kind>`, `session-param-<kind>-<nom>`),
+    otherwise the raw name.
+  - The selected chart does not ask the session for a parameters surface.
+- **Modes**: deck and Templates (template slides). In Templates mode the "Ce
+  modèle" (This template) card stays below the stage; the parameters panel is on the right. The widget
+  workshop (`host-widget`) does not change and, when open, hides the right panel. No panel in read-only mode nor in
+  the history.
+- **Stage and workshop preview**: no more "+" (between items, before, after, in the
+  center of an empty list). The "×" and ⋮⋮ handles remain.
+- **Undo**: each setting is one step, "Réglage : *label*" (Setting: *label*); only successive
+  settings of the same slider (dragged) merge into one step. Other values and
+  list replacements never merge.
+- **Insertion**: the table adds at the end of the list; insertion at a precise position
+  (the "+" between items) goes away, the row is dragged afterwards.
 
 ## Architecture
 
-Approche retenue : une surface de réglages construite par la session (comme
-`host-template` et `host-widget`), une seule correspondance type → champ.
+Chosen approach: a settings surface built by the session (like
+`host-template` and `host-widget`), a single type → field mapping.
 
 ### Session (Rust, `oku-slides-session`)
 
-- `param_fields.rs` (nouveau) : `field()`, `column()`, `label()`, `slider_step()`,
-  `settable()` déplacés de `widget_params.rs`, plus `coerce()` (conversion pure tirée de
-  `checked_value`) et `schema_default()` (tiré de `preview_params`), partagés entre
-  l'atelier (valeurs d'exemple) et la cible (valeurs du deck). Aucune copie.
-- Nouveau `target_params.rs` :
-  - `Session::target_settings(slide, element) -> Result<Option<Surface>>` : surface
-    `host-target` (titre `session-widget-params`) ; `None` hors édition (historique,
-    aide), cible disparue, sans schéma, graphique, sans champ.
-  - `Session::target_param(slide, element, key, value)` : `Op::SetParam`, valeur
-    convertie par `coerce` (texte vide : efface) ; une liste attend un tableau d'items
-    (collage) ; fusion d'annulation pour un curseur seulement (`FieldKind::Slider`).
-  - `Session::target_list(slide, element, key, change: ListOp)` : `Op::EditList`.
-  - Clé : celle d'un champ montré (`bind`, non réglable, inconnue → `HostKey`) ; slide
-    inconnue → `NoSlide`. Validation par `apply` (refus `Op` du cœur, localisés). Un pas,
-    libellé `session-undo-param`. Pas de nouvelle variante d'erreur.
-- `panel.rs` : `HOST_TARGET = "host-target"`, `slide_palette()`. `Request::HostSettings`
-  et `HostParam` inchangées ; nouvelles `Request::TargetSettings { slide, element? }`,
+- `param_fields.rs` (new): `field()`, `column()`, `label()`, `slider_step()`,
+  `settable()` moved from `widget_params.rs`, plus `coerce()` (pure conversion extracted from
+  `checked_value`) and `schema_default()` (extracted from `preview_params`), shared between
+  the workshop (sample values) and the target (deck values). No copy.
+- New `target_params.rs`:
+  - `Session::target_settings(slide, element) -> Result<Option<Surface>>`: surface
+    `host-target` (title `session-widget-params`); `None` outside editing (history,
+    help), target gone, without schema, chart, without field.
+  - `Session::target_param(slide, element, key, value)`: `Op::SetParam`, value
+    converted by `coerce` (empty text: clears); a list expects an array of items
+    (paste); undo merging for a slider only (`FieldKind::Slider`).
+  - `Session::target_list(slide, element, key, change: ListOp)`: `Op::EditList`.
+  - Key: that of a shown field (`bind`, non-settable, unknown → `HostKey`); unknown
+    slide → `NoSlide`. Validation by `apply` (core `Op` rejections, localized). One step,
+    label `session-undo-param`. No new error variant.
+- `panel.rs`: `HOST_TARGET = "host-target"`, `slide_palette()`. `Request::HostSettings`
+  and `HostParam` unchanged; new `Request::TargetSettings { slide, element? }`,
   `TargetParam { slide, element?, key, value }`, `TargetList { slide, element?, key,
   change }`.
-- i18n : `session-undo-param`, `session-target-bound` dans les 20 langues.
+- i18n: `session-undo-param`, `session-target-bound` in the 20 languages.
 
 ### Interface (`ui/src`)
 
-- `useHostSettings.ts` : le cycle commun (lire, garder si même contenu, relire après
-  refus, ignorer une surface remplacée) devient `useSessionSurface`, utilisé par
-  `useHostSettings` et par `useTargetSettings.ts`, qui lit la surface de la cible
-  (élément résolu dans la vue, sinon la slide ; inactif en lecture seule, historique,
-  atelier ouvert) et envoie vers la cible **de la surface affichée** : valeur →
-  `targetParam`, `ListOp` → `targetList`, remplacement → `targetParam` avec les items.
-- `TargetPanel.tsx` : la carte en tête d'`aside.notes` — `ChartPanel` pour un
-  graphique, sinon la surface `host-target` (`HostSettings.tsx`). `App.tsx` ne fait
-  que câbler.
-- `api.ts` : `targetSettings`, `targetParam`, `targetList`.
+- `useHostSettings.ts`: the common cycle (read, keep if same content, read again after
+  rejection, ignore a replaced surface) becomes `useSessionSurface`, used by
+  `useHostSettings` and by `useTargetSettings.ts`, which reads the target's surface
+  (element resolved in the view, otherwise the slide; inactive in read-only mode, history,
+  workshop open) and sends to the target **of the displayed surface**: value →
+  `targetParam`, `ListOp` → `targetList`, replacement → `targetParam` with the items.
+- `TargetPanel.tsx`: the card at the top of `aside.notes` — `ChartPanel` for a
+  chart, otherwise the `host-target` surface (`HostSettings.tsx`). `App.tsx` only
+  wires.
+- `api.ts`: `targetSettings`, `targetParam`, `targetList`.
 
-### Retrait des « + »
+### Removing the "+"
 
-- `ItemLayer.tsx` : `plus`, `insert`, `INSERT_SIZE`, le « + » d'une liste vide.
-- `stageItems.ts` : `within`, `onInserted`, `onEditWhenShown` ; `insertPoints`
-  reste (repère du glisser, `dropTarget`).
+- `ItemLayer.tsx`: `plus`, `insert`, `INSERT_SIZE`, the "+" of an empty list.
+- `stageItems.ts`: `within`, `onInserted`, `onEditWhenShown`; `insertPoints`
+  stays (drag marker, `dropTarget`).
 - `Stage.tsx`, `App.tsx`, `useFieldEditing.ts` (`editKeyWhenShown`),
-  `WidgetTab.tsx` : props et état qui n'existaient que pour ouvrir l'item inséré.
-- Rust : `first_text` des vues de liste (seul lecteur : l'insertion).
-- `styles.css` : `.item-insert`. i18n : `ui-undo-list-add` (20 langues, et la liste
-  de `oku-slides-i18n/src/lib_tests.rs`). Aide `docs/aide/{en,fr}.json`.
-- Tests et e2e : `ItemLayer`, `Stage`, `WidgetTab`, `stageItems`, `useFieldEditing` ;
-  `lists.cjs` ajoute par le tableau du panneau, `lists-dock.cjs` perd le « + » de l'aperçu.
+  `WidgetTab.tsx`: props and state that existed only to open the inserted item.
+- Rust: `first_text` of the list views (only reader: insertion).
+- `styles.css`: `.item-insert`. i18n: `ui-undo-list-add` (20 languages, and the list
+  in `oku-slides-i18n/src/lib_tests.rs`). Help `docs/aide/{en,fr}.json`.
+- Tests and e2e: `ItemLayer`, `Stage`, `WidgetTab`, `stageItems`, `useFieldEditing`;
+  `lists.cjs` adds through the panel's table, `lists-dock.cjs` loses the preview's "+".
 
-## Erreurs
+## Errors
 
-Valeur refusée (type, bornes de liste, taille) : `apply` la refuse (erreur `Op` du
-cœur), le panneau relit la surface (le champ reprend la valeur du deck), message
-d'erreur comme les autres réglages. Clé inconnue, liée, non réglable, ou élément
-disparu : `HostKey` ; slide inconnue : `NoSlide`. Lire une cible disparue n'est pas une
-erreur : pas de panneau.
+Rejected value (type, list bounds, size): `apply` rejects it (core `Op`
+error), the panel reads the surface again (the field takes back the deck's value), error
+message like the other settings. Unknown, bound or non-settable key, or vanished
+element: `HostKey`; unknown slide: `NoSlide`. Reading a vanished target is not an
+error: no panel.
 
 ## Tests
 
-- Rust (`target_params_tests.rs`) : champs par type pour un élément et pour une
-  slide ; `bind` en note ; types omis ; `None` pour un graphique et sans paramètre ;
-  `target_param` : valeur, flag, nombre, effacement, chaque `ListOp`, `replace`, un
-  seul pas d'annulation libellé, refus (valeur invalide, clé inconnue, liste pleine).
-- UI (rendu) : panneau suit la sélection ; slide quand rien n'est sélectionné ;
-  graphique → `ChartPanel` seul ; pas de panneau en lecture seule ; routage vers
-  `targetParam` et relecture après refus ; `ItemLayer` / `Stage` / `WidgetTab` sans
-  « + ».
-- e2e : `lists.cjs`, `lists-dock.cjs` ; un e2e `target-panel.cjs` (sélection d'une
-  frise, ajout d'une étape au tableau, la slide la montre, ⌘Z l'annule).
+- Rust (`target_params_tests.rs`): fields by type for an element and for a
+  slide; `bind` as a note; omitted types; `None` for a chart and without a parameter;
+  `target_param`: value, flag, number, clearing, each `ListOp`, `replace`, a
+  single labeled undo step, rejections (invalid value, unknown key, full list).
+- UI (render): panel follows the selection; slide when nothing is selected;
+  chart → `ChartPanel` alone; no panel in read-only mode; routing to
+  `targetParam` and read-back after rejection; `ItemLayer` / `Stage` / `WidgetTab` without
+  "+".
+- e2e: `lists.cjs`, `lists-dock.cjs`; an e2e `target-panel.cjs` (selecting a
+  timeline, adding a step in the table, the slide shows it, ⌘Z undoes it).

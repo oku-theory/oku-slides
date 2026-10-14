@@ -1,109 +1,109 @@
-# Instance unique, onglets et fenêtres — design
+# Single instance, tabs and windows — design
 
-Date : 2026-09-26 · Tâche : t-142
+Date: 2026-09-26 · Task: t-142
 
-## Objectif
+## Goal
 
-Plusieurs présentations ouvertes en même temps, dans des onglets, répartis
-dans plusieurs fenêtres pour profiter de plusieurs écrans. Une seule instance
-de l'app : « ouvrir avec… » alors qu'elle tourne ouvre un onglet dans la
-fenêtre existante.
+Several presentations open at the same time, in tabs, spread
+across several windows to take advantage of several screens. A single instance
+of the app: "open with…" while it runs opens a tab in the
+existing window.
 
-Modèle « navigateur » : chaque fenêtre a sa barre d'onglets ; un onglet (un
-deck) n'est ouvert qu'à un endroit ; il se déplace d'une fenêtre à l'autre par
-menu ou par glisser-déposer.
+"Browser" model: each window has its tab bar; a tab (a
+deck) is open in only one place; it moves from one window to another by
+menu or by drag and drop.
 
-Hors périmètre : un même deck affiché dans deux fenêtres ; mode présentation
-ou vue présentateur ; menu d'application propre (seul le menu macOS par
-défaut est reconstruit, sans « Fermer la fenêtre ») ; onglets fermés
-récupérables ; reprise de l'ancien format (v1).
+Out of scope: the same deck shown in two windows; presentation mode
+or presenter view; a custom application menu (only the default macOS menu
+is rebuilt, without "Fermer la fenêtre" (Close Window)); recoverable
+closed tabs; resuming the old format (v1).
 
 ## Architecture
 
-- **Une `Session` par onglet.** `Session` ne change presque pas : chaque
-  onglet garde son rendu Typst, son cache SVG, son historique et son mode
-  modèles.
-- Nouveau module `crates/oku-slides-session/src/workspace.rs` (tests :
-  `workspace_tests.rs`) : `Workspace` tient les fenêtres, leurs onglets
-  ordonnés, l'onglet actif de chacune et la dernière fenêtre active, et les
-  sessions (`Arc<Mutex<Session>>` par onglet). Il ouvre, ferme, réordonne et
-  déplace les onglets.
-- Verrous. Celui du `Workspace` ne couvre que sa structure : une requête
-  d'onglet ne verrouille que sa session, deux fenêtres rendent en parallèle.
-  Ordre : l'espace de travail puis une session, jamais l'inverse. Il vit dans
-  quatre fonctions du crate (`Workspace::apply`, `Workspace::request`,
-  `Workspace::open_files`, `Workspace::settle`) que le serveur de dev et
-  l'hôte appellent. Aucun
-  travail lent sous le verrou de l'espace de travail : une session neuve se
-  construit hors du verrou (identifiant réservé, session créée et ouverte,
-  puis insérée), et les dossiers des onglets fermés sont supprimés après.
-  Seule exception : la fermeture lit l'état réel des sessions concernées. Un
-  verrou empoisonné est repris (`PoisonError::into_inner`) : une panique ne
-  bloque pas l'app.
-- Identifiants : onglets `t-<n>`, fenêtres `w-<n>` (le label Tauri de la
-  fenêtre), `n` de 1 à 18 chiffres. Compteurs gardés dans `workspace.json`,
-  jamais réutilisés.
-- `Workspace::new(fonts, platform, file)` : une fenêtre et l'onglet `t-1`,
-  vierge ou avec `file` ouvert ; rien n'est écrit (serveur de dev, tests).
-  `Workspace::resume` : l'app de bureau.
-- Ouvrir un fichier (dialogue, argument, seconde instance, macOS
-  `RunEvent::Opened`) : s'il est déjà ouvert, son onglet est activé (et sa
-  fenêtre mise au premier plan), y compris si une autre ouverture du même
-  fichier s'est terminée pendant la construction. Sinon un onglet est créé
-  dans la dernière fenêtre active ; si l'onglet actif est vierge (deck neuf
-  jamais touché : ni ouvert, ni enregistré, ni modifié, ni annulé — l'état
-  réel de sa session fait foi, lu sans attendre : une session occupée n'est
-  pas vierge), il est fermé une fois le nouvel onglet prêt, qui prend sa
-  place. Les chemins sont comparés absolus et normalisés (`.`,
-  `..`) ; les liens symboliques ne sont pas suivis.
-- Fermer le dernier onglet d'une fenêtre ferme la fenêtre ; fermer le
-  dernier onglet de la dernière fenêtre termine l'app (cet onglet, fermé
-  exprès, n'est pas gardé : au lancement suivant, un onglet vierge). Ce
-  `Close` renvoie `Applied` avec une vue sans fenêtre ; l'hôte quitte l'app
-  en la voyant vide (`windows::sync` appelle `state::shutdown`). Le serveur
-  de dev, sans fenêtre native à quitter, le refuse d'avance (`409`,
-  `session-last-window`) sans rien fermer : l'interface resterait sinon sur
-  « chargement ». `WorkspaceOutcome::LastWindow` ne concerne que
-  `CloseWindow` sur la seule fenêtre (voir plus bas) : l'hôte quitte en
-  gardant tout, le serveur de dev répond aussi `409`.
-- Quitter l'app garde tout : ⌘Q, et fermer la **dernière** fenêtre (seul
-  moyen de quitter sous Windows et Linux) ; aucune question n'est posée.
-  L'hôte applique cette règle lui-même. Fermer une fenêtre qui n'est pas la
-  dernière ferme ses onglets.
-- Un seul chemin de sortie, `state::shutdown` : il marque `AppState::closing`
-  (`request`, `workspace` et `drop_tab` refusent tout ensuite, sans plus
-  toucher l'espace de travail), appelle `Workspace::settle` (attend les
-  requêtes en cours puis enregistre l'état, sous un verrou qui pose aussi
-  `closed` : un `OpenTab` ensuite est refusé, et un onglet dont la
-  construction chevauche `settle` n'est pas inséré, sa session part à la
-  corbeille), puis `app.exit(0)`. Il est appelé depuis `commands::quit`, le
-  menu « Quitter » (item propre à macOS, reconstruit par-dessus le menu par
-  défaut de Tauri), la fermeture de la dernière fenêtre, et — filet de
-  sécurité seulement, car `Workspace::settle` ne doit jamais être invoqué
-  depuis le fil principal — `RunEvent::Exit`, où plus aucun fil ne peut
-  détenir ces verrous.
-- `Close { tab, discard }` et `CloseWindow { window, discard }` vérifient
-  l'état réel de chaque session : un onglet modifié que l'utilisateur n'a pas
-  choisi d'abandonner (`discard`) est refusé (erreur `Unsaved`). L'indicateur
-  de l'UI peut être en retard sur un rendu en cours.
-- Modèles partagés : rien à invalider. Le cache d'aperçus d'une session
-  (`template_cache`) compare l'ensemble relu sur le disque à chaque appel :
-  un ensemble enregistré dans un onglet se voit aussitôt dans les autres. Un
-  test le garantit. Deux onglets qui enregistrent le même fichier en même
-  temps ne se gênent pas : `Storage::write_atomic` prend un fichier
-  temporaire propre à chaque écriture.
-- `Request` perd `New`, `Open` (l'ouverture passe par l'espace de travail)
-  et `Messages` (qui ne dépend d'aucun onglet : il passe à
+- **One `Session` per tab.** `Session` barely changes: each
+  tab keeps its Typst rendering, its SVG cache, its history and its templates
+  mode.
+- New module `crates/oku-slides-session/src/workspace.rs` (tests:
+  `workspace_tests.rs`): `Workspace` holds the windows, their ordered
+  tabs, the active tab of each and the last active window, and the
+  sessions (`Arc<Mutex<Session>>` per tab). It opens, closes, reorders and
+  moves tabs.
+- Locks. The `Workspace` lock only covers its structure: a tab
+  request locks only its session, two windows render in parallel.
+  Order: the workspace then a session, never the reverse. It lives in
+  four crate functions (`Workspace::apply`, `Workspace::request`,
+  `Workspace::open_files`, `Workspace::settle`) that the dev server and
+  the host call. No
+  slow work under the workspace lock: a new session is
+  built outside the lock (id reserved, session created and opened,
+  then inserted), and the folders of closed tabs are deleted afterwards.
+  Only exception: closing reads the real state of the sessions involved. A
+  poisoned lock is recovered (`PoisonError::into_inner`): a panic does not
+  block the app.
+- Ids: tabs `t-<n>`, windows `w-<n>` (the Tauri label of the
+  window), `n` from 1 to 18 digits. Counters kept in `workspace.json`,
+  never reused.
+- `Workspace::new(fonts, platform, file)`: one window and tab `t-1`,
+  blank or with `file` open; nothing is written (dev server, tests).
+  `Workspace::resume`: the desktop app.
+- Opening a file (dialog, argument, second instance, macOS
+  `RunEvent::Opened`): if it is already open, its tab is activated (and its
+  window brought to the front), including when another opening of the same
+  file finished during construction. Otherwise a tab is created
+  in the last active window; if the active tab is blank (new deck
+  never touched: not opened, saved, modified or undone — the real
+  state of its session is authoritative, read without waiting: a busy session is
+  not blank), it is closed once the new tab is ready, which takes its
+  place. Paths are compared absolute and normalized (`.`,
+  `..`); symbolic links are not followed.
+- Closing the last tab of a window closes the window; closing the
+  last tab of the last window ends the app (that tab, closed
+  on purpose, is not kept: at the next launch, a blank tab). This
+  `Close` returns `Applied` with a view without windows; the host quits the app
+  on seeing it empty (`windows::sync` calls `state::shutdown`). The dev
+  server, with no native window to quit, refuses it upfront (`409`,
+  `session-last-window`) without closing anything: the interface would otherwise stay on
+  "loading". `WorkspaceOutcome::LastWindow` only concerns
+  `CloseWindow` on the only window (see below): the host quits
+  keeping everything, the dev server also answers `409`.
+- Quitting the app keeps everything: ⌘Q, and closing the **last** window (the only
+  way to quit on Windows and Linux); no question is asked.
+  The host applies this rule itself. Closing a window that is not the
+  last closes its tabs.
+- A single exit path, `state::shutdown`: it marks `AppState::closing`
+  (`request`, `workspace` and `drop_tab` refuse everything afterwards, without
+  touching the workspace any more), calls `Workspace::settle` (waits for the
+  in-flight requests then saves the state, under a lock that also sets
+  `closed`: an `OpenTab` afterwards is refused, and a tab whose
+  construction overlaps `settle` is not inserted, its session goes to the
+  trash), then `app.exit(0)`. It is called from `commands::quit`, the
+  "Quitter" (Quit) menu (a macOS-only item, rebuilt on top of Tauri's default
+  menu), closing the last window, and — as a safety
+  net only, because `Workspace::settle` must never be invoked
+  from the main thread — `RunEvent::Exit`, where no thread can
+  hold these locks any more.
+- `Close { tab, discard }` and `CloseWindow { window, discard }` check
+  the real state of each session: a modified tab that the user did not
+  choose to abandon (`discard`) is refused (`Unsaved` error). The UI
+  indicator can lag behind an in-progress render.
+- Shared templates: nothing to invalidate. A session's preview cache
+  (`template_cache`) compares the set read back from disk on each call:
+  a set saved in one tab is seen immediately in the others. A
+  test guarantees it. Two tabs saving the same file at the same
+  time do not interfere: `Storage::write_atomic` takes a temporary file
+  specific to each write.
+- `Request` loses `New`, `Open` (opening goes through the workspace)
+  and `Messages` (which depends on no tab: it moves to
   `WorkspaceRequest`).
-- `open_at_launch` et les clés `notice-resume-kept-unsaved` et
-  `session-busy` sont supprimés : un fichier reçu n'écrase plus rien, il
-  ouvre un onglet.
-- Serveur de développement (`serve.rs`) : `Workspace::new` avec le fichier
-  donné, une seule fenêtre, sans reprise.
+- `open_at_launch` and the keys `notice-resume-kept-unsaved` and
+  `session-busy` are removed: a received file no longer overwrites anything, it
+  opens a tab.
+- Development server (`serve.rs`): `Workspace::new` with the given
+  file, a single window, no resume.
 
-## Fichiers de reprise
+## Resume files
 
-Sous `<data>/resume/`, via `Storage::write_atomic` :
+Under `<data>/resume/`, via `Storage::write_atomic`:
 
 ```
 resume/
@@ -111,250 +111,250 @@ resume/
                       windows: [{ label, tabs: [id…], active }], kept: [id…],
                       info: { id: { title, dirty, editing_templates, path,
                                     pristine } } }
-  tabs/<id>/        la forme de l'ancien resume/ (v1) :
+  tabs/<id>/        the shape of the old resume/ (v1):
     state.json      { version, mode, ui }
-    deck/ …         document.json (avec `blank`), assets/, fonts/
+    deck/ …         document.json (with `blank`), assets/, fonts/
     templates/ …
 ```
 
-- Chaque `Session` n'écrit que `tabs/<id>/` (un écrivain par dossier) ; seul
-  le `Workspace` écrit `workspace.json`.
-- Relu, `workspace.json` n'est pas digne de confiance : seuls les
-  identifiants `t-<chiffres>` et les labels `w-<chiffres>` sont acceptés,
-  sans doublon ; les compteurs sont ramenés au-delà du plus grand identifiant
-  relu (ou vu sur le disque), et un compteur au-delà de 18 chiffres est
-  remis à ce minimum. Sinon un chemin (`../..`) sortirait du dossier, un
-  label invalide ferait paniquer la création de fenêtre à chaque lancement,
-  et deux onglets partageraient un dossier.
-- `kept` : onglets cités mais non restaurés dont le dossier existe encore
-  (illisible et impossible à mettre de côté, fenêtre refusée…). Ils restent
-  cités de lancement en lancement : leur dossier n'est jamais supprimé.
-- `document.json` garde `blank` : un onglet vierge reste vierge au
-  relancement.
-- Changer de fenêtre active n'écrit rien : l'ordre est enregistré avec le
-  changement suivant.
-- Création d'un onglet : son dossier d'abord, `workspace.json` ensuite.
-  Fermeture : `workspace.json` d'abord, le dossier ensuite. Un arrêt entre
-  les deux laisse au pire un dossier orphelin, supprimé au lancement suivant.
-- Déplacer un onglet ne touche que `workspace.json`.
-- Ancien format (v1 : `resume/state.json` sans `workspace.json`) : non géré,
-  pas de shim. On efface `<data>/resume/` à la main, une fois, avant le
-  premier lancement de cette version ; sinon il reste là, ignoré.
+- Each `Session` writes only `tabs/<id>/` (one writer per folder); only
+  the `Workspace` writes `workspace.json`.
+- When read back, `workspace.json` is not trustworthy: only
+  `t-<digits>` ids and `w-<digits>` labels are accepted,
+  without duplicates; the counters are brought beyond the largest id
+  read back (or seen on disk), and a counter beyond 18 digits is
+  reset to that minimum. Otherwise a path (`../..`) would escape the folder, an
+  invalid label would make window creation panic at every launch,
+  and two tabs would share a folder.
+- `kept`: tabs listed but not restored whose folder still exists
+  (unreadable and impossible to set aside, window refused…). They stay
+  listed from launch to launch: their folder is never deleted.
+- `document.json` keeps `blank`: a blank tab stays blank on
+  relaunch.
+- Changing the active window writes nothing: the order is saved with the
+  next change.
+- Creating a tab: its folder first, `workspace.json` next.
+  Closing: `workspace.json` first, the folder next. A stop between
+  the two leaves at worst an orphan folder, deleted at the next launch.
+- Moving a tab only touches `workspace.json`.
+- Old format (v1: `resume/state.json` without `workspace.json`): not handled,
+  no shim. `<data>/resume/` is erased by hand, once, before the
+  first launch of this version; otherwise it stays there, ignored.
 
-## Restauration
+## Restoration
 
-1. `workspace.json` absent : une fenêtre, un onglet vierge.
-2. Illisible ou version inconnue : tout `resume/` mis de côté
-   (`resume.failed-…`), une fenêtre, un onglet vierge.
-3. Restauration paresseuse (t-158) : aucun onglet n'est relu au lancement.
-   La barre vient des infos de `workspace.json` (`info`, écrites avec la
-   structure et à chaque changement de titre ou d'état) ; la session d'un
-   onglet n'est relue qu'à sa première requête, comme la reprise v1
-   (fichier modifié ailleurs, historique illisible…). Illisible à ce
-   moment-là : son dossier seul est mis de côté (`t-3.failed-…`), l'onglet
-   reste, repart d'un deck vierge avec une reprise neuve et l'annonce
-   (`notice-tab-resume-failed`). Les infos enregistrées peuvent être en
-   retard (arrêt brutal entre deux écritures) : fermer un onglet endormi
-   sans abandon, ou remplacer un onglet enregistré vierge par un fichier
-   ouvert, le relit d'abord, hors du verrou de l'espace de travail, sans
-   jamais attendre une session occupée. Relecture impossible : fermeture
-   refusée (question), pas de remplacement. Un onglet fermé avant d'avoir
-   été relu n'est plus jamais réveillé (son dossier n'est pas réécrit).
-   Onglet cité sans infos lisibles (fichier d'avant t-158, ou entrée
-   altérée, qui ne coûte que son onglet) : relu au lancement, retiré s'il
-   est illisible. Onglet cité sans `state.json` :
-   retiré (dossier gardé s'il existe, via `kept`).
-   Fenêtre restée sans onglet : retirée. Plus aucune fenêtre : une fenêtre,
-   un onglet vierge.
-4. Dossiers `tabs/t-<n>` que `workspace.json` ne cite pas (ni dans une
-   fenêtre, ni dans `kept`) : supprimés. Les noms étrangers restent. Les
-   dossiers mis de côté aussi, sauf au-delà du réglage `resume.keep_failed`
-   (3 par défaut) : au lancement, seuls les plus récents restent, parmi les
-   `resume.failed-*` et parmi les `tabs/t-<n>.failed-*` (t-143).
-   Un onglet neuf ne relit rien : un reste trouvé à son numéro est mis de
-   côté, l'onglet garde son deck (le fichier tout juste ouvert) et sa
-   reprise démarre à neuf ; seul un reste impossible à déplacer le laisse
-   sans reprise.
-5. Fichier(s) passé(s) en argument : ouverts ensuite, hors du fil principal,
-   selon la règle d'ouverture ci-dessus. Illisible : journalisé, avis dans
-   l'onglet actif.
+1. `workspace.json` absent: one window, one blank tab.
+2. Unreadable or unknown version: the whole `resume/` set aside
+   (`resume.failed-…`), one window, one blank tab.
+3. Lazy restoration (t-158): no tab is read back at launch.
+   The bar comes from the info in `workspace.json` (`info`, written with the
+   structure and at each title or state change); the session of a
+   tab is read back only at its first request, like the v1 resume
+   (file modified elsewhere, unreadable history…). Unreadable at that
+   moment: only its folder is set aside (`t-3.failed-…`), the tab
+   stays, restarts from a blank deck with a fresh resume and announces it
+   (`notice-tab-resume-failed`). The saved info may lag
+   behind (abrupt stop between two writes): closing a sleeping tab
+   without discarding, or replacing a saved blank tab with an opened
+   file, reads it back first, outside the workspace lock, without
+   ever waiting for a busy session. Read-back impossible: closing
+   refused (question), no replacement. A tab closed before having
+   been read back is never woken again (its folder is not rewritten).
+   Tab listed without readable info (file from before t-158, or altered
+   entry, which only costs its tab): read back at launch, removed if it
+   is unreadable. Tab listed without `state.json`:
+   removed (folder kept if it exists, via `kept`).
+   Window left without tabs: removed. No window left: one window,
+   one blank tab.
+4. `tabs/t-<n>` folders that `workspace.json` does not list (neither in a
+   window, nor in `kept`): deleted. Foreign names stay. Folders
+   set aside too, except beyond the `resume.keep_failed` setting
+   (3 by default): at launch, only the most recent remain, among the
+   `resume.failed-*` and among the `tabs/t-<n>.failed-*` (t-143).
+   A new tab reads nothing back: a leftover found at its number is set
+   aside, the tab keeps its deck (the file just opened) and its
+   resume starts fresh; only a leftover impossible to move leaves it
+   without resume.
+5. File(s) passed as arguments: opened next, off the main thread,
+   following the opening rule above. Unreadable: logged, notice in
+   the active tab.
 
-## Hôte ↔ interface
+## Host ↔ interface
 
-- `request(tab, req)` : la `Request` existante, adressée à un onglet.
-- `workspace(req)` avec `WorkspaceRequest` : `View`, `Messages`,
+- `request(tab, req)`: the existing `Request`, addressed to a tab.
+- `workspace(req)` with `WorkspaceRequest`: `View`, `Messages`,
   `NewTab { window }`, `OpenTab { window, path }`, `Activate { tab }`,
   `Close { tab, discard: bool }`, `Reorder { tab, index }`,
-  `MoveTab { tab, window: Option<String>, index: Option<usize> }` (`None` :
-  nouvelle fenêtre ; sans index : à la fin ; même fenêtre sans index :
-  l'onglet est seulement activé),
-  `NewWindow`, `CloseWindow { window, discard: Vec<String> }`. Réponse : la
-  vue, en JSON (`Messages` : langue et ressources Fluent). La fenêtre active
-  est suivie par l'hôte (`Workspace::focus`, en mémoire), pas par une
-  requête. Côté Tauri, chaque événement de focus reçoit un numéro pris sur le
-  fil principal (`AppState::focus_seq`) ; l'application (hors fil principal)
-  compare ce numéro à `AppState::focus_applied` sous le verrou de l'espace de
-  travail et ignore un événement plus vieux que le dernier appliqué : l'ordre
-  d'arrivée fait foi même si les tâches qui l'appliquent se terminent dans le
-  désordre.
-- `drop_tab(tab)` (Tauri seulement) : onglet lâché hors de sa fenêtre. L'hôte
-  lit lui-même le curseur (tao, jamais `screenX`/`screenY` : t-165) et le
-  compare aux rectangles des fenêtres dans son repère : les points sous
-  macOS, les pixels physiques du bureau sous Windows et X11, communs à tous
-  les écrans même de densités différentes (t-160). Sous Wayland, curseur et
-  position des fenêtres ne se lisent pas (tao renvoie `(0, 0)`, qui compte
-  pour illisible sous Linux) : le lâcher ouvre une nouvelle fenêtre, placée
-  par le compositeur. Hors macOS, une fenêtre neuve est placée cachée, sa
-  taille réappliquée sur l'écran visé, puis positionnée d'après sa hauteur
-  réelle (barre de titre comprise) avant d'être montrée.
-- `quit` (Tauri seulement) : quitter en gardant tout.
-- `WorkspaceView` : `{ focused, windows: [{ label, active, tabs: [{ id,
-  title, dirty, editing_templates, path, pristine }] }] }`. Titre : nom du
-  fichier, sinon titre du deck (le deck mis de côté pendant l'édition des
-  modèles).
-- L'hôte émet l'événement `workspace` (la vue) à toutes les fenêtres après
-  toute commande qui change un onglet (titre, `dirty`) ou la structure. Les
-  fenêtres suivent la vue la plus récente, dans l'ordre (mises à jour
-  sérialisées). À chaque événement, l'onglet actif de chaque fenêtre relit
-  aussi son snapshot (`nonce` passé de `Workspace.tsx` à `App`) : un avis
-  posé sans changer d'onglet (fichier reçu qui n'a pas pu s'ouvrir)
-  s'affiche aussitôt. Une réponse plus ancienne qu'une autre déjà appliquée
-  est écartée (`latest.ts`) ; son avis s'affiche quand même. En
-  développement, la relecture de la vue après chaque commande ne relance pas
-  le snapshot (pas de boucle).
-- `drop_tab` : la fenêtre dont le rectangle contient le pointeur reçoit
-  l'onglet en dernier ; en cas de chevauchement, la plus récemment active.
-  Aucune : nouvelle fenêtre dont la barre d'onglets tombe sous le pointeur.
-- `Close` d'un onglet modifié (deck, ou ensemble de modèles en édition) :
-  l'UI relit la vue puis demande — dialogue natif Enregistrer / Ne pas
-  enregistrer / Annuler ; « Enregistrer » sans chemin ouvre le dialogue
-  d'enregistrement.
-- Fermeture native d'une fenêtre (bouton, ⌘W du système, Alt+F4) : l'hôte
-  l'empêche toujours. La dernière fenêtre : l'hôte quitte en gardant tout.
-  Une autre : l'hôte prévient la page (`close-requested`), qui pose la même
-  question pour chacun de ses onglets modifiés, puis `CloseWindow`. Une page
-  pas encore prête : la fenêtre ne se ferme pas (rien n'est perdu). ⌘Q ne
-  demande rien.
-- Menu d'app sous macOS : celui de Tauri sans « Fermer la fenêtre », dont le
-  ⌘W passerait avant la page. Titres « Édition » et « Fenêtre » via Fluent.
-- Instance unique : `tauri-plugin-single-instance` (tous systèmes : une
-  seconde instance transmet ses arguments) et `RunEvent::Opened` (macOS,
-  Finder) → `OpenTab` dans la dernière fenêtre active, mise au premier plan,
-  hors du fil principal. Un `Opened` arrivé avant la fin du démarrage attend
-  dans une file (`pending.rs`, plafonnée à 64 fichiers par appel : l'excédent
-  est journalisé et abandonné, contre un argument abusif ou une liste macOS
-  anormalement longue), vidée à la fin de `setup`. Seuls les fichiers
-  existants sont retenus. Sous Linux, `tauri-plugin-single-instance` 2.4.5
-  fait un `unwrap()` sur le bus de session D-Bus et panique s'il n'y en a pas
-  (CI headless, conteneur sans D-Bus) ; le greffon n'est chargé que si
-  `DBUS_SESSION_BUS_ADDRESS` est posé ou que `$XDG_RUNTIME_DIR/bus` existe
-  (`XDG_RUNTIME_DIR` seul ne prouve pas qu'un bus tourne ; toujours chargé
-  ailleurs), sinon l'instance unique est simplement désactivée (journalisé
-  en `warn`).
-- Fenêtres créées par `WebviewWindowBuilder` avec leur label ;
-  `tauri-plugin-window-state` restaure taille et position par label (celles
-  de l'ancien label `main` sont perdues une fois). `tauri.conf.json` ne
-  déclare plus de fenêtre ; la capacité couvre `w-*`, sans
-  `allow-destroy` : l'hôte seul ferme les fenêtres.
-- Serveur de dev : `POST /api` reçoit `{ tab, req }`, `POST /api/workspace`
-  une `WorkspaceRequest` ; pas d'événement (une seule fenêtre : l'UI relit la
-  vue après ses propres commandes). Il refuse (403) une requête dont l'en-tête
-  `Host` n'est pas un nom de bouclage (`localhost`, `127.0.0.1`, `[::1]`,
-  port quelconque) ou dont l'`Origin` n'en est pas un : une page web ne peut
-  pas le piloter (CSRF, DNS rebinding), mais `just web` (Vite sur 5173)
-  passe. Une requête sans `Origin` est acceptée volontairement (un client qui
-  n'envoie jamais cet en-tête n'est pas un navigateur pilotable par un CSRF,
-  et un navigateur envoie toujours `Origin` sur un `POST`). Le corps d'une
-  requête `/api*` est plafonné à 64 Mio ; au-delà, `413`. Dans le navigateur,
-  les actions de fenêtre (nouvelle fenêtre, déplacer) sont masquées et le
-  dernier onglet ne se ferme pas.
+  `MoveTab { tab, window: Option<String>, index: Option<usize> }` (`None`:
+  new window; without index: at the end; same window without index:
+  the tab is only activated),
+  `NewWindow`, `CloseWindow { window, discard: Vec<String> }`. Response: the
+  view, as JSON (`Messages`: language and Fluent resources). The active window
+  is tracked by the host (`Workspace::focus`, in memory), not by a
+  request. On the Tauri side, each focus event receives a number taken on the
+  main thread (`AppState::focus_seq`); applying it (off the main thread)
+  compares this number to `AppState::focus_applied` under the workspace
+  lock and ignores an event older than the last applied one: the order
+  of arrival is authoritative even if the tasks applying it finish out of
+  order.
+- `drop_tab(tab)` (Tauri only): tab dropped outside its window. The host
+  reads the cursor itself (tao, never `screenX`/`screenY`: t-165) and
+  compares it to the window rectangles in its coordinate space: points on
+  macOS, physical desktop pixels on Windows and X11, common to all
+  screens even with different densities (t-160). On Wayland, the cursor and
+  window positions cannot be read (tao returns `(0, 0)`, which counts
+  as unreadable on Linux): the drop opens a new window, placed
+  by the compositor. Outside macOS, a new window is placed hidden, its
+  size reapplied on the target screen, then positioned according to its real
+  height (title bar included) before being shown.
+- `quit` (Tauri only): quit keeping everything.
+- `WorkspaceView`: `{ focused, windows: [{ label, active, tabs: [{ id,
+  title, dirty, editing_templates, path, pristine }] }] }`. Title: file
+  name, otherwise deck title (the deck set aside while editing
+  templates).
+- The host emits the `workspace` event (the view) to all windows after
+  any command that changes a tab (title, `dirty`) or the structure. The
+  windows follow the most recent view, in order (serialized
+  updates). On each event, the active tab of each window also re-reads
+  its snapshot (`nonce` passed from `Workspace.tsx` to `App`): a notice
+  set without changing tab (received file that could not be opened)
+  is shown immediately. A response older than another one already applied
+  is discarded (`latest.ts`); its notice is shown anyway. In
+  development, re-reading the view after each command does not re-trigger
+  the snapshot (no loop).
+- `drop_tab`: the window whose rectangle contains the pointer receives
+  the tab last; on overlap, the most recently active one.
+  None: a new window whose tab bar falls under the pointer.
+- `Close` of a modified tab (deck, or template set being edited):
+  the UI re-reads the view then asks — native dialog Enregistrer / Ne pas
+  enregistrer / Annuler (Save / Don't Save / Cancel); "Enregistrer" (Save) without a path opens the save
+  dialog.
+- Native closing of a window (button, system ⌘W, Alt+F4): the host
+  always prevents it. The last window: the host quits keeping everything.
+  Another one: the host notifies the page (`close-requested`), which asks the same
+  question for each of its modified tabs, then `CloseWindow`. A page
+  not ready yet: the window does not close (nothing is lost). ⌘Q
+  asks nothing.
+- App menu on macOS: Tauri's without "Fermer la fenêtre" (Close Window), whose
+  ⌘W would take precedence over the page. Titles "Édition" (Edit) and "Fenêtre" (Window) via Fluent.
+- Single instance: `tauri-plugin-single-instance` (all systems: a
+  second instance forwards its arguments) and `RunEvent::Opened` (macOS,
+  Finder) → `OpenTab` in the last active window, brought to the front,
+  off the main thread. An `Opened` arriving before startup ends waits
+  in a queue (`pending.rs`, capped at 64 files per call: the excess
+  is logged and dropped, against an abusive argument or an abnormally long macOS
+  list), drained at the end of `setup`. Only existing
+  files are kept. On Linux, `tauri-plugin-single-instance` 2.4.5
+  does an `unwrap()` on the D-Bus session bus and panics if there is none
+  (headless CI, container without D-Bus); the plugin is only loaded if
+  `DBUS_SESSION_BUS_ADDRESS` is set or `$XDG_RUNTIME_DIR/bus` exists
+  (`XDG_RUNTIME_DIR` alone does not prove a bus is running; always loaded
+  elsewhere), otherwise the single instance is simply disabled (logged
+  as `warn`).
+- Windows created by `WebviewWindowBuilder` with their label;
+  `tauri-plugin-window-state` restores size and position by label (those
+  of the old `main` label are lost once). `tauri.conf.json` no longer
+  declares a window; the capability covers `w-*`, without
+  `allow-destroy`: only the host closes windows.
+- Dev server: `POST /api` receives `{ tab, req }`, `POST /api/workspace`
+  a `WorkspaceRequest`; no event (a single window: the UI re-reads the
+  view after its own commands). It refuses (403) a request whose
+  `Host` header is not a loopback name (`localhost`, `127.0.0.1`, `[::1]`,
+  any port) or whose `Origin` is not one: a web page cannot
+  drive it (CSRF, DNS rebinding), but `just web` (Vite on 5173)
+  passes. A request without `Origin` is accepted on purpose (a client that
+  never sends this header is not a browser that a CSRF can drive,
+  and a browser always sends `Origin` on a `POST`). The body of an
+  `/api*` request is capped at 64 MiB; beyond that, `413`. In the browser,
+  window actions (new window, move) are hidden and the
+  last tab does not close.
 
 ## Interface
 
-- `main.tsx` monte `Workspace.tsx` : barre d'onglets dans la zone de titre
-  (`Overlay`, à droite des boutons de fenêtre macOS) et l'`App` de l'onglet
-  actif, `key={tab}`. Seul l'onglet actif est monté : slide courante et
-  grille reviennent de l'hôte (t-87). Ouvrir un fichier change toujours
-  d'onglet actif, ce qui remonte l'`App`.
-- `App` reçoit `tab` ; `tabApi(tab).*` remplace `api.*` (aussi dans
-  `TemplatePicker`, qui reçoit l'API de son onglet).
-- Onglet : titre, point si modifié, bouton fermer ; menu contextuel
-  « Nouvelle fenêtre », « Déplacer vers <fenêtre> », « Fermer »,
-  « Fermer les autres ».
-- Glisser dans la barre : réordonner. Glisser hors de la fenêtre (dans
-  n'importe quelle direction) : au lâcher, `drop_tab`. En développement
-  (navigateur), rien. En RTL (`document.dir`), la barre s'affiche de droite à
-  gauche (l'ordre du tableau ne change pas) : la place visée par le pointeur
-  se calcule en miroir (`slotAt(mids, x, rtl)`).
-- Raccourcis : ⌘T nouvel onglet, ⌘W fermer l'onglet, ⌘⇧N nouvelle fenêtre,
-  ⌃Tab / ⌃⇧Tab onglet suivant / précédent, ⌘1…⌘9 onglet n (⌘9 : le
-  dernier), ⌘O ouvrir (règle d'ouverture). ⌃ remplace ⌘ hors macOS. Lettres
-  lues par caractère (`key`) : ⌘Z reste « annuler » en AZERTY. Chiffres par
-  touche physique (`code`) : ⌘1 marche en AZERTY. Répétitions ignorées ;
-  pendant une saisie de texte, seul ⌃Tab reste actif.
-- Textes nouveaux via Fluent, dans les 20 locales.
+- `main.tsx` mounts `Workspace.tsx`: tab bar in the title area
+  (`Overlay`, to the right of the macOS window buttons) and the `App` of the active
+  tab, `key={tab}`. Only the active tab is mounted: current slide and
+  grid come back from the host (t-87). Opening a file always changes
+  the active tab, which remounts the `App`.
+- `App` receives `tab`; `tabApi(tab).*` replaces `api.*` (also in
+  `TemplatePicker`, which receives the API of its tab).
+- Tab: title, dot if modified, close button; context menu
+  "Nouvelle fenêtre" (New Window), "Déplacer vers <fenêtre>" (Move to <window>), "Fermer" (Close),
+  "Fermer les autres" (Close Others).
+- Dragging within the bar: reorder. Dragging out of the window (in
+  any direction): on drop, `drop_tab`. In development
+  (browser), nothing. In RTL (`document.dir`), the bar is shown right to
+  left (the array order does not change): the slot targeted by the pointer
+  is computed mirrored (`slotAt(mids, x, rtl)`).
+- Shortcuts: ⌘T new tab, ⌘W close the tab, ⌘⇧N new window,
+  ⌃Tab / ⌃⇧Tab next / previous tab, ⌘1…⌘9 tab n (⌘9: the
+  last one), ⌘O open (opening rule). ⌃ replaces ⌘ outside macOS. Letters
+  read by character (`key`): ⌘Z stays "undo" in AZERTY. Digits by
+  physical key (`code`): ⌘1 works in AZERTY. Repeats ignored;
+  during text input, only ⌃Tab stays active.
+- New texts via Fluent, in the 20 locales.
 
-## Erreurs
+## Errors
 
-- `UnknownTab { id }`, `UnknownWindow { label }` (course entre une fermeture
-  et une requête), `Unsaved { title }` (fermeture refusée) : traduites ;
-  l'UI relit la vue `workspace`.
-- Échec d'écriture de `workspace.json` : journalisé (`warn`), jamais renvoyé
-  à l'UI, comme la reprise v1.
+- `UnknownTab { id }`, `UnknownWindow { label }` (race between a close
+  and a request), `Unsaved { title }` (close refused): translated;
+  the UI re-reads the `workspace` view.
+- Failure to write `workspace.json`: logged (`warn`), never returned
+  to the UI, like the v1 resume.
 
 ## Tests (TDD)
 
-- `workspace_tests` (unitaires) : nouvel onglet ; espace de travail créé
-  avec un fichier ; ouvrir un fichier déjà ouvert (même écrit autrement)
-  l'active ; onglet vierge remplacé, onglet modifié ou enregistré gardé ;
-  fermer (voisins, dernier onglet, `Unsaved`, modèles seuls modifiés) ;
-  fermer une fenêtre (rien n'est fermé si un onglet est refusé) ;
-  réordonner ; déplacer (autre fenêtre, nouvelle fenêtre, même fenêtre,
-  fenêtre inconnue) ; fenêtre sous un point (une seule, chevauchement, hors
-  de toute fenêtre, fenêtre inconnue) ; verrou empoisonné repris ; requête
-  et fermeture en parallèle sans interblocage ; messages ; validation des
-  identifiants ; construction qui chevauche `settle` (refusée, mise à la
-  corbeille) ; onglet neuf sur un reste de reprise (fichier gardé).
-- `tests/session.rs` : infos d'onglet (vierge, modifié, enregistré, JSON
-  ouvert, modèles) ; avis montré une fois ; un ensemble de modèles
-  enregistré dans une session se voit dans une autre.
-- `tests/workspace.rs` (reprise) : aller-retour complet (2 fenêtres, 3
-  onglets, actifs, un onglet en mode modèles, historique et `undo`) ;
-  `workspace.json` corrompu ; un onglet corrompu parmi trois (gardé, mis de
-  côté à sa première requête, avec son avis) ; restauration paresseuse
-  (titres sans relecture, onglet inactif relu entier, infos écrites à
-  chaque changement, fermeture d'un onglet endormi modifié ou aux infos en
-  retard, entrée `info` malformée, fichier sans `info`, fichier ouvert qui
-  remplace l'onglet vierge restauré) ; onglet cité
-  sans dossier ; onglet cité sans état gardé sur deux lancements ; fenêtre
-  refusée ; identifiants altérés ; compteurs trop bas ou trop hauts ;
-  orphelins supprimés, dossiers mis de côté et étrangers gardés ; fichiers
-  au lancement (un fichier deux fois, fichier illisible et son avis).
-- `storage_tests` : `resolve`, `list_dirs`, `delete_dir`, écritures
-  atomiques simultanées.
-- Serveur de dev (`cli.rs`) : routage par onglet, espace de travail, onglet
-  inconnu, origine étrangère, DNS rebinding, origine Vite ; fermer la seule
-  fenêtre ou son dernier onglet (409, rien n'est fermé) ; corps de plus de
-  64 Mio (413).
-- `src-tauri` (unitaires, ce qui se teste sans fenêtre) : `main_tests`
-  (fichiers de lancement, présence du bus D-Bus), `commands_tests`
-  (classement des requêtes, ordre des vues), `pending_tests` (file des
-  fichiers reçus au démarrage, plafond), `windows_tests` (point de dépôt).
-- UI (`bun test`) : places de dépôt, raccourcis (AZERTY compris),
-  navigation, fermeture (choix du dialogue, enregistrement avant fermeture),
-  réponses concurrentes (`latest.ts` : une réponse dépassée n'est pas
-  appliquée).
-- e2e (Playwright, serveur de dev) : ouvrir des onglets, basculer, fermer ;
-  question pour un onglet modifié.
-- Manuel (le reste de `src-tauri`, fenêtres natives) : deux écrans, glisser
-  un onglet d'une fenêtre à l'autre et hors des fenêtres ; seconde instance
-  avec un fichier, y compris un fichier illisible (son avis s'affiche
-  aussitôt) ; `open -a` sous macOS ; fermeture d'un onglet modifié ;
-  dernière fenêtre ; relancement ; clavier AZERTY ; `just web`.
+- `workspace_tests` (unit): new tab; workspace created
+  with a file; opening an already open file (even written differently)
+  activates it; blank tab replaced, modified or saved tab kept;
+  close (neighbors, last tab, `Unsaved`, only templates modified);
+  close a window (nothing is closed if a tab is refused);
+  reorder; move (other window, new window, same window,
+  unknown window); window under a point (a single one, overlap, outside
+  any window, unknown window); poisoned lock recovered; request
+  and close in parallel without deadlock; messages; id
+  validation; construction overlapping `settle` (refused, put in the
+  trash); new tab on a resume leftover (file kept).
+- `tests/session.rs`: tab info (blank, modified, saved, JSON
+  opened, templates); notice shown once; a template set
+  saved in one session is seen in another.
+- `tests/workspace.rs` (resume): full round trip (2 windows, 3
+  tabs, active ones, one tab in templates mode, history and `undo`);
+  corrupted `workspace.json`; one corrupted tab out of three (kept, set
+  aside at its first request, with its notice); lazy restoration
+  (titles without read-back, inactive tab read back in full, info written at
+  each change, closing a sleeping tab that is modified or whose info
+  lags behind, malformed `info` entry, file without `info`, opened file that
+  replaces the restored blank tab); tab listed
+  without folder; tab listed without state kept across two launches; window
+  refused; altered ids; counters too low or too high;
+  orphans deleted, set-aside and foreign folders kept; files
+  at launch (one file twice, unreadable file and its notice).
+- `storage_tests`: `resolve`, `list_dirs`, `delete_dir`, simultaneous
+  atomic writes.
+- Dev server (`cli.rs`): routing by tab, workspace, unknown
+  tab, foreign origin, DNS rebinding, Vite origin; closing the only
+  window or its last tab (409, nothing is closed); body over
+  64 MiB (413).
+- `src-tauri` (unit, what can be tested without a window): `main_tests`
+  (launch files, presence of the D-Bus bus), `commands_tests`
+  (request classification, view order), `pending_tests` (queue of
+  files received at startup, cap), `windows_tests` (drop point).
+- UI (`bun test`): drop slots, shortcuts (AZERTY included),
+  navigation, closing (dialog choice, saving before closing),
+  concurrent responses (`latest.ts`: an outdated response is not
+  applied).
+- e2e (Playwright, dev server): open tabs, switch, close;
+  question for a modified tab.
+- Manual (the rest of `src-tauri`, native windows): two screens, drag
+  a tab from one window to another and outside the windows; second instance
+  with a file, including an unreadable file (its notice is shown
+  immediately); `open -a` on macOS; closing a modified tab;
+  last window; relaunch; AZERTY keyboard; `just web`.
 
-## Limites connues
+## Known limits
 
-- « Enregistrer sous » vers un fichier déjà ouvert dans un autre onglet
-  n'est pas détecté : deux onglets visent alors le même fichier, et le
-  dernier enregistré l'emporte. Ouvrir ce fichier ensuite active l'un des
-  deux.
+- "Enregistrer sous" (Save As) to a file already open in another tab
+  is not detected: two tabs then target the same file, and the
+  last one saved wins. Opening that file afterwards activates one of the
+  two.

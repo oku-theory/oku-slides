@@ -1,63 +1,48 @@
 # oku-slides-core
 
-Modèle du deck, opérations, replica Loro (CRDT), validation et zip des
-sources. Aucune dépendance à Typst ni à Tauri.
+Deck model, edit operations, Loro replica (CRDT), validation and the sources zip. No dependency
+on Typst or Tauri: the session, the render crates, the CLI and the import all build on it.
 
-## Types clés
+## Data flow
 
-- `Deck` (`model.rs`) : slides et éléments génériques `{id, kind, params}`
-  (`Params`/`ParamValue`, `params.rs`), thème, `vars`, `templates` (`PackRef` : id et version
-  embarquée, atome du replica) ; schéma JSON (`schemars`). `Style` (`Element.style`, en `Box`) :
-  typographie et dessin d'un élément, dont `valign` (`STYLE_VALIGNS`, élément à cadre seulement),
-  `inset` (4 marges en pt, `STYLE_INSET_MAX`), `tracking` (pt, `STYLE_TRACKING_MAX`) et `spacing` (espace
-  entre paragraphes et items de liste, pt, de 0 à `STYLE_SPACING_MAX`) ; `radius` en pt ou jeton.
-- `ShapePath` (`shape_path.rs`) : paramètre hôte `path` du widget `shape` (`shape: "path"`), `{ d }`
-  en mots séparés (`M`, `L`, `C`, `Q`, `Z`, décimaux sans exposant), coordonnées 0..1 étirées au cadre,
-  bornées (`SHAPE_PATH_MAX`, `SHAPE_PATH_COORD_MAX`) ; `from_commands(&[PathCommand])` (arrondi à 6
-  décimales) et `commands()`.
-- `WidgetRegistry` (`widget.rs`) : le schéma des widgets (`WidgetSchema`, `ParamSchema`,
-  `ParamType`, `Category`, `HostType`, `SlotMode`) déclarés côté Typst, lu par le rendu ; les
-  ops et `validate` s'y réfèrent pour ce qu'un `kind` accepte.
-- `Op` + `apply_all` (`ops/mod.rs`) : opérations d'édition, appliquées atomiquement sur un
-  `Deck` cloné avec le `WidgetRegistry` du deck (erreur → rien n'a bougé) ; tout sous-arbre
-  inséré est typé contre le registre (`ops/check.rs`). `ops/list.rs` : `ListOp` (`edit_list`, items par id ; `ParamType::List`, conteneur `{list}`). `ops/grid.rs` : `set_grid`, sur la
-  grille résolue (`Slide::resolved_grid`). `ops/host.rs` : paramètres `host(chart|table)` (contrôle à l'insertion, `set_chart_option`, `set_table_option`, `set_data`).
-- `DeckReplica` (`replica/`) : le deck dans un `LoroDoc`, fusion et historique ; voir [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
-- `PackVersion`/`PackRef`/`PackFiles`/`WidgetFile` (`pack.rs`) : version adressée par contenu
-  (sha-256 de `pack.json` à clés triées, `0`, puis nom, `0`, source, `0` par fichier de widget).
-  Le contenu de `pack.json` y vit aussi : `PackManifest` (`from_files`, `to_files`, lecture
-  tolérante des `examples`), `Template` (un modèle : sa slide d'exemple) et `now_created` ; la
-  session les ré-exporte, l'import les lit sans dépendre d'elle.
-- `tokens.rs` : jetons effectifs d'un thème (`effective_tokens` : défauts puis thème) et fusion
-  profonde `merge`, partagés par la session (éditeur de thème), la CLI et l'import.
-  `ThemeRef` (`Deck.theme`, atome du replica) : une version de thème est un `PackFiles` sans
-  widget dont le manifeste est `theme.json` (`ThemeManifest`, `pack.rs` : `from_files`, `to_files` ;
-  ré-exporté par la session, construit par l'import hi-fi) ; `SetTheme` change la seule référence (`null` : thème
-  par défaut) ; embarquer la version dans les sources revient à l'hôte. Jetons : `SetToken` pose `null` tel quel (« vider »),
-  `UnsetToken` retire la clé (objets vides élagués), `SetTokens` remplace tout `tokens`.
-- `SourceBundle` (`sources.rs`) : `replica` fait foi, `deck` n'en est qu'une **vue** (rendu,
-  `validate`, `locate`) ; `new` refuse un deck trop profond, met sous forme canonique avant et après la normalisation des hôtes, `merge` et `restore` passent `validate`.
-  Zip v10 : snapshot Loro, assets, polices, `packs/<hex>/{pack.json, widgets/<nom>.typ}` et
-  `themes/<hex>/theme.json` (`sources_themes.rs`) en ajout seul, vérifiés à la lecture
-  (`issue-pack-version-mismatch`, `issue-theme-version-mismatch` ; version du deck absente →
-  `issue-*-version-missing`), nom invalide → `BadName`, unis à la fusion.
-- `validate` (`validate.rs`) : cohérence du deck contre le `WidgetRegistry` ; signale plutôt qu'il n'échoue.
-- `Slide::text_fields` (`fields.rs`) : champs texte ; `locate` (`locate.rs`) : chemin d'un élément ;
-  `apply(…, merge)` fusionne les étapes d'annulation de même clé.
-- `canonicalize` (`canonical.rs`) : forme canonique d'un `Deck` (clés triées, slots vides supprimés) ; répare les ids en double — copie exacte écartée, autre occurrence renommée `{id}-n` — comme `apply_all` et la relecture du replica (t-652).
+`apply_all` applies `Op`s atomically to a `Deck`, checked against the deck's `WidgetRegistry`,
+and leaves it canonical (`canonicalize`); `SourceBundle::apply` commits it into the `DeckReplica`.
+The replica is authoritative; `SourceBundle.deck` is only a view of it, used for rendering,
+`validate` and `locate`. Merging another copy goes through `SourceBundle::merge`.
 
-## Erreurs
+## Modules
 
-`error/mod.rs` : `OpError`, `ReplicaError`, `SourcesError`, `TransactionError` — Snafu, `Localize`, Fluent ; `error/reason.rs` : les raisons de refus (`ValueReason`, `ExpectedType`, `Shape`) ; tests dans `error/tests.rs` et `error/reason_tests.rs`.
-Une valeur refusée porte sa raison (`ValueReason`, `OpError::value_reason`) : `op-invalid-value-because` + `op-value-*`.
+- `model.rs`: `Deck` (slides, generic elements `{id, kind, params}`, theme `ThemeRef`, `vars`,
+  `templates` as a `PackRef`), `Style`, JSON schema via `schemars`. `params.rs`: `Params`,
+  `ParamValue`, `ListItem`. `shape_path.rs`: `ShapePath`, the `path` host param of `shape`.
+- `widget.rs`: `WidgetRegistry` and `WidgetSchema` / `ParamSchema` / `ParamType` / `Category` /
+  `HostType` / `SlotMode`, declared in Typst; ops and `validate` ask it what a `kind` accepts.
+- `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`); `check.rs` types inserted subtrees;
+  `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `grid.rs`
+  (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)` params, `set_data`);
+  `moving.rs` (`move_element`, `apply_all_moving`).
+- `replica/`: `DeckReplica`, the deck in a `LoroDoc`: merge, history, undo; see
+  [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
+- `pack.rs`: content-addressed `PackVersion` (sha-256 of `pack.json` and widget files),
+  `PackRef`, `PackFiles`, `WidgetFile`, `PackManifest`, `Template`; a theme version is a
+  `PackFiles` without widgets whose manifest is `theme.json` (`ThemeManifest`, `ThemeRef`).
+- `tokens.rs`: a theme's effective tokens (`effective_tokens`: defaults, then theme) and `merge`.
+- `sources.rs` + `sources_themes.rs`: `SourceBundle` and its zip (`SOURCES_VERSION`): Loro
+  snapshot, assets, fonts, `packs/<hex>/{pack.json, widgets/<name>.typ}`, `themes/<hex>/theme.json`,
+  all add-only, verified on read and unioned on merge; reads bounded by `SourceLimits`.
+- `validate.rs`: deck consistency against the registry, reported as `Issue`s rather than errors.
+- `canonical.rs`: `canonicalize` (sorted keys, empty slots dropped, duplicate ids repaired).
+- `fields.rs` (`TextField`, `Slide::text_fields`), `locate.rs` (`Located`, `MAX_SLOT_DEPTH`),
+  `color.rs` (`is_hex_color`).
+- `error/`: `OpError`, `ReplicaError`, `SourcesError`, `TransactionError` and friends (Snafu,
+  Fluent); `reason.rs` holds refusal reasons such as `ValueReason`.
 
-## Points d'extension
+## Extension points
 
-- Un nouveau champ du modèle : `model.rs`, classé dans le replica (`schema.rs`), couvert
-  dans `replica/read_tests.rs` / `mod_tests.rs`, sans clé en `@…` (`tree_tests.rs`).
-- Une nouvelle opération : `Op` (`ops/mod.rs`) + `ops_schema`, appliquée sur `Deck` (jamais sur le replica).
-- Un type d'hôte : `HostType` + `ParamType::host` + `ops/host.rs` (`host_option`, `set_option`, `set_data`).
+- A model field: `model.rs`, classified in `replica/schema.rs`, covered by the replica read tests.
+- An operation: an `Op` variant (`ops/mod.rs`) + `ops_schema`, applied to `Deck`, never the replica.
+- A host type: `HostType` + `ParamType::host` + `ops/host.rs`.
 
-## Dépendances
+## Dependencies
 
-`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`, `sha2`/`hex` (assets, packs), `uuid` ; dev : `speculoos`, `rstest`, `proptest`.
+`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`, `sha2` / `hex`, `uuid`, `schemars`.

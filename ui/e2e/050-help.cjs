@@ -3,11 +3,11 @@
 // ni barre d'outils, ni agent, ni dictée, ni ajout de slide ; double-clic,
 // Suppr et ⌘Z ne changent rien. Les flèches parcourent les slides, ⌘/ une
 // seconde fois retrouve le même onglet, le bouton ✕ le ferme.
-// Lancer : just e2e. À la main : bun e2e/help.cjs, E2E_URL = adresse du serveur.
+// Lancer : just e2e. À la main : bun e2e/050-help.cjs, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { stageImage } = require('./stage.cjs');
-const { settled, untilValue } = require('./until.cjs');
+const { stageImage } = require('./lib/stage.cjs');
+const { settled, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 // Délai du premier rendu de l'aide (deck entier), en ms.
 const FIRST_RENDER_MS = 120_000;

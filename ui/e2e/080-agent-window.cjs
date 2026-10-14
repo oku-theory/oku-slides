@@ -3,7 +3,7 @@
 // Contre `oku-slides serve` lancé avec le faux agent (just e2e s'en charge).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
+const { post } = require('./lib/http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const INSERTED = 'inséré par la fenêtre agent';
 

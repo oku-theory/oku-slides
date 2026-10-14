@@ -1,69 +1,69 @@
-# ADR-0004 : Les données des hôtes fusionnées par cellule
+# ADR-0004: Host data merged cell by cell
 
-- **Statut :** accepté
-- **Date :** 2026-10-08
-- **Tâches :** t-589
-- **Remplace en partie :** [ADR-0002](0002-sources-du-deck-en-crdt-loro.md)
-  (l'option d'hôte en atome JSON)
-- **Spec :** [fusion-cellules-design.md](../superpowers/specs/2026-10-08-fusion-cellules-design.md)
+- **Status:** accepted
+- **Date:** 2026-10-08
+- **Tasks:** t-589
+- **Partially supersedes:** [ADR-0002](0002-sources-du-deck-en-crdt-loro.md)
+  (the host option as a JSON atom)
+- **Spec:** [fusion-cellules-design.md](../superpowers/specs/2026-10-08-fusion-cellules-design.md)
 
-## Contexte
+## Context
 
-L'option d'un paramètre `host(chart)` ou `host(table)` est un `Atom` Loro,
-comme le décidait l'ADR-0002 : la dernière écriture remplace toute l'option.
-Deux personnes qui modifient en même temps des cellules différentes d'un même
-tableau ou graphique perdent donc l'une des deux modifications, sans
-avertissement. Il en va de même pour deux insertions de ligne, deux insertions
-de colonne ou une suppression de ligne face à une édition de cellule.
+The option of a `host(chart)` or `host(table)` parameter is a Loro `Atom`,
+as ADR-0002 decided: the last write replaces the whole option.
+Two people who edit different cells of the same table or chart at the same
+time therefore lose one of the two edits, without any
+warning. The same goes for two row insertions, two column
+insertions, or a row deletion against a cell edit.
 
-## Décision
+## Decision
 
-- **Identifiants stables de lignes et de colonnes**, dans deux tableaux
-  parallèles du `dataset` : `ids` (une entrée par ligne de `source`, en-tête
-  comprise) et `columns` (une entrée par colonne). Le cœur les crée : 8
-  caractères hexadécimaux tirés d'un `uuid` v4, tirés à nouveau en cas de
-  collision. Format admis : `[A-Za-z0-9_-]{1,64}`, uniques par liste.
-- **`dataset` en conteneurs.** Dans le replica, le `dataset` devient une
-  `LoroMap` `{ columns, rows }` : `columns` est une liste ordonnée
-  d'identifiants, `rows` une liste ordonnée de lignes `{ id, cells }`, et
-  `cells` une map de scalaires par identifiant de colonne. Lignes, colonnes
-  et cellules se rapprochent par identifiant, donc les éditions concurrentes
-  de cellules, de lignes et de colonnes différentes se fusionnent.
-- **Réparation à la relecture.** Après une fusion, l'état relu est remis en
-  règle : colonne en double, et ligne en double aux mêmes cellules, écartées
-  (aucun doublon après une double annulation) ; cellule absente lue comme
-  `null` ; autre identifiant en double ou invalide
-  remplacé par un identifiant déterministe tiré de la position, `align`
-  tronqué à la largeur.
-- **Les autres clés de l'option** (`series`, couleurs, drapeaux) restent en
-  dernière écriture gagnante, clé par clé, chacune en atome.
+- **Stable row and column identifiers**, in two parallel arrays
+  of the `dataset`: `ids` (one entry per `source` row, header
+  included) and `columns` (one entry per column). The core creates them: 8
+  hexadecimal characters drawn from a v4 `uuid`, drawn again on
+  collision. Accepted format: `[A-Za-z0-9_-]{1,64}`, unique per list.
+- **`dataset` as containers.** In the replica, the `dataset` becomes a
+  `LoroMap` `{ columns, rows }`: `columns` is an ordered list
+  of identifiers, `rows` an ordered list of rows `{ id, cells }`, and
+  `cells` a map of scalars by column identifier. Rows, columns
+  and cells are matched by identifier, so concurrent edits
+  of different cells, rows and columns are merged.
+- **Repair on read-back.** After a merge, the read-back state is put back
+  in order: duplicate column, and duplicate row with the same cells, discarded
+  (no duplicate after a double undo); missing cell read as
+  `null`; any other duplicate or invalid identifier
+  replaced by a deterministic identifier derived from the position, `align`
+  truncated to the width.
+- **The other keys of the option** (`series`, colors, flags) stay
+  last-writer-wins, key by key, each as an atom.
 
-**Invariant global.** Le cœur garde l'alignement de `ids` et `columns` avec
-`source` à chaque écriture. La relecture répare un état fusionné, et la
-validation (100 lignes × 20 colonnes) s'applique aux ops. Un tableau qui
-dépasse ces bornes après fusion est rendu en substitut jusqu'à ce qu'on
-supprime des lignes ou des colonnes.
+**Global invariant.** The core keeps `ids` and `columns` aligned with
+`source` on every write. Read-back repairs a merged state, and
+validation (100 rows × 20 columns) applies to ops. A table that
+exceeds these bounds after a merge is rendered as a placeholder until
+rows or columns are deleted.
 
-## Compatibilité
+## Compatibility
 
-Aucune. `DECK_VERSION` passe de 4 à 5 et `SOURCES_VERSION` de 6 à 7. Une
-ancienne version de l'app refuse le nouveau format avec son erreur de version
-habituelle, et la nouvelle ne lit aucun ancien format : pas de chemin de
-lecture de la forme `Atom`. Les fixtures sont migrées.
+None. `DECK_VERSION` goes from 4 to 5 and `SOURCES_VERSION` from 6 to 7. An
+older version of the app rejects the new format with its usual version
+error, and the new one reads no older format: there is no read
+path for the `Atom` shape. The fixtures are migrated.
 
-## Conséquences
+## Consequences
 
-- Les ops de données ne rendent plus d'inverse : l'historique passe par le
+- Data ops no longer return an inverse: history goes through the
   replica.
-- Le `dataset` d'une forme inattendue est écrit en `Opaque`, sans perte, et ne
-  fusionne pas finement.
+- A `dataset` of an unexpected shape is written as `Opaque`, losslessly, and does
+  not merge at fine grain.
 
-## Limites
+## Limits
 
-- Une cellule est un scalaire en dernière écriture gagnante : pas de fusion
-  caractère par caractère dans une cellule.
-- Un collage garde les identifiants par position (lignes et colonnes
-  `0..min(ancien, nouveau)`) et en tire de neufs pour l'excédent.
-- Deux collages concurrents (`Replace`) fusionnent cellule par cellule
-  (dernière écriture gagnante par cellule) : les identifiants étant gardés par
-  position, le résultat peut mêler les deux collages.
+- A cell is a last-writer-wins scalar: no character-by-character
+  merge inside a cell.
+- A paste keeps identifiers by position (rows and columns
+  `0..min(old, new)`) and draws fresh ones for the excess.
+- Two concurrent pastes (`Replace`) merge cell by cell
+  (last writer wins per cell): since identifiers are kept by
+  position, the result may mix the two pastes.

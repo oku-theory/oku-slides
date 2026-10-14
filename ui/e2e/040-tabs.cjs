@@ -1,9 +1,9 @@
 // Onglets : nouvel onglet, bascule, fermeture sans question (un onglet modifié
 // s'enregistre en se fermant, t-257), contre `oku-slides serve fixtures/roadmap.json`.
-// Passe après toolbar.cjs et panel.cjs sur le même serveur : le premier onglet
+// Passe après 020-toolbar.cjs et 030-panel.cjs sur le même serveur : le premier onglet
 // (le fichier) a déjà été modifié ; ce script ne ferme que ses propres onglets.
 // L'onglet modifié qu'il ferme est enregistré dans `paths.decks`.
-// Lancer : just e2e. À la main : bun e2e/tabs.cjs, E2E_URL = adresse d'un serveur
+// Lancer : just e2e. À la main : bun e2e/040-tabs.cjs, E2E_URL = adresse d'un serveur
 // tout juste démarré.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');

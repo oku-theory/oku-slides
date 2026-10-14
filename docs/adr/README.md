@@ -1,11 +1,11 @@
-# Décisions d'architecture (ADR)
+# Architecture decision records (ADR)
 
-| N° | Titre | Statut |
+| No. | Title | Status |
 |----|-------|--------|
-| [0001](0001-espace-de-travail-session-par-onglet.md) | Espace de travail, une session par onglet, reprise v2 paresseuse | accepté |
-| [0002](0002-sources-du-deck-en-crdt-loro.md) | Les sources du deck en CRDT Loro, historique et fusion | accepté |
-| [0003](0003-regle-d-origine-des-serveurs-locaux.md) | Règle d'origine des serveurs HTTP locaux | accepté |
-| [0004](0004-donnees-des-hotes-fusionnees-par-cellule.md) | Les données des hôtes fusionnées par cellule | accepté |
-| [0005](0005-elements-d-une-slide-en-arbre-loro.md) | Les éléments d'une slide en arbre Loro | accepté |
-| [0006](0006-deck-en-un-seul-arbre-suppression-douce.md) | Le deck en un seul arbre Loro, suppression douce | accepté |
-| [0007](0007-compaction-des-noeuds-morts.md) | Compaction des nœuds morts de l'arbre du deck | accepté |
+| [0001](0001-espace-de-travail-session-par-onglet.md) | Workspace, one session per tab, lazy v2 resume | accepted |
+| [0002](0002-sources-du-deck-en-crdt-loro.md) | Deck sources as a Loro CRDT, history and merge | accepted |
+| [0003](0003-regle-d-origine-des-serveurs-locaux.md) | Origin rule for local HTTP servers | accepted |
+| [0004](0004-donnees-des-hotes-fusionnees-par-cellule.md) | Host data merged cell by cell | accepted |
+| [0005](0005-elements-d-une-slide-en-arbre-loro.md) | Slide elements as a Loro tree | accepted |
+| [0006](0006-deck-en-un-seul-arbre-suppression-douce.md) | Deck as a single Loro tree, soft delete | accepted |
+| [0007](0007-compaction-des-noeuds-morts.md) | Compaction of dead nodes in the deck tree | accepted |

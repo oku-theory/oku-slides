@@ -1,9 +1,9 @@
 // Agent : un fil par perspective. Les slides et l'atelier gardent chacun le leur.
 // Contre `oku-slides serve` lancé avec le faux agent (just e2e s'en charge).
-// Précondition : t-1 sans tour en cours ni question en attente (agent.cjs répond aux siennes).
+// Précondition : t-1 sans tour en cours ni question en attente (060-agent.cjs répond aux siennes).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
+const { post } = require('./lib/http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
 const turn = (p, text) => p.locator('.agent-turn', { hasText: text });

@@ -1,280 +1,280 @@
-# Fil de l'agent tout en A2UI — design
+# Agent thread fully in A2UI — design
 
-Date : 2026-10-03 · Tâche : t-416
+Date: 2026-10-03 · Task: t-416
 
-## Objectif
+## Goal
 
-Rendre le fil de l'agent nettement plus compact sans perdre en lisibilité,
-par un virage massif vers A2UI : le fil n'est plus du Markdown en post-its
-mais une suite de surfaces A2UI construites par l'hôte. L'agent conclut
-chaque tour par un reçu compact ; ses explications restent accessibles,
-repliées. Le style post-it disparaît de toute l'application.
+Make the agent thread markedly more compact without losing readability,
+through a massive shift to A2UI: the thread is no longer Markdown in post-its
+but a sequence of A2UI surfaces built by the host. The agent ends
+each turn with a compact receipt; its explanations remain accessible,
+collapsed. The post-it style disappears from the whole application.
 
-Constat de départ (capture du 2026-10-03) : les messages intermédiaires de
-l'agent ont le même poids que la réponse ; chaque post-it coûte
-padding, marges, inclinaison, ombre et 12–18 % de largeur ; la police
-15/21 est lourde ; la réponse finale est un compte rendu là où une ligne
-de conclusion suffit.
+Starting observation (screenshot of 2026-10-03): the agent's intermediate messages
+carry the same weight as the answer; each post-it costs
+padding, margins, tilt, shadow and 12–18 % of width; the 15/21
+font is heavy; the final answer is a report where a single concluding
+line is enough.
 
-Hors périmètre : l'action « Annuler le tour » sur un reçu (t-417).
+Out of scope: the "Cancel the turn" action on a receipt (t-417).
 
-## Décisions
+## Decisions
 
-- **Projection côté hôte (Rust).** L'hôte construit chaque tour comme une
-  surface A2UI ; l'interface ne fait que rendre des surfaces. Un seul
-  constructeur d'A2UI (Rust), comme le panneau des modèles (`panel.rs`).
-- **Composition hybride.** Des outils typés (`report`, `ask_*`,
-  `show_*`) pour les cas fréquents, plus un outil libre `render` validé
-  côté Rust pour les cas imprévus.
-- **Le texte libre de l'agent est rétrogradé en narration** : des notes de
-  progression d'une ligne dans la timeline du tour. Il n'est jamais rendu
-  comme une réponse, sauf dans le reçu de repli.
-- **Surfaces dans leur tour.** Une surface figée s'affiche dans le tour qui
-  l'a créée ; une surface vivante (question en attente, réglages) vit dans
-  un dock au-dessus du micro, puis se fige dans son tour.
-- **Catalogue v3**, rupture assumée (pas de v2 conservée).
-- **Fin du style post-it partout** : fil, dock, fiches, tiroir, modale,
-  panneau des modèles, brouillon de dictée, `ChartPanel`. Une seule notion
-  la remplace : la carte.
+- **Host-side projection (Rust).** The host builds each turn as an
+  A2UI surface; the UI only renders surfaces. A single
+  A2UI builder (Rust), like the templates panel (`panel.rs`).
+- **Hybrid composition.** Typed tools (`report`, `ask_*`,
+  `show_*`) for the frequent cases, plus a free-form `render` tool validated
+  on the Rust side for unforeseen cases.
+- **The agent's free text is demoted to narration**: one-line progress
+  notes in the turn's timeline. It is never rendered
+  as an answer, except in the fallback receipt.
+- **Surfaces in their turn.** A frozen surface is shown in the turn that
+  created it; a live surface (pending question, settings) lives in
+  a dock above the microphone, then freezes into its turn.
+- **Catalog v3**, a deliberate break (no v2 kept).
+- **End of the post-it style everywhere**: thread, dock, sheets, drawer, modal,
+  templates panel, dictation draft, `ChartPanel`. A single notion
+  replaces it: the card.
 
-## Modèle des tours (session, agent)
+## Turn model (session, agent)
 
-Un tour = une consigne, sa progression (outils, plan, narration), son
-issue (terminé, annulé, erreur, fin anormale) et les surfaces qu'il a
-créées.
+A turn = a prompt, its progress (tools, plan, narration), its
+outcome (done, cancelled, error, abnormal end) and the surfaces it
+created.
 
-- `oku-slides-session/src/agent/turn_view.rs` (pur, à côté de `forms.rs`) :
-  `TurnView { n, prompt, steps, narration, state, outcome }` et ses
-  constructeurs A2UI : la surface `turn-N` (Prompt, Timeline, notes) et
-  le reçu (voir `report`). Pas d'I/O, pas d'état.
-- `oku-slides-agent/src/turns.rs` remplace `ThreadLog` : garde les tours
-  d'un onglet (au plus 50, clé de config `agent.kept_turns`), applique les
-  `AgentEvent`, émet `UpdateComponents` à l'ouverture d'un tour puis
-  `UpdateDataModel` pour chaque étape ou chunk (`/steps`, `/narration`,
-  `/state`). Le rejeu d'un onglet renvoie les surfaces des tours gardés.
-- `SurfaceHub` (mcp) : `begin_turn(n)` est appelé par `turn.rs` au début de
-  chaque tour ; toute surface du fil créée par un appel d'outil arrivé pendant
-  ce tour porte `turn: Some(n)`, même si elle s'affiche après l'ouverture du
-  tour suivant (t-449 : le tour est lu à l'arrivée de l'appel et passé au hub).
-- `Surface` gagne `turn: Option<u32>` et `live: bool`. `Place` devient
-  `Sheet | Drawer | Modal | Thread` (`Postit` et `Suggestions` supprimés).
-- Fin de tour (`turn_ended`) : `turn-N` passe à « terminé », la timeline se
-  replie en une ligne (« 14 outils · 2 notes · 38 s »). **Sans `report`
-  pendant le tour**, l'hôte crée un reçu de repli : `title` = première
-  phrase de la dernière narration, `why` = le reste (Markdown), pas
-  d'actions. Sans narration, pas de reçu.
+- `oku-slides-session/src/agent/turn_view.rs` (pure, next to `forms.rs`):
+  `TurnView { n, prompt, steps, narration, state, outcome }` and its
+  A2UI builders: the `turn-N` surface (Prompt, Timeline, notes) and
+  the receipt (see `report`). No I/O, no state.
+- `oku-slides-agent/src/turns.rs` replaces `ThreadLog`: keeps the turns
+  of a tab (at most 50, config key `agent.kept_turns`), applies the
+  `AgentEvent`s, emits `UpdateComponents` when a turn opens, then
+  `UpdateDataModel` for each step or chunk (`/steps`, `/narration`,
+  `/state`). Replaying a tab sends back the surfaces of the kept turns.
+- `SurfaceHub` (mcp): `begin_turn(n)` is called by `turn.rs` at the start of
+  each turn; every thread surface created by a tool call that arrived during
+  that turn carries `turn: Some(n)`, even if it is shown after the next turn
+  has opened (t-449: the turn is read when the call arrives and passed to the hub).
+- `Surface` gains `turn: Option<u32>` and `live: bool`. `Place` becomes
+  `Sheet | Drawer | Modal | Thread` (`Postit` and `Suggestions` removed).
+- End of turn (`turn_ended`): `turn-N` switches to "done", the timeline
+  collapses into one line ("14 tools · 2 notes · 38 s"). **Without `report`
+  during the turn**, the host creates a fallback receipt: `title` = first
+  sentence of the last narration, `why` = the rest (Markdown), no
+  actions. Without narration, no receipt.
 
-Ordre des dépendances inchangé : `oku-slides-agent` dépend déjà de `-mcp`
-et de `-session`.
+Dependency order unchanged: `oku-slides-agent` already depends on `-mcp`
+and `-session`.
 
-## Catalogue v3 (a2ui, UI)
+## Catalog v3 (a2ui, UI)
 
-`urn:oku-slides:a2ui:catalog:v3`. Miroir Rust (`ComponentKind`) et zod
-(`catalog.tsx`) changent dans le même commit.
+`urn:oku-slides:a2ui:catalog:v3`. The Rust mirror (`ComponentKind`) and zod
+(`catalog.tsx`) change in the same commit.
 
-Conservés (seul le style change) : Column, Row, Text, Button, TextField,
+Kept (only the style changes): Column, Row, Text, Button, TextField,
 Stepper, Slider, ColorField, Select, ChoiceChips, SlideThumb, DiffText.
 
-Modifiés :
-- `Card` : carte sobre, `tone?: neutral | accent | danger`.
-- `Text` : variante `note` (une ligne atténuée, ellipse).
+Modified:
+- `Card`: plain card, `tone?: neutral | accent | danger`.
+- `Text`: `note` variant (one muted line, ellipsis).
 
-Nouveaux :
+New:
 
-| Composant | Propriétés | Rôle |
+| Component | Properties | Role |
 |---|---|---|
-| `Prompt` | `text` | Consigne de l'utilisateur, bulle alignée à droite. Hôte seul. |
-| `Timeline` | `steps` (lien → `{label, status, count?}[]`), `collapsed` (bool dynamique), `summary` (texte dynamique) | Progression d'un tour ; repliée en une ligne dépliable. Hôte seul. |
-| `Receipt` | `title`, `facts[1-4]`, `slide?` (`{id, hash}` : référence, jamais le SVG ; t-450), `swatch?` (hex), `child?` | Carte de conclusion d'un tour. |
-| `Disclosure` | `summary`, `child` | Contenu replié par défaut (« ▸ pourquoi »). |
-| `Badge` | `text`, `tone` | Compteur ou statut. |
-| `Markdown` | `text` | Texte riche, rendu par `Markdown.tsx` (pas de HTML brut). |
+| `Prompt` | `text` | The user's prompt, right-aligned bubble. Host only. |
+| `Timeline` | `steps` (binding → `{label, status, count?}[]`), `collapsed` (dynamic bool), `summary` (dynamic text) | Progress of a turn; collapsed into one expandable line. Host only. |
+| `Receipt` | `title`, `facts[1-4]`, `slide?` (`{id, hash}`: a reference, never the SVG; t-450), `swatch?` (hex), `child?` | Concluding card of a turn. |
+| `Disclosure` | `summary`, `child` | Content collapsed by default ("▸ why"). |
+| `Badge` | `text`, `tone` | Counter or status. |
+| `Markdown` | `text` | Rich text, rendered by `Markdown.tsx` (no raw HTML). |
 
-`Prompt` et `Timeline` sont réservés à l'hôte : `agent_allowed(&ComponentKind)`
-les refuse dans `render`.
+`Prompt` and `Timeline` are reserved for the host: `agent_allowed(&ComponentKind)`
+rejects them in `render`.
 
-## Outils de l'agent (MCP)
+## Agent tools (MCP)
 
-Nouveaux :
+New:
 
-- **`report`** — appelé en dernier, au plus une fois par tour (un second
-  appel remplace le premier) :
+- **`report`** — called last, at most once per turn (a second
+  call replaces the first):
   `{ title, facts[1-4], slide?, swatch?, why?, actions?[0-4]{label, prompt?} }`.
-  L'hôte assemble Receipt (la slide y est une référence `{id, hash}` :
-  identifiant et empreinte de sa page ; l'interface en résout la miniature
-  par son cache de SVG, état au moment du reçu si connu, sinon état actuel
-  marqué « modifiée depuis » ; t-450),
-  Disclosure(`why` en Markdown) et la rangée d'actions. Surface figée
-  (`live: false`) ; ses actions restent cliquables tant que c'est le
-  dernier tour, et envoient `prompt` (ou `label`) comme nouveau tour,
-  comme les suggestions aujourd'hui.
-- **`render`** — `{ components[], data? }`, catalogue v3 hors `Prompt` et
-  `Timeline`. Bornes : 40 composants, profondeur 6. Validation serde +
-  `agent_allowed` ; **une erreur est renvoyée à l'agent en résultat
-  d'outil**, lisible, pour qu'il corrige. Seule action permise :
-  `prompt {text}` (nouveau tour). Surface figée.
+  The host assembles Receipt (the slide is a `{id, hash}` reference in it:
+  identifier and fingerprint of its page; the UI resolves its thumbnail
+  through its SVG cache, the state at the time of the receipt if known, otherwise the current state
+  marked "modified since"; t-450),
+  Disclosure(`why` as Markdown) and the row of actions. Frozen surface
+  (`live: false`); its actions stay clickable as long as it is the
+  last turn, and send `prompt` (or `label`) as a new turn,
+  like the suggestions today.
+- **`render`** — `{ components[], data? }`, catalog v3 except `Prompt` and
+  `Timeline`. Bounds: 40 components, depth 6. Serde validation +
+  `agent_allowed`; **an error is returned to the agent as a tool
+  result**, readable, so that it can fix it. Only allowed action:
+  `prompt {text}` (new turn). Frozen surface.
 
-Changés :
+Changed:
 
-| Avant | Après |
+| Before | After |
 |---|---|
-| `suggest_next` | Supprimé ; remplacé par `report.actions`. |
-| `show_params` (`Postit`) | `Thread`, `live` ; un nouveau `show_params` ou la fermeture le fige avec ses dernières valeurs. |
-| `ask_choice` sans ancre | `Thread`, `live` tant qu'en attente ; une fois répondu, figé en n'affichant que la réponse ; `cancel_asks` le fige « annulé ». |
-| `ask_confirm`, `ask_rewrite`, `show_variants` | Inchangés (modale, fiche, tiroir). |
+| `suggest_next` | Removed; replaced by `report.actions`. |
+| `show_params` (`Postit`) | `Thread`, `live`; a new `show_params` or closing it freezes it with its last values. |
+| `ask_choice` without an anchor | `Thread`, `live` while pending; once answered, frozen showing only the answer; `cancel_asks` freezes it as "cancelled". |
+| `ask_confirm`, `ask_rewrite`, `show_variants` | Unchanged (modal, sheet, drawer). |
 
-Instructions (`agent.ftl`, toutes les langues) : terminer chaque tour par
-`report` ; le texte libre n'est montré qu'en note de progression d'une
-ligne, l'écrire comme tel ; `render` seulement si aucun outil typé ne
-convient. Les mentions de `suggest_next` disparaissent.
+Instructions (`agent.ftl`, all languages): end each turn with
+`report`; free text is only shown as a one-line progress note,
+write it as such; `render` only if no typed tool
+fits. Mentions of `suggest_next` disappear.
 
-## Interface : fil et dock (UI)
+## Interface: thread and dock (UI)
 
-Panneau : en-tête · fil des tours (défile) · dock (fixe) · micro.
+Panel: header · thread of turns (scrolls) · dock (fixed) · microphone.
 
-- **Un tour** : surface `turn-N` (Prompt, Timeline), puis ses surfaces
-  figées dans l'ordre de création (questions répondues, `render`, reçu en
-  dernier).
-- **Dock** : les surfaces `live`, au plus deux par construction (un `ask_*`
-  bloque l'agent ; `show_params` remplace le précédent). La question est la
-  plus proche du micro (réponse dictée possible : la consigne nomme la question
-  qui reçoit les touches, `answer`), les
-  réglages au-dessus. Quand une question attend, les réglages se replient en
-  une ligne d'en-tête (qui les rouvre). Hauteur ≤ 45 % du panneau : au-delà,
-  le dock s'arrête à son plafond et défile (`overflow: auto`). Les réglages
-  ont un « × » (→ `live: false`) ; une question ne se ferme pas. Vide : 0 px.
-- **Vivant → figé** : même `id`, mêmes `messages`, `live` change ; la
-  surface rejoint son tour. Transition courte si le tour est visible,
-  supprimée sous `prefers-reduced-motion`.
-- **Défilement** : suit le bas pendant un tour sauf si l'utilisateur est
-  remonté ; une pastille « ↓ tour en cours » ramène en bas.
-- `routeSurfaces` : sheet, drawer, modal inchangés ; `Thread` se répartit en
-  `dock` et `byTurn: Map<turn, Surface[]>`.
-- `AgentThread` devient la liste des tours plus `<AgentDock>` (nouveau).
-  `thread.ts`, `threadItems` et le JSX actuel des entrées sont supprimés.
-  Les `AgentEvent` Chunk, ToolCall et Plan ne vont plus à l'interface ; ils
-  sont supprimés du canal UI s'ils n'ont plus d'autre consommateur.
+- **A turn**: surface `turn-N` (Prompt, Timeline), then its frozen
+  surfaces in creation order (answered questions, `render`, receipt
+  last).
+- **Dock**: the `live` surfaces, at most two by construction (an `ask_*`
+  blocks the agent; `show_params` replaces the previous one). The question is
+  closest to the microphone (a dictated answer is possible: the prompt names the question
+  that receives the keys, `answer`), the
+  settings above it. When a question is pending, the settings collapse into
+  a header line (which reopens them). Height ≤ 45 % of the panel: beyond that,
+  the dock stops at its ceiling and scrolls (`overflow: auto`). The settings
+  have a "×" (→ `live: false`); a question cannot be closed. Empty: 0 px.
+- **Live → frozen**: same `id`, same `messages`, `live` changes; the
+  surface joins its turn. Short transition if the turn is visible,
+  removed under `prefers-reduced-motion`.
+- **Scrolling**: follows the bottom during a turn unless the user has
+  scrolled up; a "↓ turn in progress" pill brings it back to the bottom.
+- `routeSurfaces`: sheet, drawer, modal unchanged; `Thread` is split into
+  `dock` and `byTurn: Map<turn, Surface[]>`.
+- `AgentThread` becomes the list of turns plus `<AgentDock>` (new).
+  `thread.ts`, `threadItems` and the current JSX of the entries are removed.
+  The `AgentEvent`s Chunk, ToolCall and Plan no longer go to the UI; they
+  are removed from the UI channel if they have no other consumer.
 
 ## Style
 
-Une seule notion : **la carte**, définie dans `ui/src/a2ui/a2ui.css` et
-exposée en classe `.card` pour les composants hors A2UI (brouillon de
-dictée, `ChartPanel`).
+A single notion: **the card**, defined in `ui/src/a2ui/a2ui.css` and
+exposed as a `.card` class for components outside A2UI (dictation
+draft, `ChartPanel`).
 
-- Jetons dérivés de l'existant : `--a2ui-surface` (`--paper-100`),
-  `--a2ui-border` (`--ink` à 12 %, filet 1 px), `--a2ui-accent-bg`
+- Tokens derived from the existing ones: `--a2ui-surface` (`--paper-100`),
+  `--a2ui-border` (`--ink` at 12 %, 1 px rule), `--a2ui-accent-bg`
   (`--accent-soft`).
-- Carte : `--radius-sm`, padding 8 × 10 px, ni inclinaison ni ombre, pas de
-  marge (l'espacement vient du `gap` parent, `--space-1`).
-- Typographie : corps 400 14/20 ; notes, timeline, légendes 400 12/16 en
-  `--ink-muted` ; titres (`h4`, reçu) 600 14/20.
-- `Prompt` et brouillon de dictée : variante consigne, fond `--paper-200`,
-  alignés à droite, `max-width: 85 %`. Reçus en pleine largeur.
-- Puces d'action : style des suggestions actuelles, `min-height: 28px`.
-- Verre (`glass.css`) : dock, fiches et tiroirs flottants seulement ; les
-  cartes du fil restent opaques.
-- Supprimés : `--postit`, `--postit-you`, `--postit-you-ink`,
-  `--app-postit` (trois blocs de thème) ; `.postit*`, `--tilt` ;
-  `--shadow-note` et `--edge-light` s'ils n'ont plus d'usage ; les
-  inclinaisons `.notes … .postit` ; `.agent-entry .you/.msg`, `.tools`,
-  `.tool-list` ; les neutralisations `.agent-sheet-box .postit` et
-  suivantes. Les classes du catalogue deviennent `a2ui-card`,
+- Card: `--radius-sm`, padding 8 × 10 px, no tilt nor shadow, no
+  margin (spacing comes from the parent `gap`, `--space-1`).
+- Typography: body 400 14/20; notes, timeline, captions 400 12/16 in
+  `--ink-muted`; titles (`h4`, receipt) 600 14/20.
+- `Prompt` and dictation draft: prompt variant, `--paper-200` background,
+  right-aligned, `max-width: 85 %`. Receipts at full width.
+- Action chips: style of the current suggestions, `min-height: 28px`.
+- Glass (`glass.css`): dock, sheets and floating drawers only; the
+  thread cards stay opaque.
+- Removed: `--postit`, `--postit-you`, `--postit-you-ink`,
+  `--app-postit` (three theme blocks); `.postit*`, `--tilt`;
+  `--shadow-note` and `--edge-light` if they have no use left; the
+  `.notes … .postit` tilts; `.agent-entry .you/.msg`, `.tools`,
+  `.tool-list`; the `.agent-sheet-box .postit` overrides and
+  following ones. The catalog classes become `a2ui-card`,
   `a2ui-title`, `a2ui-hint`.
 
-## Erreurs
+## Errors
 
-- `render` invalide : erreur d'outil MCP avec le chemin du composant fautif
-  et la règle violée ; rien n'est affiché.
-- `report` invalide (bornes) : erreur d'outil, même principe.
-- Surface refusée par le zod côté UI (divergence de catalogue) : toast
-  existant (`onError`) ; le test de contrat (ci-dessous) doit l'empêcher.
-- Tour sans `report` : reçu de repli (voir Modèle des tours).
+- Invalid `render`: MCP tool error with the path of the faulty component
+  and the violated rule; nothing is displayed.
+- Invalid `report` (bounds): tool error, same principle.
+- Surface rejected by zod on the UI side (catalog divergence): existing
+  toast (`onError`); the contract test (below) must prevent it.
+- Turn without `report`: fallback receipt (see Turn model).
 
 ## Migration
 
-MVP, sans couche de compatibilité :
-- catalogue v2 → v3 d'un coup ;
-- suppression dans le même changement : `suggest_next`,
-  `Place::Postit/Suggestions`, `ThreadLog`, `thread.ts`, `threadItems`, le
-  JSX des entrées d'`AgentThread` ;
-- fil gardé : en mémoire d'après `thread_log.rs` ; à vérifier en début de
-  plan. S'il est persisté, les anciens fils sont effacés, pas convertis.
+MVP, without a compatibility layer:
+- catalog v2 → v3 in one go;
+- removal in the same change: `suggest_next`,
+  `Place::Postit/Suggestions`, `ThreadLog`, `thread.ts`, `threadItems`, the
+  JSX of the `AgentThread` entries;
+- kept thread: in memory according to `thread_log.rs`; to be checked at the start of the
+  plan. If it is persisted, old threads are erased, not converted.
 
 ## Tests
 
-TDD : chaque étape commence par un test rouge.
+TDD: each step starts with a red test.
 
-Rust :
-- `turn_view_tests.rs` : snapshots `insta` de `turn-N` (en cours ; terminé
-  replié ; annulé ; reçu de repli ; sans narration donc sans reçu) et du
-  reçu `report` (complet, minimal).
-- `render` (`rstest`) : refus de `Prompt`/`Timeline`, de plus de 40
-  composants, d'une profondeur > 6, d'une propriété inconnue, d'une action
-  autre que `prompt` ; snapshot du message d'erreur.
-- `Place` et `live` : sérialisation.
-- `turns_tests.rs` (remplace `thread_log_tests`) : cas existants reportés
-  (fusion des chunks, repli des outils, dernier plan, éviction) ; reçu de
-  repli à `turn_ended` ; rejeu d'un onglet.
-- mcp : `report` et `render` exposés, `suggest_next` absent ;
-  `begin_turn` attribue le tour ; `show_params` fige le précédent ; une
-  question répondue est figée avec la réponse ; `cancel_asks` la fige
-  « annulé ».
+Rust:
+- `turn_view_tests.rs`: `insta` snapshots of `turn-N` (in progress; done
+  and collapsed; cancelled; fallback receipt; no narration hence no receipt) and of the
+  `report` receipt (complete, minimal).
+- `render` (`rstest`): rejection of `Prompt`/`Timeline`, of more than 40
+  components, of a depth > 6, of an unknown property, of an action
+  other than `prompt`; snapshot of the error message.
+- `Place` and `live`: serialization.
+- `turns_tests.rs` (replaces `thread_log_tests`): existing cases carried over
+  (chunk merging, tool collapsing, last plan, eviction); fallback
+  receipt at `turn_ended`; replay of a tab.
+- mcp: `report` and `render` exposed, `suggest_next` absent;
+  `begin_turn` assigns the turn; `show_params` freezes the previous one; an
+  answered question is frozen with the answer; `cancel_asks` freezes it as
+  "cancelled".
 
-UI :
-- `catalog.render.test` : chaque nouveau composant (Prompt, Timeline
-  repliée/dépliée, Receipt, Disclosure, Badge, Markdown, Text `note`) et le
-  refus strict du zod.
-- `surfaces.test` : `routeSurfaces` → `dock` et `byTurn` ; question la plus
-  proche du micro.
-- `AgentThread.render.test` réécrit : ordre des tours, passage vivant →
-  figé, dock vide à 0 px.
-- `DictationDraft` : carte, variante consigne.
-- **Contrat Rust ↔ TS** : `ui/src/a2ui/fixtures/agent-surfaces.json` est
-  produit par les tests Rust (`turn_view`, `report`, outils) et validé par
-  le catalogue zod v3.
-- `i18n-keys.test` : nouvelles clés présentes dans toutes les langues.
+UI:
+- `catalog.render.test`: each new component (Prompt, Timeline
+  collapsed/expanded, Receipt, Disclosure, Badge, Markdown, Text `note`) and the
+  strict rejection by zod.
+- `surfaces.test`: `routeSurfaces` → `dock` and `byTurn`; question
+  closest to the microphone.
+- `AgentThread.render.test` rewritten: order of turns, live →
+  frozen transition, empty dock at 0 px.
+- `DictationDraft`: card, prompt variant.
+- **Rust ↔ TS contract**: `ui/src/a2ui/fixtures/agent-surfaces.json` is
+  produced by the Rust tests (`turn_view`, `report`, tools) and validated by
+  the zod catalog v3.
+- `i18n-keys.test`: new keys present in all languages.
 
-Vérification visuelle : la conversation de la capture et une question en
-attente dans le dock, en clair et en sombre, Papier et Verre.
+Visual check: the conversation from the screenshot and a pending question
+in the dock, in light and dark, Paper and Glass.
 
-## Ordre de livraison
+## Delivery order
 
-1. Catalogue v3, carte, suppression du post-it partout (Rust, zod,
-   `a2ui.css`, brouillon, `ChartPanel`, panneau des modèles).
-2. `turn_view` : construction pure des tours et du reçu.
-3. `turns.rs` à la place de `ThreadLog` ; hub : `begin_turn`, `turn`,
+1. Catalog v3, card, removal of the post-it everywhere (Rust, zod,
+   `a2ui.css`, draft, `ChartPanel`, templates panel).
+2. `turn_view`: pure construction of turns and of the receipt.
+3. `turns.rs` in place of `ThreadLog`; hub: `begin_turn`, `turn`,
    `live`.
-4. Outils `report` et `render` ; suppression de `suggest_next` ;
-   instructions de l'agent.
-5. UI : tours, `AgentDock`, `routeSurfaces`.
-6. Vérification visuelle et nettoyage final.
+4. `report` and `render` tools; removal of `suggest_next`;
+   agent instructions.
+5. UI: turns, `AgentDock`, `routeSurfaces`.
+6. Visual check and final cleanup.
 
-L'étape 1 est livrable seule. Les étapes 3 à 5 forment un tout : pas de
-fusion avant la fin de l'étape 5.
+Step 1 can be delivered alone. Steps 3 to 5 form a whole: no
+merge before the end of step 5.
 
-## Décisions d'implémentation
+## Implementation decisions
 
-Précisées par le plan (`docs/superpowers/plans/2026-10-03-agent-a2ui.md`) et sa revue :
+Refined by the plan (`docs/superpowers/plans/2026-10-03-agent-a2ui.md`) and its review:
 
-- **Canal** : les surfaces `turn-N` passent par le `SurfaceHub` comme toute surface ; la progression part en `McpEvent::SurfacePatch` (modèle de données racine du tour), que `SurfaceView` applique sans reconstruire la surface. Le canal `agent` vers l'interface ne porte plus que `Status`.
-- **Ouverture du tour** : `begin_turn` et `UserText` au tout début de `TabAgent::prompt`, avant la connexion : une erreur de démarrage s'affiche dans son tour.
-- **Tours gardés** : constante `KEPT_TURNS = 50` (pas de clé de configuration).
-- **Actions** : les suites d'un reçu et l'unique action permise dans `render` réutilisent l'évènement existant `suggest {prompt}`. Elles expirent à l'ouverture du tour suivant : le reçu est remplacé par sa version sans actions et le hub refuse une action en retard.
-- **`Receipt`** n'a pas d'enfant : les suites sont une `Row` sœur dans la colonne du reçu. Le reçu de repli est construit dans `receipt.rs`.
-- **`render`** exige un arbre : identifiants uniques, chaque composant visité une fois (ni partage ni cycle), aucun orphelin, profondeur ≤ 6, 40 composants au plus.
-- **Questions figées** : une question annulée n'est figée que si son tour est encore dans le fil et l'onglet ouvert ; sinon elle est fermée.
-- **`render`, garde-fous** : pas de bouton `primary`/`danger`, pas de carte `tone: danger`, pas de `SlideThumb` ni de miniature de reçu (rendues par l'hôte) ; un bouton `suggest` envoie exactement son libellé ; 64 Kio au plus par appel ; erreurs `AgentForm` (Snafu). Mêmes contrôles de contenu que `report` (couleur hexadécimale, 1 à 4 faits, longueurs).
-- **Longueurs** des textes de l'agent : titre et faits 120 caractères, libellé de suite 60, explication 4000, consigne d'une suite 2000.
-- **Surfaces figées** : 8 au plus par tour (la plus ancienne cède) ; des réglages figés sont en lecture seule (champs sans action, boutons retirés).
-- **Dock** : quand une question attend, les réglages se replient sur une ligne qui les rouvre (au lieu d'un repli au-delà de 45 %) ; le dock défile s'il dépasse 45 % du panneau.
-- **Progression** : une mise à jour du tour ne part que si ses données changent ; un tour dont la fin s'est perdue est clos par le retour de l'agent au repos, ou interrompu par le tour suivant.
-- **Hub** : la gestion des tours est dans `hub_turns.rs` ; `hub.rs` garde les questions, les actions et les réglages.
-- **Nouvelle conversation** : l'acteur de l'onglet vide le fil lui-même (`clear_thread`), de façon synchrone, avant toute consigne suivante ; le relais n'y touche plus.
-- **Hors d'un tour ouvert** (entre deux tours, tour annulé), `render` et `report` sont refusés : un appel tardif ne s'affiche dans aucun tour.
-- **`render` sans modèle de données** : valeurs littérales seulement (ni `{path}` ni `data`), seul un bouton porte une action ; les composants de champ (`TextField`, `Stepper`, `Slider`, `ColorField`, `Select`, `ChoiceChips`) sont refusés (les réglages passent par `show_params`) ; `Receipt` et `SlideThumb` sont réservés à l'hôte (via `report`) ; un `Badge` `danger` aussi ; les textes de l'agent ne contiennent ni contrôle bidirectionnel ni caractère invisible.
-- **Expiration des suites** : celles d'une carte `render` expirent au tour suivant, comme celles d'un reçu.
-- **Question figée** : elle montre la question (en légende) et la réponse (« ✓ … »), pas la réponse seule ; elle garde sa place dans le fil.
-- **Mises à jour du tour** : une écriture par clé du modèle qui change (`/narration` pendant que l'agent écrit) ; narration gardée bornée à 4000 caractères, 60 étapes au plus par tour.
-- **Clavier d'une question du dock** (t-457) : 1–4 où que soit le focus ; Échap l'abandonne seulement avec le focus dans le dock (ailleurs, Échap reste à l'app : désélectionner) ; Entrée reste à l'app, et sur une pastille qui a le focus, c'est son clic. Entrée ne choisit jamais une « option par défaut » des pastilles : `ask_choice` part d'un choix vide et `render` refuse les pastilles, ce chemin n'avait pas d'usage. Touches coupées (édition d'un texte, pointage, widget actif) : aucune surface ne montre de rappel des touches ; une consigne répond toujours à la question qui les recevrait.
-- **L'agent attend l'utilisateur** (t-454) : seulement quand une question reçoit la consigne (`answerTarget`, la même que les touches). ⌘⇧D et Échap y répondent alors ; sinon, pendant un tour, ils l'arrêtent. Une question invisible (fiche dont l'élément n'est pas sur la slide affichée) n'attend donc pas : une consigne ne lui répond pas, ⌘⇧D arrête le tour.
-- **Annonces du fil** (t-457) : la liste des tours n'est pas une région `aria-live` (une surface A2UI reconstruite recrée tout son DOM). Une région masquée persistante lit, pour chaque surface du fil, son texte lisible nouveau (textes, consigne, badge, titre et faits d'un reçu ; ni boutons, ni détail replié, ni timeline ; d'une narration qui grandit, la suite seulement) : un reçu remplacé par sa version sans suites, ou une resynchronisation identique, ne lit rien. Le texte nouveau se lit d'un coup à une fin de phrase, sinon après une seconde sans nouveau texte (une narration en flux n'est pas lue morceau par morceau) ; une ligne coupée par l'hôte (« … ») dont le début est lu n'est pas relue. Une liste entière reçue (resynchronisation : onglet rouvert, reconnexion) est tenue pour lue ; une question du dock qui se fige dans son tour ne relit que sa réponse. Une resynchronisation garde l'objet d'une surface inchangée (`surfacesReducer`), dont la vue n'est donc pas reconstruite.
+- **Channel**: the `turn-N` surfaces go through the `SurfaceHub` like any surface; progress goes out as `McpEvent::SurfacePatch` (root data model of the turn), which `SurfaceView` applies without rebuilding the surface. The `agent` channel to the UI now carries only `Status`.
+- **Opening the turn**: `begin_turn` and `UserText` at the very start of `TabAgent::prompt`, before connecting: a startup error is shown in its turn.
+- **Kept turns**: constant `KEPT_TURNS = 50` (no configuration key).
+- **Actions**: the follow-ups of a receipt and the only action allowed in `render` reuse the existing `suggest {prompt}` event. They expire when the next turn opens: the receipt is replaced by its version without actions and the hub rejects a late action.
+- **`Receipt`** has no child: the follow-ups are a sibling `Row` in the receipt's column. The fallback receipt is built in `receipt.rs`.
+- **`render`** requires a tree: unique identifiers, each component visited once (neither sharing nor cycle), no orphan, depth ≤ 6, 40 components at most.
+- **Frozen questions**: a cancelled question is frozen only if its turn is still in the thread and the tab is open; otherwise it is closed.
+- **`render`, safeguards**: no `primary`/`danger` button, no `tone: danger` card, no `SlideThumb` nor receipt thumbnail (rendered by the host); a `suggest` button sends exactly its label; 64 KiB at most per call; `AgentForm` errors (Snafu). Same content checks as `report` (hexadecimal color, 1 to 4 facts, lengths).
+- **Lengths** of the agent's texts: title and facts 120 characters, follow-up label 60, explanation 4000, follow-up prompt 2000.
+- **Frozen surfaces**: 8 at most per turn (the oldest gives way); frozen settings are read-only (fields without action, buttons removed).
+- **Dock**: when a question is pending, the settings collapse into a line that reopens them (instead of collapsing beyond 45 %); the dock scrolls if it exceeds 45 % of the panel.
+- **Progress**: a turn update is sent only if its data changes; a turn whose end was lost is closed when the agent goes back to idle, or interrupted by the next turn.
+- **Hub**: turn handling is in `hub_turns.rs`; `hub.rs` keeps the questions, the actions and the settings.
+- **New conversation**: the tab actor clears the thread itself (`clear_thread`), synchronously, before any following prompt; the relay no longer touches it.
+- **Outside an open turn** (between two turns, cancelled turn), `render` and `report` are rejected: a late call is shown in no turn.
+- **`render` without a data model**: literal values only (neither `{path}` nor `data`), only a button carries an action; field components (`TextField`, `Stepper`, `Slider`, `ColorField`, `Select`, `ChoiceChips`) are rejected (settings go through `show_params`); `Receipt` and `SlideThumb` are reserved for the host (via `report`); so is a `danger` `Badge`; the agent's texts contain neither bidirectional controls nor invisible characters.
+- **Expiry of follow-ups**: those of a `render` card expire on the next turn, like those of a receipt.
+- **Frozen question**: it shows the question (as a caption) and the answer ("✓ …"), not the answer alone; it keeps its place in the thread.
+- **Turn updates**: one write per model key that changes (`/narration` while the agent writes); kept narration bounded to 4000 characters, 60 steps at most per turn.
+- **Keyboard for a dock question** (t-457): 1–4 wherever the focus is; Escape abandons it only with the focus in the dock (elsewhere, Escape stays with the app: deselect); Enter stays with the app, and on a chip that has the focus, it is its click. Enter never picks a "default option" of the chips: `ask_choice` starts from an empty choice and `render` rejects chips, this path had no use. Keys cut off (editing a text, pointing, active widget): no surface shows a key reminder; a prompt always answers the question that would receive them.
+- **The agent waits for the user** (t-454): only when a question receives the prompt (`answerTarget`, the same as the keys). ⌘⇧D and Escape then answer it; otherwise, during a turn, they stop it. An invisible question (a sheet whose element is not on the displayed slide) therefore does not wait: a prompt does not answer it, ⌘⇧D stops the turn.
+- **Thread announcements** (t-457): the list of turns is not an `aria-live` region (a rebuilt A2UI surface recreates its whole DOM). A persistent hidden region reads, for each thread surface, its new readable text (texts, prompt, badge, title and facts of a receipt; neither buttons, nor collapsed detail, nor timeline; of a growing narration, only the continuation): a receipt replaced by its version without follow-ups, or an identical resynchronization, reads nothing. The new text is read in one go at the end of a sentence, otherwise after one second without new text (a streaming narration is not read piece by piece); a line cut by the host ("…") whose beginning was read is not read again. A whole list received (resynchronization: tab reopened, reconnection) is treated as read; a dock question that freezes into its turn reads only its answer again. A resynchronization keeps the object of an unchanged surface (`surfacesReducer`), whose view is therefore not rebuilt.

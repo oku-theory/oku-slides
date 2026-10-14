@@ -1,56 +1,54 @@
-# ADR-0007 : Compaction des nœuds morts de l'arbre du deck
+# ADR-0007: Compaction of dead nodes in the deck tree
 
-- **Statut :** accepté
-- **Date :** 2026-10-11
-- **Tâches :** t-770
-- **Remplace en partie :**
-  [ADR-0006](0006-deck-en-un-seul-arbre-suppression-douce.md) (« jamais
-  `tree.delete` »)
+- **Status:** accepted
+- **Date:** 2026-10-11
+- **Tasks:** t-770
+- **Partially supersedes:**
+  [ADR-0006](0006-deck-en-un-seul-arbre-suppression-douce.md) ("never
+  `tree.delete`")
 
-## Contexte
+## Context
 
-Les nœuds marqués `@deleted/<pair>` s'accumulent (ADR-0006) : la lecture et
-chaque `apply` coûtent O(vivants + marqués), et le snapshot ne cesse de croître.
+Nodes marked `@deleted/<pair>` pile up (ADR-0006): reading and every `apply`
+cost O(live + marked), and the snapshot keeps growing.
 
-## Décision
+## Decision
 
-- **Marque datée.** La valeur d'une marque est l'heure Unix de sa pose (`i64`,
-  horloge de l'auteur) : Loro n'expose que le dernier auteur d'une clé, pas la
-  date de chaque marque.
-- **Limite.** `limit = min(now, change le plus récent) − compact_after_days`.
-  Une marque n'est donc compactée qu'après 30 jours d'**activité** du document,
-  pas de simple horloge : une horloge locale très en avance ne compacte rien
-  de plus.
-- **Compacté :** un nœud qui porte une marque datée de `]0, limit]` (une seule
-  suffit : seul son pair pourrait la retirer, et sa fenêtre est passée), ou un
-  nœud vide dont le dernier `mov` est daté de `]0, limit]`. `tree.delete`
-  l'emporte avec son sous-arbre, déjà caché.
-- **Quand.** À l'ouverture d'un fichier, sous la garde (les changes de Loro ne
-  sont pas fiables), avant la pile d'annulation : la compaction n'est pas
-  annulable.
-- **Commit silencieux** de message `oku-compact`, daté comme le change le plus
-  récent (`set_next_commit_timestamp`), pour qu'ouvrir un fichier ne compte pas
-  comme une activité. Ni cran d'historique, ni compte dans le rapport de fusion.
-  L'historique reste entier.
+- **Dated mark.** A mark's value is the Unix time it was set (`i64`, the
+  author's clock): Loro only exposes the last author of a key, not the date of
+  each mark.
+- **Limit.** `limit = min(now, most recent change) − compact_after_days`.
+  A mark is therefore compacted only after 30 days of document **activity**, not
+  of mere clock time: a local clock far ahead compacts nothing more.
+- **Compacted:** a node that carries a mark dated in `]0, limit]` (a single one
+  is enough: only its peer could remove it, and its window has passed), or an
+  empty node whose last `mov` is dated in `]0, limit]`. `tree.delete`
+  takes it away with its subtree, already hidden.
+- **When.** On opening a file, under the guard (Loro changes are not
+  reliable), before the undo stack: compaction cannot be undone.
+- **Silent commit** with message `oku-compact`, dated like the most recent
+  change (`set_next_commit_timestamp`), so that opening a file does not count
+  as activity. No history step, no count in the merge report.
+  The history stays whole.
 
-## Conséquences
+## Consequences
 
-- Le nombre de nœuds suit les nœuds vivants et ceux de moins de 30 jours
-  d'activité.
-- Mesures (release, 40 slides × 20 éléments, 10 000 nœuds marqués, avant puis
-  après compaction) : ouverture (`from_snapshot`) 104 ms puis 25 ms ; `apply`
-  37 ms puis 11 ms ; `merge` 151 ms puis 83 ms ; `deck()` inchangé (11 ms).
-  La taille du snapshot ne baisse pas (2,24 Mo puis 2,28 Mo) : l'historique
-  Loro est conservé, seul le coût de parcours de l'arbre diminue.
-- Une copie compactée et une copie qui ne l'est pas convergent à la fusion.
+- The node count follows the live nodes and those with less than 30 days of
+  activity.
+- Measurements (release, 40 slides × 20 elements, 10,000 marked nodes, before
+  then after compaction): opening (`from_snapshot`) 104 ms then 25 ms; `apply`
+  37 ms then 11 ms; `merge` 151 ms then 83 ms; `deck()` unchanged (11 ms).
+  The snapshot size does not drop (2.24 MB then 2.28 MB): the Loro history
+  is kept, only the cost of walking the tree decreases.
+- A compacted copy and a copy that is not converge on merge.
 
-## Limites
+## Limits
 
-- Une autre copie, ouverte plus longtemps, qui annule alors sa marque ou le
-  `mov` d'un élément sous ce nœud, perd ce nœud.
-- Une marque remise par ⌘Z ou rétablir garde sa date d'origine.
-- Une horloge d'auteur en retard raccourcit la fenêtre.
-- Un fichier forgé peut faire compacter un nœud qu'il pouvait déjà cacher, ou
-  porter un message `oku-compact` qui cache un change de l'historique et du
-  rapport (son contenu reste visible dans les versions suivantes).
-- Le snapshot ne rétrécit pas : l'historique est gardé.
+- Another copy, open for longer, that then undoes its mark or the `mov` of an
+  element under this node, loses this node.
+- A mark restored by ⌘Z or redo keeps its original date.
+- An author clock running behind shortens the window.
+- A forged file can get a node compacted that it could already hide, or
+  carry an `oku-compact` message that hides a change from the history and the
+  report (its content stays visible in later versions).
+- The snapshot does not shrink: the history is kept.

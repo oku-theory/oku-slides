@@ -1,111 +1,111 @@
-# Position et taille du code d'un widget, gardées par l'hôte — design
+# Position and size of a widget's code, kept by the host — design
 
-> **Note du 2026-10-04 (t-526)** : le code est désormais toujours à droite
-> de l'aperçu. La bascule de place (`CodePlaceSwitch`, `UiState.code_place`),
-> le code dessous et sa hauteur (`code_height`), le repli dessous faute de
-> largeur et l'axe du séparateur sont retirés ; restent la largeur réglée au
-> séparateur (`code_width`) et l'interrupteur `</>` ; l'aperçu garde au moins
-> 240 px (le code, 120). Le texte ci-dessous
-> décrit l'état de t-474.
+> **Note of 2026-10-04 (t-526)**: the code is now always to the right
+> of the preview. The placement toggle (`CodePlaceSwitch`, `UiState.code_place`),
+> the code below and its height (`code_height`), the fallback below for lack of
+> width and the divider axis are removed; what remains is the width set with the
+> divider (`code_width`) and the `</>` switch; the preview keeps at least
+> 240 px (the code, 120). The text below
+> describes the state of t-474.
 
-Date : 2026-10-04 · Tâche : t-474
+Date: 2026-10-04 · Task: t-474
 
-## Objectif
+## Goal
 
-Dans un sous-onglet de widget, le code déplié (t-461) occupe aujourd'hui
-toujours les trois quarts du bas, sous l'aperçu. On veut lui donner plus
-de place, à la demande :
+In a widget sub-tab, the expanded code (t-461) today always takes
+the bottom three quarters, below the preview. We want to give it more
+room, on demand:
 
-- le placer **dessous** (comme aujourd'hui) ou **à droite** de l'aperçu ;
-- régler sa **taille** au séparateur entre l'aperçu et le code ;
-- **garder** position et taille dans `UiState`, reprises au lancement,
-  comme les largeurs de la pile et du fil (`pile`, `notes`).
+- place it **below** (as today) or **to the right** of the preview;
+- set its **size** with the divider between the preview and the code;
+- **keep** position and size in `UiState`, restored at launch,
+  like the widths of the stack and the thread (`pile`, `notes`).
 
-Prérequis : t-461 (code replié par défaut, champ `UiState.code`).
+Prerequisite: t-461 (code collapsed by default, `UiState.code` field).
 
-Hors périmètre : la refonte « Scène + Planche » maquettée le 2026-10-04
-(édition sur l'aperçu, cas d'exemple) ; une taille par widget ; un
-réglage de la taille quand le code est replié.
+Out of scope: the "Stage + Board" redesign mocked up on 2026-10-04
+(editing on the preview, example cases); a size per widget; a
+size setting when the code is collapsed.
 
-## Décisions
+## Decisions
 
-1. **Un choix commun à tous les widgets**, comme `code` : un seul
-   placement et une taille par placement, pas un réglage par fichier.
-2. **Deux tailles gardées, une par placement** : la hauteur du code
-   dessous et sa largeur à droite. Passer de l'un à l'autre retrouve la
-   taille déjà choisie pour ce placement.
-3. **En px, comme `pile` et `notes`** ; `None` : la proportion par défaut
-   (dessous : aperçu 1 / code 3, comme t-461 ; à droite : moitié /
-   moitié). La valeur gardée est bornée à l'affichage : l'aperçu et le
-   code gardent chacun au moins 120 px, quelle que soit la fenêtre.
-4. **Bascule dans la barre d'outils**, juste à droite de `</>` et
-   visible seulement quand le code est déplié : un bouton à bascule
-   « Code à droite » (`aria-pressed`). Pas d'entrée de menu en plus.
-5. **Séparateur entre aperçu et code**, fait comme `ColumnDivider` :
-   glisser au pointeur (pas de glisser-déposer HTML5), flèches du clavier
-   par pas de 16 px, double-clic pour revenir à la taille par défaut.
-   Horizontal dessous (↑/↓), vertical à droite (←/→, inversé en RTL).
-   Pendant le glisser, la taille ne touche que le DOM ; elle n'est
-   retenue (et sauvée) qu'au relâcher. Absent quand le code est replié.
-6. **Repli faute de place** : si le sous-onglet fait moins de 560 px de
-   large, « à droite » s'affiche dessous (requête de conteneur). Le choix
-   gardé ne change pas ; le séparateur suit la disposition affichée.
-   (Seuil d'abord prévu à 720 px : entre la pile et le fil, la feuille ne
-   fait que 644 px dans une fenêtre de 1600 px, « à droite » n'aurait
-   presque jamais servi.)
-7. **Transition** : déplier / replier garde l'animation de t-461 ;
-   changer de placement n'anime pas (pas d'animation de grille entre
-   rangées et colonnes).
+1. **A choice shared by all widgets**, like `code`: a single
+   placement and one size per placement, not a per-file setting.
+2. **Two sizes kept, one per placement**: the height of the code
+   below and its width on the right. Switching from one to the other restores the
+   size already chosen for that placement.
+3. **In px, like `pile` and `notes`**; `None`: the default proportion
+   (below: preview 1 / code 3, as in t-461; on the right: half /
+   half). The kept value is clamped on display: the preview and the
+   code each keep at least 120 px, whatever the window.
+4. **Toggle in the toolbar**, right next to `</>` and
+   visible only when the code is expanded: a toggle button
+   « Code à droite » ("Code on the right", `aria-pressed`). No extra menu entry.
+5. **Divider between preview and code**, built like `ColumnDivider`:
+   pointer dragging (no HTML5 drag and drop), keyboard arrows
+   in steps of 16 px, double-click to go back to the default size.
+   Horizontal below (↑/↓), vertical on the right (←/→, reversed in RTL).
+   While dragging, the size only touches the DOM; it is only
+   committed (and saved) on release. Absent when the code is collapsed.
+6. **Fallback for lack of room**: if the sub-tab is less than 560 px
+   wide, "on the right" is displayed below (container query). The kept
+   choice does not change; the divider follows the displayed layout.
+   (Threshold first planned at 720 px: between the stack and the thread, the sheet is
+   only 644 px wide in a 1600 px window, so "on the right" would
+   almost never have been used.)
+7. **Transition**: expanding / collapsing keeps the t-461 animation;
+   changing the placement is not animated (no grid animation between
+   rows and columns).
 
 ## Session (Rust)
 
-`UiState` (`crates/oku-slides-session/src/views.rs`) gagne trois champs,
-`#[serde(default)]` — un ancien `state.json` se relit tel quel :
+`UiState` (`crates/oku-slides-session/src/views.rs`) gains three fields,
+`#[serde(default)]` — an old `state.json` is read back as is:
 
-- `code_place: CodePlace` — `Below` (défaut) ou `Right`, sérialisé
-  `"below"` / `"right"` ;
-- `code_height: Option<u32>` — hauteur du code dessous, en px ;
-- `code_width: Option<u32>` — largeur du code à droite, en px.
+- `code_place: CodePlace` — `Below` (default) or `Right`, serialized as
+  `"below"` / `"right"`;
+- `code_height: Option<u32>` — height of the code below, in px;
+- `code_width: Option<u32>` — width of the code on the right, in px.
 
-Rien d'autre côté hôte : pas de bornes (elles dépendent de la fenêtre et
-sont appliquées par l'interface), `sanitized` inchangé.
+Nothing else on the host side: no bounds (they depend on the window and
+are applied by the UI), `sanitized` unchanged.
 
 ## Interface (TypeScript)
 
-- `api.ts` : `UiState` reprend les trois champs (`code_place: "below" |
+- `api.ts`: `UiState` takes over the three fields (`code_place: "below" |
   "right"`, `code_height` / `code_width: number | null`).
-- `useViewOptions` : état `codeLayout: { place, height, width }`, repris
-  au premier snapshot, sauvé avec le reste ; `setCodeLayout`.
-- `CodePlaceSwitch.tsx` : le bouton à bascule (décision 4), libellé
+- `useViewOptions`: state `codeLayout: { place, height, width }`, restored
+  from the first snapshot, saved with the rest; `setCodeLayout`.
+- `CodePlaceSwitch.tsx`: the toggle button (decision 4), label
   `ui-widgets-code-right`.
-- `CodeDivider.tsx` : le séparateur (décision 5), libellé
-  `ui-divider-code`. Il pose `--code-h` / `--code-w` sur le
-  `.widget-tab`, mesure la grille calculée pour connaître l'axe affiché
-  (décision 6) et borne la taille (décision 3) par une fonction pure
-  `fitCode(total, size)` testée seule.
-- `WidgetTab` : `data-place="below|right"` à côté de `data-code`, et le
-  séparateur entre aperçu et code quand le code est déplié.
-- `styles.css` : `.widget-tab` devient `container-type: inline-size` ;
-  dessous, `grid-template-rows: minmax(120px, 1fr) var(--code-h, minmax(0, 3fr))` ;
-  à droite, colonnes `minmax(120px, 1fr) var(--code-w, minmax(0, 1fr))` ;
-  `@container (min-width: 560px)` permet la disposition à droite.
-- Libellés, dans les 20 langues : `ui-widgets-code-right` (« Code à
-  droite »), `ui-divider-code` (« Taille du code »).
+- `CodeDivider.tsx`: the divider (decision 5), label
+  `ui-divider-code`. It sets `--code-h` / `--code-w` on the
+  `.widget-tab`, measures the computed grid to know the displayed axis
+  (decision 6) and clamps the size (decision 3) with a pure function
+  `fitCode(total, size)` tested on its own.
+- `WidgetTab`: `data-place="below|right"` next to `data-code`, and the
+  divider between preview and code when the code is expanded.
+- `styles.css`: `.widget-tab` becomes `container-type: inline-size`;
+  below, `grid-template-rows: minmax(120px, 1fr) var(--code-h, minmax(0, 3fr))`;
+  on the right, columns `minmax(120px, 1fr) var(--code-w, minmax(0, 1fr))`;
+  `@container (min-width: 560px)` allows the right-hand layout.
+- Labels, in the 20 languages: `ui-widgets-code-right` (« Code à
+  droite », "Code on the right"), `ui-divider-code` (« Taille du code », "Code size").
 
 ## Tests
 
-- Rust (`views_tests.rs`, `resume_tests.rs`) : un `state.json` sans les
-  champs se relit avec `Below` / `None` / `None` ; les trois champs font
-  l'aller-retour JSON avec les valeurs `"below"` / `"right"`.
-- `fitCode` : bornes basses des deux côtés, fenêtre trop petite pour
-  les deux minimums (moitié / moitié), valeur `null` intacte.
-- `CodeDivider.render.test.tsx` : orientation et `aria-orientation`
-  selon l'axe ; flèches → `onChange` avec ±16 px ; double-clic →
-  `null` ; glisser → DOM seul, puis `onChange` au relâcher.
-- `CodePlaceSwitch.render.test.tsx` : `aria-pressed`, bascule.
-- `useViewOptions` : reprise des trois champs et sauvegarde après un
-  changement.
-- `WidgetTab` : `data-place` suit le choix ; pas de séparateur code replié.
-- e2e (avec `OKU_SLIDES_PATHS__DATA` / `__DECKS` temporaires) : passer
-  à droite, glisser le séparateur, relancer ; placement et largeur
-  retrouvés.
+- Rust (`views_tests.rs`, `resume_tests.rs`): a `state.json` without the
+  fields is read back with `Below` / `None` / `None`; the three fields make
+  the JSON round trip with the values `"below"` / `"right"`.
+- `fitCode`: lower bounds on both sides, window too small for
+  both minimums (half / half), `null` value untouched.
+- `CodeDivider.render.test.tsx`: orientation and `aria-orientation`
+  according to the axis; arrows → `onChange` with ±16 px; double-click →
+  `null`; drag → DOM only, then `onChange` on release.
+- `CodePlaceSwitch.render.test.tsx`: `aria-pressed`, toggle.
+- `useViewOptions`: restoring the three fields and saving after a
+  change.
+- `WidgetTab`: `data-place` follows the choice; no divider when the code is collapsed.
+- e2e (with temporary `OKU_SLIDES_PATHS__DATA` / `__DECKS`): switch
+  to the right, drag the divider, relaunch; placement and width
+  restored.

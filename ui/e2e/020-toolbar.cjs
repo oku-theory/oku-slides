@@ -3,7 +3,7 @@
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { until, stable } = require('./until.cjs');
+const { until, stable } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const state = (p) => p.evaluate(() => ({
   slides: document.querySelectorAll('.thumb').length,

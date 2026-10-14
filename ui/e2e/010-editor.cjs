@@ -1,10 +1,10 @@
 // Éditeur de texte : markdown mis en forme pendant la saisie, contre `oku-slides serve fixtures/roadmap.json`.
-// Lancer : just e2e (serveur neuf, port 4872 ; ce script passe en premier). À la main : bun e2e/editor.cjs dans ui/,
+// Lancer : just e2e (serveur neuf, port 4872 ; ce script passe en premier). À la main : bun e2e/010-editor.cjs dans ui/,
 // E2E_URL = adresse d'un serveur neuf (le script modifie la slide 4).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
-const { untilValue, settled } = require('./until.cjs');
+const { post } = require('./lib/http.cjs');
+const { untilValue, settled } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const slide = (p) => p.evaluate(() =>
   fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'slide', id: 's-constat' } }) })
@@ -292,7 +292,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await untilValue(p, libre, (s) => JSON.stringify(s) === JSON.stringify(origin), 'seconde annulation : bloc à sa place d\'origine');
 
   // L'hôte garde la slide courante (t-87) : rendre la slide 1 pour que les scripts suivants
-  // (toolbar.cjs, panel.cjs), qui partent de s-title, ne la trouvent pas sur s-constat.
+  // (020-toolbar.cjs, 030-panel.cjs), qui partent de s-title, ne la trouvent pas sur s-constat.
   await p.click('.thumb >> nth=0');
   await untilValue(p, async () => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.slide, (id) => id === 's-title', 'retour à la slide 1');
 

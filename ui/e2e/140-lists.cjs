@@ -2,11 +2,11 @@
 // tableau du panneau des paramètres, la saisir, la déplacer au clavier depuis la slide, la supprimer
 // par le tableau puis annuler. Aucune poignée d'item sur la scène.
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e
-// (avant widgets.cjs : l'onglet est encore en mode deck ; la frise reste sur s-constat).
+// (avant 160-widgets.cjs : l'onglet est encore en mode deck ; la frise reste sur s-constat).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { post } = require('./http.cjs');
-const { until } = require('./until.cjs');
+const { post } = require('./lib/http.cjs');
+const { until } = require('./lib/until.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const FRISE = fs.readFileSync(path.join(__dirname, '../../fixtures/widgets/frise-test.typ'), 'utf8');

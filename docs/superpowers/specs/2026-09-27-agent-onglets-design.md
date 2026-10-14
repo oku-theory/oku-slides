@@ -1,119 +1,119 @@
-# Agent vocal dans l'espace de travail (onglets, fenêtres, markdown)
+# Voice agent in the workspace (tabs, windows, markdown)
 
-Complément de `2026-09-26-agent-vocal-design.md` (t-224, sous t-89). La
-branche de l'agent suppose un seul document (`SharedSession =
-Arc<Mutex<Session>>`) ; `main` a depuis des fenêtres et des onglets, une
-session par onglet (`Workspace`, t-142, t-158), et un texte d'édition en
-markdown lu par l'interface seule (t-180). Ce document dit comment l'agent
-s'y branche ; le reste de la spec d'origine vaut toujours.
+Complement to `2026-09-26-agent-vocal-design.md` (t-224, under t-89). The
+agent branch assumes a single document (`SharedSession =
+Arc<Mutex<Session>>`); `main` has since gained windows and tabs, one
+session per tab (`Workspace`, t-142, t-158), and an editing text in
+markdown read by the UI alone (t-180). This document says how the agent
+plugs into it; the rest of the original spec still holds.
 
-## Décisions (choisies le 2026-09-27)
+## Decisions (chosen on 2026-09-27)
 
-1. **Un sous-processus ACP pour l'app, un agent par onglet.** Chaque onglet a
-   sa session ACP (`session/new`, créée à son premier prompt) et ses tours ;
-   les tours de deux onglets tournent en même temps sur la même connexion.
-   « Nouvelle conversation » ne touche que l'onglet courant.
-2. **Un serveur d'outils MCP par onglet.** Lancé avec la session ACP de
-   l'onglet (port libre, jeton propre), lié à cet onglet : ses outils ne
-   voient que ce document. Il s'arrête quand l'onglet se ferme.
-3. **Un tour par onglet.** Dans un onglet, un prompt pendant un tour
-   l'annule puis repart (comme aujourd'hui) ; les autres onglets ne sont
-   pas touchés.
-4. **Le fil de chaque onglet est gardé par l'hôte** (200 entrées du fil,
-   morceaux fusionnés ; état courant rejoué) et rejoué par `resync` : l'interface d'un onglet est remontée
-   à chaque changement d'onglet (`<App key={tab}>`) et un onglet peut
-   changer de fenêtre (autre webview).
-5. **La reformulation passe par le parseur de l'interface.** L'action
-   `rewrite` d'un élément porte `paragraphs` (lus par `textToParagraphs`,
-   `deck.ts`) ; le serveur n'a plus de lecteur de texte
-   (`text_to_paragraphs` disparaît). Un champ (`@title`…) garde `text`.
+1. **One ACP subprocess for the app, one agent per tab.** Each tab has
+   its ACP session (`session/new`, created at its first prompt) and its turns;
+   the turns of two tabs run at the same time on the same connection.
+   "Nouvelle conversation" (New conversation) only touches the current tab.
+2. **One MCP tool server per tab.** Started with the tab's ACP session
+   (free port, its own token), bound to that tab: its tools only
+   see that document. It stops when the tab closes.
+3. **One turn per tab.** In a tab, a prompt during a turn
+   cancels it then starts again (as today); the other tabs are
+   not touched.
+4. **Each tab's thread is kept by the host** (200 thread entries,
+   merged chunks; current state replayed) and replayed by `resync`: a tab's UI is remounted
+   on every tab change (`<App key={tab}>`) and a tab can
+   change window (another webview).
+5. **Rewording goes through the UI parser.** An element's `rewrite`
+   action carries `paragraphs` (read by `textToParagraphs`,
+   `deck.ts`); the server no longer has a text reader
+   (`text_to_paragraphs` goes away). A field (`@title`…) keeps `text`.
 
-## Session : accès à un onglet
+## Session: access to a tab
 
 `Workspace::with_session(ws, tab, f: impl FnOnce(&mut Session) -> R) ->
-Result<R>` (nouveau, public) : clone l'`Arc` du slot sous le verrou de
-l'espace de travail, le relâche, verrouille le slot, le réveille
-(`Slot::ready`), appelle `f`. Même ordre des verrous que `request` ; un
-onglet fermé donne `UnknownTab`. C'est la seule porte de l'agent vers une
+Result<R>` (new, public): clones the slot's `Arc` under the workspace
+lock, releases it, locks the slot, wakes it up
+(`Slot::ready`), calls `f`. Same lock order as `request`; a
+closed tab gives `UnknownTab`. It is the agent's only door into a
 session.
 
 ## MCP (`oku-slides-mcp`)
 
-- `SharedSession` devient `TabSession` : un onglet et un accès à sa
-  session. Trait `Sessions` (« Implement this trait to give the agent a
-  tab's session ») : `fn with(&self, tab: &str, f: &mut dyn FnMut(&mut
-  Session)) -> Result<(), SessionError>` ; les hôtes l'implémentent sur
-  `Mutex<Workspace>` (via `with_session`), les tests sur une session seule.
-- `SurfaceHub`, `Tools` et `ToolServer` restent **par onglet** et gardent
-  leur logique ; seul leur accès à la session change (`TabSession`).
+- `SharedSession` becomes `TabSession`: a tab and an access to its
+  session. Trait `Sessions` ("Implement this trait to give the agent a
+  tab's session"): `fn with(&self, tab: &str, f: &mut dyn FnMut(&mut
+  Session)) -> Result<(), SessionError>`; the hosts implement it on
+  `Mutex<Workspace>` (via `with_session`), the tests on a single session.
+- `SurfaceHub`, `Tools` and `ToolServer` stay **per tab** and keep
+  their logic; only their access to the session changes (`TabSession`).
 
 ## Agent (`oku-slides-agent`)
 
-- `Stack` : la connexion ACP partagée (sous-processus lancé au premier
-  prompt de n'importe quel onglet, relancé après un arrêt) et une table
-  `onglet → TabAgent { hub, serveur d'outils, session ACP, fil, acteur }`,
-  créée au premier prompt de l'onglet.
-- Connexion : les notifications et demandes de permission sont routées par
-  `SessionId` vers le `TabAgent` ; `cwd` de `session/new` : dossier du
-  document de l'onglet (sinon le repli). Un arrêt du sous-processus termine
-  les tours de tous les onglets (erreur dans chaque fil concerné) et oublie
-  leurs sessions ACP.
-- Tour : `begin_turn`, `agent_context`, `end_turn` via `Sessions::with` sur
-  l'onglet. Onglet fermé pendant un tour : le tour est annulé.
-- `AgentCommand` : `prompt`, `cancel`, `new_conversation`, `surface_action`,
-  `resync` portent `tab`. Évènements relayés dans une enveloppe
-  `{ tab, event }` (`mcp` et `agent`) ; `resync{tab}` renvoie
-  `Thread{entries}` puis `Surfaces{list}`.
-- Cycle de vie : `tab_closed(tab)` (tour annulé, session ACP oubliée,
-  serveur arrêté, questions relâchées ; une commande tardive pour cet
-  onglet est ensuite ignorée, les identifiants ne revenant jamais) ;
-  `after_change(tab)` (élagage des surfaces). Un autre document s'ouvre dans
-  un nouvel onglet : pas de « document changé » côté hôte. L'outil
-  `new_deck` de l'agent remplace le deck de son onglet (la conversation
-  continue, les post-its sont élagués). `open` (t-242) ouvre le fichier
-  dans un nouvel onglet de la même fenêtre, ou active celui qui l'a
-  (`Sessions::open_tab`, `Workspace::open_beside`, jamais un onglet
-  remplacé) : le nouvel onglet a sa propre conversation, celui de l'agent
-  garde son deck. `save {path}` refuse un fichier ouvert dans un autre
-  onglet (`Sessions::open_elsewhere`).
-- Démarrage borné : l'agent doit être prêt (poignée de main faite) dans
-  `READY_WITHIN` (120 s, `npx` peut télécharger) ; au-delà il est tué et
-  le prompt reçoit `agent-stopped`.
+- `Stack`: the shared ACP connection (subprocess started at the first
+  prompt of any tab, restarted after a stop) and a table
+  `tab → TabAgent { hub, tool server, ACP session, thread, actor }`,
+  created at the tab's first prompt.
+- Connection: notifications and permission requests are routed by
+  `SessionId` to the `TabAgent`; `cwd` of `session/new`: folder of the
+  tab's document (otherwise the fallback). A stop of the subprocess ends
+  the turns of all tabs (error in each affected thread) and forgets
+  their ACP sessions.
+- Turn: `begin_turn`, `agent_context`, `end_turn` via `Sessions::with` on
+  the tab. Tab closed during a turn: the turn is cancelled.
+- `AgentCommand`: `prompt`, `cancel`, `new_conversation`, `surface_action`,
+  `resync` carry `tab`. Events relayed in an envelope
+  `{ tab, event }` (`mcp` and `agent`); `resync{tab}` sends back
+  `Thread{entries}` then `Surfaces{list}`.
+- Lifecycle: `tab_closed(tab)` (turn cancelled, ACP session forgotten,
+  server stopped, questions released; a late command for that
+  tab is then ignored, since ids never come back);
+  `after_change(tab)` (pruning of surfaces). Another document opens in
+  a new tab: no "document changed" on the host side. The agent's
+  `new_deck` tool replaces its tab's deck (the conversation
+  continues, the sticky notes are pruned). `open` (t-242) opens the file
+  in a new tab of the same window, or activates the one that has it
+  (`Sessions::open_tab`, `Workspace::open_beside`, never a replaced
+  tab): the new tab has its own conversation, the agent's tab
+  keeps its deck. `save {path}` refuses a file open in another
+  tab (`Sessions::open_elsewhere`).
+- Bounded startup: the agent must be ready (handshake done) within
+  `READY_WITHIN` (120 s, `npx` may download); beyond that it is killed and
+  the prompt receives `agent-stopped`.
 
-## Hôtes
+## Hosts
 
-- Tauri : `AppState` garde `stack: Stack` ; la commande `request`
-  appelle `after_change(tab)` ; `workspace` et `open_files` appellent
-  `tab_closed` pour chaque onglet disparu de la vue ; commande `agent`
-  (hors du fil principal).
-  Évènements `oku-slides:mcp` / `oku-slides:agent` émis à toutes les
-  fenêtres (enveloppe avec l'onglet), comme `workspace`.
-- `oku-slides serve` : le serveur de `main` est une boucle synchrone sans
-  flux ; il gagne ceux de la branche : `/api/events` (SSE, fils dédiés) et
-  `/api/agent`, à côté de `/api`, `/api/workspace`, `same_origin` et
-  `MAX_BODY` de `main`, avec la garde anti-CSRF de la branche.
+- Tauri: `AppState` keeps `stack: Stack`; the `request` command
+  calls `after_change(tab)`; `workspace` and `open_files` call
+  `tab_closed` for each tab gone from the view; `agent` command
+  (off the main thread).
+  Events `oku-slides:mcp` / `oku-slides:agent` emitted to all
+  windows (envelope with the tab), like `workspace`.
+- `oku-slides serve`: the `main` server is a synchronous loop without
+  streams; it gains the branch's: `/api/events` (SSE, dedicated threads) and
+  `/api/agent`, next to `/api`, `/api/workspace`, `same_origin` and
+  `MAX_BODY` from `main`, with the branch's anti-CSRF guard.
 
-## Interface
+## UI
 
-- `agent.*` (`api.ts`) prend l'onglet ; `tabApi(tab)` en fournit un lié.
-- `App` (un onglet) : filtre les enveloppes sur son onglet, `resync` au
-  montage : fil et surfaces rechargés depuis l'hôte.
-- Dictée ⌘⇧D : prompt pour l'onglet actif ; `agentBusy` suit le tour de
-  cet onglet.
-- Reformulation : `sendAction` ajoute `paragraphs = textToParagraphs(text)`
-  quand l'action est `rewrite` sur un élément (pas `original`).
+- `agent.*` (`api.ts`) takes the tab; `tabApi(tab)` provides one bound to it.
+- `App` (one tab): filters envelopes on its tab, `resync` on
+  mount: thread and surfaces reloaded from the host.
+- Dictation ⌘⇧D: prompt for the active tab; `agentBusy` follows the turn of
+  that tab.
+- Rewording: `sendAction` adds `paragraphs = textToParagraphs(text)`
+  when the action is `rewrite` on an element (not `original`).
 
 ## Tests
 
-- Session : `with_session` (onglet dormant réveillé, onglet fermé →
-  `UnknownTab`, verrou de l'espace de travail relâché pendant `f`).
-- MCP : tests existants sur `TabSession` ; reformulation avec paragraphes
-  (gras gardé) ; régression t-222.
-- Agent (faux agent) : deux onglets, deux sessions ACP sur une connexion,
-  tours simultanés, notifications et permissions routées ; `tab_closed`
-  pendant un tour ; arrêt du sous-processus pendant deux tours ; fil rejoué
-  par `resync`.
-- Interface : filtrage par onglet, `sendAction` rewrite → paragraphes.
-- Bout à bout : le scénario `agent.cjs` dans un onglet, puis un second
-  onglet au fil vide dont le prompt tourne pendant que le premier attend
-  une réponse.
+- Session: `with_session` (sleeping tab woken up, closed tab →
+  `UnknownTab`, workspace lock released during `f`).
+- MCP: existing tests on `TabSession`; rewording with paragraphs
+  (bold kept); regression t-222.
+- Agent (fake agent): two tabs, two ACP sessions on one connection,
+  simultaneous turns, routed notifications and permissions; `tab_closed`
+  during a turn; subprocess stop during two turns; thread replayed
+  by `resync`.
+- UI: filtering by tab, `sendAction` rewrite → paragraphs.
+- End to end: the `agent.cjs` scenario in one tab, then a second
+  tab with an empty thread whose prompt runs while the first one waits
+  for an answer.

@@ -1,158 +1,158 @@
-# Widgets en sous-onglets dans la perspective modèles — design
+# Widgets as sub-tabs in the templates perspective — design
 
-Date : 2026-10-03 · Tâche : t-394
+Date: 2026-10-03 · Task: t-394
 
-## Objectif
+## Goal
 
-En mode modèles, chaque fichier de widget du pack s'ouvre comme un onglet :
-1 widget = 1 onglet. Cela remplace le panneau modal « Widgets du pack »
-(`ui/src/WidgetWorkbench.tsx`, livré par t-329, corrigé par t-392 et t-390).
+In template mode, each widget file of the pack opens as a tab:
+1 widget = 1 tab. This replaces the modal panel "Widgets du pack" (Pack widgets)
+(`ui/src/WidgetWorkbench.tsx`, delivered by t-329, fixed by t-392 and t-390).
 
-Prérequis : t-390, fusionné dans `main` (9bf45b3).
+Prerequisite: t-390, merged into `main` (9bf45b3).
 
-Hors périmètre : réordonner les sous-onglets par glisser, détacher un widget
-dans une autre fenêtre, garder l'historique d'annulation de l'éditeur après
-un redémarrage.
+Out of scope: reordering sub-tabs by dragging, detaching a widget
+into another window, keeping the editor's undo history after
+a restart.
 
-## Décisions
+## Decisions
 
-1. **Sous-onglets dans l'onglet du deck**, pas un nouveau type d'onglet du
-   `Workspace`. Un onglet reste une `Session` ; le mode modèles en est un
-   état (`TemplateMode`). En mode modèles, la table gagne une barre de
-   sous-onglets : « Modèles » (toujours là, non fermable), puis les
-   widgets ouverts. `Workspace` et `TabInfo` ne changent pas.
-2. **`_commun` est un sous-onglet comme les autres**, libellé « Commun ».
-   À la place de l'aperçu, il liste les widgets en erreur (ceux qu'il a pu
-   casser), chacun cliquable. On ne peut pas le renommer.
-3. **Ouvrir** : depuis une section « Widgets » de la pile (sous les
-   miniatures des modèles), ou depuis l'étiquette de l'élément sélectionné
-   sur la scène quand son widget vient du pack. Le double-clic sur un
-   élément garde l'édition de son champ principal.
-4. **Créer, renommer, supprimer** : tout dans la section « Widgets » de la
-   pile. « + » dans son en-tête ; renommer par double-clic sur le nom ou
-   F2 ; supprimer par un bouton au survol, avec confirmation.
-5. **Séance et versions inchangées** : la séance est le mode modèles ; tous
-   les sous-onglets écrivent dans la même version de séance. Fermer un
-   sous-onglet n'achève rien (sa frappe en attente part). **Annuler /
-   Rétablir** dans un sous-onglet widget agissent sur l'historique
-   CodeMirror de ce fichier ; chaque pas repasse par `set_widget`.
-6. **Plus de panneau en mode deck** : ☰ « Éditer les widgets » et
-   l'étiquette d'un élément de widget du pack entrent en mode modèles
-   (`edit_templates`). La séance de widgets du mode deck
-   (`widgets_deck.rs`) reste pour l'agent et MCP.
-   En mode deck, l'étiquette sait qu'un élément vient du pack par
-   `pack_widgets` du snapshot ; les statuts (et leur sonde) ne sont
-   chargés qu'au clic, en entrant en mode modèles.
-7. **Sous-onglets gardés dans `UiState`** : restaurés au redémarrage, ils
-   suivent l'onglet du deck d'une fenêtre à l'autre.
+1. **Sub-tabs inside the deck's tab**, not a new kind of
+   `Workspace` tab. A tab remains a `Session`; template mode is one of its
+   states (`TemplateMode`). In template mode, the table gains a bar of
+   sub-tabs: "Modèles" (Templates; always there, not closable), then the
+   open widgets. `Workspace` and `TabInfo` do not change.
+2. **`_commun` is a sub-tab like the others**, labeled "Commun" (Common).
+   In place of the preview, it lists the widgets in error (those it may have
+   broken), each one clickable. It cannot be renamed.
+3. **Open**: from a "Widgets" section of the pile (under the
+   template thumbnails), or from the label of the element selected
+   on the stage when its widget comes from the pack. Double-clicking an
+   element keeps editing its main field.
+4. **Create, rename, delete**: all in the "Widgets" section of the
+   pile. "+" in its header; rename by double-clicking the name or
+   F2; delete with a button on hover, with confirmation.
+5. **Sitting and versions unchanged**: the sitting is template mode; all
+   sub-tabs write into the same sitting version. Closing a
+   sub-tab ends nothing (its pending keystrokes are sent). **Undo /
+   Redo** in a widget sub-tab act on the CodeMirror history of that
+   file; each step goes through `set_widget` again.
+6. **No more panel in deck mode**: ☰ "Éditer les widgets" (Edit widgets) and
+   the label of a pack widget element enter template mode
+   (`edit_templates`). The deck-mode widget sitting
+   (`widgets_deck.rs`) stays for the agent and MCP.
+   In deck mode, the label knows that an element comes from the pack through
+   the snapshot's `pack_widgets`; the statuses (and their probe) are only
+   loaded on click, when entering template mode.
+7. **Sub-tabs kept in `UiState`**: restored on restart, they
+   follow the deck's tab from one window to another.
 
 ## Session (Rust)
 
-- `UiState` gagne deux champs, `#[serde(default)]` :
-  - `widgets: Vec<String>` : sous-onglets ouverts, dans l'ordre
-    d'ouverture ;
-  - `widget: Option<String>` : sous-onglet actif ; `None` : « Modèles ».
-- `UiState::sanitized(templates)` normalise ces champs : hors du mode
-  modèles, vides ; en mode modèles, noms valides (`WidgetFile::parse`),
-  sans doublon, au plus `MAX_WIDGET_TABS` (64), actif parmi eux. Appelé à
-  la commande `ui` (`Request::Ui`) et à la reprise. Un deck ne reprend
-  donc jamais de sous-onglets, même si les modèles repris sont illisibles.
-- `close_templates`, `edit_templates` (entrée, ou passage à un autre pack)
-  et `load_document` vident les deux champs ; l'interface pose ensuite ses
-  sous-onglets par `Request::Ui`.
-- Le snapshot gagne `pack_widgets` : les fichiers de widgets du pack en
-  cours, sans `_commun`, lus sans sonde. L'étiquette de la scène s'en sert
-  en mode deck.
-- Aucune nouvelle opération : `widget_status`, `widget_source`,
-  `set_widget`, `rename_widget`, `remove_widget` et `preview_widget`
-  suffisent. L'interface retire les noms qui n'existent plus dans le pack.
+- `UiState` gains two fields, `#[serde(default)]`:
+  - `widgets: Vec<String>`: open sub-tabs, in opening
+    order;
+  - `widget: Option<String>`: active sub-tab; `None`: "Modèles".
+- `UiState::sanitized(templates)` normalizes these fields: outside template
+  mode, empty; in template mode, valid names (`WidgetFile::parse`),
+  without duplicates, at most `MAX_WIDGET_TABS` (64), active among them. Called on
+  the `ui` command (`Request::Ui`) and on resume. A deck therefore never
+  resumes sub-tabs, even if the resumed templates are unreadable.
+- `close_templates`, `edit_templates` (entry, or switch to another pack)
+  and `load_document` empty both fields; the UI then sets its
+  sub-tabs through `Request::Ui`.
+- The snapshot gains `pack_widgets`: the widget files of the current
+  pack, without `_commun`, read without a probe. The stage label uses it
+  in deck mode.
+- No new operation: `widget_status`, `widget_source`,
+  `set_widget`, `rename_widget`, `remove_widget` and `preview_widget`
+  are enough. The UI removes names that no longer exist in the pack.
 
-## Interface
+## UI
 
-### Découpage
+### Breakdown
 
-| Unité | Rôle |
+| Unit | Role |
 |---|---|
-| `useWidgetFiles` | État partagé du pack, **actif seulement en mode modèles** (aucune sonde en mode deck) : statuts et la `revision` pour laquelle ils ont été lus, **file unique** des opérations (écritures, renommages, suppressions, héritée de t-390), anti-rebond de 400 ms par fichier, marques « non enregistré », renommages en vol, statuts d'essai et compteurs de frappes **par fichier**. Remis à zéro à chaque changement de pack. Extrait de `WidgetWorkbench`. |
-| `widgetTabs.ts` | Logique pure des sous-onglets : ouvrir (active s'il est déjà ouvert, sinon ajoute en fin), fermer (retour à gauche ; à gauche du premier, « Modèles »), renommer (même id), élaguer, reprise fusionnée avec les sous-onglets déjà ouverts. |
-| `useTemplateWidgets` | Assemble fichiers et sous-onglets pour `App` : reprise une fois les statuts du pack lus, élagage seulement sur des statuts de la `revision` courante, `kept` pour `UiState` (vide hors mode modèles dès le même rendu), entrée depuis le deck, ✓ (frappes écrites avant `close_templates`), raccourcis ⌘W et ⌘Z des sous-onglets. |
-| `WidgetPane.tsx` | Les sous-onglets montés, seul l'actif visible. |
-| `TemplateTabs.tsx` | Barre secondaire (motif `tablist` : ←/→, Début/Fin, Suppr ferme) : clic pour activer, × ou clic du milieu pour fermer. Marque « non enregistré » sur le libellé. |
-| `WidgetTab.tsx` | Un fichier : `TypstEditor`, aperçu cadré (`croppedSvg`) et diagnostics ; pour Commun, la liste des widgets en erreur. Seul le sous-onglet actif relit sa source et demande un aperçu ; un caché relit en devenant actif. |
-| `PileWidgets.tsx` | Section « Widgets » de la pile : Commun en tête, pastilles valide/erreurs, « + » et nom en ligne (`nameAvailable`), renommer (double-clic, F2), supprimer confirmé. |
+| `useWidgetFiles` | Shared state of the pack, **active only in template mode** (no probe in deck mode): statuses and the `revision` for which they were read, **single queue** of operations (writes, renames, deletes, inherited from t-390), 400 ms debounce per file, "unsaved" marks, in-flight renames, trial statuses and keystroke counters **per file**. Reset on every pack change. Extracted from `WidgetWorkbench`. |
+| `widgetTabs.ts` | Pure sub-tab logic: open (activates it if already open, otherwise appends it at the end), close (back to the left; left of the first, "Modèles"), rename (same id), prune, resume merged with the sub-tabs already open. |
+| `useTemplateWidgets` | Assembles files and sub-tabs for `App`: resume once the pack statuses are read, pruning only on statuses of the current `revision`, `kept` for `UiState` (empty outside template mode from the same render), entry from the deck, ✓ (keystrokes written before `close_templates`), the sub-tabs' ⌘W and ⌘Z shortcuts. |
+| `WidgetPane.tsx` | The mounted sub-tabs, only the active one visible. |
+| `TemplateTabs.tsx` | Secondary bar (`tablist` pattern: ←/→, Home/End, Delete closes): click to activate, × or middle click to close. "Unsaved" mark on the label. |
+| `WidgetTab.tsx` | One file: `TypstEditor`, cropped preview (`croppedSvg`) and diagnostics; for Commun, the list of widgets in error. Only the active sub-tab rereads its source and requests a preview; a hidden one rereads when it becomes active. |
+| `PileWidgets.tsx` | "Widgets" section of the pile: Commun first, valid/error badges, "+" and inline name (`nameAvailable`), rename (double-click, F2), confirmed delete. |
 
-La file reste **unique** pour tout le pack (pas une par sous-onglet) : un
-renommage depuis la pile doit attendre la frappe d'un sous-onglet, comme
-dans le panneau de t-390.
+The queue stays **single** for the whole pack (not one per sub-tab): a
+rename from the pile must wait for a sub-tab's keystrokes, as
+in the t-390 panel.
 
-Les sous-onglets ouverts restent **montés mais cachés** : chacun garde son
-état CodeMirror, donc son historique d'annulation. Limites assumées :
-l'historique se perd en changeant d'onglet de deck (seule l'`App` de
-l'onglet actif est montée), au redémarrage, et quand l'agent change le
-fichier (l'éditeur est recréé sur sa source). Un remplacement de nom
-déclaré après un renommage n'entre pas dans l'historique.
+The open sub-tabs stay **mounted but hidden**: each keeps its
+CodeMirror state, hence its undo history. Accepted limits:
+the history is lost when switching deck tab (only the `App` of
+the active tab is mounted), on restart, and when the agent changes the
+file (the editor is recreated on its source). A replacement of the declared
+name after a rename does not enter the history.
 
-### Comportements
+### Behaviors
 
-- **Ouvrir** (pile, étiquette) : active le sous-onglet, ou l'ajoute en fin
-  de barre et l'active. Depuis un deck : `edit_templates`, puis ouverture
-  du sous-onglet (étiquette) ou focus sur la section Widgets (☰).
-- **Sous-onglet widget actif** : la scène (cachée, gardée montée) et le
-  plateau d'ajout cèdent la place à l'éditeur et à l'aperçu ; la pile
-  reste. Annuler, Rétablir et ⌘Z/⌘⇧Z agissent sur l'éditeur du fichier ;
-  ⌘W ferme le sous-onglet (sur « Modèles », ⌘W garde son sens). Les
-  raccourcis de la scène (Suppr, flèches, Entrée) sont inactifs. Le titre
-  et ☰ ne changent pas.
-- **Fermer un sous-onglet** : `flush` de sa frappe, puis le sous-onglet de
-  gauche devient actif.
-- **✓ Terminer** : `flush` de tous les fichiers, attente de la file, puis
+- **Open** (pile, label): activates the sub-tab, or appends it at the end
+  of the bar and activates it. From a deck: `edit_templates`, then opening
+  of the sub-tab (label) or focus on the Widgets section (☰).
+- **Active widget sub-tab**: the stage (hidden, kept mounted) and the
+  add tray give way to the editor and the preview; the pile
+  stays. Undo, Redo and ⌘Z/⌘⇧Z act on the file's editor;
+  ⌘W closes the sub-tab (on "Modèles", ⌘W keeps its meaning). The
+  stage shortcuts (Delete, arrows, Enter) are inactive. The title
+  and ☰ do not change.
+- **Close a sub-tab**: `flush` of its keystrokes, then the sub-tab on the
+  left becomes active.
+- **✓ Finish**: `flush` of all files, wait for the queue, then
   `close_templates`.
-- **Renommer** : le sous-onglet ouvert garde sa place sous le nouveau nom ;
-  une frappe tapée pendant le renommage suit (règle `moves` de t-390).
-- **Supprimer** : confirmation (« Supprimer le widget « x » ? »), puis `remove_widget` ; le sous-onglet
-  ouvert se ferme. `WidgetInUse` : toast qui nomme les modèles, rien ne se
-  ferme.
-- **Agent** : mêmes opérations. Un changement de `revision` relit statuts et
-  sources, la frappe locale en cours gardant la priorité (règles de t-390).
-  Un fichier supprimé ou renommé par l'agent ferme son sous-onglet, sans
-  bruit.
-- **Menu ☰** : en mode modèles, l'entrée « Widgets » disparaît ; en mode
-  deck, elle devient « Éditer les widgets ».
+- **Rename**: the open sub-tab keeps its place under the new name;
+  keystrokes typed during the rename follow (t-390 `moves` rule).
+- **Delete**: confirmation ("Supprimer le widget « x » ?", Delete widget "x"?), then `remove_widget`; the open
+  sub-tab closes. `WidgetInUse`: toast that names the templates, nothing
+  closes.
+- **Agent**: same operations. A `revision` change rereads statuses and
+  sources, the local keystrokes in progress keeping priority (t-390 rules).
+  A file deleted or renamed by the agent closes its sub-tab, without
+  noise.
+- **☰ menu**: in template mode, the "Widgets" entry disappears; in deck
+  mode, it becomes "Éditer les widgets".
 
-### Cas limites
+### Edge cases
 
-- Source ou statuts illisibles : toast d'erreur, le sous-onglet reste.
-- Historique ouvert (lecture seule) : barre de sous-onglets cachée.
-- Restauration : noms absents des statuts retirés ; sous-onglet actif
-  disparu → « Modèles ».
-- Pack sans widget : section « Widgets » avec son « + » et le texte
+- Unreadable source or statuses: error toast, the sub-tab stays.
+- History open (read-only): sub-tab bar hidden.
+- Restore: names absent from the statuses removed; active sub-tab
+  gone → "Modèles".
+- Pack without widgets: "Widgets" section with its "+" and the text
   `ui-widgets-empty`.
 
-### Retraits
+### Removals
 
-`WidgetWorkbench.tsx`, ses tests (`WidgetWorkbench*.render.test.tsx`) et
-l'aide `test/workbench.ts` (portés vers les nouvelles unités), les styles
-`.workbench*` et les clés Fluent devenues inutiles (`ui-widgets-title`,
-`ui-widgets-close`, `ui-widgets-pick`…), dans les 20 langues.
+`WidgetWorkbench.tsx`, its tests (`WidgetWorkbench*.render.test.tsx`) and
+the helper `test/workbench.ts` (ported to the new units), the
+`.workbench*` styles and the Fluent keys no longer needed (`ui-widgets-title`,
+`ui-widgets-close`, `ui-widgets-pick`…), in the 20 languages.
 
 ## Tests
 
-Dans l'ordre de construction, en TDD :
+In build order, in TDD:
 
-1. **Session** : `UiState` aller-retour avec `widgets` et `widget`, valeurs
-   par défaut pour un état ancien ; `close_templates` vide les deux
-   champs ; reprise en mode modèles qui les rend.
-2. **UI, logique (bun)** : `useWidgetTabs` (ouvrir, réactiver, fermer avec
-   retour à gauche, renommage suivi, nettoyage des noms disparus, actif
-   disparu → Modèles) ; `useWidgetFiles` (tests d'écriture, d'essai et de
-   renommage repris de `WidgetWorkbench.writes`/`.trials`).
-3. **UI, rendu** : `TemplateTabs` (activer, fermer, ⌘W) ; `PileWidgets`
-   (pastilles, création, renommage, suppression confirmée, toast
-   `WidgetInUse`) ; `WidgetTab` (diagnostics à la ligne, Commun et ses
-   widgets en erreur, annuler par l'éditeur) ; étiquette de la scène
-   seulement pour un widget du pack ; ☰ du mode deck qui entre en mode
-   modèles.
-4. **Régression** : une frappe en attente dans un sous-onglet caché est
-   enregistrée par ✓ avant `close_templates`.
-5. **i18n** : nouvelles clés dans les 20 langues, anciennes retirées
+1. **Session**: `UiState` round trip with `widgets` and `widget`, default
+   values for an old state; `close_templates` empties both
+   fields; resume in template mode that returns them.
+2. **UI, logic (bun)**: `useWidgetTabs` (open, reactivate, close with
+   return to the left, rename followed, cleanup of vanished names, active
+   vanished → Modèles); `useWidgetFiles` (write, trial and
+   rename tests carried over from `WidgetWorkbench.writes`/`.trials`).
+3. **UI, render**: `TemplateTabs` (activate, close, ⌘W); `PileWidgets`
+   (badges, creation, rename, confirmed delete, `WidgetInUse`
+   toast); `WidgetTab` (diagnostics at the line, Commun and its
+   widgets in error, undo through the editor); stage label
+   only for a pack widget; deck-mode ☰ that enters template
+   mode.
+4. **Regression**: pending keystrokes in a hidden sub-tab are
+   saved by ✓ before `close_templates`.
+5. **i18n**: new keys in the 20 languages, old ones removed
    (`i18n-keys.test.ts`).

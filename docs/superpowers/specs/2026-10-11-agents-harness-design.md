@@ -219,13 +219,14 @@ Work in a worktree `833-feature/agents-harness`, squashed onto `main`.
 
 **Out of scope** (each becomes a backlog task):
 
-- trim the 5 `ARCHITECTURE.md` files over 50 lines (agent, import, mcp, session, core);
-- add `ARCHITECTURE.md` to `oku-slides-cli`, `oku-slides-i18n`, `oku-slides-platform`;
-- translate existing French ADRs and specs to English;
-- e2e specs discovered by name pattern instead of a hand-kept list in `ui/package.json`;
-- a periodic harness review (scheduled re-extraction of new tickets, ADRs and specs);
+- trim the 5 `ARCHITECTURE.md` files over 50 lines (agent, import, mcp, session, core) (t-867, done);
+- add `ARCHITECTURE.md` to `oku-slides-cli`, `oku-slides-i18n`, `oku-slides-platform` (t-868, done);
+- translate existing French ADRs and specs to English (t-869, done);
+- e2e specs discovered by name pattern instead of a hand-kept list in `ui/package.json` (t-870, done);
+- a periodic harness review (t-871, done by hand: `docs/harness-review.md`, `just agents-review`);
 - documentation skills (`claude-md-improver`, `revise-claude-md`, `update-docs`) still write
-  `CLAUDE.md`, which would disable the harness; teach them `AGENTS.md`.
+  `CLAUDE.md`, which would disable the harness; teach them `AGENTS.md`. (t-872: the oku-theory
+  skills are done; the third-party `claude-md-improver` and `revise-claude-md` are not).
 
 ## Success criteria
 

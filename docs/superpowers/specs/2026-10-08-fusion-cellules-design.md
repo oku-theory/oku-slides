@@ -1,145 +1,145 @@
-# Fusion fine des éditions de cellules — design (v2)
+# Fine-grained merge of cell edits — design (v2)
 
-Date : 2026-10-08 · Tâche : t-589 · ADR : 0004 (remplace en partie l'ADR-0002)
-Révisé après la revue d'équipe du plan v1 et les choix de l'utilisateur :
-- pas de rétrocompatibilité ;
-- réparation à la relecture ;
-- identifiants de colonnes dès maintenant ;
-- un collage garde les identifiants par position.
+Date: 2026-10-08 · Task: t-589 · ADR: 0004 (partly replaces ADR-0002)
+Revised after the team review of plan v1 and the user's choices:
+- no backward compatibility;
+- repair on read-back;
+- column ids right away;
+- a paste keeps ids by position.
 
-## Objectif
+## Goal
 
-Deux personnes qui modifient en même temps les données d'un tableau ou d'un
-graphique gardent toutes les deux leurs modifications. Aujourd'hui, un
-paramètre `host(chart)` ou `host(table)` est un `Atom` Loro : la dernière
-écriture remplace toute l'option.
+Two people modifying a table's or a chart's data at the same time
+both keep their modifications. Today, a
+`host(chart)` or `host(table)` parameter is a Loro `Atom`: the last
+write replaces the whole option.
 
-Cas visés, qui doivent tous fusionner sans perte :
-- deux cellules différentes, même dans la même ligne ou la même colonne ;
-- deux insertions de ligne, ou deux insertions de colonne ;
-- une suppression de ligne d'un côté, une cellule d'une autre ligne
-  modifiée de l'autre ;
-- une colonne insérée d'un côté, une cellule modifiée de l'autre ;
-- **une ligne insérée d'un côté, une colonne insérée de l'autre.** La
-  nouvelle ligne n'a pas de valeur dans la nouvelle colonne, et ses valeurs
-  ne sont pas décalées.
+Targeted cases, which must all merge without loss:
+- two different cells, even in the same row or the same column;
+- two row insertions, or two column insertions;
+- a row deletion on one side, a cell of another row
+  modified on the other;
+- a column inserted on one side, a cell modified on the other;
+- **a row inserted on one side, a column inserted on the other.** The
+  new row has no value in the new column, and its values
+  are not shifted.
 
-Hors périmètre :
-- la fusion caractère par caractère dans une cellule. Une cellule est un
-  scalaire, la dernière écriture gagne ;
-- la fusion fine des autres clés de l'option (`series`, couleurs, drapeaux),
-  qui restent en dernière écriture gagnante, clé par clé.
+Out of scope:
+- character-by-character merge within a cell. A cell is a
+  scalar, the last write wins;
+- fine-grained merge of the other keys of the option (`series`, colors, flags),
+  which stay last writer wins, key by key.
 
-## Décisions
+## Decisions
 
-- **Identifiants stables de lignes et de colonnes**, dans deux tableaux
-  parallèles du `dataset` :
+- **Stable row and column ids**, in two parallel arrays
+  of the `dataset`:
 
   ```json
   { "source": [["Pays","Ventes"],["FR",10]], "ids": ["h3k9…","a71c…"], "columns": ["c0f2…","b8e1…"] }
   ```
 
-  - `source` garde le format ECharts.
-  - `ids` a la longueur de `source`. La ligne d'en-tête a, elle aussi, un
-    identifiant.
-  - `columns` a la largeur de la ligne 0.
-- **C'est le cœur qui crée les identifiants** : 8 caractères hexadécimaux pris
-  dans un `uuid` v4, en tirant à nouveau en cas de collision avec un
-  identifiant existant.
-  - Une donnée qui arrive sans identifiants les reçoit à la première écriture
-    par le cœur. C'est le cas d'un graphique écrit par le LLM, d'un tableau de
-    départ ou d'un `set_param`. Le point de passage obligé est
-    `ops/host.rs::host_option`, avec `chart_data` et `table_data`.
-  - Le deck stocké porte **toujours** `ids` et `columns` pour chaque paramètre
-    d'hôte qui a un dataset. Le replica relu est donc identique au deck écrit
+  - `source` keeps the ECharts format.
+  - `ids` has the length of `source`. The header row also has an
+    id.
+  - `columns` has the width of row 0.
+- **The core creates the ids**: 8 hexadecimal characters taken
+  from a v4 `uuid`, drawing again on a collision with an
+  existing id.
+  - Data arriving without ids receives them on the first write
+    by the core. This is the case for a chart written by the LLM, a starter
+    table or a `set_param`. The mandatory checkpoint is
+    `ops/host.rs::host_option`, with `chart_data` and `table_data`.
+  - The stored deck **always** carries `ids` and `columns` for each host
+    parameter that has a dataset. The read-back replica is therefore identical to the written deck
     (`debug_assert_view_matches_replica`).
-- **Pas de rétrocompatibilité.** `DECK_VERSION` passe de 4 à 5, et
-  `SOURCES_VERSION` de 6 à 7. Un deck ou un zip plus ancien est refusé avec
-  l'erreur de version existante. Il n'y a aucun chemin de lecture de la
-  forme `Atom`, et les fixtures sont migrées.
-- **Ops**, avec le même JSON qu'aujourd'hui, plus des champs facultatifs :
-  - `InsertRow { at, cells, id? }` et `InsertColumn { at, cells, id? }` :
-    sans `id`, un identifiant neuf est tiré ;
-  - `RemoveRow` et `RemoveColumn` retirent l'identifiant ;
-  - `Replace { source }` garde les identifiants **par position**
-    (lignes `0..min(ancien, nouveau)`, colonnes de même) et en tire de neufs
-    pour l'excédent ;
-  - les inverses ne sont pas exposés : `DataOp::apply` n'en rend plus. Le
-    cœur et la session ne s'en servaient pas, puisque l'historique passe par
-    le replica. Les tests d'inverse du crate deviennent des tests d'état.
-  - `id` est documenté dans le schéma LLM comme facultatif (« ne pas le
-    fournir »).
-- **Réparation à la relecture** (`replica/host.rs`, lecture). Après une
-  fusion, l'état relu est remis en règle :
-  - une cellule absente d'une ligne vaut `null` ;
-  - les doublons d'une même ligne ou colonne sont d'abord écartés : une
-    colonne dont l'identifiant est déjà vu, une ligne de même identifiant et
-    aux mêmes cellules qu'une ligne gardée (double retrait puis double
-    annulation) ; la prochaine écriture les retire du replica ;
-  - un autre identifiant de ligne ou de colonne en double, ou invalide, est
-    remplacé par un identifiant déterministe tiré de la position
-    (`r{i}`/`c{j}`, puis un suffixe numérique s'il est déjà pris) ;
-  - `align` plus long que les colonnes est tronqué. `parse_table` le tronque
-    au lieu de refuser.
+- **No backward compatibility.** `DECK_VERSION` goes from 4 to 5, and
+  `SOURCES_VERSION` from 6 to 7. An older deck or zip is refused with
+  the existing version error. There is no read path for the
+  `Atom` form, and the fixtures are migrated.
+- **Ops**, with the same JSON as today, plus optional fields:
+  - `InsertRow { at, cells, id? }` and `InsertColumn { at, cells, id? }`:
+    without `id`, a new id is drawn;
+  - `RemoveRow` and `RemoveColumn` remove the id;
+  - `Replace { source }` keeps the ids **by position**
+    (rows `0..min(ancien, nouveau)`, columns likewise) and draws new ones
+    for the excess;
+  - the inverses are not exposed: `DataOp::apply` no longer returns them. The
+    core and the session did not use them, since history goes through
+    the replica. The crate's inverse tests become state tests.
+  - `id` is documented in the LLM schema as optional ("do not
+    provide it").
+- **Repair on read-back** (`replica/host.rs`, reading). After a
+  merge, the read-back state is brought back into order:
+  - a cell missing from a row is `null`;
+  - duplicates of the same row or column are dropped first: a
+    column whose id was already seen, a row with the same id and
+    the same cells as a kept row (double removal then double
+    undo); the next write removes them from the replica;
+  - another duplicated or invalid row or column id is
+    replaced by a deterministic id derived from the position
+    (`r{i}`/`c{j}`, then a numeric suffix if it is already taken);
+  - an `align` longer than the columns is truncated. `parse_table` truncates it
+    instead of refusing.
 
-  Un tableau qui dépasse 100 × 20 après fusion reste refusé par la
-  validation : il s'affiche en substitut. La suppression d'une ligne ou d'une
-  colonne reste permise, ce qui suffit à le rétablir.
-- **Robustesse aux données non fiables** :
-  - `DataOp::apply` ne panique jamais : longueurs vérifiées avant tout
-    accès ;
-  - la lecture borne la profondeur (`MAX_DEPTH`) et le nombre de lignes et de
-    colonnes (10 000 × 1 000), avec un signalement ;
-  - un dataset JSON qui n'a pas la forme attendue (lignes qui ne sont pas des
-    listes, clés en trop) est écrit en `Opaque`, sans perte. Il ne fusionne
-    pas finement.
-- **Graphiques convertis** (`convert`, `canonicalize`) : les identifiants de
-  lignes et de colonnes sont gardés si le nombre de lignes, ou de colonnes,
-  ne change pas, et tirés à neuf sinon. Un passage en nuage, par exemple,
-  regroupe les lignes. `chart_to_table` et `table_to_chart` les gardent.
+  A table exceeding 100 × 20 after a merge stays refused by
+  validation: it is shown as a placeholder. Deleting a row or a
+  column stays allowed, which is enough to restore it.
+- **Robustness to untrusted data**:
+  - `DataOp::apply` never panics: lengths checked before any
+    access;
+  - reading bounds the depth (`MAX_DEPTH`) and the number of rows and
+    columns (10,000 × 1,000), with a report;
+  - a JSON dataset that does not have the expected shape (rows that are not
+    lists, extra keys) is written as `Opaque`, without loss. It does not merge
+    finely.
+- **Converted charts** (`convert`, `canonicalize`): row and column
+  ids are kept if the number of rows, or of columns,
+  does not change, and drawn anew otherwise. A switch to scatter, for example,
+  groups the rows. `chart_to_table` and `table_to_chart` keep them.
 
 ## Replica (`oku-slides-core/src/replica`)
 
-- `Kind::Host` pour `ParamType::Host { .. }`. L'option est une `LoroMap`, et
-  chaque clé hors `dataset` est écrite comme `Nested(Opaque)`.
-- `dataset` devient
+- `Kind::Host` for `ParamType::Host { .. }`. The option is a `LoroMap`, and
+  each key other than `dataset` is written as `Nested(Opaque)`.
+- `dataset` becomes
   `LoroMap { columns: LoroMovableList<id>, rows: LoroMovableList<LoroMap { id, cells: LoroMap<id de colonne, scalaire> }> }`.
-  - Les lignes sont rapprochées par identifiant, avec `Writer::sync_list`
-    réutilisé tel quel.
-  - Les colonnes sont rapprochées par identifiant, dans une liste ordonnée.
-  - Les cellules sont rapprochées par clé : `set` si la valeur change,
-    `delete` si la colonne a disparu.
-  - Rien n'est écrit quand rien ne change.
-- La lecture reconstruit `source` dans l'ordre de `columns`, puis applique la
-  réparation décrite plus haut.
-- Le marqueur est une carte `{columns, rows}` sous la clé `dataset` d'un
-  paramètre d'hôte, et seulement là.
+  - Rows are matched by id, with `Writer::sync_list`
+    reused as is.
+  - Columns are matched by id, in an ordered list.
+  - Cells are matched by key: `set` if the value changes,
+    `delete` if the column has disappeared.
+  - Nothing is written when nothing changes.
+- Reading rebuilds `source` in the order of `columns`, then applies the
+  repair described above.
+- The marker is a `{columns, rows}` map under the `dataset` key of a
+  host parameter, and only there.
 
 ## Tests
 
-- **Modèle** :
-  - les ops : identifiants tirés, gardés, sans collision ;
-  - `Replace` qui garde par position ;
-  - pas de panique sur des longueurs incohérentes ;
-  - la validation des identifiants (longueur, doublon, format, bornes 64/65) ;
-  - les conversions.
-- **Cœur** : `host_option` pose les identifiants, et le deck relu est
-  identique au deck écrit.
-- **Replica** :
-  - aller-retour graphique et tableau ;
-  - une édition de cellule ne touche qu'une entrée (`len_ops` + 1, même
-    conteneur de ligne) ;
-  - forme inattendue écrite en `Opaque` ;
-  - lecture d'états forgés : doublons, cellules conteneurs, profondeur,
-    taille ;
-  - annuler et rétablir chaque op.
-- **Convergence** :
-  - les cinq cas de l'objectif ;
-  - mêmes suppressions des deux côtés, puis double annulation, sans
-    doublon après fusion ;
-  - le proptest étendu (cellules, lignes, colonnes), qui exige qu'après
-    fusion `parse_table` réussisse et que `ids` et `columns` soient alignés.
+- **Model**:
+  - the ops: ids drawn, kept, without collision;
+  - `Replace` keeping by position;
+  - no panic on inconsistent lengths;
+  - id validation (length, duplicate, format, bounds 64/65);
+  - the conversions.
+- **Core**: `host_option` sets the ids, and the read-back deck is
+  identical to the written deck.
+- **Replica**:
+  - chart and table round trip;
+  - a cell edit touches only one entry (`len_ops` + 1, same
+    row container);
+  - unexpected shape written as `Opaque`;
+  - reading forged states: duplicates, container cells, depth,
+    size;
+  - undo and redo each op.
+- **Convergence**:
+  - the five cases from the goal;
+  - the same deletions on both sides, then double undo, without
+    a duplicate after merge;
+  - the extended proptest (cells, rows, columns), which requires that after
+    merge `parse_table` succeeds and `ids` and `columns` are aligned.
 
-  Ces tests sont écrits avant le replica et doivent échouer sur le code
-  actuel.
-- **Version** : un deck v4 et un zip v6 sont refusés.
+  These tests are written before the replica and must fail on the current
+  code.
+- **Version**: a v4 deck and a v6 zip are refused.
