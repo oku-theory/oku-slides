@@ -19,7 +19,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use oku_slides_i18n::Localizer;
+use oku_slides_i18n::LiveLocalizer;
 use oku_slides_session::agent::{AgentScope, ShowParams, ShowVariants, Surface, TabSession};
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -120,13 +120,14 @@ struct HubState {
 #[derive(Debug)]
 pub struct SurfaceHub {
     pub(crate) session: TabSession,
-    pub(crate) localizer: Arc<Localizer>,
+    /// Langue courante de l'interface, relue à chaque texte.
+    pub(crate) localizer: LiveLocalizer,
     events: broadcast::Sender<McpEvent>,
     state: Mutex<HubState>,
 }
 
 impl SurfaceHub {
-    pub fn new(session: TabSession, localizer: Arc<Localizer>) -> Arc<Self> {
+    pub fn new(session: TabSession, localizer: LiveLocalizer) -> Arc<Self> {
         let (events, _) = broadcast::channel(64);
         Arc::new(Self { session, localizer, events, state: Mutex::new(HubState::default()) })
     }

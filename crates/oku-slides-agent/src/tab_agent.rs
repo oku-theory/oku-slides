@@ -10,7 +10,7 @@ use std::time::Duration;
 use agent_client_protocol::schema::v1::{
     HttpHeader, LoadSessionRequest, McpServer, McpServerHttp, NewSessionRequest, ResumeSessionRequest, SessionId,
 };
-use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::SurfaceHub;
 use oku_slides_session::agent::{AgentScope, AgentUi, TabSession};
 use tokio::sync::{broadcast, mpsc};
@@ -52,7 +52,8 @@ impl std::fmt::Debug for ToolsAccess {
 pub(crate) struct Ctx {
     pub tab: TabSession,
     pub hub: Arc<SurfaceHub>,
-    pub localizer: Arc<Localizer>,
+    /// Langue courante de l'interface, relue à chaque texte.
+    pub localizer: LiveLocalizer,
     pub events: broadcast::Sender<AgentEvent>,
     pub keeper: Keeper,
 }
@@ -89,7 +90,7 @@ impl AgentHandle {
         hub: Arc<SurfaceHub>,
         tools: ToolsAccess,
         link: Link,
-        localizer: Arc<Localizer>,
+        localizer: LiveLocalizer,
         keeper: Keeper,
     ) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
@@ -344,8 +345,9 @@ impl TabAgent {
     /// après chaque arrêt, la carte n'apprendrait rien de plus à chaque fois.
     fn memory_lost(&self, turn: u32) {
         let id = self.ctx.hub.next_id("note");
-        let text = self.ctx.localizer.tr("agent-memory-lost");
-        match oku_slides_session::agent::receipt::fallback(&id, &text, &self.ctx.localizer) {
+        let l = self.ctx.localizer.current();
+        let text = l.tr("agent-memory-lost");
+        match oku_slides_session::agent::receipt::fallback(&id, &text, &l) {
             Some(card) => {
                 if !self.ctx.hub.show_static(turn, card) {
                     tracing::debug!(turn, "carte « mémoire perdue » refusée : tour déjà clos");
@@ -371,7 +373,7 @@ impl TabAgent {
     fn failed(&self, turn: u32, e: &AgentError) {
         tracing::warn!(tab = %self.ctx.tab.tab(), error = %e.one_line(), "agent : échec");
         self.ctx.hub.cancel_asks();
-        self.ctx.emit(AgentEvent::Error { turn, message: e.localize(&self.ctx.localizer) });
+        self.ctx.emit(AgentEvent::Error { turn, message: e.localize(&self.ctx.localizer.current()) });
         self.ctx.emit(AgentEvent::idle());
     }
 }

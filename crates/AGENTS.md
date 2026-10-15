@@ -8,6 +8,7 @@
 - Refuse widget files over max_widget_kib or beyond max_widgets per version (counting _commun), and never execute them. (plan:2026-10-02-creation-widgets)
 - Never mutate sources.deck directly; change the deck only through SourceBundle apply or apply_silent. (plan:2026-09-27-sources-loro-fondation)
 - Return MCP tool and agent-form errors localized via Fluent in the user's language, never as raw English text. (t-403, t-650)
+- Localize hub, MCP tool and agent texts via LiveLocalizer::current at each use, never a launch snapshot. (t-793)
 - Keep dataset ids and columns aligned with source on every core write; rereads only repair merged states. (ADR-0004)
 - Never make oku-slides-core depend on oku-slides-import; import may depend only on core and i18n. (plan:2026-10-09-import-pptx-lot1)
 

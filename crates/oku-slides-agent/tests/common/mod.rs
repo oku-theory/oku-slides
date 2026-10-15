@@ -136,14 +136,14 @@ async fn start_tabs_ready_within(
         let (session, platform) = session(dir.path().to_owned()).await;
         let session = Arc::new(Mutex::new(session));
         let tab = TabSession::new(*name, session.clone());
-        let hub = SurfaceHub::new(tab.clone(), platform.localizer.clone());
+        let hub = SurfaceHub::new(tab.clone(), platform.live_localizer.clone());
         let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(NoSettings), &platform);
         let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur MCP : {e}"));
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
         let keeper = Keeper::spawn(tab.clone(), hub.clone());
         keeper.restored().await;
         let agent =
-            AgentHandle::spawn(tab, hub.clone(), access, link.clone(), platform.localizer.clone(), keeper.clone());
+            AgentHandle::spawn(tab, hub.clone(), access, link.clone(), platform.live_localizer.clone(), keeper.clone());
         let events = tokio::sync::Mutex::new(agent.subscribe());
         started.push(Tab { name: (*name).to_owned(), agent, hub, session, server, keeper, events });
     }

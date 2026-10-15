@@ -98,7 +98,7 @@ impl TabEntry {
         out: mpsc::UnboundedSender<Out>,
     ) -> Self {
         let tab = session.tab().to_owned();
-        let hub = SurfaceHub::new(session.clone(), platform.localizer.clone());
+        let hub = SurfaceHub::new(session.clone(), platform.live_localizer.clone());
         let tools = Tools::new(session.clone(), hub.clone(), settings, platform);
         let cancel = CancellationToken::new();
         let (cmds, rx) = mpsc::unbounded_channel();
@@ -111,13 +111,18 @@ impl TabEntry {
             Keeper::spawn(session.clone(), hub.clone())
         };
         rt.spawn(relay_mcp(tab.clone(), mcp, Arc::downgrade(&hub), keeper.clone(), out.clone(), closed.clone()));
-        let agent =
-            Agent { session, hub: hub.clone(), link, localizer: platform.localizer.clone(), keeper: keeper.clone() };
+        let agent = Agent {
+            session,
+            hub: hub.clone(),
+            link,
+            localizer: platform.live_localizer.clone(),
+            keeper: keeper.clone(),
+        };
         let relay = Relay {
             tab: tab.clone(),
             hub: hub.clone(),
             keeper: keeper.clone(),
-            localizer: platform.localizer.clone(),
+            localizer: platform.live_localizer.clone(),
             turns: Turns::default(),
             status: status.clone(),
             out,
@@ -189,7 +194,7 @@ struct Relay {
     hub: Arc<SurfaceHub>,
     /// Écrit le fil d'un tour fini.
     keeper: Keeper,
-    localizer: Arc<oku_slides_i18n::Localizer>,
+    localizer: oku_slides_i18n::LiveLocalizer,
     turns: Turns,
     status: Arc<Mutex<(AgentState, Option<AgentScope>)>>,
     out: mpsc::UnboundedSender<Out>,
@@ -206,7 +211,7 @@ impl Relay {
             emit(&self.out, "agent", &self.tab, e);
         }
         // Tous les évènements, `Status` compris, passent aux tours (le repos clôt un tour dont la fin s'est perdue).
-        for out in self.turns.apply(e, Instant::now(), &self.localizer) {
+        for out in self.turns.apply(e, Instant::now(), &self.localizer.current()) {
             match out {
                 TurnOut::Show(surface) => self.hub.emit(McpEvent::Surface { surface }),
                 TurnOut::Patch { id, messages } => self.hub.emit(McpEvent::SurfacePatch { id, messages }),
@@ -243,7 +248,7 @@ struct Agent {
     session: TabSession,
     hub: Arc<SurfaceHub>,
     link: Link,
-    localizer: Arc<oku_slides_i18n::Localizer>,
+    localizer: oku_slides_i18n::LiveLocalizer,
     keeper: Keeper,
 }
 
@@ -261,15 +266,15 @@ impl Agent {
             Ok(server) => server,
             Err(e) => {
                 tracing::warn!(tab = %self.session.tab(), error = %e, "outils de l'onglet indisponibles");
-                // Chaque consigne reçoit l'erreur dans le fil ; le reste est sans objet.
-                let message = e.localize(&self.localizer);
                 // Les fils relus d'abord : les tours de l'erreur sont numérotés après les leurs.
                 self.keeper.restored().await;
+                // Chaque consigne reçoit l'erreur dans le fil, dans la langue du moment ; le reste est sans objet.
                 while let Some(cmd) = next(&cancel, &mut rx).await {
                     if let Command::Prompt { scope, text, .. } = cmd {
                         let n = self.hub.begin_turn(scope.clone());
                         relay.emit(&AgentEvent::UserText { turn: n, scope, text });
-                        relay.emit(&AgentEvent::Error { turn: n, message: message.clone() });
+                        let message = e.localize(&self.localizer.current());
+                        relay.emit(&AgentEvent::Error { turn: n, message });
                     }
                 }
                 return;

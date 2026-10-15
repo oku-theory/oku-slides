@@ -72,6 +72,8 @@ pub struct Harness {
     pub settings: Arc<MemorySettings>,
     pub cancel: CancellationToken,
     pub localizer: Arc<oku_slides_i18n::Localizer>,
+    /// La langue courante de l'interface, à changer à chaud.
+    pub live: oku_slides_i18n::LiveLocalizer,
     /// Le dossier de données : dernier champ, supprimé après la session.
     data: tempfile::TempDir,
 }
@@ -113,12 +115,13 @@ async fn start_with(
 ) -> Harness {
     let localizer = platform.localizer.clone();
     let tab = TabSession::new("t-1", sessions);
-    let hub = SurfaceHub::new(tab.clone(), localizer.clone());
+    let live = platform.live_localizer.clone();
+    let hub = SurfaceHub::new(tab.clone(), live.clone());
     let settings = Arc::new(MemorySettings::default());
     let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), &platform);
     let cancel = CancellationToken::new();
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur de test : {e}"));
-    Harness { server, hub, session, tab, settings, cancel, localizer, data }
+    Harness { server, hub, session, tab, settings, cancel, localizer, live, data }
 }
 
 pub async fn start() -> Harness {

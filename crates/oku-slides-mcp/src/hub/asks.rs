@@ -161,7 +161,8 @@ impl SurfaceHub {
     /// Confirmation d'un outil non annulable ; `true` seulement sur « confirmer ».
     pub async fn confirm(&self, message: String, danger: bool) -> bool {
         let id = self.next_id("confirm");
-        let surface = forms::confirm(&id, &oku_slides_session::agent::AskConfirm { message, danger }, &self.localizer);
+        let surface =
+            forms::confirm(&id, &oku_slides_session::agent::AskConfirm { message, danger }, &self.localizer.current());
         matches!(
             self.ask(surface).await,
             Answer::Action { name, context } if name == "confirm" && context.get("confirmed") == Some(&Value::Bool(true))
@@ -174,7 +175,7 @@ impl SurfaceHub {
     /// `answer`) donnent `None`, que la connexion transmet comme un refus.
     pub async fn permission(&self, title: &str, options: &[PermissionChoice]) -> Option<usize> {
         let id = self.next_id("permission");
-        match self.ask(forms::permission(&id, title, options, &self.localizer)).await {
+        match self.ask(forms::permission(&id, title, options, &self.localizer.current())).await {
             Answer::Action { name, context } if name == "permission" => Self::index(&context, "index").ok(),
             _ => None,
         }

@@ -24,7 +24,7 @@ mod test_support;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use oku_slides_i18n::Localizer;
+use oku_slides_i18n::{LiveLocalizer, Localizer};
 use snafu::{Backtrace, ResultExt, Snafu};
 
 use crate::config::{ConfigError, Settings};
@@ -67,7 +67,10 @@ pub(crate) fn render_launch_for(program: PathBuf, in_worker: bool) -> RenderLaun
 pub struct Platform {
     pub settings: Arc<Settings>,
     pub storage: Storage,
+    /// Langue du lancement : textes de session, journaux, rendu.
     pub localizer: Arc<Localizer>,
+    /// Langue courante de l'interface, changée à chaud : textes de l'agent et de ses outils.
+    pub live_localizer: LiveLocalizer,
     pub render_launch: RenderLaunch,
 }
 
@@ -96,11 +99,12 @@ impl Platform {
 
     /// La plateforme de ces réglages (tests, outils).
     pub fn with_settings(settings: Settings) -> Result<Self, PlatformError> {
-        let localizer = Localizer::new(settings.i18n.locale.as_deref());
+        let localizer = Arc::new(Localizer::new(settings.i18n.locale.as_deref()));
         Ok(Self {
             settings: Arc::new(settings),
             storage: Storage::local().context(StorageSnafu)?,
-            localizer: Arc::new(localizer),
+            live_localizer: LiveLocalizer::new(localizer.clone()),
+            localizer,
             render_launch: RenderLaunch::InProcess,
         })
     }

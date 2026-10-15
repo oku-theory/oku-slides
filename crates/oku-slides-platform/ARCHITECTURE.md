@@ -6,8 +6,9 @@ the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
 
 ## Modules
 
-- `lib.rs`: `Platform` bundles `Settings`, `Storage`, a `Localizer` and a `RenderLaunch`
-  (`InProcess` or `Process` for the render worker). `Platform::load` builds it once at
+- `lib.rs`: `Platform` bundles `Settings`, `Storage`, the launch `Localizer`, the
+  `LiveLocalizer` (interface language switched hot, shared by every clone) and a
+  `RenderLaunch` (`InProcess` or `Process` for the render worker). `Platform::load` builds it once at
   startup; it clones cheaply. `RENDER_WORKER_ENV` marks a render worker process, which
   never launches another one.
 - `telemetry`: `init` installs the `tracing` subscriber; call it first.

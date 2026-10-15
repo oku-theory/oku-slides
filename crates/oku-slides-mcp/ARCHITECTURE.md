@@ -16,7 +16,8 @@ thread and dock.
   `guarded_tools` (user-confirmed: `save`, `open`, `new`, `edit_theme`, `set_setting`…),
   `surface_tools` (`report`, `render`, `ask_*`, `show_*`).
 - `tool_error` : `ToolError`; `Tools::fail_with` logs it whole and tells the agent a localized
-  message. `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.
+  message in the current interface language (`LiveLocalizer`, also read by the hub at each
+  text). `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.
 - `settings` : `SettingsPort` (implemented by the host), `Applied`, the agent's key whitelist.
 - `hub` : `SurfaceHub`, open surfaces and events to the UI (`McpEvent`); `emit` alone changes
   the open list; `resync` resends it whole. `hub/asks` (pending questions, confirmations,

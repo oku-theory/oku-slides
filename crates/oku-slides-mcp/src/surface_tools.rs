@@ -73,9 +73,9 @@ impl Tools {
             return self.fail_with(e);
         }
         let id = self.hub.next_id("ask");
-        let surface = forms::choice(&id, &spec, &self.localizer);
+        let surface = forms::choice(&id, &spec, &self.localizer.current());
         let answer = if spec.anchor.is_none() {
-            let (question, options, l) = (spec.question.clone(), spec.options.clone(), self.localizer.clone());
+            let (question, options, l) = (spec.question.clone(), spec.options.clone(), self.localizer.current());
             let freeze: Freeze = Box::new(move |a| {
                 let label = match a {
                     Answer::Action { name, context } if name == "choose" => context
@@ -102,7 +102,7 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let surface = forms::confirm(&self.hub.next_id("ask"), &spec, &self.localizer);
+        let surface = forms::confirm(&self.hub.next_id("ask"), &spec, &self.localizer.current());
         self.answered(self.hub.ask(surface).await, |_, ctx| {
             self.json_result(&json!({ "confirmed": ctx.get("confirmed") == Some(&Value::Bool(true)) }))
         })
@@ -147,7 +147,7 @@ impl Tools {
         };
         if kept != json!("original") {
             let (spec, t, p) = (spec.clone(), text.clone(), paragraphs.clone());
-            let label = self.localizer.tr("agent-undo-rewrite");
+            let label = self.localizer.current().tr("agent-undo-rewrite");
             let done = self
                 .with_session(move |s| {
                     let ops = s.rewrite_ops(&spec, &t, p)?;

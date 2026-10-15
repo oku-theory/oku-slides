@@ -65,7 +65,7 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let label = label.unwrap_or_else(|| self.localizer.tr("agent-undo-apply"));
+        let label = label.unwrap_or_else(|| self.localizer.current().tr("agent-undo-apply"));
         self.change(Request::Apply { label, ops, merge: None }).await
     }
 
@@ -74,7 +74,7 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let label = self.localizer.tr("agent-undo-apply");
+        let label = self.localizer.current().tr("agent-undo-apply");
         self.change(Request::ChartKind { label, slide, element, kind }).await
     }
 
@@ -83,7 +83,7 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let label = self.localizer.tr("agent-undo-apply");
+        let label = self.localizer.current().tr("agent-undo-apply");
         self.change(Request::ShowAs { label, slide, element, view }).await
     }
 

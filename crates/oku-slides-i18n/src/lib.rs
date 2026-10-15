@@ -2,6 +2,7 @@
 //!
 //! - [`Localizer`] : les messages d'une langue, avec l'anglais en secours
 //!   pour un message qui manquerait.
+//! - [`LiveLocalizer`] : la langue courante de l'interface, changée à chaud.
 //! - [`Localize`] : ce qui sait se dire dans une langue (erreurs, rapports).
 //! - [`resolve`] : le code de langue choisi, sans charger les messages.
 //! - [`english_name`] : le nom anglais d'une langue livrée, pour l'agent.
@@ -13,11 +14,13 @@
 //! `en` est la référence, chaque autre langue en reprend toutes les clés.
 
 mod keys;
+mod live;
 mod message;
 
 use std::sync::LazyLock;
 
 pub use keys::{pc_keys, platform_keys};
+pub use live::LiveLocalizer;
 pub use message::{Arg, Message};
 
 use fluent_bundle::FluentResource;

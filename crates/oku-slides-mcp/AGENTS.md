@@ -34,7 +34,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Pitfalls
 
 - Nest a tool schema's $defs under its property; rust-mcp-sdk 1.x keeps only properties and required at the root. (plan:2026-09-26-agent-vocal)
-- Make tool errors and texts read by the agent use the launch language, not the current interface language. (t-793)
 
 ## Testing
 

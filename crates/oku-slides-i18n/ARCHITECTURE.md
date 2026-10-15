@@ -14,6 +14,8 @@ so every crate can use it.
   - `resolve`, `shipped`, `available`, `english_name`, `english`, `REFERENCE`.
   - `ui_messages`: the raw `ui.ftl` sources (English, then the chosen locale) handed to
     the React UI's own Fluent engine.
+- `live.rs`: `LiveLocalizer`, the interface language shared by its clones and switched
+  hot (`set`); texts shown after a switch read `current` at each use.
 - `message.rs`: `Message` (Fluent id plus `Arg` values), built without a locale inside
   an error and spoken later in the user's language or in English.
 - `keys.rs`: `platform_keys` and `pc_keys` rewrite macOS shortcuts (`⌘⇧S`) as

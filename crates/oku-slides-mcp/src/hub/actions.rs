@@ -96,7 +96,8 @@ impl SurfaceHub {
         self.session
             .with(|s| -> oku_slides_session::Result<()> {
                 let op = s.param_op(field, &value)?;
-                let label = self.localizer.tr_with("agent-undo-param", &[("label", field.label.as_str().into())]);
+                let label =
+                    self.localizer.current().tr_with("agent-undo-param", &[("label", field.label.as_str().into())]);
                 s.apply(&label, vec![op], None)?;
                 s.note(format!("parameter: {:?} = {value} ({})", field.label, spec.slide));
                 Ok(())
@@ -116,7 +117,8 @@ impl SurfaceHub {
         let variant = spec.variants.get(i).context(NoVariantSnafu { index: i })?;
         self.session
             .with(|s| -> oku_slides_session::Result<()> {
-                let label = self.localizer.tr_with("agent-undo-variant", &[("label", variant.label.as_str().into())]);
+                let label =
+                    self.localizer.current().tr_with("agent-undo-variant", &[("label", variant.label.as_str().into())]);
                 s.apply(&label, variant.ops.clone(), None)?;
                 s.note(format!("variant picked: {:?} ({})", variant.label, spec.slide));
                 Ok(())

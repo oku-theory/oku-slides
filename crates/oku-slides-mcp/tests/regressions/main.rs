@@ -9,3 +9,4 @@ mod issue_0273_stale_test_dirs;
 mod issue_0637_tool_server_limits;
 mod issue_0696_bearer_token_hash;
 mod issue_0768_apply_states_rich_shape;
+mod issue_0793_live_language;

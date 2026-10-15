@@ -81,7 +81,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     .await
     .unwrap();
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(session)));
-    let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.localizer.clone());
+    let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone());
     let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(AppSettings::new(&platform, None)), &platform);
     let mut mcp = hub.subscribe();
     // Un agent lancé laisserait cette trace : la consigne lui serait parvenue.
@@ -93,7 +93,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         ready_within: Duration::from_secs(5),
     });
     let keeper = Keeper::spawn(tab.clone(), hub.clone());
-    let localizer = platform.localizer.clone();
+    let localizer = platform.live_localizer.clone();
     let agent = Agent { session: tab, hub: hub.clone(), link, localizer: localizer.clone(), keeper: keeper.clone() };
     let (out, mut sent) = mpsc::unbounded_channel();
     // Le relais reste ouvert : un tour ouvert par la consigne se verrait sur le hub.

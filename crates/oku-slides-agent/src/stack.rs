@@ -222,7 +222,7 @@ impl Stack {
                 };
                 return acted.map_err(|e| {
                     tracing::info!(tab, error = %snafu::Report::from_error(&e), "action de surface refusée");
-                    e.localize(&self.platform.localizer)
+                    e.localize(&self.platform.live_localizer.current())
                 });
             }
             // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : un onglet rouvert retrouve ses fils.
@@ -255,7 +255,7 @@ impl Stack {
                 if let Err(inner) = checked {
                     let e = CommandError::from(inner);
                     tracing::info!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
-                    return Err(e.localize(&self.platform.localizer));
+                    return Err(e.localize(&self.platform.live_localizer.current()));
                 }
                 match self.tab(&tab) {
                     Some(t) => t.set_draft(&self.out_tx, text, origin),
@@ -263,7 +263,7 @@ impl Stack {
                     None => {
                         let e = CommandError::from(NoAgentSnafu.build());
                         tracing::debug!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
-                        return Err(e.localize(&self.platform.localizer));
+                        return Err(e.localize(&self.platform.live_localizer.current()));
                     }
                 }
             }
@@ -271,7 +271,7 @@ impl Stack {
             AgentCommand::SelectAgent { tab, id } => {
                 if let Err(e) = self.select_agent(&id) {
                     tracing::info!(tab, error = %snafu::Report::from_error(&e), "choix d'agent refusé");
-                    return Err(e.localize(&self.platform.localizer));
+                    return Err(e.localize(&self.platform.live_localizer.current()));
                 }
                 self.emit_picker(&tab);
             }
@@ -359,7 +359,8 @@ impl Stack {
         let busy = self.table().tabs.values().any(|e| e.link.hub.turn().is_some());
         let active = self.active.lock().unwrap_or_else(PoisonError::into_inner).clone();
         let agent = &self.platform.settings.agent;
-        let surface = picker_surface(&agent.presets, &active, busy, agent.locked, &self.platform.localizer);
+        let surface =
+            picker_surface(&agent.presets, &active, busy, agent.locked, &self.platform.live_localizer.current());
         emit(&self.out_tx, "agent", tab, &AgentEvent::Picker { surface });
     }
 

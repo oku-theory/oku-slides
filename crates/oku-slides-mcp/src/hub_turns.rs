@@ -187,7 +187,7 @@ impl SurfaceHub {
             return;
         }
         let id = self.next_id("report");
-        if let Some(surface) = fallback(&id, narration, &self.localizer) {
+        if let Some(surface) = fallback(&id, narration, &self.localizer.current()) {
             // Le tour n'est plus ouvert, mais son reçu de repli y va tant qu'il est dans le fil.
             self.put_report(turn, ReceiptSurfaces { surface, plain: None }, Admit::InThread);
         }

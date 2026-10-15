@@ -151,7 +151,7 @@ impl Tools {
             None => false,
         };
         let key = if exists { "agent-confirm-save-over" } else { "agent-confirm-save" };
-        let message = self.localizer.tr_with(key, &[("path", shown.into())]);
+        let message = self.localizer.current().tr_with(key, &[("path", shown.into())]);
         self.guarded(message, exists, Request::Save { path, overwrite: false }).await
     }
 
@@ -166,7 +166,8 @@ impl Tools {
             Ok(p) => p,
             Err(e) => return self.fail_with(e),
         };
-        let message = self.localizer.tr_with("agent-confirm-open", &[("path", path.display().to_string().into())]);
+        let message =
+            self.localizer.current().tr_with("agent-confirm-open", &[("path", path.display().to_string().into())]);
         if !self.hub.confirm(message, false).await {
             return self.denied();
         }
@@ -181,7 +182,7 @@ impl Tools {
 
     pub(crate) async fn new_deck(&self) -> CallToolResult {
         let dirty = self.dirty().await;
-        let message = self.localizer.tr(if dirty { "agent-confirm-new-dirty" } else { "agent-confirm-new" });
+        let message = self.localizer.current().tr(if dirty { "agent-confirm-new-dirty" } else { "agent-confirm-new" });
         let result = self.guarded_with(message, dirty, Session::new_deck).await;
         self.prune_if_done(&result).await;
         result
@@ -198,7 +199,7 @@ impl Tools {
             .ok()
             .flatten()
             .unwrap_or_default();
-        let message = self.localizer.tr_with("agent-confirm-save-templates", &[("name", name.into())]);
+        let message = self.localizer.current().tr_with("agent-confirm-save-templates", &[("name", name.into())]);
         self.guarded(message, false, Request::SaveTemplates { as_new }).await
     }
 
@@ -214,7 +215,7 @@ impl Tools {
             .ok()
             .flatten()
             .unwrap_or_else(|| set.to_string());
-        let message = self.localizer.tr_with("agent-confirm-delete-set", &[("name", name.into())]);
+        let message = self.localizer.current().tr_with("agent-confirm-delete-set", &[("name", name.into())]);
         self.guarded(message, true, Request::DeleteTemplateSet { set }).await
     }
 
@@ -231,7 +232,7 @@ impl Tools {
             Err(e) => return self.fail_with(e),
         };
         let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
-        let message = self.localizer.tr_with(key, &[("name", info.name.into())]);
+        let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
         if !self.hub.confirm(message, false).await {
             return self.denied();
         }
@@ -251,7 +252,7 @@ impl Tools {
             return self.fail_with(SettingLockedSnafu { key }.build());
         }
         let old = self.settings_read().await.get(&key).cloned().unwrap_or(Value::Null);
-        let message = self.localizer.tr_with(
+        let message = self.localizer.current().tr_with(
             "agent-confirm-setting",
             &[("key", key.as_str().into()), ("old", old.to_string().into()), ("new", value.to_string().into())],
         );

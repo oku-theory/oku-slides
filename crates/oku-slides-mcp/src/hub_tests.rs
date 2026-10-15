@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use oku_slides_a2ui::ChoiceOption;
-use oku_slides_i18n::Localizer;
+use oku_slides_i18n::{LiveLocalizer, Localizer};
 use oku_slides_session::agent::forms::{self, AskChoice};
 use oku_slides_session::agent::{Sessions, Surface, TabSession};
 use speculoos::prelude::*;
@@ -20,7 +20,10 @@ impl Sessions for NoSession {
 }
 
 fn hub() -> Arc<SurfaceHub> {
-    SurfaceHub::new(TabSession::new("t-1", Arc::new(NoSession)), Arc::new(Localizer::new(Some("fr"))))
+    SurfaceHub::new(
+        TabSession::new("t-1", Arc::new(NoSession)),
+        LiveLocalizer::new(Arc::new(Localizer::new(Some("fr")))),
+    )
 }
 
 fn choice(id: &str) -> Surface {

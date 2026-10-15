@@ -103,7 +103,7 @@ impl Tools {
     /// l'utilisateur.
     pub(crate) fn fail_with(&self, e: ToolError) -> CallToolResult {
         tracing::info!(error = %snafu::Report::from_error(&e), "outil de l'agent refusé");
-        fail(e.localize(&self.localizer))
+        fail(e.localize(&self.localizer.current()))
     }
 }
 

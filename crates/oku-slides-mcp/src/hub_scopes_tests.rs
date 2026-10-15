@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use oku_slides_i18n::Localizer;
+use oku_slides_i18n::{LiveLocalizer, Localizer};
 use oku_slides_session::agent::forms::{self, AskChoice};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
 use oku_slides_session::agent::{AgentScope, KEPT_TURNS, SavedConversation, Sessions, Surface, TabSession};
@@ -23,7 +23,7 @@ fn fr() -> Localizer {
 }
 
 fn hub() -> Arc<SurfaceHub> {
-    SurfaceHub::new(TabSession::new("t-1", Arc::new(NoSession)), Arc::new(fr()))
+    SurfaceHub::new(TabSession::new("t-1", Arc::new(NoSession)), LiveLocalizer::new(Arc::new(fr())))
 }
 
 fn atelier() -> AgentScope {

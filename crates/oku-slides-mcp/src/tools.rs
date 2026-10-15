@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, OnceLock};
 
 use base64::Engine as _;
-use oku_slides_i18n::Localizer;
+use oku_slides_i18n::LiveLocalizer;
 use oku_slides_platform::Limits;
 use oku_slides_platform::storage::Storage;
 use oku_slides_session::Platform;
@@ -29,7 +29,8 @@ pub struct Tools {
     pub(crate) hub: Arc<SurfaceHub>,
     pub(crate) settings: Arc<dyn SettingsPort>,
     pub(crate) storage: Storage,
-    pub(crate) localizer: Arc<Localizer>,
+    /// Langue courante de l'interface, relue à chaque texte.
+    pub(crate) localizer: LiveLocalizer,
     /// Bornes des connexions du serveur d'outils (`[serve]`).
     pub(crate) limits: Limits,
 }
@@ -54,7 +55,7 @@ impl Tools {
             hub,
             settings,
             storage: platform.storage.clone(),
-            localizer: platform.localizer.clone(),
+            localizer: platform.live_localizer.clone(),
             limits: Limits::new(serve.header_timeout(), serve.max_connections.get()),
         }
     }
