@@ -384,7 +384,8 @@ impl Session {
         let embedded = |r: &PackRef| {
             let files = self.user_blobs().packs.get(&r.version)?.clone();
             let manifest = PackManifest::from_files(&files).ok()?;
-            Some(StoredVersion { version: r.version.clone(), files, manifest })
+            let received = self.library.is_received(r.id, &r.version);
+            Some(StoredVersion { version: r.version.clone(), files, manifest, received })
         };
         let own = self.deck_pack().cloned();
         match (set, own) {
@@ -418,7 +419,8 @@ impl Session {
                 views
             }
         };
-        let info = PackInfo::of(&shown.manifest, shown.version, PackLibrary::is_builtin(shown.manifest.id));
+        let builtin = PackLibrary::is_builtin(shown.manifest.id);
+        let info = PackInfo::of(&shown.manifest, shown.version, builtin, shown.received);
         Ok(TemplatesView { set: info, sets: self.library.packs(), templates: views })
     }
 

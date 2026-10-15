@@ -259,6 +259,7 @@ ui-picker-new-slide = Nowy slajd
 ui-picker-new-template = Nowy szablon na podstawie…
 ui-picker-set = Szablony
 ui-picker-set-mine = { $name } · moje
+ui-picker-set-received = { $name } · otrzymane
 ui-picker-keys = ← →, aby przeglądać · Enter, aby dodać · Esc, aby zamknąć
 ui-picker-close = Zamknij
 ui-picker-previous = Poprzedni szablon

@@ -255,6 +255,7 @@ ui-picker-new-slide = 新幻灯片
 ui-picker-new-template = 新模板，基于…
 ui-picker-set = 模板
 ui-picker-set-mine = { $name } · 我的
+ui-picker-set-received = { $name } · 收到的
 ui-picker-keys = ← → 浏览 · Enter 添加 · Esc 关闭
 ui-picker-close = 关闭
 ui-picker-previous = 上一个模板

@@ -259,6 +259,7 @@ ui-picker-new-slide = Новий слайд
 ui-picker-new-template = Новий шаблон на основі…
 ui-picker-set = Шаблони
 ui-picker-set-mine = { $name } · мої
+ui-picker-set-received = { $name } · отримані
 ui-picker-keys = ← → — гортати · Enter — додати · Esc — закрити
 ui-picker-close = Закрити
 ui-picker-previous = Попередній шаблон

@@ -255,6 +255,7 @@ ui-picker-new-slide = 新投影片
 ui-picker-new-template = 新範本，根據…
 ui-picker-set = 範本
 ui-picker-set-mine = { $name } · 我的
+ui-picker-set-received = { $name } · 收到的
 ui-picker-keys = ← → 瀏覽 · Enter 新增 · Esc 關閉
 ui-picker-close = 關閉
 ui-picker-previous = 上一個範本

@@ -42,6 +42,12 @@ fn open_adds_received_versions_silently_without_changing_current() {
     s.open(&path).unwrap();
     assert_that!(s.library.versions(id).len()).is_equal_to(2);
     assert_that!(s.library.current(id)).is_equal_to(Some(v0.version()));
+    // t-355 : la version reçue est marquée, la mienne non.
+    assert_that!((s.library.is_received(id, &v0.version()), s.library.is_received(id, &v1.version())))
+        .is_equal_to((false, true));
+    // t-355 : la version reçue est marquée, la mienne non.
+    assert_that!((s.library.is_received(id, &v0.version()), s.library.is_received(id, &v1.version())))
+        .is_equal_to((false, true));
     assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(v1.version()));
 }
 
@@ -173,6 +179,9 @@ fn merge_adds_received_versions_silently_without_banner() {
     s.handle(Request::Merge { path }).unwrap();
     assert_that!(s.library.versions(id).len()).is_equal_to(2);
     assert_that!(s.library.current(id)).is_equal_to(Some(v0.version()));
+    // t-355 : les deux versions sont arrivées avec des decks reçus.
+    assert_that!((s.library.is_received(id, &v0.version()), s.library.is_received(id, &v1.version())))
+        .is_equal_to((true, true));
     assert_that!(notice(&mut s).is_null()).is_true();
 }
 

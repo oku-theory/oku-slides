@@ -255,6 +255,7 @@ ui-picker-new-slide = Nueva diapositiva
 ui-picker-new-template = Nueva plantilla, basada en…
 ui-picker-set = Plantillas
 ui-picker-set-mine = { $name } · mías
+ui-picker-set-received = { $name } · recibidas
 ui-picker-keys = ← → para explorar · Intro para añadir · Esc para cerrar
 ui-picker-close = Cerrar
 ui-picker-previous = Plantilla anterior

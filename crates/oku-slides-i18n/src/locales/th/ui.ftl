@@ -253,6 +253,7 @@ ui-picker-new-slide = สไลด์ใหม่
 ui-picker-new-template = เทมเพลตใหม่ โดยอิงจาก…
 ui-picker-set = เทมเพลต
 ui-picker-set-mine = { $name } · ของฉัน
+ui-picker-set-received = { $name } · ที่ได้รับ
 ui-picker-keys = ← → เพื่อเลื่อนดู · Enter เพื่อเพิ่ม · Esc เพื่อปิด
 ui-picker-close = ปิด
 ui-picker-previous = เทมเพลตก่อนหน้า

@@ -255,6 +255,7 @@ ui-picker-new-slide = নতুন স্লাইড
 ui-picker-new-template = নতুন টেমপ্লেট, যার ভিত্তি…
 ui-picker-set = টেমপ্লেট
 ui-picker-set-mine = { $name } · আমার
+ui-picker-set-received = { $name } · প্রাপ্ত
 ui-picker-keys = ব্রাউজ করতে ← → · যোগ করতে Enter · বন্ধ করতে Esc
 ui-picker-close = বন্ধ করুন
 ui-picker-previous = আগের টেমপ্লেট

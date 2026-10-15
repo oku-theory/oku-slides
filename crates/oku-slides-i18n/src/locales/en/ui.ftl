@@ -255,6 +255,7 @@ ui-picker-new-slide = New slide
 ui-picker-new-template = New template, based on…
 ui-picker-set = Templates
 ui-picker-set-mine = { $name } · mine
+ui-picker-set-received = { $name } · received
 ui-picker-keys = ← → to browse · Enter to add · Esc to close
 ui-picker-close = Close
 ui-picker-previous = Previous template

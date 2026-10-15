@@ -81,3 +81,21 @@ fn set_templates_whose_version_belongs_to_another_pack_is_refused() {
     assert_that!(shown).contains(DEFAULT_PACK.to_string().as_str());
     assert_that!(s.deck().templates.clone()).is_equal_to(before);
 }
+
+/// t-355 : un deck qui référence une version du pack par défaut absente de ses
+/// sources comme de la bibliothèque s'ouvre, avec l'avis du pack manquant ; sa
+/// référence reste la sienne (pas de repli muet sur la version courante).
+#[test]
+fn load_of_a_deck_whose_default_pack_version_is_missing_keeps_it_and_says_so() {
+    let data = fresh_dir("oku-slides-deck-pack-");
+    let mut s = session_on(data.path());
+    let absent = PackRef { id: DEFAULT_PACK, version: PackVersion::from_hex(&"0".repeat(64)).unwrap() };
+    let mut deck = s.deck().clone();
+    deck.templates = Some(absent.clone());
+    let sources = oku_slides_core::SourceBundle::new(deck, s.registry.clone()).unwrap();
+    s.load(sources, None).unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(absent.clone()));
+    assert_that!(s.sources_for_tests().packs.contains_key(&absent.version)).is_false();
+    let missing = s.localizer.tr("session-pack-missing");
+    assert_that!(s.doc.notice.clone().unwrap_or_default()).contains(missing.as_str());
+}

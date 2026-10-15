@@ -255,6 +255,7 @@ ui-picker-new-slide = Nieuwe dia
 ui-picker-new-template = Nieuw sjabloon, gebaseerd op…
 ui-picker-set = Sjablonen
 ui-picker-set-mine = { $name } · eigen
+ui-picker-set-received = { $name } · ontvangen
 ui-picker-keys = ← → om te bladeren · Enter om toe te voegen · Esc om te sluiten
 ui-picker-close = Sluiten
 ui-picker-previous = Vorig sjabloon

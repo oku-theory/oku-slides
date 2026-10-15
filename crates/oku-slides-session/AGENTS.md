@@ -20,7 +20,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - In history mode transitions, put moved assets and fonts back before propagating any error. (plan:2026-09-27-sources-loro-historique)
 - Validate SetToken and UnsetToken ops before applying any, Color and Palette ones outside templates mode too. (plan:2026-10-05-themes-packs-editeur)
 - Resolve and render deck widgets only from the pack version embedded in SourceBundle.packs, never the library. (plan:2026-10-02-creation-widgets)
-- Never let a received deck change a pack's current library version; add received versions silently. (spec:2026-10-01-packs-portables-design)
+- Never let a received deck change a pack's current library version; add its versions silently via receive_version. (spec:2026-10-01-packs-portables-design, t-355)
 - Write a pack version's widget files before its pack.json in the template library. (plan:2026-10-02-creation-widgets)
 - In deck mode, embed and render a widget version before writing the library; on failure change nothing. (spec:2026-10-02-creation-widgets-design)
 - End the deck-mode widget edit session at the first non-widget op and at begin_turn and end_turn. (spec:2026-10-02-creation-widgets-design)

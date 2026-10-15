@@ -55,7 +55,7 @@ impl Session {
                     continue;
                 }
             };
-            if let Err(e) = self.library.add_version(id, files) {
+            if let Err(e) = self.library.receive_version(id, files) {
                 tracing::warn!(pack = %id, error = %e.one_line(), "pack reçu non ajouté à la bibliothèque");
             }
         }

@@ -255,6 +255,7 @@ ui-picker-new-slide = 新規スライド
 ui-picker-new-template = 新規テンプレートのベースを選択…
 ui-picker-set = テンプレート
 ui-picker-set-mine = { $name } · マイ
+ui-picker-set-received = { $name } · 受信
 ui-picker-keys = ← → で切り替え · Enter で追加 · Esc で閉じる
 ui-picker-close = 閉じる
 ui-picker-previous = 前のテンプレート

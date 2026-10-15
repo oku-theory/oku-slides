@@ -41,13 +41,15 @@ pub struct StoredVersion<M> {
     pub version: PackVersion,
     pub files: PackFiles,
     pub manifest: M,
+    /// Arrivée avec un deck reçu, sans que l'utilisateur l'ait créée.
+    pub received: bool,
 }
 
 impl<M: VersionManifest> StoredVersion<M> {
-    /// `files` lus ; sinon l'erreur, sur une ligne.
+    /// `files` lus, d'une version créée ici ; sinon l'erreur, sur une ligne.
     pub(crate) fn read(files: PackFiles) -> Result<Self, String> {
         let manifest = M::from_files(&files).map_err(|e| e.to_string())?;
-        Ok(Self { version: files.version(), files, manifest })
+        Ok(Self { version: files.version(), files, manifest, received: false })
     }
 }
 

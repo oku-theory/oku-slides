@@ -255,6 +255,7 @@ ui-picker-new-slide = Yeni slayt
 ui-picker-new-template = Yeni şablon, temel alınan…
 ui-picker-set = Şablonlar
 ui-picker-set-mine = { $name } · benim
+ui-picker-set-received = { $name } · alınan
 ui-picker-keys = Gezinmek için ← → · eklemek için Enter · kapatmak için Esc
 ui-picker-close = Kapat
 ui-picker-previous = Önceki şablon

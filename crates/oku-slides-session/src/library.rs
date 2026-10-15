@@ -8,6 +8,7 @@
 //! <data>/templates/<uuid>/current                     version courante
 //! <data>/templates/<uuid>/versions/<hex>/pack.json
 //! <data>/templates/<uuid>/versions/<hex>/widgets/<nom>.typ  (un par fichier de widget)
+//! <data>/templates/<uuid>/versions/<hex>/received          version reçue avec un deck
 //!
 //! <data>/themes/<uuid>/current
 //! <data>/themes/<uuid>/versions/<hex>/theme.json            (jamais de widgets)
@@ -17,7 +18,9 @@
 //! `typst/oku-slides/themes/*` du dépôt) : id constant, version de l'app en
 //! lecture seule, courante tant que l'utilisateur n'a pas de fichier
 //! `current`. La version courante ne change que par [`Library::set_current`],
-//! ou à la création d'une entrée inconnue.
+//! ou à la création d'une entrée inconnue. Une version reçue avec un deck
+//! ([`Library::receive_version`]) est marquée : son `created` vient d'ailleurs,
+//! et le repli de la version courante ne lui fait pas confiance.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::marker::PhantomData;
@@ -43,15 +46,35 @@ const CURRENT_FILE: &str = "current";
 /// Versions d'un pack, dans son dossier.
 const VERSIONS_DIR: &str = "versions";
 const WIDGETS_DIR: &str = "widgets";
+/// Marque d'une version reçue avec un deck, dans son dossier.
+const RECEIVED_FILE: &str = "received";
 
 /// Versions des packs intégrés, dans l'ordre.
 pub fn builtin_versions() -> &'static [StoredVersion<PackManifest>] {
     Templates::builtins()
 }
 
-/// La plus récente par `created` (la dernière vue à égalité).
+/// La plus récente par `created` (la dernière vue à égalité), parmi les
+/// versions créées ici d'abord : le `created` d'une version reçue est celui
+/// qu'annonce son auteur, il ne compte que faute d'autre version.
 fn latest<M: VersionManifest>(versions: &[StoredVersion<M>]) -> Option<PackVersion> {
-    versions.iter().max_by(|a, b| a.manifest.created().cmp(b.manifest.created())).map(|s| s.version.clone())
+    let newest = |received: bool| {
+        versions
+            .iter()
+            .filter(|s| s.received == received)
+            .max_by(|a, b| a.manifest.created().cmp(b.manifest.created()))
+            .map(|s| s.version.clone())
+    };
+    newest(false).or_else(|| newest(true))
+}
+
+/// Qui ajoute une version à la bibliothèque.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Origin {
+    /// Créée ici (édition, import, réalignement).
+    Local,
+    /// Arrivée avec un deck reçu.
+    Received,
 }
 
 /// `child` descend-il de `ancestor` ? Un cycle (fichiers forgés) s'arrête.
@@ -162,7 +185,24 @@ impl<K: LibraryKind> Library<K> {
         if !files.matches(&expected) {
             return Err(format!("content does not match {expected}"));
         }
-        StoredVersion::read(files)
+        let received = self.is_marked_received(folder);
+        StoredVersion::read(files).map(|s| StoredVersion { received, ..s })
+    }
+
+    /// Le dossier de version `folder` porte-t-il la marque d'une version reçue ?
+    fn is_marked_received(&self, folder: &Path) -> bool {
+        let path = folder.join(RECEIVED_FILE);
+        self.storage
+            .len(&path)
+            .inspect_err(
+                |e| tracing::warn!(path = %path.display(), error = %one_line(e), "marque de réception illisible"),
+            )
+            .is_ok_and(|len| len.is_some())
+    }
+
+    /// La version `v` de `id` est-elle arrivée avec un deck reçu ?
+    pub fn is_received(&self, id: Uuid, v: &PackVersion) -> bool {
+        self.pack_dir(id).is_some_and(|d| self.is_marked_received(&d.join(VERSIONS_DIR).join(v.hex())))
     }
 
     /// Les versions de `id` : l'intégrée d'abord, puis celles de l'utilisateur.
@@ -226,6 +266,16 @@ impl<K: LibraryKind> Library<K> {
     /// Les fichiers sont validés d'abord : un `pack.json` illisible ou d'un
     /// autre pack est refusé, rien n'est écrit.
     pub fn add_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
+        self.add(id, files, Origin::Local)
+    }
+
+    /// Comme [`Self::add_version`], pour une version arrivée avec un deck :
+    /// nouvelle, elle est marquée reçue (fichier `received`, écrit d'abord).
+    pub fn receive_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
+        self.add(id, files, Origin::Received)
+    }
+
+    fn add(&self, id: Uuid, files: &PackFiles, origin: Origin) -> Result<bool> {
         let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
         let manifest = K::Manifest::from_files(files).context(PackJsonSnafu { id })?;
         ensure!(manifest.id() == id, PackIdMismatchSnafu { id, found: manifest.id() });
@@ -237,7 +287,12 @@ impl<K: LibraryKind> Library<K> {
             return Ok(false);
         }
         let at = dir.join(VERSIONS_DIR).join(version.hex());
-        // Les widgets d'abord : un `pack.json` présent dit la version complète.
+        // La marque d'abord : une version complète n'est jamais lue sans elle.
+        if origin == Origin::Received {
+            let path = at.join(RECEIVED_FILE);
+            self.storage.write_atomic(&path, b"").context(WriteSnafu { path: &path })?;
+        }
+        // Les widgets ensuite : un `pack.json` présent dit la version complète.
         if K::HAS_WIDGETS {
             for (name, source) in files.widgets() {
                 let path = at.join(WIDGETS_DIR).join(name.file_name());
@@ -336,9 +391,13 @@ impl<K: LibraryKind> Library<K> {
             .filter_map(|f| {
                 let name = f.file_name()?.to_str()?;
                 // Un seul nom par pack : la forme canonique (minuscules, tirets).
-                let id = Uuid::parse_str(name).ok().filter(|id| id.to_string() == name);
+                let parsed = Uuid::parse_str(name).ok();
+                let id = parsed.filter(|id| id.to_string() == name);
                 if id.is_none() && first_legacy_sighting(f) {
-                    tracing::info!(dir = %f.display(), "ancien format de pack ignoré");
+                    match parsed {
+                        Some(id) => tracing::warn!(dir = %f.display(), canonical = %id, "dossier au nom d'UUID non canonique ignoré"),
+                        None => tracing::info!(dir = %f.display(), "ancien format de pack ignoré"),
+                    }
                 }
                 id
             })
@@ -363,7 +422,7 @@ impl PackLibrary {
     pub fn packs(&self) -> Vec<PackInfo> {
         self.entries()
             .into_iter()
-            .map(|s| PackInfo::of(&s.manifest, s.version, Self::is_builtin(s.manifest.id)))
+            .map(|s| PackInfo::of(&s.manifest, s.version, Self::is_builtin(s.manifest.id), s.received))
             .collect()
     }
 }

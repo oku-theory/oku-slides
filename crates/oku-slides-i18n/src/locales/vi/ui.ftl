@@ -253,6 +253,7 @@ ui-picker-new-slide = Trang chiếu mới
 ui-picker-new-template = Mẫu mới, dựa trên…
 ui-picker-set = Mẫu
 ui-picker-set-mine = { $name } · của tôi
+ui-picker-set-received = { $name } · đã nhận
 ui-picker-keys = ← → để duyệt · Enter để thêm · Esc để đóng
 ui-picker-close = Đóng
 ui-picker-previous = Mẫu trước

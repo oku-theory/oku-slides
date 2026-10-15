@@ -8,7 +8,7 @@ use crate::test_support::manifest;
 fn pack_info_of_marks_the_default_pack() {
     let m = manifest(DEFAULT_PACK, "Essentiel", None, "2026-10-01T00:00:00Z");
     let v = m.to_files(std::collections::BTreeMap::new()).unwrap().version();
-    let info = PackInfo::of(&m, v.clone(), true);
+    let info = PackInfo::of(&m, v.clone(), true, false);
     assert_that!((info.id, info.version, info.default, info.builtin)).is_equal_to((DEFAULT_PACK, v, true, true));
 }
 
@@ -22,6 +22,6 @@ fn pack_info_of_counts_the_templates_of_a_user_pack() {
         slide: oku_slides_core::Slide::new("s-texte", "content"),
     });
     let v = m.to_files(std::collections::BTreeMap::new()).unwrap().version();
-    let info = PackInfo::of(&m, v, false);
-    assert_that!((info.default, info.builtin, info.count)).is_equal_to((false, false, 1));
+    let info = PackInfo::of(&m, v, false, true);
+    assert_that!((info.default, info.builtin, info.received, info.count)).is_equal_to((false, false, true, 1));
 }

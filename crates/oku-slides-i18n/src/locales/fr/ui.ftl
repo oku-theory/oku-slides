@@ -255,6 +255,7 @@ ui-picker-new-slide = Nouvelle slide
 ui-picker-new-template = Nouveau modèle, à partir de…
 ui-picker-set = Modèles
 ui-picker-set-mine = { $name } · à moi
+ui-picker-set-received = { $name } · reçu
 ui-picker-keys = ← → pour parcourir · Entrée pour ajouter · Échap pour fermer
 ui-picker-close = Fermer
 ui-picker-previous = Modèle précédent

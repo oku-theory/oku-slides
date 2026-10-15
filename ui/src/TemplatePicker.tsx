@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { errorText, type PackInfo, type TabApi, type TemplateView } from "./api";
 import { t } from "./i18n";
+import { packOptionLabel } from "./packOps";
 
 interface Props {
   /** Change quand le thème ou les jetons changent : les aperçus sont rechargés. */
@@ -86,7 +87,7 @@ export default function TemplatePicker({ themeKey, initialSet, title, onPick, on
             <span className="caption">{t("ui-picker-set")}</span>
             <select className="select" value={set ?? shown} onChange={(e) => { e.currentTarget.blur(); chooseSet(e.target.value); }}>
               {sets.map((x) => (
-                <option key={x.id} value={x.id}>{x.builtin ? x.name : t("ui-picker-set-mine", { name: x.name })}</option>
+                <option key={x.id} value={x.id}>{packOptionLabel(x)}</option>
               ))}
             </select>
           </label>

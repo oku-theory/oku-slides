@@ -253,6 +253,7 @@ ui-picker-new-slide = 새 슬라이드
 ui-picker-new-template = 새 템플릿, 기반으로 할 템플릿…
 ui-picker-set = 템플릿
 ui-picker-set-mine = { $name } · 내 템플릿
+ui-picker-set-received = { $name } · 받은 템플릿
 ui-picker-keys = ← →로 탐색 · Enter로 추가 · Esc로 닫기
 ui-picker-close = 닫기
 ui-picker-previous = 이전 템플릿

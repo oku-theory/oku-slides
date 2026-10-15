@@ -14,7 +14,7 @@ resume. The Tauri app and the dev server (`oku-slides-cli` `serve`) expose the s
 - Packs and themes: the version embedded in the deck's sources is authoritative. `deck_widgets.rs`
   builds the registry from it (`fall_back_to_base` on a faulty pack), `deck_pack.rs` and
   `deck_theme.rs` embed defaults; `library.rs` + `library_kind.rs` hold the versioned `Library<K>`
-  (`Templates`), `theme.rs` the `Themes` kind and built-in themes, `pack.rs` `PackInfo`.
+  (`Templates`; a received deck's versions are marked `received`), `theme.rs` `Themes`, `pack.rs` `PackInfo`.
 - Theme editing: `theme_edit.rs` (`ThemeEdit` draft in templates mode, `save_theme_edit`),
   `deck_theme_edit.rs` (`edit_theme` in deck mode), `theme_schema.rs` (token controls, bounds),
   `theme_panel.rs` + `theme_controls.rs` (the `host-theme` surface), `appearance.rs`.

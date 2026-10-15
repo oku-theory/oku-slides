@@ -263,6 +263,7 @@ ui-picker-new-slide = شريحة جديدة
 ui-picker-new-template = قالب جديد، مبني على…
 ui-picker-set = القوالب
 ui-picker-set-mine = { $name } · خاصتي
+ui-picker-set-received = { $name } · مُستلَمة
 ui-picker-keys = ← → للتصفح · Enter للإضافة · Esc للإغلاق
 ui-picker-close = إغلاق
 ui-picker-previous = القالب السابق

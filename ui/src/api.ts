@@ -226,6 +226,8 @@ export interface PackInfo {
   builtin: boolean;
   /** Le pack d'un deck qui n'en choisit pas. */
   default: boolean;
+  /** Cette version est arrivée avec un deck reçu, l'utilisateur ne l'a pas créée. */
+  received: boolean;
   count: number;
 }
 

@@ -48,12 +48,14 @@ pub struct PackInfo {
     pub builtin: bool,
     /// Le pack d'un deck neuf ([`DEFAULT_PACK`]).
     pub default: bool,
+    /// Cette version est arrivée avec un deck reçu (pas créée par l'utilisateur).
+    pub received: bool,
     pub count: usize,
 }
 
 impl PackInfo {
     /// Résumé de la version `version` de `manifest` pour les listes.
-    pub fn of(manifest: &PackManifest, version: PackVersion, builtin: bool) -> Self {
+    pub fn of(manifest: &PackManifest, version: PackVersion, builtin: bool, received: bool) -> Self {
         Self {
             id: manifest.id,
             version,
@@ -61,6 +63,7 @@ impl PackInfo {
             description: manifest.description.clone(),
             builtin,
             default: manifest.id == DEFAULT_PACK,
+            received,
             count: manifest.templates.len(),
         }
     }

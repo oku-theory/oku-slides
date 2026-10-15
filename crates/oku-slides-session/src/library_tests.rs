@@ -414,3 +414,70 @@ fn packs_ignore_a_legacy_folder_and_report_it_once() {
     assert_that!(first_legacy_sighting(&dir.path().join("autre-ancien"))).is_true();
     assert_that!(first_legacy_sighting(&dir.path().join("autre-ancien"))).is_false();
 }
+
+/// Une version reçue avec un deck pour `m`.
+fn receive(lib: &PackLibrary, m: &crate::pack::PackManifest) -> oku_slides_core::PackRef {
+    let files = m.to_files(Default::default()).unwrap();
+    lib.receive_version(m.id, &files).unwrap();
+    oku_slides_core::PackRef { id: m.id, version: files.version() }
+}
+
+/// t-355 : un pack inconnu reçu avec un deck est créé, marqué reçu dans les listes.
+#[test]
+fn receive_version_of_an_unknown_pack_lists_it_as_received() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    let r = receive(&lib, &manifest(id, "Reçu", None, "2026-10-01T10:00:00Z"));
+    let info = lib.packs().into_iter().find(|p| p.id == id).unwrap();
+    assert_that!((info.version, info.received)).is_equal_to((r.version.clone(), true));
+    assert_that!(lib.is_received(id, &r.version)).is_true();
+}
+
+#[test]
+fn add_version_is_not_received() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    let r = add_version(&lib, &manifest(id, "Mien", None, "2026-10-01T10:00:00Z"), &[]);
+    assert_that!(lib.packs().into_iter().find(|p| p.id == id).map(|p| p.received)).is_equal_to(Some(false));
+    assert_that!(lib.is_received(id, &r.version)).is_false();
+}
+
+/// t-355 : le repli de la version courante ne croit pas le `created` d'une
+/// version reçue, même plus récent : la mienne reste devant.
+#[test]
+fn broken_current_falls_back_to_my_latest_version_over_a_received_one() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    let mine = add_version(&lib, &manifest(id, "A", None, "2026-10-01T10:00:00Z"), &[]);
+    receive(&lib, &manifest(id, "Forgée", Some(&mine.version), "2099-01-01T00:00:00Z"));
+    std::fs::write(dir.path().join(id.to_string()).join("current"), b"illisible").unwrap();
+    assert_that!(lib.current(id)).is_equal_to(Some(mine.version));
+}
+
+#[test]
+fn broken_current_with_only_received_versions_takes_the_latest_received() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    let a = receive(&lib, &manifest(id, "A", None, "2026-10-01T10:00:00Z"));
+    let b = receive(&lib, &manifest(id, "B", Some(&a.version), "2026-10-02T10:00:00Z"));
+    std::fs::write(dir.path().join(id.to_string()).join("current"), b"illisible").unwrap();
+    assert_that!(lib.current(id)).is_equal_to(Some(b.version));
+}
+
+/// t-355 : un dossier au nom d'UUID non canonique (majuscules) est ignoré
+/// comme un dossier ancien, et n'est signalé qu'une fois.
+#[test]
+fn packs_ignore_a_non_canonical_uuid_folder() {
+    let dir = fresh_dir("oku-slides-library-");
+    let id = Uuid::new_v4();
+    let upper = dir.path().join(id.to_string().to_uppercase());
+    let lib = library(dir.path());
+    add_version(&lib, &manifest(id, "Mien", None, "2026-10-01T10:00:00Z"), &[]);
+    std::fs::rename(dir.path().join(id.to_string()), &upper).unwrap();
+    assert_that!(lib.packs().iter().any(|p| p.id == id)).is_false();
+    assert_that!(first_legacy_sighting(&upper)).is_false();
+}

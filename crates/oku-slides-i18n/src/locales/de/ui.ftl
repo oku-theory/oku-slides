@@ -255,6 +255,7 @@ ui-picker-new-slide = Neue Folie
 ui-picker-new-template = Neue Vorlage, basierend auf…
 ui-picker-set = Vorlagen
 ui-picker-set-mine = { $name } · eigene
+ui-picker-set-received = { $name } · empfangen
 ui-picker-keys = ← → zum Blättern · Enter zum Hinzufügen · Esc zum Schließen
 ui-picker-close = Schließen
 ui-picker-previous = Vorherige Vorlage
