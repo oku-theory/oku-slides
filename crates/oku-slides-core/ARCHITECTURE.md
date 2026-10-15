@@ -27,9 +27,10 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   `PackRef`, `PackFiles`, `WidgetFile`, `PackManifest`, `Template`; a theme version is a
   `PackFiles` without widgets whose manifest is `theme.json` (`ThemeManifest`, `ThemeRef`).
 - `tokens.rs`: a theme's effective tokens (`effective_tokens`: defaults, then theme) and `merge`.
-- `sources.rs` + `sources_themes.rs`: `SourceBundle` and its zip (`SOURCES_VERSION`): Loro
-  snapshot, assets, fonts, `packs/<hex>/{pack.json, widgets/<name>.typ}`, `themes/<hex>/theme.json`,
-  all add-only, verified on read and unioned on merge; reads bounded by `SourceLimits`.
+- `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot,
+  assets, fonts, `packs/<hex>/{pack.json, widgets/<name>.typ}` (`sources_packs.rs`),
+  `themes/<hex>/theme.json` (`sources_themes.rs`), all add-only, verified on read (a forged
+  version is reported once) and unioned on merge; reads bounded by `SourceLimits`.
 - `validate.rs`: deck consistency against the registry, reported as `Issue`s rather than errors.
 - `canonical.rs`: `canonicalize` (sorted keys, empty slots dropped, duplicate ids repaired).
 - `fields.rs` (`TextField`, `Slide::text_fields`), `locate.rs` (`Located`, `MAX_SLOT_DEPTH`),

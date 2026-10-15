@@ -19,47 +19,31 @@
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
 
 use std::collections::{BTreeMap, HashSet};
-use std::io::{Cursor, Read, Write};
 use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
-use snafu::{OptionExt, ResultExt, ensure};
-use zip::write::SimpleFileOptions;
+use snafu::{ResultExt, ensure};
 
-use crate::error::{
-    BadNameSnafu, IoSnafu, JsonSnafu, MissingDeckSnafu, NotSourcesSnafu, ReplicaError, ReplicaSnafu, SourcesError,
-    SourcesInner, TooDeepSnafu, TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
-};
+use crate::error::{ReplicaSnafu, SourcesError, TooDeepSnafu};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
 use crate::ops::Moved;
-use crate::pack::{PackFiles, PackVersion, WidgetFile};
+use crate::pack::{PackFiles, PackVersion};
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview, ReplicaLimits};
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
 
+#[path = "sources_packs.rs"]
+mod packs;
 #[path = "sources_themes.rs"]
 mod themes;
+#[path = "sources_zip.rs"]
+mod zip_io;
 
-use themes::{THEME_JSON, THEME_VERSIONS_DIR, theme_entry, theme_issues, verify_themes};
+use themes::theme_issues;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
 pub const SOURCES_VERSION: u32 = 10;
-
-/// Entrée du replica dans le zip.
-const DECK_LORO: &str = "deck.loro";
-
-/// Dossier des versions de packs dans le zip.
-const PACKS_DIR: &str = "packs/";
-
-/// Le manifeste d'une version de pack, dans son dossier.
-const PACK_JSON: &str = "pack.json";
-/// Les fichiers de widgets d'une version de pack, dans son dossier.
-const WIDGETS_DIR: &str = "widgets";
-
-/// Capacité initiale maximale d'une entrée lue : la taille annoncée par
-/// l'en-tête du zip n'est qu'une indication, non fiable.
-const MAX_INITIAL_CAPACITY: usize = 1024 * 1024;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,90 +98,6 @@ impl PartialEq for SourceBundle {
             && self.packs == other.packs
             && self.themes == other.themes
     }
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Manifest {
-    format: String,
-    version: u32,
-}
-
-/// `deck.loro` tel que trouvé dans le zip, avant le contrôle du manifeste.
-enum Snapshot {
-    Bytes(Vec<u8>),
-    /// Taille annoncée au-delà du maximum : l'entrée n'a pas été lue.
-    TooLarge(usize),
-}
-
-fn safe_name(name: &str) -> Result<&str, SourcesInner> {
-    let ok = !name.is_empty()
-        && !name.contains('/')
-        && !name.contains('\\')
-        && name != "."
-        && name != ".."
-        && !name.starts_with('.');
-    ensure!(ok, BadNameSnafu { name });
-    Ok(name)
-}
-
-/// Nom de fichier d'un asset : l'empreinte hex de `sha256:<hex>`, rien d'autre.
-fn asset_name(id: &str) -> Result<&str, SourcesInner> {
-    let hex = id.strip_prefix("sha256:").unwrap_or(id);
-    ensure!(!hex.is_empty() && hex.bytes().all(|b| b.is_ascii_hexdigit()), BadNameSnafu { name: id });
-    Ok(hex)
-}
-
-/// Fichiers d'une version de pack lus du zip, avant vérification.
-#[derive(Default)]
-struct RawPack {
-    pack_json: Option<Vec<u8>>,
-    widgets: BTreeMap<WidgetFile, Vec<u8>>,
-}
-
-/// Ce qu'est une entrée `packs/<hex>/…`.
-enum PackPart {
-    Manifest,
-    Widget(WidgetFile),
-    /// Dossier nu, ou fichier inconnu : ni lu, ni compté.
-    Ignored,
-}
-
-/// `packs/<hex>/<fichier>` : l'empreinte (64 hex minuscules, sinon refusée)
-/// et la partie. Sous `widgets/`, un nom hors de [`WidgetFile`] est refusé,
-/// comme tout sous-dossier autre que `widgets/`.
-fn pack_entry(name: &str) -> Result<(&str, PackPart), SourcesInner> {
-    let rest = name.strip_prefix(PACKS_DIR).unwrap_or(name);
-    let (hex, file) = rest.split_once('/').unwrap_or((rest, ""));
-    ensure!(PackVersion::from_hex(hex).is_some(), BadNameSnafu { name });
-    let part = match file.split_once('/') {
-        None if file == PACK_JSON => PackPart::Manifest,
-        None => PackPart::Ignored,
-        Some((WIDGETS_DIR, "")) => PackPart::Ignored,
-        Some((WIDGETS_DIR, widget)) => {
-            PackPart::Widget(WidgetFile::from_file_name(widget).context(BadNameSnafu { name })?)
-        }
-        Some(_) => return BadNameSnafu { name }.fail(),
-    };
-    Ok((hex, part))
-}
-
-/// Lit une entrée du zip : au plus `cap` octets pour elle, et au plus ce qui
-/// reste de `budget` (décompressé, tout le zip compris). La taille annoncée
-/// `announced` ne sert qu'à la capacité initiale, plafonnée. Dépasser le
-/// budget est une erreur ; la lecture s'arrête au premier octet de trop.
-fn read_entry(
-    f: impl Read,
-    announced: usize,
-    cap: usize,
-    budget: &mut usize,
-    total: usize,
-) -> Result<Vec<u8>, SourcesInner> {
-    let limit = cap.min(budget.saturating_add(1));
-    let mut data = Vec::with_capacity(announced.min(limit).min(MAX_INITIAL_CAPACITY));
-    f.take(u64::try_from(limit).unwrap_or(u64::MAX)).read_to_end(&mut data).context(IoSnafu)?;
-    ensure!(data.len() <= *budget, TotalTooLargeSnafu { max: total });
-    *budget -= data.len();
-    Ok(data)
 }
 
 impl SourceBundle {
@@ -460,51 +360,6 @@ impl SourceBundle {
         Ok(self.write_zip()?)
     }
 
-    fn write_zip(&self) -> Result<Vec<u8>, SourcesInner> {
-        let mut buf = Cursor::new(Vec::new());
-        {
-            let mut zw = zip::ZipWriter::new(&mut buf);
-            let deflate = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-            // Images et polices sont déjà compressées : on les stocke tels quels.
-            let stored = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-            zw.start_file("manifest.json", deflate).context(ZipSnafu)?;
-            let manifest = Manifest { format: SOURCES_FORMAT.into(), version: SOURCES_VERSION };
-            let manifest = serde_json::to_vec(&manifest).context(JsonSnafu { file: "manifest.json" })?;
-            zw.write_all(&manifest).context(IoSnafu)?;
-
-            // Le snapshot Loro se compresse encore bien (t-204, `roadmap.json` :
-            // zip de 6 884 octets stocké, 5 011 compressé, soit 27 % de gain) : compressé.
-            zw.start_file(DECK_LORO, deflate).context(ZipSnafu)?;
-            zw.write_all(&self.replica.snapshot().context(ReplicaSnafu)?).context(IoSnafu)?;
-
-            for (id, bytes) in &self.assets {
-                zw.start_file(format!("assets/{}", asset_name(id)?), stored).context(ZipSnafu)?;
-                zw.write_all(bytes).context(IoSnafu)?;
-            }
-            for (name, bytes) in &self.fonts {
-                zw.start_file(format!("fonts/{}", safe_name(name)?), stored).context(ZipSnafu)?;
-                zw.write_all(bytes).context(IoSnafu)?;
-            }
-            for (version, files) in &self.packs {
-                let dir = format!("{PACKS_DIR}{}", version.hex());
-                zw.start_file(format!("{dir}/{PACK_JSON}"), deflate).context(ZipSnafu)?;
-                zw.write_all(&files.pack_json().context(JsonSnafu { file: PACK_JSON })?).context(IoSnafu)?;
-                for (name, source) in files.widgets() {
-                    zw.start_file(format!("{dir}/{WIDGETS_DIR}/{}", name.file_name()), deflate).context(ZipSnafu)?;
-                    zw.write_all(source.as_bytes()).context(IoSnafu)?;
-                }
-            }
-            for (version, files) in &self.themes {
-                zw.start_file(format!("{THEME_VERSIONS_DIR}{}/{THEME_JSON}", version.hex()), deflate)
-                    .context(ZipSnafu)?;
-                zw.write_all(&files.pack_json().context(JsonSnafu { file: THEME_JSON })?).context(IoSnafu)?;
-            }
-            zw.finish().context(ZipSnafu)?;
-        }
-        Ok(buf.into_inner())
-    }
-
     /// Relit un zip de sources. Les octets viennent d'un fichier : non fiables ;
     /// `deck.loro` n'est lu que s'il tient dans `limits.replica_bytes`, et le
     /// tout décompressé dans `limits.total_bytes`. Renvoie aussi ce que la
@@ -516,114 +371,6 @@ impl SourceBundle {
         registry: Arc<WidgetRegistry>,
     ) -> Result<(Self, Vec<Issue>), SourcesError> {
         Ok(Self::read_zip(bytes, limits, registry)?)
-    }
-
-    fn read_zip(
-        bytes: &[u8],
-        limits: SourceLimits,
-        registry: Arc<WidgetRegistry>,
-    ) -> Result<(Self, Vec<Issue>), SourcesInner> {
-        let max = limits.replica_bytes;
-        let mut za = zip::ZipArchive::new(Cursor::new(bytes)).context(ZipSnafu)?;
-        let mut manifest: Option<Manifest> = None;
-        let mut snapshot: Option<Snapshot> = None;
-        let (mut assets, mut fonts) = (BTreeMap::new(), BTreeMap::new());
-        let mut raw_packs: BTreeMap<String, RawPack> = BTreeMap::new();
-        let mut raw_themes: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-        // Octets décompressés encore permis (anti-bombe de décompression).
-        let mut budget = limits.total_bytes;
-        for i in 0..za.len() {
-            let f = za.by_index(i).context(ZipSnafu)?;
-            let name = f.name().to_owned();
-            let size = usize::try_from(f.size()).unwrap_or(usize::MAX);
-            if name == DECK_LORO {
-                // Anti-bombe : la taille annoncée est contrôlée avant toute lecture, et
-                // la lecture reste bornée si l'en-tête ment (`from_snapshot` refuse le surplus).
-                snapshot = Some(if size > max {
-                    Snapshot::TooLarge(size)
-                } else {
-                    Snapshot::Bytes(read_entry(f, size, max.saturating_add(1), &mut budget, limits.total_bytes)?)
-                });
-                continue;
-            }
-            if name == PACKS_DIR || name == THEME_VERSIONS_DIR {
-                continue; // Entrée de répertoire nue, comme `packs/<hex>/`.
-            }
-            if name.starts_with(THEME_VERSIONS_DIR) {
-                let Some(hex) = theme_entry(&name)? else { continue };
-                let data = read_entry(f, size, usize::MAX, &mut budget, limits.total_bytes)?;
-                raw_themes.insert(hex.to_owned(), data);
-                continue;
-            }
-            if name.starts_with(PACKS_DIR) {
-                let (hex, part) = pack_entry(&name)?;
-                if matches!(part, PackPart::Ignored) {
-                    continue; // Dossier ou fichier inconnu : ni lu, ni compté.
-                }
-                let data = read_entry(f, size, usize::MAX, &mut budget, limits.total_bytes)?;
-                let slot = raw_packs.entry(hex.to_owned()).or_default();
-                match part {
-                    PackPart::Manifest => slot.pack_json = Some(data),
-                    PackPart::Widget(widget) => {
-                        slot.widgets.insert(widget, data);
-                    }
-                    PackPart::Ignored => {}
-                }
-                continue;
-            }
-            let known = name == "manifest.json" || name.starts_with("assets/") || name.starts_with("fonts/");
-            if !known {
-                continue; // Entrées inconnues (dont l'ancien `deck.json`) : ni lues, ni comptées.
-            }
-            let data = read_entry(f, size, usize::MAX, &mut budget, limits.total_bytes)?;
-            match name.as_str() {
-                "manifest.json" => {
-                    manifest = Some(serde_json::from_slice(&data).context(JsonSnafu { file: "manifest.json" })?)
-                }
-                n if n.starts_with("assets/") => {
-                    let hex = asset_name(&n["assets/".len()..])?;
-                    assets.insert(format!("sha256:{hex}"), data);
-                }
-                n if n.starts_with("fonts/") => {
-                    let file = safe_name(&n["fonts/".len()..])?.to_owned();
-                    fonts.insert(file, data);
-                }
-                _ => {}
-            }
-        }
-        let manifest = manifest.context(NotSourcesSnafu)?;
-        ensure!(manifest.format == SOURCES_FORMAT, NotSourcesSnafu);
-        // Plus ancien : format ignoré, sans conversion (spec t-188).
-        ensure!(manifest.version >= SOURCES_VERSION, NotSourcesSnafu);
-        ensure!(manifest.version == SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
-        let (replica, read) = match snapshot.context(MissingDeckSnafu)? {
-            Snapshot::Bytes(data) => {
-                DeckReplica::from_snapshot(&data, limits.replica(), registry).context(ReplicaSnafu)?
-            }
-            Snapshot::TooLarge(size) => {
-                return Err(ReplicaError::from(TooLargeSnafu { size, max }.build())).context(ReplicaSnafu);
-            }
-        };
-        let mut packs = BTreeMap::new();
-        let mut mismatched = Vec::new();
-        for (hex, RawPack { pack_json, widgets }) in raw_packs {
-            let verified = pack_json
-                .and_then(|p| PackFiles::verified(&hex, &p, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice()))));
-            match verified {
-                Some((version, files)) => {
-                    packs.insert(version, files);
-                }
-                None => {
-                    tracing::warn!(version = %hex, "version de pack altérée écartée");
-                    mismatched.push(Issue::pack_version_mismatch(&hex));
-                }
-            }
-        }
-        let (themes, themes_mismatched) = verify_themes(raw_themes);
-        let (bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs, themes);
-        issues.extend(mismatched);
-        issues.extend(themes_mismatched);
-        Ok((bundle, issues))
     }
 }
 
