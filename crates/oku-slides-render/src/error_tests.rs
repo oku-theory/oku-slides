@@ -35,7 +35,8 @@ fn pack_disabled_localizes_with_its_pack() {
 #[case(RenderError::worker_lost("exit 9"), "render-worker-lost")]
 #[case(RenderError::frame("too large"), "render-frame")]
 #[case(RenderError::stale(), "render-stale")]
-#[case(RemoteSnafu { message: "x".to_owned() }.build().into(), "render-setup")]
+#[case(RenderError::protocol(2, Some(1)), "render-protocol")]
+#[case(RemoteSnafu { message: "x".to_owned() }.build().into(), "render-remote")]
 #[case(NoPageSnafu { index: 3usize }.build().into(), "render-no-page")]
 #[case(ImageSnafu { message: "x".to_owned() }.build().into(), "render-image")]
 fn worker_and_export_errors_localize_to_their_key(#[case] e: RenderError, #[case] key: &str) {
@@ -50,4 +51,27 @@ fn page_too_large_is_a_frame_error_with_its_own_message() {
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::Frame);
     assert_that!(e.localize(&l)).is_equal_to(l.tr_with("render-page-too-large", &[("mib", 128u64.into())]));
     assert_that!(e.localize(&l)).is_not_equal_to(l.tr("render-frame"));
+}
+
+#[rstest]
+#[case("en")]
+#[case("fr")]
+fn protocol_mismatch_is_its_own_unbounded_kind_with_its_message(#[case] locale: &str) {
+    let l = Localizer::new(Some(locale));
+    let e = RenderError::protocol(2, None);
+    assert_that!(e.kind()).is_equal_to(RenderErrorKind::Protocol);
+    assert_that!(e.kind().is_bounded()).is_false();
+    assert_that!(e.localize(&l)).is_equal_to(l.tr("render-protocol"));
+    assert_that!(e.localize(&l)).is_not_equal_to(l.tr("render-setup"));
+}
+
+#[rstest]
+#[case("en")]
+#[case("fr")]
+fn remote_failure_has_its_own_message_not_the_setup_one(#[case] locale: &str) {
+    let l = Localizer::new(Some(locale));
+    let e: RenderError = RemoteSnafu { message: "unknown slot 3".to_owned() }.build().into();
+    assert_that!(e.kind()).is_equal_to(RenderErrorKind::Setup);
+    assert_that!(e.localize(&l)).is_equal_to(l.tr("render-remote"));
+    assert_that!(e.localize(&l)).is_not_equal_to(l.tr("render-setup"));
 }

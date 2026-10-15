@@ -4,6 +4,10 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+/// Version du protocole : à changer à toute modification de [`Request`], de
+/// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
+pub(crate) const PROTOCOL_VERSION: u32 = 1;
+
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
 
@@ -18,12 +22,20 @@ pub(crate) struct WirePack {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "kebab-case")]
 pub(crate) enum Request {
+    /// Première requête d'une connexion : la version du protocole de l'hôte.
+    Hello {
+        version: u32,
+    },
     SetLanguage {
         locale: String,
     },
     /// Charge : octets de la police.
     PutFont {
         id: String,
+    },
+    /// Oublie ces polices : aucun emplacement ouvert ne s'en sert plus.
+    DropFonts {
+        ids: Vec<String>,
     },
     /// Charge : octets de l'asset.
     PutAsset {
@@ -112,6 +124,10 @@ pub(crate) struct CompiledHeader {
 #[serde(tag = "reply", rename_all = "kebab-case")]
 pub(crate) enum Response {
     Ok,
+    /// La version du protocole du travailleur, en réponse à `Hello`.
+    Hello {
+        version: u32,
+    },
     FileProbe {
         probe: oku_slides_render::FileProbe,
     },

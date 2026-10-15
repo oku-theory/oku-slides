@@ -26,6 +26,9 @@
 //!   un diagnostic, non gardé (sondés au prochain appel), et nommés dans
 //!   `PackProbe::unprobed`. Un pack reçu dont chaque fichier boucle ne coûte
 //!   ainsi qu'un délai par appel ; un délai gardé n'est plus « non sondé ».
+//! - Les registres assemblés sont gardés (les [`MAX_ASSEMBLED`] derniers) par
+//!   empreinte du pack réduit aux valides : sonder deux fois le même pack rend
+//!   le même `Arc`, et la session ne réinstalle pas des widgets inchangés.
 //! - `pack` ne garde que `_commun` et les widgets valides : le module
 //!   d'assemblage importe chaque fichier, un fichier cassé casserait le rendu.
 
@@ -40,6 +43,9 @@ use oku_slides_render::{FileProbe, Fonts, PackWidgets, RegistryError, RenderErro
 
 use crate::client::{RenderWorker, unexpected};
 use crate::protocol::{Request, Response};
+
+/// Registres assemblés gardés, au plus : les plus récemment rendus.
+pub(crate) const MAX_ASSEMBLED: usize = 8;
 
 /// La sonde d'un pack, fichier par fichier.
 #[derive(Debug, Clone)]
@@ -90,11 +96,28 @@ impl RenderWorker {
         }
         // Les schémas ne dépendent pas des polices : celles de Typst suffisent.
         let base = base_probe(&Fonts::default())?;
-        let registry = Arc::new(assemble(&base, &mut files)?);
+        let registry = assemble(&base, &mut files)?;
         let valid: BTreeSet<WidgetFile> =
             files.iter().filter(|(n, p)| !n.is_common() && p.is_valid()).map(|(n, _)| n.clone()).collect();
-        let pack = (!valid.is_empty()).then(|| pack.only(&valid));
+        let kept = pack.only(&valid);
+        let registry = self.kept_registry(kept.fingerprint(), registry);
+        let pack = (!valid.is_empty()).then_some(kept);
         Ok(PackProbe { files, pack, registry, unprobed })
+    }
+
+    /// Le registre assemblé déjà rendu pour les mêmes widgets valides (`key` :
+    /// empreinte du pack réduit), sinon `registry`, gardé : deux sondes du
+    /// même pack donnent le même `Arc`, que la session compare par `Arc::ptr_eq`.
+    fn kept_registry(&self, key: [u8; 32], registry: WidgetRegistry) -> Arc<WidgetRegistry> {
+        let mut kept = self.1.assembled.lock().unwrap_or_else(PoisonError::into_inner);
+        let found = kept.iter().position(|(k, _)| *k == key).and_then(|i| kept.remove(i));
+        let entry = found.unwrap_or_else(|| (key, Arc::new(registry)));
+        let registry = entry.1.clone();
+        while kept.len() >= MAX_ASSEMBLED {
+            kept.pop_front();
+        }
+        kept.push_back(entry);
+        registry
     }
 
     /// La langue posée dans les emplacements du travailleur ; l'anglais avant le premier.

@@ -224,13 +224,18 @@ impl Session {
         let moves = oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
         let previous = widgets.map(|w| self.install_widgets(w)).transpose()?;
         self.doc.sources.set_registry(registry);
+        // Un repli pendant le rendu pose son avis : il ne vaut plus si les widgets d'avant reviennent.
+        let notice_before = self.doc.notice.clone();
         let compiled = match self.commit(next, label, merge, &moves) {
             Ok(compiled) => compiled,
             Err(e) => {
                 // Rien n'est appliqué : le registre d'avant revient aussi.
                 if let Some(previous) = previous {
                     match self.install_widgets(previous) {
-                        Ok(_) => self.doc.sources.set_registry(self.registry.clone()),
+                        Ok(_) => {
+                            self.doc.sources.set_registry(self.registry.clone());
+                            self.doc.notice = notice_before;
+                        }
                         Err(back) => tracing::error!(error = %back.one_line(), "registre d'avant non réinstallé"),
                     }
                 }
@@ -270,7 +275,7 @@ impl Session {
             Ok(compiled) => return Ok(compiled),
             Err(e) => e,
         };
-        if !self.fall_back_to_base(&e)? {
+        if !self.fall_back_or_log(&e) {
             return Err(e).context(RenderSnafu)?;
         }
         self.open_deck_renderer()?;
@@ -308,6 +313,15 @@ impl Session {
         self.doc.sources.set_registry(self.registry.clone());
         self.set_notice(notice);
         Ok(true)
+    }
+
+    /// [`Self::fall_back_to_base`] ; s'il échoue, journalisé et faux : l'appelant
+    /// rend l'erreur d'origine `e`, pas celle du repli.
+    fn fall_back_or_log(&mut self, e: &RenderError) -> bool {
+        self.fall_back_to_base(e).unwrap_or_else(|back| {
+            tracing::error!(error = %back.one_line(), "repli sur les widgets de base impossible");
+            false
+        })
     }
 
     /// Résout de nouveau les widgets du document si des fichiers restent à sonder.
@@ -360,10 +374,7 @@ impl Session {
             Ok(v) => return Ok(v),
             Err(e) => e,
         };
-        let fell_back = match e.render_error() {
-            Some(re) => self.fall_back_to_base(re)?,
-            None => false,
-        };
+        let fell_back = e.render_error().is_some_and(|re| self.fall_back_or_log(re));
         if fell_back { attempt(self) } else { Err(e) }
     }
 

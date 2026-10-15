@@ -96,6 +96,8 @@ impl Session {
         sources.set_registry(self.registry.clone());
         let mut doc = Document::new(sources, self.doc.path.clone(), &self.doc_defaults);
         doc.dirty = self.doc.dirty;
+        // L'avis en attente (celui d'un repli pendant ce rendu compris) suit le document montré.
+        doc.notice = self.doc.notice.take();
         put_blobs(&mut doc, take_blobs(&mut self.doc));
         Ok((doc, compiled))
     }

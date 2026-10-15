@@ -39,6 +39,8 @@ pub enum RenderErrorKind {
     Stale,
     /// Les widgets de ce pack ont déjà fait échouer le rendu : ils ne sont plus exécutés.
     PackDisabled,
+    /// Le processus de rendu parle une autre version du protocole (autre binaire).
+    Protocol,
 }
 
 impl RenderErrorKind {
@@ -82,6 +84,8 @@ pub(crate) enum RenderInner {
     PackDisabled { pack: String, backtrace: Backtrace },
     #[snafu(display("rendering failed: {message}"))]
     Remote { message: String, backtrace: Backtrace },
+    #[snafu(display("the rendering process speaks protocol {found}, expected {expected}"))]
+    Protocol { expected: u32, found: String, backtrace: Backtrace },
 }
 
 impl RenderError {
@@ -97,6 +101,7 @@ impl RenderError {
             RenderInner::Frame { .. } | RenderInner::PageTooLarge { .. } => RenderErrorKind::Frame,
             RenderInner::Stale { .. } => RenderErrorKind::Stale,
             RenderInner::PackDisabled { .. } => RenderErrorKind::PackDisabled,
+            RenderInner::Protocol { .. } => RenderErrorKind::Protocol,
             RenderInner::Path { .. }
             | RenderInner::DeckJson { .. }
             | RenderInner::BaseRegistry { .. }
@@ -140,6 +145,13 @@ impl RenderError {
         PackDisabledSnafu { pack: pack.into() }.build().into()
     }
 
+    /// Le processus de rendu parle le protocole `found` (`None` : il ne le dit
+    /// pas), quand l'hôte attend `expected`.
+    pub fn protocol(expected: u32, found: Option<u32>) -> Self {
+        let found = found.map_or_else(|| "unknown".to_owned(), |v| v.to_string());
+        ProtocolSnafu { expected, found }.build().into()
+    }
+
     /// Messages de Typst (compilation ou export), un par problème.
     pub fn diagnostics(&self) -> &[Diagnostic] {
         match &self.0 {
@@ -170,11 +182,13 @@ impl Localize for RenderError {
             RenderInner::WorkerLost { .. } => "render-worker-lost",
             RenderInner::Frame { .. } => "render-frame",
             RenderInner::Stale { .. } => "render-stale",
+            RenderInner::Protocol { .. } => "render-protocol",
             RenderInner::Compile { .. } => "render-compile",
             RenderInner::Pdf { .. } => "render-pdf",
             RenderInner::NoPage { .. } => "render-no-page",
             RenderInner::Image { .. } => "render-image",
-            RenderInner::Path { .. } | RenderInner::DeckJson { .. } | RenderInner::Remote { .. } => "render-setup",
+            RenderInner::Remote { .. } => "render-remote",
+            RenderInner::Path { .. } | RenderInner::DeckJson { .. } => "render-setup",
         };
         let mut out = l.tr(key);
         for d in self.diagnostics() {

@@ -36,7 +36,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Refuse keep_thread and keep_agent_session for unknown Widget scopes so an invented scope writes nothing. (plan:2026-10-08-sessions-par-perspective)
 - Serialize AgentScope as kind-tagged JSON (slides, atelier with pack, widget with pack and name). (plan:2026-10-08-sessions-par-perspective)
 - On save, count only NotFound as an unchanged file; treat any other read error as disk replaced. (spec:2026-09-27-sources-loro-design)
-- On a Stale render handle, re-render once and surface the error only if that re-render fails. (spec:2026-09-29-compilation-bornee-design)
+- Re-render once on a Stale handle; if a fallback to base widgets fails, log it and return the original render error. (spec:2026-09-29-compilation-bornee-design, t-344)
 - Reach a tab session from the agent only via Workspace::with_session, which drops the workspace lock first. (spec:2026-09-27-agent-onglets-design)
 - Never access tab sessions after Workspace::settle at app shutdown. (t-251)
 - Build design variants on a throwaway deck clone and fail the whole call if any variant is invalid. (spec:2026-09-26-agent-vocal-design)

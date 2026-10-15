@@ -27,6 +27,9 @@ too much memory is killed without taking the app down.
 - `serve` (`serve.rs`): the worker loop; `exit_if_worker` calls it when the binary runs with
   `--render-worker`, under the watchdog (`watchdog.rs`): request > 2 × timeout, memory over the
   limit for 1 s, parent gone → exit 3. Frames go to a copy of stdout; stdout points to stderr.
+- Each connection starts with `Hello`: a worker of another `PROTOCOL_VERSION` is refused
+  (`Protocol`, `render-protocol`). Before each request, fonts no open slot uses are dropped
+  from `ReplayState` and from the worker (`DropFonts`).
 - `Request`/`Response` (`protocol.rs`), frames (`frame.rs`): JSON header and raw payload,
   bounded on both sides by `FrameLimits` from `max_frame_mib`: a header at most an eighth, an
   SVG a quarter, a PNG (page or reference), PDF, font, asset or `.pptx` the whole size.

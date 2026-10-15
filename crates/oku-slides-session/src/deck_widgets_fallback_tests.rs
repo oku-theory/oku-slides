@@ -262,3 +262,59 @@ fn a_failed_install_while_probing_again_does_not_fail_the_edit() {
     s.rerender().unwrap();
     assert_that!(s.widgets_unprobed.is_empty()).is_true();
 }
+
+// ---- Repli et retour arrière, repli qui échoue, repli en historique ------------------
+
+#[test]
+fn apply_that_falls_back_then_fails_to_commit_restores_the_widgets_without_the_notice() {
+    let data = data_dir();
+    let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_RENDER)]);
+    let (registry, templates) = (s.registry.clone(), s.widgets_templates.clone());
+    s.doc.notice = None;
+    // Le rendu boucle (repli sur la base, avec son avis), puis l'inscription dans les sources échoue.
+    s.failpoints.sources_apply = true;
+    assert_that!(s.apply("Pack", vec![set_templates(Some(&looping)), add_loop()], None).is_err()).is_true();
+    assert_that!(Arc::ptr_eq(&s.registry, &registry)).is_true();
+    assert_that!(s.widgets_templates).is_equal_to(templates);
+    assert_that!(s.doc.notice).is_none();
+    assert_registry_agrees(&s);
+}
+
+#[test]
+fn render_whose_fall_back_fails_returns_the_render_error() {
+    let data = data_dir();
+    let mut s = session_on_looping_pack(&data.0);
+    // Le rendu boucle, puis l'installation de la base échoue.
+    s.failpoints.install_widgets = true;
+    let err = s.apply("Boucle", vec![add_loop()], None).unwrap_err();
+    let kind = err.render_error().map(oku_slides_render::RenderError::kind);
+    assert_that!(kind).is_equal_to(Some(oku_slides_render::RenderErrorKind::Timeout));
+}
+
+#[test]
+fn history_open_after_the_pack_faulted_elsewhere_falls_back_and_shows_the_notice() {
+    let data = data_dir();
+    let base = session_in(&data.0).registry.clone();
+    let mut s = session_on_looping_pack(&data.0);
+    fault_pack_outside_the_deck(&s);
+    s.doc.notice = None;
+    s.history_open().unwrap();
+    // L'avis est sur le document montré, pas sur le deck mis de côté.
+    assert_fell_back(&s, &base);
+    s.history_close().unwrap();
+    assert_that!(s.pack.is_none()).is_true();
+    assert_registry_agrees(&s);
+}
+
+#[test]
+fn history_seek_after_the_pack_faulted_elsewhere_keeps_the_notice() {
+    let data = data_dir();
+    let base = session_in(&data.0).registry.clone();
+    let mut s = session_on_looping_pack(&data.0);
+    s.history_open().unwrap();
+    fault_pack_outside_the_deck(&s);
+    s.doc.notice = None;
+    s.history_seek(0).unwrap();
+    assert_fell_back(&s, &base);
+}

@@ -265,19 +265,25 @@ impl Registries {
 
     fn entry(&mut self, pack: &PackWidgets) -> Result<Arc<WidgetRegistry>, RegistryError> {
         let key = pack.fingerprint();
-        if self.cache.contains_key(&key) {
-            self.recent.retain(|k| *k != key);
-        } else {
-            let registry = load_registry(&self.fonts, Some(pack))?;
-            self.cache.insert(key, Arc::new(registry));
-            while self.recent.len() >= MAX_CACHED_PACKS {
-                if let Some(old) = self.recent.pop_front() {
-                    self.cache.remove(&old);
-                }
+        let registry = match self.cache.get(&key) {
+            Some(registry) => {
+                let registry = registry.clone();
+                self.recent.retain(|k| *k != key);
+                registry
             }
-        }
+            None => {
+                let registry = Arc::new(load_registry(&self.fonts, Some(pack))?);
+                while self.recent.len() >= MAX_CACHED_PACKS {
+                    if let Some(old) = self.recent.pop_front() {
+                        self.cache.remove(&old);
+                    }
+                }
+                self.cache.insert(key, registry.clone());
+                registry
+            }
+        };
         self.recent.push_back(key);
-        self.cache.get(&key).cloned().ok_or_else(|| MissingSnafu.build().into())
+        Ok(registry)
     }
 }
 

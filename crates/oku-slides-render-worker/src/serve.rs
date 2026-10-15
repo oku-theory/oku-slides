@@ -2,8 +2,10 @@
 //! par empreinte, un `Compiled` par génération jusqu'à sa libération.
 //!
 //! Règles :
+//! - `Hello` répond la version du protocole du travailleur, quelle que soit celle de l'hôte.
 //! - `fonts` et `assets` se désignent par empreinte ; `PutFont` et `PutAsset`
-//!   rangent leur charge.
+//!   rangent leur charge ; `DropFonts` oublie des polices (les emplacements
+//!   ouverts gardent leur copie).
 //! - `OpenSlot` bâtit les polices (un identifiant inconnu répond `Error Setup`),
 //!   crée le `Renderer`, puis lui pose la langue courante si elle l'est.
 //! - `SetWidgets` demande le registre du pack à `Registries`, puis le pose.
@@ -39,7 +41,7 @@ use snafu::Snafu;
 
 use crate::error::FrameError;
 use crate::frame::{FrameLimits, read_frame, write_frame};
-use crate::protocol::{CompiledHeader, Request, Response, SlotId, WirePack};
+use crate::protocol::{CompiledHeader, PROTOCOL_VERSION, Request, Response, SlotId, WirePack};
 use crate::watchdog::{Busy, Limits};
 
 /// La boucle du travailleur s'est arrêtée sur un tube illisible.
@@ -127,9 +129,16 @@ fn pack_of(p: WirePack) -> Result<PackWidgets, WireError> {
 impl Worker {
     fn handle(&mut self, request: Request, payload: Vec<u8>) -> Reply {
         let result = match request {
+            Request::Hello { .. } => Ok((Response::Hello { version: PROTOCOL_VERSION }, Vec::new())),
             Request::SetLanguage { locale } => self.set_language(&locale),
             Request::PutFont { id } => {
                 self.fonts.insert(id, payload);
+                ok()
+            }
+            Request::DropFonts { ids } => {
+                for id in ids {
+                    self.fonts.remove(&id);
+                }
                 ok()
             }
             Request::PutAsset { id } => {

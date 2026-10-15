@@ -12,6 +12,9 @@
 //! Après tout échec du lien, la requête suivante lance un travailleur neuf et
 //! lui rejoue [`ReplayState`] : langue, polices, emplacements et leurs packs
 //! (sauf les packs fautifs, remplacés par la base).
+//!
+//! Chaque connexion commence par `Hello` : un travailleur d'une autre version
+//! du protocole (autre binaire) est refusé (`Protocol`) et arrêté.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{Read, Write};
@@ -28,7 +31,7 @@ use sha2::{Digest, Sha256};
 
 use crate::error::FrameError;
 use crate::frame::{Frame, FrameLimits, read_frame_with, write_frame};
-use crate::protocol::{Request, Response, SlotId, WirePack};
+use crate::protocol::{PROTOCOL_VERSION, Request, Response, SlotId, WirePack};
 use crate::rss::memory_bytes;
 
 /// Intervalle du relevé de mémoire et du contrôle du délai.
@@ -64,6 +67,31 @@ fn frame_failure(e: FrameError, req: &Request) -> RenderError {
             RenderError::page_too_large(u64::try_from(max / (1024 * 1024)).unwrap_or(u64::MAX))
         }
         FrameError::TooLarge { .. } | FrameError::Json { .. } => RenderError::frame(e.to_string()),
+    }
+}
+
+/// Le statut de sortie d'un fils dont la sortie s'est fermée, attendu au plus
+/// [`GRACE`] : le tube se ferme juste avant la fin du processus. `None` s'il
+/// vit encore (il a fermé sa sortie sans sortir).
+fn exit_status(child: &mut Child) -> Option<std::process::ExitStatus> {
+    let deadline = Instant::now() + GRACE;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Some(status),
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(GRACE_POLL),
+            Ok(None) | Err(_) => return None,
+        }
+    }
+}
+
+/// La réponse à `Hello` dit la version du protocole de l'hôte ; sinon `Protocol`.
+///
+/// Un travailleur plus ancien que `Hello` y répond par une erreur : version inconnue.
+pub(crate) fn check_hello(reply: &Response) -> Result<(), RenderError> {
+    match reply {
+        Response::Hello { version } if *version == PROTOCOL_VERSION => Ok(()),
+        Response::Hello { version } => Err(RenderError::protocol(PROTOCOL_VERSION, Some(*version))),
+        _ => Err(RenderError::protocol(PROTOCOL_VERSION, None)),
     }
 }
 
@@ -234,12 +262,19 @@ impl Link {
         self.started = true;
         self.sent_fonts.clear();
         self.sent_assets.clear();
-        let replayed = self.replay();
-        if replayed.is_err() {
-            // Un travailleur à moitié rejoué n'a pas tous ses emplacements.
+        let ready = self.hello().and_then(|()| self.replay());
+        if let Err(e) = &ready {
+            // Un travailleur d'un autre protocole, ou à moitié rejoué : abandonné.
+            tracing::warn!(error = %e, "processus de rendu non prêt");
             self.conn = None;
         }
-        replayed
+        ready
+    }
+
+    /// Poignée de main : le travailleur doit parler la version du protocole de l'hôte.
+    fn hello(&mut self) -> Result<(), RenderError> {
+        let (reply, _) = self.raw_call(&Request::Hello { version: PROTOCOL_VERSION }, &[])?;
+        check_hello(&reply)
     }
 
     /// Lance le travailleur selon `launch` : tube d'entrée, flux de sortie, fils.
@@ -348,7 +383,7 @@ impl Link {
                 }
                 Ok(Err(e)) => return Err(frame_failure(e, req)),
                 Err(RecvTimeoutError::Disconnected) => {
-                    let status = conn.child.as_mut().and_then(|c| c.try_wait().ok().flatten());
+                    let status = conn.child.as_mut().and_then(exit_status);
                     let message = status.map_or_else(|| "pipe closed".to_owned(), |s| s.to_string());
                     return Err(RenderError::worker_lost(message));
                 }
@@ -406,3 +441,7 @@ impl Drop for Link {
 #[cfg(test)]
 #[path = "link_tests.rs"]
 mod link_tests;
+
+#[cfg(test)]
+#[path = "link_fake_tests.rs"]
+mod link_fake_tests;

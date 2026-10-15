@@ -30,8 +30,11 @@
 //!   `PackDisabled` plutôt que de rendre sans le widget.
 //! - Assets : l'hôte ne garde, parmi ceux envoyés, que ceux du dernier rendu
 //!   de chaque emplacement (même règle que le travailleur).
+//! - Polices : avant chaque requête (`prepare`), celles qu'aucun emplacement
+//!   ouvert n'utilise sont oubliées de l'état de rejeu, et du travailleur par
+//!   `DropFonts` : sa mémoire ne grandit pas au fil des polices des decks.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -75,6 +78,9 @@ pub(crate) struct Shared {
     /// Sondes de fichiers, par nom et `probe_key` (échecs bornés compris) :
     /// quelques clés par nom, le cache ne grandit pas à l'édition.
     pub(crate) file_probes: Mutex<FileProbeCache>,
+    /// Registres assemblés par `probe_pack`, par empreinte du pack réduit aux
+    /// valides, du moins au plus récent.
+    pub(crate) assembled: Mutex<VecDeque<([u8; 32], Arc<WidgetRegistry>)>>,
     /// Langue des diagnostics de la sonde, et son code : construite une fois par langue.
     pub(crate) probe_localizer: Mutex<Option<(String, Arc<Localizer>)>>,
     /// Nombre de fichiers sondés d'un pack, au plus.
@@ -141,6 +147,21 @@ pub(crate) fn evict_assets(link: &mut Link) {
     link.sent_assets = kept;
 }
 
+/// Oublie les polices qu'aucun emplacement ouvert n'utilise : de l'état de
+/// rejeu, et du travailleur connecté (`DropFonts`) pour celles qu'il a reçues.
+pub(crate) fn evict_fonts(link: &mut Link) -> Result<(), RenderError> {
+    let live: HashSet<&String> = link.state.slots.values().flat_map(|s| &s.fonts).collect();
+    let dead: Vec<String> = link.state.fonts.keys().filter(|id| !live.contains(id)).cloned().collect();
+    for id in &dead {
+        link.state.fonts.remove(id);
+    }
+    let sent: Vec<String> = dead.into_iter().filter(|id| link.sent_fonts.remove(id)).collect();
+    if sent.is_empty() || !link.connected() {
+        return Ok(());
+    }
+    expect_ok(link, &Request::DropFonts { ids: sent }, &[])
+}
+
 impl RenderWorker {
     /// Un travailleur, lancé à la première requête.
     pub fn new(launch: RenderLaunch, settings: RenderSettings) -> Self {
@@ -193,6 +214,7 @@ impl RenderWorker {
                 link.call(&req, &[])?;
             }
         }
+        evict_fonts(link)?;
         link.ensure_connected()
     }
 
@@ -287,3 +309,7 @@ pub(crate) fn set_locale(link: &mut Link, l: &Localizer) -> Result<(), RenderErr
 #[cfg(test)]
 #[path = "client_tests.rs"]
 mod client_tests;
+
+#[cfg(test)]
+#[path = "client_fonts_tests.rs"]
+mod client_fonts_tests;

@@ -216,3 +216,17 @@ fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
     assert_that!(env)
         .contains((std::ffi::OsStr::new(oku_slides_platform::RENDER_WORKER_ENV), Some(std::ffi::OsStr::new("1"))));
 }
+
+#[rstest::rstest]
+#[case(Response::Hello { version: PROTOCOL_VERSION + 1 })]
+#[case(Response::Error { error: oku_slides_render::WireError::Frame { message: "unknown op".into() } })]
+#[case(Response::Ok)]
+fn check_hello_of_another_protocol_is_a_protocol_error(#[case] reply: Response) {
+    let e = check_hello(&reply).unwrap_err();
+    assert_that!(e.kind()).is_equal_to(RenderErrorKind::Protocol);
+}
+
+#[test]
+fn check_hello_of_the_same_protocol_is_accepted() {
+    assert_that!(check_hello(&Response::Hello { version: PROTOCOL_VERSION }).is_ok()).is_true();
+}

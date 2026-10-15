@@ -268,3 +268,25 @@ fn serve_reference_with_unknown_font_returns_setup() {
     let (resp, _) = h.call(&Request::Reference { fonts: vec!["inconnue".into()], slides: None }, &libreoffice_pptx());
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
 }
+
+#[test]
+fn serve_hello_answers_the_worker_protocol_version() {
+    let mut h = Harness::new();
+    let (resp, _) = h.call(&Request::Hello { version: crate::protocol::PROTOCOL_VERSION + 1 }, &[]);
+    assert_that!(matches!(resp, Response::Hello { version } if version == crate::protocol::PROTOCOL_VERSION)).is_true();
+}
+
+#[test]
+fn serve_drop_fonts_forgets_them_for_the_next_slots() {
+    let mut h = Harness::new();
+    let font = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/fonts/carlito-400.ttf")).unwrap();
+    h.call(&Request::PutFont { id: "carlito".into() }, &font);
+    assert_that!(matches!(h.call(&Request::OpenSlot { slot: 1, fonts: vec!["carlito".into()] }, &[]).0, Response::Ok))
+        .is_true();
+    assert_that!(matches!(h.call(&Request::DropFonts { ids: vec!["carlito".into()] }, &[]).0, Response::Ok)).is_true();
+    let (resp, _) = h.call(&Request::OpenSlot { slot: 2, fonts: vec!["carlito".into()] }, &[]);
+    assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
+    // L'emplacement déjà ouvert garde sa copie : il rend encore.
+    let (resp, _) = h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![] }, &[]);
+    assert_that!(matches!(resp, Response::Compiled(_))).is_true();
+}

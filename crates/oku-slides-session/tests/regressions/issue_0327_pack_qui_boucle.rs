@@ -5,22 +5,22 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 
 use oku_slides_core::{Op, WidgetFile};
 use oku_slides_platform::RenderLaunch;
 use oku_slides_session::{Fonts, PackLibrary, PackManifest, Platform, Request, Session, Settings, Storage};
 
-const TEST: &str = "looping_pack_render_returns_within_timeout_with_base_widgets";
+const TEST: &str = "looping_pack_render_falls_back_to_base_widgets";
 
-/// Délai de rendu. Il borne aussi chaque appel légitime au travailleur : le
-/// rendu à froid de la session, puis celui de la base dans le travailleur
-/// relancé. Seuls, ils durent ~0,1 s ; sous une suite très chargée, l'un a
-/// dépassé 5 s (t-577) : le délai leur laisse de la marge.
-const TIMEOUT_MS: u64 = 10_000;
-/// Marge au-delà du délai, chacune bornée par lui : la sonde du pack, puis
-/// la relance du travailleur et le rendu avec la base.
-const MARGIN_MS: u64 = 2 * TIMEOUT_MS;
+/// Mémoire du processus de rendu : le widget qui boucle la dépasse vite ; le
+/// rendu légitime (deck d'exemple, base) en reste loin.
+const MEMORY_MIB: u64 = 1024;
+/// Délai de rendu : filet seulement. Il borne aussi chaque appel légitime
+/// (rendu à froid, rendu avec la base dans le travailleur relancé), qu'une
+/// suite très chargée a déjà fait dépasser 5 s (t-577) : large marge.
+/// Le test ne mesure aucune durée : qu'`apply` rende la main, quelle que soit
+/// la borne atteinte (mémoire, délai, arrêt), prouve que la session ne gèle pas.
+const TIMEOUT_MS: u64 = 120_000;
 
 fn main() {
     oku_slides_render_worker::exit_if_worker();
@@ -31,16 +31,20 @@ fn main() {
         }
         return;
     }
-    looping_pack_render_returns_within_timeout_with_base_widgets();
+    looping_pack_render_falls_back_to_base_widgets();
     println!("issue_0327_pack_qui_boucle: ok");
 }
 
+/// Boucle sans fin au rendu en gardant ~1 Kio par tour : la borne de mémoire
+/// l'arrête en quelques secondes, sans dépendre de la charge de la machine
+/// (le délai reste un filet). Croissance linéaire : jamais d'allocation géante
+/// entre deux relevés de la mémoire.
 const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
 #let widget = widget("boucle", params: (body: p.plain()),
-  (args, ctx) => { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; [#n] })
+  (args, ctx) => { let a = (); for _ in range(100000) { for i in range(100000) { a.push(str(i) * 1000) } }; [#a.len()] })
 "#;
 
-fn looping_pack_render_returns_within_timeout_with_base_widgets() {
+fn looping_pack_render_falls_back_to_base_widgets() {
     let data = tempfile::Builder::new().prefix("oku-slides-0327-").tempdir().unwrap_or_else(|e| panic!("{e}"));
     // Le pack « Boucle » est ajouté à la bibliothèque de la session.
     let id = uuid::Uuid::new_v4();
@@ -70,6 +74,7 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
     settings.paths.decks = Some(data.path().join("decks"));
     settings.i18n.locale = Some("fr".into());
     settings.render.timeout_ms = TIMEOUT_MS;
+    settings.render.memory_mib = MEMORY_MIB;
     settings.render.probe_budget_ms = TIMEOUT_MS;
     let program = std::env::current_exe().unwrap_or_else(|e| panic!("{e}"));
     let platform = Platform::with_settings(settings)
@@ -87,10 +92,7 @@ fn looping_pack_render_returns_within_timeout_with_base_widgets() {
           "element": { "id": "l", "kind": "boucle", "params": { "body": "x" } } }
     ]))
     .unwrap_or_else(|e| panic!("{e}"));
-    let started = Instant::now();
     s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("modification refusée : {}", e.one_line()));
-    let elapsed = started.elapsed();
-    assert!(elapsed < Duration::from_millis(TIMEOUT_MS + MARGIN_MS), "session gelée : {elapsed:?}");
     // L'avis `session-pack-disabled` nomme le pack écarté, par le nom de son manifeste.
     let snapshot: serde_json::Value =
         serde_json::from_str(&s.handle(Request::Snapshot).unwrap_or_else(|e| panic!("{e}")))

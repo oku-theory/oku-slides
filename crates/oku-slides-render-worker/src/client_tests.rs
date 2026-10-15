@@ -393,3 +393,54 @@ fn probe_pack_unprobed_diagnostic_speaks_the_language_of_the_slots() {
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("b")].diagnostics[0].message.as_str()).starts_with("Pas encore vérifié");
 }
+
+#[test]
+fn probe_pack_twice_gives_the_same_registry() {
+    let w = worker(10_000);
+    let pack = PackWidgets::new("p", files(&[("quote", QUOTE)])).unwrap();
+    let first = w.probe_pack(&pack).unwrap().registry;
+    let second = w.probe_pack(&pack).unwrap().registry;
+    assert_that!(std::sync::Arc::ptr_eq(&first, &second)).is_true();
+}
+
+#[test]
+fn probe_pack_of_another_pack_gives_another_registry() {
+    let w = worker(10_000);
+    let a = PackWidgets::new("p", files(&[("quote", QUOTE)])).unwrap();
+    let b = PackWidgets::new("p", files(&[("quote", &format!("{QUOTE}// b\n"))])).unwrap();
+    let first = w.probe_pack(&a).unwrap().registry;
+    assert_that!(std::sync::Arc::ptr_eq(&first, &w.probe_pack(&b).unwrap().registry)).is_false();
+}
+
+#[test]
+fn sent_assets_are_emptied_on_reconnection_then_sent_again() {
+    let w = worker(3_000);
+    let mut s = slot(&w);
+    let asset = "00ff".to_owned();
+    let assets = BTreeMap::from([(asset.clone(), vec![1, 2, 3])]);
+    drop(s.render(&tiny_deck(), &assets).unwrap());
+    force_restart(&w, "boucle-assets");
+    w.link().ensure_connected().unwrap();
+    // Le travailleur neuf n'a reçu aucun asset.
+    assert_that!(w.link().sent_assets.is_empty()).is_true();
+    drop(s.render(&tiny_deck(), &assets).unwrap());
+    assert_that!(w.link().sent_assets.contains(&asset)).is_true();
+}
+
+#[test]
+fn compiled_header_with_a_malformed_page_hash_is_a_frame_error_and_releases_its_generation() {
+    let w = worker(10_000);
+    let header = crate::protocol::CompiledHeader {
+        generation: 7,
+        page_count: 1,
+        page_hashes: vec!["pas-un-hash".into()],
+        layout: oku_slides_render::Layout::default(),
+        tokens: None,
+        warnings: Vec::new(),
+        chart_palette: Vec::new(),
+    };
+    let err = RemoteCompiled::from_header(w.clone(), 1, 0, true, header).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
+    let deferred = w.1.deferred.lock().unwrap();
+    assert_that!(matches!(deferred.as_slice(), [Deferred::Release { slot: 1, generation: 7, epoch: 0 }])).is_true();
+}

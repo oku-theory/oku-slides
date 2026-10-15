@@ -5954,6 +5954,7 @@ dependencies = [
  "snafu",
  "speculoos",
  "sysinfo",
+ "tempfile",
  "tracing",
 ]
 

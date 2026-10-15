@@ -11,6 +11,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never blame a pack for failures during widget editing or preview; turn a probe timeout into a file diagnostic. (plan:2026-10-02-creation-widgets)
 - Do not retry a faulty pack in the same session until its source fingerprint changes. (spec:2026-09-29-compilation-bornee-design)
 - Apply the watchdog memory limit only during a request; detect parent loss by a PPID change, not PPID 1. (t-340)
+- Bump PROTOCOL_VERSION on any change to Request, Response or frames; the host refuses a worker of another version. (t-341)
+- Drop fonts that no open slot uses from the replay state and from the worker with DropFonts. (t-341)
 
 ## Pitfalls
 
@@ -19,7 +21,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Do not trust one-time pack validation; bound every render, since pack code may loop only for some params. (spec:2026-09-29-compilation-bornee-design)
 - Do not rely on RLIMIT_AS or RLIMIT_DATA for memory limits; macOS ignores them, so poll worker memory instead. (spec:2026-09-29-compilation-bornee-design)
 - Keep render worker stdout free of anything but protocol frames; the worker redirects stdout to stderr. (t-341)
-- Expect worker memory to climb toward memory_mib in long sessions; loaded fonts are never removed. (t-341)
 
 ## Settled decisions
 

@@ -1,55 +1,50 @@
 # oku-slides-render
 
-Rendu des decks avec Typst embarqué : le deck est exposé en JSON à la
-bibliothèque `typst/oku-slides` (aucun texte du deck n'est du code Typst) ;
-le même document compilé donne SVG, PNG et PDF.
+Deck rendering with embedded Typst: the deck is exposed as JSON to the `typst/oku-slides`
+library (no deck text is Typst code); one compiled document gives SVG, PNG and PDF.
 
-## Types clés
+## Key types
 
-- `Renderer` (`lib.rs`) : garde un monde Typst vivant entre deux rendus (compilation
-  incrémentale). `render`/`set_deck` compilent le deck ; `set_widgets` charge les widgets de
-  base surchargés par un `PackWidgets` ; `set_language` change la langue des cadres de repli.
-  `set_theme` pose les jetons du thème, résolus par la session (servis sous `/theme.json`,
-  passés à `render-deck(…, theme:)`) : le rendu ne lit pas `deck.theme`, ni de bibliothèque de
-  thèmes ; sans thème, les jetons par défaut.
-  Les graphiques sont redessinés avant Typst si la palette du thème compilé diffère de celle
-  utilisée pour les dessiner (un second passage).
-- `Compiled` (`lib.rs`) : un document compilé — `svg`/`png`/`pdf`, `page_hash` (clé de cache),
-  `layout()` (lu une fois dans le document, `OnceCell`).
-- `Layout` (`lib.rs`) : ce que le rendu dit du document — `SlidePage` (page de chaque slide),
-  `ElementBox` (boîte réelle), `FieldBox` (champ éditable), `ItemBox` (item de liste, `list-item`), `ZoneBox`/`GridBox` (zone libre et
-  sa grille), `TextStyle` (typographie mesurée) — rangés par page.
-- Champs (`typst/oku-slides`) : `field()` émet une boîte par champ, même vide ; `fields-stack`
-  colle le marqueur d'un champ vide à l'item voisin, sans occuper de place ni recevoir
-  d'espacement (`FieldBox.empty`, `side`).
-- `PackWidgets` : fichiers `widgets/<nom>.typ` (`_commun` partagé) servis sous `/packs/<id>/`,
-  module d'assemblage généré `/packs/<id>/widgets.typ`. `probe_file` (`widget_probe.rs`) : un
-  fichier seul → `FileProbe` (schéma ou diagnostics à ligne et colonne), nom déclaré = nom de
-  fichier ; `assemble` : registre des seuls valides. `Registries` (`registry.rs`) mémoïse par
-  pack et par `probe_key` ; `base_registry` donne la base sans pack.
-- Erreurs bornées (`error.rs`) : `RenderErrorKind` compte `Timeout`, `OutOfMemory`, `WorkerLost`,
-  `Frame`, `Stale`, `PackDisabled` en plus des échecs Typst ; `is_bounded` dit lesquels
-  (hors `Frame`, `Stale`) font replier la session sur les widgets de base.
-- `wire` (`wire.rs`) : `WireError` : forme sérialisable (sans backtrace) de
-  `RenderError`/`RegistryError`, pour le tube du travailleur ; `Layout` est aussi sérialisable ; `Fonts::files` expose
-  les octets des polices pour les empreintes et le rejeu.
-- `OkuSlidesWorld` (`world.rs`, privé) : système de fichiers virtuel (bibliothèque embarquée,
-  avec ses données JSON `src/default-tokens.json` et `themes/*.json` ; deck, thème, assets, pack) et polices (`Fonts`, `fonts.rs`) sans police système.
-- `charts` (privé) : élément à `host("chart")` → SVG rendu par `oku-slides-chart`, servi sous
-  `/charts/<empreinte>.svg` ; l'empreinte couvre options, taille, police, palette, libellés.
-  Dessiné à la taille de sa boîte (relevée à la compilation hors cadre), jamais mis à l'échelle.
-- `tables` (privé, `tables.rs`) : passe de garde avant Typst (forme canonique, ou `null` si invalide) ;
-  le dessin est fait par Typst (`widgets.typ`), sans passe de dessin Rust.
-- `diagnostic` : messages Typst localisés ; `palette` : couleurs nommées, palette des graphiques.
+- `Renderer` (`lib.rs`): keeps a live Typst world between renders (incremental compilation).
+  `render`/`set_deck` compile the deck; `set_widgets` loads the base widgets overridden by a
+  `PackWidgets`; `set_language` sets the language of fallback frames. `set_theme` sets the
+  theme tokens resolved by the session (served as `/theme.json`, passed to
+  `render-deck(…, theme:)`): rendering reads neither `deck.theme` nor a theme library; without
+  a theme, the default tokens. Charts are redrawn before Typst when the compiled theme's
+  palette differs from the one they were drawn with (a second pass).
+- `Compiled` (`lib.rs`): a compiled document: `svg`/`png`/`pdf`, `page_hash` (cache key),
+  `layout()` (read once from the document, `OnceCell`).
+- `Layout` (`lib.rs`): what rendering says about the document, by page: `SlidePage`,
+  `ElementBox` (real box), `FieldBox` (editable field), `ItemBox` (list item, `list-item`),
+  `ZoneBox`/`GridBox` (free zone and its grid), `TextStyle` (measured typography). `field()`
+  emits one box per field, even empty; `fields-stack` sticks an empty field's marker to the
+  next item, taking no room (`FieldBox.empty`, `side`).
+- `PackWidgets`: `widgets/<name>.typ` files (shared `_commun`) served under `/packs/<id>/`, with
+  a generated assembly module `/packs/<id>/widgets.typ`. `probe_file` (`widget_probe.rs`): one
+  file alone gives a `FileProbe` (schema, or diagnostics with line and column; declared name =
+  file name); `assemble`: the registry of the valid ones only. `Registries` (`registry.rs`)
+  memoizes by pack and by `probe_key`; `base_registry` gives the base without a pack.
+- Bounded errors (`error.rs`): `RenderErrorKind` has `Timeout`, `OutOfMemory`, `WorkerLost`,
+  `Frame`, `Stale`, `PackDisabled`, `Protocol` besides Typst failures; `is_bounded` says which
+  ones (not `Frame`, `Stale`, `Protocol`) make the session fall back to the base widgets.
+- `wire` (`wire.rs`): `WireError`, the serializable form (no backtrace) of
+  `RenderError`/`RegistryError` for the worker pipe; `Layout` is serializable too;
+  `Fonts::files` exposes font bytes for fingerprints and replay.
+- `OkuSlidesWorld` (`world.rs`, private): virtual file system (embedded library with its JSON
+  data `src/default-tokens.json` and `themes/*.json`; deck, theme, assets, pack) and fonts
+  (`Fonts`, `fonts.rs`), no system font.
+- `charts` (private): an element with `host("chart")` becomes an SVG drawn by
+  `oku-slides-chart`, served as `/charts/<fingerprint>.svg` (options, size, font, palette,
+  labels); drawn at its box size (measured at compilation), never scaled.
+- `tables` (private): guard pass before Typst (canonical form, or `null` if invalid); Typst
+  draws the table, no Rust pass. `diagnostic`: localized Typst messages; `palette`: colors.
 
-## Points d'extension
+## Extension points
 
-- Nouveau format de sortie d'une page : une méthode sur `Compiled`.
-- Une nouvelle métadonnée lue dans le document : une étiquette Typst (`oku-slides-*`) côté
-  bibliothèque, un champ de `Layout` et une entrée dans `Layout::layout()` côté Rust.
+- A new page output format: a method on `Compiled`. New document metadata: a Typst label
+  (`oku-slides-*`) in the library, a `Layout` field and an entry in `Layout::layout()`.
 
-## Dépendances
+## Dependencies
 
-`oku-slides-core` (`Deck`, `WidgetRegistry`), `oku-slides-i18n`, `oku-slides-chart`, `typst` et
-sa famille (`typst-pdf`, `typst-svg`, `typst-render`, `typst-layout`, `typst-assets`) ; dev :
-`oku-slides-pdf`, `speculoos`, `insta`.
+`oku-slides-core`, `oku-slides-i18n`, `oku-slides-chart`, `typst` and its family (`typst-pdf`,
+`typst-svg`, `typst-render`, `typst-layout`, `typst-assets`); dev: `oku-slides-pdf`, `speculoos`, `insta`.
