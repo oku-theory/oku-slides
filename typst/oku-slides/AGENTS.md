@@ -4,7 +4,7 @@
 
 - Render table cell texts as plain strings, never as Typst markup or through eval. (spec:2026-10-08-widget-tableau-design, plan:2026-10-08-widget-tableau)
 - Wrap every plain and rich widget param in field() so its editable box is emitted. (spec:2026-09-27-widgets-typst-design)
-- Restrict p.list columns to plain, rich, number, flag, choice or asset; never name one id, kind or with a slash. (spec:2026-10-04-parametre-liste-design)
+- Restrict p.list columns to plain, rich, number, flag, choice, asset or one nested p.list level; never name one id, kind or with a slash. (spec:2026-10-04-parametre-liste-design, t-495)
 - Ensure an empty field never changes layout, so export output stays identical. (spec:2026-09-28-champs-editables-design)
 - Emit list items as enum.item and list.item, never one enum or list per paragraph. (t-173)
 - When shipping a font for a new script, add it to script-fallback in tokens.typ and to the issue_0176 test. (t-177)

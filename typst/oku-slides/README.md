@@ -291,7 +291,7 @@ depuis `params.typ` (`#import "/oku-slides/lib.typ": params as p`) :
 | `p.asset(label:)` | Identifiant d'asset `sha256:…` |
 | `p.slot(label:, mode:, accepts:)` | Éléments enfants ; `mode` : `"flow"` ou `"free"` ; `accepts` : noms de widgets admis, ou `none` |
 | `p.grid(label:, default:)` | Grille `(columns:, rows:, gap:)` |
-| `p.list(label:, item-label:, item:, min:, max:, default:)` | Liste d'items aux colonnes typées (`plain`, `rich`, `number`, `flag`, `choice`, `asset`), saisie en tableau ; liste absente = vide, `default` n'amorce qu'un objet créé |
+| `p.list(label:, item-label:, item:, min:, max:, default:)` | Liste d'items aux colonnes typées (`plain`, `rich`, `number`, `flag`, `choice`, `asset`, ou une `p.list` imbriquée sur un seul niveau), saisie en tableau ; liste absente = vide, `default` n'amorce qu'un objet créé |
 | `p.host(name, label:)` | Type fourni et validé par l'hôte (`"chart"`, `"table"`, `"path"`) |
 
 ### `widget(name, label:, category:, params:, render)`
@@ -342,6 +342,28 @@ dépôt Oku Slides (`fixtures/widgets/frise-test.typ`).
 Une liste absente vaut la liste vide ; `default` n'amorce qu'un objet
 nouvellement créé.
 
+#### Liste imbriquée
+
+Une colonne peut être elle-même une `p.list` : chaque item porte alors sa
+propre liste (des étapes à sous-tâches). L'imbrication s'arrête à un niveau :
+une liste imbriquée qui déclare encore une colonne `p.list` est refusée.
+Ses items se rendent avec `list-item` appelé sur le `c` de l'item parent ;
+leurs champs s'adressent `etapes/<étape>/taches/<tâche>/<colonne>`, et la
+liste imbriquée d'un item nouvellement ajouté reçoit le `default` de sa
+colonne (ses lignes n'ont pas besoin d'`id`).
+
+```typ
+#let widget = widget("plan", params: (etapes: p.list(item-label: "étape",
+  item: (titre: p.plain(), taches: p.list(item-label: "tâche", max: 8,
+    item: (texte: p.plain(), fait: p.flag()))))),
+  (args, ctx) => grid(columns: (1fr,) * args.etapes.len(),
+    ..args.etapes.map(e => list-item(ctx, "etapes", e, c => stack(
+      field(c, "titre", e.titre),
+      ..e.taches.map(x => list-item(c, "taches", x, cc => field(cc, "texte", x.texte))))))))
+```
+
+L'exemple complet est `fixtures/widgets/plan-test.typ` dans le dépôt Oku Slides.
+
 ### Champs vides
 
 `field()` d'une valeur absente (`none` ou `""`) ne rend rien : il rend un
@@ -369,7 +391,7 @@ base doit rester valide pour celui du pack.
 - `p.choice()` : `values` du pack doit contenir celui de la base
   (sur-ensemble).
 - `p.list()` : une liste doit rester identique (mêmes colonnes, mêmes
-  types, même `item-label`, mêmes bornes).
+  types, même `item-label`, mêmes bornes), liste imbriquée comprise.
 - Les autres types (`plain`, `rich`, `flag`, `asset`, `grid`, `host`)
   doivent être identiques.
 

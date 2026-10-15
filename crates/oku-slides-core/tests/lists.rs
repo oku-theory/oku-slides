@@ -386,3 +386,86 @@ fn list_bound_of_an_error_other_than_a_list_bound_is_none() {
     assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::ItemNotFound);
     assert_that!(err.op_error().list_bound()).is_none();
 }
+
+// Listes imbriquées (t-495) : `edit_list` adresse la liste d'un item par `param/item/colonne`.
+
+fn edit_plan(param: &str, change: Value) -> Op {
+    op(
+        json!({ "op": "edit_list", "target": { "slide": "s-constat", "element": "p" }, "param": param, "change": change }),
+    )
+}
+
+fn tasks_of(deck: &Deck, step: &str) -> Vec<(String, Option<String>)> {
+    let Some(p) = deck.slide("s-constat").and_then(|s| s.locate("p")).map(|l| l.element) else { panic!("plan absent") };
+    let steps = p.params.list("etapes").unwrap_or_default();
+    let it = steps.iter().find(|i| i.id == step).unwrap_or_else(|| panic!("étape {step} absente"));
+    it.values
+        .list("taches")
+        .unwrap_or_default()
+        .iter()
+        .map(|t| (t.id.clone(), t.values.text("texte").map(str::to_owned)))
+        .collect()
+}
+
+#[test]
+fn add_element_with_defaults_seeds_nested_list_defaults() {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "p", "kind": "plan" }))).unwrap();
+    assert_that!(tasks_of(&deck, "d0")).is_equal_to(vec![("d0".to_owned(), Some("Cadrer".to_owned()))]);
+}
+
+#[test]
+fn edit_list_nested_path_inserts_moves_sets_and_removes_a_nested_item() {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "p", "kind": "plan" }))).unwrap();
+    apply(&mut deck, edit_plan("etapes/d0/taches", json!({ "op": "insert", "index": 0, "id": "n" }))).unwrap();
+    apply(
+        &mut deck,
+        edit_plan("etapes/d0/taches", json!({ "op": "set_field", "item": "n", "field": "texte", "value": "Neuf" })),
+    )
+    .unwrap();
+    apply(&mut deck, edit_plan("etapes/d0/taches", json!({ "op": "move", "item": "n", "to": 1 }))).unwrap();
+    assert_that!(tasks_of(&deck, "d0"))
+        .is_equal_to(vec![("d0".to_owned(), Some("Cadrer".to_owned())), ("n".to_owned(), Some("Neuf".to_owned()))]);
+    apply(&mut deck, edit_plan("etapes/d0/taches", json!({ "op": "remove", "item": "d0" }))).unwrap();
+    assert_that!(tasks_of(&deck, "d0")).is_equal_to(vec![("n".to_owned(), Some("Neuf".to_owned()))]);
+}
+
+#[test]
+fn edit_list_inserting_a_step_seeds_its_nested_default() {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "p", "kind": "plan" }))).unwrap();
+    apply(&mut deck, edit_plan("etapes", json!({ "op": "insert", "id": "e2" }))).unwrap();
+    assert_that!(tasks_of(&deck, "e2")).is_equal_to(vec![("d0".to_owned(), Some("Première".to_owned()))]);
+}
+
+#[rstest::rstest]
+#[case("etapes/zz/taches", OpErrorKind::ItemNotFound)]
+#[case("etapes/d0/titre", OpErrorKind::ParamType)]
+#[case("etapes/d0", OpErrorKind::UnknownParam)]
+#[case("inconnue/d0/taches", OpErrorKind::UnknownParam)]
+fn edit_list_bad_nested_path_is_refused(#[case] param: &str, #[case] kind: OpErrorKind) {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "p", "kind": "plan" }))).unwrap();
+    assert_that!(apply_err(&mut deck, edit_plan(param, json!({ "op": "insert", "id": "n" })))).is_equal_to(kind);
+}
+
+#[test]
+fn edit_list_nested_insert_beyond_its_max_is_refused() {
+    let mut deck = fixture();
+    apply(&mut deck, add_new(json!({ "id": "p", "kind": "plan" }))).unwrap();
+    for id in ["a", "b"] {
+        apply(&mut deck, edit_plan("etapes/d0/taches", json!({ "op": "insert", "id": id }))).unwrap();
+    }
+    let kind = apply_err(&mut deck, edit_plan("etapes/d0/taches", json!({ "op": "insert", "id": "c" })));
+    assert_that!(kind).is_equal_to(OpErrorKind::ListBound);
+}
+
+#[rstest::rstest]
+#[case::top(json!([{ "id": "a/b" }]))]
+#[case::nested(json!([{ "id": "a", "taches": [{ "id": "x/y" }] }]))]
+fn add_element_with_a_slash_in_an_item_id_is_refused(#[case] steps: Value) {
+    let mut deck = fixture();
+    let kind = apply_err(&mut deck, add(json!({ "id": "p", "kind": "plan", "params": { "etapes": steps } })));
+    assert_that!(kind).is_equal_to(OpErrorKind::InvalidValue);
+}

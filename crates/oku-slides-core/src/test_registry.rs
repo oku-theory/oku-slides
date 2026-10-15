@@ -73,13 +73,33 @@ pub(crate) const MESURES: &str = r#"{
     }]
 }"#;
 
-/// Le registre de base, plus les widgets [`LISTE`], [`BORNES`], [`CHRONO`] et [`MESURES`].
+/// Le widget d'élément `plan` des tests : une liste `etapes` (colonne `titre`) dont chaque
+/// item porte une liste imbriquée `taches` (`texte`, `fait`, `note` riche), bornée à 3 items (t-495).
+pub(crate) const PLAN: &str = r#"{
+    "name": "plan",
+    "category": "element",
+    "params": [{
+        "name": "etapes",
+        "type": "list",
+        "item-label": "étape",
+        "item": [
+            { "name": "titre", "type": "plain", "default": "Étape" },
+            { "name": "taches", "type": "list", "item-label": "tâche", "max": 3,
+              "item": [{ "name": "texte", "type": "plain", "default": "Tâche" }, { "name": "fait", "type": "flag" },
+                       { "name": "note", "type": "rich" }],
+              "default": [{ "texte": "Première tâche" }] }
+        ],
+        "default": [{ "titre": "Lancement", "taches": [{ "texte": "Cadrer" }, { "texte": "Planifier" }] }]
+    }]
+}"#;
+
+/// Le registre de base, plus les widgets [`LISTE`], [`BORNES`], [`CHRONO`], [`MESURES`] et [`PLAN`].
 pub(crate) fn with_list() -> std::sync::Arc<WidgetRegistry> {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     let mut probe: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
     let base = probe["base"].as_array_mut().unwrap_or_else(|| panic!("sonde : base attendu"));
-    for widget in [LISTE, BORNES, CHRONO, MESURES] {
+    for widget in [LISTE, BORNES, CHRONO, MESURES, PLAN] {
         base.push(serde_json::from_str(widget).unwrap_or_else(|e| panic!("{widget} : {e}")));
     }
     std::sync::Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("sonde : {e}")))

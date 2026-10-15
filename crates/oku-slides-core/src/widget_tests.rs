@@ -379,6 +379,71 @@ fn from_probe_list_default_with_unknown_column_fails() {
     assert_that!(list_probe(p)).is_err();
 }
 
+/// Une colonne `list` (liste imbriquée) aux colonnes `item`.
+fn sublist(name: &str, item: Value) -> Value {
+    json!({ "name": name, "type": "list", "item": item, "min": 0, "max": null })
+}
+
+fn fault_of(r: Result<WidgetRegistry, WidgetError>) -> Option<SchemaFault> {
+    match r.map(drop).map_err(|e| e.kind()) {
+        Err(WidgetErrorKind::BadSchema(f)) => Some(f),
+        _ => None,
+    }
+}
+
+#[test]
+fn from_probe_list_with_a_nested_list_column_reads_its_columns() {
+    let r =
+        list_probe(list(json!([col("titre", "plain"), sublist("taches", json!([col("texte", "plain")]))]))).unwrap();
+    let ParamType::List { item, .. } = &r.get("w").unwrap().param("etapes").unwrap().ty else {
+        panic!("pas une liste")
+    };
+    let ParamType::List { item: sub, .. } = &item[1].ty else { panic!("colonne imbriquée attendue") };
+    assert_that!(sub[0].name.as_str()).is_equal_to("texte");
+}
+
+#[test]
+fn from_probe_list_nested_two_levels_returns_list_depth() {
+    let deep = sublist("taches", json!([sublist("sous", json!([col("t", "plain")]))]));
+    assert_that!(fault_of(list_probe(list(json!([deep]))))).is_equal_to(Some(SchemaFault::ListDepth));
+}
+
+#[test]
+fn from_probe_nested_list_with_an_excluded_column_type_returns_column_type() {
+    let bad = sublist("taches", json!([col("x", "grid")]));
+    assert_that!(fault_of(list_probe(list(json!([bad]))))).is_equal_to(Some(SchemaFault::ColumnType));
+}
+
+#[test]
+fn from_probe_nested_list_reserved_column_name_returns_reserved_name() {
+    let bad = sublist("taches", json!([col("id", "plain")]));
+    assert_that!(fault_of(list_probe(list(json!([bad]))))).is_equal_to(Some(SchemaFault::ReservedName));
+}
+
+#[test]
+fn from_probe_list_default_with_nested_rows_without_ids_is_accepted() {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [col("a", "plain"), sublist("taches", json!([col("texte", "plain")]))],
+        "default": [{ "a": "x", "taches": [{ "texte": "un" }, { "texte": "deux" }] }] }]);
+    assert_that!(list_probe(p)).is_ok();
+}
+
+#[test]
+fn from_probe_list_default_with_a_wrongly_typed_nested_cell_returns_default_wrong_type() {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [sublist("taches", json!([col("texte", "plain")]))],
+        "default": [{ "taches": [{ "texte": 3 }] }] }]);
+    assert_that!(fault_of(list_probe(p))).is_equal_to(Some(SchemaFault::DefaultWrongType));
+}
+
+#[test]
+fn from_probe_list_default_beyond_the_nested_max_returns_list_default_too_large() {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [{ "name": "taches", "type": "list", "min": 0, "max": 1, "item": [col("texte", "plain")] }],
+        "default": [{ "taches": [{ "texte": "un" }, { "texte": "deux" }] }] }]);
+    assert_that!(fault_of(list_probe(p))).is_equal_to(Some(SchemaFault::ListDefaultTooLarge));
+}
+
 #[test]
 fn param_type_host_of_a_host_param_returns_it() {
     assert_that!(ParamType::Host { host: HostType::Table }.host()).is_equal_to(Some(HostType::Table));
@@ -387,4 +452,78 @@ fn param_type_host_of_a_host_param_returns_it() {
 #[test]
 fn param_type_host_of_plain_returns_none() {
     assert_that!(ParamType::Plain.host()).is_none();
+}
+
+#[test]
+fn localize_list_depth_in_french_says_one_level() {
+    use oku_slides_i18n::Localize;
+    let deep = sublist("taches", json!([sublist("sous", json!([col("t", "plain")]))]));
+    let err = list_probe(list(json!([deep]))).unwrap_err();
+    let text = err.localize(&oku_slides_i18n::Localizer::new(Some("fr")));
+    assert_that!(text).contains("w");
+    assert_that!(text).contains("un niveau");
+}
+
+// Suites de revue (t-495) : défaut d'une liste imbriquée et son minimum, ids explicites.
+
+fn nested_min(min: usize, default: Value) -> Value {
+    json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [{ "name": "taches", "type": "list", "min": min, "max": null, "item": [col("texte", "plain")],
+            "default": default }] }])
+}
+
+#[rstest]
+#[case::one_row(json!([{ "texte": "un" }]))]
+#[case::empty(json!([]))]
+fn from_probe_nested_default_below_its_min_returns_list_default_below_min(#[case] default: Value) {
+    assert_that!(fault_of(list_probe(nested_min(2, default)))).is_equal_to(Some(SchemaFault::ListDefaultBelowMin));
+}
+
+#[test]
+fn from_probe_outer_default_row_with_a_nested_array_below_min_returns_list_default_below_min() {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [{ "name": "taches", "type": "list", "min": 2, "max": null, "item": [col("texte", "plain")] }],
+        "default": [{ "taches": [{ "texte": "un" }] }] }]);
+    assert_that!(fault_of(list_probe(p))).is_equal_to(Some(SchemaFault::ListDefaultBelowMin));
+}
+
+#[test]
+fn from_probe_nested_default_at_its_min_is_accepted() {
+    assert_that!(list_probe(nested_min(2, json!([{ "texte": "un" }, { "texte": "deux" }])))).is_ok();
+}
+
+#[test]
+fn from_probe_outer_default_row_with_a_null_nested_list_is_accepted() {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [sublist("taches", json!([col("texte", "plain")]))], "default": [{ "taches": null }] }]);
+    assert_that!(list_probe(p)).is_ok();
+}
+
+#[test]
+fn from_probe_nested_default_rows_with_explicit_ids_are_accepted_and_kept() {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [sublist("taches", json!([col("texte", "plain")]))],
+        "default": [{ "taches": [{ "id": "x", "texte": "un" }, { "texte": "deux" }] }] }]);
+    let r = list_probe(p).unwrap();
+    let d = crate::default_items(r.get("w").unwrap().param("l").unwrap()).unwrap();
+    let ids: Vec<&str> = d[0].values.list("taches").unwrap().iter().map(|t| t.id.as_str()).collect();
+    assert_that!(ids).is_equal_to(vec!["x", "d1"]);
+}
+
+#[rstest]
+#[case::duplicate(json!([{ "id": "x" }, { "id": "x" }]))]
+#[case::slash(json!([{ "id": "a/b" }]))]
+#[case::not_a_string(json!([{ "id": 3 }]))]
+fn from_probe_nested_default_rows_with_bad_ids_return_default_wrong_type(#[case] rows: Value) {
+    let p = json!([{ "name": "l", "type": "list", "min": 0, "max": null,
+        "item": [sublist("taches", json!([col("texte", "plain")]))], "default": [{ "taches": rows }] }]);
+    assert_that!(fault_of(list_probe(p))).is_equal_to(Some(SchemaFault::DefaultWrongType));
+}
+
+#[test]
+fn localize_list_default_below_min_in_french_names_the_widget() {
+    use oku_slides_i18n::Localize;
+    let err = list_probe(nested_min(2, json!([{ "texte": "un" }]))).unwrap_err();
+    let text = err.localize(&oku_slides_i18n::Localizer::new(Some("fr")));
+    assert_that!(text).contains("minimum");
 }

@@ -10,6 +10,7 @@ mod check;
 mod grid;
 mod host;
 mod list;
+mod list_path;
 mod moving;
 mod value;
 
@@ -38,9 +39,10 @@ use check::{check_accepts, check_params};
 pub(crate) use host::{host_option, normalize_hosts};
 pub(crate) use list::{DefaultFault, default_fault};
 pub use list::{
-    ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, default_items,
-    text_fits,
+    ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListSpec, NESTED_ITEMS_MAX, PLAIN_MAX, RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX,
+    default_items, text_fits,
 };
+pub use list_path::ListPath;
 pub use moving::Moved;
 pub use value::{GRID_TRACKS, param_value};
 
@@ -160,8 +162,9 @@ pub enum Op {
         param: String,
         change: DataOp,
     },
-    /// Modifie une liste (`list`) : items adressés par leur id. Remplacer
-    /// toute la liste : `set_param`.
+    /// Modifie une liste (`list`) : items adressés par leur id. `param` : le
+    /// paramètre, ou `param/item/colonne` pour la liste imbriquée d'un item.
+    /// Remplacer toute la liste : `set_param`.
     EditList {
         target: Target,
         param: String,
@@ -511,7 +514,7 @@ impl Op {
                 let (k, params) = target_mut(deck, &target)?;
                 *params = normalized;
                 if *k != kind {
-                    list::seed_lists(registry, &kind, params);
+                    list::seed_lists(registry, &kind, params)?;
                     *k = kind;
                 }
                 Ok(())
@@ -633,8 +636,8 @@ impl Op {
                 }
                 check_params(registry, &slide.kind, Category::Slide, &slide.params)?;
                 if defaults {
-                    list::seed_lists(registry, &slide.kind, &mut slide.params);
-                    list::seed_slots(registry, &mut slide.params);
+                    list::seed_lists(registry, &slide.kind, &mut slide.params)?;
+                    list::seed_slots(registry, &mut slide.params)?;
                 }
                 let at = index.unwrap_or(deck.slides.len());
                 if at > deck.slides.len() {
@@ -750,7 +753,7 @@ fn add_element(
 ) -> Result<(), OpError> {
     let (at, _) = check_add(registry, slide_ref(deck, &slot.owner.slide)?, &slot, index, &mut element)?;
     if defaults {
-        list::seed_element(registry, &mut element);
+        list::seed_element(registry, &mut element)?;
     }
     insert_at(slide_mut(deck, &slot.owner.slide)?, &slot, at, element)
 }

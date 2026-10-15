@@ -6,6 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use super::list_path::ListPath;
 use super::value::param_value;
 use super::{Target, declared, target_mut, target_ref, widget};
 use crate::error::{
@@ -22,8 +23,10 @@ pub const RICH_PARAGRAPHS_MAX: usize = 64;
 pub const RICH_BYTES_MAX: usize = 16384;
 /// Longueur d'un id d'item, en caractères.
 pub const ITEM_ID_MAX: usize = 64;
-/// Items d'une liste dont le schéma ne donne pas de `max`.
+/// Items d'une liste au plus : le `max` d'un schéma est ramené à cette borne.
 pub const LIST_ITEMS_MAX: usize = 256;
+/// Items des listes imbriquées de tous les items d'une liste, au plus (t-495).
+pub const NESTED_ITEMS_MAX: usize = 2 * LIST_ITEMS_MAX;
 
 /// Un changement d'une liste ; la liste entière se remplace par `set_param`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -72,16 +75,35 @@ impl<'a> ListSpec<'a> {
         }
     }
 
-    fn column(&self, field: &str) -> Result<&'a ParamSchema, OpError> {
+    pub(super) fn column(&self, field: &str) -> Result<&'a ParamSchema, OpError> {
         self.columns
             .iter()
             .find(|c| c.name == field)
             .ok_or_else(|| UnknownParamSnafu { widget: self.name, param: field }.build().into())
     }
 
-    /// Items au plus : le `max` du schéma, sinon [`LIST_ITEMS_MAX`].
+    /// Items au plus : le `max` du schéma borné à [`LIST_ITEMS_MAX`], sinon [`LIST_ITEMS_MAX`].
     pub fn max_items(&self) -> usize {
-        self.max.unwrap_or(LIST_ITEMS_MAX)
+        self.max.map_or(LIST_ITEMS_MAX, |m| m.min(LIST_ITEMS_MAX))
+    }
+
+    /// Items des listes imbriquées de tous les items de `items`.
+    pub fn nested_total(&self, items: &[ListItem]) -> usize {
+        let nested = || self.columns.iter().filter(|c| matches!(c.ty, ParamType::List { .. }));
+        items.iter().map(|it| nested().map(|c| it.values.list(&c.name).map_or(0, <[_]>::len)).sum::<usize>()).sum()
+    }
+
+    /// Refuse plus de [`NESTED_ITEMS_MAX`] items imbriqués dans `items`.
+    pub(super) fn nested_total_fits(&self, items: &[ListItem]) -> Result<(), OpError> {
+        if self.nested_total(items) > NESTED_ITEMS_MAX {
+            return Err(self.refuse_total());
+        }
+        Ok(())
+    }
+
+    /// Le refus d'un total d'items imbriqués au-delà de [`NESTED_ITEMS_MAX`].
+    pub(super) fn refuse_total(&self) -> OpError {
+        self.refuse(ListBound::TooManyItems { max: NESTED_ITEMS_MAX })
     }
 
     fn refuse(&self, bound: ListBound) -> OpError {
@@ -117,14 +139,20 @@ impl<'a> ListSpec<'a> {
     }
 
     /// Bornes de taille d'items déjà convertis (sous-arbre inséré) : nombre
-    /// d'items, longueur des ids et des cellules.
+    /// d'items (imbriqués compris), ids (sans `/`, longueur) et cellules.
     pub(crate) fn sizes_fit(&self, items: &[ListItem]) -> Result<(), OpError> {
         self.too_many(items.len())?;
+        self.nested_total_fits(items)?;
         for it in items {
+            if it.id.contains('/') {
+                return Err(InvalidValueSnafu { field: self.name, reason: ValueReason::BadItemId }.build().into());
+            }
             id_fits(self, &it.id)?;
             for (name, v) in it.values.iter() {
-                if let Some(c) = self.columns.iter().find(|c| c.name == name) {
-                    self.cell_fits(c, v)?;
+                let Some(c) = self.columns.iter().find(|c| c.name == name) else { continue };
+                self.cell_fits(c, v)?;
+                if let (Some(sub), ParamValue::List(sub_items)) = (ListSpec::of(&c.name, &c.ty), v) {
+                    sub.sizes_fit(sub_items)?;
                 }
             }
         }
@@ -146,14 +174,53 @@ pub fn text_fits(ty: &ParamType, v: &ParamValue) -> bool {
     }
 }
 
-/// Valeurs d'un item : colonnes déclarées, converties ; absentes : défaut.
-fn item_values(spec: &ListSpec<'_>, values: &Map<String, Value>) -> Result<Params, OpError> {
+/// Comment les valeurs d'un item se complètent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Fill {
+    /// Item nouveau (`insert`) : une colonne absente prend son défaut, liste imbriquée comprise.
+    New,
+    /// Ligne d'un défaut de schéma : comme `New`, et les lignes de ses listes imbriquées
+    /// reçoivent les ids `d0`, `d1`…
+    Default,
+    /// Liste remplacée (`set_param`, collage) : une liste imbriquée absente reste vide
+    /// (son défaut n'amorce qu'un objet créé) ; les autres colonnes prennent leur défaut.
+    Replace,
+}
+
+/// Lignes d'une liste imbriquée écrites dans un défaut : ids `d0`, `d1`… à celles qui n'en
+/// ont pas (les mêmes que Typst) ; toute autre valeur est rendue telle quelle.
+fn seed_ids(c: &ParamSchema, v: Value) -> Value {
+    match (&c.ty, v) {
+        (ParamType::List { .. }, Value::Array(rows)) => Value::Array(
+            rows.into_iter()
+                .enumerate()
+                .map(|(i, row)| match row {
+                    Value::Object(mut o) => {
+                        o.entry("id").or_insert_with(|| Value::String(format!("d{i}")));
+                        Value::Object(o)
+                    }
+                    other => other,
+                })
+                .collect(),
+        ),
+        (_, v) => v,
+    }
+}
+
+/// Valeurs d'un item : colonnes déclarées, converties ; absentes : défaut (voir [`Fill`]).
+fn item_values(spec: &ListSpec<'_>, values: &Map<String, Value>, fill: Fill) -> Result<Params, OpError> {
     if let Some(k) = values.keys().find(|k| !spec.columns.iter().any(|c| &c.name == *k)) {
         return Err(UnknownParamSnafu { widget: spec.name, param: k.as_str() }.build().into());
     }
     let mut out = Params::default();
     for c in spec.columns {
-        let raw = values.get(&c.name).cloned().or_else(|| c.default.clone()).unwrap_or(Value::Null);
+        let nested = matches!(c.ty, ParamType::List { .. });
+        let raw = match values.get(&c.name) {
+            Some(v) if fill == Fill::Default => seed_ids(c, v.clone()),
+            Some(v) => v.clone(),
+            None if nested && fill == Fill::Replace => Value::Null,
+            None => c.default.clone().map(|d| seed_ids(c, d)).unwrap_or(Value::Null),
+        };
         if let Some(v) = spec.cell(c, raw)? {
             out.set(c.name.clone(), v);
         }
@@ -179,7 +246,7 @@ fn id_fits(spec: &ListSpec<'_>, id: &str) -> Result<(), OpError> {
     Ok(())
 }
 
-fn position(spec: &ListSpec<'_>, items: &[ListItem], id: &str) -> Result<usize, OpError> {
+pub(super) fn position(spec: &ListSpec<'_>, items: &[ListItem], id: &str) -> Result<usize, OpError> {
     items.iter().position(|i| i.id == id).ok_or_else(|| ItemNotFoundSnafu { list: spec.name, item: id }.build().into())
 }
 
@@ -196,7 +263,7 @@ impl ListOp {
                 if at > items.len() {
                     return Err(IndexOutOfRangeSnafu { index: at, len: items.len() }.build().into());
                 }
-                let values = item_values(spec, &values)?;
+                let values = item_values(spec, &values, Fill::New)?;
                 items.insert(at, ListItem { id, values });
             }
             ListOp::Remove { item } => {
@@ -236,7 +303,7 @@ pub fn default_items(p: &ParamSchema) -> Result<Vec<ListItem>, OpError> {
         .enumerate()
         .map(|(i, row)| {
             let empty = Map::new();
-            let values = item_values(&spec, row.as_object().unwrap_or(&empty))?;
+            let values = item_values(&spec, row.as_object().unwrap_or(&empty), Fill::Default)?;
             Ok(ListItem { id: format!("d{i}"), values })
         })
         .collect()
@@ -249,20 +316,57 @@ pub(crate) enum DefaultFault {
     WrongType,
     /// Les valeurs ont le bon type mais dépassent les bornes de taille (items, cellules).
     TooLarge,
+    /// Une liste imbriquée par défaut a moins d'items que son `min` : toute insertion
+    /// de l'item qui la porte serait refusée.
+    BelowMin,
 }
 
 /// La faute du défaut de la liste `p`, types contrôlés avant les tailles ;
-/// `None` pour un défaut absent, qui n'est pas un tableau, ou valable.
-pub(crate) fn default_fault(p: &ParamSchema) -> Option<DefaultFault> {
+/// `None` pour un défaut absent, qui n'est pas un tableau, ou valable. `nested` : `p` est la
+/// colonne d'une liste, dont le défaut passe par `set_param` (ids, `min`).
+pub(crate) fn default_fault(p: &ParamSchema, nested: bool) -> Option<DefaultFault> {
     let spec = ListSpec::of(&p.name, &p.ty)?;
     let Some(Value::Array(rows)) = &p.default else { return None };
+    rows_fault(&spec, rows, nested)
+}
+
+/// La faute des lignes `rows` d'un défaut de la liste `spec`. Une liste imbriquée
+/// (`nested`) se lit comme [`seed_ids`] la prépare : `id` chaîne valable et unique ou
+/// absent, au moins `min` lignes ; dans une ligne parente, `null` vaut une liste vide.
+fn rows_fault(spec: &ListSpec<'_>, rows: &[Value], nested: bool) -> Option<DefaultFault> {
+    if nested && rows.len() < spec.min {
+        return Some(DefaultFault::BelowMin);
+    }
     let mut too_large = rows.len() > spec.max_items();
+    let mut ids = std::collections::HashSet::new();
     for row in rows {
         let Some(obj) = row.as_object() else { return Some(DefaultFault::WrongType) };
-        if obj.keys().any(|k| !spec.columns.iter().any(|c| &c.name == k)) {
+        let id_ok = |id: &Value| {
+            id.as_str().is_some_and(|s| !s.is_empty() && !s.contains('/') && s.chars().count() <= ITEM_ID_MAX)
+        };
+        match obj.get("id") {
+            Some(id) if nested && id_ok(id) && ids.insert(id.as_str().unwrap_or_default().to_owned()) => {}
+            None => {}
+            Some(_) => return Some(DefaultFault::WrongType),
+        }
+        if obj.keys().any(|k| k != "id" && !spec.columns.iter().any(|c| &c.name == k)) {
             return Some(DefaultFault::WrongType);
         }
         for c in spec.columns {
+            if let Some(sub) = ListSpec::of(&c.name, &c.ty) {
+                let fault = match obj.get(&c.name) {
+                    Some(Value::Array(sub_rows)) => rows_fault(&sub, sub_rows, true),
+                    // Absente : le défaut de la colonne, contrôlé avec elle ; `null` : vide.
+                    None | Some(Value::Null) => None,
+                    Some(_) => Some(DefaultFault::WrongType),
+                };
+                match fault {
+                    Some(DefaultFault::TooLarge) => too_large = true,
+                    Some(f) => return Some(f),
+                    None => {}
+                }
+                continue;
+            }
             let raw = obj.get(&c.name).cloned().or_else(|| c.default.clone()).unwrap_or(Value::Null);
             match param_value(&c.ty, &c.name, raw) {
                 Err(_) => return Some(DefaultFault::WrongType),
@@ -271,6 +375,21 @@ pub(crate) fn default_fault(p: &ParamSchema) -> Option<DefaultFault> {
             }
         }
     }
+    // Total des listes imbriquées : lignes données, ou défaut de la colonne pour une absente.
+    let nested_total: usize = rows
+        .iter()
+        .filter_map(Value::as_object)
+        .flat_map(|obj| {
+            spec.columns.iter().filter(|c| matches!(c.ty, ParamType::List { .. })).map(move |c| {
+                match obj.get(&c.name) {
+                    Some(Value::Array(a)) => a.len(),
+                    None => c.default.as_ref().and_then(Value::as_array).map_or(0, Vec::len),
+                    Some(_) => 0,
+                }
+            })
+        })
+        .sum();
+    too_large |= nested_total > NESTED_ITEMS_MAX;
     too_large.then_some(DefaultFault::TooLarge)
 }
 
@@ -293,16 +412,18 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
             _ => return Err(InvalidValueSnafu { field: spec.name, reason: ValueReason::MissingItemId }.build().into()),
         };
         check_id(spec, &items, &id)?;
-        let values = item_values(spec, &obj)?;
+        let values = item_values(spec, &obj, Fill::Replace)?;
         items.push(ListItem { id, values });
     }
     if items.len() < spec.min {
         return Err(spec.refuse(ListBound::Minimum { min: spec.min }));
     }
+    spec.nested_total_fits(&items)?;
     Ok(if items.is_empty() { None } else { Some(ParamValue::List(items)) })
 }
 
-/// `edit_list` : la liste du paramètre `param` de la cible, changée par `change`.
+/// `edit_list` : la liste au chemin `param` de la cible (paramètre, ou
+/// `param/item/colonne` pour une liste imbriquée), changée par `change`.
 pub(super) fn edit_list(
     deck: &mut Deck,
     registry: &WidgetRegistry,
@@ -311,46 +432,53 @@ pub(super) fn edit_list(
     change: ListOp,
 ) -> Result<(), OpError> {
     let (kind, _, _) = target_ref(deck, target)?;
-    let p = declared(widget(registry, kind)?, param)?.clone();
+    let schema = widget(registry, kind)?;
+    let path =
+        ListPath::parse(param).ok_or_else(|| OpError::from(UnknownParamSnafu { widget: kind, param }.build()))?;
+    let p = declared(schema, path.param)?.clone();
     let spec = ListSpec::of(&p.name, &p.ty)
         .ok_or_else(|| OpError::from(ParamTypeSnafu { param, expected: Shape::List.required() }.build()))?;
     let (_, params) = target_mut(deck, target)?;
-    let mut items = params.list(param).map(<[_]>::to_vec).unwrap_or_default();
-    change.apply(&mut items, &spec)?;
+    let mut items = params.list(path.param).map(<[_]>::to_vec).unwrap_or_default();
+    path.apply(&mut items, &spec, change)?;
     if items.is_empty() {
-        params.remove(param);
+        params.remove(path.param);
     } else {
-        params.set(param, ParamValue::List(items));
+        params.set(path.param, ParamValue::List(items));
     }
     Ok(())
 }
 
 /// Amorce les listes absentes d'un objet créé avec le défaut du schéma de `kind`.
-pub(crate) fn seed_lists(registry: &WidgetRegistry, kind: &str, params: &mut Params) {
-    let Some(schema) = registry.get(kind) else { return };
+/// Un défaut que le cœur refuse est une erreur (le contrôle du schéma l'écarte d'avance).
+pub(crate) fn seed_lists(registry: &WidgetRegistry, kind: &str, params: &mut Params) -> Result<(), OpError> {
+    let Some(schema) = registry.get(kind) else { return Ok(()) };
     for p in &schema.params {
-        if params.get(&p.name).is_none()
-            && let Ok(items) = default_items(p)
-            && !items.is_empty()
-        {
+        if params.get(&p.name).is_some() {
+            continue;
+        }
+        let items = default_items(p)?;
+        if !items.is_empty() {
             params.set(p.name.clone(), ParamValue::List(items));
         }
     }
+    Ok(())
 }
 
 /// [`seed_lists`] d'un élément et, récursivement, de ceux de ses slots.
-pub(crate) fn seed_element(registry: &WidgetRegistry, element: &mut Element) {
-    seed_lists(registry, &element.kind, &mut element.params);
-    seed_slots(registry, &mut element.params);
+pub(crate) fn seed_element(registry: &WidgetRegistry, element: &mut Element) -> Result<(), OpError> {
+    seed_lists(registry, &element.kind, &mut element.params)?;
+    seed_slots(registry, &mut element.params)
 }
 
 /// [`seed_lists`] de chaque élément des slots de `params`, récursivement.
-pub(crate) fn seed_slots(registry: &WidgetRegistry, params: &mut Params) {
+pub(crate) fn seed_slots(registry: &WidgetRegistry, params: &mut Params) -> Result<(), OpError> {
     for (_, children) in params.slots_mut() {
         for child in children {
-            seed_element(registry, child);
+            seed_element(registry, child)?;
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]

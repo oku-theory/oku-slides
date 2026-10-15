@@ -1,5 +1,6 @@
-//! Pack de widgets des tests de rendu : la frise de test (`fixtures/widgets/frise-test.typ`)
-//! et le rendu d'un deck d'une slide avec un pack.
+//! Pack de widgets des tests de rendu : la frise de test (`fixtures/widgets/frise-test.typ`),
+//! le plan à liste imbriquée (`fixtures/widgets/plan-test.typ`) et le rendu d'un deck d'une
+//! slide avec un pack.
 
 #![allow(dead_code)]
 
@@ -12,6 +13,14 @@ use serde_json::json;
 
 /// Source du widget de pack `frise` : liste `etapes` (date, texte), quatre étapes par défaut.
 pub const FRISE_TEST: &str = include_str!("../../../../fixtures/widgets/frise-test.typ");
+
+/// Source du widget de pack `plan` : étapes (`titre`) à tâches imbriquées (`texte`, `fait`).
+pub const PLAN_TEST: &str = include_str!("../../../../fixtures/widgets/plan-test.typ");
+
+/// Le pack de test qui porte le plan.
+pub fn plan_pack() -> PackWidgets {
+    pack("plan-test", &[("plan", PLAN_TEST)])
+}
 
 /// Un pack `id` aux fichiers `files` (nom, source).
 pub fn pack(id: &str, files: &[(&str, &str)]) -> PackWidgets {

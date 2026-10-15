@@ -80,11 +80,17 @@
 }
 
 // Items d'une liste : id (`d<i>` s'il manque ou n'est pas une chaîne),
-// colonnes au défaut, valeurs prêtes.
+// colonnes au défaut, valeurs prêtes. Une colonne `list` (liste imbriquée, un
+// niveau) donne ses items de même ; absente ou d'un autre type, elle est vide.
 #let _items(t, d, v, vars) = (if v == none { () } else { v }).enumerate().map(((i, it)) => {
   let id = it.at("id", default: none)
   let out = (id: if type(id) == str { id } else { "d" + str(i) })
   for c in d.item {
+    if c.type == "list" {
+      let cv = it.at(c.name, default: none)
+      out.insert(c.name, _items(t, c, if cv != none and _fits(c, cv) { cv } else { none }, vars))
+      continue
+    }
     let cv = it.at(c.name, default: c.default)
     let cv = if cv == none or _fits(c, cv) { cv } else { c.default }
     out.insert(c.name, _ready(t, c, cv, vars))

@@ -18,7 +18,8 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 - `widget.rs`: `WidgetRegistry` and `WidgetSchema` / `ParamSchema` / `ParamType` / `Category` /
   `HostType` / `SlotMode`, declared in Typst; ops and `validate` ask it what a `kind` accepts.
 - `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`); `check.rs` types inserted subtrees;
-  `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `grid.rs`
+  `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs`
+  (`ListPath`: `param` or `param/item/column`, an item's nested list, one level); `grid.rs`
   (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)` params, `set_data`);
   `moving.rs` (`move_element`, `apply_all_moving`).
 - `replica/`: `DeckReplica`, the deck in a `LoroDoc`: merge, history, undo; see

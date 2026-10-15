@@ -203,11 +203,18 @@ pub(super) fn param_kind(params: Option<&[ParamSchema]>, name: &str, value: &Val
 }
 
 /// Catégorie de la colonne `name` d'un item aux colonnes `columns`, comme
-/// un paramètre ; mais une colonne n'est jamais une collection (liste imbriquée : t-495), et l'`id`
-/// d'un item est une valeur, clé de sa réconciliation.
+/// un paramètre ; une colonne n'est jamais un slot ni un hôte, et n'est une liste
+/// (conteneur, liste imbriquée t-495) que si `columns` la déclare `list` : une valeur en
+/// forme d'items d'une colonne non déclarée reste une valeur LWW (un seul niveau, et une
+/// valeur déjà écrite n'est jamais remplacée par un conteneur, parade t-188). L'`id` d'un
+/// item est une valeur, clé de sa réconciliation.
 pub(super) fn column_kind(columns: Option<&[ParamSchema]>, name: &str, value: &Value) -> Kind {
+    let declared_list = columns
+        .and_then(|cs| cs.iter().find(|c| c.name == name))
+        .is_some_and(|c| matches!(c.ty, ParamType::List { .. }));
     match param_kind(columns, name, value) {
         _ if name == "id" => Kind::Atom,
+        Kind::List if declared_list => Kind::List,
         Kind::Slides | Kind::Slot | Kind::List | Kind::Host => Kind::Atom,
         kind => kind,
     }

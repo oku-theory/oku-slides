@@ -90,3 +90,46 @@ fn text_fields_of_a_plain_param_have_the_owner_values_and_no_list() {
     assert_that!(title.map(|f| f.values.text("title"))).is_equal_to(Some(Some("T")));
     assert_that!(title.is_some_and(|f| f.list.is_none())).is_true();
 }
+
+fn plan_slide() -> Slide {
+    slide(json!({ "id": "s", "kind": "blank", "params": { "elements": [
+        { "id": "p", "kind": "plan", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 }, "params": { "etapes": [
+            { "id": "a", "titre": "A", "taches": [{ "id": "t1", "texte": "un" }, { "id": "t2" }] },
+            { "id": "b", "titre": "B" }
+        ] } }
+    ] } }))
+}
+
+#[test]
+fn text_fields_expand_nested_list_items_after_their_item_fields() {
+    let reg = test_registry::with_list();
+    let names: Vec<String> = plan_slide().text_fields(&reg).iter().map(|f| f.name().into_owned()).collect();
+    assert_that!(names).is_equal_to(vec![
+        "etapes/a/titre".to_owned(),
+        "etapes/a/taches/t1/texte".into(),
+        "etapes/a/taches/t1/note".into(),
+        "etapes/a/taches/t2/texte".into(),
+        "etapes/a/taches/t2/note".into(),
+        "etapes/b/titre".into(),
+    ]);
+}
+
+#[test]
+fn text_field_of_a_nested_item_has_its_list_path_and_values() {
+    let reg = test_registry::with_list();
+    let s = plan_slide();
+    let fields = s.text_fields(&reg);
+    let f = fields.iter().find(|f| f.name() == "etapes/a/taches/t1/texte").unwrap();
+    assert_that!(f.list_path().as_deref()).is_equal_to(Some("etapes/a/taches"));
+    assert_that!(f.list.map(|(_, i)| i.id.as_str())).is_equal_to(Some("t1"));
+    assert_that!(f.values.text("texte")).is_equal_to(Some("un"));
+}
+
+#[test]
+fn text_field_of_a_top_item_has_the_param_as_list_path() {
+    let reg = test_registry::with_list();
+    let s = plan_slide();
+    let fields = s.text_fields(&reg);
+    let f = fields.iter().find(|f| f.name() == "etapes/a/titre").unwrap();
+    assert_that!(f.list_path().as_deref()).is_equal_to(Some("etapes"));
+}

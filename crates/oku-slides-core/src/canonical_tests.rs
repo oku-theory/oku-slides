@@ -526,3 +526,18 @@ fn unique_ids_after_a_taken_suffix_keeps_the_same_names() {
     };
     assert_eq!(ids, ["x", "x-3", "x-2", "x-4"]);
 }
+
+#[test]
+fn canonicalize_nested_list_duplicate_ids_are_repaired_within_their_list() {
+    let tasks: Vec<ListItem> =
+        serde_json::from_value(serde_json::json!([{ "id": "t", "texte": "a" }, { "id": "t", "texte": "b" }])).unwrap();
+    let mut values = Params::default();
+    values.set("taches", ParamValue::List(tasks));
+    let mut d = deck_with(vec![]);
+    d.slides[0].params.set("etapes", ParamValue::List(vec![ListItem { id: "a".into(), values }]));
+    let d = canonical(d);
+    let step = &d.slides[0].params.list("etapes").unwrap_or_default()[0];
+    let ids: Vec<&str> = step.values.list("taches").unwrap_or_default().iter().map(|t| t.id.as_str()).collect();
+    assert_that!(ids.len()).is_equal_to(2);
+    assert_that!(ids[0] != ids[1]).is_true();
+}

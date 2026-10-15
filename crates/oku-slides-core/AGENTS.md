@@ -5,7 +5,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Bump SOURCES_VERSION whenever REPLICA_FORMAT changes. (ADR-0005, plan:2026-10-10-deck-en-arbre)
-- Enforce list size bounds in the core on every write path, agent included; define bound constants only there. (plan:2026-10-04-suivis-listes, t-528)
+- Enforce list size bounds, nested totals included, in the core on every write path, agent included; define bound constants only there. (plan:2026-10-04-suivis-listes, t-528, t-495)
 - Validate links and highlights in rich list columns with the same rules as other rich params. (plan:2026-10-04-suivis-listes, t-527)
 - In SourceBundle::new, canonicalize before and after normalize_hosts so exact copies are dropped first. (plan:2026-10-09-finitions-ids, t-688)
 - Never add a top-level Slide or Element field starting with the at sign; such meta keys are reserved. (plan:2026-10-10-deck-en-arbre)
@@ -21,9 +21,9 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep bundle assets, fonts and packs add-only: merge by union, never remove one. (spec:2026-09-27-sources-loro-design, plan:2026-10-01-packs-portables)
 - Store empty or whitespace-only optional prose as None; never keep Some of an empty string. (spec:2026-09-27-sources-loro-design)
 - Read sources zips with bounded take reads, capped capacity and a total budget; check deck.loro size before reading. (spec:2026-09-27-sources-loro-design)
-- Restrict list column types to plain, rich, number, flag, choice and asset. (plan:2026-10-04-parametre-liste)
+- Restrict list column types to plain, rich, number, flag, choice, asset and a list nested one level deep. (plan:2026-10-04-parametre-liste, t-495)
 - Never name a list column id or kind, and never put a slash in a param name, column name or item id. (plan:2026-10-04-parametre-liste)
-- Address list items by stable id, never by index; an item field path is list/itemId/column. (spec:2026-10-04-parametre-liste-design)
+- Address list items by stable id, never by index; an item field or nested list path is list/itemId/column, parsed by ListPath. (spec:2026-10-04-parametre-liste-design, t-495)
 - Treat an absent list as empty; seed schema defaults only on new objects, never on paste or replace_element. (spec:2026-10-04-parametre-liste-design)
 - When overriding a base widget, keep each list parameter identical to the base definition. (plan:2026-10-04-parametre-liste)
 - Normalize host ids and columns on every host write, and in SourceBundle::restore as in SourceBundle::new. (plan:2026-10-08-fusion-cellules, t-631)

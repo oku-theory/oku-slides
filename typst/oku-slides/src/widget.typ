@@ -63,11 +63,13 @@
 
 /// Item `it` de la liste `name` : boîte <oku-slides-item> (poignées de la
 /// slide) ; `body(c)` reçoit un ctx dont les champs s'adressent à l'item
-/// (`<liste>/<id>/<colonne>`).
+/// (`<liste>/<id>/<colonne>`). Appelé avec le ctx d'un item, il rend un item
+/// de sa liste imbriquée : liste `<liste>/<id>/<colonne>`, champs préfixés de même.
 #let list-item(ctx, name, it, body) = if ctx.id == none { body(ctx) } else {
   let id = str(it.id)
-  let c = ctx + (field-prefix: ctx.at("field-prefix", default: "") + name + "/" + id + "/")
-  _measured((owner: str(ctx.id), list: name, item: id), "oku-slides-item", body(c), (:))
+  let list = ctx.at("field-prefix", default: "") + name
+  let c = ctx + (field-prefix: list + "/" + id + "/")
+  _measured((owner: str(ctx.id), list: list, item: id), "oku-slides-item", body(c), (:))
 }
 
 // Boîte d'un champ vide, posée hors flux à la position verticale courante

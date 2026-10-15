@@ -21,7 +21,8 @@ pub fn shared() -> std::sync::Arc<WidgetRegistry> {
 
 /// Le registre de base, plus les widgets de liste : `liste` (une liste `etapes`
 /// aux colonnes `date` et `texte` `plain`, `note` `rich`), `bornes` (une liste
-/// bornée de 1 à 2 items).
+/// bornée de 1 à 2 items), `plan` (étapes `titre`, à liste imbriquée `taches` de 3 items
+/// au plus, colonne `texte`).
 pub fn list_registry() -> WidgetRegistry {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
@@ -43,6 +44,19 @@ pub fn list_registry() -> WidgetRegistry {
         "name": "bornes",
         "category": "element",
         "params": [{ "name": "bornee", "type": "list", "min": 1, "max": 2, "item": [{ "name": "t", "type": "plain" }] }]
+    }, {
+        "name": "plan",
+        "category": "element",
+        "params": [{
+            "name": "etapes",
+            "type": "list",
+            "item": [
+                { "name": "titre", "type": "plain" },
+                { "name": "taches", "type": "list", "max": 3, "item": [{ "name": "texte", "type": "plain", "default": "Tâche" }],
+                  "default": [{ "texte": "Première" }] }
+            ],
+            "default": [{ "titre": "Lancement", "taches": [{ "texte": "Cadrer" }] }]
+        }]
     }]);
     let Some(base) = probe["base"].as_array_mut() else { panic!("sonde : base attendu") };
     base.extend(widgets.as_array().cloned().unwrap_or_default());

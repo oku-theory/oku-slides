@@ -490,6 +490,11 @@ pub enum SchemaFault {
     ListBounds,
     /// Le défaut d'une liste dépasse ses bornes de taille (items, cellules).
     ListDefaultTooLarge,
+    /// Une liste imbriquée (colonne `list`) porte elle-même une colonne `list` : un seul niveau.
+    ListDepth,
+    /// Le défaut d'une liste imbriquée (le sien, ou celui d'une ligne parente) a moins
+    /// d'items que son `min`.
+    ListDefaultBelowMin,
 }
 
 impl std::fmt::Display for SchemaFault {
@@ -508,6 +513,8 @@ impl std::fmt::Display for SchemaFault {
             SchemaFault::ReservedName => "reserved parameter name",
             SchemaFault::ListBounds => "list max below min",
             SchemaFault::ListDefaultTooLarge => "list default exceeds the list size limits",
+            SchemaFault::ListDepth => "list nested more than one level",
+            SchemaFault::ListDefaultBelowMin => "nested list default below its min",
         })
     }
 }
@@ -528,6 +535,8 @@ impl SchemaFault {
             SchemaFault::ReservedName => "widget-fault-reserved-name",
             SchemaFault::ListBounds => "widget-fault-list-bounds",
             SchemaFault::ListDefaultTooLarge => "widget-fault-list-default-too-large",
+            SchemaFault::ListDepth => "widget-fault-list-depth",
+            SchemaFault::ListDefaultBelowMin => "widget-fault-list-default-below-min",
         }
     }
 }

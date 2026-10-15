@@ -177,7 +177,7 @@ fn element_ids(params: &Params, out: &mut Vec<String>) {
 }
 
 /// Répare les slots (portée `elements`, celle de la slide) et les listes
-/// (portée propre à chacune) de `params`, à toute profondeur.
+/// (portée propre à chacune, listes imbriquées comprises) de `params`, à toute profondeur.
 fn unique_params(params: &mut Params, elements: &mut Ids) {
     for v in params.0.values_mut() {
         match v {
@@ -190,6 +190,10 @@ fn unique_params(params: &mut Params, elements: &mut Ids) {
             ParamValue::List(items) => {
                 let mut scope = Ids::new(items.iter().map(|i| i.id.clone()));
                 *items = unique(std::mem::take(items), |i: &mut ListItem| &mut i.id, &mut scope);
+                // Listes imbriquées : chacune sa portée ; un item n'a pas de slot.
+                for it in items.iter_mut() {
+                    unique_params(&mut it.values, elements);
+                }
             }
             _ => {}
         }

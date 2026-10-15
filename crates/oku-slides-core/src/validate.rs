@@ -10,7 +10,7 @@ use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{Deck, DeckParams, Grid, Paragraph};
 use crate::ops::ListSpec;
 use crate::pack::PackVersion;
-use crate::params::{ParamValue, Params};
+use crate::params::{ListItem, ParamValue, Params};
 use crate::widget::{Category, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 /// Un problème du deck : où, et quoi.
@@ -193,16 +193,35 @@ impl<'a> Validator<'a> {
                 Fit::OutOfChoice => self.push(at, Message::new("issue-choice-out-of-range").arg("param", name)),
             }
             if let (Some(spec), Some(items)) = (ListSpec::of(name, &p.ty), params.list(name)) {
-                let mut seen = HashSet::new();
-                for it in items {
-                    if it.id.is_empty() {
-                        self.push(at, Message::new("issue-empty-item-id").arg("param", name));
-                    } else if !seen.insert(it.id.as_str()) {
-                        self.push(at, Message::new("issue-duplicate-item-id").arg("param", name));
-                    }
-                }
-                if !items.is_empty() && (items.len() < spec.min || items.len() > spec.max_items()) {
-                    self.push(at, Message::new("issue-list-bounds").arg("param", name));
+                self.list(at, name, &spec, items);
+            }
+        }
+    }
+
+    /// Ids et bornes des items `items` de la liste au chemin `path`, puis de chaque liste
+    /// imbriquée de ses items (chemin `path/item/colonne`).
+    fn list(&mut self, at: Place<'_>, path: &str, spec: &ListSpec<'_>, items: &[ListItem]) {
+        let mut seen = HashSet::new();
+        for it in items {
+            if it.id.is_empty() {
+                self.push(at, Message::new("issue-empty-item-id").arg("param", path));
+            } else if it.id.contains('/') {
+                // Un `/` couperait le chemin `liste/item/colonne` : refusé par les ops.
+                self.push(at, Message::new("issue-invalid-item-id").arg("param", path));
+            } else if !seen.insert(it.id.as_str()) {
+                self.push(at, Message::new("issue-duplicate-item-id").arg("param", path));
+            }
+        }
+        let total_over = spec.nested_total(items) > crate::NESTED_ITEMS_MAX;
+        if !items.is_empty() && (items.len() < spec.min || items.len() > spec.max_items() || total_over) {
+            self.push(at, Message::new("issue-list-bounds").arg("param", path));
+        }
+        for c in spec.columns {
+            let Some(sub) = ListSpec::of(&c.name, &c.ty) else { continue };
+            for it in items {
+                let nested = it.values.list(&c.name).unwrap_or_default();
+                if !nested.is_empty() {
+                    self.list(at, &format!("{path}/{}/{}", it.id, c.name), &sub, nested);
                 }
             }
         }
@@ -217,10 +236,19 @@ impl<'a> Validator<'a> {
             match &p.ty {
                 ParamType::Asset => absent.extend(missing(params, &p.name)),
                 ParamType::List { item, .. } => {
-                    let columns = item.iter().filter(|c| c.ty == ParamType::Asset);
-                    for c in columns {
-                        for it in params.list(&p.name).unwrap_or_default() {
-                            absent.extend(missing(&it.values, &c.name));
+                    for it in params.list(&p.name).unwrap_or_default() {
+                        for c in item {
+                            match &c.ty {
+                                ParamType::Asset => absent.extend(missing(&it.values, &c.name)),
+                                // Liste imbriquée : ses colonnes `asset`, item par item.
+                                ParamType::List { item: sub, .. } => {
+                                    for nested in it.values.list(&c.name).unwrap_or_default() {
+                                        let assets = sub.iter().filter(|s| s.ty == ParamType::Asset);
+                                        absent.extend(assets.filter_map(|s| missing(&nested.values, &s.name)));
+                                    }
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }
@@ -232,9 +260,13 @@ impl<'a> Validator<'a> {
         }
     }
 
-    /// Liens et pastilles de tous les textes riches, y compris les colonnes rich des items de liste.
+    /// Liens et pastilles de tous les textes riches, y compris les colonnes rich des items de liste
+    /// (listes imbriquées comprises).
     fn rich(&mut self, at: Place<'_>, params: &Params) {
-        let cells = || params.lists().flat_map(|(_, items)| items).flat_map(|it| it.values.riches());
+        let items = || params.lists().flat_map(|(_, items)| items);
+        // Items des listes imbriquées (un seul niveau).
+        let nested = || items().flat_map(|it| it.values.lists()).flat_map(|(_, sub)| sub);
+        let cells = || items().chain(nested()).flat_map(|it| it.values.riches());
         let runs = || params.riches().chain(cells()).flat_map(|(_, ps)| ps).flat_map(|p: &Paragraph| &p.runs);
         for link in runs().filter_map(|r| r.link.as_deref()).filter(|l| !is_safe_link(l)) {
             self.push(at, Message::new("issue-unsupported-link").arg("link", link));

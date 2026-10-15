@@ -1,6 +1,7 @@
 //! Champs texte d'une slide dans l'ordre de lecture : ceux de la slide, puis
 //! ceux de chaque élément, parents avant enfants (ordre de Tab de l'éditeur),
-//! et les colonnes texte des items de chaque liste, dans l'ordre des items.
+//! et les colonnes texte des items de chaque liste, dans l'ordre des items (celles d'une
+//! liste imbriquée à la place de sa colonne).
 
 use std::borrow::Cow;
 
@@ -26,17 +27,32 @@ pub struct TextField<'a> {
     pub param: &'a ParamSchema,
     /// Paramètres où lire `param` : ceux du propriétaire, ou ceux de l'item.
     pub values: &'a Params,
-    /// Pour un item : le nom de la liste et l'item.
+    /// Pour un item : le nom de la liste (sa colonne pour une liste imbriquée) et l'item.
     pub list: Option<(&'a str, &'a ListItem)>,
+    /// Pour un item d'une liste imbriquée : le paramètre `list` et l'item qui la portent.
+    pub outer: Option<(&'a str, &'a ListItem)>,
 }
 
 impl<'a> TextField<'a> {
-    /// Nom du champ : `liste/id/colonne` pour un item, sinon le paramètre.
+    /// Nom du champ : `liste/id/colonne` pour un item, `liste/id/sous-liste/sous-id/colonne`
+    /// pour un item imbriqué, sinon le paramètre.
     pub fn name(&self) -> Cow<'a, str> {
-        match self.list {
-            Some((list, item)) => Cow::Owned(format!("{list}/{}/{}", item.id, self.param.name)),
+        match self.list_path() {
+            Some(path) => {
+                Cow::Owned(format!("{path}/{}/{}", self.list.map_or("", |(_, i)| i.id.as_str()), self.param.name))
+            }
             None => Cow::Borrowed(self.param.name.as_str()),
         }
+    }
+
+    /// Chemin de la liste d'un item ([`ListPath`](crate::ListPath)) : le paramètre, ou
+    /// `liste/id/sous-liste` pour un item imbriqué ; `None` hors d'une liste.
+    pub fn list_path(&self) -> Option<Cow<'a, str>> {
+        let (list, _) = self.list?;
+        Some(match self.outer {
+            Some((outer, item)) => Cow::Owned(format!("{outer}/{}/{list}", item.id)),
+            None => Cow::Borrowed(list),
+        })
     }
 }
 
@@ -50,19 +66,39 @@ fn text_params<'a>(
     values: &'a Params,
 ) -> impl Iterator<Item = TextField<'a>> {
     registry.get(kind).into_iter().flat_map(|w| w.params.iter()).flat_map(move |param| {
-        let own = is_text(&param.ty).then_some(TextField { owner, owner_id, param, values, list: None });
+        let own = is_text(&param.ty).then_some(TextField { owner, owner_id, param, values, list: None, outer: None });
         let (items, columns) = match &param.ty {
             ParamType::List { item, .. } => (values.list(&param.name).unwrap_or_default(), item.as_slice()),
             _ => (&[][..], &[][..]),
         };
         let name = param.name.as_str();
         let cells = items.iter().flat_map(move |it| {
-            columns.iter().filter(|c| is_text(&c.ty)).map(move |param| TextField {
-                owner,
-                owner_id,
-                param,
-                values: &it.values,
-                list: Some((name, it)),
+            columns.iter().flat_map(move |param| {
+                let own = is_text(&param.ty).then_some(TextField {
+                    owner,
+                    owner_id,
+                    param,
+                    values: &it.values,
+                    list: Some((name, it)),
+                    outer: None,
+                });
+                // Liste imbriquée : ses colonnes texte, item par item, à la place de la colonne.
+                let (sub_items, sub_columns) = match &param.ty {
+                    ParamType::List { item, .. } => (it.values.list(&param.name).unwrap_or_default(), item.as_slice()),
+                    _ => (&[][..], &[][..]),
+                };
+                let sub = param.name.as_str();
+                let nested = sub_items.iter().flat_map(move |st| {
+                    sub_columns.iter().filter(|c| is_text(&c.ty)).map(move |param| TextField {
+                        owner,
+                        owner_id,
+                        param,
+                        values: &st.values,
+                        list: Some((sub, st)),
+                        outer: Some((name, it)),
+                    })
+                });
+                own.into_iter().chain(nested)
             })
         });
         own.into_iter().chain(cells)

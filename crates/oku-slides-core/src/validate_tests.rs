@@ -526,3 +526,69 @@ fn validate_list_without_rich_content_has_no_issue(#[case] params: Value) {
     let element = json!({ "id": "f", "kind": "liste", "params": params });
     assert_that!(validate_element(element, None)).is_empty();
 }
+
+// Listes imbriquées (t-495), widget `plan` : étapes à tâches.
+
+fn plan(steps: Value) -> Value {
+    json!({ "id": "p", "kind": "plan", "params": { "etapes": steps } })
+}
+
+#[test]
+fn validate_well_formed_nested_list_has_no_issue() {
+    let steps = json!([{ "id": "a", "taches": [{ "id": "t1", "texte": "x", "fait": true }] }, { "id": "b" }]);
+    assert_that!(ids(&validate_element(plan(steps), None))).is_empty();
+}
+
+#[test]
+fn validate_nested_list_with_duplicate_ids_reports_it_with_its_path() {
+    let steps = json!([{ "id": "a", "taches": [{ "id": "t" }, { "id": "t" }] }]);
+    let issues = validate_element(plan(steps), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-duplicate-item-id"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-duplicate-item-id", "param", "etapes/a/taches"));
+}
+
+#[test]
+fn validate_nested_lists_of_two_items_may_share_ids() {
+    let steps = json!([{ "id": "a", "taches": [{ "id": "d0" }] }, { "id": "b", "taches": [{ "id": "d0" }] }]);
+    assert_that!(ids(&validate_element(plan(steps), None))).is_empty();
+}
+
+#[test]
+fn validate_nested_list_above_its_max_reports_bounds() {
+    let tasks: Vec<Value> = (0..4).map(|i| json!({ "id": format!("t{i}") })).collect();
+    let issues = validate_element(plan(json!([{ "id": "a", "taches": tasks }])), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-list-bounds"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-list-bounds", "param", "etapes/a/taches"));
+}
+
+#[test]
+fn validate_nested_cell_of_wrong_type_reports_param_type() {
+    let issues = validate_element(plan(json!([{ "id": "a", "taches": [{ "id": "t", "fait": "oui" }] }])), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
+}
+
+#[test]
+fn validate_nested_rich_cell_with_an_unsafe_link_reports_it() {
+    let task = noted("t", json!({ "t": "a", "link": "javascript:n" }));
+    let issues = validate_element(plan(json!([{ "id": "a", "taches": [task] }])), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-unsupported-link"]);
+}
+
+#[rstest]
+#[case::top(json!([{ "id": "a/b" }]), "etapes")]
+#[case::nested(json!([{ "id": "a", "taches": [{ "id": "x/y" }] }]), "etapes/a/taches")]
+fn validate_item_id_with_a_slash_reports_invalid_item_id(#[case] steps: Value, #[case] path: &str) {
+    let issues = validate_element(plan(steps), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-invalid-item-id"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-invalid-item-id", "param", path));
+}
+
+#[test]
+fn validate_nested_items_beyond_the_total_cap_report_bounds_on_the_list() {
+    let steps: Vec<Value> = (0..crate::NESTED_ITEMS_MAX / 3 + 1)
+        .map(|i| json!({ "id": format!("e{i}"), "taches": [{ "id": "a" }, { "id": "b" }, { "id": "c" }] }))
+        .collect();
+    let issues = validate_element(plan(Value::Array(steps)), None);
+    assert_that!(ids(&issues)).is_equal_to(vec!["issue-list-bounds"]);
+    assert_that!(issues[0].message).is_equal_to(message("issue-list-bounds", "param", "etapes"));
+}

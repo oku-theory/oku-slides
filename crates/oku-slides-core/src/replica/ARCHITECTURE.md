@@ -22,7 +22,7 @@ Le deck dans un `LoroDoc` (CRDT) : historique complet, fusion, annuler. `DeckRep
 - `Slides` : un seul `LoroTree` (`slides`) ; racines = slides (méta = la slide, `@slide`),
   descendants = éléments ; ordre fractionnaire (ADR-0006).
 - `Slot` : nœuds éléments ; méta = l'élément sans ses slots, `@slot` = carte fusionnable
-  { `TreeID` du parent → slot }. `List` : `LoroMap { list: LoroMovableList }`.
+  { `TreeID` du parent → slot }. `List` : `LoroMap { list: LoroMovableList }` (aussi en colonne).
 - `Host` : `LoroMap` ; `dataset` en `{columns, rows}` (`rows` de `{id, cells}`), autres clés
   LWW ; autre forme de `dataset` : opaque. `Atom` : JSON entier, LWW. `Nested` : `LoroMap`.
 

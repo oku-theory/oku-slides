@@ -433,8 +433,11 @@ fn numeric_arguments_stick_to_their_cjk_classifier() {
 }
 
 /// Clés de la fonctionnalité des listes, relues dans chaque langue (t-535).
-const LIST_KEYS: [&str; 21] = [
+const LIST_KEYS: [&str; 24] = [
     "widget-fault-empty-list",
+    "widget-fault-list-depth",
+    "widget-fault-list-default-below-min",
+    "issue-invalid-item-id",
     "widget-fault-column-type",
     "widget-fault-reserved-name",
     "widget-fault-list-bounds",

@@ -105,7 +105,8 @@ pub fn is_text(ty: &ParamType) -> bool {
     matches!(ty, ParamType::Plain | ParamType::Rich)
 }
 
-/// Types admis pour une colonne de `list` ; liste imbriquée : t-495.
+/// Types admis pour une colonne de `list`, hors liste imbriquée (`list`, un seul niveau :
+/// voir `check_list`).
 pub(crate) fn is_column_type(ty: &ParamType) -> bool {
     matches!(
         ty,
@@ -281,40 +282,54 @@ fn check_param(w: &WidgetSchema, p: &ParamSchema) -> Result<(), WidgetError> {
         ParamType::Grid if p.default.as_ref().is_some_and(|d| !d.is_object()) => {
             return Err(fault(w, SchemaFault::DefaultWrongType));
         }
-        ParamType::List { item, min, max, .. } => {
-            if item.is_empty() {
-                return Err(fault(w, SchemaFault::EmptyList));
-            }
-            let mut names = BTreeSet::new();
-            for c in item {
-                if !is_column_type(&c.ty) {
-                    return Err(fault(w, SchemaFault::ColumnType));
-                }
-                if c.name.is_empty() || RESERVED_COLUMNS.contains(&c.name.as_str()) {
-                    return Err(fault(w, SchemaFault::ReservedName));
-                }
-                if !names.insert(c.name.as_str()) {
-                    return Err(fault(w, SchemaFault::DuplicateParam));
-                }
-                if c.bind.is_some() {
-                    return Err(fault(w, SchemaFault::BindNotPlain));
-                }
-                check_param(w, c)?;
-            }
-            if max.is_some_and(|m| m < *min) {
-                return Err(fault(w, SchemaFault::ListBounds));
-            }
-            // Types, colonnes connues et tailles : `default_fault` ; ici, seulement « un tableau ».
-            let ok = p.default.as_ref().is_none_or(Value::is_array);
-            match (ok, default_fault(p)) {
-                (false, _) | (_, Some(DefaultFault::WrongType)) => return Err(fault(w, SchemaFault::DefaultWrongType)),
-                (true, Some(DefaultFault::TooLarge)) => return Err(fault(w, SchemaFault::ListDefaultTooLarge)),
-                (true, None) => {}
-            }
-        }
+        ParamType::List { .. } => check_list(w, p, false)?,
         _ => {}
     }
     Ok(())
+}
+
+/// Contrôle la liste `p` ; `nested` : `p` est une colonne d'une liste, qui ne peut porter
+/// elle-même de colonne `list` (un seul niveau d'imbrication, t-495).
+fn check_list(w: &WidgetSchema, p: &ParamSchema, nested: bool) -> Result<(), WidgetError> {
+    let ParamType::List { item, min, max, .. } = &p.ty else { return Ok(()) };
+    if item.is_empty() {
+        return Err(fault(w, SchemaFault::EmptyList));
+    }
+    let mut names = BTreeSet::new();
+    for c in item {
+        let is_list = matches!(c.ty, ParamType::List { .. });
+        if is_list && nested {
+            return Err(fault(w, SchemaFault::ListDepth));
+        }
+        if !is_list && !is_column_type(&c.ty) {
+            return Err(fault(w, SchemaFault::ColumnType));
+        }
+        if c.name.is_empty() || RESERVED_COLUMNS.contains(&c.name.as_str()) || c.name.contains('/') {
+            return Err(fault(w, SchemaFault::ReservedName));
+        }
+        if !names.insert(c.name.as_str()) {
+            return Err(fault(w, SchemaFault::DuplicateParam));
+        }
+        if c.bind.is_some() {
+            return Err(fault(w, SchemaFault::BindNotPlain));
+        }
+        if is_list {
+            check_list(w, c, true)?;
+        } else {
+            check_param(w, c)?;
+        }
+    }
+    if max.is_some_and(|m| m < *min) {
+        return Err(fault(w, SchemaFault::ListBounds));
+    }
+    // Types, colonnes connues et tailles : `default_fault` ; ici, seulement « un tableau ».
+    let ok = p.default.as_ref().is_none_or(Value::is_array);
+    match (ok, default_fault(p, nested)) {
+        (false, _) | (_, Some(DefaultFault::WrongType)) => Err(fault(w, SchemaFault::DefaultWrongType)),
+        (true, Some(DefaultFault::TooLarge)) => Err(fault(w, SchemaFault::ListDefaultTooLarge)),
+        (true, Some(DefaultFault::BelowMin)) => Err(fault(w, SchemaFault::ListDefaultBelowMin)),
+        (true, None) => Ok(()),
+    }
 }
 
 /// Un widget de pack peut remplacer un widget de base s'il garde sa
