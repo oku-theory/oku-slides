@@ -28,7 +28,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep the ACP session known when a request fails on a closed connection; the keeper resumes it later. (plan:2026-10-08-sessions-par-perspective)
 - When the MCP relay lags, resend only visible_surfaces, the thread being viewed. (plan:2026-10-08-sessions-par-perspective)
 - Switch agents inside the shared Link, never replace it; dropping its last clone stops the agent. (spec:2026-10-10-agent-panneau-configuration-design)
-- Keep is_cancelled after ToolServer start and the biased selects in tab_entry.rs; no test catches removal. (t-815)
+- Keep is_cancelled after ToolServer start and the relay biased selects; only next is test-pinned. (t-815)
 - Do not rely on widget_touched being replayed after relay lag; only Changed and Surfaces are replayed. (plan:2026-10-03-widgets-agent-a2ui)
 
 ## Testing
