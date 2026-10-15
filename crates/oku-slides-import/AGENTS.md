@@ -32,7 +32,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Give every emitted frame sides of at least 1 pt, since the core rejects zero width or height. (plan:2026-10-10-import-pptx-lot2)
 - Emit images only in formats Typst draws (png, jpeg, gif, webp, svg); report UnsupportedImage for any other. (plan:2026-10-10-import-pptx-lot2)
 - Keep retrofit snap in sync with snapRect in ui/src/grid.ts; the Rust tests are its only oracle. (plan:2026-10-10-import-pptx-lot2)
-- Reject XML nested deeper than MAX_XML_DEPTH as Unreadable before roxmltree, whose recursive parser overflows. (spec:2026-10-09-import-pptx-design)
+- Reject XML deeper than MAX_XML_DEPTH or above MAX_XML_ATTRIBUTES per element as Unreadable before roxmltree. (spec:2026-10-09-import-pptx-design, t-754)
 - Identify SmartArt shapes by their modelId, because PowerPoint writes cNvPr id 0 on all of them. (plan:2026-10-09-import-pptx-lot1)
 - Read right and bottom edges and lastCol or lastRow parts of merged cells at the merge end, not at the anchor. (plan:2026-10-09-import-pptx-lot1)
 - Bound the sum of per-face font copies by max_total_bytes, since many faces can share one large part. (plan:2026-10-09-import-pptx-lot1)

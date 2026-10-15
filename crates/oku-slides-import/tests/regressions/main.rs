@@ -4,6 +4,7 @@
 mod common;
 mod issue_0752_hostile_svg;
 mod issue_0753_output_budget;
+mod issue_0754_many_attributes;
 mod issue_0755_chart_categories;
 mod issue_0755_external_image;
 mod issue_0755_path_bounds;

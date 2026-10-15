@@ -27,7 +27,27 @@ fn parse_at_the_depth_limit_with_comment_cdata_and_pi_is_accepted() {
 #[test]
 fn depth_counts_open_elements_not_self_closing_or_quoted_angle_brackets() {
     // a (1) > c (2) ; b et d sont auto-fermants ; le « /> » entre guillemets ne ferme rien.
-    assert_that!(max_depth("<a q=\"/>\"><b/><c><d/></c></a>")).is_equal_to(2);
+    assert_that!(shape("<a q=\"/>\"><b/><c><d/></c></a>").depth).is_equal_to(2);
+}
+
+#[test]
+fn shape_counts_attributes_of_the_most_crowded_element_not_quoted_equals() {
+    // `<?xml ?>` est ignorée ; le « = » entre guillemets n'est pas un attribut.
+    let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><a x=\"1=2\"><b p='1' q='2' r='3'/></a>";
+    assert_that!(shape(xml).attributes).is_equal_to(3);
+}
+
+#[test]
+fn parse_at_the_attribute_limit_is_accepted() {
+    let attrs: String = (0..MAX_XML_ATTRIBUTES).map(|i| format!(" a{i}=''")).collect();
+    assert_that!(parse(&format!("<r{attrs}/>"), "p.xml", 10).is_ok()).is_true();
+}
+
+#[test]
+fn parse_over_the_attribute_limit_is_refused_before_roxmltree() {
+    let attrs: String = (0..=MAX_XML_ATTRIBUTES).map(|i| format!(" a{i}=''")).collect();
+    assert_that!(parse(&format!("<r{attrs}/>"), "p.xml", 10).map(|_| ()).map_err(|e| e.kind()).err())
+        .is_equal_to(Some(ImportErrorKind::Unreadable));
 }
 
 const NS_R: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";

@@ -12,11 +12,28 @@ const NS_REL: [&str; 2] = [
 /// Profondeur maximale d'un document : roxmltree analyse récursivement.
 pub(crate) const MAX_XML_DEPTH: usize = 256;
 
-/// Profondeur d'éléments d'un texte XML, par un balayage linéaire (commentaires, CDATA,
-/// instructions et déclarations ignorés ; `>` entre guillemets ignoré).
-pub(crate) fn max_depth(text: &str) -> usize {
+/// Nombre maximal d'attributs d'un élément : roxmltree cherche les doublons en O(n²).
+///
+/// Un élément OOXML ou SVG réel en porte quelques dizaines ; à 50 000, l'analyse prenait
+/// des secondes (t-754).
+pub(crate) const MAX_XML_ATTRIBUTES: usize = 1024;
+
+/// Forme d'un texte XML mesurée avant analyse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct XmlShape {
+    /// Profondeur d'éléments maximale.
+    pub depth: usize,
+    /// Plus grand nombre d'attributs (et de déclarations d'espace de noms) d'un élément.
+    pub attributes: usize,
+}
+
+/// Forme d'un texte XML, par un balayage linéaire (commentaires, CDATA, instructions et
+/// déclarations ignorés ; `>` et `=` entre guillemets ignorés). Un attribut compte pour un `=`
+/// hors guillemets dans une balise ouvrante.
+pub(crate) fn shape(text: &str) -> XmlShape {
     let b = text.as_bytes();
     let (mut i, mut depth, mut max) = (0usize, 0usize, 0usize);
+    let mut attributes = 0usize;
     let skip_to = |from: usize, end: &[u8]| -> usize {
         b.get(from..)
             .and_then(|rest| rest.windows(end.len()).position(|w| w == end))
@@ -40,16 +57,18 @@ pub(crate) fn max_depth(text: &str) -> usize {
             depth = depth.saturating_sub(1);
             i = skip_to(i + 2, b">");
         } else {
-            let (mut j, mut quote) = (i + 1, None::<u8>);
+            let (mut j, mut quote, mut equals) = (i + 1, None::<u8>, 0usize);
             while j < b.len() {
                 match (quote, b[j]) {
                     (None, q @ (b'"' | b'\'')) => quote = Some(q),
                     (Some(q), c) if c == q => quote = None,
                     (None, b'>') => break,
+                    (None, b'=') => equals += 1,
                     _ => {}
                 }
                 j += 1;
             }
+            attributes = attributes.max(equals);
             if j > i + 1 && b.get(j - 1) != Some(&b'/') {
                 depth += 1;
                 max = max.max(depth);
@@ -57,10 +76,11 @@ pub(crate) fn max_depth(text: &str) -> usize {
             i = j + 1;
         }
     }
-    max
+    XmlShape { depth: max, attributes }
 }
 
-/// Analyse une part XML : sans DTD, au plus `nodes` nœuds et `MAX_XML_DEPTH` niveaux.
+/// Analyse une part XML : sans DTD, au plus `nodes` nœuds, `MAX_XML_DEPTH` niveaux et
+/// `MAX_XML_ATTRIBUTES` attributs par élément.
 pub(crate) fn parse<'i>(text: &'i str, part: &str, nodes: u32) -> Result<Document<'i>, ImportError> {
     parse_opts(text, part, nodes, false)
 }
@@ -71,8 +91,12 @@ pub(crate) fn parse_doctype<'i>(text: &'i str, part: &str, nodes: u32) -> Result
 }
 
 fn parse_opts<'i>(text: &'i str, part: &str, nodes: u32, allow_dtd: bool) -> Result<Document<'i>, ImportError> {
-    if max_depth(text) > MAX_XML_DEPTH {
+    let shape = shape(text);
+    if shape.depth > MAX_XML_DEPTH {
         return Err(structure(&format!("{part}: XML nested deeper than {MAX_XML_DEPTH}")));
+    }
+    if shape.attributes > MAX_XML_ATTRIBUTES {
+        return Err(structure(&format!("{part}: XML element with more than {MAX_XML_ATTRIBUTES} attributes")));
     }
     let opt = ParsingOptions { allow_dtd, nodes_limit: nodes, ..ParsingOptions::default() };
     Document::parse_with_options(text, opt).map_err(|e| xml_error(part, e))
