@@ -146,6 +146,7 @@ replica-too-large = Lịch sử bản trình bày trong tệp này quá lớn đ
 replica-write = Không thể cập nhật lịch sử bản trình bày
 replica-unrelated = Hai bản trình bày này không có chung nguồn gốc
 replica-unsupported-version = Bản trình bày này dùng định dạng mà phiên bản Oku Slides này không đọc được
+replica-too-deep = Không thể lưu bản trình bày này: các phần tử đã xóa lồng nhau quá sâu trong lịch sử của nó. Hãy hoàn tác các lần di chuyển gần nhất rồi lưu lại.
 
 widget-unreadable = Không thể đọc khai báo widget
 widget-fault-empty-name = Widget { $widget }: một widget hoặc tham số không có tên

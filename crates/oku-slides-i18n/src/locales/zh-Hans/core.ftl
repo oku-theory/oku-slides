@@ -146,6 +146,7 @@ replica-too-large = 此文件中的演示文稿历史过大，无法打开
 replica-write = 无法更新演示文稿历史
 replica-unrelated = 这两个演示文稿没有共同的来源
 replica-unsupported-version = 此演示文稿使用的格式无法被此版本的 Oku Slides 读取
+replica-too-deep = 无法保存此演示文稿：已删除的元素在其历史记录中嵌套过深。请撤销最近的移动操作，然后重新保存。
 
 widget-unreadable = 无法读取小组件声明
 widget-fault-empty-name = 小组件 { $widget }：某个小组件或参数没有名称

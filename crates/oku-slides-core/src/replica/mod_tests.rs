@@ -785,3 +785,44 @@ fn merge_of_concurrent_themes_keeps_one_whole_theme_ref() {
     let merged = a.deck().0.theme;
     assert_that!(merged == Some(only_version) || merged == Some(only_id)).is_true();
 }
+
+/// Une chaîne cachée de `n` nœuds sous `s-constat` : tête marquée, puis nœuds vides.
+fn hide_chain(r: &DeckReplica, n: usize) {
+    let tree = tree::deck_tree_of(&r.doc).unwrap_or_else(|| panic!("arbre du deck"));
+    let slide = tree::slide_order(&tree)
+        .into_iter()
+        .find(|s| {
+            tree.get_meta(*s).is_ok_and(
+                |m| matches!(m.get("id"), Some(ValueOrContainer::Value(LoroValue::String(id))) if *id == "s-constat"),
+            )
+        })
+        .unwrap_or_else(|| panic!("s-constat"));
+    let mut at = TreeParentId::Node(slide);
+    for i in 0..n {
+        let node = tree.create(at).unwrap_or_else(|e| panic!("{e}"));
+        if i == 0 {
+            let meta = tree.get_meta(node).unwrap_or_else(|e| panic!("{e}"));
+            meta.insert("id", "cache").unwrap_or_else(|e| panic!("{e}"));
+            meta.insert(&schema::mark_key(1), 1_i64).unwrap_or_else(|e| panic!("{e}"));
+        }
+        at = TreeParentId::Node(node);
+    }
+    r.doc.commit();
+}
+
+#[test]
+fn snapshot_with_a_hidden_chain_at_the_bound_saves_and_reopens() {
+    let r = DeckReplica::new(&roadmap(), registry()).unwrap_or_else(|e| panic!("{e}"));
+    // La slide vaut 1 : MAX - 1 niveaux finissent à la borne.
+    hide_chain(&r, entry::MAX_TREE_DEPTH - 1);
+    let bytes = r.snapshot().unwrap_or_else(|e| panic!("{e}"));
+    assert_that!(DeckReplica::from_snapshot(&bytes, 1 << 26, registry()).map(|(_, (d, _))| d))
+        .is_ok_containing(roadmap());
+}
+
+#[test]
+fn snapshot_with_a_hidden_chain_past_the_bound_is_refused_as_too_deep() {
+    let r = DeckReplica::new(&roadmap(), registry()).unwrap_or_else(|e| panic!("{e}"));
+    hide_chain(&r, entry::MAX_TREE_DEPTH);
+    assert_that!(r.snapshot().map_err(|e| e.kind())).is_err_containing(crate::error::ReplicaErrorKind::TooDeep);
+}

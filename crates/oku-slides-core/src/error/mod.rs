@@ -379,6 +379,8 @@ pub enum ReplicaErrorKind {
     Unrelated,
     /// Deck d'une autre version (`DECK_VERSION`), ou replica d'un autre format (`meta.format`).
     UnsupportedVersion,
+    /// Enregistrement refusé : des éléments retirés s'empilent au-delà de la profondeur relue (t-866).
+    TooDeep,
 }
 
 #[derive(Debug, Snafu)]
@@ -416,6 +418,8 @@ pub(crate) enum ReplicaInner {
     SlidesInParams { backtrace: Backtrace },
     #[snafu(display("elements nested deeper than {max} slots"))]
     SlotsTooDeep { max: usize, backtrace: Backtrace },
+    #[snafu(display("deck tree deeper than {max} levels, removed elements included: not saved"))]
+    TreeTooDeep { max: usize, backtrace: Backtrace },
 }
 
 impl ReplicaError {
@@ -426,6 +430,7 @@ impl ReplicaError {
             | ReplicaInner::ImportPanicked { .. }
             | ReplicaInner::MalformedDeckTree { .. } => ReplicaErrorKind::Corrupted,
             ReplicaInner::TooLarge { .. } => ReplicaErrorKind::TooLarge,
+            ReplicaInner::TreeTooDeep { .. } => ReplicaErrorKind::TooDeep,
             ReplicaInner::Unrelated { .. } => ReplicaErrorKind::Unrelated,
             ReplicaInner::UnsupportedDeckVersion { .. } | ReplicaInner::UnsupportedReplicaFormat { .. } => {
                 ReplicaErrorKind::UnsupportedVersion
@@ -450,6 +455,7 @@ impl Localize for ReplicaError {
             ReplicaErrorKind::Write => "replica-write",
             ReplicaErrorKind::Unrelated => "replica-unrelated",
             ReplicaErrorKind::UnsupportedVersion => "replica-unsupported-version",
+            ReplicaErrorKind::TooDeep => "replica-too-deep",
         })
     }
 }

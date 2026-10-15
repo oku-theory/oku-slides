@@ -152,6 +152,7 @@ replica-too-large = L'historique de la présentation dans ce fichier est trop vo
 replica-write = L'historique de la présentation n'a pas pu être mis à jour
 replica-unrelated = Ces deux présentations n'ont pas d'origine commune
 replica-unsupported-version = Cette présentation utilise un format de deck que cette version d'Oku Slides ne sait pas lire
+replica-too-deep = Impossible d'enregistrer cette présentation : des éléments supprimés s'imbriquent trop profondément dans son historique. Annulez vos derniers déplacements, puis enregistrez de nouveau.
 
 widget-unreadable = Les déclarations de widgets sont illisibles
 widget-fault-empty-name = Widget { $widget } : un widget ou un paramètre n'a pas de nom

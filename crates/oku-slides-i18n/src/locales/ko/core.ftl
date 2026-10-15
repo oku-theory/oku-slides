@@ -146,6 +146,7 @@ replica-too-large = 이 파일의 프레젠테이션 기록이 너무 커서 열
 replica-write = 프레젠테이션 기록을 업데이트할 수 없습니다
 replica-unrelated = 이 두 프레젠테이션은 공통된 출처가 없습니다
 replica-unsupported-version = 이 프레젠테이션은 이 버전의 Oku Slides에서 읽을 수 없는 형식을 사용합니다
+replica-too-deep = 이 프레젠테이션을 저장할 수 없습니다. 삭제된 요소가 기록 안에 너무 깊이 중첩되어 있습니다. 최근 이동을 실행 취소한 다음 다시 저장하세요.
 
 widget-unreadable = 위젯 선언을 읽을 수 없습니다
 widget-fault-empty-name = 위젯 { $widget }: 위젯 또는 매개변수에 이름이 없습니다

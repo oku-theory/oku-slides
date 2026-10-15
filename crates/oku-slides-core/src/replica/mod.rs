@@ -257,7 +257,16 @@ impl DeckReplica {
         &self.registry
     }
 
+    /// Le snapshot à enregistrer ; `TooDeep` si sa réouverture serait refusée.
+    ///
+    /// Des retraits suivis de déplacements vers le bas empilent des nœuds
+    /// cachés au-delà de la profondeur relue : l'enregistrement est refusé
+    /// plutôt que d'écrire un fichier qui ne se rouvrirait pas (t-866).
+    /// Défaire le dernier déplacement suffit à enregistrer de nouveau.
     pub fn snapshot(&self) -> Result<Vec<u8>, ReplicaError> {
+        if let Some(tree) = tree::deck_tree_of(&self.doc) {
+            entry::check_depth(&tree)?;
+        }
         Ok(self.doc.export(ExportMode::Snapshot).context(ExportSnafu)?)
     }
 

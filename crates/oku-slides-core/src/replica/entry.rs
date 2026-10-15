@@ -34,6 +34,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 
 use crate::error::{
     ExportSnafu, ImportPanickedSnafu, ImportSnafu, MalformedDeckTreeSnafu, NotADeckSnafu, ReplicaInner,
+    TreeTooDeepSnafu,
 };
 
 /// Profondeur maximale de l'arbre du deck ; une racine vaut 1.
@@ -182,6 +183,19 @@ pub(in crate::replica) fn deleted_nodes(tree: &LoroTree) -> Result<HashSet<TreeI
         }
     }
     Ok(deleted)
+}
+
+/// Refuse d'enregistrer un arbre dont un nœud, retiré compris, dépasse [`MAX_TREE_DEPTH`].
+///
+/// Un sous-arbre marqué garde sa profondeur et suit son ancêtre vivant : des
+/// retraits suivis de déplacements vers le bas l'accumulent sans borne, alors
+/// que [`check_entry`] refuserait le fichier à sa réouverture (t-866).
+pub(in crate::replica) fn check_depth(tree: &LoroTree) -> Result<(), ReplicaInner> {
+    let ancestry = Ancestry::new(tree);
+    for node in tree.nodes() {
+        ensure!(ancestry.resolve(node, MAX_TREE_DEPTH).is_some(), TreeTooDeepSnafu { max: MAX_TREE_DEPTH });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

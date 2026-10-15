@@ -166,6 +166,17 @@ None. `REPLICA_FORMAT` goes from 2 to 3 and `SOURCES_VERSION` from 8 to 9.
   insertion between them, can bring back a slide that a peer was moving.
 - A forged replica whose tree is malformed is rejected as a whole, on import
   as on merge.
+- **Hidden depth (t-866).** A marked subtree keeps its depth and follows its
+  live ancestor when it moves down; writes only bound live nodes
+  (`MAX_SLOT_DEPTH`). Removals followed by moves down can therefore pile up
+  hidden levels past 1024. Saving checks the depth of every node, marked and
+  deleted ones included, and refuses with `ReplicaErrorKind::TooDeep`
+  (`replica-too-deep`) rather than write a file that would not reopen; undoing
+  the move makes saving possible again. Compacting the deep marked subtree was
+  rejected: `tree.delete` keeps its inner depth under Loro's deleted root, which
+  the input check also measures, and it would break the undo of the mark.
+  Merging two copies whose depths add up past the bound is already refused by
+  the merge's input check (`Corrupted`).
 - **Trust limit.** A peer can delete any node, slide
   or element, with a `@deleted/<peer>` mark, as it could with
   `tree.delete`. The mark is well formed, hence accepted. Only the undo

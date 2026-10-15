@@ -158,3 +158,24 @@ fn replayable_updates_rebuild_the_same_state() {
     // Document de test, peu profond et construit ici : `get_deep_value` y est sûr.
     assert_that!(rebuilt.get_deep_value()).is_equal_to(doc.get_deep_value());
 }
+
+#[test]
+fn check_depth_at_the_bound_is_accepted() {
+    let (_, tree) = chain_doc(MAX_TREE_DEPTH);
+    assert_that!(check_depth(&tree)).is_ok();
+}
+
+#[test]
+fn check_depth_one_level_past_the_bound_is_too_deep_not_corrupted() {
+    let (_, tree) = chain_doc(MAX_TREE_DEPTH + 1);
+    let r = check_depth(&tree);
+    assert_that!(matches!(r, Err(ReplicaInner::TreeTooDeep { max: MAX_TREE_DEPTH, .. }))).is_true();
+}
+
+#[test]
+fn check_depth_counts_nodes_deleted_by_loro() {
+    let (doc, tree) = chain_doc(MAX_TREE_DEPTH + 1);
+    tree.delete(tree.roots()[0]).unwrap_or_else(|e| panic!("{e}"));
+    doc.commit();
+    assert_that!(matches!(check_depth(&tree), Err(ReplicaInner::TreeTooDeep { .. }))).is_true();
+}

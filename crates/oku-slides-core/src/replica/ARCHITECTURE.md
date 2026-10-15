@@ -12,8 +12,7 @@ Le deck dans un `LoroDoc` (CRDT) : historique complet, fusion, annuler. `DeckRep
 - `host` : option `host(chart|table)` ; `rich` : paragraphes en `LoroText` à marques.
 - `undo` : annulation, groupes, clés de fusion ; `authors` : pairs, `MergeReport`.
 - `compact` : compaction à l'ouverture (ADR-0007), seule à faire un `tree.delete`.
-- `entry` : ouverture par rejeu des opérations, arbre unique, profondeur bornée (t-809) ;
-  `Ancestry`, suppressions et profondeurs mémorisées, une remontée par nœud et par lecture (t-865).
+- `entry` : rejeu, arbre unique, profondeur bornée (t-809) ; `Ancestry` : une remontée par nœud (t-865).
 - `history` : une `Version` par édition ; une version passée se lit par rejeu (`updates_till`
   dans un document neuf, contrôlé), jamais par `checkout` (t-809).
 
@@ -36,7 +35,8 @@ Le deck dans un `LoroDoc` (CRDT) : historique complet, fusion, annuler. `DeckRep
   annulable née marquée (t-776) ; seule la compaction fait `tree.delete`.
 - **Entrée stricte** : `@slide` hors racine, marque ou `@slot` mal formés : refus. L'état d'un
   snapshot reçu n'est jamais lu : ses opérations sont rejouées (shallow refusé), puis tout arbre
-  hors de `deck.slides` et tout nœud, supprimé compris, au-delà de 1024 niveaux sont refusés (t-809).
+  hors de `deck.slides` et tout nœud, supprimé compris, au-delà de 1024 niveaux sont refusés (t-809),
+  et `snapshot` refuse (`TooDeep`) d'enregistrer un tel arbre (t-866).
 - **Lecture sans registre** : le type se lit dans le conteneur ; `{columns, rows}` ne se lit
   que sous `dataset` d'un paramètre à valeur de carte ; clés triées (forme canonique).
 - **Réparation à la relecture** : colonne ou ligne (mêmes cellules) en double écartée ; cellule

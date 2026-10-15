@@ -170,3 +170,14 @@ fn a_nullable_shape_differs_from_a_required_one_in_every_locale() {
         }
     }
 }
+
+/// t-866 : l'enregistrement refusé pour un arbre trop profond a sa propre clé, traduite.
+#[test]
+fn replica_too_deep_localizes_with_its_own_key() {
+    let err: super::ReplicaError = super::TreeTooDeepSnafu { max: 1024_usize }.build().into();
+    assert_that!(err.kind()).is_equal_to(super::ReplicaErrorKind::TooDeep);
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(fr.has("replica-too-deep")).is_true();
+    assert_that!(err.localize(&fr)).is_equal_to(fr.tr("replica-too-deep"));
+    assert_that!(err.localize(&fr)).starts_with("Impossible d'enregistrer cette présentation");
+}

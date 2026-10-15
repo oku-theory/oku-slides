@@ -146,6 +146,7 @@ replica-too-large = 此檔案中的簡報歷程過大，無法開啟
 replica-write = 無法更新簡報歷程
 replica-unrelated = 這兩份簡報沒有共同的來源
 replica-unsupported-version = 此簡報使用的格式無法由此版本的 Oku Slides 讀取
+replica-too-deep = 無法儲存此簡報：已刪除的元素在其歷史記錄中巢狀過深。請復原最近的移動操作，然後重新儲存。
 
 widget-unreadable = 無法讀取小工具宣告
 widget-fault-empty-name = 小工具 { $widget }：某個小工具或參數沒有名稱

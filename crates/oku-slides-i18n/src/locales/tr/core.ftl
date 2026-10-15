@@ -146,6 +146,7 @@ replica-too-large = Bu dosyadaki sunum geçmişi açılamayacak kadar büyük
 replica-write = Sunum geçmişi güncellenemedi
 replica-unrelated = Bu iki sunumun ortak bir kökeni yok
 replica-unsupported-version = Bu sunum, Oku Slides'ın bu sürümünün okuyamadığı bir biçim kullanıyor
+replica-too-deep = Bu sunum kaydedilemiyor: silinen öğeler geçmişinde çok derin iç içe geçmiş. Son taşımalarınızı geri alın, ardından yeniden kaydedin.
 
 widget-unreadable = Widget bildirimleri okunamadı
 widget-fault-empty-name = Widget { $widget }: bir widget veya parametrenin adı yok

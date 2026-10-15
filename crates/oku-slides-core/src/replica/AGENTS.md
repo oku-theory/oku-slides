@@ -11,7 +11,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep the Loro change merge interval disabled so that each commit is exactly one labelled change. (ADR-0002, spec:2026-09-27-sources-loro-design)
 - Build each history step as a causal prefix of the version vector, not one change's causal history. (ADR-0002, plan:2026-09-27-sources-loro-historique)
 - When reordering tree children, keep a longest increasing subsequence in place and move only the rest. (ADR-0005, plan:2026-10-09-elements-en-arbre)
-- Bound slot depth by MAX_SLOT_DEPTH on read and write, and return SlotsTooDeep before any deck write. (ADR-0005, plan:2026-10-10-deck-en-arbre)
+- Bound slot depth by MAX_SLOT_DEPTH on read and write, return SlotsTooDeep before any deck write, and refuse saving a tree past MAX_TREE_DEPTH with TooDeep. (ADR-0005, ADR-0006, plan:2026-10-10-deck-en-arbre, t-866)
 - Never drop an element because of its slot; repair it, falling back to orphans, and emit issue-slot-repaired. (ADR-0005, t-694)
 - Keep apply of an unchanged deck write-free; only read repairs may write, once, on the first apply. (ADR-0005, plan:2026-10-10-deck-en-arbre)
 - Remove nodes with this peer's deletion mark in their meta, never tree.delete; reconciling never clears a mark. (ADR-0006, plan:2026-10-10-deck-en-arbre)
