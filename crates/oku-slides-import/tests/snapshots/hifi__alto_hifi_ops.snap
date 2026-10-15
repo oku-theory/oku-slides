@@ -4,6 +4,7 @@ expression: "op_lines(&plan(\"alto\"))"
 ---
 {"op":"set_theme","theme":{"id":"00000000-0000-0000-0000-000000000002","version":"sha256:92b83be33128d4d0047d576ec9a528defbbc3c547db1a1f07b55534e8e886a22"}}
 {"op":"set_templates","templates":{"id":"00000000-0000-0000-0000-000000000001","version":"sha256:1326d849d9c1a8335c08ec49d09b1e2ed987c7a1c08759edbbe15fda06ed958e"}}
+{"op":"set_deck_param","key":"lang","value":"en-US"}
 slide s1 l1-default {}
   extras s1-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
   extras s1-2 text @128,96 236×46 {"size":30.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[10.09,0.0,10.09,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"ALTO WEALTH"}]}]}

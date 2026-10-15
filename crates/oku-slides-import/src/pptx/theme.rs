@@ -45,17 +45,28 @@ impl<'x> ThemeData<'x> {
             .iter()
             .filter_map(|s| Some(((*s).to_owned(), color_spec_in(child(clr, s)?)?.resolve(&bare)?.value)))
             .collect();
-        let font = |which: &str| {
-            let name = descendant(root, which)
-                .and_then(|f| child(f, "latin"))
+        // Une police d'écriture vide (`<a:ea typeface=""/>`, le cas courant) n'en nomme aucune.
+        let script = |which: &str, tag: &str| {
+            descendant(root, which)
+                .and_then(|f| child(f, tag))
                 .and_then(|l| attr_str(l, "typeface"))
-                .unwrap_or("Calibri");
-            clip_to(name, MAX_FONT_NAME)
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(|t| clip_to(t, MAX_FONT_NAME))
+        };
+        let latin = |which: &str| script(which, "latin").unwrap_or_else(|| "Calibri".to_owned());
+        let fonts = ThemeFonts {
+            major: latin("majorFont"),
+            minor: latin("minorFont"),
+            major_ea: script("majorFont", "ea"),
+            minor_ea: script("minorFont", "ea"),
+            major_cs: script("majorFont", "cs"),
+            minor_cs: script("minorFont", "cs"),
         };
         let theme = SourceTheme {
             name: clip_to(attr_str(root, "name").unwrap_or_default(), MAX_FONT_NAME),
             colors: colors.clone(),
-            fonts: ThemeFonts { major: font("majorFont"), minor: font("minorFont") },
+            fonts,
         };
         let (fills, bg_fills, lines) =
             (list_ids(&doc, "fillStyleLst"), list_ids(&doc, "bgFillStyleLst"), list_ids(&doc, "lnStyleLst"));

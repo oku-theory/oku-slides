@@ -145,3 +145,32 @@ fn weight_arg_keeps_bold_and_emits_other_weights(
     let s = RunStyle { bold, weight, ..crate::test_support::run_style() };
     assert_that!(weight_arg(&s)).is_equal_to(expected.map(str::to_owned));
 }
+
+#[test]
+fn cjk_run_falls_back_on_its_east_asian_font() {
+    let fixture = Fixture::with_fonts(&["Calibri", "Caladea"]);
+    let r = run_with("日本語", |s| s.font_ea = Some(Styled::explicit("Caladea".into())));
+    let code = fixture.decor(&[text_item(text_box(vec![para(vec![r])]))]).code;
+    assert_that!(code).contains(r#"text(font: ("Carlito", "Caladea"), "#);
+}
+
+#[test]
+fn run_without_retained_script_font_keeps_its_latin_font() {
+    let r = run_with("日本語", |s| s.font_ea = Some(Styled::explicit("Police Absente".into())));
+    let code = Fixture::new().decor(&[text_item(text_box(vec![para(vec![r])]))]).code;
+    assert_that!(code).contains(r#"text(font: ("Carlito",), "#);
+}
+
+#[test]
+fn arabic_paragraph_is_right_to_left_in_its_language_and_complex_font() {
+    let fixture = Fixture::with_fonts(&["Calibri", "Noto Sans Arabic"]);
+    let r = run_with("مرحبا", |s| {
+        s.font_cs = Some(Styled::explicit("Noto Sans Arabic".into()));
+        s.lang = Some("ar-SA".into());
+    });
+    let mut p = para(vec![r]);
+    p.style.rtl = true;
+    let code = fixture.decor(&[text_item(text_box(vec![p]))]).code;
+    assert_that!(code).contains(", dir: rtl)");
+    assert_that!(code).contains(r#"text(font: ("Carlito", "Noto Sans Arabic"), lang: "ar", region: "SA", "#);
+}

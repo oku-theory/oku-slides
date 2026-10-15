@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use super::lang::Script;
 use super::style::{Color, Styled};
 
 /// Marges intérieures d'une boîte de texte, en pt.
@@ -125,6 +126,17 @@ pub enum Caps {
 pub struct RunStyle {
     /// Famille (128 caractères au plus) et provenance (`major`/`minor` pour le thème).
     pub font: Styled<String>,
+    /// Famille des écritures d'Asie de l'Est (`ea`) et provenance (`major-ea`/`minor-ea`) ;
+    /// `None` : aucune n'est donnée.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_ea: Option<Styled<String>>,
+    /// Famille des écritures complexes (`cs` : arabe, hébreu, indiennes, thaï…) et
+    /// provenance (`major-cs`/`minor-cs`) ; `None` : aucune n'est donnée.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_cs: Option<Styled<String>>,
+    /// Langue (`lang`), étiquette BCP 47 telle qu'écrite (32 caractères au plus).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
     /// Taille en pt.
     pub size: f64,
     /// Gras (`b`).
@@ -153,6 +165,16 @@ pub struct RunStyle {
 }
 
 impl RunStyle {
+    /// La famille du run pour l'écriture `script` : `ea` ou `cs` si donnée, sinon la latine.
+    pub fn family(&self, script: Script) -> &str {
+        let other = match script {
+            Script::Latin => None,
+            Script::EastAsian => self.font_ea.as_ref(),
+            Script::Complex => self.font_cs.as_ref(),
+        };
+        other.map_or(self.font.value.as_str(), |f| f.value.as_str())
+    }
+
     /// Gras (`b`) ou graisse d'au moins 600 (demi-gras) : le gras d'un projecteur sans graisse
     /// numérique.
     pub fn strong(&self) -> bool {
@@ -191,6 +213,9 @@ pub struct ParaStyle {
     pub space_after: Spacing,
     /// Puce.
     pub bullet: Bullet,
+    /// Écrit de droite à gauche (`rtl`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rtl: bool,
 }
 
 /// Paragraphe résolu.

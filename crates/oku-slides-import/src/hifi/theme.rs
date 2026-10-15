@@ -9,7 +9,7 @@
 //! |---|---|
 //! | `clrScheme` | `color` : les 12 emplacements ([`SLOT_TOKENS`]), `on-accent` et `rule` dérivés |
 //! | accents | `chart.palette` = `accent`, `accent-2`… `accent-6` (références) |
-//! | `fontScheme` | `font.display` = majeure retenue, `font.body` = mineure retenue ; introuvable : le repli (`FontPlan::fallback`) |
+//! | `fontScheme` | `font.display` = majeure retenue, `font.body` = mineure retenue ; introuvable : le repli (`FontPlan::fallback`) ; puis leurs polices `ea` et `cs` retenues ([`role_families`]) |
 //! | placeholders du master et de ses layouts, `txStyles` | `size.title`, `size.subtitle`, `size.body`, `size.small` |
 //! | gras d'un run, texte maigre | `weight.strong` = 700, `weight.body` = 400 : les graisses de PowerPoint |
 //! | puce (caractère) du premier niveau du corps du master | `component.list.marker`, `component.list.marker-color` (`null` : celle du texte) |
@@ -35,7 +35,7 @@ use super::page::Page;
 use super::table::{TableLook, first_table};
 use crate::fonts::FontPlan;
 use crate::retrofit::color::contrast;
-use crate::source::{Bullet, Master, Placeholder, Rgba, Role, SourceDeck};
+use crate::source::{Bullet, Master, Placeholder, Rgba, Role, Script, SourceDeck, ThemeFonts};
 
 /// Part de l'encre dans le filet (`rule`) : le « Arrière-plan 1, plus sombre
 /// 15 % » de PowerPoint, le gris des séparateurs d'un thème Office (`#d9d9d9`
@@ -76,10 +76,10 @@ pub(crate) fn theme_tokens(deck: &SourceDeck, master: &Master, fonts: &FontPlan,
     }
     let mut font = Map::new();
     if let Some(theme) = deck.themes.get(master.theme) {
-        for (role, family) in [("display", &theme.fonts.major), ("body", &theme.fonts.minor)] {
-            // Une police du thème introuvable prend le repli (le corps, sinon le repli final).
-            if let Some(used) = fonts.used(family).or(fonts.fallback.as_deref()) {
-                font.insert(role.to_owned(), json!([used]));
+        for (role, major) in [("display", true), ("body", false)] {
+            let families = role_families(&theme.fonts, major, fonts);
+            if !families.is_empty() {
+                font.insert(role.to_owned(), json!(families));
             }
         }
     }
@@ -124,6 +124,25 @@ pub(crate) fn theme_manifest(tokens: Map<String, Value>, id: Uuid, name: &str, c
         created: created.to_owned(),
         tokens,
     }
+}
+
+/// Les familles retenues des titres (`major`) ou du corps du thème `tf` : la
+/// latine (introuvable : le repli, le corps sinon le repli final), puis celles
+/// d'Asie de l'Est et des écritures complexes que le thème nomme et que
+/// `fonts` retient, sans doublon. Typst prend chaque caractère dans la
+/// première qui l'a. Vide sans police latine retenue ni repli.
+pub(crate) fn role_families<'p>(tf: &ThemeFonts, major: bool, fonts: &'p FontPlan) -> Vec<&'p str> {
+    let latin = tf.family(major, Script::Latin).and_then(|f| fonts.used(f)).or(fonts.fallback.as_deref());
+    let Some(latin) = latin else { return Vec::new() };
+    let mut out = vec![latin];
+    for script in [Script::EastAsian, Script::Complex] {
+        if let Some(used) = tf.family(major, script).and_then(|f| fonts.used(f))
+            && !out.contains(&used)
+        {
+            out.push(used);
+        }
+    }
+    out
 }
 
 /// `color` : un jeton par emplacement présent, puis `on-accent` et `rule`.

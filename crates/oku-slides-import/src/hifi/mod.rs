@@ -8,7 +8,8 @@
 //! ([`slide`]). Le plan porte le thème et le pack (à ajouter au bundle), les
 //! schémas déclarés (que la sonde du rendu doit retrouver), les polices à
 //! embarquer, les assets, et des ops qui désignent d'abord le thème et le
-//! pack générés (`set_theme`, `set_templates`), puis ajoutent les slides
+//! pack générés (`set_theme`, `set_templates`), posent la langue du texte
+//! (`lang`, [`SourceDeck::language`]), puis ajoutent les slides
 //! (`s<numéro>`, éléments `s<numéro>-<rang>`) et leurs notes. Un modèle par
 //! widget, sa slide d'exemple étant la première slide de son layout.
 //!
@@ -34,6 +35,7 @@ mod widget;
 use std::collections::{BTreeMap, BTreeSet};
 
 use oku_slides_core::{Deck, Op, PackRef, Slide, ThemeRef, WidgetRegistry, apply_all};
+use serde_json::Value;
 use uuid::Uuid;
 
 use self::element::{ElementCtx, effect_items};
@@ -49,7 +51,7 @@ use crate::fonts::{FontCatalog, resolve, sought};
 use crate::plan::ImportPlan;
 use crate::report::{ImportReport, Loss, LossKind, Mode, SlideReport};
 use crate::retrofit::text::note;
-use crate::source::SourceDeck;
+use crate::source::{SourceDeck, ThemeFonts};
 
 /// La cible d'un import hi-fi : la base des widgets, les polices disponibles,
 /// l'identité du thème et du pack générés.
@@ -84,7 +86,15 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
     let mut fonts = resolve(&deck.fonts, &theme_families(deck), target.fonts);
     fonts.settle_fallback(theme_fonts.map(|f| f.minor.as_str()), target.fonts);
     let colors = master.map(|m| theme_colors(deck, m)).unwrap_or_default();
-    let base = GenCtx { page: &page, colors: &colors, fonts: &fonts, assets: &deck.assets, theme_fonts };
+    let lang = deck.language();
+    let base = GenCtx {
+        page: &page,
+        colors: &colors,
+        fonts: &fonts,
+        assets: &deck.assets,
+        theme_fonts,
+        lang: lang.as_deref(),
+    };
     let pack = generate_pack(deck, &base, target.limits);
     let registry = generated_registry(target.registry, &pack).unwrap_or_else(|e| {
         debug_assert!(false, "schémas déclarés refusés, un bogue du générateur : {e:?}");
@@ -141,6 +151,9 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
     };
     plan.ops.push(Op::SetTheme { theme: Some(ThemeRef { id: target.theme_id, version: theme.version() }) });
     plan.ops.push(Op::SetTemplates { templates: Some(PackRef { id: target.pack_id, version: pack_files.version() }) });
+    if let Some(lang) = &lang {
+        plan.ops.push(Op::SetDeckParam { key: "lang".to_owned(), value: Value::String(lang.clone()) });
+    }
     for slide in slides {
         let notes = (!slide.notes.is_empty()).then(|| (slide.id.clone(), slide.notes.clone()));
         plan.ops.push(Op::AddSlide { index: None, defaults: false, slide: Slide { notes: String::new(), ..slide } });
@@ -178,10 +191,15 @@ pub fn sought_fonts(deck: &SourceDeck) -> BTreeSet<String> {
     sought(&deck.fonts, &theme_families(deck))
 }
 
-/// Les polices des titres et du corps du thème du master de la première slide.
-fn theme_families(deck: &SourceDeck) -> Vec<&str> {
+/// Les polices des titres et du corps du thème du master de la première slide,
+/// latines puis des autres écritures.
+fn theme_families<'a>(deck: &'a SourceDeck) -> Vec<&'a str> {
     let fonts = theme_master(deck).and_then(|m| deck.themes.get(m.theme)).map(|t| &t.fonts);
-    fonts.map(|f| vec![f.major.as_str(), f.minor.as_str()]).unwrap_or_default()
+    let all = |f: &'a ThemeFonts| {
+        let scripts = [&f.major_ea, &f.minor_ea, &f.major_cs, &f.minor_cs].into_iter().flatten().map(String::as_str);
+        [f.major.as_str(), f.minor.as_str()].into_iter().chain(scripts).collect()
+    };
+    fonts.map(all).unwrap_or_default()
 }
 
 /// La slide d'exemple du modèle `template` : `slide`, sous l'id du modèle, sans notes.

@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::LazyLock;
 
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -9,7 +10,7 @@ use crate::pptx::color::{ColorBase, ColorCtx, ColorSpec, default_map};
 use crate::pptx::text::{
     BodyProps, BulletKind, FontRef, ParaProps, RawParagraph, RawRun, RawText, RunProps, empty_levels,
 };
-use crate::source::{Align, Anchor, Bullet, Rgba, Styled};
+use crate::source::{Align, Anchor, Bullet, Rgba, Script, Styled, ThemeFonts};
 
 fn colors() -> ColorCtx {
     ColorCtx::new(
@@ -18,8 +19,17 @@ fn colors() -> ColorCtx {
     )
 }
 
+/// Thème : Calibri Light et Calibri, Yu Mincho et Yu Gothic, Times New Roman et Arial.
+static FONTS: LazyLock<ThemeFonts> = LazyLock::new(|| ThemeFonts {
+    major_ea: Some("Yu Mincho".into()),
+    minor_ea: Some("Yu Gothic".into()),
+    major_cs: Some("Times New Roman".into()),
+    minor_cs: Some("Arial".into()),
+    ..ThemeFonts::latin("Calibri Light", "Calibri")
+});
+
 fn env(c: &ColorCtx) -> TextEnv<'_> {
-    TextEnv { major: "Calibri Light", minor: "Calibri", colors: c, font_ref: RunProps::default() }
+    TextEnv { fonts: &FONTS, colors: c, font_ref: RunProps::default() }
 }
 
 fn levels_with(level: usize, p: ParaProps) -> LevelProps {
@@ -108,7 +118,7 @@ fn font_ref_beats_the_chain() {
         },
     );
     let mut e = env(&c);
-    e.font_ref.font = Some(FontRef::Major);
+    e.font_ref.font = Some(FontRef::Major(Script::Latin));
     let tb = resolve_textbox(
         &one_run(0, ParaProps::default(), RunProps::default()),
         &TextChain { levels: vec![&m], bodies: vec![] },
@@ -122,7 +132,7 @@ fn font_ref_beats_the_chain() {
 fn shape_lst_style_beats_the_font_ref() {
     let c = colors();
     let mut e = env(&c);
-    e.font_ref.font = Some(FontRef::Major);
+    e.font_ref.font = Some(FontRef::Major(Script::Latin));
     let mut raw = one_run(0, ParaProps::default(), RunProps::default());
     raw.lst[0].run.font = Some(FontRef::Named("Georgia".into()));
     assert_that!(resolve_textbox(&raw, &no_chain(), &e).paragraphs[0].runs[0].style.font.clone())
@@ -222,4 +232,64 @@ fn weight_comes_from_the_family_and_bold(#[case] family: Option<&str>, #[case] b
     let run = RunProps { font: family.map(|f| FontRef::Named(f.to_owned())), bold: Some(bold), ..RunProps::default() };
     let tb = resolve_textbox(&one_run(0, ParaProps::default(), run), &no_chain(), &env(&c));
     assert_that!(tb.paragraphs[0].runs[0].style.weight).is_equal_to(expected);
+}
+
+#[test]
+fn east_asian_font_is_inherited_from_the_master() {
+    let c = colors();
+    let mut master = ParaProps::default();
+    master.run.font_ea = Some(FontRef::Major(Script::EastAsian));
+    master.run.lang = Some("ja-JP".into());
+    let raw = one_run(
+        0,
+        ParaProps::default(),
+        RunProps { font: Some(FontRef::Named("Arial".into())), ..RunProps::default() },
+    );
+    let tb = resolve_textbox(&raw, &TextChain { levels: vec![&levels_with(0, master)], bodies: vec![] }, &env(&c));
+    let s = &tb.paragraphs[0].runs[0].style;
+    assert_that!((s.font_ea.clone(), s.lang.as_deref(), s.family(Script::EastAsian))).is_equal_to((
+        Some(Styled::scheme("Yu Mincho".to_owned(), "major-ea")),
+        Some("ja-JP"),
+        "Yu Mincho",
+    ));
+}
+
+#[test]
+fn unset_script_fonts_take_the_theme_body_ones() {
+    let c = colors();
+    let tb = resolve_textbox(&one_run(0, ParaProps::default(), RunProps::default()), &no_chain(), &env(&c));
+    let s = &tb.paragraphs[0].runs[0].style;
+    assert_that!((s.font_ea.clone(), s.font_cs.clone())).is_equal_to((
+        Some(Styled::scheme("Yu Gothic".to_owned(), "minor-ea")),
+        Some(Styled::scheme("Arial".to_owned(), "minor-cs")),
+    ));
+}
+
+#[test]
+fn script_font_missing_from_the_theme_is_none() {
+    let c = colors();
+    let fonts = ThemeFonts::latin("Calibri Light", "Calibri");
+    let e = TextEnv { fonts: &fonts, colors: &c, font_ref: RunProps::default() };
+    let raw = one_run(
+        0,
+        ParaProps::default(),
+        RunProps { font_ea: Some(FontRef::Major(Script::EastAsian)), ..RunProps::default() },
+    );
+    let s = &resolve_textbox(&raw, &no_chain(), &e).paragraphs[0].runs[0].style;
+    assert_that!((s.font_ea.clone(), s.family(Script::EastAsian))).is_equal_to((None, "Calibri"));
+}
+
+#[test]
+fn arabic_paragraph_is_right_to_left_with_its_complex_font() {
+    let c = colors();
+    let para = ParaProps { rtl: Some(true), align: Some(Align::Right), ..ParaProps::default() };
+    let run = RunProps {
+        font_cs: Some(FontRef::Named("Traditional Arabic".into())),
+        lang: Some("ar-SA".into()),
+        ..RunProps::default()
+    };
+    let tb = resolve_textbox(&one_run(0, para, run), &no_chain(), &env(&c));
+    let p = &tb.paragraphs[0];
+    assert_that!((p.style.rtl, p.runs[0].style.family(Script::Complex), p.runs[0].style.lang.as_deref()))
+        .is_equal_to((true, "Traditional Arabic", Some("ar-SA")));
 }

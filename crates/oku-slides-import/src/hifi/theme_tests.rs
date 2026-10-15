@@ -127,6 +127,16 @@ fn theme_tokens_chart_palette_names_the_six_accents() {
 }
 
 #[test]
+fn theme_tokens_follow_the_latin_font_with_the_retained_script_fonts() {
+    let mut deck = office_deck();
+    let fonts = &mut deck.themes[0].fonts;
+    (fonts.minor_ea, fonts.minor_cs) = (Some("Caladea".into()), Some("Introuvable".into()));
+    let plan = resolve(&[], &["Calibri", "Caladea", "Introuvable"], &app_fonts());
+    let tokens = theme_tokens(&deck, &deck.masters[0], &plan, &Page::new(deck.size));
+    assert_that!(tokens["font"]["body"]).is_equal_to(json!(["Carlito", "Caladea"]));
+}
+
+#[test]
 fn theme_tokens_keep_the_default_font_of_a_missing_family() {
     let tokens = office_tokens();
     assert_that!(tokens["font"]).is_equal_to(json!({ "body": ["Carlito"] }));

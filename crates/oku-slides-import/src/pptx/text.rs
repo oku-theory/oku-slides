@@ -11,7 +11,7 @@ use crate::pptx::color::{ColorSpec, color_spec_in};
 use crate::pptx::theme::MAX_FONT_NAME;
 use crate::pptx::units::{emu, hundredths, pct};
 use crate::pptx::xml::{attr_bool, attr_i64, attr_r, attr_str, attr_u32, child, elements};
-use crate::source::{Align, Anchor, Autofit, Caps, Spacing};
+use crate::source::{Align, Anchor, Autofit, Caps, Script, Spacing};
 
 /// Niveaux de texte d'OOXML (`lvl1pPr`..`lvl9pPr`).
 pub(crate) const LEVELS: usize = 9;
@@ -19,18 +19,28 @@ const MAX_COLUMNS: u32 = 16;
 const MAX_BULLET_CHARS: usize = 8;
 const MAX_SCHEME_CHARS: usize = 32;
 
-/// Police d'un run : de thème ou nommée.
+/// Longueur maximale d'une étiquette de langue (`lang`).
+const MAX_LANG: usize = 32;
+
+/// Police d'un run : celle d'une écriture du thème (`+mj-ea`…) ou nommée.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FontRef {
-    Major,
-    Minor,
+    Major(Script),
+    Minor(Script),
     Named(String),
 }
 
 /// Propriétés de run partielles (`rPr`, `defRPr`).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct RunProps {
+    /// Police latine (`latin`).
     pub font: Option<FontRef>,
+    /// Police d'Asie de l'Est (`ea`).
+    pub font_ea: Option<FontRef>,
+    /// Police des écritures complexes (`cs`).
+    pub font_cs: Option<FontRef>,
+    /// Langue (`lang`), bornée.
+    pub lang: Option<String>,
     pub size: Option<f64>,
     pub bold: Option<bool>,
     pub italic: Option<bool>,
@@ -57,6 +67,9 @@ impl RunProps {
             self,
             top,
             font,
+            font_ea,
+            font_cs,
+            lang,
             size,
             bold,
             italic,
@@ -108,11 +121,13 @@ pub(crate) struct ParaProps {
     pub space_after: Option<Spacing>,
     pub bullet: BulletProps,
     pub run: RunProps,
+    /// De droite à gauche (`rtl`).
+    pub rtl: Option<bool>,
 }
 
 impl ParaProps {
     pub(crate) fn overlay(&mut self, top: &ParaProps) {
-        overlay_fields!(self, top, align, indent, margin_left, line_spacing, space_before, space_after);
+        overlay_fields!(self, top, align, indent, margin_left, line_spacing, space_before, space_after, rtl);
         self.bullet.overlay(&top.bullet);
         self.run.overlay(&top.run);
     }
@@ -181,12 +196,19 @@ pub(crate) fn anchor(v: &str) -> Anchor {
     }
 }
 
-/// Police de thème d'un `fontRef` (`idx="major"|"minor"`).
-pub(crate) fn font_ref(r: Node<'_, '_>) -> Option<FontRef> {
-    match attr_str(r, "idx")? {
-        "major" => Some(FontRef::Major),
-        "minor" => Some(FontRef::Minor),
-        _ => None,
+/// Polices de thème d'un `fontRef` (`idx="major"|"minor"`) : celles des trois
+/// écritures ; rien pour un autre `idx`.
+pub(crate) fn font_ref(r: Node<'_, '_>) -> RunProps {
+    let scheme: fn(Script) -> FontRef = match attr_str(r, "idx") {
+        Some("major") => FontRef::Major,
+        Some("minor") => FontRef::Minor,
+        _ => return RunProps::default(),
+    };
+    RunProps {
+        font: Some(scheme(Script::Latin)),
+        font_ea: Some(scheme(Script::EastAsian)),
+        font_cs: Some(scheme(Script::Complex)),
+        ..RunProps::default()
     }
 }
 
@@ -199,16 +221,28 @@ fn spacing(n: Node<'_, '_>) -> Option<Spacing> {
 
 fn typeface(t: &str) -> FontRef {
     match t {
-        "+mj-lt" | "+mj-ea" | "+mj-cs" => FontRef::Major,
-        "+mn-lt" | "+mn-ea" | "+mn-cs" => FontRef::Minor,
+        "+mj-lt" => FontRef::Major(Script::Latin),
+        "+mj-ea" => FontRef::Major(Script::EastAsian),
+        "+mj-cs" => FontRef::Major(Script::Complex),
+        "+mn-lt" => FontRef::Minor(Script::Latin),
+        "+mn-ea" => FontRef::Minor(Script::EastAsian),
+        "+mn-cs" => FontRef::Minor(Script::Complex),
         t => FontRef::Named(clip_to(t, MAX_FONT_NAME)),
     }
+}
+
+/// La police de l'enfant `tag` (`latin`, `ea`, `cs`) d'un `rPr`.
+fn script_font(rpr: Node<'_, '_>, tag: &str) -> Option<FontRef> {
+    child(rpr, tag).and_then(|l| attr_str(l, "typeface")).map(typeface)
 }
 
 /// Lit un `rPr`/`defRPr`/`endParaRPr`.
 pub(crate) fn parse_rpr(rpr: Node<'_, '_>, link: &mut dyn FnMut(&str) -> Option<String>) -> RunProps {
     RunProps {
-        font: child(rpr, "latin").and_then(|l| attr_str(l, "typeface")).map(typeface),
+        font: script_font(rpr, "latin"),
+        font_ea: script_font(rpr, "ea"),
+        font_cs: script_font(rpr, "cs"),
+        lang: attr_str(rpr, "lang").map(|l| clip_to(l, MAX_LANG)),
         size: attr_in(rpr, "sz", FONT_SIZE).map(hundredths),
         bold: attr_bool(rpr, "b"),
         italic: attr_bool(rpr, "i"),
@@ -262,6 +296,7 @@ pub(crate) fn parse_ppr(ppr: Node<'_, '_>) -> ParaProps {
         space_after: child(ppr, "spcAft").and_then(spacing),
         bullet,
         run: child(ppr, "defRPr").map(|r| parse_rpr(r, &mut |_| None)).unwrap_or_default(),
+        rtl: attr_bool(ppr, "rtl"),
     }
 }
 

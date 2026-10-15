@@ -9,8 +9,8 @@
 use crate::pptx::color::ColorCtx;
 use crate::pptx::text::{BodyProps, BulletKind, FontRef, LEVELS, LevelProps, ParaProps, RawText, RunProps};
 use crate::source::{
-    Align, Anchor, Autofit, Bullet, Caps, Color, Insets, LevelStyle, ParaStyle, Paragraph, Rgba, Run, RunStyle,
-    Spacing, Styled, TextBox, family_weight,
+    Align, Anchor, Autofit, Bullet, Caps, Color, Insets, LevelStyle, ParaStyle, Paragraph, Rgba, Run, RunStyle, Script,
+    Spacing, Styled, TextBox, ThemeFonts, family_weight,
 };
 
 const DEFAULT_SIZE_PT: f64 = 18.0;
@@ -25,8 +25,7 @@ pub(crate) struct TextChain<'a> {
 /// Ce que la cascade ne trouve pas dans les couches.
 #[derive(Debug)]
 pub(crate) struct TextEnv<'a> {
-    pub major: &'a str,
-    pub minor: &'a str,
+    pub fonts: &'a ThemeFonts,
     pub colors: &'a ColorCtx,
     pub font_ref: RunProps,
 }
@@ -54,11 +53,39 @@ fn level_props(chain: &TextChain<'_>, env: &TextEnv<'_>, lst: &LevelProps, level
     acc
 }
 
+/// L'emplacement de police du thème : `major`/`minor` pour le latin, suffixé
+/// `-ea` ou `-cs` pour les autres écritures.
+fn font_slot(major: bool, script: Script) -> String {
+    let base = if major { "major" } else { "minor" };
+    match script {
+        Script::Latin => base.to_owned(),
+        Script::EastAsian => format!("{base}-ea"),
+        Script::Complex => format!("{base}-cs"),
+    }
+}
+
+/// La police `r` du thème ou nommée ; sans police, celle du corps pour
+/// l'écriture `script`. `None` : une référence à une police que le thème ne
+/// nomme pas, ou un nom vide.
+fn family(r: Option<&FontRef>, script: Script, env: &TextEnv<'_>) -> Option<Styled<String>> {
+    let (major, s) = match r {
+        Some(FontRef::Named(n)) => return (!n.is_empty()).then(|| Styled::explicit(n.clone())),
+        Some(FontRef::Major(s)) => (true, *s),
+        Some(FontRef::Minor(s)) => (false, *s),
+        None => (false, script),
+    };
+    env.fonts.family(major, s).map(|f| Styled::scheme(f.to_owned(), &font_slot(major, s)))
+}
+
 fn run_style(p: &RunProps, env: &TextEnv<'_>) -> RunStyle {
+    // La police latine existe toujours : celle du titre ou du corps, faute d'une autre.
     let font = match &p.font {
-        Some(FontRef::Major) => Styled::scheme(env.major.to_owned(), "major"),
         Some(FontRef::Named(n)) => Styled::explicit(n.clone()),
-        Some(FontRef::Minor) | None => Styled::scheme(env.minor.to_owned(), "minor"),
+        r => family(r.as_ref(), Script::Latin, env).unwrap_or_else(|| {
+            let major = matches!(r, Some(FontRef::Major(_)));
+            let latin = if major { &env.fonts.major } else { &env.fonts.minor };
+            Styled::scheme(latin.clone(), &font_slot(major, Script::Latin))
+        }),
     };
     let bold = p.bold.unwrap_or(false);
     let named = family_weight(&font.value).unwrap_or(400);
@@ -67,6 +94,9 @@ fn run_style(p: &RunProps, env: &TextEnv<'_>) -> RunStyle {
         bold,
         weight: if bold { named.max(700) } else { named },
         font,
+        font_ea: family(p.font_ea.as_ref(), Script::EastAsian, env),
+        font_cs: family(p.font_cs.as_ref(), Script::Complex, env),
+        lang: p.lang.clone(),
         italic: p.italic.unwrap_or(false),
         underline: p.underline.unwrap_or(false),
         strike: p.strike.unwrap_or(false),
@@ -98,6 +128,7 @@ fn para_style(p: &ParaProps, env: &TextEnv<'_>) -> ParaStyle {
         space_before: p.space_before.unwrap_or(Spacing::Points(0.0)),
         space_after: p.space_after.unwrap_or(Spacing::Points(0.0)),
         bullet,
+        rtl: p.rtl.unwrap_or(false),
     }
 }
 

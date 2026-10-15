@@ -31,6 +31,11 @@ impl Setup {
         Self { base: Fixture::new(), theme: office_theme(), effects: BTreeSet::new() }
     }
 
+    /// Le contexte où l'import retient les familles `families`.
+    pub(crate) fn with_fonts(families: &[&str]) -> Self {
+        Self { base: Fixture::with_fonts(families), ..Self::new() }
+    }
+
     pub(crate) fn ctx(&self) -> ElementCtx<'_> {
         let base = GenCtx { theme_fonts: Some(&self.theme.fonts), ..self.base.ctx() };
         ElementCtx { base, effects: &self.effects, table: None }
@@ -463,6 +468,7 @@ impl DeckSetup {
                 fonts: &self.fonts,
                 assets: &deck.assets,
                 theme_fonts: Some(&deck.themes[master.theme].fonts),
+                lang: None,
             },
             effects: &self.effects,
             table: None,

@@ -5,6 +5,11 @@ expression: plan.ops
 [
   {
     "op": "set_deck_param",
+    "key": "lang",
+    "value": "fr-FR"
+  },
+  {
+    "op": "set_deck_param",
     "key": "title",
     "value": "Rapport annuel"
   },

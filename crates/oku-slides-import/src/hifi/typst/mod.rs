@@ -38,6 +38,7 @@ pub(crate) use text::{DEFAULT_SIZE, Fit, LineBox, spacing};
 
 use super::color::ThemeColors;
 use super::page::{Page, round2};
+use super::theme::role_families;
 use crate::fonts::FontPlan;
 use crate::report::{Loss, LossKind};
 use crate::source::{Asset, Crop, Frame, Item, ItemKind, OpaqueReason, Shape, ThemeFonts};
@@ -127,6 +128,9 @@ pub(crate) struct GenCtx<'a> {
     /// Les polices du thème source du master retenu, celles du thème généré
     /// (`font.display`, `font.body`) : leurs familles s'écrivent par rôle.
     pub(crate) theme_fonts: Option<&'a ThemeFonts>,
+    /// La langue du deck ([`crate::source::SourceDeck::language`]) : un texte
+    /// d'une autre langue ou d'un autre sens d'écriture le dit.
+    pub(crate) lang: Option<&'a str>,
 }
 
 /// La police Oku d'une famille source ([`GenCtx::font_name`]).
@@ -153,6 +157,45 @@ impl<'a> GenCtx<'a> {
             named.or_else(|| roles.iter().find(|(_, f)| fonts.used(f) == Some(used))).map(|(role, _)| *role)
         });
         Some(role.map_or(FontName::Family(used), FontName::Role))
+    }
+
+    /// Les familles que la police `name` donne au rendu : celles du rôle
+    /// ([`role_families`] : latine puis des autres écritures), sinon la famille.
+    pub(crate) fn families<'n>(&self, name: FontName<'n>) -> Vec<&'n str>
+    where
+        'a: 'n,
+    {
+        match name {
+            FontName::Role(role) => {
+                let fonts: &'a FontPlan = self.fonts;
+                self.theme_fonts.map(|tf| role_families(tf, role == "display", fonts)).unwrap_or_default()
+            }
+            FontName::Family(f) => vec![f],
+        }
+    }
+
+    /// Le sens d'écriture de la langue du deck : de droite à gauche ?
+    pub(crate) fn deck_rtl(&self) -> bool {
+        self.lang.is_some_and(rtl_lang)
+    }
+}
+
+/// Les langues que Typst écrit de droite à gauche (`text.dir` à `auto`).
+const RTL_LANGS: [&str; 11] = ["ar", "dv", "fa", "he", "ks", "pa", "ps", "sd", "ug", "ur", "yi"];
+
+/// La langue de l'étiquette `tag` (`ar-SA`) s'écrit-elle de droite à gauche ?
+pub(crate) fn rtl_lang(tag: &str) -> bool {
+    RTL_LANGS.contains(&tag.split('-').next().unwrap_or_default())
+}
+
+/// Les arguments `lang` et `region` de `text` pour l'étiquette `tag`
+/// ([`crate::source::lang_tag`] : `zh-Hant-TW` → `lang: "zh", region: "TW"`).
+pub(crate) fn lang_args(tag: &str) -> String {
+    let mut parts = tag.split('-');
+    let lang = parts.next().unwrap_or_default();
+    match parts.find(|p| p.len() == 2) {
+        Some(region) => format!("lang: {}, region: {}", string(lang), string(region)),
+        None => format!("lang: {}", string(lang)),
     }
 }
 

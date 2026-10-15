@@ -254,12 +254,7 @@ impl<'p> PartCtx<'p> {
 
     /// Environnement de la cascade pour cette part.
     pub(crate) fn env(&self, font_ref: RunProps) -> TextEnv<'_> {
-        TextEnv {
-            major: &self.theme.theme.fonts.major,
-            minor: &self.theme.theme.fonts.minor,
-            colors: &self.colors,
-            font_ref,
-        }
+        TextEnv { fonts: &self.theme.theme.fonts, colors: &self.colors, font_ref }
     }
 }
 

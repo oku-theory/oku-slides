@@ -18,6 +18,11 @@ expression: "plan(\"minimal\").ops"
     }
   },
   {
+    "op": "set_deck_param",
+    "key": "lang",
+    "value": "fr-FR"
+  },
+  {
     "op": "add_slide",
     "slide": {
       "id": "s1",

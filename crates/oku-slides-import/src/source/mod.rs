@@ -15,6 +15,7 @@
 
 mod chart;
 mod font;
+mod lang;
 mod shape;
 mod style;
 mod table;
@@ -27,6 +28,7 @@ use serde::Serialize;
 pub use chart::{Chart, ChartKind, Grouping, Series};
 pub use font::{Asset, FaceStyle, FontFace, SourceFont};
 pub(crate) use font::{family_weight, is_drawable};
+pub use lang::{Script, lang_tag};
 pub use shape::{Crop, Geometry, PathCmd, Picture, Shape, SubPath};
 pub use style::{Color, ColorMod, Dash, Fill, GradientStop, Origin, Rgba, Stroke, Styled};
 pub use table::{Borders, Cell, Table, TableFlags};
@@ -109,13 +111,46 @@ pub struct SourceTheme {
     pub fonts: ThemeFonts,
 }
 
-/// Polices du thème (écriture latine).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// Polices du thème : latines, et celles des autres écritures quand le thème les nomme.
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct ThemeFonts {
     /// Titres.
     pub major: String,
     /// Corps.
     pub minor: String,
+    /// Titres, Asie de l'Est (`majorFont/ea`) ; `None` si vide.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub major_ea: Option<String>,
+    /// Corps, Asie de l'Est (`minorFont/ea`) ; `None` si vide.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minor_ea: Option<String>,
+    /// Titres, écritures complexes (`majorFont/cs`) ; `None` si vide.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub major_cs: Option<String>,
+    /// Corps, écritures complexes (`minorFont/cs`) ; `None` si vide.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minor_cs: Option<String>,
+}
+
+impl ThemeFonts {
+    /// Les familles latines des titres et du corps, sans les autres écritures.
+    pub fn latin(major: &str, minor: &str) -> Self {
+        Self { major: major.to_owned(), minor: minor.to_owned(), ..Self::default() }
+    }
+
+    /// La famille des titres (`major`) ou du corps pour l'écriture `script` ; `None` si le
+    /// thème n'en nomme pas (jamais pour le latin).
+    pub fn family(&self, major: bool, script: Script) -> Option<&str> {
+        let f = match (major, script) {
+            (true, Script::Latin) => Some(&self.major),
+            (false, Script::Latin) => Some(&self.minor),
+            (true, Script::EastAsian) => self.major_ea.as_ref(),
+            (false, Script::EastAsian) => self.minor_ea.as_ref(),
+            (true, Script::Complex) => self.major_cs.as_ref(),
+            (false, Script::Complex) => self.minor_cs.as_ref(),
+        };
+        f.map(String::as_str)
+    }
 }
 
 /// Placeholder d'un master ou d'un layout.

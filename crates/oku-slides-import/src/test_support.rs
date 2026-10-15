@@ -66,7 +66,7 @@ pub(crate) fn office_theme() -> SourceTheme {
     SourceTheme {
         name: "Office".into(),
         colors: colors.iter().map(|(slot, hex)| ((*slot).to_owned(), rgb(hex))).collect(),
-        fonts: ThemeFonts { major: "Calibri Light".into(), minor: "Calibri".into() },
+        fonts: ThemeFonts::latin("Calibri Light", "Calibri"),
     }
 }
 
@@ -74,6 +74,9 @@ pub(crate) fn office_theme() -> SourceTheme {
 pub(crate) fn run_style() -> RunStyle {
     RunStyle {
         font: Styled::mapped("Calibri".to_owned(), "+mn-lt", "minor", Vec::new()),
+        font_ea: None,
+        font_cs: None,
+        lang: None,
         size: 18.0,
         bold: false,
         weight: 400,
@@ -113,6 +116,7 @@ pub(crate) fn para(runs: Vec<Run>) -> Paragraph {
             space_before: Spacing::Points(0.0),
             space_after: Spacing::Points(0.0),
             bullet: Bullet::None,
+            rtl: false,
         },
         runs,
     }

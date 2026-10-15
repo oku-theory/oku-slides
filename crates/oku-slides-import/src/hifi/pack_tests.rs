@@ -28,8 +28,14 @@ fn generated_within(deck: &SourceDeck, limits: PackLimits) -> GeneratedPack {
     let theme = &deck.themes[master.theme];
     let fonts = resolve(&deck.fonts, &[&theme.fonts.major, &theme.fonts.minor], &app_fonts());
     let (page, colors) = (Page::new(deck.size), theme_colors(deck, master));
-    let ctx =
-        GenCtx { page: &page, colors: &colors, fonts: &fonts, assets: &deck.assets, theme_fonts: Some(&theme.fonts) };
+    let ctx = GenCtx {
+        page: &page,
+        colors: &colors,
+        fonts: &fonts,
+        assets: &deck.assets,
+        theme_fonts: Some(&theme.fonts),
+        lang: None,
+    };
     generate_pack(deck, &ctx, limits)
 }
 

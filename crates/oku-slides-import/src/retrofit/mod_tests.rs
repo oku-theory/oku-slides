@@ -5,7 +5,9 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::source::{Asset, Picture, Size, SourceSlide, Warning, WarningKind};
-use crate::test_support::{PAPIER, applied, colors, essentiel, item, layout, registry, source_slide, text_item};
+use crate::test_support::{
+    PAPIER, applied, colors, essentiel, item, layout, para, registry, run, run_with, source_slide, text_box, text_item,
+};
 
 fn png() -> String {
     asset_id(b"png")
@@ -102,4 +104,25 @@ fn project_measures_the_coverage_of_its_own_deck() {
     let source = deck(vec![source_slide(1, Some("l2"), vec![body, pic])]);
     let c = plan_of(&source, &essentiel()).report.coverage.unwrap();
     assert_that!((c.runs.found, c.runs.total, c.images.found, c.images.total)).is_equal_to((1, 1, 1, 1));
+}
+
+#[test]
+fn project_sets_the_deck_language_of_most_of_the_text() {
+    let tb = text_box(vec![para(vec![run_with("مرحبا بكم جميعا", |s| s.lang = Some("ar-SA".into())), run("x")])]);
+    let source =
+        deck(vec![source_slide(1, Some("l2"), vec![item("t", (66.0, 143.0, 300.0, 200.0), ItemKind::Text(tb))])]);
+    let plan = plan_of(&source, &essentiel());
+    let lang = plan.ops.iter().find_map(|op| match op {
+        Op::SetDeckParam { key, value } if key == "lang" => Some(value.clone()),
+        _ => None,
+    });
+    assert_that!(lang).is_equal_to(Some(Value::String("ar-SA".into())));
+    applied(plan.ops, &[]);
+}
+
+#[test]
+fn project_without_language_sets_none() {
+    let source = deck(vec![source_slide(1, Some("l2"), vec![text_item("t", (66.0, 143.0, 300.0, 200.0), "Texte")])]);
+    let plan = plan_of(&source, &essentiel());
+    assert_that!(plan.ops.iter().any(|op| matches!(op, Op::SetDeckParam { key, .. } if key == "lang"))).is_false();
 }

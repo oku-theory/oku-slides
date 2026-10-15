@@ -53,10 +53,10 @@ fn read_part(p: Node<'_, '_>, cx: &PartCtx<'_>) -> Part {
         }
     }
     if let Some(tx) = child(p, "tcTxStyle") {
+        part.text = child(tx, "fontRef").map(font_ref).unwrap_or_default();
         part.text.bold = attr_bool(tx, "b");
         part.text.italic = attr_bool(tx, "i");
         part.text.color = elements(tx).find(|c| COLORS.contains(&c.tag_name().name())).and_then(color_spec);
-        part.text.font = child(tx, "fontRef").and_then(font_ref);
     }
     part
 }

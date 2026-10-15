@@ -144,3 +144,21 @@ fn collect_counts_copies_of_a_shared_part_against_the_total_budget() {
     let r = collect(doc.root_element(), &rels, &pkg, BTreeSet::new(), &sink);
     assert_that!(r.map_err(|e| e.kind()).err()).is_equal_to(Some(ImportErrorKind::TooLarge));
 }
+
+#[test]
+fn used_lists_east_asian_and_complex_families_of_runs() {
+    use crate::source::{ItemKind, Styled};
+    use crate::test_support::{item, para, run_with, source_slide, text_box};
+    let r = run_with("x", |s| {
+        s.font_ea = Some(Styled::explicit("Yu Gothic".into()));
+        s.font_cs = Some(Styled::explicit("Traditional Arabic".into()));
+    });
+    let slide =
+        source_slide(1, None, vec![item("s1/2", (0.0, 0.0, 1.0, 1.0), ItemKind::Text(text_box(vec![para(vec![r])])))]);
+    let families: Vec<String> = used(&[], &[], &[slide]).into_iter().collect();
+    assert_that!(families).is_equal_to(vec![
+        "Calibri".to_owned(),
+        "Traditional Arabic".to_owned(),
+        "Yu Gothic".to_owned(),
+    ]);
+}

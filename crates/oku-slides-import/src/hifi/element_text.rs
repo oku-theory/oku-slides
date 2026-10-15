@@ -32,6 +32,12 @@
 //! Comme au retrofit ([`crate::retrofit::text`]) : capitales appliquées,
 //! paragraphes vides omis, runs voisins de même forme fusionnés, niveaux de
 //! liste aplatis, liens sûrs seulement, bornes du texte riche.
+//!
+//! Écritures : la police d'un rôle du thème donne aussi ses familles `ea` et
+//! `cs` ([`super::theme::role_families`]) ; un run dont les caractères d'Asie
+//! de l'Est ou complexes demandent une autre famille la perd
+//! (`RunStyle(Font)`). La langue est celle du deck (`lang`) ; un paragraphe
+//! d'un autre sens d'écriture que celle-ci est perdu (`ParagraphStyle`).
 
 use oku_slides_core::{
     Element, Frame, Paragraph, Run, STYLE_INSET_MAX, STYLE_SPACING_MAX, STYLE_TRACKING_MAX, TokenValue,
@@ -43,7 +49,7 @@ use super::typst::{DEFAULT_SIZE, Fit, FontName, LineBox, spacing};
 use crate::fonts::LineMetrics;
 use crate::report::{LossKind, RunEffect};
 use crate::retrofit::text::{bound, effects, list_kind, note, safe_link, shown};
-use crate::source::{self, Align, Anchor, Color, LevelStyle, TextBox};
+use crate::source::{self, Align, Anchor, Color, LevelStyle, Script, TextBox};
 
 /// Le style que les runs d'un texte reçoivent de leur boîte, et n'ont pas à
 /// redire : un run d'une autre taille, d'une autre couleur, gras ou
@@ -205,7 +211,7 @@ fn rich_paragraphs(tb: &TextBox, base: &Base, ctx: &ElementCtx<'_>, losses: &mut
             for e in effects(&r.style).filter(|e| *e != RunEffect::Highlight) {
                 note(losses, LossKind::RunStyle(e));
             }
-            if font_name(&r.style.font.value, ctx) != base.font {
+            if font_name(&r.style.font.value, ctx) != base.font || !scripts_covered(r, base, ctx) {
                 note(losses, LossKind::RunStyle(RunEffect::Font));
             }
             if tracking(&r.style, page) != base.tracking {
@@ -245,6 +251,10 @@ fn rich_paragraphs(tb: &TextBox, base: &Base, ctx: &ElementCtx<'_>, losses: &mut
         }
         if sp.level > 0 {
             note(losses, LossKind::ListLevels);
+        }
+        // Le sens d'écriture d'un élément est celui de la langue du deck.
+        if sp.style.rtl != ctx.base.deck_rtl() {
+            note(losses, LossKind::ParagraphStyle);
         }
         paragraphs.push(Paragraph { runs: out, list: list_kind(&sp.style.bullet) });
     }
@@ -294,6 +304,23 @@ pub(super) fn dominant<T: PartialEq>(values: impl IntoIterator<Item = (T, usize)
         }
     }
     best.map(|(v, _)| v)
+}
+
+/// Les caractères d'Asie de l'Est et des écritures complexes du run `r`
+/// ont-ils leur famille (`ea`, `cs`) dans la police de l'élément ? Une
+/// famille que l'import ne retient pas n'est pas comptée : elle manque au
+/// rapport des polices.
+fn scripts_covered(r: &source::Run, base: &Base, ctx: &ElementCtx<'_>) -> bool {
+    let name = match base.font.as_deref() {
+        None | Some("body") => FontName::Role("body"),
+        Some("display") => FontName::Role("display"),
+        Some(f) => FontName::Family(f),
+    };
+    let provided = ctx.base.families(name);
+    [(Script::EastAsian, &r.style.font_ea), (Script::Complex, &r.style.font_cs)].into_iter().all(|(script, f)| {
+        let used = f.as_ref().and_then(|f| ctx.base.fonts.used(&f.value));
+        used.is_none_or(|u| provided.contains(&u)) || !script.occurs_in(&r.text)
+    })
 }
 
 /// La police Oku de la famille source `family` ([`GenCtx::font_name`]) :

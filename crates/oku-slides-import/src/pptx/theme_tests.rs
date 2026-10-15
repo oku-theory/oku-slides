@@ -32,6 +32,19 @@ fn parse_reads_name_and_major_minor_fonts() {
 }
 
 #[test]
+fn parse_reads_east_asian_and_complex_fonts_and_ignores_empty_ones() {
+    let xml = THEME
+        .replace(
+            r#"<a:latin typeface="Calibri Light"/>"#,
+            r#"<a:latin typeface="Calibri Light"/><a:ea typeface="Yu Mincho"/><a:cs typeface=""/>"#,
+        )
+        .replace(r#"<a:latin typeface="Calibri"/>"#, r#"<a:latin typeface="Calibri"/><a:cs typeface="Arial"/>"#);
+    let f = ThemeData::parse(&xml, "t", 100_000).unwrap().theme.fonts;
+    assert_that!((f.major_ea.as_deref(), f.major_cs.as_deref(), f.minor_ea.as_deref(), f.minor_cs.as_deref()))
+        .is_equal_to((Some("Yu Mincho"), None, None, Some("Arial")));
+}
+
+#[test]
 fn fill_style_substitutes_the_placeholder_color() {
     let t = data();
     let f = t.fill_style(1, Some(&accent1()), &mut |_| None).map(|s| s.resolve(&t.default_ctx()));

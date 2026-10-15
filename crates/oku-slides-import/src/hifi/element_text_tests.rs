@@ -311,7 +311,14 @@ fn font_name_writes_the_theme_fonts_by_their_role() {
     let (page, theme) = (Page::new(Size { w: 960.0, h: 540.0 }), office_theme());
     let (colors, assets, effects) = (ThemeColors::new(&theme), BTreeMap::new(), BTreeSet::new());
     let ctx = ElementCtx {
-        base: GenCtx { page: &page, colors: &colors, fonts: &fonts, assets: &assets, theme_fonts: Some(&theme.fonts) },
+        base: GenCtx {
+            page: &page,
+            colors: &colors,
+            fonts: &fonts,
+            assets: &assets,
+            theme_fonts: Some(&theme.fonts),
+            lang: None,
+        },
         effects: &effects,
         table: None,
     };
@@ -401,4 +408,28 @@ fn placeholder_text_loses_an_upright_run_on_an_italic_level() {
     assert_that!(losses).is_empty();
     let (_, losses) = placeholder_text(&text_box(vec![para(vec![italic, run("droit")])]), &level, &setup.ctx());
     assert_that!(losses).is_equal_to(vec![LossKind::RunStyle(RunEffect::Slant)]);
+}
+
+fn script_losses(text: &str, rtl: bool) -> Vec<LossKind> {
+    let setup = Setup::with_fonts(&["Calibri", "Caladea"]);
+    let r = run_with(text, |s| s.font_ea = Some(Styled::explicit("Caladea".into())));
+    let mut p = para(vec![r]);
+    p.style.rtl = rtl;
+    let placed = setup.convert(&item("s1/1", (10.0, 20.0, 100.0, 50.0), ItemKind::Text(text_box(vec![p]))));
+    placed.losses.into_iter().map(|l| l.kind).collect()
+}
+
+#[test]
+fn cjk_run_with_an_east_asian_font_outside_the_theme_loses_it() {
+    assert_that!(script_losses("日本語", false)).is_equal_to(vec![LossKind::RunStyle(RunEffect::Font)]);
+}
+
+#[test]
+fn latin_run_with_an_east_asian_font_loses_nothing() {
+    assert_that!(script_losses("abc", false)).is_empty();
+}
+
+#[test]
+fn right_to_left_paragraph_in_a_left_to_right_deck_loses_its_direction() {
+    assert_that!(script_losses("abc", true)).is_equal_to(vec![LossKind::ParagraphStyle]);
 }

@@ -170,9 +170,7 @@ fn style_refs(n: Node<'_, '_>, cx: &PartCtx<'_>, need_fill: bool) -> (Option<Fil
     };
     let line =
         child(style, "lnRef").map(|r| cx.theme.line_style(idx(r), color_spec_in(r).as_ref())).unwrap_or_default();
-    let font = child(style, "fontRef")
-        .map(|r| RunProps { font: font_ref(r), color: color_spec_in(r), ..RunProps::default() })
-        .unwrap_or_default();
+    let font = child(style, "fontRef").map(|r| RunProps { color: color_spec_in(r), ..font_ref(r) }).unwrap_or_default();
     (fill, line, font)
 }
 

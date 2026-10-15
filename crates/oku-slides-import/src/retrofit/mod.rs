@@ -6,7 +6,7 @@
 //! grille d'une zone de corps approchée par ses jetons de page ([`PageTokens`]).
 //! [`project`] rend un [`ImportPlan`] : une `AddSlide` par slide source (ids
 //! `s<numéro>`, éléments `s<numéro>-<rang>`), les paramètres du deck tirés de
-//! la première couverture, les notes, les assets référencés, les demandes de
+//! la première couverture et la langue du texte, les notes, les assets référencés, les demandes de
 //! widget et le rapport, couverture du contenu comprise. Aucun aléa, aucune
 //! horloge : même source, même plan.
 
@@ -25,7 +25,8 @@ mod zone;
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::{Deck, Slide, Template, WidgetRegistry, apply_all};
+use oku_slides_core::{Deck, Op, Slide, Template, WidgetRegistry, apply_all};
+use serde_json::Value;
 
 pub use color::ColorTokens;
 pub use zone::PageTokens;
@@ -119,6 +120,10 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
     report.warnings = deck.warnings.clone();
     let mut plan = ImportPlan::new(report);
     let mut origins = BTreeMap::new();
+    // Le cœur ne porte la langue qu'au deck : celle de la plus grande part du texte.
+    if let Some(lang) = deck.language() {
+        plan.ops.push(Op::SetDeckParam { key: "lang".to_owned(), value: Value::String(lang) });
+    }
     let mut deck_titled = false;
     let mut deck_slide = None;
     for src in &deck.slides {

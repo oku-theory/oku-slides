@@ -24,11 +24,16 @@ pub(crate) struct Fixture {
 
 impl Fixture {
     pub(crate) fn new() -> Self {
+        Self::with_fonts(&["Calibri"])
+    }
+
+    /// Le contexte où l'import retient les familles `families`.
+    pub(crate) fn with_fonts(families: &[&str]) -> Self {
         let asset = |mime: &str| Asset { mime: mime.to_owned(), bytes: Vec::new() };
         Self {
             page: Page::new(crate::source::Size { w: 960.0, h: 540.0 }),
             colors: ThemeColors::new(&office_theme()),
-            fonts: resolve(&[], &["Calibri"], &app_fonts()),
+            fonts: resolve(&[], families, &app_fonts()),
             assets: BTreeMap::from([
                 ("sha256:aa".to_owned(), asset("image/png")),
                 ("sha256:ee".to_owned(), asset("image/x-emf")),
@@ -37,7 +42,14 @@ impl Fixture {
     }
 
     pub(crate) fn ctx(&self) -> GenCtx<'_> {
-        GenCtx { page: &self.page, colors: &self.colors, fonts: &self.fonts, assets: &self.assets, theme_fonts: None }
+        GenCtx {
+            page: &self.page,
+            colors: &self.colors,
+            fonts: &self.fonts,
+            assets: &self.assets,
+            theme_fonts: None,
+            lang: None,
+        }
     }
 
     pub(crate) fn decor(&self, items: &[Item]) -> Decor {
@@ -297,8 +309,14 @@ fn fixture_decor(deck: &SourceDeck) -> String {
     let theme = &deck.themes[master.theme];
     let fonts = resolve(&deck.fonts, &[&theme.fonts.major, &theme.fonts.minor], &app_fonts());
     let (page, colors) = (Page::new(deck.size), theme_colors(deck, master));
-    let ctx =
-        GenCtx { page: &page, colors: &colors, fonts: &fonts, assets: &deck.assets, theme_fonts: Some(&theme.fonts) };
+    let ctx = GenCtx {
+        page: &page,
+        colors: &colors,
+        fonts: &fonts,
+        assets: &deck.assets,
+        theme_fonts: Some(&theme.fonts),
+        lang: None,
+    };
     let parts = deck.masters.iter().map(|m| (&m.id, &m.decor)).chain(deck.layouts.iter().map(|l| (&l.id, &l.decor)));
     let mut out = String::new();
     for (id, items) in parts {
@@ -349,7 +367,14 @@ fn decor_writes_the_theme_fonts_by_their_role() {
     let colors = ThemeColors::new(&theme);
     let fonts = resolve(&[], &["Calibri Light", "Calibri", "Arial"], &app_fonts());
     let assets = BTreeMap::new();
-    let ctx = GenCtx { page: &page, colors: &colors, fonts: &fonts, assets: &assets, theme_fonts: Some(&theme.fonts) };
+    let ctx = GenCtx {
+        page: &page,
+        colors: &colors,
+        fonts: &fonts,
+        assets: &assets,
+        theme_fonts: Some(&theme.fonts),
+        lang: None,
+    };
     let font = |family: &str| crate::test_support::run_with("x", |s| s.font.value = family.to_owned());
     let tb = text_box(vec![para(vec![font("Calibri Light"), font("calibri"), font("Arial"), font("Inconnue")])]);
     let code = decor(&[item("t", (10.0, 20.0, 400.0, 200.0), ItemKind::Text(tb))], &ctx).code;

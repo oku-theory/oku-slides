@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::pptx::color::ColorBase;
 use crate::pptx::xml::parse;
-use crate::source::{Align, Anchor, Autofit, Spacing};
+use crate::source::{Align, Anchor, Autofit, Script, Spacing};
 
 fn body(xml: &str) -> RawText {
     let full = format!(
@@ -66,7 +66,25 @@ fn rpr_keeps_theme_font_and_unresolved_scheme_color() {
     let p =
         first_run(r#"<a:rPr><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mj-lt"/></a:rPr>"#);
     assert_that!((p.font.clone(), p.color.map(|c| c.base)))
-        .is_equal_to((Some(FontRef::Major), Some(ColorBase::Scheme("tx1".into()))));
+        .is_equal_to((Some(FontRef::Major(Script::Latin)), Some(ColorBase::Scheme("tx1".into()))));
+}
+
+#[test]
+fn rpr_reads_east_asian_and_complex_fonts_and_language() {
+    let p = first_run(
+        r#"<a:rPr lang="ja-JP"><a:latin typeface="Arial"/><a:ea typeface="+mn-ea"/><a:cs typeface="Arial Unicode MS"/></a:rPr>"#,
+    );
+    assert_that!((p.font_ea, p.font_cs, p.lang.as_deref())).is_equal_to((
+        Some(FontRef::Minor(Script::EastAsian)),
+        Some(FontRef::Named("Arial Unicode MS".into())),
+        Some("ja-JP"),
+    ));
+}
+
+#[test]
+fn ppr_reads_right_to_left() {
+    let tb = body(r#"<a:p><a:pPr rtl="1" algn="r"/><a:r><a:t>x</a:t></a:r></a:p>"#);
+    assert_that!(tb.paragraphs[0].props.rtl).is_equal_to(Some(true));
 }
 
 #[test]

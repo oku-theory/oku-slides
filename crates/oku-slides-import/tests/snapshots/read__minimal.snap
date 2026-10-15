@@ -131,6 +131,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 44.0,
                 "bold": false,
                 "weight": 300,
@@ -181,6 +182,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -231,6 +233,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -281,6 +284,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -331,6 +335,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -381,6 +386,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -431,6 +437,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -481,6 +488,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -531,6 +539,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -589,6 +598,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 44.0,
                       "bold": false,
                       "weight": 300,
@@ -674,6 +684,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 28.0,
                 "bold": false,
                 "weight": 400,
@@ -728,6 +739,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 24.0,
                 "bold": false,
                 "weight": 400,
@@ -778,6 +790,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -828,6 +841,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -878,6 +892,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -928,6 +943,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -978,6 +994,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1028,6 +1045,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1078,6 +1096,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1140,6 +1159,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 28.0,
                       "bold": false,
                       "weight": 400,
@@ -1209,6 +1229,7 @@ expression: minimal()
                 }
               }
             },
+            "lang": "fr-FR",
             "size": 44.0,
             "bold": false,
             "weight": 300,
@@ -1263,6 +1284,7 @@ expression: minimal()
                 }
               }
             },
+            "lang": "fr-FR",
             "size": 28.0,
             "bold": false,
             "weight": 400,
@@ -1313,6 +1335,7 @@ expression: minimal()
                 }
               }
             },
+            "lang": "fr-FR",
             "size": 16.0,
             "bold": false,
             "weight": 400,
@@ -1390,6 +1413,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 60.0,
                 "bold": false,
                 "weight": 300,
@@ -1440,6 +1464,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1490,6 +1515,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1540,6 +1566,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1590,6 +1617,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1640,6 +1668,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1690,6 +1719,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1740,6 +1770,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1790,6 +1821,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -1848,6 +1880,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 60.0,
                       "bold": false,
                       "weight": 300,
@@ -1929,6 +1962,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 24.0,
                 "bold": false,
                 "weight": 400,
@@ -1983,6 +2017,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 24.0,
                 "bold": false,
                 "weight": 400,
@@ -2033,6 +2068,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2083,6 +2119,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2133,6 +2170,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2183,6 +2221,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2233,6 +2272,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2283,6 +2323,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2333,6 +2374,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2391,6 +2433,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 24.0,
                       "bold": false,
                       "weight": 400,
@@ -2483,6 +2526,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 44.0,
                 "bold": false,
                 "weight": 300,
@@ -2533,6 +2577,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2583,6 +2628,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2633,6 +2679,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2683,6 +2730,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2733,6 +2781,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2783,6 +2832,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2833,6 +2883,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2883,6 +2934,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -2941,6 +2993,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 44.0,
                       "bold": false,
                       "weight": 300,
@@ -3026,6 +3079,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 28.0,
                 "bold": false,
                 "weight": 400,
@@ -3080,6 +3134,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 24.0,
                 "bold": false,
                 "weight": 400,
@@ -3130,6 +3185,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -3180,6 +3236,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -3230,6 +3287,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -3280,6 +3338,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -3330,6 +3389,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -3380,6 +3440,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -3430,6 +3491,7 @@ expression: minimal()
                     }
                   }
                 },
+                "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
                 "weight": 400,
@@ -3492,6 +3554,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 28.0,
                       "bold": false,
                       "weight": 400,
@@ -3610,6 +3673,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 60.0,
                       "bold": false,
                       "weight": 300,
@@ -3705,6 +3769,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 24.0,
                       "bold": false,
                       "weight": 400,
@@ -3822,6 +3887,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 44.0,
                       "bold": false,
                       "weight": 300,
@@ -3921,6 +3987,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 28.0,
                       "bold": false,
                       "weight": 400,
@@ -3982,6 +4049,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 24.0,
                       "bold": false,
                       "weight": 400,
@@ -4073,6 +4141,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 16.0,
                       "bold": false,
                       "weight": 400,
@@ -4196,6 +4265,7 @@ expression: minimal()
                             }
                           }
                         },
+                        "lang": "fr-FR",
                         "size": 32.0,
                         "bold": true,
                         "weight": 700,
@@ -4314,6 +4384,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 44.0,
                       "bold": false,
                       "weight": 300,
@@ -4405,6 +4476,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "lang": "fr-FR",
                       "size": 16.0,
                       "bold": false,
                       "weight": 400,

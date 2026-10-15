@@ -10,11 +10,18 @@
 //! première ligne de base tombe où PowerPoint la met. Les espaces avant et
 //! après s'additionnent ; l'espace avant du premier paragraphe est ignoré,
 //! comme dans PowerPoint.
+//!
+//! Écritures : la police d'un run est sa famille latine suivie de ses familles
+//! `ea` et `cs` ([`Gen::run_font`]) ; un run d'une autre langue que le deck
+//! porte la sienne (`lang`, `region`), un paragraphe d'un autre sens que la
+//! langue du deck le sien (`dir`).
 
-use super::{FontName, Gen, Placement, Typst, pt, string};
+use super::{FontName, Gen, Placement, Typst, lang_args, pt, string};
 use crate::fonts::LineMetrics;
 use crate::hifi::page::Page;
-use crate::source::{Align, Anchor, Autofit, Bullet, Caps, Insets, Paragraph, Run, RunStyle, Spacing, TextBox};
+use crate::source::{
+    Align, Anchor, Autofit, Bullet, Caps, Insets, Paragraph, Run, RunStyle, Spacing, TextBox, lang_tag,
+};
 
 /// Hauteur d'une ligne simple, en fraction de la taille de police.
 const LINE: f64 = 1.2;
@@ -108,7 +115,13 @@ impl Gen<'_> {
         } else if indent > 0.0 {
             par.push_str(&format!(", first-line-indent: (amount: {}, all: true)", pt(indent)));
         }
-        w.line(&format!("set text(size: {}, {})", pt(size_pt), line.edges(size_pt)));
+        // Un paragraphe d'un autre sens que la langue du deck le dit.
+        let dir = match (s.rtl, self.ctx.deck_rtl()) {
+            (true, false) => ", dir: rtl",
+            (false, true) => ", dir: ltr",
+            _ => "",
+        };
+        w.line(&format!("set text(size: {}, {}{dir})", pt(size_pt), line.edges(size_pt)));
         w.line(&format!("set par({par})"));
         w.line(&format!("set align({})", align(s.align)));
         let visible = p.runs.iter().any(|r| !r.text.trim().is_empty());
@@ -156,7 +169,10 @@ impl Gen<'_> {
         }
         let s = &r.style;
         let mut size = s.size * fit.font_scale;
-        let mut args = format!("font: {}", self.font(&s.font.value));
+        let mut args = format!("font: {}", self.run_font(s));
+        if let Some(tag) = s.lang.as_deref().and_then(lang_tag).filter(|t| Some(t.as_str()) != self.ctx.lang) {
+            args.push_str(&format!(", {}", lang_args(&tag)));
+        }
         if s.baseline != 0 {
             let shift = -f64::from(s.baseline) / 100.0 * size;
             size *= SCRIPT_SIZE;
@@ -191,6 +207,34 @@ impl Gen<'_> {
             out = format!("link({}, {out})", string(link));
         }
         out
+    }
+
+    /// La police d'un run : celle de sa famille latine ([`Self::font`]), suivie
+    /// de ses familles d'Asie de l'Est et des écritures complexes retenues que
+    /// celle-ci ne donne pas déjà ; Typst prend chaque caractère dans la
+    /// première famille qui l'a.
+    fn run_font(&self, s: &RunStyle) -> String {
+        let name = self.ctx.font_name(&s.font.value);
+        let provided = self.ctx.families(name.unwrap_or(FontName::Role("body")));
+        let mut extra: Vec<&str> = Vec::new();
+        for f in [&s.font_ea, &s.font_cs].into_iter().flatten() {
+            if let Some(used) = self.ctx.fonts.used(&f.value)
+                && !provided.contains(&used)
+                && !extra.contains(&used)
+            {
+                extra.push(used);
+            }
+        }
+        if extra.is_empty() {
+            return self.font(&s.font.value);
+        }
+        let head = match name {
+            Some(FontName::Family(f)) => string(f),
+            Some(FontName::Role(role)) => format!("..font-of(t, {})", string(role)),
+            None => "..font-of(t, \"body\")".to_owned(),
+        };
+        let extra: Vec<String> = extra.into_iter().map(string).collect();
+        format!("({head}, {})", extra.join(", "))
     }
 
     /// La police de la famille source `family` ([`super::GenCtx::font_name`]) : un

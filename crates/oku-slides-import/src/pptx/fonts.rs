@@ -13,8 +13,8 @@ use crate::pptx::package::{Package, Rels};
 use crate::pptx::theme::MAX_FONT_NAME;
 use crate::pptx::xml::{attr_bool, attr_r, attr_str, child, children};
 use crate::source::{
-    Bullet, FaceStyle, FontFace, Item, ItemKind, Layout, Master, ParaStyle, Paragraph, Placeholder, SourceFont,
-    SourceSlide, TextBox, WarningKind,
+    Bullet, FaceStyle, FontFace, Item, ItemKind, Layout, Master, ParaStyle, Paragraph, Placeholder, RunStyle,
+    SourceFont, SourceSlide, TextBox, WarningKind,
 };
 
 const FACES: [(&str, FaceStyle); 4] = [
@@ -30,9 +30,15 @@ fn bullet_font(p: &ParaStyle, out: &mut BTreeSet<String>) {
     }
 }
 
+/// Les familles d'un style de run : latine, et celles d'Asie de l'Est et des écritures complexes.
+fn run_fonts(s: &RunStyle, out: &mut BTreeSet<String>) {
+    out.insert(s.font.value.clone());
+    out.extend([&s.font_ea, &s.font_cs].into_iter().flatten().map(|f| f.value.clone()));
+}
+
 fn paragraphs(ps: &[Paragraph], out: &mut BTreeSet<String>) {
     for p in ps {
-        out.extend(p.runs.iter().map(|r| r.style.font.value.clone()));
+        p.runs.iter().for_each(|r| run_fonts(&r.style, out));
         bullet_font(&p.style, out);
     }
 }
@@ -56,7 +62,7 @@ fn items(list: &[Item], out: &mut BTreeSet<String>) {
 fn placeholders(phs: &[Placeholder], out: &mut BTreeSet<String>) {
     for p in phs {
         for l in &p.levels {
-            out.insert(l.run.font.value.clone());
+            run_fonts(&l.run, out);
             bullet_font(&l.para, out);
         }
         textbox(&p.text, out);

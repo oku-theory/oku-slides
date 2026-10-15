@@ -21,7 +21,7 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 
 ## Layers
 
-- `source/` depends on nothing; `error`, `limits`, `collect` (`Sink`), `oklab` (ΔE) are neutral.
+- `source/` depends on nothing (`lang`: scripts, deck language); `error`, `limits`, `collect`, `oklab` are neutral.
 - `pptx/` is the only reader: `package` (bounded zip), `xml` (bounded nodes), `context`, `master`,
   `slide`, `placeholder`, `cascade` (the single text-style resolution), `bounds` (schema ranges,
   clamp warnings), `shapes`, `frame`, `table`, `chart`, `smartart`, `fonts` + `eot`. Nesting is
