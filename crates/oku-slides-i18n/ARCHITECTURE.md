@@ -32,6 +32,11 @@ numbers print as is in a terminal.
 `session.ftl`, `stt.ftl`, `cli.ftl`, `chart.ftl`, `agent.ftl`, then `ui.ftl` last (the
 React UI). Keys are prefixed by domain (`cli-…`, `chart-…`, `import-…`).
 
+## Outside Fluent
+
+The agent's instructions (`oku-slides-agent/src/instructions/*.md`) are prompts, not
+user-facing text: English only, never translated; each turn passes the interface language.
+
 ## Extension points
 
 - A locale: one line in `locales!` and a `src/locales/<locale>/` folder with every file.
