@@ -33,7 +33,7 @@ use oku_slides_session::{PackLibrary, Storage, adopt_default_pack, adopt_default
 
 use crate::bench::ms;
 use crate::import::{ImportArgs, ImportMode, ReferenceMode};
-use crate::library::{beside_deck, embed_theme, pack_library, theme_library};
+use crate::library::{deck_pack_version, embed_theme, pack_library, theme_library};
 use crate::out::Out;
 use crate::pack_render::DeckWidgets;
 
@@ -214,8 +214,8 @@ fn report_issues(l: &Localizer, deck: &Deck, registry: &WidgetRegistry, assets: 
 
 /// La version du pack que `deck` référence, par empreinte ; vide sans référence.
 ///
-/// Elle vient d'abord de `<deck_dir>/packs/<hex>` (extrait par `open --out`,
-/// vérifié), puis de la bibliothèque ; introuvable : erreur.
+/// Elle vient de [`deck_pack_version`] : à côté du deck, puis de la
+/// bibliothèque, vérifiée ; introuvable : erreur.
 fn deck_pack(
     storage: &Storage,
     library: &PackLibrary,
@@ -224,8 +224,7 @@ fn deck_pack(
     deck: &Deck,
 ) -> Result<BTreeMap<PackVersion, PackFiles>> {
     let Some(r) = &deck.templates else { return Ok(BTreeMap::new()) };
-    let files = beside_deck(storage, deck_dir, r).or_else(|| library.version(r.id, &r.version));
-    let Some(files) = files else {
+    let Some(files) = deck_pack_version(storage, library, deck_dir, r) else {
         let args = [("id", r.id.to_string().into()), ("version", r.version.as_str().into())];
         return Err(color_eyre::eyre::eyre!(l.tr_with("session-pack-version-missing", &args)));
     };

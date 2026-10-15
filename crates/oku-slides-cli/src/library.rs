@@ -40,22 +40,38 @@ pub(crate) fn read_pack_dir(storage: &Storage, dir: &Path) -> Option<PackFiles> 
     )
 }
 
-/// La version `r` extraite à côté du deck, si elle s'y trouve intacte et
-/// que son `pack.json` est bien celui du pack `r.id`.
-pub(crate) fn beside_deck(storage: &Storage, deck_dir: &Path, r: &PackRef) -> Option<PackFiles> {
+/// La version `r` du deck : d'abord extraite à côté de lui
+/// (`<deck_dir>/packs/<hex>`, par `open --out`) si elle y est intacte, sinon
+/// celle de la bibliothèque. D'où qu'elle vienne, son `pack.json` doit être
+/// celui du pack `r.id` ; sinon elle est ignorée (journalisé).
+pub(crate) fn deck_pack_version(
+    storage: &Storage,
+    library: &PackLibrary,
+    deck_dir: &Path,
+    r: &PackRef,
+) -> Option<PackFiles> {
+    let of_pack = |files: PackFiles, from: &str| match check_pack_id(r, &files) {
+        Ok(()) => Some(files),
+        Err(e) => {
+            tracing::warn!(from, error = %one_line(&e), "version de pack d'un autre pack : ignorée");
+            None
+        }
+    };
+    beside_deck(storage, deck_dir, r)
+        .and_then(|files| of_pack(files, "deck"))
+        .or_else(|| library.version(r.id, &r.version).and_then(|files| of_pack(files, "library")))
+}
+
+/// La version `r` extraite à côté du deck, si elle s'y trouve et que son
+/// contenu donne bien son empreinte.
+fn beside_deck(storage: &Storage, deck_dir: &Path, r: &PackRef) -> Option<PackFiles> {
     let dir = deck_dir.join("packs").join(r.version.hex());
     let files = read_pack_dir(storage, &dir)?;
     if !files.matches(&r.version) {
         tracing::warn!(dir = %dir.display(), "pack altéré à côté du deck : ignoré");
         return None;
     }
-    match check_pack_id(r, &files) {
-        Ok(()) => Some(files),
-        Err(e) => {
-            tracing::warn!(dir = %dir.display(), error = %one_line(&e), "pack à côté du deck : ignoré");
-            None
-        }
-    }
+    Some(files)
 }
 
 /// Le pack désigné par `wanted` : un id (version courante de la bibliothèque),
