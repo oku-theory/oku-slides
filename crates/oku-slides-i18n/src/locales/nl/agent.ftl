@@ -67,6 +67,7 @@ agent-error-no-field = Deze instelling bestaat niet meer.
 agent-error-no-variant = Deze variant bestaat niet meer.
 agent-error-arguments = De argumenten van de tool zijn ongeldig ({ $detail }): controleer ze aan de hand van het schema.
 agent-error-unknown-tool = Onbekende tool: { $name }.
+agent-error-pack-id = Dit is geen id van een sjabloonset: roep templates aan om de sets en hun id's op te sommen.
 agent-error-denied = De gebruiker heeft geweigerd.
 agent-error-no-turn = Geen beurt bezig: { $tool } wordt alleen tijdens een beurt getoond.
 agent-error-turn-over = De beurt van deze aanroep is voorbij: er is niets getoond.

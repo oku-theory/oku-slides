@@ -22,6 +22,8 @@ pub(crate) enum ToolError {
     Arguments { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unknown tool {name}"))]
     UnknownTool { name: String, backtrace: Backtrace },
+    #[snafu(display("not a template set id"))]
+    PackId { source: uuid::Error, backtrace: Backtrace },
     #[snafu(display("the session refused the call"))]
     Session { source: SessionError, backtrace: Backtrace },
     #[snafu(display("the task of the tool failed"))]
@@ -64,6 +66,7 @@ impl Localize for ToolError {
                 l.tr_with("agent-error-arguments", &[("detail", argument_detail(source).into())])
             }
             UnknownTool { name, .. } => l.tr_with("agent-error-unknown-tool", &[("name", name.as_str().into())]),
+            PackId { .. } => l.tr("agent-error-pack-id"),
             Session { source, .. } => say_session(source, l),
             Task { .. } => l.tr("agent-tool-failed"),
             Denied { .. } => l.tr("agent-error-denied"),

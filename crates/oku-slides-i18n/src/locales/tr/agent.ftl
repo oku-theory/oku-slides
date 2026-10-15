@@ -61,6 +61,7 @@ agent-error-no-field = Bu ayar artık yok.
 agent-error-no-variant = Bu varyant artık yok.
 agent-error-arguments = Aracın argümanları geçersiz ({ $detail }): şemasına göre kontrol edin.
 agent-error-unknown-tool = Bilinmeyen araç: { $name }.
+agent-error-pack-id = Bu bir şablon setinin kimliği değil: setleri ve kimliklerini listelemek için templates aracını çağırın.
 agent-error-denied = Kullanıcı reddetti.
 agent-error-no-turn = Devam eden bir tur yok: { $tool } yalnızca bir tur sırasında gösterilir.
 agent-error-turn-over = Bu çağrının turu bitti: hiçbir şey gösterilmedi.

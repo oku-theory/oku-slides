@@ -67,6 +67,7 @@ agent-error-no-field = यह सेटिंग अब मौजूद नह�
 agent-error-no-variant = यह वैरिएंट अब मौजूद नहीं है।
 agent-error-arguments = टूल के आर्ग्युमेंट अमान्य हैं ({ $detail }): उन्हें उसके स्कीमा से जाँचें।
 agent-error-unknown-tool = अज्ञात टूल: { $name }।
+agent-error-pack-id = यह किसी टेम्पलेट सेट की id नहीं है: सेट और उनकी id की सूची के लिए templates बुलाएं।
 agent-error-denied = उपयोगकर्ता ने मना कर दिया।
 agent-error-no-turn = कोई टर्न चालू नहीं है: { $tool } केवल टर्न के दौरान दिखाया जाता है।
 agent-error-turn-over = इस कॉल का टर्न समाप्त हो चुका है: कुछ नहीं दिखाया गया।

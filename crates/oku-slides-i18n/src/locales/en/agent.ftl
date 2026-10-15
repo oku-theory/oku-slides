@@ -68,6 +68,7 @@ agent-error-no-field = This setting no longer exists.
 agent-error-no-variant = This variant no longer exists.
 agent-error-arguments = The tool's arguments are invalid ({ $detail }): check them against its schema.
 agent-error-unknown-tool = Unknown tool: { $name }.
+agent-error-pack-id = This is not the id of a template set: call templates to list the sets and their ids.
 agent-error-denied = The user declined.
 agent-error-no-turn = No turn in progress: { $tool } is only shown during a turn.
 agent-error-turn-over = The turn of this call is over: nothing was shown.

@@ -67,6 +67,7 @@ agent-error-no-field = এই সেটিংটি আর নেই।
 agent-error-no-variant = এই রূপটি আর নেই।
 agent-error-arguments = টুলের আর্গুমেন্টগুলো অবৈধ ({ $detail }): এর স্কিমা অনুযায়ী সেগুলো যাচাই করুন।
 agent-error-unknown-tool = অজানা টুল: { $name }।
+agent-error-pack-id = এটি কোনো টেমপ্লেট সেটের id নয়: সেট ও তাদের id-এর তালিকা পেতে templates ডাকুন।
 agent-error-denied = ব্যবহারকারী প্রত্যাখ্যান করেছেন।
 agent-error-no-turn = কোনো পালা চলছে না: { $tool } শুধু একটি পালার সময় দেখানো হয়।
 agent-error-turn-over = এই কলের পালা শেষ হয়ে গেছে: কিছুই দেখানো হয়নি।

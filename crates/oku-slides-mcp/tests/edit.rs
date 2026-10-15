@@ -213,13 +213,27 @@ async fn in_templates_set_theme_with_other_ops_is_refused_with_a_dedicated_messa
     assert_that!(outline["edited_theme"]["name"].as_str()).is_equal_to(Some("Papier"));
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn edit_templates_with_a_slug_is_refused() {
+/// `edit_templates` sur `set` : refusé par le message qui renvoie vers
+/// `templates`, sans passer en mode modèles (t-355).
+async fn assert_wrong_set_points_to_templates(set: &str) {
     let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let r = call(&c, "edit_templates", json!({ "set": "essentiel" })).await;
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    let r = call(&c, "edit_templates", json!({ "set": set })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(h.session.lock().unwrap().snapshot().editing.is_none()).is_true();
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-pack-id"));
+    let editing = h.session.lock().unwrap_or_else(|e| panic!("session : {e}")).snapshot().editing.is_none();
+    assert_that!(editing).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_templates_with_a_slug_points_to_templates() {
+    assert_wrong_set_points_to_templates("essentiel").await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_templates_with_an_unknown_id_points_to_templates() {
+    assert_wrong_set_points_to_templates("00000000-0000-4000-8000-000000000001").await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

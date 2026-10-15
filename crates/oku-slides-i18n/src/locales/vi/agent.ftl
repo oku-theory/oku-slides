@@ -61,6 +61,7 @@ agent-error-no-field = Cài đặt này không còn tồn tại.
 agent-error-no-variant = Biến thể này không còn tồn tại.
 agent-error-arguments = Đối số của công cụ không hợp lệ ({ $detail }): hãy kiểm tra theo lược đồ của nó.
 agent-error-unknown-tool = Công cụ không xác định: { $name }.
+agent-error-pack-id = Đây không phải id của một bộ mẫu: hãy gọi templates để liệt kê các bộ mẫu và id của chúng.
 agent-error-denied = Người dùng đã từ chối.
 agent-error-no-turn = Không có lượt nào đang diễn ra: { $tool } chỉ được hiển thị trong một lượt.
 agent-error-turn-over = Lượt của lệnh gọi này đã kết thúc: không có gì được hiển thị.

@@ -204,8 +204,9 @@ impl Tools {
     }
 
     pub(crate) async fn delete_template_set(&self, args: Value) -> CallToolResult {
-        let crate::edit_tools::SetArgs { set } = match self.parse(args) {
-            Ok(a) => a,
+        let set = match self.parse::<crate::edit_tools::SetArgs>(args).map(|a| a.pack()) {
+            Ok(Ok(set)) => set,
+            Ok(Err(e)) => return self.fail_with(e),
             Err(r) => return r,
         };
         // Le nom du pack dans sa version courante ; inconnu : son id.

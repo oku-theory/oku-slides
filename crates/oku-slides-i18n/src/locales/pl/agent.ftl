@@ -71,6 +71,7 @@ agent-error-no-field = To ustawienie już nie istnieje.
 agent-error-no-variant = Ten wariant już nie istnieje.
 agent-error-arguments = Argumenty narzędzia są nieprawidłowe ({ $detail }): sprawdź je według jego schematu.
 agent-error-unknown-tool = Nieznane narzędzie: { $name }.
+agent-error-pack-id = To nie jest id zestawu szablonów: wywołaj templates, aby wypisać zestawy i ich id.
 agent-error-denied = Użytkownik odmówił.
 agent-error-no-turn = Żadna tura nie trwa: { $tool } jest wyświetlany tylko podczas tury.
 agent-error-turn-over = Tura tego wywołania dobiegła końca: nic nie zostało wyświetlone.

@@ -71,6 +71,7 @@ agent-error-no-field = Цього налаштування більше нема
 agent-error-no-variant = Цього варіанта більше немає.
 agent-error-arguments = Аргументи інструмента недійсні ({ $detail }): перевірте їх за його схемою.
 agent-error-unknown-tool = Невідомий інструмент: { $name }.
+agent-error-pack-id = Це не id набору шаблонів: викличте templates, щоб отримати список наборів та їхні id.
 agent-error-denied = Користувач відмовився.
 agent-error-no-turn = Немає поточного ходу: { $tool } показується лише під час ходу.
 agent-error-turn-over = Хід цього виклику завершено: нічого не показано.

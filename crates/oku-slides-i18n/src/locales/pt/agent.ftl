@@ -67,6 +67,7 @@ agent-error-no-field = Esta configuração não existe mais.
 agent-error-no-variant = Esta variante não existe mais.
 agent-error-arguments = Os argumentos da ferramenta são inválidos ({ $detail }): verifique-os segundo o seu esquema.
 agent-error-unknown-tool = Ferramenta desconhecida: { $name }.
+agent-error-pack-id = Isto não é o id de um conjunto de modelos: chame templates para listar os conjuntos e seus ids.
 agent-error-denied = O usuário recusou.
 agent-error-no-turn = Nenhum turno em andamento: { $tool } só é mostrado durante um turno.
 agent-error-turn-over = O turno desta chamada terminou: nada foi mostrado.

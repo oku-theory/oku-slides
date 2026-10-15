@@ -164,6 +164,20 @@ async fn delete_template_set_confirmation_of_unknown_pack_shows_its_id() {
     assert_that!(json.contains("00000000-0000-4000-8000-000000000001")).is_true();
 }
 
+/// t-355 : un id qui n'est pas un UUID est refusé sans rien demander, par le
+/// message qui renvoie vers `templates`.
+#[tokio::test(flavor = "multi_thread")]
+async fn delete_template_set_with_a_slug_points_to_templates_without_asking() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    let r = call(&c, "delete_template_set", json!({ "set": "essentiel" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-pack-id"));
+    assert_that!(rx.try_recv().is_err()).is_true();
+}
+
 /// Le thème intégré Papier, thème du deck de test.
 const PAPIER: &str = "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31";
 

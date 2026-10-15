@@ -7,8 +7,10 @@ use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use snafu::ResultExt;
 
 use crate::McpEvent;
+use crate::tool_error::{PackIdSnafu, ToolError};
 use crate::tools::Tools;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -39,8 +41,15 @@ pub(crate) struct ChartKindArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetArgs {
     /// Id d'un pack de modèles (UUID, voir `templates`).
-    #[schemars(with = "String")]
-    pub set: uuid::Uuid,
+    pub set: String,
+}
+
+impl SetArgs {
+    /// L'id du pack ; un texte qui n'est pas un UUID est refusé par un
+    /// message qui renvoie l'agent vers `templates`.
+    pub(crate) fn pack(&self) -> Result<uuid::Uuid, ToolError> {
+        uuid::Uuid::parse_str(&self.set).context(PackIdSnafu)
+    }
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -88,9 +97,13 @@ impl Tools {
     }
 
     pub(crate) async fn edit_templates(&self, args: Value) -> CallToolResult {
-        match self.parse::<SetArgs>(args) {
-            Ok(SetArgs { set }) => self.change(Request::EditTemplates { set }).await,
-            Err(r) => r,
+        let set = match self.parse::<SetArgs>(args) {
+            Ok(a) => a.pack(),
+            Err(r) => return r,
+        };
+        match set {
+            Ok(set) => self.change(Request::EditTemplates { set }).await,
+            Err(e) => self.fail_with(e),
         }
     }
 

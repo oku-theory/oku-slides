@@ -61,6 +61,7 @@ agent-error-no-field = 此設定已不存在。
 agent-error-no-variant = 此變體已不存在。
 agent-error-arguments = 工具的參數無效（{ $detail }）：請依照其結構描述檢查。
 agent-error-unknown-tool = 未知的工具：{ $name }。
+agent-error-pack-id = 這不是範本組的 id：請呼叫 templates 列出範本組及其 id。
 agent-error-denied = 使用者已拒絕。
 agent-error-no-turn = 目前沒有進行中的回合：{ $tool } 只會在回合中顯示。
 agent-error-turn-over = 此呼叫所屬的回合已結束：未顯示任何內容。

@@ -61,6 +61,7 @@ agent-error-no-field = การตั้งค่านี้ไม่มีอ
 agent-error-no-variant = รูปแบบนี้ไม่มีอยู่แล้ว
 agent-error-arguments = อาร์กิวเมนต์ของเครื่องมือไม่ถูกต้อง ({ $detail }): โปรดตรวจสอบตามสคีมาของเครื่องมือ
 agent-error-unknown-tool = ไม่รู้จักเครื่องมือ: { $name }
+agent-error-pack-id = นี่ไม่ใช่ id ของชุดเทมเพลต: เรียก templates เพื่อดูรายการชุดและ id ของแต่ละชุด
 agent-error-denied = ผู้ใช้ปฏิเสธ
 agent-error-no-turn = ไม่มีรอบที่กำลังดำเนินอยู่: { $tool } จะแสดงเฉพาะระหว่างรอบเท่านั้น
 agent-error-turn-over = รอบของการเรียกนี้สิ้นสุดแล้ว: ไม่มีสิ่งใดแสดง
