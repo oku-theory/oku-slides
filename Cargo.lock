@@ -5748,10 +5748,12 @@ name = "oku-slides-cli"
 version = "2.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "clap",
  "color-eyre",
  "ctrlc",
  "fontdb",
+ "getrandom 0.3.4",
  "http-body",
  "oku-slides-agent",
  "oku-slides-core",

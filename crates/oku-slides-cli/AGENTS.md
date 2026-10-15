@@ -14,7 +14,7 @@
 
 ## Pitfalls
 
-- Never treat the origin guard as authentication; off loopback any network client that forges Host is served. (ADR-0003, t-193)
+- Never treat the origin rules as authentication; off loopback only the launch token in guard::check stops a forged Host. (ADR-0003, t-193)
 
 ## Testing
 
@@ -27,4 +27,5 @@
 - Do not count a loopback bind or a CORS origin allowlist as protection against other browser pages. (ADR-0003)
 - Follow ADR-0003 for any change to the origin checks in guard.rs. (plan:2026-10-08-tri-backlog-nuit)
 - Warn at startup when serve binds a non-loopback address, but do not refuse the local network. (plan:2026-10-08-tri-backlog-nuit)
+- Off loopback, require the per-launch token in guard::check, by Bearer header or HttpOnly SameSite=Strict cookie. (ADR-0003, t-193)
 - Write command results through Out, log with tracing, report errors with color-eyre; never use println! (t-12)

@@ -9,7 +9,7 @@ use std::time::Duration;
 use axum::Router;
 use axum::body::{Body, HttpBody};
 use axum::extract::{Request, State};
-use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, LOCATION, SET_COOKIE, WWW_AUTHENTICATE};
 use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use color_eyre::eyre::Result;
@@ -19,7 +19,7 @@ use oku_slides_render::Fonts;
 use oku_slides_session::{Localize, Workspace, WorkspaceOutcome, WorkspaceRequest};
 use oku_slides_stt::Stt;
 
-use crate::guard;
+use crate::guard::{self, Access, Refusal, Token};
 use crate::out::Out;
 use crate::sse::Clients;
 
@@ -72,6 +72,33 @@ fn json(status: StatusCode, body: String) -> Response {
     (status, [(CONTENT_TYPE, "application/json")], body).into_response()
 }
 
+/// La réponse à une requête que la garde refuse : 401 sans jeton, 403 sinon.
+fn refused(reason: Refusal, l: &oku_slides_i18n::Localizer) -> Response {
+    if reason == Refusal::Token {
+        let body = serde_json::json!({ "error": l.tr("cli-unauthorized") }).to_string();
+        let headers = [(CONTENT_TYPE, "application/json"), (WWW_AUTHENTICATE, "Bearer")];
+        return (StatusCode::UNAUTHORIZED, headers, body).into_response();
+    }
+    json(StatusCode::FORBIDDEN, serde_json::json!({ "error": l.tr("cli-forbidden") }).to_string())
+}
+
+/// 303 vers `location` en posant le cookie du jeton : l'URL affichée perd le jeton.
+fn exchange(set_cookie: String, location: String) -> Response {
+    let headers = [(SET_COOKIE, set_cookie), (LOCATION, location), (CACHE_CONTROL, "no-store".to_owned())];
+    (StatusCode::SEE_OTHER, headers).into_response()
+}
+
+/// L'URL à ouvrir pour un serveur exposé : le nom que la garde accepte pour
+/// `host` (la boucle locale pour une adresse « partout »), puis le jeton.
+fn token_url(host: &str, port: u16, token: &Token) -> String {
+    let host = match host {
+        "0.0.0.0" | "::" | "[::]" => "localhost",
+        other => other,
+    };
+    let host = if host.contains(':') && !host.starts_with('[') { format!("[{host}]") } else { host.to_owned() };
+    format!("http://{host}:{port}/?token={}", token.secret())
+}
+
 /// Ce que partagent les requêtes du serveur.
 struct Shared {
     /// L'espace de travail, partagé avec l'agent (`Sessions`).
@@ -83,6 +110,8 @@ struct Shared {
     ui: PathBuf,
     /// L'adresse d'écoute (`[serve] host`), pour la garde d'origine.
     host: String,
+    /// Le jeton exigé quand l'écoute est joignable depuis le réseau (t-193).
+    token: Option<Token>,
     /// Une requête `/api*` à la fois, dans l'ordre d'arrivée (verrou FIFO,
     /// pris côté async : aucun fil bloquant n'attend) : la vérification de
     /// `would_empty` ne peut pas être devancée entre elle et `apply`.
@@ -203,10 +232,14 @@ async fn read_body(mut body: Body) -> Result<Option<Vec<u8>>, axum::Error> {
 async fn handle(State(shared): State<Arc<Shared>>, req: Request) -> Response {
     let (parts, body) = req.into_parts();
     let l = &shared.platform.localizer;
-    if let Err(reason) = guard::check(&parts.method, &parts.headers, &shared.host) {
-        // `debug` : une page hostile pourrait sinon remplir le journal.
-        tracing::debug!(method = %parts.method, ?reason, "requête d'une autre origine refusée");
-        return json(StatusCode::FORBIDDEN, serde_json::json!({ "error": l.tr("cli-forbidden") }).to_string());
+    match guard::check(&parts.method, &parts.uri, &parts.headers, &shared.host, shared.token.as_ref()) {
+        Ok(Access::Granted) => {}
+        Ok(Access::Exchange { set_cookie, location }) => return exchange(set_cookie, location),
+        Err(reason) => {
+            // `debug` : une page hostile ou un client du réseau pourrait sinon remplir le journal.
+            tracing::debug!(method = %parts.method, ?reason, "requête refusée par la garde");
+            return refused(reason, l);
+        }
     }
     let url = parts.uri.path().to_owned();
     if parts.method == Method::GET && url == "/api/events" {
@@ -264,7 +297,7 @@ async fn handle(State(shared): State<Arc<Shared>>, req: Request) -> Response {
 /// /api/workspace` ; dictée : `POST /api/stt` ; agent : `POST /api/agent`
 /// (chaque commande nomme son onglet) et le flux `GET /api/events`. Une
 /// requête qui ne vient pas de l'interface locale est refusée (403, voir
-/// `guard`).
+/// `guard`) ; hors de la boucle locale, sans le jeton du lancement aussi (401).
 ///
 /// Chaque connexion a `[serve] header_timeout_ms` pour envoyer ses en-têtes ;
 /// au-delà de `[serve] max_connections` connexions simultanées, une nouvelle
@@ -290,9 +323,14 @@ pub fn serve(
     // Le serveur, les outils MCP et l'agent : un seul runtime tokio.
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let listener = runtime.block_on(tokio::net::TcpListener::bind((host, port)))?;
-    if reachable_from_network(listener.local_addr()?.ip()) {
+    let bound = listener.local_addr()?;
+    // Joignable depuis le réseau : un jeton par lancement, exigé par la garde (t-193).
+    let token = if reachable_from_network(bound.ip()) {
         tracing::warn!("{}", platform.localizer.tr_with("cli-exposed", &[("host", host.into())]));
-    }
+        Some(Token::generate(bound.port())?)
+    } else {
+        None
+    };
     let stop = Arc::new(tokio::sync::Notify::new());
     {
         let stop = Arc::clone(&stop);
@@ -300,6 +338,9 @@ pub fn serve(
     }
     let stt = Stt::new(platform);
     out.line("cli-serving", &[("host", host.into()), ("port", port.into())])?;
+    if let Some(token) = &token {
+        out.line("cli-serving-token", &[("url", token_url(host, bound.port(), token).into())])?;
+    }
     out.line("cli-models-dir", &[("dir", stt.models_dir().display().to_string().into())])?;
     let clients = Clients::default();
     let sessions: Arc<dyn oku_slides_session::agent::Sessions> = workspace.clone();
@@ -316,6 +357,7 @@ pub fn serve(
         platform: platform.clone(),
         ui: ui.to_owned(),
         host: host.to_owned(),
+        token,
         one_at_a_time: Arc::new(tokio::sync::Mutex::new(())),
     });
     let app = Router::new().fallback(handle).with_state(Arc::clone(&shared));

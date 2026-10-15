@@ -25,13 +25,15 @@ cli-bench-extract = blob'u geri okuma               { $time }
 cli-bench-roundtrip = sunu gidiş-dönüşü              aynı
 cli-bench-history = geçmiş adımı                  ortalama { $mean } ms, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) adresi: http://{ $host }:{ $port }
+cli-serving-token = { $url } adresini açın (belirteç sunucu durana kadar geçerlidir)
 cli-models-dir = dikte modelleri: { $dir }
 cli-stopped = sunucu durduruldu
 cli-not-found = bulunamadı
 cli-bad-request = geçersiz istek: { $reason }
 cli-sse-full = zaten çok fazla olay akışı açık
 cli-forbidden = istek reddedildi: yerel arayüzden gelmiyor
-cli-exposed = { $host } üzerinde dinleniyor: sunucunun kimlik doğrulaması yok ve ağdan erişilebilir; yerel bir Host başlığı gönderen her istemciye yanıt verilir. [serve] host değerini 127.0.0.1 olarak bırakın
+cli-unauthorized = istek reddedildi: erişim belirteci yok ya da yanlış
+cli-exposed = { $host } üzerinde dinleniyor: sunucuya ağdan erişilebilir; yalnızca bu başlatmanın belirtecini sunan istemcilere hizmet verilir. Ağa ihtiyacınız yoksa [serve] host değerini 127.0.0.1 olarak bırakın
 cli-imported = { $path }: { $slides ->
        [one] { $slides } slayt
       *[other] { $slides } slayt

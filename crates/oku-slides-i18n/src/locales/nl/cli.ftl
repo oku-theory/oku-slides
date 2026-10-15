@@ -25,13 +25,15 @@ cli-bench-extract = blob teruglezen                  { $time }
 cli-bench-roundtrip = heen-en-terug presentatie        identiek
 cli-bench-history = stap in de geschiedenis          { $mean } ms gemiddeld, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) op http://{ $host }:{ $port }
+cli-serving-token = open { $url } (het token is geldig tot de server stopt)
 cli-models-dir = dicteermodellen: { $dir }
 cli-stopped = server gestopt
 cli-not-found = niet gevonden
 cli-bad-request = ongeldig verzoek: { $reason }
 cli-sse-full = te veel gebeurtenisstromen al geopend
 cli-forbidden = verzoek geweigerd: het komt niet van de lokale interface
-cli-exposed = luistert op { $host }: de server heeft geen authenticatie en is bereikbaar vanaf het netwerk; elke client die een lokale Host-header stuurt, wordt bediend. Houd [serve] host op 127.0.0.1
+cli-unauthorized = verzoek geweigerd: toegangstoken ontbreekt of is onjuist
+cli-exposed = luistert op { $host }: de server is bereikbaar vanaf het netwerk; alleen clients die het token van deze start tonen, worden bediend. Houd [serve] host op 127.0.0.1 als u het netwerk niet nodig hebt
 cli-imported = { $path }: { $slides ->
        [one] { $slides } dia
       *[other] { $slides } dia's

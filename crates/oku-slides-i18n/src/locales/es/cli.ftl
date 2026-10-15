@@ -25,13 +25,15 @@ cli-bench-extract = relectura del blob                    { $time }
 cli-bench-roundtrip = ida y vuelta de la presentación       idéntica
 cli-bench-history = paso del historial                    { $mean } ms de media, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) en http://{ $host }:{ $port }
+cli-serving-token = abra { $url } (el token es válido hasta que el servidor se detenga)
 cli-models-dir = modelos de dictado: { $dir }
 cli-stopped = servidor detenido
 cli-not-found = no encontrado
 cli-bad-request = solicitud no válida: { $reason }
 cli-sse-full = demasiados flujos de eventos ya abiertos
 cli-forbidden = solicitud rechazada: no proviene de la interfaz local
-cli-exposed = escuchando en { $host }: el servidor no tiene autenticación y es accesible desde la red; se atiende a cualquier cliente que envíe una cabecera Host local. Mantenga [serve] host en 127.0.0.1
+cli-unauthorized = solicitud rechazada: token de acceso ausente o incorrecto
+cli-exposed = escuchando en { $host }: el servidor es accesible desde la red; solo se atiende a los clientes que presentan el token de este arranque. Mantenga [serve] host en 127.0.0.1 si no necesita la red
 cli-imported = { $path }: { $slides ->
        [one] { $slides } diapositiva
       *[other] { $slides } diapositivas

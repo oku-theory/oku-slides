@@ -25,13 +25,15 @@ cli-bench-extract = إعادة قراءة الكتلة              { $time }
 cli-bench-roundtrip = دورة العرض التقديمي الكاملة     مطابق
 cli-bench-history = خطوة في السجل                    { $mean } ms بالمتوسط، p50 { $p50 } ms
 cli-serving = Oku Slides (تطوير) على http://{ $host }:{ $port }
+cli-serving-token = افتح { $url } (يبقى الرمز صالحًا حتى يتوقف الخادم)
 cli-models-dir = نماذج الإملاء: { $dir }
 cli-stopped = توقف الخادم
 cli-not-found = غير موجود
 cli-bad-request = طلب غير صالح: { $reason }
 cli-sse-full = عدد كبير جدًا من تدفقات الأحداث مفتوحة بالفعل
 cli-forbidden = تم رفض الطلب: لم يصدر عن الواجهة المحلية
-cli-exposed = الاستماع على { $host }: الخادم بلا مصادقة ويمكن الوصول إليه من الشبكة؛ يُخدَم أي عميل يرسل ترويسة Host محلية. أبقِ [serve] host على 127.0.0.1
+cli-unauthorized = تم رفض الطلب: رمز الوصول مفقود أو خاطئ
+cli-exposed = الاستماع على { $host }: يمكن الوصول إلى الخادم من الشبكة؛ لا يُخدَم إلا العملاء الذين يقدّمون رمز هذا التشغيل. أبقِ [serve] host على 127.0.0.1 إن لم تكن بحاجة إلى الشبكة
 cli-imported = { $path }: { $slides ->
        [zero] لا شرائح
        [one] شريحة واحدة

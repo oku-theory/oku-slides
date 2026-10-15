@@ -32,11 +32,11 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 
 ## Dev server (`serve.rs`, `guard.rs`, `sse.rs`)
 
-`serve` holds a `Workspace` (session tabs), the agent `Stack` and `Stt` in `Shared`, and
-runs through `serve_connections` with `Limits` from `[serve]`. `handle` calls
-`guard::check` first (ADR-0003), then routes `POST /api`, `/api/workspace`, `/api/stt`,
-`/api/agent`, the `GET /api/events` SSE stream (`Clients`, `SseBody`), and static files
-from `--ui` (default `ui/dist`). Ctrl-C stops it within `GRACE`.
+`Shared` holds a `Workspace`, the agent `Stack` and `Stt`; `serve_connections` runs with
+`Limits` from `[serve]`. `handle` calls `guard::check` first (ADR-0003; off loopback also
+the launch `Token` of the printed URL, by Bearer header or cookie), then routes `POST
+/api`, `/api/workspace`, `/api/stt`, `/api/agent`, `GET /api/events` (SSE: `Clients`,
+`SseBody`), and static files from `--ui` (default `ui/dist`). Ctrl-C stops it in `GRACE`.
 
 ## Extension points
 

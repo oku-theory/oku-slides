@@ -20,11 +20,16 @@
 //!   navigateur ne l'envoie qu'après une pré-vérification CORS à laquelle le
 //!   serveur ne donne jamais son accord (aucun en-tête `Access-Control-*`).
 //!
-//! Ce n'est pas une authentification : un client hors navigateur qui joint
-//! le port peut tout demander. `[serve] host` reste donc la boucle locale
-//! (`serve` avertit sinon).
+//! Ces règles ne sont pas une authentification : un client hors navigateur
+//! qui joint le port peut forger ses en-têtes. Hors de la boucle locale,
+//! `serve` tire donc un jeton à chaque lancement ([`Token`]) que `check`
+//! exige aussi, après les règles d'origine : en-tête `Authorization: Bearer`,
+//! ou cookie posé par un premier `GET` qui porte `?token=` (t-193).
 
-use axum::http::{HeaderMap, Method};
+use axum::http::{HeaderMap, Method, Uri};
+use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use sha2::{Digest as _, Sha256};
 
 const LOOPBACK: [&str; 3] = ["localhost", "127.0.0.1", "::1"];
 
@@ -39,10 +44,130 @@ pub(crate) enum Refusal {
     Origin,
     /// Un POST qui n'est pas du JSON.
     ContentType,
+    /// Serveur exposé : jeton absent ou faux (401).
+    Token,
 }
 
-/// `Ok` si la requête vient de l'interface locale ; sinon la règle enfreinte.
-pub(crate) fn check(method: &Method, headers: &HeaderMap, bound: &str) -> Result<(), Refusal> {
+/// Le jeton d'un lancement exposé au réseau : 32 octets aléatoires.
+///
+/// Seul `serve` le connaît ; il l'affiche dans l'URL à ouvrir.
+pub(crate) struct Token {
+    /// Le jeton en base64 d'URL, sans remplissage.
+    secret: String,
+    /// Son condensat, comparé en temps constant à celui du jeton reçu.
+    digest: [u8; 32],
+    /// Le nom du cookie, propre au port : deux serveurs d'une même machine
+    /// ne s'écrasent pas leurs cookies (le port n'isole pas les cookies).
+    cookie: String,
+}
+
+impl std::fmt::Debug for Token {
+    /// Le jeton n'apparaît jamais.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Token").field("cookie", &self.cookie).finish_non_exhaustive()
+    }
+}
+
+impl Token {
+    /// Tire un jeton neuf du générateur du système, pour le serveur du port `port`.
+    pub(crate) fn generate(port: u16) -> Result<Self, getrandom::Error> {
+        let mut bytes = [0u8; 32];
+        getrandom::fill(&mut bytes)?;
+        Ok(Self::from_secret(URL_SAFE_NO_PAD.encode(bytes), port))
+    }
+
+    fn from_secret(secret: String, port: u16) -> Self {
+        let digest = digest(&secret);
+        Self { secret, digest, cookie: format!("oku-slides-token-{port}") }
+    }
+
+    /// Le jeton, à placer dans l'URL affichée au lancement.
+    pub(crate) fn secret(&self) -> &str {
+        &self.secret
+    }
+
+    /// Vrai si `candidate` est le jeton ; temps constant sur les condensats.
+    fn matches(&self, candidate: &str) -> bool {
+        digest(candidate).iter().zip(self.digest).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0
+    }
+
+    /// Le jeton est dans `Authorization: Bearer` ou dans un cookie.
+    fn presented(&self, headers: &HeaderMap) -> bool {
+        let bearer = single(headers, "Authorization")
+            .ok()
+            .flatten()
+            .and_then(|v| v.split_once(' '))
+            .is_some_and(|(scheme, t)| scheme.eq_ignore_ascii_case("Bearer") && self.matches(t.trim()));
+        bearer
+            || headers.get_all("Cookie").iter().filter_map(|v| v.to_str().ok()).flat_map(|v| v.split(';')).any(|c| {
+                c.trim().split_once('=').is_some_and(|(name, value)| name == self.cookie && self.matches(value))
+            })
+    }
+
+    /// L'en-tête `Set-Cookie` qui retient le jeton dans le navigateur.
+    fn set_cookie(&self) -> String {
+        format!("{}={}; HttpOnly; SameSite=Strict; Path=/", self.cookie, self.secret)
+    }
+}
+
+fn digest(text: &str) -> [u8; 32] {
+    Sha256::digest(text.as_bytes()).into()
+}
+
+/// Une requête admise par [`check`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Access {
+    /// À router normalement.
+    Granted,
+    /// Un `GET ?token=` valide : poser le cookie et rediriger vers l'URL sans le jeton.
+    Exchange {
+        /// Valeur de l'en-tête `Set-Cookie`.
+        set_cookie: String,
+        /// Valeur de l'en-tête `Location` : même chemin, sans le paramètre `token`.
+        location: String,
+    },
+}
+
+/// Admet la requête si elle vient de l'interface locale et, quand le serveur
+/// est exposé (`token`), si elle présente le jeton ; sinon la règle enfreinte.
+pub(crate) fn check(
+    method: &Method,
+    uri: &Uri,
+    headers: &HeaderMap,
+    bound: &str,
+    token: Option<&Token>,
+) -> Result<Access, Refusal> {
+    origin(method, headers, bound)?;
+    let Some(token) = token else { return Ok(Access::Granted) };
+    let (query_token, rest) = split_token(uri.query());
+    match query_token {
+        Some(t) if method == Method::GET && token.matches(t) => {
+            // `//hôte` ou `/\hôte` serait une redirection vers un autre site.
+            let path = uri.path().trim_start_matches(['/', '\\']);
+            let location = if rest.is_empty() { format!("/{path}") } else { format!("/{path}?{rest}") };
+            Ok(Access::Exchange { set_cookie: token.set_cookie(), location })
+        }
+        Some(_) => Err(Refusal::Token),
+        None if token.presented(headers) => Ok(Access::Granted),
+        None => Err(Refusal::Token),
+    }
+}
+
+/// Le paramètre `token` d'une requête d'URL, et les autres paramètres.
+fn split_token(query: Option<&str>) -> (Option<&str>, String) {
+    let mut token = None;
+    let mut rest = Vec::new();
+    for pair in query.unwrap_or("").split('&').filter(|p| !p.is_empty()) {
+        match pair.strip_prefix("token=") {
+            Some(t) => token = Some(t),
+            None => rest.push(pair),
+        }
+    }
+    (token, rest.join("&"))
+}
+
+/// Les règles d'origine de l'ADR-0003.
+fn origin(method: &Method, headers: &HeaderMap, bound: &str) -> Result<(), Refusal> {
     let host = single(headers, "Host").ok().flatten().and_then(authority).ok_or(Refusal::Host)?;
     let bound = unbracket(bound);
     let wildcard = bound == "0.0.0.0" || bound == "::";

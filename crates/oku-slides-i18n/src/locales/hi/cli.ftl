@@ -25,13 +25,15 @@ cli-bench-extract = ब्लॉब वापस पढ़ना                
 cli-bench-roundtrip = प्रेज़ेंटेशन राउंड ट्रिप         समान
 cli-bench-history = इतिहास का कदम                 औसतन { $mean } ms, p50 { $p50 } ms
 cli-serving = Oku Slides (dev) http://{ $host }:{ $port } पर
+cli-serving-token = { $url } खोलें (टोकन सर्वर रुकने तक मान्य है)
 cli-models-dir = डिक्टेशन मॉडल: { $dir }
 cli-stopped = सर्वर बंद हुआ
 cli-not-found = नहीं मिला
 cli-bad-request = अमान्य अनुरोध: { $reason }
 cli-sse-full = पहले से ही बहुत सारे इवेंट स्ट्रीम खुले हैं
 cli-forbidden = अनुरोध अस्वीकृत: यह स्थानीय इंटरफ़ेस से नहीं आया
-cli-exposed = { $host } पर सुन रहा है: सर्वर में प्रमाणीकरण नहीं है और यह नेटवर्क से पहुँच योग्य है; स्थानीय Host हेडर भेजने वाले हर क्लाइंट को जवाब दिया जाता है। [serve] host को 127.0.0.1 पर ही रखें
+cli-unauthorized = अनुरोध अस्वीकृत: एक्सेस टोकन नहीं है या गलत है
+cli-exposed = { $host } पर सुन रहा है: सर्वर नेटवर्क से पहुँच योग्य है; केवल वे क्लाइंट सेवा पाते हैं जो इस बार चलाने का टोकन देते हैं। नेटवर्क की ज़रूरत न हो तो [serve] host को 127.0.0.1 पर रखें
 cli-imported = { $path }: { $slides ->
        [one] { $slides } स्लाइड
       *[other] { $slides } स्लाइड

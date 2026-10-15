@@ -3,7 +3,7 @@
 - **Status:** accepted
 - **Date:** 2026-10-09
 - **Tasks:** t-89 (first guard), t-419 (switch to axum), t-189 (this
-  decision), t-193 (warning outside the loopback)
+  decision), t-193 (warning, then launch token outside the loopback)
 - **Code:** `crates/oku-slides-cli/src/guard.rs`
 
 ## Context
@@ -49,8 +49,16 @@ a shared crate) instead of writing another one.
    (no `Access-Control-*` header).
 
 A rejected request gets `403` and the broken rule is logged.
-**There is no authentication** (no token, no cookie): the rule protects
-against the browser, not against a local program.
+On the loopback **there is no authentication** (no token, no cookie): the
+rule protects against the browser, not against a local program.
+
+**Outside the loopback (t-193)**, `check` also requires, after the four
+rules, a random token drawn at each launch (32 bytes, URL-safe base64) and
+printed by `serve` in the URL to open (`/?token=…`). It is accepted from an
+`Authorization: Bearer` header or from a per-port cookie (`HttpOnly`,
+`SameSite=Strict`) that a `GET` carrying a valid `?token=` sets before a
+`303` redirect to the same URL without it. Comparison is constant-time on
+SHA-256 digests; a missing or wrong token gets `401`.
 
 ## Consequences
 
@@ -63,29 +71,29 @@ against the browser, not against a local program.
 
 **Negative (known limits)**
 
-- **No authentication.** A non-browser client (curl, script) sends
-  whatever headers it wants: `Host: 127.0.0.1` without `Origin` or
-  `Sec-Fetch-Site` passes the guard. As long as the server listens on the
-  loopback, only a program on the machine can reach it; if it listens
-  **outside the loopback** (`[serve] host = "0.0.0.0"` or a network
-  address), **any network client that forges `Host` is served**. `serve`
-  warns about it at startup (t-193).
+- **No authentication on the loopback.** A non-browser client (curl,
+  script) sends whatever headers it wants: `Host: 127.0.0.1` without
+  `Origin` or `Sec-Fetch-Site` passes the guard; only a program on the
+  machine can reach it. Outside the loopback the launch token stops network
+  clients that forge `Host`; `serve` still warns at startup (t-193). The
+  token travels in clear over HTTP: anyone who can read the network traffic
+  can reuse it until the server stops.
 - A browser too old to send `Sec-Fetch-Site` only benefits from rules 1, 3
   and 4.
 
 **Neutral**
 
-- The day network listening becomes an intended use (presenting on another
-  device), authentication will have to be added (token in the URL or
-  cookie): a decision to be made separately, with this rule staying in
-  place on top.
+- An "everywhere" address still adds no accepted `Host` name: a browser on
+  another device that names the machine's address is refused (`403`). Making
+  network listening an intended use (presenting on another device) remains
+  a separate decision; the token is already in place for it.
 
 ## Rejected alternatives
 
-- **Secret token in the URL or a cookie right now:** also protects against
-  the network, but complicates the Vite proxy, the e2e tests and every tool
-  that talks to the server, for a server that listens on the loopback by
-  default. Postponed as long as network listening is not an intended use.
+- **A token on the loopback too:** complicates the Vite proxy, the e2e
+  tests and every tool that talks to the server, for no gain against the
+  browser that the four rules do not already give. Kept for exposed
+  listening only (t-193).
 - **"Open" CORS with an origin list:** CORS governs reading responses,
   not sending simple requests; it defeats neither DNS rebinding nor
   `no-cors` requests.

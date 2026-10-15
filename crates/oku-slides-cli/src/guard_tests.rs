@@ -2,13 +2,15 @@ use axum::http::request::Builder;
 use axum::http::{Method, Request};
 use speculoos::prelude::*;
 
-use super::{Refusal, check as check_parts};
+use super::{Access, Refusal, Token, check as check_parts};
 
 /// Une requête de test, sans corps.
 type Req = Request<()>;
 
 fn check(req: &Req, bound: &str) -> Result<(), Refusal> {
-    check_parts(req.method(), req.headers(), bound)
+    check_parts(req.method(), req.uri(), req.headers(), bound, None).map(|access| {
+        assert_that!(access).is_equal_to(Access::Granted);
+    })
 }
 
 fn allowed(req: &Req, bound: &str) -> bool {
@@ -236,4 +238,116 @@ fn check_origin_with_non_visible_ascii_is_refused() {
         axum::http::HeaderValue::from_bytes(b"http://127.0.0.1:4870\xff").unwrap_or_else(|e| panic!("valeur : {e}"));
     let req = build(Request::builder().header("Host", "127.0.0.1:4870").header("Origin", origin));
     assert_that!(check(&req, "127.0.0.1")).is_err_containing(Refusal::Origin);
+}
+
+// ---- Jeton d'un serveur exposé (t-193) ---------------------------------------
+
+const SECRET: &str = "c2VjcmV0LWRlLXRlc3QtcG91ci1sZS1zZXJ2ZXVyLWV4cG9zZQ";
+
+fn token() -> Token {
+    Token::from_secret(SECRET.to_owned(), 4870)
+}
+
+/// Une requête d'un client du réseau qui forge `Host` vers un serveur sur `0.0.0.0`.
+fn exposed(builder: Builder) -> Result<Access, Refusal> {
+    let req = build(builder.header("Host", "127.0.0.1:4870"));
+    check_parts(req.method(), req.uri(), req.headers(), "0.0.0.0", Some(&token()))
+}
+
+#[test]
+fn check_loopback_server_without_token_needs_none() {
+    let req = build(Request::builder().uri("/?x=1").header("Host", "127.0.0.1:4870"));
+    let access = check_parts(req.method(), req.uri(), req.headers(), "127.0.0.1", None);
+    assert_that!(access).is_ok_containing(Access::Granted);
+}
+
+#[test]
+fn check_exposed_request_without_token_is_unauthorized() {
+    assert_that!(exposed(Request::builder().uri("/api/events"))).is_err_containing(Refusal::Token);
+}
+
+#[rstest::rstest]
+#[case::wrong_bearer("Authorization", "Bearer pas-le-jeton")]
+#[case::other_scheme("Authorization", "Basic c2VjcmV0")]
+#[case::wrong_cookie("Cookie", "oku-slides-token-4870=pas-le-jeton")]
+#[case::cookie_of_another_port("Cookie", "oku-slides-token-4871=c2VjcmV0LWRlLXRlc3QtcG91ci1sZS1zZXJ2ZXVyLWV4cG9zZQ")]
+#[case::truncated_bearer("Authorization", "Bearer c2VjcmV0LWRlLXRlc3Q")]
+fn check_exposed_request_with_a_wrong_token_is_unauthorized(#[case] name: &str, #[case] value: &str) {
+    assert_that!(exposed(Request::builder().uri("/api/events").header(name, value))).is_err_containing(Refusal::Token);
+}
+
+#[rstest::rstest]
+#[case::bearer("Authorization", format!("Bearer {SECRET}"))]
+#[case::bearer_lower_case("Authorization", format!("bearer {SECRET}"))]
+#[case::cookie("Cookie", format!("oku-slides-token-4870={SECRET}"))]
+#[case::cookie_among_others("Cookie", format!("theme=dark; oku-slides-token-4870={SECRET}; x=1"))]
+fn check_exposed_request_with_the_token_is_granted(#[case] name: &str, #[case] value: String) {
+    let builder = Request::builder().method(Method::POST).uri("/api").header("Content-Type", "application/json");
+    assert_that!(exposed(builder.header(name, value))).is_ok_containing(Access::Granted);
+}
+
+#[test]
+fn check_exposed_page_with_the_token_in_the_url_sets_the_cookie_and_redirects() {
+    let access = exposed(Request::builder().uri(format!("/?token={SECRET}")));
+    assert_that!(access).is_ok_containing(Access::Exchange {
+        set_cookie: format!("oku-slides-token-4870={SECRET}; HttpOnly; SameSite=Strict; Path=/"),
+        location: "/".to_owned(),
+    });
+}
+
+#[test]
+fn check_exposed_page_keeps_the_other_query_parameters_in_the_redirect() {
+    let access = exposed(Request::builder().uri(format!("/index.html?a=1&token={SECRET}&b=2")));
+    let location = match access {
+        Ok(Access::Exchange { location, .. }) => location,
+        other => panic!("échange attendu : {other:?}"),
+    };
+    assert_that!(location).is_equal_to("/index.html?a=1&b=2".to_owned());
+}
+
+#[test]
+fn check_exposed_page_never_redirects_to_another_host() {
+    for uri in [format!("//evil.example/?token={SECRET}"), format!("/%5Cevil.example?token={SECRET}")] {
+        let location = match exposed(Request::builder().uri(uri.as_str())) {
+            Ok(Access::Exchange { location, .. }) => location,
+            other => panic!("échange attendu : {other:?}"),
+        };
+        assert_that!(location.starts_with("//") || location.starts_with("/\\")).named(&uri).is_false();
+    }
+}
+
+#[test]
+fn check_exposed_page_with_a_wrong_token_in_the_url_is_unauthorized() {
+    assert_that!(exposed(Request::builder().uri("/?token=faux"))).is_err_containing(Refusal::Token);
+}
+
+#[test]
+fn check_exposed_post_with_the_token_in_the_url_is_unauthorized() {
+    // Le jeton dans l'URL ne sert qu'à poser le cookie, au chargement de la page.
+    let builder = Request::builder()
+        .method(Method::POST)
+        .uri(format!("/api?token={SECRET}"))
+        .header("Content-Type", "application/json");
+    assert_that!(exposed(builder)).is_err_containing(Refusal::Token);
+}
+
+#[test]
+fn check_exposed_foreign_origin_is_refused_before_the_token() {
+    let builder =
+        Request::builder().header("Authorization", format!("Bearer {SECRET}")).header("Origin", "https://evil.example");
+    assert_that!(exposed(builder)).is_err_containing(Refusal::Origin);
+}
+
+#[test]
+fn token_generate_draws_a_fresh_url_safe_token() {
+    let (a, b) = (Token::generate(4870), Token::generate(4870));
+    let (a, b) = (a.unwrap_or_else(|e| panic!("jeton : {e}")), b.unwrap_or_else(|e| panic!("jeton : {e}")));
+    assert_that!(a.secret()).is_not_equal_to(b.secret());
+    assert_that!(a.secret().len()).is_equal_to(43);
+    assert_that!(a.secret().bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')).is_true();
+}
+
+#[test]
+fn token_debug_hides_the_secret() {
+    assert_that!(format!("{:?}", token())).does_not_contain(SECRET);
 }

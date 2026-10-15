@@ -106,6 +106,18 @@ pub fn http(port: u16, method: &str, path: &str, body: &str) -> (u16, String) {
 
 /// Une requête HTTP/1.1 minimale avec ses en-têtes ; renvoie le statut et le corps.
 pub fn request(port: u16, method: &str, path: &str, headers: &[(&str, &str)], body: &str) -> (u16, String) {
+    let (status, _, body) = exchange(port, method, path, headers, body);
+    (status, body)
+}
+
+/// Comme [`request`], avec aussi les en-têtes de la réponse (noms en minuscules).
+pub fn exchange(
+    port: u16,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+    body: &str,
+) -> (u16, Vec<(String, String)>, String) {
     let deadline = Instant::now() + Duration::from_secs(30);
     let mut stream = loop {
         match TcpStream::connect(("127.0.0.1", port)) {
@@ -124,6 +136,12 @@ pub fn request(port: u16, method: &str, path: &str, headers: &[(&str, &str)], bo
     let mut response = String::new();
     stream.read_to_string(&mut response).unwrap_or_else(|e| panic!("réponse : {e}"));
     let status = response.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-    let body = response.split_once("\r\n\r\n").map(|(_, b)| b.to_owned()).unwrap_or_default();
-    (status, body)
+    let (head, body) = response.split_once("\r\n\r\n").unwrap_or((response.as_str(), ""));
+    let headers = head
+        .lines()
+        .skip(1)
+        .filter_map(|l| l.split_once(':'))
+        .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_owned()))
+        .collect();
+    (status, headers, body.to_owned())
 }
