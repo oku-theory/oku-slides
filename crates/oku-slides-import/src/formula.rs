@@ -9,7 +9,7 @@ use std::f64::consts::PI;
 
 /// Opérande : littéral ou nom (guide, ajustement, constante prédéfinie).
 #[derive(Debug, Clone, PartialEq)]
-pub(super) enum Operand {
+pub(crate) enum Operand {
     Lit(f64),
     Name(String),
 }
@@ -17,7 +17,7 @@ pub(super) enum Operand {
 impl Operand {
     /// Un littéral commence par un chiffre, un signe ou un point : un guide
     /// nommé `inf` ou `nan` reste un nom.
-    pub(super) fn parse(token: &str) -> Operand {
+    pub(crate) fn parse(token: &str) -> Operand {
         let numeric = token.starts_with(|c: char| c.is_ascii_digit() || matches!(c, '-' | '+' | '.'));
         match token.parse::<f64>() {
             Ok(v) if numeric && v.is_finite() => Operand::Lit(v),
@@ -28,7 +28,7 @@ impl Operand {
 
 /// Opérateur d'une formule.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Op {
+pub(crate) enum Op {
     /// `x * y / z`.
     MulDiv,
     /// `x + y - z`.
@@ -89,13 +89,13 @@ impl Op {
 /// opérande. Un opérande de trop est ignoré : les définitions d'origine en
 /// ont (`+- xH 0 dxB 0` dans `circularArrow`).
 #[derive(Debug, Clone, PartialEq)]
-pub(super) struct Formula {
+pub(crate) struct Formula {
     op: Op,
     args: Vec<Operand>,
 }
 
 impl Formula {
-    pub(super) fn parse(fmla: &str) -> Option<Formula> {
+    pub(crate) fn parse(fmla: &str) -> Option<Formula> {
         let mut tokens = fmla.split_whitespace();
         let (op, arity) = Op::parse(tokens.next()?)?;
         let args: Vec<Operand> = tokens.take(arity).map(Operand::parse).collect();
@@ -103,7 +103,7 @@ impl Formula {
     }
 
     /// Valeur de la formule dans `env`.
-    pub(super) fn eval(&self, env: &Env<'_>) -> Option<f64> {
+    pub(crate) fn eval(&self, env: &Env<'_>) -> Option<f64> {
         let mut v = [0.0; 3];
         for (slot, a) in v.iter_mut().zip(&self.args) {
             *slot = env.get(a)?;
@@ -147,7 +147,7 @@ impl Formula {
 }
 
 /// Une unité d'angle DrawingML (1/60 000ᵉ de degré), en radians.
-pub(super) const ANGLE: f64 = PI / 180.0 / 60_000.0;
+pub(crate) const ANGLE: f64 = PI / 180.0 / 60_000.0;
 
 fn div(n: f64, d: f64) -> f64 {
     if d == 0.0 { 0.0 } else { n / d }
@@ -155,22 +155,22 @@ fn div(n: f64, d: f64) -> f64 {
 
 /// Valeurs nommées d'une évaluation : guides et ajustements déjà calculés,
 /// puis constantes prédéfinies tirées de la taille de la forme.
-pub(super) struct Env<'a> {
+pub(crate) struct Env<'a> {
     w: f64,
     h: f64,
     names: HashMap<&'a str, f64>,
 }
 
 impl<'a> Env<'a> {
-    pub(super) fn new(w: f64, h: f64) -> Self {
+    pub(crate) fn new(w: f64, h: f64) -> Self {
         Env { w, h, names: HashMap::new() }
     }
 
-    pub(super) fn set(&mut self, name: &'a str, v: f64) {
+    pub(crate) fn set(&mut self, name: &'a str, v: f64) {
         self.names.insert(name, v);
     }
 
-    pub(super) fn get(&self, operand: &Operand) -> Option<f64> {
+    pub(crate) fn get(&self, operand: &Operand) -> Option<f64> {
         match operand {
             Operand::Lit(v) => Some(*v),
             Operand::Name(n) => self.names.get(n.as_str()).copied().or_else(|| self.builtin(n)),

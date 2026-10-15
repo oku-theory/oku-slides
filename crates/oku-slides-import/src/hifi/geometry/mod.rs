@@ -2,7 +2,7 @@
 //!
 //! Un preset (`prstGeom`) est évalué sur ses définitions ECMA-376
 //! (`presets.rs`) : ajustements de la forme à la place des défauts, guides
-//! (`formula.rs`), puis sous-chemins tracés (`pen.rs`, arcs en cubiques). Un
+//! (`crate::formula`), puis sous-chemins tracés (`pen.rs`, arcs en cubiques). Un
 //! tracé libre (`custGeom`) passe par le même crayon. Les formules dépendent
 //! du rapport largeur/hauteur : la taille réelle de la forme (pt) est requise.
 //!
@@ -10,7 +10,6 @@
 //! plus `MAX_PATH_CMDS` (lecteur), chaque arc en devient au plus quatre.
 
 pub(crate) mod arrow;
-mod formula;
 mod pen;
 mod presets;
 
@@ -18,9 +17,9 @@ use std::collections::BTreeMap;
 
 use oku_slides_core::PathCommand;
 
-use self::formula::{ANGLE, Env, Operand};
 use self::pen::Pen;
 use self::presets::{Command, Preset};
+use crate::formula::{ANGLE, Env, Operand};
 use crate::source::{Geometry, PathCmd, SubPath};
 
 /// Contour d'une forme, coordonnées relatives au cadre (certains presets

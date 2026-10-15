@@ -28,6 +28,7 @@ pub mod source;
 
 mod collect;
 mod error;
+mod formula;
 mod limits;
 mod oklab;
 mod pattern;

@@ -19,7 +19,7 @@ use std::sync::LazyLock;
 
 use roxmltree::{Document, Node};
 
-use super::formula::{Formula, Operand};
+use crate::formula::{Formula, Operand};
 use crate::pptx::xml::{attr_bool, attr_str, child, elements};
 
 /// Copie de LibreOffice (`oox/source/drawingml/customshapes/`) ; la balise
