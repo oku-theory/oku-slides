@@ -102,6 +102,7 @@ import-warning-unreadable-part = ส่วนที่อ่านไม่ไ�
 import-warning-missing-part = ส่วนที่ขาดหายไป: { $detail }
 import-warning-unsupported-chart = แผนภูมิที่ไม่รองรับ: { $detail }
 import-warning-unsupported-image = รูปแบบรูปภาพที่ไม่รองรับ: { $detail }
+import-warning-oversized-image = รูปภาพใหญ่เกินกว่าจะนำเข้าได้ (จำนวนพิกเซล): { $detail }
 import-warning-external-image = รูปภาพที่ลิงก์อยู่นอกไฟล์ ไม่ได้นำเข้า: { $detail }
 import-warning-unsafe-svg = ล้างเนื้อหาที่ไม่ปลอดภัยออกจากรูปภาพ SVG หรือตัดรูปภาพทิ้ง: { $detail }
 import-warning-unknown-table-style = สไตล์ตารางที่ไม่รู้จัก: { $detail }

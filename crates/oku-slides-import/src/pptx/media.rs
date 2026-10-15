@@ -40,6 +40,59 @@ pub(crate) fn sniff(bytes: &[u8]) -> &'static str {
     }
 }
 
+/// Largeur et hauteur annoncées par l'en-tête d'un raster que Typst dessine (png, jpeg, gif, webp).
+///
+/// Lues sans rien décoder ni allouer, pour refuser une image géante avant que le rendu ne la
+/// décompresse ; `None` si l'en-tête est tronqué ou incohérent, ou si `mime` n'est pas l'un d'eux.
+pub(crate) fn dimensions(bytes: &[u8], mime: &str) -> Option<(u32, u32)> {
+    let le16 = |at: usize| bytes.get(at..at + 2).map(|b| u32::from(u16::from_le_bytes([b[0], b[1]])));
+    let le24 = |at: usize| bytes.get(at..at + 3).map(|b| u32::from_le_bytes([b[0], b[1], b[2], 0]));
+    let be32 = |at: usize| bytes.get(at..at + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]));
+    match mime {
+        "image/png" => (bytes.get(12..16) == Some(b"IHDR")).then_some((be32(16)?, be32(20)?)),
+        "image/gif" => Some((le16(6)?, le16(8)?)),
+        "image/webp" => match bytes.get(12..16)? {
+            b"VP8 " => (bytes.get(23..26) == Some(b"\x9d\x01\x2a")).then_some((le16(26)? & 0x3FFF, le16(28)? & 0x3FFF)),
+            b"VP8L" => {
+                let bits = u32::from_le_bytes(bytes.get(21..25)?.try_into().ok()?);
+                (bytes.get(20) == Some(&0x2F)).then_some(((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1))
+            }
+            b"VP8X" => Some((le24(24)? + 1, le24(27)? + 1)),
+            _ => None,
+        },
+        "image/jpeg" => jpeg_dimensions(bytes),
+        _ => None,
+    }
+}
+
+/// Dimensions du premier segment `SOFn` d'un JPEG, segments précédents sautés par leur longueur.
+fn jpeg_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    let be16 = |at: usize| bytes.get(at..at + 2).map(|b| usize::from(u16::from_be_bytes([b[0], b[1]])));
+    let mut at = 2;
+    loop {
+        // Octets de remplissage `FF` admis avant un marqueur.
+        while bytes.get(at + 1) == Some(&0xFF) && bytes.get(at) == Some(&0xFF) {
+            at += 1;
+        }
+        if bytes.get(at) != Some(&0xFF) {
+            return None;
+        }
+        let marker = *bytes.get(at + 1)?;
+        match marker {
+            // Marqueurs sans segment : TEM, RSTn.
+            0x01 | 0xD0..=0xD7 => at += 2,
+            // SOF0 à SOF15, sauf DHT (C4), JPG (C8) et DAC (CC).
+            0xC0..=0xCF if !matches!(marker, 0xC4 | 0xC8 | 0xCC) => {
+                let (h, w) = (be16(at + 5)?, be16(at + 7)?);
+                return Some((u32::try_from(w).ok()?, u32::try_from(h).ok()?));
+            }
+            // Début des données ou fin d'image avant tout SOF.
+            0xD9 | 0xDA => return None,
+            _ => at = at.checked_add(2)?.checked_add(be16(at + 2)?)?,
+        }
+    }
+}
+
 /// Reste de `b` après la première occurrence de `end`.
 fn after<'b>(b: &'b [u8], end: &[u8]) -> Option<&'b [u8]> {
     b.windows(end.len()).position(|w| w == end).and_then(|p| b.get(p + end.len()..))

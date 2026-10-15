@@ -108,6 +108,7 @@ import-warning-unreadable-part = Onleesbaar onderdeel: { $detail }
 import-warning-missing-part = Ontbrekend onderdeel: { $detail }
 import-warning-unsupported-chart = Niet-ondersteunde grafiek: { $detail }
 import-warning-unsupported-image = Afbeeldingsindeling niet ondersteund: { $detail }
+import-warning-oversized-image = Afbeelding te groot om te importeren (aantal pixels): { $detail }
 import-warning-external-image = Gekoppelde afbeelding buiten het bestand, niet geïmporteerd: { $detail }
 import-warning-unsafe-svg = SVG-afbeelding ontdaan van onveilige inhoud, of weggelaten: { $detail }
 import-warning-unknown-table-style = Onbekende tabelstijl: { $detail }

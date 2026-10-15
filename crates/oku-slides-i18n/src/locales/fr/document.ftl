@@ -107,6 +107,7 @@ import-warning-unreadable-part = Partie illisible : { $detail }
 import-warning-missing-part = Partie manquante : { $detail }
 import-warning-unsupported-chart = Graphique non pris en charge : { $detail }
 import-warning-unsupported-image = Format d'image non pris en charge : { $detail }
+import-warning-oversized-image = Image trop grande pour être importée (nombre de pixels) : { $detail }
 import-warning-external-image = Image liée hors du fichier, non importée : { $detail }
 import-warning-unsafe-svg = Image SVG nettoyée de son contenu risqué, ou écartée : { $detail }
 import-warning-unknown-table-style = Style de tableau inconnu : { $detail }

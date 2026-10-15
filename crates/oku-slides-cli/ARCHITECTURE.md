@@ -16,7 +16,7 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 - `pack_render.rs`: `DeckWidgets::probe` probes a deck's embedded pack in the render
   worker (in up to `PROBE_ROUNDS` calls); `render` renders in memory or in the worker.
 - `import.rs`: `oku-slides import`, `ImportMode` `retrofit` (onto an existing pack and
-  theme) or `hifi`; one transaction, then saved like `save`, with an optional report.
+  theme) or `hifi`, read on a thread of known stack; saved like `save`, report optional.
 - `import_overflow.rs`: text fields rendered past their page become `Overflow` losses.
 - `import_reference.rs`: hi-fi `--reference auto`: the witness in a render worker of its own, 20
   slides at a time, each Oku page cropped to the source page at 960 px, scored into the report.

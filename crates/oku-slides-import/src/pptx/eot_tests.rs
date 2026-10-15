@@ -54,3 +54,11 @@ fn decode_with_inconsistent_sizes_is_none() {
     v[0..4].copy_from_slice(&u32::MAX.to_le_bytes());
     assert_that!((decode(&v), decode(&v[..20]))).is_equal_to((None, None));
 }
+
+#[test]
+fn decode_with_font_size_beyond_data_allocates_nothing_and_is_none() {
+    // `font_size` forgé à 4 Gio : la police est une tranche des octets reçus, jamais une allocation annoncée.
+    let mut v = eot(&sfnt(), 0);
+    v[4..8].copy_from_slice(&u32::MAX.to_le_bytes());
+    assert_that!(decode(&v)).is_none();
+}

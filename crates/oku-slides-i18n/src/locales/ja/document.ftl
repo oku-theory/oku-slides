@@ -101,6 +101,7 @@ import-warning-unreadable-part = 読み取れないパーツ: { $detail }
 import-warning-missing-part = パーツがありません: { $detail }
 import-warning-unsupported-chart = 未対応のグラフ: { $detail }
 import-warning-unsupported-image = 未対応の画像形式: { $detail }
+import-warning-oversized-image = 画像が大きすぎてインポートできません（ピクセル数）: { $detail }
 import-warning-external-image = ファイル外にリンクされた画像はインポートされません: { $detail }
 import-warning-unsafe-svg = SVG 画像から安全でない内容を除去したか、画像を破棄しました: { $detail }
 import-warning-unknown-table-style = 不明な表のスタイル: { $detail }

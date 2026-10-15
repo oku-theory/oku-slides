@@ -161,8 +161,29 @@ fn read_input(platform: &Platform, l: &Localizer, args: &ImportArgs) -> Result<I
             eyre!(e).wrap_err(l.tr_with("cli-reading", &[("path", shown.as_str().into())]))
         }
     })?;
-    let source = read_pptx(&bytes, &limits).map_err(|e| eyre!(e.localize(l)))?;
+    let source = read_on_own_thread(&bytes, &limits)
+        .wrap_err_with(|| l.tr_with("cli-reading", &[("path", shown.as_str().into())]))?
+        .map_err(|e| eyre!(e.localize(l)))?;
     Ok(Input { bytes, source, limits })
+}
+
+/// Pile du fil de lecture : la lecture est bornée en profondeur (XML, groupes), et cette pile
+/// ne dépend ni du fil appelant ni d'un runtime.
+const READ_STACK_BYTES: usize = 16 << 20;
+
+/// [`read_pptx`] sur un fil dédié à pile connue ([`READ_STACK_BYTES`]) ; l'erreur externe est
+/// celle du lancement du fil, une panique de la lecture est relancée telle quelle.
+pub(crate) fn read_on_own_thread(
+    bytes: &[u8],
+    limits: &ReadLimits,
+) -> std::io::Result<Result<SourceDeck, oku_slides_import::ImportError>> {
+    std::thread::scope(|scope| {
+        let reader = std::thread::Builder::new()
+            .name("import-read".to_owned())
+            .stack_size(READ_STACK_BYTES)
+            .spawn_scoped(scope, || read_pptx(bytes, limits))?;
+        Ok(reader.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)))
+    })
 }
 
 /// Le retrofit de `source` sur le pack `wanted` et le thème `args.theme`.
@@ -283,3 +304,7 @@ fn reference_line(out: &mut Out<'_>, reference: &ReferenceReport, report: &Impor
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "import_tests.rs"]
+mod import_tests;

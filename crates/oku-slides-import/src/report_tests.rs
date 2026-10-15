@@ -145,6 +145,7 @@ fn loss_localize_repeated_decor_in_french_agrees_with_one_slide() {
 #[case(WarningKind::MissingPart("ppt/media/image1.png".into()))]
 #[case(WarningKind::UnsupportedChart("combo: barChart".into()))]
 #[case(WarningKind::UnsupportedImage("image/x-emf".into()))]
+#[case(WarningKind::OversizedImage("ppt/media/image1.png".into()))]
 #[case(WarningKind::ExternalImage("https://images.example/photo.png".into()))]
 #[case(WarningKind::UnsafeSvg("ppt/media/image1.svg".into()))]
 #[case(WarningKind::UnknownTableStyle("{5C22544A}".into()))]

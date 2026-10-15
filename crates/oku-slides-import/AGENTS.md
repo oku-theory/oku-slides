@@ -21,7 +21,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep fs_type and subset on embedded fonts so later lots never embed preview-only or partial fonts. (plan:2026-10-09-import-pptx-lot1)
 - Resolve PPTX text style inheritance only in the single cascade function, never ad hoc elsewhere. (spec:2026-10-09-import-pptx-design)
 - Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN, listed in bounds::clamped to warn Approximated; parse a theme part shared by masters once. (t-755, t-892)
-- Type every asset with media::sniff and pass every SVG through svg::sanitize, which admits only literal internal entities. (t-752, t-892)
+- Type every asset with media::sniff, refuse a raster whose header is unreadable or above max_image_pixels, and pass every SVG through svg::sanitize (literal internal entities only). (t-752, t-892, t-730)
 - Apply or write only a CheckedPlan, which only ImportPlan::check_budget returns. (t-753, t-892)
 
 ## Pitfalls

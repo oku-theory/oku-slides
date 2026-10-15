@@ -11,7 +11,7 @@ use crate::collect::{Sink, clip, clip_to};
 use crate::error::ImportError;
 use crate::pptx::cascade::TextEnv;
 use crate::pptx::color::ColorCtx;
-use crate::pptx::media::{SVG, sniff};
+use crate::pptx::media::{SVG, dimensions, sniff};
 use crate::pptx::package::{Package, Rels};
 use crate::pptx::placeholder::{Inherited, PhInheritance, PhKey};
 use crate::pptx::svg::sanitize;
@@ -158,7 +158,8 @@ impl<'p> PartCtx<'p> {
     }
 
     /// Asset de la relation `rid` (lu une fois par chemin, échec compris), typé par son contenu, SVG
-    /// assaini ; `None` si absent, illisible ou SVG rejeté.
+    /// assaini ; `None` si absent, illisible, SVG rejeté, ou raster d'en-tête illisible ou trop grand
+    /// (`max_image_pixels`), refusé sans être décodé.
     pub(crate) fn asset(&self, rid: &str) -> Option<String> {
         let target = self.rels.target(rid)?.to_owned();
         {
@@ -193,10 +194,18 @@ impl<'p> PartCtx<'p> {
                 self.warn(None, WarningKind::UnsafeSvg(clip(&target)));
             }
             clean.bytes
-        } else {
-            if !is_drawable(mime) {
-                self.warn(None, WarningKind::UnsupportedImage(clip(&target)));
+        } else if is_drawable(mime) {
+            let limit = self.pkg().limits().max_image_pixels;
+            let fits = dimensions(&bytes, mime).map(|(w, h)| u64::from(w) * u64::from(h) <= limit);
+            if fits != Some(true) {
+                self.shared.sink.borrow_mut().fail_asset(&target);
+                let kind = if fits.is_some() { WarningKind::OversizedImage } else { WarningKind::UnsupportedImage };
+                self.warn(None, kind(clip(&target)));
+                return None;
             }
+            bytes
+        } else {
+            self.warn(None, WarningKind::UnsupportedImage(clip(&target)));
             bytes
         };
         Some(self.shared.sink.borrow_mut().intern(&target, bytes, mime))

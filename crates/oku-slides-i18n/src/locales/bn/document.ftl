@@ -105,6 +105,7 @@ import-warning-unreadable-part = অপাঠযোগ্য অংশ: { $detai
 import-warning-missing-part = অনুপস্থিত অংশ: { $detail }
 import-warning-unsupported-chart = অসমর্থিত চার্ট: { $detail }
 import-warning-unsupported-image = অসমর্থিত ছবির ফরম্যাট: { $detail }
+import-warning-oversized-image = ছবিটি আমদানির জন্য অনেক বড় (পিক্সেল সংখ্যা): { $detail }
 import-warning-external-image = ফাইলের বাইরে লিঙ্ক করা ছবি, আমদানি করা হয়নি: { $detail }
 import-warning-unsafe-svg = SVG ছবি থেকে অনিরাপদ বিষয়বস্তু সরানো হয়েছে, অথবা ছবিটি বাদ দেওয়া হয়েছে: { $detail }
 import-warning-unknown-table-style = অজানা টেবিল স্টাইল: { $detail }

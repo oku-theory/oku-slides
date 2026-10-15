@@ -102,6 +102,7 @@ import-warning-unreadable-part = 읽을 수 없는 부분: { $detail }
 import-warning-missing-part = 누락된 부분: { $detail }
 import-warning-unsupported-chart = 지원되지 않는 차트: { $detail }
 import-warning-unsupported-image = 지원되지 않는 이미지 형식: { $detail }
+import-warning-oversized-image = 이미지가 너무 커서 가져올 수 없습니다(픽셀 수): { $detail }
 import-warning-external-image = 파일 외부에 연결된 이미지는 가져오지 않았습니다: { $detail }
 import-warning-unsafe-svg = SVG 이미지에서 안전하지 않은 내용을 제거했거나 이미지를 버렸습니다: { $detail }
 import-warning-unknown-table-style = 알 수 없는 표 스타일: { $detail }

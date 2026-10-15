@@ -22,3 +22,8 @@ fn default_limits_output_budget_matches_reopenable_sources() {
 fn default_limits_replica_budget_matches_reopenable_history() {
     assert_that!(ReadLimits::default().max_replica_bytes).is_equal_to(32 << 20);
 }
+
+#[test]
+fn default_limits_image_pixels_bound_a_decoded_image_to_256_mib() {
+    assert_that!(ReadLimits::default().max_image_pixels * 4).is_equal_to(256 << 20);
+}

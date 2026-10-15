@@ -16,20 +16,29 @@ const SRELS: &str = r#"<?xml version="1.0"?><Relationships xmlns="http://schemas
 <Relationship Id="rId12" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/icon.svg"/>
 <Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/bomb.svg"/>
 <Relationship Id="rId14" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/hidden.png"/>
+<Relationship Id="rId15" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/huge.png"/>
+<Relationship Id="rId16" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/broken.png"/>
 </Relationships>"#;
 
 const HOSTILE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(2)</script><rect width="1" height="1"/></svg>"#;
 const BOMB_SVG: &str = r#"<!DOCTYPE svg [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;&a;">]><svg xmlns="http://www.w3.org/2000/svg"><text>&b;</text></svg>"#;
+
+/// JPEG 1 × 1 réduit à son segment `SOF0`.
+const JPEG: &[u8] = b"\xFF\xD8\xFF\xC0\0\x11\x08\0\x01\0\x01\x03";
+/// PNG dont l'en-tête annonce 100 000 × 100 000 pixels, sans données.
+const HUGE_PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR\0\x01\x86\xA0\0\x01\x86\xA0\x08\x06\0\0\0";
 
 fn pkg() -> TestPkg {
     TestPkg::with(&[
         ("ppt/slides/_rels/slide1.xml.rels", SRELS.as_bytes()),
         ("ppt/media/image1.png", PNG),
         ("ppt/media/pic.emf", b"emf"),
-        ("ppt/media/photo.png", b"\xFF\xD8\xFF\xE0jpeg"),
+        ("ppt/media/photo.png", JPEG),
         ("ppt/media/icon.svg", HOSTILE_SVG.as_bytes()),
         ("ppt/media/bomb.svg", BOMB_SVG.as_bytes()),
         ("ppt/media/hidden.png", HOSTILE_SVG.as_bytes()),
+        ("ppt/media/huge.png", HUGE_PNG),
+        ("ppt/media/broken.png", b"\x89PNG\r\n\x1a\n-no-header"),
     ])
 }
 
@@ -172,4 +181,25 @@ fn linked_doc_malformed_warns_with_the_given_kind() {
     assert_that!(doc).is_false();
     assert_that!(w.iter().map(|w| (w.item.as_deref(), w.kind.clone())).collect::<Vec<_>>())
         .is_equal_to(vec![(Some("s1/4"), WarningKind::UnreadableItem("c".into()))]);
+}
+
+#[test]
+fn asset_raster_beyond_max_image_pixels_is_refused_unread() {
+    let t = pkg();
+    let ((a, again), w, assets) =
+        with_ctx(&t.pkg(), "ppt/slides/slide1.xml", |cx| (cx.asset("rId15"), cx.asset("rId15")));
+    assert_that!((a, again)).is_equal_to((None, None));
+    assert_that!(assets.len()).is_equal_to(0);
+    let oversized: Vec<_> =
+        w.iter().filter(|w| matches!(&w.kind, WarningKind::OversizedImage(p) if p == "ppt/media/huge.png")).collect();
+    assert_that!(oversized).has_length(1);
+}
+
+#[test]
+fn asset_raster_with_unreadable_header_is_refused_as_unsupported() {
+    let t = pkg();
+    let (a, w, _) = with_ctx(&t.pkg(), "ppt/slides/slide1.xml", |cx| cx.asset("rId16"));
+    assert_that!(a).is_none();
+    assert_that!(w.iter().any(|w| matches!(&w.kind, WarningKind::UnsupportedImage(p) if p == "ppt/media/broken.png")))
+        .is_true();
 }

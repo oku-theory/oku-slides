@@ -108,6 +108,7 @@ import-warning-unreadable-part = अपठनीय भाग: { $detail }
 import-warning-missing-part = अनुपस्थित भाग: { $detail }
 import-warning-unsupported-chart = असमर्थित चार्ट: { $detail }
 import-warning-unsupported-image = असमर्थित छवि फ़ॉर्मैट: { $detail }
+import-warning-oversized-image = छवि आयात करने के लिए बहुत बड़ी है (पिक्सेल संख्या): { $detail }
 import-warning-external-image = फ़ाइल से बाहर लिंक की गई छवि, आयात नहीं की गई: { $detail }
 import-warning-unsafe-svg = SVG छवि से असुरक्षित सामग्री हटाई गई, या छवि छोड़ दी गई: { $detail }
 import-warning-unknown-table-style = अज्ञात तालिका शैली: { $detail }

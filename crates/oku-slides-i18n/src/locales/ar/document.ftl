@@ -116,6 +116,7 @@ import-warning-unreadable-part = جزء غير مقروء: { $detail }
 import-warning-missing-part = جزء مفقود: { $detail }
 import-warning-unsupported-chart = مخطط غير مدعوم: { $detail }
 import-warning-unsupported-image = تنسيق صورة غير مدعوم: { $detail }
+import-warning-oversized-image = الصورة أكبر من أن تُستورد (عدد البكسلات): { $detail }
 import-warning-external-image = صورة مرتبطة خارج الملف، لم تُستورد: { $detail }
 import-warning-unsafe-svg = صورة SVG نُظّفت من المحتوى غير الآمن، أو استُبعدت: { $detail }
 import-warning-unknown-table-style = نمط جدول غير معروف: { $detail }

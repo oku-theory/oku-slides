@@ -102,6 +102,7 @@ import-warning-unreadable-part = Okunamayan bölüm: { $detail }
 import-warning-missing-part = Eksik bölüm: { $detail }
 import-warning-unsupported-chart = Desteklenmeyen grafik: { $detail }
 import-warning-unsupported-image = Desteklenmeyen görüntü biçimi: { $detail }
+import-warning-oversized-image = Görüntü içe aktarılamayacak kadar büyük (piksel sayısı): { $detail }
 import-warning-external-image = Dosya dışına bağlı görüntü içe aktarılmadı: { $detail }
 import-warning-unsafe-svg = SVG görüntüsü güvenli olmayan içerikten arındırıldı veya atıldı: { $detail }
 import-warning-unknown-table-style = Bilinmeyen tablo stili: { $detail }

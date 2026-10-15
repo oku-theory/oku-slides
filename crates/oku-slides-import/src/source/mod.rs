@@ -424,6 +424,8 @@ pub enum WarningKind {
     ///
     /// `emf`, `bmp`, type inconnu… : une indication pour les projecteurs.
     UnsupportedImage(String),
+    /// Image raster dont l'en-tête annonce plus de pixels que `max_image_pixels`, non importée : son chemin.
+    OversizedImage(String),
     /// Image liée hors du fichier (`r:link`), non importée : sa cible.
     ExternalImage(String),
     /// SVG assaini (script, lien externe… retirés) ou rejeté (DTD, illisible) : son chemin.

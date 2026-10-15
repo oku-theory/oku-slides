@@ -102,6 +102,7 @@ import-warning-unreadable-part = 無法讀取的部分：{ $detail }
 import-warning-missing-part = 缺少部分：{ $detail }
 import-warning-unsupported-chart = 不支援的圖表：{ $detail }
 import-warning-unsupported-image = 不支援的影像格式：{ $detail }
+import-warning-oversized-image = 影像過大，無法匯入（像素數）：{ $detail }
 import-warning-external-image = 檔案外連結的影像，未匯入：{ $detail }
 import-warning-unsafe-svg = SVG 影像已清除不安全內容，或已捨棄：{ $detail }
 import-warning-unknown-table-style = 未知的表格樣式：{ $detail }

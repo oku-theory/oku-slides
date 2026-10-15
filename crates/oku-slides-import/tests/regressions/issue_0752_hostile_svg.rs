@@ -7,7 +7,7 @@ use speculoos::prelude::*;
 
 use crate::common;
 
-const PNG: &[u8] = b"\x89PNG\r\n\x1a\n-raster";
+const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0-raster";
 const HOSTILE: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" onload="alert(1)"><script>alert(2)</script><image xlink:href="https://evil.example/x.png"/><rect width="1" height="1" style="fill:url(https://evil.example/p)"/></svg>"#;
 const BOMB: &str = r#"<!DOCTYPE svg [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">]><svg xmlns="http://www.w3.org/2000/svg"><text>&b;</text></svg>"#;
 

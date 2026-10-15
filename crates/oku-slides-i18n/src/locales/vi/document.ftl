@@ -102,6 +102,7 @@ import-warning-unreadable-part = Phần không đọc được: { $detail }
 import-warning-missing-part = Thiếu phần: { $detail }
 import-warning-unsupported-chart = Biểu đồ không được hỗ trợ: { $detail }
 import-warning-unsupported-image = Định dạng ảnh không được hỗ trợ: { $detail }
+import-warning-oversized-image = Ảnh quá lớn để nhập (số điểm ảnh): { $detail }
 import-warning-external-image = Ảnh được liên kết bên ngoài tệp, không được nhập: { $detail }
 import-warning-unsafe-svg = Ảnh SVG đã được loại bỏ nội dung không an toàn, hoặc bị bỏ qua: { $detail }
 import-warning-unknown-table-style = Kiểu bảng không xác định: { $detail }

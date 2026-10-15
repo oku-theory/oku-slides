@@ -112,6 +112,7 @@ import-warning-unreadable-part = Нечитабельна частина: { $det
 import-warning-missing-part = Відсутня частина: { $detail }
 import-warning-unsupported-chart = Непідтримувана діаграма: { $detail }
 import-warning-unsupported-image = Непідтримуваний формат зображення: { $detail }
+import-warning-oversized-image = Зображення завелике для імпорту (кількість пікселів): { $detail }
 import-warning-external-image = Зв’язане зображення поза файлом не імпортовано: { $detail }
 import-warning-unsafe-svg = Зображення SVG очищено від небезпечного вмісту або відкинуто: { $detail }
 import-warning-unknown-table-style = Невідомий стиль таблиці: { $detail }

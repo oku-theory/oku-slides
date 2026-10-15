@@ -20,6 +20,7 @@ pub(crate) const LIMITS: ReadLimits = ReadLimits {
     max_parts: 1000,
     max_xml_nodes: 1_000_000,
     max_slides: 1000,
+    max_image_pixels: 1 << 26,
     max_output_bytes: 8 << 20,
     max_replica_bytes: 8 << 20,
 };
@@ -66,8 +67,8 @@ impl TestPkg {
 /// Graphique à barres empilées de `kitchen` (plus un type de combinaison).
 pub(crate) const BAR: &str = include_str!("../../../../fixtures/import/kitchen/ppt/charts/chart1.xml");
 
-/// Image PNG factice.
-pub(crate) const PNG: &[u8] = b"\x89PNG\r\n\x1a\n-fake";
+/// Image PNG factice : signature et en-tête `IHDR` d'une image 1 × 1, sans données.
+pub(crate) const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0-fake";
 
 /// Résultat de `f`, avertissements et assets d'un contexte de test.
 pub(crate) type CtxOut<R> = (R, Vec<Warning>, BTreeMap<String, Asset>);

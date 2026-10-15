@@ -477,7 +477,8 @@ fn import_hifi_whose_ops_exceed_max_replica_is_refused() {
 #[test]
 fn import_retrofit_whose_output_exceeds_max_sources_is_refused() {
     let dir = workdir("import-retrofit-budget");
-    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    // Signature et `IHDR` d'une image 1 × 1 : un raster lisible n'est refusé que par le budget.
+    let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0".to_vec();
     png.resize(2 << 20, 0);
     let input = pptx_with(&dir, "kitchen", &[("ppt/media/image1.png", &png)]);
     let output = dir.join("x.pdf");

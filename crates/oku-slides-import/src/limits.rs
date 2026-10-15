@@ -15,6 +15,10 @@ pub struct ReadLimits {
     pub max_xml_nodes: u32,
     /// Nombre maximal de slides lues.
     pub max_slides: usize,
+    /// Nombre maximal de pixels d'une image raster, lu dans son en-tête avant tout décodage.
+    ///
+    /// Une image au-delà, ou dont l'en-tête ne se lit pas, n'est pas importée.
+    pub max_image_pixels: u64,
     /// Budget approximatif de toute la sortie d'un plan, vérifié par `ImportPlan::check_budget`.
     ///
     /// Assets uniques, polices embarquées, ops sérialisées, thème et pack générés : une borne
@@ -37,6 +41,8 @@ impl Default for ReadLimits {
             max_parts: 10_000,
             max_xml_nodes: 5_000_000,
             max_slides: 2_000,
+            // 64 Mpx : 256 Mio une fois décodée en RGBA, au-delà de toute photo d'appareil courant.
+            max_image_pixels: 1 << 26,
             // Les défauts de `[sources] max_sources_mib` et `max_replica_mib`, bornes de réouverture.
             max_output_bytes: 256 << 20,
             max_replica_bytes: 32 << 20,
