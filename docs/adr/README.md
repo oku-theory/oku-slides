@@ -9,3 +9,4 @@
 | [0005](0005-elements-d-une-slide-en-arbre-loro.md) | Slide elements as a Loro tree | accepted |
 | [0006](0006-deck-en-un-seul-arbre-suppression-douce.md) | Deck as a single Loro tree, soft delete | accepted |
 | [0007](0007-compaction-des-noeuds-morts.md) | Compaction of dead nodes in the deck tree | accepted |
+| [0008](0008-import-representation-intermediaire-et-projecteurs.md) | Import through an intermediate representation and projectors | accepted |

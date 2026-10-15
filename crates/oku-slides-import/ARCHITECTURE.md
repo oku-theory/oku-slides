@@ -28,7 +28,7 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
   is typed by its bytes (`media::sniff`) and every SVG re-serialized through an allowlist
   (`svg::sanitize`) when read, so consumers only see clean bytes.
 - Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`,
-  never `pptx/`. They are pure: ids and dates come from the target.
+  never `pptx/`. They are pure: ids and dates come from the target (ADR-0008).
 - `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`),
   headings, clusters, flow or free placement (`slide`, `zone`), text, tables, charts, `color`.
 - `hifi/` : page fit (`page`), theme tokens and `ThemeManifest` (`theme`, `color`), one slide
