@@ -6,7 +6,7 @@ use oku_slides_a2ui::{Component, ComponentKind, Dynamic, ServerMessage, TextVari
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
 
-use super::bounds::NOTE_CHARS;
+use super::bounds::{NOTE_CHARS, clip};
 use super::forms::{Place, Surface, surface};
 
 /// Où en est un tour.
@@ -48,18 +48,13 @@ pub fn turn_id(n: u32) -> String {
     format!("turn-{n}")
 }
 
-/// Première ligne non vide de `text`, coupée à `max` caractères (« … » compris).
+/// Première ligne non vide de `text`, coupée par [`clip`] à `max` caractères.
+///
+/// Les caractères invisibles sont ôtés avant de chercher la ligne : une ligne faite
+/// seulement de ces caractères compte comme vide.
 pub fn first_line(text: &str, max: usize) -> String {
-    if max == 0 {
-        return String::new();
-    }
-    let line = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or_default();
-    if line.chars().count() <= max {
-        return line.to_owned();
-    }
-    let mut cut: String = line.chars().take(max.saturating_sub(1)).collect();
-    cut.push('…');
-    cut
+    let line = text.lines().map(|l| clip(l, usize::MAX)).find(|l| !l.trim().is_empty()).unwrap_or_default();
+    clip(line.trim(), max)
 }
 
 fn outcome(state: &TurnState, l: &Localizer) -> String {

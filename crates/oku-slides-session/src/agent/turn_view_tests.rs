@@ -195,6 +195,21 @@ fn first_line_with_newline_and_length_cuts() {
     assert_that!(first_line("abcdef", 4)).is_equal_to("abc…".to_owned());
 }
 
+#[test]
+fn first_line_with_bidi_controls_drops_them() {
+    assert_that!(first_line("\u{202E}Bleu\u{2066} nuit\nPuis", 120)).is_equal_to("Bleu nuit".to_owned());
+}
+
+#[test]
+fn first_line_of_only_hidden_characters_takes_the_next_line() {
+    assert_that!(first_line("\u{200B}\u{FEFF}\n  \u{202E} Bleu", 120)).is_equal_to("Bleu".to_owned());
+}
+
+#[test]
+fn first_line_hidden_characters_do_not_count_towards_max() {
+    assert_that!(first_line("a\u{200B}b\u{200B}c\u{200B}d", 4)).is_equal_to("abcd".to_owned());
+}
+
 /// Un tour ouvert sans sa consigne (perdue par un relais en retard) n'affiche pas de bulle vide.
 #[test]
 fn turn_surface_without_prompt_has_no_prompt_component() {

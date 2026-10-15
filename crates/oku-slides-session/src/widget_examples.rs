@@ -18,7 +18,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_core::{ListItem, ListOp, ListSpec, ParamType, ParamValue, WidgetFile, default_items, param_value};
 
-use crate::agent::context::clipped;
+use crate::agent::clip;
 use crate::error::{
     NotEditingTemplatesSnafu, PackJsonSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu,
     UnknownWidgetSnafu, WidgetInvalidSnafu,
@@ -68,7 +68,7 @@ impl Session {
         let neutral = preview_params(&schema, &Map::new(), &self.localizer);
         let mut planned = Vec::with_capacity(values.len());
         for (param, value) in values {
-            let p = schema.param(&param).context(TrialUndeclaredSnafu { param: clipped(&param, 80) })?;
+            let p = schema.param(&param).context(TrialUndeclaredSnafu { param: clip(&param, 80) })?;
             let kept = match emptied(&p.ty, &value) {
                 Some(empty) => Some(empty),
                 None => checked_value(p, value)?.filter(|v| !same_as(neutral.get(&param), v)),
@@ -97,8 +97,8 @@ impl Session {
         ensure!(self.in_templates(), NotEditingTemplatesSnafu);
         ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
         let schema = self.valid_schema(&file)?.context(WidgetInvalidSnafu { name: file.as_str() })?;
-        let p = schema.param(param).context(TrialUndeclaredSnafu { param: clipped(param, 80) })?;
-        let spec = ListSpec::of(&p.name, &p.ty).context(TrialUndeclaredSnafu { param: clipped(param, 80) })?;
+        let p = schema.param(param).context(TrialUndeclaredSnafu { param: clip(param, 80) })?;
+        let spec = ListSpec::of(&p.name, &p.ty).context(TrialUndeclaredSnafu { param: clip(param, 80) })?;
         let defaults = default_items(p).context(TrialValueSnafu { param })?;
         self.write_examples(widget, |values| {
             // Lue avant le tri des valeurs gardées : une liste que le schéma ne lit plus repart

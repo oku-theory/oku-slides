@@ -1,7 +1,8 @@
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
-use super::{AgentUi, clipped, declared_language, turn_label};
+use super::{AgentUi, declared_language, turn_label};
+use crate::agent::clip;
 use crate::test_support::{fresh_dir, opened_on};
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
@@ -35,7 +36,7 @@ fn turn_label_keeps_short_prompt() {
 fn turn_label_cuts_long_prompt_at_forty_chars_with_ellipsis() {
     let long = "rends ce titre beaucoup plus percutant et essaie trois mises en page";
     let label = turn_label(long);
-    assert_that!(label.chars().count()).is_equal_to(41);
+    assert_that!(label.chars().count()).is_equal_to(40);
     assert_that!(label.ends_with('…')).is_true();
 }
 
@@ -56,7 +57,7 @@ fn agent_context_without_trials_names_the_widget_only() {
 fn agent_context_with_a_long_trial_clips_it() {
     let (_d, mut s) = templates_with_quote();
     s.set_example_values("quote", source(&"a".repeat(200))).unwrap();
-    assert_that!(s.agent_context(&ui("quote")).as_str()).contains(format!("\"{}…", "a".repeat(79)));
+    assert_that!(s.agent_context(&ui("quote")).as_str()).contains(format!("\"{}…\n", "a".repeat(78)));
 }
 
 #[test]
@@ -66,8 +67,13 @@ fn agent_context_with_an_invalid_widget_name_has_no_widget_line() {
 }
 
 #[test]
-fn clipped_long_text_ends_with_an_ellipsis() {
-    assert_that!(clipped(&"é".repeat(90), 80)).is_equal_to(format!("{}…", "é".repeat(80)));
+fn turn_label_with_bidi_controls_drops_them() {
+    assert_that!(turn_label("ren\u{202E}ds\u{2069} bleu")).is_equal_to("rends bleu".to_owned());
+}
+
+#[test]
+fn clip_long_text_counts_the_ellipsis_within_max() {
+    assert_that!(clip(&"é".repeat(90), 80)).is_equal_to(format!("{}…", "é".repeat(79)));
 }
 
 #[test]

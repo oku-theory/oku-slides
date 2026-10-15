@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::bounds::clip;
 use crate::widgets_edit::parse_name;
 use crate::{Mode, Session};
 
@@ -33,19 +34,9 @@ pub struct AgentUi {
     pub locale: Option<String>,
 }
 
-/// Début de la consigne, coupé à 40 caractères.
+/// Début de la consigne, coupé à 40 caractères (« … » compris), sans caractères invisibles.
 pub(crate) fn turn_label(prompt: &str) -> String {
-    clipped(prompt.trim(), LABEL_CHARS)
-}
-
-/// Les `max` premiers caractères de `s`, suivis de `…` s'il est plus long.
-pub(crate) fn clipped(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        return s.to_owned();
-    }
-    let mut cut: String = s.chars().take(max).collect();
-    cut.push('…');
-    cut
+    clip(prompt.trim(), LABEL_CHARS)
 }
 
 /// Longueur d'une étiquette de langue BCP 47, au plus.
@@ -167,7 +158,7 @@ impl Session {
                             format!(
                                 "{} = {}",
                                 Value::from(k.as_str()),
-                                clipped(&v.to_string().replace('<', "\\u003c"), TRIAL_CHARS)
+                                clip(&v.to_string().replace('<', "\\u003c"), TRIAL_CHARS)
                             )
                         })
                         .collect();
