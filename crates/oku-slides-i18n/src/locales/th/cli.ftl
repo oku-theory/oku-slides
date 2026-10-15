@@ -41,6 +41,12 @@ cli-import-write-failed = เขียนเด็คที่นำเข้า
 cli-import-hifi-no-target = --pack และ --theme ใช้กับโหมด retrofit เท่านั้น: การนำเข้าแบบเที่ยงตรงสูง (--mode hifi) สร้างแพ็กและธีมของตัวเอง
 cli-import-probe-mismatch = แพ็กที่สร้างขึ้นตรวจสอบได้ไม่ตรงกับที่ประกาศ (วิดเจ็ต { $widget }): เป็นข้อบกพร่องของตัวนำเข้า
 cli-import-probe-limit = แพ็กที่สร้างเกินขีดจำกัดของการตรวจ (วิดเจ็ต { $widget }): เพิ่ม max_widgets, max_widget_kib หรือ probe_budget_ms ในส่วน [render] ของการตั้งค่า
+cli-import-reference-hifi-only = --reference เป็นของโหมด hifi: การนำเข้าแบบ retrofit ไม่ถูกเปรียบเทียบกับการเรนเดอร์อ้างอิง
+cli-import-bad-threshold = score_threshold ในส่วน [import] ต้องเป็นจำนวนตั้งแต่ศูนย์ขึ้นไป ไม่ใช่ { $value }
+cli-import-scored = ความต่างทางภาพจาก { $witness }: เฉลี่ย { $mean }, สไลด์ที่เกิน { $threshold } { $above ->
+   *[other] { $above } แผ่น
+}
+cli-import-unscored = { $reason }
 
 cli-about = เรนเดอร์และจัดเก็บงานนำเสนอ Oku Slides
 cli-arg-fonts = โฟลเดอร์ฟอนต์เพิ่มเติม (TTF/OTF); ค่าเริ่มต้น: paths.fonts ในการตั้งค่า
@@ -71,3 +77,4 @@ cli-arg-pack = แพ็กเทมเพลตเป้าหมาย: รห
 cli-arg-import-theme = ธีมเป้าหมาย: ธีมในตัวหรือจากคลัง ระบุด้วยรหัสหรือชื่อ; ค่าเริ่มต้น: ธีมเริ่มต้น
 cli-arg-report = เขียนรายงานการนำเข้า (JSON) ด้วย: การสูญเสีย ทางเลือกสำรอง ความครอบคลุม
 cli-arg-no-system-fonts = ในโหมด hifi ไม่ต้องค้นหาฟอนต์ของงานนำเสนอในฟอนต์ของระบบ
+cli-arg-reference = ในโหมด hifi ให้เปรียบเทียบแต่ละสไลด์กับการเรนเดอร์อ้างอิงของงานนำเสนอ (auto ค่าเริ่มต้น) หรือไม่ (none)

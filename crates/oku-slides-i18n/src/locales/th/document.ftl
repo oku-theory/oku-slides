@@ -79,6 +79,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = เลย์เอาต์มากเกินไปสำหรับแพ็กเดียว: “{ $layout }” ไม่มีเทมเพลต สไลด์ของมันใช้วิดเจ็ตว่างและได้รับการตกแต่งเป็นองค์ประกอบ
 import-loss-decor-truncated = ตัดการตกแต่งให้พอดีกับขนาดไฟล์แพ็ก: ละองค์ประกอบ { $omitted } รายการ
 import-loss-table-style = รูปแบบตารางเป็นค่าประมาณ: พื้นหลังเซลล์ เส้นขอบ ความกว้างคอลัมน์ หรือขนาดข้อความเฉพาะของตารางหายไป
+import-loss-overflow = องค์ประกอบ “{ $element }” เกินขอบสไลด์
+import-reference-unavailable = ไม่มีคะแนนภาพ: { $cause ->
+    [timeout] การเรนเดอร์อ้างอิงใช้เวลานานเกินไป
+    [memory] การเรนเดอร์อ้างอิงใช้หน่วยความจำมากเกินไป
+    [pages] การเรนเดอร์อ้างอิงมี { $reference } หน้า แต่เด็คมี { $deck } หน้า
+   *[failed] ตัวเรนเดอร์อ้างอิงอ่านงานนำเสนอไม่ได้
+}
 import-font-substituted = แทนที่ { $family } ด้วย { $by } ที่มีเมตริกเข้ากันได้
 import-font-missing = ไม่พบ { $family }: ข้อความใช้ฟอนต์ { $by }
 import-font-restricted = { $family }: สัญญาอนุญาตห้ามฝังบางสไตล์ลงในงานนำเสนอ

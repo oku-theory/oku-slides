@@ -64,6 +64,12 @@ impl Page {
         }
     }
 
+    /// La page source sur la page Oku, en pt page : là où le rendu Oku se
+    /// compare au rendu de référence.
+    pub(crate) fn source_rect(&self) -> oku_slides_core::Frame {
+        self.frame(&Frame::new(0.0, 0.0, self.source.w, self.source.h))
+    }
+
     /// La boîte source que la page Oku entière recouvre (bandes de centrage
     /// comprises) : celle du fond propre d'une slide.
     pub(crate) fn cover(&self) -> Frame {

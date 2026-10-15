@@ -4,7 +4,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::fonts::FontOrigin;
+use crate::fonts::{FontDecision, FontOrigin};
 use crate::source::{Warning, WarningKind};
 
 fn slide(losses: Vec<Loss>) -> SlideReport {
@@ -15,6 +15,7 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
         placement: Placement::Flow,
         losses,
         fallbacks: vec!["stack".into()],
+        score: None,
     }
 }
 
@@ -56,6 +57,7 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
 #[case(LossKind::LayoutDropped { layout: "Titre".into() })]
 #[case(LossKind::DecorTruncated { omitted: 12 })]
 #[case(LossKind::TableStyle)]
+#[case(LossKind::Overflow { element: "s3-2".into() })]
 fn loss_localize_in_every_locale_formats_its_own_message(#[case] kind: LossKind) {
     let id = kind.message_id();
     let loss = Loss::slide(kind);
@@ -341,4 +343,74 @@ fn import_report_to_json_without_fonts_writes_no_fonts_section() {
 #[case(Ratio { found: 3, total: 4 }, false)]
 fn ratio_is_complete_when_everything_is_found(#[case] r: Ratio, #[case] complete: bool) {
     assert_that!(r.is_complete()).is_equal_to(complete);
+}
+
+#[test]
+fn loss_localize_overflow_names_the_element() {
+    let msg = Loss::slide(LossKind::Overflow { element: "s3-2".into() }).localize(english());
+    assert_that!(msg).contains("s3-2");
+}
+
+fn scored(n: u32, score: f64) -> SlideReport {
+    let regions = vec![crate::metrics::RegionScore { item: format!("s{n}/1"), score, shift: [0, 0] }];
+    SlideReport { source: n, slide: format!("s{n}"), score: Some(SlideScore { score, regions }), ..slide(vec![]) }
+}
+
+fn with_reference(slides: Vec<SlideReport>, unavailable: Option<ReferenceCause>) -> ImportReport {
+    let reference = ReferenceReport { witness: "office2pdf 0.8.1".into(), threshold: 5.0, unavailable };
+    ImportReport { slides, reference: Some(reference), ..ImportReport::new(Mode::Hifi) }
+}
+
+#[test]
+fn to_json_marks_the_slides_above_the_threshold() {
+    let v = with_reference(vec![scored(1, 2.0), scored(2, 7.5)], None).to_json(english());
+    let marks: Vec<Option<bool>> = (0..2).map(|i| v["slides"][i]["above_threshold"].as_bool()).collect();
+    assert_that!(marks).is_equal_to(vec![None, Some(true)]);
+}
+
+#[test]
+fn to_json_writes_the_score_and_its_regions() {
+    let v = with_reference(vec![scored(1, 2.0)], None).to_json(english());
+    assert_that!(v["slides"][0]["score"].clone())
+        .is_equal_to(json!({"score": 2.0, "regions": [{"item": "s1/1", "score": 2.0, "shift": [0, 0]}]}));
+}
+
+#[test]
+fn to_json_without_score_writes_no_score() {
+    let v = with_reference(vec![slide(vec![])], None).to_json(english());
+    assert_that!(v["slides"][0].get("score")).is_none();
+}
+
+#[test]
+fn to_json_explains_a_missing_reference() {
+    let expected = ReferenceCause::Timeout.localize(&Localizer::new(Some("fr")));
+    let v = with_reference(vec![], Some(ReferenceCause::Timeout)).to_json(&Localizer::new(Some("fr")));
+    assert_that!(v["reference"]["message"].as_str()).is_equal_to(Some(expected.as_str()));
+}
+
+#[test]
+fn to_json_without_reference_writes_none() {
+    let v = ImportReport::new(Mode::Retrofit).to_json(english());
+    assert_that!(v.get("reference")).is_none();
+}
+
+#[test]
+fn above_threshold_follows_the_worst_region_not_the_mean() {
+    let regions = vec![crate::metrics::RegionScore { item: "s1/1".into(), score: 9.0, shift: [0, 0] }];
+    let slide = SlideReport { score: Some(SlideScore { score: 1.0, regions }), ..scored(1, 1.0) };
+    let r = with_reference(vec![slide], None);
+    assert_that!(r.above_threshold().count()).is_equal_to(1);
+}
+
+#[test]
+fn above_threshold_lists_the_slides_beyond_it() {
+    let r = with_reference(vec![scored(1, 2.0), scored(2, 7.5), scored(3, 5.0)], None);
+    let above: Vec<u32> = r.above_threshold().map(|s| s.source).collect();
+    assert_that!(above).is_equal_to(vec![2]);
+}
+
+#[test]
+fn mean_score_averages_the_scored_slides() {
+    let r = with_reference(vec![scored(1, 2.0), slide(vec![]), scored(3, 5.0)], None);
+    assert_that!(r.mean_score()).is_equal_to(Some(3.5));
 }

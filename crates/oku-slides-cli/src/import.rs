@@ -14,7 +14,11 @@
 //! `[sources] max_sources_mib` et `max_replica_mib`, bornes de réouverture d'un
 //! deck : une estimation précoce du contenu produit, pas une garantie), puis les
 //! ops du plan s'appliquent en une transaction et le deck est rendu et enregistré
-//! en `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé.
+//! en `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé. Le
+//! rendu relève les champs qui sortent de leur page (perte `Overflow`,
+//! [`crate::import_overflow`]) ; en hi-fi, sauf `--reference none`, il est
+//! comparé au rendu de référence du témoin ([`crate::import_reference`]) :
+//! un écart par slide au rapport, une ligne de plus en sortie.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -25,18 +29,23 @@ use serde_json::{Map, Value};
 use oku_slides_core::tokens::effective_tokens;
 use oku_slides_core::{Deck, PackManifest, PackRef, SourceBundle, apply_all};
 use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_import::report::ReferenceReport;
 use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
 use oku_slides_import::source::SourceDeck;
-use oku_slides_import::{ImportPlan, ReadLimits, RetrofitTarget, read_pptx};
+use oku_slides_import::{ImportPlan, ImportReport, ReadLimits, RetrofitTarget, read_pptx};
 use oku_slides_platform::Platform;
+use oku_slides_platform::config::RenderSettings;
 use oku_slides_platform::storage::StorageErrorKind;
 use oku_slides_render::Fonts;
+use oku_slides_render_worker::RenderWorker;
 use oku_slides_session::theme_schema::default_tokens;
 use oku_slides_session::{ThemeLibrary, adopt_default_theme, theme_tokens};
 
+use crate::import_overflow::note_overflows;
+use crate::import_reference::{self, Scoring};
 use crate::library::{embed_theme, pack_library, resolve_pack, theme_library};
 use crate::out::Out;
-use crate::pack_render::DeckWidgets;
+use crate::pack_render::{self, DeckWidgets};
 
 /// Mode d'import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -45,6 +54,15 @@ pub(crate) enum ImportMode {
     Retrofit,
     /// Copie fidèle, sur un pack et un thème générés.
     Hifi,
+}
+
+/// Rendu de référence d'un import hi-fi.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum ReferenceMode {
+    /// Le témoin rend la présentation ; l'écart de chaque slide va au rapport.
+    Auto,
+    /// Pas de rendu de référence.
+    None,
 }
 
 /// Les arguments de `import`.
@@ -64,6 +82,8 @@ pub(crate) struct ImportArgs {
     pub(crate) report: Option<PathBuf>,
     /// Hi-fi : chercher les polices de la présentation parmi celles du système.
     pub(crate) system_fonts: bool,
+    /// Hi-fi : rendu de référence (`None` : le défaut, `auto`) ; refusé en retrofit.
+    pub(crate) reference: Option<ReferenceMode>,
 }
 
 /// La présentation lue : ses octets (l'identité du hi-fi en dérive), sa source
@@ -96,7 +116,16 @@ pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args
         ImportMode::Hifi if args.pack.is_some() || args.theme.is_some() => {
             return Err(eyre!(l.tr("cli-import-hifi-no-target")));
         }
-        ImportMode::Hifi => None,
+        ImportMode::Hifi => {
+            let threshold = platform.settings.import.score_threshold;
+            if !(threshold.is_finite() && threshold >= 0.0) {
+                return Err(eyre!(l.tr_with("cli-import-bad-threshold", &[("value", threshold.to_string().into())])));
+            }
+            None
+        }
+        ImportMode::Retrofit if args.reference.is_some() => {
+            return Err(eyre!(l.tr("cli-import-reference-hifi-only")));
+        }
         ImportMode::Retrofit => Some(args.pack.as_deref().ok_or_else(|| eyre!(l.tr("cli-import-pack-required")))?),
     };
     let input = read_input(platform, l, &args)?;
@@ -104,7 +133,7 @@ pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args
         Some(pack) => prepare_retrofit(platform, l, fonts, &args, pack, &input)?,
         None => crate::import_hifi::prepare(platform, l, fonts, &args, &input)?,
     };
-    finish(platform, out, fonts, &args, prepared)
+    finish(platform, out, fonts, &args, &input, prepared)
 }
 
 /// `n` octets en `u64`.
@@ -176,8 +205,17 @@ fn prepare_retrofit(
 }
 
 /// Applique le plan de `prepared` en une transaction, rend et écrit le deck
-/// (avec ses polices embarquées), puis le rapport ; une ligne de résultat.
-fn finish(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: &ImportArgs, prepared: Prepared) -> Result<()> {
+/// (avec ses polices embarquées), relève débordements et, en hi-fi, l'écart à
+/// la référence, puis écrit le rapport ; une ligne de résultat, plus celle de
+/// l'écart en hi-fi.
+fn finish(
+    platform: &Platform,
+    out: &mut Out<'_>,
+    fonts: &Fonts,
+    args: &ImportArgs,
+    input: &Input,
+    prepared: Prepared,
+) -> Result<()> {
     let l = out.localizer();
     let Prepared { mut bundle, widgets, mut plan } = prepared;
     for asset in plan.assets.values() {
@@ -189,8 +227,23 @@ fn finish(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: &ImportAr
     crate::report_issues(l, bundle.deck(), &widgets.registry, &bundle.assets);
     let target = args.output.display().to_string();
     let fonts = fonts.with(bundle.fonts.values().cloned());
-    let written = crate::write_document(platform, l, fonts, &widgets, &bundle, &args.output)
-        .wrap_err_with(|| l.tr_with("cli-import-write-failed", &[("path", target.as_str().into())]))?;
+    let failed = || l.tr_with("cli-import-write-failed", &[("path", target.as_str().into())]);
+    let doc =
+        pack_render::render(platform, l, fonts.clone(), &widgets, &bundle, bundle.deck()).wrap_err_with(failed)?;
+    let written = crate::write_rendered(platform, &doc, &bundle, &args.output).wrap_err_with(failed)?;
+    note_overflows(doc.layout(), &mut plan.report);
+    if args.mode == ImportMode::Hifi && args.reference != Some(ReferenceMode::None) {
+        // Un processus de rendu à lui : le témoin n'ajoute pas sa mémoire à celle du rendu Oku.
+        let settings = RenderSettings {
+            timeout_ms: platform.settings.import.reference_timeout_ms,
+            ..platform.settings.render.clone()
+        };
+        let worker = RenderWorker::new(platform.render_launch.clone(), settings);
+        let threshold = platform.settings.import.score_threshold;
+        let scoring =
+            Scoring { pptx: &input.bytes, source: &input.source, fonts: &fonts, worker: &worker, threshold, l };
+        import_reference::score(&scoring, &doc, &mut plan.report);
+    }
     if let Some(path) = &args.report {
         platform.storage.write(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;
     }
@@ -204,5 +257,29 @@ fn finish(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: &ImportAr
             ("requests", plan.widget_requests.len().into()),
         ],
     )?;
+    if let Some(reference) = &plan.report.reference {
+        reference_line(out, reference, &plan.report)?;
+    }
+    Ok(())
+}
+
+/// La ligne de l'écart visuel : moyenne et slides au-delà du seuil (par leur pire
+/// région), ou pourquoi la référence manque.
+fn reference_line(out: &mut Out<'_>, reference: &ReferenceReport, report: &ImportReport) -> Result<()> {
+    let l = out.localizer();
+    match (&reference.unavailable, report.mean_score()) {
+        (Some(cause), _) => out.line("cli-import-unscored", &[("reason", cause.localize(l).into())])?,
+        (None, Some(mean)) => out.line(
+            "cli-import-scored",
+            &[
+                ("witness", reference.witness.as_str().into()),
+                ("mean", mean.into()),
+                ("above", report.above_threshold().count().into()),
+                ("threshold", reference.threshold.into()),
+            ],
+        )?,
+        // Une présentation sans slide : rien à dire.
+        (None, None) => {}
+    }
     Ok(())
 }

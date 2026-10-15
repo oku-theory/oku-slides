@@ -61,6 +61,15 @@ cli-import-write-failed = nie udało się zapisać zaimportowanej prezentacji { 
 cli-import-hifi-no-target = --pack i --theme dotyczą tylko trybu retrofit: import o wysokiej wierności (--mode hifi) tworzy własny pakiet i motyw
 cli-import-probe-mismatch = wygenerowany pakiet nie odpowiada swojej deklaracji przy sprawdzaniu (widżet { $widget }): to błąd importu
 cli-import-probe-limit = wygenerowany pakiet przekracza limity sondy (widżet { $widget }): zwiększ max_widgets, max_widget_kib lub probe_budget_ms w sekcji [render] konfiguracji
+cli-import-reference-hifi-only = --reference należy do trybu hifi: import retrofit nie jest porównywany z renderowaniem referencyjnym
+cli-import-bad-threshold = score_threshold w sekcji [import] musi być liczbą nieujemną, a nie { $value }
+cli-import-scored = Różnica wizualna względem { $witness }: średnio { $mean }, { $above ->
+    [0] żaden slajd
+    [one] { $above } slajd
+    [few] { $above } slajdy
+   *[other] { $above } slajdów
+} powyżej { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = Renderowanie i zapisywanie prezentacji Oku Slides
 cli-arg-fonts = Dodatkowy folder czcionek (TTF/OTF); domyślnie: paths.fonts w ustawieniach
@@ -91,3 +100,4 @@ cli-arg-pack = Pakiet docelowy: identyfikator, folder pakietu (pack.json, widget
 cli-arg-import-theme = Motyw docelowy: wbudowany lub z biblioteki, wskazany identyfikatorem lub nazwą; domyślnie: motyw domyślny
 cli-arg-report = Zapisz też raport importu (JSON): straty, zamienniki, pokrycie
 cli-arg-no-system-fonts = W trybie hifi nie szukaj czcionek prezentacji wśród czcionek systemowych
+cli-arg-reference = W trybie hifi porównać każdy slajd z renderowaniem referencyjnym prezentacji (auto, domyślnie) lub nie (none)

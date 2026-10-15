@@ -9,7 +9,7 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 - `main.rs`: `Cli` and `Cmd` (clap), with help text from Fluent `cli-cmd-…` and
   `cli-arg-…` keys (`command`); `run` dispatches each `Cmd`. Shared helpers load a deck
   from JSON or `.oku-slides.pdf` (`load_bundle`), embed its pack and theme, and write the
-  document (`write_document`).
+  document (`write_document`, `write_rendered`).
 - `out.rs`: `Out`, localized command output on stdout; a closed pipe ends the command.
 - `library.rs`: packs and themes found by id, folder or name (`resolve_pack`,
   `embed_theme`, `pack_library`, `theme_library`, `beside_deck`).
@@ -17,6 +17,9 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
   worker (in up to `PROBE_ROUNDS` calls); `render` renders in memory or in the worker.
 - `import.rs`: `oku-slides import`, `ImportMode` `retrofit` (onto an existing pack and
   theme) or `hifi`; one transaction, then saved like `save`, with an optional report.
+- `import_overflow.rs`: text fields rendered past their page become `Overflow` losses.
+- `import_reference.rs`: hi-fi `--reference auto`: the witness in a render worker of its own, 20
+  slides at a time, each Oku page cropped to the source page at 960 px, scored into the report.
 - `import_hifi.rs`: hifi preparation: generated pack and theme with an identity from the
   `.pptx` bytes, font catalog, probe check against the declared schemas.
 - `system_fonts.rs`: copies the system faces of the families a presentation asks for.

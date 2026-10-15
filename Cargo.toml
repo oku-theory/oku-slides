@@ -24,6 +24,7 @@ oku-slides-mcp = { path = "crates/oku-slides-mcp" }
 oku-slides-agent = { path = "crates/oku-slides-agent" }
 oku-slides-render-worker = { path = "crates/oku-slides-render-worker" }
 oku-slides-import = { path = "crates/oku-slides-import" }
+oku-slides-reference = { path = "crates/oku-slides-reference" }
 # Agent : MCP 1.x (ère legacy ≤ 2025-11-25, celle des clients des agents ; voir écart 6) et ACP
 rust-mcp-sdk = "=1.1.0"
 rust-mcp-axum = "=1.0.2"
@@ -75,6 +76,12 @@ json-patch = "4"
 typst-layout = "0.15.1"
 # Aperçu des widgets recadré sur leur dessin (t-392) ; déjà tiré par typst-render.
 png = "0.18"
+# Témoin du rendu de référence de l'import (t-692, lot 4) : PPTX → PDF en Rust pur, sur Typst 0.15 ;
+# sans les polices embarquées de typst-kit (l'appelant passe les siennes). Épinglé : le rapport nomme
+# la version (`oku_slides_reference::WITNESS`) et les bornes des tests sont mesurées avec elle.
+office2pdf = { version = "=0.8.1", default-features = false }
+# Rastérisation des pages du PDF de référence ; déjà tiré par typst-render.
+hayro = { version = "0.7.1", default-features = false }
 # Serveur de développement (`oku-slides serve`, t-419) ; déjà tiré par rust-mcp-axum.
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
 # Corps de réponse SSE en flux (`Frame`, que axum ne ré-exporte pas).

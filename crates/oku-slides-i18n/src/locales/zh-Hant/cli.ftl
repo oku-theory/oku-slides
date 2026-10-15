@@ -41,6 +41,12 @@ cli-import-write-failed = 無法寫入匯入的簡報 { $path }
 cli-import-hifi-no-target = --pack 與 --theme 僅用於 retrofit 模式：高保真匯入（--mode hifi）會產生自己的範本套件與主題
 cli-import-probe-mismatch = 產生的範本套件探測結果與宣告不符（元件 { $widget }）：這是匯入程式的缺陷
 cli-import-probe-limit = 產生的套件超出檢查限制（元件 { $widget }）：請在設定的 [render] 區段提高 max_widgets、max_widget_kib 或 probe_budget_ms
+cli-import-reference-hifi-only = --reference 屬於 hifi 模式：retrofit 匯入不與參考轉譯比較
+cli-import-bad-threshold = [import] 區段的 score_threshold 必須是大於或等於 0 的數，而不是 { $value }
+cli-import-scored = 與 { $witness } 的視覺差異：平均 { $mean }，超過 { $threshold } 的投影片 { $above ->
+   *[other] { $above }張
+}
+cli-import-unscored = { $reason }
 
 cli-about = 渲染並儲存 Oku Slides 簡報
 cli-arg-fonts = 額外字型資料夾（TTF/OTF）；預設：設定中的 paths.fonts
@@ -71,3 +77,4 @@ cli-arg-pack = 目標範本套件：ID、套件資料夾（pack.json、widgets/�
 cli-arg-import-theme = 目標主題：內建主題或資料庫中的主題，以 ID 或名稱指定；預設：預設主題
 cli-arg-report = 同時寫出匯入報告（JSON）：損失、替代、涵蓋率
 cli-arg-no-system-fonts = 在 hifi 模式下，不在系統字型中尋找簡報的字型
+cli-arg-reference = 在 hifi 模式下，將每張投影片與簡報的參考轉譯比較（auto，預設）或不比較（none）

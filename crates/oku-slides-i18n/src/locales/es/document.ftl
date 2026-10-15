@@ -81,6 +81,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = Demasiados diseños para un paquete: «{ $layout }» no tiene plantilla; sus diapositivas usan el widget vacío y reciben su decoración como elementos
 import-loss-decor-truncated = Decoración recortada para caber en el tamaño de un archivo del paquete: { $omitted } elementos omitidos
 import-loss-table-style = Estilo de tabla aproximado: se pierden sus fondos de celda, bordes, anchos de columna o tamaños de texto propios
+import-loss-overflow = El elemento «{ $element }» sobrepasa el borde de la diapositiva
+import-reference-unavailable = Sin puntuación visual: { $cause ->
+    [timeout] el renderizado de referencia tardó demasiado
+    [memory] el renderizado de referencia usó demasiada memoria
+    [pages] el renderizado de referencia tiene { $reference } páginas para { $deck } en la presentación
+   *[failed] el renderizador de referencia no pudo leer la presentación
+}
 import-font-substituted = { $family } sustituida por { $by }, con métricas compatibles
 import-font-missing = { $family } no encontrada: el texto usa { $by }
 import-font-restricted = { $family }: su licencia prohíbe incrustar algunas de sus variantes en la presentación

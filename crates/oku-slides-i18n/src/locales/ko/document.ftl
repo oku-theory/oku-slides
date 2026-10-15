@@ -79,6 +79,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = 한 팩에 레이아웃이 너무 많습니다: “{ $layout }”에는 템플릿이 없어 해당 슬라이드는 빈 위젯을 쓰고 장식을 요소로 받습니다
 import-loss-decor-truncated = 팩 파일 크기에 맞추려고 장식을 잘랐습니다: 빠진 요소 { $omitted }개
 import-loss-table-style = 표 스타일을 근사했습니다: 고유한 셀 배경, 테두리, 열 너비 또는 글자 크기가 사라집니다
+import-loss-overflow = 요소 “{ $element }”이(가) 슬라이드 가장자리를 벗어납니다
+import-reference-unavailable = 시각 점수 없음: { $cause ->
+    [timeout] 참조 렌더링이 너무 오래 걸렸습니다
+    [memory] 참조 렌더링이 메모리를 너무 많이 사용했습니다
+    [pages] 참조 렌더링은 { $reference }쪽이고 덱은 { $deck }쪽입니다
+   *[failed] 참조 렌더러가 프레젠테이션을 읽지 못했습니다
+}
 import-font-substituted = { $family }을(를) 메트릭이 호환되는 { $by }(으)로 바꿨습니다
 import-font-missing = { $family }을(를) 찾을 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
 import-font-restricted = { $family }: 라이선스상 일부 스타일을 프레젠테이션에 포함할 수 없습니다

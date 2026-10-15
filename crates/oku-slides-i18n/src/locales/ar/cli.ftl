@@ -69,6 +69,14 @@ cli-import-write-failed = تعذّرت كتابة العرض المستورد { 
 cli-import-hifi-no-target = --pack و--theme خاصّان بوضع retrofit: الاستيراد عالي الدقة (--mode hifi) يولّد حزمته وسمته
 cli-import-probe-mismatch = الحزمة المولَّدة لا تُفحص كما أُعلنت (الأداة { $widget }): هذا خلل في المستورِد
 cli-import-probe-limit = تتجاوز الحزمة المولَّدة حدود الفحص (الأداة { $widget }): ارفع max_widgets أو max_widget_kib أو probe_budget_ms في القسم [render] من الإعدادات
+cli-import-reference-hifi-only = ‎--reference خاص بوضع hifi: لا يُقارَن استيراد retrofit بعرض مرجعي
+cli-import-bad-threshold = يجب أن يكون score_threshold في القسم [import] عددًا لا يقل عن صفر، لا { $value }
+cli-import-scored = الفرق المرئي عن { $witness }: { $mean } في المتوسط، { $above ->
+    [0] لا توجد شرائح
+    [one] { $above } شريحة
+   *[other] { $above } شرائح
+} فوق { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = عرض عروض Oku Slides التقديمية وحفظها
 cli-arg-fonts = مجلد خطوط إضافي (TTF/OTF)؛ الافتراضي: paths.fonts في الإعدادات
@@ -99,3 +107,4 @@ cli-arg-pack = حزمة القوالب الهدف: المعرّف أو مجلد 
 cli-arg-import-theme = السمة الهدف: سمة مدمجة أو من المكتبة، بمعرّفها أو اسمها؛ الافتراضي: السمة الافتراضية
 cli-arg-report = كتابة تقرير الاستيراد (JSON) أيضًا: المفقودات والبدائل والتغطية
 cli-arg-no-system-fonts = في وضع hifi، لا تبحث عن خطوط العرض بين خطوط النظام
+cli-arg-reference = في وضع hifi، قارن كل شريحة بعرض مرجعي للعرض التقديمي (auto، الافتراضي) أو لا (none)

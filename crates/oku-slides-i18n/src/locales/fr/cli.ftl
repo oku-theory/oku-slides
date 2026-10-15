@@ -53,6 +53,14 @@ cli-import-write-failed = impossible d'écrire le deck importé { $path }
 cli-import-hifi-no-target = --pack et --theme sont propres au mode retrofit : l'import haute fidélité (--mode hifi) génère son propre pack et son propre thème
 cli-import-probe-mismatch = le pack généré ne se sonde pas comme il est déclaré (widget { $widget }) : c'est un bogue de l'import
 cli-import-probe-limit = le pack généré dépasse les bornes de la sonde (widget { $widget }) : relevez max_widgets, max_widget_kib ou probe_budget_ms dans la section [render] de la configuration
+cli-import-reference-hifi-only = --reference appartient au mode hifi : un import retrofit n'est pas comparé à un rendu de référence
+cli-import-bad-threshold = score_threshold de la section [import] doit être un nombre supérieur ou égal à zéro, pas { $value }
+cli-import-scored = Écart visuel à { $witness } : { $mean } en moyenne, { $above ->
+    [0] aucune slide
+    [one] { $above } slide
+   *[other] { $above } slides
+} au-delà de { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = Rendu et stockage des decks Oku Slides
 cli-arg-fonts = Dossier de polices supplémentaires (TTF/OTF) ; défaut : paths.fonts des réglages
@@ -83,3 +91,4 @@ cli-arg-pack = Pack cible : id, dossier de pack (pack.json, widgets/) ou nom
 cli-arg-import-theme = Thème cible : un thème intégré ou de la bibliothèque, par son id ou son nom ; défaut : le thème par défaut
 cli-arg-report = Écrit aussi le rapport d'import (JSON) : pertes, replis, couverture
 cli-arg-no-system-fonts = En mode hifi, ne cherche pas les polices de la présentation parmi celles du système
+cli-arg-reference = En mode hifi, comparer chaque slide à un rendu de référence de la présentation (auto, le défaut) ou non (none)

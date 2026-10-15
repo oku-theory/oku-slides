@@ -17,6 +17,7 @@ doc = false
 oku-slides-core.workspace = true
 oku-slides-i18n.workspace = true
 oku-slides-platform.workspace = true
+oku-slides-reference.workspace = true
 oku-slides-render.workspace = true
 serde.workspace = true
 # `float_roundtrip` : les coordonnées de la mise en page traversent le tube au bit près.

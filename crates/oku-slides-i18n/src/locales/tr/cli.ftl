@@ -53,6 +53,13 @@ cli-import-write-failed = içe aktarılan sunu { $path } yazılamadı
 cli-import-hifi-no-target = --pack ve --theme yalnızca retrofit modu içindir: yüksek doğruluklu içe aktarma (--mode hifi) kendi paketini ve temasını üretir
 cli-import-probe-mismatch = üretilen paket bildirildiği gibi yoklanmadı (widget { $widget }): içe aktarıcıda bir hata
 cli-import-probe-limit = oluşturulan paket denetim sınırlarını aşıyor (widget { $widget }): yapılandırmanın [render] bölümünde max_widgets, max_widget_kib veya probe_budget_ms değerini artırın
+cli-import-reference-hifi-only = --reference hifi moduna aittir: retrofit içe aktarma bir referans oluşturmayla karşılaştırılmaz
+cli-import-bad-threshold = [import] bölümündeki score_threshold sıfır veya daha büyük bir sayı olmalı, { $value } değil
+cli-import-scored = { $witness } ile görsel fark: ortalama { $mean }, { $threshold } üzerinde { $above ->
+    [0] hiç slayt yok
+   *[other] { $above } slayt
+}
+cli-import-unscored = { $reason }
 
 cli-about = Oku Slides sunularını oluşturur ve saklar
 cli-arg-fonts = Ek yazı tipi klasörü (TTF/OTF); varsayılan: ayarlardaki paths.fonts
@@ -83,3 +90,4 @@ cli-arg-pack = Hedef şablon paketi: kimlik, paket klasörü (pack.json, widgets
 cli-arg-import-theme = Hedef tema: yerleşik ya da kitaplıktaki bir tema, kimliği ya da adıyla; varsayılan: varsayılan tema
 cli-arg-report = İçe aktarma raporunu da (JSON) yaz: kayıplar, yedekler, kapsam
 cli-arg-no-system-fonts = hifi modunda sununun yazı tiplerini sistem yazı tipleri arasında arama
+cli-arg-reference = hifi modunda her slaytı sununun referans oluşturmasıyla karşılaştır (auto, varsayılan) ya da karşılaştırma (none)

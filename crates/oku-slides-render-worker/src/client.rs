@@ -4,6 +4,8 @@
 //! - [`RenderSlot`] (`slot`) : un emplacement, même surface que `Renderer`.
 //! - [`RemoteCompiled`](crate::RemoteCompiled) (`compiled`) : une génération rendue ; SVG, PNG et
 //!   PDF à la demande.
+//! - [`RemoteReference`](crate::RemoteReference) (`reference`) : le rendu de référence d'une
+//!   présentation importée (témoin) ; PNG de ses pages à la demande.
 //!
 //! Les règles ci-dessous valent pour les trois.
 //!
@@ -55,6 +57,11 @@ pub(crate) enum Deferred {
     },
     Close {
         slot: SlotId,
+    },
+    /// Oublie une référence de l'époque `epoch`.
+    ReleaseReference {
+        reference: u64,
+        epoch: u64,
     },
 }
 
@@ -178,6 +185,10 @@ impl RenderWorker {
                     // Une génération d'un travailleur précédent : l'actuel ne la connaît pas.
                     Deferred::Release { .. } => continue,
                     Deferred::Close { slot } => Request::CloseSlot { slot },
+                    Deferred::ReleaseReference { reference, epoch } if epoch == current => {
+                        Request::ReleaseReference { reference }
+                    }
+                    Deferred::ReleaseReference { .. } => continue,
                 };
                 link.call(&req, &[])?;
             }
@@ -229,18 +240,7 @@ impl RenderWorker {
     ) -> Result<RenderSlot, RenderError> {
         let mut link = self.link();
         self.prepare(&mut link)?;
-        let mut ids = Vec::new();
-        for bytes in fonts.files() {
-            let id = hex::encode(Sha256::digest(bytes));
-            if !link.state.fonts.contains_key(&id) {
-                link.state.fonts.insert(id.clone(), Arc::from(bytes));
-            }
-            if !link.sent_fonts.contains(&id) {
-                expect_ok(&mut link, &Request::PutFont { id: id.clone() }, bytes)?;
-                link.sent_fonts.insert(id.clone());
-            }
-            ids.push(id);
-        }
+        let ids = put_fonts(&mut link, fonts)?;
         set_locale(&mut link, l)?;
         let slot = self.1.last_slot.fetch_add(1, Ordering::Relaxed) + 1;
         expect_ok(&mut link, &Request::OpenSlot { slot, fonts: ids.clone() }, &[])?;
@@ -254,6 +254,23 @@ impl RenderWorker {
     pub fn kill_for_test(&self) {
         self.link().kill();
     }
+}
+
+/// Envoie au travailleur celles de `fonts` qu'il n'a pas ; leurs identifiants (empreintes).
+pub(crate) fn put_fonts(link: &mut Link, fonts: &Fonts) -> Result<Vec<String>, RenderError> {
+    let mut ids = Vec::new();
+    for bytes in fonts.files() {
+        let id = hex::encode(Sha256::digest(bytes));
+        if !link.state.fonts.contains_key(&id) {
+            link.state.fonts.insert(id.clone(), Arc::from(bytes));
+        }
+        if !link.sent_fonts.contains(&id) {
+            expect_ok(link, &Request::PutFont { id: id.clone() }, bytes)?;
+            link.sent_fonts.insert(id.clone());
+        }
+        ids.push(id);
+    }
+    Ok(ids)
 }
 
 /// Pose la langue `l` dans le travailleur si elle n'y est pas déjà.

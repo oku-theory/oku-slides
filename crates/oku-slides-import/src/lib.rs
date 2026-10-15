@@ -12,13 +12,15 @@
 //! la source sur un pack et un thème existants ([`RetrofitTarget`]) ; le hi-fi
 //! ([`hifi::project`]) la reproduit fidèlement sur un thème et un pack générés
 //! pour elle ([`HifiTarget`]), que le plan porte avec les polices à embarquer.
-//! [`coverage::coverage`] mesure ce que le deck obtenu garde de la source.
+//! [`coverage::coverage`] mesure ce que le deck obtenu garde de la source ;
+//! [`metrics::score`], l'écart visuel d'une slide hi-fi à un rendu de référence.
 //! [`fonts::resolve`] choisit la police de chaque famille source et les
 //! fichiers à embarquer dans le deck.
 
 pub mod coverage;
 pub mod fonts;
 pub mod hifi;
+pub mod metrics;
 pub mod plan;
 pub mod report;
 pub mod retrofit;

@@ -21,7 +21,8 @@ output are in French.
 | `crates/oku-slides-render-worker` | Typst rendering in a worker process, bounded in time and memory |
 | `crates/oku-slides-chart` | Charts and tables: ECharts option subset, SVG via charts-rs, table model, data operations |
 | `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
-| `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit and high-fidelity projectors, font resolution, report and content coverage |
+| `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit and high-fidelity projectors, font resolution, report, content coverage and visual gap |
+| `crates/oku-slides-reference` | Reference rendering of an imported presentation (`office2pdf` witness, run by the render worker) and `hayro` rasterization of its pages |
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
@@ -73,6 +74,14 @@ then from the app (`--fonts`) and the system (unless `--no-system-fonts`), then 
 a metric-compatible substitute (Calibri → Carlito, Cambria → Caladea, Arial,
 Times New Roman, Courier New → Liberation); presentation and system faces are
 embedded in the deck. The report adds the font decisions.
+
+In hifi mode, `--reference auto` (the default) also renders the presentation with an
+independent witness (`office2pdf`, in its own bounded render process, 20 slides at a
+time) and writes to the report a visual gap per slide (mean OKLab ΔE) with its three
+worst regions (the source items that differ most, after a realignment of up to 3 px);
+a slide whose worst region exceeds `[import] score_threshold` is flagged, and a second
+output line sums it up. `--reference none` skips it. In both modes, a text field
+rendered past its page becomes an `Overflow` loss.
 
 ## Running the app
 

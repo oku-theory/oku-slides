@@ -53,6 +53,14 @@ cli-import-write-failed = kon de geïmporteerde presentatie { $path } niet schri
 cli-import-hifi-no-target = --pack en --theme horen bij de modus retrofit: import met hoge getrouwheid (--mode hifi) maakt een eigen pakket en thema
 cli-import-probe-mismatch = het gemaakte pakket komt bij het peilen niet overeen met de declaratie (widget { $widget }): een fout in de import
 cli-import-probe-limit = het gegenereerde pakket overschrijdt de grenzen van de controle (widget { $widget }): verhoog max_widgets, max_widget_kib of probe_budget_ms in de sectie [render] van de configuratie
+cli-import-reference-hifi-only = --reference hoort bij de hifi-modus: een retrofit-import wordt niet met een referentieweergave vergeleken
+cli-import-bad-threshold = score_threshold in de sectie [import] moet een getal van nul of meer zijn, niet { $value }
+cli-import-scored = Visueel verschil met { $witness }: gemiddeld { $mean }, { $above ->
+    [0] geen dia
+    [one] { $above } dia
+   *[other] { $above } dia’s
+} boven { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = Oku Slides-presentaties weergeven en opslaan
 cli-arg-fonts = Extra lettertypemap (TTF/OTF); standaard: paths.fonts in de instellingen
@@ -83,3 +91,4 @@ cli-arg-pack = Doelpakket: id, pakketmap (pack.json, widgets/) of naam
 cli-arg-import-theme = Doelthema: een ingebouwd thema of een uit de bibliotheek, op id of naam; standaard: het standaardthema
 cli-arg-report = Ook het importrapport (JSON) schrijven: verliezen, vervangingen, dekking
 cli-arg-no-system-fonts = In modus hifi de lettertypen van de presentatie niet tussen de systeemlettertypen zoeken
+cli-arg-reference = In hifi-modus elke dia vergelijken met een referentieweergave van de presentatie (auto, standaard) of niet (none)

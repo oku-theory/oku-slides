@@ -66,3 +66,9 @@ fn page_cover_is_the_whole_oku_page() {
     let f = page.frame(&page.cover());
     assert_that!((f.x, f.y, f.w, f.h)).is_equal_to((0.0, 0.0, PAGE_W, PAGE_H));
 }
+
+#[test]
+fn source_rect_of_a_4_3_source_is_the_centered_band() {
+    let r = Page::new(Size { w: 720.0, h: 540.0 }).source_rect();
+    assert_that!((r.x, r.y, r.w, r.h)).is_equal_to((240.0, 0.0, 1440.0, 1080.0));
+}

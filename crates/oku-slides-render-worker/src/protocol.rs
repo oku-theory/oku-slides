@@ -76,6 +76,22 @@ pub(crate) enum Request {
         slot: SlotId,
         generations: Vec<u64>,
     },
+    /// Rend la présentation de la charge (`.pptx`) par le témoin, avec ces
+    /// polices ; `slides` : numéros source de la première et de la dernière slide.
+    Reference {
+        fonts: Vec<String>,
+        #[serde(default)]
+        slides: Option<(u32, u32)>,
+    },
+    /// La page `page` d'une référence, en PNG de `width` pixels de large.
+    ReferencePng {
+        reference: u64,
+        page: usize,
+        width: u32,
+    },
+    ReleaseReference {
+        reference: u64,
+    },
 }
 
 /// Ce que le travailleur dit d'un rendu réussi.
@@ -102,6 +118,12 @@ pub(crate) enum Response {
     Compiled(Box<CompiledHeader>),
     /// Charge : octets du résultat.
     Bytes,
+    /// Une référence rendue : son identifiant, le témoin et son nombre de pages.
+    Reference {
+        reference: u64,
+        witness: String,
+        pages: usize,
+    },
     Error {
         error: oku_slides_render::WireError,
     },

@@ -82,6 +82,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = একটি প্যাকের জন্য অনেক বেশি লেআউট: “{ $layout }”-এর কোনো টেমপ্লেট নেই; এর স্লাইডগুলো ফাঁকা উইজেট নেয় এবং এর সজ্জা উপাদান হিসেবে পায়
 import-loss-decor-truncated = প্যাক ফাইলের আকারে আঁটাতে সজ্জা ছাঁটা হয়েছে: বাদ পড়া উপাদান: { $omitted }
 import-loss-table-style = টেবিলের শৈলী আনুমানিক: এর নিজস্ব ঘরের পটভূমি, সীমানা, কলামের প্রস্থ বা লেখার আকার হারিয়েছে
+import-loss-overflow = উপাদান “{ $element }” স্লাইডের প্রান্ত ছাড়িয়ে যায়
+import-reference-unavailable = কোনো দৃশ্যমান স্কোর নেই: { $cause ->
+    [timeout] রেফারেন্স রেন্ডারে খুব বেশি সময় লেগেছে
+    [memory] রেফারেন্স রেন্ডার খুব বেশি মেমরি নিয়েছে
+    [pages] রেফারেন্স রেন্ডারে উপস্থাপনার { $deck }টির বদলে { $reference }টি পাতা আছে
+   *[failed] রেফারেন্স রেন্ডারার উপস্থাপনাটি পড়তে পারেনি
+}
 import-font-substituted = { $family } মিলযুক্ত মাপের { $by } দিয়ে বদলানো হয়েছে
 import-font-missing = { $family } পাওয়া যায়নি: লেখা { $by } ব্যবহার করে
 import-font-restricted = { $family }: এর লাইসেন্স কিছু শৈলী প্রেজেন্টেশনে এমবেড করতে দেয় না

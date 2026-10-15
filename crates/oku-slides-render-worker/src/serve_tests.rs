@@ -229,3 +229,42 @@ fn serve_refuses_a_request_header_over_an_eighth_of_the_frame_size() {
     // 1024 octets par trame : l'en-tête (plus de 200) dépasse 1024 / 8.
     assert_that!(serve(input.as_slice(), Vec::new(), 1024)).is_err();
 }
+
+fn libreoffice_pptx() -> Vec<u8> {
+    std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import/libreoffice.pptx")).unwrap()
+}
+
+#[test]
+fn serve_reference_then_png_returns_a_png() {
+    let mut h = Harness::new();
+    let reference = match h.call(&Request::Reference { fonts: vec![], slides: None }, &libreoffice_pptx()).0 {
+        Response::Reference { reference, pages, .. } => {
+            assert_that!(pages).is_equal_to(3);
+            reference
+        }
+        other => panic!("{other:?}"),
+    };
+    let (resp, png) = h.call(&Request::ReferencePng { reference, page: 0, width: 480 }, &[]);
+    assert_that!(matches!(resp, Response::Bytes)).is_true();
+    assert_that!(png[1..4].to_vec()).is_equal_to(b"PNG".to_vec());
+}
+
+#[test]
+fn serve_png_of_released_reference_returns_stale() {
+    let mut h = Harness::new();
+    let Response::Reference { reference, .. } =
+        h.call(&Request::Reference { fonts: vec![], slides: None }, &libreoffice_pptx()).0
+    else {
+        panic!("pas de référence")
+    };
+    h.call(&Request::ReleaseReference { reference }, &[]);
+    let (resp, _) = h.call(&Request::ReferencePng { reference, page: 0, width: 480 }, &[]);
+    assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Stale })).is_true();
+}
+
+#[test]
+fn serve_reference_with_unknown_font_returns_setup() {
+    let mut h = Harness::new();
+    let (resp, _) = h.call(&Request::Reference { fonts: vec!["inconnue".into()], slides: None }, &libreoffice_pptx());
+    assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
+}

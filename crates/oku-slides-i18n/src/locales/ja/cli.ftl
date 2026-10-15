@@ -41,6 +41,12 @@ cli-import-write-failed = インポートしたデッキ { $path } を書き込�
 cli-import-hifi-no-target = --pack と --theme は retrofit モード専用です。高忠実度インポート（--mode hifi）は独自のパックとテーマを生成します
 cli-import-probe-mismatch = 生成されたパックが宣言どおりに検査されませんでした（ウィジェット { $widget }）。インポーターの不具合です
 cli-import-probe-limit = 生成したパックが検査の上限を超えています（ウィジェット { $widget }）：設定の [render] セクションで max_widgets、max_widget_kib、probe_budget_ms を引き上げてください
+cli-import-reference-hifi-only = --reference は hifi モード用です：retrofit インポートは参照レンダリングと比較されません
+cli-import-bad-threshold = [import] セクションの score_threshold は0 以上の数である必要があります（{ $value } ではありません）
+cli-import-scored = { $witness } との見た目の差：平均 { $mean }、{ $threshold } を超えるスライド { $above ->
+   *[other] { $above }枚
+}
+cli-import-unscored = { $reason }
 
 cli-about = Oku Slides のプレゼンテーションをレンダリングして保存します
 cli-arg-fonts = 追加のフォントフォルダ（TTF/OTF）。デフォルト：設定の paths.fonts
@@ -71,3 +77,4 @@ cli-arg-pack = 対象のテンプレートパック：ID、パックのフォル
 cli-arg-import-theme = 対象のテーマ：組み込みまたはライブラリのテーマを ID か名前で指定。既定：既定のテーマ
 cli-arg-report = インポートレポート（JSON）も書き出します：損失、代替、カバレッジ
 cli-arg-no-system-fonts = hifi モードで、プレゼンテーションのフォントをシステムフォントから探しません
+cli-arg-reference = hifi モードで、各スライドをプレゼンテーションの参照レンダリングと比較する（auto、既定）かしない（none）

@@ -120,6 +120,7 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
         placement: Placement::Free,
         losses,
         fallbacks: Vec::new(),
+        score: None,
     };
     Projected { slide, report, assets: out.assets, origins: out.origins }
 }

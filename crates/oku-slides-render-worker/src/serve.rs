@@ -16,6 +16,11 @@
 //!   retirés (l'hôte applique la même règle).
 //! - `Svg`, `Png` et `Pdf` d'une génération absente répondent `Error Stale`.
 //! - `Release` retire les générations nommées ; `CloseSlot` l'emplacement.
+//! - `Reference` rend la charge (un `.pptx`) par le témoin (`Office2Pdf`) avec
+//!   les polices nommées, une tranche de slides ou toutes, sous un nouvel identifiant (même compteur que les
+//!   générations) ; `ReferencePng` en rastérise une page, `ReleaseReference`
+//!   l'oublie. Une référence absente répond `Error Stale` ; un échec du témoin,
+//!   `Error Setup` (`reference: …`).
 //! - Une requête qui échoue répond `Error` et la boucle continue ; une trame
 //!   illisible arrête `serve`.
 
@@ -27,6 +32,7 @@ use std::time::Instant;
 
 use oku_slides_core::WidgetFile;
 use oku_slides_i18n::Localizer;
+use oku_slides_reference::{Office2Pdf, ReferenceError, ReferencePdf, ReferenceRenderer, SlideSpan};
 use oku_slides_render::{Compiled, Fonts, PackWidgets, Registries, RenderError, Renderer, WireError};
 use serde_json::{Map, Value};
 use snafu::Snafu;
@@ -57,6 +63,7 @@ struct Worker {
     registries: Option<Registries>,
     localizer: Option<Localizer>,
     next_generation: u64,
+    references: BTreeMap<u64, ReferencePdf>,
 }
 
 /// Sert les requêtes de `input` jusqu'à sa fin.
@@ -101,6 +108,10 @@ fn setup(message: String) -> WireError {
 
 fn render_error(e: &RenderError) -> WireError {
     WireError::from_render(e)
+}
+
+fn reference_error(e: &ReferenceError) -> WireError {
+    setup(format!("reference: {e}"))
 }
 
 /// Le pack d'une requête ; un nom de fichier invalide répond `Error Setup`.
@@ -150,8 +161,36 @@ impl Worker {
                 }
                 ok()
             }
+            Request::Reference { fonts, slides } => self.reference(&fonts, slides, &payload),
+            Request::ReferencePng { reference, page, width } => self.reference_png(reference, page, width),
+            Request::ReleaseReference { reference } => {
+                self.references.remove(&reference);
+                ok()
+            }
         };
         result.unwrap_or_else(error_reply)
+    }
+
+    fn reference(&mut self, fonts: &[String], slides: Option<(u32, u32)>, pptx: &[u8]) -> Result<Reply, WireError> {
+        // Une seule copie des polices : le témoin les garde le temps du rendu.
+        let files = fonts
+            .iter()
+            .map(|id| self.fonts.get(id).cloned().ok_or_else(|| setup(format!("unknown font {id}"))))
+            .collect::<Result<Vec<_>, _>>()?;
+        let witness = Office2Pdf;
+        let span = slides.map(|(first, last)| SlideSpan { first, last });
+        let pdf = witness.render(pptx, files, span).map_err(|e| reference_error(&e))?;
+        let pages = pdf.page_count();
+        self.next_generation += 1;
+        let reference = self.next_generation;
+        self.references.insert(reference, pdf);
+        Ok((Response::Reference { reference, witness: witness.witness().to_owned(), pages }, Vec::new()))
+    }
+
+    fn reference_png(&self, reference: u64, page: usize, width: u32) -> Result<Reply, WireError> {
+        let pdf = self.references.get(&reference).ok_or(WireError::Stale)?;
+        let png = pdf.raster(page, width).and_then(|r| r.to_png()).map_err(|e| reference_error(&e))?;
+        Ok((Response::Bytes, png))
     }
 
     fn fonts_of(&self, ids: &[String]) -> Result<Fonts, WireError> {

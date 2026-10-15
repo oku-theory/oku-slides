@@ -1,15 +1,23 @@
 //! Le rapport d'import : par slide, le modèle choisi, le placement, les pertes
 //! et les replis ; les avertissements du lecteur ; la couverture du contenu.
-//!
 //! Une perte n'est jamais une erreur : l'import continue, le rapport la dit.
 //! [`ImportReport::to_json`] donne la forme écrite par `--report`, avec le
 //! message localisé de chaque perte et de chaque avertissement du lecteur.
+//! En hi-fi s'y ajoutent le rendu de référence ([`ReferenceReport`]) et l'écart
+//! visuel de chaque slide (`SlideReport::score`, [`crate::metrics`]).
+
+mod fonts;
+mod reference;
+
+use fonts::font_notice;
+pub use reference::{ReferenceCause, ReferenceReport};
 
 use oku_slides_i18n::{Localize, Localizer};
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::fonts::{FontChoice, FontDecision};
+use crate::fonts::FontChoice;
+use crate::metrics::SlideScore;
 use crate::source::{OpaqueReason, Warning, WarningKind};
 
 /// Mode d'import.
@@ -150,6 +158,12 @@ pub enum LossKind {
     /// largeurs de colonnes ou tailles de texte que le widget `table` ne rend
     /// pas, ou un style autre que celui du thème généré (le premier tableau).
     TableStyle,
+    /// Champ de texte rendu au-delà du bord de sa slide (relevé sur le rendu,
+    /// dans les deux modes) : un contenu plus haut que sa place (t-816).
+    Overflow {
+        /// Le champ : `<id de l'élément ou de la slide Oku>/<paramètre>`.
+        element: String,
+    },
 }
 
 /// Une perte, sur un item source ou sur la slide entière.
@@ -234,6 +248,7 @@ impl LossKind {
             LossKind::LayoutDropped { .. } => "import-loss-layout-dropped",
             LossKind::DecorTruncated { .. } => "import-loss-decor-truncated",
             LossKind::TableStyle => "import-loss-table-style",
+            LossKind::Overflow { .. } => "import-loss-overflow",
         }
     }
 }
@@ -258,6 +273,7 @@ impl Localize for Loss {
             }
             LossKind::LayoutDropped { layout } => l.tr_with(id, &[("layout", layout.as_str().into())]),
             LossKind::DecorTruncated { omitted } => l.tr_with(id, &[("omitted", (*omitted).into())]),
+            LossKind::Overflow { element } => l.tr_with(id, &[("element", element.as_str().into())]),
             LossKind::ListLevels
             | LossKind::MergedCells
             | LossKind::PercentStacked
@@ -302,37 +318,6 @@ impl Localize for Warning {
     }
 }
 
-/// Ce que le rapport dit d'une police : substitut, absence (fichiers trop
-/// gros, droits restreints ou introuvable, avec la police de repli retenue
-/// nommée, ou sans repli), droits restreints ; `None` pour une police reprise
-/// telle quelle.
-pub(crate) fn font_notice(c: &FontChoice, l: &Localizer) -> Option<String> {
-    let family = ("family", c.family.as_str().into());
-    match (&c.decision, c.used.as_deref(), c.restricted) {
-        (FontDecision::Substituted { .. }, Some(by), restricted) => {
-            let id = if restricted { "import-font-restricted-substituted" } else { "import-font-substituted" };
-            Some(l.tr_with(id, &[family, ("by", by.into())]))
-        }
-        (FontDecision::Missing, _, restricted) => {
-            // Le repli est nommé : « police du corps » serait faux (circulaire)
-            // quand la famille absente est elle-même la police du corps.
-            let Some(by) = c.fallback.as_deref() else {
-                return Some(l.tr_with("import-font-missing-no-fallback", &[family]));
-            };
-            let id = if c.too_large {
-                "import-font-too-large"
-            } else if restricted {
-                "import-font-restricted-missing"
-            } else {
-                "import-font-missing"
-            };
-            Some(l.tr_with(id, &[family, ("by", by.into())]))
-        }
-        (_, _, true) => Some(l.tr_with("import-font-restricted", &[family])),
-        (_, _, false) => None,
-    }
-}
-
 /// Ajoute à chaque objet de `written` (le tableau `key` de `v`) le message localisé de l'entrée de même rang.
 fn add_messages<T: Localize>(v: &mut Value, key: &str, entries: &[T], l: &Localizer) {
     let Some(written) = v.get_mut(key).and_then(Value::as_array_mut) else { return };
@@ -358,6 +343,16 @@ pub struct SlideReport {
     pub losses: Vec<Loss>,
     /// Sortes de widget de repli employées (`stack`…).
     pub fallbacks: Vec<String>,
+    /// Écart visuel au rendu de référence (hi-fi, référence disponible).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<SlideScore>,
+}
+
+impl SlideReport {
+    /// Sa pire région dépasse-t-elle `threshold` ?
+    pub fn is_above(&self, threshold: f64) -> bool {
+        self.score.as_ref().and_then(SlideScore::worst).is_some_and(|w| w > threshold)
+    }
 }
 
 /// Une proportion : `found` sur `total`.
@@ -439,12 +434,15 @@ pub struct ImportReport {
     /// Polices : une décision par famille source (hi-fi ; vide et non écrit en retrofit).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub fonts: Vec<FontChoice>,
+    /// Rendu de référence (hi-fi, `--reference auto`) ; non écrit sans lui.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference: Option<ReferenceReport>,
 }
 
 impl ImportReport {
     /// Rapport vide du mode `mode`.
     pub fn new(mode: Mode) -> Self {
-        Self { mode, slides: Vec::new(), warnings: Vec::new(), coverage: None, fonts: Vec::new() }
+        Self { mode, slides: Vec::new(), warnings: Vec::new(), coverage: None, fonts: Vec::new(), reference: None }
     }
 
     /// Nombre total de pertes.
@@ -452,17 +450,41 @@ impl ImportReport {
         self.slides.iter().map(|s| s.losses.len()).sum()
     }
 
+    /// Les slides dont la pire région dépasse le seuil de la référence.
+    pub fn above_threshold(&self) -> impl Iterator<Item = &SlideReport> {
+        let threshold = self.reference.as_ref().map(|r| r.threshold);
+        self.slides.iter().filter(move |s| threshold.is_some_and(|t| s.is_above(t)))
+    }
+
+    /// L'écart visuel moyen des slides qui en ont un.
+    pub fn mean_score(&self) -> Option<f64> {
+        let scores: Vec<f64> = self.slides.iter().filter_map(|s| s.score.as_ref().map(|sc| sc.score)).collect();
+        (!scores.is_empty()).then(|| (scores.iter().sum::<f64>() / scores.len() as f64 * 100.0).round() / 100.0)
+    }
+
     /// La forme écrite : la sérialisation, plus un `message` localisé à côté
-    /// de chaque perte, de chaque avertissement et de chaque police
-    /// remplacée, absente ou aux droits restreints.
+    /// de chaque perte, de chaque avertissement, de chaque police remplacée,
+    /// absente ou aux droits restreints, et de la référence absente ;
+    /// `above_threshold` sur chaque slide dont la pire région dépasse le seuil.
     pub fn to_json(&self, l: &Localizer) -> Value {
         // Ces types se sérialisent toujours : clés textuelles, nombres finis.
         let mut v = serde_json::to_value(self).unwrap_or_default();
         add_messages(&mut v, "warnings", &self.warnings, l);
+        let threshold = self.reference.as_ref().map(|r| r.threshold);
         if let Some(slides) = v.get_mut("slides").and_then(Value::as_array_mut) {
             for (slide, report) in slides.iter_mut().zip(&self.slides) {
                 add_messages(slide, "losses", &report.losses, l);
+                let above = threshold.is_some_and(|t| report.is_above(t));
+                if let (Some(o), true) = (slide.as_object_mut(), above) {
+                    o.insert("above_threshold".to_owned(), Value::Bool(true));
+                }
             }
+        }
+        if let (Some(o), Some(cause)) = (
+            v.get_mut("reference").and_then(Value::as_object_mut),
+            self.reference.as_ref().and_then(|r| r.unavailable.as_ref()),
+        ) {
+            o.insert("message".to_owned(), Value::String(cause.localize(l)));
         }
         if let Some(fonts) = v.get_mut("fonts").and_then(Value::as_array_mut) {
             for (w, choice) in fonts.iter_mut().zip(&self.fonts) {

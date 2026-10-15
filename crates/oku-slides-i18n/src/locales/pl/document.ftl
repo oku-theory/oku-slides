@@ -84,6 +84,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = Za dużo układów na jeden pakiet: „{ $layout }” nie ma szablonu; jego slajdy używają pustego widżetu i dostają jego dekorację jako elementy
 import-loss-decor-truncated = Dekoracja przycięta, by zmieścić się w rozmiarze pliku pakietu: pominięte elementy: { $omitted }
 import-loss-table-style = Styl tabeli przybliżony: jej własne tła komórek, obramowania, szerokości kolumn lub rozmiary tekstu są tracone
+import-loss-overflow = Element „{ $element }” wychodzi poza krawędź slajdu
+import-reference-unavailable = Brak oceny wizualnej: { $cause ->
+    [timeout] renderowanie referencyjne trwało zbyt długo
+    [memory] renderowanie referencyjne zużyło zbyt dużo pamięci
+    [pages] renderowanie referencyjne ma { $reference } stron na { $deck } w prezentacji
+   *[failed] renderer referencyjny nie mógł odczytać prezentacji
+}
 import-font-substituted = { $family } zastąpiona czcionką { $by } o zgodnych metrykach
 import-font-missing = Nie znaleziono { $family }: tekst używa czcionki { $by }
 import-font-restricted = { $family }: licencja zabrania osadzania niektórych jej odmian w prezentacji

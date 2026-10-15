@@ -27,6 +27,7 @@ tracing.workspace = true
 oku-slides-platform = { workspace = true, features = ["listen"] }
 oku-slides-i18n.workspace = true
 oku-slides-import.workspace = true
+oku-slides-reference.workspace = true
 fontdb.workspace = true
 sha2.workspace = true
 clap.workspace = true

@@ -81,6 +81,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = Trop de layouts pour un pack : « { $layout } » n'a pas de modèle, ses slides prennent le widget vierge et reçoivent son décor en éléments
 import-loss-decor-truncated = Décor coupé pour tenir dans la taille d'un fichier de pack : { $omitted } éléments omis
 import-loss-table-style = Style du tableau approché : ses fonds de cellule, bordures, largeurs de colonnes ou tailles de texte propres sont perdus
+import-loss-overflow = L'élément « { $element } » dépasse le bord de la slide
+import-reference-unavailable = Pas d'écart visuel : { $cause ->
+    [timeout] le rendu de référence a pris trop de temps
+    [memory] le rendu de référence a demandé trop de mémoire
+    [pages] le rendu de référence a { $reference } pages pour { $deck } dans le deck
+   *[failed] le témoin n'a pas pu lire la présentation
+}
 import-font-substituted = { $family } remplacée par { $by }, aux métriques compatibles
 import-font-missing = { $family } introuvable : le texte prend { $by }
 import-font-restricted = { $family } : sa licence interdit d'embarquer certaines de ses faces dans le deck

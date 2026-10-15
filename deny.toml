@@ -4,12 +4,14 @@
 all-features = true
 
 [advisories]
-# RUSTSEC-2026-0194/0195 (quick-xml 0.38, via typst-library → hayagriva →
-# citationberg) : lecture de styles CSL de bibliographie. Oku Slides ne donne jamais
-# de fichier de bibliographie à Typst ; à retirer quand Typst suivra.
+# RUSTSEC-2026-0194/0195 (quick-xml) : 0.38, via typst-library → hayagriva →
+# citationberg, lecture de styles CSL de bibliographie (Oku Slides ne donne jamais de
+# fichier de bibliographie à Typst) ; 0.37, via office2pdf → umya-spreadsheet, lecture
+# des classeurs XLSX (le témoin de l'import ne reçoit que des PPTX). À retirer quand
+# Typst et office2pdf suivront.
 ignore = [
-    { id = "RUSTSEC-2026-0194", reason = "quick-xml via les bibliographies de Typst, jamais atteint par Oku Slides" },
-    { id = "RUSTSEC-2026-0195", reason = "quick-xml via les bibliographies de Typst, jamais atteint par Oku Slides" },
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
 ]
 unmaintained = "workspace"
 
@@ -32,6 +34,11 @@ allow = [
     "Zlib",
 ]
 confidence-threshold = 0.9
+# libfuzzer-sys ((MIT OR Apache-2.0) AND NCSA) : tiré par office2pdf → image (avif) → ravif → rav1e,
+# qui ne le compile que pour son fuzzing ; jamais construit ni livré (t-692, lot 4).
+exceptions = [
+    { crate = "libfuzzer-sys", allow = ["NCSA"] },
+]
 
 [licenses.private]
 # Les crates du workspace ne sont pas publiées.

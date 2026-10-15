@@ -8,6 +8,8 @@ mod bench;
 mod guard;
 mod import;
 mod import_hifi;
+mod import_overflow;
+mod import_reference;
 mod library;
 mod out;
 mod pack_render;
@@ -30,7 +32,7 @@ use oku_slides_render::Fonts;
 use oku_slides_session::{PackLibrary, Storage, adopt_default_pack, adopt_default_theme, read_document, theme_tokens};
 
 use crate::bench::ms;
-use crate::import::{ImportArgs, ImportMode};
+use crate::import::{ImportArgs, ImportMode, ReferenceMode};
 use crate::library::{beside_deck, embed_theme, pack_library, theme_library};
 use crate::out::Out;
 use crate::pack_render::DeckWidgets;
@@ -91,6 +93,8 @@ enum Cmd {
         report: Option<PathBuf>,
         #[arg(long)]
         no_system_fonts: bool,
+        #[arg(long, value_enum)]
+        reference: Option<ReferenceMode>,
     },
     Bench {
         deck: PathBuf,
@@ -147,6 +151,7 @@ fn command(l: &Localizer) -> clap::Command {
                 .mut_arg("output", |a| a.help(help("cli-arg-output")))
                 .mut_arg("report", |a| a.help(help("cli-arg-report")))
                 .mut_arg("no_system_fonts", |a| a.help(help("cli-arg-no-system-fonts")))
+                .mut_arg("reference", |a| a.help(help("cli-arg-reference")))
         })
         .mut_subcommand("bench", |c| {
             c.about(help("cli-cmd-bench"))
@@ -274,6 +279,17 @@ fn write_document(
     output: &Path,
 ) -> Result<Written> {
     let doc = pack_render::render(platform, l, fonts, widgets, bundle, bundle.deck())?;
+    write_rendered(platform, &doc, bundle, output)
+}
+
+/// Joint les sources de `bundle` au PDF de `doc`, son rendu, et écrit le tout
+/// dans `output` (écriture atomique).
+fn write_rendered(
+    platform: &Platform,
+    doc: &pack_render::Rendered,
+    bundle: &SourceBundle,
+    output: &Path,
+) -> Result<Written> {
     let pdf = doc.pdf()?;
     let zip = bundle.to_zip()?;
     let written = oku_slides_pdf::embed_sources(&pdf, &zip)?;
@@ -440,8 +456,9 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             storage.write_atomic(&output, oku_slides_pdf::strip_sources(&pdf)?)?;
             out.line("cli-stripped", &[("path", output.display().to_string().into())])?;
         }
-        Cmd::Import { input, mode, pack, theme, output, report, no_system_fonts } => {
-            let args = ImportArgs { input, mode, pack, theme, output, report, system_fonts: !no_system_fonts };
+        Cmd::Import { input, mode, pack, theme, output, report, no_system_fonts, reference } => {
+            let args =
+                ImportArgs { input, mode, pack, theme, output, report, system_fonts: !no_system_fonts, reference };
             import::import(platform, out, &app_fonts, args)?;
         }
         Cmd::Bench { deck, iterations } => {

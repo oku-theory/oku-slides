@@ -53,6 +53,14 @@ cli-import-write-failed = ইমপোর্ট করা ডেক { $path } �
 cli-import-hifi-no-target = --pack ও --theme শুধু retrofit মোডের জন্য: উচ্চ বিশ্বস্ততার ইমপোর্ট (--mode hifi) নিজের প্যাক ও থিম তৈরি করে
 cli-import-probe-mismatch = তৈরি করা প্যাক ঘোষণা অনুযায়ী যাচাই হয়নি (উইজেট { $widget }): এটি ইমপোর্টারের ত্রুটি
 cli-import-probe-limit = তৈরি প্যাকটি যাচাইয়ের সীমা ছাড়িয়েছে (উইজেট { $widget }): কনফিগারেশনের [render] অংশে max_widgets, max_widget_kib বা probe_budget_ms বাড়ান
+cli-import-reference-hifi-only = --reference hifi মোডের অংশ: retrofit আমদানি রেফারেন্স রেন্ডারের সঙ্গে তুলনা করা হয় না
+cli-import-bad-threshold = [import] অংশের score_threshold শূন্য বা তার চেয়ে বড় একটি সংখ্যা হতে হবে, { $value } নয়
+cli-import-scored = { $witness }-এর সঙ্গে দৃশ্যমান পার্থক্য: গড়ে { $mean }, { $threshold }-এর উপরে { $above ->
+    [0] কোনো স্লাইড নেই
+    [one] { $above }টি স্লাইড
+   *[other] { $above }টি স্লাইড
+}
+cli-import-unscored = { $reason }
 
 cli-about = Oku Slides প্রেজেন্টেশন রেন্ডার ও সংরক্ষণ করুন
 cli-arg-fonts = অতিরিক্ত ফন্ট ফোল্ডার (TTF/OTF); ডিফল্ট: সেটিংসে paths.fonts
@@ -83,3 +91,4 @@ cli-arg-pack = লক্ষ্য টেমপ্লেট প্যাক: আ�
 cli-arg-import-theme = লক্ষ্য থিম: অন্তর্নির্মিত বা লাইব্রেরির থিম, আইডি বা নাম দিয়ে; ডিফল্ট: ডিফল্ট থিম
 cli-arg-report = ইমপোর্ট রিপোর্টও (JSON) লিখুন: ক্ষতি, বিকল্প, কভারেজ
 cli-arg-no-system-fonts = hifi মোডে, উপস্থাপনার ফন্ট সিস্টেম ফন্টে খুঁজবেন না
+cli-arg-reference = hifi মোডে, প্রতিটি স্লাইডকে উপস্থাপনার রেফারেন্স রেন্ডারের সঙ্গে তুলনা করুন (auto, ডিফল্ট) বা না (none)

@@ -79,6 +79,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = Quá nhiều bố cục cho một gói: “{ $layout }” không có mẫu; các trang chiếu của nó dùng widget trống và nhận phần trang trí dưới dạng phần tử
 import-loss-decor-truncated = Phần trang trí bị cắt để vừa kích thước tệp gói: bỏ qua { $omitted } phần tử
 import-loss-table-style = Kiểu bảng được ước lượng: nền ô, đường viền, độ rộng cột hoặc cỡ chữ riêng của bảng bị mất
+import-loss-overflow = Phần tử “{ $element }” vượt quá mép trang chiếu
+import-reference-unavailable = Không có điểm hình ảnh: { $cause ->
+    [timeout] bản kết xuất tham chiếu mất quá nhiều thời gian
+    [memory] bản kết xuất tham chiếu dùng quá nhiều bộ nhớ
+    [pages] bản kết xuất tham chiếu có { $reference } trang so với { $deck } trong bản trình bày
+   *[failed] trình kết xuất tham chiếu không đọc được bản trình bày
+}
 import-font-substituted = Đã thay { $family } bằng { $by }, có số đo tương thích
 import-font-missing = Không tìm thấy { $family }: văn bản dùng phông chữ { $by }
 import-font-restricted = { $family }: giấy phép cấm nhúng một số kiểu của phông vào bản trình bày

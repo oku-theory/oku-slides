@@ -34,6 +34,7 @@ pub struct Settings {
     pub resume: ResumeSettings,
     pub sources: SourcesSettings,
     pub render: RenderSettings,
+    pub import: ImportSettings,
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
     pub appearance: AppearanceSettings,
@@ -109,6 +110,19 @@ pub struct RenderSettings {
     pub max_widget_kib: usize,
     /// Nombre maximal de fichiers de widgets d'une version de pack, `_commun` compris.
     pub max_widgets: usize,
+}
+
+/// Import d'une présentation (`oku-slides import`).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct ImportSettings {
+    /// Hi-fi : écart (ΔE OKLab ×100) d'une région qui fait signaler sa slide.
+    ///
+    /// Comparé à la pire région de chaque slide, contre le rendu de référence ;
+    /// fini et positif (la CLI refuse un autre).
+    pub score_threshold: f64,
+    /// Durée maximale d'une tranche du rendu de référence (ms), dans son processus de rendu.
+    pub reference_timeout_ms: u64,
 }
 
 impl SourcesSettings {

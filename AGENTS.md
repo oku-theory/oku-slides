@@ -118,6 +118,7 @@ rule sections are linted. `just agents-lint` checks all this; catch-up: `docs/ha
 - `crates/oku-slides-import/AGENTS.md` — Read before changing PPTX import, the retrofit projector or its tests
 - `crates/oku-slides-mcp/AGENTS.md` — Read before changing MCP tools, SurfaceHub turns or the tool server
 - `crates/oku-slides-platform/AGENTS.md` — Read before changing Storage, config defaults or agent presets.
+- `crates/oku-slides-reference/AGENTS.md` — Read before changing the reference witness or page rasterization.
 - `crates/oku-slides-render/AGENTS.md` — Read before touching Typst rendering, widget probes, packs or tables.
 - `crates/oku-slides-render-worker/AGENTS.md` — Read before touching the sandboxed Typst worker or its watchdog.
 - `crates/oku-slides-session/AGENTS.md` — Read before editing session, workspace, resume, undo or agent code

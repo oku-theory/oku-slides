@@ -165,6 +165,12 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
     plan
 }
 
+/// La page source de `deck` sur la page Oku (pt page) : le rendu Oku d'une
+/// slide, rogné à ce cadre, se compare au rendu de référence de la source.
+pub fn source_rect(deck: &SourceDeck) -> oku_slides_core::Frame {
+    Page::new(deck.size).source_rect()
+}
+
 /// Les familles que [`project`] cherche au catalogue des polices pour
 /// `deck` (voir [`sought`]) : l'appelant n'y ajoute que celles du système
 /// qui en sont.

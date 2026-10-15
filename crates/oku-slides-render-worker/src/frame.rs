@@ -3,7 +3,7 @@
 //!
 //! Bornes par partie et par sorte ([`FrameLimits`]), tirées de `max_frame_mib` :
 //! un en-tête (JSON : deck, pack, mise en page) au plus un huitième, un SVG au
-//! plus un quart, une police, un asset, un PNG ou un PDF la taille entière ;
+//! plus un quart, une police, un asset, un `.pptx`, un PNG ou un PDF la taille entière ;
 //! les autres réponses n'ont pas de charge.
 
 use std::io::{Read, Write};
@@ -32,17 +32,17 @@ impl FrameLimits {
         Self { header: max, payload: max }
     }
 
-    /// Une requête de l'hôte : l'en-tête au plus `max / 8`, la charge (police, asset) `max`.
+    /// Une requête de l'hôte : l'en-tête au plus `max / 8`, la charge (police, asset, `.pptx`) `max`.
     pub(crate) fn requests(max: usize) -> Self {
         Self { header: max / HEADER_SHARE, payload: max }
     }
 
     /// La réponse à `req` : l'en-tête au plus `max / 8` ; la charge au plus
-    /// `max / 4` pour un SVG, `max` pour un PNG ou un PDF, rien sinon.
+    /// `max / 4` pour un SVG, `max` pour un PNG (d'une page ou d'une référence) ou un PDF, rien sinon.
     pub(crate) fn reply_to(req: &Request, max: usize) -> Self {
         let payload = match req {
             Request::Svg { .. } => max / SVG_SHARE,
-            Request::Png { .. } | Request::Pdf { .. } => max,
+            Request::Png { .. } | Request::Pdf { .. } | Request::ReferencePng { .. } => max,
             _ => 0,
         };
         Self { header: max / HEADER_SHARE, payload }

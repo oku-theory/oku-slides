@@ -79,6 +79,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = 一個套件中的版面配置過多：「{ $layout }」沒有範本，其投影片使用空白元件，並以元素形式取得其裝飾
 import-loss-decor-truncated = 為符合套件檔案大小而截斷了裝飾：省略了{ $omitted }個元素
 import-loss-table-style = 表格樣式為近似：其自身的儲存格背景、框線、欄寬或文字大小已遺失
+import-loss-overflow = 元素「{ $element }」超出了投影片邊緣
+import-reference-unavailable = 無視覺評分：{ $cause ->
+    [timeout] 參考轉譯耗時過長
+    [memory] 參考轉譯佔用記憶體過多
+    [pages] 參考轉譯有{ $reference }頁，而簡報有{ $deck }頁
+   *[failed] 參考轉譯器無法讀取該簡報
+}
 import-font-substituted = { $family } 已替換為度量相容的 { $by }
 import-font-missing = 找不到 { $family }：文字使用 { $by }
 import-font-restricted = { $family }：其授權禁止將部分字樣內嵌到簡報

@@ -122,6 +122,15 @@ fn remote_compiled_of_previous_worker_is_stale_and_its_release_is_dropped() {
 }
 
 #[test]
+fn remote_reference_of_previous_worker_is_stale() {
+    let w = worker(3_000);
+    let pptx = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import/libreoffice.pptx")).unwrap();
+    let old = w.reference(&pptx, &Fonts::default(), None).unwrap();
+    force_restart(&w, "boucle-r");
+    assert_that!(old.png(0, 480).unwrap_err().kind()).is_equal_to(RenderErrorKind::Stale);
+}
+
+#[test]
 fn set_widgets_with_faulty_pack_is_disabled_without_call() {
     let w = worker(3_000);
     let pack = PackWidgets::new("boucle", files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();

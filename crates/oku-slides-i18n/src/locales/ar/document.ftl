@@ -86,6 +86,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = تخطيطات كثيرة جدًا لحزمة واحدة: «{ $layout }» بلا قالب؛ تستخدم شرائحه الأداة الفارغة وتتلقى زخرفته كعناصر
 import-loss-decor-truncated = قُصّت الزخرفة لتلائم حجم ملف الحزمة: عناصر محذوفة: { $omitted }
 import-loss-table-style = قُرّب نمط الجدول: خلفيات الخلايا أو الحدود أو عروض الأعمدة أو أحجام النص الخاصة به فُقدت
+import-loss-overflow = العنصر «{ $element }» يتجاوز حافة الشريحة
+import-reference-unavailable = لا توجد درجة مرئية: { $cause ->
+    [timeout] استغرق العرض المرجعي وقتًا طويلًا
+    [memory] استهلك العرض المرجعي ذاكرة كبيرة
+    [pages] يحتوي العرض المرجعي على { $reference } صفحات مقابل { $deck } في العرض التقديمي
+   *[failed] تعذّر على أداة العرض المرجعي قراءة العرض التقديمي
+}
 import-font-substituted = استُبدل { $family } بـ { $by } ذي المقاييس المتوافقة
 import-font-missing = لم يُعثر على { $family }: يستخدم النص { $by }
 import-font-restricted = { $family }: يمنع ترخيصه تضمين بعض أنماطه في العرض التقديمي

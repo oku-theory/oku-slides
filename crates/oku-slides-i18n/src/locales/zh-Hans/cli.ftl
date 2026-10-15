@@ -41,6 +41,12 @@ cli-import-write-failed = 无法写入导入的演示文稿 { $path }
 cli-import-hifi-no-target = --pack 和 --theme 仅用于 retrofit 模式：高保真导入（--mode hifi）会生成自己的模板包和主题
 cli-import-probe-mismatch = 生成的模板包探测结果与声明不符（组件 { $widget }）：这是导入程序的缺陷
 cli-import-probe-limit = 生成的包超出检查限制（组件 { $widget }）：请在配置的 [render] 部分提高 max_widgets、max_widget_kib 或 probe_budget_ms
+cli-import-reference-hifi-only = --reference 属于 hifi 模式：retrofit 导入不与参考渲染比较
+cli-import-bad-threshold = [import] 部分的 score_threshold 必须是大于或等于 0 的数，而不是 { $value }
+cli-import-scored = 与 { $witness } 的视觉差异：平均 { $mean }，超过 { $threshold } 的幻灯片 { $above ->
+   *[other] { $above }张
+}
+cli-import-unscored = { $reason }
 
 cli-about = 渲染并存储 Oku Slides 演示文稿
 cli-arg-fonts = 额外字体文件夹（TTF/OTF）；默认：设置中的 paths.fonts
@@ -71,3 +77,4 @@ cli-arg-pack = 目标模板包：ID、模板包文件夹（pack.json、widgets/�
 cli-arg-import-theme = 目标主题：内置主题或库中的主题，按 ID 或名称指定；默认：默认主题
 cli-arg-report = 同时写出导入报告（JSON）：损失、替代、覆盖率
 cli-arg-no-system-fonts = 在 hifi 模式下，不在系统字体中查找演示文稿的字体
+cli-arg-reference = 在 hifi 模式下，将每张幻灯片与演示文稿的参考渲染比较（auto，默认）或不比较（none）

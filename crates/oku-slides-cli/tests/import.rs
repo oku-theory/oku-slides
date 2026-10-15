@@ -113,6 +113,53 @@ fn import_minimal_on_essentiel_and_pro_writes_a_reopenable_deck() {
     assert_that!(deck.slides[1].notes.starts_with("Dire bonjour.")).is_true();
 }
 
+/// `pptx` avec la part `name` remplacée par `content`.
+fn replaced(pptx: &Path, name: &str, content: &str) {
+    let bytes = std::fs::read(pptx).unwrap_or_else(|e| panic!("{e}"));
+    let mut src = zip::ZipArchive::new(Cursor::new(bytes)).unwrap_or_else(|e| panic!("zip : {e}"));
+    let mut w = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    for i in 0..src.len() {
+        let entry = src.by_index_raw(i).unwrap_or_else(|e| panic!("zip : {e}"));
+        if entry.name() == name {
+            continue;
+        }
+        w.raw_copy_file(entry).unwrap_or_else(|e| panic!("zip : {e}"));
+    }
+    w.start_file(name, SimpleFileOptions::default()).unwrap_or_else(|e| panic!("zip : {e}"));
+    w.write_all(content.as_bytes()).unwrap_or_else(|e| panic!("zip : {e}"));
+    let out = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
+    std::fs::write(pptx, out).unwrap_or_else(|e| panic!("{e}"));
+}
+
+#[test]
+fn import_retrofit_of_a_text_too_long_for_its_place_reports_an_overflow() {
+    let dir = workdir("import-overflow");
+    let input = pptx(&dir, "minimal");
+    let slide =
+        std::fs::read_to_string(fixtures().join("minimal/ppt/slides/slide3.xml")).unwrap_or_else(|e| panic!("{e}"));
+    let paragraphs: String = (0..80)
+        .map(|i| format!(r#"<a:p><a:r><a:rPr lang="fr-FR"/><a:t>Ligne {i} d'un texte trop long</a:t></a:r></a:p>"#))
+        .collect();
+    let long =
+        slide.replace(r#"<a:p><a:r><a:rPr lang="fr-FR"/><a:t>Texte sans couleur</a:t></a:r></a:p>"#, &paragraphs);
+    assert_that!(long.len()).is_greater_than(slide.len());
+    replaced(&input, "ppt/slides/slide3.xml", &long);
+    let report = dir.join("r.json");
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(&input)
+        .args(["--pack", "essentiel", "-o"])
+        .arg(dir.join("o.oku-slides.pdf"))
+        .arg("--report")
+        .arg(&report));
+    assert_success("import", &out, &[]);
+    let r: serde_json::Value = serde_json::from_slice(&std::fs::read(&report).unwrap_or_else(|e| panic!("{e}")))
+        .unwrap_or_else(|e| panic!("rapport : {e}"));
+    let kinds: Vec<&str> =
+        r["slides"][2]["losses"].as_array().into_iter().flatten().filter_map(|l| l["kind"]["type"].as_str()).collect();
+    assert_that!(kinds).contains("overflow");
+}
+
 #[test]
 fn import_kitchen_on_grilles_writes_its_report_with_coverage_and_messages() {
     let dir = workdir("import-kitchen");
@@ -183,7 +230,8 @@ fn import_hifi(dir: &Path, input: &Path, stem: &str) -> Output {
     run(oku_slides(dir, "en")
         .arg("import")
         .arg(input)
-        .args(["--mode", "hifi", "--no-system-fonts", "-o"])
+        // L'écart visuel a ses propres tests (`import_reference.rs`) : ceux-ci s'en passent.
+        .args(["--mode", "hifi", "--no-system-fonts", "--reference", "none", "-o"])
         .arg(dir.join(format!("{stem}.oku-slides.pdf")))
         .arg("--report")
         .arg(dir.join(format!("{stem}.json"))))

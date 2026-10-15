@@ -53,6 +53,14 @@ cli-import-write-failed = não foi possível gravar a apresentação importada {
 cli-import-hifi-no-target = --pack e --theme são do modo retrofit: a importação de alta fidelidade (--mode hifi) gera o seu próprio pacote e tema
 cli-import-probe-mismatch = o pacote gerado não corresponde à sondagem como declarado (widget { $widget }): é um erro do importador
 cli-import-probe-limit = o pacote gerado excede os limites da sonda (widget { $widget }): aumente max_widgets, max_widget_kib ou probe_budget_ms na seção [render] da configuração
+cli-import-reference-hifi-only = --reference pertence ao modo hifi: uma importação retrofit não é comparada com uma renderização de referência
+cli-import-bad-threshold = score_threshold da seção [import] deve ser um número maior ou igual a zero, não { $value }
+cli-import-scored = Diferença visual para { $witness }: { $mean } em média, { $above ->
+    [0] nenhum slide
+    [one] { $above } slide
+   *[other] { $above } slides
+} acima de { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = Renderiza e armazena apresentações do Oku Slides
 cli-arg-fonts = Pasta de tipos de letra extra (TTF/OTF); padrão: paths.fonts nas configurações
@@ -83,3 +91,4 @@ cli-arg-pack = Pacote de destino: id, pasta do pacote (pack.json, widgets/) ou n
 cli-arg-import-theme = Tema de destino: um tema incluído ou da biblioteca, pelo id ou nome; padrão: o tema padrão
 cli-arg-report = Gravar também o relatório de importação (JSON): perdas, substituições, cobertura
 cli-arg-no-system-fonts = No modo hifi, não procurar as fontes da apresentação entre as fontes do sistema
+cli-arg-reference = No modo hifi, comparar cada slide com uma renderização de referência da apresentação (auto, o padrão) ou não (none)

@@ -52,6 +52,7 @@ Builds on `2026-10-01-packs-portables-design.md` (embedded packs,
 8. **Reference rendering by LibreOffice, optional.** `soffice --headless
    --convert-to pdf`, rasterized by `hayro` (already in the lockfile via
    Typst 0.15). Without LibreOffice: no visual diff, the import continues.
+   Superseded by decision 1 of the lot 4 plan (office2pdf witness).
 9. **Approach: intermediate representation + two projectors** (rather
    than two direct converters or an agent that does everything). The
    hard part — style cascade and geometry — is isolated in the
@@ -71,8 +72,8 @@ Decisions from the lot 2 plan (2026-10-10):
   lookup, substitution) arrives with hi-fi.
 - **Content coverage in lot 2.** `coverage.rs` measures, on the resulting
   deck, the recall of runs, the presence of images and the equality of
-  table and chart data; lot 4 keeps the LibreOffice
-  reference and the visual gap (`metrics.rs`).
+  table and chart data; lot 4 keeps the reference
+  and the visual gap (`metrics.rs`).
 
 Decisions from the lot 3 plan (2026-10-11):
 
@@ -155,6 +156,65 @@ Clarifications made along the way:
 - `component.list.marker` takes the master's body bullet;
   `marker-color` is nullable (`null`: the text color).
 
+Decisions from the lot 4 plan (2026-10-14):
+
+1. **Witness.** No embeddable PPTX renderer is a faithful reference, and the
+   user ruled out a local LibreOffice install: the reference comes from the
+   `office2pdf` crate (pure Rust on Typst 0.15, Apache-2.0), behind a
+   `ReferenceRenderer` trait in a new crate `oku-slides-reference` (PDF
+   rasterized by `hayro`), pinned at `=0.8.1` (`WITNESS` names it in the
+   report). It gets the app's fonts and the deck's embedded fonts first (the
+   `.pptx` it reads has its `ppt/fonts/` parts removed: office2pdf would write
+   them to the system temp dir), and renders hidden slides. LibreOffice and
+   PowerPoint witnesses are backlog work, as other implementations of the trait.
+2. **Isolation.** The witness reads an untrusted file without bounds of its
+   own: it runs in a render worker of its own, not the one holding the Oku
+   render (`Reference`, `ReferencePng`, `ReleaseReference` requests;
+   `RenderWorker::reference` → `RemoteReference`), under `[import]
+   reference_timeout_ms` (30 s) and `memory_mib`, 20 slides per request
+   (office2pdf's `slide_range`): memory does not grow with the deck. Slides pair with the
+   witness pages by their source number. A failing or mismatched reference, or
+   a slide that cannot be scored (`ReferenceCause`: `failed`, `timeout`,
+   `memory`, `pages`), is reported and logged, never an error, and leaves no
+   slide with a score.
+3. **Metric** (`oku-slides-import/src/metrics.rs`, pure, calibrated on alto).
+   Slide score: mean OKLab ΔE ×100 over the source page at 960 px after a
+   σ = 2 px Gaussian blur (at σ = 1, alto titles aligned within 1 px ranked
+   above the real gaps). Region score: each pixel belongs to the topmost
+   item covering it (at most 256 regions, the topmost); the region is
+   realigned by the integer shift (at most 3 px per axis) that minimizes its
+   mean gap, the shift is reported; its score is the mean gap of its worst
+   16 px tile (tiles overlap by half); below 100 own pixels or with a negative
+   frame, no score. The report keeps the 3 worst regions.
+4. **Threshold** (plan review). The slide mean does not separate a faithful
+   slide from a damaged one (the broken table of `libreoffice.pptx` p. 1
+   scores 0.6): a slide is flagged when its **worst region** exceeds
+   `[import] score_threshold = 10.0`. Measured on alto: a title aligned
+   within 1 px scores 7.7–8.3 (the noise floor), the real gaps 8.7–22.5, the
+   witness's own errors up to 46; the flag is a coarse alert, the regions
+   point at the item. At 10 the alto p. 8 bullet-indent gap (worst region
+   8.72) is not flagged, though the regions still designate it; recalibrating
+   the threshold belongs with the autofit-aware ranking (backlog t-884).
+   Tests run the witness live (pinned, no versioned
+   reference PDF) with per-fixture bounds on the slide mean (measurement +
+   25 %) and designation checks: alto p. 8 bullets and p. 7 callout among
+   the 3 worst regions, the `libreoffice.pptx` table first.
+5. **Retrofit.** No visual gap (another theme); `--reference` is refused there.
+   In both modes, a non-empty text field rendered past its page edge becomes an
+   `Overflow` loss on its slide (t-816 stays open for the fix).
+6. **Known witness limits** (plan review, real render). It shrinks
+   `normAutofit` text without `fontScale` (the alto p. 2 title and every
+   footer), draws letter-spaced titles 2–5 px wider than Oku (which matches
+   HarfBuzz within 1 px) and LibreOffice, draws charts roughly and SmartArt
+   text too small: those regions often rank first. It shares Typst's line
+   breaking with Oku (a PowerPoint line-break gap, t-863, is invisible to
+   it), and office2pdf always keeps the system fonts as its fallback. A
+   behavior copied from office2pdf into the import is no longer measured by
+   it. An autofit-aware ranking is backlog work before lot 5.
+7. **Cost.** office2pdf brings its DOCX and XLSX readers into the render
+   worker, hence the desktop app (about 48 crates); no feature flag in lot 4,
+   since lot 5 needs the witness in the app.
+
 Defaults chosen without asking:
 
 - **Page size.** Hi-fi: 1920 × 1080, the source scaled and
@@ -205,13 +265,13 @@ Crate `crates/oku-slides-import`:
 | `retrofit/` | retrofit projector: template scoring, grid, colors, fallbacks |
 | `pattern.rs` | pattern signature (shared by retrofit / hi-fi grouping) |
 | `plan.rs` | `ImportPlan`, `WidgetRequest` |
-| `reference.rs` | `soffice` call, `hayro` rasterization |
 | `coverage.rs` | content coverage, measured on the resulting deck (lot 2) |
-| `metrics.rs` | visual gap (hi-fi, lot 4) |
+| `metrics.rs` | visual gap and worst regions (hi-fi, lot 4; images rendered by the CLI) |
 | `report.rs` | `ImportReport` |
 
-Dependencies: `zip` (existing), `roxmltree` (new, read-only DOM),
-`hayro` (already transitive, becomes direct for `reference.rs`). The crate
+Dependencies: `zip` (existing), `roxmltree` (new, read-only DOM). The
+reference witness and the rasterization live in `oku-slides-reference`
+(`office2pdf`, `hayro`), run by the render worker (lot 4). The crate
 depends neither on the session nor on the UI: it takes as input the widget
 registry, the pack's templates (`oku_slides_core::Template`) and the target
 theme's tokens, and returns a plan.
@@ -368,13 +428,13 @@ it does not see it; only the reference rendering (lot 4) will measure it.
 
 ## Reference rendering and metrics
 
-- **Reference** (`reference.rs`): `soffice --headless --convert-to pdf`,
-  path and timeout in config; PDF rasterized by `hayro`. Absent or
-  failing → warning in the report, no error.
-- **Hi-fi — visual gap**: Oku rendering (`Compiled::png`) and reference at the
-  same resolution (960 px wide), mean OKLab ΔE after a light blur; plus
-  a **per-region score** from the items' `frame`, to point at the
-  faulty element.
+- **Reference** (`oku-slides-reference`, lot 4 decisions 1 and 2): the
+  `office2pdf` witness in the render worker, PDF rasterized by `hayro`.
+  Absent or failing → reported, no error.
+- **Hi-fi — visual gap**: Oku rendering cropped to the source page and
+  reference at the same resolution (960 px wide), mean OKLab ΔE after a
+  light blur; plus a **per-region score** from the items' `frame`, to point
+  at the faulty element (lot 4 decision 3).
 - **Retrofit — content coverage**: text recall (each source run
   found), presence of images, equality of table and chart
   data. Target 100%; every gap is listed.
@@ -383,7 +443,8 @@ it does not see it; only the reference rendering (lot 4) will measure it.
 
 `ImportReport` (JSON): per slide, score (gap or coverage), fallbacks
 applied, `Opaque`, ignored effects; globally, substituted fonts
-(`fonts`: one decision per family, lot 3), reference available or not,
+(`fonts`: one decision per family, lot 3), reference (witness, threshold,
+cause when missing; `above_threshold` on each slide beyond it, lot 4),
 `widget_requests`. Messages through Fluent
 (`oku-slides-i18n`).
 
@@ -415,7 +476,9 @@ applied, `Opaque`, ignored effects; globally, substituted fonts
   `--pack` and `--theme` are rejected there (the pack and the theme are generated,
   embedded in the deck only); the presentation's fonts are
   looked up among the app's (`--fonts`) and, unless `--no-system-fonts`,
-  the system's. `--reference` arrives in lot 4.
+  the system's. `--reference auto|none` (lot 4): hi-fi only, `auto` by
+  default; a second output line gives the mean gap and the slides whose worst
+  region is above the threshold, or why the reference is missing.
 - **App**: "Ouvrir" (Open) accepts `.pptx`; a dialog asks for the mode, and in
   retrofit the target pack and theme. The app creates a new deck from the
   plan, then launches the agent with the fine-tuning instructions.
@@ -447,11 +510,13 @@ entry in the report.
   `python-pptx` is not available and hand-written XML files
   read better.)*
 - **Real deck**: `fixtures/import/alto-wealth.pptx` (generated by PptxGenJS)
-  and its reference PDF `alto-wealth.pdf`, visual target of lots 4 and 6.
+  and `alto-wealth.pdf`, an HTML render without embedded fonts (text ~5 %
+  narrower), visual target of lot 6; lot 4 measures against the witness.
 - **`insta` snapshots** of `SourceDeck` and `ImportPlan` per fixture.
 - **Style cascade** table-tested (`rstest`).
-- **Hi-fi gold**: **versioned** reference PDFs (no LibreOffice in
-  CI); visual gap under the threshold.
+- **Hi-fi gold**: the witness runs live in CLI tests (no LibreOffice, no
+  versioned reference PDF); visual gap under a per-fixture bound, worst
+  regions pointing at known gaps (lot 4 decision 4).
 - **Retrofit**: 100% content coverage on the fixtures.
 - **CLI**: end-to-end integration test (pptx → reopenable
   `.oku-slides.pdf`).
@@ -468,7 +533,9 @@ One plan and its subtasks per lot, in this order:
 3. *(delivered, t-692)* Hi-fi projector: theme, Typst generator, pack,
    fonts (`fonts/`), extended base (paths, text anchoring); plan:
    `docs/superpowers/plans/2026-10-11-import-pptx-lot3.md`.
-4. Reference rendering + visual gap.
+4. *(delivered, t-692)* Reference rendering (`office2pdf` witness in the
+   render worker) + visual gap + overflow losses; plan:
+   `docs/superpowers/plans/2026-10-14-import-pptx-lot4.md`.
 5. App + agent fine-tuning (MCP tools, instructions, child pack of the
    widgets created for the `WidgetRequest`s).
 6. *(Phase 2, separate spec)* PDF reader → `SourceDeck` through

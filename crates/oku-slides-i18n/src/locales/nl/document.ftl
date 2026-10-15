@@ -82,6 +82,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = Te veel lay-outs voor één pakket: ‘{ $layout }’ heeft geen sjabloon; de dia's ervan gebruiken de lege widget en krijgen de decoratie als elementen
 import-loss-decor-truncated = Decoratie ingekort om in de grootte van een pakketbestand te passen: { $omitted } elementen weggelaten
 import-loss-table-style = Tabelstijl benaderd: eigen celachtergronden, randen, kolombreedtes of tekstgroottes gaan verloren
+import-loss-overflow = Element ‘{ $element }’ steekt buiten de rand van de dia
+import-reference-unavailable = Geen visuele score: { $cause ->
+    [timeout] de referentieweergave duurde te lang
+    [memory] de referentieweergave gebruikte te veel geheugen
+    [pages] de referentieweergave heeft { $reference } pagina’s voor { $deck } in de presentatie
+   *[failed] de referentierenderer kon de presentatie niet lezen
+}
 import-font-substituted = { $family } vervangen door { $by }, met passende metrieken
 import-font-missing = { $family } niet gevonden: de tekst gebruikt { $by }
 import-font-restricted = { $family }: de licentie verbiedt sommige stijlen in de presentatie in te sluiten

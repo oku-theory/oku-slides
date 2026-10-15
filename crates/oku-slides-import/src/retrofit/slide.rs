@@ -404,6 +404,7 @@ pub(crate) fn project_slide<'a>(
         placement,
         losses,
         fallbacks: kinds,
+        score: None,
     };
     Some(Projected { ops, report, assets, fallbacks, origins })
 }

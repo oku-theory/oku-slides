@@ -10,12 +10,13 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 - `retrofit::project(&SourceDeck, &RetrofitTarget) -> ImportPlan` : the content laid out on an
   existing pack and theme (templates, registry, `ColorTokens`, `PageTokens`).
 - `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : the source reproduced on a generated
-  theme and pack; `hifi::sought_fonts` lists the families it will look for.
+  theme and pack; `hifi::sought_fonts`, the families it looks for; `hifi::source_rect`, the page.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report; in hi-fi also the generated
   theme and pack (`PackFiles`), declared schemas and fonts; `report_json` is the `--report` form;
   `check_budget` (approximate early bound on output and ops size) is fatal `TooLarge` before apply.
-- `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`; `coverage::coverage` measures
-  what of the source survives in the resulting deck.
+- `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`, `ReferenceReport`, slide
+  `score`; `coverage::coverage` measures what of the source survives in the resulting deck.
+- `metrics` : a hi-fi slide's gap to the reference and its worst regions (pure; the CLI renders).
 - `fonts` : `FontCatalog`, `FontOrigin`, `FontPlan`, `SUBSTITUTES`, `FALLBACKS`.
 
 ## Layers
@@ -34,14 +35,13 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
   widget per layout (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
   Typst (`typst/`), shape outlines (`geometry/`, with the embedded ECMA-376
   `presetShapeDefinitions.xml`), slide items as elements (`slide`, `element`, `table`).
-- `pattern` : retrofit's signature that groups repeated item groups into one widget request.
-- `fonts/` : embedded font, then app or system catalog, then metric substitute, then `Missing`.
+- `pattern` : retrofit's signature grouping repeated items; `fonts/` : embedded, catalog, substitute, `Missing`.
+- Known limit, t-816 (retrofit): flow content taller than its zone leaves the page (`Overflow`).
 
 ## Extension points
 
 - New source format: a sibling of `pptx/` that produces the same `SourceDeck`.
-- New projector: a sibling of `retrofit/` and `hifi/` returning an `ImportPlan`; the CLI
-  `ImportMode` gains a variant.
+- New projector: a sibling of `retrofit/` and `hifi/` returning an `ImportPlan` (+ CLI `ImportMode`).
 - New loss: a `LossKind` variant and its `import-loss-*` Fluent key.
 
 ## Dependencies

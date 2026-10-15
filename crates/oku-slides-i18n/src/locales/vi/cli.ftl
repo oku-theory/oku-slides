@@ -41,6 +41,13 @@ cli-import-write-failed = không thể ghi bản trình bày đã nhập { $path
 cli-import-hifi-no-target = --pack và --theme chỉ dùng cho chế độ retrofit: chế độ nhập độ trung thực cao (--mode hifi) tự tạo gói và chủ đề riêng
 cli-import-probe-mismatch = gói được tạo không khớp với khai báo khi kiểm tra (widget { $widget }): đây là lỗi của trình nhập
 cli-import-probe-limit = gói được tạo vượt giới hạn kiểm tra (widget { $widget }): hãy tăng max_widgets, max_widget_kib hoặc probe_budget_ms trong mục [render] của cấu hình
+cli-import-reference-hifi-only = --reference thuộc chế độ hifi: bản nhập retrofit không được so sánh với bản kết xuất tham chiếu
+cli-import-bad-threshold = score_threshold trong mục [import] phải là một số lớn hơn hoặc bằng 0, không phải { $value }
+cli-import-scored = Khác biệt hình ảnh so với { $witness }: trung bình { $mean }, { $above ->
+    [0] không trang chiếu nào
+   *[other] { $above } trang chiếu
+} vượt quá { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = Kết xuất và lưu trữ bản trình bày Oku Slides
 cli-arg-fonts = Thư mục phông chữ bổ sung (TTF/OTF); mặc định: paths.fonts trong cài đặt
@@ -71,3 +78,4 @@ cli-arg-pack = Gói mẫu đích: mã, thư mục gói (pack.json, widgets/) ho�
 cli-arg-import-theme = Chủ đề đích: chủ đề có sẵn hoặc trong thư viện, theo mã hoặc tên; mặc định: chủ đề mặc định
 cli-arg-report = Ghi thêm báo cáo nhập (JSON): mất mát, phương án thay thế, độ bao phủ
 cli-arg-no-system-fonts = Ở chế độ hifi, không tìm phông chữ của bản trình bày trong phông chữ hệ thống
+cli-arg-reference = Ở chế độ hifi, so sánh từng trang chiếu với bản kết xuất tham chiếu của bản trình bày (auto, mặc định) hoặc không (none)

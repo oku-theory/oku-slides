@@ -78,6 +78,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = 1つのパックにはレイアウトが多すぎます：「{ $layout }」にはテンプレートがなく、そのスライドは空のウィジェットを使い、装飾を要素として受け取ります
 import-loss-decor-truncated = パックファイルのサイズに収めるため装飾を切り詰めました：{ $omitted }個の要素を省きました
 import-loss-table-style = 表のスタイルを近似しました：独自のセルの背景、罫線、列幅、文字サイズは失われます
+import-loss-overflow = 要素「{ $element }」がスライドの端からはみ出しています
+import-reference-unavailable = 見た目の差のスコアなし：{ $cause ->
+    [timeout] 参照レンダリングに時間がかかりすぎました
+    [memory] 参照レンダリングがメモリを使いすぎました
+    [pages] 参照レンダリングは { $reference }ページで、デッキは{ $deck }ページです
+   *[failed] 参照レンダラーがプレゼンテーションを読めませんでした
+}
 import-font-substituted = { $family } をメトリクス互換の { $by } に置き換えました
 import-font-missing = { $family } が見つかりません。テキストは { $by } を使います
 import-font-restricted = { $family }：ライセンスにより一部のスタイルをプレゼンテーションに埋め込めません

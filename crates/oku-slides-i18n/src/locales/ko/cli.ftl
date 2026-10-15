@@ -41,6 +41,12 @@ cli-import-write-failed = 가져온 덱 { $path }을(를) 쓸 수 없습니다
 cli-import-hifi-no-target = --pack과 --theme는 retrofit 모드 전용입니다: 고충실도 가져오기(--mode hifi)는 자체 팩과 테마를 생성합니다
 cli-import-probe-mismatch = 생성된 팩이 선언대로 검사되지 않았습니다(위젯 { $widget }): 가져오기 기능의 버그입니다
 cli-import-probe-limit = 생성된 팩이 검사 한도를 넘습니다(위젯 { $widget }): 설정의 [render] 섹션에서 max_widgets, max_widget_kib 또는 probe_budget_ms를 늘리세요
+cli-import-reference-hifi-only = --reference는 hifi 모드용입니다: retrofit 가져오기는 참조 렌더링과 비교하지 않습니다
+cli-import-bad-threshold = [import] 섹션의 score_threshold는 0 이상의 수여야 합니다({ $value } 아님)
+cli-import-scored = { $witness }과(와)의 시각 차이: 평균 { $mean }, { $threshold }보다 큰 슬라이드 { $above ->
+   *[other] { $above }개
+}
+cli-import-unscored = { $reason }
 
 cli-about = Oku Slides 프레젠테이션을 렌더링하고 저장합니다
 cli-arg-fonts = 추가 글꼴 폴더 (TTF/OTF). 기본값: 설정의 paths.fonts
@@ -71,3 +77,4 @@ cli-arg-pack = 대상 템플릿 팩: ID, 팩 폴더(pack.json, widgets/) 또는 
 cli-arg-import-theme = 대상 테마: 기본 제공 테마 또는 라이브러리 테마를 ID나 이름으로 지정; 기본값: 기본 테마
 cli-arg-report = 가져오기 보고서(JSON)도 쓰기: 손실, 대체, 포함 범위
 cli-arg-no-system-fonts = hifi 모드에서 프레젠테이션의 글꼴을 시스템 글꼴에서 찾지 않음
+cli-arg-reference = hifi 모드에서 각 슬라이드를 프레젠테이션의 참조 렌더링과 비교(auto, 기본값)하거나 하지 않음(none)

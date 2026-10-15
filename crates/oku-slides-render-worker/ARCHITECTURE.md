@@ -1,47 +1,46 @@
 # oku-slides-render-worker
 
-Rendu Typst dans un processus de travail, borné en temps et en mémoire : un
-rendu qui boucle ou qui consomme trop se tue sans emporter l'application.
+Typst rendering in a worker process, bounded in time and memory: a render that loops or uses
+too much memory is killed without taking the app down.
 
-## Types clés
+## Key types
 
-- `RenderWorker` (`client.rs`) : le lien partagé (`Arc<Mutex<Link>>`) ;
-  `is_faulty`, `slot`. Un pack qui fait échouer
-  le rendu (délai, mémoire, arrêt) devient fautif et n'est plus exécuté.
-- `probe_pack` (`pack_probe.rs`) : sonde par fichier, jamais d'accusation (un délai = un
-  diagnostic), gardée par `probe_key`, budget total `timeout_ms` par appel ; `trial_slot` : emplacement d'aperçu qui n'accuse aucun pack.
-- `RenderSlot` (`client.rs`) : un emplacement (`set_widgets`, `set_language`,
-  `render`) ; son `Drop` met `CloseSlot` en file.
-- `RemoteCompiled` (`client.rs`) : une génération ; `layout`, `page_hash` locaux,
-  `svg`/`png`/`pdf` par requête ; son `Drop` met `Release` en file. La file est
-  envoyée avant la requête suivante : un `Drop` ne prend jamais le verrou du lien.
-- `Link` (`link.rs`, interne) : transport (sous-processus ou fil), délai, mémoire
-  relevée toutes les 100 ms (`rss.rs` : `phys_footprint` sur macOS, `footprint.rs`, mémoire résidente ailleurs), relance et rejeu de `ReplayState`. Le fils reçoit
-  ses bornes (`--timeout-ms`, `--memory-bytes`) et `OKU_SLIDES_RENDER_WORKER=1` :
-  `Platform::load` y choisit `InProcess`, un oubli d'`exit_if_worker` ne relance pas en chaîne.
-- `serve` (`serve.rs`) : la boucle du travailleur ; `exit_if_worker` l'appelle
-  quand le binaire est lancé avec `--render-worker`, sous le chien de garde
-  (`watchdog.rs`) : requête > 2 × délai, mémoire > limite pendant 1 s, parent disparu → sortie 3.
-  Les trames partent sur une copie de stdout ; stdout pointe sur stderr (`stdio.rs`, unix).
-- `Request`/`Response` (`protocol.rs`), trames (`frame.rs`) : en-tête JSON et
-  charge brute, bornés des deux côtés (à l'envoi, refus `Frame` sans rien
-  écrire ; à la lecture, avant d'allouer) par `FrameLimits`, tirées de
-  `max_frame_mib` : un en-tête au plus un huitième, la charge d'un SVG un quart,
-  celle d'un PNG, d'un PDF, d'une police ou d'un asset la taille entière, les
-  autres réponses aucune. L'hôte pose les bornes de la réponse attendue avant
-  d'envoyer la requête ; le fil lecteur les lit au premier octet de la trame.
+- `RenderWorker` (`client.rs`): the shared link (`Arc<Mutex<Link>>`); `is_faulty`, `slot`. A
+  pack that makes rendering fail (timeout, memory, crash) becomes faulty and is not run again.
+- `probe_pack` (`pack_probe.rs`): per-file probe, never blaming (a timeout is a diagnostic),
+  keyed by `probe_key`, total budget `timeout_ms` per call; `trial_slot`: a preview slot
+  that blames no pack.
+- `RenderSlot` (`slot.rs`): a slot (`set_widgets`, `set_language`, `render`); its `Drop`
+  queues `CloseSlot`.
+- `RemoteCompiled` (`compiled.rs`): a generation; `layout`, `page_hash` local, `svg`/`png`/`pdf`
+  by request; its `Drop` queues `Release`. The queue is sent before the next request: a
+  `Drop` never takes the link lock.
+- `RemoteReference` (`reference.rs`): `RenderWorker::reference(pptx, fonts, slides)` has the
+  witness (`oku_slides_reference::Office2Pdf`) render the presentation, or a span of its slides, in
+  the worker, under its bounds; `witness`, `page_count` local, `png(page, width)` by request; `Drop` queues
+  `ReleaseReference`. No pack is blamed; a reference from another epoch answers `Stale`.
+- `Link` (`link.rs`, internal): transport (child process or thread), timeout, memory sampled
+  every 100 ms (`rss.rs`: `phys_footprint` on macOS, `footprint.rs`, resident memory elsewhere),
+  restart and replay of `ReplayState`. The child gets its bounds (`--timeout-ms`,
+  `--memory-bytes`) and `OKU_SLIDES_RENDER_WORKER=1`: `Platform::load` picks `InProcess` there,
+  so a missing `exit_if_worker` does not respawn in a chain.
+- `serve` (`serve.rs`): the worker loop; `exit_if_worker` calls it when the binary runs with
+  `--render-worker`, under the watchdog (`watchdog.rs`): request > 2 × timeout, memory over the
+  limit for 1 s, parent gone → exit 3. Frames go to a copy of stdout; stdout points to stderr.
+- `Request`/`Response` (`protocol.rs`), frames (`frame.rs`): JSON header and raw payload,
+  bounded on both sides by `FrameLimits` from `max_frame_mib`: a header at most an eighth, an
+  SVG a quarter, a PNG (page or reference), PDF, font, asset or `.pptx` the whole size.
 
-## Point d'extension
+## Extension point
 
-Une nouvelle sortie d'une page : une requête dans `protocol.rs`, sa branche
-dans `serve.rs`, une méthode sur `RemoteCompiled`.
+A new output of a page: a request in `protocol.rs`, its branch in `serve.rs`, a method on
+`RemoteCompiled`.
 
-## Dépendances
+## Dependencies
 
-- `oku-slides-render` : `Renderer`, erreurs sérialisables, sonde du registre.
-- `oku-slides-core` (`Deck`, `WidgetRegistry`), `oku-slides-i18n` (langue).
-- `oku-slides-platform` : `RenderLaunch`, réglages `[render]`, journaux.
-- `serde`, `serde_json` (`float_roundtrip` : la mise en page au bit près) ;
-  `sha2`, `hex` : empreintes des polices et des packs.
-- `snafu` : erreurs ; `tracing` : journaux ; `sysinfo` : mémoire résidente du travailleur (hors macOS) ;
-  `libc` (unix) : `dup2` de stdout, `proc_pid_rusage` (macOS).
+- `oku-slides-render`: `Renderer`, serializable errors, registry probe; `oku-slides-reference`:
+  the witness and the rasterization of its pages.
+- `oku-slides-core` (`Deck`, `WidgetRegistry`), `oku-slides-i18n`, `oku-slides-platform`
+  (`RenderLaunch`, `[render]` settings, logs).
+- `serde`, `serde_json` (`float_roundtrip`), `sha2`, `hex`, `snafu`, `tracing`, `sysinfo`,
+  `libc` (unix: `dup2` of stdout, `proc_pid_rusage`).

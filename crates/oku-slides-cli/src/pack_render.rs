@@ -93,6 +93,14 @@ impl Rendered {
             Self::Remote { compiled, .. } => compiled.pdf(),
         }
     }
+
+    /// PNG de la page `index` (0 = première), à `pixel_per_pt` pixels par point.
+    pub(crate) fn png(&self, index: usize, pixel_per_pt: f32) -> Result<Vec<u8>, RenderError> {
+        match self {
+            Self::Local(c) => c.png(index, pixel_per_pt),
+            Self::Remote { compiled, .. } => compiled.png(index, pixel_per_pt),
+        }
+    }
 }
 
 /// Les widgets d'un deck : le registre sondé (la base surchargée par les

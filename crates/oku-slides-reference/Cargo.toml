@@ -1,0 +1,21 @@
+[package]
+name = "oku-slides-reference"
+description = "Rendu de référence d'une présentation importée (témoin office2pdf) et rastérisation de ses pages."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+office2pdf.workspace = true
+hayro.workspace = true
+png.workspace = true
+snafu.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+speculoos.workspace = true
+
+[lints]
+workspace = true

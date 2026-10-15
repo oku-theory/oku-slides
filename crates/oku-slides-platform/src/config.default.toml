@@ -54,6 +54,18 @@ max_widget_kib = 256
 # Nombre maximal de fichiers de widgets d'une version de pack, `_commun` compris.
 max_widgets = 64
 
+[import]
+# Import hi-fi : écart (ΔE OKLab ×100) de la pire région d'une slide au rendu de
+# référence du témoin au-delà duquel le rapport signale la slide. Mesuré sur alto
+# (office2pdf 0.8.1) : un titre aligné à 1 px près vaut 7,7 à 8,3 (le bruit), les
+# vrais écarts 8,7 à 22,5, les erreurs du témoin jusqu'à 46. À 10, l'écart d'indentation des puces de
+# alto p. 8 (pire région 8,72) n'est pas signalé (les régions le désignent) ;
+# recalibrer le seuil relève du classement tenant compte de l'autofit (t-884).
+score_threshold = 10.0
+# Durée maximale d'une tranche de 20 slides du rendu de référence (ms), dans son
+# propre processus de rendu ; au-delà, la référence manque au rapport (« timeout »).
+reference_timeout_ms = 30000
+
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.
 # Il ne répond qu'aux requêtes dont l'en-tête Host nomme la boucle locale

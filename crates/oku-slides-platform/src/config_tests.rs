@@ -304,6 +304,22 @@ fn render_memory_and_frame_env_overrides_change_the_settings() {
 }
 
 #[test]
+fn settings_default_import_threshold_matches_config_defaults() {
+    assert_that!(Settings::defaults().unwrap().import.score_threshold).is_equal_to(10.0);
+}
+
+#[test]
+fn settings_default_reference_timeout_matches_config_defaults() {
+    assert_that!(Settings::defaults().unwrap().import.reference_timeout_ms).is_equal_to(30_000);
+}
+
+#[test]
+fn import_threshold_env_override_changes_the_setting() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__SCORE_THRESHOLD", "4.5")])).unwrap();
+    assert_that!(s.import.score_threshold).is_equal_to(4.5);
+}
+
+#[test]
 fn render_timeout_env_override_changes_the_setting() {
     let s = Settings::from_sources(None, env(&[("OKU_SLIDES_RENDER__TIMEOUT_MS", "5000")])).unwrap();
     assert_that!(s.render.timeout_ms).is_equal_to(5000);

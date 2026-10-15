@@ -79,6 +79,13 @@ import-loss-shape-style = { $effect ->
 import-loss-layout-dropped = Bir paket için çok fazla düzen: “{ $layout }” için şablon yok; slaytları boş widget'ı kullanır ve süslemesini öğe olarak alır
 import-loss-decor-truncated = Süsleme bir paket dosyasının boyutuna sığması için kısaltıldı: { $omitted } öğe atlandı
 import-loss-table-style = Tablo stili yaklaşık: kendi hücre arka planları, kenarlıkları, sütun genişlikleri veya metin boyutları kayboldu
+import-loss-overflow = “{ $element }” öğesi slaytın kenarını aşıyor
+import-reference-unavailable = Görsel puan yok: { $cause ->
+    [timeout] referans oluşturma çok uzun sürdü
+    [memory] referans oluşturma çok fazla bellek kullandı
+    [pages] referans oluşturmada sunudaki { $deck } sayfaya karşılık { $reference } sayfa var
+   *[failed] referans oluşturucu sunuyu okuyamadı
+}
 import-font-substituted = { $family } yerine uyumlu ölçülere sahip { $by } kullanıldı
 import-font-missing = { $family } bulunamadı: metin { $by } yazı tipini kullanıyor
 import-font-restricted = { $family }: lisansı bazı stillerin sunuya gömülmesini yasaklıyor

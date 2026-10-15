@@ -53,6 +53,14 @@ cli-import-write-failed = could not write the imported deck { $path }
 cli-import-hifi-no-target = --pack and --theme belong to retrofit mode: the high-fidelity import (--mode hifi) generates its own pack and theme
 cli-import-probe-mismatch = the generated pack does not probe as declared (widget { $widget }): this is a bug in the importer
 cli-import-probe-limit = the generated pack exceeds the probe limits (widget { $widget }): raise max_widgets, max_widget_kib or probe_budget_ms in the [render] section of the configuration
+cli-import-reference-hifi-only = --reference belongs to hifi mode: a retrofit import is not compared with a reference render
+cli-import-bad-threshold = score_threshold in the [import] section must be a number of zero or more, not { $value }
+cli-import-scored = Visual gap to { $witness }: { $mean } on average, { $above ->
+    [0] no slide
+    [one] { $above } slide
+   *[other] { $above } slides
+} above { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = Render and store Oku Slides decks
 cli-arg-fonts = Extra font folder (TTF/OTF); default: paths.fonts in the settings
@@ -83,3 +91,4 @@ cli-arg-pack = Target pack: id, pack folder (pack.json, widgets/) or name
 cli-arg-import-theme = Target theme: a built-in or library theme, by id or name; default: the default theme
 cli-arg-report = Also write the import report (JSON): losses, fallbacks, coverage
 cli-arg-no-system-fonts = In hifi mode, do not look for the presentation's fonts among the system fonts
+cli-arg-reference = In hifi mode, compare each slide with a reference render of the presentation (auto, the default) or not (none)

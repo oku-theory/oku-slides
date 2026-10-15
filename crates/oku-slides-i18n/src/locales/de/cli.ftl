@@ -53,6 +53,14 @@ cli-import-write-failed = das importierte Deck { $path } konnte nicht geschriebe
 cli-import-hifi-no-target = --pack und --theme gelten nur im Modus retrofit: der originalgetreue Import (--mode hifi) erzeugt sein eigenes Paket und Design
 cli-import-probe-mismatch = das erzeugte Paket entspricht bei der Prüfung nicht seiner Deklaration (Widget { $widget }): ein Fehler des Imports
 cli-import-probe-limit = das erzeugte Paket überschreitet die Grenzen der Prüfung (Widget { $widget }): erhöhen Sie max_widgets, max_widget_kib oder probe_budget_ms im Abschnitt [render] der Konfiguration
+cli-import-reference-hifi-only = --reference gehört zum hifi-Modus: ein Retrofit-Import wird nicht mit einem Referenz-Rendering verglichen
+cli-import-bad-threshold = score_threshold im Abschnitt [import] muss eine Zahl größer oder gleich null sein, nicht { $value }
+cli-import-scored = Visuelle Abweichung zu { $witness }: { $mean } im Mittel, { $above ->
+    [0] keine Folie
+    [one] { $above } Folie
+   *[other] { $above } Folien
+} über { $threshold }
+cli-import-unscored = { $reason }
 
 cli-about = Oku-Slides-Präsentationen rendern und speichern
 cli-arg-fonts = Zusätzlicher Schriftordner (TTF/OTF); Standard: paths.fonts in den Einstellungen
@@ -83,3 +91,4 @@ cli-arg-pack = Ziel-Vorlagenpaket: ID, Paketordner (pack.json, widgets/) oder Na
 cli-arg-import-theme = Ziel-Design: ein mitgeliefertes oder eines aus der Bibliothek, per ID oder Name; Standard: das Standarddesign
 cli-arg-report = Zusätzlich den Importbericht (JSON) schreiben: Verluste, Ersatzlösungen, Abdeckung
 cli-arg-no-system-fonts = Im Modus hifi die Schriften der Präsentation nicht unter den Systemschriften suchen
+cli-arg-reference = Im hifi-Modus jede Folie mit einem Referenz-Rendering der Präsentation vergleichen (auto, Standard) oder nicht (none)
