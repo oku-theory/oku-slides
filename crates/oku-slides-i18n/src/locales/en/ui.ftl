@@ -29,6 +29,7 @@ ui-toast-moved = Presentation moved
 ui-toast-copied = Copy saved
 ui-toast-select-zone = Select an area to place: “{ $text }”
 ui-toast-field-gone = The field you were editing no longer exists: your input is lost.
+ui-toast-edit-replaced = This text changed while you were editing it: your version replaced it. Undo restores the other one.
 
 ## Toolbar
 

@@ -33,6 +33,7 @@ ui-toast-moved = Prezentacja przeniesiona
 ui-toast-copied = Kopia zapisana
 ui-toast-select-zone = Zaznacz obszar, aby umieścić: „{ $text }”
 ui-toast-field-gone = Edytowane pole już nie istnieje: wpisany tekst został utracony.
+ui-toast-edit-replaced = Ten tekst zmienił się podczas edycji: Twoja wersja go zastąpiła. Cofnij przywraca tamtą.
 
 ## Pasek narzędzi
 

@@ -350,6 +350,60 @@ test("Stage slide change while editing saves the draft instead of losing it", as
   expect(calls.notice).toEqual([]);
 });
 
+/** La vue où le titre de `c1` vaut `text` (son surtitre `kicker`) : une écriture de l'agent pendant l'édition. */
+const titled = (text: string, kicker = "Sur") =>
+  ({ ...view, fields: [fv("c1", "kicker", kicker, 20), fv("c1", "title", text, 60)] }) as unknown as SlideView;
+
+test("Stage agent write to the open field without local change shows the new value", async () => {
+  const { host, calls, render } = await mount({ editing: "c1\u001ftitle" });
+  await render({ view: titled("Agent") });
+  const content = host.querySelector(".editor .cm-content")!;
+  expect(content.textContent).toBe("Agent");
+  await act(async () => {
+    content.dispatchEvent(new FocusEvent("blur"));
+  });
+  expect(calls.apply).toEqual([]);
+  expect(calls.notice).toEqual([]);
+});
+
+test("Stage agent write to the open field after local typing keeps the draft", async () => {
+  const { host, calls, render } = await mount({ editing: "c1\u001ftitle" });
+  await type(host.querySelector(".editor .cm-content")!, "Neuf");
+  await render({ view: titled("Agent") });
+  expect(host.querySelector(".editor .cm-content")?.textContent).toBe("Neuf");
+  expect(calls.apply).toEqual([]);
+  expect(calls.notice).toEqual([]);
+});
+
+test("Stage commit over an agent write keeps the user text in its own undo step, with a notice", async () => {
+  const { host, calls, render } = await mount({ editing: "c1\u001fkicker" });
+  await type(host.querySelector(".editor .cm-content")!, "Un");
+  await key(host.querySelector(".editor .cm-content")!, "Tab");
+  await render({ editing: "c1\u001ftitle", view: titled("Titre", "Un") });
+  const content = host.querySelector(".editor .cm-content")!;
+  await type(content, "Neuf");
+  await render({ editing: "c1\u001ftitle", view: titled("Agent", "Un") });
+  await act(async () => {
+    content.dispatchEvent(new FocusEvent("blur"));
+  });
+  expect(calls.apply.length).toBe(2);
+  const [, ops, merge] = calls.apply[1] as [string, unknown, string];
+  expect(ops).toEqual([{ op: "set_param", target: { slide: "s", element: "c1" }, param: "title", value: "Neuf" }]);
+  // Une étape d'annulation à part : Annuler rend le texte de l'agent, sans défaire le reste de la saisie.
+  expect(merge).not.toBe((calls.apply[0] as unknown[])[2]);
+  expect(calls.notice).toEqual(["Ce texte a changé pendant votre saisie : votre version l'a remplacé. Annuler rétablit l'autre."]);
+});
+
+test("Stage commit of a text equal to the agent write shows no notice", async () => {
+  const { host, calls, render } = await mount({ editing: "c1\u001ftitle" });
+  const content = host.querySelector(".editor .cm-content")!;
+  await type(content, "Agent");
+  await render({ view: titled("Agent") });
+  await key(content, "Tab");
+  expect(calls.apply).toEqual([]);
+  expect(calls.notice).toEqual([]);
+});
+
 test("Stage Tab into a field of another element selects that element", async () => {
   const v = { ...view, fields: [...view.fields, fv("c2", "title", "Autre", 300)] } as SlideView;
   const { host, calls } = await mount({ view: v, selected: "c1", editing: "c1\u001ftitle" });

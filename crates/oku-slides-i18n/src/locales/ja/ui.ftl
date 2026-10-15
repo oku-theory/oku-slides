@@ -29,6 +29,7 @@ ui-toast-moved = プレゼンテーションを移動しました
 ui-toast-copied = コピーを保存しました
 ui-toast-select-zone = 配置する領域を選択してください：「{ $text }」
 ui-toast-field-gone = 編集中のフィールドはもう存在しません。入力内容は失われました。
+ui-toast-edit-replaced = 編集中にこのテキストが変更されました。あなたの版で置き換えました。取り消すと、もう一方に戻ります。
 
 ## ツールバー
 

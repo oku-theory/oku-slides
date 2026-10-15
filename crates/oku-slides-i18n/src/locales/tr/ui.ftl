@@ -29,6 +29,7 @@ ui-toast-moved = Sunu taşındı
 ui-toast-copied = Kopya kaydedildi
 ui-toast-select-zone = Yerleştirmek için bir alan seçin: “{ $text }”
 ui-toast-field-gone = Düzenlediğiniz alan artık yok: girdiğiniz metin kayboldu.
+ui-toast-edit-replaced = Bu metin siz düzenlerken değişti: sizin sürümünüz onun yerini aldı. Geri al diğerini geri getirir.
 
 ## Araç çubuğu
 

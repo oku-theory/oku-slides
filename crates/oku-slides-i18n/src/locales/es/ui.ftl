@@ -29,6 +29,7 @@ ui-toast-moved = Presentación movida
 ui-toast-copied = Copia guardada
 ui-toast-select-zone = Selecciona una zona donde colocar: «{ $text }»
 ui-toast-field-gone = El campo que editabas ya no existe: se ha perdido lo escrito.
+ui-toast-edit-replaced = Este texto cambió mientras lo editabas: tu versión lo ha reemplazado. Deshacer recupera la otra.
 
 ## Barra de herramientas
 

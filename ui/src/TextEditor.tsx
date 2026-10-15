@@ -8,12 +8,12 @@
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import { history, historyKeymap, insertNewline, standardKeymap } from "@codemirror/commands";
 import type { ChangeSpec } from "@codemirror/state";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, EditorState, Transaction } from "@codemirror/state";
 import type { KeyBinding } from "@codemirror/view";
 import { EditorView, keymap } from "@codemirror/view";
 import { markdownDecorations } from "./markdownDecorations";
 import { applyEdit, markdownFormatKeys } from "./markdownEditing";
-import { insertDictated } from "./textEdits";
+import { insertDictated, minimalChange } from "./textEdits";
 import { viewToggle } from "./useKeptUi";
 
 /** Ce que la scène peut demander à l'éditeur ouvert. */
@@ -22,6 +22,8 @@ export interface TextEditorHandle {
   insertAtCursor(text: string): void;
   /** Texte affiché. */
   text(): string;
+  /** Remplace le texte affiché (écriture venue d'ailleurs), hors de l'historique de l'éditeur. */
+  replace(text: string): void;
   /** Valide comme Entrée ou la perte du focus (une seule fin par ouverture). */
   commit(): void;
 }
@@ -216,6 +218,11 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
     },
     text() {
       return viewRef.current?.state.doc.toString() ?? "";
+    },
+    replace(text: string) {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch({ changes: minimalChange(view.state.doc.toString(), text), annotations: Transaction.addToHistory.of(false) });
     },
     commit() {
       validate.current?.();

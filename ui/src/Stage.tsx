@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import type { FieldView, Frame, ObjectTarget, Op, SlideView } from "./api";
 import { editorBackground } from "./color";
 import type { GridPlacement } from "./deck";
-import { fieldChanged, fieldOps, findElement, gridPlacement, isBlock, placeOnGridOps } from "./deck";
+import { fieldChanged, fieldDraft, fieldOps, findElement, gridPlacement, isBlock, placeOnGridOps } from "./deck";
 import { editorGeometry, placeholderStyle } from "./editorGeometry";
 import type { Cell } from "./grid";
 import { cellRect, moveCell, resizeCell, sameCell } from "./grid";
@@ -178,6 +178,9 @@ export default function Stage(props: Props) {
   }, []);
   // Clé de la session de saisie : de l'entrée en édition à la sortie, d'un champ à l'autre.
   const session = useRef<string | null>(null);
+  // Valeur du champ dont part le texte de l'éditeur ; `null` : inconnue (après un
+  // enregistrement en gardant l'éditeur ouvert, l'écho de l'hôte la redonne).
+  const opened = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -195,9 +198,10 @@ export default function Stage(props: Props) {
   // Relu à chaque vue : quand le rendu arrive, l'éditeur se recale sur le champ.
   const editField = readOnly ? null : findField(editable, editing);
   // Brouillon à l'ouverture, avant l'affichage : il ne sert qu'à la largeur d'un champ.
-  // Il ne suit pas le serveur pendant l'édition : CodeMirror est la source de vérité.
+  // Il suit ensuite CodeMirror, source de vérité (une écriture adoptée y passe aussi).
   useLayoutEffect(() => {
     setDraft(editField?.text ?? "");
+    opened.current = editField?.text ?? null;
     if (editing === null) session.current = null;
     else session.current ??= randomId("edit");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -216,6 +220,24 @@ export default function Stage(props: Props) {
     onEdit(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gone]);
+
+  // Le champ ouvert change sous l'éditeur (l'agent l'écrit) : sans saisie locale,
+  // l'éditeur montre la nouvelle valeur ; sinon la saisie reste, et sa validation
+  // remplacera l'autre écriture en le disant (voir `save`).
+  const fieldText = editField?.text;
+  useEffect(() => {
+    const ed = editor.current;
+    if (!editField || fieldText === undefined || fieldText === opened.current || !ed) return;
+    const base = opened.current;
+    const shown = ed.text();
+    if (base !== null && !fieldChanged({ kind: editField.kind, text: base }, shown)) {
+      ed.replace(fieldDraft(editField));
+      opened.current = fieldText;
+    } else if (base === null || !fieldChanged(editField, shown)) {
+      opened.current = fieldText;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seule la valeur du champ compte
+  }, [fieldText]);
 
   // La dictée s'insère au curseur de l'éditeur ouvert.
   useEffect(() => {
@@ -269,6 +291,12 @@ export default function Stage(props: Props) {
   /** Écrit le brouillon d'un champ s'il a changé, dans la session de saisie. */
   const save = (f: FieldView, text: string) => {
     if (!fieldChanged(f, text)) return;
+    // Le champ a changé pendant la saisie : elle remplace l'autre écriture, dans une
+    // étape d'annulation à part qui la rétablit seule ; l'utilisateur le sait.
+    if (opened.current !== null && f.text !== opened.current) {
+      session.current = randomId("edit");
+      onNotice?.(t("ui-toast-edit-replaced"));
+    }
     if (deck) onApply(t("ui-undo-edit-slide"), fieldOps(view, f, text), session.current ?? undefined);
     else if (props.mode === "preview") props.onField(f, text);
   };
@@ -303,6 +331,7 @@ export default function Stage(props: Props) {
   const moveItem = (text: string, dir: 1 | -1) => {
     if (!editField || !editItem || !listOp) return;
     save(editField, text);
+    opened.current = null;
     const { it } = editItem;
     moveItemTo(listOp, it, Math.max(0, Math.min(it.len - 1, it.index + dir)));
   };

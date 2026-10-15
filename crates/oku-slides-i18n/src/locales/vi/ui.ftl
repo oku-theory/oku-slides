@@ -27,6 +27,7 @@ ui-toast-moved = Đã di chuyển bản trình bày
 ui-toast-copied = Đã lưu bản sao
 ui-toast-select-zone = Chọn vùng để đặt: “{ $text }”
 ui-toast-field-gone = Trường bạn đang sửa không còn nữa: nội dung đã nhập bị mất.
+ui-toast-edit-replaced = Văn bản này đã thay đổi trong lúc bạn sửa: phiên bản của bạn đã thay thế nó. Hoàn tác sẽ khôi phục phiên bản kia.
 
 ## Thanh công cụ
 

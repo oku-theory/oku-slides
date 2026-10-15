@@ -114,7 +114,12 @@ export function instantiate(template: Slide): Slide {
 
 /** Le brouillon change-t-il le champ ? Un champ `plain` compare ses retours à la ligne en espaces. */
 export function fieldChanged(f: Pick<FieldView, "kind" | "text">, text: string): boolean {
-  return text !== (f.kind === "plain" ? f.text.replaceAll("\n", " ") : f.text);
+  return text !== fieldDraft(f);
+}
+
+/** Texte d'un champ tel que l'éditeur le montre : un champ `plain` tient sur une ligne. */
+export function fieldDraft(f: Pick<FieldView, "kind" | "text">): string {
+  return f.kind === "plain" ? f.text.replaceAll("\n", " ") : f.text;
 }
 
 /** Paragraphes de la colonne `f.column` de l'item `f.item` dans la liste `f.list` de `owner`, ou `undefined`. */

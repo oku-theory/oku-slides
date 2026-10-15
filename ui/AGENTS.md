@@ -54,7 +54,7 @@
 - Show shortcuts as Cmd on macOS and as Ctrl, Shift, Alt elsewhere, in help and menus. (t-493)
 - Use CodeMirror standardKeymap, never defaultKeymap, whose commands are meant for code editors. (spec:2026-09-26-editeur-markdown-design)
 - Keep ListTable fully controlled: hold no local data except the draft of the cell being edited. (spec:2026-10-04-parametre-liste-design)
-- Let unsaved user keystrokes win over an agent widget write, but an agent deletion discards them. (spec:2026-10-03-widgets-agent-a2ui-design)
+- Let unsaved keystrokes win over agent writes; an untouched field editor adopts them, a replacing commit warns; agent widget deletion discards them. (spec:2026-10-03-widgets-agent-a2ui-design, t-130)
 - After a refused cut-paste move, paste a renewed-id copy only if the element is gone from its source slide. (plan:2026-10-10-deck-en-arbre)
 - Derive editor spans and runs from the single lezer markdown parse in markdown.ts; no hand-written parser. (spec:2026-09-26-editeur-markdown-design, t-183)
 - Read the number language with useNumberLang from NumberLangContext; never thread a numberLang prop through panels. (plan:2026-10-09-finitions-ids)

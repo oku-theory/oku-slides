@@ -29,6 +29,7 @@ ui-toast-moved = Präsentation verschoben
 ui-toast-copied = Kopie gespeichert
 ui-toast-select-zone = Bereich auswählen, um „{ $text }“ zu platzieren
 ui-toast-field-gone = Das bearbeitete Feld existiert nicht mehr: Die Eingabe ist verloren.
+ui-toast-edit-replaced = Dieser Text wurde während Ihrer Eingabe geändert: Ihre Fassung hat ihn ersetzt. Rückgängig stellt die andere wieder her.
 
 ## Werkzeugleiste
 

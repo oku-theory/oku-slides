@@ -29,6 +29,7 @@ ui-toast-moved = Presentatie verplaatst
 ui-toast-copied = Kopie opgeslagen
 ui-toast-select-zone = Selecteer een gebied om te plaatsen: ‘{ $text }’
 ui-toast-field-gone = Het veld dat je bewerkte bestaat niet meer: je invoer is verloren.
+ui-toast-edit-replaced = Deze tekst is veranderd terwijl je hem bewerkte: jouw versie heeft hem vervangen. Ongedaan maken zet de andere terug.
 
 ## Werkbalk
 

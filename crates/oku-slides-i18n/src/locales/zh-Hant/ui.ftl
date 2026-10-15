@@ -29,6 +29,7 @@ ui-toast-moved = 簡報已移動
 ui-toast-copied = 副本已儲存
 ui-toast-select-zone = 請選取要放置的區域：「{ $text }」
 ui-toast-field-gone = 正在編輯的欄位已不存在：輸入的內容已遺失。
+ui-toast-edit-replaced = 此文字在你編輯期間被更改：你的版本已取代它。還原可恢復另一個版本。
 
 ## 工具列
 

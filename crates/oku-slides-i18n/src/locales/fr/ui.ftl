@@ -29,6 +29,7 @@ ui-toast-moved = Présentation déplacée
 ui-toast-copied = Copie enregistrée
 ui-toast-select-zone = Sélectionnez une zone pour y placer : « { $text } »
 ui-toast-field-gone = Le champ modifié n'existe plus : la saisie est perdue.
+ui-toast-edit-replaced = Ce texte a changé pendant votre saisie : votre version l'a remplacé. Annuler rétablit l'autre.
 
 ## Toolbar
 
