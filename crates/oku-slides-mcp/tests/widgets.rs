@@ -185,6 +185,38 @@ async fn set_widget_trial_in_templates_mode_emits_changed() {
     assert_that!(changed).is_true();
 }
 
+/// t-524 : deux `set_widget_trial` d'un même tour, en mode modèles, sont une seule étape
+/// d'annulation ; l'annuler ramène l'étape d'avant le tour.
+#[tokio::test(flavor = "multi_thread")]
+async fn set_widget_trial_twice_in_a_templates_turn_is_one_undo_step() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    in_templates_with_kpi(&c).await;
+    let session = std::sync::Arc::clone(&h.session);
+    let before = tokio::task::spawn_blocking(move || {
+        let mut s = session.lock().unwrap();
+        s.begin_turn(1, "deux essais");
+        s.snapshot().undo_label
+    })
+    .await
+    .unwrap();
+    call(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await;
+    let r = json_of(&call(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "34" } })).await);
+    assert_that!(r["trials"]["value"].as_str()).is_equal_to(Some("34"));
+    let session = std::sync::Arc::clone(&h.session);
+    tokio::task::spawn_blocking(move || {
+        let mut s = session.lock().unwrap();
+        s.end_turn();
+        assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Agent : deux essais"));
+        s.undo().unwrap();
+        assert_that!(s.snapshot().undo_label).is_equal_to(before);
+    })
+    .await
+    .unwrap();
+    let trials = json_of(&call(&c, "set_widget_trial", json!({ "name": "kpi", "values": {} })).await);
+    assert_that!(trials["trials"].as_object().map(serde_json::Map::len)).is_equal_to(Some(0));
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn set_widget_trial_in_deck_mode_is_refused() {
     let h = start().await;

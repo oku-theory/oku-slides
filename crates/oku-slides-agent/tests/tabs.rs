@@ -22,15 +22,32 @@ async fn two_tabs_share_one_process_and_get_two_sessions() {
     assert_that!(log.iter().filter(|m| m["method"] == "session/new").count()).is_equal_to(2);
 }
 
+/// Attend `n` messages `method` dans le journal du faux agent (sondé toutes les 20 ms, 10 s au plus).
+async fn wait_logged(log: &std::path::Path, method: &str, n: usize) {
+    for _ in 0..500 {
+        if logged(log, method).len() >= n {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("{n} messages {method} attendus dans le journal du faux agent");
+}
+
+/// Le tour de t-1 ne finit que sur annulation ; celui de t-2 se joue et finit pendant ce
+/// temps. Des tours en file l'un derrière l'autre bloqueraient t-2 : rien n'est chronométré (t-524).
 #[tokio::test(flavor = "multi_thread")]
 async fn turns_of_two_tabs_run_at_the_same_time() {
-    let h = start_tabs(json!({ "turns": [{ "delay_ms": 800, "chunks": ["fini"] }] }), &["t-1", "t-2"]).await;
-    let started = std::time::Instant::now();
-    h.tab("t-1").agent.prompt("un".into(), AgentUi::default());
+    let script = json!({ "turns": [{ "chunks": ["fini"] }], "by_prompt": { "attends": { "wait_cancel": true } } });
+    let h = start_tabs(script, &["t-1", "t-2"]).await;
+    h.tab("t-1").agent.prompt("attends".into(), AgentUi::default());
+    // Le tour de t-1 est chez l'agent avant que t-2 ne parle.
+    wait_logged(&h.log, "session/prompt", 1).await;
     h.tab("t-2").agent.prompt("deux".into(), AgentUi::default());
-    wait_turn_ended(h.tab("t-1")).await;
-    wait_turn_ended(h.tab("t-2")).await;
-    assert_that!(started.elapsed()).is_less_than(Duration::from_millis(1500));
+    let second = wait_turn_ended(h.tab("t-2")).await;
+    assert_that!(second).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "end_turn".into() });
+    h.tab("t-1").agent.cancel();
+    let first = wait_turn_ended(h.tab("t-1")).await;
+    assert_that!(first).is_equal_to(AgentEvent::TurnEnded { turn: 1, stop: "cancelled".into() });
 }
 
 #[tokio::test(flavor = "multi_thread")]
