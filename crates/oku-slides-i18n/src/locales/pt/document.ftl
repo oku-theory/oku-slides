@@ -26,10 +26,10 @@ render-worker-lost = O processo de renderização parou
 render-frame = Mensagem ilegível do processo de renderização
 render-page-too-large = Este slide é grande demais para a pré-visualização (mais de { $mib } MiB, muitas vezes por causa de uma imagem muito grande). Ainda pode ser exportado como PDF ou PNG.
 render-stale = A renderização foi substituída; tente novamente
-render-pack-disabled = Os widgets do pacote «{ $pack }» estão desativados nesta sessão
-registry-schema-remote = Registo de widgets inválido: { $message }
-probe-not-probed = Ainda não verificado: esgotou-se o tempo reservado aos widgets do pacote. Será verificado na próxima renderização.
-probe-too-many-files = O pacote tem mais de { $max } ficheiros de widgets: este não é carregado.
+render-pack-disabled = Os widgets do pacote “{ $pack }” estão desativados nesta sessão
+registry-schema-remote = Registro de widgets inválido: { $message }
+probe-not-probed = Ainda não verificado: o tempo reservado aos widgets do pacote se esgotou. Será verificado na próxima renderização.
+probe-too-many-files = O pacote tem mais de { $max } arquivos de widgets: ele não é carregado.
 probe-too-large = Mais de { $max } KiB: não carregado.
 
 import-unreadable = Não foi possível ler esta apresentação
@@ -79,7 +79,7 @@ import-loss-shape-style = { $effect ->
     [dash] Linha tracejada mostrada contínua
    *[geometry] Forma desconhecida mostrada como retângulo
 }
-import-loss-layout-dropped = Layouts demais para um pacote: «{ $layout }» não tem modelo; seus slides usam o widget vazio e recebem sua decoração como elementos
+import-loss-layout-dropped = Layouts demais para um pacote: “{ $layout }” não tem modelo; seus slides usam o widget vazio e recebem sua decoração como elementos
 import-loss-decor-truncated = Decoração cortada para caber no tamanho de um arquivo do pacote: { $omitted } elementos omitidos
 import-loss-table-style = Estilo da tabela aproximado: seus fundos de célula, bordas, larguras de coluna ou tamanhos de texto próprios se perdem
 import-loss-overflow = O elemento “{ $element }” ultrapassa a borda do slide
