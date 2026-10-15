@@ -20,7 +20,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Store Frame in absolute source points with group transforms applied, always finite and bounded. (plan:2026-10-09-import-pptx-lot1)
 - Keep fs_type and subset on embedded fonts so later lots never embed preview-only or partial fonts. (plan:2026-10-09-import-pptx-lot1)
 - Resolve PPTX text style inheritance only in the single cascade function, never ad hoc elsewhere. (spec:2026-10-09-import-pptx-design)
-- Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN; read and parse each theme part once, shared by all masters that cite it. (t-755)
+- Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN, listed in bounds::clamped to warn Approximated; parse a theme part shared by masters once. (t-755, t-892)
 - Type every asset from its bytes with media::sniff and pass every SVG through svg::sanitize at read time. (t-752)
 - Apply or write only a CheckedPlan, which only ImportPlan::check_budget returns. (t-753, t-892)
 

@@ -2,6 +2,7 @@
 
 use crate::collect::clip;
 use crate::error::ImportError;
+use crate::pptx::bounds::warn_clamped;
 use crate::pptx::context::{PartCtx, PartSpec, Shared};
 use crate::pptx::master::{LayoutInfo, MasterInfo, background, clr_map_override};
 use crate::pptx::placeholder::PhInheritance;
@@ -32,6 +33,7 @@ pub(crate) fn parse_slide(
         inherit: Some(&inherit),
     };
     let cx = PartCtx::new(shared, part, spec)?;
+    warn_clamped(&cx, root);
     let c_sld = child(root, "cSld");
     let items = c_sld.and_then(|c| child(c, "spTree")).map(|t| parse_tree(t, &cx, &GroupCtx::ROOT)).unwrap_or_default();
     // Fond propre, sinon hérité ; résolu avec les couleurs de la slide (son clrMapOvr compris).

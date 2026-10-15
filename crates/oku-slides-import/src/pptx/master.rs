@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use roxmltree::Node;
 
 use crate::error::ImportError;
+use crate::pptx::bounds::warn_clamped;
 use crate::pptx::cascade::{TextChain, resolve_level, resolve_levels};
 use crate::pptx::color::{clean_map, color_spec_in, default_map};
 use crate::pptx::context::{PartCtx, PartSpec, Shared};
@@ -140,6 +141,7 @@ pub(crate) fn parse_master(
         inherit: Some(&inherit),
     };
     let cx = PartCtx::new(shared, part, spec)?;
+    warn_clamped(&cx, root);
     let c_sld = child(root, "cSld");
     let items = c_sld.and_then(|c| child(c, "spTree")).map(|t| parse_tree(t, &cx, &GroupCtx::ROOT)).unwrap_or_default();
     let phs = table_of(&items);
@@ -183,6 +185,7 @@ pub(crate) fn parse_layout(
         inherit: Some(&inherit),
     };
     let cx = PartCtx::new(shared, part, spec)?;
+    warn_clamped(&cx, root);
     let c_sld = child(root, "cSld");
     let items = c_sld.and_then(|c| child(c, "spTree")).map(|t| parse_tree(t, &cx, &GroupCtx::ROOT)).unwrap_or_default();
     let phs = table_of(&items);

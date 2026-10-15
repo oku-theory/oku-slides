@@ -1,5 +1,6 @@
 //! Lecteur PPTX : du paquet OOXML à la [`crate::source::SourceDeck`].
 
+pub(crate) mod bounds;
 pub(crate) mod cascade;
 pub(crate) mod chart;
 pub(crate) mod color;

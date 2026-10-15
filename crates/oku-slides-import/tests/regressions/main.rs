@@ -11,6 +11,7 @@ mod issue_0755_path_bounds;
 mod issue_0755_shared_theme;
 mod issue_0755_text_bounds;
 mod issue_0755_theme_no_fill;
+mod issue_0892_clamp_warning;
 mod issue_692_bomb_rereads;
 mod issue_692_invisible_chars;
 mod issue_692_layout_dedup;

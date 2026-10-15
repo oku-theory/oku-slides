@@ -3,6 +3,10 @@
 use roxmltree::Node;
 
 use crate::collect::clip_to;
+use crate::pptx::bounds::{
+    BULLET_SIZE, CHAR_SPACING, FONT_SCALE, FONT_SIZE, INDENT, LINE_REDUCTION, MARGIN, SPACING_PERCENT, SPACING_POINTS,
+    attr_in,
+};
 use crate::pptx::color::{ColorSpec, color_spec_in};
 use crate::pptx::theme::MAX_FONT_NAME;
 use crate::pptx::units::{emu, hundredths, pct};
@@ -14,31 +18,6 @@ pub(crate) const LEVELS: usize = 9;
 const MAX_COLUMNS: u32 = 16;
 const MAX_BULLET_CHARS: usize = 8;
 const MAX_SCHEME_CHARS: usize = 32;
-
-// Bornes des valeurs numériques, celles du schéma OOXML (ECMA-376, partie 1, 20.1.10 et 21.1.10).
-/// `ST_TextFontSize`, en centièmes de pt.
-const FONT_SIZE: (i64, i64) = (100, 400_000);
-/// `ST_TextPoint` (`spc`), en centièmes de pt.
-const CHAR_SPACING: (i64, i64) = (-400_000, 400_000);
-/// `ST_TextSpacingPoint` (`spcPts`), en centièmes de pt.
-const SPACING_POINTS: (i64, i64) = (0, 158_400);
-/// `ST_TextSpacingPercent` (`spcPct`), en 100 000ᵉ.
-const SPACING_PERCENT: (i64, i64) = (0, 13_200_000);
-/// `ST_TextBulletSizePercent` (`buSzPct`), en 100 000ᵉ.
-const BULLET_SIZE: (i64, i64) = (25_000, 400_000);
-/// `ST_TextFontScalePercent` (`fontScale`), en 100 000ᵉ.
-const FONT_SCALE: (i64, i64) = (1_000, 100_000);
-/// `lnSpcReduction` : une réduction d'au plus 100 %.
-const LINE_REDUCTION: (i64, i64) = (0, 100_000);
-/// `ST_TextMargin` (`marL`), en EMU.
-const MARGIN: (i64, i64) = (0, 51_206_400);
-/// `ST_TextIndent` (`indent`), en EMU.
-const INDENT: (i64, i64) = (-51_206_400, 51_206_400);
-
-/// Entier `name` de `n`, ramené dans `range`.
-fn attr_in(n: Node<'_, '_>, name: &str, range: (i64, i64)) -> Option<i64> {
-    attr_i64(n, name).map(|v| v.clamp(range.0, range.1))
-}
 
 /// Police d'un run : de thème ou nommée.
 #[derive(Debug, Clone, PartialEq, Eq)]

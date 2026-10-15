@@ -55,10 +55,28 @@ fn normalized(v: Option<f64>, size: f64, lo: f64) -> f64 {
     (v.unwrap_or(0.0) / size).clamp(lo, MAX_PATH_SPAN)
 }
 
+/// Boîte `(w, h)` d'un `path` : `w`/`h` sont des entiers EMU, une boîte de moins d'une unité
+/// est dégénérée.
+fn box_of(p: Node<'_, '_>) -> (f64, f64) {
+    let side = |a| attr_f64(p, a).filter(|v| *v >= 1.0).unwrap_or(1.0);
+    (side("w"), side("h"))
+}
+
+/// Vrai si [`normalized`] ramène une coordonnée ou un rayon du `path` `p` dans sa borne.
+pub(crate) fn path_clamped(p: Node<'_, '_>) -> bool {
+    let (w, h) = box_of(p);
+    let off = |n: Node<'_, '_>, a: &str, size: f64, lo: f64| {
+        attr_f64(n, a).is_some_and(|v| v / size != normalized(Some(v), size, lo))
+    };
+    p.descendants().filter(Node::is_element).any(|n| match n.tag_name().name() {
+        "pt" => off(n, "x", w, -MAX_PATH_SPAN) || off(n, "y", h, -MAX_PATH_SPAN),
+        "arcTo" => off(n, "wR", w, 0.0) || off(n, "hR", h, 0.0),
+        _ => false,
+    })
+}
+
 fn path(p: Node<'_, '_>, budget: usize) -> Vec<PathCmd> {
-    // `w`/`h` sont des entiers EMU : une boîte de moins d'une unité est dégénérée.
-    let w = attr_f64(p, "w").filter(|v| *v >= 1.0).unwrap_or(1.0);
-    let h = attr_f64(p, "h").filter(|v| *v >= 1.0).unwrap_or(1.0);
+    let (w, h) = box_of(p);
     let pts = |n: Node<'_, '_>| -> Vec<(f64, f64)> {
         children(n, "pt")
             .take(3)
