@@ -12,14 +12,7 @@ use unicode_properties::{GeneralCategoryGroup, UnicodeGeneralCategory};
 
 /// Runs en markdown inline ; `color` et `size` n'ont pas d'écriture markdown.
 pub(crate) fn runs_to_markdown(runs: &[Run]) -> String {
-    let mut runs = runs.to_vec();
-    merge(&mut runs);
-    while let Some(fix) = violation(&runs) {
-        // Invariant : si rien ne bouge, `violation` rendrait le même correctif à l'infini.
-        if !apply(&mut runs, fix) {
-            break;
-        }
-    }
+    let runs = normalize(runs);
     let steps = steps(&runs);
     let mut out = String::new();
     let mut after_highlight = false;
@@ -73,6 +66,13 @@ impl Mark {
             Mark::Italic => r.italic,
         }
     }
+
+    fn bit(self) -> u8 {
+        match self {
+            Mark::Bold => 1,
+            Mark::Italic => 2,
+        }
+    }
 }
 
 /// Une pastille ou un lien a ses propres délimiteurs : l'emphase ne le traverse pas.
@@ -91,6 +91,15 @@ struct Step {
 
 /// Transitions de la pile : `steps[i]` précède le run `i`, `steps[n]` clôt la ligne.
 fn steps(runs: &[Run]) -> Vec<Step> {
+    // `spans[i][m]` : runs consécutifs portant `m` dès `i`, calculés une seule fois.
+    let mut spans = vec![[0usize; 2]; runs.len() + 1];
+    for i in (0..runs.len()).rev() {
+        for m in Mark::ALL {
+            if !barrier(&runs[i]) && m.of(&runs[i]) {
+                spans[i][m as usize] = spans[i + 1][m as usize] + 1;
+            }
+        }
+    }
     let mut stack: Vec<Mark> = Vec::new();
     let mut out = Vec::with_capacity(runs.len() + 1);
     for (i, r) in runs.iter().enumerate() {
@@ -101,7 +110,7 @@ fn steps(runs: &[Run]) -> Vec<Step> {
         step.kept = stack.clone();
         if !barrier(r) {
             // La plus longue à l'extérieur : elle reste ouverte le plus longtemps.
-            let span = |m: Mark| runs[i..].iter().take_while(|r| !barrier(r) && m.of(r)).count();
+            let span = |m: Mark| spans[i][m as usize];
             let mut open: Vec<Mark> = Mark::ALL.into_iter().filter(|&m| m.of(r) && !stack.contains(&m)).collect();
             open.sort_by_key(|&m| std::cmp::Reverse(span(m)));
             stack.extend(&open);
@@ -149,81 +158,189 @@ fn class(c: Option<char>) -> Class {
     }
 }
 
-/// Caractère à sortir de ses délimiteurs : premier ou dernier du run `run`.
-struct Fix {
-    run: usize,
-    first: bool,
-    /// Emphases restées ouvertes autour : le caractère sorti les garde.
-    kept: Vec<Mark>,
+/// Format d'un caractère : des caractères voisins de même format forment un run.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Format<'a> {
+    /// Emphases en bits (`Mark::bit`).
+    marks: u8,
+    link: Option<&'a str>,
+    highlight: Option<u8>,
 }
 
-/// Premier caractère de bord que CommonMark ne lirait pas comme écrit.
-fn violation(runs: &[Run]) -> Option<Fix> {
-    // Pastille hors lien : pas d'espace contre `==` (voir markdownHighlight.ts).
-    for (i, r) in runs.iter().enumerate() {
-        if r.highlight.is_some() && r.link.is_none() {
-            if class(r.t.chars().next()) == Class::Space {
-                return Some(Fix { run: i, first: true, kept: Vec::new() });
-            }
-            if class(r.t.chars().last()) == Class::Space {
-                return Some(Fix { run: i, first: false, kept: Vec::new() });
+impl<'a> Format<'a> {
+    fn of(r: &'a Run) -> Self {
+        let marks = Mark::ALL.into_iter().filter(|m| m.of(r)).fold(0u8, |acc, m| acc | m.bit());
+        Self { marks, link: r.link.as_deref(), highlight: r.highlight }
+    }
+
+    /// Format d'un caractère sorti de ses délimiteurs : les seules emphases `marks`.
+    fn emphasis(marks: u8) -> Self {
+        Self { marks, link: None, highlight: None }
+    }
+
+    fn barrier(self) -> bool {
+        self.link.is_some() || self.highlight.is_some()
+    }
+}
+
+/// Emphases ouvertes avant un bord, en bits.
+#[derive(Clone, Copy, Default)]
+struct Stack {
+    open: u8,
+    /// Les deux ouvertes l'une après l'autre : bit de la première (dehors), sinon 0.
+    outer: u8,
+}
+
+/// Passage d'un bord : emphases fermées, gardées, ouvertes, puis la pile d'après.
+///
+/// Deux emphases ouvertes ensemble s'ordonnent par longueur (`steps`) : celle
+/// qui cesse la première est dedans, elle se ferme seule. Ce choix ne dépend
+/// donc que des runs déjà lus, ce qui permet de normaliser en un seul passage.
+struct Edge {
+    close: u8,
+    kept: u8,
+    open: u8,
+    after: Stack,
+}
+
+fn edge(stack: Stack, next: Option<Format>) -> Edge {
+    let Some(marks) = next.filter(|f| !f.barrier()).map(|f| f.marks) else {
+        return Edge { close: stack.open, kept: 0, open: 0, after: Stack::default() };
+    };
+    let kept = if stack.open & !marks == 0 {
+        stack.open
+    } else if stack.outer == 0 {
+        // Une seule ouverte, ou deux ouvertes ensemble : chacune garde sa place.
+        stack.open & marks
+    } else if stack.outer & marks == 0 {
+        0
+    } else {
+        stack.outer
+    };
+    let open = marks & !kept;
+    let outer = match (kept, open) {
+        (3, _) => stack.outer,
+        (0, _) | (_, 0) => 0,
+        _ => kept,
+    };
+    Edge { close: stack.open & !kept, kept, open, after: Stack { open: marks, outer } }
+}
+
+/// Classe vue contre un délimiteur ; crochets, `==` et `{n}` des barrières sont de la ponctuation.
+fn side(c: Option<(char, Format)>) -> Class {
+    match c {
+        Some((_, f)) if f.barrier() => Class::Punct,
+        c => class(c.map(|(c, _)| c)),
+    }
+}
+
+/// Runs dont les bords se lisent comme écrits : seuls des espaces et de la
+/// ponctuation y perdent leur mise en forme, jamais du texte.
+fn normalize(runs: &[Run]) -> Vec<Run> {
+    let mut chars: Vec<(char, Format)> = runs
+        .iter()
+        .flat_map(|r| {
+            let f = Format::of(r);
+            r.t.chars().map(move |c| (c, f))
+        })
+        .collect();
+    unhighlight_edge_spaces(&mut chars);
+    fix_emphasis_edges(&mut chars);
+    let mut out: Vec<Run> = Vec::new();
+    let mut last: Option<Format> = None;
+    for (c, f) in chars {
+        match out.last_mut() {
+            Some(r) if last == Some(f) => r.t.push(c),
+            _ => {
+                out.push(Run {
+                    bold: f.marks & Mark::Bold.bit() != 0,
+                    italic: f.marks & Mark::Italic.bit() != 0,
+                    link: f.link.map(str::to_owned),
+                    highlight: f.highlight,
+                    ..Run::plain(c)
+                });
+                last = Some(f);
             }
         }
     }
-    for (k, step) in steps(runs).into_iter().enumerate() {
-        // Crochets, `==` et `{n}` des barrières comptent comme de la ponctuation.
-        let a = match k.checked_sub(1).map(|j| &runs[j]) {
-            Some(r) if barrier(r) => Class::Punct,
-            Some(r) => class(r.t.chars().last()),
-            None => Class::Space,
-        };
-        let b = match runs.get(k) {
-            Some(r) if barrier(r) => Class::Punct,
-            Some(r) => class(r.t.chars().next()),
-            None => Class::Space,
-        };
+    out
+}
+
+/// Fin du run qui commence en `start`.
+fn run_end(chars: &[(char, Format)], start: usize) -> usize {
+    let mut end = start;
+    while chars.get(end + 1).is_some_and(|&(_, f)| Some(f) == chars.get(start).map(|&(_, f)| f)) {
+        end += 1;
+    }
+    end + 1
+}
+
+/// Pastille hors lien : pas d'espace contre `==` (voir markdownHighlight.ts).
+fn unhighlight_edge_spaces(chars: &mut [(char, Format)]) {
+    let mut start = 0;
+    while start < chars.len() {
+        let end = run_end(chars, start);
+        let f = chars[start].1;
+        if f.highlight.is_some() && f.link.is_none() {
+            let lead = chars[start..end].iter().take_while(|&&(c, _)| is_space(c)).count();
+            let trail = chars[start + lead..end].iter().rev().take_while(|&&(c, _)| is_space(c)).count();
+            for (_, g) in &mut chars[start..start + lead] {
+                *g = Format::emphasis(0);
+            }
+            for (_, g) in &mut chars[end - trail..end] {
+                *g = Format::emphasis(0);
+            }
+        }
+        start = end;
+    }
+}
+
+/// Sort de leurs délimiteurs, un par un, les caractères de bord que CommonMark
+/// ne lirait pas comme écrits : chacun garde les seules emphases restées
+/// ouvertes autour, et la lecture reprend au bord d'avant.
+///
+/// Un correctif en `q` ne change aucun bord avant `q` : la pile d'un bord ne
+/// dépend que des runs déjà lus (`edge`). Chaque correctif retire une emphase
+/// à un caractère, et les correctifs avancent : le tout reste linéaire.
+fn fix_emphasis_edges(chars: &mut [(char, Format)]) {
+    // Bords sans correctif, avec la pile d'avant chacun.
+    let mut clean: Vec<(usize, Stack)> = Vec::new();
+    let (mut p, mut stack) = (0usize, Stack::default());
+    loop {
+        let (prev, next) = (p.checked_sub(1).map(|i| chars[i]), chars.get(p).copied());
+        let e = edge(stack, next.map(|(_, f)| f));
+        let (a, b) = (side(prev), side(next));
         // Fermetures et ouvertures sont des `*` : une seule suite entre `a` et `b`,
         // qui doit pouvoir fermer (côté `a`) et ouvrir (côté `b`).
-        if !step.close.is_empty() && (a == Class::Space || (a == Class::Punct && b == Class::Alnum)) {
-            return Some(Fix { run: k - 1, first: false, kept: step.kept });
+        let fix = if e.close != 0 && (a == Class::Space || (a == Class::Punct && b == Class::Alnum)) {
+            p.checked_sub(1)
+        } else if e.open != 0 && (b == Class::Space || (b == Class::Punct && a == Class::Alnum)) {
+            Some(p)
+        } else {
+            None
+        };
+        let Some(q) = fix else {
+            if p == chars.len() {
+                return;
+            }
+            clean.push((p, stack));
+            stack = e.after;
+            p = run_end(chars, p);
+            continue;
+        };
+        chars[q].1 = Format::emphasis(e.kept);
+        while clean.last().is_some_and(|&(x, _)| x >= q) {
+            clean.pop();
         }
-        if !step.open.is_empty() && (b == Class::Space || (b == Class::Punct && a == Class::Alnum)) {
-            return Some(Fix { run: k, first: true, kept: step.kept });
-        }
+        (p, stack) = match clean.last() {
+            // Le run qui commence en `x` garde son format jusqu'à `q` exclu.
+            Some(&(x, before)) => {
+                let after = edge(before, Some(chars[x].1)).after;
+                (if chars[q].1 == chars[x].1 { run_end(chars, q) } else { q }, after)
+            }
+            None => (0, Stack::default()),
+        };
     }
-    None
-}
-
-/// Sort le caractère : il devient un run avec les seules emphases `kept`.
-/// Chaque déplacement retire de la mise en forme, la normalisation termine.
-fn apply(runs: &mut Vec<Run>, fix: Fix) -> bool {
-    let Fix { run, first, kept } = fix;
-    let r = &mut runs[run];
-    let c = if first { r.t.chars().next() } else { r.t.chars().last() };
-    let Some(c) = c else { return false };
-    if first {
-        r.t.drain(..c.len_utf8());
-    } else {
-        r.t.pop();
-    }
-    let moved = Run { bold: kept.contains(&Mark::Bold), italic: kept.contains(&Mark::Italic), ..Run::plain(c) };
-    runs.insert(if first { run } else { run + 1 }, moved);
-    merge(runs);
-    true
-}
-
-/// Runs voisins de même format fusionnés, runs vides retirés.
-fn merge(runs: &mut Vec<Run>) {
-    let same =
-        |a: &Run, b: &Run| a.bold == b.bold && a.italic == b.italic && a.link == b.link && a.highlight == b.highlight;
-    let mut out: Vec<Run> = Vec::with_capacity(runs.len());
-    for r in runs.drain(..).filter(|r| !r.t.is_empty()) {
-        match out.last_mut() {
-            Some(last) if same(last, &r) => last.t.push_str(&r.t),
-            _ => out.push(r),
-        }
-    }
-    *runs = out;
 }
 
 /// Pastille ou lien, avec ses propres emphases à l'intérieur.
@@ -288,3 +405,7 @@ fn escape_inline(t: &str) -> String {
 #[cfg(test)]
 #[path = "inline_tests.rs"]
 mod inline_tests;
+
+#[cfg(test)]
+#[path = "inline_oracle_tests.rs"]
+mod inline_oracle_tests;

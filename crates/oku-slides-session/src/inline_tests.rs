@@ -108,10 +108,10 @@ fn escape_inline_underscore_between_circled_letters_is_escaped() {
 }
 
 /// Générateur déterministe (SplitMix64) : le corpus ne dépend d'aucune crate.
-struct Rng(u64);
+pub(super) struct Rng(pub(super) u64);
 
 impl Rng {
-    fn below(&mut self, n: usize) -> usize {
+    pub(super) fn below(&mut self, n: usize) -> usize {
         self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -123,7 +123,7 @@ impl Rng {
 /// Lettres, chiffres, espaces et toute la ponctuation qui compte en markdown,
 /// plus les caractères que Rust et Lezer classaient différemment : Ⓐ et 🄰
 /// (lettres pour Rust, symboles), 😀 (hors du plan de base) et U+0085.
-const ALPHABET: &[char] = &[
+pub(super) const ALPHABET: &[char] = &[
     'a',
     'b',
     'é',
