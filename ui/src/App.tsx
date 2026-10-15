@@ -12,7 +12,7 @@ import { useAppearance } from "./useAppearance";
 import { AttachButton } from "./agent/AttachButton";
 import { changeScheme, useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
-import { copyAfterRefusedMove, findElement, gridPlacement, instantiate, moveOps, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch, textToParagraphs } from "./deck";
+import { copyAfterRefusedMove, findElement, gridPlacement, instantiate, literalToParagraphs, moveOps, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch } from "./deck";
 import { newElement, newPackWidget } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
 import SlidePile from "./SlidePile";
@@ -259,10 +259,10 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
           else if (await copyAfterRefusedMove(snapRef.current?.slides ?? [], from.slide, element.id, (s) => api.slide(s))) copyHere();
         });
       } else if (text.trim() && canAdd("text", view.slide.kind)) {
-        // Du texte venu d'ailleurs devient un élément texte.
+        // Du texte venu d'ailleurs devient un élément texte ; son markdown reste littéral.
         e.preventDefault();
         dropCut();
-        addElement("text", textToParagraphs(text), t("ui-undo-paste"));
+        addElement("text", literalToParagraphs(text), t("ui-undo-paste"));
       }
     };
     window.addEventListener("copy", copy);

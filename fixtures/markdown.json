@@ -297,6 +297,11 @@
       "paragraphs": [{ "runs": [{ "t": "a *b* c [x](y)" }] }]
     },
     {
+      "name": "texte externe littéral (t-162)",
+      "markdown": "2 \\* 3 \\* 4, \\[1\\](x), \\=\\=x\\=\\=, x = y, Ⓐ\\_Ⓑ, snake_case, C:\\\\dir\nfin \\=",
+      "paragraphs": [{ "runs": [{ "t": "2 * 3 * 4, [1](x), ==x==, x = y, Ⓐ_Ⓑ, snake_case, C:\\dir" }] }, { "runs": [{ "t": "fin =" }] }]
+    },
+    {
       "name": "titre et citation en début de ligne",
       "markdown": "# pas un titre\n> pas une citation",
       "paragraphs": [{ "runs": [{ "t": "# pas un titre" }] }, { "runs": [{ "t": "> pas une citation" }] }]

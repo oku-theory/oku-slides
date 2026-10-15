@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { Paragraph, Run } from "./api";
-import { encodeLink, listPrefix, markdownSpans, markdownToRuns } from "./markdown";
+import { encodeLink, escapeInline, listPrefix, markdownSpans, markdownToRuns } from "./markdown";
 import { textToParagraphs } from "./deck";
 
 interface Case {
@@ -24,6 +24,27 @@ describe("textToParagraphs sur la fixture partagée avec Rust", () => {
       expect(textToParagraphs(c.markdown)).toEqual(c.paragraphs);
     });
   }
+});
+
+/** Un cas dont chaque paragraphe est un seul run sans format ni liste : du texte brut. */
+const plain = (c: Case) => c.paragraphs.every((p) => !p.list && p.runs.length === 1 && Object.keys(p.runs[0]).length === 1);
+
+describe("escapeInline sur la fixture partagée avec Rust (escape_inline)", () => {
+  for (const c of cases.filter(plain)) {
+    test(`${c.name} s'échappe comme côté Rust`, () => {
+      // `paragraphs_to_text` échappe aussi un préfixe de liste : la ligne d'escape_inline seule, sans lui.
+      const lines = c.markdown.split("\n").map((l) => l.replace(/^\\- /, "- ").replace(/^(\d+)\\\. /, "$1. "));
+      expect(c.paragraphs.map((p) => escapeInline(p.runs[0].t))).toEqual(lines);
+    });
+  }
+
+  test("escapeInline underscore between circled letters is escaped", () => {
+    expect(escapeInline("Ⓐ_Ⓑ")).toBe("Ⓐ\\_Ⓑ");
+  });
+
+  test("escapeInline equals sign at either edge is escaped", () => {
+    expect(escapeInline("=a=")).toBe("\\=a\\=");
+  });
 });
 
 describe("perte documentée : bords des runs délimités", () => {

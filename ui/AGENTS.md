@@ -49,7 +49,7 @@
 
 ## Settled decisions
 
-- Parse rewrite text in the UI with textToParagraphs; do not reintroduce a text reader on the server. (spec:2026-09-27-agent-onglets-design)
+- Parse rewrite text with textToParagraphs and external paste or dictation with literalToParagraphs, never on the server. (spec:2026-09-27-agent-onglets-design, t-162)
 - Do not add a manual save action; every change autosaves after 1.5 s and new decks go to a default folder. (t-257)
 - Show shortcuts as Cmd on macOS and as Ctrl, Shift, Alt elsewhere, in help and menus. (t-493)
 - Use CodeMirror standardKeymap, never defaultKeymap, whose commands are meant for code editors. (spec:2026-09-26-editeur-markdown-design)

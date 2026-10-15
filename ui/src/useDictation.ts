@@ -6,7 +6,7 @@ import type { AddKind } from "./slideTools";
 import { draftActions } from "./agent/draftActions";
 import { useDraft } from "./agent/useDraft";
 import type { Op, Paragraph, SlideView, Snapshot } from "./api";
-import { fieldOps, textToParagraphs } from "./deck";
+import { fieldOps, literalText, literalToParagraphs } from "./deck";
 import { deckVocabulary } from "./draft";
 import { t } from "./i18n";
 import type { FieldKey } from "./stageFields";
@@ -61,11 +61,13 @@ export function useDictation({ snap, view, selected, editing, apply, addElement,
     if (writable) {
       const previous = writable.text;
       const keep = writable.kind === "rich" && previous.trim() !== "" && previous !== t("ui-new-text");
-      apply(t("ui-undo-dictation"), fieldOps(view, writable, keep ? `${previous}\n${text}` : text));
+      // Un champ riche relit son texte en markdown : la dictée y reste littérale.
+      const dictated = writable.kind === "rich" ? literalText(text) : text;
+      apply(t("ui-undo-dictation"), fieldOps(view, writable, keep ? `${previous}\n${dictated}` : dictated));
       return true;
     }
     if (view.slide.kind === "content") {
-      addElement("text", textToParagraphs(text), t("ui-undo-dictation"));
+      addElement("text", literalToParagraphs(text), t("ui-undo-dictation"));
       return true;
     }
     say(t("ui-toast-select-zone", { text }), true);

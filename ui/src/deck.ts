@@ -4,7 +4,7 @@
 import type { Element, FieldView, Op, Params, Paragraph, Slide, SlideView, Snapshot } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
-import { listPrefix, markdownToRuns } from "./markdown";
+import { escapeInline, listPrefix, markdownToRuns } from "./markdown";
 
 /** Identifiant court et unique pour un nouvel élément ou une nouvelle slide. */
 export function newId(prefix: string): string {
@@ -71,6 +71,25 @@ export function textToParagraphs(text: string, previous?: { paragraphs: Paragrap
     const runs = markdownToRuns(line.slice(length));
     return list ? { runs, list } : { runs };
   });
+}
+
+/**
+ * Texte brut venu d'ailleurs (collage externe, dictée) → paragraphes : son markdown inline reste
+ * littéral (`2 * 3 * 4` n'est pas de l'italique), seuls les préfixes `- ` et `1. ` font des listes.
+ */
+export function literalToParagraphs(text: string): Paragraph[] {
+  return textToParagraphs(literalText(text));
+}
+
+/** Texte brut échappé ligne à ligne, préfixe de liste gardé, pour que `textToParagraphs` le relise tel quel. */
+export function literalText(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      const { length } = listPrefix(line);
+      return line.slice(0, length) + escapeInline(line.slice(length));
+    })
+    .join("\n");
 }
 
 /** Donne de nouveaux identifiants aux éléments et à leurs enfants, dans tous leurs slots (sur place). */

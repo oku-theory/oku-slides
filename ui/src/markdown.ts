@@ -7,7 +7,8 @@
  * `==texte==` / `==texte=={n}` (n-ième couleur de la palette du thème, voir
  * `markdownHighlight.ts`). Le même parcours de l'arbre donne les plages
  * positionnées que l'éditeur met en forme (`markdownSpans`) ; `listPrefix`
- * est la règle unique des préfixes de liste.
+ * est la règle unique des préfixes de liste ; `escapeInline` écrit du texte brut
+ * pour qu'il se relise tel quel.
  */
 import type { SyntaxNode } from "@lezer/common";
 import { parser as commonmark } from "@lezer/markdown";
@@ -185,6 +186,31 @@ export function listPrefix(line: string): { list?: NonNullable<Paragraph["list"]
   if (line.startsWith("- ")) return { list: "bullet", length: 2 };
   const num = /^\d+\. /.exec(line);
   return num ? { list: "number", length: num[0].length } : { length: 0 };
+}
+
+/** Classe d'un caractère contre un délimiteur, comme `class` côté Rust (Lezer : une unité UTF-16). */
+function charClass(c: string | undefined): "space" | "punct" | "alnum" {
+  if (c === undefined || /\s/u.test(c)) return "space";
+  if ((c.codePointAt(0) ?? 0) <= 0xffff && /[\p{P}\p{S}]/u.test(c)) return "punct";
+  return "alnum";
+}
+
+/**
+ * Texte brut d'une ligne écrit en markdown d'édition qui se relit tel quel : le miroir de
+ * `escape_inline` côté Rust (fixture partagée `fixtures/markdown.json`). `\`, `*`, `[`, `]`
+ * sont échappés, `_` sauf au milieu d'un mot, `=` contre un autre `=` ou au bord de la ligne.
+ */
+export function escapeInline(line: string): string {
+  const chars = [...line];
+  const alnum = (j: number) => j >= 0 && charClass(chars[j]) === "alnum";
+  return chars
+    .map((c, i) => {
+      const intraword = alnum(i - 1) && alnum(i + 1);
+      const equals = [i - 1, i + 1].some((j) => chars[j] === undefined || chars[j] === "=");
+      const escaped = c === "\\" || c === "*" || c === "[" || c === "]" || (c === "_" && !intraword) || (c === "=" && equals);
+      return escaped ? `\\${c}` : c;
+    })
+    .join("");
 }
 
 /** Adresse telle que `paragraphs_to_text` l'écrit : espace, parenthèses et `\` encodés, ainsi qu'un `<` initial. */

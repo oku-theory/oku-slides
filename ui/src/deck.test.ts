@@ -7,6 +7,7 @@ import {
   fieldValue,
   gridPlacement,
   instantiate,
+  literalToParagraphs,
   moveOps,
   neighbourSlide,
   newElementOps,
@@ -19,6 +20,35 @@ import {
   slot,
   textToParagraphs,
 } from "./deck";
+
+describe("literalToParagraphs", () => {
+  test("literalToParagraphs asterisks stay literal text", () => {
+    expect(literalToParagraphs("2 * 3 * 4")).toEqual([{ runs: [{ t: "2 * 3 * 4" }] }]);
+  });
+
+  test("literalToParagraphs link syntax stays literal text", () => {
+    expect(literalToParagraphs("[1](x)")).toEqual([{ runs: [{ t: "[1](x)" }] }]);
+  });
+
+  test("literalToParagraphs highlight syntax stays literal text", () => {
+    expect(literalToParagraphs("==x=={2}")).toEqual([{ runs: [{ t: "==x=={2}" }] }]);
+  });
+
+  test("literalToParagraphs list prefixes still make lists", () => {
+    expect(literalToParagraphs("- *a*\n1. b")).toEqual([
+      { runs: [{ t: "*a*" }], list: "bullet" },
+      { runs: [{ t: "b" }], list: "number" },
+    ]);
+  });
+
+  test("literalToParagraphs round trip keeps the text", () => {
+    const texts = ["a_b _c_ **d** \\e", "x = y == z =", "<b>&amp; `code` ~~s~~", "[a]: b\n\n# t", "Ⓐ_Ⓑ {1} \\*"];
+    for (const text of texts) {
+      const back = literalToParagraphs(text).map((p) => p.runs.map((r) => r.t).join("")).join("\n");
+      expect(back).toBe(text);
+    }
+  });
+});
 
 describe("textToParagraphs", () => {
   test("lignes, puces et listes numérotées donnent leurs paragraphes", () => {
