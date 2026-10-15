@@ -558,6 +558,88 @@ describe("WidgetTab, scène", () => {
     expect(edits).toEqual([["kpi", "etapes", { op: "move", item: "d0", to: 1 }]]);
   });
 
+  /** Comme `scene`, mais l'aperçu rend `shown.title` au titre, et l'écriture attend `gate` quand il est posé. */
+  function slowScene() {
+    const sc = scene();
+    const shown = { title: "Titre" };
+    const gate: { write: Promise<void> | null } = { write: null };
+    stub(sc.fake, "previewWidget", async () => ({
+      svg: '<svg viewBox="0 0 1920 1080" width="1920pt" height="1080pt"></svg>',
+      bbox: { x: 100, y: 200, w: 600, h: 300 },
+      view: slideView([field("title", "plain", shown.title, 150, 230), FIELDS[1]]),
+      diagnostics: [],
+    }));
+    stub(sc.fake, "setExampleValue", async (...a: never[]) => {
+      sc.written.push(a);
+      if (gate.write) await gate.write;
+      return {} as Snapshot;
+    });
+    return { ...sc, shown, gate };
+  }
+  const editorText = (host: HTMLElement) => host.querySelector(".editor .cm-content")?.textContent;
+
+  test("WidgetTab field reopened before the preview reloads shows the committed value (t-524)", async () => {
+    const { fake } = slowScene();
+    const m = await mount(fake, { name: "kpi", trials: 0 });
+    await open(fieldsOf(m.host)[0]);
+    await typeIn(m.host, "Météo");
+    await blur(m.host);
+    await open(fieldsOf(m.host)[0]);
+    expect(editorText(m.host)).toBe("Météo");
+  });
+
+  test("WidgetTab field reopened then closed unchanged once the preview reloads writes nothing back (t-524)", async () => {
+    const { fake, written, shown } = slowScene();
+    const m = await mount(fake, { name: "kpi", trials: 0 });
+    await open(fieldsOf(m.host)[0]);
+    await typeIn(m.host, "Météo");
+    await blur(m.host);
+    await open(fieldsOf(m.host)[0]);
+    shown.title = "Météo";
+    await m.render({ name: "kpi", trials: 1 });
+    await wait(10);
+    await blur(m.host);
+    expect(written).toEqual([["kpi", "title", "Météo"]]);
+  });
+
+  test("WidgetTab field reopened while its write is in flight shows the committed value (t-524)", async () => {
+    const { fake, gate } = slowScene();
+    const slow = deferred<void>();
+    gate.write = slow.promise;
+    const m = await mount(fake, { name: "kpi", trials: 0 });
+    await open(fieldsOf(m.host)[0]);
+    await typeIn(m.host, "Météo");
+    await blur(m.host);
+    await open(fieldsOf(m.host)[0]);
+    expect(editorText(m.host)).toBe("Météo");
+    await act(async () => slow.resolve());
+  });
+
+  test("WidgetTab field whose write is refused reopens on the preview's value (t-524)", async () => {
+    const { fake } = slowScene();
+    stub(fake, "setExampleValue", async () => Promise.reject(new Error("refus")));
+    const m = await mount(fake, { name: "kpi", trials: 0 });
+    await open(fieldsOf(m.host)[0]);
+    await typeIn(m.host, "Météo");
+    await blur(m.host);
+    await wait(10);
+    await open(fieldsOf(m.host)[0]);
+    expect(editorText(m.host)).toBe("Titre");
+  });
+
+  test("WidgetTab field reopens on the reloaded preview's value once the write is acknowledged (t-524)", async () => {
+    const { fake, shown } = slowScene();
+    const m = await mount(fake, { name: "kpi", trials: 0 });
+    await open(fieldsOf(m.host)[0]);
+    await typeIn(m.host, "Météo");
+    await blur(m.host);
+    shown.title = "Météo (normalisé)";
+    await m.render({ name: "kpi", trials: 1 });
+    await wait(10);
+    await open(fieldsOf(m.host)[0]);
+    expect(editorText(m.host)).toBe("Météo (normalisé)");
+  });
+
   test("un champ lié au deck ne s'ouvre pas", async () => {
     const { fake } = scene([field("title", "plain", "Deck", 150, 230, { bound: true })]);
     const m = await mount(fake, { name: "kpi" });

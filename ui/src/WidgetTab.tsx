@@ -29,6 +29,7 @@ import type { WidgetFiles } from "./useWidgetFiles";
 import Stage from "./Stage";
 import { useFieldEditing } from "./useFieldEditing";
 import type { OnListOp } from "./stageItems";
+import { type FieldKey, fieldKey } from "./stageFields";
 import { croppedSvg, croppedView } from "./widgetPreview";
 import { COMMON, diagnosticPlace, fileDiagnostics, listedDiagnostics, stateOf, widgetLabel } from "./widgetList";
 
@@ -65,6 +66,15 @@ export interface WidgetTabProps {
 }
 
 const NO_PALETTE: string[] = [];
+
+/**
+ * Valeur validée d'un champ que l'aperçu ne montre pas encore. `acked` : dernier aperçu demandé avant
+ * l'accord de l'écriture (`null` tant qu'elle est en route) ; un aperçu demandé après la remplace.
+ */
+interface Committed {
+  text: string;
+  acked: number | null;
+}
 
 export default function WidgetTab({
   api, files, id, name, revision, trials, look, active, code, codeWidth, onCodeWidth, settings = null,
@@ -120,7 +130,13 @@ export default function WidgetTab({
     api
       .previewWidget(name)
       .then((p) => {
-        if (seq === previewSeq.current) setPreview(p);
+        if (seq !== previewSeq.current) return;
+        setPreview(p);
+        // Demandé après l'accord des écritures : l'aperçu montre leurs valeurs (ou ce que l'hôte en a fait).
+        setCommitted((m) => {
+          const left = new Map([...m].filter(([, c]) => c.acked === null || c.acked >= seq));
+          return left.size === m.size ? m : left;
+        });
       })
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
     // `trials` et `look` ne sont pas lus : ils relancent l'aperçu quand les essais ou le style du deck changent.
@@ -149,22 +165,45 @@ export default function WidgetTab({
   }, [preview]);
 
   // La scène : les champs du widget dans le repère de l'image recadrée.
-  const sceneView = useMemo(
+  const croppedScene = useMemo(
     () => (preview?.view ? croppedView(preview.view, preview.bbox ?? null, name) : null),
     [preview, name],
   );
+  // Un champ rouvert avant le nouvel aperçu part de la valeur validée, pas de l'ancienne :
+  // la refermer telle quelle n'annule pas l'écriture (t-524).
+  const [committed, setCommitted] = useState<ReadonlyMap<FieldKey, Committed>>(() => new Map());
+  const sceneView = useMemo(() => {
+    if (!croppedScene || committed.size === 0) return croppedScene;
+    const fields = croppedScene.fields.map((f) => {
+      const c = committed.get(fieldKey(f));
+      return c ? { ...f, text: c.text } : f;
+    });
+    return { ...croppedScene, fields };
+  }, [croppedScene, committed]);
   const { editing, setEditing } = useFieldEditing(sceneView);
   const write = run ?? ((p: Promise<Snapshot>) => p.catch((e: unknown) => (filesRef.current.fail(e), null)));
   /** Écrit le brouillon d'un champ dans les valeurs d'exemple : texte, ou paragraphes d'un `rich`. */
   const onField = (f: FieldView, text: string) => {
     if (!sceneView) return;
     const value = fieldValue(sceneView, f, text);
+    const key = fieldKey(f);
+    const entry: Committed = { text, acked: null };
+    setCommitted((m) => new Map(m).set(key, entry));
+    /** Remplace l'entrée de cette écriture, si une plus récente ne l'a pas déjà remplacée. */
+    const settle = (next: Committed | null) =>
+      setCommitted((m) => {
+        if (m.get(key) !== entry) return m;
+        const out = new Map(m);
+        if (next) out.set(key, next);
+        else out.delete(key);
+        return out;
+      });
     // Un champ d'item de liste : sa colonne, dans la liste des valeurs d'exemple.
     void write(
       f.list && f.item
         ? api.editExampleList(name, f.list, { op: "set_field", item: f.item, field: f.column, value })
         : api.setExampleValue(name, f.field, value),
-    );
+    ).then((snap) => settle(snap ? { text, acked: previewSeq.current } : null));
   };
 
   /** Un changement de liste de l'aperçu : le changement, dans la liste des valeurs d'exemple. */
