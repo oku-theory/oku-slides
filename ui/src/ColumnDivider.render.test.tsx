@@ -83,6 +83,32 @@ describe("séparateurs de colonnes", () => {
     expect(resized).toEqual([[{ pile: 240, notes: 516 }, true]]);
   });
 
+  test("ColumnDivider un clic sans mouvement ne fige aucune largeur", async () => {
+    const { resized, pointer } = await mount("pile");
+    await pointer("pointerdown", 240);
+    await pointer("pointerup", 240);
+    expect(resized).toEqual([]);
+  });
+
+  test("ColumnDivider double-clic n'envoie que le retour par défaut, pas ses deux clics", async () => {
+    const { el, resized, resets, pointer } = await mount("notes");
+    for (let i = 0; i < 2; i++) {
+      await pointer("pointerdown", 940);
+      await pointer("pointerup", 940);
+    }
+    await act(async () => {
+      el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    expect([resized, resets()]).toEqual([[], 1]);
+  });
+
+  test("ColumnDivider clic interrompu sans mouvement ne fige aucune largeur", async () => {
+    const { resized, pointer } = await mount("pile");
+    await pointer("pointerdown", 240);
+    await pointer("pointercancel", 240);
+    expect(resized).toEqual([]);
+  });
+
   test("ColumnDivider double-clic revient à la largeur par défaut", async () => {
     const { el, resets } = await mount("pile");
     await act(async () => {

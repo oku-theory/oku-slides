@@ -33,6 +33,8 @@ interface Drag {
   sign: number;
   /** Dernières largeurs montrées. */
   last: Columns;
+  /** Le pointeur s'est déplacé : sans cela, un simple clic (ou ceux d'un double-clic) ne fige rien. */
+  moved: boolean;
 }
 
 export default function ColumnDivider({ side, label, measure, onResize, onReset }: Props) {
@@ -52,15 +54,18 @@ export default function ColumnDivider({ side, label, measure, onResize, onReset 
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const start = measure();
-    drag.current = { pointer: e.pointerId, startX: e.clientX, start, sign: signOf(e.currentTarget), last: start };
+    drag.current = { pointer: e.pointerId, startX: e.clientX, start, sign: signOf(e.currentTarget), last: start, moved: false };
     setActive(true);
   };
 
   const move = (e: React.PointerEvent<HTMLDivElement>, done: boolean) => {
     const d = drag.current;
     if (!d || d.pointer !== e.pointerId) return;
-    d.last = resized(d.start, d.sign * (e.clientX - d.startX));
+    if (e.clientX !== d.startX) d.moved = true;
     if (done) end();
+    // Sans mouvement, la largeur par défaut (`null`) reste par défaut.
+    if (!d.moved) return;
+    d.last = resized(d.start, d.sign * (e.clientX - d.startX));
     onResize(d.last, done);
   };
 
@@ -69,7 +74,7 @@ export default function ColumnDivider({ side, label, measure, onResize, onReset 
     const d = drag.current;
     if (!d || d.pointer !== e.pointerId) return;
     end();
-    onResize({ pile: d.last.pile, notes: d.last.notes }, true);
+    if (d.moved) onResize({ pile: d.last.pile, notes: d.last.notes }, true);
   };
 
   const end = () => {
