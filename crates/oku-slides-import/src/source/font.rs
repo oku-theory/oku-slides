@@ -45,7 +45,12 @@ pub struct SourceFont {
 }
 
 /// Types MIME que le rendu sait dessiner.
-pub(crate) const DRAWABLE: [&str; 5] = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
+const DRAWABLE: [&str; 5] = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
+
+/// Vrai si le rendu sait dessiner une image de type `mime`.
+pub(crate) fn is_drawable(mime: &str) -> bool {
+    DRAWABLE.contains(&mime)
+}
 
 /// Contenu d'un asset (image) ; la clé de la table est son `asset_id`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -55,4 +60,11 @@ pub struct Asset {
     /// Octets.
     #[serde(rename = "len", serialize_with = "len_of")]
     pub bytes: Vec<u8>,
+}
+
+impl Asset {
+    /// Vrai si le rendu sait dessiner cet asset (png, jpeg, gif, webp, svg).
+    pub(crate) fn is_drawable(&self) -> bool {
+        is_drawable(&self.mime)
+    }
 }

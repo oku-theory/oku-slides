@@ -38,7 +38,7 @@ mod test_support;
 pub use error::{ImportError, ImportErrorKind};
 pub use hifi::{HifiTarget, PackLimits};
 pub use limits::ReadLimits;
-pub use plan::ImportPlan;
+pub use plan::{CheckedPlan, ImportPlan};
 pub use pptx::read_pptx;
 pub use report::ImportReport;
 pub use retrofit::RetrofitTarget;

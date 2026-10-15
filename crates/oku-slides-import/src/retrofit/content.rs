@@ -38,7 +38,7 @@ use super::heading::{is_kicker_text, max_run_size};
 use super::table::table;
 use super::text::{note, plain, rich};
 use crate::report::{Loss, LossKind};
-use crate::source::{self, Asset, DRAWABLE, Fill, Geometry, Item, ItemKind, TextBox};
+use crate::source::{self, Asset, Fill, Geometry, Item, ItemKind, TextBox};
 
 /// Presets dessinés en ellipse.
 const ELLIPSES: [&str; 3] = ["ellipse", "flowChartConnector", "donut"];
@@ -176,7 +176,7 @@ pub(crate) fn image(
     losses: &mut Vec<Loss>,
 ) -> Option<Element> {
     let a = cx.assets.get(asset)?;
-    if !DRAWABLE.contains(&a.mime.as_str()) {
+    if !a.is_drawable() {
         lose(losses, item, LossKind::UnsupportedImage(a.mime.clone()));
         return None;
     }

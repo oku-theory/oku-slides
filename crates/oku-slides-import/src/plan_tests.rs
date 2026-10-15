@@ -123,7 +123,7 @@ fn check_budget_output_one_byte_over_is_too_large(#[case] part: &str) {
 fn check_budget_parts_sum_together_is_too_large() {
     let (mut plan, size) = plan_with("assets");
     plan.fonts.insert("a.ttf".into(), vec![0; 12]);
-    assert_that!(plan.check_budget(&limits(size + 12))).is_ok();
+    assert_that!(plan.clone().check_budget(&limits(size + 12))).is_ok();
     assert_that!(plan.check_budget(&limits(size + 11)).map_err(|e| e.kind()))
         .is_equal_to(Err(ImportErrorKind::TooLarge));
 }
@@ -149,6 +149,25 @@ fn check_budget_ops_one_byte_over_the_replica_limit_is_too_large() {
 fn check_budget_assets_do_not_count_against_the_replica() {
     let (plan, _) = plan_with("assets");
     assert_that!(plan.check_budget(&replica(2))).is_ok();
+}
+
+#[test]
+fn checked_plan_reads_as_its_plan_and_gives_up_its_ops() {
+    let (plan, size) = plan_with("ops");
+    let ops = plan.ops.clone();
+    let mut checked = plan.check_budget(&limits(size)).unwrap();
+    assert_that!(checked.take_ops()).is_equal_to(ops);
+    assert_that!(checked.ops.is_empty()).is_true();
+}
+
+#[test]
+fn checked_plan_gives_up_its_generated_theme_pack_and_fonts() {
+    let (mut plan, _) = plan_with("pack");
+    plan.fonts.insert("a.ttf".into(), vec![0; 3]);
+    let mut checked = plan.check_budget(&ReadLimits::default()).unwrap();
+    let taken = (checked.take_theme().is_some(), checked.take_pack().is_some(), checked.take_fonts().len());
+    assert_that!(taken).is_equal_to((false, true, 1));
+    assert_that!((checked.pack.is_none(), checked.fonts.is_empty())).is_equal_to((true, true));
 }
 
 #[test]

@@ -18,7 +18,7 @@ use crate::pptx::svg::sanitize;
 use crate::pptx::text::{LevelProps, RunProps};
 use crate::pptx::theme::ThemeData;
 use crate::pptx::xml::parse;
-use crate::source::{DRAWABLE, WarningKind};
+use crate::source::{WarningKind, is_drawable};
 
 const LINK_SCHEMES: [&str; 3] = ["http://", "https://", "mailto:"];
 const MAX_LINK_CHARS: usize = 2048;
@@ -194,7 +194,7 @@ impl<'p> PartCtx<'p> {
             }
             clean.bytes
         } else {
-            if !DRAWABLE.contains(&mime) {
+            if !is_drawable(mime) {
                 self.warn(None, WarningKind::UnsupportedImage(clip(&target)));
             }
             bytes

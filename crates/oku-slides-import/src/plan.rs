@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 use std::io;
+use std::ops::Deref;
 
 use oku_slides_core::{Op, PackFiles, WidgetSchema};
 use oku_slides_i18n::Localizer;
@@ -101,8 +102,15 @@ impl ImportPlan {
     /// Loro, tiennent aussi dans [`ReadLimits::max_replica_bytes`].
     ///
     /// Les projecteurs sont infaillibles : l'appelant vérifie le plan qu'ils rendent,
-    /// avant de l'appliquer. Un dépassement est fatal, de nature `TooLarge`.
-    pub fn check_budget(&self, limits: &ReadLimits) -> Result<(), ImportError> {
+    /// avant de l'appliquer, et n'applique ou n'écrit que le [`CheckedPlan`] rendu. Un
+    /// dépassement est fatal, de nature `TooLarge`.
+    pub fn check_budget(self, limits: &ReadLimits) -> Result<CheckedPlan, ImportError> {
+        self.fits(limits)?;
+        Ok(CheckedPlan(self))
+    }
+
+    /// Vérifie les budgets de [`Self::check_budget`].
+    fn fits(&self, limits: &ReadLimits) -> Result<(), ImportError> {
         let mut ops = Budget { left: limits.max_replica_bytes };
         if !ops.take_json(&self.ops) {
             return Err(output_too_large(limits.max_replica_bytes));
@@ -118,6 +126,48 @@ impl ImportPlan {
                 .chain(&self.pack)
                 .all(|f| budget.take_json(f.manifest()) && f.widgets().values().all(|w| budget.take(w.len())));
         if fits { Ok(()) } else { Err(output_too_large(limits.max_output_bytes)) }
+    }
+}
+
+/// Un plan dont la sortie tient dans les budgets : seul [`ImportPlan::check_budget`] en rend un.
+///
+/// Il se lit comme un [`ImportPlan`] ; on peut en retirer les ops, le thème, le pack et les
+/// polices, ou annoter le rapport, jamais y ajouter : il reste dans les budgets vérifiés.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CheckedPlan(ImportPlan);
+
+impl Deref for CheckedPlan {
+    type Target = ImportPlan;
+
+    fn deref(&self) -> &ImportPlan {
+        &self.0
+    }
+}
+
+impl CheckedPlan {
+    /// Retire les opérations, à appliquer dans l'ordre en une transaction.
+    pub fn take_ops(&mut self) -> Vec<Op> {
+        std::mem::take(&mut self.0.ops)
+    }
+
+    /// Retire le thème généré (hi-fi).
+    pub fn take_theme(&mut self) -> Option<PackFiles> {
+        self.0.theme.take()
+    }
+
+    /// Retire le pack généré (hi-fi).
+    pub fn take_pack(&mut self) -> Option<PackFiles> {
+        self.0.pack.take()
+    }
+
+    /// Retire les polices à embarquer (hi-fi).
+    pub fn take_fonts(&mut self) -> BTreeMap<String, Vec<u8>> {
+        std::mem::take(&mut self.0.fonts)
+    }
+
+    /// Le rapport, à compléter après le rendu (débordements, écart à la référence).
+    pub fn report_mut(&mut self) -> &mut ImportReport {
+        &mut self.0.report
     }
 }
 

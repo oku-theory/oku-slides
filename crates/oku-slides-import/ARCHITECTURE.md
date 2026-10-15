@@ -13,7 +13,7 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
   theme and pack; `hifi::sought_fonts`, the families it looks for; `hifi::source_rect`, the page.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report; in hi-fi also the generated
   theme and pack (`PackFiles`), declared schemas and fonts; `report_json` is the `--report` form;
-  `check_budget` (approximate early bound on output and ops size) is fatal `TooLarge` before apply.
+  `check_budget` (early bound on output size, fatal `TooLarge`) gives the `CheckedPlan` to apply.
 - `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`, `ReferenceReport`, slide
   `score`; `coverage::coverage` measures what of the source survives in the resulting deck.
 - `metrics` : a hi-fi slide's gap to the reference and its worst regions (pure; the CLI renders).

@@ -32,7 +32,7 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_import::report::ReferenceReport;
 use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
 use oku_slides_import::source::SourceDeck;
-use oku_slides_import::{ImportPlan, ImportReport, ReadLimits, RetrofitTarget, read_pptx};
+use oku_slides_import::{CheckedPlan, ImportReport, ReadLimits, RetrofitTarget, read_pptx};
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_platform::storage::StorageErrorKind;
@@ -95,11 +95,11 @@ pub(crate) struct Input {
 }
 
 /// Un import prêt à s'appliquer : les sources (packs et thèmes embarqués),
-/// les widgets sondés de leur pack et le plan.
+/// les widgets sondés de leur pack et le plan, dont la sortie tient dans les budgets.
 pub(crate) struct Prepared {
     pub(crate) bundle: SourceBundle,
     pub(crate) widgets: DeckWidgets,
-    pub(crate) plan: ImportPlan,
+    pub(crate) plan: CheckedPlan,
 }
 
 /// Les jetons effectifs du thème de `bundle` : les défauts, puis ceux du thème.
@@ -199,8 +199,8 @@ fn prepare_retrofit(
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
     };
-    let plan = retrofit::project(&input.source, &target);
-    plan.check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
+    let plan =
+        retrofit::project(&input.source, &target).check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
     Ok(Prepared { bundle, widgets, plan })
 }
 
@@ -222,7 +222,7 @@ fn finish(
         bundle.add_asset(asset.bytes.clone());
     }
     let mut deck = bundle.deck().clone();
-    apply_all(&mut deck, std::mem::take(&mut plan.ops), &widgets.registry).map_err(|e| eyre!(e.localize(l)))?;
+    apply_all(&mut deck, plan.take_ops(), &widgets.registry).map_err(|e| eyre!(e.localize(l)))?;
     bundle.apply(deck, &l.tr("cli-import-label"), None).map_err(|e| eyre!(e.localize(l)))?;
     crate::report_issues(l, bundle.deck(), &widgets.registry, &bundle.assets);
     let target = args.output.display().to_string();
@@ -231,7 +231,7 @@ fn finish(
     let doc =
         pack_render::render(platform, l, fonts.clone(), &widgets, &bundle, bundle.deck()).wrap_err_with(failed)?;
     let written = crate::write_rendered(platform, &doc, &bundle, &args.output).wrap_err_with(failed)?;
-    note_overflows(doc.layout(), &mut plan.report);
+    note_overflows(doc.layout(), plan.report_mut());
     if args.mode == ImportMode::Hifi && args.reference != Some(ReferenceMode::None) {
         // Un processus de rendu à lui : le témoin n'ajoute pas sa mémoire à celle du rendu Oku.
         let settings = RenderSettings {
@@ -242,7 +242,7 @@ fn finish(
         let threshold = platform.settings.import.score_threshold;
         let scoring =
             Scoring { pptx: &input.bytes, source: &input.source, fonts: &fonts, worker: &worker, threshold, l };
-        import_reference::score(&scoring, &doc, &mut plan.report);
+        import_reference::score(&scoring, &doc, plan.report_mut());
     }
     if let Some(path) = &args.report {
         platform.storage.write(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;

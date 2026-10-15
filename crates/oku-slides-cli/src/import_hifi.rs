@@ -63,12 +63,12 @@ pub(crate) fn prepare(
         created: now_created(),
         limits: pack_limits(&platform.settings.render),
     };
-    let mut plan = hifi::project(&input.source, &target);
-    plan.check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
+    let mut plan =
+        hifi::project(&input.source, &target).check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
     // Sans pack ni thème, le projecteur n'a pu sérialiser leurs manifestes : un bogue, comme un écart de sonde.
     let mismatch = |widget: &str| eyre!(l.tr_with("cli-import-probe-mismatch", &[("widget", widget.into())]));
-    let pack = plan.pack.take().ok_or_else(|| mismatch("pack.json"))?;
-    let theme = plan.theme.take().ok_or_else(|| mismatch("theme.json"))?;
+    let pack = plan.take_pack().ok_or_else(|| mismatch("pack.json"))?;
+    let theme = plan.take_theme().ok_or_else(|| mismatch("theme.json"))?;
 
     let version = pack.version();
     let sizes: BTreeMap<WidgetFile, usize> = pack.widgets().iter().map(|(n, s)| (n.clone(), s.len())).collect();
@@ -84,7 +84,7 @@ pub(crate) fn prepare(
         }
     })?;
     bundle.add_theme(theme);
-    bundle.fonts.extend(std::mem::take(&mut plan.fonts));
+    bundle.fonts.extend(plan.take_fonts());
     Ok(Prepared { bundle, widgets, plan })
 }
 

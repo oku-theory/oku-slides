@@ -22,7 +22,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Resolve PPTX text style inheritance only in the single cascade function, never ad hoc elsewhere. (spec:2026-10-09-import-pptx-design)
 - Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN; read and parse each theme part once, shared by all masters that cite it. (t-755)
 - Type every asset from its bytes with media::sniff and pass every SVG through svg::sanitize at read time. (t-752)
-- Call ImportPlan::check_budget on every projected plan before applying or writing it. (t-753)
+- Apply or write only a CheckedPlan, which only ImportPlan::check_budget returns. (t-753, t-892)
 
 ## Pitfalls
 

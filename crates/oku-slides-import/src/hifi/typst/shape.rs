@@ -8,7 +8,6 @@ use oku_slides_core::PathCommand;
 use super::{Gen, Placement, Typst, load, num, pt, string};
 use crate::hifi::geometry::{Outline, outline};
 use crate::report::{Loss, LossKind};
-use crate::source::DRAWABLE;
 use crate::source::{Dash, Fill, Geometry, Shape, Stroke};
 
 /// Zone de texte d'une forme sans contour calculé : son cadre entier.
@@ -104,7 +103,7 @@ impl Gen<'_> {
             }
             Fill::Picture { asset } => {
                 let Some(a) = self.ctx.assets.get(asset) else { return "none".to_owned() };
-                if !DRAWABLE.contains(&a.mime.as_str()) {
+                if !a.is_drawable() {
                     self.losses.push(Loss::on(id, LossKind::UnsupportedImage(a.mime.clone())));
                     return "none".to_owned();
                 }

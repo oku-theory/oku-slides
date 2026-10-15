@@ -41,7 +41,6 @@ use crate::report::{Loss, LossKind, ShapeEffect};
 use crate::retrofit::chart::chart;
 use crate::retrofit::table::table;
 use crate::retrofit::text::note;
-use crate::source::DRAWABLE;
 use crate::source::{
     self, ChartKind, Crop, Dash, Fill, Geometry, Insets, Item, ItemKind, Rgba, Shape, Stroke, Warning, WarningKind,
 };
@@ -229,7 +228,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
     /// l'a dit), perte s'il ne se dessine pas.
     fn image(&mut self, item: &Item, asset: &str, frame: Frame) {
         let Some(a) = self.ctx.base.assets.get(asset) else { return };
-        if !DRAWABLE.contains(&a.mime.as_str()) {
+        if !a.is_drawable() {
             self.lose(item, LossKind::UnsupportedImage(a.mime.clone()));
             return;
         }
