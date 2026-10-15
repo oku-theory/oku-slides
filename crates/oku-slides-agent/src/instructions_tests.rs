@@ -31,16 +31,18 @@ fn interface_and_deck_sentences() -> (&'static str, &'static str) {
     (interface, &deck[..end])
 }
 
-const USER_FACING: [&str; 5] = [
+const USER_FACING: [&str; 6] = [
     "progress notes",
+    "label: and item-label: of widget descriptors",
     "report",
     "questions of ask_choice",
     "title and labels of show_params",
     "labels of show_variants",
 ];
 
-const DECK_CONTENT: [&str; 5] = [
+const DECK_CONTENT: [&str; 6] = [
     "set_param values",
+    "set_widget_trial values",
     "the rewordings of ask_rewrite",
     "ask_choice options that are candidate deck text",
     "the values a show_params field writes",
@@ -81,6 +83,21 @@ fn languages_rule_prefers_the_declared_deck_language_then_infers_it_then_follows
             .into();
     assert_that!(order.iter().all(Option::is_some)).is_true();
     assert_that!(order.windows(2).all(|w| w[0] < w[1])).is_true();
+}
+
+#[test]
+fn languages_rule_switches_only_when_the_user_writes_in_another_language() {
+    let (interface, _) = interface_and_deck_sentences();
+    assert_that!(interface).contains("if the user writes to you in another language");
+    assert_that!(interface).contains("pasted or dictated text");
+}
+
+#[test]
+fn languages_rule_asks_when_the_slides_contradict_the_declared_language() {
+    let rule = languages();
+    let declared = rule.find("is the declared one").unwrap_or(usize::MAX);
+    let ask = rule.find("ask with ask_confirm which language to write in").unwrap_or(0);
+    assert_that!(ask).is_greater_than(declared);
 }
 
 #[test]
