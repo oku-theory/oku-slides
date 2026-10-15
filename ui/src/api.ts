@@ -3,6 +3,7 @@
 // serveur de développement ailleurs. Les types décrivent le JSON de l'hôte.
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
+import type { DataOp } from "./chart/chartTypes";
 import type { Cell, ZoneView } from "./grid";
 import { locale, t } from "./i18n";
 import type { View } from "./table/ShowAsButton";
@@ -501,7 +502,41 @@ export const stt = {
   download: (model: SttModel) => sttCall({ cmd: "download", model }),
 };
 
-export type Op = { op: string } & Record<string, unknown>;
+/** Style d'un élément (`Style` du cœur) : propriétés posées par `set_style`, remplacées par `replace_style`. */
+export type ElementStyle = Record<string, unknown>;
+
+/**
+ * Une opération sur le deck : miroir de l'enum Rust `Op` (`oku-slides-core`, `ops/mod.rs`),
+ * étiquetée par `op`. Une variante ajoutée côté Rust s'ajoute ici.
+ */
+export type Op =
+  | { op: "set_param"; target: Target; param: string; value: unknown }
+  | { op: "set_deck_param"; key: string; value: unknown }
+  | { op: "set_kind"; target: Target; kind: string }
+  | { op: "set_style"; slide: string; element: string; style: ElementStyle }
+  | { op: "replace_style"; slide: string; element: string; style: ElementStyle }
+  | { op: "set_frame"; slide: string; element: string; frame: Frame | null }
+  | { op: "set_cell"; slide: string; element: string; cell: Cell | null }
+  | { op: "set_grid"; slide: string; columns?: number; rows?: number }
+  | { op: "replace_element"; slide: string; element: Element }
+  | { op: "set_chart_option"; target: Target; param: string; patch: unknown }
+  | { op: "set_table_option"; target: Target; param: string; patch: unknown }
+  | { op: "set_data"; target: Target; param: string; change: DataOp }
+  | { op: "edit_list"; target: Target; param: string; change: ListOp }
+  | { op: "add_element"; slot: SlotRef; index?: number; defaults?: boolean; element: Element }
+  | { op: "remove_element"; slide: string; element: string }
+  | { op: "move_element"; slide: string; element: string; to: SlotRef; index?: number }
+  | { op: "set_slide_field"; slide: string; field: "name" | "description"; value: unknown }
+  | { op: "add_slide"; index?: number; defaults?: boolean; slide: Slide }
+  | { op: "remove_slide"; slide: string }
+  | { op: "move_slide"; slide: string; index: number }
+  | { op: "set_notes"; slide: string; notes: string }
+  | { op: "set_theme"; theme: ThemeRef | null }
+  | { op: "set_templates"; templates: PackRef | null }
+  | { op: "set_token"; path: string[]; value: unknown }
+  | { op: "unset_token"; path: string[] }
+  | { op: "set_tokens"; tokens: unknown }
+  | { op: "set_var"; key: string; value: unknown };
 
 /** Changement d'une liste (`edit_list` du cœur) : insertion, retrait, déplacement, champ d'un item. */
 export type ListOp =

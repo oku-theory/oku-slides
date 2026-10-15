@@ -848,3 +848,7 @@ pub fn apply_all_moving(
 pub fn ops_schema() -> serde_json::Result<Value> {
     serde_json::to_value(schemars::schema_for!(Vec<Op>))
 }
+
+#[cfg(test)]
+#[path = "schema_tests.rs"]
+mod schema_tests;
