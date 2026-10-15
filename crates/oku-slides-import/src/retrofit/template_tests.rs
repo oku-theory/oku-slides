@@ -163,6 +163,7 @@ fn ground(id: &str, frame: (f64, f64, f64, f64)) -> Item {
         fill: Fill::Solid { color: Styled::explicit(Rgba::new(255, 255, 255)) },
         stroke: None,
         text: None,
+        connection: None,
     };
     item(id, frame, ItemKind::Shape(Box::new(s)))
 }

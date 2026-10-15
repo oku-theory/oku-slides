@@ -6,7 +6,7 @@ use crate::pptx::bounds::{GRADIENT_POS, attr_in};
 use crate::pptx::color::{ColorCtx, ColorSpec, color_spec_in};
 use crate::pptx::units::{angle, emu, pct};
 use crate::pptx::xml::{attr_i64, attr_r, attr_str, child, children, elements};
-use crate::source::{Dash, Fill, GradientStop, Stroke};
+use crate::source::{Arrow, ArrowKind, ArrowSize, Dash, Fill, GradientStop, Stroke};
 
 /// Arrêts gardés par dégradé.
 pub(crate) const MAX_GRADIENT_STOPS: usize = 64;
@@ -104,6 +104,9 @@ pub(crate) struct LineSpec {
     /// `Some(None)` : `noFill`.
     pub color: Option<Option<ColorSpec>>,
     pub dash: Option<Dash>,
+    /// Pointes de début et de fin ; `Some(None)` : `type="none"` explicite.
+    pub head: Option<Option<Arrow>>,
+    pub tail: Option<Option<Arrow>>,
 }
 
 impl LineSpec {
@@ -113,6 +116,8 @@ impl LineSpec {
             width: self.width.or(base.width),
             color: self.color.or_else(|| base.color.clone()),
             dash: self.dash.or(base.dash),
+            head: self.head.or(base.head),
+            tail: self.tail.or(base.tail),
         }
     }
 
@@ -125,7 +130,13 @@ impl LineSpec {
     /// Le trait final dans `ctx` ; `None` s'il n'est pas peint.
     pub(crate) fn finish(&self, ctx: &ColorCtx) -> Option<Stroke> {
         let color = self.color.clone().flatten()?.resolve(ctx)?;
-        Some(Stroke { width: self.width.unwrap_or(DEFAULT_LINE_PT), color, dash: self.dash.unwrap_or(Dash::Solid) })
+        Some(Stroke {
+            width: self.width.unwrap_or(DEFAULT_LINE_PT),
+            color,
+            dash: self.dash.unwrap_or(Dash::Solid),
+            head: self.head.flatten(),
+            tail: self.tail.flatten(),
+        })
     }
 }
 
@@ -144,7 +155,26 @@ pub(crate) fn parse_line(ln: Node<'_, '_>) -> LineSpec {
         "lgDash" => Dash::LongDash,
         _ => Dash::Solid,
     });
-    LineSpec { width: attr_i64(ln, "w").map(emu).filter(|w| *w >= 0.0 && *w <= 1e4), color, dash }
+    let width = attr_i64(ln, "w").map(emu).filter(|w| *w >= 0.0 && *w <= 1e4);
+    LineSpec { width, color, dash, head: child(ln, "headEnd").map(arrow), tail: child(ln, "tailEnd").map(arrow) }
+}
+
+/// Pointe d'un `headEnd` ou `tailEnd` ; `None` pour `type="none"`, absent ou inconnu.
+fn arrow(end: Node<'_, '_>) -> Option<Arrow> {
+    let kind = match attr_str(end, "type")? {
+        "triangle" => ArrowKind::Triangle,
+        "stealth" => ArrowKind::Stealth,
+        "diamond" => ArrowKind::Diamond,
+        "oval" => ArrowKind::Oval,
+        "arrow" => ArrowKind::Open,
+        _ => return None,
+    };
+    let size = |name: &str| match attr_str(end, name) {
+        Some("sm") => ArrowSize::Small,
+        Some("lg") => ArrowSize::Large,
+        _ => ArrowSize::Medium,
+    };
+    Some(Arrow { kind, width: size("w"), length: size("len") })
 }
 
 #[cfg(test)]

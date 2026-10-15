@@ -18,7 +18,13 @@ fn text_item() -> Item {
 
 #[test]
 fn item_text_is_the_box_of_a_text_or_a_shape_only() {
-    let shape = |text| Shape { geom: Geometry::Path { paths: Vec::new() }, fill: Fill::None, stroke: None, text };
+    let shape = |text| Shape {
+        geom: Geometry::Path { paths: Vec::new() },
+        fill: Fill::None,
+        stroke: None,
+        text,
+        connection: None,
+    };
     let mut item = text_item();
     assert_that!(item.text()).is_equal_to(Some(&TextBox::default()));
     item.kind = ItemKind::Shape(Box::new(shape(Some(TextBox::default()))));

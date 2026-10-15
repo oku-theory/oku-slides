@@ -76,6 +76,7 @@ import-loss-shape-style = { $effect ->
     [gradient] 그라데이션이 단색으로 표시되었습니다
     [picture] 채우기 그림이 도형의 틀에 맞게 늘어났습니다
     [dash] 파선이 실선으로 표시되었습니다
+    [arrow] 선의 화살촉이 그려지지 않음
    *[geometry] 알 수 없는 도형이 사각형으로 표시되었습니다
 }
 import-loss-layout-dropped = 한 팩에 레이아웃이 너무 많습니다: “{ $layout }”에는 템플릿이 없어 해당 슬라이드는 빈 위젯을 쓰고 장식을 요소로 받습니다

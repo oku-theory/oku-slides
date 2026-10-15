@@ -54,6 +54,7 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
 #[case(LossKind::ShapeStyle(ShapeEffect::Picture))]
 #[case(LossKind::ShapeStyle(ShapeEffect::Dash))]
 #[case(LossKind::ShapeStyle(ShapeEffect::Geometry))]
+#[case(LossKind::ShapeStyle(ShapeEffect::Arrow))]
 #[case(LossKind::LayoutDropped { layout: "Titre".into() })]
 #[case(LossKind::DecorTruncated { omitted: 12 })]
 #[case(LossKind::TableStyle)]
@@ -89,6 +90,7 @@ fn loss_localize_run_style_in_french_names_the_effect() {
 #[case(LossKind::ShapeStyle(ShapeEffect::Gradient), "Dégradé rendu en couleur unie")]
 #[case(LossKind::ShapeStyle(ShapeEffect::Dash), "Trait en tirets rendu continu")]
 #[case(LossKind::ShapeStyle(ShapeEffect::Geometry), "Forme inconnue rendue en rectangle")]
+#[case(LossKind::ShapeStyle(ShapeEffect::Arrow), "Pointes de flèche du trait non dessinées")]
 fn loss_localize_hifi_effects_in_french_name_the_effect(#[case] kind: LossKind, #[case] expected: &str) {
     let msg = Loss::slide(kind).localize(&Localizer::new(Some("fr")));
     assert_that!(msg).is_equal_to(expected.to_owned());

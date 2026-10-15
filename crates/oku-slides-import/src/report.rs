@@ -81,6 +81,8 @@ pub enum ShapeEffect {
     Dash,
     /// Géométrie inconnue rendue en rectangle.
     Geometry,
+    /// Pointes de flèche d'un trait non dessinées.
+    Arrow,
 }
 
 /// Nature d'une perte.
@@ -209,6 +211,7 @@ fn shape_effect_name(e: ShapeEffect) -> &'static str {
         ShapeEffect::Picture => "picture",
         ShapeEffect::Dash => "dash",
         ShapeEffect::Geometry => "geometry",
+        ShapeEffect::Arrow => "arrow",
     }
 }
 

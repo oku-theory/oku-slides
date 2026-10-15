@@ -65,6 +65,27 @@ pub struct Shape {
     pub stroke: Option<Stroke>,
     /// Texte, s'il n'est pas vide.
     pub text: Option<TextBox>,
+    /// Formes qu'un connecteur relie (`stCxn`, `endCxn`), s'il en relie une.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection: Option<Connection>,
+}
+
+/// Point de connexion d'une forme : l'item et l'indice de son site (`idx`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Site {
+    /// Id de l'item relié, dans la même part (`<owner>/<cNvPr id>`, sans suffixe d'unicité).
+    pub item: String,
+    /// Indice du site de connexion de sa géométrie.
+    pub idx: u32,
+}
+
+/// Extrémités reliées d'un connecteur ; une extrémité libre est `None`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Connection {
+    /// Début du tracé (`stCxn`).
+    pub start: Option<Site>,
+    /// Fin du tracé (`endCxn`).
+    pub end: Option<Site>,
 }
 
 /// Rognage d'une image, en fraction de chaque bord (`l + r < 1`, `t + b < 1`).

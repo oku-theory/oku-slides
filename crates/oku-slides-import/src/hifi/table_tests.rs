@@ -31,7 +31,13 @@ fn solid(c: Color) -> Fill {
 }
 
 fn white_rule() -> Option<Stroke> {
-    Some(Stroke { width: 1.0, color: Styled::explicit(Rgba::new(255, 255, 255)), dash: Dash::Solid })
+    Some(Stroke {
+        width: 1.0,
+        color: Styled::explicit(Rgba::new(255, 255, 255)),
+        dash: Dash::Solid,
+        head: None,
+        tail: None,
+    })
 }
 
 /// Le tableau de LibreOffice : en-tête accent1 en texte clair, lignes en

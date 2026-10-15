@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use oku_slides_core::PathCommand;
 
 use super::{Gen, Placement, Typst, load, num, pt, string};
+use crate::hifi::geometry::arrow::heads;
 use crate::hifi::geometry::{Outline, outline};
 use crate::report::{Loss, LossKind};
 use crate::source::{Dash, Fill, Geometry, Shape, Stroke};
@@ -46,11 +47,17 @@ impl Gen<'_> {
                 let (x0, x1) = if at.flip_h { (w.clone(), pt(0.0)) } else { (pt(0.0), w.clone()) };
                 let (y0, y1) = if at.flip_v { (h.clone(), pt(0.0)) } else { (pt(0.0), h.clone()) };
                 let body = format!("line(start: ({x0}, {y0}), end: ({x1}, {y1}), stroke: {stroke}),");
+                let (fx, fy) = (if at.flip_h { 1.0 } else { 0.0 }, if at.flip_v { 1.0 } else { 0.0 });
                 let at = Placement { flip_h: false, flip_v: false, ..*at };
                 at.emit(&mut self.w, |t| t.line(&body));
+                let diagonal = [PathCommand::Move(fx, fy), PathCommand::Line(1.0 - fx, 1.0 - fy)];
+                self.arrows(&at, &diagonal, s.stroke.as_ref());
             }
             geom => match outline(geom, f.w, f.h) {
-                Some(o) => self.curves(at, &o, &fill, &stroke),
+                Some(o) => {
+                    self.curves(at, &o, &fill, &stroke);
+                    self.arrows(at, &o.stroked, s.stroke.as_ref());
+                }
                 // Preset inconnu (fichier altéré) : son cadre, plutôt que rien.
                 None => {
                     let body = format!("rect(width: {w}, height: {h}, fill: {fill}, stroke: {stroke}),");
@@ -73,6 +80,22 @@ impl Gen<'_> {
         }
         if !o.stroked.is_empty() && stroke != "none" {
             at.emit(&mut self.w, |t| curve(t, &o.stroked, w, h, "none", stroke));
+        }
+    }
+
+    /// Les pointes de `stroke` au bout du tracé `cmds` (fractions du cadre de
+    /// `at`) : des `curve` pleins de la couleur du trait, ou tracés pour une flèche ouverte.
+    fn arrows(&mut self, at: &Placement, cmds: &[PathCommand], stroke: Option<&Stroke>) {
+        let Some(s) = stroke else { return };
+        let width = self.ctx.page.len(s.width);
+        let color = self.color(&s.color);
+        for head in heads(cmds, at.frame.w, at.frame.h, width, s) {
+            let (fill, pen) = if head.filled {
+                (color.clone(), "none".to_owned())
+            } else {
+                ("none".to_owned(), format!("(paint: {color}, thickness: {})", pt(width)))
+            };
+            at.emit(&mut self.w, |t| curve(t, &head.cmds, 1.0, 1.0, &fill, &pen));
         }
     }
 

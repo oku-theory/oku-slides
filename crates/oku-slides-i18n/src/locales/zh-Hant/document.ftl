@@ -76,6 +76,7 @@ import-loss-shape-style = { $effect ->
     [gradient] 漸層已顯示為單色
     [picture] 填滿圖片已延展至圖案的外框
     [dash] 虛線已顯示為實線
+    [arrow] 未繪製線條箭頭
    *[geometry] 未知圖案已顯示為矩形
 }
 import-loss-layout-dropped = 一個套件中的版面配置過多：「{ $layout }」沒有範本，其投影片使用空白元件，並以元素形式取得其裝飾

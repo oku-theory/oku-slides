@@ -8,8 +8,8 @@ use super::*;
 use crate::fonts::{FontPlan, resolve};
 use crate::hifi::theme::{theme_colors, theme_master};
 use crate::source::{
-    Dash, Fill, Geometry, GradientStop, Opaque, PathCmd, Picture, Rgba, Shape, SourceDeck, Stroke, Styled, SubPath,
-    TextBox,
+    Arrow, ArrowKind, ArrowSize, Dash, Fill, Geometry, GradientStop, Opaque, PathCmd, Picture, Rgba, Shape, SourceDeck,
+    Stroke, Styled, SubPath, TextBox,
 };
 use crate::test_support::{app_fonts, fixture, item, office_theme, para, run, text_box};
 
@@ -71,11 +71,15 @@ fn preset(name: &str, adj: &[(&str, f64)]) -> Geometry {
 }
 
 fn shape(id: &str, geom: Geometry, fill: Fill, stroke: Option<Stroke>) -> Item {
-    item(id, (10.0, 20.0, 100.0, 50.0), ItemKind::Shape(Box::new(Shape { geom, fill, stroke, text: None })))
+    item(
+        id,
+        (10.0, 20.0, 100.0, 50.0),
+        ItemKind::Shape(Box::new(Shape { geom, fill, stroke, text: None, connection: None })),
+    )
 }
 
 fn stroke(width: f64, dash: Dash) -> Stroke {
-    Stroke { width, color: Styled::explicit(Rgba::new(0x12, 0x34, 0x56)), dash }
+    Stroke { width, color: Styled::explicit(Rgba::new(0x12, 0x34, 0x56)), dash, head: None, tail: None }
 }
 
 #[rstest]
@@ -156,6 +160,30 @@ fn decor_draws_a_line_on_its_mirrored_diagonal(#[case] flip_h: bool, #[case] fli
     let code = Fixture::new().decor(&[line]).code;
     assert_that!(code).contains(ends);
     assert_that!(code).does_not_contain("scale(");
+}
+
+/// Le trait de [`stroke`] (1 pt, continu) avec des pointes moyennes `head` et `tail`.
+fn arrowed(head: Option<ArrowKind>, tail: Option<ArrowKind>) -> Stroke {
+    let arrow = |kind| Arrow { kind, width: ArrowSize::Medium, length: ArrowSize::Medium };
+    Stroke { head: head.map(arrow), tail: tail.map(arrow), ..stroke(1.0, Dash::Solid) }
+}
+
+#[test]
+fn decor_line_with_a_tail_triangle_draws_it_filled_at_the_end() {
+    let line = shape("l", preset("line", &[]), Fill::None, Some(arrowed(None, Some(ArrowKind::Triangle))));
+    let code = Fixture::new().decor(&[line]).code;
+    assert_that!(code).contains("curve(fill: color-of(t, \"#123456\"), stroke: none,");
+    assert_that!(code).contains("curve.move((200pt, 100pt)),");
+    assert_that!(code).contains("curve.close(mode: \"straight\"),");
+}
+
+#[test]
+fn decor_bent_connector_with_an_open_head_strokes_it_at_the_start() {
+    let bent = shape("c", preset("bentConnector3", &[]), Fill::None, Some(arrowed(Some(ArrowKind::Open), None)));
+    let code = Fixture::new().decor(&[bent]).code;
+    // Le coude part vers la droite : la flèche ouverte, tracée, regarde vers la gauche depuis (0, 0).
+    assert_that!(code).contains("curve(fill: none, stroke: (paint: color-of(t, \"#123456\"), thickness: 2pt),");
+    assert_that!(code).contains("curve.line((0pt, 0pt)),");
 }
 
 #[test]

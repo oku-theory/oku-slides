@@ -29,8 +29,8 @@ pub use chart::{Chart, ChartKind, Grouping, Series};
 pub use font::{Asset, FaceStyle, FontFace, SourceFont};
 pub(crate) use font::{family_weight, is_drawable};
 pub use lang::{Script, lang_tag};
-pub use shape::{Crop, Geometry, PathCmd, Picture, Shape, SubPath};
-pub use style::{Color, ColorMod, Dash, Fill, GradientStop, Origin, Rgba, Stroke, Styled};
+pub use shape::{Connection, Crop, Geometry, PathCmd, Picture, Shape, Site, SubPath};
+pub use style::{Arrow, ArrowKind, ArrowSize, Color, ColorMod, Dash, Fill, GradientStop, Origin, Rgba, Stroke, Styled};
 pub use table::{Borders, Cell, Table, TableFlags};
 pub(crate) use text::SLIDE_NUMBER;
 pub use text::{

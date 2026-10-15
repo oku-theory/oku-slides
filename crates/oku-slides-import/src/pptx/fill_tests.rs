@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::pptx::color::{ColorBase, ColorCtx, default_map};
 use crate::pptx::xml::parse;
-use crate::source::{Dash, Fill, Origin, Rgba, Styled};
+use crate::source::{Arrow, ArrowKind, ArrowSize, Dash, Fill, Origin, Rgba, Styled};
 
 fn ctx() -> ColorCtx {
     ColorCtx::new(
@@ -117,14 +117,14 @@ fn pattern_and_path_gradient_are_reported_as_approximations() {
 
 #[test]
 fn line_over_base_keeps_base_color_when_absent() {
-    let base = LineSpec { width: None, color: Some(Some(explicit(1, 2, 3))), dash: None };
+    let base = LineSpec { width: None, color: Some(Some(explicit(1, 2, 3))), dash: None, ..LineSpec::default() };
     let s = line_of(r#"w="25400"><a:prstDash val="dash"/></a:ln>"#).over(&base).finish(&ctx()).unwrap();
     assert_that!((s.width, s.dash, s.color.value)).is_equal_to((2.0, Dash::Dash, Rgba::new(1, 2, 3)));
 }
 
 #[test]
 fn line_no_fill_over_colored_base_has_no_stroke() {
-    let base = LineSpec { width: Some(1.0), color: Some(Some(explicit(1, 2, 3))), dash: None };
+    let base = LineSpec { width: Some(1.0), color: Some(Some(explicit(1, 2, 3))), dash: None, ..LineSpec::default() };
     assert_that!(line_of(r#"w="12700"><a:noFill/></a:ln>"#).over(&base).finish(&ctx())).is_none();
 }
 
@@ -140,4 +140,28 @@ fn gradient_stop_positions_are_clamped_to_zero_one() {
     );
     let Some(Fill::Gradient { stops, .. }) = f else { panic!("dégradé attendu, trouvé {f:?}") };
     assert_that!(stops.iter().map(|s| s.pos).collect::<Vec<_>>()).is_equal_to(vec![0.0, 1.0]);
+}
+
+#[rstest::rstest]
+#[case(r#"type="triangle""#, Some(Arrow { kind: ArrowKind::Triangle, width: ArrowSize::Medium, length: ArrowSize::Medium }))]
+#[case(r#"type="stealth" w="sm" len="lg""#, Some(Arrow { kind: ArrowKind::Stealth, width: ArrowSize::Small, length: ArrowSize::Large }))]
+#[case(r#"type="arrow""#, Some(Arrow { kind: ArrowKind::Open, width: ArrowSize::Medium, length: ArrowSize::Medium }))]
+#[case(r#"type="diamond""#, Some(Arrow { kind: ArrowKind::Diamond, width: ArrowSize::Medium, length: ArrowSize::Medium }))]
+#[case(r#"type="oval""#, Some(Arrow { kind: ArrowKind::Oval, width: ArrowSize::Medium, length: ArrowSize::Medium }))]
+#[case(r#"type="none""#, None)]
+#[case(r#"type="unknown""#, None)]
+fn parse_line_tail_end_reads_kind_and_size(#[case] attrs: &str, #[case] arrow: Option<Arrow>) {
+    let line = line_of(&format!("><a:tailEnd {attrs}/></a:ln>"));
+    assert_that!(line.tail).is_equal_to(Some(arrow));
+    assert_that!(line.head).is_none();
+}
+
+#[test]
+fn line_ends_explicit_none_overrides_inherited_arrow() {
+    let base = line_of(
+        r#"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:headEnd type="triangle"/><a:tailEnd type="oval"/></a:ln>"#,
+    );
+    let own = line_of(r#"><a:headEnd type="none"/></a:ln>"#);
+    let stroke = own.over(&base).finish(&ctx()).unwrap();
+    assert_that!((stroke.head, stroke.tail.map(|a| a.kind))).is_equal_to((None, Some(ArrowKind::Oval)));
 }

@@ -159,6 +159,7 @@ fn deck_with(colors: &[(&str, f64)]) -> SourceDeck {
                 fill: Fill::Solid { color: Styled::explicit(hex(c)) },
                 stroke: None,
                 text: None,
+                connection: None,
             };
             item(&format!("s1/{k}"), (0.0, 0.0, *area, 1.0), ItemKind::Shape(Box::new(shape)))
         })

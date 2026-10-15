@@ -12,6 +12,7 @@ fn shape(id: &str, frame: (f64, f64, f64, f64), fill: Fill, stroke: Option<Strok
         fill,
         stroke,
         text: None,
+        connection: None,
     };
     item(id, frame, ItemKind::Shape(Box::new(s)))
 }
@@ -34,7 +35,13 @@ fn ids(units: &[Unit<'_>]) -> Vec<Vec<String>> {
 /// Slide 2 d'alto : une carte = un fond blanc, un filet d'accent en haut, un titre, un corps.
 #[test]
 fn units_make_a_card_of_a_filled_shape_and_the_texts_on_it() {
-    let rule = Stroke { width: 2.0, color: Styled::explicit(Rgba::new(0, 0xbe, 0xf4)), dash: source::Dash::Solid };
+    let rule = Stroke {
+        width: 2.0,
+        color: Styled::explicit(Rgba::new(0, 0xbe, 0xf4)),
+        dash: source::Dash::Solid,
+        head: None,
+        tail: None,
+    };
     let items = [
         filled("ground", (64.0, 176.0, 277.0, 284.0)),
         shape("rule", (64.0, 177.0, 277.0, 0.0), Fill::None, Some(rule)),

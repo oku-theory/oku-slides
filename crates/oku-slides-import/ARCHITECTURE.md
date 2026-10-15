@@ -33,7 +33,7 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
   headings, clusters, flow or free placement (`slide`, `zone`), text, tables, charts, `color`.
 - `hifi/` : page fit (`page`), theme tokens and `ThemeManifest` (`theme`, `color`), one slide
   widget per layout (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
-  Typst (`typst/`), shape outlines (`geometry/`, with the embedded ECMA-376
+  Typst (`typst/`), shape outlines and arrowheads (`geometry/`, with the embedded ECMA-376
   `presetShapeDefinitions.xml`), slide items as elements (`slide`, `element`, `table`).
 - `pattern` : retrofit's signature grouping repeated items; `fonts/` : embedded, catalog, substitute, `Missing`.
 - Known limit, t-816 (retrofit): flow content taller than its zone leaves the page (`Overflow`).

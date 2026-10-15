@@ -12,8 +12,8 @@ use crate::hifi::page::Page;
 use crate::hifi::theme::{theme_colors, theme_master};
 use crate::hifi::typst::mod_tests::Fixture;
 use crate::source::{
-    Anchor, Chart, GradientStop, Grouping, Opaque, OpaqueReason, PathCmd, Picture, Role, Series, SourceDeck,
-    SourceTheme, Styled, SubPath, TextBox,
+    Anchor, Arrow, ArrowKind, ArrowSize, Chart, GradientStop, Grouping, Opaque, OpaqueReason, PathCmd, Picture, Role,
+    Series, SourceDeck, SourceTheme, Styled, SubPath, TextBox,
 };
 use crate::test_support::{app_fonts, applied, fixture, item, office_theme, para, run, text_box};
 
@@ -76,12 +76,22 @@ fn preset(name: &str, adj: &[(&str, f64)]) -> Geometry {
 }
 
 fn stroke(dash: Dash) -> Stroke {
-    Stroke { width: 1.0, color: Styled::explicit(Rgba::new(0x12, 0x34, 0x56)), dash }
+    Stroke { width: 1.0, color: Styled::explicit(Rgba::new(0x12, 0x34, 0x56)), dash, head: None, tail: None }
+}
+
+/// Le trait de [`stroke`] avec des pointes moyennes `head` et `tail`.
+fn arrowed(head: Option<ArrowKind>, tail: Option<ArrowKind>) -> Stroke {
+    let arrow = |kind| Arrow { kind, width: ArrowSize::Medium, length: ArrowSize::Medium };
+    Stroke { head: head.map(arrow), tail: tail.map(arrow), ..stroke(Dash::Solid) }
 }
 
 /// Une forme `s1/1` en (10, 20, 100, 50) pt source : (20, 40, 200, 100) pt page.
 fn shape_item(geom: Geometry, fill: Fill, stroke: Option<Stroke>, text: Option<TextBox>) -> Item {
-    item("s1/1", (10.0, 20.0, 100.0, 50.0), ItemKind::Shape(Box::new(Shape { geom, fill, stroke, text })))
+    item(
+        "s1/1",
+        (10.0, 20.0, 100.0, 50.0),
+        ItemKind::Shape(Box::new(Shape { geom, fill, stroke, text, connection: None })),
+    )
 }
 
 fn shape(geom: Geometry, fill: Fill, stroke: Option<Stroke>) -> Item {
@@ -185,6 +195,28 @@ fn image(id: &str, frame: Value) -> Value {
     with_frame(shape(preset("line", &[]), Fill::None, Some(stroke(Dash::Solid))), |f| f.h = 0.0),
     json!([{ "id": "s1-1", "kind": "shape", "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
         "style": pen(json!({})), "params": { "shape": "line" } }]),
+    vec![],
+)]
+#[case::horizontal_line_with_tail_triangle(
+    with_frame(shape(preset("line", &[]), Fill::None, Some(arrowed(None, Some(ArrowKind::Triangle)))), |f| f.h = 0.0),
+    json!([
+        { "id": "s1-1", "kind": "shape", "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
+          "style": pen(json!({})), "params": { "shape": "line" } },
+        { "id": "s1-2", "kind": "shape", "frame": { "x": 214.0, "y": 37.0, "w": 6.0, "h": 6.0 },
+          "style": { "fill": "#123456" }, "params": { "shape": "path", "path": { "d": "M 1 0.5 L 0 1 L 0 0 Z" } } },
+    ]),
+    vec![],
+)]
+#[case::flipped_line_with_open_head(
+    with_frame(shape(preset("line", &[]), Fill::None, Some(arrowed(Some(ArrowKind::Open), None))), |f| {
+        (f.h, f.flip_h) = (0.0, true)
+    }),
+    json!([
+        { "id": "s1-1", "kind": "shape", "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
+          "style": pen(json!({})), "params": { "shape": "line" } },
+        { "id": "s1-2", "kind": "shape", "frame": { "x": 214.0, "y": 37.0, "w": 6.0, "h": 6.0 },
+          "style": pen(json!({})), "params": { "shape": "path", "path": { "d": "M 0 1 L 1 0.5 L 0 0" } } },
+    ]),
     vec![],
 )]
 #[case::diagonal_line_flipped(

@@ -76,6 +76,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Degrade düz renk olarak gösterildi
     [picture] Dolgu resmi şeklin çerçevesine uzatıldı
     [dash] Kesikli çizgi düz gösterildi
+    [arrow] Çizginin ok uçları çizilmedi
    *[geometry] Bilinmeyen şekil dikdörtgen olarak gösterildi
 }
 import-loss-layout-dropped = Bir paket için çok fazla düzen: “{ $layout }” için şablon yok; slaytları boş widget'ı kullanır ve süslemesini öğe olarak alır

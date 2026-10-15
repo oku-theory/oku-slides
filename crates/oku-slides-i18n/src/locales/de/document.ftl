@@ -78,6 +78,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Farbverlauf als Volltonfarbe dargestellt
     [picture] Füllbild auf den Rahmen der Form gestreckt
     [dash] Gestrichelte Linie durchgehend dargestellt
+    [arrow] Pfeilspitzen der Linie nicht gezeichnet
    *[geometry] Unbekannte Form als Rechteck dargestellt
 }
 import-loss-layout-dropped = Zu viele Layouts für ein Paket: „{ $layout }“ hat keine Vorlage; seine Folien nutzen das leere Widget und erhalten seine Dekoration als Elemente

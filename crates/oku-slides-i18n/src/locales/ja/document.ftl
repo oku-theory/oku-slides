@@ -75,6 +75,7 @@ import-loss-shape-style = { $effect ->
     [gradient] グラデーションが単色で表示されました
     [picture] 塗りつぶしの画像が図形の枠に合わせて引き伸ばされました
     [dash] 破線が実線で表示されました
+    [arrow] 線の矢印は描画されません
    *[geometry] 不明な図形が四角形で表示されました
 }
 import-loss-layout-dropped = 1つのパックにはレイアウトが多すぎます：「{ $layout }」にはテンプレートがなく、そのスライドは空のウィジェットを使い、装飾を要素として受け取ります

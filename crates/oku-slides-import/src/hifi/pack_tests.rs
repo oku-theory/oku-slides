@@ -61,7 +61,7 @@ fn rules(owner: &str, n: usize) -> Vec<crate::source::Item> {
     let fill = Fill::Solid { color: Styled::scheme(office_theme().colors["accent1"], "accent1") };
     (0..n)
         .map(|i| {
-            let shape = Shape { geom: geom(), fill: fill.clone(), stroke: None, text: None };
+            let shape = Shape { geom: geom(), fill: fill.clone(), stroke: None, text: None, connection: None };
             item(&format!("{owner}/{i}"), (0.0, i as f64, 960.0, 1.0), ItemKind::Shape(Box::new(shape)))
         })
         .collect()
@@ -111,8 +111,14 @@ fn synthetic_full() -> SourceDeck {
             width: 1.0,
             color: Styled::scheme(office_theme().colors["accent2"], "accent2"),
             dash: Dash::Solid,
+            head: None,
+            tail: None,
         });
-        item(id, frame, ItemKind::Shape(Box::new(Shape { geom, fill: accent.clone(), stroke, text: None })))
+        item(
+            id,
+            frame,
+            ItemKind::Shape(Box::new(Shape { geom, fill: accent.clone(), stroke, text: None, connection: None })),
+        )
     };
     deck.masters[0].decor = vec![shape("m1/bandeau", (0.0, 520.0, 960.0, 20.0), "rect")];
     let level = |size: f64, align: Align| {

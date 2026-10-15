@@ -76,6 +76,7 @@ import-loss-shape-style = { $effect ->
     [gradient] 渐变已显示为纯色
     [picture] 填充图片已拉伸至形状的边框
     [dash] 虚线已显示为实线
+    [arrow] 未绘制线条箭头
    *[geometry] 未知形状已显示为矩形
 }
 import-loss-layout-dropped = 一个包中的版式过多：“{ $layout }”没有模板，其幻灯片使用空白组件，并以元素形式获得其装饰

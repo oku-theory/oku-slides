@@ -33,6 +33,7 @@ use oku_slides_core::{Element, Frame, ParamValue, PathCommand, STYLE_INSET_MAX, 
 use serde_json::{Value, json};
 
 use super::element_text::text_element;
+use super::geometry::arrow::{heads, points};
 use super::geometry::{Outline, outline};
 use super::page::round2;
 use super::table::TableLook;
@@ -266,7 +267,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
                 self.native(frame, "rect", Some(radius), &paint);
             }
             Geometry::Preset { name, .. } if name == "ellipse" => self.native(frame, "ellipse", None, &paint),
-            Geometry::Preset { name, .. } if name == "line" => self.line(item, frame, paint.pen),
+            Geometry::Preset { name, .. } if name == "line" => self.line(item, frame, paint.pen.clone()),
             _ => match &geometry {
                 Some(o) => self.outline(item, frame, o, &paint),
                 None => {
@@ -274,6 +275,13 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
                     self.native(frame, "rect", None, &paint);
                 }
             },
+        }
+        if let (Some(stroke), Some(pen)) = (&s.stroke, &paint.pen) {
+            let stroked = match &s.geom {
+                Geometry::Preset { name, .. } if name == "line" => Some(line_cmds(f.flip_h, f.flip_v)),
+                _ => geometry.as_ref().map(|o| flipped(&o.stroked, f.flip_h, f.flip_v)),
+            };
+            self.arrows(item, frame, &stroked.unwrap_or_default(), stroke, pen);
         }
         if item.has_text() {
             let [l, t, r, b] = geometry.map_or(FULL, |o| o.text_rect);
@@ -311,18 +319,34 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
             return;
         }
         let f = &item.frame;
-        let (x0, y0) = (if f.flip_h { 1.0 } else { 0.0 }, if f.flip_v { 1.0 } else { 0.0 });
-        let cmds = vec![PathCommand::Move(x0, y0), PathCommand::Line(1.0 - x0, 1.0 - y0)];
-        self.path(item, frame, cmds, &paint);
+        self.path(item, frame, line_cmds(f.flip_h, f.flip_v), &paint);
+    }
+
+    /// Les pointes de `stroke` au bout du tracé `cmds` (fractions de `frame`) :
+    /// chacune un `shape: path` sur son propre cadre, pleine de la couleur du trait ou tracée.
+    fn arrows(&mut self, item: &Item, frame: Frame, cmds: &[PathCommand], stroke: &Stroke, pen: &Pen) {
+        for head in heads(cmds, frame.w, frame.h, pen.width, stroke) {
+            let pts: Vec<(f64, f64)> = head.cmds.iter().flat_map(|c| points(*c)).collect();
+            let min = |f: fn(&(f64, f64)) -> f64| pts.iter().map(f).fold(f64::INFINITY, f64::min);
+            let max = |f: fn(&(f64, f64)) -> f64| pts.iter().map(f).fold(f64::NEG_INFINITY, f64::max);
+            let (x, y) = (min(|p| p.0), min(|p| p.1));
+            let (w, h) = (max(|p| p.0) - x, max(|p| p.1) - y);
+            let at = Frame { x: frame.x + x, y: frame.y + y, w, h };
+            let local = map_points(&head.cmds, |px, py| (fraction(px - x, w), fraction(py - y, h)));
+            let paint = if head.filled {
+                Paint { fill: Some(pen.color.clone()), pen: None }
+            } else {
+                Paint { fill: None, pen: Some(pen.clone()) }
+            };
+            self.path(item, at, local, &paint);
+        }
     }
 
     /// Le contour `o` : un chemin rempli et tracé, ou la part remplie sans
     /// trait puis la part tracée sans fond.
     fn outline(&mut self, item: &Item, frame: Frame, o: &Outline, paint: &Paint) {
         let f = &item.frame;
-        let flip = |cmds: &[PathCommand]| {
-            map_points(cmds, |x, y| (if f.flip_h { 1.0 - x } else { x }, if f.flip_v { 1.0 - y } else { y }))
-        };
+        let flip = |cmds: &[PathCommand]| flipped(cmds, f.flip_h, f.flip_v);
         if o.filled == o.stroked {
             self.path(item, frame, flip(&o.filled), paint);
             return;
@@ -443,6 +467,22 @@ fn map_points(cmds: &[PathCommand], f: impl Fn(f64, f64) -> (f64, f64)) -> Vec<P
             PathCommand::Close => PathCommand::Close,
         })
         .collect()
+}
+
+/// La diagonale d'une ligne d'un coin à l'autre selon ses miroirs, en fractions du cadre.
+fn line_cmds(flip_h: bool, flip_v: bool) -> Vec<PathCommand> {
+    let (x0, y0) = (if flip_h { 1.0 } else { 0.0 }, if flip_v { 1.0 } else { 0.0 });
+    vec![PathCommand::Move(x0, y0), PathCommand::Line(1.0 - x0, 1.0 - y0)]
+}
+
+/// `cmds` (fractions du cadre) retournées selon les miroirs.
+fn flipped(cmds: &[PathCommand], flip_h: bool, flip_v: bool) -> Vec<PathCommand> {
+    map_points(cmds, |x, y| (if flip_h { 1.0 - x } else { x }, if flip_v { 1.0 - y } else { y }))
+}
+
+/// `v` en fraction de `side`, 0 sur un côté nul.
+fn fraction(v: f64, side: f64) -> f64 {
+    if side > 0.0 { v / side } else { 0.0 }
 }
 
 /// `frame` élargi à [`MIN_SIDE`] au moins de chaque côté, autour de son

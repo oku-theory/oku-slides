@@ -78,6 +78,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Gradient rendered as a solid color
     [picture] Fill picture stretched to the shape's frame
     [dash] Dashed line rendered solid
+    [arrow] Line arrowheads not drawn
    *[geometry] Unknown shape rendered as a rectangle
 }
 import-loss-layout-dropped = Too many layouts for one pack: “{ $layout }” has no template; its slides use the blank widget and get its decoration as elements

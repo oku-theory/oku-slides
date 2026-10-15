@@ -78,6 +78,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Degradado mostrado como color sólido
     [picture] Imagen de relleno estirada al marco de la forma
     [dash] Línea discontinua mostrada continua
+    [arrow] Puntas de flecha de la línea no dibujadas
    *[geometry] Forma desconocida mostrada como rectángulo
 }
 import-loss-layout-dropped = Demasiados diseños para un paquete: «{ $layout }» no tiene plantilla; sus diapositivas usan el widget vacío y reciben su decoración como elementos

@@ -23,6 +23,7 @@ fn deck(slides: Vec<SourceSlide>) -> SourceDeck {
         fill: Fill::Solid { color: Styled::scheme(office_theme().colors["accent1"], "accent1") },
         stroke: None,
         text: None,
+        connection: None,
     };
     let master = Master {
         id: "m1".into(),

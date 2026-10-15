@@ -78,6 +78,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Sfumatura resa come colore pieno
     [picture] Immagine di riempimento adattata alla cornice della forma
     [dash] Linea tratteggiata resa continua
+    [arrow] Punte di freccia della linea non disegnate
    *[geometry] Forma sconosciuta resa come rettangolo
 }
 import-loss-layout-dropped = Troppi layout per un pacchetto: «{ $layout }» non ha un modello; le sue slide usano il widget vuoto e ricevono la sua decorazione come elementi

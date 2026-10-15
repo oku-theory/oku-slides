@@ -14,7 +14,8 @@ use crate::pptx::text::{BodyProps, LevelProps, RunProps, empty_levels, font_ref,
 use crate::pptx::units::{angle, emu, pct};
 use crate::pptx::xml::{attr_bool, attr_i64, attr_r, attr_str, attr_u32, child, descendant, elements};
 use crate::source::{
-    Crop, Fill, Frame, Geometry, Item, ItemKind, Opaque, OpaqueReason, Picture, Shape, TextBox, WarningKind,
+    Connection, Crop, Fill, Frame, Geometry, Item, ItemKind, Opaque, OpaqueReason, Picture, Shape, Site, TextBox,
+    WarningKind,
 };
 
 /// Profondeur d'imbrication (groupes, `AlternateContent`) au-delà de laquelle on coupe.
@@ -218,7 +219,8 @@ fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) ->
         }
         ItemKind::Text(tb.unwrap_or_default())
     } else {
-        ItemKind::Shape(Box::new(Shape { geom, fill, stroke, text: tb.filter(has_text) }))
+        let connection = if connector { connection(n, cx) } else { None };
+        ItemKind::Shape(Box::new(Shape { geom, fill, stroke, text: tb.filter(has_text), connection }))
     };
     let decl = ph.clone().map(|key| PhDecl {
         key,
@@ -230,6 +232,17 @@ fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) ->
     });
     let item = Item { id, name, alt, frame, z: 0, role: ph.map(|k| k.role()), placeholder: inh.link, kind };
     Some(ParsedItem { item, ph: decl })
+}
+
+/// Formes reliées par le connecteur `n` (`cNvCxnSpPr` : `stCxn`, `endCxn`) ; `None` s'il n'en relie aucune.
+fn connection(n: Node<'_, '_>, cx: &PartCtx<'_>) -> Option<Connection> {
+    let pr = nv(n).and_then(|v| child(v, "cNvCxnSpPr"))?;
+    let site = |name: &str| {
+        let s = child(pr, name)?;
+        Some(Site { item: cx.item_ref(attr_u32(s, "id")?), idx: attr_u32(s, "idx").unwrap_or(0) })
+    };
+    let (start, end) = (site("stCxn"), site("endCxn"));
+    (start.is_some() || end.is_some()).then_some(Connection { start, end })
 }
 
 /// Asset d'un `blip` : sa version SVG, sinon (absente, illisible ou rejetée) son raster.

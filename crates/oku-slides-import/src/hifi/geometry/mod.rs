@@ -9,6 +9,7 @@
 //! Nombre de commandes borné : un preset est fini, un tracé libre en a au
 //! plus `MAX_PATH_CMDS` (lecteur), chaque arc en devient au plus quatre.
 
+pub(crate) mod arrow;
 mod formula;
 mod pen;
 mod presets;

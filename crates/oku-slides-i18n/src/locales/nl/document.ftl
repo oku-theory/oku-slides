@@ -79,6 +79,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Kleurverloop weergegeven als effen kleur
     [picture] Opvulafbeelding uitgerekt tot het kader van de vorm
     [dash] Stippellijn doorgetrokken weergegeven
+    [arrow] Pijlpunten van de lijn niet getekend
    *[geometry] Onbekende vorm weergegeven als rechthoek
 }
 import-loss-layout-dropped = Te veel lay-outs voor één pakket: ‘{ $layout }’ heeft geen sjabloon; de dia's ervan gebruiken de lege widget en krijgen de decoratie als elementen

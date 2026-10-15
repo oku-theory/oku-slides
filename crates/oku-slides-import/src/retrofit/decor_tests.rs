@@ -91,6 +91,7 @@ fn in_band_and_backdrop_follow_the_page() {
             fill: crate::source::Fill::None,
             stroke: None,
             text: None,
+            connection: None,
         })),
     );
     assert_that!(is_backdrop(&panel, page)).is_true();

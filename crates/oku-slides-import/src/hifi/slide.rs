@@ -168,7 +168,7 @@ fn own_background(src: &SourceSlide, layout: Option<&Layout>, drawn: bool, cx: &
         return None;
     }
     let geom = Geometry::Preset { name: "rect".to_owned(), adj: Default::default() };
-    let shape = Shape { geom, fill: fill.clone(), stroke: None, text: None };
+    let shape = Shape { geom, fill: fill.clone(), stroke: None, text: None, connection: None };
     let frame: Frame = cx.elements.base.page.cover();
     Some(Item {
         id: format!("{}/fond", src.id),

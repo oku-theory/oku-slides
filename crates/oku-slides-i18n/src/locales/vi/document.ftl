@@ -76,6 +76,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Dải màu được hiển thị thành màu đơn
     [picture] Ảnh tô được kéo giãn theo khung của hình
     [dash] Nét đứt được hiển thị liền
+    [arrow] Không vẽ đầu mũi tên của đường
    *[geometry] Hình không xác định được hiển thị thành hình chữ nhật
 }
 import-loss-layout-dropped = Quá nhiều bố cục cho một gói: “{ $layout }” không có mẫu; các trang chiếu của nó dùng widget trống và nhận phần trang trí dưới dạng phần tử

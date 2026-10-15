@@ -79,6 +79,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Gradiente mostrado como cor sólida
     [picture] Imagem de preenchimento esticada ao quadro da forma
     [dash] Linha tracejada mostrada contínua
+    [arrow] Pontas de seta da linha não desenhadas
    *[geometry] Forma desconhecida mostrada como retângulo
 }
 import-loss-layout-dropped = Layouts demais para um pacote: “{ $layout }” não tem modelo; seus slides usam o widget vazio e recebem sua decoração como elementos

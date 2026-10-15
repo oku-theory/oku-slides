@@ -1,7 +1,7 @@
 use speculoos::prelude::*;
 
 use crate::pptx::test_support::{PNG, SLIDE_RELS, TestPkg, tree, tree_in};
-use crate::source::{Fill, ItemKind, OpaqueReason, Origin, WarningKind};
+use crate::source::{Connection, Fill, ItemKind, OpaqueReason, Origin, Site, WarningKind};
 
 const TEXTBOX: &str = r#"<p:sp><p:nvSpPr><p:cNvPr id="4" name="ZoneTexte 3" descr="Légende"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="1270000" y="635000"/><a:ext cx="2540000" cy="508000"/></a:xfrm><a:prstGeom prst="rect"/><a:noFill/></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>Bonjour</a:t></a:r></a:p></p:txBody></p:sp>"#;
 const PT: i64 = 12_700;
@@ -396,4 +396,25 @@ fn picture_linked_to_an_external_image_warns_and_is_dropped() {
         Some("s1/8".to_owned()),
         WarningKind::ExternalImage("https://images.example/photo.png".into()),
     )]);
+}
+
+#[test]
+fn connector_reads_its_connected_shapes() {
+    let (items, _, _) = tree(
+        r#"<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="8" name="Connecteur"/><p:cNvCxnSpPr><a:stCxn id="4" idx="3"/><a:endCxn id="5" idx="1"/></p:cNvCxnSpPr><p:nvPr/></p:nvCxnSpPr><p:spPr><a:prstGeom prst="straightConnector1"/><a:ln><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:tailEnd type="triangle"/></a:ln></p:spPr></p:cxnSp>"#,
+    );
+    let ItemKind::Shape(s) = &items[0].item.kind else { panic!("forme attendue") };
+    let owner = items[0].item.id.rsplit_once('/').map(|(o, _)| o.to_owned()).unwrap();
+    let site = |id: u32, idx: u32| Some(Site { item: format!("{owner}/{id}"), idx });
+    assert_that!(s.connection).is_equal_to(Some(Connection { start: site(4, 3), end: site(5, 1) }));
+    assert_that!(s.stroke.as_ref().and_then(|st| st.tail).is_some()).is_true();
+}
+
+#[test]
+fn connector_without_connected_shapes_has_no_connection() {
+    let (items, _, _) = tree(
+        r#"<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="8" name="Connecteur"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:prstGeom prst="line"/></p:spPr></p:cxnSp>"#,
+    );
+    let ItemKind::Shape(s) = &items[0].item.kind else { panic!("forme attendue") };
+    assert_that!(s.connection).is_none();
 }

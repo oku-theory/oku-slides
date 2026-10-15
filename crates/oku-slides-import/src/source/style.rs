@@ -181,6 +181,45 @@ pub enum Dash {
     LongDash,
 }
 
+/// Forme d'une pointe de trait (`headEnd`, `tailEnd`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArrowKind {
+    /// Triangle plein.
+    Triangle,
+    /// Flèche pleine échancrée.
+    Stealth,
+    /// Losange plein, centré sur l'extrémité.
+    Diamond,
+    /// Ovale plein, centré sur l'extrémité.
+    Oval,
+    /// Flèche ouverte, en deux traits.
+    Open,
+}
+
+/// Largeur ou longueur d'une pointe, relative à l'épaisseur du trait.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArrowSize {
+    /// Petite (`sm`).
+    Small,
+    /// Moyenne (`med`), le défaut.
+    Medium,
+    /// Grande (`lg`).
+    Large,
+}
+
+/// Pointe d'une extrémité de trait.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Arrow {
+    /// Forme.
+    pub kind: ArrowKind,
+    /// Largeur, perpendiculaire au trait.
+    pub width: ArrowSize,
+    /// Longueur, le long du trait.
+    pub length: ArrowSize,
+}
+
 /// Trait (contour, bordure, connecteur).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Stroke {
@@ -190,6 +229,12 @@ pub struct Stroke {
     pub color: Color,
     /// Motif.
     pub dash: Dash,
+    /// Pointe au début du tracé (`headEnd`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head: Option<Arrow>,
+    /// Pointe à la fin du tracé (`tailEnd`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tail: Option<Arrow>,
 }
 
 #[cfg(test)]

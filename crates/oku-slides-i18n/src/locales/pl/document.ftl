@@ -81,6 +81,7 @@ import-loss-shape-style = { $effect ->
     [gradient] Gradient pokazano jako jednolity kolor
     [picture] Obraz wypełnienia rozciągnięto do ramki kształtu
     [dash] Linię przerywaną pokazano jako ciągłą
+    [arrow] Groty strzałek linii nie zostały narysowane
    *[geometry] Nieznany kształt pokazano jako prostokąt
 }
 import-loss-layout-dropped = Za dużo układów na jeden pakiet: „{ $layout }” nie ma szablonu; jego slajdy używają pustego widżetu i dostają jego dekorację jako elementy

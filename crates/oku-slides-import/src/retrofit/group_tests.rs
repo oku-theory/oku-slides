@@ -29,6 +29,7 @@ fn bare(id: &str, preset: &str, frame: (f64, f64, f64, f64)) -> Item {
         fill: Fill::Solid { color: accent1() },
         stroke: None,
         text: None,
+        connection: None,
     };
     item(id, frame, ItemKind::Shape(Box::new(s)))
 }
@@ -48,6 +49,7 @@ fn steps() -> Vec<Item> {
             fill: Fill::Solid { color: accent1() },
             stroke: None,
             text: Some(tb),
+            connection: None,
         };
         item(&format!("g/{i}"), (i as f64 * 300.0, 0.0, 250.0, 100.0), ItemKind::Shape(Box::new(s)))
     };

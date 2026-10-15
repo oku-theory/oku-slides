@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::report::RunEffect;
-use crate::source::{Crop, Dash, Opaque, OpaqueReason, Picture, Rgba, Stroke, Styled};
+use crate::source::{Arrow, ArrowKind, ArrowSize, Crop, Dash, Opaque, OpaqueReason, Picture, Rgba, Stroke, Styled};
 use crate::test_support::{PAPIER, apply_blocks, colors, item, para, run, run_with, text_box, text_item};
 
 const BOX: (f64, f64, f64, f64) = (10.0, 10.0, 200.0, 100.0);
@@ -53,6 +53,7 @@ fn shape_item(id: &str, geom: &str, fill: Fill, stroke: Option<Stroke>, text: Op
         fill,
         stroke,
         text: text.map(|t| text_box(vec![para(vec![run(t)])])),
+        connection: None,
     };
     item(id, BOX, ItemKind::Shape(Box::new(s)))
 }
@@ -107,7 +108,7 @@ fn element_of_a_shape_filled_with_the_accent_is_a_highlighted_card() {
 
 #[test]
 fn element_of_an_outlined_shape_with_text_is_a_text_element() {
-    let stroke = Stroke { width: 1.0, color: accent1(), dash: Dash::Solid };
+    let stroke = Stroke { width: 1.0, color: accent1(), dash: Dash::Solid, head: None, tail: None };
     let (e, _, _) = convert(&shape_item("s", "rect", Fill::None, Some(stroke), Some("Encadré")));
     assert_that!(e.unwrap().kind.as_str()).is_equal_to("text");
 }
@@ -128,7 +129,13 @@ fn element_of_a_shape_without_text_maps_its_preset(#[case] preset: &str, #[case]
 
 #[test]
 fn element_of_a_shape_projects_its_fill_and_stroke_on_tokens() {
-    let stroke = Stroke { width: 2.0, color: Styled::scheme(Rgba::new(0, 0, 0), "dk1"), dash: Dash::Solid };
+    let stroke = Stroke {
+        width: 2.0,
+        color: Styled::scheme(Rgba::new(0, 0, 0), "dk1"),
+        dash: Dash::Solid,
+        head: None,
+        tail: None,
+    };
     let (e, losses, _) = convert(&shape_item("s", "rect", solid(accent1()), Some(stroke), None));
     let e = e.unwrap();
     assert_that!((e.style.fill.as_deref(), e.style.stroke.as_deref())).is_equal_to((Some("accent"), Some("ink")));
@@ -137,7 +144,13 @@ fn element_of_a_shape_projects_its_fill_and_stroke_on_tokens() {
 
 #[test]
 fn element_of_a_shape_drops_a_fill_without_close_token() {
-    let stroke = Stroke { width: 2.0, color: Styled::scheme(Rgba::new(0, 0, 0), "dk1"), dash: Dash::Solid };
+    let stroke = Stroke {
+        width: 2.0,
+        color: Styled::scheme(Rgba::new(0, 0, 0), "dk1"),
+        dash: Dash::Solid,
+        head: None,
+        tail: None,
+    };
     let red = solid(Styled::explicit(Rgba::new(255, 0, 0)));
     let (e, losses, _) = convert(&shape_item("s", "rect", red, Some(stroke), None));
     let e = e.unwrap();
@@ -241,7 +254,7 @@ fn element_of_an_opaque_item_uses_its_fallback_image_and_reports_it(
 #[test]
 fn element_of_a_shape_whose_fill_and_stroke_are_dropped_is_nothing() {
     let red = || Styled::explicit(Rgba::new(255, 0, 0));
-    let stroke = Stroke { width: 1.0, color: red(), dash: Dash::Solid };
+    let stroke = Stroke { width: 1.0, color: red(), dash: Dash::Solid, head: None, tail: None };
     let (e, losses, _) = convert(&shape_item("s", "rect", solid(red()), Some(stroke), None));
     assert_that!(e).is_none();
     assert_that!(losses).is_equal_to(vec![Loss::on("s", LossKind::ColorDropped("#ff0000".into()))]);
@@ -347,4 +360,13 @@ fn element_of_every_kind_is_accepted_by_add_slide() {
         units.iter().enumerate().filter_map(|(i, u)| element(u, format!("e{i}"), &cx).element).collect();
     assert_that!(blocks).has_length(units.len());
     assert_that!(apply_blocks(blocks)).is_ok();
+}
+
+#[test]
+fn element_of_an_arrowed_connector_loses_its_arrowheads() {
+    let arrow = Some(Arrow { kind: ArrowKind::Triangle, width: ArrowSize::Medium, length: ArrowSize::Medium });
+    let stroke = Stroke { width: 1.0, color: accent1(), dash: Dash::Solid, head: None, tail: arrow };
+    let (e, losses, _) = convert(&shape_item("s", "straightConnector1", Fill::None, Some(stroke), None));
+    assert_that!(e.is_some()).is_true();
+    assert_that!(losses.iter().any(|l| l.kind == LossKind::ShapeStyle(ShapeEffect::Arrow))).is_true();
 }

@@ -37,7 +37,7 @@ use super::group::group;
 use super::heading::{is_kicker_text, max_run_size};
 use super::table::table;
 use super::text::{note, plain, rich};
-use crate::report::{Loss, LossKind};
+use crate::report::{Loss, LossKind, ShapeEffect};
 use crate::source::{self, Asset, Fill, Geometry, Item, ItemKind, TextBox};
 
 /// Presets dessinés en ellipse.
@@ -226,6 +226,9 @@ fn shape(id: String, item: &Item, s: &source::Shape, cx: &ContentCx<'_>, losses:
     }
     if let Fill::Picture { asset } = &s.fill {
         return image(id, asset, cx, &item.id, losses);
+    }
+    if s.stroke.as_ref().is_some_and(|st| st.head.is_some() || st.tail.is_some()) {
+        lose(losses, &item.id, LossKind::ShapeStyle(ShapeEffect::Arrow));
     }
     let thin = is_thin(&item.frame, cx.track);
     let fill = fill_color(&s.fill).and_then(|c| token(c, cx, &item.id, losses));

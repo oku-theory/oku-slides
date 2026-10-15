@@ -137,6 +137,11 @@ impl<'p> PartCtx<'p> {
         self.unique(format!("{}/{id}", self.owner))
     }
 
+    /// Id de l'item `cnv_id` de cette part tel qu'un connecteur le désigne : sans suffixe d'unicité.
+    pub(crate) fn item_ref(&self, cnv_id: u32) -> String {
+        format!("{}/{cnv_id}", self.owner)
+    }
+
     /// Identifiant d'item depuis une clé libre (`modelId` de SmartArt) : `[A-Za-z0-9{}-]`, 64 caractères.
     pub(crate) fn item_id_raw(&self, key: &str) -> String {
         let safe: String = key
