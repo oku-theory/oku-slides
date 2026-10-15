@@ -1,28 +1,29 @@
 import { expect, test } from "bun:test";
-import { BAND_MIN, bandHeight, fitBand, STAGE_MIN } from "./bandSplit";
+import { fitIn } from "./bounds";
+import { BAND_MIN, bandBounds, bandHeight, STAGE_MIN } from "./bandSplit";
 
-test("fitBand within bounds rounds the size", () => {
-  expect(fitBand(800, 300.4)).toBe(300);
+test("bandBounds within bounds rounds the size", () => {
+  expect(fitIn(bandBounds(800), 300.4)).toBe(300);
 });
 
-test("fitBand below the band minimum returns the minimum", () => {
-  expect(fitBand(800, 40)).toBe(BAND_MIN);
+test("bandBounds below the band minimum returns the minimum", () => {
+  expect(fitIn(bandBounds(800), 40)).toBe(BAND_MIN);
 });
 
-test("fitBand leaving the stage less than its minimum gives it its minimum", () => {
-  expect(fitBand(800, 790)).toBe(800 - STAGE_MIN);
+test("bandBounds leaving the stage less than its minimum gives it its minimum", () => {
+  expect(fitIn(bandBounds(800), 790)).toBe(800 - STAGE_MIN);
 });
 
-test("fitBand with no room for both minimums keeps the band minimum, as the CSS does", () => {
-  expect(fitBand(300, 180)).toBe(BAND_MIN);
+test("bandBounds with no room for both minimums keeps the band minimum, as the CSS does", () => {
+  expect(fitIn(bandBounds(300), 180)).toBe(BAND_MIN);
 });
 
-test("fitBand with exactly both minimums keeps both", () => {
-  expect(fitBand(BAND_MIN + STAGE_MIN, 400)).toBe(BAND_MIN);
+test("bandBounds with exactly both minimums keeps both", () => {
+  expect(fitIn(bandBounds(BAND_MIN + STAGE_MIN), 400)).toBe(BAND_MIN);
 });
 
-test("fitBand without anything measured returns zero", () => {
-  expect(fitBand(0, 300)).toBe(0);
+test("bandBounds without anything measured returns zero", () => {
+  expect(fitIn(bandBounds(0), 300)).toBe(0);
 });
 
 test("bandHeight with a size keeps the stage minimum in CSS", () => {

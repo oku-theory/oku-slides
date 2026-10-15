@@ -2,7 +2,6 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { Columns } from "./columns";
 import type { ColumnWidths } from "./useKeptUi";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
@@ -21,7 +20,7 @@ afterEach(async () => {
 });
 
 async function mount(side: "pile" | "notes") {
-  const resized: [Columns, boolean][] = [];
+  const resized: [number, boolean][] = [];
   let resets = 0;
   const host = document.createElement("div");
   document.body.append(host);
@@ -33,7 +32,7 @@ async function mount(side: "pile" | "notes") {
         side,
         label: "Largeur",
         measure: () => ({ table: 1440, pile: 240, notes: 500 }),
-        onResize: (cols: Columns, done: boolean) => resized.push([cols, done]),
+        onResize: (size: number, done: boolean) => resized.push([size, done]),
         onReset: () => resets++,
       }),
     );
@@ -58,21 +57,21 @@ describe("séparateurs de colonnes", () => {
     await pointer("pointerdown", 240);
     await pointer("pointermove", 280);
     await pointer("pointerup", 280);
-    expect(resized.at(-1)).toEqual([{ pile: 280, notes: 500 }, true]);
+    expect(resized.at(-1)).toEqual([280, true]);
   });
 
   test("ColumnDivider glisser le fil vers la droite le rétrécit", async () => {
     const { resized, pointer } = await mount("notes");
     await pointer("pointerdown", 940);
     await pointer("pointermove", 980);
-    expect(resized.at(-1)).toEqual([{ pile: 240, notes: 460 }, false]);
+    expect(resized.at(-1)).toEqual([460, false]);
   });
 
-  test("ColumnDivider glisser est borné par fitColumns", async () => {
+  test("ColumnDivider glisser est borné par columnBounds", async () => {
     const { resized, pointer } = await mount("pile");
     await pointer("pointerdown", 240);
     await pointer("pointermove", 900);
-    expect(resized.at(-1)?.[0].pile).toBe(360);
+    expect(resized.at(-1)?.[0]).toBe(360);
   });
 
   test("ColumnDivider flèche gauche sur le fil l'élargit d'un pas, validé", async () => {
@@ -80,7 +79,7 @@ describe("séparateurs de colonnes", () => {
     await act(async () => {
       el.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowLeft" }));
     });
-    expect(resized).toEqual([[{ pile: 240, notes: 516 }, true]]);
+    expect(resized).toEqual([[516, true]]);
   });
 
   test("ColumnDivider un clic sans mouvement ne fige aucune largeur", async () => {

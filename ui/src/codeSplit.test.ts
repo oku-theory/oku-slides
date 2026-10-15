@@ -1,20 +1,21 @@
 import { expect, test } from "bun:test";
-import { CODE_MIN, codeTrack, fitCode, SIDE_MIN, SPLIT } from "./codeSplit";
+import { fitIn } from "./bounds";
+import { CODE_MIN, codeBounds, codeTrack, SIDE_MIN, SPLIT } from "./codeSplit";
 
-test("fitCode within bounds rounds the size", () => {
-  expect(fitCode(1000, 400.4)).toBe(400);
+test("codeBounds within bounds rounds the size", () => {
+  expect(fitIn(codeBounds(1000), 400.4)).toBe(400);
 });
 
-test("fitCode below the code minimum returns the minimum", () => {
-  expect(fitCode(1000, 40)).toBe(CODE_MIN);
+test("codeBounds below the code minimum returns the minimum", () => {
+  expect(fitIn(codeBounds(1000), 40)).toBe(CODE_MIN);
 });
 
-test("fitCode leaving the preview less than its minimum gives it its minimum", () => {
-  expect(fitCode(1000, 990)).toBe(1000 - SIDE_MIN - SPLIT);
+test("codeBounds leaving the preview less than its minimum gives it its minimum", () => {
+  expect(fitIn(codeBounds(1000), 990)).toBe(1000 - SIDE_MIN - SPLIT);
 });
 
-test("fitCode with no room for both minimums splits in half", () => {
-  expect(fitCode(212, 180)).toBe(100);
+test("codeBounds with no room for both minimums splits in half", () => {
+  expect(fitIn(codeBounds(212), 180)).toBe(100);
 });
 
 test("codeTrack with a size keeps the preview minimum in CSS", () => {
@@ -25,10 +26,10 @@ test("codeTrack without a size returns null", () => {
   expect(codeTrack(null)).toBeNull();
 });
 
-test("fitCode in a narrow tab keeps 240 px for the preview", () => {
-  expect(fitCode(600, 500)).toBe(600 - 240 - SPLIT);
+test("codeBounds in a narrow tab keeps 240 px for the preview", () => {
+  expect(fitIn(codeBounds(600), 500)).toBe(600 - 240 - SPLIT);
 });
 
-test("fitCode with no room at all never returns a negative width", () => {
-  expect([fitCode(0, 0), fitCode(5, 300)]).toEqual([0, 0]);
+test("codeBounds with no room at all never returns a negative width", () => {
+  expect([fitIn(codeBounds(0), 0), fitIn(codeBounds(5), 300)]).toEqual([0, 0]);
 });
