@@ -764,6 +764,39 @@ fn turns_update_of_a_dropped_call_changes_no_other_call() {
     assert_that!(first["output"].as_str().unwrap()).is_equal_to("index hors bornes");
 }
 
+/// Un groupe de milliers d'appels soldés n'en retient que les listés ; le compte et le statut restent justes.
+#[test]
+fn turns_thousands_of_settled_calls_keep_only_the_listed_ids() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("bad", "apply", "failed", None), now, &fr());
+    for i in 0..3000 {
+        t.apply(&call(&format!("t{i}"), "apply", "completed", None), now, &fr());
+    }
+    let kept = t.turns.back().map_or(0, |turn| turn.tools.len());
+    assert_that!(kept).is_less_than_or_equal_to(super::CALLS_MAX);
+    let d = data(&t);
+    assert_that!(d["steps"][0]["count"].as_u64().unwrap()).is_equal_to(3001);
+    assert_that!(d["steps"][0]["status"].as_str().unwrap()).is_equal_to("failed");
+}
+
+/// Un appel sorti de la liste encore en cours reste suivi : sa fin solde l'étape, puis il est oublié.
+#[test]
+fn turns_unlisted_open_call_settles_its_step_then_is_forgotten() {
+    let mut t = Turns::default();
+    let now = Instant::now();
+    t.apply(&user(1), now, &fr());
+    t.apply(&call("slow", "apply", "in_progress", None), now, &fr());
+    for i in 0..super::CALLS_MAX {
+        t.apply(&call(&format!("t{i}"), "apply", "completed", None), now, &fr());
+    }
+    assert_that!(data(&t)["steps"][0]["status"].as_str().unwrap()).is_equal_to("in_progress");
+    t.apply(&update("slow", "completed", None), now, &fr());
+    assert_that!(data(&t)["steps"][0]["status"].as_str().unwrap()).is_equal_to("completed");
+    assert_that!(t.turns.back().map(|turn| turn.tools.contains_key("slow"))).is_equal_to(Some(false));
+}
+
 /// La limite compte les appels du tour, pas ceux d'une étape.
 #[test]
 fn turns_call_cap_spans_the_steps_of_the_turn() {

@@ -11,7 +11,7 @@
 //! Un tour dont l'ouverture (`UserText`) s'est perdue s'ouvre, sans consigne, au
 //! premier évènement qui le porte ; un évènement d'un tour clos ou évincé est ignoré.
 
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::time::Instant;
 
 use oku_slides_i18n::Localizer;
@@ -47,15 +47,48 @@ pub(crate) enum TurnOut {
     Ended { turn: u32, narration: String },
 }
 
-/// Un appel d'outil du tour.
+/// Un appel d'outil du tour, suivi tant qu'il est listé ou encore ouvert.
 #[derive(Debug)]
 struct Tool {
     /// L'étape où il est rangé.
     step: usize,
     /// Son dernier statut.
     status: StepStatus,
-    /// Sa place dans les appels listés de l'étape ; `None` une fois sorti de la liste ([`CALLS_MAX`]).
-    call: Option<usize>,
+    /// Son rang parmi les appels de l'étape, depuis le premier (sorti de la liste ou non).
+    seq: usize,
+}
+
+/// Le décompte des appels d'une étape d'outils, tenu à chaque évènement.
+#[derive(Debug, Default)]
+struct Tally {
+    /// Appels de l'étape, listés ou non.
+    calls: usize,
+    /// Appels de l'étape sortis de la liste : toujours les plus anciens.
+    unlisted: usize,
+    /// Appels par statut, dans l'ordre de [`rank`].
+    by_status: [usize; 4],
+}
+
+impl Tally {
+    /// Le statut de l'étape : le pire de ses appels.
+    fn worst(&self) -> Option<StepStatus> {
+        RANKED.into_iter().zip(self.by_status).find(|(_, n)| *n > 0).map(|(st, _)| st)
+    }
+
+    /// Un appel de l'étape passe de `from` (`None` : nouvel appel) à `to`.
+    fn moved(&mut self, from: Option<StepStatus>, to: StepStatus) {
+        if let Some(slot) = from.and_then(|st| self.by_status.get_mut(rank(st))) {
+            *slot = slot.saturating_sub(1);
+        }
+        if let Some(slot) = self.by_status.get_mut(rank(to)) {
+            *slot += 1;
+        }
+    }
+}
+
+/// Un appel encore ouvert : il peut changer le statut de son étape.
+fn is_open(st: StepStatus) -> bool {
+    matches!(st, StepStatus::Pending | StepStatus::InProgress)
 }
 
 /// Ce qu'une annonce ou une mise à jour change d'un appel (`None` : inchangé).
@@ -72,8 +105,10 @@ struct Turn {
     /// La portée du tour : l'éviction se compte par portée.
     scope: AgentScope,
     started: Instant,
-    /// Chaque appel d'outil, par identifiant.
+    /// Les appels listés ou encore ouverts, par identifiant ; un appel soldé et sorti de la liste est oublié.
     tools: HashMap<String, Tool>,
+    /// Le décompte de chaque étape d'outils, par indice d'étape.
+    tallies: BTreeMap<usize, Tally>,
     /// Les appels listés du tour, du plus ancien au plus récent (au plus [`CALLS_MAX`]).
     listed: VecDeque<String>,
     /// La dernière étape est-elle une étape d'outils ?
@@ -115,8 +150,12 @@ fn tool_label(title: &str) -> String {
     clip(name, LABEL_MAX)
 }
 
+/// Les statuts, du plus grave au moins grave.
+const RANKED: [StepStatus; 4] =
+    [StepStatus::Failed, StepStatus::InProgress, StepStatus::Pending, StepStatus::Completed];
+
 /// Rang d'un statut dans une étape groupée : le plus bas l'emporte (un échec reste visible).
-fn rank(st: StepStatus) -> u8 {
+fn rank(st: StepStatus) -> usize {
     match st {
         StepStatus::Failed => 0,
         StepStatus::InProgress => 1,
@@ -148,7 +187,7 @@ impl Turn {
 
     /// Statut d'une étape d'outils : un échec reste visible, sinon « en cours » tant qu'un outil l'est.
     fn settle_step(&mut self, step: usize) {
-        let worst = self.tools.values().filter(|x| x.step == step).map(|x| x.status).min_by_key(|st| rank(*st));
+        let worst = self.tallies.get(&step).and_then(Tally::worst);
         if let (Some(worst), Some(row)) = (worst, self.view.steps.get_mut(step)) {
             row.status = worst;
         }
@@ -157,16 +196,12 @@ impl Turn {
     /// Ferme le tour : les outils restés en cours sont soldés selon l'issue ; rend le dernier texte.
     fn finish(&mut self, state: TurnState) -> String {
         let leftover = if matches!(state, TurnState::Done { .. }) { StepStatus::Completed } else { StepStatus::Failed };
-        let open: Vec<String> = self
-            .tools
-            .iter()
-            .filter(|(_, x)| matches!(x.status, StepStatus::Pending | StepStatus::InProgress))
-            .map(|(id, _)| id.clone())
-            .collect();
+        let open: Vec<String> =
+            self.tools.iter().filter(|(_, x)| is_open(x.status)).map(|(id, _)| id.clone()).collect();
         for id in open {
             self.update_call(&id, Some(leftover), CallFields::default());
         }
-        let steps: BTreeSet<usize> = self.tools.values().map(|x| x.step).collect();
+        let steps: Vec<usize> = self.tallies.keys().copied().collect();
         for step in steps {
             self.settle_step(step);
         }
@@ -191,18 +226,20 @@ impl Turn {
         }
         self.view.tools = self.view.tools.saturating_add(1);
         let Some(step) = self.group else { return };
-        let count = self.tools.values().filter(|x| x.step == step).count() + 1;
         let Some(row) = self.view.steps.get_mut(step) else { return };
+        let tally = self.tallies.entry(step).or_default();
+        let seq = tally.calls;
+        tally.calls += 1;
+        tally.moved(None, status);
         row.label.clone_from(&label);
-        row.count = Some(u32::try_from(count).unwrap_or(u32::MAX));
+        row.count = Some(u32::try_from(tally.calls).unwrap_or(u32::MAX));
         row.calls.push(ToolCallDetail {
             label,
             status,
             input: f.input.map(str::to_owned),
             output: f.output.map(str::to_owned),
         });
-        let call = Some(row.calls.len() - 1);
-        self.tools.insert(id.to_owned(), Tool { step, status, call });
+        self.tools.insert(id.to_owned(), Tool { step, status, seq });
         self.listed.push_back(id.to_owned());
         if self.listed.len() > CALLS_MAX
             && let Some(oldest) = self.listed.pop_front()
@@ -213,31 +250,43 @@ impl Turn {
     }
 
     /// Retire l'appel `id` de la liste de son étape (il y est le premier : le plus ancien) ;
-    /// les suivants de l'étape remontent d'une place.
+    /// soldé, il est oublié, sinon il reste suivi jusqu'à sa fin.
     fn unlist(&mut self, id: &str) {
-        let Some(tool) = self.tools.get_mut(id) else { return };
-        let (step, Some(at)) = (tool.step, tool.call.take()) else { return };
+        let Some(tool) = self.tools.get(id) else { return };
+        let (step, open) = (tool.step, is_open(tool.status));
+        if let Some(tally) = self.tallies.get_mut(&step) {
+            tally.unlisted += 1;
+        }
         if let Some(row) = self.view.steps.get_mut(step)
-            && at < row.calls.len()
+            && !row.calls.is_empty()
         {
-            row.calls.remove(at);
+            row.calls.remove(0);
         }
-        for x in self.tools.values_mut().filter(|x| x.step == step) {
-            if let Some(i) = x.call.as_mut()
-                && *i > at
-            {
-                *i -= 1;
-            }
+        if !open {
+            self.tools.remove(id);
         }
+    }
+
+    /// La place de l'appel `seq` de l'étape dans ses appels listés ; `None` s'il en est sorti.
+    fn listed_at(&self, step: usize, seq: usize) -> Option<usize> {
+        seq.checked_sub(self.tallies.get(&step)?.unlisted)
     }
 
     /// Met à jour l'appel `id` (statut et champs donnés) ; rend son étape.
     fn update_call(&mut self, id: &str, status: Option<StepStatus>, f: CallFields<'_>) -> Option<usize> {
         let tool = self.tools.get_mut(id)?;
+        let (step, seq, before) = (tool.step, tool.seq, tool.status);
         if let Some(st) = status {
             tool.status = st;
+            if let Some(tally) = self.tallies.get_mut(&step) {
+                tally.moved(Some(before), st);
+            }
         }
-        let (step, call) = (tool.step, tool.call);
+        let call = self.listed_at(step, seq);
+        // Sorti de la liste et soldé : plus rien de lui ne s'affiche, il est oublié.
+        if call.is_none() && status.is_some_and(|st| !is_open(st)) {
+            self.tools.remove(id);
+        }
         let row = self.view.steps.get_mut(step)?;
         let label = f.title.map(tool_label);
         if let Some(label) = &label {
@@ -405,6 +454,7 @@ impl Turns {
             scope: scope.clone(),
             started: now,
             tools: HashMap::new(),
+            tallies: BTreeMap::new(),
             listed: VecDeque::new(),
             in_tools: false,
             group: None,
