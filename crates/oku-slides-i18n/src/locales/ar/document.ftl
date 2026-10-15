@@ -90,7 +90,14 @@ import-loss-overflow = العنصر «{ $element }» يتجاوز حافة ال�
 import-reference-unavailable = لا توجد درجة مرئية: { $cause ->
     [timeout] استغرق العرض المرجعي وقتًا طويلًا
     [memory] استهلك العرض المرجعي ذاكرة كبيرة
-    [pages] يحتوي العرض المرجعي على { $reference } صفحات مقابل { $deck } في العرض التقديمي
+    [pages] يحتوي العرض المرجعي على { $reference ->
+        [zero] { $reference } صفحة
+        [one] صفحة واحدة
+        [two] صفحتين
+        [few] { $reference } صفحات
+        [many] { $reference } صفحة
+       *[other] { $reference } صفحة
+    } مقابل { $deck } في العرض التقديمي
    *[failed] تعذّر على أداة العرض المرجعي قراءة العرض التقديمي
 }
 import-font-substituted = استُبدل { $family } بـ { $by } ذي المقاييس المتوافقة

@@ -86,7 +86,10 @@ import-loss-overflow = तत्व “{ $element }” स्लाइड के
 import-reference-unavailable = कोई दृश्य स्कोर नहीं: { $cause ->
     [timeout] संदर्भ रेंडर में बहुत समय लगा
     [memory] संदर्भ रेंडर ने बहुत अधिक मेमोरी ली
-    [pages] संदर्भ रेंडर में प्रस्तुति के { $deck } के बदले { $reference } पेज हैं
+    [pages] संदर्भ रेंडर में प्रस्तुति के { $deck } के बदले { $reference ->
+        [one] { $reference } पेज है
+       *[other] { $reference } पेज हैं
+    }
    *[failed] संदर्भ रेंडरर प्रस्तुति नहीं पढ़ सका
 }
 import-font-substituted = { $family } को मिलते-जुलते माप वाले { $by } से बदला गया

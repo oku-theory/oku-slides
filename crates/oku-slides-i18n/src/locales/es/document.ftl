@@ -85,7 +85,10 @@ import-loss-overflow = El elemento «{ $element }» sobrepasa el borde de la dia
 import-reference-unavailable = Sin puntuación visual: { $cause ->
     [timeout] el renderizado de referencia tardó demasiado
     [memory] el renderizado de referencia usó demasiada memoria
-    [pages] el renderizado de referencia tiene { $reference } páginas para { $deck } en la presentación
+    [pages] el renderizado de referencia tiene { $reference ->
+        [one] { $reference } página
+       *[other] { $reference } páginas
+    } para { $deck } en la presentación
    *[failed] el renderizador de referencia no pudo leer la presentación
 }
 import-font-substituted = { $family } sustituida por { $by }, con métricas compatibles

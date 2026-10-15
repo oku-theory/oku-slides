@@ -85,7 +85,10 @@ import-loss-overflow = Element „{ $element }“ ragt über den Folienrand hina
 import-reference-unavailable = Keine visuelle Bewertung: { $cause ->
     [timeout] das Referenz-Rendering hat zu lange gedauert
     [memory] das Referenz-Rendering hat zu viel Speicher benötigt
-    [pages] das Referenz-Rendering hat { $reference } Seiten für { $deck } im Deck
+    [pages] das Referenz-Rendering hat { $reference ->
+        [one] { $reference } Seite
+       *[other] { $reference } Seiten
+    } für { $deck } im Deck
    *[failed] der Referenz-Renderer konnte die Präsentation nicht lesen
 }
 import-font-substituted = { $family } ersetzt durch { $by } mit passenden Metriken

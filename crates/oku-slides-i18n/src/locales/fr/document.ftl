@@ -85,7 +85,10 @@ import-loss-overflow = L'élément « { $element } » dépasse le bord de la sli
 import-reference-unavailable = Pas d'écart visuel : { $cause ->
     [timeout] le rendu de référence a pris trop de temps
     [memory] le rendu de référence a demandé trop de mémoire
-    [pages] le rendu de référence a { $reference } pages pour { $deck } dans le deck
+    [pages] le rendu de référence a { $reference ->
+        [one] { $reference } page
+       *[other] { $reference } pages
+    } pour { $deck } dans le deck
    *[failed] le témoin n'a pas pu lire la présentation
 }
 import-font-substituted = { $family } remplacée par { $by }, aux métriques compatibles

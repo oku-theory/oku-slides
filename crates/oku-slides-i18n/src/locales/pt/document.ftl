@@ -86,7 +86,10 @@ import-loss-overflow = O elemento “{ $element }” ultrapassa a borda do slide
 import-reference-unavailable = Sem pontuação visual: { $cause ->
     [timeout] a renderização de referência demorou demais
     [memory] a renderização de referência usou memória demais
-    [pages] a renderização de referência tem { $reference } páginas para { $deck } na apresentação
+    [pages] a renderização de referência tem { $reference ->
+        [one] { $reference } página
+       *[other] { $reference } páginas
+    } para { $deck } na apresentação
    *[failed] o renderizador de referência não conseguiu ler a apresentação
 }
 import-font-substituted = { $family } substituída por { $by }, com métricas compatíveis

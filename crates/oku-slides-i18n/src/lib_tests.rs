@@ -278,6 +278,30 @@ fn list_refusals_plurals_follow_each_language() {
     }
 }
 
+/// L'écart de pages du témoin accorde « page » au nombre de pages du rendu de référence
+/// selon les règles de pluriel de chaque langue (t-887).
+#[test]
+fn import_reference_pages_plurals_follow_each_language() {
+    for (locale, n, expected) in [
+        ("en", 1, "No visual score: the reference render has 1 page for 8 in the deck"),
+        ("en", 7, "No visual score: the reference render has 7 pages for 8 in the deck"),
+        ("fr", 1, "Pas d'écart visuel : le rendu de référence a 1 page pour 8 dans le deck"),
+        ("de", 1, "Keine visuelle Bewertung: das Referenz-Rendering hat 1 Seite für 8 im Deck"),
+        ("ru", 1, "Нет визуальной оценки: в эталонном рендеринге 1 страница при 8 в презентации"),
+        ("ru", 3, "Нет визуальной оценки: в эталонном рендеринге 3 страницы при 8 в презентации"),
+        ("ru", 5, "Нет визуальной оценки: в эталонном рендеринге 5 страниц при 8 в презентации"),
+        ("pl", 1, "Brak oceny wizualnej: renderowanie referencyjne ma 1 stronę na 8 w prezentacji"),
+        ("pl", 2, "Brak oceny wizualnej: renderowanie referencyjne ma 2 strony na 8 w prezentacji"),
+        ("pl", 5, "Brak oceny wizualnej: renderowanie referencyjne ma 5 stron na 8 w prezentacji"),
+        ("ar", 1, "لا توجد درجة مرئية: يحتوي العرض المرجعي على صفحة واحدة مقابل 8 في العرض التقديمي"),
+        ("ar", 2, "لا توجد درجة مرئية: يحتوي العرض المرجعي على صفحتين مقابل 8 في العرض التقديمي"),
+    ] {
+        let args = [("cause", "pages".into()), ("reference", n.into()), ("deck", 8.into())];
+        let text = Localizer::new(Some(locale)).tr_with("import-reference-unavailable", &args);
+        asserting(&format!("{locale} : {n} page(s)")).that(&text).is_equal_to(expected.to_owned());
+    }
+}
+
 /// Les variables d'un message sur lesquelles il choisit une variante (`{ $n -> … }`).
 fn selectors(source: &str) -> BTreeSet<String> {
     variables(source)

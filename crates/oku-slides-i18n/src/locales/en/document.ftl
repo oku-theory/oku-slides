@@ -85,7 +85,10 @@ import-loss-overflow = Element “{ $element }” runs past the edge of the slid
 import-reference-unavailable = No visual score: { $cause ->
     [timeout] the reference render took too long
     [memory] the reference render used too much memory
-    [pages] the reference render has { $reference } pages for { $deck } in the deck
+    [pages] the reference render has { $reference ->
+        [one] { $reference } page
+       *[other] { $reference } pages
+    } for { $deck } in the deck
    *[failed] the reference renderer could not read the presentation
 }
 import-font-substituted = { $family } replaced by { $by }, with matching metrics

@@ -86,7 +86,10 @@ import-loss-overflow = Element ‘{ $element }’ steekt buiten de rand van de d
 import-reference-unavailable = Geen visuele score: { $cause ->
     [timeout] de referentieweergave duurde te lang
     [memory] de referentieweergave gebruikte te veel geheugen
-    [pages] de referentieweergave heeft { $reference } pagina’s voor { $deck } in de presentatie
+    [pages] de referentieweergave heeft { $reference ->
+        [one] { $reference } pagina
+       *[other] { $reference } pagina’s
+    } voor { $deck } in de presentatie
    *[failed] de referentierenderer kon de presentatie niet lezen
 }
 import-font-substituted = { $family } vervangen door { $by }, met passende metrieken

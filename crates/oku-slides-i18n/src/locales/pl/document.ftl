@@ -88,7 +88,12 @@ import-loss-overflow = Element „{ $element }” wychodzi poza krawędź slajdu
 import-reference-unavailable = Brak oceny wizualnej: { $cause ->
     [timeout] renderowanie referencyjne trwało zbyt długo
     [memory] renderowanie referencyjne zużyło zbyt dużo pamięci
-    [pages] renderowanie referencyjne ma { $reference } stron na { $deck } w prezentacji
+    [pages] renderowanie referencyjne ma { $reference ->
+        [one] { $reference } stronę
+        [few] { $reference } strony
+        [many] { $reference } stron
+       *[other] { $reference } strony
+    } na { $deck } w prezentacji
    *[failed] renderer referencyjny nie mógł odczytać prezentacji
 }
 import-font-substituted = { $family } zastąpiona czcionką { $by } o zgodnych metrykach

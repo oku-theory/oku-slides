@@ -88,7 +88,12 @@ import-loss-overflow = Елемент «{ $element }» виходить за к�
 import-reference-unavailable = Немає візуальної оцінки: { $cause ->
     [timeout] еталонний рендеринг тривав надто довго
     [memory] еталонний рендеринг використав надто багато пам’яті
-    [pages] в еталонному рендерингу { $reference } стор. при { $deck } у презентації
+    [pages] в еталонному рендерингу { $reference ->
+        [one] { $reference } сторінка
+        [few] { $reference } сторінки
+        [many] { $reference } сторінок
+       *[other] { $reference } сторінки
+    } при { $deck } у презентації
    *[failed] еталонний рендерер не зміг прочитати презентацію
 }
 import-font-substituted = { $family } замінено на { $by } із сумісними метриками

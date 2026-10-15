@@ -85,7 +85,10 @@ import-loss-overflow = L’elemento «{ $element }» supera il bordo della slide
 import-reference-unavailable = Nessun punteggio visivo: { $cause ->
     [timeout] il rendering di riferimento ha richiesto troppo tempo
     [memory] il rendering di riferimento ha usato troppa memoria
-    [pages] il rendering di riferimento ha { $reference } pagine per { $deck } nella presentazione
+    [pages] il rendering di riferimento ha { $reference ->
+        [one] { $reference } pagina
+       *[other] { $reference } pagine
+    } per { $deck } nella presentazione
    *[failed] il renderer di riferimento non ha potuto leggere la presentazione
 }
 import-font-substituted = { $family } sostituito da { $by }, con metriche compatibili
