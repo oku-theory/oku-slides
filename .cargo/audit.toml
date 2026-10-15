@@ -1,0 +1,8 @@
+# Exceptions de `cargo audit`, alignées sur `[advisories] ignore` de deny.toml (t-890) :
+# la raison de chaque avis y est écrite. Retirer une entrée ici et là-bas ensemble.
+[advisories]
+ignore = [
+    "RUSTSEC-2026-0192", # ttf-parser non maintenu, tiré par Typst
+    "RUSTSEC-2026-0194", # quick-xml, bibliographies de Typst et XLSX d'office2pdf
+    "RUSTSEC-2026-0195", # quick-xml, bibliographies de Typst et XLSX d'office2pdf
+]

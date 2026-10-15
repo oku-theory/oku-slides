@@ -9,7 +9,12 @@ all-features = true
 # fichier de bibliographie à Typst) ; 0.37, via office2pdf → umya-spreadsheet, lecture
 # des classeurs XLSX (le témoin de l'import ne reçoit que des PPTX). À retirer quand
 # Typst et office2pdf suivront.
+# RUSTSEC-2026-0192 (ttf-parser non maintenu) : Typst 0.15, fontdb, rustybuzz et
+# office2pdf en dépendent ; l'import le lit pour les noms, droits et métriques des
+# polices (fonts/face.rs). Suivre la migration de Typst (t-890).
+# Tenir .cargo/audit.toml aligné sur cette liste.
 ignore = [
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser non maintenu, tiré par Typst ; l'import suivra la migration de Typst" },
     { id = "RUSTSEC-2026-0194", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
     { id = "RUSTSEC-2026-0195", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
 ]
