@@ -17,6 +17,7 @@ use loro::{Container, ContainerTrait, LoroMap, LoroTree, LoroValue, TreeID, Tree
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
 
+use super::entry::Ancestry;
 use super::schema::{Kind, ORPHANS, SLIDE, SLOT, mark_peer, param_kind};
 use super::write::{Res, Writer, keyed, set_value};
 use crate::error::{LoroSnafu, MalformedDeckTreeSnafu, ReplicaInner, SlotsTooDeepSnafu, TreeOrderSnafu};
@@ -105,8 +106,9 @@ pub(super) fn slot_for(meta: &LoroMap, owner: &str) -> Option<String> {
 /// Seules comptent les clés `TreeID` canoniques à valeur non vide. 3a : si
 /// les clés de nœuds absents ou supprimés donnent toutes le même slot, il
 /// est pris sans réparation (parent recréé par « rétablir »). 3b : sinon, la
-/// première clé, nœuds vivants compris, avec réparation.
-fn inscribed_slot(tree: &LoroTree, meta: &LoroMap) -> Option<(String, bool)> {
+/// première clé, nœuds vivants compris, avec réparation. Chaque clé coûte
+/// une requête mémorisée de `ancestry`, jamais `is_node_deleted` (t-865).
+fn inscribed_slot(ancestry: &Ancestry<'_>, meta: &LoroMap) -> Option<(String, bool)> {
     let slots = slot_map(meta)?;
     let mut entries: Vec<(String, TreeID)> = slots
         .keys()
@@ -118,8 +120,7 @@ fn inscribed_slot(tree: &LoroTree, meta: &LoroMap) -> Option<(String, bool)> {
     entries.sort();
     let named: Vec<(TreeID, String)> =
         entries.into_iter().filter_map(|(k, id)| Some((id, name(slots.get(&k))?))).collect();
-    let gone = |id: &TreeID| !tree.contains(*id) || tree.is_node_deleted(id).unwrap_or(true);
-    let mut vanished = named.iter().filter(|(id, _)| gone(id)).map(|(_, slot)| slot);
+    let mut vanished = named.iter().filter(|(id, _)| ancestry.gone(*id)).map(|(_, slot)| slot);
     if let Some(first) = vanished.next()
         && vanished.all(|slot| slot == first)
     {
@@ -157,7 +158,8 @@ impl Children {
 /// La méta de chaque enfant est lue une fois. Un enfant marqué, vide (méta
 /// sans clé, R1) ou portant `@slide` (refusé à l'entrée) est écarté avec son
 /// sous-arbre avant le calcul du slot hérité (R2, règle 2), sans `Issue`.
-pub(super) fn ordered_children(tree: &LoroTree, parent: TreeParentId, pid: &str) -> Children {
+/// `ancestry` porte sur `tree` et sert à toute une lecture ou réconciliation.
+pub(super) fn ordered_children(tree: &LoroTree, ancestry: &Ancestry<'_>, parent: TreeParentId, pid: &str) -> Children {
     let kids: Vec<(TreeID, Option<LoroMap>)> = tree
         .children(parent)
         .unwrap_or_default()
@@ -177,7 +179,7 @@ pub(super) fn ordered_children(tree: &LoroTree, parent: TreeParentId, pid: &str)
             (Some(slot), _) => (slot, false),
             (None, Some(slot)) => (slot.clone(), true),
             (None, None) => {
-                meta.as_ref().and_then(|m| inscribed_slot(tree, m)).unwrap_or_else(|| (ORPHANS.to_owned(), true))
+                meta.as_ref().and_then(|m| inscribed_slot(ancestry, m)).unwrap_or_else(|| (ORPHANS.to_owned(), true))
             }
         };
         out.slots.entry(slot.clone()).or_default().push(Child { node, slot, repaired, meta });
@@ -264,7 +266,7 @@ type Found = (TreeID, String, String, String, Option<usize>);
 ///
 /// Jamais sous un nœud marqué. La méta de chaque nœud n'est lue qu'une fois,
 /// par [`ordered_children`].
-fn live_index(tree: &LoroTree, slide: TreeID) -> (Vec<Live>, Vec<usize>) {
+fn live_index(tree: &LoroTree, ancestry: &Ancestry<'_>, slide: TreeID) -> (Vec<Live>, Vec<usize>) {
     let mut found: Vec<Found> = Vec::new();
     let mut depths: Vec<usize> = Vec::new();
     let mut stack: Vec<Step<Option<usize>, LiveSlot>> = vec![Step::Expand(None)];
@@ -278,7 +280,7 @@ fn live_index(tree: &LoroTree, slide: TreeID) -> (Vec<Live>, Vec<usize>) {
                 if depth >= MAX_SLOT_DEPTH {
                     continue;
                 }
-                let groups = ordered_children(tree, TreeParentId::Node(node), &node.to_string()).slots;
+                let groups = ordered_children(tree, ancestry, TreeParentId::Node(node), &node.to_string()).slots;
                 stack.extend(groups.into_values().rev().map(|kids| Step::Slot(LiveSlot { parent, depth, kids })));
             }
             Step::Slot(LiveSlot { parent, depth, kids }) => {

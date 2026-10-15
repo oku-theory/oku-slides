@@ -12,9 +12,9 @@
 //! [`check_entry`] refuse ensuite tout arbre autre que `deck.slides` (tout arbre
 //! s'il manque), puis tout nœud, supprimé ou non, au-delà de [`MAX_TREE_DEPTH`],
 //! et rend les nœuds supprimés : plus de `is_node_deleted` en boucle, en
-//! O(nœuds × profondeur). Un document accepté ne déborde plus : export, `fork`
-//! et drop d'un arbre de 1024 niveaux tiennent dans ~1 Mio de pile, sous les
-//! 2 Mio des fils de l'app.
+//! O(nœuds × profondeur) ; la lecture passe de même par [`Ancestry`] (t-865).
+//! Un document accepté ne déborde plus : export, `fork` et drop d'un arbre de
+//! 1024 niveaux tiennent dans ~1 Mio de pile, sous les 2 Mio des fils de l'app.
 //!
 //! Résidus : les valeurs plates imbriquées (t-223) ; ne jamais appeler
 //! `get_deep_value` sur un document reçu ; au-delà de 65 535 conteneurs
@@ -24,12 +24,13 @@
 //! dans la même seconde (Loro 1.16.2, intervalle fixe) : deux éditions de même
 //! libellé dans la même seconde ne font plus qu'une version.
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::mem::ManuallyDrop;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use loro::{ContainerTrait, ContainerType, ExportMode, LoroDoc, LoroTree, TreeID, TreeParentId};
-use snafu::{ResultExt, ensure};
+use snafu::{OptionExt, ResultExt, ensure};
 
 use crate::error::{
     ExportSnafu, ImportPanickedSnafu, ImportSnafu, MalformedDeckTreeSnafu, NotADeckSnafu, ReplicaInner,
@@ -111,37 +112,93 @@ fn check_single_tree(doc: &LoroDoc, tree: Option<&LoroTree>) -> Result<(), Repli
     Ok(())
 }
 
-/// Les nœuds de `tree` supprimés par Loro ; refuse un nœud au-delà de [`MAX_TREE_DEPTH`].
+/// Profondeur et suppression des nœuds d'un arbre, mémorisées au fil des requêtes.
 ///
-/// Remonte `parent()` (une lecture de table) jusqu'à un ancêtre mesuré, la
-/// racine ou celle des supprimés ; linéaire en nœuds. Jamais
-/// `is_node_deleted`, qui récurse et coûte la profondeur à chaque appel.
-pub(in crate::replica) fn deleted_nodes(tree: &LoroTree) -> Result<HashSet<TreeID>, ReplicaInner> {
-    let nodes = tree.nodes();
-    // Par nœud : profondeur, et s'il est sous la racine des supprimés.
-    let mut seen: HashMap<TreeID, (usize, bool)> = HashMap::with_capacity(nodes.len());
-    let mut chain: Vec<TreeID> = Vec::new();
-    for node in nodes {
-        chain.clear();
+/// Remonte `parent()` (une lecture de table) jusqu'à un ancêtre déjà mesuré,
+/// la racine ou celle des supprimés : chaque nœud n'est remonté qu'une fois,
+/// d'où un coût total linéaire en nœuds. Jamais `is_node_deleted`, qui
+/// récurse et coûte la profondeur à chaque appel (t-865).
+pub(in crate::replica) struct Ancestry<'t> {
+    tree: &'t LoroTree,
+    /// Par nœud : profondeur (une racine vaut 1), et s'il est sous la racine des supprimés.
+    seen: RefCell<HashMap<TreeID, (usize, bool)>>,
+}
+
+impl<'t> Ancestry<'t> {
+    /// Rien n'est mesuré d'avance : chaque requête remonte au plus une fois chaque nœud.
+    pub(in crate::replica) fn new(tree: &'t LoroTree) -> Self {
+        Self { tree, seen: RefCell::new(HashMap::new()) }
+    }
+
+    /// Profondeur de `node` et s'il est supprimé par Loro ; `None` au-delà de `limit` niveaux.
+    ///
+    /// Un nœud absent de l'arbre vaut une racine vivante : appeler d'abord
+    /// `tree.contains` s'il peut l'être.
+    pub(in crate::replica) fn resolve(&self, node: TreeID, limit: usize) -> Option<(usize, bool)> {
+        let mut seen = self.seen.borrow_mut();
+        let mut chain: Vec<TreeID> = Vec::new();
         let mut at = node;
         let (base, deleted) = loop {
             if let Some(known) = seen.get(&at) {
                 break *known;
             }
             chain.push(at);
-            ensure!(chain.len() <= MAX_TREE_DEPTH, MalformedDeckTreeSnafu { what: TOO_DEEP });
-            match tree.parent(at) {
+            if chain.len() > limit {
+                return None;
+            }
+            #[cfg(test)]
+            climb();
+            match self.tree.parent(at) {
                 Some(TreeParentId::Node(p)) => at = p,
                 Some(TreeParentId::Deleted) => break (0, true),
                 _ => break (0, false),
             }
         };
-        ensure!(base + chain.len() <= MAX_TREE_DEPTH, MalformedDeckTreeSnafu { what: TOO_DEEP });
+        if base + chain.len() > limit {
+            return None;
+        }
         for (i, n) in chain.iter().rev().enumerate() {
             seen.insert(*n, (base + i + 1, deleted));
         }
+        seen.get(&node).copied()
     }
-    Ok(seen.into_iter().filter(|(_, (_, deleted))| *deleted).map(|(n, _)| n).collect())
+
+    /// Vrai si `node` manque à l'arbre ou est supprimé par Loro.
+    pub(in crate::replica) fn gone(&self, node: TreeID) -> bool {
+        !self.tree.contains(node) || self.resolve(node, usize::MAX).is_none_or(|(_, deleted)| deleted)
+    }
+}
+
+/// Les nœuds de `tree` supprimés par Loro ; refuse un nœud au-delà de [`MAX_TREE_DEPTH`].
+///
+/// Linéaire en nœuds (voir [`Ancestry`]).
+pub(in crate::replica) fn deleted_nodes(tree: &LoroTree) -> Result<HashSet<TreeID>, ReplicaInner> {
+    let ancestry = Ancestry::new(tree);
+    let mut deleted = HashSet::new();
+    for node in tree.nodes() {
+        let (_, gone) = ancestry.resolve(node, MAX_TREE_DEPTH).context(MalformedDeckTreeSnafu { what: TOO_DEEP })?;
+        if gone {
+            deleted.insert(node);
+        }
+    }
+    Ok(deleted)
+}
+
+#[cfg(test)]
+thread_local! {
+    static CLIMBED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+/// Compte une lecture de `parent()` par [`Ancestry`] (tests de coût).
+fn climb() {
+    CLIMBED.with(|c| c.set(c.get() + 1));
+}
+
+#[cfg(test)]
+/// Lectures de `parent()` par [`Ancestry`] depuis le début du fil (tests de coût).
+pub(in crate::replica) fn climbed() -> usize {
+    CLIMBED.with(std::cell::Cell::get)
 }
 
 #[cfg(test)]

@@ -71,6 +71,42 @@ fn deleted_nodes_matches_is_node_deleted_on_a_mixed_tree() {
 }
 
 #[test]
+fn ancestry_gone_matches_is_node_deleted_on_a_mixed_tree() {
+    let (doc, tree) = chain_doc(10);
+    let root = tree.roots()[0];
+    let gone = tree.create(TreeParentId::Node(root)).unwrap_or_else(|e| panic!("{e}"));
+    tree.create(TreeParentId::Node(gone)).unwrap_or_else(|e| panic!("{e}"));
+    tree.delete(gone).unwrap_or_else(|e| panic!("{e}"));
+    doc.commit();
+    let ancestry = Ancestry::new(&tree);
+    for n in tree.nodes() {
+        let loro_says = tree.is_node_deleted(&n).unwrap_or_else(|e| panic!("{e}"));
+        assert_that!(ancestry.gone(n)).named(&format!("{n:?}")).is_equal_to(loro_says);
+    }
+}
+
+#[test]
+fn ancestry_gone_of_a_node_absent_from_the_tree_is_true() {
+    let (_, tree) = chain_doc(1);
+    let absent = loro::TreeID::new(7, 7);
+    assert_that!(Ancestry::new(&tree).gone(absent)).is_true();
+}
+
+#[test]
+fn ancestry_climbs_each_node_once_however_many_queries() {
+    // t-865 : 100 requêtes par nœud d'une chaîne de 1000 niveaux.
+    let (_, tree) = chain_doc(1000);
+    let ancestry = Ancestry::new(&tree);
+    let before = climbed();
+    for _ in 0..100 {
+        for n in tree.nodes() {
+            assert_that!(ancestry.gone(n)).is_false();
+        }
+    }
+    assert_that!(climbed() - before).is_equal_to(1000);
+}
+
+#[test]
 fn check_entry_branch_past_the_bound_is_refused_whatever_the_visit_order() {
     // Un tronc de MAX - 1, deux feuilles à la borne, puis un enfant sous l'une :
     // l'une des deux remontées passe forcément par le mémo de l'autre.

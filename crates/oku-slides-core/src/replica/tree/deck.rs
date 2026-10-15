@@ -12,6 +12,7 @@ use loro::{Container, LoroDoc, LoroMap, LoroTree, LoroValue, TreeID, TreeParentI
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
+use super::super::entry::Ancestry;
 use super::super::schema::{Ctx, SLIDE, SLIDES};
 use super::super::write::{Res, Writer, keyed, set_value};
 use super::place::Layout;
@@ -100,6 +101,7 @@ struct LiveSlide {
 
 fn live_slides(tree: &LoroTree) -> Vec<LiveSlide> {
     let nodes = slide_order(tree);
+    let ancestry = Ancestry::new(tree);
     let ids: Vec<String> = nodes
         .iter()
         .map(|n| {
@@ -112,7 +114,7 @@ fn live_slides(tree: &LoroTree) -> Vec<LiveSlide> {
         .into_iter()
         .zip(keyed(&ids))
         .map(|(node, key)| {
-            let (elements, pre) = live_index(tree, node);
+            let (elements, pre) = live_index(tree, &ancestry, node);
             LiveSlide { key, node, elements, pre }
         })
         .collect()

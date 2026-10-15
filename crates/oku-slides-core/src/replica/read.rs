@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::DeckRead;
+use super::entry::Ancestry;
 use super::schema::{Ctx, DATASET, Kind, LIST, RICH};
 use super::tree::{Children, ordered_children, slide_order, stray_roots};
 use crate::error::{ReplicaInner, UnsupportedDeckVersionSnafu};
@@ -180,7 +181,13 @@ impl Reader {
     /// slot réparé est gardé et signalé ; des enfants visibles au-delà de
     /// [`MAX_SLOT_DEPTH`] ne sont pas lus (une `Issue` par nœud). Les enfants
     /// de chaque nœud sont calculés ici, avec son `TreeID` comme `pid`.
-    fn read_tree(&mut self, tree: &LoroTree, kids: &Children, depth: Depth) -> Map<String, Value> {
+    fn read_tree(
+        &mut self,
+        tree: &LoroTree,
+        ancestry: &Ancestry<'_>,
+        kids: &Children,
+        depth: Depth,
+    ) -> Map<String, Value> {
         let mut out = Map::new();
         for (slot, children) in &kids.slots {
             let mut items = Vec::with_capacity(children.len());
@@ -199,7 +206,7 @@ impl Reader {
                     let message = Message::new("issue-slot-repaired").arg("slot", slot.clone());
                     self.issues.push(issue(None, id.clone(), message));
                 }
-                let grand = ordered_children(tree, TreeParentId::Node(child.node), &child.node.to_string());
+                let grand = ordered_children(tree, ancestry, TreeParentId::Node(child.node), &child.node.to_string());
                 let count = grand.len();
                 if count > 0 && depth.slots + 1 >= MAX_SLOT_DEPTH {
                     for _ in 0..count {
@@ -207,7 +214,7 @@ impl Reader {
                     }
                 } else if count > 0 {
                     let inner = Depth { levels: depth.levels + 2, slots: depth.slots + 1 };
-                    let slots = self.read_tree(tree, &grand, inner);
+                    let slots = self.read_tree(tree, ancestry, &grand, inner);
                     for param in merge_slots(&mut obj, slots) {
                         let message = Message::new("issue-param-type").arg("param", param);
                         self.issues.push(issue(None, id.clone(), message));
@@ -299,14 +306,16 @@ impl Reader {
             self.issues.push(issue(id, None, Message::new("issue-unreadable-slide")));
         }
         let order = slide_order(tree);
+        // Une seule pour toute la lecture : chaque nœud n'est remonté qu'une fois (t-865).
+        let ancestry = Ancestry::new(tree);
         let mut out = Vec::with_capacity(order.len());
         for node in order {
             // Listé par `slide_order`, qui vient d'en lire la méta.
             let Ok(meta) = tree.get_meta(node) else { continue };
             let first = self.issues.len();
             let mut obj = self.read_map_at(&meta, Ctx::Slide, depth);
-            let kids = ordered_children(tree, TreeParentId::Node(node), &node.to_string());
-            let slots = self.read_tree(tree, &kids, Depth { levels: depth.levels + 1, slots: 0 });
+            let kids = ordered_children(tree, &ancestry, TreeParentId::Node(node), &node.to_string());
+            let slots = self.read_tree(tree, &ancestry, &kids, Depth { levels: depth.levels + 1, slots: 0 });
             for param in merge_slots(&mut obj, slots) {
                 self.issues.push(issue(None, None, Message::new("issue-param-type").arg("param", param)));
             }

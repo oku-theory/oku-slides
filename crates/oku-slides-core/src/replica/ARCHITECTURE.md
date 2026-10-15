@@ -12,7 +12,8 @@ Le deck dans un `LoroDoc` (CRDT) : historique complet, fusion, annuler. `DeckRep
 - `host` : option `host(chart|table)` ; `rich` : paragraphes en `LoroText` à marques.
 - `undo` : annulation, groupes, clés de fusion ; `authors` : pairs, `MergeReport`.
 - `compact` : compaction à l'ouverture (ADR-0007), seule à faire un `tree.delete`.
-- `entry` : ouverture par rejeu des opérations, arbre unique, profondeur bornée (t-809).
+- `entry` : ouverture par rejeu des opérations, arbre unique, profondeur bornée (t-809) ;
+  `Ancestry`, suppressions et profondeurs mémorisées, une remontée par nœud et par lecture (t-865).
 - `history` : une `Version` par édition ; une version passée se lit par rejeu (`updates_till`
   dans un document neuf, contrôlé), jamais par `checkout` (t-809).
 
