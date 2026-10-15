@@ -29,6 +29,7 @@ pub mod source;
 mod collect;
 mod error;
 mod limits;
+mod oklab;
 mod pattern;
 mod pptx;
 #[cfg(test)]

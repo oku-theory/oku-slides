@@ -6,7 +6,7 @@
 //! ([`BLUR_SIGMA`] pixels : l'anticrénelage et le pixel de décalage d'un
 //! glyphe comptent peu ; à σ = 1, les titres d'alto, alignés à 1 px près,
 //! passaient devant les vrais écarts) ; l'écart d'un pixel
-//! est le ΔE OKLab (×100, celui de `retrofit::color`). Le score d'une slide est
+//! est le ΔE OKLab (×100, celui du module `oklab`). Le score d'une slide est
 //! l'écart moyen sur la page.
 //!
 //! Le score d'une région désigne l'élément fautif ; il est calibré sur alto
@@ -36,7 +36,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::retrofit::color::{Oklab, delta_e, oklab};
+use crate::oklab::{Oklab, delta_e, oklab};
 use crate::source::{Item, ItemKind, Rgba, SourceSlide};
 
 /// Écart-type du flou gaussien, en pixels (à 960 px de large).
