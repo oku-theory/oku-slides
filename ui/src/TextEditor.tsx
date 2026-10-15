@@ -14,6 +14,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { markdownDecorations } from "./markdownDecorations";
 import { applyEdit, markdownFormatKeys } from "./markdownEditing";
 import { insertDictated } from "./textEdits";
+import { viewToggle } from "./useKeptUi";
 
 /** Ce que la scène peut demander à l'éditeur ouvert. */
 export interface TextEditorHandle {
@@ -234,7 +235,10 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
           viewRef.current?.focus();
         }
       }}
-      onKeyDown={(e) => e.stopPropagation()}
+      // Les touches restent à l'éditeur, sauf ⌘' et ⌘⇧G, qu'il ne lie pas : l'affichage se bascule aussi en édition (t-364).
+      onKeyDown={(e) => {
+        if (!viewToggle(e)) e.stopPropagation();
+      }}
     />
   );
 }

@@ -39,7 +39,8 @@ import { AgentPanel, IDLE_AGENT, type AgentHandle, type ScopeSource } from "./ag
 import { routeSurfaces } from "./agent/surfaces";
 import { useAgentPicker } from "./agent/useAgentPicker";
 import { agentUi } from "./agent/ui";
-import { escapeAction, targetOwnsKeys } from "./agent/keys";
+import { escapeAction } from "./agent/keys";
+import { appKeyScope } from "./appKeyScope";
 import { createSlot, SlotView } from "./agent/slot";
 import { useAgentFocus } from "./agent/useAgentFocus";
 import type { QuickTarget } from "./agent/useQuickKeys";
@@ -501,10 +502,15 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
       // La présentation prend ses touches (`Presenter`) ; derrière elle, rien ne réagit.
       if (presenting) return;
       // Dans une saisie de texte, ou (touches seules) une surface A2UI ou le dock, les touches sont les leurs ; ⌘Z passe depuis un bouton.
-      // Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
-      if (agentStatus.modal || editing || picking || targetOwnsKeys(e.target as HTMLElement, e)) return;
+      // Seuls ⌘' et ⌘⇧G, qu'aucun éditeur ne lie, y passent (t-364). Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
+      const scope = appKeyScope({ modal: agentStatus.modal, picking, editing: !!editing }, e);
+      if (scope === "none") return;
       // L'aide : `HelpBar` a ses touches ; rien ne s'édite ni ne se bascule.
       if (snap?.read_only) return;
+      if (scope === "display") {
+        keptUi.handleKey(e);
+        return;
+      }
       const mod = e.metaKey || e.ctrlKey;
       const presentMode = presentShortcut(e);
       if (presentMode && !snap?.editing && !snap?.history) {
