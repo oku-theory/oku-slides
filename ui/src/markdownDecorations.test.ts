@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { lineDecorations } from "./markdownDecorations";
+import { lineDecorations, linePreview, listOrdinal } from "./markdownDecorations";
 
 describe("lineDecorations", () => {
   test("préfixe de puce et marques atténués, gras décoré", () => {
@@ -70,5 +70,81 @@ describe("lineDecorations", () => {
 
   test("numéro sans espace : pas de préfixe", () => {
     expect(lineDecorations("1.x", [])).toEqual([]);
+  });
+});
+
+/** Plages cachées d'une ligne pour une sélection (positions dans la ligne). */
+const hidden = (line: string, selection: { from: number; to: number }[], ordinal = 1) =>
+  linePreview(line, [], selection, ordinal)
+    .filter((d) => "hide" in d)
+    .map((d) => [d.from, d.to]);
+const at = (pos: number) => [{ from: pos, to: pos }];
+
+describe("linePreview", () => {
+  test("curseur hors du gras : ses marques sont cachées, le gras reste mis en forme", () => {
+    const preview = linePreview("a **b** c", [], at(0), 1);
+    expect(preview).toContainEqual({ from: 4, to: 5, className: "cm-md-bold" });
+    expect(hidden("a **b** c", at(0))).toEqual([[2, 4], [5, 7]]);
+  });
+
+  test("curseur dans le gras : ses marques se montrent, atténuées", () => {
+    expect(hidden("a **b** c", at(4))).toEqual([]);
+    expect(linePreview("a **b** c", [], at(4), 1)).toContainEqual({ from: 2, to: 4, className: "cm-md-mark" });
+  });
+
+  test("curseur contre la marque fermante : la construction est touchée, ses marques se montrent", () => {
+    expect(hidden("a **b** c", at(7))).toEqual([]);
+    expect(hidden("a **b** c", at(2))).toEqual([]);
+  });
+
+  test("sélection qui couvre la construction : ses marques se montrent", () => {
+    expect(hidden("a **b** c", [{ from: 0, to: 9 }])).toEqual([]);
+  });
+
+  test("ligne sans curseur : toutes les marques sont cachées", () => {
+    expect(hidden("*a* et _b_", [])).toEqual([[0, 1], [2, 3], [7, 8], [9, 10]]);
+  });
+
+  test("italique dans le gras, curseur dans le gras seul : seules les marques de l'italique sont cachées", () => {
+    expect(hidden("**a *b* c**", at(3))).toEqual([[4, 5], [6, 7]]);
+  });
+
+  test("lien hors du curseur : crochets, adresse et parenthèses cachés d'un seul tenant", () => {
+    expect(hidden("[a](u) x", at(8))).toEqual([[0, 1], [2, 6]]);
+    expect(linePreview("[a](u) x", [], at(8), 1)).toContainEqual({ from: 1, to: 2, className: "cm-md-link" });
+  });
+
+  test("pastille colorée hors du curseur : == et =={n} cachés", () => {
+    expect(hidden("==x=={2} y", at(10))).toEqual([[0, 2], [3, 8]]);
+  });
+
+  test("échappement hors du curseur : la barre oblique est cachée, la ponctuation reste", () => {
+    expect(hidden("\\* y", at(4))).toEqual([[0, 1]]);
+    expect(hidden("\\* y", at(1))).toEqual([]);
+  });
+
+  test("puce hors du curseur : le tiret devient une puce", () => {
+    expect(linePreview("- a", [], at(3), 1)).toContainEqual({ from: 0, to: 2, marker: "• " });
+  });
+
+  test("puce sous le curseur : le tiret se montre, atténué", () => {
+    expect(linePreview("- a", [], at(0), 1)).toContainEqual({ from: 0, to: 2, className: "cm-md-mark" });
+  });
+
+  test("numéro hors du curseur : le rang de l'item dans sa liste, comme au rendu", () => {
+    expect(linePreview("1. a", [], at(4), 3)).toContainEqual({ from: 0, to: 3, marker: "3. " });
+  });
+});
+
+describe("listOrdinal", () => {
+  const lines = ["1. a", "1. b", "x", "7. c", "- d", "2. e", "3. f"];
+  const line = (n: number) => lines[n - 1];
+
+  test("items numérotés consécutifs : 1, 2", () => {
+    expect([listOrdinal(line, 1), listOrdinal(line, 2)]).toEqual([1, 2]);
+  });
+
+  test("un paragraphe ou une puce clôt la liste : la suivante repart à 1, quel que soit le numéro écrit", () => {
+    expect([listOrdinal(line, 4), listOrdinal(line, 6), listOrdinal(line, 7)]).toEqual([1, 1, 2]);
   });
 });

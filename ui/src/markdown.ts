@@ -85,11 +85,18 @@ const parser = commonmark.configure([Highlight, { remove: DISABLED }]);
 /** `{0}`..`{255}` : la couleur est un u8 côté Rust ({0} prend la dernière, comme Typst). */
 const COLOR = /^\{(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\}/;
 
-/** Runs et plages d'une ligne, remplis par le parcours de l'arbre. */
+/** Étendue d'une construction inline (gras, italique, pastille, lien, échappement), marques comprises. */
+export interface Construct {
+  from: number;
+  to: number;
+}
+
+/** Runs, plages et constructions d'une ligne, remplis par le parcours de l'arbre. */
 interface Walk {
   line: string;
   runs: Run[];
   spans: Span[];
+  constructs: Construct[];
 }
 
 function span(w: Walk, from: number, to: number, kind: SpanKind, highlight?: number) {
@@ -111,6 +118,7 @@ function inline(w: Walk, node: SyntaxNode, from: number, to: number, f: Format) 
 function element(w: Walk, n: SyntaxNode, f: Format): number {
   switch (n.name) {
     case "Escape":
+      w.constructs.push({ from: n.from, to: n.to });
       span(w, n.from, n.from + 1, "mark");
       w.runs.push(run(w.line.slice(n.from + 1, n.to), f));
       return n.to;
@@ -120,6 +128,7 @@ function element(w: Walk, n: SyntaxNode, f: Format): number {
       const close = n.lastChild;
       if (!open || !close) return n.from;
       const kind = n.name === "Emphasis" ? "italic" : "bold";
+      w.constructs.push({ from: n.from, to: n.to });
       span(w, open.from, open.to, "mark");
       span(w, open.to, close.from, kind);
       inline(w, n, open.to, close.from, kind === "bold" ? { ...f, bold: true } : { ...f, italic: true });
@@ -133,6 +142,7 @@ function element(w: Walk, n: SyntaxNode, f: Format): number {
       const color = COLOR.exec(w.line.slice(n.to));
       const highlight = color ? Number(color[1]) : 1;
       const end = n.to + (color?.[0].length ?? 0);
+      w.constructs.push({ from: n.from, to: end });
       span(w, open.from, open.to, "mark");
       span(w, open.to, close.from, "highlight", highlight);
       inline(w, n, open.to, close.from, { ...f, highlight });
@@ -147,6 +157,7 @@ function element(w: Walk, n: SyntaxNode, f: Format): number {
       const marks = n.getChildren("LinkMark");
       if (!url || marks.length < 2 || n.getChild("LinkTitle") || w.line[url.from] === "<") return n.from;
       const [open, close] = marks;
+      w.constructs.push({ from: n.from, to: n.to });
       span(w, open.from, open.to, "mark");
       span(w, open.to, close.from, "link");
       inline(w, n, open.to, close.from, { ...f, link: w.line.slice(url.from, url.to) });
@@ -163,7 +174,7 @@ function element(w: Walk, n: SyntaxNode, f: Format): number {
 }
 
 function walk(line: string): Walk {
-  const w: Walk = { line, runs: [], spans: [] };
+  const w: Walk = { line, runs: [], spans: [], constructs: [] };
   inline(w, parser.parse(line).topNode, 0, line.length, { bold: false, italic: false });
   return w;
 }
@@ -176,9 +187,19 @@ export function markdownToRuns(line: string): Run[] {
 
 /** Plages non vides d'une ligne, l'englobante avant l'englobée. */
 export function markdownSpans(line: string): Span[] {
-  return walk(line)
-    .spans.filter((s) => s.to > s.from)
-    .sort((a, b) => a.from - b.from || b.to - a.to);
+  return markdownLayout(line).spans;
+}
+
+/**
+ * Plages (comme `markdownSpans`) et constructions d'une ligne, d'une seule analyse :
+ * l'éditeur montre les marques d'une construction quand la sélection la touche.
+ */
+export function markdownLayout(line: string): { spans: Span[]; constructs: Construct[] } {
+  const w = walk(line);
+  return {
+    spans: w.spans.filter((s) => s.to > s.from).sort((a, b) => a.from - b.from || b.to - a.to),
+    constructs: w.constructs,
+  };
 }
 
 /** Préfixe de liste d'une ligne : `- ` (puce), `1. ` (numéro), sinon rien. */

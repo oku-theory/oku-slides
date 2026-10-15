@@ -38,3 +38,16 @@ test("editorGeometry sets the optical size to the Typst size in pt, not the scre
   const css = editorGeometry(f, "Un bloc", 0.5, [f]);
   expect(css.fontVariationSettings).toBe("'opsz' 40");
 });
+
+test("editorGeometry carries the zone's weight, colour, case, leading and tracking to the editor (t-272)", () => {
+  const f = field({ style: { ...style, weight: 700, fill: "#aa3300", case: "upper", tracking: 2 } });
+  const css = editorGeometry(f, "Un bloc", 0.5, [f]);
+  expect(css.fontWeight).toBe(700);
+  expect(css.color).toBe("#aa3300");
+  expect(css.textTransform).toBe("uppercase");
+  expect(css.letterSpacing).toBe(1);
+  expect(css.fontSize).toBe(20);
+  expect(typeof css.lineHeight).toBe("string");
+  expect(String(css.lineHeight)).toMatch(/px$/);
+  expect(String(css.fontFamily)).toContain("Newsreader");
+});
