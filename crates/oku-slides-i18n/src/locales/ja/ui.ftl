@@ -168,6 +168,7 @@ ui-undo-list-move = { $item }を移動
 ui-agent-color-other = その他の色
 ui-agent-thread = エージェント
 ui-agent-new-conversation = 新しい会話
+ui-agent-undo-turn = このターンを取り消す
 ui-agent-detach = エージェントを別ウィンドウで開く
 ui-agent-attach = エージェントをメインウィンドウに戻す
 ui-agent-window-empty = このタブにはエージェントがありません

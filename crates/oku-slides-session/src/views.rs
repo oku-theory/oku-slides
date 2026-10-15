@@ -69,6 +69,8 @@ pub struct Snapshot<'a> {
     pub undo_label: Option<String>,
     pub can_redo: bool,
     pub redo_label: Option<String>,
+    /// Le tour de l'agent dont l'étape est au sommet de la pile d'annulation : son reçu propose de l'annuler.
+    pub undo_turn: Option<u32>,
     /// Avertissements du rendu, dans la langue de l'utilisateur.
     pub warnings: Vec<String>,
     /// Signalé à l'ouverture : le PDF a été modifié par un autre outil, ou

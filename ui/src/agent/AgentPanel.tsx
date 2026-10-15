@@ -112,6 +112,10 @@ export interface AgentPanelProps {
   onDetach?: () => void;
   /** Ramène l'agent dans la fenêtre principale : le bouton n'existe que dans la fenêtre de l'agent. */
   onAttach?: () => void;
+  /** Le tour au sommet de la pile d'annulation du deck (`Snapshot.undo_turn`). */
+  undoTurn?: number | null;
+  /** Annule ce tour depuis son reçu ; sans rappel, aucun reçu ne l'offre. */
+  onUndoTurn?: (turn: number) => void;
   /** Pour les tests : l'abonnement aux évènements de l'hôte. */
   subscribe?: typeof subscribeHost;
 }
@@ -290,6 +294,8 @@ export function AgentPanel(props: AgentPanelProps) {
         onDetach={props.onDetach}
         onAttach={props.onAttach}
         onError={onError}
+        undoTurn={props.undoTurn}
+        onUndoTurn={props.onUndoTurn}
       />
     </SlideThumbsContext.Provider>
   );

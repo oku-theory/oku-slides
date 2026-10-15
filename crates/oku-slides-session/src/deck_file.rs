@@ -82,6 +82,8 @@ impl Session {
             .transpose()?;
         self.install_widgets(widgets)?;
         self.doc = doc;
+        // Un autre replica : ses rangs d'étapes ne sont plus ceux des tours notés.
+        self.turn_steps = Default::default();
         if let Some(fonts) = fonts {
             self.install_fonts(fonts);
         }

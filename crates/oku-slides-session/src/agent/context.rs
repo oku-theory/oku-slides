@@ -63,14 +63,15 @@ const TRIALS_SHOWN: usize = 10;
 const TRIAL_CHARS: usize = 80;
 
 impl Session {
-    /// Ouvre le groupe d'annulation d'un tour de l'agent.
+    /// Ouvre le groupe d'annulation du tour `turn` de l'agent (son numéro dans le fil).
     ///
     /// La séance de widgets du mode deck finit ici et à la fin du tour : une
     /// séance ne chevauche jamais l'étape d'un tour.
-    pub fn begin_turn(&mut self, prompt: &str) {
+    pub fn begin_turn(&mut self, turn: u32, prompt: &str) {
         self.end_widget_session();
         let label = self.localizer.tr_with("agent-undo-turn", &[("text", turn_label(prompt).into())]);
         self.doc.sources.begin_group(&label);
+        self.turn_steps_begin(turn);
     }
 
     /// Ferme le groupe du tour, y compris sur le deck mis de côté (modèles, historique).
@@ -80,6 +81,7 @@ impl Session {
         if let Mode::Templates { stash, .. } | Mode::History { stash, .. } = &mut self.mode {
             stash.sources.end_group();
         }
+        self.turn_steps_end();
     }
 
     /// Une action faite sans l'agent, qu'il apprendra au prochain tour.

@@ -38,6 +38,8 @@ const ITEMS_PER_STEP: usize = 64;
 /// Une étape d'annulation : `items` items Loro consécutifs, sous un libellé.
 #[derive(Debug)]
 struct Step {
+    /// Rang de l'étape à sa création (voir [`Undo::steps`]) : garde son nom en changeant de pile.
+    id: u64,
     label: String,
     items: usize,
     /// Clé de fusion : une application de même clé rejoint l'étape.
@@ -95,15 +97,16 @@ impl Undo {
                 }
             }
             Some((group, open)) => {
-                self.undo.push(Step { label: group.clone(), items, merge: None });
                 self.steps += 1;
+                self.undo.push(Step { id: self.steps, label: group.clone(), items, merge: None });
                 *open = true;
             }
             None => match (merge, self.undo.last_mut()) {
                 (Some(k), Some(top)) if top.merge.as_deref() == Some(k) => top.items += items,
                 _ => {
-                    self.undo.push(Step { label: label.to_owned(), items, merge: merge.map(str::to_owned) });
                     self.steps += 1;
+                    let merge = merge.map(str::to_owned);
+                    self.undo.push(Step { id: self.steps, label: label.to_owned(), items, merge });
                 }
             },
         }
@@ -169,7 +172,7 @@ impl Undo {
         self.end_group();
         let Some(step) = self.undo.pop() else { return Ok(false) };
         let (done, r) = self.replay(step.items, UndoManager::undo);
-        self.redo.push(Step { label: step.label, items: done, merge: None });
+        self.redo.push(Step { id: step.id, label: step.label, items: done, merge: None });
         self.cut_merge();
         r.map(|()| true)
     }
@@ -179,7 +182,7 @@ impl Undo {
         self.end_group();
         let Some(step) = self.redo.pop() else { return Ok(false) };
         let (done, r) = self.replay(step.items, UndoManager::redo);
-        self.undo.push(Step { label: step.label, items: done, merge: None });
+        self.undo.push(Step { id: step.id, label: step.label, items: done, merge: None });
         self.cut_merge();
         r.map(|()| true)
     }
@@ -219,6 +222,11 @@ impl Undo {
 
     pub(super) fn top_undo(&self) -> Option<String> {
         self.undo.last().map(|s| s.label.clone())
+    }
+
+    /// Rang de l'étape du sommet : le même tant qu'elle y est, quelles qu'aient été ses allées et venues.
+    pub(super) fn top_undo_id(&self) -> Option<u64> {
+        self.undo.last().map(|s| s.id)
     }
 
     pub(super) fn top_redo(&self) -> Option<String> {

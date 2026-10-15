@@ -235,7 +235,7 @@ async fn set_widget_twice_in_a_templates_turn_is_one_undo_step() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     call(&c, "edit_templates", json!({ "set": SET })).await;
-    h.session.lock().unwrap().begin_turn("deux widgets");
+    h.session.lock().unwrap().begin_turn(1, "deux widgets");
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
     let session = std::sync::Arc::clone(&h.session);

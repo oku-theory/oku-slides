@@ -245,6 +245,8 @@ pub struct Session {
     sent_blobs: Vec<Arc<resume::Blobs>>,
     /// Ce que l'utilisateur a fait sans l'agent depuis son dernier tour.
     agent_notes: Vec<String>,
+    /// Étapes d'annulation du deck prises par les derniers tours de l'agent (`agent::turn_undo`).
+    turn_steps: agent::turn_undo::TurnSteps,
     /// Conversations de l'agent, une par portée (`agent::conversation`).
     conversations: agent::conversation::Conversations,
     /// Bandeau du pack du deck ouvert (autre version que la courante).
@@ -377,6 +379,7 @@ impl Session {
             ui_order: None,
             resume: None,
             agent_notes: Vec::new(),
+            turn_steps: Default::default(),
             conversations: Default::default(),
             pack_notice: None,
             pack_notices_closed: HashSet::new(),
@@ -616,6 +619,7 @@ impl Session {
             undo_label: doc.sources.replica().undo_label(),
             can_redo: doc.sources.replica().can_redo(),
             redo_label: doc.sources.replica().redo_label(),
+            undo_turn: self.undo_turn(),
             warnings: compiled
                 .map(|c| c.warnings.iter().map(|w| w.localize(&self.localizer)).collect())
                 .unwrap_or_default(),

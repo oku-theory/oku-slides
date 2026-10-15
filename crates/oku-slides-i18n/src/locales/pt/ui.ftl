@@ -168,6 +168,7 @@ ui-undo-list-move = Mover { $item }
 ui-agent-color-other = Outra cor
 ui-agent-thread = Agente
 ui-agent-new-conversation = Nova conversa
+ui-agent-undo-turn = Desfazer este turno
 ui-agent-detach = Abrir o agente em uma janela separada
 ui-agent-attach = Trazer o agente de volta à janela principal
 ui-agent-window-empty = Nenhum agente para esta aba

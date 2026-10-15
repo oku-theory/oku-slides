@@ -172,6 +172,7 @@ ui-undo-list-move = Перемістити { $item }
 ui-agent-color-other = Інший колір
 ui-agent-thread = Агент
 ui-agent-new-conversation = Нова розмова
+ui-agent-undo-turn = Скасувати цей хід
 ui-agent-detach = Відкрити агента в окремому вікні
 ui-agent-attach = Повернути агента в головне вікно
 ui-agent-window-empty = Для цієї вкладки немає агента

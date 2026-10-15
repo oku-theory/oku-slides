@@ -371,7 +371,7 @@ fn set_widget_by_agent_deleting_leaves_no_mark() {
 fn set_widget_by_agent_in_templates_turn_can_be_undone() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
-    s.begin_turn("widget kpi");
+    s.begin_turn(1, "widget kpi");
     s.set_widget_by_agent("kpi", KPI.into()).unwrap();
     s.end_turn();
     assert_that!(s.snapshot().can_undo).is_true();
@@ -381,7 +381,7 @@ fn set_widget_by_agent_in_templates_turn_can_be_undone() {
 fn two_widget_writes_in_templates_turn_are_one_step_labelled_by_the_turn() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
-    s.begin_turn("deux écritures");
+    s.begin_turn(1, "deux écritures");
     s.set_widget_by_agent("kpi", KPI.into()).unwrap();
     s.set_widget_by_agent("kpi", KPI_V2.into()).unwrap();
     s.end_turn();
@@ -402,7 +402,7 @@ fn two_widget_writes_in_templates_mode_outside_a_turn_merge_into_one_step() {
 fn written_then_agent_turn(s: &mut Session) -> oku_slides_core::PackVersion {
     s.set_widget("kpi", KPI.into()).unwrap();
     let v1 = s.snapshot().editing.unwrap().base.clone();
-    s.begin_turn("v2");
+    s.begin_turn(1, "v2");
     s.set_widget_by_agent("kpi", KPI_V2.into()).unwrap();
     s.end_turn();
     v1
@@ -441,7 +441,7 @@ fn undo_to_the_parent_then_close_leaves_the_deck_on_the_parent_version() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     let parent = s.snapshot().editing.unwrap().parent.clone();
-    s.begin_turn("kpi");
+    s.begin_turn(1, "kpi");
     s.set_widget_by_agent("kpi", KPI.into()).unwrap();
     s.end_turn();
     s.undo().unwrap();
@@ -453,7 +453,7 @@ fn undo_to_the_parent_then_close_leaves_the_deck_on_the_parent_version() {
 fn undo_to_the_parent_clears_the_session_version() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
-    s.begin_turn("kpi");
+    s.begin_turn(1, "kpi");
     s.set_widget_by_agent("kpi", KPI.into()).unwrap();
     s.end_turn();
     s.undo().unwrap();
@@ -465,7 +465,7 @@ fn undo_of_a_widget_write_made_before_a_silent_save_restores_its_source() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     s.set_widget("kpi", KPI.into()).unwrap();
-    s.begin_turn("v2");
+    s.begin_turn(1, "v2");
     s.set_widget_by_agent("kpi", KPI_V2.into()).unwrap();
     s.end_turn();
     s.save_templates(false).unwrap();

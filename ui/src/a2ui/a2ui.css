@@ -80,6 +80,9 @@
 .agent-turn { display: flex; flex-direction: column; gap: var(--space-1); }
 /* Une pastille de texte : `.token` en ferait un rond d'icône de 44 px où le libellé déborde. */
 .token.agent-jump { align-self: center; width: auto; height: auto; min-height: 28px; padding: 4px 12px; border-radius: 999px; white-space: nowrap; font: 500 13px/18px var(--sans); }
+/* « Annuler ce tour », sous le reçu : une pastille icône + texte, au début de la ligne. */
+.token.ghost.agent-undo-turn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; width: auto; height: auto; min-height: 28px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; font: 500 13px/18px var(--sans); }
+.agent-undo-turn svg { width: 16px; height: 16px; }
 /* Au plus 45 % du panneau entier (`.notes`, conteneur de taille), quelle que soit la hauteur du fil ;
    il cède sa place si le fil est plus court, puis défile. */
 .agent-dock { flex: 0 1 auto; max-height: 45cqh; overflow: auto; display: flex; flex-direction: column; gap: var(--space-1); padding-top: var(--space-2); border-top: 1px solid var(--a2ui-border); }

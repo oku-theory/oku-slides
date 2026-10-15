@@ -29,6 +29,7 @@ session-history-not-open = 歷程記錄未開啟
 session-in-history = 請先關閉歷程記錄再修改簡報
 session-read-only = 說明為唯讀：無法修改
 session-not-help = 此分頁不是說明
+session-turn-not-on-top = 本輪已不是最後一次變更
 session-unknown-theme = 未知的主題：{ $theme }
 session-theme-version-missing = 找不到主題 { $id } 的版本 { $version }
 session-invalid-theme = 無法讀取主題：{ $id }

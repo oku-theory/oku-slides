@@ -29,6 +29,7 @@ session-history-not-open = 历史记录未打开
 session-in-history = 请先关闭历史记录再修改演示文稿
 session-read-only = 帮助为只读：无法修改
 session-not-help = 此标签页不是帮助
+session-turn-not-on-top = 本轮已不是最后一次更改
 session-unknown-theme = 未知主题：{ $theme }
 session-theme-version-missing = 找不到主题 { $id } 的版本 { $version }
 session-invalid-theme = 无法读取主题：{ $id }

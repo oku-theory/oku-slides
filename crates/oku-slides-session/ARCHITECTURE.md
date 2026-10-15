@@ -25,9 +25,10 @@ resume. The Tauri app and the dev server (`oku-slides-cli` `serve`) expose the s
 - Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts
   unrendered (`Session::unrendered`), its worker process at the first render (`ensure_rendered`).
 - `agent/`: what the session offers the agent. `tabs` (`Sessions`, `TabSession`), turns as undo
-  groups (`begin_turn`), A2UI surfaces (`forms`, `turn_view`, `receipt`, `render`, `surface_ops`),
-  `address`, `variants`, `context`, `scope` + `conversation` (per-scope threads; `ScopeMove` on
-  widget rename, replayed by `undo.rs`), `reason` (`AgentFormReason`).
+  groups (`begin_turn`; `turn_undo` names the turn atop the deck undo stack for its receipt), A2UI
+  surfaces (`forms`, `turn_view`, `receipt`, `render`, `surface_ops`), `address`, `variants`,
+  `context`, `scope` + `conversation` (per-scope threads; `ScopeMove` on widget rename, replayed by
+  `undo.rs`), `reason` (`AgentFormReason`).
 
 ## Workspace
 

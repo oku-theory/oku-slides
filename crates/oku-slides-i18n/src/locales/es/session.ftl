@@ -29,6 +29,7 @@ session-history-not-open = El historial no está abierto
 session-in-history = Cierre el historial antes de modificar la presentación
 session-read-only = La ayuda es de solo lectura: no se puede modificar
 session-not-help = Esta pestaña no es la ayuda
+session-turn-not-on-top = Este turno ya no es el último cambio
 session-unknown-theme = Tema desconocido: { $theme }
 session-theme-version-missing = No se encontró la versión { $version } del tema { $id }
 session-invalid-theme = Tema ilegible: { $id }

@@ -47,7 +47,7 @@ pub(crate) async fn run(
     let text_for_begin = text.clone();
     let blocking = tokio::task::spawn_blocking(move || {
         tab.with(|s| {
-            s.begin_turn(&text_for_begin);
+            s.begin_turn(turn, &text_for_begin);
             s.agent_context(&ui)
         })
     })

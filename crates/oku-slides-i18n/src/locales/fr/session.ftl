@@ -29,6 +29,7 @@ session-history-not-open = L'historique n'est pas ouvert
 session-in-history = Fermez l'historique avant de modifier la présentation
 session-read-only = L'aide est en lecture seule : elle ne se modifie pas
 session-not-help = Cet onglet n'est pas l'aide
+session-turn-not-on-top = Ce tour n'est plus la dernière modification
 session-unknown-theme = Thème inconnu : { $theme }
 session-theme-version-missing = La version { $version } du thème { $id } est introuvable
 session-invalid-theme = Thème illisible : { $id }

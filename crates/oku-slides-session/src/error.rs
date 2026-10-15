@@ -80,6 +80,8 @@ pub enum SessionErrorKind {
     ReadOnly,
     /// Requête réservée à l'aide.
     NotHelp,
+    /// Annuler un tour de l'agent qui n'est plus la dernière modification du deck.
+    TurnNotOnTop,
     /// Thème inconnu.
     UnknownTheme,
     /// Version de thème introuvable.
@@ -189,6 +191,8 @@ pub(crate) enum SessionInner {
     ReadOnly { backtrace: Backtrace },
     #[snafu(display("this tab is not the help"))]
     NotHelp { backtrace: Backtrace },
+    #[snafu(display("agent turn {turn} is no longer the last change"))]
+    TurnNotOnTop { turn: u32, backtrace: Backtrace },
     #[snafu(display("unknown theme: {id}"))]
     UnknownTheme { id: uuid::Uuid, backtrace: Backtrace },
     #[snafu(display("version {version} of theme {id} not found"))]
@@ -276,6 +280,7 @@ impl SessionError {
             InHistory { .. } => SessionErrorKind::InHistory,
             ReadOnly { .. } => SessionErrorKind::ReadOnly,
             NotHelp { .. } => SessionErrorKind::NotHelp,
+            TurnNotOnTop { .. } => SessionErrorKind::TurnNotOnTop,
             UnknownTheme { .. } => SessionErrorKind::UnknownTheme,
             ThemeVersionMissing { .. } => SessionErrorKind::ThemeVersionMissing,
             InvalidTokenValue { .. } => SessionErrorKind::InvalidTokenValue,
@@ -399,6 +404,7 @@ impl Localize for SessionError {
             InHistory { .. } => l.tr("session-in-history"),
             ReadOnly { .. } => l.tr("session-read-only"),
             NotHelp { .. } => l.tr("session-not-help"),
+            TurnNotOnTop { .. } => l.tr("session-turn-not-on-top"),
             UnknownTheme { id, .. } => l.tr_with("session-unknown-theme", &[("theme", id.to_string().into())]),
             ThemeVersionMissing { id, version, .. } => l.tr_with(
                 "session-theme-version-missing",

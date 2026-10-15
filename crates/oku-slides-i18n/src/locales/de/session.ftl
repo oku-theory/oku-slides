@@ -29,6 +29,7 @@ session-history-not-open = Der Verlauf ist nicht geöffnet
 session-in-history = Schließen Sie den Verlauf, bevor Sie die Präsentation ändern
 session-read-only = Die Hilfe ist schreibgeschützt: Sie kann nicht geändert werden
 session-not-help = Dieser Tab ist nicht die Hilfe
+session-turn-not-on-top = Diese Runde ist nicht mehr die letzte Änderung
 session-unknown-theme = Unbekanntes Design: { $theme }
 session-theme-version-missing = Version { $version } des Designs { $id } nicht gefunden
 session-invalid-theme = Unlesbares Design: { $id }

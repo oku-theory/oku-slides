@@ -807,7 +807,7 @@ fn agent_context_describes_mode_slide_selection_and_drains_notes() {
 fn turn_groups_every_apply_into_one_undo() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    s.begin_turn("titre plus percutant");
+    s.begin_turn(1, "titre plus percutant");
     s.apply("a", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
     s.apply("b", vec![Op::SetTheme { theme: common::theme_ref("papier") }], None).unwrap();
     s.end_turn();
@@ -820,7 +820,7 @@ fn turn_groups_every_apply_into_one_undo() {
 fn end_turn_after_edit_templates_closes_stashed_group_too() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
-    s.begin_turn("modèles");
+    s.begin_turn(1, "modèles");
     s.apply("a", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
     s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
     s.end_turn();

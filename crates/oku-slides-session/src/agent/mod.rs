@@ -15,6 +15,7 @@ pub mod render;
 pub mod scope;
 mod surface_ops;
 mod tabs;
+pub(crate) mod turn_undo;
 pub mod turn_view;
 pub mod variants;
 

@@ -284,6 +284,36 @@ fn undo_steps_counts_new_steps_but_not_merged_applies() {
 }
 
 #[test]
+fn undo_step_names_the_top_step_and_follows_undo_and_redo() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
+    assert_that!(r.undo_step()).is_none();
+    r.apply(&titled(&deck, "Un"), "Un", None).unwrap();
+    let first = r.undo_step();
+    r.begin_group("Tour");
+    r.apply(&titled(&deck, "Deux"), "a", None).unwrap();
+    r.apply(&subtitled(&titled(&deck, "Deux"), "b"), "b", None).unwrap();
+    r.end_group();
+    let turn = r.undo_step();
+    assert_that!(turn).is_equal_to(Some(r.undo_steps()));
+    assert_that!(turn).is_not_equal_to(first);
+    r.undo().unwrap();
+    assert_that!(r.undo_step()).is_equal_to(first);
+    r.redo().unwrap();
+    assert_that!(r.undo_step()).is_equal_to(turn);
+}
+
+#[test]
+fn undo_step_is_kept_by_a_merged_apply() {
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
+    r.apply(&titled(&deck, "Un"), "a", Some("k")).unwrap();
+    let step = r.undo_step();
+    r.apply(&titled(&deck, "Deux"), "a", Some("k")).unwrap();
+    assert_that!(r.undo_step()).is_equal_to(step);
+}
+
+#[test]
 fn clear_undo_leaves_nothing_to_undo_or_redo() {
     let deck = roadmap();
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();

@@ -29,6 +29,7 @@ session-history-not-open = La cronologia non è aperta
 session-in-history = Chiudi la cronologia prima di modificare la presentazione
 session-read-only = La guida è di sola lettura: non si può modificare
 session-not-help = Questa scheda non è la guida
+session-turn-not-on-top = Questo turno non è più l'ultima modifica
 session-unknown-theme = Tema sconosciuto: { $theme }
 session-theme-version-missing = Versione { $version } del tema { $id } non trovata
 session-invalid-theme = Tema illeggibile: { $id }

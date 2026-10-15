@@ -54,7 +54,9 @@ const surface = (id: string, place: Surface["place"] = "thread", extra: Partial<
 
 type State = "idle" | "starting" | "working";
 
-async function mount(surfaces: Surface[], state: State = "idle", extra: { onDetach?: () => void; onAttach?: () => void } = {}) {
+type Extra = { onDetach?: () => void; onAttach?: () => void; undoTurn?: number | null; onUndoTurn?: (turn: number) => void };
+
+async function mount(surfaces: Surface[], state: State = "idle", extra: Extra = {}) {
   const actions: [string, string][] = [];
   let fresh = 0;
   const host = document.createElement("div");
@@ -440,5 +442,52 @@ describe("fil de l'agent par tours", () => {
     const { host } = await mount([]);
     expect(host.querySelector(".agent-thread-head")).toBeNull();
     expect(host.querySelector(".agent-thread")?.classList.contains("vacant")).toBe(true);
+  });
+});
+
+describe("annuler un tour depuis son reçu", () => {
+  const undoButton = (host: HTMLElement) => host.querySelector<HTMLButtonElement>(".agent-turn .agent-undo-turn");
+
+  test("le reçu du tour au sommet de l'annulation offre « Annuler ce tour », qui l'annule", async () => {
+    const undone: number[] = [];
+    const { host } = await mount([realSurface("turn-3"), realSurface("report-8")], "idle", { undoTurn: 3, onUndoTurn: (n) => undone.push(n) });
+    const button = undoButton(host);
+    expect(button?.textContent).toContain(t("ui-agent-undo-turn"));
+    // Sous le reçu, dans son tour.
+    const receipt = host.querySelector(".agent-turn .a2ui-receipt");
+    expect(receipt!.compareDocumentPosition(button!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await act(async () => button!.click());
+    expect(undone).toEqual([3]);
+  });
+
+  test("un autre tour au sommet : pas de bouton", async () => {
+    const { host } = await mount([realSurface("turn-3"), realSurface("report-8")], "idle", { undoTurn: 4, onUndoTurn: () => {} });
+    expect(undoButton(host)).toBeNull();
+  });
+
+  test("rien au sommet (modification à la main depuis) : pas de bouton", async () => {
+    const { host } = await mount([realSurface("turn-3"), realSurface("report-8")], "idle", { undoTurn: null, onUndoTurn: () => {} });
+    expect(undoButton(host)).toBeNull();
+  });
+
+  test("pendant que l'agent travaille : pas de bouton", async () => {
+    const { host } = await mount([realSurface("turn-3"), realSurface("report-8")], "working", { undoTurn: 3, onUndoTurn: () => {} });
+    expect(undoButton(host)).toBeNull();
+  });
+
+  test("un tour sans reçu : pas de bouton", async () => {
+    const { host } = await mount([realSurface("turn-3")], "idle", { undoTurn: 3, onUndoTurn: () => {} });
+    expect(undoButton(host)).toBeNull();
+  });
+
+  test("sans rappel (fenêtre de l'agent) : pas de bouton", async () => {
+    const { host } = await mount([realSurface("turn-3"), realSurface("report-8")], "idle", { undoTurn: 3 });
+    expect(undoButton(host)).toBeNull();
+  });
+
+  test("le libellé est traduit (de)", async () => {
+    setMessages("de", [await ftl("en"), await ftl("de")]);
+    const { host } = await mount([realSurface("turn-3"), realSurface("report-8")], "idle", { undoTurn: 3, onUndoTurn: () => {} });
+    expect(undoButton(host)?.textContent).toContain("Diese Runde rückgängig machen");
   });
 });

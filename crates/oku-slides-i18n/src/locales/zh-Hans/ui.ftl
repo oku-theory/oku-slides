@@ -168,6 +168,7 @@ ui-undo-list-move = 移动{ $item }
 ui-agent-color-other = 其他颜色
 ui-agent-thread = 智能体
 ui-agent-new-conversation = 新对话
+ui-agent-undo-turn = 撤销本轮
 ui-agent-detach = 在单独的窗口中打开智能体
 ui-agent-attach = 将智能体放回主窗口
 ui-agent-window-empty = 此标签页没有智能体

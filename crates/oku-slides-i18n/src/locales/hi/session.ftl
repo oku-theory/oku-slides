@@ -29,6 +29,7 @@ session-history-not-open = इतिहास खुला नहीं है
 session-in-history = प्रस्तुति बदलने से पहले इतिहास बंद करें
 session-read-only = सहायता केवल पढ़ने के लिए है: इसे बदला नहीं जा सकता
 session-not-help = यह टैब सहायता नहीं है
+session-turn-not-on-top = यह बारी अब आख़िरी बदलाव नहीं है
 session-unknown-theme = अज्ञात थीम: { $theme }
 session-theme-version-missing = थीम { $id } का संस्करण { $version } नहीं मिला
 session-invalid-theme = थीम पढ़ी नहीं जा सकती: { $id }

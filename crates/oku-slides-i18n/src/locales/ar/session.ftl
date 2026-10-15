@@ -29,6 +29,7 @@ session-history-not-open = السجل غير مفتوح
 session-in-history = أغلق السجل قبل تعديل العرض التقديمي
 session-read-only = التعليمات للقراءة فقط: لا يمكن تعديلها
 session-not-help = هذا التبويب ليس التعليمات
+session-turn-not-on-top = لم يعد هذا الدور آخر تغيير
 session-unknown-theme = سمة غير معروفة: { $theme }
 session-theme-version-missing = لم يُعثر على الإصدار { $version } من السمة { $id }
 session-invalid-theme = سمة غير قابلة للقراءة: { $id }

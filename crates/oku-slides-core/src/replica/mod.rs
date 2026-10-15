@@ -458,6 +458,12 @@ impl DeckReplica {
         self.undo.top_undo()
     }
 
+    /// Rang de l'étape que défera [`Self::undo`] : celui que [`Self::undo_steps`] valait juste
+    /// après sa création. Le même après annuler puis rétablir ; `None` si rien n'est annulable.
+    pub fn undo_step(&self) -> Option<u64> {
+        self.undo.top_undo_id()
+    }
+
     /// Libellé de la prochaine étape rétablie par [`Self::redo`], s'il y en a une.
     pub fn redo_label(&self) -> Option<String> {
         self.undo.top_redo()

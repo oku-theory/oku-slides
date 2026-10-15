@@ -29,6 +29,7 @@ session-history-not-open = Історію не відкрито
 session-in-history = Закрийте історію, перш ніж змінювати презентацію
 session-read-only = Довідка лише для читання: її не можна змінити
 session-not-help = Ця вкладка — не довідка
+session-turn-not-on-top = Цей хід більше не остання зміна
 session-unknown-theme = Невідома тема: { $theme }
 session-theme-version-missing = Версію { $version } теми { $id } не знайдено
 session-invalid-theme = Не вдається прочитати тему: { $id }

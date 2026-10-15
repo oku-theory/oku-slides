@@ -168,6 +168,7 @@ ui-undo-list-move = { $item } taşı
 ui-agent-color-other = Başka renk
 ui-agent-thread = Ajan
 ui-agent-new-conversation = Yeni konuşma
+ui-agent-undo-turn = Bu turu geri al
 ui-agent-detach = Ajanı ayrı bir pencerede aç
 ui-agent-attach = Ajanı ana pencereye geri getir
 ui-agent-window-empty = Bu sekme için ajan yok

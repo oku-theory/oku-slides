@@ -191,7 +191,7 @@ fn a_save_after_a_turn_begun_in_deck_mode_keeps_the_turn_version() {
     let mut s = crate::test_support::opened_on(data.path());
     let set = s.deck().templates.clone().unwrap().id;
     // Le tour groupe le deck, qui passe de côté pendant le tour.
-    s.begin_turn("modifie les modèles");
+    s.begin_turn(1, "modifie les modèles");
     s.edit_templates(set).unwrap();
     s.apply("Nom", vec![rename("Un")], None).unwrap();
     s.save_templates(false).unwrap();

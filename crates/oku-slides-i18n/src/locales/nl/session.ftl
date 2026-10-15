@@ -29,6 +29,7 @@ session-history-not-open = De geschiedenis is niet geopend
 session-in-history = Sluit de geschiedenis voordat u de presentatie wijzigt
 session-read-only = De help is alleen-lezen: hij kan niet worden gewijzigd
 session-not-help = Dit tabblad is niet de help
+session-turn-not-on-top = Deze beurt is niet meer de laatste wijziging
 session-unknown-theme = Onbekend thema: { $theme }
 session-theme-version-missing = Versie { $version } van thema { $id } niet gevonden
 session-invalid-theme = Onleesbaar thema: { $id }

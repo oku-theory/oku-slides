@@ -166,6 +166,7 @@ ui-undo-list-move = { $item } 이동
 ui-agent-color-other = 다른 색
 ui-agent-thread = 에이전트
 ui-agent-new-conversation = 새 대화
+ui-agent-undo-turn = 이 턴 실행 취소
 ui-agent-detach = 에이전트를 별도 창에서 열기
 ui-agent-attach = 에이전트를 메인 창으로 되돌리기
 ui-agent-window-empty = 이 탭에는 에이전트가 없습니다

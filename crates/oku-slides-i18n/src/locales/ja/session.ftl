@@ -29,6 +29,7 @@ session-history-not-open = 履歴が開いていません
 session-in-history = プレゼンテーションを変更する前に履歴を閉じてください
 session-read-only = ヘルプは読み取り専用です：変更できません
 session-not-help = このタブはヘルプではありません
+session-turn-not-on-top = このターンはもう最後の変更ではありません
 session-unknown-theme = 不明なテーマ：{ $theme }
 session-theme-version-missing = テーマ { $id } のバージョン { $version } が見つかりません
 session-invalid-theme = テーマを読み込めません：{ $id }

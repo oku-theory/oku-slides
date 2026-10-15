@@ -29,6 +29,7 @@ session-history-not-open = 기록이 열려 있지 않습니다
 session-in-history = 프레젠테이션을 변경하기 전에 기록을 닫으세요
 session-read-only = 도움말은 읽기 전용입니다: 변경할 수 없습니다
 session-not-help = 이 탭은 도움말이 아닙니다
+session-turn-not-on-top = 이 턴은 더 이상 마지막 변경이 아닙니다
 session-unknown-theme = 알 수 없는 테마: { $theme }
 session-theme-version-missing = 테마 { $id }의 버전 { $version }을(를) 찾을 수 없습니다
 session-invalid-theme = 테마를 읽을 수 없습니다: { $id }

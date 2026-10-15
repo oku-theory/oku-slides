@@ -20,7 +20,7 @@ async fn apply_changes_deck_and_emits_changed() {
 #[tokio::test(flavor = "multi_thread")]
 async fn apply_inside_turn_joins_the_turn_group() {
     let h = start().await;
-    h.session.lock().unwrap().begin_turn("plus sobre");
+    h.session.lock().unwrap().begin_turn(1, "plus sobre");
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": theme_ref("pro") }] })).await;
     call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": theme_ref("papier") }] })).await;

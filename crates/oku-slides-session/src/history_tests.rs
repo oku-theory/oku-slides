@@ -254,7 +254,7 @@ fn history_agent_context_says_history_is_open_and_read_only() {
 fn history_end_turn_closes_the_group_on_the_stashed_deck() {
     let mut s = session_in(data_dir().path());
     edited(&mut s);
-    s.begin_turn("rends-le plus sobre");
+    s.begin_turn(1, "rends-le plus sobre");
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
     s.end_turn();
     let Mode::History { stash, .. } = &s.mode else { panic!("pas en mode historique") };

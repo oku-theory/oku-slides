@@ -29,6 +29,7 @@ session-history-not-open = Lịch sử chưa được mở
 session-in-history = Hãy đóng lịch sử trước khi thay đổi bản trình bày
 session-read-only = Trợ giúp chỉ để đọc: không thể thay đổi
 session-not-help = Thẻ này không phải trợ giúp
+session-turn-not-on-top = Lượt này không còn là thay đổi gần nhất
 session-unknown-theme = Chủ đề không xác định: { $theme }
 session-theme-version-missing = Không tìm thấy phiên bản { $version } của chủ đề { $id }
 session-invalid-theme = Không đọc được chủ đề: { $id }

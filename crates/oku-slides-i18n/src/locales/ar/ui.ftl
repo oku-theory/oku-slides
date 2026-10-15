@@ -176,6 +176,7 @@ ui-undo-list-move = نقل { $item }
 ui-agent-color-other = لون آخر
 ui-agent-thread = الوكيل
 ui-agent-new-conversation = محادثة جديدة
+ui-agent-undo-turn = تراجع عن هذا الدور
 ui-agent-detach = فتح الوكيل في نافذة منفصلة
 ui-agent-attach = إعادة الوكيل إلى النافذة الرئيسية
 ui-agent-window-empty = لا يوجد وكيل لهذا التبويب

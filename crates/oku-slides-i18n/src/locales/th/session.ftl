@@ -29,6 +29,7 @@ session-history-not-open = ไม่ได้เปิดประวัติ
 session-in-history = ปิดประวัติก่อนแก้ไขงานนำเสนอ
 session-read-only = ความช่วยเหลือเป็นแบบอ่านอย่างเดียว: แก้ไขไม่ได้
 session-not-help = แท็บนี้ไม่ใช่ความช่วยเหลือ
+session-turn-not-on-top = รอบนี้ไม่ใช่การเปลี่ยนแปลงล่าสุดอีกต่อไป
 session-unknown-theme = ธีมที่ไม่รู้จัก: { $theme }
 session-theme-version-missing = ไม่พบเวอร์ชัน { $version } ของธีม { $id }
 session-invalid-theme = อ่านธีมไม่ได้: { $id }

@@ -29,6 +29,7 @@ session-history-not-open = Geçmiş açık değil
 session-in-history = Sunumu değiştirmeden önce geçmişi kapatın
 session-read-only = Yardım salt okunurdur: değiştirilemez
 session-not-help = Bu sekme yardım değil
+session-turn-not-on-top = Bu tur artık son değişiklik değil
 session-unknown-theme = Bilinmeyen tema: { $theme }
 session-theme-version-missing = { $id } temasının { $version } sürümü bulunamadı
 session-invalid-theme = Okunamayan tema: { $id }

@@ -873,6 +873,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
           onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
           onDraft={dictation.draft.onHost}
           onPicker={agentPicker.onPicker}
+          undoTurn={snap.undo_turn} onUndoTurn={(turn) => void run(api.undoTurn(turn))}
         />
         {!snap.read_only && !agentDetached && <DictationDraft
           text={dictation.draft.state.text}

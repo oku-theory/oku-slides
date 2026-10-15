@@ -73,6 +73,10 @@ pub enum Request {
     },
     Undo,
     Redo,
+    /// Annule le tour `turn` de l'agent depuis son reçu, s'il est encore au sommet de la pile d'annulation.
+    UndoTurn {
+        turn: u32,
+    },
     Schema,
     /// Registre des widgets du deck ouvert (base, surchargée par son pack).
     Widgets,
@@ -281,6 +285,7 @@ impl Request {
             | Self::EditTheme { .. }
             | Self::Undo
             | Self::Redo
+            | Self::UndoTurn { .. }
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }
             | Self::EditTemplates { .. }
@@ -337,6 +342,7 @@ impl Request {
                 | Self::EditTheme { .. }
                 | Self::Undo
                 | Self::Redo
+                | Self::UndoTurn { .. }
                 | Self::Save { .. }
                 | Self::Merge { .. }
                 | Self::Move { .. }
@@ -524,6 +530,7 @@ impl Session {
             Request::ShowAs { label, slide, element, view } => self.show_as(&label, slide, &element, view)?,
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
+            Request::UndoTurn { turn } => self.undo_agent_turn(turn)?,
             Request::EditTemplates { set } => self.edit_templates(set)?,
             Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
             Request::CloseTemplates => self.close_templates()?,

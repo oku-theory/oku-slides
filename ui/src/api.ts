@@ -60,6 +60,8 @@ export interface Snapshot {
   undo_label: string | null;
   can_redo: boolean;
   redo_label: string | null;
+  /** Le tour de l'agent dont l'étape est au sommet de la pile d'annulation : son reçu propose de l'annuler. */
+  undo_turn: number | null;
   warnings: string[];
   notice: string | null;
   /** Le dernier enregistrement n'a rien écrit : le fichier est devenu un autre deck (vrai une fois). */
@@ -520,6 +522,7 @@ type Request =
   | { cmd: "apply"; label: string; ops: Op[]; merge: string | null }
   | { cmd: "undo" }
   | { cmd: "redo" }
+  | { cmd: "undo_turn"; turn: number }
   | { cmd: "templates"; set?: string | null }
   | { cmd: "template_sets" }
   | { cmd: "edit_templates"; set: string }
@@ -754,6 +757,8 @@ export function tabApi(tab: string) {
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),
     redo: () => call<Snapshot>({ cmd: "redo" }),
+    /** Annule le tour `turn` de l'agent, refusé s'il n'est plus la dernière modification. */
+    undoTurn: (turn: number) => call<Snapshot>({ cmd: "undo_turn", turn }),
     templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),
     templateSets: () => call<PackInfo[]>({ cmd: "template_sets" }),
     editTemplates: (set: string) => call<Snapshot>({ cmd: "edit_templates", set }),

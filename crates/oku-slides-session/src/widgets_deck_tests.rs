@@ -197,7 +197,7 @@ fn successive_writes_in_deck_mode_keep_only_the_session_version_in_the_sources()
 fn undo_after_a_write_in_an_agent_turn_then_one_outside_finds_the_turn_version() {
     let data = fresh_dir("oku-slides-widgets-deck-");
     let mut s = opened_on(data.path());
-    s.begin_turn("crée une citation");
+    s.begin_turn(1, "crée une citation");
     s.set_widget("quote", QUOTE.into()).unwrap();
     s.end_turn();
     let turn = s.deck().templates.clone().unwrap();
@@ -217,7 +217,7 @@ fn two_writes_in_one_agent_turn_keep_only_the_last_version() {
     let mut s = opened_on(data.path());
     let before = s.deck().templates.clone().unwrap();
     let packs = s.doc.sources.packs.len();
-    s.begin_turn("crée une citation");
+    s.begin_turn(1, "crée une citation");
     s.set_widget("quote", QUOTE.into()).unwrap();
     s.set_widget("quote", QUOTE_V2.into()).unwrap();
     s.end_turn();

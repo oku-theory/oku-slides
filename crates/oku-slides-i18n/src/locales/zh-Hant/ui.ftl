@@ -168,6 +168,7 @@ ui-undo-list-move = 移動{ $item }
 ui-agent-color-other = 其他顏色
 ui-agent-thread = AI 代理
 ui-agent-new-conversation = 新對話
+ui-agent-undo-turn = 還原本輪
 ui-agent-detach = 在獨立視窗中開啟代理
 ui-agent-attach = 將代理放回主視窗
 ui-agent-window-empty = 此分頁沒有代理

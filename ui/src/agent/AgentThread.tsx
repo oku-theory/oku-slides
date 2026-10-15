@@ -8,7 +8,7 @@ import { t } from "../i18n";
 import { Icon } from "../icons";
 import { AgentDock } from "./AgentDock";
 import { useSpeech } from "./speech";
-import type { Routed } from "./surfaces";
+import { isReceipt, type Routed } from "./surfaces";
 
 // @a2ui ne se charge qu'avec la première surface (comme les réglages du dock).
 const SurfaceView = lazy(() => import("../a2ui/SurfaceView").then((m) => ({ default: m.SurfaceView })));
@@ -36,6 +36,8 @@ export function AgentThread({
   onDetach,
   onAttach,
   onError,
+  undoTurn = null,
+  onUndoTurn,
 }: {
   /** Ouvre l'agent dans sa propre fenêtre (fenêtre principale). */
   onDetach?: () => void;
@@ -49,6 +51,10 @@ export function AgentThread({
   onAction: (surface: Surface, action: A2uiClientAction) => void;
   onNewConversation: () => void;
   onError: (message: string) => void;
+  /** Le tour au sommet de la pile d'annulation du deck (`Snapshot.undo_turn`). */
+  undoTurn?: number | null;
+  /** Annule ce tour : sans rappel, son reçu n'offre pas de l'annuler. */
+  onUndoTurn?: (turn: number) => void;
 } & Pick<Routed, "turns" | "loose" | "dock">) {
   const scroller = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
@@ -96,6 +102,9 @@ export function AgentThread({
     </Suspense>
   );
   /** Une surface du fil (tour, fiche hors de la slide) : chiffres 1–4 seulement si elle reçoit les touches. */
+  /** Le reçu du tour au sommet de l'annulation l'offre, une fois l'agent au repos. */
+  const undoable = (turn: number, surfaces: Surface[]) =>
+    !!onUndoTurn && state === "idle" && turn === undoTurn && surfaces.some(isReceipt);
   const threadView = (s: Surface) => <QuickHintsContext.Provider value={s.id === keysTo}>{view(s)}</QuickHintsContext.Provider>;
   return (
     <section className={`agent-thread${vacant ? " vacant" : ""}`} aria-label={t("ui-agent-thread")}>
@@ -128,6 +137,12 @@ export function AgentThread({
                   {threadView(s)}
                 </div>
               ))}
+              {undoable(turn, surfaces) && (
+                <button type="button" className="token ghost agent-undo-turn" onClick={() => onUndoTurn?.(turn)}>
+                  {Icon.undo}
+                  <span>{t("ui-agent-undo-turn")}</span>
+                </button>
+              )}
             </li>
           ))}
           {loose.map((s) => (
