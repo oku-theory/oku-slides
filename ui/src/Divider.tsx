@@ -1,11 +1,12 @@
 // Séparateur générique entre deux panneaux : on le glisse (ou on presse les
-// flèches) pour régler la taille d'un panneau, on le double-clique pour revenir
-// à sa taille par défaut. ColumnDivider, CodeDivider et BandDivider le règlent.
+// flèches, Début, Fin) pour régler la taille d'un panneau, on le double-clique
+// pour revenir à sa taille par défaut. ColumnDivider, CodeDivider et BandDivider
+// le règlent. Il annonce aria-valuenow, -min et -max en px du panneau réglé.
 //
 // Glisser fait à la main (événements de pointeur) : dans l'app Tauri, la webview
 // réserve le glisser-déposer HTML5 au dépôt de fichiers.
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { type Bounds, fitIn } from "./bounds";
 
 /** Taille actuelle du panneau réglé et ses bornes, lues au début d'un geste. */
@@ -59,6 +60,18 @@ const ARROWS = {
 export default function Divider({ className, side, label, axis, grow, measure, onResize, onReset }: DividerProps) {
   const drag = useRef<Drag | null>(null);
   const [active, setActive] = useState(false);
+  // Taille et bornes annoncées (aria-value*), relues au montage, au focus et à chaque réglage.
+  const [value, setValue] = useState<Measured | null>(null);
+
+  const refresh = () => setValue(measure());
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- relue au montage, puis au focus
+  useLayoutEffect(refresh, []);
+
+  /** Annonce puis renvoie une taille bornée par `measured`. */
+  const report = (measured: Measured, size: number, done: boolean) => {
+    setValue({ size, bounds: measured.bounds });
+    onResize(size, done);
+  };
 
   /** +1 si avancer sur l'axe agrandit le panneau ; l'axe `x` s'inverse de droite à gauche. */
   const signOf = (el: HTMLElement) => grow * (axis === "x" && getComputedStyle(el).direction === "rtl" ? -1 : 1);
@@ -81,7 +94,7 @@ export default function Divider({ className, side, label, axis, grow, measure, o
     // Sans mouvement, la taille par défaut reste par défaut.
     if (!d.moved) return;
     d.last = fitIn(d.measured.bounds, d.measured.size + d.sign * (at(e) - d.start));
-    onResize(d.last, done);
+    report(d.measured, d.last, done);
   };
 
   /** Geste interrompu : la taille reste là où il s'est arrêté (le pointeur n'a plus de position sûre). */
@@ -89,7 +102,7 @@ export default function Divider({ className, side, label, axis, grow, measure, o
     const d = drag.current;
     if (!d || d.pointer !== e.pointerId) return;
     end();
-    if (d.moved) onResize(d.last, true);
+    if (d.moved) report(d.measured, d.last, true);
   };
 
   const end = () => {
@@ -100,11 +113,14 @@ export default function Divider({ className, side, label, axis, grow, measure, o
   const key = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const arrows: Record<string, number> = ARROWS[axis];
     const dir = arrows[e.key] ?? 0;
-    if (!dir) return;
+    // Début et Fin : la plus petite et la plus grande taille du panneau, quel que soit le sens.
+    const edge = e.key === "Home" ? "min" : e.key === "End" ? "max" : null;
+    if (!dir && !edge) return;
     e.preventDefault();
     const m = measure();
     if (!m) return;
-    onResize(fitIn(m.bounds, m.size + signOf(e.currentTarget) * dir * STEP), true);
+    const size = edge ? m.bounds[edge] : m.size + signOf(e.currentTarget) * dir * STEP;
+    report(m, fitIn(m.bounds, size), true);
   };
 
   return (
@@ -114,7 +130,12 @@ export default function Divider({ className, side, label, axis, grow, measure, o
       role="separator"
       aria-orientation={axis === "x" ? "vertical" : "horizontal"}
       aria-label={label}
+      // En px du panneau réglé (pas du séparateur), arrondis.
+      aria-valuenow={value ? Math.round(value.size) : undefined}
+      aria-valuemin={value ? Math.round(value.bounds.min) : undefined}
+      aria-valuemax={value ? Math.round(value.bounds.max) : undefined}
       tabIndex={0}
+      onFocus={refresh}
       onPointerDown={down}
       onPointerMove={(e) => move(e, false)}
       onPointerUp={(e) => move(e, true)}
