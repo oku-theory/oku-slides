@@ -98,7 +98,7 @@ fn shape_reads_the_layout_kind_title_and_content() {
     );
     let shape = shape_of(&s, &[layout("l1", "title"), layout("l2", "obj")]);
     assert_that!(shape).is_equal_to(Shape {
-        layout_kind: Some("obj".into()),
+        layout_kind: Some(LayoutKind::TitleAndContent),
         title: true,
         subtitle: false,
         content: vec![ContentKind::Text, ContentKind::Picture],
@@ -148,7 +148,7 @@ fn shape_counts_columns_of_side_by_side_boxes(#[case] frames: Vec<(f64, f64, f64
 
 fn wants(layout_kind: Option<&str>, subtitle: bool, content: usize, columns: usize) -> Shape {
     Shape {
-        layout_kind: layout_kind.map(str::to_owned),
+        layout_kind: layout_kind.map(LayoutKind::from_ooxml),
         title: true,
         subtitle,
         content: vec![ContentKind::Text; content],

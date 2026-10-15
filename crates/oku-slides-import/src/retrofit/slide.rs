@@ -40,7 +40,7 @@ use super::template::{ContentLayout, Profile, Shape, choose, content_items, shap
 use super::text::note;
 use super::zone::{Fit, PageTokens, Zone, body_zone, grid_gap, snap, to_zone, track_size};
 use crate::report::{Loss, LossKind, Placement, SlideReport};
-use crate::source::{Item, Layout, Size, SourceSlide};
+use crate::source::{Item, Layout, LayoutKind, Size, SourceSlide};
 
 /// Ce dont la projection d'une slide a besoin.
 #[derive(Debug, Clone, Copy)]
@@ -78,7 +78,7 @@ pub(crate) struct Projected<'a> {
 
 /// Une couverture : layout `title`, un sous-titre sans contenu, ou une couverture déduite.
 fn is_cover(shape: &Shape, heads: &Headings<'_>) -> bool {
-    shape.layout_kind.as_deref() == Some("title") || (shape.subtitle && shape.content.is_empty()) || heads.cover
+    shape.layout_kind == Some(LayoutKind::Title) || (shape.subtitle && shape.content.is_empty()) || heads.cover
 }
 
 /// Le paramètre `name` de `schema`, s'il est un texte plain non lié au deck.
@@ -284,7 +284,7 @@ pub(crate) fn project_slide<'a>(
     let cover = is_cover(&shape, &heads);
     let first_cover = cover && !*deck_titled;
     if cover && !first_cover {
-        shape.layout_kind = Some("secHead".to_owned());
+        shape.layout_kind = Some(LayoutKind::SectionHeader);
     }
     let profile = pick(&shape, profiles)?;
     let template = &profile.template.slide;

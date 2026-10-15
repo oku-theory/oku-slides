@@ -15,8 +15,8 @@ use serde_json::{Map, Value};
 use crate::fonts::{FontCatalog, FontOrigin};
 use crate::retrofit::ColorTokens;
 use crate::source::{
-    Align, Bullet, Caps, Color, Fill, Frame, Item, ItemKind, Layout, ParaStyle, Paragraph, Rgba, Role, Run, RunStyle,
-    Size, SourceDeck, SourceSlide, SourceTheme, Spacing, Styled, TextBox, ThemeFonts,
+    Align, Bullet, Caps, Color, Fill, Frame, Item, ItemKind, Layout, LayoutKind, ParaStyle, Paragraph, Rgba, Role, Run,
+    RunStyle, Size, SourceDeck, SourceSlide, SourceTheme, Spacing, Styled, TextBox, ThemeFonts,
 };
 
 /// Jetons par défaut du rendu.
@@ -186,7 +186,7 @@ pub(crate) fn layout(id: &str, kind: &str) -> Layout {
     Layout {
         id: id.to_owned(),
         name: kind.to_owned(),
-        kind: kind.to_owned(),
+        kind: LayoutKind::from_ooxml(kind),
         master: "m1".to_owned(),
         background: None,
         show_master_decor: true,

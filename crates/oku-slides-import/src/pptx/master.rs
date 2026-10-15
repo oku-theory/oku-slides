@@ -15,7 +15,7 @@ use crate::pptx::shapes::{GroupCtx, ParsedItem, parse_tree};
 use crate::pptx::text::{LevelProps, RunProps, empty_levels, parse_lst_style};
 use crate::pptx::theme::ThemeData;
 use crate::pptx::xml::{attr_bool, attr_str, attr_u32, child, parse};
-use crate::source::{Fill, Item, ItemKind, Layout, Master, MasterTextStyles, Placeholder, TextBox};
+use crate::source::{Fill, Item, ItemKind, Layout, LayoutKind, Master, MasterTextStyles, Placeholder, TextBox};
 
 /// Master lu et ce que ses layouts et slides en héritent.
 #[derive(Debug)]
@@ -195,7 +195,7 @@ pub(crate) fn parse_layout(
     let layout = Layout {
         id,
         name,
-        kind: crate::collect::clip_to(attr_str(root, "type").unwrap_or("cust"), 32),
+        kind: LayoutKind::from_ooxml(&crate::collect::clip_to(attr_str(root, "type").unwrap_or("cust"), 32)),
         master: master.master.id.clone(),
         background: bg.as_ref().map(|b| b.resolve(&cx.colors)),
         show_master_decor: attr_bool(root, "showMasterSp").unwrap_or(true),

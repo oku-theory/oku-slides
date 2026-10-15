@@ -40,7 +40,7 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 
 ## Extension points
 
-- New source format: a sibling of `pptx/` that produces the same `SourceDeck`.
+- New source format (PDF): a `pptx/` sibling emitting the same `SourceDeck` in OOXML terms (`source` docs).
 - New projector: a sibling of `retrofit/` and `hifi/` returning an `ImportPlan` (+ CLI `ImportMode`).
 - New loss: a `LossKind` variant and its `import-loss-*` Fluent key.
 

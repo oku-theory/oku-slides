@@ -2,10 +2,16 @@
 //!
 //! Tout est concret (plus d'héritage à calculer) ; les valeurs stylées gardent
 //! leur provenance. Les `Frame` sont en pt source, absolus. Le vocabulaire
-//! OOXML (noms de presets, types de layout) y reste : c'est la langue commune
-//! des lecteurs (un lecteur PDF émet `Geometry::Path`, `Origin::Explicit`,
-//! `Layout.kind = "cust"`). Les projecteurs `match`ent exhaustivement : pas
-//! de `#[non_exhaustive]` ici.
+//! OOXML y reste : c'est la langue commune des lecteurs, et un futur lecteur
+//! PDF s'y ramène. Où il paraît :
+//! - [`Geometry::Preset`] : noms de `prstGeom` (un lecteur PDF émet `Geometry::Path`) ;
+//! - [`Origin`] : emplacements de thème (`accent1`, `+mn-lt`…) ; un PDF, `Origin::Explicit` ;
+//! - [`LayoutKind`] : types de layout ; un PDF, `LayoutKind::Custom` ;
+//! - [`Role`] : tiré des types de placeholder (`title`, `body`…) ; un PDF n'en a pas ;
+//! - [`Run::field`] : types de champ (`slidenum`, `datetime1`…) ;
+//! - [`Bullet::AutoNum`] : schémas de numérotation (`arabicPeriod`…).
+//!
+//! Les projecteurs `match`ent exhaustivement : pas de `#[non_exhaustive]` ici.
 
 mod chart;
 mod font;
@@ -161,6 +167,67 @@ pub struct MasterTextStyles {
     pub other: LevelStyle,
 }
 
+/// Type d'un layout, dans le vocabulaire OOXML (`ST_SlideLayoutType`).
+///
+/// Les types que lisent les projecteurs sont nommés ; tout autre reste brut dans
+/// [`LayoutKind::Other`]. Un lecteur sans types de layout (PDF) émet [`LayoutKind::Custom`].
+/// Sérialisé sous son nom OOXML.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LayoutKind {
+    /// Titre (`title`).
+    Title,
+    /// En-tête de section (`secHead`).
+    SectionHeader,
+    /// Titre et contenu (`obj`).
+    TitleAndContent,
+    /// Deux contenus (`twoObj`).
+    TwoContent,
+    /// Titre seul (`titleOnly`).
+    TitleOnly,
+    /// Vide (`blank`).
+    Blank,
+    /// Personnalisé (`cust`), le défaut OOXML.
+    Custom,
+    /// Un autre type OOXML, brut (32 caractères au plus).
+    Other(String),
+}
+
+impl LayoutKind {
+    /// Le type de nom OOXML `name`.
+    pub fn from_ooxml(name: &str) -> Self {
+        match name {
+            "title" => Self::Title,
+            "secHead" => Self::SectionHeader,
+            "obj" => Self::TitleAndContent,
+            "twoObj" => Self::TwoContent,
+            "titleOnly" => Self::TitleOnly,
+            "blank" => Self::Blank,
+            "cust" => Self::Custom,
+            other => Self::Other(other.to_owned()),
+        }
+    }
+
+    /// Son nom OOXML.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Title => "title",
+            Self::SectionHeader => "secHead",
+            Self::TitleAndContent => "obj",
+            Self::TwoContent => "twoObj",
+            Self::TitleOnly => "titleOnly",
+            Self::Blank => "blank",
+            Self::Custom => "cust",
+            Self::Other(name) => name,
+        }
+    }
+}
+
+impl Serialize for LayoutKind {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
 /// Layout.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Layout {
@@ -168,8 +235,8 @@ pub struct Layout {
     pub id: String,
     /// Nom.
     pub name: String,
-    /// Attribut `type` brut (`title`, `secHead`, `obj`, `twoObj`, `titleOnly`, `blank`, `cust`…).
-    pub kind: String,
+    /// Type (`type` de `p:sldLayout`).
+    pub kind: LayoutKind,
     /// Identifiant de son master.
     pub master: String,
     /// Fond propre, résolu avec les couleurs du layout ; `None` = celui du master.

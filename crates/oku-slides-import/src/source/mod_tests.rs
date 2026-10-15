@@ -60,3 +60,17 @@ fn fill_none_is_none_and_solid_is_not() {
     assert_that!(Fill::None.is_none()).is_true();
     assert_that!(Fill::Solid { color: Styled::explicit(Rgba::new(1, 2, 3)) }.is_none()).is_false();
 }
+
+#[rstest::rstest]
+#[case("title", LayoutKind::Title)]
+#[case("secHead", LayoutKind::SectionHeader)]
+#[case("obj", LayoutKind::TitleAndContent)]
+#[case("twoObj", LayoutKind::TwoContent)]
+#[case("titleOnly", LayoutKind::TitleOnly)]
+#[case("blank", LayoutKind::Blank)]
+#[case("cust", LayoutKind::Custom)]
+#[case("picTx", LayoutKind::Other("picTx".to_owned()))]
+fn layout_kind_reads_and_names_its_ooxml_type(#[case] name: &str, #[case] kind: LayoutKind) {
+    assert_that!(LayoutKind::from_ooxml(name)).is_equal_to(&kind);
+    assert_that!(serde_json::to_value(&kind).unwrap()).is_equal_to(json!(name));
+}

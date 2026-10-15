@@ -12,7 +12,7 @@ use oku_slides_core::{Grid, ParamType, SlotMode, Template, WidgetRegistry};
 
 use super::cluster::{Unit, bounds};
 use super::heading::Headings;
-use crate::source::{Frame, Item, ItemKind, Layout, Role, SourceSlide};
+use crate::source::{Frame, Item, ItemKind, Layout, LayoutKind, Role, SourceSlide};
 
 /// Sorte d'une slide de modèle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,8 +95,8 @@ pub(crate) enum ContentKind {
 /// La forme d'une slide source.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Shape {
-    /// Type du layout (`title`, `secHead`, `obj`, `twoObj`, `titleOnly`, `blank`…).
-    pub layout_kind: Option<String>,
+    /// Type du layout.
+    pub layout_kind: Option<LayoutKind>,
     /// Un titre non vide.
     pub title: bool,
     /// Un sous-titre non vide.
@@ -291,9 +291,9 @@ enum Want {
 }
 
 fn want(shape: &Shape) -> Want {
-    match shape.layout_kind.as_deref() {
-        Some("title") => return Want::Title,
-        Some("secHead") => return Want::Chapter,
+    match shape.layout_kind {
+        Some(LayoutKind::Title) => return Want::Title,
+        Some(LayoutKind::SectionHeader) => return Want::Chapter,
         _ => {}
     }
     match shape.content.len() {
