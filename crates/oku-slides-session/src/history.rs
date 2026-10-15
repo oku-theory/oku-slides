@@ -3,7 +3,9 @@
 //! Comme pendant l'édition des modèles, le deck attend de côté (`stash`) ;
 //! un document d'aperçu montre la version, en lecture seule. Images, polices
 //! et packs passent d'un document à l'autre sans copie : chaque étape qui
-//! peut échouer se fait avant de les déplacer, rien ne les perd.
+//! peut échouer se fait avant de les déplacer, rien ne les perd. La version
+//! montrée se rend avec les widgets de son propre pack (les sources gardent
+//! toute version référencée) ; le deck les retrouve en sortant.
 
 use std::collections::BTreeMap;
 
@@ -11,9 +13,12 @@ use snafu::ResultExt;
 use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 
-use oku_slides_core::{HistoryPreview, PackFiles, PackVersion, SlideChanges, SourceBundle, Version, slide_changes};
+use oku_slides_core::{
+    HistoryPreview, PackFiles, PackRef, PackVersion, SlideChanges, SourceBundle, Version, slide_changes,
+};
 use oku_slides_render_worker::RemoteCompiled;
 
+use crate::deck_widgets::DeckWidgets;
 use crate::error::{
     EditingTemplatesSnafu, HistoryNotOpenSnafu, InHistorySnafu, ReadOnlySnafu, SourcesSnafu, VersionSnafu,
 };
@@ -82,16 +87,27 @@ impl Session {
         self.localizer.tr_with("history-restore-label", &[("date", restore_date(timestamp, offset).into())])
     }
 
-    /// Le document d'aperçu de la version `index`, et son rendu. Il prend les
-    /// images et polices de `self.doc` une fois tout le reste réussi : en cas
-    /// d'échec, `self.doc` les garde.
+    /// Le document d'aperçu de la version `index`, et son rendu, avec les
+    /// widgets du pack de cette version. Il prend les images et polices de
+    /// `self.doc` une fois tout le reste réussi : en cas d'échec, `self.doc`
+    /// les garde, et les widgets d'avant reviennent.
     fn version_document(&mut self, preview: &HistoryPreview, index: usize) -> Result<(Document, RemoteCompiled)> {
         let (deck, issues) = preview.deck_at(index).context(VersionSnafu)?;
         if !issues.is_empty() {
             tracing::debug!(index, issues = issues.len(), "version lue en partie");
         }
-        let mut sources = SourceBundle::new(deck, self.registry.clone()).context(SourcesSnafu)?;
-        let compiled = self.render_deck(&sources.deck().clone())?;
+        let previous = self.install_version_widgets(deck.templates.as_ref())?;
+        let (compiled, mut sources) = match self.render_version(deck) {
+            Ok(shown) => shown,
+            Err(e) => {
+                if let Some(previous) = previous
+                    && let Err(back) = self.install_widgets(previous)
+                {
+                    tracing::error!(error = %back.one_line(), "widgets d'avant l'aperçu non réinstallés");
+                }
+                return Err(e);
+            }
+        };
         // Un pack écarté pendant ce rendu : la base, pour ces sources aussi.
         sources.set_registry(self.registry.clone());
         let mut doc = Document::new(sources, self.doc.path.clone(), &self.doc_defaults);
@@ -100,6 +116,28 @@ impl Session {
         doc.notice = self.doc.notice.take();
         put_blobs(&mut doc, take_blobs(&mut self.doc));
         Ok((doc, compiled))
+    }
+
+    /// Les sources d'aperçu de `deck`, sur le registre installé, et leur rendu.
+    fn render_version(&mut self, deck: oku_slides_core::Deck) -> Result<(RemoteCompiled, SourceBundle)> {
+        let sources = SourceBundle::new(deck, self.registry.clone()).context(SourcesSnafu)?;
+        let compiled = self.render_deck(&sources.deck().clone())?;
+        Ok((compiled, sources))
+    }
+
+    /// Installe les widgets du pack `templates`, lu dans les sources du
+    /// document montré ; rend ceux d'avant s'ils changent. Un pack absent ou
+    /// cassé laisse la base : l'avis est journalisé, pas montré (l'aperçu est
+    /// en lecture seule, le deck dira le sien en sortant).
+    fn install_version_widgets(&mut self, templates: Option<&PackRef>) -> Result<Option<DeckWidgets>> {
+        if templates == self.widgets_templates.as_ref() {
+            return Ok(None);
+        }
+        let (widgets, notice) = self.resolve_widgets(templates, &self.doc.sources.packs)?;
+        if let Some(notice) = notice {
+            tracing::info!(notice, "widgets de la version montrée");
+        }
+        self.install_widgets(widgets).map(Some)
     }
 
     /// Sort du mode historique : le deck mis de côté et l'historique ; la
@@ -114,17 +152,18 @@ impl Session {
         }
     }
 
-    /// Rend le deck mis de côté, avec les images et polices de l'aperçu, et
-    /// l'avis que l'aperçu n'a pas encore montré.
-    fn back_to_deck(&mut self, mut stash: Box<Document>) {
+    /// Rend le deck mis de côté, avec les images et polices de l'aperçu,
+    /// l'avis que l'aperçu n'a pas encore montré, et les widgets de son pack.
+    fn back_to_deck(&mut self, mut stash: Box<Document>) -> Result<()> {
         put_blobs(&mut stash, take_blobs(&mut self.doc));
         let notice = self.doc.notice.take();
         self.doc = *stash;
-        // Un pack écarté pendant l'historique : le deck mis de côté suit.
-        self.doc.sources.set_registry(self.registry.clone());
         if let Some(notice) = notice {
             self.set_notice(notice);
         }
+        // La version montrée avait peut-être un autre pack ; un pack écarté
+        // pendant l'historique : le deck mis de côté suit.
+        self.sync_widgets()
     }
 
     /// Refuse ce qui changerait le deck pendant l'historique (`InHistory`)
@@ -192,16 +231,15 @@ impl Session {
         // validation ne sont pas des pertes.
         crate::files::log_issues(&issues, &self.localizer, crate::files::IssuesAt::Restore);
         stash.dirty = true;
-        self.back_to_deck(stash);
-        // La version restaurée peut avoir un autre ensemble de modèles.
-        self.sync_widgets()?;
+        // La version restaurée peut avoir un autre ensemble de modèles : `back_to_deck` le suit.
+        self.back_to_deck(stash)?;
         self.rerender()
     }
 
     /// Ferme l'historique : le deck revient tel qu'il était.
     pub fn history_close(&mut self) -> Result<()> {
         let (stash, _) = self.take_history()?;
-        self.back_to_deck(stash);
+        self.back_to_deck(stash)?;
         self.rerender()
     }
 

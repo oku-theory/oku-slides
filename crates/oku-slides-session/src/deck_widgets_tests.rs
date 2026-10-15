@@ -431,3 +431,46 @@ fn broken_widgets_notice_lists_the_widgets_but_not_common() {
     assert_that!(notice.as_str()).contains("cadre");
     assert_that!(notice.as_str()).does_not_contain("_commun");
 }
+
+/// t-355 : l'historique montre une version avec les widgets de son propre
+/// pack, pas ceux du deck ; en sortant, le deck retrouve les siens.
+#[test]
+fn history_shows_a_version_with_the_widgets_of_its_own_pack() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    let before = s.deck().templates.clone();
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
+    s.apply("Citation", vec![set_templates(Some(&quote)), add_quote()], None).unwrap();
+    let remove = op(json!({ "op": "remove_element", "slide": "s-constat", "element": "q" }));
+    s.apply("Retour", vec![remove, set_templates(before.as_ref())], None).unwrap();
+    s.history_open().unwrap();
+    assert_that!(widgets_have_quote(&mut s)).is_false();
+    let at = s.history_versions().unwrap().iter().position(|v| v.label.as_deref() == Some("Citation")).unwrap();
+    s.history_seek(at).unwrap();
+    assert_that!(has_quote(&s)).is_true();
+    assert_that!(widgets_have_quote(&mut s)).is_true();
+    assert_that!(s.slide("s-constat").unwrap().targets.iter().any(|t| t.id == "q")).is_true();
+    assert_registry_agrees(&s);
+    s.history_close().unwrap();
+    assert_that!(widgets_have_quote(&mut s)).is_false();
+    assert_registry_agrees(&s);
+}
+
+/// t-355 : restaurer une version d'un autre pack installe ses widgets.
+#[test]
+fn history_restore_of_a_version_with_another_pack_keeps_its_widgets() {
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    let before = s.deck().templates.clone();
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
+    s.apply("Citation", vec![set_templates(Some(&quote)), add_quote()], None).unwrap();
+    let remove = op(json!({ "op": "remove_element", "slide": "s-constat", "element": "q" }));
+    s.apply("Retour", vec![remove, set_templates(before.as_ref())], None).unwrap();
+    s.history_open().unwrap();
+    let at = s.history_versions().unwrap().iter().position(|v| v.label.as_deref() == Some("Citation")).unwrap();
+    s.history_seek(at).unwrap();
+    s.history_restore().unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(quote));
+    assert_that!(widgets_have_quote(&mut s)).is_true();
+    assert_registry_agrees(&s);
+}
