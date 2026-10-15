@@ -40,7 +40,7 @@ expression: files_text(&pack)
     place(top + left, rect(width: 1920pt, height: 1080pt, fill: color-of(t, "bg"), stroke: none))
     master-1(t, ctx)
     {
-      set text(font: font-of(t, "display"), size: 88pt, fill: color-of(t, "ink"), top-edge: 0.942em, bottom-edge: -0.258em)
+      set text(font: font-of(t, "display"), size: 88pt, fill: color-of(t, "ink"), weight: 300, top-edge: 0.942em, bottom-edge: -0.258em)
       set par(leading: 0pt, spacing: 0pt, justify: false)
       set align(left)
       set list(indent: 0pt, spacing: 0pt)

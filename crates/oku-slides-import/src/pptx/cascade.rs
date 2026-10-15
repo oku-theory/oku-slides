@@ -10,7 +10,7 @@ use crate::pptx::color::ColorCtx;
 use crate::pptx::text::{BodyProps, BulletKind, FontRef, LEVELS, LevelProps, ParaProps, RawText, RunProps};
 use crate::source::{
     Align, Anchor, Autofit, Bullet, Caps, Color, Insets, LevelStyle, ParaStyle, Paragraph, Rgba, Run, RunStyle,
-    Spacing, Styled, TextBox,
+    Spacing, Styled, TextBox, family_weight,
 };
 
 const DEFAULT_SIZE_PT: f64 = 18.0;
@@ -60,10 +60,13 @@ fn run_style(p: &RunProps, env: &TextEnv<'_>) -> RunStyle {
         Some(FontRef::Named(n)) => Styled::explicit(n.clone()),
         Some(FontRef::Minor) | None => Styled::scheme(env.minor.to_owned(), "minor"),
     };
+    let bold = p.bold.unwrap_or(false);
+    let named = family_weight(&font.value).unwrap_or(400);
     RunStyle {
-        font,
         size: p.size.unwrap_or(DEFAULT_SIZE_PT),
-        bold: p.bold.unwrap_or(false),
+        bold,
+        weight: if bold { named.max(700) } else { named },
+        font,
         italic: p.italic.unwrap_or(false),
         underline: p.underline.unwrap_or(false),
         strike: p.strike.unwrap_or(false),

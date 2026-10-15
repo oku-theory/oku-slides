@@ -129,3 +129,19 @@ fn line_box_edges_are_in_em_of_the_paragraph_size() {
     assert_that!(line.edges(20.0)).is_equal_to("top-edge: 0.963em, bottom-edge: -0.237em".to_owned());
     assert_that!(line.edges(0.0)).is_equal_to("top-edge: 0em, bottom-edge: 0em".to_owned());
 }
+
+#[rstest]
+#[case(false, 400, None)]
+#[case(true, 700, Some("\"bold\""))]
+#[case(true, 400, Some("\"bold\""))]
+#[case(false, 600, Some("600"))]
+#[case(false, 300, Some("300"))]
+#[case(true, 900, Some("900"))]
+fn weight_arg_keeps_bold_and_emits_other_weights(
+    #[case] bold: bool,
+    #[case] weight: u16,
+    #[case] expected: Option<&str>,
+) {
+    let s = RunStyle { bold, weight, ..crate::test_support::run_style() };
+    assert_that!(weight_arg(&s)).is_equal_to(expected.map(str::to_owned));
+}

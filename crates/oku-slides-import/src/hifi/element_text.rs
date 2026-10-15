@@ -84,7 +84,7 @@ pub(super) fn text_element(
         size: dominant(runs().map(|r| (size_of(r), weight(r)))),
         color: dominant(runs().map(|r| (colors.write(&r.style.color), weight(r)))),
         font: dominant(runs().map(|r| (font_name(&r.style.font.value, ctx), weight(r)))).flatten(),
-        bold: runs().all(|r| r.style.bold),
+        bold: runs().all(|r| r.style.strong()),
         italic: runs().all(|r| r.style.italic),
         tracking: dominant(runs().map(|r| (tracking(&r.style, page), weight(r)))).unwrap_or_default(),
     };
@@ -176,7 +176,7 @@ pub(super) fn placeholder_text(
         size: Some(size),
         color: Some(ctx.base.colors.write(&r.color)),
         font: font_name(&r.font.value, ctx),
-        bold: r.bold,
+        bold: r.strong(),
         italic: r.italic,
         tracking: tracking(r, page),
     };
@@ -212,7 +212,7 @@ fn rich_paragraphs(tb: &TextBox, base: &Base, ctx: &ElementCtx<'_>, losses: &mut
                 note(losses, LossKind::RunStyle(RunEffect::Tracking));
             }
             // Un run du cœur ajoute du gras ou de l'italique, il n'en ôte pas.
-            if base.bold && !r.style.bold {
+            if base.bold && !r.style.strong() {
                 note(losses, LossKind::RunStyle(RunEffect::Weight));
             }
             if base.italic && !r.style.italic {
@@ -228,7 +228,7 @@ fn rich_paragraphs(tb: &TextBox, base: &Base, ctx: &ElementCtx<'_>, losses: &mut
             let (color, size) = (colors.write(&r.style.color), page.len(r.style.size * fit.font_scale));
             let run = Run {
                 t: shown(r),
-                bold: r.style.bold && !base.bold,
+                bold: r.style.strong() && !base.bold,
                 italic: r.style.italic && !base.italic,
                 color: (base.color.as_ref() != Some(&color)).then_some(color),
                 size: (base.size != Some(size)).then_some(TokenValue::Number(size)),

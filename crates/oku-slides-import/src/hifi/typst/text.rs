@@ -163,8 +163,8 @@ impl Gen<'_> {
             args.push_str(&format!(", baseline: {}", pt(self.ctx.page.len(shift))));
         }
         args = format!("{args}, size: {}", pt(self.ctx.page.len(size)));
-        if s.bold {
-            args.push_str(", weight: \"bold\"");
+        if let Some(w) = weight_arg(s) {
+            args.push_str(&format!(", weight: {w}"));
         }
         if s.italic {
             args.push_str(", style: \"italic\"");
@@ -380,6 +380,16 @@ fn roman(n: u32) -> String {
         }
     }
     out
+}
+
+/// L'argument `weight` de Typst pour `s` : `"bold"` pour un gras ordinaire, sinon la graisse
+/// numérique (celle que nomme la famille, que `font` ôte du nom), rien pour 400.
+pub(super) fn weight_arg(s: &RunStyle) -> Option<String> {
+    match (s.bold, s.weight) {
+        (true, w) if w <= 700 => Some("\"bold\"".to_owned()),
+        (_, 400) => None,
+        (_, w) => Some(w.to_string()),
+    }
 }
 
 #[cfg(test)]

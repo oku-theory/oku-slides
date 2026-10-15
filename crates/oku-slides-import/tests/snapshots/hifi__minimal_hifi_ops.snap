@@ -14,7 +14,7 @@ expression: "plan(\"minimal\").ops"
     "op": "set_templates",
     "templates": {
       "id": "00000000-0000-0000-0000-000000000001",
-      "version": "sha256:866a3284c31612df4e84483feaf123aa55a254dcfec0ae08f270a6a725ca1e6a"
+      "version": "sha256:edae8eac5e00456ba4dba022e284495c7a6a1ae8d49bf36e4d9a9a1d25694288"
     }
   },
   {

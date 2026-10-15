@@ -127,8 +127,11 @@ pub struct RunStyle {
     pub font: Styled<String>,
     /// Taille en pt.
     pub size: f64,
-    /// Gras.
+    /// Gras (`b`).
     pub bold: bool,
+    /// Graisse numérique, 100 à 900 : celle que nomme la famille (`Light` 300, `Semibold`
+    /// 600…), sinon 400 ; au moins 700 si gras.
+    pub weight: u16,
     /// Italique.
     pub italic: bool,
     /// Souligné.
@@ -147,6 +150,14 @@ pub struct RunStyle {
     pub char_spacing: f64,
     /// Lien hypertexte externe (`http`, `https`, `mailto` seulement).
     pub link: Option<String>,
+}
+
+impl RunStyle {
+    /// Gras (`b`) ou graisse d'au moins 600 (demi-gras) : le gras d'un projecteur sans graisse
+    /// numérique.
+    pub fn strong(&self) -> bool {
+        self.bold || self.weight >= 600
+    }
 }
 
 /// Champ du numéro de slide ([`Run::field`]) : recalculé par le deck.

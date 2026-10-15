@@ -158,7 +158,7 @@ pub(crate) fn rich<'t>(boxes: impl IntoIterator<Item = &'t TextBox>, tokens: &Co
             };
             let run = Run {
                 t: shown(r),
-                bold: r.style.bold,
+                bold: r.style.strong(),
                 italic: r.style.italic,
                 color,
                 link: safe_link(r.style.link.as_deref()),

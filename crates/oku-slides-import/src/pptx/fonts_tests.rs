@@ -29,6 +29,17 @@ fn sfnt_with_os2(fs: u16) -> Vec<u8> {
 }
 
 #[test]
+fn weight_class_reads_the_os2_weight_within_100_and_900() {
+    let with_weight = |w: u16| {
+        let mut v = sfnt_with_os2(0);
+        v[28 + 4..28 + 6].copy_from_slice(&w.to_be_bytes());
+        v
+    };
+    assert_that!((weight_class(&with_weight(600)), weight_class(&with_weight(1000)), weight_class(&sfnt())))
+        .is_equal_to((Some(600), Some(900), None));
+}
+
+#[test]
 fn is_sfnt_recognizes_truetype_and_opentype_only() {
     assert_that!((is_sfnt(&sfnt()), is_sfnt(b"OTTO...."), is_sfnt(b"LP\x00\x00eot"))).is_equal_to((true, true, false));
 }

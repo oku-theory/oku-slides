@@ -88,13 +88,23 @@ pub(crate) fn is_sfnt(data: &[u8]) -> bool {
 
 /// Droits d'incorporation (`fsType` de la table `OS/2`) d'une police sfnt.
 pub(crate) fn fs_type(sfnt: &[u8]) -> Option<u16> {
+    os2_u16(sfnt, 8)
+}
+
+/// Graisse d'une face sfnt (`usWeightClass`), ramenée à 100–900 ; `None` sans table `OS/2`.
+pub(crate) fn weight_class(sfnt: &[u8]) -> Option<u16> {
+    os2_u16(sfnt, 4).map(|w| w.clamp(100, 900))
+}
+
+/// Entier 16 bits à `offset` dans la table `OS/2` d'une face sfnt.
+fn os2_u16(sfnt: &[u8], offset: usize) -> Option<u16> {
     let be16 = |o: usize| sfnt.get(o..o.checked_add(2)?).and_then(|b| b.try_into().ok()).map(u16::from_be_bytes);
     let be32 = |o: usize| sfnt.get(o..o.checked_add(4)?).and_then(|b| b.try_into().ok()).map(u32::from_be_bytes);
     let tables = usize::from(be16(4)?);
     (0..tables.min(256)).find_map(|i| {
         let rec = 12 + 16 * i;
         (sfnt.get(rec..rec + 4)? == b"OS/2")
-            .then(|| be16(usize::try_from(be32(rec + 8)?).ok()?.checked_add(8)?))
+            .then(|| be16(usize::try_from(be32(rec + 8)?).ok()?.checked_add(offset)?))
             .flatten()
     })
 }
@@ -173,6 +183,7 @@ pub(crate) fn collect(
                 }
                 faces.entry(family.clone()).or_default().push(FontFace {
                     style,
+                    weight: weight_class(data),
                     fs_type: fs_type(data),
                     subset,
                     data: data.clone(),

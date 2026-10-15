@@ -76,6 +76,7 @@ pub(crate) fn run_style() -> RunStyle {
         font: Styled::mapped("Calibri".to_owned(), "+mn-lt", "minor", Vec::new()),
         size: 18.0,
         bold: false,
+        weight: 400,
         italic: false,
         underline: false,
         strike: false,

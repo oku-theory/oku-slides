@@ -210,3 +210,16 @@ fn resolve_levels_gives_nine_level_styles() {
         18.0,
     ));
 }
+
+#[rstest]
+#[case(None, false, 400)]
+#[case(Some("Segoe UI Semibold"), false, 600)]
+#[case(Some("Calibri Light"), true, 700)]
+#[case(Some("Arial Black"), true, 900)]
+#[case(None, true, 700)]
+fn weight_comes_from_the_family_and_bold(#[case] family: Option<&str>, #[case] bold: bool, #[case] expected: u16) {
+    let c = colors();
+    let run = RunProps { font: family.map(|f| FontRef::Named(f.to_owned())), bold: Some(bold), ..RunProps::default() };
+    let tb = resolve_textbox(&one_run(0, ParaProps::default(), run), &no_chain(), &env(&c));
+    assert_that!(tb.paragraphs[0].runs[0].style.weight).is_equal_to(expected);
+}

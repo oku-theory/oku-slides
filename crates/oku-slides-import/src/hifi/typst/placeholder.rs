@@ -9,7 +9,7 @@
 //! surchargent. Les niveaux de liste au-delà du premier ne se distinguent
 //! pas : un paragraphe du cœur n'a pas de niveau.
 
-use super::text::{DEFAULT_SIZE, LineBox, align, anchor, inset, spacing};
+use super::text::{DEFAULT_SIZE, LineBox, align, anchor, inset, spacing, weight_arg};
 use super::{Decor, Gen, GenCtx, Typst, pt, string};
 use crate::fonts::LineMetrics;
 use crate::hifi::page::{PAGE_H, PAGE_W};
@@ -64,8 +64,8 @@ impl Gen<'_> {
         let size = Some(page.len(r.size)).filter(|s| *s > 0.0).unwrap_or_else(|| page.len(DEFAULT_SIZE));
         let mut text =
             format!("font: {}, size: {}, fill: {}", self.font(&r.font.value), pt(size), self.color(&r.color));
-        if r.bold {
-            text.push_str(", weight: \"bold\"");
+        if let Some(w) = weight_arg(r) {
+            text.push_str(&format!(", weight: {w}"));
         }
         if r.italic {
             text.push_str(", style: \"italic\"");

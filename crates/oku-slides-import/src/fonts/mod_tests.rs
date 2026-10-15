@@ -78,7 +78,13 @@ fn source(family: &str, faces: &[(&[u8], FaceStyle)]) -> SourceFont {
         family: family.into(),
         faces: faces
             .iter()
-            .map(|(data, style)| FontFace { style: *style, fs_type: Some(0), subset: false, data: data.to_vec() })
+            .map(|(data, style)| FontFace {
+                style: *style,
+                weight: None,
+                fs_type: Some(0),
+                subset: false,
+                data: data.to_vec(),
+            })
             .collect(),
     }
 }

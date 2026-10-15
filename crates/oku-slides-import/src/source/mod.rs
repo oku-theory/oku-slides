@@ -19,8 +19,8 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 pub use chart::{Chart, ChartKind, Grouping, Series};
-pub(crate) use font::is_drawable;
 pub use font::{Asset, FaceStyle, FontFace, SourceFont};
+pub(crate) use font::{family_weight, is_drawable};
 pub use shape::{Crop, Geometry, PathCmd, Picture, Shape, SubPath};
 pub use style::{Color, ColorMod, Dash, Fill, GradientStop, Origin, Rgba, Stroke, Styled};
 pub use table::{Borders, Cell, Table, TableFlags};
