@@ -2,15 +2,12 @@
 // les mises à jour successives appliquées.
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
-import { dataUpdate, decode, isNested, liftPatch } from "../a2ui/liftPatch";
+import { dataUpdate, decode, groupByRoot, isNested, liftGroup } from "../a2ui/liftPatch";
 import type { Surface } from "../api";
 
 /** Un composant A2UI tel qu'écrit dans les messages. */
 export type Component = { id: string; component: string; [k: string]: unknown };
-type Message = {
-  updateComponents?: { components?: unknown };
-  updateDataModel?: { path?: string; value?: unknown };
-};
+type Message = { updateComponents?: { components?: unknown } };
 
 /** Composants de la surface, les mises à jour successives appliquées (la dernière gagne). */
 export function components(s: Surface): Component[] {
@@ -31,18 +28,15 @@ const keyOf = (pointer: string) => decode(pointer.slice(1));
 /** Modèle de données de la surface, les mises à jour successives appliquées. */
 export function dataModel(s: Surface): Record<string, unknown> {
   let root: Record<string, unknown> = {};
-  for (const m of s.messages as unknown as Message[]) {
-    const u = m.updateDataModel;
+  // Les écritures imbriquées consécutives d'une clé racine se relèvent ensemble, comme dans
+  // `SurfaceView` (une seule copie) ; une qui ne mène nulle part est ignorée.
+  for (const group of groupByRoot(s.messages as unknown as A2uiMessage[])) {
+    const read = (pointer: string) => (Object.hasOwn(root, keyOf(pointer)) ? root[keyOf(pointer)] : undefined);
+    const lifted = liftGroup(group, read);
+    const u = lifted && dataUpdate(lifted);
     if (!u) continue;
     if (!u.path || u.path === "/") root = u.value && typeof u.value === "object" ? { ...(u.value as Record<string, unknown>) } : {};
-    else {
-      // Une écriture imbriquée (`/steps/1`) se relève à sa clé racine, comme dans `SurfaceView` ;
-      // une qui ne mène nulle part est ignorée.
-      const read = (pointer: string) => (Object.hasOwn(root, keyOf(pointer)) ? root[keyOf(pointer)] : undefined);
-      const lifted = dataUpdate(liftPatch(m as unknown as A2uiMessage, read));
-      if (!lifted || isNested(lifted)) continue;
-      root = { ...root, [keyOf(lifted.path ?? "")]: lifted.value };
-    }
+    else if (!isNested(u)) root = { ...root, [keyOf(u.path)]: u.value };
   }
   return root;
 }

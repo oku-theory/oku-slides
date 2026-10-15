@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
-import { liftPatch } from "./liftPatch";
+import { groupByRoot, liftGroup, liftPatch } from "./liftPatch";
 
 const write = (path: string | undefined, value: unknown) =>
   ({ version: "v0.9", updateDataModel: { surfaceId: "s", ...(path === undefined ? {} : { path }), value } }) as unknown as A2uiMessage;
@@ -59,5 +59,78 @@ describe("liftPatch", () => {
       const m = write(path, { label: "x" });
       expect(liftPatch(m, () => [{ label: "a" }, { label: "b" }])).toBe(m);
     }
+  });
+});
+
+describe("liftGroup", () => {
+  const model = () => ({ steps: [{ label: "a", calls: [{ status: "in_progress" }] }, { label: "b" }], narration: "n", other: {} }) as Record<string, unknown>;
+  const reader = (m: Record<string, unknown>) => (pointer: string) => m[pointer.slice(1)];
+  /** Applique les messages un à un avec `liftPatch`, comme avant le regroupement. */
+  const oneByOne = (messages: A2uiMessage[]) => {
+    const m = model();
+    for (const msg of messages) {
+      const u = body(liftPatch(msg, reader(m)));
+      if (u.path && u.path.split("/").length === 2) m[u.path.slice(1)] = u.value;
+    }
+    return m;
+  };
+  /** Applique les messages par groupes de même clé racine. */
+  const grouped = (messages: A2uiMessage[]) => {
+    const m = model();
+    const out: A2uiMessage[] = [];
+    for (const group of groupByRoot(messages)) {
+      const lifted = liftGroup(group, reader(m));
+      if (!lifted) continue;
+      out.push(lifted);
+      const u = body(lifted);
+      if (u.path && u.path.split("/").length === 2) m[u.path.slice(1)] = u.value;
+    }
+    return { model: m, out };
+  };
+  const batch = [
+    write("/steps/0/calls/0/status", "completed"),
+    write("/steps/1/label", "B"),
+    write("/steps/2", { label: "c" }),
+    write("/steps/9/label", "nowhere"),
+    write("/steps/2/label", "C"),
+  ];
+  let spy: ReturnType<typeof spyOn> | undefined;
+  afterEach(() => spy?.mockRestore());
+
+  test("liftGroup nested writes on one root key clone once", () => {
+    spy = spyOn(globalThis, "structuredClone");
+    const { out } = grouped(batch);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(out).toHaveLength(1);
+    expect(body(out[0]).path).toBe("/steps");
+  });
+
+  test("liftGroup batch equals applying writes one by one", () => {
+    expect(grouped(batch).model).toEqual(oneByOne(batch));
+  });
+
+  test("liftGroup mixed root keys keep their order", () => {
+    const mixed = [
+      write("/steps/0/label", "x"),
+      write("/narration", "m"),
+      write("/steps/0/label", "y"),
+      write("/steps/1/label", "z"),
+      write("/other/k", 1),
+    ];
+    const { model: m, out } = grouped(mixed);
+    expect(out.map((o) => body(o).path)).toEqual(["/steps", "/narration", "/steps", "/other"]);
+    expect(m).toEqual(oneByOne(mixed));
+  });
+
+  test("liftGroup group leading nowhere gives nothing", () => {
+    const [group] = groupByRoot([write("/steps/9/label", "x"), write("/steps/0/__proto__", 1)]);
+    expect(liftGroup(group, reader(model()))).toBeNull();
+  });
+
+  test("groupByRoot keeps a nested deletion and other messages alone", () => {
+    const del = { version: "v0.9", updateDataModel: { surfaceId: "s", path: "/steps/0" } } as unknown as A2uiMessage;
+    const groups = groupByRoot([write("/steps/0/label", "x"), del, write("/steps/1/label", "y")]);
+    expect(groups.map((g) => g.length)).toEqual([1, 1, 1]);
+    expect(liftGroup(groups[1], reader(model()))).toBe(del);
   });
 });

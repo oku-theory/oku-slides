@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import type { Surface } from "../api";
 import { dataModel } from "./a2uiModel";
 
@@ -23,4 +23,15 @@ test("dataModel escaped root key is decoded", () => {
 test("dataModel nested write under an inherited name is ignored", () => {
   const s = surface([write(undefined, {}), write("/toString/x", 1)]);
   expect(dataModel(s)).toEqual({});
+});
+
+test("dataModel consecutive nested writes on one root key clone it once", () => {
+  const spy = spyOn(globalThis, "structuredClone");
+  try {
+    const s = surface([write(undefined, { steps: [{ label: "a" }] }), write("/steps/1", { label: "b" }), write("/steps/0/label", "A"), write("/steps/1/label", "B")]);
+    expect(dataModel(s)).toEqual({ steps: [{ label: "A" }, { label: "B" }] });
+    expect(spy).toHaveBeenCalledTimes(1);
+  } finally {
+    spy.mockRestore();
+  }
 });

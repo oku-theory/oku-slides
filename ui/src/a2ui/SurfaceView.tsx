@@ -8,7 +8,7 @@ import { A2uiSurface } from "@a2ui/react/v0_9";
 import type { A2uiClientAction, A2uiMessage, ComponentApi, SurfaceModel } from "@a2ui/web_core/v0_9";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { CheckedSlider, catalog } from "./catalog";
-import { dataUpdate, isNested, liftPatch } from "./liftPatch";
+import { dataUpdate, groupByRoot, isNested, liftGroup } from "./liftPatch";
 import type { OpenMemory } from "./openMemory";
 import { OpenMemoryContext } from "./openMemory";
 
@@ -107,13 +107,18 @@ export function SurfaceView({
       try {
         const invalid = invalidSlider(tail);
         if (invalid) throw new Error(invalid);
-        // Un à un : une écriture imbriquée se relève d'après le modèle laissé par la précédente ;
+        // Groupe par groupe : les écritures imbriquées consécutives d'une clé racine se relèvent
+        // ensemble (une seule copie de `/steps`) d'après le modèle laissé par le groupe précédent ;
         // une qui ne mène nulle part est écartée, comme dans la copie de l'hôte.
-        for (const m of tail) {
+        for (const group of groupByRoot(tail)) {
           const model = current.surface?.dataModel;
-          const lifted = model ? liftPatch(m, (pointer) => model.get(pointer)) : m;
-          const u = dataUpdate(lifted);
-          if (model && u && u.value !== undefined && isNested(u)) continue;
+          if (!model) {
+            current.processor.processMessages(group);
+            continue;
+          }
+          const lifted = liftGroup(group, (pointer) => model.get(pointer));
+          const u = lifted && dataUpdate(lifted);
+          if (!lifted || (u && u.value !== undefined && isNested(u))) continue;
           current.processor.processMessages([lifted]);
         }
       } catch (e) {
