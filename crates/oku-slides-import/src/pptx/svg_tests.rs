@@ -81,6 +81,18 @@ fn sanitize_hostile_svg_drops_the_threat_and_reports_it(#[case] text: String, #[
     svg(r#"<rect style="fill:image-set('https://evil.example/p' 1x)" x="1"/>"#),
     svg(r#"<rect x="1"/>"#)
 )]
+#[case::style_image(svg(r#"<rect style="fill:image('https://evil.example/p')" x="1"/>"#), svg(r#"<rect x="1"/>"#))]
+#[case::style_cross_fade(
+    svg(r#"<rect style="fill:Cross-Fade('https://evil.example/a', red 50%)" x="1"/>"#),
+    svg(r#"<rect x="1"/>"#)
+)]
+#[case::style_webkit_image_set(
+    svg(r#"<rect style="fill:-webkit-image-set('https://evil.example/p' 1x)" x="1"/>"#),
+    svg(r#"<rect x="1"/>"#)
+)]
+#[case::style_element(svg(r#"<rect style="fill:-moz-element(#a)" x="1"/>"#), svg(r#"<rect x="1"/>"#))]
+#[case::style_src(svg(r#"<rect style="fill:src('https://evil.example/p')" x="1"/>"#), svg(r#"<rect x="1"/>"#))]
+#[case::style_attr(svg(r#"<rect style="fill:attr(data-u type(&lt;url&gt;))" x="1"/>"#), svg(r#"<rect x="1"/>"#))]
 fn sanitize_hostile_attribute_is_dropped_alone(#[case] text: String, #[case] expected: String) {
     let c = clean(&text);
     assert_that!(c.altered).is_true();
@@ -101,6 +113,24 @@ fn sanitize_hostile_attribute_is_dropped_alone(#[case] text: String, #[case] exp
 #[case::external_entity(
     br#"<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg"><text>&x;</text></svg>"#.to_vec()
 )]
+#[case::parameter_entity(
+    br#"<!DOCTYPE svg [<!ENTITY % p "x">]><svg xmlns="http://www.w3.org/2000/svg"/>"#.to_vec()
+)]
+#[case::markup_entity(
+    br#"<!DOCTYPE svg [<!ENTITY a "<script/>">]><svg xmlns="http://www.w3.org/2000/svg"><g>&a;</g></svg>"#.to_vec()
+)]
+#[case::entity_outside_doctype(
+    br#"<!DOCTYPE svg [<!ENTITY a "x">]><svg xmlns="http://www.w3.org/2000/svg"><!-- <!ENTITY b "y"> --></svg>"#.to_vec()
+)]
+#[case::too_many_entities(format!(
+    r#"<!DOCTYPE svg [{}]><svg xmlns="http://www.w3.org/2000/svg"/>"#,
+    (0..65).map(|i| format!(r#"<!ENTITY e{i} "x">"#)).collect::<String>()
+).into_bytes())]
+#[case::linear_expansion_over_the_output(format!(
+    r#"<!DOCTYPE svg [<!ENTITY a "{}">]><svg xmlns="http://www.w3.org/2000/svg"><text>{}</text></svg>"#,
+    "a".repeat(1_000),
+    "&a;".repeat(1_100)
+).into_bytes())]
 #[case::attlist(
     br#"<!DOCTYPE svg [<!ATTLIST svg onload CDATA "evil()">]><svg xmlns="http://www.w3.org/2000/svg"/>"#.to_vec()
 )]
@@ -199,4 +229,23 @@ fn sanitize_output_is_stable_when_sanitized_again() {
     let second = clean(&out(&first));
     assert_that!(second.altered).is_false();
     assert_that!(second.bytes).is_equal_to(first.bytes);
+}
+
+#[test]
+fn sanitize_illustrator_literal_entities_are_expanded_and_kept() {
+    let text = r#"<?xml version="1.0"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [
+	<!ENTITY ns_svg "http://www.w3.org/2000/svg">
+	<!-- styles -->
+	<!ENTITY st0 'fill:#ff0000;'>
+]>
+<svg xmlns="&ns_svg;"><rect style="&st0;" width="1"/></svg>"#;
+    let c = clean(text);
+    assert_that!(c.altered).is_false();
+    assert_that!(out(&c)).is_equal_to(svg_root(r##"<rect style="fill:#ff0000;" width="1"/>"##));
+}
+
+/// Sortie attendue d'un `<svg>` sans attribut autour de `body`.
+fn svg_root(body: &str) -> String {
+    format!("<svg {NS}>{body}</svg>")
 }

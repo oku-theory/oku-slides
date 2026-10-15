@@ -129,7 +129,7 @@ fn picture_prefers_its_svg_version() {
 
 #[test]
 fn picture_falls_back_to_its_raster_when_svg_is_rejected() {
-    let bomb = br#"<!DOCTYPE svg [<!ENTITY a "a">]><svg xmlns="http://www.w3.org/2000/svg"><text>&a;</text></svg>"#;
+    let bomb = br#"<!DOCTYPE svg [<!ENTITY a "a"><!ENTITY b "&a;&a;">]><svg xmlns="http://www.w3.org/2000/svg"><text>&b;</text></svg>"#;
     let t = TestPkg::with(&[
         ("ppt/slides/_rels/slide1.xml.rels", SLIDE_RELS.as_bytes()),
         ("ppt/media/image1.png", PNG),

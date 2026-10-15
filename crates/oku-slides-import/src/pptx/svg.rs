@@ -1,8 +1,11 @@
 //! Assainissement d'un SVG venu du fichier : liste blanche d'éléments et d'attributs, re-sérialisé.
 //!
-//! Toute déclaration de DTD (`<!ENTITY`, `<!ATTLIST`…) fait refuser le SVG : sans entité, aucune
-//! expansion (« billion laughs ») ni ressource externe n'est possible. Un DOCTYPE sans déclaration
-//! est toléré puis omis, comme commentaires et instructions. Les éléments et attributs d'autres
+//! Le DOCTYPE n'admet que des entités internes de texte littéral (celles d'Illustrator) : ni
+//! entité paramètre ou externe, ni référence ou balise dans leur valeur, au plus
+//! [`MAX_ENTITIES`], et leur expansion totale bornée par la sortie admise. Une entité ne se
+//! déplie donc qu'une fois, linéairement (pas de « billion laughs »), sans ressource externe ;
+//! toute autre déclaration (`<!ATTLIST`, `<!ELEMENT`…) fait refuser le SVG. Le DOCTYPE est
+//! omis à la sortie (entités dépliées), comme commentaires et instructions. Les éléments et attributs d'autres
 //! espaces de noms (métadonnées d'éditeur) sont omis sans signalement ; tout autre retrait marque
 //! le SVG comme modifié.
 //!
@@ -21,8 +24,11 @@ const SVG_NS: &str = "http://www.w3.org/2000/svg";
 const XLINK_NS: &str = "http://www.w3.org/1999/xlink";
 const XML_NS: &str = "http://www.w3.org/XML/1998/namespace";
 
-/// Déclarations de DTD refusées : leur seule présence fait rejeter le SVG.
+/// Déclarations de DTD : hors entités littérales du DOCTYPE, leur présence fait rejeter le SVG.
 const DECLARATIONS: [&str; 4] = ["<!ENTITY", "<!ATTLIST", "<!ELEMENT", "<!NOTATION"];
+
+/// Entités internes admises dans un DOCTYPE.
+const MAX_ENTITIES: usize = 64;
 
 /// Éléments SVG gardés : formes, texte, peinture, filtres ; ni script, ni animation, ni contenu étranger.
 const ALLOWED: [&str; 59] = [
@@ -102,15 +108,14 @@ pub(crate) struct Clean {
 
 /// Assainit le SVG `bytes` lu à `part`, au plus `nodes` nœuds et `max_bytes` octets en sortie.
 ///
-/// `Unreadable` s'il est illisible, déclare une DTD, n'a pas pour racine `svg` dans l'espace SVG
+/// `Unreadable` s'il est illisible, déclare autre chose que des entités littérales (ou les déplie
+/// au-delà de `max_bytes`), n'a pas pour racine `svg` dans l'espace SVG
 /// ou enchaîne ses `use` ; `TooLarge` au-delà de `nodes` ou si la sortie (échappée, donc parfois
 /// plus longue que l'entrée) dépasse `max_bytes`.
 pub(crate) fn sanitize(bytes: &[u8], part: &str, nodes: u32, max_bytes: usize) -> Result<Clean, ImportError> {
     let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
     let text = std::str::from_utf8(bytes).map_err(|_| structure(&format!("{part}: SVG is not UTF-8")))?;
-    if DECLARATIONS.iter().any(|d| text.contains(d)) {
-        return Err(structure(&format!("{part}: SVG declares a DTD")));
-    }
+    check_dtd(text, part, max_bytes)?;
     let doc = parse_doctype(text, part, nodes)?;
     let root = doc.root_element();
     if !is_svg(root, "svg") {
@@ -123,6 +128,74 @@ pub(crate) fn sanitize(bytes: &[u8], part: &str, nodes: u32, max_bytes: usize) -
         return Err(too_large(&format!("{part}: sanitized SVG over {max_bytes} bytes")));
     }
     Ok(Clean { bytes: w.out.into_bytes(), altered: w.altered })
+}
+
+/// Refuse toute déclaration de DTD sauf, dans le DOCTYPE, au plus [`MAX_ENTITIES`] entités
+/// internes de texte littéral dont l'expansion totale tient dans `max_bytes`.
+fn check_dtd(text: &str, part: &str, max_bytes: usize) -> Result<(), ImportError> {
+    if !DECLARATIONS.iter().any(|d| text.contains(d)) {
+        return Ok(());
+    }
+    let refuse = |why: &str| structure(&format!("{part}: SVG DTD {why}"));
+    let Doctype { before, after, entities } =
+        literal_entities(text).ok_or_else(|| refuse("beyond literal entities"))?;
+    if DECLARATIONS.iter().any(|d| before.contains(d) || after.contains(d)) {
+        return Err(refuse("declared outside the DOCTYPE"));
+    }
+    let mut left = max_bytes;
+    for (name, value) in entities {
+        let uses = after.matches(&format!("&{name};")).count();
+        left = uses
+            .checked_mul(value.len())
+            .and_then(|n| left.checked_sub(n))
+            .ok_or_else(|| refuse(&format!("entities expand beyond {max_bytes} bytes")))?;
+    }
+    Ok(())
+}
+
+/// Un texte coupé autour de son DOCTYPE à sous-ensemble interne.
+struct Doctype<'t> {
+    /// Ce qui précède le DOCTYPE.
+    before: &'t str,
+    /// Ce qui le suit.
+    after: &'t str,
+    /// Ses entités : nom et texte littéral.
+    entities: Vec<(&'t str, &'t str)>,
+}
+
+/// Coupe `text` autour de son DOCTYPE à sous-ensemble interne ; `None` si ce sous-ensemble
+/// déclare autre chose que des entités internes de texte littéral.
+fn literal_entities(text: &str) -> Option<Doctype<'_>> {
+    let start = text.find("<!DOCTYPE")?;
+    let header = &text[start..];
+    let open = header.find('[').filter(|o| header.find('>').is_some_and(|c| c > *o))?;
+    let mut rest = &header[open + 1..];
+    let mut entities = Vec::new();
+    loop {
+        rest = rest.trim_start();
+        if let Some(r) = rest.strip_prefix(']') {
+            let after = r.trim_start().strip_prefix('>')?;
+            return Some(Doctype { before: &text[..start], after, entities });
+        }
+        if let Some(r) = rest.strip_prefix("<!--") {
+            rest = &r[r.find("-->")? + 3..];
+            continue;
+        }
+        let r = rest.strip_prefix("<!ENTITY")?;
+        let r = r.strip_prefix(|c: char| c.is_ascii_whitespace())?.trim_start();
+        let name_len = r.find(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | '-' | '.' | ':')))?;
+        let (name, r) = r.split_at(name_len);
+        let r = r.trim_start();
+        let quote = r.chars().next().filter(|q| matches!(q, '"' | '\''))?;
+        let r = &r[1..];
+        let end = r.find(quote)?;
+        let value = &r[..end];
+        if name.is_empty() || value.contains(['&', '%', '<']) || entities.len() == MAX_ENTITIES {
+            return None;
+        }
+        entities.push((name, value));
+        rest = r[end + 1..].trim_start().strip_prefix('>')?;
+    }
 }
 
 /// Cible d'un lien vers un fragment du document (`#id`), quel que soit son attribut `href`.
@@ -229,11 +302,18 @@ fn href_safe(v: &str) -> bool {
     })
 }
 
-/// Valeur CSS ou de présentation sûre : ni échappement, ni `@import`, ni `image-set`, ni
-/// `expression`, et chaque `url(` vers un fragment.
+/// Mots CSS refusés partout : `@import` et les fonctions qui chargent une ressource ou un autre
+/// élément (`image()`, `image-set()` et `-webkit-image-set()`, `cross-fade()`, `element()` et
+/// `-moz-element()`, `src()`, `attr()` qui peut produire une URL), ou évaluent du script
+/// (`expression()`). `url(` est traité à part.
+const CSS_FORBIDDEN: [&str; 8] =
+    ["@import", "image(", "image-set", "cross-fade(", "element(", "src(", "attr(", "expression("];
+
+/// Valeur CSS ou de présentation sûre : ni échappement, ni mot de [`CSS_FORBIDDEN`], et chaque
+/// `url(` vers un fragment.
 fn css_safe(v: &str) -> bool {
     let lower = v.to_ascii_lowercase();
-    if v.contains('\\') || ["@import", "image-set", "expression("].iter().any(|k| lower.contains(k)) {
+    if v.contains('\\') || CSS_FORBIDDEN.iter().any(|k| lower.contains(k)) {
         return false;
     }
     lower.split("url(").skip(1).all(|rest| rest.trim_start().trim_start_matches(['"', '\'']).starts_with('#'))
