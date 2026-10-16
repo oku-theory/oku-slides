@@ -24,23 +24,35 @@
 //! grille du modèle ne sait pas tenir l'arrangement).
 //!
 //! Slides de titre (décision 7) : la première couverture remplit les
-//! paramètres du deck (`title`, `subtitle`) ; les suivantes sont choisies
-//! comme des chapitres.
+//! paramètres du deck (`title`, `subtitle`) et prend un modèle de couverture
+//! même si elle porte d'autres textes (ni image, ni tableau, ni graphique) ;
+//! ceux que le widget ne peut pas tenir vont dans les notes de la slide
+//! (perte `MovedToNotes`). Les couvertures suivantes sont choisies comme des
+//! chapitres.
+//!
+//! Bornes : une slide garde au plus [`MAX_SLIDE_ITEMS`] items (ordre de
+//! dessin, perte `ItemsDropped` pour le reste), car le regroupement et la
+//! rangée de colonnes sont quadratiques. Les effets ignorés par le lecteur
+//! (ombres, reflets, 3D) des items projetés sont dits (`Effects`).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use oku_slides_core::{Cell, Element, Grid, Op, ParamType, ParamValue, Slide, SlotMode, WidgetRegistry, WidgetSchema};
 use serde_json::Value;
 
 use super::cluster::{Unit, cells_meet, is_bare_shape, reading, units};
-use super::content::{ContentCx, element, is_thin, plain_of};
+use super::content::{ContentCx, effect_losses, element, is_thin, plain_of};
 use super::decor::{Decor, in_band, is_backdrop};
 use super::heading::{Headings, headings};
-use super::template::{ContentLayout, Profile, Shape, choose, content_items, shape};
-use super::text::note;
+use super::template::{ContentKind, ContentLayout, Profile, Shape, choose, content_items, shape};
+use super::text::{note, plain};
 use super::zone::{Fit, PageTokens, Zone, body_zone, grid_gap, snap, to_zone, track_size};
 use crate::report::{Loss, LossKind, Placement, SlideReport};
 use crate::source::{Item, Layout, LayoutKind, Size, SourceSlide};
+
+/// Items gardés au plus par slide (après le décor omis) : le regroupement en
+/// unités et la recherche de la rangée de colonnes sont quadratiques.
+pub(crate) const MAX_SLIDE_ITEMS: usize = 500;
 
 /// Ce dont la projection d'une slide a besoin.
 #[derive(Debug, Clone, Copy)]
@@ -59,6 +71,8 @@ pub(crate) struct SlideCx<'a> {
     pub scale: f64,
     /// Décor omis par règle.
     pub decor: &'a Decor,
+    /// Items dont le lecteur a ignoré des effets (`content::effect_items`).
+    pub effects: &'a BTreeSet<String>,
 }
 
 /// Une slide projetée.
@@ -260,6 +274,34 @@ fn place_titles<'a>(
     out
 }
 
+/// Met les textes de `unit` (groupes compris) dans `moved`, un paragraphe par
+/// boîte, avec la perte `MovedToNotes` ; ses items sans texte n'ont pas de
+/// place (`NoSlot`).
+fn move_to_notes(unit: &Unit<'_>, moved: &mut Vec<String>, losses: &mut Vec<Loss>) {
+    fn walk(item: &Item, moved: &mut Vec<String>, losses: &mut Vec<Loss>) {
+        if let crate::source::ItemKind::Group { items, .. } = &item.kind {
+            for child in items {
+                walk(child, moved, losses);
+            }
+            return;
+        }
+        match item.text().filter(|_| item.has_text()) {
+            Some(tb) => {
+                let (text, lost) = plain(tb);
+                for l in lost {
+                    note(losses, Loss::on(&item.id, l));
+                }
+                moved.push(text);
+                note(losses, Loss::on(&item.id, LossKind::MovedToNotes));
+            }
+            None => note(losses, Loss::on(&item.id, LossKind::NoSlot)),
+        }
+    }
+    for item in unit.items() {
+        walk(item, moved, losses);
+    }
+}
+
 /// La slide Oku de `src`, et ce qu'en dit le rapport.
 ///
 /// `deck_titled` dit si une couverture a déjà rempli les paramètres du deck ;
@@ -271,7 +313,9 @@ pub(crate) fn project_slide<'a>(
     deck_titled: &mut bool,
     cx: &SlideCx<'_>,
 ) -> Option<Projected<'a>> {
-    let kept: Vec<&Item> = src.items.iter().filter(|i| !cx.decor.skips(i)).collect();
+    let mut kept: Vec<&Item> = src.items.iter().filter(|i| !cx.decor.skips(i)).collect();
+    let dropped = kept.len().saturating_sub(MAX_SLIDE_ITEMS);
+    kept.truncate(MAX_SLIDE_ITEMS);
     let heads = headings(&kept, cx.size);
     let title_bottom = heads.title.map_or(0.0, |t| t.frame.y + t.frame.h);
     let reference = Reference::new(&content_items(&kept, &heads), cx);
@@ -283,16 +327,29 @@ pub(crate) fn project_slide<'a>(
     let mut shape = shape(src, cx.layouts, &heads, &found);
     let cover = is_cover(&shape, &heads);
     let first_cover = cover && !*deck_titled;
-    if cover && !first_cover {
+    // La couverture du deck reste une couverture si ses autres contenus sont
+    // des textes (ils iront dans les notes) ; une image, un tableau ou un
+    // graphique demandent un modèle qui les tienne.
+    let as_title = first_cover
+        && shape.content.iter().all(|k| matches!(k, ContentKind::Text | ContentKind::Card | ContentKind::Shape));
+    if as_title {
+        shape.layout_kind = Some(LayoutKind::Title);
+    } else if cover && !first_cover {
         shape.layout_kind = Some(LayoutKind::SectionHeader);
     }
-    let profile = pick(&shape, profiles)?;
+    let profile = if as_title { choose(&shape, profiles).cloned() } else { pick(&shape, profiles) }?;
     let template = &profile.template.slide;
     let schema = cx.registry.get(&template.kind);
     let id = format!("s{}", src.number);
     let mut losses: Vec<Loss> = cx.decor.losses(src.number).to_vec();
     if src.hidden {
         losses.push(Loss::slide(LossKind::HiddenSlide));
+    }
+    if dropped > 0 {
+        losses.push(Loss::slide(LossKind::ItemsDropped { dropped: u32::try_from(dropped).unwrap_or(u32::MAX) }));
+    }
+    for item in [heads.kicker, heads.title, heads.subtitle].into_iter().flatten() {
+        effect_losses(item, cx.effects, &mut losses);
     }
     let mut slide = Slide::new(id.clone(), &template.kind);
     let titles = place_titles(&heads, first_cover, schema, &mut slide, &mut losses);
@@ -304,7 +361,8 @@ pub(crate) fn project_slide<'a>(
         // Un titre sans paramètre devient un contenu : les unités sont refaites avec lui.
         let mut all = content.clone();
         all.extend(titles.extra.iter().copied());
-        all.sort_by_key(|i| src.items.iter().position(|j| j.id == i.id));
+        let rank: BTreeMap<&str, usize> = kept.iter().enumerate().map(|(k, i)| (i.id.as_str(), k)).collect();
+        all.sort_by_key(|i| rank.get(i.id.as_str()).copied());
         found = units(&all, |f| reference.cell(f));
         shape = Shape { layout_kind: shape.layout_kind, ..super::template::shape(src, cx.layouts, &heads, &found) };
     }
@@ -342,10 +400,23 @@ pub(crate) fn project_slide<'a>(
         // Le retrofit ne place jamais en cadres libres (hi-fi) : comme la grille.
         Placement::Grid | Placement::Free => found.iter().map(|u| vec![u]).collect(),
     };
+    let target = match placement {
+        Placement::Flow => flow_slot,
+        Placement::Grid | Placement::Free => free_slot,
+    };
+    // Textes d'une couverture sans slot : dans les notes, en ordre de lecture.
+    let mut moved: Vec<String> = Vec::new();
     for (k, block) in (1..).zip(&blocks) {
         let block_id = format!("{id}-{k}");
         let mut made = Vec::new();
         for (j, unit) in (1..).zip(block) {
+            for item in unit.items() {
+                effect_losses(item, cx.effects, &mut losses);
+            }
+            if target.is_none() && first_cover {
+                move_to_notes(unit, &mut moved, &mut losses);
+                continue;
+            }
             let unit_id = if block.len() > 1 { format!("{block_id}-{j}") } else { block_id.clone() };
             origins.extend(unit.items().into_iter().map(|i| (i.id.clone(), unit_id.clone())));
             let c = element(unit, unit_id, &content_cx);
@@ -378,10 +449,6 @@ pub(crate) fn project_slide<'a>(
     }
     let mut assets = BTreeSet::new();
     collect_assets(&elements, &mut assets);
-    let target = match placement {
-        Placement::Flow => flow_slot,
-        Placement::Grid | Placement::Free => free_slot,
-    };
     match target {
         Some(name) if !elements.is_empty() => {
             slide.params.set(name, ParamValue::Slot(elements));
@@ -395,7 +462,10 @@ pub(crate) fn project_slide<'a>(
     }
     ops.push(Op::AddSlide { index: None, defaults: false, slide });
     if !src.notes.trim().is_empty() {
-        ops.push(Op::SetNotes { slide: id.clone(), notes: src.notes.clone() });
+        moved.push(src.notes.clone());
+    }
+    if !moved.is_empty() {
+        ops.push(Op::SetNotes { slide: id.clone(), notes: moved.join("\n\n") });
     }
     let report = SlideReport {
         source: src.number,

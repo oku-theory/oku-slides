@@ -40,16 +40,13 @@ use super::table::TableLook;
 use super::typst::{GenCtx, round_rect_radius};
 use crate::report::{Loss, LossKind, ShapeEffect};
 use crate::retrofit::chart::chart;
+pub(crate) use crate::retrofit::content::effect_items;
 use crate::retrofit::table::table;
 use crate::retrofit::text::note;
 use crate::source::{
-    self, ChartKind, Crop, Dash, Fill, Geometry, Insets, Item, ItemKind, OpaqueReason, Rgba, Shape, Stroke, Warning,
-    WarningKind,
+    self, ChartKind, Crop, Dash, Fill, Geometry, Insets, Item, ItemKind, OpaqueReason, Rgba, Shape, Stroke,
 };
 
-/// Effets signalés par le lecteur (`EffectIgnored`) que le hi-fi perd ;
-/// rotation et miroir de groupe se lisent dans le cadre (`Transform`).
-const EFFECTS: [&str; 3] = ["effectLst", "scene3d", "sp3d"];
 /// Côté minimal d'un cadre, en pt page : le cœur refuse un cadre vide, et
 /// une ligne droite n'a pas d'épaisseur.
 const MIN_SIDE: f64 = 1.0;
@@ -83,17 +80,6 @@ pub(crate) struct Placed {
     /// L'élément `text` de chaque item qui porte du texte (id d'item, id
     /// d'élément) : là où la couverture cherche ses runs.
     pub(crate) origins: Vec<(String, String)>,
-}
-
-/// Les items dont le lecteur a ignoré des ombres, reflets ou effets 3D.
-pub(crate) fn effect_items(warnings: &[Warning]) -> BTreeSet<String> {
-    warnings
-        .iter()
-        .filter_map(|w| match (&w.kind, &w.item) {
-            (WarningKind::EffectIgnored(e), Some(item)) if EFFECTS.contains(&e.as_str()) => Some(item.clone()),
-            _ => None,
-        })
-        .collect()
 }
 
 /// Les éléments de `item`, chacun d'id `next_id()` (`s<numéro>-<rang>`).

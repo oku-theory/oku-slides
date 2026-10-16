@@ -58,6 +58,7 @@ import-loss-transform = Utracono obrót, odbicie lub przycięcie
 import-loss-color-dropped = Kolor { $color } nie ma bliskiego koloru w motywie: użyto koloru motywu
 import-loss-text-truncated = Tekst skrócony, aby zmieścić się w limitach
 import-loss-table-truncated = Tabela skrócona, aby zmieścić się w limitach
+import-loss-chart-truncated = Dane wykresu skrócone, aby zmieścić się w limitach
 import-loss-opaque = { $reason ->
     [media] Nie zaimportowano wideo ani dźwięku (brak obrazu zastępczego)
     [ole] Nie zaimportowano osadzonego obiektu (brak obrazu zastępczego)
@@ -77,6 +78,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] Nagłówek lub stopka „{ $text }” powtórzone na { $slides } slajdu pominięte: motyw rysuje własne
 }
 import-loss-no-slot = Treść pominięta: wybrany szablon nie ma na nią miejsca
+import-loss-moved-to-notes = Tekst przeniesiony do notatek prelegenta: okładka nie ma na niego miejsca
+import-loss-items-dropped = Zbyt wiele elementów na slajdzie: pominięte elementy: { $dropped }
 import-loss-page-fitted = Strona źródłowa { $width } × { $height } pt nie ma proporcji 16:9: treść przeskalowana i wyśrodkowana
 import-loss-paragraph-style = Wyrównanie, interlinię lub odstęp między akapitami dopasowano do pola
 import-loss-shape-style = { $effect ->

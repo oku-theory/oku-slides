@@ -4,6 +4,7 @@
 //! dans `dataset`, des séries nues qui lisent chacune leur colonne. Aucune
 //! couleur n'est émise : la palette du thème cible décide.
 
+use oku_slides_core::dataset_row_budget;
 use serde_json::{Value, json};
 
 use crate::report::LossKind;
@@ -78,6 +79,8 @@ fn scatter_grid(c: &source::Chart) -> Vec<Vec<Value>> {
 /// `Stacked` pose `stack` sur les séries cartésiennes ; `PercentStacked` aussi,
 /// avec la perte `PercentStacked`. Le titre devient `title.text`. Un format des
 /// nombres (`0%`, monnaie) se perd (`ChartFormat`) : le modèle n'en a pas.
+/// `dataset.source` est coupé au budget de relecture du cœur
+/// ([`dataset_row_budget`], en-tête compris), avec la perte `ChartTruncated`.
 pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
     if c.series.is_empty() {
         return None;
@@ -139,6 +142,13 @@ pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
     }
     if let Some(title) = c.title.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
         option["title"] = json!({ "text": title });
+    }
+    if let Some(rows) = option.pointer_mut("/dataset/source").and_then(Value::as_array_mut) {
+        let budget = dataset_row_budget(rows.first().and_then(Value::as_array).map_or(0, Vec::len));
+        if rows.len() > budget {
+            rows.truncate(budget);
+            losses.push(LossKind::ChartTruncated);
+        }
     }
     Some((option, losses))
 }

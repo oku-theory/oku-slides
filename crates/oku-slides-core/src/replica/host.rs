@@ -77,9 +77,12 @@ fn shape(ds: &Map<String, Value>) -> Option<Shape<'_>> {
         .then_some(Shape { rows, ids, columns })
 }
 
-/// Lignes relues au plus pour `columns` colonnes : [`MAX_ROWS`], et
-/// [`MAX_CELLS`] cellules en tout ; au moins une (l'en-tête).
-fn row_budget(columns: usize) -> usize {
+/// Lignes relues au plus pour `columns` colonnes, en-tête compris.
+///
+/// [`MAX_ROWS`], et [`MAX_CELLS`] cellules en tout ; au moins une (l'en-tête).
+/// Un `dataset` plus long se relit tronqué : un producteur (l'import) le
+/// borne à l'émission.
+pub fn row_budget(columns: usize) -> usize {
     (MAX_CELLS / columns.max(1)).clamp(1, MAX_ROWS)
 }
 

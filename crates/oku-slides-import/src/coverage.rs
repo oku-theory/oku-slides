@@ -2,8 +2,9 @@
 //!
 //! Mesurée sur le deck, pas sur le plan : un contenu compte s'il s'y
 //! retrouve. La slide source `n` est comparée à la slide Oku `s<n>` (ids du
-//! projecteur), plus les paramètres du deck (`title`, `subtitle`) que remplit
-//! la couverture.
+//! projecteur) et à ses notes (où le retrofit met les textes qu'une
+//! couverture ne tient pas, perte `MovedToNotes`), plus les paramètres du
+//! deck (`title`, `subtitle`) que remplit la couverture.
 //!
 //! | contenu source | retrouvé si la slide Oku contient |
 //! |---|---|
@@ -131,6 +132,10 @@ impl<'d> Seen<'d> {
         }
         if let Some(s) = slide {
             seen.params(&s.kind, &s.params, registry, &[]);
+            // Un texte sans place sur une couverture va dans les notes : il reste dans le deck.
+            for line in s.notes.lines() {
+                seen.text(line, &[]);
+            }
         }
         seen
     }

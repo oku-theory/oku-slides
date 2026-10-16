@@ -57,6 +57,7 @@ import-loss-transform = Drehung, Spiegelung oder Zuschnitt verloren
 import-loss-color-dropped = Die Farbe { $color } hat keine ähnliche Designfarbe: Designfarbe verwendet
 import-loss-text-truncated = Text gekürzt, um die Grenzen einzuhalten
 import-loss-table-truncated = Tabelle gekürzt, um die Grenzen einzuhalten
+import-loss-chart-truncated = Diagrammdaten gekürzt, um die Grenzen einzuhalten
 import-loss-opaque = { $reason ->
     [media] Video oder Ton nicht importiert (kein Ersatzbild)
     [ole] Eingebettetes Objekt nicht importiert (kein Ersatzbild)
@@ -74,6 +75,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] Kopf- oder Fußzeile „{ $text }“ auf { $slides } Folien wiederholt, weggelassen: das Design zeichnet eigene
 }
 import-loss-no-slot = Inhalt weggelassen: die gewählte Vorlage hat keinen Platz dafür
+import-loss-moved-to-notes = Text in die Sprechernotizen verschoben: die Titelfolie hat keinen Platz dafür
+import-loss-items-dropped = Zu viele Elemente auf der Folie: { $dropped } Elemente ausgelassen
 import-loss-page-fitted = Quellseite { $width } × { $height } pt ist nicht 16:9: Inhalt skaliert und zentriert
 import-loss-paragraph-style = Ausrichtung, Zeilen- oder Absatzabstand eines Absatzes an das Feld angeglichen
 import-loss-shape-style = { $effect ->

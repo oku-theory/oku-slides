@@ -58,6 +58,7 @@ import-loss-transform = 旋轉、翻轉或裁剪已遺失
 import-loss-color-dropped = 色彩 { $color } 在佈景主題中沒有相近的色彩：已使用佈景主題色彩
 import-loss-text-truncated = 文字已縮短以符合限制
 import-loss-table-truncated = 表格已縮短以符合限制
+import-loss-chart-truncated = 圖表資料已縮短以符合限制
 import-loss-opaque = { $reason ->
     [media] 影片或聲音未匯入（無替代影像）
     [ole] 內嵌物件未匯入（無替代影像）
@@ -72,6 +73,8 @@ import-loss-effects = 陰影、反射與立體效果已遺失
 import-loss-series-dropped = 圓餅圖只顯示一個數列：保留 { $kept }個，捨棄 { $dropped }個
 import-loss-repeated-decor = 已省略在 { $slides }張投影片上重複的頁首或頁尾「{ $text }」：佈景主題會繪製自己的頁首頁尾
 import-loss-no-slot = 已省略內容：所選範本中沒有可放置它的位置
+import-loss-moved-to-notes = 文字已移至演講者備忘稿：封面上沒有可放置它的位置
+import-loss-items-dropped = 投影片上的元素過多：省略了{ $dropped }個元素
 import-loss-page-fitted = 來源頁面（{ $width } × { $height } pt）不是 16:9：內容已縮放並置中
 import-loss-paragraph-style = 段落的對齊方式、行距或段間距已改為文字方塊的設定
 import-loss-shape-style = { $effect ->

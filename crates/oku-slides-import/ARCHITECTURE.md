@@ -1,8 +1,7 @@
 # oku-slides-import
 
-PowerPoint (`.pptx`) import: read into a format-neutral, resolved intermediate representation
-(`source::SourceDeck`, every styled value with its provenance), then project it into a plan of
-Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
+PowerPoint (`.pptx`) import: read into a format-neutral, resolved intermediate representation (`source::SourceDeck`,
+every styled value with its provenance), projected into a plan of Oku ops. Spec: `specs/2026-10-09-import-pptx-design`.
 
 ## API
 
@@ -29,8 +28,9 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
   by their bytes (`media::sniff`), rasters refused on a bad header (`media::dimensions`), SVGs sanitized.
 - Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`,
   never `pptx/`. They are pure: ids and dates come from the target (ADR-0008).
-- `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`), headings,
-  clusters, placement (`slide`, `zone`), text, tables, charts, `color`, card stacks (`group`, SmartArt).
+- `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`), headings, clusters,
+  placement (`slide`, `zone`, `MAX_SLIDE_ITEMS`), text, tables, charts (`dataset_row_budget`), `color`, card
+  stacks (`group`, SmartArt). A text-only first cover keeps a title template, other texts in notes.
 - `hifi/` : page fit (`page`), theme tokens and `ThemeManifest` (`theme`, `color`), one slide
   widget per layout (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
   Typst (`typst/`), shape outlines and arrowheads (`geometry/`, with the embedded ECMA-376
@@ -46,5 +46,5 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 
 ## Dependencies
 
-`oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`,
-`serde`, `serde_json`, `snafu`. Hi-fi render snapshots: `oku-slides-render/tests/import_*.rs`.
+`oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`, `serde`,
+`serde_json`, `snafu`. Render snapshots: `oku-slides-render/tests/import_*.rs`.

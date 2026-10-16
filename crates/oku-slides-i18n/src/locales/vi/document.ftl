@@ -58,6 +58,7 @@ import-loss-transform = Mất xoay, lật hoặc cắt xén
 import-loss-color-dropped = Màu { $color } không có màu gần giống trong chủ đề: đã dùng màu của chủ đề
 import-loss-text-truncated = Văn bản đã được rút gọn để nằm trong giới hạn
 import-loss-table-truncated = Bảng đã được rút gọn để nằm trong giới hạn
+import-loss-chart-truncated = Dữ liệu biểu đồ đã được rút gọn để nằm trong giới hạn
 import-loss-opaque = { $reason ->
     [media] Không nhập video hoặc âm thanh (không có ảnh thay thế)
     [ole] Không nhập đối tượng nhúng (không có ảnh thay thế)
@@ -72,6 +73,8 @@ import-loss-effects = Mất bóng đổ, phản chiếu và hiệu ứng 3D
 import-loss-series-dropped = Biểu đồ tròn chỉ hiển thị một chuỗi: giữ { $kept }, bỏ { $dropped }
 import-loss-repeated-decor = Đã bỏ đầu trang hoặc chân trang “{ $text }” lặp lại trên { $slides } trang chiếu: chủ đề tự vẽ của nó
 import-loss-no-slot = Đã bỏ nội dung: mẫu đã chọn không có chỗ cho nó
+import-loss-moved-to-notes = Đã chuyển văn bản vào ghi chú của người thuyết trình: trang bìa không có chỗ cho nó
+import-loss-items-dropped = Trang chiếu có quá nhiều phần tử: bỏ qua { $dropped } phần tử
 import-loss-page-fitted = Trang nguồn { $width } × { $height } pt không phải 16:9: nội dung đã được co giãn và căn giữa
 import-loss-paragraph-style = Căn lề, giãn dòng hoặc khoảng cách đoạn của đoạn văn được đưa về theo hộp
 import-loss-shape-style = { $effect ->

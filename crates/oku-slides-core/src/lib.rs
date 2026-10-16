@@ -61,7 +61,8 @@ pub use pack::{
 };
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{
-    DeckRead, DeckReplica, HistoryPreview, MergeReport, ReplicaLimits, SlideChanges, Version, slide_changes,
+    DeckRead, DeckReplica, HistoryPreview, MergeReport, ReplicaLimits, SlideChanges, Version, dataset_row_budget,
+    slide_changes,
 };
 pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};

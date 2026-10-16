@@ -370,3 +370,15 @@ fn element_of_an_arrowed_connector_loses_its_arrowheads() {
     assert_that!(e.is_some()).is_true();
     assert_that!(losses.iter().any(|l| l.kind == LossKind::ShapeStyle(ShapeEffect::Arrow))).is_true();
 }
+
+#[test]
+fn effect_items_keeps_shadows_and_3d_but_not_group_transforms() {
+    let warn = |item: &str, e: &str| crate::source::Warning {
+        slide: Some(1),
+        item: Some(item.to_owned()),
+        kind: crate::source::WarningKind::EffectIgnored(e.to_owned()),
+    };
+    let warnings = [warn("s1/1", "effectLst"), warn("s1/2", "sp3d"), warn("s1/3", "group rotation")];
+    assert_that!(effect_items(&warnings))
+        .is_equal_to(std::collections::BTreeSet::from(["s1/1".to_owned(), "s1/2".to_owned()]));
+}

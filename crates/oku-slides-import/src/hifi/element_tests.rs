@@ -476,17 +476,6 @@ fn elements_of_a_table_in_the_deck_style_lose_nothing_and_an_irregular_one_loses
     assert_that!(table_style_losses(&regular, plain_table(true))).is_equal_to(1);
 }
 
-#[test]
-fn effect_items_keeps_shadows_and_3d_but_not_group_transforms() {
-    let warn = |item: &str, e: &str| Warning {
-        slide: Some(1),
-        item: Some(item.to_owned()),
-        kind: WarningKind::EffectIgnored(e.to_owned()),
-    };
-    let warnings = [warn("s1/1", "effectLst"), warn("s1/2", "sp3d"), warn("s1/3", "group rotation")];
-    assert_that!(effect_items(&warnings)).is_equal_to(BTreeSet::from(["s1/1".to_owned(), "s1/2".to_owned()]));
-}
-
 /// Le contexte d'un deck lu : page, thème et polices de son master de thème.
 struct DeckSetup {
     page: Page,

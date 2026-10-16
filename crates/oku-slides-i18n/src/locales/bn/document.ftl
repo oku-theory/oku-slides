@@ -58,6 +58,7 @@ import-loss-transform = ঘোরানো, উল্টানো বা ক্�
 import-loss-color-dropped = { $color } রঙের কাছাকাছি কোনো থিম রঙ নেই: থিমের রঙ ব্যবহার করা হয়েছে
 import-loss-text-truncated = সীমার মধ্যে রাখতে লেখা ছোট করা হয়েছে
 import-loss-table-truncated = সীমার মধ্যে রাখতে টেবিল ছোট করা হয়েছে
+import-loss-chart-truncated = সীমার মধ্যে রাখতে চার্টের ডেটা ছোট করা হয়েছে
 import-loss-opaque = { $reason ->
     [media] ভিডিও বা শব্দ ইমপোর্ট করা হয়নি (বিকল্প ছবি নেই)
     [ole] এমবেড করা অবজেক্ট ইমপোর্ট করা হয়নি (বিকল্প ছবি নেই)
@@ -75,6 +76,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] { $slides }টি স্লাইডে পুনরাবৃত্ত হেডার বা ফুটার “{ $text }” বাদ দেওয়া হয়েছে: থিম নিজেরটি আঁকে
 }
 import-loss-no-slot = বিষয়বস্তু বাদ দেওয়া হয়েছে: বেছে নেওয়া টেমপ্লেটে এর জায়গা নেই
+import-loss-moved-to-notes = লেখা বক্তার নোটে সরানো হয়েছে: প্রচ্ছদে এর জায়গা নেই
+import-loss-items-dropped = স্লাইডে অনেক বেশি উপাদান: বাদ পড়া উপাদান: { $dropped }
 import-loss-page-fitted = উৎস পৃষ্ঠা { $width } × { $height } pt, 16:9 নয়: বিষয়বস্তু মাপে বদলে মাঝখানে রাখা হয়েছে
 import-loss-paragraph-style = অনুচ্ছেদের সারিবদ্ধতা, লাইন ব্যবধান বা অনুচ্ছেদ ব্যবধান বাক্সের মতো করা হয়েছে
 import-loss-shape-style = { $effect ->

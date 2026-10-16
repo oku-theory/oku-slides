@@ -58,6 +58,7 @@ import-loss-transform = Поворот, отражение или обрезка
 import-loss-color-dropped = Для цвета { $color } нет близкого цвета темы: использован цвет темы
 import-loss-text-truncated = Текст сокращён, чтобы уложиться в ограничения
 import-loss-table-truncated = Таблица сокращена, чтобы уложиться в ограничения
+import-loss-chart-truncated = Данные диаграммы сокращены, чтобы уложиться в ограничения
 import-loss-opaque = { $reason ->
     [media] Видео или звук не импортированы (нет запасного изображения)
     [ole] Внедрённый объект не импортирован (нет запасного изображения)
@@ -77,6 +78,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] Колонтитул «{ $text }», повторённый на { $slides } слайда, опущен: тема рисует свой
 }
 import-loss-no-slot = Содержимое опущено: в выбранном шаблоне для него нет места
+import-loss-moved-to-notes = Текст перенесён в заметки докладчика: на обложке для него нет места
+import-loss-items-dropped = Слишком много элементов на слайде: пропущено элементов: { $dropped }
 import-loss-page-fitted = Исходная страница { $width } × { $height } pt не в формате 16:9: содержимое масштабировано и выровнено по центру
 import-loss-paragraph-style = Выравнивание, межстрочный интервал или интервал между абзацами приведены к надписи
 import-loss-shape-style = { $effect ->

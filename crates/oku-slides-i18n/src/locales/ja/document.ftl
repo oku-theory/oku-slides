@@ -57,6 +57,7 @@ import-loss-transform = 回転、反転、トリミングが失われました
 import-loss-color-dropped = 色 { $color } に近いテーマの色がありません。テーマの色を使用しました
 import-loss-text-truncated = 上限に収まるようテキストを短くしました
 import-loss-table-truncated = 上限に収まるよう表を短くしました
+import-loss-chart-truncated = 上限に収まるようグラフのデータを短くしました
 import-loss-opaque = { $reason ->
     [media] 動画または音声はインポートされませんでした (代替画像なし)
     [ole] 埋め込みオブジェクトはインポートされませんでした (代替画像なし)
@@ -71,6 +72,8 @@ import-loss-effects = 影、反射、3D 効果が失われました
 import-loss-series-dropped = 円グラフは 1 系列のみ表示します。{ $kept } 系列を保持、{ $dropped } 系列を除外しました
 import-loss-repeated-decor = { $slides }枚のスライドで繰り返されるヘッダーまたはフッター「{ $text }」を省きました。テーマが独自に描画します
 import-loss-no-slot = コンテンツを省きました。選んだテンプレートに配置できる場所がありません
+import-loss-moved-to-notes = テキストを発表者ノートに移しました。表紙に配置できる場所がありません
+import-loss-items-dropped = スライドの要素が多すぎます：{ $dropped }個の要素を省きました
 import-loss-page-fitted = 元のページ（{ $width } × { $height } pt）は 16:9 ではありません。内容を拡大縮小して中央に配置しました
 import-loss-paragraph-style = 段落の配置、行間、または段落間隔がボックスに合わせられました
 import-loss-shape-style = { $effect ->

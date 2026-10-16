@@ -58,6 +58,7 @@ import-loss-transform = 旋转、翻转或裁剪已丢失
 import-loss-color-dropped = 颜色 { $color } 在主题中没有相近的颜色：已使用主题颜色
 import-loss-text-truncated = 文本已缩短以符合限制
 import-loss-table-truncated = 表格已缩短以符合限制
+import-loss-chart-truncated = 图表数据已缩短以符合限制
 import-loss-opaque = { $reason ->
     [media] 视频或声音未导入（无替代图像）
     [ole] 嵌入对象未导入（无替代图像）
@@ -72,6 +73,8 @@ import-loss-effects = 阴影、映像和三维效果已丢失
 import-loss-series-dropped = 饼图只显示一个系列：保留 { $kept }个，舍弃 { $dropped }个
 import-loss-repeated-decor = 已省略在 { $slides }张幻灯片上重复的页眉或页脚“{ $text }”：主题会绘制自己的页眉页脚
 import-loss-no-slot = 已省略内容：所选模板中没有可放置它的位置
+import-loss-moved-to-notes = 文本已移至演讲者备注：封面上没有可放置它的位置
+import-loss-items-dropped = 幻灯片上的元素过多：省略了{ $dropped }个元素
 import-loss-page-fitted = 源页面（{ $width } × { $height } pt）不是 16:9：内容已缩放并居中
 import-loss-paragraph-style = 段落的对齐方式、行距或段间距已改为文本框的设置
 import-loss-shape-style = { $effect ->

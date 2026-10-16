@@ -57,6 +57,7 @@ import-loss-transform = Rotazione, capovolgimento o ritaglio persi
 import-loss-color-dropped = Il colore { $color } non ha un colore vicino nel tema: usato un colore del tema
 import-loss-text-truncated = Testo accorciato per rispettare i limiti
 import-loss-table-truncated = Tabella accorciata per rispettare i limiti
+import-loss-chart-truncated = Dati del grafico accorciati per rispettare i limiti
 import-loss-opaque = { $reason ->
     [media] Video o audio non importato (nessuna immagine sostitutiva)
     [ole] Oggetto incorporato non importato (nessuna immagine sostitutiva)
@@ -74,6 +75,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] Intestazione o piè di pagina «{ $text }» ripetuto su { $slides } diapositive omesso: il tema disegna i propri
 }
 import-loss-no-slot = Contenuto omesso: il modello scelto non ha posto per esso
+import-loss-moved-to-notes = Testo spostato nelle note del relatore: la copertina non ha posto per esso
+import-loss-items-dropped = Troppi elementi nella diapositiva: { $dropped } elementi omessi
 import-loss-page-fitted = La pagina di origine ({ $width } × { $height } pt) non è 16:9: contenuto ridimensionato e centrato
 import-loss-paragraph-style = Allineamento, interlinea o spaziatura di un paragrafo uniformati a quelli della casella
 import-loss-shape-style = { $effect ->

@@ -58,6 +58,7 @@ import-loss-transform = การหมุน การพลิก หรือ
 import-loss-color-dropped = สี { $color } ไม่มีสีใกล้เคียงในธีม: ใช้สีของธีมแทน
 import-loss-text-truncated = ย่อข้อความให้อยู่ในขีดจำกัด
 import-loss-table-truncated = ย่อตารางให้อยู่ในขีดจำกัด
+import-loss-chart-truncated = ย่อข้อมูลแผนภูมิให้อยู่ในขีดจำกัด
 import-loss-opaque = { $reason ->
     [media] ไม่ได้นำเข้าวิดีโอหรือเสียง (ไม่มีภาพสำรอง)
     [ole] ไม่ได้นำเข้าวัตถุที่ฝังไว้ (ไม่มีภาพสำรอง)
@@ -72,6 +73,8 @@ import-loss-effects = เงา การสะท้อน และเอฟ�
 import-loss-series-dropped = แผนภูมิวงกลมแสดงได้เพียงชุดข้อมูลเดียว: เก็บไว้ { $kept } ตัดออก { $dropped }
 import-loss-repeated-decor = ละส่วนหัวหรือท้ายกระดาษ “{ $text }” ที่ซ้ำใน { $slides } สไลด์: ธีมวาดของตัวเอง
 import-loss-no-slot = ละเนื้อหา: เทมเพลตที่เลือกไม่มีที่สำหรับเนื้อหานี้
+import-loss-moved-to-notes = ย้ายข้อความไปที่บันทึกของผู้บรรยาย: หน้าปกไม่มีที่สำหรับข้อความนี้
+import-loss-items-dropped = สไลด์มีองค์ประกอบมากเกินไป: ละองค์ประกอบ { $dropped } รายการ
 import-loss-page-fitted = หน้าต้นฉบับ { $width } × { $height } pt ไม่ใช่ 16:9: ปรับขนาดเนื้อหาและจัดกึ่งกลางแล้ว
 import-loss-paragraph-style = การจัดแนว ระยะบรรทัด หรือระยะย่อหน้าของย่อหน้าถูกปรับตามกล่อง
 import-loss-shape-style = { $effect ->

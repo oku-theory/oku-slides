@@ -57,6 +57,7 @@ import-loss-transform = Rotation, flip or crop lost
 import-loss-color-dropped = Color { $color } has no close theme color: theme color used
 import-loss-text-truncated = Text shortened to fit the limits
 import-loss-table-truncated = Table shortened to fit the limits
+import-loss-chart-truncated = Chart data shortened to fit the limits
 import-loss-opaque = { $reason ->
     [media] Video or sound not imported (no fallback image)
     [ole] Embedded object not imported (no fallback image)
@@ -74,6 +75,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] Header or footer “{ $text }” repeated on { $slides } slides left out: the theme draws its own
 }
 import-loss-no-slot = Content left out: the chosen template has no place for it
+import-loss-moved-to-notes = Text moved to the speaker notes: the cover has no place for it
+import-loss-items-dropped = Too many items on the slide: { $dropped } items left out
 import-loss-page-fitted = Source page { $width } × { $height } pt is not 16:9: content scaled and centered
 import-loss-paragraph-style = Paragraph alignment, line spacing or paragraph spacing changed to the box's
 import-loss-shape-style = { $effect ->

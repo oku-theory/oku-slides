@@ -57,6 +57,7 @@ import-loss-transform = Rotation, miroir ou rognage perdus
 import-loss-color-dropped = La couleur { $color } n'a pas de couleur proche dans le thème : couleur du thème utilisée
 import-loss-text-truncated = Texte raccourci pour tenir dans les limites
 import-loss-table-truncated = Tableau raccourci pour tenir dans les limites
+import-loss-chart-truncated = Données du graphique raccourcies pour tenir dans les limites
 import-loss-opaque = { $reason ->
     [media] Vidéo ou son non importé (pas d'image de repli)
     [ole] Objet incorporé non importé (pas d'image de repli)
@@ -74,6 +75,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] En-tête ou pied « { $text } » répété sur { $slides } slides omis : le thème dessine les siens
 }
 import-loss-no-slot = Contenu omis : le modèle choisi n'a pas de place pour lui
+import-loss-moved-to-notes = Texte déplacé dans les notes de l'orateur : la couverture n'a pas de place pour lui
+import-loss-items-dropped = Trop d'éléments sur la slide : { $dropped } éléments omis
 import-loss-page-fitted = Page source de { $width } × { $height } pt, d'un autre format que 16:9 : contenu mis à l'échelle et centré
 import-loss-paragraph-style = Alignement, interligne ou espacement d'un paragraphe ramené à celui de la boîte
 import-loss-shape-style = { $effect ->

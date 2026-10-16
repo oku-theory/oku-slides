@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use oku_slides_core::{Cell, Deck, Template, asset_id};
 use speculoos::prelude::*;
@@ -28,6 +28,7 @@ fn project(templates: &[Template], slides: &[SourceSlide]) -> (Vec<Op>, Vec<Slid
     let assets = BTreeMap::from([(png(), Asset { mime: "image/png".into(), bytes: b"png".to_vec() })]);
     let page = PageTokens::default();
     let decor = Decor::of(&source_deck(slides.to_vec()));
+    let effects = BTreeSet::from(["fx".to_owned()]);
     let cx = SlideCx {
         registry: &registry,
         page: &page,
@@ -36,6 +37,7 @@ fn project(templates: &[Template], slides: &[SourceSlide]) -> (Vec<Op>, Vec<Slid
         size: Size { w: 960.0, h: 540.0 },
         scale: 2.0,
         decor: &decor,
+        effects: &effects,
     };
     let profiles = profiles(templates, &registry);
     let mut titled = false;
@@ -218,6 +220,7 @@ fn project_slide_collects_the_assets_of_its_images() {
     let tokens = colors(PAPIER);
     let assets = BTreeMap::from([(png(), Asset { mime: "image/png".into(), bytes: b"png".to_vec() })]);
     let (page, layouts, templates, decor) = (PageTokens::default(), layouts(), essentiel(), Decor::default());
+    let effects = BTreeSet::new();
     let cx = SlideCx {
         registry: &registry,
         page: &page,
@@ -226,6 +229,7 @@ fn project_slide_collects_the_assets_of_its_images() {
         size: Size { w: 960.0, h: 540.0 },
         scale: 2.0,
         decor: &decor,
+        effects: &effects,
     };
     let pic =
         item("p", (66.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
@@ -362,4 +366,35 @@ fn project_slide_never_flows_a_bare_shape() {
     let items = vec![title("Formes"), bare("deco", "ellipse", (400.0, 200.0, 100.0, 100.0))];
     let (_, _, deck) = project(&essentiel(), &[source_slide(1, Some("l2"), items)]);
     assert_that!(deck.slides[0].params.slot("blocks")).is_none();
+}
+
+#[test]
+fn project_slide_cover_with_extra_texts_keeps_the_cover_and_moves_them_to_notes() {
+    let tagline = text_item("tag", (120.0, 420.0, 720.0, 40.0), "Une année de croissance");
+    let mut src = source_slide(1, Some("l1"), vec![title("Rapport"), subtitle("2026"), tagline]);
+    src.notes = "Accueillir le public.".into();
+    let (_, reports, deck) = project(&essentiel(), &[src]);
+    let s = &deck.slides[0];
+    assert_that!((s.kind.as_str(), reports[0].template.as_str())).is_equal_to(("title", "couverture"));
+    assert_that!(s.notes.as_str()).is_equal_to("Une année de croissance\n\nAccueillir le public.");
+    assert_that!(reports[0].losses.clone()).is_equal_to(vec![Loss::on("tag", LossKind::MovedToNotes)]);
+}
+
+#[test]
+fn project_slide_effects_ignored_by_the_reader_are_lost_on_their_item() {
+    let shadowed = text_item("fx", (66.0, 143.0, 828.0, 342.0), "Ombré");
+    let (_, reports, _) = project(&essentiel(), &[source_slide(2, Some("l2"), vec![title("Effets"), shadowed])]);
+    assert_that!(reports[0].losses.clone()).is_equal_to(vec![Loss::on("fx", LossKind::Effects)]);
+}
+
+#[test]
+fn project_slide_items_beyond_the_bound_are_dropped_with_a_loss() {
+    let mut items = vec![title("Nuage")];
+    items.extend((0..MAX_SLIDE_ITEMS + 2).map(|i| {
+        let (x, y) =
+            (f64::from(u32::try_from(i % 40).unwrap()) * 20.0, f64::from(u32::try_from(i / 40).unwrap()) * 25.0);
+        text_item(&format!("i{i}"), (x, 140.0 + y, 18.0, 20.0), "x")
+    }));
+    let (_, reports, _) = project(&grilles(), &[source_slide(1, Some("l2"), items)]);
+    assert_that!(reports[0].losses.clone()).contains(Loss::slide(LossKind::ItemsDropped { dropped: 3 }));
 }

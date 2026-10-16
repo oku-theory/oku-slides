@@ -58,6 +58,7 @@ import-loss-transform = घुमाव, पलटाव या क्रॉप 
 import-loss-color-dropped = रंग { $color } के लिए थीम में कोई निकट रंग नहीं है: थीम का रंग इस्तेमाल हुआ
 import-loss-text-truncated = सीमाओं में रखने के लिए टेक्स्ट छोटा किया गया
 import-loss-table-truncated = सीमाओं में रखने के लिए तालिका छोटी की गई
+import-loss-chart-truncated = सीमाओं में रखने के लिए चार्ट का डेटा छोटा किया गया
 import-loss-opaque = { $reason ->
     [media] वीडियो या ध्वनि आयात नहीं हुई (कोई वैकल्पिक छवि नहीं)
     [ole] एम्बेड किया गया ऑब्जेक्ट आयात नहीं हुआ (कोई वैकल्पिक छवि नहीं)
@@ -75,6 +76,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] { $slides } स्लाइडों पर दोहराया गया हेडर या फ़ुटर “{ $text }” छोड़ दिया गया: थीम अपना बनाती है
 }
 import-loss-no-slot = सामग्री छोड़ दी गई: चुने गए टेम्पलेट में इसके लिए जगह नहीं है
+import-loss-moved-to-notes = पाठ वक्ता नोट्स में ले जाया गया: आवरण में इसके लिए जगह नहीं है
+import-loss-items-dropped = स्लाइड पर बहुत अधिक तत्व: छोड़े गए तत्व: { $dropped }
 import-loss-page-fitted = स्रोत पृष्ठ { $width } × { $height } pt, 16:9 नहीं है: सामग्री का आकार बदलकर बीच में रखा गया
 import-loss-paragraph-style = अनुच्छेद का संरेखण, पंक्ति अंतर या अनुच्छेद अंतर बॉक्स जैसा किया गया
 import-loss-shape-style = { $effect ->

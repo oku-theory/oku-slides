@@ -26,7 +26,7 @@
 //! abandonné. Ses textes sont colorés contre le fond de la carte rendue.
 //! Rotation, miroir et rognage sont perdus (`Transform`).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use oku_slides_core::{Element, Paragraph, ParamValue};
 use serde_json::Value;
@@ -39,8 +39,11 @@ use super::heading::{is_kicker_text, max_run_size};
 use super::table::table;
 use super::text::{note, plain, rich};
 use crate::report::{Loss, LossKind, ShapeEffect};
-use crate::source::{self, Asset, Fill, Geometry, Item, ItemKind, TextBox};
+use crate::source::{self, Asset, Fill, Geometry, Item, ItemKind, TextBox, Warning, WarningKind};
 
+/// Effets signalés par le lecteur (`EffectIgnored`) que les deux projecteurs
+/// perdent ; rotation et miroir de groupe se lisent dans le cadre (`Transform`).
+const EFFECTS: [&str; 3] = ["effectLst", "scene3d", "sp3d"];
 /// Presets dessinés en ellipse.
 const ELLIPSES: [&str; 3] = ["ellipse", "flowChartConnector", "donut"];
 /// Part d'une piste de grille sous laquelle une forme est un filet.
@@ -69,6 +72,30 @@ pub(crate) struct Content {
     /// Sorte du widget de repli employé (`stack`), pour un motif sans widget
     /// dont le repli perd quelque chose (voir [`group`]).
     pub fallback: Option<String>,
+}
+
+/// Les items dont le lecteur a ignoré des ombres, reflets ou effets 3D.
+pub(crate) fn effect_items(warnings: &[Warning]) -> BTreeSet<String> {
+    warnings
+        .iter()
+        .filter_map(|w| match (&w.kind, &w.item) {
+            (WarningKind::EffectIgnored(e), Some(item)) if EFFECTS.contains(&e.as_str()) => Some(item.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// La perte `Effects` sur `item` et sur chaque descendant d'un groupe dont
+/// le lecteur a ignoré les effets (`effects`, de [`effect_items`]).
+pub(crate) fn effect_losses(item: &Item, effects: &BTreeSet<String>, losses: &mut Vec<Loss>) {
+    if effects.contains(&item.id) {
+        lose(losses, &item.id, LossKind::Effects);
+    }
+    if let ItemKind::Group { items, .. } = &item.kind {
+        for child in items {
+            effect_losses(child, effects, losses);
+        }
+    }
 }
 
 /// Ajoute la perte `kind` sur `item` si elle n'y est pas.

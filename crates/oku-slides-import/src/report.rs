@@ -107,6 +107,8 @@ pub enum LossKind {
     TextTruncated,
     /// Tableau coupé aux bornes du cœur.
     TableTruncated,
+    /// Données d'un graphique coupées aux bornes de relecture du cœur (lignes, cellules).
+    ChartTruncated,
     /// Item intraduisible sans image de repli.
     Opaque(OpaqueReason),
     /// SmartArt sans dessin : ses nœuds posés en cartes, sa disposition perdue (retrofit).
@@ -134,6 +136,13 @@ pub enum LossKind {
     },
     /// Contenu sans place : le modèle choisi n'a aucun slot.
     NoSlot,
+    /// Texte sans place sur une couverture : mis dans les notes de la slide (retrofit).
+    MovedToNotes,
+    /// Items de la slide au-delà de la borne du retrofit, omis (sur la slide).
+    ItemsDropped {
+        /// Items omis.
+        dropped: u32,
+    },
     /// Page source d'un autre format que la page Oku (16:9) : contenu mis à
     /// l'échelle uniformément et centré (hi-fi). Dit une fois, à la première slide.
     PageFitted {
@@ -245,6 +254,7 @@ impl LossKind {
             LossKind::ColorDropped(_) => "import-loss-color-dropped",
             LossKind::TextTruncated => "import-loss-text-truncated",
             LossKind::TableTruncated => "import-loss-table-truncated",
+            LossKind::ChartTruncated => "import-loss-chart-truncated",
             LossKind::Opaque(_) => "import-loss-opaque",
             LossKind::SmartArtLayout => "import-loss-smartart-layout",
             LossKind::UnsupportedImage(_) => "import-loss-unsupported-image",
@@ -253,6 +263,8 @@ impl LossKind {
             LossKind::SeriesDropped { .. } => "import-loss-series-dropped",
             LossKind::RepeatedDecor { .. } => "import-loss-repeated-decor",
             LossKind::NoSlot => "import-loss-no-slot",
+            LossKind::MovedToNotes => "import-loss-moved-to-notes",
+            LossKind::ItemsDropped { .. } => "import-loss-items-dropped",
             LossKind::PageFitted { .. } => "import-loss-page-fitted",
             LossKind::ParagraphStyle => "import-loss-paragraph-style",
             LossKind::ShapeStyle(_) => "import-loss-shape-style",
@@ -287,12 +299,15 @@ impl Localize for Loss {
             LossKind::LayoutDropped { layout } => l.tr_with(id, &[("layout", layout.as_str().into())]),
             LossKind::DecorTruncated { omitted } => l.tr_with(id, &[("omitted", (*omitted).into())]),
             LossKind::Overflow { element } => l.tr_with(id, &[("element", element.as_str().into())]),
+            LossKind::ItemsDropped { dropped } => l.tr_with(id, &[("dropped", (*dropped).into())]),
             LossKind::ListLevels
             | LossKind::MergedCells
             | LossKind::PercentStacked
             | LossKind::Transform
             | LossKind::TextTruncated
             | LossKind::TableTruncated
+            | LossKind::ChartTruncated
+            | LossKind::MovedToNotes
             | LossKind::HiddenSlide
             | LossKind::Effects
             | LossKind::NoSlot

@@ -58,6 +58,7 @@ import-loss-transform = 회전, 대칭 또는 자르기가 사라졌습니다
 import-loss-color-dropped = 색 { $color }에 가까운 테마 색이 없습니다. 테마 색을 사용했습니다
 import-loss-text-truncated = 한도에 맞게 텍스트를 줄였습니다
 import-loss-table-truncated = 한도에 맞게 표를 줄였습니다
+import-loss-chart-truncated = 한도에 맞게 차트 데이터를 줄였습니다
 import-loss-opaque = { $reason ->
     [media] 동영상 또는 소리를 가져오지 않았습니다 (대체 이미지 없음)
     [ole] 포함된 개체를 가져오지 않았습니다 (대체 이미지 없음)
@@ -72,6 +73,8 @@ import-loss-effects = 그림자, 반사, 3D 효과가 사라졌습니다
 import-loss-series-dropped = 원형 차트는 계열 하나만 표시합니다. { $kept }개 유지, { $dropped }개 제외
 import-loss-repeated-decor = 슬라이드 { $slides }장에서 반복되는 머리글 또는 바닥글 “{ $text }”을(를) 생략했습니다. 테마가 자체적으로 그립니다
 import-loss-no-slot = 콘텐츠를 생략했습니다. 선택한 템플릿에 놓을 자리가 없습니다
+import-loss-moved-to-notes = 텍스트를 발표자 노트로 옮겼습니다. 표지에 놓을 자리가 없습니다
+import-loss-items-dropped = 슬라이드에 요소가 너무 많습니다: 빠진 요소 { $dropped }개
 import-loss-page-fitted = 원본 페이지({ $width } × { $height } pt)가 16:9가 아닙니다. 콘텐츠를 크기 조정하여 가운데에 배치했습니다
 import-loss-paragraph-style = 단락 맞춤, 줄 간격 또는 단락 간격이 상자에 맞춰졌습니다
 import-loss-shape-style = { $effect ->

@@ -58,6 +58,7 @@ import-loss-transform = Draaiing, spiegeling of bijsnijding verloren
 import-loss-color-dropped = De kleur { $color } heeft geen nabije themakleur: themakleur gebruikt
 import-loss-text-truncated = Tekst ingekort om binnen de grenzen te blijven
 import-loss-table-truncated = Tabel ingekort om binnen de grenzen te blijven
+import-loss-chart-truncated = Grafiekgegevens ingekort om binnen de grenzen te blijven
 import-loss-opaque = { $reason ->
     [media] Video of geluid niet geïmporteerd (geen vervangende afbeelding)
     [ole] Ingesloten object niet geïmporteerd (geen vervangende afbeelding)
@@ -75,6 +76,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] Kop- of voettekst “{ $text }” herhaald op { $slides } dia’s weggelaten: het thema tekent er zelf een
 }
 import-loss-no-slot = Inhoud weggelaten: de gekozen sjabloon heeft er geen plaats voor
+import-loss-moved-to-notes = Tekst verplaatst naar de sprekersnotities: de titeldia heeft er geen plaats voor
+import-loss-items-dropped = Te veel elementen op de dia: { $dropped } elementen weggelaten
 import-loss-page-fitted = Bronpagina van { $width } × { $height } pt is geen 16:9: inhoud geschaald en gecentreerd
 import-loss-paragraph-style = Uitlijning, regelafstand of alinea-afstand van een alinea gelijkgetrokken met het vak
 import-loss-shape-style = { $effect ->

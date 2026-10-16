@@ -58,6 +58,7 @@ import-loss-transform = Döndürme, çevirme veya kırpma kayboldu
 import-loss-color-dropped = { $color } renginin temada yakın bir rengi yok: tema rengi kullanıldı
 import-loss-text-truncated = Metin sınırlara sığması için kısaltıldı
 import-loss-table-truncated = Tablo sınırlara sığması için kısaltıldı
+import-loss-chart-truncated = Grafik verileri sınırlara sığması için kısaltıldı
 import-loss-opaque = { $reason ->
     [media] Video veya ses içe aktarılmadı (yedek görüntü yok)
     [ole] Gömülü nesne içe aktarılmadı (yedek görüntü yok)
@@ -72,6 +73,8 @@ import-loss-effects = Gölgeler, yansımalar ve 3B efektler kayboldu
 import-loss-series-dropped = Pasta grafik tek bir seri gösterir: { $kept } korundu, { $dropped } çıkarıldı
 import-loss-repeated-decor = { $slides } slaytta tekrarlanan “{ $text }” üst veya alt bilgisi atlandı: tema kendisininkini çizer
 import-loss-no-slot = İçerik atlandı: seçilen şablonda ona yer yok
+import-loss-moved-to-notes = Metin konuşmacı notlarına taşındı: kapakta ona yer yok
+import-loss-items-dropped = Slaytta çok fazla öğe var: { $dropped } öğe atlandı
 import-loss-page-fitted = Kaynak sayfa ({ $width } × { $height } pt) 16:9 değil: içerik ölçeklendi ve ortalandı
 import-loss-paragraph-style = Bir paragrafın hizalaması, satır aralığı veya paragraf aralığı kutununkine uyarlandı
 import-loss-shape-style = { $effect ->

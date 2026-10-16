@@ -201,11 +201,31 @@ fn retrofit_alto_places_no_text_over_another(
 #[test]
 fn retrofit_alto_makes_cards_and_picks_card_templates() {
     let (plan, deck) = import("alto", "essentiel", "papier");
-    assert_that!(templates_chosen(&plan))
-        .is_equal_to(vec!["libre", "cartes", "libre", "cartes", "colonnes", "cartes", "cartes", "cartes"]);
+    assert_that!(templates_chosen(&plan)).is_equal_to(vec![
+        "couverture",
+        "cartes",
+        "libre",
+        "cartes",
+        "colonnes",
+        "cartes",
+        "cartes",
+        "cartes",
+    ]);
     let cards = deck_kinds(&deck).iter().filter(|k| *k == "card").count();
     // 3 + 6 + 4 + 3 + 4 + 4 + 4 cartes (slides 2 à 8).
     assert_that!(cards).is_equal_to(28);
+}
+
+/// La couverture d'alto n'a que des textes : elle reste une couverture, ses
+/// textes sans paramètre vont dans ses notes, dits au rapport (t-817).
+/// Grilles n'a pas de modèle de couverture : la slide y reste un contenu.
+#[test]
+fn retrofit_alto_cover_stays_a_cover_and_keeps_its_extra_texts_in_notes() {
+    let (plan, deck) = import("alto", "essentiel", "papier");
+    assert_that!(deck.slides[0].kind.as_str()).is_equal_to("title");
+    assert_that!(deck.slides[0].notes.contains("FROM A SURVIVAL QUESTION TO A GENERATIONAL OPPORTUNITY")).is_true();
+    let moved = plan.report.slides[0].losses.iter().filter(|l| l.kind == LossKind::MovedToNotes).count();
+    assert_that!(moved).is_greater_than(0);
 }
 
 #[test]

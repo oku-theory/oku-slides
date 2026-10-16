@@ -39,6 +39,7 @@ impl From<usize> for ReplicaLimits {
     }
 }
 pub use history::{HistoryPreview, SlideChanges, Version, slide_changes};
+pub use host::row_budget as dataset_row_budget;
 
 use std::sync::Arc;
 

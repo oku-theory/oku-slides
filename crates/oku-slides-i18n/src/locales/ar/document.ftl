@@ -58,6 +58,7 @@ import-loss-transform = فُقد التدوير أو القلب أو الاقت�
 import-loss-color-dropped = لا يوجد للون { $color } لون قريب في السمة: استُخدم لون السمة
 import-loss-text-truncated = اختُصر النص ليبقى ضمن الحدود
 import-loss-table-truncated = اختُصر الجدول ليبقى ضمن الحدود
+import-loss-chart-truncated = اختُصرت بيانات الرسم البياني لتبقى ضمن الحدود
 import-loss-opaque = { $reason ->
     [media] لم يُستورد الفيديو أو الصوت (لا توجد صورة بديلة)
     [ole] لم يُستورد الكائن المضمّن (لا توجد صورة بديلة)
@@ -79,6 +80,8 @@ import-loss-repeated-decor = { $slides ->
   *[other] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شريحة: يرسم النسق رأسه وتذييله
 }
 import-loss-no-slot = حُذف المحتوى: لا مكان له في القالب المختار
+import-loss-moved-to-notes = نُقل النص إلى ملاحظات المتحدث: لا مكان له في الغلاف
+import-loss-items-dropped = عناصر كثيرة جدًا في الشريحة: عناصر محذوفة: { $dropped }
 import-loss-page-fitted = صفحة المصدر { $width } × { $height } نقطة ليست بنسبة 16:9: غُيّر حجم المحتوى ووُسِّط
 import-loss-paragraph-style = وُحّدت محاذاة فقرة أو تباعد أسطرها أو تباعد الفقرات مع المربع
 import-loss-shape-style = { $effect ->

@@ -5,7 +5,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Keep oku-slides-import free of any dependency on oku-slides-session, oku-slides-render or the CLI. (plan:2026-10-10-import-pptx-lot2)
-- Keep the retrofit projector deterministic: no randomness and no clock, ids are s plus slide number and slide-rank. (plan:2026-10-10-import-pptx-lot2)
+- Keep the retrofit projector deterministic (no randomness, no clock, ids s plus slide number and slide-rank) and bounded: at most MAX_SLIDE_ITEMS items per slide, the rest reported as ItemsDropped. (plan:2026-10-10-import-pptx-lot2, t-817)
 - Emit a text color token only if it reaches WCAG contrast 3:1 on its actual background, otherwise emit none. (plan:2026-10-10-import-pptx-lot2)
 - Use Decor::skips as the single predicate for omitting decor items in both projection and coverage. (plan:2026-10-10-import-pptx-lot2)
 - Never put a shape without text into a flow slot; place it as a free element. (plan:2026-10-10-import-pptx-lot2)
@@ -28,7 +28,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Emit only color names that exist in the target theme; Typst rendering panics on an unknown color name. (plan:2026-10-10-import-pptx-lot2)
 - Emit no color in chart options; chart color fields accept only hex and the target theme palette decides. (plan:2026-10-10-import-pptx-lot2)
-- Emit chart options already in canonical form, because the core checks host params but does not canonicalize. (plan:2026-10-10-import-pptx-lot2)
+- Emit chart options already in canonical form, because the core checks host params but does not canonicalize, and cut dataset rows to dataset_row_budget with ChartTruncated. (plan:2026-10-10-import-pptx-lot2, t-817)
 - Give every emitted frame sides of at least 1 pt, since the core rejects zero width or height. (plan:2026-10-10-import-pptx-lot2)
 - Emit images only in formats Typst draws (png, jpeg, gif, webp, svg); report UnsupportedImage for any other. (plan:2026-10-10-import-pptx-lot2)
 - Keep retrofit snap in sync with snapRect in ui/src/grid.ts; the Rust tests are its only oracle. (plan:2026-10-10-import-pptx-lot2)
@@ -50,7 +50,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Do not flat re-export retrofit from the import lib.rs; re-export only ImportPlan, ImportReport and RetrofitTarget. (plan:2026-10-10-import-pptx-lot2)
 - Derive a template profile from its example slide and widget schema, never from template names. (plan:2026-10-10-import-pptx-lot2)
 - Break template score ties by pack order so the template choice stays deterministic. (plan:2026-10-10-import-pptx-lot2)
-- Only the first source title slide fills deck title and subtitle; later title slides become chapter slides. (plan:2026-10-10-import-pptx-lot2)
+- Only the first source title slide fills deck title and subtitle, keeping a title template when its other content is text (moved to notes); later ones become chapters. (plan:2026-10-10-import-pptx-lot2, t-817)
 - Report a group fallback, and thus a WidgetRequest, only when the fallback actually loses something. (plan:2026-10-10-import-pptx-lot2)
 - Read colors, fills and lines unresolved and bounded; resolve them with the color context of the displaying part. (plan:2026-10-09-import-pptx-lot1)
 - Read multi-level chart categories from their leaf level and warn Approximated for the outer levels. (t-755)

@@ -259,3 +259,28 @@ fn chart_element_of_every_kind_is_accepted_by_add_slide(
     let option = option_of(&source_chart(kind, Grouping::Stacked));
     assert_that!(apply_blocks(vec![element_with("c", "chart", "option", option)])).is_ok();
 }
+
+/// Au-delà des bornes de relecture du cœur, les lignes sont coupées à
+/// l'émission (en-tête compris) avec la perte `ChartTruncated` (t-817).
+#[rstest]
+#[case(ChartKind::Column, 2)]
+#[case(ChartKind::Scatter, 2)]
+fn chart_beyond_the_replica_row_budget_is_cut_with_a_loss(#[case] kind: ChartKind, #[case] columns: usize) {
+    // Le plus que lit le lecteur : une ligne de plus que le budget, en-tête compris.
+    let points = 10_000;
+    let values: Vec<f64> = (0..points).map(|i| i as f64).collect();
+    let mut c = source_chart(kind, Grouping::Standard);
+    c.categories = Vec::new();
+    c.series = vec![series("Ventes", &values)];
+    let (option, losses) = chart(&c).unwrap();
+    let rows = option["dataset"]["source"].as_array().unwrap();
+    assert_that!(rows.len()).is_equal_to(oku_slides_core::dataset_row_budget(columns));
+    assert_that!(losses).contains(LossKind::ChartTruncated);
+}
+
+#[test]
+fn chart_within_the_replica_row_budget_keeps_every_row() {
+    let (option, losses) = chart(&source_chart(ChartKind::Column, Grouping::Standard)).unwrap();
+    assert_that!(option["dataset"]["source"].as_array().map(Vec::len)).is_equal_to(Some(4));
+    assert_that!(losses).does_not_contain(LossKind::ChartTruncated);
+}

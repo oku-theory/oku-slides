@@ -107,6 +107,7 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
     };
     let colors = target.colors.clone().with_accents(deck);
     let decor = Decor::of(deck);
+    let effects = content::effect_items(&deck.warnings);
     let cx = SlideCx {
         registry: target.registry,
         page: &target.page,
@@ -115,6 +116,7 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
         size: deck.size,
         scale,
         decor: &decor,
+        effects: &effects,
     };
     let mut report = ImportReport::new(Mode::Retrofit);
     report.warnings = deck.warnings.clone();

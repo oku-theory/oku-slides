@@ -5,17 +5,11 @@ expression: summary(&plan)
 [
   {
     "slide": "s1",
-    "template": "libre",
-    "placement": "grid",
-    "kicker": "FROM A SURVIVAL QUESTION TO A GENERATIONAL OPPORTUNITY",
-    "title": "The Agent Is the New Front Door",
-    "elements": [
-      "text @152,0 189×37",
-      "text @1073,6 266×25",
-      "text @152,442 1375×30",
-      "text @152,491 1375×155",
-      "text @152,665 1375×25"
-    ]
+    "template": "couverture",
+    "placement": "flow",
+    "kicker": null,
+    "title": null,
+    "elements": []
   },
   {
     "slide": "s2",
