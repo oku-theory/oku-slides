@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SlideView } from "./api";
-import { axisOf, groups, stageListOp } from "./stageItems";
+import { axisOf, groups, moveItemTo, stageListOp } from "./stageItems";
 
 const item = (item: string, index: number, x: number, y = 0, owner = "f") =>
   ({ owner, owner_kind: "element", list: "etapes", item, index, len: 3, min: 0, max: 256,
@@ -35,4 +35,20 @@ test("stageListOp : aperçu → changement passé tel quel ; sans onListOp → a
   const onListOp = () => {};
   expect(stageListOp(listView, { mode: "preview", onListOp })).toBe(onListOp);
   expect(stageListOp(listView, { mode: "preview" })).toBeNull();
+});
+
+test("groups : les listes imbriquées de deux items forment deux groupes, à part de la liste parente", () => {
+  const nested = (list: string, it: string) => ({ ...item(it, 0, 0), list });
+  const g = groups([item("a", 0, 0), nested("etapes/a/taches", "t1"), nested("etapes/b/taches", "t1")]);
+  expect(g.map((x) => x[0].list)).toEqual(["etapes", "etapes/a/taches", "etapes/b/taches"]);
+});
+
+test("moveItemTo : un item imbriqué se déplace dans sa liste imbriquée, par son chemin", () => {
+  const applied: unknown[] = [];
+  const deck = { mode: "deck", readOnly: false, onApply: (_l: string, ops: unknown) => void applied.push(ops) } as const;
+  const op = stageListOp(listView, deck);
+  if (!op) throw new Error("stageListOp attendu");
+  moveItemTo(op, { ...item("t1", 0, 0), list: "etapes/a/taches" }, 1);
+  expect(applied).toEqual([[{ op: "edit_list", target: { slide: "s", element: "f" }, param: "etapes/a/taches",
+    change: { op: "move", item: "t1", to: 1 } }]]);
 });

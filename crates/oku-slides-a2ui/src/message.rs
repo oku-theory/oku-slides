@@ -337,6 +337,90 @@ pub struct ListColumn {
     /// Options d'une colonne `select`.
     #[serde(default)]
     pub options: Vec<ChoiceOption>,
+    /// Colonnes, bornes et libellé d'une colonne `list` (liste imbriquée, un niveau).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub list: Option<Box<SubList>>,
+}
+
+/// La liste imbriquée d'une colonne `list` : ses colonnes (jamais `list` : un seul
+/// niveau), ses bornes (`min` ≤ `max`) et le nom d'un de ses items.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, try_from = "SubListRaw")]
+pub struct SubList {
+    pub columns: Vec<SubColumn>,
+    pub min: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_label: Option<String>,
+}
+
+/// Une colonne d'une liste imbriquée : comme [`ListColumn`], sans liste imbriquée.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubColumn {
+    pub key: String,
+    pub label: String,
+    pub kind: ColumnKind,
+    /// Options d'une colonne `select`.
+    #[serde(default)]
+    pub options: Vec<ChoiceOption>,
+}
+
+/// [`SubList`] tel que lu, avant ses contrôles.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SubListRaw {
+    columns: Vec<SubColumn>,
+    min: u32,
+    #[serde(default)]
+    max: Option<u32>,
+    #[serde(default)]
+    item_label: Option<String>,
+}
+
+/// Refus d'une [`SubList`] : une colonne `list` (deux niveaux), ou `max` sous `min`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubListFault {
+    /// Une colonne de la liste imbriquée est elle-même une liste.
+    NestedList,
+    /// `max` est sous `min`.
+    MaxBelowMin,
+}
+
+impl std::fmt::Display for SubListFault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            SubListFault::NestedList => "a nested list column cannot be a list",
+            SubListFault::MaxBelowMin => "nested list max below min",
+        })
+    }
+}
+
+impl TryFrom<SubListRaw> for SubList {
+    type Error = SubListFault;
+
+    fn try_from(r: SubListRaw) -> Result<Self, Self::Error> {
+        SubList::new(r.columns, r.min, r.max, r.item_label)
+    }
+}
+
+impl SubList {
+    /// La liste imbriquée, contrôlée : aucune colonne `list`, `max` au moins `min`.
+    pub fn new(
+        columns: Vec<SubColumn>,
+        min: u32,
+        max: Option<u32>,
+        item_label: Option<String>,
+    ) -> Result<Self, SubListFault> {
+        if columns.iter().any(|c| c.kind == ColumnKind::List) {
+            return Err(SubListFault::NestedList);
+        }
+        if max.is_some_and(|m| m < min) {
+            return Err(SubListFault::MaxBelowMin);
+        }
+        Ok(Self { columns, min, max, item_label })
+    }
 }
 
 /// Saisie d'une colonne de liste.
@@ -354,6 +438,8 @@ pub enum ColumnKind {
     Select,
     /// Identifiant d'asset, en lecture seule.
     Asset,
+    /// Liste imbriquée : ses items s'éditent dans un tableau de détail (voir [`SubList`]).
+    List,
 }
 
 /// Une slide telle que rendue à un instant : son identifiant et l'empreinte de sa page.

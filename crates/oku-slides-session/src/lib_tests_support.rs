@@ -61,3 +61,19 @@ pub(crate) fn session_with_frise() -> Session {
 pub(crate) fn add_frise_to(s: &mut Session) {
     s.apply("frise", vec![add_frise()], None).unwrap();
 }
+
+/// Le fixture, avec le widget de pack `plan` des tests et un élément `pl` sur `s-constat`,
+/// amorcé de son défaut : étapes `d0` (tâches `d0`, `d1`) et `d1` (tâche `d0`).
+pub(crate) fn session_with_plan() -> Session {
+    let mut s = session_with_fixture();
+    crate::test_support::set_plan_widget(&mut s);
+    let add = serde_json::from_value(serde_json::json!({
+        "op": "add_element",
+        "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
+        "defaults": true,
+        "element": { "id": "pl", "kind": "plan" }
+    }))
+    .unwrap();
+    s.apply("plan", vec![add], None).unwrap();
+    s
+}

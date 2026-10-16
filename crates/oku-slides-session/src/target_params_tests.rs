@@ -430,3 +430,40 @@ fn target_list_on_a_plain_key_is_refused_by_apply() {
     let err = s.target_list("s-ch1", None, "title", insert("n1")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Op);
 }
+
+// Listes imbriquées (t-495) : le widget `plan`, étapes à tâches.
+
+fn task_ids(s: &Session, step: &str) -> Vec<String> {
+    let rows = value_of(s, "s-constat", Some("pl"), "etapes");
+    let row = rows.as_array().unwrap().iter().find(|r| r["id"] == step).unwrap().clone();
+    row["taches"]
+        .as_array()
+        .map(|t| t.iter().map(|x| x["id"].as_str().unwrap().to_owned()).collect())
+        .unwrap_or_default()
+}
+
+#[test]
+fn target_list_nested_path_inserts_into_the_step_tasks_in_one_undo_step() {
+    let mut s = crate::lib_tests_support::session_with_plan();
+    s.target_list("s-constat", Some("pl"), "etapes/d0/taches", insert("n1")).unwrap();
+    assert_that!(task_ids(&s, "d0")).is_equal_to(vec!["d0".to_owned(), "d1".into(), "n1".into()]);
+    assert_that!(s.snapshot().undo_label).is_equal_to(Some("Réglage : Étapes".to_owned()));
+    s.undo().unwrap();
+    assert_that!(task_ids(&s, "d0")).is_equal_to(vec!["d0".to_owned(), "d1".into()]);
+}
+
+#[test]
+fn target_list_nested_path_of_an_unknown_param_is_host_key() {
+    let mut s = crate::lib_tests_support::session_with_plan();
+    let err = s.target_list("s-constat", Some("pl"), "inconnue/d0/taches", insert("n1")).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::HostKey);
+}
+
+#[test]
+fn target_settings_list_table_describes_the_nested_list_column() {
+    let s = crate::lib_tests_support::session_with_plan();
+    let v = surface_json(&s, "s-constat", Some("pl")).unwrap();
+    assert_that!(has(&v, "\"kind\":\"list\"")).is_true();
+    assert_that!(has(&v, "\"item_label\":\"tâche\"")).is_true();
+    assert_that!(has(&v, "\"key\":\"fait\"")).is_true();
+}

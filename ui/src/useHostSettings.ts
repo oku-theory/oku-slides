@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { Snapshot, Surface, TabApi } from "./api";
+import type { ListOp, Snapshot, Surface, TabApi } from "./api";
 import type { ActionOutcome } from "./a2ui/actionOutcome";
 import type { ListChange } from "./a2ui/ListTable";
 import { fromA2ui } from "./agent/quick";
@@ -150,17 +150,23 @@ export function useSessionSurface<S>(opts: {
 /**
  * Route un réglage de surface : une valeur (`setValue`), ou le changement d'une liste
  * (`change`, du tableau d'une liste) vers `editList` ; un collage (`replace`) remplace la
- * liste entière par ses items (`setValue`).
+ * liste entière par ses items (`setValue`). Le changement d'une liste imbriquée (`nested`)
+ * part vers `editList` avec son chemin `ligne/colonne`, à suffixer à la clé du paramètre.
  */
 export function routeListChange(
   context: Record<string, unknown>,
   setValue: (value: unknown) => Promise<Snapshot>,
-  editList: (change: Exclude<ListChange, { op: "replace" }>) => Promise<Snapshot>,
+  editList: (change: ListOp, path?: string) => Promise<Snapshot>,
 ): Promise<Snapshot> {
   const change = context.change as ListChange | null | undefined;
   if (!change) return setValue(context.value);
-  return change.op === "replace" ? setValue(change.items) : editList(change);
+  if (change.op === "replace") return setValue(change.items);
+  if (change.op === "nested") return editList(change.change, change.path);
+  return editList(change);
 }
+
+/** La clé de liste `key`, suivie du chemin `ligne/colonne` d'une liste imbriquée. */
+export const listKey = (key: string, path?: string) => (path ? `${key}/${path}` : key);
 
 /** Un réglage des valeurs d'exemple du widget (`routeListChange`). */
 function exampleValue(
@@ -172,6 +178,6 @@ function exampleValue(
   return routeListChange(
     context,
     (value) => api.setExampleValue(widget, param, value),
-    (change) => api.editExampleList(widget, param, change),
+    (change, path) => api.editExampleList(widget, listKey(param, path), change),
   );
 }

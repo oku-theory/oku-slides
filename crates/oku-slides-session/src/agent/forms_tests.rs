@@ -1,4 +1,4 @@
-use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
+use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn, SubColumn, SubList};
 use oku_slides_i18n::Localizer;
 use speculoos::prelude::*;
 
@@ -436,14 +436,61 @@ fn every_form() -> Vec<super::Surface> {
                 max: Some(8.0),
                 item_label: Some("étape".into()),
                 columns: vec![
-                    ListColumn { key: "date".into(), label: "Date".into(), kind: ColumnKind::Text, options: vec![] },
-                    ListColumn { key: "texte".into(), label: "Texte".into(), kind: ColumnKind::Rich, options: vec![] },
-                    ListColumn { key: "ton".into(), label: "Ton".into(), kind: ColumnKind::Select, options: options() },
+                    ListColumn {
+                        key: "date".into(),
+                        label: "Date".into(),
+                        kind: ColumnKind::Text,
+                        options: vec![],
+                        list: None,
+                    },
+                    ListColumn {
+                        key: "texte".into(),
+                        label: "Texte".into(),
+                        kind: ColumnKind::Rich,
+                        options: vec![],
+                        list: None,
+                    },
+                    ListColumn {
+                        key: "ton".into(),
+                        label: "Ton".into(),
+                        kind: ColumnKind::Select,
+                        options: options(),
+                        list: None,
+                    },
+                    ListColumn {
+                        key: "taches".into(),
+                        label: "Tâches".into(),
+                        kind: ColumnKind::List,
+                        options: vec![],
+                        list: Some(Box::new(
+                            SubList::new(
+                                vec![
+                                    SubColumn {
+                                        key: "fait".into(),
+                                        label: "Fait".into(),
+                                        kind: ColumnKind::Flag,
+                                        options: vec![],
+                                    },
+                                    SubColumn {
+                                        key: "note".into(),
+                                        label: "Note".into(),
+                                        kind: ColumnKind::Rich,
+                                        options: vec![],
+                                    },
+                                ],
+                                0,
+                                Some(8),
+                                Some("tâche".into()),
+                            )
+                            .unwrap(),
+                        )),
+                    },
                 ],
                 ..field(
                     "Étapes",
                     FieldKind::List,
-                    json!([{ "id": "d0", "date": "2019", "texte": [{ "runs": [{ "t": "Création" }] }], "ton": "a" }]),
+                    json!([{ "id": "d0", "date": "2019", "texte": [{ "runs": [{ "t": "Création" }] }], "ton": "a",
+                        "taches": [{ "id": "t1", "fait": true, "note": [{ "runs": [{ "t": "Revue" }] }] }] }]),
                 )
             },
         ],

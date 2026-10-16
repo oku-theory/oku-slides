@@ -31,7 +31,7 @@ export function parseTsv(text: string): string[][] {
 
 /** Saisie d'une colonne de liste (miroir de `ColumnKind` côté Rust). */
 export type ColumnKind =
-  "text" | "rich" | "number" | "flag" | "select" | "asset";
+  "text" | "rich" | "number" | "flag" | "select" | "asset" | "list";
 
 /** Saisie `raw` convertie au type de colonne ; `ok: false` si elle n'y tient pas. */
 export function coerce(
@@ -47,6 +47,7 @@ export function coerce(
   if (kind === "flag") return { ok: true, value: parseCheck(t) };
   if (kind === "select")
     return options.includes(t) ? { ok: true, value: t } : { ok: false };
-  if (kind === "asset") return { ok: false };
+  // Un identifiant d'asset ou une liste imbriquée ne se saisissent pas en texte.
+  if (kind === "asset" || kind === "list") return { ok: false };
   return { ok: true, value: t };
 }

@@ -216,3 +216,21 @@ fn edit_example_list_under_the_min_says_the_minimum() {
     let fr = err.localize(&Localizer::new(Some("fr")));
     assert_that!(fr.contains("La liste items doit garder au moins 1 item")).is_true();
 }
+
+#[test]
+fn edit_example_list_nested_path_starts_from_the_defaults_and_edits_the_tasks() {
+    let (_d, mut s) = editing();
+    crate::test_support::set_plan_widget(&mut s);
+    s.edit_example_list("plan", "etapes/d1/taches", ListOp::Remove { item: "d0".into() }).unwrap();
+    let steps = stored(&s, "plan", "etapes").unwrap();
+    assert_that!(steps[0]["taches"].as_array().map(Vec::len)).is_equal_to(Some(2));
+    assert_that!(steps[1].get("taches")).is_none();
+}
+
+#[test]
+fn edit_example_list_nested_path_of_an_unknown_step_is_refused() {
+    let (_d, mut s) = editing();
+    crate::test_support::set_plan_widget(&mut s);
+    let err = s.edit_example_list("plan", "etapes/zz/taches", ListOp::Remove { item: "d0".into() }).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::TrialValue);
+}

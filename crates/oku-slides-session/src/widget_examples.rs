@@ -16,7 +16,9 @@
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
 
-use oku_slides_core::{ListItem, ListOp, ListSpec, ParamType, ParamValue, WidgetFile, default_items, param_value};
+use oku_slides_core::{
+    ListItem, ListOp, ListPath, ListSpec, ParamType, ParamValue, WidgetFile, default_items, param_value,
+};
 
 use crate::agent::clip;
 use crate::error::{
@@ -97,27 +99,29 @@ impl Session {
         ensure!(self.in_templates(), NotEditingTemplatesSnafu);
         ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
         let schema = self.valid_schema(&file)?.context(WidgetInvalidSnafu { name: file.as_str() })?;
-        let p = schema.param(param).context(TrialUndeclaredSnafu { param: clip(param, 80) })?;
+        // `param` : le paramètre, ou `param/item/colonne` pour la liste imbriquée d'un item.
+        let path = ListPath::parse(param).context(TrialUndeclaredSnafu { param: clip(param, 80) })?;
+        let p = schema.param(path.param).context(TrialUndeclaredSnafu { param: clip(param, 80) })?;
         let spec = ListSpec::of(&p.name, &p.ty).context(TrialUndeclaredSnafu { param: clip(param, 80) })?;
         let defaults = default_items(p).context(TrialValueSnafu { param })?;
         self.write_examples(widget, |values| {
             // Lue avant le tri des valeurs gardées : une liste que le schéma ne lit plus repart
             // des défauts (ce que montrent l'aperçu et le tableau) ; une non-liste est une erreur.
-            let mut items: Vec<ListItem> = match values.get(param) {
-                Some(v @ Value::Array(_)) => match param_value(&p.ty, param, v.clone()) {
+            let mut items: Vec<ListItem> = match values.get(path.param) {
+                Some(v @ Value::Array(_)) => match param_value(&p.ty, path.param, v.clone()) {
                     Ok(Some(ParamValue::List(items))) => items,
                     Ok(_) | Err(_) => defaults,
                 },
-                Some(v) => match param_value(&p.ty, param, v.clone()).context(TrialValueSnafu { param })? {
+                Some(v) => match param_value(&p.ty, path.param, v.clone()).context(TrialValueSnafu { param })? {
                     Some(ParamValue::List(items)) => items,
                     _ => Vec::new(),
                 },
                 None => defaults,
             };
             values.retain(|k, v| trial_fits(&schema, k, v));
-            change.apply(&mut items, &spec).context(TrialValueSnafu { param })?;
+            path.apply(&mut items, &spec, change).context(TrialValueSnafu { param })?;
             let stored = serde_json::to_value(&items).context(TrialEncodeSnafu { param })?;
-            values.insert(param.to_owned(), stored);
+            values.insert(path.param.to_owned(), stored);
             Ok(())
         })
     }

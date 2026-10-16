@@ -1,8 +1,8 @@
 //! Champs de réglage d'un paramètre de widget, partagés par l'atelier (valeurs d'exemple) et le
 //! panneau de la cible (valeurs du deck).
 
-use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn};
-use oku_slides_core::{LIST_ITEMS_MAX, ParamSchema, ParamType, ParamValue, default_items};
+use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn, SubColumn, SubList};
+use oku_slides_core::{LIST_ITEMS_MAX, ListSpec, ParamSchema, ParamType, ParamValue, default_items};
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
 
@@ -50,7 +50,7 @@ pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) 
             value: if value.is_array() { value } else { json!([]) },
             op_template: Value::Null,
             min: Some(*min as f64),
-            max: Some(max.unwrap_or(LIST_ITEMS_MAX) as f64),
+            max: Some(max.map_or(LIST_ITEMS_MAX, |m| m.min(LIST_ITEMS_MAX)) as f64),
             step: None,
             options: Vec::new(),
             columns: item.iter().filter_map(column).collect(),
@@ -100,8 +100,42 @@ pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) 
 
 /// La colonne du tableau d'une liste pour une colonne de son schéma ; `None`
 /// pour un type qu'une colonne n'admet pas (refusé à la validation du schéma).
+/// Une colonne `list` (liste imbriquée) porte ses colonnes, ses bornes et son libellé.
 fn column(c: &ParamSchema) -> Option<ListColumn> {
-    let (kind, options) = match &c.ty {
+    if let Some(spec) = ListSpec::of(&c.name, &c.ty) {
+        let ParamType::List { item_label, .. } = &c.ty else { return None };
+        // Un seul niveau : une colonne `list` d'une liste imbriquée est refusée au schéma.
+        let columns = spec.columns.iter().filter_map(sub_column).collect();
+        let bound = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+        let sub = match SubList::new(columns, bound(spec.min), Some(bound(spec.max_items())), item_label.clone()) {
+            Ok(sub) => sub,
+            Err(fault) => {
+                tracing::warn!(column = %c.name, %fault, "liste imbriquée non montrable au tableau");
+                return None;
+            }
+        };
+        let list = Some(Box::new(sub));
+        return Some(ListColumn {
+            key: c.name.clone(),
+            label: label(c),
+            kind: ColumnKind::List,
+            options: Vec::new(),
+            list,
+        });
+    }
+    let (kind, options) = cell_kind(&c.ty)?;
+    Some(ListColumn { key: c.name.clone(), label: label(c), kind, options, list: None })
+}
+
+/// La colonne d'une liste imbriquée ; `None` pour un type qu'elle n'admet pas, `list` compris.
+fn sub_column(c: &ParamSchema) -> Option<SubColumn> {
+    let (kind, options) = cell_kind(&c.ty)?;
+    Some(SubColumn { key: c.name.clone(), label: label(c), kind, options })
+}
+
+/// Saisie et options d'une colonne de type `ty` hors liste ; `None` pour un type non admis.
+fn cell_kind(ty: &ParamType) -> Option<(ColumnKind, Vec<ChoiceOption>)> {
+    Some(match ty {
         ParamType::Plain => (ColumnKind::Text, Vec::new()),
         ParamType::Rich => (ColumnKind::Rich, Vec::new()),
         ParamType::Number { .. } => (ColumnKind::Number, Vec::new()),
@@ -112,8 +146,7 @@ fn column(c: &ParamSchema) -> Option<ListColumn> {
         ),
         ParamType::Asset => (ColumnKind::Asset, Vec::new()),
         ParamType::Slot { .. } | ParamType::Grid | ParamType::Host { .. } | ParamType::List { .. } => return None,
-    };
-    Some(ListColumn { key: c.name.clone(), label: label(c), kind, options })
+    })
 }
 
 /// Le pas d'un curseur sur une étendue `span > 0` : cent pas sur une petite étendue (opacité…),

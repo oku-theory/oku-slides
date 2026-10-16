@@ -551,10 +551,27 @@ pub(crate) fn field_components(
     (Component::new(key, kind), data)
 }
 
-/// Markdown d'édition des cellules `rich` des items `rows` : `{id: {colonne: markdown}}`.
+/// Markdown d'édition des cellules `rich` des items `rows` : `{id: {colonne: markdown}}` ;
+/// ceux d'une liste imbriquée sous la clé `id/colonne/sous-id`.
 fn rich_markdown(rows: &Value, columns: &[ListColumn]) -> Value {
-    let rich: Vec<&str> = columns.iter().filter(|c| c.kind == ColumnKind::Rich).map(|c| c.key.as_str()).collect();
     let mut out = serde_json::Map::new();
+    let rich = columns.iter().filter(|c| c.kind == ColumnKind::Rich).map(|c| c.key.as_str());
+    cells_markdown(rows, &rich.collect::<Vec<_>>(), "", &mut out);
+    for row in rows.as_array().into_iter().flatten() {
+        let Some(id) = row.get("id").and_then(Value::as_str) else { continue };
+        // Liste imbriquée (un niveau) : ses items, sous `id/colonne/`.
+        for c in columns.iter().filter(|c| c.kind == ColumnKind::List) {
+            if let (Some(sub), Some(nested)) = (&c.list, row.get(&c.key)) {
+                let rich = sub.columns.iter().filter(|s| s.kind == ColumnKind::Rich).map(|s| s.key.as_str());
+                cells_markdown(nested, &rich.collect::<Vec<_>>(), &format!("{id}/{}/", c.key), &mut out);
+            }
+        }
+    }
+    Value::Object(out)
+}
+
+/// Markdown des colonnes riches `rich` des items `rows`, aux clés préfixées de `prefix`.
+fn cells_markdown(rows: &Value, rich: &[&str], prefix: &str, out: &mut serde_json::Map<String, Value>) {
     for row in rows.as_array().into_iter().flatten() {
         let Some(id) = row.get("id").and_then(Value::as_str) else { continue };
         let cells: serde_json::Map<String, Value> = rich
@@ -565,10 +582,9 @@ fn rich_markdown(rows: &Value, columns: &[ListColumn]) -> Value {
             })
             .collect();
         if !cells.is_empty() {
-            out.insert(id.to_owned(), Value::Object(cells));
+            out.insert(format!("{prefix}{id}"), Value::Object(cells));
         }
     }
-    Value::Object(out)
 }
 
 /// `show_variants` : tiroir de miniatures ; `variant {index}` au clic.

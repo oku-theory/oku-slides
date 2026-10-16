@@ -4,11 +4,12 @@
 // hors du brouillon d'une cellule, du popover ouvert et des cellules signalées.
 //
 // TanStack Table v9 (`useTable` + `tableFeatures`), comme ChartDataGrid ; la
-// poignée et « × » sont hors des colonnes du schéma.
+// poignée et « × » sont hors des colonnes du schéma. Une colonne `list` (liste
+// imbriquée) ouvre sous le tableau un ListTable de détail (`listNested.ts`).
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import type { ListOp, Paragraph } from "../api";
+import type { Paragraph } from "../api";
 import { newId, textToParagraphs } from "../deck";
 import { t } from "../i18n";
 import { Icon } from "../icons";
@@ -16,6 +17,7 @@ import { coerce, parseTsv, type ColumnKind } from "../table/cells";
 import { formatNumber, parseNumber } from "../table/numbers";
 import { useNumberLang } from "./numberLang";
 import { RichTextField } from "./RichTextField";
+import { lift, subMarkdown, subRows, type Change, type Row } from "./listNested";
 import "./ListTable.css";
 
 /** Une colonne du tableau (miroir de `ListColumn` côté Rust). */
@@ -24,9 +26,11 @@ export type ListColumn = {
   label: string;
   kind: ColumnKind;
   options: readonly { id: string; label: string }[];
+  /** Colonne `list` : colonnes, bornes et libellé de la liste imbriquée (miroir de `SubList`). */
+  list?: { columns: readonly ListColumn[]; min: number; max?: number | null; item_label?: string | null } | null;
 };
-export type ListRow = { id: string } & Record<string, unknown>;
-export type ListChange = ListOp | { op: "replace"; items: ListRow[] };
+export type ListRow = Row;
+export type ListChange = Change;
 
 export type ListTableProps = {
   label: string;
@@ -94,6 +98,8 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   const full = max !== null && rows.length >= max;
   const [invalid, flagged] = useInvalid();
   const [rich, setRich] = useState<string | null>(null);
+  /** La liste imbriquée ouverte en détail : `ligne/colonne`. */
+  const [sub, setSub] = useState<string | null>(null);
   const [drag, setDragState] = useState<Drag | null>(null);
   // Le geste est lu par les gestionnaires dans la ref : un geste vif précède le rendu.
   const dragging = useRef<Drag | null>(null);
@@ -179,6 +185,15 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       case "asset": {
         const id = typeof value === "string" ? value : "";
         return <span className="lt-asset" title={id}>{assetLabel(id)}</span>;
+      }
+      case "list": {
+        const where = at(row.id, c.key);
+        return (
+          <button type="button" className="lt-sub" data-list-sub={where} aria-label={c.label} title={c.label}
+            aria-expanded={sub === where} onClick={() => setSub(sub === where ? null : where)}>
+            {subRows(row, c.key).length}
+          </button>
+        );
       }
       default:
         return (
@@ -320,6 +335,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
   }, [lifted]);
 
   const open = rich ? openCell(rich, rows, columns) : null;
+  const detail = sub ? openCell(sub, rows, columns) : null;
 
   return (
     <div ref={lt} className="lt note-field" data-dragging={lifted ? "" : undefined}>
@@ -397,6 +413,24 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
           ))}
         </div>
       )}
+      {detail?.column.list && (
+        <div className="lt-detail" data-list-detail={sub ?? ""}>
+          <ListTable
+            label={`${detail.column.label} · ${rowName(detail.row, columns, rows)}`}
+            rows={subRows(detail.row, detail.column.key)}
+            columns={detail.column.list.columns}
+            min={detail.column.list.min}
+            max={detail.column.list.max ?? null}
+            itemLabel={detail.column.list.item_label ?? null}
+            palette={palette}
+            markdown={subMarkdown(markdown, detail.row.id, detail.column.key)}
+            onChange={(change) => {
+              const up = lift(detail.row.id, detail.column.key, change);
+              return up ? onChange(up) : Promise.resolve(false);
+            }}
+          />
+        </div>
+      )}
       {open && (
         <RichPopover
           key={rich}
@@ -465,6 +499,12 @@ function openCell(where: string, rows: ListRow[], columns: readonly ListColumn[]
   return row && column ? { row, column } : null;
 }
 
+/** Le nom d'une ligne dans le titre de son détail : sa première cellule texte, sinon son rang. */
+function rowName(row: ListRow, columns: readonly ListColumn[], rows: ListRow[]): string {
+  const text = columns.find((c) => c.kind === "text" && typeof row[c.key] === "string" && row[c.key] !== "");
+  return text ? String(row[text.key]) : String(rows.findIndex((r) => r.id === row.id) + 1);
+}
+
 /** Place du popover dans le tableau `box` : sous la cellule, à son bord gauche, sans déborder à droite. */
 export function popoverPlace(box: DOMRect, cell: DOMRect, width: number): { left: number; top: number } {
   return { left: Math.max(0, Math.min(cell.left - box.left, box.width - width)), top: cell.bottom - box.top };
@@ -486,6 +526,8 @@ function cellText(c: ListColumn, v: unknown, lang: string): string {
       return plainText(v).split("\n")[0];
     case "asset":
       return assetLabel(typeof v === "string" ? v : "");
+    case "list":
+      return String(Array.isArray(v) ? v.length : 0);
     case "text":
     case "number":
       return display(v, lang);

@@ -122,12 +122,21 @@ export function fieldDraft(f: Pick<FieldView, "kind" | "text">): string {
   return f.kind === "plain" ? f.text.replaceAll("\n", " ") : f.text;
 }
 
-/** Paragraphes de la colonne `f.column` de l'item `f.item` dans la liste `f.list` de `owner`, ou `undefined`. */
-function itemRich(owner: { params?: Params } | undefined, f: FieldView): Paragraph[] | undefined {
-  const items = owner?.params?.[f.list ?? ""];
+/** L'item `id` d'une liste (valeur JSON), ou `undefined`. */
+function itemOf(items: unknown, id: string | null | undefined): Record<string, unknown> | undefined {
   if (!Array.isArray(items)) return undefined;
-  const it = items.find((x): x is Record<string, unknown> => x !== null && typeof x === "object" && (x as { id?: unknown }).id === f.item);
-  const v = it?.[f.column];
+  return items.find((x): x is Record<string, unknown> => x !== null && typeof x === "object" && (x as { id?: unknown }).id === id);
+}
+
+/**
+ * Paragraphes de la colonne `f.column` de l'item `f.item` dans la liste `f.list` de `owner`, ou
+ * `undefined`. `f.list` est le paramètre, ou `liste/id/colonne` pour une liste imbriquée.
+ */
+function itemRich(owner: { params?: Params } | undefined, f: FieldView): Paragraph[] | undefined {
+  const [param, outer, column] = (f.list ?? "").split("/");
+  const top = owner?.params?.[param];
+  const items = outer === undefined ? top : itemOf(top, outer)?.[column];
+  const v = itemOf(items, f.item)?.[f.column];
   return Array.isArray(v) ? (v as Paragraph[]) : undefined;
 }
 

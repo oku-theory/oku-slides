@@ -94,6 +94,7 @@ fn list(label: String, value: Option<&Value>, column: &str, l: &Localizer) -> Pa
         label: l.tr(&format!("theme-column-{column}")),
         kind: ColumnKind::Text,
         options: Vec::new(),
+        list: None,
     }];
     ParamField { columns, min: Some(1.0), ..param(label, FieldKind::List, list_rows(value, column)) }
 }

@@ -34,10 +34,12 @@ pub struct FieldView<'a> {
     pub owner_kind: OwnerKind,
     /// Widget de l'objet (`kind`).
     pub widget: &'a str,
-    /// Nom du champ : le paramètre, ou `liste/id/colonne` pour un item de liste.
+    /// Nom du champ : le paramètre, `liste/id/colonne` pour un item de liste, ou
+    /// `liste/id/sous-liste/sous-id/colonne` pour un item imbriqué.
     pub field: Cow<'a, str>,
-    /// Pour un item : le paramètre `list` qui le porte.
-    pub list: Option<&'a str>,
+    /// Pour un item : le chemin de sa liste, le paramètre `list` ou `liste/id/colonne`
+    /// pour un item d'une liste imbriquée.
+    pub list: Option<Cow<'a, str>>,
     /// Pour un item : son id.
     pub item: Option<&'a str>,
     /// Paramètre, ou colonne de la liste pour un item.
@@ -127,7 +129,7 @@ pub(crate) fn field_views<'a>(
                 owner_kind,
                 widget: owner_widget(slide, &tf),
                 field: name,
-                list: tf.list.map(|(l, _)| l),
+                list: tf.list_path(),
                 item: tf.list.map(|(_, i)| i.id.as_str()),
                 column: tf.param.name.as_str(),
                 kind: if rich { FieldKind::Rich } else { FieldKind::Plain },

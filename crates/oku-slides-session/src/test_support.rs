@@ -92,6 +92,15 @@ pub(crate) fn set_frise_widget(s: &mut Session) {
     s.set_widget("frise", FRISE_TEST.into()).unwrap_or_else(|e| panic!("frise : {}", e.one_line()));
 }
 
+/// Source du widget de pack `plan` des tests (`fixtures/widgets/plan-test.typ`) : étapes
+/// (`titre`) à liste imbriquée `taches` (`texte`, `fait`) ; deux étapes par défaut.
+pub(crate) const PLAN_TEST: &str = include_str!("../../../fixtures/widgets/plan-test.typ");
+
+/// Écrit le widget `plan` des tests dans le pack en cours de `s`.
+pub(crate) fn set_plan_widget(s: &mut Session) {
+    s.set_widget("plan", PLAN_TEST.into()).unwrap_or_else(|e| panic!("plan : {}", e.one_line()));
+}
+
 /// Les réglages de test sur `data` : en français, decks dans `data/decks`.
 pub(crate) fn settings_on(data: &std::path::Path) -> Settings {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));

@@ -4,7 +4,7 @@
 //! Un widget ou un paramètre sans `label` (ceux de base) prend son nom traduit
 //! (`session-widget-kind-<kind>`, `session-param-<kind>-<nom>`, voir `param_fields`).
 
-use oku_slides_core::{ListOp, Op, ParamSchema, ParamType, ParamValue, Params, Target, WidgetSchema};
+use oku_slides_core::{ListOp, ListPath, Op, ParamSchema, ParamType, ParamValue, Params, Target, WidgetSchema};
 use serde_json::Value;
 use snafu::{OptionExt, ensure};
 
@@ -52,9 +52,11 @@ impl Session {
         self.apply(&label, vec![op], merge.as_deref())
     }
 
-    /// Change la liste `key` de la cible : un pas d'annulation par changement.
+    /// Change la liste `key` de la cible : un pas d'annulation par changement. `key` est
+    /// le paramètre, ou `param/item/colonne` pour la liste imbriquée d'un item.
     pub(crate) fn target_list(&mut self, slide: &str, element: Option<&str>, key: &str, change: ListOp) -> Result<()> {
-        let (_, name, _) = self.param_of(slide, element, key)?;
+        let path = ListPath::parse(key).context(HostKeySnafu { key })?;
+        let (_, name, _) = self.param_of(slide, element, path.param)?;
         let op = Op::EditList { target: target(slide, element), param: key.to_owned(), change };
         let label = self.localizer.tr_with("session-undo-param", &[("label", name.into())]);
         self.apply(&label, vec![op], None)

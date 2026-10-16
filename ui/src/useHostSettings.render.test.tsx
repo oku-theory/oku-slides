@@ -155,6 +155,18 @@ describe("useHostSettings", () => {
     expect(sent).toEqual([["frise", "etapes", { op: "remove", item: "d0" }]]);
   });
 
+  test("un changement d'une liste imbriquée du widget part en edit_example_list sur son chemin", async () => {
+    const { fake } = memory({});
+    const sent: unknown[] = [];
+    stub(fake, "hostSettings", async () => surface(HOST_WIDGET));
+    stub(fake, "editExampleList", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    const m = await mountHost(fake, { snap: snapshot(), current: "t-1", widget: "plan" });
+    const change = { op: "nested", path: "d0/taches", change: { op: "remove", item: "t1" } };
+    m.out.h!.onAction(m.out.h!.surface!, action({ key: "etapes", field: 0, change }));
+    await wait(10);
+    expect(sent).toEqual([["plan", "etapes/d0/taches", { op: "remove", item: "t1" }]]);
+  });
+
   test("un collage dans une liste du widget remplace la liste entière", async () => {
     const { fake } = memory({});
     const sent: unknown[] = [];

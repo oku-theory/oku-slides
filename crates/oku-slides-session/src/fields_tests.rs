@@ -135,7 +135,7 @@ fn field_views_of_a_frise_carry_list_item_and_column() {
     let s = session_with_frise();
     let view = s.slide("s-constat").unwrap();
     let f = view.fields.iter().find(|f| f.field == "etapes/d1/texte").unwrap();
-    assert_that!((f.list, f.item, f.column)).is_equal_to((Some("etapes"), Some("d1"), "texte"));
+    assert_that!((f.list.as_deref(), f.item, f.column)).is_equal_to((Some("etapes"), Some("d1"), "texte"));
     assert_that!(f.text.as_ref()).is_equal_to("Premier client");
     assert_that!((f.owner, f.owner_kind)).is_equal_to(("fr", OwnerKind::Element));
 }
@@ -145,7 +145,7 @@ fn field_views_of_a_plain_param_have_no_list_nor_item() {
     let s = session_with_fixture();
     let v = s.slide("s-priorites").unwrap();
     let f = v.fields.iter().find(|f| f.owner == "c1" && f.field == "title").unwrap();
-    assert_that!((f.list, f.item, f.column)).is_equal_to((None, None, "title"));
+    assert_that!((f.list.as_deref(), f.item, f.column)).is_equal_to((None, None, "title"));
 }
 
 #[test]
@@ -161,4 +161,13 @@ fn field_views_of_a_freshly_inserted_frise_step_include_its_empty_date() {
     let f = view.fields.iter().find(|f| f.field == "etapes/n/date").unwrap();
     assert_that!(f.empty).is_true();
     assert_that!(f.w).is_greater_than(0.0);
+}
+
+#[test]
+fn field_views_of_a_nested_item_carry_the_nested_list_path() {
+    let s = crate::lib_tests_support::session_with_plan();
+    let v = s.slide("s-constat").unwrap();
+    let f = v.fields.iter().find(|f| f.owner == "pl" && f.field == "etapes/d0/taches/d1/texte").unwrap();
+    assert_that!((f.list.as_deref(), f.item, f.column)).is_equal_to((Some("etapes/d0/taches"), Some("d1"), "texte"));
+    assert_that!(f.text.as_ref()).is_equal_to("Équipe");
 }

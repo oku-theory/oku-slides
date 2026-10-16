@@ -125,12 +125,29 @@ const SelectApi = {
     })
     .strict(),
 };
+const ListColumnBase = {
+  key: z.string(),
+  label: z.string(),
+  kind: z.enum(["text", "rich", "number", "flag", "select", "asset", "list"]),
+  options: Options,
+};
+/** Colonne d'une liste imbriquée : jamais elle-même une liste (un seul niveau, miroir de `SubList`). */
+const SubColumnSchema = z.object({ ...ListColumnBase, kind: ListColumnBase.kind.exclude(["list"]) }).strict();
 const ListColumnSchema = z
   .object({
-    key: z.string(),
-    label: z.string(),
-    kind: z.enum(["text", "rich", "number", "flag", "select", "asset"]),
-    options: Options,
+    ...ListColumnBase,
+    list: z
+      .object({
+        columns: z.array(SubColumnSchema),
+        min: z.number().int(),
+        max: z.number().int().nullable().optional(),
+        item_label: z.string().nullable().optional(),
+      })
+      .strict()
+      // Miroir de `SubList::new` : `max` au moins `min`.
+      .refine((l) => l.max == null || l.min <= l.max, { message: "max < min" })
+      .nullable()
+      .optional(),
   })
   .strict();
 const ListTableApi = {

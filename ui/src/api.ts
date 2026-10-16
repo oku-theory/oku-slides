@@ -355,9 +355,9 @@ export interface FieldView {
   owner_kind: "slide" | "element";
   /** Widget de l'objet. */
   widget: string;
-  /** Nom du paramètre, ou `liste/id/colonne` pour un item de liste. */
+  /** Nom du paramètre, ou `liste/id/colonne` pour un item de liste (`liste/id/sous-liste/sous-id/colonne` imbriqué). */
   field: string;
-  /** Pour un item : le paramètre `list` qui le porte. */
+  /** Pour un item : le chemin de sa liste, le paramètre `list` ou `liste/id/colonne` (liste imbriquée). */
   list: string | null;
   /** Pour un item : son id. */
   item: string | null;
@@ -389,7 +389,7 @@ export interface ItemView {
   /** Id de la slide ou de l'élément qui porte la liste. */
   owner: string;
   owner_kind: "slide" | "element";
-  /** Nom du paramètre `list`. */
+  /** Chemin de la liste : le paramètre `list`, ou `liste/id/colonne` pour une liste imbriquée. */
   list: string;
   /** Id de l'item. */
   item: string;

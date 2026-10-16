@@ -171,4 +171,18 @@ describe("validation des entrées de l'agent (t-195)", () => {
     expect(schemaOf("ListTable")?.safeParse(table(opts("a", "b"))).success).toBe(true);
     expect(schemaOf("ListTable")?.safeParse(table(opts("a", "a"))).success).toBe(false);
   });
+
+  test("une colonne de liste imbriquée refuse un second niveau et max sous min", () => {
+    const text = { key: "t", label: "T", kind: "text", options: [] };
+    const nested = (list: unknown) => ({
+      label: "l", rows: [], change: "", markdown: "", min: 0, palette: [],
+      columns: [{ key: "k", label: "K", kind: "list", options: [], list }],
+    });
+    expect(schemaOf("ListTable")?.safeParse(nested({ columns: [text], min: 0, max: 3 })).success).toBe(true);
+    expect(schemaOf("ListTable")?.safeParse(nested({ columns: [text], min: 4, max: 3 })).success).toBe(false);
+    const deep = { ...text, kind: "list" };
+    expect(schemaOf("ListTable")?.safeParse(nested({ columns: [deep], min: 0 })).success).toBe(false);
+    const withList = { ...text, list: { columns: [], min: 0 } };
+    expect(schemaOf("ListTable")?.safeParse(nested({ columns: [withList], min: 0 })).success).toBe(false);
+  });
 });

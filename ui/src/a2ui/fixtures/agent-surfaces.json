@@ -1315,6 +1315,31 @@
                       "hint": "sobre"
                     }
                   ]
+                },
+                {
+                  "key": "taches",
+                  "label": "Tâches",
+                  "kind": "list",
+                  "options": [],
+                  "list": {
+                    "columns": [
+                      {
+                        "key": "fait",
+                        "label": "Fait",
+                        "kind": "flag",
+                        "options": []
+                      },
+                      {
+                        "key": "note",
+                        "label": "Note",
+                        "kind": "rich",
+                        "options": []
+                      }
+                    ],
+                    "min": 0,
+                    "max": 8,
+                    "item_label": "tâche"
+                  }
                 }
               ],
               "min": 0,
@@ -1363,6 +1388,9 @@
             "f2-markdown": {
               "d0": {
                 "texte": "Création"
+              },
+              "d0/taches/t1": {
+                "note": "Revue"
               }
             },
             "f2": [
@@ -1378,7 +1406,22 @@
                     ]
                   }
                 ],
-                "ton": "a"
+                "ton": "a",
+                "taches": [
+                  {
+                    "id": "t1",
+                    "fait": true,
+                    "note": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Revue"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }

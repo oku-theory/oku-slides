@@ -159,6 +159,15 @@ describe("useTargetSettings", () => {
     expect(sent).toEqual([["list", "s-ch1", "fr", "etapes", { op: "remove", item: "d0" }]]);
   });
 
+  test("useTargetSettings nested list change sends targetList on the nested list path", async () => {
+    const { fake, sent } = sending();
+    const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "fr" });
+    const change = { op: "nested", path: "d0/taches", change: { op: "remove", item: "t1" } };
+    m.out.h!.onAction(m.out.h!.surface!, action({ key: "etapes", field: 0, change }));
+    await wait(10);
+    expect(sent).toEqual([["list", "s-ch1", "fr", "etapes/d0/taches", { op: "remove", item: "t1" }]]);
+  });
+
   test("useTargetSettings replace sends targetParam with the items", async () => {
     const { fake, sent } = sending();
     const items = [{ id: "d0", date: "2020" }];

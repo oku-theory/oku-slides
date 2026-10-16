@@ -2,7 +2,9 @@
 //! poignées de la scène (retirer, déplacer) ; et les listes elles-mêmes, même
 //! vides.
 
-use oku_slides_core::{ListSpec, ParamSchema, ParamType, Params, Slide, WidgetRegistry};
+use std::borrow::Cow;
+
+use oku_slides_core::{ListPath, ListSpec, ParamSchema, ParamType, Params, Slide, WidgetRegistry};
 use oku_slides_render::ItemBox;
 use serde::Serialize;
 
@@ -14,7 +16,7 @@ pub struct ItemView<'a> {
     /// Id de la slide ou de l'élément qui porte la liste.
     pub owner: &'a str,
     pub owner_kind: OwnerKind,
-    /// Nom du paramètre `list`.
+    /// Chemin de la liste : le paramètre `list`, ou `liste/id/colonne` pour une liste imbriquée.
     pub list: &'a str,
     /// Id de l'item.
     pub item: &'a str,
@@ -38,8 +40,9 @@ pub struct ItemView<'a> {
 pub struct ListView<'a> {
     pub owner: &'a str,
     pub owner_kind: OwnerKind,
-    /// Nom du paramètre `list`.
-    pub list: &'a str,
+    /// Chemin de la liste : le paramètre `list`, ou `liste/id/colonne` pour la liste
+    /// imbriquée d'un item.
+    pub list: Cow<'a, str>,
     /// Nombre d'items (0 si la liste est absente).
     pub len: usize,
     pub min: usize,
@@ -77,14 +80,15 @@ pub(crate) fn item_views<'a>(
                 let e = slide.locate(&b.owner)?.element;
                 (OwnerKind::Element, e.kind.as_str(), &e.params)
             };
-            let p = registry.get(kind)?.param(&b.list)?;
+            let path = ListPath::parse(&b.list)?;
+            let p = path.schema(&registry.get(kind)?.params)?;
             let shape = Shape::of(p)?;
-            let items = params.list(&b.list)?;
+            let items = path.items(params)?;
             let index = items.iter().position(|i| i.id == b.item)?;
             Some(ItemView {
                 owner: &b.owner,
                 owner_kind,
-                list: &p.name,
+                list: &b.list,
                 item: &items[index].id,
                 index,
                 len: items.len(),
@@ -109,17 +113,37 @@ pub(crate) fn list_views<'a>(slide: &'a Slide, registry: &'a WidgetRegistry) -> 
         .chain(elements)
         .flat_map(|(owner, owner_kind, kind, params): (&'a str, OwnerKind, &'a str, &'a Params)| {
             let schema = registry.get(kind).into_iter().flat_map(|w| w.params.iter());
-            schema.filter_map(move |p| {
-                let shape = Shape::of(p)?;
-                Some(ListView {
+            schema.flat_map(move |p| {
+                let top = Shape::of(p).map(|shape| ListView {
                     owner,
                     owner_kind,
-                    list: &p.name,
+                    list: Cow::Borrowed(p.name.as_str()),
                     len: params.list(&p.name).map_or(0, <[_]>::len),
                     min: shape.spec.min,
                     max: shape.spec.max_items(),
                     item_label: shape.item_label,
-                })
+                });
+                // Listes imbriquées : une par item et par colonne `list`, même vide.
+                let columns = match &p.ty {
+                    ParamType::List { item, .. } => item.as_slice(),
+                    _ => &[],
+                };
+                let items = params.list(&p.name).unwrap_or_default();
+                let nested = items.iter().flat_map(move |it| {
+                    columns.iter().filter_map(move |c| {
+                        let shape = Shape::of(c)?;
+                        Some(ListView {
+                            owner,
+                            owner_kind,
+                            list: Cow::Owned(format!("{}/{}/{}", p.name, it.id, c.name)),
+                            len: it.values.list(&c.name).map_or(0, <[_]>::len),
+                            min: shape.spec.min,
+                            max: shape.spec.max_items(),
+                            item_label: shape.item_label,
+                        })
+                    })
+                });
+                top.into_iter().chain(nested)
             })
         })
         .collect()

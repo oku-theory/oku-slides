@@ -200,6 +200,26 @@ describe("fieldOps d'un item de liste", () => {
   });
 });
 
+describe("fieldOps d'un item de liste imbriquée", () => {
+  const plan = (etapes: unknown[]) => view({ blocks: [{ id: "p", kind: "plan", params: { etapes } }] });
+  const task = (kind: "plain" | "rich", column: string, text = ""): FieldView => ({
+    ...fv, owner: "p", owner_kind: "element", field: `etapes/a/taches/t1/${column}`, list: "etapes/a/taches", item: "t1",
+    column, kind, text,
+  });
+
+  test("fieldOps : un champ d'item imbriqué → edit_list sur le chemin de la liste imbriquée", () => {
+    const ops = fieldOps(plan([{ id: "a", taches: [{ id: "t1" }] }]), task("plain", "texte"), "Buts");
+    expect(ops).toEqual([{ op: "edit_list", target: { slide: "s", element: "p" }, param: "etapes/a/taches",
+      change: { op: "set_field", item: "t1", field: "texte", value: "Buts" } }]);
+  });
+
+  test("fieldOps : un champ riche imbriqué garde les runs de ses lignes inchangées", () => {
+    const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
+    const ops = fieldOps(plan([{ id: "a", taches: [{ id: "t1", note: [colored] }] }]), task("rich", "note", "Rouge"), "Rouge\nB");
+    expect(ops[0]).toMatchObject({ change: { value: [colored, { runs: [{ t: "B" }] }] } });
+  });
+});
+
 describe("fieldValue", () => {
   test("fieldValue of a plain field is its text", () => {
     expect(fieldValue(view({}), fv, "Météo")).toBe("Météo");

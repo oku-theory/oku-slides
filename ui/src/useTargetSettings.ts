@@ -5,7 +5,7 @@
 
 import type { Snapshot, TabApi } from "./api";
 import { hasOwnPanel } from "./ownPanel";
-import { type HostSettings, routeListChange, useSessionSurface } from "./useHostSettings";
+import { type HostSettings, listKey, routeListChange, useSessionSurface } from "./useHostSettings";
 
 /** Surface des paramètres de la cible. */
 export const HOST_TARGET = "host-target";
@@ -47,7 +47,7 @@ export function useTargetSettings(
       routeListChange(
         context,
         (value) => api.targetParam(scope.slide, scope.element, field, value),
-        (change) => api.targetList(scope.slide, scope.element, field, change),
+        (change, path) => api.targetList(scope.slide, scope.element, listKey(field, path), change),
       ),
     run,
     say,
