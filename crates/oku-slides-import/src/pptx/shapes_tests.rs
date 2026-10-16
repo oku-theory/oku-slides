@@ -418,3 +418,23 @@ fn connector_without_connected_shapes_has_no_connection() {
     let ItemKind::Shape(s) = &items[0].item.kind else { panic!("forme attendue") };
     assert_that!(s.connection).is_none();
 }
+
+#[test]
+fn chart_without_relationship_id_is_opaque_and_warns() {
+    let (items, w, _) = tree(&CHART_FRAME.replace(r#" r:id="rId5""#, ""));
+    assert_that!((
+        matches!(items[0].item.kind, ItemKind::Opaque(_)),
+        w.iter().any(|w| w.kind == WarningKind::UnreadableItem("chart: no r:id".into()))
+    ))
+    .is_equal_to((true, true));
+}
+
+#[test]
+fn missing_chart_part_shared_by_two_frames_is_reported_once() {
+    // `rId3` vise `../media/missing.png`, absente du paquet.
+    let frames =
+        CHART_FRAME.replace("rId5", "rId3") + &CHART_FRAME.replace("rId5", "rId3").replace(r#"id="14""#, r#"id="15""#);
+    let (items, w, _) = tree(&frames);
+    let missing = w.iter().filter(|w| matches!(w.kind, WarningKind::MissingPart(_))).count();
+    assert_that!((items.len(), missing)).is_equal_to((2, 1));
+}

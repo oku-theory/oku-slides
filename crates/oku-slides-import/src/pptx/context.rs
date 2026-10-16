@@ -250,9 +250,17 @@ impl<'p> PartCtx<'p> {
         }
     }
 
-    /// Texte d'une part liée : `None` (et `MissingPart`) si elle manque ; une limite dépassée devient fatale.
+    /// Texte d'une part liée : `None` (et `MissingPart`) si elle manque ; une limite dépassée devient
+    /// fatale. Un échec est retenu : la part n'est ni relue ni resignalée.
     pub(crate) fn part_text(&self, part: &str, item: &str) -> Option<String> {
-        self.soft(self.pkg().text(part), Some(item), WarningKind::MissingPart(clip(part)))
+        if self.shared.sink.borrow().text_failed(part) {
+            return None;
+        }
+        let text = self.pkg().text(part);
+        if text.is_err() {
+            self.shared.sink.borrow_mut().fail_text(part);
+        }
+        self.soft(text, Some(item), WarningKind::MissingPart(clip(part)))
     }
 
     /// Analyse d'une part liée (graphique, SmartArt, notes) : `None` et `warn` si elle est illisible ;

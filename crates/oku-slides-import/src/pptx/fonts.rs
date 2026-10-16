@@ -103,16 +103,24 @@ pub(crate) fn weight_class(sfnt: &[u8]) -> Option<u16> {
     os2_u16(sfnt, 4).map(|w| w.clamp(100, 900))
 }
 
-/// Entier 16 bits à `offset` dans la table `OS/2` d'une face sfnt.
+/// Entier 16 bits à `offset` dans la table `OS/2` d'une face sfnt (la première d'une collection
+/// `ttcf`) ; `None` si la table manque ou si sa longueur déclarée ne couvre pas l'entier.
 fn os2_u16(sfnt: &[u8], offset: usize) -> Option<u16> {
     let be16 = |o: usize| sfnt.get(o..o.checked_add(2)?).and_then(|b| b.try_into().ok()).map(u16::from_be_bytes);
     let be32 = |o: usize| sfnt.get(o..o.checked_add(4)?).and_then(|b| b.try_into().ok()).map(u32::from_be_bytes);
-    let tables = usize::from(be16(4)?);
+    // Collection : en-tête `ttcf`, version, nombre de faces, puis le décalage de chaque face.
+    let face = if sfnt.get(..4) == Some(b"ttcf") { usize::try_from(be32(12)?).ok()? } else { 0 };
+    let tables = usize::from(be16(face.checked_add(4)?)?);
     (0..tables.min(256)).find_map(|i| {
-        let rec = 12 + 16 * i;
-        (sfnt.get(rec..rec + 4)? == b"OS/2")
-            .then(|| be16(usize::try_from(be32(rec + 8)?).ok()?.checked_add(offset)?))
-            .flatten()
+        let rec = face.checked_add(12 + 16 * i)?;
+        if sfnt.get(rec..rec.checked_add(4)?)? != b"OS/2" {
+            return None;
+        }
+        let len = usize::try_from(be32(rec + 12)?).ok()?;
+        if offset.checked_add(2)? > len {
+            return None;
+        }
+        be16(usize::try_from(be32(rec + 8)?).ok()?.checked_add(offset)?)
     })
 }
 

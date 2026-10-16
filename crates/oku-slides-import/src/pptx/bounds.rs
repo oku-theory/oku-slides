@@ -1,11 +1,13 @@
 //! Bornes des valeurs numériques lues, celles du schéma OOXML (ECMA-376, partie 1, 20.1.10 et
 //! 21.1.10), et repérage des valeurs qu'elles ont ramenées.
 //!
-//! Le lecteur ramène silencieusement une valeur hors plage ([`attr_in`]) ; [`clamped`] repasse
-//! une part pour le signaler, une fois par sorte de valeur (`Approximated`).
+//! Le lecteur ramène silencieusement une valeur hors plage ([`attr_in`]) et ignore un
+//! modificateur de couleur inconnu ou au-delà de `MAX_COLOR_MODS` ; [`clamped`] repasse une part
+//! pour le signaler, une fois par sorte de valeur (`Approximated`).
 
 use roxmltree::Node;
 
+use crate::pptx::color::{COLOR_ELEMENTS, KNOWN_MODS, MAX_COLOR_MODS};
 use crate::pptx::context::PartCtx;
 use crate::pptx::geometry::path_clamped;
 use crate::pptx::xml::attr_i64;
@@ -68,11 +70,18 @@ const BOUNDS: [Bound; 10] = [
     Bound { on: |e| e == "gs", attr: "pos", range: GRADIENT_POS, label: "gs pos" },
 ];
 
-/// Libellés des sortes de valeurs de `root` que le lecteur a ramenées dans leur plage, chacune
-/// une fois, dans l'ordre de [`BOUNDS`] puis `custGeom`.
+/// Vrai si l'élément couleur `c` porte un modificateur que le lecteur ignore : inconnu ou au-delà du plafond.
+fn mods_dropped(c: Node<'_, '_>) -> bool {
+    let mut mods = c.children().filter(Node::is_element);
+    mods.clone().count() > MAX_COLOR_MODS || mods.any(|m| !KNOWN_MODS.contains(&m.tag_name().name()))
+}
+
+/// Libellés des sortes de valeurs de `root` que le lecteur a ramenées dans leur plage ou ignorées,
+/// chacune une fois, dans l'ordre de [`BOUNDS`] puis `custGeom` et `color modifier`.
 pub(crate) fn clamped(root: Node<'_, '_>) -> Vec<&'static str> {
     let mut hit = [false; BOUNDS.len()];
     let mut geometry = false;
+    let mut color = false;
     for n in root.descendants().filter(Node::is_element) {
         let name = n.tag_name().name();
         for (seen, b) in hit.iter_mut().zip(&BOUNDS) {
@@ -84,10 +93,14 @@ pub(crate) fn clamped(root: Node<'_, '_>) -> Vec<&'static str> {
             || (name == "path"
                 && n.parent_element().is_some_and(|p| p.tag_name().name() == "pathLst")
                 && path_clamped(n));
+        color = color || (COLOR_ELEMENTS.contains(&name) && mods_dropped(n));
     }
     let mut out: Vec<&'static str> = BOUNDS.iter().zip(hit).filter(|(_, h)| *h).map(|(b, _)| b.label).collect();
     if geometry {
         out.push("custGeom");
+    }
+    if color {
+        out.push("color modifier");
     }
     out
 }

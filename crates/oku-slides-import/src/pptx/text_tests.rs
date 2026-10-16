@@ -220,3 +220,36 @@ fn norm_autofit_scales_are_clamped(#[case] attrs: &str, #[case] scale: f64, #[ca
     let t = body(&format!("<a:bodyPr><a:normAutofit {attrs}/></a:bodyPr><a:p/>"));
     assert_that!(t.body.autofit).is_equal_to(Some(Autofit::Shrink { font_scale: scale, line_reduction: reduction }));
 }
+
+#[rstest]
+#[case::latin(r#"<a:latin typeface=""/>"#)]
+#[case::east_asian(r#"<a:ea typeface=" "/>"#)]
+#[case::complex(r#"<a:cs typeface=""/>"#)]
+fn rpr_empty_typeface_names_no_font(#[case] font: &str) {
+    let p = first_run(&format!("<a:rPr>{font}</a:rPr>"));
+    assert_that!((p.font, p.font_ea, p.font_cs)).is_equal_to((None, None, None));
+}
+
+#[test]
+fn ppr_empty_bullet_font_and_char_are_absent() {
+    let t = body(r#"<a:bodyPr/><a:p><a:pPr><a:buFont typeface=""/><a:buChar char=""/></a:pPr></a:p>"#);
+    let b = &t.paragraphs[0].props.bullet;
+    assert_that!((b.kind.clone(), b.font.clone())).is_equal_to((None, None));
+}
+
+#[test]
+fn empty_values_keep_the_inherited_font_and_bullet() {
+    let master = body(
+        r#"<a:bodyPr/><a:p><a:pPr><a:buFont typeface="Wingdings"/><a:buChar char="§"/><a:defRPr><a:latin typeface="Arial"/></a:defRPr></a:pPr></a:p>"#,
+    );
+    let slide = body(
+        r#"<a:bodyPr/><a:p><a:pPr><a:buFont typeface=""/><a:buChar char=""/><a:defRPr><a:latin typeface=""/></a:defRPr></a:pPr></a:p>"#,
+    );
+    let mut p = master.paragraphs[0].props.clone();
+    p.overlay(&slide.paragraphs[0].props);
+    assert_that!((p.bullet.kind, p.bullet.font, p.run.font)).is_equal_to((
+        Some(BulletKind::Char("§".into())),
+        Some(Some("Wingdings".into())),
+        Some(FontRef::Named("Arial".into())),
+    ));
+}

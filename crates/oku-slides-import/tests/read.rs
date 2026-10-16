@@ -207,3 +207,49 @@ fn minimal_lists_its_font_families() {
     // Arial : police de la puce « • » du bodyStyle du master.
     assert_that!(fams).is_equal_to(vec!["Arial".to_owned(), "Calibri".to_owned(), "Calibri Light".to_owned()]);
 }
+
+/// `minimal` avec un second master (copie du premier) qui cite seul `slideLayout2`, rendu illisible.
+fn second_master_with_unreadable_layout() -> SourceDeck {
+    let pres = common::text("minimal/ppt/presentation.xml")
+        .replace("</p:sldMasterIdLst>", r#"<p:sldMasterId id="2147483651" r:id="rId6"/></p:sldMasterIdLst>"#);
+    let pres_rels = common::text("minimal/ppt/_rels/presentation.xml.rels").replace(
+        "</Relationships>",
+        r#"<Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster2.xml"/></Relationships>"#,
+    );
+    let rels1 = common::text("minimal/ppt/slideMasters/_rels/slideMaster1.xml.rels");
+    let layout2 = rels1.lines().find(|l| l.contains("slideLayout2")).unwrap_or_else(|| panic!("layout 2 attendu"));
+    let rels2 = rels1.lines().filter(|l| !l.contains("slideLayout1")).collect::<Vec<_>>().join("\n");
+    let rels1 = rels1.replace(layout2, "");
+    let master = common::text("minimal/ppt/slideMasters/slideMaster1.xml");
+    let bytes = common::pptx_plus(
+        "minimal",
+        &[
+            ("ppt/presentation.xml", Some(&pres)),
+            ("ppt/_rels/presentation.xml.rels", Some(&pres_rels)),
+            ("ppt/slideMasters/_rels/slideMaster1.xml.rels", Some(&rels1)),
+            ("ppt/slideLayouts/slideLayout2.xml", Some("<p:sldLayout")),
+        ],
+        &[
+            ("ppt/slideMasters/slideMaster2.xml", master.as_bytes()),
+            ("ppt/slideMasters/_rels/slideMaster2.xml.rels", rels2.as_bytes()),
+        ],
+    );
+    read_pptx(&bytes, &common::limits()).unwrap_or_else(|e| panic!("{e}"))
+}
+
+#[test]
+fn slide_with_unreadable_layout_keeps_the_master_citing_that_layout() {
+    let d = second_master_with_unreadable_layout();
+    assert_that!(d.masters.len()).is_equal_to(2);
+    let link = item(&d.slides[1], "Espace réservé du contenu 2").placeholder.clone();
+    assert_that!(link.and_then(|l| l.master)).is_equal_to(Some("m2/3".to_owned()));
+    assert_that!(unreadable_parts(&d)).contains("ppt/slides/slide2.xml: layout".to_owned());
+}
+
+#[test]
+fn unreadable_master_relationships_warn_once_and_keep_the_master() {
+    let d = minimal_with(&[("ppt/slideMasters/_rels/slideMaster1.xml.rels", Some("<Relationships"))])
+        .unwrap_or_else(|e| panic!("{e}"));
+    let master = unreadable_parts(&d).iter().filter(|p| *p == "ppt/slideMasters/slideMaster1.xml").count();
+    assert_that!((d.masters.len(), master)).is_equal_to((1, 1));
+}

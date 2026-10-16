@@ -45,6 +45,8 @@ pub(crate) struct Sink {
     by_path: BTreeMap<String, String>,
     /// Chemins dont la lecture a échoué (déjà signalés) : ni relus ni resignalés.
     failed: BTreeSet<String>,
+    /// Parts liées dont la lecture du texte a échoué (déjà signalées) : ni relues ni resignalées.
+    failed_texts: BTreeSet<String>,
     warnings: Vec<Warning>,
     fatal: Option<ImportError>,
 }
@@ -76,6 +78,16 @@ impl Sink {
     /// Note l'échec de la lecture de l'asset `path`.
     pub(crate) fn fail_asset(&mut self, path: &str) {
         self.failed.insert(path.to_owned());
+    }
+
+    /// Vrai si la lecture du texte de la part `path` a déjà échoué.
+    pub(crate) fn text_failed(&self, path: &str) -> bool {
+        self.failed_texts.contains(path)
+    }
+
+    /// Note l'échec de la lecture du texte de la part `path`.
+    pub(crate) fn fail_text(&mut self, path: &str) {
+        self.failed_texts.insert(path.to_owned());
     }
 
     /// Range un asset lu à `path` ; rend son identifiant.

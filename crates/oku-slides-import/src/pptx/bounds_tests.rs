@@ -25,6 +25,7 @@ fn clamped_in(body: &str) -> Vec<&'static str> {
     r#"<a:pathLst><a:path w="10" h="10"><a:lnTo><a:pt x="20000" y="0"/></a:lnTo></a:path></a:pathLst>"#,
     "custGeom"
 )]
+#[case::unknown_color_modifier(r#"<a:srgbClr val="FF0000"><a:hueOff val="10"/></a:srgbClr>"#, "color modifier")]
 #[case::arc_radius(r#"<a:pathLst><a:path w="1" h="1"><a:arcTo wR="-3" hR="0"/></a:path></a:pathLst>"#, "custGeom")]
 fn clamped_value_out_of_its_range_is_reported_by_kind(#[case] body: &str, #[case] label: &str) {
     assert_that!(clamped_in(body)).is_equal_to(vec![label]);
@@ -46,4 +47,17 @@ fn clamped_attribute_on_an_element_the_reader_ignores_is_not_reported() {
     // `path` d'un dégradé (`a:path path="circle"`) n'est pas un tracé `custGeom`.
     assert_that!(clamped_in(r#"<a:sp sz="1"/><a:gradFill><a:path w="1"><a:pt x="9999"/></a:path></a:gradFill>"#))
         .is_empty();
+}
+
+#[test]
+fn known_color_modifiers_are_not_reported() {
+    let body = r#"<a:schemeClr val="accent1"><a:lumMod val="75000"/><a:alpha val="50000"/></a:schemeClr>"#;
+    assert_that!(clamped_in(body)).is_empty();
+}
+
+#[test]
+fn color_modifiers_beyond_the_cap_are_reported() {
+    let mods = r#"<a:tint val="1"/>"#.repeat(MAX_COLOR_MODS + 1);
+    assert_that!(clamped_in(&format!(r#"<a:srgbClr val="000000">{mods}</a:srgbClr>"#)))
+        .is_equal_to(vec!["color modifier"]);
 }

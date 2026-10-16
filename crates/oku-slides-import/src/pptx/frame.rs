@@ -35,7 +35,10 @@ pub(crate) fn parse_graphic_frame(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCt
 
 fn chart_item(data: Node<'_, '_>, cx: &PartCtx<'_>, id: &str) -> ItemKind {
     let unknown = |what: &str| opaque(OpaqueReason::Unknown(clip(what)), None);
-    let Some(rid) = child(data, "chart").and_then(|c| attr_r(c, "id")) else { return unknown("chart") };
+    let Some(rid) = child(data, "chart").and_then(|c| attr_r(c, "id")) else {
+        cx.warn(Some(id), WarningKind::UnreadableItem("chart: no r:id".into()));
+        return unknown("chart");
+    };
     let Some(part) = cx.rels.target(rid).map(str::to_owned) else {
         cx.warn(Some(id), WarningKind::MissingPart(clip(rid)));
         return unknown("chart");

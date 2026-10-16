@@ -134,14 +134,19 @@ fn themes<'t>(shared: &Shared<'_>, texts: &'t ThemeTexts) -> Result<Vec<Rc<Theme
 
 type Layouts = Vec<(String, usize, LayoutInfo)>; // (part, index dans les masters, layout)
 
+/// Masters utilisables, leurs layouts lus, et pour chaque layout cité (lu ou non) l'index du
+/// premier master utilisable qui le cite.
+struct Masters {
+    masters: Vec<MasterInfo>,
+    layouts: Layouts,
+    owner: BTreeMap<String, usize>,
+}
+
 /// Masters utilisables et leurs layouts.
-fn masters(
-    shared: &Shared<'_>,
-    parts: &[String],
-    themes: &[Rc<ThemeData<'_>>],
-) -> Result<(Vec<MasterInfo>, Layouts), ImportError> {
+fn masters(shared: &Shared<'_>, parts: &[String], themes: &[Rc<ThemeData<'_>>]) -> Result<Masters, ImportError> {
     let mut masters = Vec::new();
     let mut layouts: Layouts = Vec::new();
+    let mut owner = BTreeMap::new();
     for (i, (mp, theme)) in parts.iter().zip(themes).enumerate() {
         let Some(m) = soft(parse_master(shared, mp, i + 1, i, theme), &shared.sink, mp)? else { continue };
         check(shared)?;
@@ -157,6 +162,7 @@ fn masters(
             })
             .unwrap_or_default();
         for lp in layout_parts {
+            owner.entry(lp.clone()).or_insert(masters.len());
             if let Some(l) = soft(parse_layout(shared, &lp, layouts.len() + 1, &m, theme), &shared.sink, &lp)? {
                 layouts.push((lp, masters.len(), l));
             }
@@ -167,30 +173,39 @@ fn masters(
     if masters.is_empty() {
         return Err(structure("no usable slide master"));
     }
-    Ok((masters, layouts))
+    Ok(Masters { masters, layouts, owner })
 }
 
 /// Slides lisibles, dans l'ordre de la présentation.
+///
+/// Une slide dont le layout est illisible garde le master qui cite ce layout ; sans master connu
+/// (layout absent ou cité par aucun master), elle prend le premier. Les deux cas sont signalés.
 fn slides(
     shared: &Shared<'_>,
     parts: &[String],
-    masters: &[MasterInfo],
-    layouts: &Layouts,
+    m: &Masters,
     themes: &[Rc<ThemeData<'_>>],
 ) -> Result<Vec<SourceSlide>, ImportError> {
-    let by_part: BTreeMap<&str, usize> = layouts.iter().enumerate().map(|(k, (p, _, _))| (p.as_str(), k)).collect();
+    let by_part: BTreeMap<&str, usize> = m.layouts.iter().enumerate().map(|(k, (p, _, _))| (p.as_str(), k)).collect();
     let mut out = Vec::new();
     for (i, sp) in parts.iter().enumerate() {
         let n = u32::try_from(i + 1).unwrap_or(u32::MAX);
         let lp = soft(shared.pkg.rels(sp), &shared.sink, sp)?
             .and_then(|r| r.by_type("/slideLayout").first().map(|(_, t)| (*t).to_owned()));
-        let entry = lp.as_deref().and_then(|p| by_part.get(p)).and_then(|k| layouts.get(*k));
-        if entry.is_none() {
-            shared.sink.borrow_mut().warn(Some(n), None, WarningKind::UnreadablePart(clip(&format!("{sp}: layout"))));
-        }
-        let (layout, mi) = entry.map_or((None, 0), |(_, mi, l)| (Some(l), *mi));
-        let (Some(master), Some(theme)) = (masters.get(mi), masters.get(mi).and_then(|m| themes.get(m.master.theme)))
-        else {
+        let entry = lp.as_deref().and_then(|p| by_part.get(p)).and_then(|k| m.layouts.get(*k));
+        let (layout, mi) = match entry {
+            Some((_, mi, l)) => (Some(l), *mi),
+            None => {
+                shared.sink.borrow_mut().warn(
+                    Some(n),
+                    None,
+                    WarningKind::UnreadablePart(clip(&format!("{sp}: layout"))),
+                );
+                (None, lp.as_deref().and_then(|p| m.owner.get(p)).copied().unwrap_or(0))
+            }
+        };
+        let master = m.masters.get(mi);
+        let (Some(master), Some(theme)) = (master, master.and_then(|m| themes.get(m.master.theme))) else {
             continue;
         };
         if let Some(s) = soft(parse_slide(shared, sp, n, layout, master, theme), &shared.sink, sp)? {
@@ -237,12 +252,13 @@ pub fn read_pptx(bytes: &[u8], limits: &ReadLimits) -> Result<SourceDeck, Import
     let master_parts = listed(root, "sldMasterIdLst", "sldMasterId", &rels);
     let theme_xml = theme_texts(&shared, &master_parts)?;
     let themes = themes(&shared, &theme_xml)?;
-    let (masters, layouts) = masters(&shared, &master_parts, &themes)?;
+    let read_masters = masters(&shared, &master_parts, &themes)?;
     let slide_parts = listed(root, "sldIdLst", "sldId", &rels);
     if slide_parts.len() > limits.max_slides {
         return Err(too_large("slides"));
     }
-    let slides = slides(&shared, &slide_parts, &masters, &layouts, &themes)?;
+    let slides = slides(&shared, &slide_parts, &read_masters, &themes)?;
+    let Masters { masters, layouts, .. } = read_masters;
 
     let themes_out = themes.iter().map(|t| t.theme.clone()).collect();
     let masters_out: Vec<_> = masters.into_iter().map(|m| m.master).collect();

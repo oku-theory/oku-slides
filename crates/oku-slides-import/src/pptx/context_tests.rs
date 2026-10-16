@@ -203,3 +203,41 @@ fn asset_raster_with_unreadable_header_is_refused_as_unsupported() {
     assert_that!(w.iter().any(|w| matches!(&w.kind, WarningKind::UnsupportedImage(p) if p == "ppt/media/broken.png")))
         .is_true();
 }
+
+/// Bombe zip (t-692) : `refs` lectures de chacune des `parts` images d'un octet de trop
+/// (`max_part_bytes + 1` octets nuls) décompressent une seule fois `max_part_bytes + 1` octets.
+#[rstest]
+#[case::one_part(1, 1000)]
+#[case::two_parts(2, 500)]
+fn oversized_parts_read_many_times_are_decompressed_once(#[case] parts: usize, #[case] refs: usize) {
+    use crate::pptx::package::Package;
+    use crate::pptx::test_support::LIMITS;
+    let rel = |i: usize| {
+        format!(
+            r#"<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/bomb{i}.png"/>"#
+        )
+    };
+    let rels = format!(
+        r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{}</Relationships>"#,
+        (0..parts).map(rel).collect::<String>()
+    );
+    let cap = usize::try_from(LIMITS.max_part_bytes).unwrap();
+    let bomb = vec![0u8; cap + 1];
+    let names: Vec<String> = (0..parts).map(|i| format!("ppt/media/bomb{i}.png")).collect();
+    let mut entries: Vec<(&str, &[u8])> = vec![("ppt/slides/_rels/slide1.xml.rels", rels.as_bytes())];
+    entries.extend(names.iter().map(|n| (n.as_str(), bomb.as_slice())));
+    let t = TestPkg::with(&entries);
+    let pkg = Package::open(t.bytes(), &LIMITS).unwrap();
+    let opened = pkg.decompressed();
+    let r = run_ctx(&pkg, "ppt/slides/slide1.xml", None, |cx| {
+        for _ in 0..refs {
+            for i in 0..parts {
+                assert_that!(cx.asset(&format!("rId{i}"))).is_none();
+            }
+        }
+    });
+    assert_that!(r.map(|_| ()).map_err(|e| e.kind()).err()).is_equal_to(Some(ImportErrorKind::TooLarge));
+    // Les relations de la slide, puis une seule décompression bornée de la première image.
+    let rels_bytes = u64::try_from(rels.len()).unwrap();
+    assert_that!(pkg.decompressed() - opened).is_equal_to(rels_bytes + LIMITS.max_part_bytes + 1);
+}

@@ -17,6 +17,12 @@ use crate::source::{Color, ColorMod, Origin, Rgba, Styled};
 /// Modificateurs gardés par couleur.
 pub(crate) const MAX_COLOR_MODS: usize = 16;
 
+/// Éléments couleur lus ; leurs enfants sont des modificateurs.
+pub(crate) const COLOR_ELEMENTS: [&str; 5] = ["srgbClr", "sysClr", "prstClr", "scrgbClr", "schemeClr"];
+
+/// Modificateurs appliqués ; tout autre est ignoré (et signalé par `bounds::clamped`).
+pub(crate) const KNOWN_MODS: [&str; 6] = ["alpha", "lumMod", "lumOff", "satMod", "tint", "shade"];
+
 /// Emplacements de couleur d'un thème.
 pub(crate) const SLOTS: [&str; 12] =
     ["dk1", "lt1", "dk2", "lt2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink"];

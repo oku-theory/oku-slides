@@ -231,9 +231,14 @@ fn typeface(t: &str) -> FontRef {
     }
 }
 
+/// Nom de police de l'attribut `typeface` de `n` ; vide (ou blanc), il n'en nomme aucune et laisse l'héritage.
+fn typeface_attr<'a>(n: Node<'a, '_>) -> Option<&'a str> {
+    attr_str(n, "typeface").map(str::trim).filter(|t| !t.is_empty())
+}
+
 /// La police de l'enfant `tag` (`latin`, `ea`, `cs`) d'un `rPr`.
 fn script_font(rpr: Node<'_, '_>, tag: &str) -> Option<FontRef> {
-    child(rpr, tag).and_then(|l| attr_str(l, "typeface")).map(typeface)
+    child(rpr, tag).and_then(typeface_attr).map(typeface)
 }
 
 /// Lit un `rPr`/`defRPr`/`endParaRPr`.
@@ -267,7 +272,12 @@ pub(crate) fn parse_ppr(ppr: Node<'_, '_>) -> ParaProps {
     for b in elements(ppr) {
         match b.tag_name().name() {
             "buNone" => bullet.kind = Some(BulletKind::None),
-            "buChar" => bullet.kind = attr_str(b, "char").map(|c| BulletKind::Char(clip_to(c, MAX_BULLET_CHARS))),
+            // Un caractère vide n'en définit aucun : l'hérité reste.
+            "buChar" => {
+                if let Some(c) = attr_str(b, "char").filter(|c| !c.is_empty()) {
+                    bullet.kind = Some(BulletKind::Char(clip_to(c, MAX_BULLET_CHARS)));
+                }
+            }
             "buAutoNum" => {
                 bullet.kind = Some(BulletKind::AutoNum {
                     scheme: clip_to(attr_str(b, "type").unwrap_or("arabicPeriod"), MAX_SCHEME_CHARS),
@@ -278,7 +288,11 @@ pub(crate) fn parse_ppr(ppr: Node<'_, '_>) -> ParaProps {
             "buClr" => bullet.color = color_spec_in(b).map(Some),
             "buSzPct" => bullet.size_pct = attr_in(b, "val", BULLET_SIZE).map(pct),
             "buFontTx" => bullet.font = Some(None),
-            "buFont" => bullet.font = attr_str(b, "typeface").map(|t| Some(clip_to(t, MAX_FONT_NAME))),
+            "buFont" => {
+                if let Some(t) = typeface_attr(b) {
+                    bullet.font = Some(Some(clip_to(t, MAX_FONT_NAME)));
+                }
+            }
             _ => {}
         }
     }

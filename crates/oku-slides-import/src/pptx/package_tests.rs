@@ -171,3 +171,64 @@ fn bytes_decompress_at_most_the_remaining_budget() {
     assert_that!(pkg.bytes("ppt/media/a.bin").map_err(|e| e.kind()).err()).is_equal_to(Some(ImportErrorKind::TooLarge));
     assert_that!(pkg.read_total.get()).is_equal_to(opened + 101);
 }
+
+#[test]
+fn rels_unreadable_fail_once_then_read_as_empty_without_rereading() {
+    let t = TestPkg::with(&[("ppt/slides/_rels/slide1.xml.rels", b"<Relationships")]);
+    let pkg = t.pkg();
+    assert_that!(pkg.rels("ppt/slides/slide1.xml").map_err(|e| e.kind()).err())
+        .is_equal_to(Some(ImportErrorKind::Unreadable));
+    let before = pkg.read_total.get();
+    assert_that!(pkg.rels("ppt/slides/slide1.xml").map(|r| r.by_type("").len()).ok()).is_equal_to(Some(0));
+    assert_that!(pkg.read_total.get()).is_equal_to(before);
+}
+
+#[test]
+fn text_and_rels_strip_a_utf8_bom() {
+    let rels = format!("\u{feff}{PRES_RELS}");
+    let t = TestPkg::with(&[
+        ("ppt/_rels/presentation.xml.rels", rels.as_bytes()),
+        ("ppt/a.xml", "\u{feff}<a/>".as_bytes()),
+    ]);
+    let pkg = t.pkg();
+    assert_that!(pkg.text("ppt/a.xml").ok()).is_equal_to(Some("<a/>".to_owned()));
+    assert_that!(pkg.rels("ppt/presentation.xml").unwrap().target("rId2")).is_equal_to(Some("ppt/slides/slide1.xml"));
+}
+
+/// Fin d'archive Zip64 seule : enregistrement Zip64 annonçant `entries`, localisateur, puis EOCD saturé.
+fn zip64_tail(entries: u64, locator: bool) -> Vec<u8> {
+    let mut v = vec![0u8; 8]; // octets quelconques avant l'enregistrement
+    let record = v.len() as u64;
+    v.extend_from_slice(&[0x50, 0x4b, 0x06, 0x06]);
+    v.extend_from_slice(&44u64.to_le_bytes()); // taille du reste de l'enregistrement
+    v.extend_from_slice(&[45, 0, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // versions, disques
+    v.extend_from_slice(&entries.to_le_bytes()); // entrées sur ce disque
+    v.extend_from_slice(&entries.to_le_bytes()); // entrées en tout
+    v.extend_from_slice(&[0; 16]); // taille et décalage du répertoire central
+    if locator {
+        v.extend_from_slice(&ZIP64_LOCATOR);
+        v.extend_from_slice(&[0; 4]);
+        v.extend_from_slice(&record.to_le_bytes());
+        v.extend_from_slice(&1u32.to_le_bytes());
+    }
+    v.extend_from_slice(&EOCD);
+    v.extend_from_slice(&[0; 6]);
+    v.extend_from_slice(&0xFFFFu16.to_le_bytes());
+    v.extend_from_slice(&[0; 10]);
+    v
+}
+
+#[test]
+fn declared_entries_follows_the_zip64_locator() {
+    assert_that!(declared_entries(&zip64_tail(70_000, true))).is_equal_to(Some(70_000));
+}
+
+#[test]
+fn declared_entries_saturated_without_zip64_locator_is_unknown() {
+    assert_that!(declared_entries(&zip64_tail(70_000, false))).is_none();
+}
+
+#[test]
+fn open_with_too_many_zip64_entries_is_too_large_before_indexing() {
+    assert_that!(open_err(&zip64_tail(70_000, true), &LIMITS)).is_equal_to(ImportErrorKind::TooLarge);
+}

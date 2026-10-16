@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 use std::io::{Cursor, Read};
 use std::rc::Rc;
 
-use crate::ReadLimits;
 use crate::error::{ImportError, io_error, not_a_presentation, protected, structure, too_large, utf8_error, zip_error};
 use crate::pptx::xml::parse;
+use crate::{ImportErrorKind, ReadLimits};
 
 const CFB_MAGIC: [u8; 8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
 const EOCD: [u8; 4] = [0x50, 0x4b, 0x05, 0x06];
@@ -172,6 +172,12 @@ impl<'b> Package<'b> {
         Ok(pkg)
     }
 
+    /// Octets décompressés jusqu'ici, lectures échouées comprises.
+    #[cfg(test)]
+    pub(crate) fn decompressed(&self) -> u64 {
+        self.read_total.get()
+    }
+
     /// Les limites de lecture.
     pub(crate) fn limits(&self) -> &ReadLimits {
         &self.limits
@@ -227,13 +233,21 @@ impl<'b> Package<'b> {
     }
 
     /// Relations de `part` (lues une fois) ; vides si la part n'a pas de fichier de relations.
+    ///
+    /// Un fichier illisible rend l'erreur une seule fois (à signaler) : les appels suivants le
+    /// voient vide, sans le relire. Une limite dépassée n'est pas retenue (elle est fatale).
     pub(crate) fn rels(&self, part: &str) -> Result<Rc<Rels>, ImportError> {
         if let Some(r) = self.rels.borrow().get(part) {
             return Ok(Rc::clone(r));
         }
-        let r = self.read_rels(&rels_path(part), part)?;
-        self.rels.borrow_mut().insert(part.to_owned(), Rc::clone(&r));
-        Ok(r)
+        let r = self.read_rels(&rels_path(part), part);
+        let cached = match &r {
+            Ok(r) => Rc::clone(r),
+            Err(e) if e.kind() == ImportErrorKind::TooLarge => return r,
+            Err(_) => Rc::new(Rels::default()),
+        };
+        self.rels.borrow_mut().insert(part.to_owned(), cached);
+        r
     }
 
     /// Type de contenu d'une part (override, sinon défaut par extension).

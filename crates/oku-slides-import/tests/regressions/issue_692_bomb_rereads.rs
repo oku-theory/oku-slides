@@ -4,8 +4,10 @@
 //! compressés) : avant le correctif, chaque référence la décompressait à nouveau, sans que rien
 //! ne compte dans `max_total_bytes` (8 Go décompressés ici avant `TooLarge`). Après : la première
 //! lecture trop grande épuise le paquet, les suivantes ne lisent plus rien.
-
-use std::time::{Duration, Instant};
+//!
+//! Ce test de bout en bout vérifie l'issue (`TooLarge`) ; le nombre d'octets décompressés, seul
+//! témoin déterministe d'une relecture, est compté par
+//! `pptx::context::context_tests::oversized_parts_read_many_times_are_decompressed_once`.
 
 use oku_slides_import::{ImportErrorKind, ReadLimits, read_pptx};
 use speculoos::prelude::*;
@@ -40,10 +42,6 @@ fn bomb() -> Vec<u8> {
 fn oversized_part_referenced_many_times_is_decompressed_once() {
     let bytes = bomb();
     let limits = ReadLimits { max_part_bytes: PART, max_total_bytes: 64 << 20, ..ReadLimits::default() };
-    let start = Instant::now();
     let kind = read_pptx(&bytes, &limits).map(|_| ()).map_err(|e| e.kind()).err();
-    let elapsed = start.elapsed();
     assert_that!(kind).is_equal_to(Some(ImportErrorKind::TooLarge));
-    // Une seule décompression de 8 Mo : quelques millisecondes ; mille : plusieurs secondes.
-    assert_that!(elapsed).is_less_than(Duration::from_secs(2));
 }

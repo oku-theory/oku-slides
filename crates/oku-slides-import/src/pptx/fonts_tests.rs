@@ -18,11 +18,17 @@ fn sfnt() -> Vec<u8> {
 
 /// sfnt minimal avec une table `OS/2` dont `fsType` = `fs`.
 fn sfnt_with_os2(fs: u16) -> Vec<u8> {
+    face_at(0, 10, fs)
+}
+
+/// Face sfnt placée à `base` dans son fichier, avec une table `OS/2` de longueur déclarée `len`
+/// (`fsType` = `fs`, écrit qu'elle le couvre ou non) ; les décalages de tables sont absolus.
+fn face_at(base: u32, len: u32, fs: u16) -> Vec<u8> {
     let mut v = vec![0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0];
     v.extend_from_slice(b"OS/2");
     v.extend_from_slice(&[0, 0, 0, 0]); // somme de contrôle
-    v.extend_from_slice(&28u32.to_be_bytes());
-    v.extend_from_slice(&10u32.to_be_bytes());
+    v.extend_from_slice(&(base + 28).to_be_bytes());
+    v.extend_from_slice(&len.to_be_bytes());
     v.extend_from_slice(&[0; 8]);
     v.extend_from_slice(&fs.to_be_bytes());
     v
@@ -47,6 +53,21 @@ fn is_sfnt_recognizes_truetype_and_opentype_only() {
 #[test]
 fn fs_type_reads_the_os2_embedding_rights() {
     assert_that!((fs_type(&sfnt_with_os2(0x0004)), fs_type(&sfnt()))).is_equal_to((Some(0x0004), None));
+}
+
+#[test]
+fn fs_type_outside_a_too_short_os2_table_is_none() {
+    // La table déclare 8 octets : `fsType` (octets 8 et 9) n'en fait pas partie, même s'ils suivent.
+    assert_that!(fs_type(&face_at(0, 8, 0x0002))).is_none();
+}
+
+#[test]
+fn fs_type_of_a_collection_is_read_in_its_first_face() {
+    let mut ttc = b"ttcf\x00\x01\x00\x00".to_vec();
+    ttc.extend_from_slice(&1u32.to_be_bytes());
+    ttc.extend_from_slice(&16u32.to_be_bytes());
+    ttc.extend(face_at(16, 10, 0x0002));
+    assert_that!((fs_type(&ttc), weight_class(&ttc))).is_equal_to((Some(0x0002), Some(100)));
 }
 
 #[test]
