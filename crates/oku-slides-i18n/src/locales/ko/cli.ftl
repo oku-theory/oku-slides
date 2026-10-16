@@ -39,6 +39,7 @@ cli-import-label = PowerPoint 가져오기
 cli-import-pack-required = retrofit 모드에서는 --pack이 필요합니다: 템플릿 팩의 ID, 폴더 또는 이름
 cli-import-unknown-pack = 알 수 없는 템플릿 팩: { $pack }
 cli-import-bad-pack = 읽을 수 없는 템플릿 팩 { $pack }: pack.json이 템플릿 팩을 설명하지 않습니다
+cli-import-bad-theme = 대상 테마를 읽을 수 없습니다: 디자인 토큰을 읽지 못했습니다
 cli-import-write-failed = 가져온 덱 { $path }을(를) 쓸 수 없습니다
 cli-import-hifi-no-target = --pack과 --theme는 retrofit 모드 전용입니다: 고충실도 가져오기(--mode hifi)는 자체 팩과 테마를 생성합니다
 cli-import-probe-mismatch = 생성된 팩이 선언대로 검사되지 않았습니다(위젯 { $widget }): 가져오기 기능의 버그입니다

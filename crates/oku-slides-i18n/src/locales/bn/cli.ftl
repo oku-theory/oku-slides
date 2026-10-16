@@ -51,6 +51,7 @@ cli-import-label = PowerPoint ইমপোর্ট
 cli-import-pack-required = retrofit মোডে --pack আবশ্যক: টেমপ্লেট প্যাকের আইডি, ফোল্ডার বা নাম
 cli-import-unknown-pack = অজানা টেমপ্লেট প্যাক: { $pack }
 cli-import-bad-pack = অপাঠযোগ্য টেমপ্লেট প্যাক { $pack }: এর pack.json কোনো টেমপ্লেট প্যাক বর্ণনা করে না
+cli-import-bad-theme = লক্ষ্য থিম অপাঠযোগ্য: এর ডিজাইন টোকেন পড়া যায়নি
 cli-import-write-failed = ইমপোর্ট করা ডেক { $path } লেখা যায়নি
 cli-import-hifi-no-target = --pack ও --theme শুধু retrofit মোডের জন্য: উচ্চ বিশ্বস্ততার ইমপোর্ট (--mode hifi) নিজের প্যাক ও থিম তৈরি করে
 cli-import-probe-mismatch = তৈরি করা প্যাক ঘোষণা অনুযায়ী যাচাই হয়নি (উইজেট { $widget }): এটি ইমপোর্টারের ত্রুটি

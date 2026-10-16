@@ -51,6 +51,7 @@ cli-import-label = PowerPoint-import
 cli-import-pack-required = --pack is verplicht in de modus retrofit: de id, map of naam van een sjabloonpakket
 cli-import-unknown-pack = onbekend sjabloonpakket: { $pack }
 cli-import-bad-pack = onleesbaar sjabloonpakket { $pack }: de pack.json beschrijft geen sjabloonpakket
+cli-import-bad-theme = onleesbaar doelthema: de ontwerptokens konden niet worden gelezen
 cli-import-write-failed = kon de geïmporteerde presentatie { $path } niet schrijven
 cli-import-hifi-no-target = --pack en --theme horen bij de modus retrofit: import met hoge getrouwheid (--mode hifi) maakt een eigen pakket en thema
 cli-import-probe-mismatch = het gemaakte pakket komt bij het peilen niet overeen met de declaratie (widget { $widget }): een fout in de import

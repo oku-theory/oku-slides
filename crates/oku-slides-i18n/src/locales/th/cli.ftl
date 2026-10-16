@@ -39,6 +39,7 @@ cli-import-label = นำเข้าจาก PowerPoint
 cli-import-pack-required = โหมด retrofit ต้องระบุ --pack: รหัส โฟลเดอร์ หรือชื่อของแพ็กเทมเพลต
 cli-import-unknown-pack = ไม่รู้จักแพ็กเทมเพลต: { $pack }
 cli-import-bad-pack = อ่านแพ็กเทมเพลต { $pack } ไม่ได้: pack.json ของแพ็กไม่ได้อธิบายแพ็กเทมเพลต
+cli-import-bad-theme = อ่านธีมเป้าหมายไม่ได้: อ่านโทเค็นการออกแบบของธีมไม่ได้
 cli-import-write-failed = เขียนเด็คที่นำเข้า { $path } ไม่ได้
 cli-import-hifi-no-target = --pack และ --theme ใช้กับโหมด retrofit เท่านั้น: การนำเข้าแบบเที่ยงตรงสูง (--mode hifi) สร้างแพ็กและธีมของตัวเอง
 cli-import-probe-mismatch = แพ็กที่สร้างขึ้นตรวจสอบได้ไม่ตรงกับที่ประกาศ (วิดเจ็ต { $widget }): เป็นข้อบกพร่องของตัวนำเข้า

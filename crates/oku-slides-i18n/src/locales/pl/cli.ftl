@@ -59,6 +59,7 @@ cli-import-label = Import z PowerPointa
 cli-import-pack-required = --pack jest wymagany w trybie retrofit: identyfikator, folder lub nazwa pakietu
 cli-import-unknown-pack = nieznany pakiet: { $pack }
 cli-import-bad-pack = nieczytelny pakiet { $pack }: jego pack.json nie opisuje pakietu szablonów
+cli-import-bad-theme = nieczytelny motyw docelowy: nie udało się odczytać jego tokenów projektu
 cli-import-write-failed = nie udało się zapisać zaimportowanej prezentacji { $path }
 cli-import-hifi-no-target = --pack i --theme dotyczą tylko trybu retrofit: import o wysokiej wierności (--mode hifi) tworzy własny pakiet i motyw
 cli-import-probe-mismatch = wygenerowany pakiet nie odpowiada swojej deklaracji przy sprawdzaniu (widżet { $widget }): to błąd importu

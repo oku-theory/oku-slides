@@ -11,6 +11,7 @@
 - Check the pptx size against max_input_bytes before reading it into memory, and refuse oversized files. (plan:2026-10-10-import-pptx-lot2)
 - Apply the whole CLI import to the bundle as a single history step. (plan:2026-10-10-import-pptx-lot2)
 - Apply import ops in a single transaction through the normal validations, so the whole import undoes at once. (spec:2026-10-09-import-pptx-design)
+- Fail a retrofit import whose target theme tokens cannot be read, and write --report atomically through Storage. (t-817)
 
 ## Pitfalls
 

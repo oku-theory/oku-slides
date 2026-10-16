@@ -51,6 +51,7 @@ cli-import-label = PowerPoint import
 cli-import-pack-required = --pack is required in retrofit mode: a pack id, folder or name
 cli-import-unknown-pack = unknown pack: { $pack }
 cli-import-bad-pack = unreadable pack { $pack }: its pack.json does not describe a template pack
+cli-import-bad-theme = unreadable target theme: its design tokens could not be read
 cli-import-write-failed = could not write the imported deck { $path }
 cli-import-hifi-no-target = --pack and --theme belong to retrofit mode: the high-fidelity import (--mode hifi) generates its own pack and theme
 cli-import-probe-mismatch = the generated pack does not probe as declared (widget { $widget }): this is a bug in the importer

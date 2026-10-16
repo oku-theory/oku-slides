@@ -107,9 +107,12 @@ pub(crate) struct Prepared {
 }
 
 /// Les jetons effectifs du thème de `bundle` : les défauts, puis ceux du thème.
-fn deck_tokens(themes: &ThemeLibrary, bundle: &SourceBundle) -> Map<String, Value> {
-    let own = theme_tokens(themes, &bundle.themes, bundle.deck()).unwrap_or_default();
-    effective_tokens(default_tokens(), &own)
+///
+/// Un thème illisible est une erreur : ses couleurs et sa page guident le retrofit,
+/// les défauts seuls donneraient un deck faux sans le dire.
+fn deck_tokens(themes: &ThemeLibrary, bundle: &SourceBundle, l: &Localizer) -> Result<Map<String, Value>> {
+    let own = theme_tokens(themes, &bundle.themes, bundle.deck()).ok_or_else(|| eyre!(l.tr("cli-import-bad-theme")))?;
+    Ok(effective_tokens(default_tokens(), &own))
 }
 
 /// Importe `args.input` et écrit le deck obtenu dans `args.output`.
@@ -217,7 +220,7 @@ fn prepare_retrofit(
     }
     adopt_default_theme(&themes, &mut bundle).map_err(|e| eyre!(e.localize(l)))?;
 
-    let tokens = deck_tokens(&themes, &bundle);
+    let tokens = deck_tokens(&themes, &bundle, l)?;
     let target = RetrofitTarget {
         templates: &manifest.templates,
         registry: &widgets.registry,
@@ -280,7 +283,8 @@ fn finish(
         }
     }
     if let Some(path) = &args.report {
-        platform.storage.write(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;
+        // Écrit puis renommé : un rapport interrompu ne remplace jamais le précédent.
+        platform.storage.write_atomic(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;
     }
     out.line(
         "cli-imported",

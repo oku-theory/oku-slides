@@ -39,6 +39,7 @@ cli-import-label = Nhập từ PowerPoint
 cli-import-pack-required = cần --pack ở chế độ retrofit: mã, thư mục hoặc tên của gói mẫu
 cli-import-unknown-pack = gói mẫu không xác định: { $pack }
 cli-import-bad-pack = không đọc được gói mẫu { $pack }: pack.json của gói không mô tả một gói mẫu
+cli-import-bad-theme = không đọc được chủ đề đích: không thể đọc các token thiết kế của chủ đề
 cli-import-write-failed = không thể ghi bản trình bày đã nhập { $path }
 cli-import-hifi-no-target = --pack và --theme chỉ dùng cho chế độ retrofit: chế độ nhập độ trung thực cao (--mode hifi) tự tạo gói và chủ đề riêng
 cli-import-probe-mismatch = gói được tạo không khớp với khai báo khi kiểm tra (widget { $widget }): đây là lỗi của trình nhập

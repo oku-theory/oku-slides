@@ -51,6 +51,7 @@ cli-import-label = PowerPoint içe aktarma
 cli-import-pack-required = retrofit modunda --pack gerekir: bir şablon paketinin kimliği, klasörü ya da adı
 cli-import-unknown-pack = bilinmeyen şablon paketi: { $pack }
 cli-import-bad-pack = okunamayan şablon paketi { $pack }: pack.json dosyası bir şablon paketi tanımlamıyor
+cli-import-bad-theme = hedef tema okunamıyor: tasarım belirteçleri okunamadı
 cli-import-write-failed = içe aktarılan sunu { $path } yazılamadı
 cli-import-hifi-no-target = --pack ve --theme yalnızca retrofit modu içindir: yüksek doğruluklu içe aktarma (--mode hifi) kendi paketini ve temasını üretir
 cli-import-probe-mismatch = üretilen paket bildirildiği gibi yoklanmadı (widget { $widget }): içe aktarıcıda bir hata

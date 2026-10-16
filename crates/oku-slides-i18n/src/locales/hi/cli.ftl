@@ -51,6 +51,7 @@ cli-import-label = PowerPoint आयात
 cli-import-pack-required = retrofit मोड में --pack ज़रूरी है: टेम्पलेट पैक की आईडी, फ़ोल्डर या नाम
 cli-import-unknown-pack = अज्ञात टेम्पलेट पैक: { $pack }
 cli-import-bad-pack = अपठनीय टेम्पलेट पैक { $pack }: इसकी pack.json टेम्पलेट पैक का वर्णन नहीं करती
+cli-import-bad-theme = लक्ष्य थीम अपठनीय: इसके डिज़ाइन टोकन पढ़े नहीं जा सके
 cli-import-write-failed = आयात किया गया डेक { $path } लिखा नहीं जा सका
 cli-import-hifi-no-target = --pack और --theme केवल retrofit मोड के लिए हैं: उच्च-निष्ठा आयात (--mode hifi) अपना पैक और थीम ख़ुद बनाता है
 cli-import-probe-mismatch = बनाया गया पैक घोषणा के अनुसार जाँच में नहीं मिला (विजेट { $widget }): यह आयातक की त्रुटि है

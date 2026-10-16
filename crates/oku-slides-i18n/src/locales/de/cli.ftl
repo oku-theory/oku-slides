@@ -51,6 +51,7 @@ cli-import-label = PowerPoint-Import
 cli-import-pack-required = --pack ist im Modus retrofit erforderlich: ID, Ordner oder Name eines Vorlagenpakets
 cli-import-unknown-pack = unbekanntes Vorlagenpaket: { $pack }
 cli-import-bad-pack = unlesbares Vorlagenpaket { $pack }: seine pack.json beschreibt kein Vorlagenpaket
+cli-import-bad-theme = unlesbares Zielthema: seine Design-Tokens konnten nicht gelesen werden
 cli-import-write-failed = das importierte Deck { $path } konnte nicht geschrieben werden
 cli-import-hifi-no-target = --pack und --theme gelten nur im Modus retrofit: der originalgetreue Import (--mode hifi) erzeugt sein eigenes Paket und Design
 cli-import-probe-mismatch = das erzeugte Paket entspricht bei der Prüfung nicht seiner Deklaration (Widget { $widget }): ein Fehler des Imports

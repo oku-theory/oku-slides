@@ -39,6 +39,7 @@ cli-import-label = PowerPoint 匯入
 cli-import-pack-required = retrofit 模式需要 --pack：範本套件的 ID、資料夾或名稱
 cli-import-unknown-pack = 未知的範本套件：{ $pack }
 cli-import-bad-pack = 無法讀取範本套件 { $pack }：其 pack.json 未描述範本套件
+cli-import-bad-theme = 無法讀取目標主題：無法讀取其設計權杖
 cli-import-write-failed = 無法寫入匯入的簡報 { $path }
 cli-import-hifi-no-target = --pack 與 --theme 僅用於 retrofit 模式：高保真匯入（--mode hifi）會產生自己的範本套件與主題
 cli-import-probe-mismatch = 產生的範本套件探測結果與宣告不符（元件 { $widget }）：這是匯入程式的缺陷

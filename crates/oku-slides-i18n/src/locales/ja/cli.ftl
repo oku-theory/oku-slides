@@ -39,6 +39,7 @@ cli-import-label = PowerPoint のインポート
 cli-import-pack-required = retrofit モードでは --pack が必要です（テンプレートパックの ID、フォルダー、または名前）
 cli-import-unknown-pack = 不明なテンプレートパック：{ $pack }
 cli-import-bad-pack = 読み取れないテンプレートパック { $pack }：pack.json がテンプレートパックを記述していません
+cli-import-bad-theme = 対象テーマを読み取れません：デザイントークンを読み取れませんでした
 cli-import-write-failed = インポートしたデッキ { $path } を書き込めませんでした
 cli-import-hifi-no-target = --pack と --theme は retrofit モード専用です。高忠実度インポート（--mode hifi）は独自のパックとテーマを生成します
 cli-import-probe-mismatch = 生成されたパックが宣言どおりに検査されませんでした（ウィジェット { $widget }）。インポーターの不具合です

@@ -67,6 +67,7 @@ cli-import-label = استيراد من PowerPoint
 cli-import-pack-required = الخيار --pack مطلوب في وضع retrofit: معرّف حزمة القوالب أو مجلدها أو اسمها
 cli-import-unknown-pack = حزمة قوالب غير معروفة: { $pack }
 cli-import-bad-pack = حزمة قوالب غير مقروءة { $pack }: ملف pack.json الخاص بها لا يصف حزمة قوالب
+cli-import-bad-theme = سمة الهدف غير مقروءة: تعذّرت قراءة رموز التصميم الخاصة بها
 cli-import-write-failed = تعذّرت كتابة العرض المستورد { $path }
 cli-import-hifi-no-target = --pack و--theme خاصّان بوضع retrofit: الاستيراد عالي الدقة (--mode hifi) يولّد حزمته وسمته
 cli-import-probe-mismatch = الحزمة المولَّدة لا تُفحص كما أُعلنت (الأداة { $widget }): هذا خلل في المستورِد
