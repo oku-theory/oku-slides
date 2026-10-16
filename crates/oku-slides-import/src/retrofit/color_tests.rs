@@ -227,3 +227,17 @@ fn text_color_of_a_light_text_on_a_dark_ground_takes_an_on_dark_token() {
     let got = text_color(&Styled::explicit(hex("#3f6b5e")), hex("#2e2b26"), &colors(PAPIER));
     assert_that!(got).is_equal_to(Ok(Some("on-accent".to_owned())));
 }
+
+/// Le surtitre et les puces d'une carte en relief (`highlight-kicker`) se
+/// lisent sur son fond (`highlight-bg`) : la règle de contraste du retrofit,
+/// qui y pose les cartes en relief des slides importées (t-817).
+#[rstest]
+#[case(PAPIER)]
+#[case(PRO)]
+fn builtin_theme_highlight_kicker_reads_on_the_highlight_card(#[case] theme: &str) {
+    let tokens = crate::test_support::tokens(theme);
+    let kicker = tokens["component"]["card"]["highlight-kicker"].as_str().unwrap();
+    let c = colors(theme);
+    let ratio = contrast(c.get(kicker).unwrap(), c.card(true));
+    assert_that!(ratio).is_greater_than_or_equal_to(MIN_CONTRAST);
+}

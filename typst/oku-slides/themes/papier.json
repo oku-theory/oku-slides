@@ -87,6 +87,9 @@
         "bg": "bg",
         "bar-color": "accent"
       },
+      "card": {
+        "highlight-kicker": "accent-soft"
+      },
       "end-slide": {
         "bg": "surface"
       }
