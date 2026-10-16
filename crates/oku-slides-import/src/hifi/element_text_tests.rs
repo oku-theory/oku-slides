@@ -249,6 +249,63 @@ fn text_element_never_writes_a_negative_inset_for_a_tight_line() {
 }
 
 #[test]
+fn text_element_loses_the_paragraph_style_when_an_inset_is_clamped() {
+    let mut p = para(vec![run("Base")]);
+    p.style.line_spacing = Spacing::Points(5.0);
+    let tb = TextBox { insets: Insets { l: 0.0, t: 0.0, r: 0.0, b: 0.0 }, ..text_box(vec![p]) };
+    assert_that!(losses(tb)).is_equal_to(vec![LossKind::ParagraphStyle]);
+    let negative =
+        TextBox { insets: Insets { l: -4.0, t: 3.6, r: 7.2, b: 3.6 }, ..text_box(vec![para(vec![run("x")])]) };
+    assert_that!(losses(negative)).is_equal_to(vec![LossKind::ParagraphStyle]);
+}
+
+/// Une puce `text` au retrait source `margin_left` et `indent` (pt source).
+fn indented(text: &str, margin_left: f64, indent: f64) -> SourceParagraph {
+    let mut p = bullet(0, vec![run(text)]);
+    (p.style.margin_left, p.style.indent) = (margin_left, indent);
+    p
+}
+
+#[test]
+fn text_element_writes_the_hanging_indent_of_its_bullets() {
+    // alto p. 8 : marL 27 pt, indent -27 pt (pt source ; page Oku au double).
+    let tb = text_box(vec![indented("Conseil", 27.0, -27.0), indented("Distribution", 27.0, -27.0)]);
+    assert_that!(element(tb.clone()).style.indent).is_equal_to(Some([54.0, -54.0]));
+    assert_that!(losses(tb)).is_empty();
+}
+
+#[test]
+fn text_element_without_indent_writes_none() {
+    assert_that!(element(text_box(vec![para(vec![run("Plat")])])).style.indent).is_none();
+}
+
+#[test]
+fn text_element_takes_the_dominant_indent_and_loses_the_others() {
+    let tb = text_box(vec![indented("Le plus long des deux", 27.0, -27.0), indented("Court", 10.0, 0.0)]);
+    assert_that!(element(tb.clone()).style.indent).is_equal_to(Some([54.0, -54.0]));
+    assert_that!(losses(tb)).is_equal_to(vec![LossKind::ParagraphStyle]);
+}
+
+#[test]
+fn text_element_does_not_count_the_indent_of_a_flattened_level() {
+    let mut deep = indented("Deux", 54.0, -27.0);
+    deep.level = 1;
+    let kinds = losses(text_box(vec![indented("Un", 27.0, -27.0), deep]));
+    assert_that!(kinds).is_equal_to(vec![LossKind::ListLevels]);
+}
+
+#[test]
+fn placeholder_text_loses_a_paragraph_indent_other_than_the_level_one() {
+    let setup = Setup::new();
+    let mut level = LevelStyle { para: indented("", 27.0, -27.0).style, run: crate::test_support::run_style() };
+    let (_, same) = placeholder_text(&text_box(vec![indented("Pareil", 27.0, -27.0)]), &level, &setup.ctx());
+    assert_that!(same).is_empty();
+    level.para.margin_left = 40.0;
+    let (_, other) = placeholder_text(&text_box(vec![indented("Autre", 27.0, -27.0)]), &level, &setup.ctx());
+    assert_that!(other).is_equal_to(vec![LossKind::ParagraphStyle]);
+}
+
+#[test]
 fn text_element_flattens_list_levels() {
     let placed = convert(text_box(vec![bullet(0, vec![run("Un")]), bullet(1, vec![run("Deux")])]));
     let lists: Vec<Option<ListKind>> = body(&placed.elements[0]).iter().map(|p| p.list).collect();

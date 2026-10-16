@@ -210,6 +210,42 @@ fn style_invalid_spacing_out_of_bounds_returns_its_field(#[case] spacing: f64) {
 }
 
 #[test]
+fn style_with_indent_round_trips_through_json() {
+    let json = serde_json::json!({ "indent": [27.0, -27.0] });
+    let style: Style = serde_json::from_value(json.clone()).unwrap();
+    assert_that!(style.indent).is_equal_to(Some([27.0, -27.0]));
+    assert_that!(serde_json::to_value(&style).unwrap()).is_equal_to(json);
+}
+
+#[test]
+fn style_merge_takes_indent_from_the_patch() {
+    let mut style = Style { indent: Some([10.0, 0.0]), ..Default::default() };
+    style.merge(Style { size: Some(TokenValue::Number(20.0)), ..Default::default() });
+    assert_that!(style.indent).is_equal_to(Some([10.0, 0.0]));
+    style.merge(Style { indent: Some([0.0, 5.0]), ..Default::default() });
+    assert_that!(style.indent).is_equal_to(Some([0.0, 5.0]));
+}
+
+#[rstest::rstest]
+#[case::nan_margin([f64::NAN, 0.0])]
+#[case::negative_margin([-1.0, 0.0])]
+#[case::too_wide_margin([STYLE_INDENT_MAX + 1.0, 0.0])]
+#[case::infinite_first([0.0, f64::NEG_INFINITY])]
+#[case::too_deep_first([0.0, -STYLE_INDENT_MAX - 1.0])]
+fn style_invalid_indent_out_of_bounds_returns_its_field(#[case] indent: [f64; 2]) {
+    let style = Style { indent: Some(indent), ..Default::default() };
+    assert_that!(style.invalid()).is_equal_to(Some(("style.indent", ValueReason::OutOfBounds)));
+}
+
+#[test]
+fn style_invalid_with_bounded_indent_returns_none() {
+    for indent in [[0.0, 0.0], [27.0, -27.0], [STYLE_INDENT_MAX, -STYLE_INDENT_MAX], [0.0, STYLE_INDENT_MAX]] {
+        let style = Style { indent: Some(indent), ..Default::default() };
+        assert_that!(style.invalid()).named(&format!("{indent:?}")).is_none();
+    }
+}
+
+#[test]
 fn style_invalid_with_bounded_spacing_returns_none() {
     for spacing in [0.0, 2.5, STYLE_SPACING_MAX] {
         let style = Style { spacing: Some(spacing), ..Default::default() };

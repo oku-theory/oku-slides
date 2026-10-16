@@ -186,7 +186,10 @@ police, `tracking` (espacement des lettres, en pt), alignement, fond, trait,
 `"bottom"` : ancrage dans le cadre, élément à cadre seulement), `inset`
 (quatre marges en pt : haut, droite, bas, gauche) et `spacing` (espace entre
 deux paragraphes, items de liste compris, en pt : de la dernière ligne de base
-de l'un au haut de la première ligne du suivant ; sans la clé, celui du thème).
+de l'un au haut de la première ligne du suivant ; sans la clé, celui du thème)
+et `indent` (deux nombres en pt : la marge gauche des paragraphes, puis le
+décalage de leur première ligne ; négatif, un retrait suspendu où tient la
+puce ou le numéro d'un item, son texte partant de la marge).
 Le widget `shape` dessine un
 chemin avec `shape: "path"` et `path: { "d": "M 0 0 L 1 0 L 0.5 1 Z" }` :
 commandes `M`, `L`, `C`, `Q`, `Z`, chaque lettre et nombre séparés par des

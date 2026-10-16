@@ -211,3 +211,53 @@ fn table_look_never_writes_null_for_a_non_nullable_token() {
         assert_that!(k == "body-bg" || !v.is_null()).is_true();
     }
 }
+
+/// Deux lignes d'un même fond (accent1 nuancé à 102), sans en-tête.
+fn headless() -> Table {
+    let ink = scheme("dk1", 0);
+    let row = |a: &str| {
+        let c = || cell(a, 16.0, &ink, solid(scheme("accent1", 102)), white_rule());
+        vec![c(), c()]
+    };
+    Table {
+        col_widths: vec![100.0, 100.0],
+        row_heights: vec![30.0; 2],
+        flags: TableFlags::default(),
+        rows: vec![row("A"), row("B")],
+    }
+}
+
+#[test]
+fn table_look_without_header_matches_a_deck_style_with_one() {
+    let deck = look(&libreoffice_like([100.0, 100.0]));
+    let l = look(&headless());
+    assert_that!(l.header_row).is_false();
+    assert_that!(l.matches(Some(&deck))).is_true();
+}
+
+#[test]
+fn table_look_without_header_but_another_body_does_not_match() {
+    let deck = look(&libreoffice_like([100.0, 100.0]));
+    let mut t = headless();
+    for c in t.rows.iter_mut().flatten() {
+        c.fill = solid(scheme("accent2", 0));
+    }
+    assert_that!(look(&t).matches(Some(&deck))).is_false();
+}
+
+#[test]
+fn table_look_of_rows_taller_than_their_text_is_irregular() {
+    // 16 pt sur une ligne : 19,2 pt de texte et 7,2 pt de marges ; 80 pt n'en vient pas.
+    let mut t = libreoffice_like([100.0, 100.0]);
+    t.row_heights[2] = 80.0;
+    assert_that!(look(&t).irregular).is_true();
+}
+
+#[test]
+fn table_look_of_rows_as_tall_as_their_wrapped_text_is_regular() {
+    // 40 caractères de 16 pt dans 85,6 pt utiles : 4 lignes, 76,8 + 7,2 pt.
+    let mut t = libreoffice_like([100.0, 100.0]);
+    t.rows[2][0].text.paragraphs[0].runs[0].text = "x".repeat(40);
+    t.row_heights[2] = 84.0;
+    assert_that!(look(&t).irregular).is_false();
+}

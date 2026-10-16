@@ -151,8 +151,9 @@ pub enum LossKind {
         /// Hauteur de la page source, en pt arrondis.
         height: u32,
     },
-    /// Alignement, interligne ou espacement d'un paragraphe ramené à celui de
-    /// sa boîte (hi-fi : l'élément texte n'en a qu'un).
+    /// Alignement, interligne, espacement ou retrait d'un paragraphe ramené à
+    /// celui de sa boîte (hi-fi : l'élément texte n'en a qu'un), ou marge du
+    /// texte ramenée dans les bornes du cœur.
     ParagraphStyle,
     /// Rendu de forme approché (hi-fi).
     ShapeStyle(ShapeEffect),
@@ -170,8 +171,9 @@ pub enum LossKind {
         omitted: u32,
     },
     /// Style d'un tableau approché (hi-fi) : fonds par cellule, bordures,
-    /// largeurs de colonnes ou tailles de texte que le widget `table` ne rend
-    /// pas, ou un style autre que celui du thème généré (le premier tableau).
+    /// largeurs de colonnes, hauteurs de lignes ou tailles de texte que le
+    /// widget `table` ne rend pas, ou un style autre que celui du thème généré
+    /// (le premier tableau).
     TableStyle,
     /// Tableau ou graphique sans données : rien n'est posé (hi-fi).
     EmptyData,

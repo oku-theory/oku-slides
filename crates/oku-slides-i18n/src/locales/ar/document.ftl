@@ -83,7 +83,7 @@ import-loss-no-slot = حُذف المحتوى: لا مكان له في القا�
 import-loss-moved-to-notes = نُقل النص إلى ملاحظات المتحدث: لا مكان له في الغلاف
 import-loss-items-dropped = عناصر كثيرة جدًا في الشريحة: عناصر محذوفة: { $dropped }
 import-loss-page-fitted = صفحة المصدر { $width } × { $height } نقطة ليست بنسبة 16:9: غُيّر حجم المحتوى ووُسِّط
-import-loss-paragraph-style = وُحّدت محاذاة فقرة أو تباعد أسطرها أو تباعد الفقرات مع المربع
+import-loss-paragraph-style = وُحّدت محاذاة فقرة أو تباعد أسطرها أو تباعد الفقرات أو مسافتها البادئة مع المربع
 import-loss-shape-style = { $effect ->
     [gradient] عُرض التدرج بلون واحد
     [picture] مُدّت صورة التعبئة على إطار الشكل
@@ -93,7 +93,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = تخطيطات كثيرة جدًا لحزمة واحدة: «{ $layout }» بلا قالب؛ تستخدم شرائحه الأداة الفارغة وتتلقى زخرفته كعناصر
 import-loss-decor-truncated = قُصّت الزخرفة لتلائم حجم ملف الحزمة: عناصر محذوفة: { $omitted }
-import-loss-table-style = قُرّب نمط الجدول: خلفيات الخلايا أو الحدود أو عروض الأعمدة أو أحجام النص الخاصة به فُقدت
+import-loss-table-style = قُرّب نمط الجدول: خلفيات الخلايا أو الحدود أو عروض الأعمدة أو ارتفاعات الصفوف أو أحجام النص الخاصة به فُقدت
 import-loss-overflow = العنصر «{ $element }» يتجاوز حافة الشريحة
 import-loss-empty-data = جدول أو مخطط بلا بيانات: لم يُوضع شيء
 import-reference-unavailable = لا توجد درجة مرئية: { $cause ->

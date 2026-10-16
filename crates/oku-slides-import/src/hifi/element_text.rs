@@ -1,29 +1,30 @@
 //! Texte d'un élément hi-fi : une boîte source en élément `text`, corps
 //! riche et style de la boîte.
 //!
-//! L'élément porte le style dominant de la boîte, celui du plus grand
-//! nombre de caractères : taille, couleur, police (son rôle `display` ou
-//! `body` quand c'est celle du thème), alignement, interligne ; gras et
-//! italique s'ils couvrent tout le texte ; l'espacement des lettres
-//! (`tracking`, `spc` source) ; l'ancrage (`valign`) et les marges
-//! (`inset`) de la source. Un run d'une autre taille ou d'une autre
-//! couleur la porte. Une autre police est perdue (`RunStyle(Font)`), un
-//! autre espacement des lettres aussi (`RunStyle(Tracking)`), comme
-//! un autre alignement ou un autre interligne de paragraphe, ou un texte
-//! justifié (`ParagraphStyle`). L'interligne, en em de la taille du
-//! paragraphe, rend le pas de ligne de PowerPoint ([`LineBox`]) : le widget
-//! `text` garde les bords de ligne Typst par défaut (capitales, ligne de
-//! base), le pas y vaut la hauteur des capitales de la police plus
-//! l'interligne. Les marges le recalent : la première ligne de base est
-//! descendue où PowerPoint la pose (`LineBox::ascent` sous le haut, pas la
-//! hauteur des capitales), la dernière remontée de la descente de sa ligne,
-//! que Typst ne compte pas ; ainsi l'ancrage haut, milieu ou bas tombe
-//! juste. L'espace entre paragraphes (`spacing`, pt) rend celui de
-//! PowerPoint : la descente de la ligne, l'espace après et l'espace avant,
-//! la montée de la ligne suivante, moins ses capitales ; un autre espace
-//! après ou avant est perdu (`ParagraphStyle`). Un surlignage devient
-//! la pastille de la palette (`chart.palette`) de même couleur, sinon il
-//! est perdu.
+//! L'élément porte le style dominant de la boîte, celui du plus grand nombre de
+//! caractères : taille, couleur, police (son rôle `display` ou `body` quand
+//! c'est celle du thème), alignement, interligne ; gras et italique s'ils
+//! couvrent tout le texte ; l'espacement des lettres (`tracking`, `spc`
+//! source) ; l'ancrage (`valign`) et les marges (`inset`) de la source ; les
+//! retraits (`indent` : `marL`, `indent`) des paragraphes du premier niveau,
+//! puce suspendue comprise. Une marge ou un retrait hors des bornes du cœur y
+//! est ramené (`ParagraphStyle`). Un run d'une autre taille ou d'une autre
+//! couleur la porte. Une autre police est perdue (`RunStyle(Font)`), un autre
+//! espacement des lettres aussi (`RunStyle(Tracking)`), comme un autre
+//! alignement, interligne ou retrait de paragraphe, ou un texte justifié
+//! (`ParagraphStyle`). L'interligne, en em de la taille du paragraphe, rend le
+//! pas de ligne de PowerPoint ([`LineBox`]) : le widget `text` garde les bords
+//! de ligne Typst par défaut (capitales, ligne de base), le pas y vaut la
+//! hauteur des capitales de la police plus l'interligne. Les marges le
+//! recalent : la première ligne de base est descendue où PowerPoint la pose
+//! (`LineBox::ascent` sous le haut, pas la hauteur des capitales), la dernière
+//! remontée de la descente de sa ligne, que Typst ne compte pas ; ainsi
+//! l'ancrage haut, milieu ou bas tombe juste. L'espace entre paragraphes
+//! (`spacing`, pt) rend celui de PowerPoint : la descente de la ligne, l'espace
+//! après et l'espace avant, la montée de la ligne suivante, moins ses
+//! capitales ; un autre espace après ou avant est perdu (`ParagraphStyle`). Un
+//! surlignage devient la pastille de la palette (`chart.palette`) de même
+//! couleur, sinon il est perdu.
 //!
 //! Un placeholder de slide remplit un paramètre du widget de son layout
 //! ([`placeholder_text`]) : ses runs se marquent contre le style du
@@ -40,13 +41,13 @@
 //! d'un autre sens d'écriture que celle-ci est perdu (`ParagraphStyle`).
 
 use oku_slides_core::{
-    Element, Frame, Paragraph, Run, STYLE_INSET_MAX, STYLE_SPACING_MAX, STYLE_TRACKING_MAX, TokenValue,
+    Element, Frame, Paragraph, Run, STYLE_INDENT_MAX, STYLE_INSET_MAX, STYLE_SPACING_MAX, STYLE_TRACKING_MAX,
+    TokenValue,
 };
 
 use super::element::ElementCtx;
 use super::page::{Page, round2};
 use super::typst::{DEFAULT_SIZE, Fit, FontName, LineBox, spacing};
-use crate::fonts::LineMetrics;
 use crate::report::{LossKind, RunEffect};
 use crate::retrofit::text::{bound, effects, list_kind, note, safe_link, shown};
 use crate::source::{self, Align, Anchor, Color, LevelStyle, Script, TextBox};
@@ -108,7 +109,7 @@ pub(super) fn text_element(
     let shown_paras: Vec<&source::Paragraph> =
         tb.paragraphs.iter().filter(|p| p.runs.iter().any(|r| !r.text.trim().is_empty())).collect();
     let para_weight = |p: &source::Paragraph| p.runs.iter().map(weight).sum::<usize>();
-    let metrics = family.and_then(|f| metrics(f, ctx)).unwrap_or(LineMetrics::DEFAULT);
+    let metrics = ctx.base.line_metrics(family);
     // La plus grande police d'un paragraphe (pt page) et sa ligne PowerPoint.
     let line_of = |p: &source::Paragraph| {
         let size = p.runs.iter().map(size_of).fold(f64::NAN, f64::max);
@@ -147,13 +148,35 @@ pub(super) fn text_element(
         note(&mut losses, LossKind::ParagraphStyle);
     }
 
+    // Retraits : ceux des paragraphes du premier niveau (les autres niveaux
+    // sont aplatis, perte `ListLevels`) ; un autre retrait est perdu.
+    let top_level = || shown_paras.iter().filter(|p| p.level == 0);
+    let indent_of = |p: &source::Paragraph| [round2(page.len(p.style.margin_left)), round2(page.len(p.style.indent))];
+    let indent = dominant(top_level().map(|p| (indent_of(p), para_weight(p))));
+    if top_level().any(|p| Some(indent_of(p)) != indent) {
+        note(&mut losses, LossKind::ParagraphStyle);
+    }
+    let indent = indent.filter(|i| *i != [0.0, 0.0]).map(|[margin, first]| {
+        let bounded = [margin.clamp(0.0, STYLE_INDENT_MAX), first.clamp(-STYLE_INDENT_MAX, STYLE_INDENT_MAX)];
+        if bounded != [margin, first] {
+            note(&mut losses, LossKind::ParagraphStyle);
+        }
+        bounded
+    });
+
     // Typst pose le haut des capitales de la première ligne au bord de la
     // zone et la dernière ligne de base au bord bas.
     if let (Some(first), Some(last)) = (shown_paras.first(), shown_paras.last()) {
         let ((size, top), (_, bottom)) = (line_of(first), line_of(last));
-        let side = |v: f64| round2(v).clamp(0.0, STYLE_INSET_MAX);
-        inset[0] = side(inset[0] + top.ascent - metrics.cap_height * size);
-        inset[2] = side(inset[2] + bottom.descent());
+        inset[0] += top.ascent - metrics.cap_height * size;
+        inset[2] += bottom.descent();
+    }
+    // Une marge hors des bornes du cœur (négative : une ligne trop serrée,
+    // une marge source négative) y est ramenée : le texte se décale, perdu.
+    let raw = inset.map(round2);
+    let inset = raw.map(|v| v.clamp(0.0, STYLE_INSET_MAX));
+    if inset != raw {
+        note(&mut losses, LossKind::ParagraphStyle);
     }
 
     let mut e = Element::text(id, paragraphs);
@@ -170,6 +193,7 @@ pub(super) fn text_element(
     style.spacing = between;
     style.valign = Some(valign_name(tb.anchor).to_owned());
     style.inset = Some(inset);
+    style.indent = indent;
     (Some(e), losses)
 }
 
@@ -195,6 +219,12 @@ pub(super) fn placeholder_text(
         tracking: tracking(r, page),
     };
     let mut losses = Vec::new();
+    // Le widget pose les retraits du niveau ; un autre retrait est perdu.
+    let level_indent = (level.para.margin_left, level.para.indent);
+    let shown = tb.paragraphs.iter().filter(|p| p.level == 0 && p.runs.iter().any(|r| !r.text.trim().is_empty()));
+    if shown.into_iter().any(|p| (p.style.margin_left, p.style.indent) != level_indent) {
+        note(&mut losses, LossKind::ParagraphStyle);
+    }
     let paragraphs = rich_paragraphs(tb, &base, ctx, &mut losses);
     (paragraphs, losses)
 }
@@ -271,17 +301,6 @@ fn rich_paragraphs(tb: &TextBox, base: &Base, ctx: &ElementCtx<'_>, losses: &mut
         note(losses, LossKind::TextTruncated);
     }
     paragraphs
-}
-
-/// Les métriques verticales de la police employée pour la famille source
-/// `family`, sinon de celle du corps du thème (la police d'une famille
-/// introuvable).
-fn metrics(family: &str, ctx: &ElementCtx<'_>) -> Option<LineMetrics> {
-    let fonts = ctx.base.fonts;
-    if fonts.used(family).is_some() {
-        return fonts.metrics(family);
-    }
-    fonts.metrics(&ctx.base.theme_fonts?.minor)
 }
 
 /// L'espacement des lettres du style `s` (`spc`), en pt page, dans les

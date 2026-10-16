@@ -81,7 +81,7 @@ import-loss-no-slot = Treść pominięta: wybrany szablon nie ma na nią miejsca
 import-loss-moved-to-notes = Tekst przeniesiony do notatek prelegenta: okładka nie ma na niego miejsca
 import-loss-items-dropped = Zbyt wiele elementów na slajdzie: pominięte elementy: { $dropped }
 import-loss-page-fitted = Strona źródłowa { $width } × { $height } pt nie ma proporcji 16:9: treść przeskalowana i wyśrodkowana
-import-loss-paragraph-style = Wyrównanie, interlinię lub odstęp między akapitami dopasowano do pola
+import-loss-paragraph-style = Wyrównanie, interlinię, odstęp między akapitami lub wcięcie dopasowano do pola
 import-loss-shape-style = { $effect ->
     [gradient] Gradient pokazano jako jednolity kolor
     [picture] Obraz wypełnienia rozciągnięto do ramki kształtu
@@ -91,7 +91,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = Za dużo układów na jeden pakiet: „{ $layout }” nie ma szablonu; jego slajdy używają pustego widżetu i dostają jego dekorację jako elementy
 import-loss-decor-truncated = Dekoracja przycięta, by zmieścić się w rozmiarze pliku pakietu: pominięte elementy: { $omitted }
-import-loss-table-style = Styl tabeli przybliżony: jej własne tła komórek, obramowania, szerokości kolumn lub rozmiary tekstu są tracone
+import-loss-table-style = Styl tabeli przybliżony: jej własne tła komórek, obramowania, szerokości kolumn, wysokości wierszy lub rozmiary tekstu są tracone
 import-loss-overflow = Element „{ $element }” wychodzi poza krawędź slajdu
 import-loss-empty-data = Tabela lub wykres bez danych: nic nie wstawiono
 import-reference-unavailable = Brak oceny wizualnej: { $cause ->

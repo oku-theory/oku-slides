@@ -212,6 +212,7 @@ fn set_style_with_valign_and_inset_anchors_the_text() {
 #[case::replace_inset(true, Style { inset: Some([1e9, 0.0, 0.0, 0.0]), ..Default::default() }, "style.inset")]
 #[case::set_tracking(false, Style { tracking: Some(-1e9), ..Default::default() }, "style.tracking")]
 #[case::set_spacing(false, Style { spacing: Some(-2.0), ..Default::default() }, "style.spacing")]
+#[case::replace_indent(true, Style { indent: Some([1e9, 0.0]), ..Default::default() }, "style.indent")]
 fn set_or_replace_style_out_of_its_domain_returns_invalid_value(
     #[case] replace: bool,
     #[case] style: Style,

@@ -39,7 +39,7 @@ pub(crate) use text::{DEFAULT_SIZE, Fit, LineBox, spacing};
 use super::color::ThemeColors;
 use super::page::{Page, round2};
 use super::theme::role_families;
-use crate::fonts::FontPlan;
+use crate::fonts::{FontPlan, LineMetrics};
 use crate::report::{Loss, LossKind};
 use crate::source::{Asset, Crop, Frame, Item, ItemKind, OpaqueReason, Shape, ThemeFonts};
 
@@ -177,6 +177,20 @@ impl<'a> GenCtx<'a> {
             }
             FontName::Family(f) => vec![f],
         }
+    }
+
+    /// Les métriques verticales de la police employée pour la famille source
+    /// `family` ; sans famille, ou si sa police ne les donne pas, celles de la
+    /// police du corps (la mineure du thème, sinon le repli) ; à défaut
+    /// [`LineMetrics::DEFAULT`]. Une seule règle pour le décor, les
+    /// placeholders et les éléments.
+    pub(crate) fn line_metrics(&self, family: Option<&str>) -> LineMetrics {
+        let fonts = self.fonts;
+        let body = || {
+            let minor = self.theme_fonts.map(|tf| tf.minor.as_str());
+            minor.or(fonts.fallback.as_deref()).and_then(|f| fonts.metrics(f))
+        };
+        family.and_then(|f| fonts.metrics(f)).or_else(body).unwrap_or(LineMetrics::DEFAULT)
     }
 
     /// Le sens d'écriture de la langue du deck : de droite à gauche ?

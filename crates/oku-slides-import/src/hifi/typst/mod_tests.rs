@@ -417,3 +417,20 @@ fn decor_writes_the_theme_fonts_by_their_role() {
         "font-of(t, \"body\")",
     ]);
 }
+
+#[test]
+fn line_metrics_without_family_are_the_body_font_ones() {
+    let fx = Fixture::new();
+    let theme = office_theme();
+    let ctx = GenCtx { theme_fonts: Some(&theme.fonts), ..fx.ctx() };
+    let carlito = fx.fonts.metrics("Calibri").unwrap_or_else(|| panic!("métriques de Carlito"));
+    assert_that!(carlito).is_not_equal_to(LineMetrics::DEFAULT);
+    assert_that!(ctx.line_metrics(None)).is_equal_to(carlito);
+    assert_that!(ctx.line_metrics(Some("Calibri"))).is_equal_to(carlito);
+}
+
+#[test]
+fn line_metrics_without_any_known_font_are_the_default_ones() {
+    let fx = Fixture::with_fonts(&[]);
+    assert_that!(fx.ctx().line_metrics(None)).is_equal_to(LineMetrics::DEFAULT);
+}

@@ -75,7 +75,7 @@ import-loss-no-slot = コンテンツを省きました。選んだテンプレ�
 import-loss-moved-to-notes = テキストを発表者ノートに移しました。表紙に配置できる場所がありません
 import-loss-items-dropped = スライドの要素が多すぎます：{ $dropped }個の要素を省きました
 import-loss-page-fitted = 元のページ（{ $width } × { $height } pt）は 16:9 ではありません。内容を拡大縮小して中央に配置しました
-import-loss-paragraph-style = 段落の配置、行間、または段落間隔がボックスに合わせられました
+import-loss-paragraph-style = 段落の配置、行間、段落間隔、またはインデントがボックスに合わせられました
 import-loss-shape-style = { $effect ->
     [gradient] グラデーションが単色で表示されました
     [picture] 塗りつぶしの画像が図形の枠に合わせて引き伸ばされました
@@ -85,7 +85,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = 1つのパックにはレイアウトが多すぎます：「{ $layout }」にはテンプレートがなく、そのスライドは空のウィジェットを使い、装飾を要素として受け取ります
 import-loss-decor-truncated = パックファイルのサイズに収めるため装飾を切り詰めました：{ $omitted }個の要素を省きました
-import-loss-table-style = 表のスタイルを近似しました：独自のセルの背景、罫線、列幅、文字サイズは失われます
+import-loss-table-style = 表のスタイルを近似しました：独自のセルの背景、罫線、列幅、行の高さ、文字サイズは失われます
 import-loss-overflow = 要素「{ $element }」がスライドの端からはみ出しています
 import-loss-empty-data = データのない表またはグラフ：何も配置していません
 import-reference-unavailable = 見た目の差のスコアなし：{ $cause ->

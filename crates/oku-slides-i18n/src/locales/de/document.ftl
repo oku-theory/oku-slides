@@ -78,7 +78,7 @@ import-loss-no-slot = Inhalt weggelassen: die gewählte Vorlage hat keinen Platz
 import-loss-moved-to-notes = Text in die Sprechernotizen verschoben: die Titelfolie hat keinen Platz dafür
 import-loss-items-dropped = Zu viele Elemente auf der Folie: { $dropped } Elemente ausgelassen
 import-loss-page-fitted = Quellseite { $width } × { $height } pt ist nicht 16:9: Inhalt skaliert und zentriert
-import-loss-paragraph-style = Ausrichtung, Zeilen- oder Absatzabstand eines Absatzes an das Feld angeglichen
+import-loss-paragraph-style = Ausrichtung, Zeilen- oder Absatzabstand oder Einzug eines Absatzes an das Feld angeglichen
 import-loss-shape-style = { $effect ->
     [gradient] Farbverlauf als Volltonfarbe dargestellt
     [picture] Füllbild auf den Rahmen der Form gestreckt
@@ -91,7 +91,7 @@ import-loss-decor-truncated = { $omitted ->
     [one] Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Element ausgelassen
    *[other] Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Elemente ausgelassen
 }
-import-loss-table-style = Tabellenstil angenähert: eigene Zellhintergründe, Rahmen, Spaltenbreiten oder Textgrößen gehen verloren
+import-loss-table-style = Tabellenstil angenähert: eigene Zellhintergründe, Rahmen, Spaltenbreiten, Zeilenhöhen oder Textgrößen gehen verloren
 import-loss-overflow = Element „{ $element }“ ragt über den Folienrand hinaus
 import-loss-empty-data = Tabelle oder Diagramm ohne Daten: nichts eingefügt
 import-reference-unavailable = Keine visuelle Bewertung: { $cause ->

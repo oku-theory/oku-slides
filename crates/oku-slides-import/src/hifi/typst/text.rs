@@ -106,8 +106,9 @@ impl Gen<'_> {
             w.open("block(width: 100%, {");
         }
         let size_pt = page.len(size);
-        let family = p.runs.iter().find(|r| !r.text.trim().is_empty()).map(|r| r.style.font.value.as_str());
-        let metrics = family.and_then(|f| self.ctx.fonts.metrics(f)).unwrap_or(LineMetrics::DEFAULT);
+        // La police du premier run visible, sinon du premier run, sinon du corps.
+        let family = p.runs.iter().find(|r| !r.text.trim().is_empty()).or(p.runs.first());
+        let metrics = self.ctx.line_metrics(family.map(|r| r.style.font.value.as_str()));
         let line = LineBox::new(page, size_pt, s.line_spacing, fit.line_reduction, metrics);
         let mut par = format!("justify: {}, leading: 0pt", s.align == Align::Justify);
         if indent < 0.0 {

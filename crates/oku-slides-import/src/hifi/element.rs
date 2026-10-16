@@ -29,7 +29,7 @@
 
 use std::collections::BTreeSet;
 
-use oku_slides_core::{Element, Frame, ParamValue, PathCommand, STYLE_INSET_MAX, ShapePath, TokenValue};
+use oku_slides_core::{Element, Frame, ParamValue, PathCommand, ShapePath, TokenValue};
 use serde_json::{Value, json};
 
 use super::element_text::text_element;
@@ -413,10 +413,11 @@ fn visible(c: Crop) -> bool {
 }
 
 /// Les marges d'un texte dans `frame` (pt page) : la zone `[l, t, r, b]`
-/// (fractions du cadre) puis les marges source `insets`, dans les bornes du cœur.
+/// (fractions du cadre) puis les marges source `insets` ; [`text_element`]
+/// les ramène dans les bornes du cœur.
 fn inset([l, t, r, b]: [f64; 4], frame: Frame, insets: Insets, ctx: &ElementCtx<'_>) -> [f64; 4] {
     let page = ctx.base.page;
-    let side = |zone: f64, margin: f64| round2(zone + page.len(margin)).clamp(0.0, STYLE_INSET_MAX);
+    let side = |zone: f64, margin: f64| round2(zone + page.len(margin));
     [
         side(t * frame.h, insets.t),
         side((1.0 - r) * frame.w, insets.r),

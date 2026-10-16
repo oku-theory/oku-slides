@@ -2,6 +2,7 @@ use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::hifi::typst::GenCtx;
 use crate::hifi::typst::mod_tests::Fixture;
 use crate::source::{Item, ItemKind, Rgba, Styled};
 use crate::test_support::{bullet, item, para, run, run_with, text_box};
@@ -96,6 +97,19 @@ fn text_box_lays_out_its_columns_and_anchor() {
     tb.columns = 2;
     tb.anchor = Anchor::Bottom;
     assert_that!(Fixture::new().decor(&[text_item(tb)]).code).contains("align(bottom, columns(2, stack(");
+}
+
+#[test]
+fn text_box_measures_an_empty_paragraph_with_the_body_font() {
+    let fx = Fixture::new();
+    let theme = crate::test_support::office_theme();
+    let ctx = GenCtx { theme_fonts: Some(&theme.fonts), ..fx.ctx() };
+    let code = |p| super::super::decor(&[text_item(text_box(vec![p]))], &ctx).code;
+    let carlito = code(para(vec![run("x")]));
+    let edges = carlito.split("set text(").nth(1).and_then(|s| s.split(')').next()).unwrap_or_default().to_owned();
+    // 18 pt source × 2 : les bords de Carlito, pas ceux par défaut.
+    assert_that!(edges.as_str()).starts_with("size: 36pt, top-edge: ");
+    assert_that!(code(para(Vec::new()))).contains(edges.as_str());
 }
 
 #[test]

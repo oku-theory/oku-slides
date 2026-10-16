@@ -78,7 +78,7 @@ import-loss-no-slot = Contenuto omesso: il modello scelto non ha posto per esso
 import-loss-moved-to-notes = Testo spostato nelle note del relatore: la copertina non ha posto per esso
 import-loss-items-dropped = Troppi elementi nella diapositiva: { $dropped } elementi omessi
 import-loss-page-fitted = La pagina di origine ({ $width } × { $height } pt) non è 16:9: contenuto ridimensionato e centrato
-import-loss-paragraph-style = Allineamento, interlinea o spaziatura di un paragrafo uniformati a quelli della casella
+import-loss-paragraph-style = Allineamento, interlinea, spaziatura o rientro di un paragrafo uniformati a quelli della casella
 import-loss-shape-style = { $effect ->
     [gradient] Sfumatura resa come colore pieno
     [picture] Immagine di riempimento adattata alla cornice della forma
@@ -91,7 +91,7 @@ import-loss-decor-truncated = { $omitted ->
     [one] Decorazione tagliata per stare nella dimensione di un file del pacchetto: { $omitted } elemento omesso
    *[other] Decorazione tagliata per stare nella dimensione di un file del pacchetto: { $omitted } elementi omessi
 }
-import-loss-table-style = Stile della tabella approssimato: si perdono sfondi delle celle, bordi, larghezze delle colonne o dimensioni del testo propri
+import-loss-table-style = Stile della tabella approssimato: si perdono sfondi delle celle, bordi, larghezze delle colonne, altezze delle righe o dimensioni del testo propri
 import-loss-overflow = L’elemento «{ $element }» supera il bordo della slide
 import-loss-empty-data = Tabella o grafico senza dati: non viene inserito nulla
 import-reference-unavailable = Nessun punteggio visivo: { $cause ->

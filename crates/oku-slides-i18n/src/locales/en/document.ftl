@@ -78,7 +78,7 @@ import-loss-no-slot = Content left out: the chosen template has no place for it
 import-loss-moved-to-notes = Text moved to the speaker notes: the cover has no place for it
 import-loss-items-dropped = Too many items on the slide: { $dropped } items left out
 import-loss-page-fitted = Source page { $width } × { $height } pt is not 16:9: content scaled and centered
-import-loss-paragraph-style = Paragraph alignment, line spacing or paragraph spacing changed to the box's
+import-loss-paragraph-style = Paragraph alignment, line spacing, paragraph spacing or indent changed to the box's
 import-loss-shape-style = { $effect ->
     [gradient] Gradient rendered as a solid color
     [picture] Fill picture stretched to the shape's frame
@@ -91,7 +91,7 @@ import-loss-decor-truncated = { $omitted ->
     [one] Decoration cut to fit the size of a pack file: { $omitted } item left out
    *[other] Decoration cut to fit the size of a pack file: { $omitted } items left out
 }
-import-loss-table-style = Table style approximated: its own cell backgrounds, borders, column widths or text sizes are lost
+import-loss-table-style = Table style approximated: its own cell backgrounds, borders, column widths, row heights or text sizes are lost
 import-loss-overflow = Element “{ $element }” runs past the edge of the slide
 import-loss-empty-data = Table or chart without data: nothing placed
 import-reference-unavailable = No visual score: { $cause ->

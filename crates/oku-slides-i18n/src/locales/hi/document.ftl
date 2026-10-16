@@ -79,7 +79,7 @@ import-loss-no-slot = सामग्री छोड़ दी गई: चु�
 import-loss-moved-to-notes = पाठ वक्ता नोट्स में ले जाया गया: आवरण में इसके लिए जगह नहीं है
 import-loss-items-dropped = स्लाइड पर बहुत अधिक तत्व: छोड़े गए तत्व: { $dropped }
 import-loss-page-fitted = स्रोत पृष्ठ { $width } × { $height } pt, 16:9 नहीं है: सामग्री का आकार बदलकर बीच में रखा गया
-import-loss-paragraph-style = अनुच्छेद का संरेखण, पंक्ति अंतर या अनुच्छेद अंतर बॉक्स जैसा किया गया
+import-loss-paragraph-style = अनुच्छेद का संरेखण, पंक्ति अंतर, अनुच्छेद अंतर या इंडेंट बॉक्स जैसा किया गया
 import-loss-shape-style = { $effect ->
     [gradient] ग्रेडिएंट एक रंग में दिखाया गया
     [picture] भरण चित्र आकृति के फ़्रेम तक खींचा गया
@@ -89,7 +89,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = एक पैक के लिए बहुत अधिक लेआउट: “{ $layout }” का कोई टेम्पलेट नहीं; इसकी स्लाइडें खाली विजेट लेती हैं और इसकी सजावट तत्वों के रूप में पाती हैं
 import-loss-decor-truncated = पैक फ़ाइल के आकार में समाने के लिए सजावट काटी गई: छोड़े गए तत्व: { $omitted }
-import-loss-table-style = तालिका की शैली अनुमानित: इसकी अपनी सेल पृष्ठभूमि, किनारे, स्तंभ चौड़ाई या पाठ आकार खो गए
+import-loss-table-style = तालिका की शैली अनुमानित: इसकी अपनी सेल पृष्ठभूमि, किनारे, स्तंभ चौड़ाई, पंक्ति ऊँचाई या पाठ आकार खो गए
 import-loss-overflow = तत्व “{ $element }” स्लाइड के किनारे से बाहर जाता है
 import-loss-empty-data = बिना डेटा की तालिका या चार्ट: कुछ नहीं रखा गया
 import-reference-unavailable = कोई दृश्य स्कोर नहीं: { $cause ->

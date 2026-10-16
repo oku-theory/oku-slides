@@ -76,7 +76,7 @@ import-loss-no-slot = 已省略內容：所選範本中沒有可放置它的位�
 import-loss-moved-to-notes = 文字已移至演講者備忘稿：封面上沒有可放置它的位置
 import-loss-items-dropped = 投影片上的元素過多：省略了{ $dropped }個元素
 import-loss-page-fitted = 來源頁面（{ $width } × { $height } pt）不是 16:9：內容已縮放並置中
-import-loss-paragraph-style = 段落的對齊方式、行距或段間距已改為文字方塊的設定
+import-loss-paragraph-style = 段落的對齊方式、行距、段間距或縮排已改為文字方塊的設定
 import-loss-shape-style = { $effect ->
     [gradient] 漸層已顯示為單色
     [picture] 填滿圖片已延展至圖案的外框
@@ -86,7 +86,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = 一個套件中的版面配置過多：「{ $layout }」沒有範本，其投影片使用空白元件，並以元素形式取得其裝飾
 import-loss-decor-truncated = 為符合套件檔案大小而截斷了裝飾：省略了{ $omitted }個元素
-import-loss-table-style = 表格樣式為近似：其自身的儲存格背景、框線、欄寬或文字大小已遺失
+import-loss-table-style = 表格樣式為近似：其自身的儲存格背景、框線、欄寬、列高或文字大小已遺失
 import-loss-overflow = 元素「{ $element }」超出了投影片邊緣
 import-loss-empty-data = 沒有資料的表格或圖表：未放置任何內容
 import-reference-unavailable = 無視覺評分：{ $cause ->

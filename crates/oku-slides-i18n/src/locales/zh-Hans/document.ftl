@@ -76,7 +76,7 @@ import-loss-no-slot = 已省略内容：所选模板中没有可放置它的位�
 import-loss-moved-to-notes = 文本已移至演讲者备注：封面上没有可放置它的位置
 import-loss-items-dropped = 幻灯片上的元素过多：省略了{ $dropped }个元素
 import-loss-page-fitted = 源页面（{ $width } × { $height } pt）不是 16:9：内容已缩放并居中
-import-loss-paragraph-style = 段落的对齐方式、行距或段间距已改为文本框的设置
+import-loss-paragraph-style = 段落的对齐方式、行距、段间距或缩进已改为文本框的设置
 import-loss-shape-style = { $effect ->
     [gradient] 渐变已显示为纯色
     [picture] 填充图片已拉伸至形状的边框
@@ -86,7 +86,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = 一个包中的版式过多：“{ $layout }”没有模板，其幻灯片使用空白组件，并以元素形式获得其装饰
 import-loss-decor-truncated = 为适应包文件大小而截断了装饰：省略了{ $omitted }个元素
-import-loss-table-style = 表格样式为近似：其自身的单元格背景、边框、列宽或文字大小已丢失
+import-loss-table-style = 表格样式为近似：其自身的单元格背景、边框、列宽、行高或文字大小已丢失
 import-loss-overflow = 元素“{ $element }”超出了幻灯片边缘
 import-loss-empty-data = 没有数据的表格或图表：未放置任何内容
 import-reference-unavailable = 无视觉评分：{ $cause ->

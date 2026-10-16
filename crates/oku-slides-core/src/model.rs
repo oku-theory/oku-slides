@@ -276,6 +276,12 @@ pub struct Style {
     /// celui du thème.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spacing: Option<f64>,
+    /// Retraits des paragraphes d'un texte, en pt : la marge gauche (de 0 à
+    /// [`STYLE_INDENT_MAX`]), puis le décalage de la première ligne (de
+    /// -[`STYLE_INDENT_MAX`] à [`STYLE_INDENT_MAX`] ; négatif : retrait
+    /// suspendu, où tient la puce d'un item de liste). Sans la clé, ceux du thème.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub indent: Option<[f64; 2]>,
 }
 
 /// Valeurs de [`Style::valign`].
@@ -292,6 +298,10 @@ pub const STYLE_TRACKING_MAX: f64 = 4096.0;
 /// Plus grand espace entre paragraphes ([`Style::spacing`]), en pt : au-delà
 /// de toute page raisonnable.
 pub const STYLE_SPACING_MAX: f64 = 4096.0;
+
+/// Plus grand retrait ([`Style::indent`]), en pt, dans un sens ou dans
+/// l'autre : au-delà de toute page raisonnable.
+pub const STYLE_INDENT_MAX: f64 = 4096.0;
 
 impl Style {
     /// Applique les champs définis de `patch` sur `self`.
@@ -314,13 +324,14 @@ impl Style {
             valign,
             inset,
             tracking,
-            spacing
+            spacing,
+            indent
         );
     }
 
     /// Le premier champ hors de son domaine (`style.<champ>`) et pourquoi ;
-    /// `None` si tout est permis. Seuls `valign`, `inset`, `tracking` et
-    /// `spacing` ont un domaine fermé : les autres champs se résolvent au rendu (jeton ou
+    /// `None` si tout est permis. Seuls `valign`, `inset`, `tracking`,
+    /// `spacing` et `indent` ont un domaine fermé : les autres champs se résolvent au rendu (jeton ou
     /// repli). Un nombre non fini ne se relirait pas (JSON l'écrit `null`).
     pub fn invalid(&self) -> Option<(&'static str, ValueReason)> {
         if self.valign.as_deref().is_some_and(|v| !STYLE_VALIGNS.contains(&v)) {
@@ -335,6 +346,15 @@ impl Style {
         }
         if self.spacing.is_some_and(|v| !(v.is_finite() && (0.0..=STYLE_SPACING_MAX).contains(&v))) {
             return Some(("style.spacing", ValueReason::OutOfBounds));
+        }
+        let indent_fits = |[margin, first]: [f64; 2]| {
+            margin.is_finite()
+                && (0.0..=STYLE_INDENT_MAX).contains(&margin)
+                && first.is_finite()
+                && first.abs() <= STYLE_INDENT_MAX
+        };
+        if self.indent.is_some_and(|i| !indent_fits(i)) {
+            return Some(("style.indent", ValueReason::OutOfBounds));
         }
         None
     }

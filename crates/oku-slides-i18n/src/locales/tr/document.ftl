@@ -76,7 +76,7 @@ import-loss-no-slot = İçerik atlandı: seçilen şablonda ona yer yok
 import-loss-moved-to-notes = Metin konuşmacı notlarına taşındı: kapakta ona yer yok
 import-loss-items-dropped = Slaytta çok fazla öğe var: { $dropped } öğe atlandı
 import-loss-page-fitted = Kaynak sayfa ({ $width } × { $height } pt) 16:9 değil: içerik ölçeklendi ve ortalandı
-import-loss-paragraph-style = Bir paragrafın hizalaması, satır aralığı veya paragraf aralığı kutununkine uyarlandı
+import-loss-paragraph-style = Bir paragrafın hizalaması, satır aralığı, paragraf aralığı veya girintisi kutununkine uyarlandı
 import-loss-shape-style = { $effect ->
     [gradient] Degrade düz renk olarak gösterildi
     [picture] Dolgu resmi şeklin çerçevesine uzatıldı
@@ -86,7 +86,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = Bir paket için çok fazla düzen: “{ $layout }” için şablon yok; slaytları boş widget'ı kullanır ve süslemesini öğe olarak alır
 import-loss-decor-truncated = Süsleme bir paket dosyasının boyutuna sığması için kısaltıldı: { $omitted } öğe atlandı
-import-loss-table-style = Tablo stili yaklaşık: kendi hücre arka planları, kenarlıkları, sütun genişlikleri veya metin boyutları kayboldu
+import-loss-table-style = Tablo stili yaklaşık: kendi hücre arka planları, kenarlıkları, sütun genişlikleri, satır yükseklikleri veya metin boyutları kayboldu
 import-loss-overflow = “{ $element }” öğesi slaytın kenarını aşıyor
 import-loss-empty-data = Verisi olmayan tablo veya grafik: hiçbir şey yerleştirilmedi
 import-reference-unavailable = Görsel puan yok: { $cause ->

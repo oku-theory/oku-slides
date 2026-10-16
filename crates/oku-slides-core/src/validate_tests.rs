@@ -232,6 +232,7 @@ fn validate_zero_size_frame_is_reported() {
 #[case::inset(json!({ "inset": [0, -2, 0, 0] }), "style.inset", "out-of-bounds")]
 #[case::tracking(json!({ "tracking": 1e6 }), "style.tracking", "out-of-bounds")]
 #[case::spacing(json!({ "spacing": -1 }), "style.spacing", "out-of-bounds")]
+#[case::indent(json!({ "indent": [-1, 0] }), "style.indent", "out-of-bounds")]
 fn validate_style_out_of_its_domain_is_reported_with_its_reason(
     #[case] style: Value,
     #[case] field: &str,

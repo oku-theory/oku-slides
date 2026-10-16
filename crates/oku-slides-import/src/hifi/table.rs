@@ -18,18 +18,30 @@
 //! ([`first_table`]) : ils valent pour tous. Est irrégulier
 //! ([`TableLook::irregular`]) ce que le widget ne rend pas : fonds par
 //! cellule, dégradés, bordures latérales ou différentes, largeurs de
-//! colonnes inégales (le widget les calcule sur le contenu), plusieurs
-//! tailles de texte, un texte du corps d'une autre couleur que l'encre.
+//! colonnes inégales (le widget les calcule sur le contenu), des lignes plus
+//! hautes que leur texte (`a:tr h`, une hauteur minimale : le widget donne à
+//! chaque ligne celle de son contenu, [`stretched`]), plusieurs tailles de
+//! texte, un texte du corps d'une autre couleur que l'encre. Un tableau
+//! s'accorde au thème du deck sur les seuls jetons qu'il emploie : sans
+//! en-tête, ceux de l'en-tête du premier tableau ne le concernent pas.
 
 use serde_json::{Map, Value, json};
 
 use super::color::ThemeColors;
 use super::element_text::dominant;
 use super::page::{Page, round2};
+use super::typst::DEFAULT_SIZE;
 use crate::source::{Cell, Dash, Fill, Item, ItemKind, Run, SourceDeck, Stroke, Table};
 
 /// Écart relatif au-delà duquel deux largeurs de colonnes sont inégales.
 const WIDTH_TOLERANCE: f64 = 0.1;
+/// Écart relatif au-delà duquel une ligne est plus haute que son texte
+/// (estimé : la largeur réelle des caractères n'est pas connue ici).
+const HEIGHT_TOLERANCE: f64 = 0.25;
+/// Avance moyenne d'un caractère, en em : de quoi estimer les lignes d'une cellule.
+const CHAR_ADVANCE: f64 = 0.5;
+/// Ligne simple de PowerPoint, en fraction de la taille de police.
+const LINE: f64 = 1.2;
 
 /// Le style d'un tableau source.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -113,12 +125,15 @@ impl TableLook {
 
         let (min, max) = t.col_widths.iter().fold((f64::INFINITY, 0.0f64), |(lo, hi), w| (lo.min(*w), hi.max(*w)));
         look.irregular |= t.col_widths.len() > 1 && max > min * (1.0 + WIDTH_TOLERANCE);
+        look.irregular |= stretched(t);
         look
     }
 
     /// Le widget rend-il `self` tel quel, sous les jetons du thème `deck` ?
+    /// Seuls comptent les jetons que `self` emploie : ce qu'il n'a pas (un
+    /// en-tête, des bandes) n'a rien à appliquer.
     pub(crate) fn matches(&self, deck: Option<&Self>) -> bool {
-        !self.irregular && deck.is_none_or(|d| d.tokens == self.tokens)
+        !self.irregular && deck.is_none_or(|d| self.tokens.iter().all(|(k, v)| d.tokens.get(k) == Some(v)))
     }
 
     /// Pose les drapeaux `header-row` et `striped` dans l'option `option` du widget.
@@ -161,6 +176,39 @@ pub(crate) fn first_table(deck: &SourceDeck) -> Option<&Table> {
         })
     }
     deck.slides.iter().find_map(|s| find(&s.items))
+}
+
+/// Une ligne de `t` est-elle nettement plus haute que le texte de ses
+/// cellules (une cellule fusionnée sur plusieurs lignes n'est pas comptée) ?
+fn stretched(t: &Table) -> bool {
+    t.rows.iter().zip(&t.row_heights).any(|(row, h)| {
+        // Une cellule par colonne de la grille, couvertes comprises.
+        let need =
+            row.iter().enumerate().filter(|(_, c)| !c.covered && c.row_span <= 1).fold(0.0f64, |need, (x, c)| {
+                let span = usize::try_from(c.col_span.max(1)).unwrap_or(1);
+                need.max(text_height(c, t.col_widths.iter().skip(x).take(span).sum()))
+            });
+        need > 0.0 && *h > need * (1.0 + HEIGHT_TOLERANCE)
+    })
+}
+
+/// Hauteur estimée du texte de la cellule `c` large de `width` pt, marges
+/// comprises : chaque paragraphe sur autant de lignes simples que ses
+/// caractères en demandent.
+fn text_height(c: &Cell, width: f64) -> f64 {
+    let tb = &c.text;
+    let room = (width - tb.insets.l - tb.insets.r).max(1.0);
+    let lines: f64 = tb
+        .paragraphs
+        .iter()
+        .map(|p| {
+            let size = p.runs.iter().map(|r| r.style.size).fold(0.0, f64::max);
+            let size = if size > 0.0 { size } else { DEFAULT_SIZE };
+            let chars: f64 = p.runs.iter().flat_map(|r| r.text.chars()).map(|_| 1.0).sum();
+            (chars * CHAR_ADVANCE * size / room).ceil().max(1.0) * LINE * size
+        })
+        .sum();
+    lines + tb.insets.t + tb.insets.b
 }
 
 /// La valeur commune de `values`, `None` si elles diffèrent ou s'il n'y en a pas.

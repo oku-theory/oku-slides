@@ -76,7 +76,7 @@ import-loss-no-slot = 콘텐츠를 생략했습니다. 선택한 템플릿에 �
 import-loss-moved-to-notes = 텍스트를 발표자 노트로 옮겼습니다. 표지에 놓을 자리가 없습니다
 import-loss-items-dropped = 슬라이드에 요소가 너무 많습니다: 빠진 요소 { $dropped }개
 import-loss-page-fitted = 원본 페이지({ $width } × { $height } pt)가 16:9가 아닙니다. 콘텐츠를 크기 조정하여 가운데에 배치했습니다
-import-loss-paragraph-style = 단락 맞춤, 줄 간격 또는 단락 간격이 상자에 맞춰졌습니다
+import-loss-paragraph-style = 단락 맞춤, 줄 간격, 단락 간격 또는 들여쓰기가 상자에 맞춰졌습니다
 import-loss-shape-style = { $effect ->
     [gradient] 그라데이션이 단색으로 표시되었습니다
     [picture] 채우기 그림이 도형의 틀에 맞게 늘어났습니다
@@ -86,7 +86,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = 한 팩에 레이아웃이 너무 많습니다: “{ $layout }”에는 템플릿이 없어 해당 슬라이드는 빈 위젯을 쓰고 장식을 요소로 받습니다
 import-loss-decor-truncated = 팩 파일 크기에 맞추려고 장식을 잘랐습니다: 빠진 요소 { $omitted }개
-import-loss-table-style = 표 스타일을 근사했습니다: 고유한 셀 배경, 테두리, 열 너비 또는 글자 크기가 사라집니다
+import-loss-table-style = 표 스타일을 근사했습니다: 고유한 셀 배경, 테두리, 열 너비, 행 높이 또는 글자 크기가 사라집니다
 import-loss-overflow = 요소 “{ $element }”이(가) 슬라이드 가장자리를 벗어납니다
 import-loss-empty-data = 데이터가 없는 표 또는 차트: 아무것도 배치하지 않았습니다
 import-reference-unavailable = 시각 점수 없음: { $cause ->

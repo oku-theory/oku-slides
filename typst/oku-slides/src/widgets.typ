@@ -11,6 +11,7 @@
 
 #let _inset-max = 4096   // STYLE_INSET_MAX (oku-slides-core)
 #let _spacing-max = 4096   // STYLE_SPACING_MAX (oku-slides-core)
+#let _indent-max = 4096   // STYLE_INDENT_MAX (oku-slides-core)
 
 // Marges intérieures d'un style (`inset` : pt haut, droite, bas, gauche),
 // ou none si la clé manque ou n'a pas cette forme.
@@ -24,6 +25,37 @@
 // manque ou n'est pas un nombre permis.
 #let _spacing(v) = {
   if (type(v) == int or type(v) == float) and v >= 0 and v <= _spacing-max { v * 1pt }
+}
+
+// Retraits d'un style (`indent` : pt, marge gauche puis décalage de la
+// première ligne), ou none si la clé manque ou n'a pas cette forme.
+#let _indent(v) = {
+  let num(x) = type(x) == int or type(x) == float
+  let ok = (type(v) == array and v.len() == 2 and v.all(num)
+    and v.at(0) >= 0 and v.at(0) <= _indent-max and calc.abs(v.at(1)) <= _indent-max)
+  if ok { (margin: v.at(0) * 1pt, first: v.at(1) * 1pt) }
+}
+
+// Un texte aux retraits `ind` (`_indent`), comme PowerPoint : le texte part
+// de la marge, la première ligne (et la puce d'un item) en est décalée ; un
+// décalage négatif suspend la puce ou le numéro dans une boîte de sa largeur,
+// le texte de l'item part de la marge. Rien ne part avant le bord.
+#let _indented(t, ind, body) = {
+  if ind == none { return body }
+  let from = calc.max(0pt, ind.margin + calc.min(0pt, ind.first))
+  let hang = -calc.min(0pt, ind.first)
+  let lst = t.component.list
+  let marker = list-marker(t, lst.marker, lst.at("marker-color", default: none))
+  set par(hanging-indent: hang) if hang > 0pt
+  set par(first-line-indent: (amount: ind.first, all: true)) if ind.first > 0pt
+  set list(indent: 0pt, body-indent: 0pt, marker: box(width: hang, align(start, marker))) if hang > 0pt
+  set enum(indent: 0pt, body-indent: 0pt, numbering: n => box(width: hang, align(start, numbering("1.", n)))) if hang > 0pt
+  set list(indent: ind.first) if ind.first > 0pt
+  set enum(indent: ind.first) if ind.first > 0pt
+  // Le texte d'un item ne se décale plus : la puce a pris le retrait.
+  show list: set par(hanging-indent: 0pt, first-line-indent: 0pt)
+  show enum: set par(hanging-indent: 0pt, first-line-indent: 0pt)
+  pad(left: from, body)
 }
 
 // Ancrage d'un texte : `inset` l'écarte des bords, `valign` (`top`,
@@ -54,8 +86,10 @@
   // Sans alignement choisi, le texte part du début de la ligne : à gauche,
   // ou à droite dans une langue écrite de droite à gauche.
   let al = style.at("align", default: "start")
-  _anchored(style, ctx.framed, field(ctx, "body", style: _text-over(t, style), empty: args.body == [],
-    align((left: left, center: center, right: right, start: start, end: end).at(al, default: start), args.body)))
+  let ind = _indent(style.at("indent", default: none))
+  _anchored(style, ctx.framed, _indented(t, ind, field(ctx, "body", style: _text-over(t, style),
+    empty: args.body == [],
+    align((left: left, center: center, right: right, start: start, end: end).at(al, default: start), args.body))))
 })
 
 #let _card = widget("card",

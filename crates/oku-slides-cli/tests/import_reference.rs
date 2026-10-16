@@ -1,8 +1,8 @@
 //! `oku-slides import --mode hifi`, comparé au rendu de référence du témoin
 //! (office2pdf, dans le processus de rendu) : un écart par slide au rapport,
 //! sous un seuil par fixture, et des régions qui désignent les écarts connus
-//! d'alto (t-863 : la coupure de la ligne de l'encadré p. 7, le retrait des
-//! puces p. 8). Polices de l'app (`--fonts assets/fonts`) : celles que le
+//! d'alto (t-863 : la coupure de la ligne de l'encadré p. 7 ; les puces p. 8,
+//! à leur retrait depuis t-863, n'en sont plus). Polices de l'app (`--fonts assets/fonts`) : celles que le
 //! témoin reçoit aussi. Aucun test ne lance LibreOffice : `--reference
 //! soffice` tourne avec un faux `soffice` (un script qui copie un PDF blanc).
 
@@ -84,12 +84,13 @@ fn import_hifi_of_alto_designates_the_cut_line_of_the_callout_on_page_7() {
 }
 
 #[test]
-fn import_hifi_of_alto_designates_the_bullet_indents_on_page_8() {
+fn import_hifi_of_alto_no_longer_designates_the_bullet_indents_on_page_8() {
     let dir = workdir("import-reference-p8");
     let (_, report) = import(dir.as_ref(), "alto-wealth.pptx", &[]);
+    // Avant t-863, au moins deux des quatre listes (retrait de 27 pt ignoré) étaient désignées.
     let lists = ["s8/8", "s8/12", "s8/16", "s8/21"];
     let found = worst(&report, 8).iter().filter(|i| lists.contains(&i.as_str())).count();
-    assert_that!(found).is_greater_than_or_equal_to(2);
+    assert_that!(found).is_equal_to(0);
 }
 
 #[test]

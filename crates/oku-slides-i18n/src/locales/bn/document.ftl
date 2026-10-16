@@ -79,7 +79,7 @@ import-loss-no-slot = বিষয়বস্তু বাদ দেওয়�
 import-loss-moved-to-notes = লেখা বক্তার নোটে সরানো হয়েছে: প্রচ্ছদে এর জায়গা নেই
 import-loss-items-dropped = স্লাইডে অনেক বেশি উপাদান: বাদ পড়া উপাদান: { $dropped }
 import-loss-page-fitted = উৎস পৃষ্ঠা { $width } × { $height } pt, 16:9 নয়: বিষয়বস্তু মাপে বদলে মাঝখানে রাখা হয়েছে
-import-loss-paragraph-style = অনুচ্ছেদের সারিবদ্ধতা, লাইন ব্যবধান বা অনুচ্ছেদ ব্যবধান বাক্সের মতো করা হয়েছে
+import-loss-paragraph-style = অনুচ্ছেদের সারিবদ্ধতা, লাইন ব্যবধান, অনুচ্ছেদ ব্যবধান বা ইন্ডেন্ট বাক্সের মতো করা হয়েছে
 import-loss-shape-style = { $effect ->
     [gradient] গ্রেডিয়েন্ট একক রঙে দেখানো হয়েছে
     [picture] পূরণের ছবি আকৃতির ফ্রেমে টেনে বড় করা হয়েছে
@@ -89,7 +89,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = একটি প্যাকের জন্য অনেক বেশি লেআউট: “{ $layout }”-এর কোনো টেমপ্লেট নেই; এর স্লাইডগুলো ফাঁকা উইজেট নেয় এবং এর সজ্জা উপাদান হিসেবে পায়
 import-loss-decor-truncated = প্যাক ফাইলের আকারে আঁটাতে সজ্জা ছাঁটা হয়েছে: বাদ পড়া উপাদান: { $omitted }
-import-loss-table-style = টেবিলের শৈলী আনুমানিক: এর নিজস্ব ঘরের পটভূমি, সীমানা, কলামের প্রস্থ বা লেখার আকার হারিয়েছে
+import-loss-table-style = টেবিলের শৈলী আনুমানিক: এর নিজস্ব ঘরের পটভূমি, সীমানা, কলামের প্রস্থ, সারির উচ্চতা বা লেখার আকার হারিয়েছে
 import-loss-overflow = উপাদান “{ $element }” স্লাইডের প্রান্ত ছাড়িয়ে যায়
 import-loss-empty-data = ডেটাবিহীন টেবিল বা চার্ট: কিছুই বসানো হয়নি
 import-reference-unavailable = কোনো দৃশ্যমান স্কোর নেই: { $cause ->

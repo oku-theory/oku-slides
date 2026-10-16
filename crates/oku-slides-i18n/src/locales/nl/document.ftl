@@ -79,7 +79,7 @@ import-loss-no-slot = Inhoud weggelaten: de gekozen sjabloon heeft er geen plaat
 import-loss-moved-to-notes = Tekst verplaatst naar de sprekersnotities: de titeldia heeft er geen plaats voor
 import-loss-items-dropped = Te veel elementen op de dia: { $dropped } elementen weggelaten
 import-loss-page-fitted = Bronpagina van { $width } × { $height } pt is geen 16:9: inhoud geschaald en gecentreerd
-import-loss-paragraph-style = Uitlijning, regelafstand of alinea-afstand van een alinea gelijkgetrokken met het vak
+import-loss-paragraph-style = Uitlijning, regelafstand, alinea-afstand of inspringing van een alinea gelijkgetrokken met het vak
 import-loss-shape-style = { $effect ->
     [gradient] Kleurverloop weergegeven als effen kleur
     [picture] Opvulafbeelding uitgerekt tot het kader van de vorm
@@ -92,7 +92,7 @@ import-loss-decor-truncated = { $omitted ->
     [one] Decoratie ingekort om in de grootte van een pakketbestand te passen: { $omitted } element weggelaten
    *[other] Decoratie ingekort om in de grootte van een pakketbestand te passen: { $omitted } elementen weggelaten
 }
-import-loss-table-style = Tabelstijl benaderd: eigen celachtergronden, randen, kolombreedtes of tekstgroottes gaan verloren
+import-loss-table-style = Tabelstijl benaderd: eigen celachtergronden, randen, kolombreedtes, rijhoogtes of tekstgroottes gaan verloren
 import-loss-overflow = Element ‘{ $element }’ steekt buiten de rand van de dia
 import-loss-empty-data = Tabel of grafiek zonder gegevens: niets geplaatst
 import-reference-unavailable = Geen visuele score: { $cause ->

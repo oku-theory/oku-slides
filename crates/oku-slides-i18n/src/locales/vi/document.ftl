@@ -76,7 +76,7 @@ import-loss-no-slot = Đã bỏ nội dung: mẫu đã chọn không có chỗ c
 import-loss-moved-to-notes = Đã chuyển văn bản vào ghi chú của người thuyết trình: trang bìa không có chỗ cho nó
 import-loss-items-dropped = Trang chiếu có quá nhiều phần tử: bỏ qua { $dropped } phần tử
 import-loss-page-fitted = Trang nguồn { $width } × { $height } pt không phải 16:9: nội dung đã được co giãn và căn giữa
-import-loss-paragraph-style = Căn lề, giãn dòng hoặc khoảng cách đoạn của đoạn văn được đưa về theo hộp
+import-loss-paragraph-style = Căn lề, giãn dòng, khoảng cách đoạn hoặc thụt lề của đoạn văn được đưa về theo hộp
 import-loss-shape-style = { $effect ->
     [gradient] Dải màu được hiển thị thành màu đơn
     [picture] Ảnh tô được kéo giãn theo khung của hình
@@ -86,7 +86,7 @@ import-loss-shape-style = { $effect ->
 }
 import-loss-layout-dropped = Quá nhiều bố cục cho một gói: “{ $layout }” không có mẫu; các trang chiếu của nó dùng widget trống và nhận phần trang trí dưới dạng phần tử
 import-loss-decor-truncated = Phần trang trí bị cắt để vừa kích thước tệp gói: bỏ qua { $omitted } phần tử
-import-loss-table-style = Kiểu bảng được ước lượng: nền ô, đường viền, độ rộng cột hoặc cỡ chữ riêng của bảng bị mất
+import-loss-table-style = Kiểu bảng được ước lượng: nền ô, đường viền, độ rộng cột, chiều cao hàng hoặc cỡ chữ riêng của bảng bị mất
 import-loss-overflow = Phần tử “{ $element }” vượt quá mép trang chiếu
 import-loss-empty-data = Bảng hoặc biểu đồ không có dữ liệu: không đặt gì
 import-reference-unavailable = Không có điểm hình ảnh: { $cause ->

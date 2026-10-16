@@ -11,7 +11,6 @@
 
 use super::text::{DEFAULT_SIZE, LineBox, align, anchor, inset, spacing, weight_arg};
 use super::{Decor, Gen, GenCtx, Typst, pt, string};
-use crate::fonts::LineMetrics;
 use crate::hifi::page::{PAGE_H, PAGE_W};
 use crate::source::{Align, Bullet, Caps, Fill, LevelStyle, Placeholder};
 
@@ -75,7 +74,7 @@ impl Gen<'_> {
         }
         // Les bords de ligne font le pas de ligne PowerPoint, sans `leading`
         // (voir `text.rs`) ; entre deux paragraphes, les espaces avant et après.
-        let metrics = self.ctx.fonts.metrics(&r.font.value).unwrap_or(LineMetrics::DEFAULT);
+        let metrics = self.ctx.line_metrics(Some(&r.font.value));
         let line = LineBox::new(page, size, p.line_spacing, 0.0, metrics);
         self.w.line(&format!("set text({text}, {})", line.edges(size)));
         let gap = spacing(page, size, p.space_before) + spacing(page, size, p.space_after);
