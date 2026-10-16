@@ -1,9 +1,9 @@
 use speculoos::prelude::*;
 
 use super::*;
-use crate::pptx::test_support::{TABLE_STYLES, TestPkg, with_table_styles};
+use crate::pptx::test_support::{TABLE_STYLES, TestPkg, run_ctx, with_table_styles};
 use crate::pptx::xml::parse;
-use crate::source::{Anchor, Fill, Origin, Warning, WarningKind};
+use crate::source::{Anchor, Fill, Origin, Rgba, Styled, Warning, WarningKind};
 
 /// Tableau 3×2 : en-tête fusionné, bandes de lignes.
 const TBL: &str = r#"<a:tbl xmlns:a="urn:a"><a:tblPr firstRow="1" bandRow="1"><a:tableStyleId>{S}</a:tableStyleId></a:tblPr>
@@ -111,9 +111,67 @@ fn table_without_style_has_no_fill_and_no_warning() {
 
 #[test]
 fn unknown_style_id_warns() {
-    let (_, w) = table_of(&TBL.replace("{S}", "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"));
+    let (_, w) = table_of(&TBL.replace("{S}", "{00000000-0000-0000-0000-000000000000}"));
     assert_that!(
-        w.iter().any(|w| w.kind == WarningKind::UnknownTableStyle("{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}".into()))
+        w.iter().any(|w| w.kind == WarningKind::UnknownTableStyle("{00000000-0000-0000-0000-000000000000}".into()))
     )
     .is_true();
+}
+
+/// `TBL` au style `id`, lu sans `tableStyles.xml`.
+fn builtin_table(id: &str) -> (Table, Vec<Warning>) {
+    let t = TestPkg::with(&[]);
+    let pkg = t.pkg();
+    let xml = TBL.replace("{S}", id);
+    let doc = parse(&xml, "t", 10_000).unwrap();
+    let (r, w, _) = run_ctx(&pkg, "ppt/slides/slide1.xml", None, |cx| parse_table(doc.root_element(), cx)).unwrap();
+    (r, w)
+}
+
+#[test]
+fn default_builtin_style_without_table_styles_part_fills_header_and_bands_from_the_accent() {
+    let (t, w) = builtin_table("{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}");
+    assert_that!(w).is_empty();
+    // En-tête accent1, band1H accent1 tint 40 %, corps accent1 tint 20 % ; texte d'en-tête lt1 en gras.
+    assert_that!((fill_hex(&t, 0, 0), fill_hex(&t, 1, 0), fill_hex(&t, 2, 0))).is_equal_to((
+        "#4472c4".to_owned(),
+        "#cfd5ea".to_owned(),
+        "#e9ebf5".to_owned(),
+    ));
+    let head = &t.rows[0][0].text.paragraphs[0].runs[0].style;
+    assert_that!((head.bold, head.color.origin.slot())).is_equal_to((true, Some("lt1")));
+    let header_bottom = t.rows[0][0].borders.b.as_ref().map(|s| (s.width, s.color.origin.slot().map(str::to_owned)));
+    assert_that!(header_bottom).is_equal_to(Some((3.0, Some("lt1".to_owned()))));
+}
+
+#[test]
+fn builtin_style_follows_its_accent() {
+    let (t, _) = builtin_table("{93296810-A885-4BE3-A3E7-6D5BEEA58F35}");
+    assert_that!(t.rows[0][0].fill.clone())
+        .is_equal_to(Fill::Solid { color: Styled::scheme(Rgba::new(0x70, 0xad, 0x47), "accent6") });
+}
+
+#[test]
+fn builtin_guid_is_matched_ignoring_case() {
+    let (t, w) = builtin_table("{5c22544a-7ee6-4342-b048-85bdc9fd1c3a}");
+    assert_that!((fill_hex(&t, 0, 0), w.len())).is_equal_to(("#4472c4".to_owned(), 0));
+}
+
+#[test]
+fn table_background_shows_under_translucent_and_empty_cells() {
+    // Thématique 2 - Accent 1 : fond accent1, band1H lt1 à 20 % d'opacité.
+    let (t, _) = builtin_table("{D113A9D2-9D6B-4929-AA2D-F23B5EE8CBE7}");
+    assert_that!((fill_hex(&t, 1, 0), fill_hex(&t, 2, 0))).is_equal_to(("#698ed0".to_owned(), "#4472c4".to_owned()));
+}
+
+#[test]
+fn file_style_wins_over_the_builtin_of_the_same_guid() {
+    let styles = TABLE_STYLES.replace("{S}", "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}");
+    let t = TestPkg::with(&[]);
+    let pkg = t.pkg();
+    let xml = TBL.replace("{S}", "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}");
+    let doc = parse(&xml, "t", 10_000).unwrap();
+    let (t, _) = with_table_styles(&pkg, &styles, |cx| parse_table(doc.root_element(), cx));
+    // `tableStyles.xml` donne au corps sans bande l'accent1 tint 20 % ; ses bords intérieurs seuls.
+    assert_that!((fill_hex(&t, 2, 0), t.rows[2][0].borders.l.is_none())).is_equal_to(("#e9ebf5".to_owned(), true));
 }

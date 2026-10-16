@@ -428,7 +428,7 @@ pub enum WarningKind {
     ExternalImage(String),
     /// SVG assaini (script, lien externe… retirés) ou rejeté (DTD, illisible) : son chemin.
     UnsafeSvg(String),
-    /// Style de tableau référencé mais absent de `tableStyles.xml`.
+    /// Style de tableau référencé, absent de `tableStyles.xml` et des styles intégrés de PowerPoint.
     UnknownTableStyle(String),
     /// Lien refusé (schéma, longueur, caractères).
     UnsafeLink(String),

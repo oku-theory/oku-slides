@@ -34,7 +34,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep retrofit snap in sync with snapRect in ui/src/grid.ts; the Rust tests are its only oracle. (plan:2026-10-10-import-pptx-lot2)
 - Reject XML deeper than MAX_XML_DEPTH or above MAX_XML_ATTRIBUTES per element as Unreadable before roxmltree. (spec:2026-10-09-import-pptx-design, t-754)
 - Identify SmartArt shapes by their modelId, because PowerPoint writes cNvPr id 0 on all of them. (plan:2026-10-09-import-pptx-lot1)
-- Read right and bottom edges and lastCol or lastRow parts of merged cells at the merge end, not at the anchor. (plan:2026-10-09-import-pptx-lot1)
+- Apply a table part's outer borders at its own region edges; read merged cells' right, bottom, lastCol and lastRow at the merge end. (plan:2026-10-09-import-pptx-lot1, t-725)
 - Bound the sum of per-face font copies by max_total_bytes, since many faces can share one large part. (plan:2026-10-09-import-pptx-lot1)
 
 ## Testing

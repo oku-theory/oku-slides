@@ -19,6 +19,7 @@ pub(crate) mod slide;
 pub(crate) mod smartart;
 pub(crate) mod svg;
 pub(crate) mod table;
+pub(crate) mod table_styles;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub(crate) mod text;

@@ -24,9 +24,9 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 - `source/` depends on nothing (`lang`: scripts, deck language); `error`, `limits`, `collect`, `oklab` are neutral.
 - `pptx/` is the only reader: `package` (bounded zip), `xml` (bounded nodes), `context`, `master`,
   `slide`, `placeholder`, `cascade` (the single text-style resolution), `bounds` (schema ranges,
-  clamp warnings), `shapes`, `frame`, `table`, `chart`, `smartart`, `fonts` + `eot`. Nesting is
-  bounded by `GroupCtx`. Every asset is typed by its bytes (`media::sniff`) and every SVG
-  re-serialized through an allowlist (`svg::sanitize`) when read, so consumers see clean bytes.
+  clamp warnings), `shapes`, `frame`, `table` (+ built-in `table_styles`), `chart`, `smartart`,
+  `fonts` + `eot`. Nesting is bounded by `GroupCtx`. Every asset is typed by its bytes
+  (`media::sniff`), every SVG re-serialized through an allowlist (`svg::sanitize`) when read.
 - Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`,
   never `pptx/`. They are pure: ids and dates come from the target (ADR-0008).
 - `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`),
