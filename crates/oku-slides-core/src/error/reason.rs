@@ -43,6 +43,13 @@ pub enum ValueReason {
 }
 
 impl ValueReason {
+    /// Le nom de la raison, sa clé sans `op-value-` : le sélecteur `$reason`
+    /// des messages qui la citent (`issue-invalid-style`).
+    pub(crate) fn name(self) -> &'static str {
+        let key = self.key();
+        key.strip_prefix("op-value-").unwrap_or(key)
+    }
+
     /// La clé Fluent de la raison (`op-value-*`).
     pub(super) fn key(self) -> &'static str {
         match self {

@@ -1,6 +1,6 @@
 use speculoos::prelude::*;
 
-use super::{Labels, main_source, typst_string};
+use super::{LIBRARY, Labels, main_source, typst_string};
 
 #[test]
 fn typst_string_escapes_quotes_backslashes_and_newlines() {
@@ -41,4 +41,21 @@ fn main_source_with_theme_reads_theme_json() {
 fn main_source_without_theme_passes_none() {
     let source = main_source(false, None, std::iter::empty(), &Labels::default());
     assert_that!(source).contains("theme: none");
+}
+
+/// La valeur de `#let <name> = <nombre>` dans le fichier `file` de la bibliothèque embarquée.
+fn typst_bound(file: &str, name: &str) -> Option<f64> {
+    let (_, source) = LIBRARY.iter().find(|(path, _)| *path == file)?;
+    let prefix = format!("#let {name} = ");
+    let line = source.lines().find_map(|l| l.strip_prefix(&prefix))?;
+    line.split_whitespace().next()?.parse().ok()
+}
+
+/// Les bornes que la bibliothèque Typst recopie restent celles du cœur.
+#[rstest::rstest]
+#[case::inset("src/widgets.typ", "_inset-max", oku_slides_core::STYLE_INSET_MAX)]
+#[case::spacing("src/widgets.typ", "_spacing-max", oku_slides_core::STYLE_SPACING_MAX)]
+#[case::tracking("src/content.typ", "_tracking-max", oku_slides_core::STYLE_TRACKING_MAX)]
+fn library_style_bounds_equal_the_core_constants(#[case] file: &str, #[case] name: &str, #[case] core: f64) {
+    assert_that!(typst_bound(file, name)).is_equal_to(Some(core));
 }

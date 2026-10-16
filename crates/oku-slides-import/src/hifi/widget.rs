@@ -71,6 +71,9 @@ pub(crate) struct LayoutWidget {
     pub(crate) schema: WidgetSchema,
     /// Source Typst (`widgets/<nom>.typ`).
     pub(crate) source: String,
+    /// Rang (1..) du master dont le décor est appelé (`master-<rang>`) : la
+    /// seule décision, que `_commun.typ` suit.
+    pub(crate) called: Option<usize>,
 }
 
 /// Ce que dessine un code généré : les assets que le deck doit porter, les pertes.
@@ -257,7 +260,7 @@ pub(crate) fn layout_widget(
     let mut drawn = Drawn::default();
     drawn.take(back);
     drawn.take(own);
-    let widget = LayoutWidget { layout: layout.id.clone(), name, params, schema, source };
+    let widget = LayoutWidget { layout: layout.id.clone(), name, params, schema, source, called };
     Some((widget, drawn))
 }
 

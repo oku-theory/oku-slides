@@ -123,7 +123,11 @@ issue-slot-rejects = { $kind } এখানে গ্রহণযোগ্য �
 issue-placed-in-flow = সাজানো তালিকায় ফ্রেমসহ রাখা উপাদান
 issue-unknown-bind = { $param } একটি অজানা ডেক সেটিংয়ের সাথে যুক্ত
 issue-slot-too-deep = উপাদানগুলি খুব গভীরে নেস্টেড
-issue-invalid-style = অবৈধ স্টাইল মান: { $field }
+issue-invalid-style = অবৈধ স্টাইল মান: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = অ্যাসেট অনুপস্থিত: { $asset }
 issue-pack-version-mismatch = পরিবর্তিত প্যাক সংস্করণ বাদ দেওয়া হয়েছে: { $version }
 issue-pack-version-missing = উৎসে প্যাক সংস্করণ অনুপস্থিত: { $version }

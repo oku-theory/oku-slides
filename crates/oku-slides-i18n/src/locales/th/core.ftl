@@ -123,7 +123,11 @@ issue-slot-rejects = ไม่รับ { $kind } ที่นี่
 issue-placed-in-flow = องค์ประกอบที่วางด้วยกรอบในรายการที่จัดวางแล้ว
 issue-unknown-bind = { $param } เชื่อมกับการตั้งค่าเด็คที่ไม่รู้จัก
 issue-slot-too-deep = องค์ประกอบซ้อนกันลึกเกินไป
-issue-invalid-style = ค่าสไตล์ไม่ถูกต้อง: { $field }
+issue-invalid-style = ค่าสไตล์ไม่ถูกต้อง: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = ไม่มีแอสเซ็ต: { $asset }
 issue-pack-version-mismatch = ทิ้งเวอร์ชันแพ็กที่ถูกแก้ไขแล้ว: { $version }
 issue-pack-version-missing = ไม่มีเวอร์ชันแพ็กในแหล่งข้อมูล: { $version }

@@ -123,7 +123,11 @@ issue-slot-rejects = 此處不接受 { $kind }
 issue-placed-in-flow = 在排版清單中以框架放置的元素
 issue-unknown-bind = { $param } 連結到未知的簡報設定
 issue-slot-too-deep = 元素巢狀過深
-issue-invalid-style = 無效的樣式值：{ $field }
+issue-invalid-style = 無效的樣式值：{ $field }（{ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    }）
 issue-missing-asset = 缺少資源：{ $asset }
 issue-pack-version-mismatch = 已捨棄遭竄改的範本套件版本：{ $version }
 issue-pack-version-missing = 原始檔中缺少範本套件版本：{ $version }

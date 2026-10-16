@@ -326,3 +326,17 @@ fn generate_pack_cuts_the_decor_that_would_exceed_the_file_size() {
     )
     .is_true();
 }
+
+#[test]
+fn generate_pack_drops_a_widget_too_large_even_without_decor() {
+    // `l3` (placeholders, fond image) dépasse `_commun` même sans son décor ; `l2` (vierge) tient.
+    let deck = synthetic_full();
+    let max = generated(&deck).files[&WidgetFile::common()].len();
+    let pack = generated_within(&deck, PackLimits { max_file_bytes: max, ..PackLimits::default() });
+    for (name, source) in &pack.files {
+        assert_that!(source.len()).named(name.as_str()).is_less_than_or_equal_to(max);
+    }
+    let kept: Vec<&str> = pack.widgets.iter().map(|w| w.layout.as_str()).collect();
+    assert_that!(kept).is_equal_to(vec!["l2"]);
+    assert_that!(pack.dropped).is_equal_to(vec!["l3".to_owned()]);
+}

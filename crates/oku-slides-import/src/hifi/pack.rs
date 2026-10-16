@@ -20,7 +20,9 @@
 //!   `blank` et y reçoivent fond et décor en éléments ([`super::slide`]) :
 //!   garder les plus employés minimise les slides sans modèle ;
 //! - chaque fichier sous `max_file_bytes` : le décor qui ne tient plus est
-//!   omis, en partant de la fin de l'ordre de dessin (perte `DecorTruncated`).
+//!   omis, en partant de la fin de l'ordre de dessin (perte `DecorTruncated`) ;
+//!   un widget trop gros même sans décor est laissé de côté comme les
+//!   layouts au-delà du nombre de fichiers (perte `LayoutDropped`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -94,23 +96,36 @@ impl GeneratedPack {
 
 /// Le pack généré pour `deck`, dans les bornes `limits`.
 pub(crate) fn generate_pack(deck: &SourceDeck, ctx: &GenCtx<'_>, limits: PackLimits) -> GeneratedPack {
-    let (kept, dropped) = kept_layouts(deck, limits.max_files.saturating_sub(1));
+    let (kept, mut dropped) = kept_layouts(deck, limits.max_files.saturating_sub(1));
     let hiding: BTreeSet<&str> =
         deck.slides.iter().filter(|s| !s.show_layout_decor).filter_map(|s| s.layout.as_deref()).collect();
     let mut drawn = Drawn::default();
     let mut widgets = Vec::new();
     let mut called = BTreeSet::new();
+    let mut unnamed = BTreeSet::new(); // Sans nom ou trop gros : sans widget.
     for (i, layout) in deck.layouts.iter().enumerate().filter(|(_, l)| kept.contains(l.id.as_str())) {
         let master = deck.masters.iter().enumerate().find(|(_, m)| m.id == layout.master).map(|(r, m)| (r + 1, m));
         let hideable = hiding.contains(layout.id.as_str());
         let Some((widget, d)) = layout_widget(i + 1, layout, master, hideable, ctx, limits.max_file_bytes) else {
+            // Sans nom de widget (`widget_name` en rend toujours un : un bogue) : le layout est
+            // laissé sans widget, comme au-delà des bornes, et le rapport le dit (`LayoutDropped`).
+            debug_assert!(false, "nom de widget illisible pour le layout {}", layout.id);
+            unnamed.insert(layout.id.as_str());
             continue;
         };
-        if layout.show_master_decor {
-            called.extend(master.map(|(r, _)| r));
+        // Trop gros même sans son décor (fond, placeholders) : la sonde ne le chargerait pas.
+        // Le layout reste sans widget, comme au-delà des bornes, et le rapport le dit.
+        if widget.source.len() > limits.max_file_bytes {
+            unnamed.insert(layout.id.as_str());
+            continue;
         }
+        called.extend(widget.called);
         drawn.extend(d);
         widgets.push(widget);
+    }
+    if !unnamed.is_empty() {
+        let lost: BTreeSet<&str> = dropped.iter().map(String::as_str).chain(unnamed).collect();
+        dropped = deck.layouts.iter().filter(|l| lost.contains(l.id.as_str())).map(|l| l.id.clone()).collect();
     }
     let (common, d) = common_file(deck, &called, ctx, limits.max_file_bytes);
     drawn.extend(d);

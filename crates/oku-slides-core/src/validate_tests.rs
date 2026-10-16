@@ -228,18 +228,30 @@ fn validate_zero_size_frame_is_reported() {
 }
 
 #[rstest]
-#[case::valign(json!({ "valign": "centre" }), "style.valign")]
-#[case::inset(json!({ "inset": [0, -2, 0, 0] }), "style.inset")]
-#[case::tracking(json!({ "tracking": 1e6 }), "style.tracking")]
-#[case::spacing(json!({ "spacing": -1 }), "style.spacing")]
-fn validate_style_out_of_its_domain_is_reported(#[case] style: Value, #[case] field: &str) {
+#[case::valign(json!({ "valign": "centre" }), "style.valign", "valign")]
+#[case::inset(json!({ "inset": [0, -2, 0, 0] }), "style.inset", "out-of-bounds")]
+#[case::tracking(json!({ "tracking": 1e6 }), "style.tracking", "out-of-bounds")]
+#[case::spacing(json!({ "spacing": -1 }), "style.spacing", "out-of-bounds")]
+fn validate_style_out_of_its_domain_is_reported_with_its_reason(
+    #[case] style: Value,
+    #[case] field: &str,
+    #[case] reason: &str,
+) {
     let d = content("blocks", json!([{ "id": "e", "kind": "text", "style": style }]));
     let issues = run(&d);
-    assert_that!(issues.iter().map(|i| i.message.clone()).collect::<Vec<_>>()).is_equal_to(vec![message(
-        "issue-invalid-style",
-        "field",
-        field,
-    )]);
+    let expected = Message::new("issue-invalid-style").arg("field", field).arg("reason", reason);
+    assert_that!(issues.iter().map(|i| i.message.clone()).collect::<Vec<_>>()).is_equal_to(vec![expected]);
+}
+
+/// La raison se dit dans la langue de l'utilisateur, par sa propre clé.
+#[rstest]
+#[case::valign("valign", "top, middle ou bottom est attendu")]
+#[case::bounds("out-of-bounds", "hors de")]
+fn validate_invalid_style_reason_is_localized(#[case] reason: &str, #[case] expected: &str) {
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    let msg = Message::new("issue-invalid-style").arg("field", "style.inset").arg("reason", reason).localize(&fr);
+    assert_that!(msg).contains("style.inset");
+    assert_that!(msg).contains(expected);
 }
 
 #[test]

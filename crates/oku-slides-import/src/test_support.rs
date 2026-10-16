@@ -16,7 +16,7 @@ use crate::fonts::{FontCatalog, FontOrigin};
 use crate::retrofit::ColorTokens;
 use crate::source::{
     Align, Bullet, Caps, Color, Fill, Frame, Item, ItemKind, Layout, LayoutKind, ParaStyle, Paragraph, Rgba, Role, Run,
-    RunStyle, Size, SourceDeck, SourceSlide, SourceTheme, Spacing, Styled, TextBox, ThemeFonts,
+    RunStyle, Size, SourceDeck, SourceSlide, SourceTheme, Spacing, Styled, TextBox,
 };
 
 /// Jetons par défaut du rendu.
@@ -43,31 +43,10 @@ pub(crate) fn tx1() -> Color {
     Styled::mapped(Rgba::new(0, 0, 0), "tx1", "dk1", Vec::new())
 }
 
-/// Le thème Office (2013–2022) : ses 12 couleurs, Calibri Light et Calibri.
+/// Le thème Office (2013–2022) : ses 12 couleurs, Calibri Light et Calibri ;
+/// celui que le lecteur intègre (`ThemeData::office`), sans copie de sa palette.
 pub(crate) fn office_theme() -> SourceTheme {
-    let colors = [
-        ("dk1", "000000"),
-        ("lt1", "ffffff"),
-        ("dk2", "44546a"),
-        ("lt2", "e7e6e6"),
-        ("accent1", "4472c4"),
-        ("accent2", "ed7d31"),
-        ("accent3", "a5a5a5"),
-        ("accent4", "ffc000"),
-        ("accent5", "5b9bd5"),
-        ("accent6", "70ad47"),
-        ("hlink", "0563c1"),
-        ("folHlink", "954f72"),
-    ];
-    let rgb = |hex: &str| {
-        let c = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).unwrap();
-        Rgba::new(c(0), c(2), c(4))
-    };
-    SourceTheme {
-        name: "Office".into(),
-        colors: colors.iter().map(|(slot, hex)| ((*slot).to_owned(), rgb(hex))).collect(),
-        fonts: ThemeFonts::latin("Calibri Light", "Calibri"),
-    }
+    crate::pptx::theme::ThemeData::office().unwrap().theme
 }
 
 /// Style de run neutre : Calibri 18 pt, `tx1`, sans effet.

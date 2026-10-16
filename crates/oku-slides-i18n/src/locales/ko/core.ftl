@@ -123,7 +123,11 @@ issue-slot-rejects = { $kind }은(는) 여기에서 허용되지 않습니다
 issue-placed-in-flow = 배치된 목록에 프레임으로 놓인 요소
 issue-unknown-bind = { $param }이(가) 알 수 없는 덱 설정에 연결되어 있습니다
 issue-slot-too-deep = 요소가 너무 깊이 중첩되었습니다
-issue-invalid-style = 잘못된 스타일 값: { $field }
+issue-invalid-style = 잘못된 스타일 값: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = 누락된 에셋: { $asset }
 issue-pack-version-mismatch = 변경된 팩 버전을 버렸습니다: { $version }
 issue-pack-version-missing = 소스에 팩 버전이 없습니다: { $version }

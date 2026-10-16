@@ -123,7 +123,11 @@ issue-slot-rejects = { $kind } không được chấp nhận ở đây
 issue-placed-in-flow = phần tử đặt bằng khung trong một danh sách được dàn trang
 issue-unknown-bind = { $param } được liên kết với một thiết lập bản trình bày không xác định
 issue-slot-too-deep = các phần tử lồng nhau quá sâu
-issue-invalid-style = giá trị kiểu không hợp lệ: { $field }
+issue-invalid-style = giá trị kiểu không hợp lệ: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = thiếu tài nguyên: { $asset }
 issue-pack-version-mismatch = đã loại bỏ phiên bản gói bị thay đổi: { $version }
 issue-pack-version-missing = thiếu phiên bản gói trong nguồn: { $version }

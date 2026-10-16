@@ -123,7 +123,11 @@ issue-slot-rejects = { $kind } はここでは受け付けられません
 issue-placed-in-flow = レイアウトされたリストに枠付きで配置された要素
 issue-unknown-bind = { $param } は不明なデッキ設定に紐付いています
 issue-slot-too-deep = 要素の入れ子が深すぎます
-issue-invalid-style = 無効なスタイル値: { $field }
+issue-invalid-style = 無効なスタイル値: { $field }（{ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    }）
 issue-missing-asset = アセットがありません：{ $asset }
 issue-pack-version-mismatch = 改変されたパックのバージョンを破棄しました：{ $version }
 issue-pack-version-missing = パックのバージョンがソースにありません：{ $version }

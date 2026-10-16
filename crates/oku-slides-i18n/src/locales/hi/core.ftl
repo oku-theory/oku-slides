@@ -123,7 +123,11 @@ issue-slot-rejects = { $kind } यहाँ स्वीकार नहीं �
 issue-placed-in-flow = व्यवस्थित सूची में फ़्रेम के साथ रखा गया तत्व
 issue-unknown-bind = { $param } एक अज्ञात डेक सेटिंग से जुड़ा है
 issue-slot-too-deep = तत्व बहुत गहराई तक नेस्टेड हैं
-issue-invalid-style = अमान्य शैली मान: { $field }
+issue-invalid-style = अमान्य शैली मान: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = एसेट गायब है: { $asset }
 issue-pack-version-mismatch = बदला हुआ पैक संस्करण हटाया गया: { $version }
 issue-pack-version-missing = पैक संस्करण स्रोतों में नहीं है: { $version }

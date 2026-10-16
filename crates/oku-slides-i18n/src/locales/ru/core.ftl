@@ -133,7 +133,11 @@ issue-slot-rejects = { $kind } здесь не принимается
 issue-placed-in-flow = элемент с рамкой в размеченном списке
 issue-unknown-bind = { $param } связан с неизвестной настройкой презентации
 issue-slot-too-deep = элементы вложены слишком глубоко
-issue-invalid-style = недопустимое значение стиля: { $field }
+issue-invalid-style = недопустимое значение стиля: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = отсутствует ресурс: { $asset }
 issue-pack-version-mismatch = изменённая версия пакета отброшена: { $version }
 issue-pack-version-missing = версия пакета отсутствует в исходниках: { $version }

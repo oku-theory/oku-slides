@@ -137,7 +137,11 @@ issue-slot-rejects = { $kind } غير مقبول هنا
 issue-placed-in-flow = عنصر موضوع بإطار في قائمة منسّقة
 issue-unknown-bind = { $param } مرتبط بإعداد عرض غير معروف
 issue-slot-too-deep = العناصر متداخلة بعمق مفرط
-issue-invalid-style = قيمة نمط غير صالحة: { $field }
+issue-invalid-style = قيمة نمط غير صالحة: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = مورد مفقود: { $asset }
 issue-pack-version-mismatch = أُهملت نسخة حزمة معدَّلة: { $version }
 issue-pack-version-missing = نسخة الحزمة مفقودة من المصادر: { $version }

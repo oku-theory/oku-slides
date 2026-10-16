@@ -123,7 +123,11 @@ issue-slot-rejects = { $kind } burada kabul edilmez
 issue-placed-in-flow = düzenlenmiş bir listede çerçeveyle yerleştirilmiş öğe
 issue-unknown-bind = { $param } bilinmeyen bir sunu ayarına bağlı
 issue-slot-too-deep = öğeler çok derin iç içe
-issue-invalid-style = geçersiz stil değeri: { $field }
+issue-invalid-style = geçersiz stil değeri: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = eksik varlık: { $asset }
 issue-pack-version-mismatch = değiştirilmiş paket sürümü atıldı: { $version }
 issue-pack-version-missing = paket sürümü kaynaklarda yok: { $version }

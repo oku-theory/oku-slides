@@ -225,6 +225,19 @@ fn set_or_replace_style_out_of_its_domain_returns_invalid_value(
     assert_that!(err.subject()).is_equal_to(Some(field));
 }
 
+/// Le patch se contrôle avant la cible, comme `SetFrame` : un style invalide
+/// est refusé pour lui-même, même sur un élément absent.
+#[rstest]
+#[case::set(false)]
+#[case::replace(true)]
+fn set_or_replace_invalid_style_on_a_missing_element_reports_the_value_first(#[case] replace: bool) {
+    let mut deck = fixture();
+    let style = Style { valign: Some("center".into()), ..Default::default() };
+    let (slide, element) = ("s-libre".to_owned(), "absent".to_owned());
+    let op = if replace { Op::ReplaceStyle { slide, element, style } } else { Op::SetStyle { slide, element, style } };
+    assert_that!(apply_err(&mut deck, op).kind()).is_equal_to(OpErrorKind::InvalidValue);
+}
+
 // ---- set_param ------------------------------------------------------------------------
 
 #[test]

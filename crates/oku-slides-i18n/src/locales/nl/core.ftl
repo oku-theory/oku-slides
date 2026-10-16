@@ -129,7 +129,11 @@ issue-slot-rejects = { $kind } wordt hier niet geaccepteerd
 issue-placed-in-flow = element met een kader in een opgemaakte lijst
 issue-unknown-bind = { $param } is gekoppeld aan een onbekende deckinstelling
 issue-slot-too-deep = elementen zijn te diep genest
-issue-invalid-style = ongeldige stijlwaarde: { $field }
+issue-invalid-style = ongeldige stijlwaarde: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = ontbrekende bron: { $asset }
 issue-pack-version-mismatch = gewijzigde pakketversie verworpen: { $version }
 issue-pack-version-missing = pakketversie ontbreekt in de bronnen: { $version }

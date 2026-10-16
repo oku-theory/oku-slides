@@ -129,7 +129,11 @@ issue-slot-rejects = { $kind } non è accettato qui
 issue-placed-in-flow = elemento posizionato con una cornice in un elenco impaginato
 issue-unknown-bind = { $param } è collegato a un'impostazione del deck sconosciuta
 issue-slot-too-deep = elementi annidati troppo in profondità
-issue-invalid-style = valore di stile non valido: { $field }
+issue-invalid-style = valore di stile non valido: { $field } ({ $reason ->
+        [valign] { op-value-valign }
+        [out-of-bounds] { op-value-out-of-bounds }
+       *[other] { op-value-unreadable }
+    })
 issue-missing-asset = risorsa mancante: { $asset }
 issue-pack-version-mismatch = versione del pacchetto alterata scartata: { $version }
 issue-pack-version-missing = versione del pacchetto mancante dalle sorgenti: { $version }

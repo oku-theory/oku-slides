@@ -537,6 +537,7 @@ impl Op {
             Op::EditList { target, param, change } => list::edit_list(deck, registry, &target, &param, change),
             Op::SetStyle { slide, element, style } => {
                 // Seul le patch se contrôle : un champ déjà invalide du deck ne bloque pas un autre réglage.
+                // Il se contrôle avant la cible, comme `SetFrame` : refusé pour lui-même, même sur un élément absent.
                 check_style(&style)?;
                 let s = slide_mut(deck, &slide)?;
                 let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
