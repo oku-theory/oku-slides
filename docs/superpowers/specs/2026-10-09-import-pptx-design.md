@@ -263,7 +263,7 @@ Crate `crates/oku-slides-import`:
 | `hifi/widget.rs`, `hifi/pack.rs` | slide widget of a layout; generated pack, declared schemas, `pack.json` |
 | `hifi/slide.rs`, `hifi/element*.rs` | a slide: placeholders as parameters, the rest as `extras` elements |
 | `retrofit/` | retrofit projector: template scoring, grid, colors, fallbacks |
-| `pattern.rs` | pattern signature (shared by retrofit / hi-fi grouping) |
+| `pattern.rs` | pattern signature, used by retrofit only (hi-fi groups nothing: it reproduces each item) |
 | `plan.rs` | `ImportPlan`, `WidgetRequest` |
 | `coverage.rs` | content coverage, measured on the resulting deck (lot 2) |
 | `metrics.rs` | visual gap and worst regions (hi-fi, lot 4; images rendered by the CLI) |

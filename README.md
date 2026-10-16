@@ -46,7 +46,7 @@ output are in French.
 just oku-slides check fixtures/roadmap.json                         # validate a deck
 just oku-slides render fixtures/roadmap.json --out out --theme pro  # SVG + layout.json; theme by name
 just save fixtures/roadmap.json deck.oku-slides.pdf                 # save as .oku-slides.pdf
-just oku-slides open deck.oku-slides.pdf --out extracted/           # deck.json + assets
+just oku-slides open deck.oku-slides.pdf --out extracted/           # deck.json, assets, fonts, packs (not embedded themes)
 just oku-slides strip deck.oku-slides.pdf copy.pdf                  # copy without sources
 just oku-slides import deck.pptx --pack Essentiel --theme Pro -o deck.oku-slides.pdf --report r.json  # PPTX → deck (retrofit)
 just oku-slides import deck.pptx --mode hifi -o deck.oku-slides.pdf --report r.json                    # PPTX → deck (faithful copy)

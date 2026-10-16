@@ -27,8 +27,9 @@
 //! décor des slides ([`crate::retrofit::decor::Decor::skips`] : date, pied,
 //! numéro, en-tête et pied répétés) ; le hi-fi n'omet rien, le décor des
 //! masters et des layouts (que son pack dessine) n'étant pas dans les items
-//! des slides. Un champ numéro de slide (`slidenum`) non plus : le deck le
-//! recalcule, son texte en cache n'est pas un contenu.
+//! des slides. Dans les deux modes, un champ numéro de slide (`slidenum`)
+//! est hors du compte : le deck le recalcule, son texte en cache n'est pas
+//! un contenu.
 
 use std::collections::BTreeMap;
 
