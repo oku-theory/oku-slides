@@ -307,6 +307,12 @@ fn history_open_after_the_pack_faulted_elsewhere_falls_back_and_shows_the_notice
     assert_registry_agrees(&s);
 }
 
+/// La version montrée utilise le pack devenu fautif (la dernière, celle du
+/// pack `Boucle`) : son rendu se replie, l'avis suit le document montré.
+///
+/// t-355 : l'aperçu se rend avec le pack de sa propre version ; la version 0
+/// (pack par défaut) n'utilise pas `Boucle` et ne peut plus servir ici (voir
+/// le test suivant).
 #[test]
 fn history_seek_after_the_pack_faulted_elsewhere_keeps_the_notice() {
     let data = data_dir();
@@ -315,6 +321,24 @@ fn history_seek_after_the_pack_faulted_elsewhere_keeps_the_notice() {
     s.history_open().unwrap();
     fault_pack_outside_the_deck(&s);
     s.doc.notice = None;
+    let last = s.history_versions().unwrap().len() - 1;
+    s.history_seek(last).unwrap();
+    assert_fell_back(&s, &base);
+}
+
+/// t-355 : une version d'un autre pack se montre sans l'avis du pack fautif,
+/// qu'elle n'utilise pas ; en sortant, le deck (qui l'utilise) se replie et le dit.
+#[test]
+fn history_seek_to_a_version_without_the_faulted_pack_then_close_says_it_on_the_deck() {
+    let data = data_dir();
+    let base = session_in(&data.0).registry.clone();
+    let mut s = session_on_looping_pack(&data.0);
+    s.history_open().unwrap();
+    fault_pack_outside_the_deck(&s);
+    s.doc.notice = None;
     s.history_seek(0).unwrap();
+    assert_that!(s.pack.is_none()).is_true();
+    assert_that!(s.doc.notice.clone().unwrap_or_default().as_str()).does_not_contain("Boucle");
+    s.history_close().unwrap();
     assert_fell_back(&s, &base);
 }

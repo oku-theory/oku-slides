@@ -96,7 +96,7 @@ impl Session {
         if !issues.is_empty() {
             tracing::debug!(index, issues = issues.len(), "version lue en partie");
         }
-        let previous = self.install_version_widgets(deck.templates.as_ref())?;
+        let (previous, widgets_notice) = self.install_version_widgets(deck.templates.as_ref())?;
         let (compiled, mut sources) = match self.render_version(deck) {
             Ok(shown) => shown,
             Err(e) => {
@@ -112,6 +112,9 @@ impl Session {
         sources.set_registry(self.registry.clone());
         let mut doc = Document::new(sources, self.doc.path.clone(), &self.doc_defaults);
         doc.dirty = self.doc.dirty;
+        if let Some(notice) = widgets_notice {
+            self.set_notice(notice);
+        }
         // L'avis en attente (celui d'un repli pendant ce rendu compris) suit le document montré.
         doc.notice = self.doc.notice.take();
         put_blobs(&mut doc, take_blobs(&mut self.doc));
@@ -126,18 +129,28 @@ impl Session {
     }
 
     /// Installe les widgets du pack `templates`, lu dans les sources du
-    /// document montré ; rend ceux d'avant s'ils changent. Un pack absent ou
-    /// cassé laisse la base : l'avis est journalisé, pas montré (l'aperçu est
-    /// en lecture seule, le deck dira le sien en sortant).
-    fn install_version_widgets(&mut self, templates: Option<&PackRef>) -> Result<Option<DeckWidgets>> {
+    /// document montré ; rend ceux d'avant s'ils changent, et l'avis à montrer
+    /// une fois l'aperçu réussi. Un pack écarté (fautif) ou aux widgets cassés
+    /// laisse la base et se dit, comme sur le deck ; une version de pack
+    /// absente des sources n'est que journalisée : le passé du deck n'a rien
+    /// à corriger, et le deck dira le sien en sortant.
+    fn install_version_widgets(
+        &mut self,
+        templates: Option<&PackRef>,
+    ) -> Result<(Option<DeckWidgets>, Option<String>)> {
         if templates == self.widgets_templates.as_ref() {
-            return Ok(None);
+            return Ok((None, None));
         }
         let (widgets, notice) = self.resolve_widgets(templates, &self.doc.sources.packs)?;
-        if let Some(notice) = notice {
-            tracing::info!(notice, "widgets de la version montrée");
-        }
-        self.install_widgets(widgets).map(Some)
+        let missing = templates.is_some_and(|r| !self.doc.sources.packs.contains_key(&r.version));
+        let notice = match notice {
+            Some(notice) if missing => {
+                tracing::info!(notice, "pack de la version montrée absent des sources : widgets de base");
+                None
+            }
+            notice => notice,
+        };
+        Ok((Some(self.install_widgets(widgets)?), notice))
     }
 
     /// Sort du mode historique : le deck mis de côté et l'historique ; la
