@@ -139,3 +139,31 @@ fn custom_point_from_a_huge_guide_is_clamped_and_reported() {
     let Some(Geometry::Path { paths }) = parse_geometry(d.root_element()) else { panic!("tracé attendu") };
     assert_that!(paths[0].cmds.clone()).is_equal_to(vec![PathCmd::MoveTo { x: MAX_PATH_SPAN, y: 0.0 }]);
 }
+
+#[test]
+fn custom_beziers_are_normalized_to_the_box() {
+    let g = geom(
+        r#"<a:custGeom><a:pathLst><a:path w="200" h="100"><a:moveTo><a:pt x="0" y="0"/></a:moveTo><a:cubicBezTo><a:pt x="50" y="0"/><a:pt x="150" y="100"/><a:pt x="200" y="100"/></a:cubicBezTo><a:quadBezTo><a:pt x="100" y="50"/><a:pt x="0" y="0"/></a:quadBezTo><a:cubicBezTo><a:pt x="1" y="1"/></a:cubicBezTo></a:path></a:pathLst></a:custGeom>"#,
+    );
+    let Some(Geometry::Path { paths }) = g else { panic!("tracé attendu") };
+    // Une courbe au mauvais nombre de points est ignorée.
+    assert_that!(paths[0].cmds.clone()).is_equal_to(vec![
+        PathCmd::MoveTo { x: 0.0, y: 0.0 },
+        PathCmd::CubicTo { x1: 0.25, y1: 0.0, x2: 0.75, y2: 1.0, x: 1.0, y: 1.0 },
+        PathCmd::QuadTo { x1: 0.5, y1: 0.5, x: 0.0, y: 0.0 },
+    ]);
+}
+
+#[test]
+fn custom_arc_radii_are_normalized_and_angles_in_degrees() {
+    let g = geom(
+        r#"<a:custGeom><a:pathLst><a:path w="200" h="100"><a:arcTo wR="100" hR="25" stAng="10800000" swAng="-5400000"/></a:path></a:pathLst></a:custGeom>"#,
+    );
+    let Some(Geometry::Path { paths }) = g else { panic!("tracé attendu") };
+    assert_that!(paths[0].cmds.clone()).is_equal_to(vec![PathCmd::ArcTo {
+        wr: 0.5,
+        hr: 0.25,
+        start: 180.0,
+        swing: -90.0,
+    }]);
+}

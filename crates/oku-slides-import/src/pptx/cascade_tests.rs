@@ -10,7 +10,7 @@ use crate::pptx::color::{ColorBase, ColorCtx, ColorSpec, default_map};
 use crate::pptx::text::{
     BodyProps, BulletKind, FontRef, ParaProps, RawParagraph, RawRun, RawText, RunProps, empty_levels,
 };
-use crate::source::{Align, Anchor, Bullet, Rgba, Script, Styled, ThemeFonts};
+use crate::source::{Align, Anchor, Autofit, Bullet, Caps, Rgba, Script, Styled, ThemeFonts};
 
 fn colors() -> ColorCtx {
     ColorCtx::new(
@@ -292,4 +292,50 @@ fn arabic_paragraph_is_right_to_left_with_its_complex_font() {
     let p = &tb.paragraphs[0];
     assert_that!((p.style.rtl, p.runs[0].style.family(Script::Complex), p.runs[0].style.lang.as_deref()))
         .is_equal_to((true, "Traditional Arabic", Some("ar-SA")));
+}
+
+#[test]
+fn caps_and_highlight_are_inherited_and_overridden_by_the_run() {
+    let c = colors();
+    let red = ColorSpec { base: ColorBase::Fixed(Rgba::new(255, 0, 0)), mods: vec![] };
+    let master = levels_with(
+        0,
+        ParaProps {
+            run: RunProps { caps: Some(Caps::All), highlight: Some(red), ..RunProps::default() },
+            ..ParaProps::default()
+        },
+    );
+    let chain = TextChain { levels: vec![&master], bodies: vec![] };
+    let inherited = resolve_textbox(&one_run(0, ParaProps::default(), RunProps::default()), &chain, &env(&c));
+    let own = RunProps { caps: Some(Caps::Small), ..RunProps::default() };
+    let overridden = resolve_textbox(&one_run(0, ParaProps::default(), own), &chain, &env(&c));
+    let (a, b) = (&inherited.paragraphs[0].runs[0].style, &overridden.paragraphs[0].runs[0].style);
+    assert_that!((a.caps, a.highlight.as_ref().map(|h| h.value), b.caps)).is_equal_to((
+        Caps::All,
+        Some(Rgba::new(255, 0, 0)),
+        Caps::Small,
+    ));
+}
+
+#[test]
+fn caps_and_highlight_default_to_none() {
+    let c = colors();
+    let tb = resolve_textbox(&one_run(0, ParaProps::default(), RunProps::default()), &no_chain(), &env(&c));
+    let r = &tb.paragraphs[0].runs[0].style;
+    assert_that!((r.caps, r.highlight.clone())).is_equal_to((Caps::None, None));
+}
+
+#[test]
+fn autofit_is_inherited_from_the_layout_body_and_overridden_by_the_shape() {
+    let c = colors();
+    let shrink = Autofit::Shrink { font_scale: 0.9, line_reduction: 0.1 };
+    let layout_body = BodyProps { autofit: Some(shrink), ..BodyProps::default() };
+    let chain = TextChain { levels: vec![], bodies: vec![&layout_body] };
+    let raw = one_run(0, ParaProps::default(), RunProps::default());
+    let inherited = resolve_textbox(&raw, &chain, &env(&c)).autofit;
+    let mut own = raw.clone();
+    own.body.autofit = Some(Autofit::Resize);
+    let overridden = resolve_textbox(&own, &chain, &env(&c)).autofit;
+    let none = resolve_textbox(&raw, &no_chain(), &env(&c)).autofit;
+    assert_that!((inherited, overridden, none)).is_equal_to((shrink, Autofit::Resize, Autofit::None));
 }

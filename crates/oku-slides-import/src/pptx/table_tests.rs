@@ -175,3 +175,43 @@ fn file_style_wins_over_the_builtin_of_the_same_guid() {
     // `tableStyles.xml` donne au corps sans bande l'accent1 tint 20 % ; ses bords intérieurs seuls.
     assert_that!((fill_hex(&t, 2, 0), t.rows[2][0].borders.l.is_none())).is_equal_to(("#e9ebf5".to_owned(), true));
 }
+
+/// Style à parties distinctes : wholeTbl gris, band1H rouge, band2H vert, lastRow bleu.
+const BANDS: &str = r#"<a:tblStyleLst xmlns:a="urn:a" def="{B}"><a:tblStyle styleId="{B}" styleName="Bandes">
+<a:wholeTbl><a:tcStyle><a:fill><a:solidFill><a:srgbClr val="808080"/></a:solidFill></a:fill></a:tcStyle></a:wholeTbl>
+<a:band1H><a:tcStyle><a:fill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:fill></a:tcStyle></a:band1H>
+<a:band2H><a:tcStyle><a:fill><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:fill></a:tcStyle></a:band2H>
+<a:lastRow><a:tcTxStyle b="on"/><a:tcStyle><a:fill><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill></a:fill></a:tcStyle></a:lastRow>
+</a:tblStyle></a:tblStyleLst>"#;
+
+/// Tableau d'une colonne et quatre lignes au style `BANDS`, avec les drapeaux `flags`.
+fn banded(flags: &str) -> Table {
+    let row = r#"<a:tr h="381000"><a:tc><a:txBody><a:bodyPr/><a:p><a:r><a:t>x</a:t></a:r></a:p></a:txBody><a:tcPr/></a:tc></a:tr>"#;
+    let xml = format!(
+        r#"<a:tbl xmlns:a="urn:a"><a:tblPr {flags}><a:tableStyleId>{{B}}</a:tableStyleId></a:tblPr><a:tblGrid><a:gridCol w="1270000"/></a:tblGrid>{}</a:tbl>"#,
+        row.repeat(4)
+    );
+    let t = TestPkg::with(&[]);
+    let pkg = t.pkg();
+    let doc = parse(&xml, "t", 10_000).unwrap();
+    with_table_styles(&pkg, BANDS, |cx| parse_table(doc.root_element(), cx)).0
+}
+
+#[test]
+fn second_band_and_last_row_take_their_style_parts() {
+    let t = banded(r#"bandRow="1" lastRow="1""#);
+    let fills: Vec<String> = (0..4).map(|r| fill_hex(&t, r, 0)).collect();
+    assert_that!(fills).is_equal_to(vec![
+        "#ff0000".to_owned(),
+        "#00ff00".to_owned(),
+        "#ff0000".to_owned(),
+        "#0000ff".to_owned(),
+    ]);
+    assert_that!(t.rows[3][0].text.paragraphs[0].runs[0].style.bold).is_true();
+}
+
+#[test]
+fn last_row_part_needs_its_flag() {
+    let t = banded(r#"bandRow="1""#);
+    assert_that!(fill_hex(&t, 3, 0)).is_equal_to("#00ff00".to_owned());
+}

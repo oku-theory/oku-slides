@@ -165,3 +165,26 @@ fn line_ends_explicit_none_overrides_inherited_arrow() {
     let stroke = own.over(&base).finish(&ctx()).unwrap();
     assert_that!((stroke.head, stroke.tail.map(|a| a.kind))).is_equal_to((None, Some(ArrowKind::Oval)));
 }
+
+#[rstest::rstest]
+#[case::solid("solid", Dash::Solid)]
+#[case::dash("dash", Dash::Dash)]
+#[case::system_dash("sysDash", Dash::Dash)]
+#[case::dot("dot", Dash::Dot)]
+#[case::system_dot("sysDot", Dash::Dot)]
+#[case::dash_dot("dashDot", Dash::DashDot)]
+#[case::long_dash_dot_dot("lgDashDotDot", Dash::DashDot)]
+#[case::system_dash_dot_dot("sysDashDotDot", Dash::DashDot)]
+#[case::long_dash("lgDash", Dash::LongDash)]
+#[case::unknown("wavy", Dash::Solid)]
+fn line_preset_dashes_map_to_their_family(#[case] val: &str, #[case] dash: Dash) {
+    assert_that!(line_of(&format!(r#"><a:prstDash val="{val}"/></a:ln>"#)).dash).is_equal_to(Some(dash));
+}
+
+#[test]
+fn line_without_dash_inherits_then_defaults_to_solid() {
+    let base = LineSpec { dash: Some(Dash::Dot), ..line_of(r#"w="12700"/>"#) };
+    let own = line_of(r#"w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>"#);
+    assert_that!((own.clone().over(&base).dash, own.finish(&ctx()).map(|s| s.dash)))
+        .is_equal_to((Some(Dash::Dot), Some(Dash::Solid)));
+}

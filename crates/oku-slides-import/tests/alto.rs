@@ -68,24 +68,7 @@ fn alto_uses_inter_without_embedding_it() {
 #[test]
 fn alto_summary_matches() {
     let d = alto();
-    let lines: Vec<String> = d
-        .slides
-        .iter()
-        .map(|s| {
-            let kinds: Vec<&str> = s
-                .items
-                .iter()
-                .map(|i| match &i.kind {
-                    ItemKind::Text(_) => "text",
-                    ItemKind::Shape(_) => "shape",
-                    ItemKind::Picture(_) => "picture",
-                    _ => "other",
-                })
-                .collect();
-            format!("{}: {}", s.id, kinds.join(" "))
-        })
-        .chain(d.warnings.iter().map(|w| format!("warning: {:?}", w.kind)))
-        .collect();
+    let lines = common::summary(&d);
     insta::assert_json_snapshot!("alto_summary", lines);
 }
 

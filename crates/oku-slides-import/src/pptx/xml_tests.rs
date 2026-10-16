@@ -24,6 +24,14 @@ fn parse_at_the_depth_limit_with_comment_cdata_and_pi_is_accepted() {
     assert_that!(parse(&doc, "p.xml", 1_000_000).is_ok()).is_true();
 }
 
+#[rstest::rstest]
+#[case::at_the_limit(MAX_XML_DEPTH, true)]
+#[case::one_over(MAX_XML_DEPTH + 1, false)]
+fn parse_accepts_exactly_max_xml_depth_open_elements(#[case] depth: usize, #[case] accepted: bool) {
+    let doc = format!("{}<leaf/>{}", "<a>".repeat(depth), "</a>".repeat(depth));
+    assert_that!((shape(&doc).depth, parse(&doc, "p.xml", 1_000_000).is_ok())).is_equal_to((depth, accepted));
+}
+
 #[test]
 fn depth_counts_open_elements_not_self_closing_or_quoted_angle_brackets() {
     // a (1) > c (2) ; b et d sont auto-fermants ; le « /> » entre guillemets ne ferme rien.

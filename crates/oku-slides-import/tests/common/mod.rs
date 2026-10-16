@@ -137,3 +137,29 @@ pub fn minimal_slide1_plus(shapes: &str, rels: &str, added: &[(&str, &[u8])]) ->
         added,
     )
 }
+
+/// Sorte d'un item (`text`, `group[shape,text]`, `opaque(Media)`…), libellé des résumés de deck.
+pub fn kind(i: &oku_slides_import::source::Item) -> String {
+    use oku_slides_import::source::ItemKind;
+    match &i.kind {
+        ItemKind::Text(_) => "text".into(),
+        ItemKind::Shape(_) => "shape".into(),
+        ItemKind::Picture(_) => "picture".into(),
+        ItemKind::Table(_) => "table".into(),
+        ItemKind::Chart(_) => "chart".into(),
+        ItemKind::Group { items, .. } => format!("group[{}]", items.iter().map(kind).collect::<Vec<_>>().join(",")),
+        ItemKind::SmartArt(sa) => format!("smartart[{}]", sa.nodes.len()),
+        ItemKind::Opaque(o) => format!("opaque({:?})", o.reason),
+    }
+}
+
+/// Une ligne par slide (sortes de ses items) puis une par avertissement.
+pub fn summary(d: &oku_slides_import::source::SourceDeck) -> Vec<String> {
+    let mut out: Vec<String> = d
+        .slides
+        .iter()
+        .map(|s| format!("{}: {}", s.id, s.items.iter().map(kind).collect::<Vec<_>>().join(" ")))
+        .collect();
+    out.extend(d.warnings.iter().map(|w| format!("warning: {:?}", w.kind)));
+    out
+}
