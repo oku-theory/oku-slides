@@ -15,7 +15,8 @@
 //! deck : une estimation précoce du contenu produit, pas une garantie), puis les
 //! ops du plan s'appliquent en une transaction et le deck est rendu et enregistré
 //! en `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé. Le
-//! rendu relève les champs qui sortent de leur page (perte `Overflow`,
+//! rendu relève les champs qui sortent de leur page, et en retrofit les boîtes
+//! sous la marge basse (perte `Overflow`,
 //! [`crate::import_overflow`]) ; en hi-fi, sauf `--reference none`, il est
 //! comparé au rendu de référence du témoin ([`crate::import_reference`] ;
 //! `--reference office2pdf` ou `auto`, le défaut, `soffice` pour LibreOffice) :

@@ -17,7 +17,7 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
   worker (in up to `PROBE_ROUNDS` calls and `PROBE_BUDGETS` probe budgets); `render` renders in memory or in the worker.
 - `import.rs`: `oku-slides import`, `ImportMode` `retrofit` (onto an existing pack and
   theme) or `hifi`, read on a thread of known stack; saved like `save`, report optional.
-- `import_overflow.rs`: text fields rendered past their page become `Overflow` losses.
+- `import_overflow.rs`: text fields past their page, in retrofit boxes past the bottom margin, are `Overflow` losses.
 - `import_reference.rs`: hi-fi `--reference auto|office2pdf|soffice`: the witness (LibreOffice
   from `[import] soffice`, absent → cause `missing`) in a render worker of its own, 20 slides at a time, each Oku page cropped to the source page at 960 px, scored into the report.
 - `import_hifi.rs`: hifi preparation: generated pack and theme with an identity from the
