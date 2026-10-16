@@ -9,7 +9,7 @@ use crate::pptx::context::PartCtx;
 use crate::pptx::fill::{FillSpec, LineSpec, approximation, parse_fill, parse_line};
 use crate::pptx::frame::parse_graphic_frame;
 use crate::pptx::geometry::parse_geometry;
-use crate::pptx::placeholder::PhKey;
+use crate::pptx::placeholder::{Inherited, PhKey};
 use crate::pptx::text::{BodyProps, LevelProps, RunProps, empty_levels, font_ref, parse_txbody};
 use crate::pptx::units::{angle, emu, pct};
 use crate::pptx::xml::{attr_bool, attr_i64, attr_r, attr_str, attr_u32, child, descendant, elements};
@@ -175,7 +175,19 @@ fn style_refs(n: Node<'_, '_>, cx: &PartCtx<'_>, need_fill: bool) -> (Option<Fil
     (fill, line, font)
 }
 
-fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) -> Option<ParsedItem> {
+/// Ce que `sp` et `pic` lisent de même : identité, placeholder et son héritage, `spPr` (signalé)
+/// et cadre (le sien, sinon l'hérité, sinon vide).
+struct Head<'a, 'i> {
+    id: String,
+    name: String,
+    alt: Option<String>,
+    ph: Option<PhKey>,
+    inh: Inherited,
+    sp_pr: Option<Node<'a, 'i>>,
+    frame: Frame,
+}
+
+fn head<'a, 'i>(n: Node<'a, 'i>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<Head<'a, 'i>> {
     let (id, name, alt) = identity(n, cx)?;
     let ph = ph_key(n);
     let inh = cx.lookup(ph.as_ref());
@@ -188,6 +200,11 @@ fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) ->
     if let Some(s) = sp_pr {
         report_sp_pr(s, &id, cx);
     }
+    Some(Head { id, name, alt, ph, inh, sp_pr, frame })
+}
+
+fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) -> Option<ParsedItem> {
+    let Head { id, name, alt, ph, inh, sp_pr, frame } = head(n, cx, g)?;
     if child(n, "txXfrm").is_some() {
         cx.warn(Some(&id), WarningKind::Approximated("txXfrm".into()));
     }
@@ -258,18 +275,7 @@ fn crop_pair(a: f64, b: f64) -> (f64, f64) {
 }
 
 fn parse_pic(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<ParsedItem> {
-    let (id, name, alt) = identity(n, cx)?;
-    let ph = ph_key(n);
-    let inh = cx.lookup(ph.as_ref());
-    let sp_pr = child(n, "spPr");
-    let frame = sp_pr
-        .and_then(|s| child(s, "xfrm"))
-        .map(|x| g.frame(x))
-        .or(inh.frame)
-        .unwrap_or(Frame::new(0.0, 0.0, 0.0, 0.0));
-    if let Some(s) = sp_pr {
-        report_sp_pr(s, &id, cx);
-    }
+    let Head { id, name, alt, ph, inh, sp_pr: _, frame } = head(n, cx, g)?;
     let blip_fill = child(n, "blipFill");
     let blip = blip_fill.and_then(|b| child(b, "blip"));
     let asset = blip.and_then(|b| blip_asset(b, cx));
