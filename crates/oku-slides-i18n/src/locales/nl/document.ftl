@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt niet geïmporteerd (geen vervangende afbeelding)
    *[unknown] Niet-ondersteund object niet geïmporteerd (geen vervangende afbeelding)
 }
+import-loss-smartart-layout = SmartArt zonder tekening: de tekst is als kaarten geplaatst, de diagramindeling gaat verloren
 import-loss-unsupported-image = Afbeelding in { $format }-indeling niet geïmporteerd
 import-loss-hidden-slide = Verborgen dia als zichtbaar geïmporteerd
 import-loss-effects = Schaduwen, weerspiegelingen en 3D-effecten verloren

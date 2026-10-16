@@ -164,7 +164,7 @@ fn score_of_truncated_bytes_is_none() {
 #[test]
 fn regions_open_groups_and_scale_frames() {
     let child = text_item("s1/3", (10.0, 20.0, 30.0, 40.0), "x");
-    let group = item("s1/2", (0.0, 0.0, 100.0, 100.0), ItemKind::Group { items: vec![child], smartart: false });
+    let group = item("s1/2", (0.0, 0.0, 100.0, 100.0), ItemKind::Group { items: vec![child], smartart: None });
     let slide = source_slide(1, None, vec![text_item("s1/1", (1.0, 2.0, 3.0, 4.0), "y"), group]);
     let r = regions(&slide, 0.5);
     assert_that!(r).is_equal_to(vec![region("s1/1", (0.5, 1.0, 1.5, 2.0)), region("s1/3", (5.0, 10.0, 15.0, 20.0))]);

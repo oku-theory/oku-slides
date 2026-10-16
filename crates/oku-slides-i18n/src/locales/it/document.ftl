@@ -64,6 +64,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt non importato (nessuna immagine sostitutiva)
    *[unknown] Oggetto non supportato non importato (nessuna immagine sostitutiva)
 }
+import-loss-smartart-layout = SmartArt senza il disegno: il testo è disposto in schede, il layout del diagramma è perso
 import-loss-unsupported-image = Immagine in formato { $format } non importata
 import-loss-hidden-slide = Diapositiva nascosta importata come visibile
 import-loss-effects = Ombre, riflessi ed effetti 3D persi

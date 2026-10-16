@@ -14,6 +14,7 @@ fn kind(i: &Item) -> String {
         ItemKind::Table(_) => "table".into(),
         ItemKind::Chart(_) => "chart".into(),
         ItemKind::Group { items, .. } => format!("group[{}]", items.iter().map(kind).collect::<Vec<_>>().join(",")),
+        ItemKind::SmartArt(sa) => format!("smartart[{}]", sa.nodes.len()),
         ItemKind::Opaque(o) => format!("opaque({:?})", o.reason),
     }
 }

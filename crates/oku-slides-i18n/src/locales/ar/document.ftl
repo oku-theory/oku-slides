@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] لم يُستورد SmartArt (لا توجد صورة بديلة)
    *[unknown] لم يُستورد الكائن غير المدعوم (لا توجد صورة بديلة)
 }
+import-loss-smartart-layout = SmartArt بلا رسم: وُضع نصه في بطاقات وفُقد تخطيط المخطط
 import-loss-unsupported-image = لم تُستورد الصورة بتنسيق { $format }
 import-loss-hidden-slide = استُوردت الشريحة المخفية كشريحة ظاهرة
 import-loss-effects = فُقدت الظلال والانعكاسات والتأثيرات ثلاثية الأبعاد

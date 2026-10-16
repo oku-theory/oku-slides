@@ -5080,7 +5080,11 @@ expression: kitchen()
                 }
               }
             ],
-            "smartart": true
+            "smartart": {
+              "layout": null,
+              "category": null,
+              "nodes": []
+            }
           }
         },
         {

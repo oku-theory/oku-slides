@@ -347,7 +347,7 @@ fn parse_group(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<Parsed
             z: 0,
             role: None,
             placeholder: None,
-            kind: ItemKind::Group { items, smartart: false },
+            kind: ItemKind::Group { items, smartart: None },
         },
         ph: None,
     })

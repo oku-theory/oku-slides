@@ -330,6 +330,11 @@ impl Tally {
                     self.c.missing.push(Missing::Table { slide, item: item.id.clone() });
                 }
             }
+            ItemKind::SmartArt(sa) => {
+                for n in &sa.nodes {
+                    self.runs(slide, probes(&n.text, None), texts);
+                }
+            }
             ItemKind::Chart(c) => {
                 let found = seen.charts.iter().any(|v| chart_matches(c, v));
                 count(&mut self.c.charts, found);

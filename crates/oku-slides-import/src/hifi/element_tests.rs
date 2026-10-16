@@ -134,7 +134,7 @@ fn group() -> Item {
         shape(preset("rect", &[]), solid("accent1"), None),
         with_frame(picture(Crop::default()), |f| (f.x, f.y) = (200.0, 100.0)),
     ];
-    item("s1/g", (10.0, 20.0, 290.0, 130.0), ItemKind::Group { items: children, smartart: false })
+    item("s1/g", (10.0, 20.0, 290.0, 130.0), ItemKind::Group { items: children, smartart: None })
 }
 
 fn chart_item() -> Item {

@@ -12,7 +12,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never copy a template's example text into imported slides; reuse only its layout or grid. (plan:2026-10-10-import-pptx-lot2)
 - Keep imported links only when they start with http, https or mailto, ignoring case. (plan:2026-10-10-import-pptx-lot2)
 - Do no I/O inside oku-slides-import; it receives in-memory bytes only. (plan:2026-10-09-import-pptx-lot1)
-- Cut groups and AlternateContent at MAX_NESTING and never follow a SmartArt found inside a SmartArt drawing. (plan:2026-10-09-import-pptx-lot1)
+- Cut groups and AlternateContent at MAX_NESTING, SmartArt node trees at MAX_NODES and MAX_NODE_DEPTH, and never follow a SmartArt inside a SmartArt drawing. (plan:2026-10-09-import-pptx-lot1, t-722)
 - Use attr_r only for relationship-namespace attributes; the other attr_ helpers read only attributes without namespace. (plan:2026-10-09-import-pptx-lot1)
 - Propagate TooLarge from any part, linked parts included, as fatal via cx.fail, never as a warning; count decompressed bytes even when a read fails, and after a first TooLarge fail every read without decompressing. (spec:2026-10-09-import-pptx-design, plan:2026-10-09-import-pptx-lot1)
 - Choose the AlternateContent branch before reading and never parse the discarded one, so it consumes no id or asset. (plan:2026-10-09-import-pptx-lot1)

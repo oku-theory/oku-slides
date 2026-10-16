@@ -31,7 +31,7 @@ fn item_text_is_the_box_of_a_text_or_a_shape_only() {
     assert_that!(item.text()).is_equal_to(Some(&TextBox::default()));
     item.kind = ItemKind::Shape(Box::new(shape(None)));
     assert_that!(item.text()).is_none();
-    item.kind = ItemKind::Group { items: Vec::new(), smartart: false };
+    item.kind = ItemKind::Group { items: Vec::new(), smartart: None };
     assert_that!(item.text()).is_none();
 }
 

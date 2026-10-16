@@ -17,6 +17,7 @@ mod chart;
 mod font;
 mod lang;
 mod shape;
+mod smartart;
 mod style;
 mod table;
 mod text;
@@ -30,6 +31,7 @@ pub use font::{Asset, FaceStyle, FontFace, SourceFont};
 pub(crate) use font::{family_weight, is_drawable};
 pub use lang::{Script, lang_tag};
 pub use shape::{Connection, Crop, Geometry, PathCmd, Picture, Shape, Site, SubPath};
+pub use smartart::{SmartArt, SmartArtNode};
 pub use style::{Arrow, ArrowKind, ArrowSize, Color, ColorMod, Dash, Fill, GradientStop, Origin, Rgba, Stroke, Styled};
 pub use table::{Borders, Cell, Table, TableFlags};
 pub(crate) use text::SLIDE_NUMBER;
@@ -326,7 +328,7 @@ pub enum OpaqueReason {
     Ole,
     /// Équation.
     Math,
-    /// SmartArt sans version dessinée lisible.
+    /// SmartArt sans version dessinée ni nœud lisibles.
     SmartArt,
     /// Autre (URI du `graphicData`, `nesting`…).
     Unknown(String),
@@ -359,10 +361,13 @@ pub enum ItemKind {
     Group {
         /// Enfants, dans l'ordre de dessin.
         items: Vec<Item>,
-        /// Version dessinée d'un SmartArt (`dsp:drawing`), plutôt qu'un groupe de l'auteur.
-        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-        smartart: bool,
+        /// Modèle d'un SmartArt dont le groupe est la version dessinée (`dsp:drawing`) ;
+        /// `None` pour un groupe de l'auteur.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        smartart: Option<Box<SmartArt>>,
     },
+    /// SmartArt sans version dessinée : ses nœuds seuls, sans géométrie.
+    SmartArt(Box<SmartArt>),
     /// Intraduisible.
     Opaque(Opaque),
 }

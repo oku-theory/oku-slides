@@ -179,7 +179,7 @@ fn content_kind(item: &Item) -> Option<ContentKind> {
         ItemKind::Picture(_) => Some(ContentKind::Picture),
         ItemKind::Table(_) => Some(ContentKind::Table),
         ItemKind::Chart(_) => Some(ContentKind::Chart),
-        ItemKind::Group { .. } => Some(ContentKind::Group),
+        ItemKind::Group { .. } | ItemKind::SmartArt(_) => Some(ContentKind::Group),
         ItemKind::Opaque(o) => o.fallback.as_ref().map(|_| ContentKind::Picture),
     }
 }

@@ -26,6 +26,11 @@ fn source(fixture: &str) -> SourceDeck {
 
 /// Le plan de `fixture` sur le pack `pack` et le thème `theme`, et le deck obtenu.
 fn import(fixture: &str, pack: &str, theme: &str) -> (ImportPlan, Deck) {
+    import_source(fixture, &source(fixture), pack, theme)
+}
+
+/// Le plan de la source `src` (nommée `fixture`) sur `pack` et `theme`, et le deck obtenu.
+fn import_source(fixture: &str, src: &SourceDeck, pack: &str, theme: &str) -> (ImportPlan, Deck) {
     let (registry, templates, tokens): (WidgetRegistry, Vec<Template>, _) =
         (common::registry(), common::templates(pack), common::tokens(theme));
     let target = RetrofitTarget {
@@ -34,7 +39,7 @@ fn import(fixture: &str, pack: &str, theme: &str) -> (ImportPlan, Deck) {
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
     };
-    let plan = project(&source(fixture), &target);
+    let plan = project(src, &target);
     let mut deck = Deck::empty();
     apply_all(&mut deck, plan.ops.clone(), &registry).unwrap_or_else(|e| panic!("{fixture}/{pack}/{theme} : {e:?}"));
     let assets: HashSet<String> = plan.assets.keys().cloned().collect();
@@ -263,4 +268,41 @@ fn summary(plan: &ImportPlan) -> Vec<Value> {
 fn retrofit_alto_summary_matches() {
     let (plan, _) = import("alto", "essentiel", "papier");
     insta::assert_json_snapshot!("alto_retrofit_summary", summary(&plan));
+}
+
+/// Les nœuds du SmartArt de kitchen (slide 3) sans dessin, comme l'écrivent LibreOffice ou Google.
+const UNDRAWN_DATA: &str = r#"<dgm:dataModel xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><dgm:ptLst><dgm:pt modelId="{D}" type="doc"><dgm:prSet loTypeId="urn:microsoft.com/office/officeart/2005/8/layout/process1" loCatId="process"/></dgm:pt><dgm:pt modelId="{2}"><dgm:t><a:bodyPr/><a:p><a:r><a:t>Livrer</a:t></a:r></a:p></dgm:t></dgm:pt><dgm:pt modelId="{1}"><dgm:t><a:bodyPr/><a:p><a:r><a:t>Concevoir</a:t></a:r></a:p></dgm:t></dgm:pt><dgm:pt modelId="{1a}"><dgm:t><a:bodyPr/><a:p><a:r><a:t>Maquettes</a:t></a:r></a:p></dgm:t></dgm:pt></dgm:ptLst><dgm:cxnLst><dgm:cxn modelId="{c1}" srcId="{D}" destId="{1}" srcOrd="0" destOrd="0"/><dgm:cxn modelId="{c2}" srcId="{D}" destId="{2}" srcOrd="1" destOrd="0"/><dgm:cxn modelId="{c3}" srcId="{1}" destId="{1a}" srcOrd="0" destOrd="0"/></dgm:cxnLst></dgm:dataModel>"#;
+
+#[test]
+fn retrofit_smartart_without_drawing_lays_out_and_covers_its_node_texts() {
+    let bytes = common::pptx_with(
+        "kitchen",
+        &[("ppt/diagrams/data1.xml", Some(UNDRAWN_DATA)), ("ppt/diagrams/drawing1.xml", None)],
+    );
+    let src = read_pptx(&bytes, &common::limits()).unwrap_or_else(|e| panic!("lecture : {e}"));
+    let (plan, deck) = import_source("kitchen sans dessin", &src, "essentiel", "papier");
+    let c = plan.report.coverage.unwrap_or_else(|| panic!("couverture mesurée"));
+    assert_that!(c.missing).is_empty();
+    // Kitchen compte 12 runs, dont les 2 du dessin ; sans dessin, les 3 nœuds les remplacent.
+    assert_that!((c.runs.found, c.runs.total)).is_equal_to((13, 13));
+    let mut texts = Vec::new();
+    collect_texts(deck.slides[2].params.slot("elements").unwrap_or_default(), &mut texts);
+    let order: Vec<&str> =
+        texts.iter().map(String::as_str).filter(|t| ["Concevoir", "Maquettes", "Livrer"].contains(t)).collect();
+    assert_that!(order).is_equal_to(vec!["Concevoir", "Maquettes", "Livrer"]);
+    let lost = plan.report.slides[2].losses.iter().any(|l| l.kind == LossKind::SmartArtLayout);
+    assert_that!(lost).is_true();
+}
+
+/// Titres et paragraphes de `list` et de leurs descendants, dans l'ordre.
+fn collect_texts(list: &[Element], out: &mut Vec<String>) {
+    for e in list {
+        out.extend(e.params.text("title").map(str::to_owned));
+        for p in e.params.rich("body").unwrap_or_default() {
+            out.push(p.runs.iter().map(|r| r.t.as_str()).collect());
+        }
+        for (_, children) in e.params.slots() {
+            collect_texts(children, out);
+        }
+    }
 }

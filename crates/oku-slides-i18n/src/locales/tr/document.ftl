@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt içe aktarılmadı (yedek görüntü yok)
    *[unknown] Desteklenmeyen nesne içe aktarılmadı (yedek görüntü yok)
 }
+import-loss-smartart-layout = Çizimi olmayan SmartArt: metni kartlar halinde yerleştirildi, diyagram düzeni kayboldu
 import-loss-unsupported-image = { $format } biçimindeki görüntü içe aktarılmadı
 import-loss-hidden-slide = Gizli slayt görünür olarak içe aktarıldı
 import-loss-effects = Gölgeler, yansımalar ve 3B efektler kayboldu

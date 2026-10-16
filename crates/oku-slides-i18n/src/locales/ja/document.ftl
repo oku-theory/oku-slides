@@ -64,6 +64,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt はインポートされませんでした (代替画像なし)
    *[unknown] 未対応のオブジェクトはインポートされませんでした (代替画像なし)
 }
+import-loss-smartart-layout = 描画のない SmartArt: テキストをカードとして配置し、図のレイアウトは失われました
 import-loss-unsupported-image = { $format } 形式の画像はインポートされませんでした
 import-loss-hidden-slide = 非表示のスライドを表示状態でインポートしました
 import-loss-effects = 影、反射、3D 効果が失われました

@@ -41,6 +41,7 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
 #[case(LossKind::Opaque(OpaqueReason::Math))]
 #[case(LossKind::Opaque(OpaqueReason::SmartArt))]
 #[case(LossKind::Opaque(OpaqueReason::Unknown("x".into())))]
+#[case(LossKind::SmartArtLayout)]
 #[case(LossKind::UnsupportedImage("image/x-emf".into()))]
 #[case(LossKind::HiddenSlide)]
 #[case(LossKind::Effects)]

@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] Không nhập SmartArt (không có ảnh thay thế)
    *[unknown] Không nhập đối tượng không được hỗ trợ (không có ảnh thay thế)
 }
+import-loss-smartart-layout = SmartArt không có bản vẽ: văn bản được xếp thành thẻ, bố cục sơ đồ bị mất
 import-loss-unsupported-image = Không nhập ảnh định dạng { $format }
 import-loss-hidden-slide = Trang chiếu ẩn được nhập dưới dạng hiển thị
 import-loss-effects = Mất bóng đổ, phản chiếu và hiệu ứng 3D

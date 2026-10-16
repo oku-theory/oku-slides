@@ -191,7 +191,7 @@ fn nested_groups_compose_their_transforms() {
     let outer = group(10, (0, 0), (200 * PT, 200 * PT), (0, 0), (100 * PT, 100 * PT), &inner);
     let (items, _, _) = tree(&outer);
     let ItemKind::Group { items: leaves, smartart } = &kids(&items)[0].kind else { panic!("groupe attendu") };
-    assert_that!(*smartart).is_false();
+    assert_that!(smartart.is_none()).is_true();
     // feuille : dans l'extérieur 10 + 2×(10 − 5) = 20, puis ×2 → 40 ; taille 10 × 2 × 2 = 40.
     let f = leaves[0].frame;
     assert_that!((f.x, f.y, f.w, f.h)).is_equal_to((40.0, 40.0, 40.0, 40.0));

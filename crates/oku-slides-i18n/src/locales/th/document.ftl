@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] ไม่ได้นำเข้า SmartArt (ไม่มีภาพสำรอง)
    *[unknown] ไม่ได้นำเข้าวัตถุที่ไม่รองรับ (ไม่มีภาพสำรอง)
 }
+import-loss-smartart-layout = SmartArt ที่ไม่มีภาพวาด: จัดข้อความเป็นการ์ด และเค้าโครงของไดอะแกรมสูญหาย
 import-loss-unsupported-image = ไม่ได้นำเข้าภาพรูปแบบ { $format }
 import-loss-hidden-slide = นำเข้าสไลด์ที่ซ่อนไว้เป็นสไลด์ที่มองเห็น
 import-loss-effects = เงา การสะท้อน และเอฟเฟกต์ 3 มิติหายไป

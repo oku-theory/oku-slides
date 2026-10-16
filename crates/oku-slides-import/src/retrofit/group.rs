@@ -12,12 +12,16 @@
 //! quelque chose : une forme omise, un motif régulier d'au moins trois
 //! feuilles (une rangée ou une colonne de boîtes semblables, également
 //! espacées) dont la pile ne garde pas la géométrie, ou un SmartArt.
+//!
+//! Un SmartArt sans dessin ([`diagram`]) devient une pile de cartes, une par
+//! nœud de premier niveau : son texte en `title`, ses descendants en `body`,
+//! dans l'ordre de lecture du modèle ; sa géométrie est perdue (`SmartArtLayout`).
 
 use oku_slides_core::{Element, ParamValue};
 
-use super::content::{ContentCx, Ground, body, card, leaf, plain_of, transform};
-use crate::report::Loss;
-use crate::source::{Frame, Item, ItemKind, TextBox};
+use super::content::{ContentCx, Ground, body, card, leaf, lose, plain_of, transform};
+use crate::report::{Loss, LossKind};
+use crate::source::{Frame, Item, ItemKind, SmartArt, TextBox};
 
 /// Repli des groupes : une pile.
 pub(crate) const STACK: &str = "stack";
@@ -32,8 +36,12 @@ fn leaves<'a>(items: &'a [Item], out: &mut Vec<&'a Item>, smartart: &mut bool, l
         match &i.kind {
             ItemKind::Group { items, smartart: nested } => {
                 transform(i, losses);
-                *smartart |= *nested;
+                *smartart |= nested.is_some();
                 leaves(items, out, smartart, losses);
+            }
+            ItemKind::SmartArt(_) => {
+                *smartart = true;
+                out.push(i);
             }
             _ => out.push(i),
         }
@@ -130,12 +138,56 @@ pub(crate) fn group(
         return (None, None);
     }
     let spread_of = |f: fn(&Frame) -> f64| spread(frames.iter().map(f));
-    let layout = if spread_of(|f| f.x + f.w / 2.0) > spread_of(|f| f.y + f.h / 2.0) { "columns" } else { "rows" };
-    let mut e = Element::new(id, STACK);
-    e.params.set("layout", ParamValue::Text(layout.to_owned()));
-    e.params.set("children", ParamValue::Slot(children));
+    let e = stack(id, spread_of(|f| f.x + f.w / 2.0) > spread_of(|f| f.y + f.h / 2.0), children);
     let lossy = omitted || smartart || regular(&frames);
     (Some(e), lossy.then(|| STACK.to_owned()))
+}
+
+/// Pile de `children` : en colonnes si `columns`, sinon en lignes.
+fn stack(id: &str, columns: bool, children: Vec<Element>) -> Element {
+    let mut e = Element::new(id, STACK);
+    e.params.set("layout", ParamValue::Text(if columns { "columns" } else { "rows" }.to_owned()));
+    e.params.set("children", ParamValue::Slot(children));
+    e
+}
+
+/// Cartes au plus posées en colonnes ; au-delà, la pile est en lignes.
+const DIAGRAM_COLUMNS: usize = 4;
+
+/// Le repli du SmartArt sans dessin `item` (modèle `sa`) : une pile de cartes,
+/// une par nœud de premier niveau, en colonnes de 2 à 4 cartes, sinon en
+/// lignes ; toujours dit, la géométrie du diagramme étant perdue.
+pub(crate) fn diagram(
+    item: &Item,
+    sa: &SmartArt,
+    id: &str,
+    cx: &ContentCx<'_>,
+    losses: &mut Vec<Loss>,
+) -> (Option<Element>, Option<String>) {
+    transform(item, losses);
+    lose(losses, &item.id, LossKind::SmartArtLayout);
+    // (texte du nœud de tête, textes de ses descendants) ; un descendant sans tête en ouvre une vide.
+    let mut heads: Vec<(Option<&TextBox>, Vec<&TextBox>)> = Vec::new();
+    for n in &sa.nodes {
+        match heads.last_mut() {
+            Some((_, below)) if n.depth > 0 => below.push(&n.text),
+            _ if n.depth > 0 => heads.push((None, vec![&n.text])),
+            _ => heads.push((Some(&n.text), Vec::new())),
+        }
+    }
+    let mut cards = Vec::new();
+    for (head, below) in heads {
+        let title = head.map(|tb| plain_of(tb, &item.id, losses)).filter(|t| !t.trim().is_empty());
+        let paragraphs = body(&below, Ground::Card(false), cx, &item.id, losses);
+        if title.is_some() || !paragraphs.is_empty() {
+            cards.push(card(format!("{id}-{}", cards.len() + 1), None, title, paragraphs, false));
+        }
+    }
+    if cards.is_empty() {
+        return (None, None);
+    }
+    let columns = (2..=DIAGRAM_COLUMNS).contains(&cards.len());
+    (Some(stack(id, columns, cards)), Some(STACK.to_owned()))
 }
 
 #[cfg(test)]

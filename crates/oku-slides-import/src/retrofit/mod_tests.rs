@@ -43,7 +43,7 @@ fn plan_of(source: &SourceDeck, templates: &[Template]) -> ImportPlan {
 fn frieze(id: &str, (x, y): (f64, f64), w: f64) -> Item {
     let children =
         (0..3).map(|i| text_item(&format!("{id}/{i}"), (x + f64::from(i) * 1.5 * w, y, w, w / 2.0), "Étape")).collect();
-    item(id, (x, y, 3.5 * w, w / 2.0), ItemKind::Group { items: children, smartart: false })
+    item(id, (x, y, 3.5 * w, w / 2.0), ItemKind::Group { items: children, smartart: None })
 }
 
 #[test]

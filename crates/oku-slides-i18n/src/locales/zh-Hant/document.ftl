@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt 未匯入（無替代影像）
    *[unknown] 不支援的物件未匯入（無替代影像）
 }
+import-loss-smartart-layout = 沒有繪圖的 SmartArt：其文字以卡片排列，圖表版面配置已遺失
 import-loss-unsupported-image = { $format } 格式的影像未匯入
 import-loss-hidden-slide = 隱藏的投影片已以可見方式匯入
 import-loss-effects = 陰影、反射與立體效果已遺失

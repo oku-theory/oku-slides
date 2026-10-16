@@ -53,7 +53,7 @@ fn steps() -> Vec<Item> {
         };
         item(&format!("g/{i}"), (i as f64 * 300.0, 0.0, 250.0, 100.0), ItemKind::Shape(Box::new(s)))
     };
-    let nested = item("g/sub", (900.0, 0.0, 250.0, 100.0), ItemKind::Group { items: vec![step(3)], smartart: false });
+    let nested = item("g/sub", (900.0, 0.0, 250.0, 100.0), ItemKind::Group { items: vec![step(3)], smartart: None });
     vec![step(1), bare("g/arrow", "rightArrow", (260.0, 40.0, 30.0, 20.0)), step(2), nested]
 }
 
@@ -128,7 +128,7 @@ fn group_reports_the_transform_of_a_flipped_nested_group() {
     let mut inner = item(
         "g/in",
         (0.0, 0.0, 300.0, 50.0),
-        ItemKind::Group { items: vec![text_item("a", (0.0, 0.0, 300.0, 50.0), "A")], smartart: false },
+        ItemKind::Group { items: vec![text_item("a", (0.0, 0.0, 300.0, 50.0), "A")], smartart: None },
     );
     inner.frame.flip_h = true;
     let items = vec![inner, text_item("b", (0.0, 200.0, 300.0, 50.0), "B")];
@@ -140,8 +140,78 @@ fn group_with_a_nested_smartart_is_a_fallback() {
     let nested = item(
         "g/sa",
         (0.0, 0.0, 300.0, 50.0),
-        ItemKind::Group { items: vec![text_item("a", (0.0, 0.0, 300.0, 50.0), "A")], smartart: true },
+        ItemKind::Group {
+            items: vec![text_item("a", (0.0, 0.0, 300.0, 50.0), "A")],
+            smartart: Some(Box::new(source::SmartArt { layout: None, category: None, nodes: Vec::new() })),
+        },
     );
     let items = vec![nested, text_item("b", (0.0, 200.0, 300.0, 50.0), "B")];
     assert_that!(fold(&items, false).2.as_deref()).is_equal_to(Some("stack"));
+}
+
+/// Un SmartArt sans dessin aux nœuds `(texte, profondeur)`.
+fn smartart(nodes: &[(&str, u8)]) -> (Item, source::SmartArt) {
+    let nodes = nodes
+        .iter()
+        .enumerate()
+        .map(|(k, (t, depth))| source::SmartArtNode {
+            id: format!("{{{k}}}"),
+            depth: *depth,
+            text: text_box(vec![para(vec![run(t)])]),
+        })
+        .collect();
+    let sa = source::SmartArt { layout: None, category: Some("process".into()), nodes };
+    (item("sa", (0.0, 0.0, 600.0, 200.0), ItemKind::SmartArt(Box::new(sa.clone()))), sa)
+}
+
+fn lay_out(nodes: &[(&str, u8)]) -> (Option<Element>, Vec<Loss>, Option<String>) {
+    let (tokens, assets) = (colors(PAPIER), BTreeMap::new());
+    let cx = ContentCx { tokens: &tokens, assets: &assets, track: (0.0, 0.0) };
+    let (item, sa) = smartart(nodes);
+    let mut losses = Vec::new();
+    let (e, fallback) = diagram(&item, &sa, "e1", &cx, &mut losses);
+    (e, losses, fallback)
+}
+
+/// (titre, corps) de chaque carte de la pile.
+fn cards_of(e: &Element) -> Vec<(String, Vec<String>)> {
+    e.params
+        .slot("children")
+        .unwrap_or_default()
+        .iter()
+        .map(|c| (c.params.text("title").unwrap_or_default().to_owned(), body_texts(c)))
+        .collect()
+}
+
+#[test]
+fn diagram_lays_out_one_card_per_top_node_with_its_descendants_in_order() {
+    let (e, _, _) = lay_out(&[("Plan", 0), ("Scope", 1), ("Budget", 2), ("Build", 0), ("Ship", 0)]);
+    let e = e.unwrap();
+    assert_that!(cards_of(&e)).is_equal_to(vec![
+        ("Plan".to_owned(), vec!["Scope".to_owned(), "Budget".to_owned()]),
+        ("Build".to_owned(), Vec::new()),
+        ("Ship".to_owned(), Vec::new()),
+    ]);
+    assert_that!(e.params.text("layout")).is_equal_to(Some("columns"));
+}
+
+#[test]
+fn diagram_of_many_top_nodes_is_in_rows() {
+    let names = ["a", "b", "c", "d", "e"];
+    let nodes: Vec<(&str, u8)> = names.iter().map(|n| (*n, 0)).collect();
+    assert_that!(lay_out(&nodes).0.unwrap().params.text("layout")).is_equal_to(Some("rows"));
+}
+
+#[test]
+fn diagram_reports_its_lost_layout_and_asks_for_a_widget() {
+    let (_, losses, fallback) = lay_out(&[("A", 0), ("B", 0)]);
+    assert_that!(losses).is_equal_to(vec![Loss::on("sa", LossKind::SmartArtLayout)]);
+    assert_that!(fallback.as_deref()).is_equal_to(Some("stack"));
+}
+
+#[test]
+fn diagram_descendant_without_a_head_opens_an_untitled_card() {
+    let (e, _, _) = lay_out(&[("Child", 1), ("Head", 0)]);
+    assert_that!(cards_of(&e.unwrap()))
+        .is_equal_to(vec![(String::new(), vec!["Child".to_owned()]), ("Head".to_owned(), Vec::new())]);
 }

@@ -64,6 +64,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt not imported (no fallback image)
    *[unknown] Unsupported object not imported (no fallback image)
 }
+import-loss-smartart-layout = SmartArt without its drawing: its text is laid out as cards, its diagram layout is lost
 import-loss-unsupported-image = Image in { $format } format not imported
 import-loss-hidden-slide = Hidden slide imported as visible
 import-loss-effects = Shadows, reflections and 3D effects lost

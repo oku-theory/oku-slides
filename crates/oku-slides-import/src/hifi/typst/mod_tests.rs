@@ -277,7 +277,7 @@ fn decor_draws_group_children_at_their_absolute_place() {
             ItemKind::Picture(Picture { asset: "sha256:aa".into(), crop: Crop::default() }),
         ),
     ];
-    let group = item("g", (0.0, 0.0, 960.0, 540.0), ItemKind::Group { items: children, smartart: false });
+    let group = item("g", (0.0, 0.0, 960.0, 540.0), ItemKind::Group { items: children, smartart: None });
     insta::assert_snapshot!(Fixture::new().decor(&[group]).code);
 }
 

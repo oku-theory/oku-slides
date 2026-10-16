@@ -338,6 +338,7 @@ impl Gen<'_> {
                 Some(asset) => self.picture(item, asset, Crop::default()),
                 None => self.losses.push(Loss::on(&item.id, LossKind::Opaque(o.reason.clone()))),
             },
+            ItemKind::SmartArt(_) => self.losses.push(Loss::on(&item.id, LossKind::Opaque(OpaqueReason::SmartArt))),
             ItemKind::Table(_) => self.lose_kind(item, "table"),
             ItemKind::Chart(_) => self.lose_kind(item, "chart"),
         }

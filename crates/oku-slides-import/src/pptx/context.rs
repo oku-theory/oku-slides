@@ -24,6 +24,11 @@ const LINK_SCHEMES: [&str; 3] = ["http://", "https://", "mailto:"];
 const MAX_LINK_CHARS: usize = 2048;
 const MAX_RAW_ID: usize = 64;
 
+/// Une clé libre du fichier (`modelId`) ramenée à `[A-Za-z0-9{}-]`, 64 caractères au plus.
+pub(crate) fn raw_key(key: &str) -> String {
+    key.chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '{' | '}' | '-')).take(MAX_RAW_ID).collect()
+}
+
 /// Ressources lues une fois pour tout le deck.
 #[derive(Debug)]
 pub(crate) struct Shared<'x> {
@@ -144,11 +149,7 @@ impl<'p> PartCtx<'p> {
 
     /// Identifiant d'item depuis une clé libre (`modelId` de SmartArt) : `[A-Za-z0-9{}-]`, 64 caractères.
     pub(crate) fn item_id_raw(&self, key: &str) -> String {
-        let safe: String = key
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '{' | '}' | '-'))
-            .take(MAX_RAW_ID)
-            .collect();
+        let safe = raw_key(key);
         self.unique(format!("{}/{}", self.owner, if safe.is_empty() { "x" } else { safe.as_str() }))
     }
 

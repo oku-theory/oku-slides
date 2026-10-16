@@ -32,6 +32,7 @@ fn kind(item: &Item) -> &'static str {
         ItemKind::Table(_) => "table",
         ItemKind::Chart(_) => "chart",
         ItemKind::Group { .. } => "group",
+        ItemKind::SmartArt(_) => "smartart",
         ItemKind::Opaque(_) => "opaque",
     }
 }

@@ -109,6 +109,8 @@ pub enum LossKind {
     TableTruncated,
     /// Item intraduisible sans image de repli.
     Opaque(OpaqueReason),
+    /// SmartArt sans dessin : ses nœuds posés en cartes, sa disposition perdue (retrofit).
+    SmartArtLayout,
     /// Image dans un format que le rendu ne dessine pas (type MIME).
     UnsupportedImage(String),
     /// Slide masquée en diaporama : importée visible.
@@ -242,6 +244,7 @@ impl LossKind {
             LossKind::TextTruncated => "import-loss-text-truncated",
             LossKind::TableTruncated => "import-loss-table-truncated",
             LossKind::Opaque(_) => "import-loss-opaque",
+            LossKind::SmartArtLayout => "import-loss-smartart-layout",
             LossKind::UnsupportedImage(_) => "import-loss-unsupported-image",
             LossKind::HiddenSlide => "import-loss-hidden-slide",
             LossKind::Effects => "import-loss-effects",
@@ -291,6 +294,7 @@ impl Localize for Loss {
             | LossKind::Effects
             | LossKind::NoSlot
             | LossKind::ParagraphStyle
+            | LossKind::SmartArtLayout
             | LossKind::TableStyle => l.tr(id),
         }
     }

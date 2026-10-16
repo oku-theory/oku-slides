@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt आयात नहीं हुआ (कोई वैकल्पिक छवि नहीं)
    *[unknown] असमर्थित ऑब्जेक्ट आयात नहीं हुआ (कोई वैकल्पिक छवि नहीं)
 }
+import-loss-smartart-layout = ड्रॉइंग के बिना SmartArt: इसका टेक्स्ट कार्ड के रूप में रखा गया, आरेख का लेआउट खो गया
 import-loss-unsupported-image = { $format } फ़ॉर्मैट की छवि आयात नहीं हुई
 import-loss-hidden-slide = छिपी स्लाइड दिखाई देने वाली के रूप में आयात हुई
 import-loss-effects = छाया, प्रतिबिंब और 3D प्रभाव खो गए

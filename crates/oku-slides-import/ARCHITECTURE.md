@@ -24,13 +24,13 @@ Oku ops. Spec: `docs/superpowers/specs/2026-10-09-import-pptx-design.md`.
 - `source/` depends on nothing (`lang`: scripts); `error`, `limits`, `collect`, `oklab`, `formula` are neutral.
 - `pptx/` is the only reader: `package` (bounded zip), `xml` (bounded nodes), `context`, `master`,
   `slide`, `placeholder`, `cascade` (the single text-style resolution), `bounds` (schema ranges,
-  clamp warnings), `shapes`, `frame`, `table` (+ built-in `table_styles`), `chart`, `smartart`,
-  `fonts` + `eot`. Nesting is bounded by `GroupCtx`. Assets are typed by their bytes (`media::sniff`),
-  rasters refused on an unreadable or oversized header (`media::dimensions`), SVGs via `svg::sanitize`.
+  clamp warnings), `shapes`, `frame`, `table` (+ built-in `table_styles`), `chart`, `smartart` (model
+  as `source::SmartArt`, drawing as a group), `fonts` + `eot`. Nesting bounded by `GroupCtx`. Assets typed
+  by their bytes (`media::sniff`), rasters refused on a bad header (`media::dimensions`), SVGs sanitized.
 - Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`,
   never `pptx/`. They are pure: ids and dates come from the target (ADR-0008).
-- `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`),
-  headings, clusters, flow or free placement (`slide`, `zone`), text, tables, charts, `color`.
+- `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`), headings,
+  clusters, placement (`slide`, `zone`), text, tables, charts, `color`, card stacks (`group`, SmartArt).
 - `hifi/` : page fit (`page`), theme tokens and `ThemeManifest` (`theme`, `color`), one slide
   widget per layout (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
   Typst (`typst/`), shape outlines and arrowheads (`geometry/`, with the embedded ECMA-376

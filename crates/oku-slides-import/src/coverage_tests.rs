@@ -195,7 +195,7 @@ fn coverage_counts_runs_inside_groups() {
                 text_item("g/1", (0.0, 0.0, 50.0, 20.0), "Étape 1"),
                 text_item("g/2", (50.0, 0.0, 50.0, 20.0), "Étape 2"),
             ],
-            smartart: false,
+            smartart: None,
         },
     );
     let mut card = Element::new("s1-1-1", "card");

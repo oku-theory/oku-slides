@@ -96,6 +96,7 @@ fn count_items(items: &[Item], tally: &mut Vec<(String, usize)>) {
             ItemKind::Shape(s) => s.text.iter().for_each(|tb| count_text(tb, tally)),
             ItemKind::Table(t) => t.rows.iter().flatten().for_each(|c| count_text(&c.text, tally)),
             ItemKind::Group { items: kids, .. } => count_items(kids, tally),
+            ItemKind::SmartArt(sa) => sa.nodes.iter().for_each(|n| count_text(&n.text, tally)),
             ItemKind::Picture(_) | ItemKind::Chart(_) | ItemKind::Opaque(_) => {}
         }
     }

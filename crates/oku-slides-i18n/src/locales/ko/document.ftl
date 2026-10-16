@@ -65,6 +65,7 @@ import-loss-opaque = { $reason ->
     [smartart] SmartArt를 가져오지 않았습니다 (대체 이미지 없음)
    *[unknown] 지원되지 않는 개체를 가져오지 않았습니다 (대체 이미지 없음)
 }
+import-loss-smartart-layout = 그림이 없는 SmartArt: 텍스트를 카드로 배치했으며 다이어그램 레이아웃은 사라졌습니다
 import-loss-unsupported-image = { $format } 형식의 이미지를 가져오지 않았습니다
 import-loss-hidden-slide = 숨긴 슬라이드를 표시 상태로 가져왔습니다
 import-loss-effects = 그림자, 반사, 3D 효과가 사라졌습니다

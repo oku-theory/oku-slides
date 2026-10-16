@@ -14,6 +14,7 @@
 //! | tableau | `table` |
 //! | graphique | `chart` |
 //! | groupe, SmartArt dessiné | `stack` de `card` (une par enfant avec texte) et d'éléments |
+//! | SmartArt sans dessin | `stack` de `card` (une par nœud de premier niveau), perte `SmartArtLayout` |
 //! | intraduisible avec image de repli | `image`, perte `Opaque` |
 //! | intraduisible sans repli | rien, perte `Opaque` |
 //!
@@ -33,7 +34,7 @@ use serde_json::Value;
 use super::chart::chart;
 use super::cluster::Unit;
 use super::color::{ColorTokens, MIN_CONTRAST, contrast, project_color};
-use super::group::group;
+use super::group::{diagram, group};
 use super::heading::{is_kicker_text, max_run_size};
 use super::table::table;
 use super::text::{note, plain, rich};
@@ -279,6 +280,7 @@ pub(crate) fn leaf(item: &Item, id: String, cx: &ContentCx<'_>, losses: &mut Vec
             lose(losses, &item.id, LossKind::Opaque(o.reason.clone()));
             o.fallback.as_deref().and_then(|a| image(id, a, cx, &item.id, losses))
         }
+        ItemKind::SmartArt(sa) => diagram(item, sa, &id, cx, losses).0,
         ItemKind::Group { .. } => None,
     }
 }
@@ -354,8 +356,9 @@ pub(crate) fn element(unit: &Unit<'_>, id: String, cx: &ContentCx<'_>) -> Conten
         Unit::Item(item) => match &item.kind {
             ItemKind::Group { items, smartart } => {
                 transform(item, &mut losses);
-                group(items, *smartart, &id, cx, &mut losses)
+                group(items, smartart.is_some(), &id, cx, &mut losses)
             }
+            ItemKind::SmartArt(sa) => diagram(item, sa, &id, cx, &mut losses),
             _ => (leaf(item, id, cx, &mut losses), None),
         },
     };

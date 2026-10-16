@@ -144,7 +144,7 @@ fn table_look_set_flags_overrides_the_tblpr_hints() {
 fn first_table_looks_into_groups_in_slide_order() {
     let t = libreoffice_like([100.0, 100.0]);
     let table = item("s2/3", (0.0, 0.0, 100.0, 50.0), ItemKind::Table(t.clone()));
-    let group = item("s2/2", (0.0, 0.0, 100.0, 50.0), ItemKind::Group { items: vec![table], smartart: false });
+    let group = item("s2/2", (0.0, 0.0, 100.0, 50.0), ItemKind::Group { items: vec![table], smartart: None });
     let deck = source_deck(vec![source_slide(1, None, Vec::new()), source_slide(2, None, vec![group])]);
     assert_that!(first_table(&deck)).is_equal_to(Some(&t));
     assert_that!(first_table(&source_deck(Vec::new()))).is_none();

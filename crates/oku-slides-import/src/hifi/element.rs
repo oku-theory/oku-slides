@@ -15,7 +15,7 @@
 //! | image, repli d'un opaque | `image` (`fit: stretch`) |
 //! | tableau, graphique | `table`, `chart` (conversions du retrofit, couleurs des séries gardées) ; d'un tableau, `header-row` et `striped` lus sur ses cellules ([`super::table`]), perte `TableStyle` pour le reste de son style |
 //! | groupe, SmartArt dessiné | ses enfants, à leur place absolue |
-//! | opaque sans repli | rien, perte `Opaque` |
+//! | opaque sans repli, SmartArt sans dessin | rien, perte `Opaque` |
 //!
 //! Le remplissage est plein : un dégradé prend la couleur de son premier
 //! arrêt (`ShapeStyle(Gradient)`) ; les tirets se perdent (`ShapeStyle(Dash)`),
@@ -43,7 +43,8 @@ use crate::retrofit::chart::chart;
 use crate::retrofit::table::table;
 use crate::retrofit::text::note;
 use crate::source::{
-    self, ChartKind, Crop, Dash, Fill, Geometry, Insets, Item, ItemKind, Rgba, Shape, Stroke, Warning, WarningKind,
+    self, ChartKind, Crop, Dash, Fill, Geometry, Insets, Item, ItemKind, OpaqueReason, Rgba, Shape, Stroke, Warning,
+    WarningKind,
 };
 
 /// Effets signalés par le lecteur (`EffectIgnored`) que le hi-fi perd ;
@@ -209,6 +210,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
                 }
                 None => self.lose(item, LossKind::Opaque(o.reason.clone())),
             },
+            ItemKind::SmartArt(_) => self.lose(item, LossKind::Opaque(OpaqueReason::SmartArt)),
         }
     }
 

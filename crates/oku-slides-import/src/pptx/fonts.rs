@@ -54,7 +54,8 @@ fn items(list: &[Item], out: &mut BTreeSet<String>) {
             ItemKind::Shape(s) => s.text.iter().for_each(|tb| textbox(tb, out)),
             ItemKind::Table(t) => t.rows.iter().flatten().for_each(|c| textbox(&c.text, out)),
             ItemKind::Group { items: kids, .. } => items(kids, out),
-            ItemKind::Picture(_) | ItemKind::Chart(_) | ItemKind::Opaque(_) => {}
+            // Les nœuds d'un SmartArt sans dessin ne sont dessinés en aucune police.
+            ItemKind::Picture(_) | ItemKind::Chart(_) | ItemKind::SmartArt(_) | ItemKind::Opaque(_) => {}
         }
     }
 }

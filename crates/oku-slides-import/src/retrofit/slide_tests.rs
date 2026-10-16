@@ -181,7 +181,7 @@ fn project_slide_group_falls_back_to_a_stack_with_child_losses_on_source_ids() {
         bare("g/arrow", "rightArrow", (270.0, 442.0, 26.0, 20.0)),
         item("g/2", (300.0, 432.0, 200.0, 40.0), ItemKind::Text(text_box(vec![para(vec![underlined])]))),
     ];
-    let group = item("g", (66.0, 432.0, 434.0, 40.0), ItemKind::Group { items: children, smartart: false });
+    let group = item("g", (66.0, 432.0, 434.0, 40.0), ItemKind::Group { items: children, smartart: None });
     let (_, reports, deck) = project(&essentiel(), &[source_slide(1, Some("l2"), vec![title("Processus"), group])]);
     let stack = &deck.slides[0].params.slot("blocks").unwrap()[0];
     let ids: Vec<&str> = stack.params.slot("children").unwrap().iter().map(|c| c.id.as_str()).collect();
