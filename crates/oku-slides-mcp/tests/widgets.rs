@@ -281,3 +281,41 @@ async fn set_widget_twice_in_a_templates_turn_is_one_undo_step() {
     .await
     .unwrap();
 }
+
+/// Widget de pack des tests à liste imbriquée : étapes à tâches (`fixtures/widgets/plan-test.typ`).
+const PLAN: &str = include_str!("../../../fixtures/widgets/plan-test.typ");
+
+/// Les ids des tâches de l'étape `step` de l'élément `pl` de `s-constat`.
+fn task_ids(h: &Harness, step: &str) -> Vec<String> {
+    let s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let Some(pl) = s.deck().slide("s-constat").and_then(|sl| sl.locate("pl")).map(|l| l.element.clone()) else {
+        panic!("plan absent")
+    };
+    let steps = pl.params.list("etapes").unwrap_or_default();
+    let Some(it) = steps.iter().find(|i| i.id == step) else { panic!("étape {step} absente") };
+    it.values.list("taches").unwrap_or_default().iter().map(|t| t.id.clone()).collect()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_edit_list_on_a_nested_path_edits_the_step_tasks_and_undoes() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "set_widget", json!({ "name": "plan", "source": PLAN })).await;
+    let add = json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
+        "defaults": true, "element": { "id": "pl", "kind": "plan" } });
+    call(&c, "apply", json!({ "ops": [add] })).await;
+    let edit = |change: Value| {
+        json!({ "ops": [{ "op": "edit_list", "target": { "slide": "s-constat", "element": "pl" },
+            "param": "etapes/d0/taches", "change": change }] })
+    };
+    let r =
+        call(&c, "apply", edit(json!({ "op": "insert", "index": 0, "id": "n", "values": { "texte": "Neuf" } }))).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    call(&c, "apply", edit(json!({ "op": "move", "item": "n", "to": 2 }))).await;
+    assert_that!(task_ids(&h, "d0")).is_equal_to(vec!["d0".to_owned(), "d1".into(), "n".into()]);
+    let undone = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).undo();
+    assert_that!(undone.is_ok()).is_true();
+    assert_that!(task_ids(&h, "d0")).is_equal_to(vec!["n".to_owned(), "d0".into(), "d1".into()]);
+    let bad = call(&c, "apply", edit(json!({ "op": "remove", "item": "absente" }))).await;
+    assert_that!(bad.is_error).is_equal_to(Some(true));
+}

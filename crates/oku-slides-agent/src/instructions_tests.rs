@@ -109,7 +109,7 @@ fn widgets_mention_slide_category_and_optional_label_and_default() {
 
 #[test]
 fn widgets_document_lists_and_their_ops() {
-    for part in ["p.list", "list-item", "edit_list", "set_param", "\"defaults\": true"] {
+    for part in ["p.list", "list-item", "edit_list", "set_param", "\"defaults\": true", "etapes/<step id>/taches"] {
         asserting(part).that(&WIDGETS.contains(part)).is_true();
     }
 }
