@@ -340,6 +340,19 @@ fn import_hifi_with_a_target_is_refused_with_a_localized_message(#[case] arg: &s
     assert_that!(dir.join("x.oku-slides.pdf").exists()).is_false();
 }
 
+/// Les arguments se contrôlent avant la lecture : un `.pptx` absent n'y change rien.
+#[test]
+fn import_hifi_with_a_pack_is_refused_even_for_a_missing_pptx() {
+    let dir = workdir("import-hifi-target-missing");
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(dir.join("absent.pptx"))
+        .args(["--mode", "hifi", "--pack", "Essentiel", "-o"])
+        .arg(dir.join("x.oku-slides.pdf")));
+    assert_that!(out.status.success()).is_false();
+    assert_that!(stderr(&out)).contains("--pack and --theme belong to retrofit mode");
+}
+
 #[test]
 fn import_without_pack_is_refused_in_retrofit_mode() {
     let dir = workdir("import-nopack");

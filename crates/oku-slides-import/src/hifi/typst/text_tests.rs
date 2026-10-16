@@ -174,3 +174,20 @@ fn arabic_paragraph_is_right_to_left_in_its_language_and_complex_font() {
     assert_that!(code).contains(", dir: rtl)");
     assert_that!(code).contains(r#"text(font: ("Carlito", "Noto Sans Arabic"), lang: "ar", region: "SA", "#);
 }
+
+/// Ce qu'un fichier altéré glisse dans un texte, ailleurs que dans le texte
+/// des runs, reste dans un littéral de chaîne Typst.
+const INJECTED: &str = r#"") #panic() (""#;
+
+#[rstest]
+#[case::link(para(vec![run_with("lien", |s| s.link = Some(format!("https://x.test/{INJECTED}")))]))]
+#[case::bullet_char({
+    let mut p = para(vec![run("puce")]);
+    p.style.bullet = crate::source::Bullet::Char { char: INJECTED.into(), color: None, size_pct: 1.0, font: None };
+    p
+})]
+#[case::language(para(vec![run_with("langue", |s| s.lang = Some(format!("fr-{INJECTED}")))]))]
+fn text_strings_from_the_file_cannot_inject_typst(#[case] p: crate::source::Paragraph) {
+    let code = Fixture::new().decor(&[text_item(text_box(vec![p]))]).code;
+    assert_that!(code).does_not_contain(INJECTED);
+}

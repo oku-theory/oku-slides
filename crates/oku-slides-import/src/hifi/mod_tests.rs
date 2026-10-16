@@ -243,3 +243,46 @@ fn project_without_the_body_font_falls_back_to_a_sans_app_font() {
     assert_that!(theme.tokens.get("font")).is_none();
     assert_that!(plan.report.fonts.iter().all(|c| c.fallback.is_none())).is_true();
 }
+
+#[test]
+fn project_of_alto_twice_gives_the_same_plan() {
+    let deck = crate::test_support::fixture("alto-wealth.pptx");
+    let (first, second) = (projected(&deck), projected(&deck));
+    assert_that!(first.ops == second.ops).is_true();
+    assert_that!(first.pack == second.pack && first.theme == second.theme).is_true();
+    assert_that!(first.report == second.report && first.assets == second.assets).is_true();
+}
+
+/// Un rapport vide par slide de `deck`.
+fn reports(deck: &SourceDeck) -> Vec<SlideReport> {
+    deck.slides
+        .iter()
+        .map(|s| SlideReport {
+            source: s.number,
+            slide: format!("s{}", s.number),
+            template: String::new(),
+            placement: Placement::Free,
+            losses: Vec::new(),
+            fallbacks: Vec::new(),
+            score: None,
+        })
+        .collect()
+}
+
+#[test]
+fn attach_pack_losses_go_to_the_first_slide_of_their_layout_or_master_else_the_first() {
+    let mut d = deck(vec![source_slide(1, None, Vec::new()), source_slide(2, Some("l1"), Vec::new())]);
+    d.layouts.push(Layout { master: "m2".into(), ..layout("l9", "obj") });
+    let lost = |item: &str| Loss::on(item, LossKind::Effects);
+    let pack = GeneratedPack {
+        losses: vec![lost("l1/4"), lost("m1/2"), lost("x7/1"), lost("m2/1")],
+        ..GeneratedPack::default()
+    };
+    let mut slides = reports(&d);
+    attach_pack_losses(&d, &pack, &mut slides);
+    let items = |r: &SlideReport| r.losses.iter().filter_map(|l| l.item.clone()).collect::<Vec<_>>();
+    // `l1/4` et `m1/2` à la slide 2 (layout l1, master m1) ; `x7/1` (inconnu) et `m2/1`
+    // (master sans slide) à la première.
+    assert_that!(items(&slides[1])).is_equal_to(vec!["l1/4".to_owned(), "m1/2".to_owned()]);
+    assert_that!(items(&slides[0])).is_equal_to(vec!["x7/1".to_owned(), "m2/1".to_owned()]);
+}

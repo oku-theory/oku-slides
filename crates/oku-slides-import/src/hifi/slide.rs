@@ -259,3 +259,7 @@ fn free_slot<'r>(registry: &'r WidgetRegistry, kind: &str) -> Option<&'r str> {
         _ => None,
     })
 }
+
+#[cfg(test)]
+#[path = "slide_tests.rs"]
+mod slide_tests;

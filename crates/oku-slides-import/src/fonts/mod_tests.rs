@@ -130,6 +130,16 @@ const SUB_APP: FontDecision = FontDecision::Substituted { origin: FontOrigin::Ap
     choice(None, FontDecision::Missing, true),
     0
 )]
+#[case::embedded_mixed_faces_keep_the_allowed_one(
+    {
+        let mut f = embedded_caladea("Corporate");
+        f.faces[1].fs_type = Some(0x0002);
+        f
+    },
+    app(),
+    choice(Some("Caladea"), FontDecision::Embedded, true),
+    1
+)]
 #[case::embedded_subset_without_catalog(
     subset_caladea("Corporate"),
     app(),
