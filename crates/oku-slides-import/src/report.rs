@@ -95,6 +95,8 @@ pub enum LossKind {
     MergedCells,
     /// Empilement à 100 % rendu en empilement simple.
     PercentStacked,
+    /// Format des nombres d'un graphique (`formatCode` : `0%`, monnaie…) non gardé.
+    ChartFormat(String),
     /// Effet de texte perdu.
     RunStyle(RunEffect),
     /// Rotation, miroir ou rognage perdus.
@@ -233,6 +235,7 @@ impl LossKind {
             LossKind::ListLevels => "import-loss-list-levels",
             LossKind::MergedCells => "import-loss-merged-cells",
             LossKind::PercentStacked => "import-loss-percent-stacked",
+            LossKind::ChartFormat(_) => "import-loss-chart-format",
             LossKind::RunStyle(_) => "import-loss-run-style",
             LossKind::Transform => "import-loss-transform",
             LossKind::ColorDropped(_) => "import-loss-color-dropped",
@@ -265,6 +268,7 @@ impl Localize for Loss {
             LossKind::ColorDropped(hex) => l.tr_with(id, &[("color", hex.as_str().into())]),
             LossKind::Opaque(r) => l.tr_with(id, &[("reason", reason_name(r).into())]),
             LossKind::UnsupportedImage(mime) => l.tr_with(id, &[("format", mime.as_str().into())]),
+            LossKind::ChartFormat(code) => l.tr_with(id, &[("format", code.as_str().into())]),
             LossKind::SeriesDropped { kept, dropped } => {
                 l.tr_with(id, &[("kept", (*kept).into()), ("dropped", (*dropped).into())])
             }

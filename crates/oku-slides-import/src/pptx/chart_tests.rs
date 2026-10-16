@@ -143,3 +143,53 @@ fn multi_level_categories_warn_that_outer_levels_are_dropped() {
     assert_that!(w.iter().map(|w| w.kind.clone()).collect::<Vec<_>>())
         .is_equal_to(vec![WarningKind::Approximated("multiLvlStrRef".into())]);
 }
+
+/// Un cache numérique `numLit` des valeurs `v`, de format `code` s'il y en a un.
+fn num_lit(code: Option<&str>, v: &[&str]) -> String {
+    let format = code.map(|c| format!("<c:formatCode>{c}</c:formatCode>")).unwrap_or_default();
+    let pts: String = v.iter().enumerate().map(|(i, v)| format!(r#"<c:pt idx="{i}"><c:v>{v}</c:v></c:pt>"#)).collect();
+    format!(r#"<c:numLit>{format}<c:ptCount val="{}"/>{pts}</c:numLit>"#, v.len())
+}
+
+#[test]
+fn scatter_reads_numeric_x_of_each_series() {
+    let ser = |x: &[&str], y: &[&str]| {
+        format!("<c:ser><c:xVal>{}</c:xVal><c:yVal>{}</c:yVal></c:ser>", num_lit(None, x), num_lit(None, y))
+    };
+    let c = chart(&space(&format!(
+        "<c:scatterChart>{}{}</c:scatterChart>",
+        ser(&["1", "2.5"], &["5", "7"]),
+        ser(&["-3", "x", "9"], &["1", "2", "3"])
+    )));
+    let xs: Vec<_> = c.series.iter().map(|s| s.x.clone()).collect();
+    assert_that!(xs).is_equal_to(vec![Some(vec![Some(1.0), Some(2.5)]), Some(vec![Some(-3.0), None, Some(9.0)])]);
+}
+
+#[test]
+fn scatter_with_text_x_keeps_them_as_categories_only() {
+    let c = chart(&space(
+        r#"<c:scatterChart><c:ser><c:xVal><c:strLit><c:ptCount val="1"/><c:pt idx="0"><c:v>Lundi</c:v></c:pt></c:strLit></c:xVal><c:yVal><c:numLit><c:ptCount val="1"/><c:pt idx="0"><c:v>3</c:v></c:pt></c:numLit></c:yVal></c:ser></c:scatterChart>"#,
+    ));
+    assert_that!((c.categories.clone(), c.series[0].x.clone())).is_equal_to((vec!["Lundi".to_owned()], None));
+}
+
+#[test]
+fn line_values_ignore_x_even_when_numeric() {
+    let c = chart(&space(&format!(
+        "<c:lineChart><c:ser><c:cat>{}</c:cat><c:val>{}</c:val></c:ser></c:lineChart>",
+        num_lit(None, &["2024", "2025"]),
+        num_lit(None, &["1", "2"])
+    )));
+    assert_that!(c.series[0].x.clone()).is_none();
+}
+
+#[rstest::rstest]
+#[case(Some("0%"), Some("0%"))]
+#[case(Some("#,##0.00\\ \"€\""), Some("#,##0.00\\ \"€\""))]
+#[case(Some("General"), None)]
+#[case(Some("  "), None)]
+#[case(None, None)]
+fn series_read_the_format_code_of_their_values(#[case] code: Option<&str>, #[case] expected: Option<&str>) {
+    let xml = space(&format!("<c:barChart><c:ser><c:val>{}</c:val></c:ser></c:barChart>", num_lit(code, &["0.5"])));
+    assert_that!(chart(&xml).series[0].format.as_deref()).is_equal_to(expected);
+}

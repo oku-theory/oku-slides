@@ -41,6 +41,7 @@ import-output-too-large = La presentazione risultante supererebbe la dimensione 
 import-loss-list-levels = Livelli dell'elenco ridotti a uno
 import-loss-merged-cells = Celle unite separate
 import-loss-percent-stacked = Grafico in pila al 100% mostrato in pila
+import-loss-chart-format = Formato numerico { $format } del grafico non mantenuto
 import-loss-run-style = { $effect ->
     [underline] Sottolineatura persa
     [strike] Barrato perso

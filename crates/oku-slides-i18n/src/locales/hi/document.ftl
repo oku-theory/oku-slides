@@ -42,6 +42,7 @@ import-output-too-large = परिणामी प्रस्तुति आ�
 import-loss-list-levels = सूची के स्तर एक स्तर में बदल दिए गए
 import-loss-merged-cells = मर्ज किए गए सेल अलग कर दिए गए
 import-loss-percent-stacked = 100% स्टैक्ड चार्ट स्टैक्ड के रूप में दिखाया गया
+import-loss-chart-format = चार्ट का संख्या फ़ॉर्मैट { $format } नहीं रखा गया
 import-loss-run-style = { $effect ->
     [underline] रेखांकन खो गया
     [strike] काट-रेखा खो गई

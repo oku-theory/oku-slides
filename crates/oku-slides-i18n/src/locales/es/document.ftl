@@ -41,6 +41,7 @@ import-output-too-large = La presentación resultante superaría el tamaño perm
 import-loss-list-levels = Niveles de lista reducidos a uno
 import-loss-merged-cells = Celdas combinadas separadas
 import-loss-percent-stacked = Gráfico apilado al 100 % mostrado como apilado
+import-loss-chart-format = Formato numérico { $format } del gráfico no conservado
 import-loss-run-style = { $effect ->
     [underline] Subrayado perdido
     [strike] Tachado perdido

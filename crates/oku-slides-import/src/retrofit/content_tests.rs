@@ -231,7 +231,7 @@ fn element_of_a_chart_is_a_chart_element_with_its_losses() {
         grouping: source::Grouping::PercentStacked,
         title: None,
         categories: vec!["a".into()],
-        series: vec![source::Series { name: "S".into(), values: vec![Some(1.0)], color: None }],
+        series: vec![source::Series { name: "S".into(), values: vec![Some(1.0)], color: None, x: None, format: None }],
     };
     let (e, losses, _) = convert(&item("c", BOX, ItemKind::Chart(c)));
     assert_that!(e.unwrap().kind.as_str()).is_equal_to("chart");

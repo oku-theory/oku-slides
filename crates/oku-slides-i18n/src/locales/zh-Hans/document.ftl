@@ -42,6 +42,7 @@ import-output-too-large = 导入后的演示文稿将超过导入允许的大小
 import-loss-list-levels = 列表级别已合并为一级
 import-loss-merged-cells = 已拆分合并的单元格
 import-loss-percent-stacked = 百分比堆积图已显示为堆积图
+import-loss-chart-format = 未保留图表的数字格式 { $format }
 import-loss-run-style = { $effect ->
     [underline] 下划线已丢失
     [strike] 删除线已丢失

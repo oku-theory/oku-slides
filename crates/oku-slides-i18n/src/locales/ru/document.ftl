@@ -42,6 +42,7 @@ import-output-too-large = Полученная презентация превы
 import-loss-list-levels = Уровни списка сведены к одному
 import-loss-merged-cells = Объединённые ячейки разделены
 import-loss-percent-stacked = Нормированная диаграмма с накоплением показана как диаграмма с накоплением
+import-loss-chart-format = Числовой формат { $format } диаграммы не сохранён
 import-loss-run-style = { $effect ->
     [underline] Подчёркивание потеряно
     [strike] Зачёркивание потеряно

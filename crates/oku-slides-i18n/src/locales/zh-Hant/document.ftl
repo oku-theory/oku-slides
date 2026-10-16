@@ -42,6 +42,7 @@ import-output-too-large = 匯入後的簡報將超過匯入允許的大小
 import-loss-list-levels = 清單層級已合併為一層
 import-loss-merged-cells = 已分割合併的儲存格
 import-loss-percent-stacked = 百分比堆疊圖已顯示為堆疊圖
+import-loss-chart-format = 未保留圖表的數字格式 { $format }
 import-loss-run-style = { $effect ->
     [underline] 底線已遺失
     [strike] 刪除線已遺失

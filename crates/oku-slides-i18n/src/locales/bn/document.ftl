@@ -42,6 +42,7 @@ import-output-too-large = ফলাফল উপস্থাপনাটি ই�
 import-loss-list-levels = তালিকার স্তরগুলো একটি স্তরে নামানো হয়েছে
 import-loss-merged-cells = একত্রিত ঘরগুলো আলাদা করা হয়েছে
 import-loss-percent-stacked = ১০০% স্তূপীকৃত চার্ট স্তূপীকৃত হিসেবে দেখানো হয়েছে
+import-loss-chart-format = চার্টের সংখ্যা ফরম্যাট { $format } রাখা হয়নি
 import-loss-run-style = { $effect ->
     [underline] আন্ডারলাইন হারিয়েছে
     [strike] কাটা দাগ হারিয়েছে

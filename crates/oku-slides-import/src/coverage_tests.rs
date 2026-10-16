@@ -85,7 +85,13 @@ fn table_item() -> Item {
 }
 
 fn chart_item(kind: ChartKind) -> Item {
-    let series = |name: &str, v: [f64; 2]| Series { name: name.into(), values: v.map(Some).to_vec(), color: None };
+    let series = |name: &str, v: [f64; 2]| Series {
+        name: name.into(),
+        values: v.map(Some).to_vec(),
+        color: None,
+        x: None,
+        format: None,
+    };
     let c = Chart {
         kind,
         grouping: Grouping::Clustered,
@@ -368,7 +374,13 @@ fn coverage_gives_the_deck_title_only_to_the_slide_that_filled_it() {
 }
 
 fn two_series_chart(second: [f64; 2], categories: [&str; 2]) -> Item {
-    let series = |name: &str, v: [f64; 2]| Series { name: name.into(), values: v.map(Some).to_vec(), color: None };
+    let series = |name: &str, v: [f64; 2]| Series {
+        name: name.into(),
+        values: v.map(Some).to_vec(),
+        color: None,
+        x: None,
+        format: None,
+    };
     let c = Chart {
         kind: ChartKind::Column,
         grouping: Grouping::Clustered,

@@ -42,6 +42,7 @@ import-output-too-large = Powstała prezentacja przekroczyłaby rozmiar dozwolon
 import-loss-list-levels = Poziomy listy spłaszczone do jednego
 import-loss-merged-cells = Scalone komórki rozdzielone
 import-loss-percent-stacked = Wykres skumulowany 100% pokazany jako skumulowany
+import-loss-chart-format = Format liczb { $format } wykresu nie został zachowany
 import-loss-run-style = { $effect ->
     [underline] Utracono podkreślenie
     [strike] Utracono przekreślenie

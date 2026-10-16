@@ -41,6 +41,7 @@ import-output-too-large = Le deck obtenu dépasserait la taille admise pour un i
 import-loss-list-levels = Niveaux de liste ramenés à un seul
 import-loss-merged-cells = Cellules fusionnées séparées
 import-loss-percent-stacked = Graphique empilé à 100 % rendu en empilé simple
+import-loss-chart-format = Format des nombres { $format } du graphique non gardé
 import-loss-run-style = { $effect ->
     [underline] Soulignement perdu
     [strike] Barré perdu

@@ -42,6 +42,7 @@ import-output-too-large = A apresentação resultante excederia o tamanho permit
 import-loss-list-levels = Níveis de lista reduzidos a um
 import-loss-merged-cells = Células mescladas separadas
 import-loss-percent-stacked = Gráfico empilhado 100% exibido como empilhado
+import-loss-chart-format = Formato numérico { $format } do gráfico não mantido
 import-loss-run-style = { $effect ->
     [underline] Sublinhado perdido
     [strike] Tachado perdido

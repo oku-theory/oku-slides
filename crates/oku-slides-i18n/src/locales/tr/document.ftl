@@ -42,6 +42,7 @@ import-output-too-large = Ortaya çıkacak sunu, içe aktarma için izin verilen
 import-loss-list-levels = Liste düzeyleri tek düzeye indirildi
 import-loss-merged-cells = Birleştirilmiş hücreler ayrıldı
 import-loss-percent-stacked = %100 yığılmış grafik yığılmış olarak gösterildi
+import-loss-chart-format = Grafiğin { $format } sayı biçimi korunmadı
 import-loss-run-style = { $effect ->
     [underline] Altı çizili biçim kayboldu
     [strike] Üstü çizili biçim kayboldu

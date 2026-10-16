@@ -50,6 +50,12 @@ pub struct Series {
     pub values: Vec<Option<f64>>,
     /// Couleur explicite de la série.
     pub color: Option<Color>,
+    /// Abscisses propres d'une série de nuage de points (`xVal` numérique), au rang de ses valeurs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub x: Option<Vec<Option<f64>>>,
+    /// Format des valeurs (`formatCode` du cache, `0%`, `#,##0 €`…), s'il n'est pas `General`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
 }
 
 /// Graphique.
@@ -61,7 +67,7 @@ pub struct Chart {
     pub grouping: Grouping,
     /// Titre.
     pub title: Option<String>,
-    /// Libellés des catégories (les X d'un nuage de points, en texte).
+    /// Libellés des catégories (les X textuels d'un nuage de points, ceux de la première série).
     pub categories: Vec<String>,
     /// Séries (256 au plus).
     pub series: Vec<Series>,

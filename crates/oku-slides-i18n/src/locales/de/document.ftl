@@ -41,6 +41,7 @@ import-output-too-large = Das entstehende Deck würde die für einen Import zul�
 import-loss-list-levels = Listenebenen auf eine Ebene reduziert
 import-loss-merged-cells = Verbundene Zellen aufgelöst
 import-loss-percent-stacked = 100-%-gestapeltes Diagramm als gestapelt dargestellt
+import-loss-chart-format = Zahlenformat { $format } des Diagramms nicht übernommen
 import-loss-run-style = { $effect ->
     [underline] Unterstreichung verloren
     [strike] Durchstreichung verloren

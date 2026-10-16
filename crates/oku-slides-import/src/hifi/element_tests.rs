@@ -142,6 +142,8 @@ fn chart_item() -> Item {
         name: name.into(),
         values: vec![Some(1.0), Some(2.0)],
         color,
+        x: None,
+        format: None,
     };
     let c = Chart {
         kind: ChartKind::Column,

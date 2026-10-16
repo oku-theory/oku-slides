@@ -55,6 +55,7 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
 #[case(LossKind::ShapeStyle(ShapeEffect::Dash))]
 #[case(LossKind::ShapeStyle(ShapeEffect::Geometry))]
 #[case(LossKind::ShapeStyle(ShapeEffect::Arrow))]
+#[case(LossKind::ChartFormat("#,##0.00 \"€\"".into()))]
 #[case(LossKind::LayoutDropped { layout: "Titre".into() })]
 #[case(LossKind::DecorTruncated { omitted: 12 })]
 #[case(LossKind::TableStyle)]

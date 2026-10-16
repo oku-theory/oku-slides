@@ -42,6 +42,7 @@ import-output-too-large = 가져온 프레젠테이션이 가져오기에 허용
 import-loss-list-levels = 목록 수준을 한 단계로 합쳤습니다
 import-loss-merged-cells = 병합된 셀을 분리했습니다
 import-loss-percent-stacked = 100% 누적 차트를 누적 차트로 표시했습니다
+import-loss-chart-format = 차트의 숫자 서식 { $format }이(가) 유지되지 않음
 import-loss-run-style = { $effect ->
     [underline] 밑줄이 사라졌습니다
     [strike] 취소선이 사라졌습니다

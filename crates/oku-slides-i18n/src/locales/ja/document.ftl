@@ -41,6 +41,7 @@ import-output-too-large = 変換後のプレゼンテーションがインポー
 import-loss-list-levels = リストの階層を 1 段にまとめました
 import-loss-merged-cells = 結合セルを解除しました
 import-loss-percent-stacked = 100% 積み上げグラフを積み上げグラフとして表示しました
+import-loss-chart-format = グラフの数値書式 { $format } は保持されません
 import-loss-run-style = { $effect ->
     [underline] 下線が失われました
     [strike] 取り消し線が失われました

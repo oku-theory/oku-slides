@@ -42,6 +42,7 @@ import-output-too-large = Bản trình bày thu được sẽ vượt quá kích
 import-loss-list-levels = Các cấp danh sách được gộp thành một cấp
 import-loss-merged-cells = Các ô đã hợp nhất được tách ra
 import-loss-percent-stacked = Biểu đồ xếp chồng 100% được hiển thị dạng xếp chồng
+import-loss-chart-format = Không giữ định dạng số { $format } của biểu đồ
 import-loss-run-style = { $effect ->
     [underline] Mất gạch chân
     [strike] Mất gạch ngang

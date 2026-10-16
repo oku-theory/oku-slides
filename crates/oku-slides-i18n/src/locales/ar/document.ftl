@@ -42,6 +42,7 @@ import-output-too-large = سيتجاوز العرض الناتج الحجم ال
 import-loss-list-levels = تم دمج مستويات القائمة في مستوى واحد
 import-loss-merged-cells = تم فصل الخلايا المدمجة
 import-loss-percent-stacked = عُرض المخطط المكدس بنسبة 100% كمخطط مكدس
+import-loss-chart-format = لم يُحتفظ بتنسيق الأرقام { $format } للمخطط
 import-loss-run-style = { $effect ->
     [underline] فُقد التسطير
     [strike] فُقد الشطب

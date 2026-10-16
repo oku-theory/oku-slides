@@ -42,6 +42,7 @@ import-output-too-large = Het resulterende deck zou de toegestane grootte voor e
 import-loss-list-levels = Lijstniveaus teruggebracht tot één
 import-loss-merged-cells = Samengevoegde cellen gesplitst
 import-loss-percent-stacked = 100%-gestapelde grafiek als gestapeld weergegeven
+import-loss-chart-format = Getalnotatie { $format } van de grafiek niet behouden
 import-loss-run-style = { $effect ->
     [underline] Onderstreping verloren
     [strike] Doorhaling verloren

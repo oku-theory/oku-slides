@@ -7,7 +7,13 @@ use super::*;
 use crate::test_support::{apply_blocks, element_with};
 
 fn series(name: &str, values: &[f64]) -> source::Series {
-    source::Series { name: name.to_owned(), values: values.iter().copied().map(Some).collect(), color: None }
+    source::Series {
+        name: name.to_owned(),
+        values: values.iter().copied().map(Some).collect(),
+        color: None,
+        x: None,
+        format: None,
+    }
 }
 
 fn source_chart(kind: ChartKind, grouping: Grouping) -> source::Chart {
@@ -160,6 +166,30 @@ fn chart_of_a_scatter_reads_numeric_categories_as_x() {
         }
         other => panic!("nuage attendu : {other:?}"),
     }
+}
+
+#[test]
+fn chart_of_a_scatter_takes_each_series_own_x() {
+    let mut c = source_chart(ChartKind::Scatter, Grouping::Clustered);
+    c.series[0].x = Some(vec![Some(10.0), Some(20.0), Some(30.0)]);
+    // La seconde série a quatre points et un X absent : ce point-là n'est pas tracé.
+    c.series[1].values.push(Some(7.0));
+    c.series[1].x = Some(vec![Some(-1.0), None, Some(0.25), Some(8.0)]);
+    match model(&c).kind {
+        oku_slides_chart::ChartKind::Scatter(s) => {
+            assert_that!(s.series[0].points).is_equal_to(vec![(10.0, 1.0), (20.0, 2.0), (30.0, 3.0)]);
+            assert_that!(s.series[1].points).is_equal_to(vec![(-1.0, 4.0), (0.25, 6.0), (8.0, 7.0)]);
+        }
+        other => panic!("nuage attendu : {other:?}"),
+    }
+}
+
+#[test]
+fn chart_with_a_number_format_loses_it() {
+    let mut c = source_chart(ChartKind::Column, Grouping::Clustered);
+    c.series[1].format = Some("0%".to_owned());
+    let (_, losses) = chart(&c).unwrap();
+    assert_that!(losses).is_equal_to(vec![LossKind::ChartFormat("0%".to_owned())]);
 }
 
 #[test]

@@ -42,6 +42,7 @@ import-output-too-large = งานนำเสนอที่ได้จะม
 import-loss-list-levels = ลดระดับรายการเหลือระดับเดียว
 import-loss-merged-cells = แยกเซลล์ที่ผสานไว้
 import-loss-percent-stacked = แสดงแผนภูมิแบบเรียงซ้อน 100% เป็นแบบเรียงซ้อน
+import-loss-chart-format = ไม่ได้คงรูปแบบตัวเลข { $format } ของแผนภูมิ
 import-loss-run-style = { $effect ->
     [underline] ขีดเส้นใต้หายไป
     [strike] ขีดทับหายไป

@@ -41,6 +41,7 @@ import-output-too-large = The resulting deck would exceed the size allowed for a
 import-loss-list-levels = List levels flattened to one level
 import-loss-merged-cells = Merged cells flattened
 import-loss-percent-stacked = 100% stacked chart shown as stacked
+import-loss-chart-format = Chart number format { $format } not kept
 import-loss-run-style = { $effect ->
     [underline] Underline lost
     [strike] Strikethrough lost

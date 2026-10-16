@@ -2,7 +2,7 @@
 
 use roxmltree::Node;
 
-use crate::collect::clip;
+use crate::collect::{clip, clip_to};
 use crate::pptx::color::parse_color;
 use crate::pptx::context::PartCtx;
 use crate::pptx::xml::{attr_str, attr_u32, child, children, descendant, elements, text_of};
@@ -18,6 +18,8 @@ pub(crate) const MAX_TRAILING_GAP: usize = 64;
 pub(crate) const MAX_TITLE_LINES: usize = 8;
 /// Caractères lus par ligne de titre, avant `clip` : borne la copie d'un titre géant.
 const MAX_TITLE_CHARS: usize = 1024;
+/// Caractères gardés d'un `formatCode`.
+const MAX_FORMAT_CHARS: usize = 64;
 
 /// Pourquoi un graphique n'est pas lu.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,6 +59,23 @@ fn cache(n: Node<'_, '_>) -> Vec<Option<String>> {
         }
     }
     out
+}
+
+/// Valeurs numériques du cache de `n` ; une case absente ou non numérique est `None`.
+fn numbers(n: Node<'_, '_>) -> Vec<Option<f64>> {
+    cache(n).into_iter().map(|x| x.and_then(|t| t.trim().parse::<f64>().ok().filter(|f| f.is_finite()))).collect()
+}
+
+/// Vrai si `n` porte un cache numérique (`numRef`, `numLit`).
+fn is_numeric(n: Node<'_, '_>) -> bool {
+    n.descendants().any(|d| matches!(d.tag_name().name(), "numCache" | "numLit"))
+}
+
+/// `formatCode` du cache numérique de `n`, sauf `General` (le format par défaut).
+fn format_code(n: Node<'_, '_>) -> Option<String> {
+    let c = n.descendants().find(|d| matches!(d.tag_name().name(), "numCache" | "numLit"))?;
+    let code = child(c, "formatCode")?.text()?.trim();
+    (!code.is_empty() && !code.eq_ignore_ascii_case("General")).then(|| clip_to(code, MAX_FORMAT_CHARS))
 }
 
 fn series_name(ser: Node<'_, '_>) -> String {
@@ -108,18 +127,17 @@ pub(crate) fn parse_chart(root: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> R
     let categories = cat.map(|c| cache(c).into_iter().map(Option::unwrap_or_default).collect()).unwrap_or_default();
     let series = sers
         .iter()
-        .map(|s| Series {
-            name: series_name(*s),
-            values: child(*s, "val")
-                .or_else(|| child(*s, "yVal"))
-                .map(|v| {
-                    cache(v)
-                        .into_iter()
-                        .map(|x| x.and_then(|t| t.trim().parse::<f64>().ok().filter(|f| f.is_finite())))
-                        .collect()
-                })
-                .unwrap_or_default(),
-            color: child(*s, "spPr").and_then(|p| child(p, "solidFill")).and_then(|f| parse_color(f, &cx.colors)),
+        .map(|s| {
+            let values = child(*s, "val").or_else(|| child(*s, "yVal"));
+            // Un nuage de points a des X par série ; numériques, ils ne passent pas par les catégories.
+            let x = (kind == ChartKind::Scatter).then(|| child(*s, "xVal")).flatten().filter(|x| is_numeric(*x));
+            Series {
+                name: series_name(*s),
+                values: values.map(numbers).unwrap_or_default(),
+                color: child(*s, "spPr").and_then(|p| child(p, "solidFill")).and_then(|f| parse_color(f, &cx.colors)),
+                x: x.map(numbers),
+                format: values.and_then(format_code),
+            }
         })
         .collect();
     let title = descendant(root, "chart")
