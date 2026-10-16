@@ -23,3 +23,4 @@
 - Put import report keys in document.ftl with prefix import- and CLI keys in cli.ftl with prefix cli-. (plan:2026-10-10-import-pptx-lot2)
 - Use a single term for agent within each locale, as decided in t-456 for vi and zh-Hant. (plan:2026-10-04-agent-thread-followups-2)
 - Write pt as Brazilian Portuguese only: aba, arquivo, salvar, em um, tela, “quotes”. (t-758)
+- Name the dashed empty-field outlines guides in every locale (fr repères), never ghosts. (t-363)

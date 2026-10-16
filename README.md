@@ -133,7 +133,7 @@ temporary directory to keep your own data untouched.
 | ⌘S, ⌘⇧S, ⌘O | Save now, save a copy, open |
 | ⌘T, ⌘W, ⌘⇧N | New tab, close tab, new window |
 | ⌃Tab, ⌃⇧Tab | Next, previous tab |
-| ⌘⇧G | Show the ghosts |
+| ⌘⇧G | Show the guides |
 | ⌘K | Type an instruction for the agent |
 | ⌘1…⌘9 | Go to tab n (⌘9: the last one) |
 | ⌘? | App help (read-only deck in French or English, otherwise English; `docs/aide/`) |
