@@ -242,8 +242,12 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
     }
 
     /// Un élément porteur d'une option d'hôte (`table.data`, `chart.option`).
+    /// Sans option (tableau ou graphique sans données), rien, et la perte.
     fn host(&mut self, item: &Item, frame: Frame, kind: &str, param: &str, option: Option<(Value, Vec<LossKind>)>) {
-        let Some((value, lost)) = option else { return };
+        let Some((value, lost)) = option else {
+            self.lose(item, LossKind::EmptyData);
+            return;
+        };
         for l in lost {
             self.lose(item, l);
         }
@@ -258,6 +262,10 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
         if let Fill::Picture { asset } = &s.fill {
             if !matches!(&s.geom, Geometry::Preset { name, .. } if name == "rect") {
                 self.lose(item, LossKind::ShapeStyle(ShapeEffect::Picture));
+            }
+            // L'image de remplissage est posée droite, comme une image : son miroir est perdu.
+            if f.flip_h || f.flip_v {
+                self.lose(item, LossKind::Transform);
             }
             self.image(item, asset, frame);
             paint.fill = None;

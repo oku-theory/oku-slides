@@ -90,6 +90,7 @@ import-loss-layout-dropped = Забагато макетів для одного
 import-loss-decor-truncated = Оформлення скорочено, щоб вміститися в розмір файлу пакета: пропущено елементів: { $omitted }
 import-loss-table-style = Стиль таблиці наближено: власні тла клітинок, межі, ширина стовпців або розміри тексту втрачено
 import-loss-overflow = Елемент «{ $element }» виходить за край слайда
+import-loss-empty-data = Таблиця або діаграма без даних: нічого не розміщено
 import-reference-unavailable = Немає візуальної оцінки: { $cause ->
     [timeout] еталонний рендеринг тривав надто довго
     [memory] еталонний рендеринг використав надто багато пам’яті
@@ -103,11 +104,13 @@ import-reference-unavailable = Немає візуальної оцінки: { $
 }
 import-font-substituted = { $family } замінено на { $by } із сумісними метриками
 import-font-missing = { $family } не знайдено: текст використовує шрифт { $by }
-import-font-restricted = { $family }: ліцензія забороняє вбудовувати деякі накреслення у презентацію
+import-font-restricted = { $family }: ліцензія забороняє вбудовувати деякі накреслення у презентацію; текст цих стилів використовує інші накреслення
 import-font-restricted-substituted = { $family } не можна вбудувати у презентацію (ліцензія): замінено на { $by } із сумісними метриками
 import-font-restricted-missing = { $family } не можна вбудувати у презентацію (ліцензія): текст використовує шрифт { $by }
 import-font-too-large = { $family }: файли завеликі для вбудовування в презентацію; текст використовує шрифт { $by }
 import-font-missing-no-fallback = { $family } не знайдено, як і шрифт основного тексту теми: текст відображається типовим шрифтом рушія
+import-font-too-large-no-fallback = { $family }: файли завеликі для вбудовування в презентацію, а шрифт основного тексту теми теж недоступний: текст відображається типовим шрифтом рушія
+import-font-restricted-no-fallback = { $family } не можна вбудувати у презентацію (ліцензія), а шрифт основного тексту теми теж недоступний: текст відображається типовим шрифтом рушія
 import-warning-effect-ignored = Ефект не імпортовано: { $detail }
 import-warning-approximated = Наближене відображення: { $detail }
 import-warning-unreadable-item = Нечитабельний елемент пропущено: { $detail }

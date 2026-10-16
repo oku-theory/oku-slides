@@ -84,6 +84,7 @@ import-loss-layout-dropped = 1つのパックにはレイアウトが多すぎ�
 import-loss-decor-truncated = パックファイルのサイズに収めるため装飾を切り詰めました：{ $omitted }個の要素を省きました
 import-loss-table-style = 表のスタイルを近似しました：独自のセルの背景、罫線、列幅、文字サイズは失われます
 import-loss-overflow = 要素「{ $element }」がスライドの端からはみ出しています
+import-loss-empty-data = データのない表またはグラフ：何も配置していません
 import-reference-unavailable = 見た目の差のスコアなし：{ $cause ->
     [timeout] 参照レンダリングに時間がかかりすぎました
     [memory] 参照レンダリングがメモリを使いすぎました
@@ -92,11 +93,13 @@ import-reference-unavailable = 見た目の差のスコアなし：{ $cause ->
 }
 import-font-substituted = { $family } をメトリクス互換の { $by } に置き換えました
 import-font-missing = { $family } が見つかりません。テキストは { $by } を使います
-import-font-restricted = { $family }：ライセンスにより一部のスタイルをプレゼンテーションに埋め込めません
+import-font-restricted = { $family }：ライセンスにより一部のスタイルをプレゼンテーションに埋め込めません。そのスタイルのテキストは他のスタイルを使います
 import-font-restricted-substituted = { $family } はライセンスによりプレゼンテーションに埋め込めません。メトリクス互換の { $by } に置き換えました
 import-font-restricted-missing = { $family } はライセンスによりプレゼンテーションに埋め込めません。テキストは { $by } を使います
 import-font-too-large = { $family }：ファイルが大きすぎてデッキに埋め込めません。テキストは { $by } を使います
 import-font-missing-no-fallback = { $family } もテーマの本文フォントも見つかりません：テキストはエンジンの既定フォントで表示されます
+import-font-too-large-no-fallback = { $family }：ファイルが大きすぎてデッキに埋め込めず、テーマの本文フォントもありません：テキストはエンジンの既定フォントで表示されます
+import-font-restricted-no-fallback = { $family } はライセンスによりプレゼンテーションに埋め込めず、テーマの本文フォントもありません：テキストはエンジンの既定フォントで表示されます
 import-warning-effect-ignored = 効果はインポートされませんでした: { $detail }
 import-warning-approximated = 近似して表示しました: { $detail }
 import-warning-unreadable-item = 読み取れない項目をスキップしました: { $detail }

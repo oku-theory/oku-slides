@@ -26,21 +26,31 @@ fn identity_of_the_same_bytes_is_the_same_pair_of_v8_uuids() {
 fn check_probe_of_the_declared_schemas_passes() {
     let declared = [schema("l1-titre", "titre"), schema("l2-corps", "corps")];
     let probed = registry(&[declared[0].clone(), declared[1].clone(), schema("text", "body")]);
-    assert_that!(check_probe(&probed, &declared)).is_ok();
+    assert_that!(check_probe(&probed, &declared, &[])).is_ok();
 }
 
 #[test]
 fn check_probe_names_a_missing_widget() {
     let declared = [schema("l1-titre", "titre"), schema("l2-corps", "corps")];
     let probed = registry(&[declared[0].clone()]);
-    assert_that!(check_probe(&probed, &declared)).is_err_containing("l2-corps".to_owned());
+    assert_that!(check_probe(&probed, &declared, &[])).is_err_containing("l2-corps".to_owned());
 }
 
 #[test]
 fn check_probe_names_a_widget_probed_differently() {
     let declared = [schema("l1-titre", "titre")];
     let probed = registry(&[schema("l1-titre", "title")]);
-    assert_that!(check_probe(&probed, &declared)).is_err_containing("l1-titre".to_owned());
+    assert_that!(check_probe(&probed, &declared, &[])).is_err_containing("l1-titre".to_owned());
+}
+
+#[test]
+fn check_probe_names_a_pack_file_without_declared_schema() {
+    let declared = [schema("l1-titre", "titre")];
+    let probed = registry(&[declared[0].clone(), schema("l2-corps", "corps")]);
+    let files: Vec<WidgetFile> = ["l1-titre", "l2-corps"].iter().map(|n| WidgetFile::parse(n).unwrap()).collect();
+    assert_that!(check_probe(&probed, &declared, &files)).is_err_containing("l2-corps".to_owned());
+    let declared_only = [WidgetFile::common(), files[0].clone()];
+    assert_that!(check_probe(&probed, &declared, &declared_only)).is_ok();
 }
 
 #[test]

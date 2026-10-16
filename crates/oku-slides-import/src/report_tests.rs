@@ -59,7 +59,9 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
 #[case(LossKind::ChartFormat("#,##0.00 \"€\"".into()))]
 #[case(LossKind::LayoutDropped { layout: "Titre".into() })]
 #[case(LossKind::DecorTruncated { omitted: 12 })]
+#[case(LossKind::DecorTruncated { omitted: 1 })]
 #[case(LossKind::TableStyle)]
+#[case(LossKind::EmptyData)]
 #[case(LossKind::Overflow { element: "s3-2".into() })]
 fn loss_localize_in_every_locale_formats_its_own_message(#[case] kind: LossKind) {
     let id = kind.message_id();
@@ -111,6 +113,8 @@ fn loss_localize_bounds_of_the_pack_name_the_layout_and_the_count() {
     assert_that!(msg).contains("« Titre seul »");
     let msg = Loss::on("l3/9", LossKind::DecorTruncated { omitted: 12 }).localize(&fr);
     assert_that!(msg).contains("12 éléments omis");
+    let msg = Loss::on("l3/9", LossKind::DecorTruncated { omitted: 1 }).localize(english());
+    assert_that!(msg).ends_with("1 item left out");
 }
 
 #[test]
@@ -250,7 +254,9 @@ fn font(used: Option<&str>, decision: FontDecision, restricted: bool) -> FontCho
 #[case(font(None, FontDecision::Missing, true), "import-font-restricted-missing")]
 #[case(font(Some("Calibri"), FontDecision::Embedded, true), "import-font-restricted")]
 #[case(FontChoice { too_large: true, ..font(None, FontDecision::Missing, false) }, "import-font-too-large")]
-#[case(FontChoice { fallback: None, ..font(None, FontDecision::Missing, true) }, "import-font-missing-no-fallback")]
+#[case(FontChoice { fallback: None, ..font(None, FontDecision::Missing, false) }, "import-font-missing-no-fallback")]
+#[case(FontChoice { fallback: None, ..font(None, FontDecision::Missing, true) }, "import-font-restricted-no-fallback")]
+#[case(FontChoice { fallback: None, too_large: true, ..font(None, FontDecision::Missing, false) }, "import-font-too-large-no-fallback")]
 fn font_notice_in_every_locale_names_the_families(#[case] choice: FontChoice, #[case] id: &str) {
     for tag in oku_slides_i18n::available() {
         let l = Localizer::new(Some(tag));
@@ -271,7 +277,13 @@ fn font_notice_in_every_locale_names_the_families(#[case] choice: FontChoice, #[
 #[rstest]
 #[case(FontChoice { too_large: true, ..font(None, FontDecision::Missing, false) }, "Calibri : fichiers trop gros pour être embarqués dans le deck ; le texte prend Carlito")]
 #[case(FontChoice { fallback: None, ..font(None, FontDecision::Missing, false) }, "Calibri introuvable, comme la police du corps du thème : le texte est rendu avec la police par défaut du moteur")]
-fn font_notice_of_a_missing_family_says_what_the_text_takes(#[case] choice: FontChoice, #[case] expected: &str) {
+#[case(FontChoice { fallback: None, ..font(None, FontDecision::Missing, true) }, "Calibri ne peut pas être embarquée dans le deck (licence), et la police du corps du thème est introuvable : le texte est rendu avec la police par défaut du moteur")]
+#[case(FontChoice { fallback: None, too_large: true, ..font(None, FontDecision::Missing, false) }, "Calibri : fichiers trop gros pour être embarqués dans le deck, et la police du corps du thème est introuvable : le texte est rendu avec la police par défaut du moteur")]
+#[case(
+    font(Some("Calibri"), FontDecision::Embedded, true),
+    "Calibri : sa licence interdit d'embarquer certaines de ses faces dans le deck ; le texte de ces styles prend ses autres faces"
+)]
+fn font_notice_says_what_the_text_takes(#[case] choice: FontChoice, #[case] expected: &str) {
     assert_that!(font_notice(&choice, &Localizer::new(Some("fr")))).is_equal_to(Some(expected.to_owned()));
 }
 

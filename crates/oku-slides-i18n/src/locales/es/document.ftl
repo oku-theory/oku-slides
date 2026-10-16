@@ -84,9 +84,13 @@ import-loss-shape-style = { $effect ->
    *[geometry] Forma desconocida mostrada como rectángulo
 }
 import-loss-layout-dropped = Demasiados diseños para un paquete: «{ $layout }» no tiene plantilla; sus diapositivas usan el widget vacío y reciben su decoración como elementos
-import-loss-decor-truncated = Decoración recortada para caber en el tamaño de un archivo del paquete: { $omitted } elementos omitidos
+import-loss-decor-truncated = { $omitted ->
+    [one] Decoración recortada para caber en el tamaño de un archivo del paquete: { $omitted } elemento omitido
+   *[other] Decoración recortada para caber en el tamaño de un archivo del paquete: { $omitted } elementos omitidos
+}
 import-loss-table-style = Estilo de tabla aproximado: se pierden sus fondos de celda, bordes, anchos de columna o tamaños de texto propios
 import-loss-overflow = El elemento «{ $element }» sobrepasa el borde de la diapositiva
+import-loss-empty-data = Tabla o gráfico sin datos: no se coloca nada
 import-reference-unavailable = Sin puntuación visual: { $cause ->
     [timeout] el renderizado de referencia tardó demasiado
     [memory] el renderizado de referencia usó demasiada memoria
@@ -98,11 +102,13 @@ import-reference-unavailable = Sin puntuación visual: { $cause ->
 }
 import-font-substituted = { $family } sustituida por { $by }, con métricas compatibles
 import-font-missing = { $family } no encontrada: el texto usa { $by }
-import-font-restricted = { $family }: su licencia prohíbe incrustar algunas de sus variantes en la presentación
+import-font-restricted = { $family }: su licencia prohíbe incrustar algunas de sus variantes en la presentación; el texto con esos estilos usa sus otras variantes
 import-font-restricted-substituted = { $family } no se puede incrustar en la presentación (licencia): sustituida por { $by }, con métricas compatibles
 import-font-restricted-missing = { $family } no se puede incrustar en la presentación (licencia): el texto usa { $by }
 import-font-too-large = { $family }: archivos demasiado grandes para incrustarlos en el deck; el texto usa { $by }
 import-font-missing-no-fallback = No se encuentra { $family } ni la fuente del cuerpo del tema: el texto se muestra con la fuente predeterminada del motor
+import-font-too-large-no-fallback = { $family }: archivos demasiado grandes para incrustarlos en el deck, y la fuente del cuerpo del tema tampoco está disponible: el texto se muestra con la fuente predeterminada del motor
+import-font-restricted-no-fallback = { $family } no se puede incrustar en la presentación (licencia), y la fuente del cuerpo del tema tampoco está disponible: el texto se muestra con la fuente predeterminada del motor
 import-warning-effect-ignored = Efecto no importado: { $detail }
 import-warning-approximated = Representación aproximada: { $detail }
 import-warning-unreadable-item = Elemento ilegible omitido: { $detail }

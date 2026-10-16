@@ -85,6 +85,7 @@ import-loss-layout-dropped = Quá nhiều bố cục cho một gói: “{ $layou
 import-loss-decor-truncated = Phần trang trí bị cắt để vừa kích thước tệp gói: bỏ qua { $omitted } phần tử
 import-loss-table-style = Kiểu bảng được ước lượng: nền ô, đường viền, độ rộng cột hoặc cỡ chữ riêng của bảng bị mất
 import-loss-overflow = Phần tử “{ $element }” vượt quá mép trang chiếu
+import-loss-empty-data = Bảng hoặc biểu đồ không có dữ liệu: không đặt gì
 import-reference-unavailable = Không có điểm hình ảnh: { $cause ->
     [timeout] bản kết xuất tham chiếu mất quá nhiều thời gian
     [memory] bản kết xuất tham chiếu dùng quá nhiều bộ nhớ
@@ -93,11 +94,13 @@ import-reference-unavailable = Không có điểm hình ảnh: { $cause ->
 }
 import-font-substituted = Đã thay { $family } bằng { $by }, có số đo tương thích
 import-font-missing = Không tìm thấy { $family }: văn bản dùng phông chữ { $by }
-import-font-restricted = { $family }: giấy phép cấm nhúng một số kiểu của phông vào bản trình bày
+import-font-restricted = { $family }: giấy phép cấm nhúng một số kiểu của phông vào bản trình bày; văn bản ở các kiểu đó dùng các kiểu còn lại
 import-font-restricted-substituted = Không thể nhúng { $family } vào bản trình bày (giấy phép): đã thay bằng { $by }, có số đo tương thích
 import-font-restricted-missing = Không thể nhúng { $family } vào bản trình bày (giấy phép): văn bản dùng phông chữ { $by }
 import-font-too-large = { $family }: tệp quá lớn để nhúng vào bộ trình chiếu; văn bản dùng phông chữ { $by }
 import-font-missing-no-fallback = Không tìm thấy { $family } cũng như phông chữ nội dung của chủ đề: văn bản hiển thị bằng phông chữ mặc định của bộ máy
+import-font-too-large-no-fallback = { $family }: tệp quá lớn để nhúng vào bộ trình chiếu, và phông chữ nội dung của chủ đề cũng không có: văn bản hiển thị bằng phông chữ mặc định của bộ máy
+import-font-restricted-no-fallback = Không thể nhúng { $family } vào bản trình bày (giấy phép), và phông chữ nội dung của chủ đề cũng không có: văn bản hiển thị bằng phông chữ mặc định của bộ máy
 import-warning-effect-ignored = Không nhập hiệu ứng: { $detail }
 import-warning-approximated = Hiển thị gần đúng: { $detail }
 import-warning-unreadable-item = Đã bỏ qua mục không đọc được: { $detail }

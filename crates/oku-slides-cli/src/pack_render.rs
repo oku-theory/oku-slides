@@ -123,6 +123,9 @@ pub(crate) struct DeckWidgets {
     pub(crate) registry: Arc<WidgetRegistry>,
     /// Fichiers du pack toujours non sondés après la relance (budget épuisé, lien indisponible).
     pub(crate) unprobed: BTreeSet<WidgetFile>,
+    /// La sonde du pack a échoué tout entière (processus de rendu) : son
+    /// erreur, localisée ; le registre est alors la base.
+    pub(crate) probe_failed: Option<String>,
     remote: Option<(RenderWorker, PackWidgets)>,
 }
 
@@ -138,7 +141,7 @@ impl DeckWidgets {
         deck: &Deck,
         packs: &BTreeMap<PackVersion, PackFiles>,
     ) -> Self {
-        let base_only = || Self { registry: base.clone(), unprobed: BTreeSet::new(), remote: None };
+        let base_only = || Self { registry: base.clone(), unprobed: BTreeSet::new(), probe_failed: None, remote: None };
         let Some(r) = &deck.templates else { return base_only() };
         let Some(files) = packs.get(&r.version) else {
             tracing::warn!(pack = %r.id, version = %r.version, "{}", l.tr("session-pack-missing"));
@@ -155,8 +158,9 @@ impl DeckWidgets {
         let probe = match probed {
             Ok(probe) => probe,
             Err(e) => {
-                tracing::warn!(pack = %r.id, error = %one_line(&e), "{}", e.localize(l));
-                return base_only();
+                let message = e.localize(l);
+                tracing::warn!(pack = %r.id, error = %one_line(&e), "{message}");
+                return Self { probe_failed: Some(message), ..base_only() };
             }
         };
         for (name, file) in probe.files.iter().filter(|(_, p)| !p.is_valid()) {
@@ -165,7 +169,12 @@ impl DeckWidgets {
             }
         }
         match probe.pack {
-            Some(pack) => Self { registry: probe.registry, unprobed: probe.unprobed, remote: Some((worker, pack)) },
+            Some(pack) => Self {
+                registry: probe.registry,
+                unprobed: probe.unprobed,
+                probe_failed: None,
+                remote: Some((worker, pack)),
+            },
             None => Self { unprobed: probe.unprobed, ..base_only() },
         }
     }

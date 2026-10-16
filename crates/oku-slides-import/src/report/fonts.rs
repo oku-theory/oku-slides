@@ -18,17 +18,20 @@ pub(crate) fn font_notice(c: &FontChoice, l: &Localizer) -> Option<String> {
         (FontDecision::Missing, _, restricted) => {
             // Le repli est nommé : « police du corps » serait faux (circulaire)
             // quand la famille absente est elle-même la police du corps.
-            let Some(by) = c.fallback.as_deref() else {
-                return Some(l.tr_with("import-font-missing-no-fallback", &[family]));
+            // Sans repli, la cause (trop gros, licence, introuvable) reste dite.
+            let (id, by) = match (c.fallback.as_deref(), c.too_large, restricted) {
+                (Some(by), true, _) => ("import-font-too-large", Some(by)),
+                (Some(by), false, true) => ("import-font-restricted-missing", Some(by)),
+                (Some(by), false, false) => ("import-font-missing", Some(by)),
+                (None, true, _) => ("import-font-too-large-no-fallback", None),
+                (None, false, true) => ("import-font-restricted-no-fallback", None),
+                (None, false, false) => ("import-font-missing-no-fallback", None),
             };
-            let id = if c.too_large {
-                "import-font-too-large"
-            } else if restricted {
-                "import-font-restricted-missing"
-            } else {
-                "import-font-missing"
+            let args = match by {
+                Some(by) => vec![family, ("by", by.into())],
+                None => vec![family],
             };
-            Some(l.tr_with(id, &[family, ("by", by.into())]))
+            Some(l.tr_with(id, &args))
         }
         (_, _, true) => Some(l.tr_with("import-font-restricted", &[family])),
         (_, _, false) => None,

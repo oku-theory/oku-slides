@@ -85,6 +85,7 @@ import-loss-layout-dropped = 一個套件中的版面配置過多：「{ $layout
 import-loss-decor-truncated = 為符合套件檔案大小而截斷了裝飾：省略了{ $omitted }個元素
 import-loss-table-style = 表格樣式為近似：其自身的儲存格背景、框線、欄寬或文字大小已遺失
 import-loss-overflow = 元素「{ $element }」超出了投影片邊緣
+import-loss-empty-data = 沒有資料的表格或圖表：未放置任何內容
 import-reference-unavailable = 無視覺評分：{ $cause ->
     [timeout] 參考轉譯耗時過長
     [memory] 參考轉譯佔用記憶體過多
@@ -93,11 +94,13 @@ import-reference-unavailable = 無視覺評分：{ $cause ->
 }
 import-font-substituted = { $family } 已替換為度量相容的 { $by }
 import-font-missing = 找不到 { $family }：文字使用 { $by }
-import-font-restricted = { $family }：其授權禁止將部分字樣內嵌到簡報
+import-font-restricted = { $family }：其授權禁止將部分字樣內嵌到簡報；這些樣式的文字使用其其他字樣
 import-font-restricted-substituted = { $family } 不能內嵌到簡報（授權）：已替換為度量相容的 { $by }
 import-font-restricted-missing = { $family } 不能內嵌到簡報（授權）：文字使用 { $by }
 import-font-too-large = { $family }：檔案太大，無法嵌入簡報；文字使用 { $by }
 import-font-missing-no-fallback = 找不到 { $family }，也找不到主題的內文字型：文字以引擎的預設字型顯示
+import-font-too-large-no-fallback = { $family }：檔案太大，無法嵌入簡報，主題的內文字型也無法使用：文字以引擎的預設字型顯示
+import-font-restricted-no-fallback = { $family } 不能內嵌到簡報（授權），主題的內文字型也無法使用：文字以引擎的預設字型顯示
 import-warning-effect-ignored = 效果未匯入：{ $detail }
 import-warning-approximated = 近似呈現：{ $detail }
 import-warning-unreadable-item = 已略過無法讀取的項目：{ $detail }

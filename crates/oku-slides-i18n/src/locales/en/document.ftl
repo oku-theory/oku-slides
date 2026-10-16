@@ -84,9 +84,13 @@ import-loss-shape-style = { $effect ->
    *[geometry] Unknown shape rendered as a rectangle
 }
 import-loss-layout-dropped = Too many layouts for one pack: “{ $layout }” has no template; its slides use the blank widget and get its decoration as elements
-import-loss-decor-truncated = Decoration cut to fit the size of a pack file: { $omitted } items left out
+import-loss-decor-truncated = { $omitted ->
+    [one] Decoration cut to fit the size of a pack file: { $omitted } item left out
+   *[other] Decoration cut to fit the size of a pack file: { $omitted } items left out
+}
 import-loss-table-style = Table style approximated: its own cell backgrounds, borders, column widths or text sizes are lost
 import-loss-overflow = Element “{ $element }” runs past the edge of the slide
+import-loss-empty-data = Table or chart without data: nothing placed
 import-reference-unavailable = No visual score: { $cause ->
     [timeout] the reference render took too long
     [memory] the reference render used too much memory
@@ -98,11 +102,13 @@ import-reference-unavailable = No visual score: { $cause ->
 }
 import-font-substituted = { $family } replaced by { $by }, with matching metrics
 import-font-missing = { $family } not found: the text uses { $by }
-import-font-restricted = { $family }: its license forbids embedding some of its faces in the deck
+import-font-restricted = { $family }: its license forbids embedding some of its faces in the deck; text in those styles uses its other faces
 import-font-restricted-substituted = { $family } cannot be embedded in the deck (license): replaced by { $by }, with matching metrics
 import-font-restricted-missing = { $family } cannot be embedded in the deck (license): the text uses { $by }
 import-font-too-large = { $family }: files too large to embed in the deck; the text uses { $by }
 import-font-missing-no-fallback = { $family } not found, nor the theme's body font: the text is rendered with the engine's default font
+import-font-too-large-no-fallback = { $family }: files too large to embed in the deck, and the theme's body font is not available either: the text is rendered with the engine's default font
+import-font-restricted-no-fallback = { $family } cannot be embedded in the deck (license), and the theme's body font is not available either: the text is rendered with the engine's default font
 import-warning-effect-ignored = Effect not imported: { $detail }
 import-warning-approximated = Approximated: { $detail }
 import-warning-unreadable-item = Unreadable item skipped: { $detail }

@@ -433,3 +433,19 @@ fn latin_run_with_an_east_asian_font_loses_nothing() {
 fn right_to_left_paragraph_in_a_left_to_right_deck_loses_its_direction() {
     assert_that!(script_losses("abc", true)).is_equal_to(vec![LossKind::ParagraphStyle]);
 }
+
+#[test]
+fn text_element_clamps_a_huge_letter_spacing_and_reports_it() {
+    let wide = run_with("LARGE", |s| s.char_spacing = 10_000.0);
+    let tb = text_box(vec![para(vec![wide])]);
+    assert_that!(element(tb.clone()).style.tracking).is_equal_to(Some(STYLE_TRACKING_MAX));
+    assert_that!(losses(tb)).is_equal_to(vec![LossKind::RunStyle(RunEffect::Tracking)]);
+}
+
+#[test]
+fn text_element_clamps_a_huge_paragraph_gap_and_reports_it() {
+    let none = Spacing::Points(0.0);
+    let tb = text_box(vec![spaced("Un", none, Spacing::Points(10_000.0)), spaced("Deux", none, none)]);
+    assert_that!(element(tb.clone()).style.spacing).is_equal_to(Some(STYLE_SPACING_MAX));
+    assert_that!(losses(tb)).contains(LossKind::ParagraphStyle);
+}

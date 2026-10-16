@@ -322,6 +322,22 @@ fn image(id: &str, frame: Value) -> Value {
     json!([image("s1-1", frame())]),
     vec![LossKind::Transform],
 )]
+#[case::flipped_picture_fill(
+    with_frame(shape(preset("rect", &[]), Fill::Picture { asset: "sha256:aa".into() }, None), |f| f.flip_h = true),
+    json!([image("s1-1", frame())]),
+    vec![LossKind::Transform],
+)]
+#[case::chart_without_data(
+    item("s1/1", (10.0, 20.0, 100.0, 50.0), ItemKind::Chart(Chart {
+        kind: ChartKind::Column,
+        grouping: Grouping::Clustered,
+        title: None,
+        categories: Vec::new(),
+        series: Vec::new(),
+    })),
+    json!([]),
+    vec![LossKind::EmptyData],
+)]
 fn elements_of_an_item_are_placed_in_page_points(
     #[case] item: Item,
     #[case] expected: Value,

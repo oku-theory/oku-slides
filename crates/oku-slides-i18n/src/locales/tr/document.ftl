@@ -85,6 +85,7 @@ import-loss-layout-dropped = Bir paket için çok fazla düzen: “{ $layout }�
 import-loss-decor-truncated = Süsleme bir paket dosyasının boyutuna sığması için kısaltıldı: { $omitted } öğe atlandı
 import-loss-table-style = Tablo stili yaklaşık: kendi hücre arka planları, kenarlıkları, sütun genişlikleri veya metin boyutları kayboldu
 import-loss-overflow = “{ $element }” öğesi slaytın kenarını aşıyor
+import-loss-empty-data = Verisi olmayan tablo veya grafik: hiçbir şey yerleştirilmedi
 import-reference-unavailable = Görsel puan yok: { $cause ->
     [timeout] referans oluşturma çok uzun sürdü
     [memory] referans oluşturma çok fazla bellek kullandı
@@ -93,11 +94,13 @@ import-reference-unavailable = Görsel puan yok: { $cause ->
 }
 import-font-substituted = { $family } yerine uyumlu ölçülere sahip { $by } kullanıldı
 import-font-missing = { $family } bulunamadı: metin { $by } yazı tipini kullanıyor
-import-font-restricted = { $family }: lisansı bazı stillerin sunuya gömülmesini yasaklıyor
+import-font-restricted = { $family }: lisansı bazı stillerin sunuya gömülmesini yasaklıyor; bu stillerdeki metin diğer stilleri kullanıyor
 import-font-restricted-substituted = { $family } sunuya gömülemez (lisans): yerine uyumlu ölçülere sahip { $by } kullanıldı
 import-font-restricted-missing = { $family } sunuya gömülemez (lisans): metin { $by } yazı tipini kullanıyor
 import-font-too-large = { $family }: dosyalar desteye gömülemeyecek kadar büyük; metin { $by } yazı tipini kullanıyor
 import-font-missing-no-fallback = { $family } ve temanın gövde yazı tipi bulunamadı: metin motorun varsayılan yazı tipiyle gösterilir
+import-font-too-large-no-fallback = { $family }: dosyalar desteye gömülemeyecek kadar büyük ve temanın gövde yazı tipi de yok: metin motorun varsayılan yazı tipiyle gösterilir
+import-font-restricted-no-fallback = { $family } sunuya gömülemez (lisans) ve temanın gövde yazı tipi de yok: metin motorun varsayılan yazı tipiyle gösterilir
 import-warning-effect-ignored = Efekt içe aktarılmadı: { $detail }
 import-warning-approximated = Yaklaşık olarak gösterildi: { $detail }
 import-warning-unreadable-item = Okunamayan öğe atlandı: { $detail }

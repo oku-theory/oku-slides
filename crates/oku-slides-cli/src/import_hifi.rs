@@ -15,7 +15,9 @@
 //! `max_widgets`, `max_widget_kib`) ; un écart sur un fichier qui les
 //! dépasse ou que le budget (`probe_budget_ms`) a laissé non sondé est dit
 //! comme tel (`cli-import-probe-limit`), tout autre écart est un bogue du
-//! générateur (`cli-import-probe-mismatch`). Les deux sont refusés avant
+//! générateur (`cli-import-probe-mismatch`), comme un fichier du pack sans
+//! schéma déclaré. Une sonde tout entière échouée (processus de rendu) est
+//! dite comme telle (`cli-import-probe-failed`). Tous sont refusés avant
 //! toute écriture.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -65,10 +67,10 @@ pub(crate) fn prepare(
     };
     let mut plan =
         hifi::project(&input.source, &target).check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
-    // Sans pack ni thème, le projecteur n'a pu sérialiser leurs manifestes : un bogue, comme un écart de sonde.
+    // Sans pack ou sans thème, le projecteur n'a pu sérialiser son manifeste : un bogue, dit pour lui.
+    let pack = plan.take_pack().ok_or_else(|| eyre!(l.tr("cli-import-pack-missing")))?;
+    let theme = plan.take_theme().ok_or_else(|| eyre!(l.tr("cli-import-theme-missing")))?;
     let mismatch = |widget: &str| eyre!(l.tr_with("cli-import-probe-mismatch", &[("widget", widget.into())]));
-    let pack = plan.take_pack().ok_or_else(|| mismatch("pack.json"))?;
-    let theme = plan.take_theme().ok_or_else(|| mismatch("theme.json"))?;
 
     let version = pack.version();
     let sizes: BTreeMap<WidgetFile, usize> = pack.widgets().iter().map(|(n, s)| (n.clone(), s.len())).collect();
@@ -76,7 +78,12 @@ pub(crate) fn prepare(
     deck.templates = Some(PackRef { id: pack_id, version: version.clone() });
     let packs = BTreeMap::from([(version, pack)]);
     let (mut bundle, widgets) = crate::sources_with_pack(platform, l, &pack_library(platform), &base, deck, packs)?;
-    check_probe(&widgets.registry, &plan.schemas).map_err(|w| {
+    // Une sonde tout entière échouée (processus de rendu) n'est pas un écart du générateur.
+    if let Some(error) = &widgets.probe_failed {
+        return Err(eyre!(l.tr_with("cli-import-probe-failed", &[("error", error.as_str().into())])));
+    }
+    let files: Vec<WidgetFile> = sizes.keys().cloned().collect();
+    check_probe(&widgets.registry, &plan.schemas, &files).map_err(|w| {
         if beyond_limits(&w, &sizes, &widgets.unprobed, target.limits) {
             eyre!(l.tr_with("cli-import-probe-limit", &[("widget", w.into())]))
         } else {
@@ -124,11 +131,17 @@ fn beyond_limits(
         || large(&WidgetFile::common())
 }
 
-/// Chaque schéma déclaré est-il celui que la sonde a lu ? Sinon, le nom du
-/// premier widget en écart (absent ou différent).
-fn check_probe(probed: &WidgetRegistry, declared: &[WidgetSchema]) -> Result<(), String> {
-    match declared.iter().find(|s| probed.get(&s.name) != Some(*s)) {
-        Some(s) => Err(s.name.clone()),
+/// Chaque schéma déclaré est-il celui que la sonde a lu, et chaque fichier
+/// de widget du pack (`files`, `_commun` mis à part) est-il déclaré ? Sinon,
+/// le nom du premier widget en écart (absent, différent ou non déclaré). Le
+/// registre sondé porte aussi la base : ses autres widgets ne sont pas du
+/// pack, d'où le contrôle des fichiers plutôt que du registre entier.
+fn check_probe(probed: &WidgetRegistry, declared: &[WidgetSchema], files: &[WidgetFile]) -> Result<(), String> {
+    if let Some(s) = declared.iter().find(|s| probed.get(&s.name) != Some(*s)) {
+        return Err(s.name.clone());
+    }
+    match files.iter().filter(|f| !f.is_common()).find(|f| !declared.iter().any(|s| s.name == f.as_str())) {
+        Some(f) => Err(f.as_str().to_owned()),
         None => Ok(()),
     }
 }

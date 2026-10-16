@@ -88,6 +88,7 @@ import-loss-layout-dropped = একটি প্যাকের জন্য অ
 import-loss-decor-truncated = প্যাক ফাইলের আকারে আঁটাতে সজ্জা ছাঁটা হয়েছে: বাদ পড়া উপাদান: { $omitted }
 import-loss-table-style = টেবিলের শৈলী আনুমানিক: এর নিজস্ব ঘরের পটভূমি, সীমানা, কলামের প্রস্থ বা লেখার আকার হারিয়েছে
 import-loss-overflow = উপাদান “{ $element }” স্লাইডের প্রান্ত ছাড়িয়ে যায়
+import-loss-empty-data = ডেটাবিহীন টেবিল বা চার্ট: কিছুই বসানো হয়নি
 import-reference-unavailable = কোনো দৃশ্যমান স্কোর নেই: { $cause ->
     [timeout] রেফারেন্স রেন্ডারে খুব বেশি সময় লেগেছে
     [memory] রেফারেন্স রেন্ডার খুব বেশি মেমরি নিয়েছে
@@ -96,11 +97,13 @@ import-reference-unavailable = কোনো দৃশ্যমান স্ক�
 }
 import-font-substituted = { $family } মিলযুক্ত মাপের { $by } দিয়ে বদলানো হয়েছে
 import-font-missing = { $family } পাওয়া যায়নি: লেখা { $by } ব্যবহার করে
-import-font-restricted = { $family }: এর লাইসেন্স কিছু শৈলী প্রেজেন্টেশনে এমবেড করতে দেয় না
+import-font-restricted = { $family }: এর লাইসেন্স কিছু শৈলী প্রেজেন্টেশনে এমবেড করতে দেয় না; সেই শৈলীর লেখা এর অন্য শৈলী ব্যবহার করে
 import-font-restricted-substituted = { $family } প্রেজেন্টেশনে এমবেড করা যাবে না (লাইসেন্স): মিলযুক্ত মাপের { $by } দিয়ে বদলানো হয়েছে
 import-font-restricted-missing = { $family } প্রেজেন্টেশনে এমবেড করা যাবে না (লাইসেন্স): লেখা { $by } ব্যবহার করে
 import-font-too-large = { $family }: ফাইলগুলো ডেকে এমবেড করার জন্য খুব বড়; লেখা { $by } ব্যবহার করে
 import-font-missing-no-fallback = { $family } পাওয়া যায়নি, থিমের মূল ফন্টও নয়: লেখা ইঞ্জিনের ডিফল্ট ফন্টে দেখানো হয়
+import-font-too-large-no-fallback = { $family }: ফাইলগুলো ডেকে এমবেড করার জন্য খুব বড়, আর থিমের মূল ফন্টও পাওয়া যায় না: লেখা ইঞ্জিনের ডিফল্ট ফন্টে দেখানো হয়
+import-font-restricted-no-fallback = { $family } প্রেজেন্টেশনে এমবেড করা যাবে না (লাইসেন্স), আর থিমের মূল ফন্টও পাওয়া যায় না: লেখা ইঞ্জিনের ডিফল্ট ফন্টে দেখানো হয়
 import-warning-effect-ignored = ইফেক্ট ইমপোর্ট করা হয়নি: { $detail }
 import-warning-approximated = আনুমানিকভাবে দেখানো হয়েছে: { $detail }
 import-warning-unreadable-item = অপাঠযোগ্য আইটেম বাদ দেওয়া হয়েছে: { $detail }

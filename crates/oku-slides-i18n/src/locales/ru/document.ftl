@@ -90,6 +90,7 @@ import-loss-layout-dropped = Слишком много макетов для о�
 import-loss-decor-truncated = Оформление урезано, чтобы уложиться в размер файла пакета: пропущено элементов: { $omitted }
 import-loss-table-style = Стиль таблицы приближён: собственные фоны ячеек, границы, ширина столбцов или размеры текста потеряны
 import-loss-overflow = Элемент «{ $element }» выходит за край слайда
+import-loss-empty-data = Таблица или диаграмма без данных: ничего не размещено
 import-reference-unavailable = Нет визуальной оценки: { $cause ->
     [timeout] эталонный рендеринг занял слишком много времени
     [memory] эталонный рендеринг потребовал слишком много памяти
@@ -103,11 +104,13 @@ import-reference-unavailable = Нет визуальной оценки: { $caus
 }
 import-font-substituted = { $family } заменён на { $by } с совместимыми метриками
 import-font-missing = { $family } не найден: текст использует шрифт { $by }
-import-font-restricted = { $family }: лицензия запрещает встраивать некоторые начертания в презентацию
+import-font-restricted = { $family }: лицензия запрещает встраивать некоторые начертания в презентацию; текст этих стилей использует остальные начертания
 import-font-restricted-substituted = { $family } нельзя встроить в презентацию (лицензия): заменён на { $by } с совместимыми метриками
 import-font-restricted-missing = { $family } нельзя встроить в презентацию (лицензия): текст использует шрифт { $by }
 import-font-too-large = { $family }: файлы слишком велики для встраивания в презентацию; текст использует шрифт { $by }
 import-font-missing-no-fallback = { $family } не найден, как и шрифт основного текста темы: текст отображается шрифтом движка по умолчанию
+import-font-too-large-no-fallback = { $family }: файлы слишком велики для встраивания в презентацию, а шрифт основного текста темы тоже недоступен: текст отображается шрифтом движка по умолчанию
+import-font-restricted-no-fallback = { $family } нельзя встроить в презентацию (лицензия), а шрифт основного текста темы тоже недоступен: текст отображается шрифтом движка по умолчанию
 import-warning-effect-ignored = Эффект не импортирован: { $detail }
 import-warning-approximated = Приблизительное отображение: { $detail }
 import-warning-unreadable-item = Нечитаемый элемент пропущен: { $detail }

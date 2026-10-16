@@ -85,6 +85,7 @@ import-loss-layout-dropped = เลย์เอาต์มากเกินไ
 import-loss-decor-truncated = ตัดการตกแต่งให้พอดีกับขนาดไฟล์แพ็ก: ละองค์ประกอบ { $omitted } รายการ
 import-loss-table-style = รูปแบบตารางเป็นค่าประมาณ: พื้นหลังเซลล์ เส้นขอบ ความกว้างคอลัมน์ หรือขนาดข้อความเฉพาะของตารางหายไป
 import-loss-overflow = องค์ประกอบ “{ $element }” เกินขอบสไลด์
+import-loss-empty-data = ตารางหรือแผนภูมิที่ไม่มีข้อมูล: ไม่ได้วางสิ่งใด
 import-reference-unavailable = ไม่มีคะแนนภาพ: { $cause ->
     [timeout] การเรนเดอร์อ้างอิงใช้เวลานานเกินไป
     [memory] การเรนเดอร์อ้างอิงใช้หน่วยความจำมากเกินไป
@@ -93,11 +94,13 @@ import-reference-unavailable = ไม่มีคะแนนภาพ: { $cause
 }
 import-font-substituted = แทนที่ { $family } ด้วย { $by } ที่มีเมตริกเข้ากันได้
 import-font-missing = ไม่พบ { $family }: ข้อความใช้ฟอนต์ { $by }
-import-font-restricted = { $family }: สัญญาอนุญาตห้ามฝังบางสไตล์ลงในงานนำเสนอ
+import-font-restricted = { $family }: สัญญาอนุญาตห้ามฝังบางสไตล์ลงในงานนำเสนอ ข้อความในสไตล์เหล่านั้นใช้สไตล์อื่นของฟอนต์
 import-font-restricted-substituted = ฝัง { $family } ลงในงานนำเสนอไม่ได้ (สัญญาอนุญาต): แทนที่ด้วย { $by } ที่มีเมตริกเข้ากันได้
 import-font-restricted-missing = ฝัง { $family } ลงในงานนำเสนอไม่ได้ (สัญญาอนุญาต): ข้อความใช้ฟอนต์ { $by }
 import-font-too-large = { $family }: ไฟล์ใหญ่เกินกว่าจะฝังในเด็ค ข้อความใช้ฟอนต์ { $by }
 import-font-missing-no-fallback = ไม่พบ { $family } และฟอนต์เนื้อหาของธีม: ข้อความแสดงด้วยฟอนต์เริ่มต้นของเอนจิน
+import-font-too-large-no-fallback = { $family }: ไฟล์ใหญ่เกินกว่าจะฝังในเด็ค และไม่มีฟอนต์เนื้อหาของธีมด้วย: ข้อความแสดงด้วยฟอนต์เริ่มต้นของเอนจิน
+import-font-restricted-no-fallback = ฝัง { $family } ลงในงานนำเสนอไม่ได้ (สัญญาอนุญาต) และไม่มีฟอนต์เนื้อหาของธีมด้วย: ข้อความแสดงด้วยฟอนต์เริ่มต้นของเอนจิน
 import-warning-effect-ignored = ไม่ได้นำเข้าเอฟเฟกต์: { $detail }
 import-warning-approximated = แสดงผลแบบประมาณ: { $detail }
 import-warning-unreadable-item = ข้ามรายการที่อ่านไม่ได้: { $detail }

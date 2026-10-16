@@ -92,6 +92,7 @@ import-loss-layout-dropped = تخطيطات كثيرة جدًا لحزمة وا�
 import-loss-decor-truncated = قُصّت الزخرفة لتلائم حجم ملف الحزمة: عناصر محذوفة: { $omitted }
 import-loss-table-style = قُرّب نمط الجدول: خلفيات الخلايا أو الحدود أو عروض الأعمدة أو أحجام النص الخاصة به فُقدت
 import-loss-overflow = العنصر «{ $element }» يتجاوز حافة الشريحة
+import-loss-empty-data = جدول أو مخطط بلا بيانات: لم يُوضع شيء
 import-reference-unavailable = لا توجد درجة مرئية: { $cause ->
     [timeout] استغرق العرض المرجعي وقتًا طويلًا
     [memory] استهلك العرض المرجعي ذاكرة كبيرة
@@ -107,11 +108,13 @@ import-reference-unavailable = لا توجد درجة مرئية: { $cause ->
 }
 import-font-substituted = استُبدل { $family } بـ { $by } ذي المقاييس المتوافقة
 import-font-missing = لم يُعثر على { $family }: يستخدم النص { $by }
-import-font-restricted = { $family }: يمنع ترخيصه تضمين بعض أنماطه في العرض التقديمي
+import-font-restricted = { $family }: يمنع ترخيصه تضمين بعض أنماطه في العرض التقديمي؛ يستخدم النص بهذه الأنماط أنماطه الأخرى
 import-font-restricted-substituted = لا يمكن تضمين { $family } في العرض التقديمي (الترخيص): استُبدل بـ { $by } ذي المقاييس المتوافقة
 import-font-restricted-missing = لا يمكن تضمين { $family } في العرض التقديمي (الترخيص): يستخدم النص { $by }
 import-font-too-large = { $family }: الملفات أكبر من أن تُضمَّن في العرض؛ يستخدم النص { $by }
 import-font-missing-no-fallback = لم يُعثر على { $family } ولا على خط متن السمة: يُعرض النص بالخط الافتراضي للمحرك
+import-font-too-large-no-fallback = { $family }: الملفات أكبر من أن تُضمَّن في العرض، وخط متن السمة غير متوفر أيضًا: يُعرض النص بالخط الافتراضي للمحرك
+import-font-restricted-no-fallback = لا يمكن تضمين { $family } في العرض التقديمي (الترخيص)، وخط متن السمة غير متوفر أيضًا: يُعرض النص بالخط الافتراضي للمحرك
 import-warning-effect-ignored = لم يُستورد التأثير: { $detail }
 import-warning-approximated = عرض تقريبي: { $detail }
 import-warning-unreadable-item = تم تخطي عنصر غير مقروء: { $detail }

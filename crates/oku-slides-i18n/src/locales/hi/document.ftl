@@ -88,6 +88,7 @@ import-loss-layout-dropped = एक पैक के लिए बहुत अ�
 import-loss-decor-truncated = पैक फ़ाइल के आकार में समाने के लिए सजावट काटी गई: छोड़े गए तत्व: { $omitted }
 import-loss-table-style = तालिका की शैली अनुमानित: इसकी अपनी सेल पृष्ठभूमि, किनारे, स्तंभ चौड़ाई या पाठ आकार खो गए
 import-loss-overflow = तत्व “{ $element }” स्लाइड के किनारे से बाहर जाता है
+import-loss-empty-data = बिना डेटा की तालिका या चार्ट: कुछ नहीं रखा गया
 import-reference-unavailable = कोई दृश्य स्कोर नहीं: { $cause ->
     [timeout] संदर्भ रेंडर में बहुत समय लगा
     [memory] संदर्भ रेंडर ने बहुत अधिक मेमोरी ली
@@ -99,11 +100,13 @@ import-reference-unavailable = कोई दृश्य स्कोर नह�
 }
 import-font-substituted = { $family } को मिलते-जुलते माप वाले { $by } से बदला गया
 import-font-missing = { $family } नहीं मिला: टेक्स्ट { $by } का उपयोग करता है
-import-font-restricted = { $family }: इसका लाइसेंस कुछ शैलियों को प्रेज़ेंटेशन में एम्बेड करने से रोकता है
+import-font-restricted = { $family }: इसका लाइसेंस कुछ शैलियों को प्रेज़ेंटेशन में एम्बेड करने से रोकता है; उन शैलियों का पाठ इसकी अन्य शैलियों का उपयोग करता है
 import-font-restricted-substituted = { $family } को प्रेज़ेंटेशन में एम्बेड नहीं किया जा सकता (लाइसेंस): मिलते-जुलते माप वाले { $by } से बदला गया
 import-font-restricted-missing = { $family } को प्रेज़ेंटेशन में एम्बेड नहीं किया जा सकता (लाइसेंस): टेक्स्ट { $by } का उपयोग करता है
 import-font-too-large = { $family }: फ़ाइलें डेक में एम्बेड करने के लिए बहुत बड़ी हैं; टेक्स्ट { $by } का उपयोग करता है
 import-font-missing-no-fallback = { $family } नहीं मिला, न ही थीम का मुख्य फ़ॉन्ट: पाठ इंजन के डिफ़ॉल्ट फ़ॉन्ट से दिखाया जाता है
+import-font-too-large-no-fallback = { $family }: फ़ाइलें डेक में एम्बेड करने के लिए बहुत बड़ी हैं, और थीम का मुख्य फ़ॉन्ट भी उपलब्ध नहीं है: पाठ इंजन के डिफ़ॉल्ट फ़ॉन्ट से दिखाया जाता है
+import-font-restricted-no-fallback = { $family } को प्रेज़ेंटेशन में एम्बेड नहीं किया जा सकता (लाइसेंस), और थीम का मुख्य फ़ॉन्ट भी उपलब्ध नहीं है: पाठ इंजन के डिफ़ॉल्ट फ़ॉन्ट से दिखाया जाता है
 import-warning-effect-ignored = प्रभाव आयात नहीं हुआ: { $detail }
 import-warning-approximated = अनुमानित रूप में दिखाया गया: { $detail }
 import-warning-unreadable-item = अपठनीय आइटम छोड़ा गया: { $detail }

@@ -85,6 +85,7 @@ import-loss-layout-dropped = 一个包中的版式过多：“{ $layout }”没�
 import-loss-decor-truncated = 为适应包文件大小而截断了装饰：省略了{ $omitted }个元素
 import-loss-table-style = 表格样式为近似：其自身的单元格背景、边框、列宽或文字大小已丢失
 import-loss-overflow = 元素“{ $element }”超出了幻灯片边缘
+import-loss-empty-data = 没有数据的表格或图表：未放置任何内容
 import-reference-unavailable = 无视觉评分：{ $cause ->
     [timeout] 参考渲染耗时过长
     [memory] 参考渲染占用内存过多
@@ -93,11 +94,13 @@ import-reference-unavailable = 无视觉评分：{ $cause ->
 }
 import-font-substituted = { $family } 已替换为度量兼容的 { $by }
 import-font-missing = 找不到 { $family }：文本使用 { $by }
-import-font-restricted = { $family }：其许可证禁止将部分字形嵌入演示文稿
+import-font-restricted = { $family }：其许可证禁止将部分字形嵌入演示文稿；这些样式的文本使用其其他字形
 import-font-restricted-substituted = { $family } 不能嵌入演示文稿（许可证）：已替换为度量兼容的 { $by }
 import-font-restricted-missing = { $family } 不能嵌入演示文稿（许可证）：文本使用 { $by }
 import-font-too-large = { $family }：文件太大，无法嵌入演示文稿；文本使用 { $by }
 import-font-missing-no-fallback = 找不到 { $family }，也找不到主题的正文字体：文本以引擎的默认字体显示
+import-font-too-large-no-fallback = { $family }：文件太大，无法嵌入演示文稿，主题的正文字体也不可用：文本以引擎的默认字体显示
+import-font-restricted-no-fallback = { $family } 不能嵌入演示文稿（许可证），主题的正文字体也不可用：文本以引擎的默认字体显示
 import-warning-effect-ignored = 效果未导入：{ $detail }
 import-warning-approximated = 近似呈现：{ $detail }
 import-warning-unreadable-item = 已跳过无法读取的项目：{ $detail }

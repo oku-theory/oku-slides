@@ -84,9 +84,13 @@ import-loss-shape-style = { $effect ->
    *[geometry] Unbekannte Form als Rechteck dargestellt
 }
 import-loss-layout-dropped = Zu viele Layouts für ein Paket: „{ $layout }“ hat keine Vorlage; seine Folien nutzen das leere Widget und erhalten seine Dekoration als Elemente
-import-loss-decor-truncated = Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Elemente ausgelassen
+import-loss-decor-truncated = { $omitted ->
+    [one] Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Element ausgelassen
+   *[other] Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Elemente ausgelassen
+}
 import-loss-table-style = Tabellenstil angenähert: eigene Zellhintergründe, Rahmen, Spaltenbreiten oder Textgrößen gehen verloren
 import-loss-overflow = Element „{ $element }“ ragt über den Folienrand hinaus
+import-loss-empty-data = Tabelle oder Diagramm ohne Daten: nichts eingefügt
 import-reference-unavailable = Keine visuelle Bewertung: { $cause ->
     [timeout] das Referenz-Rendering hat zu lange gedauert
     [memory] das Referenz-Rendering hat zu viel Speicher benötigt
@@ -98,11 +102,13 @@ import-reference-unavailable = Keine visuelle Bewertung: { $cause ->
 }
 import-font-substituted = { $family } ersetzt durch { $by } mit passenden Metriken
 import-font-missing = { $family } nicht gefunden: der Text verwendet { $by }
-import-font-restricted = { $family }: die Lizenz verbietet, einige Schnitte in die Präsentation einzubetten
+import-font-restricted = { $family }: die Lizenz verbietet, einige Schnitte in die Präsentation einzubetten; Text in diesen Stilen verwendet die übrigen Schnitte
 import-font-restricted-substituted = { $family } darf nicht in die Präsentation eingebettet werden (Lizenz): ersetzt durch { $by } mit passenden Metriken
 import-font-restricted-missing = { $family } darf nicht in die Präsentation eingebettet werden (Lizenz): der Text verwendet { $by }
 import-font-too-large = { $family }: Dateien zu groß, um sie in das Deck einzubetten; der Text verwendet { $by }
 import-font-missing-no-fallback = { $family } nicht gefunden, ebenso wenig die Fließtextschrift des Themes: der Text wird mit der Standardschrift der Engine dargestellt
+import-font-too-large-no-fallback = { $family }: Dateien zu groß, um sie in das Deck einzubetten, und die Fließtextschrift des Themes ist ebenfalls nicht verfügbar: der Text wird mit der Standardschrift der Engine dargestellt
+import-font-restricted-no-fallback = { $family } darf nicht in die Präsentation eingebettet werden (Lizenz), und die Fließtextschrift des Themes ist ebenfalls nicht verfügbar: der Text wird mit der Standardschrift der Engine dargestellt
 import-warning-effect-ignored = Effekt nicht importiert: { $detail }
 import-warning-approximated = Näherungsweise dargestellt: { $detail }
 import-warning-unreadable-item = Unlesbares Element übersprungen: { $detail }

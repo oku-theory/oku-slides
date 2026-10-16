@@ -85,6 +85,7 @@ import-loss-layout-dropped = 한 팩에 레이아웃이 너무 많습니다: “
 import-loss-decor-truncated = 팩 파일 크기에 맞추려고 장식을 잘랐습니다: 빠진 요소 { $omitted }개
 import-loss-table-style = 표 스타일을 근사했습니다: 고유한 셀 배경, 테두리, 열 너비 또는 글자 크기가 사라집니다
 import-loss-overflow = 요소 “{ $element }”이(가) 슬라이드 가장자리를 벗어납니다
+import-loss-empty-data = 데이터가 없는 표 또는 차트: 아무것도 배치하지 않았습니다
 import-reference-unavailable = 시각 점수 없음: { $cause ->
     [timeout] 참조 렌더링이 너무 오래 걸렸습니다
     [memory] 참조 렌더링이 메모리를 너무 많이 사용했습니다
@@ -93,11 +94,13 @@ import-reference-unavailable = 시각 점수 없음: { $cause ->
 }
 import-font-substituted = { $family }을(를) 메트릭이 호환되는 { $by }(으)로 바꿨습니다
 import-font-missing = { $family }을(를) 찾을 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
-import-font-restricted = { $family }: 라이선스상 일부 스타일을 프레젠테이션에 포함할 수 없습니다
+import-font-restricted = { $family }: 라이선스상 일부 스타일을 프레젠테이션에 포함할 수 없습니다. 해당 스타일의 텍스트는 다른 스타일을 사용합니다
 import-font-restricted-substituted = { $family }은(는) 라이선스상 프레젠테이션에 포함할 수 없습니다. 메트릭이 호환되는 { $by }(으)로 바꿨습니다
 import-font-restricted-missing = { $family }은(는) 라이선스상 프레젠테이션에 포함할 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
 import-font-too-large = { $family }: 파일이 너무 커서 덱에 포함할 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
 import-font-missing-no-fallback = { $family }도 테마의 본문 글꼴도 찾을 수 없습니다: 텍스트는 엔진의 기본 글꼴로 표시됩니다
+import-font-too-large-no-fallback = { $family }: 파일이 너무 커서 덱에 포함할 수 없고 테마의 본문 글꼴도 없습니다: 텍스트는 엔진의 기본 글꼴로 표시됩니다
+import-font-restricted-no-fallback = { $family }은(는) 라이선스상 프레젠테이션에 포함할 수 없고 테마의 본문 글꼴도 없습니다: 텍스트는 엔진의 기본 글꼴로 표시됩니다
 import-warning-effect-ignored = 효과를 가져오지 못했습니다: { $detail }
 import-warning-approximated = 근사치로 표시했습니다: { $detail }
 import-warning-unreadable-item = 읽을 수 없는 항목을 건너뛰었습니다: { $detail }

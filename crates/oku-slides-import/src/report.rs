@@ -164,6 +164,8 @@ pub enum LossKind {
     /// largeurs de colonnes ou tailles de texte que le widget `table` ne rend
     /// pas, ou un style autre que celui du thème généré (le premier tableau).
     TableStyle,
+    /// Tableau ou graphique sans données : rien n'est posé (hi-fi).
+    EmptyData,
     /// Champ de texte rendu au-delà du bord de sa slide (relevé sur le rendu,
     /// dans les deux modes) : un contenu plus haut que sa place (t-816).
     Overflow {
@@ -258,6 +260,7 @@ impl LossKind {
             LossKind::DecorTruncated { .. } => "import-loss-decor-truncated",
             LossKind::TableStyle => "import-loss-table-style",
             LossKind::Overflow { .. } => "import-loss-overflow",
+            LossKind::EmptyData => "import-loss-empty-data",
         }
     }
 }
@@ -295,7 +298,8 @@ impl Localize for Loss {
             | LossKind::NoSlot
             | LossKind::ParagraphStyle
             | LossKind::SmartArtLayout
-            | LossKind::TableStyle => l.tr(id),
+            | LossKind::TableStyle
+            | LossKind::EmptyData => l.tr(id),
         }
     }
 }

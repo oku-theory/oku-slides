@@ -94,6 +94,10 @@ pub(super) fn text_element(
         italic: runs().all(|r| r.style.italic),
         tracking: dominant(runs().map(|r| (tracking(&r.style, page), weight(r)))).unwrap_or_default(),
     };
+    // Un espacement des lettres au-delà des bornes du cœur y est ramené : perdu.
+    if runs().any(|r| page.len(r.style.char_spacing).abs() > STYLE_TRACKING_MAX) {
+        note(&mut losses, LossKind::RunStyle(RunEffect::Tracking));
+    }
     let family = dominant(runs().map(|r| (r.style.font.value.as_str(), weight(r))));
     let paragraphs = rich_paragraphs(tb, &base, ctx, &mut losses);
     if paragraphs.is_empty() {
@@ -125,12 +129,16 @@ pub(super) fn text_element(
         let (size_a, size_b) = (line_of(a).0, line_of(b).0);
         spacing(page, size_a, a.style.space_after) + spacing(page, size_b, b.style.space_before)
     };
-    let spacing_of = |a: &source::Paragraph, b: &source::Paragraph| {
+    let raw_spacing = |a: &source::Paragraph, b: &source::Paragraph| {
         let ((_, line_a), (size_b, line_b)) = (line_of(a), line_of(b));
-        let v = line_a.descent() + gap_of(a, b) + line_b.ascent - metrics.cap_height * size_b;
-        round2(v).clamp(0.0, STYLE_SPACING_MAX)
+        round2(line_a.descent() + gap_of(a, b) + line_b.ascent - metrics.cap_height * size_b)
     };
+    let spacing_of = |a: &source::Paragraph, b: &source::Paragraph| raw_spacing(a, b).clamp(0.0, STYLE_SPACING_MAX);
     let pairs = || shown_paras.windows(2).map(|w| (w[0], w[1]));
+    // Un espace entre paragraphes au-delà de la borne du cœur y est ramené : perdu.
+    if pairs().any(|(a, b)| raw_spacing(a, b) > STYLE_SPACING_MAX) {
+        note(&mut losses, LossKind::ParagraphStyle);
+    }
     let gap = dominant(pairs().map(|(a, b)| (round2(gap_of(a, b)), para_weight(b))));
     let between = dominant(pairs().map(|(a, b)| (spacing_of(a, b), para_weight(b))));
     let mixed = shown_paras.iter().any(|p| p.style.align != align || Some(lead_of(p)) != lead)
