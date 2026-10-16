@@ -184,8 +184,15 @@ fn parse_version_reads_name_and_version(#[case] stdout: &str, #[case] expected: 
     assert_that!(parse_version(stdout.as_bytes())).is_equal_to(expected.map(str::to_owned));
 }
 
-/// Le vrai LibreOffice, s'il est installé ; sinon le test s'arrête là.
+/// Variable qui autorise les tests à lancer le vrai LibreOffice (il s'affiche dans le Dock).
+const REAL_SOFFICE_VAR: &str = "OKU_SLIDES_TEST_SOFFICE";
+
+/// Le vrai LibreOffice, si `OKU_SLIDES_TEST_SOFFICE=1` et s'il est installé ; sinon le test s'arrête là.
 fn installed() -> Option<PathBuf> {
+    if std::env::var(REAL_SOFFICE_VAR).as_deref() != Ok("1") {
+        eprintln!("{REAL_SOFFICE_VAR}=1 absent : test du vrai LibreOffice sauté");
+        return None;
+    }
     let candidates = [PathBuf::from("soffice"), PathBuf::from("/Applications/LibreOffice.app/Contents/MacOS/soffice")];
     let found = find_soffice(&Storage::local().unwrap(), &candidates, std::env::var_os("PATH").as_deref());
     if found.is_none() {

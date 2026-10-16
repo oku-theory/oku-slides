@@ -21,4 +21,4 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Testing
 
-- Test the soffice witness with a fake script from test_support; gate real LibreOffice tests on its presence. (t-885)
+- Test the soffice witness with a fake script from test_support; run real LibreOffice tests only with OKU_SLIDES_TEST_SOFFICE=1 and soffice installed, as it opens in the Dock. (t-885, t-896)

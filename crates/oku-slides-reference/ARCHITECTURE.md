@@ -16,7 +16,7 @@ gap, `oku_slides_import::metrics`, t-692 lot 4).
   `find_soffice`: the first existing candidate, a bare name looked up in `PATH`.
 - `ReferencePdf`: `page_count`, `raster(i, width) -> Raster` (hayro, on white, ≤ `MAX_RASTER_SIDE`).
 - `Raster`: opaque 8-bit RGBA; `crop`, `from_png`, `to_png` (the worker pipe carries PNGs).
-  Feature `test-support`: a blank PDF and a fake `soffice` script for other crates' tests.
+  Feature `test-support`: blank PDF, fake `soffice`. Real-LibreOffice tests: `OKU_SLIDES_TEST_SOFFICE=1`.
 - `ReferenceError` opaque, `kind() -> ReferenceErrorKind` (`Render`, `Timeout`, `Pdf`,
   `NoPage`, `Size`, `Png`): never fatal for the import, whose report says the reference is missing.
 
