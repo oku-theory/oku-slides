@@ -14,7 +14,7 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 - `library.rs`: packs and themes found by id, folder or name (`resolve_pack`,
   `embed_theme`, `pack_library`, `theme_library`, `beside_deck`).
 - `pack_render.rs`: `DeckWidgets::probe` probes a deck's embedded pack in the render
-  worker (in up to `PROBE_ROUNDS` calls); `render` renders in memory or in the worker.
+  worker (in up to `PROBE_ROUNDS` calls and `PROBE_BUDGETS` probe budgets); `render` renders in memory or in the worker.
 - `import.rs`: `oku-slides import`, `ImportMode` `retrofit` (onto an existing pack and
   theme) or `hifi`, read on a thread of known stack; saved like `save`, report optional.
 - `import_overflow.rs`: text fields rendered past their page become `Overflow` losses.

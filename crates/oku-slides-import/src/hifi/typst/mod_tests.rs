@@ -7,6 +7,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::fonts::{FontPlan, resolve};
 use crate::hifi::theme::{theme_colors, theme_master};
+use crate::report::ShapeEffect;
 use crate::source::{
     Arrow, ArrowKind, ArrowSize, Dash, Fill, Geometry, GradientStop, Opaque, PathCmd, Picture, Rgba, Shape, SourceDeck,
     Stroke, Styled, SubPath, TextBox,
@@ -218,9 +219,10 @@ fn decor_draws_filled_and_stroked_parts_of_a_custom_path_apart() {
 }
 
 #[test]
-fn decor_unknown_preset_draws_its_frame() {
-    let code = Fixture::new().decor(&[shape("u", preset("noSuchShape", &[]), solid("accent1"), None)]).code;
-    assert_that!(code).contains("rect(width: 200pt, height: 100pt");
+fn decor_unknown_preset_draws_its_frame_and_reports_the_geometry() {
+    let d = Fixture::new().decor(&[shape("u", preset("noSuchShape", &[]), solid("accent1"), None)]);
+    assert_that!(d.code).contains("rect(width: 200pt, height: 100pt");
+    assert_that!(d.losses).is_equal_to(vec![Loss::on("u", LossKind::ShapeStyle(ShapeEffect::Geometry))]);
 }
 
 #[test]

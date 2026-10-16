@@ -24,19 +24,37 @@ fn generated(deck: &SourceDeck) -> GeneratedPack {
 
 /// [`generated`] aux bornes `limits`.
 fn generated_within(deck: &SourceDeck, limits: PackLimits) -> GeneratedPack {
+    let parts = ctx_of(deck);
+    generate_pack(deck, &parts.ctx(), limits)
+}
+
+/// Ce que [`GenCtx`] emprunte pour `deck`, au thème de son master de thème.
+struct CtxParts<'a> {
+    deck: &'a SourceDeck,
+    page: Page,
+    colors: crate::hifi::color::ThemeColors,
+    fonts: crate::fonts::FontPlan,
+}
+
+impl CtxParts<'_> {
+    fn ctx(&self) -> GenCtx<'_> {
+        let theme_fonts = theme_master(self.deck).map(|m| &self.deck.themes[m.theme].fonts);
+        GenCtx {
+            page: &self.page,
+            colors: &self.colors,
+            fonts: &self.fonts,
+            assets: &self.deck.assets,
+            theme_fonts,
+            lang: None,
+        }
+    }
+}
+
+fn ctx_of(deck: &SourceDeck) -> CtxParts<'_> {
     let Some(master) = theme_master(deck) else { panic!("aucun master") };
     let theme = &deck.themes[master.theme];
     let fonts = resolve(&deck.fonts, &[&theme.fonts.major, &theme.fonts.minor], &app_fonts());
-    let (page, colors) = (Page::new(deck.size), theme_colors(deck, master));
-    let ctx = GenCtx {
-        page: &page,
-        colors: &colors,
-        fonts: &fonts,
-        assets: &deck.assets,
-        theme_fonts: Some(&theme.fonts),
-        lang: None,
-    };
-    generate_pack(deck, &ctx, limits)
+    CtxParts { deck, page: Page::new(deck.size), colors: theme_colors(deck, master), fonts }
 }
 
 /// Le deck synthétique, plus `n` layouts `x1`… `x<n>` employés chacun par
@@ -296,6 +314,12 @@ fn generate_pack_cuts_the_decor_that_would_exceed_the_file_size() {
         })
         .collect();
     assert_that!(cut.len()).is_equal_to(2);
+    // La coupe est au plus juste : le premier filet omis, même au niveau le plus profond (3), ne tenait plus.
+    let rule =
+        crate::hifi::typst::indented_len(&crate::hifi::typst::decor(&rules("x", 1), &ctx_of(&deck).ctx()).code, 3);
+    for (name, source) in &pack.files {
+        assert_that!(max - source.len()).named(name.as_str()).is_less_than(rule);
+    }
     assert_that!(
         cut.iter()
             .all(|(item, omitted)| *omitted > 0 && *omitted < 400 && item.ends_with(&format!("/{}", 400 - omitted)))

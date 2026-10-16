@@ -40,13 +40,23 @@ pub(crate) struct Outline {
 }
 
 /// Contour de `geometry` pour une forme de `w` × `h` pt ; `None` pour un
-/// preset inconnu, une taille non finie ou négative, ou un résultat non fini.
+/// preset inconnu, une taille non finie ou négative, ou un résultat non fini :
+/// l'appelant dessine le cadre et perd la géométrie
+/// ([`crate::report::ShapeEffect::Geometry`]). Des définitions embarquées
+/// illisibles (un bogue, gardé par un test) arrêtent un build de debug et
+/// donnent la même perte sur chaque preset en release.
 pub(crate) fn outline(geometry: &Geometry, w: f64, h: f64) -> Option<Outline> {
     if !(w.is_finite() && h.is_finite() && w >= 0.0 && h >= 0.0) {
         return None;
     }
     let outline = match geometry {
-        Geometry::Preset { name, adj } => preset_outline(presets::preset(name)?, adj, w, h)?,
+        Geometry::Preset { name, adj } => {
+            let preset = presets::preset(name).unwrap_or_else(|e| {
+                debug_assert!(false, "presetShapeDefinitions.xml illisible : {e}");
+                None
+            });
+            preset_outline(preset?, adj, w, h)?
+        }
         Geometry::Path { paths } => custom_outline(paths, w, h),
     };
     let finite = outline.filled.iter().chain(&outline.stroked).all(|c| numbers(*c).iter().all(|v| v.is_finite()));

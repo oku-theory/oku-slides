@@ -11,6 +11,7 @@ fn rounds(left: &[usize]) -> (Result<usize, &'static str>, usize) {
             Ok(left[(calls - 1).min(left.len() - 1)])
         },
         |n| *n,
+        || false,
     );
     (out, calls)
 }
@@ -47,7 +48,24 @@ fn probe_rounds_stops_at_the_first_error() {
             if calls == 1 { Ok(4) } else { Err("lien rompu") }
         },
         |n| *n,
+        || false,
     );
     assert_that!(out).is_equal_to(Err("lien rompu"));
     assert_that!(calls).is_equal_to(2);
+}
+
+#[test]
+fn probe_rounds_stops_once_the_total_time_is_spent() {
+    // Chaque appel épuise son budget : le temps total est écoulé après le troisième.
+    let calls = std::cell::Cell::new(0);
+    let out: Result<usize, &str> = probe_rounds(
+        || {
+            calls.set(calls.get() + 1);
+            Ok(10 - calls.get())
+        },
+        |n| *n,
+        || calls.get() >= PROBE_BUDGETS as usize,
+    );
+    assert_that!(calls.get()).is_equal_to(PROBE_BUDGETS as usize);
+    assert_that!(out).is_equal_to(Ok(10 - PROBE_BUDGETS as usize));
 }

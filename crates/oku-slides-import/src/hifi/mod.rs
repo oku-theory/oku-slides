@@ -44,7 +44,7 @@ use self::pack::{GeneratedPack, generate_pack, generated_registry, pack_manifest
 use self::page::Page;
 use self::slide::{Projected, SlideCx, project_slide};
 use self::table::{TableLook, first_table};
-use self::theme::{bare_tokens, theme_colors, theme_manifest, theme_master, theme_tokens};
+use self::theme::{masterless_tokens, theme_colors, theme_manifest, theme_master, theme_tokens};
 use self::typst::GenCtx;
 use crate::coverage::coverage;
 use crate::fonts::{FontCatalog, resolve, sought};
@@ -141,7 +141,7 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         first.losses.insert(0, Loss::slide(loss));
     }
 
-    let tokens = master.map_or_else(bare_tokens, |m| theme_tokens(deck, m, &fonts, &page));
+    let tokens = master.map_or_else(|| masterless_tokens(&fonts), |m| theme_tokens(deck, m, &fonts, &page));
     let theme = theme_manifest(tokens, target.theme_id, &target.name, &target.created).to_files();
     let manifest = pack_manifest(&pack, target.pack_id, &target.name, &target.created, &examples);
     let pack_files = manifest.to_files(pack.files.clone());

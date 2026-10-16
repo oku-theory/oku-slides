@@ -77,6 +77,11 @@ impl Typst {
         self.line(s);
     }
 
+    /// Le niveau courant.
+    pub(crate) fn depth(&self) -> usize {
+        self.depth
+    }
+
     /// Le code écrit.
     pub(crate) fn finish(self) -> String {
         self.out
@@ -214,24 +219,35 @@ pub(crate) struct Decor {
 /// l'ordre de dessin).
 #[cfg(test)]
 pub(crate) fn decor(items: &[Item], ctx: &GenCtx<'_>) -> Decor {
-    decor_within(items, ctx, usize::MAX)
+    decor_within(items, ctx, 0, usize::MAX)
 }
 
-/// [`decor`] en `max_bytes` octets de code au plus : les items qui ne
-/// tiennent plus (le premier qui déborde et tous les suivants) sont omis,
-/// une perte [`LossKind::DecorTruncated`] sur le premier omis. Le fichier de
-/// pack qui porte le décor tient ainsi sous la taille que la sonde charge.
-pub(crate) fn decor_within(items: &[Item], ctx: &GenCtx<'_>, max_bytes: usize) -> Decor {
+/// Les octets que prennent les lignes de `code` réécrites au niveau `depth`
+/// d'un [`Typst`] (deux espaces par niveau, une fin de ligne chacune).
+pub(crate) fn indented_len(code: &str, depth: usize) -> usize {
+    code.lines().map(|l| l.len().saturating_add(2 * depth + 1)).fold(0, usize::saturating_add)
+}
+
+/// [`decor`] en `max_bytes` octets au plus une fois réécrit au niveau
+/// `depth` ([`indented_len`]) : les items qui ne tiennent plus (le premier
+/// qui déborde et tous les suivants) sont omis, une perte
+/// [`LossKind::DecorTruncated`] sur le premier omis. Chaque item est généré
+/// une fois au plus : le coût est linéaire. Le fichier de pack qui porte le
+/// décor tient ainsi sous la taille que la sonde charge.
+pub(crate) fn decor_within(items: &[Item], ctx: &GenCtx<'_>, depth: usize, max_bytes: usize) -> Decor {
     let mut out = Decor::default();
+    let mut spent = 0usize;
     for (i, item) in items.iter().enumerate() {
         let mut g = Gen { w: Typst::new(), ctx: *ctx, assets: BTreeSet::new(), losses: Vec::new() };
         g.item(item);
         let code = g.w.finish();
-        if out.code.len().saturating_add(code.len()) > max_bytes {
+        let cost = indented_len(&code, depth);
+        if spent.saturating_add(cost) > max_bytes {
             let omitted = u32::try_from(items.len() - i).unwrap_or(u32::MAX);
             out.losses.push(Loss::on(&item.id, LossKind::DecorTruncated { omitted }));
             break;
         }
+        spent = spent.saturating_add(cost);
         out.code.push_str(&code);
         out.assets.extend(g.assets);
         out.losses.extend(g.losses);

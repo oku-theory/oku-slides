@@ -362,6 +362,18 @@ fn settle_fallback_without_the_body_font_takes_a_sans_app_font() {
 }
 
 #[test]
+fn settle_fallback_without_a_theme_body_takes_a_sans_app_font() {
+    let mut catalog = FontCatalog::new();
+    for data in &INTER {
+        catalog.add(FontOrigin::App, data.to_vec());
+    }
+    let mut plan = resolve(&[used("Corporate")], &[], &catalog);
+    plan.settle_fallback(None, &catalog);
+    assert_that!(plan.fallback.as_deref()).is_equal_to(Some("Inter"));
+    assert_that!(plan.choices[0].fallback.as_deref()).is_equal_to(Some("Inter"));
+}
+
+#[test]
 fn settle_fallback_ignores_system_fonts_and_may_find_nothing() {
     let mut catalog = FontCatalog::new();
     for data in &LIBERATION[..4] {

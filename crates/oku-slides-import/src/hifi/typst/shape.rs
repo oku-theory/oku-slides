@@ -8,7 +8,7 @@ use oku_slides_core::PathCommand;
 use super::{Gen, Placement, Typst, load, num, pt, string};
 use crate::hifi::geometry::arrow::heads;
 use crate::hifi::geometry::{Outline, outline};
-use crate::report::{Loss, LossKind};
+use crate::report::{Loss, LossKind, ShapeEffect};
 use crate::source::{Dash, Fill, Geometry, Shape, Stroke};
 
 /// Zone de texte d'une forme sans contour calculé : son cadre entier.
@@ -58,8 +58,9 @@ impl Gen<'_> {
                     self.curves(at, &o, &fill, &stroke);
                     self.arrows(at, &o.stroked, s.stroke.as_ref());
                 }
-                // Preset inconnu (fichier altéré) : son cadre, plutôt que rien.
+                // Preset inconnu (fichier altéré) : son cadre, plutôt que rien, et la perte.
                 None => {
+                    self.losses.push(Loss::on(id, LossKind::ShapeStyle(ShapeEffect::Geometry)));
                     let body = format!("rect(width: {w}, height: {h}, fill: {fill}, stroke: {stroke}),");
                     at.emit(&mut self.w, |t| t.line(&body));
                 }

@@ -74,15 +74,7 @@ pub(crate) fn theme_tokens(deck: &SourceDeck, master: &Master, fonts: &FontPlan,
     if !palette.is_empty() {
         tokens.insert("chart".to_owned(), json!({ "palette": palette }));
     }
-    let mut font = Map::new();
-    if let Some(theme) = deck.themes.get(master.theme) {
-        for (role, major) in [("display", true), ("body", false)] {
-            let families = role_families(&theme.fonts, major, fonts);
-            if !families.is_empty() {
-                font.insert(role.to_owned(), json!(families));
-            }
-        }
-    }
+    let font = font_tokens(deck.themes.get(master.theme).map(|t| &t.fonts), fonts);
     if !font.is_empty() {
         tokens.insert("font".to_owned(), Value::Object(font));
     }
@@ -104,9 +96,37 @@ pub(crate) fn theme_tokens(deck: &SourceDeck, master: &Master, fonts: &FontPlan,
     tokens
 }
 
+/// `font` : les familles des titres et du corps du thème `theme` ; sans
+/// thème, le repli des familles introuvables ([`FontPlan::fallback`]) pour
+/// les deux, que le texte sans famille prenne la même police que le reste.
+fn font_tokens(theme: Option<&ThemeFonts>, fonts: &FontPlan) -> Map<String, Value> {
+    let mut font = Map::new();
+    for (role, major) in [("display", true), ("body", false)] {
+        let families = match theme {
+            Some(tf) => role_families(tf, major, fonts),
+            None => fonts.fallback.as_deref().into_iter().collect(),
+        };
+        if !families.is_empty() {
+            font.insert(role.to_owned(), json!(families));
+        }
+    }
+    font
+}
+
+/// Les jetons d'un thème généré sans master : ceux de [`bare_tokens`] et les
+/// polices de repli ([`font_tokens`]).
+pub(crate) fn masterless_tokens(fonts: &FontPlan) -> Map<String, Value> {
+    let mut tokens = bare_tokens();
+    let font = font_tokens(None, fonts);
+    if !font.is_empty() {
+        tokens.insert("font".to_owned(), Value::Object(font));
+    }
+    tokens
+}
+
 /// Les jetons que tout thème généré pose, même sans master : graisses de
 /// PowerPoint, marges de page nulles.
-pub(crate) fn bare_tokens() -> Map<String, Value> {
+fn bare_tokens() -> Map<String, Value> {
     let mut tokens = Map::new();
     // Un run gras du texte riche prend `weight.strong` : la face grasse (700) de la source.
     tokens.insert("weight".to_owned(), json!({ "body": WEIGHT_BODY, "strong": WEIGHT_BOLD }));

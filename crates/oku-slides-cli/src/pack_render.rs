@@ -3,12 +3,14 @@
 //! les widgets cassés écartés (diagnostics au journal) ; le registre sondé
 //! valide le deck (t-355). Une commande n'a pas de « rendu suivant » : les
 //! fichiers laissés non sondés (budget épuisé) sont sondés de nouveau, tant
-//! qu'un appel en sonde au moins un, en [`PROBE_ROUNDS`] appels au plus. Le rendu se fait en mémoire, ou par ce processus
+//! qu'un appel en sonde au moins un, en [`PROBE_ROUNDS`] appels et
+//! [`PROBE_BUDGETS`] budgets de sonde au plus. Le rendu se fait en mémoire, ou par ce processus
 //! quand le pack a des widgets valides. Le code d'un pack reçu y est isolé et
 //! borné (délai, mémoire : spec t-327).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+use std::time::Instant;
 
 use color_eyre::eyre::Result;
 
@@ -25,14 +27,24 @@ use oku_slides_session::{ThemeLibrary, theme_tokens};
 /// non sondés (processus indisponible) arrête la relance avant cette borne.
 const PROBE_ROUNDS: usize = 8;
 
-/// Appelle `probe` tant que des fichiers restent non sondés (`unprobed`) et
-/// que chaque appel en fait baisser le nombre, en [`PROBE_ROUNDS`] appels au
-/// plus ; la première erreur arrête tout.
-fn probe_rounds<T, E>(mut probe: impl FnMut() -> Result<T, E>, unprobed: impl Fn(&T) -> usize) -> Result<T, E> {
+/// Durée totale de la relance, en budgets de sonde (`probe_budget_ms`) :
+/// chaque appel peut épuiser le sien, la relance n'en épuise pas plus de
+/// trois (une commande `open` ou `render` attend au plus ce temps-là).
+const PROBE_BUDGETS: u32 = 3;
+
+/// Appelle `probe` tant que des fichiers restent non sondés (`unprobed`), que
+/// chaque appel en fait baisser le nombre et que le temps n'est pas écoulé
+/// (`expired`, lu avant chaque relance), en [`PROBE_ROUNDS`] appels au plus ;
+/// la première erreur arrête tout.
+fn probe_rounds<T, E>(
+    mut probe: impl FnMut() -> Result<T, E>,
+    unprobed: impl Fn(&T) -> usize,
+    expired: impl Fn() -> bool,
+) -> Result<T, E> {
     let mut last = probe()?;
     for _ in 1..PROBE_ROUNDS {
         let left = unprobed(&last);
-        if left == 0 {
+        if left == 0 || expired() {
             break;
         }
         let next = probe()?;
@@ -136,8 +148,10 @@ impl DeckWidgets {
             return base_only();
         }
         let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
-        let probed = PackWidgets::new(r.version.hex(), files.widgets().clone())
-            .and_then(|pack| probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len()));
+        let (start, total) = (Instant::now(), platform.settings.render.probe_budget().saturating_mul(PROBE_BUDGETS));
+        let probed = PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| {
+            probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len(), || start.elapsed() >= total)
+        });
         let probe = match probed {
             Ok(probe) => probe,
             Err(e) => {

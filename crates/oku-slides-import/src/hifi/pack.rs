@@ -34,7 +34,7 @@ use oku_slides_core::{
 use super::typst::{GenCtx, Typst};
 use super::widget::{Drawn, LayoutWidget, layout_widget, master_fn};
 use crate::report::Loss;
-use crate::source::SourceDeck;
+use crate::source::{Master, SourceDeck};
 
 /// Le champ d'un placeholder, partagé par les widgets générés (`champ`).
 const CHAMP: &str = r#"/// Le champ `name` d'un placeholder : `body` dans sa boîte (pt page), à ses
@@ -142,34 +142,36 @@ fn kept_layouts(deck: &SourceDeck, room: usize) -> (BTreeSet<&str>, Vec<String>)
 
 /// `_commun.typ` : le champ d'un placeholder, puis le décor de chaque master
 /// de `called` (rangs 1..). En `max_bytes` octets si le décor des masters y
-/// suffit à couper : il est réduit (dans l'ordre des masters) jusqu'à ce que
-/// le fichier tienne.
+/// suffit à couper : il est réduit (dans l'ordre des masters) à ce qui tient,
+/// en une passe ; le fichier sans décor donne la place.
 fn common_file(deck: &SourceDeck, called: &BTreeSet<usize>, ctx: &GenCtx<'_>, max_bytes: usize) -> (String, Drawn) {
-    let mut budget = usize::MAX;
-    loop {
-        let mut common = Typst::new();
-        common.line("// Code partagé du pack généré par l'import : le champ d'un placeholder et");
-        common.line("// le décor de chaque master.");
-        common.line("#import \"/oku-slides/lib.typ\": field, color-of, font-of");
-        common.line("");
-        let mut common = common.finish();
-        common.push_str(CHAMP);
-        let (mut drawn, mut spent) = (Drawn::default(), 0);
-        for (i, master) in deck.masters.iter().enumerate().filter(|(i, _)| called.contains(&(i + 1))) {
-            let mut w = Typst::new();
-            w.line("");
-            let (d, len) = master_fn(&mut w, i + 1, master, ctx, budget.saturating_sub(spent));
-            common.push_str(&w.finish());
-            drawn.extend(d);
-            spent += len;
-        }
-        let over = common.len().saturating_sub(max_bytes);
-        // Chaque tour réduit strictement le décor : la boucle finit, au pire sans décor.
-        if over == 0 || spent == 0 {
-            return (common, drawn);
-        }
-        budget = spent.saturating_sub(over);
+    let mut head = Typst::new();
+    head.line("// Code partagé du pack généré par l'import : le champ d'un placeholder et");
+    head.line("// le décor de chaque master.");
+    head.line("#import \"/oku-slides/lib.typ\": field, color-of, font-of");
+    head.line("");
+    let mut common = head.finish();
+    common.push_str(CHAMP);
+    let masters: Vec<(usize, &Master)> =
+        deck.masters.iter().enumerate().map(|(i, m)| (i + 1, m)).filter(|(r, _)| called.contains(r)).collect();
+    // Sans place, `master_fn` n'écrit que la coquille (il ne génère que le premier item, écarté).
+    let shell = masters.iter().fold(common.len(), |len, &(rank, m)| {
+        let mut w = Typst::new();
+        w.line("");
+        master_fn(&mut w, rank, m, ctx, 0);
+        len.saturating_add(w.finish().len())
+    });
+    let mut room = max_bytes.saturating_sub(shell);
+    let mut drawn = Drawn::default();
+    for (rank, master) in masters {
+        let mut w = Typst::new();
+        w.line("");
+        let (d, len) = master_fn(&mut w, rank, master, ctx, room);
+        common.push_str(&w.finish());
+        drawn.extend(d);
+        room = room.saturating_sub(len);
     }
+    (common, drawn)
 }
 
 /// Le registre du deck importé : les widgets de `base` (ceux de la

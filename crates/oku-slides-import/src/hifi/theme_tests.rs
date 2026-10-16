@@ -191,6 +191,23 @@ fn theme_tokens_without_theme_keep_the_default_colors_and_fonts() {
     assert_that!(tokens["color"]).is_equal_to(json!({}));
 }
 
+#[test]
+fn theme_tokens_without_theme_take_the_fallback_font_for_both_roles() {
+    let mut deck = office_deck();
+    deck.themes.clear();
+    let fonts = FontPlan { fallback: Some("Liberation Sans".into()), ..office_fonts() };
+    let tokens = theme_tokens(&deck, &deck.masters[0], &fonts, &Page::new(deck.size));
+    assert_that!(tokens["font"]).is_equal_to(json!({ "display": ["Liberation Sans"], "body": ["Liberation Sans"] }));
+}
+
+#[test]
+fn masterless_tokens_take_the_fallback_font() {
+    let fonts = FontPlan { fallback: Some("Inter".into()), ..FontPlan::default() };
+    let tokens = masterless_tokens(&fonts);
+    assert_that!(tokens["font"]).is_equal_to(json!({ "display": ["Inter"], "body": ["Inter"] }));
+    assert_that!(masterless_tokens(&FontPlan::default()).contains_key("font")).is_false();
+}
+
 /// Chaque jeton produit est une feuille de `default-tokens.json`, ou une couleur libre `[a-z][a-z0-9-]*`.
 fn assert_known_paths(tokens: &Map<String, Value>) {
     let defaults: Value = serde_json::from_str(DEFAULT_TOKENS).unwrap();

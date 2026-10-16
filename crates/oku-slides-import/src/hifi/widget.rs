@@ -29,7 +29,7 @@ use serde_json::json;
 
 use oku_slides_core::{Category, ParamSchema, ParamType, SlotMode, WidgetFile, WidgetSchema};
 
-use super::typst::{Decor, GenCtx, Typst, background, decor_within, placeholder, string};
+use super::typst::{Decor, GenCtx, Typst, background, decor_within, indented_len, placeholder, string};
 use crate::report::Loss;
 use crate::source::{Layout, Master, Role};
 
@@ -226,8 +226,9 @@ fn schema(name: &WidgetFile, label: Option<&str>, params: &[PlaceholderParam], d
 /// le commande.
 ///
 /// La source tient en `max_bytes` octets si le décor du layout y suffit à
-/// couper : il est réduit jusqu'à ce qu'elle tienne (perte
-/// [`crate::report::LossKind::DecorTruncated`]).
+/// couper : il est réduit à ce qui tient (perte
+/// [`crate::report::LossKind::DecorTruncated`]), en une passe : la source
+/// sans décor propre donne la place qui reste et le niveau du décor.
 pub(crate) fn layout_widget(
     rank: usize,
     layout: &Layout,
@@ -242,25 +243,22 @@ pub(crate) fn layout_widget(
     let fill = layout.background.as_ref().or(master.map(|(_, m)| &m.background));
     let back = fill.map(|f| background(&layout.id, f, ctx)).unwrap_or_default();
     let called = master.filter(|_| layout.show_master_decor).map(|(r, _)| r);
-    let mut budget = usize::MAX;
-    loop {
-        let own = decor_within(&layout.decor, ctx, budget);
-        let switch = hideable && (called.is_some() || !own.code.is_empty());
+    let source = |switch: bool, own: &str| {
         let schema = schema(&name, label, &params, switch);
         let parts = Parts { layout, master, name: &name, label, params: &params, schema: &schema, called, switch };
-        let source = widget_source(&parts, &back.code, &own.code, ctx);
-        let over = source.len().saturating_sub(max_bytes);
-        // Chaque tour réduit strictement le décor : la boucle finit, au pire décor vide.
-        if over > 0 && !own.code.is_empty() {
-            budget = own.code.len().saturating_sub(over);
-            continue;
-        }
-        let mut drawn = Drawn::default();
-        drawn.take(back);
-        drawn.take(own);
-        let widget = LayoutWidget { layout: layout.id.clone(), name, params, schema, source };
-        return Some((widget, drawn));
-    }
+        let (source, depth) = widget_source(&parts, &back.code, own, ctx);
+        (source, depth, schema)
+    };
+    // Avec un décor propre, l'interrupteur suit `hideable` : la coquille le compte déjà.
+    let (shell, depth, _) = source(hideable, "");
+    let own = decor_within(&layout.decor, ctx, depth, max_bytes.saturating_sub(shell.len()));
+    let switch = hideable && (called.is_some() || !own.code.is_empty());
+    let (source, _, schema) = source(switch, &own.code);
+    let mut drawn = Drawn::default();
+    drawn.take(back);
+    drawn.take(own);
+    let widget = LayoutWidget { layout: layout.id.clone(), name, params, schema, source };
+    Some((widget, drawn))
 }
 
 /// Ce que la source d'un widget de layout assemble.
@@ -278,8 +276,9 @@ struct Parts<'a> {
 }
 
 /// La source Typst d'un widget de layout : fond `back`, décor du master
-/// appelé, décor propre `own`, champs des placeholders, puis `extras`.
-fn widget_source(parts: &Parts<'_>, back: &str, own: &str, ctx: &GenCtx<'_>) -> String {
+/// appelé, décor propre `own`, champs des placeholders, puis `extras` ; et le
+/// niveau où `own` est écrit.
+fn widget_source(parts: &Parts<'_>, back: &str, own: &str, ctx: &GenCtx<'_>) -> (String, usize) {
     let Parts { layout, master, name, label, params, schema, called, switch } = *parts;
     let mut w = Typst::new();
     let on = master.map_or_else(String::new, |(_, m)| format!(" (master {})", m.id));
@@ -316,6 +315,7 @@ fn widget_source(parts: &Parts<'_>, back: &str, own: &str, ctx: &GenCtx<'_>) -> 
     if let Some(r) = called {
         w.line(&format!("master-{r}(t, ctx)"));
     }
+    let depth = w.depth();
     lines(&mut w, own);
     if switch {
         w.close("}");
@@ -328,12 +328,12 @@ fn widget_source(parts: &Parts<'_>, back: &str, own: &str, ctx: &GenCtx<'_>) -> 
     w.line(&format!("free-area(t, args.at({}), grid: args.at({}))", string(EXTRAS_PARAM), string(GRID_PARAM)));
     w.close("}),");
     w.close(")");
-    w.finish()
+    (w.finish(), depth)
 }
 
 /// Le code `master-<rank>(t, ctx)` de `_commun.typ` : le décor du master,
-/// en `max_bytes` octets au plus ([`decor_within`]). Rend aussi la taille de
-/// ce décor.
+/// en `max_bytes` octets au plus une fois écrit ([`decor_within`]). Rend
+/// aussi les octets de ce décor dans `w`.
 pub(crate) fn master_fn(
     w: &mut Typst,
     rank: usize,
@@ -342,12 +342,13 @@ pub(crate) fn master_fn(
     max_bytes: usize,
 ) -> (Drawn, usize) {
     let mut drawn = Drawn::default();
-    let code = drawn.take(decor_within(&master.decor, ctx, max_bytes));
     w.line(&format!("/// Décor du master {}.", master.id));
     w.open(&format!("#let master-{rank}(t, ctx) = {{"));
+    let depth = w.depth();
+    let code = drawn.take(decor_within(&master.decor, ctx, depth, max_bytes));
     lines(w, &code);
     w.close("}");
-    (drawn, code.len())
+    (drawn, indented_len(&code, depth))
 }
 
 /// Les lignes de `code` au niveau courant de `w`.

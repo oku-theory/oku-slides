@@ -26,17 +26,21 @@ use crate::pptx::xml::{attr_bool, attr_str, child, elements};
 /// racine mal orthographiée (`presetShapeDefinitons`) est d'origine.
 const DEFINITIONS: &str = include_str!("presetShapeDefinitions.xml");
 
-static PRESETS: LazyLock<HashMap<String, Preset>> = LazyLock::new(|| parse(DEFINITIONS));
+/// Les presets, ou l'erreur de lecture de [`DEFINITIONS`] : le test
+/// `definitions_parse_into_every_preset` garde qu'elle n'arrive pas.
+static PRESETS: LazyLock<Result<HashMap<String, Preset>, roxmltree::Error>> = LazyLock::new(|| parse(DEFINITIONS));
 
-/// Le preset `name`, s'il est défini.
-pub(super) fn preset(name: &str) -> Option<&'static Preset> {
-    PRESETS.get(name)
+/// Le preset `name` : `Ok(None)` s'il n'est pas défini, l'erreur si les
+/// définitions embarquées sont illisibles (un bogue de build, pas un fichier
+/// altéré : l'appelant le distingue).
+pub(super) fn preset(name: &str) -> Result<Option<&'static Preset>, &'static roxmltree::Error> {
+    PRESETS.as_ref().map(|all| all.get(name))
 }
 
 /// Noms de tous les presets définis.
 #[cfg(test)]
 pub(super) fn names() -> impl Iterator<Item = &'static str> {
-    PRESETS.keys().map(String::as_str)
+    PRESETS.as_ref().into_iter().flat_map(|all| all.keys().map(String::as_str))
 }
 
 /// Un preset : guides dans l'ordre d'évaluation, zone de texte, sous-chemins.
@@ -75,9 +79,10 @@ pub(super) enum Command {
     Close,
 }
 
-fn parse(text: &str) -> HashMap<String, Preset> {
-    let Ok(doc) = Document::parse(text) else { return HashMap::new() };
-    elements(doc.root_element()).filter_map(|n| Some((n.tag_name().name().to_owned(), preset_of(n)?))).collect()
+/// Les presets de `text` ; un XML illisible est une erreur, jamais une table vide.
+fn parse(text: &str) -> Result<HashMap<String, Preset>, roxmltree::Error> {
+    let doc = Document::parse(text)?;
+    Ok(elements(doc.root_element()).filter_map(|n| Some((n.tag_name().name().to_owned(), preset_of(n)?))).collect())
 }
 
 fn preset_of(n: Node<'_, '_>) -> Option<Preset> {
