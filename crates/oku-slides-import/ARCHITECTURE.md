@@ -6,8 +6,7 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 ## API
 
 - `read_pptx(bytes, &ReadLimits) -> Result<SourceDeck, ImportError>`.
-- `retrofit::project(&SourceDeck, &RetrofitTarget) -> ImportPlan` : the content laid out on an
-  existing pack and theme (templates, registry, `ColorTokens`, `PageTokens`).
+- `retrofit::project(&SourceDeck, &RetrofitTarget) -> ImportPlan` : content on an existing pack and theme.
 - `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : the source reproduced on a generated
   theme and pack; `hifi::sought_fonts`, the families it looks for; `hifi::source_rect`, the page.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report; in hi-fi also the generated
@@ -15,8 +14,8 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
   `check_budget` (early bound on output size, fatal `TooLarge`) gives the `CheckedPlan` to apply.
 - `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`, `ReferenceReport`, slide
   `score`; `coverage::coverage` measures what of the source survives in the resulting deck.
-- `metrics` : a hi-fi slide's gap to the reference and its worst regions (pure; the CLI renders).
-- `fonts` : `FontCatalog`, `FontOrigin`, `FontPlan`, `SUBSTITUTES`, `FALLBACKS`.
+- `metrics` : a hi-fi slide's gap to the reference and its worst regions (pure; the CLI renders);
+  `fonts` : `FontCatalog`, `FontOrigin`, `FontPlan`, `SUBSTITUTES`, `FALLBACKS`.
 
 ## Layers
 
@@ -36,7 +35,8 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
   Typst (`typst/`), shape outlines and arrowheads (`geometry/`, with the embedded ECMA-376
   `presetShapeDefinitions.xml`), slide items as elements (`slide`, `element`, `table`).
 - `pattern` : retrofit's signature grouping repeated items; `fonts/` : embedded, catalog, substitute, `Missing`.
-- Known limit, t-816 (retrofit): flow content taller than its zone leaves the page (`Overflow`).
+- `retrofit/measure`: a flow's height from theme tokens (`TextTokens`); too tall, it goes to the grid if
+  that fits, else a smaller theme size, else reports `Overflow` (t-816; never split). `place` lays out.
 
 ## Extension points
 

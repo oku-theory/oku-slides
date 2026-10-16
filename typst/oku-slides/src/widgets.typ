@@ -345,10 +345,10 @@
       // dès qu'on le déplace, et la slide passe alors sur la grille).
       zone: if free { none } else { zone-marker(t, args.grid) },
       title: args.title, kicker: args.kicker, layout: args.layout, id: ctx.id, wrap: _fields(ctx),
-      // Un graphique dans les blocs occupe la place qui reste sous les autres ;
-      // un tableau trop haut la partage avec lui (voir `_layout`).
+      // Un graphique ou une image dans les blocs occupe la place qui reste sous
+      // les autres ; un tableau trop haut la partage avec lui (voir `_layout`).
       grow: if free { () } else { args.blocks.map(b =>
-        if b.kind == "chart" { true } else if b.kind == "table" { "fit" } else { false }) },
+        if b.kind == "chart" or b.kind == "image" { true } else if b.kind == "table" { "fit" } else { false }) },
       ..if free { (free-area(t, args.elements, grid: args.grid),) } else { args.blocks.map(b => b.body) },
     )
   })

@@ -228,6 +228,44 @@ fn retrofit_alto_cover_stays_a_cover_and_keeps_its_extra_texts_in_notes() {
     assert_that!(moved).is_greater_than(0);
 }
 
+/// t-816 : les flux qui sortaient de la page n'en sortent plus. Alto, slides
+/// 6 et 7 sur Papier : le flux reste, son texte prend une taille plus
+/// petite du thème. Kitchen, slide 2 (graphique et image au-dessus de
+/// « Gauche » et « Droite ») : sur Pro, la slide passe en grille, où chacun
+/// tient ; sur Papier, la rangée du bas est trop basse pour la pile et le
+/// flux ne tient pas même en petit : le débordement est dit au rapport.
+#[test]
+fn retrofit_known_overflowing_flows_are_reduced_or_placed_on_the_grid() {
+    let small = |e: &Element| -> bool {
+        let mut runs = Vec::new();
+        fn walk<'e>(e: &'e Element, out: &mut Vec<&'e oku_slides_core::Run>) {
+            out.extend(e.params.rich("body").unwrap_or_default().iter().flat_map(|p| &p.runs));
+            for (_, c) in e.params.slots() {
+                for child in c {
+                    walk(child, out);
+                }
+            }
+        }
+        walk(e, &mut runs);
+        !runs.is_empty() && runs.iter().all(|r| r.size.is_some())
+    };
+    let (plan, deck) = import("alto", "essentiel", "papier");
+    for k in [5, 6] {
+        let blocks = deck.slides[k].params.slot("blocks").unwrap_or_default();
+        assert_that!(plan.report.slides[k].placement).is_equal_to(oku_slides_import::report::Placement::Flow);
+        assert_that!(blocks.iter().all(small)).named(&deck.slides[k].id).is_true();
+    }
+    let overflows = |s: &oku_slides_import::report::SlideReport| {
+        s.losses.iter().any(|l| matches!(l.kind, LossKind::Overflow { .. }))
+    };
+    let (plan, _) = import("kitchen", "essentiel", "pro");
+    assert_that!(plan.report.slides[1].placement).is_equal_to(oku_slides_import::report::Placement::Grid);
+    assert_that!(overflows(&plan.report.slides[1])).is_false();
+    let (plan, _) = import("kitchen", "essentiel", "papier");
+    assert_that!(plan.report.slides[1].placement).is_equal_to(oku_slides_import::report::Placement::Flow);
+    assert_that!(overflows(&plan.report.slides[1])).is_true();
+}
+
 #[test]
 fn retrofit_alto_reports_its_repeated_footer_once() {
     let (plan, _) = import("alto", "essentiel", "pro");

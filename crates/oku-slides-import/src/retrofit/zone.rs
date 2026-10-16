@@ -7,12 +7,32 @@
 //! (`typst/oku-slides/src/zone.typ`) et de `ui/src/grid.ts` ; [`snap`] porte
 //! `snapRect`. Les items d'une slide entrent dans la zone ensemble ([`Fit`]) :
 //! leur boîte englobante y est ajustée à échelle uniforme et centrée.
+//!
+//! Un jeton absent des jetons reçus prend sa valeur dans `default-tokens.json`
+//! (lu ici, jamais recopié) : les jetons du thème restent la seule source.
+
+use std::sync::LazyLock;
 
 use oku_slides_core::{Cell, Frame, Grid, TokenValue};
 use serde_json::{Map, Value};
 
 use super::cluster::bounds;
+use super::measure::TextTokens;
 use crate::source;
+
+/// Les jetons par défaut du rendu, source unique des valeurs de repli.
+static DEFAULTS: LazyLock<Map<String, Value>> = LazyLock::new(|| {
+    match serde_json::from_str(include_str!("../../../../typst/oku-slides/src/default-tokens.json")) {
+        Ok(Value::Object(map)) => map,
+        // Un fichier livré illisible : les tests de ce module le voient (`default_tokens_parse`).
+        _ => Map::new(),
+    }
+});
+
+/// Les jetons par défaut du rendu (`default-tokens.json`).
+pub(crate) fn defaults() -> &'static Map<String, Value> {
+    &DEFAULTS
+}
 
 /// Plus petit côté d'un cadre projeté, en pt : le cœur refuse un cadre vide.
 const MIN_SIDE: f64 = 1.0;
@@ -34,25 +54,19 @@ pub struct PageTokens {
     pub title_band: f64,
     /// Gouttière de grille par défaut (`space.lg`).
     pub gap: f64,
+    /// Typographie et espacements du corps, pour estimer la hauteur d'un flux.
+    pub text: TextTokens,
 }
 
 impl Default for PageTokens {
-    /// Les valeurs de `default-tokens.json` : titre 60 pt, gouttière `lg` = 40 pt.
+    /// Les jetons de `default-tokens.json` : titre 60 pt, gouttière `lg` = 40 pt.
     fn default() -> Self {
-        Self {
-            width: 1920.0,
-            height: 1080.0,
-            margin_x: 120.0,
-            margin_top: 150.0,
-            margin_bottom: 140.0,
-            title_band: 100.0,
-            gap: 40.0,
-        }
+        Self::from_tokens(defaults())
     }
 }
 
 /// La valeur `path` de `tokens` (`["page", "width"]`), si c'est un nombre.
-fn number(tokens: &Map<String, Value>, path: &[&str]) -> Option<f64> {
+pub(crate) fn number(tokens: &Map<String, Value>, path: &[&str]) -> Option<f64> {
     let (last, groups) = path.split_last()?;
     let mut map = tokens;
     for g in groups {
@@ -62,12 +76,32 @@ fn number(tokens: &Map<String, Value>, path: &[&str]) -> Option<f64> {
 }
 
 /// Une valeur de jeton : un nombre, ou le nom d'un jeton de la famille `family`.
-fn token(tokens: &Map<String, Value>, family: &str, v: Option<&Value>) -> Option<f64> {
+pub(crate) fn token(tokens: &Map<String, Value>, family: &str, v: Option<&Value>) -> Option<f64> {
     match v? {
         Value::Number(n) => n.as_f64(),
         Value::String(name) => number(tokens, &[family, name]),
         _ => None,
     }
+}
+
+/// La valeur `path` de `tokens`, sinon des jetons par défaut ; 0 si elle
+/// manque aux deux (jamais : `default_tokens_hold_every_read_path`).
+pub(crate) fn number_or_default(tokens: &Map<String, Value>, path: &[&str]) -> f64 {
+    number(tokens, path).or_else(|| number(defaults(), path)).unwrap_or(0.0)
+}
+
+/// La valeur `path` de `tokens` (un nombre ou le nom d'un jeton de `family`),
+/// sinon celle des jetons par défaut ; 0 si elle manque aux deux.
+pub(crate) fn token_or_default(tokens: &Map<String, Value>, family: &str, path: &[&str]) -> f64 {
+    let at = |t: &Map<String, Value>| {
+        let (last, groups) = path.split_last()?;
+        let mut map = t;
+        for g in groups {
+            map = map.get(*g)?.as_object()?;
+        }
+        token(t, family, map.get(*last))
+    };
+    at(tokens).or_else(|| at(defaults())).unwrap_or(0.0)
 }
 
 impl PageTokens {
@@ -82,27 +116,25 @@ impl PageTokens {
     /// sépare du titre), puis la gouttière `component.title.gap`. Le surtitre
     /// n'est pas compté : le retrofit n'en émet pas.
     pub fn from_tokens(tokens: &Map<String, Value>) -> Self {
-        let d = Self::default();
-        let get = |path: &[&str], default: f64| number(tokens, path).unwrap_or(default);
+        let get = |path: &[&str]| number_or_default(tokens, path);
         let title = tokens.get("component").and_then(|c| c.get("title")).and_then(Value::as_object);
         let field = |name: &str| title.and_then(|t| t.get(name));
-        let size = token(tokens, "size", field("size")).or_else(|| number(tokens, &["size", "title"])).unwrap_or(60.0);
-        let gap = get(&["space", "lg"], d.gap);
+        let size = token(tokens, "size", field("size")).unwrap_or_else(|| get(&["size", "title"]));
+        let gap = get(&["space", "lg"]);
         let title_gap = token(tokens, "space", field("gap")).unwrap_or(gap);
         let rule = match field("rule") {
-            Some(Value::Object(r)) => {
-                r.get("height").and_then(Value::as_f64).unwrap_or(0.0) + get(&["space", "sm"], 16.0)
-            }
+            Some(Value::Object(r)) => r.get("height").and_then(Value::as_f64).unwrap_or(0.0) + get(&["space", "sm"]),
             _ => 0.0,
         };
         Self {
-            width: get(&["page", "width"], d.width),
-            height: get(&["page", "height"], d.height),
-            margin_x: get(&["page", "margin-x"], d.margin_x),
-            margin_top: get(&["page", "margin-top"], d.margin_top),
-            margin_bottom: get(&["page", "margin-bottom"], d.margin_bottom),
+            width: get(&["page", "width"]),
+            height: get(&["page", "height"]),
+            margin_x: get(&["page", "margin-x"]),
+            margin_top: get(&["page", "margin-top"]),
+            margin_bottom: get(&["page", "margin-bottom"]),
             title_band: size + rule + title_gap,
             gap,
+            text: TextTokens::from_tokens(tokens),
         }
     }
 }
@@ -151,9 +183,8 @@ pub(crate) fn track_size(zone: &Zone, grid: &Grid, gap: f64) -> (f64, f64) {
 
 /// Le cadre de `cell`, relatif à `zone` (même calcul que `grid-frame`).
 ///
-/// Le projecteur n'émet que des cellules ; ce calcul est l'oracle des tests
-/// (une cellule accrochée retombe sur les pistes de la grille rendue).
-#[cfg(test)]
+/// Sert à juger si une grille tient, et d'oracle aux tests (une cellule
+/// accrochée retombe sur les pistes de la grille rendue).
 pub(crate) fn cell_rect(zone: &Zone, grid: &Grid, gap: f64, cell: &Cell) -> Frame {
     let (cw, rh) = track_size(zone, grid, gap);
     let (cols, rows) = (f64::from(cell.cols), f64::from(cell.rows));

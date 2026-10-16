@@ -40,13 +40,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use oku_slides_core::{Cell, Element, Grid, Op, ParamType, ParamValue, Slide, SlotMode, WidgetRegistry, WidgetSchema};
 use serde_json::Value;
 
-use super::cluster::{Unit, cells_meet, is_bare_shape, reading, units};
-use super::content::{ContentCx, effect_losses, element, is_thin, plain_of};
+use super::cluster::{Unit, is_bare_shape, units};
+use super::content::{ContentCx, effect_losses, is_thin, plain_of};
 use super::decor::{Decor, in_band, is_backdrop};
 use super::heading::{Headings, headings};
+use super::measure::{Measure, TextTokens, resize, title_band};
+use super::place::{Arrange, arrange, aspects, collect_assets, track};
 use super::template::{ContentKind, ContentLayout, Profile, Shape, choose, content_items, shape};
-use super::text::{note, plain};
-use super::zone::{Fit, PageTokens, Zone, body_zone, grid_gap, snap, to_zone, track_size};
+use super::text::note;
+use super::zone::{Fit, PageTokens, Zone, body_zone, grid_gap, snap, to_zone};
 use crate::report::{Loss, LossKind, Placement, SlideReport};
 use crate::source::{Item, Layout, LayoutKind, Size, SourceSlide};
 
@@ -124,20 +126,6 @@ fn pick<'t>(shape: &Shape, profiles: &[Profile<'t>]) -> Option<Profile<'t>> {
     choose(shape, profiles).cloned()
 }
 
-/// Les assets des éléments `list` et de leurs descendants.
-fn collect_assets(list: &[Element], out: &mut BTreeSet<String>) {
-    for e in list {
-        if e.kind == "image"
-            && let Some(a) = e.params.text("asset")
-        {
-            out.insert(a.to_owned());
-        }
-        for (_, children) in e.params.slots() {
-            collect_assets(children, out);
-        }
-    }
-}
-
 /// Un décor de la slide, omis sans perte : un fond, une forme sans texte
 /// dans une bande d'en-tête ou de pied, ou un filet au-dessus du bas du titre.
 fn is_slide_decor(item: &Item, size: Size, title_bottom: f64, track: (f64, f64)) -> bool {
@@ -176,70 +164,6 @@ impl Reference {
     }
 }
 
-/// Largeur d'une colonne et hauteur d'une ligne de `grid` dans `zone`, ramenées en pt source par `scale`.
-fn track(zone: &Zone, grid: &Grid, gap: f64, scale: f64) -> (f64, f64) {
-    let (w, h) = track_size(zone, grid, gap);
-    if scale > 0.0 { (w / scale, h / scale) } else { (0.0, 0.0) }
-}
-
-/// Les blocs d'un flux : les unités en ordre de lecture, la rangée de colonnes
-/// (s'il faut une pile) à la place de sa première unité ; jamais une forme sans texte.
-fn flow_order<'u, 'a>(units: &'u [Unit<'a>], shape: &Shape, stack: bool) -> Vec<Vec<&'u Unit<'a>>> {
-    let mut order: Vec<usize> = (0..units.len()).collect();
-    if shape.columns >= 2 {
-        // Une rangée seule se lit de gauche à droite.
-        order.sort_by(|a, b| {
-            let (fa, fb) = (units[*a].frame(), units[*b].frame());
-            if shape.row.contains(a) && shape.row.contains(b) { fa.x.total_cmp(&fb.x) } else { reading(&fa, &fb) }
-        });
-    } else {
-        order.sort_by(|a, b| reading(&units[*a].frame(), &units[*b].frame()));
-    }
-    let mut blocks: Vec<Vec<&'u Unit<'a>>> = Vec::new();
-    let mut row_at: Option<usize> = None;
-    for k in order {
-        let u = &units[k];
-        if matches!(u, Unit::Item(i) if is_bare_shape(i)) {
-            continue;
-        }
-        if stack && shape.row.contains(&k) {
-            match row_at {
-                Some(at) => blocks[at].push(u),
-                None => {
-                    row_at = Some(blocks.len());
-                    blocks.push(vec![u]);
-                }
-            }
-        } else {
-            blocks.push(vec![u]);
-        }
-    }
-    blocks
-}
-
-/// Accroche les éléments placés en cadres à la grille `grid` : chacun prend la
-/// cellule la plus proche de son cadre ([`snap`]), si aucun contenu (forme
-/// exceptée) n'y recouvre un autre ; sinon la grille ne sait pas tenir
-/// l'arrangement et tous gardent leur cadre.
-fn snap_all(elements: &mut [Element], zone: &Zone, grid: &Grid, gap: f64) {
-    let cells: Vec<Option<Cell>> = elements.iter().map(|e| e.frame.map(|f| snap(zone, grid, gap, f))).collect();
-    let solid: Vec<(usize, Cell)> = cells
-        .iter()
-        .enumerate()
-        .filter(|(k, _)| elements[*k].kind != "shape")
-        .filter_map(|(k, c)| c.map(|c| (k, c)))
-        .collect();
-    let disjoint = solid.iter().enumerate().all(|(i, (_, a))| solid[i + 1..].iter().all(|(_, b)| !cells_meet(a, b)));
-    if disjoint {
-        for (e, c) in elements.iter_mut().zip(cells) {
-            if c.is_some() {
-                e.frame = None;
-                e.cell = c;
-            }
-        }
-    }
-}
-
 /// Les titres posés en paramètres de la slide (ou du deck pour la première
 /// couverture) ; ceux que le widget ne déclare pas restent des contenus.
 struct Titles<'a> {
@@ -274,31 +198,40 @@ fn place_titles<'a>(
     out
 }
 
-/// Met les textes de `unit` (groupes compris) dans `moved`, un paragraphe par
-/// boîte, avec la perte `MovedToNotes` ; ses items sans texte n'ont pas de
-/// place (`NoSlot`).
-fn move_to_notes(unit: &Unit<'_>, moved: &mut Vec<String>, losses: &mut Vec<Loss>) {
-    fn walk(item: &Item, moved: &mut Vec<String>, losses: &mut Vec<Loss>) {
-        if let crate::source::ItemKind::Group { items, .. } = &item.kind {
-            for child in items {
-                walk(child, moved, losses);
-            }
-            return;
-        }
-        match item.text().filter(|_| item.has_text()) {
-            Some(tb) => {
-                let (text, lost) = plain(tb);
-                for l in lost {
-                    note(losses, Loss::on(&item.id, l));
-                }
-                moved.push(text);
-                note(losses, Loss::on(&item.id, LossKind::MovedToNotes));
-            }
-            None => note(losses, Loss::on(&item.id, LossKind::NoSlot)),
+/// La place d'un flux : la zone de corps sous le titre et le surtitre
+/// réellement posés (lignes estimées, [`title_band`]).
+struct Room<'t> {
+    tokens: &'t TextTokens,
+    width: f64,
+    height: f64,
+    layout: String,
+}
+
+impl<'t> Room<'t> {
+    fn of(page: &'t PageTokens, slide: &Slide) -> Self {
+        let zone = body_zone(page, false);
+        let (title, kicker) = (slide.params.text("title"), slide.params.text("kicker"));
+        let band = title_band(&page.text, title, kicker, zone.w, page.title_band - page.text.title);
+        Self {
+            tokens: &page.text,
+            width: zone.w,
+            height: zone.h - band,
+            layout: slide.params.text("layout").unwrap_or("default").to_owned(),
         }
     }
-    for item in unit.items() {
-        walk(item, moved, losses);
+
+    /// La hauteur que demandent les blocs `blocks`.
+    fn need(&self, m: &Measure<'_>, blocks: &[Element]) -> f64 {
+        m.flow(blocks, &self.layout, self.width, self.height)
+    }
+
+    /// La plus grande taille du thème, plus petite que le corps, à laquelle `blocks` tiennent.
+    fn smaller(&self, m: &Measure<'_>, blocks: &[Element]) -> Option<&'static str> {
+        self.tokens.smaller.iter().filter(|(_, size)| *size < self.tokens.body).find_map(|(name, _)| {
+            let mut resized = blocks.to_vec();
+            resize(&mut resized, name);
+            (self.need(m, &resized) <= self.height).then_some(*name)
+        })
     }
 }
 
@@ -369,87 +302,80 @@ pub(crate) fn project_slide<'a>(
     let (flow_slot, free_slot) = (slot(schema, SlotMode::Flow), slot(schema, SlotMode::Free));
     let flowable = !matches!(profile.layout, ContentLayout::Free | ContentLayout::Grid)
         && (found.len() <= 1 || shape.columns >= 2);
-    let placement = match (flow_slot, free_slot) {
+    let mut placement = match (flow_slot, free_slot) {
         (Some(_), None) => Placement::Flow,
         (Some(_), Some(_)) if flowable => Placement::Flow,
         (_, Some(_)) => Placement::Grid,
         (None, None) => Placement::Flow,
     };
     let stack = shape.columns >= 2 && shape.row.len() < found.len();
+    let grid_slide = |mut s: Slide| {
+        s.params.remove("layout");
+        if let Some(grid) = template.params.get("grid") {
+            s.params.set("grid", grid.clone());
+        }
+        s
+    };
     if placement == Placement::Flow {
         if stack {
             slide.params.set("layout", ParamValue::Text("default".to_owned()));
         } else if let Some(layout) = template.params.get("layout") {
             slide.params.set("layout", layout.clone());
         }
-    } else if let Some(grid) = template.params.get("grid") {
-        slide.params.set("grid", grid.clone());
+    } else {
+        slide = grid_slide(slide);
     }
-    let free = template.params.get("grid").is_none() && profile.layout == ContentLayout::Free;
-    let grid = slide.resolved_grid(cx.registry);
-    let zone = body_zone(cx.page, slide.params.text("title").is_some());
-    let gap = grid_gap(&grid, cx.page);
-    let fit = Fit::new(found.iter().map(|u| u.frame()).collect::<Vec<_>>().iter(), cx.scale, &zone);
-    let content_cx = ContentCx { track: track(&zone, &grid, gap, fit.scale), ..cx.content };
-    let mut elements = Vec::new();
-    let mut fallbacks = Vec::new();
-    let mut origins = Vec::new();
-    let mut kinds: Vec<String> = Vec::new();
-    let blocks: Vec<Vec<&Unit<'a>>> = match placement {
-        Placement::Flow => flow_order(&found, &shape, stack),
-        // Le retrofit ne place jamais en cadres libres (hi-fi) : comme la grille.
-        Placement::Grid | Placement::Free => found.iter().map(|u| vec![u]).collect(),
-    };
-    let target = match placement {
+    let target_of = |p: Placement| match p {
         Placement::Flow => flow_slot,
         Placement::Grid | Placement::Free => free_slot,
     };
-    // Textes d'une couverture sans slot : dans les notes, en ordre de lecture.
-    let mut moved: Vec<String> = Vec::new();
-    for (k, block) in (1..).zip(&blocks) {
-        let block_id = format!("{id}-{k}");
-        let mut made = Vec::new();
-        for (j, unit) in (1..).zip(block) {
-            for item in unit.items() {
-                effect_losses(item, cx.effects, &mut losses);
-            }
-            if target.is_none() && first_cover {
-                move_to_notes(unit, &mut moved, &mut losses);
-                continue;
-            }
-            let unit_id = if block.len() > 1 { format!("{block_id}-{j}") } else { block_id.clone() };
-            origins.extend(unit.items().into_iter().map(|i| (i.id.clone(), unit_id.clone())));
-            let c = element(unit, unit_id, &content_cx);
-            for l in c.losses {
-                note(&mut losses, l);
-            }
-            if let Some(kind) = c.fallback {
-                if !kinds.contains(&kind) {
-                    kinds.push(kind.clone());
+    let aspects = aspects(&kept);
+    let a = Arrange {
+        id: &id,
+        units: &found,
+        shape: &shape,
+        stack,
+        to_notes: target_of(placement).is_none() && first_cover,
+        free: template.params.get("grid").is_none() && profile.layout == ContentLayout::Free,
+        scale: cx.scale,
+        page: cx.page,
+        registry: cx.registry,
+        content: cx.content,
+        effects: cx.effects,
+        measure: Measure { tokens: &cx.page.text, aspects: &aspects },
+    };
+    let mut built = arrange(placement, &slide, &a);
+    if placement == Placement::Flow
+        && let Some(name) = target_of(placement)
+        && !built.elements.is_empty()
+    {
+        // t-816 : un flux plus haut que sa zone passe en grille si elle tient,
+        // sinon prend une taille plus petite du thème, sinon déborde, dit au rapport.
+        let room = Room::of(cx.page, &slide);
+        if room.need(&a.measure, &built.elements) > room.height {
+            let grid = free_slot.map(|_| grid_slide(slide.clone())).map(|s| {
+                let b = arrange(Placement::Grid, &s, &a);
+                (s, b)
+            });
+            match grid.filter(|(_, b)| b.fits && !b.elements.is_empty()) {
+                Some((s, b)) => {
+                    (slide, built, placement) = (s, b, Placement::Grid);
                 }
-                fallbacks.push((unit.lead(), kind));
+                None => match room.smaller(&a.measure, &built.elements) {
+                    Some(size) => resize(&mut built.elements, size),
+                    None => note(&mut losses, Loss::slide(LossKind::Overflow { element: format!("{id}/{name}") })),
+                },
             }
-            let Some(mut e) = c.element else { continue };
-            if placement == Placement::Grid {
-                e.frame = Some(to_zone(&unit.frame(), &fit, &zone));
-            }
-            made.push(e);
-        }
-        if block.len() > 1 && !made.is_empty() {
-            let mut row = Element::new(block_id, "stack");
-            row.params.set("layout", ParamValue::Text("columns".to_owned()));
-            row.params.set("children", ParamValue::Slot(made));
-            elements.push(row);
-        } else {
-            elements.extend(made);
         }
     }
-    if placement == Placement::Grid && !free {
-        snap_all(&mut elements, &zone, &grid, gap);
+    for l in built.losses {
+        note(&mut losses, l);
     }
+    let mut moved = built.moved;
+    let elements = built.elements;
     let mut assets = BTreeSet::new();
     collect_assets(&elements, &mut assets);
-    match target {
+    match target_of(placement) {
         Some(name) if !elements.is_empty() => {
             slide.params.set(name, ParamValue::Slot(elements));
         }
@@ -473,10 +399,10 @@ pub(crate) fn project_slide<'a>(
         template: profile.template.id.clone(),
         placement,
         losses,
-        fallbacks: kinds,
+        fallbacks: built.kinds,
         score: None,
     };
-    Some(Projected { ops, report, assets, fallbacks, origins })
+    Some(Projected { ops, report, assets, fallbacks: built.fallbacks, origins: built.origins })
 }
 
 #[cfg(test)]

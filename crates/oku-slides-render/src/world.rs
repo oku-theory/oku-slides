@@ -107,7 +107,15 @@ fn main_source<'a>(
   }} else {{
     let hex = if asset == none {{ "" }} else {{ asset.trim("sha256:", at: start) }}
     if hex in available {{
-      image("/assets/" + hex, width: 100%, height: 100%, fit: fit)
+      let path = "/assets/" + hex
+      if e.at("kind", default: none) == "image" and "frame" not in e {{
+        // Dans le flux : toute la largeur, à ses proportions, sans dépasser la hauteur disponible.
+        layout(size => {{
+          let h = measure(image(path, width: size.width)).height
+          if size.height < h {{ h = size.height }}
+          image(path, width: 100%, height: h, fit: fit)
+        }})
+      }} else {{ image(path, width: 100%, height: 100%, fit: fit) }}
     }} else {{ fallback({missing}) }}
   }}
 }}

@@ -26,8 +26,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Pitfalls
 
-- Emit only color names that exist in the target theme; Typst rendering panics on an unknown color name. (plan:2026-10-10-import-pptx-lot2)
-- Emit no color in chart options; chart color fields accept only hex and the target theme palette decides. (plan:2026-10-10-import-pptx-lot2)
+- Emit only color names that exist in the target theme, since Typst panics on an unknown one, and no color in chart options, where the theme palette decides. (plan:2026-10-10-import-pptx-lot2)
 - Emit chart options already in canonical form, because the core checks host params but does not canonicalize, and cut dataset rows to dataset_row_budget with ChartTruncated. (plan:2026-10-10-import-pptx-lot2, t-817)
 - Give every emitted frame sides of at least 1 pt, since the core rejects zero width or height. (plan:2026-10-10-import-pptx-lot2)
 - Emit images only in formats Typst draws (png, jpeg, gif, webp, svg); report UnsupportedImage for any other. (plan:2026-10-10-import-pptx-lot2)
@@ -46,6 +45,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Settled decisions
 
 - Map source colors to target theme tokens or drop them; never emit raw hex colors or token overrides. (spec:2026-10-09-import-pptx-design)
+- Fit an overflowing flow by the grid, else a smaller theme size, else report Overflow, never splitting; the import_retrofit render test checks retrofit/measure. (t-816)
 - Fail only on unreadable package, non-presentation, protection, no master or limit; report every other loss. (spec:2026-10-09-import-pptx-design)
 - Do not flat re-export retrofit from the import lib.rs; re-export only ImportPlan, ImportReport and RetrofitTarget. (plan:2026-10-10-import-pptx-lot2)
 - Derive a template profile from its example slide and widget schema, never from template names. (plan:2026-10-10-import-pptx-lot2)

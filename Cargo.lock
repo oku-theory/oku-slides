@@ -5922,6 +5922,7 @@ dependencies = [
  "oku-slides-chart",
  "oku-slides-core",
  "oku-slides-i18n",
+ "oku-slides-import",
  "oku-slides-pdf",
  "png 0.18.1",
  "rstest",
@@ -5938,6 +5939,7 @@ dependencies = [
  "typst-pdf",
  "typst-render",
  "typst-svg",
+ "zip 8.6.0",
 ]
 
 [[package]]

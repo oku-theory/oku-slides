@@ -32,15 +32,50 @@ fn page_tokens_of_papier_are_the_default_tokens() {
 #[test]
 fn page_tokens_of_pro_read_its_margins_title_rule_and_spacing() {
     let page = PageTokens::from_tokens(&tokens(PRO));
-    assert_that!(page).is_equal_to(PageTokens {
-        width: 1920.0,
-        height: 1080.0,
-        margin_x: 128.0,
-        margin_top: 112.0,
-        margin_bottom: 160.0,
-        title_band: 121.0,
-        gap: 32.0,
-    });
+    let read = (page.width, page.height, page.margin_x, page.margin_top, page.margin_bottom, page.title_band, page.gap);
+    assert_that!(read).is_equal_to((1920.0, 1080.0, 128.0, 112.0, 160.0, 121.0, 32.0));
+}
+
+/// Les jetons par défaut se lisent, et portent chaque chemin que lisent
+/// `PageTokens` et `TextTokens` : aucun repli à 0 n'est jamais pris.
+#[test]
+fn default_tokens_hold_every_read_path() {
+    assert_that!(defaults().is_empty()).is_false();
+    let paths: [&[&str]; 14] = [
+        &["page", "width"],
+        &["page", "height"],
+        &["page", "margin-x"],
+        &["page", "margin-top"],
+        &["page", "margin-bottom"],
+        &["space", "lg"],
+        &["space", "md"],
+        &["space", "sm"],
+        &["size", "title"],
+        &["size", "body"],
+        &["size", "small"],
+        &["size", "caption"],
+        &["leading", "normal"],
+        &["leading", "tight"],
+    ];
+    for p in paths {
+        assert_that!(number(defaults(), p)).named(&p.join(".")).is_some();
+    }
+    let tokens: [(&str, &[&str]); 11] = [
+        ("space", &["component", "list", "spacing"]),
+        ("space", &["component", "list", "indent"]),
+        ("size", &["component", "title", "size"]),
+        ("leading", &["component", "title", "leading"]),
+        ("size", &["component", "kicker", "size"]),
+        ("space", &["component", "columns", "gap"]),
+        ("space", &["component", "card", "padding-x"]),
+        ("space", &["component", "card", "padding-y"]),
+        ("size", &["component", "card", "title-size"]),
+        ("space", &["component", "card", "gap"]),
+        ("size", &["component", "table", "size"]),
+    ];
+    for (family, p) in tokens {
+        assert_that!(token_or_default(&Map::new(), family, p)).named(&p.join(".")).is_greater_than(0.0);
+    }
 }
 
 #[test]

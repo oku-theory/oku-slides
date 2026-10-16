@@ -17,6 +17,8 @@ pub(crate) mod content;
 pub(crate) mod decor;
 mod group;
 mod heading;
+mod measure;
+mod place;
 mod slide;
 pub(crate) mod table;
 mod template;
@@ -29,6 +31,7 @@ use oku_slides_core::{Deck, Op, Slide, Template, WidgetRegistry, apply_all};
 use serde_json::Value;
 
 pub use color::ColorTokens;
+pub use measure::{CardTokens, TextTokens};
 pub use zone::PageTokens;
 
 use self::content::ContentCx;
