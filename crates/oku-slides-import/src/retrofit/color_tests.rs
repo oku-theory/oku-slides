@@ -230,14 +230,24 @@ fn text_color_of_a_light_text_on_a_dark_ground_takes_an_on_dark_token() {
 
 /// Le surtitre et les puces d'une carte en relief (`highlight-kicker`) se
 /// lisent sur son fond (`highlight-bg`) : la règle de contraste du retrofit,
-/// qui y pose les cartes en relief des slides importées (t-817).
-#[rstest]
-#[case(PAPIER)]
-#[case(PRO)]
-fn builtin_theme_highlight_kicker_reads_on_the_highlight_card(#[case] theme: &str) {
-    let tokens = crate::test_support::tokens(theme);
-    let kicker = tokens["component"]["card"]["highlight-kicker"].as_str().unwrap();
-    let c = colors(theme);
-    let ratio = contrast(c.get(kicker).unwrap(), c.card(true));
-    assert_that!(ratio).is_greater_than_or_equal_to(MIN_CONTRAST);
+/// qui y pose les cartes en relief des slides importées (t-817). Chaque thème
+/// intégré, et le thème par défaut (les seuls jetons par défaut, t-894).
+#[test]
+fn builtin_theme_highlight_kicker_reads_on_the_highlight_card() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../typst/oku-slides/themes");
+    let mut themes: Vec<(String, String)> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .map(|p| (p.display().to_string(), std::fs::read_to_string(&p).unwrap()))
+        .collect();
+    assert_that!(themes.len()).is_greater_than_or_equal_to(2);
+    themes.push(("default-tokens.json".to_owned(), r#"{"tokens": {}}"#.to_owned()));
+    for (name, theme) in &themes {
+        let tokens = crate::test_support::tokens(theme);
+        let kicker = tokens["component"]["card"]["highlight-kicker"].as_str().unwrap();
+        let c = colors(theme);
+        let ratio = contrast(c.get(kicker).unwrap(), c.card(true));
+        asserting(name).that(&ratio).is_greater_than_or_equal_to(MIN_CONTRAST);
+    }
 }
