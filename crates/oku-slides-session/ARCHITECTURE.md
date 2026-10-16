@@ -11,10 +11,10 @@ resume. The Tauri app and the dev server (`oku-slides-cli` `serve`) expose the s
 - `Mode`: `Deck`, `Help` (read-only, `help.rs`), `Templates` and `History`; the last two set the
   deck aside (`stash`) in `templates_mode.rs` and `history.rs`. Edits go through `ensure_editable`.
 - Files: `deck_file.rs`, `files.rs` (`read_document`), `merge.rs` (`save_checked`, `merge_file`).
-- Packs and themes: the version embedded in the deck's sources is authoritative. `deck_widgets.rs`
-  builds the registry from it (`fall_back_to_base` on a faulty pack), `deck_pack.rs` and
-  `deck_theme.rs` embed defaults; `library.rs` + `library_kind.rs` hold the versioned `Library<K>`
-  (`Templates`; a received deck's versions are marked `received`), `theme.rs` `Themes`, `pack.rs` `PackInfo`.
+- Packs and themes: the deck's embedded version is authoritative. `deck_widgets.rs` builds the registry
+  from it (`fall_back_to_base` on a faulty pack), `deck_pack.rs` and `deck_theme.rs` embed defaults; versioned
+  `Library<K>` in `library.rs`, `library_kind.rs` (received versions marked) and `library_index.rs` (in-memory
+  index, reset when the `generation` file changes; loads still re-hash), `theme.rs` `Themes`, `pack.rs` `PackInfo`.
 - Theme editing: `theme_edit.rs` (`ThemeEdit` draft in templates mode, `save_theme_edit`),
   `deck_theme_edit.rs` (`edit_theme` in deck mode), `theme_schema.rs` (token controls, bounds),
   `theme_panel.rs` + `theme_controls.rs` (the `host-theme` surface), `appearance.rs`.

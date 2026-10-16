@@ -21,11 +21,15 @@
 //! ou à la création d'une entrée inconnue. Une version reçue avec un deck
 //! ([`Library::receive_version`]) est marquée : son `created` vient d'ailleurs,
 //! et le repli de la version courante ne lui fait pas confiance.
+//!
+//! Un index en mémoire ([`crate::library_index`]) évite de relire et
+//! re-hacher toutes les versions à chaque accès ; charger une version vérifie
+//! toujours ses octets.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard, PoisonError};
 
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
@@ -38,6 +42,7 @@ use crate::Result;
 use crate::error::{
     NoLibraryDirSnafu, PackIdMismatchSnafu, PackJsonSnafu, PackVersionMissingSnafu, UnknownPackSnafu, WriteSnafu,
 };
+use crate::library_index::{Current, Index, Indexed, PackEntry};
 use crate::library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 use crate::pack::{PackInfo, PackManifest, Relation};
 
@@ -57,7 +62,7 @@ pub fn builtin_versions() -> &'static [StoredVersion<PackManifest>] {
 /// La plus récente par `created` (la dernière vue à égalité), parmi les
 /// versions créées ici d'abord : le `created` d'une version reçue est celui
 /// qu'annonce son auteur, il ne compte que faute d'autre version.
-fn latest<M: VersionManifest>(versions: &[StoredVersion<M>]) -> Option<PackVersion> {
+fn latest<M: VersionManifest>(versions: &[Indexed<M>]) -> Option<PackVersion> {
     let newest = |received: bool| {
         versions
             .iter()
@@ -98,22 +103,31 @@ static LEGACY_SEEN: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(Mutex::def
 
 /// Vrai la première fois que le dossier ancien `dir` est vu dans le processus.
 fn first_legacy_sighting(dir: &Path) -> bool {
-    LEGACY_SEEN.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(dir.to_path_buf())
+    LEGACY_SEEN.lock().unwrap_or_else(PoisonError::into_inner).insert(dir.to_path_buf())
 }
 
-/// Le fichier `current` d'un pack.
-enum Current {
-    Absent,
-    At(PackVersion),
-    /// Illisible ou mal formé.
-    Broken,
+/// La version courante parmi `entry` : `current` absent, l'intégrée, sinon la
+/// plus récente ; `current` vers une version absente, la plus récente.
+fn choose<M: VersionManifest>(entry: &PackEntry<M>, builtin: Option<&PackVersion>, id: Uuid) -> Option<PackVersion> {
+    match &entry.current {
+        Current::At(v) if entry.versions.iter().any(|s| s.version == *v) => Some(v.clone()),
+        Current::Absent => builtin.cloned().or_else(|| latest(&entry.versions)),
+        Current::At(_) | Current::Broken => {
+            tracing::warn!(pack = %id, "version courante absente : la plus récente la remplace");
+            latest(&entry.versions)
+        }
+    }
 }
 
 /// Bibliothèque : versions intégrées et versions de l'utilisateur, d'une sorte.
+///
+/// Ses clones partagent un même index ; deux instances distinctes (autre
+/// onglet, autre processus) se voient par le fichier `generation`.
 #[derive(Debug, Clone)]
 pub struct Library<K: LibraryKind> {
     dir: Option<PathBuf>,
     storage: Storage,
+    index: Arc<Mutex<Index<K::Manifest>>>,
     kind: PhantomData<K>,
 }
 
@@ -123,7 +137,7 @@ pub type PackLibrary = Library<Templates>;
 impl<K: LibraryKind> Library<K> {
     /// `dir` : `<data>/<K::DIR>`, créé à la première écriture.
     pub fn new(dir: Option<PathBuf>, storage: Storage) -> Self {
-        Self { dir, storage, kind: PhantomData }
+        Self { dir, storage, index: Arc::default(), kind: PhantomData }
     }
 
     /// Une entrée intégrée à l'app ?
@@ -140,6 +154,42 @@ impl<K: LibraryKind> Library<K> {
         Some(self.dir.as_ref()?.join(id.to_string()))
     }
 
+    /// L'index, vidé si un autre a écrit dans la bibliothèque depuis sa construction.
+    fn fresh(&self) -> MutexGuard<'_, Index<K::Manifest>> {
+        let mut index = self.index.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(dir) = &self.dir {
+            index.refresh(&self.storage, dir);
+        }
+        index
+    }
+
+    /// Reporte une écriture : nouvelle génération, vue par les autres instances.
+    fn bump(&self, index: &mut Index<K::Manifest>) {
+        if let Some(dir) = &self.dir {
+            index.bump(&self.storage, dir);
+        }
+    }
+
+    /// Le pack `id` dans l'index, lu du disque s'il n'y est pas encore.
+    fn entry<'a>(&self, index: &'a mut Index<K::Manifest>, id: Uuid) -> &'a mut PackEntry<K::Manifest> {
+        #[cfg(test)]
+        if !index.packs.contains_key(&id) {
+            index.scans += 1;
+        }
+        index.packs.entry(id).or_insert_with(|| {
+            let mut versions: Vec<Indexed<K::Manifest>> = Self::builtin(id)
+                .map(|b| Indexed { version: b.version.clone(), manifest: b.manifest.clone(), received: false })
+                .into_iter()
+                .collect();
+            for s in self.user_versions(id) {
+                if !versions.iter().any(|o| o.version == s.version) {
+                    versions.push(Indexed { version: s.version, manifest: s.manifest, received: s.received });
+                }
+            }
+            PackEntry { versions, current: self.read_current(id) }
+        })
+    }
+
     /// Versions de l'utilisateur ; une version illisible ou altérée est journalisée et ignorée.
     fn user_versions(&self, id: Uuid) -> Vec<StoredVersion<K::Manifest>> {
         let Some(dir) = self.pack_dir(id).map(|d| d.join(VERSIONS_DIR)) else { return Vec::new() };
@@ -150,15 +200,20 @@ impl<K: LibraryKind> Library<K> {
         folders
             .iter()
             .filter_map(|folder| {
-                let read = self.read_version(folder).and_then(|s| {
-                    if s.manifest.id() == id { Ok(s) } else { Err(format!("version of pack {}", s.manifest.id())) }
-                });
-                read.inspect_err(
-                    |e| tracing::warn!(dir = %folder.display(), error = %e, kind = K::DIR, "version ignorée"),
-                )
-                .ok()
+                self.read_version_of(id, folder)
+                    .inspect_err(
+                        |e| tracing::warn!(dir = %folder.display(), error = %e, kind = K::DIR, "version ignorée"),
+                    )
+                    .ok()
             })
             .collect()
+    }
+
+    /// La version du dossier `folder`, vérifiée, à condition qu'elle soit de l'entrée `id`.
+    fn read_version_of(&self, id: Uuid, folder: &Path) -> std::result::Result<StoredVersion<K::Manifest>, String> {
+        self.read_version(folder).and_then(|s| {
+            if s.manifest.id() == id { Ok(s) } else { Err(format!("version of pack {}", s.manifest.id())) }
+        })
     }
 
     /// Une version : son dossier s'appelle `<hex>` et son contenu y correspond.
@@ -205,40 +260,69 @@ impl<K: LibraryKind> Library<K> {
         self.pack_dir(id).is_some_and(|d| self.is_marked_received(&d.join(VERSIONS_DIR).join(v.hex())))
     }
 
-    /// Les versions de `id` : l'intégrée d'abord, puis celles de l'utilisateur.
+    /// Les versions de `id`, chargées : l'intégrée d'abord, puis celles de l'utilisateur.
     pub fn versions(&self, id: Uuid) -> Vec<StoredVersion<K::Manifest>> {
-        let mut out: Vec<StoredVersion<K::Manifest>> = Self::builtin(id).into_iter().cloned().collect();
-        for v in self.user_versions(id) {
-            if !out.iter().any(|o| o.version == v.version) {
-                out.push(v);
+        let listed: Vec<PackVersion> = {
+            let mut index = self.fresh();
+            self.entry(&mut index, id).versions.iter().map(|s| s.version.clone()).collect()
+        };
+        listed.iter().filter_map(|v| self.load(id, v)).collect()
+    }
+
+    /// Charge la version `v` de `id`, connue de l'index : l'intégrée, ou ses
+    /// fichiers relus et vérifiés. Illisible, elle quitte l'index.
+    fn load(&self, id: Uuid, v: &PackVersion) -> Option<StoredVersion<K::Manifest>> {
+        if let Some(b) = Self::builtin(id).filter(|b| b.version == *v) {
+            return Some(b.clone());
+        }
+        let folder = self.pack_dir(id)?.join(VERSIONS_DIR).join(v.hex());
+        match self.read_version_of(id, &folder) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                tracing::warn!(dir = %folder.display(), error = %e, kind = K::DIR, "version ignorée");
+                let mut index = self.fresh();
+                if let Some(entry) = index.packs.get_mut(&id) {
+                    entry.versions.retain(|s| s.version != *v);
+                }
+                None
             }
         }
-        out
     }
 
     /// Les fichiers de la version `v` du pack `id`.
     pub fn version(&self, id: Uuid, v: &PackVersion) -> Option<PackFiles> {
-        self.versions(id).into_iter().find(|s| s.version == *v).map(|s| s.files)
+        let known = {
+            let mut index = self.fresh();
+            self.entry(&mut index, id).versions.iter().any(|s| s.version == *v)
+        };
+        known.then(|| self.load(id, v)).flatten().map(|s| s.files)
     }
 
     /// La version courante du pack `id` ; `None` pour un pack inconnu.
     pub fn current(&self, id: Uuid) -> Option<PackVersion> {
-        self.current_version(id).map(|s| s.version)
+        let mut index = self.fresh();
+        choose(self.entry(&mut index, id), Self::builtin(id).map(|b| &b.version), id)
     }
 
     /// La version courante, lue. `current` absent : l'intégrée, sinon la plus
     /// récente ; `current` vers une version absente : la plus récente.
     pub fn current_version(&self, id: Uuid) -> Option<StoredVersion<K::Manifest>> {
-        let versions = self.versions(id);
-        let chosen = match self.read_current(id) {
-            Current::At(v) if versions.iter().any(|s| s.version == v) => Some(v),
-            Current::Absent => Self::builtin(id).map(|b| b.version.clone()).or_else(|| latest(&versions)),
-            Current::At(_) | Current::Broken => {
-                tracing::warn!(pack = %id, "version courante absente : la plus récente la remplace");
-                latest(&versions)
+        // Chaque échec de chargement retire une version de l'index : la boucle finit.
+        loop {
+            let (chosen, count) = {
+                let mut index = self.fresh();
+                let entry = self.entry(&mut index, id);
+                (choose(entry, Self::builtin(id).map(|b| &b.version), id)?, entry.versions.len())
+            };
+            if let Some(loaded) = self.load(id, &chosen) {
+                return Some(loaded);
             }
-        }?;
-        versions.into_iter().find(|s| s.version == chosen)
+            let mut index = self.fresh();
+            // Un index reconstruit entre-temps qui garde la version illisible : on s'arrête.
+            if self.entry(&mut index, id).versions.len() >= count {
+                return None;
+            }
+        }
     }
 
     fn read_current(&self, id: Uuid) -> Current {
@@ -282,10 +366,12 @@ impl<K: LibraryKind> Library<K> {
         // Une sorte sans widgets les perdrait à l'écriture, mais ils compteraient dans l'empreinte.
         debug_assert!(K::HAS_WIDGETS || files.widgets().is_empty(), "widgets given to a kind without widgets");
         let version = files.version();
-        let known = self.versions(id);
+        let mut index = self.fresh();
+        let known = &self.entry(&mut index, id).versions;
         if known.iter().any(|s| s.version == version) {
             return Ok(false);
         }
+        let first = known.is_empty();
         let at = dir.join(VERSIONS_DIR).join(version.hex());
         // La marque d'abord : une version complète n'est jamais lue sans elle.
         if origin == Origin::Received {
@@ -302,10 +388,14 @@ impl<K: LibraryKind> Library<K> {
         let path = at.join(K::MANIFEST_FILE);
         let json = files.pack_json().context(PackJsonSnafu { id })?;
         self.storage.write_atomic(&path, json).context(WriteSnafu { path: &path })?;
-        if known.is_empty() {
-            self.write_current(id, &version)?;
+        let entry = self.entry(&mut index, id);
+        entry.versions.push(Indexed { version: version.clone(), manifest, received: origin == Origin::Received });
+        if let Some(ids) = index.ids.as_mut().filter(|ids| !ids.contains(&id)) {
+            ids.push(id);
         }
-        Ok(true)
+        let written = if first { self.write_current(&mut index, id, &version) } else { Ok(()) };
+        self.bump(&mut index);
+        written.map(|()| true)
     }
 
     /// Rend la version `v` courante pour l'entrée `id`.
@@ -313,10 +403,13 @@ impl<K: LibraryKind> Library<K> {
     /// Elle s'écrit dans `<data>/<K::DIR>/<id>/current` : `templates/` pour
     /// les packs de modèles, `themes/` pour les thèmes.
     pub fn set_current(&self, id: Uuid, v: &PackVersion) -> Result<()> {
-        let versions = self.versions(id);
+        let mut index = self.fresh();
+        let versions = &self.entry(&mut index, id).versions;
         ensure!(!versions.is_empty(), UnknownPackSnafu { id });
         ensure!(versions.iter().any(|s| s.version == *v), PackVersionMissingSnafu { id, version: v.clone() });
-        self.write_current(id, v)
+        let written = self.write_current(&mut index, id, v);
+        self.bump(&mut index);
+        written
     }
 
     /// Remplace la version `old` par `files`, rendue courante ; rend la nouvelle.
@@ -335,16 +428,31 @@ impl<K: LibraryKind> Library<K> {
         let parent = K::Manifest::from_files(files).ok().and_then(|m| m.parent().cloned());
         if *old != version && !builtin && parent.as_ref() != Some(old) {
             let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?.join(VERSIONS_DIR).join(old.hex());
-            if let Err(e) = self.storage.delete_dir(&dir) {
-                tracing::warn!(dir = %dir.display(), error = %one_line(&e), "version remplacée non supprimée");
+            let mut index = self.fresh();
+            match self.storage.delete_dir(&dir) {
+                Ok(()) => self.entry(&mut index, id).versions.retain(|s| s.version != *old),
+                Err(e) => {
+                    tracing::warn!(dir = %dir.display(), error = %one_line(&e), "version remplacée non supprimée");
+                    // À moitié supprimée peut-être : le pack sera relu.
+                    index.packs.remove(&id);
+                }
             }
+            self.bump(&mut index);
         }
         Ok(version)
     }
 
-    fn write_current(&self, id: Uuid, v: &PackVersion) -> Result<()> {
+    /// Écrit `current` et le reporte dans l'index ; échoué, le pack sera relu.
+    fn write_current(&self, index: &mut Index<K::Manifest>, id: Uuid, v: &PackVersion) -> Result<()> {
         let path = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?.join(CURRENT_FILE);
-        self.storage.write_atomic(&path, v.as_str().as_bytes()).context(WriteSnafu { path: &path })?;
+        let written = self.storage.write_atomic(&path, v.as_str().as_bytes()).context(WriteSnafu { path: &path });
+        match &written {
+            Ok(()) => self.entry(index, id).current = Current::At(v.clone()),
+            Err(_) => {
+                index.packs.remove(&id);
+            }
+        }
+        written?;
         Ok(())
     }
 
@@ -353,8 +461,11 @@ impl<K: LibraryKind> Library<K> {
         if a == b {
             return Relation::Same;
         }
-        let parents: HashMap<PackVersion, Option<PackVersion>> =
-            self.versions(id).into_iter().map(|s| (s.version, s.manifest.parent().cloned())).collect();
+        let parents: HashMap<PackVersion, Option<PackVersion>> = {
+            let mut index = self.fresh();
+            let entry = self.entry(&mut index, id);
+            entry.versions.iter().map(|s| (s.version.clone(), s.manifest.parent().cloned())).collect()
+        };
         if descends(&parents, b, a) {
             Relation::Ancestor
         } else if descends(&parents, a, b) {
@@ -367,9 +478,12 @@ impl<K: LibraryKind> Library<K> {
     /// Toutes les entrées dans leur version courante : intégrées d'abord, puis
     /// celles de l'utilisateur, par nom.
     pub fn entries(&self) -> Vec<StoredVersion<K::Manifest>> {
+        let user_ids = {
+            let mut index = self.fresh();
+            index.ids.get_or_insert_with(|| self.user_ids()).clone()
+        };
         let mut out: Vec<_> = K::builtins().iter().filter_map(|b| self.current_version(b.manifest.id())).collect();
-        let mut user: Vec<_> = self
-            .user_ids()
+        let mut user: Vec<_> = user_ids
             .into_iter()
             .filter(|id| !Self::is_builtin(*id))
             .filter_map(|id| self.current_version(id))
@@ -411,7 +525,17 @@ impl<K: LibraryKind> Library<K> {
     /// en lecture seule, reste et redevient courante).
     pub fn delete(&self, id: Uuid) -> Result<()> {
         let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
-        self.storage.delete_dir(&dir).context(WriteSnafu { path: dir })?;
+        let mut index = self.fresh();
+        let deleted = self.storage.delete_dir(&dir).context(WriteSnafu { path: dir });
+        // Même à moitié supprimé, le pack sera relu.
+        index.packs.remove(&id);
+        match (&deleted, index.ids.as_mut()) {
+            (Ok(()), Some(ids)) => ids.retain(|i| *i != id),
+            (Ok(()), None) => {}
+            (Err(_), _) => index.ids = None,
+        }
+        self.bump(&mut index);
+        deleted?;
         Ok(())
     }
 }
@@ -430,3 +554,7 @@ impl PackLibrary {
 #[cfg(test)]
 #[path = "library_tests.rs"]
 mod library_tests;
+
+#[cfg(test)]
+#[path = "library_cache_tests.rs"]
+mod library_cache_tests;

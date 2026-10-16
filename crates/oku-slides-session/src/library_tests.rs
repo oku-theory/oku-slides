@@ -144,7 +144,8 @@ fn current_pointing_to_an_absent_version_falls_back_to_the_latest() {
     let a = add_version(&lib, &manifest(id, "A", None, "2026-10-01T10:00:00Z"), &[]);
     let b = add_version(&lib, &manifest(id, "B", Some(&a.version), "2026-10-03T10:00:00Z"), &[]);
     std::fs::write(dir.path().join(id.to_string()).join("current"), format!("sha256:{}", "e".repeat(64))).unwrap();
-    assert_that!(lib.current(id)).is_equal_to(Some(b.version));
+    // Écrit à la main, hors de la bibliothèque : seule une instance neuve le voit.
+    assert_that!(library(dir.path()).current(id)).is_equal_to(Some(b.version));
 }
 
 #[test]
@@ -454,7 +455,7 @@ fn broken_current_falls_back_to_my_latest_version_over_a_received_one() {
     let mine = add_version(&lib, &manifest(id, "A", None, "2026-10-01T10:00:00Z"), &[]);
     receive(&lib, &manifest(id, "Forgée", Some(&mine.version), "2099-01-01T00:00:00Z"));
     std::fs::write(dir.path().join(id.to_string()).join("current"), b"illisible").unwrap();
-    assert_that!(lib.current(id)).is_equal_to(Some(mine.version));
+    assert_that!(library(dir.path()).current(id)).is_equal_to(Some(mine.version));
 }
 
 #[test]
@@ -465,7 +466,7 @@ fn broken_current_with_only_received_versions_takes_the_latest_received() {
     let a = receive(&lib, &manifest(id, "A", None, "2026-10-01T10:00:00Z"));
     let b = receive(&lib, &manifest(id, "B", Some(&a.version), "2026-10-02T10:00:00Z"));
     std::fs::write(dir.path().join(id.to_string()).join("current"), b"illisible").unwrap();
-    assert_that!(lib.current(id)).is_equal_to(Some(b.version));
+    assert_that!(library(dir.path()).current(id)).is_equal_to(Some(b.version));
 }
 
 /// t-355 : un dossier au nom d'UUID non canonique (majuscules) est ignoré
@@ -478,6 +479,6 @@ fn packs_ignore_a_non_canonical_uuid_folder() {
     let lib = library(dir.path());
     add_version(&lib, &manifest(id, "Mien", None, "2026-10-01T10:00:00Z"), &[]);
     std::fs::rename(dir.path().join(id.to_string()), &upper).unwrap();
-    assert_that!(lib.packs().iter().any(|p| p.id == id)).is_false();
+    assert_that!(library(dir.path()).packs().iter().any(|p| p.id == id)).is_false();
     assert_that!(first_legacy_sighting(&upper)).is_false();
 }

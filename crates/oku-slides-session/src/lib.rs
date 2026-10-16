@@ -51,6 +51,7 @@ mod items;
 #[cfg(test)]
 pub(crate) mod lib_tests_support;
 pub mod library;
+mod library_index;
 mod library_kind;
 mod merge;
 pub mod pack;
