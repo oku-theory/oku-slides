@@ -96,4 +96,4 @@ cli-arg-pack = Ziel-Vorlagenpaket: ID, Paketordner (pack.json, widgets/) oder Na
 cli-arg-import-theme = Ziel-Design: ein mitgeliefertes oder eines aus der Bibliothek, per ID oder Name; Standard: das Standarddesign
 cli-arg-report = Zusätzlich den Importbericht (JSON) schreiben: Verluste, Ersatzlösungen, Abdeckung
 cli-arg-no-system-fonts = Im Modus hifi die Schriften der Präsentation nicht unter den Systemschriften suchen
-cli-arg-reference = Im hifi-Modus jede Folie mit einem Referenz-Rendering der Präsentation vergleichen (auto, Standard) oder nicht (none)
+cli-arg-reference = Im hifi-Modus jede Folie mit einem Referenz-Rendering der Präsentation vergleichen: auto (Standard, office2pdf), office2pdf, soffice (LibreOffice) oder nicht (none)

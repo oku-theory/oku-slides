@@ -96,4 +96,4 @@ cli-arg-pack = लक्ष्य टेम्पलेट पैक: आईड�
 cli-arg-import-theme = लक्ष्य थीम: बिल्ट-इन या लाइब्रेरी की थीम, आईडी या नाम से; डिफ़ॉल्ट: डिफ़ॉल्ट थीम
 cli-arg-report = आयात रिपोर्ट (JSON) भी लिखें: हानियाँ, विकल्प, कवरेज
 cli-arg-no-system-fonts = hifi मोड में, प्रस्तुति के फ़ॉन्ट सिस्टम फ़ॉन्ट में न खोजें
-cli-arg-reference = hifi मोड में, हर स्लाइड की तुलना प्रस्तुति के संदर्भ रेंडर से करें (auto, डिफ़ॉल्ट) या नहीं (none)
+cli-arg-reference = hifi मोड में, हर स्लाइड की तुलना प्रस्तुति के संदर्भ रेंडर से करें: auto (डिफ़ॉल्ट, office2pdf), office2pdf, soffice (LibreOffice) या नहीं (none)

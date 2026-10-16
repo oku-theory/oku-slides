@@ -100,6 +100,7 @@ import-reference-unavailable = Brak oceny wizualnej: { $cause ->
         [many] { $reference } stron
        *[other] { $reference } strony
     } na { $deck } w prezentacji
+    [missing] nie znaleziono LibreOffice (soffice); podaj jego ścieżkę w import.soffice
    *[failed] renderer referencyjny nie mógł odczytać prezentacji
 }
 import-font-substituted = { $family } zastąpiona czcionką { $by } o zgodnych metrykach

@@ -7,22 +7,28 @@ gap, `oku_slides_import::metrics`, t-692 lot 4).
 ## API
 
 - `ReferenceRenderer` (trait): `witness()` (name and version written to the report),
-  `render(pptx, fonts, slides: Option<SlideSpan>) -> ReferencePdf`. `Office2Pdf` is the only
-  witness shipped; `WITNESS` its name, pinned with the `=0.8.1` requirement (a test checks it).
-  It strips `ppt/fonts/` from the `.pptx` (office2pdf would write them to the temp dir).
-- `ReferencePdf`: `page_count`, `raster(i, width) -> Raster` through
-  `hayro`, on white, sides at most `MAX_RASTER_SIDE`.
+  `render(pptx, fonts, slides: Option<SlideSpan>) -> ReferencePdf`. `Office2Pdf`: `WITNESS`
+  its name, pinned with `=0.8.1` (a test checks it); it strips `ppt/fonts/` from the `.pptx`.
+- `Soffice` (t-885): LibreOffice, `soffice --headless --convert-to pdf` without a shell, in a
+  temp dir per render (isolated profile `-env:UserInstallation`, fonts in its `user/fonts`),
+  `ExportHiddenSlides` and `PageRange`; `--version` read once (`LibreOffice 26.8.1.1`). One
+  deadline per render; past it, its process group is killed (`process.rs`, `group.rs`).
+  `find_soffice`: the first existing candidate, a bare name looked up in `PATH`.
+- `ReferencePdf`: `page_count`, `raster(i, width) -> Raster` (hayro, on white, ≤ `MAX_RASTER_SIDE`).
 - `Raster`: opaque 8-bit RGBA; `crop`, `from_png`, `to_png` (the worker pipe carries PNGs).
-- `ReferenceError` opaque, `kind() -> ReferenceErrorKind` (`Render`, `Pdf`, `NoPage`, `Size`,
-  `Png`): never fatal for the import, whose report says the reference is missing.
+  Feature `test-support`: a blank PDF and a fake `soffice` script for other crates' tests.
+- `ReferenceError` opaque, `kind() -> ReferenceErrorKind` (`Render`, `Timeout`, `Pdf`,
+  `NoPage`, `Size`, `Png`): never fatal for the import, whose report says the reference is missing.
 
 ## Isolation
 
 The witness reads an untrusted file without bounds of its own: it runs in the render worker
 (`oku-slides-render-worker`, `Reference` and `ReferencePng` requests), bounded in time and memory;
-the CLI gives it a worker of its own and asks 20 slides at a time.
+the CLI gives it a worker of its own and asks 20 slides at a time. LibreOffice runs as a
+child of that worker, outside its memory bound: only its own timeout bounds it, shorter than
+the worker's so it is killed first.
 
-## Known limits (`office2pdf` witness)
+## Known limits (`office2pdf`; LibreOffice shrinks `normAutofit` text, t-692 spike)
 
 - It shrinks `normAutofit` text without `fontScale` (PowerPoint keeps 100 %: the alto p. 2 title,
   every footer), draws letter-spaced titles 2–5 px wider than Oku and LibreOffice, charts roughly
@@ -32,13 +38,13 @@ the CLI gives it a worker of its own and asks 20 slides at a time.
 - The fonts given come first; the system fonts stay its fallback (outside WASM).
 - An import behavior copied from office2pdf (Apache-2.0, credited in the file) is no longer
   measured by it: check it against another witness or against the OOXML.
-- It also pulls the crate's DOCX and XLSX readers (`docx-rs`, `umya-spreadsheet`), never called,
-  into the render worker and so the desktop app (~48 crates; lot 5 needs the witness there).
+- It pulls its DOCX and XLSX readers (~48 crates, never called) into the worker and the app.
 
 ## Extension points
 
-- New witness (LibreOffice, PowerPoint): an implementation of `ReferenceRenderer`.
+- New witness (PowerPoint): a `ReferenceRenderer` and a worker `ReferenceWitness` variant.
 
 ## Dependencies
 
-`office2pdf` (without `embedded-fonts`), `hayro`, `png`, `snafu`.
+`office2pdf` (without `embedded-fonts`), `hayro`, `png`, `snafu`, `oku-slides-platform`
+(`Storage`), `tempfile`, `libc` (unix: `killpg`).

@@ -82,4 +82,4 @@ cli-arg-pack = 対象のテンプレートパック：ID、パックのフォル
 cli-arg-import-theme = 対象のテーマ：組み込みまたはライブラリのテーマを ID か名前で指定。既定：既定のテーマ
 cli-arg-report = インポートレポート（JSON）も書き出します：損失、代替、カバレッジ
 cli-arg-no-system-fonts = hifi モードで、プレゼンテーションのフォントをシステムフォントから探しません
-cli-arg-reference = hifi モードで、各スライドをプレゼンテーションの参照レンダリングと比較する（auto、既定）かしない（none）
+cli-arg-reference = hifi モードで、各スライドをプレゼンテーションの参照レンダリングと比較する：auto（既定、office2pdf）、office2pdf、soffice（LibreOffice）、またはしない（none）

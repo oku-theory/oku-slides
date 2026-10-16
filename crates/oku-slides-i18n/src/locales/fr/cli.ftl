@@ -96,4 +96,4 @@ cli-arg-pack = Pack cible : id, dossier de pack (pack.json, widgets/) ou nom
 cli-arg-import-theme = Thème cible : un thème intégré ou de la bibliothèque, par son id ou son nom ; défaut : le thème par défaut
 cli-arg-report = Écrit aussi le rapport d'import (JSON) : pertes, replis, couverture
 cli-arg-no-system-fonts = En mode hifi, ne cherche pas les polices de la présentation parmi celles du système
-cli-arg-reference = En mode hifi, comparer chaque slide à un rendu de référence de la présentation (auto, le défaut) ou non (none)
+cli-arg-reference = En mode hifi, comparer chaque slide à un rendu de référence de la présentation : auto (le défaut, office2pdf), office2pdf, soffice (LibreOffice) ou non (none)

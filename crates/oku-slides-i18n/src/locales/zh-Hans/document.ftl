@@ -90,6 +90,7 @@ import-reference-unavailable = 无视觉评分：{ $cause ->
     [timeout] 参考渲染耗时过长
     [memory] 参考渲染占用内存过多
     [pages] 参考渲染有{ $reference }页，而演示文稿有{ $deck }页
+    [missing] 未找到 LibreOffice (soffice)；请在 import.soffice 中设置其路径
    *[failed] 参考渲染器无法读取该演示文稿
 }
 import-font-substituted = { $family } 已替换为度量兼容的 { $by }

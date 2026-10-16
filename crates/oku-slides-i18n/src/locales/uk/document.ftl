@@ -100,6 +100,7 @@ import-reference-unavailable = Немає візуальної оцінки: { $
         [many] { $reference } сторінок
        *[other] { $reference } сторінки
     } при { $deck } у презентації
+    [missing] LibreOffice (soffice) не знайдено; вкажіть шлях до нього в import.soffice
    *[failed] еталонний рендерер не зміг прочитати презентацію
 }
 import-font-substituted = { $family } замінено на { $by } із сумісними метриками

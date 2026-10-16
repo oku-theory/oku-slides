@@ -90,6 +90,7 @@ import-reference-unavailable = ไม่มีคะแนนภาพ: { $cause
     [timeout] การเรนเดอร์อ้างอิงใช้เวลานานเกินไป
     [memory] การเรนเดอร์อ้างอิงใช้หน่วยความจำมากเกินไป
     [pages] การเรนเดอร์อ้างอิงมี { $reference } หน้า แต่เด็คมี { $deck } หน้า
+    [missing] ไม่พบ LibreOffice (soffice) โปรดระบุพาธใน import.soffice
    *[failed] ตัวเรนเดอร์อ้างอิงอ่านงานนำเสนอไม่ได้
 }
 import-font-substituted = แทนที่ { $family } ด้วย { $by } ที่มีเมตริกเข้ากันได้

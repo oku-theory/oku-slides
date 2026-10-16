@@ -1,7 +1,11 @@
 //! L'écart visuel d'un import hi-fi (`--reference auto`, le défaut en hi-fi).
 //!
-//! Le témoin rend la présentation dans un processus de rendu à lui
-//! ([`RenderWorker::reference`], borné par `[import] reference_timeout_ms`),
+//! Le témoin (`office2pdf` pour `auto` et `office2pdf` ; LibreOffice pour
+//! `soffice`, cherché parmi `[import] soffice` par [`soffice`] ; introuvable,
+//! la référence manque, cause `missing`) rend la présentation dans un processus
+//! de rendu à lui ([`RenderWorker::reference`], borné par `[import]
+//! reference_timeout_ms` ; LibreOffice par `soffice_timeout_ms`, le processus
+//! de rendu attendant [`SOFFICE_GRACE_MS`] de plus),
 //! par tranches de [`SPAN`] slides : sa mémoire ne croît pas avec le deck.
 //! Chaque slide Oku, rognée à la page source ([`hifi::source_rect`]), est
 //! comparée à sa page de référence à [`REFERENCE_WIDTH`] pixels de large
@@ -16,9 +20,11 @@ use oku_slides_import::metrics::{self, Image};
 use oku_slides_import::report::{ReferenceCause, ReferenceReport};
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{ImportReport, hifi};
-use oku_slides_reference::{Raster, SlideSpan, WITNESS};
+use oku_slides_platform::Platform;
+use oku_slides_platform::config::RenderSettings;
+use oku_slides_reference::{Raster, SOFFICE_WITNESS, SlideSpan, find_soffice};
 use oku_slides_render::{Fonts, RenderError, RenderErrorKind};
-use oku_slides_render_worker::RenderWorker;
+use oku_slides_render_worker::{ReferenceWitness, RenderWorker};
 
 use crate::pack_render::Rendered;
 
@@ -28,6 +34,28 @@ pub(crate) const REFERENCE_WIDTH: f64 = 960.0;
 /// Slides rendues par le témoin en une requête, au plus.
 pub(crate) const SPAN: usize = 20;
 
+/// Délai du processus de rendu au-delà de celui de LibreOffice (écrire ses
+/// fichiers, lire son PDF) : LibreOffice est tué par son propre délai d'abord,
+/// jamais orphelin d'un processus de rendu tué.
+pub(crate) const SOFFICE_GRACE_MS: u64 = 10_000;
+
+/// Le témoin LibreOffice, le premier programme de `[import] soffice` qui existe.
+pub(crate) fn soffice(platform: &Platform) -> Option<ReferenceWitness> {
+    let import = &platform.settings.import;
+    let path = std::env::var_os("PATH");
+    let program = find_soffice(&platform.storage, &import.soffice, path.as_deref())?;
+    Some(ReferenceWitness::Soffice { program, timeout_ms: import.soffice_timeout_ms })
+}
+
+/// Les bornes du processus de rendu de `witness`.
+pub(crate) fn worker_settings(platform: &Platform, witness: &ReferenceWitness) -> RenderSettings {
+    let timeout_ms = match witness {
+        ReferenceWitness::Office2Pdf => platform.settings.import.reference_timeout_ms,
+        ReferenceWitness::Soffice { timeout_ms, .. } => timeout_ms.saturating_add(SOFFICE_GRACE_MS),
+    };
+    RenderSettings { timeout_ms, ..platform.settings.render.clone() }
+}
+
 /// Ce qu'il faut pour mesurer l'écart d'un import hi-fi.
 pub(crate) struct Scoring<'a> {
     /// Les octets du `.pptx`.
@@ -36,6 +64,8 @@ pub(crate) struct Scoring<'a> {
     pub(crate) source: &'a SourceDeck,
     /// Les polices du rendu Oku (celles de l'app et celles du deck), données au témoin.
     pub(crate) fonts: &'a Fonts,
+    /// Le témoin.
+    pub(crate) witness: &'a ReferenceWitness,
     /// Le processus de rendu du témoin, distinct de celui du rendu Oku.
     pub(crate) worker: &'a RenderWorker,
     /// Le seuil du rapport (`[import] score_threshold`).
@@ -49,17 +79,25 @@ type Failure = (ReferenceCause, String);
 
 /// Pose dans `report` la référence et l'écart de chaque slide de `doc`.
 pub(crate) fn score(s: &Scoring<'_>, doc: &Rendered, report: &mut ImportReport) {
-    let (witness, unavailable) = match scores(s, doc, report) {
-        Ok(witness) => (witness, None),
-        Err((cause, detail)) => {
-            tracing::warn!(error = %detail, "{}", cause.localize(s.l));
-            for slide in &mut report.slides {
-                slide.score = None;
-            }
-            (WITNESS.to_owned(), Some(cause))
-        }
-    };
-    report.reference = Some(ReferenceReport { witness, threshold: s.threshold, unavailable });
+    match scores(s, doc, report) {
+        Ok(witness) => report.reference = Some(ReferenceReport { witness, threshold: s.threshold, unavailable: None }),
+        Err((cause, detail)) => unavailable(report, s.witness.name(), s.threshold, (cause, detail), s.l),
+    }
+}
+
+/// Pose dans `report` que LibreOffice est introuvable : aucune slide n'a de score.
+pub(crate) fn missing(report: &mut ImportReport, threshold: f64, l: &Localizer) {
+    let detail = "--reference soffice : aucun programme de [import] soffice".to_owned();
+    unavailable(report, SOFFICE_WITNESS, threshold, (ReferenceCause::Missing, detail), l);
+}
+
+/// Pose dans `report` pourquoi la référence de `witness` manque, et le journalise.
+fn unavailable(report: &mut ImportReport, witness: &str, threshold: f64, (cause, detail): Failure, l: &Localizer) {
+    tracing::warn!(error = %detail, "{}", cause.localize(l));
+    for slide in &mut report.slides {
+        slide.score = None;
+    }
+    report.reference = Some(ReferenceReport { witness: witness.to_owned(), threshold, unavailable: Some(cause) });
 }
 
 /// Les tranches de numéros source à rendre : [`SPAN`] slides du rapport au
@@ -78,9 +116,9 @@ fn scores(s: &Scoring<'_>, doc: &Rendered, report: &mut ImportReport) -> Result<
     let width = px(rect.w);
     let scale = f64::from(width) / s.source.size.w;
     let numbers: Vec<u32> = report.slides.iter().map(|r| r.source).collect();
-    let mut witness = WITNESS.to_owned();
+    let mut witness = s.witness.name().to_owned();
     for span in spans(&numbers, SPAN) {
-        let reference = s.worker.reference(s.pptx, s.fonts, Some(span)).map_err(|e| render(&e, "témoin"))?;
+        let reference = s.worker.reference(s.witness, s.pptx, s.fonts, Some(span)).map_err(|e| render(&e, "témoin"))?;
         let expected = (span.last - span.first + 1) as usize;
         if reference.page_count() != expected {
             let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);

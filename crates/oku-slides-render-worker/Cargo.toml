@@ -33,6 +33,7 @@ tracing.workspace = true
 libc.workspace = true
 
 [dev-dependencies]
+oku-slides-reference = { workspace = true, features = ["test-support"] }
 speculoos.workspace = true
 rstest.workspace = true
 tempfile.workspace = true

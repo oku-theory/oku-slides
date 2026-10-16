@@ -104,6 +104,7 @@ import-reference-unavailable = لا توجد درجة مرئية: { $cause ->
         [many] { $reference } صفحة
        *[other] { $reference } صفحة
     } مقابل { $deck } في العرض التقديمي
+    [missing] لم يُعثر على LibreOffice (soffice)؛ حدّد مساره في import.soffice
    *[failed] تعذّر على أداة العرض المرجعي قراءة العرض التقديمي
 }
 import-font-substituted = استُبدل { $family } بـ { $by } ذي المقاييس المتوافقة

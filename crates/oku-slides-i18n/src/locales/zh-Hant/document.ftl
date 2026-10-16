@@ -90,6 +90,7 @@ import-reference-unavailable = 無視覺評分：{ $cause ->
     [timeout] 參考轉譯耗時過長
     [memory] 參考轉譯佔用記憶體過多
     [pages] 參考轉譯有{ $reference }頁，而簡報有{ $deck }頁
+    [missing] 找不到 LibreOffice (soffice)；請在 import.soffice 中設定其路徑
    *[failed] 參考轉譯器無法讀取該簡報
 }
 import-font-substituted = { $family } 已替換為度量相容的 { $by }

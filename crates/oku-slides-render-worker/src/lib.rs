@@ -12,7 +12,8 @@
 //! - [`RenderSlot`] : un emplacement, même surface que `Renderer`.
 //! - [`RemoteCompiled`] : une génération rendue ; SVG, PNG et PDF à la demande.
 //! - [`RemoteReference`] : le rendu de référence d'une présentation importée,
-//!   fait par le témoin dans le travailleur ; PNG de ses pages à la demande.
+//!   fait par le témoin ([`ReferenceWitness`]) dans le travailleur ; PNG de
+//!   ses pages à la demande.
 //! - [`serve`] : la boucle du travailleur ([`ServeError`] si le tube est illisible).
 //! - [`exit_if_worker`] : à appeler en tête de `main`.
 
@@ -38,6 +39,6 @@ mod watchdog;
 pub use client::RenderWorker;
 pub use compiled::RemoteCompiled;
 pub use pack_probe::PackProbe;
-pub use reference::RemoteReference;
+pub use reference::{ReferenceWitness, RemoteReference};
 pub use serve::{ServeError, exit_if_worker, serve};
 pub use slot::RenderSlot;

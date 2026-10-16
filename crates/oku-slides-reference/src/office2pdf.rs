@@ -29,7 +29,7 @@ const FONTS_DIR: &str = "ppt/fonts/";
 pub struct Office2Pdf;
 
 impl ReferenceRenderer for Office2Pdf {
-    fn witness(&self) -> &'static str {
+    fn witness(&self) -> &str {
         WITNESS
     }
 
@@ -71,4 +71,4 @@ fn without_fonts(pptx: &[u8]) -> Result<Vec<u8>, zip::result::ZipError> {
 
 #[cfg(test)]
 #[path = "office2pdf_tests.rs"]
-mod office2pdf_tests;
+pub(crate) mod office2pdf_tests;

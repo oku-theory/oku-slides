@@ -96,4 +96,4 @@ cli-arg-pack = Pacchetto di destinazione: id, cartella del pacchetto (pack.json,
 cli-arg-import-theme = Tema di destinazione: uno incluso o della libreria, per id o nome; predefinito: il tema predefinito
 cli-arg-report = Scrivi anche il rapporto di importazione (JSON): perdite, sostituzioni, copertura
 cli-arg-no-system-fonts = In modalità hifi, non cercare i caratteri della presentazione tra quelli di sistema
-cli-arg-reference = In modalità hifi, confrontare ogni slide con un rendering di riferimento della presentazione (auto, predefinito) o no (none)
+cli-arg-reference = In modalità hifi, confrontare ogni slide con un rendering di riferimento della presentazione: auto (predefinito, office2pdf), office2pdf, soffice (LibreOffice) o no (none)

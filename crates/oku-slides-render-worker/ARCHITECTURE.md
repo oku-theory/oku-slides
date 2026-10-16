@@ -15,9 +15,9 @@ too much memory is killed without taking the app down.
 - `RemoteCompiled` (`compiled.rs`): a generation; `layout`, `page_hash` local, `svg`/`png`/`pdf`
   by request; its `Drop` queues `Release`. The queue is sent before the next request: a
   `Drop` never takes the link lock.
-- `RemoteReference` (`reference.rs`): `RenderWorker::reference(pptx, fonts, slides)` has the
-  witness (`oku_slides_reference::Office2Pdf`) render the presentation, or a span of its slides, in
-  the worker, under its bounds; `witness`, `page_count` local, `png(page, width)` by request; `Drop` queues
+- `RemoteReference` (`reference.rs`): `RenderWorker::reference(witness, pptx, fonts, slides)`
+  has the `ReferenceWitness` (`Office2Pdf`, or `Soffice`: LibreOffice run by the worker under its
+  own timeout, `Error Timeout` past it) render the presentation, or a span of its slides; `witness`, `page_count` local, `png(page, width)` by request; `Drop` queues
   `ReleaseReference`. No pack is blamed; a reference from another epoch answers `Stale`.
 - `Link` (`link.rs`, internal): transport (child process or thread), timeout, memory sampled
   every 100 ms (`rss.rs`: `phys_footprint` on macOS, `footprint.rs`, resident memory elsewhere),

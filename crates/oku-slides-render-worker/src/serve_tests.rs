@@ -237,7 +237,13 @@ fn libreoffice_pptx() -> Vec<u8> {
 #[test]
 fn serve_reference_then_png_returns_a_png() {
     let mut h = Harness::new();
-    let reference = match h.call(&Request::Reference { fonts: vec![], slides: None }, &libreoffice_pptx()).0 {
+    let reference = match h
+        .call(
+            &Request::Reference { witness: crate::ReferenceWitness::Office2Pdf, fonts: vec![], slides: None },
+            &libreoffice_pptx(),
+        )
+        .0
+    {
         Response::Reference { reference, pages, .. } => {
             assert_that!(pages).is_equal_to(3);
             reference
@@ -252,8 +258,12 @@ fn serve_reference_then_png_returns_a_png() {
 #[test]
 fn serve_png_of_released_reference_returns_stale() {
     let mut h = Harness::new();
-    let Response::Reference { reference, .. } =
-        h.call(&Request::Reference { fonts: vec![], slides: None }, &libreoffice_pptx()).0
+    let Response::Reference { reference, .. } = h
+        .call(
+            &Request::Reference { witness: crate::ReferenceWitness::Office2Pdf, fonts: vec![], slides: None },
+            &libreoffice_pptx(),
+        )
+        .0
     else {
         panic!("pas de référence")
     };
@@ -265,7 +275,14 @@ fn serve_png_of_released_reference_returns_stale() {
 #[test]
 fn serve_reference_with_unknown_font_returns_setup() {
     let mut h = Harness::new();
-    let (resp, _) = h.call(&Request::Reference { fonts: vec!["inconnue".into()], slides: None }, &libreoffice_pptx());
+    let (resp, _) = h.call(
+        &Request::Reference {
+            witness: crate::ReferenceWitness::Office2Pdf,
+            fonts: vec!["inconnue".into()],
+            slides: None,
+        },
+        &libreoffice_pptx(),
+    );
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
 }
 

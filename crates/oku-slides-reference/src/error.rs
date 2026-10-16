@@ -8,6 +8,8 @@ use snafu::{Backtrace, Snafu};
 pub enum ReferenceErrorKind {
     /// Le témoin n'a pas pu rendre la présentation.
     Render,
+    /// Le témoin, un programme externe, a dépassé son délai ; il a été tué.
+    Timeout,
     /// Le PDF rendu est illisible, ou n'a aucune page.
     Pdf,
     /// La page demandée n'existe pas.
@@ -30,6 +32,7 @@ impl ReferenceError {
     pub fn kind(&self) -> ReferenceErrorKind {
         match self.inner {
             Inner::Render { .. } => ReferenceErrorKind::Render,
+            Inner::Timeout { .. } => ReferenceErrorKind::Timeout,
             Inner::Pdf { .. } => ReferenceErrorKind::Pdf,
             Inner::NoPage { .. } => ReferenceErrorKind::NoPage,
             Inner::Size { .. } => ReferenceErrorKind::Size,
@@ -49,6 +52,8 @@ impl From<Inner> for ReferenceError {
 pub(crate) enum Inner {
     #[snafu(display("the witness could not render the presentation: {message}"))]
     Render { message: String, backtrace: Backtrace },
+    #[snafu(display("the witness took more than {ms} ms and was killed"))]
+    Timeout { ms: u64, backtrace: Backtrace },
     #[snafu(display("unreadable reference pdf: {message}"))]
     Pdf { message: String, backtrace: Backtrace },
     #[snafu(display("no page {index} in the reference pdf"))]

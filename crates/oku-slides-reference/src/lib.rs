@@ -3,8 +3,9 @@
 //! comparées au rendu Oku (écart visuel du hi-fi, `oku_slides_import::metrics`).
 //!
 //! - [`ReferenceRenderer`] : un témoin (`.pptx` + polices → PDF, une tranche
-//!   de slides [`SlideSpan`] ou toutes) ; [`Office2Pdf`] est le seul livré
-//!   (crate `office2pdf`, Rust pur, sur Typst ; [`WITNESS`], son nom).
+//!   de slides [`SlideSpan`] ou toutes) : [`Office2Pdf`] (crate `office2pdf`,
+//!   Rust pur, sur Typst ; [`WITNESS`], son nom) ou [`Soffice`] (LibreOffice,
+//!   programme externe borné par son délai ; [`find_soffice`] le trouve).
 //! - [`ReferencePdf`] : le PDF rendu, ses pages, rastérisées par `hayro`
 //!   ([`ReferencePdf::raster`]) à une largeur donnée.
 //! - [`Raster`] : une image RGBA 8 bits opaque ; [`Raster::from_png`],
@@ -18,14 +19,21 @@
 //! (`oku-slides-render-worker`), qui le borne.
 
 mod error;
+#[cfg(unix)]
+mod group;
 mod office2pdf;
 mod pdf;
+mod process;
 mod raster;
+mod soffice;
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
 
 pub use error::{ReferenceError, ReferenceErrorKind};
 pub use office2pdf::{Office2Pdf, WITNESS};
 pub use pdf::{MAX_RASTER_SIDE, ReferencePdf};
 pub use raster::Raster;
+pub use soffice::{SOFFICE_WITNESS, Soffice, find_soffice};
 
 /// Un témoin : rend une présentation en PDF, une page par slide.
 ///
@@ -35,7 +43,7 @@ pub use raster::Raster;
 /// mise en page, pas la substitution des polices.
 pub trait ReferenceRenderer: std::fmt::Debug + Send + Sync {
     /// Nom et version du témoin, tel que le rapport l'écrit (`office2pdf 0.8.1`).
-    fn witness(&self) -> &'static str;
+    fn witness(&self) -> &str;
 
     /// Le PDF de `pptx` rendu avec `fonts`, ses slides `slides` ou toutes.
     ///

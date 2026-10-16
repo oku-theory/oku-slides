@@ -90,6 +90,7 @@ import-reference-unavailable = Không có điểm hình ảnh: { $cause ->
     [timeout] bản kết xuất tham chiếu mất quá nhiều thời gian
     [memory] bản kết xuất tham chiếu dùng quá nhiều bộ nhớ
     [pages] bản kết xuất tham chiếu có { $reference } trang so với { $deck } trong bản trình bày
+    [missing] không tìm thấy LibreOffice (soffice); hãy đặt đường dẫn trong import.soffice
    *[failed] trình kết xuất tham chiếu không đọc được bản trình bày
 }
 import-font-substituted = Đã thay { $family } bằng { $by }, có số đo tương thích

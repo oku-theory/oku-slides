@@ -314,6 +314,16 @@ fn settings_default_reference_timeout_matches_config_defaults() {
 }
 
 #[test]
+fn settings_default_soffice_tries_the_path_then_the_macos_app() {
+    let import = Settings::defaults().unwrap().import;
+    assert_that!(import.soffice).is_equal_to(vec![
+        PathBuf::from("soffice"),
+        PathBuf::from("/Applications/LibreOffice.app/Contents/MacOS/soffice"),
+    ]);
+    assert_that!(import.soffice_timeout_ms).is_equal_to(60_000);
+}
+
+#[test]
 fn import_threshold_env_override_changes_the_setting() {
     let s = Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__SCORE_THRESHOLD", "4.5")])).unwrap();
     assert_that!(s.import.score_threshold).is_equal_to(4.5);

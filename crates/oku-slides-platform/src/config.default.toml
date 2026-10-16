@@ -65,6 +65,13 @@ score_threshold = 10.0
 # Durée maximale d'une tranche de 20 slides du rendu de référence (ms), dans son
 # propre processus de rendu ; au-delà, la référence manque au rapport (« timeout »).
 reference_timeout_ms = 30000
+# Témoin LibreOffice (`oku-slides import --reference soffice`) : les programmes
+# `soffice` essayés dans l'ordre, un nom seul cherché dans PATH. Aucun trouvé :
+# l'import continue sans écart visuel (« missing »).
+soffice = ["soffice", "/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+# Durée maximale de LibreOffice pour une tranche de 20 slides (ms), profil neuf
+# compris ; passé elle, il est tué avec ses processus enfants.
+soffice_timeout_ms = 60000
 
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.

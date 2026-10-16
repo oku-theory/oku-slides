@@ -5901,10 +5901,14 @@ name = "oku-slides-reference"
 version = "2.1.0"
 dependencies = [
  "hayro",
+ "libc",
  "office2pdf",
+ "oku-slides-platform",
  "png 0.18.1",
+ "rstest",
  "snafu",
  "speculoos",
+ "tempfile",
  "zip 8.6.0",
 ]
 

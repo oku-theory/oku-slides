@@ -7,7 +7,7 @@ use serde::Serialize;
 /// Le rendu de référence d'un import hi-fi.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ReferenceReport {
-    /// Nom et version du témoin (`office2pdf 0.8.1`).
+    /// Nom et version du témoin (`office2pdf 0.8.1`, `LibreOffice 26.8.1.1`).
     pub witness: String,
     /// Écart (ΔE OKLab ×100) de sa pire région au-delà duquel une slide est signalée.
     pub threshold: f64,
@@ -26,6 +26,8 @@ pub enum ReferenceCause {
     Timeout,
     /// Le témoin a dépassé la mémoire du processus de rendu.
     Memory,
+    /// Le témoin, un programme externe (LibreOffice), est introuvable.
+    Missing,
     /// Le témoin et le deck n'ont pas le même nombre de pages.
     Pages {
         /// Pages du témoin.
@@ -41,6 +43,7 @@ impl Localize for ReferenceCause {
             Self::Failed => ("failed", 0, 0),
             Self::Timeout => ("timeout", 0, 0),
             Self::Memory => ("memory", 0, 0),
+            Self::Missing => ("missing", 0, 0),
             Self::Pages { reference, deck } => ("pages", *reference, *deck),
         };
         l.tr_with(

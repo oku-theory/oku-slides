@@ -3,7 +3,8 @@
 //! sous un seuil par fixture, et des régions qui désignent les écarts connus
 //! d'alto (t-863 : la coupure de la ligne de l'encadré p. 7, le retrait des
 //! puces p. 8). Polices de l'app (`--fonts assets/fonts`) : celles que le
-//! témoin reçoit aussi. Aucun test ne lance LibreOffice.
+//! témoin reçoit aussi. Aucun test ne lance LibreOffice : `--reference
+//! soffice` tourne avec un faux `soffice` (un script qui copie un PDF blanc).
 
 mod common;
 
@@ -155,4 +156,39 @@ fn import_hifi_with_a_negative_threshold_is_refused_in_french() {
     assert_that!(out.status.success()).is_false();
     assert_that!(String::from_utf8_lossy(&out.stderr).into_owned())
         .contains("doit être un nombre supérieur ou égal à zéro");
+}
+
+/// Écrit `config.toml` dans le dossier de données de `dir` : `[import] soffice = [program]`.
+fn soffice_config(dir: &Path, program: &Path) {
+    let data = dir.join("data");
+    std::fs::create_dir_all(&data).unwrap_or_else(|e| panic!("{e}"));
+    let toml = format!("[import]\nsoffice = [{:?}]\n", program.display().to_string());
+    std::fs::write(data.join("config.toml"), toml).unwrap_or_else(|e| panic!("{e}"));
+}
+
+#[cfg(unix)]
+#[test]
+fn import_hifi_with_reference_soffice_scores_against_libreoffice() {
+    use oku_slides_reference::test_support::{blank_pdf, converting, fake_soffice};
+    let dir = workdir("import-reference-soffice");
+    let pdf = dir.as_ref().join("blanc.pdf");
+    std::fs::write(&pdf, blank_pdf(3, 960, 540)).unwrap_or_else(|e| panic!("{e}"));
+    soffice_config(dir.as_ref(), &fake_soffice(dir.as_ref(), &converting(&pdf, None)));
+    let (out, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
+    assert_that!(report["reference"]["witness"].as_str()).is_equal_to(Some("LibreOffice 99.1.0.1"));
+    assert_that!(max_score(&report)).is_greater_than(0.0);
+    let second = String::from_utf8_lossy(&out.stdout).lines().nth(1).unwrap_or_default().to_owned();
+    assert_that!(second).starts_with("Visual gap to LibreOffice 99.1.0.1: ");
+}
+
+#[test]
+fn import_hifi_with_reference_soffice_absent_still_writes_the_deck_and_says_why() {
+    let dir = workdir("import-reference-soffice-absent");
+    soffice_config(dir.as_ref(), Path::new("/nonexistent/soffice"));
+    let (out, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
+    assert_that!(report["reference"]["unavailable"]["type"].as_str()).is_equal_to(Some("missing"));
+    assert_that!(report["reference"]["witness"].as_str()).is_equal_to(Some("LibreOffice"));
+    assert_that!(dir.as_ref().join("out.oku-slides.pdf").exists()).is_true();
+    let second = String::from_utf8_lossy(&out.stdout).lines().nth(1).unwrap_or_default().to_owned();
+    assert_that!(second).contains("LibreOffice (soffice) was not found");
 }

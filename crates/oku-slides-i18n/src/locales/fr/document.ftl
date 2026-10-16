@@ -98,6 +98,7 @@ import-reference-unavailable = Pas d'écart visuel : { $cause ->
         [one] { $reference } page
        *[other] { $reference } pages
     } pour { $deck } dans le deck
+    [missing] LibreOffice (soffice) est introuvable ; indiquez son chemin dans import.soffice
    *[failed] le témoin n'a pas pu lire la présentation
 }
 import-font-substituted = { $family } remplacée par { $by }, aux métriques compatibles

@@ -98,6 +98,7 @@ import-reference-unavailable = No visual score: { $cause ->
         [one] { $reference } page
        *[other] { $reference } pages
     } for { $deck } in the deck
+    [missing] LibreOffice (soffice) was not found; set its path in import.soffice
    *[failed] the reference renderer could not read the presentation
 }
 import-font-substituted = { $family } replaced by { $by }, with matching metrics

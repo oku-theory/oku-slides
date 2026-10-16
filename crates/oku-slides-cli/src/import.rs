@@ -17,7 +17,8 @@
 //! en `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé. Le
 //! rendu relève les champs qui sortent de leur page (perte `Overflow`,
 //! [`crate::import_overflow`]) ; en hi-fi, sauf `--reference none`, il est
-//! comparé au rendu de référence du témoin ([`crate::import_reference`]) :
+//! comparé au rendu de référence du témoin ([`crate::import_reference`] ;
+//! `--reference office2pdf` ou `auto`, le défaut, `soffice` pour LibreOffice) :
 //! un écart par slide au rapport, une ligne de plus en sortie.
 
 use std::collections::BTreeMap;
@@ -34,10 +35,9 @@ use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{CheckedPlan, ImportReport, ReadLimits, RetrofitTarget, read_pptx};
 use oku_slides_platform::Platform;
-use oku_slides_platform::config::RenderSettings;
 use oku_slides_platform::storage::StorageErrorKind;
 use oku_slides_render::Fonts;
-use oku_slides_render_worker::RenderWorker;
+use oku_slides_render_worker::{ReferenceWitness, RenderWorker};
 use oku_slides_session::theme_schema::default_tokens;
 use oku_slides_session::{ThemeLibrary, adopt_default_theme, theme_tokens};
 
@@ -59,8 +59,12 @@ pub(crate) enum ImportMode {
 /// Rendu de référence d'un import hi-fi.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum ReferenceMode {
-    /// Le témoin rend la présentation ; l'écart de chaque slide va au rapport.
+    /// Le témoin par défaut (`office2pdf`) ; l'écart de chaque slide va au rapport.
     Auto,
+    /// Le témoin `office2pdf`.
+    Office2pdf,
+    /// Le témoin LibreOffice (`soffice`), cherché parmi `[import] soffice`.
+    Soffice,
     /// Pas de rendu de référence.
     None,
 }
@@ -253,17 +257,27 @@ fn finish(
         pack_render::render(platform, l, fonts.clone(), &widgets, &bundle, bundle.deck()).wrap_err_with(failed)?;
     let written = crate::write_rendered(platform, &doc, &bundle, &args.output).wrap_err_with(failed)?;
     note_overflows(doc.layout(), plan.report_mut());
-    if args.mode == ImportMode::Hifi && args.reference != Some(ReferenceMode::None) {
-        // Un processus de rendu à lui : le témoin n'ajoute pas sa mémoire à celle du rendu Oku.
-        let settings = RenderSettings {
-            timeout_ms: platform.settings.import.reference_timeout_ms,
-            ..platform.settings.render.clone()
-        };
-        let worker = RenderWorker::new(platform.render_launch.clone(), settings);
+    if args.mode == ImportMode::Hifi {
         let threshold = platform.settings.import.score_threshold;
-        let scoring =
-            Scoring { pptx: &input.bytes, source: &input.source, fonts: &fonts, worker: &worker, threshold, l };
-        import_reference::score(&scoring, &doc, plan.report_mut());
+        let witness = match args.reference.unwrap_or(ReferenceMode::Auto) {
+            ReferenceMode::None => None,
+            ReferenceMode::Auto | ReferenceMode::Office2pdf => Some(ReferenceWitness::Office2Pdf),
+            ReferenceMode::Soffice => {
+                let found = import_reference::soffice(platform);
+                if found.is_none() {
+                    import_reference::missing(plan.report_mut(), threshold, l);
+                }
+                found
+            }
+        };
+        if let Some(witness) = witness {
+            // Un processus de rendu à lui : le témoin n'ajoute pas sa mémoire à celle du rendu Oku.
+            let settings = import_reference::worker_settings(platform, &witness);
+            let worker = RenderWorker::new(platform.render_launch.clone(), settings);
+            let (pptx, source) = (&input.bytes, &input.source);
+            let scoring = Scoring { pptx, source, fonts: &fonts, witness: &witness, worker: &worker, threshold, l };
+            import_reference::score(&scoring, &doc, plan.report_mut());
+        }
     }
     if let Some(path) = &args.report {
         platform.storage.write(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;

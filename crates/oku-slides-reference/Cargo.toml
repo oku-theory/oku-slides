@@ -1,6 +1,6 @@
 [package]
 name = "oku-slides-reference"
-description = "Rendu de référence d'une présentation importée (témoin office2pdf) et rastérisation de ses pages."
+description = "Rendu de référence d'une présentation importée (témoins office2pdf et LibreOffice) et rastérisation de ses pages."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,13 +8,26 @@ authors.workspace = true
 publish.workspace = true
 
 [dependencies]
+oku-slides-platform.workspace = true
 office2pdf.workspace = true
 hayro.workspace = true
 png.workspace = true
 snafu.workspace = true
 zip.workspace = true
+# Le dossier du témoin LibreOffice : profil isolé, présentation et PDF.
+tempfile.workspace = true
+
+# Le témoin LibreOffice est tué avec tout son groupe de processus (killpg).
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[features]
+# Outils de test (PDF blanc, faux `soffice`) pour les crates qui dépendent du
+# témoin (en dev-dependencies seulement, jamais dans l'app).
+test-support = []
 
 [dev-dependencies]
+rstest.workspace = true
 speculoos.workspace = true
 
 [lints]

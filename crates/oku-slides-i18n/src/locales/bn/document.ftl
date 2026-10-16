@@ -93,6 +93,7 @@ import-reference-unavailable = কোনো দৃশ্যমান স্ক�
     [timeout] রেফারেন্স রেন্ডারে খুব বেশি সময় লেগেছে
     [memory] রেফারেন্স রেন্ডার খুব বেশি মেমরি নিয়েছে
     [pages] রেফারেন্স রেন্ডারে উপস্থাপনার { $deck }টির বদলে { $reference }টি পাতা আছে
+    [missing] LibreOffice (soffice) পাওয়া যায়নি; import.soffice-এ এর পাথ দিন
    *[failed] রেফারেন্স রেন্ডারার উপস্থাপনাটি পড়তে পারেনি
 }
 import-font-substituted = { $family } মিলযুক্ত মাপের { $by } দিয়ে বদলানো হয়েছে

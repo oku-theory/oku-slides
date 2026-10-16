@@ -82,4 +82,4 @@ cli-arg-pack = 대상 템플릿 팩: ID, 팩 폴더(pack.json, widgets/) 또는 
 cli-arg-import-theme = 대상 테마: 기본 제공 테마 또는 라이브러리 테마를 ID나 이름으로 지정; 기본값: 기본 테마
 cli-arg-report = 가져오기 보고서(JSON)도 쓰기: 손실, 대체, 포함 범위
 cli-arg-no-system-fonts = hifi 모드에서 프레젠테이션의 글꼴을 시스템 글꼴에서 찾지 않음
-cli-arg-reference = hifi 모드에서 각 슬라이드를 프레젠테이션의 참조 렌더링과 비교(auto, 기본값)하거나 하지 않음(none)
+cli-arg-reference = hifi 모드에서 각 슬라이드를 프레젠테이션의 참조 렌더링과 비교: auto(기본값, office2pdf), office2pdf, soffice(LibreOffice) 또는 비교하지 않음(none)

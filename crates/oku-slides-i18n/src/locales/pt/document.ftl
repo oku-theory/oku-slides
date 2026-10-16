@@ -99,6 +99,7 @@ import-reference-unavailable = Sem pontuação visual: { $cause ->
         [one] { $reference } página
        *[other] { $reference } páginas
     } para { $deck } na apresentação
+    [missing] o LibreOffice (soffice) não foi encontrado; informe o caminho em import.soffice
    *[failed] o renderizador de referência não conseguiu ler a apresentação
 }
 import-font-substituted = { $family } substituída por { $by }, com métricas compatíveis

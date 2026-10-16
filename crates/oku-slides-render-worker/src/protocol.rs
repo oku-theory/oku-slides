@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Version du protocole : à changer à toute modification de [`Request`], de
 /// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
-pub(crate) const PROTOCOL_VERSION: u32 = 1;
+pub(crate) const PROTOCOL_VERSION: u32 = 2;
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
@@ -88,9 +88,10 @@ pub(crate) enum Request {
         slot: SlotId,
         generations: Vec<u64>,
     },
-    /// Rend la présentation de la charge (`.pptx`) par le témoin, avec ces
+    /// Rend la présentation de la charge (`.pptx`) par le témoin `witness`, avec ces
     /// polices ; `slides` : numéros source de la première et de la dernière slide.
     Reference {
+        witness: crate::ReferenceWitness,
         fonts: Vec<String>,
         #[serde(default)]
         slides: Option<(u32, u32)>,

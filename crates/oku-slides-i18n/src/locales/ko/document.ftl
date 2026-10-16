@@ -90,6 +90,7 @@ import-reference-unavailable = 시각 점수 없음: { $cause ->
     [timeout] 참조 렌더링이 너무 오래 걸렸습니다
     [memory] 참조 렌더링이 메모리를 너무 많이 사용했습니다
     [pages] 참조 렌더링은 { $reference }쪽이고 덱은 { $deck }쪽입니다
+    [missing] LibreOffice(soffice)를 찾을 수 없습니다. import.soffice에 경로를 지정하세요
    *[failed] 참조 렌더러가 프레젠테이션을 읽지 못했습니다
 }
 import-font-substituted = { $family }을(를) 메트릭이 호환되는 { $by }(으)로 바꿨습니다

@@ -105,4 +105,4 @@ cli-arg-pack = Pakiet docelowy: identyfikator, folder pakietu (pack.json, widget
 cli-arg-import-theme = Motyw docelowy: wbudowany lub z biblioteki, wskazany identyfikatorem lub nazwą; domyślnie: motyw domyślny
 cli-arg-report = Zapisz też raport importu (JSON): straty, zamienniki, pokrycie
 cli-arg-no-system-fonts = W trybie hifi nie szukaj czcionek prezentacji wśród czcionek systemowych
-cli-arg-reference = W trybie hifi porównać każdy slajd z renderowaniem referencyjnym prezentacji (auto, domyślnie) lub nie (none)
+cli-arg-reference = W trybie hifi porównać każdy slajd z renderowaniem referencyjnym prezentacji: auto (domyślnie, office2pdf), office2pdf, soffice (LibreOffice) lub nie (none)

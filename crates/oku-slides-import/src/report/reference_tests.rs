@@ -8,6 +8,7 @@ use super::*;
 #[case(ReferenceCause::Failed)]
 #[case(ReferenceCause::Timeout)]
 #[case(ReferenceCause::Memory)]
+#[case(ReferenceCause::Missing)]
 #[case(ReferenceCause::Pages { reference: 7, deck: 8 })]
 fn cause_localize_in_every_locale_formats_its_own_message(#[case] cause: ReferenceCause) {
     for tag in oku_slides_i18n::available() {
@@ -24,14 +25,15 @@ fn cause_pages_gives_both_counts_in_order() {
 }
 
 #[test]
-fn causes_give_four_distinct_messages_in_french() {
+fn causes_give_five_distinct_messages_in_french() {
     let fr = Localizer::new(Some("fr"));
     let causes = [
         ReferenceCause::Failed,
         ReferenceCause::Timeout,
         ReferenceCause::Memory,
+        ReferenceCause::Missing,
         ReferenceCause::Pages { reference: 7, deck: 8 },
     ];
     let messages: std::collections::BTreeSet<String> = causes.iter().map(|c| c.localize(&fr)).collect();
-    assert_that!(messages.len()).is_equal_to(4);
+    assert_that!(messages.len()).is_equal_to(5);
 }

@@ -18,11 +18,12 @@
 //!   retirés (l'hôte applique la même règle).
 //! - `Svg`, `Png` et `Pdf` d'une génération absente répondent `Error Stale`.
 //! - `Release` retire les générations nommées ; `CloseSlot` l'emplacement.
-//! - `Reference` rend la charge (un `.pptx`) par le témoin (`Office2Pdf`) avec
-//!   les polices nommées, une tranche de slides ou toutes, sous un nouvel identifiant (même compteur que les
-//!   générations) ; `ReferencePng` en rastérise une page, `ReleaseReference`
-//!   l'oublie. Une référence absente répond `Error Stale` ; un échec du témoin,
-//!   `Error Setup` (`reference: …`).
+//! - `Reference` rend la charge (un `.pptx`) par le témoin nommé (`Office2Pdf`
+//!   ou `Soffice`) avec les polices nommées, une tranche de slides ou toutes,
+//!   sous un nouvel identifiant (même compteur que les générations) ;
+//!   `ReferencePng` en rastérise une page, `ReleaseReference` l'oublie. Une
+//!   référence absente répond `Error Stale` ; LibreOffice hors délai,
+//!   `Error Timeout` ; un autre échec du témoin, `Error Setup` (`reference: …`).
 //! - Une requête qui échoue répond `Error` et la boucle continue ; une trame
 //!   illisible arrête `serve`.
 
@@ -30,15 +31,19 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use oku_slides_core::WidgetFile;
 use oku_slides_i18n::Localizer;
-use oku_slides_reference::{Office2Pdf, ReferenceError, ReferencePdf, ReferenceRenderer, SlideSpan};
+use oku_slides_platform::storage::Storage;
+use oku_slides_reference::{
+    Office2Pdf, ReferenceError, ReferenceErrorKind, ReferencePdf, ReferenceRenderer, SlideSpan, Soffice,
+};
 use oku_slides_render::{Compiled, Fonts, PackWidgets, Registries, RenderError, Renderer, WireError};
 use serde_json::{Map, Value};
 use snafu::Snafu;
 
+use crate::ReferenceWitness;
 use crate::error::FrameError;
 use crate::frame::{FrameLimits, read_frame, write_frame};
 use crate::protocol::{CompiledHeader, PROTOCOL_VERSION, Request, Response, SlotId, WirePack};
@@ -66,6 +71,8 @@ struct Worker {
     localizer: Option<Localizer>,
     next_generation: u64,
     references: BTreeMap<u64, ReferencePdf>,
+    /// Les fichiers du témoin LibreOffice, ouverts à son premier rendu.
+    storage: Option<Storage>,
 }
 
 /// Sert les requêtes de `input` jusqu'à sa fin.
@@ -170,7 +177,7 @@ impl Worker {
                 }
                 ok()
             }
-            Request::Reference { fonts, slides } => self.reference(&fonts, slides, &payload),
+            Request::Reference { witness, fonts, slides } => self.reference(&witness, &fonts, slides, &payload),
             Request::ReferencePng { reference, page, width } => self.reference_png(reference, page, width),
             Request::ReleaseReference { reference } => {
                 self.references.remove(&reference);
@@ -180,20 +187,43 @@ impl Worker {
         result.unwrap_or_else(error_reply)
     }
 
-    fn reference(&mut self, fonts: &[String], slides: Option<(u32, u32)>, pptx: &[u8]) -> Result<Reply, WireError> {
+    fn reference(
+        &mut self,
+        witness: &ReferenceWitness,
+        fonts: &[String],
+        slides: Option<(u32, u32)>,
+        pptx: &[u8],
+    ) -> Result<Reply, WireError> {
         // Une seule copie des polices : le témoin les garde le temps du rendu.
         let files = fonts
             .iter()
             .map(|id| self.fonts.get(id).cloned().ok_or_else(|| setup(format!("unknown font {id}"))))
             .collect::<Result<Vec<_>, _>>()?;
-        let witness = Office2Pdf;
         let span = slides.map(|(first, last)| SlideSpan { first, last });
-        let pdf = witness.render(pptx, files, span).map_err(|e| reference_error(&e))?;
+        let (pdf, name) = match witness {
+            ReferenceWitness::Office2Pdf => {
+                let pdf = Office2Pdf.render(pptx, files, span).map_err(|e| reference_error(&e))?;
+                (pdf, Office2Pdf.witness().to_owned())
+            }
+            ReferenceWitness::Soffice { program, timeout_ms } => {
+                let storage = match &self.storage {
+                    Some(storage) => storage.clone(),
+                    None => Storage::local().map_err(|e| setup(format!("reference: {e}")))?,
+                };
+                self.storage = Some(storage.clone());
+                let soffice = Soffice::new(storage, program.clone(), Duration::from_millis(*timeout_ms));
+                let pdf = soffice.render(pptx, files, span).map_err(|e| match e.kind() {
+                    ReferenceErrorKind::Timeout => WireError::Timeout { ms: *timeout_ms },
+                    _ => reference_error(&e),
+                })?;
+                (pdf, soffice.witness().to_owned())
+            }
+        };
         let pages = pdf.page_count();
         self.next_generation += 1;
         let reference = self.next_generation;
         self.references.insert(reference, pdf);
-        Ok((Response::Reference { reference, witness: witness.witness().to_owned(), pages }, Vec::new()))
+        Ok((Response::Reference { reference, witness: name, pages }, Vec::new()))
     }
 
     fn reference_png(&self, reference: u64, page: usize, width: u32) -> Result<Reply, WireError> {

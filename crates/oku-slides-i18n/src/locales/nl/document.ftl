@@ -99,6 +99,7 @@ import-reference-unavailable = Geen visuele score: { $cause ->
         [one] { $reference } pagina
        *[other] { $reference } pagina’s
     } voor { $deck } in de presentatie
+    [missing] LibreOffice (soffice) is niet gevonden; geef het pad op in import.soffice
    *[failed] de referentierenderer kon de presentatie niet lezen
 }
 import-font-substituted = { $family } vervangen door { $by }, met passende metrieken

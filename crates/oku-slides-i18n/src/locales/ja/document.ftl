@@ -89,6 +89,7 @@ import-reference-unavailable = 見た目の差のスコアなし：{ $cause ->
     [timeout] 参照レンダリングに時間がかかりすぎました
     [memory] 参照レンダリングがメモリを使いすぎました
     [pages] 参照レンダリングは { $reference }ページで、デッキは{ $deck }ページです
+    [missing] LibreOffice (soffice) が見つかりません。import.soffice にパスを指定してください
    *[failed] 参照レンダラーがプレゼンテーションを読めませんでした
 }
 import-font-substituted = { $family } をメトリクス互換の { $by } に置き換えました

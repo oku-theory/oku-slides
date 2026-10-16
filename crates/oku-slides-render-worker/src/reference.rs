@@ -1,16 +1,46 @@
 //! Le rendu de référence d'une présentation importée, fait par le témoin dans
-//! le travailleur (`oku_slides_reference::Office2Pdf`) : le fichier non fiable
-//! y est lu sous les bornes du rendu (délai, mémoire).
+//! le travailleur ([`ReferenceWitness`] : `office2pdf` ou LibreOffice) : le
+//! fichier non fiable y est lu sous les bornes du rendu (délai, mémoire ;
+//! LibreOffice, programme externe, sous son seul délai, plus court).
 //!
 //! Règles (voir aussi `client`) : aucun pack n'est accusé (il n'y en a pas) ;
 //! une référence d'une autre époque répond `Stale` sans appel ; le `Drop` met
 //! `ReleaseReference` en file.
 
-use oku_slides_reference::SlideSpan;
+use std::path::PathBuf;
+
+use oku_slides_reference::{SOFFICE_WITNESS, SlideSpan, WITNESS};
 use oku_slides_render::{Fonts, RenderError};
+use serde::{Deserialize, Serialize};
 
 use crate::client::{Deferred, RenderWorker, put_fonts, unexpected};
 use crate::protocol::{Request, Response};
+
+/// Le témoin d'un rendu de référence.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ReferenceWitness {
+    /// `oku_slides_reference::Office2Pdf`, dans le travailleur.
+    #[default]
+    Office2Pdf,
+    /// LibreOffice (`oku_slides_reference::Soffice`), lancé par le travailleur.
+    Soffice {
+        /// Le programme `soffice`.
+        program: PathBuf,
+        /// Délai du rendu d'une tranche (ms), version comprise ; passé lui, `soffice` est tué.
+        timeout_ms: u64,
+    },
+}
+
+impl ReferenceWitness {
+    /// Le nom du témoin, tant que sa version n'est pas connue.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Office2Pdf => WITNESS,
+            Self::Soffice { .. } => SOFFICE_WITNESS,
+        }
+    }
+}
 
 /// Le rendu de référence d'une présentation, gardé par le travailleur.
 pub struct RemoteReference {
@@ -33,11 +63,12 @@ impl std::fmt::Debug for RemoteReference {
 }
 
 impl RenderWorker {
-    /// Le rendu de référence de `pptx` par le témoin, avec `fonts` en priorité.
+    /// Le rendu de référence de `pptx` par `witness`, avec `fonts` en priorité.
     ///
     /// `slides` : la tranche à rendre (numéros source, masquées comprises), ou toutes.
     pub fn reference(
         &self,
+        witness: &ReferenceWitness,
         pptx: &[u8],
         fonts: &Fonts,
         slides: Option<SlideSpan>,
@@ -47,7 +78,8 @@ impl RenderWorker {
         let ids = put_fonts(&mut link, fonts)?;
         let epoch = link.restarts;
         let slides = slides.map(|s| (s.first, s.last));
-        match link.call(&Request::Reference { fonts: ids, slides }, pptx)? {
+        let request = Request::Reference { witness: witness.clone(), fonts: ids, slides };
+        match link.call(&request, pptx)? {
             (Response::Reference { reference, witness, pages }, _) => {
                 Ok(RemoteReference { worker: self.clone(), reference, epoch, witness, pages })
             }
@@ -58,7 +90,7 @@ impl RenderWorker {
 }
 
 impl RemoteReference {
-    /// Nom et version du témoin (`office2pdf 0.8.1`).
+    /// Nom et version du témoin (`office2pdf 0.8.1`, `LibreOffice 26.8.1.1`).
     pub fn witness(&self) -> &str {
         &self.witness
     }

@@ -123,6 +123,11 @@ pub struct ImportSettings {
     pub score_threshold: f64,
     /// Durée maximale d'une tranche du rendu de référence (ms), dans son processus de rendu.
     pub reference_timeout_ms: u64,
+    /// Témoin LibreOffice (`--reference soffice`) : programmes `soffice` essayés
+    /// dans l'ordre, un nom seul cherché dans `PATH`.
+    pub soffice: Vec<PathBuf>,
+    /// Délai de LibreOffice pour une tranche (ms) ; passé lui, il est tué.
+    pub soffice_timeout_ms: u64,
 }
 
 impl SourcesSettings {

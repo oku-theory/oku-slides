@@ -39,6 +39,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "net", "sync", "macro
 uuid.workspace = true
 
 [dev-dependencies]
+oku-slides-reference = { workspace = true, features = ["test-support"] }
 rstest.workspace = true
 speculoos.workspace = true
 serde_json.workspace = true

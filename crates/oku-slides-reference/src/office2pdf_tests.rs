@@ -40,7 +40,7 @@ fn with_part(pptx: &[u8], name: &str, bytes: &[u8]) -> Vec<u8> {
 }
 
 /// `pptx` avec la slide `part` masquée (`show="0"`).
-fn hide(pptx: &[u8], part: &str) -> Vec<u8> {
+pub(crate) fn hide(pptx: &[u8], part: &str) -> Vec<u8> {
     let mut src = zip::ZipArchive::new(Cursor::new(pptx)).unwrap();
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..src.len() {

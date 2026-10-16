@@ -96,6 +96,7 @@ import-reference-unavailable = कोई दृश्य स्कोर नह�
         [one] { $reference } पेज है
        *[other] { $reference } पेज हैं
     }
+    [missing] LibreOffice (soffice) नहीं मिला; import.soffice में उसका पथ दें
    *[failed] संदर्भ रेंडरर प्रस्तुति नहीं पढ़ सका
 }
 import-font-substituted = { $family } को मिलते-जुलते माप वाले { $by } से बदला गया

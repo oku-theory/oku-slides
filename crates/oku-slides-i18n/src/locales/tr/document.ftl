@@ -90,6 +90,7 @@ import-reference-unavailable = Görsel puan yok: { $cause ->
     [timeout] referans oluşturma çok uzun sürdü
     [memory] referans oluşturma çok fazla bellek kullandı
     [pages] referans oluşturmada sunudaki { $deck } sayfaya karşılık { $reference } sayfa var
+    [missing] LibreOffice (soffice) bulunamadı; yolunu import.soffice içinde belirtin
    *[failed] referans oluşturucu sunuyu okuyamadı
 }
 import-font-substituted = { $family } yerine uyumlu ölçülere sahip { $by } kullanıldı
