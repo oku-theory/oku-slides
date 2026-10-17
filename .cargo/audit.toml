@@ -5,4 +5,7 @@ ignore = [
     "RUSTSEC-2026-0192", # ttf-parser non maintenu, tiré par Typst
     "RUSTSEC-2026-0194", # quick-xml, bibliographies de Typst et XLSX d'office2pdf
     "RUSTSEC-2026-0195", # quick-xml, bibliographies de Typst et XLSX d'office2pdf
+    "RUSTSEC-2026-0367", # zip < 9 transitif, extract jamais appelé ; retrait : t-899
+    "RUSTSEC-2026-0368", # zip < 9 transitif, extract jamais appelé ; retrait : t-899
+    "RUSTSEC-2026-0369", # zip < 9 transitif, extract jamais appelé ; retrait : t-899
 ]

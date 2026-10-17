@@ -29,7 +29,7 @@ fn to_zip_then_from_zip_keeps_packs_and_each_widget_file() {
     let za = zip::ZipArchive::new(Cursor::new(zip.clone())).unwrap();
     let hex = files.version().hex().to_owned();
     for name in ["pack.json", "widgets/kpi.typ", "widgets/_commun.typ"] {
-        assert_that!(za.file_names().any(|n| n == format!("packs/{hex}/{name}"))).named(name).is_true();
+        assert_that!(za.file_names().any(|n| n.unwrap() == format!("packs/{hex}/{name}"))).named(name).is_true();
     }
     let (back, issues) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
     assert_that!(issues).is_empty();
@@ -41,7 +41,7 @@ fn to_zip_of_a_pack_without_widgets_writes_no_widgets_folder() {
     let files = pack("P", &[]);
     let zip = bundle_with(&files).to_zip().unwrap();
     let za = zip::ZipArchive::new(Cursor::new(zip)).unwrap();
-    assert_that!(za.file_names().any(|n| n.contains("/widgets"))).is_false();
+    assert_that!(za.file_names().any(|n| n.unwrap().contains("/widgets"))).is_false();
 }
 
 #[test]
@@ -174,10 +174,10 @@ fn from_zip_pack_whose_widget_file_was_altered_is_discarded_and_reported() {
         let mut f = za.by_index(i).unwrap();
         let mut data = Vec::new();
         std::io::Read::read_to_end(&mut f, &mut data).unwrap();
-        if f.name().ends_with("widgets/kpi.typ") {
+        if f.name().unwrap().ends_with("widgets/kpi.typ") {
             data.extend_from_slice(b"// altere\n");
         }
-        entries.push((f.name().to_owned(), data));
+        entries.push((f.name().unwrap().into_owned(), data));
     }
     let refs: Vec<(&str, &[u8])> = entries.iter().map(|(n, d)| (n.as_str(), d.as_slice())).collect();
     let (b, issues) = SourceBundle::from_zip(&zip(&refs), MAX, crate::test_registry::shared()).unwrap();

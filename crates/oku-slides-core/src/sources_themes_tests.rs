@@ -43,8 +43,9 @@ fn theme_versions_round_trip_through_zip() {
     let v = files.version();
     let zip = b.to_zip().unwrap();
     let za = zip::ZipArchive::new(Cursor::new(zip.clone())).unwrap();
-    let names: Vec<&str> = za.file_names().filter(|n| n.starts_with("themes/")).collect();
-    assert_that!(names).is_equal_to(vec![format!("themes/{}/theme.json", v.hex()).as_str()]);
+    let names: Vec<String> =
+        za.file_names().map(|n| n.unwrap().into_owned()).filter(|n| n.starts_with("themes/")).collect();
+    assert_that!(names).is_equal_to(vec![format!("themes/{}/theme.json", v.hex())]);
     let (read, issues) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
     assert_that!(issue_ids(&issues)).does_not_contain("issue-theme-version-missing");
     assert_that!(read.themes.get(&v)).is_equal_to(Some(&files));
@@ -172,10 +173,10 @@ fn forged_deck_theme_version_is_reported_once() {
         let mut f = za.by_index(i).unwrap();
         let mut data = Vec::new();
         std::io::Read::read_to_end(&mut f, &mut data).unwrap();
-        if f.name().ends_with("theme.json") {
+        if f.name().unwrap().ends_with("theme.json") {
             data = theme_files("Autre").pack_json().unwrap();
         }
-        entries.push((f.name().to_owned(), data));
+        entries.push((f.name().unwrap().into_owned(), data));
     }
     let refs: Vec<(&str, &[u8])> = entries.iter().map(|(n, d)| (n.as_str(), d.as_slice())).collect();
     let (b, issues) = SourceBundle::from_zip(&zip(&refs), MAX, crate::test_registry::shared()).unwrap();

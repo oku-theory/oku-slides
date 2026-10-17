@@ -24,7 +24,7 @@ fn fonts() -> Vec<Vec<u8>> {
 /// Les noms des parts de `pptx`.
 fn names(pptx: &[u8]) -> Vec<String> {
     let zip = zip::ZipArchive::new(Cursor::new(pptx)).unwrap();
-    zip.file_names().map(str::to_owned).collect()
+    zip.file_names().map(|n| n.unwrap().into_owned()).collect()
 }
 
 /// `pptx` avec une part de plus, `name`.
@@ -45,7 +45,7 @@ pub(crate) fn hide(pptx: &[u8], part: &str) -> Vec<u8> {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..src.len() {
         let mut f = src.by_index(i).unwrap();
-        let name = f.name().to_owned();
+        let name = f.name().unwrap().into_owned();
         let mut bytes = Vec::new();
         f.read_to_end(&mut bytes).unwrap();
         if name == part {

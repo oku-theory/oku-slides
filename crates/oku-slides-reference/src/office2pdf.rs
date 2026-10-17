@@ -56,13 +56,20 @@ impl ReferenceRenderer for Office2Pdf {
 /// `pptx` sans ses parts de `ppt/fonts/`, les autres copiées telles quelles.
 fn without_fonts(pptx: &[u8]) -> Result<Vec<u8>, zip::result::ZipError> {
     let mut source = zip::ZipArchive::new(Cursor::new(pptx))?;
-    if !source.file_names().any(|n| n.starts_with(FONTS_DIR)) {
+    let mut has_fonts = false;
+    for name in source.file_names() {
+        if name?.starts_with(FONTS_DIR) {
+            has_fonts = true;
+            break;
+        }
+    }
+    if !has_fonts {
         return Ok(pptx.to_vec());
     }
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..source.len() {
         let entry = source.by_index_raw(i)?;
-        if !entry.name().starts_with(FONTS_DIR) {
+        if !entry.name()?.starts_with(FONTS_DIR) {
             out.raw_copy_file(entry)?;
         }
     }

@@ -277,10 +277,12 @@ lint-fix:
 coverage:
     cargo llvm-cov nextest --workspace --exclude oku-slides-app --summary-only
 
-# Dépendances : licences, avis de sécurité, sources
+# Dépendances : licences, avis de sécurité, sources. `bun audit` lit ui/bun.lock seul ;
+# une exception npm motivée s'y ajoute en `--ignore <GHSA>`, commentée ici.
 audit:
     cargo deny check
     cargo audit
+    cd ui && bun audit
 
 # Relance une commande à chaque modification : just watch test
 watch cmd="test":

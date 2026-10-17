@@ -12,11 +12,20 @@ all-features = true
 # RUSTSEC-2026-0192 (ttf-parser non maintenu) : Typst 0.15, fontdb, rustybuzz et
 # office2pdf en dépendent ; l'import le lit pour les noms, droits et métriques des
 # polices (fonts/face.rs). Suivre la migration de Typst (t-890).
+# RUSTSEC-2026-0367/0368/0369 (zip < 9) : seuls `ZipArchive::extract` et
+# `ZipStreamReader::extract` sont touchés (bits SUID, liens symboliques hors du dossier).
+# Le workspace est en zip 9 ; restent zip 0.6 et 8 via office2pdf (et docx-rs), zip 2 via
+# umya-spreadsheet et ndarray-npy (dictée), qui lisent les entrées une à une sans jamais
+# appeler `extract` (vérifié dans leurs sources, t-897).
+# À retirer quand ils passeront en zip 9 (t-899).
 # Tenir .cargo/audit.toml aligné sur cette liste.
 ignore = [
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser non maintenu, tiré par Typst ; l'import suivra la migration de Typst" },
     { id = "RUSTSEC-2026-0194", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
     { id = "RUSTSEC-2026-0195", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
+    { id = "RUSTSEC-2026-0367", reason = "zip < 9 transitif (office2pdf, docx-rs, umya-spreadsheet, ndarray-npy), qui n'appelle jamais extract" },
+    { id = "RUSTSEC-2026-0368", reason = "zip < 9 transitif (office2pdf, docx-rs, umya-spreadsheet, ndarray-npy), qui n'appelle jamais extract" },
+    { id = "RUSTSEC-2026-0369", reason = "zip < 9 transitif (office2pdf, docx-rs, umya-spreadsheet, ndarray-npy), qui n'appelle jamais extract" },
 ]
 unmaintained = "workspace"
 

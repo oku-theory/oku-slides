@@ -120,7 +120,7 @@ fn replaced(pptx: &Path, name: &str, content: &str) {
     let mut w = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..src.len() {
         let entry = src.by_index_raw(i).unwrap_or_else(|e| panic!("zip : {e}"));
-        if entry.name() == name {
+        if entry.name().unwrap_or_else(|e| panic!("zip : {e}")) == name {
             continue;
         }
         w.raw_copy_file(entry).unwrap_or_else(|e| panic!("zip : {e}"));

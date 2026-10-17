@@ -40,7 +40,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"
 snafu = "0.9"
 toml_edit = "0.25"
-zip = { version = "8", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 # Lecture des parts XML d'un .pptx (import, t-692) : DOM en lecture seule, sans dépendance.
 roxmltree = "0.21"
 # Nom, style et droits des polices (import, t-692) ; déjà tiré par typst et fontdb.

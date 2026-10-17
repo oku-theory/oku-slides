@@ -128,7 +128,7 @@ impl SourceBundle {
         let mut budget = limits.total_bytes;
         for i in 0..za.len() {
             let f = za.by_index(i).context(ZipSnafu)?;
-            let name = f.name().to_owned();
+            let name = f.name().context(ZipSnafu)?.into_owned();
             let size = usize::try_from(f.size()).unwrap_or(usize::MAX);
             if name == DECK_LORO {
                 // Anti-bombe : la taille annoncée est contrôlée avant toute lecture, et

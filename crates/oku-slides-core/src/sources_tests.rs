@@ -187,8 +187,8 @@ fn to_zip_then_from_zip_returns_same_bundle() {
 fn to_zip_has_no_deck_json() {
     let zip = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
     let za = zip::ZipArchive::new(Cursor::new(zip)).unwrap();
-    assert_that!(za.file_names().any(|n| n == "deck.json")).is_false();
-    assert_that!(za.file_names().any(|n| n == "deck.loro")).is_true();
+    assert_that!(za.file_names().any(|n| n.unwrap() == "deck.json")).is_false();
+    assert_that!(za.file_names().any(|n| n.unwrap() == "deck.loro")).is_true();
 }
 
 #[test]

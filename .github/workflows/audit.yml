@@ -1,0 +1,66 @@
+# Scan de vulnérabilités des dépendances : `just audit` (cargo deny, cargo audit, bun audit).
+# Chaque jour, car un avis RustSec ou npm tombe sans que le code change ; à chaque push sur main
+# ou PR qui touche les manifestes, les verrous, les exceptions ou ce workflow ; et à la main
+# depuis l'onglet Actions. Un échec planifié est envoyé par mail au dernier auteur du cron.
+# Exceptions motivées : deny.toml et .cargo/audit.toml (tenus alignés) pour Rust, `--ignore`
+# de `bun audit` dans le justfile pour npm.
+name: Audit
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "**/Cargo.toml"
+      - Cargo.lock
+      - deny.toml
+      - .cargo/audit.toml
+      - ui/bun.lock
+      - ui/package.json
+      - justfile
+      - .github/workflows/audit.yml
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - Cargo.lock
+      - deny.toml
+      - .cargo/audit.toml
+      - ui/bun.lock
+      - ui/package.json
+      - justfile
+      - .github/workflows/audit.yml
+
+permissions:
+  contents: read
+
+# Un groupe par événement : un push sur main n'annule pas le scan quotidien (une exécution
+# annulée n'envoie pas de mail). Seules les PR annulent leur exécution précédente.
+concurrency:
+  group: audit-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Sans LFS : seuls les manifestes et les verrous sont lus, rien n'est compilé.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Versions figées, comme release.yml : un échec vient d'un avis, pas d'un outil qui change.
+      # À monter avec l'outillage local.
+      - uses: dtolnay/rust-toolchain@1.98.1
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.58.0,cargo-deny@0.20.2,cargo-audit@0.22.2
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - run: just audit
