@@ -116,8 +116,9 @@ impl ReferenceRenderer for Soffice {
     }
 }
 
-/// Le premier programme de `candidates` qui existe, en chemin réel : un
-/// chemin tel quel, un nom seul cherché dans `path` (la variable `PATH`).
+/// Le premier programme de `candidates` qui existe, en chemin réel.
+///
+/// Un chemin est pris tel quel, un nom seul est cherché dans `path` (la variable `PATH`).
 ///
 /// Un script (`#!`, le `soffice` de Homebrew) est refusé en le nommant : le
 /// bac à sable du processus de rendu n'exécute que le binaire de LibreOffice (t-912).

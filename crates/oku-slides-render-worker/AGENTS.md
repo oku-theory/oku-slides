@@ -13,6 +13,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Apply the watchdog memory limit only during a request; detect parent loss by a PPID change, not PPID 1. (t-340)
 - Bump PROTOCOL_VERSION on any change to Request, Response or frames; the host refuses a worker of another version. (t-341)
 - Drop fonts that no open slot uses from the replay state and from the worker with DropFonts. (t-341)
+- Spawn a macOS worker only through sandbox-exec with worker.sb, and refuse it unless its Hello canary is denied. (spec:2026-10-17-render-worker-sandbox-design, t-912)
+- Never hardlink a file into the worker's work dir; Seatbelt checks the path, so copy it. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 
 ## Pitfalls
 
@@ -21,6 +23,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Do not trust one-time pack validation; bound every render, since pack code may loop only for some params. (spec:2026-09-29-compilation-bornee-design)
 - Do not rely on RLIMIT_AS or RLIMIT_DATA for memory limits; macOS ignores them, so poll worker memory instead. (spec:2026-09-29-compilation-bornee-design)
 - Keep render worker stdout free of anything but protocol frames; the worker redirects stdout to stderr. (t-341)
+- Keep allow default (LibreOffice needs the launchservicesd lookup) and the /tmp OSL_PIPE socket rule in worker.sb. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 
 ## Settled decisions
 

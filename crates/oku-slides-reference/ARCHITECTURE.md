@@ -13,7 +13,7 @@ gap, `oku_slides_import::metrics`, t-692 lot 4).
   temp dir per render (isolated profile `-env:UserInstallation`, fonts in its `user/fonts`),
   `ExportHiddenSlides` and `PageRange`; `--version` read once (`LibreOffice 26.8.1.1`). One
   deadline per render; past it, its process group is killed (`process.rs`, `group.rs`).
-  `find_soffice`: the first existing candidate (bare name looked up in `PATH`), as a real path; a `#!` script is refused.
+  `find_soffice`: the first existing candidate, as its real path; a script is refused (`Render`).
 - `ReferencePdf`: `page_count`, `raster(i, width) -> Raster` (hayro, on white, ≤ `MAX_RASTER_SIDE`).
 - `Raster`: opaque 8-bit RGBA; `crop`, `from_png`, `to_png` (the worker pipe carries PNGs).
   Feature `test-support`: blank PDF, fake `soffice`. Real-LibreOffice tests: `OKU_SLIDES_TEST_SOFFICE=1`.
@@ -23,7 +23,7 @@ gap, `oku_slides_import::metrics`, t-692 lot 4).
 ## Isolation
 
 The witness reads an untrusted file: it runs in its own render worker, bounded in time and memory
-(not in filesystem), 20 slides at a time. office2pdf writes an embedded font under its unchecked
+and, on macOS, sandboxed to write only in its own dir (t-912). 20 slides at a time. office2pdf writes an embedded font under its unchecked
 `typeface` (t-898): the `.pptx` is rewritten without `ppt/fonts/` or any `.fntdata`, then reread
 with office2pdf's own zip 0.6, refused if it still sees one. LibreOffice runs as a child of that
 worker, outside its memory bound: only its own timeout bounds it, shorter than the worker's.

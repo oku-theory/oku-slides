@@ -14,7 +14,9 @@
 //! (sauf les packs fautifs, remplacés par la base).
 //!
 //! Chaque connexion commence par `Hello` : un travailleur d'une autre version
-//! du protocole (autre binaire) est refusé (`Protocol`) et arrêté.
+//! du protocole est refusé (`Protocol`) et arrêté. Sous macOS il tourne sous
+//! `sandbox-exec` (voir `sandbox`) ; un canari non refusé (`Canary::Denied`)
+//! le fait abandonner (`WorkerLost`).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{Read, Write};
