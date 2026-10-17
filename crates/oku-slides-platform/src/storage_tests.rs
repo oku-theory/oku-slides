@@ -255,3 +255,47 @@ fn read_fonts_skips_git_lfs_pointers() {
     let fonts = s.read_fonts(dir).unwrap();
     assert_that!(fonts.keys().map(String::as_str).collect::<Vec<_>>()).is_equal_to(vec!["noto.otf"]);
 }
+
+#[cfg(unix)]
+#[test]
+fn canonical_follows_a_symlink_to_its_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("target");
+    std::fs::write(&target, b"x").unwrap();
+    let link = dir.path().join("link");
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+    assert_that!(canonical(&link).unwrap()).is_equal_to(std::fs::canonicalize(&target).unwrap());
+}
+
+#[test]
+fn canonical_of_a_missing_path_is_not_found() {
+    let err = canonical(Path::new("/nonexistent/oku-slides")).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(StorageErrorKind::NotFound);
+}
+
+#[test]
+fn read_head_of_a_longer_file_reads_its_first_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("f");
+    std::fs::write(&path, b"#!/bin/sh\n").unwrap();
+    assert_that!(Storage::local().unwrap().read_head(&path, 2).unwrap()).is_equal_to(b"#!".to_vec());
+}
+
+#[test]
+fn read_head_of_an_empty_file_is_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("f");
+    std::fs::write(&path, b"").unwrap();
+    assert_that!(Storage::local().unwrap().read_head(&path, 2).unwrap()).is_empty();
+}
+
+#[cfg(unix)]
+#[test]
+fn write_into_a_read_only_dir_is_permission_denied() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+    let err = Storage::local().unwrap().write(&dir.path().join("f"), b"x".to_vec()).unwrap_err();
+    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_that!(err.kind()).is_equal_to(StorageErrorKind::PermissionDenied);
+}

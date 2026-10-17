@@ -31,6 +31,8 @@ pub enum StorageErrorKind {
     InvalidPath,
     /// Fichier plus gros que la limite de [`Storage::read_limited`].
     TooLarge,
+    /// Écriture ou lecture refusée par le système (droits, bac à sable).
+    PermissionDenied,
     Other,
 }
 
@@ -48,12 +50,20 @@ enum StorageInner {
     TooLarge { path: PathBuf, max: u64, backtrace: Backtrace },
     #[snafu(display("cannot write {}", path.display()))]
     Stream { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
+    #[snafu(display("cannot resolve {}", path.display()))]
+    Canonical { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
 }
 
 impl StorageError {
     pub fn kind(&self) -> StorageErrorKind {
         match &*self.0 {
             StorageInner::Access { source, .. } if source.kind() == ErrorKind::NotFound => StorageErrorKind::NotFound,
+            StorageInner::Access { source, .. } if source.kind() == ErrorKind::PermissionDenied => {
+                StorageErrorKind::PermissionDenied
+            }
+            StorageInner::Canonical { source, .. } if source.kind() == std::io::ErrorKind::NotFound => {
+                StorageErrorKind::NotFound
+            }
             StorageInner::InvalidPath { .. } => StorageErrorKind::InvalidPath,
             StorageInner::TooLarge { .. } => StorageErrorKind::TooLarge,
             _ => StorageErrorKind::Other,
@@ -82,6 +92,14 @@ fn normalize(path: &Path) -> PathBuf {
 /// lien restent différents.
 pub fn resolve(path: &Path) -> PathBuf {
     normalize(&std::path::absolute(path).unwrap_or_else(|_| path.to_owned()))
+}
+
+/// Le chemin réel de `path` : absolu, liens suivis (`realpath`).
+///
+/// OpenDAL ne suit pas les liens ; le bac à sable du rendu compare des
+/// chemins réels (t-912). Le disque n'est que lu.
+pub fn canonical(path: &Path) -> Result<PathBuf, StorageError> {
+    Ok(std::fs::canonicalize(path).context(CanonicalSnafu { path })?)
 }
 
 /// Extensions des fichiers de police lus par [`Storage::read_fonts`].
@@ -181,6 +199,18 @@ impl Storage {
         let (op, key) = self.at(path)?;
         let len = op.stat(&key).context(AccessSnafu { action: "read", path })?.content_length();
         ensure!(len <= max, TooLargeSnafu { path, max });
+        let opts = opendal::options::ReadOptions { range: (0..len).into(), ..Default::default() };
+        let buffer = op.read_options(&key, opts).context(AccessSnafu { action: "read", path })?;
+        Ok(buffer.to_vec())
+    }
+
+    /// Les `n` premiers octets du fichier, moins s'il est plus court.
+    pub fn read_head(&self, path: &Path, n: u64) -> Result<Vec<u8>, StorageError> {
+        let (op, key) = self.at(path)?;
+        let len = op.stat(&key).context(AccessSnafu { action: "read", path })?.content_length().min(n);
+        if len == 0 {
+            return Ok(Vec::new());
+        }
         let opts = opendal::options::ReadOptions { range: (0..len).into(), ..Default::default() };
         let buffer = op.read_options(&key, opts).context(AccessSnafu { action: "read", path })?;
         Ok(buffer.to_vec())
