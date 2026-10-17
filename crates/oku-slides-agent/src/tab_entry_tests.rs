@@ -12,7 +12,7 @@ use tokio_util::sync::CancellationToken;
 use super::{Agent, Relay, emit, next};
 use crate::keeper::Keeper;
 use crate::settings_port::AppSettings;
-use crate::tab_agent::Command;
+use crate::tab_agent::{Command, Instruction};
 use crate::turns::Turns;
 use crate::{AgentState, Launch, Link};
 
@@ -48,7 +48,12 @@ fn emit_wraps_the_event_with_its_tab() {
 }
 
 fn prompt() -> Command {
-    Command::Prompt { scope: AgentScope::Slides, text: "perdue".into(), ui: AgentUi::default() }
+    Command::Prompt(Instruction {
+        scope: AgentScope::Slides,
+        text: "perdue".into(),
+        ui: AgentUi::default(),
+        tune: false,
+    })
 }
 
 /// Onglet fermé, commandes encore en file : `next` rend `None`, jamais la commande (sélection `biased`).

@@ -15,6 +15,7 @@ session-unknown-pack = 找不到包：{ $id }
 session-pack-version-missing = 找不到包 { $id } 的版本 { $version }
 session-invalid-pack = 无法读取包：{ $id }
 session-pack-id-mismatch = 此文件属于包 { $found }，而非 { $id }
+session-deck-only = { $id } 仅属于其演示文稿：永远不会保存到库中
 session-editing-templates = 请先完成模板编辑
 session-not-editing-templates = 当前没有正在编辑的模板集
 session-theme-choice-alone = 在模板模式下，请单独选择主题，然后使用 set_token 编辑其令牌
@@ -427,3 +428,29 @@ theme-option-fill = 填满
 theme-option-true = 是
 theme-option-false = 否
 session-undo-theme-token = 主题：{ $token }
+session-import-label = PowerPoint 导入
+session-import-retrofit-pack = 适用于 { $deck } 的 { $pack }
+session-import-unknown-pack = 未知的模板包：{ $pack }
+session-import-bad-pack = 无法读取模板包 { $pack }：其 pack.json 未描述模板包
+session-import-pack-too-large = 包 { $path } 超过 { $max } MiB
+session-import-reader-panic = PowerPoint 读取器在 { $path } 上意外失败；文件未导入
+session-import-bad-theme = 无法读取目标主题：无法读取其设计令牌
+session-import-probe-mismatch = 生成的模板包探测结果与声明不符（组件 { $widget }）：这是导入程序的缺陷
+session-import-probe-limit = 生成的包超出检查限制（组件 { $widget }）：请在配置的 [render] 部分提高 max_widgets、max_widget_kib 或 probe_budget_ms
+session-import-probe-failed = 渲染进程无法检查生成的包：{ $error }
+session-import-pack-missing = 导入没有为演示文稿生成包：这是导入的缺陷
+session-import-theme-missing = 导入没有为演示文稿生成主题：这是导入的缺陷
+session-import-bad-threshold = [import] 部分的 score_threshold 必须是大于或等于 0 的数，而不是 { $value }
+session-import-tune-none = 此标签页中没有导入：import_report 和 import_diff 仅适用于从 PowerPoint 导入的演示文稿，且其标签页需保持打开。
+session-import-tune-hifi-only = 此导入为 retrofit：没有可比较的参考渲染。import_diff 仅适用于 hi-fi 导入。
+session-import-tune-no-reference = import_diff 需要参考渲染。{ $reason }
+session-import-tune-reference-pending = 参考渲染仍在进行中，请稍后再次调用该工具。
+session-import-tune-unknown-slide = { $slide } 不是此导入的幻灯片（参见 import_report）。
+session-import-tune-unknown-region = { $region } 不是幻灯片 { $slide } 的区域：请使用 import_diff 给出的项目 ID。
+session-import-tune-tries-used = 幻灯片 { $slide } 已无剩余尝试（已用尝试：{ $tries }，或连续多次没有改进）：请继续下一张幻灯片。
+session-import-tune-untunable = 幻灯片 { $slide } 没有尝试次数：{ $state ->
+        [done] 它已低于阈值
+        [witness] 超过阈值的只有参考渲染本身画错的区域
+       *[unscored] 它没有分数，缺少参考渲染
+    }。请继续下一张幻灯片。
+session-import-tune-compare = 无法将幻灯片与其参考渲染进行比较。

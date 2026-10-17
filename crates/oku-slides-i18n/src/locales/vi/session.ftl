@@ -15,6 +15,7 @@ session-unknown-pack = Không tìm thấy gói: { $id }
 session-pack-version-missing = Không tìm thấy phiên bản { $version } của gói { $id }
 session-invalid-pack = Không đọc được gói: { $id }
 session-pack-id-mismatch = Tệp này thuộc gói { $found }, không phải { $id }
+session-deck-only = { $id } chỉ thuộc về bản trình bày của nó: không bao giờ được lưu vào thư viện
 session-editing-templates = Hãy hoàn tất chỉnh sửa mẫu trước
 session-not-editing-templates = Không có bộ mẫu nào đang được chỉnh sửa
 session-theme-choice-alone = Trong chế độ mẫu, hãy chọn chủ đề riêng, rồi chỉnh sửa các token của nó bằng set_token
@@ -427,3 +428,29 @@ theme-option-fill = Lấp đầy
 theme-option-true = Có
 theme-option-false = Không
 session-undo-theme-token = Chủ đề: { $token }
+session-import-label = Nhập từ PowerPoint
+session-import-retrofit-pack = { $pack } cho { $deck }
+session-import-unknown-pack = gói mẫu không xác định: { $pack }
+session-import-bad-pack = không đọc được gói mẫu { $pack }: pack.json của gói không mô tả một gói mẫu
+session-import-pack-too-large = gói { $path } lớn hơn { $max } MiB
+session-import-reader-panic = trình đọc PowerPoint gặp lỗi bất ngờ với { $path }; tệp chưa được nhập
+session-import-bad-theme = không đọc được chủ đề đích: không thể đọc các token thiết kế của chủ đề
+session-import-probe-mismatch = gói được tạo không khớp với khai báo khi kiểm tra (widget { $widget }): đây là lỗi của trình nhập
+session-import-probe-limit = gói được tạo vượt giới hạn kiểm tra (widget { $widget }): hãy tăng max_widgets, max_widget_kib hoặc probe_budget_ms trong mục [render] của cấu hình
+session-import-probe-failed = tiến trình kết xuất không kiểm tra được gói đã tạo: { $error }
+session-import-pack-missing = quá trình nhập không tạo gói nào cho bộ trình chiếu: đây là lỗi của quá trình nhập
+session-import-theme-missing = quá trình nhập không tạo chủ đề nào cho bộ trình chiếu: đây là lỗi của quá trình nhập
+session-import-bad-threshold = score_threshold trong mục [import] phải là một số lớn hơn hoặc bằng 0, không phải { $value }
+session-import-tune-none = Không có lần nhập nào trong thẻ này: import_report và import_diff chỉ dùng được với bộ trình chiếu nhập từ PowerPoint, khi thẻ của nó còn mở.
+session-import-tune-hifi-only = Lần nhập này là retrofit: không có bản kết xuất tham chiếu để so sánh. import_diff chỉ dùng được với lần nhập hi-fi.
+session-import-tune-no-reference = import_diff cần bản kết xuất tham chiếu. { $reason }
+session-import-tune-reference-pending = Bản kết xuất tham chiếu vẫn đang được tạo; hãy gọi lại công cụ sau giây lát.
+session-import-tune-unknown-slide = { $slide } không phải là trang chiếu của lần nhập này (xem import_report).
+session-import-tune-unknown-region = { $region } không phải là vùng của trang chiếu { $slide }: hãy dùng id mục do import_diff đưa ra.
+session-import-tune-tries-used = Trang chiếu { $slide } đã hết lượt thử (số lượt đã dùng: { $tries }, hoặc không cải thiện sau nhiều lượt): hãy chuyển sang trang chiếu tiếp theo.
+session-import-tune-untunable = Trang chiếu { $slide } không có lượt thử: { $state ->
+        [done] nó đã dưới ngưỡng
+        [witness] chỉ những vùng mà chính bản tham chiếu hiển thị sai mới vượt ngưỡng
+       *[unscored] nó chưa có điểm, thiếu bản hiển thị tham chiếu
+    }. Hãy chuyển sang trang chiếu tiếp theo.
+session-import-tune-compare = Không thể so sánh trang chiếu với bản kết xuất tham chiếu của nó.

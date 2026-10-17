@@ -88,3 +88,4 @@ agent-error-agent-not-saved = এজেন্টের পছন্দ সংর
 agent-picker-title = এজেন্ট
 agent-picker-busy = এজেন্ট বদলালে চলমান পালা বন্ধ হয়ে যাবে।
 agent-picker-locked = পরিবেশ এই পছন্দ নির্ধারণ করেছে (OKU_SLIDES_AGENT__SELECTED)।
+agent-tune-prompt = আমদানি করা উপস্থাপনাটি সূক্ষ্মভাবে ঠিক করো

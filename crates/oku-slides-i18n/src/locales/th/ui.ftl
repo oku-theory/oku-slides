@@ -48,6 +48,7 @@ ui-toolbar-theme-embedded = ธีมของไฟล์
 ui-toolbar-save-copy = บันทึกสำเนา
 ui-toolbar-finish = เสร็จสิ้น
 ui-menu-workshop = เวิร์กช็อป
+ui-menu-workshop-deck-only = เทมเพลตเหล่านี้เป็นของงานนำเสนอนี้เท่านั้น เวิร์กช็อปแก้ไขได้เฉพาะเทมเพลตในคลัง
 ui-toolbar-open = เปิด
 ui-merge = รวมกับ PDF…
 ui-menu = เมนู
@@ -316,7 +317,10 @@ ui-undo-show-as-chart = แสดงเป็นแผนภูมิ
 
 ## ไฟล์
 
-ui-file-open-prompt = พาธของไฟล์ที่จะเปิด (.oku-slides.pdf หรือ .json)
+ui-file-open-prompt = พาธของไฟล์ที่จะเปิด (.oku-slides.pdf, .json หรือ .pptx)
+ui-file-merge-prompt = พาธของไฟล์ที่จะรวมเข้ากับงานนำเสนอนี้ (.oku-slides.pdf หรือ .json)
+ui-file-filter-presentations = งานนำเสนอ
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = บันทึกเป็น (พาธแบบเต็ม)
 
 ## แท็บ
@@ -390,3 +394,19 @@ ui-theme-name = ชื่อธีม
 ui-theme-unsaved = ยังไม่ได้บันทึกการเปลี่ยนแปลงธีม
 ui-widgets-close-tab = ปิด { $name }
 ui-widgets-removed-by-agent = เอเจนต์ลบวิดเจ็ต { $name } แล้ว
+
+## นำเข้า
+
+ui-import-title = นำเข้างานนำเสนอ PowerPoint
+ui-import-mode = โหมดการนำเข้า
+ui-import-hifi = สำเนาตรงต้นฉบับ
+ui-import-hifi-note = คงรูปลักษณ์ของต้นฉบับไว้ ด้วยธีมและเทมเพลตที่สร้างขึ้นสำหรับงานนำเสนอนี้
+ui-import-retrofit = ใช้เทมเพลตของฉัน
+ui-import-retrofit-note = สร้างสไลด์ใหม่ด้วยเทมเพลตและธีมจากคลัง
+ui-import-theme-default = ธีมเริ่มต้น
+ui-import-no-packs = ไม่มีชุดเทมเพลตในคลัง
+ui-import-tune = ปรับแต่งอย่างละเอียดกับเอเจนต์
+ui-import-tune-note = เอเจนต์เทียบแต่ละสไลด์กับต้นฉบับและแก้ส่วนที่ต่างกัน
+ui-import-tune-note-retrofit = เอเจนต์เทียบแต่ละสไลด์กับต้นฉบับ และออกแบบวิดเจ็ตสำหรับรูปทรงที่เทมเพลตของคุณแสดงไม่ได้
+ui-import-submit = นำเข้า
+ui-import-busy = กำลังนำเข้า…

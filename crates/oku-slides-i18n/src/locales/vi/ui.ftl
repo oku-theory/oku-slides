@@ -48,6 +48,7 @@ ui-toolbar-theme-embedded = Chủ đề của tệp
 ui-toolbar-save-copy = Lưu bản sao
 ui-toolbar-finish = Xong
 ui-menu-workshop = Xưởng
+ui-menu-workshop-deck-only = Các mẫu này chỉ thuộc về bài trình bày này; xưởng chỉ chỉnh sửa các mẫu trong thư viện.
 ui-toolbar-open = Mở
 ui-merge = Hợp nhất với PDF…
 ui-menu = Menu
@@ -316,7 +317,10 @@ ui-undo-show-as-chart = Hiển thị dưới dạng biểu đồ
 
 ## Tệp
 
-ui-file-open-prompt = Đường dẫn tệp cần mở (.oku-slides.pdf hoặc .json)
+ui-file-open-prompt = Đường dẫn tệp cần mở (.oku-slides.pdf, .json hoặc .pptx)
+ui-file-merge-prompt = Đường dẫn tệp cần gộp vào bài trình bày này (.oku-slides.pdf hoặc .json)
+ui-file-filter-presentations = Bài trình bày
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Lưu thành (đường dẫn đầy đủ)
 
 ## Thẻ
@@ -390,3 +394,19 @@ ui-theme-name = Tên chủ đề
 ui-theme-unsaved = Thay đổi chủ đề chưa lưu
 ui-widgets-close-tab = Đóng { $name }
 ui-widgets-removed-by-agent = Tác nhân AI đã xóa widget { $name }.
+
+## Nhập
+
+ui-import-title = Nhập bài trình bày PowerPoint
+ui-import-mode = Chế độ nhập
+ui-import-hifi = Bản sao trung thực
+ui-import-hifi-note = Giữ giao diện của bản gốc, với chủ đề và mẫu được tạo cho bài trình bày này.
+ui-import-retrofit = Dùng mẫu của tôi
+ui-import-retrofit-note = Dựng lại các trang chiếu bằng mẫu và một chủ đề trong thư viện.
+ui-import-theme-default = Chủ đề mặc định
+ui-import-no-packs = Thư viện không có bộ mẫu nào.
+ui-import-tune = Tinh chỉnh với tác nhân AI
+ui-import-tune-note = Tác nhân AI so sánh từng trang chiếu với bản gốc và sửa các chỗ lệch.
+ui-import-tune-note-retrofit = Tác nhân AI so sánh từng trang chiếu với bản gốc và thiết kế widget cho các hình mà mẫu của bạn không thể hiện được.
+ui-import-submit = Nhập
+ui-import-busy = Đang nhập…

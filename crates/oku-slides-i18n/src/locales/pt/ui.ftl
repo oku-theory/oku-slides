@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = Tema do arquivo
 ui-toolbar-save-copy = Salvar uma cópia
 ui-toolbar-finish = Concluir
 ui-menu-workshop = Oficina
+ui-menu-workshop-deck-only = Estes modelos pertencem apenas a esta apresentação; a oficina só edita os modelos da biblioteca.
 ui-toolbar-open = Abrir
 ui-merge = Mesclar com um PDF…
 ui-menu = Menu
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = Mostrar como gráfico
 
 ## Arquivos
 
-ui-file-open-prompt = Caminho do arquivo a abrir (.oku-slides.pdf ou .json)
+ui-file-open-prompt = Caminho do arquivo a abrir (.oku-slides.pdf, .json ou .pptx)
+ui-file-merge-prompt = Caminho da apresentação a mesclar com esta (.oku-slides.pdf ou .json)
+ui-file-filter-presentations = Apresentações
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Salvar como (caminho completo)
 
 ## Abas
@@ -395,3 +399,19 @@ ui-theme-name = Nome do tema
 ui-theme-unsaved = Alterações do tema não salvas
 ui-widgets-close-tab = Fechar { $name }
 ui-widgets-removed-by-agent = O agente excluiu o widget { $name }.
+
+## Importar
+
+ui-import-title = Importar uma apresentação do PowerPoint
+ui-import-mode = Modo de importação
+ui-import-hifi = Cópia fiel
+ui-import-hifi-note = Mantém a aparência do original, com um tema e modelos feitos para esta apresentação.
+ui-import-retrofit = Usar meus modelos
+ui-import-retrofit-note = Refaz os slides com modelos e um tema da biblioteca.
+ui-import-theme-default = Tema padrão
+ui-import-no-packs = Nenhum conjunto de modelos na biblioteca.
+ui-import-tune = Afinar com o agente
+ui-import-tune-note = O agente compara cada slide com o original e corrige as diferenças.
+ui-import-tune-note-retrofit = O agente compara cada slide com o original e cria widgets para as formas que seus modelos não mostram.
+ui-import-submit = Importar
+ui-import-busy = Importando…

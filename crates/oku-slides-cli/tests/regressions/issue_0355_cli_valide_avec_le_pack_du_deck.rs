@@ -29,6 +29,7 @@ fn quote_pack(id: uuid::Uuid) -> PackFiles {
         description: String::new(),
         parent: None,
         created: "2026-10-01T00:00:00Z".to_owned(),
+        scope: oku_slides_core::PackScope::Library,
         templates: Vec::new(),
         examples: Default::default(),
     };

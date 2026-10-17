@@ -8,7 +8,7 @@ const { createRoot } = await import("react-dom/client");
 const { default: TextEditor } = await import("./TextEditor");
 const { appKeyScope } = await import("./appKeyScope");
 
-const FREE = { modal: false, picking: false, editing: false };
+const FREE = { modal: false, dialog: false, editing: false };
 
 /** Monte un éditeur de texte, envoie `init` à son contenu et rend l'événement tel que la fenêtre l'a vu. */
 async function keyInEditor(init: KeyboardEventInit): Promise<KeyboardEvent | null> {
@@ -60,7 +60,7 @@ describe("appKeyScope", () => {
 
   test.each([
     ["modal", { ...FREE, modal: true }],
-    ["picking", { ...FREE, picking: true }],
+    ["dialog", { ...FREE, dialog: true }],
   ])("appKeyScope cmd quote with a %s open is ignored", (_name, state) => {
     expect(appKeyScope(state, { key: "'", metaKey: true, ctrlKey: false, shiftKey: false, target: document.body })).toBe("none");
   });

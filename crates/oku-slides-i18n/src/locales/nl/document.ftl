@@ -105,6 +105,12 @@ import-reference-unavailable = Geen visuele score: { $cause ->
     [missing] LibreOffice (soffice) is niet gevonden; geef het pad op in import.soffice
    *[failed] de referentierenderer kon de presentatie niet lezen
 }
+import-region-suspect = Afwijking terzijde gelegd, een bekende fout van de referentierenderer: { $limit ->
+    [autofit] hij verkleint tekst die in zijn vak moet passen wanneer PowerPoint geen schaal heeft opgeslagen
+    [tracking] hij tekent tekst met letterafstand breder
+    [chart] hij tekent grafieken slechts bij benadering
+   *[smart_art] hij tekent SmartArt-tekst te klein
+}
 import-font-substituted = { $family } vervangen door { $by }, met passende metrieken
 import-font-missing = { $family } niet gevonden: de tekst gebruikt { $by }
 import-font-restricted = { $family }: de licentie verbiedt sommige stijlen in de presentatie in te sluiten; tekst in die stijlen gebruikt de overige stijlen

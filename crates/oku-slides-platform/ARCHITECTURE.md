@@ -14,8 +14,8 @@ the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
 - `telemetry`: `init` installs the `tracing` subscriber; call it first.
 - `errors`: `one_line` prints an error and all its causes on one line.
 - `config`: `Settings` and its sections (`PathSettings`, `RenderSettings`,
-  `ServeSettings`, `SttSettings`, `AgentSettings` with named `AgentPreset`s, …), plus
-  `APP_ID`.
+  `ServeSettings`, `SttSettings`, `AgentSettings` with named `AgentPreset`s,
+  `ImportSettings`: threshold, witness timeouts and `soffice` programs, tuning tries, …), plus `APP_ID`.
 - `config_write`: `write_value` sets one key in `config.toml` with `toml_edit`, keeping
   comments and order; it takes effect on the next launch.
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime

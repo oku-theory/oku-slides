@@ -131,3 +131,24 @@ fn undo_turn_after_opening_another_document_is_none() {
     manual_edit(&mut s, "À la main");
     assert_that!(s.undo_turn()).is_none();
 }
+
+#[test]
+fn undo_after_a_tune_turn_restores_the_imported_deck_then_undoes_the_import() {
+    use crate::import::ImportTarget;
+    use crate::test_support::imported_fixture;
+    let data = fresh_dir("oku-slides-turn-undo-tune-");
+    let mut s = imported_fixture(data.path(), "minimal", ImportTarget::Hifi, |_| {});
+    let imported = s.deck().clone();
+    // Le tour de fine-tuning : deux corrections de l'agent, sur deux slides.
+    s.begin_turn(1, "fine-tune l'import");
+    for slide in [imported.slides[0].id.clone(), imported.slides[1].id.clone()] {
+        let op = Op::SetSlideField { slide, field: oku_slides_core::SlideField::Description, value: json!("Revue") };
+        s.apply("Décrire", vec![op], None).unwrap();
+    }
+    s.end_turn();
+    assert_that!(s.deck()).is_not_equal_to(&imported);
+    s.undo().unwrap();
+    assert_that!(s.deck()).is_equal_to(&imported);
+    s.undo().unwrap();
+    assert_that!(s.deck().slides.is_empty()).is_true();
+}

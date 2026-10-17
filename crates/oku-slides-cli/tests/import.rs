@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::Arc;
 
-use common::{assert_success, oku_slides, workdir};
-use oku_slides_core::{SourceBundle, SourceLimits, WidgetRegistry, validate};
+use common::{Server, assert_success, free_port, http, oku_slides, workdir};
+use oku_slides_core::{PackManifest, PackScope, SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_session::{DEFAULT_PACK, GRID_PACK, PRO_THEME};
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -108,9 +108,19 @@ fn import_minimal_on_essentiel_and_pro_writes_a_reopenable_deck() {
     let bundle = reopened(&pdf);
     let deck = bundle.deck();
     assert_that!((deck.slides.len(), deck.params.title.as_deref())).is_equal_to((3, Some("Rapport annuel")));
-    assert_that!(deck.templates.as_ref().map(|r| r.id)).is_equal_to(Some(DEFAULT_PACK));
+    assert_that!(retrofit_target(&bundle)).is_equal_to(Some(DEFAULT_PACK));
     assert_that!(deck.theme.as_ref().map(|r| r.id)).is_equal_to(Some(PRO_THEME));
     assert_that!(deck.slides[1].notes.starts_with("Dire bonjour.")).is_true();
+}
+
+/// Le pack de la bibliothèque que le deck de retrofit de `bundle` a pris tel quel, vérifié de la bibliothèque.
+///
+/// Son pack enfant, du deck seul, ne vient qu'à la première écriture d'un widget, dans l'app.
+fn retrofit_target(bundle: &SourceBundle) -> Option<uuid::Uuid> {
+    let r = bundle.deck().templates.as_ref()?;
+    let manifest = PackManifest::from_files(bundle.packs.get(&r.version)?).ok()?;
+    assert_that!(manifest.scope).is_equal_to(PackScope::Library);
+    Some(manifest.id).filter(|id| *id == r.id)
 }
 
 /// `pptx` avec la part `name` remplacée par `content`.
@@ -173,7 +183,7 @@ fn import_kitchen_on_grilles_writes_its_report_with_coverage_and_messages() {
         .arg(&report));
     assert_success("import", &out, &[]);
     let bundle = reopened(&pdf);
-    assert_that!(bundle.deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(GRID_PACK));
+    assert_that!(retrofit_target(&bundle)).is_equal_to(Some(GRID_PACK));
     assert_that!(bundle.assets.len()).is_equal_to(1);
     let r: serde_json::Value = serde_json::from_slice(&std::fs::read(&report).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("rapport : {e}"));
@@ -210,7 +220,7 @@ fn import_with_a_pack_folder_uses_that_pack() {
     let (input, pdf) = (pptx(&dir, "minimal"), dir.join("m.oku-slides.pdf"));
     let out = run(oku_slides(&dir, "en").arg("import").arg(&input).arg("--pack").arg(&pack).arg("-o").arg(&pdf));
     assert_success("import", &out, &[]);
-    assert_that!(reopened(&pdf).deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(GRID_PACK));
+    assert_that!(retrofit_target(&reopened(&pdf))).is_equal_to(Some(GRID_PACK));
 }
 
 /// Les sources d'un `.oku-slides.pdf`, relues avec la seule base : les
@@ -504,4 +514,47 @@ fn import_retrofit_whose_output_exceeds_max_sources_is_refused() {
     assert_that!(out.status.success()).is_false();
     assert_that!(stderr(&out)).contains(OUTPUT_TOO_LARGE_FR);
     assert_that!(output.exists()).is_false();
+}
+
+#[test]
+fn serve_imports_a_pptx_into_a_new_tab_and_starts_its_fine_tuning() {
+    let dir = workdir("serve-import");
+    let ui = dir.join("ui");
+    std::fs::create_dir_all(&ui).unwrap_or_else(|e| panic!("{e}"));
+    // Jamais un vrai agent : une sonde qui laisse une trace et s'arrête (le tour échoue, sans effet ici).
+    let started = dir.join("agent-started");
+    let config = format!(
+        "[agent]\nselected = \"sonde\"\n\n[agent.presets.sonde]\nname = \"Sonde\"\ncommand = \"/bin/sh\"\nargs = [\"-c\", \"touch '{}'\"]\n",
+        started.display()
+    );
+    std::fs::create_dir_all(dir.join("data")).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(dir.join("data/config.toml"), config).unwrap_or_else(|e| panic!("{e}"));
+    let input = pptx(&dir, "minimal");
+    let port = free_port();
+    let _server = Server(
+        oku_slides(&dir, "fr")
+            // Jamais dans le vrai dossier Documents : le deck importé n'a pas de fichier.
+            .env("OKU_SLIDES_PATHS__DECKS", dir.join("decks"))
+            .args(["serve", "--port", &port.to_string(), "--ui"])
+            .arg(&ui)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap_or_else(|e| panic!("serve : {e}")),
+    );
+    let body = serde_json::json!({ "cmd": "import_tab", "window": "w-1", "path": input, "mode": "hifi", "tune": true });
+    let (status, view) = http(port, "POST", "/api/workspace", &body.to_string());
+    assert_that!(status).is_equal_to(200);
+    let view: serde_json::Value = serde_json::from_str(&view).unwrap_or_else(|e| panic!("vue : {e}"));
+    assert_that!(view["windows"][0]["active"]).is_equal_to(serde_json::json!("t-2"));
+    let (status, snapshot) = http(port, "POST", "/api", r#"{"tab":"t-2","req":{"cmd":"snapshot"}}"#);
+    assert_that!(status).is_equal_to(200);
+    let snapshot: serde_json::Value = serde_json::from_str(&snapshot).unwrap_or_else(|e| panic!("snapshot : {e}"));
+    assert_that!(snapshot["slides"].as_array().map(Vec::len)).is_equal_to(Some(3));
+    // `tune` : le serveur lance l'agent de l'onglet importé.
+    let launched = (0..100).any(|_| {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        started.exists()
+    });
+    assert_that!(launched).is_true();
 }

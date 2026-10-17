@@ -108,6 +108,7 @@ fn save_with_the_name_of_a_library_theme_embeds_its_current_version() {
         description: String::new(),
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
+        scope: oku_slides_core::PackScope::Library,
         tokens: serde_json::json!({"color": {"accent": "#ff0000"}}).as_object().cloned().unwrap(),
     };
     let files = manifest.to_files().unwrap();
@@ -613,6 +614,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         description: String::new(),
         parent: None,
         created: "2026-10-01T00:00:00Z".to_owned(),
+        scope: oku_slides_core::PackScope::Library,
         templates: Vec::new(),
         examples: Default::default(),
     };

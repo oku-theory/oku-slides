@@ -15,6 +15,7 @@ session-unknown-pack = 팩을 찾을 수 없습니다: { $id }
 session-pack-version-missing = 팩 { $id }의 버전 { $version }을(를) 찾을 수 없습니다
 session-invalid-pack = 팩을 읽을 수 없습니다: { $id }
 session-pack-id-mismatch = 이 파일은 팩 { $found }의 것이며 { $id }의 것이 아닙니다
+session-deck-only = { $id }은(는) 해당 프레젠테이션 전용입니다. 라이브러리에는 저장되지 않습니다
 session-editing-templates = 먼저 템플릿 편집을 완료하세요
 session-not-editing-templates = 편집 중인 템플릿 세트가 없습니다
 session-theme-choice-alone = 템플릿 모드에서는 테마만 따로 선택한 다음 set_token으로 토큰을 편집하세요
@@ -427,3 +428,29 @@ theme-option-fill = 채우기
 theme-option-true = 예
 theme-option-false = 아니요
 session-undo-theme-token = 테마: { $token }
+session-import-label = PowerPoint 가져오기
+session-import-retrofit-pack = { $deck }용 { $pack }
+session-import-unknown-pack = 알 수 없는 템플릿 팩: { $pack }
+session-import-bad-pack = 읽을 수 없는 템플릿 팩 { $pack }: pack.json이 템플릿 팩을 설명하지 않습니다
+session-import-pack-too-large = 팩 { $path }이(가) { $max } MiB보다 큽니다
+session-import-reader-panic = PowerPoint 리더가 { $path }에서 예기치 않게 실패했습니다. 파일을 가져오지 않았습니다
+session-import-bad-theme = 대상 테마를 읽을 수 없습니다: 디자인 토큰을 읽지 못했습니다
+session-import-probe-mismatch = 생성된 팩이 선언대로 검사되지 않았습니다(위젯 { $widget }): 가져오기 기능의 버그입니다
+session-import-probe-limit = 생성된 팩이 검사 한도를 넘습니다(위젯 { $widget }): 설정의 [render] 섹션에서 max_widgets, max_widget_kib 또는 probe_budget_ms를 늘리세요
+session-import-probe-failed = 렌더링 프로세스가 생성된 팩을 검사하지 못했습니다: { $error }
+session-import-pack-missing = 가져오기가 덱의 팩을 만들지 않았습니다: 가져오기의 버그입니다
+session-import-theme-missing = 가져오기가 덱의 테마를 만들지 않았습니다: 가져오기의 버그입니다
+session-import-bad-threshold = [import] 섹션의 score_threshold는 0 이상의 수여야 합니다({ $value } 아님)
+session-import-tune-none = 이 탭에는 가져오기가 없습니다. import_report와 import_diff는 PowerPoint에서 가져온 덱의 탭이 열려 있는 동안에만 작동합니다.
+session-import-tune-hifi-only = 이 가져오기는 retrofit입니다. 비교할 참조 렌더링이 없습니다. import_diff는 hi-fi 가져오기에서만 작동합니다.
+session-import-tune-no-reference = import_diff에는 참조 렌더링이 필요합니다. { $reason }
+session-import-tune-reference-pending = 참조 렌더링이 아직 진행 중입니다. 잠시 후 도구를 다시 호출하세요.
+session-import-tune-unknown-slide = { $slide }은(는) 이 가져오기의 슬라이드가 아닙니다(import_report 참고).
+session-import-tune-unknown-region = { $region }은(는) 슬라이드 { $slide }의 영역이 아닙니다. import_diff가 준 항목 ID를 사용하세요.
+session-import-tune-tries-used = 슬라이드 { $slide }에 남은 시도가 없습니다(사용한 시도: { $tries }, 또는 여러 번 시도해도 개선 없음). 다음 슬라이드로 넘어가세요.
+session-import-tune-untunable = 슬라이드 { $slide }에는 시도가 없습니다: { $state ->
+        [done] 이미 임계값 아래입니다
+        [witness] 참조 자체가 잘못 그리는 영역만 임계값을 넘습니다
+       *[unscored] 점수가 없습니다. 참조 렌더링이 없습니다
+    }. 다음 슬라이드로 넘어가세요.
+session-import-tune-compare = 슬라이드를 참조 렌더링과 비교할 수 없었습니다.

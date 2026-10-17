@@ -99,6 +99,12 @@ import-reference-unavailable = কোনো দৃশ্যমান স্ক�
     [missing] LibreOffice (soffice) পাওয়া যায়নি; import.soffice-এ এর পাথ দিন
    *[failed] রেফারেন্স রেন্ডারার উপস্থাপনাটি পড়তে পারেনি
 }
+import-region-suspect = পার্থক্যটি সরিয়ে রাখা হয়েছে, রেফারেন্স রেন্ডারারের একটি জানা ত্রুটি: { $limit ->
+    [autofit] PowerPoint কোনো স্কেল সংরক্ষণ না করলে এটি বাক্সে মানানো লেখা ছোট করে
+    [tracking] এটি অক্ষর-ব্যবধানযুক্ত লেখা বেশি চওড়া আঁকে
+    [chart] এটি চার্ট কেবল আনুমানিকভাবে আঁকে
+   *[smart_art] এটি SmartArt-এর লেখা খুব ছোট আঁকে
+}
 import-font-substituted = { $family } মিলযুক্ত মাপের { $by } দিয়ে বদলানো হয়েছে
 import-font-missing = { $family } পাওয়া যায়নি: লেখা { $by } ব্যবহার করে
 import-font-restricted = { $family }: এর লাইসেন্স কিছু শৈলী প্রেজেন্টেশনে এমবেড করতে দেয় না; সেই শৈলীর লেখা এর অন্য শৈলী ব্যবহার করে

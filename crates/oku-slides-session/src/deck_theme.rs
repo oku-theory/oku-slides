@@ -69,7 +69,7 @@ fn embedded_manifest(r: &ThemeRef, files: &PackFiles) -> Option<ThemeManifest> {
 }
 
 /// Le manifeste de `files`, s'il est bien une version du thème `r.id`.
-fn manifest_of(r: &ThemeRef, files: &PackFiles) -> Result<ThemeManifest> {
+pub(crate) fn manifest_of(r: &ThemeRef, files: &PackFiles) -> Result<ThemeManifest> {
     let manifest = ThemeManifest::from_files(files).context(ThemeJsonSnafu { id: r.id })?;
     ensure!(manifest.id == r.id, ThemeIdMismatchSnafu { id: r.id, found: manifest.id });
     Ok(manifest)

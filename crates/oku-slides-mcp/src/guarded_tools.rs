@@ -222,6 +222,8 @@ impl Tools {
 
     /// Nouvelle version d'un thème (copie d'un thème intégré), en mode deck :
     /// l'écran reste sur les slides. Répond le thème obtenu.
+    ///
+    /// Confirmé par l'utilisateur, sauf pour un thème du deck seul (`ThemeInfo::deck_only`).
     pub(crate) async fn edit_theme(&self, args: Value) -> CallToolResult {
         let EditThemeArgs { theme, name, ops } = match self.parse(args) {
             Ok(a) => a,
@@ -232,10 +234,14 @@ impl Tools {
             Ok(i) => i,
             Err(e) => return self.fail_with(e),
         };
-        let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
-        let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
-        if !self.hub.confirm(message, false).await {
-            return self.denied();
+        // Un thème du deck seul (celui d'un import) : sa nouvelle version reste dans le deck,
+        // en une étape annulable, sans toucher la bibliothèque ; rien à confirmer.
+        if !info.deck_only {
+            let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
+            let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
+            if !self.hub.confirm(message, false).await {
+                return self.denied();
+            }
         }
         let done = self.with_session(move |s| s.handle(Request::EditTheme { id: theme, name, ops })).await;
         self.reply(done, |edited| {

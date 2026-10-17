@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = Dosyanın teması
 ui-toolbar-save-copy = Kopyasını kaydet
 ui-toolbar-finish = Bitti
 ui-menu-workshop = Atölye
+ui-menu-workshop-deck-only = Bu şablonlar yalnızca bu sunuma ait; atölye yalnızca kitaplıktaki şablonları düzenler.
 ui-toolbar-open = Aç
 ui-merge = PDF ile birleştir…
 ui-menu = Menü
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = Grafik olarak göster
 
 ## Dosyalar
 
-ui-file-open-prompt = Açılacak dosyanın yolu (.oku-slides.pdf veya .json)
+ui-file-open-prompt = Açılacak dosyanın yolu (.oku-slides.pdf, .json veya .pptx)
+ui-file-merge-prompt = Bu sunuyla birleştirilecek sununun yolu (.oku-slides.pdf veya .json)
+ui-file-filter-presentations = Sunumlar
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Farklı kaydet (tam yol)
 
 ## Sekmeler
@@ -392,3 +396,19 @@ ui-theme-name = Tema adı
 ui-theme-unsaved = Tema değişiklikleri kaydedilmedi
 ui-widgets-close-tab = { $name } sekmesini kapat
 ui-widgets-removed-by-agent = Ajan { $name } widget'ını sildi.
+
+## İçe aktar
+
+ui-import-title = PowerPoint sunumunu içe aktar
+ui-import-mode = İçe aktarma modu
+ui-import-hifi = Aslına uygun kopya
+ui-import-hifi-note = Bu sunum için hazırlanmış bir tema ve şablonlarla orijinalin görünümünü korur.
+ui-import-retrofit = Şablonlarımı kullan
+ui-import-retrofit-note = Slaytları kitaplıktaki şablonlar ve bir temayla yeniden kurar.
+ui-import-theme-default = Varsayılan tema
+ui-import-no-packs = Kitaplıkta şablon seti yok.
+ui-import-tune = Ajanla ince ayar yap
+ui-import-tune-note = Ajan her slaytı orijinalle karşılaştırır ve farkları düzeltir.
+ui-import-tune-note-retrofit = Ajan her slaytı orijinalle karşılaştırır ve şablonlarınızın gösteremediği şekiller için bileşenler tasarlar.
+ui-import-submit = İçe aktar
+ui-import-busy = İçe aktarılıyor…

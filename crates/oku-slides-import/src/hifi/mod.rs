@@ -24,6 +24,7 @@ mod color;
 mod element;
 mod element_text;
 mod geometry;
+mod groups;
 mod pack;
 mod page;
 mod slide;
@@ -39,6 +40,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use self::element::{ElementCtx, effect_items};
+pub use self::groups::GROUP_MIN_SLIDES;
 pub use self::pack::PackLimits;
 use self::pack::{GeneratedPack, generate_pack, generated_registry, pack_manifest};
 use self::page::Page;
@@ -119,7 +121,7 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
     let mut slides = Vec::new();
     let mut dropped: BTreeSet<&str> = pack.dropped.iter().map(String::as_str).collect();
     for src in &deck.slides {
-        let Projected { slide, mut report, assets: drawn, origins: o } = project_slide(src, &cx);
+        let Projected { slide, mut report, assets: drawn, origins: o, targets: t } = project_slide(src, &cx);
         // Un layout sans widget est dit une fois, à sa première slide.
         if let Some(layout) = src.layout.as_deref().and_then(|l| dropped.take(l))
             && let Some(l) = deck.layouts.iter().find(|x| x.id == layout)
@@ -133,6 +135,7 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         }
         assets.extend(drawn);
         origins.extend(o);
+        plan.targets.extend(t);
         plan.report.slides.push(report);
         slides.push(slide);
     }
@@ -175,6 +178,8 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
             None
         }
     };
+    plan.origins = origins;
+    plan.groups = groups::repeated(deck);
     plan
 }
 

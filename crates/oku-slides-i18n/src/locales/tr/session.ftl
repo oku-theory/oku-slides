@@ -15,6 +15,7 @@ session-unknown-pack = Paket bulunamadı: { $id }
 session-pack-version-missing = { $id } paketinin { $version } sürümü bulunamadı
 session-invalid-pack = Okunamayan paket: { $id }
 session-pack-id-mismatch = Bu dosya { $id } değil, { $found } paketine ait
+session-deck-only = { $id } yalnızca kendi sunumuna aittir: kitaplığa asla kaydedilmez
 session-editing-templates = Önce şablonları düzenlemeyi bitirin
 session-not-editing-templates = Düzenlenmekte olan şablon seti yok
 session-theme-choice-alone = Şablon modunda temayı tek başına seçin, ardından belirteçlerini set_token ile düzenleyin
@@ -427,3 +428,29 @@ theme-option-fill = Doldur
 theme-option-true = Evet
 theme-option-false = Hayır
 session-undo-theme-token = Tema: { $token }
+session-import-label = PowerPoint içe aktarma
+session-import-retrofit-pack = { $deck } için { $pack }
+session-import-unknown-pack = bilinmeyen şablon paketi: { $pack }
+session-import-bad-pack = okunamayan şablon paketi { $pack }: pack.json dosyası bir şablon paketi tanımlamıyor
+session-import-pack-too-large = { $path } paketi { $max } MiB'den büyük
+session-import-reader-panic = PowerPoint okuyucusu { $path } üzerinde beklenmedik biçimde başarısız oldu; dosya içe aktarılmadı
+session-import-bad-theme = hedef tema okunamıyor: tasarım belirteçleri okunamadı
+session-import-probe-mismatch = üretilen paket bildirildiği gibi yoklanmadı (widget { $widget }): içe aktarıcıda bir hata
+session-import-probe-limit = oluşturulan paket denetim sınırlarını aşıyor (widget { $widget }): yapılandırmanın [render] bölümünde max_widgets, max_widget_kib veya probe_budget_ms değerini artırın
+session-import-probe-failed = oluşturulan paket işleme süreci tarafından denetlenemedi: { $error }
+session-import-pack-missing = içe aktarma deste için paket üretmedi: bu bir içe aktarma hatasıdır
+session-import-theme-missing = içe aktarma deste için tema üretmedi: bu bir içe aktarma hatasıdır
+session-import-bad-threshold = [import] bölümündeki score_threshold sıfır veya daha büyük bir sayı olmalı, { $value } değil
+session-import-tune-none = Bu sekmede içe aktarma yok: import_report ve import_diff yalnızca PowerPoint'ten içe aktarılmış bir sunumda, sekmesi açık kaldığı sürece çalışır.
+session-import-tune-hifi-only = Bu içe aktarma bir retrofit: karşılaştırılacak bir referans görüntüsü yok. import_diff yalnızca hi-fi içe aktarmada çalışır.
+session-import-tune-no-reference = import_diff referans görüntüsüne ihtiyaç duyar. { $reason }
+session-import-tune-reference-pending = Referans görüntüsü hâlâ hazırlanıyor; aracı birazdan yeniden çağırın.
+session-import-tune-unknown-slide = { $slide } bu içe aktarmanın bir slaytı değil (import_report'a bakın).
+session-import-tune-unknown-region = { $region }, { $slide } slaytının bir bölgesi değil: import_diff'in verdiği bir öğe kimliğini kullanın.
+session-import-tune-tries-used = { $slide } slaytının deneme hakkı kalmadı (kullanılan deneme: { $tries } ya da birkaç denemedir ilerleme yok): sonraki slayta geçin.
+session-import-tune-untunable = { $slide } slaytının deneme hakkı yok: { $state ->
+        [done] zaten eşiğin altında
+        [witness] eşiği yalnızca referansın kendisinin yanlış çizdiği bölgeler aşıyor
+       *[unscored] puanı yok, referans çizimi eksik
+    }. Sonraki slayta geçin.
+session-import-tune-compare = Slayt, referans görüntüsüyle karşılaştırılamadı.

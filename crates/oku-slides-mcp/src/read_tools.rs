@@ -2,9 +2,19 @@
 
 use oku_slides_session::Request;
 use rust_mcp_sdk::schema::CallToolResult;
+use schemars::JsonSchema;
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::tools::{SlideId, Tools, png, text};
+
+/// Le thème lu par `theme_tokens`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct ThemeArgs {
+    /// Id du thème (UUID, voir `deck_outline`).
+    #[schemars(with = "String")]
+    pub theme: uuid::Uuid,
+}
 
 impl Tools {
     pub(crate) async fn deck_outline(&self) -> CallToolResult {
@@ -48,6 +58,28 @@ impl Tools {
                     "template_set": snap.templates,
                     "dirty": snap.dirty,
                     "slides": slides,
+                }))
+            })
+            .await;
+        self.reply(r, |v| self.json_result(&v))
+    }
+
+    /// Les jetons propres d'un thème, dans la version d'où partirait `edit_theme`.
+    pub(crate) async fn theme_tokens(&self, args: Value) -> CallToolResult {
+        let ThemeArgs { theme } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let r = self
+            .with_session(move |s| {
+                let info = s.theme_info(theme)?;
+                let tokens = s.theme_tokens_of(theme)?;
+                Ok(json!({
+                    "id": info.id,
+                    "version": info.version,
+                    "name": info.name,
+                    "deck_only": info.deck_only,
+                    "tokens": tokens,
                 }))
             })
             .await;

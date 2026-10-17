@@ -166,6 +166,11 @@ impl Shared {
                     }
                     match outcome {
                         Ok(WorkspaceOutcome::Applied(json)) => (StatusCode::OK, json),
+                        // Un onglet importé à fine-tuner : son tour part, puis la vue, comme un fichier ouvert.
+                        Ok(WorkspaceOutcome::Tune { json, tab }) => {
+                            self.stack.tune(&tab);
+                            (StatusCode::OK, json)
+                        }
                         Ok(WorkspaceOutcome::LastWindow(_)) => last_window(),
                         Err(e) => refused(e),
                     }

@@ -10,9 +10,7 @@ import type { QuickAction } from "./quick";
 import { quickAction, quickKey } from "./quick";
 import type { Routed } from "./surfaces";
 import { isQuestion } from "./surfaces";
-
-/** Délai avant qu'une fenêtre n'accepte une touche ou un clic (une frappe en cours ne la valide pas). */
-export const ARMING_MS = 500;
+import { ARMING_MS } from "../modalFrame";
 
 /** La surface qui reçoit les touches, et sa sorte (`dock` : une question du fil). */
 export interface QuickTarget {

@@ -96,6 +96,12 @@ import-reference-unavailable = ไม่มีคะแนนภาพ: { $cause
     [missing] ไม่พบ LibreOffice (soffice) โปรดระบุพาธใน import.soffice
    *[failed] ตัวเรนเดอร์อ้างอิงอ่านงานนำเสนอไม่ได้
 }
+import-region-suspect = ส่วนต่างที่พักไว้ ซึ่งเป็นข้อผิดพลาดที่ทราบของตัวเรนเดอร์อ้างอิง: { $limit ->
+    [autofit] มันย่อข้อความที่ปรับให้พอดีกล่องเมื่อ PowerPoint ไม่ได้บันทึกมาตราส่วนไว้
+    [tracking] มันวาดข้อความที่เว้นระยะตัวอักษรกว้างกว่าจริง
+    [chart] มันวาดแผนภูมิได้เพียงคร่าว ๆ
+   *[smart_art] มันวาดข้อความ SmartArt เล็กเกินไป
+}
 import-font-substituted = แทนที่ { $family } ด้วย { $by } ที่มีเมตริกเข้ากันได้
 import-font-missing = ไม่พบ { $family }: ข้อความใช้ฟอนต์ { $by }
 import-font-restricted = { $family }: สัญญาอนุญาตห้ามฝังบางสไตล์ลงในงานนำเสนอ ข้อความในสไตล์เหล่านั้นใช้สไตล์อื่นของฟอนต์

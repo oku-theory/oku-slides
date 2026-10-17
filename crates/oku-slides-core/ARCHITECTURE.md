@@ -27,15 +27,15 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 - `pack.rs`: content-addressed `PackVersion` (sha-256 of `pack.json` and widget files),
   `PackRef`, `PackFiles`, `WidgetFile`, `PackManifest`, `Template`; a theme version is a
   `PackFiles` without widgets whose manifest is `theme.json` (`ThemeManifest`, `ThemeRef`).
+  `PackScope` (`library`, default, unwritten; `deck`: an import's, never in the library; `PackFiles::scope`).
 - `tokens.rs`: a theme's effective tokens (`effective_tokens`: defaults, then theme) and `merge`.
 - `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot,
   assets, fonts, `packs/<hex>/{pack.json, widgets/<name>.typ}` (`sources_packs.rs`),
   `themes/<hex>/theme.json` (`sources_themes.rs`), all add-only, verified on read (a forged
   version is reported once) and unioned on merge; reads bounded by `SourceLimits`.
-- `validate.rs`: deck consistency against the registry, reported as `Issue`s rather than errors.
-- `canonical.rs`: `canonicalize` (sorted keys, empty slots dropped, duplicate ids repaired).
-- `fields.rs` (`TextField`, `Slide::text_fields`), `locate.rs` (`Located`, `MAX_SLOT_DEPTH`),
-  `color.rs` (`is_hex_color`).
+- `validate.rs`: deck consistency against the registry, as `Issue`s; `canonical.rs`: `canonicalize`
+  (sorted keys, empty slots dropped, duplicate ids repaired).
+- `fields.rs` (`TextField`, `Slide::text_fields`), `locate.rs` (`Located`, `MAX_SLOT_DEPTH`), `color.rs`.
 - `error/`: `OpError`, `ReplicaError`, `SourcesError`, `TransactionError` and friends (Snafu,
   Fluent); `reason.rs` holds refusal reasons such as `ValueReason`.
 

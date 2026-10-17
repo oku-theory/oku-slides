@@ -305,7 +305,7 @@ fn render_memory_and_frame_env_overrides_change_the_settings() {
 
 #[test]
 fn settings_default_import_threshold_matches_config_defaults() {
-    assert_that!(Settings::defaults().unwrap().import.score_threshold).is_equal_to(10.0);
+    assert_that!(Settings::defaults().unwrap().import.score_threshold).is_equal_to(7.0);
 }
 
 #[test]
@@ -321,6 +321,28 @@ fn settings_default_soffice_tries_the_macos_app_then_the_path() {
         PathBuf::from("soffice"),
     ]);
     assert_that!(import.soffice_timeout_ms).is_equal_to(60_000);
+}
+
+#[test]
+fn settings_default_tune_bounds_match_config_defaults() {
+    let import = Settings::defaults().unwrap().import;
+    assert_that!((import.tune_iterations.get(), import.tune_stall.get(), import.tune_global.get()))
+        .is_equal_to((3, 2, 3));
+}
+
+#[test]
+fn tune_global_of_zero_is_refused() {
+    assert_that!(Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__TUNE_GLOBAL", "0")]))).is_err();
+}
+
+#[test]
+fn tune_iterations_of_zero_is_refused() {
+    assert_that!(Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__TUNE_ITERATIONS", "0")]))).is_err();
+}
+
+#[test]
+fn tune_stall_of_zero_is_refused() {
+    assert_that!(Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__TUNE_STALL", "0")]))).is_err();
 }
 
 #[test]

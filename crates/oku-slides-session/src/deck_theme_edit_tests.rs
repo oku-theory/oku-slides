@@ -6,7 +6,8 @@ use uuid::Uuid;
 use super::TokenOp;
 use crate::library_kind::LibraryKind;
 use crate::pack::DEFAULT_PACK;
-use crate::test_support::{fresh_dir, opened_on};
+use crate::pack::PackScope;
+use crate::test_support::{adopt_deck_only_theme, fresh_dir, opened_on};
 use crate::theme::{PAPIER_THEME, PRO_THEME, ThemeManifest, Themes};
 use crate::{Request, Session, SessionErrorKind};
 
@@ -36,6 +37,7 @@ fn add_user_theme(s: &Session, id: Uuid) -> ThemeRef {
         description: String::new(),
         parent: None,
         created: "2026-01-01T00:00:00Z".into(),
+        scope: oku_slides_core::PackScope::Library,
         tokens: pro.manifest.tokens.clone(),
     };
     let files = manifest.to_files().unwrap();
@@ -139,4 +141,51 @@ fn edit_theme_request_answers_the_edited_theme_and_lists_it() {
     assert_that!(v["adopted"]).is_equal_to(json!(true));
     let listed = s.snapshot().themes.iter().any(|t| t.name == "Vinci");
     assert_that!(listed).is_true();
+}
+
+#[test]
+fn edit_theme_of_a_deck_only_theme_embeds_a_deck_only_version_and_leaves_the_library_unchanged() {
+    let data = fresh_dir("oku-slides-deck-theme-edit-only-");
+    let mut s = opened_on(data.path());
+    let before = adopt_deck_only_theme(&mut s);
+    let themes = s.themes.themes();
+    let info = s.theme_info(before.id).unwrap();
+    assert_that!((info.version.clone(), info.deck_only)).is_equal_to((before.version.clone(), true));
+    let edited = s.edit_theme(before.id, None, vec![accent("#c0392b")]).unwrap();
+    assert_that!((edited.id, edited.adopted, edited.changed)).is_equal_to((before.id, true, true));
+    assert_that!(s.themes.themes()).is_equal_to(&themes);
+    assert_that!(s.themes.versions(before.id).is_empty()).is_true();
+    let r = s.deck().theme.clone().unwrap();
+    assert_that!(r.version.clone()).is_equal_to(&edited.version);
+    let manifest = s.theme_manifest(&r).unwrap();
+    assert_that!(manifest.scope).is_equal_to(PackScope::Deck);
+    assert_that!(manifest.parent).is_equal_to(Some(before.version.clone()));
+    assert_that!(manifest.tokens["color"]["accent"]).is_equal_to(json!("#c0392b"));
+    s.undo().unwrap();
+    assert_that!(s.deck().theme.clone()).is_equal_to(Some(before));
+}
+
+#[test]
+fn theme_info_of_a_library_theme_is_not_deck_only() {
+    let data = fresh_dir("oku-slides-deck-theme-info-");
+    let s = opened_on(data.path());
+    assert_that!(s.theme_info(crate::PAPIER_THEME).unwrap().deck_only).is_false();
+}
+
+#[test]
+fn theme_tokens_of_a_deck_only_theme_are_those_of_its_deck_version() {
+    let data = fresh_dir("oku-slides-deck-theme-tokens-");
+    let mut s = opened_on(data.path());
+    let r = adopt_deck_only_theme(&mut s);
+    let manifest = s.theme_manifest(&r).unwrap();
+    assert_that!(s.theme_tokens_of(r.id).unwrap()).is_equal_to(manifest.tokens);
+}
+
+#[test]
+fn edit_theme_returns_the_tokens_of_the_saved_version() {
+    let data = fresh_dir("oku-slides-deck-theme-edit-tokens-");
+    let mut s = session_with_theme(&data, PAPIER_THEME);
+    let edited = s.edit_theme(PAPIER_THEME, None, vec![accent("#c0392b")]).unwrap();
+    assert_that!(edited.tokens["color"]["accent"]).is_equal_to(json!("#c0392b"));
+    assert_that!(s.theme_tokens_of(edited.id).unwrap()).is_equal_to(edited.tokens);
 }

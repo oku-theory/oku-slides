@@ -7,7 +7,10 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
 use oku_slides_platform::storage::Storage;
-use snafu::{OptionExt, ensure};
+use snafu::{OptionExt, ResultExt, ensure};
+
+use crate::error::ImportSnafu;
+use crate::import::{ImportRequest, ImportTarget, PackLookup, import};
 
 use super::{
     Fonts, Platform, Result, Session, Slot, TABS_DIR, Tab, UnknownTabSnafu, UnknownWindowSnafu, UnsavedSnafu,
@@ -58,6 +61,17 @@ pub(super) enum Opening {
     File(PathBuf),
     /// L'aide dans cette langue, au thème du deck d'où on l'ouvre.
     Help { locale: &'static str, theme: Option<uuid::Uuid> },
+    /// Un import (en boîte : la cible est lourde, `Step` reste petit).
+    Import(Box<ImportOpening>),
+}
+
+/// L'import qu'un onglet à créer montrera.
+pub(super) struct ImportOpening {
+    /// Le `.pptx` (chemin résolu).
+    pub(super) path: PathBuf,
+    pub(super) target: ImportTarget,
+    /// L'agent fine-tunera l'onglet importé.
+    pub(super) tune: bool,
 }
 
 /// Un onglet à créer hors du verrou : tout ce qu'il faut pour sa session.
@@ -74,6 +88,11 @@ pub(super) struct Pending {
 }
 
 impl Pending {
+    /// L'onglet à créer est un import que l'agent doit fine-tuner.
+    pub(super) fn tunes(&self) -> bool {
+        matches!(&self.opening, Opening::Import(i) if i.tune)
+    }
+
     /// La session de l'onglet : créée, fichier ouvert, reprise activée.
     ///
     /// Un onglet neuf n'a rien à relire : un échec de reprise ne lui coûte
@@ -84,6 +103,19 @@ impl Pending {
             Opening::Blank => {}
             Opening::File(path) => session.open(path)?,
             Opening::Help { locale, theme } => session.open_help(locale, *theme)?,
+            Opening::Import(i) => {
+                // Les polices de la présentation sont cherchées aussi parmi celles du système, comme dans la CLI ;
+                // le pack cible, dans la bibliothèque seulement (jamais un dossier venu de l'interface).
+                let request = ImportRequest {
+                    pptx: i.path.clone(),
+                    target: i.target.clone(),
+                    system_fonts: true,
+                    packs: PackLookup::Library,
+                };
+                let imported = import(&self.platform, &self.fonts, &request).context(ImportSnafu)?;
+                let name = i.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                session.load_import(imported, &name)?;
+            }
         }
         if let Some(dir) = &self.dir
             && !session.resume_fresh(dir.join(TABS_DIR).join(&self.id))
@@ -118,6 +150,27 @@ impl Workspace {
         }
         let active = self.layout.windows[self.window_index(&window)?].active.clone();
         Ok(Step::Build(self.pending(Some(window), Opening::File(path), Some(active))))
+    }
+
+    /// Importe `path` vers `target` dans un nouvel onglet de `window`.
+    ///
+    /// Il remplace l'onglet actif s'il est vierge, comme un fichier ouvert.
+    ///
+    /// Jamais l'onglet d'un import précédent : chaque import est un deck neuf.
+    pub(super) fn import_tab(
+        &mut self,
+        window: String,
+        path: PathBuf,
+        target: ImportTarget,
+        tune: bool,
+    ) -> Result<Pending> {
+        // Comme `OpenTab` : refusé une fois la fin engagée.
+        if self.is_closed() {
+            return Err(UnknownWindowSnafu { label: window }.build().into());
+        }
+        let active = self.layout.windows[self.window_index(&window)?].active.clone();
+        let opening = Opening::Import(Box::new(ImportOpening { path: resolve(&path), target, tune }));
+        Ok(self.pending(Some(window), opening, Some(active)))
     }
 
     /// Ouvre l'aide de `window` : son onglet s'il existe déjà (au thème du
@@ -160,7 +213,7 @@ impl Workspace {
         // seconde instance, double clic) : le premier onglet reste, seul.
         // De même pour l'aide : deux demandes rapprochées (menu et ⌘?) n'ouvrent qu'un onglet.
         let existing = match &opening {
-            Opening::Blank => None,
+            Opening::Blank | Opening::Import(_) => None,
             Opening::File(path) => w.tab_with_path(path),
             Opening::Help { locale, .. } => w.tab_with_help(locale),
         };
@@ -249,6 +302,7 @@ impl Workspace {
             | WorkspaceRequest::SameDeck { .. }
             | WorkspaceRequest::NewTab { .. }
             | WorkspaceRequest::OpenTab { .. }
+            | WorkspaceRequest::ImportTab { .. }
             | WorkspaceRequest::OpenHelp { .. }
             | WorkspaceRequest::NewWindow
             // Traitée directement dans `apply` (décision atomique de la
@@ -277,8 +331,10 @@ impl Workspace {
         Ok(())
     }
 
-    /// Onglets dont `req` doit lire l'état réel : fermés sans abandon, ou
-    /// l'onglet vierge qu'un fichier ouvert remplacerait (s'il l'était).
+    /// Onglets dont `req` doit lire l'état réel.
+    ///
+    /// Fermés sans abandon, ou l'onglet vierge qu'un fichier ouvert ou importé remplacerait (s'il
+    /// l'était).
     pub(super) fn to_wake(&self, req: &WorkspaceRequest) -> Vec<String> {
         match req {
             WorkspaceRequest::Close { tab, discard: false } => vec![tab.clone()],
@@ -298,7 +354,7 @@ impl Workspace {
             {
                 Vec::new()
             }
-            WorkspaceRequest::OpenTab { window, .. } => self
+            WorkspaceRequest::OpenTab { window, .. } | WorkspaceRequest::ImportTab { window, .. } => self
                 .layout
                 .windows
                 .iter()

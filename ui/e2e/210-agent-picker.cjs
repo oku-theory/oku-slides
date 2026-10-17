@@ -1,7 +1,7 @@
 // Panneau des agents (menu des réglages de la dictée) : l'ouvrir, passer au second faux agent, lire sa
 // réponse, revenir au premier.
 // Contre `oku-slides serve` lancé par `just e2e` (deux presets : « Faux » choisi, « Faux bis »).
-// Numéro le plus haut, passe en dernier : choisir un agent change l'agent de tout le serveur.
+// Choisir un agent change l'agent de tout le serveur : la spec revient à « Faux » pour les suivantes.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');

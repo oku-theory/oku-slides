@@ -37,3 +37,13 @@ fn causes_give_five_distinct_messages_in_french() {
     let messages: std::collections::BTreeSet<String> = causes.iter().map(|c| c.localize(&fr)).collect();
     assert_that!(messages.len()).is_equal_to(5);
 }
+
+#[rstest]
+#[case(ReferenceCause::Failed, "failed")]
+#[case(ReferenceCause::Timeout, "timeout")]
+#[case(ReferenceCause::Memory, "memory")]
+#[case(ReferenceCause::Missing, "missing")]
+#[case(ReferenceCause::Pages { reference: 7, deck: 8 }, "pages (7 rendered, 8 expected)")]
+fn cause_display_names_it_with_its_counts(#[case] cause: ReferenceCause, #[case] expected: &str) {
+    assert_that!(cause.to_string()).is_equal_to(expected.to_owned());
+}

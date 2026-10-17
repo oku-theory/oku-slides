@@ -18,6 +18,13 @@
 //! dont le corps échoue au rendu ne change rien (`set_widget` en rend les
 //! diagnostics). Une écriture qui échoue ensuite pose l'avis
 //! `session-widgets-not-saved` : le deck garde la version, pas la bibliothèque.
+//!
+//! Un pack du deck seul (`PackScope::Deck` : le pack de l'import) suit la
+//! même séance, sans jamais écrire la bibliothèque ni poser d'avis : ses
+//! versions ne vivent que dans les sources du deck. Un deck de retrofit sur
+//! son pack cible y passe à la première écriture : la version de la séance
+//! est alors celle de son pack enfant (`import::child_pack`), de parente la
+//! version cible.
 
 use std::collections::BTreeMap;
 
@@ -82,6 +89,9 @@ impl Session {
         mut manifest: PackManifest,
         widgets: BTreeMap<WidgetFile, String>,
     ) -> Result<()> {
+        // Un deck de retrofit sur son pack cible : l'écriture crée son pack enfant, du deck seul.
+        let child = self.retrofit_child_target(t, &mut manifest);
+        let t = child.as_ref().unwrap_or(t);
         // La séance continue tant que le deck est sur sa version.
         let session = self.widget_session.take().filter(|s| s.id == t.id && s.version == t.version);
         let committed = self.adopt_deck_widgets(t, &mut manifest, widgets, session.as_ref());
@@ -98,6 +108,8 @@ impl Session {
     }
 
     /// Embarque la version, y fait passer le deck, puis l'écrit dans la bibliothèque.
+    ///
+    /// Sauf pour un pack du deck seul, jamais écrit.
     fn adopt_deck_widgets(
         &mut self,
         t: &WidgetTarget,
@@ -132,20 +144,29 @@ impl Session {
         {
             self.doc.sources.packs.remove(&s.version);
         }
-        // Le deck embarque la version : un échec d'écriture n'y perd rien.
-        let written = match replaced {
-            Some(s) => self.library.replace_version(t.id, &s.version, &files).map(|_| ()),
-            None => self.library.add_version(t.id, &files).and_then(|_| self.library.set_current(t.id, &version)),
-        };
-        if let Err(e) = written {
-            tracing::error!(error = %e.one_line(), "version de widgets non écrite dans la bibliothèque");
-            let notice =
-                self.localizer.tr_with("session-widgets-not-saved", &[("pack", manifest.name.as_str().into())]);
-            self.set_notice(notice);
+        // Le deck embarque la version : un échec d'écriture n'y perd rien. Un
+        // pack du deck seul ne quitte jamais le deck.
+        if manifest.scope.is_library() {
+            self.write_deck_widgets(t.id, &manifest.name, replaced, &files);
         }
         // Après l'écriture : la bibliothèque connaît la version, courante (pas de bandeau).
         self.pack_notice = self.pack_notice_for_deck();
         Ok(WidgetSession { id: t.id, parent, version })
+    }
+
+    /// Écrit `files` dans la bibliothèque, en place de la version `replaced` éventuelle.
+    ///
+    /// Un échec pose l'avis « non enregistrée ».
+    fn write_deck_widgets(&mut self, id: Uuid, name: &str, replaced: Option<&WidgetSession>, files: &PackFiles) {
+        let written = match replaced {
+            Some(s) => self.library.replace_version(id, &s.version, files).map(|_| ()),
+            None => self.library.add_version(id, files).and_then(|_| self.library.set_current(id, &files.version())),
+        };
+        if let Err(e) = written {
+            tracing::error!(error = %e.one_line(), "version de widgets non écrite dans la bibliothèque");
+            let notice = self.localizer.tr_with("session-widgets-not-saved", &[("pack", name.into())]);
+            self.set_notice(notice);
+        }
     }
 }
 

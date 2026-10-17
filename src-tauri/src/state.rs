@@ -72,6 +72,11 @@ impl AppState {
             self.stack.tab_closed(gone);
         }
     }
+
+    /// Lance le fine-tuning par l'agent de l'onglet importé `tab`.
+    pub fn tune(&self, tab: &str) {
+        self.stack.tune(tab);
+    }
 }
 
 /// Les sessions des onglets, pour l'agent : par l'espace de travail

@@ -23,13 +23,13 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN, listed with dropped color modifiers in bounds::clamped to warn Approximated; parse a shared theme once. (t-755, t-892, t-757)
 - Type every asset with media::sniff, refuse a raster whose header is unreadable or above max_image_pixels, and pass every SVG through svg::sanitize (literal internal entities only). (t-752, t-892, t-730)
 - Apply or write only a CheckedPlan, which only ImportPlan::check_budget returns. (t-753, t-892)
+- Mark regions suspect only under the office2pdf witness, rank them after the others and never let one flag a slide. (t-692)
 
 ## Pitfalls
 
 - Emit only color names that exist in the target theme, since Typst panics on an unknown one, and no color in chart options, where the theme palette decides. (plan:2026-10-10-import-pptx-lot2)
 - Emit chart options already in canonical form, because the core checks host params but does not canonicalize, and cut dataset rows to dataset_row_budget with ChartTruncated. (plan:2026-10-10-import-pptx-lot2, t-817)
-- Give every emitted frame sides of at least 1 pt, since the core rejects zero width or height. (plan:2026-10-10-import-pptx-lot2)
-- Emit images only in formats Typst draws (png, jpeg, gif, webp, svg); report UnsupportedImage for any other. (plan:2026-10-10-import-pptx-lot2)
+- Give every emitted frame sides of at least 1 pt (the core rejects zero) and emit images only in formats Typst draws (png, jpeg, gif, webp, svg), reporting UnsupportedImage for others. (plan:2026-10-10-import-pptx-lot2)
 - Keep retrofit snap in sync with snapRect in ui/src/grid.ts; the Rust tests are its only oracle. (plan:2026-10-10-import-pptx-lot2)
 - Reject XML deeper than MAX_XML_DEPTH or above MAX_XML_ATTRIBUTES per element as Unreadable before roxmltree. (spec:2026-10-09-import-pptx-design, t-754)
 - Identify SmartArt shapes by their modelId, because PowerPoint writes cNvPr id 0 on all of them. (plan:2026-10-09-import-pptx-lot1)

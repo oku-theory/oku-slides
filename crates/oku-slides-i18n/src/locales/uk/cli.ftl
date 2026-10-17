@@ -55,20 +55,10 @@ cli-imported = { $path }: { $slides ->
        [many] { $requests } запитів віджетів
       *[other] { $requests } запиту віджетів
     }
-cli-import-label = Імпорт із PowerPoint
 cli-import-pack-required = у режимі retrofit потрібен --pack: ідентифікатор, тека або назва пакета
-cli-import-unknown-pack = невідомий пакет: { $pack }
-cli-import-bad-pack = нечитабельний пакет { $pack }: його pack.json не описує пакет шаблонів
-cli-import-bad-theme = нечитабельна цільова тема: не вдалося прочитати її токени оформлення
 cli-import-write-failed = не вдалося записати імпортовану презентацію { $path }
 cli-import-hifi-no-target = --pack і --theme стосуються режиму retrofit: імпорт із високою точністю (--mode hifi) створює власний пакет і тему
-cli-import-probe-mismatch = створений пакет не пройшов перевірку відповідно до оголошення (віджет { $widget }): це помилка імпорту
-cli-import-probe-limit = створений пакет перевищує обмеження перевірки (віджет { $widget }): збільште max_widgets, max_widget_kib або probe_budget_ms у розділі [render] конфігурації
-cli-import-probe-failed = процес рендерингу не зміг перевірити створений пакет: { $error }
-cli-import-pack-missing = імпорт не створив пакет для презентації: це помилка імпорту
-cli-import-theme-missing = імпорт не створив тему для презентації: це помилка імпорту
 cli-import-reference-hifi-only = --reference належить до режиму hifi: імпорт retrofit не порівнюється з еталонним рендерингом
-cli-import-bad-threshold = score_threshold у розділі [import] має бути числом не менше нуля, а не { $value }
 cli-import-scored = Візуальна відмінність від { $witness }: у середньому { $mean }, { $above ->
     [0] жодного слайда
     [one] { $above } слайд

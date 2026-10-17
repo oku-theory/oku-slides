@@ -24,6 +24,7 @@ fn add_user_theme(s: &Session, id: Uuid, accent: &str, parent: Option<&ThemeRef>
         description: String::new(),
         parent: parent.map(|p| p.version.clone()),
         created: created.into(),
+        scope: oku_slides_core::PackScope::Library,
         tokens: tokens_with_accent(accent),
     };
     let files = manifest.to_files().unwrap();

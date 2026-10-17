@@ -96,6 +96,12 @@ import-reference-unavailable = Không có điểm hình ảnh: { $cause ->
     [missing] không tìm thấy LibreOffice (soffice); hãy đặt đường dẫn trong import.soffice
    *[failed] trình kết xuất tham chiếu không đọc được bản trình bày
 }
+import-region-suspect = Chênh lệch được để riêng, một lỗi đã biết của trình kết xuất tham chiếu: { $limit ->
+    [autofit] nó thu nhỏ văn bản được co vừa khung khi PowerPoint không lưu tỉ lệ nào
+    [tracking] nó vẽ văn bản giãn cách ký tự rộng hơn
+    [chart] nó chỉ vẽ biểu đồ một cách gần đúng
+   *[smart_art] nó vẽ chữ SmartArt quá nhỏ
+}
 import-font-substituted = Đã thay { $family } bằng { $by }, có số đo tương thích
 import-font-missing = Không tìm thấy { $family }: văn bản dùng phông chữ { $by }
 import-font-restricted = { $family }: giấy phép cấm nhúng một số kiểu của phông vào bản trình bày; văn bản ở các kiểu đó dùng các kiểu còn lại

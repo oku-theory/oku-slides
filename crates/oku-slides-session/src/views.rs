@@ -85,6 +85,10 @@ pub struct Snapshot<'a> {
     pub templates: Option<&'a PackRef>,
     /// Mode d'édition des modèles : le pack en cours de modification et le thème édité.
     pub editing: Option<EditingView<'a>>,
+    /// Le pack du deck n'appartient qu'à lui (import).
+    ///
+    /// L'atelier, qui n'édite que la bibliothèque, ne l'ouvre pas.
+    pub deck_pack: bool,
     /// Bandeau du pack : le deck embarque une autre version que ma version courante.
     pub pack_notice: Option<crate::PackNoticeView>,
     /// Widgets du pack en cours (fichiers, sans `_commun`), sans sonde.

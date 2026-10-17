@@ -44,6 +44,12 @@ pub enum SessionErrorKind {
     UnknownPack,
     /// Version de pack introuvable.
     PackVersionMissing,
+    /// Pack ou thème du deck seul, que la bibliothèque n'enregistre pas.
+    DeckOnly,
+    /// L'import d'une présentation PowerPoint n'a pas abouti.
+    Import,
+    /// Un outil d'ajustement de l'import a refusé l'appel (voir `TuneErrorKind`).
+    ImportTune,
     /// Requête impossible pendant l'édition des modèles.
     EditingTemplates,
     /// Requête qui demande l'édition des modèles.
@@ -155,6 +161,12 @@ pub(crate) enum SessionInner {
     PackJson { id: uuid::Uuid, source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("manifest of pack {found} given for pack {id}"))]
     PackIdMismatch { id: uuid::Uuid, found: uuid::Uuid, backtrace: Backtrace },
+    #[snafu(display("{id} belongs to its deck only and never enters the library"))]
+    DeckOnly { id: uuid::Uuid, backtrace: Backtrace },
+    #[snafu(display("PowerPoint import failed"))]
+    Import { source: crate::import::ImportError, backtrace: Backtrace },
+    #[snafu(display("import tuning refused"))]
+    Tune { source: crate::import::TuneError, backtrace: Backtrace },
     #[snafu(display("finish editing the templates first"))]
     EditingTemplates { backtrace: Backtrace },
     #[snafu(display("no template set is being edited"))]
@@ -262,6 +274,9 @@ impl SessionError {
             NoLibraryDir { .. } => SessionErrorKind::NoLibraryDir,
             UnknownPack { .. } => SessionErrorKind::UnknownPack,
             PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
+            DeckOnly { .. } => SessionErrorKind::DeckOnly,
+            Import { .. } => SessionErrorKind::Import,
+            Tune { .. } => SessionErrorKind::ImportTune,
             EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
             NotEditingTemplates { .. } => SessionErrorKind::NotEditingTemplates,
             ThemeChoiceAlone { .. } => SessionErrorKind::ThemeChoiceAlone,
@@ -299,6 +314,14 @@ impl SessionError {
             TrialTooLong { .. } => SessionErrorKind::TrialTooLong,
             TrialValue { .. } => SessionErrorKind::TrialValue,
             TrialEncode { .. } => SessionErrorKind::TrialEncode,
+        }
+    }
+
+    /// La nature du refus d'un outil d'ajustement de l'import, pour une erreur [`SessionErrorKind::ImportTune`].
+    pub fn tune_kind(&self) -> Option<crate::import::TuneErrorKind> {
+        match &*self.0 {
+            SessionInner::Tune { source, .. } => Some(source.kind()),
+            _ => None,
         }
     }
 
@@ -380,6 +403,9 @@ impl Localize for SessionError {
                 "session-pack-id-mismatch",
                 &[("id", id.to_string().into()), ("found", found.to_string().into())],
             ),
+            DeckOnly { id, .. } => l.tr_with("session-deck-only", &[("id", id.to_string().into())]),
+            Import { source, .. } => source.localize(l),
+            Tune { source, .. } => source.localize(l),
             EditingTemplates { .. } => l.tr("session-editing-templates"),
             NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
             ThemeChoiceAlone { .. } => l.tr("session-theme-choice-alone"),

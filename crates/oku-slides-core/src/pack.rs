@@ -16,6 +16,11 @@
 //! Le contenu d'une version de pack, `pack.json`, se lit en [`PackManifest`] :
 //! des modèles ([`Template`], des slides complètes, nommées), indépendants du
 //! thème (ils ne parlent qu'en jetons).
+//!
+//! Une version porte sa portée ([`PackScope`]) : celles de la bibliothèque
+//! (par défaut, non écrite dans le manifeste), ou celles d'un deck seul
+//! (pack et thème générés par l'import), que la bibliothèque n'enregistre
+//! jamais ; une nouvelle version issue d'elles garde leur portée.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -234,6 +239,14 @@ impl PackFiles {
         &self.manifest
     }
 
+    /// La portée de cette version, lue de la seule clé `scope` du manifeste.
+    ///
+    /// Le reste (modèles, exemples) n'est pas lu : un instantané la demande à
+    /// chaque fois. Absente, la bibliothèque ; une valeur inconnue est une erreur.
+    pub fn scope(&self) -> serde_json::Result<PackScope> {
+        self.manifest.get("scope").map_or(Ok(PackScope::Library), PackScope::deserialize)
+    }
+
     /// Les fichiers de widgets, par nom (`_commun` compris).
     pub fn widgets(&self) -> &BTreeMap<WidgetFile, String> {
         &self.widgets
@@ -297,6 +310,24 @@ pub struct Template {
     pub slide: Slide,
 }
 
+/// Où vit un pack ou un thème : la bibliothèque, ou un seul deck.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PackScope {
+    /// Rangé dans la bibliothèque, partagé entre les decks.
+    #[default]
+    Library,
+    /// Embarqué dans un seul deck ; la bibliothèque ne l'enregistre jamais.
+    Deck,
+}
+
+impl PackScope {
+    /// Vrai pour la portée par défaut, celle de la bibliothèque (non écrite).
+    pub fn is_library(&self) -> bool {
+        matches!(self, Self::Library)
+    }
+}
+
 /// `pack.json` : un pack dans une version.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PackManifest {
@@ -309,6 +340,9 @@ pub struct PackManifest {
     pub parent: Option<PackVersion>,
     /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
     pub created: String,
+    /// Portée : écrite seulement pour un pack du deck seul (les autres gardent leur empreinte).
+    #[serde(default, skip_serializing_if = "PackScope::is_library")]
+    pub scope: PackScope,
     pub templates: Vec<Template>,
     /// Valeurs d'exemple de chaque widget : celles de son aperçu et de ses réglages.
     ///
@@ -422,6 +456,9 @@ pub struct ThemeManifest {
     pub parent: Option<PackVersion>,
     /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
     pub created: String,
+    /// Portée : écrite seulement pour un thème du deck seul (les autres gardent leur empreinte).
+    #[serde(default, skip_serializing_if = "PackScope::is_library")]
+    pub scope: PackScope,
     /// Jetons de conception, par groupe (`color`, `font`, …).
     pub tokens: Map<String, Value>,
 }

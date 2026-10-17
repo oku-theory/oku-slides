@@ -7,9 +7,11 @@
 //! visuel de chaque slide (`SlideReport::score`, [`crate::metrics`]).
 
 mod fonts;
+mod kind;
 mod reference;
 
 use fonts::font_notice;
+use reference::suspect_messages;
 pub use reference::{ReferenceCause, ReferenceReport};
 
 use oku_slides_i18n::{Localize, Localizer};
@@ -382,7 +384,7 @@ pub struct SlideReport {
 }
 
 impl SlideReport {
-    /// Sa pire région dépasse-t-elle `threshold` ?
+    /// Sa pire région non suspecte dépasse-t-elle `threshold` ?
     pub fn is_above(&self, threshold: f64) -> bool {
         self.score.as_ref().and_then(SlideScore::worst).is_some_and(|w| w > threshold)
     }
@@ -483,7 +485,7 @@ impl ImportReport {
         self.slides.iter().map(|s| s.losses.len()).sum()
     }
 
-    /// Les slides dont la pire région dépasse le seuil de la référence.
+    /// Les slides dont la pire région non suspecte dépasse le seuil de la référence.
     pub fn above_threshold(&self) -> impl Iterator<Item = &SlideReport> {
         let threshold = self.reference.as_ref().map(|r| r.threshold);
         self.slides.iter().filter(move |s| threshold.is_some_and(|t| s.is_above(t)))
@@ -495,10 +497,12 @@ impl ImportReport {
         (!scores.is_empty()).then(|| (scores.iter().sum::<f64>() / scores.len() as f64 * 100.0).round() / 100.0)
     }
 
-    /// La forme écrite : la sérialisation, plus un `message` localisé à côté
-    /// de chaque perte, de chaque avertissement, de chaque police remplacée,
-    /// absente ou aux droits restreints, et de la référence absente ;
-    /// `above_threshold` sur chaque slide dont la pire région dépasse le seuil.
+    /// La forme écrite.
+    ///
+    /// La sérialisation, plus un `message` localisé à côté de chaque perte, de chaque
+    /// avertissement, de chaque police remplacée, absente ou aux droits restreints, de la référence
+    /// absente et de chaque région suspecte écrite ; `above_threshold` sur chaque slide dont la
+    /// pire région non suspecte dépasse le seuil.
     pub fn to_json(&self, l: &Localizer) -> Value {
         // Ces types se sérialisent toujours : clés textuelles, nombres finis.
         let mut v = serde_json::to_value(self).unwrap_or_default();
@@ -507,6 +511,11 @@ impl ImportReport {
         if let Some(slides) = v.get_mut("slides").and_then(Value::as_array_mut) {
             for (slide, report) in slides.iter_mut().zip(&self.slides) {
                 add_messages(slide, "losses", &report.losses, l);
+                if let (Some(written), Some(score)) =
+                    (slide.pointer_mut("/score/regions").and_then(Value::as_array_mut), &report.score)
+                {
+                    suspect_messages(written, &score.regions, l);
+                }
                 let above = threshold.is_some_and(|t| report.is_above(t));
                 if let (Some(o), true) = (slide.as_object_mut(), above) {
                     o.insert("above_threshold".to_owned(), Value::Bool(true));

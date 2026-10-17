@@ -15,6 +15,7 @@ session-unknown-pack = Nie znaleziono pakietu: { $id }
 session-pack-version-missing = Nie znaleziono wersji { $version } pakietu { $id }
 session-invalid-pack = Nieczytelny pakiet: { $id }
 session-pack-id-mismatch = Ten plik należy do pakietu { $found }, a nie { $id }
+session-deck-only = { $id } należy tylko do swojej prezentacji: nigdy nie jest zapisywany w bibliotece
 session-editing-templates = Najpierw zakończ edycję szablonów
 session-not-editing-templates = Żaden zestaw szablonów nie jest edytowany
 session-theme-choice-alone = W trybie szablonów wybierz sam motyw, a następnie edytuj jego tokeny za pomocą set_token
@@ -427,3 +428,29 @@ theme-option-fill = Wypełnij
 theme-option-true = Tak
 theme-option-false = Nie
 session-undo-theme-token = Motyw: { $token }
+session-import-label = Import z PowerPointa
+session-import-retrofit-pack = { $pack } dla { $deck }
+session-import-unknown-pack = nieznany pakiet: { $pack }
+session-import-bad-pack = nieczytelny pakiet { $pack }: jego pack.json nie opisuje pakietu szablonów
+session-import-pack-too-large = pakiet { $path } przekracza { $max } MiB
+session-import-reader-panic = czytnik PowerPointa nieoczekiwanie zawiódł na { $path }; plik nie został zaimportowany
+session-import-bad-theme = nieczytelny motyw docelowy: nie udało się odczytać jego tokenów projektu
+session-import-probe-mismatch = wygenerowany pakiet nie odpowiada swojej deklaracji przy sprawdzaniu (widżet { $widget }): to błąd importu
+session-import-probe-limit = wygenerowany pakiet przekracza limity sondy (widżet { $widget }): zwiększ max_widgets, max_widget_kib lub probe_budget_ms w sekcji [render] konfiguracji
+session-import-probe-failed = proces renderowania nie mógł sprawdzić wygenerowanego pakietu: { $error }
+session-import-pack-missing = import nie utworzył pakietu dla prezentacji: to błąd importu
+session-import-theme-missing = import nie utworzył motywu dla prezentacji: to błąd importu
+session-import-bad-threshold = score_threshold w sekcji [import] musi być liczbą nieujemną, a nie { $value }
+session-import-tune-none = Brak importu w tej karcie: import_report i import_diff działają tylko na prezentacji zaimportowanej z PowerPointa, dopóki jej karta jest otwarta.
+session-import-tune-hifi-only = Ten import to retrofit: nie ma renderowania referencyjnego do porównania. import_diff działa tylko na imporcie hi-fi.
+session-import-tune-no-reference = import_diff potrzebuje renderowania referencyjnego. { $reason }
+session-import-tune-reference-pending = Renderowanie referencyjne wciąż trwa; wywołaj narzędzie ponownie za chwilę.
+session-import-tune-unknown-slide = { $slide } nie jest slajdem tego importu (zobacz import_report).
+session-import-tune-unknown-region = { $region } nie jest obszarem slajdu { $slide }: użyj identyfikatora elementu podanego przez import_diff.
+session-import-tune-tries-used = Slajd { $slide } nie ma już prób (wykorzystane próby: { $tries } lub brak poprawy od kilku prób): przejdź do następnego slajdu.
+session-import-tune-untunable = Slajd { $slide } nie ma prób: { $state ->
+        [done] jest już poniżej progu
+        [witness] próg przekraczają tylko obszary, które sama referencja renderuje źle
+       *[unscored] nie ma oceny, brakuje renderowania referencyjnego
+    }. Przejdź do następnego slajdu.
+session-import-tune-compare = Nie udało się porównać slajdu z jego renderowaniem referencyjnym.

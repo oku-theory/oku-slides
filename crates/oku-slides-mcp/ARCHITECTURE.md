@@ -11,10 +11,11 @@ thread and dock.
 - `handler` : the `ServerHandler`; `Tools::call` dispatches a call to its tool.
 - `tools` : `Tools`, the tool list (`list`) and input schemas (`nest_schema` adapts JSON Schema
   to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
-- Tool families: `read_tools` (outline, slide, render, templates, widgets, settings),
+- Tool families: `read_tools` (outline, theme_tokens, slide, render, templates, widgets, settings),
   `edit_tools` (undoable deck edits), `widget_tools` (sources, preview, trials),
-  `guarded_tools` (user-confirmed: `save`, `open`, `new`, `edit_theme`, `set_setting`…),
-  `surface_tools` (`report`, `render`, `ask_*`, `show_*`).
+  `guarded_tools` (user-confirmed: `save`, `open`, `new`, `edit_theme` but on a deck-only theme, `set_setting`…),
+  `surface_tools` (`report`, `render`, `ask_*`, `show_*`), `import_tools` (`import_report`,
+  `import_diff`: the session's import tuning; its `ReferenceJob` runs in a blocking task, unlocked).
 - `tool_error` : `ToolError`; `Tools::fail_with` logs it whole and tells the agent a localized
   message in the current interface language (`LiveLocalizer`, also read by the hub at each
   text). `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.

@@ -157,6 +157,7 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
             None
         }
     };
+    plan.origins = origins;
     plan
 }
 

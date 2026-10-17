@@ -110,6 +110,12 @@ import-reference-unavailable = لا توجد درجة مرئية: { $cause ->
     [missing] لم يُعثر على LibreOffice (soffice)؛ حدّد مساره في import.soffice
    *[failed] تعذّر على أداة العرض المرجعي قراءة العرض التقديمي
 }
+import-region-suspect = فرق مُستبعد، وهو خطأ معروف في أداة العرض المرجعي: { $limit ->
+    [autofit] تصغّر النص المضبوط على مربعه عندما لا يحفظ PowerPoint أي مقياس
+    [tracking] ترسم النص المتباعد الأحرف أعرض
+    [chart] ترسم المخططات بشكل تقريبي فقط
+   *[smart_art] ترسم نص SmartArt صغيرًا جدًا
+}
 import-font-substituted = استُبدل { $family } بـ { $by } ذي المقاييس المتوافقة
 import-font-missing = لم يُعثر على { $family }: يستخدم النص { $by }
 import-font-restricted = { $family }: يمنع ترخيصه تضمين بعض أنماطه في العرض التقديمي؛ يستخدم النص بهذه الأنماط أنماطه الأخرى

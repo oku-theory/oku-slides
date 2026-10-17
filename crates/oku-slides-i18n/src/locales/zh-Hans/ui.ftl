@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = 文件主题
 ui-toolbar-save-copy = 保存副本
 ui-toolbar-finish = 完成
 ui-menu-workshop = 工作室
+ui-menu-workshop-deck-only = 这些模板只属于此演示文稿；工作室只编辑库中的模板。
 ui-toolbar-open = 打开
 ui-merge = 与 PDF 合并…
 ui-menu = 菜单
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = 显示为图表
 
 ## 文件
 
-ui-file-open-prompt = 要打开的文件路径（.oku-slides.pdf 或 .json）
+ui-file-open-prompt = 要打开的文件路径（.oku-slides.pdf、.json 或 .pptx）
+ui-file-merge-prompt = 要合并到此演示文稿的文件路径（.oku-slides.pdf 或 .json）
+ui-file-filter-presentations = 演示文稿
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = 另存为（完整路径）
 
 ## 标签页
@@ -392,3 +396,19 @@ ui-theme-name = 主题名称
 ui-theme-unsaved = 主题更改未保存
 ui-widgets-close-tab = 关闭 { $name }
 ui-widgets-removed-by-agent = 智能体删除了小组件 { $name }。
+
+## 导入
+
+ui-import-title = 导入 PowerPoint 演示文稿
+ui-import-mode = 导入方式
+ui-import-hifi = 忠实副本
+ui-import-hifi-note = 保留原稿的外观，使用为此演示文稿生成的主题和模板。
+ui-import-retrofit = 使用我的模板
+ui-import-retrofit-note = 用库中的模板和主题重建幻灯片。
+ui-import-theme-default = 默认主题
+ui-import-no-packs = 库中没有模板集。
+ui-import-tune = 由智能体微调
+ui-import-tune-note = 智能体将每张幻灯片与原稿比较并修正差异。
+ui-import-tune-note-retrofit = 智能体将每张幻灯片与原稿比较，并为模板无法呈现的形状设计小组件。
+ui-import-submit = 导入
+ui-import-busy = 正在导入…

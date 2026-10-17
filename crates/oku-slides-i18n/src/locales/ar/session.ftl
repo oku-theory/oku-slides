@@ -15,6 +15,7 @@ session-unknown-pack = لم يُعثر على الحزمة: { $id }
 session-pack-version-missing = لم يُعثر على الإصدار { $version } من الحزمة { $id }
 session-invalid-pack = حزمة غير قابلة للقراءة: { $id }
 session-pack-id-mismatch = هذا الملف يخص الحزمة { $found } وليس { $id }
+session-deck-only = { $id } يخص عرضه التقديمي فقط: لا يُحفظ أبدًا في المكتبة
 session-editing-templates = أنهِ تعديل القوالب أولًا
 session-not-editing-templates = لا توجد مجموعة قوالب قيد التعديل
 session-theme-choice-alone = في وضع القوالب، اختر السمة وحدها، ثم عدّل رموزها باستخدام set_token
@@ -427,3 +428,29 @@ theme-option-fill = ملء
 theme-option-true = نعم
 theme-option-false = لا
 session-undo-theme-token = السمة: { $token }
+session-import-label = استيراد من PowerPoint
+session-import-retrofit-pack = { $pack } لـ { $deck }
+session-import-unknown-pack = حزمة قوالب غير معروفة: { $pack }
+session-import-bad-pack = حزمة قوالب غير مقروءة { $pack }: ملف pack.json الخاص بها لا يصف حزمة قوالب
+session-import-pack-too-large = الحزمة { $path } أكبر من { $max } ميبيبايت
+session-import-reader-panic = فشل قارئ PowerPoint بشكل غير متوقع في { $path }؛ لم يُستورد الملف
+session-import-bad-theme = سمة الهدف غير مقروءة: تعذّرت قراءة رموز التصميم الخاصة بها
+session-import-probe-mismatch = الحزمة المولَّدة لا تُفحص كما أُعلنت (الأداة { $widget }): هذا خلل في المستورِد
+session-import-probe-limit = تتجاوز الحزمة المولَّدة حدود الفحص (الأداة { $widget }): ارفع max_widgets أو max_widget_kib أو probe_budget_ms في القسم [render] من الإعدادات
+session-import-probe-failed = تعذّر على عملية العرض فحص الحزمة المولَّدة: { $error }
+session-import-pack-missing = لم ينتج الاستيراد أي حزمة للعرض: هذا خطأ في الاستيراد
+session-import-theme-missing = لم ينتج الاستيراد أي سمة للعرض: هذا خطأ في الاستيراد
+session-import-bad-threshold = يجب أن يكون score_threshold في القسم [import] عددًا لا يقل عن صفر، لا { $value }
+session-import-tune-none = لا يوجد استيراد في هذا التبويب: لا يعمل import_report و import_diff إلا على عرض مستورد من PowerPoint ما دام تبويبه مفتوحًا.
+session-import-tune-hifi-only = هذا الاستيراد من نوع retrofit: ليس له عرض مرجعي للمقارنة. لا يعمل import_diff إلا على استيراد hi-fi.
+session-import-tune-no-reference = يحتاج import_diff إلى العرض المرجعي. { $reason }
+session-import-tune-reference-pending = لم يكتمل العرض المرجعي بعد؛ أعد استدعاء الأداة بعد قليل.
+session-import-tune-unknown-slide = { $slide } ليست شريحة من هذا الاستيراد (راجع import_report).
+session-import-tune-unknown-region = { $region } ليست منطقة من الشريحة { $slide }: استخدم معرّف عنصر يعطيه import_diff.
+session-import-tune-tries-used = لم تعد للشريحة { $slide } محاولات (المحاولات المستخدمة: { $tries }، أو لا تحسّن منذ عدة محاولات): انتقل إلى الشريحة التالية.
+session-import-tune-untunable = لا محاولات للشريحة { $slide }: { $state ->
+        [done] إنها بالفعل تحت العتبة
+        [witness] لا تتجاوز العتبة إلا مناطق يرسمها المرجع نفسه بشكل خاطئ
+       *[unscored] لا درجة لها، فالعرض المرجعي غير متوفر
+    }. انتقل إلى الشريحة التالية.
+session-import-tune-compare = تعذّرت مقارنة الشريحة بعرضها المرجعي.

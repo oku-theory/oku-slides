@@ -135,6 +135,67 @@ pub async fn start_with_settings(tweak: impl FnOnce(&mut Settings) + Send + 'sta
     start_with((platform, data), session.clone(), session).await
 }
 
+/// Le `.pptx` de la fixture `fixtures/import/<name>` copié ou zippé dans `dir` ; son chemin.
+///
+/// Un fichier `<name>.pptx` est copié tel quel ; un dossier `<name>` est zippé.
+pub fn pptx(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+    use std::io::Write;
+    let fixtures = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import"));
+    let file = fixtures.join(format!("{name}.pptx"));
+    if file.is_file() {
+        let path = dir.join(format!("{name}.pptx"));
+        std::fs::copy(&file, &path).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        return path;
+    }
+    fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
+            let p = e.unwrap_or_else(|e| panic!("{e}")).path();
+            if p.file_name().is_some_and(|n| n == ".DS_Store") {
+                continue;
+            }
+            if p.is_dir() { files(&p, out) } else { out.push(p) }
+        }
+    }
+    let root = fixtures.join(name);
+    let mut paths = Vec::new();
+    files(&root, &mut paths);
+    // `[Content_Types].xml` en tête, comme l'écrit PowerPoint.
+    paths.sort_by_key(|p| (p.file_name() != Some("[Content_Types].xml".as_ref()), p.clone()));
+    let mut w = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for p in paths {
+        let rel = p.strip_prefix(&root).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().replace('\\', "/");
+        w.start_file(rel, zip::write::SimpleFileOptions::default()).unwrap_or_else(|e| panic!("zip : {e}"));
+        w.write_all(&std::fs::read(&p).unwrap_or_else(|e| panic!("{e}"))).unwrap_or_else(|e| panic!("zip : {e}"));
+    }
+    let bytes = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
+    let path = dir.join(format!("{name}.pptx"));
+    std::fs::write(&path, bytes).unwrap_or_else(|e| panic!("{e}"));
+    path
+}
+
+/// Un serveur sur un onglet tout juste importé de la fixture `fixtures/import/<name>` vers `target`,
+/// réglages retouchés par `tweak` ; le témoin y rend pour de vrai.
+pub async fn start_imported(
+    name: &'static str,
+    target: oku_slides_session::import::ImportTarget,
+    tweak: impl FnOnce(&mut Settings) + Send + 'static,
+) -> Harness {
+    let (platform, session, data) = tokio::task::spawn_blocking(move || {
+        use oku_slides_session::import::{ImportRequest, PackLookup, import};
+        let (platform, data) = platform_with(tweak);
+        let request =
+            ImportRequest { pptx: pptx(data.path(), name), target, system_fonts: false, packs: PackLookup::Library };
+        let imported = import(&platform, &Fonts::default(), &request).unwrap_or_else(|e| panic!("import : {e}"));
+        let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session de test : {e}"));
+        session.load_import(imported, name).unwrap_or_else(|e| panic!("chargement de l'import : {e}"));
+        (platform, session, data)
+    })
+    .await
+    .unwrap_or_else(|e| panic!("tâche bloquante de l'import : {e}"));
+    let session = Arc::new(Mutex::new(session));
+    start_with((platform, data), session.clone(), session).await
+}
+
 /// Un `Sessions` qui refuse toujours l'onglet : un vrai espace de travail,
 /// interrogé sur un onglet qu'il n'a pas (fermé côté hôte).
 #[derive(Debug)]

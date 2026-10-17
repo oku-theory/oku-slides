@@ -6,13 +6,12 @@
 - Do not end text editing on blur when document.hasFocus() is false; another window or app took focus. (spec:2026-10-09-agent-detachable-design)
 - Route every visible UI string and ARIA label through t() with Fluent keys; never hardcode text. (t-44)
 - Ignore quick keys on editable targets, with modifiers, on repeat, during IME composition, or when already handled. (plan:2026-09-26-agent-vocal)
-- In confirmation modals, accept neither Enter nor digit keys, and ignore input for 500 ms after opening. (plan:2026-09-26-agent-vocal)
+- Build modals on useModalFrame (sole FOCUSABLE, ARMING_MS); confirmations take no Enter or digits and ignore input for 500 ms. (plan:2026-09-26-agent-vocal, t-692)
 - Route every agent surface somewhere visible; anything that cannot be placed falls back to the thread. (plan:2026-09-26-agent-vocal)
 - Validate every agent-link message with zod and drop invalid ones without logging; they may hold dictated text. (spec:2026-10-09-agent-detachable-design)
 - Cancel an agent-link insert that gets no ack within 3000 ms and put the text back in the draft. (plan:2026-10-09-agent-detachable)
 - Send draft updates one at a time tagged with the view origin, and ignore echoes of the view's own sends. (spec:2026-10-09-agent-detachable-design)
-- Debounce draft typing by 300 ms, but send dictation, Send, Insert, Discard and open immediately. (plan:2026-10-09-agent-detachable)
-- Flush pending draft typing before attaching or closing the agent window so the last keystrokes reach the host. (plan:2026-10-09-agent-detachable, t-701)
+- Debounce draft typing by 300 ms but send dictation, Send, Insert, Discard and open at once; flush it before attaching or closing the agent window. (plan:2026-10-09-agent-detachable, t-701)
 - Never switch a mounted AgentPanel between driver and follower mode; mount one panel per tab and window. (plan:2026-10-09-agent-detachable)
 - Match shortcut letters by key (layout-aware) and digits by physical code, so AZERTY works. (spec:2026-09-26-onglets-fenetres-design)
 - Ignore any WorkspaceView older than the last applied generation; command replies can arrive after newer events. (t-159)
@@ -28,6 +27,7 @@
 - Treat Backspace like Delete in delete-key handlers so behaviour matches App on macOS. (t-420)
 - Import a2ui.css after styles.css and before glass.css so the glass theme can override cards. (plan:2026-10-03-agent-a2ui)
 - Keep one MessageProcessor per A2UI surface and feed it new messages instead of rebuilding it. (t-221)
+- Disable the Workshop and widget opening while Snapshot.deck_pack is true; a deck-only pack is never edited in templates mode. (t-692)
 
 ## Pitfalls
 

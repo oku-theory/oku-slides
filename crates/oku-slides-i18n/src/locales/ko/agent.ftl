@@ -82,3 +82,4 @@ agent-error-agent-not-saved = 에이전트 선택을 저장하지 못했습니�
 agent-picker-title = 에이전트
 agent-picker-busy = 에이전트를 바꾸면 진행 중인 턴이 중단됩니다.
 agent-picker-locked = 환경에서 지정된 선택입니다 (OKU_SLIDES_AGENT__SELECTED).
+agent-tune-prompt = 가져온 프레젠테이션 미세 조정

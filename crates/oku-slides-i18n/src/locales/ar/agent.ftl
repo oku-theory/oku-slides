@@ -96,3 +96,4 @@ agent-error-agent-not-saved = تعذّر حفظ اختيار الوكيل.
 agent-picker-title = الوكيل
 agent-picker-busy = تبديل الوكيل سيوقف الدور الجاري.
 agent-picker-locked = الاختيار مفروض من البيئة (OKU_SLIDES_AGENT__SELECTED).
+agent-tune-prompt = اضبط العرض التقديمي المستورد بدقة

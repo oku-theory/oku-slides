@@ -58,6 +58,7 @@ ui-toolbar-theme-embedded = سمة الملف
 ui-toolbar-save-copy = حفظ نسخة
 ui-toolbar-finish = تم
 ui-menu-workshop = الورشة
+ui-menu-workshop-deck-only = هذه القوالب خاصة بهذا العرض التقديمي وحده؛ لا تحرّر الورشة إلا قوالب المكتبة.
 ui-toolbar-open = فتح
 ui-merge = دمج مع ملف PDF…
 ui-menu = القائمة
@@ -326,7 +327,10 @@ ui-undo-show-as-chart = عرض على شكل رسم بياني
 
 ## الملفات
 
-ui-file-open-prompt = مسار الملف المراد فتحه (.oku-slides.pdf أو .json)
+ui-file-open-prompt = مسار الملف المراد فتحه (.oku-slides.pdf، .json أو .pptx)
+ui-file-merge-prompt = مسار العرض المراد دمجه في هذا العرض (.oku-slides.pdf أو .json)
+ui-file-filter-presentations = العروض التقديمية
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = حفظ باسم (المسار الكامل)
 
 ## علامات التبويب
@@ -400,3 +404,19 @@ ui-theme-name = اسم السمة
 ui-theme-unsaved = تغييرات السمة غير محفوظة
 ui-widgets-close-tab = إغلاق { $name }
 ui-widgets-removed-by-agent = حذف الوكيل الودجة { $name }.
+
+## استيراد
+
+ui-import-title = استيراد عرض تقديمي من PowerPoint
+ui-import-mode = وضع الاستيراد
+ui-import-hifi = نسخة مطابقة
+ui-import-hifi-note = يحتفظ بمظهر الأصل، مع سمة وقوالب مصنوعة لهذا العرض التقديمي.
+ui-import-retrofit = استخدام قوالبي
+ui-import-retrofit-note = يعيد بناء الشرائح بقوالب وسمة من المكتبة.
+ui-import-theme-default = السمة الافتراضية
+ui-import-no-packs = لا توجد مجموعة قوالب في المكتبة.
+ui-import-tune = الضبط الدقيق مع الوكيل
+ui-import-tune-note = يقارن الوكيل كل شريحة بالأصل ويصحّح الفروق.
+ui-import-tune-note-retrofit = يقارن الوكيل كل شريحة بالأصل ويصمّم عناصر للأشكال التي لا تعرضها قوالبك.
+ui-import-submit = استيراد
+ui-import-busy = جارٍ الاستيراد…

@@ -47,20 +47,10 @@ cli-imported = { $path }: { $slides ->
        [one] { $requests } widget isteği
       *[other] { $requests } widget isteği
     }
-cli-import-label = PowerPoint içe aktarma
 cli-import-pack-required = retrofit modunda --pack gerekir: bir şablon paketinin kimliği, klasörü ya da adı
-cli-import-unknown-pack = bilinmeyen şablon paketi: { $pack }
-cli-import-bad-pack = okunamayan şablon paketi { $pack }: pack.json dosyası bir şablon paketi tanımlamıyor
-cli-import-bad-theme = hedef tema okunamıyor: tasarım belirteçleri okunamadı
 cli-import-write-failed = içe aktarılan sunu { $path } yazılamadı
 cli-import-hifi-no-target = --pack ve --theme yalnızca retrofit modu içindir: yüksek doğruluklu içe aktarma (--mode hifi) kendi paketini ve temasını üretir
-cli-import-probe-mismatch = üretilen paket bildirildiği gibi yoklanmadı (widget { $widget }): içe aktarıcıda bir hata
-cli-import-probe-limit = oluşturulan paket denetim sınırlarını aşıyor (widget { $widget }): yapılandırmanın [render] bölümünde max_widgets, max_widget_kib veya probe_budget_ms değerini artırın
-cli-import-probe-failed = oluşturulan paket işleme süreci tarafından denetlenemedi: { $error }
-cli-import-pack-missing = içe aktarma deste için paket üretmedi: bu bir içe aktarma hatasıdır
-cli-import-theme-missing = içe aktarma deste için tema üretmedi: bu bir içe aktarma hatasıdır
 cli-import-reference-hifi-only = --reference hifi moduna aittir: retrofit içe aktarma bir referans oluşturmayla karşılaştırılmaz
-cli-import-bad-threshold = [import] bölümündeki score_threshold sıfır veya daha büyük bir sayı olmalı, { $value } değil
 cli-import-scored = { $witness } ile görsel fark: ortalama { $mean }, { $threshold } üzerinde { $above ->
     [0] hiç slayt yok
    *[other] { $above } slayt

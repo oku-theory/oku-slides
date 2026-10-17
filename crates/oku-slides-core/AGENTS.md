@@ -10,8 +10,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - In SourceBundle::new, canonicalize before and after normalize_hosts so exact copies are dropped first. (plan:2026-10-09-finitions-ids, t-688)
 - Never add a top-level Slide or Element field starting with the at sign; such meta keys are reserved. (plan:2026-10-10-deck-en-arbre)
 - Wrap every LoroError with LoroSnafu. (plan:2026-10-09-elements-en-arbre)
-- Name widget files [a-z][a-z0-9-]* up to 64 chars or _commun; other names, or non-hex64 pack dirs, fail with BadName. (plan:2026-10-02-creation-widgets)
-- Treat an empty widget file, widgets.typ included, as absent so it never enters the PackVersion hash. (plan:2026-10-02-creation-widgets)
+- Name widget files [a-z][a-z0-9-]* up to 64 chars or _commun (else, like non-hex64 pack dirs, BadName); an empty one, widgets.typ included, is absent from the hash. (plan:2026-10-02-creation-widgets)
 - Keep unknown widget kinds and params verbatim as Value, never erroring on read; let validate report them. (spec:2026-09-27-widgets-typst-design)
 - Refuse ops that would nest elements deeper than MAX_SLOT_DEPTH, since recursive walkers rely on that bound. (plan:2026-09-28-widgets-typst-2)
 - Allow a bind only on a plain parameter. (plan:2026-09-28-widgets-typst-2)
@@ -31,6 +30,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Route all list edits, deck or widget trial values, through ListOp::apply. (spec:2026-10-04-parametre-liste-design)
 - Revalidate host params with check_host_params whenever an op changes a widget kind, as Op::SetKind does. (t-591)
 - Allow a pack to override a base widget only with compatible param types, binds and category. (spec:2026-09-27-widgets-typst-design)
+- Never serialize PackScope::Library, so library pack and theme manifests keep their existing hashes. (ADR-0009, t-692)
 
 ## Pitfalls
 

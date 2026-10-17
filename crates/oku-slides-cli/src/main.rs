@@ -7,15 +7,11 @@
 mod bench;
 mod guard;
 mod import;
-mod import_hifi;
-mod import_overflow;
-mod import_reference;
 mod library;
 mod out;
 mod pack_render;
 mod serve;
 mod sse;
-mod system_fonts;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -23,19 +19,21 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
-use color_eyre::eyre::{Result, WrapErr};
+use color_eyre::eyre::{Result, WrapErr, eyre};
 
-use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetRegistry, validate};
+use oku_slides_core::{Deck, Issue, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_render::Fonts;
-use oku_slides_session::{PackLibrary, Storage, adopt_default_pack, adopt_default_theme, read_document, theme_tokens};
+use oku_slides_session::{
+    PackLibrary, ProbedWidgets, Storage, ThemeLibrary, adopt_default_theme, embed_theme, read_document,
+    sources_with_pack, theme_tokens,
+};
 
 use crate::bench::ms;
 use crate::import::{ImportArgs, ImportMode, ReferenceMode};
-use crate::library::{deck_pack_version, embed_theme, pack_library, theme_library};
+use crate::library::deck_pack_version;
 use crate::out::Out;
-use crate::pack_render::DeckWidgets;
 
 // L'aide de chaque commande et option vient des messages Fluent
 // (`cli-cmd-…`, `cli-arg-…`) : voir `command`.
@@ -182,13 +180,13 @@ fn load_bundle(
     path: &Path,
     limits: SourceLimits,
     base: &Arc<WidgetRegistry>,
-) -> Result<(SourceBundle, DeckWidgets)> {
+) -> Result<(SourceBundle, ProbedWidgets)> {
     let read = |registry| {
         read_document(&platform.storage, path, limits, registry)
             .wrap_err_with(|| l.tr_with("cli-reading", &[("path", path.display().to_string().into())]))
     };
     let mut opened = read(base)?;
-    let widgets = DeckWidgets::probe(platform, l, base, opened.sources.deck(), &opened.sources.packs);
+    let widgets = ProbedWidgets::probe(platform, base, opened.sources.deck(), &opened.sources.packs);
     if !Arc::ptr_eq(&widgets.registry, base) {
         // Relu avec les widgets du pack : sa validation ne les dit plus inconnus.
         opened = read(&widgets.registry)?;
@@ -196,17 +194,19 @@ fn load_bundle(
     if opened.modified_elsewhere {
         tracing::warn!(path = %path.display(), "{}", l.tr("cli-pdf-modified"));
     }
-    for issue in &opened.issues {
-        tracing::warn!("{}", l.tr_with("cli-deck-issue", &[("issue", issue.localize(l).into())]));
-    }
+    log_issues(l, &opened.issues);
     Ok((opened.sources, widgets))
 }
 
 /// Signale les problèmes du deck ; vrai s'il n'y en a pas.
 fn report_issues(l: &Localizer, deck: &Deck, registry: &WidgetRegistry, assets: &BTreeMap<String, Vec<u8>>) -> bool {
     let ids = assets.keys().cloned().collect();
-    let issues = validate(deck, registry, Some(&ids));
-    for issue in &issues {
+    log_issues(l, &validate(deck, registry, Some(&ids)))
+}
+
+/// Journalise `issues` ; vrai s'il n'y en a pas.
+fn log_issues(l: &Localizer, issues: &[Issue]) -> bool {
+    for issue in issues {
         tracing::warn!("{}", l.tr_with("cli-deck-issue", &[("issue", issue.localize(l).into())]));
     }
     issues.is_empty()
@@ -215,49 +215,21 @@ fn report_issues(l: &Localizer, deck: &Deck, registry: &WidgetRegistry, assets: 
 /// La version du pack que `deck` référence, par empreinte ; vide sans référence.
 ///
 /// Elle vient de [`deck_pack_version`] : à côté du deck, puis de la
-/// bibliothèque, vérifiée ; introuvable : erreur.
+/// bibliothèque, vérifiée ; introuvable : erreur. `deck_dir` : le dossier du
+/// deck et la borne de la copie qui s'y trouve (`[sources] max_sources_mib`).
 fn deck_pack(
     storage: &Storage,
     library: &PackLibrary,
     l: &Localizer,
-    deck_dir: &Path,
+    deck_dir: (&Path, usize),
     deck: &Deck,
 ) -> Result<BTreeMap<PackVersion, PackFiles>> {
     let Some(r) = &deck.templates else { return Ok(BTreeMap::new()) };
     let Some(files) = deck_pack_version(storage, library, deck_dir, r) else {
         let args = [("id", r.id.to_string().into()), ("version", r.version.as_str().into())];
-        return Err(color_eyre::eyre::eyre!(l.tr_with("session-pack-version-missing", &args)));
+        return Err(eyre!(l.tr_with("session-pack-version-missing", &args)));
     };
     Ok(BTreeMap::from([(r.version.clone(), files)]))
-}
-
-/// Les sources de `deck` avec son pack (`packs`, trouvé par [`deck_pack`]),
-/// et les widgets sondés de ce pack.
-///
-/// Sans pack référencé, le deck adopte la version courante du pack par défaut,
-/// modifiable : elle peut avoir des widgets. Le pack est sondé avant toute
-/// écriture ; les sources sont recréées avec le registre sondé, pour que le
-/// replica et la validation aient ses widgets.
-fn sources_with_pack(
-    platform: &Platform,
-    l: &Localizer,
-    library: &PackLibrary,
-    base: &Arc<WidgetRegistry>,
-    deck: Deck,
-    packs: BTreeMap<PackVersion, PackFiles>,
-) -> Result<(SourceBundle, DeckWidgets)> {
-    let mut bundle = SourceBundle::new(deck, base.clone())?;
-    for files in packs.into_values() {
-        bundle.add_pack(files);
-    }
-    adopt_default_pack(library, &mut bundle).map_err(|e| color_eyre::eyre::eyre!(e.localize(l)))?;
-    let widgets = DeckWidgets::probe(platform, l, base, bundle.deck(), &bundle.packs);
-    if !Arc::ptr_eq(&widgets.registry, base) {
-        let packs = std::mem::take(&mut bundle.packs);
-        bundle = SourceBundle::new(bundle.deck().clone(), widgets.registry.clone())?;
-        bundle.packs = packs;
-    }
-    Ok((bundle, widgets))
 }
 
 /// Les tailles d'un document écrit : pages, PDF et sources en octets.
@@ -273,28 +245,29 @@ fn write_document(
     platform: &Platform,
     l: &Localizer,
     fonts: Fonts,
-    widgets: &DeckWidgets,
+    widgets: &ProbedWidgets,
     bundle: &SourceBundle,
     output: &Path,
 ) -> Result<Written> {
     let doc = pack_render::render(platform, l, fonts, widgets, bundle, bundle.deck())?;
-    write_rendered(platform, &doc, bundle, output)
+    write_rendered(platform, &doc.pdf()?, doc.page_count(), bundle, output)
 }
 
-/// Joint les sources de `bundle` au PDF de `doc`, son rendu, et écrit le tout
-/// dans `output` (écriture atomique).
+/// Joint les sources de `bundle` à `pdf` et écrit le tout dans `output`.
+///
+/// `pdf` est son rendu de `pages` pages ; l'écriture est atomique.
 fn write_rendered(
     platform: &Platform,
-    doc: &pack_render::Rendered,
+    pdf: &[u8],
+    pages: usize,
     bundle: &SourceBundle,
     output: &Path,
 ) -> Result<Written> {
-    let pdf = doc.pdf()?;
     let zip = bundle.to_zip()?;
-    let written = oku_slides_pdf::embed_sources(&pdf, &zip)?;
+    let written = oku_slides_pdf::embed_sources(pdf, &zip)?;
     let pdf = written.len();
     platform.storage.write_atomic(output, written)?;
-    Ok(Written { pages: doc.page_count(), pdf, sources: zip.len() })
+    Ok(Written { pages, pdf, sources: zip.len() })
 }
 
 /// Registre de base des widgets, compilé depuis Typst une fois par processus
@@ -342,13 +315,14 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let base = registry(&app_fonts)?;
             let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
             let deck = read_deck(storage, l, &deck)?;
-            let library = pack_library(platform);
+            let library = PackLibrary::user(platform);
             // Un pack introuvable n'arrête pas la vérification : signalé, ses widgets sont inconnus.
-            let packs = deck_pack(storage, &library, l, &deck_dir, &deck).unwrap_or_else(|e| {
+            let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck).unwrap_or_else(|e| {
                 tracing::warn!("{e}");
                 BTreeMap::new()
             });
-            let (bundle, widgets) = sources_with_pack(platform, l, &library, &base, deck, packs)?;
+            let (bundle, widgets) =
+                sources_with_pack(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
             let deck = bundle.deck();
             if report_issues(l, deck, &widgets.registry, &BTreeMap::new()) {
                 out.line("cli-deck-valid", &[("slides", deck.slides.len().into())])?;
@@ -356,11 +330,11 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
         }
         Cmd::Render { input, out: dir, theme } => {
             let (mut bundle, widgets) = load_bundle(platform, l, &input, limits, &registry(&app_fonts)?)?;
-            let themes = theme_library(platform);
-            adopt_default_theme(&themes, &mut bundle).map_err(|e| color_eyre::eyre::eyre!(e.localize(l)))?;
+            let themes = ThemeLibrary::user(platform);
+            adopt_default_theme(&themes, &mut bundle).map_err(|e| eyre!(e.localize(l)))?;
             let mut deck = bundle.deck().clone();
             if let Some(name) = theme {
-                deck.theme = Some(embed_theme(&themes, l, &name, &mut bundle)?);
+                deck.theme = Some(embed_theme(&themes, &name, &mut bundle).map_err(|e| eyre!(e.localize(l)))?);
             }
             let t = Instant::now();
             let fonts = app_fonts.with(bundle.fonts.values().cloned());
@@ -389,16 +363,17 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let base = registry(&app_fonts)?;
             let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
             let deck = read_deck(storage, l, &deck)?;
-            let library = pack_library(platform);
-            let packs = deck_pack(storage, &library, l, &deck_dir, &deck)?;
-            let (mut bundle, widgets) = sources_with_pack(platform, l, &library, &base, deck, packs)?;
-            let themes = theme_library(platform);
+            let library = PackLibrary::user(platform);
+            let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck)?;
+            let (mut bundle, widgets) =
+                sources_with_pack(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
+            let themes = ThemeLibrary::user(platform);
             if let Some(name) = theme {
                 let mut deck = bundle.deck().clone();
-                deck.theme = Some(embed_theme(&themes, l, &name, &mut bundle)?);
+                deck.theme = Some(embed_theme(&themes, &name, &mut bundle).map_err(|e| eyre!(e.localize(l)))?);
                 bundle.apply_silent(deck)?;
             }
-            adopt_default_theme(&themes, &mut bundle).map_err(|e| color_eyre::eyre::eyre!(e.localize(l)))?;
+            adopt_default_theme(&themes, &mut bundle).map_err(|e| eyre!(e.localize(l)))?;
             if let Some(dir) = assets {
                 for path in storage.list_files(&dir)? {
                     let id = bundle.add_asset(storage.read(&path)?);
@@ -462,7 +437,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
         }
         Cmd::Bench { deck, iterations } => {
             let deck = read_deck(storage, l, &deck)?;
-            let themes = theme_library(platform);
+            let themes = ThemeLibrary::user(platform);
             // Un deck JSON n'embarque rien : son thème se résout par la bibliothèque, sinon un deck Pro serait mesuré en Papier.
             let embedded: BTreeMap<_, _> = deck
                 .theme

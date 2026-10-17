@@ -6,7 +6,7 @@ use uuid::Uuid;
 use super::ThemeEdit;
 use crate::library_kind::LibraryKind;
 use crate::pack::DEFAULT_PACK;
-use crate::test_support::{fresh_dir, opened_on, session};
+use crate::test_support::{adopt_deck_only_theme, fresh_dir, opened_on, session};
 use crate::theme::{PAPIER_THEME, PRO_THEME, ThemeLibrary, ThemeManifest, Themes};
 use crate::{Mode, Session, SessionErrorKind};
 
@@ -36,6 +36,7 @@ fn add_user_theme(s: &Session, id: Uuid) -> ThemeRef {
         description: "Le thème de la maison".into(),
         parent: None,
         created: "2026-01-01T00:00:00Z".into(),
+        scope: oku_slides_core::PackScope::Library,
         tokens: pro.manifest.tokens.clone(),
     };
     let files = manifest.to_files().unwrap();
@@ -687,4 +688,22 @@ fn saving_templates_without_theme_change_leaks_no_draft_base_into_the_saved_deck
     assert_that!(after).is_equal_to(before);
     let refs = referenced_themes(&back);
     assert_that!(after.iter().all(|v| refs.contains(v))).is_true();
+}
+
+#[test]
+fn saving_an_edited_deck_only_theme_keeps_it_out_of_the_library() {
+    let data = fresh_dir("oku-slides-theme-edit-deck-only-");
+    let mut s = opened_on(data.path());
+    let before = adopt_deck_only_theme(&mut s);
+    let themes = s.themes.themes();
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    set_accent(&mut s, "#ff0000");
+    s.save_templates(false).unwrap();
+    assert_that!(s.themes.themes()).is_equal_to(&themes);
+    let r = s.deck_theme().cloned().unwrap();
+    assert_that!(r.id).is_equal_to(before.id);
+    let m = s.theme_manifest(&r).unwrap();
+    assert_that!(m.scope).is_equal_to(oku_slides_core::PackScope::Deck);
+    assert_that!(m.parent).is_equal_to(Some(before.version));
+    assert_that!(m.tokens["color"]["accent"]).is_equal_to(json!("#ff0000"));
 }

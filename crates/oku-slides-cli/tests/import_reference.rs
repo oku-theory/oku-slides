@@ -2,9 +2,13 @@
 //! (office2pdf, dans le processus de rendu) : un écart par slide au rapport,
 //! sous un seuil par fixture, et des régions qui désignent les écarts connus
 //! d'alto (t-863 : la coupure de la ligne de l'encadré p. 7 ; les puces p. 8,
-//! à leur retrait depuis t-863, n'en sont plus). Polices de l'app (`--fonts assets/fonts`) : celles que le
-//! témoin reçoit aussi. Aucun test ne lance LibreOffice : `--reference
-//! soffice` tourne avec un faux `soffice` (un script qui copie un PDF blanc).
+//! à leur retrait depuis t-863, n'en sont plus) et signalent ces slides ; les
+//! régions suspectes (erreurs connues d'office2pdf) passent en dernier et ne
+//! signalent rien (t-884). Polices de l'app (`--fonts assets/fonts`) : celles
+//! que le témoin reçoit aussi. Le vrai LibreOffice ne tourne qu'avec
+//! `OKU_SLIDES_TEST_SOFFICE=1` ; sinon `--reference soffice` a un faux `soffice`
+//! (un script qui copie un PDF blanc), refusé sur macOS (t-912), sans région
+//! suspecte ailleurs.
 
 mod common;
 
@@ -53,6 +57,17 @@ fn worst(report: &Value, n: usize) -> Vec<String> {
     regions.iter().filter_map(|r| r["item"].as_str().map(str::to_owned)).collect()
 }
 
+/// Les numéros (1..) des slides que le rapport signale (`above_threshold`).
+fn flagged(report: &Value) -> Vec<usize> {
+    let slides = report["slides"].as_array().cloned().unwrap_or_default();
+    slides
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s["above_threshold"].as_bool() == Some(true))
+        .map(|(i, _)| i + 1)
+        .collect()
+}
+
 /// Le plus grand écart moyen des slides du rapport ; échoue si une slide n'en a pas.
 fn max_score(report: &Value) -> f64 {
     let slides = report["slides"].as_array().unwrap_or_else(|| panic!("rapport sans slides : {report}"));
@@ -74,12 +89,22 @@ fn import_hifi_scores_every_slide_under_its_threshold(#[case] name: &str, #[case
     assert_that!(max_score(&report)).is_less_than_or_equal_to(threshold);
 }
 
+// Pire région non suspecte mesurée le 2026-10-16 (office2pdf 0.8.1, seuil 7) : pp. 1 à 5 et 8 au
+// plus 3,4 (les titres, ajustés par le témoin, sont suspects ; les puces p. 8 à leur retrait depuis
+// t-863) ; p. 6 9,38 (la ligne d'introduction coupée ailleurs que dans PowerPoint), p. 7 15,71 (le
+// filet de l'encadré, puis sa ligne coupée 12,81).
+#[test]
+fn import_hifi_of_alto_flags_pages_6_and_7_only() {
+    let dir = workdir("import-reference-flags");
+    let (_, report) = import(dir.as_ref(), "alto-wealth.pptx", &[]);
+    assert_that!(flagged(&report)).is_equal_to(vec![6, 7]);
+}
+
 #[test]
 fn import_hifi_of_alto_designates_the_cut_line_of_the_callout_on_page_7() {
     let dir = workdir("import-reference-p7");
     let (_, report) = import(dir.as_ref(), "alto-wealth.pptx", &[]);
-    // Le titre et le filet de l'encadré le précèdent : le témoin dessine les titres d'alto
-    // plus larges (limite connue).
+    // Le titre, que le témoin rétrécit à sa boîte, est suspect : il passe après.
     assert_that!(worst(&report, 7)).contains("s7/21".to_owned());
 }
 
@@ -88,9 +113,17 @@ fn import_hifi_of_alto_no_longer_designates_the_bullet_indents_on_page_8() {
     let dir = workdir("import-reference-p8");
     let (_, report) = import(dir.as_ref(), "alto-wealth.pptx", &[]);
     // Avant t-863, au moins deux des quatre listes (retrait de 27 pt ignoré) étaient désignées.
+    // Les régions suspectes classées après les autres, une liste peut rester écrite : jamais
+    // au-dessus du seuil.
     let lists = ["s8/8", "s8/12", "s8/16", "s8/21"];
-    let found = worst(&report, 8).iter().filter(|i| lists.contains(&i.as_str())).count();
-    assert_that!(found).is_equal_to(0);
+    let threshold = report["reference"]["threshold"].as_f64().unwrap_or_else(|| panic!("seuil : {report}"));
+    let regions = report["slides"][7]["score"]["regions"].as_array().cloned().unwrap_or_default();
+    let above = regions
+        .iter()
+        .filter(|r| r["item"].as_str().is_some_and(|i| lists.contains(&i)))
+        .filter(|r| r["score"].as_f64().is_some_and(|s| s > threshold))
+        .count();
+    assert_that!(above).is_equal_to(0);
 }
 
 #[test]
@@ -98,6 +131,18 @@ fn import_hifi_of_libreoffice_designates_its_table_on_page_1() {
     let dir = workdir("import-reference-table");
     let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &[]);
     assert_that!(worst(&report, 1).first().map(String::as_str)).is_equal_to(Some("s1/8"));
+}
+
+// p. 3 : le SmartArt (10,41 et 10,33, au-delà du seuil) est suspect ; les autres régions valent
+// au plus 5,8.
+#[test]
+fn import_hifi_of_libreoffice_ranks_its_smartart_last_without_flagging_page_3() {
+    let dir = workdir("import-reference-smartart");
+    let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &[]);
+    let regions = report["slides"][2]["score"]["regions"].as_array().cloned().unwrap_or_default();
+    let last = regions.last().cloned().unwrap_or_default();
+    assert_that!((last["suspect"].as_str(), report["slides"][2].get("above_threshold")))
+        .is_equal_to((Some("smart_art"), None));
 }
 
 #[test]
@@ -192,8 +237,34 @@ fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
     assert_that!(report["reference"]["unavailable"].is_null()).is_true();
     assert_that!(report["reference"]["witness"].as_str().unwrap_or_default()).starts_with("LibreOffice ");
     assert_that!(max_score(&report)).is_greater_than(0.0);
+    let slides = report["slides"].as_array().cloned().unwrap_or_default();
+    let suspect = slides
+        .iter()
+        .flat_map(|s| s["score"]["regions"].as_array().cloned().unwrap_or_default())
+        .filter(|r| r.get("suspect").is_some())
+        .count();
+    assert_that!(suspect).is_equal_to(0);
     let second = String::from_utf8_lossy(&out.stdout).lines().nth(1).unwrap_or_default().to_owned();
     assert_that!(second).starts_with("Visual gap to LibreOffice ");
+}
+
+// Les limites connues sont celles d'office2pdf : sous LibreOffice, le SmartArt de p. 3, suspect
+// sous office2pdf, compte comme les autres régions. Hors macOS seulement : là, le faux `soffice`
+// (un script) est refusé (t-912) ; le test du vrai LibreOffice y vérifie la même chose.
+#[cfg(all(unix, not(target_os = "macos")))]
+#[test]
+fn import_hifi_with_reference_soffice_marks_no_region_suspect() {
+    use oku_slides_reference::test_support::{blank_pdf, converting, fake_soffice};
+    let dir = workdir("import-reference-soffice-suspect");
+    let pdf = dir.as_ref().join("blanc.pdf");
+    std::fs::write(&pdf, blank_pdf(3, 960, 540)).unwrap_or_else(|e| panic!("{e}"));
+    soffice_config(dir.as_ref(), &fake_soffice(dir.as_ref(), &converting(&pdf, None)));
+    let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
+    let slides = report["slides"].as_array().cloned().unwrap_or_default();
+    let regions: Vec<Value> =
+        slides.iter().flat_map(|s| s["score"]["regions"].as_array().cloned().unwrap_or_default()).collect();
+    assert_that!(regions.iter().filter(|r| r.get("suspect").is_some()).count()).is_equal_to(0);
+    assert_that!(regions.len()).is_greater_than(0);
 }
 
 #[test]

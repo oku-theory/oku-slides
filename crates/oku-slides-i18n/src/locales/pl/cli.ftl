@@ -55,20 +55,10 @@ cli-imported = { $path }: { $slides ->
        [many] { $requests } próśb o widżet
       *[other] { $requests } prośby o widżet
     }
-cli-import-label = Import z PowerPointa
 cli-import-pack-required = --pack jest wymagany w trybie retrofit: identyfikator, folder lub nazwa pakietu
-cli-import-unknown-pack = nieznany pakiet: { $pack }
-cli-import-bad-pack = nieczytelny pakiet { $pack }: jego pack.json nie opisuje pakietu szablonów
-cli-import-bad-theme = nieczytelny motyw docelowy: nie udało się odczytać jego tokenów projektu
 cli-import-write-failed = nie udało się zapisać zaimportowanej prezentacji { $path }
 cli-import-hifi-no-target = --pack i --theme dotyczą tylko trybu retrofit: import o wysokiej wierności (--mode hifi) tworzy własny pakiet i motyw
-cli-import-probe-mismatch = wygenerowany pakiet nie odpowiada swojej deklaracji przy sprawdzaniu (widżet { $widget }): to błąd importu
-cli-import-probe-limit = wygenerowany pakiet przekracza limity sondy (widżet { $widget }): zwiększ max_widgets, max_widget_kib lub probe_budget_ms w sekcji [render] konfiguracji
-cli-import-probe-failed = proces renderowania nie mógł sprawdzić wygenerowanego pakietu: { $error }
-cli-import-pack-missing = import nie utworzył pakietu dla prezentacji: to błąd importu
-cli-import-theme-missing = import nie utworzył motywu dla prezentacji: to błąd importu
 cli-import-reference-hifi-only = --reference należy do trybu hifi: import retrofit nie jest porównywany z renderowaniem referencyjnym
-cli-import-bad-threshold = score_threshold w sekcji [import] musi być liczbą nieujemną, a nie { $value }
 cli-import-scored = Różnica wizualna względem { $witness }: średnio { $mean }, { $above ->
     [0] żaden slajd
     [one] { $above } slajd

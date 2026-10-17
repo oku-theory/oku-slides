@@ -28,6 +28,9 @@ uuid.workspace = true
 png.workspace = true
 hex.workspace = true
 sha2.workspace = true
+oku-slides-import.workspace = true
+oku-slides-reference.workspace = true
+fontdb.workspace = true
 
 [dev-dependencies]
 oku-slides-core = { workspace = true, features = ["test-support"] }
@@ -37,6 +40,8 @@ insta.workspace = true
 tempfile.workspace = true
 loro.workspace = true
 rstest.workspace = true
+zip.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

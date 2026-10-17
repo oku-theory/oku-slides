@@ -46,6 +46,7 @@ mod fields;
 mod files;
 mod help;
 mod history;
+pub mod import;
 mod inline;
 mod items;
 #[cfg(test)]
@@ -53,12 +54,14 @@ pub(crate) mod lib_tests_support;
 pub mod library;
 mod library_index;
 mod library_kind;
+mod library_lookup;
 mod merge;
 pub mod pack;
 mod pack_notice;
 mod panel;
 mod param_fields;
 mod preview_crop;
+mod probed_widgets;
 mod render_fonts;
 mod request;
 mod resume;
@@ -98,9 +101,11 @@ pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
 pub use items::{ItemView, ListView};
 pub use library::{Library, PackLibrary, builtin_versions};
 pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
+pub use library_lookup::{embed_theme, library_pack, read_pack_dir, resolve_pack};
 pub use merge::Saved;
-pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, Relation, Template};
+pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, PackScope, Relation, Template};
 pub use pack_notice::PackNoticeView;
+pub use probed_widgets::{ProbedWidgets, sources_with_pack};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
 use template_scratch::TemplateScratch;
@@ -262,6 +267,8 @@ pub struct Session {
     widget_session: Option<widgets_deck::WidgetSession>,
     /// Emplacement d'essai de l'aperçu des widgets.
     widget_preview: Option<widget_preview::PreviewSlot>,
+    /// L'import d'où vient le deck montré, en mémoire tant que vit l'onglet ; jamais repris.
+    import: Option<import::ImportState>,
     #[cfg(test)]
     failpoints: deck_widgets::Failpoints,
 }
@@ -344,8 +351,8 @@ impl Session {
         let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
         let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
         let registry = oku_slides_render::base_registry(&app_fonts).context(RegistrySnafu)?;
-        let library = PackLibrary::new(Some(settings.paths.templates()), storage.clone());
-        let themes = ThemeLibrary::new(Some(settings.paths.themes()), storage.clone());
+        let library = PackLibrary::user(platform);
+        let themes = ThemeLibrary::user(platform);
         let mut blank = SourceBundle::new(blank_deck(l), registry.clone()).context(SourcesSnafu)?;
         deck_pack::adopt_default_pack(&library, &mut blank)?;
         deck_theme::adopt_default_theme(&themes, &mut blank)?;
@@ -388,6 +395,7 @@ impl Session {
             widget_edit: false,
             widget_session: None,
             widget_preview: None,
+            import: None,
             sent_blobs: Vec::new(),
             #[cfg(test)]
             failpoints: Default::default(),
@@ -629,6 +637,7 @@ impl Session {
             appearance: &self.appearance,
             templates: self.deck_pack(),
             editing: self.editing_view(),
+            deck_pack: self.deck_pack_is_deck_only(),
             pack_notice: self.pack_notice_view(),
             pack_widgets: self.pack_widget_names(),
             add_widgets: self.add_widgets(),

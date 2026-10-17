@@ -15,6 +15,7 @@ session-unknown-pack = ไม่พบแพ็ก: { $id }
 session-pack-version-missing = ไม่พบเวอร์ชัน { $version } ของแพ็ก { $id }
 session-invalid-pack = อ่านแพ็กไม่ได้: { $id }
 session-pack-id-mismatch = ไฟล์นี้เป็นของแพ็ก { $found } ไม่ใช่ { $id }
+session-deck-only = { $id } เป็นของงานนำเสนอนั้นเท่านั้น: จะไม่ถูกบันทึกลงในคลังเลย
 session-editing-templates = แก้ไขเทมเพลตให้เสร็จก่อน
 session-not-editing-templates = ไม่มีชุดเทมเพลตที่กำลังแก้ไข
 session-theme-choice-alone = ในโหมดเทมเพลต ให้เลือกธีมแยกต่างหาก แล้วแก้ไขโทเค็นของธีมด้วย set_token
@@ -427,3 +428,29 @@ theme-option-fill = เติมเต็ม
 theme-option-true = ใช่
 theme-option-false = ไม่
 session-undo-theme-token = ธีม: { $token }
+session-import-label = นำเข้าจาก PowerPoint
+session-import-retrofit-pack = { $pack } สำหรับ { $deck }
+session-import-unknown-pack = ไม่รู้จักแพ็กเทมเพลต: { $pack }
+session-import-bad-pack = อ่านแพ็กเทมเพลต { $pack } ไม่ได้: pack.json ของแพ็กไม่ได้อธิบายแพ็กเทมเพลต
+session-import-pack-too-large = แพ็ก { $path } ใหญ่กว่า { $max } MiB
+session-import-reader-panic = ตัวอ่าน PowerPoint ล้มเหลวโดยไม่คาดคิดกับ { $path } ไฟล์ยังไม่ถูกนำเข้า
+session-import-bad-theme = อ่านธีมเป้าหมายไม่ได้: อ่านโทเค็นการออกแบบของธีมไม่ได้
+session-import-probe-mismatch = แพ็กที่สร้างขึ้นตรวจสอบได้ไม่ตรงกับที่ประกาศ (วิดเจ็ต { $widget }): เป็นข้อบกพร่องของตัวนำเข้า
+session-import-probe-limit = แพ็กที่สร้างเกินขีดจำกัดของการตรวจ (วิดเจ็ต { $widget }): เพิ่ม max_widgets, max_widget_kib หรือ probe_budget_ms ในส่วน [render] ของการตั้งค่า
+session-import-probe-failed = กระบวนการเรนเดอร์ตรวจแพ็กที่สร้างไม่ได้: { $error }
+session-import-pack-missing = การนำเข้าไม่ได้สร้างแพ็กสำหรับเด็ค: นี่คือข้อบกพร่องของการนำเข้า
+session-import-theme-missing = การนำเข้าไม่ได้สร้างธีมสำหรับเด็ค: นี่คือข้อบกพร่องของการนำเข้า
+session-import-bad-threshold = score_threshold ในส่วน [import] ต้องเป็นจำนวนตั้งแต่ศูนย์ขึ้นไป ไม่ใช่ { $value }
+session-import-tune-none = แท็บนี้ไม่มีการนำเข้า: import_report และ import_diff ใช้ได้เฉพาะกับเด็คที่นำเข้าจาก PowerPoint ขณะที่แท็บของเด็คยังเปิดอยู่
+session-import-tune-hifi-only = การนำเข้านี้เป็นแบบ retrofit: ไม่มีการเรนเดอร์อ้างอิงให้เปรียบเทียบ import_diff ใช้ได้เฉพาะกับการนำเข้าแบบ hi-fi
+session-import-tune-no-reference = import_diff ต้องใช้การเรนเดอร์อ้างอิง { $reason }
+session-import-tune-reference-pending = การเรนเดอร์อ้างอิงยังดำเนินอยู่ เรียกเครื่องมืออีกครั้งในอีกสักครู่
+session-import-tune-unknown-slide = { $slide } ไม่ใช่สไลด์ของการนำเข้านี้ (ดู import_report)
+session-import-tune-unknown-region = { $region } ไม่ใช่บริเวณของสไลด์ { $slide }: ใช้รหัสรายการที่ได้จาก import_diff
+session-import-tune-tries-used = สไลด์ { $slide } ไม่เหลือการลองแล้ว (ลองไปแล้ว: { $tries } หรือไม่ดีขึ้นมาหลายครั้ง): ไปยังสไลด์ถัดไป
+session-import-tune-untunable = สไลด์ { $slide } ไม่มีการลอง: { $state ->
+        [done] สไลด์นี้ต่ำกว่าเกณฑ์อยู่แล้ว
+        [witness] มีเพียงบริเวณที่ภาพอ้างอิงเองแสดงผิดเท่านั้นที่เกินเกณฑ์
+       *[unscored] สไลด์นี้ไม่มีคะแนน เพราะไม่มีภาพอ้างอิง
+    } ไปยังสไลด์ถัดไป
+session-import-tune-compare = ไม่สามารถเปรียบเทียบสไลด์กับการเรนเดอร์อ้างอิงได้

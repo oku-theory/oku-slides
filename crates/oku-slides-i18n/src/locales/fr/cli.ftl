@@ -47,20 +47,10 @@ cli-imported = { $path } : { $slides ->
        [one] { $requests } demande de widget
       *[other] { $requests } demandes de widget
     }
-cli-import-label = Import PowerPoint
 cli-import-pack-required = --pack est obligatoire en mode retrofit : un id, un dossier ou un nom de pack
-cli-import-unknown-pack = pack inconnu : { $pack }
-cli-import-bad-pack = pack illisible { $pack } : son pack.json ne décrit pas un pack de modèles
-cli-import-bad-theme = thème cible illisible : ses jetons de design n’ont pas pu être lus
 cli-import-write-failed = impossible d'écrire le deck importé { $path }
 cli-import-hifi-no-target = --pack et --theme sont propres au mode retrofit : l'import haute fidélité (--mode hifi) génère son propre pack et son propre thème
-cli-import-probe-mismatch = le pack généré ne se sonde pas comme il est déclaré (widget { $widget }) : c'est un bogue de l'import
-cli-import-probe-limit = le pack généré dépasse les bornes de la sonde (widget { $widget }) : relevez max_widgets, max_widget_kib ou probe_budget_ms dans la section [render] de la configuration
-cli-import-probe-failed = le pack généré n'a pas pu être sondé par le processus de rendu : { $error }
-cli-import-pack-missing = l'import n'a produit aucun pack pour le deck : c'est un bogue de l'import
-cli-import-theme-missing = l'import n'a produit aucun thème pour le deck : c'est un bogue de l'import
 cli-import-reference-hifi-only = --reference appartient au mode hifi : un import retrofit n'est pas comparé à un rendu de référence
-cli-import-bad-threshold = score_threshold de la section [import] doit être un nombre supérieur ou égal à zéro, pas { $value }
 cli-import-scored = Écart visuel à { $witness } : { $mean } en moyenne, { $above ->
     [0] aucune slide
     [one] { $above } slide

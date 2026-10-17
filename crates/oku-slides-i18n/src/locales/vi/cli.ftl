@@ -35,20 +35,10 @@ cli-forbidden = yêu cầu bị từ chối: không đến từ giao diện cụ
 cli-unauthorized = yêu cầu bị từ chối: thiếu mã thông báo truy cập hoặc mã sai
 cli-exposed = đang lắng nghe trên { $host }: máy chủ có thể truy cập từ mạng; chỉ những máy khách xuất trình mã thông báo của lần khởi chạy này mới được phục vụ. Hãy giữ [serve] host ở 127.0.0.1 nếu bạn không cần mạng
 cli-imported = { $path }: { $slides } trang chiếu, { $pages } trang, { $losses } mất mát, { $requests } yêu cầu widget
-cli-import-label = Nhập từ PowerPoint
 cli-import-pack-required = cần --pack ở chế độ retrofit: mã, thư mục hoặc tên của gói mẫu
-cli-import-unknown-pack = gói mẫu không xác định: { $pack }
-cli-import-bad-pack = không đọc được gói mẫu { $pack }: pack.json của gói không mô tả một gói mẫu
-cli-import-bad-theme = không đọc được chủ đề đích: không thể đọc các token thiết kế của chủ đề
 cli-import-write-failed = không thể ghi bản trình bày đã nhập { $path }
 cli-import-hifi-no-target = --pack và --theme chỉ dùng cho chế độ retrofit: chế độ nhập độ trung thực cao (--mode hifi) tự tạo gói và chủ đề riêng
-cli-import-probe-mismatch = gói được tạo không khớp với khai báo khi kiểm tra (widget { $widget }): đây là lỗi của trình nhập
-cli-import-probe-limit = gói được tạo vượt giới hạn kiểm tra (widget { $widget }): hãy tăng max_widgets, max_widget_kib hoặc probe_budget_ms trong mục [render] của cấu hình
-cli-import-probe-failed = tiến trình kết xuất không kiểm tra được gói đã tạo: { $error }
-cli-import-pack-missing = quá trình nhập không tạo gói nào cho bộ trình chiếu: đây là lỗi của quá trình nhập
-cli-import-theme-missing = quá trình nhập không tạo chủ đề nào cho bộ trình chiếu: đây là lỗi của quá trình nhập
 cli-import-reference-hifi-only = --reference thuộc chế độ hifi: bản nhập retrofit không được so sánh với bản kết xuất tham chiếu
-cli-import-bad-threshold = score_threshold trong mục [import] phải là một số lớn hơn hoặc bằng 0, không phải { $value }
 cli-import-scored = Khác biệt hình ảnh so với { $witness }: trung bình { $mean }, { $above ->
     [0] không trang chiếu nào
    *[other] { $above } trang chiếu

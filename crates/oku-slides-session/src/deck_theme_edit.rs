@@ -8,6 +8,10 @@
 //! nouvelle version en une étape annulable ; la bibliothèque, elle, garde la
 //! version (comme tout enregistrement de thème). L'agent s'en sert : l'écran
 //! reste sur les slides.
+//!
+//! Un thème du deck seul (`PackScope::Deck` : le thème généré par l'import)
+//! part de la version du deck ; la nouvelle version, du deck seul aussi, est
+//! embarquée et adoptée sans jamais entrer dans la bibliothèque.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -52,6 +56,8 @@ pub struct EditedTheme {
     pub changed: bool,
     /// Le deck est passé à cette version.
     pub adopted: bool,
+    /// Les jetons propres de cette version, ceux que lit [`Session::theme_tokens_of`].
+    pub tokens: Map<String, Value>,
 }
 
 /// Un deck vide qui ne porte que `tokens` : on y applique des ops de jetons.
@@ -68,26 +74,52 @@ pub(crate) fn token_deck(tokens: Value) -> Deck {
 }
 
 impl Session {
-    /// Le thème `id` dans sa version courante (relu dans la bibliothèque).
-    pub fn theme_info(&self, id: Uuid) -> Result<ThemeInfo> {
+    /// La version d'où part l'édition du thème `id`, et son manifeste.
+    ///
+    /// Celle du deck pour un thème du deck seul, sinon la version courante
+    /// de la bibliothèque.
+    fn theme_base(&self, id: Uuid) -> Result<(PackVersion, ThemeManifest)> {
+        if let Some(r) = self.deck_theme().filter(|r| r.id == id)
+            && let Some(m) = self.theme_manifest(r).filter(|m| !m.scope.is_library())
+        {
+            return Ok((r.version.clone(), m));
+        }
         let current = self.themes.current_version(id).context(UnknownThemeSnafu { id })?;
+        Ok((current.version, current.manifest))
+    }
+
+    /// Le thème `id` dans la version d'où partirait son édition.
+    ///
+    /// Relu dans la bibliothèque, ou dans le deck pour un thème du deck seul (`deck_only`).
+    pub fn theme_info(&self, id: Uuid) -> Result<ThemeInfo> {
+        let (version, manifest) = self.theme_base(id)?;
         Ok(ThemeInfo {
             id,
-            version: current.version,
-            name: current.manifest.name,
+            version,
+            name: manifest.name,
             builtin: ThemeLibrary::is_builtin(id),
             default: id == crate::theme::DEFAULT_THEME,
+            deck_only: !manifest.scope.is_library(),
         })
     }
 
-    /// Édite le thème `id` (version courante) : ops de jetons et nom.
+    /// Les jetons propres du thème `id`, dans la version d'où partirait son édition.
+    ///
+    /// Ceux que changent les ops de [`Self::edit_theme`] ; une clé absente
+    /// vient des valeurs par défaut.
+    pub fn theme_tokens_of(&self, id: Uuid) -> Result<Map<String, Value>> {
+        Ok(self.theme_base(id)?.1.tokens)
+    }
+
+    /// Édite le thème `id` : ops de jetons et nom.
+    ///
+    /// Part de sa version courante, ou de celle du deck pour un thème du deck seul.
     ///
     /// Refusé hors du mode deck. Un nom vide garde le nom actuel. Sans
     /// changement, rien n'est enregistré.
     pub fn edit_theme(&mut self, id: Uuid, name: Option<String>, ops: Vec<TokenOp>) -> Result<EditedTheme> {
         ensure!(matches!(self.mode, Mode::Deck), EditingTemplatesSnafu);
-        let current = self.themes.current_version(id).context(UnknownThemeSnafu { id })?;
-        let base = current.manifest;
+        let (current, base) = self.theme_base(id)?;
         let ops: Vec<Op> = ops.into_iter().map(Op::from).collect();
         let start = Value::Object(base.tokens.clone());
         self.check_token_ops_on(default_tokens(), &start, &ops, true)?;
@@ -99,7 +131,8 @@ impl Session {
         };
         let renamed = name.map(|n| n.trim().to_owned()).filter(|n| !n.is_empty() && *n != base.name);
         if tokens == base.tokens && renamed.is_none() {
-            return Ok(EditedTheme { id, version: current.version, name: base.name, changed: false, adopted: false });
+            let (name, changed, adopted) = (base.name, false, false);
+            return Ok(EditedTheme { id, version: current, name, changed, adopted, tokens });
         }
         let builtin = ThemeLibrary::is_builtin(id);
         let name = match renamed {
@@ -112,23 +145,41 @@ impl Session {
             id: new_id,
             name: name.clone(),
             description: base.description,
-            parent: Some(current.version),
+            parent: Some(current),
             created: now_created(),
-            tokens,
+            scope: base.scope,
+            tokens: tokens.clone(),
         };
         let files = manifest.to_files().context(ThemeJsonSnafu { id: new_id })?;
         let version = files.version();
+        let r = ThemeRef { id: new_id, version: version.clone() };
+        let adopted = self.deck_theme().is_some_and(|t| t.id == id);
+        if !manifest.scope.is_library() {
+            // Du deck seul : embarquée puis adoptée (le deck porte toujours ce thème), jamais dans la bibliothèque.
+            let known = self.doc.sources.themes.contains_key(&version);
+            self.doc.sources.add_theme(files);
+            if let Err(e) = self.adopt_edited_theme(r) {
+                if !known {
+                    self.doc.sources.themes.remove(&version);
+                }
+                return Err(e);
+            }
+            return Ok(EditedTheme { id: new_id, version, name, changed: true, adopted, tokens });
+        }
         self.themes.add_version(new_id, &files)?;
         self.themes.set_current(new_id, &version)?;
         self.theme_list = self.themes.themes();
-        let r = ThemeRef { id: new_id, version: version.clone() };
-        let adopted = self.deck_theme().is_some_and(|t| t.id == id);
         if adopted {
-            // `apply` embarque la version, prise dans la bibliothèque.
-            let label = self.localizer.tr("session-undo-theme");
-            self.apply(&label, vec![Op::SetTheme { theme: Some(r) }], None)?;
+            self.adopt_edited_theme(r)?;
         }
-        Ok(EditedTheme { id: new_id, version, name, changed: true, adopted })
+        Ok(EditedTheme { id: new_id, version, name, changed: true, adopted, tokens })
+    }
+
+    /// Le deck passe à la version éditée `r`, en une étape annulable.
+    fn adopt_edited_theme(&mut self, r: ThemeRef) -> Result<()> {
+        // `apply` embarque la version, prise dans la bibliothèque si le deck ne l'a pas.
+        let label = self.localizer.tr("session-undo-theme");
+        self.apply(&label, vec![Op::SetTheme { theme: Some(r) }], None)
     }
 }
 

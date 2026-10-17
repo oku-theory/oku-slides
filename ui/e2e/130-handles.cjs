@@ -2,10 +2,9 @@
 // Sans serveur : la vraie feuille de styles sur des séparateurs reconstitués. Lancer : bun e2e/130-handles.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+const { APP_SHEETS, sheets } = require('./lib/css.cjs');
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+const css = sheets(...APP_SHEETS);
 const html = `<!doctype html><style>${css}</style>
 <div style="display:grid;grid-template-columns:200px 8px 200px;height:300px">
   <div></div><div class="col-divider" data-side="pile" style="grid-row:1;grid-column:2"></div><div></div>

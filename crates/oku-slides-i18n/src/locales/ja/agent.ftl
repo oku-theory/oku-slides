@@ -82,3 +82,4 @@ agent-error-agent-not-saved = エージェントの選択を保存できませ�
 agent-picker-title = エージェント
 agent-picker-busy = エージェントを切り替えると、進行中のターンが中断されます。
 agent-picker-locked = 環境によって指定されています (OKU_SLIDES_AGENT__SELECTED)。
+agent-tune-prompt = インポートしたプレゼンテーションを微調整する

@@ -28,9 +28,20 @@ const CLOSE_GRACE: Duration = Duration::from_secs(1);
 
 #[derive(Debug)]
 pub(crate) enum Command {
-    Prompt { scope: AgentScope, text: String, ui: AgentUi },
+    Prompt(Instruction),
     Cancel,
     NewConversation { scope: AgentScope },
+}
+
+/// Une consigne à jouer en un tour, dans la conversation de `scope`.
+#[derive(Debug)]
+pub(crate) struct Instruction {
+    pub scope: AgentScope,
+    /// Le texte montré dans le fil et envoyé en dernier bloc du prompt.
+    pub text: String,
+    pub ui: AgentUi,
+    /// Tour de fine-tuning d'un import : les consignes d'import partent, cachées, avant le contexte.
+    pub tune: bool,
 }
 
 /// Où joindre le serveur d'outils MCP de l'onglet.
@@ -107,8 +118,13 @@ impl AgentHandle {
 
     /// Une consigne pour la conversation de `scope`.
     pub fn prompt_in(&self, scope: AgentScope, text: String, ui: AgentUi) {
+        self.instruct(Instruction { scope, text, ui, tune: false });
+    }
+
+    /// Une consigne, ordinaire ou de fine-tuning.
+    pub(crate) fn instruct(&self, instruction: Instruction) {
         // Acteur arrêté (onglet fermé) : la consigne est sans objet.
-        let _ = self.tx.send(Command::Prompt { scope, text, ui });
+        let _ = self.tx.send(Command::Prompt(instruction));
     }
 
     /// Arrête le tour en cours (`session/cancel`).
@@ -164,7 +180,7 @@ impl TabAgent {
             match cmd {
                 Command::Cancel => self.ctx.hub.cancel_asks(),
                 Command::NewConversation { scope } => self.new_conversation(scope).await,
-                Command::Prompt { scope, text, ui } => next = self.prompt(&mut rx, scope, text, ui).await,
+                Command::Prompt(instruction) => next = self.prompt(&mut rx, instruction).await,
             }
         }
         // `AgentHandle` lâché : un tour en cours a déjà reçu `session/cancel` (voir `turn`).
@@ -187,16 +203,11 @@ impl TabAgent {
     }
 
     /// Joue un tour dans `scope` ; rend la consigne arrivée pendant le tour, à jouer ensuite.
-    async fn prompt(
-        &mut self,
-        rx: &mut mpsc::UnboundedReceiver<Command>,
-        scope: AgentScope,
-        text: String,
-        ui: AgentUi,
-    ) -> Option<Command> {
+    async fn prompt(&mut self, rx: &mut mpsc::UnboundedReceiver<Command>, instruction: Instruction) -> Option<Command> {
+        let scope = instruction.scope.clone();
         // Le tour existe avant toute étape qui peut échouer (connexion, session) : son erreur s'y affiche.
         let n = self.ctx.hub.begin_turn(scope.clone());
-        self.ctx.emit(AgentEvent::UserText { turn: n, scope: scope.clone(), text: text.clone() });
+        self.ctx.emit(AgentEvent::UserText { turn: n, scope: scope.clone(), text: instruction.text.clone() });
         let known = self.ctx.keeper.lookup(scope.clone()).await;
         let current = self.link.current_generation();
         let alive = known.as_ref().zip(current).is_some_and(|((id, _), g)| self.live.contains(&(g, id.clone())));
@@ -231,12 +242,12 @@ impl TabAgent {
             }
         };
         let prompting = || self.link.prompting(live.generation, &id);
-        match crate::turn::run(&self.ctx, &live.cx, rx, n, &scope, id.clone(), text, ui, fresh, prompting).await {
+        match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, prompting).await {
             Ok(pending) => {
                 for scope in pending.new_conversations {
                     self.new_conversation(scope).await;
                 }
-                pending.prompt.map(|(scope, text, ui)| Command::Prompt { scope, text, ui })
+                pending.prompt.map(Command::Prompt)
             }
             Err(e) => {
                 self.request_failed(n, &live, e).await;

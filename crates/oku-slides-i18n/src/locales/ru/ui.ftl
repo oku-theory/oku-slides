@@ -54,6 +54,7 @@ ui-toolbar-theme-embedded = Тема из файла
 ui-toolbar-save-copy = Сохранить копию
 ui-toolbar-finish = Готово
 ui-menu-workshop = Мастерская
+ui-menu-workshop-deck-only = Эти шаблоны принадлежат только этой презентации; мастерская редактирует только шаблоны библиотеки.
 ui-toolbar-open = Открыть
 ui-merge = Объединить с PDF…
 ui-menu = Меню
@@ -322,7 +323,10 @@ ui-undo-show-as-chart = Показать в виде диаграммы
 
 ## Файлы
 
-ui-file-open-prompt = Путь к файлу для открытия (.oku-slides.pdf или .json)
+ui-file-open-prompt = Путь к файлу для открытия (.oku-slides.pdf, .json или .pptx)
+ui-file-merge-prompt = Путь к презентации, которую нужно объединить с этой (.oku-slides.pdf или .json)
+ui-file-filter-presentations = Презентации
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Сохранить как (полный путь)
 
 ## Вкладки
@@ -396,3 +400,19 @@ ui-theme-name = Название темы
 ui-theme-unsaved = Изменения темы не сохранены
 ui-widgets-close-tab = Закрыть { $name }
 ui-widgets-removed-by-agent = Агент удалил виджет { $name }.
+
+## Импортировать
+
+ui-import-title = Импорт презентации PowerPoint
+ui-import-mode = Режим импорта
+ui-import-hifi = Точная копия
+ui-import-hifi-note = Сохраняет вид оригинала с темой и шаблонами, созданными для этой презентации.
+ui-import-retrofit = Использовать мои шаблоны
+ui-import-retrofit-note = Пересобирает слайды на шаблонах и теме из библиотеки.
+ui-import-theme-default = Тема по умолчанию
+ui-import-no-packs = В библиотеке нет набора шаблонов.
+ui-import-tune = Доработать с агентом
+ui-import-tune-note = Агент сравнивает каждый слайд с оригиналом и исправляет расхождения.
+ui-import-tune-note-retrofit = Агент сравнивает каждый слайд с оригиналом и создаёт виджеты для фигур, которые ваши шаблоны не показывают.
+ui-import-submit = Импортировать
+ui-import-busy = Импорт…

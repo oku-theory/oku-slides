@@ -35,20 +35,10 @@ cli-forbidden = ปฏิเสธคำขอ: คำขอไม่ได้�
 cli-unauthorized = ปฏิเสธคำขอ: ไม่มีโทเค็นการเข้าถึงหรือโทเค็นไม่ถูกต้อง
 cli-exposed = กำลังรอรับที่ { $host }: เข้าถึงเซิร์ฟเวอร์ได้จากเครือข่าย จะให้บริการเฉพาะไคลเอนต์ที่แสดงโทเค็นของการเปิดครั้งนี้เท่านั้น หากไม่ต้องใช้เครือข่าย ให้คง [serve] host ไว้ที่ 127.0.0.1
 cli-imported = { $path }: สไลด์ { $slides } รายการ, { $pages } หน้า, การสูญเสีย { $losses } รายการ, คำขอวิดเจ็ต { $requests } รายการ
-cli-import-label = นำเข้าจาก PowerPoint
 cli-import-pack-required = โหมด retrofit ต้องระบุ --pack: รหัส โฟลเดอร์ หรือชื่อของแพ็กเทมเพลต
-cli-import-unknown-pack = ไม่รู้จักแพ็กเทมเพลต: { $pack }
-cli-import-bad-pack = อ่านแพ็กเทมเพลต { $pack } ไม่ได้: pack.json ของแพ็กไม่ได้อธิบายแพ็กเทมเพลต
-cli-import-bad-theme = อ่านธีมเป้าหมายไม่ได้: อ่านโทเค็นการออกแบบของธีมไม่ได้
 cli-import-write-failed = เขียนเด็คที่นำเข้า { $path } ไม่ได้
 cli-import-hifi-no-target = --pack และ --theme ใช้กับโหมด retrofit เท่านั้น: การนำเข้าแบบเที่ยงตรงสูง (--mode hifi) สร้างแพ็กและธีมของตัวเอง
-cli-import-probe-mismatch = แพ็กที่สร้างขึ้นตรวจสอบได้ไม่ตรงกับที่ประกาศ (วิดเจ็ต { $widget }): เป็นข้อบกพร่องของตัวนำเข้า
-cli-import-probe-limit = แพ็กที่สร้างเกินขีดจำกัดของการตรวจ (วิดเจ็ต { $widget }): เพิ่ม max_widgets, max_widget_kib หรือ probe_budget_ms ในส่วน [render] ของการตั้งค่า
-cli-import-probe-failed = กระบวนการเรนเดอร์ตรวจแพ็กที่สร้างไม่ได้: { $error }
-cli-import-pack-missing = การนำเข้าไม่ได้สร้างแพ็กสำหรับเด็ค: นี่คือข้อบกพร่องของการนำเข้า
-cli-import-theme-missing = การนำเข้าไม่ได้สร้างธีมสำหรับเด็ค: นี่คือข้อบกพร่องของการนำเข้า
 cli-import-reference-hifi-only = --reference เป็นของโหมด hifi: การนำเข้าแบบ retrofit ไม่ถูกเปรียบเทียบกับการเรนเดอร์อ้างอิง
-cli-import-bad-threshold = score_threshold ในส่วน [import] ต้องเป็นจำนวนตั้งแต่ศูนย์ขึ้นไป ไม่ใช่ { $value }
 cli-import-scored = ความต่างทางภาพจาก { $witness }: เฉลี่ย { $mean }, สไลด์ที่เกิน { $threshold } { $above ->
    *[other] { $above } แผ่น
 }

@@ -16,19 +16,19 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use snafu::{OptionExt, ResultExt};
+use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
 use oku_slides_core::{Deck, PackFiles, PackRef, PackVersion, Slide, SourceBundle};
 use oku_slides_i18n::Localize;
 
 use crate::error::{
-    InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu, RenderSnafu,
-    SourcesSnafu, UnknownPackSnafu,
+    DeckOnlySnafu, InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu,
+    RenderSnafu, SourcesSnafu, UnknownPackSnafu,
 };
 use crate::library::PackLibrary;
 use crate::library_kind::StoredVersion;
-use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, Template, now_created};
+use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, PackScope, Template, now_created};
 use crate::template_scratch::TemplateScratch;
 use crate::theme_edit::tokens_value;
 use crate::{Document, Mode, Result, Session, TemplateMode, TemplateView, TemplatesView, new_renderer};
@@ -90,6 +90,8 @@ impl Session {
     pub fn edit_templates(&mut self, id: Uuid) -> Result<()> {
         // L'historique ouvert se ferme d'abord ; l'aide ne passe jamais aux modèles.
         self.ensure_editable()?;
+        // Le pack du deck seul (celui d'un import) n'est pas dans la bibliothèque : refusé comme tel.
+        ensure!(!self.embeds_deck_only_pack(id), DeckOnlySnafu { id });
         let stored = self.library.current_version(id).context(UnknownPackSnafu { id })?;
         let r = PackRef { id, version: stored.version.clone() };
         let slides = stored.manifest.templates.iter().cloned().map(template_slide).collect();
@@ -188,7 +190,16 @@ impl Session {
                 Template { id: s.id.clone(), name, description, slide }
             })
             .collect();
-        PackManifest { id, name, description, parent, created: now_created(), templates, examples }
+        PackManifest {
+            id,
+            name,
+            description,
+            parent,
+            created: now_created(),
+            scope: PackScope::Library,
+            templates,
+            examples,
+        }
     }
 
     /// Enregistre le pack édité dans la version de cette session d'édition.

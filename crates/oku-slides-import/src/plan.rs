@@ -39,6 +39,31 @@ pub struct WidgetRequest {
     pub fallback: String,
 }
 
+/// Ce que l'agent corrige pour un item source projeté en hi-fi.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemTarget {
+    /// Les éléments projetés depuis l'item, dans l'ordre du dessin.
+    ///
+    /// Pour un groupe, ceux de ses enfants.
+    Elements(Vec<String>),
+    /// Le paramètre de la slide qu'un placeholder de texte remplit.
+    Param(String),
+}
+
+/// Un groupe source répété : même signature sur plusieurs slides.
+///
+/// Candidat hi-fi à un widget d'élément du pack généré ; l'agent le propose.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct GroupCandidate {
+    /// Signature du motif (`crate::pattern::signature` de ses enfants).
+    pub signature: String,
+    /// Ses occurrences, dans l'ordre des slides.
+    ///
+    /// Id de slide Oku, id d'item source du groupe.
+    pub occurrences: Vec<(String, String)>,
+}
+
 /// Le résultat d'un projecteur.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ImportPlan {
@@ -65,6 +90,18 @@ pub struct ImportPlan {
     /// Polices à embarquer dans `fonts/` du deck (hi-fi) : nom de fichier → octets.
     #[serde(skip)]
     pub fonts: BTreeMap<String, Vec<u8>>,
+    /// L'élément Oku projeté depuis des items source : id d'item → id d'élément.
+    ///
+    /// En hi-fi, l'élément de texte de chaque item à texte ; en retrofit,
+    /// l'élément de l'unité qui porte l'item. Celle que lit la couverture.
+    #[serde(skip)]
+    pub origins: BTreeMap<String, String>,
+    /// Hi-fi : ce que l'agent corrige pour chaque item source projeté, par id d'item.
+    #[serde(skip)]
+    pub targets: BTreeMap<String, ItemTarget>,
+    /// Hi-fi : les groupes source répétés sur [`crate::hifi::GROUP_MIN_SLIDES`] slides au moins.
+    #[serde(skip)]
+    pub groups: Vec<GroupCandidate>,
 }
 
 impl ImportPlan {
@@ -79,6 +116,9 @@ impl ImportPlan {
             pack: None,
             schemas: Vec::new(),
             fonts: BTreeMap::new(),
+            origins: BTreeMap::new(),
+            targets: BTreeMap::new(),
+            groups: Vec::new(),
         }
     }
 

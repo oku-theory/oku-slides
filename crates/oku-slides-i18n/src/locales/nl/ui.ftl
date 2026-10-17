@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = Thema van het bestand
 ui-toolbar-save-copy = Kopie opslaan
 ui-toolbar-finish = Klaar
 ui-menu-workshop = Werkplaats
+ui-menu-workshop-deck-only = Deze sjablonen horen alleen bij deze presentatie; de werkplaats bewerkt alleen sjablonen uit de bibliotheek.
 ui-toolbar-open = Openen
 ui-merge = Samenvoegen met een pdf…
 ui-menu = Menu
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = Weergeven als grafiek
 
 ## Bestanden
 
-ui-file-open-prompt = Pad van het te openen bestand (.oku-slides.pdf of .json)
+ui-file-open-prompt = Pad van het te openen bestand (.oku-slides.pdf, .json of .pptx)
+ui-file-merge-prompt = Pad van het bestand om met deze presentatie samen te voegen (.oku-slides.pdf of .json)
+ui-file-filter-presentations = Presentaties
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Opslaan als (volledig pad)
 
 ## Tabbladen
@@ -395,3 +399,19 @@ ui-theme-name = Naam van het thema
 ui-theme-unsaved = Themawijzigingen niet opgeslagen
 ui-widgets-close-tab = { $name } sluiten
 ui-widgets-removed-by-agent = De agent heeft widget { $name } verwijderd.
+
+## Importeren
+
+ui-import-title = Een PowerPoint-presentatie importeren
+ui-import-mode = Importmodus
+ui-import-hifi = Getrouwe kopie
+ui-import-hifi-note = Behoudt het uiterlijk van het origineel, met een thema en sjablonen voor deze presentatie.
+ui-import-retrofit = Mijn sjablonen gebruiken
+ui-import-retrofit-note = Bouwt de dia's opnieuw op met sjablonen en een thema uit de bibliotheek.
+ui-import-theme-default = Standaardthema
+ui-import-no-packs = Geen sjabloonset in de bibliotheek.
+ui-import-tune = Verfijnen met de agent
+ui-import-tune-note = De agent vergelijkt elke dia met het origineel en corrigeert de verschillen.
+ui-import-tune-note-retrofit = De agent vergelijkt elke dia met het origineel en ontwerpt widgets voor de vormen die je sjablonen niet kunnen tonen.
+ui-import-submit = Importeren
+ui-import-busy = Bezig met importeren…

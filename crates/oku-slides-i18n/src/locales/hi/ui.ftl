@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = फ़ाइल की थीम
 ui-toolbar-save-copy = कॉपी सहेजें
 ui-toolbar-finish = हो गया
 ui-menu-workshop = कार्यशाला
+ui-menu-workshop-deck-only = ये टेम्पलेट केवल इसी प्रस्तुति के हैं; कार्यशाला केवल लाइब्रेरी के टेम्पलेट संपादित करती है।
 ui-toolbar-open = खोलें
 ui-merge = PDF के साथ मिलाएँ…
 ui-menu = मेनू
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = चार्ट के रूप में दिखा�
 
 ## फ़ाइलें
 
-ui-file-open-prompt = खोलने के लिए फ़ाइल का पाथ (.oku-slides.pdf या .json)
+ui-file-open-prompt = खोलने के लिए फ़ाइल का पाथ (.oku-slides.pdf, .json या .pptx)
+ui-file-merge-prompt = इस प्रस्तुति में मिलाने के लिए फ़ाइल का पाथ (.oku-slides.pdf या .json)
+ui-file-filter-presentations = प्रस्तुतियाँ
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = इस रूप में सहेजें (पूरा पाथ)
 
 ## टैब
@@ -392,3 +396,19 @@ ui-theme-name = थीम का नाम
 ui-theme-unsaved = थीम के बदलाव सहेजे नहीं गए
 ui-widgets-close-tab = { $name } बंद करें
 ui-widgets-removed-by-agent = एजेंट ने विजेट { $name } हटा दिया।
+
+## आयात करें
+
+ui-import-title = PowerPoint प्रस्तुति आयात करें
+ui-import-mode = आयात मोड
+ui-import-hifi = हूबहू प्रति
+ui-import-hifi-note = इस प्रस्तुति के लिए बनी थीम और टेम्पलेट के साथ मूल का रूप बनाए रखता है।
+ui-import-retrofit = मेरे टेम्पलेट इस्तेमाल करें
+ui-import-retrofit-note = लाइब्रेरी के टेम्पलेट और एक थीम से स्लाइड फिर से बनाता है।
+ui-import-theme-default = डिफ़ॉल्ट थीम
+ui-import-no-packs = लाइब्रेरी में कोई टेम्पलेट सेट नहीं है।
+ui-import-tune = एजेंट के साथ बारीकी से सुधारें
+ui-import-tune-note = एजेंट हर स्लाइड की मूल से तुलना करता है और अंतर ठीक करता है।
+ui-import-tune-note-retrofit = एजेंट हर स्लाइड की मूल से तुलना करता है और उन आकृतियों के लिए विजेट बनाता है जिन्हें आपके टेम्पलेट नहीं दिखा सकते।
+ui-import-submit = आयात करें
+ui-import-busy = आयात हो रहा है…

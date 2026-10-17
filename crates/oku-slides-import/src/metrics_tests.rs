@@ -1,7 +1,8 @@
+use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::source::ItemKind;
+use crate::source::{Chart, ChartKind, ItemKind, SmartArt, SourceSlide};
 use crate::test_support::{item, source_slide, text_item};
 
 /// Une image `w × h` d'une seule couleur.
@@ -25,7 +26,12 @@ fn image(w: u32, h: u32, rgba: &[u8]) -> Image<'_> {
 }
 
 fn region(item: &str, (x, y, w, h): (f64, f64, f64, f64)) -> Region {
-    Region { item: item.to_owned(), x, y, w, h }
+    Region { item: item.to_owned(), x, y, w, h, suspect: None }
+}
+
+/// [`region`], suspecte de `limit`.
+fn suspect(item: &str, frame: (f64, f64, f64, f64), limit: WitnessLimit) -> Region {
+    Region { suspect: Some(limit), ..region(item, frame) }
 }
 
 fn items(s: &SlideScore) -> Vec<&str> {
@@ -102,9 +108,10 @@ fn score_skips_a_region_with_too_few_pixels_of_its_own() {
 }
 
 #[test]
-fn score_keeps_the_worst_regions_only() {
+fn score_ranks_every_scored_region_worst_first() {
     let white = plain(200, 40, [255, 255, 255]);
-    // r1, r3 et r4 portent un carré noir, de plus en plus grand ; r0 et r2 sont identiques.
+    // r1, r3 et r4 portent un carré noir, de plus en plus grand ; r0 et r2 sont
+    // identiques, mais r2 reçoit le flou du carré de r3, à 4 px de son bord.
     let mut marked = white.clone();
     for (i, side) in [(1, 8), (3, 12), (4, 16)] {
         marked = with_rect(marked, 200, (i * 40 + 4, 4, side, side), [0, 0, 0]);
@@ -112,7 +119,62 @@ fn score_keeps_the_worst_regions_only() {
     let regions: Vec<Region> =
         (0..5).map(|i| region(&format!("r{i}"), (f64::from(i) * 40.0, 0.0, 40.0, 40.0))).collect();
     let s = score(image(200, 40, &white), image(200, 40, &marked), &regions).unwrap();
-    assert_that!(items(&s)).is_equal_to(vec!["r4", "r3", "r1"]);
+    assert_that!(items(&s)).is_equal_to(vec!["r4", "r3", "r1", "r2", "r0"]);
+}
+
+/// Trois régions côte à côte : `a` (écart faible), `b` (suspecte, écart fort), `c` (identique).
+fn with_a_suspect_region() -> SlideScore {
+    let white = plain(150, 50, [255, 255, 255]);
+    let marked = with_rect(white.clone(), 150, (60, 10, 30, 30), [0, 0, 0]);
+    let marked = with_rect(marked, 150, (10, 10, 8, 8), [200, 200, 200]);
+    let regions = [
+        region("a", (0.0, 0.0, 50.0, 50.0)),
+        suspect("b", (50.0, 0.0, 50.0, 50.0), WitnessLimit::Chart),
+        region("c", (100.0, 0.0, 50.0, 50.0)),
+    ];
+    score(image(150, 50, &white), image(150, 50, &marked), &regions).unwrap()
+}
+
+#[test]
+fn score_ranks_suspect_regions_after_the_others() {
+    let s = with_a_suspect_region();
+    assert_that!(items(&s)).is_equal_to(vec!["a", "c", "b"]);
+}
+
+#[test]
+fn score_keeps_the_limit_of_a_suspect_region() {
+    let s = with_a_suspect_region();
+    let limits: Vec<Option<WitnessLimit>> = s.regions.iter().map(|r| r.suspect).collect();
+    assert_that!(limits).is_equal_to(vec![None, None, Some(WitnessLimit::Chart)]);
+}
+
+#[test]
+fn worst_ignores_a_suspect_region_with_a_larger_gap() {
+    let s = with_a_suspect_region();
+    assert_that!(s.worst()).is_equal_to(Some(s.regions[0].score));
+}
+
+#[test]
+fn worst_of_suspect_regions_only_is_none() {
+    let white = plain(100, 50, [255, 255, 255]);
+    let marked = with_rect(white.clone(), 100, (10, 10, 30, 30), [0, 0, 0]);
+    let regions = [suspect("t", (0.0, 0.0, 100.0, 50.0), WitnessLimit::Autofit)];
+    let s = score(image(100, 50, &white), image(100, 50, &marked), &regions).unwrap();
+    assert_that!((s.regions.len(), s.worst())).is_equal_to((1, None));
+}
+
+#[test]
+fn slide_score_writes_the_reported_regions_only() {
+    let r = |i: usize| RegionScore { item: format!("r{i}"), score: 1.0, shift: [0, 0], suspect: None };
+    let s = SlideScore { score: 1.0, regions: (0..REPORTED_REGIONS + 2).map(r).collect() };
+    let v = serde_json::to_value(&s).unwrap();
+    assert_that!(v["regions"].as_array().map(Vec::len)).is_equal_to(Some(REPORTED_REGIONS));
+}
+
+#[test]
+fn region_score_writes_its_limit_in_snake_case() {
+    let r = RegionScore { item: "x".into(), score: 1.0, shift: [0, 0], suspect: Some(WitnessLimit::SmartArt) };
+    assert_that!(serde_json::to_value(&r).unwrap()["suspect"].as_str()).is_equal_to(Some("smart_art"));
 }
 
 #[test]
@@ -134,7 +196,7 @@ fn score_counts_the_topmost_max_regions_only() {
 }
 
 #[test]
-fn worst_is_the_score_of_the_first_region() {
+fn worst_is_the_score_of_the_first_region_when_it_is_not_suspect() {
     let white = plain(100, 50, [255, 255, 255]);
     let marked = with_rect(white.clone(), 100, (60, 20, 12, 12), [255, 0, 0]);
     let regions = [region("a", (0.0, 0.0, 50.0, 50.0)), region("b", (50.0, 0.0, 50.0, 50.0))];
@@ -166,6 +228,31 @@ fn regions_open_groups_and_scale_frames() {
     let child = text_item("s1/3", (10.0, 20.0, 30.0, 40.0), "x");
     let group = item("s1/2", (0.0, 0.0, 100.0, 100.0), ItemKind::Group { items: vec![child], smartart: None });
     let slide = source_slide(1, None, vec![text_item("s1/1", (1.0, 2.0, 3.0, 4.0), "y"), group]);
-    let r = regions(&slide, 0.5);
+    let r = regions(&slide, 0.5, Witness::Office2Pdf);
     assert_that!(r).is_equal_to(vec![region("s1/1", (0.5, 1.0, 1.5, 2.0)), region("s1/3", (5.0, 10.0, 15.0, 20.0))]);
+}
+
+/// Un SmartArt dessiné dont l'enfant `s1/3` est un texte, et un graphique `s1/4`.
+fn smartart_and_chart() -> SourceSlide {
+    let child = text_item("s1/3", (10.0, 20.0, 30.0, 40.0), "x");
+    let model = SmartArt { layout: None, category: None, nodes: Vec::new() };
+    let kind = ItemKind::Group { items: vec![child], smartart: Some(Box::new(model)) };
+    let chart = Chart {
+        kind: ChartKind::Column,
+        grouping: Default::default(),
+        title: None,
+        categories: vec![],
+        series: vec![],
+    };
+    let group = item("s1/2", (0.0, 0.0, 100.0, 100.0), kind);
+    source_slide(1, None, vec![group, item("s1/4", (0.0, 100.0, 50.0, 50.0), ItemKind::Chart(chart))])
+}
+
+#[rstest]
+#[case::office2pdf(Witness::Office2Pdf, vec![Some(WitnessLimit::SmartArt), Some(WitnessLimit::Chart)])]
+#[case::other_witness(Witness::Other, vec![None, None])]
+fn regions_mark_suspects_under_office2pdf_only(#[case] witness: Witness, #[case] expected: Vec<Option<WitnessLimit>>) {
+    let limits: Vec<Option<WitnessLimit>> =
+        regions(&smartart_and_chart(), 1.0, witness).iter().map(|r| r.suspect).collect();
+    assert_that!(limits).is_equal_to(expected);
 }

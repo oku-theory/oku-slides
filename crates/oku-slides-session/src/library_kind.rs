@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use uuid::Uuid;
 
-use oku_slides_core::{PackFiles, PackVersion};
+use oku_slides_core::{PackFiles, PackScope, PackVersion};
 
 use crate::pack::PackManifest;
 
@@ -21,6 +21,8 @@ pub trait VersionManifest: Sized + Clone + std::fmt::Debug + 'static {
     fn parent(&self) -> Option<&PackVersion>;
     /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
     fn created(&self) -> &str;
+    /// Portée : une version du deck seul n'entre jamais dans la bibliothèque.
+    fn scope(&self) -> PackScope;
 }
 
 /// Une sorte de version rangée dans la bibliothèque.

@@ -5,6 +5,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::fonts::{FontDecision, FontOrigin};
+use crate::metrics::{RegionScore, WitnessLimit};
 use crate::source::{Warning, WarningKind};
 
 fn slide(losses: Vec<Loss>) -> SlideReport {
@@ -372,7 +373,7 @@ fn loss_localize_overflow_names_the_element() {
 }
 
 fn scored(n: u32, score: f64) -> SlideReport {
-    let regions = vec![crate::metrics::RegionScore { item: format!("s{n}/1"), score, shift: [0, 0] }];
+    let regions = vec![RegionScore { item: format!("s{n}/1"), score, shift: [0, 0], suspect: None }];
     SlideReport { source: n, slide: format!("s{n}"), score: Some(SlideScore { score, regions }), ..slide(vec![]) }
 }
 
@@ -416,7 +417,7 @@ fn to_json_without_reference_writes_none() {
 
 #[test]
 fn above_threshold_follows_the_worst_region_not_the_mean() {
-    let regions = vec![crate::metrics::RegionScore { item: "s1/1".into(), score: 9.0, shift: [0, 0] }];
+    let regions = vec![RegionScore { item: "s1/1".into(), score: 9.0, shift: [0, 0], suspect: None }];
     let slide = SlideReport { score: Some(SlideScore { score: 1.0, regions }), ..scored(1, 1.0) };
     let r = with_reference(vec![slide], None);
     assert_that!(r.above_threshold().count()).is_equal_to(1);
@@ -433,4 +434,52 @@ fn above_threshold_lists_the_slides_beyond_it() {
 fn mean_score_averages_the_scored_slides() {
     let r = with_reference(vec![scored(1, 2.0), slide(vec![]), scored(3, 5.0)], None);
     assert_that!(r.mean_score()).is_equal_to(Some(3.5));
+}
+
+/// La slide 1, dont la seule région, au-delà du seuil (5), est suspecte de `limit`.
+fn suspect_only(limit: WitnessLimit) -> SlideReport {
+    let region = RegionScore { item: "s1/1".into(), score: 9.0, shift: [0, 0], suspect: Some(limit) };
+    SlideReport { score: Some(SlideScore { score: 1.0, regions: vec![region] }), ..scored(1, 1.0) }
+}
+
+#[test]
+fn above_threshold_ignores_a_suspect_region() {
+    let r = with_reference(vec![suspect_only(WitnessLimit::Autofit)], None);
+    assert_that!(r.above_threshold().count()).is_equal_to(0);
+}
+
+#[test]
+fn to_json_does_not_mark_a_slide_whose_gap_is_suspect() {
+    let v = with_reference(vec![suspect_only(WitnessLimit::Tracking)], None).to_json(english());
+    assert_that!(v["slides"][0].get("above_threshold")).is_none();
+}
+
+#[rstest]
+#[case(WitnessLimit::Autofit, "autofit")]
+#[case(WitnessLimit::Tracking, "tracking")]
+#[case(WitnessLimit::Chart, "chart")]
+#[case(WitnessLimit::SmartArt, "smart_art")]
+fn to_json_explains_a_suspect_region_in_french(#[case] limit: WitnessLimit, #[case] written: &str) {
+    let fr = Localizer::new(Some("fr"));
+    let v = with_reference(vec![suspect_only(limit)], None).to_json(&fr);
+    let region = &v["slides"][0]["score"]["regions"][0];
+    let expected = limit.localize(&fr);
+    assert_that!((region["suspect"].as_str(), region["message"].as_str()))
+        .is_equal_to((Some(written), Some(expected.as_str())));
+}
+
+#[test]
+fn witness_limit_localizes_each_limit_differently_in_french() {
+    let fr = Localizer::new(Some("fr"));
+    let limits = [WitnessLimit::Autofit, WitnessLimit::Tracking, WitnessLimit::Chart, WitnessLimit::SmartArt];
+    let messages: std::collections::BTreeSet<String> = limits.iter().map(|l| l.localize(&fr)).collect();
+    let english: std::collections::BTreeSet<String> = limits.iter().map(|l| l.localize(english())).collect();
+    assert_that!(messages.len()).is_equal_to(limits.len());
+    assert_that!(messages.is_disjoint(&english)).is_true();
+}
+
+#[test]
+fn to_json_writes_no_message_on_a_region_that_is_not_suspect() {
+    let v = with_reference(vec![scored(1, 2.0)], None).to_json(english());
+    assert_that!(v["slides"][0]["score"]["regions"][0].get("message")).is_none();
 }

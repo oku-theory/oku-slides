@@ -104,6 +104,12 @@ import-reference-unavailable = No visual score: { $cause ->
     [missing] LibreOffice (soffice) was not found; set its path in import.soffice
    *[failed] the reference renderer could not read the presentation
 }
+import-region-suspect = Gap set aside, a known error of the reference renderer: { $limit ->
+    [autofit] it shrinks text set to fit its box when PowerPoint saved no scale
+    [tracking] it draws letter-spaced text wider
+    [chart] it draws charts only roughly
+   *[smart_art] it draws SmartArt text too small
+}
 import-font-substituted = { $family } replaced by { $by }, with matching metrics
 import-font-missing = { $family } not found: the text uses { $by }
 import-font-restricted = { $family }: its license forbids embedding some of its faces in the deck; text in those styles uses its other faces

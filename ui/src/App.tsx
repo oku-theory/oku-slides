@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PackNoticeBar from "./PackNoticeBar";
 import { setTemplatesOp } from "./packOps";
-import type { Anchor, AddWidget, Element, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
-import { agentApi, errorText, inTauri, workspace, pickOpenPath, pickSavePath, tabApi } from "./api";
-import { saveGuarded } from "./merge";
-import { createAutosave, wantsAutosave } from "./autosave";
+import type { Anchor, AddWidget, Element, ImportTarget, Op, PackInfo, Paragraph, PileSectionName, SlideView, Snapshot, Surface, TemplateView } from "./api";
+import { agentApi, errorText, inTauri, workspace, tabApi } from "./api";
 import type { MenuEntry } from "./ActionMenu";
 import { ActionMenu } from "./ActionMenu";
 import { appearanceLook } from "./appearance";
@@ -15,6 +13,9 @@ import SchemePicker from "./SchemePicker";
 import { copyAfterRefusedMove, findElement, gridPlacement, instantiate, literalToParagraphs, moveOps, neighbourSlide, newElementOps, newId, pasteOps, pickSlide, placeOnGridOps, previewLook, slideToFetch } from "./deck";
 import { newElement, newPackWidget } from "./newElement";
 import TemplatePicker from "./TemplatePicker";
+import ImportDialog from "./ImportDialog";
+import type { ImportJob } from "./useImportJob";
+import { useFileActions } from "./useFileActions";
 import SlidePile from "./SlidePile";
 import { ColumnDividers } from "./ColumnDivider";
 import Stage from "./Stage";
@@ -73,7 +74,7 @@ import TitleField from "./TitleField";
 const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 
 /** Un onglet : le deck de la session `tab`. */
-export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp, onClose, onChange }: {
+export default function App({ tab, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose, onHelp, onClose, onChange }: {
   tab: string;
   /** L'agent est dans sa propre fenêtre : ni colonne, ni fil, ni brouillon ici. */
   agentDetached?: boolean;
@@ -83,6 +84,14 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   notice?: string | null;
   /** Ouvrir un fichier : l'espace de travail choisit l'onglet. */
   onOpen: (path: string) => void;
+  /** L'import d'un `.pptx` dont le dialogue est à l'écran (tenu par l'espace de travail). */
+  importJob: ImportJob | null;
+  /** Un `.pptx` choisi par « Ouvrir » : l'espace de travail ouvre son dialogue d'import. */
+  onImportPick: (path: string) => void;
+  /** Importe le `.pptx` du dialogue dans un nouvel onglet ; l'espace de travail suit l'issue. */
+  onImport: (target: ImportTarget, tune: boolean) => void;
+  /** Ferme le dialogue d'import ; un import lancé continue. */
+  onImportClose: () => void;
   /** Montrer l'aide de l'app : l'espace de travail ouvre (ou retrouve) son onglet. */
   onHelp: () => void;
   /** Fermer cet onglet (bandeau de l'aide) ; absent : le dernier onglet reste. */
@@ -146,7 +155,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
     changed: () => void run(api.snapshot()),
     error: (m) => say(m, true),
     notice: (m) => say(m),
-    blocked: () => agentStatus.modal || editing !== null || picking || !!snapRef.current?.history || !!snapRef.current?.read_only,
+    blocked: () => agentStatus.modal || editing !== null || dialogOpen || !!snapRef.current?.history || !!snapRef.current?.read_only,
   });
   const widgetActive = !!snap?.editing && activeWidget(widgets.tabs) !== null;
   // Onglet « Thème » : la scène au centre, les jetons à droite (à la place du fil de l'agent).
@@ -217,7 +226,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
     if (gone) dropCut();
   }, [snap, view, cutMark, dropCut]);
   useEffect(() => {
-    const skip = (e: ClipboardEvent) => editing || picking || widgetActive || !view || snap?.history || snap?.read_only || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
+    const skip = (e: ClipboardEvent) => editing || dialogOpen || widgetActive || !view || snap?.history || snap?.read_only || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
       if (skip(e) || !view || !selected) return false;
       const element = findElement(view.slide, selected);
@@ -286,65 +295,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
     [run, dropCut],
   );
 
-  const open = async () => {
-    const path = await pickOpenPath();
-    if (path) onOpen(path);
-  };
-
-  /** Fusionne un autre PDF du même deck dans celui de l'onglet. */
-  const merge = async () => {
-    const path = await pickOpenPath();
-    if (path) await run(api.merge(path));
-  };
-
-  // --- Enregistrement automatique -----------------------------------------
-  // On n'enregistre jamais à la main : chaque modification part au fichier
-  // (au dossier par défaut pour un deck neuf) peu après la dernière.
-  // Un fichier remplacé par un autre deck, et l'écrasement refusé : plus
-  // d'enregistrement automatique jusqu'à un déplacement.
-  const [autosavePaused, setAutosavePaused] = useState(false);
-  const pausedRef = useRef(autosavePaused);
-  pausedRef.current = autosavePaused;
-  const autosave = useMemo(
-    () =>
-      createAutosave(async () => {
-        const s = snapRef.current;
-        if (!s || !wantsAutosave(s, pausedRef.current)) return;
-        if (s.editing) {
-          await run(api.saveTemplates(false));
-          return;
-        }
-        const saved = await run(saveGuarded(api, s));
-        if (!saved) setAutosavePaused(true);
-      }),
-    [api, run],
-  );
-  useEffect(() => {
-    if (snap && wantsAutosave(snap, autosavePaused)) autosave.schedule();
-  }, [snap, autosavePaused, autosave]);
-  // Onglet quitté (`App` remonté) : ce qui attend part tout de suite.
-  useEffect(() => () => void autosave.flush(), [autosave]);
-
-  /** Déplace le fichier du deck ; l'enregistrement automatique reprend. */
-  const moveFile = async () => {
-    if (!snap) return;
-    const path = await pickSavePath(snap.name);
-    if (!path) return;
-    await autosave.flush();
-    if (await run(api.move(path))) {
-      setAutosavePaused(false);
-      say(t("ui-toast-moved"));
-    }
-  };
-
-  /** Écrit une copie du deck ailleurs ; il garde son fichier. */
-  const saveCopy = async () => {
-    if (!snap) return;
-    const path = await pickSavePath(snap.name);
-    if (!path) return;
-    if (await run(api.saveCopy(path))) say(t("ui-toast-copied"));
-  };
-
+  const { open, merge, autosave, moveFile, saveCopy } = useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick });
 
   /** Ajoute un texte, une carte, une forme ou un graphique ; sur une grille, accroché aux nœuds. */
   const addElement = (kind: AddKind, text?: Paragraph[], label?: string) => {
@@ -369,6 +320,8 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   };
 
   const [picking, setPicking] = useState(false);
+  // Une fenêtre de l'app (modèles, import) est ouverte : rien derrière elle ne réagit.
+  const dialogOpen = picking || importJob !== null;
   const addSlide = () => setPicking(true);
   const insertTemplate = (tpl: TemplateView) => {
     if (!snap) return;
@@ -424,8 +377,9 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   const onAgentFocus = useAgentFocus({ slides: snap?.slides, view, current, editing, show: showSlide, select: setSelected });
 
   // --- Édition des modèles ------------------------------------------------
+  // Un pack du deck seul (import) n'est pas dans la bibliothèque : l'atelier ne l'ouvre pas.
   const editTemplates = async (): Promise<boolean> => {
-    if (!snap?.templates) return false;
+    if (!snap?.templates || snap.deck_pack) return false;
     if (!(await run(api.editTemplates(snap.templates.id)))) return false;
     setCurrent(null);
     setSelected(null);
@@ -502,8 +456,8 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
       // La présentation prend ses touches (`Presenter`) ; derrière elle, rien ne réagit.
       if (presenting) return;
       // Dans une saisie de texte, ou (touches seules) une surface A2UI ou le dock, les touches sont les leurs ; ⌘Z passe depuis un bouton.
-      // Seuls ⌘' et ⌘⇧G, qu'aucun éditeur ne lie, y passent (t-364). Une fenêtre de l'agent ouverte : rien derrière elle ne réagit.
-      const scope = appKeyScope({ modal: agentStatus.modal, picking, editing: !!editing }, e);
+      // Seuls ⌘' et ⌘⇧G, qu'aucun éditeur ne lie, y passent (t-364). Une fenêtre de l'agent ou de l'app ouverte : rien derrière elle ne réagit.
+      const scope = appKeyScope({ modal: agentStatus.modal, dialog: dialogOpen, editing: !!editing }, e);
       if (scope === "none") return;
       // L'aide : `HelpBar` a ses touches ; rien ne s'édite ni ne se bascule.
       if (snap?.read_only) return;
@@ -616,8 +570,8 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
   const [transport] = useState(() => linkTransport());
   const linkContext = useMemo<LinkContext>(
-    () => ({ editing: editing !== null, insertTo: dictation.insertTo, ui: agentUiNow, staged: agentStatus.sheet ? agentStatus.sheetId : null, keysOff: !!editing || picking || widgetActive, look: deckLook }),
-    [editing, dictation.insertTo, agentUiNow, agentStatus.sheet, agentStatus.sheetId, picking, widgetActive, deckLook],
+    () => ({ editing: editing !== null, insertTo: dictation.insertTo, ui: agentUiNow, staged: agentStatus.sheet ? agentStatus.sheetId : null, keysOff: !!editing || dialogOpen || widgetActive, look: deckLook }),
+    [editing, dictation.insertTo, agentUiNow, agentStatus.sheet, agentStatus.sheetId, dialogOpen, widgetActive, deckLook],
   );
   useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, transport });
 
@@ -662,7 +616,13 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
         { kind: "item", label: t("ui-menu-move"), onSelect: moveFile },
         { kind: "item", label: t("ui-toolbar-save-copy"), shortcut: "⌘⇧S", onSelect: saveCopy },
         { kind: "separator" },
-        { kind: "item", label: t("ui-menu-workshop"), onSelect: () => void editTemplates() },
+        {
+          kind: "item",
+          label: t("ui-menu-workshop"),
+          disabled: snap.deck_pack,
+          hint: snap.deck_pack ? t("ui-menu-workshop-deck-only") : undefined,
+          onSelect: () => void editTemplates(),
+        },
         { kind: "item", label: t("ui-history"), onSelect: openHistory },
         { kind: "custom", node: themePicker },
         ...keptUi.entries,
@@ -826,7 +786,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
             readOnly={readOnly}
             templates={!!snap.editing}
             packWidgets={packWidgets}
-            onOpenWidget={(name) => void widgets.enterAndOpen(editTemplates, name)}
+            onOpenWidget={snap.deck_pack ? undefined : (name) => void widgets.enterAndOpen(editTemplates, name)}
             onNotice={(m) => say(m, true)}
             dictated={dictation.dictated}
             // L'aide se lit comme une présentation : sans grille ni fantômes.
@@ -866,7 +826,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
         {themeActive && <ThemePanel api={api} snap={snap} run={run} say={say} />}
         <AgentPanel
           tab={tab} agent={agent} scope={scopeSource} route={route} ui={agentUiNow}
-          keysOff={!!editing || picking || widgetActive} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
+          keysOff={!!editing || dialogOpen || widgetActive} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
           onHostAction={(s, a) => host.onAction(s, a) || target.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
@@ -921,6 +881,18 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, onHelp,
           onSetChange={adoptSet}
           onClose={() => setPicking(false)}
           api={api}
+        />
+      )}
+
+      {importJob && (
+        <ImportDialog
+          path={importJob.path}
+          api={api}
+          themes={snap.themes}
+          busy={importJob.busy}
+          error={importJob.error}
+          onImport={onImport}
+          onClose={onImportClose}
         />
       )}
 

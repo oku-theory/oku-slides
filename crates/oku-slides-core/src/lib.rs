@@ -56,8 +56,8 @@ pub use ops::{
     ops_schema, param_value, text_fits,
 };
 pub use pack::{
-    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackRef, PackVersion, Template, ThemeManifest, ThemeRef, WidgetFile,
-    now_created,
+    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackRef, PackScope, PackVersion, Template, ThemeManifest, ThemeRef,
+    WidgetFile, now_created,
 };
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{

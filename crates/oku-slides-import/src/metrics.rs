@@ -25,19 +25,32 @@
 //! - au plus [`MAX_REGIONS`] régions comptent, les plus hautes : le coût reste
 //!   borné quel que soit le nombre d'items d'une slide.
 //!
-//! Une slide est signalée par sa pire région ([`SlideScore::worst`]) : la
-//! moyenne de la page, dominée par les fonds identiques, ne distingue pas une
-//! slide fidèle d'une slide abîmée.
+//! Sous office2pdf ([`Witness::Office2Pdf`]), une région est suspecte
+//! ([`WitnessLimit`]) quand son item est de ceux qu'il dessine faux (ses
+//! limites connues, lues dans la source : texte qu'il ajuste lui-même à sa
+//! boîte, texte interlettré, graphique, SmartArt) : son écart est surtout
+//! celui du témoin, pas celui d'Oku. Les limites des autres témoins
+//! (LibreOffice) ne sont pas établies : aucune de leurs régions n'est suspecte.
 //!
-//! Le rapport garde les [`REPORTED_REGIONS`] pires. Pur : les images viennent
-//! de l'appelant.
+//! Une slide est signalée par sa pire région non suspecte
+//! ([`SlideScore::worst`]) : la moyenne de la page, dominée par les fonds
+//! identiques, ne distingue pas une slide fidèle d'une slide abîmée.
+//!
+//! [`score`] classe toutes les régions notées : les non suspectes, les pires
+//! d'abord, puis les suspectes, les pires d'abord ; le rapport écrit les
+//! [`REPORTED_REGIONS`] premières. Pur : les images viennent de l'appelant.
 
 use std::collections::HashMap;
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use crate::oklab::{Oklab, delta_e, oklab};
 use crate::source::{Item, ItemKind, Rgba, SourceSlide};
+
+mod witness;
+
+use witness::witness_limit;
+pub use witness::{Witness, WitnessLimit};
 
 /// Écart-type du flou gaussien, en pixels (à 960 px de large).
 pub const BLUR_SIGMA: f64 = 2.0;
@@ -57,7 +70,7 @@ pub const MIN_PIXELS: usize = 100;
 /// Régions comptées par slide, au plus : les dernières dessinées, au-dessus.
 pub const MAX_REGIONS: usize = 256;
 
-/// Nombre de régions gardées par slide, les pires d'abord.
+/// Nombre de régions écrites au rapport par slide, dans l'ordre du classement.
 pub const REPORTED_REGIONS: usize = 3;
 
 /// Une image RGBA 8 bits empruntée, ligne à ligne depuis le haut ; l'opacité est ignorée.
@@ -84,6 +97,8 @@ pub struct Region {
     pub w: f64,
     /// Hauteur.
     pub h: f64,
+    /// La limite du témoin sur cet item ; `None` : son écart est celui d'Oku.
+    pub suspect: Option<WitnessLimit>,
 }
 
 /// L'écart d'une région.
@@ -96,6 +111,9 @@ pub struct RegionScore {
     /// Le recalage retenu, en pixels (`[dx, dy]` : où le rendu Oku la dessine
     /// par rapport à la référence).
     pub shift: [i64; 2],
+    /// La limite du témoin sur son item : la région ne signale pas la slide.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suspect: Option<WitnessLimit>,
 }
 
 /// L'écart visuel d'une slide.
@@ -103,26 +121,38 @@ pub struct RegionScore {
 pub struct SlideScore {
     /// ΔE OKLab moyen sur la page, arrondi au centième.
     pub score: f64,
-    /// Les régions les plus éloignées de la référence, au plus [`REPORTED_REGIONS`].
+    /// Toutes les régions notées, classées (non suspectes puis suspectes, les pires d'abord).
+    ///
+    /// Seules les [`REPORTED_REGIONS`] premières s'écrivent.
+    #[serde(serialize_with = "reported")]
     pub regions: Vec<RegionScore>,
 }
 
 impl SlideScore {
-    /// Le score de sa pire région ; `None` sans région notée.
+    /// Le score de sa pire région non suspecte ; `None` sans elle.
     pub fn worst(&self) -> Option<f64> {
-        self.regions.first().map(|r| r.score)
+        self.regions.first().filter(|r| r.suspect.is_none()).map(|r| r.score)
     }
+}
+
+/// Les [`REPORTED_REGIONS`] premières régions, la forme écrite du rapport.
+fn reported<S: Serializer>(regions: &[RegionScore], s: S) -> Result<S::Ok, S::Error> {
+    s.collect_seq(regions.iter().take(REPORTED_REGIONS))
 }
 
 /// Le cadre de chaque item de `slide`, groupes ouverts, à `scale` px par pt.
 ///
 /// Seuls les enfants d'un groupe comptent ; l'ordre est celui du dessin (la
-/// dernière région est au-dessus).
-pub fn regions(slide: &SourceSlide, scale: f64) -> Vec<Region> {
-    fn walk(items: &[Item], scale: f64, out: &mut Vec<Region>) {
+/// dernière région est au-dessus). Sous `witness` office2pdf, chaque région
+/// porte sa limite sur son item ; les enfants d'un SmartArt dessiné héritent de
+/// la sienne. Sous un autre témoin, aucune n'est suspecte.
+pub fn regions(slide: &SourceSlide, scale: f64, witness: Witness) -> Vec<Region> {
+    fn walk(items: &[Item], scale: f64, witness: Witness, in_smartart: bool, out: &mut Vec<Region>) {
         for item in items {
             match &item.kind {
-                ItemKind::Group { items, .. } => walk(items, scale, out),
+                ItemKind::Group { items, smartart } => {
+                    walk(items, scale, witness, in_smartart || smartart.is_some(), out);
+                }
                 _ => {
                     let f = item.frame;
                     out.push(Region {
@@ -131,17 +161,21 @@ pub fn regions(slide: &SourceSlide, scale: f64) -> Vec<Region> {
                         y: f.y * scale,
                         w: f.w * scale,
                         h: f.h * scale,
+                        suspect: match witness {
+                            Witness::Office2Pdf => witness_limit(item, in_smartart),
+                            Witness::Other => None,
+                        },
                     });
                 }
             }
         }
     }
     let mut out = Vec::new();
-    walk(&slide.items, scale, &mut out);
+    walk(&slide.items, scale, witness, false, &mut out);
     out
 }
 
-/// L'écart de `oku` à `reference`, et ses pires régions.
+/// L'écart de `oku` à `reference`, et toutes ses régions notées, classées.
 ///
 /// `None` si les images n'ont pas la même taille, sont vides ou que leurs
 /// octets ne la font pas.
@@ -160,11 +194,15 @@ pub fn score(reference: Image<'_>, oku: Image<'_>, regions: &[Region]) -> Option
         .zip(regions)
         .filter_map(|(pixels, r)| {
             let (score, shift) = pair.region(pixels, bounds(r, w, h))?;
-            Some(RegionScore { item: r.item.clone(), score: round2(score), shift })
+            Some(RegionScore { item: r.item.clone(), score: round2(score), shift, suspect: r.suspect })
         })
         .collect();
-    scored.sort_by(|x, y| y.score.total_cmp(&x.score).then_with(|| x.item.cmp(&y.item)));
-    scored.truncate(REPORTED_REGIONS);
+    // Les suspectes après les autres ; à rang égal, la pire, puis l'id.
+    scored.sort_by(|x, y| {
+        (x.suspect.is_some().cmp(&y.suspect.is_some()))
+            .then_with(|| y.score.total_cmp(&x.score))
+            .then_with(|| x.item.cmp(&y.item))
+    });
     Some(SlideScore { score: round2(mean), regions: scored })
 }
 

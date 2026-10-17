@@ -120,3 +120,21 @@ fn index_after_writes_matches_a_fresh_instance() {
         assert_that!(listed(&lib)).is_equal_to(listed(&fresh));
     }
 }
+
+#[test]
+fn index_after_a_refused_deck_only_version_keeps_the_pack_unchanged() {
+    let dir = fresh_dir("oku-slides-library-index-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    let a = add_version(&lib, &manifest(id, "A", None, "2026-10-01T10:00:00Z"), &[]);
+    let mut deck_only = manifest(id, "B", Some(&a.version), "2026-10-02T10:00:00Z");
+    deck_only.scope = oku_slides_core::PackScope::Deck;
+    let files = deck_only.to_files(Default::default()).unwrap();
+    assert_that!(lib.add_version(id, &files).map_err(|e| e.kind())).is_equal_to(Err(crate::SessionErrorKind::DeckOnly));
+    assert_that!(lib.receive_version(id, &files).map_err(|e| e.kind()))
+        .is_equal_to(Err(crate::SessionErrorKind::DeckOnly));
+    let listed = lib.versions(id).into_iter().map(|s| s.version).collect::<Vec<_>>();
+    assert_that!(listed).is_equal_to(vec![a.version.clone()]);
+    assert_that!(lib.current(id)).is_equal_to(Some(a.version));
+    assert_that!(lib.version(id, &files.version())).is_none();
+}

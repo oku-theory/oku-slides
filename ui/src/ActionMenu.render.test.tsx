@@ -121,4 +121,23 @@ describe("menu d'actions", () => {
     await act(async () => trigger().click());
     expect(menu()).toBeNull();
   });
+
+  test("ActionMenu hint : l'explication s'écrit sous le libellé de l'action désactivée", async () => {
+    const entries = [{ kind: "item", label: "Atelier", disabled: true, hint: "Modèles du deck seul", onSelect: () => {} }];
+    const { trigger, items } = await mount({ entries });
+    await act(async () => trigger().click());
+    expect(items()[0]!.disabled).toBe(true);
+    expect(items()[0]!.querySelector(".action-menu-hint")?.textContent).toBe("Modèles du deck seul");
+  });
+
+  test("ActionMenu hint : nommée par son libellé, l'explication la décrit (aria-describedby)", async () => {
+    const entries = [{ kind: "item", label: "Atelier", shortcut: "⌘⇧E", disabled: true, hint: "Modèles du deck seul", onSelect: () => {} }];
+    const { host, trigger, items } = await mount({ entries });
+    await act(async () => trigger().click());
+    const item = items()[0]!;
+    expect(item.getAttribute("aria-label")).toBe("Atelier");
+    const described = item.getAttribute("aria-describedby");
+    expect(described).toBeTruthy();
+    expect(host.querySelector(`[id="${described}"]`)?.textContent).toBe("Modèles du deck seul");
+  });
 });

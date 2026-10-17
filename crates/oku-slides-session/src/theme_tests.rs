@@ -18,6 +18,7 @@ fn theme(name: &str, created: &str) -> ThemeManifest {
         description: String::new(),
         parent: None,
         created: created.into(),
+        scope: oku_slides_core::PackScope::Library,
         tokens: json!({"color": {"accent": "#ff0000"}}).as_object().cloned().unwrap(),
     }
 }
@@ -70,4 +71,34 @@ fn theme_manifest_round_trips_through_files() {
     let files = m.to_files().unwrap();
     assert_that!(ThemeManifest::from_files(&files).unwrap()).is_equal_to(m);
     assert_that!(files.widgets().is_empty()).is_true();
+}
+
+#[rstest::rstest]
+#[case::add(false)]
+#[case::receive(true)]
+fn theme_version_of_a_deck_only_theme_is_refused_and_writes_nothing(#[case] received: bool) {
+    let (lib, dir) = temp_theme_library();
+    let m = ThemeManifest { scope: oku_slides_core::PackScope::Deck, ..theme("Importé", "2026-10-01T10:00:00Z") };
+    let files = m.to_files().unwrap();
+    let result = if received { lib.receive_version(m.id, &files) } else { lib.add_version(m.id, &files) };
+    assert_that!(result.map_err(|e| e.kind())).is_equal_to(Err(crate::SessionErrorKind::DeckOnly));
+    assert_that!(dir.path().join(m.id.to_string()).exists()).is_false();
+    assert_that!(lib.themes().iter().any(|t| t.id == m.id)).is_false();
+}
+
+#[test]
+fn open_of_a_deck_with_a_deck_only_theme_adds_nothing_to_the_theme_library() {
+    use crate::Request;
+    use crate::test_support::{adopt_deck_only_theme, session_on};
+    let (me, them) = (fresh_dir("oku-slides-theme-scope-me-"), fresh_dir("oku-slides-theme-scope-them-"));
+    let mut other = session_on(them.path());
+    let r = adopt_deck_only_theme(&mut other);
+    let path = them.path().join("importe.oku-slides.pdf");
+    other.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap();
+    let mut s = session_on(me.path());
+    let themes = s.themes.themes();
+    s.open(&path).unwrap();
+    assert_that!(s.deck().theme.clone()).is_equal_to(Some(r.clone()));
+    assert_that!(s.themes.versions(r.id).is_empty()).is_true();
+    assert_that!(s.themes.themes()).is_equal_to(&themes);
 }

@@ -8,6 +8,8 @@ import { applyDefaultScheme } from "./appearance";
 import { applyLens } from "./lens";
 import { currentScheme, followScheme, loadScheme } from "./scheme";
 import "./styles.css";
+import "./import.css";
+import "./workshop.css";
 import "./a2ui/a2ui.css";
 import "./glass.css";
 

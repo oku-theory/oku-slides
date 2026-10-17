@@ -15,6 +15,7 @@ session-unknown-pack = Pacote não encontrado: { $id }
 session-pack-version-missing = Versão { $version } do pacote { $id } não encontrada
 session-invalid-pack = Pacote ilegível: { $id }
 session-pack-id-mismatch = Este arquivo pertence ao pacote { $found }, não a { $id }
+session-deck-only = { $id } pertence apenas à sua apresentação: nunca é guardado na biblioteca
 session-editing-templates = Termine de editar os modelos primeiro
 session-not-editing-templates = Nenhum conjunto de modelos está sendo editado
 session-theme-choice-alone = No modo de modelos, escolha o tema sozinho e depois edite os tokens dele com set_token
@@ -427,3 +428,29 @@ theme-option-fill = Preencher
 theme-option-true = Sim
 theme-option-false = Não
 session-undo-theme-token = Tema: { $token }
+session-import-label = Importação do PowerPoint
+session-import-retrofit-pack = { $pack } para { $deck }
+session-import-unknown-pack = pacote desconhecido: { $pack }
+session-import-bad-pack = pacote ilegível { $pack }: o seu pack.json não descreve um pacote de modelos
+session-import-pack-too-large = o pacote { $path } passa de { $max } MiB
+session-import-reader-panic = o leitor de PowerPoint falhou inesperadamente em { $path }; o arquivo não foi importado
+session-import-bad-theme = tema de destino ilegível: não foi possível ler os tokens de design dele
+session-import-probe-mismatch = o pacote gerado não corresponde à sondagem como declarado (widget { $widget }): é um erro do importador
+session-import-probe-limit = o pacote gerado excede os limites da sonda (widget { $widget }): aumente max_widgets, max_widget_kib ou probe_budget_ms na seção [render] da configuração
+session-import-probe-failed = o processo de renderização não conseguiu sondar o pacote gerado: { $error }
+session-import-pack-missing = a importação não produziu nenhum pacote para o deck: é um erro da importação
+session-import-theme-missing = a importação não produziu nenhum tema para o deck: é um erro da importação
+session-import-bad-threshold = score_threshold da seção [import] deve ser um número maior ou igual a zero, não { $value }
+session-import-tune-none = Nenhuma importação nesta aba: import_report e import_diff só funcionam num deck importado do PowerPoint, enquanto a aba dele continuar aberta.
+session-import-tune-hifi-only = Esta importação é um retrofit: não tem renderização de referência para comparar. import_diff só funciona numa importação hi-fi.
+session-import-tune-no-reference = import_diff precisa da renderização de referência. { $reason }
+session-import-tune-reference-pending = A renderização de referência ainda está em andamento; chame a ferramenta novamente em instantes.
+session-import-tune-unknown-slide = { $slide } não é um slide desta importação (veja import_report).
+session-import-tune-unknown-region = { $region } não é uma região do slide { $slide }: use um id de item dado por import_diff.
+session-import-tune-tries-used = O slide { $slide } não tem mais tentativas (tentativas usadas: { $tries }, ou nenhum ganho em várias tentativas): passe para o próximo slide.
+session-import-tune-untunable = O slide { $slide } não tem tentativas: { $state ->
+        [done] ele já está abaixo do limite
+        [witness] só passam do limite regiões que a própria referência renderiza errado
+       *[unscored] ele não tem nota, falta a renderização de referência
+    }. Passe para o próximo slide.
+session-import-tune-compare = Não foi possível comparar o slide com a sua renderização de referência.

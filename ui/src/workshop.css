@@ -1,0 +1,199 @@
+/* Mode modèles (l'atelier) : widgets, sous-onglets, bande des réglages de l'hôte, onglet « Thème ».
+   Suite de styles.css, chargée juste après lui et avant glass.css (main.tsx). */
+
+/* Widgets : pastilles d'état et éditeur Typst. */
+.pill { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.pill.valid { background: color-mix(in oklab, #2f8a4f 80%, var(--ink)); }
+.pill.errors { background: var(--danger); }
+.typst-editor { height: 100%; }
+.typst-editor .cm-editor { height: 100%; font: 13px/20px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.cm-typ-comment { color: color-mix(in oklab, var(--ink) 50%, transparent); font-style: italic; }
+.cm-typ-string { color: color-mix(in oklab, #2f8a4f 85%, var(--ink)); }
+.cm-typ-keyword, .cm-typ-hash { color: var(--accent); font-weight: 600; }
+.cm-typ-param { color: color-mix(in oklab, #8a4f2f 85%, var(--ink)); }
+.cm-diag-underline { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
+.cm-diag-point { display: inline-block; width: 1ch; border-bottom: 2px dotted var(--danger); vertical-align: text-bottom; }
+.cm-diag-marker { color: var(--danger); cursor: help; }
+
+/* En zones nommées : l'aperçu en haut sur toute la largeur ; dessous, réglages, séparateur, code.
+   Code replié : sans séparateur, sa piste reste vide et les réglages prennent la rangée, à leur
+   hauteur (au plus 40 %, puis ils défilent) ; l'aperçu garde le reste.
+   Les pistes repliées à `0px` supposent `.widget-tab-code` sans padding ni bordure :
+   sinon il déborderait de sa piste nulle. */
+.widget-tab {
+  display: grid; grid-template-areas: "preview preview preview" "side split code";
+  grid-template-rows: minmax(0, 1fr) fit-content(40%);
+  grid-template-columns: minmax(0, 1fr) 0px 0px; height: 100%; min-height: 0;
+}
+.widget-tab-preview { grid-area: preview; }
+.widget-tab-side { grid-area: side; }
+.widget-tab-code { grid-area: code; }
+/* Code déplié : la rangée du bas prend la moitié de la hauteur ; moitié / moitié en largeur,
+   sauf largeur réglée (--code-w, posée par WidgetTab) ; les réglages gardent SIDE_MIN (240px)
+   et le séparateur SPLIT (12px), comme codeSplit.ts. */
+.widget-tab[data-code="shown"] {
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 1fr) 12px var(--code-w, minmax(0, 1fr));
+}
+/* Séparateur entre réglages et code, comme ceux des colonnes : un trait au survol, accentué au glisser. */
+.code-divider { grid-area: split; position: relative; cursor: col-resize; touch-action: none; outline: none; }
+.code-divider::before {
+  content: ""; position: absolute; inset-inline: 5.5px auto; inset-block: var(--space-6); width: 1px; border-radius: 1px;
+  background: var(--ink); opacity: 0; transition: opacity 160ms ease-out, background-color 160ms ease-out;
+}
+.code-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
+.code-divider.active::before, .code-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
+body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+.code-divider::after { inset-inline-start: 4px; top: 50%; width: 4px; height: 32px; margin-top: -16px; }
+.widget-tab[hidden] { display: none; }
+/* Aperçu centré dans sa rangée, sur les deux axes ; trop haut, il défile. */
+.widget-tab-preview {
+  min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column;
+  align-items: center; justify-content: safe center;
+}
+.widget-tab-preview > .widget-tab-broken { align-self: stretch; }
+/* Réglages et diagnostics sous l'aperçu : en haut de leur zone, qui défile seule. */
+.widget-tab-side { min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+/* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small) ;
+   égales en haut et en bas, l'aperçu reste au centre. */
+.widget-tab-preview > img {
+  margin: calc(14px * var(--elev-sheet)) calc(10px * var(--elev-sheet));
+  max-width: calc(100% - 20px * var(--elev-sheet)); max-height: calc(100% - 28px * var(--elev-sheet)); min-height: 0;
+  object-fit: contain; border-radius: var(--radius-sm); box-shadow: var(--sheet-ring), var(--shadow-sheet-small);
+}
+/* La scène de l'aperçu (champs éditables) : la place sous les pastilles, la scène centrée
+   dedans à l'échelle qui y tient ; mêmes marges et même ombre que l'image seule. */
+.widget-tab-preview > .stage-preview {
+  flex: 1 1 0; align-self: stretch; min-height: 96px;
+  margin: calc(14px * var(--elev-sheet)) calc(10px * var(--elev-sheet));
+}
+.stage-preview .stage { box-shadow: var(--sheet-ring), var(--shadow-sheet-small); }
+/* Un champ lié au deck : en lecture, il le dit au survol. */
+.stage-preview .field.bound { cursor: help; }
+/* Masqué, le code reste monté dans sa piste nulle, invisible. */
+.widget-tab-code { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
+.widget-tab-code[inert] { visibility: hidden; }
+.widget-tab-broken h3 { margin: 0 0 var(--space-2); font: 500 13px/20px var(--sans); }
+.widget-tab-broken ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.widget-tab-diagnostics { margin: var(--space-2) calc(10px * var(--elev-sheet)) 0; padding: 0; list-style: none; font-size: 12px; }
+/* Vide, elle ne donne pas de hauteur à la zone des réglages. */
+.widget-tab-diagnostics:empty { display: none; }
+.widget-tab-diagnostics .error { color: var(--danger); }
+
+/* Mode modèles : deux sections repliables. Modèles prend la place et défile seule ;
+   Widgets reste ancrée en bas, et défile à son tour si sa liste est longue. */
+.pile-column { grid-area: pile; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-top: var(--space-4); }
+/* Pile des slides repliée vers la gauche : un rail avec son seul bouton, la feuille reprend la place ;
+   `!important` passe devant la largeur choisie au séparateur (posée en ligne), gardée pour la réouverture. */
+.table { --pile-rail-w: 56px; }
+.table:has(> .pile-column[data-folded="true"]) { --pile-w: var(--pile-rail-w) !important; }
+.table:has(> .pile-column[data-folded="true"]) .col-divider[data-side="pile"] { display: none; }
+.pile-rail > .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); }
+.pile-fold { flex: none; align-self: flex-end; width: 32px; height: 32px; margin-inline-end: 22px; }
+.pile-rail[data-folded="true"] > .pile-fold { align-self: center; margin-inline-end: 0; }
+/* La barre latérale côté départ (RTL compris). */
+.pile-fold svg { width: 18px; height: 18px; }
+[dir="rtl"] .pile-fold svg { transform: scaleX(-1); }
+.pile-section { display: flex; flex-direction: column; min-height: 0; }
+.pile-section-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 28px 0 var(--space-6); }
+.pile-section-head h3 { margin: 0; min-width: 0; font: 500 13px/20px var(--sans); }
+.pile-section-toggle { display: flex; align-items: center; gap: var(--space-1); padding: 6px 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.pile-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.pile-section-chevron { display: flex; color: var(--ink-muted); }
+.pile-section-chevron svg { width: 14px; height: 14px; transition: transform 0.15s ease; }
+.pile-section[data-open="true"] .pile-section-chevron svg { transform: rotate(90deg); }
+.pile-section-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.pile-thumbs[data-open="true"] { flex: 1 1 0; }
+.pile-thumbs .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); padding-bottom: var(--space-6); }
+.pile-widgets { flex: 0 1 auto; max-height: 45%; border-top: 1px solid var(--rule); padding-top: var(--space-2); }
+/* Modèles repliée : Widgets peut prendre toute la hauteur. */
+.pile-thumbs[data-open="false"] + .pile-widgets { max-height: none; }
+/* 4 px en haut : l'anneau de focus (3 px) du champ de nom, en tête de liste, n'est pas rogné par le défilement. */
+.pile-widgets .pile-section-body { overflow-y: auto; padding: 4px 28px var(--space-6) var(--space-6); }
+@media (prefers-reduced-motion: reduce) { .pile-section-chevron svg { transition: none; } }
+.pile-widgets ul { list-style: none; margin: 0; padding: 0; }
+.pile-widgets-row { display: flex; align-items: center; }
+.pile-widgets-file { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
+.pile-widgets-file[aria-current="true"] { background: var(--accent-soft); }
+.pile-widgets-remove { opacity: 0; }
+.pile-widgets-row:hover .pile-widgets-remove, .pile-widgets-row:focus-within .pile-widgets-remove { opacity: 1; }
+/* Champ texte : la largeur de la colonne, sans le chevron ni le curseur d'une liste déroulante. */
+.pile-widgets-name input { width: 100%; min-width: 0; box-sizing: border-box; padding-inline: 10px; background-image: none; cursor: text; }
+.pile-widgets-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
+.pile-widgets-issue { margin: var(--space-1) 0 0; font-size: 12px; line-height: 16px; color: var(--danger); }
+.unsaved-dot { flex: none; width: 7px; height: 7px; margin-inline-start: auto; border-radius: 50%; background: currentColor; }
+
+.template-tabs { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }
+.template-tab-slot { display: inline-flex; align-items: center; }
+.template-tab { padding: 4px 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: inherit; font: 500 13px/20px var(--sans); display: inline-flex; align-items: center; gap: var(--space-2); }
+.template-tab[aria-selected="true"] { border-bottom-color: var(--accent); }
+.template-tab-slot .token { width: 20px; height: 20px; }
+.template-tab:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); outline-offset: -2px; border-radius: var(--radius-sm); }
+
+/* Mode modèles : la barre des sous-onglets prend une rangée au-dessus de la feuille. */
+.table:has(> .template-tabs) {
+  grid-template-rows: 104px auto minmax(0, 1fr) 104px;
+  grid-template-areas: "pile label notes" "pile subtabs notes" "pile sheet notes" "pile tools device";
+}
+.table:has(> .pack-notice):has(> .template-tabs) {
+  grid-template-rows: 104px auto auto minmax(0, 1fr) 104px;
+  grid-template-areas: "pile label notes" "pile notice notes" "pile subtabs notes" "pile sheet notes" "pile tools device";
+}
+.template-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
+/* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
+.templates-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }
+/* La scène prend la place ; dessous, la bande de la carte (`TargetPanel`) : les réglages du modèle (mode
+   modèles) et la carte de la cible (paramètres, ou panneau d'un graphique), le plus souvent réunis en une
+   fiche (`.merged`), défilant seuls, à distance de la slide. La bande a une hauteur fixe, marge au-dessus
+   de la carte comprise, et reste posée sans carte le temps de la lire : la boîte de la scène ne dépend
+   pas de la carte, qui change à la sélection (sinon, dans une fenêtre basse où la hauteur borne la
+   slide, celle-ci change de taille et se décale, t-647). Carte masquée depuis la barre : pas de bande.
+   Sa hauteur se règle au séparateur (`BandDivider`), qui occupe la marge au-dessus de la carte. */
+.templates-panel { flex-direction: column; }
+.settings-band { flex: none; height: var(--band-h, clamp(120px, 28vh, 280px)); min-height: 0; display: flex; flex-direction: column; }
+.settings-band > .host-settings, .settings-band > .chart-panel {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 0 auto;
+  /* Au-dessus de l'ombre de la feuille (`.stage-frame`, positionnée), qui sinon bave sur la carte. */
+  position: relative; z-index: 1;
+}
+.settings-band > :is(.host-settings, .chart-panel) + :is(.host-settings, .chart-panel) { margin-top: var(--space-4); }
+/* Séparateur entre la scène et la bande, comme ceux des colonnes, à l'horizontale : un trait au survol,
+   accentué au glisser ; la pastille au repos dit que la bande se redimensionne. Une prise fine, centrée dans
+   la distance d'avant entre la slide et la carte : le reste de cette marge n'est pas une poignée. */
+.band-divider { flex: none; height: 12px; margin-block: calc((var(--space-10) - 12px) / 2); position: relative; cursor: row-resize; touch-action: none; outline: none; }
+.band-divider::before {
+  content: ""; position: absolute; inset-inline: var(--space-6); top: 5.5px; height: 1px; border-radius: 1px;
+  background: var(--ink); opacity: 0; transition: opacity 160ms ease-out, background-color 160ms ease-out;
+}
+.band-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
+.band-divider.active::before, .band-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
+body:has(.band-divider.active) { cursor: row-resize; user-select: none; -webkit-user-select: none; }
+.band-divider::after { left: 50%; top: 50%; width: 32px; height: 4px; margin: -2px 0 0 -16px; }
+.settings-band > .chart-panel { width: min(100% - 2 * var(--space-4), 760px); box-sizing: border-box; }
+/* Réglages de l'hôte sous leur aperçu : une fiche posée, pas du verre flottant. */
+.host-settings {
+  width: min(100% - 2 * var(--space-4), 560px); box-sizing: border-box; padding: var(--space-2);
+  background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object);
+}
+/* Fiche réunie (réglages du modèle, puis de la cible) : une seule carte, ses sections séparées d'un filet. */
+.host-settings.merged {
+  display: flex; flex-direction: column;
+}
+.host-settings.merged > .host-settings-section:first-child .a2ui-card { border-end-start-radius: 0; border-end-end-radius: 0; }
+.host-settings.merged > .host-settings-section + .host-settings-section .a2ui-card {
+  border-start-start-radius: 0; border-start-end-radius: 0; margin-top: -1px;
+}
+/* Sous l'aperçu, la fiche prend la largeur de sa zone (le code est à côté). */
+.widget-tab-side > .host-settings { flex: none; width: auto; margin: var(--space-2) calc(10px * var(--elev-sheet)); }
+.widget-pane > .widget-tab { flex: 1; }
+.templates-panel[hidden], .widget-pane[hidden], .add-group[hidden], .tools-sep[hidden] { display: none; }
+
+/* Onglet « Thème » : les jetons dans la colonne de droite ; le fil de l'agent y reste monté, caché. */
+.notes.theme-active > :not(.theme-panel) { display: none; }
+.theme-panel { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; padding-bottom: var(--space-6); }
+.theme-panel-head {
+  display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4);
+  background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object);
+}
+.theme-panel-head .caption { display: flex; align-items: center; gap: var(--space-2); }
+.theme-panel > .host-settings { width: auto; }

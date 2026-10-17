@@ -72,3 +72,13 @@ fn tools_render_description_states_the_real_limits() {
 fn tools_list_excludes_suggest_next() {
     assert_that!(list().iter().any(|t| t.name == "suggest_next")).is_false();
 }
+
+#[test]
+fn tools_import_diff_description_states_the_real_bounds() {
+    use oku_slides_session::import::{LISTED, REFERENCE_WIDTH, ZOOM};
+    let tool = list().into_iter().find(|t| t.name == "import_diff").unwrap();
+    let text = tool.description.unwrap_or_default();
+    assert_that!(text).contains(format!("top {LISTED}").as_str());
+    assert_that!(text).contains(format!("{REFERENCE_WIDTH} px wide").as_str());
+    assert_that!(text).contains(format!("{ZOOM}x").as_str());
+}

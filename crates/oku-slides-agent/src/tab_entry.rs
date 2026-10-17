@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
-use crate::tab_agent::Command;
+use crate::tab_agent::{Command, Instruction};
 use crate::turns::{TurnOut, Turns};
 use crate::{AgentEvent, AgentHandle, AgentState, Link, ToolsAccess};
 
@@ -270,7 +270,7 @@ impl Agent {
                 self.keeper.restored().await;
                 // Chaque consigne reçoit l'erreur dans le fil, dans la langue du moment ; le reste est sans objet.
                 while let Some(cmd) = next(&cancel, &mut rx).await {
-                    if let Command::Prompt { scope, text, .. } = cmd {
+                    if let Command::Prompt(Instruction { scope, text, .. }) = cmd {
                         let n = self.hub.begin_turn(scope.clone());
                         relay.emit(&AgentEvent::UserText { turn: n, scope, text });
                         let message = e.localize(&self.localizer.current());
@@ -290,7 +290,7 @@ impl Agent {
         tokio::spawn(relay.run(agent.subscribe()));
         while let Some(cmd) = next(&cancel, &mut rx).await {
             match cmd {
-                Command::Prompt { scope, text, ui } => agent.prompt_in(scope, text, ui),
+                Command::Prompt(instruction) => agent.instruct(instruction),
                 Command::Cancel => agent.cancel(),
                 Command::NewConversation { scope } => agent.new_conversation(scope),
             }

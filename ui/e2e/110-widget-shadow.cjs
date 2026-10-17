@@ -5,10 +5,9 @@
 // Lancer : bun e2e/110-widget-shadow.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+const { APP_SHEETS, sheets } = require('./lib/css.cjs');
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+const css = sheets(...APP_SHEETS);
 const svg = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><rect width="300" height="80" fill="white"/></svg>');
 const img = `<img src="data:image/svg+xml,${svg}">`;
 const page = (preview) => `<!doctype html><style>${css}</style>

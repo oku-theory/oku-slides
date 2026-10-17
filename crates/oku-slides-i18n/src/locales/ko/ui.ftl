@@ -48,6 +48,7 @@ ui-toolbar-theme-embedded = 파일의 테마
 ui-toolbar-save-copy = 사본 저장
 ui-toolbar-finish = 완료
 ui-menu-workshop = 작업실
+ui-menu-workshop-deck-only = 이 템플릿은 이 프레젠테이션에만 속합니다. 작업실에서는 라이브러리 템플릿만 편집할 수 있습니다.
 ui-toolbar-open = 열기
 ui-merge = PDF와 병합…
 ui-menu = 메뉴
@@ -316,7 +317,10 @@ ui-undo-show-as-chart = 차트로 표시
 
 ## 파일
 
-ui-file-open-prompt = 열 파일의 경로 (.oku-slides.pdf 또는 .json)
+ui-file-open-prompt = 열 파일의 경로 (.oku-slides.pdf, .json 또는 .pptx)
+ui-file-merge-prompt = 이 프레젠테이션에 병합할 파일의 경로 (.oku-slides.pdf 또는 .json)
+ui-file-filter-presentations = 프레젠테이션
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = 다른 이름으로 저장 (전체 경로)
 
 ## 탭
@@ -390,3 +394,19 @@ ui-theme-name = 테마 이름
 ui-theme-unsaved = 테마 변경 사항 저장 안 됨
 ui-widgets-close-tab = { $name } 닫기
 ui-widgets-removed-by-agent = 에이전트가 위젯 { $name }을(를) 삭제했습니다.
+
+## 가져오기
+
+ui-import-title = PowerPoint 프레젠테이션 가져오기
+ui-import-mode = 가져오기 방식
+ui-import-hifi = 원본 그대로 복사
+ui-import-hifi-note = 이 프레젠테이션용으로 만든 테마와 템플릿으로 원본의 모양을 유지합니다.
+ui-import-retrofit = 내 템플릿 사용
+ui-import-retrofit-note = 라이브러리의 템플릿과 테마로 슬라이드를 다시 만듭니다.
+ui-import-theme-default = 기본 테마
+ui-import-no-packs = 라이브러리에 템플릿 세트가 없습니다.
+ui-import-tune = 에이전트로 미세 조정
+ui-import-tune-note = 에이전트가 각 슬라이드를 원본과 비교해 차이를 바로잡습니다.
+ui-import-tune-note-retrofit = 에이전트가 각 슬라이드를 원본과 비교하고, 템플릿으로 표현할 수 없는 도형을 위한 위젯을 만듭니다.
+ui-import-submit = 가져오기
+ui-import-busy = 가져오는 중…

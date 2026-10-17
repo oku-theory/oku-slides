@@ -37,3 +37,28 @@ fn from_png_garbage_is_a_png_error() {
     let err = Raster::from_png(b"nope").unwrap_err();
     assert_that!(err.kind()).is_equal_to(ReferenceErrorKind::Png);
 }
+
+#[test]
+fn scaled_repeats_each_pixel_in_a_square() {
+    let s = ramp().crop(0, 0, 2, 1).scaled(2).unwrap();
+    let red: Vec<u8> = s.rgba().as_chunks::<4>().0.iter().map(|px| px[0]).collect();
+    assert_that!((s.width(), s.height(), red)).is_equal_to((4, 2, vec![0, 0, 1, 1, 0, 0, 1, 1]));
+}
+
+#[test]
+fn scaled_beyond_the_maximum_side_is_a_size_error() {
+    let err = ramp().scaled(MAX_RASTER_SIDE).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ReferenceErrorKind::Size);
+}
+
+#[test]
+fn scaled_of_an_empty_raster_is_empty_at_the_scaled_size() {
+    let s = ramp().crop(0, 0, 0, 2).scaled(2).unwrap();
+    assert_that!((s.width(), s.height(), s.rgba().len())).is_equal_to((0, 4, 0));
+}
+
+#[test]
+fn scaled_by_zero_is_a_size_error() {
+    let err = ramp().scaled(0).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ReferenceErrorKind::Size);
+}

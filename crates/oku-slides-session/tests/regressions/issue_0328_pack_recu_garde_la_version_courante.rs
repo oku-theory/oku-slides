@@ -26,6 +26,7 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
         description: String::new(),
         parent: parent.cloned(),
         created: created.into(),
+        scope: oku_slides_core::PackScope::Library,
         templates: Vec::new(),
         examples: Default::default(),
     };

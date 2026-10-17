@@ -640,3 +640,73 @@ async fn select_agent_does_not_resume_the_other_agent_session() {
     let relayed = rx.lock().unwrap().clone();
     assert_that!(relayed.iter().any(|(_, v)| v.to_string().contains(&lost))).is_false();
 }
+
+/// Le texte du tour de fine-tuning dans `locale`.
+fn tune_text(locale: &str) -> String {
+    oku_slides_i18n::Localizer::new(Some(locale)).tr("agent-tune-prompt")
+}
+
+#[test]
+fn tune_command_from_the_ui_is_refused() {
+    // Seul l'hôte lance le tour de fine-tuning (`Stack::tune`), jamais l'interface.
+    let parsed = serde_json::from_value::<AgentCommand>(json!({ "cmd": "tune", "tab": "t-1" }));
+    assert_that!(parsed.is_err()).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tune_sends_the_import_instructions_before_the_context_and_its_text_last() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{}] }), &["t-1"]).await;
+    stack.tune("t-1");
+    wait_turn_done(&rx, "t-1", 1).await;
+    let blocks = common::logged(&log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
+    assert_that!(blocks.len()).is_equal_to(5);
+    let import = blocks[2]["text"].as_str().unwrap();
+    assert_that!(import).starts_with("Fine-tuning an imported deck");
+    assert_that!(blocks[3]["text"].as_str().unwrap()).starts_with("<oku-slides-context>");
+    // La langue de l'interface (`fr` dans la pile de test), lue au lancement du tour.
+    assert_that!(blocks[4]["text"].as_str().map(str::to_owned)).is_equal_to(Some(tune_text("fr")));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tune_during_a_turn_replaces_it_with_the_import_instructions() {
+    let script = json!({ "turns": [{ "wait_cancel": true }, {}] });
+    let (stack, rx, log) = stack_with_sink_and_log(script, &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "un" }))).unwrap();
+    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "turn-1")
+        .await;
+    stack.tune("t-1");
+    wait_turn_done(&rx, "t-1", 2).await;
+    let blocks = common::logged(&log, "session/prompt")[1]["prompt"].as_array().cloned().unwrap();
+    // Même session, pas un premier tour : les consignes d'import, le contexte, le texte.
+    assert_that!(blocks.len()).is_equal_to(3);
+    assert_that!(blocks[0]["text"].as_str().unwrap()).starts_with("Fine-tuning an imported deck");
+    assert_that!(blocks[2]["text"].as_str().map(str::to_owned)).is_equal_to(Some(tune_text("fr")));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tune_shows_its_short_text_in_the_thread_never_the_instructions() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [{}] }), &["t-1"]).await;
+    stack.tune("t-1");
+    wait_turn_done(&rx, "t-1", 1).await;
+    // La pile de test est en `fr` : le fil montre le texte court, jamais les consignes.
+    let thread: String = rx
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(ch, v)| *ch == "mcp" && v["tab"] == "t-1")
+        .map(|(_, v)| v.to_string())
+        .collect();
+    assert_that!(thread.contains(&tune_text("fr"))).is_true();
+    assert_that!(thread.contains("import_report")).is_false();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_after_a_tune_sends_no_import_instructions() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{}] }), &["t-1"]).await;
+    stack.tune("t-1");
+    wait_turn_done(&rx, "t-1", 1).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "merci" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 2).await;
+    let second = common::logged(&log, "session/prompt")[1]["prompt"].to_string();
+    assert_that!(second.contains("import_report")).is_false();
+}

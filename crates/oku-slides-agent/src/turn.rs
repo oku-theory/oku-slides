@@ -5,12 +5,12 @@ use std::collections::BTreeSet;
 
 use agent_client_protocol::schema::v1::{CancelNotification, ContentBlock, PromptRequest, SessionId, TextContent};
 use agent_client_protocol::{Agent, ConnectionTo};
-use oku_slides_session::agent::{AgentScope, AgentUi};
+use oku_slides_session::agent::AgentScope;
 use tokio::sync::mpsc;
 
 use crate::events::as_text;
-use crate::instructions::{INSTRUCTIONS, WIDGETS};
-use crate::tab_agent::{Command, Ctx};
+use crate::instructions::{IMPORT, INSTRUCTIONS, WIDGETS};
+use crate::tab_agent::{Command, Ctx, Instruction};
 use crate::{AgentEvent, AgentState};
 
 /// Ce qui est arrivé pendant le tour, à appliquer par l'agent de l'onglet
@@ -22,10 +22,15 @@ pub(crate) struct Pending {
     /// Portées dont la conversation repart de zéro après le tour.
     pub new_conversations: BTreeSet<AgentScope>,
     /// La dernière consigne reçue pendant le tour, à jouer ensuite.
-    pub prompt: Option<(AgentScope, String, AgentUi)>,
+    pub prompt: Option<Instruction>,
 }
 
-/// Joue le tour `turn` dans `scope` ; renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
+/// Joue le tour `turn` de `instruction`.
+///
+/// Renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
+///
+/// Le prompt : les consignes (premier tour de la session), celles de l'import (tour de
+/// fine-tuning), le contexte, puis le texte de la consigne, toujours en dernier.
 /// `prompting` est appelé juste avant l'envoi de `session/prompt`.
 #[expect(
     clippy::too_many_arguments,
@@ -36,13 +41,13 @@ pub(crate) async fn run(
     cx: &ConnectionTo<Agent>,
     rx: &mut mpsc::UnboundedReceiver<Command>,
     turn: u32,
-    scope: &AgentScope,
     session: SessionId,
-    text: String,
-    ui: AgentUi,
+    instruction: Instruction,
     first: bool,
     prompting: impl FnOnce(),
 ) -> agent_client_protocol::Result<Pending> {
+    let Instruction { scope, text, ui, tune } = instruction;
+    let scope = &scope;
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
     let blocking = tokio::task::spawn_blocking(move || {
@@ -64,10 +69,13 @@ pub(crate) async fn run(
         }
     };
     ctx.emit(AgentEvent::Status { state: AgentState::Working, scope: Some(scope.clone()) });
-    let mut blocks = Vec::with_capacity(4);
+    let mut blocks = Vec::with_capacity(5);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(INSTRUCTIONS)));
         blocks.push(ContentBlock::Text(TextContent::new(WIDGETS)));
+    }
+    if tune {
+        blocks.push(ContentBlock::Text(TextContent::new(IMPORT)));
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
     blocks.push(ContentBlock::Text(TextContent::new(text)));
@@ -99,7 +107,7 @@ pub(crate) async fn run(
                     Some(Command::NewConversation { scope }) => {
                         pending.new_conversations.insert(scope);
                     }
-                    Some(Command::Prompt { scope, text, ui }) => pending.prompt = Some((scope, text, ui)),
+                    Some(Command::Prompt(next)) => pending.prompt = Some(next),
                 }
             }
         }

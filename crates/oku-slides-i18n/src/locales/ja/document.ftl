@@ -95,6 +95,12 @@ import-reference-unavailable = 見た目の差のスコアなし：{ $cause ->
     [missing] LibreOffice (soffice) が見つかりません。import.soffice にパスを指定してください
    *[failed] 参照レンダラーがプレゼンテーションを読めませんでした
 }
+import-region-suspect = 参照レンダラーの既知の誤りとして除外した差：{ $limit ->
+    [autofit] PowerPoint が倍率を保存していないと、ボックスに合わせたテキストを縮小します
+    [tracking] 文字間隔を広げたテキストを幅広く描きます
+    [chart] グラフをおおまかにしか描きません
+   *[smart_art] SmartArt のテキストを小さく描きすぎます
+}
 import-font-substituted = { $family } をメトリクス互換の { $by } に置き換えました
 import-font-missing = { $family } が見つかりません。テキストは { $by } を使います
 import-font-restricted = { $family }：ライセンスにより一部のスタイルをプレゼンテーションに埋め込めません。そのスタイルのテキストは他のスタイルを使います

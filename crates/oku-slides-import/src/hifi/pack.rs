@@ -30,7 +30,7 @@ use serde_json::{Map, Value, json};
 use uuid::Uuid;
 
 use oku_slides_core::{
-    PackManifest, ParamValue, Slide, Template, WidgetError, WidgetFile, WidgetRegistry, WidgetSchema,
+    PackManifest, PackScope, ParamValue, Slide, Template, WidgetError, WidgetFile, WidgetRegistry, WidgetSchema,
 };
 
 use super::typst::{GenCtx, Typst};
@@ -198,11 +198,11 @@ pub(crate) fn generated_registry(base: &WidgetRegistry, pack: &GeneratedPack) ->
     WidgetRegistry::from_probe(json!({ "base": base, "pack": pack }))
 }
 
-/// Le `pack.json` du pack généré (première version, sans parent) : un
-/// modèle par widget, nommé comme son layout, dont la slide est
-/// `examples[layout]` (la première slide source sur ce layout, projetée) ou,
-/// à défaut, une slide nue du widget. Les textes de ces slides sont aussi
-/// les valeurs d'exemple des widgets (aperçu, réglages).
+/// Le `pack.json` du pack généré (première version, sans parent, du deck seul).
+///
+/// Un modèle par widget, nommé comme son layout, dont la slide est `examples[layout]` (la première
+/// slide source sur ce layout, projetée) ou, à défaut, une slide nue du widget. Les textes de ces
+/// slides sont aussi les valeurs d'exemple des widgets (aperçu, réglages).
 pub(crate) fn pack_manifest(
     pack: &GeneratedPack,
     id: Uuid,
@@ -232,6 +232,7 @@ pub(crate) fn pack_manifest(
         description: String::new(),
         parent: None,
         created: created.to_owned(),
+        scope: PackScope::Deck,
         templates,
         examples: values,
     }

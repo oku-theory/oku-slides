@@ -82,3 +82,4 @@ agent-error-agent-not-saved = Không thể lưu lựa chọn tác nhân.
 agent-picker-title = Tác nhân
 agent-picker-busy = Đổi tác nhân sẽ dừng lượt đang chạy.
 agent-picker-locked = Lựa chọn do môi trường áp đặt (OKU_SLIDES_AGENT__SELECTED).
+agent-tune-prompt = Tinh chỉnh bài trình bày đã nhập

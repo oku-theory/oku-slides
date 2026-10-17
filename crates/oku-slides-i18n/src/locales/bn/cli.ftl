@@ -47,20 +47,10 @@ cli-imported = { $path }: { $slides ->
        [one] { $requests }টি উইজেট অনুরোধ
       *[other] { $requests }টি উইজেট অনুরোধ
     }
-cli-import-label = PowerPoint ইমপোর্ট
 cli-import-pack-required = retrofit মোডে --pack আবশ্যক: টেমপ্লেট প্যাকের আইডি, ফোল্ডার বা নাম
-cli-import-unknown-pack = অজানা টেমপ্লেট প্যাক: { $pack }
-cli-import-bad-pack = অপাঠযোগ্য টেমপ্লেট প্যাক { $pack }: এর pack.json কোনো টেমপ্লেট প্যাক বর্ণনা করে না
-cli-import-bad-theme = লক্ষ্য থিম অপাঠযোগ্য: এর ডিজাইন টোকেন পড়া যায়নি
 cli-import-write-failed = ইমপোর্ট করা ডেক { $path } লেখা যায়নি
 cli-import-hifi-no-target = --pack ও --theme শুধু retrofit মোডের জন্য: উচ্চ বিশ্বস্ততার ইমপোর্ট (--mode hifi) নিজের প্যাক ও থিম তৈরি করে
-cli-import-probe-mismatch = তৈরি করা প্যাক ঘোষণা অনুযায়ী যাচাই হয়নি (উইজেট { $widget }): এটি ইমপোর্টারের ত্রুটি
-cli-import-probe-limit = তৈরি প্যাকটি যাচাইয়ের সীমা ছাড়িয়েছে (উইজেট { $widget }): কনফিগারেশনের [render] অংশে max_widgets, max_widget_kib বা probe_budget_ms বাড়ান
-cli-import-probe-failed = রেন্ডার প্রক্রিয়া তৈরি প্যাকটি যাচাই করতে পারেনি: { $error }
-cli-import-pack-missing = ইমপোর্ট ডেকের জন্য কোনো প্যাক তৈরি করেনি: এটি ইমপোর্টের ত্রুটি
-cli-import-theme-missing = ইমপোর্ট ডেকের জন্য কোনো থিম তৈরি করেনি: এটি ইমপোর্টের ত্রুটি
 cli-import-reference-hifi-only = --reference hifi মোডের অংশ: retrofit আমদানি রেফারেন্স রেন্ডারের সঙ্গে তুলনা করা হয় না
-cli-import-bad-threshold = [import] অংশের score_threshold শূন্য বা তার চেয়ে বড় একটি সংখ্যা হতে হবে, { $value } নয়
 cli-import-scored = { $witness }-এর সঙ্গে দৃশ্যমান পার্থক্য: গড়ে { $mean }, { $threshold }-এর উপরে { $above ->
     [0] কোনো স্লাইড নেই
     [one] { $above }টি স্লাইড

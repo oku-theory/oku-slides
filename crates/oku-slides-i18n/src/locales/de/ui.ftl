@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = Design der Datei
 ui-toolbar-save-copy = Kopie speichern
 ui-toolbar-finish = Fertig
 ui-menu-workshop = Werkstatt
+ui-menu-workshop-deck-only = Diese Vorlagen gehören nur zu dieser Präsentation; die Werkstatt bearbeitet nur Vorlagen der Bibliothek.
 ui-toolbar-open = Öffnen
 ui-merge = Mit PDF zusammenführen…
 ui-menu = Menü
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = Als Diagramm anzeigen
 
 ## Dateien
 
-ui-file-open-prompt = Pfad der zu öffnenden Datei (.oku-slides.pdf oder .json)
+ui-file-open-prompt = Pfad der zu öffnenden Datei (.oku-slides.pdf, .json oder .pptx)
+ui-file-merge-prompt = Pfad der Datei, die mit dieser Präsentation zusammengeführt wird (.oku-slides.pdf oder .json)
+ui-file-filter-presentations = Präsentationen
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Speichern unter (vollständiger Pfad)
 
 ## Tabs
@@ -392,3 +396,19 @@ ui-theme-name = Name des Designs
 ui-theme-unsaved = Designänderungen nicht gespeichert
 ui-widgets-close-tab = { $name } schließen
 ui-widgets-removed-by-agent = Der Agent hat das Widget { $name } gelöscht.
+
+## Importieren
+
+ui-import-title = PowerPoint-Präsentation importieren
+ui-import-mode = Importmodus
+ui-import-hifi = Originalgetreue Kopie
+ui-import-hifi-note = Behält das Aussehen des Originals, mit einem Design und Vorlagen für diese Präsentation.
+ui-import-retrofit = Meine Vorlagen verwenden
+ui-import-retrofit-note = Baut die Folien mit Vorlagen und einem Design aus der Bibliothek neu auf.
+ui-import-theme-default = Standarddesign
+ui-import-no-packs = Keine Vorlagensammlung in der Bibliothek.
+ui-import-tune = Mit dem Agenten feinabstimmen
+ui-import-tune-note = Der Agent vergleicht jede Folie mit dem Original und korrigiert die Abweichungen.
+ui-import-tune-note-retrofit = Der Agent vergleicht jede Folie mit dem Original und entwirft Widgets für die Formen, die Ihre Vorlagen nicht darstellen.
+ui-import-submit = Importieren
+ui-import-busy = Wird importiert…

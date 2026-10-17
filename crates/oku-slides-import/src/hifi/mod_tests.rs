@@ -5,6 +5,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::plan::ItemTarget;
 use crate::report::{LossKind, Placement};
 use crate::source::{
     Fill, Frame, Geometry, Item, ItemKind, Layout, LevelStyle, Master, MasterTextStyles, Placeholder, PlaceholderLink,
@@ -118,6 +119,16 @@ fn project_puts_a_moved_placeholder_in_extras() {
     assert_that!(s.params.get("titre")).is_none();
     let kinds: Vec<String> = extras(s).into_iter().map(|e| e.kind).collect();
     assert_that!(kinds).is_equal_to(vec!["text".to_owned()]);
+}
+
+#[test]
+fn project_targets_a_layout_placeholder_by_its_param_and_a_moved_one_by_its_element() {
+    let items = vec![title("s1/2", (60.0, 30.0, 840.0, 70.0), "Haut")];
+    let moved = vec![title("s2/2", (60.0, 200.0, 840.0, 70.0), "Bas")];
+    let plan = projected(&deck(vec![source_slide(1, Some("l1"), items), source_slide(2, Some("l1"), moved)]));
+    assert_that!(plan.targets.get("s1/2")).is_equal_to(Some(&ItemTarget::Param("titre".into())));
+    let ids: Vec<String> = extras(slide(&plan, 1)).into_iter().map(|e| e.id).collect();
+    assert_that!(plan.targets.get("s2/2")).is_equal_to(Some(&ItemTarget::Elements(ids)));
 }
 
 #[test]
@@ -285,4 +296,12 @@ fn attach_pack_losses_go_to_the_first_slide_of_their_layout_or_master_else_the_f
     // (master sans slide) à la première.
     assert_that!(items(&slides[1])).is_equal_to(vec!["l1/4".to_owned(), "m1/2".to_owned()]);
     assert_that!(items(&slides[0])).is_equal_to(vec!["x7/1".to_owned(), "m2/1".to_owned()]);
+}
+
+#[test]
+fn project_maps_a_free_text_item_to_its_element_in_origins() {
+    let text = item("s1/3", (100.0, 200.0, 300.0, 50.0), ItemKind::Text(text_box(vec![para(vec![run("Libre")])])));
+    let plan = projected(&deck(vec![source_slide(1, Some("l1"), vec![text])]));
+    let element = extras(slide(&plan, 0)).into_iter().next().unwrap();
+    assert_that!(plan.origins.get("s1/3")).is_equal_to(Some(&element.id));
 }

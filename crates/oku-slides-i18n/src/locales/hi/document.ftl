@@ -102,6 +102,12 @@ import-reference-unavailable = कोई दृश्य स्कोर नह�
     [missing] LibreOffice (soffice) नहीं मिला; import.soffice में उसका पथ दें
    *[failed] संदर्भ रेंडरर प्रस्तुति नहीं पढ़ सका
 }
+import-region-suspect = अंतर अलग रखा गया, संदर्भ रेंडरर की एक ज्ञात त्रुटि: { $limit ->
+    [autofit] जब PowerPoint ने कोई स्केल नहीं सहेजा हो, तो यह बॉक्स में फ़िट किए गए टेक्स्ट को छोटा कर देता है
+    [tracking] यह अक्षर-अंतराल वाले टेक्स्ट को अधिक चौड़ा बनाता है
+    [chart] यह चार्ट केवल लगभग बनाता है
+   *[smart_art] यह SmartArt का टेक्स्ट बहुत छोटा बनाता है
+}
 import-font-substituted = { $family } को मिलते-जुलते माप वाले { $by } से बदला गया
 import-font-missing = { $family } नहीं मिला: टेक्स्ट { $by } का उपयोग करता है
 import-font-restricted = { $family }: इसका लाइसेंस कुछ शैलियों को प्रेज़ेंटेशन में एम्बेड करने से रोकता है; उन शैलियों का पाठ इसकी अन्य शैलियों का उपयोग करता है

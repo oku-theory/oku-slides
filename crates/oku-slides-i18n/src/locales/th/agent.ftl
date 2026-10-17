@@ -82,3 +82,4 @@ agent-error-agent-not-saved = ไม่สามารถบันทึกก�
 agent-picker-title = เอเจนต์
 agent-picker-busy = การเปลี่ยนเอเจนต์จะหยุดเทิร์นที่กำลังทำงานอยู่
 agent-picker-locked = สภาพแวดล้อมเป็นผู้กำหนดตัวเลือกนี้ (OKU_SLIDES_AGENT__SELECTED)
+agent-tune-prompt = ปรับแต่งงานนำเสนอที่นำเข้าอย่างละเอียด

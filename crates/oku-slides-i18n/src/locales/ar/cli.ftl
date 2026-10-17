@@ -63,20 +63,10 @@ cli-imported = { $path }: { $slides ->
        [many] { $requests } طلب أداة
       *[other] { $requests } طلب أداة
     }
-cli-import-label = استيراد من PowerPoint
 cli-import-pack-required = الخيار --pack مطلوب في وضع retrofit: معرّف حزمة القوالب أو مجلدها أو اسمها
-cli-import-unknown-pack = حزمة قوالب غير معروفة: { $pack }
-cli-import-bad-pack = حزمة قوالب غير مقروءة { $pack }: ملف pack.json الخاص بها لا يصف حزمة قوالب
-cli-import-bad-theme = سمة الهدف غير مقروءة: تعذّرت قراءة رموز التصميم الخاصة بها
 cli-import-write-failed = تعذّرت كتابة العرض المستورد { $path }
 cli-import-hifi-no-target = --pack و--theme خاصّان بوضع retrofit: الاستيراد عالي الدقة (--mode hifi) يولّد حزمته وسمته
-cli-import-probe-mismatch = الحزمة المولَّدة لا تُفحص كما أُعلنت (الأداة { $widget }): هذا خلل في المستورِد
-cli-import-probe-limit = تتجاوز الحزمة المولَّدة حدود الفحص (الأداة { $widget }): ارفع max_widgets أو max_widget_kib أو probe_budget_ms في القسم [render] من الإعدادات
-cli-import-probe-failed = تعذّر على عملية العرض فحص الحزمة المولَّدة: { $error }
-cli-import-pack-missing = لم ينتج الاستيراد أي حزمة للعرض: هذا خطأ في الاستيراد
-cli-import-theme-missing = لم ينتج الاستيراد أي سمة للعرض: هذا خطأ في الاستيراد
 cli-import-reference-hifi-only = ‎--reference خاص بوضع hifi: لا يُقارَن استيراد retrofit بعرض مرجعي
-cli-import-bad-threshold = يجب أن يكون score_threshold في القسم [import] عددًا لا يقل عن صفر، لا { $value }
 cli-import-scored = الفرق المرئي عن { $witness }: { $mean } في المتوسط، { $above ->
     [0] لا توجد شرائح
     [one] { $above } شريحة

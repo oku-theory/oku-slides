@@ -6,7 +6,7 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use crate::pack::PackManifest;
-use crate::test_support::{fresh_dir, manifest, session_on};
+use crate::test_support::{adopt_deck_only_pack, fresh_dir, logged, manifest, session_on};
 use crate::{Request, Session};
 
 fn files(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) -> PackFiles {
@@ -233,4 +233,51 @@ fn open_when_adding_the_received_version_fails_opens_and_offers_no_make_current(
 fn pack_notice_view_offers_make_current_when_the_library_has_their_version() {
     let (_me, _them, mut s, _v0, _v1) = opened_on_newer();
     assert_that!(notice(&mut s)["make_current"].as_str()).is_equal_to(Some("Faire de la sienne ma version courante"));
+}
+
+#[test]
+fn open_of_a_deck_only_pack_adds_nothing_to_the_library_and_shows_no_notice() {
+    let (me, them) = (fresh_dir("oku-slides-notice-me-"), fresh_dir("oku-slides-notice-them-"));
+    let mut other = session_on(them.path());
+    let r = adopt_deck_only_pack(&mut other);
+    let path = them.path().join("importe.oku-slides.pdf");
+    other.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap();
+    let mut s = session_on(me.path());
+    let packs = s.library.packs();
+    s.open(&path).unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(r.clone()));
+    assert_that!(s.library.versions(r.id).is_empty()).is_true();
+    assert_that!(s.library.packs()).is_equal_to(&packs);
+    assert_that!(notice(&mut s)).is_equal_to(serde_json::Value::Null);
+}
+
+fn deck_pack(s: &mut Session) -> serde_json::Value {
+    let snap: serde_json::Value = serde_json::from_str(&s.handle(Request::Snapshot).unwrap()).unwrap();
+    snap["deck_pack"].clone()
+}
+
+#[test]
+fn snapshot_deck_pack_is_false_for_a_library_pack() {
+    let dir = fresh_dir("oku-slides-deck-pack-");
+    let mut s = session_on(dir.path());
+    assert_that!(deck_pack(&mut s)).is_equal_to(serde_json::Value::Bool(false));
+}
+
+#[test]
+fn snapshot_deck_pack_is_true_once_the_deck_takes_a_deck_only_pack() {
+    let dir = fresh_dir("oku-slides-deck-pack-");
+    let mut s = session_on(dir.path());
+    adopt_deck_only_pack(&mut s);
+    assert_that!(deck_pack(&mut s)).is_equal_to(serde_json::Value::Bool(true));
+}
+
+#[test]
+fn is_deck_only_with_an_unreadable_scope_is_false_and_logged() {
+    let mut manifest = serde_json::Map::new();
+    manifest.insert("scope".into(), serde_json::json!("ailleurs"));
+    let files = PackFiles::new(manifest, std::collections::BTreeMap::new());
+    let mut deck_only = true;
+    let log = logged(|| deck_only = super::is_deck_only(&files));
+    assert_that!(deck_only).is_false();
+    assert_that!(log.as_str()).contains("WARN");
 }

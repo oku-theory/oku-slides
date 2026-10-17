@@ -28,7 +28,8 @@ export function nth(tabs: string[], n: number): string | undefined {
   return n === 9 ? tabs[tabs.length - 1] : tabs[n - 1];
 }
 
-type TabAction =
+/** Ce que demande un raccourci des onglets. */
+export type TabAction =
   | { kind: "new-tab" }
   | { kind: "close-tab" }
   | { kind: "new-window" }

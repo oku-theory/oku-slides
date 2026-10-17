@@ -10,7 +10,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 pub use oku_slides_core::ThemeManifest;
-use oku_slides_core::{PackFiles, PackVersion};
+use oku_slides_core::{PackFiles, PackScope, PackVersion};
 
 use crate::library::Library;
 use crate::library_kind::{LibraryKind, StoredVersion, VersionManifest};
@@ -42,6 +42,10 @@ impl VersionManifest for ThemeManifest {
     fn created(&self) -> &str {
         &self.created
     }
+
+    fn scope(&self) -> PackScope {
+        self.scope
+    }
 }
 
 /// Résumé d'un thème dans une version, pour les listes.
@@ -53,6 +57,8 @@ pub struct ThemeInfo {
     pub builtin: bool,
     /// Le thème d'un deck neuf.
     pub default: bool,
+    /// Le thème n'appartient qu'au deck (`PackScope::Deck`) : l'éditer n'écrit jamais la bibliothèque.
+    pub deck_only: bool,
 }
 
 /// Les thèmes.
@@ -90,6 +96,13 @@ impl LibraryKind for Themes {
 /// La bibliothèque des thèmes.
 pub type ThemeLibrary = Library<Themes>;
 
+impl Library<Themes> {
+    /// Les thèmes de l'utilisateur (`paths.themes` des réglages), et les intégrés.
+    pub fn user(platform: &oku_slides_platform::Platform) -> Self {
+        Self::new(Some(platform.settings.paths.themes()), platform.storage.clone())
+    }
+}
+
 impl ThemeLibrary {
     /// Tous les thèmes dans leur version courante : intégrés d'abord, puis
     /// ceux de l'utilisateur, par nom.
@@ -102,6 +115,7 @@ impl ThemeLibrary {
                 name: s.manifest.name,
                 builtin: Self::is_builtin(s.manifest.id),
                 default: s.manifest.id == DEFAULT_THEME,
+                deck_only: !s.manifest.scope.is_library(),
             })
             .collect()
     }

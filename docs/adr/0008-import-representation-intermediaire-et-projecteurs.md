@@ -39,6 +39,7 @@ written when a late step fails.
   OOXML-shaped in it (t-728) must be named neutrally or documented first.
 - Projector tests need no file: they build a `SourceDeck` by hand.
 - Rendering-based checks (reference witness, visual gap, t-692 lot 4) stay
-  outside the crate, in the CLI and the render worker.
+  outside the crate, in the CLI and the render worker (since lot 5, in the
+  session: [ADR-0009](0009-import-dans-la-session-packs-du-deck-ajustement-borne.md)).
 - A bug in an op only surfaces at apply time; `check_budget` bounds the plan's
   size before applying it.

@@ -7,7 +7,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use oku_slides_core::{PackFiles, PackVersion};
-pub use oku_slides_core::{PackManifest, Template, now_created};
+pub use oku_slides_core::{PackManifest, PackScope, Template, now_created};
 
 use crate::library_kind::VersionManifest;
 
@@ -35,6 +35,10 @@ impl VersionManifest for PackManifest {
 
     fn created(&self) -> &str {
         &self.created
+    }
+
+    fn scope(&self) -> PackScope {
+        self.scope
     }
 }
 

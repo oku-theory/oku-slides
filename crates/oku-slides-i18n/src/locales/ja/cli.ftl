@@ -35,20 +35,10 @@ cli-forbidden = リクエストを拒否しました：ローカルのインタ�
 cli-unauthorized = リクエストを拒否しました：アクセストークンがないか、誤っています
 cli-exposed = { $host } で待ち受け中：サーバーにはネットワークから到達できます。この起動のトークンを提示したクライアントだけに応答します。ネットワークが不要なら [serve] host は 127.0.0.1 のままにしてください
 cli-imported = { $path }：スライド { $slides }枚、{ $pages }ページ、損失 { $losses }件、ウィジェット要求 { $requests }件
-cli-import-label = PowerPoint のインポート
 cli-import-pack-required = retrofit モードでは --pack が必要です（テンプレートパックの ID、フォルダー、または名前）
-cli-import-unknown-pack = 不明なテンプレートパック：{ $pack }
-cli-import-bad-pack = 読み取れないテンプレートパック { $pack }：pack.json がテンプレートパックを記述していません
-cli-import-bad-theme = 対象テーマを読み取れません：デザイントークンを読み取れませんでした
 cli-import-write-failed = インポートしたデッキ { $path } を書き込めませんでした
 cli-import-hifi-no-target = --pack と --theme は retrofit モード専用です。高忠実度インポート（--mode hifi）は独自のパックとテーマを生成します
-cli-import-probe-mismatch = 生成されたパックが宣言どおりに検査されませんでした（ウィジェット { $widget }）。インポーターの不具合です
-cli-import-probe-limit = 生成したパックが検査の上限を超えています（ウィジェット { $widget }）：設定の [render] セクションで max_widgets、max_widget_kib、probe_budget_ms を引き上げてください
-cli-import-probe-failed = レンダリングプロセスが生成したパックを検査できませんでした：{ $error }
-cli-import-pack-missing = インポートがデッキのパックを生成しませんでした：インポートの不具合です
-cli-import-theme-missing = インポートがデッキのテーマを生成しませんでした：インポートの不具合です
 cli-import-reference-hifi-only = --reference は hifi モード用です：retrofit インポートは参照レンダリングと比較されません
-cli-import-bad-threshold = [import] セクションの score_threshold は0 以上の数である必要があります（{ $value } ではありません）
 cli-import-scored = { $witness } との見た目の差：平均 { $mean }、{ $threshold } を超えるスライド { $above ->
    *[other] { $above }枚
 }

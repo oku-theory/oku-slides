@@ -104,6 +104,12 @@ import-reference-unavailable = Sin puntuación visual: { $cause ->
     [missing] no se encontró LibreOffice (soffice); indica su ruta en import.soffice
    *[failed] el renderizador de referencia no pudo leer la presentación
 }
+import-region-suspect = Diferencia apartada, un error conocido del renderizador de referencia: { $limit ->
+    [autofit] reduce el texto ajustado a su cuadro cuando PowerPoint no guardó ninguna escala
+    [tracking] dibuja más ancho el texto con espaciado entre caracteres
+    [chart] dibuja los gráficos solo de forma aproximada
+   *[smart_art] dibuja el texto de SmartArt demasiado pequeño
+}
 import-font-substituted = { $family } sustituida por { $by }, con métricas compatibles
 import-font-missing = { $family } no encontrada: el texto usa { $by }
 import-font-restricted = { $family }: su licencia prohíbe incrustar algunas de sus variantes en la presentación; el texto con esos estilos usa sus otras variantes

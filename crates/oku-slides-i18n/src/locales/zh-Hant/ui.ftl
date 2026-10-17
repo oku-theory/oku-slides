@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = 檔案主題
 ui-toolbar-save-copy = 儲存副本
 ui-toolbar-finish = 完成
 ui-menu-workshop = 工作室
+ui-menu-workshop-deck-only = 這些範本只屬於此簡報；工作室只編輯資料庫中的範本。
 ui-toolbar-open = 開啟
 ui-merge = 與 PDF 合併…
 ui-menu = 選單
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = 顯示為圖表
 
 ## 檔案
 
-ui-file-open-prompt = 要開啟的檔案路徑（.oku-slides.pdf 或 .json）
+ui-file-open-prompt = 要開啟的檔案路徑（.oku-slides.pdf、.json 或 .pptx）
+ui-file-merge-prompt = 要合併到此簡報的檔案路徑（.oku-slides.pdf 或 .json）
+ui-file-filter-presentations = 簡報
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = 另存為（完整路徑）
 
 ## 分頁
@@ -392,3 +396,19 @@ ui-theme-name = 主題名稱
 ui-theme-unsaved = 主題變更未儲存
 ui-widgets-close-tab = 關閉 { $name }
 ui-widgets-removed-by-agent = AI 代理刪除了小工具 { $name }。
+
+## 匯入
+
+ui-import-title = 匯入 PowerPoint 簡報
+ui-import-mode = 匯入方式
+ui-import-hifi = 忠實副本
+ui-import-hifi-note = 保留原稿的外觀，使用為此簡報產生的主題和範本。
+ui-import-retrofit = 使用我的範本
+ui-import-retrofit-note = 以資料庫中的範本和主題重建投影片。
+ui-import-theme-default = 預設主題
+ui-import-no-packs = 資料庫中沒有範本組。
+ui-import-tune = 由 AI 代理微調
+ui-import-tune-note = AI 代理會將每張投影片與原稿比較並修正差異。
+ui-import-tune-note-retrofit = AI 代理會將每張投影片與原稿比較，並為範本無法呈現的形狀設計小工具。
+ui-import-submit = 匯入
+ui-import-busy = 正在匯入…

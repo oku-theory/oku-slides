@@ -1,0 +1,16 @@
+/* Dialogue d'import d'un .pptx : le papier de la fenêtre de l'agent, les choix des réglages de la dictée.
+   Chargé après styles.css et avant glass.css (main.tsx), qui le passe au verre comme les autres fenêtres. */
+.import-veil { position: fixed; inset: 0; background: rgb(0 0 0 / .35); display: grid; place-items: center; z-index: 20; }
+.import-dialog:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.import-dialog { background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--shadow-floating); outline: none; width: min(460px, 90vw); max-height: 90vh; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: 10px; }
+.import-file { overflow-wrap: anywhere; }
+.import-modes { border: 0; margin: 0; padding: 0; min-width: 0; }
+.import-modes legend { padding: 0; margin-bottom: 6px; }
+.import-modes:disabled .model { cursor: default; opacity: 0.7; }
+.import-target { display: flex; flex-direction: column; gap: 8px; }
+.import-tune { font-size: 14px; }
+.import-error { color: var(--danger); font-size: 13px; line-height: 18px; }
+.import-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.import-actions > .caption { margin-inline-end: auto; }
+.import-actions .btn { height: 36px; border: 0; border-radius: var(--radius-md); cursor: pointer; }
+.import-actions .btn:disabled { opacity: 0.5; cursor: default; }

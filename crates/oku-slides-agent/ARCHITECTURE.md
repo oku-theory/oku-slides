@@ -7,8 +7,9 @@ instructions are relayed with the UI context; agent updates become A2UI turn sur
 ## Modules
 
 - `stack` : `Stack`, the table of tabs and the entry point; `handle` takes an `AgentCommand`
-  (`Prompt`, `Cancel`, `NewConversation`, `SurfaceAction`, `Resync`, `Follow`, `SetDraft`,
-  `Picker`, `SelectAgent`), `forward` relays `{tab, event}`, `shutdown` kills the agent.
+  (`Prompt`, `Tune`, `Cancel`, `NewConversation`, `SurfaceAction`, `Resync`, `Follow`, `SetDraft`,
+  `Picker`, `SelectAgent`), `tune` starts an import's fine-tuning turn for the host (`Tune` is never
+  deserialized), `forward` relays `{tab, event}`, `shutdown` kills the agent.
 - `tab_entry` : one tab; starts its tools then its agent on the runtime, queues commands until
   then, and holds the draft (`TabLink`). Closing it closes its `SurfaceHub`.
 - `tab_agent` : `AgentHandle`, the per-tab actor (`prompt`, `cancel`, `new_conversation`) with its
@@ -24,7 +25,8 @@ instructions are relayed with the UI context; agent updates become A2UI turn sur
 - `turn`, `permission` (ACP option to `PermissionChoice`), `config` (`Launch`, `READY_WITHIN`,
   from the active agent preset), `settings_port` (`AppSettings` for `set_setting`).
 - `picker` : the pure agent-picker surface (`picker_surface`, `PICKER_ID`).
-- `instructions` : first-turn instructions, `instructions/*.md` (English only).
+- `instructions` : `instructions/*.md` (English only): agent and widgets on a session's first
+  turn, import (bounded fine-tuning loop) only on a `Tune` turn, before the context.
 - `error` (`AgentError`), `command_error` (`CommandError`, refused UI commands): localized.
 - `bin/fake_agent` : scripted minimal ACP agent (`--script`, `--log`), for tests only.
 

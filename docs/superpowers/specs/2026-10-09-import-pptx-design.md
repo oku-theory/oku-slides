@@ -104,7 +104,8 @@ Decisions from the lot 3 plan (2026-10-11):
    `presetShapeDefinitions.xml` (all presets, `adj` included);
    `rect`, `roundRect`, `ellipse`, `line` stay native.
 6. **The generated pack and theme live in the deck only** (embedded); the
-   library is not touched.
+   library is not touched. Lot 5 enforces it: both carry `scope: deck`
+   (decision 4 of lot 5), which the library refuses.
 7. **Probe.** The projector declares the schemas of the generated widgets (core
    types) in addition to the Typst; the CLI probes the pack through the render
    process and rejects any mismatch (a generator bug).
@@ -165,8 +166,9 @@ Decisions from the lot 4 plan (2026-10-14):
    rasterized by `hayro`), pinned at `=0.8.1` (`WITNESS` names it in the
    report). It gets the app's fonts and the deck's embedded fonts first (the
    `.pptx` it reads has its `ppt/fonts/` parts removed: office2pdf would write
-   them to the system temp dir), and renders hidden slides. LibreOffice and
-   PowerPoint witnesses are backlog work, as other implementations of the trait.
+   them to the system temp dir), and renders hidden slides. A LibreOffice
+   witness came later for the CLI only (`--reference soffice`, t-885, not
+   calibrated); a PowerPoint witness is backlog work.
 2. **Isolation.** The witness reads an untrusted file without bounds of its
    own: it runs in a render worker of its own, not the one holding the Oku
    render (`Reference`, `ReferencePng`, `ReleaseReference` requests;
@@ -189,31 +191,223 @@ Decisions from the lot 4 plan (2026-10-14):
 4. **Threshold** (plan review). The slide mean does not separate a faithful
    slide from a damaged one (the broken table of `libreoffice.pptx` p. 1
    scores 0.6): a slide is flagged when its **worst region** exceeds
-   `[import] score_threshold = 10.0`. Measured on alto: a title aligned
-   within 1 px scores 7.7–8.3 (the noise floor), the real gaps 8.7–22.5, the
-   witness's own errors up to 46; the flag is a coarse alert, the regions
-   point at the item. At 10 the alto p. 8 bullet-indent gap (worst region
-   8.72) is not flagged, though the regions still designate it; recalibrating
-   the threshold belongs with the autofit-aware ranking (backlog t-884).
+   `[import] score_threshold = 7.0`. Regions office2pdf is known to draw
+   wrong (lot 5, t-884: text it fits itself, letter-spaced text, charts,
+   SmartArt; read from the source) are marked `suspect`, ranked last and
+   never flag a slide; under LibreOffice (`--reference soffice`, not
+   calibrated) no region is suspect. Measured on alto, libreoffice and
+   kitchen (office2pdf, 2026-10-16) with the
+   suspect regions set aside: alto's faithful slides at most 3.4, the other
+   fixtures' at most 5.8, alto's real gaps 9.38 (p. 6 intro line) to 15.71
+   (p. 7 callout), its p. 8 bullets at most 2.81 since their indent (t-863);
+   the flag is a coarse alert, the regions point at the item.
    Tests run the witness live (pinned, no versioned
    reference PDF) with per-fixture bounds on the slide mean (measurement +
-   25 %) and designation checks: alto p. 8 bullets and p. 7 callout among
-   the 3 worst regions, the `libreoffice.pptx` table first.
+   25 %) and designation checks: alto flagged on pp. 6–7 only, the p. 7
+   callout among the 3 worst regions, no p. 8 bullet above the threshold,
+   the `libreoffice.pptx` table first and its SmartArt suspect, last, without
+   flagging p. 3.
 5. **Retrofit.** No visual gap (another theme); `--reference` is refused there.
    In both modes, a non-empty text field rendered past its page edge becomes an
-   `Overflow` loss on its slide (t-816 stays open for the fix).
+   `Overflow` loss on its slide. Since t-816 (2026-10-16) a retrofit flow
+   taller than its area moves to a grid or takes a smaller theme size first,
+   and the loss is what remains; since t-895, in retrofit, an element box
+   rendered below the page's bottom margin is one too (`note_overflows`).
 6. **Known witness limits** (plan review, real render). It shrinks
-   `normAutofit` text without `fontScale` (the alto p. 2 title and every
+   `normAutofit` text without a saved scale (the alto p. 2 title and every
    footer), draws letter-spaced titles 2–5 px wider than Oku (which matches
    HarfBuzz within 1 px) and LibreOffice, draws charts roughly and SmartArt
-   text too small: those regions often rank first. It shares Typst's line
+   text too small: those regions are `suspect` (decision 4). It shares Typst's line
    breaking with Oku (a PowerPoint line-break gap, t-863, is invisible to
    it), and office2pdf always keeps the system fonts as its fallback. A
    behavior copied from office2pdf into the import is no longer measured by
-   it. An autofit-aware ranking is backlog work before lot 5.
+   it. The autofit-aware ranking was delivered in lot 5 (`suspect` regions,
+   decision 4 above and decision 2 of lot 5).
 7. **Cost.** office2pdf brings its DOCX and XLSX readers into the render
-   worker, hence the desktop app (about 48 crates); no feature flag in lot 4,
-   since lot 5 needs the witness in the app.
+   worker, hence the desktop app (about 48 crates); no feature flag, since
+   lot 5 runs the witness in the app (decision 9 of lot 5).
+
+Decisions from the lot 5 plan (2026-10-16):
+
+1. **One pipeline, in the session.** The import orchestration of the CLI moves
+   into `oku_slides_session::import` (read with a size bound, retrofit and
+   hi-fi, an unreadable target theme refused, the plan checked
+   (`CheckedPlan`), applied in one history step and validated, `render`,
+   `note_overflows`, the witnesses, `ImportState`); the session depends on
+   `oku-slides-import` and `oku-slides-reference` (core never does). The CLI
+   keeps the options, the choice of witness, the output and the atomic report
+   write. Rendering goes through the render worker only. The target is `ImportTarget`, flat and tagged by `mode`
+   in JSON: `{"mode": "retrofit", "pack", "theme"?}` or `{"mode": "hifi"}`.
+2. **Suspect regions (t-884, first).** `metrics::WitnessLimit` marks the
+   regions whose gap is a known witness error, read from the `SourceDeck`:
+   `autofit` (`normAutofit` text for which PowerPoint saved neither
+   `fontScale` nor `lnSpcReduction`, and that office2pdf fits itself:
+   wrapped text anchored middle or bottom; or a single unbulleted paragraph
+   without line breaks whose box, insets removed, is at most two lines high,
+   a line being 1.2 × its largest size (at least 12 pt) or its line spacing
+   if larger, or at most 2.5 × that size when its runs mix sizes),
+   `tracking`, `chart`, `smart_art`. They are
+   ranked after the others, written to the report with a localized message
+   and never flag a slide (`SlideScore::worst`, `is_above` ignore them).
+   These are office2pdf's limits: `metrics::regions` takes the witness
+   (`metrics::Witness`: `Office2Pdf` or `Other`) and only office2pdf marks
+   regions `suspect`; under the CLI's `--reference soffice` none is. The
+   threshold becomes 7.0, measured on 2026-10-16 (lot 4 decision 4).
+3. **Bounds held by the tools, one agent turn.** `import_report` gives the
+   report and the queue of the slides not yet `done`, worst region first, each
+   with a state (`pending`, `exhausted`, `stalled`, `witness`, `unscored`),
+   its `excess` and `tries_left`, plus `global_tries_left`.
+   `import_diff(slide, region?)` renders the Oku side now and rescores.
+   Revised by the plan review (2026-10-17): a try is counted whenever a tool
+   (`import_diff` whole, or `import_report`) scores a slide whose rendered
+   raster changed since its previous score. The fingerprint is the SHA-256 of
+   the raster at the scoring resolution, never Typst's page hash, which also
+   hashes introspection (editing s6 changed s7's hash on alto); the page hash
+   only lets `import_report` skip pages that cannot have changed. A slide's
+   first score is its base and is free, as are an unchanged raster, a return
+   to the raster of the slide's best excess (`revert`, final review m2) and a
+   `region` zoom. Gain is measured on the slide's total excess, the sum over
+   its non-suspect regions of `max(0, score − threshold)`; a slide without a
+   non-suspect region has no excess and is `done` or `witness`. Only a
+   `pending` slide has tries: `[import] tune_iterations` (3) tries, stopped
+   after `tune_stall` (2) tries in a row without gain (`stalled`); `done`,
+   `witness` and `unscored` have none. At `tries_left` 0 the whole diff and the
+   zoom are refused (`TriesUsed`, or `Untunable` for `done`, `witness`,
+   `unscored`), and `import_report` keeps a changed slide at its old score,
+   marks it `stale` in the queue, lists it in `stale` and leaves it (and any
+   `unscored` slide) out of `mean`, `mean_before` and `worse` (final review
+   m1). **Global budget**: a slide whose raster changed while
+   the state of the whole deck changed since its previous score (the content
+   of the theme and pack, not their versions, which carry a parent and a date:
+   the theme's effective tokens, the pack's templates, examples and widget
+   files; deck tokens, params and variables: one fingerprint, final review I1)
+   and its own model did
+   not (its widget and params, elements included: a second fingerprint) draws
+   on `[import] tune_global` (3) instead of its own tries: one global try per
+   deck state never scored, whatever the number of slides it changes; going
+   back to a deck state already scored (the imported one, or one paid for) is
+   free. The rule needs no hook, so UI edits, `edit_theme`, `set_widget` on the
+   import pack, undo and redo all count. Once the global budget is spent, such
+   a change costs each changed slide one of its tries. A slide whose own model
+   changed since its previous score always pays one of its tries, even when the
+   deck state changed too: going back and forth between two deck states already
+   scored never makes its edits free. A slide whose only regions above the threshold are
+   suspect is `witness` while its scored raster is the imported one; changed
+   since, it is `done` (final review I3), so the closing report's witness
+   slides are the ones left as imported. One without a score is `unscored`;
+   neither is touched. Robustness (plan review, task 13): the witness never
+   runs under the session lock: the tools run the import's `ReferenceJob`
+   first (one witness run for concurrent calls), and `import_diff` before it
+   is refused as `ReferencePending`. A slide deleted since the import (or an
+   undone import) has no page and leaves the queue, the mean and `done`. A
+   slide whose page cannot be rendered or compared is logged and listed as
+   `unscored` in that report, without stopping the others; its try is never
+   counted, as `import_diff` counts one only once both images are made.
+4. **Deck-only packs and themes.** `PackScope` (`library`, the default and
+   never written to the manifest so existing hashes hold; `deck`) on
+   `PackManifest` and `ThemeManifest`, kept by the versions made from them.
+   The hi-fi pack and theme are `deck`; `Library::add_version` refuses a
+   `deck` version (`session-deck-only`); `set_widget` and `edit_theme` on
+   them embed a new version in one undo step and never write the library; a
+   file opened never brings such a pack into the library. In retrofit the
+   deck keeps the target library pack (pack notice, Workshop available)
+   until the first `set_widget` on it, from the agent or the UI: that write
+   creates the child pack (a copy of the target's files, id derived from the
+   SHA-256 of the `.pptx` and of the target version, `parent` = the target
+   version, named "<pack> for <deck>" in the live interface language), with
+   the widget, in the write's undo step (undo returns to the target); the
+   target and the library stay untouched. The tab's `ImportState` holds the
+   child to come, so a resumed tab is an ordinary deck on its pack, and a
+   retrofit without widgets stays one. `Snapshot.deck_pack` tells the UI. The
+   app's import target is a library pack id or name, never a folder (folders
+   are a CLI option, read within `[sources] max_sources_mib`); a reader
+   panic is a localized import error.
+5. **`import_diff` output.** Two PNGs of the whole slide at 960 px (reference,
+   Oku rendered now), then JSON: score, state, the 8 worst regions with their
+   source item, Oku element or slide parameter, frame in page pt (the source
+   item's frame placed on the Oku page, not the element's current one), score,
+   shift and `suspect`. With `region`: both crops of that region at 2x with a
+   16 px margin. Hi-fi `ImportPlan.targets` maps each item to its elements
+   (groups included) or the slide parameter it fills; `groups` lists the
+   source groups repeated on at least 3 slides.
+6. **What the agent may edit.** Elements and params (`apply`), the widgets of
+   the deck's import pack (`set_widget`) and, in hi-fi, the generated theme
+   (`edit_theme`). Before such a change the agent reads what it will restore:
+   `widget_source`, or the theme's own tokens with `theme_tokens` (`edit_theme`
+   returns them too, final review I2). The raster fingerprints make a theme, widget or undo change
+   visible: the next `import_report` rescores the slides whose page changed
+   (witness cached, budget as in decision 3) and gives `mean_before`, the new
+   mean and `worse`. `mean_before` is one baseline, the mean of each slide's
+   first score (the deck as imported) over the slides of `mean`, rounded like it: the session does not see agent turns,
+   the fine-tuning turn follows the import, and the budgets also span the
+   import's life in the tab. `worse` lists the slides whose current excess is
+   above the best they reached. The instructions say to revert a change that
+   raises the mean, worsens a slide or pushes one over the threshold, and to
+   stop theme and pack widget edits at `global_tries_left` 0. The whole turn is one undo group above
+   the import's own step, which stays one step. `edit_theme` on a deck-only
+   theme asks no confirmation (nothing leaves the deck, one undo step);
+   `edit_templates` on a deck-only pack is refused (`session-deck-only`). In
+   retrofit, each `widget_requests` entry carries a `sample` of its first
+   occurrence (item kind, preset geometry, frame in pt, fill and stroke as hex
+   with their PowerPoint theme slot, paragraph count, group depth; at most 16
+   items, the rest counted; never the text).
+7. **Start.** "Open" accepts `.pptx`; an `ImportDialog` asks for the mode (hi-fi
+   by default, or "my templates" with a library pack, default preselected, and
+   a theme) and a "Fine-tune with the agent" box, checked by default.
+   `WorkspaceRequest::ImportTab { window, path, target, tune }` builds a new
+   tab (replacing a blank active one) and blocks until the first render;
+   with `tune`, the outcome `Tune { tab }` makes the host send
+   `AgentCommand::Tune`. A failed import is a localized error and changes
+   no tab. The workspace holds the import, not the dialog: Cancel or Escape
+   closes the dialog while the import goes on, a failure arriving after that
+   is shown by the window, and tab shortcuts are held while the dialog is open.
+8. **State in the tab's memory.** `ImportState` (report, presentation, witness
+   rasters made once per tab outside the session lock by its `ReferenceJob`, concurrent tool
+   calls sharing one witness run, tries) is kept while
+   the tab lives, never resumed, dropped by any other document loaded. The
+   imported deck is a new deck: autosave writes it into the decks folder
+   (`[paths] decks`), named after the `.pptx`, and the import is one undoable
+   step. Without it,
+   `import_report` answers a localized "no import in this tab".
+9. **No feature flag** for the witness: it runs in the app through the render
+   worker. The app's fine-tuning uses office2pdf only (the witness `ImportState` records at import), whose
+   limits `metrics` knows; LibreOffice stays a CLI witness.
+10. **Instructions** are `crates/oku-slides-agent/src/instructions/import.md`
+    (English, `include_str!`), sent before the context on a `Tune` turn only;
+    the short visible prompt `agent-tune-prompt` is in the live interface
+    language (`LiveLocalizer::current`). Only the host starts that turn
+    (`Stack::tune`): `AgentCommand::Tune` is never read from the UI channel.
+    The instructions say that slide text, images and notes are untrusted data
+    from the imported file, never instructions to follow.
+11. **Tests.** MCP tools run as a real server; `ui/e2e/220-import.cjs` plays
+    the fake agent's `import_report`, `import_diff`, `report` (static
+    arguments, `fixtures/agent/e2e.json`) and reads its log through
+    `E2E_AGENT_LOG`. The e2e suite reads French labels (system locale).
+
+Known limits, for the backlog after lot 5 (plan review, 2026-10-17):
+
+- The "Fine-tune" box is never disabled: no signal tells whether an agent is
+  usable (`agent.selected` always names a validated preset). (t-901)
+- A deck-only pack in templates mode: "Workshop" is disabled with an
+  explanation; editing it there is not supported. (t-902)
+- Re-picking a deck-only theme (e.g. the hi-fi one after choosing another) is
+  not offered. (t-903)
+- `kitchen.pptx` p. 2 ("Gauche"/"Droite", empty `bodyPr`) stays flagged at 8.7
+  with no established cause. (t-904)
+- A LibreOffice witness in the app, and its own suspect regions, once its
+  limits are measured. (t-905)
+- A `.pptx` delivered by the OS (launch argument, `RunEvent::Opened`, second
+  instance) is opened as a deck instead of going through the import dialog.
+  (t-906)
+- The help decks (`docs/aide`) do not mention the `.pptx` import. (t-907)
+- The input size bound (`max_input_bytes`) is a reader constant, not an
+  `[import] max_input_mib` setting. (t-908)
+- The threshold and suspect regions are calibrated on three fixtures only;
+  a varied corpus is needed. (t-909)
+- The reference witness reads an untrusted `.pptx` in a worker bounded in
+  time and memory, without a macOS sandbox profile. (t-910)
+- `session/src/workspace.rs` (764 lines) and `ui/src/App.tsx` (909) are past
+  the 500-line target and near the 1000 cap. (t-911)
 
 Defaults chosen without asking:
 
@@ -418,13 +612,12 @@ target theme.
    normalized relative layout, `pattern.rs`). The agent handles it during
    fine-tuning (decision 5), in a child pack created in lot 5.
 
-**Known limit of lot 2 (t-816).** In flow, content taller than its area
-overflows the page without the import noticing: a target theme with a larger
-body (Papier, slides 6 and 7 of alto), or, with the default theme, a
-chart or an image that fills a column in `columns` flow (kitchen,
-slide 2, on Essentiel and Pro: "Gauche" and "Droite" are cut off below the
-chart). Content coverage measures the deck model, not the rendering:
-it does not see it; only the reference rendering (lot 4) will measure it.
+**Known limit of lot 2, fixed by t-816 (2026-10-16).** In flow, content
+taller than its area overflowed the page without the import noticing (a
+target theme with a larger body: Papier, alto slides 6 and 7; a chart filling
+a `columns` flow: kitchen slide 2). The retrofit now estimates the heights from
+the theme tokens: such a flow moves to a grid, takes a smaller theme size, or
+is reported as an `Overflow` loss (kitchen slide 2 on Papier).
 
 ## Reference rendering and metrics
 
@@ -445,43 +638,54 @@ it does not see it; only the reference rendering (lot 4) will measure it.
 applied, `Opaque`, ignored effects; globally, substituted fonts
 (`fonts`: one decision per family, lot 3), reference (witness, threshold,
 cause when missing; `above_threshold` on each slide beyond it, lot 4),
-`widget_requests`. Messages through Fluent
-(`oku-slides-i18n`).
+`widget_requests`. Regions carry `suspect` when it is true (lot 5); only the
+first `REPORTED_REGIONS` are written, the whole ranked list stays in memory for
+`import_diff`. Messages through Fluent (`oku-slides-i18n`).
 
 ## Agent fine-tuning (app)
 
-- **New MCP tools** (`oku-slides-mcp`): `import_report` (the
-  current report) and `import_diff(slide)` (reference PNG, Oku PNG,
-  per-region scores).
-- **Bounded autonomous loop**: slides from worst to best;
-  corrections through `apply` / `set_widget`; stop under the threshold or after N
-  iterations per slide (threshold and N in config).
-- **Retrofit**: each `WidgetRequest` → widget created in the child pack
-  (`set_widget`, `preview_widget`), then fallback replaced on all the
-  slides of the pattern, without asking.
-- **Hi-fi**: the agent proposes the groupings ("N slides share this
-  pattern → element widget?") through `ask_confirm`.
-- **End**: summary through `report` (changed, still above the threshold,
-  frozen). Everything goes through the session, hence undoable.
-- The **fine-tuning instructions** are a versioned text shipped with
-  the app, not hard-coded.
+Delivered in lot 5 (decisions 3 to 10 of lot 5).
+
+- **MCP tools** (`oku-slides-mcp`, `import_tools`): `import_report` (report,
+  queue and states) and `import_diff(slide, region?)` (two PNGs, regions as
+  JSON). The bounds live in the tools, not in the prompt.
+- **One bounded agent turn**: slides from worst to best, only `pending` ones;
+  the worst non-suspect region is corrected through `apply` (frame in page pt,
+  style, param), `set_widget` (layout of the import pack) or `edit_theme`
+  (common cause, hi-fi); revert when the score does not drop; stop on `done`,
+  `exhausted`, `stalled` or `tries_left` 0. Never a `suspect` region, a
+  `witness` or `unscored` slide, or a frozen (`Opaque`) item.
+- **Retrofit**: each `WidgetRequest` becomes a widget of the deck's child pack
+  (`set_widget`; the first one creates that pack, decision 4 of lot 5), the
+  fallback replaced on the slides of the pattern, without asking. No
+  templates mode on a deck-only pack.
+- **Hi-fi**: repeated groups go through `ask_confirm`, then an element widget.
+- **End**: a `report` (changed, still above the threshold, frozen). Everything
+  goes through the session, hence undoable as one group.
+- The **instructions** are the versioned `import.md`, sent on `Tune` turns.
 
 ## Entry points
 
 - **CLI** (`oku-slides-cli`), purely deterministic:
   `oku-slides import deck.pptx --mode hifi|retrofit [--pack <id|chemin|nom>]
-  [--theme <id|nom>] [--reference auto|none] -o out.oku-slides.pdf
+  [--theme <id|nom>] [--reference auto|office2pdf|soffice|none] -o out.oku-slides.pdf
   [--report r.json] [--no-system-fonts]`. `--mode` defaults to `retrofit`;
   `--pack` is required there. `--mode hifi` is delivered in lot 3:
   `--pack` and `--theme` are rejected there (the pack and the theme are generated,
   embedded in the deck only); the presentation's fonts are
   looked up among the app's (`--fonts`) and, unless `--no-system-fonts`,
-  the system's. `--reference auto|none` (lot 4): hi-fi only, `auto` by
-  default; a second output line gives the mean gap and the slides whose worst
+  the system's. `--reference` (lot 4): hi-fi only, `auto` (office2pdf) by
+  default, `soffice` for LibreOffice (t-885, CLI only); a second output line gives the mean gap and the slides whose worst
   region is above the threshold, or why the reference is missing.
-- **App**: "Ouvrir" (Open) accepts `.pptx`; a dialog asks for the mode, and in
-  retrofit the target pack and theme. The app creates a new deck from the
-  plan, then launches the agent with the fine-tuning instructions.
+- **App** (lot 5): "Open" accepts `.pptx` (a "Presentations" file filter, the
+  web prompt in development; "Merge" does not). `ImportDialog` asks for the
+  mode, in retrofit the library pack and theme, and whether to fine-tune. The
+  workspace builds a new tab from the plan (`ImportTab`), saved by autosave
+  into the decks folder like any new deck, with the import as one undo step,
+  then the host launches the agent with the fine-tuning instructions (`Tune`,
+  its short prompt in the live interface language). A hi-fi deck's pack, and a
+  retrofit deck's once its child pack exists, is deck-only: the pack workshop
+  is disabled for it (`Snapshot.deck_pack`).
 
 ## Errors
 
@@ -536,8 +740,10 @@ One plan and its subtasks per lot, in this order:
 4. *(delivered, t-692)* Reference rendering (`office2pdf` witness in the
    render worker) + visual gap + overflow losses; plan:
    `docs/superpowers/plans/2026-10-14-import-pptx-lot4.md`.
-5. App + agent fine-tuning (MCP tools, instructions, child pack of the
-   widgets created for the `WidgetRequest`s).
+5. *(delivered, t-692)* App + agent fine-tuning (shared pipeline in the
+   session, suspect regions and threshold 7, MCP tools, instructions,
+   deck-only packs and the retrofit child pack); plan:
+   `docs/superpowers/plans/2026-10-16-import-pptx-lot5.md`.
 6. *(Phase 2, separate spec)* PDF reader → `SourceDeck` through
    `hayro-interpret`, with inference of semantic hints (roles,
    master from repeated elements, paragraphs).

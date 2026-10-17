@@ -106,6 +106,12 @@ import-reference-unavailable = Brak oceny wizualnej: { $cause ->
     [missing] nie znaleziono LibreOffice (soffice); podaj jego ścieżkę w import.soffice
    *[failed] renderer referencyjny nie mógł odczytać prezentacji
 }
+import-region-suspect = Różnica pominięta, znany błąd renderera referencyjnego: { $limit ->
+    [autofit] zmniejsza tekst dopasowany do pola, gdy PowerPoint nie zapisał skali
+    [tracking] rysuje szerzej tekst z odstępami między znakami
+    [chart] rysuje wykresy tylko w przybliżeniu
+   *[smart_art] rysuje tekst SmartArt zbyt mały
+}
 import-font-substituted = { $family } zastąpiona czcionką { $by } o zgodnych metrykach
 import-font-missing = Nie znaleziono { $family }: tekst używa czcionki { $by }
 import-font-restricted = { $family }: licencja zabrania osadzania niektórych jej odmian w prezentacji; tekst w tych stylach używa pozostałych odmian

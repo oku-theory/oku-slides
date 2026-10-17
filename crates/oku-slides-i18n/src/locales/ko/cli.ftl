@@ -35,20 +35,10 @@ cli-forbidden = 요청 거부됨: 로컬 인터페이스에서 온 요청이 아
 cli-unauthorized = 요청 거부됨: 액세스 토큰이 없거나 잘못되었습니다
 cli-exposed = { $host }에서 수신 대기 중: 서버는 네트워크에서 접근할 수 있습니다. 이번 실행의 토큰을 제시하는 클라이언트만 응답을 받습니다. 네트워크가 필요 없다면 [serve] host를 127.0.0.1로 유지하세요
 cli-imported = { $path }: 슬라이드 { $slides }개, { $pages }페이지, 손실 { $losses }건, 위젯 요청 { $requests }건
-cli-import-label = PowerPoint 가져오기
 cli-import-pack-required = retrofit 모드에서는 --pack이 필요합니다: 템플릿 팩의 ID, 폴더 또는 이름
-cli-import-unknown-pack = 알 수 없는 템플릿 팩: { $pack }
-cli-import-bad-pack = 읽을 수 없는 템플릿 팩 { $pack }: pack.json이 템플릿 팩을 설명하지 않습니다
-cli-import-bad-theme = 대상 테마를 읽을 수 없습니다: 디자인 토큰을 읽지 못했습니다
 cli-import-write-failed = 가져온 덱 { $path }을(를) 쓸 수 없습니다
 cli-import-hifi-no-target = --pack과 --theme는 retrofit 모드 전용입니다: 고충실도 가져오기(--mode hifi)는 자체 팩과 테마를 생성합니다
-cli-import-probe-mismatch = 생성된 팩이 선언대로 검사되지 않았습니다(위젯 { $widget }): 가져오기 기능의 버그입니다
-cli-import-probe-limit = 생성된 팩이 검사 한도를 넘습니다(위젯 { $widget }): 설정의 [render] 섹션에서 max_widgets, max_widget_kib 또는 probe_budget_ms를 늘리세요
-cli-import-probe-failed = 렌더링 프로세스가 생성된 팩을 검사하지 못했습니다: { $error }
-cli-import-pack-missing = 가져오기가 덱의 팩을 만들지 않았습니다: 가져오기의 버그입니다
-cli-import-theme-missing = 가져오기가 덱의 테마를 만들지 않았습니다: 가져오기의 버그입니다
 cli-import-reference-hifi-only = --reference는 hifi 모드용입니다: retrofit 가져오기는 참조 렌더링과 비교하지 않습니다
-cli-import-bad-threshold = [import] 섹션의 score_threshold는 0 이상의 수여야 합니다({ $value } 아님)
 cli-import-scored = { $witness }과(와)의 시각 차이: 평균 { $mean }, { $threshold }보다 큰 슬라이드 { $above ->
    *[other] { $above }개
 }

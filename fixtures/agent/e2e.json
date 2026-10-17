@@ -2,7 +2,16 @@
   "http": true,
   "by_prompt": {
     "portée slides": { "chunks": ["Réponse des slides."] },
-    "portée atelier": { "chunks": ["Réponse de l'atelier."] }
+    "portée atelier": { "chunks": ["Réponse de l'atelier."] },
+    "Peaufiner la présentation importée": {
+      "tool_calls": [{ "id": "i1", "title": "Lire le rapport d'import" }, { "id": "i2", "title": "Comparer la slide 7" }],
+      "mcp": [
+        { "tool": "import_report", "args": {} },
+        { "tool": "import_diff", "args": { "slide": "s7" } },
+        { "tool": "report", "args": { "title": "Import peaufiné", "facts": ["slide 7 comparée à l'original"], "slide": "s7" } }
+      ],
+      "chunks": ["Import comparé."]
+    }
   },
   "turns": [
     {

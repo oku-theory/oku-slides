@@ -11,18 +11,16 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
   from JSON or `.oku-slides.pdf` (`load_bundle`), embed its pack and theme, and write the
   document (`write_document`, `write_rendered`).
 - `out.rs`: `Out`, localized command output on stdout; a closed pipe ends the command.
-- `library.rs`: packs and themes found by id, folder or name (`resolve_pack`,
-  `embed_theme`, `pack_library`, `theme_library`, `beside_deck`).
-- `pack_render.rs`: `DeckWidgets::probe` probes a deck's embedded pack in the render
-  worker (in up to `PROBE_ROUNDS` calls and `PROBE_BUDGETS` probe budgets); `render` renders in memory or in the worker.
-- `import.rs`: `oku-slides import`, `ImportMode` `retrofit` (onto an existing pack and
-  theme) or `hifi`, read on a thread of known stack; saved like `save`, report optional.
-- `import_overflow.rs`: text fields past their page, in retrofit boxes past the bottom margin, are `Overflow` losses.
-- `import_reference.rs`: hi-fi `--reference auto|office2pdf|soffice`: the witness (LibreOffice
-  from `[import] soffice`, absent → cause `missing`) in a render worker of its own, 20 slides at a time, each Oku page cropped to the source page at 960 px, scored into the report.
-- `import_hifi.rs`: hifi preparation: generated pack and theme with an identity from the
-  `.pptx` bytes, font catalog, probe check against the declared schemas.
-- `system_fonts.rs`: copies the system faces of the families a presentation asks for.
+- `library.rs`: `deck_pack_version`, a deck's pack version beside it (`open --out`) or in the
+  library, checked against its id.
+- `pack_render.rs`: `render` renders a deck in memory, or in the render worker when its pack
+  (`session::ProbedWidgets`) has valid widgets.
+- `import.rs`: `oku-slides import`, `ImportMode` `retrofit` or `hifi` (into the session's by `From`) gives
+  the `ImportTarget`; `session::import` applies and renders it, notes overflows (text fields past their
+  page, in retrofit boxes past the bottom margin) and, in hi-fi unless `--reference none`, scores it
+  at once (`set_witness`, the app's `ReferenceJob::run`, then `score_deck`; `auto|office2pdf|soffice`,
+  LibreOffice from `[import] soffice`, absent → cause `missing`, a script refused on macOS → `failed`,
+  t-912); saved like `save`, report optional.
 - `bench.rs`: render, export and save latencies.
 
 ## Startup
@@ -46,5 +44,5 @@ the launch `Token` of the printed URL, by Bearer header or cookie), then routes 
 ## Dependencies
 
 `oku-slides-core`, `oku-slides-render`, `oku-slides-render-worker`, `oku-slides-pdf`,
-`oku-slides-session`, `oku-slides-import`, `oku-slides-agent`, `oku-slides-stt`,
-`oku-slides-platform` (feature `listen`), `oku-slides-i18n`.
+`oku-slides-session`, `oku-slides-import`, `oku-slides-agent` (`oku-slides-reference` in tests),
+`oku-slides-stt`, `oku-slides-platform` (feature `listen`), `oku-slides-i18n`.

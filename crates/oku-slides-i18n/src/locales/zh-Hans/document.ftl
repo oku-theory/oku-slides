@@ -96,6 +96,12 @@ import-reference-unavailable = 无视觉评分：{ $cause ->
     [missing] 未找到 LibreOffice (soffice)；请在 import.soffice 中设置其路径
    *[failed] 参考渲染器无法读取该演示文稿
 }
+import-region-suspect = 已搁置的差异，参考渲染器的已知错误：{ $limit ->
+    [autofit] PowerPoint 未保存缩放比例时，它会缩小自动适应文本框的文字
+    [tracking] 它把加宽字间距的文字画得更宽
+    [chart] 它只能大致绘制图表
+   *[smart_art] 它把 SmartArt 文字画得太小
+}
 import-font-substituted = { $family } 已替换为度量兼容的 { $by }
 import-font-missing = 找不到 { $family }：文本使用 { $by }
 import-font-restricted = { $family }：其许可证禁止将部分字形嵌入演示文稿；这些样式的文本使用其其他字形

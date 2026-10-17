@@ -3,12 +3,10 @@
 // reconstitué. Lancer : bun e2e/120-clipping.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
+const { APP_SHEETS, sheets } = require('./lib/css.cjs');
 
-const css = ['styles.css', 'glass.css', path.join('a2ui', 'a2ui.css')]
-  .map((f) => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'))
-  .join('\n');
+const css = sheets(...APP_SHEETS, 'glass.css', path.join('a2ui', 'a2ui.css'));
 const html = `<!doctype html><style>${css}</style>
 <div style="display:flex;gap:40px;height:600px">
   <div class="pile-section pile-widgets" style="width:236px;height:200px">

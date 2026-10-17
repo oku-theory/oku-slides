@@ -23,7 +23,7 @@ output are in French.
 | `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
 | `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit and high-fidelity projectors, font resolution, report, content coverage and visual gap |
 | `crates/oku-slides-reference` | Reference rendering of an imported presentation (`office2pdf` witness, run by the render worker) and `hayro` rasterization of its pages |
-| `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server |
+| `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server, and the PPTX import pipeline the CLI and the app share |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
 | `crates/oku-slides-stt` | Dictation: microphone, voice detection, Apple's engine (macOS 26+) or local Whisper (CTranslate2) |
@@ -78,10 +78,31 @@ embedded in the deck. The report adds the font decisions.
 In hifi mode, `--reference auto` (the default) also renders the presentation with an
 independent witness (`office2pdf`, in its own bounded render process, 20 slides at a
 time) and writes to the report a visual gap per slide (mean OKLab ΔE) with its three
-worst regions (the source items that differ most, after a realignment of up to 3 px);
-a slide whose worst region exceeds `[import] score_threshold` is flagged, and a second
+worst regions (the source items that differ most, after a realignment of up to 3 px;
+regions office2pdf is known to draw wrong are marked `suspect` and ranked last);
+a slide whose worst non-suspect region exceeds `[import] score_threshold` is flagged, and a second
 output line sums it up. `--reference none` skips it. In both modes, a text field
-rendered past its page becomes an `Overflow` loss.
+rendered past its page becomes an `Overflow` loss; in retrofit, so does any element box
+rendered below the page's bottom margin.
+
+The default `[import] score_threshold` is 7.0 (OKLab ΔE ×100 of the worst non-suspect
+region, measured with office2pdf on the alto, libreoffice and kitchen fixtures on
+2026-10-16). `--reference soffice` uses LibreOffice instead (the first program of
+`[import] soffice` found), in the CLI only: it is not calibrated and marks no region
+`suspect`.
+
+In the app, Open (⌘O) accepts a `.pptx`. A dialog asks for the mode (faithful copy,
+or your templates with a library pack and theme) and offers "Fine-tune with the
+agent", checked by default. The import opens a new tab, autosaved into the decks
+folder like a new deck (undo removes the import whole) and, when asked, the agent
+adjusts the slides the witness flags (always office2pdf in the app) with the tools
+`import_report` and `import_diff`, in bounded tries:
+`[import] tune_iterations` (default 3) per slide, `tune_stall` (default 2) tries
+in a row without gain, and `tune_global` (default 3) for theme and pack changes,
+which change the whole deck.
+Hi-fi packs and themes belong to the deck: the pack workshop is off for them and the
+library is never written. A retrofit deck stays on the library pack until a widget is
+written for it; that first write moves it onto its own copy of the pack, deck-only too.
 
 ## Running the app
 

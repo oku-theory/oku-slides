@@ -7,14 +7,14 @@ expression: "plan(\"minimal\").ops"
     "op": "set_theme",
     "theme": {
       "id": "00000000-0000-0000-0000-000000000002",
-      "version": "sha256:6a9b94b7a098d4100724f7b7709552f887c11fbc4c114c3f798fa4cc248b296f"
+      "version": "sha256:9a3464ab01f724886984dd0311f482456e836818d0e67caf7794780929264475"
     }
   },
   {
     "op": "set_templates",
     "templates": {
       "id": "00000000-0000-0000-0000-000000000001",
-      "version": "sha256:edae8eac5e00456ba4dba022e284495c7a6a1ae8d49bf36e4d9a9a1d25694288"
+      "version": "sha256:b77594a6dc018d368b0326cb2e605e238b0b0f3b3b6a475881c42d072c1f1b2b"
     }
   },
   {

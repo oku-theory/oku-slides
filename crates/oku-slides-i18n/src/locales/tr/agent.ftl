@@ -82,3 +82,4 @@ agent-error-agent-not-saved = Ajan seçimi kaydedilemedi.
 agent-picker-title = Ajan
 agent-picker-busy = Ajanı değiştirmek devam eden turu durduracak.
 agent-picker-locked = Seçim ortam tarafından belirlendi (OKU_SLIDES_AGENT__SELECTED).
+agent-tune-prompt = İçe aktarılan sunumu ince ayarla

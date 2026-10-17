@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = ファイルのテーマ
 ui-toolbar-save-copy = コピーを保存
 ui-toolbar-finish = 完了
 ui-menu-workshop = 工房
+ui-menu-workshop-deck-only = これらのテンプレートはこのプレゼンテーション専用です。工房で編集できるのはライブラリのテンプレートだけです。
 ui-toolbar-open = 開く
 ui-merge = PDF と統合…
 ui-menu = メニュー
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = グラフとして表示
 
 ## ファイル
 
-ui-file-open-prompt = 開くファイルのパス（.oku-slides.pdf または .json）
+ui-file-open-prompt = 開くファイルのパス（.oku-slides.pdf、.json または .pptx）
+ui-file-merge-prompt = このプレゼンテーションに統合するファイルのパス（.oku-slides.pdf または .json）
+ui-file-filter-presentations = プレゼンテーション
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = 名前を付けて保存（フルパス）
 
 ## タブ
@@ -392,3 +396,19 @@ ui-theme-name = テーマ名
 ui-theme-unsaved = テーマの変更は未保存
 ui-widgets-close-tab = { $name } を閉じる
 ui-widgets-removed-by-agent = エージェントがウィジェット { $name } を削除しました。
+
+## インポート
+
+ui-import-title = PowerPoint プレゼンテーションをインポート
+ui-import-mode = インポート方法
+ui-import-hifi = 忠実なコピー
+ui-import-hifi-note = このプレゼンテーション用のテーマとテンプレートで、元の見た目を保ちます。
+ui-import-retrofit = 自分のテンプレートを使う
+ui-import-retrofit-note = ライブラリのテンプレートとテーマでスライドを作り直します。
+ui-import-theme-default = 既定のテーマ
+ui-import-no-packs = ライブラリにテンプレートセットがありません。
+ui-import-tune = エージェントで微調整
+ui-import-tune-note = エージェントが各スライドを元のものと比べ、ずれを直します。
+ui-import-tune-note-retrofit = エージェントが各スライドを元のものと比べ、テンプレートで表せない図形のためにウィジェットを作ります。
+ui-import-submit = インポート
+ui-import-busy = インポート中…

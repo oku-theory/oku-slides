@@ -89,3 +89,4 @@ agent-error-agent-not-saved = The agent choice could not be saved.
 agent-picker-title = Agent
 agent-picker-busy = Switching agents will stop the current turn.
 agent-picker-locked = Set by the environment (OKU_SLIDES_AGENT__SELECTED).
+agent-tune-prompt = Fine-tune the imported presentation

@@ -5692,6 +5692,7 @@ dependencies = [
  "oku-slides-render-worker",
  "oku-slides-session",
  "oku-slides-stt",
+ "rstest",
  "rust-mcp-sdk",
  "serde",
  "serde_json",
@@ -5752,7 +5753,6 @@ dependencies = [
  "clap",
  "color-eyre",
  "ctrlc",
- "fontdb",
  "getrandom 0.3.4",
  "http-body",
  "oku-slides-agent",
@@ -5860,6 +5860,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "uuid",
+ "zip 9.0.4",
 ]
 
 [[package]]
@@ -5969,6 +5970,7 @@ dependencies = [
 name = "oku-slides-session"
 version = "2.1.0"
 dependencies = [
+ "fontdb",
  "hex",
  "insta",
  "loro",
@@ -5976,8 +5978,10 @@ dependencies = [
  "oku-slides-chart",
  "oku-slides-core",
  "oku-slides-i18n",
+ "oku-slides-import",
  "oku-slides-pdf",
  "oku-slides-platform",
+ "oku-slides-reference",
  "oku-slides-render",
  "oku-slides-render-worker",
  "png 0.18.1",
@@ -5992,8 +5996,10 @@ dependencies = [
  "tempfile",
  "time",
  "tracing",
+ "tracing-subscriber",
  "unicode-properties",
  "uuid",
+ "zip 9.0.4",
 ]
 
 [[package]]

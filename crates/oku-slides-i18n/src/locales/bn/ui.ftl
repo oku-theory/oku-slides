@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = ফাইলের থিম
 ui-toolbar-save-copy = একটি কপি সংরক্ষণ করুন
 ui-toolbar-finish = সম্পন্ন
 ui-menu-workshop = কর্মশালা
+ui-menu-workshop-deck-only = এই টেমপ্লেটগুলো শুধু এই উপস্থাপনার; কর্মশালা কেবল লাইব্রেরির টেমপ্লেট সম্পাদনা করে।
 ui-toolbar-open = খুলুন
 ui-merge = PDF-এর সঙ্গে একত্র করুন…
 ui-menu = মেনু
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = চার্ট হিসেবে দেখান
 
 ## ফাইল
 
-ui-file-open-prompt = যে ফাইল খুলবেন তার পাথ (.oku-slides.pdf বা .json)
+ui-file-open-prompt = যে ফাইল খুলবেন তার পাথ (.oku-slides.pdf, .json বা .pptx)
+ui-file-merge-prompt = এই উপস্থাপনায় যে ফাইল মেলাবেন তার পাথ (.oku-slides.pdf বা .json)
+ui-file-filter-presentations = উপস্থাপনা
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = এই হিসেবে সংরক্ষণ করুন (পূর্ণ পাথ)
 
 ## ট্যাব
@@ -392,3 +396,19 @@ ui-theme-name = থিমের নাম
 ui-theme-unsaved = থিমের পরিবর্তন সংরক্ষিত হয়নি
 ui-widgets-close-tab = { $name } বন্ধ করুন
 ui-widgets-removed-by-agent = এজেন্ট উইজেট { $name } মুছে ফেলেছে।
+
+## আমদানি করুন
+
+ui-import-title = PowerPoint উপস্থাপনা আমদানি করুন
+ui-import-mode = আমদানির ধরন
+ui-import-hifi = হুবহু অনুলিপি
+ui-import-hifi-note = এই উপস্থাপনার জন্য তৈরি থিম ও টেমপ্লেট দিয়ে মূলের চেহারা বজায় রাখে।
+ui-import-retrofit = আমার টেমপ্লেট ব্যবহার করুন
+ui-import-retrofit-note = লাইব্রেরির টেমপ্লেট ও একটি থিম দিয়ে স্লাইডগুলো নতুন করে গড়ে।
+ui-import-theme-default = ডিফল্ট থিম
+ui-import-no-packs = লাইব্রেরিতে কোনো টেমপ্লেট সেট নেই।
+ui-import-tune = এজেন্টের সাহায্যে সূক্ষ্মভাবে ঠিক করুন
+ui-import-tune-note = এজেন্ট প্রতিটি স্লাইড মূলের সঙ্গে মিলিয়ে পার্থক্যগুলো ঠিক করে।
+ui-import-tune-note-retrofit = এজেন্ট প্রতিটি স্লাইড মূলের সঙ্গে মিলিয়ে দেখে এবং আপনার টেমপ্লেট যে আকারগুলো দেখাতে পারে না তার জন্য উইজেট বানায়।
+ui-import-submit = আমদানি করুন
+ui-import-busy = আমদানি হচ্ছে…

@@ -96,6 +96,12 @@ import-reference-unavailable = 시각 점수 없음: { $cause ->
     [missing] LibreOffice(soffice)를 찾을 수 없습니다. import.soffice에 경로를 지정하세요
    *[failed] 참조 렌더러가 프레젠테이션을 읽지 못했습니다
 }
+import-region-suspect = 참조 렌더러의 알려진 오류로 제외한 차이: { $limit ->
+    [autofit] PowerPoint가 배율을 저장하지 않으면 상자에 맞춘 텍스트를 축소합니다
+    [tracking] 자간을 넓힌 텍스트를 더 넓게 그립니다
+    [chart] 차트를 대략적으로만 그립니다
+   *[smart_art] SmartArt 텍스트를 너무 작게 그립니다
+}
 import-font-substituted = { $family }을(를) 메트릭이 호환되는 { $by }(으)로 바꿨습니다
 import-font-missing = { $family }을(를) 찾을 수 없습니다. 텍스트는 { $by } 글꼴을 사용합니다
 import-font-restricted = { $family }: 라이선스상 일부 스타일을 프레젠테이션에 포함할 수 없습니다. 해당 스타일의 텍스트는 다른 스타일을 사용합니다

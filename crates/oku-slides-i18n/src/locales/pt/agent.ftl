@@ -88,3 +88,4 @@ agent-error-agent-not-saved = Não foi possível salvar a escolha do agente.
 agent-picker-title = Agente
 agent-picker-busy = Trocar de agente interromperá o turno em andamento.
 agent-picker-locked = Escolha imposta pelo ambiente (OKU_SLIDES_AGENT__SELECTED).
+agent-tune-prompt = Afinar a apresentação importada

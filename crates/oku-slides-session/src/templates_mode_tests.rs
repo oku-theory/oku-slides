@@ -2,7 +2,7 @@ use speculoos::prelude::*;
 
 use crate::library::builtin_versions;
 use crate::pack::{DEFAULT_PACK, PackManifest};
-use crate::test_support::{fresh_dir, library_of, session_on};
+use crate::test_support::{adopt_deck_only_pack, fresh_dir, library_of, session_on};
 
 #[test]
 fn save_templates_creates_a_version_whose_parent_is_the_old_current() {
@@ -251,4 +251,17 @@ fn ui_request_in_deck_mode_keeps_no_widget_tabs() {
     let mut s = session_on(data.path());
     open_tabs(&mut s);
     assert_that!(s.ui.widgets).is_empty();
+}
+
+#[test]
+fn edit_templates_of_a_deck_only_pack_is_refused_as_deck_only_and_stays_in_deck_mode() {
+    use oku_slides_i18n::Localize;
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut s);
+    let err = s.edit_templates(r.id).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::DeckOnly);
+    let de = oku_slides_i18n::Localizer::new(Some("de"));
+    assert_that!(err.localize(&de)).is_not_equal_to(err.localize(&oku_slides_i18n::Localizer::new(Some("en"))));
+    assert_that!(matches!(s.mode, crate::Mode::Deck)).is_true();
 }

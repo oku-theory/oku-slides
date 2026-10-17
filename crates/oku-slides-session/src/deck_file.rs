@@ -82,6 +82,9 @@ impl Session {
             .transpose()?;
         self.install_widgets(widgets)?;
         self.doc = doc;
+        // Un autre document : l'état d'un import ne vaut plus (`load_import` le pose après) ;
+        // un document refusé plus haut laisse l'onglet et son import tels quels.
+        self.import = None;
         // Un autre replica : ses rangs d'étapes ne sont plus ceux des tours notés.
         self.turn_steps = Default::default();
         if let Some(fonts) = fonts {

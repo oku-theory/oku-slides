@@ -88,3 +88,4 @@ agent-error-agent-not-saved = De keuze van de agent kon niet worden opgeslagen.
 agent-picker-title = Agent
 agent-picker-busy = Van agent wisselen onderbreekt de lopende beurt.
 agent-picker-locked = Opgelegd door de omgeving (OKU_SLIDES_AGENT__SELECTED).
+agent-tune-prompt = De geïmporteerde presentatie verfijnen

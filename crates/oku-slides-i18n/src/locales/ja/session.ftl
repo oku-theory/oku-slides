@@ -15,6 +15,7 @@ session-unknown-pack = パックが見つかりません：{ $id }
 session-pack-version-missing = パック { $id } のバージョン { $version } が見つかりません
 session-invalid-pack = パックを読み込めません：{ $id }
 session-pack-id-mismatch = このファイルはパック { $found } のもので、{ $id } のものではありません
+session-deck-only = { $id } はそのデッキ専用です。ライブラリには保存されません
 session-editing-templates = 先にテンプレートの編集を終了してください
 session-not-editing-templates = 編集中のテンプレートセットはありません
 session-theme-choice-alone = テンプレートモードでは、テーマは単独で選択し、そのトークンは set_token で編集してください
@@ -427,3 +428,29 @@ theme-option-fill = 埋める
 theme-option-true = はい
 theme-option-false = いいえ
 session-undo-theme-token = テーマ：{ $token }
+session-import-label = PowerPoint のインポート
+session-import-retrofit-pack = { $deck } 用の { $pack }
+session-import-unknown-pack = 不明なテンプレートパック：{ $pack }
+session-import-bad-pack = 読み取れないテンプレートパック { $pack }：pack.json がテンプレートパックを記述していません
+session-import-pack-too-large = パック { $path } が { $max } MiB を超えています
+session-import-reader-panic = PowerPoint リーダーが { $path } で予期せず失敗しました。ファイルはインポートされていません
+session-import-bad-theme = 対象テーマを読み取れません：デザイントークンを読み取れませんでした
+session-import-probe-mismatch = 生成されたパックが宣言どおりに検査されませんでした（ウィジェット { $widget }）。インポーターの不具合です
+session-import-probe-limit = 生成したパックが検査の上限を超えています（ウィジェット { $widget }）：設定の [render] セクションで max_widgets、max_widget_kib、probe_budget_ms を引き上げてください
+session-import-probe-failed = レンダリングプロセスが生成したパックを検査できませんでした：{ $error }
+session-import-pack-missing = インポートがデッキのパックを生成しませんでした：インポートの不具合です
+session-import-theme-missing = インポートがデッキのテーマを生成しませんでした：インポートの不具合です
+session-import-bad-threshold = [import] セクションの score_threshold は0 以上の数である必要があります（{ $value } ではありません）
+session-import-tune-none = このタブにはインポートがありません。import_report と import_diff は、PowerPoint からインポートしたデッキのタブが開いている間だけ使えます。
+session-import-tune-hifi-only = このインポートは retrofit です。比較する参照レンダリングがありません。import_diff は hi-fi インポートでのみ使えます。
+session-import-tune-no-reference = import_diff には参照レンダリングが必要です。{ $reason }
+session-import-tune-reference-pending = 参照レンダリングはまだ進行中です。少し待ってからツールをもう一度呼び出してください。
+session-import-tune-unknown-slide = { $slide } はこのインポートのスライドではありません（import_report を参照）。
+session-import-tune-unknown-region = { $region } はスライド { $slide } の領域ではありません。import_diff が返したアイテム ID を使ってください。
+session-import-tune-tries-used = スライド { $slide } の試行は残っていません（使用済み：{ $tries }、または数回続けて改善なし）。次のスライドに進んでください。
+session-import-tune-untunable = スライド { $slide } に試行はありません：{ $state ->
+        [done] すでにしきい値を下回っています
+        [witness] しきい値を超えているのは参照自体が誤って描画する領域だけです
+       *[unscored] スコアがありません。参照レンダリングがありません
+    }。次のスライドに進んでください。
+session-import-tune-compare = スライドを参照レンダリングと比較できませんでした。

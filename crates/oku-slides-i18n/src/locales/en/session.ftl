@@ -15,6 +15,7 @@ session-unknown-pack = Pack not found: { $id }
 session-pack-version-missing = Version { $version } of pack { $id } not found
 session-invalid-pack = Unreadable pack: { $id }
 session-pack-id-mismatch = This file belongs to pack { $found }, not { $id }
+session-deck-only = { $id } belongs to its deck only: it is never saved to the library
 session-editing-templates = Finish editing the templates first
 session-not-editing-templates = No template set is being edited
 session-theme-choice-alone = In template mode, choose the theme on its own, then edit its tokens with set_token
@@ -427,3 +428,29 @@ theme-option-fill = Fill
 theme-option-true = Yes
 theme-option-false = No
 session-undo-theme-token = Theme: { $token }
+session-import-label = PowerPoint import
+session-import-retrofit-pack = { $pack } for { $deck }
+session-import-unknown-pack = unknown pack: { $pack }
+session-import-bad-pack = unreadable pack { $pack }: its pack.json does not describe a template pack
+session-import-pack-too-large = the pack { $path } is larger than { $max } MiB
+session-import-reader-panic = the PowerPoint reader failed unexpectedly on { $path }; the file was not imported
+session-import-bad-theme = unreadable target theme: its design tokens could not be read
+session-import-probe-mismatch = the generated pack does not probe as declared (widget { $widget }): this is a bug in the importer
+session-import-probe-limit = the generated pack exceeds the probe limits (widget { $widget }): raise max_widgets, max_widget_kib or probe_budget_ms in the [render] section of the configuration
+session-import-probe-failed = the generated pack could not be probed by the render process: { $error }
+session-import-pack-missing = the importer produced no pack for the deck: this is a bug in the importer
+session-import-theme-missing = the importer produced no theme for the deck: this is a bug in the importer
+session-import-bad-threshold = score_threshold in the [import] section must be a number of zero or more, not { $value }
+session-import-tune-none = No import in this tab: import_report and import_diff only work on a deck imported from PowerPoint, while its tab stays open.
+session-import-tune-hifi-only = This import is a retrofit: it has no reference rendering to compare with. import_diff only works on a hi-fi import.
+session-import-tune-no-reference = import_diff needs the reference rendering. { $reason }
+session-import-tune-reference-pending = The reference rendering is still in progress; call the tool again in a moment.
+session-import-tune-unknown-slide = { $slide } is not a slide of this import (see import_report).
+session-import-tune-unknown-region = { $region } is not a region of slide { $slide }: use an item id given by import_diff.
+session-import-tune-tries-used = Slide { $slide } has no tries left (tries used: { $tries }, or no gain over several tries): move on to the next slide.
+session-import-tune-untunable = Slide { $slide } has no tries: { $state ->
+        [done] it is already under the threshold
+        [witness] only regions the reference itself renders wrong are above the threshold
+       *[unscored] it has no score, the reference rendering is missing
+    }. Move on to the next slide.
+session-import-tune-compare = The slide could not be compared with its reference rendering.

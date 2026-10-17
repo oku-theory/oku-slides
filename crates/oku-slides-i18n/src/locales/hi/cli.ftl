@@ -47,20 +47,10 @@ cli-imported = { $path }: { $slides ->
        [one] { $requests } विजेट अनुरोध
       *[other] { $requests } विजेट अनुरोध
     }
-cli-import-label = PowerPoint आयात
 cli-import-pack-required = retrofit मोड में --pack ज़रूरी है: टेम्पलेट पैक की आईडी, फ़ोल्डर या नाम
-cli-import-unknown-pack = अज्ञात टेम्पलेट पैक: { $pack }
-cli-import-bad-pack = अपठनीय टेम्पलेट पैक { $pack }: इसकी pack.json टेम्पलेट पैक का वर्णन नहीं करती
-cli-import-bad-theme = लक्ष्य थीम अपठनीय: इसके डिज़ाइन टोकन पढ़े नहीं जा सके
 cli-import-write-failed = आयात किया गया डेक { $path } लिखा नहीं जा सका
 cli-import-hifi-no-target = --pack और --theme केवल retrofit मोड के लिए हैं: उच्च-निष्ठा आयात (--mode hifi) अपना पैक और थीम ख़ुद बनाता है
-cli-import-probe-mismatch = बनाया गया पैक घोषणा के अनुसार जाँच में नहीं मिला (विजेट { $widget }): यह आयातक की त्रुटि है
-cli-import-probe-limit = बनाया गया पैक जाँच की सीमाएँ पार करता है (विजेट { $widget }): कॉन्फ़िगरेशन के [render] खंड में max_widgets, max_widget_kib या probe_budget_ms बढ़ाएँ
-cli-import-probe-failed = रेंडर प्रक्रिया बनाए गए पैक की जाँच नहीं कर सकी: { $error }
-cli-import-pack-missing = आयात ने डेक के लिए कोई पैक नहीं बनाया: यह आयात की त्रुटि है
-cli-import-theme-missing = आयात ने डेक के लिए कोई थीम नहीं बनाई: यह आयात की त्रुटि है
 cli-import-reference-hifi-only = --reference hifi मोड का हिस्सा है: retrofit आयात की तुलना संदर्भ रेंडर से नहीं होती
-cli-import-bad-threshold = [import] अनुभाग का score_threshold शून्य या उससे अधिक की संख्या होना चाहिए, { $value } नहीं
 cli-import-scored = { $witness } से दृश्य अंतर: औसत { $mean }, { $threshold } से ऊपर { $above ->
     [0] कोई स्लाइड नहीं
     [one] { $above } स्लाइड

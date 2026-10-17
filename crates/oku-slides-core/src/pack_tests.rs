@@ -261,6 +261,7 @@ fn manifest(name: &str) -> PackManifest {
         description: String::new(),
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
+        scope: PackScope::Library,
         templates: Vec::new(),
         examples: BTreeMap::new(),
     }
@@ -302,6 +303,7 @@ fn theme_manifest_round_trips_through_pack_files_without_widgets() {
         description: String::new(),
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
+        scope: PackScope::Library,
         tokens: object(json!({ "color": { "accent": "#2f5fb3" } })),
     };
     let files = m.to_files().unwrap();
@@ -373,4 +375,81 @@ fn pack_manifest_with_a_malformed_example_entry_keeps_the_others() {
 fn pack_manifest_without_examples_writes_no_examples_key() {
     let files = manifest("Mien").to_files(BTreeMap::new()).unwrap();
     assert_that!(files.manifest().contains_key("examples")).is_false();
+}
+
+/// Un manifeste de pack d'id fixe : son JSON se compare à l'identique.
+fn fixed_manifest(scope: PackScope) -> PackManifest {
+    PackManifest { id: Uuid::from_u128(0x002f_5fb3), scope, ..manifest("Mien") }
+}
+
+#[test]
+fn pack_manifest_of_the_library_is_written_exactly_without_scope() {
+    let files = fixed_manifest(PackScope::Library).to_files(BTreeMap::new()).unwrap();
+    let expected = json!({
+        "id": "00000000-0000-0000-0000-0000002f5fb3",
+        "name": "Mien",
+        "description": "",
+        "parent": null,
+        "created": "2026-10-01T10:00:00Z",
+        "templates": [],
+    });
+    assert_that!(Value::Object(files.manifest().clone())).is_equal_to(expected);
+}
+
+#[test]
+fn pack_manifest_of_the_library_keeps_the_version_of_a_manifest_written_before_scopes() {
+    let old = object(json!({
+        "id": "00000000-0000-0000-0000-0000002f5fb3",
+        "name": "Mien",
+        "description": "",
+        "parent": null,
+        "created": "2026-10-01T10:00:00Z",
+        "templates": [],
+    }));
+    let before = PackFiles::new(old, BTreeMap::new());
+    let rewritten = PackManifest::from_files(&before).unwrap().to_files(BTreeMap::new()).unwrap();
+    assert_that!(rewritten.version()).is_equal_to(before.version());
+}
+
+#[test]
+fn pack_manifest_written_before_scopes_reads_as_library() {
+    let old = json!({ "id": Uuid::new_v4(), "name": "E", "parent": null, "created": "x", "templates": [] });
+    let files = PackFiles::new(object(old), BTreeMap::new());
+    assert_that!(PackManifest::from_files(&files).unwrap().scope).is_equal_to(PackScope::Library);
+    assert_that!(files.scope().unwrap()).is_equal_to(PackScope::Library);
+}
+
+#[test]
+fn pack_manifest_of_a_deck_writes_its_scope_and_round_trips() {
+    let m = fixed_manifest(PackScope::Deck);
+    let files = m.to_files(BTreeMap::new()).unwrap();
+    assert_that!(files.manifest().get("scope")).is_equal_to(Some(&json!("deck")));
+    assert_that!(PackManifest::from_files(&files).unwrap()).is_equal_to(&m);
+    assert_that!(files.version())
+        .is_not_equal_to(fixed_manifest(PackScope::Library).to_files(BTreeMap::new()).unwrap().version());
+}
+
+#[rstest]
+#[case(PackScope::Library, None)]
+#[case(PackScope::Deck, Some("deck"))]
+fn theme_manifest_writes_its_scope_only_for_a_deck(#[case] scope: PackScope, #[case] written: Option<&str>) {
+    let m = ThemeManifest {
+        id: Uuid::new_v4(),
+        name: "Importé".into(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T10:00:00Z".into(),
+        scope,
+        tokens: object(json!({ "color": { "accent": "#2f5fb3" } })),
+    };
+    let files = m.to_files().unwrap();
+    assert_that!(files.manifest().get("scope").and_then(Value::as_str)).is_equal_to(written);
+    assert_that!(ThemeManifest::from_files(&files).unwrap().scope).is_equal_to(scope);
+    assert_that!(files.scope().unwrap()).is_equal_to(scope);
+}
+
+#[test]
+fn pack_files_scope_of_an_unknown_value_is_an_error() {
+    let files = PackFiles::new(object(json!({ "scope": "partout" })), BTreeMap::new());
+    assert_that!(files.scope().is_err()).is_true();
 }

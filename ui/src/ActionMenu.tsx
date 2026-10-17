@@ -1,14 +1,19 @@
 // Un menu d'actions derrière un bouton burger : ce qui sert rarement se fait
 // oublier. Fermé par Échap, par un clic ailleurs ou après un choix.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { keyLabel } from "./keys";
 
 /** Une ligne du menu : une action, un séparateur, ou un contrôle (sélecteur de thème…). */
 export type MenuEntry =
-  /** `shortcut` : écrit à la macOS (`⌘⇧S`), montré dans la notation de la plateforme. */
-  | { kind: "item"; label: string; shortcut?: string; disabled?: boolean; onSelect: () => void }
+  /**
+   * Une action du menu, avec son raccourci et son explication.
+   *
+   * `shortcut` : écrit à la macOS (`⌘⇧S`), montré dans la notation de la plateforme ; `hint` :
+   * une explication sous le libellé (pourquoi l'action est désactivée).
+   */
+  | { kind: "item"; label: string; shortcut?: string; disabled?: boolean; hint?: string; onSelect: () => void }
   | { kind: "separator" }
   | { kind: "custom"; node: ReactNode };
 
@@ -31,6 +36,7 @@ export interface ActionMenuProps {
 /** Un bouton (burger par défaut) et son menu. */
 export function ActionMenu({ label, entries, icon = BURGER, triggerClass = "object token", disabled }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
+  const id = useId();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
@@ -93,12 +99,18 @@ export function ActionMenu({ label, entries, icon = BURGER, triggerClass = "obje
                 type="button"
                 role="menuitem"
                 disabled={e.disabled}
+                // Une explication décrit l'action sans entrer dans son nom.
+                aria-label={e.hint ? e.label : undefined}
+                aria-describedby={e.hint ? `${id}-hint-${i}` : undefined}
                 onClick={() => {
                   close(false);
                   e.onSelect();
                 }}
               >
-                <span>{e.label}</span>
+                <span>
+                  {e.label}
+                  {e.hint && <span id={`${id}-hint-${i}`} className="caption action-menu-hint">{e.hint}</span>}
+                </span>
                 {e.shortcut && <kbd>{keyLabel(e.shortcut)}</kbd>}
               </button>
             ),

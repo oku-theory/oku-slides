@@ -53,6 +53,7 @@ pub(crate) fn manifest(
         description: String::new(),
         parent: parent.cloned(),
         created: created.into(),
+        scope: oku_slides_core::PackScope::Library,
         templates: Vec::new(),
         examples: Default::default(),
     }
@@ -138,6 +139,43 @@ pub(crate) fn touch_elsewhere(path: &std::path::Path) {
     std::fs::write(path, bytes).unwrap_or_else(|e| panic!("{} : {e}", path.display()));
 }
 
+/// Le deck de `s` passe à une copie du deck seul de son pack (nouvel id), embarquée ; sa référence.
+///
+/// Comme le pack d'un import : la bibliothèque ne l'a pas.
+pub(crate) fn adopt_deck_only_pack(s: &mut Session) -> oku_slides_core::PackRef {
+    let (r, files) = s.deck_pack_files().unwrap_or_else(|e| panic!("pack du deck : {}", e.one_line()));
+    let mut m = crate::pack::PackManifest::from_files(&files).unwrap_or_else(|e| panic!("pack.json : {e}"));
+    m.id = uuid::Uuid::new_v4();
+    m.name = "Importé".into();
+    m.parent = Some(r.version);
+    m.scope = oku_slides_core::PackScope::Deck;
+    let files = m.to_files(files.widgets().clone()).unwrap_or_else(|e| panic!("pack.json : {e}"));
+    let r = oku_slides_core::PackRef { id: m.id, version: files.version() };
+    s.doc.sources.add_pack(files);
+    let op = oku_slides_core::Op::SetTemplates { templates: Some(r.clone()) };
+    s.apply("Pack importé", vec![op], None).unwrap_or_else(|e| panic!("pack du deck seul : {}", e.one_line()));
+    r
+}
+
+/// Le deck de `s` passe à un thème du deck seul (jetons de Pro, nouvel id), embarqué ; sa référence.
+pub(crate) fn adopt_deck_only_theme(s: &mut Session) -> oku_slides_core::ThemeRef {
+    use crate::library_kind::LibraryKind;
+    let pro = crate::theme::Themes::builtins().iter().find(|b| b.manifest.id == crate::PRO_THEME);
+    let pro = pro.unwrap_or_else(|| panic!("thème Pro absent"));
+    let manifest = crate::ThemeManifest {
+        id: uuid::Uuid::new_v4(),
+        name: "Importé".into(),
+        scope: oku_slides_core::PackScope::Deck,
+        ..pro.manifest.clone()
+    };
+    let files = manifest.to_files().unwrap_or_else(|e| panic!("theme.json : {e}"));
+    let r = oku_slides_core::ThemeRef { id: manifest.id, version: files.version() };
+    s.doc.sources.add_theme(files);
+    let op = oku_slides_core::Op::SetTheme { theme: Some(r.clone()) };
+    s.apply("Thème importé", vec![op], None).unwrap_or_else(|e| panic!("thème du deck seul : {}", e.one_line()));
+    r
+}
+
 /// La référence de la version intégrée du thème nommé `name` (sans casse).
 pub(crate) fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {
     use crate::library_kind::LibraryKind;
@@ -180,4 +218,146 @@ pub(crate) fn apply_ws(
     v: serde_json::Value,
 ) -> crate::Result<crate::WorkspaceOutcome> {
     crate::Workspace::apply(ws, serde_json::from_value(v).unwrap_or_else(|e| panic!("requête : {e}")))
+}
+
+/// Le `.pptx` de la fixture `fixtures/import/<name>` copié ou zippé dans `dir` ; son chemin.
+///
+/// Un fichier `<name>.pptx` est copié tel quel ; un dossier `<name>` est zippé.
+pub(crate) fn pptx_fixture(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+    use std::io::Write;
+    let fixtures = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import"));
+    let file = fixtures.join(format!("{name}.pptx"));
+    if file.is_file() {
+        let path = dir.join(format!("{name}.pptx"));
+        std::fs::copy(&file, &path).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        return path;
+    }
+    fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
+            let p = e.unwrap_or_else(|e| panic!("{e}")).path();
+            if p.file_name().is_some_and(|n| n == ".DS_Store") {
+                continue;
+            }
+            if p.is_dir() { files(&p, out) } else { out.push(p) }
+        }
+    }
+    let root = fixtures.join(name);
+    let mut paths = Vec::new();
+    files(&root, &mut paths);
+    // `[Content_Types].xml` en tête, comme l'écrit PowerPoint.
+    paths.sort_by_key(|p| (p.file_name() != Some("[Content_Types].xml".as_ref()), p.clone()));
+    let mut w = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for p in paths {
+        let rel = p.strip_prefix(&root).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().replace('\\', "/");
+        w.start_file(rel, zip::write::SimpleFileOptions::default()).unwrap_or_else(|e| panic!("zip : {e}"));
+        w.write_all(&std::fs::read(&p).unwrap_or_else(|e| panic!("{e}"))).unwrap_or_else(|e| panic!("zip : {e}"));
+    }
+    let bytes = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
+    let path = dir.join(format!("{name}.pptx"));
+    std::fs::write(&path, bytes).unwrap_or_else(|e| panic!("{e}"));
+    path
+}
+
+/// Un PNG blanc de `width` × `height` pixels.
+pub(crate) fn white_png(width: u32, height: u32) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut encoder = png::Encoder::new(&mut out, width, height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().unwrap_or_else(|e| panic!("png : {e}"));
+    writer.write_image_data(&vec![255; width as usize * height as usize * 4]).unwrap_or_else(|e| panic!("png : {e}"));
+    writer.finish().unwrap_or_else(|e| panic!("png : {e}"));
+    out
+}
+
+/// Un témoin de test aux pages blanches, de proportion 16:9 (celle des fixtures d'import) ; compte ses appels.
+#[derive(Debug, Default)]
+pub(crate) struct WhiteWitness {
+    pub(crate) calls: std::sync::atomic::AtomicUsize,
+}
+
+impl WhiteWitness {
+    /// Les tranches rendues jusqu'ici.
+    pub(crate) fn calls(&self) -> usize {
+        self.calls.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// Fait la référence de l'import de `s` par `witness`, comme l'appelant le fait hors du verrou.
+pub(crate) fn witnessed(s: &mut Session, witness: &WhiteWitness) {
+    let job = s.import_reference_job().unwrap_or_else(|e| panic!("travail de référence : {}", e.one_line()));
+    if let Some(job) = job {
+        job.run_with(witness);
+    }
+}
+
+impl crate::import::WitnessRenderer for WhiteWitness {
+    fn name(&self) -> &str {
+        "témoin"
+    }
+
+    fn limits(&self) -> oku_slides_import::metrics::Witness {
+        oku_slides_import::metrics::Witness::Office2Pdf
+    }
+
+    fn render(
+        &self,
+        _: &[u8],
+        _: &Fonts,
+        span: oku_slides_reference::SlideSpan,
+        width: u32,
+    ) -> Result<crate::import::WitnessPages, oku_slides_render::RenderError> {
+        self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let count = (span.last - span.first + 1) as usize;
+        let height = (f64::from(width) * 9.0 / 16.0).round() as u32;
+        let pages = (0..count).map(|_| white_png(width, height)).collect();
+        Ok(crate::import::WitnessPages { witness: "témoin 1.0".to_owned(), count, pages })
+    }
+}
+
+/// Une session sur `data`, chargée de l'import de la fixture `name` vers `target` ; réglages retouchés par `tweak`.
+pub(crate) fn imported_fixture(
+    data: &std::path::Path,
+    name: &str,
+    target: crate::import::ImportTarget,
+    tweak: impl FnOnce(&mut Settings),
+) -> Session {
+    let mut settings = settings_on(data);
+    tweak(&mut settings);
+    let platform = Platform::with_settings(settings.clone()).unwrap_or_else(|e| panic!("plateforme : {e}"));
+    let request = crate::import::ImportRequest {
+        pptx: pptx_fixture(data, name),
+        target,
+        system_fonts: false,
+        packs: crate::import::PackLookup::Library,
+    };
+    let imported = crate::import::import(&platform, &Fonts::default(), &request)
+        .unwrap_or_else(|e| panic!("import : {}", e.one_line()));
+    let mut s = session_with(settings);
+    s.load_import(imported, name).unwrap_or_else(|e| panic!("chargement : {}", e.one_line()));
+    s
+}
+
+/// Le journal écrit pendant `f`, sans couleurs.
+pub(crate) fn logged(f: impl FnOnce()) -> String {
+    let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let writer = buffer.clone();
+    let subscriber = tracing_subscriber::fmt().with_ansi(false).with_writer(move || Log(writer.clone())).finish();
+    tracing::subscriber::with_default(subscriber, f);
+    let bytes = buffer.lock().unwrap().clone();
+    String::from_utf8(bytes).unwrap()
+}
+
+/// Un écrivain du journal dans un tampon partagé.
+struct Log(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Log {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }

@@ -11,6 +11,7 @@
 - Localize hub, MCP tool and agent texts via LiveLocalizer::current at each use, never a launch snapshot. (t-793)
 - Keep dataset ids and columns aligned with source on every core write; rereads only repair merged states. (ADR-0004)
 - Never make oku-slides-core depend on oku-slides-import; import may depend only on core and i18n. (plan:2026-10-09-import-pptx-lot1)
+- Never write a deck-only pack or theme (PackScope::Deck) to the library; its new versions stay deck-only. (t-692)
 
 ## Pitfalls
 

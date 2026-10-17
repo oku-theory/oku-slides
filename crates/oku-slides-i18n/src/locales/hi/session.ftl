@@ -15,6 +15,7 @@ session-unknown-pack = पैक नहीं मिला: { $id }
 session-pack-version-missing = पैक { $id } का संस्करण { $version } नहीं मिला
 session-invalid-pack = पैक पढ़ा नहीं जा सकता: { $id }
 session-pack-id-mismatch = यह फ़ाइल पैक { $found } की है, { $id } की नहीं
+session-deck-only = { $id } केवल अपनी प्रस्तुति का है: इसे लाइब्रेरी में कभी सहेजा नहीं जाता
 session-editing-templates = पहले टेम्पलेट का संपादन पूरा करें
 session-not-editing-templates = कोई टेम्पलेट सेट संपादित नहीं हो रहा है
 session-theme-choice-alone = टेम्पलेट मोड में थीम को अकेले चुनें, फिर set_token से उसके टोकन संपादित करें
@@ -427,3 +428,29 @@ theme-option-fill = भरें
 theme-option-true = हाँ
 theme-option-false = नहीं
 session-undo-theme-token = थीम: { $token }
+session-import-label = PowerPoint आयात
+session-import-retrofit-pack = { $deck } के लिए { $pack }
+session-import-unknown-pack = अज्ञात टेम्पलेट पैक: { $pack }
+session-import-bad-pack = अपठनीय टेम्पलेट पैक { $pack }: इसकी pack.json टेम्पलेट पैक का वर्णन नहीं करती
+session-import-pack-too-large = पैक { $path } { $max } MiB से बड़ा है
+session-import-reader-panic = PowerPoint रीडर { $path } पर अप्रत्याशित रूप से विफल हुआ; फ़ाइल आयात नहीं हुई
+session-import-bad-theme = लक्ष्य थीम अपठनीय: इसके डिज़ाइन टोकन पढ़े नहीं जा सके
+session-import-probe-mismatch = बनाया गया पैक घोषणा के अनुसार जाँच में नहीं मिला (विजेट { $widget }): यह आयातक की त्रुटि है
+session-import-probe-limit = बनाया गया पैक जाँच की सीमाएँ पार करता है (विजेट { $widget }): कॉन्फ़िगरेशन के [render] खंड में max_widgets, max_widget_kib या probe_budget_ms बढ़ाएँ
+session-import-probe-failed = रेंडर प्रक्रिया बनाए गए पैक की जाँच नहीं कर सकी: { $error }
+session-import-pack-missing = आयात ने डेक के लिए कोई पैक नहीं बनाया: यह आयात की त्रुटि है
+session-import-theme-missing = आयात ने डेक के लिए कोई थीम नहीं बनाई: यह आयात की त्रुटि है
+session-import-bad-threshold = [import] अनुभाग का score_threshold शून्य या उससे अधिक की संख्या होना चाहिए, { $value } नहीं
+session-import-tune-none = इस टैब में कोई इम्पोर्ट नहीं है: import_report और import_diff केवल PowerPoint से इम्पोर्ट किए गए डेक पर काम करते हैं, जब तक उसका टैब खुला रहे।
+session-import-tune-hifi-only = यह इम्पोर्ट retrofit है: इसके पास तुलना के लिए कोई संदर्भ रेंडरिंग नहीं है। import_diff केवल hi-fi इम्पोर्ट पर काम करता है।
+session-import-tune-no-reference = import_diff को संदर्भ रेंडरिंग चाहिए। { $reason }
+session-import-tune-reference-pending = संदर्भ रेंडरिंग अभी चल रही है; थोड़ी देर में टूल फिर से चलाएँ।
+session-import-tune-unknown-slide = { $slide } इस इम्पोर्ट की स्लाइड नहीं है (import_report देखें)।
+session-import-tune-unknown-region = { $region } स्लाइड { $slide } का क्षेत्र नहीं है: import_diff से मिली किसी आइटम आईडी का उपयोग करें।
+session-import-tune-tries-used = स्लाइड { $slide } के प्रयास समाप्त हो गए (उपयोग किए गए प्रयास: { $tries }, या कई प्रयासों से कोई सुधार नहीं): अगली स्लाइड पर जाएँ।
+session-import-tune-untunable = स्लाइड { $slide } के लिए कोई प्रयास नहीं है: { $state ->
+        [done] यह पहले से सीमा के नीचे है
+        [witness] सीमा से ऊपर केवल वे क्षेत्र हैं जिन्हें संदर्भ स्वयं गलत दिखाता है
+       *[unscored] इसका कोई स्कोर नहीं है, संदर्भ रेंडरिंग उपलब्ध नहीं है
+    }. अगली स्लाइड पर जाएँ।
+session-import-tune-compare = स्लाइड की उसके संदर्भ रेंडरिंग से तुलना नहीं की जा सकी।

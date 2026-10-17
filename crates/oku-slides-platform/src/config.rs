@@ -118,8 +118,8 @@ pub struct RenderSettings {
 pub struct ImportSettings {
     /// Hi-fi : écart (ΔE OKLab ×100) d'une région qui fait signaler sa slide.
     ///
-    /// Comparé à la pire région de chaque slide, contre le rendu de référence ;
-    /// fini et positif (la CLI refuse un autre).
+    /// Comparé à la pire région non suspecte de chaque slide, contre le rendu
+    /// de référence ; fini et positif (la CLI refuse un autre).
     pub score_threshold: f64,
     /// Durée maximale d'une tranche du rendu de référence (ms), dans son processus de rendu.
     pub reference_timeout_ms: u64,
@@ -128,6 +128,18 @@ pub struct ImportSettings {
     pub soffice: Vec<PathBuf>,
     /// Délai de LibreOffice pour une tranche (ms) ; passé lui, il est tué.
     pub soffice_timeout_ms: u64,
+    /// Essais par slide de l'ajustement par l'agent.
+    ///
+    /// Un essai : une note d'une slide dont le raster a changé.
+    pub tune_iterations: std::num::NonZeroU32,
+    /// Essais de suite sans gain avant d'arrêter une slide de l'ajustement.
+    ///
+    /// Le gain se mesure sur l'excès total.
+    pub tune_stall: std::num::NonZeroU32,
+    /// Essais du deck entier (thème, pack) de l'ajustement par l'agent.
+    ///
+    /// Un par état du deck noté.
+    pub tune_global: std::num::NonZeroU32,
 }
 
 impl SourcesSettings {

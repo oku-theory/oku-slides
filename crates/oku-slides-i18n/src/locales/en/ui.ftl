@@ -50,6 +50,7 @@ ui-toolbar-theme-embedded = File theme
 ui-toolbar-save-copy = Save a copy
 ui-toolbar-finish = Done
 ui-menu-workshop = Workshop
+ui-menu-workshop-deck-only = These templates belong to this presentation alone; the workshop edits only library templates.
 ui-toolbar-open = Open
 ui-merge = Merge with a PDF…
 ui-menu = Menu
@@ -318,7 +319,10 @@ ui-undo-show-as-chart = Show as a chart
 
 ## Files
 
-ui-file-open-prompt = Path of the file to open (.oku-slides.pdf or .json)
+ui-file-open-prompt = Path of the file to open (.oku-slides.pdf, .json or .pptx)
+ui-file-merge-prompt = Path of the file to merge into this presentation (.oku-slides.pdf or .json)
+ui-file-filter-presentations = Presentations
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Save as (full path)
 
 ## Tabs
@@ -395,3 +399,19 @@ ui-theme-name = Theme name
 ui-theme-unsaved = Unsaved theme changes
 ui-widgets-close-tab = Close { $name }
 ui-widgets-removed-by-agent = The agent deleted widget { $name }.
+
+## Import
+
+ui-import-title = Import a PowerPoint presentation
+ui-import-mode = Import mode
+ui-import-hifi = Faithful copy
+ui-import-hifi-note = Keeps the original look, with a theme and templates made for this presentation.
+ui-import-retrofit = Use my templates
+ui-import-retrofit-note = Rebuilds the slides with a template set and a theme from the library.
+ui-import-theme-default = Default theme
+ui-import-no-packs = No template set in the library.
+ui-import-tune = Fine-tune with the agent
+ui-import-tune-note = The agent compares each slide with the original and corrects the gaps.
+ui-import-tune-note-retrofit = The agent compares each slide with the original and designs widgets for the shapes your templates cannot show.
+ui-import-submit = Import
+ui-import-busy = Importing…

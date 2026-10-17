@@ -54,6 +54,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         description: String::new(),
         parent: None,
         created: "2026-10-01T00:00:00Z".into(),
+        scope: oku_slides_core::PackScope::Library,
         templates: vec![],
         examples: BTreeMap::new(),
     };

@@ -82,3 +82,4 @@ agent-error-agent-not-saved = 无法保存智能体的选择。
 agent-picker-title = 智能体
 agent-picker-busy = 切换智能体将中断当前回合。
 agent-picker-locked = 该选择由环境指定 (OKU_SLIDES_AGENT__SELECTED)。
+agent-tune-prompt = 微调导入的演示文稿

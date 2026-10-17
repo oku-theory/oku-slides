@@ -15,6 +15,7 @@ session-unknown-pack = Paket nicht gefunden: { $id }
 session-pack-version-missing = Version { $version } des Pakets { $id } nicht gefunden
 session-invalid-pack = Unlesbares Paket: { $id }
 session-pack-id-mismatch = Diese Datei gehört zum Paket { $found }, nicht zu { $id }
+session-deck-only = { $id } gehört nur zu seinem Deck: Es wird nie in der Bibliothek gespeichert
 session-editing-templates = Zuerst die Bearbeitung der Vorlagen abschließen
 session-not-editing-templates = Es wird kein Vorlagenset bearbeitet
 session-theme-choice-alone = Wählen Sie im Vorlagenmodus das Design allein aus und bearbeiten Sie dann seine Tokens mit set_token
@@ -427,3 +428,29 @@ theme-option-fill = Füllen
 theme-option-true = Ja
 theme-option-false = Nein
 session-undo-theme-token = Design: { $token }
+session-import-label = PowerPoint-Import
+session-import-retrofit-pack = { $pack } für { $deck }
+session-import-unknown-pack = unbekanntes Vorlagenpaket: { $pack }
+session-import-bad-pack = unlesbares Vorlagenpaket { $pack }: seine pack.json beschreibt kein Vorlagenpaket
+session-import-pack-too-large = das Paket { $path } ist größer als { $max } MiB
+session-import-reader-panic = der PowerPoint-Leser ist bei { $path } unerwartet gescheitert; die Datei wurde nicht importiert
+session-import-bad-theme = unlesbares Zielthema: seine Design-Tokens konnten nicht gelesen werden
+session-import-probe-mismatch = das erzeugte Paket entspricht bei der Prüfung nicht seiner Deklaration (Widget { $widget }): ein Fehler des Imports
+session-import-probe-limit = das erzeugte Paket überschreitet die Grenzen der Prüfung (Widget { $widget }): erhöhen Sie max_widgets, max_widget_kib oder probe_budget_ms im Abschnitt [render] der Konfiguration
+session-import-probe-failed = das erzeugte Paket konnte vom Renderprozess nicht geprüft werden: { $error }
+session-import-pack-missing = der Import hat kein Paket für das Deck erzeugt: das ist ein Fehler des Imports
+session-import-theme-missing = der Import hat kein Theme für das Deck erzeugt: das ist ein Fehler des Imports
+session-import-bad-threshold = score_threshold im Abschnitt [import] muss eine Zahl größer oder gleich null sein, nicht { $value }
+session-import-tune-none = Kein Import in diesem Tab: import_report und import_diff funktionieren nur bei einem aus PowerPoint importierten Deck, solange sein Tab offen bleibt.
+session-import-tune-hifi-only = Dieser Import ist ein Retrofit: Er hat kein Referenz-Rendering zum Vergleichen. import_diff funktioniert nur bei einem Hi-Fi-Import.
+session-import-tune-no-reference = import_diff braucht das Referenz-Rendering. { $reason }
+session-import-tune-reference-pending = Das Referenz-Rendering läuft noch; rufe das Werkzeug gleich noch einmal auf.
+session-import-tune-unknown-slide = { $slide } ist keine Folie dieses Imports (siehe import_report).
+session-import-tune-unknown-region = { $region } ist kein Bereich der Folie { $slide }: Verwenden Sie eine Element-ID aus import_diff.
+session-import-tune-tries-used = Folie { $slide } hat keine Versuche mehr (verbrauchte Versuche: { $tries }, oder kein Gewinn über mehrere Versuche): Machen Sie mit der nächsten Folie weiter.
+session-import-tune-untunable = Folie { $slide } hat keine Versuche: { $state ->
+        [done] sie liegt schon unter dem Schwellenwert
+        [witness] nur Bereiche, die die Referenz selbst falsch darstellt, liegen über dem Schwellenwert
+       *[unscored] sie hat keine Bewertung, die Referenzdarstellung fehlt
+    }. Machen Sie mit der nächsten Folie weiter.
+session-import-tune-compare = Die Folie konnte nicht mit ihrem Referenz-Rendering verglichen werden.

@@ -82,3 +82,4 @@ agent-error-agent-not-saved = 無法儲存代理的選擇。
 agent-picker-title = 代理
 agent-picker-busy = 切換代理將中斷目前的回合。
 agent-picker-locked = 此選擇由環境指定 (OKU_SLIDES_AGENT__SELECTED)。
+agent-tune-prompt = 微調匯入的簡報

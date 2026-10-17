@@ -9,12 +9,12 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 - `retrofit::project(&SourceDeck, &RetrofitTarget) -> ImportPlan` : content on an existing pack and theme.
 - `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : the source reproduced on a generated
   theme and pack; `hifi::sought_fonts`, the families it looks for; `hifi::source_rect`, the page.
-- `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report; in hi-fi also the generated
-  theme and pack (`PackFiles`), declared schemas and fonts; `report_json` is the `--report` form;
-  `check_budget` (early bound on output size, fatal `TooLarge`) gives the `CheckedPlan` to apply.
+- `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report, `origins` (item → element); in hi-fi the
+  generated theme, pack, schemas, fonts, `targets` (item → its elements or slide param) and `groups` (`hifi::groups`);
+  `report_json` is the `--report` form; `check_budget` (fatal `TooLarge`) gives the `CheckedPlan` to apply.
 - `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`, `ReferenceReport`, slide
   `score`; `coverage::coverage` measures what of the source survives in the resulting deck.
-- `metrics` : a hi-fi slide's gap to the reference and its worst regions (pure; the CLI renders);
+- `metrics` : a hi-fi slide's gap to the reference, its regions ranked, `suspect` ones last (pure);
   `fonts` : `FontCatalog`, `FontOrigin`, `FontPlan`, `SUBSTITUTES`, `FALLBACKS`.
 
 ## Layers
@@ -34,14 +34,14 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
   widget per layout (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
   Typst (`typst/`), shape outlines and arrowheads (`geometry/`, with the embedded ECMA-376
   `presetShapeDefinitions.xml`), slide items as elements (`slide`, `element`, `table`).
-- `pattern` : retrofit's signature grouping repeated items; `fonts/` : embedded, catalog, substitute, `Missing`.
+- `pattern` : repeated-item signatures (retrofit requests, hi-fi `groups`); `fonts/` : embedded, catalog, substitute, `Missing`.
 - `retrofit/measure`: a flow's height from theme tokens (`TextTokens`); too tall, it goes to the grid if
   that fits, else a smaller theme size, else reports `Overflow` (t-816; never split). `place` lays out.
 
 ## Extension points
 
 - New source format (PDF): a `pptx/` sibling emitting the same `SourceDeck` in OOXML terms (`source` docs).
-- New projector: a sibling of `retrofit/` and `hifi/` returning an `ImportPlan` (+ CLI `ImportMode`).
+- New projector: a sibling of `retrofit/` and `hifi/` returning an `ImportPlan` (+ session `ImportTarget`).
 - New loss: a `LossKind` variant and its `import-loss-*` Fluent key.
 
 ## Dependencies

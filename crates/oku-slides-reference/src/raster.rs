@@ -56,6 +56,30 @@ impl Raster {
         Self { width, height, rgba }
     }
 
+    /// L'image agrandie `factor` fois, chaque pixel répété en carré (plus proche voisin).
+    ///
+    /// Les pixels restent ceux de l'image : deux images agrandies ainsi se comparent comme
+    /// avant. Un facteur nul, ou un côté qui dépasserait [`MAX_RASTER_SIDE`], est une erreur `Size` ;
+    /// une image vide reste vide, à ses côtés agrandis.
+    pub fn scaled(&self, factor: u32) -> Result<Self, ReferenceError> {
+        let (width, height) = (self.width.saturating_mul(factor), self.height.saturating_mul(factor));
+        ensure!(factor > 0, SizeSnafu { width, height });
+        ensure!(width <= MAX_RASTER_SIDE && height <= MAX_RASTER_SIDE, SizeSnafu { width, height });
+        if self.rgba.is_empty() {
+            return Ok(Self { width, height, rgba: Vec::new() });
+        }
+        let (k, row) = (factor as usize, self.width as usize * 4);
+        let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);
+        for line in self.rgba.chunks_exact(row) {
+            let wide: Vec<u8> =
+                line.as_chunks::<4>().0.iter().flat_map(|px| std::iter::repeat_n(*px, k)).flatten().collect();
+            for _ in 0..k {
+                rgba.extend_from_slice(&wide);
+            }
+        }
+        Ok(Self { width, height, rgba })
+    }
+
     /// Lit un PNG (RGB ou RGBA 8 bits, couleurs indexées ou gris développés),
     /// d'au plus [`MAX_RASTER_SIDE`] pixels de côté.
     pub fn from_png(bytes: &[u8]) -> Result<Self, ReferenceError> {

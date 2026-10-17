@@ -369,6 +369,28 @@ fn elements_of_a_shape_with_text_put_the_text_over_the_shape_inside_its_text_rec
 }
 
 #[test]
+fn elements_of_a_shape_with_text_are_all_noted_for_its_item() {
+    let tb = text_box(vec![para(vec![run("Bonjour")])]);
+    let placed = Setup::new().convert(&shape_item(preset("rect", &[]), solid("accent1"), None, Some(tb)));
+    let ids: Vec<String> = placed.elements.iter().map(|e| e.id.clone()).collect();
+    assert_that!(ids).has_length(2);
+    assert_that!(placed.by_item).is_equal_to(vec![("s1/1".to_owned(), ids)]);
+}
+
+#[test]
+fn elements_of_a_group_are_noted_for_the_group_after_its_children() {
+    let placed = Setup::new().convert(&group());
+    let ids: Vec<String> = placed.elements.iter().map(|e| e.id.clone()).collect();
+    assert_that!(placed.by_item.last()).is_equal_to(Some(&("s1/g".to_owned(), ids)));
+    assert_that!(placed.by_item).has_length(3);
+}
+
+#[test]
+fn elements_of_an_opaque_without_fallback_note_nothing() {
+    assert_that!(Setup::new().convert(&opaque(None)).by_item).is_empty();
+}
+
+#[test]
 fn elements_of_a_horizontally_flipped_shape_mirror_its_text_rect() {
     let tb = text_box(vec![para(vec![run("→")])]);
     let geom = preset("rightArrow", &[]);

@@ -5,7 +5,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const own = (f: string) => readFileSync(join(import.meta.dir, f), "utf8");
-const css = ["styles.css", "glass.css", "a2ui/a2ui.css", "chart/ChartDataGrid.css"].map(own).join("\n");
+/** Les feuilles de l'app, chargées à la suite par main.tsx (styles.css continué par import.css et workshop.css). */
+const APP = ["styles.css", "import.css", "workshop.css"].map(own).join("\n");
+const css = [APP, ...["glass.css", "a2ui/a2ui.css", "chart/ChartDataGrid.css"].map(own)].join("\n");
 
 test("aucun style post-it ne reste dans les feuilles de style", () => {
   expect(css).not.toMatch(/postit|--tilt|shadow-note/);
@@ -14,7 +16,7 @@ test("aucun style post-it ne reste dans les feuilles de style", () => {
 test("la carte n'est définie que dans a2ui.css", () => {
   expect(own("a2ui/a2ui.css")).toMatch(/\.card\b/);
   // Seule exception : la mise en page du brouillon, plus spécifique que `.card.prompt`.
-  const rest = own("styles.css").replace(/\.draft\.card\.prompt/g, "");
+  const rest = APP.replace(/\.draft\.card\.prompt/g, "");
   expect(rest).not.toMatch(/\.card\b/);
 });
 
@@ -25,7 +27,7 @@ test("la consigne se colle au bord de fin, aussi en RTL", () => {
 });
 
 test("le brouillon garde sa mise en colonne malgré .card.prompt", () => {
-  const rule = own("styles.css").match(/\.draft\.card\.prompt\s*\{([^}]*)\}/);
+  const rule = APP.match(/\.draft\.card\.prompt\s*\{([^}]*)\}/);
   expect(rule?.[1]).toMatch(/display:\s*flex/);
 });
 
@@ -40,13 +42,13 @@ const ruleOf = (sheet: string, selector: string) => {
 // se vérifient sur la mise en page, dans e2e/060-agent.cjs (`assertPills`).
 
 test("la pile des slides repliée vers la gauche ne garde qu'un rail", () => {
-  const rule = ruleOf(own("styles.css"), '.table:has(> .pile-column[data-folded="true"])');
+  const rule = ruleOf(APP, '.table:has(> .pile-column[data-folded="true"])');
   expect(rule).toMatch(/--pile-w:\s*var\(--pile-rail-w\)\s*!important/);
-  expect(own("styles.css")).toMatch(/--pile-rail-w:\s*56px/);
+  expect(APP).toMatch(/--pile-rail-w:\s*56px/);
 });
 
 test("la carte de la cible se pose sous la scène, défilant seule", () => {
-  const rule = ruleOf(own("styles.css"), ".settings-band > .host-settings, .settings-band > .chart-panel");
+  const rule = ruleOf(APP, ".settings-band > .host-settings, .settings-band > .chart-panel");
   // Dans la bande sous la scène : la carte rétrécit (et défile) plutôt que de déborder.
   expect(rule).toMatch(/flex:\s*0 1 auto/);
   expect(rule).toMatch(/min-height:\s*0/);
@@ -58,7 +60,7 @@ test("la carte de la cible se pose sous la scène, défilant seule", () => {
   expect(rule).toMatch(/margin:\s*0 auto/);
   // Bande de hauteur fixe sous la scène : la boîte de la slide ne suit pas la hauteur de la carte (t-647) ;
   // la hauteur choisie au séparateur (`--band-h`) l'emporte sur le défaut.
-  const band = ruleOf(own("styles.css"), ".settings-band");
+  const band = ruleOf(APP, ".settings-band");
   expect(band).toMatch(/flex:\s*none/);
   expect(band).toMatch(/height:\s*var\(--band-h,\s*clamp\([^)]*vh[^)]*\)\)/);
 });
@@ -72,29 +74,29 @@ test("la bascule graphique / tableau se cale en fin de rangée, de droite à gau
 });
 
 test("le séparateur de la bande garde à la carte la distance d'avant à la slide", () => {
-  const rule = ruleOf(own("styles.css"), ".band-divider");
+  const rule = ruleOf(APP, ".band-divider");
   expect(rule).toMatch(/height:\s*12px/);
   expect(rule).toMatch(/margin-block:\s*calc\(\(var\(--space-10\) - 12px\) \/ 2\)/);
 });
 
 test("la feuille prend le plus de place possible dans sa zone", () => {
-  expect(ruleOf(own("styles.css"), ".sheet-area")).toMatch(/padding:\s*var\(--space-4\) var\(--space-6\)\s*;/);
+  expect(ruleOf(APP, ".sheet-area")).toMatch(/padding:\s*var\(--space-4\) var\(--space-6\)\s*;/);
 });
 
 test("les boutons slide précédente / suivante restent discrets hors survol", () => {
-  expect(ruleOf(own("styles.css"), ".token.ghost.slide-nav")).toMatch(/opacity:\s*0\.35/);
-  expect(ruleOf(own("styles.css"), ".slide-nav:disabled")).toMatch(/visibility:\s*hidden/);
+  expect(ruleOf(APP, ".token.ghost.slide-nav")).toMatch(/opacity:\s*0\.35/);
+  expect(ruleOf(APP, ".slide-nav:disabled")).toMatch(/visibility:\s*hidden/);
 });
 
 test("le tiroir des variantes a sa place sous la scène, qui rétrécit, au lieu de la recouvrir", () => {
-  const drawer = ruleOf(own("styles.css"), ".sheet-area > .variant-drawer");
+  const drawer = ruleOf(APP, ".sheet-area > .variant-drawer");
   expect(drawer).toBeDefined();
   expect(drawer).toMatch(/grid-row:\s*2/);
   expect(drawer).toMatch(/overflow-y:\s*auto/);
-  expect(own("styles.css")).not.toMatch(/\.variant-drawer\s*\{[^}]*position:\s*absolute/);
-  const area = ruleOf(own("styles.css"), ".sheet-area");
+  expect(APP).not.toMatch(/\.variant-drawer\s*\{[^}]*position:\s*absolute/);
+  const area = ruleOf(APP, ".sheet-area");
   expect(area).toMatch(/display:\s*grid/);
   // La scène prend ce qui reste ; le tiroir, sa hauteur.
   expect(area).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/);
-  expect(ruleOf(own("styles.css"), ".sheet-area > .templates-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
+  expect(ruleOf(APP, ".sheet-area > .templates-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
 });

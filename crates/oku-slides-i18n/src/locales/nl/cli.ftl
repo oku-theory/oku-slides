@@ -47,20 +47,10 @@ cli-imported = { $path }: { $slides ->
        [one] { $requests } widgetverzoek
       *[other] { $requests } widgetverzoeken
     }
-cli-import-label = PowerPoint-import
 cli-import-pack-required = --pack is verplicht in de modus retrofit: de id, map of naam van een sjabloonpakket
-cli-import-unknown-pack = onbekend sjabloonpakket: { $pack }
-cli-import-bad-pack = onleesbaar sjabloonpakket { $pack }: de pack.json beschrijft geen sjabloonpakket
-cli-import-bad-theme = onleesbaar doelthema: de ontwerptokens konden niet worden gelezen
 cli-import-write-failed = kon de geïmporteerde presentatie { $path } niet schrijven
 cli-import-hifi-no-target = --pack en --theme horen bij de modus retrofit: import met hoge getrouwheid (--mode hifi) maakt een eigen pakket en thema
-cli-import-probe-mismatch = het gemaakte pakket komt bij het peilen niet overeen met de declaratie (widget { $widget }): een fout in de import
-cli-import-probe-limit = het gegenereerde pakket overschrijdt de grenzen van de controle (widget { $widget }): verhoog max_widgets, max_widget_kib of probe_budget_ms in de sectie [render] van de configuratie
-cli-import-probe-failed = het renderproces kon het gegenereerde pakket niet controleren: { $error }
-cli-import-pack-missing = de import heeft geen pakket voor het deck gemaakt: dit is een fout in de import
-cli-import-theme-missing = de import heeft geen thema voor het deck gemaakt: dit is een fout in de import
 cli-import-reference-hifi-only = --reference hoort bij de hifi-modus: een retrofit-import wordt niet met een referentieweergave vergeleken
-cli-import-bad-threshold = score_threshold in de sectie [import] moet een getal van nul of meer zijn, niet { $value }
 cli-import-scored = Visueel verschil met { $witness }: gemiddeld { $mean }, { $above ->
     [0] geen dia
     [one] { $above } dia

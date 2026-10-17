@@ -96,6 +96,12 @@ import-reference-unavailable = Görsel puan yok: { $cause ->
     [missing] LibreOffice (soffice) bulunamadı; yolunu import.soffice içinde belirtin
    *[failed] referans oluşturucu sunuyu okuyamadı
 }
+import-region-suspect = Fark bir kenara bırakıldı, referans işleyicinin bilinen bir hatası: { $limit ->
+    [autofit] PowerPoint ölçek kaydetmediğinde kutusuna sığdırılan metni küçültür
+    [tracking] harf aralıklı metni daha geniş çizer
+    [chart] grafikleri yalnızca yaklaşık olarak çizer
+   *[smart_art] SmartArt metnini fazla küçük çizer
+}
 import-font-substituted = { $family } yerine uyumlu ölçülere sahip { $by } kullanıldı
 import-font-missing = { $family } bulunamadı: metin { $by } yazı tipini kullanıyor
 import-font-restricted = { $family }: lisansı bazı stillerin sunuya gömülmesini yasaklıyor; bu stillerdeki metin diğer stilleri kullanıyor

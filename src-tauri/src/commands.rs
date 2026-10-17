@@ -57,6 +57,7 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::DetachAgent
         | WorkspaceRequest::AttachAgent => (true, false),
         WorkspaceRequest::OpenTab { .. }
+        | WorkspaceRequest::ImportTab { .. }
         | WorkspaceRequest::OpenHelp { .. }
         | WorkspaceRequest::NewWindow
         | WorkspaceRequest::MoveTab { .. } => (true, true),
@@ -87,6 +88,7 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::DetachAgent
         | WorkspaceRequest::AttachAgent
         | WorkspaceRequest::OpenTab { .. }
+        | WorkspaceRequest::ImportTab { .. }
         | WorkspaceRequest::OpenHelp { .. }
         | WorkspaceRequest::NewWindow
         | WorkspaceRequest::MoveTab { .. } => None,
@@ -143,6 +145,10 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         // Onglets fermés (ou vierge remplacé) : leur agent s'arrête.
         state.stop_closed_agents(&closed);
         let outcome = outcome.map_err(|e| state.refuse(e))?;
+        // Un onglet importé à fine-tuner : son tour part dès que l'onglet existe (la vue suit).
+        if let Some(tab) = outcome.tune_tab() {
+            state.tune(tab);
+        }
         if outcome.is_last_window() {
             state::shutdown(app);
             return Ok(outcome.into_json());

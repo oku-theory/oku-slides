@@ -1,0 +1,165 @@
+//! Le hi-fi : la présentation reproduite fidèlement (`oku_slides_import::hifi`).
+//!
+//! Elle vient sur un thème et un pack générés pour elle.
+//!
+//! Le catalogue des polices réunit celles de l'app (celles du rendu) et, si
+//! demandé, celles du système des seules familles que cherche la présentation
+//! ([`super::system_fonts`]). Le pack et le thème générés ont une identité
+//! tirée des octets du `.pptx` (deux imports du même fichier donnent le même
+//! pack) ; ils ne vivent que dans le deck : la bibliothèque n'est pas touchée.
+//!
+//! Le pack généré est sondé par le processus de rendu, comme tout pack
+//! embarqué ; le registre sondé doit porter exactement les schémas que le
+//! projecteur a déclarés et avec lesquels il a construit ses ops. Le
+//! projecteur tient le pack dans les bornes de la sonde (`[render]` :
+//! `max_widgets`, `max_widget_kib`) ; un écart sur un fichier qui les dépasse
+//! ou que le budget (`probe_budget_ms`) a laissé non sondé est dit comme tel
+//! (`ProbeLimit`), tout autre écart est un bogue du générateur
+//! (`ProbeMismatch`), comme un fichier du pack sans schéma déclaré. Une sonde
+//! tout entière échouée (processus de rendu) est dite comme telle
+//! (`ProbeFailed`). Tous sont refusés avant toute écriture.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
+
+use sha2::{Digest, Sha256};
+use snafu::{OptionExt, ResultExt};
+use uuid::{Builder, Uuid};
+
+use oku_slides_core::{Deck, PackRef, WidgetFile, WidgetRegistry, WidgetSchema, now_created};
+use oku_slides_import::fonts::{FontCatalog, FontOrigin};
+use oku_slides_import::hifi;
+use oku_slides_import::{HifiTarget, PackLimits};
+use oku_slides_platform::Platform;
+use oku_slides_platform::config::RenderSettings;
+use oku_slides_render::Fonts;
+
+use super::error::{
+    PackMissingSnafu, PresentationSnafu, ProbeFailedSnafu, ProbeLimitSnafu, ProbeMismatchSnafu, Result,
+    ThemeMissingSnafu,
+};
+use super::{Input, Prepared};
+use crate::{PackLibrary, sources_with_pack};
+
+/// Ce que le hi-fi prend de la demande d'import.
+pub(crate) struct HifiArgs<'a> {
+    /// Les polices de l'app, celles du rendu.
+    pub(crate) fonts: &'a Fonts,
+    /// Le registre de base.
+    pub(crate) base: &'a Arc<WidgetRegistry>,
+    /// Le nom du pack et du thème générés.
+    pub(crate) name: String,
+    /// Chercher aussi les polices de la présentation parmi celles du système.
+    pub(crate) system_fonts: bool,
+}
+
+/// Le hi-fi de `input` : les sources du deck, avec le pack, le thème et les
+/// polices générés pour lui, et le pack sondé.
+pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) -> Result<Prepared> {
+    let mut catalog = FontCatalog::new();
+    for data in args.fonts.shared_files() {
+        catalog.add(FontOrigin::App, data);
+    }
+    if args.system_fonts {
+        super::system_fonts::add(&mut catalog, &hifi::sought_fonts(&input.source));
+    }
+    let (pack_id, theme_id) = identity(&input.bytes);
+    let target = HifiTarget {
+        registry: args.base,
+        fonts: &catalog,
+        pack_id,
+        theme_id,
+        name: args.name,
+        created: now_created(),
+        limits: pack_limits(&platform.settings.render),
+    };
+    let mut plan = hifi::project(&input.source, &target).check_budget(&input.limits).context(PresentationSnafu)?;
+    // Sans pack ou sans thème, le projecteur n'a pu sérialiser son manifeste : un bogue, dit pour lui.
+    let pack = plan.take_pack().context(PackMissingSnafu)?;
+    let theme = plan.take_theme().context(ThemeMissingSnafu)?;
+
+    let version = pack.version();
+    let sizes: BTreeMap<WidgetFile, usize> = pack.widgets().iter().map(|(n, s)| (n.clone(), s.len())).collect();
+    let mut deck = Deck::empty();
+    deck.templates = Some(PackRef { id: pack_id, version: version.clone() });
+    let packs = BTreeMap::from([(version, pack)]);
+    let library = PackLibrary::user(platform);
+    let (mut bundle, widgets) = sources_with_pack(platform, &library, args.base, deck, packs)?;
+    // Une sonde tout entière échouée (processus de rendu) n'est pas un écart du générateur.
+    if let Some(error) = &widgets.probe_failed {
+        return Err(ProbeFailedSnafu { error: error.as_str() }.build().into());
+    }
+    let files: Vec<WidgetFile> = sizes.keys().cloned().collect();
+    if let Err(widget) = check_probe(&widgets.registry, &plan.schemas, &files) {
+        let refused = if beyond_limits(&widget, &sizes, &widgets.unprobed, target.limits) {
+            ProbeLimitSnafu { widget }.build()
+        } else {
+            ProbeMismatchSnafu { widget }.build()
+        };
+        return Err(refused.into());
+    }
+    bundle.add_theme(theme);
+    bundle.fonts.extend(plan.take_fonts());
+    Ok(Prepared { bundle, widgets, plan, child: None })
+}
+
+/// Ids du pack et du thème générés pour un `.pptx`.
+///
+/// Ce sont les deux moitiés du SHA-256 de ses octets, en UUID v8 (version et variante posées).
+pub(crate) fn identity(bytes: &[u8]) -> (Uuid, Uuid) {
+    let digest: [u8; 32] = Sha256::digest(bytes).into();
+    let half = |at: usize| {
+        let mut b = [0u8; 16];
+        b.copy_from_slice(&digest[at..at + 16]);
+        Builder::from_custom_bytes(b).into_uuid()
+    };
+    (half(0), half(16))
+}
+
+/// Les bornes de la sonde d'un pack, lues dans `[render]`.
+fn pack_limits(render: &RenderSettings) -> PackLimits {
+    PackLimits { max_files: render.max_widgets, max_file_bytes: render.max_widget_bytes() }
+}
+
+/// Le widget `widget` est-il hors des bornes de la sonde ?
+///
+/// `sizes` : les tailles des fichiers du pack (ordre des noms, `_commun` en
+/// tête). Hors bornes : au-delà du nombre de fichiers chargés, plus gros que
+/// la taille chargée (lui, ou `_commun` dont il dépend), ou laissé non sondé
+/// (`unprobed`).
+fn beyond_limits(
+    widget: &str,
+    sizes: &BTreeMap<WidgetFile, usize>,
+    unprobed: &BTreeSet<WidgetFile>,
+    limits: PackLimits,
+) -> bool {
+    let Some(name) = WidgetFile::parse(widget) else { return false };
+    let rank = sizes.keys().position(|n| *n == name);
+    let large = |n: &WidgetFile| sizes.get(n).is_some_and(|len| *len > limits.max_file_bytes);
+    unprobed.contains(&name)
+        || rank.is_some_and(|r| r >= limits.max_files)
+        || large(&name)
+        || large(&WidgetFile::common())
+}
+
+/// Le pack se sonde-t-il comme déclaré ?
+///
+/// Chaque schéma déclaré est-il celui que la sonde a lu, et chaque fichier du pack est-il déclaré ?
+///
+/// `files` : les fichiers de widget du pack, `_commun` mis à part. Sinon, le
+/// nom du premier widget en écart (absent, différent ou non déclaré). Le
+/// registre sondé porte aussi la base : ses autres widgets ne sont pas du
+/// pack, d'où le contrôle des fichiers plutôt que du registre entier.
+fn check_probe(probed: &WidgetRegistry, declared: &[WidgetSchema], files: &[WidgetFile]) -> Result<(), String> {
+    if let Some(s) = declared.iter().find(|s| probed.get(&s.name) != Some(*s)) {
+        return Err(s.name.clone());
+    }
+    match files.iter().filter(|f| !f.is_common()).find(|f| !declared.iter().any(|s| s.name == f.as_str())) {
+        Some(f) => Err(f.as_str().to_owned()),
+        None => Ok(()),
+    }
+}
+
+#[cfg(test)]
+#[path = "hifi_tests.rs"]
+mod hifi_tests;

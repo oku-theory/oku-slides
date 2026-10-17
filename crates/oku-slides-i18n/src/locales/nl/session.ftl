@@ -15,6 +15,7 @@ session-unknown-pack = Pakket niet gevonden: { $id }
 session-pack-version-missing = Versie { $version } van pakket { $id } niet gevonden
 session-invalid-pack = Onleesbaar pakket: { $id }
 session-pack-id-mismatch = Dit bestand hoort bij pakket { $found }, niet bij { $id }
+session-deck-only = { $id } hoort alleen bij zijn presentatie: het wordt nooit in de bibliotheek opgeslagen
 session-editing-templates = Rond eerst het bewerken van de sjablonen af
 session-not-editing-templates = Er wordt geen sjabloonset bewerkt
 session-theme-choice-alone = Kies in de sjabloonmodus het thema afzonderlijk en bewerk daarna de tokens met set_token
@@ -427,3 +428,29 @@ theme-option-fill = Vullen
 theme-option-true = Ja
 theme-option-false = Nee
 session-undo-theme-token = Thema: { $token }
+session-import-label = PowerPoint-import
+session-import-retrofit-pack = { $pack } voor { $deck }
+session-import-unknown-pack = onbekend sjabloonpakket: { $pack }
+session-import-bad-pack = onleesbaar sjabloonpakket { $pack }: de pack.json beschrijft geen sjabloonpakket
+session-import-pack-too-large = het pakket { $path } is groter dan { $max } MiB
+session-import-reader-panic = de PowerPoint-lezer faalde onverwacht op { $path }; het bestand is niet geïmporteerd
+session-import-bad-theme = onleesbaar doelthema: de ontwerptokens konden niet worden gelezen
+session-import-probe-mismatch = het gemaakte pakket komt bij het peilen niet overeen met de declaratie (widget { $widget }): een fout in de import
+session-import-probe-limit = het gegenereerde pakket overschrijdt de grenzen van de controle (widget { $widget }): verhoog max_widgets, max_widget_kib of probe_budget_ms in de sectie [render] van de configuratie
+session-import-probe-failed = het renderproces kon het gegenereerde pakket niet controleren: { $error }
+session-import-pack-missing = de import heeft geen pakket voor het deck gemaakt: dit is een fout in de import
+session-import-theme-missing = de import heeft geen thema voor het deck gemaakt: dit is een fout in de import
+session-import-bad-threshold = score_threshold in de sectie [import] moet een getal van nul of meer zijn, niet { $value }
+session-import-tune-none = Geen import in dit tabblad: import_report en import_diff werken alleen op een uit PowerPoint geïmporteerd deck, zolang het tabblad open blijft.
+session-import-tune-hifi-only = Deze import is een retrofit: er is geen referentieweergave om mee te vergelijken. import_diff werkt alleen op een hifi-import.
+session-import-tune-no-reference = import_diff heeft de referentieweergave nodig. { $reason }
+session-import-tune-reference-pending = De referentieweergave is nog bezig; roep de tool zo meteen opnieuw aan.
+session-import-tune-unknown-slide = { $slide } is geen dia van deze import (zie import_report).
+session-import-tune-unknown-region = { $region } is geen gebied van dia { $slide }: gebruik een item-id uit import_diff.
+session-import-tune-tries-used = Dia { $slide } heeft geen pogingen meer (gebruikte pogingen: { $tries }, of geen winst over meerdere pogingen): ga door naar de volgende dia.
+session-import-tune-untunable = Dia { $slide } heeft geen pogingen: { $state ->
+        [done] hij ligt al onder de drempel
+        [witness] alleen gebieden die de referentie zelf verkeerd weergeeft liggen boven de drempel
+       *[unscored] hij heeft geen score, de referentieweergave ontbreekt
+    }. Ga door naar de volgende dia.
+session-import-tune-compare = De dia kon niet met haar referentieweergave worden vergeleken.

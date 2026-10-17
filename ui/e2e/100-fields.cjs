@@ -58,15 +58,23 @@ const editorLines = (p) => p.evaluate(() => {
   const ctx = document.createElement('canvas').getContext('2d');
   ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const ascent = ctx.measureText('Hx').fontBoundingBoxAscent;
-  const out = [];
+  // Le quasi-rendu (t-272) coupe une ligne en plusieurs rectangles (marques cachées, tampons de
+  // widget) : une ligne visuelle = un haut de rectangle (à un demi-pixel près), bord gauche le plus à gauche.
+  const rects = [];
   for (const line of content.querySelectorAll('.cm-line')) {
     const range = document.createRange();
     range.selectNodeContents(line);
     for (const r of range.getClientRects()) {
-      if (r.width > 0) out.push({ left: r.left, baseline: r.top + ascent });
+      if (r.width > 0) rects.push({ left: r.left, top: r.top });
     }
   }
-  return out.sort((a, b) => a.baseline - b.baseline);
+  const out = [];
+  for (const r of rects.sort((a, b) => a.top - b.top)) {
+    const last = out[out.length - 1];
+    if (last && Math.abs(r.top + ascent - last.baseline) < 0.5) last.left = Math.min(last.left, r.left);
+    else out.push({ left: r.left, baseline: r.top + ascent });
+  }
+  return out;
 });
 
 (async () => {
@@ -126,10 +134,13 @@ const editorLines = (p) => p.evaluate(() => {
     await field.dblclick();
     await p.waitForSelector('.editor .cm-editor.cm-focused');
     const marks = await p.locator('.editor .cm-md-mark').count();
-    const edited = marks ? [] : await editorLines(p);
+    // Une puce du quasi-rendu (t-272) est un widget de l'éditeur, pas le glyphe de Typst.
+    const markers = await p.locator('.editor .cm-md-marker').count();
+    const edited = marks || markers ? [] : await editorLines(p);
     await p.keyboard.press('Escape');
     await p.waitForSelector('.editor', { state: 'detached' });
     if (marks) return skipped.push(`${name} : marques markdown affichées dans l'éditeur (${marks})`);
+    if (markers) return skipped.push(`${name} : puces de liste dessinées par l'éditeur (${markers})`);
     if (process.env.E2E_DEBUG) console.log(name, { rendered, edited });
     const fail = (why) => failures.push(`${name} ${why}`);
     if (rendered.length === 0) fail(': aucun glyphe rendu dans le champ');
@@ -182,6 +193,19 @@ const editorLines = (p) => p.evaluate(() => {
 
   console.table(rows);
   for (const s of skipped) console.log(`ignoré : ${s}`);
+  // Les champs ignorés sont connus : un champ de plus ignoré serait une perte de couverture muette.
+  assert.deepEqual(skipped, [
+    "s-title/s-title.title : variable (la source n'a pas la largeur du rendu)",
+    "s-title/s-title.subtitle : variable (la source n'a pas la largeur du rendu)",
+    's-toc/s-toc.title : source vide (texte par défaut du rendu)',
+    "s-ch1/s-ch1.subtitle : variable (la source n'a pas la largeur du rendu)",
+    "s-constat/b-points.body : puces de liste dessinées par l'éditeur (1)",
+    "s-priorites/c1.body : puces de liste dessinées par l'éditeur (1)",
+    "s-priorites/c2.body : puces de liste dessinées par l'éditeur (1)",
+    "s-priorites/c3.body : variable (la source n'a pas la largeur du rendu)",
+    's-ch2/s-ch2.subtitle : source vide (placeholder)',
+    "s-fin/s-fin.text : variable (la source n'a pas la largeur du rendu)",
+  ]);
   assert.deepEqual(failures, []);
   assert.deepEqual(errors, []);
   await params('Afficher les paramètres').click();

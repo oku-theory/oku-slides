@@ -35,6 +35,7 @@ speculoos.workspace = true
 tokio = { workspace = true, features = ["io-util"] }
 insta.workspace = true
 tempfile.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true

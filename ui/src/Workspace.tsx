@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import App from "./App";
 import TabBar from "./TabBar";
-import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, workspace, type WorkspaceView } from "./api";
+import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, workspace, type ImportTarget, type WorkspaceView } from "./api";
 import { mayClose } from "./close";
 import { t } from "./i18n";
 import { newest } from "./latest";
 import { mergedNotice, openGuarded } from "./merge";
-import { cycle, nth, tabShortcut } from "./tabs";
+import { cycle, nth } from "./tabs";
+import { useImportJob } from "./useImportJob";
+import { useTabShortcuts } from "./useTabShortcuts";
 import { ERROR_MS } from "./useToast";
 import { useTransient } from "./useTransient";
 
@@ -192,19 +194,18 @@ export default function Workspace() {
     });
   }, [label]);
 
-  // Raccourcis des onglets.
-  useEffect(() => {
-    if (label === null) return;
-    const onKey = (e: KeyboardEvent) => {
-      const action = tabShortcut(e, isMac);
+  // L'import d'un .pptx : son dialogue (dans l'`App` active) peut se fermer pendant qu'il tourne ;
+  // un refus arrivé ensuite s'affiche ici.
+  const imports = useImportJob(setError);
+
+  // Raccourcis des onglets, retenus pendant que le dialogue d'import est ouvert.
+  useTabShortcuts(label !== null, {
+    mac: isMac,
+    windows: inTauri,
+    held: imports.holdsKeys,
+    onAction: (action) => {
       const w = winRef.current;
-      if (!action || !w) return;
-      if (action.kind === "new-window" && !inTauri) return;
-      // Pendant une saisie (texte d'une slide, champ), changer d'onglet
-      // perdrait ce qui n'est pas validé : seul Ctrl+Tab reste actif.
-      const typing = (e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]");
-      if (typing && action.kind !== "cycle") return;
-      e.preventDefault();
+      if (!w || label === null) return;
       const ids = w.tabs.map((x) => x.id);
       if (action.kind === "new-tab") run(workspace.newTab(label));
       else if (action.kind === "help") run(workspace.openHelp(label));
@@ -215,10 +216,8 @@ export default function Workspace() {
         const id = action.kind === "cycle" ? cycle(ids, w.active, action.delta) : nth(ids, action.n);
         if (id && id !== w.active) run(workspace.activate(id));
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [label, run, closeTab]);
+    },
+  });
 
   if (!view || label === null || !win) {
     return <div className="table"><p className="empty" style={{ padding: 40 }}>{error ?? t("ui-loading")}</p></div>;
@@ -239,6 +238,15 @@ export default function Workspace() {
         return v;
       }),
     );
+  // Un .pptx importé devient l'onglet actif (toujours un nouveau) : `key` remonte l'`App`, et
+  // l'import oublié ferme son dialogue. Un refus va au dialogue, ou ici s'il est déjà fermé.
+  const importFile = async (path: string, target: ImportTarget, tune: boolean) => {
+    const v = await workspace.importTab(label, path, target, tune);
+    if (alive.current) {
+      setView(v);
+      setError(null);
+    }
+  };
   const dropOutside = async (id: string) => {
     try {
       await tabDrag.drop(id);
@@ -261,6 +269,10 @@ export default function Workspace() {
           nonce={nonce}
           notice={mergeNotice}
           onOpen={onOpen}
+          importJob={imports.job?.shown ? imports.job : null}
+          onImportPick={imports.pick}
+          onImport={(target, tune) => void imports.start((path) => importFile(path, target, tune))}
+          onImportClose={imports.close}
           onHelp={() => run(workspace.openHelp(label))}
           onClose={inTauri || win.tabs.length > 1 ? () => void closeTab(win.active) : undefined}
           onChange={inTauri ? undefined : reread}

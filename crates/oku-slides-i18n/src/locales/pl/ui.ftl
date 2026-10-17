@@ -54,6 +54,7 @@ ui-toolbar-theme-embedded = Motyw z pliku
 ui-toolbar-save-copy = Zapisz kopię
 ui-toolbar-finish = Gotowe
 ui-menu-workshop = Warsztat
+ui-menu-workshop-deck-only = Te szablony należą tylko do tej prezentacji; warsztat edytuje wyłącznie szablony z biblioteki.
 ui-toolbar-open = Otwórz
 ui-merge = Scal z plikiem PDF…
 ui-menu = Menu
@@ -322,7 +323,10 @@ ui-undo-show-as-chart = Pokaż jako wykres
 
 ## Pliki
 
-ui-file-open-prompt = Ścieżka pliku do otwarcia (.oku-slides.pdf lub .json)
+ui-file-open-prompt = Ścieżka pliku do otwarcia (.oku-slides.pdf, .json lub .pptx)
+ui-file-merge-prompt = Ścieżka prezentacji do scalenia z tą (.oku-slides.pdf lub .json)
+ui-file-filter-presentations = Prezentacje
+ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Zapisz jako (pełna ścieżka)
 
 ## Karty
@@ -396,3 +400,19 @@ ui-theme-name = Nazwa motywu
 ui-theme-unsaved = Niezapisane zmiany motywu
 ui-widgets-close-tab = Zamknij { $name }
 ui-widgets-removed-by-agent = Agent usunął widżet { $name }.
+
+## Importuj
+
+ui-import-title = Importuj prezentację PowerPoint
+ui-import-mode = Tryb importu
+ui-import-hifi = Wierna kopia
+ui-import-hifi-note = Zachowuje wygląd oryginału, z motywem i szablonami utworzonymi dla tej prezentacji.
+ui-import-retrofit = Użyj moich szablonów
+ui-import-retrofit-note = Odtwarza slajdy z szablonami i motywem z biblioteki.
+ui-import-theme-default = Motyw domyślny
+ui-import-no-packs = Brak zestawu szablonów w bibliotece.
+ui-import-tune = Dopracuj z agentem
+ui-import-tune-note = Agent porównuje każdy slajd z oryginałem i poprawia różnice.
+ui-import-tune-note-retrofit = Agent porównuje każdy slajd z oryginałem i projektuje widżety dla kształtów, których Twoje szablony nie pokazują.
+ui-import-submit = Importuj
+ui-import-busy = Importowanie…

@@ -2,8 +2,8 @@
 source: crates/oku-slides-import/tests/hifi.rs
 expression: "op_lines(&plan(\"alto\"))"
 ---
-{"op":"set_theme","theme":{"id":"00000000-0000-0000-0000-000000000002","version":"sha256:92b83be33128d4d0047d576ec9a528defbbc3c547db1a1f07b55534e8e886a22"}}
-{"op":"set_templates","templates":{"id":"00000000-0000-0000-0000-000000000001","version":"sha256:1326d849d9c1a8335c08ec49d09b1e2ed987c7a1c08759edbbe15fda06ed958e"}}
+{"op":"set_theme","theme":{"id":"00000000-0000-0000-0000-000000000002","version":"sha256:8fcb0d016ab5dac766f6c810607a578755223ed983f75fd892a54db1a7f5366a"}}
+{"op":"set_templates","templates":{"id":"00000000-0000-0000-0000-000000000001","version":"sha256:26c7f58631b6b1c695fed806b3384747c60c4b3304168d605f8788aaad07c5c8"}}
 {"op":"set_deck_param","key":"lang","value":"en-US"}
 slide s1 l1-default {}
   extras s1-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}

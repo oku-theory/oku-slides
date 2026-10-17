@@ -3,8 +3,8 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use crate::SessionErrorKind;
-use crate::pack::{DEFAULT_PACK, PackManifest};
-use crate::test_support::{fresh_dir, library_of, opened_on, touch_elsewhere};
+use crate::pack::{DEFAULT_PACK, PackManifest, PackScope};
+use crate::test_support::{adopt_deck_only_pack, fresh_dir, library_of, opened_on, touch_elsewhere};
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
@@ -345,5 +345,29 @@ fn rename_and_remove_requests_in_deck_mode_make_one_version_and_one_undo_step() 
     assert_that!(manifest.parent).is_equal_to(Some(before.version.clone()));
     // Une seule étape : annuler rend la version d'avant.
     s.handle(crate::Request::Undo).unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(before));
+}
+
+#[test]
+fn set_widget_on_a_deck_only_pack_embeds_its_versions_and_leaves_the_library_unchanged() {
+    let data = fresh_dir("oku-slides-widgets-deck-only-");
+    let mut s = opened_on(data.path());
+    let before = adopt_deck_only_pack(&mut s);
+    let packs = library_of(&s).packs();
+    s.set_widget("quote", QUOTE.into()).unwrap();
+    let change = s.set_widget("quote", QUOTE_V2.into()).unwrap();
+    assert_that!(change.saved).is_true();
+    let after = s.deck().templates.clone().unwrap();
+    assert_that!(after.id).is_equal_to(before.id);
+    assert_that!(library_of(&s).packs()).is_equal_to(&packs);
+    assert_that!(library_of(&s).versions(after.id).is_empty()).is_true();
+    let files = &s.doc.sources.packs[&after.version];
+    assert_that!(files.widget(&quote())).is_equal_to(Some(QUOTE_V2));
+    let manifest = PackManifest::from_files(files).unwrap();
+    assert_that!(manifest.scope).is_equal_to(PackScope::Deck);
+    assert_that!(manifest.parent).is_equal_to(Some(before.version.clone()));
+    assert_that!(s.doc.notice).is_none();
+    assert_that!(s.pack_notice_for_deck()).is_none();
+    s.undo().unwrap();
     assert_that!(s.deck().templates.clone()).is_equal_to(Some(before));
 }

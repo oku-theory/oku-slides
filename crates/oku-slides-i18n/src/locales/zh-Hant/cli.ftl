@@ -35,20 +35,10 @@ cli-forbidden = 請求遭拒：並非來自本機介面
 cli-unauthorized = 請求遭拒：缺少存取權杖或權杖錯誤
 cli-exposed = 正在 { $host } 上監聽：伺服器可從網路連線；只有出示本次啟動權杖的用戶端才會得到服務。若不需要網路，請將 [serve] host 保持為 127.0.0.1
 cli-imported = { $path }：{ $slides }張投影片，{ $pages }頁，{ $losses }處損失，{ $requests }個小工具請求
-cli-import-label = PowerPoint 匯入
 cli-import-pack-required = retrofit 模式需要 --pack：範本套件的 ID、資料夾或名稱
-cli-import-unknown-pack = 未知的範本套件：{ $pack }
-cli-import-bad-pack = 無法讀取範本套件 { $pack }：其 pack.json 未描述範本套件
-cli-import-bad-theme = 無法讀取目標主題：無法讀取其設計權杖
 cli-import-write-failed = 無法寫入匯入的簡報 { $path }
 cli-import-hifi-no-target = --pack 與 --theme 僅用於 retrofit 模式：高保真匯入（--mode hifi）會產生自己的範本套件與主題
-cli-import-probe-mismatch = 產生的範本套件探測結果與宣告不符（元件 { $widget }）：這是匯入程式的缺陷
-cli-import-probe-limit = 產生的套件超出檢查限制（元件 { $widget }）：請在設定的 [render] 區段提高 max_widgets、max_widget_kib 或 probe_budget_ms
-cli-import-probe-failed = 轉譯程序無法檢查產生的套件：{ $error }
-cli-import-pack-missing = 匯入沒有為簡報產生套件：這是匯入的缺陷
-cli-import-theme-missing = 匯入沒有為簡報產生主題：這是匯入的缺陷
 cli-import-reference-hifi-only = --reference 屬於 hifi 模式：retrofit 匯入不與參考轉譯比較
-cli-import-bad-threshold = [import] 區段的 score_threshold 必須是大於或等於 0 的數，而不是 { $value }
 cli-import-scored = 與 { $witness } 的視覺差異：平均 { $mean }，超過 { $threshold } 的投影片 { $above ->
    *[other] { $above }張
 }

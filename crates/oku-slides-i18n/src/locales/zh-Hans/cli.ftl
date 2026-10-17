@@ -35,20 +35,10 @@ cli-forbidden = 请求被拒绝：并非来自本地界面
 cli-unauthorized = 请求被拒绝：缺少访问令牌或令牌错误
 cli-exposed = 正在 { $host } 上监听：服务器可从网络访问；只有出示本次启动令牌的客户端才会得到服务。如不需要网络，请将 [serve] host 保持为 127.0.0.1
 cli-imported = { $path }：{ $slides }张幻灯片，{ $pages }页，{ $losses }处损失，{ $requests }个小组件请求
-cli-import-label = PowerPoint 导入
 cli-import-pack-required = retrofit 模式需要 --pack：模板包的 ID、文件夹或名称
-cli-import-unknown-pack = 未知的模板包：{ $pack }
-cli-import-bad-pack = 无法读取模板包 { $pack }：其 pack.json 未描述模板包
-cli-import-bad-theme = 无法读取目标主题：无法读取其设计令牌
 cli-import-write-failed = 无法写入导入的演示文稿 { $path }
 cli-import-hifi-no-target = --pack 和 --theme 仅用于 retrofit 模式：高保真导入（--mode hifi）会生成自己的模板包和主题
-cli-import-probe-mismatch = 生成的模板包探测结果与声明不符（组件 { $widget }）：这是导入程序的缺陷
-cli-import-probe-limit = 生成的包超出检查限制（组件 { $widget }）：请在配置的 [render] 部分提高 max_widgets、max_widget_kib 或 probe_budget_ms
-cli-import-probe-failed = 渲染进程无法检查生成的包：{ $error }
-cli-import-pack-missing = 导入没有为演示文稿生成包：这是导入的缺陷
-cli-import-theme-missing = 导入没有为演示文稿生成主题：这是导入的缺陷
 cli-import-reference-hifi-only = --reference 属于 hifi 模式：retrofit 导入不与参考渲染比较
-cli-import-bad-threshold = [import] 部分的 score_threshold 必须是大于或等于 0 的数，而不是 { $value }
 cli-import-scored = 与 { $witness } 的视觉差异：平均 { $mean }，超过 { $threshold } 的幻灯片 { $above ->
    *[other] { $above }张
 }

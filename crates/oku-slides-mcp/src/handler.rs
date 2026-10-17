@@ -48,6 +48,7 @@ impl Tools {
         let turn = self.hub.turn();
         match name {
             "deck_outline" => self.deck_outline().await,
+            "theme_tokens" => self.theme_tokens(args).await,
             "widgets" => self.widgets().await,
             "slide" => self.slide(args).await,
             "render_slide" => self.render_slide(args).await,
@@ -64,6 +65,8 @@ impl Tools {
             "remove_widget" => self.remove_widget(args).await,
             "preview_widget" => self.preview_widget(args).await,
             "set_widget_trial" => self.set_widget_trial(args).await,
+            "import_report" => self.import_report().await,
+            "import_diff" => self.import_diff(args).await,
             "focus" => self.focus(args),
             "ask_choice" => self.ask_choice(turn, args).await,
             "ask_confirm" => self.ask_confirm(args).await,

@@ -15,6 +15,7 @@ session-unknown-pack = Пакет не найден: { $id }
 session-pack-version-missing = Версия { $version } пакета { $id } не найдена
 session-invalid-pack = Не удаётся прочитать пакет: { $id }
 session-pack-id-mismatch = Этот файл относится к пакету { $found }, а не { $id }
+session-deck-only = { $id } принадлежит только своей презентации: он никогда не сохраняется в библиотеке
 session-editing-templates = Сначала завершите редактирование шаблонов
 session-not-editing-templates = Ни один набор шаблонов не редактируется
 session-theme-choice-alone = В режиме шаблонов выберите тему отдельно, а затем измените её токены с помощью set_token
@@ -427,3 +428,29 @@ theme-option-fill = Заполнить
 theme-option-true = Да
 theme-option-false = Нет
 session-undo-theme-token = Тема: { $token }
+session-import-label = Импорт из PowerPoint
+session-import-retrofit-pack = { $pack } для { $deck }
+session-import-unknown-pack = неизвестный пакет: { $pack }
+session-import-bad-pack = нечитаемый пакет { $pack }: его pack.json не описывает пакет шаблонов
+session-import-pack-too-large = пакет { $path } больше { $max } МиБ
+session-import-reader-panic = модуль чтения PowerPoint неожиданно сбоил на { $path }; файл не импортирован
+session-import-bad-theme = нечитаемая целевая тема: не удалось прочитать её токены оформления
+session-import-probe-mismatch = созданный пакет не прошёл проверку в соответствии с объявлением (виджет { $widget }): это ошибка импорта
+session-import-probe-limit = созданный пакет превышает ограничения проверки (виджет { $widget }): увеличьте max_widgets, max_widget_kib или probe_budget_ms в разделе [render] конфигурации
+session-import-probe-failed = процесс рендеринга не смог проверить созданный пакет: { $error }
+session-import-pack-missing = импорт не создал пакет для презентации: это ошибка импорта
+session-import-theme-missing = импорт не создал тему для презентации: это ошибка импорта
+session-import-bad-threshold = score_threshold в разделе [import] должен быть числом не меньше нуля, а не { $value }
+session-import-tune-none = В этой вкладке нет импорта: import_report и import_diff работают только с презентацией, импортированной из PowerPoint, пока её вкладка открыта.
+session-import-tune-hifi-only = Этот импорт — retrofit: у него нет эталонной отрисовки для сравнения. import_diff работает только с импортом hi-fi.
+session-import-tune-no-reference = Для import_diff нужна эталонная отрисовка. { $reason }
+session-import-tune-reference-pending = Эталонная отрисовка ещё выполняется; вызовите инструмент снова чуть позже.
+session-import-tune-unknown-slide = { $slide } — не слайд этого импорта (см. import_report).
+session-import-tune-unknown-region = { $region } — не область слайда { $slide }: используйте id элемента из import_diff.
+session-import-tune-tries-used = У слайда { $slide } не осталось попыток (использовано попыток: { $tries }, или нет улучшения за несколько попыток): переходите к следующему слайду.
+session-import-tune-untunable = У слайда { $slide } нет попыток: { $state ->
+        [done] он уже ниже порога
+        [witness] порог превышают только области, которые сам эталон отображает неверно
+       *[unscored] у него нет оценки, эталонная отрисовка отсутствует
+    }. Переходите к следующему слайду.
+session-import-tune-compare = Не удалось сравнить слайд с его эталонной отрисовкой.

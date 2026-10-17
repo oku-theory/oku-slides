@@ -24,6 +24,7 @@ use super::element::{ElementCtx, elements};
 use super::element_text::placeholder_text;
 use super::pack::GeneratedPack;
 use super::widget::{DECOR_PARAM, EXTRAS_PARAM, LayoutWidget, PAGE_NUMBER, PlaceholderParam, is_plain};
+use crate::plan::ItemTarget;
 use crate::report::{Loss, LossKind, Placement, SlideReport};
 use crate::retrofit::text::{note, plain};
 use crate::source::{
@@ -46,6 +47,10 @@ pub(super) struct Projected {
     pub(super) assets: BTreeSet<String>,
     /// L'élément `text` de chaque item qui porte du texte (id d'item, id d'élément).
     pub(super) origins: Vec<(String, String)>,
+    /// Ce que l'agent corrige pour chaque item projeté.
+    ///
+    /// Ses éléments, ou le paramètre qu'il remplit.
+    pub(super) targets: Vec<(String, ItemTarget)>,
 }
 
 /// Ce dont la projection d'une slide a besoin.
@@ -68,7 +73,14 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
     let widget = layout.and_then(|l| cx.pack.widget(&l.id));
     let kind = widget.map_or(BLANK, |w| w.name.as_str());
     let mut slide = Slide::new(id.clone(), kind);
-    let mut out = Out { id: id.clone(), rank: 0, extras: Vec::new(), assets: BTreeSet::new(), origins: Vec::new() };
+    let mut out = Out {
+        id: id.clone(),
+        rank: 0,
+        extras: Vec::new(),
+        assets: BTreeSet::new(),
+        origins: Vec::new(),
+        targets: Vec::new(),
+    };
     let mut losses = Vec::new();
     if src.hidden {
         losses.push(Loss::slide(LossKind::HiddenSlide));
@@ -101,6 +113,7 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
                 }
                 if let Some(value) = param_value(item, p, ph, cx, &mut losses) {
                     slide.params.set(&p.param, value);
+                    out.targets.push((item.id.clone(), ItemTarget::Param(p.param.clone())));
                 }
             }
             None => out.place(item, cx, &mut losses),
@@ -122,7 +135,7 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
         fallbacks: Vec::new(),
         score: None,
     };
-    Projected { slide, report, assets: out.assets, origins: out.origins }
+    Projected { slide, report, assets: out.assets, origins: out.origins, targets: out.targets }
 }
 
 /// Les éléments de `extras` en cours.
@@ -132,6 +145,7 @@ struct Out {
     extras: Vec<oku_slides_core::Element>,
     assets: BTreeSet<String>,
     origins: Vec<(String, String)>,
+    targets: Vec<(String, ItemTarget)>,
 }
 
 impl Out {
@@ -145,6 +159,7 @@ impl Out {
         self.extras.extend(placed.elements);
         self.assets.extend(placed.assets);
         self.origins.extend(placed.origins);
+        self.targets.extend(placed.by_item.into_iter().map(|(item, ids)| (item, ItemTarget::Elements(ids))));
         for l in placed.losses {
             note(losses, l);
         }

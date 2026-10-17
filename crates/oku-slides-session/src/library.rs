@@ -40,7 +40,8 @@ use oku_slides_platform::storage::Storage;
 
 use crate::Result;
 use crate::error::{
-    NoLibraryDirSnafu, PackIdMismatchSnafu, PackJsonSnafu, PackVersionMissingSnafu, UnknownPackSnafu, WriteSnafu,
+    DeckOnlySnafu, NoLibraryDirSnafu, PackIdMismatchSnafu, PackJsonSnafu, PackVersionMissingSnafu, UnknownPackSnafu,
+    WriteSnafu,
 };
 use crate::library_index::{Current, Index, Indexed, PackEntry};
 use crate::library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
@@ -133,6 +134,13 @@ pub struct Library<K: LibraryKind> {
 
 /// La bibliothèque des packs de modèles.
 pub type PackLibrary = Library<Templates>;
+
+impl Library<Templates> {
+    /// Les packs de l'utilisateur (`paths.templates` des réglages), et les intégrés.
+    pub fn user(platform: &oku_slides_platform::Platform) -> Self {
+        Self::new(Some(platform.settings.paths.templates()), platform.storage.clone())
+    }
+}
 
 impl<K: LibraryKind> Library<K> {
     /// `dir` : `<data>/<K::DIR>`, créé à la première écriture.
@@ -347,14 +355,17 @@ impl<K: LibraryKind> Library<K> {
     /// Ajoute une version sans toucher la version courante ; vrai si elle
     /// était nouvelle. Un pack inconnu est créé, cette version courante.
     ///
-    /// Les fichiers sont validés d'abord : un `pack.json` illisible ou d'un
-    /// autre pack est refusé, rien n'est écrit.
+    /// Les fichiers sont validés d'abord : un `pack.json` illisible, d'un
+    /// autre pack ou d'une version du deck seul (`DeckOnly`) est refusé,
+    /// rien n'est écrit.
     pub fn add_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
         self.add(id, files, Origin::Local)
     }
 
-    /// Comme [`Self::add_version`], pour une version arrivée avec un deck :
-    /// nouvelle, elle est marquée reçue (fichier `received`, écrit d'abord).
+    /// Comme [`Self::add_version`], pour une version arrivée avec un deck.
+    ///
+    /// Nouvelle, elle est marquée reçue (fichier `received`, écrit d'abord). Une version du deck
+    /// seul est refusée de même, avant toute marque.
     pub fn receive_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
         self.add(id, files, Origin::Received)
     }
@@ -363,6 +374,7 @@ impl<K: LibraryKind> Library<K> {
         let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
         let manifest = K::Manifest::from_files(files).context(PackJsonSnafu { id })?;
         ensure!(manifest.id() == id, PackIdMismatchSnafu { id, found: manifest.id() });
+        ensure!(manifest.scope().is_library(), DeckOnlySnafu { id });
         // Une sorte sans widgets les perdrait à l'écriture, mais ils compteraient dans l'empreinte.
         debug_assert!(K::HAS_WIDGETS || files.widgets().is_empty(), "widgets given to a kind without widgets");
         let version = files.version();

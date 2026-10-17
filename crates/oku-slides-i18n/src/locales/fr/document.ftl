@@ -104,6 +104,12 @@ import-reference-unavailable = Pas d'écart visuel : { $cause ->
     [missing] LibreOffice (soffice) est introuvable ; indiquez son chemin dans import.soffice
    *[failed] le témoin n'a pas pu lire la présentation
 }
+import-region-suspect = Écart mis de côté, erreur connue du témoin : { $limit ->
+    [autofit] il rétrécit un texte ajusté à sa boîte quand PowerPoint n'a enregistré aucune échelle
+    [tracking] il dessine plus large un texte interlettré
+    [chart] il ne dessine les graphiques qu'à peu près
+   *[smart_art] il dessine le texte des SmartArt trop petit
+}
 import-font-substituted = { $family } remplacée par { $by }, aux métriques compatibles
 import-font-missing = { $family } introuvable : le texte prend { $by }
 import-font-restricted = { $family } : sa licence interdit d'embarquer certaines de ses faces dans le deck ; le texte de ces styles prend ses autres faces

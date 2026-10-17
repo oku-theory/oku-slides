@@ -257,7 +257,9 @@ impl Session {
     ///
     /// Un brouillon qui diffère de sa base devient une version courante :
     /// du même thème pour un thème de l'utilisateur, d'une copie pour un
-    /// intégré. Sinon, une base autre que le thème du deck est retenue.
+    /// intégré. Sinon, une base autre que le thème du deck est retenue. Le
+    /// brouillon d'un thème du deck seul en reste une version, jamais écrite
+    /// dans la bibliothèque.
     pub(crate) fn save_theme_edit(&mut self) -> Result<Option<ThemeRef>> {
         let Mode::Templates { theme, .. } = &self.mode else {
             return NotEditingTemplatesSnafu.fail()?;
@@ -281,13 +283,20 @@ impl Session {
                 description: base.description,
                 parent: Some(edit.base.version.clone()),
                 created: now_created(),
+                scope: base.scope,
                 tokens,
             };
             let files = manifest.to_files().context(ThemeJsonSnafu { id })?;
-            self.themes.add_version(id, &files)?;
-            self.themes.set_current(id, &files.version())?;
-            self.theme_list = self.themes.themes();
-            ThemeRef { id, version: files.version() }
+            let version = files.version();
+            if manifest.scope.is_library() {
+                self.themes.add_version(id, &files)?;
+                self.themes.set_current(id, &version)?;
+                self.theme_list = self.themes.themes();
+            } else {
+                // Du deck seul : le deck de travail la porte, le deck mis de côté la recevra.
+                self.doc.sources.add_theme(files);
+            }
+            ThemeRef { id, version }
         } else if self.deck_theme() != Some(&edit.base) {
             edit.base
         } else {

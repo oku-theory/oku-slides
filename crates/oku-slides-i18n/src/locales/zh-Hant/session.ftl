@@ -15,6 +15,7 @@ session-unknown-pack = 找不到套件：{ $id }
 session-pack-version-missing = 找不到套件 { $id } 的版本 { $version }
 session-invalid-pack = 無法讀取套件：{ $id }
 session-pack-id-mismatch = 此檔案屬於套件 { $found }，而非 { $id }
+session-deck-only = { $id } 僅屬於其簡報：永遠不會儲存到資料庫中
 session-editing-templates = 請先完成範本編輯
 session-not-editing-templates = 目前沒有正在編輯的範本集
 session-theme-choice-alone = 在範本模式下，請單獨選擇主題，然後使用 set_token 編輯其權杖
@@ -427,3 +428,29 @@ theme-option-fill = 填滿
 theme-option-true = 是
 theme-option-false = 否
 session-undo-theme-token = 主題：{ $token }
+session-import-label = PowerPoint 匯入
+session-import-retrofit-pack = 適用於 { $deck } 的 { $pack }
+session-import-unknown-pack = 未知的範本套件：{ $pack }
+session-import-bad-pack = 無法讀取範本套件 { $pack }：其 pack.json 未描述範本套件
+session-import-pack-too-large = 套件 { $path } 超過 { $max } MiB
+session-import-reader-panic = PowerPoint 讀取器在 { $path } 上意外失敗；檔案未匯入
+session-import-bad-theme = 無法讀取目標主題：無法讀取其設計權杖
+session-import-probe-mismatch = 產生的範本套件探測結果與宣告不符（元件 { $widget }）：這是匯入程式的缺陷
+session-import-probe-limit = 產生的套件超出檢查限制（元件 { $widget }）：請在設定的 [render] 區段提高 max_widgets、max_widget_kib 或 probe_budget_ms
+session-import-probe-failed = 轉譯程序無法檢查產生的套件：{ $error }
+session-import-pack-missing = 匯入沒有為簡報產生套件：這是匯入的缺陷
+session-import-theme-missing = 匯入沒有為簡報產生主題：這是匯入的缺陷
+session-import-bad-threshold = [import] 區段的 score_threshold 必須是大於或等於 0 的數，而不是 { $value }
+session-import-tune-none = 此分頁中沒有匯入：import_report 和 import_diff 僅適用於從 PowerPoint 匯入的簡報，且其分頁需保持開啟。
+session-import-tune-hifi-only = 此匯入為 retrofit：沒有可比較的參考算繪。import_diff 僅適用於 hi-fi 匯入。
+session-import-tune-no-reference = import_diff 需要參考算繪。{ $reason }
+session-import-tune-reference-pending = 參考算繪仍在進行中，請稍後再次呼叫該工具。
+session-import-tune-unknown-slide = { $slide } 不是此匯入的投影片（請參閱 import_report）。
+session-import-tune-unknown-region = { $region } 不是投影片 { $slide } 的區域：請使用 import_diff 提供的項目 ID。
+session-import-tune-tries-used = 投影片 { $slide } 已無剩餘嘗試（已用嘗試：{ $tries }，或連續多次沒有改善）：請繼續下一張投影片。
+session-import-tune-untunable = 投影片 { $slide } 沒有嘗試次數：{ $state ->
+        [done] 它已低於閾值
+        [witness] 超過閾值的只有參考渲染本身畫錯的區域
+       *[unscored] 它沒有分數，缺少參考渲染
+    }。請繼續下一張投影片。
+session-import-tune-compare = 無法將投影片與其參考算繪進行比較。

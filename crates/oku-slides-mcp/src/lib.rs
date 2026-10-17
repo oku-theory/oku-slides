@@ -14,6 +14,7 @@ mod error;
 mod guarded_tools;
 mod handler;
 mod hub;
+mod import_tools;
 mod paths;
 mod read_tools;
 mod server;

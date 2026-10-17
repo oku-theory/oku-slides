@@ -17,7 +17,7 @@ const TOLERANCE: f64 = 1.0;
 /// Ajoute à `report` une perte `Overflow` par champ non vide de `layout` qui
 /// sort de sa page et, en retrofit, par boîte d'élément qui passe sous la
 /// marge basse, sur la slide qui le porte (la première fois seulement).
-pub(crate) fn note_overflows(layout: &Layout, report: &mut ImportReport) {
+pub fn note_overflows(layout: &Layout, report: &mut ImportReport) {
     let page = layout.tokens.as_ref().and_then(|t| t.as_object()).map(PageTokens::from_tokens).unwrap_or_default();
     for field in layout.fields.iter().filter(|f| !f.empty) {
         let inside = field.x >= -TOLERANCE
@@ -48,5 +48,5 @@ fn note(layout: &Layout, report: &mut ImportReport, page: usize, element: String
 }
 
 #[cfg(test)]
-#[path = "import_overflow_tests.rs"]
-mod import_overflow_tests;
+#[path = "overflow_tests.rs"]
+mod overflow_tests;

@@ -22,6 +22,12 @@ const columns = (p) => p.evaluate(() => {
   // La scène est mise à l'échelle au chargement, puis la fenêtre rétrécit : elle doit suivre.
   for (const [width, height] of [[1440, 900], [1024, 640], [1000, 700]]) {
     await p.setViewportSize({ width, height });
+    // La mise à l'échelle de la scène suit le rendu React, qui peut prendre plus de deux images quand le
+    // fil de l'agent est chargé (specs 060 à 080) : `stable` seul la mesurerait encore à l'ancienne taille.
+    await until(p, async () => {
+      const c = await columns(p);
+      return c.stage.left >= c.pile && c.stage.right <= c.notes;
+    }, `${width} px : la feuille ne suit pas la fenêtre`);
     await stable(p, COLUMNS);
     const c = await columns(p);
     assert.ok(c.stage.left >= c.pile, `${width} px : la feuille chevauche la pile (${c.stage.left} < ${c.pile})`);

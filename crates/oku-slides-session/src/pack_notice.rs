@@ -5,17 +5,31 @@
 //! n'est pas la courante de son pack, un bandeau le dit, avec deux actions :
 //! passer le deck à ma version (annulable), ou faire de la sienne ma version
 //! courante. Il ne bloque jamais l'ouverture ; fermé, il ne revient plus
-//! pour ce deck dans cette session.
+//! pour ce deck dans cette session. Un pack du deck seul (`PackScope::Deck`)
+//! n'est jamais reçu dans la bibliothèque et n'a pas de bandeau.
 
 use serde::Serialize;
 use snafu::OptionExt;
 use uuid::Uuid;
 
-use oku_slides_core::{Op, PackRef};
+use oku_slides_core::{Op, PackFiles, PackRef};
 
 use crate::error::UnknownPackSnafu;
 use crate::pack::{PackManifest, Relation};
 use crate::{Result, Session};
+
+/// Vrai si la version `files` n'appartient qu'à un deck.
+///
+/// Une portée illisible ne l'est pas : journalisée, le pack est traité comme de la bibliothèque.
+fn is_deck_only(files: &PackFiles) -> bool {
+    match files.scope() {
+        Ok(scope) => !scope.is_library(),
+        Err(e) => {
+            tracing::warn!(error = %e, "portée du pack illisible : traité comme de la bibliothèque");
+            false
+        }
+    }
+}
 
 /// Le bandeau : la version du deck n'est pas la courante de son pack.
 #[derive(Debug, Clone, PartialEq)]
@@ -46,9 +60,11 @@ impl Session {
     ///
     /// Une version déjà connue ou nouvelle d'un pack connu ne change jamais
     /// sa version courante ; un pack inconnu est créé, celle-ci courante.
+    /// Une version du deck seul reste dans le deck.
     pub(crate) fn receive_packs(&self) {
         for files in self.doc.sources.packs.values() {
             let id = match PackManifest::from_files(files) {
+                Ok(m) if !m.scope.is_library() => continue,
                 Ok(m) => m.id,
                 Err(e) => {
                     tracing::warn!(version = %files.version(), error = %e, "pack reçu illisible");
@@ -62,25 +78,39 @@ impl Session {
     }
 
     /// Le bandeau du deck ouvert, s'il en faut un.
+    ///
+    /// Jamais pour un pack du deck seul.
     pub(crate) fn pack_notice_for_deck(&self) -> Option<PackNotice> {
         let r = self.doc.sources.deck().templates.clone()?;
         if self.pack_notices_closed.contains(&r) {
             return None;
         }
+        if self.deck_pack_is_deck_only() {
+            return None;
+        }
+        let manifest = self.doc.sources.packs.get(&r.version).and_then(|f| PackManifest::from_files(f).ok());
         let current = self.library.current(r.id)?;
         let relation = self.library.relation(r.id, &r.version, &current);
         if relation == Relation::Same {
             return None;
         }
-        let name = self
-            .doc
-            .sources
-            .packs
-            .get(&r.version)
-            .and_then(|f| PackManifest::from_files(f).ok())
-            .map(|m| m.name)
-            .unwrap_or_default();
+        let name = manifest.map(|m| m.name).unwrap_or_default();
         Some(PackNotice { pack: r, name, relation })
+    }
+
+    /// Vrai si le pack du deck n'appartient qu'à lui (`PackScope::Deck`) : l'atelier ne l'édite pas.
+    ///
+    /// Lu à chaque instantané : la seule clé `scope`, jamais tout le `pack.json`.
+    pub(crate) fn deck_pack_is_deck_only(&self) -> bool {
+        let deck = self.doc.sources.deck();
+        let files = deck.templates.as_ref().and_then(|r| self.doc.sources.packs.get(&r.version));
+        files.is_some_and(is_deck_only)
+    }
+
+    /// Vrai si le deck embarque le pack `id` en version du deck seul.
+    pub(crate) fn embeds_deck_only_pack(&self, id: uuid::Uuid) -> bool {
+        let deck_only = self.user_blobs().packs.values().filter(|f| is_deck_only(f));
+        deck_only.filter_map(|f| PackManifest::from_files(f).ok()).any(|m| m.id == id)
     }
 
     /// Le bandeau, s'il vaut encore pour le pack du deck.

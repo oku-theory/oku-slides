@@ -80,6 +80,10 @@ pub(crate) struct Placed {
     /// L'élément `text` de chaque item qui porte du texte (id d'item, id
     /// d'élément) : là où la couverture cherche ses runs.
     pub(crate) origins: Vec<(String, String)>,
+    /// Les éléments de chaque item, groupes compris : ce que l'agent corrige.
+    ///
+    /// Par id d'item, les ids d'éléments dans l'ordre du dessin, pour sa région.
+    pub(crate) by_item: Vec<(String, Vec<String>)>,
 }
 
 /// Les éléments de `item`, chacun d'id `next_id()` (`s<numéro>-<rang>`).
@@ -130,7 +134,17 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
         &mut self.out.elements[last]
     }
 
+    /// Les éléments de `item`, notés à son id ([`Placed::by_item`]) s'il en a.
     fn item(&mut self, item: &Item) {
+        let start = self.out.elements.len();
+        self.convert(item);
+        let ids: Vec<String> = self.out.elements[start..].iter().map(|e| e.id.clone()).collect();
+        if !ids.is_empty() {
+            self.out.by_item.push((item.id.clone(), ids));
+        }
+    }
+
+    fn convert(&mut self, item: &Item) {
         let f = &item.frame;
         if self.ctx.effects.contains(&item.id) {
             self.lose(item, LossKind::Effects);

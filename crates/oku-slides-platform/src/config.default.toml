@@ -55,13 +55,14 @@ max_widget_kib = 256
 max_widgets = 64
 
 [import]
-# Import hi-fi : écart (ΔE OKLab ×100) de la pire région d'une slide au rendu de
-# référence du témoin au-delà duquel le rapport signale la slide. Mesuré sur alto
-# (office2pdf 0.8.1) : un titre aligné à 1 px près vaut 7,7 à 8,3 (le bruit), les
-# vrais écarts 8,7 à 22,5, les erreurs du témoin jusqu'à 46. À 10, l'écart d'indentation des puces de
-# alto p. 8 (pire région 8,72) n'est pas signalé (les régions le désignent) ;
-# recalibrer le seuil relève du classement tenant compte de l'autofit (t-884).
-score_threshold = 10.0
+# Import hi-fi : écart (ΔE OKLab ×100) de la pire région non suspecte d'une slide
+# au rendu de référence du témoin au-delà duquel le rapport signale la slide (les
+# régions suspectes, erreurs connues d'office2pdf, ne comptent pas). Mesuré sur
+# alto, libreoffice et kitchen (office2pdf 0.8.1, 2026-10-16) : bruit au plus 5,8,
+# vrais écarts 8,7 (kitchen p. 2) à 22,5 (tableaux), sur alto 9,38 (ligne
+# d'introduction p. 6) et 15,71 (encadré p. 7). Sous LibreOffice
+# (`--reference soffice`), non calibré, le même seuil vaut, sans région suspecte.
+score_threshold = 7.0
 # Durée maximale d'une tranche de 20 slides du rendu de référence (ms), dans son
 # propre processus de rendu ; au-delà, la référence manque au rapport (« timeout »).
 reference_timeout_ms = 30000
@@ -73,6 +74,21 @@ soffice = ["/Applications/LibreOffice.app/Contents/MacOS/soffice", "soffice"]
 # Durée maximale de LibreOffice pour une tranche de 20 slides (ms), profil neuf
 # compris ; passé elle, il est tué avec ses processus enfants.
 soffice_timeout_ms = 60000
+# Ajustement d'un import hi-fi par l'agent (outils `import_report`, `import_diff`) :
+# essais par slide, un essai étant une note d'une slide dont la page rendue (son
+# raster) a changé depuis sa note précédente, par l'un ou l'autre outil (au moins 1).
+tune_iterations = 3
+# Essais de suite sans gain sur l'excès total de la slide (somme de ce que ses
+# régions non suspectes dépassent le seuil) après lesquels elle est arrêtée
+# (« stalled ») ; au moins 1.
+tune_stall = 2
+# Essais du deck entier : une page changée par un changement du thème, du pack, des
+# jetons ou des paramètres du deck coûte un essai global par état du deck jamais noté,
+# quel que soit le nombre de slides changées, et aucun essai de slide ; revenir à un
+# état déjà noté (le même contenu du thème et du pack, même enregistré dans une
+# nouvelle version) est gratuit. Épuisés, ces changements coûtent un essai à chaque
+# slide changée (au moins 1).
+tune_global = 3
 
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.

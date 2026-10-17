@@ -246,6 +246,22 @@ fn add_version_of_another_pack_is_refused_and_writes_nothing() {
 }
 
 #[test]
+fn add_version_of_a_deck_only_pack_is_refused_and_writes_nothing() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    let mut m = manifest(id, "Importé", None, "2026-10-01T10:00:00Z");
+    m.scope = oku_slides_core::PackScope::Deck;
+    let err = lib.add_version(id, &m.to_files(BTreeMap::new()).unwrap()).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::DeckOnly);
+    let message = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("fr")));
+    assert_that!(message).contains(id.to_string().as_str());
+    let english = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("en")));
+    assert_that!(message).is_not_equal_to(english);
+    assert_that!(dir.path().join(id.to_string()).exists()).is_false();
+}
+
+#[test]
 fn replace_version_keeps_old_when_it_is_the_parent_of_the_new_one() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
@@ -433,6 +449,18 @@ fn receive_version_of_an_unknown_pack_lists_it_as_received() {
     let info = lib.packs().into_iter().find(|p| p.id == id).unwrap();
     assert_that!((info.version, info.received)).is_equal_to((r.version.clone(), true));
     assert_that!(lib.is_received(id, &r.version)).is_true();
+}
+
+#[test]
+fn receive_version_of_a_deck_only_pack_is_refused_and_writes_no_mark() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    let mut m = manifest(id, "Importé", None, "2026-10-01T10:00:00Z");
+    m.scope = oku_slides_core::PackScope::Deck;
+    let err = lib.receive_version(id, &m.to_files(BTreeMap::new()).unwrap()).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::DeckOnly);
+    assert_that!(dir.path().join(id.to_string()).exists()).is_false();
 }
 
 #[test]

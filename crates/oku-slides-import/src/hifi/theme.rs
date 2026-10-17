@@ -28,7 +28,7 @@
 use serde_json::{Map, Value, json};
 use uuid::Uuid;
 
-use oku_slides_core::ThemeManifest;
+use oku_slides_core::{PackScope, ThemeManifest};
 
 use super::color::{SLOT_TOKENS, ThemeColors};
 use super::page::Page;
@@ -134,7 +134,7 @@ fn bare_tokens() -> Map<String, Value> {
     tokens
 }
 
-/// Le `theme.json` du thème généré (première version, sans parent).
+/// Le `theme.json` du thème généré (première version, sans parent, du deck seul).
 pub(crate) fn theme_manifest(tokens: Map<String, Value>, id: Uuid, name: &str, created: &str) -> ThemeManifest {
     ThemeManifest {
         id,
@@ -142,6 +142,7 @@ pub(crate) fn theme_manifest(tokens: Map<String, Value>, id: Uuid, name: &str, c
         description: String::new(),
         parent: None,
         created: created.to_owned(),
+        scope: PackScope::Deck,
         tokens,
     }
 }

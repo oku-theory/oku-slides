@@ -21,6 +21,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Kill the agent and report it stopped if its handshake is not done within READY_WITHIN (120 s). (spec:2026-09-27-agent-onglets-design)
 - Call Stack after_change only for requests that change the deck. (t-249, t-252)
 - Keep started and closed tabs under one stack table lock so a closed tab never starts again. (t-253)
+- Send the import instructions only in a Tune turn, hidden before the context; the thread shows only its short text. (t-692)
+- Start a Tune turn only from the host through Stack::tune; never deserialize AgentCommand::Tune from the UI. (t-692)
 
 ## Pitfalls
 

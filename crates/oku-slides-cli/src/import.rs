@@ -1,52 +1,37 @@
 //! `oku-slides import` : une présentation PowerPoint en deck Oku.
 //!
-//! Mode `retrofit` (lot 2, le défaut) : le contenu de la présentation est
-//! projeté sur un pack et un thème existants (`oku_slides_import::retrofit`).
-//! Le pack est obligatoire (id, dossier ou nom) ; le thème est facultatif (id
-//! ou nom ; défaut : le thème par défaut).
+//! Par l'import de la session (`oku_slides_session::import`), le même que l'app.
 //!
-//! Mode `hifi` (lot 3, [`crate::import_hifi`]) : la présentation est reproduite
-//! fidèlement sur un pack et un thème générés pour elle, embarqués dans le
-//! deck seulement ; `--pack` et `--theme` y sont refusés.
+//! Mode `retrofit` (le défaut) : le contenu est projeté sur un pack et un
+//! thème existants ; `--pack` est obligatoire (id, dossier ou nom), `--theme`
+//! facultatif (id ou nom ; défaut : le thème par défaut). Mode `hifi` : la
+//! présentation est reproduite fidèlement sur un pack et un thème générés pour
+//! elle, embarqués dans le deck seulement ; `--pack` et `--theme` y sont refusés.
 //!
-//! Dans les deux modes, la lecture et la taille du plan sont bornées
-//! ([`ReadLimits`] ; `max_output_bytes` et `max_replica_bytes` viennent de
-//! `[sources] max_sources_mib` et `max_replica_mib`, bornes de réouverture d'un
-//! deck : une estimation précoce du contenu produit, pas une garantie), puis les
-//! ops du plan s'appliquent en une transaction et le deck est rendu et enregistré
-//! en `.oku-slides.pdf`, comme `save`, avec son rapport s'il est demandé. Le
-//! rendu relève les champs qui sortent de leur page, et en retrofit les boîtes
-//! sous la marge basse (perte `Overflow`,
-//! [`crate::import_overflow`]) ; en hi-fi, sauf `--reference none`, il est
-//! comparé au rendu de référence du témoin ([`crate::import_reference`] ;
-//! `--reference office2pdf` ou `auto`, le défaut, `soffice` pour LibreOffice) :
-//! un écart par slide au rapport, une ligne de plus en sortie.
+//! L'import appliqué en une transaction, le deck est rendu par le processus
+//! de rendu et enregistré en `.oku-slides.pdf`, comme `save`, avec son rapport
+//! s'il est demandé. Le rendu relève les champs qui sortent de leur page, et
+//! en retrofit les boîtes sous la marge basse (perte `Overflow`) ; en hi-fi,
+//! sauf `--reference none`, il est aussitôt comparé au rendu de référence du
+//! témoin (`--reference office2pdf` ou `auto`, le défaut, `soffice` pour
+//! LibreOffice) : un écart par slide au rapport, une ligne de plus en sortie.
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use color_eyre::eyre::{Result, WrapErr, eyre};
-use serde_json::{Map, Value};
 
-use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, PackManifest, PackRef, SourceBundle, apply_all};
 use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_import::ImportReport;
 use oku_slides_import::report::ReferenceReport;
-use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
-use oku_slides_import::source::SourceDeck;
-use oku_slides_import::{CheckedPlan, ImportReport, ReadLimits, RetrofitTarget, read_pptx};
 use oku_slides_platform::Platform;
-use oku_slides_platform::storage::StorageErrorKind;
 use oku_slides_render::Fonts;
-use oku_slides_render_worker::{ReferenceWitness, RenderWorker};
-use oku_slides_session::theme_schema::default_tokens;
-use oku_slides_session::{ThemeLibrary, adopt_default_theme, theme_tokens};
+use oku_slides_render_worker::ReferenceWitness;
+use oku_slides_session::import::{
+    self as session_import, ImportMode as SessionMode, ImportRequest, ImportTarget, Imported, PackLookup,
+    note_overflows,
+};
 
-use crate::import_overflow::note_overflows;
-use crate::import_reference::{self, Scoring};
-use crate::library::{embed_theme, pack_library, resolve_pack, theme_library};
 use crate::out::Out;
-use crate::pack_render::{self, DeckWidgets};
 
 /// Mode d'import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -55,6 +40,15 @@ pub(crate) enum ImportMode {
     Retrofit,
     /// Copie fidèle, sur un pack et un thème générés.
     Hifi,
+}
+
+impl From<ImportMode> for SessionMode {
+    fn from(mode: ImportMode) -> Self {
+        match mode {
+            ImportMode::Retrofit => Self::Retrofit,
+            ImportMode::Hifi => Self::Hifi,
+        }
+    }
 }
 
 /// Rendu de référence d'un import hi-fi.
@@ -91,221 +85,88 @@ pub(crate) struct ImportArgs {
     pub(crate) reference: Option<ReferenceMode>,
 }
 
-/// La présentation lue : ses octets (l'identité du hi-fi en dérive), sa source
-/// et les bornes de l'import, dont le budget de sortie que le plan doit tenir.
-pub(crate) struct Input {
-    pub(crate) bytes: Vec<u8>,
-    pub(crate) source: SourceDeck,
-    pub(crate) limits: ReadLimits,
-}
-
-/// Un import prêt à s'appliquer : les sources (packs et thèmes embarqués),
-/// les widgets sondés de leur pack et le plan, dont la sortie tient dans les budgets.
-pub(crate) struct Prepared {
-    pub(crate) bundle: SourceBundle,
-    pub(crate) widgets: DeckWidgets,
-    pub(crate) plan: CheckedPlan,
-}
-
-/// Les jetons effectifs du thème de `bundle` : les défauts, puis ceux du thème.
-///
-/// Un thème illisible est une erreur : ses couleurs et sa page guident le retrofit,
-/// les défauts seuls donneraient un deck faux sans le dire.
-fn deck_tokens(themes: &ThemeLibrary, bundle: &SourceBundle, l: &Localizer) -> Result<Map<String, Value>> {
-    let own = theme_tokens(themes, &bundle.themes, bundle.deck()).ok_or_else(|| eyre!(l.tr("cli-import-bad-theme")))?;
-    Ok(effective_tokens(default_tokens(), &own))
-}
-
 /// Importe `args.input` et écrit le deck obtenu dans `args.output`.
 pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: ImportArgs) -> Result<()> {
     let l = out.localizer();
     // Les arguments d'abord : une erreur de forme ne lit pas la présentation.
-    let pack = match args.mode {
-        ImportMode::Hifi if args.pack.is_some() || args.theme.is_some() => {
-            return Err(eyre!(l.tr("cli-import-hifi-no-target")));
-        }
-        ImportMode::Hifi => {
-            let threshold = platform.settings.import.score_threshold;
-            if !(threshold.is_finite() && threshold >= 0.0) {
-                return Err(eyre!(l.tr_with("cli-import-bad-threshold", &[("value", threshold.to_string().into())])));
-            }
-            None
-        }
-        ImportMode::Retrofit if args.reference.is_some() => {
-            return Err(eyre!(l.tr("cli-import-reference-hifi-only")));
-        }
-        ImportMode::Retrofit => Some(args.pack.as_deref().ok_or_else(|| eyre!(l.tr("cli-import-pack-required")))?),
+    // Le pack cible peut être un dossier, ici seulement : l'app ne prend que la bibliothèque.
+    let request = ImportRequest {
+        pptx: args.input.clone(),
+        target: target(l, &args)?,
+        system_fonts: args.system_fonts,
+        packs: PackLookup::LibraryOrDir,
     };
-    let input = read_input(platform, l, &args)?;
-    let prepared = match pack {
-        Some(pack) => prepare_retrofit(platform, l, fonts, &args, pack, &input)?,
-        None => crate::import_hifi::prepare(platform, l, fonts, &args, &input)?,
-    };
-    finish(platform, out, fonts, &args, &input, prepared)
+    let imported = session_import::import(platform, fonts, &request).map_err(|e| eyre!(e.localize(l)))?;
+    finish(platform, out, &args, imported)
 }
 
-/// `n` octets en `u64`.
-fn bytes(n: usize) -> u64 {
-    // Saturé, jamais atteint : `usize` tient dans `u64` sur toutes les cibles (64 bits au plus),
-    // et les réglages en Mio sont déjà saturés en `usize`.
-    u64::try_from(n).unwrap_or(u64::MAX)
-}
-
-/// Lit `args.input`, borné par [`ReadLimits::default`] ; la sortie, approximativement,
-/// par la taille des sources et de l'historique qu'un deck peut avoir pour se rouvrir.
-fn read_input(platform: &Platform, l: &Localizer, args: &ImportArgs) -> Result<Input> {
-    let shown = args.input.display().to_string();
-    let sources = &platform.settings.sources;
-    let limits = ReadLimits {
-        max_output_bytes: bytes(sources.max_sources_bytes()),
-        max_replica_bytes: bytes(sources.max_replica_bytes()),
-        ..ReadLimits::default()
-    };
-    // Taille vue avant toute lecture : un fichier trop gros n'entre jamais en mémoire.
-    let bytes = platform.storage.read_limited(&args.input, limits.max_input_bytes).map_err(|e| {
-        if e.kind() == StorageErrorKind::TooLarge {
-            eyre!(l.tr("import-too-large"))
-        } else {
-            eyre!(e).wrap_err(l.tr_with("cli-reading", &[("path", shown.as_str().into())]))
+/// La cible de l'import selon les options ; une option d'un autre mode est refusée.
+fn target(l: &Localizer, args: &ImportArgs) -> Result<ImportTarget> {
+    match SessionMode::from(args.mode) {
+        SessionMode::Hifi if args.pack.is_some() || args.theme.is_some() => {
+            Err(eyre!(l.tr("cli-import-hifi-no-target")))
         }
-    })?;
-    let source = read_on_own_thread(&bytes, &limits)
-        .wrap_err_with(|| l.tr_with("cli-reading", &[("path", shown.as_str().into())]))?
-        .map_err(|e| eyre!(e.localize(l)))?;
-    Ok(Input { bytes, source, limits })
-}
-
-/// Pile du fil de lecture : la lecture est bornée en profondeur (XML, groupes), et cette pile
-/// ne dépend ni du fil appelant ni d'un runtime.
-const READ_STACK_BYTES: usize = 16 << 20;
-
-/// [`read_pptx`] sur un fil dédié à pile connue ([`READ_STACK_BYTES`]) ; l'erreur externe est
-/// celle du lancement du fil, une panique de la lecture est relancée telle quelle.
-pub(crate) fn read_on_own_thread(
-    bytes: &[u8],
-    limits: &ReadLimits,
-) -> std::io::Result<Result<SourceDeck, oku_slides_import::ImportError>> {
-    std::thread::scope(|scope| {
-        let reader = std::thread::Builder::new()
-            .name("import-read".to_owned())
-            .stack_size(READ_STACK_BYTES)
-            .spawn_scoped(scope, || read_pptx(bytes, limits))?;
-        Ok(reader.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)))
-    })
-}
-
-/// Le retrofit de `source` sur le pack `wanted` et le thème `args.theme`.
-fn prepare_retrofit(
-    platform: &Platform,
-    l: &Localizer,
-    fonts: &Fonts,
-    args: &ImportArgs,
-    wanted: &str,
-    input: &Input,
-) -> Result<Prepared> {
-    let library = pack_library(platform);
-    let files = resolve_pack(&platform.storage, &library, l, wanted)?;
-    let manifest = PackManifest::from_files(&files)
-        .map_err(|_| eyre!(l.tr_with("cli-import-bad-pack", &[("pack", wanted.into())])))?;
-    let version = files.version();
-    let mut deck = Deck::empty();
-    deck.templates = Some(PackRef { id: manifest.id, version: version.clone() });
-    let base = crate::registry(fonts)?;
-    let packs = BTreeMap::from([(version, files)]);
-    let (mut bundle, widgets) = crate::sources_with_pack(platform, l, &library, &base, deck, packs)?;
-    let themes = theme_library(platform);
-    if let Some(wanted) = &args.theme {
-        let mut deck = bundle.deck().clone();
-        deck.theme = Some(embed_theme(&themes, l, wanted, &mut bundle)?);
-        bundle.apply_silent(deck)?;
+        SessionMode::Hifi => Ok(ImportTarget::Hifi),
+        SessionMode::Retrofit if args.reference.is_some() => Err(eyre!(l.tr("cli-import-reference-hifi-only"))),
+        SessionMode::Retrofit => {
+            let pack = args.pack.clone().ok_or_else(|| eyre!(l.tr("cli-import-pack-required")))?;
+            Ok(ImportTarget::Retrofit { pack, theme: args.theme.clone() })
+        }
     }
-    adopt_default_theme(&themes, &mut bundle).map_err(|e| eyre!(e.localize(l)))?;
-
-    let tokens = deck_tokens(&themes, &bundle, l)?;
-    let target = RetrofitTarget {
-        templates: &manifest.templates,
-        registry: &widgets.registry,
-        colors: ColorTokens::from_tokens(&tokens),
-        page: PageTokens::from_tokens(&tokens),
-    };
-    let plan =
-        retrofit::project(&input.source, &target).check_budget(&input.limits).map_err(|e| eyre!(e.localize(l)))?;
-    Ok(Prepared { bundle, widgets, plan })
 }
 
-/// Applique le plan de `prepared` en une transaction, rend et écrit le deck
-/// (avec ses polices embarquées), relève débordements et, en hi-fi, l'écart à
-/// la référence, puis écrit le rapport ; une ligne de résultat, plus celle de
-/// l'écart en hi-fi.
-fn finish(
-    platform: &Platform,
-    out: &mut Out<'_>,
-    fonts: &Fonts,
-    args: &ImportArgs,
-    input: &Input,
-    prepared: Prepared,
-) -> Result<()> {
+/// Rend et écrit le deck importé, puis son rapport.
+///
+/// Le deck part avec ses polices embarquées ; le rapport relève débordements et, en hi-fi, l'écart
+/// à la référence. Une ligne de résultat, plus celle de l'écart en hi-fi.
+fn finish(platform: &Platform, out: &mut Out<'_>, args: &ImportArgs, imported: Imported) -> Result<()> {
     let l = out.localizer();
-    let Prepared { mut bundle, widgets, mut plan } = prepared;
-    for asset in plan.assets.values() {
-        bundle.add_asset(asset.bytes.clone());
-    }
-    let mut deck = bundle.deck().clone();
-    apply_all(&mut deck, plan.take_ops(), &widgets.registry).map_err(|e| eyre!(e.localize(l)))?;
-    bundle.apply(deck, &l.tr("cli-import-label"), None).map_err(|e| eyre!(e.localize(l)))?;
-    crate::report_issues(l, bundle.deck(), &widgets.registry, &bundle.assets);
+    let Imported { sources: bundle, widgets, issues, mut state } = imported;
+    crate::log_issues(l, &issues);
     let target = args.output.display().to_string();
-    let fonts = fonts.with(bundle.fonts.values().cloned());
     let failed = || l.tr_with("cli-import-write-failed", &[("path", target.as_str().into())]);
-    let doc =
-        pack_render::render(platform, l, fonts.clone(), &widgets, &bundle, bundle.deck()).wrap_err_with(failed)?;
-    let written = crate::write_rendered(platform, &doc, &bundle, &args.output).wrap_err_with(failed)?;
-    note_overflows(doc.layout(), plan.report_mut());
-    if args.mode == ImportMode::Hifi {
-        let threshold = platform.settings.import.score_threshold;
-        let witness = match args.reference.unwrap_or(ReferenceMode::Auto) {
-            ReferenceMode::None => None,
-            ReferenceMode::Auto | ReferenceMode::Office2pdf => Some(ReferenceWitness::Office2Pdf),
-            ReferenceMode::Soffice => match import_reference::soffice(platform) {
-                Ok(Some(witness)) => Some(witness),
+    let doc = session_import::render(platform, state.fonts(), &widgets, &bundle).wrap_err_with(failed)?;
+    let compiled = doc.compiled();
+    let pdf = compiled.pdf().wrap_err_with(failed)?;
+    let written =
+        crate::write_rendered(platform, &pdf, compiled.page_count(), &bundle, &args.output).wrap_err_with(failed)?;
+    note_overflows(compiled.layout(), state.report_mut());
+    if SessionMode::from(args.mode) == SessionMode::Hifi {
+        match args.reference.unwrap_or(ReferenceMode::Auto) {
+            ReferenceMode::None => state.set_witness(None),
+            ReferenceMode::Auto | ReferenceMode::Office2pdf => state.set_witness(Some(ReferenceWitness::Office2Pdf)),
+            ReferenceMode::Soffice => match session_import::soffice(platform) {
+                Ok(Some(witness)) => state.set_witness(Some(witness)),
                 Ok(None) => {
-                    import_reference::missing(plan.report_mut(), threshold, l);
-                    None
+                    state.witness_missing("--reference soffice : aucun programme de [import] soffice".to_owned());
                 }
-                Err(e) => {
-                    import_reference::refused(plan.report_mut(), threshold, &e, l);
-                    None
-                }
+                // Un script, sur macOS : le bac à sable du rendu ne lance que le binaire (t-912).
+                Err(e) => state.witness_refused(e.to_string()),
             },
-        };
-        if let Some(witness) = witness {
-            // Un processus de rendu à lui : le témoin n'ajoute pas sa mémoire à celle du rendu Oku.
-            let settings = import_reference::worker_settings(platform, &witness);
-            let mut worker = RenderWorker::new(platform.render_launch.clone(), settings);
-            if let ReferenceWitness::Soffice { program, .. } = &witness {
-                worker = worker.with_soffice(program.clone());
-            }
-            let (pptx, source) = (&input.bytes, &input.source);
-            let scoring = Scoring { pptx, source, fonts: &fonts, witness: &witness, worker: &worker, threshold, l };
-            import_reference::score(&scoring, &doc, plan.report_mut());
         }
+        // Le même chemin que l'app : le travail de référence, puis la note de chaque slide.
+        if let Some(job) = state.reference_job() {
+            job.run(platform);
+        }
+        state.score_deck(compiled);
     }
     if let Some(path) = &args.report {
         // Écrit puis renommé : un rapport interrompu ne remplace jamais le précédent.
-        platform.storage.write_atomic(path, serde_json::to_string_pretty(&plan.report_json(l))?)?;
+        platform.storage.write_atomic(path, serde_json::to_string_pretty(&state.report_json(l))?)?;
     }
+    let report = state.report();
     out.line(
         "cli-imported",
         &[
             ("path", target.into()),
             ("slides", bundle.deck().slides.len().into()),
             ("pages", written.pages.into()),
-            ("losses", plan.report.loss_count().into()),
-            ("requests", plan.widget_requests.len().into()),
+            ("losses", report.loss_count().into()),
+            ("requests", state.widget_requests().len().into()),
         ],
     )?;
-    if let Some(reference) = &plan.report.reference {
-        reference_line(out, reference, &plan.report)?;
+    if let Some(reference) = &report.reference {
+        reference_line(out, reference, report)?;
     }
     Ok(())
 }

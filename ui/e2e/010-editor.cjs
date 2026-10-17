@@ -12,8 +12,10 @@ const slide = (p) => p.evaluate(() =>
     .then((s) => s.slide));
 const points = async (p) => (await slide(p)).params.blocks.find((e) => e.id === 'b-points').params.body;
 const undoLabel = (p) => p.evaluate(() => document.querySelector('[aria-label^="Annuler"]')?.getAttribute('aria-label'));
-const text = (p) => p.locator('.editor .cm-content').innerText();
-const image = (p) => p.locator('.stage img').getAttribute('src');
+// Le texte du document CodeMirror, marques cachées par le quasi-rendu (t-272) comprises.
+const text = (p) => p.locator('.editor .cm-content').evaluate((el) => el.cmTile.root.view.state.doc.toString());
+// L'image de la slide, pas les tampons de widget de CodeMirror (des <img> aussi, t-272).
+const image = (p) => p.locator('.stage img:not(.cm-widgetBuffer)').getAttribute('src');
 const open = async (p, label) => {
   await p.dblclick(`.field[aria-label="${label}"] >> nth=0`);
   await p.waitForSelector('.editor .cm-editor.cm-focused');
@@ -167,6 +169,10 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   assert.equal(await pill.innerText(), 'ici');
   // {2} : deuxième couleur de la palette papier, #c4622d.
   assert.equal(await pill.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgb(196, 98, 45)');
+  // Quasi-rendu (t-272) : le curseur au bout ne touche que le surlignage, les ** du gras sont cachés ;
+  // tout sélectionné, les quatre marques se montrent.
+  assert.equal(await p.locator('.editor .cm-md-mark').count(), 2);
+  await p.keyboard.press('ControlOrMeta+a');
   assert.equal(await p.locator('.editor .cm-md-mark').count(), 4);
   await commitWith(p, () => p.keyboard.press('ControlOrMeta+Enter'));
   assert.deepEqual(await points(p), [{ runs: RUNS }]);

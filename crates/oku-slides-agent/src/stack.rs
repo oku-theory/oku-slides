@@ -23,7 +23,7 @@ use crate::command_error::{
 use crate::keeper::{Keep, Keeper};
 use crate::picker::picker_surface;
 use crate::settings_port::AppSettings;
-use crate::tab_agent::Command;
+use crate::tab_agent::{Command, Instruction};
 use crate::tab_entry::{Out, TabEntry, TabLink, emit};
 use crate::{AgentEvent, Launch, Link};
 
@@ -49,6 +49,16 @@ pub enum AgentCommand {
         /// (`quickTarget`). Absente, ou question qui n'attend plus : une consigne ordinaire.
         #[serde(default)]
         answer: Option<String>,
+    },
+    /// Fine-tune l'onglet importé : un tour dans la conversation des slides, démarrant l'agent.
+    ///
+    /// Le fil montre le texte localisé `agent-tune-prompt`, dans la langue courante de
+    /// l'interface ; ce texte est aussi le dernier bloc du prompt, après les consignes d'import
+    /// cachées. Réservé à l'hôte ([`Stack::tune`], quand l'import demande le fine-tuning :
+    /// `WorkspaceOutcome::Tune`) : jamais lu du canal de l'interface.
+    #[serde(skip_deserializing)]
+    Tune {
+        tab: String,
     },
     Cancel {
         tab: String,
@@ -103,6 +113,7 @@ impl AgentCommand {
     pub fn tab(&self) -> &str {
         match self {
             Self::Prompt { tab, .. }
+            | Self::Tune { tab, .. }
             | Self::Cancel { tab }
             | Self::NewConversation { tab, .. }
             | Self::SurfaceAction { tab, .. }
@@ -114,6 +125,9 @@ impl AgentCommand {
         }
     }
 }
+
+/// Clé Fluent du texte du fil pour le fine-tuning d'un import.
+const TUNE_PROMPT: &str = "agent-tune-prompt";
 
 /// Attente de l'arrêt de l'agent ACP à la fin de l'app (`Stack::shutdown`).
 const SHUTDOWN_WITHIN: Duration = Duration::from_secs(2);
@@ -198,8 +212,14 @@ impl Stack {
                 // ou annulée entre-temps), la consigne n'est pas perdue : elle part comme toute
                 // consigne (nouveau tour ; pendant un tour, elle l'interrompt puis le remplace).
                 if !answer.is_some_and(|id| t.hub.answer(&id, &text)) {
-                    t.send(Command::Prompt { scope, text, ui });
+                    t.send(Command::Prompt(Instruction { scope, text, ui, tune: false }));
                 }
+            }
+            AgentCommand::Tune { tab } => {
+                let Some(t) = self.open(&tab) else { return Ok(()) };
+                let text = self.platform.live_localizer.current().tr(TUNE_PROMPT);
+                let ui = AgentUi::default();
+                t.send(Command::Prompt(Instruction { scope: AgentScope::Slides, text, ui, tune: true }));
             }
             AgentCommand::Cancel { tab } => {
                 if let Some(t) = self.tab(&tab) {
@@ -277,6 +297,15 @@ impl Stack {
             }
         }
         Ok(())
+    }
+
+    /// Lance le tour de fine-tuning de l'onglet importé `tab` (voir [`AgentCommand::Tune`]).
+    ///
+    /// Pour l'hôte, quand un import demande le fine-tuning ; démarre l'agent de l'onglet.
+    pub fn tune(&self, tab: &str) {
+        if let Err(e) = self.handle(AgentCommand::Tune { tab: tab.to_owned() }) {
+            tracing::warn!(tab, error = %e, "fine-tuning de l'import non lancé");
+        }
     }
 
     /// Le deck de l'onglet a changé depuis l'interface (voir

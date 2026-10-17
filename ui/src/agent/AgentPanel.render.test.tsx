@@ -13,7 +13,7 @@ const { createRoot } = await import("react-dom/client");
 const { AgentPanel, IDLE_AGENT } = await import("./AgentPanel");
 const { createSlot, SlotView } = await import("./slot");
 const { routeSurfaces } = await import("./surfaces");
-const { ARMING_MS } = await import("./useQuickKeys");
+const { ARMING_MS } = await import("../modalFrame");
 const { PICKER } = await import("../a2ui/fixtures/agentPicker");
 
 type Root = ReturnType<typeof createRoot>;

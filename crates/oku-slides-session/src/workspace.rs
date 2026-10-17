@@ -93,6 +93,28 @@ pub enum WorkspaceRequest {
         /// Le fichier (normalisé à la réception).
         path: PathBuf,
     },
+    /// Importe une présentation PowerPoint dans un nouvel onglet.
+    ///
+    /// Un deck sans fichier, que l'autosauvegarde range dans le dossier des decks comme un deck
+    /// nouveau, et qui garde l'état de son import.
+    ///
+    /// Comme `OpenTab`, il remplace l'onglet actif s'il est vierge ; deux
+    /// imports du même fichier font deux onglets (deux decks neufs). La
+    /// cible est à plat : `"mode": "retrofit"` avec `pack` (son id ou son
+    /// nom dans la bibliothèque, jamais un dossier) et `theme` facultatif,
+    /// ou `"mode": "hifi"`.
+    ImportTab {
+        /// Fenêtre d'arrivée du nouvel onglet.
+        window: String,
+        /// Le `.pptx` (normalisé à la réception).
+        path: PathBuf,
+        /// Le mode et sa cible.
+        #[serde(flatten)]
+        target: crate::import::ImportTarget,
+        /// L'agent doit fine-tuner l'onglet importé : la réponse le dit à l'hôte ([`WorkspaceOutcome::Tune`]).
+        #[serde(default)]
+        tune: bool,
+    },
     /// L'aide de l'app, en lecture seule, dans la langue de l'interface :
     /// son onglet s'il est déjà ouvert, sinon un nouvel onglet.
     OpenHelp {
@@ -196,13 +218,30 @@ pub enum WorkspaceOutcome {
     /// [`Workspace::is_only_window`], utilisé aussi par l'hôte (fermeture
     /// native) pour le même refus, en aperçu hors verrou.
     LastWindow(String),
+    /// Un import appliqué (`ImportTab` avec `tune`).
+    ///
+    /// L'hôte lance le fine-tuning de l'agent sur l'onglet `tab`, prêt.
+    Tune {
+        /// La vue à jour.
+        json: String,
+        /// L'onglet importé.
+        tab: String,
+    },
 }
 
 impl WorkspaceOutcome {
     /// La vue à jour, qu'elle ait changé ou non.
     pub fn into_json(self) -> String {
         match self {
-            Self::Applied(json) | Self::LastWindow(json) => json,
+            Self::Applied(json) | Self::LastWindow(json) | Self::Tune { json, .. } => json,
+        }
+    }
+
+    /// L'onglet importé dont l'agent doit faire le fine-tuning, s'il y en a un.
+    pub fn tune_tab(&self) -> Option<&str> {
+        match self {
+            Self::Tune { tab, .. } => Some(tab),
+            Self::Applied(_) | Self::LastWindow(_) => None,
         }
     }
 
@@ -580,6 +619,9 @@ impl Workspace {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
                     Step::Build(pending) => pending,
                 },
+                WorkspaceRequest::ImportTab { window, path, target, tune } => {
+                    w.import_tab(window, path, target, tune)?
+                }
                 WorkspaceRequest::OpenHelp { window } => match Self::open_help(ws, w, window)? {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
                     Step::Build(pending) => pending,
@@ -596,8 +638,12 @@ impl Workspace {
                 }
             }
         };
+        let tune = pending.tunes();
         let session = pending.build()?;
-        Self::finish(ws, pending, session).map(|(outcome, _)| outcome)
+        match Self::finish(ws, pending, session)? {
+            (WorkspaceOutcome::Applied(json), tab) if tune => Ok(WorkspaceOutcome::Tune { json, tab }),
+            (outcome, _) => Ok(outcome),
+        }
     }
 
     /// Attend les requêtes en cours puis enregistre l'état courant ; à
@@ -715,3 +761,7 @@ mod workspace_tests;
 #[cfg(test)]
 #[path = "workspace_detach_tests.rs"]
 mod workspace_detach_tests;
+
+#[cfg(test)]
+#[path = "workspace_import_tests.rs"]
+mod workspace_import_tests;

@@ -32,6 +32,7 @@ fn mixed_pack(data: &Path) -> PackRef {
         description: String::new(),
         parent: None,
         created: "2026-10-02T10:00:00Z".into(),
+        scope: oku_slides_core::PackScope::Library,
         templates: Vec::new(),
         examples: Default::default(),
     };

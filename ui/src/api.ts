@@ -1,12 +1,18 @@
-// Accès à l'hôte : requêtes par onglet, espace de travail (fenêtres et
-// onglets), dictée et dialogues de fichier. `invoke` dans Tauri, `POST` au
-// serveur de développement ailleurs. Les types décrivent le JSON de l'hôte.
+// Accès à l'hôte : requêtes par onglet, agent et dictée. Les types décrivent le JSON de
+// l'hôte. L'espace de travail (`workspaceApi.ts`), la requête elle-même (`hostCall.ts`) et
+// les choix de fichier (`filePick.ts`) vivent à côté, réexportés ici par leur nom.
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { DataOp } from "./chart/chartTypes";
 import type { Cell, ZoneView } from "./grid";
-import { locale, t } from "./i18n";
+import { locale } from "./i18n";
 import type { View } from "./table/ShowAsButton";
+import { host } from "./hostCall";
+
+export { errorText, inTauri, isMac, listenTauri } from "./hostCall";
+export { tabDrag, workspace } from "./workspaceApi";
+export type { ImportTarget, TabAt, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
+export { pickOpenPath, pickSavePath } from "./filePick";
 
 export type SlideKind = string;
 
@@ -72,6 +78,8 @@ export interface Snapshot {
   templates: PackRef | null;
   /** Édition d'un pack de modèles en cours. */
   editing: TemplateMode | null;
+  /** Le pack du deck n'appartient qu'à lui (import) : l'atelier ne l'ouvre pas. */
+  deck_pack: boolean;
   /** Le deck embarque une autre version de son pack que ma version courante. */
   pack_notice: PackNotice | null;
   /** Widgets du pack en cours (fichiers, sans `_commun`), sans sonde. */
@@ -176,6 +184,8 @@ export interface ThemeInfo {
   builtin: boolean;
   /** Le thème d'un deck neuf. */
   default: boolean;
+  /** Le thème n'appartient qu'au deck (celui d'un import) : jamais dans la bibliothèque. */
+  deck_only: boolean;
 }
 
 /** Version embarquée par le deck, comparée à ma version courante. */
@@ -720,40 +730,6 @@ export function agentApi(tab: string) {
   };
 }
 
-export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-/** Requête à l'hôte : commande Tauri, ou `POST` en développement. */
-async function host<T>(command: string, args: Record<string, unknown>, endpoint: string, body: unknown): Promise<T> {
-  if (inTauri) {
-    const { invoke } = await import("@tauri-apps/api/core");
-    return invoke<T>(command, args);
-  }
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  // Un refus (403) ou une page d'erreur du proxy peuvent arriver sans corps
-  // JSON : le statut reste lisible.
-  const text = await res.text();
-  let json: { error?: string } = {};
-  try {
-    json = text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error(`${res.status} ${res.statusText}`);
-  }
-  if (!res.ok) throw new Error(json.error ?? `${res.status} ${res.statusText}`);
-  return json as unknown as T;
-}
-
-/** Le texte d'une erreur. */
-export function errorText(e: unknown): string {
-  return String(e instanceof Error ? e.message : e);
-}
-
-/** Sur macOS : ⌘ et barre de titre intégrée. */
-export const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
-
 /** Les requêtes d'un onglet : chacune ne touche que sa session. */
 export function tabApi(tab: string) {
   const call = <T>(req: Request) => host<T>("request", { tab, req }, "/api", { tab, req });
@@ -843,134 +819,3 @@ export function tabApi(tab: string) {
 
 /** Les requêtes d'un onglet (voir `tabApi`). */
 export type TabApi = ReturnType<typeof tabApi>;
-
-/** Un onglet, tel que la barre le montre. */
-export interface TabInfo {
-  id: string;
-  title: string;
-  dirty: boolean;
-  editing_templates: boolean;
-  path: string | null;
-  pristine: boolean;
-  /** Identité du deck : une autre copie du même deck la partage. */
-  deck_uid: string | null;
-}
-
-/** Une fenêtre : ses onglets et l'onglet actif. */
-export interface WindowView {
-  label: string;
-  active: string;
-  tabs: TabInfo[];
-}
-
-/** Les fenêtres et leurs onglets ; `focused` : la dernière fenêtre active. */
-export interface WorkspaceView {
-  /** Numéro croissant de la vue : une vue plus petite est plus ancienne. */
-  generation: number;
-  focused: string;
-  /** L'agent est dans sa propre fenêtre. */
-  agent_detached: boolean;
-  windows: WindowView[];
-}
-
-type WorkspaceRequest =
-  | { cmd: "view" }
-  | { cmd: "messages" }
-  | { cmd: "set_locale"; locale: string | null }
-  | { cmd: "scheme" }
-  | { cmd: "set_scheme"; scheme: "light" | "dark" | null }
-  | { cmd: "new_tab"; window: string }
-  | { cmd: "open_tab"; window: string; path: string }
-  | { cmd: "open_help"; window: string }
-  | { cmd: "same_deck"; path: string }
-  | { cmd: "activate"; tab: string }
-  | { cmd: "close"; tab: string; discard: boolean }
-  | { cmd: "reorder"; tab: string; index: number }
-  | { cmd: "move_tab"; tab: string; window: string | null; index: number | null }
-  | { cmd: "new_window" }
-  | { cmd: "close_window"; window: string; discard: string[] }
-  | { cmd: "detach_agent" }
-  | { cmd: "attach_agent" };
-
-const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
-
-/** L'espace de travail : fenêtres et onglets. */
-export const workspace = {
-  view: () => ws<WorkspaceView>({ cmd: "view" }),
-  messages: () => ws<Messages>({ cmd: "messages" }),
-  /** Choisit la langue de l'interface (`null` : celle du système) ; ses messages. */
-  setLocale: (locale: string | null) => ws<Messages>({ cmd: "set_locale", locale }),
-  /** Schéma de l'interface choisi (`null` : celui du système). */
-  scheme: () => ws<SchemeSetting>({ cmd: "scheme" }),
-  /** Choisit le schéma de l'interface (`null` : celui du système). */
-  setScheme: (scheme: "light" | "dark" | null) => ws<SchemeSetting>({ cmd: "set_scheme", scheme }),
-  newTab: (window: string) => ws<WorkspaceView>({ cmd: "new_tab", window }),
-  openTab: (window: string, path: string) => ws<WorkspaceView>({ cmd: "open_tab", window, path }),
-  /** L'aide de l'app, en lecture seule : son onglet s'il est ouvert, sinon un nouveau. */
-  openHelp: (window: string) => ws<WorkspaceView>({ cmd: "open_help", window }),
-  /** L'onglet qui tient déjà le deck de `path` sous un autre fichier ; ne change rien. */
-  sameDeck: (path: string) => ws<{ tab: string | null; title: string | null }>({ cmd: "same_deck", path }),
-  activate: (tab: string) => ws<WorkspaceView>({ cmd: "activate", tab }),
-  /** `discard` : l'utilisateur a choisi de perdre le travail non enregistré. */
-  close: (tab: string, discard = false) => ws<WorkspaceView>({ cmd: "close", tab, discard }),
-  reorder: (tab: string, index: number) => ws<WorkspaceView>({ cmd: "reorder", tab, index }),
-  moveTab: (tab: string, window: string | null, index: number | null = null) =>
-    ws<WorkspaceView>({ cmd: "move_tab", tab, window, index }),
-  newWindow: () => ws<WorkspaceView>({ cmd: "new_window" }),
-  closeWindow: (window: string, discard: string[]) => ws<WorkspaceView>({ cmd: "close_window", window, discard }),
-  /** L'agent passe dans sa propre fenêtre. */
-  detachAgent: () => ws<WorkspaceView>({ cmd: "detach_agent" }),
-  /** L'agent revient dans la colonne de droite. */
-  attachAgent: () => ws<WorkspaceView>({ cmd: "attach_agent" }),
-};
-
-/**
- * Glisser un onglet hors de sa fenêtre (Tauri) : l'hôte lit le curseur lui-même.
- *
- * Jamais `screenX/screenY` : WKWebView ne les donne pas dans le repère des
- * fenêtres (écran au-dessus du principal). La fenêtre visée reçoit
- * `tab-drag` (fantôme, place de dépôt) puis `tab-drop`.
- */
-export const tabDrag = {
-  over: async (tab: string) => (await import("@tauri-apps/api/core")).invoke<void>("drag_tab_over", { tab }),
-  leave: async () => (await import("@tauri-apps/api/core")).invoke<void>("drag_tab_leave"),
-  drop: async (tab: string) => (await import("@tauri-apps/api/core")).invoke<WorkspaceView>("drop_tab", { tab }),
-};
-
-/** Onglet d'une autre fenêtre sous le pointeur, en coordonnées de cette page. */
-export interface TabAt {
-  tab: string;
-  x: number;
-  y: number;
-}
-
-/** Écoute un événement Tauri ; l'abonnement suit la vie de l'effet (StrictMode compris). */
-export function listenTauri(subscribe: () => Promise<() => void>): () => void {
-  let stop: (() => void) | undefined;
-  let dead = false;
-  subscribe()
-    .then((un) => (dead ? un() : (stop = un)))
-    .catch((e) => console.error("événement de l'hôte", e));
-  return () => {
-    dead = true;
-    stop?.();
-  };
-}
-
-/** Choix de fichier : dialogue natif dans Tauri, saisie du chemin en développement. */
-export async function pickOpenPath(): Promise<string | null> {
-  if (inTauri) {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const p = await open({ multiple: false, filters: [{ name: t("ui-brand"), extensions: ["pdf", "json"] }] });
-    return typeof p === "string" ? p : null;
-  }
-  return window.prompt(t("ui-file-open-prompt"));
-}
-
-export async function pickSavePath(defaultName: string): Promise<string | null> {
-  if (inTauri) {
-    const { save } = await import("@tauri-apps/plugin-dialog");
-    return save({ defaultPath: `${defaultName}.oku-slides.pdf`, filters: [{ name: t("ui-brand"), extensions: ["pdf"] }] });
-  }
-  return window.prompt(t("ui-file-save-prompt"), `/tmp/${defaultName}.oku-slides.pdf`);
-}
