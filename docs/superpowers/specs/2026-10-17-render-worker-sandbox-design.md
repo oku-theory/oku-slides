@@ -1,7 +1,8 @@
 # Render worker filesystem sandbox (macOS) — design
 
 Task: t-912 (follow-up of t-898). Date: 2026-10-17.
-Status: proposal, awaiting the user's approval. No code yet.
+Status: approved 2026-10-17. The user's answers: the soffice `.app` binary comes first, scripts
+are refused, and there is no switch. Plan: `docs/superpowers/plans/2026-10-17-render-worker-sandbox.md`.
 
 ## Problem
 
@@ -136,9 +137,10 @@ CoreText work without a long allow list, and also why tier 2 is not contained (s
      `temp_dir()` land there with no code change in `oku-slides-reference`;
    - paths are canonical (`/private/var/…`), because Seatbelt matches resolved paths;
    - `UID` is `getuid()`.
-   - **Per-request subdir:** each `Reference` request gets its own `WORK/r-<n>` (via `TMPDIR`
-     for that request's witness), removed after the request. One hostile deck then cannot plant
-     files for a later deck.
+   - **Isolation between requests:** the worker empties WORK after each `Reference` request
+     (`--work-dir`). One hostile deck then cannot plant files for a later deck. A per-request
+     subdir would need a per-request `TMPDIR` for office2pdf, which runs in-process: `set_var`
+     in a multithreaded process, which is `unsafe`.
    - **Invariant:** the host never hardlinks anything into WORK (copy only). Seatbelt checks
      the path, not the inode, so a hardlink placed there before sandboxing writes through to
      its target (verified).
@@ -175,9 +177,9 @@ CoreText work without a long allow list, and also why tier 2 is not contained (s
    - `sandbox_ip_connect_is_denied`;
    - a worker integration test: a real `--render-worker` child renders a deck under the sandbox;
    - the soffice end-to-end test runs under the sandbox behind `OKU_SLIDES_TEST_SOFFICE=1`;
-   - `fake_soffice` is a `#!/bin/sh` script, so its tests pass `/bin/sh` as `SOFFICE`. That
-     value comes only from test code: a `[import] soffice` entry that resolves to a script or
-     a shell is refused (step 4);
+   - `fake_soffice` (a `#!/bin/sh` script) stays in the worker's unit tests, which run
+     `InProcess` and unsandboxed. The CLI's fake-script test becomes a "script refused" test,
+     and the sandboxed soffice path is covered by the real-LibreOffice test;
    - the canary: a worker spawned with a profile that allows the canary path is refused;
    - the hardlink invariant: `link()` from WORK to outside is denied.
 7. **Docs and rules**:
@@ -217,9 +219,3 @@ of scope too.
 
 - A soffice killed at its deadline leaves `/tmp/OSL_PIPE_*` sockets (harmless, but they pile
   up). A minor ticket if it matters.
-
-## Open questions for the user
-
-1. Approve reordering the macOS `[import] soffice` defaults (the `.app` binary before `PATH`)
-   and refusing script wrappers?
-2. Fail closed with no escape hatch, even in dev builds?
