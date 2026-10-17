@@ -8,11 +8,13 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Give the witness the app's fonts and the deck's embedded fonts, and render hidden slides. (t-692)
 - Run soffice without a shell on an isolated temp profile, and kill its process group past its timeout. (t-885)
 - Keep the soffice timeout below its render worker's, so soffice dies before the worker could orphan it. (t-885)
+- Strip every font part from the .pptx and recheck it with zip-office2pdf before office2pdf; never give it a .docx. (t-898)
 
 ## Pitfalls
 
 - Read a gap on letter-spaced titles, autofit text, charts or SmartArt as a likely witness error before changing the import. (t-692)
 - Do not align the import on office2pdf code without checking it against the OOXML or another witness. (t-692)
+- Re-audit without_fonts against office2pdf's embedded_fonts.rs and keep zip-office2pdf equal to its zip on every bump. (t-898)
 
 ## Settled decisions
 

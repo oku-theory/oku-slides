@@ -1,6 +1,7 @@
 use std::io::{Cursor, Read, Write};
 use std::path::Path;
 
+use rstest::rstest;
 use speculoos::prelude::*;
 use zip::write::SimpleFileOptions;
 
@@ -110,4 +111,38 @@ fn without_fonts_keeps_every_other_part() {
 fn render_of_a_presentation_with_embedded_fonts_still_renders() {
     let pptx = with_part(&fixture("libreoffice.pptx"), "ppt/fonts/font1.fntdata", b"police");
     assert_that!(Office2Pdf.render(&pptx, fonts(), None).map(|p| p.page_count()).ok()).is_equal_to(Some(3));
+}
+
+#[rstest]
+#[case::fonts_dir("ppt/fonts/font1.fntdata", true)]
+#[case::media_dir("ppt/media/{01234567-89AB-CDEF-0123-456789ABCDEF}.fntdata", true)]
+#[case::upper_case("ppt/media/X.FNTDATA", true)]
+#[case::anything_under_fonts_dir("ppt/fonts/readme.txt", true)]
+#[case::image("ppt/media/image1.png", false)]
+#[case::extension_alone_in_a_name("ppt/media/fntdata", false)]
+#[case::bare_extension(".fntdata", true)]
+#[case::shorter_than_extension("a", false)]
+#[case::empty("", false)]
+fn is_font_of_a_part_name_is_true_for_embedded_fonts(#[case] name: &str, #[case] font: bool) {
+    assert_that!(is_font(name)).is_equal_to(font);
+}
+
+#[test]
+fn without_fonts_drops_a_font_part_outside_fonts_dir() {
+    let pptx =
+        with_part(&fixture("libreoffice.pptx"), "ppt/media/{01234567-89AB-CDEF-0123-456789ABCDEF}.fntdata", b"police");
+    let stripped = without_fonts(&pptx).unwrap();
+    assert_that!(names(&stripped).iter().any(|n| n.ends_with(".fntdata"))).is_false();
+}
+
+#[test]
+fn office2pdf_view_of_a_font_part_is_refused() {
+    let pptx = with_part(&fixture("libreoffice.pptx"), "ppt/media/X.fntdata", b"police");
+    assert_that!(ensure_no_font_for_office2pdf(&pptx)).is_err();
+}
+
+#[test]
+fn office2pdf_view_of_a_stripped_deck_is_accepted() {
+    let pptx = with_part(&fixture("libreoffice.pptx"), "ppt/media/X.fntdata", b"police");
+    assert_that!(ensure_no_font_for_office2pdf(&without_fonts(&pptx).unwrap())).is_ok();
 }

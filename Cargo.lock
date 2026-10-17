@@ -5909,6 +5909,7 @@ dependencies = [
  "snafu",
  "speculoos",
  "tempfile",
+ "zip 0.6.6",
  "zip 9.0.4",
 ]
 

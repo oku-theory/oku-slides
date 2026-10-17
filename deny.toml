@@ -16,7 +16,8 @@ all-features = true
 # `ZipStreamReader::extract` sont touchés (bits SUID, liens symboliques hors du dossier).
 # Le workspace est en zip 9 ; restent zip 0.6 et 8 via office2pdf (et docx-rs), zip 2 via
 # umya-spreadsheet et ndarray-npy (dictée), qui lisent les entrées une à une sans jamais
-# appeler `extract` (vérifié dans leurs sources, t-897).
+# appeler `extract` (vérifié dans leurs sources, t-897). Le témoin relit aussi avec zip 0.6
+# (`zip-office2pdf`, t-898), noms des parts seulement.
 # À retirer quand ils passeront en zip 9 (t-899).
 # Tenir .cargo/audit.toml aligné sur cette liste.
 ignore = [

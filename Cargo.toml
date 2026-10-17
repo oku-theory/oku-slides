@@ -41,6 +41,9 @@ schemars = "1"
 snafu = "0.9"
 toml_edit = "0.25"
 zip = { version = "9", default-features = false, features = ["deflate"] }
+# Le lecteur zip d'office2pdf 0.8.1, aux mêmes fonctionnalités : le témoin relit
+# avec lui le .pptx qu'il lui passe, pour n'y laisser aucune police (t-898).
+zip-office2pdf = { package = "zip", version = "=0.6.6", default-features = false, features = ["deflate"] }
 # Lecture des parts XML d'un .pptx (import, t-692) : DOM en lecture seule, sans dépendance.
 roxmltree = "0.21"
 # Nom, style et droits des polices (import, t-692) ; déjà tiré par typst et fontdb.

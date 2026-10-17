@@ -8,7 +8,7 @@ gap, `oku_slides_import::metrics`, t-692 lot 4).
 
 - `ReferenceRenderer` (trait): `witness()` (name and version written to the report),
   `render(pptx, fonts, slides: Option<SlideSpan>) -> ReferencePdf`. `Office2Pdf`: `WITNESS`
-  its name, pinned with `=0.8.1` (a test checks it); it strips `ppt/fonts/` from the `.pptx`.
+  its name, pinned with `=0.8.1` (a test checks it); it drops embedded fonts (see Isolation).
 - `Soffice` (t-885): LibreOffice, `soffice --headless --convert-to pdf` without a shell, in a
   temp dir per render (isolated profile `-env:UserInstallation`, fonts in its `user/fonts`),
   `ExportHiddenSlides` and `PageRange`; `--version` read once (`LibreOffice 26.8.1.1`). One
@@ -22,11 +22,11 @@ gap, `oku_slides_import::metrics`, t-692 lot 4).
 
 ## Isolation
 
-The witness reads an untrusted file without bounds of its own: it runs in the render worker
-(`oku-slides-render-worker`, `Reference` and `ReferencePng` requests), bounded in time and memory;
-the CLI gives it a worker of its own and asks 20 slides at a time. LibreOffice runs as a
-child of that worker, outside its memory bound: only its own timeout bounds it, shorter than
-the worker's so it is killed first.
+The witness reads an untrusted file: it runs in its own render worker, bounded in time and memory
+(not in filesystem), 20 slides at a time. office2pdf writes an embedded font under its unchecked
+`typeface` (t-898): the `.pptx` is rewritten without `ppt/fonts/` or any `.fntdata`, then reread
+with office2pdf's own zip 0.6, refused if it still sees one. LibreOffice runs as a child of that
+worker, outside its memory bound: only its own timeout bounds it, shorter than the worker's.
 
 ## Known limits (`office2pdf`; LibreOffice shrinks `normAutofit` text, t-692 spike)
 
@@ -38,7 +38,7 @@ the worker's so it is killed first.
 - The fonts given come first; the system fonts stay its fallback (outside WASM).
 - An import behavior copied from office2pdf (Apache-2.0, credited in the file) is no longer
   measured by it: check it against another witness or against the OOXML.
-- It pulls its DOCX and XLSX readers (~48 crates, never called) into the worker and the app.
+- Its DOCX and XLSX readers (~48 crates) sit unused in worker and app; never give it a `.docx` (t-898).
 
 ## Extension points
 
