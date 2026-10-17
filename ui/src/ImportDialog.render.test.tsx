@@ -68,9 +68,10 @@ interface Options {
   packs?: () => Promise<PackInfo[]>;
   busy?: boolean;
   error?: string | null;
+  initial?: { target: ImportTarget; tune: boolean };
 }
 
-async function mount({ packs = () => Promise.resolve(PACKS), busy = false, error = null }: Options = {}) {
+async function mount({ packs = () => Promise.resolve(PACKS), busy = false, error = null, initial }: Options = {}) {
   const calls: Calls = { imports: [], closed: 0 };
   const host = document.createElement("div");
   document.body.append(host);
@@ -84,6 +85,7 @@ async function mount({ packs = () => Promise.resolve(PACKS), busy = false, error
           path: "/Users/moi/Présentations/Alto Wealth.pptx",
           api,
           themes: THEMES,
+          initial,
           ...state,
           onImport: (target: ImportTarget, tune: boolean) => void calls.imports.push({ target, tune }),
           onClose: () => void calls.closed++,
@@ -295,4 +297,15 @@ test("ImportDialog : un focus perdu revient dans la fenêtre au Tab", async () =
   (document.activeElement as HTMLElement | null)?.blur();
   await press("Tab");
   expect(document.activeElement).toBe(radio("hifi"));
+});
+
+test("ImportDialog rouvert pendant l'import garde les choix de l'import qui tourne", async () => {
+  const { radio, selects, tune } = await mount({
+    busy: true,
+    initial: { target: { mode: "retrofit", pack: "p-moi", theme: "t-nuit" }, tune: false },
+  });
+  expect(radio("retrofit").checked).toBe(true);
+  expect(selects()[0]!.value).toBe("p-moi");
+  expect(selects()[1]!.value).toBe("t-nuit");
+  expect(tune().checked).toBe(false);
 });

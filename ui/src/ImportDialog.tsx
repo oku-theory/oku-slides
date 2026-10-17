@@ -7,6 +7,7 @@ import { t } from "./i18n";
 import { fileName } from "./importFile";
 import { useModalFrame } from "./modalFrame";
 import { packOptionLabel } from "./packOps";
+import type { ImportChoice } from "./useImportJob";
 
 interface Props {
   /** Le `.pptx` choisi par « Ouvrir ». */
@@ -17,6 +18,8 @@ interface Props {
   themes: ThemeInfo[];
   /** L'import tourne (tenu par l'espace de travail : il continue si le dialogue se ferme). */
   busy: boolean;
+  /** Les choix de l'import qui tourne (dialogue rouvert) ; absent : les choix par défaut. */
+  initial?: ImportChoice;
   /** Le dernier refus de l'hôte, localisé. */
   error: string | null;
   /** Lance l'import ; l'espace de travail suit la suite. */
@@ -32,14 +35,14 @@ interface Props {
  * l'import, les choix sont figés ; Annuler et Échap ferment le dialogue sans arrêter l'import,
  * dont l'espace de travail montre l'issue.
  */
-export default function ImportDialog({ path, api, themes, busy, error, onImport, onClose }: Props) {
-  const [mode, setMode] = useState<ImportTarget["mode"]>("hifi");
+export default function ImportDialog({ path, api, themes, busy, initial, error, onImport, onClose }: Props) {
+  const [mode, setMode] = useState<ImportTarget["mode"]>(initial?.target.mode ?? "hifi");
   const [sets, setSets] = useState<PackInfo[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [pack, setPack] = useState("");
+  const [pack, setPack] = useState(initial?.target.mode === "retrofit" ? initial.target.pack : "");
   // `""` : le thème par défaut de la bibliothèque.
-  const [theme, setTheme] = useState("");
-  const [tune, setTune] = useState(true);
+  const [theme, setTheme] = useState(initial?.target.mode === "retrofit" ? (initial.target.theme ?? "") : "");
+  const [tune, setTune] = useState(initial?.tune ?? true);
   const ref = useRef<HTMLDivElement>(null);
   const { onClickCapture, armed } = useModalFrame(ref, { onEscape: onClose });
 

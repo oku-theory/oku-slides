@@ -271,7 +271,7 @@ export default function Workspace() {
           onOpen={onOpen}
           importJob={imports.job?.shown ? imports.job : null}
           onImportPick={imports.pick}
-          onImport={(target, tune) => void imports.start((path) => importFile(path, target, tune))}
+          onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
           onImportClose={imports.close}
           onHelp={() => run(workspace.openHelp(label))}
           onClose={inTauri || win.tabs.length > 1 ? () => void closeTab(win.active) : undefined}

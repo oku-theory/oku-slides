@@ -16,8 +16,8 @@
 //! sont libérés dès que la référence est faite ([`ImportState::settle`]).
 //! Les régions suspectes sont celles des limites du témoin choisi
 //! (office2pdf, celui de l'app ; aucune sous LibreOffice).
-//! En retrofit, l'état garde aussi le pack enfant à créer à la première
-//! écriture d'un widget ([`super::child_pack`]).
+//! En retrofit, l'état garde aussi le pack enfant, créé à la première
+//! écriture d'un widget sur le pack cible ([`super::child_pack`]).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -83,7 +83,7 @@ pub struct ImportState {
     pub(super) scored: BTreeMap<String, u128>,
     /// La langue du journal : un échec du témoin y dit sa cause.
     pub(super) log: LiveLocalizer,
-    /// Retrofit : le pack enfant à créer au premier widget écrit.
+    /// Retrofit : le pack enfant, créé au premier widget écrit sur le pack cible.
     child: Option<ChildPack>,
 }
 
@@ -119,7 +119,7 @@ impl ImportState {
         }
     }
 
-    /// Retrofit : le pack enfant à créer au premier widget écrit.
+    /// Retrofit : le pack enfant, créé au premier widget écrit sur le pack cible.
     pub(crate) fn child(&self) -> Option<&ChildPack> {
         self.child.as_ref()
     }

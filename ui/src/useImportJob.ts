@@ -1,11 +1,19 @@
 // L'import d'un .pptx, tenu par l'espace de travail : il survit à son dialogue.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorText } from "./api";
+import { errorText, type ImportTarget } from "./api";
+
+/** Ce que le dialogue a envoyé : la cible et le peaufinage. */
+export interface ImportChoice {
+  target: ImportTarget;
+  tune: boolean;
+}
 
 /** L'import en cours ou à lancer : son fichier, son dialogue, son état. */
 export interface ImportJob {
   path: string;
+  /** Les choix de l'import lancé : le dialogue rouvert les garde. */
+  choice?: ImportChoice;
   /** Le dialogue est à l'écran. */
   shown: boolean;
   /** L'hôte importe. */
@@ -48,10 +56,10 @@ export function useImportJob(onLateError: (message: string) => void) {
   );
 
   const start = useCallback(
-    async (importFile: (path: string) => Promise<void>) => {
+    async (choice: ImportChoice, importFile: (path: string) => Promise<void>) => {
       const j = current.current;
       if (!j || j.busy) return;
-      put({ ...j, busy: true, error: null });
+      put({ ...j, choice, busy: true, error: null });
       try {
         await importFile(j.path);
         if (alive.current) put(null);

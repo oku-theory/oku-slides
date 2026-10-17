@@ -185,6 +185,12 @@ fn import_reports_as_witness_only_the_slides_left_unchanged() {
 }
 
 #[test]
+fn import_counts_a_theme_or_pack_change_as_changing_a_witness_slide() {
+    let end = IMPORT.rsplit('\n').next().unwrap_or("");
+    assert_that!(end).contains("a theme or pack change that alters a slide counts as changing it");
+}
+
+#[test]
 fn import_stops_a_slide_on_done_exhausted_or_stalled() {
     assert_that!(IMPORT).contains("until state is done, exhausted or stalled");
 }

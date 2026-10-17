@@ -39,7 +39,7 @@ async function mount() {
   };
   const job = () => state.job!;
   const done = (error?: string) => act(async () => settle(error));
-  const begin = () => act(async () => void job().start(run));
+  const begin = () => act(async () => void job().start({ target: { mode: "hifi" }, tune: true }, run));
   return { job, late, started, done, begin };
 }
 
@@ -66,7 +66,7 @@ test("useImportJob refusé, dialogue ouvert : le refus y reste", async () => {
   await act(async () => job().pick("/a/Alto.pptx"));
   await begin();
   await done("fichier illisible");
-  expect(job().job).toEqual({ path: "/a/Alto.pptx", shown: true, busy: false, error: "fichier illisible" });
+  expect(job().job).toEqual({ path: "/a/Alto.pptx", choice: { target: { mode: "hifi" }, tune: true }, shown: true, busy: false, error: "fichier illisible" });
   expect(late).toEqual([]);
 });
 
@@ -75,7 +75,7 @@ test("useImportJob fermé pendant l'import : il continue, sans retenir les touch
   await act(async () => job().pick("/a/Alto.pptx"));
   await begin();
   await act(async () => job().close());
-  expect(job().job).toEqual({ path: "/a/Alto.pptx", shown: false, busy: true, error: null });
+  expect(job().job).toEqual({ path: "/a/Alto.pptx", choice: { target: { mode: "hifi" }, tune: true }, shown: false, busy: true, error: null });
   expect(job().holdsKeys()).toBe(false);
   await done();
   expect(job().job).toBeNull();
@@ -98,7 +98,7 @@ test("useImportJob un autre choix pendant l'import rouvre celui qui tourne", asy
   await act(async () => job().close());
   await act(async () => job().pick("/b/Autre.pptx"));
   await begin();
-  expect(job().job).toEqual({ path: "/a/Alto.pptx", shown: true, busy: true, error: null });
+  expect(job().job).toEqual({ path: "/a/Alto.pptx", choice: { target: { mode: "hifi" }, tune: true }, shown: true, busy: true, error: null });
   expect(started).toHaveLength(1);
 });
 

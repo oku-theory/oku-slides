@@ -890,6 +890,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, importJ
           api={api}
           themes={snap.themes}
           busy={importJob.busy}
+          initial={importJob.choice}
           error={importJob.error}
           onImport={onImport}
           onClose={onImportClose}

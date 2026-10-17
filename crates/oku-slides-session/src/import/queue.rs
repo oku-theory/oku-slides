@@ -223,9 +223,9 @@ impl Session {
     }
 }
 
-/// Ce que le rapport a noté de nouveau.
+/// Les slides que le rapport a laissées à leur note d'avant.
 ///
-/// Les slides laissées à leur note d'avant.
+/// Soit sans essai restant (`stale`), soit sans nouvelle note (`unscored`).
 #[derive(Debug, Default)]
 struct Rescored {
     /// Changées, mais sans essai restant.
