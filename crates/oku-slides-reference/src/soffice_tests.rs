@@ -131,27 +131,55 @@ fn render_with_a_missing_soffice_is_a_render_error() {
     assert_that!(err.kind()).is_equal_to(ReferenceErrorKind::Render);
 }
 
+/// Un faux binaire (pas un script) : `find_soffice` ne l'exécute pas.
+fn fake_binary(dir: &Path) -> PathBuf {
+    let path = dir.join("soffice");
+    std::fs::write(&path, [0xCF, 0xFA, 0xED, 0xFE]).unwrap();
+    path
+}
+
 #[test]
 fn find_soffice_takes_the_first_candidate_that_exists() {
-    let fake = Fake::with("exit 0");
-    let candidates = vec![PathBuf::from("/nonexistent/soffice"), fake.soffice.clone()];
-    let found = find_soffice(&Storage::local().unwrap(), &candidates, None);
-    assert_that!(found).is_equal_to(Some(fake.soffice.clone()));
+    let dir = tempfile::tempdir().unwrap();
+    let bin = fake_binary(dir.path());
+    let candidates = vec![PathBuf::from("/nonexistent/soffice"), bin.clone()];
+    let found = find_soffice(&Storage::local().unwrap(), &candidates, None).unwrap();
+    assert_that!(found).is_equal_to(Some(std::fs::canonicalize(&bin).unwrap()));
 }
 
 #[test]
 fn find_soffice_looks_a_bare_name_up_in_the_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = fake_binary(dir.path());
+    let path = std::env::join_paths(["/nonexistent", dir.path().to_str().unwrap()]).unwrap();
+    let found = find_soffice(&Storage::local().unwrap(), &[PathBuf::from("soffice")], Some(&path)).unwrap();
+    assert_that!(found).is_equal_to(Some(std::fs::canonicalize(&bin).unwrap()));
+}
+
+#[cfg(unix)]
+#[test]
+fn find_soffice_follows_a_symlink_to_the_real_binary() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = fake_binary(dir.path());
+    let link = dir.path().join("lien");
+    std::os::unix::fs::symlink(&bin, &link).unwrap();
+    let found = find_soffice(&Storage::local().unwrap(), &[link], None).unwrap();
+    assert_that!(found).is_equal_to(Some(std::fs::canonicalize(&bin).unwrap()));
+}
+
+#[test]
+fn find_soffice_refuses_a_script_and_names_it() {
     let fake = Fake::with("exit 0");
-    let path = std::env::join_paths(["/nonexistent", fake.dir.path().to_str().unwrap()]).unwrap();
-    let found = find_soffice(&Storage::local().unwrap(), &[PathBuf::from("soffice")], Some(&path));
-    assert_that!(found).is_equal_to(Some(fake.soffice.clone()));
+    let err = find_soffice(&Storage::local().unwrap(), std::slice::from_ref(&fake.soffice), None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ReferenceErrorKind::Render);
+    assert_that!(err.to_string()).contains("soffice");
 }
 
 #[test]
 fn find_soffice_without_any_candidate_on_disk_is_none() {
     let found =
         find_soffice(&Storage::local().unwrap(), &[PathBuf::from("soffice-absent")], Some("/nonexistent".as_ref()));
-    assert_that!(found).is_none();
+    assert_that!(found.unwrap()).is_none();
 }
 
 #[test]
@@ -193,8 +221,9 @@ fn installed() -> Option<PathBuf> {
         eprintln!("{REAL_SOFFICE_VAR}=1 absent : test du vrai LibreOffice sauté");
         return None;
     }
-    let candidates = [PathBuf::from("soffice"), PathBuf::from("/Applications/LibreOffice.app/Contents/MacOS/soffice")];
-    let found = find_soffice(&Storage::local().unwrap(), &candidates, std::env::var_os("PATH").as_deref());
+    let candidates = [PathBuf::from("/Applications/LibreOffice.app/Contents/MacOS/soffice"), PathBuf::from("soffice")];
+    let found =
+        find_soffice(&Storage::local().unwrap(), &candidates, std::env::var_os("PATH").as_deref()).ok().flatten();
     if found.is_none() {
         eprintln!("LibreOffice absent : test sauté");
     }

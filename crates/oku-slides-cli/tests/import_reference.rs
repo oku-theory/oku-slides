@@ -169,17 +169,31 @@ fn soffice_config(dir: &Path, program: &Path) {
 
 #[cfg(unix)]
 #[test]
-fn import_hifi_with_reference_soffice_scores_against_libreoffice() {
+fn import_hifi_with_a_script_soffice_still_writes_the_deck_and_says_it_failed() {
     use oku_slides_reference::test_support::{blank_pdf, converting, fake_soffice};
-    let dir = workdir("import-reference-soffice");
+    let dir = workdir("import-reference-soffice-script");
     let pdf = dir.as_ref().join("blanc.pdf");
     std::fs::write(&pdf, blank_pdf(3, 960, 540)).unwrap_or_else(|e| panic!("{e}"));
     soffice_config(dir.as_ref(), &fake_soffice(dir.as_ref(), &converting(&pdf, None)));
+    let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
+    assert_that!(report["reference"]["unavailable"]["type"].as_str()).is_equal_to(Some("failed"));
+    assert_that!(dir.as_ref().join("out.oku-slides.pdf").exists()).is_true();
+}
+
+/// LibreOffice réel, sous le bac à sable du processus de rendu (t-912) : `OKU_SLIDES_TEST_SOFFICE=1`.
+#[test]
+fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
+    if std::env::var_os("OKU_SLIDES_TEST_SOFFICE").is_none() {
+        eprintln!("OKU_SLIDES_TEST_SOFFICE absent : test sauté");
+        return;
+    }
+    let dir = workdir("import-reference-soffice-real");
     let (out, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
-    assert_that!(report["reference"]["witness"].as_str()).is_equal_to(Some("LibreOffice 99.1.0.1"));
+    assert_that!(report["reference"]["unavailable"].is_null()).is_true();
+    assert_that!(report["reference"]["witness"].as_str().unwrap_or_default()).starts_with("LibreOffice ");
     assert_that!(max_score(&report)).is_greater_than(0.0);
     let second = String::from_utf8_lossy(&out.stdout).lines().nth(1).unwrap_or_default().to_owned();
-    assert_that!(second).starts_with("Visual gap to LibreOffice 99.1.0.1: ");
+    assert_that!(second).starts_with("Visual gap to LibreOffice ");
 }
 
 #[test]

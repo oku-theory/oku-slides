@@ -314,11 +314,11 @@ fn settings_default_reference_timeout_matches_config_defaults() {
 }
 
 #[test]
-fn settings_default_soffice_tries_the_path_then_the_macos_app() {
+fn settings_default_soffice_tries_the_macos_app_then_the_path() {
     let import = Settings::defaults().unwrap().import;
     assert_that!(import.soffice).is_equal_to(vec![
-        PathBuf::from("soffice"),
         PathBuf::from("/Applications/LibreOffice.app/Contents/MacOS/soffice"),
+        PathBuf::from("soffice"),
     ]);
     assert_that!(import.soffice_timeout_ms).is_equal_to(60_000);
 }

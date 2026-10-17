@@ -22,7 +22,7 @@ use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{ImportReport, hifi};
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_reference::{Raster, SOFFICE_WITNESS, SlideSpan, find_soffice};
+use oku_slides_reference::{Raster, ReferenceError, SOFFICE_WITNESS, SlideSpan, find_soffice};
 use oku_slides_render::{Fonts, RenderError, RenderErrorKind};
 use oku_slides_render_worker::{ReferenceWitness, RenderWorker};
 
@@ -39,12 +39,12 @@ pub(crate) const SPAN: usize = 20;
 /// jamais orphelin d'un processus de rendu tué.
 pub(crate) const SOFFICE_GRACE_MS: u64 = 10_000;
 
-/// Le témoin LibreOffice, le premier programme de `[import] soffice` qui existe.
-pub(crate) fn soffice(platform: &Platform) -> Option<ReferenceWitness> {
+/// Le témoin LibreOffice, le premier programme de `[import] soffice` qui existe ; un script est refusé.
+pub(crate) fn soffice(platform: &Platform) -> Result<Option<ReferenceWitness>, ReferenceError> {
     let import = &platform.settings.import;
     let path = std::env::var_os("PATH");
-    let program = find_soffice(&platform.storage, &import.soffice, path.as_deref())?;
-    Some(ReferenceWitness::Soffice { program, timeout_ms: import.soffice_timeout_ms })
+    let found = find_soffice(&platform.storage, &import.soffice, path.as_deref())?;
+    Ok(found.map(|program| ReferenceWitness::Soffice { program, timeout_ms: import.soffice_timeout_ms }))
 }
 
 /// Les bornes du processus de rendu de `witness`.
@@ -89,6 +89,11 @@ pub(crate) fn score(s: &Scoring<'_>, doc: &Rendered, report: &mut ImportReport) 
 pub(crate) fn missing(report: &mut ImportReport, threshold: f64, l: &Localizer) {
     let detail = "--reference soffice : aucun programme de [import] soffice".to_owned();
     unavailable(report, SOFFICE_WITNESS, threshold, (ReferenceCause::Missing, detail), l);
+}
+
+/// Pose dans `report` que le `soffice` trouvé est refusé (`e` le dit), et le journalise.
+pub(crate) fn refused(report: &mut ImportReport, threshold: f64, e: &ReferenceError, l: &Localizer) {
+    unavailable(report, SOFFICE_WITNESS, threshold, (ReferenceCause::Failed, e.to_string()), l);
 }
 
 /// Pose dans `report` pourquoi la référence de `witness` manque, et le journalise.

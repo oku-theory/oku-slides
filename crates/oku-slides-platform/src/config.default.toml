@@ -66,9 +66,10 @@ score_threshold = 10.0
 # propre processus de rendu ; au-delà, la référence manque au rapport (« timeout »).
 reference_timeout_ms = 30000
 # Témoin LibreOffice (`oku-slides import --reference soffice`) : les programmes
-# `soffice` essayés dans l'ordre, un nom seul cherché dans PATH. Aucun trouvé :
-# l'import continue sans écart visuel (« missing »).
-soffice = ["soffice", "/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+# `soffice` essayés dans l'ordre, un nom seul cherché dans PATH ; le binaire de
+# LibreOffice, jamais un script (le bac à sable du rendu ne lance que lui). Aucun
+# trouvé : l'import continue sans écart visuel (« missing »).
+soffice = ["/Applications/LibreOffice.app/Contents/MacOS/soffice", "soffice"]
 # Durée maximale de LibreOffice pour une tranche de 20 slides (ms), profil neuf
 # compris ; passé elle, il est tué avec ses processus enfants.
 soffice_timeout_ms = 60000

@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use oku_slides_platform::storage::Storage;
+use oku_slides_platform::storage::{Storage, canonical};
 
 use crate::error::{RenderSnafu, TimeoutSnafu};
 use crate::process::{self, Finished, RunError};
@@ -116,18 +116,35 @@ impl ReferenceRenderer for Soffice {
     }
 }
 
-/// Le premier programme de `candidates` qui existe : un chemin tel quel, un
-/// nom seul cherché dans `path` (la variable `PATH`), dans l'ordre.
-pub fn find_soffice(storage: &Storage, candidates: &[PathBuf], path: Option<&std::ffi::OsStr>) -> Option<PathBuf> {
+/// Le premier programme de `candidates` qui existe, en chemin réel : un
+/// chemin tel quel, un nom seul cherché dans `path` (la variable `PATH`).
+///
+/// Un script (`#!`, le `soffice` de Homebrew) est refusé en le nommant : le
+/// bac à sable du processus de rendu n'exécute que le binaire de LibreOffice (t-912).
+pub fn find_soffice(
+    storage: &Storage,
+    candidates: &[PathBuf],
+    path: Option<&std::ffi::OsStr>,
+) -> Result<Option<PathBuf>, ReferenceError> {
     let dirs: Vec<PathBuf> = path.map(|p| std::env::split_paths(p).collect()).unwrap_or_default();
     let exists = |p: &Path| storage.exists(p).unwrap_or(false);
-    candidates.iter().find_map(|c| {
+    let found = candidates.iter().find_map(|c| {
         if c.components().count() > 1 || c.is_absolute() {
             exists(c).then(|| c.clone())
         } else {
             dirs.iter().map(|d| d.join(c)).find(|p| exists(p))
         }
-    })
+    });
+    let Some(found) = found else { return Ok(None) };
+    let real = canonical(&found).map_err(|e| render_err(format!("{} : {e}", found.display())))?;
+    let head = storage.read_head(&real, 2).map_err(|e| render_err(format!("{} : {e}", real.display())))?;
+    if head == b"#!" {
+        return Err(render_err(format!(
+            "{} est un script : donner le binaire de LibreOffice (…/LibreOffice.app/Contents/MacOS/soffice)",
+            real.display()
+        )));
+    }
+    Ok(Some(real))
 }
 
 /// Les arguments de la conversion de `deck` en PDF dans `out_dir`.

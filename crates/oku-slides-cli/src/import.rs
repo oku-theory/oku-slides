@@ -266,13 +266,17 @@ fn finish(
         let witness = match args.reference.unwrap_or(ReferenceMode::Auto) {
             ReferenceMode::None => None,
             ReferenceMode::Auto | ReferenceMode::Office2pdf => Some(ReferenceWitness::Office2Pdf),
-            ReferenceMode::Soffice => {
-                let found = import_reference::soffice(platform);
-                if found.is_none() {
+            ReferenceMode::Soffice => match import_reference::soffice(platform) {
+                Ok(Some(witness)) => Some(witness),
+                Ok(None) => {
                     import_reference::missing(plan.report_mut(), threshold, l);
+                    None
                 }
-                found
-            }
+                Err(e) => {
+                    import_reference::refused(plan.report_mut(), threshold, &e, l);
+                    None
+                }
+            },
         };
         if let Some(witness) = witness {
             // Un processus de rendu à lui : le témoin n'ajoute pas sa mémoire à celle du rendu Oku.
