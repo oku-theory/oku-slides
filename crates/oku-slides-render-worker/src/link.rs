@@ -89,8 +89,8 @@ fn exit_status(child: &mut Child) -> Option<std::process::ExitStatus> {
 /// Un travailleur plus ancien que `Hello` y répond par une erreur : version inconnue.
 pub(crate) fn check_hello(reply: &Response) -> Result<(), RenderError> {
     match reply {
-        Response::Hello { version } if *version == PROTOCOL_VERSION => Ok(()),
-        Response::Hello { version } => Err(RenderError::protocol(PROTOCOL_VERSION, Some(*version))),
+        Response::Hello { version, .. } if *version == PROTOCOL_VERSION => Ok(()),
+        Response::Hello { version, .. } => Err(RenderError::protocol(PROTOCOL_VERSION, Some(*version))),
         _ => Err(RenderError::protocol(PROTOCOL_VERSION, None)),
     }
 }
@@ -273,7 +273,7 @@ impl Link {
 
     /// Poignée de main : le travailleur doit parler la version du protocole de l'hôte.
     fn hello(&mut self) -> Result<(), RenderError> {
-        let (reply, _) = self.raw_call(&Request::Hello { version: PROTOCOL_VERSION }, &[])?;
+        let (reply, _) = self.raw_call(&Request::Hello { version: PROTOCOL_VERSION, canary: None }, &[])?;
         check_hello(&reply)
     }
 

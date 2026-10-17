@@ -1,12 +1,13 @@
 //! Messages échangés entre l'hôte et le travailleur, dans l'en-tête des trames.
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole : à changer à toute modification de [`Request`], de
 /// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
-pub(crate) const PROTOCOL_VERSION: u32 = 2;
+pub(crate) const PROTOCOL_VERSION: u32 = 3;
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
@@ -25,6 +26,9 @@ pub(crate) enum Request {
     /// Première requête d'une connexion : la version du protocole de l'hôte.
     Hello {
         version: u32,
+        /// Un chemin hors du dossier du travailleur : il doit échouer à le créer (t-912).
+        #[serde(default)]
+        canary: Option<PathBuf>,
     },
     SetLanguage {
         locale: String,
@@ -120,14 +124,28 @@ pub(crate) struct CompiledHeader {
     pub(crate) chart_palette: Vec<String>,
 }
 
+/// Ce qu'a vu le travailleur en créant le canari de `Hello`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum Canary {
+    /// Refusé par le système : le bac à sable tient.
+    Denied,
+    /// Créé : aucun bac à sable.
+    Written,
+    /// Autre échec : rien n'est prouvé.
+    Failed,
+}
+
 /// La réponse du travailleur à une requête.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "reply", rename_all = "kebab-case")]
 pub(crate) enum Response {
     Ok,
-    /// La version du protocole du travailleur, en réponse à `Hello`.
+    /// La version du protocole du travailleur, en réponse à `Hello`, et ce qu'a donné son canari.
     Hello {
         version: u32,
+        #[serde(default)]
+        canary: Option<Canary>,
     },
     FileProbe {
         probe: oku_slides_render::FileProbe,

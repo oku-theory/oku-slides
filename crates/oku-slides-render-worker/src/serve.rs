@@ -30,6 +30,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ffi::OsString;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -44,6 +45,7 @@ use serde_json::{Map, Value};
 use snafu::Snafu;
 
 use crate::ReferenceWitness;
+use crate::confine;
 use crate::error::FrameError;
 use crate::frame::{FrameLimits, read_frame, write_frame};
 use crate::protocol::{CompiledHeader, PROTOCOL_VERSION, Request, Response, SlotId, WirePack};
@@ -73,11 +75,13 @@ struct Worker {
     references: BTreeMap<u64, ReferencePdf>,
     /// Les fichiers du témoin LibreOffice, ouverts à son premier rendu.
     storage: Option<Storage>,
+    /// Le dossier du travailleur (son TMPDIR), vidé après chaque référence.
+    work: Option<PathBuf>,
 }
 
 /// Sert les requêtes de `input` jusqu'à sa fin.
 pub fn serve(input: impl Read, output: impl Write, max_frame: usize) -> Result<(), ServeError> {
-    serve_watched(input, output, max_frame, &Busy::default())
+    serve_watched(input, output, max_frame, &Busy::default(), None)
 }
 
 /// [`serve`], en notant dans `busy` le début de la requête en cours.
@@ -86,8 +90,9 @@ fn serve_watched(
     mut output: impl Write,
     max_frame: usize,
     busy: &Busy,
+    work: Option<PathBuf>,
 ) -> Result<(), ServeError> {
-    let mut worker = Worker::default();
+    let mut worker = Worker { work, ..Worker::default() };
     while let Some(frame) = read_frame(&mut input, FrameLimits::requests(max_frame)).map_err(ServeError)? {
         busy.start(Instant::now());
         let (reply, payload) = match serde_json::from_slice::<Request>(&frame.header) {
@@ -136,7 +141,7 @@ fn pack_of(p: WirePack) -> Result<PackWidgets, WireError> {
 impl Worker {
     fn handle(&mut self, request: Request, payload: Vec<u8>) -> Reply {
         let result = match request {
-            Request::Hello { .. } => Ok((Response::Hello { version: PROTOCOL_VERSION }, Vec::new())),
+            Request::Hello { canary, .. } => self.hello(canary),
             Request::SetLanguage { locale } => self.set_language(&locale),
             Request::PutFont { id } => {
                 self.fonts.insert(id, payload);
@@ -177,7 +182,11 @@ impl Worker {
                 }
                 ok()
             }
-            Request::Reference { witness, fonts, slides } => self.reference(&witness, &fonts, slides, &payload),
+            Request::Reference { witness, fonts, slides } => {
+                let reply = self.reference(&witness, &fonts, slides, &payload);
+                self.wipe_work();
+                reply
+            }
             Request::ReferencePng { reference, page, width } => self.reference_png(reference, page, width),
             Request::ReleaseReference { reference } => {
                 self.references.remove(&reference);
@@ -185,6 +194,37 @@ impl Worker {
             }
         };
         result.unwrap_or_else(error_reply)
+    }
+
+    /// Répond `Hello` : la version du travailleur et ce qu'a donné le canari.
+    fn hello(&mut self, canary: Option<PathBuf>) -> Result<Reply, WireError> {
+        let canary = match canary {
+            Some(path) => Some(confine::probe_canary(&self.storage()?, &path)),
+            None => None,
+        };
+        Ok((Response::Hello { version: PROTOCOL_VERSION, canary }, Vec::new()))
+    }
+
+    /// Le `Storage` local, ouvert à la première demande.
+    fn storage(&mut self) -> Result<Storage, WireError> {
+        let storage = match &self.storage {
+            Some(storage) => storage.clone(),
+            None => Storage::local().map_err(|e| setup(format!("storage: {e}")))?,
+        };
+        self.storage = Some(storage.clone());
+        Ok(storage)
+    }
+
+    /// Vide le dossier du travailleur ; un échec est journalisé, la réponse reste.
+    fn wipe_work(&mut self) {
+        let Some(work) = self.work.clone() else { return };
+        let wiped = self
+            .storage()
+            .map_err(|e| format!("{e:?}"))
+            .and_then(|s| confine::wipe(&s, &work).map_err(|e| e.to_string()));
+        if let Err(e) = wiped {
+            tracing::warn!(error = %e, work = %work.display(), "dossier du travailleur non vidé");
+        }
     }
 
     fn reference(
@@ -206,11 +246,7 @@ impl Worker {
                 (pdf, Office2Pdf.witness().to_owned())
             }
             ReferenceWitness::Soffice { program, timeout_ms } => {
-                let storage = match &self.storage {
-                    Some(storage) => storage.clone(),
-                    None => Storage::local().map_err(|e| setup(format!("reference: {e}")))?,
-                };
-                self.storage = Some(storage.clone());
+                let storage = self.storage()?;
                 let soffice = Soffice::new(storage, program.clone(), Duration::from_millis(*timeout_ms));
                 let pdf = soffice.render(pptx, files, span).map_err(|e| match e.kind() {
                     ReferenceErrorKind::Timeout => WireError::Timeout { ms: *timeout_ms },
@@ -332,12 +368,14 @@ pub(crate) struct WorkerArgs {
     pub(crate) max_frame: usize,
     /// Bornes du chien de garde, tirées de celles de l'hôte.
     pub(crate) limits: Limits,
+    /// Le dossier du travailleur, vidé après chaque référence (`--work-dir`).
+    pub(crate) work: Option<PathBuf>,
 }
 
 /// Les arguments du travailleur (`--render-worker` en premier), sinon `None`.
 ///
-/// `--max-frame-bytes <n>`, `--timeout-ms <n>` et `--memory-bytes <n>` sont
-/// facultatifs : sans eux, taille par défaut et pas de borne.
+/// `--max-frame-bytes <n>`, `--timeout-ms <n>`, `--memory-bytes <n>` et
+/// `--work-dir <path>` sont facultatifs : sans eux, taille par défaut et pas de borne.
 pub(crate) fn worker_args(args: &[OsString]) -> Option<WorkerArgs> {
     if args.first().map(|a| a == "--render-worker") != Some(true) {
         return None;
@@ -347,11 +385,12 @@ pub(crate) fn worker_args(args: &[OsString]) -> Option<WorkerArgs> {
         args.get(i + 1)?.to_str()?.parse().ok()
     };
     let max_frame = value("--max-frame-bytes").and_then(|n| usize::try_from(n).ok()).unwrap_or(DEFAULT_MAX_FRAME);
-    Some(WorkerArgs { max_frame, limits: Limits::from_host(value("--timeout-ms"), value("--memory-bytes")) })
+    let work = args.iter().position(|a| a == "--work-dir").and_then(|i| args.get(i + 1)).map(PathBuf::from);
+    Some(WorkerArgs { max_frame, limits: Limits::from_host(value("--timeout-ms"), value("--memory-bytes")), work })
 }
 
 /// Si ce processus a été lancé en travailleur (`--render-worker
-/// --max-frame-bytes <n> --timeout-ms <n> --memory-bytes <n>`), sert
+/// --max-frame-bytes <n> --timeout-ms <n> --memory-bytes <n> --work-dir <path>`), sert
 /// stdin/stdout sous son chien de garde puis termine le processus ; sinon ne
 /// fait rien. À appeler en tête de `main`, avant toute initialisation.
 ///
@@ -370,7 +409,7 @@ pub fn exit_if_worker() {
     };
     let busy = Arc::new(Busy::default());
     crate::watchdog::spawn(args.limits, busy.clone());
-    let code = match serve_watched(std::io::stdin().lock(), output, args.max_frame, &busy) {
+    let code = match serve_watched(std::io::stdin().lock(), output, args.max_frame, &busy, args.work) {
         Ok(()) => 0,
         Err(e) => {
             tracing::error!(error = %e, "processus de rendu");

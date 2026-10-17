@@ -218,7 +218,7 @@ fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
 }
 
 #[rstest::rstest]
-#[case(Response::Hello { version: PROTOCOL_VERSION + 1 })]
+#[case(Response::Hello { version: PROTOCOL_VERSION + 1, canary: None })]
 #[case(Response::Error { error: oku_slides_render::WireError::Frame { message: "unknown op".into() } })]
 #[case(Response::Ok)]
 fn check_hello_of_another_protocol_is_a_protocol_error(#[case] reply: Response) {
@@ -228,5 +228,5 @@ fn check_hello_of_another_protocol_is_a_protocol_error(#[case] reply: Response) 
 
 #[test]
 fn check_hello_of_the_same_protocol_is_accepted() {
-    assert_that!(check_hello(&Response::Hello { version: PROTOCOL_VERSION }).is_ok()).is_true();
+    assert_that!(check_hello(&Response::Hello { version: PROTOCOL_VERSION, canary: None }).is_ok()).is_true();
 }

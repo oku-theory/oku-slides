@@ -19,6 +19,7 @@
 
 mod client;
 mod compiled;
+mod confine;
 mod error;
 #[cfg(target_os = "macos")]
 mod footprint;

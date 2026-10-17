@@ -36,7 +36,7 @@ impl Fake {
     fn new(reply: &Response, then: &str) -> Self {
         let dir = tempfile::Builder::new().prefix("oku-slides-fake-worker-").tempdir().unwrap();
         let mut hello = Vec::new();
-        let req = Request::Hello { version: PROTOCOL_VERSION };
+        let req = Request::Hello { version: PROTOCOL_VERSION, canary: None };
         write_frame(&mut hello, &req, &[], FrameLimits::uniform(usize::MAX)).unwrap();
         let mut answer = Vec::new();
         write_frame(&mut answer, reply, &[], FrameLimits::uniform(usize::MAX)).unwrap();
@@ -51,7 +51,7 @@ impl Fake {
 
     /// Répond `Hello` dans la bonne version, puis sort en 7 à la requête suivante.
     fn exiting_at_the_next_request() -> Self {
-        Self::new(&Response::Hello { version: PROTOCOL_VERSION }, "head -c 1 >/dev/null\nexit 7")
+        Self::new(&Response::Hello { version: PROTOCOL_VERSION, canary: None }, "head -c 1 >/dev/null\nexit 7")
     }
 
     fn launch(&self) -> RenderLaunch {
@@ -65,7 +65,7 @@ fn set_language() -> Request {
 
 #[test]
 fn link_to_a_worker_of_another_protocol_version_is_refused_and_dropped() {
-    let fake = Fake::new(&Response::Hello { version: 999 }, "cat >/dev/null");
+    let fake = Fake::new(&Response::Hello { version: 999, canary: None }, "cat >/dev/null");
     let mut link = Link::new(fake.launch(), settings());
     let e = link.call(&set_language(), &[]).unwrap_err();
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::Protocol);

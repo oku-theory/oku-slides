@@ -1,11 +1,12 @@
 use std::io::{PipeReader, PipeWriter};
+use std::path::PathBuf;
 use std::thread::JoinHandle;
 
 use speculoos::prelude::*;
 
 use super::*;
 use crate::frame::{FrameLimits, read_frame, write_frame};
-use crate::protocol::{Request, Response};
+use crate::protocol::{Canary, Request, Response};
 
 const MAX: usize = 64 * 1024 * 1024;
 
@@ -17,10 +18,14 @@ struct Harness {
 
 impl Harness {
     fn new() -> Self {
+        Self::with_work(None)
+    }
+
+    fn with_work(work: Option<PathBuf>) -> Self {
         let (req_r, req_w) = std::io::pipe().unwrap();
         let (resp_r, resp_w) = std::io::pipe().unwrap();
         let worker = std::thread::spawn(move || {
-            let _ = serve(req_r, resp_w, MAX);
+            let _ = serve_watched(req_r, resp_w, MAX, &Busy::default(), work);
         });
         Self { tx: req_w, rx: resp_r, _worker: worker }
     }
@@ -289,8 +294,9 @@ fn serve_reference_with_unknown_font_returns_setup() {
 #[test]
 fn serve_hello_answers_the_worker_protocol_version() {
     let mut h = Harness::new();
-    let (resp, _) = h.call(&Request::Hello { version: crate::protocol::PROTOCOL_VERSION + 1 }, &[]);
-    assert_that!(matches!(resp, Response::Hello { version } if version == crate::protocol::PROTOCOL_VERSION)).is_true();
+    let (resp, _) = h.call(&Request::Hello { version: crate::protocol::PROTOCOL_VERSION + 1, canary: None }, &[]);
+    assert_that!(matches!(resp, Response::Hello { version, .. } if version == crate::protocol::PROTOCOL_VERSION))
+        .is_true();
 }
 
 #[test]
@@ -306,4 +312,38 @@ fn serve_drop_fonts_forgets_them_for_the_next_slots() {
     // L'emplacement déjà ouvert garde sa copie : il rend encore.
     let (resp, _) = h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![] }, &[]);
     assert_that!(matches!(resp, Response::Compiled(_))).is_true();
+}
+
+#[test]
+fn hello_without_canary_answers_none() {
+    let mut h = Harness::new();
+    let (resp, _) = h.call(&Request::Hello { version: PROTOCOL_VERSION, canary: None }, &[]);
+    assert_that!(matches!(resp, Response::Hello { canary: None, .. })).is_true();
+}
+
+#[test]
+fn hello_with_a_writable_canary_answers_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::new();
+    let canary = Some(dir.path().join("c"));
+    let (resp, _) = h.call(&Request::Hello { version: PROTOCOL_VERSION, canary }, &[]);
+    assert_that!(matches!(resp, Response::Hello { canary: Some(Canary::Written), .. })).is_true();
+}
+
+#[test]
+fn worker_args_read_the_work_dir() {
+    let args: Vec<OsString> = ["--render-worker", "--work-dir", "/w"].into_iter().map(OsString::from).collect();
+    assert_that!(worker_args(&args).unwrap().work).is_equal_to(Some(PathBuf::from("/w")));
+}
+
+#[test]
+fn reference_empties_the_work_dir_afterwards() {
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("planted"), b"x").unwrap();
+    let mut h = Harness::with_work(Some(work.path().to_owned()));
+    let req = Request::Reference { witness: crate::ReferenceWitness::Office2Pdf, fonts: vec![], slides: None };
+    // `wipe_work` suit toute réponse : une charge vide suffit, sans rendu office2pdf.
+    let _ = h.call(&req, &[]);
+    assert_that!(work.path().join("planted").exists()).is_false();
+    assert_that!(work.path().exists()).is_true();
 }
