@@ -16,8 +16,8 @@ too much memory is killed without taking the app down.
   `Drop` never takes the link lock.
 - `RemoteReference` (`reference.rs`): `RenderWorker::reference(witness, pptx, fonts, slides)`
   has the `ReferenceWitness` (`Office2Pdf`, or `Soffice` under its own timeout, `Error Timeout`
-  past it) render the presentation or a span of it; `png(page, width)` by request; `Drop` queues
-  `ReleaseReference`. No pack is blamed; a reference from another epoch answers `Stale`.
+  past it) render the presentation or a span of it; `witness`, `page_count` local, `png(page,
+  width)` by request; `Drop` queues `ReleaseReference`. No pack blamed; another epoch: `Stale`.
 - `Link` (`link.rs`, internal): transport (child process or thread), timeout, memory sampled
   every 100 ms (`rss.rs`: `phys_footprint` on macOS, `footprint.rs`, resident memory elsewhere),
   restart and replay of `ReplayState`. The child gets `--timeout-ms`, `--memory-bytes` and
