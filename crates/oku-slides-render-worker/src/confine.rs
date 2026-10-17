@@ -7,9 +7,17 @@ use oku_slides_platform::storage::{Storage, StorageError, StorageErrorKind};
 use crate::protocol::Canary;
 
 /// Tente de créer le fichier vide `path` ; dit ce que le système a répondu.
+///
+/// Un canari créé est aussitôt supprimé : l'hôte n'a pas de `Storage`, et un
+/// bac à sable cassé ne doit pas laisser un fichier à chaque lancement.
 pub(crate) fn probe_canary(storage: &Storage, path: &Path) -> Canary {
     match storage.write(path, Vec::new()) {
-        Ok(()) => Canary::Written,
+        Ok(()) => {
+            if let Err(e) = storage.delete(path) {
+                tracing::warn!(error = %e, path = %path.display(), "canari créé, non supprimé");
+            }
+            Canary::Written
+        }
         Err(e) if e.kind() == StorageErrorKind::PermissionDenied => Canary::Denied,
         Err(e) => {
             tracing::warn!(error = %e, path = %path.display(), "canari du bac à sable");

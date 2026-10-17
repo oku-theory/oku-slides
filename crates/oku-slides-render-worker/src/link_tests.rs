@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use oku_slides_platform::RenderLaunch;
@@ -7,7 +8,7 @@ use oku_slides_render::{PackWidgets, RenderErrorKind};
 use speculoos::prelude::*;
 
 use super::*;
-use crate::protocol::{Request, Response};
+use crate::protocol::{Canary, Request, Response};
 use crate::test_packs::{LOOP_ON_IMPORT, files, tiny_deck};
 
 fn settings(timeout_ms: u64) -> RenderSettings {
@@ -205,7 +206,7 @@ fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
         max_widget_kib: 256,
         max_widgets: 64,
     };
-    let cmd = worker_command(std::path::Path::new("/bin/app"), &s);
+    let cmd = worker_command(Path::new("/bin/app"), &s, None);
     let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
     assert_that!(args).is_equal_to(
         ["--render-worker", "--max-frame-bytes", "1048576", "--timeout-ms", "1500", "--memory-bytes", "2097152"]
@@ -222,11 +223,42 @@ fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
 #[case(Response::Error { error: oku_slides_render::WireError::Frame { message: "unknown op".into() } })]
 #[case(Response::Ok)]
 fn check_hello_of_another_protocol_is_a_protocol_error(#[case] reply: Response) {
-    let e = check_hello(&reply).unwrap_err();
+    let e = check_hello(&reply, None).unwrap_err();
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::Protocol);
 }
 
+#[rstest::rstest]
+#[case::no_canary_asked(None, None, true)]
+#[case::denied(Some("/c"), Some(Canary::Denied), true)]
+#[case::written(Some("/c"), Some(Canary::Written), false)]
+#[case::failed(Some("/c"), Some(Canary::Failed), false)]
+#[case::not_answered(Some("/c"), None, false)]
+fn check_hello_with_a_canary_requires_it_denied(
+    #[case] asked: Option<&str>,
+    #[case] seen: Option<Canary>,
+    #[case] ok: bool,
+) {
+    let reply = Response::Hello { version: PROTOCOL_VERSION, canary: seen };
+    let result = check_hello(&reply, asked.map(Path::new));
+    assert_that!(result.is_ok()).is_equal_to(ok);
+    if let Err(e) = result {
+        assert_that!(e.kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    }
+}
+
 #[test]
-fn check_hello_of_the_same_protocol_is_accepted() {
-    assert_that!(check_hello(&Response::Hello { version: PROTOCOL_VERSION, canary: None }).is_ok()).is_true();
+fn worker_command_without_sandbox_runs_the_program() {
+    let cmd = worker_command(Path::new("/bin/w"), &settings(30_000), None);
+    assert_that!(cmd.get_program().to_owned()).is_equal_to(std::ffi::OsString::from("/bin/w"));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn worker_command_with_sandbox_runs_sandbox_exec_with_the_work_dir() {
+    let sandbox = crate::sandbox::Sandbox::new(Path::new("/bin/bash"), None).unwrap();
+    let cmd = worker_command(Path::new("/bin/bash"), &settings(30_000), Some(&sandbox));
+    assert_that!(cmd.get_program().to_owned()).is_equal_to(std::ffi::OsString::from("/usr/bin/sandbox-exec"));
+    let args: Vec<_> = cmd.get_args().map(|a| a.to_owned()).collect();
+    let i = args.iter().position(|a| a == "--work-dir").unwrap();
+    assert_that!(PathBuf::from(&args[i + 1])).is_equal_to(sandbox.work().to_owned());
 }

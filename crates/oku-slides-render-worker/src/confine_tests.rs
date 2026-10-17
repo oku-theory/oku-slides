@@ -7,8 +7,10 @@ use super::*;
 #[test]
 fn probe_canary_in_a_writable_dir_is_written() {
     let dir = tempfile::tempdir().unwrap();
-    let canary = probe_canary(&Storage::local().unwrap(), &dir.path().join("c"));
+    let path = dir.path().join("c");
+    let canary = probe_canary(&Storage::local().unwrap(), &path);
     assert_that!(canary).is_equal_to(Canary::Written);
+    assert_that!(path.exists()).is_false();
 }
 
 #[cfg(unix)]

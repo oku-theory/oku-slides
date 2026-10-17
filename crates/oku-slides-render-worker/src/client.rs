@@ -35,6 +35,7 @@
 //!   `DropFonts` : sa mémoire ne grandit pas au fil des polices des decks.
 
 use std::collections::{HashSet, VecDeque};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -172,6 +173,15 @@ impl RenderWorker {
             ..Shared::default()
         };
         Self(Arc::new(Mutex::new(Link::new(launch, settings))), Arc::new(shared))
+    }
+
+    /// Le travailleur pourra lancer `program` (LibreOffice), son bac à sable l'autorisant.
+    ///
+    /// À poser avant la première requête ; `program` est le chemin de
+    /// `ReferenceWitness::Soffice` (le binaire réel trouvé par `find_soffice`).
+    pub fn with_soffice(self, program: PathBuf) -> Self {
+        self.link().soffice = Some(program);
+        self
     }
 
     /// Le verrou du lien, sans rien envoyer.

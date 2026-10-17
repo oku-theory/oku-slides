@@ -29,7 +29,6 @@ mod pack_probe;
 mod protocol;
 mod reference;
 mod rss;
-#[expect(dead_code, reason = "branché au lien à la tâche suivante (t-912)")]
 mod sandbox;
 mod serve;
 mod slot;

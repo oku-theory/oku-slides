@@ -67,6 +67,7 @@ fn set_language() -> Request {
 fn link_to_a_worker_of_another_protocol_version_is_refused_and_dropped() {
     let fake = Fake::new(&Response::Hello { version: 999, canary: None }, "cat >/dev/null");
     let mut link = Link::new(fake.launch(), settings());
+    link.unsandboxed = true;
     let e = link.call(&set_language(), &[]).unwrap_err();
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::Protocol);
     assert_that!(e.to_string()).contains("999");
@@ -81,6 +82,7 @@ fn link_to_a_worker_older_than_the_handshake_is_refused() {
     let reply = Response::Error { error: WireError::Frame { message: "unknown op".into() } };
     let fake = Fake::new(&reply, "cat >/dev/null");
     let mut link = Link::new(fake.launch(), settings());
+    link.unsandboxed = true;
     assert_that!(link.call(&set_language(), &[]).unwrap_err().kind()).is_equal_to(RenderErrorKind::Protocol);
 }
 
@@ -88,6 +90,7 @@ fn link_to_a_worker_older_than_the_handshake_is_refused() {
 fn link_to_a_worker_that_exits_reports_its_exit_status() {
     let fake = Fake::exiting_at_the_next_request();
     let mut link = Link::new(fake.launch(), settings());
+    link.unsandboxed = true;
     let e = link.call(&set_language(), &[]).unwrap_err();
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::WorkerLost);
     assert_that!(e.to_string()).contains("exit status: 7");
@@ -97,6 +100,7 @@ fn link_to_a_worker_that_exits_reports_its_exit_status() {
 fn bounded_failure_while_flushing_the_deferred_queue_blames_the_pack() {
     let fake = Fake::exiting_at_the_next_request();
     let w = RenderWorker::new(fake.launch(), settings());
+    w.link().unsandboxed = true;
     w.link().ensure_connected().unwrap();
     w.1.defer(Deferred::Close { slot: 1 });
     let pack = WirePack { id: "p".into(), files: BTreeMap::new() };

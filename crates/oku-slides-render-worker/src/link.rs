@@ -18,7 +18,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -31,8 +31,9 @@ use sha2::{Digest, Sha256};
 
 use crate::error::FrameError;
 use crate::frame::{Frame, FrameLimits, read_frame_with, write_frame};
-use crate::protocol::{PROTOCOL_VERSION, Request, Response, SlotId, WirePack};
+use crate::protocol::{Canary, PROTOCOL_VERSION, Request, Response, SlotId, WirePack};
 use crate::rss::memory_bytes;
+use crate::sandbox::{Sandbox, sandbox_for};
 
 /// Intervalle du relevé de mémoire et du contrôle du délai.
 const TICK: Duration = Duration::from_millis(100);
@@ -87,9 +88,18 @@ fn exit_status(child: &mut Child) -> Option<std::process::ExitStatus> {
 /// La réponse à `Hello` dit la version du protocole de l'hôte ; sinon `Protocol`.
 ///
 /// Un travailleur plus ancien que `Hello` y répond par une erreur : version inconnue.
-pub(crate) fn check_hello(reply: &Response) -> Result<(), RenderError> {
+/// Avec `canary` (le bac à sable de macOS), le travailleur doit avoir échoué à
+/// le créer (`Denied`) ; sinon le bac à sable ne tient pas : `WorkerLost`, jamais
+/// de travailleur sans lui (t-912).
+pub(crate) fn check_hello(reply: &Response, canary: Option<&Path>) -> Result<(), RenderError> {
     match reply {
-        Response::Hello { version, .. } if *version == PROTOCOL_VERSION => Ok(()),
+        Response::Hello { version, canary: seen } if *version == PROTOCOL_VERSION => match (canary, seen) {
+            (None, _) | (Some(_), Some(Canary::Denied)) => Ok(()),
+            (Some(path), seen) => Err(RenderError::worker_lost(format!(
+                "sandbox not enforced: canary {} answered {seen:?}",
+                path.display()
+            ))),
+        },
         Response::Hello { version, .. } => Err(RenderError::protocol(PROTOCOL_VERSION, Some(*version))),
         _ => Err(RenderError::protocol(PROTOCOL_VERSION, None)),
     }
@@ -98,20 +108,24 @@ pub(crate) fn check_hello(reply: &Response) -> Result<(), RenderError> {
 /// La commande d'un travailleur `program` : ses bornes (le chien de garde
 /// du fils les applique si l'hôte disparaît), ses tubes, et
 /// [`RENDER_WORKER_ENV`] : le fils ne lance jamais de travailleur à son tour.
-pub(crate) fn worker_command(program: &Path, settings: &RenderSettings) -> Command {
-    let mut cmd = Command::new(program);
+/// Avec `sandbox`, `sandbox-exec` le lance et `--work-dir` lui dit son dossier.
+pub(crate) fn worker_command(program: &Path, settings: &RenderSettings, sandbox: Option<&Sandbox>) -> Command {
+    let mut cmd = match sandbox {
+        Some(sandbox) => sandbox.command(),
+        None => Command::new(program),
+    };
     cmd.args(["--render-worker", "--max-frame-bytes", &settings.max_frame_bytes().to_string()])
         .args(["--timeout-ms", &settings.timeout_ms.to_string()])
-        .args(["--memory-bytes", &settings.memory_bytes().to_string()])
-        .env(RENDER_WORKER_ENV, "1")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit());
+        .args(["--memory-bytes", &settings.memory_bytes().to_string()]);
+    if let Some(sandbox) = sandbox {
+        cmd.arg("--work-dir").arg(sandbox.work());
+    }
+    cmd.env(RENDER_WORKER_ENV, "1").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit());
     cmd
 }
 
-/// Tube d'entrée, flux de sortie et fils éventuel d'un travailleur lancé.
-type Pipes = (Box<dyn Write + Send>, Box<dyn Read + Send>, Option<Child>);
+/// Tube d'entrée, flux de sortie, fils et bac à sable éventuels d'un travailleur lancé.
+type Pipes = (Box<dyn Write + Send>, Box<dyn Read + Send>, Option<Child>, Option<Sandbox>);
 
 /// Une connexion ouverte : tube d'entrée, trames de sortie, fils éventuel.
 struct Conn {
@@ -121,6 +135,8 @@ struct Conn {
     /// fil lecteur au premier octet de chaque trame.
     expected: Arc<Mutex<FrameLimits>>,
     child: Option<Child>,
+    /// Le dossier et le canari du travailleur ; dernier champ : supprimé après sa mort.
+    sandbox: Option<Sandbox>,
 }
 
 impl Drop for Conn {
@@ -163,6 +179,11 @@ pub(crate) struct Link {
     pub(crate) faulty_packs: HashSet<String>,
     pub(crate) restarts: u64,
     started: bool,
+    /// Le soffice que le bac à sable laisse lancer.
+    pub(crate) soffice: Option<PathBuf>,
+    /// Faux travailleurs des tests (scripts shell, qui exécutent `head` et `cat`) : sans bac à sable.
+    #[cfg(test)]
+    pub(crate) unsandboxed: bool,
 }
 
 impl Link {
@@ -179,6 +200,9 @@ impl Link {
             faulty_packs: HashSet::new(),
             restarts: 0,
             started: false,
+            soffice: None,
+            #[cfg(test)]
+            unsandboxed: false,
         }
     }
 
@@ -230,7 +254,7 @@ impl Link {
 
     fn connect(&mut self) -> Result<(), RenderError> {
         let max = self.settings.max_frame_bytes();
-        let (input, output, child) = self.spawn(max)?;
+        let (input, output, child, sandbox) = self.spawn(max)?;
         let (tx, rx) = channel();
         let mut output = output;
         let expected = Arc::new(Mutex::new(FrameLimits::uniform(0)));
@@ -255,7 +279,7 @@ impl Link {
                 }
             })
             .map_err(|e| RenderError::worker_lost(e.to_string()))?;
-        self.conn = Some(Conn { input, output: rx, expected, child });
+        self.conn = Some(Conn { input, output: rx, expected, child, sandbox });
         if self.started {
             self.restarts += 1;
         }
@@ -271,22 +295,37 @@ impl Link {
         ready
     }
 
-    /// Poignée de main : le travailleur doit parler la version du protocole de l'hôte.
+    /// Poignée de main : version du protocole de l'hôte, et canari refusé sous bac à sable.
     fn hello(&mut self) -> Result<(), RenderError> {
-        let (reply, _) = self.raw_call(&Request::Hello { version: PROTOCOL_VERSION, canary: None }, &[])?;
-        check_hello(&reply)
+        let canary = self.conn.as_ref().and_then(|c| c.sandbox.as_ref()).map(|s| s.canary().to_owned());
+        let req = Request::Hello { version: PROTOCOL_VERSION, canary: canary.clone() };
+        let (reply, _) = self.raw_call(&req, &[])?;
+        check_hello(&reply, canary.as_deref())
+    }
+
+    /// Vrai pour les faux travailleurs des tests seulement.
+    #[cfg(test)]
+    fn unsandboxed(&self) -> bool {
+        self.unsandboxed
+    }
+
+    /// Vrai pour les faux travailleurs des tests seulement.
+    #[cfg(not(test))]
+    fn unsandboxed(&self) -> bool {
+        false
     }
 
     /// Lance le travailleur selon `launch` : tube d'entrée, flux de sortie, fils.
     fn spawn(&self, max: usize) -> Result<Pipes, RenderError> {
         match &self.launch {
             RenderLaunch::Process { program } => {
-                let mut child = worker_command(program, &self.settings)
+                let sandbox = if self.unsandboxed() { None } else { sandbox_for(program, self.soffice.as_deref())? };
+                let mut child = worker_command(program, &self.settings, sandbox.as_ref())
                     .spawn()
                     .map_err(|e| RenderError::worker_lost(format!("spawn {}: {e}", program.display())))?;
                 let stdin = child.stdin.take().ok_or_else(|| RenderError::worker_lost("no stdin"))?;
                 let stdout = child.stdout.take().ok_or_else(|| RenderError::worker_lost("no stdout"))?;
-                Ok((Box::new(stdin), Box::new(stdout), Some(child)))
+                Ok((Box::new(stdin), Box::new(stdout), Some(child), sandbox))
             }
             RenderLaunch::InProcess => {
                 let (req_r, req_w) = std::io::pipe().map_err(|e| RenderError::worker_lost(e.to_string()))?;
@@ -297,7 +336,7 @@ impl Link {
                         let _ = crate::serve(req_r, resp_w, max);
                     })
                     .map_err(|e| RenderError::worker_lost(e.to_string()))?;
-                Ok((Box::new(req_w), Box::new(resp_r), None))
+                Ok((Box::new(req_w), Box::new(resp_r), None, None))
             }
         }
     }

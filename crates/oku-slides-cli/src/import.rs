@@ -281,7 +281,10 @@ fn finish(
         if let Some(witness) = witness {
             // Un processus de rendu à lui : le témoin n'ajoute pas sa mémoire à celle du rendu Oku.
             let settings = import_reference::worker_settings(platform, &witness);
-            let worker = RenderWorker::new(platform.render_launch.clone(), settings);
+            let mut worker = RenderWorker::new(platform.render_launch.clone(), settings);
+            if let ReferenceWitness::Soffice { program, .. } = &witness {
+                worker = worker.with_soffice(program.clone());
+            }
             let (pptx, source) = (&input.bytes, &input.source);
             let scoring = Scoring { pptx, source, fonts: &fonts, witness: &witness, worker: &worker, threshold, l };
             import_reference::score(&scoring, &doc, plan.report_mut());
