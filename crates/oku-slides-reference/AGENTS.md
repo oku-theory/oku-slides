@@ -20,7 +20,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Measure the hi-fi visual gap against the reference witness, never against fixtures/import/alto-wealth.pdf. (t-692)
 - Keep office2pdf as the auto witness; LibreOffice runs only on --reference soffice and is optional. (t-885)
-- Run soffice only as its real binary; find_soffice refuses a script, since the sandbox execs nothing else. (spec:2026-10-17-render-worker-sandbox-design, t-912)
+- Run soffice only as its real binary; on macOS find_soffice refuses a script, since the sandbox execs nothing else. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 
 ## Testing
 

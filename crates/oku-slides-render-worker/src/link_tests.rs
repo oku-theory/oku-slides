@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Instant;
 
 use oku_slides_platform::RenderLaunch;
@@ -260,5 +260,5 @@ fn worker_command_with_sandbox_runs_sandbox_exec_with_the_work_dir() {
     assert_that!(cmd.get_program().to_owned()).is_equal_to(std::ffi::OsString::from("/usr/bin/sandbox-exec"));
     let args: Vec<_> = cmd.get_args().map(|a| a.to_owned()).collect();
     let i = args.iter().position(|a| a == "--work-dir").unwrap();
-    assert_that!(PathBuf::from(&args[i + 1])).is_equal_to(sandbox.work().to_owned());
+    assert_that!(std::path::PathBuf::from(&args[i + 1])).is_equal_to(sandbox.work().to_owned());
 }

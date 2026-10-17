@@ -120,7 +120,7 @@ impl ReferenceRenderer for Soffice {
 ///
 /// Un chemin est pris tel quel, un nom seul est cherché dans `path` (la variable `PATH`).
 ///
-/// Un script (`#!`, le `soffice` de Homebrew) est refusé en le nommant : le
+/// Sur macOS, un script (`#!`, le `soffice` de Homebrew) est refusé en le nommant : le
 /// bac à sable du processus de rendu n'exécute que le binaire de LibreOffice (t-912).
 pub fn find_soffice(
     storage: &Storage,
@@ -138,12 +138,15 @@ pub fn find_soffice(
     });
     let Some(found) = found else { return Ok(None) };
     let real = canonical(&found).map_err(|e| render_err(format!("{} : {e}", found.display())))?;
-    let head = storage.read_head(&real, 2).map_err(|e| render_err(format!("{} : {e}", real.display())))?;
-    if head == b"#!" {
-        return Err(render_err(format!(
-            "{} est un script : donner le binaire de LibreOffice (…/LibreOffice.app/Contents/MacOS/soffice)",
-            real.display()
-        )));
+    #[cfg(target_os = "macos")]
+    {
+        let head = storage.read_head(&real, 2).map_err(|e| render_err(format!("{} : {e}", real.display())))?;
+        if head == b"#!" {
+            return Err(render_err(format!(
+                "{} est un script : donner le binaire de LibreOffice (…/LibreOffice.app/Contents/MacOS/soffice)",
+                real.display()
+            )));
+        }
     }
     Ok(Some(real))
 }

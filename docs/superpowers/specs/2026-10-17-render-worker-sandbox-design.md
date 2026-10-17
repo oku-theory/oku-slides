@@ -207,7 +207,13 @@ With `allow default`, code running inside the worker or soffice can still:
 
 - read any user file;
 - talk to unsandboxed services through mach/XPC (for example, ask `launchd` to run a job);
-- reach other local unix sockets, such as a user's own LibreOffice instance.
+- reach other local unix sockets, such as a user's own LibreOffice instance;
+- unlink the user's own LibreOffice IPC socket (`/tmp/OSL_PIPE_<uid>_SingleOfficeIPC_*`),
+  because of the OSL_PIPE rule: harmless at tier 1 (a running LibreOffice only recreates it
+  or loses single-instance);
+- run unsandboxed when the app itself is launched with `OKU_SLIDES_RENDER_WORKER` set:
+  `Platform::load` then picks `InProcess` (pre-existing worker marker, logs a warning; not a
+  user switch).
 
 Apple Events, `LSOpen` and exec are closed. Each remaining hole needs code execution, not a
 parser bug. Closing them needs a `deny default` profile with an allow list (the Chrome

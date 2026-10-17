@@ -167,6 +167,7 @@ fn find_soffice_follows_a_symlink_to_the_real_binary() {
     assert_that!(found).is_equal_to(Some(std::fs::canonicalize(&bin).unwrap()));
 }
 
+#[cfg(target_os = "macos")]
 #[test]
 fn find_soffice_refuses_a_script_and_names_it() {
     let fake = Fake::with("exit 0");

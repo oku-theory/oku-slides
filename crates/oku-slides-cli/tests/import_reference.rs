@@ -167,7 +167,7 @@ fn soffice_config(dir: &Path, program: &Path) {
     std::fs::write(data.join("config.toml"), toml).unwrap_or_else(|e| panic!("{e}"));
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "macos")]
 #[test]
 fn import_hifi_with_a_script_soffice_still_writes_the_deck_and_says_it_failed() {
     use oku_slides_reference::test_support::{blank_pdf, converting, fake_soffice};
@@ -183,7 +183,7 @@ fn import_hifi_with_a_script_soffice_still_writes_the_deck_and_says_it_failed() 
 /// LibreOffice réel, sous le bac à sable du processus de rendu (t-912) : `OKU_SLIDES_TEST_SOFFICE=1`.
 #[test]
 fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
-    if std::env::var_os("OKU_SLIDES_TEST_SOFFICE").is_none() {
+    if std::env::var("OKU_SLIDES_TEST_SOFFICE").as_deref() != Ok("1") {
         eprintln!("OKU_SLIDES_TEST_SOFFICE absent : test sauté");
         return;
     }

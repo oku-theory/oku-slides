@@ -61,6 +61,13 @@ fn sandbox_exec_of_another_program_is_denied() {
 }
 
 #[test]
+fn sandbox_exec_of_the_allowed_soffice_succeeds() {
+    let s = Sandbox::new(Path::new("/bin/bash"), Some(Path::new("/usr/bin/true"))).unwrap();
+    let out = bash(&s, "/usr/bin/true");
+    assert_that!(out.status.success()).is_true();
+}
+
+#[test]
 fn sandbox_ip_connection_is_denied() {
     // Hors bac à sable : « Connection refused » ; dedans, refusé avant tout paquet.
     let out = bash(&sandbox(), "exec 3<>/dev/tcp/127.0.0.1/9");
