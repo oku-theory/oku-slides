@@ -1,0 +1,19 @@
+;; Bac à sable du processus de rendu (t-912) : écrire seulement dans WORK.
+;; Spec : docs/superpowers/specs/2026-10-17-render-worker-sandbox-design.md.
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write*
+  (subpath (param "WORK"))
+  (literal "/dev/null") (literal "/dev/dtracehelper")
+  ;; Le socket de LibreOffice, chemin codé en dur dans libuno_sal.
+  (literal "/private/tmp")
+  (require-all
+    (regex (string-append "^/private/tmp/OSL_PIPE_" (param "UID") "_SingleOfficeIPC_[0-9A-Za-z]+$"))
+    (vnode-type SOCKET)))
+(deny network*)
+(allow network* (local unix-socket) (remote unix-socket))
+(deny process-exec*)
+(allow process-exec (literal (param "WORKER")) (literal (param "SOFFICE")))
+(deny appleevent-send)
+(deny lsopen)
