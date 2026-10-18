@@ -189,3 +189,15 @@ fn edit_theme_returns_the_tokens_of_the_saved_version() {
     assert_that!(edited.tokens["color"]["accent"]).is_equal_to(json!("#c0392b"));
     assert_that!(s.theme_tokens_of(edited.id).unwrap()).is_equal_to(edited.tokens);
 }
+
+#[test]
+fn edit_theme_of_a_deck_only_theme_the_deck_no_longer_uses_readopts_its_new_version() {
+    let data = fresh_dir("oku-slides-deck-theme-edit-only-unused-");
+    let mut s = opened_on(data.path());
+    let before = adopt_deck_only_theme(&mut s);
+    s.set_theme(PAPIER_THEME).unwrap();
+    assert_that!(s.theme_info(before.id).unwrap().version).is_equal_to(&before.version);
+    let edited = s.edit_theme(before.id, None, vec![accent("#c0392b")]).unwrap();
+    assert_that!((edited.adopted, edited.changed)).is_equal_to((true, true));
+    assert_that!(s.deck().theme.clone()).is_equal_to(Some(ThemeRef { id: before.id, version: edited.version }));
+}

@@ -23,6 +23,7 @@ setMessages("fr", [
     "ui-import-tune = Peaufiner avec l'agent",
     "ui-import-tune-note = L'agent compare chaque slide à l'original.",
     "ui-import-tune-note-retrofit = L'agent compare chaque slide et dessine les widgets manquants.",
+    "ui-import-tune-unavailable = Aucun agent utilisable : { $reason }",
     "ui-import-submit = Importer",
     "ui-import-busy = Import en cours…",
     "ui-close-cancel = Annuler",
@@ -69,16 +70,28 @@ interface Options {
   busy?: boolean;
   error?: string | null;
   initial?: { target: ImportTarget; tune: boolean };
+  agentUnusable?: string | null;
 }
 
-async function mount({ packs = () => Promise.resolve(PACKS), busy = false, error = null, initial }: Options = {}) {
+async function mount({
+  packs = () => Promise.resolve(PACKS),
+  busy = false,
+  error = null,
+  initial,
+  agentUnusable = null,
+}: Options = {}) {
   const calls: Calls = { imports: [], closed: 0 };
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   const api = { templateSets: packs };
-  const render = (state: { busy: boolean; error: string | null }) =>
+  const render = (state: {
+    busy: boolean;
+    error: string | null;
+    agentUnusable?: string | null;
+    initial?: { target: ImportTarget; tune: boolean };
+  }) =>
     act(async () =>
       root.render(
         createElement(ImportDialog, {
@@ -86,6 +99,7 @@ async function mount({ packs = () => Promise.resolve(PACKS), busy = false, error
           api,
           themes: THEMES,
           initial,
+          agentUnusable,
           ...state,
           onImport: (target: ImportTarget, tune: boolean) => void calls.imports.push({ target, tune }),
           onClose: () => void calls.closed++,
@@ -307,5 +321,50 @@ test("ImportDialog rouvert pendant l'import garde les choix de l'import qui tour
   expect(radio("retrofit").checked).toBe(true);
   expect(selects()[0]!.value).toBe("p-moi");
   expect(selects()[1]!.value).toBe("t-nuit");
+  expect(tune().checked).toBe(false);
+});
+
+const NO_AGENT = "Agent introuvable : npx. Réglage [agent.presets].";
+
+test("ImportDialog sans agent utilisable : peaufinage décoché, désactivé, raison dite", async () => {
+  const { host, tune } = await mount({ agentUnusable: NO_AGENT });
+  expect(tune().checked).toBe(false);
+  expect(tune().disabled).toBe(true);
+  expect(host.querySelector("#import-tune-note")?.textContent).toBe(`Aucun agent utilisable : ${NO_AGENT}`);
+});
+
+test("ImportDialog sans agent utilisable importe sans peaufinage", async () => {
+  const { calls, button } = await mount({ agentUnusable: NO_AGENT });
+  await click(button("Importer"));
+  expect(calls.imports).toEqual([{ target: { mode: "hifi" }, tune: false }]);
+});
+
+test("ImportDialog : l'agent devenu inutilisable décoche le peaufinage, redevenu utilisable le rend", async () => {
+  const { calls, tune, button, render } = await mount({ agentUnusable: null });
+  expect(tune().checked).toBe(true);
+  await render({ busy: false, error: null, agentUnusable: NO_AGENT });
+  expect(tune().checked).toBe(false);
+  await render({ busy: false, error: null, agentUnusable: null });
+  expect(tune().checked).toBe(true);
+  expect(tune().disabled).toBe(false);
+  await click(button("Importer"));
+  expect(calls.imports).toEqual([{ target: { mode: "hifi" }, tune: true }]);
+});
+
+test("ImportDialog pendant l'import montre le peaufinage envoyé, même l'agent devenu inutilisable", async () => {
+  const { tune } = await mount({
+    busy: true,
+    initial: { target: { mode: "hifi" }, tune: true },
+    agentUnusable: NO_AGENT,
+  });
+  expect(tune().checked).toBe(true);
+  expect(tune().disabled).toBe(true);
+});
+
+test("ImportDialog lancé sans agent utilisable montre, pendant l'import, le peaufinage non envoyé", async () => {
+  const { calls, tune, button, render } = await mount({ agentUnusable: NO_AGENT });
+  await click(button("Importer"));
+  const sent = calls.imports[0]!;
+  await render({ busy: true, error: null, agentUnusable: null, initial: sent });
   expect(tune().checked).toBe(false);
 });

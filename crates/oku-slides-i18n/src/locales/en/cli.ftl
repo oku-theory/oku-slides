@@ -87,4 +87,4 @@ cli-arg-pack = Target pack: id, pack folder (pack.json, widgets/) or name
 cli-arg-import-theme = Target theme: a built-in or library theme, by id or name; default: the default theme
 cli-arg-report = Also write the import report (JSON): losses, fallbacks, coverage
 cli-arg-no-system-fonts = In hifi mode, do not look for the presentation's fonts among the system fonts
-cli-arg-reference = In hifi mode, compare each slide with a reference render of the presentation: auto (the default, office2pdf), office2pdf, soffice (LibreOffice) or not (none)
+cli-arg-reference = In hifi mode, compare each slide with a reference render of the presentation: auto (the default: [import] witness, office2pdf unless set), office2pdf, soffice (LibreOffice) or not (none)

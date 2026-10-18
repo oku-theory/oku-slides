@@ -73,4 +73,4 @@ cli-arg-pack = แพ็กเทมเพลตเป้าหมาย: รห
 cli-arg-import-theme = ธีมเป้าหมาย: ธีมในตัวหรือจากคลัง ระบุด้วยรหัสหรือชื่อ; ค่าเริ่มต้น: ธีมเริ่มต้น
 cli-arg-report = เขียนรายงานการนำเข้า (JSON) ด้วย: การสูญเสีย ทางเลือกสำรอง ความครอบคลุม
 cli-arg-no-system-fonts = ในโหมด hifi ไม่ต้องค้นหาฟอนต์ของงานนำเสนอในฟอนต์ของระบบ
-cli-arg-reference = ในโหมด hifi ให้เปรียบเทียบแต่ละสไลด์กับการเรนเดอร์อ้างอิงของงานนำเสนอ: auto (ค่าเริ่มต้น office2pdf), office2pdf, soffice (LibreOffice) หรือไม่ (none)
+cli-arg-reference = ในโหมด hifi ให้เปรียบเทียบแต่ละสไลด์กับการเรนเดอร์อ้างอิงของงานนำเสนอ: auto (ค่าเริ่มต้น: [import] witness หรือ office2pdf หากไม่ได้ตั้งค่า), office2pdf, soffice (LibreOffice) หรือไม่ (none)

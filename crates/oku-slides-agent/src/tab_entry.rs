@@ -186,9 +186,10 @@ async fn relay_mcp(
     }
 }
 
-/// Les évènements de l'agent : l'état part à l'interface, le reste met à jour les
-/// surfaces des tours ; plus rien une fois l'onglet fermé (`closed`), même si son
-/// agent n'a pas encore fini de s'arrêter.
+/// Le relais des évènements de l'agent d'un onglet.
+///
+/// L'état et la disponibilité partent à l'interface, le reste met à jour les surfaces des tours ;
+/// plus rien une fois l'onglet fermé (`closed`), même si son agent n'a pas encore fini de s'arrêter.
 struct Relay {
     tab: String,
     hub: Arc<SurfaceHub>,
@@ -206,9 +207,13 @@ impl Relay {
         if self.closed.is_cancelled() {
             return;
         }
-        if let AgentEvent::Status { state, scope } = e {
-            *self.status.lock().unwrap_or_else(PoisonError::into_inner) = (*state, scope.clone());
-            emit(&self.out, "agent", &self.tab, e);
+        match e {
+            AgentEvent::Status { state, scope } => {
+                *self.status.lock().unwrap_or_else(PoisonError::into_inner) = (*state, scope.clone());
+                emit(&self.out, "agent", &self.tab, e);
+            }
+            AgentEvent::Availability { .. } => emit(&self.out, "agent", &self.tab, e),
+            _ => {}
         }
         // Tous les évènements, `Status` compris, passent aux tours (le repos clôt un tour dont la fin s'est perdue).
         for out in self.turns.apply(e, Instant::now(), &self.localizer.current()) {

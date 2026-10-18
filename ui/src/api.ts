@@ -11,7 +11,7 @@ import { host } from "./hostCall";
 
 export { errorText, inTauri, isMac, listenTauri } from "./hostCall";
 export { tabDrag, workspace } from "./workspaceApi";
-export type { ImportTarget, TabAt, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
+export type { ImportPick, ImportTarget, TabAt, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
 export { pickOpenPath, pickSavePath } from "./filePick";
 
 export type SlideKind = string;
@@ -58,6 +58,8 @@ export interface Snapshot {
   theme_name: string | null;
   /** Thèmes de la bibliothèque dans leur version courante : intégrés, puis ceux de l'utilisateur. */
   themes: ThemeInfo[];
+  /** Thèmes du deck seul embarqués dans ses sources (celui d'un import), un par id : « cette présentation ». */
+  deck_themes: ThemeInfo[];
   title: string | null;
   title_source: string | null;
   /** Langue du deck (`params.lang`) : les grilles écrivent les nombres comme les slides. */
@@ -78,7 +80,7 @@ export interface Snapshot {
   templates: PackRef | null;
   /** Édition d'un pack de modèles en cours. */
   editing: TemplateMode | null;
-  /** Le pack du deck n'appartient qu'à lui (import) : l'atelier ne l'ouvre pas. */
+  /** Le pack du deck n'appartient qu'à lui (import) : jamais dans la bibliothèque. */
   deck_pack: boolean;
   /** Le deck embarque une autre version de son pack que ma version courante. */
   pack_notice: PackNotice | null;
@@ -176,7 +178,11 @@ export interface ThemeRef {
   version: string;
 }
 
-/** Un thème de la bibliothèque, dans sa version courante. */
+/**
+ * Un thème proposé, de la bibliothèque ou du deck seul.
+ *
+ * Celui de la bibliothèque dans sa version courante, celui du deck seul dans celle qu'il reprendrait.
+ */
 export interface ThemeInfo {
   id: string;
   version: string;
@@ -213,6 +219,8 @@ export interface TemplateMode {
   parent: string | null;
   /** Version de cette session d'édition, une fois enregistrée. */
   session_version: string | null;
+  /** Pack du deck seul (celui d'un import) : ses enregistrements restent dans le deck, jamais dans la bibliothèque. */
+  deck_only: boolean;
   /** Le thème édité en brouillon : les jetons du deck de travail. */
   theme: ThemeEditView;
 }
@@ -640,13 +648,14 @@ export type AgentUiSent = AgentUi & { locale: string };
 export type AgentState = "idle" | "starting" | "working";
 
 /**
- * Évènements du canal `agent` : état de l'agent, brouillon de l'onglet et panneau des agents
- * (le fil passe par les surfaces).
+ * Évènements du canal `agent` : état de l'agent, brouillon de l'onglet, panneau des agents et
+ * disponibilité de l'agent (le fil passe par les surfaces).
  */
 export type AgentEvent =
   | { kind: "status"; state: AgentState; scope?: AgentScope }
   | { kind: "draft"; text: string | null; origin: string | null }
-  | { kind: "picker"; surface: Surface };
+  | { kind: "picker"; surface: Surface }
+  | { kind: "availability"; unusable: string | null };
 
 /** La portée d'une conversation : les slides, l'atelier d'un pack, ou un de ses widgets. */
 export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } | { kind: "widget"; pack: string; name: string };
@@ -700,6 +709,7 @@ type AgentCommand =
   | { cmd: "follow"; tab: string }
   | { cmd: "set_draft"; tab: string; text: string | null; origin: string }
   | { cmd: "picker"; tab: string }
+  | { cmd: "availability"; tab: string }
   | { cmd: "select_agent"; tab: string; id: string };
 
 const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agent", req);
@@ -725,6 +735,8 @@ export function agentApi(tab: string) {
     setDraft: (text: string | null, origin: string) => agentCall({ cmd: "set_draft", tab, text, origin }),
     /** Demande le panneau des agents (évènement `picker` pour cet onglet). */
     picker: () => agentCall({ cmd: "picker", tab }),
+    /** Demande si l'agent est utilisable (évènement `availability` pour cet onglet). */
+    availability: () => agentCall({ cmd: "availability", tab }),
     /** Choisit l'agent de l'app ; l'hôte réémet le panneau. */
     selectAgent: (id: string) => agentCall({ cmd: "select_agent", tab, id }),
   };

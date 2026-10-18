@@ -91,12 +91,14 @@ test("useImportJob refusé après la fermeture du dialogue : l'espace de travail
   expect(late).toEqual(["fichier illisible"]);
 });
 
-test("useImportJob un autre choix pendant l'import rouvre celui qui tourne", async () => {
+test("useImportJob un autre choix pendant l'import rouvre celui qui tourne et se dit refusé", async () => {
   const { job, started, begin } = await mount();
-  await act(async () => job().pick("/a/Alto.pptx"));
+  const taken: boolean[] = [];
+  await act(async () => void taken.push(job().pick("/a/Alto.pptx")));
   await begin();
   await act(async () => job().close());
-  await act(async () => job().pick("/b/Autre.pptx"));
+  await act(async () => void taken.push(job().pick("/b/Autre.pptx")));
+  expect(taken).toEqual([true, false]);
   await begin();
   expect(job().job).toEqual({ path: "/a/Alto.pptx", choice: { target: { mode: "hifi" }, tune: true }, shown: true, busy: true, error: null });
   expect(started).toHaveLength(1);

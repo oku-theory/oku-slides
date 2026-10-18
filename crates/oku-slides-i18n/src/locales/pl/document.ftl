@@ -110,6 +110,9 @@ import-region-suspect = Różnica pominięta, znany błąd renderera referencyjn
     [autofit] zmniejsza tekst dopasowany do pola, gdy PowerPoint nie zapisał skali
     [tracking] rysuje szerzej tekst z odstępami między znakami
     [chart] rysuje wykresy tylko w przybliżeniu
+    [default_font] rysuje swoją czcionką zastępczą tekst, którego czcionkę podają tylko domyślne ustawienia prezentacji
+    [no_substitute] nie ma zamiennika dla tej czcionki i rysuje ją inną
+    [smart_art_style] rysuje tekst SmartArt we własnym stylu
    *[smart_art] rysuje tekst SmartArt zbyt mały
 }
 import-font-substituted = { $family } zastąpiona czcionką { $by } o zgodnych metrykach

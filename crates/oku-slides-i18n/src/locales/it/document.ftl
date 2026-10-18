@@ -108,6 +108,9 @@ import-region-suspect = Scarto messo da parte, un errore noto del renderer di ri
     [autofit] riduce il testo adattato alla sua casella quando PowerPoint non ha salvato alcuna scala
     [tracking] disegna più largo il testo spaziato
     [chart] disegna i grafici solo in modo approssimativo
+    [default_font] disegna nel suo carattere di riserva un testo il cui carattere è indicato solo dalle impostazioni predefinite della presentazione
+    [no_substitute] non ha un sostituto per questo carattere e ne disegna un altro
+    [smart_art_style] disegna il testo degli SmartArt con il proprio stile
    *[smart_art] disegna il testo degli SmartArt troppo piccolo
 }
 import-font-substituted = { $family } sostituito da { $by }, con metriche compatibili

@@ -108,6 +108,9 @@ import-region-suspect = Écart mis de côté, erreur connue du témoin : { $limi
     [autofit] il rétrécit un texte ajusté à sa boîte quand PowerPoint n'a enregistré aucune échelle
     [tracking] il dessine plus large un texte interlettré
     [chart] il ne dessine les graphiques qu'à peu près
+    [default_font] il dessine dans sa police de repli un texte dont seuls les défauts de la présentation nomment la police
+    [no_substitute] il n'a pas de substitut pour cette police et en dessine une autre
+    [smart_art_style] il dessine le texte des SmartArt dans son propre style
    *[smart_art] il dessine le texte des SmartArt trop petit
 }
 import-font-substituted = { $family } remplacée par { $by }, aux métriques compatibles

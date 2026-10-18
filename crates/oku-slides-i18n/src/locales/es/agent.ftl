@@ -33,6 +33,7 @@ agent-confirm-copy-theme = ¿Guardar una copia modificada del tema integrado «{
 agent-confirm-setting = ¿Cambiar { $key }: { $old } → { $new }?
 
 agent-not-found = Agente no encontrado: { $command }. Ajuste [agent.presets].
+agent-spawn-failed = No se pudo iniciar el agente: { $command }. Ajuste [agent.presets].
 agent-no-http = Este agente no puede conectarse a las herramientas de Oku Slides.
 agent-stopped = El agente se detuvo.
 agent-failed = El agente rechazó la solicitud: { $message }

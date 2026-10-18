@@ -11,25 +11,28 @@
 //! jusqu'à la sortie du mode modèles.
 //! « Enregistrer comme copie » : un nouvel id, sans parente, et la session
 //! continue sur la copie. Un pack intégré suit la même règle, sous son id.
+//! Un pack du deck seul (import) part de la version qu'embarque le deck ;
+//! ses versions, copie comprise, restent dans le deck (`templates_library`).
 //! Le thème du deck s'y édite en brouillon (voir `theme_edit`).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{OptionExt, ResultExt};
 use uuid::Uuid;
 
 use oku_slides_core::{Deck, PackFiles, PackRef, PackVersion, Slide, SourceBundle};
 use oku_slides_i18n::Localize;
 
 use crate::error::{
-    DeckOnlySnafu, InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu,
-    RenderSnafu, SourcesSnafu, UnknownPackSnafu,
+    InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu, RenderSnafu,
+    SourcesSnafu, UnknownPackSnafu,
 };
 use crate::library::PackLibrary;
 use crate::library_kind::StoredVersion;
 use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, PackScope, Template, now_created};
 use crate::template_scratch::TemplateScratch;
+use crate::templates_library::{restore_session_version, write_session_version};
 use crate::theme_edit::tokens_value;
 use crate::{Document, Mode, Result, Session, TemplateMode, TemplateView, TemplatesView, new_renderer};
 
@@ -90,9 +93,9 @@ impl Session {
     pub fn edit_templates(&mut self, id: Uuid) -> Result<()> {
         // L'historique ouvert se ferme d'abord ; l'aide ne passe jamais aux modèles.
         self.ensure_editable()?;
-        // Le pack du deck seul (celui d'un import) n'est pas dans la bibliothèque : refusé comme tel.
-        ensure!(!self.embeds_deck_only_pack(id), DeckOnlySnafu { id });
-        let stored = self.library.current_version(id).context(UnknownPackSnafu { id })?;
+        // Le pack du deck seul (celui d'un import) part de sa version embarquée.
+        let stored = self.templates_base(id)?;
+        let deck_only = !stored.manifest.scope.is_library();
         let r = PackRef { id, version: stored.version.clone() };
         let slides = stored.manifest.templates.iter().cloned().map(template_slide).collect();
         // Le brouillon du thème : gardé d'un pack à l'autre, sinon le thème du deck.
@@ -119,6 +122,7 @@ impl Session {
             base: r.version.clone(),
             parent: Some(r.version),
             session_version: None,
+            deck_only,
         };
         // Les widgets du pack s'installent avant de changer de document : en
         // cas d'échec, rien ne change.
@@ -160,14 +164,18 @@ impl Session {
 
     /// Le `pack.json` que montre `deck`, le deck des modèles en cours d'édition.
     ///
-    /// `kept` : la dernière version enregistrée, dont la description et les valeurs d'exemple restent.
+    /// `kept` : la dernière version enregistrée, dont la description, les
+    /// valeurs d'exemple et la portée restent ; sans elle, la portée de
+    /// l'édition (`deck_only`).
     fn edited_manifest(
         &self,
         deck: &Deck,
-        id: Uuid,
-        parent: Option<PackVersion>,
+        (id, parent): (Uuid, Option<PackVersion>),
+        deck_only: bool,
         kept: Option<PackManifest>,
     ) -> PackManifest {
+        let fallback = if deck_only { PackScope::Deck } else { PackScope::Library };
+        let scope = kept.as_ref().map_or(fallback, |m| m.scope);
         let (description, examples) = kept.map(|m| (m.description, m.examples)).unwrap_or_default();
         let name = deck
             .params
@@ -190,16 +198,7 @@ impl Session {
                 Template { id: s.id.clone(), name, description, slide }
             })
             .collect();
-        PackManifest {
-            id,
-            name,
-            description,
-            parent,
-            created: now_created(),
-            scope: PackScope::Library,
-            templates,
-            examples,
-        }
+        PackManifest { id, name, description, parent, created: now_created(), scope, templates, examples }
     }
 
     /// Enregistre le pack édité dans la version de cette session d'édition.
@@ -229,7 +228,7 @@ impl Session {
         let kept = base.and_then(|f| PackManifest::from_files(f).ok());
         let widgets = base.map(|f| f.widgets().clone()).unwrap_or_default();
         let (id, parent) = if as_new { (Uuid::new_v4(), None) } else { (edit.set, edit.parent.clone()) };
-        let manifest = self.edited_manifest(&deck, id, parent, kept);
+        let manifest = self.edited_manifest(&deck, (id, parent), edit.deck_only, kept);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
         self.adopt_session_version(deck, files, &edit, as_new, None)?;
         // Le brouillon du thème, s'il change le thème du deck, rejoint l'étape du pack.
@@ -256,7 +255,8 @@ impl Session {
     /// `files` devient la version de la séance d'édition `edit`.
     ///
     /// Créée la première fois (ou toujours, pour une copie `as_new`),
-    /// remplacée ensuite, rendue courante ; `deck` (le document des modèles)
+    /// remplacée ensuite, rendue courante dans la bibliothèque (jamais écrite
+    /// pour un pack du deck seul) ; `deck` (le document des modèles)
     /// y passe en une étape `step` (silencieux sans), et le deck mis de côté
     /// en une étape d'annulation.
     /// Sans rendu : l'appelant rend ensuite le document des modèles.
@@ -272,15 +272,8 @@ impl Session {
         let (id, parent) = (manifest.id, manifest.parent.clone());
         // Une version par séance : la première est créée, les suivantes la remplacent.
         let replaced = edit.session_version.as_ref().filter(|_| !as_new);
-        let version = match replaced {
-            Some(old) => self.library.replace_version(id, old, &files)?,
-            None => {
-                let version = files.version();
-                self.library.add_version(id, &files)?;
-                self.library.set_current(id, &version)?;
-                version
-            }
-        };
+        let version = write_session_version(&self.library, id, replaced, &files)?;
+        let deck_only = !manifest.scope.is_library();
         let r = PackRef { id, version: version.clone() };
         let merge = adopt_merge_key(id, parent.as_ref());
         // Le document des modèles passe à la nouvelle version : une étape pour
@@ -310,9 +303,7 @@ impl Session {
                     stash.sources.packs.remove(old);
                 } else if let Some(files) = stash.sources.packs.get(old) {
                     // Nouvelle étape : annuler y revient ; la bibliothèque la retrouve.
-                    if let Err(e) = self.library.add_version(id, files) {
-                        tracing::error!(error = %e.one_line(), "version de séance non rétablie dans la bibliothèque");
-                    }
+                    restore_session_version(&self.library, id, files);
                 }
             }
             *edit = TemplateMode {
@@ -322,6 +313,7 @@ impl Session {
                 base: version.clone(),
                 parent,
                 session_version: Some(version.clone()),
+                deck_only,
             };
         }
         self.sync_widgets()?;
@@ -332,8 +324,9 @@ impl Session {
     /// Réaligne l'édition des modèles sur la version du document, après annuler ou rétablir.
     ///
     /// La bibliothèque retrouve cette version (une écriture de la séance l'a
-    /// peut-être remplacée), sans qu'elle devienne courante ; le deck mis de
-    /// côté y passe, dans l'étape de la séance.
+    /// peut-être remplacée), sans qu'elle devienne courante ; celle d'un pack
+    /// du deck seul n'y entre jamais. Le deck mis de côté passe à cette
+    /// version, dans l'étape de la séance.
     pub(crate) fn realign_templates(&mut self) -> Result<()> {
         self.realign_theme_edit();
         let Some(r) = self.doc.sources.deck().templates.clone() else { return Ok(()) };
@@ -351,9 +344,7 @@ impl Session {
             .get(&r.version)
             .cloned()
             .context(PackVersionMissingSnafu { id: r.id, version: r.version.clone() })?;
-        if let Err(e) = self.library.add_version(r.id, &files) {
-            tracing::error!(error = %e.one_line(), "version rétablie absente de la bibliothèque");
-        }
+        restore_session_version(&self.library, r.id, &files);
         edit.base = r.version.clone();
         edit.session_version = (edit.parent.as_ref() != Some(&r.version)).then(|| r.version.clone());
         let label = self.localizer.tr_with("templates-adopt-label", &[("name", edit.name.as_str().into())]);

@@ -2,6 +2,7 @@
 
 use roxmltree::Node;
 
+use crate::pptx::cascade::TextChain;
 use crate::pptx::fill::{FillSpec, LineSpec};
 use crate::pptx::text::{BodyProps, LevelProps};
 use crate::pptx::xml::{attr_str, attr_u32};
@@ -107,7 +108,9 @@ impl TextStyles {
 /// Ce qu'une forme hérite de ses placeholders parents (non résolu).
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Inherited {
-    /// Couches de styles texte, de la plus faible à la plus forte.
+    /// Les défauts de la présentation (`defaultTextStyle`), sous toutes les couches.
+    pub defaults: LevelProps,
+    /// Couches de styles texte au-dessus des défauts, de la plus faible à la plus forte.
     pub levels: Vec<LevelProps>,
     pub bodies: Vec<BodyProps>,
     pub frame: Option<Frame>,
@@ -115,6 +118,17 @@ pub(crate) struct Inherited {
     pub line: LineSpec,
     pub geom: Option<Geometry>,
     pub link: Option<PlaceholderLink>,
+}
+
+impl Inherited {
+    /// La chaîne de texte de ces couches, pour la cascade.
+    pub(crate) fn chain(&self) -> TextChain<'_> {
+        TextChain {
+            defaults: Some(&self.defaults),
+            levels: self.levels.iter().collect(),
+            bodies: self.bodies.iter().collect(),
+        }
+    }
 }
 
 /// Héritage dans une part : styles du master, placeholders du master et du layout.
@@ -128,8 +142,9 @@ pub(crate) struct PhInheritance<'a> {
 impl PhInheritance<'_> {
     /// Héritage d'une forme ; `None` = forme ordinaire.
     pub(crate) fn lookup(&self, ph: Option<&PhKey>) -> Inherited {
-        let mut levels = vec![self.styles.pres.clone(), self.styles.for_key(ph).clone()];
-        let Some(key) = ph else { return Inherited { levels, ..Inherited::default() } };
+        let defaults = self.styles.pres.clone();
+        let mut levels = vec![self.styles.for_key(ph).clone()];
+        let Some(key) = ph else { return Inherited { defaults, levels, ..Inherited::default() } };
         let m = self.master.and_then(|t| t.find_master(key));
         let l = self.layout.and_then(|t| t.find(key));
         let mut bodies = Vec::new();
@@ -139,6 +154,7 @@ impl PhInheritance<'_> {
         }
         let base_line = m.map(|i| i.line.clone()).unwrap_or_default();
         Inherited {
+            defaults,
             levels,
             bodies,
             frame: l.or(m).map(|i| i.frame),

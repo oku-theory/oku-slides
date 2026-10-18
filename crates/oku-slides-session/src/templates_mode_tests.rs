@@ -2,7 +2,7 @@ use speculoos::prelude::*;
 
 use crate::library::builtin_versions;
 use crate::pack::{DEFAULT_PACK, PackManifest};
-use crate::test_support::{adopt_deck_only_pack, fresh_dir, library_of, session_on};
+use crate::test_support::{adopt_deck_only_pack, fresh_dir, library_files, library_of, session_on};
 
 #[test]
 fn save_templates_creates_a_version_whose_parent_is_the_old_current() {
@@ -253,15 +253,155 @@ fn ui_request_in_deck_mode_keeps_no_widget_tabs() {
     assert_that!(s.ui.widgets).is_empty();
 }
 
+/// L'édition en cours (mode modèles) de `s`.
+fn edit_of(s: &mut crate::Session) -> crate::TemplateMode {
+    s.snapshot().editing.map(|e| e.mode.clone()).unwrap_or_else(|| panic!("mode modèles attendu"))
+}
+
+/// Le deck mis de côté par le mode modèles de `s`.
+fn stash_of(s: &crate::Session) -> &crate::Document {
+    let crate::Mode::Templates { stash, .. } = &s.mode else { panic!("mode modèles attendu") };
+    stash
+}
+
+/// Un widget minimal pour les écritures en mode modèles.
+const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("kpi", params: (value: p.plain()), (args, ctx) => field(ctx, "value", args.value))
+"#;
+
 #[test]
-fn edit_templates_of_a_deck_only_pack_is_refused_as_deck_only_and_stays_in_deck_mode() {
+fn edit_templates_of_a_deck_only_pack_starts_from_its_embedded_version() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut s);
+    s.edit_templates(r.id).unwrap();
+    let edit = edit_of(&mut s);
+    assert_that!((edit.set, edit.base.clone(), edit.deck_only)).is_equal_to((r.id, r.version.clone(), true));
+    assert_that!(edit.name.as_str()).is_equal_to("Importé");
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(r));
+}
+
+#[test]
+fn edit_templates_of_a_library_pack_is_not_deck_only() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    assert_that!(edit_of(&mut s).deck_only).is_false();
+}
+
+#[test]
+fn save_templates_of_a_deck_only_pack_embeds_a_deck_only_version_and_leaves_the_library_unchanged() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut s);
+    let before = library_files(data.path());
+    s.edit_templates(r.id).unwrap();
+    s.apply("Nom", vec![rename("Un")], None).unwrap();
+    s.save_templates(false).unwrap();
+    let version = edit_of(&mut s).session_version.unwrap_or_else(|| panic!("version de séance"));
+    assert_that!(library_files(data.path())).is_equal_to(before);
+    assert_that!(library_of(&s).versions(r.id)).is_empty();
+    let files = stash_of(&s).sources.packs.get(&version).cloned().unwrap_or_else(|| panic!("version embarquée"));
+    let m = PackManifest::from_files(&files).unwrap();
+    assert_that!((m.scope, m.parent.clone(), m.name.as_str())).is_equal_to((
+        oku_slides_core::PackScope::Deck,
+        Some(r.version.clone()),
+        "Un",
+    ));
+    s.close_templates().unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(oku_slides_core::PackRef { id: r.id, version }));
+    assert_that!(s.snapshot().deck_pack).is_true();
+}
+
+#[test]
+fn save_templates_twice_on_a_deck_only_pack_replaces_the_session_version_in_sources_only() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut s);
+    let before = library_files(data.path());
+    s.edit_templates(r.id).unwrap();
+    s.apply("Nom", vec![rename("Un")], None).unwrap();
+    s.save_templates(false).unwrap();
+    let first = edit_of(&mut s).session_version.unwrap_or_else(|| panic!("première version"));
+    s.apply("Nom", vec![rename("Deux")], None).unwrap();
+    s.save_templates(false).unwrap();
+    let edit = edit_of(&mut s);
+    let second = edit.session_version.clone().unwrap_or_else(|| panic!("seconde version"));
+    assert_that!(second.clone()).is_not_equal_to(first.clone());
+    assert_that!(edit.parent).is_equal_to(Some(r.version.clone()));
+    assert_that!(library_files(data.path())).is_equal_to(before);
+    // Fusionnée dans l'étape de la première : la première quitte le deck mis de côté.
+    assert_that!(stash_of(&s).sources.packs.contains_key(&first)).is_false();
+    assert_that!(stash_of(&s).sources.packs.contains_key(&second)).is_true();
+    s.close_templates().unwrap();
+    s.undo().unwrap();
+    assert_that!(s.deck().templates.clone()).is_equal_to(Some(r));
+}
+
+#[test]
+fn undo_after_saving_a_deck_only_pack_writes_no_library() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut s);
+    let before = library_files(data.path());
+    s.edit_templates(r.id).unwrap();
+    s.set_widget("kpi", KPI.into()).unwrap();
+    let log = crate::test_support::logged(|| s.undo().unwrap());
+    assert_that!(log.as_str()).does_not_contain("ERROR");
+    assert_that!(library_files(data.path())).is_equal_to(before);
+    let edit = edit_of(&mut s);
+    assert_that!((edit.base.clone(), edit.session_version.clone())).is_equal_to((r.version.clone(), None));
+    assert_that!(stash_of(&s).sources.deck().templates.clone()).is_equal_to(Some(r));
+}
+
+#[test]
+fn edit_templates_of_a_deck_only_pack_only_in_history_is_refused_as_deck_only() {
     use oku_slides_i18n::Localize;
     let data = fresh_dir("oku-slides-templates-mode-");
     let mut s = session_on(data.path());
     let r = adopt_deck_only_pack(&mut s);
+    // Le deck revient à son pack d'avant : la version du deck seul ne reste que dans l'historique.
+    s.undo().unwrap();
+    assert_that!(s.deck().templates.as_ref().map(|t| t.id)).is_not_equal_to(Some(r.id));
     let err = s.edit_templates(r.id).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::DeckOnly);
     let de = oku_slides_i18n::Localizer::new(Some("de"));
     assert_that!(err.localize(&de)).is_not_equal_to(err.localize(&oku_slides_i18n::Localizer::new(Some("en"))));
     assert_that!(matches!(s.mode, crate::Mode::Deck)).is_true();
+}
+
+#[test]
+fn templates_base_of_a_deck_only_pack_missing_its_embedded_version_is_pack_version_missing() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut s);
+    // Des sources incohérentes : une autre version du deck seul est embarquée, pas celle du deck.
+    let files = s.doc.sources.packs.get(&r.version).cloned().unwrap_or_else(|| panic!("version du deck"));
+    let mut m = PackManifest::from_files(&files).unwrap();
+    m.name = "Autre".into();
+    s.doc.sources.add_pack(m.to_files(files.widgets().clone()).unwrap());
+    s.doc.sources.packs.remove(&r.version);
+    let err = s.templates_base(r.id).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::PackVersionMissing);
+}
+
+#[test]
+fn save_as_copy_of_a_deck_only_pack_stays_deck_only() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let mut s = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut s);
+    let before = library_files(data.path());
+    s.edit_templates(r.id).unwrap();
+    s.save_templates(true).unwrap();
+    let edit = edit_of(&mut s);
+    assert_that!(edit.set).is_not_equal_to(r.id);
+    assert_that!(edit.deck_only).is_true();
+    assert_that!(library_files(data.path())).is_equal_to(before);
+    assert_that!(library_of(&s).versions(edit.set)).is_empty();
+    let version = edit.session_version.clone().unwrap_or_else(|| panic!("version de la copie"));
+    let files = stash_of(&s).sources.packs.get(&version).cloned().unwrap_or_else(|| panic!("copie embarquée"));
+    let m = PackManifest::from_files(&files).unwrap();
+    assert_that!((m.id, m.scope, m.parent)).is_equal_to((edit.set, oku_slides_core::PackScope::Deck, None));
+    s.close_templates().unwrap();
+    assert_that!(s.deck().templates.as_ref().map(|t| t.id)).is_equal_to(Some(edit.set));
 }

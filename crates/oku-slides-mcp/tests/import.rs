@@ -85,7 +85,7 @@ async fn nudge(c: &rust_mcp_sdk::mcp_client::ClientRuntime, h: &Harness, slide: 
 
 #[tokio::test(flavor = "multi_thread")]
 async fn import_report_hifi_gives_the_queue_worst_first() {
-    let h = start_imported(ALTO, ImportTarget::Hifi, |_| {}).await;
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let report = json_of(&call(&c, "import_report", json!({})).await);
     assert_that!(report["mode"].as_str()).is_equal_to(Some("hifi"));
@@ -108,7 +108,7 @@ async fn import_report_hifi_gives_the_queue_worst_first() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn import_diff_gives_both_pages_then_the_regions_and_bounds_the_tries() {
-    let h = start_imported(ALTO, ImportTarget::Hifi, |s| s.import.tune_iterations = std::num::NonZeroU32::MIN).await;
+    let h = start_imported(ALTO, hifi(), |s| s.import.tune_iterations = std::num::NonZeroU32::MIN).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let first = call(&c, "import_diff", json!({ "slide": PENDING })).await;
     assert_that!(first.is_error).is_not_equal_to(Some(true));
@@ -134,7 +134,7 @@ async fn import_diff_gives_both_pages_then_the_regions_and_bounds_the_tries() {
 #[tokio::test(flavor = "multi_thread")]
 async fn import_diff_of_a_slide_whose_neighbour_moved_counts_no_try() {
     // Retoucher s6 changeait l'empreinte Typst de la page de s7 (introspection) : un essai de s7 compté à tort.
-    let h = start_imported(ALTO, ImportTarget::Hifi, |_| {}).await;
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     json_of(&call(&c, "import_report", json!({})).await);
     nudge(&c, &h, "s6").await;
@@ -148,7 +148,7 @@ async fn import_diff_of_a_slide_whose_neighbour_moved_counts_no_try() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn import_report_after_a_theme_edit_draws_a_global_try_not_slide_tries() {
-    let h = start_imported(ALTO, ImportTarget::Hifi, |_| {}).await;
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let first = json_of(&call(&c, "import_report", json!({})).await);
     assert_that!(first["global_tries_left"].as_u64()).is_equal_to(Some(3));
@@ -176,7 +176,7 @@ async fn import_report_after_a_theme_edit_draws_a_global_try_not_slide_tries() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn import_diff_of_a_region_crops_it_at_twice_the_size() {
-    let h = start_imported(ALTO, ImportTarget::Hifi, |_| {}).await;
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let whole = diff_json(&call(&c, "import_diff", json!({ "slide": PENDING })).await);
     let item = whole["regions"][0]["item"].as_str().unwrap_or_default().to_owned();
@@ -203,7 +203,7 @@ async fn import_report_retrofit_gives_the_widget_requests_and_import_diff_is_ref
 
 #[tokio::test(flavor = "multi_thread")]
 async fn edit_theme_of_the_hifi_theme_asks_no_confirmation() {
-    let h = start_imported(ALTO, ImportTarget::Hifi, |_| {}).await;
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let theme = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().theme.clone();
     let theme = theme.unwrap_or_else(|| panic!("thème du deck"));
@@ -226,7 +226,7 @@ async fn edit_theme_of_the_hifi_theme_asks_no_confirmation() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn theme_tokens_reads_the_hifi_theme_and_edit_theme_returns_its_new_tokens() {
-    let h = start_imported(ALTO, ImportTarget::Hifi, |_| {}).await;
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let (theme, tokens) = {
         let s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -246,6 +246,25 @@ async fn theme_tokens_reads_the_hifi_theme_and_edit_theme_returns_its_new_tokens
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn deck_outline_lists_the_hifi_theme_as_deck_only_and_set_theme_takes_it_back() {
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let theme = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().theme.clone();
+    let theme = theme.unwrap_or_else(|| panic!("thème du deck"));
+    let papier = json!({ "op": "set_theme", "theme": null });
+    assert_that!(call(&c, "apply", json!({ "ops": [papier] })).await.is_error).is_not_equal_to(Some(true));
+    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
+    let listed = outline["themes"].as_array().unwrap().iter().find(|t| t["id"] == json!(theme.id)).cloned();
+    let listed = listed.unwrap_or_else(|| panic!("thème de l'import absent de la liste"));
+    assert_that!((listed["version"].clone(), listed["deck_only"].clone()))
+        .is_equal_to((json!(theme.version), json!(true)));
+    let back = json!({ "op": "set_theme", "theme": { "id": listed["id"], "version": listed["version"] } });
+    assert_that!(call(&c, "apply", json!({ "ops": [back] })).await.is_error).is_not_equal_to(Some(true));
+    let now = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().theme.clone();
+    assert_that!(now).is_equal_to(Some(theme));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn theme_tokens_of_an_unknown_theme_says_so_in_the_user_language() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
@@ -258,12 +277,67 @@ async fn theme_tokens_of_an_unknown_theme_says_so_in_the_user_language() {
     assert_that!(text_of(&r)).is_equal_to(expected);
 }
 
+/// Les fichiers de la bibliothèque de modèles sous `data`, avec leurs octets, triés.
+fn library_files(data: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+    fn walk(dir: &std::path::Path, out: &mut Vec<(std::path::PathBuf, Vec<u8>)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for e in entries {
+            let p = e.unwrap_or_else(|e| panic!("{e}")).path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else {
+                let bytes = std::fs::read(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()));
+                out.push((p, bytes));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&data.join("templates"), &mut out);
+    out.sort();
+    out
+}
+
+/// Un widget minimal, écrit dans le pack édité.
+const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("kpi", params: (value: p.plain()), (args, ctx) => field(ctx, "value", args.value))
+"#;
+
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_templates_of_the_hifi_pack_is_refused_as_deck_only() {
-    let h = start_imported(ALTO, ImportTarget::Hifi, |_| {}).await;
+async fn edit_templates_of_the_hifi_pack_edits_it_in_the_deck_and_never_writes_the_library() {
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let pack = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().templates.clone();
     let pack = pack.unwrap_or_else(|| panic!("pack du deck"));
+    let before = library_files(h.data());
+    let r = call(&c, "edit_templates", json!({ "set": pack.id })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let r = call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let edit = {
+        let s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        s.snapshot().editing.map(|e| e.mode.clone()).unwrap_or_else(|| panic!("mode modèles attendu"))
+    };
+    assert_that!((edit.set, edit.deck_only)).is_equal_to((pack.id, true));
+    assert_that!(edit.session_version.is_some()).is_true();
+    assert_that!(library_files(h.data())).is_equal_to(before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_templates_of_a_hifi_pack_left_in_history_is_refused_as_deck_only() {
+    let h = start_imported(ALTO, hifi(), |_| {}).await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let session = h.session.clone();
+    // Le deck passe au pack par défaut (hors du runtime : le stockage bloque) : celui de l'import ne
+    // reste que dans l'historique.
+    let pack = tokio::task::spawn_blocking(move || {
+        let mut s = session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let pack = s.deck().templates.clone().unwrap_or_else(|| panic!("pack du deck"));
+        let op = oku_slides_core::Op::SetTemplates { templates: None };
+        s.apply("Pack", vec![op], None).unwrap_or_else(|e| panic!("pack par défaut : {}", e.one_line()));
+        pack
+    })
+    .await
+    .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
     let r = call(&c, "edit_templates", json!({ "set": pack.id })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     let expected = h.localizer.tr_with("session-deck-only", &[("id", pack.id.to_string().into())]);
@@ -285,7 +359,7 @@ fn reference_unavailable(locale: &str) -> Vec<String> {
 #[tokio::test(flavor = "multi_thread")]
 async fn import_report_without_a_reference_says_why_in_the_live_language() {
     // Un témoin borné à 1 ms ne rend jamais : la référence manque, et le rapport dit pourquoi.
-    let h = start_imported("minimal", ImportTarget::Hifi, |s| s.import.reference_timeout_ms = 1).await;
+    let h = start_imported("minimal", hifi(), |s| s.import.reference_timeout_ms = 1).await;
     h.live.set(std::sync::Arc::new(oku_slides_i18n::Localizer::new(Some("de"))));
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let report = json_of(&call(&c, "import_report", json!({})).await);

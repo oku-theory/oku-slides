@@ -6,7 +6,8 @@ use speculoos::prelude::*;
 use super::*;
 use crate::import::ImportMode;
 use crate::test_support::{apply_ws, fresh_dir, pptx_fixture, workspace_on, workspace_platform};
-use crate::{Localize, Request, SessionErrorKind};
+use crate::{Localize, Localizer, Request, SessionErrorKind};
+use oku_slides_render_worker::ReferenceWitness;
 
 fn import_tab(ws: &Mutex<Workspace>, path: &Path, target: serde_json::Value, tune: bool) -> Result<WorkspaceOutcome> {
     let mut req = json!({ "cmd": "import_tab", "window": "w-1", "path": path, "tune": tune });
@@ -127,4 +128,55 @@ fn import_tab_resumed_after_relaunch_keeps_its_deck_but_not_its_import_state() {
     let slides = Workspace::with_session(&again, "t-2", |s| s.deck().slides.len()).0.unwrap();
     assert_that!(slides).is_equal_to(3);
     assert_that!(import_mode(&again, "t-2")).is_none();
+}
+
+/// Un espace de travail neuf sur `data`, ses réglages changés par `f`.
+fn workspace_with(data: &Path, f: impl FnOnce(&mut crate::Settings)) -> Mutex<Workspace> {
+    let mut settings = workspace_platform(data).settings.as_ref().clone();
+    f(&mut settings);
+    let platform = crate::Platform::with_settings(settings).unwrap();
+    Mutex::new(Workspace::new(crate::Fonts::default(), &platform, None).unwrap())
+}
+
+/// Le témoin du travail de référence de l'import de `tab`, et l'état de sa référence.
+fn witness_of(
+    ws: &Mutex<Workspace>,
+    tab: &str,
+) -> (Option<ReferenceWitness>, Option<Result<String, oku_slides_import::report::ReferenceCause>>) {
+    Workspace::with_session(ws, tab, |s| {
+        let st = s.import_state();
+        let job = st.and_then(|st| st.reference_job()).map(|j| j.witness);
+        (job, st.and_then(|st| st.reference_status()).map(|r| r.map(str::to_owned)))
+    })
+    .0
+    .unwrap()
+}
+
+#[test]
+fn import_tab_hifi_takes_the_office2pdf_witness_by_default() {
+    let data = fresh_dir("oku-slides-workspace-import-witness-");
+    let ws = workspace_on(data.path());
+    import_tab(&ws, &pptx_fixture(data.path(), "minimal"), json!({ "mode": "hifi" }), false).unwrap();
+    assert_that!(witness_of(&ws, "t-2")).is_equal_to((Some(ReferenceWitness::Office2Pdf), None));
+}
+
+#[test]
+fn import_tab_hifi_with_an_absent_soffice_witness_says_it_is_missing_without_office2pdf() {
+    let data = fresh_dir("oku-slides-workspace-import-soffice-");
+    let ws = workspace_with(data.path(), |s| {
+        s.import.witness = oku_slides_platform::config::ImportWitness::Soffice;
+        s.import.soffice = vec![data.path().join("absent/soffice")];
+    });
+    import_tab(&ws, &pptx_fixture(data.path(), "minimal"), json!({ "mode": "hifi" }), false).unwrap();
+    let missing = oku_slides_import::report::ReferenceCause::Missing;
+    assert_that!(witness_of(&ws, "t-2")).is_equal_to((None, Some(Err(missing))));
+}
+
+#[test]
+fn import_tab_retrofit_has_no_witness_even_with_soffice_set() {
+    let data = fresh_dir("oku-slides-workspace-import-retrofit-witness-");
+    let ws = workspace_with(data.path(), |s| s.import.witness = oku_slides_platform::config::ImportWitness::Soffice);
+    let target = json!({ "mode": "retrofit", "pack": "Essentiel" });
+    import_tab(&ws, &pptx_fixture(data.path(), "minimal"), target, false).unwrap();
+    assert_that!(witness_of(&ws, "t-2")).is_equal_to((None, None));
 }

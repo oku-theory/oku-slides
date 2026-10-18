@@ -49,11 +49,13 @@ impl Tools {
                         "name": e.theme.name,
                         "dirty": e.theme.dirty,
                     })),
-                    // Version courante de chaque thème : ce que pose l'op `set_theme`.
+                    // Version courante de chaque thème : ce que pose l'op `set_theme`. Puis ceux
+                    // du deck seul embarqués (l'import), dans la version que reprendrait le deck.
                     "themes": snap
                         .themes
                         .iter()
-                        .map(|t| json!({ "id": t.id, "name": t.name, "version": t.version }))
+                        .chain(&snap.deck_themes)
+                        .map(|t| json!({ "id": t.id, "name": t.name, "version": t.version, "deck_only": t.deck_only }))
                         .collect::<Vec<_>>(),
                     "template_set": snap.templates,
                     "dirty": snap.dirty,

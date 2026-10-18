@@ -112,7 +112,7 @@ fn retrofit_child_id_depends_on_the_pptx_and_the_target_version() {
 #[test]
 fn import_hifi_is_one_history_step_on_its_generated_pack_and_theme() {
     let data = fresh_dir("oku-slides-import-hifi-");
-    let mut imported = import_minimal(data.path(), ImportTarget::Hifi).unwrap();
+    let mut imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
     let (pack_id, theme_id) = hifi::identity(&std::fs::read(data.path().join("minimal.pptx")).unwrap());
     let deck = imported.sources.deck();
     let pack = deck.templates.clone().unwrap();
@@ -130,7 +130,7 @@ fn import_hifi_is_one_history_step_on_its_generated_pack_and_theme() {
 #[test]
 fn import_hifi_generates_a_deck_only_pack_and_theme() {
     let data = fresh_dir("oku-slides-import-hifi-scope-");
-    let imported = import_minimal(data.path(), ImportTarget::Hifi).unwrap();
+    let imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
     let deck = imported.sources.deck();
     let (pack, theme) = (deck.templates.clone().unwrap(), deck.theme.clone().unwrap());
     let pack = PackManifest::from_files(&imported.sources.packs[&pack.version]).unwrap();
@@ -152,7 +152,7 @@ fn import_retrofit_keeps_the_library_scope_of_its_target_pack_and_theme() {
 #[test]
 fn import_hifi_leaves_the_pack_and_theme_libraries_untouched() {
     let data = fresh_dir("oku-slides-import-hifi-library-");
-    let imported = import_minimal(data.path(), ImportTarget::Hifi).unwrap();
+    let imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
     let library = PackLibrary::user(&platform(settings_on(data.path())));
     let id = imported.sources.deck().templates.as_ref().unwrap().id;
     assert_that!(library.current_version(id)).is_none();
@@ -168,7 +168,7 @@ fn import_hifi_with_a_negative_threshold_is_refused_before_reading() {
     settings.import.score_threshold = -1.0;
     let request = ImportRequest {
         pptx: data.path().join("absent.pptx"),
-        target: ImportTarget::Hifi,
+        target: crate::test_support::hifi(),
         system_fonts: false,
         packs: PackLookup::Library,
     };
@@ -190,6 +190,33 @@ fn import_of_a_missing_file_is_a_file_error() {
 }
 
 #[test]
+fn import_of_a_file_over_max_input_mib_is_too_large() {
+    let data = fresh_dir("oku-slides-import-too-large-");
+    let pptx = data.path().join("gros.pptx");
+    std::fs::write(&pptx, vec![0u8; (1 << 20) + 1]).unwrap();
+    let mut settings = settings_on(data.path());
+    settings.import.max_input_mib = std::num::NonZeroU64::MIN;
+    let request =
+        ImportRequest { pptx, target: retrofit("Essentiel", None), system_fonts: false, packs: PackLookup::Library };
+    let err = import(&platform(settings), &Fonts::default(), &request).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ImportErrorKind::TooLarge);
+}
+
+#[test]
+fn import_of_a_file_of_exactly_max_input_mib_is_read() {
+    let data = fresh_dir("oku-slides-import-at-limit-");
+    let pptx = data.path().join("juste.pptx");
+    std::fs::write(&pptx, vec![0u8; 1 << 20]).unwrap();
+    let mut settings = settings_on(data.path());
+    settings.import.max_input_mib = std::num::NonZeroU64::MIN;
+    let request =
+        ImportRequest { pptx, target: retrofit("Essentiel", None), system_fonts: false, packs: PackLookup::Library };
+    // Lu jusqu'au lecteur, qui le refuse : ce n'est pas un `.pptx`.
+    let err = import(&platform(settings), &Fonts::default(), &request).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ImportErrorKind::Presentation);
+}
+
+#[test]
 fn import_on_an_unknown_pack_is_refused() {
     let data = fresh_dir("oku-slides-import-unknown-pack-");
     let err = import_minimal(data.path(), retrofit("Nope", None)).unwrap_err();
@@ -199,5 +226,5 @@ fn import_on_an_unknown_pack_is_refused() {
 #[test]
 fn import_mode_serializes_in_snake_case() {
     assert_that!(serde_json::to_string(&ImportMode::Hifi).unwrap()).is_equal_to("\"hifi\"".to_owned());
-    assert_that!(ImportTarget::Hifi.mode()).is_equal_to(ImportMode::Hifi);
+    assert_that!(crate::test_support::hifi().mode()).is_equal_to(ImportMode::Hifi);
 }

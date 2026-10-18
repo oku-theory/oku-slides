@@ -33,6 +33,7 @@ agent-confirm-copy-theme = บันทึกสำเนาที่แก้�
 agent-confirm-setting = เปลี่ยน { $key }: { $old } → { $new } ไหม
 
 agent-not-found = ไม่พบเอเจนต์: { $command } การตั้งค่า [agent.presets]
+agent-spawn-failed = เริ่มเอเจนต์ไม่ได้: { $command } การตั้งค่า [agent.presets]
 agent-no-http = เอเจนต์นี้ไม่สามารถเชื่อมต่อกับเครื่องมือของ Oku Slides ได้
 agent-stopped = เอเจนต์หยุดทำงานแล้ว
 agent-failed = เอเจนต์ปฏิเสธคำขอ: { $message }

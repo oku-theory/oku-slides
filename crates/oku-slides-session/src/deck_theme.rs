@@ -127,14 +127,15 @@ impl Session {
 
     /// Le deck prend le thème `id` dans sa version courante, embarquée ; annulable.
     ///
-    /// En mode modèles, le brouillon du thème part de `id` (`set_edited_theme`).
+    /// Un thème du deck seul embarqué reprend sa version (`picked_theme`). En
+    /// mode modèles, le brouillon du thème part de `id` (`set_edited_theme`).
     pub fn set_theme(&mut self, id: Uuid) -> Result<()> {
         if matches!(self.mode, Mode::Templates { .. }) {
             return self.set_edited_theme(id);
         }
-        let version = self.themes.current(id).context(UnknownThemeSnafu { id })?;
+        let theme = self.picked_theme(id)?;
         let label = self.localizer.tr("session-undo-theme");
-        self.apply(&label, vec![Op::SetTheme { theme: Some(ThemeRef { id, version }) }], None)
+        self.apply(&label, vec![Op::SetTheme { theme: Some(theme) }], None)
     }
 
     /// Résout les `SetTheme` de `ops` avant leur application : `null` devient
@@ -170,7 +171,7 @@ impl Session {
     }
 
     /// Les versions de thème embarquées : document montré, puis deck mis de côté.
-    fn embedded_themes(&self) -> impl Iterator<Item = &BTreeMap<PackVersion, PackFiles>> {
+    pub(crate) fn embedded_themes(&self) -> impl Iterator<Item = &BTreeMap<PackVersion, PackFiles>> {
         let stash = match &self.mode {
             Mode::Deck | Mode::Help { .. } => None,
             Mode::Templates { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources.themes),

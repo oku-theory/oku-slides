@@ -120,6 +120,14 @@ fn picker_event_serializes_with_its_surface() {
     assert_that!(v["surface"]["id"].clone()).is_equal_to(json!("agent-picker"));
 }
 
+#[test]
+fn availability_event_serializes_its_reason_or_null() {
+    let usable = serde_json::to_value(AgentEvent::Availability { unusable: None }).unwrap();
+    assert_that!(usable).is_equal_to(json!({ "kind": "availability", "unusable": null }));
+    let unusable = serde_json::to_value(AgentEvent::Availability { unusable: Some("x".into()) }).unwrap();
+    assert_that!(unusable["unusable"].clone()).is_equal_to(json!("x"));
+}
+
 /// Une sortie MCP qui mêle textes et image : les textes, pas le JSON (base64) de l'image.
 #[test]
 fn from_update_mixed_raw_output_keeps_only_its_texts() {

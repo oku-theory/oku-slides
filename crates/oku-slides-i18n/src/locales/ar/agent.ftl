@@ -33,6 +33,7 @@ agent-confirm-copy-theme = هل تريد حفظ نسخة معدّلة من ال�
 agent-confirm-setting = هل تريد تغيير { $key }: { $old } → { $new }؟
 
 agent-not-found = لم يتم العثور على الوكيل: { $command }. إعداد [agent.presets].
+agent-spawn-failed = تعذّر تشغيل الوكيل: { $command }. إعداد [agent.presets].
 agent-no-http = هذا الوكيل لا يستطيع الاتصال بأدوات Oku Slides.
 agent-stopped = توقف الوكيل.
 agent-failed = رفض الوكيل الطلب: { $message }

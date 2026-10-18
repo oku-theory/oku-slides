@@ -10,6 +10,7 @@ import { newest } from "./latest";
 import { mergedNotice, openGuarded } from "./merge";
 import { cycle, nth } from "./tabs";
 import { useImportJob } from "./useImportJob";
+import { useImportPick } from "./useImportPick";
 import { useTabShortcuts } from "./useTabShortcuts";
 import { ERROR_MS } from "./useToast";
 import { useTransient } from "./useTransient";
@@ -197,6 +198,15 @@ export default function Workspace() {
   // L'import d'un .pptx : son dialogue (dans l'`App` active) peut se fermer pendant qu'il tourne ;
   // un refus arrivé ensuite s'affiche ici.
   const imports = useImportJob(setError);
+  // Un .pptx reçu de l'OS (argument, seconde instance, macOS) : la vue le donne à sa fenêtre,
+  // qui ouvre le dialogue puis le fait oublier à l'hôte.
+  // Refusé pendant un import, le choix est repris quand celui-ci se termine.
+  useImportPick(view, label, imports.job?.busy ?? false, imports.pick, (id) => {
+    workspace
+      .importPicked(id)
+      .then((v) => alive.current && setView(v))
+      .catch((e) => alive.current && setError(errorText(e)));
+  });
 
   // Raccourcis des onglets, retenus pendant que le dialogue d'import est ouvert.
   useTabShortcuts(label !== null, {

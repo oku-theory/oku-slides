@@ -173,6 +173,13 @@ pub fn pptx(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
     path
 }
 
+/// La cible hi-fi des tests, témoin office2pdf.
+pub fn hifi() -> oku_slides_session::import::ImportTarget {
+    oku_slides_session::import::ImportTarget::Hifi {
+        witness: Some(oku_slides_platform::config::ImportWitness::Office2pdf),
+    }
+}
+
 /// Un serveur sur un onglet tout juste importé de la fixture `fixtures/import/<name>` vers `target`,
 /// réglages retouchés par `tweak` ; le témoin y rend pour de vrai.
 pub async fn start_imported(

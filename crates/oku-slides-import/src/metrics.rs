@@ -25,12 +25,12 @@
 //! - au plus [`MAX_REGIONS`] régions comptent, les plus hautes : le coût reste
 //!   borné quel que soit le nombre d'items d'une slide.
 //!
-//! Sous office2pdf ([`Witness::Office2Pdf`]), une région est suspecte
-//! ([`WitnessLimit`]) quand son item est de ceux qu'il dessine faux (ses
-//! limites connues, lues dans la source : texte qu'il ajuste lui-même à sa
-//! boîte, texte interlettré, graphique, SmartArt) : son écart est surtout
-//! celui du témoin, pas celui d'Oku. Les limites des autres témoins
-//! (LibreOffice) ne sont pas établies : aucune de leurs régions n'est suspecte.
+//! Une région est suspecte ([`WitnessLimit`]) quand son item est de ceux que
+//! le témoin ([`Witness`]) dessine faux, ses limites connues lues dans la
+//! source : sous office2pdf, texte qu'il ajuste lui-même à sa boîte, texte
+//! interlettré, graphique, SmartArt, police des seuls défauts ; sous
+//! LibreOffice, police qu'il ne sait pas remplacer, texte des SmartArt. Son
+//! écart est surtout celui du témoin, pas celui d'Oku. Sans témoin, aucune.
 //!
 //! Une slide est signalée par sa pire région non suspecte
 //! ([`SlideScore::worst`]) : la moyenne de la page, dominée par les fonds
@@ -143,11 +143,11 @@ fn reported<S: Serializer>(regions: &[RegionScore], s: S) -> Result<S::Ok, S::Er
 /// Le cadre de chaque item de `slide`, groupes ouverts, à `scale` px par pt.
 ///
 /// Seuls les enfants d'un groupe comptent ; l'ordre est celui du dessin (la
-/// dernière région est au-dessus). Sous `witness` office2pdf, chaque région
-/// porte sa limite sur son item ; les enfants d'un SmartArt dessiné héritent de
-/// la sienne. Sous un autre témoin, aucune n'est suspecte.
-pub fn regions(slide: &SourceSlide, scale: f64, witness: Witness) -> Vec<Region> {
-    fn walk(items: &[Item], scale: f64, witness: Witness, in_smartart: bool, out: &mut Vec<Region>) {
+/// dernière région est au-dessus). Chaque région porte la limite de `witness`
+/// sur son item ; les enfants d'un SmartArt dessiné héritent de la sienne.
+/// Sans témoin (`None`), aucune n'est suspecte.
+pub fn regions(slide: &SourceSlide, scale: f64, witness: Option<Witness>) -> Vec<Region> {
+    fn walk(items: &[Item], scale: f64, witness: Option<Witness>, in_smartart: bool, out: &mut Vec<Region>) {
         for item in items {
             match &item.kind {
                 ItemKind::Group { items, smartart } => {
@@ -161,10 +161,7 @@ pub fn regions(slide: &SourceSlide, scale: f64, witness: Witness) -> Vec<Region>
                         y: f.y * scale,
                         w: f.w * scale,
                         h: f.h * scale,
-                        suspect: match witness {
-                            Witness::Office2Pdf => witness_limit(item, in_smartart),
-                            Witness::Other => None,
-                        },
+                        suspect: witness.and_then(|w| witness_limit(item, in_smartart, w)),
                     });
                 }
             }

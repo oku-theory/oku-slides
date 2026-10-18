@@ -707,3 +707,22 @@ fn saving_an_edited_deck_only_theme_keeps_it_out_of_the_library() {
     assert_that!(m.parent).is_equal_to(Some(before.version));
     assert_that!(m.tokens["color"]["accent"]).is_equal_to(json!("#ff0000"));
 }
+
+#[test]
+fn set_edited_theme_of_a_deck_only_theme_starts_from_its_embedded_version() {
+    let data = fresh_dir("oku-slides-theme-edit-deck-only-pick-");
+    let mut s = opened_on(data.path());
+    let r = adopt_deck_only_theme(&mut s);
+    let tokens = s.theme_manifest(&r).unwrap().tokens;
+    s.set_theme(PAPIER_THEME).unwrap();
+    let (themes, files) = (s.themes.themes(), crate::test_support::theme_library_files(data.path()));
+    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.set_edited_theme(r.id).unwrap();
+    assert_that!(theme_edit(&s)).is_equal_to(ThemeEdit { base: r.clone(), name: "Importé".into() });
+    assert_that!(s.edited_tokens()).is_equal_to(tokens);
+    s.save_templates(false).unwrap();
+    s.close_templates().unwrap();
+    assert_that!(s.deck().theme.clone()).is_equal_to(Some(r));
+    assert_that!(s.themes.themes()).is_equal_to(themes);
+    assert_that!(crate::test_support::theme_library_files(data.path())).is_equal_to(files);
+}

@@ -193,20 +193,22 @@ Decisions from the lot 4 plan (2026-10-14):
    scores 0.6): a slide is flagged when its **worst region** exceeds
    `[import] score_threshold = 7.0`. Regions office2pdf is known to draw
    wrong (lot 5, t-884: text it fits itself, letter-spaced text, charts,
-   SmartArt; read from the source) are marked `suspect`, ranked last and
+   SmartArt; t-904: text whose font only the presentation defaults name;
+   read from the source) are marked `suspect`, ranked last and
    never flag a slide; under LibreOffice (`--reference soffice`, not
    calibrated) no region is suspect. Measured on alto, libreoffice and
    kitchen (office2pdf, 2026-10-16) with the
    suspect regions set aside: alto's faithful slides at most 3.4, the other
    fixtures' at most 5.8, alto's real gaps 9.38 (p. 6 intro line) to 15.71
-   (p. 7 callout), its p. 8 bullets at most 2.81 since their indent (t-863);
-   the flag is a coarse alert, the regions point at the item.
+   (p. 7 callout), its p. 8 bullets at most 2.81 since their indent (t-863),
+   kitchen's p. 1 table 20.34 (its p. 2 boxes, 8.7, are `default_font`
+   suspects since t-904); the flag is a coarse alert, the regions point at the item.
    Tests run the witness live (pinned, no versioned
    reference PDF) with per-fixture bounds on the slide mean (measurement +
    25 %) and designation checks: alto flagged on pp. 6–7 only, the p. 7
    callout among the 3 worst regions, no p. 8 bullet above the threshold,
    the `libreoffice.pptx` table first and its SmartArt suspect, last, without
-   flagging p. 3.
+   flagging p. 3, kitchen flagged on p. 1 only.
 5. **Retrofit.** No visual gap (another theme); `--reference` is refused there.
    In both modes, a non-empty text field rendered past its page edge becomes an
    `Overflow` loss on its slide. Since t-816 (2026-10-16) a retrofit flow
@@ -217,7 +219,9 @@ Decisions from the lot 4 plan (2026-10-14):
    `normAutofit` text without a saved scale (the alto p. 2 title and every
    footer), draws letter-spaced titles 2–5 px wider than Oku (which matches
    HarfBuzz within 1 px) and LibreOffice, draws charts roughly and SmartArt
-   text too small: those regions are `suspect` (decision 4). It shares Typst's line
+   text too small, and reads only the size of the presentation's
+   `defaultTextStyle`, so text whose font only it names gets Typst's
+   fallback font (t-904): those regions are `suspect` (decision 4). It shares Typst's line
    breaking with Oku (a PowerPoint line-break gap, t-863, is invisible to
    it), and office2pdf always keeps the system fonts as its fallback. A
    behavior copied from office2pdf into the import is no longer measured by
@@ -246,7 +250,9 @@ Decisions from the lot 5 plan (2026-10-16):
    without line breaks whose box, insets removed, is at most two lines high,
    a line being 1.2 × its largest size (at least 12 pt) or its line spacing
    if larger, or at most 2.5 × that size when its runs mix sizes),
-   `tracking`, `chart`, `smart_art`. They are
+   `tracking`, `chart`, `smart_art`, and since t-904 `default_font` (a run
+   whose latin font no layer above `defaultTextStyle` names:
+   `RunStyle::font_from_defaults`, set by the cascade). They are
    ranked after the others, written to the report with a localized message
    and never flag a slide (`SlideScore::worst`, `is_above` ignore them).
    These are office2pdf's limits: `metrics::regions` takes the witness
@@ -318,7 +324,13 @@ Decisions from the lot 5 plan (2026-10-16):
    the widget, in the write's undo step (undo returns to the target); the
    target and the library stay untouched. The tab's `ImportState` holds the
    child to come, so a resumed tab is an ordinary deck on its pack, and a
-   retrofit without widgets stays one. `Snapshot.deck_pack` tells the UI. The
+   retrofit without widgets stays one. `Snapshot.deck_pack` tells the UI.
+   A deck-only theme stays offered after another is picked:
+   `Snapshot.deck_themes` lists the deck-only themes embedded in the sources
+   (one per id: the version the deck uses, else the newest leaf of the
+   `parent` chain), the theme menu shows them under "This presentation", and
+   `set_theme` resolves an id in the library first, then among them, so
+   re-picking one re-adopts its version without writing the library (t-903). The
    app's import target is a library pack id or name, never a folder (folders
    are a CLI option, read within `[sources] max_sources_mib`); a reader
    panic is a localized import error.
@@ -346,14 +358,24 @@ Decisions from the lot 5 plan (2026-10-16):
    stop theme and pack widget edits at `global_tries_left` 0. The whole turn is one undo group above
    the import's own step, which stays one step. `edit_theme` on a deck-only
    theme asks no confirmation (nothing leaves the deck, one undo step);
-   `edit_templates` on a deck-only pack is refused (`session-deck-only`). In
+   the fine-tuning instructions keep the agent off `edit_templates` (t-902 lets
+   the user edit the deck's own deck-only pack in the workshop). In
    retrofit, each `widget_requests` entry carries a `sample` of its first
    occurrence (item kind, preset geometry, frame in pt, fill and stroke as hex
    with their PowerPoint theme slot, paragraph count, group depth; at most 16
    items, the rest counted; never the text).
 7. **Start.** "Open" accepts `.pptx`; an `ImportDialog` asks for the mode (hi-fi
    by default, or "my templates" with a library pack, default preselected, and
-   a theme) and a "Fine-tune with the agent" box, checked by default.
+   a theme) and a "Fine-tune with the agent" box, checked by default; the
+   dialog asks `AgentCommand::Availability` on opening, and an agent whose
+   program is not found, does not start or has no MCP over HTTP
+   (`Stack::availability`) unchecks and disables the box with its reason, and
+   makes `Stack::tune` refuse (t-901). A `.pptx`
+   given by the OS (launch argument, `RunEvent::Opened`, second instance) opens
+   no tab: `Workspace::open_files` records it as `WorkspaceView.import_pick`
+   for the focused window, whose page opens the same dialog once per pick `id`
+   and acknowledges it (`WorkspaceRequest::ImportPicked { id }` clears that pick
+   only, so a reload does not reopen it and a newer pick survives).
    `WorkspaceRequest::ImportTab { window, path, target, tune }` builds a new
    tab (replacing a blank active one) and blocks until the first render;
    with `tune`, the outcome `Tune { tab }` makes the host send
@@ -386,28 +408,15 @@ Decisions from the lot 5 plan (2026-10-16):
 
 Known limits, for the backlog after lot 5 (plan review, 2026-10-17):
 
-- The "Fine-tune" box is never disabled: no signal tells whether an agent is
-  usable (`agent.selected` always names a validated preset). (t-901)
-- A deck-only pack in templates mode: "Workshop" is disabled with an
-  explanation; editing it there is not supported. (t-902)
-- Re-picking a deck-only theme (e.g. the hi-fi one after choosing another) is
-  not offered. (t-903)
-- `kitchen.pptx` p. 2 ("Gauche"/"Droite", empty `bodyPr`) stays flagged at 8.7
-  with no established cause. (t-904)
-- A LibreOffice witness in the app, and its own suspect regions, once its
-  limits are measured. (t-905)
-- A `.pptx` delivered by the OS (launch argument, `RunEvent::Opened`, second
-  instance) is opened as a deck instead of going through the import dialog.
-  (t-906)
-- The help decks (`docs/aide`) do not mention the `.pptx` import. (t-907)
-- The input size bound (`max_input_bytes`) is a reader constant, not an
-  `[import] max_input_mib` setting. (t-908)
 - The threshold and suspect regions are calibrated on three fixtures only;
   a varied corpus is needed. (t-909)
-- The reference witness reads an untrusted `.pptx` in a worker bounded in
-  time and memory, without a macOS sandbox profile. (t-910)
-- `session/src/workspace.rs` (764 lines) and `ui/src/App.tsx` (909) are past
-  the 500-line target and near the 1000 cap. (t-911)
+- A deck-only pack is not offered in the pack picker. (t-937)
+- Launched from the Finder, the app gets the GUI `PATH`: the agent's `npx`
+  may not be found. (t-956)
+- The witness's reason is not localized in the import report. (t-957)
+- The scope of the `DefaultFont` finding is still to be measured. (t-958)
+- Of several `.pptx` opened from the OS at once, only the last is offered.
+  (t-961)
 
 Defaults chosen without asking:
 
@@ -684,8 +693,9 @@ Delivered in lot 5 (decisions 3 to 10 of lot 5).
   into the decks folder like any new deck, with the import as one undo step,
   then the host launches the agent with the fine-tuning instructions (`Tune`,
   its short prompt in the live interface language). A hi-fi deck's pack, and a
-  retrofit deck's once its child pack exists, is deck-only: the pack workshop
-  is disabled for it (`Snapshot.deck_pack`).
+  retrofit deck's once its child pack exists, is deck-only (`Snapshot.deck_pack`):
+  the workshop edits it from the version the deck embeds, its saves stay in the
+  deck, never in the library (t-902).
 
 ## Errors
 

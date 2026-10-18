@@ -3,6 +3,8 @@
 #[path = "../common/mod.rs"]
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
 mod common;
+#[path = "../common/hifi_import.rs"]
+mod hifi_import;
 
 mod issue_0195_options_aux_identifiants_en_double;
 mod issue_0224_agent_edits_resume;
@@ -17,3 +19,5 @@ mod issue_0630_link_angle_bracket;
 mod issue_0674_etat_ui_dans_l_ordre;
 mod issue_0694_reprise_v7_mise_de_cote;
 mod issue_0746_reprise_v8_mise_de_cote;
+mod issue_0902_deck_only_workshop;
+mod issue_0903_repick_deck_only_theme;

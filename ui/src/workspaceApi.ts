@@ -22,6 +22,14 @@ export interface WindowView {
   tabs: TabInfo[];
 }
 
+/** Un .pptx reçu de l'OS, pour le dialogue d'import de sa fenêtre. Il l'ouvre une fois par `id`. */
+export interface ImportPick {
+  window: string;
+  path: string;
+  /** Numéro croissant : un choix plus récent a un numéro plus grand. */
+  id: number;
+}
+
 /** Les fenêtres et leurs onglets ; `focused` : la dernière fenêtre active. */
 export interface WorkspaceView {
   /** Numéro croissant de la vue : une vue plus petite est plus ancienne. */
@@ -29,6 +37,8 @@ export interface WorkspaceView {
   focused: string;
   /** L'agent est dans sa propre fenêtre. */
   agent_detached: boolean;
+  /** Le dernier .pptx reçu de l'OS (argument, seconde instance, macOS). */
+  import_pick: ImportPick | null;
   windows: WindowView[];
 }
 
@@ -53,7 +63,8 @@ type WorkspaceRequest =
   | { cmd: "new_window" }
   | { cmd: "close_window"; window: string; discard: string[] }
   | { cmd: "detach_agent" }
-  | { cmd: "attach_agent" };
+  | { cmd: "attach_agent" }
+  | { cmd: "import_picked"; id: number };
 
 const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
 
@@ -88,6 +99,8 @@ export const workspace = {
   detachAgent: () => ws<WorkspaceView>({ cmd: "detach_agent" }),
   /** L'agent revient dans la colonne de droite. */
   attachAgent: () => ws<WorkspaceView>({ cmd: "attach_agent" }),
+  /** Le dialogue d'import du choix `id` est ouvert : l'hôte l'oublie (un choix plus récent reste). */
+  importPicked: (id: number) => ws<WorkspaceView>({ cmd: "import_picked", id }),
 };
 
 /**

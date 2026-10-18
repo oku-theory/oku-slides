@@ -182,6 +182,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -233,6 +235,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -284,6 +288,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -335,6 +341,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -386,6 +394,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -437,6 +447,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -488,6 +500,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -539,6 +553,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -739,6 +755,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 24.0,
                 "bold": false,
@@ -790,6 +808,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -841,6 +861,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -892,6 +914,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -943,6 +967,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -994,6 +1020,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1045,6 +1073,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1096,6 +1126,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1335,6 +1367,7 @@ expression: minimal()
                 }
               }
             },
+            "font_from_defaults": true,
             "lang": "fr-FR",
             "size": 16.0,
             "bold": false,
@@ -1464,6 +1497,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1515,6 +1550,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1566,6 +1603,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1617,6 +1656,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1668,6 +1709,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1719,6 +1762,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1770,6 +1815,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -1821,6 +1868,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2017,6 +2066,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 24.0,
                 "bold": false,
@@ -2068,6 +2119,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2119,6 +2172,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2170,6 +2225,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2221,6 +2278,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2272,6 +2331,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2323,6 +2384,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2374,6 +2437,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2577,6 +2642,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2628,6 +2695,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2679,6 +2748,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2730,6 +2801,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2781,6 +2854,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2832,6 +2907,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2883,6 +2960,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -2934,6 +3013,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -3134,6 +3215,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 24.0,
                 "bold": false,
@@ -3185,6 +3268,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -3236,6 +3321,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -3287,6 +3374,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -3338,6 +3427,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -3389,6 +3480,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -3440,6 +3533,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -3491,6 +3586,8 @@ expression: minimal()
                     }
                   }
                 },
+                "font_from_defaults": true,
+                "style_from_reader": true,
                 "lang": "fr-FR",
                 "size": 18.0,
                 "bold": false,
@@ -4049,6 +4146,8 @@ expression: minimal()
                           }
                         }
                       },
+                      "font_from_defaults": true,
+                      "style_from_reader": true,
                       "lang": "fr-FR",
                       "size": 24.0,
                       "bold": false,
@@ -4141,6 +4240,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "font_from_defaults": true,
                       "lang": "fr-FR",
                       "size": 16.0,
                       "bold": false,
@@ -4476,6 +4576,7 @@ expression: minimal()
                           }
                         }
                       },
+                      "font_from_defaults": true,
                       "lang": "fr-FR",
                       "size": 16.0,
                       "bold": false,

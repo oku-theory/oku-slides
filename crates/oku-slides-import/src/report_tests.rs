@@ -459,6 +459,9 @@ fn to_json_does_not_mark_a_slide_whose_gap_is_suspect() {
 #[case(WitnessLimit::Tracking, "tracking")]
 #[case(WitnessLimit::Chart, "chart")]
 #[case(WitnessLimit::SmartArt, "smart_art")]
+#[case(WitnessLimit::DefaultFont, "default_font")]
+#[case(WitnessLimit::NoSubstitute, "no_substitute")]
+#[case(WitnessLimit::SmartArtStyle, "smart_art_style")]
 fn to_json_explains_a_suspect_region_in_french(#[case] limit: WitnessLimit, #[case] written: &str) {
     let fr = Localizer::new(Some("fr"));
     let v = with_reference(vec![suspect_only(limit)], None).to_json(&fr);
@@ -468,10 +471,27 @@ fn to_json_explains_a_suspect_region_in_french(#[case] limit: WitnessLimit, #[ca
         .is_equal_to((Some(written), Some(expected.as_str())));
 }
 
+/// La limite qui suit `limit` dans la liste de toutes ; `None` : la première.
+///
+/// Exhaustif : une nouvelle variante ne compile pas sans y prendre place.
+fn after(limit: Option<WitnessLimit>) -> Option<WitnessLimit> {
+    use WitnessLimit::*;
+    match limit {
+        None => Some(Autofit),
+        Some(Autofit) => Some(Tracking),
+        Some(Tracking) => Some(Chart),
+        Some(Chart) => Some(SmartArt),
+        Some(SmartArt) => Some(DefaultFont),
+        Some(DefaultFont) => Some(NoSubstitute),
+        Some(NoSubstitute) => Some(SmartArtStyle),
+        Some(SmartArtStyle) => None,
+    }
+}
+
 #[test]
 fn witness_limit_localizes_each_limit_differently_in_french() {
     let fr = Localizer::new(Some("fr"));
-    let limits = [WitnessLimit::Autofit, WitnessLimit::Tracking, WitnessLimit::Chart, WitnessLimit::SmartArt];
+    let limits: Vec<WitnessLimit> = std::iter::successors(after(None), |l| after(Some(*l))).collect();
     let messages: std::collections::BTreeSet<String> = limits.iter().map(|l| l.localize(&fr)).collect();
     let english: std::collections::BTreeSet<String> = limits.iter().map(|l| l.localize(english())).collect();
     assert_that!(messages.len()).is_equal_to(limits.len());

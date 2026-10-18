@@ -337,7 +337,10 @@ impl Turns {
                 Some(t) => t.view.n,
                 None => return Vec::new(),
             },
-            AgentEvent::Status { .. } | AgentEvent::Draft { .. } | AgentEvent::Picker { .. } => return Vec::new(),
+            AgentEvent::Status { .. }
+            | AgentEvent::Draft { .. }
+            | AgentEvent::Picker { .. }
+            | AgentEvent::Availability { .. } => return Vec::new(),
             AgentEvent::Chunk { turn, .. }
             | AgentEvent::ToolCall { turn, .. }
             | AgentEvent::ToolUpdate { turn, .. }
@@ -415,7 +418,8 @@ impl Turns {
             | AgentEvent::UserText { .. }
             | AgentEvent::Conversation { .. }
             | AgentEvent::Draft { .. }
-            | AgentEvent::Picker { .. } => return out,
+            | AgentEvent::Picker { .. }
+            | AgentEvent::Availability { .. } => return out,
         }
         out.extend(t.patch(l));
         if let Some(narration) = ended {

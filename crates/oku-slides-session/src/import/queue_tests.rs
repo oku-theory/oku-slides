@@ -8,7 +8,7 @@ use crate::{Request, TokenOp};
 
 /// Le hi-fi de `kitchen` : des régions non suspectes (formes, image, tableau), donc des slides à ajuster.
 fn hifi(data: &std::path::Path) -> crate::Session {
-    imported_fixture(data, "kitchen", ImportTarget::Hifi, |_| {})
+    imported_fixture(data, "kitchen", crate::test_support::hifi(), |_| {})
 }
 
 /// Le rapport de `s` en anglais, sur une référence blanche faite d'abord par `witness`.
@@ -119,7 +119,7 @@ fn import_report_rescores_a_changed_slide_and_names_it_when_worse() {
 #[test]
 fn import_report_leaves_a_changed_slide_without_tries_stale() {
     let data = fresh_dir("oku-slides-import-queue-stale-");
-    let mut s = imported_fixture(data.path(), "kitchen", ImportTarget::Hifi, |settings| {
+    let mut s = imported_fixture(data.path(), "kitchen", crate::test_support::hifi(), |settings| {
         settings.import.tune_iterations = std::num::NonZeroU32::MIN;
     });
     let witness = WhiteWitness::default();
@@ -139,7 +139,7 @@ fn import_report_leaves_a_changed_slide_without_tries_stale() {
 #[test]
 fn import_report_leaves_a_stale_slide_out_of_the_means_and_worse() {
     let data = fresh_dir("oku-slides-import-queue-stale-mean-");
-    let mut s = imported_fixture(data.path(), "kitchen", ImportTarget::Hifi, |settings| {
+    let mut s = imported_fixture(data.path(), "kitchen", crate::test_support::hifi(), |settings| {
         settings.import.tune_iterations = std::num::NonZeroU32::MIN;
     });
     let witness = WhiteWitness::default();
@@ -269,7 +269,7 @@ fn import_report_after_set_widget_restores_a_widget_already_scored_is_free() {
 fn import_report_after_fixing_a_slide_with_a_suspect_region_above_counts_it_done() {
     let data = fresh_dir("oku-slides-import-queue-fixed-witness-");
     // Un titre vide garde un reste (le cadre de son champ) sous ce seuil.
-    let mut s = imported_fixture(data.path(), "kitchen", ImportTarget::Hifi, |settings| {
+    let mut s = imported_fixture(data.path(), "kitchen", crate::test_support::hifi(), |settings| {
         settings.import.score_threshold = 10.0;
     });
     let witness = WhiteWitness::default();
@@ -292,7 +292,7 @@ fn import_report_after_fixing_a_slide_with_a_suspect_region_above_counts_it_done
 #[test]
 fn import_report_after_the_global_budget_charges_each_changed_slide() {
     let data = fresh_dir("oku-slides-import-queue-global-spent-");
-    let mut s = imported_fixture(data.path(), "kitchen", ImportTarget::Hifi, |settings| {
+    let mut s = imported_fixture(data.path(), "kitchen", crate::test_support::hifi(), |settings| {
         settings.import.tune_global = std::num::NonZeroU32::MIN;
     });
     let witness = WhiteWitness::default();
@@ -430,7 +430,7 @@ fn import_tools_outside_deck_mode_are_refused_by_mode(
     #[case] expected: crate::SessionErrorKind,
 ) {
     let data = fresh_dir("oku-slides-import-queue-mode-");
-    let mut s = imported_fixture(data.path(), "minimal", ImportTarget::Hifi, |_| {});
+    let mut s = imported_fixture(data.path(), "minimal", crate::test_support::hifi(), |_| {});
     let slide = s.deck().slides[0].id.clone();
     enter(&mut s, mode);
     let err = match tool {

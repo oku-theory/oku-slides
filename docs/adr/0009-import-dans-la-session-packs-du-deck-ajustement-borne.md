@@ -42,7 +42,8 @@ a slide, chase witness errors or burn its turn on theme edits.
 - The session crate grows by the import module and two dependencies; the CLI is a thin caller and
   a fix to the pipeline reaches both entry points.
 - A deck-only pack cannot be edited in the Workshop (t-902) and a deck-only theme cannot be picked
-  again once replaced (t-903); both are limits, not design goals.
+  again once replaced (t-903); both are limits, not design goals. Both were addressed later: the
+  Workshop edits the embedded version (t-902), and the theme menu offers the deck's own themes (t-903).
 - The budget rules are session code with unit tests, so the instructions in `import.md` only explain
   them; an agent ignoring them is refused by the tools.
 - Calibration (threshold, suspect regions) rests on three fixtures (t-909); the app offers only

@@ -33,6 +33,7 @@ agent-confirm-copy-theme = 組み込みテーマ「{ $name }」の編集済み�
 agent-confirm-setting = { $key }を変更しますか：{ $old } → { $new }
 
 agent-not-found = エージェントが見つかりません：{ $command }。設定 [agent.presets]。
+agent-spawn-failed = エージェントを起動できません：{ $command }。設定 [agent.presets]。
 agent-no-http = このエージェントはOku Slidesのツールに接続できません。
 agent-stopped = エージェントが停止しました。
 agent-failed = エージェントが要求を拒否しました: { $message }

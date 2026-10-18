@@ -44,7 +44,7 @@ fn cause_of_a_render_error_names_the_bound(#[case] e: RenderError, #[case] expec
 
 #[rstest]
 #[case::office2pdf(ReferenceWitness::Office2Pdf, Witness::Office2Pdf)]
-#[case::soffice(ReferenceWitness::Soffice { program: "soffice".into(), timeout_ms: 1 }, Witness::Other)]
-fn limits_of_marks_suspects_under_office2pdf_only(#[case] witness: ReferenceWitness, #[case] expected: Witness) {
+#[case::soffice(ReferenceWitness::Soffice { program: "soffice".into(), timeout_ms: 1 }, Witness::LibreOffice)]
+fn limits_of_names_the_limits_of_each_witness(#[case] witness: ReferenceWitness, #[case] expected: Witness) {
     assert_that!(limits_of(&witness)).is_equal_to(expected);
 }

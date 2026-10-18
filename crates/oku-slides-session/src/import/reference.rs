@@ -1,14 +1,14 @@
 //! Le témoin d'un import hi-fi : le rendu de référence de la présentation.
 //!
-//! Le témoin (`office2pdf`, celui de l'app ; LibreOffice pour la CLI
-//! `--reference soffice`, cherché parmi `[import] soffice` par [`soffice`], qui
-//! refuse un script sur macOS)
+//! Le témoin (`[import] witness` : `office2pdf` par défaut, ou LibreOffice,
+//! cherché parmi `[import] soffice` par [`soffice`], qui refuse un script sur
+//! macOS ; la CLI le choisit aussi par `--reference`)
 //! rend le `.pptx` dans un processus de rendu à lui ([`witness_worker`], borné
 //! par `[import] reference_timeout_ms` ; LibreOffice par `soffice_timeout_ms`,
 //! le processus de rendu attendant [`SOFFICE_GRACE_MS`] de plus), par tranches
 //! d'au plus [`SPAN`] slides source : sa mémoire ne croît pas avec le deck.
-//! Ses pages font [`REFERENCE_WIDTH`] pixels de large. Seules les limites
-//! d'office2pdf sont connues : sous LibreOffice, aucune région n'est suspecte.
+//! Ses pages font [`REFERENCE_WIDTH`] pixels de large. Chaque témoin a ses
+//! limites connues ([`limits_of`]), qui rendent des régions suspectes.
 //! Un échec n'est jamais une erreur de l'import : sa cause ([`ReferenceCause`])
 //! va au rapport.
 //!
@@ -120,7 +120,7 @@ pub(crate) fn witness_worker(platform: &Platform, witness: ReferenceWitness) -> 
 /// # Errors
 ///
 /// Le programme trouvé est refusé : un script, sur macOS (le bac à sable ne lance que le binaire).
-pub fn soffice(platform: &Platform) -> Result<Option<ReferenceWitness>, ReferenceError> {
+pub(crate) fn soffice(platform: &Platform) -> Result<Option<ReferenceWitness>, ReferenceError> {
     let import = &platform.settings.import;
     let path = std::env::var_os("PATH");
     let found = find_soffice(&platform.storage, &import.soffice, path.as_deref())?;
@@ -136,13 +136,11 @@ fn worker_settings(platform: &Platform, witness: &ReferenceWitness) -> RenderSet
     RenderSettings { timeout_ms, ..platform.settings.render.clone() }
 }
 
-/// Le témoin dont `metrics` connaît les limites.
-///
-/// Office2pdf seul (LibreOffice ne marque aucune région suspecte).
+/// Le témoin de `metrics` dont les limites connues valent pour `witness`.
 pub(crate) fn limits_of(witness: &ReferenceWitness) -> Witness {
     match witness {
         ReferenceWitness::Office2Pdf => Witness::Office2Pdf,
-        ReferenceWitness::Soffice { .. } => Witness::Other,
+        ReferenceWitness::Soffice { .. } => Witness::LibreOffice,
     }
 }
 
@@ -151,8 +149,8 @@ pub(crate) fn limits_of(witness: &ReferenceWitness) -> Witness {
 pub(crate) struct Reference {
     /// Nom et version du témoin ; son nom seul s'il a échoué.
     pub(crate) witness: String,
-    /// Ses limites connues : les régions suspectes.
-    pub(crate) limits: Witness,
+    /// Ses limites connues : les régions suspectes ; `None` s'il manque (aucune ne l'est).
+    pub(crate) limits: Option<Witness>,
     /// Page PNG du témoin, par id de slide Oku.
     ///
     /// Ou la cause de son échec.
@@ -199,7 +197,7 @@ impl ReferenceJob {
     pub fn run_with(&self, renderer: &dyn WitnessRenderer) {
         self.slot.get_or_init(|| {
             let _span = tracing::info_span!("reference_job", slides = self.slides.len()).entered();
-            let limits = renderer.limits();
+            let limits = Some(renderer.limits());
             match self.pages(renderer) {
                 Ok((witness, pages)) => Reference { witness, limits, pages: Ok(pages) },
                 Err(failure) => {

@@ -160,6 +160,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         base: v.clone(),
         parent: Some(v),
         session_version: None,
+        deck_only: false,
     };
     let ui = UiState {
         slide: Some("s-1".into()),
@@ -586,5 +587,44 @@ fn read_doc_compacts_a_node_marked_before_the_delay() {
         panic!("arbre du deck attendu")
     };
     assert_that!(tree.is_node_deleted(&slide).unwrap()).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// Reprise en mode modèles sur un pack du deck seul : l'édition le reste, la bibliothèque n'en reçoit rien.
+#[test]
+fn resume_in_templates_mode_on_a_deck_only_pack_keeps_it_deck_only() {
+    let dir = temp_dir();
+    let data = crate::test_support::fresh_dir("oku-slides-resume-");
+    let mut s = crate::test_support::session_on(data.path());
+    assert_that!(s.resume(dir.clone())).is_true();
+    let r = crate::test_support::adopt_deck_only_pack(&mut s);
+    let before = crate::test_support::library_files(data.path());
+    s.handle(crate::Request::EditTemplates { set: r.id }).unwrap();
+    s.flush_resume();
+    drop(s);
+    let mut back = crate::test_support::session_on(data.path());
+    assert_that!(back.resume(dir.clone())).is_true();
+    let edit = back.snapshot().editing.map(|e| e.mode.clone()).unwrap();
+    assert_that!((edit.set, edit.deck_only)).is_equal_to((r.id, true));
+    back.save_templates(false).unwrap();
+    assert_that!(crate::test_support::library_files(data.path())).is_equal_to(before);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Un `state.json` en mode modèles écrit avant `deck_only` se relit : pack de la bibliothèque.
+#[test]
+fn read_state_in_templates_mode_without_deck_only_reads_as_a_library_pack() {
+    let r = resume();
+    std::fs::create_dir_all(&r.dir).unwrap();
+    let v = crate::library::builtin_versions()[0].version.clone();
+    let edit = format!(
+        r#"{{"set":"{}","name":"Essentiel","builtin":true,"base":"{v}","parent":"{v}","session_version":null}}"#,
+        crate::DEFAULT_PACK
+    );
+    let state = format!(r#"{{"version":{VERSION},"mode":{{"templates":{edit}}},"ui":{{}}}}"#);
+    std::fs::write(r.dir.join("state.json"), state).unwrap();
+    let back = r.read_state().unwrap().unwrap();
+    assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK && !m.deck_only))
+        .is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }

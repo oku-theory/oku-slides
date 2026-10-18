@@ -116,7 +116,7 @@ impl<'p> PartCtx<'p> {
     pub(crate) fn lookup(&self, ph: Option<&PhKey>) -> Inherited {
         match self.inherit {
             Some(i) => i.lookup(ph),
-            None => Inherited { levels: vec![self.shared.pres.clone()], ..Inherited::default() },
+            None => Inherited { defaults: self.shared.pres.clone(), ..Inherited::default() },
         }
     }
 

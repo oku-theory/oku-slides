@@ -22,7 +22,7 @@ output are in French.
 | `crates/oku-slides-chart` | Charts and tables: ECharts option subset, SVG via charts-rs, table model, data operations |
 | `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
 | `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit and high-fidelity projectors, font resolution, report, content coverage and visual gap |
-| `crates/oku-slides-reference` | Reference rendering of an imported presentation (`office2pdf` witness, run by the render worker) and `hayro` rasterization of its pages |
+| `crates/oku-slides-reference` | Reference rendering of an imported presentation (`office2pdf` or LibreOffice witness, run by the render worker) and `hayro` rasterization of its pages |
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server, and the PPTX import pipeline the CLI and the app share |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
@@ -76,10 +76,11 @@ Times New Roman, Courier New → Liberation); presentation and system faces are
 embedded in the deck. The report adds the font decisions.
 
 In hifi mode, `--reference auto` (the default) also renders the presentation with an
-independent witness (`office2pdf`, in its own bounded render process, 20 slides at a
-time) and writes to the report a visual gap per slide (mean OKLab ΔE) with its three
-worst regions (the source items that differ most, after a realignment of up to 3 px;
-regions office2pdf is known to draw wrong are marked `suspect` and ranked last);
+independent witness (`[import] witness`: `office2pdf` by default, in its own bounded
+render process, 20 slides at a time) and writes to the report a visual gap per slide
+(mean OKLab ΔE) with its three worst regions (the source items that differ most, after
+a realignment of up to 3 px; regions the witness is known to draw wrong are marked
+`suspect` and ranked last); `--reference office2pdf` or `soffice` overrides the setting;
 a slide whose worst non-suspect region exceeds `[import] score_threshold` is flagged, and a second
 output line sums it up. `--reference none` skips it. In both modes, a text field
 rendered past its page becomes an `Overflow` loss; in retrofit, so does any element box
@@ -87,21 +88,28 @@ rendered below the page's bottom margin.
 
 The default `[import] score_threshold` is 7.0 (OKLab ΔE ×100 of the worst non-suspect
 region, measured with office2pdf on the alto, libreoffice and kitchen fixtures on
-2026-10-16). `--reference soffice` uses LibreOffice instead (the first program of
-`[import] soffice` found), in the CLI only: it is not calibrated and marks no region
-`suspect`.
+2026-10-16). `[import] witness = "soffice"` (or `--reference soffice`) uses LibreOffice
+instead, in the app too: the first program of `[import] soffice` found. Missing, or a
+script on macOS, the report says why and no slide is scored: never a fallback to
+office2pdf. Its own suspect regions are Calibri Light text (it has no substitute) and
+SmartArt text; measured on 2026-10-18, its titles reach 6.8, closer to the threshold.
+
+Both modes refuse a `.pptx` larger than `[import] max_input_mib` (default 256 MiB, at
+least 1), checked before the file is read so a bigger one never enters memory.
 
 In the app, Open (⌘O) accepts a `.pptx`. A dialog asks for the mode (faithful copy,
 or your templates with a library pack and theme) and offers "Fine-tune with the
-agent", checked by default. The import opens a new tab, autosaved into the decks
+agent", checked by default; it is unchecked and disabled, with the reason, when the
+chosen agent cannot run (program not found, launch failed, no MCP over HTTP). The import opens a new tab, autosaved into the decks
 folder like a new deck (undo removes the import whole) and, when asked, the agent
-adjusts the slides the witness flags (always office2pdf in the app) with the tools
+adjusts the slides the witness flags (`[import] witness`) with the tools
 `import_report` and `import_diff`, in bounded tries:
 `[import] tune_iterations` (default 3) per slide, `tune_stall` (default 2) tries
 in a row without gain, and `tune_global` (default 3) for theme and pack changes,
 which change the whole deck.
-Hi-fi packs and themes belong to the deck: the pack workshop is off for them and the
-library is never written. A retrofit deck stays on the library pack until a widget is
+Hi-fi packs and themes belong to the deck: the pack workshop edits them from the
+version the deck embeds and saves them in the deck, never in the library; the theme
+menu keeps offering the hi-fi theme under “This presentation” after another is picked. A retrofit deck stays on the library pack until a widget is
 written for it; that first write moves it onto its own copy of the pack, deck-only too.
 
 ## Running the app

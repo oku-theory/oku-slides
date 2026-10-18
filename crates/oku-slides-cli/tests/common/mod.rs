@@ -1,14 +1,16 @@
-//! Outillage des tests de la CLI : dossier de travail, lancement, serveur, requêtes HTTP.
+//! Outillage des tests de la CLI : dossier de travail, lancement, serveur, requêtes HTTP, fixtures d'import zippées.
 #![allow(
     dead_code,
     reason = "cli.rs et regressions/ n'utilisent pas les mêmes aides ; `expect` échouerait dans l'un des deux"
 )]
 
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output};
 use std::time::{Duration, Instant};
+
+use zip::write::SimpleFileOptions;
 
 pub const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
 
@@ -144,4 +146,47 @@ pub fn exchange(
         .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_owned()))
         .collect();
     (status, headers, body.to_owned())
+}
+
+/// Le dossier des fixtures d'import (`fixtures/import`).
+pub fn fixtures() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/import")
+}
+
+/// Les fichiers de `dir`, récursivement, sans `.DS_Store`, ajoutés à `out`.
+pub fn files(dir: &Path, out: &mut Vec<PathBuf>) {
+    for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
+        let p = e.unwrap_or_else(|e| panic!("{e}")).path();
+        if p.file_name().is_some_and(|n| n == ".DS_Store") {
+            continue;
+        }
+        if p.is_dir() { files(&p, out) } else { out.push(p) }
+    }
+}
+
+/// Le `.pptx` de la fixture décompressée `name`, zippé dans `dir` ; son chemin.
+pub fn pptx(dir: &Path, name: &str) -> PathBuf {
+    pptx_with(dir, name, &[])
+}
+
+/// Comme [`pptx`], les parts de `replaced` (chemin dans le zip, contenu) remplaçant celles de la fixture.
+pub fn pptx_with(dir: &Path, name: &str, replaced: &[(&str, &[u8])]) -> PathBuf {
+    let root = fixtures().join(name);
+    let mut paths = Vec::new();
+    files(&root, &mut paths);
+    paths.sort_by_key(|p| (p.file_name() != Some("[Content_Types].xml".as_ref()), p.clone()));
+    let mut w = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    for p in paths {
+        let rel = p.strip_prefix(&root).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().replace('\\', "/");
+        let data = match replaced.iter().find(|(part, _)| *part == rel) {
+            Some((_, bytes)) => bytes.to_vec(),
+            None => std::fs::read(&p).unwrap_or_else(|e| panic!("{e}")),
+        };
+        w.start_file(rel, SimpleFileOptions::default()).unwrap_or_else(|e| panic!("zip : {e}"));
+        w.write_all(&data).unwrap_or_else(|e| panic!("zip : {e}"));
+    }
+    let bytes = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
+    let path = dir.join(format!("{name}.pptx"));
+    std::fs::write(&path, bytes).unwrap_or_else(|e| panic!("{e}"));
+    path
 }

@@ -93,6 +93,8 @@ export interface AgentPanelProps {
   onDraft?: (e: { text: string | null; origin: string | null }) => void;
   /** Le panneau des agents reçu de l'hôte (menu des réglages de la dictée, `useAgentPicker`). */
   onPicker?: (surface: Surface) => void;
+  /** La disponibilité de l'agent reçue de l'hôte (`useAgentAvailability`) ; `null` : utilisable. */
+  onAvailability?: (unusable: string | null) => void;
   /** Touches rapides coupées : édition d'un texte, pointage, widget actif. */
   keysOff: boolean;
   /** Le fil se montre (pas dans l'aide). */
@@ -167,6 +169,7 @@ export function AgentPanel(props: AgentPanelProps) {
           latest.current!.scopeState.onAgentEvent(e);
           if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin });
           if (e.kind === "picker") latest.current!.props.onPicker?.(e.surface);
+          if (e.kind === "availability") latest.current!.props.onAvailability?.(e.unusable);
         },
         onError: (m) => console.warn(m),
         // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu

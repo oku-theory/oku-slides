@@ -23,7 +23,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN, listed with dropped color modifiers in bounds::clamped to warn Approximated; parse a shared theme once. (t-755, t-892, t-757)
 - Type every asset with media::sniff, refuse a raster whose header is unreadable or above max_image_pixels, and pass every SVG through svg::sanitize (literal internal entities only). (t-752, t-892, t-730)
 - Apply or write only a CheckedPlan, which only ImportPlan::check_budget returns. (t-753, t-892)
-- Mark regions suspect only under the office2pdf witness, rank them after the others and never let one flag a slide. (t-692)
+- Mark regions suspect only for a measured limit of the witness that rendered the reference, rank them last and never let one flag a slide. (t-692, t-905)
 
 ## Pitfalls
 

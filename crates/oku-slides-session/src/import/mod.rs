@@ -18,8 +18,8 @@
 //! champs qui sortent de leur page, et en retrofit ses boîtes sous la marge
 //! basse, deviennent des pertes ([`note_overflows`]).
 //! [`ImportState`] garde le rapport et, en hi-fi, l'écart de chaque slide au
-//! rendu de référence du témoin choisi à l'import (office2pdf, ou LibreOffice
-//! pour la CLI), fait une fois hors du verrou de la session ([`ReferenceJob`],
+//! rendu de référence du témoin choisi à l'import (`[import] witness` :
+//! office2pdf ou LibreOffice ; la CLI, aussi par `--reference`), fait une fois hors du verrou de la session ([`ReferenceJob`],
 //! [`WitnessRenderer`]) et gardé tant que vit l'onglet.
 //! L'agent ajuste un import hi-fi slide par slide, en essais bornés par
 //! slide et pour le deck entier ([`TuneLimits`], [`Tuner`]) : [`crate::Session::import_report`] donne la file,
@@ -59,6 +59,7 @@ use snafu::ResultExt;
 use oku_slides_core::{Issue, SourceBundle, apply_all, validate};
 use oku_slides_import::CheckedPlan;
 use oku_slides_platform::Platform;
+use oku_slides_platform::config::ImportWitness;
 use oku_slides_render::Fonts;
 
 use crate::ProbedWidgets;
@@ -69,7 +70,7 @@ use error::{OpSnafu, RegistrySnafu, Result, SourcesSnafu, ThresholdSnafu};
 use input::Input;
 pub use overflow::note_overflows;
 pub use queue::LISTED;
-pub use reference::{REFERENCE_WIDTH, ReferenceJob, SPAN, WitnessPages, WitnessRenderer, soffice};
+pub use reference::{REFERENCE_WIDTH, ReferenceJob, SPAN, WitnessPages, WitnessRenderer};
 pub use render::{RenderedDeck, render};
 pub use state::{ImportState, SlideRegion};
 pub use tune::{Charge, Seen, SlideState, TuneLimits, Tuner, Tuning};
@@ -88,7 +89,7 @@ pub enum ImportMode {
 /// Où va le contenu importé.
 ///
 /// En JSON, étiqueté par `mode` : `{"mode": "retrofit", "pack": …, "theme": …}`
-/// (`theme` facultatif) ou `{"mode": "hifi"}`.
+/// (`theme` facultatif) ou `{"mode": "hifi"}` (le témoin n'en vient jamais : l'hôte le choisit).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum ImportTarget {
@@ -103,7 +104,11 @@ pub enum ImportTarget {
         theme: Option<String>,
     },
     /// Sur un pack et un thème générés pour la présentation.
-    Hifi,
+    Hifi {
+        /// Le témoin de la référence (`[import] witness` dans l'app) ; `None` : pas de référence.
+        #[serde(skip)]
+        witness: Option<ImportWitness>,
+    },
 }
 
 impl ImportTarget {
@@ -111,7 +116,7 @@ impl ImportTarget {
     pub fn mode(&self) -> ImportMode {
         match self {
             Self::Retrofit { .. } => ImportMode::Retrofit,
-            Self::Hifi => ImportMode::Hifi,
+            Self::Hifi { .. } => ImportMode::Hifi,
         }
     }
 }
@@ -171,13 +176,15 @@ struct Prepared {
 
 /// Importe `request` : lu, projeté, sondé et appliqué en une étape d'historique.
 ///
+/// En hi-fi, le témoin de `request` est choisi (LibreOffice cherché aussitôt), pas encore lancé.
+///
 /// `fonts` : les polices de l'app, celles du rendu (le catalogue du hi-fi en
 /// part ; l'état y ajoute celles du deck). En hi-fi, `[import] score_threshold`
 /// est vérifié avant toute lecture. Rien n'est écrit. Le libellé de l'étape
 /// et le nom du pack enfant sont dans la langue courante de l'interface.
 pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Result<Imported> {
     let threshold = platform.settings.import.score_threshold;
-    if matches!(request.target, ImportTarget::Hifi) {
+    if matches!(request.target, ImportTarget::Hifi { .. }) {
         snafu::ensure!(threshold.is_finite() && threshold >= 0.0, ThresholdSnafu { value: threshold });
     }
     let input = input::read_input(platform, &request.pptx)?;
@@ -187,7 +194,7 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
         ImportTarget::Retrofit { pack, theme } => {
             retrofit::prepare(platform, &base, (pack, theme.as_deref(), request.packs), &name, &input)?
         }
-        ImportTarget::Hifi => {
+        ImportTarget::Hifi { .. } => {
             let args = hifi::HifiArgs { fonts, base: &base, name, system_fonts: request.system_fonts };
             hifi::prepare(platform, args, &input)?
         }
@@ -204,7 +211,7 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
     let issues = validate(bundle.deck(), &widgets.registry, Some(&ids));
     let fonts = fonts.with(bundle.fonts.values().cloned());
     let limits = tune::TuneLimits::of(&platform.settings.import);
-    let state = ImportState::new(
+    let mut state = ImportState::new(
         (request.target.mode(), child),
         plan,
         input,
@@ -212,6 +219,9 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
         (threshold, limits),
         platform.live_localizer.clone(),
     );
+    if let ImportTarget::Hifi { witness } = request.target {
+        state.choose_witness(platform, witness);
+    }
     Ok(Imported { sources: bundle, widgets, issues, state })
 }
 

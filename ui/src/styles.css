@@ -173,6 +173,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
   text-align: center; cursor: default;
 }
 .brand { font: 600 11px/14px var(--sans); color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+/* Sous la marque, en mode modèles : le pack du deck seul ne quitte pas la présentation. */
+.brand-note { font: 400 11px/14px var(--sans); color: var(--ink-muted); }
 .doc-name { font: 500 15px/20px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .doc-name-button {
   display: block; max-width: 100%; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--radius-sm);

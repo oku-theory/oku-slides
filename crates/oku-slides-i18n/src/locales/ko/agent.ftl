@@ -33,6 +33,7 @@ agent-confirm-copy-theme = 기본 제공 테마 “{ $name }”의 편집된 사
 agent-confirm-setting = { $key } 변경: { $old } → { $new }?
 
 agent-not-found = 에이전트를 찾을 수 없습니다: { $command }. 설정 [agent.presets].
+agent-spawn-failed = 에이전트를 시작할 수 없습니다: { $command }. 설정 [agent.presets].
 agent-no-http = 이 에이전트는 Oku Slides의 도구에 연결할 수 없습니다.
 agent-stopped = 에이전트가 중지되었습니다.
 agent-failed = 에이전트가 요청을 거부했습니다: { $message }

@@ -59,6 +59,10 @@ pub struct Snapshot<'a> {
     pub theme_name: Option<String>,
     /// Thèmes de la bibliothèque dans leur version courante : intégrés, puis ceux de l'utilisateur.
     pub themes: &'a [crate::ThemeInfo],
+    /// Thèmes du deck seul embarqués dans ses sources, un par id : « cette présentation ».
+    ///
+    /// Celui d'un import, repris après un autre.
+    pub deck_themes: Vec<crate::ThemeInfo>,
     pub title: Option<String>,
     /// Titre tel que saisi (avec ses {{variables}}), pour l'éditer.
     pub title_source: Option<&'a str>,
@@ -87,7 +91,7 @@ pub struct Snapshot<'a> {
     pub editing: Option<EditingView<'a>>,
     /// Le pack du deck n'appartient qu'à lui (import).
     ///
-    /// L'atelier, qui n'édite que la bibliothèque, ne l'ouvre pas.
+    /// L'atelier l'édite depuis sa version embarquée ; ses versions restent dans le deck.
     pub deck_pack: bool,
     /// Bandeau du pack : le deck embarque une autre version que ma version courante.
     pub pack_notice: Option<crate::PackNoticeView>,
@@ -277,6 +281,13 @@ pub struct TemplateMode {
     ///
     /// Les enregistrements suivants la remplacent.
     pub session_version: Option<PackVersion>,
+    /// Pack du deck seul, celui d'un import.
+    ///
+    /// Ses versions restent dans le deck, jamais dans la bibliothèque.
+    /// Absent d'un `state.json` plus ancien : faux, et c'est exact, car un pack du deck seul
+    /// n'entrait pas en mode modèles avant ce champ ; l'édition reprise était donc de la bibliothèque.
+    #[serde(default)]
+    pub deck_only: bool,
 }
 
 /// Le mode modèles vu par l'interface : le pack édité et le brouillon du thème.

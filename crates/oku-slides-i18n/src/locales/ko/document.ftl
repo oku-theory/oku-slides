@@ -100,6 +100,9 @@ import-region-suspect = 참조 렌더러의 알려진 오류로 제외한 차이
     [autofit] PowerPoint가 배율을 저장하지 않으면 상자에 맞춘 텍스트를 축소합니다
     [tracking] 자간을 넓힌 텍스트를 더 넓게 그립니다
     [chart] 차트를 대략적으로만 그립니다
+    [default_font] 프레젠테이션 기본값만 글꼴을 지정한 텍스트를 대체 글꼴로 그립니다
+    [no_substitute] 이 글꼴의 대체 글꼴이 없어 다른 글꼴로 그립니다
+    [smart_art_style] SmartArt 텍스트를 자체 스타일로 그립니다
    *[smart_art] SmartArt 텍스트를 너무 작게 그립니다
 }
 import-font-substituted = { $family }을(를) 메트릭이 호환되는 { $by }(으)로 바꿨습니다

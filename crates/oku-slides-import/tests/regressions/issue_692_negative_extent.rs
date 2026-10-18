@@ -17,7 +17,7 @@ fn score_of_a_shape_with_a_negative_width_skips_it_without_panicking() {
     assert_that!(page.items.iter().any(|i| i.frame.w < 0.0)).is_true();
     let white: Vec<u8> = (0..960 * 540).flat_map(|_| [255, 255, 255, 255]).collect();
     let img = Image { width: 960, height: 540, rgba: &white };
-    let s = score(img, img, &regions(page, 960.0 / deck.size.w, Witness::Office2Pdf))
+    let s = score(img, img, &regions(page, 960.0 / deck.size.w, Some(Witness::Office2Pdf)))
         .unwrap_or_else(|| panic!("pas de score"));
     assert_that!(s.regions.iter().all(|r| r.score == 0.0)).is_true();
 }

@@ -33,6 +33,7 @@ agent-confirm-copy-theme = Yerleşik “{ $name }” temasının düzenlenmiş b
 agent-confirm-setting = { $key } değiştirilsin mi: { $old } → { $new }?
 
 agent-not-found = Ajan bulunamadı: { $command }. Ayar [agent.presets].
+agent-spawn-failed = Ajan başlatılamadı: { $command }. Ayar [agent.presets].
 agent-no-http = Bu ajan Oku Slides'ın araçlarına bağlanamıyor.
 agent-stopped = Ajan durdu.
 agent-failed = Ajan isteği reddetti: { $message }

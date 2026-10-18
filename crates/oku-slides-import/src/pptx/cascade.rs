@@ -5,6 +5,10 @@
 //! puis du layout) ; le `fontRef` de `p:style` ; le `lstStyle` de la forme ;
 //! `pPr` ; `rPr`. Les couleurs sont résolues à la fin, avec le `ColorCtx` de
 //! la part qui affiche le texte. Ce qui reste vide prend les défauts du lecteur.
+//! Un run dont aucune couche au-dessus des défauts de la présentation ne nomme
+//! la police latine le dit (`RunStyle::font_from_defaults`, t-904) ; un run dont
+//! aucune couche, défauts compris, ne nomme la couleur ou la police latine aussi
+//! (`RunStyle::style_from_reader`, t-936).
 
 use crate::pptx::color::ColorCtx;
 use crate::pptx::text::{BodyProps, BulletKind, FontRef, LEVELS, LevelProps, ParaProps, RawText, RunProps};
@@ -18,8 +22,17 @@ const DEFAULT_SIZE_PT: f64 = 18.0;
 /// Couches héritées, de la plus faible à la plus forte.
 #[derive(Debug)]
 pub(crate) struct TextChain<'a> {
+    /// Les défauts de la présentation (`defaultTextStyle`), sous toutes les autres.
+    pub defaults: Option<&'a LevelProps>,
     pub levels: Vec<&'a LevelProps>,
     pub bodies: Vec<&'a BodyProps>,
+}
+
+impl<'a> TextChain<'a> {
+    /// Les couches de texte, des défauts de la présentation à la plus forte.
+    fn all(&self) -> impl Iterator<Item = &'a LevelProps> + '_ {
+        self.defaults.into_iter().chain(self.levels.iter().copied())
+    }
 }
 
 /// Ce que la cascade ne trouve pas dans les couches.
@@ -41,7 +54,7 @@ impl TextEnv<'_> {
 
 fn level_props(chain: &TextChain<'_>, env: &TextEnv<'_>, lst: &LevelProps, level: usize) -> ParaProps {
     let mut acc = ParaProps::default();
-    for l in &chain.levels {
+    for l in chain.all() {
         if let Some(p) = l.get(level) {
             acc.overlay(p);
         }
@@ -51,6 +64,14 @@ fn level_props(chain: &TextChain<'_>, env: &TextEnv<'_>, lst: &LevelProps, level
         acc.overlay(p);
     }
     acc
+}
+
+/// Une couche au-dessus des défauts nomme-t-elle la police latine du niveau `level` ?
+///
+/// Les couches du master et des placeholders, le `fontRef`, puis le `lstStyle` de la forme.
+fn names_font(chain: &TextChain<'_>, env: &TextEnv<'_>, lst: &LevelProps, level: usize) -> bool {
+    let named = |l: &LevelProps| l.get(level).is_some_and(|p| p.run.font.is_some());
+    chain.levels.iter().any(|l| named(l)) || env.font_ref.font.is_some() || named(lst)
 }
 
 /// L'emplacement de police du thème : `major`/`minor` pour le latin, suffixé
@@ -77,7 +98,10 @@ fn family(r: Option<&FontRef>, script: Script, env: &TextEnv<'_>) -> Option<Styl
     env.fonts.family(major, s).map(|f| Styled::scheme(f.to_owned(), &font_slot(major, s)))
 }
 
-fn run_style(p: &RunProps, env: &TextEnv<'_>) -> RunStyle {
+/// Le style résolu des propriétés `p`.
+///
+/// `font_named` : une couche au-dessus des défauts de la présentation nomme sa police.
+fn run_style(p: &RunProps, env: &TextEnv<'_>, font_named: bool) -> RunStyle {
     // La police latine existe toujours : celle du titre ou du corps, faute d'une autre.
     let font = match &p.font {
         Some(FontRef::Named(n)) => Styled::explicit(n.clone()),
@@ -94,6 +118,8 @@ fn run_style(p: &RunProps, env: &TextEnv<'_>) -> RunStyle {
         bold,
         weight: if bold { named.max(700) } else { named },
         font,
+        font_from_defaults: !font_named,
+        style_from_reader: p.color.is_none() || p.font.is_none(),
         font_ea: family(p.font_ea.as_ref(), Script::EastAsian, env),
         font_cs: family(p.font_cs.as_ref(), Script::Complex, env),
         lang: p.lang.clone(),
@@ -138,15 +164,18 @@ pub(crate) fn resolve_textbox(raw: &RawText, chain: &TextChain<'_>, env: &TextEn
         .paragraphs
         .iter()
         .map(|rp| {
-            let mut p = level_props(chain, env, &raw.lst, usize::from(rp.level));
+            let level = usize::from(rp.level);
+            let mut p = level_props(chain, env, &raw.lst, level);
             p.overlay(&rp.props);
+            let named = names_font(chain, env, &raw.lst, level) || rp.props.run.font.is_some();
             let runs = rp
                 .runs
                 .iter()
                 .map(|r| {
                     let mut props = p.run.clone();
                     props.overlay(&r.props);
-                    Run { text: r.text.clone(), field: r.field.clone(), style: run_style(&props, env) }
+                    let style = run_style(&props, env, named || r.props.font.is_some());
+                    Run { text: r.text.clone(), field: r.field.clone(), style }
                 })
                 .collect();
             Paragraph { level: rp.level, style: para_style(&p, env), runs }
@@ -176,7 +205,7 @@ pub(crate) fn resolve_textbox(raw: &RawText, chain: &TextChain<'_>, env: &TextEn
 /// Style du niveau `level` (0..8) d'un placeholder.
 pub(crate) fn resolve_level(chain: &TextChain<'_>, lst: &LevelProps, env: &TextEnv<'_>, level: usize) -> LevelStyle {
     let p = level_props(chain, env, lst, level);
-    LevelStyle { para: para_style(&p, env), run: run_style(&p.run, env) }
+    LevelStyle { para: para_style(&p, env), run: run_style(&p.run, env, names_font(chain, env, lst, level)) }
 }
 
 /// Style de chaque niveau 0..8 d'un placeholder.

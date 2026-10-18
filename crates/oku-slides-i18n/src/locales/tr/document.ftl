@@ -100,6 +100,9 @@ import-region-suspect = Fark bir kenara bırakıldı, referans işleyicinin bili
     [autofit] PowerPoint ölçek kaydetmediğinde kutusuna sığdırılan metni küçültür
     [tracking] harf aralıklı metni daha geniş çizer
     [chart] grafikleri yalnızca yaklaşık olarak çizer
+    [default_font] yazı tipini yalnızca sunumun varsayılanlarının belirttiği metni kendi yedek yazı tipiyle çizer
+    [no_substitute] bu yazı tipi için yedeği yok ve onu başka bir yazı tipiyle çizer
+    [smart_art_style] SmartArt metnini kendi stiliyle çizer
    *[smart_art] SmartArt metnini fazla küçük çizer
 }
 import-font-substituted = { $family } yerine uyumlu ölçülere sahip { $by } kullanıldı

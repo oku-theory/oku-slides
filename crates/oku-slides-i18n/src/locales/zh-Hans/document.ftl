@@ -100,6 +100,9 @@ import-region-suspect = 已搁置的差异，参考渲染器的已知错误：{ 
     [autofit] PowerPoint 未保存缩放比例时，它会缩小自动适应文本框的文字
     [tracking] 它把加宽字间距的文字画得更宽
     [chart] 它只能大致绘制图表
+    [default_font] 它用自己的后备字体绘制仅由演示文稿默认值指定字体的文本
+    [no_substitute] 它没有此字体的替代字体，改用其他字体绘制
+    [smart_art_style] 它用自己的样式绘制 SmartArt 文字
    *[smart_art] 它把 SmartArt 文字画得太小
 }
 import-font-substituted = { $family } 已替换为度量兼容的 { $by }

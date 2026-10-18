@@ -4,7 +4,8 @@ use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::source::{Chart, ChartKind, Fill, Geometry, Shape};
+use crate::fonts::SUBSTITUTES;
+use crate::source::{Chart, ChartKind, Fill, Geometry, Shape, Styled};
 use crate::test_support::{bullet, item, para, run, run_with, text_box};
 
 /// `normAutofit` nu : ni échelle ni réduction enregistrées.
@@ -33,6 +34,16 @@ fn chart() -> ItemKind {
 
 fn tracked(spacing: f64) -> TextBox {
     text_box(vec![para(vec![run("x"), run_with("y", |s| s.char_spacing = spacing)])])
+}
+
+/// Un run `text` dont seuls les défauts de la présentation nomment la police (t-904).
+fn defaulted(text: &str) -> TextBox {
+    text_box(vec![para(vec![run("a"), run_with(text, |s| s.font_from_defaults = true)])])
+}
+
+/// Un run `text` dans la famille `family` (t-905).
+fn in_family(family: &str, text: &str) -> TextBox {
+    text_box(vec![para(vec![run_with(text, |s| s.font = Styled::explicit(family.to_owned()))])])
 }
 
 fn two_paragraphs(anchor: Anchor) -> ItemKind {
@@ -70,12 +81,69 @@ fn sized(sizes: &[f64]) -> ItemKind {
 #[case::untracked_shape(shape_with(tracked(0.0)), 40.0, false, None)]
 #[case::chart(chart(), 40.0, false, Some(WitnessLimit::Chart))]
 #[case::smartart_child(line(Autofit::None), 40.0, true, Some(WitnessLimit::SmartArt))]
-fn witness_limit_reads_the_source_item(
+#[case::default_font(ItemKind::Text(defaulted("Gauche")), 40.0, false, Some(WitnessLimit::DefaultFont))]
+#[case::default_font_in_a_shape(shape_with(defaulted("Droite")), 40.0, false, Some(WitnessLimit::DefaultFont))]
+#[case::default_font_on_a_blank(ItemKind::Text(defaulted(" ")), 40.0, false, None)]
+fn witness_limit_reads_the_source_item_under_office2pdf(
     #[case] kind: ItemKind,
     #[case] height: f64,
     #[case] in_smartart: bool,
     #[case] expected: Option<WitnessLimit>,
 ) {
     let it = item("s1/1", (0.0, 0.0, 300.0, height), kind);
-    assert_that!(witness_limit(&it, in_smartart)).is_equal_to(expected);
+    assert_that!(witness_limit(&it, in_smartart, Witness::Office2Pdf)).is_equal_to(expected);
+}
+
+// LibreOffice (t-905) : ni l'ajustement (il ne rétrécit qu'un texte qui déborde, ce que la source
+// ne dit pas), ni l'interlettrage, ni la police des défauts, ni les graphiques ne sont ses erreurs.
+#[rstest]
+#[case::calibri_light(ItemKind::Text(in_family("Calibri Light", "Titre")), false, Some(WitnessLimit::NoSubstitute))]
+#[case::calibri_light_any_case(
+    ItemKind::Text(in_family("CALIBRI LIGHT", "Titre")),
+    false,
+    Some(WitnessLimit::NoSubstitute)
+)]
+#[case::calibri_light_in_a_shape(
+    shape_with(in_family("Calibri Light", "Titre")),
+    false,
+    Some(WitnessLimit::NoSubstitute)
+)]
+#[case::calibri_light_on_a_blank(ItemKind::Text(in_family("Calibri Light", " ")), false, None)]
+#[case::calibri(ItemKind::Text(in_family("Calibri", "Corps")), false, None)]
+#[case::inter(ItemKind::Text(in_family("Inter", "Corps")), false, None)]
+#[case::smartart_child_in_the_reader_style(
+    ItemKind::Text(text_box(vec![para(vec![run(" "), run_with("Étape", |s| s.style_from_reader = true)])])),
+    true,
+    Some(WitnessLimit::SmartArtStyle)
+)]
+#[case::smartart_child_styled_by_the_file(line(Autofit::None), true, None)]
+#[case::smartart_blank_child_in_the_reader_style(
+    ItemKind::Text(text_box(vec![para(vec![run_with(" ", |s| s.style_from_reader = true)])])),
+    true,
+    None
+)]
+#[case::chart(chart(), false, None)]
+#[case::unsaved_short_line(line(UNSAVED), false, None)]
+#[case::tracked_text(ItemKind::Text(tracked(2.0)), false, None)]
+#[case::default_font(ItemKind::Text(defaulted("Gauche")), false, None)]
+fn witness_limit_reads_the_source_item_under_libreoffice(
+    #[case] kind: ItemKind,
+    #[case] in_smartart: bool,
+    #[case] expected: Option<WitnessLimit>,
+) {
+    let it = item("s1/1", (0.0, 0.0, 300.0, 40.0), kind);
+    assert_that!(witness_limit(&it, in_smartart, Witness::LibreOffice)).is_equal_to(expected);
+}
+
+#[test]
+fn libreoffice_substitutes_every_family_oku_substitutes_but_calibri_light() {
+    let unmapped: Vec<&str> = SUBSTITUTES
+        .iter()
+        .map(|(family, _)| *family)
+        .filter(|family| {
+            let it = item("s1/1", (0.0, 0.0, 300.0, 40.0), ItemKind::Text(in_family(family, "x")));
+            witness_limit(&it, false, Witness::LibreOffice).is_some()
+        })
+        .collect();
+    assert_that!(unmapped).is_equal_to(vec!["calibri light"]);
 }

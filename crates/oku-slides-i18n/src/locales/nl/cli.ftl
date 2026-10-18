@@ -87,4 +87,4 @@ cli-arg-pack = Doelpakket: id, pakketmap (pack.json, widgets/) of naam
 cli-arg-import-theme = Doelthema: een ingebouwd thema of een uit de bibliotheek, op id of naam; standaard: het standaardthema
 cli-arg-report = Ook het importrapport (JSON) schrijven: verliezen, vervangingen, dekking
 cli-arg-no-system-fonts = In modus hifi de lettertypen van de presentatie niet tussen de systeemlettertypen zoeken
-cli-arg-reference = In hifi-modus elke dia vergelijken met een referentieweergave van de presentatie: auto (standaard, office2pdf), office2pdf, soffice (LibreOffice) of niet (none)
+cli-arg-reference = In hifi-modus elke dia vergelijken met een referentieweergave van de presentatie: auto (standaard: [import] witness, anders office2pdf), office2pdf, soffice (LibreOffice) of niet (none)

@@ -3,7 +3,7 @@
 use roxmltree::Node;
 
 use crate::collect::{clip, clip_to};
-use crate::pptx::cascade::{TextChain, resolve_textbox};
+use crate::pptx::cascade::resolve_textbox;
 use crate::pptx::color::color_spec_in;
 use crate::pptx::context::PartCtx;
 use crate::pptx::fill::{FillSpec, LineSpec, approximation, parse_fill, parse_line};
@@ -225,7 +225,7 @@ fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) ->
         .unwrap_or(Geometry::Preset { name: "rect".into(), adj: Default::default() });
     let raw = if connector { None } else { child(n, "txBody").map(|tx| parse_txbody(tx, &mut |r| cx.link(r))) };
     let tb = raw.as_ref().map(|raw| {
-        let chain = TextChain { levels: inh.levels.iter().collect(), bodies: inh.bodies.iter().collect() };
+        let chain = inh.chain();
         resolve_textbox(raw, &chain, &cx.env(font))
     });
     let texty = tb.as_ref().is_some_and(has_text);

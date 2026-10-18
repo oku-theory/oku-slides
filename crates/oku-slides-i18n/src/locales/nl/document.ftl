@@ -109,6 +109,9 @@ import-region-suspect = Afwijking terzijde gelegd, een bekende fout van de refer
     [autofit] hij verkleint tekst die in zijn vak moet passen wanneer PowerPoint geen schaal heeft opgeslagen
     [tracking] hij tekent tekst met letterafstand breder
     [chart] hij tekent grafieken slechts bij benadering
+    [default_font] hij tekent tekst waarvan alleen de standaardinstellingen van de presentatie het lettertype noemen in zijn reservelettertype
+    [no_substitute] hij heeft geen vervanger voor dit lettertype en tekent het in een ander
+    [smart_art_style] hij tekent SmartArt-tekst in zijn eigen stijl
    *[smart_art] hij tekent SmartArt-tekst te klein
 }
 import-font-substituted = { $family } vervangen door { $by }, met passende metrieken

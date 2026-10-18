@@ -73,4 +73,4 @@ cli-arg-pack = 目標範本套件：ID、套件資料夾（pack.json、widgets/�
 cli-arg-import-theme = 目標主題：內建主題或資料庫中的主題，以 ID 或名稱指定；預設：預設主題
 cli-arg-report = 同時寫出匯入報告（JSON）：損失、替代、涵蓋率
 cli-arg-no-system-fonts = 在 hifi 模式下，不在系統字型中尋找簡報的字型
-cli-arg-reference = 在 hifi 模式下，將每張投影片與簡報的參考轉譯比較：auto（預設，office2pdf）、office2pdf、soffice（LibreOffice）或不比較（none）
+cli-arg-reference = 在 hifi 模式下，將每張投影片與簡報的參考轉譯比較：auto（預設：[import] witness，未設定則為 office2pdf）、office2pdf、soffice（LibreOffice）或不比較（none）

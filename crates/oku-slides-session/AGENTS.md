@@ -10,7 +10,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never reuse tab or window ids, accept only valid unique t-N and w-N ids from workspace.json, which only the Workspace writes; a session writes only its tab folder. (ADR-0001, spec:2026-09-26-onglets-fenetres-design)
 - Reread dormant tabs before a destructive decision such as close; if unreadable, take the cautious path. (ADR-0001, spec:2026-09-26-onglets-fenetres-design)
 - Render the new deck before committing it to the replica so a failed render leaves no trace in Loro history. (spec:2026-09-27-sources-loro-design)
-- Mirror every new Request or WorkspaceRequest variant in the TypeScript unions of ui/src/api.ts. (plan:2026-09-27-sources-loro-fusion)
+- Mirror every new Request variant in ui/src/api.ts and every WorkspaceRequest variant in ui/src/workspaceApi.ts. (plan:2026-09-27-sources-loro-fusion, t-936)
 - Write resume and workspace files via Storage::write_atomic, logging failures with tracing::warn, never failing the request. (spec:2026-09-26-resume-state-design)
 - Write resume files as deck.loro, document.json, then state.json (a Ui request only state.json); an unknown state version is unreadable: log, start blank. (spec:2026-09-26-resume-state-design)
 - In history mode transitions, put moved assets and fonts back before propagating any error. (plan:2026-09-27-sources-loro-historique)
@@ -35,10 +35,10 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never access tab sessions after Workspace::settle at app shutdown. (t-251)
 - Build design variants on a throwaway deck clone and fail the whole call if any variant is invalid. (spec:2026-09-26-agent-vocal-design)
 - Count import tuning tries on the scored raster's fingerprint, never page_hash; draw the global budget only for an unchanged slide model; key the deck state by theme and pack content, never versions. (t-692)
-- Implement the PowerPoint import only in oku_slides_session::import (the CLI and app only call it); check the pptx size against max_input_bytes before reading it. (ADR-0009, t-692, plan:2026-10-10-import-pptx-lot2)
+- Implement the PowerPoint import only in oku_slides_session::import (the CLI and app only call it); check the pptx size against the [import] max_input_mib setting before reading it. (ADR-0009, t-692, t-908, plan:2026-10-10-import-pptx-lot2)
 - Apply the whole import in one transaction and history step through the normal validations; fail a retrofit whose target theme tokens cannot be read, never using defaults. (plan:2026-10-10-import-pptx-lot2, spec:2026-10-09-import-pptx-design, t-817)
 - Keep ImportState in memory only: never resumed, cleared by load_document once the new document is set. (t-692)
-- Never run the import witness under the session lock; callers run the ReferenceJob from import_reference_job first, in a blocking task. (t-692)
+- Choose the import witness only in ImportState::choose_witness, never replacing a missing soffice by office2pdf, and never run it under the session lock; callers run the ReferenceJob from import_reference_job first, in a blocking task. (t-692, t-905)
 - Create a retrofit's child pack only at its first deck-mode widget write, in that undo step; the app imports onto library packs by id or name, never a folder. (t-692)
 
 ## Pitfalls

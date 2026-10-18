@@ -29,7 +29,7 @@ const tab = (id: string): TabInfo => ({
 
 async function mount() {
   const win: WindowView = { label: "main", active: "a", tabs: [tab("a"), tab("b")] };
-  const view: WorkspaceView = { generation: 1, focused: "main", agent_detached: false, windows: [win] };
+  const view: WorkspaceView = { generation: 1, focused: "main", agent_detached: false, import_pick: null, windows: [win] };
   const noop = () => {};
   const host = document.createElement("div");
   document.body.append(host);

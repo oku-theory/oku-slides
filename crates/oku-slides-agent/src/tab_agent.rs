@@ -218,6 +218,12 @@ impl TabAgent {
             Ok(live) => live,
             Err(e) => {
                 self.failed(n, &e);
+                // L'agent est inutilisable : un dialogue d'import ouvert le dit sans redemander.
+                // Le même texte que `Stack::availability`.
+                if let Some(u) = e.unusable() {
+                    let unusable = Some(u.localize(&self.ctx.localizer.current()));
+                    self.ctx.emit(AgentEvent::Availability { unusable });
+                }
                 return None;
             }
         };

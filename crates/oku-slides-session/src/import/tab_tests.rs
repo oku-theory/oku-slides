@@ -12,7 +12,7 @@ fn imported_session(data: &std::path::Path) -> crate::Session {
     let platform = Platform::with_settings(settings_on(data)).unwrap();
     let request = ImportRequest {
         pptx: pptx_fixture(data, "minimal"),
-        target: ImportTarget::Hifi,
+        target: crate::test_support::hifi(),
         system_fonts: false,
         packs: PackLookup::Library,
     };
@@ -57,7 +57,7 @@ fn import_target_reads_its_mode_tagged_json() {
         serde_json::from_value(serde_json::json!({ "mode": "retrofit", "pack": "Essentiel" })).unwrap();
     assert_that!(retrofit).is_equal_to(ImportTarget::Retrofit { pack: "Essentiel".into(), theme: None });
     let hifi: ImportTarget = serde_json::from_value(serde_json::json!({ "mode": "hifi" })).unwrap();
-    assert_that!(hifi).is_equal_to(ImportTarget::Hifi);
+    assert_that!(hifi).is_equal_to(ImportTarget::Hifi { witness: None });
     assert_that!(serde_json::from_value::<ImportTarget>(serde_json::json!({ "mode": "retrofit" })).is_err()).is_true();
 }
 

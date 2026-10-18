@@ -185,15 +185,16 @@ impl Session {
         Some(EditingView { mode: edit, theme: view })
     }
 
-    /// Le brouillon part du thème `id`, dans sa version courante : ses jetons
+    /// Le brouillon part du thème `id`, dans sa version courante.
+    ///
+    /// Celle du deck seul pour un thème embarqué (`picked_theme`) ; ses jetons
     /// remplacent ceux du deck de travail en une étape annulable.
     pub fn set_edited_theme(&mut self, id: Uuid) -> Result<()> {
         let Mode::Templates { theme, .. } = &self.mode else {
             return NotEditingTemplatesSnafu.fail()?;
         };
         let from = theme.clone();
-        let version = self.themes.current(id).context(UnknownThemeSnafu { id })?;
-        let base = ThemeRef { id, version };
+        let base = self.picked_theme(id)?;
         let manifest =
             self.theme_version(&base).context(ThemeVersionMissingSnafu { id, version: base.version.clone() })?;
         let before = self.edited_tokens();

@@ -134,10 +134,9 @@ fn undo_turn_after_opening_another_document_is_none() {
 
 #[test]
 fn undo_after_a_tune_turn_restores_the_imported_deck_then_undoes_the_import() {
-    use crate::import::ImportTarget;
     use crate::test_support::imported_fixture;
     let data = fresh_dir("oku-slides-turn-undo-tune-");
-    let mut s = imported_fixture(data.path(), "minimal", ImportTarget::Hifi, |_| {});
+    let mut s = imported_fixture(data.path(), "minimal", crate::test_support::hifi(), |_| {});
     let imported = s.deck().clone();
     // Le tour de fine-tuning : deux corrections de l'agent, sur deux slides.
     s.begin_turn(1, "fine-tune l'import");

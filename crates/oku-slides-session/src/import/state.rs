@@ -14,8 +14,8 @@
 //! gardées ; un échec aussi, et n'est pas retenté. Les octets du `.pptx` ne
 //! servent qu'au témoin : jamais gardés en retrofit (ni sans témoin), ils
 //! sont libérés dès que la référence est faite ([`ImportState::settle`]).
-//! Les régions suspectes sont celles des limites du témoin choisi
-//! (office2pdf, celui de l'app ; aucune sous LibreOffice).
+//! Le témoin est celui de `[import] witness` ([`ImportState::choose_witness`]) ;
+//! les régions suspectes sont celles de ses limites connues.
 //! En retrofit, l'état garde aussi le pack enfant, créé à la première
 //! écriture d'un widget sur le pack cible ([`super::child_pack`]).
 
@@ -31,13 +31,15 @@ use oku_slides_import::plan::{GroupCandidate, ItemTarget, WidgetRequest};
 use oku_slides_import::report::{ReferenceCause, ReferenceReport};
 use oku_slides_import::source::{SourceDeck, SourceSlide};
 use oku_slides_import::{CheckedPlan, ImportReport, hifi};
+use oku_slides_platform::Platform;
+use oku_slides_platform::config::ImportWitness;
 use oku_slides_reference::SOFFICE_WITNESS;
 use oku_slides_render::Fonts;
 use oku_slides_render_worker::ReferenceWitness;
 
 use super::child_pack::ChildPack;
 use super::geometry::Geometry;
-use super::reference::{Failure, Reference, ReferenceJob, ReferenceSlot, limits_of, log_failure};
+use super::reference::{Failure, Reference, ReferenceJob, ReferenceSlot, limits_of, log_failure, soffice};
 use super::tune::{TuneLimits, Tuner, Tuning};
 use super::{ImportMode, Input};
 
@@ -90,8 +92,8 @@ pub struct ImportState {
 impl ImportState {
     /// L'état d'un import tout juste appliqué ; `fonts` : celles du rendu, données au témoin.
     ///
-    /// Le témoin est celui de l'app (office2pdf) en hi-fi, aucun en retrofit ;
-    /// `threshold` : le seuil et les bornes de l'ajustement ; `log` : la langue
+    /// Aucun témoin n'est encore choisi ([`Self::choose_witness`]) ; le hi-fi garde
+    /// les octets du `.pptx` pour lui, le retrofit non. `threshold` : le seuil et les bornes de l'ajustement ; `log` : la langue
     /// courante, celle des échecs journalisés ; `child` : le pack enfant du retrofit.
     pub(crate) fn new(
         (mode, child): (ImportMode, Option<ChildPack>),
@@ -102,15 +104,14 @@ impl ImportState {
         log: LiveLocalizer,
     ) -> Self {
         let Input { bytes, source, .. } = input;
-        let witness = (mode == ImportMode::Hifi).then_some(ReferenceWitness::Office2Pdf);
         Self {
             mode,
             plan,
             source,
             fonts,
             threshold,
-            bytes: witness.is_some().then_some(bytes),
-            witness,
+            bytes: (mode == ImportMode::Hifi).then_some(bytes),
+            witness: None,
             reference: ReferenceSlot::default(),
             tuner: Tuner::new(limits),
             scored: BTreeMap::new(),
@@ -222,11 +223,33 @@ impl ImportState {
         Geometry::of(&self.source).ppp as f32
     }
 
+    /// Choisit le témoin `witness` ; `None` : pas de référence.
+    ///
+    /// Celui de `[import] witness`, ou de `--reference` dans la CLI.
+    ///
+    /// LibreOffice est cherché parmi `[import] soffice` : introuvable, ou
+    /// refusé (un script, sur macOS), la référence manque au rapport
+    /// ([`Self::witness_missing`], [`Self::witness_refused`]), jamais remplacée par office2pdf.
+    pub(crate) fn choose_witness(&mut self, platform: &Platform, witness: Option<ImportWitness>) {
+        match witness {
+            None => self.set_witness(None),
+            Some(ImportWitness::Office2pdf) => self.set_witness(Some(ReferenceWitness::Office2Pdf)),
+            Some(ImportWitness::Soffice) => match soffice(platform) {
+                Ok(Some(found)) => self.set_witness(Some(found)),
+                Ok(None) => {
+                    self.witness_missing("[import] witness = soffice : aucun programme de [import] soffice".to_owned())
+                }
+                // Un script, sur macOS : le bac à sable du rendu ne lance que le binaire (t-912).
+                Err(e) => self.witness_refused(e.to_string()),
+            },
+        }
+    }
+
     /// Choisit le témoin de la référence ; `None` : pas de référence.
     ///
-    /// À faire avant le premier travail (la CLI : `--reference`) ; sans effet
+    /// À faire avant le premier travail ; sans effet
     /// sur une référence déjà faite. Sans témoin, les octets du `.pptx` sont libérés.
-    pub fn set_witness(&mut self, witness: Option<ReferenceWitness>) {
+    pub(crate) fn set_witness(&mut self, witness: Option<ReferenceWitness>) {
         if witness.is_none() {
             self.bytes = None;
         }
@@ -238,21 +261,21 @@ impl ImportState {
     /// Gardé comme un échec du témoin, cause `missing` : aucune slide n'a de
     /// score, aucune région n'est suspecte, et le rapport dit pourquoi. Sans
     /// effet sur une référence déjà faite.
-    pub fn witness_missing(&mut self, detail: String) {
+    pub(crate) fn witness_missing(&mut self, detail: String) {
         self.witness_unavailable((ReferenceCause::Missing, detail));
     }
 
     /// Le témoin LibreOffice trouvé est refusé ; `detail` dit pourquoi (un script, sur macOS).
     ///
     /// Comme [`Self::witness_missing`], cause `failed` (t-912).
-    pub fn witness_refused(&mut self, detail: String) {
+    pub(crate) fn witness_refused(&mut self, detail: String) {
         self.witness_unavailable((ReferenceCause::Failed, detail));
     }
 
     /// Le témoin LibreOffice manque au rapport pour la cause de `failure`.
     fn witness_unavailable(&mut self, failure: Failure) {
         self.warn(&failure, None);
-        let missing = Reference { witness: SOFFICE_WITNESS.to_owned(), limits: Witness::Other, pages: Err(failure.0) };
+        let missing = Reference { witness: SOFFICE_WITNESS.to_owned(), limits: None, pages: Err(failure.0) };
         if self.reference.set(missing).is_err() {
             tracing::debug!("référence déjà faite : le témoin manquant n'y change rien");
         }
@@ -291,11 +314,12 @@ impl ImportState {
     }
 
     /// Les limites du témoin qui a rendu la référence, sinon celles du témoin choisi.
-    pub(super) fn witness_limits(&self) -> Witness {
-        match (self.reference.get(), &self.witness) {
-            (Some(reference), _) => reference.limits,
-            (None, Some(witness)) => limits_of(witness),
-            (None, None) => Witness::Other,
+    ///
+    /// `None` sans témoin, ou s'il manque : aucune région n'est suspecte.
+    pub(super) fn witness_limits(&self) -> Option<Witness> {
+        match self.reference.get() {
+            Some(reference) => reference.limits,
+            None => self.witness.as_ref().map(limits_of),
         }
     }
 

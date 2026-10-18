@@ -33,6 +33,7 @@ agent-confirm-copy-theme = Lưu bản sao đã chỉnh sửa của chủ đề t
 agent-confirm-setting = Thay đổi { $key }: { $old } → { $new }?
 
 agent-not-found = Không tìm thấy tác nhân AI: { $command }. Cài đặt [agent.presets].
+agent-spawn-failed = Không thể khởi động tác nhân AI: { $command }. Cài đặt [agent.presets].
 agent-no-http = Tác nhân AI này không thể kết nối với các công cụ của Oku Slides.
 agent-stopped = Tác nhân AI đã dừng.
 agent-failed = Tác nhân AI đã từ chối yêu cầu: { $message }

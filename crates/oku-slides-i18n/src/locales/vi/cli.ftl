@@ -74,4 +74,4 @@ cli-arg-pack = Gói mẫu đích: mã, thư mục gói (pack.json, widgets/) ho�
 cli-arg-import-theme = Chủ đề đích: chủ đề có sẵn hoặc trong thư viện, theo mã hoặc tên; mặc định: chủ đề mặc định
 cli-arg-report = Ghi thêm báo cáo nhập (JSON): mất mát, phương án thay thế, độ bao phủ
 cli-arg-no-system-fonts = Ở chế độ hifi, không tìm phông chữ của bản trình bày trong phông chữ hệ thống
-cli-arg-reference = Ở chế độ hifi, so sánh từng trang chiếu với bản kết xuất tham chiếu của bản trình bày: auto (mặc định, office2pdf), office2pdf, soffice (LibreOffice) hoặc không (none)
+cli-arg-reference = Ở chế độ hifi, so sánh từng trang chiếu với bản kết xuất tham chiếu của bản trình bày: auto (mặc định: [import] witness, nếu không thì office2pdf), office2pdf, soffice (LibreOffice) hoặc không (none)

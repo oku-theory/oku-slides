@@ -8,15 +8,15 @@ The Tauri app and the dev server (`oku-slides-cli` `serve`) expose the same API.
 - `Session` (`lib.rs`) answers `Request` through `Session::handle` (`request.rs`): one deck
   (`SourceBundle`, Loro replica, undo by the non-persisted `UndoManager`), its Typst rendering,
   templates, resume state (`resume.rs`, `resume_writer.rs`), file (`deck_file.rs`, `files.rs`, `merge.rs`).
-- `Mode`: `Deck`, `Help` (read-only, `help.rs`), `Templates` and `History`; the last two set the
-  deck aside (`stash`) in `templates_mode.rs` and `history.rs`. Edits go through `ensure_editable`.
+- `Mode`: `Deck`, `Help` (read-only, `help.rs`), `Templates`, `History`; the last two set the deck aside (`stash`) in
+  `templates_mode.rs` (`templates_library.rs`: base, library writes; a deck-only pack edits its embedded version) and `history.rs`.
 - Packs and themes: the deck's embedded version is authoritative; a deck-only one (`PackScope::Deck`) never
   reaches the library (`add_version` refuses it). `deck_widgets.rs` builds the registry (`fall_back_to_base`),
   `deck_pack.rs`, `deck_theme.rs` embed defaults; `library.rs`, `library_kind.rs` (received marks), `library_index.rs`
   (in-memory index, reset when `generation` changes; loads re-hash) hold `Library<K>`; `theme.rs`, `pack.rs`.
-- Theme editing: `theme_edit.rs` (`ThemeEdit` draft in templates mode, `save_theme_edit`),
-  `deck_theme_edit.rs` (`edit_theme` in deck mode), `theme_schema.rs` (token controls, bounds),
-  `theme_panel.rs` + `theme_controls.rs` (the `host-theme` surface), `appearance.rs`.
+- Theme editing: `theme_edit.rs` (`ThemeEdit` draft in templates mode, `save_theme_edit`), `deck_theme_edit.rs` (`edit_theme`
+  in deck mode), `theme_schema.rs` (token controls, bounds), `theme_panel.rs` + `theme_controls.rs` (`host-theme` surface),
+  `appearance.rs`; `deck_themes.rs`: deck-only themes the sources embed (`Snapshot.deck_themes`), picked after the library.
 - Widget workshop: `widgets_edit.rs`, `widget_preview.rs`, `widget_examples.rs`, `widget_params.rs`,
   `param_fields.rs`, `items.rs`, `widgets_deck.rs`; host settings: `panel.rs`, `target_params.rs`.
 - Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`.
@@ -33,12 +33,12 @@ The Tauri app and the dev server (`oku-slides-cli` `serve`) expose the same API.
 
 ## Workspace
 
-`Workspace` + `WorkspaceRequest` / `WorkspaceView` (`workspace.rs`): windows `w-<n>`, tabs `t-<n>`,
-detached agent. `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds a tab's session;
-the other `workspace_*.rs` files cover tabs (`Opening`; `ImportTab` builds an imported tab, outcome `Tune`
-names it for the agent), windows, layout, resume, same deck, agent and help. Lock order: `Mutex<Workspace>`,
-then a tab's `Arc<Mutex<Slot>>`, never the reverse; only `try_lock` a session under the workspace lock.
-`apply`, `with_session`, `open_files`, `settle`, `post_notice` take both in sequence, never nested; slow work outside.
+`Workspace` (`workspace.rs`), `WorkspaceRequest` / `WorkspaceView` (`workspace_request.rs`): windows `w-<n>`, tabs `t-<n>` (`_ids`),
+detached agent. `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds a tab's session (`Tab`); other `workspace_*.rs`: `session`
+(locking path, `relock`), `locale`, `scheme`, tabs (`Opening`; `ImportTab` builds an imported tab, outcome `Tune` names it for the agent), windows, layout
+(`Layout`, `Rect`), resume, same deck, agent, help, `import_pick` (a `.pptx` given to `open_files` becomes the focused window's
+`WorkspaceView.import_pick`, its import dialog, not a tab, until `ImportPicked`). Lock order: `Mutex<Workspace>`, then a tab's `Arc<Mutex<Slot>>`,
+never the reverse; only `try_lock` a session under it. `apply`, `with_session`, `open_files`, `settle`, `post_notice` take both in sequence, never nested; slow work outside.
 
 `<data>/resume/`: `workspace.json` (layout version 2, counters, `kept`, per-tab `info`) and
 `tabs/t-<n>/{state.json, deck/, templates/, agent/<scope>.json}`, each written by its session only;

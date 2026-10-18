@@ -86,4 +86,4 @@ cli-arg-pack = Hedef şablon paketi: kimlik, paket klasörü (pack.json, widgets
 cli-arg-import-theme = Hedef tema: yerleşik ya da kitaplıktaki bir tema, kimliği ya da adıyla; varsayılan: varsayılan tema
 cli-arg-report = İçe aktarma raporunu da (JSON) yaz: kayıplar, yedekler, kapsam
 cli-arg-no-system-fonts = hifi modunda sununun yazı tiplerini sistem yazı tipleri arasında arama
-cli-arg-reference = hifi modunda her slaytı sununun referans oluşturmasıyla karşılaştır: auto (varsayılan, office2pdf), office2pdf, soffice (LibreOffice) ya da karşılaştırma (none)
+cli-arg-reference = hifi modunda her slaytı sununun referans oluşturmasıyla karşılaştır: auto (varsayılan: [import] witness, yoksa office2pdf), office2pdf, soffice (LibreOffice) ya da karşılaştırma (none)

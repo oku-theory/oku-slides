@@ -5,6 +5,7 @@
 //! - [`config`] : réglages (défauts embarqués, `config.toml`, `OKU_SLIDES_…`).
 //! - [`storage`] : fichiers locaux, par OpenDAL.
 //! - [`config_write`] : écriture d'une clé dans `config.toml`.
+//! - [`find_program`] : un programme externe, par son chemin ou dans `PATH`.
 //! - [`Platform`] : réglages, fichiers et langue, réunis au démarrage.
 //! - `listen` (feature `listen`) : boucle d'accept bornée des serveurs HTTP
 //!   locaux, `serve_connections` et ses `Limits`.
@@ -17,6 +18,7 @@ pub mod config_write;
 pub mod errors;
 #[cfg(feature = "listen")]
 mod listen;
+mod program;
 pub mod storage;
 #[cfg(test)]
 mod test_support;
@@ -32,6 +34,7 @@ use crate::storage::{Storage, StorageError};
 
 #[cfg(feature = "listen")]
 pub use crate::listen::{Limits, serve_connections};
+pub use crate::program::find_program;
 
 /// Où tourne le rendu Typst.
 #[derive(Debug, Clone, PartialEq, Eq)]

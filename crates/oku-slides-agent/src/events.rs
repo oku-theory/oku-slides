@@ -100,6 +100,10 @@ pub enum AgentEvent {
     Picker {
         surface: Surface,
     },
+    /// L'agent choisi est-il utilisable ? `unusable` : pourquoi non, localisé.
+    Availability {
+        unusable: Option<String>,
+    },
 }
 
 impl AgentEvent {

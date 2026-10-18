@@ -3,12 +3,14 @@
 //! l'interface, enveloppés `{tab, event}`.
 
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
 use oku_slides_platform::config_write::write_value;
+use oku_slides_platform::find_program;
 use oku_slides_session::Platform;
 use oku_slides_session::agent::{AgentScope, AgentUi, Sessions, TabSession};
 use oku_slides_stt::Stt;
@@ -20,6 +22,7 @@ use crate::command_error::{
     AgentLockedSnafu, AgentNotSavedSnafu, CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu,
     UnknownAgentSnafu,
 };
+use crate::error::Unusable;
 use crate::keeper::{Keep, Keeper};
 use crate::picker::picker_surface;
 use crate::settings_port::AppSettings;
@@ -100,6 +103,10 @@ pub enum AgentCommand {
     Picker {
         tab: String,
     },
+    /// L'interface demande si l'agent est utilisable (évènement `availability` à cet onglet).
+    Availability {
+        tab: String,
+    },
     /// Choisit l'agent de l'app (bascule immédiate), puis réémet le panneau à cet onglet.
     SelectAgent {
         tab: String,
@@ -121,6 +128,7 @@ impl AgentCommand {
             | Self::Follow { tab }
             | Self::SetDraft { tab, .. }
             | Self::Picker { tab }
+            | Self::Availability { tab }
             | Self::SelectAgent { tab, .. } => tab,
         }
     }
@@ -288,6 +296,9 @@ impl Stack {
                 }
             }
             AgentCommand::Picker { tab } => self.emit_picker(&tab),
+            AgentCommand::Availability { tab } => {
+                emit(&self.out_tx, "agent", &tab, &AgentEvent::Availability { unusable: self.availability() });
+            }
             AgentCommand::SelectAgent { tab, id } => {
                 if let Err(e) = self.select_agent(&id) {
                     tracing::info!(tab, error = %snafu::Report::from_error(&e), "choix d'agent refusé");
@@ -302,10 +313,37 @@ impl Stack {
     /// Lance le tour de fine-tuning de l'onglet importé `tab` (voir [`AgentCommand::Tune`]).
     ///
     /// Pour l'hôte, quand un import demande le fine-tuning ; démarre l'agent de l'onglet.
+    /// Refusé si l'agent est inutilisable ([`Stack::availability`]) : rien n'est lancé, et
+    /// l'onglet reçoit la raison (`AgentEvent::Availability`), comme après un lancement raté.
+    /// Peut bloquer (lit le disque) : à appeler hors des fils du runtime.
     pub fn tune(&self, tab: &str) {
+        if let Some(reason) = self.availability() {
+            tracing::warn!(tab, reason, "fine-tuning de l'import non lancé : agent inutilisable");
+            emit(&self.out_tx, "agent", tab, &AgentEvent::Availability { unusable: Some(reason) });
+            return;
+        }
         if let Err(e) = self.handle(AgentCommand::Tune { tab: tab.to_owned() }) {
             tracing::warn!(tab, error = %e, "fine-tuning de l'import non lancé");
         }
+    }
+
+    /// Pourquoi l'agent choisi est inutilisable, localisé ; `None` s'il semble utilisable.
+    ///
+    /// Son programme introuvable (chemin, ou nom cherché dans `PATH`), sinon l'échec récent de
+    /// son dernier lancement (non lançable, sans MCP en HTTP). Peut bloquer : lit le disque.
+    pub fn availability(&self) -> Option<String> {
+        let l = self.platform.live_localizer.current();
+        let active = self.active.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        let Some(preset) = self.platform.settings.agent.presets.get(&active) else {
+            // `select_agent` ne choisit qu'un agent de la liste, vérifiée au chargement.
+            tracing::error!(active, "agent actif absent des réglages");
+            return Some(CommandError::from(UnknownAgentSnafu { id: active }.build()).localize(&l));
+        };
+        let path = std::env::var_os("PATH");
+        if find_program(&self.platform.storage, Path::new(&preset.command), path.as_deref()).is_none() {
+            return Some(Unusable::NotFound { command: preset.command.clone() }.localize(&l));
+        }
+        self.link.failure().map(|u| u.localize(&l))
     }
 
     /// Le deck de l'onglet a changé depuis l'interface (voir

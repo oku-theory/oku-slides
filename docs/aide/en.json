@@ -491,6 +491,109 @@
    }
   },
   {
+   "id": "s-import",
+   "kind": "content",
+   "params": {
+    "kicker": "Getting around",
+    "title": "Importing PowerPoint",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-import",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Open",
+           "bold": true
+          },
+          {
+           "t": ": ⌘O on a .pptx, or opening it from the Finder, shows “Import a PowerPoint presentation”. The resulting deck comes up in a new tab."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Faithful copy",
+           "bold": true
+          },
+          {
+           "t": ": keeps the original look, with a theme and templates made for this presentation."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Use my templates",
+           "bold": true
+          },
+          {
+           "t": ": rebuilds the slides with a template set and a theme from the library."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Fine-tune with the agent",
+           "bold": true
+          },
+          {
+           "t": ": the agent compares each slide with a render of the original and corrects the gaps. Greyed out, with the reason, when no agent is usable."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "What cannot be translated",
+           "bold": true
+          },
+          {
+           "t": ": frozen as an image and listed in the import report, which the agent reads."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "After a faithful copy",
+           "bold": true
+          },
+          {
+           "t": ": menu ▸ Workshop edits its templates, saved in this presentation only; its theme stays in the Theme menu, under “This presentation”."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Settings",
+           "bold": true
+          },
+          {
+           "t": ": [import] in config.toml, max_input_mib (largest file) and witness (office2pdf or soffice, the reference render)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
    "id": "s-ch-raccourcis",
    "kind": "chapter",
    "params": {

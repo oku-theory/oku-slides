@@ -105,13 +105,16 @@ impl Pending {
             Opening::Help { locale, theme } => session.open_help(locale, *theme)?,
             Opening::Import(i) => {
                 // Les polices de la présentation sont cherchées aussi parmi celles du système, comme dans la CLI ;
-                // le pack cible, dans la bibliothèque seulement (jamais un dossier venu de l'interface).
-                let request = ImportRequest {
-                    pptx: i.path.clone(),
-                    target: i.target.clone(),
-                    system_fonts: true,
-                    packs: PackLookup::Library,
+                // le pack cible, dans la bibliothèque seulement (jamais un dossier venu de l'interface) ;
+                // le témoin, celui de `[import] witness` (t-905).
+                let target = match &i.target {
+                    ImportTarget::Hifi { .. } => {
+                        ImportTarget::Hifi { witness: Some(self.platform.settings.import.witness) }
+                    }
+                    retrofit @ ImportTarget::Retrofit { .. } => retrofit.clone(),
                 };
+                let request =
+                    ImportRequest { pptx: i.path.clone(), target, system_fonts: true, packs: PackLookup::Library };
                 let imported = import(&self.platform, &self.fonts, &request).context(ImportSnafu)?;
                 let name = i.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
                 session.load_import(imported, &name)?;
@@ -305,6 +308,7 @@ impl Workspace {
             | WorkspaceRequest::ImportTab { .. }
             | WorkspaceRequest::OpenHelp { .. }
             | WorkspaceRequest::NewWindow
+            | WorkspaceRequest::ImportPicked { .. }
             // Traitée directement dans `apply` (décision atomique de la
             // dernière fenêtre, sous le même verrou) : jamais atteinte ici.
             | WorkspaceRequest::CloseWindow { .. } => {}

@@ -55,7 +55,7 @@ fn size(s: f64) -> ParaProps {
 }
 
 fn no_chain() -> TextChain<'static> {
-    TextChain { levels: vec![], bodies: vec![] }
+    TextChain { defaults: None, levels: vec![], bodies: vec![] }
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn size_follows_the_stronger_layer(
     let b = levels_with(0, second.map(size).unwrap_or_default());
     let mut raw = one_run(0, ppr.map(size).unwrap_or_default(), RunProps { size: rpr, ..RunProps::default() });
     raw.lst = levels_with(0, lst.map(size).unwrap_or_default());
-    let chain = TextChain { levels: vec![&a, &b], bodies: vec![] };
+    let chain = TextChain { defaults: None, levels: vec![&a, &b], bodies: vec![] };
     assert_that!(resolve_textbox(&raw, &chain, &env(&c)).paragraphs[0].runs[0].style.size).is_equal_to(expected);
 }
 
@@ -101,7 +101,7 @@ fn level_picks_its_own_layer_entry() {
     m[1] = size(28.0);
     let tb = resolve_textbox(
         &one_run(1, ParaProps::default(), RunProps::default()),
-        &TextChain { levels: vec![&m], bodies: vec![] },
+        &TextChain { defaults: None, levels: vec![&m], bodies: vec![] },
         &env(&c),
     );
     assert_that!((tb.paragraphs[0].level, tb.paragraphs[0].runs[0].style.size)).is_equal_to((1, 28.0));
@@ -121,7 +121,7 @@ fn font_ref_beats_the_chain() {
     e.font_ref.font = Some(FontRef::Major(Script::Latin));
     let tb = resolve_textbox(
         &one_run(0, ParaProps::default(), RunProps::default()),
-        &TextChain { levels: vec![&m], bodies: vec![] },
+        &TextChain { defaults: None, levels: vec![&m], bodies: vec![] },
         &e,
     );
     assert_that!(tb.paragraphs[0].runs[0].style.font.clone())
@@ -146,7 +146,8 @@ fn explicit_false_overrides_inherited_bold() {
         levels_with(0, ParaProps { run: RunProps { bold: Some(true), ..RunProps::default() }, ..ParaProps::default() });
     let raw = one_run(0, ParaProps::default(), RunProps { bold: Some(false), ..RunProps::default() });
     assert_that!(
-        resolve_textbox(&raw, &TextChain { levels: vec![&m], bodies: vec![] }, &env(&c)).paragraphs[0].runs[0]
+        resolve_textbox(&raw, &TextChain { defaults: None, levels: vec![&m], bodies: vec![] }, &env(&c)).paragraphs[0]
+            .runs[0]
             .style
             .bold
     )
@@ -163,7 +164,7 @@ fn inherited_scheme_color_resolves_with_the_consumer_color_map() {
         levels_with(0, ParaProps { run: RunProps { color: Some(tx1), ..RunProps::default() }, ..ParaProps::default() });
     let tb = resolve_textbox(
         &one_run(0, ParaProps::default(), RunProps::default()),
-        &TextChain { levels: vec![&m], bodies: vec![] },
+        &TextChain { defaults: None, levels: vec![&m], bodies: vec![] },
         &env(&dark),
     );
     assert_that!(tb.paragraphs[0].runs[0].style.color.clone()).is_equal_to(Styled::mapped(
@@ -185,7 +186,7 @@ fn bullet_parts_inherit_separately() {
     p.bullet.color = Some(Some(ColorSpec { base: ColorBase::Fixed(Rgba::new(255, 0, 0)), mods: vec![] }));
     let tb = resolve_textbox(
         &one_run(0, p, RunProps::default()),
-        &TextChain { levels: vec![&master], bodies: vec![] },
+        &TextChain { defaults: None, levels: vec![&master], bodies: vec![] },
         &env(&c),
     );
     let Bullet::Char { char, color, size_pct, font } = &tb.paragraphs[0].style.bullet else { panic!("puce attendue") };
@@ -204,7 +205,7 @@ fn body_props_cascade_through_bodies_then_own() {
         BodyProps { anchor: Some(Anchor::Bottom), insets: [Some(0.0), None, None, None], ..BodyProps::default() };
     let mut raw = one_run(0, ParaProps::default(), RunProps::default());
     raw.body.anchor = Some(Anchor::Middle);
-    let tb = resolve_textbox(&raw, &TextChain { levels: vec![], bodies: vec![&layout_body] }, &env(&c));
+    let tb = resolve_textbox(&raw, &TextChain { defaults: None, levels: vec![], bodies: vec![&layout_body] }, &env(&c));
     assert_that!((tb.anchor, tb.insets.l, tb.insets.t)).is_equal_to((Anchor::Middle, 0.0, 3.6));
 }
 
@@ -212,7 +213,7 @@ fn body_props_cascade_through_bodies_then_own() {
 fn resolve_levels_gives_nine_level_styles() {
     let c = colors();
     let m = levels_with(2, ParaProps { align: Some(Align::Center), ..size(20.0) });
-    let lv = resolve_levels(&TextChain { levels: vec![&m], bodies: vec![] }, &empty_levels(), &env(&c));
+    let lv = resolve_levels(&TextChain { defaults: None, levels: vec![&m], bodies: vec![] }, &empty_levels(), &env(&c));
     assert_that!((lv.len(), lv[2].para.align, lv[2].run.size, lv[0].run.size)).is_equal_to((
         9,
         Align::Center,
@@ -245,7 +246,11 @@ fn east_asian_font_is_inherited_from_the_master() {
         ParaProps::default(),
         RunProps { font: Some(FontRef::Named("Arial".into())), ..RunProps::default() },
     );
-    let tb = resolve_textbox(&raw, &TextChain { levels: vec![&levels_with(0, master)], bodies: vec![] }, &env(&c));
+    let tb = resolve_textbox(
+        &raw,
+        &TextChain { defaults: None, levels: vec![&levels_with(0, master)], bodies: vec![] },
+        &env(&c),
+    );
     let s = &tb.paragraphs[0].runs[0].style;
     assert_that!((s.font_ea.clone(), s.lang.as_deref(), s.family(Script::EastAsian))).is_equal_to((
         Some(Styled::scheme("Yu Mincho".to_owned(), "major-ea")),
@@ -305,7 +310,7 @@ fn caps_and_highlight_are_inherited_and_overridden_by_the_run() {
             ..ParaProps::default()
         },
     );
-    let chain = TextChain { levels: vec![&master], bodies: vec![] };
+    let chain = TextChain { defaults: None, levels: vec![&master], bodies: vec![] };
     let inherited = resolve_textbox(&one_run(0, ParaProps::default(), RunProps::default()), &chain, &env(&c));
     let own = RunProps { caps: Some(Caps::Small), ..RunProps::default() };
     let overridden = resolve_textbox(&one_run(0, ParaProps::default(), own), &chain, &env(&c));
@@ -330,7 +335,7 @@ fn autofit_is_inherited_from_the_layout_body_and_overridden_by_the_shape() {
     let c = colors();
     let shrink = Autofit::Shrink { font_scale: 0.9, line_reduction: 0.1 };
     let layout_body = BodyProps { autofit: Some(shrink), ..BodyProps::default() };
-    let chain = TextChain { levels: vec![], bodies: vec![&layout_body] };
+    let chain = TextChain { defaults: None, levels: vec![], bodies: vec![&layout_body] };
     let raw = one_run(0, ParaProps::default(), RunProps::default());
     let inherited = resolve_textbox(&raw, &chain, &env(&c)).autofit;
     let mut own = raw.clone();
@@ -338,4 +343,65 @@ fn autofit_is_inherited_from_the_layout_body_and_overridden_by_the_shape() {
     let overridden = resolve_textbox(&own, &chain, &env(&c)).autofit;
     let none = resolve_textbox(&raw, &no_chain(), &env(&c)).autofit;
     assert_that!((inherited, overridden, none)).is_equal_to((shrink, Autofit::Resize, Autofit::None));
+}
+
+/// Un niveau 0 dont le run nomme la police `font`.
+fn font_level(font: FontRef) -> LevelProps {
+    levels_with(0, ParaProps { run: RunProps { font: Some(font), ..RunProps::default() }, ..ParaProps::default() })
+}
+
+// t-904 : office2pdf ne lit du `defaultTextStyle` de la présentation que la taille ; un texte dont
+// seule cette couche nomme la police, il le dessine dans sa police de repli.
+#[rstest]
+#[case::named_by_nobody(false, false, false, false, true)]
+#[case::named_by_the_presentation_only(true, false, false, false, true)]
+#[case::named_by_the_master(true, true, false, false, false)]
+#[case::named_by_the_font_ref(true, false, true, false, false)]
+#[case::named_by_the_run(true, false, false, true, false)]
+fn resolve_textbox_marks_a_font_only_the_presentation_defaults_name(
+    #[case] defaults: bool,
+    #[case] master: bool,
+    #[case] font_ref: bool,
+    #[case] rpr: bool,
+    #[case] expected: bool,
+) {
+    let c = colors();
+    let minor = font_level(FontRef::Minor(Script::Latin));
+    let other = if master { font_level(FontRef::Named("Arial".into())) } else { empty_levels() };
+    let chain = TextChain { defaults: defaults.then_some(&minor), levels: vec![&other], bodies: vec![] };
+    let mut e = env(&c);
+    if font_ref {
+        e.font_ref.font = Some(FontRef::Minor(Script::Latin));
+    }
+    let run = RunProps { font: rpr.then_some(FontRef::Minor(Script::Latin)), ..RunProps::default() };
+    let tb = resolve_textbox(&one_run(0, ParaProps::default(), run), &chain, &e);
+    assert_that!(tb.paragraphs[0].runs[0].style.font_from_defaults).is_equal_to(expected);
+}
+
+/// Un niveau 0 dont le run nomme la police `font` et la couleur `color`, chacune si donnée.
+fn run_level(font: Option<FontRef>, color: Option<&str>) -> LevelProps {
+    let color = color.map(|c| ColorSpec { base: ColorBase::Scheme(c.into()), mods: vec![] });
+    levels_with(0, ParaProps { run: RunProps { font, color, ..RunProps::default() }, ..ParaProps::default() })
+}
+
+// t-936 : LibreOffice dessine le texte d'un SmartArt dans son propre style quand aucune couche,
+// défauts de la présentation compris, n'en nomme la couleur ou la police latine.
+#[rstest]
+#[case::named_by_nobody(None, None, false, true)]
+#[case::color_only_in_the_defaults(None, Some("tx1"), false, true)]
+#[case::font_only_in_the_defaults(Some(FontRef::Minor(Script::Latin)), None, false, true)]
+#[case::both_in_the_defaults(Some(FontRef::Minor(Script::Latin)), Some("tx1"), false, false)]
+#[case::both_on_the_run(None, None, true, false)]
+fn resolve_textbox_marks_a_run_whose_color_or_font_the_reader_picks(
+    #[case] font: Option<FontRef>,
+    #[case] color: Option<&str>,
+    #[case] rpr: bool,
+    #[case] expected: bool,
+) {
+    let c = colors();
+    let defaults = run_level(font, color);
+    let chain = TextChain { defaults: Some(&defaults), levels: vec![], bodies: vec![] };
+    let own = run_level(rpr.then_some(FontRef::Named("Arial".into())), rpr.then_some("accent1"));
+    let tb = resolve_textbox(&one_run(0, ParaProps::default(), own[0].run.clone()), &chain, &env(&c));
+    assert_that!(tb.paragraphs[0].runs[0].style.style_from_reader).is_equal_to(expected);
 }

@@ -59,9 +59,13 @@ max_widgets = 64
 # au rendu de référence du témoin au-delà duquel le rapport signale la slide (les
 # régions suspectes, erreurs connues d'office2pdf, ne comptent pas). Mesuré sur
 # alto, libreoffice et kitchen (office2pdf 0.8.1, 2026-10-16) : bruit au plus 5,8,
-# vrais écarts 8,7 (kitchen p. 2) à 22,5 (tableaux), sur alto 9,38 (ligne
-# d'introduction p. 6) et 15,71 (encadré p. 7). Sous LibreOffice
-# (`--reference soffice`), non calibré, le même seuil vaut, sans région suspecte.
+# vrais écarts 9,38 (alto, ligne d'introduction p. 6) à 22,5 (tableaux), dont
+# 15,71 (alto, encadré p. 7) ; les 8,7 de kitchen p. 2 sont suspects depuis
+# t-904 (police que seule la présentation nomme, 2026-10-18). Sous LibreOffice
+# (`witness = "soffice"`, 26.8.1.1, 2026-10-18), le même seuil : bruit au plus 6,77
+# (titres interlettrés d'alto), vrais écarts 18,2 (tableaux) et 46,1 (graphiques) ;
+# alto p. 6 (9,16, une coupure de ligne) et p. 8 (8,76, listes qu'il rétrécit) restent
+# signalées ; ses titres en Calibri Light et ses SmartArt sont suspects.
 score_threshold = 7.0
 # Durée maximale d'une tranche de 20 slides du rendu de référence (ms), dans son
 # propre processus de rendu ; au-delà, la référence manque au rapport (« timeout »).
@@ -89,6 +93,14 @@ tune_stall = 2
 # nouvelle version) est gratuit. Épuisés, ces changements coûtent un essai à chaque
 # slide changée (au moins 1).
 tune_global = 3
+# Taille maximale d'un .pptx importé (Mio), au moins 1 ; vérifiée avant la lecture,
+# un fichier plus gros n'entre jamais en mémoire.
+max_input_mib = 256
+# Témoin du rendu de référence d'un import hi-fi, dans l'app et pour `oku-slides
+# import` sans `--reference` : « office2pdf » (inclus) ou « soffice » (LibreOffice,
+# cherché parmi `soffice` ci-dessus). LibreOffice introuvable ou refusé : l'import
+# continue sans écart visuel et le rapport dit pourquoi, sans repli sur office2pdf.
+witness = "office2pdf"
 
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.

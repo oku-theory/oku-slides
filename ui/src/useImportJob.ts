@@ -23,10 +23,13 @@ export interface ImportJob {
 }
 
 /**
- * L'import d'un `.pptx` de la fenêtre. `start` lance l'import du fichier choisi (rejeté avec le
- * message localisé de l'hôte) ; un refus arrivé quand le dialogue est fermé va à `onLateError`. Fermer le dialogue
- * pendant l'import ne l'arrête pas ; un autre choix de fichier pendant ce temps rouvre le
- * dialogue de l'import qui tourne. Le dialogue ouvert retient les raccourcis des onglets (`holdsKeys`).
+ * L'import d'un `.pptx` de la fenêtre.
+ *
+ * `start` lance l'import du fichier choisi (rejeté avec le message localisé de l'hôte) ; un refus
+ * arrivé quand le dialogue est fermé va à `onLateError`. Fermer le dialogue pendant l'import ne
+ * l'arrête pas ; un autre choix de fichier pendant ce temps rouvre le dialogue de l'import qui
+ * tourne, et `pick` le refuse (renvoie `false`). Le dialogue ouvert retient les raccourcis des
+ * onglets (`holdsKeys`).
  */
 export function useImportJob(onLateError: (message: string) => void) {
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -47,10 +50,16 @@ export function useImportJob(onLateError: (message: string) => void) {
     };
   }, []);
 
+  // Pris : le dialogue montre `path`. Pendant un import, il rouvre celui qui tourne et refuse `path`.
   const pick = useCallback(
-    (path: string) => {
+    (path: string): boolean => {
       const j = current.current;
-      put(j?.busy ? { ...j, shown: true } : { path, shown: true, busy: false, error: null });
+      if (j?.busy) {
+        put({ ...j, shown: true });
+        return false;
+      }
+      put({ path, shown: true, busy: false, error: null });
+      return true;
     },
     [put],
   );

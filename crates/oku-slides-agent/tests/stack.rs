@@ -656,7 +656,7 @@ fn tune_command_from_the_ui_is_refused() {
 #[tokio::test(flavor = "multi_thread")]
 async fn tune_sends_the_import_instructions_before_the_context_and_its_text_last() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{}] }), &["t-1"]).await;
-    stack.tune("t-1");
+    tokio::task::block_in_place(|| stack.tune("t-1"));
     wait_turn_done(&rx, "t-1", 1).await;
     let blocks = common::logged(&log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
     assert_that!(blocks.len()).is_equal_to(5);
@@ -674,7 +674,7 @@ async fn tune_during_a_turn_replaces_it_with_the_import_instructions() {
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "un" }))).unwrap();
     wait_for(&rx, |(ch, v)| *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "turn-1")
         .await;
-    stack.tune("t-1");
+    tokio::task::block_in_place(|| stack.tune("t-1"));
     wait_turn_done(&rx, "t-1", 2).await;
     let blocks = common::logged(&log, "session/prompt")[1]["prompt"].as_array().cloned().unwrap();
     // Même session, pas un premier tour : les consignes d'import, le contexte, le texte.
@@ -686,7 +686,7 @@ async fn tune_during_a_turn_replaces_it_with_the_import_instructions() {
 #[tokio::test(flavor = "multi_thread")]
 async fn tune_shows_its_short_text_in_the_thread_never_the_instructions() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [{}] }), &["t-1"]).await;
-    stack.tune("t-1");
+    tokio::task::block_in_place(|| stack.tune("t-1"));
     wait_turn_done(&rx, "t-1", 1).await;
     // La pile de test est en `fr` : le fil montre le texte court, jamais les consignes.
     let thread: String = rx
@@ -703,7 +703,7 @@ async fn tune_shows_its_short_text_in_the_thread_never_the_instructions() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prompt_after_a_tune_sends_no_import_instructions() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{}] }), &["t-1"]).await;
-    stack.tune("t-1");
+    tokio::task::block_in_place(|| stack.tune("t-1"));
     wait_turn_done(&rx, "t-1", 1).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "merci" }))).unwrap();
     wait_turn_done(&rx, "t-1", 2).await;

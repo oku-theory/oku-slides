@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
@@ -24,7 +24,7 @@ use tokio::sync::{Mutex, broadcast, oneshot};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tokio_util::sync::CancellationToken;
 
-use crate::error::{AgentError, NoHttpSnafu, NotFoundSnafu, SpawnSnafu, StoppedSnafu};
+use crate::error::{AgentError, NoHttpSnafu, NotFoundSnafu, SpawnSnafu, StoppedSnafu, Unusable};
 use crate::events::from_update;
 use crate::permission::choice;
 use crate::{AgentEvent, Launch};
@@ -97,6 +97,17 @@ fn is_replay(update: &SessionUpdate) -> bool {
 
 /// Routes par lancement et session : un agent relancé peut réutiliser un
 /// identifiant de session, qui ne doit pas atteindre l'onglet d'un autre lancement.
+/// Durée pendant laquelle un échec de lancement retenu rend l'agent inutilisable.
+pub(crate) const FAILURE_TTL: Duration = Duration::from_secs(30);
+
+/// Un échec de lancement retenu : son époque, sa date, sa raison.
+#[derive(Debug)]
+struct Failure {
+    epoch: u64,
+    at: Instant,
+    unusable: Unusable,
+}
+
 type Routes = Arc<StdMutex<HashMap<(u64, SessionId), Route>>>;
 
 /// La connexion partagée, vue par les onglets ; lâcher le dernier clone
@@ -112,6 +123,10 @@ struct Inner {
     launch: StdMutex<(Launch, u64)>,
     /// Le jeton `stop` de la connexion vivante ou en cours de lancement : `switch` l'annule.
     current_stop: StdMutex<Option<CancellationToken>>,
+    /// Le dernier échec de lancement qui rend l'agent inutilisable.
+    ///
+    /// Effacé par un lancement réussi et par `switch`, périmé après [`FAILURE_TTL`].
+    failure: StdMutex<Option<Failure>>,
     state: Mutex<State>,
     routes: Routes,
     /// Arrête la connexion courante quand `Inner` est lâché.
@@ -137,6 +152,7 @@ impl Link {
             inner: Arc::new(Inner {
                 launch: StdMutex::new((launch, 0)),
                 current_stop: StdMutex::default(),
+                failure: StdMutex::default(),
                 state: Mutex::new(State::default()),
                 routes: Routes::default(),
                 shutdown: CancellationToken::new(),
@@ -166,10 +182,34 @@ impl Link {
             current.0 = launch;
             current.1 += 1;
         }
+        // L'échec de l'agent précédent ne dit rien du nouveau.
+        *self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner) = None;
         if let Some(stop) = self.inner.current_stop.lock().unwrap_or_else(PoisonError::into_inner).take() {
             stop.cancel();
         }
         tracing::info!("agent changé");
+    }
+
+    /// Pourquoi le dernier lancement de l'agent courant a échoué, s'il le rend inutilisable.
+    ///
+    /// Programme non lançable ou agent sans MCP en HTTP, depuis moins de [`FAILURE_TTL`] ;
+    /// jamais un arrêt, ni un programme introuvable (revérifié en direct par la pile).
+    pub(crate) fn failure(&self) -> Option<Unusable> {
+        let epoch = self.launch_now().1;
+        let failure = self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner);
+        failure.as_ref().filter(|f| f.epoch == epoch && f.at.elapsed() < FAILURE_TTL).map(|f| f.unusable.clone())
+    }
+
+    /// Retient l'issue d'un lancement de l'époque `epoch` : son échec, ou rien après un succès.
+    fn remember(&self, epoch: u64, failure: Option<Unusable>) {
+        self.remember_at(epoch, failure, Instant::now());
+    }
+
+    /// Comme `remember`, l'échec daté de `at` ; un programme introuvable n'est pas retenu.
+    pub(crate) fn remember_at(&self, epoch: u64, failure: Option<Unusable>, at: Instant) {
+        let failure =
+            failure.filter(|u| !matches!(u, Unusable::NotFound { .. })).map(|unusable| Failure { epoch, at, unusable });
+        *self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner) = failure;
     }
 
     /// Le lancement vivant, s'il y en a un ; `None` aussi pendant un lancement (verrou pris).
@@ -213,12 +253,20 @@ impl Link {
             }
             match self.launch(state.generation, launch, epoch, stop).await {
                 // Changé pendant la poignée de main : on repasse par le haut de la boucle.
-                Ok(live) => state.live = Some(live),
+                Ok(live) => {
+                    self.remember(epoch, None);
+                    state.live = Some(live);
+                }
                 // Lancement interrompu ou raté après une bascule : on tente le nouvel agent.
                 Err(e) if self.launch_now().1 != epoch => {
                     tracing::debug!(error = %e, "lancement abandonné : agent changé");
                 }
-                Err(e) => return Err(e),
+                Err(e) => {
+                    if let Some(unusable) = e.unusable() {
+                        self.remember(epoch, Some(unusable));
+                    }
+                    return Err(e);
+                }
             }
         }
     }

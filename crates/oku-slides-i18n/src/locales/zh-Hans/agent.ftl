@@ -33,6 +33,7 @@ agent-confirm-copy-theme = 要保存内置主题“{ $name }”的修改副本�
 agent-confirm-setting = 要更改{ $key }：{ $old } → { $new }吗？
 
 agent-not-found = 未找到智能体：{ $command }。设置 [agent.presets]。
+agent-spawn-failed = 无法启动智能体：{ $command }。设置 [agent.presets]。
 agent-no-http = 此智能体无法连接到 Oku Slides 的工具。
 agent-stopped = 智能体已停止。
 agent-failed = 智能体拒绝了请求：{ $message }

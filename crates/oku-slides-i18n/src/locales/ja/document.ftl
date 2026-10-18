@@ -99,6 +99,9 @@ import-region-suspect = 参照レンダラーの既知の誤りとして除外�
     [autofit] PowerPoint が倍率を保存していないと、ボックスに合わせたテキストを縮小します
     [tracking] 文字間隔を広げたテキストを幅広く描きます
     [chart] グラフをおおまかにしか描きません
+    [default_font] プレゼンテーションの既定値だけがフォントを指定するテキストを代替フォントで描きます
+    [no_substitute] このフォントの代替がなく、別のフォントで描きます
+    [smart_art_style] SmartArt のテキストを独自のスタイルで描きます
    *[smart_art] SmartArt のテキストを小さく描きすぎます
 }
 import-font-substituted = { $family } をメトリクス互換の { $by } に置き換えました

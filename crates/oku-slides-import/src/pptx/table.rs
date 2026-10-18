@@ -4,12 +4,13 @@
 use roxmltree::Node;
 
 use crate::collect::clip;
-use crate::pptx::cascade::{TextChain, resolve_textbox};
+use crate::pptx::cascade::resolve_textbox;
 use crate::pptx::color::{color_spec, color_spec_in};
 use crate::pptx::context::PartCtx;
 use crate::pptx::fill::{FillSpec, LineSpec, parse_fill, parse_line};
+use crate::pptx::placeholder::Inherited;
 use crate::pptx::table_styles::builtin;
-use crate::pptx::text::{LevelProps, RunProps, anchor, font_ref, parse_txbody};
+use crate::pptx::text::{RunProps, anchor, font_ref, parse_txbody};
 use crate::pptx::units::emu;
 use crate::pptx::xml::{attr_bool, attr_i64, attr_str, attr_u32, child, children, elements, parse};
 use crate::source::{Borders, Cell, Fill, Rgba, Stroke, Styled, Table, TableFlags, TextBox, WarningKind};
@@ -212,7 +213,7 @@ pub(crate) fn parse_table(tbl: Node<'_, '_>, cx: &PartCtx<'_>) -> Table {
     let trs: Vec<Node<'_, '_>> = children(tbl, "tr").collect();
     let row_heights = trs.iter().map(|r| emu(attr_i64(*r, "h").unwrap_or(0))).collect();
     let (nr, nc) = (trs.len(), col_widths.len().max(1));
-    let levels = cx.lookup(None).levels;
+    let inh = cx.lookup(None);
     let bg = parts.iter().find(|(n, _)| n == "tblBg").and_then(|(_, p)| p.fill.as_ref()).map(|f| f.resolve(&cx.colors));
     let rows = trs
         .iter()
@@ -228,7 +229,7 @@ pub(crate) fn parse_table(tbl: Node<'_, '_>, cx: &PartCtx<'_>) -> Table {
                             overlay(&mut acc, name, p, at);
                         }
                     }
-                    cell(tc, &acc, at, cx, (&levels, bg.as_ref()))
+                    cell(tc, &acc, at, cx, (&inh, bg.as_ref()))
                 })
                 .collect()
         })
@@ -264,13 +265,7 @@ fn over(top: Rgba, bottom: Rgba) -> Rgba {
 }
 
 /// La cellule `tc` au style `style`, avec les niveaux de texte et le fond du tableau de `(levels, bg)`.
-fn cell(
-    tc: Node<'_, '_>,
-    style: &Part,
-    at: At,
-    cx: &PartCtx<'_>,
-    (levels, bg): (&[LevelProps], Option<&Fill>),
-) -> Cell {
+fn cell(tc: Node<'_, '_>, style: &Part, at: At, cx: &PartCtx<'_>, (inh, bg): (&Inherited, Option<&Fill>)) -> Cell {
     let tc_pr = child(tc, "tcPr");
     let covered = attr_bool(tc, "hMerge") == Some(true) || attr_bool(tc, "vMerge") == Some(true);
     let fill = tc_pr
@@ -293,8 +288,7 @@ fn cell(
     } else {
         let mut tb = child(tc, "txBody").map_or_else(TextBox::default, |tx| {
             let raw = parse_txbody(tx, &mut |id| cx.link(id));
-            let chain = TextChain { levels: levels.iter().collect(), bodies: Vec::new() };
-            resolve_textbox(&raw, &chain, &cx.env(style.text.clone()))
+            resolve_textbox(&raw, &inh.chain(), &cx.env(style.text.clone()))
         });
         if let Some(p) = tc_pr {
             let m = |a: &str, d: f64| attr_i64(p, a).map_or(d, emu);

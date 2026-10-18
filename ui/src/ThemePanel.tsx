@@ -48,7 +48,7 @@ export default function ThemePanel({ api, snap, run, say }: Props) {
     <section id="theme-panel" role="tabpanel" aria-labelledby="widget-tab-theme" className="theme-panel">
       {theme && (
         <div className="theme-panel-head">
-          <ThemeMenu theme={theme.base} themeName={theme.name} themes={snap.themes} label={t("ui-theme-picker")} onPick={(id) => void run(api.setEditedTheme(id))} />
+          <ThemeMenu theme={theme.base} themeName={theme.name} themes={snap.themes} deckThemes={snap.deck_themes} label={t("ui-theme-picker")} onPick={(id) => void run(api.setEditedTheme(id))} />
           <label className="note-field">
             <span className="caption">
               {t("ui-theme-name")}

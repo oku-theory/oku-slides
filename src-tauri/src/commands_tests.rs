@@ -27,6 +27,8 @@ fn classify_structural_requests_resync_without_forcing_focus() {
         serde_json::json!({"cmd": "close", "tab": "t-1"}),
         serde_json::json!({"cmd": "reorder", "tab": "t-1", "index": 0}),
         serde_json::json!({"cmd": "close_window", "window": "w-1"}),
+        // Le choix d'import oublié : chaque fenêtre reçoit la vue sans lui.
+        serde_json::json!({"cmd": "import_picked", "id": 1}),
     ] {
         assert_that!(classify(&req(v))).is_equal_to((true, false));
     }

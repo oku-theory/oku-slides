@@ -13,8 +13,9 @@
 //! s'il est demandé. Le rendu relève les champs qui sortent de leur page, et
 //! en retrofit les boîtes sous la marge basse (perte `Overflow`) ; en hi-fi,
 //! sauf `--reference none`, il est aussitôt comparé au rendu de référence du
-//! témoin (`--reference office2pdf` ou `auto`, le défaut, `soffice` pour
-//! LibreOffice) : un écart par slide au rapport, une ligne de plus en sortie.
+//! témoin (`--reference auto`, le défaut : celui de `[import] witness` ;
+//! `office2pdf` ou `soffice` pour LibreOffice l'emportent sur le réglage) : un
+//! écart par slide au rapport, une ligne de plus en sortie.
 
 use std::path::PathBuf;
 
@@ -24,8 +25,8 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_import::ImportReport;
 use oku_slides_import::report::ReferenceReport;
 use oku_slides_platform::Platform;
+use oku_slides_platform::config::ImportWitness;
 use oku_slides_render::Fonts;
-use oku_slides_render_worker::ReferenceWitness;
 use oku_slides_session::import::{
     self as session_import, ImportMode as SessionMode, ImportRequest, ImportTarget, Imported, PackLookup,
     note_overflows,
@@ -54,7 +55,9 @@ impl From<ImportMode> for SessionMode {
 /// Rendu de référence d'un import hi-fi.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum ReferenceMode {
-    /// Le témoin par défaut (`office2pdf`) ; l'écart de chaque slide va au rapport.
+    /// Le témoin de `[import] witness` (`office2pdf` par défaut).
+    ///
+    /// L'écart de chaque slide va au rapport.
     Auto,
     /// Le témoin `office2pdf`.
     Office2pdf,
@@ -92,7 +95,7 @@ pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args
     // Le pack cible peut être un dossier, ici seulement : l'app ne prend que la bibliothèque.
     let request = ImportRequest {
         pptx: args.input.clone(),
-        target: target(l, &args)?,
+        target: target(platform, l, &args)?,
         system_fonts: args.system_fonts,
         packs: PackLookup::LibraryOrDir,
     };
@@ -100,13 +103,25 @@ pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args
     finish(platform, out, &args, imported)
 }
 
+/// Le témoin de `--reference` ; sans l'option ou `auto`, celui de `[import] witness` (t-905).
+///
+/// L'option explicite l'emporte sur le réglage ; `none` : pas de référence.
+fn witness(platform: &Platform, reference: Option<ReferenceMode>) -> Option<ImportWitness> {
+    match reference.unwrap_or(ReferenceMode::Auto) {
+        ReferenceMode::Auto => Some(platform.settings.import.witness),
+        ReferenceMode::Office2pdf => Some(ImportWitness::Office2pdf),
+        ReferenceMode::Soffice => Some(ImportWitness::Soffice),
+        ReferenceMode::None => None,
+    }
+}
+
 /// La cible de l'import selon les options ; une option d'un autre mode est refusée.
-fn target(l: &Localizer, args: &ImportArgs) -> Result<ImportTarget> {
+fn target(platform: &Platform, l: &Localizer, args: &ImportArgs) -> Result<ImportTarget> {
     match SessionMode::from(args.mode) {
         SessionMode::Hifi if args.pack.is_some() || args.theme.is_some() => {
             Err(eyre!(l.tr("cli-import-hifi-no-target")))
         }
-        SessionMode::Hifi => Ok(ImportTarget::Hifi),
+        SessionMode::Hifi => Ok(ImportTarget::Hifi { witness: witness(platform, args.reference) }),
         SessionMode::Retrofit if args.reference.is_some() => Err(eyre!(l.tr("cli-import-reference-hifi-only"))),
         SessionMode::Retrofit => {
             let pack = args.pack.clone().ok_or_else(|| eyre!(l.tr("cli-import-pack-required")))?;
@@ -132,19 +147,7 @@ fn finish(platform: &Platform, out: &mut Out<'_>, args: &ImportArgs, imported: I
         crate::write_rendered(platform, &pdf, compiled.page_count(), &bundle, &args.output).wrap_err_with(failed)?;
     note_overflows(compiled.layout(), state.report_mut());
     if SessionMode::from(args.mode) == SessionMode::Hifi {
-        match args.reference.unwrap_or(ReferenceMode::Auto) {
-            ReferenceMode::None => state.set_witness(None),
-            ReferenceMode::Auto | ReferenceMode::Office2pdf => state.set_witness(Some(ReferenceWitness::Office2Pdf)),
-            ReferenceMode::Soffice => match session_import::soffice(platform) {
-                Ok(Some(witness)) => state.set_witness(Some(witness)),
-                Ok(None) => {
-                    state.witness_missing("--reference soffice : aucun programme de [import] soffice".to_owned());
-                }
-                // Un script, sur macOS : le bac à sable du rendu ne lance que le binaire (t-912).
-                Err(e) => state.witness_refused(e.to_string()),
-            },
-        }
-        // Le même chemin que l'app : le travail de référence, puis la note de chaque slide.
+        // Le témoin, choisi à l'import (`witness`) ; le même chemin que l'app : le travail de référence, puis la note de chaque slide.
         if let Some(job) = state.reference_job() {
             job.run(platform);
         }

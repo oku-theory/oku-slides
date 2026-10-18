@@ -157,6 +157,39 @@ pub(crate) fn adopt_deck_only_pack(s: &mut Session) -> oku_slides_core::PackRef 
     r
 }
 
+/// Un fichier de bibliothèque : son chemin et ses octets.
+pub(crate) type LibraryFile = (std::path::PathBuf, Vec<u8>);
+
+/// Les fichiers sous `dir` avec leurs octets, triés : vide sans dossier.
+fn files_under(dir: &std::path::Path) -> Vec<LibraryFile> {
+    fn walk(dir: &std::path::Path, out: &mut Vec<LibraryFile>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for e in entries {
+            let p = e.unwrap_or_else(|e| panic!("{e}")).path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else {
+                let bytes = std::fs::read(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()));
+                out.push((p, bytes));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir, &mut out);
+    out.sort();
+    out
+}
+
+/// Les fichiers de la bibliothèque de modèles sous `data` (`templates/`), avec leurs octets, triés.
+pub(crate) fn library_files(data: &std::path::Path) -> Vec<LibraryFile> {
+    files_under(&data.join("templates"))
+}
+
+/// Les fichiers de la bibliothèque de thèmes sous `data` (`themes/`), avec leurs octets, triés.
+pub(crate) fn theme_library_files(data: &std::path::Path) -> Vec<LibraryFile> {
+    files_under(&data.join("themes"))
+}
+
 /// Le deck de `s` passe à un thème du deck seul (jetons de Pro, nouvel id), embarqué ; sa référence.
 pub(crate) fn adopt_deck_only_theme(s: &mut Session) -> oku_slides_core::ThemeRef {
     use crate::library_kind::LibraryKind;
@@ -313,6 +346,11 @@ impl crate::import::WitnessRenderer for WhiteWitness {
         let pages = (0..count).map(|_| white_png(width, height)).collect();
         Ok(crate::import::WitnessPages { witness: "témoin 1.0".to_owned(), count, pages })
     }
+}
+
+/// La cible hi-fi des tests, témoin office2pdf.
+pub(crate) fn hifi() -> crate::import::ImportTarget {
+    crate::import::ImportTarget::Hifi { witness: Some(oku_slides_platform::config::ImportWitness::Office2pdf) }
 }
 
 /// Une session sur `data`, chargée de l'import de la fixture `name` vers `target` ; réglages retouchés par `tweak`.

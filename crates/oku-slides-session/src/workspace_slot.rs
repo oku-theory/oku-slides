@@ -5,6 +5,7 @@
 //! son seul verrou (jamais celui de l'espace de travail).
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use crate::error::{Result, UnknownTabSnafu};
 use crate::views::TabInfo;
@@ -94,5 +95,22 @@ impl Slot {
             Self::Dormant(_) => *self = Self::Closed(id.to_owned()),
             Self::Closed(_) => {}
         }
+    }
+}
+
+pub(super) struct Tab {
+    pub(super) session: Arc<Mutex<Slot>>,
+    /// Dernières infos connues : la vue se construit sans verrouiller les sessions.
+    pub(super) info: TabInfo,
+}
+
+impl Tab {
+    pub(super) fn new(session: Session) -> Self {
+        Self { info: session.tab_info(), session: Arc::new(Mutex::new(Slot::Ready(Box::new(session)))) }
+    }
+
+    /// Un onglet repris qui dort : sa session sera relue à sa première requête.
+    pub(super) fn dormant(info: TabInfo, dormant: Dormant) -> Self {
+        Self { info, session: Arc::new(Mutex::new(Slot::Dormant(Box::new(dormant)))) }
     }
 }

@@ -5,6 +5,7 @@ const view = (focused: string) => ({
   generation: 1,
   focused,
   agent_detached: true,
+  import_pick: null,
   windows: [
     { label: "w-1", active: "t-1", tabs: [] },
     { label: "w-2", active: "t-5", tabs: [] },

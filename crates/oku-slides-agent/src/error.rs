@@ -27,17 +27,55 @@ impl AgentError {
     pub fn one_line(&self) -> String {
         oku_slides_platform::errors::one_line(self)
     }
+
+    /// Pourquoi l'agent est inutilisable, si cette erreur le dit.
+    ///
+    /// Un arrêt (`Stopped`, annulation comprise) ou une requête refusée ne le rend pas inutilisable.
+    pub(crate) fn unusable(&self) -> Option<Unusable> {
+        match &self.0 {
+            AgentInner::NotFound { command, .. } => Some(Unusable::NotFound { command: command.clone() }),
+            AgentInner::Spawn { command, .. } => Some(Unusable::Spawn { command: command.clone() }),
+            AgentInner::NoHttp { .. } => Some(Unusable::NoHttp),
+            AgentInner::Stopped { .. } | AgentInner::Request { .. } => None,
+        }
+    }
+}
+
+/// Pourquoi l'agent choisi ne peut pas servir.
+///
+/// `Link` retient `Spawn` et `NoHttp` jusqu'au prochain succès, au plus `FAILURE_TTL`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Unusable {
+    /// Son programme est introuvable.
+    NotFound { command: String },
+    /// Son programme existe mais ne se lance pas (droits, format).
+    Spawn { command: String },
+    /// Il ne sait pas joindre les outils MCP en HTTP.
+    NoHttp,
+}
+
+impl Localize for Unusable {
+    fn localize(&self, l: &Localizer) -> String {
+        match self {
+            Self::NotFound { command } => l.tr_with("agent-not-found", &[("command", command.as_str().into())]),
+            Self::Spawn { command } => l.tr_with("agent-spawn-failed", &[("command", command.as_str().into())]),
+            Self::NoHttp => l.tr("agent-no-http"),
+        }
+    }
 }
 
 impl Localize for AgentError {
     fn localize(&self, l: &Localizer) -> String {
         match &self.0 {
-            AgentInner::NotFound { command, .. } | AgentInner::Spawn { command, .. } => {
-                l.tr_with("agent-not-found", &[("command", command.as_str().into())])
-            }
-            AgentInner::NoHttp { .. } => l.tr("agent-no-http"),
+            AgentInner::NotFound { command, .. } => Unusable::NotFound { command: command.clone() }.localize(l),
+            AgentInner::Spawn { command, .. } => Unusable::Spawn { command: command.clone() }.localize(l),
+            AgentInner::NoHttp { .. } => Unusable::NoHttp.localize(l),
             AgentInner::Stopped { .. } => l.tr("agent-stopped"),
             AgentInner::Request { message, .. } => l.tr_with("agent-failed", &[("message", message.as_str().into())]),
         }
     }
 }
+
+#[cfg(test)]
+#[path = "error_tests.rs"]
+mod error_tests;

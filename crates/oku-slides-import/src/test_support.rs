@@ -53,6 +53,8 @@ pub(crate) fn office_theme() -> SourceTheme {
 pub(crate) fn run_style() -> RunStyle {
     RunStyle {
         font: Styled::mapped("Calibri".to_owned(), "+mn-lt", "minor", Vec::new()),
+        font_from_defaults: false,
+        style_from_reader: false,
         font_ea: None,
         font_cs: None,
         lang: None,

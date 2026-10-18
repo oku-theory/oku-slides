@@ -239,7 +239,13 @@ pub fn emit_view(app: &AppHandle) {
 /// (`commands::workspace`) et sa fermeture native (`commands::close_requested`).
 pub fn sync(app: &AppHandle, at: Option<(f64, f64)>, focus: bool) -> WorkspaceView {
     let Some(state) = app.try_state::<AppState>() else {
-        return WorkspaceView { generation: 0, focused: String::new(), windows: Vec::new(), agent_detached: false };
+        return WorkspaceView {
+            generation: 0,
+            focused: String::new(),
+            windows: Vec::new(),
+            agent_detached: false,
+            import_pick: None,
+        };
     };
     let _serial = state.sync.lock().unwrap_or_else(PoisonError::into_inner);
     let view = Workspace::lock(&state.workspace).view();

@@ -18,9 +18,9 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 - `import.rs`: `oku-slides import`, `ImportMode` `retrofit` or `hifi` (into the session's by `From`) gives
   the `ImportTarget`; `session::import` applies and renders it, notes overflows (text fields past their
   page, in retrofit boxes past the bottom margin) and, in hi-fi unless `--reference none`, scores it
-  at once (`set_witness`, the app's `ReferenceJob::run`, then `score_deck`; `auto|office2pdf|soffice`,
-  LibreOffice from `[import] soffice`, absent → cause `missing`, a script refused on macOS → `failed`,
-  t-912); saved like `save`, report optional.
+  at once (the witness chosen by `session::import`, the app's `ReferenceJob::run`, then `score_deck`;
+  `auto` = `[import] witness`, `office2pdf|soffice` override it, `none`; t-905); saved like `save`,
+  report optional.
 - `bench.rs`: render, export and save latencies.
 
 ## Startup

@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use oku_slides_platform::find_program;
 use oku_slides_platform::storage::{Storage, canonical};
 
 use crate::error::{RenderSnafu, TimeoutSnafu};
@@ -127,15 +128,7 @@ pub fn find_soffice(
     candidates: &[PathBuf],
     path: Option<&std::ffi::OsStr>,
 ) -> Result<Option<PathBuf>, ReferenceError> {
-    let dirs: Vec<PathBuf> = path.map(|p| std::env::split_paths(p).collect()).unwrap_or_default();
-    let exists = |p: &Path| storage.exists(p).unwrap_or(false);
-    let found = candidates.iter().find_map(|c| {
-        if c.components().count() > 1 || c.is_absolute() {
-            exists(c).then(|| c.clone())
-        } else {
-            dirs.iter().map(|d| d.join(c)).find(|p| exists(p))
-        }
-    });
+    let found = candidates.iter().find_map(|c| find_program(storage, c, path));
     let Some(found) = found else { return Ok(None) };
     let real = canonical(&found).map_err(|e| render_err(format!("{} : {e}", found.display())))?;
     #[cfg(target_os = "macos")]

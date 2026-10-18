@@ -108,6 +108,9 @@ import-region-suspect = Abweichung zurückgestellt, ein bekannter Fehler des Ref
     [autofit] er verkleinert an sein Feld angepassten Text, wenn PowerPoint keine Skalierung gespeichert hat
     [tracking] er zeichnet gesperrten Text breiter
     [chart] er zeichnet Diagramme nur ungefähr
+    [default_font] er zeichnet Text, dessen Schrift nur die Standardwerte der Präsentation nennen, in seiner Ersatzschrift
+    [no_substitute] er kennt für diese Schrift keinen Ersatz und zeichnet sie in einer anderen
+    [smart_art_style] er zeichnet SmartArt-Text in seinem eigenen Stil
    *[smart_art] er zeichnet SmartArt-Text zu klein
 }
 import-font-substituted = { $family } ersetzt durch { $by } mit passenden Metriken

@@ -268,6 +268,16 @@ impl Storage {
         Ok(op.exists(&key).context(AccessSnafu { action: "stat", path })?)
     }
 
+    /// Vrai si `path` est un fichier ; faux s'il est absent ou est un dossier.
+    pub fn is_file(&self, path: &Path) -> Result<bool, StorageError> {
+        let (op, key) = self.at(path)?;
+        match op.stat(&key) {
+            Ok(meta) => Ok(meta.mode().is_file()),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e).context(AccessSnafu { action: "stat", path })?,
+        }
+    }
+
     /// Taille du fichier, s'il existe.
     pub fn len(&self, path: &Path) -> Result<Option<u64>, StorageError> {
         let (op, key) = self.at(path)?;

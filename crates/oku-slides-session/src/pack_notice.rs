@@ -21,7 +21,7 @@ use crate::{Result, Session};
 /// Vrai si la version `files` n'appartient qu'à un deck.
 ///
 /// Une portée illisible ne l'est pas : journalisée, le pack est traité comme de la bibliothèque.
-fn is_deck_only(files: &PackFiles) -> bool {
+pub(crate) fn is_deck_only(files: &PackFiles) -> bool {
     match files.scope() {
         Ok(scope) => !scope.is_library(),
         Err(e) => {
@@ -98,7 +98,7 @@ impl Session {
         Some(PackNotice { pack: r, name, relation })
     }
 
-    /// Vrai si le pack du deck n'appartient qu'à lui (`PackScope::Deck`) : l'atelier ne l'édite pas.
+    /// Vrai si le pack du deck n'appartient qu'à lui (`PackScope::Deck`) : jamais dans la bibliothèque.
     ///
     /// Lu à chaque instantané : la seule clé `scope`, jamais tout le `pack.json`.
     pub(crate) fn deck_pack_is_deck_only(&self) -> bool {

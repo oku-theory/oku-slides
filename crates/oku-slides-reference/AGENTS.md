@@ -12,14 +12,15 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Pitfalls
 
-- Read a gap on letter-spaced titles, autofit text, charts or SmartArt as a likely witness error before changing the import. (t-692)
+- Read a gap on letter-spaced titles, autofit text, charts, SmartArt or default-font text as a likely witness error before changing the import. (t-692, t-904)
+- Under LibreOffice, read a gap on a normAutofit box whose text overflows as its shrink, not Oku's, but a chart gap as Oku's. (t-905)
 - Do not align the import on office2pdf code without checking it against the OOXML or another witness. (t-692)
 - Re-audit without_fonts against office2pdf's embedded_fonts.rs and keep zip-office2pdf equal to its zip on every bump. (t-898)
 
 ## Settled decisions
 
 - Measure the hi-fi visual gap against the reference witness, never against fixtures/import/alto-wealth.pdf. (t-692)
-- Keep office2pdf as the auto witness; LibreOffice runs only on --reference soffice and is optional. (t-885)
+- Keep office2pdf the default witness; LibreOffice runs only when [import] witness or --reference names soffice. (t-885, t-905)
 - Run soffice only as its real binary; on macOS find_soffice refuses a script, since the sandbox execs nothing else. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 
 ## Testing

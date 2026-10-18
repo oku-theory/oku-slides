@@ -51,6 +51,28 @@ fn set_widget_twice_then_save_makes_one_version_holding_the_file() {
     assert_that!(current.manifest.parent.is_some()).is_true();
 }
 
+/// Mode modèles sur un pack du deck seul : l'écriture d'un widget reste dans le deck.
+#[test]
+fn set_widget_in_templates_mode_on_a_deck_only_pack_writes_no_library() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = crate::test_support::session_on(data.path());
+    let r = crate::test_support::adopt_deck_only_pack(&mut s);
+    let before = crate::test_support::library_files(data.path());
+    s.edit_templates(r.id).unwrap();
+    s.set_widget("kpi", KPI.into()).unwrap();
+    s.set_widget("kpi", KPI_V2.into()).unwrap();
+    assert_that!(crate::test_support::library_files(data.path())).is_equal_to(before);
+    assert_that!(crate::test_support::library_of(&s).versions(r.id)).is_empty();
+    let edit = s.snapshot().editing.map(|e| e.mode.clone()).unwrap();
+    let version = edit.session_version.clone().unwrap();
+    let crate::Mode::Templates { stash, .. } = &s.mode else { panic!("mode modèles attendu") };
+    let files = stash.sources.packs.get(&version).cloned().unwrap();
+    let kpi = oku_slides_core::WidgetFile::parse("kpi").unwrap();
+    assert_that!(files.widget(&kpi)).is_equal_to(Some(KPI_V2));
+    assert_that!(files.scope().unwrap()).is_equal_to(oku_slides_core::PackScope::Deck);
+    assert_that!(edit.deck_only).is_true();
+}
+
 #[test]
 fn set_widget_returns_the_status_with_its_schema() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");

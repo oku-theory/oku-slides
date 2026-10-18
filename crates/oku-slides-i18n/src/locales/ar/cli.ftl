@@ -103,4 +103,4 @@ cli-arg-pack = حزمة القوالب الهدف: المعرّف أو مجلد 
 cli-arg-import-theme = السمة الهدف: سمة مدمجة أو من المكتبة، بمعرّفها أو اسمها؛ الافتراضي: السمة الافتراضية
 cli-arg-report = كتابة تقرير الاستيراد (JSON) أيضًا: المفقودات والبدائل والتغطية
 cli-arg-no-system-fonts = في وضع hifi، لا تبحث عن خطوط العرض بين خطوط النظام
-cli-arg-reference = في وضع hifi، قارن كل شريحة بعرض مرجعي للعرض التقديمي: auto (الافتراضي، office2pdf) أو office2pdf أو soffice (LibreOffice) أو لا (none)
+cli-arg-reference = في وضع hifi، قارن كل شريحة بعرض مرجعي للعرض التقديمي: auto (الافتراضي: [import] witness، وإلا office2pdf) أو office2pdf أو soffice (LibreOffice) أو لا (none)

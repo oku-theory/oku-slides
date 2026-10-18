@@ -346,6 +346,48 @@ fn tune_stall_of_zero_is_refused() {
 }
 
 #[test]
+fn defaults_import_max_input_is_256_mib_in_bytes() {
+    let import = Settings::defaults().unwrap().import;
+    assert_that!(import.max_input_mib.get()).is_equal_to(256);
+    assert_that!(import.max_input_bytes()).is_equal_to(256 << 20);
+}
+
+#[test]
+fn import_max_input_env_override_changes_the_setting() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__MAX_INPUT_MIB", "3")])).unwrap();
+    assert_that!(s.import.max_input_bytes()).is_equal_to(3 << 20);
+}
+
+#[test]
+fn import_max_input_of_zero_is_refused() {
+    assert_that!(Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__MAX_INPUT_MIB", "0")]))).is_err();
+}
+
+#[test]
+fn import_max_input_bytes_saturates_instead_of_overflowing() {
+    let mut s = Settings::defaults().unwrap();
+    s.import.max_input_mib = std::num::NonZeroU64::MAX;
+    assert_that!(s.import.max_input_bytes()).is_equal_to(u64::MAX);
+}
+
+#[test]
+fn defaults_import_witness_is_office2pdf() {
+    assert_that!(Settings::defaults().unwrap().import.witness).is_equal_to(ImportWitness::Office2pdf);
+}
+
+#[test]
+fn import_witness_soffice_is_accepted() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__WITNESS", "soffice")])).unwrap();
+    assert_that!(s.import.witness).is_equal_to(ImportWitness::Soffice);
+}
+
+#[test]
+fn import_witness_of_an_unknown_name_is_refused() {
+    let e = Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__WITNESS", "powerpoint")])).unwrap_err();
+    assert_that!(snafu::Report::from_error(&e).to_string().contains("powerpoint")).is_true();
+}
+
+#[test]
 fn import_threshold_env_override_changes_the_setting() {
     let s = Settings::from_sources(None, env(&[("OKU_SLIDES_IMPORT__SCORE_THRESHOLD", "4.5")])).unwrap();
     assert_that!(s.import.score_threshold).is_equal_to(4.5);

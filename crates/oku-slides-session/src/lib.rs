@@ -40,6 +40,7 @@ mod deck_file;
 mod deck_pack;
 mod deck_theme;
 mod deck_theme_edit;
+mod deck_themes;
 mod deck_widgets;
 mod error;
 mod fields;
@@ -71,6 +72,7 @@ mod search;
 mod tables;
 mod target_params;
 mod template_scratch;
+mod templates_library;
 mod templates_mode;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -120,7 +122,8 @@ pub use views::{
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
 pub use workspace::{
-    Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView, is_window_label,
+    ImportPick, Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView,
+    is_window_label,
 };
 
 /// Un document ouvert : ses sources (deck et son historique, assets,
@@ -620,6 +623,7 @@ impl Session {
             theme: deck.theme.as_ref(),
             theme_name: deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map(|m| m.name),
             themes: &self.theme_list,
+            deck_themes: self.deck_only_themes(),
             title: deck.params.title.as_deref().map(|t| interp(t, &deck.vars)),
             title_source: deck.params.title.as_deref(),
             lang: deck.params.lang.as_deref(),

@@ -109,6 +109,9 @@ import-region-suspect = Diferença deixada de lado, um erro conhecido do renderi
     [autofit] ele reduz o texto ajustado à sua caixa quando o PowerPoint não salvou nenhuma escala
     [tracking] ele desenha mais largo o texto com espaçamento entre caracteres
     [chart] ele desenha os gráficos apenas de forma aproximada
+    [default_font] ele desenha com sua fonte reserva o texto cuja fonte só os padrões da apresentação indicam
+    [no_substitute] ele não tem substituta para esta fonte e a desenha com outra
+    [smart_art_style] ele desenha o texto de SmartArt no próprio estilo
    *[smart_art] ele desenha o texto de SmartArt pequeno demais
 }
 import-font-substituted = { $family } substituída por { $by }, com métricas compatíveis

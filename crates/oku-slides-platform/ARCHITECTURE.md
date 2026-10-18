@@ -15,9 +15,10 @@ the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
 - `errors`: `one_line` prints an error and all its causes on one line.
 - `config`: `Settings` and its sections (`PathSettings`, `RenderSettings`,
   `ServeSettings`, `SttSettings`, `AgentSettings` with named `AgentPreset`s,
-  `ImportSettings`: threshold, witness timeouts and `soffice` programs, tuning tries, …), plus `APP_ID`.
+  `ImportSettings`: threshold, `witness` (`ImportWitness`), its timeouts and `soffice` programs, tuning tries, …), plus `APP_ID`.
 - `config_write`: `write_value` sets one key in `config.toml` with `toml_edit`, keeping
   comments and order; it takes effect on the next launch.
+- `program`: `find_program`, an external program by path or searched on `PATH` (agent, soffice).
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime
   (`read_limited`, `write_atomic`, `delete_dir`, `writer` for streams, `read_fonts`, …).
   Call it outside async contexts only. `StorageError::kind` gives a `StorageErrorKind`.

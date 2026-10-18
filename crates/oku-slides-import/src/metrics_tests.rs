@@ -228,13 +228,16 @@ fn regions_open_groups_and_scale_frames() {
     let child = text_item("s1/3", (10.0, 20.0, 30.0, 40.0), "x");
     let group = item("s1/2", (0.0, 0.0, 100.0, 100.0), ItemKind::Group { items: vec![child], smartart: None });
     let slide = source_slide(1, None, vec![text_item("s1/1", (1.0, 2.0, 3.0, 4.0), "y"), group]);
-    let r = regions(&slide, 0.5, Witness::Office2Pdf);
+    let r = regions(&slide, 0.5, Some(Witness::Office2Pdf));
     assert_that!(r).is_equal_to(vec![region("s1/1", (0.5, 1.0, 1.5, 2.0)), region("s1/3", (5.0, 10.0, 15.0, 20.0))]);
 }
 
-/// Un SmartArt dessiné dont l'enfant `s1/3` est un texte, et un graphique `s1/4`.
+/// Un SmartArt dessiné dont l'enfant `s1/3` est un texte sans style nommé, et un graphique `s1/4`.
 fn smartart_and_chart() -> SourceSlide {
-    let child = text_item("s1/3", (10.0, 20.0, 30.0, 40.0), "x");
+    let mut child = text_item("s1/3", (10.0, 20.0, 30.0, 40.0), "x");
+    if let ItemKind::Text(tb) = &mut child.kind {
+        tb.paragraphs[0].runs[0].style.style_from_reader = true;
+    }
     let model = SmartArt { layout: None, category: None, nodes: Vec::new() };
     let kind = ItemKind::Group { items: vec![child], smartart: Some(Box::new(model)) };
     let chart = Chart {
@@ -249,9 +252,13 @@ fn smartart_and_chart() -> SourceSlide {
 }
 
 #[rstest]
-#[case::office2pdf(Witness::Office2Pdf, vec![Some(WitnessLimit::SmartArt), Some(WitnessLimit::Chart)])]
-#[case::other_witness(Witness::Other, vec![None, None])]
-fn regions_mark_suspects_under_office2pdf_only(#[case] witness: Witness, #[case] expected: Vec<Option<WitnessLimit>>) {
+#[case::office2pdf(Some(Witness::Office2Pdf), vec![Some(WitnessLimit::SmartArt), Some(WitnessLimit::Chart)])]
+#[case::libreoffice(Some(Witness::LibreOffice), vec![Some(WitnessLimit::SmartArtStyle), None])]
+#[case::no_witness(None, vec![None, None])]
+fn regions_mark_the_suspects_of_their_witness(
+    #[case] witness: Option<Witness>,
+    #[case] expected: Vec<Option<WitnessLimit>>,
+) {
     let limits: Vec<Option<WitnessLimit>> =
         regions(&smartart_and_chart(), 1.0, witness).iter().map(|r| r.suspect).collect();
     assert_that!(limits).is_equal_to(expected);

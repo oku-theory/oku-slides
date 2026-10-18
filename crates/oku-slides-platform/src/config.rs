@@ -140,6 +140,31 @@ pub struct ImportSettings {
     ///
     /// Un par état du deck noté.
     pub tune_global: std::num::NonZeroU32,
+    /// Taille maximale d'un `.pptx` importé (Mio).
+    ///
+    /// Vérifiée avant toute lecture : un fichier plus gros n'entre jamais en mémoire.
+    pub max_input_mib: std::num::NonZeroU64,
+    /// Témoin de la référence d'un import hi-fi dans l'app (t-905).
+    ///
+    /// Aussi celui de `oku-slides import` sans `--reference`.
+    pub witness: ImportWitness,
+}
+
+/// Le témoin qui rend la référence d'un import hi-fi (`[import] witness`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImportWitness {
+    /// office2pdf, dans le processus de rendu (défaut).
+    Office2pdf,
+    /// LibreOffice, le premier programme de `[import] soffice` trouvé.
+    Soffice,
+}
+
+impl ImportSettings {
+    /// [`Self::max_input_mib`] en octets.
+    pub fn max_input_bytes(&self) -> u64 {
+        self.max_input_mib.get().saturating_mul(1024 * 1024)
+    }
 }
 
 impl SourcesSettings {

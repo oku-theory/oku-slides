@@ -100,6 +100,9 @@ import-region-suspect = Chênh lệch được để riêng, một lỗi đã bi
     [autofit] nó thu nhỏ văn bản được co vừa khung khi PowerPoint không lưu tỉ lệ nào
     [tracking] nó vẽ văn bản giãn cách ký tự rộng hơn
     [chart] nó chỉ vẽ biểu đồ một cách gần đúng
+    [default_font] nó vẽ bằng phông dự phòng của nó văn bản chỉ có mặc định của bản trình bày đặt phông
+    [no_substitute] nó không có phông thay thế cho phông này nên vẽ bằng phông khác
+    [smart_art_style] nó vẽ chữ SmartArt theo kiểu riêng của nó
    *[smart_art] nó vẽ chữ SmartArt quá nhỏ
 }
 import-font-substituted = Đã thay { $family } bằng { $by }, có số đo tương thích

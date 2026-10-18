@@ -11,7 +11,7 @@ use std::rc::Rc;
 use roxmltree::Node;
 
 use crate::collect::clip;
-use crate::pptx::cascade::{TextChain, resolve_textbox};
+use crate::pptx::cascade::resolve_textbox;
 use crate::pptx::context::{PartCtx, raw_key};
 use crate::pptx::package::Rels;
 use crate::pptx::shapes::{GroupCtx, MAX_NESTING, opaque, parse_tree};
@@ -158,7 +158,7 @@ fn model(root: Node<'_, '_>, dm: &str, lo: Option<&str>, cx: &PartCtx<'_>, id: &
     let sub = cx.sub(rels, id.to_owned());
     let pts = points(root, cx, id);
     let inh = cx.lookup(None);
-    let chain = TextChain { levels: inh.levels.iter().collect(), bodies: inh.bodies.iter().collect() };
+    let chain = inh.chain();
     let nodes = reading_order(root, &pts, cx, id)
         .into_iter()
         .filter_map(|(k, depth)| {

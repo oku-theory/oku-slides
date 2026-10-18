@@ -33,6 +33,7 @@ agent-confirm-copy-theme = बिल्ट-इन थीम “{ $name }” क�
 agent-confirm-setting = { $key } बदलें: { $old } → { $new }?
 
 agent-not-found = एजेंट नहीं मिला: { $command }। सेटिंग [agent.presets]।
+agent-spawn-failed = एजेंट शुरू नहीं हो सका: { $command }। सेटिंग [agent.presets]।
 agent-no-http = यह एजेंट Oku Slides के टूल से कनेक्ट नहीं हो सकता।
 agent-stopped = एजेंट रुक गया।
 agent-failed = एजेंट ने अनुरोध अस्वीकार कर दिया: { $message }

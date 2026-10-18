@@ -10,7 +10,7 @@ use crate::test_support::{WhiteWitness, fresh_dir, imported_fixture, witnessed};
 /// Le hi-fi de `kitchen` sur une référence blanche, à `tries` essais par slide, et sa
 /// première slide `pending` de la file.
 fn pending(data: &std::path::Path, tries: u32) -> (crate::Session, String) {
-    let mut s = imported_fixture(data, "kitchen", ImportTarget::Hifi, |settings| {
+    let mut s = imported_fixture(data, "kitchen", crate::test_support::hifi(), |settings| {
         settings.import.tune_iterations = std::num::NonZeroU32::new(tries).unwrap();
     });
     witnessed(&mut s, &WhiteWitness::default());
@@ -88,7 +88,7 @@ fn import_diff_first_whole_diff_after_a_report_counts_a_changed_page() {
 fn import_diff_of_a_slide_whose_neighbour_changed_counts_no_try() {
     // Sur alto, retoucher s6 changeait l'empreinte Typst de la page de s7 (introspection), pas son raster.
     let data = fresh_dir("oku-slides-import-diff-neighbour-");
-    let mut s = imported_fixture(data.path(), "alto-wealth", ImportTarget::Hifi, |_| {});
+    let mut s = imported_fixture(data.path(), "alto-wealth", crate::test_support::hifi(), |_| {});
     let witness = WhiteWitness::default();
     witnessed(&mut s, &witness);
     s.import_report(&crate::Localizer::new(Some("en"))).unwrap();
@@ -110,7 +110,7 @@ fn import_diff_of_a_slide_whose_neighbour_changed_counts_no_try() {
 #[test]
 fn import_diff_first_look_at_a_slide_never_scored_is_its_free_baseline() {
     let data = fresh_dir("oku-slides-import-diff-first-");
-    let mut s = imported_fixture(data.path(), "kitchen", ImportTarget::Hifi, |_| {});
+    let mut s = imported_fixture(data.path(), "kitchen", crate::test_support::hifi(), |_| {});
     let slide = s.deck().slides[0].id.clone();
     witnessed(&mut s, &WhiteWitness::default());
     let diff = s.import_diff(&slide, None).unwrap();
@@ -122,7 +122,7 @@ fn import_diff_first_look_at_a_slide_never_scored_is_its_free_baseline() {
 fn import_diff_of_a_slide_without_tries_is_refused_whole_and_zoomed() {
     let data = fresh_dir("oku-slides-import-diff-done-");
     // Un seuil hors d'atteinte : toutes les slides sont `done`, sans essai.
-    let mut s = imported_fixture(data.path(), "kitchen", ImportTarget::Hifi, |settings| {
+    let mut s = imported_fixture(data.path(), "kitchen", crate::test_support::hifi(), |settings| {
         settings.import.score_threshold = 1000.0;
     });
     let witness = WhiteWitness::default();
@@ -196,7 +196,7 @@ fn import_diff_whose_comparison_fails_counts_no_try() {
 #[test]
 fn import_diff_before_the_reference_job_is_refused_as_pending() {
     let data = fresh_dir("oku-slides-import-diff-pending-");
-    let mut s = imported_fixture(data.path(), "kitchen", ImportTarget::Hifi, |_| {});
+    let mut s = imported_fixture(data.path(), "kitchen", crate::test_support::hifi(), |_| {});
     let slide = s.deck().slides[0].id.clone();
     let e = s.import_diff(&slide, None).unwrap_err();
     assert_that!(e.tune_kind()).is_equal_to(Some(TuneErrorKind::ReferencePending));

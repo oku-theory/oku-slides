@@ -29,7 +29,7 @@ const themes = [
 const snapEditingTheme = (name: string, o: { dirty?: boolean; base?: string } = {}): Snapshot =>
   ({
     editing: { set: "p", base: "b", theme: { base: { id: o.base ?? PAPIER_ID, version: "v1" }, name, builtin: true, dirty: o.dirty ?? false, revision: "r1" } },
-    themes, history: null, undo_label: null, redo_label: null, slides: [],
+    themes, deck_themes: [], history: null, undo_label: null, redo_label: null, slides: [],
   }) as unknown as Snapshot;
 
 /** Une api en mémoire qui note les changements du thème édité. */

@@ -108,6 +108,9 @@ import-region-suspect = Gap set aside, a known error of the reference renderer: 
     [autofit] it shrinks text set to fit its box when PowerPoint saved no scale
     [tracking] it draws letter-spaced text wider
     [chart] it draws charts only roughly
+    [default_font] it draws text whose font only the presentation defaults name in its fallback font
+    [no_substitute] it has no substitute for this font and draws it in another
+    [smart_art_style] it draws SmartArt text in its own style
    *[smart_art] it draws SmartArt text too small
 }
 import-font-substituted = { $family } replaced by { $by }, with matching metrics

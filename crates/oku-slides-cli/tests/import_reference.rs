@@ -4,24 +4,32 @@
 //! d'alto (t-863 : la coupure de la ligne de l'encadré p. 7 ; les puces p. 8,
 //! à leur retrait depuis t-863, n'en sont plus) et signalent ces slides ; les
 //! régions suspectes (erreurs connues d'office2pdf) passent en dernier et ne
-//! signalent rien (t-884). Polices de l'app (`--fonts assets/fonts`) : celles
-//! que le témoin reçoit aussi. Le vrai LibreOffice ne tourne qu'avec
+//! signalent rien (t-884), comme les boîtes de kitchen p. 2 (t-904). Une
+//! fixture décompressée (kitchen) est zippée à la volée. Polices de l'app
+//! (`--fonts assets/fonts`) : celles que le témoin reçoit aussi. Le vrai LibreOffice ne tourne qu'avec
 //! `OKU_SLIDES_TEST_SOFFICE=1` ; sinon `--reference soffice` a un faux `soffice`
-//! (un script qui copie un PDF blanc), refusé sur macOS (t-912), sans région
-//! suspecte ailleurs.
+//! (un script qui copie un PDF blanc), refusé sur macOS (t-912), dont les régions
+//! suspectes sont celles des limites de LibreOffice ailleurs (t-905). Sans
+//! `--reference`, le témoin est celui de `[import] witness`.
 
 mod common;
 
 use std::path::{Path, PathBuf};
 use std::process::Output;
 
-use common::{assert_success, oku_slides, workdir};
+use common::{assert_success, fixtures, oku_slides, pptx, workdir};
 use rstest::rstest;
 use serde_json::Value;
 use speculoos::prelude::*;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+/// La fixture `name` : un `.pptx`, ou un dossier décompressé, zippé dans `dir`.
+fn input(dir: &Path, name: &str) -> PathBuf {
+    let path = fixtures().join(name);
+    if path.is_dir() { pptx(dir, name) } else { path }
 }
 
 /// Importe la fixture `name` en hi-fi, avec `extra` ; la sortie et le rapport.
@@ -37,7 +45,7 @@ fn import_with(dir: &Path, name: &str, extra: &[&str], env: &[(&str, &str)]) -> 
         .arg("--fonts")
         .arg(root().join("assets/fonts"))
         .arg("import")
-        .arg(root().join("fixtures/import").join(name))
+        .arg(input(dir, name))
         .args(["--mode", "hifi", "--no-system-fonts", "-o"])
         .arg(dir.join("out.oku-slides.pdf"))
         .arg("--report")
@@ -79,13 +87,14 @@ fn max_score(report: &Value) -> f64 {
 
 #[rstest]
 // Écart moyen de la pire slide, mesuré le 2026-10-14 (office2pdf 0.8.1, σ = 2), plus 25 % :
-// alto 1,57, libreoffice 2,52.
+// alto 1,57, libreoffice 2,52 ; kitchen 2,7 (p. 2, le 2026-10-18).
 #[case("alto-wealth.pptx", 2.0)]
 #[case("libreoffice.pptx", 3.2)]
+#[case("kitchen", 3.4)]
 fn import_hifi_scores_every_slide_under_its_threshold(#[case] name: &str, #[case] threshold: f64) {
     let dir = workdir("import-reference");
     let (_, report) = import(dir.as_ref(), name, &[]);
-    assert_that!(report["reference"]["witness"].as_str()).is_equal_to(Some("office2pdf 0.8.1"));
+    assert_that!(report["reference"]["witness"].as_str().unwrap_or_default()).starts_with("office2pdf ");
     assert_that!(max_score(&report)).is_less_than_or_equal_to(threshold);
 }
 
@@ -124,6 +133,17 @@ fn import_hifi_of_alto_no_longer_designates_the_bullet_indents_on_page_8() {
         .filter(|r| r["score"].as_f64().is_some_and(|s| s > threshold))
         .count();
     assert_that!(above).is_equal_to(0);
+}
+
+// Pire région non suspecte mesurée le 2026-10-18 (office2pdf 0.8.1, seuil 7) : p. 1 20,34 (le
+// tableau), p. 2 3,96 et p. 3 5,69 (les titres). p. 2 valait 8,7 avant t-904 : « Gauche » et
+// « Droite », dont seul le `defaultTextStyle` de la présentation nomme la police, qu'office2pdf
+// dessine dans sa police de repli ; elles sont désormais suspectes (`default_font`).
+#[test]
+fn import_hifi_of_kitchen_flags_page_1_only() {
+    let dir = workdir("import-reference-kitchen");
+    let (_, report) = import(dir.as_ref(), "kitchen", &[]);
+    assert_that!(flagged(&report)).is_equal_to(vec![1]);
 }
 
 #[test]
@@ -206,10 +226,45 @@ fn import_hifi_with_a_negative_threshold_is_refused_in_french() {
 
 /// Écrit `config.toml` dans le dossier de données de `dir` : `[import] soffice = [program]`.
 fn soffice_config(dir: &Path, program: &Path) {
+    import_config(dir, &format!("soffice = [{:?}]\n", program.display().to_string()));
+}
+
+/// Écrit `config.toml` dans le dossier de données de `dir` : la section `[import]` `body`.
+fn import_config(dir: &Path, body: &str) {
     let data = dir.join("data");
     std::fs::create_dir_all(&data).unwrap_or_else(|e| panic!("{e}"));
-    let toml = format!("[import]\nsoffice = [{:?}]\n", program.display().to_string());
-    std::fs::write(data.join("config.toml"), toml).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(data.join("config.toml"), format!("[import]\n{body}")).unwrap_or_else(|e| panic!("{e}"));
+}
+
+/// Les limites des régions suspectes de toutes les slides du rapport.
+fn suspects(report: &Value) -> Vec<String> {
+    let slides = report["slides"].as_array().cloned().unwrap_or_default();
+    slides
+        .iter()
+        .flat_map(|s| s["score"]["regions"].as_array().cloned().unwrap_or_default())
+        .filter_map(|r| r["suspect"].as_str().map(str::to_owned))
+        .collect()
+}
+
+/// Les limites de LibreOffice (t-905) : ses seules régions suspectes.
+const LIBREOFFICE_LIMITS: [&str; 2] = ["no_substitute", "smart_art_style"];
+
+#[test]
+fn import_hifi_without_reference_follows_the_witness_setting() {
+    let dir = workdir("import-reference-setting");
+    import_config(dir.as_ref(), "witness = \"soffice\"\nsoffice = [\"/nonexistent/soffice\"]\n");
+    let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &[]);
+    assert_that!(report["reference"]["unavailable"]["type"].as_str()).is_equal_to(Some("missing"));
+    assert_that!(report["reference"]["witness"].as_str()).is_equal_to(Some("LibreOffice"));
+}
+
+#[test]
+fn import_hifi_with_reference_office2pdf_overrides_the_witness_setting() {
+    let dir = workdir("import-reference-setting-flag");
+    import_config(dir.as_ref(), "witness = \"soffice\"\nsoffice = [\"/nonexistent/soffice\"]\n");
+    let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "office2pdf"]);
+    assert_that!(report["reference"]["witness"].as_str().unwrap_or_default()).starts_with("office2pdf ");
+    assert_that!(report["reference"]["unavailable"].is_null()).is_true();
 }
 
 #[cfg(target_os = "macos")]
@@ -225,11 +280,19 @@ fn import_hifi_with_a_script_soffice_still_writes_the_deck_and_says_it_failed() 
     assert_that!(dir.as_ref().join("out.oku-slides.pdf").exists()).is_true();
 }
 
+/// LibreOffice réel lancé ? (`OKU_SLIDES_TEST_SOFFICE=1`, il s'ouvre dans le Dock.)
+fn real_soffice() -> bool {
+    let on = std::env::var("OKU_SLIDES_TEST_SOFFICE").as_deref() == Ok("1");
+    if !on {
+        eprintln!("OKU_SLIDES_TEST_SOFFICE absent : test sauté");
+    }
+    on
+}
+
 /// LibreOffice réel, sous le bac à sable du processus de rendu (t-912) : `OKU_SLIDES_TEST_SOFFICE=1`.
 #[test]
 fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
-    if std::env::var("OKU_SLIDES_TEST_SOFFICE").as_deref() != Ok("1") {
-        eprintln!("OKU_SLIDES_TEST_SOFFICE absent : test sauté");
+    if !real_soffice() {
         return;
     }
     let dir = workdir("import-reference-soffice-real");
@@ -237,34 +300,70 @@ fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
     assert_that!(report["reference"]["unavailable"].is_null()).is_true();
     assert_that!(report["reference"]["witness"].as_str().unwrap_or_default()).starts_with("LibreOffice ");
     assert_that!(max_score(&report)).is_greater_than(0.0);
-    let slides = report["slides"].as_array().cloned().unwrap_or_default();
-    let suspect = slides
-        .iter()
-        .flat_map(|s| s["score"]["regions"].as_array().cloned().unwrap_or_default())
-        .filter(|r| r.get("suspect").is_some())
-        .count();
-    assert_that!(suspect).is_equal_to(0);
     let second = String::from_utf8_lossy(&out.stdout).lines().nth(1).unwrap_or_default().to_owned();
     assert_that!(second).starts_with("Visual gap to LibreOffice ");
 }
 
-// Les limites connues sont celles d'office2pdf : sous LibreOffice, le SmartArt de p. 3, suspect
-// sous office2pdf, compte comme les autres régions. Hors macOS seulement : là, le faux `soffice`
-// (un script) est refusé (t-912) ; le test du vrai LibreOffice y vérifie la même chose.
+// Mesuré le 2026-10-18 (LibreOffice 26.8.1.1, seuil 7), pire région non suspecte :
+// - alto : pp. 1 à 5 et 7 au plus 6,77 (les titres interlettrés, à 1 px de largeur près) ; p. 6
+//   9,16 (s6/17, à 10,24 pt : LibreOffice coupe « the agent » une ligne plus tôt qu'Oku et
+//   office2pdf, qui partagent le façonnage de Typst : non tranché) ; p. 8 8,76 (les cartes des
+//   piliers 2 et 3, dont il rétrécit les listes `normAutofit` qui débordent, PowerPoint non : la
+//   source ne le dit pas, non marqué) ;
+// - libreoffice et kitchen : p. 1 18,93 et 18,16 (le tableau, où Oku s'écarte des deux témoins) ;
+//   p. 2 46,09 (le graphique : axes `delete` et sans légende, qu'Oku dessine) ; p. 3 au plus 0,1.
+// Les titres en Calibri Light (14,7 à 29) et le SmartArt de libreoffice (21, dont le texte ne nomme
+// ni couleur ni police) sont suspects ; celui de kitchen (1,68 et 3,45, que nomme le
+// `defaultTextStyle`) ne l'est plus depuis t-936.
+// Pire écart moyen d'une slide : alto 0,99, libreoffice et kitchen 3,05 ; plus 25 %.
+#[rstest]
+#[case("alto-wealth.pptx", 1.25, vec![6, 8])]
+#[case("libreoffice.pptx", 3.8, vec![1, 2])]
+#[case("kitchen", 3.8, vec![1, 2])]
+fn import_hifi_against_real_libreoffice_flags_the_measured_slides(
+    #[case] name: &str,
+    #[case] threshold: f64,
+    #[case] expected: Vec<usize>,
+) {
+    if !real_soffice() {
+        return;
+    }
+    let dir = workdir("import-reference-soffice-real-flags");
+    let (_, report) = import(dir.as_ref(), name, &["--reference", "soffice"]);
+    assert_that!(max_score(&report)).is_less_than_or_equal_to(threshold);
+    assert_that!(flagged(&report)).is_equal_to(expected);
+    assert_that!(suspects(&report).iter().all(|s| LIBREOFFICE_LIMITS.contains(&s.as_str()))).is_true();
+}
+
+#[test]
+fn import_hifi_against_real_libreoffice_sets_its_calibri_light_titles_aside() {
+    if !real_soffice() {
+        return;
+    }
+    let dir = workdir("import-reference-soffice-real-titles");
+    let (_, report) = import(dir.as_ref(), "kitchen", &["--reference", "soffice"]);
+    // p. 1 : le titre (14,74) passe après le tableau. p. 3 n'écrit plus le sien : ses trois régions
+    // non suspectes, dont le SmartArt (t-936), le précèdent.
+    let regions = report["slides"][0]["score"]["regions"].as_array().cloned().unwrap_or_default();
+    let title = regions.iter().find(|r| r["item"].as_str() == Some("s1/2")).cloned().unwrap_or_default();
+    assert_that!(title["suspect"].as_str()).is_equal_to(Some("no_substitute"));
+}
+
+// Sous LibreOffice, seules ses limites (t-905) rendent une région suspecte : ni le graphique de
+// p. 2 ni la police des défauts, suspects sous office2pdf. Hors macOS seulement : là, le faux
+// `soffice` (un script) est refusé (t-912) ; les tests du vrai LibreOffice y vérifient la même chose.
 #[cfg(all(unix, not(target_os = "macos")))]
 #[test]
-fn import_hifi_with_reference_soffice_marks_no_region_suspect() {
+fn import_hifi_with_reference_soffice_marks_only_its_own_limits_suspect() {
     use oku_slides_reference::test_support::{blank_pdf, converting, fake_soffice};
     let dir = workdir("import-reference-soffice-suspect");
     let pdf = dir.as_ref().join("blanc.pdf");
     std::fs::write(&pdf, blank_pdf(3, 960, 540)).unwrap_or_else(|e| panic!("{e}"));
     soffice_config(dir.as_ref(), &fake_soffice(dir.as_ref(), &converting(&pdf, None)));
     let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
-    let slides = report["slides"].as_array().cloned().unwrap_or_default();
-    let regions: Vec<Value> =
-        slides.iter().flat_map(|s| s["score"]["regions"].as_array().cloned().unwrap_or_default()).collect();
-    assert_that!(regions.iter().filter(|r| r.get("suspect").is_some()).count()).is_equal_to(0);
-    assert_that!(regions.len()).is_greater_than(0);
+    let suspects = suspects(&report);
+    assert_that!(suspects.is_empty()).is_false();
+    assert_that!(suspects.iter().all(|s| LIBREOFFICE_LIMITS.contains(&s.as_str()))).is_true();
 }
 
 #[test]

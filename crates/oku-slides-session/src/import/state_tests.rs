@@ -68,7 +68,7 @@ fn imported(data: &std::path::Path) -> (Platform, Imported) {
     let platform = Platform::with_settings(settings_on(data)).unwrap();
     let request = ImportRequest {
         pptx: pptx_fixture(data, "minimal"),
-        target: ImportTarget::Hifi,
+        target: crate::test_support::hifi(),
         system_fonts: false,
         packs: PackLookup::Library,
     };
@@ -193,7 +193,7 @@ fn regions_are_the_source_items_on_the_oku_page() {
     let src = state.source().slides.iter().find(|s| s.number == report.source).unwrap();
     let rect = hifi::source_rect(state.source());
     let k = rect.w / state.source().size.w;
-    let expected: Vec<Frame> = metrics::regions(src, 1.0, Witness::Office2Pdf)
+    let expected: Vec<Frame> = metrics::regions(src, 1.0, Some(Witness::Office2Pdf))
         .iter()
         .map(|r| Frame { x: rect.x + r.x * k, y: rect.y + r.y * k, w: r.w * k, h: r.h * k })
         .collect();
@@ -339,7 +339,8 @@ fn imported_libreoffice(data: &std::path::Path) -> ImportState {
     let pptx = data.join("libreoffice.pptx");
     let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import/libreoffice.pptx");
     std::fs::copy(fixture, &pptx).unwrap();
-    let request = ImportRequest { pptx, target: ImportTarget::Hifi, system_fonts: false, packs: PackLookup::Library };
+    let request =
+        ImportRequest { pptx, target: crate::test_support::hifi(), system_fonts: false, packs: PackLookup::Library };
     import(&platform, &Fonts::default(), &request).unwrap().state
 }
 
@@ -353,10 +354,22 @@ fn regions_are_suspect_under_office2pdf() {
 }
 
 #[test]
-fn regions_are_never_suspect_under_another_witness() {
-    let data = fresh_dir("oku-slides-import-state-other-");
+fn regions_are_suspect_under_libreoffice_for_its_own_limits() {
+    let data = fresh_dir("oku-slides-import-state-libreoffice-");
     let mut state = imported_libreoffice(data.path());
-    let fake = Fake { limits: Witness::Other, ..Fake::white(ratio(&state)) };
+    let fake = Fake { limits: Witness::LibreOffice, ..Fake::white(ratio(&state)) };
     made(&mut state, &fake);
+    let limits = suspects(&state);
+    // Ses titres en Calibri Light et son SmartArt ; jamais son graphique, que LibreOffice dessine selon l'OOXML.
+    assert_that!(limits.contains(&Some(WitnessLimit::NoSubstitute))).is_true();
+    assert_that!(limits.contains(&Some(WitnessLimit::SmartArtStyle))).is_true();
+    assert_that!(limits.contains(&Some(WitnessLimit::Chart))).is_false();
+}
+
+#[test]
+fn regions_are_never_suspect_when_the_soffice_witness_is_missing() {
+    let data = fresh_dir("oku-slides-import-state-missing-");
+    let mut state = imported_libreoffice(data.path());
+    state.witness_missing("test".to_owned());
     assert_that!(suspects(&state).iter().all(Option::is_none)).is_true();
 }

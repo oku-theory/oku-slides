@@ -17,6 +17,7 @@ use crate::{Fonts, Platform};
 
 use serde::{Deserialize, Serialize};
 
+use super::import_pick::is_pptx;
 use super::{
     Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, Opening, TABS_DIR, Tab, WindowLayout, Workspace, WorkspaceRequest,
     is_tab_id, is_window_label, number,
@@ -261,12 +262,22 @@ impl Workspace {
     /// Ouvre des fichiers reçus dans la fenêtre active.
     ///
     /// Sources : argument, seconde instance, macOS. Un fichier illisible le
-    /// dit dans l'onglet actif (avis montré une fois). Fin déjà engagée
-    /// (`settle`, `closed`) : s'arrête net, sous le même verrou qu'elle,
-    /// jamais après coup.
+    /// dit dans l'onglet actif (avis montré une fois). Un `.pptx` ne s'ouvre
+    /// pas : il devient le choix d'import de la fenêtre active
+    /// ([`super::ImportPick`]), dont la page ouvre le dialogue d'import. Fin
+    /// déjà engagée (`settle`, `closed`) : s'arrête net, sous le même verrou
+    /// qu'elle, jamais après coup.
     pub fn open_files(ws: &Mutex<Self>, files: &[PathBuf]) {
         for path in files {
             let resolved = resolve(path);
+            if is_pptx(&resolved) {
+                let mut w = Self::lock(ws);
+                if w.is_closed() {
+                    break;
+                }
+                w.pick_import(resolved);
+                continue;
+            }
             let (window, closed, already) = {
                 let w = Self::lock(ws);
                 (w.focused().to_owned(), w.is_closed(), w.tab_with_path(&resolved).is_some())

@@ -76,16 +76,21 @@ pub(crate) fn token_deck(tokens: Value) -> Deck {
 impl Session {
     /// La version d'où part l'édition du thème `id`, et son manifeste.
     ///
-    /// Celle du deck pour un thème du deck seul, sinon la version courante
-    /// de la bibliothèque.
+    /// Celle du deck pour le thème du deck seul qu'il porte (sans lire la
+    /// bibliothèque), sinon la version courante de la bibliothèque, sinon pour
+    /// un thème du deck seul embarqué celle qu'on reprendrait (`deck_only_theme_ref`).
     fn theme_base(&self, id: Uuid) -> Result<(PackVersion, ThemeManifest)> {
         if let Some(r) = self.deck_theme().filter(|r| r.id == id)
             && let Some(m) = self.theme_manifest(r).filter(|m| !m.scope.is_library())
         {
             return Ok((r.version.clone(), m));
         }
-        let current = self.themes.current_version(id).context(UnknownThemeSnafu { id })?;
-        Ok((current.version, current.manifest))
+        if let Some(current) = self.themes.current_version(id) {
+            return Ok((current.version, current.manifest));
+        }
+        let r = self.deck_only_theme_ref(id).context(UnknownThemeSnafu { id })?;
+        let manifest = self.theme_manifest(&r).context(UnknownThemeSnafu { id })?;
+        Ok((r.version, manifest))
     }
 
     /// Le thème `id` dans la version d'où partirait son édition.
@@ -155,7 +160,8 @@ impl Session {
         let r = ThemeRef { id: new_id, version: version.clone() };
         let adopted = self.deck_theme().is_some_and(|t| t.id == id);
         if !manifest.scope.is_library() {
-            // Du deck seul : embarquée puis adoptée (le deck porte toujours ce thème), jamais dans la bibliothèque.
+            // Du deck seul : embarquée puis adoptée, jamais dans la bibliothèque. Un deck
+            // passé à un autre thème le reprend, comme en le choisissant (t-903).
             let known = self.doc.sources.themes.contains_key(&version);
             self.doc.sources.add_theme(files);
             if let Err(e) = self.adopt_edited_theme(r) {
@@ -164,7 +170,7 @@ impl Session {
                 }
                 return Err(e);
             }
-            return Ok(EditedTheme { id: new_id, version, name, changed: true, adopted, tokens });
+            return Ok(EditedTheme { id: new_id, version, name, changed: true, adopted: true, tokens });
         }
         self.themes.add_version(new_id, &files)?;
         self.themes.set_current(new_id, &version)?;

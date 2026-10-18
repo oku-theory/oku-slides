@@ -399,20 +399,37 @@ pub async fn stack_resumed_from(script: Value, resume: PathBuf) -> (TestStack, R
 
 /// Une pile à deux faux agents, `faux` (actif) et `bis` ; rend aussi le dossier de données.
 pub async fn stack_with_two_agents(script: Value, bis: Value, tabs: &[&str]) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    let (stack, seen, log, _) = build_stack_with(script, Some(bis), tabs, First::Fixture, false).await;
+    let (stack, seen, log, _) = build_stack_with(script, Some(bis), tabs, First::Fixture, Options::default()).await;
     let data = log.parent().unwrap_or_else(|| panic!("dossier")).to_owned();
     (stack, seen, log, data)
 }
 
 /// Comme [`stack_with_two_agents`] sur `t-1`, choix imposé par l'environnement (`locked`).
 pub async fn stack_locked(script: Value, bis: Value) -> (TestStack, Relayed) {
-    let (stack, seen, _, _) = build_stack_with(script, Some(bis), &["t-1"], First::Fixture, true).await;
+    let options = Options { locked: true, command: None };
+    let (stack, seen, _, _) = build_stack_with(script, Some(bis), &["t-1"], First::Fixture, options).await;
+    (stack, seen)
+}
+
+/// Une pile sur `t-1` dont l'agent actif lance `command` (avec les arguments du faux agent).
+pub async fn stack_with_command(script: Value, command: &str) -> (TestStack, Relayed) {
+    let options = Options { locked: false, command: Some(command.to_owned()) };
+    let (stack, seen, _, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
     (stack, seen)
 }
 
 /// Une pile de test ; la session de `t-1` naît selon `first`. Rend aussi son dossier de reprise.
 async fn build_stack(script: Value, tabs: &[&str], first: First) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    build_stack_with(script, None, tabs, first, false).await
+    build_stack_with(script, None, tabs, first, Options::default()).await
+}
+
+/// Les réglages de l'agent d'une pile de test.
+#[derive(Default)]
+struct Options {
+    /// Le choix de l'agent est imposé par l'environnement.
+    locked: bool,
+    /// Le programme de l'agent actif `faux` ; absent : le faux agent.
+    command: Option<String>,
 }
 
 /// Les arguments du faux agent sur `script`, journal dans `log`.
@@ -421,27 +438,29 @@ fn fake_args(script: &Path, log: &Path) -> Vec<String> {
 }
 
 /// Comme [`build_stack`] ; `bis` : scénario d'un second faux agent, `bis` (journal `log-bis.jsonl`) ;
-/// `locked` : le choix de l'agent est imposé par l'environnement.
+/// `options` : choix imposé, programme de l'agent actif.
 async fn build_stack_with(
     script: Value,
     bis: Option<Value>,
     tabs: &[&str],
     first: First,
-    locked: bool,
+    options: Options,
 ) -> (TestStack, Relayed, PathBuf, PathBuf) {
+    let Options { locked, command: active } = options;
     let dir = test_dir("oku-slides-stack-");
     let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
     let data = dir.path().to_owned();
     std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario : {e}"));
     // Exactement ce que la pile lance : l'empreinte est celle de son agent.
     let command = env!("CARGO_BIN_EXE_oku-slides-fake-agent");
+    let active = active.unwrap_or_else(|| command.to_owned());
     let args = fake_args(&script_path, &log);
     let args_bis = bis.map(|bis| {
         let script_bis = dir.path().join("script-bis.json");
         std::fs::write(&script_bis, bis.to_string()).unwrap_or_else(|e| panic!("scénario bis : {e}"));
         fake_args(&script_bis, &dir.path().join("log-bis.jsonl"))
     });
-    let fingerprint = agent_fingerprint(command, &args);
+    let fingerprint = agent_fingerprint(&active, &args);
     let (resume, adopted) = match &first {
         First::From(resume) => (resume.clone(), resume.parent().map(Path::to_path_buf)),
         First::Fixture | First::Seeded(_) => (data.join("resume-t-1"), None),
@@ -455,7 +474,7 @@ async fn build_stack_with(
         // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
         settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
-        settings.agent.presets.insert("faux".into(), AgentPreset::new("Faux", command, args));
+        settings.agent.presets.insert("faux".into(), AgentPreset::new("Faux", active, args));
         settings.agent.selected = "faux".into();
         if let Some(args_bis) = args_bis {
             settings.agent.presets.insert("bis".into(), AgentPreset::new("Bis", command, args_bis));

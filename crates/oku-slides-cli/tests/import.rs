@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::Arc;
 
-use common::{Server, assert_success, free_port, http, oku_slides, workdir};
+use common::{Server, assert_success, files, fixtures, free_port, http, oku_slides, pptx, pptx_with, workdir};
 use oku_slides_core::{PackManifest, PackScope, SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_session::{DEFAULT_PACK, GRID_PACK, PRO_THEME};
 use rstest::rstest;
@@ -18,10 +18,6 @@ use speculoos::prelude::*;
 use zip::write::SimpleFileOptions;
 
 const LIMITS: SourceLimits = SourceLimits { replica_bytes: 64 << 20, total_bytes: 512 << 20, compact_after_secs: 0 };
-
-fn fixtures() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/import")
-}
 
 fn run(cmd: &mut Command) -> Output {
     cmd.output().unwrap_or_else(|e| panic!("oku-slides ne se lance pas : {e}"))
@@ -33,43 +29,6 @@ fn stdout(out: &Output) -> String {
 
 fn stderr(out: &Output) -> String {
     String::from_utf8_lossy(&out.stderr).into_owned()
-}
-
-fn files(dir: &Path, out: &mut Vec<PathBuf>) {
-    for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
-        let p = e.unwrap_or_else(|e| panic!("{e}")).path();
-        if p.file_name().is_some_and(|n| n == ".DS_Store") {
-            continue;
-        }
-        if p.is_dir() { files(&p, out) } else { out.push(p) }
-    }
-}
-
-/// Le `.pptx` de la fixture décompressée `name`, zippé dans `dir` ; son chemin.
-fn pptx(dir: &Path, name: &str) -> PathBuf {
-    pptx_with(dir, name, &[])
-}
-
-/// Comme [`pptx`], les parts de `replaced` (chemin dans le zip, contenu) remplaçant celles de la fixture.
-fn pptx_with(dir: &Path, name: &str, replaced: &[(&str, &[u8])]) -> PathBuf {
-    let root = fixtures().join(name);
-    let mut paths = Vec::new();
-    files(&root, &mut paths);
-    paths.sort_by_key(|p| (p.file_name() != Some("[Content_Types].xml".as_ref()), p.clone()));
-    let mut w = zip::ZipWriter::new(Cursor::new(Vec::new()));
-    for p in paths {
-        let rel = p.strip_prefix(&root).unwrap_or_else(|e| panic!("{e}")).to_string_lossy().replace('\\', "/");
-        let data = match replaced.iter().find(|(part, _)| *part == rel) {
-            Some((_, bytes)) => bytes.to_vec(),
-            None => std::fs::read(&p).unwrap_or_else(|e| panic!("{e}")),
-        };
-        w.start_file(rel, SimpleFileOptions::default()).unwrap_or_else(|e| panic!("zip : {e}"));
-        w.write_all(&data).unwrap_or_else(|e| panic!("zip : {e}"));
-    }
-    let bytes = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
-    let path = dir.join(format!("{name}.pptx"));
-    std::fs::write(&path, bytes).unwrap_or_else(|e| panic!("{e}"));
-    path
 }
 
 fn base_registry() -> Arc<WidgetRegistry> {

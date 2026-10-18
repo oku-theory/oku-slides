@@ -22,6 +22,8 @@ interface Props {
   initial?: ImportChoice;
   /** Le dernier refus de l'hôte, localisé. */
   error: string | null;
+  /** Pourquoi aucun agent n'est utilisable, localisé ; `null` : utilisable (ou pas encore su). */
+  agentUnusable: string | null;
   /** Lance l'import ; l'espace de travail suit la suite. */
   onImport: (target: ImportTarget, tune: boolean) => void;
   onClose: () => void;
@@ -35,7 +37,17 @@ interface Props {
  * l'import, les choix sont figés ; Annuler et Échap ferment le dialogue sans arrêter l'import,
  * dont l'espace de travail montre l'issue.
  */
-export default function ImportDialog({ path, api, themes, busy, initial, error, onImport, onClose }: Props) {
+export default function ImportDialog({
+  path,
+  api,
+  themes,
+  busy,
+  initial,
+  error,
+  agentUnusable,
+  onImport,
+  onClose,
+}: Props) {
   const [mode, setMode] = useState<ImportTarget["mode"]>(initial?.target.mode ?? "hifi");
   const [sets, setSets] = useState<PackInfo[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
@@ -67,10 +79,16 @@ export default function ImportDialog({ path, api, themes, busy, initial, error, 
   }, [busy]);
 
   const ready = mode === "hifi" || pack !== "";
+  // Sans agent utilisable, le peaufinage est décoché sans perdre le choix, rendu s'il revient.
+  // Pendant l'import, la case figée montre ce qui a été envoyé (le choix de l'import qui tourne).
+  const tuning = busy ? (initial?.tune ?? tune) : tune && !agentUnusable;
   const submit = () => {
     if (busy || !ready) return;
-    onImport(mode === "hifi" ? { mode: "hifi" } : { mode: "retrofit", pack, theme: theme || null }, tune);
+    onImport(mode === "hifi" ? { mode: "hifi" } : { mode: "retrofit", pack, theme: theme || null }, tuning);
   };
+  const tuneNote = agentUnusable
+    ? t("ui-import-tune-unavailable", { reason: agentUnusable })
+    : t(mode === "hifi" ? "ui-import-tune-note" : "ui-import-tune-note-retrofit");
   // « Thème par défaut » tient lieu du thème par défaut ; un thème du deck seul n'est pas dans la bibliothèque.
   const choices = themes.filter((th) => !th.default && !th.deck_only);
 
@@ -126,10 +144,16 @@ export default function ImportDialog({ path, api, themes, busy, initial, error, 
           </div>
         )}
         <label className="check import-tune">
-          <input type="checkbox" checked={tune} disabled={busy} aria-describedby="import-tune-note" onChange={(e) => setTune(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={tuning}
+            disabled={busy || !!agentUnusable}
+            aria-describedby="import-tune-note"
+            onChange={(e) => setTune(e.target.checked)}
+          />
           <span>{t("ui-import-tune")}</span>
         </label>
-        <p id="import-tune-note" className="caption">{t(mode === "hifi" ? "ui-import-tune-note" : "ui-import-tune-note-retrofit")}</p>
+        <p id="import-tune-note" className="caption">{tuneNote}</p>
         {error && <p className="import-error" role="alert">{error}</p>}
         <div className="import-actions">
           {busy && <span className="caption" role="status">{t("ui-import-busy")}</span>}

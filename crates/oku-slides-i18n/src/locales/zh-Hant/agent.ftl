@@ -33,6 +33,7 @@ agent-confirm-copy-theme = 要儲存內建主題「{ $name }」的修改副本�
 agent-confirm-setting = 要變更{ $key }：{ $old } → { $new }嗎？
 
 agent-not-found = 找不到 AI 代理：{ $command }。設定 [agent.presets]。
+agent-spawn-failed = 無法啟動 AI 代理：{ $command }。設定 [agent.presets]。
 agent-no-http = 此 AI 代理無法連線到 Oku Slides 的工具。
 agent-stopped = AI 代理已停止。
 agent-failed = AI 代理拒絕了請求：{ $message }

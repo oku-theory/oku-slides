@@ -108,6 +108,9 @@ import-region-suspect = Diferencia apartada, un error conocido del renderizador 
     [autofit] reduce el texto ajustado a su cuadro cuando PowerPoint no guardó ninguna escala
     [tracking] dibuja más ancho el texto con espaciado entre caracteres
     [chart] dibuja los gráficos solo de forma aproximada
+    [default_font] dibuja con su fuente de reserva el texto cuya fuente solo nombran los valores predeterminados de la presentación
+    [no_substitute] no tiene sustituto para esta fuente y la dibuja con otra
+    [smart_art_style] dibuja el texto de SmartArt con su propio estilo
    *[smart_art] dibuja el texto de SmartArt demasiado pequeño
 }
 import-font-substituted = { $family } sustituida por { $by }, con métricas compatibles

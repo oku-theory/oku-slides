@@ -73,4 +73,4 @@ cli-arg-pack = 目标模板包：ID、模板包文件夹（pack.json、widgets/�
 cli-arg-import-theme = 目标主题：内置主题或库中的主题，按 ID 或名称指定；默认：默认主题
 cli-arg-report = 同时写出导入报告（JSON）：损失、替代、覆盖率
 cli-arg-no-system-fonts = 在 hifi 模式下，不在系统字体中查找演示文稿的字体
-cli-arg-reference = 在 hifi 模式下，将每张幻灯片与演示文稿的参考渲染比较：auto（默认，office2pdf）、office2pdf、soffice（LibreOffice）或不比较（none）
+cli-arg-reference = 在 hifi 模式下，将每张幻灯片与演示文稿的参考渲染比较：auto（默认：[import] witness，未设置则为 office2pdf）、office2pdf、soffice（LibreOffice）或不比较（none）

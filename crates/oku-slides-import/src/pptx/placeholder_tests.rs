@@ -46,8 +46,9 @@ fn styles() -> TextStyles {
     TextStyles { pres: sized(10.0), title: sized(20.0), body: sized(21.0), other: sized(22.0) }
 }
 
-fn top_size(levels: &[LevelProps]) -> Vec<Option<f64>> {
-    levels.iter().map(|l| l[0].run.size).collect()
+/// La taille du niveau 0 de chaque couche, les défauts en tête.
+fn top_size(got: &Inherited) -> Vec<Option<f64>> {
+    std::iter::once(&got.defaults).chain(&got.levels).map(|l| l[0].run.size).collect()
 }
 
 #[test]
@@ -74,7 +75,7 @@ fn lookup_stacks_layers_in_order_and_links_both_parents() {
     let layout = PhTable { entries: vec![info("l1/2", "ctrTitle", None, 9.0, 40.0)] };
     let got = PhInheritance { styles: &s, master: Some(&m), layout: Some(&layout) }
         .lookup(Some(&PhKey { ty: "ctrTitle".into(), idx: None }));
-    assert_that!(top_size(&got.levels)).is_equal_to(vec![Some(10.0), Some(20.0), Some(30.0), Some(40.0)]);
+    assert_that!(top_size(&got)).is_equal_to(vec![Some(10.0), Some(20.0), Some(30.0), Some(40.0)]);
     assert_that!((got.bodies.len(), got.frame.map(|f| f.x))).is_equal_to((2, Some(9.0)));
     assert_that!(got.link).is_equal_to(Some(PlaceholderLink {
         idx: None,
@@ -87,7 +88,7 @@ fn lookup_stacks_layers_in_order_and_links_both_parents() {
 fn lookup_for_plain_shape_is_presentation_then_other() {
     let s = styles();
     let got = PhInheritance { styles: &s, master: None, layout: None }.lookup(None);
-    assert_that!((top_size(&got.levels), got.link)).is_equal_to((vec![Some(10.0), Some(22.0)], None));
+    assert_that!((top_size(&got), got.link)).is_equal_to((vec![Some(10.0), Some(22.0)], None));
 }
 
 #[test]
@@ -95,7 +96,7 @@ fn lookup_for_body_uses_body_style_not_other() {
     let s = styles();
     let got = PhInheritance { styles: &s, master: None, layout: None }
         .lookup(Some(&PhKey { ty: "obj".into(), idx: Some(1) }));
-    assert_that!(top_size(&got.levels)).is_equal_to(vec![Some(10.0), Some(21.0)]);
+    assert_that!(top_size(&got)).is_equal_to(vec![Some(10.0), Some(21.0)]);
 }
 
 #[test]

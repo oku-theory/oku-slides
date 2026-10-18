@@ -87,7 +87,7 @@ pub(crate) fn placeholders(items: Vec<ParsedItem>, cx: &PartCtx<'_>) -> (Vec<Ite
             continue;
         };
         let inh = cx.lookup(Some(&decl.key));
-        let chain = TextChain { levels: inh.levels.iter().collect(), bodies: inh.bodies.iter().collect() };
+        let chain = inh.chain();
         let levels = resolve_levels(&chain, &decl.lst, &cx.env(RunProps::default()));
         let text = match p.item.kind {
             ItemKind::Text(tb) => tb,
@@ -151,7 +151,7 @@ pub(crate) fn parse_master(
     let (decor, placeholders) = placeholders(items, &cx);
     let env = cx.env(RunProps::default());
     let first_level = |props: &LevelProps| {
-        let chain = TextChain { levels: vec![&styles.pres, props], bodies: Vec::new() };
+        let chain = TextChain { defaults: Some(&styles.pres), levels: vec![props], bodies: Vec::new() };
         resolve_level(&chain, &empty_levels(), &env, 0)
     };
     let text_styles = MasterTextStyles {

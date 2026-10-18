@@ -1,6 +1,7 @@
 // Import PowerPoint dans l'app : « Ouvrir » un .pptx (alto) ouvre le dialogue d'import ; en copie
 // fidèle avec le peaufinage, l'onglet importé s'ouvre et le faux agent joue son tour de
-// fine-tuning (import_report, import_diff de la slide 7, report) ; puis un import sur mes modèles
+// fine-tuning (import_report, import_diff de la slide 7, report) ; l'atelier édite son pack du deck
+// seul, et son thème du deck seul se reprend après Papier ; puis un import sur mes modèles
 // (pack par défaut, sans agent).
 // Contre `oku-slides serve` lancé par `just e2e` : faux agent « Faux » choisi, son journal dans
 // E2E_AGENT_LOG (les résultats MCP s'y lisent). Le témoin (office2pdf) tourne pour de vrai : attentes longues.
@@ -15,6 +16,7 @@ const LOG = process.env.E2E_AGENT_LOG;
 const ALTO = path.resolve(__dirname, '..', '..', 'fixtures', 'import', 'alto-wealth.pptx');
 /** Import et premier rendu d'alto, puis le tour de l'agent avec le témoin : bien plus que les 8 s par défaut. */
 const SLOW = 180_000;
+const PAPIER = '2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31';
 
 const api = (p, tab, req) => post(p, '/api', { tab, req });
 
@@ -93,6 +95,14 @@ const savedTab = (p, id) =>
     SLOW,
   );
 
+/** Le sélecteur de thème du menu ⋯, menu ouvert s'il ne l'est pas. */
+const themeMenu = async (p) => {
+  const combo = p.locator('[role="menu"]').getByRole('combobox', { name: 'Thème', exact: true });
+  if (!(await combo.isVisible())) await p.getByRole('button', { name: 'Menu' }).click();
+  await combo.waitFor();
+  return combo;
+};
+
 /** Aucun tour ne part depuis `from` : ni prompt noté par le faux agent pendant `ms`, ni tour à l'écran. */
 const noTurnSince = async (p, from, ms) => {
   const end = Date.now() + ms;
@@ -127,6 +137,8 @@ const noTurnSince = async (p, from, ms) => {
   const snap = await api(p, hifi, { cmd: 'snapshot' });
   assert.equal(snap.slides.length, 8);
   assert.ok(snap.deck_pack, 'le pack généré est propre au deck');
+  const importTheme = snap.theme;
+  assert.deepEqual(snap.deck_themes.map((th) => [th.id, th.version, th.deck_only]), [[importTheme.id, importTheme.version, true]]);
   await p.waitForSelector('.stage img');
   // Le deck importé est neuf : l'enregistrement automatique lui donne un fichier, au nom du .pptx.
   const hifiTab = await savedTab(p, hifi);
@@ -173,10 +185,42 @@ const noTurnSince = async (p, from, ms) => {
 
   await p.keyboard.press('Control+Shift+z');
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).slides.length === 8, "l'import ne se refait pas");
-  // Un deck importé n'ouvre pas l'atelier : ses modèles ne sont pas dans la bibliothèque.
+  // L'atelier édite le pack du deck seul : enregistré dans le deck, jamais dans la bibliothèque.
+  const packsBefore = await api(p, hifi, { cmd: 'template_sets' });
+  const packBefore = (await api(p, hifi, { cmd: 'snapshot' })).templates;
   await p.getByRole('button', { name: 'Menu' }).click();
-  assert.ok(await p.getByRole('menuitem', { name: 'Atelier' }).isDisabled(), "l'atelier devrait être désactivé");
-  await p.keyboard.press('Escape');
+  await p.getByRole('menuitem', { name: 'Atelier' }).click();
+  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
+  await p.locator('.brand-note', { hasText: 'Enregistrés dans cette présentation seulement' }).waitFor();
+  await p.locator('.doc-name-button').click();
+  await p.getByRole('textbox', { name: 'Titre de la présentation' }).fill('Alto (modèles)');
+  await p.keyboard.press('Enter');
+  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).title === 'Alto (modèles)', "le pack n'est pas renommé");
+  // ✓ : l'enregistrement automatique part d'abord, puis le deck revient.
+  await p.getByRole('button', { name: 'Terminer' }).click();
+  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing === null, "l'atelier ne se ferme pas");
+  const back = await api(p, hifi, { cmd: 'snapshot' });
+  assert.ok(back.deck_pack, 'le pack enregistré reste propre au deck');
+  assert.equal(back.templates.id, packBefore.id);
+  assert.notEqual(back.templates.version, packBefore.version, 'le deck passe à la version enregistrée');
+  assert.deepEqual(await api(p, hifi, { cmd: 'template_sets' }), packsBefore, 'la bibliothèque ne change pas');
+
+  // Le thème du deck seul se reprend après Papier, depuis le groupe « Cette présentation » du menu ⋯ (t-903).
+  assert.deepEqual(back.theme, importTheme, "l'atelier garde le thème de l'import");
+  await (await themeMenu(p)).selectOption(PAPIER);
+  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).theme?.id === PAPIER, "Papier n'est pas choisi");
+  const onPapier = await api(p, hifi, { cmd: 'snapshot' });
+  assert.deepEqual(onPapier.deck_themes.map((th) => th.id), [importTheme.id], "le thème de l'import n'est plus offert");
+  const options = (await themeMenu(p)).locator('optgroup[label="Cette présentation"] option');
+  assert.equal(await options.count(), 1, 'un seul thème de la présentation attendu');
+  const option = options.first();
+  assert.deepEqual([await option.getAttribute('value'), await option.isDisabled()], [importTheme.id, false]);
+  await (await themeMenu(p)).selectOption(importTheme.id);
+  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).theme?.id === importTheme.id, "le thème de l'import ne revient pas");
+  const repicked = await api(p, hifi, { cmd: 'snapshot' });
+  assert.equal(repicked.theme.version, importTheme.version, "le thème de l'import revient dans sa version d'origine");
+  assert.deepEqual(repicked.themes, onPapier.themes, 'la bibliothèque des thèmes ne change pas');
+  if (await p.locator('[role="menu"]').isVisible()) await p.keyboard.press('Escape');
 
   // 2. Sur mes modèles : le pack par défaut présélectionné, le thème du pack, sans agent.
   const second = await openImport(p, ALTO);

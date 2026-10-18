@@ -491,6 +491,109 @@
    }
   },
   {
+   "id": "s-import",
+   "kind": "content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "Importer un PowerPoint",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-import",
+      "kind": "text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Ouvrir",
+           "bold": true
+          },
+          {
+           "t": " : ⌘O sur un .pptx, ou l'ouvrir depuis le Finder, affiche « Importer une présentation PowerPoint ». Le deck obtenu arrive dans un nouvel onglet."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Copie fidèle",
+           "bold": true
+          },
+          {
+           "t": " : garde l'aspect de l'original, avec un thème et des modèles faits pour cette présentation."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Utiliser mes modèles",
+           "bold": true
+          },
+          {
+           "t": " : refait les slides avec un pack de modèles et un thème de la bibliothèque."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Peaufiner avec l'agent",
+           "bold": true
+          },
+          {
+           "t": " : l'agent compare chaque slide à un rendu de l'original et corrige les écarts. Grisé, avec la raison, si aucun agent n'est utilisable."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Ce qui ne se traduit pas",
+           "bold": true
+          },
+          {
+           "t": " : figé en image et noté dans le rapport d'import, que l'agent lit."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Après une copie fidèle",
+           "bold": true
+          },
+          {
+           "t": " : menu ▸ Atelier édite ses modèles, enregistrés dans cette présentation seulement ; son thème reste au menu Thème, sous « Cette présentation »."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Réglages",
+           "bold": true
+          },
+          {
+           "t": " : [import] de config.toml, max_input_mib (taille maximale) et witness (office2pdf ou soffice, le rendu de référence)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
    "id": "s-ch-raccourcis",
    "kind": "chapter",
    "params": {

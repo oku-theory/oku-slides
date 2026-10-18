@@ -30,13 +30,14 @@ pub(crate) struct Input {
     pub(crate) limits: ReadLimits,
 }
 
-/// Lit `path`, borné par [`ReadLimits::default`].
+/// Lit `path`, borné par [`ReadLimits::default`] et les réglages.
 ///
-/// La sortie l'est, approximativement, par la taille des sources et de
-/// l'historique qu'un deck peut avoir pour se rouvrir.
+/// L'entrée l'est par `[import] max_input_mib` ; la sortie, approximativement,
+/// par la taille des sources et de l'historique qu'un deck peut avoir pour se rouvrir.
 pub(crate) fn read_input(platform: &Platform, path: &Path) -> Result<Input> {
     let sources = &platform.settings.sources;
     let limits = ReadLimits {
+        max_input_bytes: platform.settings.import.max_input_bytes(),
         max_output_bytes: as_u64(sources.max_sources_bytes()),
         max_replica_bytes: as_u64(sources.max_replica_bytes()),
         ..ReadLimits::default()

@@ -35,6 +35,7 @@ impl Default for ReadLimits {
     /// Bornes conservatrices pour un deck réel.
     fn default() -> Self {
         Self {
+            // Le défaut de `[import] max_input_mib`, que l'app et la CLI prennent à sa place.
             max_input_bytes: 256 << 20,
             max_part_bytes: 64 << 20,
             max_total_bytes: 512 << 20,

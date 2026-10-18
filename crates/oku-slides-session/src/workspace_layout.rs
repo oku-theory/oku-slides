@@ -1,9 +1,73 @@
 //! La disposition des onglets dans les fenêtres : trouver, activer, insérer,
 //! retirer et déplacer un onglet ; la fenêtre active suit.
+//! Aussi la structure écrite dans `workspace.json` ([`Layout`]) et [`Rect`].
 
+use serde::{Deserialize, Serialize};
 use snafu::OptionExt;
 
-use super::{Result, Session, Tab, UnknownTabSnafu, UnknownWindowSnafu, WindowLayout, Workspace};
+use super::{Result, Session, Tab, UnknownTabSnafu, UnknownWindowSnafu, Workspace};
+
+/// Version de `workspace.json`.
+pub(super) const LAYOUT_VERSION: u32 = 2;
+
+/// Un rectangle à l'écran, dans les unités de l'hôte (celles du point comparé).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rect {
+    /// Bord gauche.
+    pub x: f64,
+    /// Bord haut.
+    pub y: f64,
+    /// Largeur.
+    pub w: f64,
+    /// Hauteur.
+    pub h: f64,
+}
+
+impl Rect {
+    /// Le point est dedans (bords gauche et haut compris).
+    pub fn contains(&self, x: f64, y: f64) -> bool {
+        x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
+    }
+}
+
+/// Fenêtres et onglets, tels qu'écrits dans `workspace.json`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(super) struct Layout {
+    pub(super) version: u32,
+    /// Prochains numéros : jamais réutilisés.
+    pub(super) next_tab: u64,
+    pub(super) next_window: u64,
+    pub(super) focused: String,
+    pub(super) windows: Vec<WindowLayout>,
+    /// Onglets cités mais non restaurés, dont le dossier existe encore : ils
+    /// restent cités, leur dossier n'est jamais supprimé.
+    #[serde(default)]
+    pub(super) kept: Vec<String>,
+    /// L'agent est dans sa propre fenêtre (`agent`), pas dans la colonne de droite.
+    #[serde(default)]
+    pub(super) agent_detached: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(super) struct WindowLayout {
+    pub(super) label: String,
+    pub(super) tabs: Vec<String>,
+    pub(super) active: String,
+}
+
+impl Layout {
+    pub(super) fn new() -> Self {
+        Self {
+            version: LAYOUT_VERSION,
+            next_tab: 1,
+            next_window: 1,
+            focused: String::new(),
+            windows: Vec::new(),
+            kept: Vec::new(),
+            agent_detached: false,
+        }
+    }
+}
 
 impl Workspace {
     pub(super) fn window_index(&self, label: &str) -> Result<usize> {
@@ -125,5 +189,25 @@ impl Workspace {
         win.active = tab.to_owned();
         self.touch(&dest);
         Ok(())
+    }
+
+    /// La fenêtre sous le point `(x, y)` : la plus récemment active qui le contient.
+    pub fn window_at(&self, x: f64, y: f64, rects: &[(String, Rect)]) -> Option<String> {
+        self.recent.iter().rev().find(|label| rects.iter().any(|(l, r)| l == *label && r.contains(x, y))).cloned()
+    }
+
+    /// Label de la fenêtre qui porte l'onglet `tab`.
+    pub fn tab_window(&self, tab: &str) -> Option<&str> {
+        self.layout.windows.iter().find(|w| w.tabs.iter().any(|t| t == tab)).map(|w| w.label.as_str())
+    }
+
+    /// `label` est-elle la seule fenêtre de l'espace de travail ?
+    ///
+    /// Prédicat unique, utilisé par [`Workspace::apply`] (`CloseWindow`, sous
+    /// le verrou : la décision est atomique avec la suppression) et par
+    /// l'hôte (`close_requested`, en aperçu hors verrou, avant de prévenir la
+    /// page) : les deux points d'appel voient la même règle.
+    pub fn is_only_window(&self, label: &str) -> bool {
+        self.layout.windows.len() <= 1 && self.layout.windows.first().is_some_and(|w| w.label == label)
     }
 }

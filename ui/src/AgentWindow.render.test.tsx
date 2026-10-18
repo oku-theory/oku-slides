@@ -199,7 +199,7 @@ describe("AgentWindow", () => {
   test("AgentWindowView sans onglet suivi : état vide", async () => {
     const el = document.createElement("div");
     const root = createRoot(el);
-    const view = { generation: 1, focused: "w-9", agent_detached: true, windows: [] };
+    const view = { generation: 1, focused: "w-9", agent_detached: true, import_pick: null, windows: [] };
     await act(async () => root.render(createElement(AgentWindowView, { view })));
     cleanup = async () => act(async () => root.unmount());
     expect(el.querySelector(".agent-window-empty")).not.toBeNull();
@@ -227,7 +227,7 @@ describe("AgentWindow", () => {
   });
 
   test("AgentWindowView sans onglet suivi : la fermeture système rattache l'agent", async () => {
-    const m = await mountView({ generation: 1, focused: "w-9", agent_detached: true, windows: [] });
+    const m = await mountView({ generation: 1, focused: "w-9", agent_detached: true, import_pick: null, windows: [] });
     await m.closeWindow();
     expect(m.calls).toEqual(["attach"]);
   });
@@ -240,7 +240,7 @@ describe("AgentWindow", () => {
   });
 
   test("AgentWindowView sans onglet suivi : bouton rattacher présent", async () => {
-    const m = await mountView({ generation: 1, focused: "w-9", agent_detached: true, windows: [] });
+    const m = await mountView({ generation: 1, focused: "w-9", agent_detached: true, import_pick: null, windows: [] });
     expectIconOnly(m.el.querySelector(".agent-attach"));
   });
 });

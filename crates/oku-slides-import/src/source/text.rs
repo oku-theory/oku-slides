@@ -126,6 +126,17 @@ pub enum Caps {
 pub struct RunStyle {
     /// Famille (128 caractères au plus) et provenance (`major`/`minor` pour le thème).
     pub font: Styled<String>,
+    /// Seuls les défauts de la présentation ou du lecteur donnent la police latine.
+    ///
+    /// Ni le run, ni son paragraphe, ni la forme, ses placeholders ou le master ne la
+    /// nomment : seul `defaultTextStyle`, s'il le fait (t-904).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub font_from_defaults: bool,
+    /// Aucune couche, défauts de la présentation compris, ne nomme sa couleur ou sa police latine.
+    ///
+    /// Le lecteur les choisit (`tx1`, police du corps) ; LibreOffice, dans un SmartArt, les siennes (t-936).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub style_from_reader: bool,
     /// Famille des écritures d'Asie de l'Est (`ea`) et provenance (`major-ea`/`minor-ea`) ;
     /// `None` : aucune n'est donnée.
     #[serde(skip_serializing_if = "Option::is_none")]
