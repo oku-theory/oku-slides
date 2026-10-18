@@ -312,7 +312,7 @@ from `params.typ` (`#import "/oku-slides/lib.typ": params as p`):
 
 `category` is `"element"` (slide body widget) or `"slide"`.
 `label` is the name shown in the app; `description`, what the widget shows in
-one sentence: the app's add carousel filters on the name, the label and the
+one sentence: the app's add grid filters on the name, the label and the
 description. Both are shown as written, in every interface language, and must be
 text (`str`): any other value sets the widget file aside with an error naming
 the argument. A blank label or description counts as none.

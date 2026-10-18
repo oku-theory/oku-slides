@@ -1,10 +1,10 @@
-// Ce que propose le carrousel d'ajout : les éléments natifs, puis les widgets d'élément du pack.
+// Ce que propose la grille d'ajout : les éléments natifs, puis les widgets d'élément du pack.
 
 import type { AddWidget } from "./api";
 import { t } from "./i18n";
 import { ADD_KINDS, type AddKind, packOnlyWidgets } from "./slideTools";
 
-/** Une carte du carrousel d'ajout. */
+/** Une carte de la grille d'ajout. */
 export interface WidgetChoice {
   /** Clé stable : la sorte native, ou `widget:<nom>`. */
   key: string;
@@ -18,7 +18,7 @@ export interface WidgetChoice {
   pick: { native: AddKind } | { widget: AddWidget };
 }
 
-/** Les cartes du carrousel : les sortes natives, puis les widgets du pack sans doublon. */
+/** Les cartes de la grille : les sortes natives, puis les widgets du pack sans doublon. */
 export function widgetChoices(pack: AddWidget[]): WidgetChoice[] {
   const natives = ADD_KINDS.map((kind) => ({
     key: kind,

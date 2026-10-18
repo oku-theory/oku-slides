@@ -1,4 +1,4 @@
-// La barre d'outils sous la feuille. On y ouvre le carrousel d'ajout, montre les paramètres,
+// La barre d'outils sous la feuille. On y ouvre la grille d'ajout, montre les paramètres,
 // ouvre le menu, annule et rétablit ; sur un sous-onglet widget, elle porte ses propres outils.
 
 import type { ReactNode } from "react";
@@ -32,7 +32,7 @@ interface Props {
   mainMenu: ReactNode;
   /** Applique une requête qui rend un snapshot. */
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
-  /** Ouvre le carrousel d'ajout. */
+  /** Ouvre la grille d'ajout. */
   onAdd: () => void;
 }
 
@@ -60,7 +60,7 @@ export function ToolsTray({
   // annuler / rétablir : posés sous la feuille.
   return (
     <div className="object theme-card tools-tray">
-      {/* Un seul bouton d'ajout : il ouvre le carrousel des éléments natifs et des widgets du pack.
+      {/* Un seul bouton d'ajout : il ouvre la grille des éléments natifs et des widgets du pack.
           Actif dès qu'une carte autre que le texte s'ajoute (« widget » : toute sorte non textuelle). */}
       <button
         className="token ghost add-button"

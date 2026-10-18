@@ -1,4 +1,4 @@
-// Barre d'outils (sous la feuille) : ajout d'éléments par le carrousel filtrable ; suppression de slide au coin de sa miniature.
+// Barre d'outils (sous la feuille) : ajout d'éléments par la grille filtrable ; suppression de slide au coin de sa miniature.
 // Contre `oku-slides serve fixtures/roadmap.json`.
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
@@ -19,7 +19,7 @@ const state = (p) => p.evaluate(() => ({
   await p.waitForSelector('.stage img');
   // Slide 1 (titre) : rien ne s'ajoute.
   assert.equal((await state(p)).add, false);
-  // Slide 4 (contenu) : le bouton d'ajout ouvre le carrousel ; filtré sur la description du graphique,
+  // Slide 4 (contenu) : le bouton d'ajout ouvre la grille ; filtré sur la description du graphique,
   // Entrée l'ajoute et l'hôte annonce son annulation par un libellé.
   await p.click('.thumb >> nth=3');
   await until(p, async () => (await state(p)).add, 'slide 4 : le bouton d\'ajout ne s\'active pas');

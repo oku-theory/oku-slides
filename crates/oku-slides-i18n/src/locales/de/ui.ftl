@@ -264,8 +264,7 @@ ui-picker-list = Folienvorlagen
 ui-widget-picker-filter = Nach Name, Bezeichnung oder Beschreibung filtern
 ui-widget-picker-empty = Kein Widget passt zu „{ $query }“.
 ui-widget-picker-list = Widgets
-ui-widget-picker-previous = Vorheriges Widget
-ui-widget-picker-next = Nächstes Widget
+ui-widget-picker-keys = Pfeiltasten zum Blättern · Eingabe zum Hinzufügen · Esc zum Schließen
 
 ## Diagramm
 

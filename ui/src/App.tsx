@@ -212,7 +212,7 @@ export default function App({
   const [adding, setAdding] = useState(false);
   // Une fenêtre de l'app (modèles, ajout, import) est ouverte : rien derrière elle ne réagit.
   const dialogOpen = picking || adding || importJob !== null;
-  /** Ajoute la carte choisie dans le carrousel d'ajout, qui se ferme. */
+  /** Ajoute la carte choisie dans la grille d'ajout, qui se ferme. */
   const addChoice = (c: WidgetChoice) => {
     setAdding(false);
     if ("native" in c.pick) addElement(c.pick.native);

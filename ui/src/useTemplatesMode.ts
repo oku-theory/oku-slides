@@ -59,8 +59,8 @@ export function useTemplatesMode({
   // Clé par contenu : chaque snapshot apporte un nouveau tableau.
   const packWidgetsKey = (snap?.pack_widgets ?? []).join("\n");
   const packWidgets = useMemo(() => new Set(packWidgetsKey ? packWidgetsKey.split("\n") : []), [packWidgetsKey]);
-  // Cartes du carrousel d'ajout, par contenu : un nouveau tableau relancerait le défilement du
-  // carrousel ouvert. `lang` : les libellés natifs viennent de t(), qui suit la langue sans être lu ici.
+  // Cartes de la grille d'ajout, par contenu : un nouveau tableau relancerait le défilement de la
+  // grille ouverte. `lang` : les libellés natifs viennent de t(), qui suit la langue sans être lu ici.
   const addWidgetsKey = JSON.stringify(snap?.add_widgets ?? []);
   const lang = locale();
   const addChoices = useMemo(() => widgetChoices(JSON.parse(addWidgetsKey) as AddWidget[]), [addWidgetsKey, lang]);

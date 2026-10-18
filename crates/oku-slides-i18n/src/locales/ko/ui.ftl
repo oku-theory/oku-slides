@@ -262,8 +262,7 @@ ui-picker-list = 슬라이드 템플릿
 ui-widget-picker-filter = 이름, 레이블 또는 설명으로 필터
 ui-widget-picker-empty = “{ $query }”와(과) 일치하는 위젯이 없습니다.
 ui-widget-picker-list = 위젯
-ui-widget-picker-previous = 이전 위젯
-ui-widget-picker-next = 다음 위젯
+ui-widget-picker-keys = 화살표로 탐색 · Enter로 추가 · Esc로 닫기
 
 ## 차트
 

@@ -264,8 +264,7 @@ ui-picker-list = स्लाइड टेम्पलेट
 ui-widget-picker-filter = नाम, लेबल या विवरण से फ़िल्टर करें
 ui-widget-picker-empty = “{ $query }” से कोई विजेट मेल नहीं खाता।
 ui-widget-picker-list = विजेट
-ui-widget-picker-previous = पिछला विजेट
-ui-widget-picker-next = अगला विजेट
+ui-widget-picker-keys = देखने के लिए तीर · जोड़ने के लिए Enter · बंद करने के लिए Esc
 
 ## चार्ट
 

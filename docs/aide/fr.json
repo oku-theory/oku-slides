@@ -143,7 +143,7 @@
            "bold": true
           },
           {
-           "t": " : un bouton ouvre le carrousel d'ajout (texte, carte, forme, graphique, tableau et widgets du pack), filtrable par nom, libellé ou description ; annuler, rétablir."
+           "t": " : un bouton ouvre la grille d'ajout (texte, carte, forme, graphique, tableau et widgets du pack), filtrable par nom, libellé ou description ; annuler, rétablir."
           }
          ],
          "list": "bullet"

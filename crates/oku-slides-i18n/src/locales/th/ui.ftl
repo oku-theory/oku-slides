@@ -262,8 +262,7 @@ ui-picker-list = เทมเพลตสไลด์
 ui-widget-picker-filter = กรองตามชื่อ ป้ายกำกับ หรือคำอธิบาย
 ui-widget-picker-empty = ไม่มีวิดเจ็ตที่ตรงกับ “{ $query }”
 ui-widget-picker-list = วิดเจ็ต
-ui-widget-picker-previous = วิดเจ็ตก่อนหน้า
-ui-widget-picker-next = วิดเจ็ตถัดไป
+ui-widget-picker-keys = ลูกศรเพื่อเลื่อนดู · Enter เพื่อเพิ่ม · Esc เพื่อปิด
 
 ## แผนภูมิ
 

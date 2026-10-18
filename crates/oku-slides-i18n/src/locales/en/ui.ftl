@@ -264,8 +264,7 @@ ui-picker-list = Slide templates
 ui-widget-picker-filter = Filter by name, label or description
 ui-widget-picker-empty = No widget matches “{ $query }”.
 ui-widget-picker-list = Widgets
-ui-widget-picker-previous = Previous widget
-ui-widget-picker-next = Next widget
+ui-widget-picker-keys = Arrows to browse · Enter to add · Esc to close
 
 ## Chart
 

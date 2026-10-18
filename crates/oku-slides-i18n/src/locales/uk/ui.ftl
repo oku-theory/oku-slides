@@ -268,8 +268,7 @@ ui-picker-list = Шаблони слайдів
 ui-widget-picker-filter = Фільтр за назвою, підписом або описом
 ui-widget-picker-empty = Жоден віджет не відповідає «{ $query }».
 ui-widget-picker-list = Віджети
-ui-widget-picker-previous = Попередній віджет
-ui-widget-picker-next = Наступний віджет
+ui-widget-picker-keys = Стрілки — перегляд · Enter — додати · Esc — закрити
 
 ## Діаграма
 

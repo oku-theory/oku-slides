@@ -264,8 +264,7 @@ ui-picker-list = 幻灯片模板
 ui-widget-picker-filter = 按名称、标签或描述筛选
 ui-widget-picker-empty = 没有与“{ $query }”匹配的小组件。
 ui-widget-picker-list = 小组件
-ui-widget-picker-previous = 上一个小组件
-ui-widget-picker-next = 下一个小组件
+ui-widget-picker-keys = 方向键浏览 · Enter 添加 · Esc 关闭
 
 ## 图表
 

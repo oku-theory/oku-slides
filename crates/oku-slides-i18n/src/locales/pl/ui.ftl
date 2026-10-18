@@ -268,8 +268,7 @@ ui-picker-list = Szablony slajdów
 ui-widget-picker-filter = Filtruj według nazwy, etykiety lub opisu
 ui-widget-picker-empty = Żaden widżet nie pasuje do „{ $query }”.
 ui-widget-picker-list = Widżety
-ui-widget-picker-previous = Poprzedni widżet
-ui-widget-picker-next = Następny widżet
+ui-widget-picker-keys = Strzałki, aby przeglądać · Enter, aby dodać · Esc, aby zamknąć
 
 ## Wykres
 

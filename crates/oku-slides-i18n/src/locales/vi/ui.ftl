@@ -262,8 +262,7 @@ ui-picker-list = Mẫu trang chiếu
 ui-widget-picker-filter = Lọc theo tên, nhãn hoặc mô tả
 ui-widget-picker-empty = Không có widget nào khớp với “{ $query }”.
 ui-widget-picker-list = Widget
-ui-widget-picker-previous = Widget trước
-ui-widget-picker-next = Widget tiếp theo
+ui-widget-picker-keys = Phím mũi tên để duyệt · Enter để thêm · Esc để đóng
 
 ## Biểu đồ
 

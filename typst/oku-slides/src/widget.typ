@@ -18,7 +18,7 @@
 #let _types = ("plain", "rich", "flag", "number", "choice", "asset", "slot", "grid", "host", "list")
 
 /// Déclare un widget. category : "element" ou "slide" ; description : ce
-/// qu'il montre, en une phrase (le carrousel d'ajout la filtre).
+/// qu'il montre, en une phrase (la grille d'ajout la filtre).
 #let widget(name, label: none, description: none, category: "element", params: (:), render) = {
   assert(type(name) == str and name != "", message: "oku-slides : un widget a besoin d'un nom")
   assert(category in ("slide", "element"),

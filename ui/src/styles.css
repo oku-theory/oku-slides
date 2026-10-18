@@ -543,23 +543,36 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .linkish { align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer; font-size: 12px; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; opacity: 0.75; }
 .linkish:hover { opacity: 1; }
 .picker-set { display: inline-flex; align-items: center; gap: var(--space-2); }
-/* Carrousel d'ajout : le filtre dans l'en-tête ; une carte montre l'aperçu du widget, ou l'icône d'un élément natif. */
+/* Grille d'ajout : le filtre dans l'en-tête ; une carte montre l'aperçu du widget, ou l'icône d'un élément natif. */
+/* Ancrée en haut : filtrer change sa hauteur sans la faire sauter. */
+.widget-picker { width: min(980px, calc(100vw - 80px)); max-height: 84vh; align-self: start; margin-top: 8vh; }
 .widget-picker-filter {
   width: min(320px, 40vw); height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: var(--radius-md);
   background: var(--paper-000); color: var(--ink); font: inherit;
 }
 .widget-picker-filter:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
-.widget-choice { width: 220px; }
+/* Les cartes, en colonnes souples : la grille prend la hauteur qui reste et défile au-delà. */
+.widget-picker-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px 18px;
+  flex: 1; min-height: 0; max-height: 560px; overflow-y: auto; padding: 12px 12px 16px; align-content: start;
+}
+.widget-choice {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0;
+  background: none; border: 0; text-align: start; cursor: pointer; color: var(--ink);
+}
+.widget-choice:focus-visible { outline: none; }
+.widget-choice .template-name { margin-top: 8px; }
+.widget-choice .caption { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .widget-choice-face {
-  width: 220px; aspect-ratio: 16 / 9; display: grid; place-items: center; padding: 14px; box-sizing: border-box;
+  width: 100%; aspect-ratio: 16 / 9; display: grid; place-items: center; padding: 12px; box-sizing: border-box;
   border-radius: var(--radius-sm); background: var(--t-bg); color: var(--ink-muted);
   box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: transform 180ms ease-out, box-shadow 180ms ease-out;
 }
-.widget-choice-face > svg { width: 48px; height: 48px; }
-.widget-choice-face > img { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; box-shadow: none; border-radius: 0; background: none; }
-.widget-choice.focused .widget-choice-face { transform: var(--lift) scale(1.04); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
-.widget-choice.focused img { transform: none; box-shadow: none; }
+.widget-choice-face > svg { width: 40px; height: 40px; }
+.widget-choice-face > img { width: 100%; height: 100%; object-fit: contain; }
+.widget-choice.focused .widget-choice-face { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
 .widget-choice:disabled { cursor: default; opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) { .widget-choice-face { transition: none; } }
 .widget-picker-empty { margin: 0; text-align: center; }
 .widget-picker-empty:not(:empty) { padding: 0 0 48px; }
 

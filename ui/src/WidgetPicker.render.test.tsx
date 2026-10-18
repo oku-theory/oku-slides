@@ -1,4 +1,4 @@
-// Rendu du carrousel d'ajout dans un DOM happy-dom.
+// Rendu de la grille d'ajout dans un DOM happy-dom.
 
 import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import "./test/dom";
@@ -260,13 +260,69 @@ test("WidgetPicker arrow left on the first card keeps it", async () => {
   expect(selected()).toBe("Texte");
 });
 
-test("WidgetPicker next button moves the focus without leaving the filter", async () => {
-  const { button, selected } = await mount();
-  const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
-  button("ui-widget-picker-next").dispatchEvent(down);
-  now += ARMING_MS + 1;
-  await act(async () => button("ui-widget-picker-next").click());
-  expect([down.defaultPrevented, selected()]).toEqual([true, "Carte"]);
+/** Pose les cartes en rangées de `columns` (happy-dom n'a pas de mise en page). */
+function rows(host: HTMLElement, columns: number) {
+  host.querySelectorAll<HTMLElement>('[role="option"]').forEach((el, i) => {
+    Object.defineProperty(el, "offsetTop", { configurable: true, get: () => Math.floor(i / columns) * 100 });
+  });
+}
+
+test("WidgetPicker arrow down moves the focus one row below", async () => {
+  const { filter, host, selected } = await mount();
+  rows(host, 3);
+  await key(filter(), "ArrowRight");
+  await key(filter(), "ArrowDown");
+  expect(selected()).toBe("Tableau");
+});
+
+test("WidgetPicker arrow up moves the focus one row above", async () => {
+  const { filter, host, selected } = await mount();
+  rows(host, 3);
+  for (let i = 0; i < 4; i++) await key(filter(), "ArrowRight");
+  await key(filter(), "ArrowUp");
+  expect(selected()).toBe("Carte");
+});
+
+test("WidgetPicker arrow down onto a refused card goes on down, or stays", async () => {
+  const { filter, host, selected } = await mount({ canPick: (c) => c.key !== "table" });
+  rows(host, 3);
+  await key(filter(), "ArrowRight");
+  await key(filter(), "ArrowDown");
+  expect(selected()).toBe("Carte");
+});
+
+test("WidgetPicker arrow down from the filter is taken from the text field", async () => {
+  const { filter } = await mount();
+  const down = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true });
+  await act(async () => filter().dispatchEvent(down));
+  expect(down.defaultPrevented).toBe(true);
+});
+
+test("WidgetPicker arrow down with text in the filter still moves a row", async () => {
+  const { filter, host, selected } = await mount();
+  await type(filter(), "un");
+  filter().setSelectionRange(0, 0);
+  rows(host, 3);
+  await key(filter(), "ArrowDown");
+  expect(selected()).toBe((host.querySelectorAll('[role="option"] .template-name')[3] as HTMLElement).textContent);
+});
+
+test("WidgetPicker shift arrow down keeps the card focus and the text field's own behaviour", async () => {
+  const { filter, host, selected } = await mount();
+  rows(host, 3);
+  const down = new KeyboardEvent("keydown", { key: "ArrowDown", shiftKey: true, bubbles: true, cancelable: true });
+  await act(async () => filter().dispatchEvent(down));
+  expect([selected(), down.defaultPrevented]).toEqual(["Texte", false]);
+});
+
+test("WidgetPicker pointer resting still while the grid scrolls does not take the focus", async () => {
+  const { filter, host, selected } = await mount();
+  const card = host.querySelectorAll('[role="option"]')[4];
+  const at = { bubbles: true, clientX: 10, clientY: 10 };
+  await act(async () => card.dispatchEvent(new MouseEvent("mousemove", at)));
+  await key(filter(), "ArrowLeft");
+  await act(async () => card.dispatchEvent(new MouseEvent("mousemove", at)));
+  expect(selected()).toBe("Graphique");
 });
 
 test("WidgetPicker mouse down on a card keeps the focus in the filter", async () => {

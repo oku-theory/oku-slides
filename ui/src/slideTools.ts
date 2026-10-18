@@ -2,11 +2,11 @@
 
 import type { AddWidget } from "./api";
 
-/** Éléments natifs du carrousel d'ajout, dans l'ordre des cartes. */
+/** Éléments natifs de la grille d'ajout, dans l'ordre des cartes. */
 export const ADD_KINDS = ["text", "card", "shape", "chart", "table"] as const;
 export type AddKind = (typeof ADD_KINDS)[number];
 
-/** Widgets du pack du carrousel d'ajout : sans ceux qui portent le nom d'un élément natif. */
+/** Widgets du pack de la grille d'ajout : sans ceux qui portent le nom d'un élément natif. */
 export function packOnlyWidgets(list: AddWidget[]): AddWidget[] {
   return list.filter((w) => !(ADD_KINDS as readonly string[]).includes(w.name));
 }

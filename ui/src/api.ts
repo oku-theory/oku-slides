@@ -49,7 +49,7 @@ export interface Appearance {
 export interface AddWidget {
   name: string;
   label: string | null;
-  /** Ce que montre le widget, en une phrase ; cherché par le filtre du carrousel. */
+  /** Ce que montre le widget, en une phrase ; cherché par le filtre de la grille d'ajout. */
   description: string | null;
 }
 

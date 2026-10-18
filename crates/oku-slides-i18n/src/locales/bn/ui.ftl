@@ -264,8 +264,7 @@ ui-picker-list = স্লাইড টেমপ্লেট
 ui-widget-picker-filter = নাম, লেবেল বা বিবরণ দিয়ে ফিল্টার করুন
 ui-widget-picker-empty = “{ $query }”-এর সঙ্গে কোনো উইজেট মেলে না।
 ui-widget-picker-list = উইজেট
-ui-widget-picker-previous = আগের উইজেট
-ui-widget-picker-next = পরের উইজেট
+ui-widget-picker-keys = দেখতে তীরচিহ্ন · যোগ করতে Enter · বন্ধ করতে Esc
 
 ## চার্ট
 

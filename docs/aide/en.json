@@ -143,7 +143,7 @@
            "bold": true
           },
           {
-           "t": ": one button opens the add carousel (text, card, shape, chart, table and pack widgets), filtered by name, label or description; undo, redo."
+           "t": ": one button opens the add grid (text, card, shape, chart, table and pack widgets), filtered by name, label or description; undo, redo."
           }
          ],
          "list": "bullet"

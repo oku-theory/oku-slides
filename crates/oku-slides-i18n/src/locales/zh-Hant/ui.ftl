@@ -264,8 +264,7 @@ ui-picker-list = 投影片範本
 ui-widget-picker-filter = 依名稱、標籤或說明篩選
 ui-widget-picker-empty = 沒有符合「{ $query }」的小工具。
 ui-widget-picker-list = 小工具
-ui-widget-picker-previous = 上一個小工具
-ui-widget-picker-next = 下一個小工具
+ui-widget-picker-keys = 方向鍵瀏覽 · Enter 新增 · Esc 關閉
 
 ## 圖表
 

@@ -264,8 +264,7 @@ ui-picker-list = スライドテンプレート
 ui-widget-picker-filter = 名前、ラベル、説明で絞り込む
 ui-widget-picker-empty = 「{ $query }」に一致するウィジェットはありません。
 ui-widget-picker-list = ウィジェット
-ui-widget-picker-previous = 前のウィジェット
-ui-widget-picker-next = 次のウィジェット
+ui-widget-picker-keys = 矢印キーで移動 · Enter で追加 · Esc で閉じる
 
 ## グラフ
 

@@ -264,8 +264,7 @@ ui-picker-list = Diasjablonen
 ui-widget-picker-filter = Filteren op naam, label of beschrijving
 ui-widget-picker-empty = Geen widget komt overeen met ‘{ $query }’.
 ui-widget-picker-list = Widgets
-ui-widget-picker-previous = Vorige widget
-ui-widget-picker-next = Volgende widget
+ui-widget-picker-keys = Pijltjes om te bladeren · Enter om toe te voegen · Esc om te sluiten
 
 ## Grafiek
 

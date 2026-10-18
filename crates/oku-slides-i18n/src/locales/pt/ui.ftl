@@ -264,8 +264,7 @@ ui-picker-list = Modelos de slide
 ui-widget-picker-filter = Filtrar por nome, rótulo ou descrição
 ui-widget-picker-empty = Nenhum widget corresponde a “{ $query }”.
 ui-widget-picker-list = Widgets
-ui-widget-picker-previous = Widget anterior
-ui-widget-picker-next = Próximo widget
+ui-widget-picker-keys = Setas para navegar · Enter para adicionar · Esc para fechar
 
 ## Gráfico
 

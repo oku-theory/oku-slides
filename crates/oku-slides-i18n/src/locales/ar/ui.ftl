@@ -272,8 +272,7 @@ ui-picker-list = قوالب الشرائح
 ui-widget-picker-filter = التصفية حسب الاسم أو التسمية أو الوصف
 ui-widget-picker-empty = لا توجد أداة تطابق «{ $query }».
 ui-widget-picker-list = الأدوات
-ui-widget-picker-previous = الأداة السابقة
-ui-widget-picker-next = الأداة التالية
+ui-widget-picker-keys = الأسهم للتصفح · Enter للإضافة · Esc للإغلاق
 
 ## المخطط
 

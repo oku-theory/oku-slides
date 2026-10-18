@@ -264,8 +264,7 @@ ui-picker-list = Slayt şablonları
 ui-widget-picker-filter = Ada, etikete veya açıklamaya göre filtrele
 ui-widget-picker-empty = “{ $query }” ile eşleşen widget yok.
 ui-widget-picker-list = Widget'lar
-ui-widget-picker-previous = Önceki widget
-ui-widget-picker-next = Sonraki widget
+ui-widget-picker-keys = Gezinmek için oklar · Eklemek için Enter · Kapatmak için Esc
 
 ## Grafik
 

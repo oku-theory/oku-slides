@@ -264,8 +264,7 @@ ui-picker-list = Plantillas de diapositivas
 ui-widget-picker-filter = Filtrar por nombre, etiqueta o descripción
 ui-widget-picker-empty = Ningún widget coincide con «{ $query }».
 ui-widget-picker-list = Widgets
-ui-widget-picker-previous = Widget anterior
-ui-widget-picker-next = Widget siguiente
+ui-widget-picker-keys = Flechas para recorrer · Intro para añadir · Esc para cerrar
 
 ## Gráfico
 

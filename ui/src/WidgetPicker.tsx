@@ -1,9 +1,10 @@
-// Carrousel d'ajout : les éléments natifs et les widgets du pack, filtrés par nom ou description.
+// Grille d'ajout : les éléments natifs et les widgets du pack, filtrés par nom ou description.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { WidgetPreview } from "./api";
 import { t } from "./i18n";
+import { gridStep, rowLength, type GridKey } from "./gridNav";
 import { Icon } from "./icons";
 import { useModalFrame } from "./modalFrame";
 import { filterChoices, type WidgetChoice } from "./widgetChoices";
@@ -24,15 +25,15 @@ interface Props {
 }
 
 /**
- * Fenêtre modale du bouton d'ajout : un champ de filtre, puis la bande des cartes.
+ * Fenêtre modale du bouton d'ajout : un champ de filtre, puis la grille des cartes.
  *
- * Depuis le filtre, ← → parcourent les cartes ajoutables (au bord du texte seulement, pour ne
- * pas voler le curseur), Entrée ajoute celle au focus ; Échap ferme.
+ * Depuis le filtre, les flèches parcourent les cartes ajoutables (← → au bord du texte seulement,
+ * pour ne pas voler le curseur), Entrée ajoute celle au focus ; Échap ferme.
  */
 export default function WidgetPicker({ choices, canPick, themeKey, preview, onPick, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  const strip = useRef<HTMLDivElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
   const { onClickCapture, armed } = useModalFrame(ref, { onEscape: onClose });
   const [query, setQuery] = useState("");
   const urls = usePreviewUrls(choices, themeKey, preview);
@@ -47,17 +48,29 @@ export default function WidgetPicker({ choices, canPick, themeKey, preview, onPi
 
   // Le filtre prend le focus à l'ouverture (le cadre l'a d'abord posé sur la fenêtre).
   useEffect(() => input.current?.focus(), []);
-  // La carte au focus reste visible dans la bande.
+  // Dernière position du pointeur : après un défilement, WebKit renvoie un mousemove sans
+  // mouvement, qui ne doit pas voler le focus donné au clavier.
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+
+  // La carte au focus reste visible dans la grille (sans animation si l'utilisateur la refuse).
   useEffect(() => {
-    strip.current?.children[at]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    const smooth = !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    grid.current?.children[at]?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "nearest" });
   }, [at, focused?.key]);
 
-  /** La carte ajoutable suivante dans le sens `step`, ou celle au focus s'il n'y en a pas. */
-  const move = (step: 1 | -1) => {
-    if (at < 0) return;
-    for (let i = at + step; i >= 0 && i < shown.length; i += step) {
-      if (canPick(shown[i])) return setFocusKey(shown[i].key);
-    }
+  /** Passe à la carte ajoutable voisine dans le sens `key` ; ↑ ↓ lisent les colonnes à l'écran. */
+  const move = (key: GridKey) => {
+    const columns = key === "up" || key === "down" ? rowLength(cardTops(grid.current)) : 1;
+    const next = gridStep(at, key, columns, shown.length, (i) => canPick(shown[i]));
+    if (next !== at) setFocusKey(shown[next].key);
+  };
+
+  /** Le pointeur a vraiment bougé sur la carte `c` : elle prend le focus. */
+  const hover = (c: WidgetChoice, e: MouseEvent) => {
+    const last = pointer.current;
+    if (last && last.x === e.clientX && last.y === e.clientY) return;
+    pointer.current = { x: e.clientX, y: e.clientY };
+    if (canPick(c) && c.key !== focused?.key) setFocusKey(c.key);
   };
 
   const pick = (c: WidgetChoice | undefined) => {
@@ -65,14 +78,18 @@ export default function WidgetPicker({ choices, canPick, themeKey, preview, onPi
   };
 
   // Les touches restent dans la fenêtre : rien n'atteint les raccourcis de l'app. Seul le filtre
-  // pilote les cartes ; ailleurs (fermer, précédent, suivant), le bouton fait son travail.
+  // pilote les cartes ; ailleurs (fermer), le bouton fait son travail.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     e.stopPropagation();
     const field = input.current;
     if (e.target !== field || !field || e.nativeEvent.isComposing) return;
+    // Avec une touche de modification, les flèches gardent leur rôle dans le champ (sélection…).
+    const plain = !(e.shiftKey || e.altKey || e.metaKey || e.ctrlKey);
     const caret = field.selectionStart === field.selectionEnd ? field.selectionStart : null;
-    if (e.key === "ArrowRight" && caret === field.value.length) move(1);
-    else if (e.key === "ArrowLeft" && caret === 0) move(-1);
+    if (e.key === "ArrowRight" && plain && caret === field.value.length) move("right");
+    else if (e.key === "ArrowLeft" && plain && caret === 0) move("left");
+    else if (e.key === "ArrowDown" && plain) move("down");
+    else if (e.key === "ArrowUp" && plain) move("up");
     else if (e.key === "Enter" && armed) pick(focused);
     else return;
     e.preventDefault();
@@ -110,40 +127,32 @@ export default function WidgetPicker({ choices, canPick, themeKey, preview, onPi
               setFocusKey(null);
             }}
           />
-          <span className="caption">{t("ui-picker-keys")}</span>
+          <span className="caption">{t("ui-widget-picker-keys")}</span>
           <button className="object token" aria-label={t("ui-picker-close")} onClick={onClose}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
-        <div className="picker-row">
-          <button className="object token picker-nav" aria-label={t("ui-widget-picker-previous")} disabled={at <= 0 || !shown.slice(0, at).some(canPick)} onMouseDown={keepFilterFocus} onClick={() => move(-1)}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-          </button>
-          <div className="picker-strip" ref={strip} id="widget-picker-list" role="listbox" aria-label={t("ui-widget-picker-list")}>
-            {shown.map((c, i) => (
-              <button
-                key={c.key}
-                id={optionId(i)}
-                role="option"
-                aria-selected={i === at}
-                className={`template widget-choice${i === at ? " focused" : ""}`}
-                disabled={!canPick(c)}
-                tabIndex={-1}
-                onMouseDown={keepFilterFocus}
-                onMouseMove={() => canPick(c) && c.key !== focused?.key && setFocusKey(c.key)}
-                onClick={() => pick(c)}
-              >
-                <span className="widget-choice-face">
-                  {"native" in c.pick ? Icon[c.pick.native] : urls.has(c.name) ? <img src={urls.get(c.name)} alt="" draggable={false} /> : Icon.widget}
-                </span>
-                <span className="template-name">{c.label}</span>
-                <span className="caption">{c.description}</span>
-              </button>
-            ))}
-          </div>
-          <button className="object token picker-nav" aria-label={t("ui-widget-picker-next")} disabled={at < 0 || !shown.slice(at + 1).some(canPick)} onMouseDown={keepFilterFocus} onClick={() => move(1)}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-          </button>
+        <div className="widget-picker-grid" ref={grid} id="widget-picker-list" role="listbox" aria-label={t("ui-widget-picker-list")}>
+          {shown.map((c, i) => (
+            <button
+              key={c.key}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === at}
+              className={`widget-choice${i === at ? " focused" : ""}`}
+              disabled={!canPick(c)}
+              tabIndex={-1}
+              onMouseDown={keepFilterFocus}
+              onMouseMove={(e) => hover(c, e)}
+              onClick={() => pick(c)}
+            >
+              <span className="widget-choice-face">
+                {"native" in c.pick ? Icon[c.pick.native] : urls.has(c.name) ? <img src={urls.get(c.name)} alt="" draggable={false} /> : Icon.widget}
+              </span>
+              <span className="template-name">{c.label}</span>
+              <span className="caption">{c.description}</span>
+            </button>
+          ))}
         </div>
         {/* Hors de la liste (qui n'a que des options) : annoncé quand le filtre ne garde rien. */}
         <p className="caption widget-picker-empty" role="status">
@@ -157,6 +166,11 @@ export default function WidgetPicker({ choices, canPick, themeKey, preview, onPi
 /** Un clic de souris ne prend pas le focus : le filtre le garde, et le clavier pilote encore les cartes. */
 function keepFilterFocus(e: MouseEvent) {
   e.preventDefault();
+}
+
+/** Hauteur de chaque carte de `list` dans la mise en page, dans l'ordre. */
+function cardTops(list: HTMLElement | null): number[] {
+  return list ? [...list.children].map((el) => (el instanceof HTMLElement ? el.offsetTop : 0)) : [];
 }
 
 /** Identifiant de la carte `i`, que le filtre désigne à un lecteur d'écran. */
