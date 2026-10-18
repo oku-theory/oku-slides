@@ -155,7 +155,7 @@ impl Session {
 
     /// SVG de la slide de `spec` dans chaque variante, rendue dans son emplacement.
     fn render_variants(&mut self, spec: &ShowVariants) -> Result<Vec<Arc<str>>> {
-        let pack = self.usable_pack()?;
+        let set = self.usable_packs()?;
         let tokens = self.theme_tokens(self.doc.sources.deck());
         let renderer = match &mut self.variant_renderer {
             Some(r) => r,
@@ -163,7 +163,7 @@ impl Session {
                 &self.worker,
                 self.render_fonts.clone(),
                 &self.localizer,
-                pack.as_ref(),
+                &set,
                 &self.registry,
             )?),
         };

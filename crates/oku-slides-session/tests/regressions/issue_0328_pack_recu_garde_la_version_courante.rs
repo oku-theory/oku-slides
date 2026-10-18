@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use oku_slides_core::{Op, PackFiles, PackRef, PackVersion};
+use oku_slides_core::{Namespace, Op, PackFiles, PackPin, PackVersion};
 use oku_slides_session::{DEFAULT_PACK, PackLibrary, PackManifest, Request, Storage, builtin_versions};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -16,13 +16,21 @@ use crate::common::{data_dir, session_in};
 
 fn library(data: &Path) -> PackLibrary {
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.join("templates")), storage)
+    PackLibrary::new(Some(data.join("widgets")), storage)
+}
+
+/// L'espace de noms du pack `id` : `essentiel` pour le pack par défaut, sinon `pack`.
+fn namespace(id: Uuid) -> Namespace {
+    let name = if id == DEFAULT_PACK { "essentiel" } else { "pack" };
+    Namespace::parse(name).unwrap_or_else(|| panic!("espace de noms"))
 }
 
 fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) -> PackFiles {
     let m = PackManifest {
         id,
         name: name.into(),
+        namespace: namespace(id),
+        requires: vec![],
         description: String::new(),
         parent: parent.cloned(),
         created: created.into(),
@@ -37,8 +45,8 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
 fn received(them: &Path, id: Uuid, pack: &PackFiles) -> PathBuf {
     library(them).add_version(id, pack).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(them);
-    let r = PackRef { id, version: pack.version() };
-    s.apply("Pack", vec![Op::SetTemplates { templates: Some(r) }], None).unwrap_or_else(|e| panic!("{e}"));
+    let pin = PackPin { id, version: pack.version(), requires: Vec::new() };
+    s.apply("Pack", vec![Op::AddPack { namespace: namespace(id), pin }], None).unwrap_or_else(|e| panic!("{e}"));
     let path = them.join("recu.oku-slides.pdf");
     s.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap_or_else(|e| panic!("{e}"));
     path
@@ -60,7 +68,8 @@ fn received_deck_with_the_same_pack_id_never_changes_the_current_version() {
     let lib = library(&me);
     assert_that!(lib.current(id)).is_equal_to(Some(mine.version()));
     assert_that!(lib.versions(id).len()).is_equal_to(2);
-    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(theirs.version()));
+    let pinned = s.deck().widgets.get(&namespace(id)).map(|r| r.version.clone());
+    assert_that!(pinned).is_equal_to(Some(theirs.version()));
 }
 
 #[test]

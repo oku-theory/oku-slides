@@ -18,6 +18,7 @@ diagnostic-hint = संकेत: { $hint }
 render-chart-failed = चार्ट बनाया नहीं जा सका
 
 registry-bad-pack-id = अमान्य टेम्पलेट पैक पहचानकर्ता: { $id }
+registry-duplicate-pack = प्रेज़ेंटेशन के दो विजेट पैक { $pack } साझा करते हैं।
 registry-compile = टेम्पलेट पैक के विजेट कंपाइल नहीं हो सके
 registry-missing = टेम्पलेट पैक अपने विजेट घोषित नहीं करता
 render-timeout = रेंडरिंग में { $seconds } सेकंड से अधिक लगे और उसे रोक दिया गया

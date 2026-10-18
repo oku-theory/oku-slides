@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, WidgetFile};
-use oku_slides_render::{Fonts, PackWidgets, Renderer, load_registry, probe_file};
+use oku_slides_core::{Deck, Namespace, WidgetFile};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, load_registry, probe_file};
 use speculoos::prelude::*;
 
 const KPI: &str = include_str!("../../../fixtures/widgets/kpi/kpi.typ");
@@ -26,13 +26,14 @@ fn readme_example_widget_probes_valid_and_renders_its_fields() {
     let fonts = Fonts::default();
     assert_that!(probe_file(&fonts, &wf("kpi"), KPI, Some(COMMON)).is_valid()).is_true();
     let files = BTreeMap::from([(wf("kpi"), KPI.to_owned()), (wf("_commun"), COMMON.to_owned())]);
-    let pack = PackWidgets::new("exemple", files).unwrap();
-    let registry = Arc::new(load_registry(&fonts, Some(&pack)).unwrap());
+    let set = PackSet::new(vec![PackWidgets::new("exemple", Namespace::parse("exemple").unwrap(), files).unwrap()])
+        .unwrap_or_else(|e| panic!("{e}"));
+    let registry = Arc::new(load_registry(&fonts, &set).unwrap());
     let mut r = Renderer::new(fonts).unwrap();
-    r.set_widgets(Some(&pack), registry).unwrap();
+    r.set_widgets(&set, registry).unwrap();
     let deck = Deck::from_json(
-        r#"{"version":5,"slides":[{"id":"s","kind":"content","params":{"blocks":[
-            {"id":"k","kind":"kpi","params":{"value":"42 %","label":"Croissance"}}]}}]}"#,
+        r#"{"version":6,"slides":[{"id":"s","kind":"content","params":{"blocks":[
+            {"id":"k","kind":"exemple/kpi","params":{"value":"42 %","label":"Croissance"}}]}}]}"#,
     )
     .unwrap();
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap();

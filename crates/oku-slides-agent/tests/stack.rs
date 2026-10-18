@@ -329,7 +329,7 @@ async fn kpi_renamed_then_recreated() -> (common::TestStack, common::Relayed, st
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
     stack.on_session("t-1", |s| {
         s.edit_templates(DEFAULT_PACK).unwrap_or_else(|e| panic!("édition du pack : {e}"));
-        s.set_widget("kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}"));
+        s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}"));
     });
     // 1re liste : la relecture des fils ; 2e : ce `resync`.
     stack
@@ -340,9 +340,9 @@ async fn kpi_renamed_then_recreated() -> (common::TestStack, common::Relayed, st
         .handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "scope": widget("kpi"), "text": "un" })))
         .unwrap_or_else(|e| panic!("commande : {e}"));
     wait_turn_done(&rx, "t-1", 1).await;
-    stack.on_session("t-1", |s| s.rename_widget("kpi", "ancien").unwrap_or_else(|e| panic!("widget : {e}")));
+    stack.on_session("t-1", |s| s.rename_widget(None, "kpi", "ancien").unwrap_or_else(|e| panic!("widget : {e}")));
     stack.after_change("t-1");
-    stack.on_session("t-1", |s| s.set_widget("kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}")));
+    stack.on_session("t-1", |s| s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}")));
     stack.after_change("t-1");
     (stack, rx, log)
 }

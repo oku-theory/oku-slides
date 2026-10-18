@@ -3,14 +3,16 @@
 //! On édite la version courante du pack. Une version par session
 //! d'édition : le premier enregistrement crée une version (`parent` = la
 //! courante au début de la session), la rend courante, l'embarque dans le
-//! deck mis de côté, qui y passe (`SetTemplates`, une seule étape
+//! deck mis de côté, qui l'épingle sous son espace de noms (une seule étape
 //! d'annulation) ; les suivants la remplacent (`Library::replace_version`,
 //! même parente, l'intermédiaire quitte la bibliothèque et les sources des
 //! deux documents si l'enregistrement a rejoint son étape d'annulation ;
 //! sinon il y reste, annuler y revenant),
 //! jusqu'à la sortie du mode modèles.
-//! « Enregistrer comme copie » : un nouvel id, sans parente, et la session
-//! continue sur la copie. Un pack intégré suit la même règle, sous son id.
+//! « Enregistrer comme copie » : un nouvel id, sans parente, un nouvel espace
+//! de noms tiré de son nom (`namespace_slug`), et la session continue sur la
+//! copie. Un pack intégré suit la même règle, sous son id.
+//! Le deck des modèles épingle le pack édité et ses besoins, rien d'autre.
 //! Un pack du deck seul (import) part de la version qu'embarque le deck ;
 //! ses versions, copie comprise, restent dans le deck (`templates_library`).
 //! Le thème du deck s'y édite en brouillon (voir `theme_edit`).
@@ -21,15 +23,17 @@ use std::sync::Arc;
 use snafu::{OptionExt, ResultExt};
 use uuid::Uuid;
 
-use oku_slides_core::{Deck, PackFiles, PackRef, PackVersion, Slide, SourceBundle};
+use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, PackVersion, Slide, SourceBundle};
 use oku_slides_i18n::Localize;
 
+use crate::deck_closure::{Pinned, closure_with_files};
 use crate::error::{
     InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu, RenderSnafu,
     SourcesSnafu, UnknownPackSnafu,
 };
 use crate::library::PackLibrary;
 use crate::library_kind::StoredVersion;
+use crate::namespace_slug::{library_namespace, rename_namespace};
 use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, PackScope, Template, now_created};
 use crate::template_scratch::TemplateScratch;
 use crate::templates_library::{restore_session_version, write_session_version};
@@ -49,7 +53,8 @@ pub(crate) fn adopt_merge_key(id: Uuid, parent: Option<&PackVersion>) -> String 
 /// Aperçus de modèles en cache, avec ce dont ils dépendent : la version du
 /// pack et le style du deck (le deck d'aperçu les porte).
 pub(crate) struct Previews {
-    pub(crate) key: PackRef,
+    /// Le pack montré : id et version.
+    pub(crate) key: (Uuid, PackVersion),
     pub(crate) deck: Deck,
     pub(crate) views: Arc<[TemplateView]>,
 }
@@ -64,7 +69,7 @@ fn template_slide(t: Template) -> Slide {
 }
 
 /// Un deck qui a le style de `base` (thème, jetons, paramètres, variables,
-/// pack de modèles) et ces slides.
+/// packs épinglés) et ces slides.
 pub(crate) fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
     Deck {
         version: base.version,
@@ -72,7 +77,7 @@ pub(crate) fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
         params: base.params.clone(),
         vars: base.vars.clone(),
         tokens: base.tokens.clone(),
-        templates: base.templates.clone(),
+        widgets: base.widgets.clone(),
         slides,
     }
 }
@@ -80,6 +85,20 @@ pub(crate) fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
 /// Même style : même thème, mêmes jetons, paramètres et variables.
 fn same_style(a: &Deck, b: &Deck) -> bool {
     a.theme == b.theme && a.tokens == b.tokens && a.params == b.params && a.vars == b.vars
+}
+
+/// L'épinglage de la version `files` du pack `manifest`, sous son espace de noms.
+fn pinned(manifest: &PackManifest, version: PackVersion, files: PackFiles) -> Pinned {
+    let pin = PackPin { id: manifest.id, version, requires: manifest.requires.clone() };
+    (manifest.namespace.clone(), pin, files)
+}
+
+/// Épingle `packs` dans `deck` et les embarque dans `sources` (en ajout seul).
+fn pin_all(deck: &mut Deck, sources: &mut SourceBundle, packs: Vec<Pinned>) {
+    for (ns, pin, files) in packs {
+        sources.add_pack(files);
+        deck.widgets.insert(ns, pin);
+    }
 }
 
 impl Session {
@@ -96,7 +115,7 @@ impl Session {
         // Le pack du deck seul (celui d'un import) part de sa version embarquée.
         let stored = self.templates_base(id)?;
         let deck_only = !stored.manifest.scope.is_library();
-        let r = PackRef { id, version: stored.version.clone() };
+        let version = stored.version.clone();
         let slides = stored.manifest.templates.iter().cloned().map(template_slide).collect();
         // Le brouillon du thème : gardé d'un pack à l'autre, sinon le thème du deck.
         let (theme, tokens) = match &self.mode {
@@ -109,18 +128,27 @@ impl Session {
         deck.theme = None;
         deck.tokens = tokens_value(tokens);
         deck.params.title = Some(stored.manifest.name.clone());
-        deck.templates = Some(r.clone());
-        let packs = BTreeMap::from([(r.version.clone(), stored.files.clone())]);
-        let (widgets, notice) = self.resolve_widgets(Some(&r), &packs)?;
+        // Le pack édité et ses besoins, seuls : les autres packs du deck n'y servent pas.
+        deck.widgets.clear();
+        let edited = pinned(&stored.manifest, version.clone(), stored.files);
+        let packs = closure_with_files(&self.library, &deck, edited, &self.user_blobs().packs)?;
+        for (ns, pin, _) in &packs {
+            deck.widgets.insert(ns.clone(), pin.clone());
+        }
+        let files: BTreeMap<PackVersion, PackFiles> =
+            packs.iter().map(|(_, pin, f)| (pin.version.clone(), f.clone())).collect();
+        let (widgets, notice) = self.resolve_widgets(&deck.widgets, &files)?;
         let mut sources = SourceBundle::new(deck, widgets.registry.clone()).context(SourcesSnafu)?;
-        sources.add_pack(stored.files);
+        for f in files.into_values() {
+            sources.add_pack(f);
+        }
         let templates = Document::new(sources, None, &self.doc_defaults);
         let edit = TemplateMode {
             set: id,
             name: stored.manifest.name,
             builtin: PackLibrary::is_builtin(id),
-            base: r.version.clone(),
-            parent: Some(r.version),
+            base: version.clone(),
+            parent: Some(version),
             session_version: None,
             deck_only,
         };
@@ -162,27 +190,36 @@ impl Session {
         Ok(())
     }
 
-    /// Le `pack.json` que montre `deck`, le deck des modèles en cours d'édition.
+    /// Le `widgets.json` que montre `deck`, le deck des modèles en cours d'édition.
     ///
     /// `kept` : la dernière version enregistrée, dont la description, les
-    /// valeurs d'exemple et la portée restent ; sans elle, la portée de
-    /// l'édition (`deck_only`).
+    /// valeurs d'exemple, la portée, l'espace de noms et les besoins restent ;
+    /// sans elle, la portée de l'édition (`deck_only`). Un nouveau pack de la
+    /// bibliothèque (`fresh` : une copie, ou sans `kept`) prend un espace de
+    /// noms libre tiré de son nom ; un nouveau pack du deck seul garde celui
+    /// de `kept`, sinon `deck`.
     fn edited_manifest(
         &self,
         deck: &Deck,
-        (id, parent): (Uuid, Option<PackVersion>),
+        (id, parent, fresh): (Uuid, Option<PackVersion>, bool),
         deck_only: bool,
         kept: Option<PackManifest>,
-    ) -> PackManifest {
+    ) -> Result<PackManifest> {
         let fallback = if deck_only { PackScope::Deck } else { PackScope::Library };
         let scope = kept.as_ref().map_or(fallback, |m| m.scope);
-        let (description, examples) = kept.map(|m| (m.description, m.examples)).unwrap_or_default();
         let name = deck
             .params
             .title
             .clone()
             .filter(|n| !n.trim().is_empty())
             .unwrap_or_else(|| self.localizer.tr("templates-default-name"));
+        let namespace = match kept.as_ref().map(|m| m.namespace.clone()) {
+            Some(ns) if !fresh || !scope.is_library() => ns,
+            None if !scope.is_library() => Namespace::deck(),
+            _ => library_namespace(&self.library, &name)?,
+        };
+        let requires = kept.as_ref().map(|m| m.requires.clone()).unwrap_or_default();
+        let (description, examples) = kept.map(|m| (m.description, m.examples)).unwrap_or_default();
         let templates = deck
             .slides
             .iter()
@@ -198,7 +235,18 @@ impl Session {
                 Template { id: s.id.clone(), name, description, slide }
             })
             .collect();
-        PackManifest { id, name, description, parent, created: now_created(), scope, templates, examples }
+        Ok(PackManifest {
+            id,
+            name,
+            namespace,
+            requires,
+            description,
+            parent,
+            created: now_created(),
+            scope,
+            templates,
+            examples,
+        })
     }
 
     /// Enregistre le pack édité dans la version de cette session d'édition.
@@ -228,7 +276,15 @@ impl Session {
         let kept = base.and_then(|f| PackManifest::from_files(f).ok());
         let widgets = base.map(|f| f.widgets().clone()).unwrap_or_default();
         let (id, parent) = if as_new { (Uuid::new_v4(), None) } else { (edit.set, edit.parent.clone()) };
-        let manifest = self.edited_manifest(&deck, (id, parent), edit.deck_only, kept);
+        let old = kept.as_ref().map(|m| m.namespace.clone());
+        let mut manifest = self.edited_manifest(&deck, (id, parent, as_new), edit.deck_only, kept)?;
+        // Une copie sous un autre espace de noms : ses modèles et le deck des modèles suivent ses widgets.
+        if let Some(old) = old.filter(|old| *old != manifest.namespace) {
+            let slides = deck.slides.iter_mut().chain(manifest.templates.iter_mut().map(|t| &mut t.slide));
+            for slide in slides {
+                rename_namespace(slide, &old, &manifest.namespace);
+            }
+        }
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id })?;
         self.adopt_session_version(deck, files, &edit, as_new, None)?;
         // Le brouillon du thème, s'il change le thème du deck, rejoint l'étape du pack.
@@ -274,25 +330,27 @@ impl Session {
         let replaced = edit.session_version.as_ref().filter(|_| !as_new);
         let version = write_session_version(&self.library, id, replaced, &files)?;
         let deck_only = !manifest.scope.is_library();
-        let r = PackRef { id, version: version.clone() };
         let merge = adopt_merge_key(id, parent.as_ref());
         // Le document des modèles passe à la nouvelle version : une étape pour
         // une écriture de widget (clé de séance, ou groupe du tour), rien pour
         // un enregistrement. Ses versions restent dans ses sources : une
-        // étape peut y ramener.
-        self.doc.sources.add_pack(files.clone());
-        deck.templates = Some(r.clone());
+        // étape peut y ramener. Une copie remplace le pack d'origine.
+        let edited = pinned(&manifest, version.clone(), files.clone());
+        deck.widgets.retain(|_, p| p.id != edit.set);
+        let packs = closure_with_files(&self.library, &deck, edited.clone(), &self.doc.sources.packs)?;
+        pin_all(&mut deck, &mut self.doc.sources, packs);
         match step {
             Some(label) => self.doc.sources.apply(deck, label, Some(&merge)),
             None => self.doc.sources.apply_silent(deck),
         }
         .context(SourcesSnafu)?;
         let label = self.localizer.tr_with("templates-adopt-label", &[("name", manifest.name.as_str().into())]);
+        let held = self.doc.sources.packs.clone();
         if let Mode::Templates { stash, edit, .. } = &mut self.mode {
-            // Le deck mis de côté embarque la version et y passe, en une étape d'annulation.
-            stash.sources.add_pack(files);
+            // Le deck mis de côté embarque la version (et ses besoins) et l'épingle, en une étape d'annulation.
             let mut user = stash.sources.deck().clone();
-            user.templates = Some(r);
+            let packs = closure_with_files(&self.library, &user, edited, &held)?;
+            pin_all(&mut user, &mut stash.sources, packs);
             let steps = stash.sources.undo_steps();
             stash.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
             stash.dirty = true;
@@ -329,29 +387,26 @@ impl Session {
     /// version, dans l'étape de la séance.
     pub(crate) fn realign_templates(&mut self) -> Result<()> {
         self.realign_theme_edit();
-        let Some(r) = self.doc.sources.deck().templates.clone() else { return Ok(()) };
-        let Mode::Templates { stash, edit, .. } = &mut self.mode else { return Ok(()) };
         // Une copie vide l'historique du document (`save_templates`) : aucune
         // étape ne ramène à un autre pack que celui de l'édition.
-        debug_assert_eq!(r.id, edit.set, "annuler a ramené le document à un autre pack");
-        if r.id != edit.set || r.version == edit.base {
+        let Some((ns, pin)) = self.edited_pin().map(|(ns, pin)| (ns.clone(), pin.clone())) else { return Ok(()) };
+        let held = self.doc.sources.packs.clone();
+        let Mode::Templates { stash, edit, .. } = &mut self.mode else { return Ok(()) };
+        if pin.version == edit.base {
             return Ok(());
         }
-        let files = self
-            .doc
-            .sources
-            .packs
-            .get(&r.version)
+        let files = held
+            .get(&pin.version)
             .cloned()
-            .context(PackVersionMissingSnafu { id: r.id, version: r.version.clone() })?;
-        restore_session_version(&self.library, r.id, &files);
-        edit.base = r.version.clone();
-        edit.session_version = (edit.parent.as_ref() != Some(&r.version)).then(|| r.version.clone());
+            .context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
+        restore_session_version(&self.library, pin.id, &files);
+        edit.base = pin.version.clone();
+        edit.session_version = (edit.parent.as_ref() != Some(&pin.version)).then(|| pin.version.clone());
         let label = self.localizer.tr_with("templates-adopt-label", &[("name", edit.name.as_str().into())]);
         let merge = adopt_merge_key(edit.set, edit.parent.as_ref());
-        stash.sources.add_pack(files);
         let mut user = stash.sources.deck().clone();
-        user.templates = Some(r);
+        let packs = closure_with_files(&self.library, &user, (ns, pin, files), &held)?;
+        pin_all(&mut user, &mut stash.sources, packs);
         stash.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
         stash.dirty = true;
         self.template_cache = None;
@@ -380,22 +435,24 @@ impl Session {
         Ok(())
     }
 
-    /// La version d'un pack à montrer : celle qu'embarque le deck pour son
-    /// propre pack, la courante pour un autre ; un pack disparu : celui du deck.
+    /// Le pack édité, tel qu'épinglé par le deck des modèles ; `None` hors du mode modèles.
+    pub(crate) fn edited_pin(&self) -> Option<(&Namespace, &PackPin)> {
+        let Mode::Templates { edit, .. } = &self.mode else { return None };
+        self.doc.sources.deck().widgets.iter().find(|(_, pin)| pin.id == edit.set)
+    }
+
+    /// La version d'un pack à montrer (`None` : le pack par défaut) : celle
+    /// qu'embarque le deck s'il l'épingle, sinon la courante.
     fn shown_version(&self, set: Option<Uuid>) -> Option<StoredVersion<PackManifest>> {
-        let embedded = |r: &PackRef| {
-            let files = self.user_blobs().packs.get(&r.version)?.clone();
+        let id = set.unwrap_or(DEFAULT_PACK);
+        let embedded = |pin: &PackPin| {
+            let files = self.user_blobs().packs.get(&pin.version)?.clone();
             let manifest = PackManifest::from_files(&files).ok()?;
-            let received = self.library.is_received(r.id, &r.version);
-            Some(StoredVersion { version: r.version.clone(), files, manifest, received })
+            let received = self.library.is_received(pin.id, &pin.version);
+            Some(StoredVersion { version: pin.version.clone(), files, manifest, received })
         };
-        let own = self.deck_pack().cloned();
-        match (set, own) {
-            (Some(id), Some(r)) if id != r.id => self.library.current_version(id).or_else(|| embedded(&r)),
-            (Some(id), None) => self.library.current_version(id),
-            (_, Some(r)) => embedded(&r).or_else(|| self.library.current_version(r.id)),
-            (None, None) => self.library.current_version(DEFAULT_PACK),
-        }
+        let pinned = self.deck_pins().values().find(|pin| pin.id == id);
+        pinned.and_then(embedded).or_else(|| self.library.current_version(id))
     }
 
     /// Aperçus d'un pack de modèles, rendus avec le style du deck (en mode modèles, du brouillon du thème).
@@ -406,7 +463,7 @@ impl Session {
     /// une fois.
     pub fn templates_view(&mut self, set: Option<Uuid>) -> Result<TemplatesView> {
         let shown = self.shown_version(set).context(UnknownPackSnafu { id: set.unwrap_or(DEFAULT_PACK) })?;
-        let key = PackRef { id: shown.manifest.id, version: shown.version.clone() };
+        let key = (shown.manifest.id, shown.version.clone());
         let cached = match &self.template_cache {
             Some(p) if p.key == key && same_style(&p.deck, self.style_deck()) => Some(p.views.clone()),
             _ => None,
@@ -428,7 +485,7 @@ impl Session {
 
     /// Rend `deck`, les modèles `templates` au style du deck, dans l'emplacement des aperçus.
     fn render_previews(&mut self, deck: &Deck, templates: &[Template]) -> Result<Arc<[TemplateView]>> {
-        let pack = self.usable_pack()?;
+        let set = self.usable_packs()?;
         let tokens = self.theme_tokens(deck);
         let renderer = match &mut self.template_renderer {
             Some(r) => r,
@@ -436,7 +493,7 @@ impl Session {
                 &self.worker,
                 self.render_fonts.clone(),
                 &self.localizer,
-                pack.as_ref(),
+                &set,
                 &self.registry,
             )?),
         };

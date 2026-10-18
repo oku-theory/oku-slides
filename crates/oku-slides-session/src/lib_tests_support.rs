@@ -37,14 +37,14 @@ pub(crate) fn session_with_fixture() -> Session {
     s
 }
 
-/// Un élément `frise` (widget de pack des tests, id `fr`) aux items par défaut
+/// Un élément `deck/frise` (widget du pack du deck des tests, id `fr`) aux items par défaut
 /// `d0`…`d3`, ajouté aux blocs de `s-constat`.
 fn add_frise() -> oku_slides_core::Op {
     serde_json::from_value(serde_json::json!({
         "op": "add_element",
         "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
         "defaults": true,
-        "element": { "id": "fr", "kind": "frise" }
+        "element": { "id": "fr", "kind": "deck/frise" }
     }))
     .unwrap()
 }
@@ -71,7 +71,7 @@ pub(crate) fn session_with_plan() -> Session {
         "op": "add_element",
         "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
         "defaults": true,
-        "element": { "id": "pl", "kind": "plan" }
+        "element": { "id": "pl", "kind": "deck/plan" }
     }))
     .unwrap();
     s.apply("plan", vec![add], None).unwrap();

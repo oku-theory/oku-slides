@@ -97,11 +97,13 @@ fn sample_ops() -> Vec<Op> {
         Op::SetDeckParam { key: "numbering".into(), value: json!("{n}") },
         Op::SetVar { key: "client".into(), value: json!("Globex") },
         Op::SetVar { key: "confidential".into(), value: json!(null) },
-        Op::SetTemplates {
-            templates: Some(PackRef {
+        Op::AddPack {
+            namespace: Namespace::parse("acme").unwrap_or_else(|| panic!("espace de noms invalide")),
+            pin: PackPin {
                 id: uuid::Uuid::from_u128(7),
                 version: PackVersion::from_hex(&"c".repeat(64)).unwrap_or_else(|| panic!("hex invalide")),
-            }),
+                requires: Vec::new(),
+            },
         },
         Op::SetSlideField { slide: "s-constat".into(), field: SlideField::Name, value: json!("Constat") },
         Op::SetCell {
@@ -325,7 +327,7 @@ fn set_param_on_bound_title_null_clears_deck_params() {
 #[test]
 fn set_param_on_bound_param_to_extra_key_writes_the_extra() {
     let probe = json!({ "base": [{ "name": "cover", "category": "slide",
-        "params": [{ "name": "client", "type": "plain", "bind": "client" }] }], "pack": null });
+        "params": [{ "name": "client", "type": "plain", "bind": "client" }] }], "packs": [] });
     let registry = WidgetRegistry::from_probe(probe).unwrap();
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "cover" }] }));
     set_param(slide("s"), "client", json!("Globex")).apply(&mut deck, &registry).unwrap();
@@ -590,7 +592,7 @@ fn add_element_rejected_by_accepts_returns_slot_rejects() {
           "params": [{ "name": "items", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
         { "name": "text", "category": "element", "params": [{ "name": "body", "type": "rich" }] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "pack": null });
+    ], "packs": [] });
     let registry = WidgetRegistry::from_probe(probe).unwrap();
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "only-text" }] }));
     let items = || slot(slide("s"), "items");
@@ -835,7 +837,7 @@ fn slot_rejects_localizes_with_the_kind() {
           "params": [{ "name": "items", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
         { "name": "text", "category": "element", "params": [] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "pack": null });
+    ], "packs": [] });
     let registry = WidgetRegistry::from_probe(probe).unwrap();
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "only-text" }] }));
     let err = add(slot(slide("s"), "items"), None, Element::new("f", "shape")).apply(&mut deck, &registry).unwrap_err();
@@ -855,7 +857,7 @@ fn accepts_registry() -> WidgetRegistry {
           "params": [{ "name": "children", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
         { "name": "text", "category": "element", "params": [{ "name": "body", "type": "rich" }] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "pack": null }))
+    ], "packs": [] }))
     .unwrap_or_else(|e| panic!("registre de test : {e}"))
 }
 

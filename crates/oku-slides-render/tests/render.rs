@@ -217,7 +217,7 @@ fn chart_deck() -> Deck {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }]
     });
-    let json = serde_json::json!({ "version": 5, "slides": [
+    let json = serde_json::json!({ "version": 6, "slides": [
         { "id": "flux", "kind": "content", "params": { "title": "Ventes",
           "blocks": [{ "id": "g1", "kind": "chart", "params": { "option": option } }] } },
         { "id": "libre", "kind": "blank", "params": {

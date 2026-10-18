@@ -4,6 +4,7 @@
 // sélection courante.
 
 import type { Snapshot, TabApi } from "./api";
+import { pinsKey } from "./packOps";
 import { hasOwnPanel } from "./ownPanel";
 import { type HostSettings, listKey, routeListChange, useSessionSurface } from "./useHostSettings";
 
@@ -41,7 +42,7 @@ export function useTargetSettings(
     // Deux réglages de suite du même champ gardent le même libellé d'annulation : si le rendu
     // (`hash`) ne change pas, la surface n'est pas relue, ce qui est voulu — le champ garde sa
     // valeur locale ; un refus force la relecture (`sync`).
-    key: [current, id, slide?.hash, snap?.editing?.base, snap?.templates?.version, snap?.undo_label, snap?.redo_label].join("|"),
+    key: [current, id, slide?.hash, snap?.editing?.base, pinsKey(snap?.widgets ?? {}), snap?.undo_label, snap?.redo_label].join("|"),
     fetch: (scope) => api.targetSettings(scope.slide, scope.element),
     send: (scope, field, context) =>
       routeListChange(

@@ -209,6 +209,8 @@ pub struct RegistryError(pub(crate) RegistryInner);
 pub enum RegistryErrorKind {
     /// Identifiant de pack refusé (il deviendrait un chemin).
     BadPackId,
+    /// Deux packs d'un ensemble partagent un espace de noms ou un identifiant.
+    DuplicatePack,
     /// Les widgets ne compilent pas (voir [`RegistryError::diagnostics`]).
     Compile,
     /// La sonde n'a pas émis de registre.
@@ -223,6 +225,8 @@ pub enum RegistryErrorKind {
 pub(crate) enum RegistryInner {
     #[snafu(display("invalid template pack identifier: {id}"))]
     BadPackId { id: String, backtrace: Backtrace },
+    #[snafu(display("two widget packs share {pack}"))]
+    DuplicatePack { pack: String, backtrace: Backtrace },
     #[snafu(display("widget compilation failed:\n{}", lines(diagnostics)))]
     RegistryCompile { diagnostics: Vec<Diagnostic>, backtrace: Backtrace },
     #[snafu(display("the widget probe emitted no registry"))]
@@ -241,6 +245,7 @@ impl RegistryError {
     pub fn kind(&self) -> RegistryErrorKind {
         match self.0 {
             RegistryInner::BadPackId { .. } => RegistryErrorKind::BadPackId,
+            RegistryInner::DuplicatePack { .. } => RegistryErrorKind::DuplicatePack,
             RegistryInner::RegistryCompile { .. } => RegistryErrorKind::Compile,
             RegistryInner::Missing { .. } => RegistryErrorKind::Missing,
             RegistryInner::Schema { .. } | RegistryInner::RemoteSchema { .. } => RegistryErrorKind::Schema,
@@ -282,6 +287,9 @@ impl Localize for RegistryError {
     fn localize(&self, l: &Localizer) -> String {
         match &self.0 {
             RegistryInner::BadPackId { id, .. } => l.tr_with("registry-bad-pack-id", &[("id", id.as_str().into())]),
+            RegistryInner::DuplicatePack { pack, .. } => {
+                l.tr_with("registry-duplicate-pack", &[("pack", pack.as_str().into())])
+            }
             RegistryInner::RegistryCompile { diagnostics, .. } => {
                 let mut out = l.tr("registry-compile");
                 for d in diagnostics {

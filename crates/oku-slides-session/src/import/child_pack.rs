@@ -11,13 +11,14 @@
 //! l'annulation défait en rendant le pack cible. La bibliothèque et le pack
 //! cible ne changent jamais.
 //!
+//! L'enfant garde l'espace de noms de la cible et y remplace son épinglage.
 //! L'état de l'import ([`super::ImportState`]) garde ce pack à venir tant
 //! que vit l'onglet ; un deck repris ou relu est un deck ordinaire sur son pack.
 
 use sha2::{Digest, Sha256};
 use uuid::{Builder, Uuid};
 
-use oku_slides_core::{PackRef, PackScope, PackVersion};
+use oku_slides_core::{PackPin, PackScope, PackVersion};
 use oku_slides_i18n::Localizer;
 
 use crate::Session;
@@ -46,7 +47,7 @@ pub(crate) fn child_id(pptx: &[u8], target: &PackVersion) -> Uuid {
 pub(crate) struct ChildPack {
     id: Uuid,
     name: String,
-    target: PackRef,
+    target: PackPin,
 }
 
 impl ChildPack {
@@ -55,26 +56,27 @@ impl ChildPack {
     /// `target` est une version du pack nommé `pack`.
     ///
     /// Son nom est dans la langue `l`, celle de l'interface à l'import.
-    pub(crate) fn new(l: &Localizer, pptx: &[u8], target: PackRef, pack: &str, deck: &str) -> Self {
+    pub(crate) fn new(l: &Localizer, pptx: &[u8], target: PackPin, pack: &str, deck: &str) -> Self {
         let name = l.tr_with("session-import-retrofit-pack", &[("pack", pack.into()), ("deck", deck.into())]);
         Self { id: child_id(pptx, &target.version), name, target }
     }
 
     /// La version cible, que le deck garde tant qu'aucun widget ne s'y écrit.
     #[cfg(test)]
-    pub(crate) fn target(&self) -> &PackRef {
+    pub(crate) fn target(&self) -> &PackPin {
         &self.target
     }
 
     /// Fait d'une écriture sur `t`, la version cible, une écriture sur le pack enfant.
     ///
     /// `manifest` prend l'id, le nom et la portée du deck seul ; la cible
-    /// rendue a les fichiers de la version cible, qui devient la parente.
+    /// rendue a l'espace de noms et les fichiers de la version cible, qui
+    /// devient la parente.
     fn adopt(&self, t: &WidgetTarget, manifest: &mut PackManifest) -> WidgetTarget {
         manifest.id = self.id;
         manifest.name.clone_from(&self.name);
         manifest.scope = PackScope::Deck;
-        WidgetTarget { id: self.id, version: t.version.clone(), files: t.files.clone() }
+        WidgetTarget { namespace: t.namespace.clone(), id: self.id, version: t.version.clone(), files: t.files.clone() }
     }
 }
 

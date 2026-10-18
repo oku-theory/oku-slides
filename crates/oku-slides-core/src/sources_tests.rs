@@ -24,7 +24,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":10}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":11}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -517,6 +517,19 @@ fn restore_of_a_version_without_host_ids_normalizes_it_like_the_preview() {
 #[test]
 fn sources_v7_zip_is_refused() {
     let manifest = br#"{"format":"oku-slides-sources","version":7}"#;
+    let err = SourceBundle::from_zip(
+        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
+        MAX,
+        crate::test_registry::shared(),
+    )
+    .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
+}
+
+/// Sources v10 : refusées (un seul pack de modèles, dossier `packs/`).
+#[test]
+fn sources_v10_zip_is_refused() {
+    let manifest = br#"{"format":"oku-slides-sources","version":10}"#;
     let err = SourceBundle::from_zip(
         &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
         MAX,

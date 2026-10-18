@@ -29,7 +29,7 @@ fn editing_with_kpi(data: &Data) -> Session {
     let mut s = session_in(data);
     assert!(s.resume(data.join("resume")));
     s.edit_templates(DEFAULT_PACK).unwrap_or_else(|e| panic!("édition : {}", e.one_line()));
-    s.set_widget("kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
+    s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
     s
 }
 
@@ -45,7 +45,7 @@ fn other_step(s: &mut Session, value: &str) {
 fn renamed_with_a_conversation(data: &Data) -> Session {
     let mut s = editing_with_kpi(data);
     other_step(&mut s, "a");
-    s.rename_widget("kpi", "indicateur").unwrap_or_else(|e| panic!("renommage : {}", e.one_line()));
+    s.rename_widget(None, "kpi", "indicateur").unwrap_or_else(|e| panic!("renommage : {}", e.one_line()));
     s.keep_agent_session(widget("indicateur"), "sess-b".into(), "agent".into());
     drop(s.take_scope_moves());
     s
@@ -78,7 +78,7 @@ fn undo_of_a_rename_onto_the_conversation_of_a_still_known_widget_overwrites_not
     // de la bibliothèque, qu'annuler ne change pas) : vraie collision, pas une
     // conversation périmée.
     other_step(&mut s, "b");
-    s.set_widget("kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
+    s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
     s.keep_agent_session(widget("kpi"), "sess-a".into(), "agent".into());
     s.undo().unwrap_or_else(|e| panic!("annuler le nouveau kpi : {}", e.one_line()));
     s.undo().unwrap_or_else(|e| panic!("annuler la variable : {}", e.one_line()));
@@ -102,8 +102,8 @@ fn undo_of_a_step_creating_one_widget_and_deleting_another_moves_no_conversation
     let mut s = editing_with_kpi(&data);
     other_step(&mut s, "a");
     // Une seule étape (même séance) : `autre` créé, `kpi` supprimé.
-    s.set_widget("autre", AUTRE.into()).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
-    s.remove_widget("kpi").unwrap_or_else(|e| panic!("suppression : {}", e.one_line()));
+    s.set_widget(None, "autre", AUTRE.into()).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
+    s.remove_widget(None, "kpi").unwrap_or_else(|e| panic!("suppression : {}", e.one_line()));
     s.keep_agent_session(widget("autre"), "sess-x".into(), "agent".into());
     drop(s.take_scope_moves());
 
@@ -119,13 +119,13 @@ fn rename_onto_the_stale_conversation_of_a_deleted_widget_replaces_it() {
     let data = data_dir();
     let mut s = editing_with_kpi(&data);
     let ancien = AUTRE.replace("\"autre\"", "\"indicateur\"");
-    s.set_widget("indicateur", ancien).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
+    s.set_widget(None, "indicateur", ancien).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
     s.keep_agent_session(widget("indicateur"), "sess-perimee".into(), "agent".into());
-    s.remove_widget("indicateur").unwrap_or_else(|e| panic!("suppression : {}", e.one_line()));
+    s.remove_widget(None, "indicateur").unwrap_or_else(|e| panic!("suppression : {}", e.one_line()));
     s.keep_agent_session(widget("kpi"), "sess-k".into(), "agent".into());
     drop(s.take_scope_moves());
 
-    s.rename_widget("kpi", "indicateur").unwrap_or_else(|e| panic!("renommage : {}", e.one_line()));
+    s.rename_widget(None, "kpi", "indicateur").unwrap_or_else(|e| panic!("renommage : {}", e.one_line()));
     assert_that!(session_of(&s, &widget("indicateur"))).is_equal_to(Some("sess-k".to_owned()));
     assert_that!(s.conversation(&widget("kpi"))).is_none();
     assert_that!(s.take_scope_moves())
@@ -138,12 +138,12 @@ fn rename_without_conversation_onto_a_stale_one_drops_the_stale_one() {
     let data = data_dir();
     let mut s = editing_with_kpi(&data);
     let ancien = AUTRE.replace("\"autre\"", "\"indicateur\"");
-    s.set_widget("indicateur", ancien).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
+    s.set_widget(None, "indicateur", ancien).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
     s.keep_agent_session(widget("indicateur"), "sess-perimee".into(), "agent".into());
-    s.remove_widget("indicateur").unwrap_or_else(|e| panic!("suppression : {}", e.one_line()));
+    s.remove_widget(None, "indicateur").unwrap_or_else(|e| panic!("suppression : {}", e.one_line()));
     drop(s.take_scope_moves());
 
-    s.rename_widget("kpi", "indicateur").unwrap_or_else(|e| panic!("renommage : {}", e.one_line()));
+    s.rename_widget(None, "kpi", "indicateur").unwrap_or_else(|e| panic!("renommage : {}", e.one_line()));
     assert_that!(s.conversation(&widget("indicateur"))).is_none();
     assert_that!(s.take_scope_moves())
         .is_equal_to(vec![ScopeMove::Renamed { from: widget("kpi"), to: widget("indicateur") }]);

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::Op;
+use oku_slides_core::{Namespace, Op};
 
 use crate::error::{BuiltinTemplateSetSnafu, EditingTemplatesSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
 use crate::views::UiState;
@@ -229,28 +229,45 @@ pub enum Request {
     /// Ferme le bandeau du pack pour la session.
     PackNoticeClose,
     /// Statut des fichiers de widgets du pack en cours (tableau de `WidgetStatus`).
-    WidgetStatus,
-    /// Source d'un fichier de widget du pack en cours.
+    ///
+    /// `pack` : en mode deck, l'espace de noms du pack épinglé ; absent, le pack `deck`.
+    WidgetStatus {
+        #[serde(default)]
+        pack: Option<Namespace>,
+    },
+    /// Source d'un fichier de widget du pack en cours (`pack` : voir `WidgetStatus`).
     WidgetSource {
+        #[serde(default)]
+        pack: Option<Namespace>,
         name: String,
     },
     /// Crée ou remplace un fichier de widget ; une source vide le supprime (`WidgetChange`).
+    ///
+    /// `pack` : voir `WidgetStatus` ; le pack `deck` est créé à la première écriture.
     SetWidget {
+        #[serde(default)]
+        pack: Option<Namespace>,
         name: String,
         source: String,
     },
-    /// Supprime un fichier de widget ; refusé s'il est utilisé par un modèle.
+    /// Supprime un fichier de widget ; refusé s'il est utilisé par un modèle ou le deck.
     RemoveWidget {
+        #[serde(default)]
+        pack: Option<Namespace>,
         name: String,
     },
     /// Renomme un fichier de widget dans la version éditée.
     RenameWidget {
+        #[serde(default)]
+        pack: Option<Namespace>,
         from: String,
         to: String,
     },
     /// Aperçu SVG d'un widget seul (`WidgetPreview`), aux valeurs d'exemple
-    /// du widget ; `params` les complète.
+    /// du widget ; `params` les complète (`pack` : voir `WidgetStatus`).
     PreviewWidget {
+        #[serde(default)]
+        pack: Option<Namespace>,
         name: String,
         #[serde(default)]
         params: serde_json::Map<String, serde_json::Value>,
@@ -326,7 +343,7 @@ impl Request {
             | Self::HistoryVersions
             | Self::PackMakeCurrent
             | Self::PackNoticeClose
-            | Self::WidgetStatus
+            | Self::WidgetStatus { .. }
             | Self::WidgetSource { .. }
             | Self::PreviewWidget { .. } => false,
         }
@@ -473,28 +490,28 @@ impl Session {
             Request::Widgets => return json(&*self.registry),
             Request::Templates { set } => return json(&self.templates_view(set)?),
             Request::TemplateSets => return json(&self.library.packs()),
-            Request::WidgetStatus => return json(&self.widget_status()?),
-            Request::WidgetSource { name } => return json(&self.widget_source(&name)?),
-            Request::SetWidget { name, source } => {
-                let change = self.set_widget(&name, source)?;
+            Request::WidgetStatus { pack } => return json(&self.widget_status(pack.as_ref())?),
+            Request::WidgetSource { pack, name } => return json(&self.widget_source(pack.as_ref(), &name)?),
+            Request::SetWidget { pack, name, source } => {
+                let change = self.set_widget(pack.as_ref(), &name, source)?;
                 self.noted_user_write(&name, change.saved);
                 self.persist(true);
                 return json(&change);
             }
-            Request::RemoveWidget { name } => {
-                let statuses = self.remove_widget(&name)?;
+            Request::RemoveWidget { pack, name } => {
+                let statuses = self.remove_widget(pack.as_ref(), &name)?;
                 self.persist(true);
                 return json(&statuses);
             }
-            Request::RenameWidget { from, to } => {
-                let statuses = self.rename_widget(&from, &to)?;
+            Request::RenameWidget { pack, from, to } => {
+                let statuses = self.rename_widget(pack.as_ref(), &from, &to)?;
                 self.persist(true);
                 return json(&statuses);
             }
             // `apply` (adoption par le deck) écrit son état de reprise.
             Request::EditTheme { id, name, ops } => return json(&self.edit_theme(id, name, ops)?),
-            Request::PreviewWidget { name, params } => {
-                return json(&self.preview_widget(&name, &params, PreviewFormat::Svg)?);
+            Request::PreviewWidget { pack, name, params } => {
+                return json(&self.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Svg)?);
             }
             Request::DeleteTemplateSet { set } => {
                 ensure!(!PackLibrary::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });

@@ -24,7 +24,7 @@ Le deck dans un `LoroDoc` (CRDT) : historique complet, fusion, annuler. `DeckRep
 - `Slot` : nœuds éléments ; méta = l'élément sans ses slots, `@slot` = carte fusionnable
   { `TreeID` du parent → slot }. `List` : `LoroMap { list: LoroMovableList }` (aussi en colonne).
 - `Host` : `LoroMap` ; `dataset` en `{columns, rows}` (`rows` de `{id, cells}`), autres clés
-  LWW ; autre forme de `dataset` : opaque. `Atom` : JSON entier, LWW. `Nested` : `LoroMap`.
+  LWW ; autre forme de `dataset` : opaque. `Atom` : JSON entier, LWW (un épinglage de `widgets`). `Nested` : `LoroMap`.
 
 ## Règles
 
@@ -46,5 +46,5 @@ Le deck dans un `LoroDoc` (CRDT) : historique complet, fusion, annuler. `DeckRep
   items au même id (t-652) : copie exacte écartée, autre occurrence renommée `{id}-{n}`. Sans
   `@slot` du parent : slot d'un frère, sinon slot inscrit, sinon `orphans` (`issue-slot-repaired`).
   Nœud vide (né d'une annulation) : ignoré.
-- **Parades** : t-188, conteneurs et arbre créés d'avance ; t-263, un commit par `mov` de liste.
-- **Format** : `meta.format = 4`, vérifié à l'import et à la fusion ; changer `SOURCES_VERSION` avec.
+- **Parades** : t-188, conteneurs, arbre et carte `widgets` (jamais retirée) créés d'avance ; t-263, un commit par `mov` de liste.
+- **Format** : `meta.format = 5`, vérifié à l'import et à la fusion ; changer `SOURCES_VERSION` avec.

@@ -27,7 +27,7 @@ pub enum ImportErrorKind {
     Threshold,
     /// Pack cible introuvable.
     UnknownPack,
-    /// Pack cible illisible : `pack.json` invalide, ou un widget qui n'est pas du texte.
+    /// Pack cible illisible : `widgets.json` invalide, ou un widget qui n'est pas du texte.
     BadPack,
     /// Thème cible introuvable.
     UnknownTheme,

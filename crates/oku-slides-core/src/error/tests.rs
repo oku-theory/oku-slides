@@ -181,3 +181,60 @@ fn replica_too_deep_localizes_with_its_own_key() {
     assert_that!(err.localize(&fr)).is_equal_to(fr.tr("replica-too-deep"));
     assert_that!(err.localize(&fr)).starts_with("Impossible d'enregistrer cette présentation");
 }
+
+/// Les quatre refus d'épinglage de pack, chacun avec ses arguments.
+fn pack_errors() -> Vec<(OpError, OpErrorKind, &'static str)> {
+    vec![
+        (
+            super::UnknownNamespaceSnafu { namespace: "acme" }.build().into(),
+            OpErrorKind::UnknownNamespace,
+            "Ce deck n'a pas de pack de widgets acme.",
+        ),
+        (
+            super::PackRequiredSnafu { namespace: "acme", by: "base" }.build().into(),
+            OpErrorKind::PackRequired,
+            "Le pack de widgets acme est nécessaire à base ; retirez d'abord celui-ci.",
+        ),
+        (
+            super::PackInUseSnafu { namespace: "acme", users: vec!["s1".to_owned(), "e1".to_owned()] }.build().into(),
+            OpErrorKind::PackInUse,
+            "Le pack de widgets acme est encore utilisé par 2 éléments.",
+        ),
+        (
+            super::PackRequirementMissingSnafu { namespace: "acme", required: "base" }.build().into(),
+            OpErrorKind::PackRequirementMissing,
+            "Le pack de widgets acme a besoin de base, que ce deck n'a pas.",
+        ),
+    ]
+}
+
+#[test]
+fn pack_errors_have_their_kind_and_subject() {
+    for (err, kind, _) in pack_errors() {
+        assert_that!(err.kind()).is_equal_to(kind);
+        assert_that!(err.subject()).is_equal_to(Some("acme"));
+    }
+}
+
+#[test]
+fn pack_errors_localize_with_their_arguments_in_french() {
+    let fr = Localizer::new(Some("fr"));
+    for (err, _, text) in pack_errors() {
+        assert_that!(err.localize(&fr).replace(['\u{2068}', '\u{2069}'], "")).is_equal_to(text.to_owned());
+    }
+}
+
+#[test]
+fn pack_error_keys_exist_in_every_locale() {
+    let keys = ["op-unknown-namespace", "op-pack-required", "op-pack-in-use", "op-pack-requirement-missing"];
+    for locale in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(locale));
+        for key in keys {
+            assert!(l.has(key), "{locale} : {key} absent");
+        }
+        for (err, _, _) in pack_errors() {
+            let text = err.localize(&l);
+            assert!(text.contains("acme"), "{locale} : le pack manque dans {text}");
+        }
+    }
+}

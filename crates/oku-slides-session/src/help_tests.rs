@@ -169,7 +169,7 @@ fn help_tab_is_never_dirty_nor_pristine() {
 #[test]
 fn help_agent_set_widget_is_refused_as_read_only() {
     let (_data, mut s) = help_session("fr");
-    let err = s.set_widget_by_agent("kpi", "#let widget = none".into()).unwrap_err();
+    let err = s.set_widget_by_agent(None, "kpi", "#let widget = none".into()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
 }
 
@@ -216,7 +216,7 @@ fn open_help_uses_the_builtin_default_pack_not_the_users_current_one() {
     let r = add_version(library_of(&s), &mine, &[("title", "#let widget = none")]);
     library_of(&s).set_current(crate::DEFAULT_PACK, &r.version).unwrap();
     s.open_help("fr", None).unwrap();
-    let used = s.deck().templates.clone().unwrap();
+    let used = crate::test_support::pin(&s, "essentiel").unwrap();
     assert_that!(used.version).is_equal_to(builtin);
 }
 

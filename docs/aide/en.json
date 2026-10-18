@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "params": {
   "title": "Oku Slides Help",
   "subtitle": "Getting around, shortcuts, Typst library, file format",
@@ -2005,7 +2005,7 @@
    "kind": "content",
    "params": {
     "kicker": "oku-slides",
-    "title": "Editable fields and overrides",
+    "title": "Editable fields and pack widgets",
     "layout": "columns",
     "blocks": [
      {
@@ -2028,12 +2028,12 @@
       "id": "b-typst-surcharge",
       "kind": "card",
       "params": {
-       "title": "Overriding a base widget",
+       "title": "Widgets from several packs",
        "body": [
         {
          "runs": [
           {
-           "t": "Same name, same category, and every base parameter stays compatible: any value valid for the base must stay valid for the pack."
+           "t": "A deck pins several widget packs, each under its own namespace. A pack widget is named namespace/name and never replaces a base widget."
           }
          ]
         }
@@ -2263,7 +2263,7 @@
    "kind": "content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "The sources zip (version 10)",
+    "title": "The sources zip (version 11)",
     "layout": "default",
     "blocks": [
      {
@@ -2274,7 +2274,7 @@
         {
          "runs": [
           {
-           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 10 }"
+           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 11 }"
           }
          ]
         },
@@ -2302,14 +2302,14 @@
         {
          "runs": [
           {
-           "t": "packs/<hex>/pack.json           template pack version"
+           "t": "widgets/<hex>/widgets.json      widget pack version"
           }
          ]
         },
         {
          "runs": [
           {
-           "t": "packs/<hex>/widgets/<name>.typ  one file per widget, _commun included"
+           "t": "widgets/<hex>/widgets/<name>.typ one file per widget, _commun included"
           }
          ]
         }
@@ -2545,7 +2545,7 @@
         {
          "runs": [
           {
-           "t": "Envelope /Version 2, zip version 10. Older: ignored, the PDF opens like any other PDF. Newer: refused."
+           "t": "Envelope /Version 2, zip version 11. Older: ignored, the PDF opens like any other PDF. Newer: refused."
           }
          ]
         }

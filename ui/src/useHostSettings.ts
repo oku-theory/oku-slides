@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { ListOp, Snapshot, Surface, TabApi } from "./api";
+import { pinsKey } from "./packOps";
 import type { ActionOutcome } from "./a2ui/actionOutcome";
 import type { ListChange } from "./a2ui/ListTable";
 import { fromA2ui } from "./agent/quick";
@@ -50,7 +51,7 @@ export function useHostSettings(
     active: !!current && !!snap?.editing && !snap.history,
     scope: { slide: current ?? "", widget },
     // Tout ce qui peut changer la carte : pack, valeurs d'exemple, slide (rendu, nom), annulation.
-    key: [current, widget, snap?.editing?.base, snap?.templates?.version, snap?.widget_trials, slide?.hash, slide?.name, snap?.undo_label, snap?.redo_label].join("|"),
+    key: [current, widget, snap?.editing?.base, pinsKey(snap?.widgets ?? {}), snap?.widget_trials, slide?.hash, slide?.name, snap?.undo_label, snap?.redo_label].join("|"),
     fetch: (scope) => api.hostSettings(scope.slide, scope.widget),
     send: (scope, field, context, surface) =>
       surface.id === HOST_WIDGET && scope.widget

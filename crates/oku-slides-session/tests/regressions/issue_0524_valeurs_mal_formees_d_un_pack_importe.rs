@@ -29,7 +29,7 @@ fn kpi() -> WidgetFile {
 /// Un pack reçu : `pack.json` tel qu'écrit par un autre, avec le widget `kpi`.
 fn received(id: Uuid, label: &str) -> PackFiles {
     let manifest = json!({
-        "id": id, "name": "Charte", "description": "Ma charte", "created": "2026-10-01T00:00:00Z", "templates": [],
+        "id": id, "name": "Charte", "namespace": "charte", "description": "Ma charte", "created": "2026-10-01T00:00:00Z", "templates": [],
         "examples": {
             "kpi": { "value": "12", "label": label },
             "Pas un nom": { "value": "1" },
@@ -69,7 +69,7 @@ fn a_received_pack_with_malformed_examples_keeps_its_values_through_save_templat
     let data = data_dir();
     let id = Uuid::new_v4();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    let library = PackLibrary::new(Some(data.join("templates")), storage);
+    let library = PackLibrary::new(Some(data.join("widgets")), storage);
     library.add_version(id, &received(id, "Ventes")).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
     s.edit_templates(id).unwrap_or_else(|e| panic!("{e}"));
@@ -84,12 +84,12 @@ fn a_received_value_over_the_text_bound_is_ignored_in_the_preview_and_dropped_at
     let data = data_dir();
     let id = Uuid::new_v4();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    let library = PackLibrary::new(Some(data.join("templates")), storage);
+    let library = PackLibrary::new(Some(data.join("widgets")), storage);
     let long = "x".repeat(PLAIN_MAX + 1);
     library.add_version(id, &well_formed(id, &long)).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
     s.edit_templates(id).unwrap_or_else(|e| panic!("{e}"));
-    let p = s.preview_widget("kpi", &Map::new(), PreviewFormat::Svg).unwrap_or_else(|e| panic!("{e}"));
+    let p = s.preview_widget(None, "kpi", &Map::new(), PreviewFormat::Svg).unwrap_or_else(|e| panic!("{e}"));
     let params = &p.view.unwrap_or_else(|| panic!("vue de l'aperçu"))["slide"]["params"]["elements"][0]["params"];
     assert_that!(params["value"]).is_equal_to(json!("12"));
     assert_that!(params["label"] == json!(long)).is_false();

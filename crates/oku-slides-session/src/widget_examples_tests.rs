@@ -16,7 +16,7 @@ fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-examples-");
     let mut s = session_on(data.path());
     s.edit_templates(DEFAULT_PACK).unwrap();
-    s.set_widget("kpi", KPI.into()).unwrap();
+    s.set_widget(None, "kpi", KPI.into()).unwrap();
     (data, s)
 }
 
@@ -26,18 +26,18 @@ fn values(v: Value) -> Map<String, Value> {
 
 /// Les valeurs enregistrées dans le manifeste du pack en cours.
 fn stored(s: &Session, widget: &str) -> Option<Map<String, Value>> {
-    let t = s.widget_target().unwrap();
+    let t = s.widget_target(None).unwrap();
     PackManifest::from_files(&t.files).unwrap().examples.get(&parse_name(widget).unwrap()).cloned()
 }
 
 fn value_of(s: &Session, widget: &str, param: &str) -> Option<Value> {
-    s.example_values(&parse_name(widget).unwrap()).unwrap().get(param).cloned()
+    s.example_values(None, &parse_name(widget).unwrap()).unwrap().get(param).cloned()
 }
 
 #[test]
 fn a_widget_without_stored_values_has_none() {
     let (_d, s) = editing();
-    assert_that!(s.example_values(&parse_name("kpi").unwrap()).unwrap()).is_empty();
+    assert_that!(s.example_values(None, &parse_name("kpi").unwrap()).unwrap()).is_empty();
     assert_that!(stored(&s, "kpi")).is_none();
 }
 
@@ -85,7 +85,7 @@ fn set_example_values_drops_a_stored_value_the_schema_no_longer_takes() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({ "value": "12", "label": "Ventes" }))).unwrap();
     let v2 = KPI.replace("label: p.plain()", "label: p.number()");
-    s.set_widget("kpi", v2).unwrap();
+    s.set_widget(None, "kpi", v2).unwrap();
     s.set_example_values("kpi", values(json!({ "value": "13" }))).unwrap();
     assert_that!(value_of(&s, "kpi", "label")).is_none();
     assert_that!(value_of(&s, "kpi", "value")).is_equal_to(Some(json!("13")));
@@ -139,24 +139,24 @@ fn snapshot_revision_is_a_safe_javascript_integer() {
 fn set_example_values_moves_the_deck_to_the_session_version_in_one_undo_step() {
     let data = fresh_dir("oku-slides-examples-");
     let mut s = session_on(data.path());
-    let original = s.deck().templates.clone();
+    let original = crate::test_support::pin(&s, "essentiel");
     s.edit_templates(DEFAULT_PACK).unwrap();
-    s.set_widget("kpi", KPI.into()).unwrap();
+    s.set_widget(None, "kpi", KPI.into()).unwrap();
     let before = s.snapshot().editing.map(|e| e.base.clone()).unwrap();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
     let written = s.snapshot().editing.map(|e| e.base.clone()).unwrap();
     assert_that!(written).is_not_equal_to(&before);
     s.close_templates().unwrap();
-    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(written));
+    assert_that!(crate::test_support::pin(&s, "essentiel").map(|r| r.version)).is_equal_to(Some(written));
     s.undo().unwrap();
-    assert_that!(s.deck().templates.clone()).is_equal_to(original);
+    assert_that!(crate::test_support::pin(&s, "essentiel")).is_equal_to(original);
 }
 
 #[test]
 fn rename_widget_carries_its_values() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
-    s.rename_widget("kpi", "chiffre").unwrap();
+    s.rename_widget(None, "kpi", "chiffre").unwrap();
     assert_that!(stored(&s, "kpi")).is_none();
     assert_that!(stored(&s, "chiffre")).is_equal_to(Some(values(json!({ "value": "12" }))));
 }
@@ -165,7 +165,7 @@ fn rename_widget_carries_its_values() {
 fn remove_widget_drops_its_values() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
-    s.remove_widget("kpi").unwrap();
+    s.remove_widget(None, "kpi").unwrap();
     assert_that!(stored(&s, "kpi")).is_none();
 }
 
@@ -173,7 +173,7 @@ fn remove_widget_drops_its_values() {
 fn set_widget_with_empty_source_drops_its_values() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
-    s.set_widget("kpi", String::new()).unwrap();
+    s.set_widget(None, "kpi", String::new()).unwrap();
     assert_that!(stored(&s, "kpi")).is_none();
 }
 
@@ -219,7 +219,7 @@ fn set_example_values_with_null_resets_to_the_preview_text() {
 fn preview_with_an_emptied_field_shows_it_empty() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({"value": ""}))).unwrap();
-    let p = s.preview_widget("kpi", &Map::new(), crate::PreviewFormat::Svg).unwrap();
+    let p = s.preview_widget(None, "kpi", &Map::new(), crate::PreviewFormat::Svg).unwrap();
     // Pas le texte d'exemple : la valeur vidée, telle quelle, sur l'élément d'aperçu.
     // Lue dans les paramètres de la slide de la vue, pas dans `fields` : un champ
     // vide ne dessine rien, la mise en page n'en donne pas de boîte.

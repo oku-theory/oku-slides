@@ -1,8 +1,10 @@
 //! Les widgets d'un deck hors session.
 //!
-//! Son pack embarqué, sondé par le processus de rendu ([`ProbedWidgets::probe`]). Chaque fichier
+//! Ses packs embarqués, sondés par le processus de rendu ([`ProbedWidgets::probe`]). Chaque fichier
 //! est sondé à part, les widgets cassés écartés (diagnostics au journal) ; le registre sondé valide
-//! le deck (t-355).
+//! le deck (t-355). Comme dans la session, un pack est écarté seul (version absente, épingle qui
+//! ne dit pas son manifeste, sonde échouée), avec ceux qui le requièrent ; un assemblage raté du
+//! registre n'écarte que les packs dont l'ajout le fait échouer ([`assemble_each`]).
 //!
 //! Un import ou une commande n'a pas de « rendu suivant » : les fichiers
 //! laissés non sondés (budget épuisé) sont sondés de nouveau, tant qu'un appel
@@ -19,15 +21,17 @@ use std::time::Instant;
 
 use snafu::ResultExt;
 
-use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle, WidgetFile, WidgetRegistry};
+use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, PackVersion, SourceBundle, WidgetFile, WidgetRegistry};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_platform::errors::one_line;
-use oku_slides_render::{Fonts, PackWidgets, RenderError};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, RegistryError, RenderError};
 use oku_slides_render_worker::{RenderSlot, RenderWorker};
 
+use crate::deck_closure::dependents;
+use crate::deck_pack::check_pack_id;
 use crate::import::error::{LibrarySnafu, Result, SourcesSnafu};
-use crate::{PackLibrary, adopt_default_pack};
+use crate::{PackLibrary, adopt_default_packs};
 
 /// Appels de sonde d'un pack au plus.
 ///
@@ -68,30 +72,103 @@ fn probe_rounds<T, E>(
     Ok(last)
 }
 
+/// `packs` rangés besoins d'abord (`requires` de `pins`) ; une boucle garde l'ordre donné.
+fn requirements_first(pins: &BTreeMap<Namespace, PackPin>, mut packs: Vec<PackWidgets>) -> Vec<PackWidgets> {
+    let mut out = Vec::new();
+    while !packs.is_empty() {
+        let waiting: BTreeSet<Namespace> = packs.iter().map(|p| p.namespace().clone()).collect();
+        let ready = |p: &PackWidgets| {
+            pins.get(p.namespace())
+                .is_none_or(|pin| pin.requires.iter().all(|r| r == p.namespace() || !waiting.contains(r)))
+        };
+        let (now, rest): (Vec<_>, Vec<_>) = packs.into_iter().partition(|p| ready(p));
+        if now.is_empty() {
+            out.extend(rest);
+            break;
+        }
+        out.extend(now);
+        packs = rest;
+    }
+    out
+}
+
+/// L'ensemble de `packs` que `assemble` sait assembler, son registre et la première erreur.
+///
+/// Tous ensemble d'abord ; si l'assemblage échoue, pack par pack, besoins
+/// d'abord : un pack dont l'ajout le fait échouer est écarté (journalisé),
+/// avec ceux qui le requièrent. Les autres restent : jamais tous ensemble
+/// pour un seul. Registre `None` : aucun pack gardé.
+fn assemble_each<R>(
+    pins: &BTreeMap<Namespace, PackPin>,
+    packs: Vec<PackWidgets>,
+    mut assemble: impl FnMut(&PackSet) -> Result<R, RegistryError>,
+) -> (PackSet, Option<R>, Option<RegistryError>) {
+    let first = match PackSet::new(packs.clone()).and_then(|set| assemble(&set).map(|r| (set, r))) {
+        Ok((set, registry)) => return (set, Some(registry), None),
+        Err(e) => e,
+    };
+    tracing::warn!(error = %one_line(&first), "registre des packs non assemblé : pack par pack");
+    let (mut kept, mut last, mut dropped) = (Vec::new(), None, BTreeSet::new());
+    for pack in requirements_first(pins, packs) {
+        let ns = pack.namespace().clone();
+        let needs_dropped = pins.get(&ns).is_some_and(|pin| pin.requires.iter().any(|r| dropped.contains(r)));
+        let mut trial = kept.clone();
+        trial.push(pack.clone());
+        let assembled = if needs_dropped {
+            None
+        } else {
+            match PackSet::new(trial).and_then(|set| assemble(&set).map(|r| (set, r))) {
+                Ok(ok) => Some(ok),
+                Err(e) => {
+                    tracing::warn!(pack = %ns, error = %one_line(&e), "pack non assemblé : écarté");
+                    None
+                }
+            }
+        };
+        match assembled {
+            Some(ok) => {
+                kept.push(pack);
+                last = Some(ok);
+            }
+            None => {
+                dropped.insert(ns);
+            }
+        }
+    }
+    match last {
+        Some((set, registry)) => (set, Some(registry), Some(first)),
+        None => (PackSet::default(), None, Some(first)),
+    }
+}
+
 /// Les widgets sondés d'un deck, et le processus de rendu qui les rend.
 ///
-/// Le registre est la base surchargée par les widgets valides de son pack ;
+/// Le registre est le noyau et les widgets valides de chacun de ses packs ;
 /// sans pack à widgets valides, la base seule.
 #[derive(Debug)]
 pub struct ProbedWidgets {
     /// Le registre qui valide le deck et ses sources.
     pub registry: Arc<WidgetRegistry>,
-    /// Fichiers du pack toujours non sondés après la relance (budget épuisé, lien indisponible).
-    pub unprobed: BTreeSet<WidgetFile>,
-    /// L'erreur localisée d'une sonde du pack tout entière échouée.
+    /// Par pack, les fichiers toujours non sondés après la relance (budget épuisé, lien indisponible).
+    pub unprobed: BTreeMap<Namespace, BTreeSet<WidgetFile>>,
+    /// L'erreur localisée du premier pack écarté pour une panne : épingle qui
+    /// ne dit pas son manifeste, sonde tout entière échouée, assemblage raté.
     ///
-    /// Le registre est alors la base.
+    /// Ce pack est alors écarté du registre, avec ceux qui le requièrent.
     pub probe_failed: Option<String>,
     worker: RenderWorker,
-    pack: Option<PackWidgets>,
+    set: PackSet,
 }
 
 impl ProbedWidgets {
-    /// Sonde le pack que `deck` référence, pris dans `packs`.
+    /// Sonde chaque pack que `deck` épingle, pris dans `packs`.
     ///
-    /// Sans référence, ou sans widgets : la base. Version absente de `packs`
-    /// ou pack cassé : journalisés, la base, comme dans l'app ; une sonde
-    /// échouée garde son erreur ([`Self::probe_failed`]).
+    /// Sans pack, ou sans widgets : la base. Version absente de `packs`,
+    /// épingle incohérente ou pack cassé : journalisés, le pack écarté avec
+    /// ceux qui le requièrent, comme dans l'app ; la première panne garde son
+    /// erreur ([`Self::probe_failed`]). Un assemblage raté n'écarte que les
+    /// packs qui le font échouer ([`assemble_each`]). Le temps de relance est
+    /// commun aux packs.
     pub fn probe(
         platform: &Platform,
         base: &Arc<WidgetRegistry>,
@@ -100,65 +177,86 @@ impl ProbedWidgets {
     ) -> Self {
         let l: &Localizer = &platform.localizer;
         let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
-        let base_only =
-            |worker| Self { registry: base.clone(), unprobed: BTreeSet::new(), probe_failed: None, worker, pack: None };
-        let Some(r) = &deck.templates else { return base_only(worker) };
-        let Some(files) = packs.get(&r.version) else {
-            tracing::warn!(pack = %r.id, version = %r.version, "{}", l.tr("session-pack-missing"));
-            return base_only(worker);
-        };
-        if files.widgets().is_empty() {
-            return base_only(worker);
-        }
         let (start, total) = (Instant::now(), platform.settings.render.probe_budget().saturating_mul(PROBE_BUDGETS));
-        let probed = PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| {
-            probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len(), || start.elapsed() >= total)
-        });
-        let probe = match probed {
-            Ok(probe) => probe,
-            Err(e) => {
+        let (mut usable, mut unprobed, mut probe_failed, mut off) =
+            (Vec::new(), BTreeMap::new(), None, BTreeSet::new());
+        for (ns, pin) in &deck.widgets {
+            let Some(files) = packs.get(&pin.version) else {
+                tracing::warn!(pack = %pin.id, version = %pin.version, "version du pack absente des sources : écarté");
+                off.insert(ns.clone());
+                continue;
+            };
+            if let Err(e) = check_pack_id(ns, pin, files) {
                 let message = e.localize(l);
-                tracing::warn!(pack = %r.id, error = %one_line(&e), "{message}");
-                return Self { probe_failed: Some(message), ..base_only(worker) };
+                tracing::warn!(pack = %pin.id, error = %e.one_line(), "{message}");
+                probe_failed.get_or_insert(message);
+                off.insert(ns.clone());
+                continue;
             }
-        };
-        for (name, file) in probe.files.iter().filter(|(_, p)| !p.is_valid()) {
-            for d in &file.diagnostics {
-                tracing::warn!(pack = %r.id, widget = %name, "{}", d.localize(l));
+            if files.widgets().is_empty() {
+                continue;
             }
+            let probed = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone()).and_then(|pack| {
+                probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len(), || start.elapsed() >= total)
+            });
+            let probe = match probed {
+                Ok(probe) => probe,
+                Err(e) => {
+                    let message = e.localize(l);
+                    tracing::warn!(pack = %pin.id, error = %one_line(&e), "{message}");
+                    probe_failed.get_or_insert(message);
+                    off.insert(ns.clone());
+                    continue;
+                }
+            };
+            for (name, file) in probe.files.iter().filter(|(_, p)| !p.is_valid()) {
+                for d in &file.diagnostics {
+                    tracing::warn!(pack = %pin.id, widget = %name, "{}", d.localize(l));
+                }
+            }
+            if !probe.unprobed.is_empty() {
+                unprobed.insert(ns.clone(), probe.unprobed);
+            }
+            usable.extend(probe.pack);
         }
-        match probe.pack {
-            Some(pack) => Self {
-                registry: probe.registry,
-                unprobed: probe.unprobed,
-                probe_failed: None,
-                worker,
-                pack: Some(pack),
-            },
-            None => Self { unprobed: probe.unprobed, ..base_only(worker) },
+        let gone = dependents(&deck.widgets, &off);
+        for ns in &gone {
+            tracing::warn!(pack = %ns, "pack qui requiert un pack écarté : écarté");
         }
+        usable.retain(|p| !gone.contains(p.namespace()));
+        if usable.is_empty() {
+            return Self { registry: base.clone(), unprobed, probe_failed, worker, set: PackSet::default() };
+        }
+        let (set, registry, error) = assemble_each(&deck.widgets, usable, |set| worker.registry_of(set));
+        if let Some(e) = error {
+            let message = e.localize(l);
+            tracing::warn!(error = %one_line(&e), "{message}");
+            probe_failed.get_or_insert(message);
+        }
+        let registry = registry.unwrap_or_else(|| base.clone());
+        Self { registry, unprobed, probe_failed, worker, set }
     }
 
-    /// Le pack a-t-il des widgets valides, que seul le processus de rendu exécute ?
-    pub fn has_pack(&self) -> bool {
-        self.pack.is_some()
+    /// Un pack a-t-il des widgets valides, que seul le processus de rendu exécute ?
+    pub fn has_packs(&self) -> bool {
+        !self.set.is_empty()
     }
 
     /// Un emplacement du processus de rendu, avec ces widgets et les polices `fonts`.
     pub fn slot(&self, fonts: &Fonts, l: &Localizer) -> Result<RenderSlot, RenderError> {
         let mut slot = self.worker.slot(fonts, l, self.registry.clone())?;
-        slot.set_widgets(self.pack.as_ref(), self.registry.clone())?;
+        slot.set_widgets(&self.set, self.registry.clone())?;
         Ok(slot)
     }
 }
 
-/// Les sources de `deck` avec son pack `packs`, et ses widgets sondés.
+/// Les sources de `deck` avec ses packs `packs`, et ses widgets sondés.
 ///
-/// Sans pack référencé, le deck adopte la version courante du pack par défaut,
-/// modifiable : elle peut avoir des widgets. Le pack est sondé avant toute
-/// écriture ; les sources sont recréées avec le registre sondé, pour que le
-/// replica et la validation aient ses widgets.
-pub fn sources_with_pack(
+/// Sans pack épinglé, le deck adopte la version courante du pack par défaut
+/// et ses besoins, modifiables : ils peuvent avoir des widgets. Les packs
+/// sont sondés avant toute écriture ; les sources sont recréées avec le
+/// registre sondé, pour que le replica et la validation aient leurs widgets.
+pub fn sources_with_packs(
     platform: &Platform,
     library: &PackLibrary,
     base: &Arc<WidgetRegistry>,
@@ -169,7 +267,7 @@ pub fn sources_with_pack(
     for files in packs.into_values() {
         bundle.add_pack(files);
     }
-    adopt_default_pack(library, &mut bundle).context(LibrarySnafu)?;
+    adopt_default_packs(library, &mut bundle).context(LibrarySnafu)?;
     let widgets = ProbedWidgets::probe(platform, base, bundle.deck(), &bundle.packs);
     if !Arc::ptr_eq(&widgets.registry, base) {
         let packs = std::mem::take(&mut bundle.packs);

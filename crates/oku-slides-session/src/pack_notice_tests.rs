@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use oku_slides_core::{Op, PackFiles, PackRef, PackVersion};
+use oku_slides_core::{Op, PackFiles, PackPin, PackVersion};
 use rstest::rstest;
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -9,11 +9,26 @@ use oku_slides_i18n::Localizer;
 
 use crate::pack::PackManifest;
 use crate::pack_notice::pack_notice_banner;
-use crate::test_support::{adopt_deck_only_pack, fresh_dir, logged, manifest, session_on};
+use crate::test_support::{adopt_deck_only_pack, fresh_dir, logged, manifest, namespace_of, pin, session_on};
 use crate::{Request, Session};
 
 fn files(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) -> PackFiles {
     manifest(id, name, parent, created).to_files(std::collections::BTreeMap::new()).unwrap()
+}
+
+/// L'op qui épingle la version `pack` du pack `id`, sous l'espace de noms de son id.
+fn pin_op(id: Uuid, pack: &PackFiles) -> Op {
+    Op::AddPack { namespace: namespace_of(id), pin: PackPin { id, version: pack.version(), requires: Vec::new() } }
+}
+
+/// La version du pack `id` que le deck de `s` épingle.
+fn pinned_version(s: &Session, id: Uuid) -> Option<PackVersion> {
+    s.deck().widgets.get(&namespace_of(id)).map(|r| r.version.clone())
+}
+
+/// L'id du pack de l'utilisateur épinglé par le deck de `s` (pas le pack par défaut).
+fn user_pack_id(s: &Session) -> Uuid {
+    s.deck().widgets.values().map(|r| r.id).find(|id| *id != crate::DEFAULT_PACK).unwrap()
 }
 
 /// Un fichier enregistré par une autre session (dossier `them`), dont le deck embarque `pack`.
@@ -21,8 +36,7 @@ fn received_file(them: &Path, pack: &PackFiles) -> PathBuf {
     let mut other = session_on(them);
     let id = PackManifest::from_files(pack).unwrap().id;
     other.library.add_version(id, pack).unwrap();
-    let r = PackRef { id, version: pack.version() };
-    other.apply("Pack", vec![Op::SetTemplates { templates: Some(r) }], None).unwrap();
+    other.apply("Pack", vec![pin_op(id, pack)], None).unwrap();
     let path = them.join("recu.oku-slides.pdf");
     other.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap();
     path
@@ -80,7 +94,7 @@ fn open_adds_received_versions_silently_without_changing_current() {
     // t-355 : la version reçue est marquée, la mienne non.
     assert_that!((s.library.is_received(id, &v0.version()), s.library.is_received(id, &v1.version())))
         .is_equal_to((false, true));
-    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(v1.version()));
+    assert_that!(pinned_version(&s, id)).is_equal_to(Some(v1.version()));
 }
 
 #[test]
@@ -148,22 +162,23 @@ fn opened_on_newer() -> (tempfile::TempDir, tempfile::TempDir, Session, PackFile
 #[test]
 fn pack_use_mine_switches_the_deck_and_undo_brings_theirs_back() {
     let (_me, _them, mut s, v0, v1) = opened_on_newer();
+    let id = user_pack_id(&s);
     s.handle(Request::PackUseMine).unwrap();
-    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(v0.version()));
+    assert_that!(pinned_version(&s, id)).is_equal_to(Some(v0.version()));
     assert_that!(s.sources_for_tests().packs.contains_key(&v0.version())).is_true();
     assert_that!(notice(&mut s).is_null()).is_true();
     s.handle(Request::Undo).unwrap();
-    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(v1.version()));
+    assert_that!(pinned_version(&s, id)).is_equal_to(Some(v1.version()));
 }
 
 #[test]
 fn pack_make_current_makes_theirs_current_and_closes_the_banner() {
     let (_me, _them, mut s, _v0, v1) = opened_on_newer();
-    let id = s.deck().templates.as_ref().map(|r| r.id).unwrap();
+    let id = user_pack_id(&s);
     s.handle(Request::PackMakeCurrent).unwrap();
     assert_that!(s.library.current(id)).is_equal_to(Some(v1.version()));
     assert_that!(notice(&mut s).is_null()).is_true();
-    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(v1.version()));
+    assert_that!(pinned_version(&s, id)).is_equal_to(Some(v1.version()));
 }
 
 #[test]
@@ -189,8 +204,7 @@ fn received_edit(them: &Path, base: &Path, pack: &PackFiles) -> PathBuf {
     other.open(base).unwrap();
     let id = PackManifest::from_files(pack).unwrap().id;
     other.library.add_version(id, pack).unwrap();
-    let r = PackRef { id, version: pack.version() };
-    other.apply("Pack", vec![Op::SetTemplates { templates: Some(r) }], None).unwrap();
+    other.apply("Pack", vec![pin_op(id, pack)], None).unwrap();
     let path = them.join("suite.oku-slides.pdf");
     other.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap();
     path
@@ -218,9 +232,8 @@ fn merge_adds_received_versions_silently_without_banner() {
 #[test]
 fn pack_notice_after_the_deck_changes_pack_is_gone_and_make_current_does_nothing() {
     let (_me, _them, mut s, v0, _v1) = opened_on_newer();
-    let id = s.deck().templates.as_ref().map(|r| r.id).unwrap();
-    let mine = PackRef { id, version: v0.version() };
-    s.apply("Pack", vec![Op::SetTemplates { templates: Some(mine) }], None).unwrap();
+    let id = user_pack_id(&s);
+    s.apply("Pack", vec![pin_op(id, &v0)], None).unwrap();
     assert_that!(notice(&mut s).is_null()).is_true();
     s.handle(Request::PackMakeCurrent).unwrap();
     assert_that!(s.library.current(id)).is_equal_to(Some(v0.version()));
@@ -229,7 +242,7 @@ fn pack_notice_after_the_deck_changes_pack_is_gone_and_make_current_does_nothing
 #[test]
 fn pack_make_current_is_refused_while_editing_templates() {
     let (_me, _them, mut s, v0, _v1) = opened_on_newer();
-    let id = s.deck().templates.as_ref().map(|r| r.id).unwrap();
+    let id = user_pack_id(&s);
     s.edit_templates(crate::pack::DEFAULT_PACK).unwrap();
     let err = s.handle(Request::PackMakeCurrent).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::EditingTemplates);
@@ -248,11 +261,11 @@ fn open_when_adding_the_received_version_fails_opens_and_offers_no_make_current(
     let mut s = session_on(me.path());
     s.library.add_version(id, &v0).unwrap();
     // Un fichier à la place du dossier de v1 : son écriture échoue.
-    let versions = me.path().join("templates").join(id.to_string()).join("versions");
+    let versions = me.path().join("widgets").join(id.to_string()).join("versions");
     std::fs::write(versions.join(v1.version().hex()), b"").unwrap();
     s.open(&path).unwrap();
     assert_that!(s.library.version(id, &v1.version())).is_none();
-    assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(v1.version()));
+    assert_that!(pinned_version(&s, id)).is_equal_to(Some(v1.version()));
     let n = notice(&mut s);
     assert_that!(notice_text(&n)).contains("Charte");
     assert_that!(buttons(&n)).is_equal_to(vec![("Passer à ma version".to_owned(), "pack_use_mine".to_owned())]);
@@ -328,7 +341,7 @@ fn open_of_a_deck_only_pack_adds_nothing_to_the_library_and_shows_no_notice() {
     let mut s = session_on(me.path());
     let packs = s.library.packs();
     s.open(&path).unwrap();
-    assert_that!(s.deck().templates.clone()).is_equal_to(Some(r.clone()));
+    assert_that!(pin(&s, "deck")).is_equal_to(Some(r.clone()));
     assert_that!(s.library.versions(r.id).is_empty()).is_true();
     assert_that!(s.library.packs()).is_equal_to(&packs);
     assert_that!(notice(&mut s)).is_equal_to(serde_json::Value::Null);
@@ -363,4 +376,37 @@ fn is_deck_only_with_an_unreadable_scope_is_false_and_logged() {
     let log = logged(|| deck_only = super::is_deck_only(&files));
     assert_that!(deck_only).is_false();
     assert_that!(log.as_str()).contains("WARN");
+}
+
+/// Deux packs reçus, le premier par espace de noms à jour : le bandeau parle du second.
+#[test]
+fn pack_notice_for_second_namespace_is_shown_when_first_is_current() {
+    let (me, them) = (fresh_dir("oku-slides-notice-me-"), fresh_dir("oku-slides-notice-them-"));
+    let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+    let (a, b) = if namespace_of(a) < namespace_of(b) { (a, b) } else { (b, a) };
+    let a0 = files(a, "Premier", None, "2026-10-01T10:00:00Z");
+    let b0 = files(b, "Second", None, "2026-10-01T10:00:00Z");
+    let b1 = files(b, "Second", Some(&b0.version()), "2026-10-02T10:00:00Z");
+    let mut other = session_on(them.path());
+    other.library.add_version(a, &a0).unwrap();
+    other.library.add_version(b, &b1).unwrap();
+    other.apply("Packs", vec![pin_op(a, &a0), pin_op(b, &b1)], None).unwrap();
+    let path = them.path().join("deux.oku-slides.pdf");
+    other.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap();
+    let mut s = session_on(me.path());
+    s.library.add_version(a, &a0).unwrap();
+    s.library.add_version(b, &b0).unwrap();
+    s.open(&path).unwrap();
+    let text = notice_text(&notice(&mut s));
+    assert_that!(text.as_str()).contains("Second");
+    assert_that!(text.as_str()).does_not_contain("Premier");
+}
+
+#[test]
+fn pack_use_mine_pins_the_library_version() {
+    let (_me, _them, mut s, v0, _v1) = opened_on_newer();
+    let id = user_pack_id(&s);
+    s.pack_use_mine().unwrap();
+    assert_that!(pinned_version(&s, id)).is_equal_to(Some(v0.version()));
+    assert_that!(s.library.current(id)).is_equal_to(Some(v0.version()));
 }

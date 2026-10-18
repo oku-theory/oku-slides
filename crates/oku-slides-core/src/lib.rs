@@ -16,7 +16,7 @@
 //! - [`SourceBundle`] : zip des sources (deck, assets) ; sa vue du deck est
 //!   la relecture du replica, sous forme canonique ([`canonicalize`]) ;
 //!   [`SourceBundle::merge`] y ajoute l'union des assets et des polices.
-//! - [`PackRef`], [`PackVersion`], [`PackFiles`], [`WidgetFile`] : pack de modèles d'un deck, version adressée par contenu, fichiers de widgets ; [`ThemeRef`] : thème d'un deck, versionné de même.
+//! - [`PackPin`], [`PackVersion`], [`PackFiles`], [`WidgetFile`] : pack de widgets épinglé par un deck sous un [`Namespace`], version adressée par contenu, fichiers de widgets ; [`ThemeRef`] : thème d'un deck, versionné de même.
 //! - [`Slide::text_fields`] : les champs texte d'une slide dans l'ordre de
 //!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
 //! - [`is_hex_color`] : forme hexadécimale des couleurs des jetons.
@@ -29,6 +29,7 @@ pub mod error;
 mod fields;
 pub mod locate;
 pub mod model;
+mod namespace;
 pub mod ops;
 pub mod pack;
 pub mod params;
@@ -44,19 +45,20 @@ pub mod widget;
 pub use canonical::canonicalize;
 pub use color::is_hex_color;
 pub use error::{
-    ListBound, OpError, OpErrorKind, PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError,
-    SourcesErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
+    ListBound, NamespaceError, OpError, OpErrorKind, PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault,
+    SourcesError, SourcesErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
+pub use namespace::{Namespace, qualify, split_kind};
 pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListPath, ListSpec, Moved, NESTED_ITEMS_MAX, Op, PLAIN_MAX,
     RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlideField, SlotRef, Target, apply_all, apply_all_moving, default_items,
-    ops_schema, param_value, text_fits,
+    ops_schema, pack_users, param_value, text_fits,
 };
 pub use pack::{
-    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackRef, PackScope, PackVersion, Template, ThemeManifest, ThemeRef,
+    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, Template, ThemeManifest, ThemeRef,
     WidgetFile, now_created,
 };
 pub use params::{ListItem, ParamValue, Params};

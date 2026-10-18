@@ -94,8 +94,8 @@ fn serve_set_widgets_of_broken_pack_returns_registry_compile_error() {
     let mut h = Harness::new();
     h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
     let files = std::collections::BTreeMap::from([("casse".into(), "#let widget = (".into())]);
-    let pack = WirePack { id: "casse".into(), files };
-    let (resp, _) = h.call(&Request::SetWidgets { slot: 1, pack: Some(pack) }, &[]);
+    let pack = WirePack { id: "casse".into(), namespace: "casse".into(), files };
+    let (resp, _) = h.call(&Request::SetWidgets { slot: 1, packs: vec![pack] }, &[]);
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::RegistryCompile { .. } }))
         .is_true();
 }
@@ -199,8 +199,8 @@ fn set_widgets_with_a_bad_widget_file_name_returns_setup_error() {
     let mut worker = Worker::default();
     worker.handle(Request::OpenSlot { slot: 1, fonts: vec![] }, Vec::new());
     let files = std::collections::BTreeMap::from([("Casse".into(), "#let widget = (".into())]);
-    let pack = Some(WirePack { id: "p".into(), files });
-    let (reply, _) = worker.handle(Request::SetWidgets { slot: 1, pack }, Vec::new());
+    let pack = WirePack { id: "p".into(), namespace: "p".into(), files };
+    let (reply, _) = worker.handle(Request::SetWidgets { slot: 1, packs: vec![pack] }, Vec::new());
     assert_that!(matches!(reply, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
 }
 

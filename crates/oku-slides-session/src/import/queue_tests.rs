@@ -239,7 +239,7 @@ fn set_banner(s: &mut crate::Session, original: &str, dy: &str) {
     assert_that!(moved.as_str()).is_not_equal_to(original);
     // Hors d'une même séance, chaque écriture fait une version de parent différent.
     s.end_widget_session();
-    s.set_widget("_commun", moved).unwrap();
+    s.set_widget(None, "_commun", moved).unwrap();
 }
 
 #[test]
@@ -248,7 +248,7 @@ fn import_report_after_set_widget_restores_a_widget_already_scored_is_free() {
     let mut s = hifi(data.path());
     let witness = WhiteWitness::default();
     report(&mut s, &witness);
-    let pack = s.deck().templates.clone().unwrap();
+    let pack = crate::test_support::pin(&s, "deck").unwrap();
     let original = s.doc.sources.packs[&pack.version].widget(&WidgetFile::common()).unwrap().to_owned();
     // Le décor du master : son bandeau du bas monté plus haut change toutes les pages.
     set_banner(&mut s, &original, "0pt");

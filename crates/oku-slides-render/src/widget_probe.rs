@@ -8,7 +8,9 @@
 //! - Un message levé hors des fichiers du pack (source de la sonde,
 //!   bibliothèque) revient au fichier : à l'appel fautif, sinon sans position.
 //! - [`assemble`] forme le registre des valides ; un widget que le registre
-//!   refuse (surcharge incompatible, schéma invalide) devient écarté.
+//!   refuse (schéma invalide, slot qui accepte un widget inconnu) devient écarté.
+//! - Un fichier qui importe un autre pack ne compile pas ici : seul son `_commun`
+//!   est servi, il est donc écarté comme tout fichier cassé.
 
 use std::collections::BTreeMap;
 
@@ -21,10 +23,10 @@ use typst::introspection::Introspector;
 use typst::utils::PicoStr;
 use typst_layout::PagedDocument;
 
-use oku_slides_core::{WidgetFile, WidgetRegistry};
+use oku_slides_core::{Namespace, WidgetFile, WidgetRegistry, split_kind};
 
 use crate::diagnostic::{Diagnostic, Severity, SourceAt};
-use crate::error::{RegistryError, SchemaSnafu};
+use crate::error::{MissingSnafu, RegistryError, SchemaSnafu};
 use crate::fonts::Fonts;
 use crate::world::OkuSlidesWorld;
 
@@ -168,25 +170,58 @@ fn misnamed(name: &WidgetFile, source: &str, declared: &str) -> Diagnostic {
     d
 }
 
-/// Le registre de la base (`base` : sonde brute) surchargée par les widgets
-/// valides de `files`. Un widget que le registre refuse y devient écarté,
-/// avec un diagnostic, et l'assemblage reprend sans lui.
-pub fn assemble(base: &Json, files: &mut BTreeMap<WidgetFile, FileProbe>) -> Result<WidgetRegistry, RegistryError> {
-    let base = base.get("base").cloned().unwrap_or_else(|| Json::Array(Vec::new()));
+/// Le registre de la base (`base` : sonde brute) et des widgets valides de
+/// `files`, rangés sous l'espace de noms `namespace`. Un widget que le registre
+/// refuse y devient écarté, avec un diagnostic, et l'assemblage reprend sans lui.
+pub fn assemble(
+    base: &Json,
+    namespace: &Namespace,
+    files: &mut BTreeMap<WidgetFile, FileProbe>,
+) -> Result<WidgetRegistry, RegistryError> {
+    assemble_set(base, &mut [(namespace, files)])
+}
+
+/// Les fichiers sondés d'un pack, sous son espace de noms.
+pub type ProbedPack<'a> = (&'a Namespace, &'a mut BTreeMap<WidgetFile, FileProbe>);
+
+/// Le registre de la base et des widgets valides de chaque pack de `packs`, sous
+/// son espace de noms. Un widget que le registre refuse devient écarté, avec un
+/// diagnostic, et l'assemblage reprend sans lui. Un nom nu dans l'erreur (schéma)
+/// désigne le premier pack qui a ce fichier valide.
+pub fn assemble_set(base: &Json, packs: &mut [ProbedPack<'_>]) -> Result<WidgetRegistry, RegistryError> {
+    let base = base.get("base").cloned().ok_or_else(|| RegistryError::from(MissingSnafu.build()))?;
     loop {
-        let pack: Vec<Json> = files
+        let entries: Vec<Json> = packs
             .iter()
-            .filter(|(n, p)| !n.is_common() && p.is_valid())
-            .filter_map(|(_, p)| p.schema.clone())
+            .map(|(namespace, files)| {
+                let widgets: Vec<Json> = files
+                    .iter()
+                    .filter(|(n, p)| !n.is_common() && p.is_valid())
+                    .filter_map(|(_, p)| p.schema.clone())
+                    .collect();
+                json!({ "namespace": namespace, "widgets": widgets })
+            })
             .collect();
-        let err = match WidgetRegistry::from_probe(json!({ "base": base, "pack": pack })) {
+        let err = match WidgetRegistry::from_probe(json!({ "base": base, "packs": entries })) {
             Ok(registry) => return Ok(registry),
             Err(e) => e,
         };
-        let culprit =
-            err.widget().and_then(WidgetFile::parse).filter(|n| files.get(n).is_some_and(FileProbe::is_valid));
-        let Some(name) = culprit else { return Err(SchemaSnafu.into_error(Box::new(err)).into()) };
-        if let Some(probe) = files.get_mut(&name) {
+        // Le registre nomme le widget nu (schéma) ou qualifié (slots) : on revient au pack et au fichier.
+        let valid = |files: &BTreeMap<WidgetFile, FileProbe>, w: &str| {
+            WidgetFile::parse(w).filter(|n| files.get(n).is_some_and(FileProbe::is_valid))
+        };
+        let culprit = err.widget().and_then(|w| match split_kind(w) {
+            Some((ns, name)) => packs
+                .iter()
+                .position(|(namespace, _)| namespace.as_str() == ns)
+                .and_then(|i| valid(packs[i].1, name).map(|n| (i, n))),
+            None => packs
+                .iter()
+                .position(|(_, files)| valid(files, w).is_some())
+                .and_then(|i| valid(packs[i].1, w).map(|n| (i, n))),
+        });
+        let Some((i, name)) = culprit else { return Err(SchemaSnafu.into_error(Box::new(err)).into()) };
+        if let Some(probe) = packs[i].1.get_mut(&name) {
             probe.schema = None;
             probe.diagnostics.insert(0, Diagnostic::widget_error(&name, err.to_string()));
         }

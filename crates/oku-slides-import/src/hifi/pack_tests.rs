@@ -234,7 +234,9 @@ fn generated_registry_adds_the_declared_widgets_to_the_base() {
     let r = generated_registry(&base, &pack).unwrap();
     assert_that!(r.len()).is_equal_to(base.len() + pack.widgets.len());
     for w in &pack.widgets {
-        assert_that!(r.get(w.name.as_str())).is_equal_to(Some(&w.schema));
+        let qualified = qualify(&Namespace::deck(), w.name.as_str());
+        let schema = WidgetSchema { name: qualified.clone(), ..w.schema.clone() };
+        assert_that!(r.get(&qualified)).is_equal_to(Some(&schema));
     }
     assert_that!(r.get("blank")).is_equal_to(base.get("blank"));
 }
@@ -261,7 +263,7 @@ fn pack_manifest_has_a_template_per_widget_with_its_example_slide() {
 fn pack_manifest_without_example_takes_a_bare_slide() {
     let pack = generated(&synthetic());
     let m = pack_manifest(&pack, Uuid::from_u128(1), "Import", "2026-10-11T08:00:00Z", &BTreeMap::new());
-    assert_that!(m.templates[0].slide).is_equal_to(Slide::new("l2-blank", "l2-blank"));
+    assert_that!(m.templates[0].slide).is_equal_to(Slide::new("l2-blank", "deck/l2-blank"));
     assert_that!(m.examples.is_empty()).is_true();
 }
 

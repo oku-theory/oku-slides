@@ -24,15 +24,15 @@ use color_eyre::eyre::{Result, WrapErr, eyre};
 use oku_slides_core::{Deck, Issue, PackFiles, PackVersion, SourceBundle, SourceLimits, WidgetRegistry, validate};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
-use oku_slides_render::Fonts;
+use oku_slides_render::{Fonts, PackSet};
 use oku_slides_session::{
     PackLibrary, ProbedWidgets, Storage, ThemeLibrary, adopt_default_theme, embed_theme, read_document,
-    sources_with_pack, theme_tokens,
+    sources_with_packs, theme_tokens,
 };
 
 use crate::bench::ms;
 use crate::import::{ImportArgs, ImportMode, ReferenceMode};
-use crate::library::deck_pack_version;
+use crate::library::deck_pack_versions;
 use crate::out::Out;
 
 // L'aide de chaque commande et option vient des messages Fluent
@@ -194,7 +194,15 @@ fn load_bundle(
     if opened.modified_elsewhere {
         tracing::warn!(path = %path.display(), "{}", l.tr("cli-pdf-modified"));
     }
-    log_issues(l, &opened.issues);
+    // Un deck JSON ne vérifie pas ses épinglages : une version absente se signale ici, sans doublon.
+    let mut issues = opened.issues.clone();
+    for pin in opened.sources.deck().widgets.values() {
+        let issue = Issue::pack_version_missing(&pin.version);
+        if !opened.sources.packs.contains_key(&pin.version) && !issues.contains(&issue) {
+            issues.push(issue);
+        }
+    }
+    log_issues(l, &issues);
     Ok((opened.sources, widgets))
 }
 
@@ -212,10 +220,10 @@ fn log_issues(l: &Localizer, issues: &[Issue]) -> bool {
     issues.is_empty()
 }
 
-/// La version du pack que `deck` référence, par empreinte ; vide sans référence.
+/// Les versions des packs que `deck` épingle, par empreinte ; vide sans pack.
 ///
-/// Elle vient de [`deck_pack_version`] : à côté du deck, puis de la
-/// bibliothèque, vérifiée ; introuvable : erreur. `deck_dir` : le dossier du
+/// Elles viennent de [`deck_pack_versions`] : à côté du deck, puis de la
+/// bibliothèque, vérifiées ; l'une introuvable : erreur. `deck_dir` : le dossier du
 /// deck et la borne de la copie qui s'y trouve (`[sources] max_sources_mib`).
 fn deck_pack(
     storage: &Storage,
@@ -224,12 +232,10 @@ fn deck_pack(
     deck_dir: (&Path, usize),
     deck: &Deck,
 ) -> Result<BTreeMap<PackVersion, PackFiles>> {
-    let Some(r) = &deck.templates else { return Ok(BTreeMap::new()) };
-    let Some(files) = deck_pack_version(storage, library, deck_dir, r) else {
-        let args = [("id", r.id.to_string().into()), ("version", r.version.as_str().into())];
-        return Err(eyre!(l.tr_with("session-pack-version-missing", &args)));
-    };
-    Ok(BTreeMap::from([(r.version.clone(), files)]))
+    deck_pack_versions(storage, library, deck_dir, deck).map_err(|(_, pin)| {
+        let args = [("id", pin.id.to_string().into()), ("version", pin.version.as_str().into())];
+        eyre!(l.tr_with("session-pack-version-missing", &args))
+    })
 }
 
 /// Les tailles d'un document écrit : pages, PDF et sources en octets.
@@ -274,7 +280,7 @@ fn write_rendered(
 /// et partagé avec le rendu en mémoire ; le pack d'un deck passe par
 /// [`pack_render`].
 fn registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>> {
-    Ok(oku_slides_render::Registries::new(fonts.clone()).get(None)?)
+    Ok(oku_slides_render::Registries::new(fonts.clone()).get(&PackSet::default())?)
 }
 
 fn main() -> Result<()> {
@@ -324,7 +330,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 BTreeMap::new()
             });
             let (bundle, widgets) =
-                sources_with_pack(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
+                sources_with_packs(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
             let deck = bundle.deck();
             if report_issues(l, deck, &widgets.registry, &BTreeMap::new()) {
                 out.line("cli-deck-valid", &[("slides", deck.slides.len().into())])?;
@@ -368,7 +374,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let library = PackLibrary::user(platform);
             let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck)?;
             let (mut bundle, widgets) =
-                sources_with_pack(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
+                sources_with_packs(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
             let themes = ThemeLibrary::user(platform);
             if let Some(name) = theme {
                 let mut deck = bundle.deck().clone();
@@ -418,8 +424,8 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                     storage.write(&dir.join("fonts").join(name), bytes.as_slice())?;
                 }
                 for (version, files) in &bundle.packs {
-                    let at = dir.join("packs").join(version.hex());
-                    storage.write(&at.join("pack.json"), files.pack_json()?)?;
+                    let at = dir.join("widgets").join(version.hex());
+                    storage.write(&at.join("widgets.json"), files.pack_json()?)?;
                     for (name, source) in files.widgets() {
                         storage.write(&at.join("widgets").join(name.file_name()), source.as_bytes())?;
                     }

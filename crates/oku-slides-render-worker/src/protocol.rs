@@ -7,15 +7,16 @@ use serde::{Deserialize, Serialize};
 
 /// Version du protocole : à changer à toute modification de [`Request`], de
 /// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
-pub(crate) const PROTOCOL_VERSION: u32 = 3;
+pub(crate) const PROTOCOL_VERSION: u32 = 4;
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
 
-/// Un pack de widgets : son identifiant et ses fichiers (nom → source).
+/// Un pack de widgets : son identifiant, son espace de noms et ses fichiers (nom → source).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct WirePack {
     pub(crate) id: String,
+    pub(crate) namespace: String,
     pub(crate) files: BTreeMap<String, String>,
 }
 
@@ -59,9 +60,10 @@ pub(crate) enum Request {
     CloseSlot {
         slot: SlotId,
     },
+    /// Pose les widgets de la base et ceux de ces packs (vide : la base seule).
     SetWidgets {
         slot: SlotId,
-        pack: Option<WirePack>,
+        packs: Vec<WirePack>,
     },
     /// Les jetons du thème du slot (`None` : les jetons par défaut).
     SetTheme {

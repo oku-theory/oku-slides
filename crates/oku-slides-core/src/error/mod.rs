@@ -45,6 +45,14 @@ pub enum OpErrorKind {
     WrongCategory,
     /// Une borne de liste refusée (taille, cellule, id) ; voir [`ListBound`].
     ListBound,
+    /// Aucun pack de widgets du deck sous cet espace de noms.
+    UnknownNamespace,
+    /// Le pack est requis par un autre pack du deck.
+    PackRequired,
+    /// Des slides ou éléments utilisent encore un widget du pack.
+    PackInUse,
+    /// Un pack dont le pack ajouté a besoin n'est pas épinglé.
+    PackRequirementMissing,
 }
 
 /// La borne d'une liste qu'une opération dépasserait.
@@ -101,6 +109,14 @@ pub(crate) enum OpInner {
     ItemNotFound { list: String, item: String, backtrace: Backtrace },
     #[snafu(display("{list}: {}", bound_reason(bound)))]
     ListBound { list: String, bound: ListBound, backtrace: Backtrace },
+    #[snafu(display("no widget pack {namespace} in this deck"))]
+    UnknownNamespace { namespace: String, backtrace: Backtrace },
+    #[snafu(display("widget pack {namespace} is required by {by}"))]
+    PackRequired { namespace: String, by: String, backtrace: Backtrace },
+    #[snafu(display("widget pack {namespace} is used by {}", users.join(", ")))]
+    PackInUse { namespace: String, users: Vec<String>, backtrace: Backtrace },
+    #[snafu(display("widget pack {namespace} needs {required} first"))]
+    PackRequirementMissing { namespace: String, required: String, backtrace: Backtrace },
 }
 
 fn bound_reason(bound: &ListBound) -> String {
@@ -131,6 +147,10 @@ impl OpError {
             OpInner::SlotRejects { .. } => OpErrorKind::SlotRejects,
             OpInner::WrongCategory { .. } => OpErrorKind::WrongCategory,
             OpInner::ListBound { .. } => OpErrorKind::ListBound,
+            OpInner::UnknownNamespace { .. } => OpErrorKind::UnknownNamespace,
+            OpInner::PackRequired { .. } => OpErrorKind::PackRequired,
+            OpInner::PackInUse { .. } => OpErrorKind::PackInUse,
+            OpInner::PackRequirementMissing { .. } => OpErrorKind::PackRequirementMissing,
         }
     }
 
@@ -151,6 +171,10 @@ impl OpError {
             | OpInner::ChoiceOutOfRange { param, .. } => Some(param),
             OpInner::ItemNotFound { item, .. } => Some(item),
             OpInner::ListBound { list, .. } => Some(list),
+            OpInner::UnknownNamespace { namespace, .. }
+            | OpInner::PackRequired { namespace, .. }
+            | OpInner::PackInUse { namespace, .. }
+            | OpInner::PackRequirementMissing { namespace, .. } => Some(namespace),
             OpInner::IndexOutOfRange { .. } => None,
         }
     }
@@ -315,6 +339,9 @@ impl Localize for OpError {
                 }
             };
         }
+        if let Some(text) = self.localize_pack(l) {
+            return text;
+        }
         let id = match self.kind() {
             OpErrorKind::SlideNotFound => "op-slide-not-found",
             OpErrorKind::ElementNotFound => "op-element-not-found",
@@ -330,9 +357,36 @@ impl Localize for OpError {
             OpErrorKind::SlotRejects => "op-slot-rejects",
             OpErrorKind::WrongCategory => "op-wrong-category",
             // Traités plus haut : ces erreurs portent leurs arguments.
-            OpErrorKind::ParamType | OpErrorKind::ListBound => "op-invalid-value",
+            OpErrorKind::ParamType
+            | OpErrorKind::ListBound
+            | OpErrorKind::UnknownNamespace
+            | OpErrorKind::PackRequired
+            | OpErrorKind::PackInUse
+            | OpErrorKind::PackRequirementMissing => "op-invalid-value",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
+    }
+}
+
+impl OpError {
+    /// Message d'un refus d'épinglage de pack, avec ses arguments.
+    fn localize_pack(&self, l: &Localizer) -> Option<String> {
+        Some(match &*self.0 {
+            OpInner::UnknownNamespace { namespace, .. } => {
+                l.tr_with("op-unknown-namespace", &[("pack", namespace.as_str().into())])
+            }
+            OpInner::PackRequired { namespace, by, .. } => {
+                l.tr_with("op-pack-required", &[("pack", namespace.as_str().into()), ("by", by.as_str().into())])
+            }
+            OpInner::PackInUse { namespace, users, .. } => {
+                l.tr_with("op-pack-in-use", &[("pack", namespace.as_str().into()), ("count", users.len().into())])
+            }
+            OpInner::PackRequirementMissing { namespace, required, .. } => l.tr_with(
+                "op-pack-requirement-missing",
+                &[("pack", namespace.as_str().into()), ("required", required.as_str().into())],
+            ),
+            _ => return None,
+        })
     }
 }
 
@@ -547,10 +601,6 @@ impl SchemaFault {
 pub enum WidgetErrorKind {
     Unreadable,
     BadSchema(SchemaFault),
-    /// Un pack remplace un widget de base en retirant ou retypant un paramètre.
-    IncompatibleOverride,
-    /// Un pack remplace un widget de base par un widget d'une autre catégorie.
-    IncompatibleCategory,
 }
 
 #[derive(Debug, Snafu)]
@@ -560,10 +610,6 @@ pub(crate) enum WidgetInner {
     Unreadable { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("widget {widget}: {fault}"))]
     BadSchema { widget: String, fault: SchemaFault, backtrace: Backtrace },
-    #[snafu(display("widget {widget} overrides parameter {param} incompatibly"))]
-    IncompatibleOverride { widget: String, param: String, backtrace: Backtrace },
-    #[snafu(display("widget {widget} overrides the base widget with another category"))]
-    IncompatibleCategory { widget: String, backtrace: Backtrace },
 }
 
 impl WidgetError {
@@ -578,8 +624,6 @@ impl WidgetError {
         match &self.0 {
             WidgetInner::Unreadable { .. } => WidgetErrorKind::Unreadable,
             WidgetInner::BadSchema { fault, .. } => WidgetErrorKind::BadSchema(*fault),
-            WidgetInner::IncompatibleOverride { .. } => WidgetErrorKind::IncompatibleOverride,
-            WidgetInner::IncompatibleCategory { .. } => WidgetErrorKind::IncompatibleCategory,
         }
     }
 
@@ -587,9 +631,7 @@ impl WidgetError {
     pub fn widget(&self) -> Option<&str> {
         match &self.0 {
             WidgetInner::Unreadable { .. } => None,
-            WidgetInner::BadSchema { widget, .. }
-            | WidgetInner::IncompatibleOverride { widget, .. }
-            | WidgetInner::IncompatibleCategory { widget, .. } => Some(widget),
+            WidgetInner::BadSchema { widget, .. } => Some(widget),
         }
     }
 }
@@ -600,13 +642,6 @@ impl Localize for WidgetError {
             WidgetInner::Unreadable { .. } => l.tr("widget-unreadable"),
             WidgetInner::BadSchema { widget, fault, .. } => {
                 l.tr_with(fault.message_id(), &[("widget", widget.as_str().into())])
-            }
-            WidgetInner::IncompatibleOverride { widget, param, .. } => l.tr_with(
-                "widget-incompatible-override",
-                &[("widget", widget.as_str().into()), ("param", param.as_str().into())],
-            ),
-            WidgetInner::IncompatibleCategory { widget, .. } => {
-                l.tr_with("widget-incompatible-category", &[("widget", widget.as_str().into())])
             }
         }
     }
@@ -624,6 +659,14 @@ pub struct PackVersionError {
 #[derive(Debug, Snafu)]
 #[snafu(display("invalid widget file name: {value}"), visibility(pub(crate)))]
 pub struct WidgetFileError {
+    value: String,
+    backtrace: Backtrace,
+}
+
+/// Un espace de noms de pack hors de la syntaxe permise.
+#[derive(Debug, Snafu)]
+#[snafu(display("invalid pack namespace: {value}"), context(suffix(Snafu)), visibility(pub(crate)))]
+pub struct NamespaceError {
     value: String,
     backtrace: Backtrace,
 }

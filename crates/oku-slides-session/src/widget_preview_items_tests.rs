@@ -11,7 +11,7 @@ use crate::{Session, SessionErrorKind};
 fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-preview-items-");
     let mut s = opened_on(data.path());
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
     set_frise_widget(&mut s);
     (data, s)
@@ -19,7 +19,7 @@ fn editing() -> (tempfile::TempDir, Session) {
 
 /// La vue de l'aperçu de la frise, à ses valeurs d'exemple.
 fn preview_view(s: &mut Session) -> Value {
-    let preview = s.preview_widget("frise", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget(None, "frise", &Map::new(), PreviewFormat::Svg).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     preview.view.unwrap()
 }
@@ -60,7 +60,7 @@ fn preview_items_have_the_boxes_of_the_same_element_on_a_slide() {
     let slide = json!({
         "op": "add_slide", "index": 0,
         "slide": { "id": "t-frise", "kind": "blank", "name": "Frise", "params": { "elements": [{
-            "id": "apercu-element", "kind": "frise",
+            "id": "apercu-element", "kind": "essentiel/frise",
             "cell": { "col": 0, "row": 0, "cols": grid.columns, "rows": grid.rows },
             "params": { "etapes": [
                 { "id": "d0", "date": "2019", "texte": "Création" },

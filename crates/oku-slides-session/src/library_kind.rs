@@ -1,4 +1,4 @@
-//! Les sortes de versions que la bibliothèque range : modèles, puis thèmes.
+//! Les sortes de versions que la bibliothèque range : packs de widgets, puis thèmes.
 //!
 //! Une sorte donne son dossier, le nom du manifeste d'une version, et ses
 //! versions intégrées ; la [`crate::Library`] fait le reste.
@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use uuid::Uuid;
 
-use oku_slides_core::{PackFiles, PackScope, PackVersion};
+use oku_slides_core::{Namespace, PackFiles, PackScope, PackVersion};
 
 use crate::pack::PackManifest;
 
@@ -23,6 +23,10 @@ pub trait VersionManifest: Sized + Clone + std::fmt::Debug + 'static {
     fn created(&self) -> &str;
     /// Portée : une version du deck seul n'entre jamais dans la bibliothèque.
     fn scope(&self) -> PackScope;
+    /// Espace de noms, unique dans la bibliothèque ; `None` pour une sorte qui n'en a pas.
+    fn namespace(&self) -> Option<&Namespace> {
+        None
+    }
 }
 
 /// Une sorte de version rangée dans la bibliothèque.
@@ -55,17 +59,18 @@ impl<M: VersionManifest> StoredVersion<M> {
     }
 }
 
-/// Les packs de modèles.
+/// Les packs de widgets (et leurs modèles).
 #[derive(Debug, Clone)]
 pub struct Templates;
 
 /// Packs intégrés, lus une fois par processus, dans l'ordre.
 static BUILTIN_PACKS: LazyLock<Vec<StoredVersion<PackManifest>>> = LazyLock::new(|| {
+    // Les fichiers du dépôt gardent leur nom `pack.json` jusqu'au lot 3 ; la bibliothèque écrit `widgets.json`.
     [include_str!("../../../templates/essentiel/pack.json"), include_str!("../../../templates/grilles/pack.json")]
         .iter()
         .filter_map(|json| {
             let read = PackFiles::from_bytes(json.as_bytes(), [])
-                .ok_or_else(|| "pack.json is not a json object".to_owned())
+                .ok_or_else(|| "widgets.json is not a json object".to_owned())
                 .and_then(StoredVersion::read);
             // Couvert par les tests : n'arrive qu'avec un fichier du dépôt cassé.
             read.inspect_err(|e| tracing::error!(error = %e, "pack intégré illisible")).ok()
@@ -74,8 +79,8 @@ static BUILTIN_PACKS: LazyLock<Vec<StoredVersion<PackManifest>>> = LazyLock::new
 });
 
 impl LibraryKind for Templates {
-    const DIR: &'static str = "templates";
-    const MANIFEST_FILE: &'static str = "pack.json";
+    const DIR: &'static str = "widgets";
+    const MANIFEST_FILE: &'static str = "widgets.json";
     const HAS_WIDGETS: bool = true;
     type Manifest = PackManifest;
 

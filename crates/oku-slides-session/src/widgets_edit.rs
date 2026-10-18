@@ -1,7 +1,9 @@
 //! Widgets du pack en cours : statut, source et modifications.
 //!
 //! Le pack en cours : en mode modèles, la dernière version enregistrée du
-//! pack édité (`TemplateMode::base`) ; sinon celle qu'embarque le deck.
+//! pack édité (`TemplateMode::base`) ; en mode deck, le pack épinglé sous
+//! l'espace de noms demandé, sinon le pack propre du deck (`deck`), créé du
+//! deck seul à la première écriture (`widgets_deck.rs`).
 //! Chaque modification produit une version selon la règle de t-328 (une
 //! version par séance) : `adopt_session_version` en mode modèles (une étape
 //! d'annulation du document des modèles), `commit_deck_widgets`
@@ -19,7 +21,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
 use oku_slides_core::{
-    PackFiles, PackRef, PackVersion, Slide, WidgetFile, WidgetRegistry, WidgetSchema, param_value, text_fits,
+    Namespace, PackFiles, PackVersion, Slide, WidgetFile, WidgetRegistry, WidgetSchema, param_value, qualify, text_fits,
 };
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{Diagnostic, FileProbe, PackWidgets, Severity};
@@ -146,8 +148,9 @@ pub(crate) fn trial_fits(schema: &WidgetSchema, param: &str, value: &Value) -> b
     })
 }
 
-/// Le pack dont on édite les widgets : id, version et fichiers.
+/// Le pack dont on édite les widgets : espace de noms, id, version et fichiers.
 pub(crate) struct WidgetTarget {
+    pub(crate) namespace: Namespace,
     pub(crate) id: Uuid,
     pub(crate) version: PackVersion,
     pub(crate) files: PackFiles,
@@ -158,9 +161,10 @@ pub(crate) fn parse_name(name: &str) -> Result<WidgetFile> {
     Ok(WidgetFile::parse(name).context(InvalidWidgetNameSnafu { name })?)
 }
 
-/// Le statut d'un fichier sondé, schéma lu dans le registre assemblé.
-fn status_of(name: &WidgetFile, probe: &FileProbe, registry: &WidgetRegistry) -> WidgetStatus {
-    let schema = (probe.is_valid() && !name.is_common()).then(|| registry.get(name.as_str()).cloned()).flatten();
+/// Le statut d'un fichier sondé du pack `ns`, schéma lu dans le registre assemblé.
+fn status_of(ns: &Namespace, name: &WidgetFile, probe: &FileProbe, registry: &WidgetRegistry) -> WidgetStatus {
+    let qualified = qualify(ns, name.as_str());
+    let schema = (probe.is_valid() && !name.is_common()).then(|| registry.get(&qualified).cloned()).flatten();
     WidgetStatus {
         name: name.clone(),
         schema,
@@ -175,68 +179,75 @@ pub(crate) fn renamed_source(source: &str, from: &str, to: &str) -> String {
 
 impl Session {
     /// Le pack dont on édite les widgets.
-    pub(crate) fn widget_target(&self) -> Result<WidgetTarget> {
-        let (r, files) = match &self.mode {
-            Mode::Templates { edit, .. } => {
-                let files = self
-                    .doc
-                    .sources
-                    .packs
-                    .get(&edit.base)
-                    .cloned()
-                    .context(PackVersionMissingSnafu { id: edit.set, version: edit.base.clone() })?;
-                (PackRef { id: edit.set, version: edit.base.clone() }, files)
-            }
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => self.deck_pack_files()?,
+    ///
+    /// En mode modèles, le pack édité (`pack` n'y compte pas) ; sinon le pack
+    /// épinglé sous `pack`, ou, sans `pack`, le pack propre du deck (`deck`),
+    /// à créer à la première écriture s'il n'existe pas.
+    pub(crate) fn widget_target(&self, pack: Option<&Namespace>) -> Result<WidgetTarget> {
+        let Mode::Templates { edit, .. } = &self.mode else { return self.deck_widget_target(pack) };
+        let files = self
+            .doc
+            .sources
+            .packs
+            .get(&edit.base)
+            .cloned()
+            .context(PackVersionMissingSnafu { id: edit.set, version: edit.base.clone() })?;
+        let namespace = match self.edited_pin() {
+            Some((ns, _)) => ns.clone(),
+            None => PackManifest::from_files(&files).context(PackJsonSnafu { id: edit.set })?.namespace,
         };
-        Ok(WidgetTarget { id: r.id, version: r.version, files })
+        Ok(WidgetTarget { namespace, id: edit.set, version: edit.base.clone(), files })
     }
 
-    /// Statut de chaque fichier de `files` (version `version`), dans l'ordre des noms.
+    /// Statut de chaque fichier de `widgets` (version `version` du pack `ns`), dans l'ordre des noms.
     pub(crate) fn statuses(
         &self,
+        ns: &Namespace,
         version: &PackVersion,
         widgets: &BTreeMap<WidgetFile, String>,
     ) -> Result<Vec<WidgetStatus>> {
         if widgets.is_empty() {
             return Ok(Vec::new());
         }
-        let pack = PackWidgets::new(version.hex(), widgets.clone()).context(RegistrySnafu)?;
+        let pack = PackWidgets::new(version.hex(), ns.clone(), widgets.clone()).context(RegistrySnafu)?;
         let probe = self.worker.probe_pack(&pack).context(RegistrySnafu)?;
-        Ok(probe.files.iter().map(|(name, p)| status_of(name, p, &probe.registry)).collect())
+        Ok(probe.files.iter().map(|(name, p)| status_of(ns, name, p, &probe.registry)).collect())
     }
 
-    /// Statut des fichiers du pack en cours, `_commun` en tête.
-    pub fn widget_status(&self) -> Result<Vec<WidgetStatus>> {
-        let t = self.widget_target()?;
-        self.statuses(&t.version, t.files.widgets())
+    /// Statut des fichiers du pack en cours (voir `pack` à [`Self::set_widget`]), `_commun` en tête.
+    pub fn widget_status(&self, pack: Option<&Namespace>) -> Result<Vec<WidgetStatus>> {
+        let t = self.widget_target(pack)?;
+        self.statuses(&t.namespace, &t.version, t.files.widgets())
     }
 
     /// Le schéma de `name` si son fichier est valide, lu dans les statuts.
     pub(crate) fn valid_schema(&self, name: &WidgetFile) -> Result<Option<WidgetSchema>> {
-        let t = self.widget_target()?;
+        let t = self.widget_target(None)?;
         ensure!(t.files.widget(name).is_some(), UnknownWidgetSnafu { name: name.as_str() });
-        let statuses = self.statuses(&t.version, t.files.widgets())?;
+        let statuses = self.statuses(&t.namespace, &t.version, t.files.widgets())?;
         Ok(statuses.into_iter().find(|s| &s.name == name).filter(WidgetStatus::is_valid).and_then(|s| s.schema))
     }
 
-    /// Source du fichier `name` du pack en cours.
-    pub fn widget_source(&self, name: &str) -> Result<String> {
+    /// Source du fichier `name` du pack en cours (voir `pack` à [`Self::set_widget`]).
+    pub fn widget_source(&self, pack: Option<&Namespace>, name: &str) -> Result<String> {
         let name = parse_name(name)?;
-        let t = self.widget_target()?;
+        let t = self.widget_target(pack)?;
         Ok(t.files.widget(&name).context(UnknownWidgetSnafu { name: name.as_str() })?.to_owned())
     }
 
     /// Crée ou remplace le fichier `name` ; une source vide le supprime.
     ///
-    /// Rend son statut et celui des widgets que l'écriture a cassés. Un
-    /// rendu du deck en échec ne change rien en mode deck, et laisse la
-    /// version écrite en mode modèles : ses diagnostics sont dans le statut.
-    pub fn set_widget(&mut self, name: &str, source: String) -> Result<WidgetChange> {
+    /// Le pack : en mode modèles, le pack édité ; en mode deck, celui que le
+    /// deck épingle sous `pack`, sinon son pack propre (`deck`), créé du deck
+    /// seul à la première écriture. Rend son statut et celui des widgets que
+    /// l'écriture a cassés. Un rendu du deck en échec ne change rien en mode
+    /// deck, et laisse la version écrite en mode modèles : ses diagnostics
+    /// sont dans le statut.
+    pub fn set_widget(&mut self, pack: Option<&Namespace>, name: &str, source: String) -> Result<WidgetChange> {
         self.ensure_editable()?;
         let name = parse_name(name)?;
         let removing = source.is_empty();
-        let t = self.widget_target()?;
+        let t = self.widget_target(pack)?;
         let mut widgets = t.files.widgets().clone();
         if removing {
             ensure!(widgets.contains_key(&name), UnknownWidgetSnafu { name: name.as_str() });
@@ -253,7 +264,7 @@ impl Session {
             );
             widgets.insert(name.clone(), source);
         }
-        let before = self.statuses(&t.version, t.files.widgets())?;
+        let before = self.statuses(&t.namespace, &t.version, t.files.widgets())?;
         let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
         if removing {
             manifest.examples.remove(&name);
@@ -263,7 +274,7 @@ impl Session {
             // Mode deck : rien n'a changé ; les statuts sont ceux de l'essai.
             Err(e) if e.render_error().is_some() => {
                 let render = render_diagnostics(&e);
-                (with_render(self.statuses(&t.version, &widgets)?, render, &name), false)
+                (with_render(self.statuses(&t.namespace, &t.version, &widgets)?, render, &name), false)
             }
             Err(e) => return Err(e),
         };
@@ -287,9 +298,14 @@ impl Session {
     }
 
     /// Écriture de l'agent (outil `set_widget`) : écrite, persistée, marquée.
-    pub fn set_widget_by_agent(&mut self, name: &str, source: String) -> Result<WidgetChange> {
+    pub fn set_widget_by_agent(
+        &mut self,
+        pack: Option<&Namespace>,
+        name: &str,
+        source: String,
+    ) -> Result<WidgetChange> {
         let removing = source.is_empty();
-        let change = self.set_widget(name, source)?;
+        let change = self.set_widget(pack, name, source)?;
         if change.saved
             && !removing
             && let Some(scratch) = self.scratch_mut()
@@ -308,10 +324,11 @@ impl Session {
         }
     }
 
-    /// Supprime le fichier `name` ; refusé si un modèle du pack l'utilise.
-    pub fn remove_widget(&mut self, name: &str) -> Result<Vec<WidgetStatus>> {
+    /// Supprime le fichier `name` du pack `pack` (voir [`Self::set_widget`]) ;
+    /// refusé si un modèle du pack ou le deck l'utilise.
+    pub fn remove_widget(&mut self, pack: Option<&Namespace>, name: &str) -> Result<Vec<WidgetStatus>> {
         let name = parse_name(name)?;
-        let t = self.widget_target()?;
+        let t = self.widget_target(pack)?;
         ensure!(t.files.widget(&name).is_some(), UnknownWidgetSnafu { name: name.as_str() });
         self.ensure_unused(&t, &name)?;
         let mut widgets = t.files.widgets().clone();
@@ -327,12 +344,12 @@ impl Session {
 
     /// Renomme `from` en `to` dans la version éditée ; le nom déclaré suit.
     ///
-    /// Refusé pour `_commun`, vers un nom pris, ou si un modèle utilise `from`.
-    pub fn rename_widget(&mut self, from: &str, to: &str) -> Result<Vec<WidgetStatus>> {
+    /// Refusé pour `_commun`, vers un nom pris, ou si un modèle ou le deck utilise `from`.
+    pub fn rename_widget(&mut self, pack: Option<&Namespace>, from: &str, to: &str) -> Result<Vec<WidgetStatus>> {
         let (from, to) = (parse_name(from)?, parse_name(to)?);
         ensure!(!from.is_common(), InvalidWidgetNameSnafu { name: from.as_str() });
         ensure!(!to.is_common(), InvalidWidgetNameSnafu { name: to.as_str() });
-        let t = self.widget_target()?;
+        let t = self.widget_target(pack)?;
         let source = t.files.widget(&from).context(UnknownWidgetSnafu { name: from.as_str() })?;
         ensure!(t.files.widget(&to).is_none(), WidgetExistsSnafu { name: to.as_str() });
         self.ensure_unused(&t, &from)?;
@@ -362,7 +379,7 @@ impl Session {
     }
 
     /// Fichiers du pack `pack` tenus par la session, sans lire la bibliothèque :
-    /// version éditée, pack du deck.
+    /// version éditée, pack épinglé par le deck.
     pub(crate) fn pack_files_held(&self, pack: Uuid) -> Vec<PackFiles> {
         let mut out = Vec::new();
         if let Mode::Templates { edit, .. } = &self.mode
@@ -370,8 +387,8 @@ impl Session {
         {
             out.extend(self.doc.sources.packs.get(&edit.base).cloned());
         }
-        if let Some(r) = self.deck_pack().filter(|r| r.id == pack) {
-            out.extend(self.user_blobs().packs.get(&r.version).cloned());
+        if let Some(pin) = self.deck_pins().values().find(|pin| pin.id == pack) {
+            out.extend(self.user_blobs().packs.get(&pin.version).cloned());
         }
         out
     }
@@ -382,21 +399,22 @@ impl Session {
         self.pack_files_known(pack).iter().any(|f| f.widget(&file).is_some())
     }
 
-    /// Refuse si un modèle du pack (enregistré, ou en cours d'édition) utilise `name`.
+    /// Refuse si un modèle du pack (enregistré, ou en cours d'édition) ou le
+    /// deck utilise `name`, sous son nom qualifié.
     fn ensure_unused(&self, t: &WidgetTarget, name: &WidgetFile) -> Result<()> {
-        let uses = |s: &Slide| s.kind == name.as_str() || s.walk().any(|l| l.element.kind == name.as_str());
+        let kind = qualify(&t.namespace, name.as_str());
+        let uses = |s: &Slide| s.kind == kind || s.walk().any(|l| l.element.kind == kind);
         let manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
-        let mut templates: Vec<String> =
+        // Modèles du pack et slides du deck, sous le nom montré.
+        let mut users: Vec<String> =
             manifest.templates.iter().filter(|tpl| uses(&tpl.slide)).map(|tpl| tpl.name.clone()).collect();
-        if matches!(self.mode, Mode::Templates { .. }) {
-            for s in self.doc.sources.deck().slides.iter().filter(|s| uses(s)) {
-                let shown = s.name.clone().unwrap_or_else(|| s.id.clone());
-                if !templates.contains(&shown) {
-                    templates.push(shown);
-                }
+        for s in self.doc.sources.deck().slides.iter().filter(|s| uses(s)) {
+            let shown = s.name.clone().unwrap_or_else(|| s.id.clone());
+            if !users.contains(&shown) {
+                users.push(shown);
             }
         }
-        ensure!(templates.is_empty(), WidgetInUseSnafu { name: name.as_str(), templates });
+        ensure!(users.is_empty(), WidgetInUseSnafu { name: kind, uses: users });
         Ok(())
     }
 
@@ -416,14 +434,14 @@ impl Session {
         self.ensure_editable()?;
         let before = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
         if widgets == *t.files.widgets() && manifest == before {
-            return Ok((self.statuses(&t.version, &widgets)?, Vec::new()));
+            return Ok((self.statuses(&t.namespace, &t.version, &widgets)?, Vec::new()));
         }
         manifest.created = now_created();
         self.widget_edit = true;
         let committed = self.commit_files(t, manifest, widgets);
         self.widget_edit = false;
         let render = committed?;
-        Ok((self.widget_status()?, render))
+        Ok((self.widget_status(Some(&t.namespace))?, render))
     }
 
     /// La version produite, selon le mode ; les diagnostics d'un rendu en échec.

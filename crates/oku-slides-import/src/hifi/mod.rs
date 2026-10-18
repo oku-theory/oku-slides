@@ -8,7 +8,7 @@
 //! ([`slide`]). Le plan porte le thème et le pack (à ajouter au bundle), les
 //! schémas déclarés (que la sonde du rendu doit retrouver), les polices à
 //! embarquer, les assets, et des ops qui désignent d'abord le thème et le
-//! pack générés (`set_theme`, `set_templates`), posent la langue du texte
+//! pack générés (`set_theme`, `add_pack` sous l'espace de noms `deck`), posent la langue du texte
 //! (`lang`, [`SourceDeck::language`]), puis ajoutent les slides
 //! (`s<numéro>`, éléments `s<numéro>-<rang>`) et leurs notes. Un modèle par
 //! widget, sa slide d'exemple étant la première slide de son layout.
@@ -35,7 +35,7 @@ mod widget;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use oku_slides_core::{Deck, Op, PackRef, Slide, ThemeRef, WidgetRegistry, apply_all};
+use oku_slides_core::{Deck, Namespace, Op, PackPin, Slide, ThemeRef, WidgetRegistry, apply_all};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -153,7 +153,10 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         return plan;
     };
     plan.ops.push(Op::SetTheme { theme: Some(ThemeRef { id: target.theme_id, version: theme.version() }) });
-    plan.ops.push(Op::SetTemplates { templates: Some(PackRef { id: target.pack_id, version: pack_files.version() }) });
+    plan.ops.push(Op::AddPack {
+        namespace: Namespace::deck(),
+        pin: PackPin { id: target.pack_id, version: pack_files.version(), requires: vec![] },
+    });
     if let Some(lang) = &lang {
         plan.ops.push(Op::SetDeckParam { key: "lang".to_owned(), value: Value::String(lang.clone()) });
     }

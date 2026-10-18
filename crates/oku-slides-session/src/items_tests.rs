@@ -68,7 +68,7 @@ fn list_views_of_a_slide_without_list_are_empty() {
 fn item_and_list_views_of_a_list_without_max_report_the_core_limit() {
     let mut s = crate::lib_tests_support::session_with_fixture();
     let sans_max = crate::test_support::FRISE_TEST.replace(" max: 8,", "");
-    s.set_widget("frise", sans_max).unwrap();
+    s.set_widget(None, "frise", sans_max).unwrap();
     crate::lib_tests_support::add_frise_to(&mut s);
     let view = s.slide("s-constat").unwrap();
     assert_that!(view.items[0].max).is_equal_to(oku_slides_core::LIST_ITEMS_MAX);

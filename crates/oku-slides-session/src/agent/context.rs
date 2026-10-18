@@ -2,11 +2,14 @@
 //! (mode, langues de l'interface et du deck, thème, slide, sélection, actions
 //! faites sans lui), et les tours d'annulation (un tour = une entrée ⌘Z).
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use oku_slides_core::{Namespace, PackPin};
 
 use super::bounds::clip;
 use crate::widgets_edit::parse_name;
@@ -55,6 +58,15 @@ pub(crate) fn declared_language(lang: Option<&str>) -> String {
         }
         Some(_) => "invalid".to_owned(),
     }
+}
+
+/// Les packs épinglés pour le contexte : `<namespace>=<id>`, séparés par des virgules ; `none` sans pack.
+pub(crate) fn widget_packs(pins: &BTreeMap<Namespace, PackPin>) -> String {
+    if pins.is_empty() {
+        return "none".to_owned();
+    }
+    let packs: Vec<String> = pins.iter().map(|(ns, pin)| format!("{ns}={}", pin.id)).collect();
+    packs.join(", ")
 }
 
 /// Essais cités au contexte, au plus.
@@ -120,11 +132,11 @@ impl Session {
         let locale = ui.locale.as_deref().and_then(oku_slides_i18n::shipped).unwrap_or(self.localizer.locale());
         let _ = writeln!(
             out,
-            "interface language: {} ({locale}) · deck language: {} · {theme} · template_set: {}",
+            "interface language: {} ({locale}) · deck language: {} · {theme} · widget_packs: {}",
             // `locale` est livrée : son nom existe (`locales!`), le code n'est qu'un secours.
             oku_slides_i18n::english_name(locale).unwrap_or(locale),
             declared_language(deck.params.lang.as_deref()),
-            self.deck_pack().map_or_else(|| "none".to_owned(), |r| r.id.to_string())
+            widget_packs(self.deck_pins())
         );
         if let Some((i, slide)) =
             ui.slide.as_deref().and_then(|id| deck.slides.iter().enumerate().find(|(_, s)| s.id == id))
@@ -151,7 +163,7 @@ impl Session {
         // Un nom invalide n'est pas cité : il vient tel quel de l'interface.
         if let Some(w) = ui.widget.as_deref().and_then(|w| parse_name(w).ok()) {
             // Ses valeurs d'exemple, celles de `set_widget_trial`.
-            match self.example_values(&w).ok().filter(|m| !m.is_empty()) {
+            match self.example_values(None, &w).ok().filter(|m| !m.is_empty()) {
                 Some(m) => {
                     let mut shown: Vec<String> = m
                         .iter()

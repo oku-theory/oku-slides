@@ -97,7 +97,7 @@ fn import_tab_with_a_pack_folder_as_target_is_a_localized_unknown_pack_and_keeps
     let ws = workspace_on(data.path());
     let dir = data.path().join("mon-pack");
     std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("pack.json"), include_str!("../../../templates/grilles/pack.json")).unwrap();
+    std::fs::write(dir.join("widgets.json"), include_str!("../../../templates/grilles/pack.json")).unwrap();
     let pptx = pptx_fixture(data.path(), "minimal");
     // Un dossier venu de l'interface n'est jamais lu : seule la bibliothèque compte.
     let err = import_tab(&ws, &pptx, json!({ "mode": "retrofit", "pack": dir }), false).unwrap_err();

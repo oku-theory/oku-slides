@@ -11,11 +11,11 @@ use common::{Isolated, fixture_path, req, session};
 fn with_frise() -> Isolated {
     let mut s = session();
     s.open(&fixture_path()).unwrap_or_else(|e| panic!("fixture : {}", e.one_line()));
-    s.set_widget("frise", include_str!("../../../fixtures/widgets/frise-test.typ").into())
+    s.set_widget(None, "frise", include_str!("../../../fixtures/widgets/frise-test.typ").into())
         .unwrap_or_else(|e| panic!("frise : {}", e.one_line()));
     s.handle(req(json!({ "cmd": "apply", "label": "frise", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-        "defaults": true, "element": { "id": "fr", "kind": "frise" }
+        "defaults": true, "element": { "id": "fr", "kind": "deck/frise" }
     }] })))
     .unwrap_or_else(|e| panic!("élément frise : {}", e.one_line()));
     s

@@ -4,14 +4,14 @@
 mod common;
 
 use oku_slides_core::ParamType;
-use oku_slides_render::{Fonts, ItemBox, Layout, load_registry};
+use oku_slides_render::{Fonts, ItemBox, Layout, PackSet, load_registry};
 use serde_json::json;
 use speculoos::prelude::*;
 
 use common::{plan_pack, render_with_pack};
 
 fn render_plan(params: serde_json::Value) -> Layout {
-    render_with_pack(&plan_pack(), json!([{ "id": "p", "kind": "plan", "params": params }]))
+    render_with_pack(&plan_pack(), json!([{ "id": "p", "kind": "test/plan", "params": params }]))
 }
 
 fn steps() -> serde_json::Value {
@@ -27,8 +27,11 @@ fn items_of<'a>(layout: &'a Layout, list: &str) -> Vec<&'a ItemBox> {
 
 #[test]
 fn plan_pack_declares_a_nested_list_column() {
-    let r = load_registry(&Fonts::default(), Some(&plan_pack())).unwrap();
-    let ParamType::List { item, .. } = &r.get("plan").unwrap().param("etapes").unwrap().ty else { panic!("liste") };
+    let r =
+        load_registry(&Fonts::default(), &PackSet::new(vec![plan_pack()]).unwrap_or_else(|e| panic!("{e}"))).unwrap();
+    let ParamType::List { item, .. } = &r.get("test/plan").unwrap().param("etapes").unwrap().ty else {
+        panic!("liste")
+    };
     let taches = item.iter().find(|c| c.name == "taches").unwrap();
     assert_that!(matches!(taches.ty, ParamType::List { .. })).is_true();
 }

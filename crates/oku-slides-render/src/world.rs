@@ -22,7 +22,7 @@ use crate::diagnostic::{Diagnostic, Severity, SourceAt};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
 use crate::palette::{body_font, chart_palette};
-use crate::registry::PackWidgets;
+use crate::registry::PackSet;
 
 macro_rules! lib_files {
     ($($path:literal),* $(,)?) => {
@@ -58,16 +58,11 @@ pub(crate) fn file_id(path: &str) -> Result<FileId, RenderError> {
 }
 
 /// Source principale : importe la bibliothèque et les widgets (base, puis
-/// ceux du pack s'il y en a un), et rend `/deck.json` avec les jetons de
+/// ceux de chaque pack, sous leur nom qualifié), et rend `/deck.json` avec les jetons de
 /// `/theme.json` si un thème est posé (`has_theme`).
 /// `assets` : empreintes (hex) des assets disponibles.
 /// `labels` : textes des cadres de repli (échappés ici, pas du code).
-fn main_source<'a>(
-    has_theme: bool,
-    pack: Option<&PackWidgets>,
-    assets: impl Iterator<Item = &'a str>,
-    labels: &Labels,
-) -> String {
+fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item = &'a str>, labels: &Labels) -> String {
     let theme = if has_theme { r#"json("/theme.json")"# } else { "none" };
     // Un tableau Typst à un élément s'écrit `("x",)` : chaque entrée finit par une virgule.
     let mut available = String::from("(");
@@ -81,10 +76,12 @@ fn main_source<'a>(
     let chart_failed = typst_string(&labels.chart_failed);
     // L'identifiant d'un pack est contrôlé (`PackWidgets::new`) : il peut
     // entrer dans un chemin.
-    let (pack_import, pack_registry) = match pack {
-        Some(p) => (format!("#import \"{}\": registry as pack-registry\n", p.path()), " + pack-registry"),
-        None => (String::new(), ""),
-    };
+    let mut pack_import = String::new();
+    let mut pack_registry = String::new();
+    for (i, p) in packs.packs().iter().enumerate() {
+        pack_import.push_str(&format!("#import \"{}\": registry as pack-registry-{i}\n", p.path()));
+        pack_registry.push_str(&format!(" + pack-registry-{i}"));
+    }
     format!(
         r#"#import "/oku-slides/lib.typ": *
 #import "/oku-slides/src/widgets.typ": registry as base-registry
@@ -179,8 +176,8 @@ pub(crate) struct OkuSlidesWorld {
     /// Assets du dernier deck reçu, pour refaire la source principale.
     hexes: Vec<String>,
     labels: Labels,
-    /// Widgets du pack : ses fichiers sous /packs/<id>/widgets/, l'assemblage sous /packs/<id>/widgets.typ.
-    pack: Option<PackWidgets>,
+    /// Widgets des packs : fichiers sous /packs/<id>/widgets/, assemblage sous /packs/<id>/widgets.typ.
+    packs: PackSet,
     charts: Charts,
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte
     /// de leur contenu : un asset déjà là n'est jamais recopié.
@@ -204,7 +201,7 @@ impl OkuSlidesWorld {
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
-            main: Source::new(main_id, main_source(false, None, std::iter::empty(), &Labels::default())),
+            main: Source::new(main_id, main_source(false, &PackSet::default(), std::iter::empty(), &Labels::default())),
             sources,
             deck_id: file_id("/deck.json")?,
             deck: Bytes::new(br#"{"slides":[]}"#.as_slice()),
@@ -212,7 +209,7 @@ impl OkuSlidesWorld {
             theme_id: file_id("/theme.json")?,
             hexes: Vec::new(),
             labels: Labels::default(),
-            pack: None,
+            packs: PackSet::default(),
             charts: Charts::default(),
             assets: HashMap::new(),
             data,
@@ -259,25 +256,18 @@ impl OkuSlidesWorld {
         self.redraw_charts(registry)
     }
 
-    /// Widgets du pack (ou aucun) : sa source est servie, la source
-    /// principale l'importe, et les graphiques du deck courant sont
+    /// Widgets des packs (ou aucun) : leurs sources sont servies, la source
+    /// principale les importe, et les graphiques du deck courant sont
     /// redessinés selon `registry`.
-    pub(crate) fn set_pack(
-        &mut self,
-        pack: Option<&PackWidgets>,
-        registry: &WidgetRegistry,
-    ) -> Result<(), RenderError> {
-        if let Some(old) = self.pack.take() {
-            for (path, _) in old.sources() {
-                self.sources.remove(&file_id(&path)?);
-            }
+    pub(crate) fn set_packs(&mut self, packs: &PackSet, registry: &WidgetRegistry) -> Result<(), RenderError> {
+        let old = std::mem::take(&mut self.packs);
+        for (path, _) in old.sources() {
+            self.sources.remove(&file_id(&path)?);
         }
-        if let Some(p) = pack {
-            for (path, text) in p.sources() {
-                self.add_source(&path, text)?;
-            }
+        for (path, text) in packs.sources() {
+            self.add_source(&path, text)?;
         }
-        self.pack = pack.cloned();
+        self.packs = packs.clone();
         self.redraw_charts(registry)
     }
 
@@ -332,8 +322,7 @@ impl OkuSlidesWorld {
 
     /// Refait la source principale si elle a changé (Typst garde son cache sinon).
     fn refresh_main(&mut self) {
-        let text =
-            main_source(self.theme.is_some(), self.pack.as_ref(), self.hexes.iter().map(String::as_str), &self.labels);
+        let text = main_source(self.theme.is_some(), &self.packs, self.hexes.iter().map(String::as_str), &self.labels);
         if self.main.text() != text {
             self.main.replace(&text);
         }

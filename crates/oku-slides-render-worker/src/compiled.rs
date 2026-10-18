@@ -115,8 +115,12 @@ impl RemoteCompiled {
         if link.restarts != self.epoch {
             return Err(RenderError::stale());
         }
-        let pack = link.state.slots.get(&self.slot).and_then(|s| s.pack.clone()).filter(|_| self.accuse);
-        self.worker.prepare_for(&mut link, pack.as_ref())?;
+        let packs: Vec<_> = if self.accuse {
+            link.state.slots.get(&self.slot).map(|s| s.packs.clone()).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        self.worker.prepare_for(&mut link, &packs)?;
         // `prepare` a pu relancer le travailleur.
         if link.restarts != self.epoch {
             return Err(RenderError::stale());
@@ -126,7 +130,7 @@ impl RemoteCompiled {
             Ok((Response::Error { error }, _)) => Err(error.into_render()),
             Ok((other, _)) => Err(unexpected(&other)),
             Err(e) => {
-                blame(&mut link, pack.as_ref(), &e);
+                blame(&mut link, &packs, &e);
                 Err(e)
             }
         }

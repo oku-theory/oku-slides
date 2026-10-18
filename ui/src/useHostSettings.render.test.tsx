@@ -17,7 +17,7 @@ const surface = (id: string): Surface => ({ id, place: "thread", live: true, tur
 interface Snap { trials?: number; history?: boolean; hash?: string; undo?: string | null }
 const snapshot = (o: Snap = {}): Snapshot =>
   ({
-    editing: { set: "p", base: "b" }, templates: { version: "v" }, history: o.history ? {} : null,
+    editing: { set: "p", base: "b" }, widgets: { deck: { id: "p", version: "v" } }, history: o.history ? {} : null,
     widget_trials: o.trials ?? 0, undo_label: o.undo ?? null, redo_label: null,
     slides: [{ id: "t-1", hash: o.hash ?? "h", name: "Libre" }],
   }) as unknown as Snapshot;

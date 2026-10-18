@@ -8,6 +8,7 @@ use oku_slides_i18n::{Localize, Localizer, Message};
 
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{Deck, DeckParams, Grid, Paragraph};
+use crate::namespace::Namespace;
 use crate::ops::ListSpec;
 use crate::pack::PackVersion;
 use crate::params::{ListItem, ParamValue, Params};
@@ -47,6 +48,18 @@ impl Issue {
     /// La version de pack du deck manque dans ses sources.
     pub fn pack_version_missing(version: &PackVersion) -> Self {
         let message = Message::new("issue-pack-version-missing").arg("version", version.as_str());
+        Self { slide: None, element: None, message }
+    }
+
+    /// Le manifeste embarqué d'un pack ne correspond pas à son épinglage dans le deck.
+    pub fn pack_pin_mismatch(ns: &Namespace) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-pack-pin-mismatch").arg("pack", ns.as_str()) }
+    }
+
+    /// Un pack du deck a besoin d'un espace de noms que le deck n'épingle pas.
+    pub fn pack_requirement_missing(ns: &Namespace, required: &Namespace) -> Self {
+        let message =
+            Message::new("issue-pack-requirement-missing").arg("pack", ns.as_str()).arg("required", required.as_str());
         Self { slide: None, element: None, message }
     }
 

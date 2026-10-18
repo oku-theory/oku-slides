@@ -24,6 +24,9 @@ pub(super) enum Ctx {
     /// JSON (spec : chaque entrée de `vars` est LWW, jamais fusionnée champ à
     /// champ même si elle contient un objet).
     Vars,
+    /// Chaque entrée de `widgets` est une feuille LWW : un épinglage entier,
+    /// jamais champ à champ.
+    PackPins,
     /// `tokens`, `style`, `frame`, `cell`, extras des `params` du deck :
     /// cartes à feuilles LWW.
     Opaque,
@@ -105,8 +108,10 @@ impl Ctx {
     pub(super) fn kind(self, key: &str) -> Kind {
         use Ctx::*;
         match (self, key) {
-            // Une référence de pack ou de thème entière : l'id et la version ne se mêlent jamais.
-            (Deck, "templates" | "theme") => Kind::Atom,
+            // Une référence de thème entière : l'id et la version ne se mêlent jamais.
+            (Deck, "theme") => Kind::Atom,
+            (Deck, "widgets") => Kind::Nested(PackPins),
+            (PackPins, _) => Kind::Atom,
             (Deck, SLIDES) => Kind::Slides,
             (Deck, "params") => Kind::Nested(DeckParams),
             (Deck, "vars") => Kind::Nested(Vars),
@@ -125,7 +130,17 @@ impl Ctx {
         match self {
             Ctx::DeckParams => &["title", "subtitle", "author", "date", "organization"],
             Ctx::Slide => &["name", "description", "notes"],
-            Ctx::Deck | Ctx::Element | Ctx::Params | Ctx::Vars | Ctx::Opaque | Ctx::Host => &[],
+            Ctx::Deck | Ctx::Element | Ctx::Params | Ctx::Vars | Ctx::PackPins | Ctx::Opaque | Ctx::Host => &[],
+        }
+    }
+
+    /// Cartes créées dès la création de l'objet et jamais retirées : vides
+    /// quand le deck n'en a pas. Deux pairs qui épinglent chacun un premier
+    /// pack écrivent ainsi dans la même carte `widgets`.
+    pub(super) fn maps(self) -> &'static [&'static str] {
+        match self {
+            Ctx::Deck => &["widgets"],
+            _ => &[],
         }
     }
 

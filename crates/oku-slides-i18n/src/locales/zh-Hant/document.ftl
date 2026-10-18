@@ -18,6 +18,7 @@ diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 無法繪製圖表
 
 registry-bad-pack-id = 範本套件識別碼無效: { $id }
+registry-duplicate-pack = 簡報的兩個小工具套件共用 { $pack }。
 registry-compile = 無法編譯範本套件的元件
 registry-missing = 範本套件未宣告其元件
 render-timeout = 算繪耗時超過 { $seconds }秒，已中斷

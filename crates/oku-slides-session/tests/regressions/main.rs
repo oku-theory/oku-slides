@@ -21,3 +21,5 @@ mod issue_0694_reprise_v7_mise_de_cote;
 mod issue_0746_reprise_v8_mise_de_cote;
 mod issue_0902_deck_only_workshop;
 mod issue_0903_repick_deck_only_theme;
+mod issue_1015_pack_fault_isolated;
+mod issue_1016_deck_widget_goes_to_deck_pack;

@@ -57,13 +57,13 @@ impl Session {
 
     /// Charge un document ; ses graphiques sont mis sous forme canonique,
     /// pour que la grille puisse éditer leurs données. Il se lit et se rend
-    /// avec les widgets du pack qu'il embarque ; sans pack, il adopte le pack
-    /// par défaut (voir `deck_pack`).
+    /// avec les widgets des packs qu'il épingle ; sans pack, il adopte le pack
+    /// par défaut et ses besoins (voir `deck_pack`).
     pub(crate) fn load_document(&mut self, mut doc: Document) -> Result<()> {
         self.end_widget_session();
-        deck_pack::adopt_default_pack(&self.library, &mut doc.sources)?;
+        deck_pack::adopt_default_packs(&self.library, &mut doc.sources)?;
         deck_theme::adopt_default_theme(&self.themes, &mut doc.sources)?;
-        let (widgets, notice) = self.resolve_widgets(doc.sources.deck().templates.as_ref(), &doc.sources.packs)?;
+        let (widgets, notice) = self.resolve_widgets(&doc.sources.deck().widgets, &doc.sources.packs)?;
         doc.sources.set_registry(widgets.registry.clone());
         let mut deck = doc.sources.deck().clone();
         charts::canonicalize_deck(&mut deck, &self.chart_labels, &widgets.registry);
@@ -78,7 +78,7 @@ impl Session {
         // widgets sont prêts avant de remplacer le document : si l'un
         // échoue, l'ancien document, son registre et son rendu restent.
         let fonts = (doc.sources.fonts != self.doc.sources.fonts)
-            .then(|| self.fonts_renderer(&doc.sources.fonts, widgets.pack.as_ref(), &widgets.registry))
+            .then(|| self.fonts_renderer(&doc.sources.fonts, &widgets.set, &widgets.registry))
             .transpose()?;
         self.install_widgets(widgets)?;
         self.doc = doc;

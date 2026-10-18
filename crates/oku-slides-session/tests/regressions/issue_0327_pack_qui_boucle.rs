@@ -51,6 +51,8 @@ fn looping_pack_render_falls_back_to_base_widgets() {
     let manifest = PackManifest {
         id,
         name: "Boucle".into(),
+        namespace: oku_slides_core::Namespace::parse("boucle").unwrap_or_else(|| panic!("espace de noms")),
+        requires: vec![],
         description: String::new(),
         parent: None,
         created: "2026-10-01T00:00:00Z".into(),
@@ -66,7 +68,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         .unwrap_or_else(|e| panic!("{e}"));
     let version = files.version();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.path().join("templates")), storage)
+    PackLibrary::new(Some(data.path().join("widgets")), storage)
         .add_version(id, &files)
         .unwrap_or_else(|e| panic!("{e}"));
 
@@ -87,21 +89,21 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         .unwrap_or_else(|e| panic!("ouverture refusée : {}", e.one_line()));
 
     let ops: Vec<Op> = serde_json::from_value(serde_json::json!([
-        { "op": "set_templates", "templates": { "id": id, "version": version } },
+        { "op": "add_pack", "namespace": "boucle", "pin": { "id": id, "version": version } },
         { "op": "add_element",
           "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-          "element": { "id": "l", "kind": "boucle", "params": { "body": "x" } } }
+          "element": { "id": "l", "kind": "boucle/boucle", "params": { "body": "x" } } }
     ]))
     .unwrap_or_else(|e| panic!("{e}"));
     s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("modification refusée : {}", e.one_line()));
-    // L'avis `session-pack-disabled` nomme le pack écarté, par le nom de son manifeste.
+    // L'avis `session-packs-disabled` nomme le pack écarté, par le nom de son manifeste.
     let snapshot: serde_json::Value =
         serde_json::from_str(&s.handle(Request::Snapshot).unwrap_or_else(|e| panic!("{e}")))
             .unwrap_or_else(|e| panic!("{e}"));
     let notice = snapshot["notice"].as_str().unwrap_or_default();
-    assert!(notice.contains("« Boucle » ont été désactivés"), "avis attendu : {notice:?}");
+    assert!(notice.contains("désactivés parce qu'ils ont échoué : Boucle"), "avis attendu : {notice:?}");
     let widgets: serde_json::Value =
         serde_json::from_str(&s.handle(Request::Widgets).unwrap_or_else(|e| panic!("{e}")))
             .unwrap_or_else(|e| panic!("{e}"));
-    assert!(widgets["widgets"].get("boucle").is_none(), "le pack fautif est encore installé");
+    assert!(widgets["widgets"].get("boucle/boucle").is_none(), "le pack fautif est encore installé");
 }

@@ -27,8 +27,9 @@
 //!   `PackProbe::unprobed`. Un pack reçu dont chaque fichier boucle ne coûte
 //!   ainsi qu'un délai par appel ; un délai gardé n'est plus « non sondé ».
 //! - Les registres assemblés sont gardés (les [`MAX_ASSEMBLED`] derniers) par
-//!   empreinte du pack réduit aux valides : sonder deux fois le même pack rend
-//!   le même `Arc`, et la session ne réinstalle pas des widgets inchangés.
+//!   empreinte : celle du pack réduit aux valides pour `probe_pack`, celle de
+//!   l'ensemble pour `registry_of`. Le même appel rend le même `Arc`, et la
+//!   session ne réinstalle pas des widgets inchangés.
 //! - `pack` ne garde que `_commun` et les widgets valides : le module
 //!   d'assemblage importe chaque fichier, un fichier cassé casserait le rendu.
 
@@ -39,7 +40,9 @@ use std::time::Instant;
 
 use oku_slides_core::{WidgetFile, WidgetRegistry};
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_render::{FileProbe, Fonts, PackWidgets, RegistryError, RenderError, assemble, base_probe, probe_key};
+use oku_slides_render::{
+    FileProbe, Fonts, PackSet, PackWidgets, RegistryError, RenderError, assemble, assemble_set, base_probe, probe_key,
+};
 
 use crate::client::{RenderWorker, unexpected};
 use crate::protocol::{Request, Response};
@@ -96,28 +99,61 @@ impl RenderWorker {
         }
         // Les schémas ne dépendent pas des polices : celles de Typst suffisent.
         let base = base_probe(&Fonts::default())?;
-        let registry = assemble(&base, &mut files)?;
+        let registry = assemble(&base, pack.namespace(), &mut files)?;
         let valid: BTreeSet<WidgetFile> =
             files.iter().filter(|(n, p)| !n.is_common() && p.is_valid()).map(|(n, _)| n.clone()).collect();
         let kept = pack.only(&valid);
-        let registry = self.kept_registry(kept.fingerprint(), registry);
+        let registry = self.kept_registry(kept.fingerprint(), || Ok((registry, true)))?;
         let pack = (!valid.is_empty()).then_some(kept);
         Ok(PackProbe { files, pack, registry, unprobed })
     }
 
-    /// Le registre assemblé déjà rendu pour les mêmes widgets valides (`key` :
-    /// empreinte du pack réduit), sinon `registry`, gardé : deux sondes du
-    /// même pack donnent le même `Arc`, que la session compare par `Arc::ptr_eq`.
-    fn kept_registry(&self, key: [u8; 32], registry: WidgetRegistry) -> Arc<WidgetRegistry> {
-        let mut kept = self.1.assembled.lock().unwrap_or_else(PoisonError::into_inner);
-        let found = kept.iter().position(|(k, _)| *k == key).and_then(|i| kept.remove(i));
-        let entry = found.unwrap_or_else(|| (key, Arc::new(registry)));
+    /// Le registre de la base et des packs de `set`, déjà sondés (les fichiers
+    /// invalides en sont écartés), gardé par empreinte de l'ensemble : deux appels
+    /// pour le même ensemble donnent le même `Arc`.
+    pub fn registry_of(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
+        self.kept_registry(set.fingerprint(), || {
+            let base = base_probe(&Fonts::default())?;
+            // Sondes gardées par `probe_key` : un pack déjà sondé ne recompile rien.
+            let mut probes = set.packs().iter().map(|p| self.probe_pack(p)).collect::<Result<Vec<_>, _>>()?;
+            // Un fichier non sondé manque au registre : il ne doit pas être gardé sous l'ensemble complet.
+            let complete = probes.iter().all(|p| p.unprobed.is_empty());
+            let mut packs: Vec<_> =
+                set.packs().iter().map(PackWidgets::namespace).zip(probes.iter_mut().map(|p| &mut p.files)).collect();
+            Ok((assemble_set(&base, &mut packs)?, complete))
+        })
+    }
+
+    /// Le registre gardé sous `key`, sinon celui de `build`, gardé s'il est complet :
+    /// deux appels pour la même clé donnent le même `Arc`, que la session compare par `Arc::ptr_eq`.
+    fn kept_registry(
+        &self,
+        key: [u8; 32],
+        build: impl FnOnce() -> Result<(WidgetRegistry, bool), RegistryError>,
+    ) -> Result<Arc<WidgetRegistry>, RegistryError> {
+        let found = {
+            let mut kept = self.1.assembled.lock().unwrap_or_else(PoisonError::into_inner);
+            kept.iter().position(|(k, _)| *k == key).and_then(|i| kept.remove(i))
+        };
+        // Construit hors du verrou : `build` sonde des fichiers et reprend ce verrou.
+        let entry = match found {
+            Some(entry) => entry,
+            None => {
+                let (registry, complete) = build()?;
+                if !complete {
+                    return Ok(Arc::new(registry));
+                }
+                (key, Arc::new(registry))
+            }
+        };
         let registry = entry.1.clone();
+        let mut kept = self.1.assembled.lock().unwrap_or_else(PoisonError::into_inner);
+        kept.retain(|(k, _)| *k != key);
         while kept.len() >= MAX_ASSEMBLED {
             kept.pop_front();
         }
         kept.push_back(entry);
-        registry
+        Ok(registry)
     }
 
     /// La langue posée dans les emplacements du travailleur ; l'anglais avant le premier.
@@ -205,3 +241,7 @@ enum Skipped {
     /// Le lien n'a pas pu être préparé.
     Link(RenderError),
 }
+
+#[cfg(test)]
+#[path = "pack_set_tests.rs"]
+mod pack_set_tests;

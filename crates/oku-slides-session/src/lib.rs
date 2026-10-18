@@ -22,20 +22,22 @@ use snafu::{OptionExt, ResultExt};
 
 use oku_slides_chart::ChartLabels;
 use oku_slides_core::{
-    Category, Deck, DeckParams, Element, PackRef, Paragraph, ParamValue, Slide, SourceBundle, SourceLimits,
-    WidgetRegistry,
+    Category, Deck, DeckParams, Element, Namespace, PackPin, Paragraph, ParamValue, Slide, SourceBundle, SourceLimits,
+    WidgetRegistry, qualify,
 };
 pub use oku_slides_i18n::{Localize, Localizer};
 pub use oku_slides_platform::Platform;
 pub use oku_slides_platform::config::Settings;
 pub use oku_slides_platform::storage::Storage;
 pub use oku_slides_render::Fonts;
-use oku_slides_render::{PackWidgets, RenderError, RenderErrorKind};
+use oku_slides_render::{PackSet, RenderError, RenderErrorKind};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 
 pub mod agent;
 mod appearance;
 mod charts;
+mod deck_closure;
+mod deck_fallback;
 mod deck_file;
 mod deck_pack;
 mod deck_theme;
@@ -57,6 +59,7 @@ mod library_index;
 mod library_kind;
 mod library_lookup;
 mod merge;
+mod namespace_slug;
 pub mod pack;
 mod pack_notice;
 mod panel;
@@ -93,7 +96,7 @@ mod widgets_edit;
 mod workspace;
 
 pub use appearance::{Appearance, appearance};
-pub use deck_pack::{adopt_default_pack, check_pack_id};
+pub use deck_pack::{adopt_default_packs, check_pack_id};
 pub use deck_theme::{adopt_default_theme, theme_tokens};
 pub use deck_theme_edit::{EditedTheme, TokenOp};
 use error::{NoSlideSnafu, NotRenderedSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
@@ -106,7 +109,7 @@ pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 pub use library_lookup::{embed_theme, library_pack, read_pack_dir, resolve_pack};
 pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, PackScope, Relation, Template};
-pub use probed_widgets::{ProbedWidgets, sources_with_pack};
+pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
 use template_scratch::TemplateScratch;
@@ -217,13 +220,14 @@ pub struct Session {
     /// Registre des widgets du document ouvert : les ops et le rendu s'en
     /// servent (voir `deck_widgets` pour l'invariant).
     registry: Arc<WidgetRegistry>,
-    /// Pack dont les widgets surchargent la base ; `None` : la base seule.
-    pack: Option<PackWidgets>,
-    /// Référence de pack (`deck.templates`) pour laquelle `registry` et
-    /// `pack` ont été résolus.
-    widgets_templates: Option<PackRef>,
-    /// Les fichiers du pack installé qui restent à sonder (budget épuisé).
-    widgets_unprobed: BTreeSet<oku_slides_core::WidgetFile>,
+    /// Packs utilisables dont les widgets s'ajoutent au noyau ; vide : le noyau seul.
+    packs: PackSet,
+    /// Packs épinglés (`deck.widgets`) pour lesquels `registry` et `packs` ont été résolus.
+    widgets_pins: BTreeMap<Namespace, PackPin>,
+    /// Par pack installé, les fichiers qui restent à sonder (budget épuisé).
+    widgets_unprobed: BTreeMap<Namespace, BTreeSet<oku_slides_core::WidgetFile>>,
+    /// Packs épinglés écartés pour la session (absents, illisibles, fautifs), et leur nom.
+    widgets_disabled: BTreeMap<Namespace, String>,
     /// Rendu des aperçus de modèles, séparé du deck, avec leur clé de cache.
     template_renderer: Option<RenderSlot>,
     template_cache: Option<templates_mode::Previews>,
@@ -257,10 +261,10 @@ pub struct Session {
     turn_steps: agent::turn_undo::TurnSteps,
     /// Conversations de l'agent, une par portée (`agent::conversation`).
     conversations: agent::conversation::Conversations,
-    /// Bandeau du pack du deck ouvert (autre version que la courante).
+    /// Bandeau d'un pack du deck ouvert (autre version que la courante).
     pack_notice: Option<pack_notice::PackNotice>,
     /// Bandeaux fermés : ils ne reviennent plus dans cette session.
-    pack_notices_closed: HashSet<PackRef>,
+    pack_notices_closed: HashSet<PackPin>,
     /// Bornes des fichiers de widgets (`[render]`).
     widget_limits: widgets_edit::WidgetLimits,
     /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
@@ -275,26 +279,26 @@ pub struct Session {
     failpoints: deck_widgets::Failpoints,
 }
 
-/// Un emplacement de `worker` avec les widgets de `pack` (de registre
+/// Un emplacement de `worker` avec les widgets des packs `set` (de registre
 /// `registry`), dont l'image absente se dit dans la langue de l'utilisateur.
 ///
-/// Un pack fautif n'est pas posé : la base reste. À l'appelant de s'être
-/// replié d'abord (`Session::usable_pack`), pour que la session suive.
+/// Un ensemble qui porte un pack fautif n'est pas posé : la base reste. À
+/// l'appelant d'avoir écarté ce pack d'abord (`Session::usable_packs`), pour
+/// que la session suive.
 ///
-/// Sans pack posé (`None` ou fautif), `registry` n'est pas lu : l'emplacement
+/// Sans pack posé (vide ou fautif), `registry` n'est pas lu : l'emplacement
 /// rend avec la base tirée de `fonts`, à l'appelant d'y accorder son registre.
 pub(crate) fn new_renderer(
     worker: &RenderWorker,
     fonts: Fonts,
     l: &Localizer,
-    pack: Option<&PackWidgets>,
+    set: &PackSet,
     registry: &Arc<WidgetRegistry>,
 ) -> Result<RenderSlot> {
     let base = oku_slides_render::base_registry(&fonts).context(RegistrySnafu)?;
     let mut slot = worker.slot(&fonts, l, base).context(RenderSnafu)?;
-    let pack = pack.filter(|p| !worker.is_faulty(p));
-    if pack.is_some() {
-        slot.set_widgets(pack, registry.clone()).context(RenderSnafu)?;
+    if !set.is_empty() && !set.packs().iter().any(|p| worker.is_faulty(p)) {
+        slot.set_widgets(set, registry.clone()).context(RenderSnafu)?;
     }
     Ok(slot)
 }
@@ -319,7 +323,8 @@ pub fn blank_deck(l: &Localizer) -> Deck {
         },
         vars: BTreeMap::new(),
         tokens: Value::Null,
-        templates: None,
+        // Adoptés au chargement : le pack par défaut et ses besoins.
+        widgets: BTreeMap::new(),
         slides: vec![Slide::new("s-titre", "title"), content],
     }
 }
@@ -356,7 +361,7 @@ impl Session {
         let library = PackLibrary::user(platform);
         let themes = ThemeLibrary::user(platform);
         let mut blank = SourceBundle::new(blank_deck(l), registry.clone()).context(SourcesSnafu)?;
-        deck_pack::adopt_default_pack(&library, &mut blank)?;
+        deck_pack::adopt_default_packs(&library, &mut blank)?;
         deck_theme::adopt_default_theme(&themes, &mut blank)?;
         let mut s = Self {
             doc: Document { blank: true, ..Document::new(blank, None, &doc_defaults) },
@@ -371,9 +376,10 @@ impl Session {
             renderer: None,
             worker,
             registry,
-            pack: None,
-            widgets_templates: None,
-            widgets_unprobed: BTreeSet::new(),
+            packs: PackSet::default(),
+            widgets_pins: BTreeMap::new(),
+            widgets_unprobed: BTreeMap::new(),
+            widgets_disabled: BTreeMap::new(),
             localizer: l.clone(),
             chart_labels: ChartLabels::new(l),
             render_fonts: app_fonts.clone(),
@@ -436,27 +442,47 @@ impl Session {
         }
     }
 
-    /// Les fichiers du pack en cours : version éditée, sinon celle du deck.
+    /// Les fichiers du pack en cours : version éditée, sinon celle du pack `deck` du deck.
     fn pack_files_in_use(&self) -> Option<&oku_slides_core::PackFiles> {
         match &self.mode {
             Mode::Templates { edit, .. } => self.doc.sources.packs.get(&edit.base),
-            Mode::Deck | Mode::Help { .. } => self.deck_pack().and_then(|r| self.user_blobs().packs.get(&r.version)),
+            Mode::Deck | Mode::Help { .. } => {
+                let pin = self.deck_pins().get(&Namespace::deck())?;
+                self.user_blobs().packs.get(&pin.version)
+            }
             Mode::History { .. } => None,
         }
     }
 
-    /// Les widgets du pack en cours, lus dans ses fichiers sans rien construire ni sonder.
-    fn pack_widget_names(&self) -> Vec<&str> {
-        let files = self.pack_files_in_use();
-        files.map_or_else(Vec::new, |f| f.widgets().keys().filter(|n| !n.is_common()).map(|n| n.as_str()).collect())
+    /// Les widgets des packs en cours, qualifiés, lus dans leurs fichiers sans rien construire ni sonder.
+    ///
+    /// En mode modèles, ceux du pack édité ; sinon ceux de chaque pack épinglé par le deck.
+    fn pack_widget_names(&self) -> Vec<String> {
+        let named = |ns: &Namespace, f: &oku_slides_core::PackFiles| -> Vec<String> {
+            f.widgets().keys().filter(|n| !n.is_common()).map(|n| qualify(ns, n.as_str())).collect()
+        };
+        match &self.mode {
+            Mode::Templates { edit, .. } => {
+                let files = self.doc.sources.packs.get(&edit.base);
+                let ns = self.edited_pin().map(|(ns, _)| ns);
+                files.zip(ns).map_or_else(Vec::new, |(f, ns)| named(ns, f))
+            }
+            Mode::Deck | Mode::Help { .. } => self
+                .deck_pins()
+                .iter()
+                .filter_map(|(ns, pin)| Some(named(ns, self.user_blobs().packs.get(&pin.version)?)))
+                .flatten()
+                .collect(),
+            Mode::History { .. } => Vec::new(),
+        }
     }
 
-    /// Les widgets du pack que le registre tient pour des éléments : un
+    /// Les widgets des packs que le registre tient pour des éléments : un
     /// widget cassé ou de slide ne s'ajoute pas à une slide.
     fn add_widgets(&self) -> Vec<AddWidget<'_>> {
         self.pack_widget_names()
             .into_iter()
-            .filter_map(|name| self.registry.get(name))
+            .filter_map(|name| self.registry.get(&name))
             .filter(|w| w.category == Category::Element)
             .map(|w| AddWidget { name: &w.name, label: w.label.as_deref(), description: w.description.as_deref() })
             .collect()
@@ -539,7 +565,7 @@ impl Session {
         }
     }
 
-    /// Dossier des packs de modèles de l'utilisateur.
+    /// Dossier des packs de widgets de l'utilisateur (la bibliothèque).
     pub fn set_templates_dir(&mut self, dir: impl Into<PathBuf>) {
         self.library = PackLibrary::new(Some(dir.into()), self.storage.clone());
         self.template_cache = None;
@@ -638,7 +664,7 @@ impl Session {
             notice: doc.notice.as_deref(),
             disk_replaced: doc.disk_replaced,
             appearance: &self.appearance,
-            templates: self.deck_pack(),
+            widgets: self.deck_pins(),
             editing: self.editing_view(),
             deck_pack: self.deck_pack_is_deck_only(),
             pack_notice: self.pack_notice_surface(),

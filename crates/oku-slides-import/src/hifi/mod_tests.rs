@@ -78,7 +78,10 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
     };
     let plan = project(deck, &target);
     let base_schemas: Vec<_> = base.iter().cloned().collect();
-    let registry = WidgetRegistry::from_probe(json!({ "base": base_schemas, "pack": plan.schemas })).unwrap();
+    let registry = WidgetRegistry::from_probe(
+        json!({ "base": base_schemas, "packs": [{ "namespace": "deck", "widgets": plan.schemas }] }),
+    )
+    .unwrap();
     let mut d = Deck::empty();
     apply_all(&mut d, plan.ops.clone(), &registry).unwrap();
     let assets: HashSet<String> = plan.assets.keys().cloned().collect();
@@ -104,7 +107,7 @@ fn project_puts_a_placeholder_at_its_layout_box_in_the_widget_param() {
     let plan =
         projected(&deck(vec![source_slide(1, Some("l1"), vec![title("s1/2", (60.0, 30.0, 840.0, 70.0), "Bonjour")])]));
     let s = slide(&plan, 0);
-    assert_that!(s.kind.as_str()).is_equal_to("l1-titre");
+    assert_that!(s.kind.as_str()).is_equal_to("deck/l1-titre");
     assert_that!(serde_json::to_value(s.params.get("titre")).unwrap())
         .is_equal_to(json!([{ "runs": [{ "t": "Bonjour" }] }]));
     assert_that!(extras(s)).is_empty();
@@ -222,7 +225,7 @@ fn project_of_more_used_layouts_than_the_pack_holds_puts_the_rest_on_blank() {
     assert_that!(pack.widgets().len()).is_less_than_or_equal_to(64);
     // Toutes employées une fois : les 63 premières dans l'ordre de la source ont un widget.
     let kinds: Vec<&str> = plan.report.slides.iter().map(|s| s.template.as_str()).collect();
-    assert_that!(kinds[62]).is_equal_to("l64-layout-63");
+    assert_that!(kinds[62]).is_equal_to("deck/l64-layout-63");
     assert_that!(kinds[63..].iter().all(|k| *k == "blank")).is_true();
     // Sur `blank` : le fond du layout, le bandeau du master, puis le filet du layout.
     let s = slide(&plan, 63);

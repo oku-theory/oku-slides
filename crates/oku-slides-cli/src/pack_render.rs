@@ -78,7 +78,7 @@ pub(crate) fn render(
     deck: &Deck,
 ) -> Result<Rendered> {
     let tokens = theme_tokens(&ThemeLibrary::user(platform), &bundle.themes, deck);
-    if !widgets.has_pack() {
+    if !widgets.has_packs() {
         return local(l, fonts, bundle, deck, tokens);
     }
     let mut slot = widgets.slot(&fonts, l)?;

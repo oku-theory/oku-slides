@@ -35,7 +35,7 @@ const waitLen = (p, n, why) => until(p, async () => (await ids(p)).length === n,
       cmd: 'apply',
       label: 'frise',
       merge: null,
-      ops: [{ op: 'add_element', slot: { owner: { slide: 's-constat' }, param: 'blocks' }, element: { id: 'f', kind: 'frise' }, defaults: true }],
+      ops: [{ op: 'add_element', slot: { owner: { slide: 's-constat' }, param: 'blocks' }, element: { id: 'f', kind: 'deck/frise' }, defaults: true }],
     },
   });
   assert.ok(!made.error, JSON.stringify(made));

@@ -6,7 +6,7 @@ too much memory is killed without taking the app down.
 ## Key types
 
 - `RenderWorker` (`client.rs`): the shared link (`Arc<Mutex<Link>>`); `is_faulty`, `slot`. A
-  pack that makes rendering fail (timeout, memory, crash) becomes faulty and is not run again.
+  pack that makes rendering fail (timeout, memory, crash) is blamed only when it was alone in the set.
 - `probe_pack` (`pack_probe.rs`): per-file probe, never blaming (a timeout is a diagnostic),
   keyed by `probe_key`, budget `timeout_ms` per call; `trial_slot`: a slot that blames no pack.
 - `RenderSlot` (`slot.rs`): a slot (`set_widgets`, `set_language`, `render`); its `Drop`
@@ -31,8 +31,8 @@ too much memory is killed without taking the app down.
 - `serve` (`serve.rs`): the worker loop, run by `exit_if_worker` on `--render-worker`, under the
   watchdog (`watchdog.rs`): request > 2 × timeout, memory over the limit for 1 s, parent gone →
   exit 3. Frames go to a copy of stdout; stdout points to stderr.
-- `Hello` starts each connection: another `PROTOCOL_VERSION` is refused (`Protocol`). Before each
-  request, fonts no open slot uses are dropped from `ReplayState` and the worker (`DropFonts`).
+- `Hello` starts each connection: another `PROTOCOL_VERSION` (4) is refused (`Protocol`). Before each
+  request, fonts no open slot uses are dropped (`DropFonts`); `registry_of` gives a set's registry.
 - `Request`/`Response` (`protocol.rs`), frames (`frame.rs`): JSON header and raw payload, bounded
   by `FrameLimits` (`max_frame_mib`): header an eighth, SVG a quarter, any other payload the whole.
 

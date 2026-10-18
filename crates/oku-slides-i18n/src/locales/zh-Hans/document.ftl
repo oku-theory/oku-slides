@@ -18,6 +18,7 @@ diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 无法绘制图表
 
 registry-bad-pack-id = 模板包标识符无效: { $id }
+registry-duplicate-pack = 演示文稿的两个小组件包共用 { $pack }。
 registry-compile = 无法编译模板包的组件
 registry-missing = 模板包未声明其组件
 render-timeout = 渲染耗时超过 { $seconds }秒，已中断

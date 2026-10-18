@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { AddWidget, Op, PackInfo, Snapshot, TabApi, TemplateView } from "./api";
 import { instantiate } from "./deck";
 import { locale, t } from "./i18n";
-import { setTemplatesOp } from "./packOps";
+import { addPackOp, firstPackId } from "./packOps";
 import type { useFileActions } from "./useFileActions";
 import type { TemplateWidgets } from "./useTemplateWidgets";
 import { widgetChoices } from "./widgetChoices";
@@ -49,9 +49,10 @@ export function useTemplatesMode({
 
   // --- Édition des modèles ------------------------------------------------
   // Un pack du deck seul (import) s'y édite aussi : ses enregistrements restent dans le deck.
-  const editTemplates = async (): Promise<boolean> => {
-    if (!snap?.templates) return false;
-    if (!(await run(api.editTemplates(snap.templates.id)))) return false;
+  // `pack` : l'id du pack à éditer ; omis, le premier pack épinglé ; nul, aucun (rien n'est ouvert).
+  const editTemplates = async (pack: string | null = firstPackId(snap)): Promise<boolean> => {
+    if (!pack) return false;
+    if (!(await run(api.editTemplates(pack)))) return false;
     setCurrent(null);
     setSelected(null);
     return true;
@@ -81,8 +82,8 @@ export function useTemplatesMode({
     if (s?.editing) say(t("ui-toast-templates-saved", { name: s.editing.name }));
   };
   const adoptSet = (set: PackInfo) => {
-    if (!snap || snap.editing || set.id === snap.templates?.id) return;
-    apply(t("ui-undo-templates", { name: set.name }), [setTemplatesOp(set)]);
+    if (!snap || snap.editing || snap.widgets[set.namespace]?.id === set.id) return;
+    apply(t("ui-undo-templates", { name: set.name }), [addPackOp(set)]);
   };
 
   return { insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates, saveTemplates, adoptSet };

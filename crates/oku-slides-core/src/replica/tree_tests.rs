@@ -743,7 +743,7 @@ pub(super) fn refused_kind(bytes: &[u8]) -> ReplicaErrorKind {
 #[test]
 fn new_replica_carries_the_replica_format() {
     let r = new(&roadmap());
-    assert_that!(format_of_meta(&r)).is_equal_to(Some(LoroValue::I64(4)));
+    assert_that!(format_of_meta(&r)).is_equal_to(Some(LoroValue::I64(5)));
 }
 
 #[test]
@@ -756,7 +756,7 @@ fn from_snapshot_without_replica_format_is_refused() {
 #[test]
 fn from_snapshot_of_another_replica_format_is_refused() {
     let r = new(&roadmap());
-    let bytes = snapshot_with_meta(&r, |m| ok(m.insert("format", 5_i64)));
+    let bytes = snapshot_with_meta(&r, |m| ok(m.insert("format", 4_i64)));
     assert_that!(refused_kind(&bytes)).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
 }
 
@@ -787,11 +787,11 @@ fn merge_of_a_peer_that_rewrites_the_format_is_refused() {
     let snap = ok(new(&deck).snapshot());
     let open = || ok(DeckReplica::from_snapshot(&snap, 1 << 24, registry())).0;
     let (mut a, b) = (open(), open());
-    ok(meta_of(&b).insert("format", 5_i64));
+    ok(meta_of(&b).insert("format", 6_i64));
     b.doc.commit();
     let Err(e) = a.merge(&b) else { panic!("un pair qui réécrit le format devait être refusé") };
     assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
-    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(4)));
+    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(5)));
     assert_that!(a.deck().0).is_equal_to(&deck);
 }
 

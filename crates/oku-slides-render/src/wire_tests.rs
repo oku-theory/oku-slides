@@ -42,6 +42,14 @@ fn wire_error_round_trip_keeps_registry_compile_diagnostics() {
 }
 
 #[test]
+fn wire_error_round_trip_keeps_registry_duplicate_pack() {
+    let e: crate::RegistryError = crate::error::DuplicatePackSnafu { pack: "acme" }.build().into();
+    let json = serde_json::to_string(&WireError::from_registry(&e)).unwrap();
+    let back: WireError = serde_json::from_str(&json).unwrap();
+    assert_that!(back.into_registry().kind()).is_equal_to(crate::RegistryErrorKind::DuplicatePack);
+}
+
+#[test]
 fn registry_worker_error_exposes_its_render_error() {
     let e = crate::RegistryError::worker(RenderError::timeout(5));
     assert_that!(e.render_error().map(RenderError::kind)).is_equal_to(Some(RenderErrorKind::Timeout));

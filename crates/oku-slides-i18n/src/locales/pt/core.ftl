@@ -22,6 +22,13 @@ op-value-unreadable = o valor não tem a forma esperada
 op-value-valign = espera-se top, middle ou bottom
 op-value-path = o traçado é composto por comandos M, L, C, Q e Z seguidos dos seus números, começando por M
 op-unknown-widget = Widget desconhecido: { $subject }
+op-unknown-namespace = Esta apresentação não tem o pacote de widgets { $pack }.
+op-pack-required = O pacote de widgets { $pack } é necessário para { $by }; remova esse primeiro.
+op-pack-in-use = O pacote de widgets { $pack } ainda é usado por { $count ->
+    [one] { $count } item
+   *[other] { $count } itens
+}.
+op-pack-requirement-missing = O pacote de widgets { $pack } precisa de { $required }, que esta apresentação não tem.
 op-unknown-param = Parâmetro desconhecido: { $subject }
 op-param-type-because = Valor inválido para { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -137,6 +144,8 @@ issue-invalid-style = valor de estilo inválido: { $field } ({ $reason ->
 issue-missing-asset = recurso ausente: { $asset }
 issue-pack-version-mismatch = versão de pacote alterada descartada: { $version }
 issue-pack-version-missing = versão de pacote ausente das fontes: { $version }
+issue-pack-pin-mismatch = O pacote de widgets incorporado { $pack } não corresponde ao que a apresentação espera.
+issue-pack-requirement-missing = O pacote de widgets { $pack } precisa de { $required }, que esta apresentação não tem.
 issue-theme-version-mismatch = versão de tema alterada descartada: { $version }
 issue-theme-version-missing = versão de tema ausente das fontes: { $version }
 issue-unsupported-link = link não suportado: { $link }
@@ -174,8 +183,6 @@ widget-fault-list-bounds = Widget { $widget }: o máximo de uma lista está abai
 widget-fault-list-default-too-large = Widget { $widget }: o valor padrão de uma lista excede os limites de tamanho das listas
 widget-fault-list-depth = Widget { $widget }: uma lista aninhada não pode conter uma coluna de lista; as listas só se aninham em um nível
 widget-fault-list-default-below-min = Widget { $widget }: o valor padrão de uma lista aninhada tem menos itens que o seu mínimo
-widget-incompatible-override = O widget { $widget } substitui o widget base, mas altera ou remove seu parâmetro { $param }
-widget-incompatible-category = O widget { $widget } substitui o widget base por uma categoria diferente
 issue-empty-item-id = a lista { $param } tem um item sem identificador
 issue-duplicate-item-id = a lista { $param } tem um identificador de item duplicado
 issue-invalid-item-id = a lista { $param } tem um identificador de item com uma barra

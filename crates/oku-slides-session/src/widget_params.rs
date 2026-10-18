@@ -32,7 +32,7 @@ impl Session {
             let spec = ShowParams { title, slide: String::new(), fields: Vec::new() };
             return Ok(Some(HostParams { spec, keys: Vec::new(), notes: vec![l.tr("session-widget-invalid-file")] }));
         };
-        let shown = preview_params(&schema, &self.preview_inputs(&file, &schema, &Map::new())?, l);
+        let shown = preview_params(&schema, &self.preview_inputs(None, &file, &schema, &Map::new())?, l);
         let (mut fields, mut keys, mut notes) = (Vec::new(), Vec::new(), Vec::new());
         for p in &schema.params {
             match field(p, shown.get(&p.name), l) {

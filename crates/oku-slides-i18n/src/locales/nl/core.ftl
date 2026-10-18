@@ -22,6 +22,13 @@ op-value-unreadable = de waarde heeft niet de verwachte vorm
 op-value-valign = top, middle of bottom wordt verwacht
 op-value-path = het pad bestaat uit M-, L-, C-, Q- en Z-opdrachten met hun getallen en begint met M
 op-unknown-widget = Onbekende widget: { $subject }
+op-unknown-namespace = Deze presentatie heeft geen widgetpakket { $pack }.
+op-pack-required = Het widgetpakket { $pack } is nodig voor { $by }; verwijder dat eerst.
+op-pack-in-use = Het widgetpakket { $pack } wordt nog gebruikt door { $count ->
+    [one] { $count } onderdeel
+   *[other] { $count } onderdelen
+}.
+op-pack-requirement-missing = Het widgetpakket { $pack } heeft { $required } nodig, maar deze presentatie heeft dat niet.
 op-unknown-param = Onbekende parameter: { $subject }
 op-param-type-because = Ongeldige waarde voor { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -137,6 +144,8 @@ issue-invalid-style = ongeldige stijlwaarde: { $field } ({ $reason ->
 issue-missing-asset = ontbrekende bron: { $asset }
 issue-pack-version-mismatch = gewijzigde pakketversie verworpen: { $version }
 issue-pack-version-missing = pakketversie ontbreekt in de bronnen: { $version }
+issue-pack-pin-mismatch = Het ingebedde widgetpakket { $pack } komt niet overeen met wat de presentatie verwacht.
+issue-pack-requirement-missing = Het widgetpakket { $pack } heeft { $required } nodig, maar deze presentatie heeft dat niet.
 issue-theme-version-mismatch = gewijzigde themaversie verworpen: { $version }
 issue-theme-version-missing = themaversie ontbreekt in de bronnen: { $version }
 issue-unsupported-link = niet-ondersteunde link: { $link }
@@ -174,8 +183,6 @@ widget-fault-list-bounds = Widget { $widget }: het maximum van een lijst ligt on
 widget-fault-list-default-too-large = Widget { $widget }: de standaardwaarde van een lijst overschrijdt de groottegrenzen van lijsten
 widget-fault-list-depth = Widget { $widget }: een geneste lijst kan geen lijstkolom bevatten; lijsten nesten slechts één niveau diep
 widget-fault-list-default-below-min = Widget { $widget }: de standaardwaarde van een geneste lijst heeft minder items dan het minimum
-widget-incompatible-override = Widget { $widget } vervangt de ingebouwde widget maar wijzigt of verwijdert de parameter { $param }
-widget-incompatible-category = Widget { $widget } vervangt de ingebouwde widget met een andere categorie
 issue-empty-item-id = lijst { $param } heeft een item zonder id
 issue-duplicate-item-id = lijst { $param } heeft een dubbel item-id
 issue-invalid-item-id = lijst { $param } heeft een itemkenmerk met een schuine streep

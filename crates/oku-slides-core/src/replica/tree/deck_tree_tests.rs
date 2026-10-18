@@ -881,6 +881,6 @@ fn merge_of_a_format_2_peer_is_refused() {
     b.doc.commit();
     let Err(e) = a.merge(&b) else { panic!("un pair au format 2 devait être refusé") };
     assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
-    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(4)));
+    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(5)));
     assert_that!(a.deck().0).is_equal_to(&deck);
 }

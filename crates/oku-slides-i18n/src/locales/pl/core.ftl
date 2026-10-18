@@ -22,6 +22,15 @@ op-value-unreadable = wartość nie ma oczekiwanej postaci
 op-value-valign = oczekiwano top, middle lub bottom
 op-value-path = ścieżka składa się z poleceń M, L, C, Q i Z z ich liczbami i zaczyna się od M
 op-unknown-widget = Nieznany widżet: { $subject }
+op-unknown-namespace = Ta prezentacja nie ma pakietu widżetów { $pack }.
+op-pack-required = Pakiet widżetów { $pack } jest potrzebny pakietowi { $by }; najpierw usuń tamten.
+op-pack-in-use = Pakiet widżetów { $pack } jest nadal używany przez { $count ->
+    [one] { $count } element
+    [few] { $count } elementy
+    [many] { $count } elementów
+   *[other] { $count } elementu
+}.
+op-pack-requirement-missing = Pakiet widżetów { $pack } wymaga pakietu { $required }, którego ta prezentacja nie ma.
 op-unknown-param = Nieznany parametr: { $subject }
 op-param-type-because = Nieprawidłowa wartość dla { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -141,6 +150,8 @@ issue-invalid-style = nieprawidłowa wartość stylu: { $field } ({ $reason ->
 issue-missing-asset = brakujący zasób: { $asset }
 issue-pack-version-mismatch = zmieniona wersja pakietu odrzucona: { $version }
 issue-pack-version-missing = brak wersji pakietu w źródłach: { $version }
+issue-pack-pin-mismatch = Osadzony pakiet widżetów { $pack } nie odpowiada temu, czego oczekuje prezentacja.
+issue-pack-requirement-missing = Pakiet widżetów { $pack } wymaga pakietu { $required }, którego ta prezentacja nie ma.
 issue-theme-version-mismatch = zmieniona wersja motywu odrzucona: { $version }
 issue-theme-version-missing = brak wersji motywu w źródłach: { $version }
 issue-unsupported-link = nieobsługiwany link: { $link }
@@ -178,8 +189,6 @@ widget-fault-list-bounds = Widżet { $widget }: maksimum listy jest poniżej jej
 widget-fault-list-default-too-large = Widżet { $widget }: wartość domyślna listy przekracza limity rozmiaru list
 widget-fault-list-depth = Widżet { $widget }: zagnieżdżona lista nie może zawierać kolumny listy; listy zagnieżdżają się tylko na jednym poziomie
 widget-fault-list-default-below-min = Widżet { $widget }: wartość domyślna zagnieżdżonej listy ma mniej pozycji niż jej minimum
-widget-incompatible-override = Widżet { $widget } zastępuje wbudowany widżet, ale zmienia lub usuwa jego parametr { $param }
-widget-incompatible-category = Widżet { $widget } zastępuje wbudowany widżet inną kategorią
 issue-empty-item-id = lista { $param } ma pozycję bez identyfikatora
 issue-duplicate-item-id = lista { $param } ma zduplikowany identyfikator pozycji
 issue-invalid-item-id = lista { $param } ma identyfikator pozycji zawierający ukośnik

@@ -18,7 +18,7 @@
 
 use std::collections::BTreeSet;
 
-use oku_slides_core::{ParamType, ParamValue, Slide, SlotMode, WidgetRegistry};
+use oku_slides_core::{Namespace, ParamType, ParamValue, Slide, SlotMode, WidgetRegistry, qualify};
 
 use super::element::{ElementCtx, elements};
 use super::element_text::placeholder_text;
@@ -71,8 +71,8 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
     let id = format!("s{}", src.number);
     let layout = src.layout.as_deref().and_then(|l| cx.deck.layouts.iter().find(|x| x.id == l));
     let widget = layout.and_then(|l| cx.pack.widget(&l.id));
-    let kind = widget.map_or(BLANK, |w| w.name.as_str());
-    let mut slide = Slide::new(id.clone(), kind);
+    let kind = widget.map_or_else(|| BLANK.to_owned(), |w| qualify(&Namespace::deck(), w.name.as_str()));
+    let mut slide = Slide::new(id.clone(), &kind);
     let mut out = Out {
         id: id.clone(),
         rank: 0,
@@ -120,7 +120,7 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
         }
     }
     if !out.extras.is_empty() {
-        let slot = free_slot(cx.registry, kind).unwrap_or(EXTRAS_PARAM);
+        let slot = free_slot(cx.registry, &kind).unwrap_or(EXTRAS_PARAM);
         slide.params.set(slot, ParamValue::Slot(std::mem::take(&mut out.extras)));
     }
     if !src.notes.trim().is_empty() {
@@ -129,7 +129,7 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
     let report = SlideReport {
         source: src.number,
         slide: id,
-        template: kind.to_owned(),
+        template: kind,
         placement: Placement::Free,
         losses,
         fallbacks: Vec::new(),

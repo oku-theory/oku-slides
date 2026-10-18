@@ -20,25 +20,25 @@ use crate::{Result, Session};
 impl Session {
     /// La version d'où part l'édition du pack `id`.
     ///
-    /// Le pack du deck, s'il n'appartient qu'à lui : la version qu'il
-    /// embarque. Sinon la courante de la bibliothèque. Un pack du deck seul
+    /// Un pack épinglé par le deck, s'il n'appartient qu'à lui : la version
+    /// qu'il embarque. Sinon la courante de la bibliothèque. Un pack du deck seul
     /// que le deck n'utilise plus (resté dans l'historique) est refusé
     /// (`DeckOnly`) : la bibliothèque ne l'a pas. Celui du deck dont la version
     /// n'est pas embarquée l'est aussi (`PackVersionMissing`).
     pub(crate) fn templates_base(&self, id: Uuid) -> Result<StoredVersion<PackManifest>> {
         let packs = &self.user_blobs().packs;
-        if let Some(r) = self.deck_pack().filter(|r| r.id == id) {
-            if let Some(files) = packs.get(&r.version).filter(|f| is_deck_only(f)) {
+        if let Some(pin) = self.deck_pins().values().find(|pin| pin.id == id) {
+            if let Some(files) = packs.get(&pin.version).filter(|f| is_deck_only(f)) {
                 let manifest = PackManifest::from_files(files).context(PackJsonSnafu { id })?;
                 return Ok(StoredVersion {
-                    version: r.version.clone(),
+                    version: pin.version.clone(),
                     files: files.clone(),
                     manifest,
                     received: false,
                 });
             }
-            let missing = !packs.contains_key(&r.version) && self.embeds_deck_only_pack(id);
-            ensure!(!missing, PackVersionMissingSnafu { id, version: r.version.clone() });
+            let missing = !packs.contains_key(&pin.version) && self.embeds_deck_only_pack(id);
+            ensure!(!missing, PackVersionMissingSnafu { id, version: pin.version.clone() });
         }
         ensure!(!self.embeds_deck_only_pack(id), DeckOnlySnafu { id });
         Ok(self.library.current_version(id).context(UnknownPackSnafu { id })?)

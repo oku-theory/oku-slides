@@ -3,11 +3,11 @@ use std::collections::BTreeMap;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{Fonts, PackWidgets, RenderErrorKind, base_registry};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, base_registry};
 use speculoos::prelude::*;
 
 use super::*;
-use crate::test_packs::{LOOP_ON_IMPORT, LOOP_ON_RENDER, QUOTE, files, tiny_deck};
+use crate::test_packs::{LOOP_ON_IMPORT, LOOP_ON_RENDER, QUOTE, files, ns, tiny_deck};
 use crate::{PackProbe, RemoteCompiled};
 
 fn worker(timeout_ms: u64) -> RenderWorker {
@@ -57,9 +57,11 @@ fn slot_render_then_svg_returns_svg() {
 #[test]
 fn set_widgets_that_loops_marks_pack_faulty() {
     let w = worker(300);
-    let pack = PackWidgets::new("boucle", files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
+    let pack = PackWidgets::new("boucle", ns("boucle"), files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
     let mut s = slot(&w);
-    let err = s.set_widgets(Some(&pack), base_registry(&Fonts::default()).unwrap()).unwrap_err();
+    let err = s
+        .set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), base_registry(&Fonts::default()).unwrap())
+        .unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Timeout);
     assert_that!(w.is_faulty(&pack)).is_true();
 }
@@ -67,11 +69,11 @@ fn set_widgets_that_loops_marks_pack_faulty() {
 #[test]
 fn render_with_looping_widget_times_out_then_is_disabled_without_retry() {
     let w = worker(300);
-    let pack = PackWidgets::new("rendu", files(&[("boucle", LOOP_ON_RENDER)])).unwrap();
+    let pack = PackWidgets::new("rendu", ns("rendu"), files(&[("boucle", LOOP_ON_RENDER)])).unwrap();
     let registry = w.probe_pack(&pack).unwrap().registry;
     let mut s = slot(&w);
-    s.set_widgets(Some(&pack), registry).unwrap();
-    let deck = oku_slides_core::Deck::from_json(r#"{"version":5,"params":{"title":"T"},"slides":[{"id":"s","kind":"content","params":{"blocks":[{"id":"b","kind":"boucle","params":{"body":"x"}}]}}]}"#).unwrap();
+    s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), registry).unwrap();
+    let deck = oku_slides_core::Deck::from_json(r#"{"version":6,"params":{"title":"T"},"slides":[{"id":"s","kind":"content","params":{"blocks":[{"id":"b","kind":"rendu/boucle","params":{"body":"x"}}]}}]}"#).unwrap();
     assert_that!(s.render(&deck, &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::Timeout);
     let started = std::time::Instant::now();
     assert_that!(s.render(&deck, &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::PackDisabled);
@@ -97,7 +99,7 @@ fn dropping_remote_compiled_releases_its_generation() {
 /// abandonne la connexion, sans accuser de pack.
 fn force_restart(w: &RenderWorker, id: &str) {
     let source = format!("{LOOP_ON_IMPORT}// {id}\n");
-    let pack = PackWidgets::new(id, files(&[("boucle", &source)])).unwrap();
+    let pack = PackWidgets::new(id, ns(id), files(&[("boucle", &source)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("boucle")].diagnostics[0].message.as_str()).contains("took more than");
 }
@@ -133,12 +135,14 @@ fn remote_reference_of_previous_worker_is_stale() {
 #[test]
 fn set_widgets_with_faulty_pack_is_disabled_without_call() {
     let w = worker(3_000);
-    let pack = PackWidgets::new("boucle", files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
+    let pack = PackWidgets::new("boucle", ns("boucle"), files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
     let mut s = slot(&w);
     let base = base_registry(&Fonts::default()).unwrap();
-    assert_that!(s.set_widgets(Some(&pack), base.clone()).unwrap_err().kind()).is_equal_to(RenderErrorKind::Timeout);
+    assert_that!(s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), base.clone()).unwrap_err().kind())
+        .is_equal_to(RenderErrorKind::Timeout);
     force_restart(&w, "boucle-b");
-    assert_that!(s.set_widgets(Some(&pack), base).unwrap_err().kind()).is_equal_to(RenderErrorKind::PackDisabled);
+    assert_that!(s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), base).unwrap_err().kind())
+        .is_equal_to(RenderErrorKind::PackDisabled);
     // Sans appel : le lien abandonné n'a pas été relancé.
     assert_that!(w.link().connected()).is_false();
 }
@@ -199,7 +203,7 @@ fn looping_deck() -> oku_slides_core::Deck {
     let mut deck = tiny_deck();
     deck.slides[0] = serde_json::from_value(serde_json::json!({
         "id": "s", "kind": "content",
-        "params": { "blocks": [{ "id": "b", "kind": "boucle", "params": { "body": "x" } }] }
+        "params": { "blocks": [{ "id": "b", "kind": "rendu/boucle", "params": { "body": "x" } }] }
     }))
     .unwrap();
     deck
@@ -208,11 +212,12 @@ fn looping_deck() -> oku_slides_core::Deck {
 #[test]
 fn probe_pack_keeps_the_valid_widgets_and_reports_the_broken_one() {
     let w = worker(10_000);
-    let pack = PackWidgets::new("mixte", files(&[("quote", QUOTE), ("casse", "#let widget = (")])).unwrap();
+    let pack =
+        PackWidgets::new("mixte", ns("mixte"), files(&[("quote", QUOTE), ("casse", "#let widget = (")])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("quote")].is_valid()).is_true();
     assert_that!(probe.files[&wf("casse")].is_valid()).is_false();
-    assert_that!(probe.registry.get("quote")).is_some();
+    assert_that!(probe.registry.get("mixte/quote")).is_some();
     let kept = probe.pack.unwrap();
     assert_that!(kept.files().keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![wf("quote")]);
 }
@@ -220,8 +225,8 @@ fn probe_pack_keeps_the_valid_widgets_and_reports_the_broken_one() {
 #[test]
 fn probe_pack_alternating_two_packs_with_the_same_names_keeps_both_probes() {
     let w = worker(10_000);
-    let a = PackWidgets::new("a", files(&[("quote", &format!("{QUOTE}// a\n"))])).unwrap();
-    let b = PackWidgets::new("b", files(&[("quote", &format!("{QUOTE}// b\n"))])).unwrap();
+    let a = PackWidgets::new("a", ns("a"), files(&[("quote", &format!("{QUOTE}// a\n"))])).unwrap();
+    let b = PackWidgets::new("b", ns("b"), files(&[("quote", &format!("{QUOTE}// b\n"))])).unwrap();
     for _ in 0..2 {
         w.probe_pack(&a).unwrap();
         w.probe_pack(&b).unwrap();
@@ -233,7 +238,7 @@ fn probe_pack_alternating_two_packs_with_the_same_names_keeps_both_probes() {
 fn probe_pack_keeps_a_bounded_number_of_probes_per_file() {
     let w = worker(10_000);
     for i in 0..oku_slides_render::FileProbeCache::PER_FILE + 2 {
-        let pack = PackWidgets::new("p", files(&[("quote", &format!("{QUOTE}// {i}\n"))])).unwrap();
+        let pack = PackWidgets::new("p", ns("p"), files(&[("quote", &format!("{QUOTE}// {i}\n"))])).unwrap();
         assert_that!(w.probe_pack(&pack).unwrap().files[&wf("quote")].is_valid()).is_true();
     }
     assert_that!(w.1.file_probes.lock().unwrap().len()).is_equal_to(oku_slides_render::FileProbeCache::PER_FILE);
@@ -242,7 +247,8 @@ fn probe_pack_keeps_a_bounded_number_of_probes_per_file() {
 #[test]
 fn probe_pack_with_a_file_that_loops_gives_a_diagnostic_and_accuses_nothing() {
     let w = worker_without_budget(300);
-    let pack = PackWidgets::new("boucle", files(&[("boucle", LOOP_ON_IMPORT), ("quote", QUOTE)])).unwrap();
+    let pack =
+        PackWidgets::new("boucle", ns("boucle"), files(&[("boucle", LOOP_ON_IMPORT), ("quote", QUOTE)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("boucle")].is_valid()).is_false();
     assert_that!(unprobed(&probe)).is_equal_to(vec!["quote"]);
@@ -264,7 +270,7 @@ fn looping_file(name: &str) -> String {
 fn probe_pack_of_looping_files_spends_one_timeout_and_leaves_the_rest_unprobed() {
     let w = worker_without_budget(300);
     let (a, b, c) = (looping_file("a"), looping_file("b"), looping_file("c"));
-    let pack = PackWidgets::new("boucles", files(&[("a", &a), ("b", &b), ("c", &c)])).unwrap();
+    let pack = PackWidgets::new("boucles", ns("boucles"), files(&[("a", &a), ("b", &b), ("c", &c)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("c")].diagnostics[0].message.as_str()).starts_with("Not checked yet");
     assert_that!(probe.files.values().all(|p| !p.is_valid())).is_true();
@@ -282,8 +288,12 @@ fn probe_pack_of_looping_files_spends_one_timeout_and_leaves_the_rest_unprobed()
 #[test]
 fn probe_pack_with_a_zero_budget_probes_one_file_per_call() {
     let w = worker_without_budget(10_000);
-    let pack =
-        PackWidgets::new("casses", files(&[("a", "#let a = ("), ("b", "#let b = ("), ("c", "#let c = (")])).unwrap();
+    let pack = PackWidgets::new(
+        "casses",
+        ns("casses"),
+        files(&[("a", "#let a = ("), ("b", "#let b = ("), ("c", "#let c = (")]),
+    )
+    .unwrap();
     // Le budget épuisé d'emblée n'empêche pas un fichier par appel ; les sondés sont gardés.
     assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["b", "c"]);
     assert_that!(unprobed(&w.probe_pack(&pack).unwrap())).is_equal_to(vec!["c"]);
@@ -295,7 +305,7 @@ fn probe_pack_with_a_zero_budget_probes_one_file_per_call() {
 #[test]
 fn probe_pack_beyond_max_widgets_does_not_load_the_extra_files() {
     let w = worker_with(10_000, 1);
-    let pack = PackWidgets::new("trop", files(&[("a", QUOTE), ("b", QUOTE)])).unwrap();
+    let pack = PackWidgets::new("trop", ns("trop"), files(&[("a", QUOTE), ("b", QUOTE)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("b")].diagnostics[0].message.as_str()).contains("more than 1");
 }
@@ -304,7 +314,7 @@ fn probe_pack_beyond_max_widgets_does_not_load_the_extra_files() {
 fn probe_pack_with_a_file_over_max_widget_kib_does_not_load_it() {
     let w = worker(10_000);
     let big = format!("{QUOTE}// {}\n", "x".repeat(256 * 1024));
-    let pack = PackWidgets::new("lourd", files(&[("quote", &big)])).unwrap();
+    let pack = PackWidgets::new("lourd", ns("lourd"), files(&[("quote", &big)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("quote")].diagnostics[0].message.as_str())
         .is_equal_to("Larger than 256 KiB: not loaded.");
@@ -316,37 +326,37 @@ fn probe_pack_with_a_file_over_max_widget_kib_does_not_load_it() {
 #[test]
 fn trial_slot_render_that_loops_times_out_and_accuses_nothing() {
     let w = worker(300);
-    let pack = PackWidgets::new("rendu", files(&[("boucle", LOOP_ON_RENDER)])).unwrap();
+    let pack = PackWidgets::new("rendu", ns("rendu"), files(&[("boucle", LOOP_ON_RENDER)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     let kept = probe.pack.clone().unwrap();
     let base = base_registry(&Fonts::default()).unwrap();
     let mut s = w.trial_slot(&Fonts::default(), &Localizer::new(Some("fr")), base).unwrap();
-    s.set_widgets(Some(&kept), probe.registry.clone()).unwrap();
+    s.set_widgets(&PackSet::new(vec![kept.clone()]).unwrap(), probe.registry.clone()).unwrap();
     let deck = looping_deck();
     let err = s.render(&deck, &BTreeMap::new()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Timeout);
     assert_that!(w.is_faulty(&kept)).is_false();
     // Pas d'écartement : l'essai suivant retente (délai, pas `PackDisabled`).
-    s.set_widgets(Some(&kept), probe.registry).unwrap();
+    s.set_widgets(&PackSet::new(vec![kept.clone()]).unwrap(), probe.registry).unwrap();
     assert_that!(s.render(&deck, &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::Timeout);
 }
 
 #[test]
 fn trial_slot_with_a_faulty_pack_renders_it_until_a_restart_then_is_disabled() {
     let w = worker(3_000);
-    let pack = PackWidgets::new("rendu", files(&[("boucle", LOOP_ON_RENDER)])).unwrap();
+    let pack = PackWidgets::new("rendu", ns("rendu"), files(&[("boucle", LOOP_ON_RENDER)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     let kept = probe.pack.clone().unwrap();
     // Le rendu du deck accuse le pack.
     let mut deck_slot = slot(&w);
-    deck_slot.set_widgets(Some(&kept), probe.registry.clone()).unwrap();
+    deck_slot.set_widgets(&PackSet::new(vec![kept.clone()]).unwrap(), probe.registry.clone()).unwrap();
     assert_that!(deck_slot.render(&looping_deck(), &BTreeMap::new()).unwrap_err().kind())
         .is_equal_to(RenderErrorKind::Timeout);
     assert_that!(w.is_faulty(&kept)).is_true();
     // L'essai pose tout de même le pack fautif, et rend.
     let base = base_registry(&Fonts::default()).unwrap();
     let mut s = w.trial_slot(&Fonts::default(), &Localizer::new(Some("fr")), base).unwrap();
-    s.set_widgets(Some(&kept), probe.registry).unwrap();
+    s.set_widgets(&PackSet::new(vec![kept.clone()]).unwrap(), probe.registry).unwrap();
     assert_that!(s.render(&tiny_deck(), &BTreeMap::new())).is_ok();
     // Après une relance, le rejeu l'a écarté : le dire, pas rendre sans lui.
     force_restart(&w, "boucle-c");
@@ -365,7 +375,7 @@ fn probe_pack_whose_link_cannot_start_leaves_its_files_unprobed() {
         max_widgets: 64,
     };
     let w = RenderWorker::new(RenderLaunch::Process { program: "/inexistant/oku-slides".into() }, settings);
-    let pack = PackWidgets::new("p", files(&[("quote", QUOTE)])).unwrap();
+    let pack = PackWidgets::new("p", ns("p"), files(&[("quote", QUOTE)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     // Panne du lien, pas du fichier : non sondé, repris au prochain appel.
     assert_that!(unprobed(&probe)).is_equal_to(vec!["quote"]);
@@ -378,7 +388,7 @@ fn probe_pack_limit_diagnostics_speak_the_language_of_the_slots() {
     let w = worker_with(10_000, 2);
     let _fr = slot(&w);
     let big = format!("{QUOTE}// {}\n", "x".repeat(256 * 1024));
-    let pack = PackWidgets::new("p", files(&[("a", &big), ("b", QUOTE), ("c", QUOTE)])).unwrap();
+    let pack = PackWidgets::new("p", ns("p"), files(&[("a", &big), ("b", QUOTE), ("c", QUOTE)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("a")].diagnostics[0].message.as_str()).is_equal_to("Plus de 256 Kio : non chargé.");
     assert_that!(probe.files[&wf("c")].diagnostics[0].message.as_str())
@@ -389,7 +399,7 @@ fn probe_pack_limit_diagnostics_speak_the_language_of_the_slots() {
 fn probe_pack_unprobed_diagnostic_speaks_the_language_of_the_slots() {
     let w = worker_without_budget(10_000);
     let _fr = slot(&w);
-    let pack = PackWidgets::new("casses", files(&[("a", "#let a = ("), ("b", "#let b = (")])).unwrap();
+    let pack = PackWidgets::new("casses", ns("casses"), files(&[("a", "#let a = ("), ("b", "#let b = (")])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     assert_that!(probe.files[&wf("b")].diagnostics[0].message.as_str()).starts_with("Pas encore vérifié");
 }
@@ -397,7 +407,7 @@ fn probe_pack_unprobed_diagnostic_speaks_the_language_of_the_slots() {
 #[test]
 fn probe_pack_twice_gives_the_same_registry() {
     let w = worker(10_000);
-    let pack = PackWidgets::new("p", files(&[("quote", QUOTE)])).unwrap();
+    let pack = PackWidgets::new("p", ns("p"), files(&[("quote", QUOTE)])).unwrap();
     let first = w.probe_pack(&pack).unwrap().registry;
     let second = w.probe_pack(&pack).unwrap().registry;
     assert_that!(std::sync::Arc::ptr_eq(&first, &second)).is_true();
@@ -406,8 +416,8 @@ fn probe_pack_twice_gives_the_same_registry() {
 #[test]
 fn probe_pack_of_another_pack_gives_another_registry() {
     let w = worker(10_000);
-    let a = PackWidgets::new("p", files(&[("quote", QUOTE)])).unwrap();
-    let b = PackWidgets::new("p", files(&[("quote", &format!("{QUOTE}// b\n"))])).unwrap();
+    let a = PackWidgets::new("p", ns("p"), files(&[("quote", QUOTE)])).unwrap();
+    let b = PackWidgets::new("p", ns("p"), files(&[("quote", &format!("{QUOTE}// b\n"))])).unwrap();
     let first = w.probe_pack(&a).unwrap().registry;
     assert_that!(std::sync::Arc::ptr_eq(&first, &w.probe_pack(&b).unwrap().registry)).is_false();
 }

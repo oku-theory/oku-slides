@@ -9,8 +9,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, WidgetFile};
-use oku_slides_render::{Fonts, PackWidgets, Renderer, load_registry};
+use oku_slides_core::{Deck, Namespace, WidgetFile};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, load_registry};
 use speculoos::prelude::*;
 
 /// PNG 1 × 1.
@@ -42,19 +42,20 @@ fn decor_pack(code: &str) -> PackWidgets {
          let t = ctx.tokens\n{code}}}))\n"
     );
     let name = WidgetFile::parse("decor").unwrap_or_else(|| panic!("nom de widget"));
-    PackWidgets::new("decor", BTreeMap::from([(name, source)])).unwrap_or_else(|e| panic!("{e}"))
+    let namespace = Namespace::parse("decor").unwrap_or_else(|| panic!("espace de noms"));
+    PackWidgets::new("decor", namespace, BTreeMap::from([(name, source)])).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Le SVG de l'unique slide `decor` rendue avec le pack de `code`.
 fn render(code: &str) -> String {
     let fonts = Fonts::default();
-    let pack = decor_pack(code);
-    let registry = load_registry(&fonts, Some(&pack)).unwrap_or_else(|e| panic!("sonde : {e}"));
+    let set = PackSet::new(vec![decor_pack(code)]).unwrap_or_else(|e| panic!("{e}"));
+    let registry = load_registry(&fonts, &set).unwrap_or_else(|e| panic!("sonde : {e}"));
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
-    r.set_widgets(Some(&pack), Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
+    r.set_widgets(&set, Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(Some(theme())).unwrap_or_else(|e| panic!("{e}"));
-    let deck =
-        Deck::from_json(r#"{"version":5,"slides":[{"id":"s","kind":"decor"}]}"#).unwrap_or_else(|e| panic!("{e}"));
+    let deck = Deck::from_json(r#"{"version":6,"slides":[{"id":"s","kind":"decor/decor"}]}"#)
+        .unwrap_or_else(|e| panic!("{e}"));
     let assets = BTreeMap::from([(ASSET.to_owned(), PNG.to_vec())]);
     let compiled = r.render(&deck, &assets).unwrap_or_else(|e| panic!("rendu : {e}"));
     compiled.svg(0).unwrap_or_else(|e| panic!("{e}"))

@@ -54,7 +54,8 @@ fn index_clone_shares_the_index() {
     lib.current(id);
     let a = add_version(&lib.clone(), &manifest(id, "A", None, "2026-10-01T10:00:00Z"), &[]);
     assert_that!(lib.current(id)).is_equal_to(Some(a.version));
-    assert_that!(scans(&lib)).is_equal_to(1);
+    // L'ajout lit les packs intégrés (espaces de noms pris), une fois, dans l'index partagé.
+    assert_that!(scans(&lib)).is_equal_to(1 + builtin_versions().len());
 }
 
 #[test]
@@ -92,7 +93,7 @@ fn index_version_altered_after_indexing_is_rejected_on_load() {
     let a = add_version(&lib, &manifest(id, "A", None, "2026-10-01T10:00:00Z"), &[]);
     let b = add_version(&lib, &manifest(id, "B", Some(&a.version), "2026-10-02T10:00:00Z"), &[]);
     let forged = manifest(id, "Forgé", None, "2026-10-01T10:00:00Z").to_files(Default::default()).unwrap();
-    let path = dir.path().join(id.to_string()).join("versions").join(a.version.hex()).join("pack.json");
+    let path = dir.path().join(id.to_string()).join("versions").join(a.version.hex()).join("widgets.json");
     std::fs::write(path, forged.pack_json().unwrap()).unwrap();
     assert_that!(lib.version(id, &a.version)).is_none();
     // La courante altérée : la plus récente, intacte, la remplace.

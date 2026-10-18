@@ -30,7 +30,7 @@ async function mount(fake: TabApi, widgets: string[], widget: string | null) {
   mounted = { root, host };
   const snap = {
     editing: { set: "p", base: "b" },
-    templates: { version: "v" },
+    widgets: { deck: { id: "p", version: "v" } },
     history: null,
     ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widgets, widget },
   } as unknown as Snapshot;

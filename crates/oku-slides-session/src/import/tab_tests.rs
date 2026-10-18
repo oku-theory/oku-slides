@@ -1,10 +1,10 @@
 use speculoos::prelude::*;
 
-use oku_slides_core::{PackRef, WidgetFile};
+use oku_slides_core::{Namespace, PackPin, WidgetFile};
 
 use super::super::child_pack::child_id;
 use super::super::{ImportMode, ImportRequest, ImportTarget, PackLookup, import};
-use crate::test_support::{fresh_dir, imported_fixture, library_of, pptx_fixture, session_on, settings_on};
+use crate::test_support::{fresh_dir, imported_fixture, library_of, ns, pin, pptx_fixture, session_on, settings_on};
 use crate::{DEFAULT_PACK, Fonts, PackManifest, PackScope, Platform, Request};
 
 /// L'import hi-fi de la fixture `minimal`, chargé dans une session neuve sur `data`.
@@ -85,15 +85,20 @@ fn retrofit_session(data: &std::path::Path) -> crate::Session {
 }
 
 /// La version courante du pack cible (Essentiel) dans la bibliothèque de `s`.
-fn target_of(s: &crate::Session) -> PackRef {
-    PackRef { id: DEFAULT_PACK, version: library_of(s).current(DEFAULT_PACK).unwrap() }
+fn target_of(s: &crate::Session) -> PackPin {
+    PackPin { id: DEFAULT_PACK, version: library_of(s).current(DEFAULT_PACK).unwrap(), requires: Vec::new() }
+}
+
+/// L'espace de noms du pack cible du retrofit, que l'enfant reprend.
+fn essentiel() -> Namespace {
+    ns("essentiel")
 }
 
 #[test]
 fn retrofit_deck_stays_on_the_target_library_pack_until_a_widget_is_written() {
     let data = fresh_dir("oku-slides-import-tab-retrofit-");
     let s = retrofit_session(data.path());
-    assert_that!(s.deck().templates.clone()).is_equal_to(Some(target_of(&s)));
+    assert_that!(pin(&s, "essentiel")).is_equal_to(Some(target_of(&s)));
     // Le pack de la bibliothèque : l'atelier reste ouvert.
     assert_that!(s.snapshot().deck_pack).is_false();
 }
@@ -109,7 +114,7 @@ fn retrofit_deck_on_an_older_target_version_gets_the_pack_notice() {
     let next = m.to_files(lib.current_version(DEFAULT_PACK).unwrap().files.widgets().clone()).unwrap();
     lib.add_version(DEFAULT_PACK, &next).unwrap();
     lib.set_current(DEFAULT_PACK, &next.version()).unwrap();
-    assert_that!(s.pack_notice_for_deck().map(|n| n.pack)).is_equal_to(Some(target));
+    assert_that!(s.pack_notice_for_deck().map(|n| (n.namespace, n.pin))).is_equal_to(Some((essentiel(), target)));
 }
 
 #[test]
@@ -119,8 +124,8 @@ fn first_widget_write_on_a_retrofit_deck_creates_its_deck_only_child_pack_in_one
     let target = target_of(&s);
     let (lib_versions, lib_packs) = (library_of(&s).versions(DEFAULT_PACK).len(), library_of(&s).packs());
     let steps = s.doc.sources.undo_steps();
-    s.set_widget("quote", QUOTE.into()).unwrap();
-    let r = s.deck().templates.clone().unwrap();
+    s.set_widget(Some(&essentiel()), "quote", QUOTE.into()).unwrap();
+    let r = pin(&s, "essentiel").unwrap();
     let pptx = std::fs::read(data.path().join("minimal.pptx")).unwrap();
     assert_that!(r.id).is_equal_to(child_id(&pptx, &target.version));
     let files = &s.doc.sources.packs[&r.version];
@@ -146,7 +151,22 @@ fn first_widget_write_on_a_retrofit_deck_creates_its_deck_only_child_pack_in_one
     assert_that!(lib.packs()).is_equal_to(&lib_packs);
     assert_that!(lib.versions(r.id).is_empty()).is_true();
     s.undo().unwrap();
-    assert_that!(s.deck().templates.clone()).is_equal_to(Some(target));
+    assert_that!(pin(&s, "essentiel")).is_equal_to(Some(target));
+}
+
+#[test]
+fn retrofit_child_pack_keeps_target_namespace() {
+    let data = fresh_dir("oku-slides-import-tab-retrofit-ns-");
+    let mut s = retrofit_session(data.path());
+    let target = target_of(&s);
+    s.set_widget(Some(&essentiel()), "quote", QUOTE.into()).unwrap();
+    // L'enfant remplace l'épinglage de la cible sous son espace de noms, du deck seul.
+    let child = pin(&s, "essentiel").unwrap();
+    assert_that!(child.id).is_not_equal_to(target.id);
+    let manifest = PackManifest::from_files(&s.doc.sources.packs[&child.version]).unwrap();
+    assert_that!((manifest.namespace, manifest.scope)).is_equal_to((essentiel(), PackScope::Deck));
+    assert_that!(s.registry.get("essentiel/quote")).is_some();
+    assert_that!(pin(&s, "deck")).is_none();
 }
 
 #[test]
@@ -154,23 +174,23 @@ fn second_widget_write_on_a_retrofit_deck_stays_in_its_child_pack_and_its_undo_s
     let data = fresh_dir("oku-slides-import-tab-retrofit-again-");
     let mut s = retrofit_session(data.path());
     let target = target_of(&s);
-    s.set_widget("quote", QUOTE.into()).unwrap();
-    let (child, steps) = (s.deck().templates.clone().unwrap(), s.doc.sources.undo_steps());
-    s.set_widget("quote", QUOTE_V2.into()).unwrap();
-    let r = s.deck().templates.clone().unwrap();
+    s.set_widget(Some(&essentiel()), "quote", QUOTE.into()).unwrap();
+    let (child, steps) = (pin(&s, "essentiel").unwrap(), s.doc.sources.undo_steps());
+    s.set_widget(Some(&essentiel()), "quote", QUOTE_V2.into()).unwrap();
+    let r = pin(&s, "essentiel").unwrap();
     assert_that!(r.id).is_equal_to(child.id);
     assert_that!(s.doc.sources.packs[&r.version].widget(&WidgetFile::parse("quote").unwrap()))
         .is_equal_to(Some(QUOTE_V2));
     assert_that!(s.doc.sources.undo_steps()).is_equal_to(steps);
     s.undo().unwrap();
-    assert_that!(s.deck().templates.clone()).is_equal_to(Some(target));
+    assert_that!(pin(&s, "essentiel")).is_equal_to(Some(target));
 }
 
 #[test]
 fn widget_write_on_a_hifi_deck_stays_in_its_generated_pack() {
     let data = fresh_dir("oku-slides-import-tab-hifi-widget-");
     let mut s = imported_session(data.path());
-    let before = s.deck().templates.clone().unwrap();
-    s.set_widget("quote", QUOTE.into()).unwrap();
-    assert_that!(s.deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(before.id));
+    let before = pin(&s, "deck").unwrap();
+    s.set_widget(None, "quote", QUOTE.into()).unwrap();
+    assert_that!(pin(&s, "deck").map(|r| r.id)).is_equal_to(Some(before.id));
 }

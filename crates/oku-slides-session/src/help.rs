@@ -10,7 +10,7 @@
 
 use std::borrow::Cow;
 
-use oku_slides_core::{Deck, PackRef, SourceBundle, ThemeRef};
+use oku_slides_core::{Deck, PackPin, SourceBundle, ThemeRef};
 use oku_slides_i18n::platform_keys;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
@@ -69,7 +69,8 @@ impl Session {
         let mut sources = SourceBundle::new(help_deck(locale)?, self.registry.clone()).context(SourcesSnafu)?;
         let version = sources.add_pack(builtin.files.clone());
         let mut deck = sources.deck().clone();
-        deck.templates = Some(PackRef { id: DEFAULT_PACK, version });
+        let pin = PackPin { id: DEFAULT_PACK, version, requires: builtin.manifest.requires.clone() };
+        deck.widgets.insert(builtin.manifest.namespace.clone(), pin);
         if let Some(current) = theme.and_then(|id| self.themes.current_version(id)) {
             let id = current.manifest.id;
             deck.theme = Some(ThemeRef { id, version: sources.add_theme(current.files) });

@@ -26,7 +26,7 @@ use sha2::{Digest, Sha256};
 use snafu::{OptionExt, ResultExt};
 use uuid::{Builder, Uuid};
 
-use oku_slides_core::{Deck, PackRef, WidgetFile, WidgetRegistry, WidgetSchema, now_created};
+use oku_slides_core::{Deck, Namespace, PackPin, WidgetFile, WidgetRegistry, WidgetSchema, now_created, qualify};
 use oku_slides_import::fonts::{FontCatalog, FontOrigin};
 use oku_slides_import::hifi;
 use oku_slides_import::{HifiTarget, PackLimits};
@@ -39,7 +39,7 @@ use super::error::{
     ThemeMissingSnafu,
 };
 use super::{Input, Prepared};
-use crate::{PackLibrary, sources_with_pack};
+use crate::{PackLibrary, sources_with_packs};
 
 /// Ce que le hi-fi prend de la demande d'import.
 pub(crate) struct HifiArgs<'a> {
@@ -81,17 +81,20 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
     let version = pack.version();
     let sizes: BTreeMap<WidgetFile, usize> = pack.widgets().iter().map(|(n, s)| (n.clone(), s.len())).collect();
     let mut deck = Deck::empty();
-    deck.templates = Some(PackRef { id: pack_id, version: version.clone() });
+    // Le pack généré est le pack propre du deck : épinglé sous `deck`.
+    deck.widgets.insert(Namespace::deck(), PackPin { id: pack_id, version: version.clone(), requires: Vec::new() });
     let packs = BTreeMap::from([(version, pack)]);
     let library = PackLibrary::user(platform);
-    let (mut bundle, widgets) = sources_with_pack(platform, &library, args.base, deck, packs)?;
+    let (mut bundle, widgets) = sources_with_packs(platform, &library, args.base, deck, packs)?;
     // Une sonde tout entière échouée (processus de rendu) n'est pas un écart du générateur.
     if let Some(error) = &widgets.probe_failed {
         return Err(ProbeFailedSnafu { error: error.as_str() }.build().into());
     }
     let files: Vec<WidgetFile> = sizes.keys().cloned().collect();
     if let Err(widget) = check_probe(&widgets.registry, &plan.schemas, &files) {
-        let refused = if beyond_limits(&widget, &sizes, &widgets.unprobed, target.limits) {
+        let none = BTreeSet::new();
+        let unprobed = widgets.unprobed.get(&Namespace::deck()).unwrap_or(&none);
+        let refused = if beyond_limits(&widget, &sizes, unprobed, target.limits) {
             ProbeLimitSnafu { widget }.build()
         } else {
             ProbeMismatchSnafu { widget }.build()
@@ -149,9 +152,15 @@ fn beyond_limits(
 /// `files` : les fichiers de widget du pack, `_commun` mis à part. Sinon, le
 /// nom du premier widget en écart (absent, différent ou non déclaré). Le
 /// registre sondé porte aussi la base : ses autres widgets ne sont pas du
-/// pack, d'où le contrôle des fichiers plutôt que du registre entier.
+/// pack, d'où le contrôle des fichiers plutôt que du registre entier. Les
+/// schémas déclarés portent leur nom nu ; la sonde, leur nom qualifié sous `deck`.
 fn check_probe(probed: &WidgetRegistry, declared: &[WidgetSchema], files: &[WidgetFile]) -> Result<(), String> {
-    if let Some(s) = declared.iter().find(|s| probed.get(&s.name) != Some(*s)) {
+    let deck = Namespace::deck();
+    let same = |s: &WidgetSchema| {
+        let qualified = WidgetSchema { name: qualify(&deck, &s.name), ..s.clone() };
+        probed.get(&qualified.name) == Some(&qualified)
+    };
+    if let Some(s) = declared.iter().find(|s| !same(s)) {
         return Err(s.name.clone());
     }
     match files.iter().filter(|f| !f.is_common()).find(|f| !declared.iter().any(|s| s.name == f.as_str())) {

@@ -187,7 +187,8 @@ const noTurnSince = async (p, from, ms) => {
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).slides.length === 8, "l'import ne se refait pas");
   // L'atelier édite le pack du deck seul : enregistré dans le deck, jamais dans la bibliothèque.
   const packsBefore = await api(p, hifi, { cmd: 'template_sets' });
-  const packBefore = (await api(p, hifi, { cmd: 'snapshot' })).templates;
+  const pinOf = (snap) => Object.values(snap.widgets)[0];
+  const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.getByRole('menuitem', { name: 'Atelier' }).click();
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
@@ -201,8 +202,8 @@ const noTurnSince = async (p, from, ms) => {
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing === null, "l'atelier ne se ferme pas");
   const back = await api(p, hifi, { cmd: 'snapshot' });
   assert.ok(back.deck_pack, 'le pack enregistré reste propre au deck');
-  assert.equal(back.templates.id, packBefore.id);
-  assert.notEqual(back.templates.version, packBefore.version, 'le deck passe à la version enregistrée');
+  assert.equal(pinOf(back).id, packBefore.id);
+  assert.notEqual(pinOf(back).version, packBefore.version, 'le deck passe à la version enregistrée');
   assert.deepEqual(await api(p, hifi, { cmd: 'template_sets' }), packsBefore, 'la bibliothèque ne change pas');
 
   // Le thème du deck seul se reprend après Papier, depuis le groupe « Cette présentation » du menu ⋯ (t-903).

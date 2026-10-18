@@ -1,6 +1,6 @@
 //! Le pack généré : `_commun.typ` (le champ d'un placeholder, le décor de
 //! chaque master appelé), un widget de slide par layout utilisé
-//! ([`super::widget`]), leurs schémas déclarés et le `pack.json`.
+//! ([`super::widget`]), leurs schémas déclarés et le `widgets.json`.
 //!
 //! Un layout est utilisé si une slide source le désigne ; les widgets
 //! suivent l'ordre des layouts de la source, les fonctions de master celui
@@ -30,7 +30,8 @@ use serde_json::{Map, Value, json};
 use uuid::Uuid;
 
 use oku_slides_core::{
-    PackManifest, PackScope, ParamValue, Slide, Template, WidgetError, WidgetFile, WidgetRegistry, WidgetSchema,
+    Namespace, PackManifest, PackScope, ParamValue, Slide, Template, WidgetError, WidgetFile, WidgetRegistry,
+    WidgetSchema, qualify,
 };
 
 use super::typst::{GenCtx, Typst};
@@ -195,10 +196,10 @@ fn common_file(deck: &SourceDeck, called: &BTreeSet<usize>, ctx: &GenCtx<'_>, ma
 pub(crate) fn generated_registry(base: &WidgetRegistry, pack: &GeneratedPack) -> Result<WidgetRegistry, WidgetError> {
     let base: Vec<&WidgetSchema> = base.iter().collect();
     let pack: Vec<&WidgetSchema> = pack.schemas().collect();
-    WidgetRegistry::from_probe(json!({ "base": base, "pack": pack }))
+    WidgetRegistry::from_probe(json!({ "base": base, "packs": [{ "namespace": Namespace::deck(), "widgets": pack }] }))
 }
 
-/// Le `pack.json` du pack généré (première version, sans parent, du deck seul).
+/// Le `widgets.json` du pack généré (première version, sans parent, du deck seul).
 ///
 /// Un modèle par widget, nommé comme son layout, dont la slide est `examples[layout]` (la première
 /// slide source sur ce layout, projetée) ou, à défaut, une slide nue du widget. Les textes de ces
@@ -217,7 +218,10 @@ pub(crate) fn pack_manifest(
             id: w.name.as_str().to_owned(),
             name: w.schema.label.clone().unwrap_or_else(|| w.name.as_str().to_owned()),
             description: String::new(),
-            slide: examples.get(&w.layout).cloned().unwrap_or_else(|| Slide::new(w.name.as_str(), w.name.as_str())),
+            slide: examples
+                .get(&w.layout)
+                .cloned()
+                .unwrap_or_else(|| Slide::new(w.name.as_str(), &qualify(&Namespace::deck(), w.name.as_str()))),
         })
         .collect();
     let values = templates
@@ -229,6 +233,8 @@ pub(crate) fn pack_manifest(
     PackManifest {
         id,
         name: name.to_owned(),
+        namespace: Namespace::deck(),
+        requires: vec![],
         description: String::new(),
         parent: None,
         created: created.to_owned(),

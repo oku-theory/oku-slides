@@ -79,8 +79,8 @@ pub struct ImportPlan {
     /// `set_theme`, à ajouter aux thèmes du bundle (`add_theme`).
     #[serde(skip)]
     pub theme: Option<PackFiles>,
-    /// Pack généré (hi-fi) : la version (`pack.json` et widgets) que désigne
-    /// l'op `set_templates`, à ajouter aux packs du bundle (`add_pack`).
+    /// Pack généré (hi-fi) : la version (`widgets.json` et widgets) que désigne
+    /// l'op `add_pack` (espace de noms `deck`), à ajouter aux packs du bundle.
     #[serde(skip)]
     pub pack: Option<PackFiles>,
     /// Schémas déclarés des widgets du pack généré : la sonde du rendu doit
@@ -137,7 +137,7 @@ impl ImportPlan {
     ///
     /// Borne précoce et approximative de ce que l'import produira, pas une garantie que
     /// le deck se rouvrira : assets (uniques par contenu), polices embarquées, ops
-    /// sérialisées en JSON, thème et pack générés (`pack.json` et widgets) tiennent dans
+    /// sérialisées en JSON, thème et pack générés (`widgets.json` et widgets) tiennent dans
     /// [`ReadLimits::max_output_bytes`] ; les ops seules, qui finissent dans l'historique
     /// Loro, tiennent aussi dans [`ReadLimits::max_replica_bytes`].
     ///

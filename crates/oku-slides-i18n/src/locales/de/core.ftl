@@ -22,6 +22,13 @@ op-value-unreadable = der Wert hat nicht die erwartete Form
 op-value-valign = top, middle oder bottom wird erwartet
 op-value-path = der Pfad besteht aus den Befehlen M, L, C, Q und Z mit ihren Zahlen und beginnt mit M
 op-unknown-widget = Unbekanntes Widget: { $subject }
+op-unknown-namespace = Dieses Deck hat kein Widget-Paket { $pack }.
+op-pack-required = Das Widget-Paket { $pack } wird von { $by } benötigt; entfernen Sie zuerst dieses.
+op-pack-in-use = Das Widget-Paket { $pack } wird noch von { $count ->
+    [one] { $count } Objekt
+   *[other] { $count } Objekten
+} verwendet.
+op-pack-requirement-missing = Das Widget-Paket { $pack } benötigt { $required }, das dieses Deck nicht hat.
 op-unknown-param = Unbekannter Parameter: { $subject }
 op-param-type-because = Ungültiger Wert für { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -137,6 +144,8 @@ issue-invalid-style = ungültiger Stilwert: { $field } ({ $reason ->
 issue-missing-asset = fehlende Ressource: { $asset }
 issue-pack-version-mismatch = veränderte Paketversion verworfen: { $version }
 issue-pack-version-missing = Paketversion fehlt in den Quellen: { $version }
+issue-pack-pin-mismatch = Das eingebettete Widget-Paket { $pack } entspricht nicht dem, was die Präsentation erwartet.
+issue-pack-requirement-missing = Das Widget-Paket { $pack } benötigt { $required }, das dieses Deck nicht hat.
 issue-theme-version-mismatch = veränderte Designversion verworfen: { $version }
 issue-theme-version-missing = Designversion fehlt in den Quellen: { $version }
 issue-unsupported-link = nicht unterstützter Link: { $link }
@@ -174,8 +183,6 @@ widget-fault-list-bounds = Widget { $widget }: Das Maximum einer Liste liegt unt
 widget-fault-list-default-too-large = Widget { $widget }: Der Standardwert einer Liste überschreitet die Größengrenzen von Listen
 widget-fault-list-depth = Widget { $widget }: Eine verschachtelte Liste darf keine Listenspalte enthalten; Listen lassen sich nur eine Ebene tief verschachteln
 widget-fault-list-default-below-min = Widget { $widget }: Der Standardwert einer verschachtelten Liste hat weniger Einträge als ihr Minimum
-widget-incompatible-override = Widget { $widget } ersetzt das eingebaute Widget, ändert oder entfernt aber dessen Parameter { $param }
-widget-incompatible-category = Widget { $widget } ersetzt das eingebaute Widget mit einer anderen Kategorie
 issue-empty-item-id = Liste { $param } hat einen Eintrag ohne Kennung
 issue-duplicate-item-id = Liste { $param } hat eine doppelte Eintragskennung
 issue-invalid-item-id = Liste { $param } hat eine Eintragskennung mit einem Schrägstrich

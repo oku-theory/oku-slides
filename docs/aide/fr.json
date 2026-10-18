@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "params": {
   "title": "Aide d'Oku Slides",
   "subtitle": "Ergonomie, raccourcis, bibliothèque Typst, format de fichier",
@@ -2005,7 +2005,7 @@
    "kind": "content",
    "params": {
     "kicker": "oku-slides",
-    "title": "Champs éditables et surcharges",
+    "title": "Champs éditables et widgets de packs",
     "layout": "columns",
     "blocks": [
      {
@@ -2028,12 +2028,12 @@
       "id": "b-typst-surcharge",
       "kind": "card",
       "params": {
-       "title": "Surcharger un widget de base",
+       "title": "Widgets de plusieurs packs",
        "body": [
         {
          "runs": [
           {
-           "t": "Même nom, même catégorie, et chaque paramètre de base reste compatible : toute valeur valide pour la base doit le rester pour le pack."
+           "t": "Un deck épingle plusieurs packs de widgets, chacun sous son espace de noms. Un widget de pack se nomme espace/nom et ne remplace jamais un widget de base."
           }
          ]
         }
@@ -2127,7 +2127,7 @@
         {
          "runs": [
           {
-           "t": "Oku Slides y relit le deck, ses images, ses polices et son pack de modèles, avec tout son historique."
+           "t": "Oku Slides y relit le deck, ses images, ses polices et ses packs de widgets, avec tout son historique."
           }
          ]
         }
@@ -2263,7 +2263,7 @@
    "kind": "content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "Le zip des sources (version 10)",
+    "title": "Le zip des sources (version 11)",
     "layout": "default",
     "blocks": [
      {
@@ -2274,7 +2274,7 @@
         {
          "runs": [
           {
-           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 10 }"
+           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 11 }"
           }
          ]
         },
@@ -2302,14 +2302,14 @@
         {
          "runs": [
           {
-           "t": "packs/<hex>/pack.json           version du pack de modèles"
+           "t": "widgets/<hex>/widgets.json      version du pack de widgets"
           }
          ]
         },
         {
          "runs": [
           {
-           "t": "packs/<hex>/widgets/<nom>.typ   un fichier par widget, _commun compris"
+           "t": "widgets/<hex>/widgets/<nom>.typ un fichier par widget, _commun compris"
           }
          ]
         }
@@ -2545,7 +2545,7 @@
         {
          "runs": [
           {
-           "t": "Enveloppe /Version 2, zip version 10. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
+           "t": "Enveloppe /Version 2, zip version 11. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
           }
          ]
         }

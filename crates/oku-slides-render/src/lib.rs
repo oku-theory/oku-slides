@@ -9,13 +9,13 @@
 //!
 //! - [`Renderer`] : garde un monde Typst vivant entre deux rendus
 //!   ([`Renderer::render`], [`Renderer::set_deck`]) ; ses widgets ([`Renderer::set_widgets`],
-//!   [`Renderer::registry`]) sont ceux de base, surchargés par un [`PackWidgets`] ; rend un
+//!   [`Renderer::registry`]) sont ceux de base et ceux d'un [`PackSet`], qualifiés ; rend un
 //!   [`Compiled`] (SVG, PNG, PDF, [`Layout`]).
 //! - [`Layout`] : ce que le rendu dit du document — [`SlidePage`], [`ElementBox`],
 //!   [`FieldBox`], [`FieldSide`], [`ItemBox`], [`ZoneBox`]/[`GridBox`], [`TextStyle`] — lu une fois depuis le document
 //!   compilé.
 //! - Le registre des widgets ([`load_registry`], [`Registries`]) se lit par une sonde
-//!   Typst (pack assemblé) ou fichier par fichier ([`probe_file`], [`assemble`]).
+//!   Typst (packs assemblés) ou fichier par fichier ([`probe_file`], [`assemble`]).
 
 mod charts;
 mod diagnostic;
@@ -49,9 +49,10 @@ pub use fonts::Fonts;
 pub use palette::{chart_palette, resolve_color};
 pub use probe_cache::FileProbeCache;
 pub use registry::{
-    PackWidgets, Registries, base_probe, base_registry, is_pack_id, load_registry, probe_registry, registry_from_probe,
+    PackSet, PackWidgets, Registries, base_probe, base_registry, is_pack_id, load_registry, probe_registry,
+    registry_from_probe,
 };
-pub use widget_probe::{FileProbe, PROBE_PACK, assemble, probe_file, probe_key};
+pub use widget_probe::{FileProbe, PROBE_PACK, ProbedPack, assemble, assemble_set, probe_file, probe_key};
 pub use wire::WireError;
 use world::OkuSlidesWorld;
 
@@ -180,11 +181,11 @@ pub struct SlidePage {
 
 /// Un rendu : garde un monde Typst vivant pour profiter de la compilation
 /// incrémentale entre deux versions du deck. Les slides et les éléments sont
-/// rendus par les widgets de base, surchargés par ceux d'un pack
+/// rendus par les widgets de base et ceux des packs, sous leur nom qualifié
 /// ([`Renderer::set_widgets`]).
 pub struct Renderer {
     world: OkuSlidesWorld,
-    /// Registre des widgets rendus (base, surchargée par le pack).
+    /// Registre des widgets rendus (base, et widgets qualifiés des packs).
     registry: Arc<WidgetRegistry>,
 }
 
@@ -201,15 +202,11 @@ impl Renderer {
         Ok(Self { world: OkuSlidesWorld::new(fonts)?, registry })
     }
 
-    /// Widgets rendus : ceux de base, surchargés par `pack` (ou seuls, sans
-    /// pack). `registry` est le registre de ce pack ([`Registries::get`]) ;
+    /// Widgets rendus : ceux de base, et ceux de chaque pack de `set` sous
+    /// leur nom qualifié. `registry` est le registre de cet ensemble ([`Registries::get`]) ;
     /// il dit aussi quels éléments portent un graphique, redessinés ici.
-    pub fn set_widgets(
-        &mut self,
-        pack: Option<&PackWidgets>,
-        registry: Arc<WidgetRegistry>,
-    ) -> Result<(), RenderError> {
-        self.world.set_pack(pack, &registry)?;
+    pub fn set_widgets(&mut self, set: &PackSet, registry: Arc<WidgetRegistry>) -> Result<(), RenderError> {
+        self.world.set_packs(set, &registry)?;
         self.registry = registry;
         Ok(())
     }

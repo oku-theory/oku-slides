@@ -132,17 +132,25 @@ fn pack_version_hex_is_the_folder_name() {
 }
 
 #[test]
-fn pack_ref_round_trips_through_json() {
-    let r = PackRef { id: Uuid::new_v4(), version: PackVersion::from_hex(&"0f".repeat(32)).unwrap() };
+fn pack_pin_round_trips_through_json() {
+    let requires = vec![Namespace::parse("base").unwrap()];
+    let r = PackPin { id: Uuid::new_v4(), version: PackVersion::from_hex(&"0f".repeat(32)).unwrap(), requires };
     let json = serde_json::to_value(&r).unwrap();
     assert_that!(json["version"].as_str()).is_equal_to(Some(r.version.as_str()));
-    assert_that!(serde_json::from_value::<PackRef>(json).unwrap()).is_equal_to(r);
+    assert_that!(serde_json::from_value::<PackPin>(json).unwrap()).is_equal_to(r);
 }
 
 #[test]
-fn pack_ref_with_a_bad_version_is_refused() {
+fn pack_pin_without_requires_omits_the_field() {
+    let r = PackPin { id: Uuid::nil(), version: PackVersion::from_hex(&"0f".repeat(32)).unwrap(), requires: vec![] };
+    let json = serde_json::to_value(&r).unwrap();
+    assert_that!(json.get("requires")).is_none();
+}
+
+#[test]
+fn pack_pin_with_a_bad_version_is_refused() {
     let json = json!({ "id": Uuid::new_v4(), "version": "sha256:court" });
-    assert_that!(serde_json::from_value::<PackRef>(json).is_err()).is_true();
+    assert_that!(serde_json::from_value::<PackPin>(json).is_err()).is_true();
 }
 
 #[test]
@@ -258,6 +266,8 @@ fn manifest(name: &str) -> PackManifest {
     PackManifest {
         id: Uuid::new_v4(),
         name: name.into(),
+        namespace: Namespace::parse("test").unwrap_or_else(|| panic!("espace de noms")),
+        requires: vec![],
         description: String::new(),
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
@@ -290,7 +300,8 @@ fn pack_manifest_with_a_template_round_trips_through_pack_files() {
 
 #[test]
 fn pack_manifest_without_uuid_id_is_refused() {
-    let json = json!({ "id": "essentiel", "name": "E", "parent": null, "created": "x", "templates": [] });
+    let json =
+        json!({ "id": "essentiel", "name": "E", "namespace": "test", "parent": null, "created": "x", "templates": [] });
     let files = PackFiles::new(object(json), BTreeMap::new());
     assert_that!(PackManifest::from_files(&files).is_err()).is_true();
 }
@@ -388,6 +399,7 @@ fn pack_manifest_of_the_library_is_written_exactly_without_scope() {
     let expected = json!({
         "id": "00000000-0000-0000-0000-0000002f5fb3",
         "name": "Mien",
+        "namespace": "test",
         "description": "",
         "parent": null,
         "created": "2026-10-01T10:00:00Z",
@@ -401,6 +413,7 @@ fn pack_manifest_of_the_library_keeps_the_version_of_a_manifest_written_before_s
     let old = object(json!({
         "id": "00000000-0000-0000-0000-0000002f5fb3",
         "name": "Mien",
+        "namespace": "test",
         "description": "",
         "parent": null,
         "created": "2026-10-01T10:00:00Z",
@@ -413,7 +426,7 @@ fn pack_manifest_of_the_library_keeps_the_version_of_a_manifest_written_before_s
 
 #[test]
 fn pack_manifest_written_before_scopes_reads_as_library() {
-    let old = json!({ "id": Uuid::new_v4(), "name": "E", "parent": null, "created": "x", "templates": [] });
+    let old = json!({ "id": Uuid::new_v4(), "name": "E", "namespace": "test", "parent": null, "created": "x", "templates": [] });
     let files = PackFiles::new(object(old), BTreeMap::new());
     assert_that!(PackManifest::from_files(&files).unwrap().scope).is_equal_to(PackScope::Library);
     assert_that!(files.scope().unwrap()).is_equal_to(PackScope::Library);
@@ -452,4 +465,18 @@ fn theme_manifest_writes_its_scope_only_for_a_deck(#[case] scope: PackScope, #[c
 fn pack_files_scope_of_an_unknown_value_is_an_error() {
     let files = PackFiles::new(object(json!({ "scope": "partout" })), BTreeMap::new());
     assert_that!(files.scope().is_err()).is_true();
+}
+
+#[test]
+fn pack_manifest_without_namespace_is_refused() {
+    let json = json!({"id": Uuid::nil(), "name": "P", "created": "2026-10-18T00:00:00Z", "templates": []});
+    assert_that!(serde_json::from_value::<PackManifest>(json)).is_err();
+}
+
+#[test]
+fn pack_manifest_reads_namespace_and_requires() {
+    let json = json!({"id": Uuid::nil(), "name": "P", "namespace": "acme", "requires": ["base"],
+        "created": "2026-10-18T00:00:00Z", "templates": []});
+    let m: PackManifest = serde_json::from_value(json).unwrap();
+    assert_that!((m.namespace.as_str().to_owned(), m.requires.len())).is_equal_to(("acme".to_owned(), 1));
 }

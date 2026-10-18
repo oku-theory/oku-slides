@@ -132,7 +132,7 @@ impl Session {
 
     /// L'empreinte de l'état du deck entier.
     ///
-    /// Contenus du thème et du pack, jetons, paramètres, variables.
+    /// Contenus du thème et des packs épinglés, jetons, paramètres, variables.
     ///
     /// Les contenus, pas les versions : une version porte aussi son parent et
     /// sa date, si bien que rendre au thème ou à un widget du pack son contenu
@@ -146,16 +146,15 @@ impl Session {
         let deck = self.deck();
         // Les jetons du thème tels que le rendu les lit (le thème par défaut pour un deck sans thème).
         let theme = self.theme_tokens(deck).map(|tokens| effective_tokens(default_tokens(), &tokens));
-        let pack = match &deck.templates {
-            Some(r) => {
-                let files = self.doc.sources.packs.get(&r.version);
-                let files = files.ok_or_else(|| failed(format!("pack {} absent", r.id)))?;
-                let m = PackManifest::from_files(files).map_err(|e| failed(format!("pack {} : {e}", r.id)))?;
-                Some((m.templates, m.examples, files.widgets()))
-            }
-            None => None,
-        };
-        let state = (&theme, &pack, &deck.tokens, &deck.params, &deck.vars);
+        // Chaque pack épinglé, par espace de noms : ses modèles, ses exemples et ses widgets.
+        let mut packs = Vec::with_capacity(deck.widgets.len());
+        for (ns, pin) in &deck.widgets {
+            let files = self.doc.sources.packs.get(&pin.version);
+            let files = files.ok_or_else(|| failed(format!("pack {} absent", pin.id)))?;
+            let m = PackManifest::from_files(files).map_err(|e| failed(format!("pack {} : {e}", pin.id)))?;
+            packs.push((ns, m.templates, m.examples, files.widgets()));
+        }
+        let state = (&theme, &packs, &deck.tokens, &deck.params, &deck.vars);
         let bytes = serde_json::to_vec(&state).map_err(|e| failed(format!("état du deck : {e}")))?;
         Ok(fingerprint([bytes.as_slice()]))
     }

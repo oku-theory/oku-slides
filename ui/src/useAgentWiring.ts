@@ -65,7 +65,7 @@ export function useAgentWiring({
   );
   const templates = !!snap?.editing;
   const inHistory = !!snap?.history;
-  const pack = snap?.editing?.set ?? null;
+  const pack = snap?.editing?.set ?? snap?.widgets?.deck?.id ?? null;
   const scopeSource = useMemo<ScopeSource>(
     () => ({ kind: "drive", view: { templates, history: inHistory, pack, widget: widgets.activeName } }),
     [templates, inHistory, pack, widgets.activeName],

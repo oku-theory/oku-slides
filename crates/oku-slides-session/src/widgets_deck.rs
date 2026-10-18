@@ -1,10 +1,15 @@
-//! Widgets modifiés en mode deck : le pack du deck gagne une version.
+//! Widgets modifiés en mode deck : un pack épinglé par le deck gagne une version.
 //!
-//! Séance : la première modification crée une version du pack du deck
+//! La cible : le pack épinglé sous l'espace de noms demandé, sinon le pack
+//! propre du deck (`deck`, du deck seul), créé à la première écriture (sans
+//! parente). Jamais un autre pack par défaut : une écriture sans espace de
+//! noms ne touche pas le pack intégré du deck.
+//!
+//! Séance : la première modification crée une version du pack cible
 //! (`parent` = la version embarquée), l'ajoute à la bibliothèque, la rend
-//! courante et y fait passer le deck (`SetTemplates`, qui l'embarque) ; les
-//! suivantes la remplacent (`Library::replace_version`, nouveau
-//! `SetTemplates`), en une seule étape d'annulation (clé
+//! courante et l'épingle (`AddPack`, qui l'embarque) ; les
+//! suivantes la remplacent (`Library::replace_version`, nouvel
+//! `AddPack`), en une seule étape d'annulation (clé
 //! `templates-adopt:<id>:<parent>`). La version remplacée quitte les sources
 //! du deck et la bibliothèque seulement si l'écriture a rejoint son étape
 //! (`undo_steps` inchangé) ; sinon annuler y revient, elle reste. Annuler
@@ -28,15 +33,15 @@
 
 use std::collections::BTreeMap;
 
-use snafu::{OptionExt, ResultExt};
+use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Op, PackFiles, PackRef, PackVersion, SourceBundle, WidgetFile};
+use oku_slides_core::{Namespace, Op, PackFiles, PackPin, PackScope, PackVersion, WidgetFile, now_created};
 
-use crate::deck_pack::adopt_default_pack;
-use crate::error::{PackJsonSnafu, PackVersionMissingSnafu, SourcesSnafu, UnknownPackSnafu};
-use crate::pack::{DEFAULT_PACK, PackManifest};
-use crate::templates_mode::{adopt_merge_key, styled_like};
+use crate::error::{NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackVersionMissingSnafu};
+use crate::pack::PackManifest;
+use crate::pack_notice::is_deck_only;
+use crate::templates_mode::adopt_merge_key;
 use crate::widgets_edit::WidgetTarget;
 use crate::{Result, Session};
 
@@ -44,8 +49,8 @@ use crate::{Result, Session};
 #[derive(Debug, Clone)]
 pub(crate) struct WidgetSession {
     id: Uuid,
-    /// La version embarquée au début de la séance.
-    parent: PackVersion,
+    /// La version embarquée au début de la séance ; `None` pour un pack créé par elle.
+    parent: Option<PackVersion>,
     /// La version de la séance, celle du deck.
     version: PackVersion,
 }
@@ -56,27 +61,47 @@ impl Session {
         self.widget_session = None;
     }
 
-    /// Le pack du deck de l'utilisateur et ses fichiers.
+    /// Le pack du deck de l'utilisateur sous `pack` (sans : `deck`) et ses fichiers.
     ///
-    /// Un deck sans pack lit celui que `adopt_default_pack` lui donnerait,
-    /// sans rien changer : la première écriture l'y fait passer.
-    pub(crate) fn deck_pack_files(&self) -> Result<(PackRef, PackFiles)> {
-        let embedded = |r: PackRef, sources: &SourceBundle| -> Result<(PackRef, PackFiles)> {
-            let files = sources
-                .packs
-                .get(&r.version)
-                .cloned()
-                .context(PackVersionMissingSnafu { id: r.id, version: r.version.clone() })?;
-            Ok((r, files))
+    /// Sans `pack` ni pack `deck` épinglé : un pack du deck seul neuf, vide,
+    /// au nom du deck, que la première écriture épingle. Un `pack` que le deck
+    /// n'épingle pas est refusé (`UnknownNamespace`).
+    pub(crate) fn deck_widget_target(&self, pack: Option<&Namespace>) -> Result<WidgetTarget> {
+        let namespace = pack.cloned().unwrap_or_else(Namespace::deck);
+        let Some(pin) = self.deck_pins().get(&namespace) else {
+            if pack.is_some() {
+                return NotPinnedSnafu { namespace: namespace.as_str() }.fail()?;
+            }
+            return self.new_deck_pack();
         };
-        if let Some(r) = self.deck_pack() {
-            return embedded(r.clone(), self.user_blobs());
-        }
-        let deck = styled_like(self.user_deck(), Vec::new());
-        let mut sources = SourceBundle::new(deck, self.registry.clone()).context(SourcesSnafu)?;
-        adopt_default_pack(&self.library, &mut sources)?;
-        let r = sources.deck().templates.clone().context(UnknownPackSnafu { id: DEFAULT_PACK })?;
-        embedded(r, &sources)
+        let files = self
+            .user_blobs()
+            .packs
+            .get(&pin.version)
+            .cloned()
+            .context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
+        // `deck` n'appartient qu'au pack du deck seul : un pack de bibliothèque reçu sous ce nom n'est pas écrit.
+        ensure!(!namespace.is_deck() || is_deck_only(&files), NamespaceReservedSnafu { namespace: namespace.as_str() });
+        Ok(WidgetTarget { namespace, id: pin.id, version: pin.version.clone(), files })
+    }
+
+    /// Le pack propre du deck, pas encore créé : vide, du deck seul, au nom du deck.
+    fn new_deck_pack(&self) -> Result<WidgetTarget> {
+        let id = Uuid::new_v4();
+        let manifest = PackManifest {
+            id,
+            name: self.document_name(&self.doc),
+            namespace: Namespace::deck(),
+            requires: Vec::new(),
+            description: String::new(),
+            parent: None,
+            created: now_created(),
+            scope: PackScope::Deck,
+            templates: Vec::new(),
+            examples: Default::default(),
+        };
+        let files = manifest.to_files(BTreeMap::new()).context(PackJsonSnafu { id })?;
+        Ok(WidgetTarget { namespace: Namespace::deck(), id, version: files.version(), files })
     }
 
     /// `manifest` et `widgets` deviennent la version de la séance ; le deck y passe.
@@ -117,17 +142,20 @@ impl Session {
         widgets: BTreeMap<WidgetFile, String>,
         session: Option<&WidgetSession>,
     ) -> Result<WidgetSession> {
-        let parent = session.map_or_else(|| t.version.clone(), |s| s.parent.clone());
-        manifest.parent = Some(parent.clone());
+        // Un pack que la séance crée (pas encore embarqué) n'a pas de parente.
+        let created = !self.doc.sources.packs.contains_key(&t.version);
+        let parent = session.map_or_else(|| (!created).then(|| t.version.clone()), |s| s.parent.clone());
+        manifest.parent.clone_from(&parent);
         let files = manifest.to_files(widgets).context(PackJsonSnafu { id: t.id })?;
         let version = files.version();
         let embedded = self.doc.sources.packs.contains_key(&version);
         self.doc.sources.add_pack(files.clone());
         let label = self.localizer.tr_with("widgets-edit-label", &[("name", manifest.name.as_str().into())]);
-        let merge = adopt_merge_key(t.id, Some(&parent));
-        let templates = Some(PackRef { id: t.id, version: version.clone() });
+        let merge = adopt_merge_key(t.id, parent.as_ref());
+        let pin = PackPin { id: t.id, version: version.clone(), requires: manifest.requires.clone() };
         let steps = self.doc.sources.undo_steps();
-        if let Err(e) = self.apply(&label, vec![Op::SetTemplates { templates }], Some(&merge)) {
+        let op = Op::AddPack { namespace: t.namespace.clone(), pin };
+        if let Err(e) = self.apply(&label, vec![op], Some(&merge)) {
             if !embedded {
                 self.doc.sources.packs.remove(&version);
             }
@@ -140,7 +168,7 @@ impl Session {
         let replaced = session.filter(|_| merged);
         if let Some(s) = replaced
             && s.version != version
-            && s.version != parent
+            && Some(&s.version) != parent.as_ref()
         {
             self.doc.sources.packs.remove(&s.version);
         }

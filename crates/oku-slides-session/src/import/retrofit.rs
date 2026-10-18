@@ -16,7 +16,7 @@ use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, PackManifest, PackRef, SourceBundle, ThemeRef, WidgetRegistry};
+use oku_slides_core::{Deck, PackManifest, PackPin, SourceBundle, ThemeRef, WidgetRegistry};
 use oku_slides_import::RetrofitTarget;
 use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
 use oku_slides_platform::Platform;
@@ -26,12 +26,13 @@ use super::error::{
     BadPackSnafu, BadThemeSnafu, LibrarySnafu, PresentationSnafu, Result, SourcesSnafu, UnknownThemeSnafu,
 };
 use super::{Input, PackLookup, Prepared};
+use crate::deck_closure::closure_with_files;
 use crate::deck_theme::manifest_of;
 use crate::error::ThemeVersionMissingSnafu;
 use crate::theme_schema::default_tokens;
 use crate::{
     DEFAULT_THEME, PackLibrary, ThemeLibrary, adopt_default_theme, embed_theme, library_pack, resolve_pack,
-    sources_with_pack,
+    sources_with_packs,
 };
 
 /// Les jetons effectifs du thème `r` de `bundle`.
@@ -70,12 +71,17 @@ pub(crate) fn prepare(
         }
     };
     let manifest = PackManifest::from_files(&target).context(BadPackSnafu { pack: wanted })?;
-    let r = PackRef { id: manifest.id, version: target.version() };
-    let child = ChildPack::new(&platform.live_localizer.current(), &input.bytes, r.clone(), &manifest.name, name);
+    let pin = PackPin { id: manifest.id, version: target.version(), requires: manifest.requires.clone() };
+    let child = ChildPack::new(&platform.live_localizer.current(), &input.bytes, pin.clone(), &manifest.name, name);
     let mut deck = Deck::empty();
-    deck.templates = Some(r.clone());
-    let packs = BTreeMap::from([(r.version, target)]);
-    let (mut bundle, widgets) = sources_with_pack(platform, &library, base, deck, packs)?;
+    let mut packs = BTreeMap::from([(pin.version.clone(), target.clone())]);
+    // Le pack cible et ses besoins, pris dans la bibliothèque.
+    let wanted = (manifest.namespace.clone(), pin, target);
+    for (ns, pin, files) in closure_with_files(&library, &deck, wanted, &packs).context(LibrarySnafu)? {
+        packs.insert(pin.version.clone(), files);
+        deck.widgets.insert(ns, pin);
+    }
+    let (mut bundle, widgets) = sources_with_packs(platform, &library, base, deck, packs)?;
     let themes = ThemeLibrary::user(platform);
     if let Some(wanted) = theme {
         let mut deck = bundle.deck().clone();

@@ -1,18 +1,20 @@
-//! Widgets du deck : la base, surchargée par les widgets valides de la
-//! version de pack qu'il embarque (`deck.templates`, cherchée dans
-//! `SourceBundle.packs`, jamais dans la bibliothèque) ; chaque fichier est
-//! sondé à part.
+//! Widgets du deck : ceux du noyau, et les widgets valides de chaque pack
+//! qu'il épingle (`deck.widgets`, versions cherchées dans
+//! `SourceBundle.packs`, jamais dans la bibliothèque), sous leur nom
+//! qualifié ; chaque fichier est sondé à part.
 //!
 //! Invariant : le registre de la session (`Session::registry`), celui des
 //! sources du document ouvert et celui du rendu du deck sont le même, celui
-//! du pack `Session::widgets_templates`, qui est celui du deck ouvert.
-//! Tout ce qui change `deck.templates` (ops, annuler, rétablir, fusion,
+//! des packs `Session::widgets_pins`, qui sont ceux du deck ouvert.
+//! Tout ce qui change `deck.widgets` (ops, annuler, rétablir, fusion,
 //! restauration, autre document) passe par ici.
 //!
-//! Repli : un pack qui fait échouer un rendu (délai, mémoire, arrêt du
-//! processus de rendu), celui du deck ou d'un autre emplacement (aperçus,
-//! variantes, polices), est écarté pour la session (`fall_back_to_base`) ;
-//! la base le remplace, sans changer `deck.templates` ni le pack suivi.
+//! Un pack est écarté seul : version absente des sources, épingle qui ne
+//! dit pas son manifeste (`check_pack_id`), sonde illisible ou pack devenu
+//! fautif (voir `deck_fallback`). Ceux qui le requièrent le sont aussi
+//! (`deck_closure::dependents`) ; un avis `session-packs-disabled` les
+//! nomme. `deck.widgets` ne change pas. Un assemblage raté du registre
+//! n'accuse aucun pack : l'erreur remonte, les widgets installés restent.
 //!
 //! Sonde inachevée : des fichiers laissés non sondés (budget épuisé) le
 //! sont au rendu suivant du deck, qui résout de nouveau ses widgets, un
@@ -24,28 +26,33 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 
-use oku_slides_core::{Deck, Moved, Op, PackFiles, PackRef, PackVersion, WidgetFile, WidgetRegistry};
+use oku_slides_core::{
+    Deck, Moved, Namespace, Op, PackFiles, PackPin, PackVersion, WidgetFile, WidgetRegistry, qualify,
+};
 use oku_slides_i18n::Localize;
-use oku_slides_render::{FileProbe, PackWidgets, RenderError, RenderErrorKind};
+use oku_slides_render::{FileProbe, PackSet, PackWidgets};
 use oku_slides_render_worker::RemoteCompiled;
 
-use crate::deck_theme::render_themed;
-use crate::error::{NotRenderedSnafu, OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, UnknownPackSnafu};
-use crate::pack::{DEFAULT_PACK, PackManifest};
+use crate::deck_closure::{closure_ops, dependents};
+use crate::deck_pack::check_pack_id;
+use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
+use crate::pack::PackManifest;
 use crate::{Result, Session, charts};
 
-/// Les widgets résolus pour un pack de modèles.
+/// Les widgets résolus pour les packs épinglés d'un deck.
 #[derive(Debug, Clone)]
 pub(crate) struct DeckWidgets {
-    /// La référence de pack dont ils viennent.
-    pub(crate) templates: Option<PackRef>,
-    /// Le pack qui surcharge la base ; `None` : la base seule.
-    pub(crate) pack: Option<PackWidgets>,
+    /// Les packs épinglés dont ils viennent.
+    pub(crate) pins: BTreeMap<Namespace, PackPin>,
+    /// Les packs utilisables, réduits à leurs widgets valides.
+    pub(crate) set: PackSet,
     pub(crate) registry: Arc<WidgetRegistry>,
-    /// Les fichiers du pack non sondés (budget épuisé).
-    pub(crate) unprobed: BTreeSet<WidgetFile>,
+    /// Par pack, les fichiers non sondés (budget épuisé).
+    pub(crate) unprobed: BTreeMap<Namespace, BTreeSet<WidgetFile>>,
+    /// Les packs écartés, et leur nom.
+    pub(crate) disabled: BTreeMap<Namespace, String>,
 }
 
 /// Pannes simulées par les tests, chacune consommée par le premier passage.
@@ -56,79 +63,151 @@ pub(crate) struct Failpoints {
     pub(crate) sources_apply: bool,
     /// L'installation de widgets échoue.
     pub(crate) install_widgets: bool,
+    /// Le rendu témoin sans pack (`deck_fallback`) échoue d'un échec borné.
+    pub(crate) control_render: bool,
+    /// L'assemblage du registre des packs échoue.
+    pub(crate) registry: bool,
+}
+
+/// Les packs épinglés après `ops`, appliquées à `pins`.
+fn pins_after(pins: &BTreeMap<Namespace, PackPin>, ops: &[Op]) -> BTreeMap<Namespace, PackPin> {
+    let mut out = pins.clone();
+    for op in ops {
+        match op {
+            Op::AddPack { namespace, pin } => {
+                out.insert(namespace.clone(), pin.clone());
+            }
+            Op::RemovePack { namespace } => {
+                out.remove(namespace);
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 impl Session {
-    /// Les widgets de la version de pack `templates`, lue dans `packs` (les
-    /// sources du document) : la base, surchargée par ses widgets valides.
+    /// Les widgets des packs `pins`, lus dans `packs` (les sources du
+    /// document) : le noyau et les widgets valides de chaque pack utilisable.
     ///
-    /// Version absente des sources : la base, et l'avis `session-pack-missing`.
-    /// Pas de widget : la base, sans avis. Chaque fichier est sondé à part :
-    /// un widget cassé est écarté (avis `session-widgets-broken`), les autres
-    /// restent ; un fichier non sondé (budget épuisé) n'y est pas dit cassé.
-    /// Pack écarté pour la session ou registre illisible : la base et l'avis
-    /// de son erreur. Seule la base qui ne se lit pas est une erreur.
+    /// Un pack dont la version manque aux sources, dont l'épingle ne dit pas
+    /// le manifeste, dont la sonde échoue ou devenu fautif est écarté, avec
+    /// ceux qui le requièrent ; l'avis `session-packs-disabled` les nomme.
+    /// Chaque fichier est sondé à part : un widget cassé est écarté (avis
+    /// `session-widgets-broken`), les autres restent ; un fichier non sondé
+    /// (budget épuisé) n'y est pas dit cassé. L'assemblage raté du registre
+    /// est une erreur, qui n'écarte aucun pack.
     pub(crate) fn resolve_widgets(
         &self,
-        templates: Option<&PackRef>,
+        pins: &BTreeMap<Namespace, PackPin>,
         packs: &BTreeMap<PackVersion, PackFiles>,
     ) -> Result<(DeckWidgets, Option<String>)> {
-        self.resolve_widgets_among(templates, packs, None)
+        self.resolve_widgets_among(pins, packs, None)
     }
 
     /// `resolve_widgets`, l'avis des cassés réduit à `among` s'il est donné.
-    fn resolve_widgets_among(
+    pub(crate) fn resolve_widgets_among(
         &self,
-        templates: Option<&PackRef>,
+        pins: &BTreeMap<Namespace, PackPin>,
         packs: &BTreeMap<PackVersion, PackFiles>,
-        among: Option<&BTreeSet<WidgetFile>>,
+        among: Option<&BTreeMap<Namespace, BTreeSet<WidgetFile>>>,
     ) -> Result<(DeckWidgets, Option<String>)> {
-        let unprobed_base = |notice, unprobed| -> Result<(DeckWidgets, Option<String>)> {
-            let registry = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
-            Ok((DeckWidgets { templates: templates.cloned(), pack: None, registry, unprobed }, notice))
+        let name_of = |pin: &PackPin, ns: &Namespace| {
+            let manifest = packs.get(&pin.version).and_then(|f| PackManifest::from_files(f).ok());
+            manifest.map_or_else(|| ns.to_string(), |m| m.name)
         };
-        let base = |notice| unprobed_base(notice, BTreeSet::new());
-        let Some(r) = templates else { return base(None) };
-        let Some(files) = packs.get(&r.version) else {
-            tracing::warn!(pack = %r.id, version = %r.version, "version du pack absente des sources : widgets de base");
-            return base(Some(self.localizer.tr("session-pack-missing")));
-        };
-        if files.widgets().is_empty() {
-            return base(None);
+        let none = BTreeSet::new();
+        let (mut usable, mut disabled, mut unprobed, mut notices) =
+            (Vec::new(), BTreeMap::new(), BTreeMap::new(), Vec::new());
+        for (ns, pin) in pins {
+            let Some(files) = packs.get(&pin.version) else {
+                tracing::warn!(pack = %pin.id, version = %pin.version, "version du pack absente des sources : écarté");
+                disabled.insert(ns.clone(), ns.to_string());
+                continue;
+            };
+            // Une épingle qui ne dit pas le manifeste de sa version (espace de noms, id, besoins) l'écarte.
+            if let Err(e) = check_pack_id(ns, pin, files) {
+                tracing::warn!(pack = %pin.id, error = %e.one_line(), "épingle de pack incohérente : écarté");
+                disabled.insert(ns.clone(), name_of(pin, ns));
+                continue;
+            }
+            if files.widgets().is_empty() {
+                continue;
+            }
+            let probed = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone())
+                .and_then(|pack| self.worker.probe_pack(&pack));
+            let probe = match probed {
+                Ok(probe) => probe,
+                Err(e) => {
+                    tracing::warn!(pack = %pin.id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets illisible : écarté");
+                    notices.push(e.localize(&self.localizer));
+                    disabled.insert(ns.clone(), name_of(pin, ns));
+                    continue;
+                }
+            };
+            let shown = among.map(|a| a.get(ns).unwrap_or(&none));
+            notices.extend(self.broken_widgets_notice(ns, &probe.files, &probe.unprobed, shown));
+            if !probe.unprobed.is_empty() {
+                unprobed.insert(ns.clone(), probe.unprobed);
+            }
+            match probe.pack {
+                Some(pack) if self.worker.is_faulty(&pack) => {
+                    disabled.insert(ns.clone(), name_of(pin, ns));
+                }
+                Some(pack) => usable.push(pack),
+                None => {}
+            }
         }
-        let probed =
-            PackWidgets::new(r.version.hex(), files.widgets().clone()).and_then(|pack| self.worker.probe_pack(&pack));
-        let probe = match probed {
-            Ok(probe) => probe,
-            Err(e) => {
-                tracing::warn!(pack = %r.id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets illisible : widgets de base");
-                return base(Some(e.localize(&self.localizer)));
-            }
-        };
-        let notice = self.broken_widgets_notice(&probe.files, &probe.unprobed, among);
-        let unprobed = probe.unprobed;
-        match probe.pack {
-            Some(pack) if self.worker.is_faulty(&pack) => {
-                // Nommé par son manifeste, pas par son empreinte.
-                let name = PackManifest::from_files(files).map_or_else(|_| pack.id().to_owned(), |m| m.name);
-                base(Some(self.localizer.tr_with("render-pack-disabled", &[("pack", name.as_str().into())])))
-            }
-            Some(pack) => {
-                let registry = probe.registry;
-                Ok((DeckWidgets { templates: Some(r.clone()), pack: Some(pack), registry, unprobed }, notice))
-            }
-            None => unprobed_base(notice, unprobed),
+        let off: BTreeSet<Namespace> = disabled.keys().cloned().collect();
+        for ns in dependents(pins, &off) {
+            let name = pins.get(&ns).map_or_else(|| ns.to_string(), |pin| name_of(pin, &ns));
+            disabled.insert(ns, name);
         }
+        usable.retain(|p| !disabled.contains_key(p.namespace()));
+        let set = PackSet::new(usable).context(RegistrySnafu)?;
+        // Un assemblage raté n'accuse aucun pack : l'erreur remonte, les widgets installés restent.
+        let registry = self.registry_for(&set)?;
+        let notice = self.joined_notice(notices, &disabled);
+        Ok((DeckWidgets { pins: pins.clone(), set, registry, unprobed, disabled }, notice))
     }
 
-    /// L'avis des widgets écartés de `files`, s'il y en a.
+    /// Le registre de `set` : la base seule s'il est vide (sans lancer le processus de rendu).
+    fn registry_for(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>> {
+        #[cfg(test)]
+        if !set.is_empty() && self.failpoints.registry {
+            let e =
+                oku_slides_render::RegistryError::worker(oku_slides_render::RenderError::worker_lost("panne simulée"));
+            return Err(e).context(RegistrySnafu)?;
+        }
+        if set.is_empty() {
+            return Ok(oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?);
+        }
+        Ok(self.worker.registry_of(set).context(RegistrySnafu)?)
+    }
+
+    /// `notices`, suivis de celui des packs écartés `disabled`, en un avis.
+    fn joined_notice(&self, mut notices: Vec<String>, disabled: &BTreeMap<Namespace, String>) -> Option<String> {
+        if !disabled.is_empty() {
+            notices.push(self.packs_disabled_notice(disabled.values().map(String::as_str)));
+        }
+        (!notices.is_empty()).then(|| notices.join("\n\n"))
+    }
+
+    /// L'avis `session-packs-disabled` qui nomme les packs `names`.
+    pub(crate) fn packs_disabled_notice<'a>(&self, names: impl Iterator<Item = &'a str>) -> String {
+        let names: Vec<&str> = names.collect();
+        self.localizer.tr_with("session-packs-disabled", &[("packs", names.join(", ").into())])
+    }
+
+    /// L'avis des widgets écartés de `files`, ceux du pack `ns`, s'il y en a.
     ///
     /// `_commun` n'y est pas : ses widgets dépendants y sont déjà. Ni les
     /// fichiers `unprobed`, pas encore jugés ; seulement ceux de `among`
     /// s'il est donné. Muet pendant une écriture de widgets : le panneau et
-    /// l'agent ont les statuts.
+    /// l'agent ont les statuts. Les widgets y sont nommés qualifiés.
     pub(crate) fn broken_widgets_notice(
         &self,
+        ns: &Namespace,
         files: &BTreeMap<WidgetFile, FileProbe>,
         unprobed: &BTreeSet<WidgetFile>,
         among: Option<&BTreeSet<WidgetFile>>,
@@ -137,8 +216,8 @@ impl Session {
             return None;
         }
         let announced = |n: &WidgetFile| !n.is_common() && !unprobed.contains(n) && among.is_none_or(|a| a.contains(n));
-        let names: Vec<&str> =
-            files.iter().filter(|(n, p)| announced(n) && !p.is_valid()).map(|(n, _)| n.as_str()).collect();
+        let names: Vec<String> =
+            files.iter().filter(|(n, p)| announced(n) && !p.is_valid()).map(|(n, _)| qualify(ns, n.as_str())).collect();
         (!names.is_empty())
             .then(|| self.localizer.tr_with("session-widgets-broken", &[("names", names.join(", ").into())]))
     }
@@ -153,13 +232,13 @@ impl Session {
         if std::mem::take(&mut self.failpoints.install_widgets) {
             return crate::error::NotRenderedSnafu.fail()?;
         }
-        if !Arc::ptr_eq(&widgets.registry, &self.registry) || widgets.pack != self.pack {
+        if !Arc::ptr_eq(&widgets.registry, &self.registry) || widgets.set != self.packs {
             // Sans emplacement ouvert, rien à poser : il s'ouvrira avec ces widgets.
             if let Some(renderer) = &mut self.renderer
-                && let Err(e) = renderer.set_widgets(widgets.pack.as_ref(), widgets.registry.clone())
+                && let Err(e) = renderer.set_widgets(&widgets.set, widgets.registry.clone())
             {
                 // Le monde Typst a pu changer en partie : les widgets d'avant reviennent.
-                if let Err(back) = renderer.set_widgets(self.pack.as_ref(), self.registry.clone()) {
+                if let Err(back) = renderer.set_widgets(&self.packs, self.registry.clone()) {
                     tracing::error!(error = %oku_slides_platform::errors::one_line(&back), "widgets d'avant non réinstallés");
                 }
                 return Err(e).context(RenderSnafu)?;
@@ -170,10 +249,11 @@ impl Session {
             self.svg_cache.clear();
         }
         Ok(DeckWidgets {
-            templates: std::mem::replace(&mut self.widgets_templates, widgets.templates),
-            pack: std::mem::replace(&mut self.pack, widgets.pack),
+            pins: std::mem::replace(&mut self.widgets_pins, widgets.pins),
+            set: std::mem::replace(&mut self.packs, widgets.set),
             registry: std::mem::replace(&mut self.registry, widgets.registry),
             unprobed: std::mem::replace(&mut self.widgets_unprobed, widgets.unprobed),
+            disabled: std::mem::replace(&mut self.widgets_disabled, widgets.disabled),
         })
     }
 
@@ -182,10 +262,11 @@ impl Session {
     /// Les graphiques ajoutés sont d'abord mis sous forme canonique (données
     /// dans `dataset`, en-têtes traduits).
     ///
-    /// Une transaction qui change de pack de modèles (`set_templates`) se
-    /// valide avec les widgets du nouveau pack, résolus avant ses ops : elle
-    /// peut ajouter un de ses widgets. Le dernier `set_templates` l'emporte,
-    /// comme dans le deck obtenu. En cas d'échec, le registre d'avant revient.
+    /// Chaque `AddPack` est précédé des besoins que le deck n'épingle pas
+    /// (`closure_ops`), et chaque version épinglée est embarquée d'abord. Une
+    /// transaction qui change les packs épinglés se valide avec leurs widgets,
+    /// résolus avant ses ops : elle peut ajouter un de leurs widgets. En cas
+    /// d'échec, le registre d'avant revient.
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         // En mode modèles, choisir un thème fait partir le brouillon de ce thème.
         if let Some(id) = self.drafted_theme_choice(&ops) {
@@ -194,29 +275,23 @@ impl Session {
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
         self.ensure_editable()?;
-        // `set_templates` à `null` : le pack par défaut, référencé dans sa version courante.
-        for op in &mut ops {
-            if let Op::SetTemplates { templates: t @ None } = op {
-                let version = self.library.current(DEFAULT_PACK).context(UnknownPackSnafu { id: DEFAULT_PACK })?;
-                *t = Some(PackRef { id: DEFAULT_PACK, version });
-            }
+        if ops.iter().any(|op| matches!(op, Op::AddPack { .. })) {
+            ops = closure_ops(&self.library, self.doc.sources.deck(), &ops)?;
         }
         self.check_token_ops(&ops)?;
         self.embed_op_themes(&mut ops)?;
-        let templates = ops.iter().rev().find_map(|op| match op {
-            Op::SetTemplates { templates } => Some(templates.clone()),
-            _ => None,
-        });
-        let (widgets, notice) = match templates {
-            Some(t) if t != self.widgets_templates => {
-                // La version voulue entre dans les sources avant d'être lue (en ajout seul).
-                if let Some(r) = &t {
-                    self.embed_from_library(r)?;
+        let pins = pins_after(&self.doc.sources.deck().widgets, &ops);
+        let (widgets, notice) = if pins == self.widgets_pins {
+            (None, None)
+        } else {
+            // Les versions voulues entrent dans les sources avant d'être lues (en ajout seul).
+            for op in &ops {
+                if let Op::AddPack { namespace, pin } = op {
+                    self.embed_from_library(namespace, pin)?;
                 }
-                let (widgets, notice) = self.resolve_widgets(t.as_ref(), &self.doc.sources.packs)?;
-                (Some(widgets), notice)
             }
-            _ => (None, None),
+            let (widgets, notice) = self.resolve_widgets(&pins, &self.doc.sources.packs)?;
+            (Some(widgets), notice)
         };
         let registry = widgets.as_ref().map_or_else(|| self.registry.clone(), |w| w.registry.clone());
         charts::canonicalize_charts(&mut ops, &self.chart_labels, &registry);
@@ -263,85 +338,24 @@ impl Session {
         Ok(compiled)
     }
 
-    /// Rend `deck` avec les widgets installés. Si leur pack a fait échouer
-    /// le rendu (délai, mémoire, arrêt du processus de rendu), les widgets de
-    /// base les remplacent (voir `fall_back_to_base`) et le rendu est refait une fois.
-    pub(crate) fn render_deck(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
-        self.probe_remaining();
-        let tokens = self.theme_tokens(deck);
-        self.open_deck_renderer()?;
-        let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
-        let e = match render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets) {
-            Ok(compiled) => return Ok(compiled),
-            Err(e) => e,
-        };
-        if !self.fall_back_or_log(&e) {
-            return Err(e).context(RenderSnafu)?;
-        }
-        self.open_deck_renderer()?;
-        let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
-        Ok(render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets).context(RenderSnafu)?)
-    }
-
-    /// Repli : si `e` est un échec borné et le pack installé fautif, les
-    /// widgets de base le remplacent (rendu du deck, session, sources) et un
-    /// avis nomme le pack et la cause. Vrai si le repli a eu lieu.
-    ///
-    /// Tout emplacement y passe : deck, aperçus de modèles, variantes, polices.
-    pub(crate) fn fall_back_to_base(&mut self, e: &RenderError) -> Result<bool> {
-        let faulty = self.pack.as_ref().is_some_and(|p| self.worker.is_faulty(p));
-        if !(e.kind().is_bounded() && faulty) {
-            return Ok(false);
-        }
-        let pack =
-            self.pack_name().unwrap_or_else(|| self.pack.as_ref().map(|p| p.id().to_owned()).unwrap_or_default());
-        tracing::warn!(pack, error = %oku_slides_platform::errors::one_line(e), "pack de widgets écarté : widgets de base");
-        // Un pack déjà écarté ailleurs : la cause (`PackDisabled`) redirait le pack, par son empreinte.
-        let notice = match e.kind() {
-            RenderErrorKind::PackDisabled => {
-                self.localizer.tr_with("render-pack-disabled", &[("pack", pack.as_str().into())])
-            }
-            _ => self.localizer.tr_with(
-                "session-pack-disabled",
-                &[("pack", pack.as_str().into()), ("reason", e.localize(&self.localizer).into())],
-            ),
-        };
-        let base = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
-        let templates = self.widgets_templates.clone();
-        let unprobed = BTreeSet::new();
-        self.install_widgets(DeckWidgets { templates, pack: None, registry: base, unprobed })?;
-        self.doc.sources.set_registry(self.registry.clone());
-        self.set_notice(notice);
-        Ok(true)
-    }
-
-    /// [`Self::fall_back_to_base`] ; s'il échoue, journalisé et faux : l'appelant
-    /// rend l'erreur d'origine `e`, pas celle du repli.
-    fn fall_back_or_log(&mut self, e: &RenderError) -> bool {
-        self.fall_back_to_base(e).unwrap_or_else(|back| {
-            tracing::error!(error = %back.one_line(), "repli sur les widgets de base impossible");
-            false
-        })
-    }
-
     /// Résout de nouveau les widgets du document si des fichiers restent à sonder.
     ///
-    /// Seulement quand le pack installé est celui du document ouvert (pas
-    /// en historique, ni au milieu d'un changement de pack). L'avis ne nomme
+    /// Seulement quand les packs installés sont ceux du document ouvert (pas
+    /// en historique, ni au milieu d'un changement de packs). L'avis ne nomme
     /// que les fichiers jusque-là non sondés que cette sonde dit cassés.
     ///
     /// Au mieux : un échec (résolution, installation) est journalisé, les
     /// widgets installés restent et la sonde est reprise au rendu suivant.
-    fn probe_remaining(&mut self) {
-        let current = self.doc.sources.deck().templates == self.widgets_templates;
+    pub(crate) fn probe_remaining(&mut self) {
+        let current = self.doc.sources.deck().widgets == self.widgets_pins;
         if self.widgets_unprobed.is_empty() || !current || matches!(self.mode, crate::Mode::History { .. }) {
             return;
         }
         let among = self.widgets_unprobed.clone();
-        let templates = self.widgets_templates.clone();
-        let resolved = self.resolve_widgets_among(templates.as_ref(), &self.doc.sources.packs, Some(&among));
+        let pins = self.widgets_pins.clone();
+        let resolved = self.resolve_widgets_among(&pins, &self.doc.sources.packs, Some(&among));
         let installed = resolved.and_then(|(widgets, notice)| {
-            tracing::debug!(unprobed = widgets.unprobed.len(), "widgets du pack sondés de nouveau");
+            tracing::debug!(unprobed = widgets.unprobed.len(), "widgets des packs sondés de nouveau");
             self.install_widgets(widgets).map(|_| notice)
         });
         match installed {
@@ -355,37 +369,14 @@ impl Session {
         }
     }
 
-    /// Le pack installé, sauf s'il est devenu fautif ailleurs : le repli sur
-    /// la base est fait d'abord, et `None` rendu.
-    pub(crate) fn usable_pack(&mut self) -> Result<Option<PackWidgets>> {
-        if let Some(pack) = &self.pack
-            && self.worker.is_faulty(pack)
-        {
-            let e = RenderError::pack_disabled(pack.id());
-            self.fall_back_to_base(&e)?;
-        }
-        Ok(self.pack.clone())
-    }
-
-    /// `attempt`, refait une fois après le repli sur la base si le pack
-    /// installé l'a fait échouer (voir `fall_back_to_base`).
-    pub(crate) fn with_fallback<T>(&mut self, mut attempt: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
-        let e = match attempt(self) {
-            Ok(v) => return Ok(v),
-            Err(e) => e,
-        };
-        let fell_back = e.render_error().is_some_and(|re| self.fall_back_or_log(re));
-        if fell_back { attempt(self) } else { Err(e) }
-    }
-
-    /// Le registre suit le pack du document ouvert : s'il a changé
-    /// (annuler, rétablir, fusion, restauration, modèles), ses widgets sont
-    /// résolus et installés, et les sources les reçoivent. Un pack cassé
-    /// laisse la base et pose son avis.
+    /// Le registre suit les packs du document ouvert : s'ils ont changé
+    /// (annuler, rétablir, fusion, restauration, modèles), leurs widgets sont
+    /// résolus et installés, et les sources les reçoivent. Un pack cassé est
+    /// écarté seul et pose son avis.
     pub(crate) fn sync_widgets(&mut self) -> Result<()> {
-        let templates = self.doc.sources.deck().templates.clone();
-        if templates != self.widgets_templates {
-            let (widgets, notice) = self.resolve_widgets(templates.as_ref(), &self.doc.sources.packs)?;
+        let pins = self.doc.sources.deck().widgets.clone();
+        if pins != self.widgets_pins {
+            let (widgets, notice) = self.resolve_widgets(&pins, &self.doc.sources.packs)?;
             self.install_widgets(widgets)?;
             if let Some(notice) = notice {
                 self.set_notice(notice);
@@ -403,3 +394,7 @@ mod deck_widgets_tests;
 #[cfg(test)]
 #[path = "deck_widgets_fallback_tests.rs"]
 mod deck_widgets_fallback_tests;
+
+#[cfg(test)]
+#[path = "deck_widgets_pins_tests.rs"]
+mod deck_widgets_pins_tests;

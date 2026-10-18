@@ -1,6 +1,7 @@
 /** Sous-onglets de widgets du mode modèles, pour `App`. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isMac, type Snapshot, type TabApi } from "./api";
+import { pinsKey } from "./packOps";
 import { t } from "./i18n";
 import { tabShortcut } from "./tabs";
 import type { EditorCommands, EditorHistory } from "./TypstEditor";
@@ -49,7 +50,7 @@ const ZERO: EditorHistory = { undo: 0, redo: 0 };
 
 export function useTemplateWidgets(api: TabApi, snap: Snapshot | null, on: Callbacks): TemplateWidgets {
   const pack = snap?.editing && !snap.history ? snap.editing.set : null;
-  const revision = `${snap?.templates?.version ?? ""}|${snap?.editing?.base ?? ""}`;
+  const revision = `${pinsKey(snap?.widgets ?? {})}|${snap?.editing?.base ?? ""}`;
   const [tabs, setTabs] = useState<WidgetTabs>(NO_TABS);
   const onRef = useRef(on);
   useLayoutEffect(() => {

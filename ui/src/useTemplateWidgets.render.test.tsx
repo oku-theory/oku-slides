@@ -32,7 +32,7 @@ function snapOf(o: { set?: string | null; version?: string; base?: string; widge
   const { set = "p", version = "v", base = "b", widgets = [], widget = null, history = false } = o;
   return {
     editing: set === null ? null : { set, base },
-    templates: { version },
+    widgets: { deck: { id: "p", version } },
     history: history ? {} : null,
     ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widgets, widget },
   } as unknown as Snapshot;

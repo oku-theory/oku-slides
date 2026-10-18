@@ -59,7 +59,7 @@ impl Tools {
             "show_as" => self.show_as(args).await,
             "edit_templates" => self.edit_templates(args).await,
             "close_templates" => self.close_templates().await,
-            "widget_sources" => self.widget_sources().await,
+            "widget_sources" => self.widget_sources(args).await,
             "widget_source" => self.widget_source(args).await,
             "set_widget" => self.set_widget(args).await,
             "remove_widget" => self.remove_widget(args).await,

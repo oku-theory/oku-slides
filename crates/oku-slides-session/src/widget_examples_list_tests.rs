@@ -27,10 +27,10 @@ fn bornee(max: usize) -> String {
 fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-example-lists-");
     let mut s = opened_on(data.path());
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
     set_frise_widget(&mut s);
-    s.set_widget("bornee", bornee(3)).unwrap();
+    s.set_widget(None, "bornee", bornee(3)).unwrap();
     (data, s)
 }
 
@@ -41,7 +41,7 @@ fn one(param: &str, v: Value) -> Map<String, Value> {
 }
 
 fn stored(s: &Session, widget: &str, param: &str) -> Option<Value> {
-    s.example_values(&parse_name(widget).unwrap()).unwrap().get(param).cloned()
+    s.example_values(None, &parse_name(widget).unwrap()).unwrap().get(param).cloned()
 }
 
 fn etapes(s: &Session) -> Option<Value> {
@@ -159,14 +159,14 @@ fn edit_example_list_on_a_list_the_schema_no_longer_reads_starts_from_the_defaul
     #[case] insert: bool,
 ) {
     let (_d, mut s) = editing();
-    s.set_widget("souple", souple(3, "t")).unwrap();
+    s.set_widget(None, "souple", souple(3, "t")).unwrap();
     let three = json!([{ "id": "a", "t": "1" }, { "id": "b", "t": "2" }, { "id": "c", "t": "3" }]);
     s.set_example_values("souple", one("items", three)).unwrap();
     let (max, col) = match drift {
         Drift::LowerMax => (2, "t"),
         Drift::RenamedColumn => (3, "u"),
     };
-    s.set_widget("souple", souple(max, col)).unwrap();
+    s.set_widget(None, "souple", souple(max, col)).unwrap();
     let change = if insert {
         ListOp::Insert { index: None, id: "n".into(), values: Map::new() }
     } else {
@@ -181,10 +181,10 @@ fn edit_example_list_on_a_list_the_schema_no_longer_reads_starts_from_the_defaul
 fn edit_example_list_on_a_stored_value_that_is_not_a_list_is_refused() {
     let (_d, mut s) = editing();
     let file = parse_name("souple").unwrap();
-    s.set_widget("souple", souple(3, "t")).unwrap();
+    s.set_widget(None, "souple", souple(3, "t")).unwrap();
     s.set_example_values("souple", one("items", json!([]))).unwrap();
     // Une valeur gardée qui n'est pas une liste (pack.json écrit à la main) : erreur, pas de départ à neuf.
-    let t = s.widget_target().unwrap();
+    let t = s.widget_target(None).unwrap();
     let mut manifest = PackManifest::from_files(&t.files).unwrap();
     manifest.examples.entry(file).or_default().insert("items".into(), json!("pas une liste"));
     let widgets = t.files.widgets().clone();

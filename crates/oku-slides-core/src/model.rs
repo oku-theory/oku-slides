@@ -11,12 +11,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::ValueReason;
-use crate::pack::{PackRef, ThemeRef};
+use crate::namespace::Namespace;
+use crate::pack::{PackPin, ThemeRef};
 use crate::params::{ParamValue, Params};
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 5;
+pub const DECK_VERSION: u32 = 6;
 
 /// Un deck complet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -35,10 +36,9 @@ pub struct Deck {
     /// Surcharges de jetons de design (fusion profonde côté Typst).
     #[serde(default, skip_serializing_if = "is_empty_object")]
     pub tokens: Value,
-    /// Pack de modèles du deck, dans la version embarquée par ses sources ;
-    /// `None` : le pack par défaut, dans sa version courante (deck neuf).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub templates: Option<PackRef>,
+    /// Packs de widgets du deck, par espace de noms ; fermeture de leurs `requires` comprise.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub widgets: BTreeMap<Namespace, PackPin>,
     pub slides: Vec<Slide>,
 }
 
@@ -459,7 +459,7 @@ impl Deck {
             params: DeckParams::default(),
             vars: BTreeMap::new(),
             tokens: Value::Null,
-            templates: None,
+            widgets: BTreeMap::new(),
             slides: Vec::new(),
         }
     }

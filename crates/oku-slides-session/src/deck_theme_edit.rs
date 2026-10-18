@@ -68,7 +68,7 @@ pub(crate) fn token_deck(tokens: Value) -> Deck {
         params: Default::default(),
         vars: Default::default(),
         tokens,
-        templates: None,
+        widgets: Default::default(),
         slides: Vec::new(),
     }
 }

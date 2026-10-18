@@ -21,8 +21,20 @@ fn card() -> Value {
     )
 }
 
+/// Sonde de `base` et, s'il y en a un, d'un pack `acme` aux widgets `pack`.
 fn probe(base: Vec<Value>, pack: Option<Vec<Value>>) -> Value {
-    json!({ "base": base, "pack": pack })
+    let packs: Vec<Value> = pack.into_iter().map(|w| json!({ "namespace": "acme", "widgets": w })).collect();
+    json!({ "base": base, "packs": packs })
+}
+
+/// Un widget d'élément `name` à un paramètre `title`.
+fn schema(name: &str) -> Value {
+    widget(name, "element", json!([{ "name": "title", "type": "plain" }]))
+}
+
+/// Un widget d'élément `name` dont le slot `kids` n'accepte que `accepts`.
+fn slot_schema(name: &str, accepts: &[&str]) -> Value {
+    widget(name, "element", json!([{ "name": "kids", "type": "slot", "mode": "flow", "accepts": accepts }]))
 }
 
 #[test]
@@ -198,104 +210,53 @@ fn from_probe_pack_adds_a_new_widget() {
 }
 
 #[test]
-fn from_probe_pack_override_adding_a_param_replaces_the_base_widget() {
-    let mut params = card()["params"].as_array().unwrap().clone();
-    params.push(json!({ "name": "icon", "type": "asset" }));
-    let r =
-        WidgetRegistry::from_probe(probe(vec![card()], Some(vec![widget("card", "element", Value::Array(params))])))
-            .unwrap();
-    assert_that!(r.get("card").unwrap().param("icon")).is_some();
-}
-
-#[rstest]
-#[case::dropped(json!([{ "name": "title", "type": "plain" }, { "name": "body", "type": "rich" }, { "name": "highlight", "type": "flag" }]), "kicker")]
-#[case::retyped(json!([{ "name": "kicker", "type": "rich" }, { "name": "title", "type": "plain" }, { "name": "body", "type": "rich" }, { "name": "highlight", "type": "flag" }]), "kicker")]
-fn from_probe_pack_override_breaking_a_param_returns_incompatible_override(#[case] params: Value, #[case] param: &str) {
-    let err =
-        WidgetRegistry::from_probe(probe(vec![card()], Some(vec![widget("card", "element", params)]))).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::IncompatibleOverride);
-    assert_that!(err.to_string()).contains(param);
-}
-
-#[rstest]
-#[case::number_narrowed_min(
-    widget("panel", "element", json!([{ "name": "n", "type": "number", "min": 0, "max": 10 }])),
-    widget("panel", "element", json!([{ "name": "n", "type": "number", "min": 1, "max": 10 }])),
-    "n"
-)]
-#[case::number_narrowed_max(
-    widget("panel", "element", json!([{ "name": "n", "type": "number", "min": 0, "max": 10 }])),
-    widget("panel", "element", json!([{ "name": "n", "type": "number", "min": 0, "max": 5 }])),
-    "n"
-)]
-#[case::slot_accepts_narrowed(
-    widget("gated", "element", json!([{ "name": "kids", "type": "slot", "mode": "flow", "accepts": ["card", "quote"] }])),
-    widget("gated", "element", json!([{ "name": "kids", "type": "slot", "mode": "flow", "accepts": ["card"] }])),
-    "kids"
-)]
-#[case::bind_dropped(
-    widget("titled", "element", json!([{ "name": "title", "type": "plain", "bind": "title" }])),
-    widget("titled", "element", json!([{ "name": "title", "type": "plain" }])),
-    "title"
-)]
-#[case::bind_changed(
-    widget("titled", "element", json!([{ "name": "title", "type": "plain", "bind": "title" }])),
-    widget("titled", "element", json!([{ "name": "title", "type": "plain", "bind": "subtitle" }])),
-    "title"
-)]
-fn from_probe_pack_override_incompatible_param_returns_incompatible_override(
-    #[case] base: Value,
-    #[case] pack: Value,
-    #[case] param: &str,
-) {
-    let err = WidgetRegistry::from_probe(probe(vec![base], Some(vec![pack]))).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::IncompatibleOverride);
-    assert_that!(err.to_string()).contains(param);
+fn registry_from_probe_qualifies_pack_widgets() {
+    let probe = json!({"base": [schema("text")], "packs": [{"namespace": "acme", "widgets": [schema("card")]}]});
+    let r = WidgetRegistry::from_probe(probe).unwrap();
+    assert_that!(r.get("acme/card").map(|w| w.name.clone())).is_equal_to(Some("acme/card".to_owned()));
 }
 
 #[test]
-fn from_probe_pack_override_number_widening_range_is_compatible() {
-    let base = widget("panel", "element", json!([{ "name": "n", "type": "number", "min": 0, "max": 10 }]));
-    let pack = widget("panel", "element", json!([{ "name": "n", "type": "number", "min": -5, "max": 20 }]));
-    let r = WidgetRegistry::from_probe(probe(vec![base], Some(vec![pack]))).unwrap();
-    assert_that!(r.get("panel").unwrap().param("n").unwrap().ty.clone())
-        .is_equal_to(ParamType::Number { min: Some(-5.0), max: Some(20.0) });
+fn registry_from_probe_pack_widget_named_like_base_keeps_both() {
+    let probe = json!({"base": [schema("card")], "packs": [{"namespace": "acme", "widgets": [schema("card")]}]});
+    let r = WidgetRegistry::from_probe(probe).unwrap();
+    assert_that!((r.get("card").is_some(), r.get("acme/card").is_some())).is_equal_to((true, true));
 }
 
 #[test]
-fn from_probe_pack_override_slot_accepts_widened_to_none_is_compatible() {
-    let base =
-        widget("gated", "element", json!([{ "name": "kids", "type": "slot", "mode": "flow", "accepts": ["card"] }]));
-    let pack = widget("gated", "element", json!([{ "name": "kids", "type": "slot", "mode": "flow", "accepts": null }]));
-    let r = WidgetRegistry::from_probe(probe(vec![base], Some(vec![pack]))).unwrap();
-    assert_that!(r.get("gated").unwrap().param("kids").unwrap().ty.clone())
-        .is_equal_to(ParamType::Slot { mode: SlotMode::Flow, accepts: None });
+fn registry_from_probe_slot_accepting_a_qualified_sibling_is_valid() {
+    let holder = slot_schema("holder", &["acme/card"]);
+    let probe = json!({"base": [], "packs": [{"namespace": "acme", "widgets": [schema("card"), holder]}]});
+    assert_that!(WidgetRegistry::from_probe(probe)).is_ok();
 }
 
 #[test]
-fn from_probe_pack_override_narrowing_a_choice_returns_incompatible_override() {
-    let base = widget("image", "element", json!([{ "name": "fit", "type": "choice", "values": ["cover", "contain"] }]));
-    let pack = widget("image", "element", json!([{ "name": "fit", "type": "choice", "values": ["cover"] }]));
-    let err = WidgetRegistry::from_probe(probe(vec![base], Some(vec![pack]))).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::IncompatibleOverride);
+fn registry_from_probe_slot_accepting_a_bare_pack_name_returns_unknown_slot_kind() {
+    let holder = slot_schema("holder", &["card"]);
+    let probe = json!({"base": [], "packs": [{"namespace": "acme", "widgets": [schema("card"), holder]}]});
+    let err = WidgetRegistry::from_probe(probe).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::UnknownSlotKind));
 }
 
 #[test]
-fn from_probe_pack_override_changing_category_returns_incompatible_category() {
-    let err =
-        WidgetRegistry::from_probe(probe(vec![card()], Some(vec![widget("card", "slide", card()["params"].clone())])))
-            .unwrap_err();
-    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::IncompatibleCategory);
+fn registry_from_probe_old_pack_key_returns_unreadable() {
+    let probe = json!({ "base": [schema("text")], "pack": [schema("card")] });
+    let err = WidgetRegistry::from_probe(probe).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
 }
 
 #[test]
-fn localize_incompatible_override_names_widget_and_param() {
-    use oku_slides_i18n::Localize;
-    let pack = widget("card", "element", json!([{ "name": "title", "type": "plain" }]));
-    let err = WidgetRegistry::from_probe(probe(vec![card()], Some(vec![pack]))).unwrap_err();
-    let text = err.localize(oku_slides_i18n::english());
-    assert_that!(text).contains("card");
-    assert_that!(text).contains("kicker");
+fn registry_from_probe_unknown_pack_key_returns_unreadable() {
+    let probe = json!({ "base": [], "packs": [{ "namespace": "acme", "widgets": [], "id": "x" }] });
+    let err = WidgetRegistry::from_probe(probe).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
+}
+
+#[test]
+fn registry_from_probe_bad_namespace_returns_unreadable() {
+    let probe = json!({"base": [], "packs": [{"namespace": "Acme", "widgets": [schema("card")]}]});
+    let err = WidgetRegistry::from_probe(probe).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
 }
 
 // Un widget de slide utilisé comme élément (p. ex. "title") : le modèle v2
@@ -304,7 +265,7 @@ fn localize_incompatible_override_names_widget_and_param() {
 #[test]
 fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
     let json = serde_json::json!({
-        "version": 5,
+        "version": 6,
         "slides": [{ "id": "s", "kind": "content", "params": {
             "elements": [{ "id": "e1", "kind": "title", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } }] } }]
     });
@@ -316,10 +277,10 @@ fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
 
 #[test]
 fn widget_error_names_the_refused_widget() {
-    let pack = vec![widget("card", "element", json!([]))];
+    let pack = vec![widget("card", "element", json!([{ "name": "a", "type": "choice", "values": [] }]))];
     let err = WidgetRegistry::from_probe(probe(vec![card()], Some(pack))).unwrap_err();
     assert_that!(err.widget()).is_equal_to(Some("card"));
-    let unreadable = WidgetRegistry::from_probe(json!({ "pack": 1 })).unwrap_err();
+    let unreadable = WidgetRegistry::from_probe(json!({ "base": [card()], "packs": 1 })).unwrap_err();
     assert_that!(unreadable.widget()).is_none();
 }
 

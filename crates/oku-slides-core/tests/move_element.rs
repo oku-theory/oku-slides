@@ -146,7 +146,7 @@ fn accepts_registry() -> WidgetRegistry {
           "params": [{ "name": "children", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
         { "name": "text", "category": "element", "params": [] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "pack": null }))
+    ], "packs": [] }))
     .unwrap_or_else(|e| panic!("registre de test : {e}"))
 }
 

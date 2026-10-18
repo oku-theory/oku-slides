@@ -1,5 +1,5 @@
-//! Les versions de packs dans le zip des sources : `packs/<hex>/pack.json` et
-//! `packs/<hex>/widgets/<nom>.typ`.
+//! Les versions de packs dans le zip des sources : `widgets/<hex>/widgets.json` et
+//! `widgets/<hex>/widgets/<nom>.typ`.
 //!
 //! Chaque version est vérifiée par son empreinte à la lecture ; une version
 //! dont le contenu ne la donne pas est écartée et signalée une seule fois (le
@@ -18,10 +18,10 @@ use crate::pack::{PackFiles, PackVersion, WidgetFile};
 use crate::validate::Issue;
 
 /// Dossier des versions de packs dans le zip.
-pub(super) const PACKS_DIR: &str = "packs/";
+pub(super) const PACKS_DIR: &str = "widgets/";
 
 /// Le manifeste d'une version de pack, dans son dossier.
-const PACK_JSON: &str = "pack.json";
+const PACK_JSON: &str = "widgets.json";
 /// Les fichiers de widgets d'une version de pack, dans son dossier.
 const WIDGETS_DIR: &str = "widgets";
 
@@ -45,7 +45,7 @@ impl RawPack {
     }
 }
 
-/// Ce qu'est une entrée `packs/<hex>/…`.
+/// Ce qu'est une entrée `widgets/<hex>/…`.
 pub(super) enum PackPart {
     Manifest,
     Widget(WidgetFile),
@@ -53,7 +53,7 @@ pub(super) enum PackPart {
     Ignored,
 }
 
-/// `packs/<hex>/<fichier>` : la version annoncée par le dossier (64 hex
+/// `widgets/<hex>/<fichier>` : la version annoncée par le dossier (64 hex
 /// minuscules, sinon refusée) et la partie. Sous `widgets/`, un nom hors de
 /// [`WidgetFile`] est refusé, comme tout sous-dossier autre que `widgets/`.
 pub(super) fn pack_entry(name: &str) -> Result<(PackVersion, PackPart), SourcesInner> {
@@ -72,7 +72,7 @@ pub(super) fn pack_entry(name: &str) -> Result<(PackVersion, PackPart), SourcesI
     Ok((version, part))
 }
 
-/// Les versions lues, vérifiées ; les écartées (sans `pack.json`, ou dont le
+/// Les versions lues, vérifiées ; les écartées (sans `widgets.json`, ou dont le
 /// contenu ne donne pas l'empreinte annoncée) sont rendues à part.
 pub(super) fn verify_packs(
     raw: BTreeMap<PackVersion, RawPack>,
@@ -106,7 +106,7 @@ pub(super) fn report_discarded(issues: &mut Vec<Issue>, discarded: &[PackVersion
     }
 }
 
-/// Écrit chaque version sous `packs/<hex>/` : `pack.json`, puis ses widgets.
+/// Écrit chaque version sous `widgets/<hex>/` : `widgets.json`, puis ses widgets.
 pub(super) fn write_packs<W: Write + Seek>(
     zw: &mut zip::ZipWriter<W>,
     packs: &BTreeMap<PackVersion, PackFiles>,

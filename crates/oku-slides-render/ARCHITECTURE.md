@@ -6,11 +6,11 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 ## Key types
 
 - `Renderer` (`lib.rs`): keeps a live Typst world between renders (incremental compilation).
-  `render`/`set_deck` compile the deck; `set_widgets` loads the base widgets overridden by a
-  `PackWidgets`; `set_language` sets the language of fallback frames. `set_theme` sets the
-  theme tokens resolved by the session (served as `/theme.json`, passed to
-  `render-deck(…, theme:)`): rendering reads neither `deck.theme` nor a theme library; without
-  a theme, the default tokens. Charts are redrawn before Typst when the compiled theme's
+  `render`/`set_deck` compile the deck; `set_widgets` loads the base widgets plus a `PackSet`
+  (each pack's widgets as `ns/name`, never overriding a base widget: one assembly per pack with its
+  prefix); `set_language` sets the language of fallback frames. `set_theme` sets the theme
+  tokens resolved by the session (served as `/theme.json`, passed to `render-deck(…, theme:)`):
+  rendering reads neither `deck.theme` nor a theme library; without a theme, the default tokens. Charts are redrawn before Typst when the compiled theme's
   palette differs from the one they were drawn with (a second pass).
 - `Compiled` (`lib.rs`): a compiled document: `svg`/`png`/`pdf`, `page_hash` (cache key),
   `layout()` (read once from the document, `OnceCell`).
@@ -19,11 +19,11 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
   `ZoneBox`/`GridBox` (free zone and its grid), `TextStyle` (measured typography). `field()`
   emits one box per field, even empty; `fields-stack` sticks an empty field's marker to the
   next item, taking no room (`FieldBox.empty`, `side`).
-- `PackWidgets`: `widgets/<name>.typ` files (shared `_commun`) served under `/packs/<id>/`, with
-  a generated assembly module `/packs/<id>/widgets.typ`. `probe_file` (`widget_probe.rs`): one
-  file alone gives a `FileProbe` (schema, or diagnostics with line and column; declared name =
-  file name); `assemble`: the registry of the valid ones only. `Registries` (`registry.rs`)
-  memoizes by pack and by `probe_key`; `base_registry` gives the base without a pack.
+- `PackWidgets`: a namespace and `widgets/<name>.typ` files (`_commun` shared) under `/packs/<id>/`,
+  plus a generated `/packs/<id>/widgets.typ` naming them `ns/name`; `PackSet`: a deck's packs by
+  namespace, unique namespaces and ids (`DuplicatePack`). `probe_file` (`widget_probe.rs`): one file alone, no other pack reachable, gives a
+  `FileProbe` (schema or diagnostics; declared name = file name); `assemble`: base + one pack's
+  valid files. `Registries` memoizes by `PackSet::fingerprint` and `probe_key`; `base_registry`.
 - Bounded errors (`error.rs`): `RenderErrorKind` has `Timeout`, `OutOfMemory`, `WorkerLost`,
   `Frame`, `Stale`, `PackDisabled`, `Protocol` besides Typst failures; `is_bounded` says which
   ones (not `Frame`, `Stale`, `Protocol`) make the session fall back to the base widgets.

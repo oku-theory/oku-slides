@@ -1,14 +1,14 @@
 //! t-355 : la CLI valide un deck avec les widgets de son pack, et n'embarque
-//! pas un pack extrait à côté du deck dont le `pack.json` est celui d'un autre pack.
+//! pas un pack extrait à côté du deck dont le manifeste est celui d'un autre pack.
 //!
 //! Avant : `check`, `save` et `render` validaient avec le registre de base
-//! (« unknown widget » sur chaque widget du pack) ; `packs/<hex>` à côté du
+//! (« unknown widget » sur chaque widget du pack) ; `widgets/<hex>` à côté du
 //! deck n'était vérifié que par son empreinte, pas par l'id de son manifeste.
 
 use std::path::Path;
 use std::process::Output;
 
-use oku_slides_core::{PackFiles, PackRef, WidgetFile};
+use oku_slides_core::{PackFiles, PackPin, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 
@@ -22,10 +22,13 @@ const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 /// Le message de `validate` pour un widget inconnu, en anglais.
 const UNKNOWN: &str = "unknown widget";
 
-fn quote_pack(id: uuid::Uuid) -> PackFiles {
+/// Le pack `id` au seul widget `quote`, sous l'espace de noms `namespace`.
+fn quote_pack(id: uuid::Uuid, namespace: &str) -> PackFiles {
     let manifest = PackManifest {
         id,
         name: "Pack".to_owned(),
+        namespace: oku_slides_core::Namespace::parse(namespace).unwrap_or_else(|| panic!("espace de noms")),
+        requires: vec![],
         description: String::new(),
         parent: None,
         created: "2026-10-01T00:00:00Z".to_owned(),
@@ -37,12 +40,12 @@ fn quote_pack(id: uuid::Uuid) -> PackFiles {
     manifest.to_files([(file, QUOTE.to_owned())].into()).unwrap_or_else(|e| panic!("pack.json : {e}"))
 }
 
-/// Un deck JSON dans `dir` qui utilise le widget `quote` du pack `r`.
-fn quote_deck(dir: &Path, r: &PackRef) -> std::path::PathBuf {
+/// Un deck JSON dans `dir` qui utilise le widget `quote` du pack `r`, épinglé sous `namespace`.
+fn quote_deck(dir: &Path, r: &PackPin, namespace: &str) -> std::path::PathBuf {
     let deck = dir.join("deck.json");
-    let json = serde_json::json!({ "version": 5, "templates": r,
+    let json = serde_json::json!({ "version": 6, "widgets": { namespace: r },
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
-            { "id": "q", "kind": "quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
+            { "id": "q", "kind": format!("{namespace}/quote"), "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] });
     std::fs::create_dir_all(dir).unwrap_or_else(|e| panic!("{e}"));
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap_or_else(|e| panic!("{e}")))
@@ -51,13 +54,13 @@ fn quote_deck(dir: &Path, r: &PackRef) -> std::path::PathBuf {
 }
 
 /// Ajoute le pack `quote` à la bibliothèque de `dir` ; sa référence.
-fn library_quote(dir: &Path) -> PackRef {
+fn library_quote(dir: &Path) -> PackPin {
     let id = uuid::Uuid::new_v4();
-    let files = quote_pack(id);
+    let files = quote_pack(id, "pack");
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = PackLibrary::new(Some(dir.join("data").join("templates")), storage);
+    let library = PackLibrary::new(Some(dir.join("data").join("widgets")), storage);
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
-    PackRef { id, version: files.version() }
+    PackPin { id, version: files.version(), requires: vec![] }
 }
 
 fn run(cmd: &mut std::process::Command) -> Output {
@@ -71,7 +74,7 @@ fn stderr(out: &Output) -> String {
 #[test]
 fn check_of_a_deck_using_its_pack_widgets_finds_no_unknown_widget() {
     let dir = workdir("t355-check");
-    let deck = quote_deck(&dir, &library_quote(&dir));
+    let deck = quote_deck(&dir, &library_quote(&dir), "pack");
     let checked = run(oku_slides(&dir, "en").arg("check").arg(&deck));
     assert_that!(checked.status.success()).is_true();
     assert_that!(stderr(&checked)).does_not_contain(UNKNOWN);
@@ -81,7 +84,7 @@ fn check_of_a_deck_using_its_pack_widgets_finds_no_unknown_widget() {
 #[test]
 fn save_then_render_of_a_deck_using_its_pack_widgets_find_no_unknown_widget() {
     let dir = workdir("t355-save");
-    let deck = quote_deck(&dir, &library_quote(&dir));
+    let deck = quote_deck(&dir, &library_quote(&dir), "pack");
     let pdf = dir.join("deck.oku-slides.pdf");
     let saved = run(oku_slides(&dir, "en").arg("save").arg(&deck).arg(&pdf));
     assert_that!(saved.status.success()).is_true();
@@ -94,18 +97,18 @@ fn save_then_render_of_a_deck_using_its_pack_widgets_find_no_unknown_widget() {
     assert_that!(stderr(&opened)).does_not_contain(UNKNOWN);
 }
 
-/// `packs/<hex>` à côté du deck a la bonne empreinte, mais c'est la version d'un autre pack.
+/// `widgets/<hex>` à côté du deck a la bonne empreinte, mais c'est la version d'un autre pack.
 #[test]
 fn save_ignores_a_pack_beside_the_deck_whose_manifest_id_is_another_pack() {
     let dir = workdir("t355-id");
-    let other = quote_pack(uuid::Uuid::new_v4());
+    let other = quote_pack(uuid::Uuid::new_v4(), "pack");
     // Le deck annonce un autre id que celui du manifeste, avec la version de ce dernier.
-    let r = PackRef { id: uuid::Uuid::new_v4(), version: other.version() };
+    let r = PackPin { id: uuid::Uuid::new_v4(), version: other.version(), requires: vec![] };
     let extract = dir.join("extract");
-    let deck = quote_deck(&extract, &r);
-    let at = extract.join("packs").join(r.version.hex());
+    let deck = quote_deck(&extract, &r, "pack");
+    let at = extract.join("widgets").join(r.version.hex());
     std::fs::create_dir_all(at.join("widgets")).unwrap_or_else(|e| panic!("{e}"));
-    std::fs::write(at.join("pack.json"), other.pack_json().unwrap_or_else(|e| panic!("{e}")))
+    std::fs::write(at.join("widgets.json"), other.pack_json().unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("{e}"));
     std::fs::write(at.join("widgets").join("quote.typ"), QUOTE).unwrap_or_else(|e| panic!("{e}"));
     let pdf = dir.join("deck.oku-slides.pdf");
@@ -118,17 +121,19 @@ fn save_ignores_a_pack_beside_the_deck_whose_manifest_id_is_another_pack() {
 /// Dans `dir` : le pack par défaut courant a le widget `quote` ; un deck sans pack l'utilise.
 fn deck_without_pack_and_default_quote(dir: &Path) -> std::path::PathBuf {
     let id = oku_slides_session::DEFAULT_PACK;
-    let files = quote_pack(id);
+    // Toute version du pack par défaut garde son espace de noms.
+    let files = quote_pack(id, "essentiel");
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = PackLibrary::new(Some(dir.join("data").join("templates")), storage);
+    let library = PackLibrary::new(Some(dir.join("data").join("widgets")), storage);
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     library.set_current(id, &files.version()).unwrap_or_else(|e| panic!("courante : {e}"));
     let deck = dir.join("deck.json");
     let mut json: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(quote_deck(dir, &PackRef { id, version: files.version() })).unwrap_or_else(|e| panic!("{e}")),
+        &std::fs::read(quote_deck(dir, &PackPin { id, version: files.version(), requires: vec![] }, "essentiel"))
+            .unwrap_or_else(|e| panic!("{e}")),
     )
     .unwrap_or_else(|e| panic!("{e}"));
-    json.as_object_mut().unwrap_or_else(|| panic!("objet")).remove("templates");
+    json.as_object_mut().unwrap_or_else(|| panic!("objet")).remove("widgets");
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("{e}"));
     deck
@@ -164,8 +169,12 @@ fn check_of_a_deck_without_pack_validates_with_the_widgets_of_the_current_defaul
 #[test]
 fn check_of_a_deck_whose_pack_is_missing_reports_it_and_goes_on() {
     let dir = workdir("t355-check-absent");
-    let r = PackRef { id: uuid::Uuid::new_v4(), version: quote_pack(uuid::Uuid::new_v4()).version() };
-    let deck = quote_deck(&dir, &r);
+    let r = PackPin {
+        id: uuid::Uuid::new_v4(),
+        version: quote_pack(uuid::Uuid::new_v4(), "pack").version(),
+        requires: vec![],
+    };
+    let deck = quote_deck(&dir, &r, "pack");
     let checked = run(oku_slides(&dir, "en").arg("check").arg(&deck));
     assert_that!(checked.status.success()).is_true();
     assert_that!(stderr(&checked)).contains("not found");

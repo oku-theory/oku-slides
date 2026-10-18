@@ -9,15 +9,15 @@ use std::sync::Arc;
 
 use oku_slides_core::{Deck, WidgetRegistry};
 use oku_slides_i18n::Localizer;
-use oku_slides_render::{PackWidgets, RenderError};
+use oku_slides_render::{PackSet, RenderError};
 use serde_json::{Map, Value};
 
 use crate::client::{
     Deferred, RenderWorker, blame, evict_assets, expect_ok, faulty_pack, set_locale, unexpected, wire,
 };
 use crate::compiled::RemoteCompiled;
-use crate::link::fingerprint_hex;
-use crate::protocol::{Request, Response, SlotId};
+use crate::link::{Link, fingerprint_hex};
+use crate::protocol::{Request, Response, SlotId, WirePack};
 
 /// Un emplacement du travailleur : un rendu, ses widgets et sa langue.
 ///
@@ -45,30 +45,25 @@ impl RenderSlot {
         Self { worker, id, registry, chart_palette: Vec::new(), accuse, pack_epoch: 0 }
     }
 
-    /// Widgets rendus : la base surchargée par `pack` (ou seule, sans pack).
-    pub fn set_widgets(
-        &mut self,
-        pack: Option<&PackWidgets>,
-        registry: Arc<WidgetRegistry>,
-    ) -> Result<(), RenderError> {
+    /// Widgets rendus : la base et ceux des packs de `set` (la base seule, si vide).
+    pub fn set_widgets(&mut self, set: &PackSet, registry: Arc<WidgetRegistry>) -> Result<(), RenderError> {
         let mut link = self.worker.link();
-        let wire = pack.map(wire);
+        let wire: Vec<_> = set.packs().iter().map(wire).collect();
         if self.accuse
-            && let Some(p) = &wire
-            && link.faulty_packs.contains(&fingerprint_hex(p))
+            && let Some(p) = wire.iter().find(|p| link.faulty_packs.contains(&fingerprint_hex(p)))
         {
             return Err(RenderError::pack_disabled(p.id.clone()));
         }
-        let blamed = wire.as_ref().filter(|_| self.accuse);
+        let blamed: &[_] = if self.accuse { &wire } else { &[] };
         self.worker.prepare_for(&mut link, blamed)?;
-        let req = Request::SetWidgets { slot: self.id, pack: wire.clone() };
+        let req = Request::SetWidgets { slot: self.id, packs: wire.clone() };
         if let Err(e) = expect_ok(&mut link, &req, &[]) {
             blame(&mut link, blamed, &e);
             return Err(e);
         }
         self.pack_epoch = link.restarts;
         if let Some(state) = link.state.slots.get_mut(&self.id) {
-            state.pack = wire;
+            state.packs = wire;
         }
         self.registry = registry;
         Ok(())
@@ -80,13 +75,22 @@ impl RenderSlot {
         if link.state.slots.get(&self.id).is_some_and(|s| s.theme.as_ref() == tokens) {
             return Ok(());
         }
-        let pack = link.state.slots.get(&self.id).and_then(|s| s.pack.clone()).filter(|_| self.accuse);
-        self.worker.prepare_for(&mut link, pack.as_ref())?;
+        let packs = self.blamed_packs(&link);
+        self.worker.prepare_for(&mut link, &packs)?;
         expect_ok(&mut link, &Request::SetTheme { slot: self.id, tokens: tokens.cloned() }, &[])?;
         if let Some(state) = link.state.slots.get_mut(&self.id) {
             state.theme = tokens.cloned();
         }
         Ok(())
+    }
+
+    /// Les packs posés dans l'emplacement qu'un échec borné accuse (aucun pour un essai).
+    fn blamed_packs(&self, link: &Link) -> Vec<WirePack> {
+        if self.accuse {
+            link.state.slots.get(&self.id).map(|s| s.packs.clone()).unwrap_or_default()
+        } else {
+            Vec::new()
+        }
     }
 
     /// Registre des widgets rendus.
@@ -109,8 +113,8 @@ impl RenderSlot {
         {
             return Err(RenderError::pack_disabled(pack));
         }
-        let pack = link.state.slots.get(&self.id).and_then(|s| s.pack.clone()).filter(|_| self.accuse);
-        self.worker.prepare_for(&mut link, pack.as_ref())?;
+        let packs = self.blamed_packs(&link);
+        self.worker.prepare_for(&mut link, &packs)?;
         // Essai : un pack fautif posé avant une relance n'a pas été rejoué.
         if !self.accuse
             && link.restarts != self.pack_epoch
@@ -131,7 +135,7 @@ impl RenderSlot {
             Ok((Response::Error { error }, _)) => return Err(error.into_render()),
             Ok((other, _)) => return Err(unexpected(&other)),
             Err(e) => {
-                blame(&mut link, pack.as_ref(), &e);
+                blame(&mut link, &packs, &e);
                 return Err(e);
             }
         };

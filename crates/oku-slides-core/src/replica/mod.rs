@@ -64,8 +64,9 @@ const DECK_UID: &str = "deck_uid";
 /// Clé de `meta` : format du replica.
 const FORMAT: &str = "format";
 /// 3 : le deck en un seul `LoroTree`, suppression douce (ADR-0006).
-/// 4 : marques datées, t-770. Le changer impose de changer `SOURCES_VERSION`.
-const REPLICA_FORMAT: i64 = 4;
+/// 4 : marques datées, t-770. 5 : `widgets`, packs par espace de noms (t-1011).
+/// Le changer impose de changer `SOURCES_VERSION`.
+const REPLICA_FORMAT: i64 = 5;
 
 /// Préfixe du message d'un commit intermédiaire d'une application (avant
 /// un `mov` de liste) : l'état qui suit n'est pas une version du deck.

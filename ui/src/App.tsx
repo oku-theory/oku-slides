@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PackNotice from "./PackNotice";
 import type { ImportTarget, PileSectionName, SlideView, Snapshot } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
+import { firstPackId, widgetToOpen } from "./packOps";
 import { appearanceLook } from "./appearance";
 import { useAppearance } from "./useAppearance";
 import { AttachButton } from "./agent/AttachButton";
@@ -402,7 +403,11 @@ export default function App({
             readOnly={readOnly}
             templates={!!snap.editing}
             packWidgets={packWidgets}
-            onOpenWidget={(name) => void widgets.enterAndOpen(editTemplates, name)}
+            onOpenWidget={(kind) => {
+              // Le genre est qualifié (`espace/nom`) : l'atelier du pack épinglé sous cet espace, onglet `nom`.
+              const target = widgetToOpen(snap, kind);
+              if (target) void widgets.enterAndOpen(() => editTemplates(target.pack), target.name);
+            }}
             onNotice={(m) => say(m, true)}
             dictated={dictation.dictated}
             // L'aide se lit comme une présentation : sans grille ni fantômes.
@@ -489,7 +494,7 @@ export default function App({
       {picking && (
         <TemplatePicker
           themeKey={deckLook}
-          initialSet={snap.editing ? snap.editing.set : snap.templates?.id ?? null}
+          initialSet={snap.editing ? snap.editing.set : firstPackId(snap)}
           title={t(snap.editing ? "ui-picker-new-template" : "ui-picker-new-slide")}
           onPick={insertTemplate}
           onSetChange={adoptSet}

@@ -10,10 +10,10 @@ The Tauri app and the dev server (`oku-slides-cli` `serve`) expose the same API.
   templates, resume state (`resume.rs`, `resume_writer.rs`), file (`deck_file.rs`, `files.rs`, `merge.rs`).
 - `Mode`: `Deck`, `Help` (read-only, `help.rs`), `Templates`, `History`; the last two set the deck aside (`stash`) in
   `templates_mode.rs` (`templates_library.rs`: base, library writes; a deck-only pack edits its embedded version) and `history.rs`.
-- Packs and themes: the deck's embedded version is authoritative; a deck-only one (`PackScope::Deck`) never
-  reaches the library (`add_version` refuses it). `deck_widgets.rs` builds the registry (`fall_back_to_base`),
-  `deck_pack.rs`, `deck_theme.rs` embed defaults; `library.rs`, `library_kind.rs` (received marks), `library_index.rs`
-  (in-memory index, reset when `generation` changes; loads re-hash) hold `Library<K>`; `theme.rs`, `pack.rs`.
+- Packs (`deck.widgets`, one pin per namespace) and themes: embedded versions are authoritative; a deck-only one never reaches
+  the library. `deck_widgets.rs` builds the registry per pack, `deck_fallback.rs` disables a faulty pack alone (bisection),
+  `deck_closure.rs` adds `requires`, lists dependents (also `probed_widgets`); `deck_pack.rs` (`check_pack_id`), `deck_theme.rs` embed defaults;
+  `library.rs` (namespace unique, kept by every version; `namespace_slug.rs`), `library_kind.rs`, `library_index.rs` (in-memory, reset on `generation`) hold `Library<K>`; `theme.rs`, `pack.rs`.
 - Theme editing: `theme_edit.rs` (`ThemeEdit` draft in templates mode, `save_theme_edit`), `deck_theme_edit.rs` (`edit_theme`
   in deck mode), `theme_schema.rs` (token controls, bounds), `theme_panel.rs` + `theme_controls.rs` (`host-theme` surface),
   `appearance.rs`; `deck_themes.rs`: deck-only themes the sources embed (`Snapshot.deck_themes`), picked after the library.

@@ -98,9 +98,10 @@ interface DeckProps extends CommonProps {
   templates?: boolean;
   /** Fantômes : zone, objets et champs annotés ; placeholders de tous les champs vides. */
   showGhosts?: boolean;
-  /** Widgets du pack : leur étiquette ouvre le widget. */
+  /** Widgets du pack, en genres qualifiés : leur étiquette ouvre le widget. */
   packWidgets?: ReadonlySet<string>;
-  onOpenWidget?: (name: string) => void;
+  /** Reçoit le genre qualifié (`espace/nom`) du widget à ouvrir. */
+  onOpenWidget?: (kind: string) => void;
 }
 
 /**

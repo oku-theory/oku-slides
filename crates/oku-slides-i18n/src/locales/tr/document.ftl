@@ -18,6 +18,7 @@ diagnostic-hint = ipucu: { $hint }
 render-chart-failed = grafik çizilemedi
 
 registry-bad-pack-id = Geçersiz şablon paketi tanımlayıcısı: { $id }
+registry-duplicate-pack = Sununun iki widget paketi { $pack } değerini paylaşıyor.
 registry-compile = Şablon paketinin widget'ları derlenemedi
 registry-missing = Şablon paketi widget'larını bildirmiyor
 render-timeout = Oluşturma { $seconds } sn'den uzun sürdü ve durduruldu

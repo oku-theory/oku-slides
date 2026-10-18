@@ -24,7 +24,7 @@ fn deck_with(elements: Vec<Element>) -> Deck {
         params: DeckParams::default(),
         vars: Default::default(),
         tokens: Value::Null,
-        templates: None,
+        widgets: Default::default(),
         slides: vec![slide],
     }
 }
@@ -420,7 +420,7 @@ fn deck() -> impl Strategy<Value = Deck> {
                 number(&mut s.params, &mut next);
             }
             let params = DeckParams { title, author, date, ..Default::default() };
-            Deck { version: DECK_VERSION, theme: None, params, vars, tokens, templates: None, slides }
+            Deck { version: DECK_VERSION, theme: None, params, vars, tokens, widgets: Default::default(), slides }
         })
 }
 

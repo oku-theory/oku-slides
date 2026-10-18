@@ -22,6 +22,13 @@ op-value-unreadable = la valeur n'a pas la forme attendue
 op-value-valign = top, middle ou bottom est attendu
 op-value-path = le chemin se compose de commandes M, L, C, Q et Z suivies de leurs nombres, en commençant par M
 op-unknown-widget = Widget inconnu : { $subject }
+op-unknown-namespace = Ce deck n'a pas de pack de widgets { $pack }.
+op-pack-required = Le pack de widgets { $pack } est nécessaire à { $by } ; retirez d'abord celui-ci.
+op-pack-in-use = Le pack de widgets { $pack } est encore utilisé par { $count ->
+    [one] { $count } élément
+   *[other] { $count } éléments
+}.
+op-pack-requirement-missing = Le pack de widgets { $pack } a besoin de { $required }, que ce deck n'a pas.
 op-unknown-param = Paramètre inconnu : { $subject }
 op-param-type-because = Valeur invalide pour { $subject } : { $reason }
 op-param-shape-text = { $nullable ->
@@ -137,6 +144,8 @@ issue-invalid-style = valeur de style invalide : { $field } ({ $reason ->
 issue-missing-asset = asset manquant : { $asset }
 issue-pack-version-mismatch = version de pack altérée, écartée : { $version }
 issue-pack-version-missing = version de pack absente des sources : { $version }
+issue-pack-pin-mismatch = Le pack de widgets embarqué { $pack } ne correspond pas à ce que le deck attend.
+issue-pack-requirement-missing = Le pack de widgets { $pack } a besoin de { $required }, que ce deck n'a pas.
 issue-theme-version-mismatch = version de thème altérée, écartée : { $version }
 issue-theme-version-missing = version de thème absente des sources : { $version }
 issue-unsupported-link = lien non pris en charge : { $link }
@@ -174,8 +183,6 @@ widget-fault-list-bounds = Widget { $widget } : le max d'une liste est sous son 
 widget-fault-list-default-too-large = Widget { $widget } : le défaut d'une liste dépasse les bornes de taille des listes
 widget-fault-list-depth = Widget { $widget } : une liste imbriquée ne peut pas contenir de colonne liste ; les listes ne s'imbriquent que sur un niveau
 widget-fault-list-default-below-min = Widget { $widget } : le défaut d'une liste imbriquée a moins d'items que son minimum
-widget-incompatible-override = Le widget { $widget } remplace celui de base mais modifie ou retire son paramètre { $param }
-widget-incompatible-category = Le widget { $widget } remplace celui de base avec une autre catégorie
 issue-empty-item-id = la liste { $param } a un item sans identifiant
 issue-duplicate-item-id = la liste { $param } a un identifiant d'item en double
 issue-invalid-item-id = la liste { $param } a un identifiant d'item qui contient une barre oblique

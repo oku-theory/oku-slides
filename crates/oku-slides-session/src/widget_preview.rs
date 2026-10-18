@@ -25,11 +25,11 @@ use serde_json::{Map, Value};
 use snafu::{ResultExt, ensure};
 
 use oku_slides_core::{
-    Category, Cell, Deck, Element, Paragraph, ParamType, ParamValue, Params, Slide, WidgetFile, WidgetRegistry,
-    WidgetSchema, default_items,
+    Category, Cell, Deck, Element, Namespace, Paragraph, ParamType, ParamValue, Params, Slide, WidgetFile,
+    WidgetRegistry, WidgetSchema, default_items, qualify,
 };
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_render::{FileProbe, Layout, PackWidgets, RenderError};
+use oku_slides_render::{FileProbe, Layout, PackSet, PackWidgets, RenderError};
 use oku_slides_render_worker::RenderSlot;
 
 use crate::deck_theme::render_themed;
@@ -131,7 +131,7 @@ impl PreviewSlot {
             p.files().iter().filter(|(n, _)| *n != shown).for_each(|f| f.hash(&mut h));
             h.finish()
         });
-        let unversioned = Deck { templates: None, ..bare.clone() };
+        let unversioned = Deck { widgets: Default::default(), ..bare.clone() };
         let mut h = DefaultHasher::new();
         assets.keys().for_each(|k| k.hash(&mut h));
         let key = BareKey {
@@ -272,40 +272,47 @@ fn no_schema(name: &WidgetFile) -> WidgetPreview {
 impl Session {
     /// Aperçu du widget `name` seul, sur une slide temporaire au style du deck.
     ///
+    /// `name` est un fichier du pack `pack` (voir `widget_target` : sans espace
+    /// de noms, le pack édité, ou en mode deck le pack `deck`).
+    ///
     /// Aux valeurs d'exemple du widget, puis à `params`.
     /// Un fichier cassé rend ses diagnostics ; un rendu raté (Typst, délai,
     /// mémoire) aussi, sans écarter le pack.
     pub fn preview_widget(
         &mut self,
+        pack: Option<&Namespace>,
         name: &str,
         params: &Map<String, Value>,
         format: PreviewFormat,
     ) -> Result<WidgetPreview> {
         let name = parse_name(name)?;
-        let t = self.widget_target()?;
+        let t = self.widget_target(pack)?;
         // `_commun` n'est pas un widget : rien à montrer.
         ensure!(t.files.widget(&name).is_some() && !name.is_common(), UnknownWidgetSnafu { name: name.as_str() });
-        let pack = PackWidgets::new(t.version.hex(), t.files.widgets().clone()).context(RegistrySnafu)?;
-        let probe = self.worker.probe_pack(&pack).context(RegistrySnafu)?;
+        let widgets =
+            PackWidgets::new(t.version.hex(), t.namespace.clone(), t.files.widgets().clone()).context(RegistrySnafu)?;
+        let probe = self.worker.probe_pack(&widgets).context(RegistrySnafu)?;
         let file = probe.files.get(&name);
         if !file.is_some_and(FileProbe::is_valid) {
             return Ok(broken(file));
         }
-        let Some(schema) = probe.registry.get(name.as_str()).cloned() else { return Ok(no_schema(&name)) };
-        let inputs = self.preview_inputs(&name, &schema, params)?;
+        let kind = qualify(&t.namespace, name.as_str());
+        let Some(schema) = probe.registry.get(&kind).cloned() else { return Ok(no_schema(&name)) };
+        let inputs = self.preview_inputs(pack, &name, &schema, params)?;
         let deck = self.preview_deck(&schema, &inputs);
         self.render_preview(&name, probe.pack.as_ref(), probe.registry.clone(), &deck, format)
     }
 
-    /// Valeurs d'aperçu de `name` : ses valeurs d'exemple encore valides, puis `given`.
+    /// Valeurs d'aperçu de `name` (pack `pack`) : ses valeurs d'exemple encore valides, puis `given`.
     pub(crate) fn preview_inputs(
         &self,
+        pack: Option<&Namespace>,
         name: &WidgetFile,
         schema: &WidgetSchema,
         given: &Map<String, Value>,
     ) -> Result<Map<String, Value>> {
         let mut inputs: Map<String, Value> =
-            self.example_values(name)?.into_iter().filter(|(k, v)| trial_fits(schema, k, v)).collect();
+            self.example_values(pack, name)?.into_iter().filter(|(k, v)| trial_fits(schema, k, v)).collect();
         inputs.extend(given.iter().map(|(k, v)| (k.clone(), v.clone())));
         Ok(inputs)
     }
@@ -334,6 +341,8 @@ impl Session {
     }
 
     /// Rend `deck` dans l'emplacement d'essai, avec les widgets valides `pack`.
+    ///
+    /// Le widget montré `name` y porte son nom qualifié, celui de son schéma.
     fn render_preview(
         &mut self,
         name: &WidgetFile,
@@ -344,6 +353,7 @@ impl Session {
     ) -> Result<WidgetPreview> {
         let fonts = self.doc.sources.fonts.len();
         let tokens = self.theme_tokens(deck);
+        let set = PackSet::new(pack.into_iter().cloned().collect()).context(RegistrySnafu)?;
         let kept = match self.widget_preview.take().filter(|p| p.fonts == fonts) {
             Some(p) => p,
             None => {
@@ -356,7 +366,7 @@ impl Session {
         let assets = user_assets(&self.mode, &self.doc);
         // Posé avant chaque rendu : après une relance, le rejeu a pu l'écarter.
         let attempt = (|| -> std::result::Result<WidgetPreview, RenderError> {
-            preview.slot.set_widgets(pack, registry.clone())?;
+            preview.slot.set_widgets(&set, registry.clone())?;
             let compiled = render_themed(&mut preview.slot, deck, tokens.as_ref(), assets)?;
             let diagnostics = compiled.warnings.iter().map(WidgetDiagnostic::of).collect();
             // Seul un widget d'élément a une boîte : celle de l'élément d'aperçu.
@@ -369,7 +379,8 @@ impl Session {
             let mut out = match format {
                 PreviewFormat::Svg => {
                     let hash = compiled.page_hash(0);
-                    let view = preview_view(deck, &registry, compiled.layout(), hash, name.as_str())?;
+                    let kind = pack.map_or_else(|| name.as_str().to_owned(), |p| qualify(p.namespace(), name.as_str()));
+                    let view = preview_view(deck, &registry, compiled.layout(), hash, &kind)?;
                     WidgetPreview { svg: Some(compiled.svg(0)?), view, diagnostics, ..Default::default() }
                 }
                 // L'agent voit la slide entière : pas de recadrage.

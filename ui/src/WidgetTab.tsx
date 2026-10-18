@@ -166,9 +166,12 @@ export default function WidgetTab({
   }, [preview]);
 
   // La scène : les champs du widget dans le repère de l'image recadrée.
+  // Les vues portent le genre qualifié du widget (`espace/nom`), celui de son schéma ;
+  // sans schéma, aucun champ sur l'aperçu : l'image seule.
+  const kind = status?.schema?.name ?? null;
   const croppedScene = useMemo(
-    () => (preview?.view ? croppedView(preview.view, preview.bbox ?? null, name) : null),
-    [preview, name],
+    () => (preview?.view && kind !== null ? croppedView(preview.view, preview.bbox ?? null, kind) : null),
+    [preview, kind],
   );
   // Un champ rouvert avant le nouvel aperçu part de la valeur validée, pas de l'ancienne :
   // la refermer telle quelle n'annule pas l'écriture (t-524).

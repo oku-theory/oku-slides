@@ -1,6 +1,6 @@
 //! Valeurs d'exemple des widgets : un jeu de valeurs par widget, dans le pack.
 //!
-//! Gardées dans `pack.json` (`PackManifest::examples`) : versionnées, hachées
+//! Gardées dans `widgets.json` (`PackManifest::examples`) : versionnées, hachées
 //! et exportées avec le pack. Un widget sans valeurs gardées montre les valeurs
 //! neutres ; il n'a d'entrée qu'à son premier changement, et la perd quand ses
 //! valeurs redeviennent neutres.
@@ -17,7 +17,7 @@ use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_core::{
-    ListItem, ListOp, ListPath, ListSpec, ParamType, ParamValue, WidgetFile, default_items, param_value,
+    ListItem, ListOp, ListPath, ListSpec, Namespace, ParamType, ParamValue, WidgetFile, default_items, param_value,
 };
 
 use crate::agent::clip;
@@ -38,7 +38,7 @@ const REVISION_HEX: usize = 13;
 impl Session {
     /// Révision des valeurs d'exemple pour l'interface : un changement relance les aperçus.
     ///
-    /// Tirée de l'empreinte de la version éditée, qui couvre `pack.json` et
+    /// Tirée de l'empreinte de la version éditée, qui couvre `widgets.json` et
     /// donc les valeurs : elle change avec elles (et avec toute autre écriture
     /// du pack). `0` hors du mode modèles.
     pub(crate) fn examples_revision(&self) -> u64 {
@@ -50,9 +50,9 @@ impl Session {
         }
     }
 
-    /// Les valeurs d'exemple de `name` dans le pack en cours (aucune s'il n'en a pas).
-    pub(crate) fn example_values(&self, name: &WidgetFile) -> Result<Map<String, Value>> {
-        let t = self.widget_target()?;
+    /// Les valeurs d'exemple de `name` dans le pack `pack` (voir `widget_target`) ; aucune s'il n'en a pas.
+    pub(crate) fn example_values(&self, pack: Option<&Namespace>, name: &WidgetFile) -> Result<Map<String, Value>> {
+        let t = self.widget_target(pack)?;
         let manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
         Ok(manifest.examples.get(name).cloned().unwrap_or_default())
     }
@@ -149,7 +149,7 @@ impl Session {
         let file = parse_name(widget)?;
         ensure!(self.in_templates(), NotEditingTemplatesSnafu);
         ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
-        let t: WidgetTarget = self.widget_target()?;
+        let t: WidgetTarget = self.widget_target(None)?;
         ensure!(t.files.widget(&file).is_some(), UnknownWidgetSnafu { name: file.as_str() });
         let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
         let mut values = manifest.examples.remove(&file).unwrap_or_default();

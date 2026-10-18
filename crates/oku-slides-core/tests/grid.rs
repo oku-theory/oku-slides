@@ -19,19 +19,19 @@ fn with_quatre() -> WidgetRegistry {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     let mut probe: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
-    probe["pack"] = json!([{
+    probe["packs"] = json!([{ "namespace": "acme", "widgets": [{
         "name": "quatre", "label": null, "category": "slide", "params": [
             { "name": "grid", "label": null, "type": "grid", "default": { "columns": 4, "rows": 3, "gap": "sm" }, "bind": null },
             { "name": "elements", "label": null, "type": "slot", "mode": "free", "accepts": null, "default": null, "bind": null }
         ]
-    }]);
+    }] }]);
     WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{path} : {e}"))
 }
 
-/// Un deck d'une slide `quatre` dont l'élément `e` occupe `cell`.
+/// Un deck d'une slide `acme/quatre` dont l'élément `e` occupe `cell`.
 fn quatre_deck(cell: Cell) -> Deck {
     let mut deck = fixture();
-    let mut slide = Slide::new("s-4", "quatre");
+    let mut slide = Slide::new("s-4", "acme/quatre");
     let mut e = Element::new("e", "text");
     e.cell = Some(cell);
     slide.params.set("elements", ParamValue::Slot(vec![e]));

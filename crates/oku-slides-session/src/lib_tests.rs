@@ -294,3 +294,13 @@ fn handle_apply_with_same_merge_key_makes_one_undo_step() {
     s.handle(Request::Undo).unwrap();
     assert_that!(s.deck()).is_equal_to(&before);
 }
+
+#[test]
+fn snapshot_lists_widget_pins_by_namespace() {
+    let s = session_with_fixture();
+    let snap = serde_json::to_value(s.snapshot()).unwrap();
+    let pin = &snap["widgets"]["essentiel"];
+    assert_that!(pin["id"].as_str()).is_equal_to(Some(DEFAULT_PACK.to_string().as_str()));
+    assert_that!(pin["version"].as_str().unwrap_or_default()).starts_with("sha256:");
+    assert_that!(snap.get("templates").is_none()).is_true();
+}

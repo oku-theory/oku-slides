@@ -9,7 +9,7 @@ mod common;
 use std::collections::{BTreeMap, HashSet};
 
 use oku_slides_core::{
-    Deck, Element, Op, PackManifest, ParamValue, Params, ThemeManifest, WidgetRegistry, apply_all, validate,
+    Deck, Element, Namespace, Op, PackManifest, ParamValue, Params, ThemeManifest, WidgetRegistry, apply_all, validate,
 };
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{HifiTarget, ImportPlan, PackLimits, hifi, read_pptx};
@@ -45,7 +45,8 @@ fn plan(fixture: &str) -> ImportPlan {
 /// Le registre du deck importé : la base et les schémas déclarés du pack.
 fn registry(plan: &ImportPlan) -> WidgetRegistry {
     let base: Vec<_> = common::registry().iter().cloned().collect();
-    WidgetRegistry::from_probe(json!({ "base": base, "pack": plan.schemas })).unwrap_or_else(|e| panic!("{e}"))
+    WidgetRegistry::from_probe(json!({ "base": base, "packs": [{ "namespace": "deck", "widgets": plan.schemas }] }))
+        .unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Le plan de `fixture` et le deck obtenu, contrôlé.
@@ -69,7 +70,7 @@ fn hifi_applies_without_issue_and_covers_everything(
     let (theme, pack) = (plan.theme.as_ref().unwrap(), plan.pack.as_ref().unwrap());
     assert_that!(deck.theme.as_ref().map(|t| (t.id, t.version.clone())))
         .is_equal_to(Some((Uuid::from_u128(2), theme.version())));
-    assert_that!(deck.templates.as_ref().map(|t| (t.id, t.version.clone())))
+    assert_that!(deck.widgets.get(&Namespace::deck()).map(|p| (p.id, p.version.clone())))
         .is_equal_to(Some((Uuid::from_u128(1), pack.version())));
     assert_that!(ThemeManifest::from_files(theme).unwrap().tokens["weight"]["strong"]).is_equal_to(json!(700));
     let manifest = PackManifest::from_files(pack).unwrap();
@@ -77,6 +78,12 @@ fn hifi_applies_without_issue_and_covers_everything(
     let c = plan.report.coverage.clone().unwrap_or_else(|| panic!("couverture mesurée"));
     assert_that!(c.missing).is_empty();
     assert_that!([c.runs, c.images, c.tables, c.charts].iter().all(|r| r.is_complete())).is_true();
+}
+
+#[test]
+fn hifi_plan_pins_its_pack_under_deck_namespace() {
+    let ops = plan("minimal").ops;
+    assert_that!(ops.iter().any(|o| matches!(o, Op::AddPack { namespace, .. } if namespace.is_deck()))).is_true();
 }
 
 #[test]

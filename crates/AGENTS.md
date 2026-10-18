@@ -4,7 +4,7 @@
 
 - Compute a theme's effective tokens only through oku_slides_core::tokens::effective_tokens, never a local copy. (plan:2026-10-10-import-pptx-lot2)
 - Create Renderer or Registries directly only in worker serve.rs, the CLI and render tests; else use RenderWorker. (plan:2026-09-29-compilation-bornee)
-- Verify packs only via PackFiles::matches or PackVersion::verifies; adopt the default pack only via adopt_default_pack. (plan:2026-10-02-creation-widgets)
+- Verify packs only via PackFiles::matches or PackVersion::verifies; adopt the default packs only via adopt_default_packs, and add missing pack requirements only via closure_ops. (plan:2026-10-02-creation-widgets, plan:2026-10-18-packs-lot1-widget-packs)
 - Refuse widget files over max_widget_kib or beyond max_widgets per version (counting _commun), and never execute them. (plan:2026-10-02-creation-widgets)
 - Never mutate sources.deck directly; change the deck only through SourceBundle apply or apply_silent. (plan:2026-09-27-sources-loro-fondation)
 - Return MCP tool and agent-form errors localized via Fluent in the user's language, never as raw English text. (t-403, t-650)

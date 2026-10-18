@@ -4,8 +4,8 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::error::{
-    BadPackIdSnafu, CompileSnafu, ImageSnafu, MissingSnafu, NoPageSnafu, PdfSnafu, RegistryCompileSnafu, RegistryInner,
-    RemoteSchemaSnafu, RemoteSnafu, RenderInner,
+    BadPackIdSnafu, CompileSnafu, DuplicatePackSnafu, ImageSnafu, MissingSnafu, NoPageSnafu, PdfSnafu,
+    RegistryCompileSnafu, RegistryInner, RemoteSchemaSnafu, RemoteSnafu, RenderInner,
 };
 use crate::{RegistryError, RenderError};
 
@@ -25,6 +25,7 @@ pub enum WireError {
     PackDisabled { pack: String },
     Setup { message: String },
     RegistryBadPackId { id: String },
+    RegistryDuplicatePack { pack: String },
     RegistryCompile { diagnostics: Vec<Diagnostic> },
     RegistryMissing,
     RegistrySchema { message: String },
@@ -54,6 +55,7 @@ impl WireError {
     pub fn from_registry(e: &RegistryError) -> Self {
         match &e.0 {
             RegistryInner::BadPackId { id, .. } => Self::RegistryBadPackId { id: id.clone() },
+            RegistryInner::DuplicatePack { pack, .. } => Self::RegistryDuplicatePack { pack: pack.clone() },
             RegistryInner::RegistryCompile { diagnostics, .. } => {
                 Self::RegistryCompile { diagnostics: diagnostics.clone() }
             }
@@ -81,6 +83,9 @@ impl WireError {
             Self::RegistryBadPackId { id } => {
                 RemoteSnafu { message: format!("invalid template pack identifier: {id}") }.build().into()
             }
+            Self::RegistryDuplicatePack { pack } => {
+                RemoteSnafu { message: format!("two widget packs share {pack}") }.build().into()
+            }
             Self::RegistryCompile { diagnostics } => CompileSnafu { diagnostics }.build().into(),
             Self::RegistryMissing => {
                 RemoteSnafu { message: "the widget probe emitted no registry".to_owned() }.build().into()
@@ -92,6 +97,7 @@ impl WireError {
     pub fn into_registry(self) -> RegistryError {
         match self {
             Self::RegistryBadPackId { id } => BadPackIdSnafu { id }.build().into(),
+            Self::RegistryDuplicatePack { pack } => DuplicatePackSnafu { pack }.build().into(),
             Self::RegistryCompile { diagnostics } => RegistryCompileSnafu { diagnostics }.build().into(),
             Self::RegistryMissing => MissingSnafu.build().into(),
             Self::RegistrySchema { message } => RemoteSchemaSnafu { message }.build().into(),

@@ -14,7 +14,7 @@ use time::macros::format_description;
 use time::{OffsetDateTime, UtcOffset};
 
 use oku_slides_core::{
-    HistoryPreview, PackFiles, PackRef, PackVersion, SlideChanges, SourceBundle, Version, slide_changes,
+    HistoryPreview, Namespace, PackFiles, PackPin, PackVersion, SlideChanges, SourceBundle, Version, slide_changes,
 };
 use oku_slides_render_worker::RemoteCompiled;
 
@@ -96,7 +96,7 @@ impl Session {
         if !issues.is_empty() {
             tracing::debug!(index, issues = issues.len(), "version lue en partie");
         }
-        let (previous, widgets_notice) = self.install_version_widgets(deck.templates.as_ref())?;
+        let (previous, widgets_notice) = self.install_version_widgets(&deck.widgets)?;
         let (compiled, mut sources) = match self.render_version(deck) {
             Ok(shown) => shown,
             Err(e) => {
@@ -128,24 +128,24 @@ impl Session {
         Ok((compiled, sources))
     }
 
-    /// Installe les widgets du pack `templates`, lu dans les sources du
+    /// Installe les widgets des packs `pins`, lus dans les sources du
     /// document montré ; rend ceux d'avant s'ils changent, et l'avis à montrer
     /// une fois l'aperçu réussi. Un pack écarté (fautif) ou aux widgets cassés
-    /// laisse la base et se dit, comme sur le deck ; une version de pack
-    /// absente des sources n'est que journalisée : le passé du deck n'a rien
-    /// à corriger, et le deck dira le sien en sortant.
+    /// se dit, comme sur le deck ; une version de pack absente des sources
+    /// n'est que journalisée : le passé du deck n'a rien à corriger, et le
+    /// deck dira le sien en sortant.
     fn install_version_widgets(
         &mut self,
-        templates: Option<&PackRef>,
+        pins: &BTreeMap<Namespace, PackPin>,
     ) -> Result<(Option<DeckWidgets>, Option<String>)> {
-        if templates == self.widgets_templates.as_ref() {
+        if *pins == self.widgets_pins {
             return Ok((None, None));
         }
-        let (widgets, notice) = self.resolve_widgets(templates, &self.doc.sources.packs)?;
-        let missing = templates.is_some_and(|r| !self.doc.sources.packs.contains_key(&r.version));
+        let (widgets, notice) = self.resolve_widgets(pins, &self.doc.sources.packs)?;
+        let missing = pins.values().any(|pin| !self.doc.sources.packs.contains_key(&pin.version));
         let notice = match notice {
             Some(notice) if missing => {
-                tracing::info!(notice, "pack de la version montrée absent des sources : widgets de base");
+                tracing::info!(notice, "pack de la version montrée absent des sources : écarté");
                 None
             }
             notice => notice,

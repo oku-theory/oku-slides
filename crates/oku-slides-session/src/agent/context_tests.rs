@@ -13,9 +13,9 @@ const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 fn templates_with_quote() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-context-");
     let mut s = opened_on(data.path());
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
-    s.set_widget("quote", QUOTE.into()).unwrap();
+    s.set_widget(None, "quote", QUOTE.into()).unwrap();
     (data, s)
 }
 

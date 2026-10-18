@@ -36,13 +36,13 @@ afterEach(async () => {
 
 const style = { size: 20, leading: 6, tracking: 0, font: ["Inter"], weight: 400, fill: null, align: "left", case: null, bg: null } as const;
 const fv = (owner: string, field: string, text: string, y: number, extra: Partial<FieldView> = {}): FieldView => ({
-  owner, owner_kind: "element", widget: "card", field, list: null, item: null, column: field, kind: "plain", label: null, text, empty: false, side: null,
+  owner, owner_kind: "element", widget: "acme/card", field, list: null, item: null, column: field, kind: "plain", label: null, text, empty: false, side: null,
   x: 10, y, w: 100, h: 20, ax: 10, aw: 300, style: { ...style }, ...extra,
 });
 const view = {
-  slide: { id: "s", kind: "content", params: { blocks: [{ id: "c1", kind: "card", params: { title: "Titre", kicker: "Sur" } }] } },
+  slide: { id: "s", kind: "content", params: { blocks: [{ id: "c1", kind: "acme/card", params: { title: "Titre", kicker: "Sur" } }] } },
   page: 1, hash: "h", width: 1920, height: 1080, zone: null,
-  targets: [{ id: "c1", kind: "card", free: false, x: 0, y: 0, w: 400, h: 200 }],
+  targets: [{ id: "c1", kind: "acme/card", free: false, x: 0, y: 0, w: 400, h: 200 }],
   fields: [fv("c1", "kicker", "Sur", 20), fv("c1", "title", "Titre", 60)],
   items: [], lists: [],
 } as unknown as SlideView;
@@ -163,7 +163,8 @@ test("Stage without ghosts draws no ghost layer", async () => {
 });
 
 test("Stage with ghosts outlines each element with its kind", async () => {
-  const { host } = await mount({ showGhosts: true });
+  const core = { ...view, targets: [{ ...view.targets[0], kind: "card" }] } as SlideView;
+  const { host } = await mount({ view: core, showGhosts: true });
   const tags = [...host.querySelectorAll(".stage-ghost-target .stage-ghost-tag")].map((e) => e.textContent);
   expect(tags).toEqual(["Carte"]);
 });
@@ -467,20 +468,20 @@ test("Stage click on a field of another element while editing selects that eleme
 
 test("Stage selected element of a pack widget: the tag is a button that opens the widget without moving or reselecting", async () => {
   const opened: string[] = [];
-  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: (n: string) => opened.push(n) });
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["acme/card"]), onOpenWidget: (n: string) => opened.push(n) });
   const tag = host.querySelector("button.tag-open")!;
   expect(tag).not.toBeNull();
   await act(async () => {
     tag.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     tag.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
-  expect(opened).toEqual(["card"]);
+  expect(opened).toEqual(["acme/card"]);
   expect(calls.apply).toEqual([]);
   expect(calls.select).toEqual([]);
 });
 
 test("Stage double click on the tag button does not edit the field", async () => {
-  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["acme/card"]), onOpenWidget: () => {} });
   await act(async () => {
     host.querySelector("button.tag-open")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   });
@@ -488,13 +489,13 @@ test("Stage double click on the tag button does not edit the field", async () =>
 });
 
 test("Stage selected built-in element keeps a plain tag, no button", async () => {
-  const { host } = await mount({ view: gridded, selected: "t1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  const { host } = await mount({ view: gridded, selected: "t1", packWidgets: new Set(["acme/card"]), onOpenWidget: () => {} });
   expect(host.querySelector("button.tag-open")).toBeNull();
   expect(host.querySelector(".target.selected span.tag")).not.toBeNull();
 });
 
 test("Stage double click on a pack widget element, outside the tag, still edits its main field", async () => {
-  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["acme/card"]), onOpenWidget: () => {} });
   await act(async () => {
     host.querySelector(".target")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   });
@@ -502,7 +503,7 @@ test("Stage double click on a pack widget element, outside the tag, still edits 
 });
 
 test("Stage Enter or Space on the focused tag button stays on the button: the window shortcuts never see it", async () => {
-  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["card"]), onOpenWidget: () => {} });
+  const { host, calls } = await mount({ selected: "c1", packWidgets: new Set(["acme/card"]), onOpenWidget: () => {} });
   const seen: string[] = [];
   const l = (e: KeyboardEvent) => seen.push(e.key);
   window.addEventListener("keydown", l);
@@ -761,7 +762,7 @@ test("Stage agent sheet near the bottom flips above its element and stays inside
   });
   try {
     // Échelle 0,1 (happy-dom : la zone mesure 0) : l'élément est à (180, 100) px, 10 × 6.
-    const v = { ...view, targets: [{ id: "c1", kind: "card", free: false, x: 1800, y: 1000, w: 100, h: 60 }] } as SlideView;
+    const v = { ...view, targets: [{ id: "c1", kind: "acme/card", free: false, x: 1800, y: 1000, w: 100, h: 60 }] } as SlideView;
     const { host } = await mount({ view: v, overlay: { anchor: { owner: "c1" }, node: createElement("p", null, "fiche") } });
     const sheet = host.querySelector<HTMLElement>(".agent-sheet")!;
     // Dessous : 100 + 6 + 8 + 100 > 180 (bas de la zone) ; dessus : 100 − 8 − 100 = −8 ≥ −20.

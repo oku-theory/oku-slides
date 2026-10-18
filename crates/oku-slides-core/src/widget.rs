@@ -3,7 +3,7 @@
 //! Les widgets sont déclarés en Typst (`typst/oku-slides/src/widgets.typ`,
 //! et les fichiers `widgets/<nom>.typ` d'un pack, avec `_commun`). Le rendu
 //! compile une sonde qui émet leurs schémas en JSON ; [`WidgetRegistry::from_probe`] les lit, les contrôle et
-//! applique les surcharges du pack. Le cœur ne voit que ce JSON.
+//! range ceux de chaque pack sous leur nom qualifié ([`qualify`]). Le cœur ne voit que ce JSON.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -11,9 +11,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::error::{
-    BadSchemaSnafu, IncompatibleCategorySnafu, IncompatibleOverrideSnafu, SchemaFault, UnreadableSnafu, WidgetError,
-};
+use crate::error::{BadSchemaSnafu, SchemaFault, UnreadableSnafu, WidgetError};
+use crate::namespace::{Namespace, qualify};
 use crate::ops::{DefaultFault, default_fault};
 
 /// Ce qu'un widget rend : une slide entière, ou un élément de slide.
@@ -159,30 +158,42 @@ impl WidgetSchema {
     }
 }
 
-/// Les widgets disponibles : ceux de la base, surchargés par ceux du pack.
+/// Les widgets disponibles : ceux du noyau, et ceux de chaque pack sous leur nom qualifié.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct WidgetRegistry {
     widgets: BTreeMap<String, WidgetSchema>,
 }
 
+/// Les widgets d'un pack, tels que la sonde les émet.
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProbedPack {
+    namespace: Namespace,
+    widgets: Vec<WidgetSchema>,
+}
+
+/// La sonde entière ; une clé inconnue (l'ancienne forme `pack`) la rend illisible.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Probe {
     base: Vec<WidgetSchema>,
     #[serde(default)]
-    pack: Option<Vec<WidgetSchema>>,
+    packs: Vec<ProbedPack>,
 }
 
 impl WidgetRegistry {
-    /// Lit la sonde `{"base": [..], "pack": [..] | null}` émise par Typst.
+    /// Lit la sonde `{"base": [..], "packs": [{namespace, widgets}]}` émise par Typst.
+    ///
+    /// Un widget de pack est rangé sous son nom qualifié (`acme/card`), qui
+    /// devient aussi son `name` : il ne remplace jamais un widget du noyau.
     pub fn from_probe(probe: Value) -> Result<Self, WidgetError> {
         let probe: Probe = serde_json::from_value(probe).context(UnreadableSnafu)?;
         let mut widgets = collect(probe.base)?;
-        if let Some(pack) = probe.pack {
-            for (name, w) in collect(pack)? {
-                if let Some(base) = widgets.get(&name) {
-                    check_override(base, &w)?;
-                }
-                widgets.insert(name, w);
+        for pack in probe.packs {
+            for (name, mut w) in collect(pack.widgets)? {
+                let qualified = qualify(&pack.namespace, &name);
+                w.name = qualified.clone();
+                widgets.insert(qualified, w);
             }
         }
         let registry = Self { widgets };
@@ -332,49 +343,6 @@ fn check_list(w: &WidgetSchema, p: &ParamSchema, nested: bool) -> Result<(), Wid
         (true, Some(DefaultFault::TooLarge)) => Err(fault(w, SchemaFault::ListDefaultTooLarge)),
         (true, Some(DefaultFault::BelowMin)) => Err(fault(w, SchemaFault::ListDefaultBelowMin)),
         (true, None) => Ok(()),
-    }
-}
-
-/// Un widget de pack peut remplacer un widget de base s'il garde sa
-/// catégorie et chacun de ses paramètres, avec un type et un `bind`
-/// compatibles : toute valeur valide pour le paramètre de base doit rester
-/// valide pour celui du pack.
-fn check_override(base: &WidgetSchema, pack: &WidgetSchema) -> Result<(), WidgetError> {
-    if base.category != pack.category {
-        return Err(IncompatibleCategorySnafu { widget: base.name.clone() }.build().into());
-    }
-    for bp in &base.params {
-        let ok = pack.param(&bp.name).is_some_and(|pp| bp.bind == pp.bind && compatible(&bp.ty, &pp.ty));
-        if !ok {
-            return Err(IncompatibleOverrideSnafu { widget: base.name.clone(), param: bp.name.clone() }.build().into());
-        }
-    }
-    Ok(())
-}
-
-/// Une valeur valide pour `base` l'est-elle pour `pack` ?
-fn compatible(base: &ParamType, pack: &ParamType) -> bool {
-    match (base, pack) {
-        (ParamType::Choice { values: b }, ParamType::Choice { values: p }) => b.iter().all(|v| p.contains(v)),
-        (ParamType::Number { min: bmin, max: bmax }, ParamType::Number { min: pmin, max: pmax }) => {
-            let min_ok = match bmin {
-                Some(bm) => pmin.is_none_or(|pm| pm <= *bm),
-                None => pmin.is_none(),
-            };
-            let max_ok = match bmax {
-                Some(bx) => pmax.is_none_or(|px| px >= *bx),
-                None => pmax.is_none(),
-            };
-            min_ok && max_ok
-        }
-        (ParamType::Slot { mode: bmode, accepts: baccepts }, ParamType::Slot { mode: pmode, accepts: paccepts }) => {
-            bmode == pmode
-                && match baccepts {
-                    Some(bset) => paccepts.as_ref().is_none_or(|pset| bset.iter().all(|k| pset.contains(k))),
-                    None => paccepts.is_none(),
-                }
-        }
-        (b, p) => b == p,
     }
 }
 

@@ -18,6 +18,7 @@ diagnostic-hint = підказка: { $hint }
 render-chart-failed = не вдалося побудувати діаграму
 
 registry-bad-pack-id = Недійсний ідентифікатор пакета шаблонів: { $id }
+registry-duplicate-pack = Два пакети віджетів презентації мають спільне: { $pack }.
 registry-compile = Не вдалося скомпілювати віджети пакета шаблонів
 registry-missing = Пакет шаблонів не оголошує своїх віджетів
 render-timeout = Відтворення тривало понад { $seconds } с і було перервано

@@ -177,7 +177,7 @@ fn saving_after_choosing_an_unchanged_theme_moves_the_deck_to_it() {
 fn saving_theme_joins_the_pack_undo_step_of_the_stashed_deck() {
     let mut s = session_with_theme(PAPIER_THEME);
     let before = s.user_deck().theme.clone();
-    let templates = s.user_deck().templates.clone();
+    let templates = s.user_deck().widgets.clone();
     s.edit_templates(DEFAULT_PACK).unwrap();
     set_accent(&mut s, "#ff0000");
     s.save_templates(false).unwrap();
@@ -185,7 +185,7 @@ fn saving_theme_joins_the_pack_undo_step_of_the_stashed_deck() {
     assert_that!(s.deck().theme).is_not_equal_to(before.clone());
     s.undo().unwrap();
     assert_that!(s.deck().theme).is_equal_to(before);
-    assert_that!(s.deck().templates).is_equal_to(templates);
+    assert_that!(s.deck().widgets.clone()).is_equal_to(templates);
 }
 
 #[test]
@@ -457,11 +457,11 @@ fn widget_preview_in_template_mode_follows_the_theme_draft() {
     let data = fresh_dir("oku-slides-theme-edit-preview-");
     let mut s = opened_on(data.path());
     set_accent(&mut s, "#abcdef");
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
-    s.set_widget("pastille", SWATCH.into()).unwrap();
+    s.set_widget(None, "pastille", SWATCH.into()).unwrap();
     set_accent(&mut s, "#12ab34");
-    let preview = s.preview_widget("pastille", &serde_json::Map::new(), crate::PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget(None, "pastille", &serde_json::Map::new(), crate::PreviewFormat::Svg).unwrap();
     let svg = preview.svg.unwrap_or_default().to_lowercase();
     assert_that!(svg.contains("#12ab34")).is_true();
     assert_that!(svg.contains("#abcdef")).is_false();
@@ -671,7 +671,7 @@ fn saving_templates_without_theme_change_leaks_no_draft_base_into_the_saved_deck
     let data = fresh_dir("oku-slides-theme-edit-leak-");
     let mut s = opened_on(data.path());
     let before = s.doc.sources.themes.keys().cloned().collect::<Vec<_>>();
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
     // Un détour par Pro puis retour au thème du deck : le brouillon a
     // embarqué Pro dans le deck de travail, pas dans celui de l'utilisateur.

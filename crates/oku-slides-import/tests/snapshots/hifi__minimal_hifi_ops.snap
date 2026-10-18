@@ -11,10 +11,11 @@ expression: "plan(\"minimal\").ops"
     }
   },
   {
-    "op": "set_templates",
-    "templates": {
+    "op": "add_pack",
+    "namespace": "deck",
+    "pin": {
       "id": "00000000-0000-0000-0000-000000000001",
-      "version": "sha256:b77594a6dc018d368b0326cb2e605e238b0b0f3b3b6a475881c42d072c1f1b2b"
+      "version": "sha256:a39a8562b515c76f7feabb6a5c7ec6da883cfcbe59a4ef27fc65283524ce24b2"
     }
   },
   {
@@ -26,7 +27,7 @@ expression: "plan(\"minimal\").ops"
     "op": "add_slide",
     "slide": {
       "id": "s1",
-      "kind": "l1-diapositive-de-titre",
+      "kind": "deck/l1-diapositive-de-titre",
       "params": {
         "sous-titre": [
           {
@@ -53,7 +54,7 @@ expression: "plan(\"minimal\").ops"
     "op": "add_slide",
     "slide": {
       "id": "s2",
-      "kind": "l2-titre-et-contenu",
+      "kind": "deck/l2-titre-et-contenu",
       "params": {
         "corps": [
           {
@@ -189,7 +190,7 @@ expression: "plan(\"minimal\").ops"
     "op": "add_slide",
     "slide": {
       "id": "s3",
-      "kind": "l2-titre-et-contenu",
+      "kind": "deck/l2-titre-et-contenu",
       "params": {
         "extras": [
           {

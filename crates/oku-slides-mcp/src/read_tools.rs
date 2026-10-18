@@ -57,7 +57,7 @@ impl Tools {
                         .chain(&snap.deck_themes)
                         .map(|t| json!({ "id": t.id, "name": t.name, "version": t.version, "deck_only": t.deck_only }))
                         .collect::<Vec<_>>(),
-                    "template_set": snap.templates,
+                    "widget_packs": snap.widgets,
                     "dirty": snap.dirty,
                     "slides": slides,
                 }))

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{Fonts, PackWidgets, RenderErrorKind, Renderer, base_registry};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, Renderer, base_registry};
 use oku_slides_render_worker::RenderWorker;
 use speculoos::prelude::*;
 
@@ -66,8 +66,10 @@ fn set_widgets_error(w: &RenderWorker, id: &str, name: &str, source: &str) -> Re
     let l = Localizer::new(Some("fr"));
     let base = || base_registry(&Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
     let mut s = w.slot(&Fonts::default(), &l, base()).unwrap_or_else(|e| panic!("{e}"));
-    let pack = PackWidgets::new(id, test_packs::files(&[(name, source)])).unwrap_or_else(|e| panic!("{e}"));
-    s.set_widgets(Some(&pack), base()).map_or_else(|e| e.kind(), |()| panic!("SetWidgets a réussi"))
+    let pack = PackWidgets::new(id, test_packs::ns(id), test_packs::files(&[(name, source)]))
+        .unwrap_or_else(|e| panic!("{e}"));
+    s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap_or_else(|e| panic!("{e}")), base())
+        .map_or_else(|e| e.kind(), |()| panic!("SetWidgets a réussi"))
 }
 
 #[test]
@@ -101,10 +103,10 @@ fn process_killed_at_rest_is_restarted_without_error() {
 fn process_killed_at_rest_does_not_blame_the_slot_pack() {
     let w = worker(30_000, 4096);
     let l = Localizer::new(Some("fr"));
-    let pack = PackWidgets::new("vide", BTreeMap::new()).unwrap();
+    let pack = PackWidgets::new("vide", test_packs::ns("vide"), BTreeMap::new()).unwrap();
     let registry = w.probe_pack(&pack).unwrap().registry;
     let mut s = w.slot(&Fonts::default(), &l, base_registry(&Fonts::default()).unwrap()).unwrap();
-    s.set_widgets(Some(&pack), registry).unwrap();
+    s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap_or_else(|e| panic!("{e}")), registry).unwrap();
     s.render(&roadmap(), &BTreeMap::new()).unwrap();
     w.kill_for_test();
     s.render(&roadmap(), &BTreeMap::new()).unwrap();
@@ -114,7 +116,8 @@ fn process_killed_at_rest_does_not_blame_the_slot_pack() {
 #[test]
 fn process_probe_pack_with_a_file_that_allocates_gives_a_diagnostic_and_accuses_nothing() {
     let w = worker(60_000, 300);
-    let pack = PackWidgets::new("gros", test_packs::files(&[("gros", test_packs::ALLOCATE)])).unwrap();
+    let pack =
+        PackWidgets::new("gros", test_packs::ns("gros"), test_packs::files(&[("gros", test_packs::ALLOCATE)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     let gros = oku_slides_core::WidgetFile::parse("gros").unwrap();
     assert_that!(probe.files[&gros].is_valid()).is_false();

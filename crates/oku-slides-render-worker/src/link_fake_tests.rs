@@ -103,9 +103,9 @@ fn bounded_failure_while_flushing_the_deferred_queue_blames_the_pack() {
     w.link().unsandboxed = true;
     w.link().ensure_connected().unwrap();
     w.1.defer(Deferred::Close { slot: 1 });
-    let pack = WirePack { id: "p".into(), files: BTreeMap::new() };
+    let pack = WirePack { id: "p".into(), namespace: "p".into(), files: BTreeMap::new() };
     let mut link = w.link();
-    let e = w.prepare_for(&mut link, Some(&pack)).unwrap_err();
+    let e = w.prepare_for(&mut link, std::slice::from_ref(&pack)).unwrap_err();
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::WorkerLost);
     assert_that!(link.faulty_packs.contains(&fingerprint_hex(&pack))).is_true();
 }

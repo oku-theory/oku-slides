@@ -155,12 +155,12 @@ impl Session {
         Some(WidgetsBefore { pack, sources: self.widget_sources(), known })
     }
 
-    /// Le pack dont les widgets sont en cours : celui de l'édition, sinon celui du
-    /// deck ; `None` dans l'aide et l'historique.
+    /// Le pack dont les widgets sont en cours : celui de l'édition, sinon le pack
+    /// propre du deck (`deck`) ; `None` sans lui, dans l'aide et l'historique.
     fn widgets_pack(&self) -> Option<uuid::Uuid> {
         match &self.mode {
             Mode::Templates { edit, .. } => Some(edit.set),
-            Mode::Deck => self.deck_pack().map(|r| r.id),
+            Mode::Deck => self.deck_pins().get(&oku_slides_core::Namespace::deck()).map(|pin| pin.id),
             Mode::Help { .. } | Mode::History { .. } => None,
         }
     }

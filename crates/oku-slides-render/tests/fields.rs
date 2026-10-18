@@ -5,8 +5,9 @@ mod common;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use oku_slides_core::Namespace;
 use oku_slides_core::{Deck, WidgetFile};
-use oku_slides_render::{FieldBox, FieldSide, Fonts, PackWidgets, Renderer, load_registry};
+use oku_slides_render::{FieldBox, FieldSide, Fonts, PackSet, PackWidgets, Renderer, load_registry};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -123,15 +124,16 @@ fn fields_stack_with_empty_markers_keeps_the_stack_height() {
         (WidgetFile::parse("duo").unwrap(), duo.to_owned()),
         (WidgetFile::parse("solo").unwrap(), solo.to_owned()),
     ]);
-    let pack = PackWidgets::new("duo", files).unwrap();
-    let registry = Arc::new(load_registry(&Fonts::default(), Some(&pack)).unwrap());
+    let set = PackSet::new(vec![PackWidgets::new("duo", Namespace::parse("duo").unwrap(), files).unwrap()])
+        .unwrap_or_else(|e| panic!("{e}"));
+    let registry = Arc::new(load_registry(&Fonts::default(), &set).unwrap());
     let mut r = Renderer::new(Fonts::default()).unwrap();
-    r.set_widgets(Some(&pack), registry).unwrap();
+    r.set_widgets(&set, registry).unwrap();
     let deck = json!({
-        "version": 5, "params": { "title": "T" },
+        "version": 6, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-            { "id": "d", "kind": "duo", "params": { "b": "Texte" } },
-            { "id": "o", "kind": "solo", "params": { "b": "Texte" } }
+            { "id": "d", "kind": "duo/duo", "params": { "b": "Texte" } },
+            { "id": "o", "kind": "duo/solo", "params": { "b": "Texte" } }
         ] } }]
     });
     let compiled = r.render(&Deck::from_json(&deck.to_string()).unwrap(), &BTreeMap::new()).unwrap();

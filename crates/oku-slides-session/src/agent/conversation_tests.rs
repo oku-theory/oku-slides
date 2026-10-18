@@ -102,7 +102,7 @@ fn editing_with_kpi(data: &std::path::Path) -> crate::Session {
     let mut s = session_on(data);
     assert!(s.resume(data.join("resume")));
     s.edit_templates(DEFAULT_PACK).unwrap();
-    s.set_widget("kpi", KPI.into()).unwrap();
+    s.set_widget(None, "kpi", KPI.into()).unwrap();
     s
 }
 
@@ -111,7 +111,7 @@ fn rename_widget_moves_its_conversation_and_notes_the_move() {
     let data = fresh_dir("oku-slides-conv-");
     let mut s = editing_with_kpi(data.path());
     s.keep_thread(widget("kpi"), vec![frozen("report-1", 1)]);
-    s.rename_widget("kpi", "indicateur").unwrap();
+    s.rename_widget(None, "kpi", "indicateur").unwrap();
     s.flush_resume();
     let agent_dir = data.path().join("resume/agent");
     assert_that!(agent_dir.join(widget("kpi").file_name()).exists()).is_false();
@@ -126,7 +126,7 @@ fn renamed_conversation_is_read_back_under_its_new_name() {
     let data = fresh_dir("oku-slides-conv-");
     let mut a = editing_with_kpi(data.path());
     a.keep_thread(widget("kpi"), vec![frozen("report-1", 1)]);
-    a.rename_widget("kpi", "indicateur").unwrap();
+    a.rename_widget(None, "kpi", "indicateur").unwrap();
     drop(a);
     let mut b = session_on(data.path());
     assert!(b.resume(data.path().join("resume")));
@@ -138,7 +138,7 @@ fn remove_widget_then_undo_keeps_its_conversation() {
     let data = fresh_dir("oku-slides-conv-");
     let mut s = editing_with_kpi(data.path());
     s.keep_thread(widget("kpi"), vec![frozen("report-1", 1)]);
-    s.remove_widget("kpi").unwrap();
+    s.remove_widget(None, "kpi").unwrap();
     assert_that!(s.conversation(&widget("kpi"))).is_some();
     s.undo().unwrap();
     assert_that!(s.conversation(&widget("kpi"))).is_some();
@@ -151,12 +151,12 @@ fn undo_and_redo_of_a_rename_in_deck_mode_move_the_conversation() {
     let data = fresh_dir("oku-slides-conv-");
     let mut s = session_on(data.path());
     assert!(s.resume(data.path().join("resume")));
-    s.set_widget("kpi", KPI.into()).unwrap();
+    s.set_widget(None, "kpi", KPI.into()).unwrap();
     // Une autre modification ferme la séance : le renommage fait sa propre étape.
     s.apply("Variable", vec![oku_slides_core::Op::SetVar { key: "x".into(), value: "a".into() }], None).unwrap();
-    let pack = s.deck_pack().map(|r| r.id).unwrap();
+    let pack = crate::test_support::pin(&s, "deck").map(|r| r.id).unwrap();
     let scope = |name: &str| AgentScope::Widget { pack, name: name.into() };
-    s.rename_widget("kpi", "indicateur").unwrap();
+    s.rename_widget(None, "kpi", "indicateur").unwrap();
     s.keep_thread(scope("indicateur"), vec![frozen("report-1", 1)]);
     s.undo().unwrap();
     assert_that!(s.conversation(&scope("kpi"))).is_some();
@@ -180,12 +180,12 @@ fn keep_thread_of_an_unknown_widget_writes_nothing() {
 fn resume_prunes_only_conversations_of_widgets_missing_from_known_pack_files() {
     let data = fresh_dir("oku-slides-conv-");
     let mut a = editing_with_kpi(data.path());
-    a.set_widget("disparu", KPI.replace("kpi", "disparu")).unwrap();
+    a.set_widget(None, "disparu", KPI.replace("kpi", "disparu")).unwrap();
     a.keep_thread(widget("kpi"), vec![frozen("report-1", 1)]);
     a.keep_thread(widget("disparu"), vec![frozen("report-2", 2)]);
     let foreign = AgentScope::Widget { pack: uuid::Uuid::from_u128(42), name: "kpi".into() };
     a.keep_thread(AgentScope::Atelier { pack: DEFAULT_PACK }, vec![frozen("report-4", 4)]);
-    a.set_widget("disparu", String::new()).unwrap(); // supprimé : sa conversation reste jusqu'à la reprise
+    a.set_widget(None, "disparu", String::new()).unwrap(); // supprimé : sa conversation reste jusqu'à la reprise
     a.flush_resume();
     drop(a);
     // Une conversation d'un pack inconnu ici (deck d'une autre machine) : écrite à la main.

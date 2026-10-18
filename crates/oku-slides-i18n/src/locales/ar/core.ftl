@@ -22,6 +22,17 @@ op-value-unreadable = القيمة ليست بالشكل المتوقع
 op-value-valign = المتوقع top أو middle أو bottom
 op-value-path = يتكوّن المسار من أوامر M وL وC وQ وZ تتبعها أرقامها، ويبدأ بـ M
 op-unknown-widget = أداة غير معروفة: { $subject }
+op-unknown-namespace = لا يحتوي هذا العرض على حزمة الأدوات { $pack }.
+op-pack-required = حزمة الأدوات { $pack } تحتاجها { $by }؛ أزل تلك أولًا.
+op-pack-in-use = لا تزال حزمة الأدوات { $pack } مستخدمة في { $count ->
+    [zero] { $count } عنصر
+    [one] عنصر واحد
+    [two] عنصرين
+    [few] { $count } عناصر
+    [many] { $count } عنصرًا
+   *[other] { $count } عنصر
+}.
+op-pack-requirement-missing = تحتاج حزمة الأدوات { $pack } إلى { $required }، وهي غير موجودة في هذا العرض.
 op-unknown-param = معامل غير معروف: { $subject }
 op-param-type-because = قيمة غير صالحة لـ { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -145,6 +156,8 @@ issue-invalid-style = قيمة نمط غير صالحة: { $field } ({ $reason -
 issue-missing-asset = مورد مفقود: { $asset }
 issue-pack-version-mismatch = أُهملت نسخة حزمة معدَّلة: { $version }
 issue-pack-version-missing = نسخة الحزمة مفقودة من المصادر: { $version }
+issue-pack-pin-mismatch = حزمة الأدوات المضمّنة { $pack } لا تطابق ما يتوقعه العرض.
+issue-pack-requirement-missing = تحتاج حزمة الأدوات { $pack } إلى { $required }، وهي غير موجودة في هذا العرض.
 issue-theme-version-mismatch = أُهملت نسخة سمة معدَّلة: { $version }
 issue-theme-version-missing = نسخة السمة مفقودة من المصادر: { $version }
 issue-unsupported-link = رابط غير مدعوم: { $link }
@@ -182,8 +195,6 @@ widget-fault-list-bounds = الودجة { $widget }: الحد الأقصى لل�
 widget-fault-list-default-too-large = الودجة { $widget }: القيمة الافتراضية لقائمة تتجاوز حدود حجم القوائم
 widget-fault-list-depth = الودجة { $widget }: لا يمكن أن تحتوي قائمة متداخلة على عمود قائمة؛ تتداخل القوائم بمستوى واحد فقط
 widget-fault-list-default-below-min = الودجة { $widget }: القيمة الافتراضية لقائمة متداخلة تضم بنودًا أقل من حدها الأدنى
-widget-incompatible-override = الودجة { $widget } تستبدل الودجة الأساسية لكنها تغيّر أو تحذف المعلمة { $param }
-widget-incompatible-category = الودجة { $widget } تستبدل الودجة الأساسية بفئة مختلفة
 issue-empty-item-id = القائمة { $param } تحتوي على بند بلا معرّف
 issue-duplicate-item-id = القائمة { $param } تحتوي على معرّف بند مكرر
 issue-invalid-item-id = القائمة { $param } فيها معرّف بند يحتوي على شرطة مائلة

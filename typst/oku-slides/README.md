@@ -238,8 +238,9 @@ base registry (14 widgets : `text`, `card`, `image`, `shape`, `chart`,
 `table`, `stack`, `canvas`, `title`, `toc`, `chapter`, `content`, `end`, `blank`) is
 read by the host (`<oku-widgets>` probe) and is used to render the JSON deck.
 
-A **template pack** can add its own widgets, or override those of the
-base: **one file per widget**, `widgets/<name>.typ`, whose `widget` binding
+A **widget pack** adds its own widgets, which never replace those of the
+base; the deck pins each pack under a namespace, and its widgets are named
+`namespace/name`: **one file per widget**, `widgets/<name>.typ`, whose `widget` binding
 is the result of `widget("<name>", …)` (the declared name is the file's,
 `[a-z][a-z0-9-]*`). The optional file `widgets/_commun.typ` holds the shared
 code: a widget imports it with `#import "_commun.typ": …`; it is not a
@@ -381,32 +382,15 @@ changing the layout. To stack fields, use
 field's box at the top of the next item (or at the bottom of the last). With `stack`, the
 marker receives the spacing and the empty field has no anchor.
 
-### Overriding a base widget
+### Qualified pack widgets
 
-A pack widget can replace a base widget if it declares the same
-`name`, keeps its `category`, and each of its parameters remains, with a
-compatible type and `bind`: any value valid for the base parameter
-must remain valid for the pack's.
-
-- `p.number()`: the pack's range must contain the base's (its
-  `min` is `none`, or less than or equal to the base's if the base has
-  one; without a `min` in the base, the pack cannot add one — symmetric
-  for `max`).
-- `p.slot()`: same `mode`, and the pack's `accepts` is `none` (anything accepted) or
-  a superset of the base's; without `accepts` in the base (anything accepted),
-  the pack cannot restrict it.
-- `bind`: identical to the base parameter's (`none` included).
-- `p.choice()`: the pack's `values` must contain the base's
-  (superset).
-- `p.list()`: a list must remain identical (same columns, same
-  types, same `item-label`, same bounds), nested list included.
-- The other types (`plain`, `rich`, `flag`, `asset`, `grid`, `host`)
-  must be identical.
-
-A different `category` makes the registry load fail with a
-`Schema` error (`WidgetErrorKind::IncompatibleCategory`). A missing or
-incompatible base parameter makes the registry load fail with
-a `Schema` error (`WidgetErrorKind::IncompatibleOverride`).
+A deck pins several widget packs, each under its own namespace. A pack
+widget's kind is `namespace/name`, qualified by the namespace of the pack that
+declares it; a bare kind (`card`, `text`...) is always a base widget. A pack
+cannot override a base widget, nor a widget of another pack: a widget file
+named like a base widget is simply a different widget, `namespace/card`.
+A pack may require other packs (`requires`); the host adds them to the deck
+with it.
 
 ## Compiling the examples
 

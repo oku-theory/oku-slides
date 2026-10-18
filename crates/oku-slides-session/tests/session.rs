@@ -245,14 +245,14 @@ fn edit_builtin_templates_then_save_as_copy_creates_a_new_pack_and_close_restore
     assert_that!(mode.set).is_not_equal_to(oku_slides_session::GRID_PACK);
     assert_that!(mode.name.ends_with("(copie)")).is_true();
     let version = mode.session_version.clone().unwrap();
-    let file = dir.join(mode.set.to_string()).join("versions").join(version.hex()).join("pack.json");
+    let file = dir.join(mode.set.to_string()).join("versions").join(version.hex()).join("widgets.json");
     assert_that!(file.exists()).is_true();
 
     s.close_templates().unwrap();
     assert_that!(s.snapshot().editing).is_none();
     // Le deck retrouve ses slides, et passe à la copie.
     assert_that!(s.deck().slides).is_equal_to(&before.slides);
-    assert_that!(s.deck().templates.as_ref().map(|r| r.id)).is_equal_to(Some(mode.set));
+    assert_that!(s.deck().widgets.values().any(|p| p.id == mode.set)).is_true();
     let view = s.templates_view(Some(mode.set)).unwrap();
     assert_that!(view.templates[0].template.name.as_str()).is_equal_to("Ma grille");
     assert_that!(view.sets.iter().any(|x| x.id == mode.set && !x.builtin)).is_true();
@@ -797,7 +797,7 @@ fn snapshot_lists_the_pack_widget_files_without_common() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "_commun", "source": "#let x = 1"}))).unwrap();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_WIDGET}))).unwrap();
-    assert_that!(snapshot_json(&mut s)["pack_widgets"]).is_equal_to(json!(["kpi"]));
+    assert_that!(snapshot_json(&mut s)["pack_widgets"]).is_equal_to(json!(["deck/kpi"]));
 }
 
 /// En mode modèles, le snapshot nomme les widgets du pack édité, sans `_commun`.
@@ -809,7 +809,7 @@ fn snapshot_lists_the_edited_pack_widgets_in_template_mode() {
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_WIDGET}))).unwrap();
     let snap = snapshot_json(&mut s);
     assert_that!(snap["editing"].is_null()).is_false();
-    assert_that!(snap["pack_widgets"]).is_equal_to(json!(["kpi"]));
+    assert_that!(snap["pack_widgets"]).is_equal_to(json!(["essentiel/kpi"]));
 }
 
 /// Sans widget embarqué, la liste est vide.
@@ -840,7 +840,7 @@ fn snapshot_add_widgets_lists_the_pack_element_widgets_with_their_label() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_LABELLED}))).unwrap();
     assert_that!(snapshot_json(&mut s)["add_widgets"])
-        .is_equal_to(json!([{"name": "kpi", "label": "KPI", "description": null}]));
+        .is_equal_to(json!([{"name": "deck/kpi", "label": "KPI", "description": null}]));
 }
 
 /// La barre d'ajout porte la description d'un widget du pack, pour le filtre.
@@ -856,12 +856,12 @@ fn snapshot_add_widgets_carries_the_widget_description() {
 fn snapshot_add_widgets_keeps_the_pack_when_one_file_has_a_non_text_label() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_DESCRIBED}))).unwrap();
-    let change = s.set_widget("casse", NON_TEXT_LABEL.into()).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let change = s.set_widget(None, "casse", NON_TEXT_LABEL.into()).unwrap_or_else(|e| panic!("{}", e.one_line()));
     let set_aside = change.status.schema.is_none()
         && change.status.diagnostics.iter().any(|d| d.message.contains("le label doit être un texte"));
     let names: Vec<serde_json::Value> =
         snapshot_json(&mut s)["add_widgets"].as_array().into_iter().flatten().map(|w| w["name"].clone()).collect();
-    assert_that!((change.saved, set_aside, names)).is_equal_to((true, true, vec![json!("kpi")]));
+    assert_that!((change.saved, set_aside, names)).is_equal_to((true, true, vec![json!("deck/kpi")]));
 }
 
 const NON_TEXT_LABEL: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
@@ -928,7 +928,7 @@ fn host_settings_shows_the_template_name() {
 fn host_settings_of_a_template_with_blocks_has_no_grid_fields() {
     let dir = data_dir();
     let id = uuid::Uuid::new_v4();
-    let pack = json!({ "id": id, "name": "À blocs", "created": "2026-10-01T00:00:00Z", "templates": [{
+    let pack = json!({ "id": id, "name": "À blocs", "namespace": "blocs", "created": "2026-10-01T00:00:00Z", "templates": [{
         "id": "cartes", "name": "Cartes", "slide": { "id": "cartes", "kind": "content", "params": {
             "title": "Titre", "blocks": [{ "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }]
         } }
@@ -953,7 +953,7 @@ fn host_settings_of_a_template_with_blocks_has_no_grid_fields() {
 #[test]
 fn host_settings_of_a_widget_shows_its_example_values() {
     let (mut s, slide) = editing();
-    s.set_widget("quote", QUOTE.into()).unwrap();
+    s.set_widget(None, "quote", QUOTE.into()).unwrap();
     s.handle(Request::SetExampleValue { name: "quote".into(), param: "source".into(), value: json!("Essai") }).unwrap();
     assert_that!(host(&mut s, &slide, Some("quote")).to_string().as_str()).contains("Essai");
 }
@@ -961,7 +961,7 @@ fn host_settings_of_a_widget_shows_its_example_values() {
 #[test]
 fn host_settings_of_a_broken_widget_keeps_the_widget_card() {
     let (mut s, slide) = editing();
-    s.set_widget("quote", "#let widget = (".into()).unwrap();
+    s.set_widget(None, "quote", "#let widget = (".into()).unwrap();
     assert_that!(host(&mut s, &slide, Some("quote"))["id"].as_str()).is_equal_to(Some("host-widget"));
 }
 
@@ -1006,7 +1006,7 @@ fn host_param_outside_templates_mode_is_refused() {
 #[test]
 fn set_example_value_request_leaves_the_templates_unchanged() {
     let (mut s, _) = editing();
-    s.set_widget("quote", QUOTE.into()).unwrap();
+    s.set_widget(None, "quote", QUOTE.into()).unwrap();
     let before = s.deck().slides.clone();
     s.handle(Request::SetExampleValue { name: "quote".into(), param: "source".into(), value: json!("Essai") }).unwrap();
     assert_that!(s.deck().slides.clone()).is_equal_to(before);

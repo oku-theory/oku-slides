@@ -543,11 +543,11 @@ fn set_example_value_writes_the_resume_documents() {
     let dir = temp_dir();
     let mut s = crate::test_support::opened_on(data.path());
     assert_that!(s.resume(dir.clone())).is_true();
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
     let source = "#import \"/oku-slides/lib.typ\": widget, params as p\n\
                   #let widget = widget(\"essai\", params: (title: p.plain()), (args, ctx) => args.title)\n";
-    s.handle(crate::Request::SetWidget { name: "essai".into(), source: source.into() }).unwrap();
+    s.handle(crate::Request::SetWidget { pack: None, name: "essai".into(), source: source.into() }).unwrap();
     s.flush_resume();
     let docs = [dir.join(DECK_DIR).join("document.json"), dir.join(TEMPLATES_DIR).join("document.json")];
     for d in &docs {

@@ -27,11 +27,11 @@ fn pack_id(files: &PackFiles) -> uuid::Uuid {
     PackManifest::from_files(files).unwrap().id
 }
 
-/// Écrit dans `dir` le `pack.json` du pack intégré Grilles et un widget `citation`.
+/// Écrit dans `dir` le `widgets.json` du pack intégré Grilles et un widget `citation`.
 fn write_pack_dir(dir: &Path) {
     let json = include_str!("../../../templates/grilles/pack.json");
     std::fs::create_dir_all(dir.join("widgets")).unwrap();
-    std::fs::write(dir.join("pack.json"), json).unwrap();
+    std::fs::write(dir.join("widgets.json"), json).unwrap();
     std::fs::write(dir.join("widgets").join("citation.typ"), "// widget").unwrap();
 }
 
@@ -51,7 +51,7 @@ fn read_pack_dir_reads_the_manifest_and_the_widget_files() {
 }
 
 #[test]
-fn read_pack_dir_without_pack_json_is_none() {
+fn read_pack_dir_without_widgets_json_is_none() {
     let tmp = tempfile::tempdir().unwrap();
     let (storage, _) = library(tmp.path());
     assert_that!(read_pack_dir(&storage, tmp.path(), MAX).unwrap()).is_none();
@@ -62,8 +62,8 @@ fn read_pack_dir_beyond_its_budget_is_too_large() {
     let tmp = tempfile::tempdir().unwrap();
     write_pack_dir(tmp.path());
     let (storage, _) = library(tmp.path());
-    let size = std::fs::metadata(tmp.path().join("pack.json")).unwrap().len() as usize;
-    // Le pack.json tient, le widget (10 octets) non.
+    let size = std::fs::metadata(tmp.path().join("widgets.json")).unwrap().len() as usize;
+    // Le widgets.json tient, le widget (10 octets) non.
     let err = read_pack_dir(&storage, tmp.path(), size + 5).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::TooLarge);
     assert_that!(err.localize(fr())).contains("pack");
@@ -73,7 +73,7 @@ fn read_pack_dir_beyond_its_budget_is_too_large() {
 #[test]
 fn read_pack_dir_with_a_manifest_that_is_not_an_object_is_a_bad_pack() {
     let tmp = tempfile::tempdir().unwrap();
-    std::fs::write(tmp.path().join("pack.json"), "[]").unwrap();
+    std::fs::write(tmp.path().join("widgets.json"), "[]").unwrap();
     let (storage, _) = library(tmp.path());
     let err = read_pack_dir(&storage, tmp.path(), MAX).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::BadPack);
@@ -178,4 +178,15 @@ fn embed_theme_unknown_fails_with_a_localized_message() {
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::UnknownTheme);
     assert_that!(err.localize(fr())).contains("Nope");
     assert_that!(err.localize(fr())).is_not_equal_to(err.localize(&oku_slides_i18n::Localizer::new(Some("en"))));
+}
+
+#[test]
+fn library_pack_by_namespace_gives_the_current_version_of_its_owner() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (_, library) = library(tmp.path());
+    let manifest = crate::test_support::manifest_ns(uuid::Uuid::new_v4(), "acme", &[]);
+    let pin = crate::test_support::add_version(&library, &manifest, &[]);
+    let found = library_pack(&library, "acme").unwrap();
+    assert_that!(found.version()).is_equal_to(pin.version);
+    assert_that!(library_pack(&library, "absent").is_err()).is_true();
 }

@@ -8,7 +8,7 @@
 //!   ouverts gardent leur copie).
 //! - `OpenSlot` bâtit les polices (un identifiant inconnu répond `Error Setup`),
 //!   crée le `Renderer`, puis lui pose la langue courante si elle l'est.
-//! - `SetWidgets` demande le registre du pack à `Registries`, puis le pose.
+//! - `SetWidgets` demande le registre de l'ensemble de packs à `Registries`, puis le pose.
 //! - `SetTheme` pose les jetons du thème du slot (`None` : jetons par défaut).
 //! - `ProbeFile` sonde un fichier seul (`Registries::probe_file`, mémoïsé).
 //! - Un nom de fichier de widget invalide répond `Error Setup`.
@@ -34,13 +34,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use oku_slides_core::WidgetFile;
+use oku_slides_core::{Namespace, WidgetFile};
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::storage::Storage;
 use oku_slides_reference::{
     Office2Pdf, ReferenceError, ReferenceErrorKind, ReferencePdf, ReferenceRenderer, SlideSpan, Soffice,
 };
-use oku_slides_render::{Compiled, Fonts, PackWidgets, Registries, RenderError, Renderer, WireError};
+use oku_slides_render::{Compiled, Fonts, PackSet, PackWidgets, Registries, RenderError, Renderer, WireError};
 use serde_json::{Map, Value};
 use snafu::Snafu;
 
@@ -129,13 +129,14 @@ fn reference_error(e: &ReferenceError) -> WireError {
 }
 
 /// Le pack d'une requête ; un nom de fichier invalide répond `Error Setup`.
-fn pack_of(p: WirePack) -> Result<PackWidgets, WireError> {
+pub(crate) fn pack_of(p: WirePack) -> Result<PackWidgets, WireError> {
+    let namespace = Namespace::parse(&p.namespace).ok_or_else(|| setup(format!("bad namespace {}", p.namespace)))?;
     let files = p
         .files
         .into_iter()
         .map(|(n, s)| WidgetFile::parse(&n).map(|n| (n, s)).ok_or_else(|| setup(format!("bad widget file {n}"))))
         .collect::<Result<BTreeMap<_, _>, _>>()?;
-    PackWidgets::new(p.id, files).map_err(|e| WireError::from_registry(&e))
+    PackWidgets::new(p.id, namespace, files).map_err(|e| WireError::from_registry(&e))
 }
 
 impl Worker {
@@ -164,7 +165,7 @@ impl Worker {
                 self.evict_assets();
                 ok()
             }
-            Request::SetWidgets { slot, pack } => self.set_widgets(slot, pack),
+            Request::SetWidgets { slot, packs } => self.set_widgets(slot, packs),
             Request::SetTheme { slot, tokens } => self.set_theme(slot, tokens),
             Request::Render { slot, deck, assets } => self.render(slot, &deck, assets),
             Request::Svg { slot, generation, page } => {
@@ -305,11 +306,12 @@ impl Worker {
         ok()
     }
 
-    fn set_widgets(&mut self, slot: SlotId, pack: Option<WirePack>) -> Result<Reply, WireError> {
-        let pack = pack.map(pack_of).transpose()?;
-        let registry = self.registries().get(pack.as_ref()).map_err(|e| WireError::from_registry(&e))?;
+    fn set_widgets(&mut self, slot: SlotId, packs: Vec<WirePack>) -> Result<Reply, WireError> {
+        let packs = packs.into_iter().map(pack_of).collect::<Result<Vec<_>, _>>()?;
+        let set = PackSet::new(packs).map_err(|e| WireError::from_registry(&e))?;
+        let registry = self.registries().get(&set).map_err(|e| WireError::from_registry(&e))?;
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
-        s.renderer.set_widgets(pack.as_ref(), registry).map_err(|e| render_error(&e))?;
+        s.renderer.set_widgets(&set, registry).map_err(|e| render_error(&e))?;
         ok()
     }
 

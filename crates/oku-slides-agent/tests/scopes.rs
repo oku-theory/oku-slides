@@ -30,7 +30,7 @@ fn on_session<R>(h: &Harness, f: impl FnOnce(&mut oku_slides_session::Session) -
 fn editing_with_kpi(h: &Harness) {
     on_session(h, |s| {
         s.edit_templates(DEFAULT_PACK).unwrap_or_else(|e| panic!("édition du pack : {e}"));
-        s.set_widget("kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}"));
+        s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}"));
     });
 }
 
@@ -209,8 +209,8 @@ async fn renamed_widget_keeps_its_session_and_a_new_widget_of_the_old_name_gets_
     t.agent.prompt_in(widget("kpi"), "un".into(), AgentUi::default());
     wait_turn_ended(t).await;
     on_session(&h, |s| {
-        s.rename_widget("kpi", "indicateur").unwrap();
-        s.set_widget("kpi", KPI.into()).unwrap();
+        s.rename_widget(None, "kpi", "indicateur").unwrap();
+        s.set_widget(None, "kpi", KPI.into()).unwrap();
     });
     t.agent.prompt_in(widget("indicateur"), "deux".into(), AgentUi::default());
     wait_turn_ended(t).await;
@@ -231,7 +231,7 @@ async fn keeper_writes_the_thread_of_a_turn_under_its_renamed_scope() {
     let n = t.hub.begin_turn(widget("kpi"));
     t.hub.emit(oku_slides_mcp::McpEvent::Surface { surface: frozen_turn(n) });
     t.hub.end_turn(n, "");
-    on_session(&h, |s| s.rename_widget("kpi", "indicateur").unwrap());
+    on_session(&h, |s| s.rename_widget(None, "kpi", "indicateur").unwrap());
     t.keeper.send(Keep::Thread(n));
     t.keeper.flush().await;
     let s = h.session("t-1").lock().unwrap();
@@ -249,7 +249,7 @@ async fn keeper_writes_the_thread_under_the_old_name_once_the_rename_is_undone()
         // Une autre étape d'abord : le renommage fait la sienne (pas celle de `kpi`).
         let op = oku_slides_core::Op::SetVar { key: "client".into(), value: json!("a") };
         s.apply("Variable", vec![op], None).unwrap_or_else(|e| panic!("variable : {e}"));
-        s.rename_widget("kpi", "indicateur").unwrap();
+        s.rename_widget(None, "kpi", "indicateur").unwrap();
     });
     let t = h.tab("t-1");
     let n = t.hub.begin_turn(widget("indicateur"));
@@ -287,7 +287,7 @@ async fn widget_renamed_while_its_session_opens_keeps_the_session_under_its_new_
     until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. })).await;
     // Pendant l'ouverture de la session : renommage, puis l'interface montre le nouveau nom
     // (le gardien applique le renommage à cet ordre-là, avant que la session soit connue).
-    on_session(&h, |s| s.rename_widget("kpi", "indicateur").unwrap());
+    on_session(&h, |s| s.rename_widget(None, "kpi", "indicateur").unwrap());
     t.keeper.send(Keep::Show(widget("indicateur")));
     t.keeper.flush().await;
     assert_that!(h.session("t-1").lock().unwrap().conversation(&widget("indicateur")).and_then(|c| c.session.clone()))

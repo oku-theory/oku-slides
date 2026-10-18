@@ -9,7 +9,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::protocol::{Canary, Request, Response};
-use crate::test_packs::{LOOP_ON_IMPORT, files, tiny_deck};
+use crate::test_packs::{LOOP_ON_IMPORT, files, ns, tiny_deck};
 
 fn settings(timeout_ms: u64) -> RenderSettings {
     RenderSettings {
@@ -27,7 +27,11 @@ fn looping_probe() -> Request {
 }
 
 fn looping_pack() -> WirePack {
-    WirePack { id: "boucle".into(), files: BTreeMap::from([("boucle".into(), LOOP_ON_IMPORT.into())]) }
+    WirePack {
+        id: "boucle".into(),
+        namespace: "boucle".into(),
+        files: BTreeMap::from([("boucle".into(), LOOP_ON_IMPORT.into())]),
+    }
 }
 
 #[test]
@@ -54,7 +58,7 @@ fn link_in_process_probe_that_loops_times_out_and_restarts() {
 fn link_replays_open_slots_after_restart() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(300));
     link.call(&Request::OpenSlot { slot: 7, fonts: vec![] }, &[]).unwrap();
-    link.state.slots.insert(7, SlotState { fonts: vec![], pack: None, last_assets: vec![], theme: None });
+    link.state.slots.insert(7, SlotState { fonts: vec![], packs: vec![], last_assets: vec![], theme: None });
     let _ = link.call(&looping_probe(), &[]);
     // Marge : seul le rejeu est testé ici, pas la durée du rendu.
     link.settings.timeout_ms = 30_000;
@@ -69,7 +73,7 @@ fn link_replay_skips_a_faulty_pack() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
     let pack = looping_pack();
     link.faulty_packs.insert(fingerprint_hex(&pack));
-    link.state.slots.insert(3, SlotState { fonts: vec![], pack: Some(pack), last_assets: vec![], theme: None });
+    link.state.slots.insert(3, SlotState { fonts: vec![], packs: vec![pack], last_assets: vec![], theme: None });
     // Sans l'exclusion, le rejeu du pack qui boucle dépasserait le délai.
     let (resp, _) = link.call(&Request::CloseSlot { slot: 3 }, &[]).unwrap();
     assert_that!(matches!(resp, Response::Ok)).is_true();
@@ -80,7 +84,7 @@ fn link_first_launch_replays_language_and_fonts() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
     link.state.locale = Some("fr".into());
     link.state.fonts.insert("f1".into(), Arc::from(b"not a font".to_vec()));
-    link.state.slots.insert(2, SlotState { fonts: vec!["f1".into()], pack: None, last_assets: vec![], theme: None });
+    link.state.slots.insert(2, SlotState { fonts: vec!["f1".into()], packs: vec![], last_assets: vec![], theme: None });
     link.call(&Request::Release { slot: 2, generations: vec![] }, &[]).unwrap();
     assert_that!(link.sent_fonts.contains("f1")).is_true();
     assert_that!(link.restarts).is_equal_to(0);
@@ -97,9 +101,10 @@ fn link_error_response_is_not_a_link_failure() {
 
 #[test]
 fn fingerprint_hex_matches_pack_fingerprint() {
-    let pack = PackWidgets::new("p", files(&[("_commun", "#let c = 1"), ("quote", "Q")])).unwrap();
+    let pack = PackWidgets::new("p", ns("p"), files(&[("_commun", "#let c = 1"), ("quote", "Q")])).unwrap();
     let wire = WirePack {
         id: "p".into(),
+        namespace: "p".into(),
         files: BTreeMap::from([("_commun".into(), "#let c = 1".into()), ("quote".into(), "Q".into())]),
     };
     assert_that!(fingerprint_hex(&wire)).is_equal_to(hex::encode(pack.fingerprint()));
@@ -110,7 +115,7 @@ fn link_replay_with_missing_font_fails_then_reconnects() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
     link.state
         .slots
-        .insert(4, SlotState { fonts: vec!["absente".into()], pack: None, last_assets: vec![], theme: None });
+        .insert(4, SlotState { fonts: vec!["absente".into()], packs: vec![], last_assets: vec![], theme: None });
     let err = link.call(&Request::Release { slot: 4, generations: vec![] }, &[]).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
     link.state.slots.remove(&4);
@@ -121,10 +126,10 @@ fn link_replay_with_missing_font_fails_then_reconnects() {
 #[test]
 fn link_replay_refused_by_worker_drops_the_half_replayed_worker() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
-    let bad = WirePack { id: "pas un id/".into(), files: BTreeMap::new() };
-    link.state.slots.insert(5, SlotState { fonts: vec![], pack: Some(bad), last_assets: vec![], theme: None });
+    let bad = WirePack { id: "pas un id/".into(), namespace: "p".into(), files: BTreeMap::new() };
+    link.state.slots.insert(5, SlotState { fonts: vec![], packs: vec![bad], last_assets: vec![], theme: None });
     assert_that!(link.call(&Request::Release { slot: 5, generations: vec![] }, &[])).is_err();
-    link.state.slots.get_mut(&5).unwrap().pack = None;
+    link.state.slots.get_mut(&5).unwrap().packs.clear();
     // Un travailleur neuf : l'emplacement 5 y est rejoué, donc rendable.
     let deck = Box::new(tiny_deck());
     let (resp, _) = link.call(&Request::Render { slot: 5, deck, assets: vec![] }, &[]).unwrap();
@@ -220,6 +225,7 @@ fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
 
 #[rstest::rstest]
 #[case(Response::Hello { version: PROTOCOL_VERSION + 1, canary: None })]
+#[case::protocol_3(Response::Hello { version: 3, canary: None })]
 #[case(Response::Error { error: oku_slides_render::WireError::Frame { message: "unknown op".into() } })]
 #[case(Response::Ok)]
 fn check_hello_of_another_protocol_is_a_protocol_error(#[case] reply: Response) {

@@ -5,7 +5,7 @@ expression: ctx
 ---
 <oku-slides-context>
 mode: deck
-interface language: French (fr) · deck language: unset · theme: Papier · template_set: 6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10
+interface language: French (fr) · deck language: unset · theme: Papier · widget_packs: essentiel=6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10
 slide: s-libre (7/8) kind=content title="Placement libre"
 selection: element=e-texte field=- editing=false
 since_last_turn:

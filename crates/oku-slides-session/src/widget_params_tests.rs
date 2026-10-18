@@ -18,9 +18,9 @@ const ALL: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 fn templates() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-params-");
     let mut s = opened_on(data.path());
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
-    s.set_widget("tout", ALL.into()).unwrap();
+    s.set_widget(None, "tout", ALL.into()).unwrap();
     (data, s)
 }
 
@@ -29,7 +29,7 @@ fn values(v: Value) -> Map<String, Value> {
 }
 
 fn stored(s: &crate::Session, param: &str) -> Option<Value> {
-    s.example_values(&parse_name("tout").unwrap()).unwrap().get(param).cloned()
+    s.example_values(None, &parse_name("tout").unwrap()).unwrap().get(param).cloned()
 }
 
 fn para(t: &str) -> Value {
@@ -172,7 +172,7 @@ fn set_example_values_with_one_bad_value_stores_nothing() {
 #[test]
 fn set_example_values_on_a_broken_file_is_refused_as_invalid() {
     let (_d, mut s) = templates();
-    s.set_widget("tout", "#let widget = (".into()).unwrap();
+    s.set_widget(None, "tout", "#let widget = (".into()).unwrap();
     let err = s.set_example_values("tout", values(json!({ "title": "x" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::WidgetInvalid);
 }
@@ -182,7 +182,7 @@ fn set_example_values_on_a_broken_file_is_refused_as_invalid() {
 #[case::unknown("absent")]
 fn set_example_values_on_a_non_widget_is_refused_as_unknown(#[case] name: &str) {
     let (_d, mut s) = templates();
-    s.set_widget("_commun", "#let x = 1\n".into()).unwrap();
+    s.set_widget(None, "_commun", "#let x = 1\n".into()).unwrap();
     let err = s.set_example_values(name, values(json!({ "title": "x" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownWidget);
 }
@@ -191,7 +191,7 @@ fn set_example_values_on_a_non_widget_is_refused_as_unknown(#[case] name: &str) 
 fn set_example_values_outside_templates_mode_is_refused() {
     let data = fresh_dir("oku-slides-params-");
     let mut s = opened_on(data.path());
-    s.set_widget("tout", ALL.into()).unwrap();
+    s.set_widget(None, "tout", ALL.into()).unwrap();
     let err = s.set_example_values("tout", values(json!({ "title": "x" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
 }
@@ -256,14 +256,14 @@ fn widget_settings_slider_step_fits_a_small_range() {
 #[test]
 fn widget_settings_of_common_is_none() {
     let (_d, mut s) = templates();
-    s.set_widget("_commun", "#let x = 1\n".into()).unwrap();
+    s.set_widget(None, "_commun", "#let x = 1\n".into()).unwrap();
     assert_that!(s.widget_settings("_commun").unwrap()).is_none();
 }
 
 #[test]
 fn widget_settings_of_a_broken_file_keeps_one_note() {
     let (_d, mut s) = templates();
-    s.set_widget("tout", "#let widget = (".into()).unwrap();
+    s.set_widget(None, "tout", "#let widget = (".into()).unwrap();
     let p = settings(&s, "tout");
     assert_that!((p.spec.fields.len(), p.notes.len())).is_equal_to((0, 1));
 }
@@ -296,14 +296,14 @@ fn widget_settings_slider_step_has_no_float_noise() {
 fn templates_with_list() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-params-");
     let mut s = opened_on(data.path());
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
     crate::test_support::set_frise_widget(&mut s);
     (data, s)
 }
 
 fn list_trial(s: &crate::Session) -> Option<Value> {
-    s.example_values(&parse_name("frise").unwrap()).unwrap().get("etapes").cloned()
+    s.example_values(None, &parse_name("frise").unwrap()).unwrap().get("etapes").cloned()
 }
 
 /// Ids des étapes par défaut de la frise de test.
@@ -347,7 +347,7 @@ fn widget_settings_lists_a_list_param_as_a_list_field() {
 #[test]
 fn widget_settings_list_field_without_max_reports_the_core_limit() {
     let (_d, mut s) = templates_with_list();
-    s.set_widget("frise", crate::test_support::FRISE_TEST.replace(" max: 8,", "")).unwrap();
+    s.set_widget(None, "frise", crate::test_support::FRISE_TEST.replace(" max: 8,", "")).unwrap();
     let f = &settings(&s, "frise").spec.fields[0];
     assert_that!(f.max).is_equal_to(Some(oku_slides_core::LIST_ITEMS_MAX as f64));
 }
@@ -411,7 +411,7 @@ fn edit_example_list_on_a_non_list_is_refused(
     #[case] kind: SessionErrorKind,
 ) {
     let (_d, mut s) = templates_with_list();
-    s.set_widget("tout", ALL.into()).unwrap();
+    s.set_widget(None, "tout", ALL.into()).unwrap();
     let err = s.edit_example_list(widget, param, insert("i-1")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(kind);
 }

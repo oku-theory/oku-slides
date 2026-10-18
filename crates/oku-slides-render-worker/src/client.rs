@@ -110,7 +110,11 @@ impl std::fmt::Debug for RenderWorker {
 }
 
 pub(crate) fn wire(pack: &PackWidgets) -> WirePack {
-    WirePack { id: pack.id().to_owned(), files: pack.files().iter().map(|(n, s)| (n.to_string(), s.clone())).collect() }
+    WirePack {
+        id: pack.id().to_owned(),
+        namespace: pack.namespace().to_string(),
+        files: pack.files().iter().map(|(n, s)| (n.to_string(), s.clone())).collect(),
+    }
 }
 
 pub(crate) fn unexpected(resp: &Response) -> RenderError {
@@ -126,19 +130,22 @@ pub(crate) fn expect_ok(link: &mut Link, req: &Request, payload: &[u8]) -> Resul
     }
 }
 
-/// Marque `pack` fautif si `e` est un échec borné.
-pub(crate) fn blame(link: &mut Link, pack: Option<&WirePack>, e: &RenderError) {
-    if let Some(p) = pack
+/// Marque fautif l'unique pack de l'emplacement si `e` est un échec borné.
+///
+/// L'échec ne dit pas lequel de plusieurs packs en est la cause : avec plus d'un
+/// pack, aucun n'est accusé (la session isole le coupable en rendant des sous-ensembles).
+pub(crate) fn blame(link: &mut Link, packs: &[WirePack], e: &RenderError) {
+    if let [pack] = packs
         && e.kind().is_bounded()
     {
-        link.faulty_packs.insert(fingerprint_hex(p));
+        link.faulty_packs.insert(fingerprint_hex(pack));
     }
 }
 
-/// Le pack fautif d'un emplacement, s'il l'est.
+/// Le premier pack fautif d'un emplacement, s'il y en a un.
 pub(crate) fn faulty_pack(link: &Link, slot: SlotId) -> Option<String> {
-    let pack = link.state.slots.get(&slot)?.pack.as_ref()?;
-    link.faulty_packs.contains(&fingerprint_hex(pack)).then(|| pack.id.clone())
+    let packs = &link.state.slots.get(&slot)?.packs;
+    packs.iter().find(|p| link.faulty_packs.contains(&fingerprint_hex(p))).map(|p| p.id.clone())
 }
 
 /// Ne garde des assets envoyés que ceux du dernier rendu de chaque emplacement.
@@ -228,9 +235,9 @@ impl RenderWorker {
         link.ensure_connected()
     }
 
-    /// [`Self::prepare`] pour une opération d'un emplacement : un échec borné accuse `pack`.
-    pub(crate) fn prepare_for(&self, link: &mut Link, pack: Option<&WirePack>) -> Result<(), RenderError> {
-        self.prepare(link).inspect_err(|e| blame(link, pack, e))
+    /// [`Self::prepare`] pour une opération d'un emplacement : un échec borné accuse `packs`.
+    pub(crate) fn prepare_for(&self, link: &mut Link, packs: &[WirePack]) -> Result<(), RenderError> {
+        self.prepare(link).inspect_err(|e| blame(link, packs, e))
     }
 
     /// Un travailleur a déjà été lancé (la première requête le lance) : pour les tests.
@@ -276,7 +283,9 @@ impl RenderWorker {
         set_locale(&mut link, l)?;
         let slot = self.1.last_slot.fetch_add(1, Ordering::Relaxed) + 1;
         expect_ok(&mut link, &Request::OpenSlot { slot, fonts: ids.clone() }, &[])?;
-        link.state.slots.insert(slot, SlotState { fonts: ids, pack: None, last_assets: Vec::new(), theme: None });
+        link.state
+            .slots
+            .insert(slot, SlotState { fonts: ids, packs: Vec::new(), last_assets: Vec::new(), theme: None });
         drop(link);
         Ok(RenderSlot::opened(self.clone(), slot, base, accuse))
     }

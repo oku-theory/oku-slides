@@ -11,8 +11,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, ParamType, WidgetFile, WidgetSchema};
-use oku_slides_render::{Fonts, PackWidgets, Renderer, load_registry, probe_registry};
+use oku_slides_core::{Deck, Namespace, ParamType, WidgetFile, WidgetSchema, qualify};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, load_registry, probe_registry};
 use rstest::rstest;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -29,8 +29,13 @@ fn snapshot(case: &str, kind: &str) -> String {
     text.splitn(3, "---\n").nth(2).unwrap_or_else(|| panic!("instantané sans en-tête")).to_owned()
 }
 
-/// Les fichiers du pack généré de `case`, par nom.
-fn pack(case: &str) -> PackWidgets {
+/// L'espace de noms du pack généré dans ces tests.
+fn import_ns() -> Namespace {
+    Namespace::parse("import").unwrap_or_else(|| panic!("espace de noms"))
+}
+
+/// Le pack généré de `case`, seul dans son ensemble.
+fn pack(case: &str) -> PackSet {
     let mut files = BTreeMap::new();
     let mut current: Option<(WidgetFile, String)> = None;
     for line in snapshot(case, "pack").lines() {
@@ -44,7 +49,8 @@ fn pack(case: &str) -> PackWidgets {
         }
     }
     files.extend(current);
-    PackWidgets::new("import", files).unwrap_or_else(|e| panic!("{e}"))
+    PackSet::new(vec![PackWidgets::new("import", import_ns(), files).unwrap_or_else(|e| panic!("{e}"))])
+        .unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Les schémas que l'import déclare pour le pack de `case`, triés par nom.
@@ -89,7 +95,7 @@ fn slide(id: &str, w: &WidgetSchema, filled: bool) -> Value {
             params.insert(p.name.clone(), v);
         }
     }
-    json!({ "id": id, "kind": w.name, "params": params })
+    json!({ "id": id, "kind": qualify(&import_ns(), &w.name), "params": params })
 }
 
 #[rstest]
@@ -99,12 +105,12 @@ fn slide(id: &str, w: &WidgetSchema, filled: bool) -> Value {
 fn import_pack_probe_reads_the_declared_schemas(#[case] case: &str) {
     let fonts = Fonts::default();
     let pack = pack(case);
-    let probe = probe_registry(&fonts, Some(&pack)).unwrap_or_else(|e| panic!("sonde : {e}"));
-    let mut probed: Vec<WidgetSchema> = serde_json::from_value(probe["pack"].clone()).unwrap();
+    let probe = probe_registry(&fonts, &pack).unwrap_or_else(|e| panic!("sonde : {e}"));
+    let mut probed: Vec<WidgetSchema> = serde_json::from_value(probe["packs"][0]["widgets"].clone()).unwrap();
     probed.sort_by(|a, b| a.name.cmp(&b.name));
     assert_that!(probed).is_equal_to(declared(case));
-    // Contrôlés comme tout pack (slots, surcharges de la base).
-    assert_that!(load_registry(&fonts, Some(&pack))).is_ok();
+    // Contrôlés comme tout pack (schémas, slots).
+    assert_that!(load_registry(&fonts, &pack)).is_ok();
 }
 
 #[rstest]
@@ -114,9 +120,9 @@ fn import_pack_probe_reads_the_declared_schemas(#[case] case: &str) {
 fn import_pack_widgets_render_their_fields_and_extras(#[case] case: &str) {
     let fonts = Fonts::default();
     let pack = pack(case);
-    let registry = load_registry(&fonts, Some(&pack)).unwrap_or_else(|e| panic!("sonde : {e}"));
+    let registry = load_registry(&fonts, &pack).unwrap_or_else(|e| panic!("sonde : {e}"));
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
-    r.set_widgets(Some(&pack), Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
+    r.set_widgets(&pack, Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(Some(theme())).unwrap_or_else(|e| panic!("{e}"));
     let widgets = declared(case);
     let slides: Vec<Value> = widgets
@@ -125,7 +131,7 @@ fn import_pack_widgets_render_their_fields_and_extras(#[case] case: &str) {
         .flat_map(|(i, w)| [slide(&format!("p{i}"), w, true), slide(&format!("v{i}"), w, false)])
         .collect();
     let deck =
-        Deck::from_json(&json!({ "version": 5, "slides": slides }).to_string()).unwrap_or_else(|e| panic!("{e}"));
+        Deck::from_json(&json!({ "version": 6, "slides": slides }).to_string()).unwrap_or_else(|e| panic!("{e}"));
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("rendu : {e}"));
     assert_that!(compiled.page_count()).is_equal_to(slides.len());
     let layout = compiled.layout();

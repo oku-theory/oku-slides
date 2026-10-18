@@ -76,8 +76,8 @@ fn add_element(s: &mut Session, id: &str, kind: &str) {
 /// Le fixture, avec le widget `mixte` et un élément `mx` sur `s-constat`.
 fn session_with_mixte() -> Session {
     let mut s = session_with_fixture();
-    s.set_widget("mixte", MIXTE.into()).unwrap_or_else(|e| panic!("mixte : {}", e.one_line()));
-    add_element(&mut s, "mx", "mixte");
+    s.set_widget(None, "mixte", MIXTE.into()).unwrap_or_else(|e| panic!("mixte : {}", e.one_line()));
+    add_element(&mut s, "mx", "deck/mixte");
     s
 }
 
@@ -214,7 +214,7 @@ fn target_settings_in_help_returns_none() {
 #[test]
 fn target_settings_template_slide_in_templates_mode_shows_fields() {
     let mut s = session_with_fixture();
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
     let slide = s.deck().slides.iter().find(|sl| sl.kind == "content").map(|sl| sl.id.clone()).unwrap();
     let v = surface_json(&s, &slide, None).unwrap();

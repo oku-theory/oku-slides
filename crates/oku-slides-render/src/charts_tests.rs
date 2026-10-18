@@ -144,11 +144,11 @@ fn attach_element_without_a_chart_param_gets_no_key() {
 
 #[test]
 fn attach_pack_widget_with_a_host_chart_param_renders_it() {
-    let probe = json!({ "base": [], "pack": [{ "name": "kpi", "category": "element",
-        "params": [{ "name": "data", "type": "host", "host": "chart" }] }] });
+    let probe = json!({ "base": [], "packs": [{ "namespace": "acme", "widgets": [{ "name": "kpi", "category": "element",
+        "params": [{ "name": "data", "type": "host", "host": "chart" }] }] }] });
     let reg = WidgetRegistry::from_probe(probe).unwrap();
     let mut d = json!({ "slides": [{ "id": "s", "kind": "blank", "params": {
-        "elements": [{ "id": "k", "kind": "kpi", "params": { "data": bars() } }] } }] });
+        "elements": [{ "id": "k", "kind": "acme/kpi", "params": { "data": bars() } }] } }] });
     let mut charts = Charts::default();
     charts.attach(&mut d, &Fonts::default(), &reg).unwrap();
     assert_that!(d["slides"][0]["params"]["elements"][0][SVG_FIELD].as_str()).is_some();

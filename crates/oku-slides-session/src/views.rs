@@ -1,12 +1,13 @@
 //! Vues envoyées à l'interface. Elles empruntent la session : sérialisées
 //! aussitôt, elles ne copient ni le deck ni le rendu.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use oku_slides_core::{PackRef, PackVersion, Slide, SlideChanges, Version, WidgetFile};
+use oku_slides_core::{Namespace, PackPin, PackVersion, Slide, SlideChanges, Version, WidgetFile};
 use oku_slides_render::{ElementBox, ZoneBox};
 
 use crate::appearance::Appearance;
@@ -85,18 +86,20 @@ pub struct Snapshot<'a> {
     pub disk_replaced: bool,
     /// L'interface prend les couleurs et les polices du thème des slides.
     pub appearance: &'a Appearance,
-    /// Pack de modèles du deck (id et version embarquée).
-    pub templates: Option<&'a PackRef>,
+    /// Packs de widgets épinglés par le deck, par espace de noms (id, version embarquée, besoins).
+    pub widgets: &'a BTreeMap<Namespace, PackPin>,
     /// Mode d'édition des modèles : le pack en cours de modification et le thème édité.
     pub editing: Option<EditingView<'a>>,
-    /// Le pack du deck n'appartient qu'à lui (import).
+    /// Le deck épingle un pack qui n'appartient qu'à lui (import, pack `deck`).
     ///
     /// L'atelier l'édite depuis sa version embarquée ; ses versions restent dans le deck.
     pub deck_pack: bool,
     /// Bandeau du pack, en surface A2UI : le deck embarque une autre version que ma version courante.
     pub pack_notice: Option<crate::agent::Surface>,
-    /// Widgets du pack en cours (fichiers, sans `_commun`), sans sonde.
-    pub pack_widgets: Vec<&'a str>,
+    /// Widgets des packs en cours, qualifiés (`<namespace>/<nom>`, sans `_commun`), sans sonde.
+    ///
+    /// Ceux du pack édité en mode modèles, sinon ceux de chaque pack épinglé.
+    pub pack_widgets: Vec<String>,
     /// Widgets d'élément du pack au registre : ceux de la barre d'ajout.
     pub add_widgets: Vec<AddWidget<'a>>,
     /// Révision des valeurs d'exemple des widgets (`widget_examples.rs`) : un changement relance les aperçus.

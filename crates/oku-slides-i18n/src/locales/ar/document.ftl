@@ -18,6 +18,7 @@ diagnostic-hint = تلميح: { $hint }
 render-chart-failed = تعذّر رسم المخطط
 
 registry-bad-pack-id = معرّف حزمة القوالب غير صالح: { $id }
+registry-duplicate-pack = تشترك حزمتا عناصر واجهة في العرض التقديمي في { $pack }.
 registry-compile = تعذّر ترجمة عناصر واجهة حزمة القوالب
 registry-missing = حزمة القوالب لا تُعلن عن عناصر واجهتها
 render-timeout = استغرق العرض أكثر من { $seconds } ثانية وتم إيقافه

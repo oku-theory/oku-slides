@@ -70,12 +70,12 @@ async fn widget_tools_work_in_templates_mode_and_remove_refuses_a_used_widget() 
         .is_not_equal_to(Some(true));
     let slide = json!({ "op": "add_slide", "index": 0, "slide": {
         "id": "t-kpi", "kind": "blank", "name": "Indicateur", "params": { "elements": [
-            { "id": "k", "kind": "kpi", "cell": { "col": 0, "row": 0, "cols": 4, "rows": 2 }, "params": { "value": "1" } }
+            { "id": "k", "kind": "essentiel/kpi", "cell": { "col": 0, "row": 0, "cols": 4, "rows": 2 }, "params": { "value": "1" } }
         ] } } });
     call(&c, "apply", json!({ "ops": [slide] })).await;
     // Le message de Fluent, dans la langue de l'utilisateur (`fr`).
     assert_that!(error_text(&c, "remove_widget", json!({ "name": "kpi" })).await)
-        .is_equal_to("Le widget « kpi » est utilisé par ces modèles : Indicateur.".to_owned());
+        .is_equal_to("Le widget « essentiel/kpi » est encore utilisé ici : Indicateur.".to_owned());
 }
 
 /// Le texte d'un résultat d'erreur, débarrassé des isolants Unicode de Fluent.
@@ -302,7 +302,7 @@ async fn apply_edit_list_on_a_nested_path_edits_the_step_tasks_and_undoes() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     call(&c, "set_widget", json!({ "name": "plan", "source": PLAN })).await;
     let add = json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-        "defaults": true, "element": { "id": "pl", "kind": "plan" } });
+        "defaults": true, "element": { "id": "pl", "kind": "deck/plan" } });
     call(&c, "apply", json!({ "ops": [add] })).await;
     let edit = |change: Value| {
         json!({ "ops": [{ "op": "edit_list", "target": { "slide": "s-constat", "element": "pl" },
@@ -317,5 +317,24 @@ async fn apply_edit_list_on_a_nested_path_edits_the_step_tasks_and_undoes() {
     assert_that!(undone.is_ok()).is_true();
     assert_that!(task_ids(&h, "d0")).is_equal_to(vec!["n".to_owned(), "d0".into(), "d1".into()]);
     let bad = call(&c, "apply", edit(json!({ "op": "remove", "item": "absente" }))).await;
+    assert_that!(bad.is_error).is_equal_to(Some(true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn deck_outline_lists_the_pinned_widget_packs_by_namespace() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
+    assert_that!(outline["widget_packs"]["essentiel"]["id"].is_string()).is_true();
+    assert_that!(outline.get("template_set").is_none()).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn widget_sources_of_a_pack_not_pinned_by_the_deck_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "widget_sources", json!({ "pack": "absent" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let bad = call(&c, "widget_sources", json!({ "pack": "Pas Valide" })).await;
     assert_that!(bad.is_error).is_equal_to(Some(true));
 }

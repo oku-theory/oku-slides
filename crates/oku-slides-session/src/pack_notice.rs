@@ -1,8 +1,9 @@
 //! Versions de pack reçues avec un fichier, et le bandeau qui les signale.
 //!
 //! À l'ouverture, chaque version embarquée absente de la bibliothèque y est
-//! ajoutée en silence (un id inconnu crée le pack). Si la version du deck
-//! n'est pas la courante de son pack, un bandeau le dit, avec deux actions :
+//! ajoutée en silence (un id inconnu crée le pack). Si la version d'un pack
+//! épinglé n'est pas la courante, un bandeau le dit, un pack à la fois (le
+//! premier espace de noms, dans l'ordre), avec deux actions :
 //! passer le deck à ma version (annulable), ou faire de la sienne ma version
 //! courante ; la session le décrit en surface A2UI (`Notice`). Il ne bloque
 //! jamais l'ouverture ; fermé, il ne revient plus pour ce deck dans cette
@@ -13,7 +14,7 @@ use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic};
 use serde_json::json;
 use snafu::OptionExt;
 
-use oku_slides_core::{Op, PackFiles, PackRef};
+use oku_slides_core::{Namespace, Op, PackFiles, PackPin};
 use oku_slides_i18n::Localizer;
 
 use crate::agent::Surface;
@@ -35,11 +36,13 @@ pub(crate) fn is_deck_only(files: &PackFiles) -> bool {
     }
 }
 
-/// Le bandeau : la version du deck n'est pas la courante de son pack.
+/// Le bandeau : la version d'un pack épinglé n'est pas la courante.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PackNotice {
-    /// Le pack du deck, dans sa version embarquée.
-    pub(crate) pack: PackRef,
+    /// L'espace de noms du pack épinglé.
+    pub(crate) namespace: Namespace,
+    /// Le pack, dans sa version embarquée.
+    pub(crate) pin: PackPin,
     pub(crate) name: String,
     /// La version du deck par rapport à ma version courante.
     pub(crate) relation: Relation,
@@ -93,34 +96,38 @@ impl Session {
         }
     }
 
-    /// Le bandeau du deck ouvert, s'il en faut un.
+    /// Le bandeau du deck ouvert, s'il en faut un : le premier pack épinglé
+    /// (par espace de noms) dont la version n'est pas la courante.
     ///
-    /// Jamais pour un pack du deck seul.
+    /// Jamais pour un pack du deck seul, ni pour un bandeau fermé.
     pub(crate) fn pack_notice_for_deck(&self) -> Option<PackNotice> {
-        let r = self.doc.sources.deck().templates.clone()?;
-        if self.pack_notices_closed.contains(&r) {
+        self.doc.sources.deck().widgets.iter().find_map(|(ns, pin)| self.pack_notice_for(ns, pin))
+    }
+
+    /// Le bandeau du pack `pin` épinglé sous `ns`, s'il en faut un.
+    fn pack_notice_for(&self, ns: &Namespace, pin: &PackPin) -> Option<PackNotice> {
+        if self.pack_notices_closed.contains(pin) {
             return None;
         }
-        if self.deck_pack_is_deck_only() {
+        let files = self.doc.sources.packs.get(&pin.version);
+        if files.is_some_and(is_deck_only) {
             return None;
         }
-        let manifest = self.doc.sources.packs.get(&r.version).and_then(|f| PackManifest::from_files(f).ok());
-        let current = self.library.current(r.id)?;
-        let relation = self.library.relation(r.id, &r.version, &current);
+        let current = self.library.current(pin.id)?;
+        let relation = self.library.relation(pin.id, &pin.version, &current);
         if relation == Relation::Same {
             return None;
         }
-        let name = manifest.map(|m| m.name).unwrap_or_default();
-        Some(PackNotice { pack: r, name, relation })
+        let name = files.and_then(|f| PackManifest::from_files(f).ok()).map(|m| m.name).unwrap_or_default();
+        Some(PackNotice { namespace: ns.clone(), pin: pin.clone(), name, relation })
     }
 
-    /// Vrai si le pack du deck n'appartient qu'à lui (`PackScope::Deck`) : jamais dans la bibliothèque.
+    /// Vrai si le deck épingle un pack qui n'appartient qu'à lui (`PackScope::Deck`) : jamais dans la bibliothèque.
     ///
-    /// Lu à chaque instantané : la seule clé `scope`, jamais tout le `pack.json`.
+    /// Lu à chaque instantané : la seule clé `scope`, jamais tout le manifeste.
     pub(crate) fn deck_pack_is_deck_only(&self) -> bool {
         let deck = self.doc.sources.deck();
-        let files = deck.templates.as_ref().and_then(|r| self.doc.sources.packs.get(&r.version));
-        files.is_some_and(is_deck_only)
+        deck.widgets.values().filter_map(|pin| self.doc.sources.packs.get(&pin.version)).any(is_deck_only)
     }
 
     /// Vrai si le deck embarque le pack `id` en version du deck seul.
@@ -129,12 +136,12 @@ impl Session {
         deck_only.filter_map(|f| PackManifest::from_files(f).ok()).any(|m| m.id == id)
     }
 
-    /// Le bandeau, s'il vaut encore pour le pack du deck.
+    /// Le bandeau, s'il vaut encore pour le pack épinglé dont il parle.
     ///
-    /// Le deck a pu changer de pack depuis l'ouverture (modification,
+    /// Le deck a pu changer ce pack depuis l'ouverture (modification,
     /// fusion, restauration) : le bandeau ne parle plus de lui.
     fn live_pack_notice(&self) -> Option<&PackNotice> {
-        self.pack_notice.as_ref().filter(|n| self.doc.sources.deck().templates.as_ref() == Some(&n.pack))
+        self.pack_notice.as_ref().filter(|n| self.doc.sources.deck().widgets.get(&n.namespace) == Some(&n.pin))
     }
 
     /// Le bandeau à montrer, s'il y en a un : une surface A2UI `Notice`.
@@ -151,17 +158,18 @@ impl Session {
         };
         let l = &self.localizer;
         let message = l.tr_with(key, &[("name", n.name.as_str().into())]);
-        let library_has_theirs = self.library.version(n.pack.id, &n.pack.version).is_some();
+        let library_has_theirs = self.library.version(n.pin.id, &n.pin.version).is_some();
         Some(pack_notice_banner(message, library_has_theirs, l))
     }
 
-    /// « Passer à ma version » : le deck passe à ma version courante, en une étape annulable.
+    /// « Passer à ma version » : le deck épingle ma version courante (`AddPack`), en une étape annulable.
     pub fn pack_use_mine(&mut self) -> Result<()> {
         let Some(n) = self.live_pack_notice().cloned() else { return Ok(()) };
-        let id = n.pack.id;
-        let version = self.library.current(id).context(UnknownPackSnafu { id })?;
+        let id = n.pin.id;
+        let current = self.library.current_version(id).context(UnknownPackSnafu { id })?;
+        let pin = PackPin { id, version: current.version, requires: current.manifest.requires };
         let label = self.localizer.tr("pack-notice-use-mine");
-        self.apply(&label, vec![Op::SetTemplates { templates: Some(PackRef { id, version }) }], None)?;
+        self.apply(&label, vec![Op::AddPack { namespace: n.namespace, pin }], None)?;
         self.pack_notice_close();
         Ok(())
     }
@@ -169,7 +177,7 @@ impl Session {
     /// « Faire de la sienne ma version courante » : le deck ne change pas.
     pub fn pack_make_current(&mut self) -> Result<()> {
         let Some(n) = self.live_pack_notice().cloned() else { return Ok(()) };
-        self.library.set_current(n.pack.id, &n.pack.version)?;
+        self.library.set_current(n.pin.id, &n.pin.version)?;
         self.template_cache = None;
         self.pack_notice_close();
         Ok(())
@@ -178,7 +186,7 @@ impl Session {
     /// Ferme le bandeau ; il ne revient plus pour ce deck dans cette session.
     pub fn pack_notice_close(&mut self) {
         if let Some(n) = self.pack_notice.take() {
-            self.pack_notices_closed.insert(n.pack);
+            self.pack_notices_closed.insert(n.pin);
         }
     }
 }

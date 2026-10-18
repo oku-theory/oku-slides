@@ -12,6 +12,7 @@ mod host;
 mod list;
 mod list_path;
 mod moving;
+mod packs;
 mod value;
 
 use std::collections::{BTreeMap, HashSet};
@@ -31,7 +32,8 @@ use crate::error::{
 };
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
-use crate::pack::{PackRef, ThemeRef};
+use crate::namespace::Namespace;
+use crate::pack::{PackPin, ThemeRef};
 use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
@@ -44,6 +46,7 @@ pub use list::{
 };
 pub use list_path::ListPath;
 pub use moving::Moved;
+pub use packs::pack_users;
 pub use value::{GRID_TRACKS, param_value};
 
 /// Une slide, ou un élément d'une slide. JSON : `{"slide": "s1"}` ou
@@ -226,9 +229,17 @@ pub enum Op {
     SetTheme {
         theme: Option<ThemeRef>,
     },
-    /// Pack de modèles du deck (id et version) ; `null` : le pack par défaut.
-    SetTemplates {
-        templates: Option<PackRef>,
+    /// Épingle la version `pin` du pack de widgets `namespace` (ajout ou remplacement).
+    ///
+    /// Chaque espace de noms de `pin.requires` doit déjà être épinglé : la
+    /// session ajoute les besoins d'abord, dans la même transaction.
+    AddPack {
+        namespace: Namespace,
+        pin: PackPin,
+    },
+    /// Retire le pack `namespace`, s'il n'est ni requis ni utilisé.
+    RemovePack {
+        namespace: Namespace,
     },
     /// Jeton de design au chemin donné (`["color", "accent"]`). `null` est
     /// posé tel quel : il « vide » une clé qui l'accepte.
@@ -673,10 +684,8 @@ impl Op {
                 deck.theme = theme;
                 Ok(())
             }
-            Op::SetTemplates { templates } => {
-                deck.templates = templates;
-                Ok(())
-            }
+            Op::AddPack { namespace, pin } => packs::add(deck, namespace, pin),
+            Op::RemovePack { namespace } => packs::remove(deck, &namespace),
             Op::SetToken { path, value } => {
                 token_path(&path)?;
                 set_path(&mut deck.tokens, &path, value);

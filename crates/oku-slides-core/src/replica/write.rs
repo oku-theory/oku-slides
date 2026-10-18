@@ -157,6 +157,9 @@ impl Writer<'_> {
         for key in ctx.trees() {
             tree_at(map, key)?;
         }
+        for key in ctx.maps() {
+            map_at(map, key)?;
+        }
         let stale: Vec<String> =
             map.keys().map(|k| k.to_string()).filter(|k| !obj.contains_key(k) && !ctx.reserved(k)).collect();
         for key in stale {
@@ -170,6 +173,10 @@ impl Writer<'_> {
                 Kind::Slides => self.sync_deck(&deck_tree_at(map)?, Vec::new(), self.moves)?,
                 // Jamais rendus par `Ctx::kind` : un slot, une liste ou un hôte n'existe que dans les paramètres.
                 Kind::Slot | Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
+                // Carte toujours présente : vidée, jamais retirée.
+                Kind::Nested(child) if ctx.maps().contains(&key.as_str()) => {
+                    self.sync_map(&map_at(map, &key)?, &Map::new(), child)?
+                }
                 Kind::Atom | Kind::Nested(_) => map.delete(&key).context(LoroSnafu)?,
             }
         }

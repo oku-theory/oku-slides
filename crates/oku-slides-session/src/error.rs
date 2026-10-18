@@ -46,6 +46,16 @@ pub enum SessionErrorKind {
     PackVersionMissing,
     /// Pack ou thème du deck seul, que la bibliothèque n'enregistre pas.
     DeckOnly,
+    /// Espace de noms déjà pris par un autre pack de la bibliothèque.
+    NamespaceTaken,
+    /// Espace de noms `deck`, réservé au pack propre d'un deck.
+    NamespaceReserved,
+    /// Nouvelle version d'un pack sous un autre espace de noms que les siennes.
+    NamespaceChanged,
+    /// Espace de noms qu'aucun pack ne porte (bibliothèque ou deck).
+    UnknownNamespace,
+    /// Packs qui se requièrent en boucle.
+    RequiresCycle,
     /// L'import d'une présentation PowerPoint n'a pas abouti.
     Import,
     /// Un outil d'ajustement de l'import a refusé l'appel (voir `TuneErrorKind`).
@@ -163,6 +173,20 @@ pub(crate) enum SessionInner {
     PackIdMismatch { id: uuid::Uuid, found: uuid::Uuid, backtrace: Backtrace },
     #[snafu(display("{id} belongs to its deck only and never enters the library"))]
     DeckOnly { id: uuid::Uuid, backtrace: Backtrace },
+    #[snafu(display("namespace {namespace} already belongs to pack {owner}"))]
+    NamespaceTaken { namespace: String, owner: String, backtrace: Backtrace },
+    #[snafu(display("namespace {namespace} is reserved to a deck's own pack"))]
+    NamespaceReserved { namespace: String, backtrace: Backtrace },
+    #[snafu(display("pack {id} keeps its namespace {expected}, not {found}"))]
+    NamespaceChanged { id: uuid::Uuid, expected: String, found: String, backtrace: Backtrace },
+    #[snafu(display("no pack named {namespace} in the library"))]
+    UnknownNamespace { namespace: String, backtrace: Backtrace },
+    #[snafu(display("the deck pins no widget pack {namespace}"))]
+    NotPinned { namespace: String, backtrace: Backtrace },
+    #[snafu(display("packs require each other in a loop: {chain}"))]
+    RequiresCycle { chain: String, backtrace: Backtrace },
+    #[snafu(display("embedded pack {namespace} does not match its pin"))]
+    PackPinMismatch { namespace: String, backtrace: Backtrace },
     #[snafu(display("PowerPoint import failed"))]
     Import { source: crate::import::ImportError, backtrace: Backtrace },
     #[snafu(display("import tuning refused"))]
@@ -229,8 +253,8 @@ pub(crate) enum SessionInner {
     WidgetHasNul { name: String, backtrace: Backtrace },
     #[snafu(display("a pack holds at most {max} widget files"))]
     TooManyWidgets { max: usize, backtrace: Backtrace },
-    #[snafu(display("widget {name} is used by templates: {}", templates.join(", ")))]
-    WidgetInUse { name: String, templates: Vec<String>, backtrace: Backtrace },
+    #[snafu(display("widget {name} is still used by: {}", uses.join(", ")))]
+    WidgetInUse { name: String, uses: Vec<String>, backtrace: Backtrace },
     #[snafu(display("widget not found: {name}"))]
     UnknownWidget { name: String, backtrace: Backtrace },
     #[snafu(display("widget file does not compile: {name}"))]
@@ -260,6 +284,7 @@ impl SessionError {
             | DeckJson { .. }
             | PackJson { .. }
             | PackIdMismatch { .. }
+            | PackPinMismatch { .. }
             | ThemeJson { .. }
             | ThemeIdMismatch { .. }
             | Version { .. } => SessionErrorKind::InvalidDocument,
@@ -275,6 +300,11 @@ impl SessionError {
             UnknownPack { .. } => SessionErrorKind::UnknownPack,
             PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
             DeckOnly { .. } => SessionErrorKind::DeckOnly,
+            NamespaceTaken { .. } => SessionErrorKind::NamespaceTaken,
+            NamespaceReserved { .. } => SessionErrorKind::NamespaceReserved,
+            NamespaceChanged { .. } => SessionErrorKind::NamespaceChanged,
+            UnknownNamespace { .. } | NotPinned { .. } => SessionErrorKind::UnknownNamespace,
+            RequiresCycle { .. } => SessionErrorKind::RequiresCycle,
             Import { .. } => SessionErrorKind::Import,
             Tune { .. } => SessionErrorKind::ImportTune,
             EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
@@ -404,6 +434,29 @@ impl Localize for SessionError {
                 &[("id", id.to_string().into()), ("found", found.to_string().into())],
             ),
             DeckOnly { id, .. } => l.tr_with("session-deck-only", &[("id", id.to_string().into())]),
+            NamespaceReserved { namespace, .. } => {
+                l.tr_with("session-namespace-reserved", &[("namespace", namespace.as_str().into())])
+            }
+            NamespaceChanged { id, expected, found, .. } => l.tr_with(
+                "session-namespace-changed",
+                &[
+                    ("id", id.to_string().into()),
+                    ("expected", expected.as_str().into()),
+                    ("found", found.as_str().into()),
+                ],
+            ),
+            NamespaceTaken { namespace, owner, .. } => l.tr_with(
+                "session-namespace-taken",
+                &[("namespace", namespace.as_str().into()), ("owner", owner.as_str().into())],
+            ),
+            UnknownNamespace { namespace, .. } => {
+                l.tr_with("session-unknown-namespace", &[("namespace", namespace.as_str().into())])
+            }
+            NotPinned { namespace, .. } => l.tr_with("op-unknown-namespace", &[("pack", namespace.as_str().into())]),
+            RequiresCycle { chain, .. } => l.tr_with("session-requires-cycle", &[("chain", chain.as_str().into())]),
+            PackPinMismatch { namespace, .. } => {
+                l.tr_with("issue-pack-pin-mismatch", &[("pack", namespace.as_str().into())])
+            }
             Import { source, .. } => source.localize(l),
             Tune { source, .. } => source.localize(l),
             EditingTemplates { .. } => l.tr("session-editing-templates"),
@@ -458,10 +511,9 @@ impl Localize for SessionError {
             }
             WidgetHasNul { name, .. } => l.tr_with("session-widget-nul", &[("name", name.as_str().into())]),
             TooManyWidgets { max, .. } => l.tr_with("session-too-many-widgets", &[("max", (*max).into())]),
-            WidgetInUse { name, templates, .. } => l.tr_with(
-                "session-widget-in-use",
-                &[("name", name.as_str().into()), ("templates", templates.join(", ").into())],
-            ),
+            WidgetInUse { name, uses, .. } => {
+                l.tr_with("session-widget-in-use", &[("name", name.as_str().into()), ("uses", uses.join(", ").into())])
+            }
             UnknownWidget { name, .. } => l.tr_with("session-unknown-widget", &[("name", name.as_str().into())]),
             WidgetInvalid { name, .. } => l.tr_with("session-widget-invalid", &[("name", name.as_str().into())]),
             TrialUndeclared { param, .. } => l.tr_with("session-trial-undeclared", &[("param", param.as_str().into())]),

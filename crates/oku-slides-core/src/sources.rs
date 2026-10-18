@@ -1,7 +1,7 @@
-//! Le zip des sources (format `oku-slides-sources`, version 10) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 11) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine, les polices, les
-//! versions de packs de modèles (`packs/<hex>/pack.json`,
-//! `packs/<hex>/widgets/<nom>.typ`) et les versions de thèmes
+//! versions de packs de widgets (`widgets/<hex>/widgets.json`,
+//! `widgets/<hex>/widgets/<nom>.typ`) et les versions de thèmes
 //! (`themes/<hex>/theme.json`, voir `sources_themes.rs`). C'est ce blob qui
 //! est stocké dans le PDF.
 //!
@@ -13,7 +13,7 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 8) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 10) n'est plus lu.
 //!
 //! Le bundle porte le registre des widgets, que son replica utilise à
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
@@ -28,7 +28,7 @@ use crate::error::{ReplicaSnafu, SourcesError, TooDeepSnafu};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
 use crate::ops::Moved;
-use crate::pack::{PackFiles, PackVersion};
+use crate::pack::{PackFiles, PackManifest, PackVersion};
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview, ReplicaLimits};
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
@@ -43,7 +43,7 @@ mod zip_io;
 use themes::theme_issues;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 10;
+pub const SOURCES_VERSION: u32 = 11;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,12 +139,25 @@ impl SourceBundle {
         (bundle, issues)
     }
 
-    /// Les versions de pack et de thème du deck manquent-elles dans les sources ?
+    /// Chaque épinglage du deck : version embarquée, manifeste conforme, besoins épinglés.
+    /// Une version absente n'est signalée qu'une fois, même épinglée sous deux espaces de noms.
     fn embedded_issues(&self) -> Vec<Issue> {
-        let mut issues = match &self.deck.templates {
-            Some(r) if !self.packs.contains_key(&r.version) => vec![Issue::pack_version_missing(&r.version)],
-            _ => Vec::new(),
-        };
+        let mut issues = Vec::new();
+        let mut missing = HashSet::new();
+        for (ns, pin) in &self.deck.widgets {
+            match self.packs.get(&pin.version).map(PackManifest::from_files) {
+                None => {
+                    if missing.insert(&pin.version) {
+                        issues.push(Issue::pack_version_missing(&pin.version));
+                    }
+                }
+                Some(Ok(m)) if m.id == pin.id && m.namespace == *ns && m.requires == pin.requires => {}
+                Some(_) => issues.push(Issue::pack_pin_mismatch(ns)),
+            }
+            for required in pin.requires.iter().filter(|r| !self.deck.widgets.contains_key(*r)) {
+                issues.push(Issue::pack_requirement_missing(ns, required));
+            }
+        }
         issues.extend(theme_issues(&self.deck, &self.themes));
         issues
     }

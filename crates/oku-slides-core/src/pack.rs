@@ -1,9 +1,9 @@
 //! Packs de modèles portables : identité, version et fichiers.
 //!
-//! Un pack a un id ([`PackRef::id`], UUID v4) et des versions adressées par
-//! contenu ([`PackVersion`]). Une version : un `pack.json` et des fichiers de
+//! Un pack a un id ([`PackPin::id`], UUID v4) et des versions adressées par
+//! contenu ([`PackVersion`]). Une version : un `widgets.json` et des fichiers de
 //! widgets `widgets/<nom>.typ` ([`WidgetFile`], `_commun` pour le code
-//! partagé). Contenu canonique : `pack.json` en JSON compact à clés triées,
+//! partagé). Contenu canonique : `widgets.json` en JSON compact à clés triées,
 //! un octet `0`, puis pour chaque fichier dans l'ordre des noms : nom, `0`,
 //! source, `0`. La version en est le sha-256, écrit `sha256:<hex>`. Une
 //! source ne contient pas d'octet `0` (refusée à la lecture et à l'écriture),
@@ -13,7 +13,7 @@
 //! [`PackFiles`] dont le manifeste est `theme.json` ([`ThemeManifest`]), sans
 //! fichier de widget.
 //!
-//! Le contenu d'une version de pack, `pack.json`, se lit en [`PackManifest`] :
+//! Le contenu d'une version de pack, `widgets.json`, se lit en [`PackManifest`] :
 //! des modèles ([`Template`], des slides complètes, nommées), indépendants du
 //! thème (ils ne parlent qu'en jetons).
 //!
@@ -36,6 +36,7 @@ use uuid::Uuid;
 
 use crate::error::{PackVersionError, PackVersionSnafu, WidgetFileError, WidgetFileSnafu};
 use crate::model::Slide;
+use crate::namespace::Namespace;
 
 /// Préfixe d'une [`PackVersion`].
 const PREFIX: &str = "sha256:";
@@ -172,12 +173,20 @@ impl fmt::Display for WidgetFile {
     }
 }
 
-/// Le pack d'un deck : son id et la version embarquée.
+/// Un pack de widgets épinglé par un deck : id, version embarquée, besoins.
+///
+/// `requires` recopie celui du manifeste de la version : le cœur refuse ainsi
+/// un retrait sans lire les fichiers ; les sources vérifient la copie.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-pub struct PackRef {
+pub struct PackPin {
+    /// Id du pack (UUID v4), stable d'une version à l'autre.
     #[schemars(with = "String")]
     pub id: Uuid,
+    /// Version embarquée par les sources du deck.
     pub version: PackVersion,
+    /// Espaces de noms dont ce pack a besoin, épinglés aussi par le deck.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<Namespace>,
 }
 
 /// Le thème d'un deck : son id et la version embarquée.
@@ -191,7 +200,7 @@ pub struct ThemeRef {
     pub version: PackVersion,
 }
 
-/// Les fichiers d'une version : `pack.json` (un objet) et ses widgets.
+/// Les fichiers d'une version : `widgets.json` (un objet) et ses widgets.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackFiles {
     manifest: Map<String, Value>,
@@ -218,7 +227,7 @@ impl PackFiles {
         Self { manifest, widgets }
     }
 
-    /// Depuis des octets lus (zip, disque) ; `None` si `pack.json` n'est pas
+    /// Depuis des octets lus (zip, disque) ; `None` si `widgets.json` n'est pas
     /// un objet JSON, ou si un fichier de widget n'est pas de l'UTF-8 ou
     /// contient un octet `0` (le séparateur du contenu canonique : deux
     /// versions différentes y auraient la même empreinte).
@@ -234,7 +243,7 @@ impl PackFiles {
         Some(Self::new(manifest, widgets))
     }
 
-    /// Le `pack.json`, tel que reçu.
+    /// Le `widgets.json`, tel que reçu.
     pub fn manifest(&self) -> &Map<String, Value> {
         &self.manifest
     }
@@ -267,12 +276,12 @@ impl PackFiles {
         claimed.verifies(self)
     }
 
-    /// `pack.json` à écrire : indenté, clés dans l'ordre reçu.
+    /// `widgets.json` à écrire : indenté, clés dans l'ordre reçu.
     pub fn pack_json(&self) -> serde_json::Result<Vec<u8>> {
         serde_json::to_vec_pretty(&self.manifest)
     }
 
-    /// Contenu canonique : `pack.json` canonique, `0`, puis nom, `0`, source, `0` par fichier.
+    /// Contenu canonique : `widgets.json` canonique, `0`, puis nom, `0`, source, `0` par fichier.
     pub fn canonical(&self) -> Vec<u8> {
         // Un `Value` s'écrit toujours : ses clés sont des chaînes.
         let mut out = serde_json::to_vec(&sorted(&Value::Object(self.manifest.clone()))).unwrap_or_default();
@@ -328,11 +337,16 @@ impl PackScope {
     }
 }
 
-/// `pack.json` : un pack dans une version.
+/// `widgets.json` : un pack dans une version.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PackManifest {
     pub id: Uuid,
     pub name: String,
+    /// Espace de noms des widgets du pack : leur `kind` est `<namespace>/<nom>`.
+    pub namespace: Namespace,
+    /// Espaces de noms des packs de widgets dont ce pack a besoin.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<Namespace>,
     #[serde(default)]
     pub description: String,
     /// Version dont celle-ci est issue ; `None` pour une première version.
@@ -355,7 +369,7 @@ pub struct PackManifest {
     pub examples: BTreeMap<WidgetFile, Map<String, Value>>,
 }
 
-/// Les valeurs d'exemple d'un widget dans `pack.json`, telles qu'écrites.
+/// Les valeurs d'exemple d'un widget dans `widgets.json`, telles qu'écrites.
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum StoredValues {
@@ -423,14 +437,14 @@ fn diagnose(widget: &str, problem: &str) {
         seen.len() < DIAGNOSED_MAX && seen.insert(key)
     };
     if first {
-        tracing::warn!(widget, "pack.json : {problem}");
+        tracing::warn!(widget, "widgets.json : {problem}");
     } else {
-        tracing::debug!(widget, "pack.json : {problem}");
+        tracing::debug!(widget, "widgets.json : {problem}");
     }
 }
 
 impl PackManifest {
-    /// Lit le `pack.json` de `files`.
+    /// Lit le `widgets.json` de `files`.
     pub fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
         serde_json::from_value(Value::Object(files.manifest().clone()))
     }

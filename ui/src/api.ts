@@ -81,15 +81,15 @@ export interface Snapshot {
   /** Le dernier enregistrement n'a rien écrit : le fichier est devenu un autre deck (vrai une fois). */
   disk_replaced: boolean;
   appearance: Appearance;
-  /** Pack de modèles du deck : id et version embarquée. */
-  templates: PackRef | null;
+  /** Packs de widgets épinglés par le deck, par espace de noms. */
+  widgets: Record<string, PackPin>;
   /** Édition d'un pack de modèles en cours. */
   editing: TemplateMode | null;
   /** Le pack du deck n'appartient qu'à lui (import) : jamais dans la bibliothèque. */
   deck_pack: boolean;
   /** Bandeau du pack, en surface A2UI : le deck embarque une autre version que ma version courante. */
   pack_notice: Surface | null;
-  /** Widgets du pack en cours (fichiers, sans `_commun`), sans sonde. */
+  /** Widgets des packs en cours, qualifiés `<namespace>/<nom>` (sans `_commun`), sans sonde. */
   pack_widgets: string[];
   /** Widgets d'élément du pack au registre : ceux de la barre d'ajout. */
   add_widgets: AddWidget[];
@@ -171,10 +171,11 @@ export interface UiOrder {
 /** Section repliable : slides hors mode modèles, modèles et widgets en mode modèles, carte des paramètres. */
 export type PileSectionName = "slides" | "templates" | "widgets" | "params";
 
-/** Un pack de modèles à une version donnée. */
-export interface PackRef {
+/** Un pack épinglé par le deck : id, version embarquée et espaces de noms requis. */
+export interface PackPin {
   id: string;
   version: string;
+  requires?: string[];
 }
 
 /** Le thème d'un deck à une version donnée. */
@@ -232,6 +233,10 @@ export interface PackInfo {
   id: string;
   version: string;
   name: string;
+  /** Espace de noms de ses widgets : leur `kind` est `<namespace>/<nom>`. */
+  namespace: string;
+  /** Espaces de noms des packs dont il a besoin. */
+  requires: string[];
   description: string;
   builtin: boolean;
   /** Le pack d'un deck qui n'en choisit pas. */
@@ -259,8 +264,8 @@ export interface WidgetDiagnostic {
 /** Un fichier de widget du pack en cours et son statut. */
 export interface WidgetStatus {
   name: string;
-  /** Schéma du widget s'il est valide ; `null` pour `_commun`. */
-  schema: unknown | null;
+  /** Schéma du widget s'il est valide (`name` qualifié `espace/nom`) ; `null` pour `_commun`. */
+  schema: { name: string } | null;
   diagnostics: WidgetDiagnostic[];
 }
 
@@ -541,7 +546,8 @@ export type Op =
   | { op: "move_slide"; slide: string; index: number }
   | { op: "set_notes"; slide: string; notes: string }
   | { op: "set_theme"; theme: ThemeRef | null }
-  | { op: "set_templates"; templates: PackRef | null }
+  | { op: "add_pack"; namespace: string; pin: PackPin }
+  | { op: "remove_pack"; namespace: string }
   | { op: "set_token"; path: string[]; value: unknown }
   | { op: "unset_token"; path: string[] }
   | { op: "set_tokens"; tokens: unknown }
@@ -597,12 +603,12 @@ type Request =
   | { cmd: "history_seek"; index: number }
   | { cmd: "history_restore" }
   | { cmd: "history_close" }
-  | { cmd: "widget_status" }
-  | { cmd: "widget_source"; name: string }
-  | { cmd: "set_widget"; name: string; source: string }
-  | { cmd: "remove_widget"; name: string }
-  | { cmd: "rename_widget"; from: string; to: string }
-  | { cmd: "preview_widget"; name: string }
+  | { cmd: "widget_status"; pack?: string }
+  | { cmd: "widget_source"; name: string; pack?: string }
+  | { cmd: "set_widget"; name: string; source: string; pack?: string }
+  | { cmd: "remove_widget"; name: string; pack?: string }
+  | { cmd: "rename_widget"; from: string; to: string; pack?: string }
+  | { cmd: "preview_widget"; name: string; pack?: string }
   | { cmd: "history_versions" }
   | { cmd: "search"; query: string };
 
@@ -782,14 +788,14 @@ export function tabApi(tab: string) {
     closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
     deleteTemplateSet: (set: string) => call<PackInfo[]>({ cmd: "delete_template_set", set }),
     /** Fichiers de widgets du pack en cours, `_commun` en tête. */
-    widgetStatus: () => call<WidgetStatus[]>({ cmd: "widget_status" }),
-    widgetSource: (name: string) => call<string>({ cmd: "widget_source", name }),
+    widgetStatus: (pack?: string) => call<WidgetStatus[]>({ cmd: "widget_status", pack }),
+    widgetSource: (name: string, pack?: string) => call<string>({ cmd: "widget_source", name, pack }),
     /** Crée ou remplace un fichier ; en mode deck, le deck passe à la nouvelle version de son pack. */
-    setWidget: (name: string, source: string) => call<WidgetChange>({ cmd: "set_widget", name, source }),
-    removeWidget: (name: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name }),
-    renameWidget: (from: string, to: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to }),
+    setWidget: (name: string, source: string, pack?: string) => call<WidgetChange>({ cmd: "set_widget", name, source, pack }),
+    removeWidget: (name: string, pack?: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name, pack }),
+    renameWidget: (from: string, to: string, pack?: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to, pack }),
     /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
-    previewWidget: (name: string) => call<WidgetPreview>({ cmd: "preview_widget", name }),
+    previewWidget: (name: string, pack?: string) => call<WidgetPreview>({ cmd: "preview_widget", name, pack }),
     /** Le deck prend le thème `id` dans sa version courante, embarquée (annulable). */
     setTheme: (id: string) => call<Snapshot>({ cmd: "set_theme", id }),
     /** Mode modèles : le brouillon du thème repart de la version courante du thème `id` (annulable). */

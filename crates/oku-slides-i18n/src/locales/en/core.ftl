@@ -22,6 +22,13 @@ op-value-unreadable = the value does not have the expected form
 op-value-valign = top, middle or bottom is expected
 op-value-path = the path is made of M, L, C, Q and Z commands followed by their numbers, starting with M
 op-unknown-widget = Unknown widget: { $subject }
+op-unknown-namespace = This deck has no widget pack { $pack }.
+op-pack-required = The widget pack { $pack } is needed by { $by }; remove that one first.
+op-pack-in-use = The widget pack { $pack } is still used by { $count ->
+    [one] { $count } item
+   *[other] { $count } items
+}.
+op-pack-requirement-missing = The widget pack { $pack } needs { $required }, which this deck does not have.
 op-unknown-param = Unknown parameter: { $subject }
 op-param-type-because = Invalid value for { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -137,6 +144,8 @@ issue-invalid-style = invalid style value: { $field } ({ $reason ->
 issue-missing-asset = missing asset: { $asset }
 issue-pack-version-mismatch = altered pack version discarded: { $version }
 issue-pack-version-missing = pack version missing from the sources: { $version }
+issue-pack-pin-mismatch = The embedded widget pack { $pack } does not match what the deck expects.
+issue-pack-requirement-missing = The widget pack { $pack } needs { $required }, which this deck does not have.
 issue-theme-version-mismatch = altered theme version discarded: { $version }
 issue-theme-version-missing = theme version missing from the sources: { $version }
 issue-unsupported-link = unsupported link: { $link }
@@ -174,8 +183,6 @@ widget-fault-list-bounds = Widget { $widget }: a list max is below its min
 widget-fault-list-default-too-large = Widget { $widget }: a list default exceeds the list size limits
 widget-fault-list-depth = Widget { $widget }: a nested list cannot itself contain a list column; lists nest one level only
 widget-fault-list-default-below-min = Widget { $widget }: a nested list default has fewer items than its minimum
-widget-incompatible-override = Widget { $widget } replaces the built-in one but changes or drops its parameter { $param }
-widget-incompatible-category = Widget { $widget } replaces the built-in one with a different category
 issue-empty-item-id = list { $param } has an item without identifier
 issue-duplicate-item-id = list { $param } has a duplicate item identifier
 issue-invalid-item-id = list { $param } has an item identifier containing a slash

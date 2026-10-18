@@ -44,6 +44,11 @@ pub(crate) fn files(entries: &[(&str, &str)]) -> std::collections::BTreeMap<oku_
 
 /// Un deck d'une seule diapositive de titre.
 pub(crate) fn tiny_deck() -> oku_slides_core::Deck {
-    let json = r#"{"version":5,"params":{"title":"T"},"slides":[{"id":"s","kind":"title","params":{}}]}"#;
+    let json = r#"{"version":6,"params":{"title":"T"},"slides":[{"id":"s","kind":"title","params":{}}]}"#;
     oku_slides_core::Deck::from_json(json).expect("deck minimal")
+}
+
+/// L'espace de noms `name` ; panique s'il est invalide (test).
+pub(crate) fn ns(name: &str) -> oku_slides_core::Namespace {
+    oku_slides_core::Namespace::parse(name).unwrap_or_else(|| panic!("espace de noms invalide : {name}"))
 }

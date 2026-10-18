@@ -7,8 +7,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, PackFiles, ThemeRef, WidgetFile};
-use oku_slides_render::{Compiled, Fonts, Layout, PackWidgets, Renderer, load_registry};
+use oku_slides_core::{Deck, Namespace, PackFiles, ThemeRef, WidgetFile};
+use oku_slides_render::{Compiled, Fonts, Layout, PackSet, PackWidgets, Renderer, load_registry};
 use serde_json::json;
 
 /// Source du widget de pack `frise` : liste `etapes` (date, texte), quatre étapes par défaut.
@@ -17,18 +17,27 @@ pub const FRISE_TEST: &str = include_str!("../../../../fixtures/widgets/frise-te
 /// Source du widget de pack `plan` : étapes (`titre`) à tâches imbriquées (`texte`, `fait`).
 pub const PLAN_TEST: &str = include_str!("../../../../fixtures/widgets/plan-test.typ");
 
+/// Espace de noms des packs de test : leurs widgets s'appellent `test/<nom>`.
+pub const TEST_NS: &str = "test";
+
 /// Le pack de test qui porte le plan.
 pub fn plan_pack() -> PackWidgets {
     pack("plan-test", &[("plan", PLAN_TEST)])
 }
 
-/// Un pack `id` aux fichiers `files` (nom, source).
+/// Un pack `id` d'espace de noms [`TEST_NS`], aux fichiers `files` (nom, source).
 pub fn pack(id: &str, files: &[(&str, &str)]) -> PackWidgets {
+    pack_in(id, TEST_NS, files)
+}
+
+/// Un pack `id` d'espace de noms `namespace`, aux fichiers `files` (nom, source).
+pub fn pack_in(id: &str, namespace: &str, files: &[(&str, &str)]) -> PackWidgets {
+    let namespace = Namespace::parse(namespace).unwrap_or_else(|| panic!("espace de noms invalide : {namespace}"));
     let files = files
         .iter()
         .map(|(n, s)| (WidgetFile::parse(n).unwrap_or_else(|| panic!("nom de widget invalide : {n}")), (*s).to_owned()))
         .collect();
-    PackWidgets::new(id, files).unwrap_or_else(|e| panic!("{e}"))
+    PackWidgets::new(id, namespace, files).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Le pack de test qui porte la frise.
@@ -36,13 +45,19 @@ pub fn frise_pack() -> PackWidgets {
     pack("frise-test", &[("frise", FRISE_TEST)])
 }
 
+/// Un rendu aux widgets de base et à ceux de `set`.
+pub fn renderer_with(set: &PackSet) -> Renderer {
+    let registry = Arc::new(load_registry(&Fonts::default(), set).unwrap_or_else(|e| panic!("{e}")));
+    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    r.set_widgets(set, registry).unwrap_or_else(|e| panic!("{e}"));
+    r
+}
+
 /// Rend un deck d'une slide `content` dont les blocs sont `blocks`, avec les widgets de `pack`.
 pub fn compile_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Compiled {
-    let registry = Arc::new(load_registry(&Fonts::default(), Some(pack)).unwrap_or_else(|e| panic!("{e}")));
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
-    r.set_widgets(Some(pack), registry).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = renderer_with(&PackSet::new(vec![pack.clone()]).unwrap_or_else(|e| panic!("{e}")));
     let deck = json!({
-        "version": 5, "params": { "title": "T" },
+        "version": 6, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }]
     });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));

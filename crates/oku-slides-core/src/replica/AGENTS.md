@@ -6,7 +6,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Treat DeckReplica as the source of truth; Deck is only a view equal to rereading the replica. (ADR-0002)
 - Write empty or blank prose as an empty LoroText, never by removing the key; read it back as absent. (ADR-0002)
-- Create prose, rich, list and tree containers with their parent, even empty, so concurrent creations merge. (ADR-0002, plan:2026-09-27-sources-loro-fondation)
+- Create prose, rich, list, tree and widgets containers with their parent, even empty, and never delete widgets. (ADR-0002, plan:2026-09-27-sources-loro-fondation, t-1011)
 - Keep DeckReplica deck() infallible: drop what cannot be read and report an Issue instead of an error. (ADR-0002)
 - Keep the Loro change merge interval disabled so that each commit is exactly one labelled change. (ADR-0002, spec:2026-09-27-sources-loro-design)
 - Build each history step as a causal prefix of the version vector, not one change's causal history. (ADR-0002, plan:2026-09-27-sources-loro-historique)

@@ -42,7 +42,7 @@ fn add_version_of_unknown_pack_creates_it_with_that_version_current() {
     let r = add_version(&lib, &manifest(id, "Mien", None, "2026-10-01T10:00:00Z"), &[("kpi", "#let widget = none")]);
     assert_that!(lib.current(id)).is_equal_to(Some(r.version.clone()));
     let on_disk = dir.path().join(id.to_string()).join("versions").join(r.version.hex());
-    assert_that!(on_disk.join("pack.json").exists() && on_disk.join("widgets").join("kpi.typ").exists()).is_true();
+    assert_that!(on_disk.join("widgets.json").exists() && on_disk.join("widgets").join("kpi.typ").exists()).is_true();
 }
 
 #[test]
@@ -157,8 +157,8 @@ fn version_folder_whose_content_differs_is_ignored() {
     let forged = dir.path().join(id.to_string()).join("versions").join("f".repeat(64));
     std::fs::create_dir_all(&forged).unwrap();
     std::fs::copy(
-        dir.path().join(id.to_string()).join("versions").join(a.version.hex()).join("pack.json"),
-        forged.join("pack.json"),
+        dir.path().join(id.to_string()).join("versions").join(a.version.hex()).join("widgets.json"),
+        forged.join("widgets.json"),
     )
     .unwrap();
     std::fs::create_dir_all(dir.path().join(id.to_string()).join("versions").join("pas-une-version")).unwrap();
@@ -291,7 +291,7 @@ fn replace_version_whose_old_folder_cannot_be_deleted_still_succeeds() {
     std::fs::set_permissions(&old, std::fs::Permissions::from_mode(0o755)).unwrap();
     assert_that!(replaced.unwrap()).is_equal_to(next.version());
     assert_that!(lib.current(id)).is_equal_to(Some(next.version()));
-    assert_that!(old.join("pack.json").exists()).is_true();
+    assert_that!(old.join("widgets.json").exists()).is_true();
 }
 
 #[test]
@@ -328,7 +328,7 @@ fn deck_of(slide: oku_slides_core::Slide) -> oku_slides_core::Deck {
         params: Default::default(),
         vars: Default::default(),
         tokens: serde_json::Value::Null,
-        templates: None,
+        widgets: Default::default(),
         slides: vec![slide],
     }
 }
@@ -433,10 +433,10 @@ fn packs_ignore_a_legacy_folder_and_report_it_once() {
 }
 
 /// Une version reçue avec un deck pour `m`.
-fn receive(lib: &PackLibrary, m: &crate::pack::PackManifest) -> oku_slides_core::PackRef {
+fn receive(lib: &PackLibrary, m: &crate::pack::PackManifest) -> oku_slides_core::PackPin {
     let files = m.to_files(Default::default()).unwrap();
     lib.receive_version(m.id, &files).unwrap();
-    oku_slides_core::PackRef { id: m.id, version: files.version() }
+    oku_slides_core::PackPin { id: m.id, version: files.version(), requires: Vec::new() }
 }
 
 /// t-355 : un pack inconnu reçu avec un deck est créé, marqué reçu dans les listes.

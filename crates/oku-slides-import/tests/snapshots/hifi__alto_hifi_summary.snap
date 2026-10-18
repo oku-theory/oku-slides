@@ -6,7 +6,7 @@ expression: summary(&plan(fixture))
   "slides": [
     {
       "slide": "s1",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",
@@ -28,7 +28,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s2",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",
@@ -55,7 +55,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s3",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",
@@ -96,7 +96,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s4",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",
@@ -130,7 +130,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s5",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",
@@ -159,7 +159,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s6",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",
@@ -190,7 +190,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s7",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",
@@ -222,7 +222,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s8",
-      "kind": "l1-default",
+      "kind": "deck/l1-default",
       "params": [],
       "elements": [
         "shape @0,0 1920×1080",

@@ -16,7 +16,7 @@ const surface = (id: string): Surface => ({ id, place: "dock", live: true, turn:
 interface Snap { history?: boolean; readOnly?: boolean; hash?: string }
 const snapshot = (o: Snap = {}): Snapshot =>
   ({
-    editing: null, templates: null, history: o.history ? {} : null, read_only: !!o.readOnly,
+    editing: null, widgets: {}, history: o.history ? {} : null, read_only: !!o.readOnly,
     undo_label: null, redo_label: null,
     slides: [{ id: "s-ch1", hash: o.hash ?? "h" }],
   }) as unknown as Snapshot;

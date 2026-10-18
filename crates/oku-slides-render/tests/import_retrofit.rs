@@ -15,7 +15,7 @@ use oku_slides_import::report::LossKind;
 use oku_slides_import::retrofit::{ColorTokens, PageTokens, project};
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{ReadLimits, RetrofitTarget, read_pptx};
-use oku_slides_render::{Fonts, Renderer, load_registry};
+use oku_slides_render::{Fonts, PackSet, Renderer, load_registry};
 use rstest::rstest;
 use serde_json::{Map, Value};
 use speculoos::prelude::*;
@@ -80,7 +80,7 @@ fn import_retrofit_flow_blocks_stay_in_the_body_zone_or_are_reported(
 ) {
     let source: SourceDeck = read_pptx(&pptx(fixture), &ReadLimits::default()).unwrap_or_else(|e| panic!("{e}"));
     let fonts = Fonts::default();
-    let registry = load_registry(&fonts, None).unwrap_or_else(|e| panic!("{e}"));
+    let registry = load_registry(&fonts, &PackSet::default()).unwrap_or_else(|e| panic!("{e}"));
     let (templates, tokens) = (templates("essentiel"), tokens(theme));
     let page = PageTokens::from_tokens(&tokens);
     let target =

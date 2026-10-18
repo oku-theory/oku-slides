@@ -6,6 +6,7 @@ mod common;
 
 use base64::Engine as _;
 use common::*;
+use oku_slides_core::Namespace;
 use oku_slides_session::import::ImportTarget;
 use rust_mcp_sdk::McpClient;
 use rust_mcp_sdk::schema::{CallToolResult, ContentBlock};
@@ -306,7 +307,14 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 async fn edit_templates_of_the_hifi_pack_edits_it_in_the_deck_and_never_writes_the_library() {
     let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let pack = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().templates.clone();
+    let pack = h
+        .session
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .deck()
+        .widgets
+        .get(&Namespace::deck())
+        .cloned();
     let pack = pack.unwrap_or_else(|| panic!("pack du deck"));
     let before = library_files(h.data());
     let r = call(&c, "edit_templates", json!({ "set": pack.id })).await;
@@ -331,9 +339,12 @@ async fn edit_templates_of_a_hifi_pack_left_in_history_is_refused_as_deck_only()
     // reste que dans l'historique.
     let pack = tokio::task::spawn_blocking(move || {
         let mut s = session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let pack = s.deck().templates.clone().unwrap_or_else(|| panic!("pack du deck"));
-        let op = oku_slides_core::Op::SetTemplates { templates: None };
-        s.apply("Pack", vec![op], None).unwrap_or_else(|e| panic!("pack par défaut : {}", e.one_line()));
+        let pack = s.deck().widgets.get(&Namespace::deck()).cloned().unwrap_or_else(|| panic!("pack du deck"));
+        // Le pack ne se retire qu'une fois ses slides parties.
+        let mut ops: Vec<_> =
+            s.deck().slides.iter().map(|sl| oku_slides_core::Op::RemoveSlide { slide: sl.id.clone() }).collect();
+        ops.push(oku_slides_core::Op::RemovePack { namespace: Namespace::deck() });
+        s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("pack par défaut : {}", e.one_line()));
         pack
     })
     .await

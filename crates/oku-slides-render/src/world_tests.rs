@@ -1,6 +1,9 @@
 use speculoos::prelude::*;
 
+use oku_slides_core::Namespace;
+
 use super::{LIBRARY, Labels, main_source, typst_string};
+use crate::{PackSet, PackWidgets};
 
 #[test]
 fn typst_string_escapes_quotes_backslashes_and_newlines() {
@@ -10,36 +13,41 @@ fn typst_string_escapes_quotes_backslashes_and_newlines() {
 #[test]
 fn main_source_quotes_labels_instead_of_running_them() {
     let labels = Labels { missing_image: "#panic()".into(), chart_failed: "\") #panic() (\"".into() };
-    let source = main_source(true, None, ["ab12"].into_iter(), &labels);
+    let source = main_source(true, &PackSet::default(), ["ab12"].into_iter(), &labels);
     assert_that!(source).contains(r##"fallback("#panic()")"##);
     assert_that!(source).contains(r##"fallback("\") #panic() (\"")"##);
     assert_that!(source).contains(r#"#let available = ("ab12",)"#);
 }
 
+fn empty_pack(id: &str, ns: &str) -> PackWidgets {
+    PackWidgets::new(id, Namespace::parse(ns).unwrap(), std::collections::BTreeMap::new()).unwrap()
+}
+
 #[test]
-fn main_source_with_pack_imports_its_widgets_after_the_base() {
-    let pack = crate::PackWidgets::new("citations", std::collections::BTreeMap::new()).unwrap();
-    let source = main_source(false, Some(&pack), std::iter::empty(), &Labels::default());
-    assert_that!(source).contains(r#"#import "/packs/citations/widgets.typ": registry as pack-registry"#);
-    assert_that!(source).contains("widgets: by-name(base-registry + pack-registry)");
+fn main_source_with_packs_imports_each_after_the_base() {
+    let set = PackSet::new(vec![empty_pack("citations", "zeta"), empty_pack("frises", "alpha")]).unwrap();
+    let source = main_source(false, &set, std::iter::empty(), &Labels::default());
+    assert_that!(source).contains(r#"#import "/packs/frises/widgets.typ": registry as pack-registry-0"#);
+    assert_that!(source).contains(r#"#import "/packs/citations/widgets.typ": registry as pack-registry-1"#);
+    assert_that!(source).contains("widgets: by-name(base-registry + pack-registry-0 + pack-registry-1)");
 }
 
 #[test]
 fn main_source_without_pack_renders_the_base_widgets() {
-    let source = main_source(false, None, std::iter::empty(), &Labels::default());
+    let source = main_source(false, &PackSet::default(), std::iter::empty(), &Labels::default());
     assert_that!(source).does_not_contain("/packs/");
     assert_that!(source).contains("widgets: by-name(base-registry)");
 }
 
 #[test]
 fn main_source_with_theme_reads_theme_json() {
-    let source = main_source(true, None, std::iter::empty(), &Labels::default());
+    let source = main_source(true, &PackSet::default(), std::iter::empty(), &Labels::default());
     assert_that!(source).contains(r#"theme: json("/theme.json")"#);
 }
 
 #[test]
 fn main_source_without_theme_passes_none() {
-    let source = main_source(false, None, std::iter::empty(), &Labels::default());
+    let source = main_source(false, &PackSet::default(), std::iter::empty(), &Labels::default());
     assert_that!(source).contains("theme: none");
 }
 

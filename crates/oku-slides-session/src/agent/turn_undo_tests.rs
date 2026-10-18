@@ -115,7 +115,7 @@ fn undo_turn_in_templates_mode_is_none() {
     let data = fresh_dir("oku-slides-turn-undo-");
     let mut s = opened_on(data.path());
     agent_turn(&mut s, 5, "Par l'agent");
-    let set = s.deck().templates.clone().unwrap().id;
+    let set = crate::DEFAULT_PACK;
     s.edit_templates(set).unwrap();
     assert_that!(s.snapshot().undo_turn).is_none();
     s.close_templates().unwrap();

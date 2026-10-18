@@ -446,6 +446,8 @@ describe("WidgetTab, scène", () => {
       diagnostics: [],
     }));
     stub(fake, "setExampleValue", async (...a: never[]) => (written.push(a), {} as Snapshot));
+    // Le schéma donne le genre des champs de la scène.
+    stub(fake, "widgetStatus", async () => [{ name: "kpi", schema: { name: "kpi" }, diagnostics: [] }]);
     return { fake, calls, written };
   }
   const fieldsOf = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".widget-tab-preview .stage-preview .field")];
@@ -466,6 +468,21 @@ describe("WidgetTab, scène", () => {
     // Scène non mesurée (happy-dom) : échelle 0,1 ; le titre est à (150 − 100, 230 − 200) pt de la boîte.
     const [title] = fieldsOf(m.host);
     expect([title.style.left, title.style.top]).toEqual(["5px", "3px"]);
+  });
+
+  test("un widget d'un pack qualifié : ses champs, au genre espace/nom du schéma, sont sur la scène", async () => {
+    const { fake } = scene([field("title", "plain", "Titre", 150, 230, { widget: "essentiel/fiche" })]);
+    stub(fake, "widgetStatus", async () => [{ name: "fiche", schema: { name: "essentiel/fiche" }, diagnostics: [] }]);
+    const m = await mount(fake, { name: "fiche" });
+    expect(fieldsOf(m.host)).toHaveLength(1);
+  });
+
+  test("un widget sans schéma : aucun champ sur l'aperçu, l'image seule", async () => {
+    const { fake } = scene();
+    stub(fake, "widgetStatus", async () => [status("kpi", true)]);
+    const m = await mount(fake, { name: "kpi" });
+    expect(fieldsOf(m.host)).toHaveLength(0);
+    expect(m.host.querySelector(".widget-tab-preview > img")).not.toBeNull();
   });
 
   test("un aperçu sans vue : l'image seule", async () => {

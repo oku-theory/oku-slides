@@ -17,6 +17,7 @@ diagnostic-hint = suggerimento: { $hint }
 render-chart-failed = impossibile disegnare il grafico
 
 registry-bad-pack-id = Identificatore del pacchetto di modelli non valido: { $id }
+registry-duplicate-pack = Due pacchetti di widget della presentazione condividono { $pack }.
 registry-compile = Impossibile compilare i widget del pacchetto di modelli
 registry-missing = Il pacchetto di modelli non dichiara i propri widget
 render-timeout = Il rendering ha impiegato più di { $seconds } s ed è stato interrotto

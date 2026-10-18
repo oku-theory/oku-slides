@@ -18,6 +18,7 @@ diagnostic-hint = ইঙ্গিত: { $hint }
 render-chart-failed = চার্ট আঁকা যায়নি
 
 registry-bad-pack-id = অবৈধ টেমপ্লেট প্যাক শনাক্তকারী: { $id }
+registry-duplicate-pack = প্রেজেন্টেশনের দুটি উইজেট প্যাক { $pack } ভাগ করে।
 registry-compile = টেমপ্লেট প্যাকের উইজেটগুলি কম্পাইল করা যায়নি
 registry-missing = টেমপ্লেট প্যাক তার উইজেটগুলি ঘোষণা করে না
 render-timeout = রেন্ডারিং { $seconds } সেকেন্ডের বেশি সময় নিয়েছে এবং থামিয়ে দেওয়া হয়েছে

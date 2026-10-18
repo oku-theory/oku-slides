@@ -1,17 +1,17 @@
 //! Le résumé d'un pack de modèles et les ids des packs intégrés.
 //!
-//! Le contenu d'un pack (`pack.json` : [`PackManifest`], ses [`Template`])
+//! Le contenu d'un pack (`widgets.json` : [`PackManifest`], ses [`Template`])
 //! est défini dans le cœur, qui le partage avec l'import ; il est ré-exporté ici.
 
 use serde::Serialize;
 use uuid::Uuid;
 
-use oku_slides_core::{PackFiles, PackVersion};
+use oku_slides_core::{Namespace, PackFiles, PackVersion};
 pub use oku_slides_core::{PackManifest, PackScope, Template, now_created};
 
 use crate::library_kind::VersionManifest;
 
-/// Pack par défaut, `templates/essentiel` : id constant.
+/// Pack par défaut, `templates/essentiel` : id constant ; un deck neuf l'épingle sous `essentiel`.
 pub const DEFAULT_PACK: Uuid = Uuid::from_u128(0x6f3c1e2a_8b4d_4c1e_9a57_2d0e5b7c9f10);
 /// Pack intégré `templates/grilles` : id constant.
 pub const GRID_PACK: Uuid = Uuid::from_u128(0xb8e2d4f6_1a3c_4e5b_8d7f_9c0a2e4b6d81);
@@ -40,6 +40,10 @@ impl VersionManifest for PackManifest {
     fn scope(&self) -> PackScope {
         self.scope
     }
+
+    fn namespace(&self) -> Option<&Namespace> {
+        Some(&self.namespace)
+    }
 }
 
 /// Résumé d'un pack dans une version, pour les listes.
@@ -48,6 +52,10 @@ pub struct PackInfo {
     pub id: Uuid,
     pub version: PackVersion,
     pub name: String,
+    /// Espace de noms de ses widgets : leur `kind` est `<namespace>/<nom>`.
+    pub namespace: Namespace,
+    /// Espaces de noms des packs dont il a besoin.
+    pub requires: Vec<Namespace>,
     pub description: String,
     pub builtin: bool,
     /// Le pack d'un deck neuf ([`DEFAULT_PACK`]).
@@ -64,6 +72,8 @@ impl PackInfo {
             id: manifest.id,
             version,
             name: manifest.name.clone(),
+            namespace: manifest.namespace.clone(),
+            requires: manifest.requires.clone(),
             description: manifest.description.clone(),
             builtin,
             default: manifest.id == DEFAULT_PACK,

@@ -49,6 +49,8 @@ pub(crate) fn fingerprint_hex(pack: &WirePack) -> String {
     let mut h = Sha256::new();
     h.update(pack.id.as_bytes());
     h.update([0]);
+    h.update(pack.namespace.as_bytes());
+    h.update([0]);
     for (name, source) in &pack.files {
         h.update(name.as_bytes());
         h.update([0]);
@@ -154,7 +156,7 @@ impl Drop for Conn {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct SlotState {
     pub(crate) fonts: Vec<String>,
-    pub(crate) pack: Option<WirePack>,
+    pub(crate) packs: Vec<WirePack>,
     pub(crate) last_assets: Vec<String>,
     /// Derniers jetons de thème posés ; rejoués après une relance.
     pub(crate) theme: Option<serde_json::Map<String, serde_json::Value>>,
@@ -343,7 +345,7 @@ impl Link {
         }
     }
 
-    /// Rejoue langue, polices et emplacements ; un pack fautif est rejoué par la base.
+    /// Rejoue langue, polices et emplacements ; un pack fautif est écarté du rejeu.
     fn replay(&mut self) -> Result<(), RenderError> {
         if let Some(locale) = self.state.locale.clone() {
             self.expect_ok(&Request::SetLanguage { locale }, &[])?;
@@ -362,9 +364,10 @@ impl Link {
                 }
             }
             self.expect_ok(&Request::OpenSlot { slot, fonts: st.fonts.clone() }, &[])?;
-            let pack = st.pack.filter(|p| !self.faulty_packs.contains(&fingerprint_hex(p)));
-            if pack.is_some() {
-                self.expect_ok(&Request::SetWidgets { slot, pack }, &[])?;
+            let packs: Vec<WirePack> =
+                st.packs.into_iter().filter(|p| !self.faulty_packs.contains(&fingerprint_hex(p))).collect();
+            if !packs.is_empty() {
+                self.expect_ok(&Request::SetWidgets { slot, packs }, &[])?;
             }
             if st.theme.is_some() {
                 self.expect_ok(&Request::SetTheme { slot, tokens: st.theme }, &[])?;

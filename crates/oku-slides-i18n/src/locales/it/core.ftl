@@ -22,6 +22,13 @@ op-value-unreadable = il valore non ha la forma attesa
 op-value-valign = è atteso top, middle o bottom
 op-value-path = il tracciato è composto da comandi M, L, C, Q e Z seguiti dai loro numeri, a partire da M
 op-unknown-widget = Widget sconosciuto: { $subject }
+op-unknown-namespace = Questa presentazione non ha il pacchetto di widget { $pack }.
+op-pack-required = Il pacchetto di widget { $pack } serve a { $by }; rimuovi prima quello.
+op-pack-in-use = Il pacchetto di widget { $pack } è ancora usato da { $count ->
+    [one] { $count } elemento
+   *[other] { $count } elementi
+}.
+op-pack-requirement-missing = Il pacchetto di widget { $pack } richiede { $required }, che questa presentazione non ha.
 op-unknown-param = Parametro sconosciuto: { $subject }
 op-param-type-because = Valore non valido per { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -137,6 +144,8 @@ issue-invalid-style = valore di stile non valido: { $field } ({ $reason ->
 issue-missing-asset = risorsa mancante: { $asset }
 issue-pack-version-mismatch = versione del pacchetto alterata scartata: { $version }
 issue-pack-version-missing = versione del pacchetto mancante dalle sorgenti: { $version }
+issue-pack-pin-mismatch = Il pacchetto di widget incorporato { $pack } non corrisponde a ciò che la presentazione si aspetta.
+issue-pack-requirement-missing = Il pacchetto di widget { $pack } richiede { $required }, che questa presentazione non ha.
 issue-theme-version-mismatch = versione del tema alterata scartata: { $version }
 issue-theme-version-missing = versione del tema mancante dalle sorgenti: { $version }
 issue-unsupported-link = link non supportato: { $link }
@@ -174,8 +183,6 @@ widget-fault-list-bounds = Widget { $widget }: il massimo di un elenco è inferi
 widget-fault-list-default-too-large = Widget { $widget }: il valore predefinito di un elenco supera i limiti di dimensione degli elenchi
 widget-fault-list-depth = Widget { $widget }: un elenco annidato non può contenere una colonna elenco; gli elenchi si annidano su un solo livello
 widget-fault-list-default-below-min = Widget { $widget }: il valore predefinito di un elenco annidato ha meno voci del suo minimo
-widget-incompatible-override = Il widget { $widget } sostituisce quello base ma modifica o rimuove il suo parametro { $param }
-widget-incompatible-category = Il widget { $widget } sostituisce quello base con una categoria diversa
 issue-empty-item-id = l'elenco { $param } ha una voce senza identificatore
 issue-duplicate-item-id = l'elenco { $param } ha un identificatore di voce duplicato
 issue-invalid-item-id = l'elenco { $param } ha un identificatore di voce che contiene una barra

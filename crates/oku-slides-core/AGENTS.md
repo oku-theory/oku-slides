@@ -24,19 +24,17 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never name a list column id or kind, and never put a slash in a param name, column name or item id. (plan:2026-10-04-parametre-liste)
 - Address list items by stable id, never by index; an item field or nested list path is list/itemId/column, parsed by ListPath. (spec:2026-10-04-parametre-liste-design, t-495)
 - Treat an absent list as empty; seed schema defaults only on new objects, never on paste or replace_element. (spec:2026-10-04-parametre-liste-design)
-- When overriding a base widget, keep each list parameter identical to the base definition. (plan:2026-10-04-parametre-liste)
 - Normalize host ids and columns on every host write, and in SourceBundle::restore as in SourceBundle::new. (plan:2026-10-08-fusion-cellules, t-631)
 - Keep the materialized deck canonical and equal to the replica re-read; canonicalize before writing to the replica. (spec:2026-09-27-sources-loro-design)
 - Route all list edits, deck or widget trial values, through ListOp::apply. (spec:2026-10-04-parametre-liste-design)
 - Revalidate host params with check_host_params whenever an op changes a widget kind, as Op::SetKind does. (t-591)
-- Allow a pack to override a base widget only with compatible param types, binds and category. (spec:2026-09-27-widgets-typst-design)
 - Never serialize PackScope::Library, so library pack and theme manifests keep their existing hashes. (ADR-0009, t-692)
 
 ## Pitfalls
 
 - Move elements across slides with the move_element op; a duplicated id loses concurrent edits. (ADR-0006)
 - Duplicate test helpers in tests/common/mod.rs, since integration tests cannot see the crate's cfg(test) code. (plan:2026-09-28-widgets-typst-2)
-- Expect any change to pack.json, including name or description, to produce a new content-addressed PackVersion. (plan:2026-10-01-packs-portables)
+- Expect any change to widgets.json, including name or description, to produce a new content-addressed PackVersion. (plan:2026-10-01-packs-portables)
 - Generate random element ids; concurrent adds with the same id produce duplicates that validate flags. (spec:2026-09-27-sources-loro-design)
 - Beware Loro UndoManager on commits with several mov on the slides list; undo can lose elements or panic. (t-263)
 
@@ -57,4 +55,5 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Use the registry-resolved grid (Slide::resolved_grid) for set_cell, validation and preview. (plan:2026-10-03-widgets-agent-a2ui)
 - Keep set_grid as a deck op visible to the agent, with placed elements rescaled in Rust. (plan:2026-10-03-widgets-agent-a2ui)
 - Validate widget schemas in Rust check_widget; Typst asserts only the argument types serde reads, so one bad file fails alone. (spec:2026-10-04-parametre-liste-design, t-938)
-- Treat deck templates as one atomic optional PackRef; never patch it field by field. (t-347)
+- Keep deck.widgets a map of whole PackPins by namespace; never patch a pin field by field. (plan:2026-10-18-packs-lot1-widget-packs)
+- Build a qualified kind only with qualify and read it only with split_kind; a bare kind is a core widget. (plan:2026-10-18-packs-lot1-widget-packs)

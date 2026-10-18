@@ -7,7 +7,7 @@
 # (~/Library/Application Support/me.dartiguenave.oku-slides sur Mac).
 # data = "…"
 # models = "…"
-# templates = "…"
+# widgets = "…"
 # themes = "…"
 # Où s'enregistre de lui-même un deck qui n'a pas encore de fichier
 # (absent = Documents/Oku Slides).

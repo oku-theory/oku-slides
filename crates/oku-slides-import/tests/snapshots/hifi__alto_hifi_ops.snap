@@ -3,9 +3,9 @@ source: crates/oku-slides-import/tests/hifi.rs
 expression: "op_lines(&plan(\"alto\"))"
 ---
 {"op":"set_theme","theme":{"id":"00000000-0000-0000-0000-000000000002","version":"sha256:8fcb0d016ab5dac766f6c810607a578755223ed983f75fd892a54db1a7f5366a"}}
-{"op":"set_templates","templates":{"id":"00000000-0000-0000-0000-000000000001","version":"sha256:26c7f58631b6b1c695fed806b3384747c60c4b3304168d605f8788aaad07c5c8"}}
+{"op":"add_pack","namespace":"deck","pin":{"id":"00000000-0000-0000-0000-000000000001","version":"sha256:a7b7c482e0c2f0bd4aebce9f5fe86668a687acd74525cac54e77a71323ac66c2"}}
 {"op":"set_deck_param","key":"lang","value":"en-US"}
-slide s1 l1-default {}
+slide s1 deck/l1-default {}
   extras s1-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
   extras s1-2 text @128,96 236×46 {"size":30.0,"color":"#00154e","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[10.09,0.0,10.09,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"ALTO WEALTH"}]}]}
   extras s1-3 text @1275,104 332×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"D2C Strategy — Working Document"}]}]}
@@ -20,7 +20,7 @@ slide s1 l1-default {}
   extras s1-12 text @128,708 1288×138 {"size":32.0,"color":"#b9c4d6","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[10.76,0.0,10.76,0.0]} {"body":[{"runs":[{"t":"As the conversational agent becomes the end client's only interface, our relationship with them is at risk — and that same shift is our chance to become the infrastructure that powers it."}]}]}
   extras s1-13 text @128,871 1714×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Distribution to Customer · Internal strategic reflection"}]}]}
   extras s1-14 text @128,925 1714×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0]} {"body":[{"runs":[{"t":"Matthieu Dartiguenave · September 20, 2026"}]}]}
-slide s2 l1-default {}
+slide s2 deck/l1-default {}
   extras s2-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
   extras s2-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"OUR CONVICTION"}]}]}
   extras s2-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
@@ -40,7 +40,7 @@ slide s2 l1-default {}
   extras s2-17 text @128,995 539×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"1 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
   extras s2-18 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
   extras s2-19 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
-slide s3 l1-default {}
+slide s3 deck/l1-default {}
   extras s3-1 shape @0,0 1920×1080 {"fill":"#00154e"} {"shape":"rect"}
   extras s3-2 text @128,112 1714×31 {"size":19.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"THE SHIFT"}]}]}
   extras s3-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
@@ -74,7 +74,7 @@ slide s3 l1-default {}
   extras s3-31 text @128,995 542×25 {"size":15.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"2 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
   extras s3-32 text @880,989 160×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
   extras s3-33 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
-slide s4 l1-default {}
+slide s4 deck/l1-default {}
   extras s4-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
   extras s4-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"OUR MOAT"}]}]}
   extras s4-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
@@ -101,7 +101,7 @@ slide s4 l1-default {}
   extras s4-24 text @128,995 542×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"3 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
   extras s4-25 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
   extras s4-26 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
-slide s5 l1-default {}
+slide s5 deck/l1-default {}
   extras s5-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
   extras s5-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"OUR RESPONSE"}]}]}
   extras s5-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
@@ -123,7 +123,7 @@ slide s5 l1-default {}
   extras s5-19 text @128,995 543×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"4 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
   extras s5-20 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
   extras s5-21 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
-slide s6 l1-default {}
+slide s6 deck/l1-default {}
   extras s6-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
   extras s6-2 text @128,112 1714×31 {"size":19.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"WHY US, NOT JUST ANY MCP SERVER"}]}]}
   extras s6-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
@@ -147,7 +147,7 @@ slide s6 l1-default {}
   extras s6-21 text @128,995 542×25 {"size":15.0,"color":"#5b6675","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"5 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
   extras s6-22 text @880,989 160×31 {"size":19.0,"color":"#5b6675","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
   extras s6-23 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
-slide s7 l1-default {}
+slide s7 deck/l1-default {}
   extras s7-1 shape @0,0 1920×1080 {"fill":"#00154e"} {"shape":"rect"}
   extras s7-2 text @128,112 1714×31 {"size":19.0,"color":"#00bef4","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"ROADMAP"}]}]}
   extras s7-3 shape @128,157 64×5 {"fill":"#00bef4"} {"shape":"rect"}
@@ -172,7 +172,7 @@ slide s7 l1-default {}
   extras s7-22 text @128,995 543×25 {"size":15.0,"color":"#7c93b8","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[5.04,0.0,5.04,0.0],"tracking":0.2} {"body":[{"runs":[{"t":"6 · Wealth Bank as an API · September 20, 2026 · Matthieu Dartiguenave"}]}]}
   extras s7-23 text @880,989 160×31 {"size":19.0,"color":"#7c93b8","font":"Inter","align":"center","leading":0.67,"valign":"top","inset":[6.39,0.0,6.39,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"CONFIDENTIAL"}]}]}
   extras s7-24 image @1648,968 144×64 {} {"asset":"sha256:f2a2f444b230b4242862e5d3a18e85b57c5cce11a47190265ef3349ba9384dab","fit":"stretch"}
-slide s8 l1-default {}
+slide s8 deck/l1-default {}
   extras s8-1 shape @0,0 1920×1080 {"fill":"#ffffff"} {"shape":"rect"}
   extras s8-2 text @128,112 1714×32 {"size":20.0,"color":"#0072b0","weight":"bold","font":"Inter","align":"left","leading":0.67,"valign":"top","inset":[6.72,0.0,6.72,0.0],"tracking":1.0} {"body":[{"runs":[{"t":"ORGANIZATIONAL ANATOMY"}]}]}
   extras s8-3 shape @128,158 64×5 {"fill":"#00bef4"} {"shape":"rect"}
