@@ -184,6 +184,7 @@ menu-window = Ventana
 menu-quit = Salir
 window-agent-title = Agente — Oku Slides
 menu-agent-detached = Agente en una ventana aparte
+menu-check-updates = Buscar actualizaciones…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = La diapositiva { $slide } no tiene intentos: { $
        *[unscored] no tiene puntuación, falta la representación de referencia
     }. Pasa a la siguiente diapositiva.
 session-import-tune-compare = No se pudo comparar la diapositiva con su renderizado de referencia.
+
+## Mises à jour
+
+update-error-check = No se pudo buscar actualizaciones. Comprueba tu conexión e inténtalo de nuevo.
+update-error-download = No se pudo descargar o verificar la actualización.
+update-error-open = No se pudo abrir la página de versiones.
+update-error-unavailable = No hay ninguna actualización que instalar.
+update-error-refused = Esta ventana no puede instalar actualizaciones.

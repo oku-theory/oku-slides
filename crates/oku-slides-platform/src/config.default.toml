@@ -196,3 +196,9 @@ args = ["-y", "@agentclientprotocol/codex-acp@2.2.2"]
 name = "Gemini"
 command = "npx"
 args = ["-y", "@google/gemini-cli@0.63.0", "--acp"]
+
+[updates]
+# Chercher une version plus récente au lancement, puis toutes les `check_interval_hours` heures
+# (jamais dans une version de développement). Off : seulement par « Rechercher des mises à jour… ».
+check_automatically = true
+check_interval_hours = 6

@@ -184,6 +184,7 @@ menu-window = Okno
 menu-quit = Zakończ
 window-agent-title = Agent — Oku Slides
 menu-agent-detached = Agent w osobnym oknie
+menu-check-updates = Sprawdź dostępność aktualizacji…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = Slajd { $slide } nie ma prób: { $state ->
        *[unscored] nie ma oceny, brakuje renderowania referencyjnego
     }. Przejdź do następnego slajdu.
 session-import-tune-compare = Nie udało się porównać slajdu z jego renderowaniem referencyjnym.
+
+## Mises à jour
+
+update-error-check = Nie udało się sprawdzić aktualizacji. Sprawdź połączenie i spróbuj ponownie.
+update-error-download = Nie udało się pobrać ani zweryfikować aktualizacji.
+update-error-open = Nie udało się otworzyć strony z wydaniami.
+update-error-unavailable = Brak aktualizacji do zainstalowania.
+update-error-refused = To okno nie może instalować aktualizacji.

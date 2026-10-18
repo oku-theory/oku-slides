@@ -436,3 +436,38 @@ fn from_sources_refuses_zero_serve_limits_naming_the_setting() {
     let s = Settings::from_sources(None, env(&[("OKU_SLIDES_SERVE__MAX_CONNECTIONS", "1")])).unwrap();
     assert_that!(s.serve.max_connections.get()).is_equal_to(1);
 }
+
+#[test]
+fn updates_defaults_check_every_six_hours() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.updates.check_automatically).is_true();
+    assert_that!(s.updates.interval()).is_equal_to(std::time::Duration::from_secs(6 * 3600));
+}
+
+#[test]
+fn updates_env_false_turns_automatic_check_off() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_UPDATES__CHECK_AUTOMATICALLY", "false")])).unwrap();
+    assert_that!(s.updates.check_automatically).is_false();
+}
+
+#[test]
+fn updates_env_interval_sets_hours() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS", "12")])).unwrap();
+    assert_that!(s.updates.interval()).is_equal_to(std::time::Duration::from_secs(12 * 3600));
+}
+
+#[test]
+fn updates_zero_interval_is_rejected() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS", "0")]));
+    assert_that!(s).is_err();
+}
+
+#[rstest::rstest]
+#[case(true, false, true)]
+#[case(true, true, false)]
+#[case(false, false, false)]
+fn updates_auto_check_follows_setting_and_build(#[case] on: bool, #[case] debug: bool, #[case] expected: bool) {
+    let mut s = Settings::defaults().unwrap().updates;
+    s.check_automatically = on;
+    assert_that!(s.auto_check(debug)).is_equal_to(expected);
+}

@@ -184,6 +184,7 @@ menu-window = Window
 menu-quit = Quit
 window-agent-title = Agent — Oku Slides
 menu-agent-detached = Agent in a Separate Window
+menu-check-updates = Check for Updates…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = Slide { $slide } has no tries: { $state ->
        *[unscored] it has no score, the reference rendering is missing
     }. Move on to the next slide.
 session-import-tune-compare = The slide could not be compared with its reference rendering.
+
+## Mises à jour
+
+update-error-check = Could not look for updates. Check your connection and try again.
+update-error-download = The update could not be downloaded or verified.
+update-error-open = The releases page could not be opened.
+update-error-unavailable = There is no update to install.
+update-error-refused = This window cannot install updates.

@@ -48,8 +48,8 @@ async function mount(calls: string[], shown: PackNotice = notice) {
 describe("PackNoticeBar", () => {
   test("PackNoticeBar shows the message and both actions from the session", async () => {
     const host = await mount([]);
-    expect(host.querySelector(".pack-notice-text")?.textContent).toBe(notice.message);
-    const [mine, current] = host.querySelectorAll(".pack-notice-actions button");
+    expect(host.querySelector(".notice-bar-text")?.textContent).toBe(notice.message);
+    const [mine, current] = host.querySelectorAll(".notice-bar-actions button");
     expect(mine.textContent).toBe(notice.use_mine);
     expect(current.textContent).toBe(notice.make_current);
   });
@@ -75,19 +75,19 @@ describe("PackNoticeBar", () => {
     // Une barre posée, pas un objet qui se soulève au survol.
     expect(bar?.classList.contains("object")).toBe(false);
     expect([...(bar?.children ?? [])].map((c) => c.className)).toEqual([
-      "pack-notice-text",
-      "pack-notice-actions",
+      "notice-bar-text",
+      "notice-bar-actions",
       "token ghost pack-notice-close",
     ]);
     // Des boutons de texte, pas des pastilles rondes d'icône (`token`).
-    const [mine, current] = [...host.querySelectorAll(".pack-notice-actions button")];
+    const [mine, current] = [...host.querySelectorAll(".notice-bar-actions button")];
     expect(mine?.className).toBe("btn primary");
     expect(current?.className).toBe("btn ghost");
   });
 
   test("PackNoticeBar hides make current when the session does not offer it", async () => {
     const host = await mount([], { ...notice, make_current: null });
-    const actions = host.querySelectorAll(".pack-notice-actions button");
+    const actions = host.querySelectorAll(".notice-bar-actions button");
     expect(actions.length).toBe(1);
     expect(actions[0].textContent).toBe(notice.use_mine);
   });

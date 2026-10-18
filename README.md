@@ -328,6 +328,8 @@ Settings come in three layers, the last one wins:
 | `OKU_SLIDES_I18N__LOCALE` | Interface language (`en`, `fr`, `de`, `ja`…); default: the system's |
 | `OKU_SLIDES_APPEARANCE__SCHEME` | `light` or `dark`; default: the system's |
 | `OKU_SLIDES_AUTHOR__NAME` | Name recorded in the history of decks you edit |
+| `OKU_SLIDES_UPDATES__CHECK_AUTOMATICALLY` | `false`: no automatic update check, only "Check for Updates…" |
+| `OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS` | hours between automatic checks (default 6) |
 
 The interface ships in 20 languages (`crates/oku-slides-i18n/src/locales`), English
 being the reference.

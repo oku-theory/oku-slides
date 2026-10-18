@@ -1,9 +1,10 @@
 // Une fenêtre : l'`App` de l'onglet actif, la barre d'onglets en bas.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import App from "./App";
 import TabBar from "./TabBar";
-import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, workspace, type ImportTarget, type WorkspaceView } from "./api";
+import UpdateBar from "./UpdateBar";
+import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
 import { mayClose } from "./close";
 import { t } from "./i18n";
 import { newest } from "./latest";
@@ -14,6 +15,7 @@ import { useImportPick } from "./useImportPick";
 import { useTabShortcuts } from "./useTabShortcuts";
 import { ERROR_MS } from "./useToast";
 import { useTransient } from "./useTransient";
+import { useUpdate } from "./useUpdate";
 
 /** Label de cette fenêtre : celui de Tauri, ou la seule fenêtre en développement. */
 async function ownLabel(view: WorkspaceView): Promise<string> {
@@ -32,6 +34,10 @@ export default function Workspace() {
   // tant qu'aucune commande de la fenêtre ne réussit.
   const [error, showError] = useTransient<string>();
   const setError = useCallback((m: string | null) => showError(m, ERROR_MS), [showError]);
+  // Mise à jour de l'app (hôte Tauri seulement) : bandeau ici ; la recherche passe par l'onglet actif,
+  // dont l'avis dit le résultat (un seul avis par fenêtre).
+  const update = useUpdate(tauriUpdates, setError);
+  const appUpdates = useMemo(() => (tauriUpdates ? { check: update.check, requested: update.requested } : undefined), [update.check, update.requested]);
   // Composant démonté (StrictMode, ou fenêtre fermée) : on ignore les réponses tardives.
   const alive = useRef(true);
   useEffect(() => {
@@ -270,6 +276,16 @@ export default function Workspace() {
       {/* Barre de titre intégrée (macOS) : de quoi déplacer la fenêtre, et ses boutons. */}
       {inTauri && isMac && <div className="titlebar" data-tauri-drag-region />}
       {error && <p className="workspace-error" role="alert">{error}</p>}
+      {update.offer && (
+        <UpdateBar
+          offer={update.offer}
+          installing={update.installing}
+          percent={update.percent}
+          onInstall={update.install}
+          onLater={update.later}
+          onOpenRelease={update.openRelease}
+        />
+      )}
       <div className="workspace-body">
         {/* En développement, `onChange` relit la vue sans relancer le snapshot : pas de boucle. */}
         <App
@@ -284,6 +300,7 @@ export default function Workspace() {
           onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
           onImportClose={imports.close}
           onHelp={() => run(workspace.openHelp(label))}
+          updates={appUpdates}
           onClose={inTauri || win.tabs.length > 1 ? () => void closeTab(win.active) : undefined}
           onChange={inTauri ? undefined : reread}
         />

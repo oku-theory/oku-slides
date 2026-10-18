@@ -117,6 +117,11 @@ tauri-build = "2"
 tauri-plugin-dialog = "2.8"
 tauri-plugin-window-state = "2.4"
 tauri-plugin-single-instance = "2.4"
+# Sans `zip` (défaut) : les paquets v2 (AppImage brut, setup.exe) n'en ont pas besoin, et zip 4
+# tombe sous RUSTSEC-2026-0367/0368/0369 (ignorés ailleurs parce qu'on n'appelle pas `extract`).
+# rustls-tls active rustls sur le reqwest 0.13 de tauri (racines du système) ; system-proxy : proxy du système.
+tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
+tauri-plugin-opener = "2.7"
 tauri-runtime = "2.12"
 # Tests
 hound = "3"

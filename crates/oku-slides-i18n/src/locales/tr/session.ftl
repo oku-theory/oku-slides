@@ -184,6 +184,7 @@ menu-window = Pencere
 menu-quit = Çıkış
 window-agent-title = Ajan — Oku Slides
 menu-agent-detached = Ajan ayrı bir pencerede
+menu-check-updates = Güncellemeleri Denetle…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = { $slide } slaytının deneme hakkı yok: { $sta
        *[unscored] puanı yok, referans çizimi eksik
     }. Sonraki slayta geçin.
 session-import-tune-compare = Slayt, referans görüntüsüyle karşılaştırılamadı.
+
+## Mises à jour
+
+update-error-check = Güncellemeler aranamadı. Bağlantınızı kontrol edip yeniden deneyin.
+update-error-download = Güncelleme indirilemedi veya doğrulanamadı.
+update-error-open = Sürümler sayfası açılamadı.
+update-error-unavailable = Yüklenecek güncelleme yok.
+update-error-refused = Bu pencere güncelleme yükleyemez.

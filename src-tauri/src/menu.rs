@@ -11,12 +11,14 @@ use tauri::{AppHandle, Manager, Runtime};
 pub const QUIT_ID: &str = "quit";
 /// Identifiant de la case « Agent dans une fenêtre séparée ».
 pub const AGENT_ID: &str = "agent-detached";
+/// Identifiant de « Rechercher des mises à jour… ».
+pub const CHECK_UPDATES_ID: &str = "check-updates";
 
 /// La case de l'agent, gardée par l'app : `Menu::get` ne cherche pas dans les sous-menus.
 #[cfg_attr(not(target_os = "macos"), expect(dead_code, reason = "menu d'app : macOS seulement"))]
 struct AgentCheck<R: Runtime>(CheckMenuItem<R>);
 
-/// Le menu : application, édition (couper, copier, coller), fenêtre.
+/// Le menu : application (à propos, mises à jour, masquer, quitter), édition, fenêtre.
 ///
 /// « Quitter » n'est pas `PredefinedMenuItem::quit` : celle-ci appelle le
 /// `terminate:` natif de macOS directement, qui ne passe jamais par notre
@@ -29,6 +31,7 @@ struct AgentCheck<R: Runtime>(CheckMenuItem<R>);
 #[cfg_attr(not(target_os = "macos"), expect(dead_code, reason = "menu d'app : macOS seulement"))]
 pub fn build<R: Runtime>(app: &AppHandle<R>, l: &Localizer) -> tauri::Result<Menu<R>> {
     let about = PredefinedMenuItem::about(app, None, None)?;
+    let check_updates = MenuItem::with_id(app, CHECK_UPDATES_ID, l.tr("menu-check-updates"), true, None::<&str>)?;
     let quit = MenuItem::with_id(app, QUIT_ID, l.tr("menu-quit"), true, Some("CmdOrCtrl+Q"))?;
     let app_menu = Submenu::with_items(
         app,
@@ -36,6 +39,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, l: &Localizer) -> tauri::Result<Men
         true,
         &[
             &about,
+            &check_updates,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::hide(app, None)?,
             &PredefinedMenuItem::hide_others(app, None)?,

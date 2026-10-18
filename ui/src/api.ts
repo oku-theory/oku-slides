@@ -1,6 +1,6 @@
 // Accès à l'hôte : requêtes par onglet, agent et dictée. Les types décrivent le JSON de
 // l'hôte. L'espace de travail (`workspaceApi.ts`), la requête elle-même (`hostCall.ts`) et
-// les choix de fichier (`filePick.ts`) vivent à côté, réexportés ici par leur nom.
+// les choix de fichier (`filePick.ts`) et les mises à jour (`updateApi.ts`) vivent à côté, réexportés ici par leur nom.
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { DataOp } from "./chart/chartTypes";
@@ -13,6 +13,8 @@ export { errorText, inTauri, isMac, listenTauri } from "./hostCall";
 export { tabDrag, workspace } from "./workspaceApi";
 export type { ImportPick, ImportTarget, TabAt, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
 export { pickOpenPath, pickSavePath } from "./filePick";
+export { subscribeUpdates, tauriUpdates } from "./updateApi";
+export type { InstallMode, UpdateApi, UpdateEvents, UpdateOffer, UpdateProgress, UpdateStatus } from "./updateApi";
 
 export type SlideKind = string;
 

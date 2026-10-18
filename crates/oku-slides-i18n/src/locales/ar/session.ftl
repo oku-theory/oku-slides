@@ -184,6 +184,7 @@ menu-window = نافذة
 menu-quit = خروج
 window-agent-title = الوكيل — Oku Slides
 menu-agent-detached = الوكيل في نافذة منفصلة
+menu-check-updates = البحث عن تحديثات…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = لا محاولات للشريحة { $slide }: {
        *[unscored] لا درجة لها، فالعرض المرجعي غير متوفر
     }. انتقل إلى الشريحة التالية.
 session-import-tune-compare = تعذّرت مقارنة الشريحة بعرضها المرجعي.
+
+## Mises à jour
+
+update-error-check = تعذّر البحث عن التحديثات. تحقق من اتصالك وحاول مرة أخرى.
+update-error-download = تعذّر تنزيل التحديث أو التحقق منه.
+update-error-open = تعذّر فتح صفحة الإصدارات.
+update-error-unavailable = لا يوجد تحديث للتثبيت.
+update-error-refused = لا يمكن لهذه النافذة تثبيت التحديثات.

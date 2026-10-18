@@ -184,6 +184,7 @@ menu-window = Вікно
 menu-quit = Вихід
 window-agent-title = Агент — Oku Slides
 menu-agent-detached = Агент в окремому вікні
+menu-check-updates = Перевірити оновлення…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = Слайд { $slide } не має спроб: { 
        *[unscored] він не має оцінки, еталонного рендерингу немає
     }. Переходьте до наступного слайда.
 session-import-tune-compare = Не вдалося порівняти слайд з його еталонним відтворенням.
+
+## Mises à jour
+
+update-error-check = Не вдалося перевірити оновлення. Перевірте з'єднання та спробуйте ще раз.
+update-error-download = Не вдалося завантажити або перевірити оновлення.
+update-error-open = Не вдалося відкрити сторінку випусків.
+update-error-unavailable = Немає оновлень для встановлення.
+update-error-refused = Це вікно не може встановлювати оновлення.

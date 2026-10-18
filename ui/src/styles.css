@@ -734,6 +734,9 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .workspace { height: 100%; display: flex; flex-direction: column; }
 .workspace-body { flex: 1; min-height: 0; }
 .workspace-error { margin: 0; padding: 4px 12px; background: var(--danger); color: var(--on-accent); font-size: 12px; }
+/* Bandeau de mise à jour : dans le flux, sous la barre de titre, centré. */
+.update-bar { flex: none; align-self: center; width: min(640px, calc(100% - 2 * var(--space-4))); margin: var(--space-2) 0; }
+.update-bar-progress { flex: 1 1 120px; accent-color: var(--accent-fill); }
 /* Hauteur de la barre de titre macOS : les boutons de fenêtre y sont centrés. */
 .titlebar { height: 28px; flex: none; background: var(--paper-000); }
 /* Sans préfixe, WebKit (WKWebView) sélectionne le libellé au glisser : le geste
@@ -856,16 +859,16 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   grid-template-rows: 104px auto minmax(0, 1fr) 104px;
   grid-template-areas: "pile label notes" "pile notice notes" "pile sheet notes" "pile tools device";
 }
-.pack-notice {
-  grid-area: notice; position: relative; z-index: 2; margin: 0 var(--space-6) var(--space-2);
+.notice-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4);
   padding: 6px 6px 6px 18px; background: var(--paper-200); color: var(--ink); border-radius: var(--radius-md);
   box-shadow: var(--edge-light), var(--shadow-object); transition: var(--theme-fade);
 }
+.pack-notice { grid-area: notice; position: relative; z-index: 2; margin: 0 var(--space-6) var(--space-2); }
 /* Le texte prend la place libre et passe à la ligne ; trop étroit, les actions passent dessous. */
-.pack-notice-text { flex: 1 1 260px; min-width: 0; font-size: 13px; line-height: 18px; }
-.pack-notice-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.pack-notice .btn { height: 36px; border: 0; border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
+.notice-bar-text { flex: 1 1 260px; min-width: 0; font-size: 13px; line-height: 18px; }
+.notice-bar-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.notice-bar .btn { height: 36px; border: 0; border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
 .pack-notice-close { flex: none; margin-inline-start: auto; }
 .history-track { --thumb: 16px; position: relative; padding-top: 12px; }
 .history-marks { position: absolute; inset: 0 0 auto; height: 12px; pointer-events: none; }

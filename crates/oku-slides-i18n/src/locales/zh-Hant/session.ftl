@@ -184,6 +184,7 @@ menu-window = 視窗
 menu-quit = 退出
 window-agent-title = 代理 — Oku Slides
 menu-agent-detached = 在獨立視窗中顯示代理
+menu-check-updates = 檢查更新…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = 投影片 { $slide } 沒有嘗試次數：{ $sta
        *[unscored] 它沒有分數，缺少參考渲染
     }。請繼續下一張投影片。
 session-import-tune-compare = 無法將投影片與其參考算繪進行比較。
+
+## Mises à jour
+
+update-error-check = 無法檢查更新。請檢查網路連線後再試一次。
+update-error-download = 無法下載或驗證更新。
+update-error-open = 無法開啟發佈頁面。
+update-error-unavailable = 沒有可安裝的更新。
+update-error-refused = 此視窗無法安裝更新。

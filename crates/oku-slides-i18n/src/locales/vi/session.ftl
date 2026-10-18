@@ -184,6 +184,7 @@ menu-window = Cửa sổ
 menu-quit = Thoát
 window-agent-title = Tác nhân — Oku Slides
 menu-agent-detached = Tác nhân trong cửa sổ riêng
+menu-check-updates = Kiểm tra bản cập nhật…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = Trang chiếu { $slide } không có lượt th�
        *[unscored] nó chưa có điểm, thiếu bản hiển thị tham chiếu
     }. Hãy chuyển sang trang chiếu tiếp theo.
 session-import-tune-compare = Không thể so sánh trang chiếu với bản kết xuất tham chiếu của nó.
+
+## Mises à jour
+
+update-error-check = Không thể tìm bản cập nhật. Hãy kiểm tra kết nối và thử lại.
+update-error-download = Không thể tải xuống hoặc xác minh bản cập nhật.
+update-error-open = Không thể mở trang các bản phát hành.
+update-error-unavailable = Không có bản cập nhật nào để cài đặt.
+update-error-refused = Cửa sổ này không thể cài đặt bản cập nhật.

@@ -18,6 +18,8 @@ the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
   `ImportSettings`: threshold, `witness` (`ImportWitness`), its timeouts and `soffice` programs, tuning tries, …), plus `APP_ID`.
 - `config_write`: `write_value` sets one key in `config.toml` with `toml_edit`, keeping
   comments and order; it takes effect on the next launch.
+- `updates`: the app updater's decisions without Tauri (host only, here so `just test` covers it):
+  `InstallMode`, `UpdateStatus`, `Progress` (1 % steps, 512 MiB cap), `trusted_download`, `UpdateStage`.
 - `program`: `find_program`, an external program by path or searched on `PATH` (agent, soffice).
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime
   (`read_limited`, `write_atomic`, `delete_dir`, `writer` for streams, `read_fonts`, …).
@@ -27,8 +29,7 @@ the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
 
 ## Startup order
 
-`telemetry::init` → `Platform::load` (settings → storage → `Localizer` from
-`i18n.locale`, else the system language) → app state.
+`telemetry::init` → `Platform::load` (settings → storage → `Localizer` from `i18n.locale`, else the system language) → app state.
 
 ## Config sources and on-disk layout
 

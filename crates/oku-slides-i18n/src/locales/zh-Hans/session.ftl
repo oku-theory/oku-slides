@@ -184,6 +184,7 @@ menu-window = 窗口
 menu-quit = 退出
 window-agent-title = 智能体 — Oku Slides
 menu-agent-detached = 在单独窗口中显示智能体
+menu-check-updates = 检查更新…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = 幻灯片 { $slide } 没有尝试次数：{ $sta
        *[unscored] 它没有分数，缺少参考渲染
     }。请继续下一张幻灯片。
 session-import-tune-compare = 无法将幻灯片与其参考渲染进行比较。
+
+## Mises à jour
+
+update-error-check = 无法检查更新。请检查网络连接后重试。
+update-error-download = 无法下载或验证更新。
+update-error-open = 无法打开发布页面。
+update-error-unavailable = 没有可安装的更新。
+update-error-refused = 此窗口无法安装更新。

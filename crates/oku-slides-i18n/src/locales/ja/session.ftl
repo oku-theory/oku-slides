@@ -184,6 +184,7 @@ menu-window = ウインドウ
 menu-quit = 終了
 window-agent-title = エージェント — Oku Slides
 menu-agent-detached = エージェントを別ウインドウで表示
+menu-check-updates = アップデートを確認…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = スライド { $slide } に試行はありませ
        *[unscored] スコアがありません。参照レンダリングがありません
     }。次のスライドに進んでください。
 session-import-tune-compare = スライドを参照レンダリングと比較できませんでした。
+
+## Mises à jour
+
+update-error-check = アップデートを確認できませんでした。接続を確認して、もう一度お試しください。
+update-error-download = アップデートをダウンロードまたは検証できませんでした。
+update-error-open = リリースのページを開けませんでした。
+update-error-unavailable = インストールするアップデートはありません。
+update-error-refused = このウインドウではアップデートをインストールできません。

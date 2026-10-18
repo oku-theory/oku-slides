@@ -11,11 +11,12 @@
 //!
 //! `state` porte l'état de l'app et la fin propre (`state::shutdown`,
 //! `Workspace::settle`) ; `commands` et `windows` en dépendent tous deux,
-//! jamais l'inverse. Cinq chemins de sortie s'y retrouvent : `quit`, le menu
+//! jamais l'inverse. Six chemins de sortie s'y retrouvent : `quit`, le menu
 //! « Quitter » (`on_menu_event`, jamais le `terminate:` prédéfini de macOS),
 //! la dernière fenêtre (`commands::workspace`), sa fermeture native
-//! (`commands::close_requested`) et la vue vide (`windows::sync`). Un
-//! sixième, `RunEvent::Exit`, sert de filet pour les chemins qui échappent à
+//! (`commands::close_requested`), la vue vide (`windows::sync`) et la mise à
+//! jour (`updates::install`, par `state::settle` puis `request_restart`). Un
+//! septième, `RunEvent::Exit`, sert de filet pour les chemins qui échappent à
 //! tous ceux-là (Dock, session système) : lui seul revient toujours,
 //! `Workspace::settle` y est donc rappelée sans condition.
 //!
@@ -25,6 +26,8 @@
 //! L'agent (`oku-slides-agent::Stack`) : un par onglet, sessions via
 //! `AppSessions` ; commande `agent`, évènements `oku-slides:mcp` et
 //! `oku-slides:agent` émis à toutes les fenêtres.
+//!
+//! `updates` cherche les nouvelles versions et les installe.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -34,6 +37,7 @@ mod menu;
 mod pending;
 mod state;
 mod tab_drag;
+mod updates;
 mod window_state;
 mod windows;
 
@@ -129,6 +133,8 @@ fn main() -> color_eyre::Result<()> {
     let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .on_window_event(|window, event| match event {
             // Taille et position gardées une fois le geste fini, pas seulement à la fermeture.
             WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
@@ -183,11 +189,25 @@ fn main() -> color_eyre::Result<()> {
             });
             app.manage(stt);
             app.manage(window_state::Saver::new(app.handle().clone()));
+            app.manage(updates::Updates::new(platform.storage.clone(), &platform.settings.paths.data()));
+            updates::spawn_checks(app.handle(), &platform.settings.updates);
             // « Quitter » (menu macOS) : jamais le `terminate:` natif, pour
             // toujours passer par `state::shutdown` (voir `menu.rs`).
             app.on_menu_event(|app, event| {
                 if event.id() == menu::AGENT_ID {
                     agent_window::toggle(app);
+                }
+                if event.id() == menu::CHECK_UPDATES_ID {
+                    let focused =
+                        app.try_state::<AppState>().and_then(|s| s.try_workspace().map(|ws| ws.focused().to_owned()));
+                    match focused {
+                        Some(label) => {
+                            if let Err(e) = app.emit_to(label.as_str(), "update-check-requested", ()) {
+                                tracing::warn!(error = %e, "recherche de mise à jour non transmise");
+                            }
+                        }
+                        None => tracing::debug!("recherche de mise à jour : espace de travail occupé, clic ignoré"),
+                    }
                 }
                 if event.id() == menu::QUIT_ID {
                     let app = app.clone();
@@ -229,7 +249,11 @@ fn main() -> color_eyre::Result<()> {
             tab_drag::drop_tab,
             commands::quit,
             commands::stt,
-            commands::agent
+            commands::agent,
+            updates::update_status,
+            updates::check_update,
+            updates::install_update,
+            updates::open_release_page
         ])
         .build(tauri::generate_context!())?;
     app.run(|app_handle, event| {

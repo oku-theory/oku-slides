@@ -184,6 +184,7 @@ menu-window = विंडो
 menu-quit = छोड़ें
 window-agent-title = एजेंट — Oku Slides
 menu-agent-detached = एजेंट अलग विंडो में
+menu-check-updates = अपडेट खोजें…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = स्लाइड { $slide } के लिए �
        *[unscored] इसका कोई स्कोर नहीं है, संदर्भ रेंडरिंग उपलब्ध नहीं है
     }. अगली स्लाइड पर जाएँ।
 session-import-tune-compare = स्लाइड की उसके संदर्भ रेंडरिंग से तुलना नहीं की जा सकी।
+
+## Mises à jour
+
+update-error-check = अपडेट खोजे नहीं जा सके। अपना कनेक्शन जाँचें और फिर कोशिश करें।
+update-error-download = अपडेट डाउनलोड या सत्यापित नहीं किया जा सका।
+update-error-open = रिलीज़ पेज खोला नहीं जा सका।
+update-error-unavailable = इंस्टॉल करने के लिए कोई अपडेट नहीं है।
+update-error-refused = यह विंडो अपडेट इंस्टॉल नहीं कर सकती।

@@ -184,6 +184,7 @@ menu-window = 윈도우
 menu-quit = 종료
 window-agent-title = 에이전트 — Oku Slides
 menu-agent-detached = 에이전트를 별도 창으로
+menu-check-updates = 업데이트 확인…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = 슬라이드 { $slide }에는 시도가 없습�
        *[unscored] 점수가 없습니다. 참조 렌더링이 없습니다
     }. 다음 슬라이드로 넘어가세요.
 session-import-tune-compare = 슬라이드를 참조 렌더링과 비교할 수 없었습니다.
+
+## Mises à jour
+
+update-error-check = 업데이트를 확인할 수 없습니다. 연결을 확인한 후 다시 시도하세요.
+update-error-download = 업데이트를 다운로드하거나 확인할 수 없습니다.
+update-error-open = 릴리스 페이지를 열 수 없습니다.
+update-error-unavailable = 설치할 업데이트가 없습니다.
+update-error-refused = 이 창에서는 업데이트를 설치할 수 없습니다.

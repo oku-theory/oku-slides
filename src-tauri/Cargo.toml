@@ -23,6 +23,10 @@ tauri.workspace = true
 tauri-plugin-dialog.workspace = true
 tauri-plugin-window-state.workspace = true
 tauri-plugin-single-instance.workspace = true
+tauri-plugin-updater.workspace = true
+tauri-plugin-opener.workspace = true
+snafu.workspace = true
+tokio = { workspace = true, features = ["time", "sync", "macros"] }
 # Seulement pour reconnaître une fenêtre détruite (`window_state::is_window_gone`).
 tauri-runtime.workspace = true
 
@@ -31,6 +35,7 @@ tauri-runtime.workspace = true
 oku-slides-stt = { workspace = true, features = ["accelerate"] }
 
 [dev-dependencies]
+rstest.workspace = true
 speculoos.workspace = true
 tempfile.workspace = true
 

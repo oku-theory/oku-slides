@@ -43,13 +43,18 @@ interface Props {
   saveTemplates: (asNew?: boolean) => void;
   /** Ouvre l'aide. */
   onHelp: () => void;
+  /** Cherche une mise à jour de l'app ; absent hors de l'app (pas d'entrée). */
+  onCheckUpdates?: () => void;
 }
 
 /** Le menu principal ; ses entrées changent en mode modèles. */
 export function AppMenu({
   api, snap, schemeChoice, keptUi, run, say, present, open, merge, moveFile, saveCopy, editTemplates,
-  openHistory, saveTemplates, onHelp,
+  openHistory, saveTemplates, onHelp, onCheckUpdates,
 }: Props) {
+  const checkUpdates: MenuEntry[] = onCheckUpdates
+    ? [{ kind: "item", label: t("ui-menu-check-updates"), onSelect: onCheckUpdates }]
+    : [];
   const themePicker = (
     <ThemeMenu
       theme={snap.theme}
@@ -84,6 +89,7 @@ export function AppMenu({
         { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
         { kind: "separator" },
+        ...checkUpdates,
         { kind: "item", label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
       ]
     : [
@@ -104,6 +110,7 @@ export function AppMenu({
         { kind: "custom", node: schemePicker },
         { kind: "custom", node: languagePicker },
         { kind: "separator" },
+        ...checkUpdates,
         { kind: "item", label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
       ];
   return <ActionMenu label={t("ui-menu")} entries={menuEntries} triggerClass="token ghost" />;

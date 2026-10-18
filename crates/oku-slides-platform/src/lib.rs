@@ -4,6 +4,7 @@
 //! - [`errors`] : une erreur et ses causes, sur une ligne.
 //! - [`config`] : réglages (défauts embarqués, `config.toml`, `OKU_SLIDES_…`).
 //! - [`storage`] : fichiers locaux, par OpenDAL.
+//! - [`updates`] : ce que décide la mise à jour de l'app, sans Tauri (hôte seulement).
 //! - [`config_write`] : écriture d'une clé dans `config.toml`.
 //! - [`find_program`] : un programme externe, par son chemin ou dans `PATH`.
 //! - [`Platform`] : réglages, fichiers et langue, réunis au démarrage.
@@ -22,6 +23,7 @@ mod program;
 pub mod storage;
 #[cfg(test)]
 mod test_support;
+pub mod updates;
 
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -40,8 +40,31 @@ pub struct Settings {
     pub appearance: AppearanceSettings,
     pub stt: SttSettings,
     pub agent: AgentSettings,
+    pub updates: UpdateSettings,
     #[serde(default)]
     pub author: AuthorSettings,
+}
+
+/// Mises à jour de l'app depuis les releases GitHub.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct UpdateSettings {
+    /// Chercher seul au lancement puis à intervalle régulier.
+    pub check_automatically: bool,
+    /// Heures entre deux recherches automatiques.
+    pub check_interval_hours: std::num::NonZeroU64,
+}
+
+impl UpdateSettings {
+    /// Délai entre deux recherches automatiques.
+    pub fn interval(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(self.check_interval_hours.get().saturating_mul(3600))
+    }
+
+    /// Recherche automatique permise : réglage actif, et jamais en développement.
+    pub fn auto_check(&self, debug_build: bool) -> bool {
+        self.check_automatically && !debug_build
+    }
 }
 
 /// Dossiers de l'app ; un dossier absent se déduit du dossier de données

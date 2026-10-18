@@ -17,9 +17,9 @@ export default function PackNoticeBar({ notice, onUseMine, onMakeCurrent, onClos
 }) {
   const close = t("ui-pack-notice-close");
   return (
-    <div className="pack-notice" role="status">
-      <span className="pack-notice-text">{notice.message}</span>
-      <span className="pack-notice-actions">
+    <div className="notice-bar pack-notice" role="status">
+      <span className="notice-bar-text">{notice.message}</span>
+      <span className="notice-bar-actions">
         <button className="btn primary" onClick={onUseMine}>{notice.use_mine}</button>
         {notice.make_current !== null && (
           <button className="btn ghost" onClick={onMakeCurrent}>{notice.make_current}</button>

@@ -122,28 +122,35 @@ impl Sessions for AppSessions {
     }
 }
 
+/// Prépare la fin sans quitter : marque `closing`, garde les fenêtres, arrête
+/// les agents et enregistre l'espace de travail.
+///
+/// Jamais sur le fil principal : `Workspace::settle` attend un verrou qui peut
+/// dépendre d'une opération de fenêtre dispatchée sur ce fil. Appelée par
+/// `shutdown` et par `updates::install` (avant d'installer) ; rappelée sans
+/// danger, `RunEvent::Exit` rappelant aussi `Workspace::settle`.
+pub fn settle(app: &AppHandle) {
+    if let Some(state) = app.try_state::<AppState>() {
+        state.closing.store(true, Ordering::SeqCst);
+        // Les fenêtres existent encore : taille et position gardées sans attendre.
+        crate::window_state::save(app);
+        // Hors d'un contexte async : `block_on` y est permis.
+        tauri::async_runtime::block_on(state.stack.shutdown());
+        Workspace::settle(&state.workspace);
+    }
+}
+
 /// Termine proprement : marque la fin (`closing`), arrête les agents (le
 /// sous-processus ACP est tué), attend les requêtes en cours, enregistre
-/// l'espace de travail, puis quitte.
+/// l'espace de travail ([`settle`]), puis quitte.
 ///
-/// Jamais sur le fil principal, sauf le filet de sécurité documenté dans
-/// `main.rs` (`RunEvent::Exit`, où plus aucun fil ne peut détenir ces
-/// verrous) : ailleurs, `Workspace::settle` attend un verrou qui peut
-/// dépendre d'une opération de fenêtre elle-même dispatchée sur ce fil (une
-/// fermeture de fenêtre en cours, par exemple) — l'y appeler bloquerait les
-/// deux à jamais. Appelée depuis `commands::quit`, depuis le menu « Quitter »
+/// Jamais sur le fil principal (voir [`settle`]), sauf le filet de sécurité
+/// de `main.rs` (`RunEvent::Exit`). Appelée depuis `commands::quit`, depuis le menu « Quitter »
 /// (`main.rs::on_menu_event`), depuis la dernière fenêtre
 /// (`commands::workspace` et `commands::close_requested`, chacune hors du
 /// fil principal), et depuis `windows::sync` quand la vue est vide (déjà
 /// hors du fil principal, dans `commands::blocking`).
 pub fn shutdown(app: &AppHandle) {
-    if let Some(state) = app.try_state::<AppState>() {
-        state.closing.store(true, Ordering::SeqCst);
-        // Les fenêtres existent encore : taille et position gardées sans attendre.
-        crate::window_state::save(app);
-        // Hors d'un contexte async (voir plus haut) : `block_on` y est permis.
-        tauri::async_runtime::block_on(state.stack.shutdown());
-        Workspace::settle(&state.workspace);
-    }
+    settle(app);
     app.exit(0);
 }

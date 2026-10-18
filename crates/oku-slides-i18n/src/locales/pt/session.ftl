@@ -184,6 +184,7 @@ menu-window = Janela
 menu-quit = Sair
 window-agent-title = Agente — Oku Slides
 menu-agent-detached = Agente em uma janela separada
+menu-check-updates = Verificar atualizações…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = O slide { $slide } não tem tentativas: { $state
        *[unscored] ele não tem nota, falta a renderização de referência
     }. Passe para o próximo slide.
 session-import-tune-compare = Não foi possível comparar o slide com a sua renderização de referência.
+
+## Mises à jour
+
+update-error-check = Não foi possível procurar atualizações. Verifique sua conexão e tente novamente.
+update-error-download = Não foi possível baixar ou verificar a atualização.
+update-error-open = Não foi possível abrir a página de versões.
+update-error-unavailable = Não há nenhuma atualização para instalar.
+update-error-refused = Esta janela não pode instalar atualizações.

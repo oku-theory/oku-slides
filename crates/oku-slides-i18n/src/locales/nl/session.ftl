@@ -184,6 +184,7 @@ menu-window = Venster
 menu-quit = Afsluiten
 window-agent-title = Agent — Oku Slides
 menu-agent-detached = Agent in een apart venster
+menu-check-updates = Zoeken naar updates…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = Dia { $slide } heeft geen pogingen: { $state ->
        *[unscored] hij heeft geen score, de referentieweergave ontbreekt
     }. Ga door naar de volgende dia.
 session-import-tune-compare = De dia kon niet met haar referentieweergave worden vergeleken.
+
+## Mises à jour
+
+update-error-check = Zoeken naar updates is mislukt. Controleer je verbinding en probeer het opnieuw.
+update-error-download = De update kon niet worden gedownload of gecontroleerd.
+update-error-open = De pagina met releases kon niet worden geopend.
+update-error-unavailable = Er is geen update om te installeren.
+update-error-refused = Dit venster kan geen updates installeren.

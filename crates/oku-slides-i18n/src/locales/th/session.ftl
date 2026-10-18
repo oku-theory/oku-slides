@@ -184,6 +184,7 @@ menu-window = หน้าต่าง
 menu-quit = ออก
 window-agent-title = เอเจนต์ — Oku Slides
 menu-agent-detached = เอเจนต์ในหน้าต่างแยก
+menu-check-updates = ตรวจสอบการอัปเดต…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = สไลด์ { $slide } ไม่มีกา
        *[unscored] สไลด์นี้ไม่มีคะแนน เพราะไม่มีภาพอ้างอิง
     } ไปยังสไลด์ถัดไป
 session-import-tune-compare = ไม่สามารถเปรียบเทียบสไลด์กับการเรนเดอร์อ้างอิงได้
+
+## Mises à jour
+
+update-error-check = ไม่สามารถตรวจสอบการอัปเดตได้ โปรดตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง
+update-error-download = ไม่สามารถดาวน์โหลดหรือตรวจสอบการอัปเดตได้
+update-error-open = ไม่สามารถเปิดหน้ารุ่นที่เผยแพร่ได้
+update-error-unavailable = ไม่มีการอัปเดตให้ติดตั้ง
+update-error-refused = หน้าต่างนี้ติดตั้งการอัปเดตไม่ได้

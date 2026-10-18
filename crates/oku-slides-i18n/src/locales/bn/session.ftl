@@ -184,6 +184,7 @@ menu-window = উইন্ডো
 menu-quit = প্রস্থান
 window-agent-title = এজেন্ট — Oku Slides
 menu-agent-detached = এজেন্ট আলাদা উইন্ডোতে
+menu-check-updates = আপডেট খুঁজুন…
 
 ## Éditeur de thème (surface host-theme)
 
@@ -454,3 +455,11 @@ session-import-tune-untunable = স্লাইড { $slide }-এর কোন�
        *[unscored] এর কোনো স্কোর নেই, রেফারেন্স রেন্ডারিং অনুপস্থিত
     }. পরের স্লাইডে যান।
 session-import-tune-compare = স্লাইডটিকে তার রেফারেন্স রেন্ডারিংয়ের সঙ্গে তুলনা করা যায়নি।
+
+## Mises à jour
+
+update-error-check = আপডেট খোঁজা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।
+update-error-download = আপডেটটি ডাউনলোড বা যাচাই করা যায়নি।
+update-error-open = রিলিজ পৃষ্ঠাটি খোলা যায়নি।
+update-error-unavailable = ইনস্টল করার মতো কোনো আপডেট নেই।
+update-error-refused = এই উইন্ডো আপডেট ইনস্টল করতে পারে না।

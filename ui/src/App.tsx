@@ -19,6 +19,7 @@ import Stage from "./Stage";
 import { useFieldEditing } from "./useFieldEditing";
 import { useSvgCache } from "./useSvgCache";
 import { useToast } from "./useToast";
+import { useUpdateCheck, type AppUpdates } from "./useUpdateCheck";
 import { useThumbsOver } from "./useSlideThumbs";
 import { useKeptUi } from "./useKeptUi";
 import { t } from "./i18n";
@@ -65,7 +66,7 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
-  onHelp, onClose, onChange,
+  onHelp, updates, onClose, onChange,
 }: {
   tab: string;
   /** L'agent est dans sa propre fenêtre : ni colonne, ni fil, ni brouillon ici. */
@@ -86,6 +87,8 @@ export default function App({
   onImportClose: () => void;
   /** Montrer l'aide de l'app : l'espace de travail ouvre (ou retrouve) son onglet. */
   onHelp: () => void;
+  /** Recherche de mise à jour de la fenêtre ; absente hors de l'app (pas d'entrée). */
+  updates?: AppUpdates;
   /** Fermer cet onglet (bandeau de l'aide) ; absent : le dernier onglet reste. */
   onClose?: () => void;
   /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
@@ -107,6 +110,7 @@ export default function App({
     setCurrent(id);
   };
   const { say, node: toastNode } = useToast();
+  const checkUpdates = useUpdateCheck(updates, say);
   const svgs = useSvgCache(api);
   // Miniatures des reçus de l'agent : même cache que la pile, empreintes actuelles du deck.
   const slideThumbs = useThumbsOver(svgs, snap?.slides);
@@ -278,7 +282,7 @@ export default function App({
       api={api} snap={snap} schemeChoice={schemeChoice} keptUi={keptUi} run={run} say={say}
       present={present} open={open} merge={merge} moveFile={moveFile} saveCopy={saveCopy}
       editTemplates={editTemplates} openHistory={openHistory} saveTemplates={saveTemplates}
-      onHelp={onHelp}
+      onHelp={onHelp} onCheckUpdates={checkUpdates}
     />
   );
   const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));
