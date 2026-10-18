@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] Tabelle
    *[text] Text
 }
-ui-add-widget = Paket-Widget
+ui-add-kind-description = { $kind ->
+    [card] Ein Titel und ein kurzer Text in einem Rahmen
+    [shape] Eine farbige Form
+    [chart] Ein Diagramm aus einer Datentabelle
+    [table] Eine Datentabelle
+   *[text] Ein Textabsatz
+}
 ui-toolbar-remove-template = Vorlage löschen
 ui-toolbar-remove-slide = Folie löschen
 ui-toolbar-remove-hint = Folie { $n } · rückgängig mit ⌘Z
@@ -255,6 +261,11 @@ ui-picker-close = Schließen
 ui-picker-previous = Vorherige Vorlage
 ui-picker-next = Nächste Vorlage
 ui-picker-list = Folienvorlagen
+ui-widget-picker-filter = Nach Name, Bezeichnung oder Beschreibung filtern
+ui-widget-picker-empty = Kein Widget passt zu „{ $query }“.
+ui-widget-picker-list = Widgets
+ui-widget-picker-previous = Vorheriges Widget
+ui-widget-picker-next = Nächstes Widget
 
 ## Diagramm
 

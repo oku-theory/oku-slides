@@ -8,6 +8,8 @@ import { AttachButton } from "./agent/AttachButton";
 import { useSchemeChoice } from "./scheme";
 import { findElement, pickSlide, previewLook, slideToFetch } from "./deck";
 import TemplatePicker from "./TemplatePicker";
+import WidgetPicker from "./WidgetPicker";
+import type { WidgetChoice } from "./widgetChoices";
 import ImportDialog from "./ImportDialog";
 import type { ImportJob } from "./useImportJob";
 import { useFileActions } from "./useFileActions";
@@ -24,7 +26,7 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { useDictation } from "./useDictation";
 import { Icon } from "./icons";
-import { canRemoveSlide } from "./slideTools";
+import { canAdd, canRemoveSlide } from "./slideTools";
 import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel } from "./agent/AgentPanel";
 import { SlotView } from "./agent/slot";
@@ -203,8 +205,15 @@ export default function App({
   });
 
   const [picking, setPicking] = useState(false);
-  // Une fenêtre de l'app (modèles, import) est ouverte : rien derrière elle ne réagit.
-  const dialogOpen = picking || importJob !== null;
+  const [adding, setAdding] = useState(false);
+  // Une fenêtre de l'app (modèles, ajout, import) est ouverte : rien derrière elle ne réagit.
+  const dialogOpen = picking || adding || importJob !== null;
+  /** Ajoute la carte choisie dans le carrousel d'ajout, qui se ferme. */
+  const addChoice = (c: WidgetChoice) => {
+    setAdding(false);
+    if ("native" in c.pick) addElement(c.pick.native);
+    else addPackWidget(c.pick.widget);
+  };
   const addSlide = () => setPicking(true);
   useClipboardEvents({
     api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, apply, addElement,
@@ -230,7 +239,7 @@ export default function App({
   });
 
   const {
-    insertTemplate, editTemplates, packWidgets, addWidgets, finishTemplates, saveTemplates,
+    insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates, saveTemplates,
     adoptSet,
   } = useTemplatesMode({
     api, snap, snapRef, current, run, say, apply, autosave, widgets, setCurrent, setSelected,
@@ -343,8 +352,8 @@ export default function App({
 
       <ToolsTray
         api={api} snap={snap} view={view} widgetActive={widgetActive} widgets={widgets}
-        keptUi={keptUi} paramsHidden={paramsHidden} addWidgets={addWidgets} mainMenu={mainMenu}
-        run={run} addElement={addElement} addPackWidget={addPackWidget}
+        keptUi={keptUi} paramsHidden={paramsHidden} mainMenu={mainMenu}
+        run={run} onAdd={() => setAdding(true)}
       />
 
       {/* En haut à droite, en mode modèles : terminer. */}
@@ -487,6 +496,17 @@ export default function App({
           onSetChange={adoptSet}
           onClose={() => setPicking(false)}
           api={api}
+        />
+      )}
+
+      {adding && (
+        <WidgetPicker
+          choices={addChoices}
+          canPick={(c) => canAdd("native" in c.pick ? c.pick.native : "widget", view?.slide.kind)}
+          themeKey={deckLook}
+          preview={api.previewWidget}
+          onPick={addChoice}
+          onClose={() => setAdding(false)}
         />
       )}
 

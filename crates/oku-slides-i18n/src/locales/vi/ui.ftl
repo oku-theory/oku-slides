@@ -67,7 +67,13 @@ ui-add-kind = { $kind ->
     [table] Bảng
    *[text] Văn bản
 }
-ui-add-widget = Tiện ích của gói
+ui-add-kind-description = { $kind ->
+    [card] Tiêu đề và đoạn văn ngắn trong khung
+    [shape] Một hình có màu
+    [chart] Biểu đồ vẽ từ bảng dữ liệu
+    [table] Một bảng dữ liệu
+   *[text] Một đoạn văn bản
+}
 ui-toolbar-remove-template = Xóa mẫu
 ui-toolbar-remove-slide = Xóa trang chiếu
 ui-toolbar-remove-hint = Trang chiếu { $n } · hoàn tác bằng ⌘Z
@@ -253,6 +259,11 @@ ui-picker-close = Đóng
 ui-picker-previous = Mẫu trước
 ui-picker-next = Mẫu tiếp theo
 ui-picker-list = Mẫu trang chiếu
+ui-widget-picker-filter = Lọc theo tên, nhãn hoặc mô tả
+ui-widget-picker-empty = Không có widget nào khớp với “{ $query }”.
+ui-widget-picker-list = Widget
+ui-widget-picker-previous = Widget trước
+ui-widget-picker-next = Widget tiếp theo
 
 ## Biểu đồ
 

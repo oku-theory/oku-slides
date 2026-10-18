@@ -1,4 +1,4 @@
-// Barre d'outils (sous la feuille) : ajout d'éléments ; suppression de slide au coin de sa miniature.
+// Barre d'outils (sous la feuille) : ajout d'éléments par le carrousel filtrable ; suppression de slide au coin de sa miniature.
 // Contre `oku-slides serve fixtures/roadmap.json`.
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
@@ -7,7 +7,7 @@ const { until, stable } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const state = (p) => p.evaluate(() => ({
   slides: document.querySelectorAll('.thumb').length,
-  add: [...document.querySelectorAll('.add-group button')].map((b) => !b.disabled),
+  add: document.querySelector('.add-button')?.disabled === false,
   undo: document.querySelector('[aria-label^="Annuler"]')?.getAttribute('aria-label'),
 }));
 (async () => {
@@ -18,12 +18,22 @@ const state = (p) => p.evaluate(() => ({
   await p.goto(URL);
   await p.waitForSelector('.stage img');
   // Slide 1 (titre) : rien ne s'ajoute.
-  assert.deepEqual((await state(p)).add, [false, false, false, false, false]);
-  // Slide 4 (contenu) : tout s'ajoute ; le graphique s'ajoute et l'hôte annonce son annulation par un libellé.
+  assert.equal((await state(p)).add, false);
+  // Slide 4 (contenu) : le bouton d'ajout ouvre le carrousel ; filtré sur la description du graphique,
+  // Entrée l'ajoute et l'hôte annonce son annulation par un libellé.
   await p.click('.thumb >> nth=3');
-  await until(p, async () => (await state(p)).add.every(Boolean), 'slide 4 : la barre d\'ajout ne s\'active pas');
-  assert.deepEqual((await state(p)).add, [true, true, true, true, true]);
-  await p.getByRole('group', { name: 'Ajouter sur la slide' }).getByRole('button', { name: 'Graphique' }).click();
+  await until(p, async () => (await state(p)).add, 'slide 4 : le bouton d\'ajout ne s\'active pas');
+  await p.getByRole('button', { name: 'Ajouter sur la slide' }).click();
+  const picker = p.getByRole('dialog', { name: 'Ajouter sur la slide' });
+  await picker.waitFor();
+  const options = picker.getByRole('option');
+  assert.deepEqual(await options.locator('.template-name').allTextContents(), ['Texte', 'Carte', 'Forme', 'Graphique', 'Tableau']);
+  await picker.getByRole('combobox').fill('tiré');
+  await until(p, async () => (await options.count()) === 1, 'le filtre sur la description ne garde pas le seul graphique');
+  assert.equal(await options.locator('.template-name').textContent(), 'Graphique');
+  await p.waitForSelector('.widget-picker[data-armed]');
+  await p.keyboard.press('Enter');
+  await picker.waitFor({ state: 'detached' });
   await until(p, async () => (await state(p)).undo === 'Annuler : Ajouter un graphique', 'le graphique n\'est pas ajouté (libellé d\'annulation)');
   assert.equal((await state(p)).undo, 'Annuler : Ajouter un graphique');
   // Suppression au coin de la miniature, puis annulation.

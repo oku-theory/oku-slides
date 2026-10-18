@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] Table
    *[text] Text
 }
-ui-add-widget = Pack widget
+ui-add-kind-description = { $kind ->
+    [card] A title and a short text in a box
+    [shape] A coloured shape
+    [chart] A chart drawn from a data table
+    [table] A table of data
+   *[text] A paragraph of text
+}
 ui-toolbar-remove-template = Delete the template
 ui-toolbar-remove-slide = Delete the slide
 ui-toolbar-remove-hint = Slide { $n } · undo with ⌘Z
@@ -255,6 +261,11 @@ ui-picker-close = Close
 ui-picker-previous = Previous template
 ui-picker-next = Next template
 ui-picker-list = Slide templates
+ui-widget-picker-filter = Filter by name, label or description
+ui-widget-picker-empty = No widget matches “{ $query }”.
+ui-widget-picker-list = Widgets
+ui-widget-picker-previous = Previous widget
+ui-widget-picker-next = Next widget
 
 ## Chart
 

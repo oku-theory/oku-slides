@@ -1,13 +1,13 @@
 // Le mode modèles d'un onglet. On y entre, en sort, enregistre, change de jeu et insère un modèle.
 
 import { useMemo } from "react";
-import type { Op, PackInfo, Snapshot, TabApi, TemplateView } from "./api";
+import type { AddWidget, Op, PackInfo, Snapshot, TabApi, TemplateView } from "./api";
 import { instantiate } from "./deck";
-import { t } from "./i18n";
+import { locale, t } from "./i18n";
 import { setTemplatesOp } from "./packOps";
-import { menuWidgets } from "./slideTools";
 import type { useFileActions } from "./useFileActions";
 import type { TemplateWidgets } from "./useTemplateWidgets";
+import { widgetChoices } from "./widgetChoices";
 
 /** Ce dont le mode modèles a besoin de l'onglet. */
 interface TemplatesModeContext {
@@ -59,7 +59,11 @@ export function useTemplatesMode({
   // Clé par contenu : chaque snapshot apporte un nouveau tableau.
   const packWidgetsKey = (snap?.pack_widgets ?? []).join("\n");
   const packWidgets = useMemo(() => new Set(packWidgetsKey ? packWidgetsKey.split("\n") : []), [packWidgetsKey]);
-  const addWidgets = menuWidgets(snap?.add_widgets ?? []);
+  // Cartes du carrousel d'ajout, par contenu : un nouveau tableau relancerait le défilement du
+  // carrousel ouvert. `lang` : les libellés natifs viennent de t(), qui suit la langue sans être lu ici.
+  const addWidgetsKey = JSON.stringify(snap?.add_widgets ?? []);
+  const lang = locale();
+  const addChoices = useMemo(() => widgetChoices(JSON.parse(addWidgetsKey) as AddWidget[]), [addWidgetsKey, lang]);
   const finishTemplates = async () => {
     if (!snap?.editing) return;
     await autosave.flush();
@@ -81,5 +85,5 @@ export function useTemplatesMode({
     apply(t("ui-undo-templates", { name: set.name }), [setTemplatesOp(set)]);
   };
 
-  return { insertTemplate, editTemplates, packWidgets, addWidgets, finishTemplates, saveTemplates, adoptSet };
+  return { insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates, saveTemplates, adoptSet };
 }

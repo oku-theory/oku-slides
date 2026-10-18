@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] 表
    *[text] テキスト
 }
-ui-add-widget = パックのウィジェット
+ui-add-kind-description = { $kind ->
+    [card] 枠内のタイトルと短いテキスト
+    [shape] 色付きの図形
+    [chart] データ表から描くグラフ
+    [table] データの表
+   *[text] テキストの段落
+}
 ui-toolbar-remove-template = テンプレートを削除
 ui-toolbar-remove-slide = スライドを削除
 ui-toolbar-remove-hint = スライド { $n } · ⌘Z で取り消し
@@ -255,6 +261,11 @@ ui-picker-close = 閉じる
 ui-picker-previous = 前のテンプレート
 ui-picker-next = 次のテンプレート
 ui-picker-list = スライドテンプレート
+ui-widget-picker-filter = 名前、ラベル、説明で絞り込む
+ui-widget-picker-empty = 「{ $query }」に一致するウィジェットはありません。
+ui-widget-picker-list = ウィジェット
+ui-widget-picker-previous = 前のウィジェット
+ui-widget-picker-next = 次のウィジェット
 
 ## グラフ
 

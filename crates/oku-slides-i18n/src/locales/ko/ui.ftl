@@ -67,7 +67,13 @@ ui-add-kind = { $kind ->
     [table] 표
    *[text] 텍스트
 }
-ui-add-widget = 팩 위젯
+ui-add-kind-description = { $kind ->
+    [card] 테두리 안의 제목과 짧은 텍스트
+    [shape] 색이 있는 도형
+    [chart] 데이터 표로 그린 차트
+    [table] 데이터 표
+   *[text] 텍스트 단락
+}
 ui-toolbar-remove-template = 템플릿 삭제
 ui-toolbar-remove-slide = 슬라이드 삭제
 ui-toolbar-remove-hint = 슬라이드 { $n } · ⌘Z로 실행 취소
@@ -253,6 +259,11 @@ ui-picker-close = 닫기
 ui-picker-previous = 이전 템플릿
 ui-picker-next = 다음 템플릿
 ui-picker-list = 슬라이드 템플릿
+ui-widget-picker-filter = 이름, 레이블 또는 설명으로 필터
+ui-widget-picker-empty = “{ $query }”와(과) 일치하는 위젯이 없습니다.
+ui-widget-picker-list = 위젯
+ui-widget-picker-previous = 이전 위젯
+ui-widget-picker-next = 다음 위젯
 
 ## 차트
 

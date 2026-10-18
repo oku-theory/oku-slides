@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { SlideKind } from "./api";
-import { ADD_KINDS, canAdd, canRemoveSlide, menuWidgets } from "./slideTools";
+import { ADD_KINDS, canAdd, canRemoveSlide, packOnlyWidgets } from "./slideTools";
 
 describe("canAdd", () => {
   test("sur une slide de contenu, tout s'ajoute", () => {
@@ -35,10 +35,10 @@ describe("canRemoveSlide", () => {
   });
 });
 
-describe("menuWidgets", () => {
-  test("menuWidgets écarte les widgets du pack qui ont déjà leur bouton", () => {
-    const list = [{ name: "card", label: "Carte maison" }, { name: "kpi", label: "KPI" }];
-    expect(menuWidgets(list)).toEqual([{ name: "kpi", label: "KPI" }]);
+describe("packOnlyWidgets", () => {
+  test("packOnlyWidgets écarte les widgets du pack qui portent le nom d'un élément natif", () => {
+    const list = [{ name: "card", label: "Carte maison", description: null }, { name: "kpi", label: "KPI", description: null }];
+    expect(packOnlyWidgets(list)).toEqual([{ name: "kpi", label: "KPI", description: null }]);
   });
 });
 

@@ -56,5 +56,5 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Use SetSlideField only for slide name and description; change kind with SetKind and other params with SetParam. (plan:2026-09-28-widgets-typst-2)
 - Use the registry-resolved grid (Slide::resolved_grid) for set_cell, validation and preview. (plan:2026-10-03-widgets-agent-a2ui)
 - Keep set_grid as a deck op visible to the agent, with placed elements rescaled in Rust. (plan:2026-10-03-widgets-agent-a2ui)
-- Validate widget schemas in Rust check_widget as the authority; Typst only registers the type. (spec:2026-10-04-parametre-liste-design)
+- Validate widget schemas in Rust check_widget; Typst asserts only the argument types serde reads, so one bad file fails alone. (spec:2026-10-04-parametre-liste-design, t-938)
 - Treat deck templates as one atomic optional PackRef; never patch it field by field. (t-347)

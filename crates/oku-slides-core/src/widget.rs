@@ -134,12 +134,15 @@ pub struct ParamSchema {
     pub bind: Option<String>,
 }
 
-/// Un widget : son nom, sa catégorie et ses paramètres dans l'ordre déclaré.
+/// Un widget : son nom, son label, sa description, sa catégorie et ses paramètres déclarés.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WidgetSchema {
     pub name: String,
     #[serde(default)]
     pub label: Option<String>,
+    /// Ce que montre le widget, en une phrase ; le carrousel d'ajout la filtre.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     pub category: Category,
     pub params: Vec<ParamSchema>,
 }

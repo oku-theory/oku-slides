@@ -216,6 +216,7 @@ fn schema(name: &WidgetFile, label: Option<&str>, params: &[PlaceholderParam], d
     WidgetSchema {
         name: name.as_str().to_owned(),
         label: label.map(str::to_owned),
+        description: None,
         category: Category::Slide,
         params: out,
     }

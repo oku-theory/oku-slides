@@ -186,7 +186,7 @@ body:has(.band-divider.active) { cursor: row-resize; user-select: none; -webkit-
 /* Sous l'aperçu, la fiche prend la largeur de sa zone (le code est à côté). */
 .widget-tab-side > .host-settings { flex: none; width: auto; margin: var(--space-2) calc(10px * var(--elev-sheet)); }
 .widget-pane > .widget-tab { flex: 1; }
-.templates-panel[hidden], .widget-pane[hidden], .add-group[hidden], .tools-sep[hidden] { display: none; }
+.templates-panel[hidden], .widget-pane[hidden], .add-button[hidden], .tools-sep[hidden] { display: none; }
 
 /* Onglet « Thème » : les jetons dans la colonne de droite ; le fil de l'agent y reste monté, caché. */
 .notes.theme-active > :not(.theme-panel) { display: none; }

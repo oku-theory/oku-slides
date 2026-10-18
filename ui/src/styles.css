@@ -211,7 +211,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .theme-card:hover { transform: none; box-shadow: var(--shadow-object); }
 /* Sous la feuille : ajouter à la slide, puis annuler / rétablir, dans une seule barre. */
 .tools-tray { grid-area: tools; justify-self: center; align-self: center; position: relative; z-index: 2; gap: 2px; padding: 0 var(--space-1); }
-.add-group { display: flex; align-items: center; gap: 2px; }
 .tools-tray .token.ghost { width: 36px; height: 36px; }
 /* Fenêtre étroite : des jetons plus petits, pour que la barre tienne sous la slide. */
 @media (max-width: 1199px) { .tools-tray .token.ghost { width: 32px; height: 32px; } }
@@ -544,6 +543,25 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .linkish { align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer; font-size: 12px; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; opacity: 0.75; }
 .linkish:hover { opacity: 1; }
 .picker-set { display: inline-flex; align-items: center; gap: var(--space-2); }
+/* Carrousel d'ajout : le filtre dans l'en-tête ; une carte montre l'aperçu du widget, ou l'icône d'un élément natif. */
+.widget-picker-filter {
+  width: min(320px, 40vw); height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: var(--radius-md);
+  background: var(--paper-000); color: var(--ink); font: inherit;
+}
+.widget-picker-filter:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.widget-choice { width: 220px; }
+.widget-choice-face {
+  width: 220px; aspect-ratio: 16 / 9; display: grid; place-items: center; padding: 14px; box-sizing: border-box;
+  border-radius: var(--radius-sm); background: var(--t-bg); color: var(--ink-muted);
+  box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+.widget-choice-face > svg { width: 48px; height: 48px; }
+.widget-choice-face > img { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; box-shadow: none; border-radius: 0; background: none; }
+.widget-choice.focused .widget-choice-face { transform: var(--lift) scale(1.04); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
+.widget-choice.focused img { transform: none; box-shadow: none; }
+.widget-choice:disabled { cursor: default; opacity: 0.45; }
+.widget-picker-empty { margin: 0; text-align: center; }
+.widget-picker-empty:not(:empty) { padding: 0 0 48px; }
 
 /* ---- Pile : glisser-déposer ---- */
 .thumb-slot { position: relative; }

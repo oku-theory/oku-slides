@@ -17,18 +17,28 @@
 
 #let _types = ("plain", "rich", "flag", "number", "choice", "asset", "slot", "grid", "host", "list")
 
-/// Déclare un widget. category : "element" ou "slide".
-#let widget(name, label: none, category: "element", params: (:), render) = {
+/// Déclare un widget. category : "element" ou "slide" ; description : ce
+/// qu'il montre, en une phrase (le carrousel d'ajout la filtre).
+#let widget(name, label: none, description: none, category: "element", params: (:), render) = {
   assert(type(name) == str and name != "", message: "oku-slides : un widget a besoin d'un nom")
   assert(category in ("slide", "element"),
     message: "oku-slides : widget « " + name + " » : catégorie inconnue « " + repr(category) + " »")
+  // Un label ou une description d'un autre type casserait la lecture de tout le registre :
+  // seul ce fichier est écarté, avec un message qui nomme l'argument.
+  assert(label == none or type(label) == str,
+    message: "oku-slides : widget « " + name + " » : le label doit être un texte")
+  assert(description == none or type(description) == str,
+    message: "oku-slides : widget « " + name + " » : la description doit être un texte")
+  // Vide ou d'espaces : rien à montrer, comme absent.
+  let label = if label == none or label.trim() == "" { none } else { label }
+  let description = if description == none or description.trim() == "" { none } else { description }
   let list = ()
   for (key, d) in params {
     assert(type(d) == dictionary and d.at("type", default: none) in _types,
       message: "oku-slides : widget « " + name + " » : le paramètre « " + key + " » n'est pas un descripteur p.*")
     list.push((name: key) + d)
   }
-  (name: name, schema: (name: name, label: label, category: category, params: list), render: render)
+  (name: name, schema: (name: name, label: label, description: description, category: category, params: list), render: render)
 }
 
 /// Widgets d'un registre, par nom ; un nom répété remplace le précédent.

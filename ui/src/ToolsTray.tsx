@@ -1,13 +1,11 @@
-// La barre d'outils sous la feuille. On y ajoute un élément ou un widget, montre les paramètres,
+// La barre d'outils sous la feuille. On y ouvre le carrousel d'ajout, montre les paramètres,
 // ouvre le menu, annule et rétablit ; sur un sous-onglet widget, elle porte ses propres outils.
 
 import type { ReactNode } from "react";
-import { ActionMenu } from "./ActionMenu";
-import type { AddWidget, SlideView, Snapshot, TabApi } from "./api";
+import type { SlideView, Snapshot, TabApi } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import type { AddKind } from "./slideTools";
-import { ADD_KINDS, canAdd } from "./slideTools";
+import { canAdd } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
 import type { TemplateWidgets } from "./useTemplateWidgets";
 import { activeWidget } from "./widgetTabs";
@@ -29,16 +27,12 @@ interface Props {
   keptUi: KeptUi;
   /** Les paramètres de contenu sont masqués. */
   paramsHidden: boolean;
-  /** Les widgets du pack qu'on peut ajouter. */
-  addWidgets: AddWidget[];
   /** Le menu principal, posé dans la barre. */
   mainMenu: ReactNode;
   /** Applique une requête qui rend un snapshot. */
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
-  /** Ajoute un élément du genre donné. */
-  addElement: (kind: AddKind) => void;
-  /** Ajoute un widget du pack. */
-  addPackWidget: (w: AddWidget) => void;
+  /** Ouvre le carrousel d'ajout. */
+  onAdd: () => void;
 }
 
 /** Les outils posés sous la feuille. */
@@ -50,11 +44,9 @@ export function ToolsTray({
   widgets,
   keptUi,
   paramsHidden,
-  addWidgets,
   mainMenu,
   run,
-  addElement,
-  addPackWidget,
+  onAdd,
 }: Props) {
   const paramsLabel = t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide");
   const undoLabel = snap.undo_label
@@ -67,32 +59,19 @@ export function ToolsTray({
   // annuler / rétablir : posés sous la feuille.
   return (
     <div className="object theme-card tools-tray">
-      <div className="add-group" role="group" aria-label={t("ui-toolbar-add-label")} hidden={widgetActive}>
-        {ADD_KINDS.map((k) => {
-          const name = t("ui-add-kind", { kind: k });
-          return (
-            <button
-              key={k}
-              className="token ghost"
-              aria-label={name}
-              title={name}
-              disabled={!canAdd(k, view?.slide.kind)}
-              onClick={() => addElement(k)}
-            >
-              {Icon[k]}
-            </button>
-          );
-        })}
-        {addWidgets.length > 0 && (
-          <ActionMenu
-            label={t("ui-add-widget")}
-            icon={Icon.widget}
-            triggerClass="token ghost"
-            disabled={!canAdd("widget", view?.slide.kind)}
-            entries={addWidgets.map((w) => ({ kind: "item", label: w.label ?? w.name, onSelect: () => addPackWidget(w) }))}
-          />
-        )}
-      </div>
+      {/* Un seul bouton d'ajout : il ouvre le carrousel des éléments natifs et des widgets du pack.
+          Actif dès qu'une carte autre que le texte s'ajoute (« widget » : toute sorte non textuelle). */}
+      <button
+        className="token ghost add-button"
+        aria-label={t("ui-toolbar-add-label")}
+        title={t("ui-toolbar-add-label")}
+        aria-haspopup="dialog"
+        hidden={widgetActive}
+        disabled={!canAdd("widget", view?.slide.kind)}
+        onClick={onAdd}
+      >
+        {Icon.widget}
+      </button>
       <span className="tools-sep" aria-hidden hidden={widgetActive} />
       {widgetActive ? (
         <>

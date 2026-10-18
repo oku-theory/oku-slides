@@ -459,7 +459,7 @@ impl Session {
             .into_iter()
             .filter_map(|name| self.registry.get(name))
             .filter(|w| w.category == Category::Element)
-            .map(|w| AddWidget { name: &w.name, label: w.label.as_deref() })
+            .map(|w| AddWidget { name: &w.name, label: w.label.as_deref(), description: w.description.as_deref() })
             .collect()
     }
 

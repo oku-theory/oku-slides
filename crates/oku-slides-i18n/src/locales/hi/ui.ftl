@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] तालिका
    *[text] टेक्स्ट
 }
-ui-add-widget = पैक विजेट
+ui-add-kind-description = { $kind ->
+    [card] एक फ़्रेम में शीर्षक और छोटा पाठ
+    [shape] एक रंगीन आकृति
+    [chart] डेटा तालिका से बना चार्ट
+    [table] डेटा की तालिका
+   *[text] पाठ का एक अनुच्छेद
+}
 ui-toolbar-remove-template = टेम्पलेट हटाएँ
 ui-toolbar-remove-slide = स्लाइड हटाएँ
 ui-toolbar-remove-hint = स्लाइड { $n } · ⌘Z से पूर्ववत करें
@@ -255,6 +261,11 @@ ui-picker-close = बंद करें
 ui-picker-previous = पिछला टेम्पलेट
 ui-picker-next = अगला टेम्पलेट
 ui-picker-list = स्लाइड टेम्पलेट
+ui-widget-picker-filter = नाम, लेबल या विवरण से फ़िल्टर करें
+ui-widget-picker-empty = “{ $query }” से कोई विजेट मेल नहीं खाता।
+ui-widget-picker-list = विजेट
+ui-widget-picker-previous = पिछला विजेट
+ui-widget-picker-next = अगला विजेट
 
 ## चार्ट
 

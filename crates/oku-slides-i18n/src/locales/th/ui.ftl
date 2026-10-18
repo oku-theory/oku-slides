@@ -67,7 +67,13 @@ ui-add-kind = { $kind ->
     [table] ตาราง
    *[text] ข้อความ
 }
-ui-add-widget = วิดเจ็ตของแพ็ก
+ui-add-kind-description = { $kind ->
+    [card] หัวเรื่องและข้อความสั้นในกรอบ
+    [shape] รูปทรงที่มีสี
+    [chart] แผนภูมิจากตารางข้อมูล
+    [table] ตารางข้อมูล
+   *[text] ย่อหน้าข้อความ
+}
 ui-toolbar-remove-template = ลบเทมเพลต
 ui-toolbar-remove-slide = ลบสไลด์
 ui-toolbar-remove-hint = สไลด์ { $n } · เลิกทำด้วย ⌘Z
@@ -253,6 +259,11 @@ ui-picker-close = ปิด
 ui-picker-previous = เทมเพลตก่อนหน้า
 ui-picker-next = เทมเพลตถัดไป
 ui-picker-list = เทมเพลตสไลด์
+ui-widget-picker-filter = กรองตามชื่อ ป้ายกำกับ หรือคำอธิบาย
+ui-widget-picker-empty = ไม่มีวิดเจ็ตที่ตรงกับ “{ $query }”
+ui-widget-picker-list = วิดเจ็ต
+ui-widget-picker-previous = วิดเจ็ตก่อนหน้า
+ui-widget-picker-next = วิดเจ็ตถัดไป
 
 ## แผนภูมิ
 

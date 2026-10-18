@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] Tabel
    *[text] Tekst
 }
-ui-add-widget = Pakketwidget
+ui-add-kind-description = { $kind ->
+    [card] Een titel en een korte tekst in een kader
+    [shape] Een gekleurde vorm
+    [chart] Een grafiek uit een gegevenstabel
+    [table] Een gegevenstabel
+   *[text] Een alinea tekst
+}
 ui-toolbar-remove-template = Sjabloon verwijderen
 ui-toolbar-remove-slide = Dia verwijderen
 ui-toolbar-remove-hint = Dia { $n } · ongedaan maken met ⌘Z
@@ -255,6 +261,11 @@ ui-picker-close = Sluiten
 ui-picker-previous = Vorig sjabloon
 ui-picker-next = Volgend sjabloon
 ui-picker-list = Diasjablonen
+ui-widget-picker-filter = Filteren op naam, label of beschrijving
+ui-widget-picker-empty = Geen widget komt overeen met ‘{ $query }’.
+ui-widget-picker-list = Widgets
+ui-widget-picker-previous = Vorige widget
+ui-widget-picker-next = Volgende widget
 
 ## Grafiek
 

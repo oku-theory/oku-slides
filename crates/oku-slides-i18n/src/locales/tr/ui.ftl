@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] Tablo
    *[text] Metin
 }
-ui-add-widget = Paket bileşeni
+ui-add-kind-description = { $kind ->
+    [card] Çerçeve içinde bir başlık ve kısa bir metin
+    [shape] Renkli bir şekil
+    [chart] Bir veri tablosundan çizilen grafik
+    [table] Bir veri tablosu
+   *[text] Bir metin paragrafı
+}
 ui-toolbar-remove-template = Şablonu sil
 ui-toolbar-remove-slide = Slaytı sil
 ui-toolbar-remove-hint = Slayt { $n } · ⌘Z ile geri alın
@@ -255,6 +261,11 @@ ui-picker-close = Kapat
 ui-picker-previous = Önceki şablon
 ui-picker-next = Sonraki şablon
 ui-picker-list = Slayt şablonları
+ui-widget-picker-filter = Ada, etikete veya açıklamaya göre filtrele
+ui-widget-picker-empty = “{ $query }” ile eşleşen widget yok.
+ui-widget-picker-list = Widget'lar
+ui-widget-picker-previous = Önceki widget
+ui-widget-picker-next = Sonraki widget
 
 ## Grafik
 

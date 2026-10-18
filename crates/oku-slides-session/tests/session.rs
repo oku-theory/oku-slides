@@ -824,6 +824,11 @@ const KPI_LABELLED: &str = r#"#import "/oku-slides/lib.typ": widget, field, para
   (args, ctx) => field(ctx, "body", args.body))
 "#;
 
+const KPI_DESCRIBED: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("kpi", label: "KPI", description: "Une valeur en grand", params: (body: p.plain()),
+  (args, ctx) => field(ctx, "body", args.body))
+"#;
+
 const COVER_SLIDE: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
 #let widget = widget("cover", category: "slide", params: (title: p.plain()),
   (args, ctx) => args.title)
@@ -834,8 +839,35 @@ const COVER_SLIDE: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
 fn snapshot_add_widgets_lists_the_pack_element_widgets_with_their_label() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_LABELLED}))).unwrap();
-    assert_that!(snapshot_json(&mut s)["add_widgets"]).is_equal_to(json!([{"name": "kpi", "label": "KPI"}]));
+    assert_that!(snapshot_json(&mut s)["add_widgets"])
+        .is_equal_to(json!([{"name": "kpi", "label": "KPI", "description": null}]));
 }
+
+/// La barre d'ajout porte la description d'un widget du pack, pour le filtre.
+#[test]
+fn snapshot_add_widgets_carries_the_widget_description() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_DESCRIBED}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["add_widgets"][0]["description"]).is_equal_to(json!("Une valeur en grand"));
+}
+
+/// Un fichier au label mal typé est écarté seul : les autres widgets du pack restent proposés.
+#[test]
+fn snapshot_add_widgets_keeps_the_pack_when_one_file_has_a_non_text_label() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_DESCRIBED}))).unwrap();
+    let change = s.set_widget("casse", NON_TEXT_LABEL.into()).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let set_aside = change.status.schema.is_none()
+        && change.status.diagnostics.iter().any(|d| d.message.contains("le label doit être un texte"));
+    let names: Vec<serde_json::Value> =
+        snapshot_json(&mut s)["add_widgets"].as_array().into_iter().flatten().map(|w| w["name"].clone()).collect();
+    assert_that!((change.saved, set_aside, names)).is_equal_to((true, true, vec![json!("kpi")]));
+}
+
+const NON_TEXT_LABEL: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("casse", label: 42, params: (body: p.plain()),
+  (args, ctx) => field(ctx, "body", args.body))
+"#;
 
 /// Un widget de slide du pack ne s'ajoute pas à une slide : absent de la liste.
 #[test]

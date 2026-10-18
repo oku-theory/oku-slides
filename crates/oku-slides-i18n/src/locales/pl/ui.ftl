@@ -73,7 +73,13 @@ ui-add-kind = { $kind ->
     [table] Tabela
    *[text] Tekst
 }
-ui-add-widget = Widżet pakietu
+ui-add-kind-description = { $kind ->
+    [card] Tytuł i krótki tekst w ramce
+    [shape] Kolorowy kształt
+    [chart] Wykres z tabeli danych
+    [table] Tabela danych
+   *[text] Akapit tekstu
+}
 ui-toolbar-remove-template = Usuń szablon
 ui-toolbar-remove-slide = Usuń slajd
 ui-toolbar-remove-hint = Slajd { $n } · cofnij za pomocą ⌘Z
@@ -259,6 +265,11 @@ ui-picker-close = Zamknij
 ui-picker-previous = Poprzedni szablon
 ui-picker-next = Następny szablon
 ui-picker-list = Szablony slajdów
+ui-widget-picker-filter = Filtruj według nazwy, etykiety lub opisu
+ui-widget-picker-empty = Żaden widżet nie pasuje do „{ $query }”.
+ui-widget-picker-list = Widżety
+ui-widget-picker-previous = Poprzedni widżet
+ui-widget-picker-next = Następny widżet
 
 ## Wykres
 

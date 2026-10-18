@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use oku_slides_core::{Category, Deck, ParamType, WidgetErrorKind, WidgetFile};
-use oku_slides_render::{Fonts, PackWidgets, Registries, RegistryErrorKind, Renderer, load_registry};
+use oku_slides_render::{Fonts, PackWidgets, Registries, RegistryErrorKind, Renderer, load_registry, probe_file};
+use rstest::rstest;
+use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
@@ -48,6 +50,42 @@ fn load_registry_pack_that_does_not_compile_returns_its_diagnostics() {
             .any(|d| d.place.as_deref().is_some_and(|p| p.contains("packs/casse/widgets/casse.typ")))
     )
     .is_true();
+}
+
+/// Un `label` ou une `description` qui n'est pas un texte écarte ce seul fichier, avec un
+/// message qui nomme l'argument (et non une erreur serde de tout le registre).
+#[rstest]
+#[case::description_number("description: 42", "la description doit être un texte")]
+#[case::description_content("description: [Une valeur]", "la description doit être un texte")]
+#[case::label_number("label: 42", "le label doit être un texte")]
+#[case::label_content("label: [KPI]", "le label doit être un texte")]
+fn probe_file_with_a_non_text_label_or_description_is_set_aside(#[case] arg: &str, #[case] named: &str) {
+    let src = format!(
+        "#import \"/oku-slides/lib.typ\": widget, params as p\n#let widget = widget(\"kpi\", {arg}, params: (:), (args, ctx) => [])\n"
+    );
+    let probe = probe_file(&Fonts::default(), &WidgetFile::parse("kpi").unwrap(), &src, None);
+    assert_that!(probe.is_valid()).is_false();
+    assert_that!(probe.diagnostics.iter().any(|d| d.message.contains(named))).is_true();
+}
+
+/// Un texte est gardé tel quel ; un label ou une description vide (ou d'espaces) vaut `none`.
+#[rstest]
+#[case::description_text("description: \"Une valeur\"", "description", json!("Une valeur"))]
+#[case::description_blank("description: \"   \"", "description", Value::Null)]
+#[case::description_empty("description: \"\"", "description", Value::Null)]
+#[case::label_text("label: \"KPI\"", "label", json!("KPI"))]
+#[case::label_blank("label: \"  \"", "label", Value::Null)]
+fn probe_file_text_label_or_description_is_kept_or_blank_becomes_none(
+    #[case] arg: &str,
+    #[case] field: &str,
+    #[case] read: Value,
+) {
+    let src = format!(
+        "#import \"/oku-slides/lib.typ\": widget, params as p\n#let widget = widget(\"kpi\", {arg}, params: (:), (args, ctx) => [])\n"
+    );
+    let probe = probe_file(&Fonts::default(), &WidgetFile::parse("kpi").unwrap(), &src, None);
+    assert_that!(probe.is_valid()).is_true();
+    assert_that!(probe.schema.as_ref().and_then(|s| s.get(field)).cloned()).is_equal_to(Some(read));
 }
 
 #[test]

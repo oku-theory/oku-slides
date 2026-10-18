@@ -73,7 +73,13 @@ ui-add-kind = { $kind ->
     [table] Таблица
    *[text] Текст
 }
-ui-add-widget = Виджет пакета
+ui-add-kind-description = { $kind ->
+    [card] Заголовок и короткий текст в рамке
+    [shape] Цветная фигура
+    [chart] Диаграмма по таблице данных
+    [table] Таблица данных
+   *[text] Абзац текста
+}
 ui-toolbar-remove-template = Удалить шаблон
 ui-toolbar-remove-slide = Удалить слайд
 ui-toolbar-remove-hint = Слайд { $n } · отменить: ⌘Z
@@ -259,6 +265,11 @@ ui-picker-close = Закрыть
 ui-picker-previous = Предыдущий шаблон
 ui-picker-next = Следующий шаблон
 ui-picker-list = Шаблоны слайдов
+ui-widget-picker-filter = Фильтр по имени, подписи или описанию
+ui-widget-picker-empty = Нет виджетов, подходящих под «{ $query }».
+ui-widget-picker-list = Виджеты
+ui-widget-picker-previous = Предыдущий виджет
+ui-widget-picker-next = Следующий виджет
 
 ## Диаграмма
 

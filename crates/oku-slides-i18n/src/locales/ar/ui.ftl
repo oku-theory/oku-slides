@@ -77,7 +77,13 @@ ui-add-kind = { $kind ->
     [table] جدول
    *[text] نص
 }
-ui-add-widget = أداة الحزمة
+ui-add-kind-description = { $kind ->
+    [card] عنوان ونص قصير داخل إطار
+    [shape] شكل ملوّن
+    [chart] مخطط مرسوم من جدول بيانات
+    [table] جدول بيانات
+   *[text] فقرة نصية
+}
 ui-toolbar-remove-template = حذف القالب
 ui-toolbar-remove-slide = حذف الشريحة
 ui-toolbar-remove-hint = الشريحة { $n } · تراجع باستخدام ⌘Z
@@ -263,6 +269,11 @@ ui-picker-close = إغلاق
 ui-picker-previous = القالب السابق
 ui-picker-next = القالب التالي
 ui-picker-list = قوالب الشرائح
+ui-widget-picker-filter = التصفية حسب الاسم أو التسمية أو الوصف
+ui-widget-picker-empty = لا توجد أداة تطابق «{ $query }».
+ui-widget-picker-list = الأدوات
+ui-widget-picker-previous = الأداة السابقة
+ui-widget-picker-next = الأداة التالية
 
 ## المخطط
 

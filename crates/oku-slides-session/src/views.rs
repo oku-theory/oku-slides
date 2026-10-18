@@ -109,11 +109,13 @@ pub struct Snapshot<'a> {
     pub read_only: bool,
 }
 
-/// Un widget de pack qu'on ajoute à une slide : son nom (`kind`) et son label.
+/// Un widget de pack à ajouter : nom (`kind`), label et description.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct AddWidget<'a> {
     pub name: &'a str,
     pub label: Option<&'a str>,
+    /// Ce que montre le widget, en une phrase.
+    pub description: Option<&'a str>,
 }
 
 /// La version que montre l'historique, et ce qui a changé depuis.

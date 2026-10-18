@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] Tabla
    *[text] Texto
 }
-ui-add-widget = Widget del paquete
+ui-add-kind-description = { $kind ->
+    [card] Un título y un texto breve en un recuadro
+    [shape] Una forma de color
+    [chart] Un gráfico a partir de una tabla de datos
+    [table] Una tabla de datos
+   *[text] Un párrafo de texto
+}
 ui-toolbar-remove-template = Eliminar la plantilla
 ui-toolbar-remove-slide = Eliminar la diapositiva
 ui-toolbar-remove-hint = Diapositiva { $n } · deshaz con ⌘Z
@@ -255,6 +261,11 @@ ui-picker-close = Cerrar
 ui-picker-previous = Plantilla anterior
 ui-picker-next = Plantilla siguiente
 ui-picker-list = Plantillas de diapositivas
+ui-widget-picker-filter = Filtrar por nombre, etiqueta o descripción
+ui-widget-picker-empty = Ningún widget coincide con «{ $query }».
+ui-widget-picker-list = Widgets
+ui-widget-picker-previous = Widget anterior
+ui-widget-picker-next = Widget siguiente
 
 ## Gráfico
 

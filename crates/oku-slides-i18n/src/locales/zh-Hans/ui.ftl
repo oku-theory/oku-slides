@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] 表格
    *[text] 文本
 }
-ui-add-widget = 模板包小组件
+ui-add-kind-description = { $kind ->
+    [card] 边框中的标题和简短文本
+    [shape] 彩色形状
+    [chart] 由数据表绘制的图表
+    [table] 数据表
+   *[text] 一段文本
+}
 ui-toolbar-remove-template = 删除模板
 ui-toolbar-remove-slide = 删除幻灯片
 ui-toolbar-remove-hint = 幻灯片 { $n } · 按 ⌘Z 撤销
@@ -255,6 +261,11 @@ ui-picker-close = 关闭
 ui-picker-previous = 上一个模板
 ui-picker-next = 下一个模板
 ui-picker-list = 幻灯片模板
+ui-widget-picker-filter = 按名称、标签或描述筛选
+ui-widget-picker-empty = 没有与“{ $query }”匹配的小组件。
+ui-widget-picker-list = 小组件
+ui-widget-picker-previous = 上一个小组件
+ui-widget-picker-next = 下一个小组件
 
 ## 图表
 

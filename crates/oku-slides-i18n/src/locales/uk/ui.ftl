@@ -73,7 +73,13 @@ ui-add-kind = { $kind ->
     [table] Таблиця
    *[text] Текст
 }
-ui-add-widget = Віджет пакета
+ui-add-kind-description = { $kind ->
+    [card] Заголовок і короткий текст у рамці
+    [shape] Кольорова фігура
+    [chart] Діаграма з таблиці даних
+    [table] Таблиця даних
+   *[text] Абзац тексту
+}
 ui-toolbar-remove-template = Видалити шаблон
 ui-toolbar-remove-slide = Видалити слайд
 ui-toolbar-remove-hint = Слайд { $n } · скасувати: ⌘Z
@@ -259,6 +265,11 @@ ui-picker-close = Закрити
 ui-picker-previous = Попередній шаблон
 ui-picker-next = Наступний шаблон
 ui-picker-list = Шаблони слайдів
+ui-widget-picker-filter = Фільтр за назвою, підписом або описом
+ui-widget-picker-empty = Жоден віджет не відповідає «{ $query }».
+ui-widget-picker-list = Віджети
+ui-widget-picker-previous = Попередній віджет
+ui-widget-picker-next = Наступний віджет
 
 ## Діаграма
 

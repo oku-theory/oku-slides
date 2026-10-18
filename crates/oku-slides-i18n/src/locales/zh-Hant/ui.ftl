@@ -69,7 +69,13 @@ ui-add-kind = { $kind ->
     [table] 表格
    *[text] 文字
 }
-ui-add-widget = 範本套件小工具
+ui-add-kind-description = { $kind ->
+    [card] 框內的標題與簡短文字
+    [shape] 彩色圖形
+    [chart] 由資料表繪製的圖表
+    [table] 資料表
+   *[text] 一段文字
+}
 ui-toolbar-remove-template = 刪除範本
 ui-toolbar-remove-slide = 刪除投影片
 ui-toolbar-remove-hint = 投影片 { $n } · 按 ⌘Z 還原
@@ -255,6 +261,11 @@ ui-picker-close = 關閉
 ui-picker-previous = 上一個範本
 ui-picker-next = 下一個範本
 ui-picker-list = 投影片範本
+ui-widget-picker-filter = 依名稱、標籤或說明篩選
+ui-widget-picker-empty = 沒有符合「{ $query }」的小工具。
+ui-widget-picker-list = 小工具
+ui-widget-picker-previous = 上一個小工具
+ui-widget-picker-next = 下一個小工具
 
 ## 圖表
 

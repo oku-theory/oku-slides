@@ -32,6 +32,29 @@ fn from_probe_base_keeps_params_in_declaration_order() {
     assert_that!(names).is_equal_to(vec!["kicker", "title", "body", "highlight"]);
 }
 
+/// La description d'un widget est lue telle quelle ; absente ou nulle, elle vaut `None`.
+#[rstest]
+#[case::given(Some(json!("Une valeur en grand")), Some("Une valeur en grand"))]
+#[case::null(Some(Value::Null), None)]
+#[case::absent(None, None)]
+#[case::blank_kept(Some(json!("")), Some(""))]
+fn from_probe_description_is_read_or_none(#[case] given: Option<Value>, #[case] read: Option<&str>) {
+    let mut kpi = widget("kpi", "element", json!([]));
+    if let Some(d) = given {
+        kpi["description"] = d;
+    }
+    let r = WidgetRegistry::from_probe(probe(vec![card(), kpi], None)).unwrap();
+    assert_that!(r.get("kpi").unwrap().description.as_deref()).is_equal_to(read);
+}
+
+/// Sans description, le schéma sérialisé n'a pas la clé : les schémas existants ne changent pas.
+#[test]
+fn widget_schema_without_description_serializes_without_the_key() {
+    let r = WidgetRegistry::from_probe(probe(vec![card()], None)).unwrap();
+    let json = serde_json::to_value(r.get("card").unwrap()).unwrap();
+    assert_that!(json.get("description")).is_none();
+}
+
 #[test]
 fn from_probe_reads_every_param_type() {
     let all = widget(
