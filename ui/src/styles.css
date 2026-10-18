@@ -291,6 +291,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .target.cut { outline: 2px dashed var(--accent); outline-offset: 3px; background: color-mix(in srgb, var(--t-bg) 55%, transparent); }
 /* Objet en édition : son cadre passe au-dessus de l'éditeur, sans prendre les clics. */
 .target.editing { z-index: 6; pointer-events: none; outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Glisser : le contenu recadré suit le pointeur au-dessus des autres objets ; sa place d'origine s'estompe. */
+.target.dragging { z-index: 5; cursor: grabbing; }
+.drag-ghost { position: absolute; left: 0; top: 0; overflow: hidden; pointer-events: none; border-radius: inherit; opacity: 0.85; box-shadow: var(--shadow-sheet); }
+.drag-ghost > img { position: absolute; max-width: none; }
+.drag-origin { position: absolute; pointer-events: none; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--t-bg) 60%, transparent); }
 /* Champs : zones de clic transparentes au-dessus des objets. */
 .fields { position: absolute; inset: 0; pointer-events: none; }
 .field { position: absolute; pointer-events: auto; }

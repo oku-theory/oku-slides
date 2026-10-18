@@ -21,6 +21,7 @@ import type { TextEditorHandle } from "./TextEditor";
 import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
 import { anchorBox, elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
+import { DragGhost, DragOrigin } from "./DragGhost";
 import GhostLayer from "./GhostLayer";
 import { randomId } from "./randomId";
 import type { OnListOp } from "./stageItems";
@@ -45,6 +46,11 @@ function draggedCell(d: Drag): Cell | null {
   if (!d.place) return null;
   const { zone, grid, cell } = d.place;
   return d.mode === "move" ? moveCell(zone, grid, cell, d.dx, d.dy) : resizeCell(zone, grid, cell, d.mode, d.dx, d.dy);
+}
+
+/** Le pointeur a bougé au-delà d'un clic (en pt) : le glisser a vraiment commencé. */
+function hasMoved(d: Drag): boolean {
+  return Math.abs(d.dx) > 2 || Math.abs(d.dy) > 2;
 }
 
 /** Ce que l'application peut demander à la scène. */
@@ -269,9 +275,8 @@ export default function Stage(props: Props) {
     const place = drag.place;
     if (cell && place) {
       setDrag(null);
-      const moved = Math.abs(drag.dx) > 2 || Math.abs(drag.dy) > 2;
       // Un élément qui n'est pas encore sur une case s'y accroche dès qu'il bouge.
-      if (!sameCell(cell, place.cell) || (moved && !place.onCell)) {
+      if (!sameCell(cell, place.cell) || (hasMoved(drag) && !place.onCell)) {
         const label = t(place.block
           ? drag.mode === "move" ? "ui-undo-place-on-grid" : "ui-undo-resize-on-grid"
           : drag.mode === "move" ? "ui-undo-move-on-grid" : "ui-undo-change-anchor");
@@ -360,6 +365,8 @@ export default function Stage(props: Props) {
   };
 
   const size = { width: Math.floor(view.width * scale), height: Math.floor(view.height * scale) };
+  // Un déplacement emporte le contenu rendu de l'élément ; un redimensionnement ou un clic, rien.
+  const carried = drag?.mode === "move" && hasMoved(drag) && svgUrl ? view.targets.find((x) => x.id === drag.id) : undefined;
   return (
     // La slide garde ses coordonnées de gauche à droite, même dans une interface en arabe.
     <div className={`stage-wrap${preview ? " stage-preview" : ""}`} dir="ltr" ref={wrap} onPointerDown={() => editing || onSelect(null)}>
@@ -376,6 +383,7 @@ export default function Stage(props: Props) {
           {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell} />}
           {showGhosts && <GhostLayer view={view} scale={scale} hidden={drag?.id ?? null} />}
           {deck && <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
+            {carried && <DragOrigin target={carried} scale={scale} />}
             {view.targets.map((tg) => {
               const sel = tg.id === selected;
               const label = kindLabel(tg.kind);
@@ -383,7 +391,7 @@ export default function Stage(props: Props) {
               return (
                 <div
                   key={tg.id}
-                  className={`target${movable ? " free" : ""}${sel ? " selected" : ""}${tg.id === cut ? " cut" : ""}${editField?.owner === tg.id ? " editing" : ""}`}
+                  className={`target${movable ? " free" : ""}${sel ? " selected" : ""}${tg.id === cut ? " cut" : ""}${editField?.owner === tg.id ? " editing" : ""}${tg === carried ? " dragging" : ""}`}
                   style={box(tg)}
                   aria-label={label}
                   aria-selected={sel}
@@ -393,6 +401,7 @@ export default function Stage(props: Props) {
                     if (f) onEdit(fieldKey(f));
                   }}
                 >
+                  {tg === carried && svgUrl && <DragGhost svgUrl={svgUrl} target={tg} scale={scale} size={size} />}
                   {sel && !editing && (packWidgets?.has(tg.kind) && onOpenWidget ? (
                     <button
                       className="tag tag-open"

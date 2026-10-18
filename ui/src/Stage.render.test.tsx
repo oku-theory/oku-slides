@@ -240,6 +240,49 @@ test("Stage with ghosts hides the ghost of the element being dragged", async () 
   expect(host.querySelector(".stage-ghost-target")).toBeNull();
 });
 
+/** Commence un glisser sur la boîte de l'élément (ou une poignée), puis bouge le pointeur. */
+async function dragBy(host: HTMLElement, from: string, dx: number) {
+  await act(async () => {
+    host.querySelector(from)!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+  });
+  await act(async () => {
+    host.querySelector(".stage")!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: 10 + dx, clientY: 10 }));
+  });
+}
+
+test("Stage moving an element shows its rendered content cropped in the moving box", async () => {
+  const { host } = await mount({ view: gridded, svgUrl: "slide.svg", selected: "t1" });
+  await dragBy(host, ".target", 30);
+  // Scène non mesurée (happy-dom) : échelle 0,1 ; l'image de la slide est décalée de la place d'origine.
+  const img = host.querySelector<HTMLImageElement>(".target .drag-ghost img")!;
+  expect([img.getAttribute("src"), img.style.left, img.style.top, img.style.width, img.style.height])
+    .toEqual(["slide.svg", "-25px", "0px", "100px", "60px"]);
+});
+
+test("Stage moving an element dims its content at its original place", async () => {
+  const { host } = await mount({ view: gridded, svgUrl: "slide.svg", selected: "t1" });
+  await dragBy(host, ".target", 30);
+  const origin = host.querySelector<HTMLElement>(".drag-origin")!;
+  expect([origin.style.left, origin.style.top, origin.style.width, origin.style.height]).toEqual(["25px", "0px", "50px", "20px"]);
+});
+
+test("Stage without a drag shows no content ghost", async () => {
+  const { host } = await mount({ view: gridded, svgUrl: "slide.svg", selected: "t1" });
+  expect(host.querySelector(".drag-ghost, .drag-origin")).toBeNull();
+});
+
+test("Stage pressing an element without moving it shows no content ghost", async () => {
+  const { host } = await mount({ view: gridded, svgUrl: "slide.svg", selected: "t1" });
+  await dragBy(host, ".target", 0);
+  expect(host.querySelector(".drag-ghost, .drag-origin")).toBeNull();
+});
+
+test.each(["nw", "ne", "sw", "se"])("Stage resizing an element from %s shows no content ghost", async (corner) => {
+  const { host } = await mount({ view: gridded, svgUrl: "slide.svg", selected: "t1" });
+  await dragBy(host, `.handle.${corner}`, 30);
+  expect(host.querySelector(".drag-ghost, .drag-origin")).toBeNull();
+});
+
 test("Stage read only shows no field layer", async () => {
   const { host } = await mount({ readOnly: true });
   expect(host.querySelector(".fields")).toBeNull();
