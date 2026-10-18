@@ -54,7 +54,7 @@ describe("messages de l'interface", () => {
     expect(t("ui-caption-slides", { count: 1, status: "enregistré" })).toBe("1 slide · enregistré");
     expect(t("ui-caption-slides", { count: 8, status: "enregistré" })).toBe("8 slides · enregistré");
     expect(t("ui-seconds", { value: 1.5 })).toBe("1,5 s");
-    expect(t("ui-toast-select-zone", { text: "Bonjour" })).toBe("Sélectionnez une zone pour y placer : « Bonjour »");
+    expect(t("ui-undo-add-widget", { name: "Bonjour" })).toBe("Ajouter « Bonjour »");
     expect(t("ui-field", { kind: "kicker" })).toBe("Surtitre");
     expect(t("ui-field", { kind: "autre" })).toBe("autre");
     expect(t("ui-chart-kind", { kind: "waterfall" })).toBe("Cascade");

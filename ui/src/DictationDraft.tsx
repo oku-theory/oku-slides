@@ -1,13 +1,13 @@
 // Le brouillon des dictées dans le panneau de droite : on relit, retouche ou
-// complète ce qu'on a dit, puis on choisit — l'insérer tel quel ou l'envoyer
-// à l'agent comme consigne. Il se lit sur une carte ; un clic l'ouvre en édition.
+// complète ce qu'on a dit, puis on l'envoie à l'agent comme consigne.
+// Il se lit sur une carte ; un clic l'ouvre en édition.
 // Ouvert au clavier (⌘K), il s'ouvre en édition pour écrire sans dicter.
 
 import { useEffect, useRef, useState } from "react";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 
-/** Le brouillon et ses trois actions ; rien sans brouillon ouvert. */
+/** Le brouillon, son envoi et son abandon ; rien sans brouillon ouvert. */
 export function DictationDraft({
   text,
   dictations,
@@ -15,9 +15,7 @@ export function DictationDraft({
   busy,
   notice = null,
   ready,
-  insertTo,
   onChange,
-  onInsert,
   onSend,
   onDiscard,
 }: {
@@ -27,23 +25,20 @@ export function DictationDraft({
   dictations: number;
   /** Nombre de demandes d'écriture au clavier : chacune ouvre le champ, curseur en fin. */
   typing: number;
-  /** Un tour de l'agent est en cours : l'envoi attend sa fin, l'insertion non. */
+  /** Un tour de l'agent est en cours : l'envoi attend sa fin. */
   busy: boolean;
   /** « L'agent répond ailleurs » : l'envoi attend, la note le dit. */
   notice?: string | null;
-  /** Un agent répond : sans lui, rien ne s'envoie (le texte reste au brouillon, l'insertion reste possible). */
+  /** Un agent répond : sans lui, rien ne s'envoie (le texte reste au brouillon). */
   ready: boolean;
-  /** Où « Insérer » écrira (« dans le titre »…) ; `null` : aucune zone choisie. */
-  insertTo: string | null;
   onChange: (text: string) => void;
-  onInsert: (text: string) => void;
   onSend: (text: string) => void;
   onDiscard: () => void;
 }) {
   const area = useRef<HTMLTextAreaElement>(null);
   const note = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
-  // À chaque dictée, le focus revient au brouillon : ⌘↩ ou ⌘⇧↩ aussitôt.
+  // À chaque dictée, le focus revient au brouillon : ⌘↩ aussitôt.
   useEffect(() => {
     if (editing) toEnd(area.current);
     else note.current?.focus();
@@ -69,11 +64,7 @@ export function DictationDraft({
     if (said === "") onDiscard();
     else setEditing(false);
   };
-  const canInsert = said !== "" && insertTo !== null;
   const canSend = said !== "" && !busy && !notice && ready;
-  const insert = () => {
-    if (canInsert) onInsert(said);
-  };
   const send = () => {
     if (canSend) onSend(said);
   };
@@ -83,10 +74,10 @@ export function DictationDraft({
       aria-label={t("ui-draft")}
       onKeyDown={(e) => {
         if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+        // ⌘⇧↩ ne présente pas le deck depuis le brouillon : seul ⌘↩ y fait quelque chose.
         e.preventDefault();
         e.stopPropagation();
-        if (e.shiftKey) insert();
-        else send();
+        if (!e.shiftKey) send();
       }}
     >
       {editing ? (
@@ -123,16 +114,9 @@ export function DictationDraft({
       {notice && <p className="caption draft-notice" role="status">{notice}</p>}
       <div className="draft-actions">
         <button type="button" className="token ghost draft-discard" aria-label={t("ui-draft-discard")} title={t("ui-draft-discard")} onClick={onDiscard}>{Icon.trash}</button>
-        <span className="draft-exits">
-          {/* Où ira le texte, juste avant le bouton qui l'y insère. */}
-          <span className="caption draft-insert-to">→ {insertTo ?? t("ui-dictation-select-zone")}</span>
-          <button type="button" className="token ghost draft-insert" disabled={!canInsert} aria-label={t("ui-draft-insert")} title={t("ui-draft-insert-title")} onClick={insert}>
-            {Icon.insert}
-          </button>
-          <button type="button" className="object token primary draft-send" disabled={!canSend} aria-label={t("ui-draft-send")} title={t("ui-draft-send-title")} onClick={send}>
-            {Icon.send}
-          </button>
-        </span>
+        <button type="button" className="object token primary draft-send" disabled={!canSend} aria-label={t("ui-draft-send")} title={t("ui-draft-send-title")} onClick={send}>
+          {Icon.send}
+        </button>
       </div>
     </section>
   );

@@ -36,14 +36,9 @@ test("draftActions envoyer en échec : le brouillon reste", async () => {
   expect(log).toEqual([]);
 });
 
-test("draftActions insérer : ferme puis écrit", async () => {
-  const { log, actions } = deps();
-  await actions.insertDraft("texte");
-  expect(log).toEqual(["close", "insert:texte"]);
-});
-
-test("draftActions insérer refusé : le texte revient au brouillon", async () => {
-  const { log, actions } = deps({ insert: () => false });
-  await actions.insertDraft("texte");
-  expect(log).toEqual(["close", "append:texte"]);
+test("draftActions dictée au curseur refusée : le texte revient au brouillon", async () => {
+  const { log, actions } = deps({ editing: true, insert: () => false });
+  actions.onDictated("mot", "auto");
+  await new Promise((r) => setTimeout(r));
+  expect(log).toEqual(["append:mot"]);
 });

@@ -21,10 +21,9 @@ afterEach(async () => {
 
 async function mount(
   text: string | null,
-  { busy = false, insertTo = "dans le titre" as string | null, typing = 0, notice = null as string | null, ready = true } = {},
+  { busy = false, typing = 0, notice = null as string | null, ready = true } = {},
 ) {
   const sent: string[] = [];
-  const inserted: string[] = [];
   const changes: string[] = [];
   let discarded = 0;
   const host = document.createElement("div");
@@ -40,8 +39,6 @@ async function mount(
         busy,
         notice,
         ready,
-        insertTo,
-        onInsert: (v: string) => inserted.push(v),
         onChange: (v: string) => changes.push(v),
         onSend: (v: string) => sent.push(v),
         onDiscard: () => discarded++,
@@ -51,8 +48,7 @@ async function mount(
   const area = () => host.querySelector("textarea") as HTMLTextAreaElement;
   const note = () => host.querySelector(".draft-note") as HTMLElement;
   const send = () => host.querySelector(".draft-send") as HTMLButtonElement;
-  const insert = () => host.querySelector(".draft-insert") as HTMLButtonElement;
-  return { host, area, note, send, insert, sent, inserted, changes, discarded: () => discarded };
+  return { host, area, note, send, sent, changes, discarded: () => discarded };
 }
 
 const key = (el: Element, init: KeyboardEventInit) =>
@@ -64,11 +60,6 @@ describe("brouillon de dictée", () => {
     expect(d.send().disabled).toBe(true);
     key(d.note(), { key: "Enter", metaKey: true });
     expect(d.sent).toEqual([]);
-  });
-
-  test("DictationDraft sans agent disponible peut toujours insérer (t-211)", async () => {
-    const d = await mount("Ajoute une slide", { ready: false });
-    expect(d.insert().disabled).toBe(false);
   });
 
   test("DictationDraft with a notice disables send", async () => {
@@ -93,9 +84,8 @@ describe("brouillon de dictée", () => {
   });
 
   test("DictationDraft actions show icons only", async () => {
-    const { host, send, insert } = await mount("plus court");
+    const { host, send } = await mount("plus court");
     expectIconOnly(send());
-    expectIconOnly(insert());
     expectIconOnly(host.querySelector(".draft-discard"));
   });
 
@@ -206,35 +196,14 @@ describe("brouillon de dictée", () => {
     expect(document.activeElement).toBe(note());
   });
 
-  test("DictationDraft Insérer écrit le texte tel quel, sans l'agent", async () => {
-    const { insert, inserted, sent } = await mount("  Budget 2027 \n");
-    await act(async () => insert().click());
-    expect(inserted).toEqual(["Budget 2027"]);
-    expect(sent).toEqual([]);
-  });
-
-  test("DictationDraft ⌘⇧↩ insère", async () => {
-    const { note, inserted, sent } = await mount("Budget 2027");
+  test("DictationDraft ⌘⇧↩ n'envoie pas et ne sort pas du brouillon", async () => {
+    const { note, sent } = await mount("Budget 2027");
+    const outside: KeyboardEvent[] = [];
+    const spy = (e: KeyboardEvent) => void outside.push(e);
+    window.addEventListener("keydown", spy);
     await act(async () => key(note(), { key: "Enter", metaKey: true, shiftKey: true }));
-    expect(inserted).toEqual(["Budget 2027"]);
-    expect(sent).toEqual([]);
-  });
-
-  test("DictationDraft dit où Insérer écrira", async () => {
-    const { host } = await mount("Budget 2027");
-    expect(host.querySelector(".draft-insert-to")?.textContent).toBe("→ dans le titre");
-  });
-
-  test("DictationDraft sans zone où écrire ne peut pas insérer", async () => {
-    const { insert, note, inserted } = await mount("Budget 2027", { insertTo: null });
-    expect(insert().disabled).toBe(true);
-    await act(async () => key(note(), { key: "Enter", metaKey: true, shiftKey: true }));
-    expect(inserted).toEqual([]);
-  });
-
-  test("DictationDraft pendant un tour de l'agent peut toujours insérer", async () => {
-    const { insert } = await mount("Budget 2027", { busy: true });
-    expect(insert().disabled).toBe(false);
+    window.removeEventListener("keydown", spy);
+    expect([sent, outside]).toEqual([[], []]);
   });
 
   test("DictationDraft ouvert pour écrire est un champ qui a le focus", async () => {

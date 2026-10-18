@@ -10,7 +10,7 @@ export interface MainLinkInput {
   /** L'agent est dans sa fenêtre : publier, répondre, relayer. Sinon rien. */
   detached: boolean;
   context: LinkContext;
-  /** Écrit le texte au curseur, dans la zone sélectionnée ou en nouveau bloc ; `false` : nulle part. */
+  /** Écrit le texte dicté au curseur ; `false` : plus d'édition en cours. */
   insert: (text: string) => boolean;
   transport: LinkTransport;
 }

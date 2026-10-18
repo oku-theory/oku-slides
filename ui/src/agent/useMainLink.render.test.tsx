@@ -13,7 +13,7 @@ afterEach(async () => {
   cleanup = null;
 });
 
-const context: LinkContext = { editing: false, insertTo: "nouveau bloc", ui: { slide: "s1", element: null, field: null, editing: false, widget: null }, staged: null, keysOff: false, look: "" };
+const context: LinkContext = { editing: false, ui: { slide: "s1", element: null, field: null, editing: false, widget: null }, staged: null, keysOff: false, look: "" };
 
 async function mountLink({ detached = true, insert = (_t: string) => true } = {}) {
   const transport = memoryTransport();
@@ -39,7 +39,7 @@ describe("useMainLink", () => {
 
   test("useMainLink détaché : un contexte changé est republié", async () => {
     const m = await mountLink();
-    const next = { ...context, insertTo: "titre" };
+    const next = { ...context, editing: true };
     await m.rerender(true, next);
     expect(m.transport.sent).toContainEqual({ to: "agent", kind: "context", tab: "t-1", context: next });
   });

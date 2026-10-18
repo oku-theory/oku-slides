@@ -27,7 +27,7 @@ const PAPIER = {
 };
 const READ_ONLY = { title: "Aide", slides: [], read_only: true } as unknown as Snapshot;
 const UI = { slide: "s1", element: null, field: null, editing: false, widget: null };
-const ctx = (over: Partial<LinkContext> = {}): LinkContext => ({ editing: false, insertTo: "titre", ui: UI, staged: null, keysOff: false, look: "", ...over });
+const ctx = (over: Partial<LinkContext> = {}): LinkContext => ({ editing: false, ui: UI, staged: null, keysOff: false, look: "", ...over });
 const sheetOn = (id: string): Surface => ({ id, place: "sheet", live: true, question: false, anchor: { slide: "s1", owner: "e1" }, messages: [] });
 
 function fakeHost(snapshot: Snapshot = SNAP) {
@@ -94,22 +94,12 @@ describe("AgentWindow", () => {
     expect(m.transport.listeners()).toBeGreaterThan(0);
   });
 
-  // La cible d'insertion ne s'affiche que brouillon ouvert (`DictationDraft.tsx:65`) : ⌘K relayé l'ouvre.
-  const openDraft = (m: Awaited<ReturnType<typeof mountWindow>>) => m.send({ to: "agent", kind: "shortcut", tab: "t-1", key: "type" });
-
-  test("AgentWindow le contexte de son onglet donne la cible d'insertion", async () => {
-    const m = await mountWindow();
-    await openDraft(m);
-    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ insertTo: "le titre" }) });
-    expect(m.el.querySelector(".draft-insert-to")?.textContent).toContain("le titre");
-  });
-
   test("AgentWindow le contexte d'un autre onglet est ignoré", async () => {
     const m = await mountWindow();
-    await openDraft(m);
-    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ insertTo: "le titre" }) });
-    await m.send({ to: "agent", kind: "context", tab: "t-2", context: ctx({ insertTo: "ailleurs" }) });
-    expect(m.el.querySelector(".draft-insert-to")?.textContent).toContain("le titre");
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx({ staged: "sheet-1" }) });
+    await m.send({ to: "agent", kind: "context", tab: "t-2", context: ctx() });
+    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [sheetOn("sheet-1")] }));
+    expect(m.el.querySelector('[data-surface-id="sheet-1"]')).toBeNull();
   });
 
   test("AgentWindow une fiche non posée sur la scène est rendue dans le fil", async () => {

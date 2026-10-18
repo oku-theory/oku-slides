@@ -1,4 +1,5 @@
-// Le brouillon de dictée envoyé à l'agent : gardé si la consigne échoue (t-211).
+// La dictée d'un onglet : le brouillon envoyé à l'agent (gardé si la consigne échoue, t-211)
+// et le texte dicté au curseur pendant l'édition.
 
 import { afterEach, expect, test } from "bun:test";
 import "./test/dom";
@@ -14,18 +15,13 @@ afterEach(async () => {
 });
 
 /** Monte la dictée avec une consigne qui réussit ou échoue (`ok`). */
-async function mount(ok: boolean) {
+async function mount(ok: boolean, editing: string | null = null) {
   const prompts: string[] = [];
   let out: ReturnType<typeof useDictation> | null = null;
   const Probe = () => {
     out = useDictation({
       snap: null,
-      view: null,
-      selected: null,
-      editing: null,
-      apply: async () => true,
-      addElement: () => {},
-      say: () => {},
+      editing,
       setDraft: async () => {},
       prompt: async (text: string) => {
         prompts.push(text);
@@ -58,4 +54,16 @@ test("useDictation un envoi qui échoue garde le texte dicté", async () => {
   await act(async () => d.state().actions.sendDraft("Ajoute une slide"));
   expect(d.prompts).toEqual(["Ajoute une slide"]);
   expect(d.state().draft.state.text).toBe("Ajoute une slide");
+});
+
+test("useDictation hors édition n'écrit nulle part", async () => {
+  const d = await mount(true);
+  expect(d.state().insertText("Budget 2027")).toBe(false);
+});
+
+test("useDictation pendant l'édition écrit au curseur", async () => {
+  const d = await mount(true, "e1\u001ftitle");
+  let ok = false;
+  await act(async () => void (ok = d.state().insertText("Budget 2027")));
+  expect([ok, d.state().dictated]).toEqual([true, { seq: 1, text: "Budget 2027" }]);
 });

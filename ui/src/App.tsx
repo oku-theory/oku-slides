@@ -565,13 +565,13 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, importJ
   });
 
   // --- Dictée : où va le texte ----------------------------------------------
-  const dictation = useDictation({ snap, view, selected, editing, apply, addElement, say, prompt: promptAgent, setDraft: agent.setDraft });
+  const dictation = useDictation({ snap, editing, prompt: promptAgent, setDraft: agent.setDraft });
 
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
   const [transport] = useState(() => linkTransport());
   const linkContext = useMemo<LinkContext>(
-    () => ({ editing: editing !== null, insertTo: dictation.insertTo, ui: agentUiNow, staged: agentStatus.sheet ? agentStatus.sheetId : null, keysOff: !!editing || dialogOpen || widgetActive, look: deckLook }),
-    [editing, dictation.insertTo, agentUiNow, agentStatus.sheet, agentStatus.sheetId, dialogOpen, widgetActive, deckLook],
+    () => ({ editing: editing !== null, ui: agentUiNow, staged: agentStatus.sheet ? agentStatus.sheetId : null, keysOff: !!editing || dialogOpen || widgetActive, look: deckLook }),
+    [editing, agentUiNow, agentStatus.sheet, agentStatus.sheetId, dialogOpen, widgetActive, deckLook],
   );
   useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, transport });
 
@@ -842,9 +842,7 @@ export default function App({ tab, agentDetached, nonce, notice, onOpen, importJ
           busy={agentStatus.busy}
           notice={agentStatus.notice}
           ready={agentStatus.ready}
-          insertTo={dictation.insertTo}
           onChange={dictation.draft.change}
-          onInsert={(text) => void dictation.actions.insertDraft(text)}
           onSend={(text) => void dictation.actions.sendDraft(text)}
           onDiscard={dictation.draft.close}
         />}

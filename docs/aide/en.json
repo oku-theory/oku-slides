@@ -325,7 +325,7 @@
            "bold": true
           },
           {
-           "t": ": review, fix, then Insert (⌘⇧↩) or Send to the agent (⌘↩). A pause never decides for you."
+           "t": ": review, fix, then Send to the agent (⌘↩). A pause never decides for you."
           }
          ],
          "list": "bullet"
@@ -915,17 +915,6 @@
           },
           {
            "t": "  Type an instruction"
-          }
-         ]
-        },
-        {
-         "runs": [
-          {
-           "t": "⌘⇧↩",
-           "highlight": 1
-          },
-          {
-           "t": "  Insert the draft"
           }
          ]
         },

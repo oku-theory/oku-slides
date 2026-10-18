@@ -272,9 +272,7 @@ export function AgentWindowFor({
         busy={status.busy}
         notice={status.notice}
         ready={status.ready}
-        insertTo={context?.insertTo ?? null}
         onChange={draft.change}
-        onInsert={(text) => void actions.insertDraft(text)}
         onSend={(text) => void actions.sendDraft(text)}
         onDiscard={draft.close}
       />

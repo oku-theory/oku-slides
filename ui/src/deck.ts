@@ -82,7 +82,7 @@ export function literalToParagraphs(text: string): Paragraph[] {
 }
 
 /** Texte brut échappé ligne à ligne, préfixe de liste gardé, pour que `textToParagraphs` le relise tel quel. */
-export function literalText(text: string): string {
+function literalText(text: string): string {
   return text
     .split("\n")
     .map((line) => {

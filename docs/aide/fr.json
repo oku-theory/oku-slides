@@ -325,7 +325,7 @@
            "bold": true
           },
           {
-           "t": " : on relit, on retouche, puis Insérer (⌘⇧↩) ou Envoyer à l'agent (⌘↩). Une pause ne décide jamais à votre place."
+           "t": " : on relit, on retouche, puis on l'envoie à l'agent (⌘↩). Une pause ne décide jamais à votre place."
           }
          ],
          "list": "bullet"
@@ -915,17 +915,6 @@
           },
           {
            "t": "  Écrire une consigne"
-          }
-         ]
-        },
-        {
-         "runs": [
-          {
-           "t": "⌘⇧↩",
-           "highlight": 1
-          },
-          {
-           "t": "  Insérer le brouillon"
           }
          ]
         },

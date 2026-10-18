@@ -17,8 +17,6 @@ const EVENT = "agent-link";
 export interface LinkContext {
   /** Une édition de texte est en cours : la dictée va au curseur. */
   editing: boolean;
-  /** Libellé « Insérer dans … » ; null : nulle part où écrire. */
-  insertTo: string | null;
   /** Ce que voit l'utilisateur, joint aux consignes. */
   ui: AgentUi;
   /** La fiche posée sur la scène, sinon null. */
@@ -58,7 +56,7 @@ export const MAX_LINK_TEXT = 256 * 1024;
 const Id = z.string().max(64);
 const Label = z.string().max(256);
 const Ui = z.object({ slide: Id.nullable(), element: Id.nullable(), field: Label.nullable(), editing: z.boolean(), widget: Label.nullable() });
-const Context = z.object({ editing: z.boolean(), insertTo: Label.nullable(), ui: Ui, staged: Id.nullable(), keysOff: z.boolean(), look: Id });
+const Context = z.object({ editing: z.boolean(), ui: Ui, staged: Id.nullable(), keysOff: z.boolean(), look: Id });
 const Message = z.discriminatedUnion("kind", [
   z.object({ to: z.literal("agent"), kind: z.literal("context"), tab: Id, context: Context }),
   z.object({ to: z.literal("main"), kind: z.literal("hello"), tab: Id }),

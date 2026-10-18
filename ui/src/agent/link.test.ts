@@ -147,7 +147,7 @@ describe("agent-link", () => {
     to: "agent",
     kind: "context",
     tab: "t-1",
-    context: { editing: false, insertTo: null, ui: { slide: null, element: null, field: null, editing: false, widget: null }, staged: null, keysOff: false, look },
+    context: { editing: false, ui: { slide: null, element: null, field: null, editing: false, widget: null }, staged: null, keysOff: false, look },
   });
 
   test("parseLink contexte avec l'empreinte de l'apparence : accepté", () => {

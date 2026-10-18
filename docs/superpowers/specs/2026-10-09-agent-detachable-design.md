@@ -94,7 +94,7 @@ depends on UI state specific to the main window).
 - **`useDraft(tab)`** replaces the draft's `useState`, in `App`
   (attached) as in `AgentWindow`: reads `draft.get`, follows the `draft`
   event, writes through `draft.set` — typing debounced (~300 ms); dictation,
-  Send, Insert, Discard immediately. The `dictations` /
+  Send, Discard immediately. The `dictations` /
   `typing` counters (focus, scrolling) stay local.
 - **⧉ button** in the `AgentThread` header, next to "Nouvelle
   conversation" (New conversation): `detach_agent`. Hidden outside Tauri.
@@ -109,15 +109,14 @@ matches is ignored.
 
 | Event | Direction | Content | When |
 |---|---|---|---|
-| `agent-link:context` | main → `agent` | `{ tab, editing, insertTo, vocabulary, readOnly }` | on each change, and in response to `hello` |
+| `agent-link:context` | main → `agent` | `{ tab, editing, vocabulary, readOnly }` | on each change, and in response to `hello` |
 | `agent-link:hello` | `agent` → all | `{ tab }` | opening, change of target tab |
-| `agent-link:insert` | `agent` → `focused` | `{ tab, id, text }` | dictation to the cursor, the draft's "Insérer" (Insert) |
+| `agent-link:insert` | `agent` → `focused` | `{ tab, id, text }` | dictation to the cursor |
 | `agent-link:insert-ack` | main → `agent` | `{ tab, id, ok }` | after `insert` |
 | `agent-link:shortcut` | main → `agent` | `{ tab, key: "dictate" \| "draft" }` | ⌘D / ⌘K pressed in the main window |
 
-- `editing`: a text edit is in progress; `insertTo`: the label
-  "Insérer dans …" (Insert into …) (`null`: nowhere to write); `vocabulary`:
-  deck and slide titles, for dictation.
+- `editing`: a text edit is in progress; `vocabulary`: deck and slide
+  titles, for dictation.
 - Only the main window that displays the target tab answers `hello`.
 
 ## Flows
@@ -125,10 +124,10 @@ matches is ignored.
 - **Dictation.** The agent window routes with `dictationRoute(mode,
   context.editing)`: to the cursor → `insert`; otherwise into the draft
   (`draft.set`).
-- **Insert.** `insert` → the main window calls `insertText` (cursor
-  during editing, selected field, new block, or the "choisir une
-  zone" (pick a box) toast) and answers `insert-ack`. With no `ack` within 1 s,
-  or `ok: false` (tab changed, nowhere to write), the agent window puts the
+- **Insert.** `insert` → the main window calls `insertText`, which writes at
+  the cursor only while a text edit is in progress, and answers `insert-ack`.
+  The draft has no Insert action since t-953: it only talks to the agent.
+  With no `ack` within 1 s, or `ok: false` (tab changed, edit ended), the agent window puts the
   text back into the draft with a "Texte gardé dans le brouillon" (Text kept in
   the draft) toast.
 - **Send.** `agent.prompt(scope, text)` from the agent window.
@@ -171,8 +170,7 @@ matches is ignored.
   into the draft on rejection or timeout, message from another tab ignored.
 
 **e2e** (free port, isolated data)
-- Detach → dictate (simulated text) → Insert into the selected field →
-  reattach: the draft is kept.
+- Detach → write in the draft → Send → reattach: the draft is kept.
 - Restart: the agent window is restored detached.
 - Editing in progress, microphone clicked in the agent window: the text arrives at the cursor.
 
@@ -236,7 +234,7 @@ mechanics. These points replace anything above that contradicts them.
    On a read-only tab, the agent window shows an empty state,
    but dictation stays visible.
 4. **Writing context.** `agent-link:context` carries
-   `{ editing, insertTo, ui, staged, keysOff }`. The agent window reads
+   `{ editing, ui, staged, keysOff }`. The agent window reads
    the vocabulary, read-only status, thumbnails and deck appearance from the
    tab's snapshot itself. The context also carries `look`,
    the fingerprint of this appearance: when it changes, the agent window

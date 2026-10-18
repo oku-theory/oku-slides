@@ -248,13 +248,8 @@ Models go to the app data folder
 
 While editing a text, ⌘D writes at the cursor. Elsewhere, dictation goes into a
 **draft** in the right panel: you review it, fix it or extend it (each dictation is
-appended), then choose:
-
-- **Insert** (⌘⇧↩) writes it as is into the selected area (a field is replaced, a
-  block is extended), otherwise into a new block;
-- **Send to the agent** (⌘↩) turns it into an instruction (see [Agent](#agent)).
-
-A pause never decides for you. Each insertion undoes with ⌘Z.
+appended), then **send it to the agent** (⌘↩) as an instruction (see [Agent](#agent)).
+The draft only talks to the agent; a pause never decides for you.
 
 ```sh
 just transcribe voice.wav turbo fr                # split into sentences, transcribe, measure

@@ -54,7 +54,7 @@ const GearIcon = (
 );
 
 interface Props {
-  /** Où ira le texte, affiché au repos (« dans le titre », « nouveau bloc »…). */
+  /** Où ira le texte, affiché au repos (« au curseur », « dans le brouillon »). */
   destination: string;
   /** Mots utiles à la reconnaissance : titres, noms propres du deck. */
   vocabulary: string[];

@@ -5,14 +5,6 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const INSERTED = 'inséré par la fenêtre agent';
-
-/** Le deck de t-1 contient-il `text` ? */
-const deckHas = (p, text) =>
-  p.evaluate(async (needle) => {
-    const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) });
-    return JSON.stringify(await r.json()).includes(needle);
-  }, text);
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -51,28 +43,7 @@ const deckHas = (p, text) =>
     await main.keyboard.press('ControlOrMeta+k');
     await agent.locator('.draft-text').waitFor();
 
-    // 5. « Insérer » depuis la fenêtre de l'agent écrit dans la zone sélectionnée de la fenêtre principale.
-    const order = (await post(main, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).slides.map((s) => s.id);
-    await main.click(`.thumb >> nth=${order.indexOf('s-constat')}`);
-    await main.waitForSelector('.overlay .target');
-    await main.locator('.overlay .target').first().click();
-    await main.waitForSelector('.overlay .target.selected');
-    await agent.locator('.draft-text').fill(INSERTED);
-    await agent.locator('.draft-insert').click();
-    await main.waitForFunction(async (needle) => {
-      const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) });
-      return JSON.stringify(await r.json()).includes(needle);
-    }, INSERTED);
-    // Annulé, pour les scripts suivants : le deck ne contient plus le texte.
-    await main.bringToFront();
-    await main.keyboard.press('ControlOrMeta+z');
-    await main.waitForFunction(async (needle) => {
-      const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: 't-1', req: { cmd: 'snapshot' } }) });
-      return !JSON.stringify(await r.json()).includes(needle);
-    }, INSERTED);
-    assert.equal(await deckHas(main, INSERTED), false);
-
-    // 6. Le brouillon survit au rattachement : « Rattacher » envoie la frappe en attente, puis rattache.
+    // 5. Le brouillon survit au rattachement : « Rattacher » envoie la frappe en attente, puis rattache.
     await agent.keyboard.press('ControlOrMeta+k');
     await agent.locator('.draft-text').fill('brouillon gardé');
     await agent.locator('.agent-attach').click();
@@ -83,7 +54,7 @@ const deckHas = (p, text) =>
     // Rangement : brouillon fermé, conversation vidée.
     await main.locator('.draft-discard').click();
 
-    // 7. Sans fenêtre de l'agent (ouverture échouée), la fenêtre principale garde de quoi rattacher.
+    // 6. Sans fenêtre de l'agent (ouverture échouée), la fenêtre principale garde de quoi rattacher.
     await post(main, '/api/workspace', { cmd: 'detach_agent' });
     await main.reload();
     // Le séparateur du fil part avec lui (régression : il restait visible, sous son enveloppe `display: contents`).
