@@ -177,14 +177,14 @@ impl Workspace {
                 WorkspaceRequest::NewTab { window } => w.new_tab(window)?,
                 WorkspaceRequest::OpenTab { window, path } => match w.open_tab(window, path)? {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
-                    Step::Build(pending) => pending,
+                    Step::Build(pending) => *pending,
                 },
                 WorkspaceRequest::ImportTab { window, path, target, tune } => {
                     w.import_tab(window, path, target, tune)?
                 }
                 WorkspaceRequest::OpenHelp { window } => match Self::open_help(ws, w, window)? {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
-                    Step::Build(pending) => pending,
+                    Step::Build(pending) => *pending,
                 },
                 WorkspaceRequest::NewWindow => w.pending(None, Opening::Blank, None),
                 WorkspaceRequest::CloseWindow { window, discard } => return Self::close_window(w, &window, &discard),

@@ -49,8 +49,8 @@ impl Trash {
 pub(super) enum Step {
     /// Réglée sous le verrou : la vue à jour, en JSON.
     Done(String),
-    /// Un onglet à construire hors du verrou, puis à insérer.
-    Build(Pending),
+    /// Un onglet à construire hors du verrou, puis à insérer (en boîte : `Step` reste petit).
+    Build(Box<Pending>),
 }
 
 /// Ce que montre un onglet à créer.
@@ -152,7 +152,7 @@ impl Workspace {
             return self.view_json().map(Step::Done);
         }
         let active = self.layout.windows[self.window_index(&window)?].active.clone();
-        Ok(Step::Build(self.pending(Some(window), Opening::File(path), Some(active))))
+        Ok(Step::Build(Box::new(self.pending(Some(window), Opening::File(path), Some(active)))))
     }
 
     /// Importe `path` vers `target` dans un nouvel onglet de `window`.
@@ -196,7 +196,7 @@ impl Workspace {
             }
             return Self::lock(ws).view_json().map(Step::Done);
         }
-        Ok(Step::Build(w.help_pending(window, locale, theme)))
+        Ok(Step::Build(Box::new(w.help_pending(window, locale, theme))))
     }
 
     /// Insère un onglet construit hors du verrou (seconde moitié d'`apply`) ;
