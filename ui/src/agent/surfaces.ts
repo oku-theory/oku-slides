@@ -94,8 +94,13 @@ export function routeSurfaces(list: Surface[], shown: { slide: string; has: (a: 
     modal: byPlace(list, "modal")[0],
     dock,
     turns,
-    // Fiches hors de la scène, et surfaces figées du fil sans tour (aucune n'est jamais invisible).
-    loose: [...sheets.filter((s) => s !== stage), ...thread.filter((s) => !s.live && s.turn === undefined)],
+    // Fiches hors de la scène, surfaces figées du fil sans tour, et bandeaux (réservés à l'hôte) :
+    // aucune n'est jamais invisible.
+    loose: [
+      ...sheets.filter((s) => s !== stage),
+      ...thread.filter((s) => !s.live && s.turn === undefined),
+      ...byPlace(list, "banner"),
+    ],
   };
 }
 

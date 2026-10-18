@@ -118,6 +118,7 @@ pack-notice-newer = Deze presentatie gebruikt een nieuwere versie van “{ $name
 pack-notice-parallel = Deze presentatie gebruikt een versie van “{ $name }” die parallel aan de uwe is gemaakt.
 pack-notice-use-mine = Naar mijn versie overschakelen
 pack-notice-make-current = Die versie mijn huidige versie maken
+pack-notice-close = Sluiten
 template-default-name = Sjabloon
 history-restore-label = Versie van { $date } herstellen
 notice-merged = Samengevoegd met { $file } — geïmporteerde wijzigingen: { $count } ({ $authors }).

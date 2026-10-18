@@ -118,6 +118,7 @@ pack-notice-newer = এই প্রেজেন্টেশন আপনার 
 pack-notice-parallel = এই প্রেজেন্টেশন “{ $name }”-এর এমন একটি সংস্করণ ব্যবহার করে যা আপনার সংস্করণের সমান্তরালে তৈরি।
 pack-notice-use-mine = আমার সংস্করণে যান
 pack-notice-make-current = ওনারটিকে আমার বর্তমান সংস্করণ করুন
+pack-notice-close = বন্ধ করুন
 template-default-name = টেমপ্লেট
 history-restore-label = { $date }-এর সংস্করণ পুনরুদ্ধার করুন
 notice-merged = { $file }-এর সঙ্গে একত্র করা হয়েছে — আমদানি করা পরিবর্তন: { $count } ({ $authors })।

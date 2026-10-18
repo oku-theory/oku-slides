@@ -118,6 +118,7 @@ pack-notice-newer = Bản trình bày này dùng phiên bản “{ $name }” m�
 pack-notice-parallel = Bản trình bày này dùng một phiên bản “{ $name }” được làm song song với phiên bản của bạn.
 pack-notice-use-mine = Chuyển sang phiên bản của tôi
 pack-notice-make-current = Đặt phiên bản đó làm phiên bản hiện tại của tôi
+pack-notice-close = Đóng
 template-default-name = Mẫu
 history-restore-label = Khôi phục phiên bản lúc { $date }
 notice-merged = Đã hợp nhất với { $file } — số thay đổi đã nhập: { $count } ({ $authors }).

@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SlideSummary } from "./api";
 import { t } from "./i18n";
+import { Button } from "./primitives";
 
 interface Props {
   slides: SlideSummary[];
@@ -196,7 +197,7 @@ export default function SlidePile({
         );
       })}
       {drag?.moved && drag.slot === slides.length && <span className="drop-line end" aria-hidden />}
-      {onAdd && <button className="object btn add-slide" onClick={onAdd}>{addLabel}</button>}
+      {onAdd && <Button raised className="add-slide" onClick={onAdd}>{addLabel}</Button>}
 
       {/* La miniature suit le pointeur, soulevée de la pile. */}
       {drag?.moved && (

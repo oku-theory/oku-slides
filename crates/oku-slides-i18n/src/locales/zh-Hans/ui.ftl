@@ -370,7 +370,6 @@ ui-help-search = 搜索帮助
 ui-help-search-placeholder = 搜索…
 ui-help-search-empty = 无结果
 ui-help-search-count = { $count }个结果
-ui-pack-notice-close = 关闭
 ui-widgets-files = 小组件文件
 ui-widgets-common = 共用
 ui-widgets-new = 新建小组件

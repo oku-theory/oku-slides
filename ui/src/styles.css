@@ -859,17 +859,25 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   grid-template-rows: 104px auto minmax(0, 1fr) 104px;
   grid-template-areas: "pile label notes" "pile notice notes" "pile sheet notes" "pile tools device";
 }
+/* Un bandeau posé (pas un objet qui se soulève) : le texte, les boutons, la croix. Bandeau du pack
+   (composant A2UI `Notice`) et bandeau de mise à jour. */
 .notice-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4);
   padding: 6px 6px 6px 18px; background: var(--paper-200); color: var(--ink); border-radius: var(--radius-md);
   box-shadow: var(--edge-light), var(--shadow-object); transition: var(--theme-fade);
 }
+/* La rangée du bandeau du pack, entre le titre et la feuille. */
 .pack-notice { grid-area: notice; position: relative; z-index: 2; margin: 0 var(--space-6) var(--space-2); }
 /* Le texte prend la place libre et passe à la ligne ; trop étroit, les actions passent dessous. */
 .notice-bar-text { flex: 1 1 260px; min-width: 0; font-size: 13px; line-height: 18px; }
 .notice-bar-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .notice-bar .btn { height: 36px; border: 0; border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
-.pack-notice-close { flex: none; margin-inline-start: auto; }
+/* Les boutons du catalogue A2UI sont des objets : posés dans le bandeau, aucun ne se soulève ;
+   les secondaires sont plats, comme `.ghost`. */
+.notice-bar .btn.object, .notice-bar .btn.object:hover, .notice-bar .btn.object:active { transform: none; box-shadow: none; }
+.notice-bar .btn.object:not(.primary) { background: transparent; color: var(--ink-muted); }
+.notice-bar .btn.object:not(.primary):hover { background: color-mix(in oklab, var(--paper-200) 88%, var(--ink)); color: var(--ink); }
+.notice-bar-close { flex: none; margin-inline-start: auto; }
 .history-track { --thumb: 16px; position: relative; padding-top: 12px; }
 .history-marks { position: absolute; inset: 0 0 auto; height: 12px; pointer-events: none; }
 .history-mark { position: absolute; top: 2px; left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--at)); transform: translateX(-50%); }

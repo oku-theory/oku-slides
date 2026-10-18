@@ -118,6 +118,7 @@ pack-notice-newer = このプレゼンテーションは、あなたのものよ
 pack-notice-parallel = このプレゼンテーションは、あなたのものと並行して作られた「{ $name }」のバージョンを使っています。
 pack-notice-use-mine = 自分のバージョンに切り替える
 pack-notice-make-current = 相手のバージョンを現在のバージョンにする
+pack-notice-close = 閉じる
 template-default-name = テンプレート
 history-restore-label = { $date } のバージョンを復元
 notice-merged = { $file } と統合しました — 取り込んだ変更: { $count }（{ $authors }）。

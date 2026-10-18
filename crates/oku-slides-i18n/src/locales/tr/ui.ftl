@@ -370,7 +370,6 @@ ui-help-search = Yardımda ara
 ui-help-search-placeholder = Ara…
 ui-help-search-empty = Sonuç yok
 ui-help-search-count = { $count } sonuç
-ui-pack-notice-close = Kapat
 ui-widgets-files = Widget dosyaları
 ui-widgets-common = Ortak
 ui-widgets-new = Yeni widget

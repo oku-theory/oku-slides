@@ -31,6 +31,8 @@ pub enum Place {
     Drawer,
     /// Fenêtre modale (confirmation, permission).
     Modal,
+    /// Bandeau sous le titre de la slide (hôte seul : le bandeau du pack).
+    Banner,
 }
 
 /// Une surface prête à afficher : ses messages A2UI et sa place.

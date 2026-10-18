@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { Icon, stroke } from "../icons";
+import { IconToggle } from "../primitives";
 import { ShowAsButton, type View } from "../table/ShowAsButton";
 import { ChartDataGrid } from "./ChartDataGrid";
 import { CHART_KINDS, type ChartKind, chartKind, chartSource, checkboxColumns, colorPatch, isStacked, paletteOf, stackPatch, stackable } from "./chartDeck";
@@ -49,16 +50,12 @@ export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs 
       <div className="panel-toolbar">
         <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
           {CHART_KINDS.map((k) => (
-            <button key={k} aria-label={kindLabel(k)} title={kindLabel(k)} aria-pressed={current === k} disabled={!source} className={current === k ? "on" : ""} onClick={() => setKind(k)}>
-              {KIND_ICON[k]}
-            </button>
+            <IconToggle key={k} label={kindLabel(k)} pressed={current === k} disabled={!source} onToggle={() => setKind(k)} icon={KIND_ICON[k]} />
           ))}
         </div>
         {stackable(element) && (
           <div className="chart-stack chart-options" role="group" aria-label={t("ui-chart-options")}>
-            <button aria-label={t("ui-chart-stack")} title={t("ui-chart-stack")} aria-pressed={stacked} className={stacked ? "on" : ""} onClick={toggleStack}>
-              {Icon.stack}
-            </button>
+            <IconToggle label={t("ui-chart-stack")} pressed={stacked} onToggle={toggleStack} icon={Icon.stack} />
           </div>
         )}
         <ShowAsButton view="table" onShowAs={onShowAs} disabled={!source} />

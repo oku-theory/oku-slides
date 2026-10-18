@@ -35,6 +35,7 @@ fn render_valid_composition_is_a_frozen_thread_surface() {
 #[case::timeline(json!([{"id": "root", "component": "Timeline", "steps": [], "collapsed": true, "summary": ""}]), "Timeline is reserved")]
 #[case::receipt(json!([{"id": "root", "component": "Receipt", "title": "x", "facts": ["a"]}]), "Receipt is reserved")]
 #[case::slide_thumb(json!([{"id": "root", "component": "SlideThumb", "svg": "<svg/>", "label": "x"}]), "SlideThumb is reserved")]
+#[case::notice(json!([{"id": "root", "component": "Notice", "text": "x", "children": [], "close": {"event": {"name": "close"}}, "close_label": "x"}]), "Notice is reserved")]
 #[case::no_root(json!([{"id": "a", "component": "Text", "text": "x"}]), "no component has the id “root”")]
 #[case::missing_child(json!([{"id": "root", "component": "Card", "child": "nope"}]), "unknown child “nope”")]
 #[case::unknown_property(json!([{"id": "root", "component": "Text", "text": "x", "weight": 700}]), "components[0]: unknown property “weight”")]

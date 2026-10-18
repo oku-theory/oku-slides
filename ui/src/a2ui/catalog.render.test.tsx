@@ -11,6 +11,7 @@ const { mountSurface, messagesOf } = await import("../test/surface");
 const { SlideThumbsContext } = await import("./slideThumbs");
 const { QuickHintsContext } = await import("./quickHints");
 const { t } = await import("../i18n");
+const { expectIconOnly } = await import("../test/iconOnly");
 
 /** Monte une surface d'un composant racine ; renvoie son hôte et les actions reçues. `hints` : elle reçoit les touches rapides. */
 const mount = (root: Record<string, unknown>, data: unknown = {}, hints = false) =>
@@ -49,6 +50,39 @@ const colorField = {
 };
 
 describe("rendu du catalogue v3", () => {
+  /** Un bandeau : son texte, un bouton enfant, sa croix. */
+  const notice = [
+    { id: "root", component: "Notice", text: "Une autre version", children: ["mine"], close: event("close"), close_label: "Fermer" },
+    { id: "mine", component: "Button", label: "Ma version", primary: true, action: event("use_mine") },
+  ];
+
+  test("Notice is announced as a status", async () => {
+    const { host } = await mountAll(notice);
+    expect(host.querySelector(".notice-bar")?.getAttribute("role")).toBe("status");
+  });
+
+  test("Notice shows its text, then its buttons, then its close", async () => {
+    const { host } = await mountAll(notice);
+    expect([...(host.querySelector(".notice-bar")?.children ?? [])].map((c) => c.className)).toEqual([
+      "notice-bar-text",
+      "notice-bar-actions",
+      "token ghost notice-bar-close",
+    ]);
+    expect(host.querySelector(".notice-bar-text")?.textContent).toBe("Une autre version");
+  });
+
+  test("Notice close shows an icon only, named by close_label", async () => {
+    const { host } = await mountAll(notice);
+    expectIconOnly(host.querySelector(".notice-bar-close"), "Fermer");
+  });
+
+  test("Notice sends its buttons' actions, then close", async () => {
+    const { host, actions } = await mountAll(notice);
+    await click(host.querySelector(".notice-bar-actions button") as Element);
+    await click(host.querySelector(".notice-bar-close") as Element);
+    expect(actions.map((a) => a.name)).toEqual(["use_mine", "close"]);
+  });
+
   test("DiffText barre le retiré et marque l'ajouté", async () => {
     const { host } = await mount({
       component: "DiffText",

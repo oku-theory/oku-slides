@@ -374,7 +374,6 @@ ui-help-search = Пошук у довідці
 ui-help-search-placeholder = Пошук…
 ui-help-search-empty = Нічого не знайдено
 ui-help-search-count = Результатів: { $count }
-ui-pack-notice-close = Закрити
 ui-widgets-files = Файли віджетів
 ui-widgets-common = Спільне
 ui-widgets-new = Новий віджет

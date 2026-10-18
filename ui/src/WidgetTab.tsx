@@ -22,6 +22,7 @@ import { EditorView } from "@codemirror/view";
 import type { FieldView, Snapshot, TabApi, WidgetPreview } from "./api";
 import { fieldValue } from "./deck";
 import { t } from "./i18n";
+import { Button } from "./primitives";
 import CodeDivider from "./CodeDivider";
 import { codeTrack } from "./codeSplit";
 import TypstEditor, { type EditorCommands, type EditorHistory } from "./TypstEditor";
@@ -242,9 +243,9 @@ export default function WidgetTab({
               <ul>
                 {inError.map((s) => (
                   <li key={s.name}>
-                    <button className="btn" onClick={() => onOpen(s.name)}>
+                    <Button onClick={() => onOpen(s.name)}>
                       {s.name}
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

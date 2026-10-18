@@ -74,8 +74,7 @@ impl PackInfo {
 }
 
 /// Une version par rapport à une autre, par la chaîne des `parent`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
     Same,
     /// Plus ancienne : l'autre en descend.

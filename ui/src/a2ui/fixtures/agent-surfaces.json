@@ -1428,5 +1428,71 @@
         }
       }
     ]
+  },
+  {
+    "id": "host-pack-notice",
+    "place": "banner",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-pack-notice",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-pack-notice",
+          "components": [
+            {
+              "id": "root",
+              "component": "Notice",
+              "text": "Ce deck utilise une version plus récente de « Charte ».",
+              "children": [
+                "pack-use-mine",
+                "pack-make-current"
+              ],
+              "close": {
+                "event": {
+                  "name": "pack_notice_close"
+                }
+              },
+              "close_label": "Fermer"
+            },
+            {
+              "id": "pack-use-mine",
+              "component": "Button",
+              "label": "Passer à ma version",
+              "primary": true,
+              "action": {
+                "event": {
+                  "name": "pack_use_mine"
+                }
+              }
+            },
+            {
+              "id": "pack-make-current",
+              "component": "Button",
+              "label": "Faire de la sienne ma version courante",
+              "action": {
+                "event": {
+                  "name": "pack_make_current"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-pack-notice",
+          "value": {}
+        }
+      }
+    ]
   }
 ]

@@ -4,6 +4,7 @@
 
 import type { ThemeInfo, ThemeRef } from "./api";
 import { t } from "./i18n";
+import { Field } from "./primitives";
 
 interface Props {
   /** Thème embarqué par le deck. */
@@ -24,8 +25,8 @@ export default function ThemeMenu({ theme, themeName, themes, deckThemes, onPick
   const known = (id: string) => themes.some((th) => th.id === id) || deckThemes.some((th) => th.id === id);
   const foreign = theme !== null && !known(theme.id);
   return (
-    <label className="menu-theme">
-      <span className="caption">{label ?? t("ui-toolbar-theme")}</span>
+    // Pas de `Select` : il ne connaît pas les groupes d'options.
+    <Field variant="menu" label={label ?? t("ui-toolbar-theme")}>
       <select className="select" value={theme?.id ?? ""} onChange={(e) => onPick(e.target.value)}>
         {foreign && <option value={theme.id} disabled>{themeName ?? t("ui-toolbar-theme-embedded")}</option>}
         {themes.map((th) => <option key={th.id} value={th.id}>{th.name}</option>)}
@@ -35,6 +36,6 @@ export default function ThemeMenu({ theme, themeName, themes, deckThemes, onPick
           </optgroup>
         )}
       </select>
-    </label>
+    </Field>
   );
 }

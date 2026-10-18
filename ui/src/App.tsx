@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import PackNoticeBar from "./PackNoticeBar";
+import PackNotice from "./PackNotice";
 import type { ImportTarget, PileSectionName, SlideView, Snapshot } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { appearanceLook } from "./appearance";
@@ -328,12 +328,7 @@ export default function App({
         <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} search={api.search} onClose={onClose} />
       ) : (<>
       {snap.pack_notice && (
-        <PackNoticeBar
-          notice={snap.pack_notice}
-          onUseMine={() => run(api.packUseMine())}
-          onMakeCurrent={() => run(api.packMakeCurrent())}
-          onClose={() => run(api.packNoticeClose())}
-        />
+        <PackNotice surface={snap.pack_notice} onCommand={(cmd) => run(api.packNotice(cmd))} onError={(m) => say(m, true)} />
       )}
       {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition des modèles. */}
       <header className={`label${snap.editing ? " editing-templates" : ""}`}>

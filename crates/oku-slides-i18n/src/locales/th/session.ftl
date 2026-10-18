@@ -118,6 +118,7 @@ pack-notice-newer = งานนำเสนอนี้ใช้ “{ $name }�
 pack-notice-parallel = งานนำเสนอนี้ใช้ “{ $name }” เวอร์ชันที่สร้างขึ้นคู่ขนานกับของคุณ
 pack-notice-use-mine = เปลี่ยนเป็นเวอร์ชันของฉัน
 pack-notice-make-current = ตั้งเวอร์ชันของเขาเป็นเวอร์ชันปัจจุบันของฉัน
+pack-notice-close = ปิด
 template-default-name = เทมเพลต
 history-restore-label = กู้คืนเวอร์ชันของ { $date }
 notice-merged = รวมกับ { $file } แล้ว — การเปลี่ยนแปลงที่นำเข้า: { $count } ({ $authors })

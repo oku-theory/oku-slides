@@ -79,7 +79,7 @@ pub struct Component {
 
 /// Composants du catalogue [`CATALOG_ID`]. Noms et propriétés reprennent
 /// ceux du catalogue de base v0.9 ; `Stepper`, `ChoiceChips`, `ColorField`,
-/// `SlideThumb`, `DiffText` sont propres à Oku Slides.
+/// `SlideThumb`, `DiffText`, `Notice` sont propres à Oku Slides.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
@@ -230,6 +230,8 @@ pub enum ComponentKind {
     },
     /// Du Markdown (rendu sans HTML brut).
     Markdown { text: Dynamic<String> },
+    /// Un bandeau annoncé (hôte seul) : `text`, les boutons `children`, puis la croix `close`.
+    Notice { text: Dynamic<String>, children: Vec<String>, close: Action, close_label: Dynamic<String> },
 }
 
 /// Teinte d'une carte ou d'un badge.
@@ -508,7 +510,9 @@ impl ComponentKind {
     pub fn children(&self) -> Vec<&str> {
         // Sans `_` : un nouveau composant doit dire ici s'il a des enfants (la validation de `render` en dépend).
         match self {
-            Self::Column { children } | Self::Row { children } => children.iter().map(String::as_str).collect(),
+            Self::Column { children } | Self::Row { children } | Self::Notice { children, .. } => {
+                children.iter().map(String::as_str).collect()
+            }
             Self::Card { child, .. } | Self::Disclosure { child, .. } => vec![child.as_str()],
             Self::Text { .. }
             | Self::TextField { .. }
@@ -533,7 +537,7 @@ impl ComponentKind {
     /// Les actions que le composant peut envoyer.
     pub fn actions(&self) -> Vec<&Action> {
         match self {
-            Self::Button { action, .. } => vec![action],
+            Self::Button { action, .. } | Self::Notice { close: action, .. } => vec![action],
             Self::TextField { action, .. }
             | Self::RichTextField { action, .. }
             | Self::Stepper { action, .. }
@@ -558,10 +562,11 @@ impl ComponentKind {
         }
     }
 
-    /// Le même composant, en lecture seule ; `None` pour un bouton (sans action, il n'a plus de sens).
+    /// Le même composant, en lecture seule ; `None` pour un bouton ou un bandeau.
     pub fn without_action(self) -> Option<Self> {
         Some(match self {
-            Self::Button { .. } => return None,
+            // Sans action, un bouton ou un bandeau n'a plus de sens.
+            Self::Button { .. } | Self::Notice { .. } => return None,
             Self::TextField { label, value, .. } => Self::TextField { label, value, action: None },
             Self::RichTextField { label, value, source, palette, .. } => {
                 Self::RichTextField { label, value, source, palette, action: None }
@@ -594,7 +599,7 @@ impl ComponentKind {
 }
 
 impl Component {
-    /// `false` pour les composants réservés à l'hôte (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`).
+    /// `false` pour les composants réservés à l'hôte (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`).
     ///
     /// Un reçu passe par l'outil `report` (bornes, miniature rendue par l'hôte) ; une miniature
     /// est toujours rendue par l'hôte.
@@ -605,6 +610,7 @@ impl Component {
                 | ComponentKind::Timeline { .. }
                 | ComponentKind::Receipt { .. }
                 | ComponentKind::SlideThumb { .. }
+                | ComponentKind::Notice { .. }
         )
     }
 

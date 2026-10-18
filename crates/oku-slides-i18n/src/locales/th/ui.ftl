@@ -368,7 +368,6 @@ ui-help-search = ค้นหาในความช่วยเหลือ
 ui-help-search-placeholder = ค้นหา…
 ui-help-search-empty = ไม่พบผลลัพธ์
 ui-help-search-count = { $count } ผลลัพธ์
-ui-pack-notice-close = ปิด
 ui-widgets-files = ไฟล์วิดเจ็ต
 ui-widgets-common = ใช้ร่วมกัน
 ui-widgets-new = วิดเจ็ตใหม่

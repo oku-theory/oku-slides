@@ -6,6 +6,7 @@ import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { DataOp } from "./chart/chartTypes";
 import type { Cell, ZoneView } from "./grid";
 import { locale } from "./i18n";
+import type { PackNoticeCommand } from "./packNoticeCommand";
 import type { View } from "./table/ShowAsButton";
 import { host } from "./hostCall";
 
@@ -86,8 +87,8 @@ export interface Snapshot {
   editing: TemplateMode | null;
   /** Le pack du deck n'appartient qu'à lui (import) : jamais dans la bibliothèque. */
   deck_pack: boolean;
-  /** Le deck embarque une autre version de son pack que ma version courante. */
-  pack_notice: PackNotice | null;
+  /** Bandeau du pack, en surface A2UI : le deck embarque une autre version que ma version courante. */
+  pack_notice: Surface | null;
   /** Widgets du pack en cours (fichiers, sans `_commun`), sans sonde. */
   pack_widgets: string[];
   /** Widgets d'élément du pack au registre : ceux de la barre d'ajout. */
@@ -196,20 +197,6 @@ export interface ThemeInfo {
   default: boolean;
   /** Le thème n'appartient qu'au deck (celui d'un import) : jamais dans la bibliothèque. */
   deck_only: boolean;
-}
-
-/** Version embarquée par le deck, comparée à ma version courante. */
-export type PackRelation = "ancestor" | "descendant" | "sibling";
-
-/** Bandeau du pack : textes et libellés localisés par la session. */
-export interface PackNotice {
-  pack: string;
-  name: string;
-  relation: PackRelation;
-  message: string;
-  use_mine: string;
-  /** `null` : la bibliothèque n'a pas la version du deck, l'action est masquée. */
-  make_current: string | null;
 }
 
 export interface TemplateMode {
@@ -664,8 +651,8 @@ export type AgentEvent =
 /** La portée d'une conversation : les slides, l'atelier d'un pack, ou un de ses widgets. */
 export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } | { kind: "widget"; pack: string; name: string };
 
-/** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
-export type Place = "sheet" | "thread" | "drawer" | "modal";
+/** Où s'affiche une surface : fiche, fil, tiroir, fenêtre ou bandeau (hôte seul). */
+export type Place = "sheet" | "thread" | "drawer" | "modal" | "banner";
 
 /**
  * Où l'agent pose une fiche (session, `agent::Anchor`) : l'élément `owner` de la slide, ou son
@@ -814,11 +801,8 @@ export function tabApi(tab: string) {
     /** Change le jeton `path` du thème édité (mode modèles, annulable). */
     hostToken: (path: string[], action: TokenAction, value?: unknown) =>
       call<Snapshot>({ cmd: "host_token", path, action, ...(value === undefined ? {} : { value }) }),
-    /** Bandeau du pack : le deck passe à ma version courante (annulable). */
-    packUseMine: () => call<Snapshot>({ cmd: "pack_use_mine" }),
-    /** Bandeau du pack : sa version devient ma version courante. */
-    packMakeCurrent: () => call<Snapshot>({ cmd: "pack_make_current" }),
-    packNoticeClose: () => call<Snapshot>({ cmd: "pack_notice_close" }),
+    /** Bandeau du pack : passer à ma version (annulable), faire de la sienne ma version courante, ou fermer. */
+    packNotice: (cmd: PackNoticeCommand) => call<Snapshot>({ cmd }),
     ui: (ui: UiState, order?: UiOrder) => call<Snapshot>({ cmd: "ui", ...ui, order }),
     /** Ouvre l'historique (lecture seule) sur la version la plus récente. */
     historyOpen: () => call<Snapshot>({ cmd: "history_open" }),

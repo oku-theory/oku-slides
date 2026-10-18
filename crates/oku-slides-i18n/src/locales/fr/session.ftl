@@ -118,6 +118,7 @@ pack-notice-newer = Ce deck utilise une version plus récente de « { $name } »
 pack-notice-parallel = Ce deck utilise une version de « { $name } » faite en parallèle de la vôtre.
 pack-notice-use-mine = Passer à ma version
 pack-notice-make-current = Faire de la sienne ma version courante
+pack-notice-close = Fermer
 template-default-name = Modèle
 history-restore-label = Restaurer la version du { $date }
 notice-merged = Fusionné avec { $file } — modifications importées : { $count } ({ $authors }).

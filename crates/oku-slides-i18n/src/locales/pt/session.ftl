@@ -118,6 +118,7 @@ pack-notice-newer = Esta apresentação usa uma versão de “{ $name }” mais 
 pack-notice-parallel = Esta apresentação usa uma versão de “{ $name }” feita em paralelo com a sua.
 pack-notice-use-mine = Mudar para a minha versão
 pack-notice-make-current = Tornar a dela a minha versão atual
+pack-notice-close = Fechar
 template-default-name = Modelo
 history-restore-label = Restaurar a versão de { $date }
 notice-merged = Mesclado com { $file } — alterações importadas: { $count } ({ $authors }).

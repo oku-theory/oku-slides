@@ -7,6 +7,7 @@ import { t } from "./i18n";
 import { fileName } from "./importFile";
 import { useModalFrame } from "./modalFrame";
 import { packOptionLabel } from "./packOps";
+import { Button, Field, Select } from "./primitives";
 import type { ImportChoice } from "./useImportJob";
 
 interface Props {
@@ -126,21 +127,16 @@ export default function ImportDialog({
         </fieldset>
         {mode === "retrofit" && (
           <div className="import-target">
-            <label className="settings-row">
-              <span className="caption">{t("ui-picker-set")}</span>
-              <select className="select" value={pack} disabled={busy || !sets?.length} onChange={(e) => setPack(e.target.value)}>
-                {(sets ?? []).map((s) => <option key={s.id} value={s.id}>{packOptionLabel(s)}</option>)}
-              </select>
-            </label>
+            <Field variant="row" label={t("ui-picker-set")}>
+              <Select value={pack} disabled={busy || !sets?.length} onChange={setPack}
+                options={(sets ?? []).map((s) => ({ value: s.id, label: packOptionLabel(s) }))} />
+            </Field>
             {sets?.length === 0 && <p className="caption import-empty">{t("ui-import-no-packs")}</p>}
             {listError && <p className="import-error" role="alert">{listError}</p>}
-            <label className="settings-row">
-              <span className="caption">{t("ui-toolbar-theme")}</span>
-              <select className="select" value={theme} disabled={busy} onChange={(e) => setTheme(e.target.value)}>
-                <option value="">{t("ui-import-theme-default")}</option>
-                {choices.map((th) => <option key={th.id} value={th.id}>{th.name}</option>)}
-              </select>
-            </label>
+            <Field variant="row" label={t("ui-toolbar-theme")}>
+              <Select value={theme} disabled={busy} onChange={setTheme}
+                options={[{ value: "", label: t("ui-import-theme-default") }, ...choices.map((th) => ({ value: th.id, label: th.name }))]} />
+            </Field>
           </div>
         )}
         <label className="check import-tune">
@@ -157,8 +153,8 @@ export default function ImportDialog({
         {error && <p className="import-error" role="alert">{error}</p>}
         <div className="import-actions">
           {busy && <span className="caption" role="status">{t("ui-import-busy")}</span>}
-          <button type="button" className="btn ghost" onClick={onClose}>{t("ui-close-cancel")}</button>
-          <button type="button" className="btn primary" disabled={busy || !ready} onClick={submit}>{t("ui-import-submit")}</button>
+          <Button ghost onClick={onClose}>{t("ui-close-cancel")}</Button>
+          <Button primary disabled={busy || !ready} onClick={submit}>{t("ui-import-submit")}</Button>
         </div>
       </div>
     </div>

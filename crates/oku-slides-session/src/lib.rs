@@ -106,7 +106,6 @@ pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 pub use library_lookup::{embed_theme, library_pack, read_pack_dir, resolve_pack};
 pub use merge::Saved;
 pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, PackScope, Relation, Template};
-pub use pack_notice::PackNoticeView;
 pub use probed_widgets::{ProbedWidgets, sources_with_pack};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
@@ -642,7 +641,7 @@ impl Session {
             templates: self.deck_pack(),
             editing: self.editing_view(),
             deck_pack: self.deck_pack_is_deck_only(),
-            pack_notice: self.pack_notice_view(),
+            pack_notice: self.pack_notice_surface(),
             pack_widgets: self.pack_widget_names(),
             add_widgets: self.add_widgets(),
             widget_trials: self.examples_revision(),

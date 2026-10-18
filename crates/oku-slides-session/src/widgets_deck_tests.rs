@@ -234,9 +234,9 @@ fn set_widget_in_deck_mode_shows_no_pack_notice() {
     s.set_widget("quote", QUOTE.into()).unwrap();
     let r = s.deck().templates.clone().unwrap();
     assert_that!(library_of(&s).current(r.id)).is_equal_to(Some(r.version.clone()));
-    assert_that!(s.snapshot().pack_notice.map(|n| n.message)).is_none();
+    assert_that!(s.snapshot().pack_notice).is_none();
     s.set_widget("quote", QUOTE_V2.into()).unwrap();
-    assert_that!(s.snapshot().pack_notice.map(|n| n.message)).is_none();
+    assert_that!(s.snapshot().pack_notice).is_none();
 }
 
 /// `Save` de l'interface (sans `overwrite`), dans `path`.

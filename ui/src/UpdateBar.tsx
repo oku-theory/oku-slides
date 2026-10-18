@@ -4,6 +4,7 @@
 
 import type { UpdateOffer } from "./api";
 import { t } from "./i18n";
+import { Button } from "./primitives";
 
 /** Bandeau proposant une version plus récente de l'app. */
 export default function UpdateBar({ offer, installing, percent, onInstall, onLater, onOpenRelease }: {
@@ -26,11 +27,11 @@ export default function UpdateBar({ offer, installing, percent, onInstall, onLat
         : <progress className="update-bar-progress" max={100} value={percent} />)}
       <span className="notice-bar-actions">
         {offer.mode === "install" ? (
-          <button type="button" className="btn primary" disabled={installing} onClick={onInstall}>{t("ui-update-install")}</button>
+          <Button primary disabled={installing} onClick={onInstall}>{t("ui-update-install")}</Button>
         ) : (
-          <button type="button" className="btn primary" disabled={installing} onClick={onOpenRelease}>{t("ui-update-see-release")}</button>
+          <Button primary disabled={installing} onClick={onOpenRelease}>{t("ui-update-see-release")}</Button>
         )}
-        <button type="button" className="btn ghost" disabled={installing} onClick={onLater}>{t("ui-update-later")}</button>
+        <Button ghost disabled={installing} onClick={onLater}>{t("ui-update-later")}</Button>
       </span>
     </div>
   );

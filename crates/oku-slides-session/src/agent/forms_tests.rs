@@ -4,6 +4,8 @@ use speculoos::prelude::*;
 
 use serde_json::{Value, json};
 
+use crate::pack_notice::pack_notice_banner;
+
 use super::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, FormExtras, ParamField, PermissionChoice, PermissionKind,
     Place, ShowParams, ShowVariants, Surface, Variant, choice, confirm, params, params_with, permission, rewrite,
@@ -530,6 +532,7 @@ fn every_form() -> Vec<super::Surface> {
         report8,
         render9,
         params_with("host-widget", &host, &host_extras, &[], &l),
+        pack_notice_banner("Ce deck utilise une version plus récente de « Charte ».".into(), true, &l),
     ]
 }
 

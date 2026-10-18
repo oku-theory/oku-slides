@@ -373,7 +373,6 @@ ui-help-search-count = { $count ->
     [one] 1 resultaat
    *[other] { $count } resultaten
 }
-ui-pack-notice-close = Sluiten
 ui-widgets-files = Widgetbestanden
 ui-widgets-common = Gedeeld
 ui-widgets-new = Nieuwe widget

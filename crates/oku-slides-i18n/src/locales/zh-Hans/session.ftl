@@ -118,6 +118,7 @@ pack-notice-newer = 此演示文稿使用的“{ $name }”版本比您的新。
 pack-notice-parallel = 此演示文稿使用的“{ $name }”版本与您的版本并行制作。
 pack-notice-use-mine = 切换到我的版本
 pack-notice-make-current = 将对方的版本设为我的当前版本
+pack-notice-close = 关闭
 template-default-name = 模板
 history-restore-label = 恢复 { $date } 的版本
 notice-merged = 已与 { $file } 合并 — 导入的更改：{ $count }（{ $authors }）。

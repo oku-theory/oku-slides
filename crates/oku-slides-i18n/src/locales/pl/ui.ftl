@@ -374,7 +374,6 @@ ui-help-search = Szukaj w pomocy
 ui-help-search-placeholder = Szukaj…
 ui-help-search-empty = Brak wyników
 ui-help-search-count = Wyniki: { $count }
-ui-pack-notice-close = Zamknij
 ui-widgets-files = Pliki widżetów
 ui-widgets-common = Wspólne
 ui-widgets-new = Nowy widget

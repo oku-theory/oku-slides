@@ -3,6 +3,7 @@ import type { Surface, SttConfig, SttModel, SttStatus } from "./api";
 import { stt } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
+import { Button, Field, Select } from "./primitives";
 import { AgentPicker } from "./agent/AgentPicker";
 import type { DictationMode } from "./agent/keys";
 import { dictationShortcut, shortcutAction, typingShortcut } from "./agent/keys";
@@ -377,36 +378,30 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
               );
             })}
           </div>
-          <label className="settings-row">
-            <span className="caption">{t("ui-dictation-language")}</span>
-            <select
-              className="select"
+          <Field variant="row" label={t("ui-dictation-language")}>
+            <Select
               value={status.config.language ?? ""}
-              onChange={(e) => configure({ language: e.target.value || null })}
-            >
-              {langs.map(([code, name]) => <option key={code ?? "auto"} value={code ?? ""}>{name}</option>)}
-            </select>
-          </label>
+              onChange={(v) => configure({ language: v || null })}
+              options={langs.map(([code, name]) => ({ value: code ?? "", label: name }))}
+            />
+          </Field>
           <div className="settings-row">
             <label className="check">
               <input type="checkbox" checked={status.config.auto_stop} onChange={(e) => configure({ auto_stop: e.target.checked })} />
               <span className="caption">{t("ui-dictation-auto-stop-label")}</span>
             </label>
-            <select
-              className="select"
+            <Select
               aria-label={t("ui-dictation-silence")}
               disabled={!status.config.auto_stop}
               value={String(status.config.silence)}
-              onChange={(e) => configure({ silence: Number(e.target.value) })}
-            >
-              {(SILENCES.includes(status.config.silence) ? SILENCES : [...SILENCES, status.config.silence].sort((a, b) => a - b)).map((v) => (
-                <option key={v} value={String(v)}>{secs(v)}</option>
-              ))}
-            </select>
+              onChange={(v) => configure({ silence: Number(v) })}
+              options={(SILENCES.includes(status.config.silence) ? SILENCES : [...SILENCES, status.config.silence].sort((a, b) => a - b))
+                .map((v) => ({ value: String(v), label: secs(v) }))}
+            />
           </div>
           <p className="caption">{t("ui-dictation-phrases-note")}</p>
           {model && model.available && !model.installed && (
-            <button className="btn" onClick={() => send(stt.download(model.id))}>{model.size === 0 ? t("ui-dictation-download-language") : t("ui-dictation-download-now", { size: mo(model.size) })}</button>
+            <Button onClick={() => send(stt.download(model.id))}>{model.size === 0 ? t("ui-dictation-download-language") : t("ui-dictation-download-now", { size: mo(model.size) })}</Button>
           )}
           {/* L'agent de l'app, sous les réglages de la dictée (la surface porte son titre). */}
           {agentPicker && (

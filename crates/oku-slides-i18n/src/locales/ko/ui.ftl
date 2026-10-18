@@ -368,7 +368,6 @@ ui-help-search = 도움말 검색
 ui-help-search-placeholder = 검색…
 ui-help-search-empty = 결과 없음
 ui-help-search-count = 결과 { $count }개
-ui-pack-notice-close = 닫기
 ui-widgets-files = 위젯 파일
 ui-widgets-common = 공통
 ui-widgets-new = 새 위젯

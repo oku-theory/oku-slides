@@ -4,7 +4,7 @@
 //
 // Noms et propriétés reprennent le catalogue de base v0.9 ; `RichTextField`, `Stepper`, `ListTable`,
 // `ChoiceChips`, `ColorField`, `SlideThumb`, `DiffText`, `Prompt`, `Timeline`,
-// `Receipt`, `Disclosure`, `Badge`, `Markdown` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
+// `Receipt`, `Disclosure`, `Badge`, `Markdown`, `Notice` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -13,6 +13,8 @@ import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
 import type { Paragraph } from "../api";
 import { t } from "../i18n";
+import { Icon } from "../icons";
+import { Button as UiButton, Field, Select as UiSelect } from "../primitives";
 import { ActionOutcomeContext, sendWithOutcome } from "./actionOutcome";
 import { QuickHintsContext } from "./quickHints";
 import { ListTable, type ListRow } from "./ListTable";
@@ -171,6 +173,17 @@ const SlideThumbApi = {
   name: "SlideThumb",
   schema: z.object({ svg: z.string(), label: CommonSchemas.DynamicString, action: CommonSchemas.Action.optional() }).strict(),
 };
+const NoticeApi = {
+  name: "Notice",
+  schema: z
+    .object({
+      text: CommonSchemas.DynamicString,
+      children: CommonSchemas.ChildList,
+      close: CommonSchemas.Action,
+      close_label: CommonSchemas.DynamicString,
+    })
+    .strict(),
+};
 const DiffTextApi = {
   name: "DiffText",
   schema: z
@@ -222,8 +235,7 @@ const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
     props.action?.();
   };
   return (
-    <label className="note-field">
-      <span className="a2ui-hint">{props.label}</span>
+    <Field variant="note" label={props.label}>
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -235,7 +247,7 @@ const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
           e.stopPropagation();
         }}
       />
-    </label>
+    </Field>
   );
 });
 
@@ -320,14 +332,15 @@ export function sixDigits(color: string | undefined): string {
  * `danger`, une action qui engage (non annulable, permission permanente).
  */
 const Button = createComponentImplementation(ButtonApi, ({ props }) => (
-  <button
-    type="button"
-    className={`object btn${props.primary ? " primary" : ""}${props.danger ? " danger" : ""}`}
+  <UiButton
+    raised
+    primary={props.primary}
+    danger={props.danger}
     data-primary={props.primary ? "" : undefined}
     onClick={() => props.action()}
   >
     {props.label}
-  </button>
+  </UiButton>
 ));
 
 /** Touches rapides montrées : 1 à 4 (Task 20 les lit). */
@@ -369,8 +382,7 @@ const Slider = createComponentImplementation(SliderApi, ({ props }) => {
   const ref = useNativeChange((v) => commit(Number(v)));
   const step = props.step ?? 1;
   return (
-    <label className="note-field">
-      <span className="a2ui-hint">{props.label} · {draft.toFixed(decimals(step))}</span>
+    <Field variant="note" label={<>{props.label} · {draft.toFixed(decimals(step))}</>}>
       <input
         ref={ref}
         type="range"
@@ -381,7 +393,7 @@ const Slider = createComponentImplementation(SliderApi, ({ props }) => {
         onChange={(e) => setDraft(Number(e.target.value))}
         onBlur={() => commit(draft)}
       />
-    </label>
+    </Field>
   );
 });
 
@@ -399,8 +411,7 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
   });
   const ref = useNativeChange(pick);
   return (
-    <div className="note-field">
-      <span className="a2ui-hint">{props.label}</span>
+    <Field variant="note" label={props.label} as="div">
       <div className="swatches">
         {props.palette.map((c, i) => (
           <button
@@ -422,7 +433,7 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
         />
         {named && <span className="a2ui-hint color-name">{props.value}</span>}
       </div>
-    </div>
+    </Field>
   );
 });
 
@@ -430,20 +441,16 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
 const Select = createComponentImplementation(SelectApi, ({ props }) => {
   const known = props.options.some((o) => o.id === props.value);
   return (
-    <label className="note-field">
-      <span className="a2ui-hint">{props.label}</span>
-      <select
-        className="select"
+    <Field variant="note" label={props.label}>
+      <UiSelect
         value={known ? props.value : ""}
-        onChange={(e) => {
-          props.setValue(e.target.value);
+        options={[...(known ? [] : [{ value: "", label: "", disabled: true }]), ...props.options.map((o) => ({ value: o.id, label: o.label }))]}
+        onChange={(v) => {
+          props.setValue(v);
           props.action?.();
         }}
-      >
-        {!known && <option value="" disabled />}
-        {props.options.map((o, i) => <option key={`${i}-${o.id}`} value={o.id}>{o.label}</option>)}
-      </select>
-    </label>
+      />
+    </Field>
   );
 });
 
@@ -497,8 +504,25 @@ const DiffText = createComponentImplementation(DiffTextApi, ({ props }) => (
   </p>
 ));
 
+/** Un bandeau annoncé : le texte, les boutons enfants, puis la croix qui le ferme. */
+const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild }) => (
+  <div className="notice-bar" role="status">
+    <span className="notice-bar-text">{props.text}</span>
+    <div className="notice-bar-actions">{children(props.children, buildChild)}</div>
+    <button
+      type="button"
+      className="token ghost notice-bar-close"
+      aria-label={props.close_label}
+      title={props.close_label}
+      onClick={() => props.close()}
+    >
+      {Icon.close}
+    </button>
+  </div>
+));
+
 /** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
 export const catalog = new Catalog(CATALOG_ID, [
   Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, ListTableField, SlideThumb, DiffText,
-  Prompt, Timeline, Receipt, Disclosure, Badge, Markdown,
+  Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice,
 ]);

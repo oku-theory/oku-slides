@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { SlideView, Snapshot, TabApi } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
+import { IconToggle } from "./primitives";
 import { canAdd } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
 import type { TemplateWidgets } from "./useTemplateWidgets";
@@ -88,15 +89,13 @@ export function ToolsTray({
       ) : (
         <>
           {/* Les paramètres de contenu sous la slide : affichés ou masqués (gardé par l'hôte). */}
-          <button
+          <IconToggle
             className="token ghost"
-            aria-pressed={!paramsHidden}
-            aria-label={paramsLabel}
-            title={paramsLabel}
-            onClick={() => keptUi.setFolded("params", !paramsHidden)}
-          >
-            {Icon.panelBottom}
-          </button>
+            pressed={!paramsHidden}
+            label={paramsLabel}
+            onToggle={() => keptUi.setFolded("params", !paramsHidden)}
+            icon={Icon.panelBottom}
+          />
           {mainMenu}
           <span className="tools-sep" aria-hidden />
           <button

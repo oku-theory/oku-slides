@@ -93,8 +93,8 @@ pub struct Snapshot<'a> {
     ///
     /// L'atelier l'édite depuis sa version embarquée ; ses versions restent dans le deck.
     pub deck_pack: bool,
-    /// Bandeau du pack : le deck embarque une autre version que ma version courante.
-    pub pack_notice: Option<crate::PackNoticeView>,
+    /// Bandeau du pack, en surface A2UI : le deck embarque une autre version que ma version courante.
+    pub pack_notice: Option<crate::agent::Surface>,
     /// Widgets du pack en cours (fichiers, sans `_commun`), sans sonde.
     pub pack_widgets: Vec<&'a str>,
     /// Widgets d'élément du pack au registre : ceux de la barre d'ajout.

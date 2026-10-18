@@ -370,7 +370,6 @@ ui-help-search = 搜尋說明
 ui-help-search-placeholder = 搜尋…
 ui-help-search-empty = 沒有結果
 ui-help-search-count = { $count }個結果
-ui-pack-notice-close = 關閉
 ui-widgets-files = 小工具檔案
 ui-widgets-common = 共用
 ui-widgets-new = 新增小工具

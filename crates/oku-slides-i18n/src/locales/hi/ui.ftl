@@ -370,7 +370,6 @@ ui-help-search = सहायता में खोजें
 ui-help-search-placeholder = खोजें…
 ui-help-search-empty = कोई परिणाम नहीं
 ui-help-search-count = { $count } परिणाम
-ui-pack-notice-close = बंद करें
 ui-widgets-files = विजेट फ़ाइलें
 ui-widgets-common = साझा
 ui-widgets-new = नया विजेट

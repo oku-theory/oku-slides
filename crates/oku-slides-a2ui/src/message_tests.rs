@@ -537,3 +537,55 @@ fn sub_list_with_max_below_min_is_refused() {
     assert_that!(serde_json::from_value::<SubList>(json!({ "columns": [], "min": 3, "max": 2 })).is_err()).is_true();
     assert_that!(SubList::new(vec![], 3, Some(2), None)).is_equal_to(Err(SubListFault::MaxBelowMin));
 }
+
+fn notice() -> Component {
+    Component::new(
+        "n",
+        ComponentKind::Notice {
+            text: Dynamic::Literal("Une autre version".into()),
+            children: vec!["mine".into()],
+            close: Action::named("close"),
+            close_label: Dynamic::Literal("Fermer".into()),
+        },
+    )
+}
+
+#[test]
+fn notice_serializes_text_children_and_close() {
+    assert_that!(serde_json::to_value(notice()).ok()).is_some().is_equal_to(json!({
+        "id": "n", "component": "Notice", "text": "Une autre version", "children": ["mine"],
+        "close": { "event": { "name": "close" } }, "close_label": "Fermer"
+    }));
+}
+
+#[test]
+fn notice_children_are_its_action_buttons() {
+    assert_that!(notice().kind.children()).is_equal_to(vec!["mine"]);
+}
+
+#[test]
+fn notice_actions_are_its_close_action() {
+    assert_that!(notice().kind.actions()).is_equal_to(vec![&Action::named("close")]);
+}
+
+#[test]
+fn notice_agent_allowed_is_false() {
+    assert_that!(notice().agent_allowed()).is_false();
+}
+
+#[test]
+fn notice_without_action_is_none() {
+    assert_that!(notice().kind.without_action()).is_none();
+}
+
+#[test]
+fn notice_json_round_trip_is_identity() {
+    let json = serde_json::to_value(notice()).unwrap();
+    assert_that!(serde_json::from_value::<Component>(json).ok()).is_equal_to(Some(notice()));
+}
+
+#[test]
+fn notice_without_close_fails_to_deserialize() {
+    let json = json!({"id": "n", "component": "Notice", "text": "x", "children": [], "close_label": "Fermer"});
+    assert_that!(serde_json::from_value::<Component>(json).is_err()).is_true();
+}

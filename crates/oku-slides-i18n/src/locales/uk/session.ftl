@@ -118,6 +118,7 @@ pack-notice-newer = У цій презентації використано но
 pack-notice-parallel = У цій презентації використано версію «{ $name }», створену паралельно з вашою.
 pack-notice-use-mine = Перейти на мою версію
 pack-notice-make-current = Зробити ту версію моєю поточною
+pack-notice-close = Закрити
 template-default-name = Шаблон
 history-restore-label = Відновити версію від { $date }
 notice-merged = Об’єднано з { $file } — імпортовано змін: { $count } ({ $authors }).

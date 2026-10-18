@@ -370,7 +370,6 @@ ui-help-search = ヘルプを検索
 ui-help-search-placeholder = 検索…
 ui-help-search-empty = 結果なし
 ui-help-search-count = { $count }件
-ui-pack-notice-close = 閉じる
 ui-widgets-files = ウィジェットファイル
 ui-widgets-common = 共通
 ui-widgets-new = 新規ウィジェット

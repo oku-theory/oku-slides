@@ -118,6 +118,7 @@ pack-notice-newer = 이 프레젠테이션은 내 버전보다 최신인 “{ $n
 pack-notice-parallel = 이 프레젠테이션은 내 버전과 병행하여 만들어진 “{ $name }” 버전을 사용합니다.
 pack-notice-use-mine = 내 버전으로 전환
 pack-notice-make-current = 상대 버전을 내 현재 버전으로 지정
+pack-notice-close = 닫기
 template-default-name = 템플릿
 history-restore-label = { $date } 버전 복원
 notice-merged = { $file }과(와) 병합했습니다 — 가져온 변경: { $count }({ $authors }).

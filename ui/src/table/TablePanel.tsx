@@ -7,6 +7,7 @@ import type { Element, Op } from "../api";
 import { ChartDataGrid } from "../chart/ChartDataGrid";
 import { t } from "../i18n";
 import { stroke } from "../icons";
+import { IconToggle } from "../primitives";
 import { ShowAsButton, type View } from "./ShowAsButton";
 import { COLUMN_ALIGNS, type TableFlag, alignPatch, asColumnAlign, columnAlign, flag, tableOption } from "./tableDeck";
 
@@ -41,10 +42,8 @@ export function TablePanel({ slide, element, onApply, onShowAs }: {
           {FLAGS.map(({ key, label, icon }) => {
             const pressed = flag(option, key);
             return (
-              <button key={key} aria-label={t(label)} title={t(label)} aria-pressed={pressed} className={pressed ? "on" : ""}
-                onClick={() => patch(t("ui-undo-table-option"), { [key]: !pressed })}>
-                {icon}
-              </button>
+              <IconToggle key={key} label={t(label)} pressed={pressed} icon={icon}
+                onToggle={() => patch(t("ui-undo-table-option"), { [key]: !pressed })} />
             );
           })}
         </div>

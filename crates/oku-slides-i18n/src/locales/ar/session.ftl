@@ -118,6 +118,7 @@ pack-notice-newer = يستخدم هذا العرض التقديمي إصدارً
 pack-notice-parallel = يستخدم هذا العرض التقديمي إصدارًا من «{ $name }» أُنشئ بالتوازي مع إصدارك.
 pack-notice-use-mine = التبديل إلى إصداري
 pack-notice-make-current = اجعل إصداره إصداري الحالي
+pack-notice-close = إغلاق
 template-default-name = قالب
 history-restore-label = استعادة نسخة { $date }
 notice-merged = تم الدمج مع { $file } — التغييرات المستوردة: { $count } ({ $authors }).

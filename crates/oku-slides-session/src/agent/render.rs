@@ -99,7 +99,8 @@ fn check_content(i: usize, c: &Component, name: &str) -> Result<()> {
         | ComponentKind::SlideThumb { .. }
         | ComponentKind::Prompt { .. }
         | ComponentKind::Timeline { .. }
-        | ComponentKind::Receipt { .. } => refuse(AgentFormReason::NotAvailable {
+        | ComponentKind::Receipt { .. }
+        | ComponentKind::Notice { .. } => refuse(AgentFormReason::NotAvailable {
             at: format!("components[{i}]"),
             name: name.to_owned(),
             tool: "render",

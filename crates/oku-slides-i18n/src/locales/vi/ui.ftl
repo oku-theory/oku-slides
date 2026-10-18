@@ -368,7 +368,6 @@ ui-help-search = Tìm trong trợ giúp
 ui-help-search-placeholder = Tìm…
 ui-help-search-empty = Không có kết quả
 ui-help-search-count = { $count } kết quả
-ui-pack-notice-close = Đóng
 ui-widgets-files = Tệp widget
 ui-widgets-common = Dùng chung
 ui-widgets-new = Widget mới

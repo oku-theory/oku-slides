@@ -5,7 +5,10 @@ use rstest::rstest;
 use speculoos::prelude::*;
 use uuid::Uuid;
 
+use oku_slides_i18n::Localizer;
+
 use crate::pack::PackManifest;
+use crate::pack_notice::pack_notice_banner;
 use crate::test_support::{adopt_deck_only_pack, fresh_dir, logged, manifest, session_on};
 use crate::{Request, Session};
 
@@ -28,6 +31,35 @@ fn received_file(them: &Path, pack: &PackFiles) -> PathBuf {
 fn notice(s: &mut Session) -> serde_json::Value {
     let snap: serde_json::Value = serde_json::from_str(&s.handle(Request::Snapshot).unwrap()).unwrap();
     snap["pack_notice"].clone()
+}
+
+/// Les composants de la surface du bandeau.
+fn components(n: &serde_json::Value) -> Vec<serde_json::Value> {
+    let messages = n["messages"].as_array().cloned().unwrap_or_default();
+    let update = messages.iter().find_map(|m| m.get("updateComponents")).cloned().unwrap_or_default();
+    update["components"].as_array().cloned().unwrap_or_default()
+}
+
+/// Le composant `id` du bandeau.
+fn component(n: &serde_json::Value, id: &str) -> serde_json::Value {
+    components(n).into_iter().find(|c| c["id"] == id).unwrap_or_default()
+}
+
+/// Le texte du bandeau.
+fn notice_text(n: &serde_json::Value) -> String {
+    component(n, "root")["text"].as_str().unwrap_or_default().to_owned()
+}
+
+/// Libellé et évènement de chaque bouton du bandeau, dans l'ordre.
+fn buttons(n: &serde_json::Value) -> Vec<(String, String)> {
+    let ids = component(n, "root")["children"].as_array().cloned().unwrap_or_default();
+    ids.iter()
+        .map(|id| component(n, id.as_str().unwrap_or_default()))
+        .map(|b| {
+            let label = b["label"].as_str().unwrap_or_default().to_owned();
+            (label, b["action"]["event"]["name"].as_str().unwrap_or_default().to_owned())
+        })
+        .collect()
 }
 
 #[test]
@@ -64,13 +96,12 @@ fn open_with_an_unknown_pack_creates_it_with_the_received_version_current() {
 
 /// v0 ← v1 ; v0 ← v2. `mine` : ma version courante ; `theirs` : celle du fichier.
 #[rstest]
-#[case::newer(0, 1, "descendant", "plus récente")]
-#[case::older(1, 0, "ancestor", "plus ancienne")]
-#[case::parallel(1, 2, "sibling", "en parallèle")]
+#[case::newer(0, 1, "plus récente")]
+#[case::older(1, 0, "plus ancienne")]
+#[case::parallel(1, 2, "en parallèle")]
 fn open_with_another_version_shows_the_banner_with_its_relation(
     #[case] mine: usize,
     #[case] theirs: usize,
-    #[case] relation: &str,
     #[case] words: &str,
 ) {
     let (me, them) = (fresh_dir("oku-slides-notice-me-"), fresh_dir("oku-slides-notice-them-"));
@@ -85,9 +116,8 @@ fn open_with_another_version_shows_the_banner_with_its_relation(
     s.library.set_current(id, &v[mine].version()).unwrap();
     s.open(&received_file(them.path(), &v[theirs])).unwrap();
     let n = notice(&mut s);
-    assert_that!(n["relation"].as_str()).is_equal_to(Some(relation));
-    assert_that!(n["message"].as_str().unwrap_or_default()).contains(words);
-    assert_that!(n["message"].as_str().unwrap_or_default()).contains("Charte");
+    assert_that!(notice_text(&n)).contains(words);
+    assert_that!(notice_text(&n)).contains("Charte");
     assert_that!(s.library.current(id)).is_equal_to(Some(v[mine].version()));
 }
 
@@ -224,15 +254,68 @@ fn open_when_adding_the_received_version_fails_opens_and_offers_no_make_current(
     assert_that!(s.library.version(id, &v1.version())).is_none();
     assert_that!(s.deck().templates.as_ref().map(|r| r.version.clone())).is_equal_to(Some(v1.version()));
     let n = notice(&mut s);
-    assert_that!(n["message"].as_str().unwrap_or_default()).contains("Charte");
-    assert_that!(n["use_mine"].is_string()).is_true();
-    assert_that!(n["make_current"].is_null()).is_true();
+    assert_that!(notice_text(&n)).contains("Charte");
+    assert_that!(buttons(&n)).is_equal_to(vec![("Passer à ma version".to_owned(), "pack_use_mine".to_owned())]);
 }
 
 #[test]
-fn pack_notice_view_offers_make_current_when_the_library_has_their_version() {
+fn pack_notice_surface_offers_make_current_when_the_library_has_their_version() {
     let (_me, _them, mut s, _v0, _v1) = opened_on_newer();
-    assert_that!(notice(&mut s)["make_current"].as_str()).is_equal_to(Some("Faire de la sienne ma version courante"));
+    assert_that!(buttons(&notice(&mut s))).is_equal_to(vec![
+        ("Passer à ma version".to_owned(), "pack_use_mine".to_owned()),
+        ("Faire de la sienne ma version courante".to_owned(), "pack_make_current".to_owned()),
+    ]);
+}
+
+#[test]
+fn pack_notice_surface_is_placed_as_a_banner() {
+    let (_me, _them, mut s, _v0, _v1) = opened_on_newer();
+    assert_that!(notice(&mut s)["place"].as_str()).is_equal_to(Some("banner"));
+}
+
+#[test]
+fn pack_notice_surface_use_mine_button_is_primary() {
+    let (_me, _them, mut s, _v0, _v1) = opened_on_newer();
+    assert_that!(component(&notice(&mut s), "pack-use-mine")["primary"].as_bool()).is_equal_to(Some(true));
+}
+
+#[test]
+fn pack_notice_surface_make_current_button_is_not_primary() {
+    let (_me, _them, mut s, _v0, _v1) = opened_on_newer();
+    assert_that!(component(&notice(&mut s), "pack-make-current")["primary"].as_bool()).is_none();
+}
+
+/// Les noms d'évènement du bandeau (boutons et croix), dans l'ordre.
+fn banner_events() -> Vec<String> {
+    let banner = pack_notice_banner("x".into(), true, &Localizer::new(Some("fr")));
+    let json = serde_json::to_value(banner).unwrap();
+    components(&json)
+        .iter()
+        .flat_map(|c| [c["action"]["event"]["name"].clone(), c["close"]["event"]["name"].clone()])
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .collect()
+}
+
+#[test]
+fn pack_notice_banner_sends_three_events() {
+    assert_that!(banner_events()).has_length(3);
+}
+
+/// Chaque évènement du bandeau porte le nom de la requête qu'il envoie (`cmd`).
+#[test]
+fn pack_notice_banner_events_are_request_names() {
+    for name in banner_events() {
+        let parsed = serde_json::from_value::<Request>(serde_json::json!({ "cmd": name }));
+        assert_that!(parsed.is_ok()).named(&name).is_true();
+    }
+}
+
+#[test]
+fn pack_notice_surface_close_sends_pack_notice_close_with_its_label() {
+    let (_me, _them, mut s, _v0, _v1) = opened_on_newer();
+    let root = component(&notice(&mut s), "root");
+    assert_that!(root["close"]["event"]["name"].as_str()).is_equal_to(Some("pack_notice_close"));
+    assert_that!(root["close_label"].as_str()).is_equal_to(Some("Fermer"));
 }
 
 #[test]

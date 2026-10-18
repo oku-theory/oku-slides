@@ -6,6 +6,7 @@ import type { Snapshot, TabApi } from "./api";
 import { errorText } from "./api";
 import { availableLocales, changeLocale, chosenLocale, languageName, t } from "./i18n";
 import type { PresentMode } from "./present";
+import { Field, Select } from "./primitives";
 import { changeScheme, type useSchemeChoice } from "./scheme";
 import SchemePicker from "./SchemePicker";
 import ThemeMenu from "./ThemeMenu";
@@ -65,17 +66,13 @@ export function AppMenu({
     />
   );
   const languagePicker = (
-    <label className="menu-theme">
-      <span className="caption">{t("ui-language")}</span>
-      <select
-        className="select"
+    <Field variant="menu" label={t("ui-language")}>
+      <Select
         value={chosenLocale() ?? ""}
-        onChange={(e) => changeLocale(e.target.value || null).catch((err) => say(errorText(err), true))}
-      >
-        <option value="">{t("ui-language-system")}</option>
-        {availableLocales().map((code) => <option key={code} value={code}>{languageName(code)}</option>)}
-      </select>
-    </label>
+        onChange={(v) => changeLocale(v || null).catch((err) => say(errorText(err), true))}
+        options={[{ value: "", label: t("ui-language-system") }, ...availableLocales().map((code) => ({ value: code, label: languageName(code) }))]}
+      />
+    </Field>
   );
   const schemePicker = (
     <SchemePicker value={schemeChoice} onChange={(c) => changeScheme(c).catch((err) => say(errorText(err), true))} />

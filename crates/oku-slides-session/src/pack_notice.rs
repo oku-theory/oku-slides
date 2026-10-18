@@ -4,16 +4,20 @@
 //! ajoutée en silence (un id inconnu crée le pack). Si la version du deck
 //! n'est pas la courante de son pack, un bandeau le dit, avec deux actions :
 //! passer le deck à ma version (annulable), ou faire de la sienne ma version
-//! courante. Il ne bloque jamais l'ouverture ; fermé, il ne revient plus
-//! pour ce deck dans cette session. Un pack du deck seul (`PackScope::Deck`)
-//! n'est jamais reçu dans la bibliothèque et n'a pas de bandeau.
+//! courante ; la session le décrit en surface A2UI (`Notice`). Il ne bloque
+//! jamais l'ouverture ; fermé, il ne revient plus pour ce deck dans cette
+//! session. Un pack du deck seul (`PackScope::Deck`) n'est jamais reçu dans la
+//! bibliothèque et n'a pas de bandeau.
 
-use serde::Serialize;
+use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic};
+use serde_json::json;
 use snafu::OptionExt;
-use uuid::Uuid;
 
 use oku_slides_core::{Op, PackFiles, PackRef};
+use oku_slides_i18n::Localizer;
 
+use crate::agent::Surface;
+use crate::agent::forms::{Place, surface};
 use crate::error::UnknownPackSnafu;
 use crate::pack::{PackManifest, Relation};
 use crate::{Result, Session};
@@ -41,18 +45,30 @@ pub(crate) struct PackNotice {
     pub(crate) relation: Relation,
 }
 
-/// Le bandeau tel que l'interface le montre, dans la langue de l'utilisateur.
-#[derive(Debug, Clone, Serialize)]
-pub struct PackNoticeView {
-    pub pack: Uuid,
-    pub name: String,
-    pub relation: Relation,
-    pub message: String,
-    /// Libellé de « Passer à ma version ».
-    pub use_mine: String,
-    /// Libellé de « Faire de la sienne ma version courante » ; `None` si la
-    /// bibliothèque n'a pas la version du deck (l'action échouerait).
-    pub make_current: Option<String>,
+/// Surface du bandeau du pack.
+const PACK_NOTICE: &str = "host-pack-notice";
+
+/// La surface du bandeau : `message`, « Passer à ma version », puis « Faire de la sienne… » si `make_current`.
+///
+/// Toujours vivante (`live`) : le mot ne vaut que pour le dock, un bandeau n'y va jamais.
+pub(crate) fn pack_notice_banner(message: String, make_current: bool, l: &Localizer) -> Surface {
+    let mut buttons =
+        vec![Component::button("pack-use-mine", l.tr("pack-notice-use-mine"), true, Action::named("pack_use_mine"))];
+    if make_current {
+        let label = l.tr("pack-notice-make-current");
+        buttons.push(Component::button("pack-make-current", label, false, Action::named("pack_make_current")));
+    }
+    let root = Component::new(
+        "root",
+        ComponentKind::Notice {
+            text: Dynamic::Literal(message),
+            children: buttons.iter().map(|b| b.id.clone()).collect(),
+            close: Action::named("pack_notice_close"),
+            close_label: Dynamic::Literal(l.tr("pack-notice-close")),
+        },
+    );
+    let components = std::iter::once(root).chain(buttons).collect();
+    surface(PACK_NOTICE, Place::Banner, None, components, json!({}))
 }
 
 impl Session {
@@ -121,8 +137,12 @@ impl Session {
         self.pack_notice.as_ref().filter(|n| self.doc.sources.deck().templates.as_ref() == Some(&n.pack))
     }
 
-    /// Le bandeau à montrer, s'il y en a un.
-    pub(crate) fn pack_notice_view(&self) -> Option<PackNoticeView> {
+    /// Le bandeau à montrer, s'il y en a un : une surface A2UI `Notice`.
+    ///
+    /// Chaque bouton envoie l'évènement du nom de sa requête : `pack_use_mine`,
+    /// `pack_make_current` (absent si la bibliothèque n'a pas la version du deck :
+    /// l'action échouerait), `pack_notice_close` pour la croix.
+    pub(crate) fn pack_notice_surface(&self) -> Option<Surface> {
         let n = self.live_pack_notice()?;
         let key = match n.relation {
             Relation::Ancestor => "pack-notice-older",
@@ -130,18 +150,9 @@ impl Session {
             Relation::Same | Relation::Sibling => "pack-notice-parallel",
         };
         let l = &self.localizer;
-        Some(PackNoticeView {
-            pack: n.pack.id,
-            name: n.name.clone(),
-            relation: n.relation,
-            message: l.tr_with(key, &[("name", n.name.as_str().into())]),
-            use_mine: l.tr("pack-notice-use-mine"),
-            make_current: self
-                .library
-                .version(n.pack.id, &n.pack.version)
-                .is_some()
-                .then(|| l.tr("pack-notice-make-current")),
-        })
+        let message = l.tr_with(key, &[("name", n.name.as_str().into())]);
+        let library_has_theirs = self.library.version(n.pack.id, &n.pack.version).is_some();
+        Some(pack_notice_banner(message, library_has_theirs, l))
     }
 
     /// « Passer à ma version » : le deck passe à ma version courante, en une étape annulable.

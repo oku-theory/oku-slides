@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { errorText, type PackInfo, type TabApi, type TemplateView } from "./api";
 import { t } from "./i18n";
 import { packOptionLabel } from "./packOps";
+import { Select } from "./primitives";
 
 interface Props {
   /** Change quand le thème ou les jetons changent : les aperçus sont rechargés. */
@@ -85,11 +86,8 @@ export default function TemplatePicker({ themeKey, initialSet, title, onPick, on
           <h2 id="picker-title">{title ?? t("ui-picker-new-slide")}</h2>
           <label className="picker-set">
             <span className="caption">{t("ui-picker-set")}</span>
-            <select className="select" value={set ?? shown} onChange={(e) => { e.currentTarget.blur(); chooseSet(e.target.value); }}>
-              {sets.map((x) => (
-                <option key={x.id} value={x.id}>{packOptionLabel(x)}</option>
-              ))}
-            </select>
+            <Select value={set ?? shown} onChange={(v, el) => { el.blur(); chooseSet(v); }}
+              options={sets.map((x) => ({ value: x.id, label: packOptionLabel(x) }))} />
           </label>
           <span className="caption">{t("ui-picker-keys")}</span>
           <button className="object token" aria-label={t("ui-picker-close")} onClick={onClose}>

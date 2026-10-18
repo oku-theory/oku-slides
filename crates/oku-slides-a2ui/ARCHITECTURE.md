@@ -1,34 +1,35 @@
 # oku-slides-a2ui
 
-Les messages du protocole A2UI v0.9 que la session envoie à l'interface, et le catalogue
-`urn:oku-slides:a2ui:catalog:v3` (`CATALOG_ID`). Le crate ne fait que décrire des données : ni état,
-ni rendu, ni accès au disque.
+The A2UI v0.9 protocol messages the session sends to the UI, and the catalog
+`urn:oku-slides:a2ui:catalog:v3` (`CATALOG_ID`). The crate only describes data: no state, no
+rendering, no disk access.
 
-## Types clés
+## Key types
 
-- `ServerMessage` (`message.rs`) : `createSurface`, `updateComponents`, `updateDataModel`,
-  `deleteSurface` ; sérialisation conforme à la v0.9, schéma JSON par `schemars`.
-- `Component { id, kind }` et `ComponentKind` : le catalogue (mise en page, texte, carte, boutons,
-  `Receipt`, `Timeline`, `Prompt`, `DiffText`, `SlideThumb`…) ; constructeurs `card`, `column`, `row`,
-  `text`, `button`. `Dynamic<T>` : une valeur littérale ou une liaison `{path}` au modèle de données.
-- `SlideRef { id, hash }` : la slide d'un `Receipt`, désignée par l'empreinte de sa page, jamais par son rendu
-  (l'interface résout la miniature ; choix « état au reçu ou actuel » décrit dans `oku-slides-session`).
-- Aides sur `ComponentKind` : `children` (identifiants enfants), `actions` (actions portées),
-  `without_action` (le composant privé de son action, ou rien), `agent_allowed` (permis à `render` ;
-  `Prompt`, `Timeline`, `Receipt`, `SlideThumb` sont réservés à l'hôte).
+- `ServerMessage` (`message.rs`): `createSurface`, `updateComponents`, `updateDataModel`,
+  `deleteSurface`; serialization follows v0.9, JSON schema via `schemars`.
+- `Component { id, kind }` and `ComponentKind`: the catalog (layout, text, card, buttons, `Receipt`,
+  `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `Notice`…); constructors `card`, `column`, `row`,
+  `text`, `button`. `Dynamic<T>`: a literal value or a `{path}` binding to the data model.
+- `SlideRef { id, hash }`: a `Receipt`'s slide, named by its page hash, never by its rendering (the
+  UI resolves the thumbnail; the "state at receipt or current" choice is described in
+  `oku-slides-session`).
+- Helpers on `ComponentKind`: `children` (child ids), `actions` (actions it carries),
+  `without_action` (the component without its action, or nothing), `agent_allowed` (allowed in
+  `render`; `Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice` are reserved to the host).
 
-## Point d'extension
+## Extension point
 
-Un nouveau composant s'ajoute ici (variante de `ComponentKind`, avec ses aides) **et** dans
-`ui/src/a2ui/catalog.tsx`. Le test de contrat de `oku-slides-session` (`forms_tests.rs`,
-`every_form_matches_the_ui_fixture`) compare les formes émises à la fixture de l'interface : il échoue si les deux
-côtés divergent.
+A new component is added here (a `ComponentKind` variant, with its helpers) **and** in
+`ui/src/a2ui/catalog.tsx`. The `oku-slides-session` contract test (`forms_tests.rs`,
+`every_form_matches_the_ui_fixture`) compares the emitted forms with the UI fixture: it fails when
+the two sides diverge.
 
-## Dépendances
+## Dependencies
 
-`serde`, `serde_json`, `schemars` ; aucune dépendance interne.
+`serde`, `serde_json`, `schemars`; no internal dependency.
 
-## Utilisateurs
+## Users
 
-`oku-slides-session` (formes, tours, reçus, `render`) et `oku-slides-mcp` (validation des surfaces
-de l'agent).
+`oku-slides-session` (forms, turns, receipts, `render`, the pack banner) and `oku-slides-mcp`
+(validation of agent surfaces).

@@ -118,6 +118,7 @@ pack-notice-newer = Bu sunu, “{ $name }” paketinin sizinkinden daha yeni bir
 pack-notice-parallel = Bu sunu, “{ $name }” paketinin sizinkiyle paralel yapılmış bir sürümünü kullanıyor.
 pack-notice-use-mine = Benim sürümüme geç
 pack-notice-make-current = Onunkini güncel sürümüm yap
+pack-notice-close = Kapat
 template-default-name = Şablon
 history-restore-label = { $date } sürümünü geri yükle
 notice-merged = { $file } ile birleştirildi — içe aktarılan değişiklik: { $count } ({ $authors }).

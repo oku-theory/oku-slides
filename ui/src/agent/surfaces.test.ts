@@ -74,6 +74,10 @@ describe("surfaces de l'agent", () => {
     expect(routeStaged([sheet("s-a", "s1", "e1")], null).loose.map((x) => x.id)).toEqual(["s-a"]);
   });
 
+  test("routeSurfaces with a banner surface puts it in loose", () => {
+    expect(routeSurfaces([s("b", "banner")], shown).loose.map((x) => x.id)).toEqual(["b"]);
+  });
+
   test("routeSurfaces : une fiche dont l'élément est à l'écran va sur la scène", () => {
     const r = routeSurfaces([sheet("q", "s-1", "e-1")], shown);
     expect(r.stage?.id).toBe("q");

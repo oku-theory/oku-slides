@@ -118,6 +118,7 @@ pack-notice-newer = Diese Präsentation verwendet eine neuere Version von „{ $
 pack-notice-parallel = Diese Präsentation verwendet eine parallel zu Ihrer entstandene Version von „{ $name }“.
 pack-notice-use-mine = Zu meiner Version wechseln
 pack-notice-make-current = Diese Version zu meiner aktuellen machen
+pack-notice-close = Schließen
 template-default-name = Vorlage
 history-restore-label = Version vom { $date } wiederherstellen
 notice-merged = Mit { $file } zusammengeführt – übernommene Änderungen: { $count } ({ $authors }).

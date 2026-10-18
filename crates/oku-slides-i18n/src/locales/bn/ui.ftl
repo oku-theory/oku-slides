@@ -370,7 +370,6 @@ ui-help-search = সহায়িকায় খুঁজুন
 ui-help-search-placeholder = খুঁজুন…
 ui-help-search-empty = কোনো ফল নেই
 ui-help-search-count = { $count }টি ফল
-ui-pack-notice-close = বন্ধ করুন
 ui-widgets-files = উইজেট ফাইল
 ui-widgets-common = সাধারণ
 ui-widgets-new = নতুন উইজেট
