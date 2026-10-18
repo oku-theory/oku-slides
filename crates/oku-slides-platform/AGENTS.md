@@ -4,6 +4,7 @@
 
 - Fail config loading when agent.selected names no preset; never silently fall back to the first agent. (spec:2026-10-10-agent-panneau-configuration-design)
 - Never follow symlinks in Storage::delete_dir, and read untrusted files with read_limited and a size cap. (t-163)
+- Give each agent preset exactly one of command or builtin, and fail config loading otherwise. (t-1020, spec:2026-10-18-agent-local-repli-design)
 
 ## Pitfalls
 

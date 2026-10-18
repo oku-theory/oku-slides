@@ -10,7 +10,7 @@ instructions are relayed with the UI context; agent updates become A2UI turn sur
   (`Prompt`, `Tune`, `Cancel`, `NewConversation`, `SurfaceAction`, `Resync`, `Follow`, `SetDraft`,
   `Picker`, `Availability`, `SelectAgent`), `tune` starts an import's fine-tuning turn for the host
   (never deserialized; refused, the tab told why, while `availability` gives a reason: program not
-  on `PATH`, else the link's recent failure), `forward` relays `{tab, event}`, `shutdown` kills it.
+  on `PATH` or, for a built-in preset, no app binary; else the link's recent failure), `forward` relays `{tab, event}`, `shutdown` kills it.
 - `tab_entry` : one tab; starts its tools then its agent on the runtime, queues commands until
   then, and holds the draft (`TabLink`). Closing it closes its `SurfaceHub`.
 - `tab_agent` : `AgentHandle`, the per-tab actor (`prompt`, `cancel`, `new_conversation`) with its
@@ -25,7 +25,7 @@ instructions are relayed with the UI context; agent updates become A2UI turn sur
   event; every event of a turn carries its `turn` number.
 - `turns` : `Turns`, reducer from events to A2UI turn surfaces (`TurnOut`), emitted via the hub.
 - `turn`, `permission` (ACP option to `PermissionChoice`), `config` (`Launch`, `READY_WITHIN`,
-  from the active agent preset), `settings_port` (`AppSettings` for `set_setting`).
+  `Launch::for_preset`: a built-in preset relaunches this binary with `--local-agent`), `settings_port` (`AppSettings` for `set_setting`).
 - `picker` : the pure agent-picker surface (`picker_surface`, `PICKER_ID`).
 - `instructions` : `instructions/*.md` (English only): agent and widgets on a session's first
   turn, import (bounded fine-tuning loop) only on a `Tune` turn, before the context.

@@ -52,6 +52,8 @@ pub(crate) enum Unusable {
     Spawn { command: String },
     /// Il ne sait pas joindre les outils MCP en HTTP.
     NoHttp,
+    /// Agent intégré, mais ce processus n'est pas l'app (tests, outils).
+    NoProgram,
 }
 
 impl Localize for Unusable {
@@ -60,6 +62,7 @@ impl Localize for Unusable {
             Self::NotFound { command } => l.tr_with("agent-not-found", &[("command", command.as_str().into())]),
             Self::Spawn { command } => l.tr_with("agent-spawn-failed", &[("command", command.as_str().into())]),
             Self::NoHttp => l.tr("agent-no-http"),
+            Self::NoProgram => l.tr("agent-local-no-program"),
         }
     }
 }

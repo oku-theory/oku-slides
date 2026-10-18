@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::*;
@@ -470,4 +471,35 @@ fn updates_auto_check_follows_setting_and_build(#[case] on: bool, #[case] debug:
     let mut s = Settings::defaults().unwrap().updates;
     s.check_automatically = on;
     assert_that!(s.auto_check(debug)).is_equal_to(expected);
+}
+
+/// Charge `toml` par-dessus les défauts, comme un `config.toml` du dossier de données.
+fn settings_from_toml(toml: &str) -> Result<Settings, ConfigError> {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("config.toml");
+    std::fs::write(&file, toml).unwrap();
+    Settings::from_sources(Some(&file), Settings::environment().source(Some(HashMap::new())))
+}
+
+#[test]
+fn agent_settings_builtin_preset_loads() {
+    let toml = "[agent]\nselected = \"local\"\n[agent.presets.local]\nname = \"Local\"\nbuiltin = \"local\"\n";
+    let settings = settings_from_toml(toml).unwrap();
+    assert_that!(settings.agent.active().builtin).is_equal_to(Some(Builtin::Local));
+    assert_that!(settings.agent.active().command.as_str()).is_empty();
+}
+
+#[rstest]
+#[case::both("name = \"X\"\ncommand = \"npx\"\nbuiltin = \"local\"")]
+#[case::neither("name = \"X\"")]
+fn agent_settings_preset_without_exactly_one_launch_is_refused(#[case] body: &str) {
+    let toml = format!("[agent]\nselected = \"x\"\n[agent.presets.x]\n{body}\n");
+    assert_that!(settings_from_toml(&toml)).is_err();
+}
+
+#[test]
+fn agent_preset_builtin_constructor_has_no_command() {
+    let preset = AgentPreset::builtin("Local", Builtin::Local);
+    assert_that!(preset.command.as_str()).is_empty();
+    assert_that!(preset.builtin).is_equal_to(Some(Builtin::Local));
 }

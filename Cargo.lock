@@ -5771,6 +5771,7 @@ version = "2.1.0"
 dependencies = [
  "color-eyre",
  "oku-slides-agent",
+ "oku-slides-local-agent",
  "oku-slides-platform",
  "oku-slides-render-worker",
  "oku-slides-session",
@@ -5823,6 +5824,7 @@ dependencies = [
  "oku-slides-core",
  "oku-slides-i18n",
  "oku-slides-import",
+ "oku-slides-local-agent",
  "oku-slides-pdf",
  "oku-slides-platform",
  "oku-slides-reference",
@@ -5894,6 +5896,29 @@ dependencies = [
  "ttf-parser",
  "uuid",
  "zip 9.0.4",
+]
+
+[[package]]
+name = "oku-slides-local-agent"
+version = "2.1.0"
+dependencies = [
+ "agent-client-protocol",
+ "async-trait",
+ "oku-slides-agent",
+ "oku-slides-i18n",
+ "oku-slides-mcp",
+ "oku-slides-platform",
+ "oku-slides-session",
+ "rstest",
+ "rust-mcp-sdk",
+ "serde",
+ "serde_json",
+ "snafu",
+ "speculoos",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]

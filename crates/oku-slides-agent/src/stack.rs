@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
+use oku_slides_platform::config::AgentPreset;
 use oku_slides_platform::config_write::write_value;
 use oku_slides_platform::find_program;
 use oku_slides_session::Platform;
@@ -179,17 +180,24 @@ pub struct Stack {
 }
 
 impl Stack {
+    /// Le lancement de `preset`. Un agent intégré sans binaire d'app a une commande vide :
+    /// un prompt échoue au lancement comme un programme absent, et `availability` en donne la raison.
+    fn launch_of(preset: &AgentPreset, platform: &Platform) -> Launch {
+        let cwd = platform.settings.paths.data();
+        Launch::for_preset(preset, platform.program.as_deref(), cwd.clone()).unwrap_or(Launch {
+            command: String::new(),
+            args: Vec::new(),
+            fallback_cwd: cwd,
+            ready_within: crate::READY_WITHIN,
+        })
+    }
+
     /// Rien ne démarre ici : les outils et le gardien d'un onglet démarrent
     /// à sa première commande, `resync` compris ; l'agent ACP au premier
     /// prompt ; tout dans `rt`. `stt` : la dictée de l'hôte, pour `set_setting`.
     pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
         let a = platform.settings.agent.active();
-        let link = Link::new(Launch {
-            command: a.command.clone(),
-            args: a.args.clone(),
-            fallback_cwd: platform.settings.paths.data(),
-            ready_within: crate::READY_WITHIN,
-        });
+        let link = Link::new(Self::launch_of(a, platform));
         let (out_tx, out_rx) = mpsc::unbounded_channel();
         Self {
             link,
@@ -339,6 +347,12 @@ impl Stack {
             tracing::error!(active, "agent actif absent des réglages");
             return Some(CommandError::from(UnknownAgentSnafu { id: active }.build()).localize(&l));
         };
+        if preset.builtin.is_some() {
+            return match self.platform.program {
+                None => Some(Unusable::NoProgram.localize(&l)),
+                Some(_) => self.link.failure().map(|u| u.localize(&l)),
+            };
+        }
         let path = std::env::var_os("PATH");
         if find_program(&self.platform.storage, Path::new(&preset.command), path.as_deref()).is_none() {
             return Some(Unusable::NotFound { command: preset.command.clone() }.localize(&l));
@@ -411,12 +425,7 @@ impl Stack {
             &serde_json::Value::from(id),
         )
         .context(AgentNotSavedSnafu)?;
-        self.link.switch(Launch {
-            command: preset.command.clone(),
-            args: preset.args.clone(),
-            fallback_cwd: self.platform.settings.paths.data(),
-            ready_within: crate::READY_WITHIN,
-        });
+        self.link.switch(Self::launch_of(preset, &self.platform));
         id.clone_into(&mut active);
         Ok(())
     }

@@ -30,4 +30,4 @@ pub use hub::{
 };
 pub use server::ToolServer;
 pub use settings::{Applied, SettingsPort};
-pub use tools::Tools;
+pub use tools::{Tools, tool_names};

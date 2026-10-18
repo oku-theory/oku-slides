@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use insta::assert_json_snapshot;
 use oku_slides_i18n::Localizer;
-use oku_slides_platform::config::AgentPreset;
+use oku_slides_platform::config::{AgentPreset, Builtin};
 use speculoos::prelude::*;
 
 use super::{PICKER_ID, picker_surface};
@@ -32,4 +32,12 @@ fn picker_surface_locked_has_no_action() {
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json.contains("\"select\"")).is_false();
     assert_json_snapshot!(s);
+}
+
+#[test]
+fn picker_builtin_preset_has_no_command_hint() {
+    let presets = BTreeMap::from([("local".to_owned(), AgentPreset::builtin("Local", Builtin::Local))]);
+    let s = picker_surface(&presets, "local", false, false, &Localizer::new(Some("fr")));
+    let json = serde_json::to_value(&s).unwrap();
+    assert_that!(json.to_string().contains("hint")).is_false();
 }

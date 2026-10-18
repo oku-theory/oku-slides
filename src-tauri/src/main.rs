@@ -84,6 +84,8 @@ fn session_bus(address: Option<&std::ffi::OsStr>, runtime_dir: Option<&std::ffi:
 fn main() -> color_eyre::Result<()> {
     // Relancé en processus de rendu (`--render-worker`) : sert le tube, puis termine.
     oku_slides_render_worker::exit_if_worker();
+    // Relancé en agent local (`--local-agent`) : sert ACP sur stdin/stdout, puis termine.
+    oku_slides_local_agent::exit_if_local_agent();
     color_eyre::install()?;
     oku_slides_platform::telemetry::init();
     let platform = Platform::load()?;

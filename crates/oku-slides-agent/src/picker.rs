@@ -29,12 +29,12 @@ pub(crate) fn picker_surface(
         .map(|(id, p)| ChoiceOption {
             id: id.clone(),
             label: p.name.clone(),
-            hint: Some(
+            hint: p.builtin.is_none().then(|| {
                 std::iter::once(p.command.as_str())
                     .chain(p.args.iter().map(String::as_str))
                     .collect::<Vec<_>>()
-                    .join(" "),
-            ),
+                    .join(" ")
+            }),
         })
         .collect();
     let action = (!locked).then(|| Action::event("select", [("id", Dynamic::path("/choice"))]));

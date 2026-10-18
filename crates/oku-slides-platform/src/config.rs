@@ -346,21 +346,40 @@ pub struct AgentSettings {
     pub locked: bool,
 }
 
+/// Un agent fourni par Oku Slides lui-même, sans programme externe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Builtin {
+    /// L'agent local de repli (`oku-slides-local-agent`), lancé par ce binaire.
+    Local,
+}
+
 /// Un agent proposé : son nom affiché et comment le lancer.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct AgentPreset {
     /// Nom propre affiché tel quel (pas traduit).
     pub name: String,
-    /// Programme lancé (cherché dans le `PATH`).
+    /// Programme lancé (cherché dans le `PATH`) ; vide pour un agent intégré.
+    #[serde(default)]
     pub command: String,
+    /// Arguments du programme.
+    #[serde(default)]
     pub args: Vec<String>,
+    /// Agent intégré : exclusif de `command`.
+    #[serde(default)]
+    pub builtin: Option<Builtin>,
 }
 
 impl AgentPreset {
     /// Un agent proposé (tests, outils).
     pub fn new(name: impl Into<String>, command: impl Into<String>, args: Vec<String>) -> Self {
-        Self { name: name.into(), command: command.into(), args }
+        Self { name: name.into(), command: command.into(), args, builtin: None }
+    }
+
+    /// Un agent intégré à Oku Slides.
+    pub fn builtin(name: impl Into<String>, builtin: Builtin) -> Self {
+        Self { name: name.into(), command: String::new(), args: Vec::new(), builtin: Some(builtin) }
     }
 }
 
@@ -372,6 +391,11 @@ impl AgentSettings {
 
     /// `selected` désigne-t-il un agent de la liste ? Sinon, le message de l'erreur.
     fn check(&self) -> Result<(), String> {
+        for (id, preset) in &self.presets {
+            if preset.command.is_empty() == preset.builtin.is_none() {
+                return Err(format!("[agent.presets.{id}] needs exactly one of command or builtin"));
+            }
+        }
         if self.presets.contains_key(&self.selected) {
             return Ok(());
         }

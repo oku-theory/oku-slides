@@ -1,0 +1,38 @@
+[package]
+name = "oku-slides-local-agent"
+description = "Agent local de repli : agent ACP intégré, outils MCP routés par familles, moteur local."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[[bin]]
+# Relance de test (`--local-agent`) pour les tests de bout en bout ; jamais livré.
+name = "oku-slides-local-agent-dev"
+path = "src/bin/oku-slides-local-agent-dev.rs"
+
+[dependencies]
+oku-slides-platform.workspace = true
+oku-slides-i18n.workspace = true
+rust-mcp-sdk.workspace = true
+agent-client-protocol.workspace = true
+tokio = { workspace = true, features = ["sync", "macros", "rt", "rt-multi-thread", "io-std", "time"] }
+tokio-util.workspace = true
+snafu.workspace = true
+tracing.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+oku-slides-mcp.workspace = true
+oku-slides-agent.workspace = true
+oku-slides-session.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+speculoos.workspace = true
+tempfile.workspace = true
+rstest.workspace = true
+
+[lints]
+workspace = true

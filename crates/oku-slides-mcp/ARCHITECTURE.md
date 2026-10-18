@@ -39,8 +39,8 @@ because the agent does not know turn numbers; ACP events carry theirs (`oku-slid
 ## Extension points
 
 - New settings host: implement `SettingsPort`.
-- New tool: an entry in `tools::list` and an arm in `Tools::call`; its errors are `ToolError`
-  variants with a Fluent key.
+- New tool: an entry in `tools::list` (`tool_names`), an arm in `Tools::call`, a family in the
+  local agent's `families_of`; its errors are `ToolError` variants with a Fluent key.
 
 ## Dependencies
 

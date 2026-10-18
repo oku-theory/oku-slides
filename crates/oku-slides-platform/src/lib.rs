@@ -53,6 +53,9 @@ pub enum RenderLaunch {
 /// aurait oublié `exit_if_worker` ne se relance pas en chaîne.
 pub const RENDER_WORKER_ENV: &str = "OKU_SLIDES_RENDER_WORKER";
 
+/// Argument qui fait d'un binaire de l'app l'agent local (voir `oku-slides-local-agent`).
+pub const LOCAL_AGENT_FLAG: &str = "--local-agent";
+
 /// Le lancement du rendu d'un binaire `program` ; `in_worker` : ce processus
 /// est lui-même un travailleur (voir [`RENDER_WORKER_ENV`]), il rend sur un fil.
 pub(crate) fn render_launch_for(program: PathBuf, in_worker: bool) -> RenderLaunch {
@@ -77,6 +80,8 @@ pub struct Platform {
     /// Langue courante de l'interface, changée à chaud : textes de l'agent et de ses outils.
     pub live_localizer: LiveLocalizer,
     pub render_launch: RenderLaunch,
+    /// Ce binaire, relancé pour l'agent local ; `None` hors de l'app (tests).
+    pub program: Option<PathBuf>,
 }
 
 /// Démarrage impossible : réglages ou fichiers.
@@ -99,6 +104,7 @@ impl Platform {
         let program = std::env::current_exe().context(CurrentExeSnafu)?;
         let in_worker = std::env::var_os(RENDER_WORKER_ENV).is_some();
         Ok(Self::with_settings(Settings::load().context(SettingsSnafu)?)?
+            .with_program(program.clone())
             .with_render_launch(render_launch_for(program, in_worker)))
     }
 
@@ -111,7 +117,14 @@ impl Platform {
             live_localizer: LiveLocalizer::new(localizer.clone()),
             localizer,
             render_launch: RenderLaunch::InProcess,
+            program: None,
         })
+    }
+
+    /// Cette plateforme, dont l'agent local se lance avec `program` (tests).
+    pub fn with_program(mut self, program: PathBuf) -> Self {
+        self.program = Some(program);
+        self
     }
 
     /// Cette plateforme, avec le rendu lancé par `launch`.

@@ -221,6 +221,11 @@ fn import_diff_description() -> String {
     )
 }
 
+/// Noms de tous les outils MCP, dans l'ordre de la liste.
+pub fn tool_names() -> Vec<String> {
+    list().into_iter().map(|t| t.name).collect()
+}
+
 /// Tous les outils, dans l'ordre où l'agent les lit.
 pub(crate) fn list() -> Vec<Tool> {
     static LIST: OnceLock<Vec<Tool>> = OnceLock::new();

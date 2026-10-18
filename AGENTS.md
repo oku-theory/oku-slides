@@ -7,10 +7,9 @@ current) and its `AGENTS.md` (how to work on it) when they exist.
 
 ## Language
 
-All repo documentation is written in **English**: README, AGENTS.md,
-`ARCHITECTURE.md`, ADRs, specs and plans. Existing French documents are translated when
-they are next edited. Commits, code comments and tool output are still in French.
-User-facing strings go through Fluent (`oku-slides-i18n`, English is the reference locale).
+All repo documentation is written in **English**: README, AGENTS.md, `ARCHITECTURE.md`, ADRs, specs and plans. Existing French documents
+are translated when they are next edited. Commits, code comments and tool output are still in French. User-facing strings go through
+Fluent (`oku-slides-i18n`, English is the reference locale).
 
 ## Commands (from repo root)
 
@@ -58,7 +57,7 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 - Use expect with a reason instead of allow, never allow dead_code outside tests/common, and leave no dead code. (plan:2026-10-03-widgets-agent-a2ui)
 - Define CATALOG_ID once in Rust and once in TS with equal values, keeping no older catalog version. (plan:2026-10-03-agent-a2ui)
 - Change the Rust ComponentKind catalog and ui/src/a2ui/catalog.tsx together, in the same commit. (spec:2026-10-03-agent-a2ui-design)
-- Call exit_if_worker as the first line of main in every app binary, before any other initialization. (spec:2026-09-29-compilation-bornee-design)
+- Call exit_if_worker then exit_if_local_agent as the first lines of main in every app binary, before any other initialization. (spec:2026-09-29-compilation-bornee-design, spec:2026-10-18-agent-local-repli-design)
 - Encode a leading less-than as %3C and every backslash as %5C in link URLs in write_barrier and encodeLink. (plan:2026-10-09-petits-tickets-t678, t-630)
 - Order UI state saves on the host by page and seq; the host ignores a seq not above the last one for that page. (plan:2026-10-09-petits-tickets-t678)
 - Treat imported assets as untrusted bytes wherever they are served or displayed. (plan:2026-10-09-import-pptx-lot1)
@@ -116,6 +115,7 @@ rule sections are linted. `just agents-lint` checks all this; catch-up: `docs/ha
 - `crates/oku-slides-core/src/replica/AGENTS.md` — Read before editing the Loro replica: reconcile, read, undo, history
 - `crates/oku-slides-i18n/AGENTS.md` — Read before adding or editing Fluent keys, locales or translations
 - `crates/oku-slides-import/AGENTS.md` — Read before changing PPTX import, the retrofit projector or its tests
+- `crates/oku-slides-local-agent/AGENTS.md` — Read before changing the local fallback agent, its engines or tool routing.
 - `crates/oku-slides-mcp/AGENTS.md` — Read before changing MCP tools, SurfaceHub turns or the tool server
 - `crates/oku-slides-platform/AGENTS.md` — Read before changing Storage, config defaults or agent presets.
 - `crates/oku-slides-reference/AGENTS.md` — Read before changing the reference witness or page rasterization.

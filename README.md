@@ -30,6 +30,7 @@ output are in French.
 | `crates/oku-slides-a2ui` | A2UI v0.9 surfaces (component catalog), shared by the panel and the agent |
 | `crates/oku-slides-mcp` | Agent MCP tools (local HTTP, token): reading, `apply`, surfaces, confirmations |
 | `crates/oku-slides-agent` | Voice agent: ACP client (agent as a subprocess), turns, stack for the app and the server; fake agent for tests |
+| `crates/oku-slides-local-agent` | Built-in fallback ACP agent (`--local-agent`): routing by tool families, bounded MCP tool loop, final `report`; scripted fake engine only (lot 1), no account or network |
 | `crates/oku-slides-cli` | `oku-slides` tool: render, save, reopen, PPTX import, benchmarks, dev server |
 | `src-tauri` | Tauri 2 desktop app |
 | `ui` | React + TypeScript interface (Papier design system) |

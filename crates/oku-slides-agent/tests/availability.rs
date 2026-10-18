@@ -7,8 +7,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use common::{
-    Relayed, TestStack, cmd, logged, relayed_len, stack_with_command, stack_with_sink, stack_with_sink_and_log,
-    wait_n_after, wait_turn_done,
+    Relayed, TestStack, cmd, logged, relayed_len, stack_with_builtin, stack_with_command, stack_with_sink,
+    stack_with_sink_and_log, wait_n_after, wait_turn_done,
 };
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
@@ -107,4 +107,11 @@ async fn availability_after_a_failed_launch_says_why_until_a_launch_succeeds() {
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "deux" }))).unwrap();
     wait_turn_done(&rx, "t-1", 2).await;
     assert_that!(availability(&stack, &rx).await).is_equal_to(Value::Null);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn availability_builtin_without_program_names_it() {
+    let (stack, rx) = stack_with_builtin(json!({ "turns": [] })).await;
+    let expected = Localizer::new(Some("fr")).tr("agent-local-no-program");
+    assert_that!(availability(&stack, &rx).await).is_equal_to(json!(expected));
 }

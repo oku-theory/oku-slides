@@ -10,11 +10,12 @@ the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
   `LiveLocalizer` (interface language switched hot, shared by every clone) and a
   `RenderLaunch` (`InProcess` or `Process` for the render worker). `Platform::load` builds it once at
   startup; it clones cheaply. `RENDER_WORKER_ENV` marks a render worker process, which
-  never launches another one.
+  never launches another one. `Platform.program` is this executable (`None` in tests);
+  `LOCAL_AGENT_FLAG` makes it run the local agent.
 - `telemetry`: `init` installs the `tracing` subscriber; call it first.
 - `errors`: `one_line` prints an error and all its causes on one line.
 - `config`: `Settings` and its sections (`PathSettings`, `RenderSettings`,
-  `ServeSettings`, `SttSettings`, `AgentSettings` with named `AgentPreset`s,
+  `ServeSettings`, `SttSettings`, `AgentSettings` with named `AgentPreset`s (a `command` xor a `Builtin`),
   `ImportSettings`: threshold, `witness` (`ImportWitness`), its timeouts and `soffice` programs, tuning tries, …), plus `APP_ID`.
 - `config_write`: `write_value` sets one key in `config.toml` with `toml_edit`, keeping
   comments and order; it takes effect on the next launch.
@@ -35,15 +36,14 @@ the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
 
 Three layers, the last wins: embedded `src/config.default.toml`, then `config.toml` in
 the data dir, then `OKU_SLIDES_<SECTION>__<KEY>` env vars (`OKU_SLIDES_STT__VAD__PAUSE`).
-`OKU_SLIDES_PATHS__DATA` also moves where `config.toml` is read. `PathSettings` puts the
-data dir at `~/Library/Application Support/me.dartiguenave.oku-slides` on macOS (XDG or
+`OKU_SLIDES_PATHS__DATA` also moves where `config.toml` is read. `PathSettings` puts the data dir at `~/Library/Application Support/me.dartiguenave.oku-slides` on macOS (XDG or
 `APPDATA` elsewhere), with `models/`, `templates/`, `themes/` and `config.toml` under it;
 decks default to `~/Documents/Oku Slides`.
 
 ## Extension points
 
 - A setting: a field in a `Settings` section and its default in `config.default.toml`.
-- An agent preset: an `[agent.presets.<id>]` table in `config.default.toml`.
+- An agent preset: `[agent.presets.<id>]` in `config.default.toml`, exactly one of `command`, `builtin`.
 
 ## Dependencies
 

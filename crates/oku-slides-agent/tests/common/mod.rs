@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use oku_slides_agent::{AgentEvent, AgentHandle, AgentState, Keeper, Launch, Link, ToolsAccess, agent_fingerprint};
 use oku_slides_mcp::{Applied, SettingsPort, SurfaceHub, ToolServer, Tools};
-use oku_slides_platform::config::AgentPreset;
+use oku_slides_platform::config::{AgentPreset, Builtin};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
 use oku_slides_session::agent::{AgentScope, Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
@@ -406,14 +406,21 @@ pub async fn stack_with_two_agents(script: Value, bis: Value, tabs: &[&str]) -> 
 
 /// Comme [`stack_with_two_agents`] sur `t-1`, choix imposé par l'environnement (`locked`).
 pub async fn stack_locked(script: Value, bis: Value) -> (TestStack, Relayed) {
-    let options = Options { locked: true, command: None };
+    let options = Options { locked: true, command: None, builtin: false };
     let (stack, seen, _, _) = build_stack_with(script, Some(bis), &["t-1"], First::Fixture, options).await;
     (stack, seen)
 }
 
 /// Une pile sur `t-1` dont l'agent actif lance `command` (avec les arguments du faux agent).
 pub async fn stack_with_command(script: Value, command: &str) -> (TestStack, Relayed) {
-    let options = Options { locked: false, command: Some(command.to_owned()) };
+    let options = Options { locked: false, command: Some(command.to_owned()), builtin: false };
+    let (stack, seen, _, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
+    (stack, seen)
+}
+
+/// Une pile de test dont l'agent choisi est le préréglage intégré, sans programme d'app.
+pub async fn stack_with_builtin(script: Value) -> (TestStack, Relayed) {
+    let options = Options { locked: false, command: None, builtin: true };
     let (stack, seen, _, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
     (stack, seen)
 }
@@ -430,6 +437,8 @@ struct Options {
     locked: bool,
     /// Le programme de l'agent actif `faux` ; absent : le faux agent.
     command: Option<String>,
+    /// L'agent actif est le préréglage intégré (sans programme).
+    builtin: bool,
 }
 
 /// Les arguments du faux agent sur `script`, journal dans `log`.
@@ -446,7 +455,7 @@ async fn build_stack_with(
     first: First,
     options: Options,
 ) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    let Options { locked, command: active } = options;
+    let Options { locked, command: active, builtin } = options;
     let dir = test_dir("oku-slides-stack-");
     let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
     let data = dir.path().to_owned();
@@ -474,7 +483,9 @@ async fn build_stack_with(
         // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
         settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
-        settings.agent.presets.insert("faux".into(), AgentPreset::new("Faux", active, args));
+        let preset =
+            if builtin { AgentPreset::builtin("Faux", Builtin::Local) } else { AgentPreset::new("Faux", active, args) };
+        settings.agent.presets.insert("faux".into(), preset);
         settings.agent.selected = "faux".into();
         if let Some(args_bis) = args_bis {
             settings.agent.presets.insert("bis".into(), AgentPreset::new("Bis", command, args_bis));

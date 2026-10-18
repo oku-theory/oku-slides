@@ -22,6 +22,7 @@ oku-slides-platform = { path = "crates/oku-slides-platform" }
 oku-slides-i18n = { path = "crates/oku-slides-i18n" }
 oku-slides-mcp = { path = "crates/oku-slides-mcp" }
 oku-slides-agent = { path = "crates/oku-slides-agent" }
+oku-slides-local-agent = { path = "crates/oku-slides-local-agent" }
 oku-slides-render-worker = { path = "crates/oku-slides-render-worker" }
 oku-slides-import = { path = "crates/oku-slides-import" }
 oku-slides-reference = { path = "crates/oku-slides-reference" }
