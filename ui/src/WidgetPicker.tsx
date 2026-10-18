@@ -8,6 +8,7 @@ import { gridStep, rowLength, type GridKey } from "./gridNav";
 import { Icon } from "./icons";
 import { useModalFrame } from "./modalFrame";
 import { filterChoices, type WidgetChoice } from "./widgetChoices";
+import { croppedSvg } from "./widgetPreview";
 
 interface Props {
   choices: WidgetChoice[];
@@ -181,6 +182,9 @@ function optionId(i: number): string {
 /**
  * Adresses des aperçus SVG des widgets du pack, par nom, chargées une à une.
  *
+ * L'aperçu est la slide d'essai entière : il est recadré sur ce que dessine le widget (`bbox`),
+ * qui remplit alors sa vignette.
+ *
  * Un aperçu raté (widget cassé, rendu refusé) laisse l'icône générique.
  */
 function usePreviewUrls(choices: WidgetChoice[], themeKey: string, preview: (name: string) => Promise<WidgetPreview>): Map<string, string> {
@@ -194,7 +198,7 @@ function usePreviewUrls(choices: WidgetChoice[], themeKey: string, preview: (nam
     setUrls(new Map());
     (async () => {
       for (const name of names ? names.split("\n") : []) {
-        const svg = await preview(name).then((p) => p.svg, () => null);
+        const svg = await preview(name).then((p) => (p.svg ? croppedSvg(p.svg, p.bbox ?? null) : null), () => null);
         if (!alive) return;
         if (!svg) continue;
         const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));

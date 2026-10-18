@@ -172,6 +172,26 @@ test("WidgetPicker previews are asked for each pack widget, in order", async () 
   expect(asked).toEqual(["kpi", "frise"]);
 });
 
+test("WidgetPicker pack widget preview is cropped to what the widget draws", async () => {
+  const made: Blob[] = [];
+  const spy = spyOn(URL, "createObjectURL").mockImplementation((b) => (made.push(b as Blob), `blob:${made.length}`));
+  try {
+    await mount({
+      pack: [PACK[0]],
+      preview: async (): Promise<WidgetPreview> => ({
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960pt" height="540pt"></svg>',
+        bbox: { x: 40, y: 60, w: 400, h: 120 },
+        diagnostics: [],
+      }),
+    });
+    expect(made).toHaveLength(1);
+    const svg = await made[0].text();
+    expect([svg.match(/viewBox="[^"]*"/)?.[0], svg.match(/ width="[^"]*"/)?.[0]]).toEqual(['viewBox="40 60 400 120"', ' width="400pt"']);
+  } finally {
+    spy.mockRestore();
+  }
+});
+
 test("WidgetPicker pack widget whose preview fails keeps the generic icon, the others load", async () => {
   const { host } = await mount({ preview: async (name) => (name === "kpi" ? Promise.reject(new Error("rendu")) : SVG) });
   const faces = [...host.querySelectorAll('[role="option"] .widget-choice-face')].slice(5);

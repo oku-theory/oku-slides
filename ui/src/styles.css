@@ -569,6 +569,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: transform 180ms ease-out, box-shadow 180ms ease-out;
 }
 .widget-choice-face > svg { width: 40px; height: 40px; }
+.widget-choice-face:has(> img) { padding: 6px; }
 .widget-choice-face > img { width: 100%; height: 100%; object-fit: contain; }
 .widget-choice.focused .widget-choice-face { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
 .widget-choice:disabled { cursor: default; opacity: 0.45; }
