@@ -79,10 +79,14 @@ interface Props {
   onAgentPickerOpen: () => void;
   /** Un agent choisi ; les réglages restent ouverts. */
   onAgentSelect: (id: string) => void;
+  /** Télécharger le modèle de l'agent local (bouton du panneau des agents). */
+  onAgentDownload: () => void;
+  /** Arrêter le téléchargement du modèle de l'agent local. */
+  onAgentCancelDownload: () => void;
 }
 
 /** L'appareil de dictée : micro, clavier, niveau, texte provisoire, réglages du modèle et de l'agent. */
-export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote, agentPicker, onAgentPickerOpen, onAgentSelect }: Props) {
+export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote, agentPicker, onAgentPickerOpen, onAgentSelect, onAgentDownload, onAgentCancelDownload }: Props) {
   const [status, setStatus] = useState<SttStatus | null>(null);
   const [settings, setSettings] = useState(false);
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
@@ -406,7 +410,13 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
           {/* L'agent de l'app, sous les réglages de la dictée (la surface porte son titre). */}
           {agentPicker && (
             <div className="dictation-agents">
-              <AgentPicker surface={agentPicker} onSelect={onAgentSelect} onError={onError} />
+              <AgentPicker
+                surface={agentPicker}
+                onSelect={onAgentSelect}
+                onDownload={onAgentDownload}
+                onCancelDownload={onAgentCancelDownload}
+                onError={onError}
+              />
             </div>
           )}
         </div>

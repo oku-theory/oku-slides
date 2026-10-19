@@ -1,5 +1,6 @@
 // Le panneau des agents vu de la page (fenêtre principale ou de l'agent) : la dernière surface
-// reçue de l'hôte (`onPicker` d'`AgentPanel`), la demander, choisir un agent.
+// reçue de l'hôte (`onPicker` d'`AgentPanel`), la demander, choisir un agent, télécharger le
+// modèle de l'agent local.
 
 import { useCallback, useRef, useState } from "react";
 import { errorText, type Surface } from "../api";
@@ -14,9 +15,13 @@ export interface AgentPickerState {
   open: () => void;
   /** Choisit un agent ; un refus est dit, et le panneau redemandé. */
   select: (id: string) => void;
+  /** Télécharge le modèle de l'agent local ; un refus est dit. */
+  download: () => void;
+  /** Arrête le téléchargement du modèle ; un refus est dit. */
+  cancelDownload: () => void;
 }
 
-export function useAgentPicker(agent: Pick<AgentApi, "picker" | "selectAgent">, onError: (message: string) => void): AgentPickerState {
+export function useAgentPicker(agent: Pick<AgentApi, "picker" | "selectAgent" | "downloadModel" | "cancelDownload">, onError: (message: string) => void): AgentPickerState {
   const [surface, setSurface] = useState<Surface | null>(null);
   // Rappels stables : l'agent et le rapport d'erreur sont lus à l'appel.
   const latest = useRef({ agent, onError });
@@ -36,5 +41,13 @@ export function useAgentPicker(agent: Pick<AgentApi, "picker" | "selectAgent">, 
     },
     [open],
   );
-  return { surface, onPicker: setSurface, open, select };
+  const download = useCallback(() => {
+    const { agent: a, onError: report } = latest.current;
+    void a.downloadModel().catch((e) => report(errorText(e)));
+  }, []);
+  const cancelDownload = useCallback(() => {
+    const { agent: a, onError: report } = latest.current;
+    void a.cancelDownload().catch((e) => report(errorText(e)));
+  }, []);
+  return { surface, onPicker: setSurface, open, select, download, cancelDownload };
 }

@@ -1,6 +1,7 @@
 //! Erreurs de l'agent : introuvable, sans HTTP, arrêté, requête refusée.
 
 use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_platform::local_agent::Unavailable;
 use snafu::{Backtrace, Snafu};
 
 /// L'agent n'a pas pu servir la consigne.
@@ -54,6 +55,22 @@ pub(crate) enum Unusable {
     NoHttp,
     /// Agent intégré, mais ce processus n'est pas l'app (tests, outils).
     NoProgram,
+    /// Agent local : le modèle de `size` octets reste à télécharger.
+    LocalNeedsDownload { size: u64 },
+    /// Agent local : il faut un Mac avec puce Apple.
+    LocalIntelMac,
+    /// Agent local : pas encore disponible sur ce système.
+    LocalUnsupportedOs,
+}
+
+impl From<Unavailable> for Unusable {
+    fn from(unavailable: Unavailable) -> Self {
+        match unavailable {
+            Unavailable::IntelMac => Self::LocalIntelMac,
+            Unavailable::UnsupportedOs => Self::LocalUnsupportedOs,
+            Unavailable::NeedsDownload { size } => Self::LocalNeedsDownload { size },
+        }
+    }
 }
 
 impl Localize for Unusable {
@@ -63,6 +80,13 @@ impl Localize for Unusable {
             Self::Spawn { command } => l.tr_with("agent-spawn-failed", &[("command", command.as_str().into())]),
             Self::NoHttp => l.tr("agent-no-http"),
             Self::NoProgram => l.tr("agent-local-no-program"),
+            Self::LocalNeedsDownload { size } => {
+                #[expect(clippy::cast_precision_loss, reason = "taille affichée à 0,1 Go près")]
+                let gigabytes = (*size as f64 / 1e9 * 10.0).round() / 10.0;
+                l.tr_with("agent-local-needs-download", &[("gigabytes", gigabytes.into())])
+            }
+            Self::LocalIntelMac => l.tr("agent-local-intel-mac"),
+            Self::LocalUnsupportedOs => l.tr("agent-local-unsupported-os"),
         }
     }
 }

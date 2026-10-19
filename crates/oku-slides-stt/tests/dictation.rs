@@ -41,8 +41,8 @@ fn platform(dir: &Path, hub_url: &str, fake_mic: Option<PathBuf>) -> Platform {
     // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
     settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.paths.models = Some(dir.join("models"));
-    settings.stt.hub_url = hub_url.to_owned();
-    settings.stt.download_backoff_secs = 0;
+    settings.models.hub_url = hub_url.to_owned();
+    settings.models.download_backoff_secs = 0;
     settings.stt.fake_mic = fake_mic;
     settings.i18n.locale = Some("fr".into());
     settings.stt.apple = false;
@@ -96,7 +96,7 @@ fn download_serves_every_file_and_marks_the_model_installed() {
     let dir = workdir("download");
     let p = platform(&dir, &hub(200, 0, b"poids"), None);
     let mut last = (0, 0);
-    let dest = oku_slides_stt::download(Model::Base, &dir, &p.settings.stt, &p.storage, |got, total| {
+    let dest = oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |got, total| {
         last = (got, total);
         true
     })
@@ -110,14 +110,14 @@ fn download_serves_every_file_and_marks_the_model_installed() {
 fn download_busy_hub_is_retried_until_it_answers() {
     let dir = workdir("retry");
     let p = platform(&dir, &hub(503, 2, b"x"), None);
-    assert_that!(oku_slides_stt::download(Model::Base, &dir, &p.settings.stt, &p.storage, |_, _| true)).is_ok();
+    assert_that!(oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |_, _| true)).is_ok();
 }
 
 #[test]
 fn download_missing_file_returns_download_error() {
     let dir = workdir("404");
     let p = platform(&dir, &hub(404, usize::MAX, b""), None);
-    let err = oku_slides_stt::download(Model::Base, &dir, &p.settings.stt, &p.storage, |_, _| true).unwrap_err();
+    let err = oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |_, _| true).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Download);
     assert_that!(Model::Base.is_installed(&p.storage, &dir)).is_false();
 }
@@ -126,7 +126,7 @@ fn download_missing_file_returns_download_error() {
 fn download_cancelled_by_progress_leaves_no_partial_file() {
     let dir = workdir("cancel");
     let p = platform(&dir, &hub(200, 0, b"poids"), None);
-    let err = oku_slides_stt::download(Model::Base, &dir, &p.settings.stt, &p.storage, |_, _| false).unwrap_err();
+    let err = oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |_, _| false).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Cancelled);
     let files = p.storage.list_files(&Model::Base.path(&dir)).unwrap();
     assert_that!(files.iter().any(|f| f.extension().is_some_and(|e| e == "part"))).is_false();

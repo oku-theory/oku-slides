@@ -12,6 +12,7 @@ use crate::compact::{ToolSpec, exposed};
 use crate::engine::{Completion, Engine, EngineError, Message, Reply, Step};
 use crate::families::{Family, parse_route};
 use crate::prompt::{INSTRUCTIONS, Prompt};
+use crate::tool_error::ToolError;
 
 /// Nombre maximal d'étapes `Act` d'un tour.
 pub(crate) const MAX_CALLS: usize = 8;
@@ -23,9 +24,9 @@ const REPORT: &str = "report";
 #[async_trait]
 pub(crate) trait ToolPort: Send + Sync {
     /// Les outils du serveur, avec description et schéma complets.
-    async fn list(&self) -> Result<Vec<ToolSpec>, String>;
-    /// Appelle un outil ; `Err` porte le texte d'erreur, aussi pour un résultat en erreur.
-    async fn call(&self, name: &str, args: &Value) -> Result<String, String>;
+    async fn list(&self) -> Result<Vec<ToolSpec>, ToolError>;
+    /// Appelle un outil ; un refus du serveur est réparable, une panne de transport ne l'est pas.
+    async fn call(&self, name: &str, args: &Value) -> Result<String, ToolError>;
 }
 
 /// Progression du tour montrée à l'utilisateur.
@@ -129,7 +130,7 @@ impl Turn<'_> {
     async fn play(&mut self, summaries: &[String]) -> Result<(), Stop> {
         self.check_cancel()?;
         let all = self.tools.list().await.map_err(|e| {
-            tracing::warn!(error = %e, "liste des outils de l'agent local impossible");
+            tracing::warn!(error = %snafu::Report::from_error(&e), "liste des outils de l'agent local impossible");
             Stop::Fail(FailKind::Engine)
         })?;
         let mut messages = Vec::new();
@@ -180,18 +181,24 @@ impl Turn<'_> {
                 messages: messages.clone(),
                 tools: tools.clone(),
             };
-            let (name, args) = match self.engine.complete(&completion, self.cancel).await? {
+            let (name, result) = match self.engine.complete(&completion, self.cancel).await? {
                 Reply::Text(text) => {
                     self.updates.note(&text);
                     messages.push(Message::Assistant(text));
                     continue;
                 }
-                Reply::Call { name, args } => (name, args),
-            };
-            let result = if tools.iter().any(|t| t.name == name) {
-                self.call(&name, &args).await
-            } else {
-                Err(format!("unknown tool {name}"))
+                Reply::Invalid(reason) => {
+                    ("invalid".to_owned(), Err(ToolError::rejected(format!("invalid tool call: {reason}"))))
+                }
+                Reply::Call { name, args } => {
+                    messages.push(Message::Call { name: name.clone(), args: args.clone() });
+                    let result = if tools.iter().any(|t| t.name == name) {
+                        self.call(&name, &args).await
+                    } else {
+                        Err(ToolError::rejected(format!("unknown tool {name}")))
+                    };
+                    (name, result)
+                }
             };
             match result {
                 Ok(_) if name == REPORT => return Ok(()),
@@ -199,8 +206,14 @@ impl Turn<'_> {
                     repairs = 0;
                     messages.push(Message::ToolResult { name, output });
                 }
+                Err(error) if !error.is_rejected() => {
+                    tracing::warn!(error = %snafu::Report::from_error(&error), "serveur d'outils de l'agent local injoignable");
+                    return Err(Stop::Fail(FailKind::Engine));
+                }
                 Err(error) => {
                     repairs += 1;
+                    // Une annulation qui arrive pendant l'appel fautif l'emporte sur l'échec.
+                    self.check_cancel()?;
                     if repairs == 2 {
                         return Err(Stop::Fail(FailKind::InvalidCall));
                     }
@@ -213,7 +226,7 @@ impl Turn<'_> {
     }
 
     /// Un appel d'outil, encadré par sa progression `call-{n}`.
-    async fn call(&mut self, name: &str, args: &Value) -> Result<String, String> {
+    async fn call(&mut self, name: &str, args: &Value) -> Result<String, ToolError> {
         self.calls += 1;
         let id = format!("call-{}", self.calls);
         self.updates.tool_started(&id, name, args);
@@ -232,7 +245,7 @@ impl Turn<'_> {
         // `report` exige 1 à 4 faits : l'unique fait est la marche à suivre.
         let args = json!({ "title": title, "facts": [localizer.tr("local-agent-retry")] });
         if let Err(error) = self.call(REPORT, &args).await {
-            tracing::warn!(%error, "rapport d'échec de l'agent local refusé");
+            tracing::warn!(error = %snafu::Report::from_error(&error), "rapport d'échec de l'agent local refusé");
         }
     }
 }

@@ -110,6 +110,7 @@ fn second_launch(h: &Harness, script: serde_json::Value) -> (oku_slides_agent::L
             "--log".into(),
             log.to_string_lossy().into_owned(),
         ],
+        env: Vec::new(),
         fallback_cwd: h.log.parent().unwrap_or_else(|| panic!("dossier du journal")).to_owned(),
         ready_within: oku_slides_agent::READY_WITHIN,
     };

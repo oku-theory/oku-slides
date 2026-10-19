@@ -48,7 +48,7 @@ pub use error::{SttError, SttErrorKind};
 pub use models::{Model, download};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
-use oku_slides_platform::config::SttSettings;
+use oku_slides_platform::config::{ModelsSettings, SttSettings};
 use oku_slides_platform::storage::Storage;
 use stream::{Availability, Stream, StreamEngine};
 use vad::Segmenter;
@@ -240,6 +240,8 @@ pub struct Stt {
     dir: PathBuf,
     /// Rythmes et seuils (réglages de l'app).
     settings: Arc<SttSettings>,
+    /// Dépôt et tentatives des téléchargements de modèles.
+    models: Arc<ModelsSettings>,
     storage: Storage,
     localizer: Arc<Localizer>,
     cancel_download: Arc<AtomicBool>,
@@ -310,6 +312,7 @@ impl Stt {
             })),
             dir,
             settings: Arc::new(platform.settings.stt.clone()),
+            models: Arc::new(platform.settings.models.clone()),
             storage,
             localizer: platform.localizer.clone(),
             cancel_download: Arc::new(AtomicBool::new(false)),
@@ -469,7 +472,7 @@ impl Stt {
         let (me, dir, cancel) = (self.clone(), self.dir.clone(), self.cancel_download.clone());
         std::thread::spawn(move || {
             let mut last = Instant::now();
-            let result = models::download(model, &dir, &me.settings, &me.storage, |received, total| {
+            let result = models::download(model, &dir, &me.models, &me.storage, |received, total| {
                 if last.elapsed() > Duration::from_millis(100) {
                     last = Instant::now();
                     me.state().download = Some(Download { model, received, total });

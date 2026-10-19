@@ -126,6 +126,7 @@ async fn start_tabs_ready_within(
             "--log".into(),
             log.to_string_lossy().into_owned(),
         ],
+        env: Vec::new(),
         fallback_cwd: dir.path().to_owned(),
         ready_within,
     };
@@ -483,6 +484,9 @@ async fn build_stack_with(
         // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
         settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
+        // Jamais le vrai dépôt des modèles : un téléchargement de test échoue aussitôt (port refusé).
+        settings.models.hub_url = "http://127.0.0.1:9".into();
+        settings.models.download_retries = 0;
         let preset =
             if builtin { AgentPreset::builtin("Faux", Builtin::Local) } else { AgentPreset::new("Faux", active, args) };
         settings.agent.presets.insert("faux".into(), preset);

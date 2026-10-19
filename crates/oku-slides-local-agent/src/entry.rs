@@ -1,67 +1,28 @@
 //! Point d'entrée : reconnaît `--local-agent` et sert ACP à la place de l'app.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use oku_slides_platform::LOCAL_AGENT_FLAG;
-use snafu::{OptionExt, ResultExt};
+use oku_slides_platform::local_agent::{ReadyEngine, local_engine};
+use oku_slides_platform::{LOCAL_AGENT_FLAG, Platform};
+#[cfg(debug_assertions)]
+use snafu::OptionExt;
+use snafu::ResultExt;
 
 use crate::engine::Engine;
-use crate::error::{LocalAgentError, NoEngineSnafu, RuntimeSnafu};
-
-/// Moteur de langage choisi par `--engine`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EngineChoice {
-    /// Moteur scripté des tests (builds de débogage seulement).
-    #[cfg(debug_assertions)]
-    Fake,
-}
-
-/// Arguments de l'agent local, après `--local-agent`.
-#[derive(Debug)]
-pub(crate) struct Args {
-    pub(crate) engine: EngineChoice,
-    #[cfg_attr(
-        not(debug_assertions),
-        expect(dead_code, reason = "lu par le moteur factice, absent des builds de production")
-    )]
-    pub(crate) script: Option<PathBuf>,
-    #[cfg_attr(
-        not(debug_assertions),
-        expect(dead_code, reason = "lu par le moteur factice, absent des builds de production")
-    )]
-    pub(crate) log: Option<PathBuf>,
-}
-
-/// Lit les arguments ; `None` si `--local-agent` est absent.
-///
-/// Purement syntaxique : le moteur doit être connu et les valeurs présentes.
-pub(crate) fn parse_args(args: &[String]) -> Option<Result<Args, LocalAgentError>> {
-    if !args.iter().any(|a| a == LOCAL_AGENT_FLAG) {
-        return None;
-    }
-    let value = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1));
-    let engine = match value("--engine").map(String::as_str) {
-        #[cfg(debug_assertions)]
-        Some("fake") => Some(EngineChoice::Fake),
-        _ => None,
-    };
-    Some(engine.context(NoEngineSnafu).map_err(Into::into).map(|engine| Args {
-        engine,
-        script: value("--script").map(PathBuf::from),
-        log: value("--log").map(PathBuf::from),
-    }))
-}
+#[cfg(debug_assertions)]
+use crate::error::NoScriptSnafu;
+use crate::error::{LocalAgentError, PlatformSnafu, RuntimeSnafu, UnavailableSnafu};
 
 /// Si ce processus est l'agent local (`--local-agent`), sert ACP puis termine ; sinon ne fait rien.
 ///
 /// À appeler en tête de `main`, juste après `exit_if_worker` : stdout est le tube ACP,
 /// les journaux vont sur stderr.
 pub fn exit_if_local_agent() {
-    let argv: Vec<String> = std::env::args().collect();
-    let Some(parsed) = parse_args(&argv) else { return };
+    if !std::env::args().any(|a| a == LOCAL_AGENT_FLAG) {
+        return;
+    }
     oku_slides_platform::telemetry::init();
-    let code = match parsed.and_then(run) {
+    let code = match run() {
         Ok(()) => 0,
         Err(e) => {
             tracing::error!(error = %snafu::Report::from_error(&e), "échec de l'agent local");
@@ -71,21 +32,40 @@ pub fn exit_if_local_agent() {
     std::process::exit(code);
 }
 
-/// Construit le moteur choisi par les arguments.
-fn build_engine(args: Args) -> Result<Arc<dyn Engine>, LocalAgentError> {
-    match args.engine {
+/// Construit le moteur que dictent les réglages ; un moteur forcé indisponible échoue avec sa raison.
+pub(crate) fn build_engine(platform: &Platform) -> Result<Arc<dyn Engine>, LocalAgentError> {
+    match local_engine(&platform.settings, &platform.storage) {
         #[cfg(debug_assertions)]
-        EngineChoice::Fake => {
-            let script = args.script.as_deref().context(NoEngineSnafu)?;
-            Ok(Arc::new(crate::fake::FakeEngine::from_file(script, args.log)?))
+        Ok(ReadyEngine::Fake) => {
+            let settings = &platform.settings.local_agent;
+            let script = settings.fake_script.as_deref().context(NoScriptSnafu)?;
+            Ok(Arc::new(crate::fake::FakeEngine::from_file(script, settings.fake_log.clone())?))
         }
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        Ok(ReadyEngine::Gguf { model }) => {
+            Ok(Arc::new(crate::gguf::GgufEngine::load(&model, &platform.settings.local_agent)?))
+        }
+        // `local_engine` ne rend Gguf que sur Apple silicon : ailleurs ce bras est inatteignable
+        // mais il échoue avec sa raison plutôt que de paniquer.
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        Ok(ReadyEngine::Gguf { .. }) => {
+            Err(UnavailableSnafu { reason: "gguf engine not built for this target" }.build().into())
+        }
+        Err(why) => Err(UnavailableSnafu { reason: format!("{why:?}") }.build().into()),
     }
 }
 
-fn run(args: Args) -> Result<(), LocalAgentError> {
-    let engine = build_engine(args)?;
+fn run() -> Result<(), LocalAgentError> {
+    let platform = Platform::load().context(PlatformSnafu)?;
+    // Avant le runtime : le chargement du modèle bloque, et un seul moteur existe par processus.
+    let engine = build_engine(&platform)?;
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().context(RuntimeSnafu)?;
-    rt.block_on(crate::acp::serve(engine))
+    let served = rt.block_on(crate::acp::serve(engine.clone()));
+    // Metal abandonne le processus à la sortie si un modèle est encore chargé :
+    // le runtime (et ses clones du moteur) tombe d'abord, puis le moteur.
+    drop(rt);
+    drop(engine);
+    served
 }
 
 #[cfg(test)]

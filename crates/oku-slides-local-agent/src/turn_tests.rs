@@ -13,14 +13,19 @@ use tokio_util::sync::CancellationToken;
 
 use super::{FailKind, MAX_CALLS, ToolPort, TurnEnd, Updates, run_turn};
 use crate::compact::ToolSpec;
-use crate::engine::{Completion, Engine, EngineError, Message, Reply, Step};
+use crate::engine::{Completion, Engine, EngineError, FailedSnafu, Message, Reply, Step};
 use crate::fake::FakeEngine;
 use crate::prompt::Prompt;
+use crate::tool_error::ToolError;
 
 /// Port d'outils factice : `apply`, `save`, `report` ; `failing` rend une erreur.
 #[derive(Default)]
 struct FakeTools {
     failing: Option<String>,
+    /// `list` échoue côté transport.
+    list_fails: bool,
+    /// Cet outil échoue côté transport, pas comme un appel à réparer.
+    transport_on: Option<String>,
     /// Annule ce jeton pendant le deuxième appel de cet outil.
     cancel_on_fail: Option<(String, CancellationToken)>,
     calls: Mutex<Vec<(String, Value)>>,
@@ -46,18 +51,21 @@ impl FakeTools {
 
 #[async_trait]
 impl ToolPort for FakeTools {
-    async fn list(&self) -> Result<Vec<ToolSpec>, String> {
+    async fn list(&self) -> Result<Vec<ToolSpec>, ToolError> {
+        if self.list_fails {
+            return Err(ToolError::transport_for_test());
+        }
         Ok(["apply", "save", "report"]
             .iter()
             .map(|n| ToolSpec { name: (*n).to_owned(), description: format!("{n} tool."), schema: json!({}) })
             .collect())
     }
 
-    async fn call(&self, name: &str, args: &Value) -> Result<String, String> {
+    async fn call(&self, name: &str, args: &Value) -> Result<String, ToolError> {
         self.calls.lock().unwrap_or_else(PoisonError::into_inner).push((name.to_owned(), args.clone()));
         // Comme le vrai serveur : `report` exige 1 à 4 faits.
         if name == "report" && args["facts"].as_array().is_none_or(Vec::is_empty) {
-            return Err("report: facts required".to_owned());
+            return Err(ToolError::rejected("report: facts required"));
         }
         // Le jeton est annulé pendant le deuxième échec, l'appel étant en vol.
         if let Some((n, token)) = &self.cancel_on_fail
@@ -66,7 +74,14 @@ impl ToolPort for FakeTools {
         {
             token.cancel();
         }
-        if self.failing.as_deref() == Some(name) { Err(format!("{name} failed")) } else { Ok("ok".to_owned()) }
+        if self.transport_on.as_deref() == Some(name) {
+            return Err(ToolError::transport_for_test());
+        }
+        if self.failing.as_deref() == Some(name) {
+            Err(ToolError::rejected(format!("{name} failed")))
+        } else {
+            Ok("ok".to_owned())
+        }
     }
 }
 
@@ -76,6 +91,26 @@ impl Updates for NoUpdates {
     fn tool_started(&self, _id: &str, _name: &str, _args: &Value) {}
     fn tool_finished(&self, _id: &str, _ok: bool) {}
     fn note(&self, _text: &str) {}
+}
+
+/// Garde les textes intermédiaires du modèle.
+#[derive(Default)]
+struct RecordingUpdates {
+    notes: Mutex<Vec<String>>,
+}
+
+impl RecordingUpdates {
+    fn notes(&self) -> Vec<String> {
+        self.notes.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+}
+
+impl Updates for RecordingUpdates {
+    fn tool_started(&self, _id: &str, _name: &str, _args: &Value) {}
+    fn tool_finished(&self, _id: &str, _ok: bool) {}
+    fn note(&self, text: &str) {
+        self.notes.lock().unwrap_or_else(PoisonError::into_inner).push(text.to_owned());
+    }
 }
 
 /// Moteur factice qui garde aussi chaque complétion reçue.
@@ -242,4 +277,85 @@ async fn run_turn_route_sees_summaries_then_request() {
     let route = engine.seen.lock().unwrap()[0].clone();
     assert_that!(route.messages).is_equal_to(vec![Message::User("avant → fait".into()), Message::User("x".into())]);
     assert_that!(route.system.as_str()).contains("edit: ");
+}
+
+#[tokio::test]
+async fn run_turn_tools_list_failure_fails_with_engine() {
+    let tools = FakeTools { list_fails: true, ..FakeTools::default() };
+    let engine = engine(json!({"turns":[{"route":"edit","replies":[]}]}));
+    let end = run_turn(&engine, &tools, &NoUpdates, &prompt("fr"), &[], &CancellationToken::new()).await;
+    assert_that!(end).is_equal_to(TurnEnd::Failed(FailKind::Engine));
+}
+
+#[tokio::test]
+async fn run_turn_transport_error_fails_with_engine_not_repair() {
+    let tools = FakeTools { transport_on: Some("apply".into()), ..FakeTools::default() };
+    let engine = engine(json!({"turns":[{"route":"edit","replies":[{"call":"apply","args":{}}]}]}));
+    let end = run_turn(&engine, &tools, &NoUpdates, &prompt("fr"), &[], &CancellationToken::new()).await;
+    assert_that!(end).is_equal_to(TurnEnd::Failed(FailKind::Engine));
+}
+
+#[tokio::test]
+async fn run_turn_success_between_failures_resets_repairs() {
+    // apply échoue, save réussit, apply échoue encore, puis report : jamais deux échecs de suite.
+    let tools = FakeTools::failing("apply");
+    let replies = json!([
+        {"call": "apply"}, {"call": "save"}, {"call": "apply"},
+        {"call": "report", "args": {"title": "ok", "facts": ["f"]}}
+    ]);
+    let engine = engine(json!({"turns":[{"route":"edit, files","replies":replies}]}));
+    let end = run_turn(&engine, &tools, &NoUpdates, &prompt("fr"), &[], &CancellationToken::new()).await;
+    assert_that!(end).is_equal_to(TurnEnd::Reported);
+}
+
+#[tokio::test]
+async fn run_turn_text_reply_becomes_a_note() {
+    let updates = RecordingUpdates::default();
+    let replies = json!([{"text": "Je regarde."}, {"call": "report", "args": {"title": "ok", "facts": ["f"]}}]);
+    let engine = engine(json!({"turns":[{"route":"edit","replies":replies}]}));
+    run_turn(&engine, &FakeTools::default(), &updates, &prompt("fr"), &[], &CancellationToken::new()).await;
+    assert_that!(updates.notes()).is_equal_to(vec!["Je regarde.".to_owned()]);
+}
+
+/// Moteur qui rejoue des réponses prévues, dont `Invalid` que le factice ne sait pas produire.
+#[derive(Debug)]
+struct Scripted {
+    replies: Mutex<std::collections::VecDeque<Reply>>,
+    seen: Mutex<Vec<Completion>>,
+}
+
+#[async_trait]
+impl Engine for Scripted {
+    async fn complete(&self, c: &Completion, _cancel: &CancellationToken) -> Result<Reply, EngineError> {
+        self.seen.lock().unwrap_or_else(PoisonError::into_inner).push(c.clone());
+        let next = self.replies.lock().unwrap_or_else(PoisonError::into_inner).pop_front();
+        next.ok_or_else(|| FailedSnafu { message: "script exhausted" }.build().into())
+    }
+}
+
+#[tokio::test]
+async fn run_turn_invalid_reply_is_repaired_once() {
+    let report = Reply::Call { name: "report".into(), args: json!({"title": "ok", "facts": ["f"]}) };
+    let engine = Scripted {
+        replies: Mutex::new([Reply::Text("edit".into()), Reply::Invalid("bad".into()), report].into()),
+        seen: Mutex::new(vec![]),
+    };
+    let end = run_turn(&engine, &FakeTools::default(), &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
+    assert_that!(end).is_equal_to(TurnEnd::Reported);
+    let seen = engine.seen.lock().unwrap_or_else(PoisonError::into_inner);
+    let Some(Message::ToolResult { name, output }) = seen[2].messages.last() else { panic!("no tool result") };
+    assert_that!(name.as_str()).is_equal_to("invalid");
+    assert_that!(output.as_str()).starts_with("error: invalid tool call");
+}
+
+#[tokio::test]
+async fn run_turn_call_is_replayed_before_its_result() {
+    let engine = engine(json!({"turns":[{"route":"edit","replies":[
+        {"call":"apply","args":{"a":1}},
+        {"call":"report","args":{"title":"ok","facts":["f"]}}]}]}));
+    run_turn(&engine, &FakeTools::default(), &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
+    let messages = engine.acts()[1].messages.clone();
+    let n = messages.len();
+    assert_that!(messages[n - 2].clone()).is_equal_to(Message::Call { name: "apply".into(), args: json!({"a": 1}) });
+    assert_that!(matches!(messages[n - 1], Message::ToolResult { .. })).is_true();
 }

@@ -11,6 +11,7 @@ use common::{
     stack_with_sink_and_log, wait_n_after, wait_turn_done,
 };
 use oku_slides_i18n::Localizer;
+use oku_slides_platform::local_agent::Target;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
@@ -114,4 +115,43 @@ async fn availability_builtin_without_program_names_it() {
     let (stack, rx) = stack_with_builtin(json!({ "turns": [] })).await;
     let expected = Localizer::new(Some("fr")).tr("agent-local-no-program");
     assert_that!(availability(&stack, &rx).await).is_equal_to(json!(expected));
+}
+
+fn is_picker((ch, v): &(&'static str, Value)) -> bool {
+    *ch == "agent" && v["tab"] == "t-1" && v["event"]["kind"] == "picker"
+}
+
+/// Le texte du composant `id` d'un évènement `picker`, s'il y est.
+fn picker_text(event: &Value, id: &str) -> Option<String> {
+    let messages = event["event"]["surface"]["messages"].as_array()?;
+    let update = messages.iter().find(|m| m.get("updateComponents").is_some())?;
+    let components = update["updateComponents"]["components"].as_array()?;
+    let found = components.iter().find(|c| c["id"] == id)?;
+    found["text"].as_str().map(str::to_owned)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancel_download_without_download_reemits_the_picker() {
+    let (stack, rx) = stack_with_builtin(json!({ "turns": [] })).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "cancel_download", "tab": "t-1" })))).unwrap();
+    let got = wait_n_after(&rx, 0, 1, is_picker).await;
+    assert_that!(picker_text(&got[0].1.1, "download-error")).is_none();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn download_model_unreachable_hub_shows_the_failure_then_the_availability() {
+    let (stack, rx) = stack_with_builtin(json!({ "turns": [] })).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "download_model", "tab": "t-1" })))).unwrap();
+    if Target::current() != Target::AppleSilicon {
+        // Rien à télécharger ici : le panneau revient, sans bouton ni erreur.
+        let got = wait_n_after(&rx, 0, 1, is_picker).await;
+        assert_that!(picker_text(&got[0].1.1, "download-error")).is_none();
+        return;
+    }
+    let failed = Localizer::new(Some("fr")).tr("agent-model-download-failed");
+    let shown = common::wait_for(&rx, |r| is_picker(r) && picker_text(&r.1, "download-error").is_some()).await;
+    assert_that!(picker_text(&shown.1, "download-error")).is_equal_to(Some(failed));
+    let from = rx.lock().unwrap().iter().position(|r| *r == shown).unwrap();
+    // Après le panneau de fin, la disponibilité réémise.
+    wait_n_after(&rx, from, 1, is_availability).await;
 }

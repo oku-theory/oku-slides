@@ -489,6 +489,8 @@ export default function App({
         agentPicker={agentPicker.surface}
         onAgentPickerOpen={agentPicker.open}
         onAgentSelect={agentPicker.select}
+        onAgentDownload={agentPicker.download}
+        onAgentCancelDownload={agentPicker.cancelDownload}
       />}
 
       {picking && (

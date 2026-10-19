@@ -85,14 +85,13 @@ pub async fn start(script: Value) -> Harness {
     std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario : {e}"));
     let launch = Launch {
         command: env!("CARGO_BIN_EXE_oku-slides-local-agent-dev").to_owned(),
-        args: vec![
-            "--local-agent".into(),
-            "--engine".into(),
-            "fake".into(),
-            "--script".into(),
-            script_path.to_string_lossy().into_owned(),
-            "--log".into(),
-            log.to_string_lossy().into_owned(),
+        args: vec!["--local-agent".into()],
+        env: vec![
+            ("OKU_SLIDES_LOCAL_AGENT__ENGINE".into(), "fake".into()),
+            ("OKU_SLIDES_LOCAL_AGENT__FAKE_SCRIPT".into(), script_path.to_string_lossy().into_owned()),
+            ("OKU_SLIDES_LOCAL_AGENT__FAKE_LOG".into(), log.to_string_lossy().into_owned()),
+            ("OKU_SLIDES_PATHS__DATA".into(), dir.path().to_string_lossy().into_owned()),
+            ("OKU_SLIDES_PATHS__DECKS".into(), dir.path().join("decks").to_string_lossy().into_owned()),
         ],
         fallback_cwd: dir.path().to_owned(),
         ready_within: oku_slides_agent::READY_WITHIN,

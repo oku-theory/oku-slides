@@ -3,33 +3,24 @@
 //! l'interface, enveloppés `{tab, event}`.
 
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
-use oku_slides_platform::config::AgentPreset;
-use oku_slides_platform::config_write::write_value;
-use oku_slides_platform::find_program;
 use oku_slides_session::Platform;
 use oku_slides_session::agent::{AgentScope, AgentUi, Sessions, TabSession};
 use oku_slides_stt::Stt;
-use snafu::{OptionExt, ResultExt, ensure};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
-use crate::command_error::{
-    AgentLockedSnafu, AgentNotSavedSnafu, CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu,
-    UnknownAgentSnafu,
-};
-use crate::error::Unusable;
+use crate::choice::AgentChoice;
+use crate::command_error::{CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu};
 use crate::keeper::{Keep, Keeper};
-use crate::picker::picker_surface;
 use crate::settings_port::AppSettings;
 use crate::tab_agent::{Command, Instruction};
 use crate::tab_entry::{Out, TabEntry, TabLink, emit};
-use crate::{AgentEvent, Launch, Link};
+use crate::{AgentEvent, Link};
 
 /// Taille maximale d'un brouillon, en octets UTF-8.
 pub const MAX_DRAFT_BYTES: usize = 256 * 1024;
@@ -114,6 +105,16 @@ pub enum AgentCommand {
         /// L'agent choisi, clé de `[agent.presets]`.
         id: String,
     },
+    /// Télécharge le modèle de l'agent local choisi, puis réémet le panneau à cet onglet.
+    ///
+    /// Le panneau et la disponibilité sont réémis à chaque pourcent et à la fin.
+    DownloadModel {
+        tab: String,
+    },
+    /// Arrête le téléchargement du modèle en cours, puis réémet le panneau à cet onglet.
+    CancelDownload {
+        tab: String,
+    },
 }
 
 impl AgentCommand {
@@ -130,7 +131,9 @@ impl AgentCommand {
             | Self::SetDraft { tab, .. }
             | Self::Picker { tab }
             | Self::Availability { tab }
-            | Self::SelectAgent { tab, .. } => tab,
+            | Self::SelectAgent { tab, .. }
+            | Self::DownloadModel { tab }
+            | Self::CancelDownload { tab } => tab,
         }
     }
 }
@@ -175,31 +178,20 @@ pub struct Stack {
     table: Mutex<Table>,
     out_tx: mpsc::UnboundedSender<Out>,
     out_rx: Mutex<Option<mpsc::UnboundedReceiver<Out>>>,
-    /// L'agent choisi (clé de `[agent.presets]`) : celui du prochain lancement.
-    active: Mutex<String>,
+    /// L'agent choisi : celui du prochain lancement, sa disponibilité, le panneau.
+    choice: Arc<AgentChoice>,
 }
 
 impl Stack {
-    /// Le lancement de `preset`. Un agent intégré sans binaire d'app a une commande vide :
-    /// un prompt échoue au lancement comme un programme absent, et `availability` en donne la raison.
-    fn launch_of(preset: &AgentPreset, platform: &Platform) -> Launch {
-        let cwd = platform.settings.paths.data();
-        Launch::for_preset(preset, platform.program.as_deref(), cwd.clone()).unwrap_or(Launch {
-            command: String::new(),
-            args: Vec::new(),
-            fallback_cwd: cwd,
-            ready_within: crate::READY_WITHIN,
-        })
-    }
-
     /// Rien ne démarre ici : les outils et le gardien d'un onglet démarrent
     /// à sa première commande, `resync` compris ; l'agent ACP au premier
     /// prompt ; tout dans `rt`. `stt` : la dictée de l'hôte, pour `set_setting`.
     pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
         let a = platform.settings.agent.active();
-        let link = Link::new(Self::launch_of(a, platform));
+        let link = Link::new(AgentChoice::launch_of(a, platform));
         let (out_tx, out_rx) = mpsc::unbounded_channel();
         Self {
+            choice: Arc::new(AgentChoice::new(platform, link.clone())),
             link,
             sessions,
             platform: platform.clone(),
@@ -208,13 +200,13 @@ impl Stack {
             table: Mutex::new(Table::default()),
             out_tx,
             out_rx: Mutex::new(Some(out_rx)),
-            active: Mutex::new(platform.settings.agent.selected.clone()),
         }
     }
 
     /// Traite une commande de l'interface ; l'erreur est lue par l'interface.
     ///
-    /// Peut bloquer (`select_agent` écrit `config.toml`) : à appeler hors des fils du runtime.
+    /// Peut bloquer (`select_agent` écrit `config.toml`, le panneau lit l'état du modèle) : à
+    /// appeler hors des fils du runtime.
     pub fn handle(&self, cmd: AgentCommand) -> Result<(), String> {
         if self.is_closed(cmd.tab()) {
             tracing::debug!(tab = cmd.tab(), "commande pour un onglet fermé : ignorée");
@@ -308,10 +300,27 @@ impl Stack {
                 emit(&self.out_tx, "agent", &tab, &AgentEvent::Availability { unusable: self.availability() });
             }
             AgentCommand::SelectAgent { tab, id } => {
-                if let Err(e) = self.select_agent(&id) {
+                if let Err(e) = self.choice.select(&id) {
                     tracing::info!(tab, error = %snafu::Report::from_error(&e), "choix d'agent refusé");
                     return Err(e.localize(&self.platform.live_localizer.current()));
                 }
+                self.emit_picker(&tab);
+            }
+            AgentCommand::DownloadModel { tab } => {
+                let (out, to) = (self.out_tx.clone(), tab.clone());
+                // Réémis depuis le fil du téléchargement, sans savoir si un tour est ouvert :
+                // `busy` faux ; la mise en garde revient à la prochaine demande `picker`.
+                let started = self.choice.start_download(move |c| {
+                    emit(&out, "agent", &to, &AgentEvent::Picker { surface: c.picker(false) });
+                    emit(&out, "agent", &to, &AgentEvent::Availability { unusable: c.availability() });
+                });
+                if !started {
+                    tracing::debug!(tab, "téléchargement du modèle non lancé : déjà en cours ou rien à télécharger");
+                }
+                self.emit_picker(&tab);
+            }
+            AgentCommand::CancelDownload { tab } => {
+                self.choice.cancel_download();
                 self.emit_picker(&tab);
             }
         }
@@ -337,27 +346,10 @@ impl Stack {
 
     /// Pourquoi l'agent choisi est inutilisable, localisé ; `None` s'il semble utilisable.
     ///
-    /// Son programme introuvable (chemin, ou nom cherché dans `PATH`), sinon l'échec récent de
-    /// son dernier lancement (non lançable, sans MCP en HTTP). Peut bloquer : lit le disque.
+    /// Son programme introuvable, l'état du moteur local pour l'agent intégré, sinon l'échec
+    /// récent de son dernier lancement. Peut bloquer : lit le disque.
     pub fn availability(&self) -> Option<String> {
-        let l = self.platform.live_localizer.current();
-        let active = self.active.lock().unwrap_or_else(PoisonError::into_inner).clone();
-        let Some(preset) = self.platform.settings.agent.presets.get(&active) else {
-            // `select_agent` ne choisit qu'un agent de la liste, vérifiée au chargement.
-            tracing::error!(active, "agent actif absent des réglages");
-            return Some(CommandError::from(UnknownAgentSnafu { id: active }.build()).localize(&l));
-        };
-        if preset.builtin.is_some() {
-            return match self.platform.program {
-                None => Some(Unusable::NoProgram.localize(&l)),
-                Some(_) => self.link.failure().map(|u| u.localize(&l)),
-            };
-        }
-        let path = std::env::var_os("PATH");
-        if find_program(&self.platform.storage, Path::new(&preset.command), path.as_deref()).is_none() {
-            return Some(Unusable::NotFound { command: preset.command.clone() }.localize(&l));
-        }
-        self.link.failure().map(|u| u.localize(&l))
+        self.choice.availability()
     }
 
     /// Le deck de l'onglet a changé depuis l'interface (voir
@@ -387,6 +379,8 @@ impl Stack {
     /// écrites, puis l'agent ACP est tué (chacun attendu au plus 2 s) ; toute
     /// commande ensuite est ignorée.
     pub async fn shutdown(&self) {
+        // Le `.part` du modèle (2,5 Go) ne doit pas grossir après la fin de l'app.
+        self.choice.cancel_download();
         let gone = {
             let mut table = self.table();
             table.shut = true;
@@ -406,37 +400,10 @@ impl Stack {
         self.link.shutdown(SHUTDOWN_WITHIN).await;
     }
 
-    /// Choisit l'agent `id` pour toute l'app : enregistré dans `config.toml`, puis bascule.
-    ///
-    /// Rien ne change si le choix est refusé (inconnu, imposé, non enregistré).
-    fn select_agent(&self, id: &str) -> Result<(), CommandError> {
-        let agent = &self.platform.settings.agent;
-        ensure!(!agent.locked, AgentLockedSnafu);
-        let preset = agent.presets.get(id).context(UnknownAgentSnafu { id })?;
-        // Gardé jusqu'à la bascule : deux choix croisés s'appliquent l'un après l'autre.
-        let mut active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
-        if *active == id {
-            return Ok(());
-        }
-        write_value(
-            &self.platform.storage,
-            &self.platform.settings.config_file(),
-            "agent.selected",
-            &serde_json::Value::from(id),
-        )
-        .context(AgentNotSavedSnafu)?;
-        self.link.switch(Self::launch_of(preset, &self.platform));
-        id.clone_into(&mut active);
-        Ok(())
-    }
-
     /// Émet le panneau des agents aux vues de `tab` ; un tour ouvert dans un onglet l'annonce.
     fn emit_picker(&self, tab: &str) {
         let busy = self.table().tabs.values().any(|e| e.link.hub.turn().is_some());
-        let active = self.active.lock().unwrap_or_else(PoisonError::into_inner).clone();
-        let agent = &self.platform.settings.agent;
-        let surface =
-            picker_surface(&agent.presets, &active, busy, agent.locked, &self.platform.live_localizer.current());
+        let surface = self.choice.picker(busy);
         emit(&self.out_tx, "agent", tab, &AgentEvent::Picker { surface });
     }
 

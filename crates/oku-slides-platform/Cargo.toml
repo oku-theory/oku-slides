@@ -21,13 +21,22 @@ tracing-subscriber.workspace = true
 axum = { workspace = true, optional = true }
 hyper = { workspace = true, optional = true }
 hyper-util = { workspace = true, optional = true }
+ureq = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
 
 [features]
 # Boucle d'accept des serveurs HTTP locaux (`listen`) : délai d'en-têtes,
 # plafond de connexions, arrêt borné. Activée par la CLI et `oku-slides-mcp`.
 listen = ["dep:axum", "dep:hyper", "dep:hyper-util", "tokio/net", "tokio/sync", "tokio/time", "tokio/macros"]
 
+# Téléchargement des modèles épinglés (dictée, agent local) : client HTTP et SHA-256.
+download = ["dep:ureq", "dep:sha2", "dep:hex"]
+
 [dev-dependencies]
+tiny_http.workspace = true
+sha2.workspace = true
+hex.workspace = true
 speculoos.workspace = true
 rstest.workspace = true
 tempfile.workspace = true

@@ -23,6 +23,7 @@ fn launch(command: &str) -> Launch {
     Launch {
         command: command.to_owned(),
         args: Vec::new(),
+        env: Vec::new(),
         fallback_cwd: std::env::temp_dir(),
         ready_within: std::time::Duration::from_secs(5),
     }

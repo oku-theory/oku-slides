@@ -114,7 +114,7 @@ fn status_json_carries_the_scope_only_when_set() {
 
 #[test]
 fn picker_event_serializes_with_its_surface() {
-    let s = crate::picker::picker_surface(&BTreeMap::new(), "x", false, false, &Localizer::new(Some("fr")));
+    let s = crate::picker::picker_surface(&BTreeMap::new(), "x", false, false, None, &Localizer::new(Some("fr")));
     let v = serde_json::to_value(AgentEvent::Picker { surface: s }).unwrap();
     assert_that!(v["kind"].clone()).is_equal_to(json!("picker"));
     assert_that!(v["surface"]["id"].clone()).is_equal_to(json!("agent-picker"));

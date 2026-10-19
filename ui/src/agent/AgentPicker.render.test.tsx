@@ -20,8 +20,25 @@ afterEach(async () => {
   m.host.remove();
 });
 
+/** Le panneau avec l'agent local : un bouton par évènement de `buttons` (`download_model`, `cancel_download`). */
+function withButtons(buttons: { id: string; label: string; event: string }[]): Surface {
+  const components = [
+    { id: "root", component: "Column", children: ["title", ...buttons.map((b) => b.id)] },
+    { id: "title", component: "Text", text: "Agent", variant: "h4" },
+    ...buttons.map((b) => ({ id: b.id, component: "Button", label: b.label, action: { event: { name: b.event, context: {} } } })),
+  ];
+  return {
+    ...PICKER,
+    messages: [
+      PICKER.messages[0],
+      { version: "v0.9", updateComponents: { surfaceId: "agent-picker", components } },
+    ] as unknown as Surface["messages"],
+  };
+}
+
 async function mount(surface: Surface | null) {
   const selected: string[] = [];
+  const calls: string[] = [];
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -31,6 +48,8 @@ async function mount(surface: Surface | null) {
       createElement(AgentPicker, {
         surface,
         onSelect: (id: string) => void selected.push(id),
+        onDownload: () => void calls.push("download"),
+        onCancelDownload: () => void calls.push("cancel"),
         onError: (m: string) => {
           throw new Error(m);
         },
@@ -38,12 +57,15 @@ async function mount(surface: Surface | null) {
     ),
   );
   // La surface est chargée à la demande (lazy) : laisser Suspense la résoudre.
-  for (let i = 0; i < 50 && !host.querySelector(".chip"); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
-  return { host, selected };
+  for (let i = 0; i < 50 && !host.querySelector(".chip, button"); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
+  return { host, selected, calls };
 }
 
 const chip = (host: HTMLElement, label: string) =>
   [...host.querySelectorAll<HTMLButtonElement>(".chip")].find((b) => b.textContent?.trim() === label);
+
+const button = (host: HTMLElement, label: string) =>
+  [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === label);
 
 describe("AgentPicker", () => {
   test("AgentPicker with a surface shows every agent", async () => {
@@ -64,6 +86,18 @@ describe("AgentPicker", () => {
     expect(box.getAttribute("role")).toBeNull();
     expect(box.hasAttribute("tabindex")).toBe(false);
     expect(document.activeElement).not.toBe(box);
+  });
+
+  test("AgentPicker download button calls onDownload once", async () => {
+    const { host, calls } = await mount(withButtons([{ id: "download", label: "Télécharger le modèle", event: "download_model" }]));
+    await act(async () => button(host, "Télécharger le modèle")!.click());
+    expect(calls).toEqual(["download"]);
+  });
+
+  test("AgentPicker cancel button calls onCancelDownload once", async () => {
+    const { host, calls } = await mount(withButtons([{ id: "cancel-download", label: "Annuler", event: "cancel_download" }]));
+    await act(async () => button(host, "Annuler")!.click());
+    expect(calls).toEqual(["cancel"]);
   });
 
   test("AgentPicker without surface renders nothing", async () => {

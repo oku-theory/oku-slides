@@ -200,6 +200,11 @@ impl Link {
         failure.as_ref().filter(|f| f.epoch == epoch && f.at.elapsed() < FAILURE_TTL).map(|f| f.unusable.clone())
     }
 
+    /// Oublie l'échec retenu : l'état de l'agent a changé depuis (modèle téléchargé).
+    pub(crate) fn forget_failure(&self) {
+        *self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    }
+
     /// Retient l'issue d'un lancement de l'époque `epoch` : son échec, ou rien après un succès.
     fn remember(&self, epoch: u64, failure: Option<Unusable>) {
         self.remember_at(epoch, failure, Instant::now());
@@ -314,9 +319,10 @@ impl Link {
         epoch: u64,
         stop: CancellationToken,
     ) -> Result<Live, AgentError> {
-        let Launch { command, args, ready_within, .. } = launch;
+        let Launch { command, args, env, ready_within, .. } = launch;
         let mut child = tokio::process::Command::new(&command)
             .args(&args)
+            .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())

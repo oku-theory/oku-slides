@@ -17,7 +17,7 @@ oku-slides-platform.workspace = true
 oku-slides-i18n.workspace = true
 rust-mcp-sdk.workspace = true
 agent-client-protocol.workspace = true
-tokio = { workspace = true, features = ["sync", "macros", "rt", "rt-multi-thread", "io-std", "time"] }
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros"] }
 tokio-util.workspace = true
 snafu.workspace = true
 tracing.workspace = true
@@ -25,11 +25,16 @@ serde_json.workspace = true
 serde.workspace = true
 async-trait.workspace = true
 
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+llama-cpp-2.workspace = true
+# Épinglé avec llama-cpp-2 (qui accepte ^0.1.158) : même version de llama.cpp.
+llama-cpp-sys-2.workspace = true
+
 [dev-dependencies]
 oku-slides-mcp.workspace = true
 oku-slides-agent.workspace = true
 oku-slides-session.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 speculoos.workspace = true
 tempfile.workspace = true
 rstest.workspace = true

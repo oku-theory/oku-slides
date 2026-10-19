@@ -14,6 +14,8 @@ pub const READY_WITHIN: Duration = Duration::from_secs(120);
 pub struct Launch {
     pub command: String,
     pub args: Vec<String>,
+    /// Variables ajoutées à l'environnement de l'agent (tests : moteur factice de l'agent local).
+    pub env: Vec<(String, String)>,
     /// Dossier de travail d'une session quand son document n'est pas enregistré.
     pub fallback_cwd: PathBuf,
     /// Au-delà, le lancement est abandonné (sous-processus tué) : l'agent est arrêté.
@@ -31,7 +33,7 @@ impl Launch {
                 (program?.to_string_lossy().into_owned(), vec![oku_slides_platform::LOCAL_AGENT_FLAG.to_owned()])
             }
         };
-        Some(Self { command, args, fallback_cwd, ready_within: READY_WITHIN })
+        Some(Self { command, args, env: Vec::new(), fallback_cwd, ready_within: READY_WITHIN })
     }
 }
 

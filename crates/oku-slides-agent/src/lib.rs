@@ -9,10 +9,11 @@
 //! - [`AgentEvent`] : ce que l'interface affiche dans le fil.
 //! - [`Stack`] : un agent par onglet (outils MCP, fil gardé) pour l'hôte ;
 //!   évènements relayés en enveloppes `{tab, event}`, et le panneau des agents
-//!   (`picker`, `select_agent`).
+//!   (`choice`, `picker`).
 //!
 //! L'agent n'a ni fichiers ni terminal : il n'agit que par les outils.
 
+mod choice;
 mod command_error;
 mod config;
 mod error;
@@ -20,6 +21,7 @@ mod events;
 mod instructions;
 mod keeper;
 mod link;
+mod model_download;
 mod permission;
 mod picker;
 mod settings_port;

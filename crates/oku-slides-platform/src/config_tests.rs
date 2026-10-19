@@ -16,6 +16,12 @@ fn env(vars: &[(&str, &str)]) -> config::Environment {
 }
 
 #[test]
+fn settings_defaults_models_hub_is_hugging_face() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.models.hub_url.as_str()).is_equal_to("https://huggingface.co");
+}
+
+#[test]
 fn defaults_stt_offers_apple_engine() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.stt.apple).is_true();
@@ -127,12 +133,13 @@ fn app_id_names_oku_slides() {
 }
 
 #[test]
-fn defaults_agent_presets_are_claude_codex_gemini_with_claude_selected() {
+fn defaults_agent_presets_are_claude_codex_gemini_local_with_claude_selected() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.agent.presets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![
         "claude".to_owned(),
         "codex".to_owned(),
         "gemini".to_owned(),
+        "local".to_owned(),
     ]);
     assert_that!(s.agent.selected.as_str()).is_equal_to("claude");
     let claude = s.agent.active();
@@ -159,7 +166,7 @@ fn config_file_preset_is_added_without_dropping_the_defaults() {
     )
     .unwrap();
     let s = Settings::from_sources(Some(&file), Settings::environment().source(Some(HashMap::new()))).unwrap();
-    assert_that!(s.agent.presets.len()).is_equal_to(4);
+    assert_that!(s.agent.presets.len()).is_equal_to(5);
     assert_that!(s.agent.active().command.as_str()).is_equal_to("/bin/faux");
 }
 
@@ -494,7 +501,18 @@ fn agent_settings_builtin_preset_loads() {
 #[case::neither("name = \"X\"")]
 fn agent_settings_preset_without_exactly_one_launch_is_refused(#[case] body: &str) {
     let toml = format!("[agent]\nselected = \"x\"\n[agent.presets.x]\n{body}\n");
-    assert_that!(settings_from_toml(&toml)).is_err();
+    let err = settings_from_toml(&toml).unwrap_err();
+    assert_that!(snafu::Report::from_error(&err).to_string())
+        .contains("[agent.presets.x] needs exactly one of command or builtin");
+}
+
+#[test]
+fn settings_defaults_have_local_builtin_preset() {
+    let settings = settings_from_toml("").unwrap();
+    let local = settings.agent.presets.get("local").unwrap();
+    assert_that!(local.name.as_str()).is_equal_to("Local");
+    assert_that!(local.builtin).is_equal_to(Some(Builtin::Local));
+    assert_that!(local.command.as_str()).is_empty();
 }
 
 #[test]
@@ -502,4 +520,19 @@ fn agent_preset_builtin_constructor_has_no_command() {
     let preset = AgentPreset::builtin("Local", Builtin::Local);
     assert_that!(preset.command.as_str()).is_empty();
     assert_that!(preset.builtin).is_equal_to(Some(Builtin::Local));
+}
+
+#[test]
+fn settings_defaults_local_agent_engine_is_auto() {
+    let settings = settings_from_toml("").unwrap();
+    assert_that!(settings.local_agent.engine).is_equal_to(LocalEngine::Auto);
+    assert_that!(settings.local_agent.context).is_equal_to(16384);
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn local_agent_fake_engine_loads_from_toml() {
+    let settings = settings_from_toml("[local_agent]\nengine = \"fake\"\nfake_script = \"s.json\"\n").unwrap();
+    assert_that!(settings.local_agent.engine).is_equal_to(LocalEngine::Fake);
+    assert_that!(settings.local_agent.fake_script).is_equal_to(Some(PathBuf::from("s.json")));
 }

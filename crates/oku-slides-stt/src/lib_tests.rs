@@ -104,7 +104,7 @@ fn download_apple_model_is_refused() {
     let dir = fresh_dir("apple-download");
     let settings = oku_slides_platform::config::Settings::defaults().unwrap();
     let storage = oku_slides_platform::storage::Storage::local().unwrap();
-    let err = download(Model::Apple, dir.path(), &settings.stt, &storage, |_, _| true).unwrap_err();
+    let err = download(Model::Apple, dir.path(), &settings.models, &storage, |_, _| true).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
 }
 

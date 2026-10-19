@@ -8,6 +8,7 @@ use tokio::sync::OnceCell;
 use tokio_util::sync::CancellationToken;
 
 use crate::mcp::McpTools;
+use crate::tool_error::ToolError;
 
 /// Nombre de résumés de tours gardés par session.
 const KEPT_SUMMARIES: usize = 3;
@@ -75,7 +76,7 @@ impl SessionState {
     }
 
     /// Le client MCP de la session, connecté à la première demande.
-    pub(crate) async fn tools(&self) -> Result<&McpTools, String> {
+    pub(crate) async fn tools(&self) -> Result<&McpTools, ToolError> {
         self.tools.get_or_try_init(|| McpTools::connect(&self.mcp)).await
     }
 }

@@ -94,6 +94,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     let link = Link::new(Launch {
         command: "sh".into(),
         args: vec!["-c".into(), format!("touch '{}'", launched.display())],
+        env: Vec::new(),
         fallback_cwd: dir.path().to_owned(),
         ready_within: Duration::from_secs(5),
     });

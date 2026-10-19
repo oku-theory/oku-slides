@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if model != Model::Apple && !model.is_installed(storage, &dir) {
         eprintln!("↓ {} …", model.label(&platform.localizer));
         let mut last = 0;
-        oku_slides_stt::download(model, &dir, &settings.stt, storage, |got, total| {
+        oku_slides_stt::download(model, &dir, &settings.models, storage, |got, total| {
             let pct = got * 100 / total.max(1);
             if pct >= last + 10 {
                 last = pct;

@@ -15,7 +15,15 @@ afterEach(async () => {
   cleanup = null;
 });
 
-async function mount({ pickerFails = null, selectFails = null }: { pickerFails?: string | null; selectFails?: string | null } = {}) {
+interface Fails {
+  pickerFails?: string | null;
+  selectFails?: string | null;
+  downloadFails?: string | null;
+  cancelFails?: string | null;
+}
+
+async function mount({ pickerFails = null, selectFails = null, downloadFails = null, cancelFails = null }: Fails = {}) {
+  const downloads: string[] = [];
   const pickers: number[] = [];
   const selected: string[] = [];
   const errors: string[] = [];
@@ -28,6 +36,14 @@ async function mount({ pickerFails = null, selectFails = null }: { pickerFails?:
       selected.push(id);
       if (selectFails !== null) throw new Error(selectFails);
     },
+    downloadModel: async () => {
+      downloads.push("download");
+      if (downloadFails !== null) throw new Error(downloadFails);
+    },
+    cancelDownload: async () => {
+      downloads.push("cancel");
+      if (cancelFails !== null) throw new Error(cancelFails);
+    },
   };
   let picker: ReturnType<typeof useAgentPicker> | null = null;
   const Probe = () => {
@@ -37,7 +53,7 @@ async function mount({ pickerFails = null, selectFails = null }: { pickerFails?:
   const root = createRoot(document.createElement("div"));
   await act(async () => root.render(createElement(Probe)));
   cleanup = async () => act(async () => root.unmount());
-  return { pickers, selected, errors, picker: () => picker! };
+  return { pickers, selected, errors, downloads, picker: () => picker! };
 }
 
 /** Laisse les promesses se résoudre et React les rendre. */
@@ -76,5 +92,26 @@ describe("useAgentPicker", () => {
     await act(async () => m.picker().select("claude"));
     await settle();
     expect([m.selected, m.errors, m.pickers.length]).toEqual([["claude"], ["refus"], 1]);
+  });
+
+  test("useAgentPicker download sends download_model", async () => {
+    const m = await mount();
+    await act(async () => m.picker().download());
+    await settle();
+    expect([m.downloads, m.errors]).toEqual([["download"], []]);
+  });
+
+  test("useAgentPicker refused download is reported", async () => {
+    const m = await mount({ downloadFails: "pas de réseau" });
+    await act(async () => m.picker().download());
+    await settle();
+    expect([m.downloads, m.errors]).toEqual([["download"], ["pas de réseau"]]);
+  });
+
+  test("useAgentPicker cancelDownload sends cancel_download and reports a refusal", async () => {
+    const m = await mount({ cancelFails: "refus" });
+    await act(async () => m.picker().cancelDownload());
+    await settle();
+    expect([m.downloads, m.errors]).toEqual([["cancel"], ["refus"]]);
   });
 });

@@ -1,5 +1,5 @@
 // Panneau des agents (menu des réglages de la dictée) : l'ouvrir, passer au second faux agent, lire sa
-// réponse, revenir au premier.
+// réponse, revenir au premier ; « Local » sans modèle propose de le télécharger.
 // Contre `oku-slides serve` lancé par `just e2e` (deux presets : « Faux » choisi, « Faux bis »).
 // Choisir un agent change l'agent de tout le serveur : la spec revient à « Faux » pour les suivantes.
 const { chromium } = require('playwright');
@@ -77,6 +77,19 @@ const closeSettings = async (p) => {
   await choose(p, 'Faux');
   await closeSettings(p);
   await openSettings(p);
+  await untilChosen(p, 'Faux');
+
+  // 4. « Local » sans modèle : sur Apple silicon, le panneau propose de télécharger le modèle (jamais
+  // cliqué : 2,5 Go) ; ailleurs, l'agent local ne tourne pas et rien n'est proposé. Retour à « Faux ».
+  await choose(p, 'Local');
+  await untilChosen(p, 'Local');
+  const download = p.locator('.agent-picker button', { hasText: 'Télécharger le modèle' });
+  if (process.platform === 'darwin' && process.arch === 'arm64') {
+    await download.waitFor();
+  } else {
+    assert.equal(await download.count(), 0, 'aucun téléchargement hors Apple silicon');
+  }
+  await choose(p, 'Faux');
   await untilChosen(p, 'Faux');
 
   assert.deepEqual(errors, []);

@@ -13,8 +13,9 @@ fn local_agent_flag_answers_initialize() {
     let script = dir.path().join("script.json");
     std::fs::write(&script, r#"{"turns":[]}"#).unwrap();
     let mut child = Command::new(env!("CARGO_BIN_EXE_oku-slides"))
-        .args(["--local-agent", "--engine", "fake", "--script"])
-        .arg(&script)
+        .arg("--local-agent")
+        .env("OKU_SLIDES_LOCAL_AGENT__ENGINE", "fake")
+        .env("OKU_SLIDES_LOCAL_AGENT__FAKE_SCRIPT", &script)
         .env("OKU_SLIDES_PATHS__DATA", dir.path())
         .env("OKU_SLIDES_PATHS__DECKS", dir.path())
         .stdin(Stdio::piped())

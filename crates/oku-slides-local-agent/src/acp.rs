@@ -93,7 +93,7 @@ async fn answer(
     let tools = match session.tools().await {
         Ok(tools) => tools,
         Err(error) => {
-            tracing::warn!(%error, "connexion MCP de l'agent local impossible");
+            tracing::warn!(error = %snafu::Report::from_error(&error), "connexion MCP de l'agent local impossible");
             return responder.respond_with_internal_error("the local agent cannot reach the tab's tools");
         }
     };

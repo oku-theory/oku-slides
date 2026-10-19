@@ -1,7 +1,7 @@
 use rstest::rstest;
 use speculoos::prelude::*;
 
-use super::{Family, families_of, parse_route};
+use super::{Family, families_of, parse_route, route_grammar};
 
 #[test]
 fn families_every_mcp_tool_has_a_family() {
@@ -24,5 +24,14 @@ fn parse_route_keeps_two_known_families(#[case] reply: &str, #[case] expected: V
 fn families_summaries_stay_under_fifteen_words() {
     for f in Family::ROUTABLE {
         assert_that!(f.summary().split_whitespace().count()).is_less_than(15);
+    }
+}
+
+#[test]
+fn route_grammar_names_every_routable_family() {
+    let grammar = route_grammar();
+    assert_that!(grammar.as_str()).starts_with("root ::=");
+    for f in Family::ROUTABLE {
+        assert_that!(grammar.as_str()).contains(format!("\"{}\"", f.key()).as_str());
     }
 }

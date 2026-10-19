@@ -145,10 +145,6 @@ preview_step_secs = 0.5
 min_phrase_secs = 0.3
 # Silence après lequel le compte à rebours de l'arrêt s'affiche (s).
 countdown_after_secs = 0.3
-# Dépôt des modèles, tentatives et attente entre deux tentatives (s).
-hub_url = "https://huggingface.co"
-download_retries = 5
-download_backoff_secs = 4
 # Proposer le moteur de dictée d'Apple (macOS 26+), choisi par défaut ;
 # false : Whisper seulement.
 apple = true
@@ -174,6 +170,16 @@ post_roll = 0.25
 # Longueur maximale d'une phrase (s) : Whisper lit 30 s à la fois.
 max_phrase = 25.0
 
+[models]
+# Dépôt des modèles téléchargés (dictée, agent local), tentatives et attente
+# entre deux tentatives (s).
+hub_url = "https://huggingface.co"
+download_retries = 5
+download_backoff_secs = 4
+# Attente maximale (s) d'une réponse ou d'octets du dépôt : une connexion
+# bloquée échoue au lieu de figer le téléchargement.
+read_timeout_secs = 30
+
 [agent]
 # Agent ACP lancé par ⌘⇧D : une clé de [agent.presets], choisie dans le
 # panneau de l'agent (écrite dans config.toml). Il ne reçoit que les outils
@@ -196,6 +202,24 @@ args = ["-y", "@agentclientprotocol/codex-acp@2.2.2"]
 name = "Gemini"
 command = "npx"
 args = ["-y", "@google/gemini-cli@0.63.0", "--acp"]
+
+# Agent intégré : un petit modèle qui tourne sur ce Mac, sans compte ni réseau
+# (moteur choisi par [local_agent]).
+[agent.presets.local]
+name = "Local"
+builtin = "local"
+
+[local_agent]
+# Moteur de l'agent local de repli : "auto" (le meilleur disponible) ou "gguf"
+# (llama.cpp sur Apple silicon, modèle Qwen3 4B téléchargé depuis le panneau de l'agent).
+engine = "auto"
+# Contexte du modèle (jetons), température, longueur maximale d'une réponse (jetons).
+context = 16384
+temperature = 0.3
+max_reply_tokens = 1024
+# Tests (builds de débogage) : engine = "fake" rejoue ce script et journalise chaque appel.
+# fake_script = "script.json"
+# fake_log = "log.jsonl"
 
 [updates]
 # Chercher une version plus récente au lancement, puis toutes les `check_interval_hours` heures

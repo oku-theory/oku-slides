@@ -1,42 +1,42 @@
-use rstest::rstest;
+use oku_slides_platform::Platform;
+use oku_slides_platform::config::{LocalEngine, Settings};
 use speculoos::prelude::*;
 
-#[cfg(debug_assertions)]
-use super::EngineChoice;
-use super::parse_args;
+use super::build_engine;
+use crate::error::Inner;
 
-fn args(v: &[&str]) -> Vec<String> {
-    v.iter().map(|s| (*s).to_owned()).collect()
-}
-
-#[test]
-fn parse_args_without_flag_is_none() {
-    assert_that!(parse_args(&args(&["oku-slides", "check"]))).is_none();
-}
-
-#[cfg(debug_assertions)]
-#[test]
-fn parse_args_fake_engine_takes_script_and_log() {
-    let a = parse_args(&args(&["x", "--local-agent", "--engine", "fake", "--script", "/s.json", "--log", "/l"]))
-        .unwrap()
-        .unwrap();
-    assert_that!(a.engine).is_equal_to(EngineChoice::Fake);
-    assert_that!(a.script.as_deref()).is_equal_to(Some(std::path::Path::new("/s.json")));
-    assert_that!(a.log.as_deref()).is_equal_to(Some(std::path::Path::new("/l")));
-}
-
-#[rstest]
-#[case::no_engine(&["x", "--local-agent"])]
-#[case::unknown_engine(&["x", "--local-agent", "--engine", "gpt"])]
-#[case::engine_without_value(&["x", "--local-agent", "--engine"])]
-fn parse_args_without_known_engine_is_an_error(#[case] v: &[&str]) {
-    assert_that!(parse_args(&args(v)).unwrap()).is_err();
+/// Une plateforme dans un dossier neuf, réglages modifiés par `edit`.
+fn platform(edit: impl FnOnce(&mut Settings, &std::path::Path)) -> (tempfile::TempDir, Platform) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut settings = Settings::defaults().unwrap();
+    settings.paths.data = Some(dir.path().to_owned());
+    edit(&mut settings, dir.path());
+    (dir, Platform::with_settings(settings).unwrap())
 }
 
 #[cfg(debug_assertions)]
 #[test]
-fn build_engine_fake_without_script_is_no_engine() {
-    let a = parse_args(&args(&["x", "--local-agent", "--engine", "fake"])).unwrap().unwrap();
-    let err = super::build_engine(a).unwrap_err();
-    assert_that!(matches!(err.0, crate::error::Inner::NoEngine { .. })).is_true();
+fn build_engine_fake_without_script_is_no_script() {
+    let (_d, p) = platform(|s, _| s.local_agent.engine = LocalEngine::Fake);
+    let err = build_engine(&p).err().unwrap();
+    assert_that!(matches!(err.0, Inner::NoScript { .. })).is_true();
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn build_engine_fake_with_script_builds() {
+    let (_d, p) = platform(|s, dir| {
+        let script = dir.join("s.json");
+        std::fs::write(&script, r#"{"turns":[]}"#).unwrap();
+        s.local_agent.engine = LocalEngine::Fake;
+        s.local_agent.fake_script = Some(script);
+    });
+    assert_that!(build_engine(&p).is_ok()).is_true();
+}
+
+#[test]
+fn build_engine_gguf_without_model_is_unavailable() {
+    let (_d, p) = platform(|s, _| s.local_agent.engine = LocalEngine::Gguf);
+    let err = build_engine(&p).err().unwrap();
+    assert_that!(matches!(err.0, Inner::Unavailable { .. })).is_true();
 }

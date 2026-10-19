@@ -224,6 +224,8 @@ export function AgentWindowFor({
       agentPicker={picker ? agentPicker.surface : null}
       onAgentPickerOpen={picker ? agentPicker.open : NOOP}
       onAgentSelect={agentPicker.select}
+      onAgentDownload={agentPicker.download}
+      onAgentCancelDownload={agentPicker.cancelDownload}
     />
   );
 

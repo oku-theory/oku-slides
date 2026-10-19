@@ -1,6 +1,37 @@
 use speculoos::prelude::*;
 
+use oku_slides_platform::config::Settings;
+use oku_slides_platform::storage::Storage;
+
 use super::*;
+
+/// Un dépôt qui répond `status` à tout, et le téléchargement de `Base` qui s'y brise.
+fn download_against(status: u16, keep_going: bool) -> SttError {
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("dépôt de test : {e}"));
+    let url = format!("http://{}", server.server_addr());
+    std::thread::spawn(move || {
+        for req in server.incoming_requests() {
+            let _ = req.respond(tiny_http::Response::from_data(b"x".to_vec()).with_status_code(status));
+        }
+    });
+    let dir = crate::test_support::fresh_dir("error-download");
+    let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}")).models;
+    settings.hub_url = url;
+    settings.download_retries = 0;
+    match crate::models::download(crate::Model::Base, dir.path(), &settings, &storage, |_, _| keep_going) {
+        Ok(_) => panic!("le téléchargement devait échouer"),
+        Err(e) => e,
+    }
+}
+
+fn cancelled_download() -> SttError {
+    download_against(200, false)
+}
+
+fn failed_download() -> SttError {
+    download_against(404, true)
+}
 
 fn fr(e: &SttError) -> String {
     e.localize(&Localizer::new(Some("fr")))
@@ -19,12 +50,8 @@ fn localize_each_kind_speaks_to_the_user() {
         (WavSnafu { reason: "x" }.build().into(), SttErrorKind::AudioFile, "Fichier audio illisible"),
         (NoLanguageSnafu.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
         (NotContiguousSnafu.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
-        (
-            IncompleteSnafu { got: 3u64, expected: 5u64 }.build().into(),
-            SttErrorKind::Download,
-            "Téléchargement incomplet : 3 octets sur 5",
-        ),
-        (CancelledSnafu.build().into(), SttErrorKind::Cancelled, "Téléchargement annulé"),
+        (cancelled_download(), SttErrorKind::Cancelled, "Téléchargement annulé"),
+        (failed_download(), SttErrorKind::Download, "Le modèle n'a pas pu être téléchargé"),
         (
             SpeechDeniedSnafu.build().into(),
             SttErrorKind::Permission,
@@ -52,6 +79,5 @@ fn localize_each_kind_speaks_to_the_user() {
 
 #[test]
 fn display_stays_english_for_logs() {
-    let err: SttError = IncompleteSnafu { got: 3u64, expected: 5u64 }.build().into();
-    assert_that!(err.to_string()).is_equal_to("incomplete file: 3 bytes out of 5".to_owned());
+    assert_that!(failed_download().to_string()).is_equal_to("model download failed".to_owned());
 }

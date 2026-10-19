@@ -1,7 +1,8 @@
 # Local fallback agent — design
 
 Tasks: t-1009 (this spec), decision t-1006; lots t-1020 to t-1025; remote dictation t-1026. Date: 2026-10-18.
-Status: design approved by the user on 2026-10-18; nothing is implemented.
+Status: design approved by the user on 2026-10-18; lot 1 implemented (7511fa8d); lot 3 design below
+("Lot 3 design"), approved on 2026-10-18.
 Related: `2026-10-18-pilotage-sans-mains-design.md` (hands-free control, lots 1 to 8, t-988 and
 t-996 to t-1002).
 
@@ -186,6 +187,91 @@ derived from `tools::list` at startup, never copied.
 - A manual evaluation set (`docs/` next to the plan, about 30 French and English requests across
   edit, configure and troubleshoot) measures tool-choice accuracy per engine before each release
   that changes the model or the instructions. It does not run in CI.
+
+## Lot 3 design (t-1022)
+
+Approved by the user on 2026-10-18. It details "Engines" and "Preset and offer" for the Gguf
+engine and deviates from them where noted. Audit of `llama-cpp-2`: the shared notes file
+`llama-cpp-2-audit.md` of the t-1009 sessions; its conclusions are summarised here.
+
+### Dependency audit
+
+- `llama-cpp-2 = { version = "=0.1.158", default-features = false, features = ["metal", "common"] }`,
+  `llama-cpp-sys-2` held at `=0.1.158` too. Licences: crates `MIT OR Apache-2.0`, bundled
+  llama.cpp / ggml MIT. `openmp` is off (it needs libomp); `common` brings the GBNF grammars.
+- Declared only under `cfg(all(target_os = "macos", target_arch = "aarch64"))`: Intel Macs,
+  Linux and Windows build without it and report Gguf unsupported.
+- With `MACOSX_DEPLOYMENT_TARGET=12.0` the binary and every bundled static library have
+  `minos 12.0`; the only newer symbol (`MTLResidencySetDescriptor`, macOS 15) is weak-linked
+  and guarded by `@available`. Without a Metal device ggml registers only its CPU backend.
+- Size: +6.1 MB stripped; the Metal shaders are embedded (no `.metallib` to bundle). Needs
+  cmake and Xcode's clang / libclang at build time. No symbol clash with ct2rs.
+- The first `LlamaBackend::init` of a new binary path compiles the shaders (about 23 s on an
+  M1 Max, then cached). It happens before the agent answers ACP `initialize`, inside
+  `READY_WITHIN` (120 s).
+
+### Model and download (`oku-slides-platform`)
+
+- New module `models`: `PinnedFile { repo, revision, name, size, sha256 }` and the download
+  loop extracted from `oku-slides-stt` `models.rs` (`.part` file, resume, retries on 429 and
+  5xx, `progress(received, total) -> bool` that cancels on `false`). A file with a `sha256` is
+  hashed while streaming; a mismatch deletes it and fails. The `.complete` marker is written
+  only after every file passed. Whisper uses the same loop (no hashes pinned yet).
+- **Deviation:** `hub_url`, `download_retries` and `download_backoff_secs` move from `[stt]` to a
+  new `[models]` section shared by dictation and the agent (breaking for a `config.toml` that
+  set them; the MVP allows it).
+- `AGENT_MODEL`: `unsloth/Qwen3-4B-Instruct-2507-GGUF` (there is no official Qwen GGUF
+  repository), revision `a06e946bb6b655725eafa393f4a9745d460374c9`, file
+  `Qwen3-4B-Instruct-2507-Q4_K_M.gguf`, 2,497,281,120 bytes, SHA-256
+  `3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597`, licence Apache-2.0,
+  stored in `models/agent/`.
+- Settings `[local_agent]`: `engine = "auto" | "gguf"` (Apple comes with lot 4; `fake` is
+  accepted in debug builds only), `context = 16384`, `temperature`, `max_reply_tokens`.
+- `local_engine(settings, storage)` resolves the engine for the host and the child alike:
+  ready, or unavailable (`Unsupported` on an Intel Mac or another system, `NeedsDownload` with
+  the size). A forced engine that is unavailable gives its reason; nothing falls back.
+
+### Gguf engine (`oku-slides-local-agent`)
+
+- `llama-cpp-2` has no tool support in its chat templates (no Jinja): the crate renders the
+  ChatML prompt itself (`chatml`: system, messages, the Qwen `<tools>` block built from the
+  compact schemas, `<tool_response>` results) and parses the reply (`reply`: one
+  `<tool_call>{"name", "arguments"}</tool_call>` or text). Both are pure and tested without a model.
+- `gguf` is the only code linked to llama.cpp: one backend per process, one worker thread that
+  owns the model and the 16K context (`LlamaContext` is not `Send`), receives completions on a
+  channel, clears the KV cache per completion and checks the `CancellationToken` per token. The
+  Route step uses a GBNF grammar limited to the family keys. llama.cpp logs go to `tracing`
+  (stderr). The model is loaded before ACP is served.
+- **Deviation from lot 1:** the child reads `Settings::load()` (`local_agent.engine`) instead of
+  `--engine/--script/--log`, which disappear. Tests inject the fake engine with
+  `OKU_SLIDES_LOCAL_AGENT__ENGINE=fake`, `__SCRIPT` and `__LOG` (debug builds only).
+
+### Availability and download in the host (`oku-slides-agent`)
+
+- `Stack::availability` for the built-in preset: `NoProgram`, else `local_engine`'s reason,
+  else the link's last failure. New localized `Unusable` variants in all 20 locales:
+  `LocalNeedsDownload { size }`, `LocalIntelMac`, `LocalUnsupportedOs`.
+- `ModelDownload` in the stack: one download at a time on its own thread, cancellable.
+- The agent panel (A2UI picker surface, no new catalog component): when "Local" is selected
+  and the model is missing, the reason, the size and a Download button; while downloading, a
+  progress line (1 % steps, re-emitted to the tab that started it) and a Cancel button; a failure
+  shows its localized message. Lot 5 reuses `ModelDownload` for its spoken confirmation.
+- `config.default.toml` gets `[agent.presets.local] name = "Local"`, `builtin = "local"`.
+
+### Follow-ups of the lot 1 review
+
+The exactly-one preset test checks the error text; availability tests cover each engine state;
+unused tokio features go; turn tests for the repair count reset after a success, a failing
+`tools/list` (`Failed(Engine)`) and text turned into a note; an MCP transport error ends the
+turn as `Engine` while an invalid call stays a repair; `connect` and `ToolPort` return Snafu
+errors instead of `String`.
+
+### Testing (lot 3)
+
+Fake `tiny_http` hub with small files (SHA mismatch deletes, resume, cancel); `chatml` and
+`reply` table tests; availability keyed on variants plus a non-English locale; picker surface
+tests for each download state; an `#[ignore]` manual test loads the real model and runs a
+Route and an Act completion. The real download never runs in CI.
 
 ## Lots
 

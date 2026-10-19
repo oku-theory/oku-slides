@@ -45,6 +45,8 @@ function fakeHost(snapshot: Snapshot = SNAP) {
       surfaceAction: async () => {},
       picker: async () => void calls.push("picker"),
       selectAgent: async () => {},
+      downloadModel: async () => {},
+      cancelDownload: async () => {},
     },
     api: { snapshot: async () => snapshot, svg: async () => "<svg/>" },
     subscribe: (_tab: string, h: HostHandlers) => ((handlers = h), () => {}),

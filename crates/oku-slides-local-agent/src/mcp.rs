@@ -11,9 +11,11 @@ use rust_mcp_sdk::schema::{
 };
 use rust_mcp_sdk::{McpClient, RequestOptions, StreamableTransportOptions};
 use serde_json::Value;
+use snafu::ResultExt;
 
 use crate::compact::ToolSpec;
 use crate::sessions::McpAccess;
+use crate::tool_error::{SchemaSnafu, ToolError};
 use crate::turn::ToolPort;
 
 /// Le client n'écoute aucune requête du serveur.
@@ -35,7 +37,7 @@ impl std::fmt::Debug for McpTools {
 
 impl McpTools {
     /// Se connecte au serveur MCP de la session, avec son en-tête `Authorization`.
-    pub(crate) async fn connect(access: &McpAccess) -> Result<Self, String> {
+    pub(crate) async fn connect(access: &McpAccess) -> Result<Self, ToolError> {
         let transport = StreamableTransportOptions {
             mcp_url: access.url.clone(),
             request_options: RequestOptions {
@@ -57,7 +59,7 @@ impl McpTools {
             meta: None,
         };
         let client = client_runtime::with_transport_options(details, transport, Quiet, None, None, None);
-        client.clone().start().await.map_err(|e| format!("mcp start failed: {e}"))?;
+        client.clone().start().await?;
         Ok(Self { client })
     }
 }
@@ -76,14 +78,14 @@ fn text_of(content: &[ContentBlock]) -> String {
 
 #[async_trait]
 impl ToolPort for McpTools {
-    async fn list(&self) -> Result<Vec<ToolSpec>, String> {
+    async fn list(&self) -> Result<Vec<ToolSpec>, ToolError> {
         let mut specs = Vec::new();
         let mut cursor = None;
         loop {
             let params = cursor.map(|c| PaginatedRequestParams { cursor: Some(c), meta: None });
-            let page = self.client.request_tool_list(params).await.map_err(|e| format!("mcp list failed: {e}"))?;
+            let page = self.client.request_tool_list(params).await?;
             for tool in page.tools {
-                let schema = serde_json::to_value(&tool.input_schema).map_err(|e| format!("bad tool schema: {e}"))?;
+                let schema = serde_json::to_value(&tool.input_schema).context(SchemaSnafu { name: &tool.name })?;
                 specs.push(ToolSpec { name: tool.name, description: tool.description.unwrap_or_default(), schema });
             }
             match page.next_cursor {
@@ -93,16 +95,16 @@ impl ToolPort for McpTools {
         }
     }
 
-    async fn call(&self, name: &str, args: &Value) -> Result<String, String> {
+    async fn call(&self, name: &str, args: &Value) -> Result<String, ToolError> {
         let arguments = match args {
             Value::Object(map) => map.clone(),
             Value::Null => serde_json::Map::new(),
-            other => return Err(format!("arguments must be a JSON object, not {other}")),
+            other => return Err(ToolError::rejected(format!("arguments must be a JSON object, not {other}"))),
         };
         let params = CallToolRequestParams::new(name).with_arguments(arguments);
-        let result = self.client.request_tool_call(params).await.map_err(|e| e.to_string())?;
+        let result = self.client.request_tool_call(params).await?;
         let text = text_of(&result.content);
-        if result.is_error == Some(true) { Err(text) } else { Ok(text) }
+        if result.is_error == Some(true) { Err(ToolError::rejected(text)) } else { Ok(text) }
     }
 }
 

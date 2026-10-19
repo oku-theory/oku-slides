@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_platform::models::{DownloadError, DownloadErrorKind};
 use oku_slides_platform::storage::StorageError;
 use snafu::{Backtrace, Snafu};
 
@@ -76,16 +77,10 @@ pub(crate) enum SttInner {
     NoLanguage { backtrace: Backtrace },
     #[snafu(display("audio features are not contiguous"))]
     NotContiguous { backtrace: Backtrace },
-    #[snafu(display("download impossible: {file}"))]
-    Http { file: String, source: Box<ureq::Error>, backtrace: Backtrace },
-    #[snafu(display("download interrupted: {file}"))]
-    HttpRead { file: String, source: std::io::Error, backtrace: Backtrace },
-    #[snafu(display("writing the model failed ({})", path.display()))]
-    ModelWrite { path: PathBuf, source: StorageError, backtrace: Backtrace },
-    #[snafu(display("incomplete file: {got} bytes out of {expected}"))]
-    Incomplete { got: u64, expected: u64, backtrace: Backtrace },
     #[snafu(display("download cancelled"))]
     Cancelled { backtrace: Backtrace },
+    #[snafu(display("model download failed"))]
+    Download { source: DownloadError, backtrace: Backtrace },
     #[snafu(display("speech recognition not allowed"))]
     SpeechDenied { backtrace: Backtrace },
     #[snafu(display("language not supported by the system engine: {locale}"))]
@@ -125,10 +120,9 @@ impl SttError {
             | NotContiguous { .. }
             | Analyzer { .. }
             | FinishTimeout { .. } => SttErrorKind::Transcription,
-            Http { .. } | HttpRead { .. } | ModelWrite { .. } | Incomplete { .. } | AssetInstall { .. } => {
-                SttErrorKind::Download
-            }
             Cancelled { .. } => SttErrorKind::Cancelled,
+            Download { ref source, .. } if source.kind() == DownloadErrorKind::Cancelled => SttErrorKind::Cancelled,
+            Download { .. } | AssetInstall { .. } => SttErrorKind::Download,
             SpeechDenied { .. } => SttErrorKind::Permission,
         }
     }
@@ -158,10 +152,14 @@ impl Localize for SttError {
             | NotContiguous { .. }
             | Analyzer { .. }
             | FinishTimeout { .. } => l.tr("stt-transcription"),
-            Incomplete { got, expected, .. } => {
-                l.tr_with("stt-download-incomplete", &[("got", (*got).into()), ("expected", (*expected).into())])
-            }
-            Http { .. } | HttpRead { .. } | ModelWrite { .. } | AssetInstall { .. } => l.tr("stt-download"),
+            Download { source, .. } => match source.kind() {
+                DownloadErrorKind::Cancelled => l.tr("stt-cancelled"),
+                DownloadErrorKind::Incomplete { got, expected } => {
+                    l.tr_with("stt-download-incomplete", &[("got", got.into()), ("expected", expected.into())])
+                }
+                _ => l.tr("stt-download"),
+            },
+            AssetInstall { .. } => l.tr("stt-download"),
             Cancelled { .. } => l.tr("stt-cancelled"),
             SpeechDenied { .. } => l.tr("stt-speech-denied"),
             LocaleUnsupported { locale, .. } => {

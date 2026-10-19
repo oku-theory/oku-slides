@@ -82,6 +82,16 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
     }
 }
 
+/// Grammaire GBNF de l'étape de routage : une ou deux clés de famille, séparées par une virgule.
+#[cfg_attr(
+    all(not(test), not(all(target_os = "macos", target_arch = "aarch64"))),
+    expect(dead_code, reason = "lu par le moteur Gguf, sur Apple silicon seulement")
+)]
+pub(crate) fn route_grammar() -> String {
+    let keys: Vec<String> = Family::ROUTABLE.iter().map(|f| format!("\"{}\"", f.key())).collect();
+    format!("root ::= family (\", \" family)?\nfamily ::= {}\n", keys.join(" | "))
+}
+
 /// Les deux premières familles routables nommées dans la réponse, sans doublon.
 pub(crate) fn parse_route(reply: &str) -> Vec<Family> {
     let lower = reply.to_lowercase();

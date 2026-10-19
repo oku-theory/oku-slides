@@ -11,6 +11,10 @@ const SurfaceView = lazy(() => import("../a2ui/SurfaceView").then((m) => ({ defa
 interface Props {
   surface: Surface | null;
   onSelect: (id: string) => void;
+  /** Le bouton « Télécharger le modèle » de l'agent local. */
+  onDownload: () => void;
+  /** Le bouton « Annuler » du téléchargement en cours. */
+  onCancelDownload: () => void;
   onError: (message: string) => void;
 }
 
@@ -19,12 +23,14 @@ interface Props {
  * `.agent-picker` garde ses touches loin de la question ouverte (`useQuickKeys`). Sans surface
  * (pas encore reçue), rien.
  */
-export function AgentPicker({ surface, onSelect, onError }: Props) {
+export function AgentPicker({ surface, onSelect, onDownload, onCancelDownload, onError }: Props) {
   if (!surface) return null;
   const onAction = (a: A2uiClientAction) => {
     const action = fromA2ui(a);
     const id = action.context.id;
     if (action.name === "select" && typeof id === "string") onSelect(id);
+    else if (action.name === "download_model") onDownload();
+    else if (action.name === "cancel_download") onCancelDownload();
   };
   return (
     <div className="agent-picker">

@@ -13,15 +13,28 @@ use serde_json::json;
 /// Identifiant de la surface du panneau.
 pub(crate) const PICKER_ID: &str = "agent-picker";
 
+/// Ce que le panneau montre de l'agent local quand il est choisi et pas prêt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum LocalPanel {
+    /// Modèle absent : la raison (avec la taille) et le bouton Télécharger.
+    NeedsDownload { reason: String },
+    /// Téléchargement en cours : la progression et le bouton Annuler.
+    Running { percent: u8 },
+    /// Le dernier téléchargement a échoué : la raison, l'erreur et le bouton Télécharger.
+    Failed { reason: String, error: String },
+}
+
 /// Le panneau : une pastille par agent, l'actif choisi.
 ///
 /// `busy` : un tour est ouvert dans un onglet (il sera interrompu) ; `locked` : le choix
-/// est imposé par l'environnement, les pastilles n'envoient rien.
+/// est imposé par l'environnement, les pastilles n'envoient rien ; `local` : l'état du
+/// modèle de l'agent local, montré sous les pastilles.
 pub(crate) fn picker_surface(
     presets: &BTreeMap<String, AgentPreset>,
     active: &str,
     busy: bool,
     locked: bool,
+    local: Option<&LocalPanel>,
     l: &Localizer,
 ) -> Surface {
     let options = presets
@@ -43,6 +56,30 @@ pub(crate) fn picker_surface(
         Component::text("title", l.tr("agent-picker-title"), Some(TextVariant::H4)),
         Component::new("agents", ComponentKind::ChoiceChips { options, value: Dynamic::path("/choice"), action }),
     ];
+    // L'agent local, choisi et pas prêt : de quoi télécharger son modèle.
+    let download =
+        || Component::button("download", l.tr("agent-model-download"), true, Action::named("download_model"));
+    match local {
+        Some(LocalPanel::NeedsDownload { reason }) => {
+            children.extend(["local-reason", "download"]);
+            components.push(Component::text("local-reason", reason.as_str(), None));
+            components.push(download());
+        }
+        Some(LocalPanel::Running { percent }) => {
+            children.extend(["progress", "cancel-download"]);
+            let text = l.tr_with("agent-model-downloading", &[("percent", (*percent).into())]);
+            components.push(Component::text("progress", text, None));
+            let cancel = Action::named("cancel_download");
+            components.push(Component::button("cancel-download", l.tr("agent-model-cancel"), false, cancel));
+        }
+        Some(LocalPanel::Failed { reason, error }) => {
+            children.extend(["local-reason", "download-error", "download"]);
+            components.push(Component::text("local-reason", reason.as_str(), None));
+            components.push(Component::text("download-error", error.as_str(), None));
+            components.push(download());
+        }
+        None => {}
+    }
     if busy {
         children.push("busy");
         components.push(Component::text("busy", l.tr("agent-picker-busy"), None));

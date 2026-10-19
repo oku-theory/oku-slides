@@ -1,29 +1,29 @@
 # oku-slides-stt
 
-Dictée d'Oku Slides : micro → détection de la voix → moteur → texte. Interrogé
-par sondage (`Stt::status`), pour l'app Tauri comme pour le serveur de dev.
+Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
+(`Stt::status`), by the Tauri app and by the dev server alike.
 
-## Moteurs
+## Engines
 
-- **Apple** (`Model::Apple`, macOS 26+, réglage `stt.apple`) : `SpeechAnalyzer`
-  en continu, par un pont Swift statique (`swift/`, `build.rs`, `apple.rs`).
-  Langue résolue par `locale.rs`, installée par le système.
-  Compiler sur macOS exige Xcode avec le SDK de macOS 26 ou plus ; l'app
-  tourne dès macOS 12 (Whisper seul avant macOS 26).
-- **Whisper** (Turbo, Large, Base) : CTranslate2 (`whisper.rs`), modèles
-  téléchargés depuis Hugging Face (`models.rs`), phrase par phrase
-  (`dictation_whisper.rs`).
+- **Apple** (`Model::Apple`, macOS 26+, setting `stt.apple`): continuous `SpeechAnalyzer`
+  through a static Swift bridge (`swift/`, `build.rs`, `apple.rs`).
+  Language resolved by `locale.rs`, installed by the system.
+  Building on macOS needs Xcode with the macOS 26 SDK or later; the app
+  runs from macOS 12 (Whisper only before macOS 26).
+- **Whisper** (Turbo, Large, Base): CTranslate2 (`whisper.rs`), models
+  downloaded from Hugging Face by `oku_slides_platform::models` (`models.rs` lists the files),
+  sentence by sentence (`dictation_whisper.rs`).
 
-## Flux
+## Flow
 
-`listen_loop` (lib.rs) : micro (`audio.rs`) → 16 kHz → earshot (`vad.rs`,
-arrêt automatique) → `Sink` : jobs Whisper, ou `Stream` d'un moteur en continu
-dont `dictation_stream.rs` applique les événements (`results.rs`).
+`listen_loop` (lib.rs): microphone (`audio.rs`) -> 16 kHz -> earshot (`vad.rs`,
+automatic stop) -> `Sink`: Whisper jobs, or the `Stream` of a continuous engine
+whose events `dictation_stream.rs` applies (`results.rs`).
 
-## Points d'extension
+## Extension points
 
-- `stream::StreamEngine` : brancher un autre moteur en continu.
+- `stream::StreamEngine`: plug in another continuous engine.
 
-## Dépendances
+## Dependencies
 
-`oku-slides-platform` (réglages, stockage), `oku-slides-i18n` (messages).
+`oku-slides-platform` (settings, storage), `oku-slides-i18n` (messages).

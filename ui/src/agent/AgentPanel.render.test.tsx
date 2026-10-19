@@ -90,6 +90,8 @@ async function mount({
     setDraft: async () => {},
     picker: async () => void pickers.push(1),
     selectAgent: async (id: string) => void selected.push(id),
+    downloadModel: async () => {},
+    cancelDownload: async () => {},
   };
   const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot() };
   const handle = createRef<import("./AgentPanel").AgentHandle>();

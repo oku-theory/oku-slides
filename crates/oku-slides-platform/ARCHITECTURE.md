@@ -1,30 +1,30 @@
 # oku-slides-platform
 
 Oku Slides foundation: logging, settings, file storage and language, shared by the app,
-the CLI, the session, the agent and dictation. With the `listen` feature, it also holds
-the bounded accept loop of local HTTP servers (CLI `serve`, MCP tool server).
+the CLI, the session, the agent and dictation.
 
 ## Modules
 
 - `lib.rs`: `Platform` bundles `Settings`, `Storage`, the launch `Localizer`, the
-  `LiveLocalizer` (interface language switched hot, shared by every clone) and a
-  `RenderLaunch` (`InProcess` or `Process` for the render worker). `Platform::load` builds it once at
-  startup; it clones cheaply. `RENDER_WORKER_ENV` marks a render worker process, which
-  never launches another one. `Platform.program` is this executable (`None` in tests);
-  `LOCAL_AGENT_FLAG` makes it run the local agent.
-- `telemetry`: `init` installs the `tracing` subscriber; call it first.
-- `errors`: `one_line` prints an error and all its causes on one line.
+  `LiveLocalizer` (language switched hot, shared by clones) and a `RenderLaunch`
+  (`InProcess` or `Process`). `Platform::load` builds it once at startup; it clones cheaply.
+  `RENDER_WORKER_ENV` marks a render worker process, which never launches another one.
+  `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent.
+- `telemetry`: `init` installs the `tracing` subscriber; call it first. `errors`: `one_line`
+  prints an error and its causes on one line.
 - `config`: `Settings` and its sections (`PathSettings`, `RenderSettings`,
-  `ServeSettings`, `SttSettings`, `AgentSettings` with named `AgentPreset`s (a `command` xor a `Builtin`),
-  `ImportSettings`: threshold, `witness` (`ImportWitness`), its timeouts and `soffice` programs, tuning tries, …), plus `APP_ID`.
-- `config_write`: `write_value` sets one key in `config.toml` with `toml_edit`, keeping
-  comments and order; it takes effect on the next launch.
-- `updates`: the app updater's decisions without Tauri (host only, here so `just test` covers it):
-  `InstallMode`, `UpdateStatus`, `Progress` (1 % steps, 512 MiB cap), `trusted_download`, `UpdateStage`.
-- `program`: `find_program`, an external program by path or searched on `PATH` (agent, soffice).
+  `ServeSettings`, `SttSettings`, `ModelsSettings`, `LocalAgentSettings`, `AgentSettings` with
+  named `AgentPreset`s (a `command` xor a `Builtin`), `ImportSettings`, …), plus `APP_ID`.
+- `updates`: updater decisions without Tauri: `InstallMode`, `UpdateStatus`, `Progress`
+  (1 % steps, 512 MiB cap), `trusted_download`, `UpdateStage`.
+- `config_write`: `write_value` sets one `config.toml` key, keeping comments. `program`:
+  `find_program`, an external program by path or on `PATH`.
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime
-  (`read_limited`, `write_atomic`, `delete_dir`, `writer` for streams, `read_fonts`, …).
-  Call it outside async contexts only. `StorageError::kind` gives a `StorageErrorKind`.
+  (`read_limited`, `write_atomic`, `delete_dir`, `writer`, `read_fonts`, …); call it outside
+  async contexts only. `StorageError::kind` gives a `StorageErrorKind`.
+- `models`: `PinnedFile`, `is_complete` and (feature `download`) `download`: hashed `.part`
+  files renamed once verified, `.complete` last; waits cancellable, bounded by `read_timeout_secs`; `DownloadError::kind`.
+- `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve`, `local_engine` → `ReadyEngine` or `Unavailable`.
 - `listen` (feature `listen`): `serve_connections` with `Limits` (header timeout,
   connection cap) and a bounded graceful shutdown, replacing `axum::serve`.
 
@@ -47,4 +47,4 @@ decks default to `~/Documents/Oku Slides`.
 
 ## Dependencies
 
-`oku-slides-i18n` (the `Localizer` held by `Platform`).
+`oku-slides-i18n` (the `Localizer`); `ureq`, `sha2`, `hex` for model downloads (feature `download`).

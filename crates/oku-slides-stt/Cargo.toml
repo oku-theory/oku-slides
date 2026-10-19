@@ -15,7 +15,7 @@ accelerate = ["ct2rs/accelerate"]
 [dependencies]
 sys-locale.workspace = true
 oku-slides-i18n.workspace = true
-oku-slides-platform.workspace = true
+oku-slides-platform = { workspace = true, features = ["download"] }
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -28,7 +28,6 @@ ndarray.workspace = true
 # Détection de la voix, en Rust pur.
 earshot.workspace = true
 cpal.workspace = true
-ureq.workspace = true
 
 # macOS seulement : ailleurs, la bibliothèque de swift-rs liée au script de build y laisse des
 # symboles du runtime Swift non résolus (LNK2019 sous Windows).

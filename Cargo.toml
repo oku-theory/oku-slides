@@ -112,6 +112,10 @@ cpal = "0.18"
 ureq = "3"
 # Pont Swift du moteur de dictée d'Apple (build.rs de oku-slides-stt).
 swift-rs = "1.0.8"
+# Agent local de repli (moteur Gguf, Apple silicon) : llama.cpp avec Metal. Audit du lot 3
+# (t-1022) : MIT / Apache-2.0, minos 12.0, +6 Mo. `common` : grammaires GBNF ; pas d'openmp.
+llama-cpp-2 = { version = "=0.1.158", default-features = false, features = ["metal", "common"] }
+llama-cpp-sys-2 = { version = "=0.1.158", default-features = false }
 # App de bureau
 tauri = "2.12"
 tauri-build = "2"

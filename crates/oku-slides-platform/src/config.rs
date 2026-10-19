@@ -39,7 +39,9 @@ pub struct Settings {
     pub i18n: I18nSettings,
     pub appearance: AppearanceSettings,
     pub stt: SttSettings,
+    pub models: ModelsSettings,
     pub agent: AgentSettings,
+    pub local_agent: LocalAgentSettings,
     pub updates: UpdateSettings,
     #[serde(default)]
     pub author: AuthorSettings,
@@ -292,6 +294,20 @@ pub struct AppearanceSettings {
     pub scheme: Option<String>,
 }
 
+/// Téléchargement des modèles (dictée, agent local).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct ModelsSettings {
+    /// Dépôt des modèles, sans barre finale.
+    pub hub_url: String,
+    /// Tentatives de plus quand le dépôt est occupé (429, 5xx).
+    pub download_retries: u32,
+    /// Attente avant la première nouvelle tentative (s), multipliée à chaque suivante.
+    pub download_backoff_secs: u64,
+    /// Attente maximale (s) d'une réponse ou d'octets du dépôt avant d'abandonner.
+    pub read_timeout_secs: u64,
+}
+
 /// Rythmes et seuils de la dictée.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
@@ -301,9 +317,6 @@ pub struct SttSettings {
     pub preview_step_secs: f32,
     pub min_phrase_secs: f32,
     pub countdown_after_secs: f32,
-    pub hub_url: String,
-    pub download_retries: u32,
-    pub download_backoff_secs: u64,
     /// Rejoue ce fichier WAV au lieu du micro.
     pub fake_mic: Option<PathBuf>,
     /// Proposer le moteur de dictée d'Apple (macOS 26+).
@@ -345,6 +358,38 @@ pub struct AgentSettings {
     /// `OKU_SLIDES_AGENT__SELECTED` impose le choix : le panneau ne le change pas.
     #[serde(skip)]
     pub locked: bool,
+}
+
+/// Le moteur de l'agent local de repli (`[local_agent] engine`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LocalEngine {
+    /// Le meilleur moteur disponible sur cette machine.
+    #[default]
+    Auto,
+    /// llama.cpp sur Apple silicon, avec le modèle Qwen3 téléchargé.
+    Gguf,
+    /// Rejoue un script (tests, builds de débogage).
+    #[cfg(debug_assertions)]
+    Fake,
+}
+
+/// Réglages de l'agent local de repli.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct LocalAgentSettings {
+    /// Moteur qui répond (llama.cpp ou script rejoué).
+    pub engine: LocalEngine,
+    /// Contexte du modèle (jetons).
+    pub context: u32,
+    /// Température d'échantillonnage des actions (0 : glouton).
+    pub temperature: f32,
+    /// Longueur maximale d'une réponse (jetons).
+    pub max_reply_tokens: u32,
+    /// Script rejoué par le moteur `fake`.
+    pub fake_script: Option<PathBuf>,
+    /// Journal des appels du moteur `fake`.
+    pub fake_log: Option<PathBuf>,
 }
 
 /// Un agent fourni par Oku Slides lui-même, sans programme externe.

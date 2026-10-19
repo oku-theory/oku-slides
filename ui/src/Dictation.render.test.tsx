@@ -99,6 +99,8 @@ async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remo
         agentPicker: picker,
         onAgentPickerOpen: () => void pickerOpens++,
         onAgentSelect: (id: string) => void selected.push(id),
+        onAgentDownload: () => {},
+        onAgentCancelDownload: () => {},
       }),
     );
   await act(async () => render(agentBusy, remote));

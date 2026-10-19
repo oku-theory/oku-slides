@@ -715,7 +715,9 @@ type AgentCommand =
   | { cmd: "set_draft"; tab: string; text: string | null; origin: string }
   | { cmd: "picker"; tab: string }
   | { cmd: "availability"; tab: string }
-  | { cmd: "select_agent"; tab: string; id: string };
+  | { cmd: "select_agent"; tab: string; id: string }
+  | { cmd: "download_model"; tab: string }
+  | { cmd: "cancel_download"; tab: string };
 
 const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agent", req);
 
@@ -744,6 +746,10 @@ export function agentApi(tab: string) {
     availability: () => agentCall({ cmd: "availability", tab }),
     /** Choisit l'agent de l'app ; l'hôte réémet le panneau. */
     selectAgent: (id: string) => agentCall({ cmd: "select_agent", tab, id }),
+    /** Télécharge le modèle de l'agent local ; l'hôte réémet le panneau à chaque pourcent. */
+    downloadModel: () => agentCall({ cmd: "download_model", tab }),
+    /** Arrête le téléchargement du modèle ; l'hôte réémet le panneau. */
+    cancelDownload: () => agentCall({ cmd: "cancel_download", tab }),
   };
 }
 
