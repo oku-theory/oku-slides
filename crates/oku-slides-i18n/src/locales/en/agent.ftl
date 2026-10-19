@@ -106,6 +106,7 @@ agent-error-present = Nothing to present here: no slide, or the tab is in templa
 agent-error-locale = Unknown language code. Give a shipped language code or system.
 agent-error-empty-interface = Nothing to change: give scheme, locale, grid or guides.
 agent-error-not-shown = This tab is not the one shown in its window: ask again once the user shows it.
+agent-error-themes-deck-mode = The theme picker opens only while editing the deck's slides.
 agent-error-rewrite-text = The rewording came back without text.
 agent-error-paragraphs = The paragraphs of the rewording are invalid.
 agent-error-draft-too-long = The draft is too long.

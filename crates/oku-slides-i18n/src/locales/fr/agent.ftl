@@ -105,6 +105,7 @@ agent-error-present = Rien à présenter ici : aucune slide, ou l'onglet est en 
 agent-error-locale = Code de langue inconnu. Donnez le code d'une langue livrée ou system.
 agent-error-empty-interface = Rien à changer : donnez scheme, locale, grid ou guides.
 agent-error-not-shown = Cet onglet n'est pas celui affiché dans sa fenêtre : redemandez une fois que l'utilisateur l'affiche.
+agent-error-themes-deck-mode = Le sélecteur de thème ne s'ouvre que pendant l'édition des slides du deck.
 agent-error-rewrite-text = La reformulation est revenue sans texte.
 agent-error-paragraphs = Les paragraphes de la reformulation sont invalides.
 agent-error-draft-too-long = Le brouillon est trop long.

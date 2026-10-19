@@ -32,6 +32,12 @@ impl Session {
         Ok(found)
     }
 
+    /// Refuse une slide que le deck actif n'a pas.
+    pub fn check_slide(&self, id: &str) -> Result<()> {
+        self.deck().slide(id).context(NoSlideSnafu { id })?;
+        Ok(())
+    }
+
     /// Refuse une ancre hors du deck actif : slide inconnue, objet qui n'est ni la slide ni un
     /// de ses éléments, champ que l'objet ne déclare pas ; une slide se vise par un de ses champs.
     pub fn check_anchor(&self, anchor: &Anchor) -> Result<()> {

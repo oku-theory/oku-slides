@@ -99,6 +99,7 @@ agent-error-present = 此处没有可演示的内容：没有幻灯片，或标�
 agent-error-locale = 未知的语言代码。请提供内置语言代码或 system。
 agent-error-empty-interface = 没有要更改的内容：请提供 scheme、locale、grid 或 guides。
 agent-error-not-shown = 此标签页不是其窗口中显示的标签页：请在用户显示它后再请求。
+agent-error-themes-deck-mode = 主题选择器只在编辑幻灯片时打开。
 agent-error-rewrite-text = 改写返回时没有文本。
 agent-error-paragraphs = 改写的段落无效。
 agent-error-draft-too-long = 草稿太长。

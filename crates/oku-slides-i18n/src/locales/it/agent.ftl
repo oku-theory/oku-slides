@@ -105,6 +105,7 @@ agent-error-present = Niente da presentare qui: nessuna slide, oppure la scheda 
 agent-error-locale = Codice lingua sconosciuto. Indica il codice di una lingua inclusa o system.
 agent-error-empty-interface = Niente da cambiare: indica scheme, locale, grid o guides.
 agent-error-not-shown = Questa scheda non è quella mostrata nella sua finestra: richiedi quando l'utente la mostra.
+agent-error-themes-deck-mode = Il selettore di temi si apre solo durante la modifica delle diapositive.
 agent-error-rewrite-text = La riformulazione è tornata senza testo.
 agent-error-paragraphs = I paragrafi della riformulazione non sono validi.
 agent-error-draft-too-long = La bozza è troppo lunga.

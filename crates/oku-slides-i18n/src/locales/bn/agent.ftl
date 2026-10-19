@@ -105,6 +105,7 @@ agent-error-present = এখানে উপস্থাপনের কিছ�
 agent-error-locale = অজানা ভাষার কোড। একটি অন্তর্ভুক্ত ভাষার কোড অথবা system দিন।
 agent-error-empty-interface = বদলানোর কিছু নেই: scheme, locale, grid অথবা guides দিন।
 agent-error-not-shown = এই ট্যাবটি তার উইন্ডোতে দেখানো ট্যাব নয়: ব্যবহারকারী এটি দেখালে আবার বলুন।
+agent-error-themes-deck-mode = থিম নির্বাচক কেবল স্লাইড সম্পাদনার সময় খোলে।
 agent-error-rewrite-text = পুনর্লিখন কোনো লেখা ছাড়াই ফিরে এসেছে।
 agent-error-paragraphs = পুনর্লিখনের অনুচ্ছেদগুলো অবৈধ।
 agent-error-draft-too-long = খসড়াটি অনেক দীর্ঘ।

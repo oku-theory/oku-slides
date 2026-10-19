@@ -99,6 +99,7 @@ agent-error-present = ไม่มีอะไรให้นำเสนอท�
 agent-error-locale = ไม่รู้จักรหัสภาษา โปรดระบุรหัสภาษาที่มีให้หรือ system
 agent-error-empty-interface = ไม่มีอะไรให้เปลี่ยน โปรดระบุ scheme, locale, grid หรือ guides
 agent-error-not-shown = แท็บนี้ไม่ใช่แท็บที่แสดงในหน้าต่าง โปรดขอใหม่เมื่อผู้ใช้แสดงแท็บนี้
+agent-error-themes-deck-mode = ตัวเลือกธีมเปิดได้เฉพาะขณะแก้ไขสไลด์เท่านั้น
 agent-error-rewrite-text = การเรียบเรียงใหม่ส่งกลับมาโดยไม่มีข้อความ
 agent-error-paragraphs = ย่อหน้าของการเรียบเรียงใหม่ไม่ถูกต้อง
 agent-error-draft-too-long = ฉบับร่างยาวเกินไป

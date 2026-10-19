@@ -68,6 +68,11 @@ pub(crate) enum ToolError {
     EmptyInterface { backtrace: Backtrace },
     #[snafu(display("the tab is not the one shown in its window"))]
     NotShown { backtrace: Backtrace },
+    #[snafu(display("the theme picker opens in deck mode only"))]
+    ThemesDeckMode { backtrace: Backtrace },
+    /// Mis en boîte : `HubError` grossirait toutes les réponses d'erreur des outils.
+    #[snafu(display("the surface hub refused the call"))]
+    Hub { source: Box<crate::HubError>, backtrace: Backtrace },
     #[snafu(display("response not serializable"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
 }
@@ -105,6 +110,8 @@ impl Localize for ToolError {
             UnknownLocale { .. } => l.tr("agent-error-locale"),
             EmptyInterface { .. } => l.tr("agent-error-empty-interface"),
             NotShown { .. } => l.tr("agent-error-not-shown"),
+            ThemesDeckMode { .. } => l.tr("agent-error-themes-deck-mode"),
+            Hub { source, .. } => source.localize(l),
             Response { .. } => l.tr("session-response"),
         }
     }

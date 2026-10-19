@@ -99,6 +99,7 @@ agent-error-present = Không có gì để trình chiếu ở đây: không có 
 agent-error-locale = Mã ngôn ngữ không xác định. Hãy cho mã một ngôn ngữ có sẵn hoặc system.
 agent-error-empty-interface = Không có gì để thay đổi: hãy cho scheme, locale, grid hoặc guides.
 agent-error-not-shown = Thẻ này không phải thẻ đang hiển thị trong cửa sổ: hãy yêu cầu lại khi người dùng hiển thị nó.
+agent-error-themes-deck-mode = Bộ chọn chủ đề chỉ mở khi đang chỉnh sửa trang chiếu.
 agent-error-rewrite-text = Bản viết lại trả về mà không có văn bản.
 agent-error-paragraphs = Các đoạn của bản viết lại không hợp lệ.
 agent-error-draft-too-long = Bản nháp quá dài.

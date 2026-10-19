@@ -1,21 +1,31 @@
 //! Outils de surface : `ask_*` attend l'utilisateur, `show_*` rend la main tout de suite.
 
 use oku_slides_core::Paragraph;
+use oku_slides_session::HOST_THEME_PICKER;
 use oku_slides_session::agent::{
     AgentScope, Anchor, AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, check_len,
     check_options, forms, render,
 };
 use rust_mcp_sdk::schema::CallToolResult;
+use schemars::JsonSchema;
+use serde::Deserialize;
 use serde_json::{Value, json};
 use snafu::{IntoError, ResultExt};
 
 use crate::McpEvent;
 use crate::hub::{Answer, Freeze};
 use crate::tool_error::{
-    AnchorScopeSnafu, NoTurnSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu, ToolError, TurnOverSnafu,
-    UnexpectedActionSnafu,
+    AnchorScopeSnafu, HubSnafu, NoTurnSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu, TaskSnafu,
+    ThemesDeckModeSnafu, ToolError, TurnOverSnafu, UnexpectedActionSnafu,
 };
 use crate::tools::Tools;
+
+/// `show_themes` : la slide que chaque thème montre.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct ShowThemesArgs {
+    #[serde(default)]
+    pub slide: Option<String>,
+}
 
 impl Tools {
     /// Refus d'un `report` ou d'un `render` arrivé hors tour, ou dont le tour s'est clos avant
@@ -194,6 +204,36 @@ impl Tools {
         self.reply(built, |surface| {
             self.hub.show_variants(surface, spec);
             self.json_result(&json!({ "shown": id }))
+        })
+    }
+
+    /// Le sélecteur de thème de l'hôte, ouvert hors tour : il reste après la fin du tour.
+    ///
+    /// Comme `show_variants`, l'appel n'est rangé dans aucun tour : un appel tardif l'ouvre aussi.
+    ///
+    /// Les miniatures se rendent sous le verrou de session : hors du fil async.
+    pub(crate) async fn show_themes(&self, args: Value) -> CallToolResult {
+        let spec: ShowThemesArgs = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        // Une slide inconnue est refusée : le sélecteur ne retombe jamais en silence sur la première.
+        if let Some(id) = spec.slide.clone()
+            && let Err(e) = self.with_session(move |s| s.check_slide(&id)).await
+        {
+            return self.fail_with(e);
+        }
+        let hub = self.hub.clone();
+        let shown = tokio::task::spawn_blocking(move || hub.show_themes(spec.slide))
+            .await
+            .context(TaskSnafu)
+            .and_then(|r| r.map_err(Box::new).context(HubSnafu));
+        self.reply(shown, |shown| {
+            if shown {
+                self.json_result(&json!({ "shown": HOST_THEME_PICKER }))
+            } else {
+                self.fail_with(ThemesDeckModeSnafu.build())
+            }
         })
     }
 

@@ -99,6 +99,7 @@ agent-error-present = Burada sunulacak bir şey yok: slayt yok ya da sekme şabl
 agent-error-locale = Bilinmeyen dil kodu. Sunulan bir dilin kodunu ya da system verin.
 agent-error-empty-interface = Değiştirilecek bir şey yok: scheme, locale, grid ya da guides verin.
 agent-error-not-shown = Bu sekme penceresinde gösterilen sekme değil: kullanıcı onu gösterdiğinde yeniden isteyin.
+agent-error-themes-deck-mode = Tema seçici yalnızca slaytlar düzenlenirken açılır.
 agent-error-rewrite-text = Yeniden yazım metin olmadan döndü.
 agent-error-paragraphs = Yeniden yazımın paragrafları geçersiz.
 agent-error-draft-too-long = Taslak çok uzun.

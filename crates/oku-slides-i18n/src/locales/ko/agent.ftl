@@ -99,6 +99,7 @@ agent-error-present = 여기서는 발표할 것이 없습니다. 슬라이드�
 agent-error-locale = 알 수 없는 언어 코드입니다. 제공되는 언어 코드나 system을 지정하세요.
 agent-error-empty-interface = 바꿀 내용이 없습니다. scheme, locale, grid 또는 guides를 지정하세요.
 agent-error-not-shown = 이 탭은 창에 표시된 탭이 아닙니다. 사용자가 표시한 뒤 다시 요청하세요.
+agent-error-themes-deck-mode = 테마 선택기는 슬라이드를 편집하는 동안에만 열립니다.
 agent-error-rewrite-text = 다시 쓰기가 텍스트 없이 돌아왔습니다.
 agent-error-paragraphs = 다시 쓰기의 단락이 올바르지 않습니다.
 agent-error-draft-too-long = 초안이 너무 깁니다.

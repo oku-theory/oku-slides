@@ -109,6 +109,7 @@ agent-error-present = Здесь нечего показывать: нет сл�
 agent-error-locale = Неизвестный код языка. Укажите код поставляемого языка или system.
 agent-error-empty-interface = Нечего менять: укажите scheme, locale, grid или guides.
 agent-error-not-shown = Эта вкладка не показана в своём окне: повторите, когда пользователь её откроет.
+agent-error-themes-deck-mode = Выбор темы открывается только при редактировании слайдов.
 agent-error-rewrite-text = Перефразирование вернулось без текста.
 agent-error-paragraphs = Абзацы перефразирования недопустимы.
 agent-error-draft-too-long = Черновик слишком длинный.

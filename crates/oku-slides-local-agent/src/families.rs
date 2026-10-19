@@ -55,7 +55,9 @@ impl Family {
 pub(crate) fn families_of(tool: &str) -> &'static [Family] {
     use Family::{AskReport, Configure, Edit, Files, Present, Templates, Troubleshoot};
     match tool {
-        "apply" | "slide" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants" => &[Edit],
+        "apply" | "slide" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants" | "show_themes" => {
+            &[Edit]
+        }
         "focus" => &[Edit, Present],
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],

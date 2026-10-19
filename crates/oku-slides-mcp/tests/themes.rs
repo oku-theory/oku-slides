@@ -211,3 +211,98 @@ async fn prune_after_the_shown_slide_is_removed_closes_the_picker() {
     tokio::task::block_in_place(|| h.hub.prune());
     assert_that!(open(&h)).is_false();
 }
+
+/// La slide que montrent les `ThemeChoice` d'une surface.
+fn shown_slides(s: &Surface) -> Vec<String> {
+    s.messages
+        .iter()
+        .filter_map(|m| match &m.body {
+            ServerBody::UpdateComponents(u) => Some(u.components.clone()),
+            _ => None,
+        })
+        .flatten()
+        .filter_map(|c| match c.kind {
+            ComponentKind::ThemeChoice { slide, .. } => Some(slide),
+            _ => None,
+        })
+        .collect()
+}
+
+/// L'agent appelle l'outil `show_themes` avec ces arguments.
+async fn call_show_themes(h: &common::Harness, args: serde_json::Value) -> rust_mcp_sdk::schema::CallToolResult {
+    let c = common::client(h.server.url(), Some(h.server.authorization()))
+        .await
+        .unwrap_or_else(|e| panic!("client MCP : {e}"));
+    common::call(&c, "show_themes", args).await
+}
+
+/// L'agent ouvre le sélecteur ; l'appel doit réussir.
+async fn shown(h: &common::Harness, args: serde_json::Value) {
+    let r = call_show_themes(h, args).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_returns_the_picker_id_at_once() {
+    let h = start().await;
+    let r = call_show_themes(&h, json!({})).await;
+    assert_that!(common::json_of(&r)).is_equal_to(json!({ "shown": HOST_THEME_PICKER }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_puts_the_picker_live_outside_any_turn() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    shown(&h, json!({})).await;
+    let surface = next_surface(&mut rx).await;
+    assert_that!((surface.id.as_str(), surface.live, surface.turn)).is_equal_to((HOST_THEME_PICKER, true, None));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_renders_the_given_slide() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    shown(&h, json!({ "slide": "s-libre" })).await;
+    let slides = shown_slides(&next_surface(&mut rx).await);
+    assert_that!(slides).is_not_empty();
+    assert_that!(slides.clone()).is_equal_to(vec!["s-libre".to_owned(); slides.len()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_keeps_the_picker_after_the_turn_closes() {
+    let h = start().await;
+    let n = h.hub.begin_turn(oku_slides_session::agent::AgentScope::Slides);
+    shown(&h, json!({})).await;
+    h.hub.close_turn(n);
+    assert_that!(open(&h)).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_pick_is_noted_for_the_agent() {
+    let h = start().await;
+    shown(&h, json!({})).await;
+    pick(&h, &PRO_THEME.to_string()).unwrap();
+    let ctx = h.session.lock().unwrap().agent_context(&Default::default());
+    assert_that!(ctx).contains("theme picked: \"Pro\"");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_outside_deck_mode_says_so_in_french() {
+    let h = start().await;
+    tokio::task::block_in_place(|| {
+        h.session.lock().unwrap().edit_templates(oku_slides_session::pack::DEFAULT_PACK).unwrap()
+    });
+    let r = call_show_themes(&h, json!({})).await;
+    let said = (r.is_error, common::text_of(&r), open(&h));
+    let want = (Some(true), h.localizer.tr("agent-error-themes-deck-mode"), false);
+    assert_that!(said).is_equal_to(want);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_on_an_unknown_slide_is_refused_without_a_picker() {
+    let h = start().await;
+    let r = call_show_themes(&h, json!({ "slide": "s-inconnue" })).await;
+    let said = (r.is_error, common::text_of(&r), open(&h));
+    let want = (Some(true), "Slide introuvable : s-inconnue".to_owned(), false);
+    assert_that!(said).is_equal_to(want);
+}

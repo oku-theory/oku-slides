@@ -113,6 +113,7 @@ agent-error-present = لا شيء لعرضه هنا: لا توجد شرائح، 
 agent-error-locale = رمز لغة غير معروف. أعطِ رمز لغة متاحة أو system.
 agent-error-empty-interface = لا شيء لتغييره: أعطِ scheme أو locale أو grid أو guides.
 agent-error-not-shown = علامة التبويب هذه ليست المعروضة في نافذتها: اطلب مجددًا عندما يعرضها المستخدم.
+agent-error-themes-deck-mode = لا يُفتح منتقي السمات إلا أثناء تحرير الشرائح.
 agent-error-rewrite-text = عادت إعادة الصياغة دون نص.
 agent-error-paragraphs = فقرات إعادة الصياغة غير صالحة.
 agent-error-draft-too-long = المسودة طويلة جدًا.

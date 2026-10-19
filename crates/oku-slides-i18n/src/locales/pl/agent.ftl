@@ -109,6 +109,7 @@ agent-error-present = Nie ma tu nic do prezentowania: brak slajdów albo karta j
 agent-error-locale = Nieznany kod języka. Podaj kod dostępnego języka lub system.
 agent-error-empty-interface = Nic do zmiany: podaj scheme, locale, grid lub guides.
 agent-error-not-shown = Ta karta nie jest wyświetlana w swoim oknie: poproś ponownie, gdy użytkownik ją wyświetli.
+agent-error-themes-deck-mode = Wybór motywu otwiera się tylko podczas edycji slajdów.
 agent-error-rewrite-text = Przeredagowanie wróciło bez tekstu.
 agent-error-paragraphs = Akapity przeredagowania są nieprawidłowe.
 agent-error-draft-too-long = Szkic jest za długi.

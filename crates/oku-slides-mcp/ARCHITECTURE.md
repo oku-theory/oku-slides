@@ -14,7 +14,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `edit_tools` (undoable deck edits), `widget_tools` (sources, preview, trials),
   `guarded_tools` (user-confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`, `edit_theme`, `set_setting`…),
   `app_tools` (`history`; opening it, `present` and `set_interface` emit an event the shown tab applies),
-  `surface_tools` (`report`, `render`, `ask_*`, `show_*`), `import_tools` (`import_report`,
+  `surface_tools` (`report`, `render`, `ask_*`, `show_*`; `show_themes` opens the hub's theme picker), `import_tools` (`import_report`,
   `import_diff`: the session's import tuning; its `ReferenceJob` runs in a blocking task, unlocked).
 - `tool_error` : `ToolError`; `Tools::fail_with` logs it whole and tells the agent a localized
   message in the current interface language (`LiveLocalizer`, also read by the hub at each

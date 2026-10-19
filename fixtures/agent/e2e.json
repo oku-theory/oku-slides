@@ -3,6 +3,14 @@
   "by_prompt": {
     "ouvre l'atelier": { "mcp": [{ "tool": "edit_templates", "args": {} }], "chunks": ["Atelier ouvert."] },
     "portée slides": { "chunks": ["Réponse des slides."] },
+    "propose les thèmes": {
+      "mcp": [
+        { "tool": "show_themes", "args": { "slide": "s-libre" } },
+        { "tool": "report", "args": { "title": "Thèmes proposés", "facts": ["choisissez-en un au dock"] } }
+      ],
+      "chunks": ["Voici les thèmes."]
+    },
+    "suite des thèmes": { "chunks": ["Thème noté."] },
     "portée atelier": { "chunks": ["Réponse de l'atelier."] },
     "Peaufiner la présentation importée": {
       "tool_calls": [{ "id": "i1", "title": "Lire le rapport d'import" }, { "id": "i2", "title": "Comparer la slide 7" }],
