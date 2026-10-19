@@ -69,16 +69,15 @@
 :root[data-scheme="dark"] .ghost:hover:not(:disabled) { background: color-mix(in oklab, white 9%, transparent); }
 
 /* ---- Ce qui flotte : verre épais, lisible sur n'importe quel fond ---- */
-.tab-menu, .dictation-settings, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
+.tab-menu, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
 .help-search-results, .help-search-status.empty {
   background: var(--glass-tint-thick);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   backdrop-filter: blur(28px) saturate(190%);
   box-shadow: var(--glass-rim), var(--shadow-floating);
 }
-.dictation-settings:hover { box-shadow: var(--glass-rim), var(--shadow-floating); }
-/* Le menu principal est opaque : ses libellés restent lisibles sur la slide qu'il couvre. */
-.action-menu-list, .action-menu-list:hover {
+/* Le menu principal et celui de la dictée sont opaques : leurs libellés restent lisibles sur la slide qu'ils couvrent. */
+.action-menu-list, .action-menu-list:hover, .dictation-settings, .dictation-settings:hover {
   background: var(--paper-200); -webkit-backdrop-filter: none; backdrop-filter: none;
   box-shadow: var(--glass-rim), var(--shadow-floating);
 }
@@ -107,11 +106,11 @@
 
 /* ---- Lentille : le fond se déforme aux bords (moteurs qui le rendent, voir lens.ts) ---- */
 /* Les boutons principaux sont pleins : pas de lentille. Le micro (`.mic`, sans `.object`) n'est pas visé. */
-:root[data-lens] :is(.object, .history-bar, .editor-hint, .tabbar, .a2ui-card, .card.prompt, .a2ui-prompt):not(.primary, .action-menu-list) {
+:root[data-lens] :is(.object, .history-bar, .editor-hint, .tabbar, .a2ui-card, .card.prompt, .a2ui-prompt):not(.primary, .action-menu-list, .dictation-settings) {
   -webkit-backdrop-filter: var(--glass-lens);
   backdrop-filter: var(--glass-lens);
 }
-:root[data-lens] :is(.tab-menu, .dictation-settings, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
+:root[data-lens] :is(.tab-menu, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
   .help-search-results, .help-search-status.empty) {
   -webkit-backdrop-filter: var(--glass-lens-thick);
   backdrop-filter: var(--glass-lens-thick);
