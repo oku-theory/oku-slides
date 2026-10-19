@@ -6,7 +6,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Drop only the widget files that fail to compile, with their diagnostics, and keep the pack's other valid widgets. (plan:2026-10-02-creation-widgets)
 - Never take the link lock in a Drop; queue Release and CloseSlot in the separate deferred mutex. (plan:2026-09-29-compilation-bornee)
-- Refuse to render a slot whose pack is faulty with pack_disabled; never silently render with base widgets. (plan:2026-09-29-compilation-bornee)
+- Refuse to render a slot whose pack is faulty with pack_disabled; never silently render with core widgets only. (plan:2026-09-29-compilation-bornee)
 - Keep a single fingerprint_hex definition that matches the hex of PackWidgets::fingerprint. (plan:2026-09-29-compilation-bornee)
 - Never blame a pack for failures during widget editing or preview; turn a probe timeout into a file diagnostic. (plan:2026-10-02-creation-widgets)
 - Do not retry a faulty pack in the same session until its source fingerprint changes. (spec:2026-09-29-compilation-bornee-design)
