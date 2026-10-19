@@ -145,12 +145,12 @@ const textOf = async (p) => (await api(p, { cmd: 'slide', id: 's-libre' })).fiel
   // Survolée, une miniature pose son rendu sur la scène ; quittée, la slide revient.
   const thumb = p.locator('.variant-drawer .slide-thumb').nth(1);
   await thumb.hover();
-  assert.equal(await p.locator('.stage > img.stage-variant').getAttribute('src'), await thumb.locator('img').getAttribute('src'));
+  assert.equal(await p.locator('.stage > img.stage-hover-preview').getAttribute('src'), await thumb.locator('img').getAttribute('src'));
   await p.mouse.move(0, 0);
-  await p.waitForSelector('.stage-variant', { state: 'detached' });
+  await p.waitForSelector('.stage-hover-preview', { state: 'detached' });
   await p.locator('.variant-drawer .slide-thumb').nth(1).click();
   await p.waitForSelector('.variant-drawer', { state: 'detached' });
-  assert.equal(await p.locator('.stage-variant').count(), 0, 'aperçu resté sur la scène après le choix');
+  assert.equal(await p.locator('.stage-hover-preview').count(), 0, 'aperçu resté sur la scène après le choix');
   assert.equal(await textOf(p), 'Variante deux');
   assert.equal((await api(p, { cmd: 'snapshot' })).undo_label, 'Variante : Deux');
   const variants = p.locator('.agent-turn', { hasText: 'propose deux variantes' });

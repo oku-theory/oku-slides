@@ -1,4 +1,4 @@
-// L'aperçu du thème survolé sur la scène du deck.
+// L'aperçu survolé (thème, variante) sur la scène du deck.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Root } from "react-dom/client";
@@ -52,33 +52,68 @@ async function mount(more: Partial<StageProps>) {
   return host;
 }
 
-describe("aperçu du thème sur la scène", () => {
+describe("aperçu sur la scène", () => {
   test("l'aperçu de la slide montrée se pose par-dessus elle", async () => {
     const store = createStagePreviewStore();
-    const host = await mount({ themePreview: store });
-    await act(async () => store.set({ slide: "s", url: "data:image/svg+xml;utf8,%3Csvg%2F%3E" }));
-    expect(host.querySelector(".stage-theme-preview")?.getAttribute("src")).toBe("data:image/svg+xml;utf8,%3Csvg%2F%3E");
+    const host = await mount({ hoverPreview: store });
+    await act(async () => store.show({ slide: "s", url: "data:image/svg+xml;utf8,%3Csvg%2F%3E" }));
+    expect(host.querySelector(".stage-hover-preview")?.getAttribute("src")).toBe("data:image/svg+xml;utf8,%3Csvg%2F%3E");
   });
 
   test("l'aperçu d'une autre slide n'est pas montré", async () => {
     const store = createStagePreviewStore();
-    const host = await mount({ themePreview: store });
-    await act(async () => store.set({ slide: "s-2", url: "data:a" }));
-    expect(host.querySelector(".stage-theme-preview")).toBeNull();
+    const host = await mount({ hoverPreview: store });
+    await act(async () => store.show({ slide: "s-2", url: "data:a" }));
+    expect(host.querySelector(".stage-hover-preview")).toBeNull();
   });
 
   test("pendant l'édition d'un texte, l'aperçu n'est pas montré", async () => {
     const store = createStagePreviewStore();
-    store.set({ slide: "s", url: "data:a" });
-    const host = await mount({ themePreview: store, editing: fieldKey({ owner: "c1", field: "title" }) });
-    expect(host.querySelector(".stage-theme-preview")).toBeNull();
+    store.show({ slide: "s", url: "data:a" });
+    const host = await mount({ hoverPreview: store, editing: fieldKey({ owner: "c1", field: "title" }) });
+    expect(host.querySelector(".stage-hover-preview")).toBeNull();
   });
 
   test("retirer l'aperçu l'enlève de la scène", async () => {
     const store = createStagePreviewStore();
-    const host = await mount({ themePreview: store });
-    await act(async () => store.set({ slide: "s", url: "data:a" }));
-    await act(async () => store.set(null));
-    expect(host.querySelector(".stage-theme-preview")).toBeNull();
+    const host = await mount({ hoverPreview: store });
+    await act(async () => store.show({ slide: "s", url: "data:a" }));
+    await act(async () => store.hide({ slide: "s", url: "data:a" }));
+    expect(host.querySelector(".stage-hover-preview")).toBeNull();
+  });
+
+  test("en lecture seule, l'aperçu d'un thème n'est pas montré", async () => {
+    const store = createStagePreviewStore();
+    store.show({ slide: "s", url: "data:a" });
+    const host = await mount({ hoverPreview: store, readOnly: true });
+    expect(host.querySelector(".stage-hover-preview")).toBeNull();
+  });
+
+  test("en mode modèles, l'aperçu d'un thème n'est pas montré", async () => {
+    const store = createStagePreviewStore();
+    store.show({ slide: "s", url: "data:a" });
+    const host = await mount({ hoverPreview: store, templates: true });
+    expect(host.querySelector(".stage-hover-preview")).toBeNull();
+  });
+
+  test("pendant l'édition d'un texte, l'aperçu d'une variante reste montré", async () => {
+    const store = createStagePreviewStore();
+    store.show({ url: "data:v" });
+    const host = await mount({ hoverPreview: store, editing: fieldKey({ owner: "c1", field: "title" }) });
+    expect(host.querySelector(".stage-hover-preview")?.getAttribute("src")).toBe("data:v");
+  });
+
+  test("en lecture seule, l'aperçu d'une variante reste montré", async () => {
+    const store = createStagePreviewStore();
+    store.show({ url: "data:v" });
+    const host = await mount({ hoverPreview: store, readOnly: true });
+    expect(host.querySelector(".stage-hover-preview")?.getAttribute("src")).toBe("data:v");
+  });
+
+  test("en mode modèles, l'aperçu d'une variante reste montré", async () => {
+    const store = createStagePreviewStore();
+    store.show({ url: "data:v" });
+    const host = await mount({ hoverPreview: store, templates: true });
+    expect(host.querySelector(".stage-hover-preview")?.getAttribute("src")).toBe("data:v");
   });
 });

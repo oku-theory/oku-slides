@@ -14,6 +14,7 @@ const { createRoot } = await import("react-dom/client");
 const { default: Stage } = await import("./Stage");
 const { createRef } = await import("react");
 const { EditorView } = await import("@codemirror/view");
+const { createStagePreviewStore } = await import("./a2ui/stagePreview");
 
 const ftl = (lang: string) =>
   Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -89,15 +90,17 @@ const key = (el: Element, k: string, shiftKey = false) =>
   });
 
 test("Stage with a variant preview shows it above the slide and its elements", async () => {
-  const { host } = await mount({ svgUrl: "blob:slide", variantUrl: "blob:variant" });
+  const preview = createStagePreviewStore();
+  preview.show({ url: "blob:variant" });
+  const { host } = await mount({ svgUrl: "blob:slide", hoverPreview: preview });
   const imgs = [...host.querySelectorAll(".stage > img")].map((i) => i.getAttribute("src"));
   expect(imgs).toEqual(["blob:slide", "blob:variant"]);
-  expect(host.querySelector(".stage > .overlay ~ img.stage-variant")).not.toBeNull();
+  expect(host.querySelector(".stage > .overlay ~ img.stage-hover-preview")).not.toBeNull();
 });
 
 test("Stage without a variant preview shows only the slide", async () => {
-  const { host } = await mount({ svgUrl: "blob:slide", variantUrl: null });
-  expect(host.querySelector(".stage-variant")).toBeNull();
+  const { host } = await mount({ svgUrl: "blob:slide", hoverPreview: createStagePreviewStore() });
+  expect(host.querySelector(".stage-hover-preview")).toBeNull();
 });
 
 test("Stage double click on a card title edits that field", async () => {

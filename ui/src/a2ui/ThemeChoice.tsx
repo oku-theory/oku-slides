@@ -1,12 +1,12 @@
 // Carte d'un thème du sélecteur de l'hôte : la slide rendue dans ce thème (image), ses pastilles,
 // son nom. Survol ou focus : aperçu sur la scène ; clic : l'action `theme`.
 
-import { useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo } from "react";
 import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
 import { Hex } from "./schemas";
-import { type StagePreviewStore, StagePreviewContext } from "./stagePreview";
+import { StagePreviewContext } from "./stagePreview";
 import { svgSrc } from "./svgSrc";
 
 /** Taille maximale de la miniature (miroir de `THUMB_BYTES`, oku-slides-session). */
@@ -27,22 +27,19 @@ export const ThemeChoiceApi = {
     .strict(),
 };
 
-/** Retire l'aperçu de `store` seulement s'il montre encore cette miniature. */
-function clearOwn(store: StagePreviewStore | null, slide: string, url: string | null) {
-  const shown = store?.get();
-  if (store && url && shown?.url === url && shown.slide === slide) store.set(null);
-}
-
 /** Une carte de thème : survol ou focus posent l'aperçu, que seule elle retire. */
 export const ThemeChoice = createComponentImplementation(ThemeChoiceApi, ({ props }) => {
   const store = useContext(StagePreviewContext);
   const src = useMemo(() => (props.svg ? svgSrc(props.svg) : null), [props.svg]);
+  const preview = useMemo(() => (src ? { slide: props.slide, url: src } : null), [props.slide, src]);
   const show = () => {
-    if (src && store) store.set({ slide: props.slide, url: src });
+    if (preview) store?.show(preview);
   };
-  const hide = () => clearOwn(store, props.slide, src);
+  const hide = useCallback(() => {
+    if (preview) store?.hide(preview);
+  }, [store, preview]);
   // Démontée pendant le survol (surface remplacée) : son aperçu ne reste pas sur la scène.
-  useEffect(() => () => clearOwn(store, props.slide, src), [store, props.slide, src]);
+  useEffect(() => hide, [hide]);
   return (
     <button
       type="button"

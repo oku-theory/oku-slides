@@ -94,8 +94,6 @@ interface DeckProps extends CommonProps {
   showGridAlways?: boolean;
   /** Posé sous l'ancre (fiche d'une question de l'agent) : l'élément `owner` ou son champ `field`, s'il est sur la slide. */
   overlay?: { anchor: { owner: string; field?: string }; node: ReactNode };
-  /** Variante survolée dans le tiroir : son rendu couvre la slide et ses éléments, sans les remplacer. */
-  variantUrl?: string | null;
   /** Lecture seule (historique) : pas de couche des champs. */
   readOnly?: boolean;
   /** Mode modèles : les placeholders de tous les champs vides se voient. */
@@ -106,8 +104,8 @@ interface DeckProps extends CommonProps {
   packWidgets?: ReadonlySet<string>;
   /** Reçoit le genre qualifié (`espace/nom`) du widget à ouvrir. */
   onOpenWidget?: (kind: string) => void;
-  /** Aperçu du thème survolé dans le sélecteur de l'hôte ; absent : aucun. */
-  themePreview?: StagePreviewStore;
+  /** Miniature survolée (variante, thème), montrée selon `PreviewLayer` ; absent : aucun aperçu. */
+  hoverPreview?: StagePreviewStore;
 }
 
 /**
@@ -170,7 +168,7 @@ export default function Stage(props: Props) {
   const preview = deck === null;
   const {
     selected = null, cut = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
-    variantUrl = null, templates = false, showGhosts = false, packWidgets, onOpenWidget, themePreview,
+    templates = false, showGhosts = false, packWidgets, onOpenWidget, hoverPreview,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
   const editable = preview ? { ...view, fields: view.fields.filter((f) => !f.bound) } : view;
@@ -502,9 +500,9 @@ export default function Stage(props: Props) {
               </>
             );
           })()}
-          {/* Décorative : la miniature survolée ou au focus porte déjà le nom de la variante. */}
-          {variantUrl && <img className="stage-variant" src={variantUrl} alt="" draggable={false} />}
-          {themePreview && editing === null && <ThemePreviewLayer store={themePreview} slide={view.slide.id} />}
+          {hoverPreview && (
+            <PreviewLayer store={hoverPreview} slide={view.slide.id} hold={editing !== null || readOnly || templates} />
+          )}
         </div>
         {overlay && <SheetOverlay view={view} scale={scale} overlay={overlay} />}
       </div>
@@ -512,11 +510,15 @@ export default function Stage(props: Props) {
   );
 }
 
-/** L'aperçu d'un thème sur la slide montrée ; seul ce composant suit le survol. */
-function ThemePreviewLayer({ store, slide }: { store: StagePreviewStore; slide: string }) {
+/**
+ * L'aperçu posé sur la scène ; seul ce composant suit le survol. Celui d'une slide (thème) ne
+ * se montre que sur elle et pas pendant `hold` (édition, lecture seule, modèles).
+ */
+function PreviewLayer({ store, slide, hold }: { store: StagePreviewStore; slide: string; hold: boolean }) {
   const preview = useStagePreview(store);
-  if (!preview || preview.slide !== slide) return null;
-  return <img className="stage-theme-preview" src={preview.url} alt="" draggable={false} />;
+  if (!preview || (preview.slide !== undefined && (preview.slide !== slide || hold))) return null;
+  // Décorative : la miniature survolée ou au focus porte déjà le nom.
+  return <img className="stage-hover-preview" src={preview.url} alt="" draggable={false} />;
 }
 
 type SheetMeasure = { sheet: { width: number; height: number }; zone: PxZone };

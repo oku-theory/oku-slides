@@ -56,10 +56,10 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   const name = await other.locator('bdi').innerText();
   const thumb = await other.locator('img').getAttribute('src');
   await other.hover();
-  await p.waitForSelector('.stage .stage-theme-preview');
-  assert.equal(await p.locator('.stage .stage-theme-preview').getAttribute('src'), thumb);
+  await p.waitForSelector('.stage .stage-hover-preview');
+  assert.equal(await p.locator('.stage .stage-hover-preview').getAttribute('src'), thumb);
   await p.mouse.move(0, 0);
-  await p.waitForSelector('.stage .stage-theme-preview', { state: 'detached' });
+  await p.waitForSelector('.stage .stage-hover-preview', { state: 'detached' });
 
   // 3. Cliquer l'applique : le thème du deck change, la carte cliquée devient l'active.
   await other.click();

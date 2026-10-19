@@ -18,7 +18,6 @@ import { useFileActions } from "./useFileActions";
 import SlidePile from "./SlidePile";
 import { ColumnDividers } from "./ColumnDivider";
 import Stage from "./Stage";
-import { nextPreview, SlidePreviewContext, type SlidePreview } from "./a2ui/slidePreview";
 import { useFieldEditing } from "./useFieldEditing";
 import { useSvgCache } from "./useSvgCache";
 import { useToast } from "./useToast";
@@ -107,9 +106,6 @@ export default function App({
   const [current, setCurrent] = useState<string | null>(null);
   const [view, setView] = useState<SlideView | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  /** Rendu de la variante survolée dans le tiroir, posé sur la scène. */
-  const [variantUrl, setVariantUrl] = useState<string | null>(null);
-  const previewVariant = useCallback<SlidePreview>((url, on) => setVariantUrl((cur) => nextPreview(cur, url, on)), []);
   const { editing, editField, setEditing, editWhenShown, stage, leaveSlide } = useFieldEditing(view);
   /** Change de slide ; la saisie ouverte s'enregistre d'abord. */
   const showSlide = (id: string) => {
@@ -430,7 +426,7 @@ export default function App({
             readOnly={readOnly}
             templates={!!snap.editing}
             packWidgets={packWidgets}
-            themePreview={readOnly || snap.editing ? undefined : previewStore}
+            hoverPreview={previewStore}
             onOpenWidget={(kind) => {
               // Le genre est qualifié (`espace/nom`) : l'atelier du pack épinglé sous cet espace, onglet `nom`.
               const target = widgetToOpen(snap, kind);
@@ -443,7 +439,6 @@ export default function App({
             showGhosts={keptUi.ghosts && !snap.read_only}
             overlay={agentStatus.sheet ? { anchor: agentStatus.sheet, node: <SlotView slot={agentSlots.sheet} /> } : undefined}
             palette={snap.appearance.chart_palette}
-            variantUrl={variantUrl}
           />
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
@@ -467,9 +462,7 @@ export default function App({
         {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={keptUi.code} codeWidth={keptUi.codeWidth} onCodeWidth={keptUi.setCodeWidth}
           run={run} palette={snap.appearance.chart_palette}
           settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} /> : null} />}
-        <SlidePreviewContext.Provider value={previewVariant}>
-          <SlotView slot={agentSlots.drawer} />
-        </SlidePreviewContext.Provider>
+        <SlotView slot={agentSlots.drawer} />
       </main>
 
       {/* Cartes à droite de la feuille. */}
