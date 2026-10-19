@@ -88,6 +88,18 @@ const key = (el: Element, k: string, shiftKey = false) =>
     el.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey, bubbles: true, cancelable: true }));
   });
 
+test("Stage with a variant preview shows it above the slide and its elements", async () => {
+  const { host } = await mount({ svgUrl: "blob:slide", variantUrl: "blob:variant" });
+  const imgs = [...host.querySelectorAll(".stage > img")].map((i) => i.getAttribute("src"));
+  expect(imgs).toEqual(["blob:slide", "blob:variant"]);
+  expect(host.querySelector(".stage > .overlay ~ img.stage-variant")).not.toBeNull();
+});
+
+test("Stage without a variant preview shows only the slide", async () => {
+  const { host } = await mount({ svgUrl: "blob:slide", variantUrl: null });
+  expect(host.querySelector(".stage-variant")).toBeNull();
+});
+
 test("Stage double click on a card title edits that field", async () => {
   const { host, calls } = await mount();
   const title = host.querySelector('.field[aria-label="Titre"]')!;

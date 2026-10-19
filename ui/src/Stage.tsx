@@ -92,6 +92,8 @@ interface DeckProps extends CommonProps {
   showGridAlways?: boolean;
   /** Posé sous l'ancre (fiche d'une question de l'agent) : l'élément `owner` ou son champ `field`, s'il est sur la slide. */
   overlay?: { anchor: { owner: string; field?: string }; node: ReactNode };
+  /** Variante survolée dans le tiroir : son rendu couvre la slide et ses éléments, sans les remplacer. */
+  variantUrl?: string | null;
   /** Lecture seule (historique) : pas de couche des champs. */
   readOnly?: boolean;
   /** Mode modèles : les placeholders de tous les champs vides se voient. */
@@ -164,7 +166,7 @@ export default function Stage(props: Props) {
   const preview = deck === null;
   const {
     selected = null, cut = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
-    templates = false, showGhosts = false, packWidgets, onOpenWidget,
+    variantUrl = null, templates = false, showGhosts = false, packWidgets, onOpenWidget,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
   const editable = preview ? { ...view, fields: view.fields.filter((f) => !f.bound) } : view;
@@ -496,6 +498,8 @@ export default function Stage(props: Props) {
               </>
             );
           })()}
+          {/* Décorative : la miniature survolée ou au focus porte déjà le nom de la variante. */}
+          {variantUrl && <img className="stage-variant" src={variantUrl} alt="" draggable={false} />}
         </div>
         {overlay && <SheetOverlay view={view} scale={scale} overlay={overlay} />}
       </div>

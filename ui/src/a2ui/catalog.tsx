@@ -19,6 +19,7 @@ import { ActionOutcomeContext, sendWithOutcome } from "./actionOutcome";
 import { QuickHintsContext } from "./quickHints";
 import { ListTable, type ListRow } from "./ListTable";
 import { RichTextField } from "./RichTextField";
+import { SlidePreviewContext } from "./slidePreview";
 import { Hex, ToneSchema, toneClass } from "./schemas";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
@@ -484,11 +485,34 @@ const ListTableField = createComponentImplementation(ListTableApi, ({ props }) =
   );
 });
 
-/** Miniature d'une slide rendue par la session ; image (le SVG n'est pas exécuté). */
+/**
+ * Miniature d'une slide rendue par la session ; image (le SVG n'est pas exécuté).
+ * Survolée ou au focus, la scène montre son rendu ; quittée ou démontée, la slide.
+ */
 const SlideThumb = createComponentImplementation(SlideThumbApi, ({ props }) => {
   const src = useMemo(() => `data:image/svg+xml;utf8,${encodeURIComponent(props.svg)}`, [props.svg]);
+  const preview = useContext(SlidePreviewContext);
+  // Survol et focus se suivent à part : quitter l'un garde l'aperçu tant que l'autre dure.
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const on = hovered || focused;
+  // Posé tant que la miniature est survolée ou focalisée ; retiré quand elle ne l'est plus,
+  // change de rendu ou est démontée (tiroir fermé, variante choisie).
+  useEffect(() => {
+    if (!preview || !on) return;
+    preview(src, true);
+    return () => preview(src, false);
+  }, [preview, on, src]);
   return (
-    <button type="button" className="slide-thumb" onClick={() => props.action?.()}>
+    <button
+      type="button"
+      className="slide-thumb"
+      onClick={() => props.action?.()}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
       <img src={src} alt={props.label} />
       <span className="caption">{props.label}</span>
     </button>
