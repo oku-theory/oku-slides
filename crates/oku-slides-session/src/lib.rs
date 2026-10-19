@@ -107,7 +107,7 @@ pub use items::{ItemView, ListView};
 pub use library::{Library, PackLibrary, builtin_versions};
 pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 pub use library_lookup::{embed_theme, library_pack, read_pack_dir, resolve_pack};
-pub use merge::Saved;
+pub use merge::{Saved, deck_path};
 pub use pack::{BASE_PACK, DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, PackScope, Relation, Template};
 pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use request::{Request, UiOrder, View};

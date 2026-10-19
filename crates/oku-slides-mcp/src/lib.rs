@@ -9,6 +9,7 @@
 //!
 //! Dépend de `oku-slides-session` ; utilisé par `oku-slides-agent`.
 
+mod app_tools;
 mod edit_tools;
 mod error;
 mod guarded_tools;
@@ -24,6 +25,7 @@ mod tool_error;
 mod tools;
 mod widget_tools;
 
+pub use app_tools::{InterfaceChange, PresentMode, SchemeChoice};
 pub use error::McpError;
 pub use hub::{
     Answer, Freeze, HubError, HubErrorKind, McpEvent, STATIC_PER_TURN, SurfaceAction, SurfaceHub, THREAD_BYTES,

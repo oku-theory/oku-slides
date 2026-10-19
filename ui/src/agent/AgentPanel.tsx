@@ -9,7 +9,8 @@
 import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { AgentUi, McpEvent, Surface } from "../api";
+import type { AgentUi, InterfaceChange, McpEvent, Surface } from "../api";
+import type { PresentMode } from "../present";
 import { agentApi } from "../api";
 import { SlideThumbsContext, type SlideThumbs } from "../a2ui/slideThumbs";
 import { AgentThread } from "./AgentThread";
@@ -109,6 +110,12 @@ export interface AgentPanelProps {
   onChanged: () => void;
   onFocus: (slide: string, element: string | null) => void;
   onWidgetTouched: (name: string, removed: boolean) => void;
+  /** L'agent lance la présentation (fenêtre de l'agent : rien, la principale s'en charge). */
+  onPresent: (mode: PresentMode) => void;
+  /** L'agent change l'interface (fenêtre de l'agent : rien, la principale s'en charge). */
+  onInterface: (change: InterfaceChange) => void;
+  /** L'agent ouvre l'historique (fenêtre de l'agent : rien, la principale s'en charge). */
+  onOpenHistory: () => void;
   say: (text: string, error?: boolean) => void;
   /** Ouvre l'agent dans sa propre fenêtre : le bouton n'existe que si la fenêtre principale le donne. */
   onDetach?: () => void;
@@ -164,6 +171,9 @@ export function AgentPanel(props: AgentPanelProps) {
           if (e.kind === "changed") p.onChanged();
           if (e.kind === "focus") p.onFocus(e.slide, e.element);
           if (e.kind === "widget_touched") p.onWidgetTouched(e.name, e.removed);
+          if (e.kind === "present") p.onPresent(e.mode);
+          if (e.kind === "interface") p.onInterface(e.change);
+          if (e.kind === "open_history") p.onOpenHistory();
         },
         onAgent: (e) => {
           latest.current!.scopeState.onAgentEvent(e);

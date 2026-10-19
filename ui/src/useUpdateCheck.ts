@@ -1,4 +1,4 @@
-// Recherche de mise à jour lancée depuis un onglet (menu, ou menu de l'app) ; son avis dit le résultat.
+// Recherche de mise à jour demandée par le menu de l'app, faite par l'onglet actif ; son avis dit le résultat.
 
 import { useCallback, useEffect, useRef } from "react";
 import { errorText, type UpdateStatus } from "./api";
@@ -11,8 +11,8 @@ export interface AppUpdates {
   requested: number;
 }
 
-/** L'action « Rechercher des mises à jour… » ; absente sans hôte. */
-export function useUpdateCheck(updates: AppUpdates | undefined, say: (text: string, error?: boolean) => void): (() => void) | undefined {
+/** Lance une recherche à chaque demande du menu de l'app ; rien sans hôte. */
+export function useUpdateCheck(updates: AppUpdates | undefined, say: (text: string, error?: boolean) => void): void {
   const check = updates?.check;
   const run = useCallback(() => {
     if (!check) return;
@@ -28,5 +28,4 @@ export function useUpdateCheck(updates: AppUpdates | undefined, say: (text: stri
     if (n > seen.current) run();
     seen.current = n;
   }, [updates?.requested, run]);
-  return check ? run : undefined;
 }

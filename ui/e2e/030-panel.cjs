@@ -3,6 +3,7 @@
 // À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { openAtelier } = require('./lib/atelier.cjs');
 const { untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 // Modèle « libre » (6e) : sans blocs, il a une carte de grille (les blocs n'en ont pas, t-292).
@@ -23,9 +24,8 @@ const state = (p) => p.evaluate((LIBRE) => ({
   await p.waitForSelector('.stage img');
   // Hors des modèles, aucune carte.
   assert.equal((await state(p)).cards, 0);
-  // Les modèles s'ouvrent depuis le menu ⋯.
-  await p.getByRole('button', { name: 'Menu' }).click();
-  await p.getByRole('menuitem', { name: 'Atelier' }).click();
+  // Les modèles s'ouvrent en les demandant à l'agent (t-988).
+  await openAtelier(p);
   await p.waitForSelector('[data-surface-id="host-template"]');
   // Sous la slide qu'ils règlent, pas au dock de l'agent.
   assert.equal(await p.locator('.templates-panel [data-surface-id="host-template"]').count(), 1);
@@ -87,10 +87,10 @@ const state = (p) => p.evaluate((LIBRE) => ({
   // négatif : un retour fautif au sous-onglet Modèles aurait le temps d'arriver.
   await p.waitForTimeout(300);
   assert.equal(await p.getByRole('tab', { name: 'Thème', exact: true }).getAttribute('aria-selected'), 'true');
-  // Le menu ⋯ du mode modèles n'a plus de sélecteur de thème.
+  // Le menu ⋯ du mode modèles n'offre que l'aide : le reste se demande à l'agent (t-988).
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.waitForSelector('[role="menu"]');
-  assert.equal(await p.locator('[role="menu"] option', { hasText: /^Papier$/ }).count(), 0);
+  assert.deepEqual(await p.locator('[role="menu"] [role="menuitem"] > span').allTextContents(), ['Aide']);
   await p.keyboard.press('Escape');
   await p.getByRole('tab', { name: 'Modèles', exact: true }).click();
   await p.waitForSelector('.templates-panel [data-surface-id="host-template"]');

@@ -32,6 +32,7 @@ session-unsaved = “{ $title }”에 저장하지 않은 변경 사항이 있�
 session-bad-request = 잘못된 요청입니다: { $reason }
 session-history-not-open = 기록이 열려 있지 않습니다
 session-in-history = 프레젠테이션을 변경하기 전에 기록을 닫으세요
+session-target-exists = 그곳에 이미 파일이 있습니다. 다른 경로를 고르세요.
 session-read-only = 도움말은 읽기 전용입니다: 변경할 수 없습니다
 session-not-help = 이 탭은 도움말이 아닙니다
 session-turn-not-on-top = 이 턴은 더 이상 마지막 변경이 아닙니다

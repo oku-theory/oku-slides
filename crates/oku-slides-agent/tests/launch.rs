@@ -98,6 +98,21 @@ async fn fake_agent_by_prompt_plays_the_matching_turn() {
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "salut".into() });
 }
 
+/// Un tour choisi par son texte ne décale pas les tours numérotés (e2e « ouvre l'atelier », t-988).
+#[tokio::test(flavor = "multi_thread")]
+async fn fake_agent_by_prompt_turn_leaves_the_numbered_turns_in_place() {
+    let h = start(json!({ "by_prompt": { "bonjour": { "chunks": ["salut"] } },
+        "turns": [{ "chunks": ["un"] }, { "chunks": ["deux"] }] }))
+    .await;
+    let t = h.tab("t-1");
+    let mut rx = t.agent.subscribe();
+    t.agent.prompt("bonjour".into(), Default::default());
+    until(&mut rx, |e| matches!(e, AgentEvent::TurnEnded { .. })).await;
+    t.agent.prompt("suite".into(), Default::default());
+    let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text != "salut")).await;
+    assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 2, text: "un".into() });
+}
+
 /// Un second faux agent, à côté du premier : son scénario et son journal.
 fn second_launch(h: &Harness, script: serde_json::Value) -> (oku_slides_agent::Launch, std::path::PathBuf) {
     let (path, log) = (h.log.with_file_name("script-bis.json"), h.log.with_file_name("log-bis.jsonl"));

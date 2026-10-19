@@ -22,8 +22,6 @@ ui-confirm-quit-templates = Thoát mà không lưu các mẫu đã sửa?
 
 ## Thông báo
 
-ui-toast-templates-saved = Đã lưu mẫu: { $name }
-ui-toast-moved = Đã di chuyển bản trình bày
 ui-toast-copied = Đã lưu bản sao
 ui-toast-field-gone = Trường bạn đang sửa không còn nữa: nội dung đã nhập bị mất.
 ui-toast-edit-replaced = Văn bản này đã thay đổi trong lúc bạn sửa: phiên bản của bạn đã thay thế nó. Hoàn tác sẽ khôi phục phiên bản kia.
@@ -34,10 +32,6 @@ ui-toolbar-undo = Hoàn tác
 ui-toolbar-undo-label = Hoàn tác: { $label }
 ui-toolbar-redo = Làm lại
 ui-toolbar-redo-label = Làm lại: { $label }
-ui-toolbar-grid-hide = Ẩn lưới
-ui-toolbar-grid-show = Hiện lưới
-ui-toolbar-ghosts-hide = Ẩn đường gióng
-ui-toolbar-ghosts-show = Hiện đường gióng
 ui-divider-pile = Độ rộng chồng trang chiếu
 ui-divider-notes = Độ rộng luồng của tác nhân AI
 ui-divider-code = Kích thước mã
@@ -45,20 +39,10 @@ ui-divider-band = Chiều cao phần cài đặt
 ui-toolbar-theme = Chủ đề
 ui-toolbar-theme-embedded = Chủ đề của tệp
 ui-toolbar-theme-deck-group = Bài trình bày này
-ui-toolbar-save-copy = Lưu bản sao
 ui-toolbar-finish = Xong
-ui-menu-workshop = Xưởng
 ui-templates-deck-only = Chỉ được lưu trong bài trình bày này
 ui-toolbar-open = Mở
-ui-merge = Hợp nhất với PDF…
 ui-menu = Menu
-ui-menu-move = Di chuyển…
-ui-language = Ngôn ngữ
-ui-language-system = Ngôn ngữ hệ thống
-ui-scheme = Giao diện
-ui-scheme-system = Hệ thống
-ui-scheme-light = Sáng
-ui-scheme-dark = Tối
 ui-toolbar-add-label = Thêm vào trang chiếu
 ui-add-kind = { $kind ->
     [card] Thẻ
@@ -323,7 +307,6 @@ ui-undo-show-as-chart = Hiển thị dưới dạng biểu đồ
 ## Tệp
 
 ui-file-open-prompt = Đường dẫn tệp cần mở (.oku-slides.pdf, .json hoặc .pptx)
-ui-file-merge-prompt = Đường dẫn tệp cần gộp vào bài trình bày này (.oku-slides.pdf hoặc .json)
 ui-file-filter-presentations = Bài trình bày
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Lưu thành (đường dẫn đầy đủ)
@@ -361,7 +344,6 @@ ui-slide-next = Trang sau
 ui-present = Bản trình bày
 ui-present-slide = Trang chiếu { $index } / { $count }
 ui-present-screen = Trình chiếu toàn màn hình
-ui-present-window = Trình chiếu trong cửa sổ
 ui-toolbar-params-hide = Ẩn cài đặt
 ui-toolbar-params-show = Hiện cài đặt
 ui-help-close = Đóng trợ giúp
@@ -422,4 +404,3 @@ ui-update-later = Để sau
 ui-update-installing = Đang tải bản cập nhật… { $percent }%
 ui-update-downloading = Đang tải bản cập nhật…
 ui-update-up-to-date = Oku Slides đã là bản mới nhất.
-ui-menu-check-updates = Kiểm tra bản cập nhật…

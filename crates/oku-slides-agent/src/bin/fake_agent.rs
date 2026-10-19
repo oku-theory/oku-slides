@@ -25,7 +25,8 @@
 //! `unknown_sessions` (bool) les fait échouer ; `replay` (liste de textes) est
 //! rejoué en `agent_message_chunk` par `session/load` ; `by_prompt`
 //! (`{ "<texte>": Turn }`) joue ce tour quand le prompt est exactement ce texte,
-//! avant le choix par numéro. Ces deux requêtes sont journalisées.
+//! avant le choix par numéro, sans avancer la numérotation des autres tours.
+//! Ces deux requêtes sont journalisées.
 //! `new_session_delay_ms` fait attendre la réponse à `session/new` (ouverture lente),
 //! `load_delay_ms` celle à `session/load`. `late_replay_ms` (agent non conforme) envoie
 //! le rejeu de `session/load` après sa réponse, au bout de ce délai.
@@ -418,10 +419,18 @@ async fn main() -> agent_client_protocol::Result<()> {
             async move |req: PromptRequest, responder, cx: ConnectionTo<Client>| {
                 s3.log("session/prompt", serde_json::to_value(&req).unwrap_or_default());
                 let session_key = req.session_id.0.to_string();
+                let said = req.prompt.iter().rev().find_map(|b| match b {
+                    ContentBlock::Text(t) => Some(t.text.as_str()),
+                    _ => None,
+                });
+                let by_prompt = said.and_then(|t| s3.script.by_prompt.get(t)).cloned();
+                // Un tour choisi par son texte reste hors de la numérotation des autres.
                 let index_in_session = if let Ok(mut turns) = s3.turns.lock() {
                     let count = turns.entry(session_key.clone()).or_insert(0);
                     let i = *count;
-                    *count += 1;
+                    if by_prompt.is_none() {
+                        *count += 1;
+                    }
                     i
                 } else {
                     0
@@ -430,11 +439,6 @@ async fn main() -> agent_client_protocol::Result<()> {
                 if index_in_session == 0 && s3.script.crash_on_session == Some(rank) {
                     std::process::exit(3);
                 }
-                let said = req.prompt.iter().rev().find_map(|b| match b {
-                    ContentBlock::Text(t) => Some(t.text.as_str()),
-                    _ => None,
-                });
-                let by_prompt = said.and_then(|t| s3.script.by_prompt.get(t)).cloned();
                 let turns_script = s3.script.sessions.get(&rank.to_string()).unwrap_or(&s3.script.turns);
                 let turn = match by_prompt {
                     Some(t) => t,

@@ -1,6 +1,6 @@
 // Sélecteur d'un thème pour le deck. Il propose la bibliothèque, ceux de la présentation (thème du
-// deck seul d'un import), plus le thème montré s'il ne fait partie d'aucune des deux (thème du
-// deck au menu ⋯, base du brouillon dans l'onglet « Thème »).
+// deck seul d'un import), plus le thème montré s'il ne fait partie d'aucune des deux (base du
+// brouillon dans l'onglet « Thème »).
 
 import type { ThemeInfo, ThemeRef } from "./api";
 import { t } from "./i18n";
@@ -16,8 +16,8 @@ interface Props {
   /** Thèmes du deck seul embarqués dans la présentation : ils se reprennent comme les autres. */
   deckThemes: ThemeInfo[];
   onPick: (id: string) => void;
-  /** Étiquette ; par défaut celle du menu ⋯. */
-  label?: string;
+  /** Étiquette du champ. */
+  label: string;
 }
 
 export default function ThemeMenu({ theme, themeName, themes, deckThemes, onPick, label }: Props) {
@@ -26,7 +26,7 @@ export default function ThemeMenu({ theme, themeName, themes, deckThemes, onPick
   const foreign = theme !== null && !known(theme.id);
   return (
     // Pas de `Select` : il ne connaît pas les groupes d'options.
-    <Field variant="menu" label={label ?? t("ui-toolbar-theme")}>
+    <Field variant="menu" label={label}>
       <select className="select" value={theme?.id ?? ""} onChange={(e) => onPick(e.target.value)}>
         {foreign && <option value={theme.id} disabled>{themeName ?? t("ui-toolbar-theme-embedded")}</option>}
         {themes.map((th) => <option key={th.id} value={th.id}>{th.name}</option>)}

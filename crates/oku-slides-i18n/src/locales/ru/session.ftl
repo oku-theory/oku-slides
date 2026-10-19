@@ -32,6 +32,7 @@ session-unsaved = В «{ $title }» есть несохранённые изме
 session-bad-request = Недопустимый запрос: { $reason }
 session-history-not-open = История не открыта
 session-in-history = Закройте историю, прежде чем изменять презентацию
+session-target-exists = Там уже есть файл: выберите другой путь.
 session-read-only = Справка доступна только для чтения: её нельзя изменить
 session-not-help = Эта вкладка — не справка
 session-turn-not-on-top = Этот ход больше не последнее изменение

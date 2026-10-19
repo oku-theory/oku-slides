@@ -32,6 +32,7 @@ session-unsaved = “{ $title }” มีการเปลี่ยนแปล
 session-bad-request = คำขอไม่ถูกต้อง: { $reason }
 session-history-not-open = ไม่ได้เปิดประวัติ
 session-in-history = ปิดประวัติก่อนแก้ไขงานนำเสนอ
+session-target-exists = มีไฟล์อยู่ที่นั่นแล้ว โปรดเลือกเส้นทางอื่น
 session-read-only = ความช่วยเหลือเป็นแบบอ่านอย่างเดียว: แก้ไขไม่ได้
 session-not-help = แท็บนี้ไม่ใช่ความช่วยเหลือ
 session-turn-not-on-top = รอบนี้ไม่ใช่การเปลี่ยนแปลงล่าสุดอีกต่อไป

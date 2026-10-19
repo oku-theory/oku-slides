@@ -57,9 +57,6 @@ const key = (k: string, more: { meta?: boolean; ctrl?: boolean; shift?: boolean 
   return e;
 };
 
-/** Libellés et raccourcis des entrées du menu (identifiants bruts : pas de messages chargés). */
-const labels = (h: Hook) => h.entries.map((e) => (e.kind === "item" ? `${e.label} ${e.shortcut}` : e.kind));
-
 test("useKeptUi first snapshot restores the choices kept by the host", async () => {
   const { out } = await mount();
   expect([out.hook!.grid, out.hook!.ghosts]).toEqual([false, true]);
@@ -95,11 +92,10 @@ test("useKeptUi saves the current slide and choices once restored and on each to
   expect(out.saved).toEqual([["s1", false, true], ["s1", false, false]]);
 });
 
-test("useKeptUi menu entries name the toggle to come and switch it", async () => {
+test("useKeptUi setGrid and setGhosts show or hide and are saved", async () => {
   const { out } = await mount();
-  expect(labels(out.hook!)).toEqual(["ui-toolbar-grid-show ⌘'", "ui-toolbar-ghosts-hide ⌘⇧G"]);
-  await act(async () => { (out.hook!.entries[0] as { onSelect: () => void }).onSelect(); });
-  expect(labels(out.hook!)).toEqual(["ui-toolbar-grid-hide ⌘'", "ui-toolbar-ghosts-hide ⌘⇧G"]);
+  await act(async () => { out.hook!.setGrid(true); out.hook!.setGhosts(false); });
+  expect(out.saved.at(-1)).toEqual(["s1", true, false]);
 });
 
 test("useKeptUi handleKey takes its shortcut and prevents the default", async () => {

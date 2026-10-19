@@ -1,7 +1,9 @@
 //! Outils qui modifient le deck ; tout s'annule (dans le groupe du tour s'il est ouvert).
 
 use oku_slides_chart::SeriesType;
-use oku_slides_core::Op;
+use std::collections::BTreeMap;
+
+use oku_slides_core::{Namespace, Op, PackPin};
 use oku_slides_session::Request;
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
@@ -10,7 +12,7 @@ use serde_json::{Value, json};
 use snafu::ResultExt;
 
 use crate::McpEvent;
-use crate::tool_error::{PackIdSnafu, ToolError};
+use crate::tool_error::{NoPackSnafu, PackIdSnafu, ToolError};
 use crate::tools::Tools;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -50,6 +52,14 @@ impl SetArgs {
     pub(crate) fn pack(&self) -> Result<uuid::Uuid, ToolError> {
         uuid::Uuid::parse_str(&self.set).context(PackIdSnafu)
     }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct EditTemplatesArgs {
+    /// Id d'un pack de modèles (UUID, voir `templates`) ; absent : le pack principal du deck (un
+    /// pack de la bibliothèque autre que `base`, sinon son pack propre).
+    #[serde(default)]
+    pub set: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -97,8 +107,17 @@ impl Tools {
     }
 
     pub(crate) async fn edit_templates(&self, args: Value) -> CallToolResult {
-        let set = match self.parse::<SetArgs>(args) {
-            Ok(a) => a.pack(),
+        let set = match self.parse::<EditTemplatesArgs>(args) {
+            Ok(EditTemplatesArgs { set: Some(set) }) => SetArgs { set }.pack(),
+            // Le pack du deck, choisi comme l'interface (`firstPackId`) : un pack ni `deck` ni
+            // `base`, sinon un autre que `base`, sinon le premier épinglé.
+            Ok(EditTemplatesArgs { set: None }) => {
+                match self.with_session(|s| Ok(main_pack(s.snapshot().widgets))).await {
+                    Ok(Some(set)) => Ok(set),
+                    Ok(None) => Err(NoPackSnafu.build()),
+                    Err(e) => Err(e),
+                }
+            }
             Err(r) => return r,
         };
         match set {
@@ -121,3 +140,18 @@ impl Tools {
         }
     }
 }
+
+/// Le pack à éditer quand l'agent n'en nomme pas, choisi comme `firstPackId` côté interface :
+/// un pack ni `deck` ni `base`, sinon un autre que `base`, sinon le premier épinglé.
+pub(crate) fn main_pack(pins: &BTreeMap<Namespace, PackPin>) -> Option<uuid::Uuid> {
+    let is_base = |ns: &Namespace| ns.as_str() == oku_slides_core::kinds::base::NAMESPACE;
+    pins.iter()
+        .find(|(ns, _)| !ns.is_deck() && !is_base(ns))
+        .or_else(|| pins.iter().find(|(ns, _)| !is_base(ns)))
+        .or_else(|| pins.iter().next())
+        .map(|(_, pin)| pin.id)
+}
+
+#[cfg(test)]
+#[path = "edit_tools_tests.rs"]
+mod edit_tools_tests;

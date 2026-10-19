@@ -32,6 +32,7 @@ session-unsaved = “{ $title }”-এ অসংরক্ষিত পরিব�
 session-bad-request = অবৈধ অনুরোধ: { $reason }
 session-history-not-open = ইতিহাস খোলা নেই
 session-in-history = উপস্থাপনা পরিবর্তনের আগে ইতিহাস বন্ধ করুন
+session-target-exists = সেখানে আগে থেকেই একটি ফাইল আছে: অন্য পথ বেছে নিন।
 session-read-only = সহায়িকা শুধু পড়ার জন্য: এটি পরিবর্তন করা যায় না
 session-not-help = এই ট্যাবটি সহায়িকা নয়
 session-turn-not-on-top = এই পালাটি আর শেষ পরিবর্তন নয়

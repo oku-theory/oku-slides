@@ -29,11 +29,10 @@ async function mount(extra: Record<string, unknown> = {}) {
     root.render(
       createElement(ActionMenu, {
         label: "Menu",
+        triggerClass: "token ghost",
         entries: [
-          { kind: "item", label: "Ouvrir…", shortcut: "⌘O", onSelect: () => picked.push("open") },
-          { kind: "separator" },
-          { kind: "item", label: "Déplacer…", disabled: true, onSelect: () => picked.push("move") },
-          { kind: "custom", node: createElement("span", { className: "extra" }, "Thème") },
+          { label: "Ouvrir…", shortcut: "⌘O", onSelect: () => picked.push("open") },
+          { label: "Aide", onSelect: () => picked.push("help") },
         ],
         ...extra,
       }),
@@ -62,10 +61,9 @@ describe("menu d'actions", () => {
   });
 
   test("ActionMenu clic sur le bouton l'ouvre, avec ses entrées", async () => {
-    const { trigger, items, host } = await mount();
+    const { trigger, items } = await mount();
     await act(async () => trigger().click());
-    expect(items().map((b) => b.textContent)).toEqual([`Ouvrir…${keyLabel("⌘O")}`, "Déplacer…"]);
-    expect(host.querySelector(".extra")?.textContent).toBe("Thème");
+    expect(items().map((b) => b.textContent)).toEqual([`Ouvrir…${keyLabel("⌘O")}`, "Aide"]);
     expect(trigger().getAttribute("aria-expanded")).toBe("true");
   });
 
@@ -75,12 +73,6 @@ describe("menu d'actions", () => {
     await act(async () => items()[0].click());
     expect(picked).toEqual(["open"]);
     expect(menu()).toBeNull();
-  });
-
-  test("ActionMenu entrée désactivée : rien", async () => {
-    const { trigger, items } = await mount();
-    await act(async () => trigger().click());
-    expect(items()[1].disabled).toBe(true);
   });
 
   test("ActionMenu Échap ferme et rend le focus au bouton", async () => {
@@ -103,41 +95,13 @@ describe("menu d'actions", () => {
     await act(async () => trigger().click());
     expect(document.activeElement).toBe(items()[0]);
     await act(async () => key(menu() as Element, "ArrowDown"));
-    // La seconde est désactivée : on reste sur la seule active.
+    expect(document.activeElement).toBe(items()[1]);
+    await act(async () => key(menu() as Element, "ArrowDown"));
     expect(document.activeElement).toBe(items()[0]);
   });
 
-  test("ActionMenu icon et triggerClass remplacent le burger et le style du bouton", async () => {
-    const icon = createElement("svg", { className: "custom-icon" });
-    const { trigger } = await mount({ icon, triggerClass: "token ghost" });
-    expect(trigger().querySelector(".custom-icon")).not.toBeNull();
-    expect(trigger().querySelectorAll("svg line").length).toBe(0);
-    expect(trigger().className).toBe("token ghost action-menu-trigger");
-  });
-
-  test("ActionMenu disabled : le bouton ne s'ouvre pas", async () => {
-    const { trigger, menu } = await mount({ disabled: true });
-    expect(trigger().disabled).toBe(true);
-    await act(async () => trigger().click());
-    expect(menu()).toBeNull();
-  });
-
-  test("ActionMenu hint : l'explication s'écrit sous le libellé de l'action désactivée", async () => {
-    const entries = [{ kind: "item", label: "Atelier", disabled: true, hint: "Modèles du deck seul", onSelect: () => {} }];
-    const { trigger, items } = await mount({ entries });
-    await act(async () => trigger().click());
-    expect(items()[0]!.disabled).toBe(true);
-    expect(items()[0]!.querySelector(".action-menu-hint")?.textContent).toBe("Modèles du deck seul");
-  });
-
-  test("ActionMenu hint : nommée par son libellé, l'explication la décrit (aria-describedby)", async () => {
-    const entries = [{ kind: "item", label: "Atelier", shortcut: "⌘⇧E", disabled: true, hint: "Modèles du deck seul", onSelect: () => {} }];
-    const { host, trigger, items } = await mount({ entries });
-    await act(async () => trigger().click());
-    const item = items()[0]!;
-    expect(item.getAttribute("aria-label")).toBe("Atelier");
-    const described = item.getAttribute("aria-describedby");
-    expect(described).toBeTruthy();
-    expect(host.querySelector(`[id="${described}"]`)?.textContent).toBe("Modèles du deck seul");
+  test("ActionMenu triggerClass donne le style du bouton", async () => {
+    const { trigger } = await mount({ triggerClass: "object token" });
+    expect(trigger().className).toBe("object token action-menu-trigger");
   });
 });

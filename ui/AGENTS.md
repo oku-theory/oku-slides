@@ -50,7 +50,7 @@
 ## Settled decisions
 
 - Parse rewrite text with textToParagraphs and external paste or dictation with literalToParagraphs, never on the server. (spec:2026-09-27-agent-onglets-design, t-162)
-- Do not add a manual save action; every change autosaves after 1.5 s and new decks go to a default folder. (t-257)
+- Keep the main menu to present, open and help, with no save action (changes autosave after 1.5 s, new decks to a default folder); every other app action goes through an agent tool. (t-988, t-257)
 - Show shortcuts as Cmd on macOS and as Ctrl, Shift, Alt elsewhere, in help and menus. (t-493)
 - Use CodeMirror standardKeymap, never defaultKeymap, whose commands are meant for code editors. (spec:2026-09-26-editeur-markdown-design)
 - Keep ListTable fully controlled: hold no local data except the draft of the cell being edited. (spec:2026-10-04-parametre-liste-design)

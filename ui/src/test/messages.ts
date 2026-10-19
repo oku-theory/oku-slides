@@ -8,5 +8,5 @@ import { applyMessages } from "../i18n";
 
 /** Remet la langue d'avant chargement : `t` rend l'identifiant brut. */
 export function resetMessages(): void {
-  applyMessages({ locale: "en", resources: [], available: [], chosen: null });
+  applyMessages({ locale: "en", resources: [], chosen: null });
 }

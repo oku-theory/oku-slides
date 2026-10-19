@@ -32,6 +32,7 @@ session-unsaved = «{ $title }» tiene cambios sin guardar.
 session-bad-request = Solicitud no válida: { $reason }
 session-history-not-open = El historial no está abierto
 session-in-history = Cierre el historial antes de modificar la presentación
+session-target-exists = Ya existe un archivo ahí: elige otra ruta.
 session-read-only = La ayuda es de solo lectura: no se puede modificar
 session-not-help = Esta pestaña no es la ayuda
 session-turn-not-on-top = Este turno ya no es el último cambio

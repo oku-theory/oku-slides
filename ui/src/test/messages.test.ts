@@ -4,15 +4,17 @@
 // « Common » là où ils attendent l'identifiant `ui-widgets-common`.
 
 import { afterAll, expect, test } from "bun:test";
-import { applyMessages, availableLocales, chosenLocale, locale, t } from "../i18n";
+import { applyMessages, locale, receiveMessages, t } from "../i18n";
 import { resetMessages } from "./messages";
 
 afterAll(resetMessages);
 
 test("resetMessages remet la langue d'avant chargement", () => {
-  applyMessages({ locale: "de", resources: ["ui-hello = Hallo\n"], available: ["en", "de"], chosen: "de" });
+  applyMessages({ locale: "de", resources: ["ui-hello = Hallo\n"], chosen: "de" });
   resetMessages();
-  expect([t("ui-hello"), locale(), availableLocales(), chosenLocale()]).toEqual(["ui-hello", "en", [], null]);
+  expect([t("ui-hello"), locale()]).toEqual(["ui-hello", "en"]);
+  // Choix remis à « langue du système » : des messages anglais sans choix ne changent rien.
+  expect(receiveMessages({ locale: "en", resources: [], chosen: null })).toBe(false);
 });
 
 test("chaque fichier de test qui installe des messages enregistre resetMessages après lui", async () => {

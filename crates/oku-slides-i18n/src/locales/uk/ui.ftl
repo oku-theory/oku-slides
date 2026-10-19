@@ -28,8 +28,6 @@ ui-confirm-quit-templates = Вийти, не зберігши змінені ш�
 
 ## Сповіщення
 
-ui-toast-templates-saved = Шаблони збережено: { $name }
-ui-toast-moved = Презентацію переміщено
 ui-toast-copied = Копію збережено
 ui-toast-field-gone = Поля, яке ви редагували, більше немає: введений текст втрачено.
 ui-toast-edit-replaced = Цей текст змінився, поки ви його редагували: ваша версія його замінила. «Скасувати» поверне іншу.
@@ -40,10 +38,6 @@ ui-toolbar-undo = Скасувати
 ui-toolbar-undo-label = Скасувати: { $label }
 ui-toolbar-redo = Повторити
 ui-toolbar-redo-label = Повторити: { $label }
-ui-toolbar-grid-hide = Сховати сітку
-ui-toolbar-grid-show = Показати сітку
-ui-toolbar-ghosts-hide = Сховати напрямні
-ui-toolbar-ghosts-show = Показати напрямні
 ui-divider-pile = Ширина стосу слайдів
 ui-divider-notes = Ширина стрічки агента
 ui-divider-code = Розмір коду
@@ -51,20 +45,10 @@ ui-divider-band = Висота налаштувань
 ui-toolbar-theme = Тема
 ui-toolbar-theme-embedded = Тема з файлу
 ui-toolbar-theme-deck-group = Ця презентація
-ui-toolbar-save-copy = Зберегти копію
 ui-toolbar-finish = Готово
-ui-menu-workshop = Майстерня
 ui-templates-deck-only = Зберігаються лише в цій презентації
 ui-toolbar-open = Відкрити
-ui-merge = Об’єднати з PDF…
 ui-menu = Меню
-ui-menu-move = Перемістити…
-ui-language = Мова
-ui-language-system = Мова системи
-ui-scheme = Оформлення
-ui-scheme-system = Системне
-ui-scheme-light = Світле
-ui-scheme-dark = Темне
 ui-toolbar-add-label = Додати на слайд
 ui-add-kind = { $kind ->
     [card] Картка
@@ -329,7 +313,6 @@ ui-undo-show-as-chart = Показати у вигляді діаграми
 ## Файли
 
 ui-file-open-prompt = Шлях до файлу для відкриття (.oku-slides.pdf, .json або .pptx)
-ui-file-merge-prompt = Шлях до презентації, яку слід об’єднати з цією (.oku-slides.pdf або .json)
 ui-file-filter-presentations = Презентації
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Зберегти як (повний шлях)
@@ -367,7 +350,6 @@ ui-slide-next = Наступний слайд
 ui-present = Презентація
 ui-present-slide = Слайд { $index } з { $count }
 ui-present-screen = Показати на весь екран
-ui-present-window = Показати у вікні
 ui-toolbar-params-hide = Сховати параметри
 ui-toolbar-params-show = Показати параметри
 ui-help-close = Закрити довідку
@@ -428,4 +410,3 @@ ui-update-later = Пізніше
 ui-update-installing = Завантаження оновлення… { $percent }%
 ui-update-downloading = Завантаження оновлення…
 ui-update-up-to-date = Oku Slides має найновішу версію.
-ui-menu-check-updates = Перевірити оновлення…

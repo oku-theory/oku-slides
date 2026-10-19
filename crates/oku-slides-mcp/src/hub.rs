@@ -58,6 +58,18 @@ pub enum McpEvent {
         name: String,
         removed: bool,
     },
+    /// Lancer la présentation dans l'onglet.
+    Present {
+        /// Écran ou fenêtre.
+        mode: crate::PresentMode,
+    },
+    /// Ouvrir l'historique comme sa propre commande : saisie validée, enregistrement parti d'abord.
+    OpenHistory,
+    /// Changer l'interface (schéma, langue, grille, repères) comme ses propres commandes.
+    Interface {
+        /// Les changements demandés ; absent : inchangé.
+        change: crate::InterfaceChange,
+    },
     /// La portée dont le fil est montré.
     ///
     /// Une autre vue du même onglet (la fenêtre de l'agent) la suit.
@@ -196,9 +208,13 @@ impl SurfaceHub {
                     }
                 }
             }
-            McpEvent::Changed | McpEvent::Focus { .. } | McpEvent::WidgetTouched { .. } | McpEvent::Viewing { .. } => {
-                true
-            }
+            McpEvent::Changed
+            | McpEvent::Focus { .. }
+            | McpEvent::Present { .. }
+            | McpEvent::OpenHistory
+            | McpEvent::Interface { .. }
+            | McpEvent::WidgetTouched { .. }
+            | McpEvent::Viewing { .. } => true,
         };
         if send {
             let _ = self.events.send(event);

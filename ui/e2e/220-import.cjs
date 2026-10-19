@@ -7,6 +7,7 @@
 // E2E_AGENT_LOG (les résultats MCP s'y lisent). Le témoin (office2pdf) tourne pour de vrai : attentes longues.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { openAtelier } = require('./lib/atelier.cjs');
 const { readFileSync, statSync } = require('node:fs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
@@ -95,14 +96,6 @@ const savedTab = (p, id) =>
     SLOW,
   );
 
-/** Le sélecteur de thème du menu ⋯, menu ouvert s'il ne l'est pas. */
-const themeMenu = async (p) => {
-  const combo = p.locator('[role="menu"]').getByRole('combobox', { name: 'Thème', exact: true });
-  if (!(await combo.isVisible())) await p.getByRole('button', { name: 'Menu' }).click();
-  await combo.waitFor();
-  return combo;
-};
-
 /** Aucun tour ne part depuis `from` : ni prompt noté par le faux agent pendant `ms`, ni tour à l'écran. */
 const noTurnSince = async (p, from, ms) => {
   const end = Date.now() + ms;
@@ -190,8 +183,7 @@ const noTurnSince = async (p, from, ms) => {
   // Le deck épingle `base` et son propre pack : celui-ci se lit par son espace de noms.
   const pinOf = (snap) => snap.widgets.deck;
   const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
-  await p.getByRole('button', { name: 'Menu' }).click();
-  await p.getByRole('menuitem', { name: 'Atelier' }).click();
+  await openAtelier(p, hifi);
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
   await p.locator('.brand-note', { hasText: 'Enregistrés dans cette présentation seulement' }).waitFor();
   await p.locator('.doc-name-button').click();
@@ -207,22 +199,18 @@ const noTurnSince = async (p, from, ms) => {
   assert.notEqual(pinOf(back).version, packBefore.version, 'le deck passe à la version enregistrée');
   assert.deepEqual(await api(p, hifi, { cmd: 'template_sets' }), packsBefore, 'la bibliothèque ne change pas');
 
-  // Le thème du deck seul se reprend après Papier, depuis le groupe « Cette présentation » du menu ⋯ (t-903).
+  // Le thème du deck seul se reprend après Papier (t-903) ; l'agent choisit le thème par l'op set_theme (t-988).
   assert.deepEqual(back.theme, importTheme, "l'atelier garde le thème de l'import");
-  await (await themeMenu(p)).selectOption(PAPIER);
-  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).theme?.id === PAPIER, "Papier n'est pas choisi");
+  const setTheme = (theme) => api(p, hifi, { cmd: 'apply', label: 'Thème', ops: [{ op: 'set_theme', theme }], merge: null });
+  await setTheme({ id: PAPIER, version: back.themes.find((th) => th.id === PAPIER).version });
   const onPapier = await api(p, hifi, { cmd: 'snapshot' });
+  assert.equal(onPapier.theme?.id, PAPIER, "Papier n'est pas choisi");
   assert.deepEqual(onPapier.deck_themes.map((th) => th.id), [importTheme.id], "le thème de l'import n'est plus offert");
-  const options = (await themeMenu(p)).locator('optgroup[label="Cette présentation"] option');
-  assert.equal(await options.count(), 1, 'un seul thème de la présentation attendu');
-  const option = options.first();
-  assert.deepEqual([await option.getAttribute('value'), await option.isDisabled()], [importTheme.id, false]);
-  await (await themeMenu(p)).selectOption(importTheme.id);
-  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).theme?.id === importTheme.id, "le thème de l'import ne revient pas");
+  await setTheme(importTheme);
   const repicked = await api(p, hifi, { cmd: 'snapshot' });
+  assert.equal(repicked.theme?.id, importTheme.id, "le thème de l'import ne revient pas");
   assert.equal(repicked.theme.version, importTheme.version, "le thème de l'import revient dans sa version d'origine");
   assert.deepEqual(repicked.themes, onPapier.themes, 'la bibliothèque des thèmes ne change pas');
-  if (await p.locator('[role="menu"]').isVisible()) await p.keyboard.press('Escape');
 
   // 2. Sur mes modèles : le pack par défaut présélectionné, le thème du pack, sans agent.
   const second = await openImport(p, ALTO);
@@ -238,9 +226,6 @@ const noTurnSince = async (p, from, ms) => {
   // Le pack enfant ne vient qu'à la première écriture d'un widget : le deck reste sur le pack de la bibliothèque.
   assert.ok(!snap2.deck_pack, "le retrofit sans widget devrait garder le pack de la bibliothèque");
   await p.waitForSelector('.stage img');
-  await p.getByRole('button', { name: 'Menu' }).click();
-  assert.ok(!(await p.getByRole('menuitem', { name: 'Atelier' }).isDisabled()), "l'atelier devrait rester ouvert");
-  await p.keyboard.press('Escape');
   // Sans peaufinage, aucun tour ne part dans l'onglet (le prompt du peaufinage part dès l'onglet prêt).
   await noTurnSince(p, retrofitLog, 4000);
   const retrofitTab = await savedTab(p, retrofit);

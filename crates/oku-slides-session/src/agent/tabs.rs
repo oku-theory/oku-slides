@@ -22,6 +22,15 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
         false
     }
 
+    /// Vrai si `tab` est l'onglet affiché de sa fenêtre : seul il applique les
+    /// évènements de l'agent (présenter, interface, historique).
+    ///
+    /// Par défaut `true` : un hôte à un seul document affiche toujours le sien. Tout hôte à
+    /// plusieurs onglets la remplace (l'app, `serve`), sans quoi un onglet caché les recevrait.
+    fn shown(&self, _tab: &str) -> bool {
+        true
+    }
+
     /// Ouvre `path` dans un nouvel onglet à côté de `tab` (déjà ouvert : son
     /// onglet devient actif) et rend l'onglet du fichier ; bloquant.
     /// L'onglet `tab` et son document restent tels quels.
@@ -61,6 +70,11 @@ impl TabSession {
     /// Vrai si `path` est déjà ouvert dans un autre onglet ; bloquant (verrou).
     pub fn open_elsewhere(&self, path: &Path) -> bool {
         self.sessions.open_elsewhere(&self.tab, path)
+    }
+
+    /// L'onglet est-il affiché (voir [`Sessions::shown`]) ? Bloquant (verrou).
+    pub fn shown(&self) -> bool {
+        self.sessions.shown(&self.tab)
     }
 
     /// Ouvre `path` à côté de cet onglet (voir [`Sessions::open_tab`]) ; bloquant.

@@ -38,19 +38,8 @@ export function t(id: string, args?: Record<string, FluentVariable>): string {
   return message?.value ? bundle.formatPattern(message.value, args) : id;
 }
 
-let available: string[] = [];
 let chosen: string | null = null;
 const listeners = new Set<() => void>();
-
-/** Langues livrées par l'hôte, l'anglais d'abord. */
-export function availableLocales(): string[] {
-  return available;
-}
-
-/** Langue choisie dans les réglages ; `null` : celle du système. */
-export function chosenLocale(): string | null {
-  return chosen;
-}
 
 /** Prévient quand la langue change ; rend de quoi se désabonner. */
 export function onLocaleChange(listener: () => void): () => void {
@@ -61,20 +50,8 @@ export function onLocaleChange(listener: () => void): () => void {
 /** Installe les messages reçus de l'hôte, puis prévient. */
 export function applyMessages(m: Messages): void {
   setMessages(m.locale, m.resources);
-  available = m.available ?? [];
   chosen = m.chosen ?? null;
   for (const listener of listeners) listener();
-}
-
-/** Le nom d'une langue dans elle-même (`de` → « Deutsch »). */
-export function languageName(code: string): string {
-  let name = code;
-  try {
-    name = new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code;
-  } catch {
-    /* moteur sans noms de langues : le code */
-  }
-  return name.charAt(0).toLocaleUpperCase(code) + name.slice(1);
 }
 
 /**

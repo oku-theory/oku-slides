@@ -24,8 +24,6 @@ ui-confirm-quit-templates = Afsluiten zonder de gewijzigde sjablonen op te slaan
 
 ## Meldingen
 
-ui-toast-templates-saved = Sjablonen opgeslagen: { $name }
-ui-toast-moved = Presentatie verplaatst
 ui-toast-copied = Kopie opgeslagen
 ui-toast-field-gone = Het veld dat je bewerkte bestaat niet meer: je invoer is verloren.
 ui-toast-edit-replaced = Deze tekst is veranderd terwijl je hem bewerkte: jouw versie heeft hem vervangen. Ongedaan maken zet de andere terug.
@@ -36,10 +34,6 @@ ui-toolbar-undo = Ongedaan maken
 ui-toolbar-undo-label = Ongedaan maken: { $label }
 ui-toolbar-redo = Opnieuw
 ui-toolbar-redo-label = Opnieuw: { $label }
-ui-toolbar-grid-hide = Raster verbergen
-ui-toolbar-grid-show = Raster tonen
-ui-toolbar-ghosts-hide = Hulplijnen verbergen
-ui-toolbar-ghosts-show = Hulplijnen tonen
 ui-divider-pile = Breedte van de diastapel
 ui-divider-notes = Breedte van de agentdraad
 ui-divider-code = Grootte van de code
@@ -47,20 +41,10 @@ ui-divider-band = Hoogte van de instellingen
 ui-toolbar-theme = Thema
 ui-toolbar-theme-embedded = Thema van het bestand
 ui-toolbar-theme-deck-group = Deze presentatie
-ui-toolbar-save-copy = Kopie opslaan
 ui-toolbar-finish = Klaar
-ui-menu-workshop = Werkplaats
 ui-templates-deck-only = Alleen in deze presentatie opgeslagen
 ui-toolbar-open = Openen
-ui-merge = Samenvoegen met een pdf…
 ui-menu = Menu
-ui-menu-move = Verplaatsen…
-ui-language = Taal
-ui-language-system = Systeemtaal
-ui-scheme = Weergave
-ui-scheme-system = Systeem
-ui-scheme-light = Licht
-ui-scheme-dark = Donker
 ui-toolbar-add-label = Toevoegen aan de dia
 ui-add-kind = { $kind ->
     [card] Kaart
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = Weergeven als grafiek
 ## Bestanden
 
 ui-file-open-prompt = Pad van het te openen bestand (.oku-slides.pdf, .json of .pptx)
-ui-file-merge-prompt = Pad van het bestand om met deze presentatie samen te voegen (.oku-slides.pdf of .json)
 ui-file-filter-presentations = Presentaties
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Opslaan als (volledig pad)
@@ -363,7 +346,6 @@ ui-slide-next = Volgende dia
 ui-present = Presentatie
 ui-present-slide = Dia { $index } van { $count }
 ui-present-screen = Presenteren op volledig scherm
-ui-present-window = Presenteren in het venster
 ui-toolbar-params-hide = Instellingen verbergen
 ui-toolbar-params-show = Instellingen tonen
 ui-help-close = Help sluiten
@@ -427,4 +409,3 @@ ui-update-later = Straks
 ui-update-installing = Update downloaden… { $percent }%
 ui-update-downloading = Update downloaden…
 ui-update-up-to-date = Oku Slides is up-to-date.
-ui-menu-check-updates = Zoeken naar updates…

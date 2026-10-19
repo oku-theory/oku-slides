@@ -76,7 +76,7 @@
         {
          "runs": [
           {
-           "t": "À droite : la conversation avec l'agent et le brouillon de dictée. En haut à droite, le menu de tout ce qui sert rarement."
+           "t": "À droite : la conversation avec l'agent et le brouillon de dictée. En haut à droite, le menu : présenter, ouvrir, l'aide. Tout le reste se demande à l'agent, réglages de l'app compris."
           }
          ]
         }
@@ -234,7 +234,7 @@
            "bold": true
           },
           {
-           "t": " : menu ▸ Atelier. Chaque modèle devient une slide ; « Terminer » ramène au deck."
+           "t": " : demandez l'atelier à l'agent. Chaque modèle devient une slide ; « Terminer » ramène au deck."
           }
          ],
          "list": "bullet"
@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-           "t": " : Papier, Pro ou les vôtres, au menu. Il est indépendant de l'ensemble de modèles. En mode modèles, l'onglet Thème règle ses jetons un par un ; « Terminer » l'enregistre, en copie pour Papier ou Pro."
+           "t": " : Papier, Pro ou les vôtres, à demander à l'agent. Il est indépendant de l'ensemble de modèles. En mode modèles, l'onglet Thème règle ses jetons un par un ; « Terminer » l'enregistre, en copie pour Papier ou Pro."
           }
          ],
          "list": "bullet"
@@ -455,7 +455,7 @@
            "bold": true
           },
           {
-           "t": " : menu ▸ Historique. Un curseur parcourt toutes les versions du fichier ; Restaurer en fait la version courante."
+           "t": " : demandez l'historique à l'agent. Un curseur parcourt toutes les versions du fichier ; Restaurer en fait la version courante."
           }
          ],
          "list": "bullet"
@@ -467,7 +467,7 @@
            "bold": true
           },
           {
-           "t": " : deux copies du même deck, modifiées chacune de leur côté, se fusionnent sans conflit (menu ▸ Fusionner avec un PDF…)."
+           "t": " : deux copies du même deck, modifiées chacune de leur côté, se fusionnent sans conflit (demandez à l'agent de fusionner l'autre PDF)."
           }
          ],
          "list": "bullet"
@@ -570,7 +570,7 @@
            "bold": true
           },
           {
-           "t": " : menu ▸ Atelier édite ses modèles, enregistrés dans cette présentation seulement ; son thème reste au menu Thème, sous « Cette présentation »."
+           "t": " : l'atelier, demandé à l'agent, édite ses modèles, enregistrés dans cette présentation seulement ; son thème reste offert parmi les thèmes, sous « Cette présentation »."
           }
          ],
          "list": "bullet"

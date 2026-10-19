@@ -42,7 +42,7 @@ async function mount(
   const root = createRoot(host);
   mounted = { root, host };
   const picked: string[] = [];
-  await act(async () => root.render(createElement(ThemeMenu, { theme, themeName, themes, deckThemes, onPick: (id: string) => picked.push(id) })));
+  await act(async () => root.render(createElement(ThemeMenu, { theme, themeName, themes, deckThemes, label: "Thème", onPick: (id: string) => picked.push(id) })));
   return { select: host.querySelector("select")!, picked };
 }
 

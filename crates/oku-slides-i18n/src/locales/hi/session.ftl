@@ -32,6 +32,7 @@ session-unsaved = “{ $title }” में बिना सहेजे बद
 session-bad-request = अमान्य अनुरोध: { $reason }
 session-history-not-open = इतिहास खुला नहीं है
 session-in-history = प्रस्तुति बदलने से पहले इतिहास बंद करें
+session-target-exists = वहाँ पहले से एक फ़ाइल है: कोई दूसरा पथ चुनें।
 session-read-only = सहायता केवल पढ़ने के लिए है: इसे बदला नहीं जा सकता
 session-not-help = यह टैब सहायता नहीं है
 session-turn-not-on-top = यह बारी अब आख़िरी बदलाव नहीं है

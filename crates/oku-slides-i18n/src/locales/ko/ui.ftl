@@ -22,8 +22,6 @@ ui-confirm-quit-templates = 수정한 템플릿을 저장하지 않고 종료할
 
 ## 알림
 
-ui-toast-templates-saved = 템플릿을 저장했습니다: { $name }
-ui-toast-moved = 프레젠테이션을 이동했습니다
 ui-toast-copied = 사본을 저장했습니다
 ui-toast-field-gone = 편집하던 필드가 더 이상 없습니다: 입력한 내용이 사라졌습니다.
 ui-toast-edit-replaced = 편집하는 동안 이 텍스트가 변경되었습니다: 내 버전으로 대체되었습니다. 실행 취소하면 다른 버전이 복원됩니다.
@@ -34,10 +32,6 @@ ui-toolbar-undo = 실행 취소
 ui-toolbar-undo-label = 실행 취소: { $label }
 ui-toolbar-redo = 다시 실행
 ui-toolbar-redo-label = 다시 실행: { $label }
-ui-toolbar-grid-hide = 그리드 숨기기
-ui-toolbar-grid-show = 그리드 표시
-ui-toolbar-ghosts-hide = 안내선 숨기기
-ui-toolbar-ghosts-show = 안내선 표시
 ui-divider-pile = 슬라이드 더미 너비
 ui-divider-notes = 에이전트 스레드 너비
 ui-divider-code = 코드 크기
@@ -45,20 +39,10 @@ ui-divider-band = 설정 높이
 ui-toolbar-theme = 테마
 ui-toolbar-theme-embedded = 파일의 테마
 ui-toolbar-theme-deck-group = 이 프레젠테이션
-ui-toolbar-save-copy = 사본 저장
 ui-toolbar-finish = 완료
-ui-menu-workshop = 작업실
 ui-templates-deck-only = 이 프레젠테이션에만 저장됨
 ui-toolbar-open = 열기
-ui-merge = PDF와 병합…
 ui-menu = 메뉴
-ui-menu-move = 이동…
-ui-language = 언어
-ui-language-system = 시스템 언어
-ui-scheme = 화면 모드
-ui-scheme-system = 시스템
-ui-scheme-light = 밝게
-ui-scheme-dark = 어둡게
 ui-toolbar-add-label = 슬라이드에 추가
 ui-add-kind = { $kind ->
     [card] 카드
@@ -323,7 +307,6 @@ ui-undo-show-as-chart = 차트로 표시
 ## 파일
 
 ui-file-open-prompt = 열 파일의 경로 (.oku-slides.pdf, .json 또는 .pptx)
-ui-file-merge-prompt = 이 프레젠테이션에 병합할 파일의 경로 (.oku-slides.pdf 또는 .json)
 ui-file-filter-presentations = 프레젠테이션
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = 다른 이름으로 저장 (전체 경로)
@@ -361,7 +344,6 @@ ui-slide-next = 다음 슬라이드
 ui-present = 프레젠테이션
 ui-present-slide = 슬라이드 { $index } / { $count }
 ui-present-screen = 전체 화면으로 발표
-ui-present-window = 창에서 발표
 ui-toolbar-params-hide = 설정 숨기기
 ui-toolbar-params-show = 설정 표시
 ui-help-close = 도움말 닫기
@@ -422,4 +404,3 @@ ui-update-later = 나중에
 ui-update-installing = 업데이트 다운로드 중… { $percent }%
 ui-update-downloading = 업데이트 다운로드 중…
 ui-update-up-to-date = Oku Slides가 최신 버전입니다.
-ui-menu-check-updates = 업데이트 확인…

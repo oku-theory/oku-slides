@@ -3,6 +3,8 @@
 // Contre `oku-slides serve fixtures/roadmap.json` (thème Papier). Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { openAtelier } = require('./lib/atelier.cjs');
+const { activeSnapshot } = require('./lib/http.cjs');
 const { stageSvg } = require('./lib/stage.cjs');
 const { untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -26,8 +28,7 @@ const RED = /#ff0000/i;
   await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
   const tab = p.getByRole('tab', { name: 'Thème', exact: true });
   if (!(await tab.isVisible())) {
-    await p.getByRole('button', { name: 'Menu' }).click();
-    await p.getByRole('menuitem', { name: 'Atelier' }).click();
+    await openAtelier(p);
   }
   await tab.click();
   await p.waitForSelector(`${SURFACE} .a2ui-disclosure`);
@@ -54,12 +55,8 @@ const RED = /#ff0000/i;
   // Le brouillon est enregistré dans la bibliothèque sous « Papier (copie) », thème du deck.
   await p.getByRole('button', { name: 'Terminer' }).click();
   await p.waitForSelector('#theme-panel', { state: 'detached' });
-  await p.getByRole('button', { name: 'Menu' }).click();
-  const themes = p.locator('[role="menu"]').getByRole('combobox', { name: 'Thème', exact: true });
-  await themes.waitFor();
-  const selected = () => themes.evaluate((s) => s.selectedOptions[0]?.textContent ?? '');
-  await untilValue(p, selected, (name) => name === 'Papier (copie)', 'le thème du deck n\'est pas « Papier (copie) »');
-  await p.keyboard.press('Escape');
+  const deckTheme = async () => (await activeSnapshot(p)).theme_name;
+  await untilValue(p, deckTheme, (name) => name === 'Papier (copie)', 'le thème du deck n\'est pas « Papier (copie) »');
   // Hors du mode modèles, la scène garde l'accent rouge.
   await untilValue(p, () => stageSvg(p), (svg) => RED.test(svg), "hors du mode modèles, la scène perd l'accent rouge");
 

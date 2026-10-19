@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use oku_slides_session::{Request, Session, TokenOp};
+use oku_slides_session::{Request, Session, TokenOp, deck_path};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -53,7 +53,7 @@ pub(crate) struct EditThemeArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetSettingArgs {
-    /// `dictation.model` (apple|turbo|large|base), `dictation.language` (code ou null), `dictation.auto_stop`, `dictation.silence`, `i18n.locale`, `history.limit`, `stt.vad.<clé>`.
+    /// `dictation.model` (apple|turbo|large|base), `dictation.language` (code ou null), `dictation.auto_stop`, `dictation.silence`, `history.limit`, `stt.vad.<clé>`.
     pub key: String,
     pub value: Value,
 }
@@ -124,21 +124,46 @@ impl Tools {
         tokio::task::spawn_blocking(move || storage.exists(&path).unwrap_or(false)).await.unwrap_or(false)
     }
 
+    /// Le fichier qu'un enregistrement à `raw` écrira vraiment (extension `.oku-slides.pdf`) ;
+    /// refusé sans rien demander s'il est ouvert dans un autre onglet (un fichier ne vit que dans
+    /// un onglet). Le même chemin sert à la vérification, au message et à l'écriture.
+    #[expect(clippy::result_large_err, reason = "le `CallToolResult` d'erreur part directement en réponse à l'agent")]
+    async fn written(&self, raw: &str) -> Result<PathBuf, CallToolResult> {
+        let path = deck_path(&checked(raw).map_err(|e| self.fail_with(e))?);
+        if self.open_elsewhere(&path).await {
+            return Err(self.fail_with(OpenElsewhereSnafu.build()));
+        }
+        Ok(path)
+    }
+
+    /// Le fichier où écrire une copie ou déplacer le deck, refusé sans rien demander hors du mode
+    /// deck ou si un fichier y existe déjà (celui du deck compris ; ne pas le savoir refuse
+    /// aussi). La session le revérifie en écrivant, après la confirmation.
+    #[expect(clippy::result_large_err, reason = "le `CallToolResult` d'erreur part directement en réponse à l'agent")]
+    async fn fresh_target(&self, raw: &str) -> Result<PathBuf, CallToolResult> {
+        let path = self.written(raw).await?;
+        let checked = path.clone();
+        self.with_session(move |s| {
+            s.ensure_deck_mode()?;
+            s.ensure_free(&checked)
+        })
+        .await
+        .map_err(|e| self.fail_with(e))?;
+        Ok(path)
+    }
+
     pub(crate) async fn save(&self, args: Value) -> CallToolResult {
         let SaveArgs { path } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let path = match path.as_deref().map(checked).transpose() {
-            Ok(p) => p,
-            Err(e) => return self.fail_with(e),
+        let path = match path {
+            Some(raw) => match self.written(&raw).await {
+                Ok(p) => Some(p),
+                Err(r) => return r,
+            },
+            None => None,
         };
-        // Un fichier ne vit que dans un onglet : refusé sans rien demander.
-        if let Some(p) = &path
-            && self.open_elsewhere(p).await
-        {
-            return self.fail_with(OpenElsewhereSnafu.build());
-        }
         let shown = match &path {
             Some(p) => p.display().to_string(),
             None => match self.current_path().await {
@@ -178,6 +203,55 @@ impl Tools {
             Err(e) => Err(TaskSnafu.into_error(e)),
         };
         self.reply(opened, |tab| self.json_result(&json!({ "ok": true, "tab": tab })))
+    }
+
+    /// Déplace le fichier du deck : écrit à `path`, supprime l'ancien.
+    pub(crate) async fn move_file(&self, args: Value) -> CallToolResult {
+        let OpenArgs { path } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let path = match self.fresh_target(&path).await {
+            Ok(p) => p,
+            Err(r) => return r,
+        };
+        let message =
+            self.localizer.current().tr_with("agent-confirm-move", &[("path", path.display().to_string().into())]);
+        self.guarded(message, false, Request::Move { path }).await
+    }
+
+    /// Écrit une copie du deck à `path` ; le deck garde son fichier.
+    pub(crate) async fn save_copy(&self, args: Value) -> CallToolResult {
+        let OpenArgs { path } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let path = match self.fresh_target(&path).await {
+            Ok(p) => p,
+            Err(r) => return r,
+        };
+        let message =
+            self.localizer.current().tr_with("agent-confirm-save-copy", &[("path", path.display().to_string().into())]);
+        self.guarded_with(message, false, move |s| s.save_copy_new(&path)).await
+    }
+
+    /// Fusionne un autre `.oku-slides.pdf` du même deck ; ne s'annule pas.
+    pub(crate) async fn merge(&self, args: Value) -> CallToolResult {
+        let OpenArgs { path } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let path = match checked(&path) {
+            Ok(p) => p,
+            Err(e) => return self.fail_with(e),
+        };
+        // Hors du mode deck, refusé sans rien demander.
+        if let Err(e) = self.with_session(|s| s.ensure_deck_mode()).await {
+            return self.fail_with(e);
+        }
+        let message =
+            self.localizer.current().tr_with("agent-confirm-merge", &[("path", path.display().to_string().into())]);
+        self.guarded(message, true, Request::Merge { path }).await
     }
 
     pub(crate) async fn new_deck(&self) -> CallToolResult {

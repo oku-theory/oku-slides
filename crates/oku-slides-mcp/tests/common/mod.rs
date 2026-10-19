@@ -248,6 +248,51 @@ pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
     (h, tabs)
 }
 
+/// Un `Sessions` où un seul fichier, `open`, est ouvert dans un autre onglet.
+#[derive(Debug)]
+pub struct OneFileElsewhere {
+    session: Arc<Mutex<Session>>,
+    open: std::path::PathBuf,
+}
+
+impl Sessions for OneFileElsewhere {
+    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
+        self.session.with(tab, f)
+    }
+
+    fn open_elsewhere(&self, _tab: &str, path: &std::path::Path) -> bool {
+        path == self.open
+    }
+}
+
+/// Un serveur dont seul `open` est ouvert dans un autre onglet (voir [`OneFileElsewhere`]).
+pub async fn start_with_one_file_elsewhere(open: std::path::PathBuf) -> Harness {
+    let (platform, session, data) = prepared().await;
+    let session = Arc::new(Mutex::new(session));
+    start_with((platform, data), Arc::new(OneFileElsewhere { session: session.clone(), open }), session).await
+}
+
+/// Un `Sessions` dont l'onglet est derrière un autre dans sa fenêtre : il n'est pas affiché.
+#[derive(Debug)]
+pub struct HiddenTab(Arc<Mutex<Session>>);
+
+impl Sessions for HiddenTab {
+    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
+        self.0.with(tab, f)
+    }
+
+    fn shown(&self, _tab: &str) -> bool {
+        false
+    }
+}
+
+/// Un serveur pour un onglet caché (voir [`HiddenTab`]).
+pub async fn start_hidden() -> Harness {
+    let (platform, session, data) = prepared().await;
+    let session = Arc::new(Mutex::new(session));
+    start_with((platform, data), Arc::new(HiddenTab(session.clone())), session).await
+}
+
 /// Un `Sessions` qui retient le prochain accès à la session jusqu'à ce que le test le relâche
 /// (voir [`Gate`]) : de quoi faire durer un appel d'outil pendant que les tours changent.
 #[derive(Debug)]

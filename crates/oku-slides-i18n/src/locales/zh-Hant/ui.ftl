@@ -24,8 +24,6 @@ ui-confirm-quit-templates = 要結束而不儲存已修改的範本嗎？
 
 ## 通知
 
-ui-toast-templates-saved = 範本已儲存：{ $name }
-ui-toast-moved = 簡報已移動
 ui-toast-copied = 副本已儲存
 ui-toast-field-gone = 正在編輯的欄位已不存在：輸入的內容已遺失。
 ui-toast-edit-replaced = 此文字在你編輯期間被更改：你的版本已取代它。還原可恢復另一個版本。
@@ -36,10 +34,6 @@ ui-toolbar-undo = 還原
 ui-toolbar-undo-label = 還原：{ $label }
 ui-toolbar-redo = 重做
 ui-toolbar-redo-label = 重做：{ $label }
-ui-toolbar-grid-hide = 隱藏格線
-ui-toolbar-grid-show = 顯示格線
-ui-toolbar-ghosts-hide = 隱藏參考線
-ui-toolbar-ghosts-show = 顯示參考線
 ui-divider-pile = 投影片堆寬度
 ui-divider-notes = AI 代理對話寬度
 ui-divider-code = 程式碼大小
@@ -47,20 +41,10 @@ ui-divider-band = 設定區高度
 ui-toolbar-theme = 主題
 ui-toolbar-theme-embedded = 檔案主題
 ui-toolbar-theme-deck-group = 此簡報
-ui-toolbar-save-copy = 儲存副本
 ui-toolbar-finish = 完成
-ui-menu-workshop = 工作室
 ui-templates-deck-only = 僅儲存在此簡報中
 ui-toolbar-open = 開啟
-ui-merge = 與 PDF 合併…
 ui-menu = 選單
-ui-menu-move = 移動…
-ui-language = 語言
-ui-language-system = 系統語言
-ui-scheme = 外觀
-ui-scheme-system = 跟隨系統
-ui-scheme-light = 淺色
-ui-scheme-dark = 深色
 ui-toolbar-add-label = 新增至投影片
 ui-add-kind = { $kind ->
     [card] 卡片
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = 顯示為圖表
 ## 檔案
 
 ui-file-open-prompt = 要開啟的檔案路徑（.oku-slides.pdf、.json 或 .pptx）
-ui-file-merge-prompt = 要合併到此簡報的檔案路徑（.oku-slides.pdf 或 .json）
 ui-file-filter-presentations = 簡報
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = 另存為（完整路徑）
@@ -363,7 +346,6 @@ ui-slide-next = 下一張投影片
 ui-present = 簡報
 ui-present-slide = 第{ $index }張，共 { $count }張
 ui-present-screen = 全螢幕簡報
-ui-present-window = 在視窗中簡報
 ui-toolbar-params-hide = 隱藏設定
 ui-toolbar-params-show = 顯示設定
 ui-help-close = 關閉說明
@@ -424,4 +406,3 @@ ui-update-later = 稍後
 ui-update-installing = 正在下載更新… { $percent }%
 ui-update-downloading = 正在下載更新…
 ui-update-up-to-date = Oku Slides 已是最新版本。
-ui-menu-check-updates = 檢查更新…

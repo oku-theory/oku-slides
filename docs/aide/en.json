@@ -76,7 +76,7 @@
         {
          "runs": [
           {
-           "t": "On the right: the conversation with the agent and the dictation draft. Top right, one menu for everything rare."
+           "t": "On the right: the conversation with the agent and the dictation draft. Top right, the menu: present, open, help. Everything else, app settings included, you ask the agent."
           }
          ]
         }
@@ -234,7 +234,7 @@
            "bold": true
           },
           {
-           "t": ": menu ▸ Workshop. Each template becomes a slide; “Done” brings the deck back."
+           "t": ": ask the agent for the workshop. Each template becomes a slide; “Done” brings the deck back."
           }
          ],
          "list": "bullet"
@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-           "t": ": Papier, Pro or your own, from the menu. It is independent of the template set. In template mode, the Theme tab sets its tokens one by one; “Done” saves it, as a copy for Papier or Pro."
+           "t": ": Papier, Pro or your own, ask the agent. It is independent of the template set. In template mode, the Theme tab sets its tokens one by one; “Done” saves it, as a copy for Papier or Pro."
           }
          ],
          "list": "bullet"
@@ -455,7 +455,7 @@
            "bold": true
           },
           {
-           "t": ": menu ▸ History. A slider walks every version in the file; Restore makes one current again."
+           "t": ": ask the agent for the history. A slider walks every version in the file; Restore makes one current again."
           }
          ],
          "list": "bullet"
@@ -467,7 +467,7 @@
            "bold": true
           },
           {
-           "t": ": two copies of the same deck, edited separately, merge without conflicts (menu ▸ Merge with a PDF…)."
+           "t": ": two copies of the same deck, edited separately, merge without conflicts (ask the agent to merge the other PDF)."
           }
          ],
          "list": "bullet"
@@ -570,7 +570,7 @@
            "bold": true
           },
           {
-           "t": ": menu ▸ Workshop edits its templates, saved in this presentation only; its theme stays in the Theme menu, under “This presentation”."
+           "t": ": the workshop, asked of the agent, edits its templates, saved in this presentation only; its theme stays offered among the themes, under “This presentation”."
           }
          ],
          "list": "bullet"

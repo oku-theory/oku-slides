@@ -109,8 +109,8 @@ adjusts the slides the witness flags (`[import] witness`) with the tools
 in a row without gain, and `tune_global` (default 3) for theme and pack changes,
 which change the whole deck.
 Hi-fi packs and themes belong to the deck: the pack workshop edits them from the
-version the deck embeds and saves them in the deck, never in the library; the theme
-menu keeps offering the hi-fi theme under “This presentation” after another is picked. A retrofit deck stays on the library pack until a widget is
+version the deck embeds and saves them in the deck, never in the library; the hi-fi
+theme stays offered under “This presentation” after another is picked. A retrofit deck stays on the library pack until a widget is
 written for it; that first write moves it onto its own copy of the pack, deck-only too.
 
 ## Running the app
@@ -147,7 +147,8 @@ temporary directory to keep your own data untouched.
 - **Sheet** (middle): the slide exactly as it prints; elements are selected, moved
   and edited right on it.
 - **Thread** (right): the conversation with the agent and the dictation draft. The
-  menu at the top right holds everything rarely used.
+  menu only presents, opens a file and shows help: everything else, app settings
+  included, is asked of the agent, so the app runs without keyboard or mouse.
 
 ### Editing by hand
 
@@ -188,7 +189,7 @@ deck's template set.
 - **Grid**: every slide has a grid (12 × 6 by default), set in its template (template mode,
   template settings); slides created from the template inherit it.
   Snapping is always on: an element covers a block of cells, moves cell by cell
-  (mouse or arrows), and each corner snaps to the nodes. ⌘' (or menu ▸ Show the grid)
+  (mouse or arrows), and each corner snaps to the nodes. ⌘' (or ask the agent)
   shows the nodes; during a drag they show anyway. The geometry is computed
   identically by `ui/src/grid.ts` (editing) and `grid-frame` in `typst/oku-slides/src/zone.typ`
   (rendering).
@@ -196,13 +197,13 @@ deck's template set.
   `templates/<id>/pack.json`: Essentiel, Grilles; user sets in the app data folder).
   A set does not depend on the theme: a deck picks its set and its theme
   independently.
-- **Editing templates** (menu ▸ Workshop): each template becomes a slide edited like
+- **Editing templates** (ask the agent for the workshop): each template becomes a slide edited like
   any other (grid, elements, texts), with its name and description. A built-in set is
   saved as a copy; the deck is set aside and comes back with “Done”.
 - **Themes**: a theme is a set of design tokens (colors, fonts, sizes, margins,
   components), versioned like template sets. Papier and Pro are built in
   (`typst/oku-slides/themes/*.json`); user themes go to the `themes/` folder of the
-  app data. The menu picks the deck's theme; the deck embeds its version, and a
+  app data. The agent picks the deck's theme; the deck embeds its version, and a
   received file keeps its own (“File theme”). In template mode, the Theme tab sets
   tokens one by one (filter, state of each token, ↺): the sheet follows every change,
   and “Done” saves the draft, as a copy (“Papier (copy)”) for a built-in theme.
@@ -213,9 +214,9 @@ deck's template set.
   `Documents/Oku Slides` (`[paths] decks`).
 - **Tabs and windows**: one deck per tab, several windows; everything comes back at
   next launch.
-- **History** (menu ▸ History): a slider walks every version stored in the file;
+- **History** (ask the agent): a slider walks every version stored in the file;
   Restore makes one current again.
-- **Merge** (menu ▸ Merge with a PDF…): two copies of the same deck, edited
+- **Merge** (ask the agent to merge the other PDF): two copies of the same deck, edited
   separately, merge without conflicts. Deck sources are a Loro CRDT (see
   [ADR 0002](docs/adr/0002-sources-du-deck-en-crdt-loro.md) and
   [ADR 0005](docs/adr/0005-elements-d-une-slide-en-arbre-loro.md)).

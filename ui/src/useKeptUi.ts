@@ -2,10 +2,8 @@
 // largeurs des colonnes, code des widgets (affiché, largeur), hauteur de la bande, sections repliées, sous-onglets.
 
 import { useEffect, useState } from "react";
-import type { MenuEntry } from "./ActionMenu";
 import type { PileSectionName, UiOrder, UiState } from "./api";
 import { REAL_TIMERS, type Timers } from "./debounce";
-import { t } from "./i18n";
 import { randomId } from "./randomId";
 import type { KeptTabs } from "./widgetTabs";
 
@@ -53,7 +51,7 @@ type KeyLike = Parameters<typeof viewToggle>[0] & { preventDefault(): void };
 /** Largeurs choisies aux séparateurs, en px ; `null` : largeur par défaut. */
 export type ColumnWidths = Pick<UiState, "pile" | "notes">;
 
-/** L'état d'interface gardé : grille et fantômes (entrées de menu, raccourcis), colonnes, code des widgets, sections repliées. */
+/** L'état d'interface gardé : grille et fantômes (raccourcis, agent), colonnes, code des widgets, sections repliées. */
 export interface KeptUi {
   grid: boolean;
   ghosts: boolean;
@@ -76,7 +74,10 @@ export interface KeptUi {
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
   setFolded: (section: PileSectionName, folded: boolean) => void;
-  entries: MenuEntry[];
+  /** Montre ou cache la grille (demandé par l'agent). */
+  setGrid: (on: boolean) => void;
+  /** Montre ou cache les repères des champs vides (demandé par l'agent). */
+  setGhosts: (on: boolean) => void;
   /** Prend ⌘' / ⌘⇧G (et empêche l'action par défaut) ; dit s'il a pris la touche. */
   handleKey: (e: KeyLike) => boolean;
 }
@@ -128,10 +129,6 @@ export function useKeptUi(
   const setFolded = (section: PileSectionName, fold: boolean) =>
     setFoldedList((list) => (list.includes(section) === fold ? list : fold ? [...list, section] : list.filter((s) => s !== section)));
   const flip = (which: "grid" | "ghosts") => (which === "grid" ? setGrid : setGhosts)((v) => !v);
-  const entries: MenuEntry[] = [
-    { kind: "item", label: t(grid ? "ui-toolbar-grid-hide" : "ui-toolbar-grid-show"), shortcut: "⌘'", onSelect: () => flip("grid") },
-    { kind: "item", label: t(ghosts ? "ui-toolbar-ghosts-hide" : "ui-toolbar-ghosts-show"), shortcut: "⌘⇧G", onSelect: () => flip("ghosts") },
-  ];
   const handleKey = (e: KeyLike) => {
     const which = viewToggle(e);
     if (!which) return false;
@@ -139,5 +136,5 @@ export function useKeptUi(
     flip(which);
     return true;
   };
-  return { grid, ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, band, setBand, folded, setFolded, entries, handleKey };
+  return { grid, ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, band, setBand, folded, setFolded, setGrid, setGhosts, handleKey };
 }

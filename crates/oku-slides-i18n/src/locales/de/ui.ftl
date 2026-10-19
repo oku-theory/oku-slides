@@ -24,8 +24,6 @@ ui-confirm-quit-templates = Beenden, ohne die geänderten Vorlagen zu speichern?
 
 ## Meldungen
 
-ui-toast-templates-saved = Vorlagen gespeichert: { $name }
-ui-toast-moved = Präsentation verschoben
 ui-toast-copied = Kopie gespeichert
 ui-toast-field-gone = Das bearbeitete Feld existiert nicht mehr: Die Eingabe ist verloren.
 ui-toast-edit-replaced = Dieser Text wurde während Ihrer Eingabe geändert: Ihre Fassung hat ihn ersetzt. Rückgängig stellt die andere wieder her.
@@ -36,10 +34,6 @@ ui-toolbar-undo = Rückgängig
 ui-toolbar-undo-label = Rückgängig: { $label }
 ui-toolbar-redo = Wiederholen
 ui-toolbar-redo-label = Wiederholen: { $label }
-ui-toolbar-grid-hide = Raster ausblenden
-ui-toolbar-grid-show = Raster einblenden
-ui-toolbar-ghosts-hide = Hilfslinien ausblenden
-ui-toolbar-ghosts-show = Hilfslinien einblenden
 ui-divider-pile = Breite des Folienstapels
 ui-divider-notes = Breite des Agenten-Verlaufs
 ui-divider-code = Codegröße
@@ -47,20 +41,10 @@ ui-divider-band = Höhe der Einstellungen
 ui-toolbar-theme = Design
 ui-toolbar-theme-embedded = Design der Datei
 ui-toolbar-theme-deck-group = Diese Präsentation
-ui-toolbar-save-copy = Kopie speichern
 ui-toolbar-finish = Fertig
-ui-menu-workshop = Werkstatt
 ui-templates-deck-only = Nur in dieser Präsentation gespeichert
 ui-toolbar-open = Öffnen
-ui-merge = Mit PDF zusammenführen…
 ui-menu = Menü
-ui-menu-move = Verschieben…
-ui-language = Sprache
-ui-language-system = Systemsprache
-ui-scheme = Erscheinungsbild
-ui-scheme-system = System
-ui-scheme-light = Hell
-ui-scheme-dark = Dunkel
 ui-toolbar-add-label = Zur Folie hinzufügen
 ui-add-kind = { $kind ->
     [card] Karte
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = Als Diagramm anzeigen
 ## Dateien
 
 ui-file-open-prompt = Pfad der zu öffnenden Datei (.oku-slides.pdf, .json oder .pptx)
-ui-file-merge-prompt = Pfad der Datei, die mit dieser Präsentation zusammengeführt wird (.oku-slides.pdf oder .json)
 ui-file-filter-presentations = Präsentationen
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Speichern unter (vollständiger Pfad)
@@ -363,7 +346,6 @@ ui-slide-next = Nächste Folie
 ui-present = Präsentation
 ui-present-slide = Folie { $index } von { $count }
 ui-present-screen = Im Vollbild präsentieren
-ui-present-window = Im Fenster präsentieren
 ui-toolbar-params-hide = Einstellungen ausblenden
 ui-toolbar-params-show = Einstellungen einblenden
 ui-help-close = Hilfe schließen
@@ -424,4 +406,3 @@ ui-update-later = Später
 ui-update-installing = Update wird heruntergeladen … { $percent } %
 ui-update-downloading = Update wird heruntergeladen …
 ui-update-up-to-date = Oku Slides ist auf dem neuesten Stand.
-ui-menu-check-updates = Nach Updates suchen …

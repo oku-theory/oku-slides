@@ -113,6 +113,10 @@ impl Sessions for AppSessions {
         Workspace::lock(&self.workspace).open_elsewhere(tab, path)
     }
 
+    fn shown(&self, tab: &str) -> bool {
+        Workspace::lock(&self.workspace).tab_shown(tab)
+    }
+
     /// Le fichier dans un nouvel onglet de la fenêtre de `tab` ; les fenêtres
     /// suivent, l'onglet ouvert passe devant (hors du fil principal : un outil).
     fn open_tab(&self, tab: &str, path: &std::path::Path) -> oku_slides_session::Result<String> {

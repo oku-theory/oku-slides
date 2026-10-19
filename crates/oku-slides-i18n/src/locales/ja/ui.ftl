@@ -24,8 +24,6 @@ ui-confirm-quit-templates = 変更したテンプレートを保存せずに終�
 
 ## トースト
 
-ui-toast-templates-saved = テンプレートを保存しました：{ $name }
-ui-toast-moved = プレゼンテーションを移動しました
 ui-toast-copied = コピーを保存しました
 ui-toast-field-gone = 編集中のフィールドはもう存在しません。入力内容は失われました。
 ui-toast-edit-replaced = 編集中にこのテキストが変更されました。あなたの版で置き換えました。取り消すと、もう一方に戻ります。
@@ -36,10 +34,6 @@ ui-toolbar-undo = 取り消す
 ui-toolbar-undo-label = 取り消す：{ $label }
 ui-toolbar-redo = やり直す
 ui-toolbar-redo-label = やり直す：{ $label }
-ui-toolbar-grid-hide = グリッドを隠す
-ui-toolbar-grid-show = グリッドを表示
-ui-toolbar-ghosts-hide = ガイドを隠す
-ui-toolbar-ghosts-show = ガイドを表示
 ui-divider-pile = スライド一覧の幅
 ui-divider-notes = エージェントのスレッドの幅
 ui-divider-code = コードのサイズ
@@ -47,20 +41,10 @@ ui-divider-band = 設定の高さ
 ui-toolbar-theme = テーマ
 ui-toolbar-theme-embedded = ファイルのテーマ
 ui-toolbar-theme-deck-group = このプレゼンテーション
-ui-toolbar-save-copy = コピーを保存
 ui-toolbar-finish = 完了
-ui-menu-workshop = 工房
 ui-templates-deck-only = このプレゼンテーションにのみ保存されます
 ui-toolbar-open = 開く
-ui-merge = PDF と統合…
 ui-menu = メニュー
-ui-menu-move = 移動…
-ui-language = 言語
-ui-language-system = システムの言語
-ui-scheme = 外観
-ui-scheme-system = システム
-ui-scheme-light = ライト
-ui-scheme-dark = ダーク
 ui-toolbar-add-label = スライドに追加
 ui-add-kind = { $kind ->
     [card] カード
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = グラフとして表示
 ## ファイル
 
 ui-file-open-prompt = 開くファイルのパス（.oku-slides.pdf、.json または .pptx）
-ui-file-merge-prompt = このプレゼンテーションに統合するファイルのパス（.oku-slides.pdf または .json）
 ui-file-filter-presentations = プレゼンテーション
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = 名前を付けて保存（フルパス）
@@ -363,7 +346,6 @@ ui-slide-next = 次のスライド
 ui-present = プレゼンテーション
 ui-present-slide = スライド { $index } / { $count }
 ui-present-screen = フルスクリーンで発表
-ui-present-window = ウインドウ内で発表
 ui-toolbar-params-hide = 設定を隠す
 ui-toolbar-params-show = 設定を表示
 ui-help-close = ヘルプを閉じる
@@ -424,4 +406,3 @@ ui-update-later = 後で
 ui-update-installing = アップデートをダウンロード中… { $percent }%
 ui-update-downloading = アップデートをダウンロード中…
 ui-update-up-to-date = Oku Slides は最新です。
-ui-menu-check-updates = アップデートを確認…

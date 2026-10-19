@@ -92,6 +92,8 @@ pub enum SessionErrorKind {
     HistoryNotOpen,
     /// Modifier, enregistrer ou fusionner pendant que l'historique est ouvert.
     InHistory,
+    /// Un fichier existe déjà là où déplacer ou copier le deck.
+    TargetExists,
     /// Modifier l'aide, montrée en lecture seule.
     ReadOnly,
     /// Requête réservée à l'aide.
@@ -223,6 +225,8 @@ pub(crate) enum SessionInner {
     HistoryNotOpen { backtrace: Backtrace },
     #[snafu(display("close the history first"))]
     InHistory { backtrace: Backtrace },
+    #[snafu(display("a file already exists at {}", path.display()))]
+    TargetExists { path: PathBuf, backtrace: Backtrace },
     #[snafu(display("the help is read-only"))]
     ReadOnly { backtrace: Backtrace },
     #[snafu(display("this tab is not the help"))]
@@ -323,6 +327,7 @@ impl SessionError {
             MergeUnrelated { .. } => SessionErrorKind::MergeUnrelated,
             HistoryNotOpen { .. } => SessionErrorKind::HistoryNotOpen,
             InHistory { .. } => SessionErrorKind::InHistory,
+            TargetExists { .. } => SessionErrorKind::TargetExists,
             ReadOnly { .. } => SessionErrorKind::ReadOnly,
             NotHelp { .. } => SessionErrorKind::NotHelp,
             TurnNotOnTop { .. } => SessionErrorKind::TurnNotOnTop,
@@ -481,6 +486,7 @@ impl Localize for SessionError {
             MergeUnrelated { .. } => l.tr("replica-unrelated"),
             HistoryNotOpen { .. } => l.tr("session-history-not-open"),
             InHistory { .. } => l.tr("session-in-history"),
+            TargetExists { .. } => l.tr("session-target-exists"),
             ReadOnly { .. } => l.tr("session-read-only"),
             NotHelp { .. } => l.tr("session-not-help"),
             TurnNotOnTop { .. } => l.tr("session-turn-not-on-top"),

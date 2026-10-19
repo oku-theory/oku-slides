@@ -56,11 +56,6 @@ const notify = () => {
 const systemDark = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
 systemDark?.addEventListener("change", notify);
 
-/** Schéma choisi dans les réglages ; `null` : celui du système. */
-export function chosenScheme(): SchemeChoice {
-  return chosen;
-}
-
 /** Schéma montré maintenant (le choix, sinon celui du système). */
 export function currentScheme(): Scheme {
   return resolveScheme(chosen, systemDark?.matches ?? false);
@@ -110,9 +105,4 @@ export async function changeScheme(choice: SchemeChoice): Promise<void> {
 /** Schéma montré, relu à chaque changement de choix ou du système. */
 export function useScheme(): Scheme {
   return useSyncExternalStore(onSchemeChange, currentScheme);
-}
-
-/** Choix du schéma, relu à chaque changement. */
-export function useSchemeChoice(): SchemeChoice {
-  return useSyncExternalStore(onSchemeChange, chosenScheme);
 }

@@ -32,6 +32,7 @@ session-unsaved = “{ $title }” có thay đổi chưa lưu.
 session-bad-request = Yêu cầu không hợp lệ: { $reason }
 session-history-not-open = Lịch sử chưa được mở
 session-in-history = Hãy đóng lịch sử trước khi thay đổi bản trình bày
+session-target-exists = Đã có một tệp ở đó: hãy chọn đường dẫn khác.
 session-read-only = Trợ giúp chỉ để đọc: không thể thay đổi
 session-not-help = Thẻ này không phải trợ giúp
 session-turn-not-on-top = Lượt này không còn là thay đổi gần nhất

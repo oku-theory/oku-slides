@@ -25,6 +25,13 @@ const KEYS: &[&str] = &[
     "agent-error-incomplete",
     "agent-error-no-field",
     "agent-error-no-variant",
+    "agent-error-no-pack",
+    "agent-error-history-not-opened",
+    "agent-error-history-index",
+    "agent-error-present",
+    "agent-error-locale",
+    "agent-error-empty-interface",
+    "agent-error-not-shown",
 ];
 
 #[test]

@@ -261,6 +261,10 @@ export function AgentWindowFor({
         onChanged={reread}
         onFocus={NOOP}
         onWidgetTouched={NOOP}
+        // Présenter, l'interface et l'historique s'appliquent dans la fenêtre principale.
+        onPresent={NOOP}
+        onInterface={NOOP}
+        onOpenHistory={NOOP}
         onDraft={draft.onHost}
         onPicker={agentPicker.onPicker}
         say={say}

@@ -32,6 +32,7 @@ session-unsaved = في «{ $title }» تغييرات غير محفوظة.
 session-bad-request = طلب غير صالح: { $reason }
 session-history-not-open = السجل غير مفتوح
 session-in-history = أغلق السجل قبل تعديل العرض التقديمي
+session-target-exists = يوجد ملف هناك بالفعل: اختر مسارًا آخر.
 session-read-only = التعليمات للقراءة فقط: لا يمكن تعديلها
 session-not-help = هذا التبويب ليس التعليمات
 session-turn-not-on-top = لم يعد هذا الدور آخر تغيير

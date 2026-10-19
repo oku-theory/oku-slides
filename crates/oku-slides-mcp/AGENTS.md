@@ -49,4 +49,5 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Ask no confirmation for edit_theme on a deck-only theme; its new version stays in the deck as one undo step. (t-692)
 - Emit widget_touched only in templates mode. (plan:2026-10-03-widgets-agent-a2ui)
 - Return invalid render or report input to the agent as a readable tool-result error, and display nothing. (spec:2026-10-03-agent-a2ui-design)
+- Change the interface language through set_interface, never set_setting, so every window follows at once. (t-988)
 - Do not expose rename_widget over MCP; the agent writes a new widget and then removes the old one. (spec:2026-10-02-creation-widgets-design)

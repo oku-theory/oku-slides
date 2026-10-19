@@ -2,7 +2,7 @@
 
 import { afterEach, expect, test } from "bun:test";
 import "../test/dom";
-import type { AgentScope, McpEvent, Surface } from "../api";
+import type { AgentScope, InterfaceChange, McpEvent, Surface } from "../api";
 import { CATALOG_ID } from "../a2ui/catalog";
 import type { HostHandlers } from "./events";
 import type { ScopeSource } from "./AgentPanel";
@@ -96,6 +96,9 @@ async function mount({
   const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot() };
   const handle = createRef<import("./AgentPanel").AgentHandle>();
   const focus: [string, string | null][] = [];
+  const presented: string[] = [];
+  const interfaces: InterfaceChange[] = [];
+  let histories = 0;
   let changed = 0;
   const said: string[] = [];
   const Stage = ({ sheet }: { sheet: { owner: string; field?: string } | null }) => {
@@ -135,6 +138,9 @@ async function mount({
         onChanged: () => void changed++,
         onFocus: (slide: string, element: string | null) => void focus.push([slide, element]),
         onWidgetTouched: () => {},
+        onPresent: (mode: string) => void presented.push(mode),
+        onInterface: (change: InterfaceChange) => void interfaces.push(change),
+        onOpenHistory: () => void histories++,
         say: (m: string) => void said.push(m),
         subscribe,
       }),
@@ -155,7 +161,7 @@ async function mount({
   const until = async (cond: () => boolean) => {
     for (let i = 0; i < 50 && !cond(); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   };
-  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, changed: () => changed, said, slots, drafts, promptScopes, resyncs, follows, actions, pickers, selected, pickerSurfaces };
+  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptScopes, resyncs, follows, actions, pickers, selected, pickerSurfaces };
 }
 
 const sheet = surface("q-1", "Choisir", { place: "sheet", live: true, question: true, anchor: { slide: "s1", owner: "e1" } });
@@ -208,6 +214,25 @@ test("AgentPanel transmet focus et changements, et relit le deck à l'abonnement
   expect(p.changed()).toBe(1);
   await act(async () => p.handlers().onReady?.());
   expect(p.changed()).toBe(2);
+});
+
+test("AgentPanel transmet la présentation demandée par l'agent", async () => {
+  const p = await mount();
+  await p.mcp({ kind: "present", mode: "window" });
+  expect(p.presented).toEqual(["window"]);
+});
+
+test("AgentPanel transmet les changements d'interface demandés par l'agent", async () => {
+  const p = await mount();
+  const change: InterfaceChange = { scheme: "dark", locale: null, grid: null, guides: true };
+  await p.mcp({ kind: "interface", change });
+  expect(p.interfaces).toEqual([change]);
+});
+
+test("AgentPanel transmet l'ouverture de l'historique demandée par l'agent", async () => {
+  const p = await mount();
+  await p.mcp({ kind: "open_history" });
+  expect(p.histories()).toBe(1);
 });
 
 test("AgentPanel la poignée envoie une consigne à l'agent et dit qu'elle est partie", async () => {

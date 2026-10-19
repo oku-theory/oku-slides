@@ -24,8 +24,6 @@ ui-confirm-quit-templates = बदले गए टेम्पलेट सह�
 
 ## सूचनाएँ
 
-ui-toast-templates-saved = टेम्पलेट सहेजे गए: { $name }
-ui-toast-moved = प्रस्तुति ले जाई गई
 ui-toast-copied = प्रति सहेजी गई
 ui-toast-field-gone = आप जिस फ़ील्ड को संपादित कर रहे थे वह अब मौजूद नहीं है: आपका लिखा खो गया।
 ui-toast-edit-replaced = आपके संपादन के दौरान यह टेक्स्ट बदल गया: आपके संस्करण ने उसकी जगह ले ली। पूर्ववत करें दूसरा संस्करण वापस लाता है।
@@ -36,10 +34,6 @@ ui-toolbar-undo = पूर्ववत करें
 ui-toolbar-undo-label = पूर्ववत करें: { $label }
 ui-toolbar-redo = फिर से करें
 ui-toolbar-redo-label = फिर से करें: { $label }
-ui-toolbar-grid-hide = ग्रिड छिपाएँ
-ui-toolbar-grid-show = ग्रिड दिखाएँ
-ui-toolbar-ghosts-hide = गाइड छिपाएँ
-ui-toolbar-ghosts-show = गाइड दिखाएँ
 ui-divider-pile = स्लाइड ढेर की चौड़ाई
 ui-divider-notes = एजेंट थ्रेड की चौड़ाई
 ui-divider-code = कोड का आकार
@@ -47,20 +41,10 @@ ui-divider-band = सेटिंग्स की ऊँचाई
 ui-toolbar-theme = थीम
 ui-toolbar-theme-embedded = फ़ाइल की थीम
 ui-toolbar-theme-deck-group = यह प्रस्तुति
-ui-toolbar-save-copy = कॉपी सहेजें
 ui-toolbar-finish = हो गया
-ui-menu-workshop = कार्यशाला
 ui-templates-deck-only = केवल इसी प्रस्तुति में सहेजे गए
 ui-toolbar-open = खोलें
-ui-merge = PDF के साथ मिलाएँ…
 ui-menu = मेनू
-ui-menu-move = ले जाएँ…
-ui-language = भाषा
-ui-language-system = सिस्टम की भाषा
-ui-scheme = रूप
-ui-scheme-system = सिस्टम
-ui-scheme-light = हल्का
-ui-scheme-dark = गहरा
 ui-toolbar-add-label = स्लाइड में जोड़ें
 ui-add-kind = { $kind ->
     [card] कार्ड
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = चार्ट के रूप में दिखा�
 ## फ़ाइलें
 
 ui-file-open-prompt = खोलने के लिए फ़ाइल का पाथ (.oku-slides.pdf, .json या .pptx)
-ui-file-merge-prompt = इस प्रस्तुति में मिलाने के लिए फ़ाइल का पाथ (.oku-slides.pdf या .json)
 ui-file-filter-presentations = प्रस्तुतियाँ
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = इस रूप में सहेजें (पूरा पाथ)
@@ -363,7 +346,6 @@ ui-slide-next = अगली स्लाइड
 ui-present = प्रस्तुति
 ui-present-slide = स्लाइड { $index } / { $count }
 ui-present-screen = पूर्ण स्क्रीन में प्रस्तुत करें
-ui-present-window = विंडो में प्रस्तुत करें
 ui-toolbar-params-hide = सेटिंग्स छिपाएँ
 ui-toolbar-params-show = सेटिंग्स दिखाएँ
 ui-help-close = सहायता बंद करें
@@ -424,4 +406,3 @@ ui-update-later = बाद में
 ui-update-installing = अपडेट डाउनलोड हो रहा है… { $percent }%
 ui-update-downloading = अपडेट डाउनलोड हो रहा है…
 ui-update-up-to-date = Oku Slides अप-टू-डेट है।
-ui-menu-check-updates = अपडेट खोजें…

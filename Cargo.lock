@@ -6025,6 +6025,7 @@ dependencies = [
  "oku-slides-i18n",
  "oku-slides-platform",
  "oku-slides-session",
+ "rstest",
  "rust-mcp-axum",
  "rust-mcp-sdk",
  "schemars 1.2.2",

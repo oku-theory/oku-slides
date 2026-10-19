@@ -32,6 +32,7 @@ session-unsaved = 「{ $title }」に未保存の変更があります。
 session-bad-request = 無効なリクエスト：{ $reason }
 session-history-not-open = 履歴が開いていません
 session-in-history = プレゼンテーションを変更する前に履歴を閉じてください
+session-target-exists = そこにはすでにファイルがあります。別のパスを選んでください。
 session-read-only = ヘルプは読み取り専用です：変更できません
 session-not-help = このタブはヘルプではありません
 session-turn-not-on-top = このターンはもう最後の変更ではありません

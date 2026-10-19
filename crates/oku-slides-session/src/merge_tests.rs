@@ -2,6 +2,7 @@ use oku_slides_core::MergeReport;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::SessionErrorKind;
 use crate::test_support::touch_elsewhere;
 
 /// Le texte sans les marques d'isolement bidirectionnel de Fluent.
@@ -177,11 +178,43 @@ fn move_to_writes_the_new_file_and_removes_the_old_one() {
 }
 
 #[test]
-fn move_to_its_own_path_keeps_the_file() {
+fn move_to_its_own_path_is_refused_and_keeps_the_file() {
     let d = dir();
     let (mut s, path) = saved(&d);
-    s.move_to(&path).unwrap();
+    let err = s.move_to(&path).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::TargetExists);
     assert_that!(path.exists()).is_true();
+}
+
+#[test]
+fn move_to_an_existing_file_is_refused_and_leaves_it_untouched() {
+    let d = dir();
+    let (mut s, _) = saved(&d);
+    let other = d.0.join("autre.oku-slides.pdf");
+    std::fs::write(&other, b"autre").unwrap();
+    let err = s.move_to(&other).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::TargetExists);
+    assert_that!(std::fs::read(&other).unwrap()).is_equal_to(b"autre".to_vec());
+}
+
+#[test]
+fn save_copy_new_onto_an_existing_file_is_refused_and_leaves_it_untouched() {
+    let d = dir();
+    let (mut s, _) = saved(&d);
+    let other = d.0.join("autre.oku-slides.pdf");
+    std::fs::write(&other, b"autre").unwrap();
+    let err = s.save_copy_new(&other).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::TargetExists);
+    assert_that!(std::fs::read(&other).unwrap()).is_equal_to(b"autre".to_vec());
+}
+
+#[test]
+fn save_copy_new_to_a_free_path_writes_the_copy() {
+    let d = dir();
+    let (mut s, _) = saved(&d);
+    let copy = d.0.join("copie.pdf");
+    s.save_copy_new(&copy).unwrap();
+    assert_that!(d.0.join("copie.oku-slides.pdf").exists()).is_true();
 }
 
 #[test]
@@ -210,4 +243,12 @@ fn save_copy_leaves_unsaved_changes_unsaved() {
     titled(&mut s, "Autre");
     s.save_copy(&d.0.join("copie.oku-slides.pdf")).unwrap();
     assert_that!(s.doc.dirty).is_true();
+}
+
+#[rstest::rstest]
+#[case("/d/deck.oku-slides.pdf", "/d/deck.oku-slides.pdf")]
+#[case("/d/deck.pdf", "/d/deck.oku-slides.pdf")]
+#[case("/d/deck", "/d/deck.oku-slides.pdf")]
+fn deck_path_ends_with_the_deck_extension(#[case] given: &str, #[case] written: &str) {
+    assert_that!(deck_path(Path::new(given))).is_equal_to(PathBuf::from(written));
 }

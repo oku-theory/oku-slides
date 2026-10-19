@@ -54,6 +54,20 @@ pub(crate) enum ToolError {
     Paragraphs { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unexpected action {action}"))]
     UnexpectedAction { action: String, backtrace: Backtrace },
+    #[snafu(display("the tab did not open the history in time"))]
+    HistoryNotOpened { backtrace: Backtrace },
+    #[snafu(display("the deck pins no template pack"))]
+    NoPack { backtrace: Backtrace },
+    #[snafu(display("history seek needs an index"))]
+    HistoryIndex { backtrace: Backtrace },
+    #[snafu(display("nothing to present in this mode"))]
+    NothingToPresent { backtrace: Backtrace },
+    #[snafu(display("unknown locale"))]
+    UnknownLocale { backtrace: Backtrace },
+    #[snafu(display("empty interface change"))]
+    EmptyInterface { backtrace: Backtrace },
+    #[snafu(display("the tab is not the one shown in its window"))]
+    NotShown { backtrace: Backtrace },
     #[snafu(display("response not serializable"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
 }
@@ -84,6 +98,13 @@ impl Localize for ToolError {
             UnexpectedAction { action, .. } => {
                 l.tr_with("agent-error-unexpected-action", &[("action", action.as_str().into())])
             }
+            HistoryNotOpened { .. } => l.tr("agent-error-history-not-opened"),
+            NoPack { .. } => l.tr("agent-error-no-pack"),
+            HistoryIndex { .. } => l.tr("agent-error-history-index"),
+            NothingToPresent { .. } => l.tr("agent-error-present"),
+            UnknownLocale { .. } => l.tr("agent-error-locale"),
+            EmptyInterface { .. } => l.tr("agent-error-empty-interface"),
+            NotShown { .. } => l.tr("agent-error-not-shown"),
             Response { .. } => l.tr("session-response"),
         }
     }

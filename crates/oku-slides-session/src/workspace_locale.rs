@@ -9,15 +9,14 @@ use crate::Localizer;
 use crate::error::{ResponseSnafu, Result};
 
 impl Workspace {
-    /// Les messages de l'interface dans la langue choisie, les langues
-    /// livrées et le choix (`null` : langue du système).
+    /// Les messages de l'interface dans la langue choisie, et le choix
+    /// (`null` : langue du système).
     pub(super) fn messages_json(&self) -> Result<String> {
         let l = self.platform.live_localizer.current();
         let messages = serde_json::json!({
             "locale": l.locale(),
             // Les raccourcis des messages dans la notation de la plateforme (`⌘Z` ou `Ctrl+Z`).
             "resources": l.ui_messages().into_iter().map(oku_slides_i18n::platform_keys).collect::<Vec<_>>(),
-            "available": oku_slides_i18n::available(),
             "chosen": self.chosen_locale,
         });
         Ok(serde_json::to_string(&messages).context(ResponseSnafu)?)

@@ -2,6 +2,7 @@
 // rechargement ; dans une fenêtre étroite, les réglages gardent leur place minimale. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { openAtelier } = require('./lib/atelier.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab:not([hidden])';
 
@@ -41,8 +42,7 @@ const saved = (p, ok) =>
   await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
   const add = p.getByRole('button', { name: 'Nouveau widget' });
   if (!(await add.isVisible())) {
-    await p.getByRole('button', { name: 'Menu' }).click();
-    await p.getByRole('menuitem', { name: 'Atelier' }).click();
+    await openAtelier(p);
   }
   await add.click();
   const name = p.getByRole('textbox', { name: /Nom du widget/ });

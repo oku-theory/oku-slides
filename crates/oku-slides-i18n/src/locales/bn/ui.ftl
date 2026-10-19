@@ -24,8 +24,6 @@ ui-confirm-quit-templates = পরিবর্তিত টেমপ্লেট
 
 ## বিজ্ঞপ্তি
 
-ui-toast-templates-saved = টেমপ্লেট সংরক্ষিত: { $name }
-ui-toast-moved = উপস্থাপনা সরানো হয়েছে
 ui-toast-copied = অনুলিপি সংরক্ষিত
 ui-toast-field-gone = আপনি যে ঘরটি সম্পাদনা করছিলেন সেটি আর নেই: আপনার লেখা হারিয়ে গেছে।
 ui-toast-edit-replaced = আপনি সম্পাদনা করার সময় এই লেখাটি বদলে গেছে: আপনার সংস্করণ সেটির জায়গা নিয়েছে। পূর্বাবস্থায় ফেরান অন্যটি ফিরিয়ে আনে।
@@ -36,10 +34,6 @@ ui-toolbar-undo = পূর্বাবস্থায় ফেরান
 ui-toolbar-undo-label = পূর্বাবস্থায় ফেরান: { $label }
 ui-toolbar-redo = আবার করুন
 ui-toolbar-redo-label = আবার করুন: { $label }
-ui-toolbar-grid-hide = গ্রিড লুকান
-ui-toolbar-grid-show = গ্রিড দেখান
-ui-toolbar-ghosts-hide = গাইড লুকান
-ui-toolbar-ghosts-show = গাইড দেখান
 ui-divider-pile = স্লাইড স্তূপের প্রস্থ
 ui-divider-notes = এজেন্ট থ্রেডের প্রস্থ
 ui-divider-code = কোডের আকার
@@ -47,20 +41,10 @@ ui-divider-band = সেটিংসের উচ্চতা
 ui-toolbar-theme = থিম
 ui-toolbar-theme-embedded = ফাইলের থিম
 ui-toolbar-theme-deck-group = এই উপস্থাপনা
-ui-toolbar-save-copy = একটি কপি সংরক্ষণ করুন
 ui-toolbar-finish = সম্পন্ন
-ui-menu-workshop = কর্মশালা
 ui-templates-deck-only = শুধু এই উপস্থাপনায় সংরক্ষিত
 ui-toolbar-open = খুলুন
-ui-merge = PDF-এর সঙ্গে একত্র করুন…
 ui-menu = মেনু
-ui-menu-move = সরান…
-ui-language = ভাষা
-ui-language-system = সিস্টেমের ভাষা
-ui-scheme = চেহারা
-ui-scheme-system = সিস্টেম
-ui-scheme-light = হালকা
-ui-scheme-dark = গাঢ়
 ui-toolbar-add-label = স্লাইডে যোগ করুন
 ui-add-kind = { $kind ->
     [card] কার্ড
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = চার্ট হিসেবে দেখান
 ## ফাইল
 
 ui-file-open-prompt = যে ফাইল খুলবেন তার পাথ (.oku-slides.pdf, .json বা .pptx)
-ui-file-merge-prompt = এই উপস্থাপনায় যে ফাইল মেলাবেন তার পাথ (.oku-slides.pdf বা .json)
 ui-file-filter-presentations = উপস্থাপনা
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = এই হিসেবে সংরক্ষণ করুন (পূর্ণ পাথ)
@@ -363,7 +346,6 @@ ui-slide-next = পরের স্লাইড
 ui-present = উপস্থাপনা
 ui-present-slide = স্লাইড { $index } / { $count }
 ui-present-screen = পূর্ণ স্ক্রিনে উপস্থাপন করুন
-ui-present-window = উইন্ডোতে উপস্থাপন করুন
 ui-toolbar-params-hide = সেটিংস লুকান
 ui-toolbar-params-show = সেটিংস দেখান
 ui-help-close = সহায়িকা বন্ধ করুন
@@ -424,4 +406,3 @@ ui-update-later = পরে
 ui-update-installing = আপডেট ডাউনলোড হচ্ছে… { $percent }%
 ui-update-downloading = আপডেট ডাউনলোড হচ্ছে…
 ui-update-up-to-date = Oku Slides সর্বশেষ সংস্করণে আছে।
-ui-menu-check-updates = আপডেট খুঁজুন…

@@ -809,19 +809,12 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   display: flex; justify-content: space-between; align-items: center; gap: var(--space-4);
   border: 0; background: none; color: var(--ink); text-align: start; padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer;
 }
-.action-menu-list [role="menuitem"]:hover:not(:disabled), .action-menu-list [role="menuitem"]:focus-visible { background: var(--shade); outline: none; }
-.action-menu-list [role="menuitem"]:disabled { color: var(--ink-muted); cursor: default; }
-.action-menu-hint { display: block; max-width: 260px; margin-top: 2px; }
+.action-menu-list [role="menuitem"]:hover, .action-menu-list [role="menuitem"]:focus-visible { background: var(--shade); outline: none; }
 .action-menu-list kbd { font: inherit; font-size: 12px; color: var(--ink-muted); }
-/* Menu « Widget » de la barre d'ajout : posée sous la feuille, la liste s'ouvre au-dessus. */
+/* Le menu burger de la barre, posée sous la feuille : sa liste s'ouvre au-dessus, alignée sur lui. */
 .tools-tray:has(.action-menu-trigger[aria-expanded="true"]) { z-index: 10; }
 .tools-tray .action-menu-trigger { opacity: 1; }
-.tools-tray .action-menu-list { top: auto; bottom: calc(100% + 8px); inset-inline-end: auto; inset-inline-start: 50%; translate: -50% 0; min-width: 200px; }
-[dir="rtl"] .tools-tray .action-menu-list { translate: 50% 0; }
-/* Le menu burger de la barre : sa liste s'ouvre au-dessus, alignée sur lui. */
-.tools-tray > .action-menu .action-menu-list { inset-inline-start: 0; translate: none; min-width: 260px; }
-.action-menu-sep { border: 0; border-top: 1px solid color-mix(in oklab, var(--edge) 50%, transparent); margin: 5px 4px; }
-.action-menu-custom { padding: 4px 10px; }
+.tools-tray .action-menu-list { top: auto; bottom: calc(100% + 8px); inset-inline-start: 0; inset-inline-end: auto; }
 .menu-theme { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .tab-menu { position: fixed; z-index: 20; display: flex; flex-direction: column; padding: 4px; min-width: 240px; }
 .tab-menu button { border: 0; background: none; color: var(--ink); text-align: start; padding: 6px 10px; border-radius: var(--radius-sm); }

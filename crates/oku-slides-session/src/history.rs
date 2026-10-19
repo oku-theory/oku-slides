@@ -188,15 +188,21 @@ impl Session {
         self.ensure_not_help()
     }
 
-    /// Ouvre l'historique sur la dernière version ; le deck est mis de côté.
-    pub fn history_open(&mut self) -> Result<()> {
+    /// Le deck est-il en mode deck, le seul où ouvrir l'historique, déplacer, copier ou
+    /// fusionner ? Sinon, pourquoi (aide, modèles, historique).
+    pub fn ensure_deck_mode(&self) -> Result<()> {
         self.ensure_not_help()?;
         match self.mode {
-            Mode::Deck => {}
-            Mode::Help { .. } => return ReadOnlySnafu.fail()?,
-            Mode::Templates { .. } => return EditingTemplatesSnafu.fail()?,
-            Mode::History { .. } => return InHistorySnafu.fail()?,
+            Mode::Deck => Ok(()),
+            Mode::Help { .. } => ReadOnlySnafu.fail()?,
+            Mode::Templates { .. } => EditingTemplatesSnafu.fail()?,
+            Mode::History { .. } => InHistorySnafu.fail()?,
         }
+    }
+
+    /// Ouvre l'historique sur la dernière version ; le deck est mis de côté.
+    pub fn history_open(&mut self) -> Result<()> {
+        self.ensure_deck_mode()?;
         let preview = self.doc.sources.history();
         let index = preview.len().saturating_sub(1);
         let (doc, compiled) = self.version_document(&preview, index)?;

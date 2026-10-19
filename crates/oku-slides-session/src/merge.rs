@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 
 use oku_slides_core::{MergeReport, SourceBundle};
 use oku_slides_i18n::Localizer;
-use snafu::ensure;
+use snafu::{ResultExt, ensure};
 
-use crate::error::{EditingTemplatesSnafu, NoPathSnafu, NotOkuSlidesSnafu, merge_error};
+use crate::error::{EditingTemplatesSnafu, NoPathSnafu, NotOkuSlidesSnafu, ReadSnafu, TargetExistsSnafu, merge_error};
 use oku_slides_platform::storage::StorageErrorKind;
 
 use crate::deck_file::{free_path, safe_stem};
@@ -154,9 +154,21 @@ impl Session {
         }
     }
 
-    /// Déplace le fichier du document : écrit à `path` (le dialogue du système
-    /// a fait confirmer un remplacement), puis supprime l'ancien fichier.
+    /// Refuse un `path` où un fichier existe déjà, celui du deck compris ; ne pas pouvoir le
+    /// savoir refuse aussi. Ni déplacer ni copier pour l'agent ne remplacent un fichier.
+    pub fn ensure_free(&self, path: &Path) -> Result<()> {
+        let path = deck_path(path);
+        let taken = self.storage.exists(&path).context(ReadSnafu { path: &path })?;
+        ensure!(!taken, TargetExistsSnafu { path });
+        Ok(())
+    }
+
+    /// Déplace le fichier du document vers `path`, libre (voir [`Session::ensure_free`]),
+    /// puis supprime l'ancien fichier. Vérifié ici, sous le verrou de la session, au moment
+    /// d'écrire : un fichier apparu pendant la confirmation n'est pas remplacé.
     pub fn move_to(&mut self, path: &Path) -> Result<()> {
+        self.ensure_editable()?;
+        self.ensure_free(path)?;
         let old = self.doc.path.clone();
         self.save(Some(path))?;
         if let Some(old) = old
@@ -172,8 +184,17 @@ impl Session {
         Ok(())
     }
 
+    /// [`Session::save_copy`] à un `path` libre (voir [`Session::ensure_free`]), vérifié au
+    /// moment d'écrire.
+    pub fn save_copy_new(&mut self, path: &Path) -> Result<()> {
+        self.ensure_editable()?;
+        self.ensure_free(path)?;
+        self.save_copy(path)
+    }
+
     /// Écrit une copie à `path` ; le document garde son fichier et ses
-    /// modifications à enregistrer.
+    /// modifications à enregistrer. Un fichier existant est remplacé (le dialogue du système
+    /// l'a fait confirmer).
     pub fn save_copy(&mut self, path: &Path) -> Result<()> {
         self.ensure_editable()?;
         let path = self.save_path(Some(path))?;
@@ -189,7 +210,7 @@ impl Session {
     /// place libre du dossier des decks sous le titre ; toujours avec
     /// l'extension `.oku-slides.pdf`.
     fn save_path(&self, path: Option<&Path>) -> Result<PathBuf> {
-        let mut path = match (path, &self.doc.path, &self.decks_dir) {
+        let path = match (path, &self.doc.path, &self.decks_dir) {
             (Some(p), _, _) => p.to_owned(),
             (None, Some(p), _) => p.clone(),
             (None, None, Some(dir)) => {
@@ -198,13 +219,19 @@ impl Session {
             }
             (None, None, None) => NoPathSnafu.fail()?,
         };
-        let name = file_name(&path);
-        if !name.ends_with(EXTENSION) {
-            let stem = name.strip_suffix(".pdf").unwrap_or(&name);
-            path.set_file_name(format!("{stem}{EXTENSION}"));
-        }
-        Ok(path)
+        Ok(deck_path(&path))
     }
+}
+
+/// `path` avec l'extension `.oku-slides.pdf` : celui qu'un enregistrement écrit vraiment.
+pub fn deck_path(path: &Path) -> PathBuf {
+    let mut path = path.to_owned();
+    let name = file_name(&path);
+    if !name.ends_with(EXTENSION) {
+        let stem = name.strip_suffix(".pdf").unwrap_or(&name);
+        path.set_file_name(format!("{stem}{EXTENSION}"));
+    }
+    path
 }
 
 #[cfg(test)]

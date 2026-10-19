@@ -196,6 +196,11 @@ impl Workspace {
         self.recent.iter().rev().find(|label| rects.iter().any(|(l, r)| l == *label && r.contains(x, y))).cloned()
     }
 
+    /// `tab` est-il l'onglet affiché de sa fenêtre ?
+    pub fn tab_shown(&self, tab: &str) -> bool {
+        self.layout.windows.iter().any(|w| w.active == tab)
+    }
+
     /// Label de la fenêtre qui porte l'onglet `tab`.
     pub fn tab_window(&self, tab: &str) -> Option<&str> {
         self.layout.windows.iter().find(|w| w.tabs.iter().any(|t| t == tab)).map(|w| w.label.as_str())

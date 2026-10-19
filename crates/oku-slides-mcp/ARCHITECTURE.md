@@ -1,8 +1,7 @@
 # oku-slides-mcp
 
-Serves the agent's MCP tools for one tab, over streamable HTTP on `127.0.0.1` with a random
-bearer token per launch, and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent
-thread and dock.
+Serves the agent's MCP tools for one tab (HTTP on `127.0.0.1`, random bearer token per launch)
+and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and dock.
 
 ## Modules
 
@@ -13,7 +12,8 @@ thread and dock.
   to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
 - Tool families: `read_tools` (outline, theme_tokens, slide, render, templates, widgets, settings),
   `edit_tools` (undoable deck edits), `widget_tools` (sources, preview, trials),
-  `guarded_tools` (user-confirmed: `save`, `open`, `new`, `edit_theme` but on a deck-only theme, `set_setting`…),
+  `guarded_tools` (user-confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`, `edit_theme`, `set_setting`…),
+  `app_tools` (`history`; opening it, `present` and `set_interface` emit an event the shown tab applies),
   `surface_tools` (`report`, `render`, `ask_*`, `show_*`), `import_tools` (`import_report`,
   `import_diff`: the session's import tuning; its `ReferenceJob` runs in a blocking task, unlocked).
 - `tool_error` : `ToolError`; `Tools::fail_with` logs it whole and tells the agent a localized

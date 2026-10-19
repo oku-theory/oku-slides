@@ -1,5 +1,5 @@
-// Les actions de fichier d'un onglet : ouvrir (un .pptx passe par l'import), fusionner,
-// déplacer, copier, et l'enregistrement automatique.
+// Les actions de fichier d'un onglet : ouvrir (un .pptx passe par l'import), copier, et
+// l'enregistrement automatique. Déplacer et fusionner se demandent à l'agent (t-988).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
@@ -28,22 +28,16 @@ export interface FileActionsContext {
 export function useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick }: FileActionsContext) {
   // Un .pptx ne s'ouvre pas : le dialogue d'import choisit d'abord comment le reprendre.
   const open = async () => {
-    const path = await pickOpenPath(true);
+    const path = await pickOpenPath();
     if (path && isPptx(path)) onImportPick(path);
     else if (path) onOpen(path);
-  };
-
-  /** Fusionne un autre PDF du même deck dans celui de l'onglet. */
-  const merge = async () => {
-    const path = await pickOpenPath();
-    if (path) await run(api.merge(path));
   };
 
   // --- Enregistrement automatique -----------------------------------------
   // On n'enregistre jamais à la main : chaque modification part au fichier
   // (au dossier par défaut pour un deck neuf) peu après la dernière.
   // Un fichier remplacé par un autre deck, et l'écrasement refusé : plus
-  // d'enregistrement automatique jusqu'à un déplacement.
+  // d'enregistrement automatique jusqu'à un déplacement (l'agent, outil `move`).
   const [autosavePaused, setAutosavePaused] = useState(false);
   const pausedRef = useRef(autosavePaused);
   pausedRef.current = autosavePaused;
@@ -53,7 +47,7 @@ export function useFileActions({ api, snap, snapRef, run, say, onOpen, onImportP
         const s = snapRef.current;
         if (!s || !wantsAutosave(s, pausedRef.current)) return;
         if (s.editing) {
-          await run(api.saveTemplates(false));
+          await run(api.saveTemplates());
           return;
         }
         const saved = await run(saveGuarded(api, s));
@@ -64,20 +58,13 @@ export function useFileActions({ api, snap, snapRef, run, say, onOpen, onImportP
   useEffect(() => {
     if (snap && wantsAutosave(snap, autosavePaused)) autosave.schedule();
   }, [snap, autosavePaused, autosave]);
+  // Le deck a changé de fichier (déplacé) : l'enregistrement automatique reprend.
+  const path = snap?.path ?? null;
+  useEffect(() => {
+    setAutosavePaused(false);
+  }, [path]);
   // Onglet quitté (`App` remonté) : ce qui attend part tout de suite.
   useEffect(() => () => void autosave.flush(), [autosave]);
-
-  /** Déplace le fichier du deck ; l'enregistrement automatique reprend. */
-  const moveFile = async () => {
-    if (!snap) return;
-    const path = await pickSavePath(snap.name);
-    if (!path) return;
-    await autosave.flush();
-    if (await run(api.move(path))) {
-      setAutosavePaused(false);
-      say(t("ui-toast-moved"));
-    }
-  };
 
   /** Écrit une copie du deck ailleurs ; il garde son fichier. */
   const saveCopy = async () => {
@@ -87,5 +74,5 @@ export function useFileActions({ api, snap, snapRef, run, say, onOpen, onImportP
     if (await run(api.saveCopy(path))) say(t("ui-toast-copied"));
   };
 
-  return { open, merge, autosave, moveFile, saveCopy };
+  return { open, autosave, saveCopy };
 }

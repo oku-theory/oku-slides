@@ -83,7 +83,7 @@ const FIELD = {
   note: ["note-field", "a2ui-hint"],
   /** Rangée d'un panneau de réglages. */
   row: ["settings-row", "caption"],
-  /** Entrée du menu ⋯. */
+  /** Rangée en ligne : libellé à gauche, contrôle à droite (sélecteur de thème). */
   menu: ["menu-theme", "caption"],
 } as const;
 

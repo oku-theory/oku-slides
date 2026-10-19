@@ -7,6 +7,7 @@ import type { DataOp } from "./chart/chartTypes";
 import type { Cell, ZoneView } from "./grid";
 import { locale } from "./i18n";
 import type { PackNoticeCommand } from "./packNoticeCommand";
+import type { PresentMode } from "./present";
 import type { View } from "./table/ShowAsButton";
 import { host } from "./hostCall";
 
@@ -575,7 +576,6 @@ type Request =
   | { cmd: "snapshot" }
   | { cmd: "save"; path: string | null; overwrite: boolean }
   | { cmd: "merge"; path: string }
-  | { cmd: "move"; path: string }
   | { cmd: "save_copy"; path: string }
   | { cmd: "slide"; id: string }
   | { cmd: "svg"; id: string }
@@ -590,7 +590,6 @@ type Request =
   | { cmd: "close_templates" }
   | { cmd: "delete_template_set"; set: string }
   | { cmd: "pack_use_mine" }
-  | { cmd: "set_theme"; id: string }
   | { cmd: "set_edited_theme"; id: string }
   | { cmd: "rename_edited_theme"; name: string }
   | { cmd: "pack_make_current" }
@@ -629,8 +628,6 @@ export interface SchemeSetting {
 export interface Messages {
   locale: string;
   resources: string[];
-  /** Langues livrées, l'anglais d'abord. */
-  available: string[];
   /** Langue choisie ; `null` : celle du système. */
   chosen: string | null;
 }
@@ -702,7 +699,19 @@ export type McpEvent =
   | { kind: "surfaces"; list: Surface[] }
   | { kind: "surface_patch"; id: string; messages: A2uiMessage[] }
   | { kind: "widget_touched"; name: string; removed: boolean }
+  | { kind: "present"; mode: PresentMode }
+  | { kind: "open_history" }
+  | { kind: "interface"; change: InterfaceChange }
   | { kind: "viewing"; scope: AgentScope };
+
+/** Ce que l'agent change dans l'interface (`set_interface`) ; `null` : inchangé. */
+export interface InterfaceChange {
+  scheme: "light" | "dark" | "system" | null;
+  /** Code d'une langue livrée, ou `system`. */
+  locale: string | null;
+  grid: boolean | null;
+  guides: boolean | null;
+}
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =
@@ -765,8 +774,6 @@ export function tabApi(tab: string) {
     save: (path: string | null, overwrite = false) => call<Snapshot>({ cmd: "save", path, overwrite }),
     /** Fusionne un autre PDF du même deck ; l'avis de fusion arrive par `notice`. */
     merge: (path: string) => call<Snapshot>({ cmd: "merge", path }),
-    /** Déplace le fichier du deck (l'ancien est supprimé). */
-    move: (path: string) => call<Snapshot>({ cmd: "move", path }),
     /** Écrit une copie ailleurs ; le deck garde son fichier. */
     saveCopy: (path: string) => call<Snapshot>({ cmd: "save_copy", path }),
     slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
@@ -798,7 +805,8 @@ export function tabApi(tab: string) {
     templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),
     templateSets: () => call<PackInfo[]>({ cmd: "template_sets" }),
     editTemplates: (set: string) => call<Snapshot>({ cmd: "edit_templates", set }),
-    saveTemplates: (asNew = false) => call<Snapshot>({ cmd: "save_templates", as_new: asNew }),
+    /** Enregistre le pack édité (une copie : l'agent, outil `save_templates`). */
+    saveTemplates: () => call<Snapshot>({ cmd: "save_templates", as_new: false }),
     closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
     deleteTemplateSet: (set: string) => call<PackInfo[]>({ cmd: "delete_template_set", set }),
     /** Fichiers de widgets du pack en cours, `_commun` en tête. */
@@ -810,8 +818,6 @@ export function tabApi(tab: string) {
     renameWidget: (from: string, to: string, pack?: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to, pack }),
     /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
     previewWidget: (name: string, pack?: string) => call<WidgetPreview>({ cmd: "preview_widget", name, pack }),
-    /** Le deck prend le thème `id` dans sa version courante, embarquée (annulable). */
-    setTheme: (id: string) => call<Snapshot>({ cmd: "set_theme", id }),
     /** Mode modèles : le brouillon du thème repart de la version courante du thème `id` (annulable). */
     setEditedTheme: (id: string) => call<Snapshot>({ cmd: "set_edited_theme", id }),
     /** Mode modèles : renomme le thème édité (annulable). */

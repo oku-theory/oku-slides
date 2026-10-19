@@ -32,6 +32,7 @@ session-unsaved = 「{ $title }」有未儲存的變更。
 session-bad-request = 要求無效：{ $reason }
 session-history-not-open = 歷程記錄未開啟
 session-in-history = 請先關閉歷程記錄再修改簡報
+session-target-exists = 該位置已有檔案：請選擇其他路徑。
 session-read-only = 說明為唯讀：無法修改
 session-not-help = 此分頁不是說明
 session-turn-not-on-top = 本輪已不是最後一次變更

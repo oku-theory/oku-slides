@@ -175,7 +175,9 @@ async fn relay_mcp(
                 emit(&out, "mcp", &tab, &McpEvent::Changed);
                 // Les évènements encore en file rejouent ensuite par-dessus : sans
                 // risque : `surface` et `surface_patch` écrivent des clés entières (le rejeu
-                // converge) et `close_surface` est idempotent.
+                // converge) et `close_surface` est idempotent. Une commande de la page perdue
+                // (`present`, `interface`, `open_history`) ne se rejoue pas : son outil a déjà
+                // répondu (l'historique, lui, attend d'être ouvert, et le dit sinon).
                 let Some(hub) = hub.upgrade() else { return };
                 emit(&out, "mcp", &tab, &McpEvent::Viewing { scope: hub.viewing() });
                 let list = hub.visible_surfaces();

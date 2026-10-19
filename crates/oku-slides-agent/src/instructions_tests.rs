@@ -16,6 +16,21 @@ fn instructions_ask_for_report_not_suggest_next() {
     assert_that!(INSTRUCTIONS).does_not_contain("suggest_next");
 }
 
+/// Le menu ne garde que présenter, ouvrir et l'aide : l'agent connaît les outils du reste (t-988).
+#[rstest]
+#[case("save_copy, move, merge")]
+#[case("History: history")]
+#[case("Presenting: present")]
+#[case("set_interface (scheme, locale, grid, guides)")]
+#[case("edit_templates (the deck's own pack")]
+#[case("the set_theme op")]
+fn instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
+    let at = INSTRUCTIONS.find("You also run the app");
+    assert_that!(at).is_some();
+    let app = at.map_or("", |at| &INSTRUCTIONS[at..]);
+    assert_that!(app).contains(listed);
+}
+
 #[test]
 fn languages_rule_names_both_languages_of_the_context() {
     // Les clés que `agent_context` écrit (oku-slides-session).

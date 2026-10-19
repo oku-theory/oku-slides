@@ -22,8 +22,6 @@ ui-confirm-quit-templates = ออกโดยไม่บันทึกเท�
 
 ## การแจ้งเตือน
 
-ui-toast-templates-saved = บันทึกเทมเพลตแล้ว: { $name }
-ui-toast-moved = ย้ายงานนำเสนอแล้ว
 ui-toast-copied = บันทึกสำเนาแล้ว
 ui-toast-field-gone = ช่องที่คุณกำลังแก้ไขไม่มีอยู่แล้ว: ข้อความที่พิมพ์สูญหาย
 ui-toast-edit-replaced = ข้อความนี้เปลี่ยนไประหว่างที่คุณแก้ไข: ฉบับของคุณแทนที่แล้ว เลิกทำจะคืนอีกฉบับ
@@ -34,10 +32,6 @@ ui-toolbar-undo = เลิกทำ
 ui-toolbar-undo-label = เลิกทำ: { $label }
 ui-toolbar-redo = ทำซ้ำ
 ui-toolbar-redo-label = ทำซ้ำ: { $label }
-ui-toolbar-grid-hide = ซ่อนเส้นตาราง
-ui-toolbar-grid-show = แสดงเส้นตาราง
-ui-toolbar-ghosts-hide = ซ่อนเส้นนำ
-ui-toolbar-ghosts-show = แสดงเส้นนำ
 ui-divider-pile = ความกว้างของกองสไลด์
 ui-divider-notes = ความกว้างของเธรดเอเจนต์
 ui-divider-code = ขนาดโค้ด
@@ -45,20 +39,10 @@ ui-divider-band = ความสูงของการตั้งค่า
 ui-toolbar-theme = ธีม
 ui-toolbar-theme-embedded = ธีมของไฟล์
 ui-toolbar-theme-deck-group = งานนำเสนอนี้
-ui-toolbar-save-copy = บันทึกสำเนา
 ui-toolbar-finish = เสร็จสิ้น
-ui-menu-workshop = เวิร์กช็อป
 ui-templates-deck-only = บันทึกไว้ในงานนำเสนอนี้เท่านั้น
 ui-toolbar-open = เปิด
-ui-merge = รวมกับ PDF…
 ui-menu = เมนู
-ui-menu-move = ย้าย…
-ui-language = ภาษา
-ui-language-system = ภาษาของระบบ
-ui-scheme = ลักษณะที่ปรากฏ
-ui-scheme-system = ตามระบบ
-ui-scheme-light = สว่าง
-ui-scheme-dark = มืด
 ui-toolbar-add-label = เพิ่มลงในสไลด์
 ui-add-kind = { $kind ->
     [card] การ์ด
@@ -323,7 +307,6 @@ ui-undo-show-as-chart = แสดงเป็นแผนภูมิ
 ## ไฟล์
 
 ui-file-open-prompt = พาธของไฟล์ที่จะเปิด (.oku-slides.pdf, .json หรือ .pptx)
-ui-file-merge-prompt = พาธของไฟล์ที่จะรวมเข้ากับงานนำเสนอนี้ (.oku-slides.pdf หรือ .json)
 ui-file-filter-presentations = งานนำเสนอ
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = บันทึกเป็น (พาธแบบเต็ม)
@@ -361,7 +344,6 @@ ui-slide-next = สไลด์ถัดไป
 ui-present = งานนำเสนอ
 ui-present-slide = สไลด์ { $index } จาก { $count }
 ui-present-screen = นำเสนอแบบเต็มหน้าจอ
-ui-present-window = นำเสนอในหน้าต่าง
 ui-toolbar-params-hide = ซ่อนการตั้งค่า
 ui-toolbar-params-show = แสดงการตั้งค่า
 ui-help-close = ปิดความช่วยเหลือ
@@ -422,4 +404,3 @@ ui-update-later = ภายหลัง
 ui-update-installing = กำลังดาวน์โหลดการอัปเดต… { $percent }%
 ui-update-downloading = กำลังดาวน์โหลดการอัปเดต…
 ui-update-up-to-date = Oku Slides เป็นเวอร์ชันล่าสุดแล้ว
-ui-menu-check-updates = ตรวจสอบการอัปเดต…

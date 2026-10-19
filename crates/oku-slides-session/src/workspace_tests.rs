@@ -673,13 +673,10 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
 }
 
 #[test]
-fn messages_list_the_shipped_languages_and_the_chosen_one() {
+fn messages_say_the_chosen_language() {
     let data = Data::new();
     let json = apply_ws(&workspace_on(&data.0), json!({"cmd": "messages"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let available: Vec<String> = serde_json::from_value(v["available"].clone()).unwrap();
-    assert_that!(available).contains("de".to_owned());
-    assert_that!(available).has_length(20);
     // Les réglages de test disent `fr`.
     assert_that!(v["chosen"].as_str()).is_equal_to(Some("fr"));
 }
@@ -933,4 +930,21 @@ fn scheme_reads_the_setting_of_the_platform() {
     let json = apply_ws(&ws, json!({"cmd": "scheme"})).unwrap().into_json();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_that!(v["scheme"].as_str()).is_equal_to(Some("light"));
+}
+
+#[test]
+fn tab_shown_active_tab_of_its_window_returns_true() {
+    let data = Data::new();
+    let ws = workspace_on(&data.0);
+    let tab = view(&ws).windows[0].tabs[0].id.clone();
+    assert_that!(Workspace::lock(&ws).tab_shown(&tab)).is_true();
+}
+
+#[test]
+fn tab_shown_tab_behind_a_newer_one_returns_false() {
+    let data = Data::new();
+    let ws = workspace_on(&data.0);
+    let first = view(&ws).windows[0].tabs[0].id.clone();
+    apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
+    assert_that!(Workspace::lock(&ws).tab_shown(&first)).is_false();
 }

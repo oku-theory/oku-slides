@@ -32,8 +32,6 @@ ui-confirm-quit-templates = هل تريد الخروج دون حفظ القوا�
 
 ## الإشعارات
 
-ui-toast-templates-saved = حُفظت القوالب: { $name }
-ui-toast-moved = تم نقل العرض التقديمي
 ui-toast-copied = تم حفظ نسخة
 ui-toast-field-gone = الحقل الذي كنت تعدّله لم يعد موجودًا: فُقد ما أدخلته.
 ui-toast-edit-replaced = تغيّر هذا النص أثناء تعديلك له: حلّت نسختك محله. يعيد «تراجع» النسخة الأخرى.
@@ -44,10 +42,6 @@ ui-toolbar-undo = تراجع
 ui-toolbar-undo-label = تراجع: { $label }
 ui-toolbar-redo = إعادة
 ui-toolbar-redo-label = إعادة: { $label }
-ui-toolbar-grid-hide = إخفاء الشبكة
-ui-toolbar-grid-show = إظهار الشبكة
-ui-toolbar-ghosts-hide = إخفاء خطوط الإرشاد
-ui-toolbar-ghosts-show = إظهار خطوط الإرشاد
 ui-divider-pile = عرض كومة الشرائح
 ui-divider-notes = عرض سلسلة الوكيل
 ui-divider-code = حجم الشيفرة
@@ -55,20 +49,10 @@ ui-divider-band = ارتفاع الإعدادات
 ui-toolbar-theme = السمة
 ui-toolbar-theme-embedded = سمة الملف
 ui-toolbar-theme-deck-group = هذا العرض التقديمي
-ui-toolbar-save-copy = حفظ نسخة
 ui-toolbar-finish = تم
-ui-menu-workshop = الورشة
 ui-templates-deck-only = محفوظة في هذا العرض التقديمي فقط
 ui-toolbar-open = فتح
-ui-merge = دمج مع ملف PDF…
 ui-menu = القائمة
-ui-menu-move = نقل…
-ui-language = اللغة
-ui-language-system = لغة النظام
-ui-scheme = المظهر
-ui-scheme-system = النظام
-ui-scheme-light = فاتح
-ui-scheme-dark = داكن
 ui-toolbar-add-label = إضافة إلى الشريحة
 ui-add-kind = { $kind ->
     [card] بطاقة
@@ -333,7 +317,6 @@ ui-undo-show-as-chart = عرض على شكل رسم بياني
 ## الملفات
 
 ui-file-open-prompt = مسار الملف المراد فتحه (.oku-slides.pdf، .json أو .pptx)
-ui-file-merge-prompt = مسار العرض المراد دمجه في هذا العرض (.oku-slides.pdf أو .json)
 ui-file-filter-presentations = العروض التقديمية
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = حفظ باسم (المسار الكامل)
@@ -371,7 +354,6 @@ ui-slide-next = الشريحة التالية
 ui-present = العرض التقديمي
 ui-present-slide = الشريحة { $index } من { $count }
 ui-present-screen = العرض بملء الشاشة
-ui-present-window = العرض داخل النافذة
 ui-toolbar-params-hide = إخفاء الإعدادات
 ui-toolbar-params-show = إظهار الإعدادات
 ui-help-close = إغلاق المساعدة
@@ -432,4 +414,3 @@ ui-update-later = لاحقًا
 ui-update-installing = جارٍ تنزيل التحديث… { $percent }%
 ui-update-downloading = جارٍ تنزيل التحديث…
 ui-update-up-to-date = Oku Slides محدَّث.
-ui-menu-check-updates = البحث عن تحديثات…

@@ -24,8 +24,6 @@ ui-confirm-quit-templates = Değiştirilen şablonlar kaydedilmeden çıkılsın
 
 ## Bildirimler
 
-ui-toast-templates-saved = Şablonlar kaydedildi: { $name }
-ui-toast-moved = Sunu taşındı
 ui-toast-copied = Kopya kaydedildi
 ui-toast-field-gone = Düzenlediğiniz alan artık yok: girdiğiniz metin kayboldu.
 ui-toast-edit-replaced = Bu metin siz düzenlerken değişti: sizin sürümünüz onun yerini aldı. Geri al diğerini geri getirir.
@@ -36,10 +34,6 @@ ui-toolbar-undo = Geri al
 ui-toolbar-undo-label = Geri al: { $label }
 ui-toolbar-redo = Yinele
 ui-toolbar-redo-label = Yinele: { $label }
-ui-toolbar-grid-hide = Izgarayı gizle
-ui-toolbar-grid-show = Izgarayı göster
-ui-toolbar-ghosts-hide = Kılavuzları gizle
-ui-toolbar-ghosts-show = Kılavuzları göster
 ui-divider-pile = Slayt yığınının genişliği
 ui-divider-notes = Ajan akışının genişliği
 ui-divider-code = Kod boyutu
@@ -47,20 +41,10 @@ ui-divider-band = Ayarların yüksekliği
 ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Dosyanın teması
 ui-toolbar-theme-deck-group = Bu sunu
-ui-toolbar-save-copy = Kopyasını kaydet
 ui-toolbar-finish = Bitti
-ui-menu-workshop = Atölye
 ui-templates-deck-only = Yalnızca bu sunuya kaydedilir
 ui-toolbar-open = Aç
-ui-merge = PDF ile birleştir…
 ui-menu = Menü
-ui-menu-move = Taşı…
-ui-language = Dil
-ui-language-system = Sistem dili
-ui-scheme = Görünüm
-ui-scheme-system = Sistem
-ui-scheme-light = Açık
-ui-scheme-dark = Koyu
 ui-toolbar-add-label = Slayta ekle
 ui-add-kind = { $kind ->
     [card] Kart
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = Grafik olarak göster
 ## Dosyalar
 
 ui-file-open-prompt = Açılacak dosyanın yolu (.oku-slides.pdf, .json veya .pptx)
-ui-file-merge-prompt = Bu sunuyla birleştirilecek sununun yolu (.oku-slides.pdf veya .json)
 ui-file-filter-presentations = Sunumlar
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Farklı kaydet (tam yol)
@@ -363,7 +346,6 @@ ui-slide-next = Sonraki slayt
 ui-present = Sunum
 ui-present-slide = Slayt { $index } / { $count }
 ui-present-screen = Tam ekranda sun
-ui-present-window = Pencerede sun
 ui-toolbar-params-hide = Ayarları gizle
 ui-toolbar-params-show = Ayarları göster
 ui-help-close = Yardımı kapat
@@ -424,4 +406,3 @@ ui-update-later = Daha sonra
 ui-update-installing = Güncelleme indiriliyor… %{ $percent }
 ui-update-downloading = Güncelleme indiriliyor…
 ui-update-up-to-date = Oku Slides güncel.
-ui-menu-check-updates = Güncellemeleri Denetle…

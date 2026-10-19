@@ -32,6 +32,7 @@ session-unsaved = “{ $title }”有未保存的更改。
 session-bad-request = 请求无效：{ $reason }
 session-history-not-open = 历史记录未打开
 session-in-history = 请先关闭历史记录再修改演示文稿
+session-target-exists = 该位置已有文件：请选择其他路径。
 session-read-only = 帮助为只读：无法修改
 session-not-help = 此标签页不是帮助
 session-turn-not-on-top = 本轮已不是最后一次更改

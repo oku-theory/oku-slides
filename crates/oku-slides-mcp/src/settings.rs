@@ -23,14 +23,8 @@ pub trait SettingsPort: Send + Sync + std::fmt::Debug {
 }
 
 /// Clés que l'agent peut écrire, hors `stt.vad.*`.
-const WRITABLE: &[&str] = &[
-    "dictation.model",
-    "dictation.language",
-    "dictation.auto_stop",
-    "dictation.silence",
-    "i18n.locale",
-    "history.limit",
-];
+const WRITABLE: &[&str] =
+    &["dictation.model", "dictation.language", "dictation.auto_stop", "dictation.silence", "history.limit"];
 /// Clés de `[stt.vad]`.
 const VAD: &[&str] =
     &["threshold", "onset_frames", "pause", "min_phrase", "long_pause", "pre_roll", "post_roll", "max_phrase"];

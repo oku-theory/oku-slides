@@ -16,7 +16,7 @@ export async function saveForClose(api: TabApi, pick: PickSavePath = pickSavePat
   let s = await api.snapshot();
   if (s.history && s.dirty) s = await api.historyClose();
   if (s.editing) {
-    if (s.dirty) s = await api.saveTemplates(false);
+    if (s.dirty) s = await api.saveTemplates();
     s = await api.closeTemplates();
   }
   if (!s.dirty) return true;

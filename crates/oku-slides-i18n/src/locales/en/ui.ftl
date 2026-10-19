@@ -24,8 +24,6 @@ ui-confirm-quit-templates = Quit without saving the modified templates?
 
 ## Toasts
 
-ui-toast-templates-saved = Templates saved: { $name }
-ui-toast-moved = Presentation moved
 ui-toast-copied = Copy saved
 ui-toast-field-gone = The field you were editing no longer exists: your input is lost.
 ui-toast-edit-replaced = This text changed while you were editing it: your version replaced it. Undo restores the other one.
@@ -36,10 +34,6 @@ ui-toolbar-undo = Undo
 ui-toolbar-undo-label = Undo: { $label }
 ui-toolbar-redo = Redo
 ui-toolbar-redo-label = Redo: { $label }
-ui-toolbar-grid-hide = Hide the grid
-ui-toolbar-grid-show = Show the grid
-ui-toolbar-ghosts-hide = Hide the guides
-ui-toolbar-ghosts-show = Show the guides
 ui-divider-pile = Width of the slide pile
 ui-divider-notes = Width of the agent thread
 ui-divider-code = Code size
@@ -47,20 +41,10 @@ ui-divider-band = Settings height
 ui-toolbar-theme = Theme
 ui-toolbar-theme-embedded = File theme
 ui-toolbar-theme-deck-group = This presentation
-ui-toolbar-save-copy = Save a copy
 ui-toolbar-finish = Done
-ui-menu-workshop = Workshop
 ui-templates-deck-only = Saved in this presentation only
 ui-toolbar-open = Open
-ui-merge = Merge with a PDF…
 ui-menu = Menu
-ui-menu-move = Move…
-ui-language = Language
-ui-language-system = System language
-ui-scheme = Appearance
-ui-scheme-system = System
-ui-scheme-light = Light
-ui-scheme-dark = Dark
 ui-toolbar-add-label = Add to the slide
 ui-add-kind = { $kind ->
     [card] Card
@@ -325,7 +309,6 @@ ui-undo-show-as-chart = Show as a chart
 ## Files
 
 ui-file-open-prompt = Path of the file to open (.oku-slides.pdf, .json or .pptx)
-ui-file-merge-prompt = Path of the file to merge into this presentation (.oku-slides.pdf or .json)
 ui-file-filter-presentations = Presentations
 ui-file-filter-pptx = PowerPoint
 ui-file-save-prompt = Save as (full path)
@@ -363,7 +346,6 @@ ui-slide-next = Next slide
 ui-present = Presentation
 ui-present-slide = Slide { $index } of { $count }
 ui-present-screen = Present full screen
-ui-present-window = Present in the window
 ui-toolbar-params-hide = Hide settings
 ui-toolbar-params-show = Show settings
 ui-help-close = Close the help
@@ -427,4 +409,3 @@ ui-update-later = Later
 ui-update-installing = Downloading the update… { $percent }%
 ui-update-downloading = Downloading the update…
 ui-update-up-to-date = Oku Slides is up to date.
-ui-menu-check-updates = Check for Updates…

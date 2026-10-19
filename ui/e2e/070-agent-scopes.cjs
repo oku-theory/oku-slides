@@ -4,6 +4,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');
+const { openAtelier: askAtelier } = require('./lib/atelier.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
 const turn = (p, text) => p.locator('.agent-turn', { hasText: text });
@@ -35,10 +36,7 @@ const resynced = async (p, kind, action) => {
   // La réponse reçue, le fil se peint à l'image suivante.
   await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 };
-const openAtelier = (p) => resynced(p, 'atelier', async () => {
-  await p.getByRole('button', { name: 'Menu' }).click();
-  await p.getByRole('menuitem', { name: 'Atelier' }).click();
-});
+const openAtelier = (p) => resynced(p, 'atelier', () => askAtelier(p));
 const closeAtelier = (p) => resynced(p, 'slides', () => p.getByRole('button', { name: 'Terminer' }).click());
 
 (async () => {
@@ -69,17 +67,19 @@ const closeAtelier = (p) => resynced(p, 'slides', () => p.getByRole('button', { 
     await turn(p, 'portée atelier').waitFor();
     assert.equal(await p.locator('.agent-turn').count(), 1);
 
-    // 3. Retour aux slides, sans rien vider : seul leur fil.
+    // 3. Retour aux slides, sans rien vider : seul leur fil, avec la demande d'atelier (t-988).
     await closeAtelier(p);
     await turn(p, 'portée slides').waitFor();
     assert.equal(await turn(p, 'portée atelier').count(), 0);
-    assert.equal(await p.locator('.agent-turn').count(), 1);
+    assert.equal(await turn(p, "ouvre l'atelier").count(), 1);
+    assert.equal(await p.locator('.agent-turn').count(), 2);
 
     // 4. Rangement : les deux conversations repartent de zéro pour les e2e suivants.
     await newConversation(p);
     await openAtelier(p);
     await newConversation(p);
     await closeAtelier(p);
+    await newConversation(p);
 
     assert.deepEqual(errors, []);
     console.log('agent-scopes : ok');

@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { applyMessages, availableLocales, changeLocale, chosenLocale, direction, languageName, loadMessages, locale, onLocaleChange, receiveMessages, setMessages, t } from "./i18n";
+import { applyMessages, changeLocale, direction, loadMessages, locale, onLocaleChange, receiveMessages, setMessages, t } from "./i18n";
 import { resetMessages } from "./test/messages";
 
 const en = "ui-hello = Hello { $name }\nui-only-en = Only in English\n";
@@ -38,56 +38,50 @@ test("direction : de droite à gauche pour l'arabe, de gauche à droite sinon", 
 });
 
 describe("choix de la langue", () => {
-  test("languageName nomme chaque langue dans elle-même, avec une majuscule", () => {
-    expect(languageName("fr")).toBe("Français");
-    expect(languageName("de")).toBe("Deutsch");
-  });
-
-  test("applyMessages retient les langues livrées et le choix, puis prévient", () => {
+  test("applyMessages retient le choix, puis prévient", () => {
     let told = 0;
     const stop = onLocaleChange(() => told++);
-    applyMessages({ locale: "de", resources: [en], available: ["en", "de"], chosen: "de" });
+    applyMessages({ locale: "de", resources: [en], chosen: "de" });
     stop();
-    expect(availableLocales()).toEqual(["en", "de"]);
-    expect(chosenLocale()).toBe("de");
     expect(locale()).toBe("de");
     expect(told).toBe(1);
+    // Le choix est retenu : les mêmes messages reçus ensuite ne changent rien.
+    expect(receiveMessages({ locale: "de", resources: [en], chosen: "de" })).toBe(false);
   });
 
   test("receiveMessages applique la langue choisie dans une autre fenêtre et prévient", () => {
-    applyMessages({ locale: "fr", resources: [en, fr], available: ["en", "fr", "de"], chosen: "fr" });
+    applyMessages({ locale: "fr", resources: [en, fr], chosen: "fr" });
     let told = 0;
     const stop = onLocaleChange(() => told++);
-    const applied = receiveMessages({ locale: "de", resources: [en], available: ["en", "fr", "de"], chosen: "de" });
+    const applied = receiveMessages({ locale: "de", resources: [en], chosen: "de" });
     stop();
     expect(applied).toBe(true);
     expect(locale()).toBe("de");
-    expect(chosenLocale()).toBe("de");
     expect(told).toBe(1);
   });
 
   test("receiveMessages ignore ses propres messages : la fenêtre qui a choisi n'est pas remontée deux fois", () => {
-    applyMessages({ locale: "de", resources: [en], available: ["en", "de"], chosen: "de" });
+    applyMessages({ locale: "de", resources: [en], chosen: "de" });
     let told = 0;
     const stop = onLocaleChange(() => told++);
-    const applied = receiveMessages({ locale: "de", resources: [en], available: ["en", "de"], chosen: "de" });
+    const applied = receiveMessages({ locale: "de", resources: [en], chosen: "de" });
     stop();
     expect(applied).toBe(false);
     expect(told).toBe(0);
   });
 
   test("receiveMessages suit le retour à la langue du système, même si elle ne change pas", () => {
-    applyMessages({ locale: "fr", resources: [en, fr], available: ["en", "fr"], chosen: "fr" });
+    applyMessages({ locale: "fr", resources: [en, fr], chosen: "fr" });
     let told = 0;
     const stop = onLocaleChange(() => told++);
-    expect(receiveMessages({ locale: "fr", resources: [en, fr], available: ["en", "fr"], chosen: null })).toBe(true);
+    expect(receiveMessages({ locale: "fr", resources: [en, fr], chosen: null })).toBe(true);
     stop();
-    expect(chosenLocale()).toBeNull();
     expect(told).toBe(1);
+    expect(receiveMessages({ locale: "fr", resources: [en, fr], chosen: null })).toBe(false);
   });
 
   describe("changeLocale, que la diffusion de l'hôte arrive avant ou après sa réponse", () => {
-    const de = { locale: "de", resources: [en], available: ["en", "fr", "de"], chosen: "de" };
+    const de = { locale: "de", resources: [en], chosen: "de" };
     const realFetch = globalThis.fetch;
     afterEach(() => {
       globalThis.fetch = realFetch;
@@ -100,7 +94,7 @@ describe("choix de la langue", () => {
       }) as unknown as typeof fetch;
     }
 
-    const fr = { locale: "fr", resources: [en], available: ["en", "fr", "de"], chosen: "fr" };
+    const fr = { locale: "fr", resources: [en], chosen: "fr" };
     /** Un hôte dont chaque réponse attend qu'on la libère, dans l'ordre qu'on veut. */
     function slowHost() {
       const pending: { body: unknown; release: () => void }[] = [];
@@ -115,7 +109,7 @@ describe("choix de la langue", () => {
     }
 
     test("deux choix rapides : une réponse arrivée en retard n'écrase pas le dernier choix", async () => {
-      applyMessages({ locale: "en", resources: [en], available: ["en", "fr", "de"], chosen: null });
+      applyMessages({ locale: "en", resources: [en], chosen: null });
       const pending = slowHost();
       const first = changeLocale("fr");
       const second = changeLocale("de");
@@ -127,7 +121,7 @@ describe("choix de la langue", () => {
     });
 
     test("une langue diffusée pendant le premier chargement n'est pas écrasée par sa réponse", async () => {
-      applyMessages({ locale: "en", resources: [en], available: ["en", "fr", "de"], chosen: null });
+      applyMessages({ locale: "en", resources: [en], chosen: null });
       const pending = slowHost();
       const load = loadMessages();
       receiveMessages(de); // une autre fenêtre choisit pendant que la lecture est en route
@@ -138,7 +132,7 @@ describe("choix de la langue", () => {
 
     for (const broadcastFirst of [true, false]) {
       test(`remonte l'interface une seule fois (diffusion ${broadcastFirst ? "avant" : "absente ou après"} la réponse)`, async () => {
-        applyMessages({ locale: "fr", resources: [en, fr], available: ["en", "fr", "de"], chosen: "fr" });
+        applyMessages({ locale: "fr", resources: [en, fr], chosen: "fr" });
         hostAnswers(broadcastFirst);
         let told = 0;
         const stop = onLocaleChange(() => told++);

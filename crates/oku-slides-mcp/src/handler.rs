@@ -82,6 +82,12 @@ impl Tools {
             "delete_template_set" => self.delete_template_set(args).await,
             "edit_theme" => self.edit_theme(args).await,
             "set_setting" => self.set_setting(args).await,
+            "move" => self.move_file(args).await,
+            "merge" => self.merge(args).await,
+            "history" => self.history(args).await,
+            "present" => self.present(args).await,
+            "set_interface" => self.set_interface(args).await,
+            "save_copy" => self.save_copy(args).await,
             _ => self.fail_with(UnknownToolSnafu { name }.build()),
         }
     }

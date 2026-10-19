@@ -52,6 +52,10 @@ impl Sessions for Mutex<Workspace> {
         Workspace::lock(self).open_elsewhere(tab, path)
     }
 
+    fn shown(&self, tab: &str) -> bool {
+        Workspace::lock(self).tab_shown(tab)
+    }
+
     fn open_tab(&self, tab: &str, path: &Path) -> Result<String> {
         Workspace::open_beside(self, tab, path)
     }

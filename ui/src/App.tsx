@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PackNotice from "./PackNotice";
-import type { ImportTarget, PileSectionName, SlideView, Snapshot } from "./api";
+import type { ImportTarget, InterfaceChange, PileSectionName, SlideView, Snapshot } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { firstPackId, widgetToOpen } from "./packOps";
 import { appearanceLook } from "./appearance";
 import { useAppearance } from "./useAppearance";
 import { AttachButton } from "./agent/AttachButton";
-import { useSchemeChoice } from "./scheme";
+import { changeScheme } from "./scheme";
 import { findElement, pickSlide, previewLook, slideToFetch } from "./deck";
 import TemplatePicker from "./TemplatePicker";
 import WidgetPicker from "./WidgetPicker";
@@ -23,7 +23,7 @@ import { useToast } from "./useToast";
 import { useUpdateCheck, type AppUpdates } from "./useUpdateCheck";
 import { useThumbsOver } from "./useSlideThumbs";
 import { useKeptUi } from "./useKeptUi";
-import { t } from "./i18n";
+import { changeLocale, t } from "./i18n";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { useDictation } from "./useDictation";
@@ -54,6 +54,7 @@ import PileColumn from "./PileColumn";
 import SlideNav from "./SlideNav";
 import TitleField from "./TitleField";
 import { AppMenu } from "./AppMenu";
+import { applyInterface } from "./interfaceChange";
 import { useAgentLink, useAgentWiring } from "./useAgentWiring";
 import { useAppKeys } from "./useAppKeys";
 import { useClipboard, useClipboardEvents } from "./useClipboard";
@@ -111,7 +112,7 @@ export default function App({
     setCurrent(id);
   };
   const { say, node: toastNode } = useToast();
-  const checkUpdates = useUpdateCheck(updates, say);
+  useUpdateCheck(updates, say);
   const svgs = useSvgCache(api);
   // Miniatures des reçus de l'agent : même cache que la pile, empreintes actuelles du deck.
   const slideThumbs = useThumbsOver(svgs, snap?.slides);
@@ -161,15 +162,6 @@ export default function App({
   // --- Historique (lecture seule) -------------------------------------------
   // `run` numérote la réponse d'un cran à son arrivée, pas à l'envoi : sans effet, car sortir (Revenir, Restaurer) annule d'abord le Seeker.
   const cursor = useHistoryCursor(api, snap?.history ?? null, (s) => run(Promise.resolve(s)), (e) => say(errorText(e), true));
-  const openHistory = async () => {
-    // Ce qui attend s'enregistre avant : l'historique refuse d'écrire, le deck
-    // mis de côté ne repart au fichier qu'à sa fermeture.
-    await autosave.flush();
-    if (await run(api.historyOpen())) {
-      setSelected(null);
-      setEditing(null);
-    }
-  };
 
   // Au montage, puis à chaque vue diffusée : un avis posé hors de cet onglet
   // (fichier reçu qui n'a pas pu s'ouvrir) n'attend pas la prochaine édition.
@@ -178,7 +170,6 @@ export default function App({
   }, [run, nonce]);
 
   // L'interface suit le thème des slides et le schéma (clair, sombre), à chaque changement.
-  const schemeChoice = useSchemeChoice();
   useAppearance(snap?.appearance);
   const deckLook = useMemo(() => (snap ? appearanceLook(snap.appearance) : ""), [snap?.appearance]);
 
@@ -225,7 +216,7 @@ export default function App({
     setSelected, clip, setCutMark, dropCut,
   });
 
-  const { open, merge, autosave, moveFile, saveCopy } = useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick });
+  const { open, autosave, saveCopy } = useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick });
 
   // Réglages du modèle affiché, ou du widget du sous-onglet actif à ses valeurs d'exemple.
   // Sur l'onglet « Thème », aucun réglage du modèle sous la scène.
@@ -244,23 +235,54 @@ export default function App({
   });
 
   const {
-    insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates, saveTemplates,
+    insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates,
     adoptSet,
   } = useTemplatesMode({
-    api, snap, snapRef, current, run, say, apply, autosave, widgets, setCurrent, setSelected,
+    api, snap, snapRef, current, run, apply, autosave, widgets, setCurrent, setSelected,
     setPicking,
   });
 
   // --- Présentation : la slide seule, sur tout l'écran ou toute la fenêtre ----
   const [presenting, setPresenting] = useState<PresentMode | null>(null);
-  /** Présente le deck depuis la slide montrée ; la saisie ouverte s'enregistre d'abord. */
+  /** Présente le deck depuis la slide montrée ; la saisie ouverte s'enregistre d'abord. Lit le
+   *  dernier instantané, pas celui du rendu : l'agent peut présenter juste après une modification. */
   const present = (mode: PresentMode) => {
-    if (!snap?.slides.length || snap.editing || snap.history || snap.read_only) return;
+    const s = snapRef.current;
+    if (!s?.slides.length || s.editing || s.history || s.read_only) return;
     stage.current?.commitEditing();
     setSelected(null);
     setEditing(null);
     setPresenting(mode);
   };
+
+  /** Ouvre l'historique demandé par l'agent (outil `history`), une ouverture à la fois.
+   *  La saisie ouverte s'enregistre d'abord, puis ce qui attend part au fichier : l'historique
+   *  refuse d'écrire, le deck mis de côté ne repart au fichier qu'à sa fermeture. */
+  const openingHistory = useRef(false);
+  const openHistory = async () => {
+    if (openingHistory.current) return;
+    openingHistory.current = true;
+    try {
+      stage.current?.commitEditing();
+      await autosave.flush();
+      if (await run(api.historyOpen())) {
+        setSelected(null);
+        setEditing(null);
+      }
+    } finally {
+      openingHistory.current = false;
+    }
+  };
+
+  /** Ce que l'agent change dans l'interface (`set_interface`), par le chemin des commandes de l'app. */
+  const onInterface = (c: InterfaceChange) =>
+    applyInterface(c, {
+      changeScheme,
+      changeLocale,
+      setGrid: keptUi.setGrid,
+      setGhosts: keptUi.setGhosts,
+      fail: (err) => say(errorText(err), true),
+    });
 
   // Raccourcis clavier.
   useAppKeys({
@@ -279,12 +301,7 @@ export default function App({
 
   const cur = snap.slides.find((s) => s.id === current);
   const mainMenu = (
-    <AppMenu
-      api={api} snap={snap} schemeChoice={schemeChoice} keptUi={keptUi} run={run} say={say}
-      present={present} open={open} merge={merge} moveFile={moveFile} saveCopy={saveCopy}
-      editTemplates={editTemplates} openHistory={openHistory} saveTemplates={saveTemplates}
-      onHelp={onHelp} onCheckUpdates={checkUpdates}
-    />
+    <AppMenu templatesMode={!!snap.editing} present={present} open={open} onHelp={onHelp} />
   );
   const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
@@ -451,6 +468,7 @@ export default function App({
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
           onHostAction={(s, a) => host.onAction(s, a) || target.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
+          onPresent={present} onInterface={onInterface} onOpenHistory={() => void openHistory()}
           onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
           onDraft={dictation.draft.onHost}
           onPicker={agentPicker.onPicker} onAvailability={agentAvailability.onAvailability}

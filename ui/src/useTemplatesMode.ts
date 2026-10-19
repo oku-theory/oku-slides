@@ -16,7 +16,6 @@ interface TemplatesModeContext {
   snapRef: { current: Snapshot | null };
   current: string | null;
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
-  say: (text: string, error?: boolean) => void;
   apply: (label: string, ops: Op[]) => Promise<boolean>;
   autosave: ReturnType<typeof useFileActions>["autosave"];
   widgets: TemplateWidgets;
@@ -27,7 +26,7 @@ interface TemplatesModeContext {
 
 /** Les gestes du mode modèles, et les widgets du pack offerts à l'ajout. */
 export function useTemplatesMode({
-  api, snap, snapRef, current, run, say, apply, autosave, widgets, setCurrent, setSelected,
+  api, snap, snapRef, current, run, apply, autosave, widgets, setCurrent, setSelected,
   setPicking,
 }: TemplatesModeContext) {
   const insertTemplate = (tpl: TemplateView) => {
@@ -77,14 +76,10 @@ export function useTemplatesMode({
       setSelected(null);
     }
   };
-  const saveTemplates = async (asNew = false) => {
-    const s = await run(api.saveTemplates(asNew));
-    if (s?.editing) say(t("ui-toast-templates-saved", { name: s.editing.name }));
-  };
   const adoptSet = (set: PackInfo) => {
     if (!snap || snap.editing || snap.widgets[set.namespace]?.id === set.id) return;
     apply(t("ui-undo-templates", { name: set.name }), [addPackOp(set)]);
   };
 
-  return { insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates, saveTemplates, adoptSet };
+  return { insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates, adoptSet };
 }

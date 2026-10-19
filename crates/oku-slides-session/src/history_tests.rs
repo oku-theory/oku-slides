@@ -322,3 +322,19 @@ fn history_close_then_save_writes_the_stashed_deck() {
     back.open(&path).unwrap();
     assert_that!(back.deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
 }
+
+#[test]
+fn ensure_deck_mode_in_deck_mode_returns_ok() {
+    let data = data_dir();
+    let s = session_in(data.path());
+    assert_that!(s.ensure_deck_mode()).is_ok();
+}
+
+#[test]
+fn ensure_deck_mode_in_history_returns_in_history() {
+    let data = data_dir();
+    let mut s = session_in(data.path());
+    s.handle(Request::HistoryOpen).unwrap();
+    let err = s.ensure_deck_mode().unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::InHistory);
+}

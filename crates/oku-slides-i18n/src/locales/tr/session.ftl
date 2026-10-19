@@ -32,6 +32,7 @@ session-unsaved = “{ $title }” kaydedilmemiş değişiklikler içeriyor.
 session-bad-request = Geçersiz istek: { $reason }
 session-history-not-open = Geçmiş açık değil
 session-in-history = Sunumu değiştirmeden önce geçmişi kapatın
+session-target-exists = Orada zaten bir dosya var: başka bir yol seçin.
 session-read-only = Yardım salt okunurdur: değiştirilemez
 session-not-help = Bu sekme yardım değil
 session-turn-not-on-top = Bu tur artık son değişiklik değil

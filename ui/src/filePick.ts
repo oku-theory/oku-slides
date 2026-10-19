@@ -10,22 +10,24 @@ export function typedPath(typed: string | null): string | null {
 }
 
 /**
- * Le fichier à ouvrir ; `null` : abandonné.
+ * Le fichier à ouvrir, deck ou présentation PowerPoint ; `null` : abandonné.
  *
- * `pptx` : une présentation PowerPoint est aussi proposée (Ouvrir et non Fusionner). Un chemin saisi est rendu sans les blancs qui l'entourent.
+ * Un chemin saisi est rendu sans les blancs qui l'entourent.
  */
-export async function pickOpenPath(pptx = false): Promise<string | null> {
+export async function pickOpenPath(): Promise<string | null> {
   if (inTauri) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const deck = { name: t("ui-brand"), extensions: ["pdf", "json"] };
-    // Le premier filtre est celui du dialogue : avec PowerPoint, il prend les deux.
-    const filters = pptx
-      ? [{ name: t("ui-file-filter-presentations"), extensions: [...deck.extensions, "pptx"] }, deck, { name: t("ui-file-filter-pptx"), extensions: ["pptx"] }]
-      : [deck];
+    // Le premier filtre est celui du dialogue : il prend les deux.
+    const filters = [
+      { name: t("ui-file-filter-presentations"), extensions: [...deck.extensions, "pptx"] },
+      deck,
+      { name: t("ui-file-filter-pptx"), extensions: ["pptx"] },
+    ];
     const p = await open({ multiple: false, filters });
     return typeof p === "string" ? p : null;
   }
-  return typedPath(window.prompt(t(pptx ? "ui-file-open-prompt" : "ui-file-merge-prompt")));
+  return typedPath(window.prompt(t("ui-file-open-prompt")));
 }
 
 /** Le chemin où enregistrer le deck, proposé sous `defaultName` ; `null` : abandonné. */

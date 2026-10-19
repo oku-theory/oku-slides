@@ -51,7 +51,6 @@ impl SettingsPort for AppSettings {
                 out.insert(format!("dictation.{k}"), v);
             }
         }
-        out.insert("i18n.locale".into(), json!(self.settings.i18n.locale));
         out.insert("history.limit".into(), json!(self.settings.history.limit));
         let vad = &self.settings.stt.vad;
         for (k, v) in [

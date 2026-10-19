@@ -42,7 +42,7 @@ impl Family {
         match self {
             Family::Edit => "change slide content, elements, charts and tables, or move between slides",
             Family::Present => "start, steer or stop a presentation",
-            Family::Files => "open, create, save, move, merge a deck or browse its history",
+            Family::Files => "open, create, save, copy, move, merge a deck or browse its history",
             Family::Templates => "edit templates, widgets and themes",
             Family::Configure => "change app settings: language, dictation, interface",
             Family::Troubleshoot => "diagnose an error, a failed render or import, or why something fails",
@@ -60,7 +60,7 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],
         "present" => &[Present],
-        "open" | "new" | "save" | "move" | "merge" | "history" => &[Files],
+        "open" | "new" | "save" | "save_copy" | "move" | "merge" | "history" => &[Files],
         "templates"
         | "edit_templates"
         | "save_templates"

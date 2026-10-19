@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Appearance } from "./api";
-import { applyScheme, chosenScheme, cssRgb, onSchemeChange, resolveScheme, slideEnds, uiPalette } from "./scheme";
+import { applyScheme, cssRgb, currentScheme, onSchemeChange, resolveScheme, slideEnds, uiPalette } from "./scheme";
 
 const appearance = (over: Partial<Appearance>): Appearance => ({
   scheme: "light",
@@ -72,6 +72,7 @@ describe("choix du schéma", () => {
     off();
     applyScheme(null);
     expect(calls).toBe(1);
-    expect(chosenScheme()).toBeNull();
+    // Sans choix ni schéma système (pas de matchMedia ici) : clair.
+    expect(currentScheme()).toBe("light");
   });
 });
