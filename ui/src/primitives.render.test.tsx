@@ -6,7 +6,7 @@ import "./test/dom";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { Button, Field, IconToggle, Select } = await import("./primitives");
+const { Button, Field, IconButton, IconToggle, Select } = await import("./primitives");
 const { expectIconOnly } = await import("./test/iconOnly");
 
 type Root = ReturnType<typeof createRoot>;
@@ -51,6 +51,23 @@ describe("Button", () => {
     const host = await mount(createElement(Button, { onClick: () => clicks++ }, "OK"));
     await act(async () => host.querySelector("button")?.click());
     expect(clicks).toBe(1);
+  });
+});
+
+describe("IconButton", () => {
+  test("IconButton shows its icon only, named by its label", async () => {
+    const host = await mount(createElement(IconButton, { label: "Fermer", icon }));
+    expectIconOnly(host.querySelector("button"), "Fermer");
+  });
+
+  test("IconButton has no pressed state", async () => {
+    const host = await mount(createElement(IconButton, { label: "Fermer", icon }));
+    expect(host.querySelector("button")?.hasAttribute("aria-pressed")).toBe(false);
+  });
+
+  test("IconButton is never a submit button", async () => {
+    const host = await mount(createElement(IconButton, { label: "Fermer", icon }));
+    expect(host.querySelector("button")?.getAttribute("type")).toBe("button");
   });
 });
 

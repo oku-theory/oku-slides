@@ -1474,6 +1474,7 @@
               "id": "close",
               "component": "Button",
               "label": "Fermer",
+              "icon": "close",
               "action": {
                 "event": {
                   "name": "dismiss"

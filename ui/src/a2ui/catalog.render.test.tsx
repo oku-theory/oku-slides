@@ -76,6 +76,27 @@ describe("rendu du catalogue v3", () => {
     expectIconOnly(host.querySelector(".notice-bar-close"), "Fermer");
   });
 
+  test("Button with an icon shows it alone, named by its label", async () => {
+    const { host } = await mount({ component: "Button", label: "Fermer", icon: "close", action: event("dismiss") });
+    expectIconOnly(host.querySelector("button"), "Fermer");
+  });
+
+  test("Button with an icon still sends its action", async () => {
+    const { host, actions } = await mount({ component: "Button", label: "Fermer", icon: "close", action: event("dismiss") });
+    await click(host.querySelector("button")!);
+    expect(actions.map((a) => a.name)).toEqual(["dismiss"]);
+  });
+
+  test("Button with an icon keeps its primary mark", async () => {
+    const { host } = await mount({ component: "Button", label: "OK", icon: "close", primary: true, action: event("ok") });
+    expect(host.querySelector("button")?.hasAttribute("data-primary")).toBe(true);
+  });
+
+  test("Button with an icon keeps its danger style", async () => {
+    const { host } = await mount({ component: "Button", label: "Non", icon: "close", danger: true, action: event("no") });
+    expect(host.querySelector("button")?.classList.contains("danger")).toBe(true);
+  });
+
   test("Notice sends its buttons' actions, then close", async () => {
     const { host, actions } = await mountAll(notice);
     await click(host.querySelector(".notice-bar-actions button") as Element);

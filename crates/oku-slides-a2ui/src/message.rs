@@ -137,6 +137,9 @@ pub enum ComponentKind {
         primary: Option<bool>,
         #[serde(skip_serializing_if = "Option::is_none")]
         danger: Option<bool>,
+        /// Pictogramme seul ; le libellé devient nom accessible et infobulle.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        icon: Option<ButtonIcon>,
         action: Action,
     },
     /// Des pastilles, une par option ; choisir écrit l'`id` dans `value` puis envoie `action`.
@@ -331,6 +334,14 @@ pub enum TextVariant {
     Caption,
     /// Une ligne atténuée, coupée.
     Note,
+}
+
+/// Pictogramme d'un bouton qui remplace son libellé.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ButtonIcon {
+    /// Une croix : fermer.
+    Close,
 }
 
 /// Une option d'un choix ou d'une liste. Aussi argument des outils de
@@ -664,6 +675,7 @@ impl Component {
                 label: Dynamic::Literal(label.into()),
                 primary: primary.then_some(true),
                 danger: None,
+                icon: None,
                 action,
             },
         )
@@ -677,6 +689,18 @@ impl Component {
         debug_assert!(matches!(self.kind, ComponentKind::Button { .. }), "danger() ne vaut que pour un bouton");
         if let ComponentKind::Button { danger, .. } = &mut self.kind {
             *danger = on.then_some(true);
+        }
+        self
+    }
+
+    /// Le même bouton, montré par le pictogramme `icon` au lieu de son libellé.
+    ///
+    /// Ne concerne que les boutons : un autre composant est rendu tel quel.
+    #[must_use]
+    pub fn icon(mut self, icon: ButtonIcon) -> Self {
+        debug_assert!(matches!(self.kind, ComponentKind::Button { .. }), "icon() ne vaut que pour un bouton");
+        if let ComponentKind::Button { icon: slot, .. } = &mut self.kind {
+            *slot = Some(icon);
         }
         self
     }

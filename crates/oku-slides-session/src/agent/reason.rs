@@ -98,7 +98,7 @@ impl fmt::Display for AgentFormReason {
                 write!(f, "{at}: {name} is not available in render (use show_params for settings)")
             }
             Reserved { at, name } => write!(f, "{at}: {name} is reserved to Oku Slides"),
-            ReservedStyle { at } => write!(f, "{at}: primary/danger styles are reserved to Oku Slides"),
+            ReservedStyle { at } => write!(f, "{at}: primary/danger/icon styles are reserved to Oku Slides"),
             NotLiteral { at } => write!(f, "{at}: values must be literal (no {{path}} bindings)"),
             UnknownProperty { at, name } => write!(f, "{at}: unknown property {name:?}"),
             BadAction { at } => {

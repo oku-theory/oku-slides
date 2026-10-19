@@ -2,9 +2,9 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 use crate::{
-    Action, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, DiffKind, DiffSegment, Dynamic, ListColumn,
-    ServerBody, ServerMessage, SlideRef, StepStatus, SubColumn, SubList, SubListFault, TextVariant, TimelineStep,
-    ToolCallDetail, UpdateDataModel, Version,
+    Action, ButtonIcon, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, DiffKind, DiffSegment, Dynamic,
+    ListColumn, ServerBody, ServerMessage, SlideRef, StepStatus, SubColumn, SubList, SubListFault, TextVariant,
+    TimelineStep, ToolCallDetail, UpdateDataModel, Version,
 };
 
 #[test]
@@ -141,6 +141,7 @@ fn button_serializes_label_primary_and_action() {
         label: Dynamic::Literal("Autoriser".into()),
         primary: Some(true),
         danger: None,
+        icon: None,
         action,
     }))
     .is_some()
@@ -630,4 +631,36 @@ fn theme_choice_without_action_keeps_everything_else() {
         active: true,
         action: None,
     });
+}
+
+#[test]
+fn icon_button_serializes_its_icon() {
+    let c = Component::button("close", "Fermer", false, Action::named("dismiss")).icon(ButtonIcon::Close);
+    let json = serde_json::to_value(&c).unwrap();
+    assert_that!(json["icon"].clone()).is_equal_to(json!("close"));
+}
+
+#[test]
+fn icon_button_reads_back_its_icon() {
+    let c: Component = serde_json::from_value(json!({
+        "id": "close", "component": "Button", "label": "Fermer", "icon": "close",
+        "action": { "event": { "name": "dismiss", "context": {} } }
+    }))
+    .unwrap();
+    assert_that!(matches!(c.kind, ComponentKind::Button { icon: Some(ButtonIcon::Close), .. })).is_true();
+}
+
+#[test]
+fn icon_button_with_unknown_icon_is_refused() {
+    let c = serde_json::from_value::<Component>(json!({
+        "id": "x", "component": "Button", "label": "x", "icon": "trash",
+        "action": { "event": { "name": "x", "context": {} } }
+    }));
+    assert_that!(c).is_err();
+}
+
+#[test]
+fn plain_button_omits_icon() {
+    let json = serde_json::to_value(Component::button("ok", "OK", true, Action::named("x"))).unwrap();
+    assert_that!(json.get("icon")).is_none();
 }

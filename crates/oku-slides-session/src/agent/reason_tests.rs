@@ -104,8 +104,8 @@ fn refused() -> Box<oku_slides_core::TransactionError> {
 )]
 #[case::reserved_style(
     ReservedStyle { at: at("components[0]") },
-    "components[0]: the primary and danger styles are reserved to Oku Slides",
-    "components[0] : les styles primary et danger sont réservés à Oku Slides"
+    "components[0]: the primary, danger and icon styles are reserved to Oku Slides",
+    "components[0] : les styles primary, danger et icon sont réservés à Oku Slides"
 )]
 #[case::not_literal(
     NotLiteral { at: at("components[0]") },

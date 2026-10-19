@@ -19,7 +19,7 @@
 mod message;
 
 pub use message::{
-    Action, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, CreateSurface, DeleteSurface, DiffKind,
-    DiffSegment, Dynamic, Event, ListColumn, ServerBody, ServerMessage, SlideRef, StepStatus, SubColumn, SubList,
-    SubListFault, TextVariant, TimelineStep, Tone, ToolCallDetail, UpdateComponents, UpdateDataModel, Version,
+    Action, ButtonIcon, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, CreateSurface, DeleteSurface,
+    DiffKind, DiffSegment, Dynamic, Event, ListColumn, ServerBody, ServerMessage, SlideRef, StepStatus, SubColumn,
+    SubList, SubListFault, TextVariant, TimelineStep, Tone, ToolCallDetail, UpdateComponents, UpdateDataModel, Version,
 };

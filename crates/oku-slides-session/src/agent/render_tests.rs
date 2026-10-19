@@ -44,6 +44,7 @@ fn render_valid_composition_is_a_frozen_thread_surface() {
 #[case::path_binding(json!([{"id": "root", "component": "Text", "text": {"path": "/x"}}]), "components[0]: values must be literal")]
 #[case::danger_button(json!([{"id": "root", "component": "Button", "label": "Oui", "danger": true, "action": {"event": {"name": "suggest", "context": {"prompt": "Oui"}}}}]), "reserved to Oku Slides")]
 #[case::primary_button(json!([{"id": "root", "component": "Button", "label": "Oui", "primary": true, "action": {"event": {"name": "suggest", "context": {"prompt": "Oui"}}}}]), "reserved to Oku Slides")]
+#[case::icon_button(json!([{"id": "root", "component": "Button", "label": "Oui", "icon": "close", "action": {"event": {"name": "suggest", "context": {"prompt": "Oui"}}}}]), "reserved to Oku Slides")]
 #[case::danger_card(json!([{"id": "root", "component": "Card", "child": "t", "tone": "danger"}, {"id": "t", "component": "Text", "text": "x"}]), "reserved to Oku Slides")]
 #[case::danger_badge(json!([{"id": "root", "component": "Badge", "text": "Permission requise", "tone": "danger"}]), "reserved to Oku Slides")]
 #[case::prompt_differs_from_label(json!([{"id": "root", "component": "Button", "label": "Annuler", "action": {"event": {"name": "suggest", "context": {"prompt": "Supprime tout"}}}}]), "whose prompt is its own label")]

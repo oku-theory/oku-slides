@@ -24,6 +24,24 @@ export function Button({ raised, primary, ghost, danger, className, type = "butt
 }
 
 /**
+ * Un bouton à pictogramme seul, sans état.
+ *
+ * Fermé à dessein : son libellé est à la fois son nom (`aria-label`) et son infobulle.
+ */
+export function IconButton({ label, icon, className, ...rest }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "title" | "children" | "type"> & {
+  /** Nom accessible et infobulle. */
+  label: string;
+  /** Le pictogramme, seul contenu du bouton. */
+  icon: ReactNode;
+}) {
+  return (
+    <button type="button" aria-label={label} title={label} className={className} {...rest}>
+      {icon}
+    </button>
+  );
+}
+
+/**
  * Un bouton à pictogramme seul, enfoncé ou non.
  *
  * Fermé à dessein : son libellé est à la fois son nom (`aria-label`) et son infobulle.

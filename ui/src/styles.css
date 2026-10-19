@@ -206,8 +206,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn.primary, .token.primary { background: var(--accent-fill); color: var(--on-accent); }
 /* Une action qui engage (non annulable, permission durable) : cernée de rouge ; pleine si c'est aussi le bouton principal.
    Texte blanc comme `.mic.live` : `--on-accent` suit l'accent du thème, pas le rouge. */
-.btn.danger { background: transparent; color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
-.btn.primary.danger { background: var(--danger); color: white; box-shadow: none; }
+.btn.danger, .token.danger { background: transparent; color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
+.btn.primary.danger, .token.primary.danger { background: var(--danger); color: white; box-shadow: none; }
 .theme-card { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-4); height: 44px; cursor: default; }
 .theme-card:hover { box-shadow: var(--shadow-object); }
 /* Sous la feuille : ajouter à la slide, puis annuler / rétablir, dans une seule barre. */

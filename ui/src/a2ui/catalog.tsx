@@ -14,7 +14,7 @@ import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
 import type { Paragraph } from "../api";
 import { t } from "../i18n";
 import { Icon } from "../icons";
-import { Button as UiButton, Field, Select as UiSelect } from "../primitives";
+import { Button as UiButton, Field, IconButton, Select as UiSelect } from "../primitives";
 import { ActionOutcomeContext, sendWithOutcome } from "./actionOutcome";
 import { QuickHintsContext } from "./quickHints";
 import { ListTable, type ListRow } from "./ListTable";
@@ -76,6 +76,7 @@ const ButtonApi = {
       label: CommonSchemas.DynamicString,
       primary: z.boolean().optional(),
       danger: z.boolean().optional(),
+      icon: z.enum(["close"]).optional(),
       action: CommonSchemas.Action,
     })
     .strict(),
@@ -332,19 +333,30 @@ export function sixDigits(color: string | undefined): string {
 
 /**
  * Un bouton ; `primary` marque l'action principale (Entrée dans une fiche de l'agent) ;
- * `danger`, une action qui engage (non annulable, permission permanente).
+ * `danger`, une action qui engage (non annulable, permission permanente) ; `icon`, un
+ * pictogramme seul dont le libellé devient nom accessible et infobulle.
  */
-const Button = createComponentImplementation(ButtonApi, ({ props }) => (
-  <UiButton
-    raised
-    primary={props.primary}
-    danger={props.danger}
-    data-primary={props.primary ? "" : undefined}
-    onClick={() => props.action()}
-  >
-    {props.label}
-  </UiButton>
-));
+const Button = createComponentImplementation(ButtonApi, ({ props }) =>
+  props.icon ? (
+    <IconButton
+      label={props.label}
+      icon={Icon[props.icon]}
+      className={["object token a2ui-icon-button", props.primary && "primary", props.danger && "danger"].filter(Boolean).join(" ")}
+      data-primary={props.primary ? "" : undefined}
+      onClick={() => props.action()}
+    />
+  ) : (
+    <UiButton
+      raised
+      primary={props.primary}
+      danger={props.danger}
+      data-primary={props.primary ? "" : undefined}
+      onClick={() => props.action()}
+    >
+      {props.label}
+    </UiButton>
+  ),
+);
 
 /** Touches rapides montrées : 1 à 4 (Task 20 les lit). */
 const QUICK_KEYS = 4;
@@ -536,15 +548,12 @@ const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild }) 
   <div className="notice-bar" role="status">
     <span className="notice-bar-text">{props.text}</span>
     <div className="notice-bar-actions">{children(props.children, buildChild)}</div>
-    <button
-      type="button"
+    <IconButton
+      label={props.close_label}
+      icon={Icon.close}
       className="token ghost notice-bar-close"
-      aria-label={props.close_label}
-      title={props.close_label}
       onClick={() => props.close()}
-    >
-      {Icon.close}
-    </button>
+    />
   </div>
 ));
 

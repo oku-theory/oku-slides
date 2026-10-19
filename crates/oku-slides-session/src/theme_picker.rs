@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use oku_slides_a2ui::{Action, Component, ComponentKind, TextVariant};
+use oku_slides_a2ui::{Action, ButtonIcon, Component, ComponentKind, TextVariant};
 use oku_slides_core::tokens::effective_tokens;
 use oku_slides_core::{Deck, is_hex_color};
 use oku_slides_i18n::Localizer;
@@ -98,7 +98,7 @@ pub(crate) fn swatches(tokens: &Map<String, Value>) -> Vec<String> {
     named.chain(chart).filter_map(|v| colour(&all, v)).collect()
 }
 
-/// La surface : un titre, un `ThemeChoice` par carte, Fermer.
+/// La surface : un titre, un `ThemeChoice` par carte, une croix pour fermer.
 pub fn theme_picker(cards: &[ThemeCard], active: Uuid, l: &Localizer) -> Surface {
     let ids: Vec<String> = (0..cards.len()).map(|i| format!("c{i}")).collect();
     let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
@@ -106,7 +106,8 @@ pub fn theme_picker(cards: &[ThemeCard], active: Uuid, l: &Localizer) -> Surface
         Component::column("root", &["title", "row", "close"]),
         Component::text("title", l.tr("agent-surface-themes"), Some(TextVariant::H4)),
         Component::row("row", &refs),
-        Component::button("close", l.tr("agent-surface-close"), false, Action::named("dismiss")),
+        Component::button("close", l.tr("agent-surface-close"), false, Action::named("dismiss"))
+            .icon(ButtonIcon::Close),
     ];
     for (cid, card) in ids.iter().zip(cards) {
         components.push(Component::new(

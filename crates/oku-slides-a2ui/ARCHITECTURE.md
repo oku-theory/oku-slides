@@ -10,7 +10,7 @@ rendering, no disk access.
   `deleteSurface`; serialization follows v0.9, JSON schema via `schemars`.
 - `Component { id, kind }` and `ComponentKind`: the catalog (layout, text, card, buttons, `Receipt`,
   `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `ThemeChoice`, `Notice`…); constructors `card`, `column`, `row`,
-  `text`, `button`. `Dynamic<T>`: a literal value or a `{path}` binding to the data model.
+  `text`, `button`; button builders `danger`, `icon` (`ButtonIcon`). `Dynamic<T>`: a literal value or a `{path}` binding to the data model.
 - `SlideRef { id, hash }`: a `Receipt`'s slide, named by its page hash, never by its rendering (the
   UI resolves the thumbnail; the "state at receipt or current" choice is described in
   `oku-slides-session`).

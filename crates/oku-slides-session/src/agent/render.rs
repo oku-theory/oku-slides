@@ -51,12 +51,14 @@ fn has_path(v: &Value) -> bool {
     }
 }
 
-/// Les styles réservés à l'hôte : un agent ne peut pas imiter une demande de permission.
+/// Les styles réservés à l'hôte : un agent ne peut pas imiter une demande de permission,
+/// ni cacher l'invite d'un bouton derrière un pictogramme (une croix qui semble fermer).
 fn check_host_styles(i: usize, c: &Component) -> Result<()> {
     let reserved = matches!(
         &c.kind,
         ComponentKind::Button { primary: Some(true), .. }
             | ComponentKind::Button { danger: Some(true), .. }
+            | ComponentKind::Button { icon: Some(_), .. }
             | ComponentKind::Card { tone: Some(Tone::Danger), .. }
             | ComponentKind::Badge { tone: Some(Tone::Danger), .. }
     );
