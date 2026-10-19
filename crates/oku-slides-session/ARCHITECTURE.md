@@ -1,27 +1,27 @@
 # oku-slides-session
 
-Editing session of one deck and its workspace (windows, tabs, resume), and the PowerPoint import.
-The Tauri app and the dev server (`oku-slides-cli` `serve`) expose the same API.
+Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoint import; the app and `serve` expose it.
 
 ## Session
 
-- `Session` (`lib.rs`) answers `Request` through `Session::handle` (`request.rs`): one deck
-  (`SourceBundle`, Loro replica, undo by the non-persisted `UndoManager`), its Typst rendering,
-  templates, resume state (`resume.rs`, `resume_writer.rs`), file (`deck_file.rs`, `files.rs`, `merge.rs`).
+- `Session` (`lib.rs`) answers `Request` through `Session::handle` (`request.rs`): one deck (`SourceBundle`, Loro replica, undo by
+  the non-persisted `UndoManager`), its rendering, templates, resume (`resume.rs`, `resume_writer.rs`), file (`deck_file.rs`, `files.rs`, `merge.rs`).
 - `Mode`: `Deck`, `Help` (read-only, `help.rs`), `Templates`, `History`; the last two set the deck aside (`stash`) in
   `templates_mode.rs` (`templates_library.rs`: base, library writes; a deck-only pack edits its embedded version) and `history.rs`.
 - Packs (`deck.widgets`, one pin per namespace) and themes: embedded versions are authoritative; a deck-only one never reaches
-  the library. `deck_widgets.rs` builds the registry per pack, `deck_fallback.rs` disables a faulty pack alone (bisection),
-  `deck_closure.rs` adds `requires`, lists dependents (also `probed_widgets`); `deck_pack.rs` (`check_pack_id`), `deck_theme.rs` embed defaults;
-  `library.rs` (namespace unique, kept by every version; `namespace_slug.rs`), `library_kind.rs`, `library_index.rs` (in-memory, reset on `generation`) hold `Library<K>`; `theme.rs`, `pack.rs`.
+  the library. Built-ins: Essentiel, Grilles, `base` (`BASE_PACK`: element widgets, sources from render), pinned before probing
+  by producers: new deck (`adopt_default_packs`), help, imports (built-in version), templates mode; open never completes pins.
+  The current built-in `base` resolves in-process (`deck_widgets.rs`, `probed_widgets`: no worker, `builtin_registry`); a first
+  replica uses `builtin_registry`, a slot without a set `core_registry`. `deck_fallback.rs` disables a faulty pack alone, never a shipped `base`;
+  `deck_closure.rs` adds `requires`, lists dependents; `deck_pack.rs` (`check_pack_id`, `builtin_pin`), `deck_theme.rs` embed
+  defaults; `library.rs` (unique namespace; `namespace_slug.rs`), `library_kind.rs`, `library_index.rs` (in-memory) hold `Library<K>`.
 - Theme editing: `theme_edit.rs` (`ThemeEdit` draft in templates mode, `save_theme_edit`), `deck_theme_edit.rs` (`edit_theme`
   in deck mode), `theme_schema.rs` (token controls, bounds), `theme_panel.rs` + `theme_controls.rs` (`host-theme` surface),
   `appearance.rs`; `deck_themes.rs`: deck-only themes the sources embed (`Snapshot.deck_themes`), picked after the library.
-- Widget workshop: `widgets_edit.rs`, `widget_preview.rs`, `widget_examples.rs`, `widget_params.rs`,
-  `param_fields.rs`, `items.rs`, `widgets_deck.rs`; host settings: `panel.rs`, `target_params.rs`.
-- Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`.
-- Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts
-  unrendered (`Session::unrendered`), its worker process at the first render (`ensure_rendered`).
+- Widget workshop: `widgets_edit.rs`, `widget_preview.rs` (built-in `base` beside the pack), `widget_examples.rs`, `widget_params.rs`,
+  `param_fields.rs` (Fluent names for core and `base` kinds only), `items.rs`, `widgets_deck.rs`; host settings: `panel.rs`, `target_params.rs`.
+- Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`.
+- Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts unrendered, its worker at the first render.
 - `import/`: PowerPoint import, CLI and app (one history step; a retrofit keeps the library pack until its first widget
   write makes the deck-only `child_pack`), `render`, `note_overflows`, `reference`, `state` (`ImportState`, tab memory),
   `score`, `geometry`, tuning (`queue`, `sample`, `diff`, `tune`). Also for the CLI: `library_lookup`, `probed_widgets`.

@@ -17,6 +17,7 @@ diagnostic-hint = Hinweis: { $hint }
 render-chart-failed = Diagramm konnte nicht gezeichnet werden
 
 registry-bad-pack-id = Ungültige Vorlagenpaket-Kennung: { $id }
+registry-base-pack-broken = Das integrierte Widget-Paket ist beschädigt ({ $file }); installieren Sie die App neu.
 registry-duplicate-pack = Zwei Widget-Pakete der Präsentation teilen sich { $pack }.
 registry-compile = Die Widgets des Vorlagenpakets konnten nicht kompiliert werden
 registry-missing = Das Vorlagenpaket deklariert keine Widgets

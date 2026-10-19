@@ -49,6 +49,14 @@ test("firstPackId falls back to the deck pack", () => {
   expect(firstPackId(snapOf({ deck: { id: "d", version: "1" } }))).toBe("d");
 });
 
+const pin = (id: string): PackPin => ({ id, version: "1" });
+
+test("firstPackId saute base pour essentiel", () => expect(firstPackId(snapOf({ base: pin("b"), essentiel: pin("e") }))).toBe("e"));
+
+test("firstPackId saute base pour le pack du deck", () => expect(firstPackId(snapOf({ base: pin("b"), deck: pin("d") }))).toBe("d"));
+
+test("firstPackId with base alone returns base", () => expect(firstPackId(snapOf({ base: pin("b") }))).toBe("b"));
+
 test("firstPackId of no pin is null", () => {
   expect(firstPackId(snapOf({}))).toBeNull();
   expect(firstPackId(null)).toBeNull();

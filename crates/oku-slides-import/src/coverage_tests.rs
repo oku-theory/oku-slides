@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Deck, Element, Paragraph, Run as OkuRun};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -58,7 +59,7 @@ fn text(id: &str, t: &str) -> Element {
 }
 
 fn image(id: &str, asset: &str) -> Element {
-    let mut e = Element::new(id, "image");
+    let mut e = Element::new(id, base::IMAGE);
     e.params.set("asset", ParamValue::Text(asset.into()));
     e
 }
@@ -198,10 +199,10 @@ fn coverage_counts_runs_inside_groups() {
             smartart: None,
         },
     );
-    let mut card = Element::new("s1-1-1", "card");
+    let mut card = Element::new("s1-1-1", base::CARD);
     card.params.set("title", ParamValue::Text("Étape 1".into()));
     let stack = {
-        let mut e = Element::new("s1-1", "stack");
+        let mut e = Element::new("s1-1", base::STACK);
         e.params.set("children", ParamValue::Slot(vec![card, text("s1-1-2", "Étape 2")]));
         e
     };
@@ -241,7 +242,7 @@ fn coverage_counts_images_and_fallbacks_by_asset() {
 #[test]
 fn coverage_finds_a_table_by_its_grid_and_its_cell_runs() {
     let data = json!({ "dataset": { "source": [["Titre", null], ["A", "1"]] } });
-    let d = deck(None, vec![element_with("s1-1", "table", "data", data)]);
+    let d = deck(None, vec![element_with("s1-1", base::TABLE, "data", data)]);
     let c =
         coverage(&source(vec![source_slide(1, None, vec![table_item()])]), &d, &registry(), &BTreeMap::new(), Some(1));
     assert_that!((c.tables, c.runs)).is_equal_to((Ratio { found: 1, total: 1 }, Ratio { found: 3, total: 3 }));
@@ -250,7 +251,7 @@ fn coverage_finds_a_table_by_its_grid_and_its_cell_runs() {
 #[test]
 fn coverage_misses_a_table_whose_grid_differs() {
     let data = json!({ "dataset": { "source": [["Titre", null], ["A", "2"]] } });
-    let d = deck(None, vec![element_with("s1-1", "table", "data", data)]);
+    let d = deck(None, vec![element_with("s1-1", base::TABLE, "data", data)]);
     let c =
         coverage(&source(vec![source_slide(1, None, vec![table_item()])]), &d, &registry(), &BTreeMap::new(), Some(1));
     assert_that!(c.missing).contains(Missing::Table { slide: 1, item: "tb".into() });
@@ -262,7 +263,7 @@ fn coverage_finds_a_chart_when_every_series_has_its_column() {
         "dataset": { "source": [["", "Nord", "Sud"], ["T1", 1.0, 3.0], ["T2", 2.0, 4.0]] },
         "series": [{ "type": "bar" }, { "type": "bar" }],
     });
-    let d = deck(None, vec![element_with("s1-1", "chart", "option", option)]);
+    let d = deck(None, vec![element_with("s1-1", base::CHART, "option", option)]);
     let c = coverage(
         &source(vec![source_slide(1, None, vec![chart_item(ChartKind::Column)])]),
         &d,
@@ -277,7 +278,7 @@ fn coverage_finds_a_chart_when_every_series_has_its_column() {
 fn coverage_misses_a_pie_that_kept_one_series_of_two() {
     let option =
         json!({ "dataset": { "source": [["", "Nord"], ["T1", 1.0], ["T2", 2.0]] }, "series": [{ "type": "pie" }] });
-    let d = deck(None, vec![element_with("s1-1", "chart", "option", option)]);
+    let d = deck(None, vec![element_with("s1-1", base::CHART, "option", option)]);
     let c = coverage(
         &source(vec![source_slide(1, None, vec![chart_item(ChartKind::Pie)])]),
         &d,
@@ -355,7 +356,7 @@ fn coverage_skips_repeated_footers_like_the_projection() {
 #[test]
 fn coverage_does_not_fall_back_to_the_slide_when_the_projected_element_has_no_text() {
     let src = source(vec![source_slide(1, None, vec![text_item("b", (0.0, 0.0, 10.0, 10.0), "Corps")])]);
-    let empty = Element::new("s1-1", "card");
+    let empty = Element::new("s1-1", base::CARD);
     let d = deck(None, vec![empty, text("s1-2", "Corps")]);
     let c = coverage(&src, &d, &registry(), &origins(&[("b", "s1-1")]), None);
     assert_that!(c.missing).is_equal_to(vec![Missing::Run { slide: 1, text: "Corps".into() }]);
@@ -392,7 +393,7 @@ fn two_series_chart(second: [f64; 2], categories: [&str; 2]) -> Item {
 }
 
 fn chart_deck(option: serde_json::Value) -> Deck {
-    deck(None, vec![element_with("s1-1", "chart", "option", option)])
+    deck(None, vec![element_with("s1-1", base::CHART, "option", option)])
 }
 
 #[test]

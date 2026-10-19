@@ -18,6 +18,7 @@ diagnostic-hint = ইঙ্গিত: { $hint }
 render-chart-failed = চার্ট আঁকা যায়নি
 
 registry-bad-pack-id = অবৈধ টেমপ্লেট প্যাক শনাক্তকারী: { $id }
+registry-base-pack-broken = অন্তর্নির্মিত উইজেট প্যাকটি ক্ষতিগ্রস্ত ({ $file }); অ্যাপটি আবার ইনস্টল করুন।
 registry-duplicate-pack = প্রেজেন্টেশনের দুটি উইজেট প্যাক { $pack } ভাগ করে।
 registry-compile = টেমপ্লেট প্যাকের উইজেটগুলি কম্পাইল করা যায়নি
 registry-missing = টেমপ্লেট প্যাক তার উইজেটগুলি ঘোষণা করে না

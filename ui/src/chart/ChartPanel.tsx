@@ -24,9 +24,12 @@ const KIND_ICON: Record<ChartKind, ReactNode> = {
   waterfall: stroke(<><path d="M4 20h16" /><path d="M6 20v-8M10 12V7M14 7v5M18 12v8" /><path d="M6 12h4M10 7h4M14 12h4" /></>),
 };
 
-export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs }: {
+/** Le panneau d'un élément à hôte graphique, qui lit et écrit son paramètre `param`. */
+export function ChartPanel({ slide, element, param, palette, onApply, onKind, onShowAs }: {
   slide: string;
   element: Element;
+  /** Le paramètre d'hôte graphique de l'élément (`host_params`). */
+  param: string;
   /** Palette des graphiques du thème (apparence). */
   palette: readonly string[];
   onApply: (label: string, ops: Op[]) => void;
@@ -35,15 +38,15 @@ export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs 
   /** Affiche le graphique en tableau (requête `show_as`). */
   onShowAs: (view: View) => void;
 }) {
-  const source = chartSource(element);
-  const current = chartKind(element);
+  const source = chartSource(element, param);
+  const current = chartKind(element, param);
   const setKind = (kind: ChartKind) => {
     if (kind !== current) onKind(kind);
   };
-  const stacked = isStacked(element);
+  const stacked = isStacked(element, param);
   const toggleStack = () =>
     onApply(t("ui-undo-chart-stack", { stacked: stacked ? "no" : "yes" }), [
-      { op: "set_chart_option", target: { slide, element: element.id }, param: "option", patch: stackPatch(element, !stacked) },
+      { op: "set_chart_option", target: { slide, element: element.id }, param, patch: stackPatch(element, param, !stacked) },
     ]);
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
@@ -53,7 +56,7 @@ export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs 
             <IconToggle key={k} label={kindLabel(k)} pressed={current === k} disabled={!source} onToggle={() => setKind(k)} icon={KIND_ICON[k]} />
           ))}
         </div>
-        {stackable(element) && (
+        {stackable(element, param) && (
           <div className="chart-stack chart-options" role="group" aria-label={t("ui-chart-options")}>
             <IconToggle label={t("ui-chart-stack")} pressed={stacked} onToggle={toggleStack} icon={Icon.stack} />
           </div>
@@ -62,17 +65,18 @@ export function ChartPanel({ slide, element, palette, onApply, onKind, onShowAs 
       </div>
       <SeriesColors
         element={element}
+        param={param}
         colors={paletteOf(palette)}
         onColor={(index, color) =>
-          onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", target: { slide, element: element.id }, param: "option", patch: colorPatch(element, index, color) }])
+          onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", target: { slide, element: element.id }, param, patch: colorPatch(element, param, index, color) }])
         }
       />
       {current === "waterfall" && <p className="a2ui-hint">{t("ui-chart-waterfall-hint")}</p>}
       {source ? (
         <ChartDataGrid
           source={source}
-          checkboxColumns={checkboxColumns(element)}
-          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_data", target: { slide, element: element.id }, param: "option", change }])}
+          checkboxColumns={checkboxColumns(element, param)}
+          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_data", target: { slide, element: element.id }, param, change }])}
         />
       ) : (
         <p className="a2ui-hint">{t("ui-chart-no-data")}</p>

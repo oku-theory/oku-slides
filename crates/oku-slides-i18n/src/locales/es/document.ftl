@@ -17,6 +17,7 @@ diagnostic-hint = sugerencia: { $hint }
 render-chart-failed = no se pudo dibujar el gráfico
 
 registry-bad-pack-id = Identificador de paquete de plantillas no válido: { $id }
+registry-base-pack-broken = El paquete de widgets integrado está dañado ({ $file }); reinstala la app.
 registry-duplicate-pack = Dos paquetes de widgets de la presentación comparten { $pack }.
 registry-compile = No se pudieron compilar los widgets del paquete de plantillas
 registry-missing = El paquete de plantillas no declara sus widgets

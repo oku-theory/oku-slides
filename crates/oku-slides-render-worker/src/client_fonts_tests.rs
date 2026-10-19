@@ -3,7 +3,7 @@
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{Fonts, base_registry};
+use oku_slides_render::{Fonts, core_registry};
 use sha2::{Digest, Sha256};
 use speculoos::prelude::*;
 
@@ -33,7 +33,7 @@ fn id(bytes: &[u8]) -> String {
 }
 
 fn slot_with(w: &RenderWorker, fonts: &Fonts) -> RenderSlot {
-    w.slot(fonts, &Localizer::new(Some("fr")), base_registry(&Fonts::default()).unwrap()).unwrap()
+    w.slot(fonts, &Localizer::new(Some("fr")), core_registry(&Fonts::default()).unwrap()).unwrap()
 }
 
 /// Le travailleur connaît la police `id` : un emplacement s'y ouvre.

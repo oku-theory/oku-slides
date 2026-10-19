@@ -35,7 +35,7 @@ pub struct WidgetRequest {
     pub slides: Vec<String>,
     /// Les items source de sa première occurrence.
     pub sample: Vec<Item>,
-    /// Sorte du widget de repli employé (`stack`…).
+    /// Sorte du widget de repli employé (`base/stack`…).
     pub fallback: String,
 }
 

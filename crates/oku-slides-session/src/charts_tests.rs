@@ -24,7 +24,7 @@ fn element(id: &str, kind: &str, param: &str) -> Element {
 }
 
 fn inline_chart(id: &str) -> Element {
-    element(id, "chart", "option")
+    element(id, oku_slides_core::kinds::base::CHART, "option")
 }
 
 /// En-têtes du `dataset` du paramètre `option` ; vide sans dataset.
@@ -54,7 +54,7 @@ fn canonicalize_charts_moves_inline_data_to_a_localized_dataset() {
 #[test]
 fn canonicalize_charts_reaches_slot_children_and_new_slides() {
     let stack: Element = serde_json::from_value(json!({
-        "id": "grp", "kind": "stack", "params": { "children": [serde_json::to_value(inline_chart("g1")).unwrap()] }
+        "id": "grp", "kind": oku_slides_core::kinds::base::STACK, "params": { "children": [serde_json::to_value(inline_chart("g1")).unwrap()] }
     }))
     .unwrap();
     let mut slide = Slide::new("s2", "content");
@@ -79,7 +79,7 @@ fn canonicalize_charts_leaves_params_that_are_not_charts_alone() {
             slot: slot("s", "blocks"),
             index: None,
             defaults: false,
-            element: element("t", "text", "option"),
+            element: element("t", oku_slides_core::kinds::base::TEXT, "option"),
         },
         Op::AddElement {
             slot: slot("s", "blocks"),

@@ -3,6 +3,7 @@
 mod common;
 
 use common::registry;
+use oku_slides_core::kinds::base;
 use oku_slides_core::*;
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -32,7 +33,7 @@ fn with_quatre() -> WidgetRegistry {
 fn quatre_deck(cell: Cell) -> Deck {
     let mut deck = fixture();
     let mut slide = Slide::new("s-4", "acme/quatre");
-    let mut e = Element::new("e", "text");
+    let mut e = Element::new("e", base::TEXT);
     e.cell = Some(cell);
     slide.params.set("elements", ParamValue::Slot(vec![e]));
     deck.slides.push(slide);
@@ -123,7 +124,7 @@ fn set_grid_out_of_range_is_refused(#[case] columns: Option<u32>, #[case] rows: 
 fn set_grid_leaves_a_framed_element_without_cell_untouched() {
     let mut deck = quatre_deck(Cell { col: 0, row: 0, cols: 1, rows: 1 });
     let frame = Frame { x: 10.0, y: 20.0, w: 300.0, h: 200.0 };
-    let mut framed = Element::new("f", "text");
+    let mut framed = Element::new("f", base::TEXT);
     framed.frame = Some(frame);
     let slide = deck.slides.last_mut().unwrap();
     let mut elements = match slide.params.get("elements") {

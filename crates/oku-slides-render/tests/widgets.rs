@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 mod common;
 
-use oku_slides_core::{Category, Deck, Namespace, ParamType, WidgetFile};
+use oku_slides_core::{Category, DECK_VERSION, Deck, Namespace, ParamType, WidgetFile, kinds::base};
 use oku_slides_render::{
-    Fonts, PackSet, PackWidgets, Registries, RegistryErrorKind, Renderer, load_registry, probe_file,
+    Fonts, Layout, PackSet, PackWidgets, Registries, RegistryErrorKind, Renderer, base_pack_widgets, load_registry,
+    probe_file,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -21,12 +22,22 @@ fn one_pack(id: &str, entries: &[(&str, &str)]) -> PackSet {
     PackSet::new(vec![common::pack_in(id, id, entries)]).unwrap_or_else(|e| panic!("{e}"))
 }
 
+/// L'ensemble du seul pack `base` intégré.
+fn base_set() -> PackSet {
+    PackSet::new(vec![base_pack_widgets().unwrap_or_else(|e| panic!("{e}"))]).unwrap_or_else(|e| panic!("{e}"))
+}
+
 #[test]
 fn load_registry_with_pack_adds_its_qualified_widgets_to_the_base() {
-    let r = load_registry(&Fonts::default(), &one_pack("citations", &[("quote", QUOTE)])).unwrap();
+    let set = PackSet::new(vec![
+        base_pack_widgets().unwrap(),
+        common::pack_in("citations", "citations", &[("quote", QUOTE)]),
+    ])
+    .unwrap();
+    let r = load_registry(&Fonts::default(), &set).unwrap();
     assert_that!(r.get("citations/quote").map(|w| w.params.len())).is_equal_to(Some(2));
     assert_that!(r.get("quote")).is_none();
-    assert_that!(r.get("card")).is_some();
+    assert_that!(r.get(base::CARD)).is_some();
 }
 
 #[test]
@@ -116,26 +127,26 @@ fn registries_get_changed_pack_source_reloads() {
 
 #[test]
 fn load_registry_base_declares_the_text_widget_with_a_rich_body() {
-    let r = load_registry(&Fonts::default(), &PackSet::default()).unwrap();
-    let text = r.get("text").unwrap();
+    let r = load_registry(&Fonts::default(), &base_set()).unwrap();
+    let text = r.get(base::TEXT).unwrap();
     assert_that!(text.category).is_equal_to(Category::Element);
     assert_that!(text.param("body").map(|p| p.ty.clone())).is_equal_to(Some(ParamType::Rich));
 }
 
 #[test]
 fn load_registry_base_declares_every_element_widget() {
-    let r = load_registry(&Fonts::default(), &PackSet::default()).unwrap();
-    for name in ["text", "card", "image", "shape", "chart", "table", "stack", "canvas"] {
+    let r = load_registry(&Fonts::default(), &base_set()).unwrap();
+    for name in base::ALL {
         asserting(name).that(&r.get(name).map(|w| w.category)).is_equal_to(Some(Category::Element));
     }
-    let stack = r.get("stack").unwrap();
+    let stack = r.get(base::STACK).unwrap();
     assert_that!(stack.param("children").map(|p| p.ty.clone()))
         .is_equal_to(Some(ParamType::Slot { mode: oku_slides_core::SlotMode::Flow, accepts: None }));
 }
 
 #[test]
 fn load_registry_base_declares_every_slide_widget() {
-    let r = load_registry(&Fonts::default(), &PackSet::default()).unwrap();
+    let r = load_registry(&Fonts::default(), &base_set()).unwrap();
     for name in ["title", "toc", "chapter", "content", "end", "blank"] {
         asserting(name).that(&r.get(name).map(|w| w.category)).is_equal_to(Some(Category::Slide));
     }
@@ -146,7 +157,7 @@ fn load_registry_base_declares_every_slide_widget() {
 
 #[test]
 fn load_registry_base_matches_its_snapshot() {
-    let r = load_registry(&Fonts::default(), &PackSet::default()).unwrap();
+    let r = load_registry(&Fonts::default(), &base_set()).unwrap();
     insta::assert_json_snapshot!("base_registry", r);
 }
 
@@ -155,7 +166,7 @@ fn base_registry_fixture_matches_the_live_registry() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
     let text = std::fs::read_to_string(path).unwrap();
     let fixture = oku_slides_core::WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap();
-    assert_that!(load_registry(&Fonts::default(), &PackSet::default()).unwrap()).is_equal_to(fixture);
+    assert_that!(load_registry(&Fonts::default(), &base_set()).unwrap()).is_equal_to(fixture);
 }
 
 fn roadmap() -> Deck {
@@ -166,7 +177,7 @@ fn roadmap() -> Deck {
 
 #[test]
 fn compile_card_emits_one_field_per_filled_text_param() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&roadmap(), &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
     let fields: Vec<&str> = layout.fields.iter().filter(|f| f.owner == "c1").map(|f| f.field.as_str()).collect();
@@ -181,7 +192,7 @@ fn compile_card_emits_one_field_per_filled_text_param() {
 
 #[test]
 fn compile_card_title_field_carries_the_card_title_style() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&roadmap(), &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
     let title = layout.fields.iter().find(|f| f.owner == "c1" && f.field == "title").unwrap();
@@ -192,7 +203,7 @@ fn compile_card_title_field_carries_the_card_title_style() {
 
 #[test]
 fn compile_text_element_emits_its_body_field() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&roadmap(), &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
     assert_that!(layout.fields.iter().any(|f| f.owner == "b-points" && f.field == "body")).is_true();
@@ -200,7 +211,7 @@ fn compile_text_element_emits_its_body_field() {
 
 #[test]
 fn compile_fields_on_page_keep_only_that_page() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&roadmap(), &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
     let page = layout.fields.iter().find(|f| f.owner == "c1").unwrap().page;
@@ -210,7 +221,7 @@ fn compile_fields_on_page_keep_only_that_page() {
 
 #[test]
 fn compile_title_slide_emits_kicker_title_and_subtitle_fields_owned_by_the_slide() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&roadmap(), &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
     let fields: Vec<&str> = layout.fields.iter().filter(|f| f.owner == "s-title").map(|f| f.field.as_str()).collect();
@@ -223,7 +234,7 @@ fn compile_title_slide_emits_kicker_title_and_subtitle_fields_owned_by_the_slide
 
 #[test]
 fn compile_content_slide_emits_kicker_and_title_fields() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&roadmap(), &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
     let fields: Vec<&str> = layout.fields.iter().filter(|f| f.owner == "s-constat").map(|f| f.field.as_str()).collect();
@@ -232,7 +243,7 @@ fn compile_content_slide_emits_kicker_and_title_fields() {
 
 /// Deck d'une slide libre avec un seul élément `kind`, sur un cadre.
 fn one_element_deck(kind: &str, params: serde_json::Value) -> Deck {
-    let json = serde_json::json!({ "version": 6, "slides": [{ "id": "s", "kind": "blank", "params": {
+    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "blank", "params": {
         "elements": [{ "id": "e", "kind": kind, "frame": { "x": 40, "y": 40, "w": 600, "h": 300 }, "params": params }]
     } }] });
     Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
@@ -265,13 +276,11 @@ const RED_CARD: &str = r##"#import "/oku-slides/lib.typ": widget, field, params 
 #[test]
 fn compile_pack_card_renders_under_its_qualified_kind_beside_the_base_card() {
     let params = serde_json::json!({ "title": "Rouge", "body": [{ "runs": [{ "t": "corps" }] }] });
-    let set = one_pack("rouge", &[("card", RED_CARD)]);
-    let registry = Arc::new(load_registry(&Fonts::default(), &set).unwrap());
+    let mut r = common::renderer_with(&one_pack("rouge", &[("card", RED_CARD)]));
+    let registry = r.registry().clone();
     assert_that!(registry.get("rouge/card").and_then(|w| w.param("icon"))).is_some();
-    assert_that!(registry.get("card").and_then(|w| w.param("icon"))).is_none();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
-    r.set_widgets(&set, registry).unwrap();
-    let plain = r.render(&one_element_deck("card", params.clone()), &BTreeMap::new()).unwrap();
+    assert_that!(registry.get(base::CARD).map(|w| w.param("icon").is_none())).is_equal_to(Some(true));
+    let plain = r.render(&one_element_deck(base::CARD, params.clone()), &BTreeMap::new()).unwrap();
     let red = r.render(&one_element_deck("rouge/card", params), &BTreeMap::new()).unwrap();
 
     // Le crate `png` n'est pas une dépendance du workspace : le fond rouge se
@@ -287,7 +296,7 @@ fn compile_pack_card_renders_under_its_qualified_kind_beside_the_base_card() {
 
 #[test]
 fn compile_unknown_element_kind_draws_the_unknown_box() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&one_element_deck("nope", serde_json::json!({})), &BTreeMap::new()).unwrap();
     assert_that!(compiled.page_count()).is_equal_to(1);
     assert_that!(compiled.layout().boxes.iter().any(|b| b.id == "e")).is_true();
@@ -308,7 +317,7 @@ fn set_widgets_back_to_the_base_drops_the_pack_widgets() {
 
 #[test]
 fn compile_unknown_slide_kind_renders_a_page_marked_with_the_slide() {
-    let json = serde_json::json!({ "version": 6, "slides": [{ "id": "s", "kind": "nope" }] });
+    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "nope" }] });
     let deck = Deck::from_json(&json.to_string()).unwrap();
     let mut r = Renderer::new(Fonts::default()).unwrap();
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap();
@@ -325,18 +334,17 @@ fn framed(id: &str, kind: &str, params: serde_json::Value) -> serde_json::Value 
 fn compile_deck_with_wrong_typed_params_renders_every_page() {
     // Un deck incohérent (écrit sans passer par les ops) s'ouvre et se rend :
     // chaque valeur qui n'a pas le type déclaré retombe sur le défaut.
-    let json = serde_json::json!({ "version": 6, "slides": [
+    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [
         { "id": "s-blank", "kind": "blank", "params": { "grid": "x", "elements": [
-            framed("card", "card", serde_json::json!({ "title": 3, "kicker": ["a"], "body": "texte", "highlight": "oui" })),
-            framed("stack", "stack", serde_json::json!({ "count": "trois", "layout": 7, "gap": "énorme", "children": "x" })),
-            framed("canvas", "canvas", serde_json::json!({ "children": { "a": 1 } })),
-            framed("image", "image", serde_json::json!({ "asset": 42, "fit": "blob" })),
-            framed("shape", "shape", serde_json::json!({ "shape": false })),
-            framed("text", "text", serde_json::json!({ "body": [{ "x": 1 }] })),
-            framed("text2", "text", serde_json::json!({ "body": { "runs": [] } })),
-            framed("text3", "text", serde_json::json!({ "body": [{ "runs": "a" }] })),
-            framed("text4", "text", serde_json::json!({ "body": [{ "runs": [1] }] })),
-            framed("chart", "chart", serde_json::json!({ "option": "x" })),
+            framed("card", base::CARD, serde_json::json!({ "title": 3, "kicker": ["a"], "body": "texte", "highlight": "oui" })),
+            framed("stack", base::STACK, serde_json::json!({ "count": "trois", "layout": 7, "gap": "énorme", "children": "x" })),
+            framed("image", base::IMAGE, serde_json::json!({ "asset": 42, "fit": "blob" })),
+            framed("shape", base::SHAPE, serde_json::json!({ "shape": false })),
+            framed("text", base::TEXT, serde_json::json!({ "body": [{ "x": 1 }] })),
+            framed("text2", base::TEXT, serde_json::json!({ "body": { "runs": [] } })),
+            framed("text3", base::TEXT, serde_json::json!({ "body": [{ "runs": "a" }] })),
+            framed("text4", base::TEXT, serde_json::json!({ "body": [{ "runs": [1] }] })),
+            framed("chart", base::CHART, serde_json::json!({ "option": "x" })),
         ] } },
         { "id": "s-content", "kind": "content",
           "params": { "layout": 5, "title": ["t"], "kicker": { "a": 1 }, "grid": [1], "blocks": "x", "elements": 3 } },
@@ -345,7 +353,7 @@ fn compile_deck_with_wrong_typed_params_renders_every_page() {
         { "id": "s-toc", "kind": "toc", "params": { "title": 1 } },
     ] });
     let deck = Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"));
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("rendu refusé : {e:?}"));
     assert_that!(compiled.page_count()).is_equal_to(5);
     for page in 0..compiled.page_count() {
@@ -363,7 +371,7 @@ fn elements_deck(elements: &[(&str, &str)]) -> Deck {
                 "frame": { "x": 40 + 700 * i, "y": 40, "w": 600, "h": 300 } })
         })
         .collect();
-    let json = serde_json::json!({ "version": 6, "slides": [{ "id": "s", "kind": "blank", "params": { "elements": elements } }] });
+    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "blank", "params": { "elements": elements } }] });
     Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
 }
 
@@ -381,4 +389,118 @@ fn render_deck_with_two_packs_renders_each_qualified_widget() {
         asserting(id).that(&layout.boxes.iter().any(|b| b.id == id && b.w > 0.0)).is_true();
         asserting(id).that(&layout.fields.iter().any(|f| f.owner == id && f.field == "title")).is_true();
     }
+}
+
+/// Un widget de test qui remplit sa hauteur : un rectangle de 100 %.
+const TALL: &str = r#"#import "/oku-slides/lib.typ": widget
+#let widget = widget("tall", grow: true, (args, ctx) => rect(width: 100%, height: 100%))"#;
+/// Le même contenu de 40 pt, avec ou sans `grow`.
+const FLAT: &str = r#"#import "/oku-slides/lib.typ": widget
+#let widget = widget("flat", (args, ctx) => block(width: 100%, height: 40pt))"#;
+/// Un widget qui veut `n` pt mais se réduit à la place reçue (comme `base/table`), en `"fit"`.
+const FIT: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("fit", grow: "fit", params: (n: p.number()),
+  (args, ctx) => layout(sz => block(width: 100%, height: calc.min(args.n * 1pt, sz.height))))"#;
+/// Un libellé dont l'élément porte la typographie de son style.
+const LABEL: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p, _text-args
+#let widget = widget("label", typography: true, params: (x: p.plain()), (args, ctx) => {
+  set text(.._text-args(ctx.tokens, ctx.style))
+  field(ctx, "x", args.x)
+})"#;
+const LABEL_PLAIN: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("plainlabel", params: (x: p.plain()), (args, ctx) => field(ctx, "x", args.x))"#;
+
+fn text_block(id: &str) -> serde_json::Value {
+    json!({"id": id, "kind": base::TEXT, "params": {"body": [{"runs": [{"t": "Avant"}]}]}})
+}
+
+fn bottom_gap(layout: &Layout, id: &str) -> f64 {
+    let zone_bottom = layout.zone_on(1).map_or_else(|| panic!("pas de zone en page 1"), |z| z.y + z.h);
+    let b = common::box_of(layout, id);
+    zone_bottom - (b.y + b.h)
+}
+
+#[test]
+fn widget_declaring_grow_fill_takes_the_remaining_height() {
+    let pack = common::pack("tall", &[("tall", TALL)]);
+    let layout = common::render_with_packs(&[pack], json!([text_block("t"), {"id": "g", "kind": "test/tall"}]));
+    assert_that!(bottom_gap(&layout, "g")).is_less_than(1.0);
+}
+
+#[test]
+fn widget_without_grow_keeps_its_natural_height() {
+    let pack = common::pack("flat", &[("flat", FLAT)]);
+    let layout = common::render_with_packs(&[pack], json!([text_block("t"), {"id": "g", "kind": "test/flat"}]));
+    let g = common::box_of(&layout, "g");
+    assert_that!(((g.h - 40.0).abs() < 1.0, bottom_gap(&layout, "g") > 50.0)).is_equal_to((true, true));
+}
+
+/// `"fit"` qui tient garde sa hauteur : le bloc suivant suit juste dessous.
+#[test]
+fn widget_declaring_grow_fit_that_fits_keeps_its_height() {
+    let pack = common::pack("fit", &[("fit", FIT)]);
+    let blocks = json!([text_block("t"), {"id": "f", "kind": "test/fit", "params": {"n": 40}}, text_block("u")]);
+    let layout = common::render_with_packs(&[pack], blocks);
+    let (f, u) = (common::box_of(&layout, "f"), common::box_of(&layout, "u"));
+    assert_that!(((f.h - 40.0).abs() < 1.0, u.y - (f.y + f.h) < 30.0, bottom_gap(&layout, "u") > 50.0))
+        .is_equal_to((true, true, true));
+}
+
+/// `"fit"` trop haut prend une part : il se réduit, et le bloc suivant reste dans la zone.
+#[test]
+fn widget_declaring_grow_fit_too_tall_takes_a_share() {
+    let pack = common::pack("fit", &[("fit", FIT)]);
+    let blocks = json!([text_block("t"), {"id": "f", "kind": "test/fit", "params": {"n": 2000}}, text_block("u")]);
+    let layout = common::render_with_packs(&[pack], blocks);
+    let f = common::box_of(&layout, "f");
+    assert_that!((f.h < 1000.0, bottom_gap(&layout, "u") > -0.5)).is_equal_to((true, true));
+}
+
+#[rstest]
+#[case("test/label", true)]
+#[case("test/plainlabel", false)]
+fn element_box_reports_the_style_size_only_with_typography(#[case] kind: &str, #[case] styled: bool) {
+    // Un seul pack : deux packs du même espace de noms seraient refusés (`DuplicatePack`).
+    let packs = [common::pack("label", &[("label", LABEL), ("plainlabel", LABEL_PLAIN)])];
+    let blocks = json!([{"id": "l", "kind": kind, "style": {"size": "title"}, "params": {"x": "Libellé"}}]);
+    let layout = common::render_with_packs(&packs, blocks);
+    let size = common::box_of(&layout, "l").style.as_ref().map_or(0.0, |s| s.size);
+    let title = common::token_size("title");
+    assert_that!((size - title).abs() < 0.5).is_equal_to(styled);
+}
+
+#[rstest]
+#[case(r#"widget("s", category: "slide", grow: true, (a, c) => [])"#)]
+#[case(r#"widget("s", category: "slide", typography: true, (a, c) => [])"#)]
+#[case(r#"widget("s", grow: "fill", (a, c) => [])"#)]
+#[case(r#"widget("s", grow: 1, (a, c) => [])"#)]
+#[case(r#"widget("s", typography: "yes", (a, c) => [])"#)]
+fn widget_with_invalid_sizing_is_refused_by_the_probe(#[case] call: &str) {
+    let src = format!("#import \"/oku-slides/lib.typ\": widget\n#let widget = {call}\n");
+    let probe = probe_file(&Fonts::default(), &WidgetFile::parse("s").unwrap(), &src, None);
+    assert_that!(probe.is_valid()).is_false();
+}
+
+/// Une image large et pleine (600 × 100, noire) : dans le flux, à ses proportions, elle ferait 50 pt de haut.
+const WIDE_SVG: &[u8] =
+    br#"<svg xmlns="http://www.w3.org/2000/svg" width="600" height="100"><rect width="600" height="100"/></svg>"#;
+
+#[test]
+fn framed_image_is_stretched_over_its_whole_frame() {
+    let deck = common::blank_with_element(
+        json!({"id": "i", "kind": base::IMAGE, "frame": {"x": 100, "y": 100, "w": 300, "h": 120},
+        "params": {"asset": "sha256:abcd", "fit": "stretch"}}),
+    );
+    let assets = BTreeMap::from([("sha256:abcd".to_owned(), WIDE_SVG.to_vec())]);
+    let compiled = common::renderer().render(&deck, &assets).unwrap();
+    // PNG à 1 px/pt : le bas du cadre (5 pt au-dessus de son bord) est noir si l'image
+    // remplit le cadre, clair si elle était dessinée à ses proportions (50 pt de haut).
+    let i = common::box_of(compiled.layout(), "i").clone();
+    let png = compiled.png(0, 1.0).unwrap();
+    let mut reader = png::Decoder::new(std::io::Cursor::new(png)).read_info().unwrap();
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut buf).unwrap();
+    let channels = info.line_size / info.width as usize;
+    let at = (i.y + i.h - 5.0) as usize * info.line_size + (i.x + i.w / 2.0) as usize * channels;
+    assert_that!(buf[at] < 40).is_true();
 }

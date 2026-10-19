@@ -188,7 +188,8 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
         snafu::ensure!(threshold.is_finite() && threshold >= 0.0, ThresholdSnafu { value: threshold });
     }
     let input = input::read_input(platform, &request.pptx)?;
-    let base = oku_slides_render::base_registry(fonts).context(RegistrySnafu)?;
+    // Le noyau et le `base` intégré : la cible du hi-fi et le premier replica de l'import.
+    let base = oku_slides_render::builtin_registry(fonts).context(RegistrySnafu)?;
     let name = request.pptx.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
     let prepared = match &request.target {
         ImportTarget::Retrofit { pack, theme } => {

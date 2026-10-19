@@ -134,6 +134,22 @@ fn render_with_an_unknown_theme_fails_with_a_localized_message() {
 }
 
 #[test]
+fn open_out_writes_the_base_pack_beside_the_deck() {
+    let dir = workdir("pack-base");
+    let pdf = dir.join("deck.oku-slides.pdf");
+    assert_that!(run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf)).status.success()).is_true();
+    let extract = dir.join("extract");
+    assert_that!(run(oku_slides(&dir, "en").arg("open").arg(&pdf).arg("--out").arg(&extract)).status.success())
+        .is_true();
+    let namespaces: Vec<String> = std::fs::read_dir(extract.join("widgets"))
+        .unwrap()
+        .map(|e| std::fs::read_to_string(e.unwrap().path().join("widgets.json")).unwrap())
+        .map(|j| serde_json::from_str::<serde_json::Value>(&j).unwrap()["namespace"].as_str().unwrap().to_owned())
+        .collect();
+    assert_that!(namespaces).contains("base".to_owned());
+}
+
+#[test]
 fn save_open_strip_round_trip_keeps_deck_and_assets() {
     let dir = workdir("save");
     let assets = dir.join("assets");
@@ -666,7 +682,7 @@ fn save_embeds_the_referenced_pack_and_renders_its_widgets() {
     let deck = dir.join("deck.json");
     std::fs::write(
         &deck,
-        serde_json::to_vec(&serde_json::json!({ "version": 6, "widgets": { "pack": r },
+        serde_json::to_vec(&serde_json::json!({ "version": 7, "widgets": { "pack": r },
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "pack/quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] }))
@@ -691,7 +707,7 @@ fn render_of_a_pdf_whose_pack_loops_stops_at_the_timeout() {
     let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap()).unwrap();
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("boucle", LOOP_ON_RENDER)]);
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 6,
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 7,
         "widgets": { "pack": { "id": id, "version": files.version() } },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
             { "id": "l", "kind": "pack/boucle", "params": { "body": "x" } }] } }] }))
@@ -734,7 +750,7 @@ fn render_of_a_json_deck_whose_pack_is_not_embedded_warns_and_uses_the_base() {
     let r = user_pack(&dir, &[("quote", QUOTE)]);
     let deck = dir.join("deck.json");
     let json =
-        serde_json::json!({ "version": 6, "widgets": { "pack": r }, "slides": [{ "id": "s", "kind": "title" }] });
+        serde_json::json!({ "version": 7, "widgets": { "pack": r }, "slides": [{ "id": "s", "kind": "title" }] });
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap()).unwrap();
     let rendered = run(oku_slides(&dir, "en").arg("render").arg(&deck).arg("--out").arg(dir.join("out")));
     assert_that!(rendered.status.success()).is_true();
@@ -750,7 +766,7 @@ fn received_quote_pdf(dir: &Path) -> (std::path::PathBuf, PackPin) {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("quote", QUOTE)]);
     let r = PackPin { id, version: files.version(), requires: vec![] };
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 6, "widgets": { "pack": r },
+    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 7, "widgets": { "pack": r },
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "pack/quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
         ] } }] }))

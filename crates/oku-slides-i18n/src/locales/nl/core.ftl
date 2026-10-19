@@ -29,6 +29,7 @@ op-pack-in-use = Het widgetpakket { $pack } wordt nog gebruikt door { $count ->
    *[other] { $count } onderdelen
 }.
 op-pack-requirement-missing = Het widgetpakket { $pack } heeft { $required } nodig, maar deze presentatie heeft dat niet.
+op-base-required = Elke presentatie behoudt het basiswidgetpakket.
 op-unknown-param = Onbekende parameter: { $subject }
 op-param-type-because = Ongeldige waarde voor { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -183,6 +184,7 @@ widget-fault-list-bounds = Widget { $widget }: het maximum van een lijst ligt on
 widget-fault-list-default-too-large = Widget { $widget }: de standaardwaarde van een lijst overschrijdt de groottegrenzen van lijsten
 widget-fault-list-depth = Widget { $widget }: een geneste lijst kan geen lijstkolom bevatten; lijsten nesten slechts één niveau diep
 widget-fault-list-default-below-min = Widget { $widget }: de standaardwaarde van een geneste lijst heeft minder items dan het minimum
+widget-fault-slide-sizing = Widget { $widget } is een dia: alleen elementwidgets declareren grow of typography
 issue-empty-item-id = lijst { $param } heeft een item zonder id
 issue-duplicate-item-id = lijst { $param } heeft een dubbel item-id
 issue-invalid-item-id = lijst { $param } heeft een itemkenmerk met een schuine streep

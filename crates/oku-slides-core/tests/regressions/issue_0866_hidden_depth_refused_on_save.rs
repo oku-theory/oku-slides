@@ -54,7 +54,7 @@ fn hidden_chain_to(bottom: usize) -> Vec<u8> {
         if level == 3 {
             let meta = tree.get_meta(node).unwrap_or_else(|e| panic!("{e}"));
             meta.insert("id", "e-retire").unwrap_or_else(|e| panic!("{e}"));
-            meta.insert("kind", "text").unwrap_or_else(|e| panic!("{e}"));
+            meta.insert("kind", "base/text").unwrap_or_else(|e| panic!("{e}"));
             meta.insert("@deleted/1", 1_i64).unwrap_or_else(|e| panic!("{e}"));
         }
         at = TreeParentId::Node(node);
@@ -72,7 +72,7 @@ fn moved_lower(deck: &Deck) -> Deck {
     let constat = slides.iter_mut().find(|s| s["id"] == "s-constat").unwrap_or_else(|| panic!("s-constat"));
     let points = constat["params"]["blocks"][0].take();
     constat["params"]["blocks"] =
-        serde_json::json!([{ "id": "k-boite", "kind": "stack", "params": { "children": [points] } }]);
+        serde_json::json!([{ "id": "k-boite", "kind": "base/stack", "params": { "children": [points] } }]);
     Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
 }
 

@@ -1,4 +1,4 @@
-//! Registre des widgets : une sonde Typst par ensemble de packs (base, puis le
+//! Registre des widgets : une sonde Typst par ensemble de packs (noyau, puis le
 //! module d'assemblage de chaque pack) et une sonde par fichier de widget (`widget_probe`).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
@@ -14,6 +14,7 @@ use typst_layout::PagedDocument;
 
 use oku_slides_core::{Namespace, WidgetFile, WidgetRegistry};
 
+use crate::base_pack::base_pack_widgets;
 use crate::error::{
     BadPackIdSnafu, DuplicatePackSnafu, MissingSnafu, RegistryCompileSnafu, RegistryError, SchemaSnafu, SetupSnafu,
 };
@@ -179,7 +180,7 @@ impl PackSet {
     }
 }
 
-/// Source de la sonde : importe la base et le module d'assemblage de chaque pack
+/// Source de la sonde : importe le noyau et le module d'assemblage de chaque pack
 /// (`(espace de noms, chemin)`), émet leurs schémas.
 pub(crate) fn probe_source<'a>(packs: impl IntoIterator<Item = (&'a Namespace, String)>) -> String {
     let mut s = String::from("#import \"/oku-slides/src/widgets.typ\": registry as base\n");
@@ -206,7 +207,7 @@ pub(crate) fn compile_probe(world: &OkuSlidesWorld) -> Result<Json, RegistryErro
     probe_json(metadata.map(|v| serde_json::to_value(&v)))
 }
 
-/// Compile la sonde et rend son JSON brut (schémas de la base et de chaque pack).
+/// Compile la sonde et rend son JSON brut (schémas du noyau et de chaque pack).
 pub fn probe_registry(fonts: &Fonts, packs: &PackSet) -> Result<Json, RegistryError> {
     let mut world = OkuSlidesWorld::new(fonts.clone()).map_err(Box::new).context(SetupSnafu)?;
     for (path, text) in packs.sources() {
@@ -216,22 +217,22 @@ pub fn probe_registry(fonts: &Fonts, packs: &PackSet) -> Result<Json, RegistryEr
     compile_probe(&world)
 }
 
-/// Le registre (base, et widgets qualifiés des packs) décrit par le JSON d'une sonde.
+/// Le registre (noyau, et widgets qualifiés des packs) décrit par le JSON d'une sonde.
 pub fn registry_from_probe(json: Json) -> Result<WidgetRegistry, RegistryError> {
     Ok(WidgetRegistry::from_probe(json).map_err(Box::new).context(SchemaSnafu)?)
 }
 
-/// Compile la sonde et lit le registre (base, et widgets qualifiés des packs).
+/// Compile la sonde et lit le registre (noyau, et widgets qualifiés des packs).
 pub fn load_registry(fonts: &Fonts, packs: &PackSet) -> Result<WidgetRegistry, RegistryError> {
     registry_from_probe(probe_registry(fonts, packs)?)
 }
 
-/// Sonde brute de la base, lue une fois par processus.
-static BASE_PROBE: Mutex<Option<Arc<Json>>> = Mutex::new(None);
+/// Sonde brute du noyau, lue une fois par processus.
+static CORE_PROBE: Mutex<Option<Arc<Json>>> = Mutex::new(None);
 
-/// La sonde brute (JSON) de la base, compilée au premier appel.
-pub fn base_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
-    let mut probe = BASE_PROBE.lock().unwrap_or_else(PoisonError::into_inner);
+/// La sonde brute (JSON) du noyau (les slides), compilée au premier appel.
+pub fn core_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
+    let mut probe = CORE_PROBE.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(p) = probe.as_ref() {
         return Ok(p.clone());
     }
@@ -240,18 +241,55 @@ pub fn base_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
     Ok(p)
 }
 
-/// Registre de base, lu une fois par processus : la bibliothèque est dans
+/// Registre du noyau, lu une fois par processus : la bibliothèque est dans
 /// le binaire, et les polices n'entrent pas dans les schémas.
-static BASE: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
+static CORE: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
 
-/// Le registre des widgets de base (sonde compilée au premier appel).
-pub fn base_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
-    let mut base = BASE.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(r) = base.as_ref() {
+/// Le registre des widgets du noyau (les slides), sonde compilée au premier appel.
+///
+/// Les polices du premier appel servent : les schémas n'en dépendent pas.
+pub fn core_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
+    let mut core = CORE.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(r) = core.as_ref() {
         return Ok(r.clone());
     }
-    let r = Arc::new(registry_from_probe((*base_probe(fonts)?).clone())?);
-    *base = Some(r.clone());
+    let r = Arc::new(registry_from_probe((*core_probe(fonts)?).clone())?);
+    *core = Some(r.clone());
+    Ok(r)
+}
+
+/// Sonde brute du noyau et du pack `base` intégré, lue une fois par processus.
+static BUILTIN_PROBE: Mutex<Option<Arc<Json>>> = Mutex::new(None);
+
+/// La sonde brute (JSON) du noyau et du pack `base` intégré, compilée au premier appel.
+///
+/// Pour assembler un autre pack à côté de `base` : ses slots peuvent accepter
+/// des kinds `base/*`. Comme pour [`core_probe`], les polices du premier appel servent.
+pub fn builtin_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
+    let mut probe = BUILTIN_PROBE.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(p) = probe.as_ref() {
+        return Ok(p.clone());
+    }
+    let p = Arc::new(probe_registry(fonts, &PackSet::new(vec![base_pack_widgets()?])?)?);
+    *probe = Some(p.clone());
+    Ok(p)
+}
+
+/// Registre intégré, lu une fois par processus : noyau et pack `base` intégré.
+static BUILTIN: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
+
+/// Le registre intégré : les slides du noyau et les widgets du pack `base` intégré.
+///
+/// Pour tout ce qui écrit ou valide des éléments avant que les packs du deck
+/// soient résolus (premier replica, import, aperçus). Comme pour
+/// [`core_registry`], les polices du premier appel servent.
+pub fn builtin_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
+    let mut builtin = BUILTIN.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(r) = builtin.as_ref() {
+        return Ok(r.clone());
+    }
+    let r = Arc::new(registry_from_probe((*builtin_probe(fonts)?).clone())?);
+    *builtin = Some(r.clone());
     Ok(r)
 }
 
@@ -305,11 +343,11 @@ impl Registries {
         }
     }
 
-    /// Le registre de la base et des widgets qualifiés de `set`. Sans pack :
-    /// celui de la base, lu une fois par processus (le même que [`crate::Renderer::new`]).
+    /// Le registre du noyau et des widgets qualifiés de `set`. Sans pack :
+    /// celui du noyau, lu une fois par processus (le même que [`crate::Renderer::new`]).
     pub fn get(&mut self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
         if set.is_empty() {
-            return base_registry(&self.fonts);
+            return core_registry(&self.fonts);
         }
         self.entry(set)
     }

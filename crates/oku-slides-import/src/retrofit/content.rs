@@ -28,6 +28,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Element, Paragraph, ParamValue};
 use serde_json::Value;
 
@@ -170,7 +171,7 @@ pub(crate) fn card(
     paragraphs: Vec<Paragraph>,
     highlight: bool,
 ) -> Element {
-    let mut e = Element::new(id, "card");
+    let mut e = Element::new(id, base::CARD);
     for (name, value) in [("kicker", kicker), ("title", title)] {
         if let Some(t) = value.filter(|t| !t.is_empty()) {
             e.params.set(name, ParamValue::Text(t));
@@ -208,7 +209,7 @@ pub(crate) fn image(
         lose(losses, item, LossKind::UnsupportedImage(a.mime.clone()));
         return None;
     }
-    let mut e = Element::new(id, "image");
+    let mut e = Element::new(id, base::IMAGE);
     e.params.set("asset", ParamValue::Text(asset.to_owned()));
     e.params.set("fit", ParamValue::Text("contain".to_owned()));
     Some(e)
@@ -261,7 +262,7 @@ fn shape(id: String, item: &Item, s: &source::Shape, cx: &ContentCx<'_>, losses:
     let thin = is_thin(&item.frame, cx.track);
     let fill = fill_color(&s.fill).and_then(|c| token(c, cx, &item.id, losses));
     let stroke = s.stroke.as_ref().and_then(|st| token(&st.color, cx, &item.id, losses));
-    let mut e = Element::new(id, "shape");
+    let mut e = Element::new(id, base::SHAPE);
     if thin {
         e.params.set("shape", ParamValue::Text("line".to_owned()));
         e.style.stroke = Some(stroke.or(fill)?);
@@ -301,8 +302,8 @@ pub(crate) fn leaf(item: &Item, id: String, cx: &ContentCx<'_>, losses: &mut Vec
             }
             image(id, &p.asset, cx, &item.id, losses)
         }
-        ItemKind::Table(t) => host(id, "table", "data", table(t), &item.id, losses),
-        ItemKind::Chart(c) => host(id, "chart", "option", chart(c), &item.id, losses),
+        ItemKind::Table(t) => host(id, base::TABLE, "data", table(t), &item.id, losses),
+        ItemKind::Chart(c) => host(id, base::CHART, "option", chart(c), &item.id, losses),
         ItemKind::Opaque(o) => {
             lose(losses, &item.id, LossKind::Opaque(o.reason.clone()));
             o.fallback.as_deref().and_then(|a| image(id, a, cx, &item.id, losses))

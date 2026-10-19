@@ -16,7 +16,7 @@ use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, PackManifest, PackPin, SourceBundle, ThemeRef, WidgetRegistry};
+use oku_slides_core::{Deck, PackManifest, PackPin, SourceBundle, ThemeRef, WidgetRegistry, kinds};
 use oku_slides_import::RetrofitTarget;
 use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
 use oku_slides_platform::Platform;
@@ -27,8 +27,10 @@ use super::error::{
 };
 use super::{Input, PackLookup, Prepared};
 use crate::deck_closure::closure_with_files;
+use crate::deck_pack::builtin_pin;
 use crate::deck_theme::manifest_of;
 use crate::error::ThemeVersionMissingSnafu;
+use crate::pack::BASE_PACK;
 use crate::theme_schema::default_tokens;
 use crate::{
     DEFAULT_THEME, PackLibrary, ThemeLibrary, adopt_default_theme, embed_theme, library_pack, resolve_pack,
@@ -78,6 +80,12 @@ pub(crate) fn prepare(
     // Le pack cible et ses besoins, pris dans la bibliothèque.
     let wanted = (manifest.namespace.clone(), pin, target);
     for (ns, pin, files) in closure_with_files(&library, &deck, wanted, &packs).context(LibrarySnafu)? {
+        packs.insert(pin.version.clone(), files);
+        deck.widgets.insert(ns, pin);
+    }
+    // Le retrofit écrit des éléments `base/*` : le `base` intégré si la fermeture de la cible ne l'a pas.
+    if !deck.widgets.contains_key(&kinds::base::namespace()) {
+        let (ns, pin, files) = builtin_pin(BASE_PACK).context(LibrarySnafu)?;
         packs.insert(pin.version.clone(), files);
         deck.widgets.insert(ns, pin);
     }

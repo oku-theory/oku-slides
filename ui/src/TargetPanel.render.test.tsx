@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import "./test/dom";
 import { CATALOG_ID } from "./a2ui/catalog";
-import type { Element, SlideView, Surface } from "./api";
+import type { Element, HostParams, SlideView, Surface } from "./api";
 import type { HostSettings } from "./useHostSettings";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
@@ -58,20 +58,23 @@ const templateSurface: Surface = {
 const view = { slide: { id: "s-ch1", elements: [] } } as unknown as SlideView;
 const chart = {
   id: "c1",
-  kind: "chart",
+  kind: "base/chart",
   params: { option: { dataset: { source: [["Catégorie", "Série 1"], ["1", 3]] }, series: [{ type: "bar" }] } },
 } as unknown as Element;
 const table = {
   id: "t1",
-  kind: "table",
+  kind: "base/table",
   params: { data: { dataset: { source: [["A", "B"], ["x", 1]] } } },
 } as unknown as Element;
-const widget = { id: "fr", kind: "frise", params: {} } as unknown as Element;
+const widget = { id: "fr", kind: "deck/frise", params: {} } as unknown as Element;
+const plot = { id: "p1", kind: "acme/plot", params: { series: { dataset: { source: [["C", "S"], ["1", 3]] }, series: [{ type: "bar" }] } } } as unknown as Element;
+const text = { id: "x1", kind: "base/text", params: {} } as unknown as Element;
+const params: HostParams = { "base/chart": { chart: "option" }, "base/table": { table: "data" }, "acme/plot": { chart: "series" } };
 
-interface Opts { selected?: Element; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean; lead?: Surface;
+interface Opts { selected?: Element; hostParams?: HostParams; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean; lead?: Surface;
   band?: number | null; onBand?: (band: number | null) => void }
 
-async function mount({ selected, shown = surface, readOnly = false, withView = true, folded = false, lead, band = null, onBand = () => {} }: Opts) {
+async function mount({ selected, hostParams = params, shown = surface, readOnly = false, withView = true, folded = false, lead, band = null, onBand = () => {} }: Opts) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
@@ -79,7 +82,7 @@ async function mount({ selected, shown = surface, readOnly = false, withView = t
   await act(async () => {
     root.render(
       createElement(TargetPanel, {
-        view: withView ? view : null, readOnly, selected, target, palette: ["#0077b6"],
+        view: withView ? view : null, readOnly, selected, hostParams, target, palette: ["#0077b6"],
         onApply: () => {}, onKind: () => {}, onSurfaceAction: () => {}, onError: () => {},
         folded, band, onBand,
         lead: lead && { surface: lead, outcome: { current: null } },
@@ -111,6 +114,17 @@ describe("TargetPanel", () => {
     const host = await mount({ selected: table });
     expect(host.querySelector(".table-panel")).not.toBeNull();
     expect(host.querySelector(".host-settings")).toBeNull();
+  });
+
+  test("TargetPanel élément de pack à hôte graphique montre ChartPanel", async () => {
+    const host = await mount({ selected: plot });
+    expect(host.querySelector(".chart-panel")).not.toBeNull();
+  });
+
+  test("TargetPanel texte de base montre les réglages, sans panneau propre", async () => {
+    const host = await mount({ selected: text });
+    expect(host.querySelector(".chart-panel") ?? host.querySelector(".table-panel")).toBeNull();
+    expect(host.querySelector(".host-settings")).not.toBeNull();
   });
 
   test("TargetPanel widget selected shows its settings", async () => {

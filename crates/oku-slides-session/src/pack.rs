@@ -1,4 +1,4 @@
-//! Le résumé d'un pack de modèles et les ids des packs intégrés.
+//! Le résumé d'un pack de modèles et les ids des packs intégrés (`essentiel`, `grilles`, `base`).
 //!
 //! Le contenu d'un pack (`widgets.json` : [`PackManifest`], ses [`Template`])
 //! est défini dans le cœur, qui le partage avec l'import ; il est ré-exporté ici.
@@ -15,6 +15,8 @@ use crate::library_kind::VersionManifest;
 pub const DEFAULT_PACK: Uuid = Uuid::from_u128(0x6f3c1e2a_8b4d_4c1e_9a57_2d0e5b7c9f10);
 /// Pack intégré `templates/grilles` : id constant.
 pub const GRID_PACK: Uuid = Uuid::from_u128(0xb8e2d4f6_1a3c_4e5b_8d7f_9c0a2e4b6d81);
+/// L'id du pack de widgets intégré `base`.
+pub const BASE_PACK: Uuid = Uuid::from_u128(0x3b1f6c2e_5a4d_4e8b_9c71_0d2e4f6a8b13);
 
 impl VersionManifest for PackManifest {
     fn from_files(files: &PackFiles) -> serde_json::Result<Self> {

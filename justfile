@@ -311,7 +311,7 @@ save file=deck out="deck.oku-slides.pdf":
 
 # Compile un exemple de la bibliothèque Typst : just typst pro
 typst example="demo":
-    typst compile --root typst/oku-slides --font-path {{fonts}} typst/oku-slides/examples/{{example}}.typ
+    typst compile --root typst --font-path {{fonts}} typst/oku-slides/examples/{{example}}.typ
 
 # Génère toutes les icônes de l'app depuis src-tauri/icons/icon.png
 icons:

@@ -29,6 +29,7 @@ op-pack-in-use = El paquete de widgets { $pack } todavía lo usa { $count ->
    *[other] { $count } elementos
 }.
 op-pack-requirement-missing = El paquete de widgets { $pack } necesita { $required }, que esta presentación no tiene.
+op-base-required = Toda presentación conserva el paquete de widgets base.
 op-unknown-param = Parámetro desconocido: { $subject }
 op-param-type-because = Valor no válido para { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -183,6 +184,7 @@ widget-fault-list-bounds = Widget { $widget }: el máximo de una lista está por
 widget-fault-list-default-too-large = Widget { $widget }: el valor predeterminado de una lista supera los límites de tamaño de las listas
 widget-fault-list-depth = Widget { $widget }: una lista anidada no puede contener una columna de lista; las listas solo se anidan un nivel
 widget-fault-list-default-below-min = Widget { $widget }: el valor predeterminado de una lista anidada tiene menos elementos que su mínimo
+widget-fault-slide-sizing = Widget { $widget } es una diapositiva: solo los widgets de elemento declaran grow o typography
 issue-empty-item-id = la lista { $param } tiene un ítem sin identificador
 issue-duplicate-item-id = la lista { $param } tiene un identificador de ítem duplicado
 issue-invalid-item-id = la lista { $param } tiene un identificador de elemento con una barra

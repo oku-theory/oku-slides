@@ -267,7 +267,7 @@ fn element_moved_with_another_kind_is_not_paired_between_slides() {
     let (tree, old) = node_of(&r.doc, "a", "x");
     let target = with_ops(
         &deck,
-        vec![remove_from("a", "x"), add_to("b", None, "blocks", None, json!({ "id": "x", "kind": "stack" }))],
+        vec![remove_from("a", "x"), add_to("b", None, "blocks", None, json!({ "id": "x", "kind": "base/stack" }))],
     );
     apply(&mut r, &target);
     assert_that!(node_of(&r.doc, "b", "x").1).is_not_equal_to(old);
@@ -342,7 +342,10 @@ fn stale_move_hint_is_ignored() {
     // Un `kind` différent dans la slide voulue : l'entrée est ignorée aussi.
     let other_kind = with_ops(
         &deck,
-        vec![remove_from("a", "title"), add_to("d", None, "blocks", None, json!({ "id": "title", "kind": "stack" }))],
+        vec![
+            remove_from("a", "title"),
+            add_to("d", None, "blocks", None, json!({ "id": "title", "kind": "base/stack" })),
+        ],
     );
     let hint = [Moved { element: "title".into(), from: "a".into(), to: "d".into() }];
     let mut r = new(&deck);
@@ -553,11 +556,11 @@ fn slides_of_another_type_are_refused() {
     assert_that!(matches!(slides, Some(ValueOrContainer::Container(Container::MovableList(_))))).is_true();
 }
 
-/// Une chaîne de `n` canvas imbriqués, d'ids `c0` à `c{n-1}`.
-fn canvas_chain(n: usize) -> Value {
-    let mut e = json!({ "id": format!("c{}", n - 1), "kind": "canvas" });
+/// Une chaîne de `n` `base/stack` imbriqués, d'ids `c0` à `c{n-1}`.
+fn stack_chain(n: usize) -> Value {
+    let mut e = json!({ "id": format!("c{}", n - 1), "kind": "base/stack" });
     for i in (0..n - 1).rev() {
-        e = json!({ "id": format!("c{i}"), "kind": "canvas", "params": { "children": [e] } });
+        e = json!({ "id": format!("c{i}"), "kind": "base/stack", "params": { "children": [e] } });
     }
     e
 }
@@ -574,7 +577,7 @@ fn too_deep_slide_leaves_the_whole_deck_untouched() {
     let mut json = ok(serde_json::to_value(&target));
     let Some(slides) = json["slides"].as_array_mut() else { panic!("slides attendues") };
     let Some(constat) = slides.iter_mut().find(|s| s["id"] == "s-constat") else { panic!("s-constat absente") };
-    constat["params"]["elements"] = json!([canvas_chain(MAX_SLOT_DEPTH + 1)]);
+    constat["params"]["elements"] = json!([stack_chain(MAX_SLOT_DEPTH + 1)]);
     let target = deck_of(json);
     let before = ops_of(&r);
     let Err(e) = r.apply(&target, "trop", None) else { panic!("un deck trop profond devait être refusé") };
@@ -618,7 +621,7 @@ fn pair_has_one_entry_per_wanted_slide() {
 /// garde son entrée `@slot` et reste visible dans `blocks` de sa slide.
 #[test]
 fn concurrent_crossed_nesting_across_slides_converges_without_cycle() {
-    let pile = |id: &str| json!({ "id": id, "kind": "stack" });
+    let pile = |id: &str| json!({ "id": id, "kind": "base/stack" });
     let deck = with_ops(
         &roadmap(),
         vec![
@@ -653,7 +656,7 @@ fn concurrent_crossed_nesting_across_slides_converges_without_cycle() {
 /// déplacement du pair 1 gagne, l'autre reste sans effet.
 #[test]
 fn concurrent_crossed_move_element_nesting_converges_without_cycle() {
-    let pile = |id: &str| json!({ "id": id, "kind": "stack" });
+    let pile = |id: &str| json!({ "id": id, "kind": "base/stack" });
     let deck = with_ops(
         &roadmap(),
         vec![
@@ -744,7 +747,7 @@ fn forge_deep_chain(r: &DeckReplica, n: usize) {
         let node = ok(tree.create(TreeParentId::Node(parent)));
         let meta = ok(tree.get_meta(node));
         ok(meta.insert("id", format!("d{i}")));
-        ok(meta.insert("kind", "stack"));
+        ok(meta.insert("kind", "base/stack"));
         let slot = if i == 0 { "blocks" } else { "children" };
         ok(ok(meta.ensure_mergeable_map(SLOT)).insert(&parent.to_string(), slot));
         parent = node;

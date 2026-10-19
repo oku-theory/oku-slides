@@ -1,3 +1,4 @@
+use crate::kinds::base;
 use std::io::{Cursor, Write};
 
 use speculoos::prelude::*;
@@ -314,7 +315,7 @@ fn merge_unrelated_bundles_returns_replica_unrelated() {
 /// `roadmap` et, dans les blocs de `s-constat`, une carte `carte` titrée.
 fn roadmap_with_card() -> Deck {
     let mut deck = roadmap();
-    let mut card = crate::Element::new("carte", "card");
+    let mut card = crate::Element::new("carte", base::CARD);
     card.params.set("title", crate::ParamValue::Text("Titre".into()));
     let slot =
         crate::SlotRef { owner: crate::Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
@@ -348,7 +349,7 @@ fn merge_of_concurrent_set_kind_and_param_edit_returns_unknown_param() {
     let zip = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
     let (mut a, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
     let (mut b, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
-    a.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: "text".into() }), "A", None).unwrap();
+    a.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: base::TEXT.into() }), "A", None).unwrap();
     let edit = crate::Op::SetParam { target: card(), param: "title".into(), value: serde_json::json!("Révisé") };
     b.apply(with_op(&deck, edit), "B", None).unwrap();
     let (_, issues) = a.merge(b).unwrap();
@@ -360,7 +361,7 @@ fn restore_of_a_version_with_an_unknown_param_returns_it() {
     let deck = roadmap_with_card();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     // `SetKind` garde le titre, inconnu du widget `text`.
-    b.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: "text".into() }), "texte", None).unwrap();
+    b.apply(with_op(&deck, crate::Op::SetKind { target: card(), kind: base::TEXT.into() }), "texte", None).unwrap();
     b.apply(deck.clone(), "carte", None).unwrap();
     let preview = b.history();
     let issues = b.restore(&preview, 1, "restaurer").unwrap();
@@ -370,7 +371,7 @@ fn restore_of_a_version_with_an_unknown_param_returns_it() {
 #[test]
 fn restore_of_a_version_with_a_missing_asset_returns_it() {
     let deck = roadmap();
-    let mut image = crate::Element::new("img", "image");
+    let mut image = crate::Element::new("img", base::IMAGE);
     image.params.set("asset", crate::ParamValue::Text("sha256:00".into()));
     let slot =
         crate::SlotRef { owner: crate::Target { slide: "s-constat".into(), element: None }, param: "blocks".into() };
@@ -391,7 +392,7 @@ fn undo_rereads_value_params_with_the_same_json_as_the_view() {
         r#"{"xAxis":{"type":"category"},"dataset":{"source":[["a","b"],["x",1.0]]},"series":[{"type":"bar"}]}"#,
     )
     .unwrap();
-    let mut chart = crate::Element::new("g", "chart");
+    let mut chart = crate::Element::new("g", base::CHART);
     chart.params.set("option", crate::ParamValue::Value(option));
     let slide = deck.slide_mut("s-constat").unwrap();
     slide.params.slot_mut("blocks").unwrap().push(chart);
@@ -406,11 +407,11 @@ fn undo_rereads_value_params_with_the_same_json_as_the_view() {
     assert_that!(sources.deck().to_json().unwrap()).is_equal_to(before);
 }
 
-/// Un deck d'une slide `blank` portant une chaîne de `n` canvas imbriqués.
-fn canvas_chain(n: usize) -> Deck {
-    let mut tree = serde_json::json!({ "id": format!("c{}", n - 1), "kind": "canvas" });
+/// Un deck d'une slide `blank` portant une chaîne de `n` `base/stack` imbriqués.
+fn stack_chain(n: usize) -> Deck {
+    let mut tree = serde_json::json!({ "id": format!("c{}", n - 1), "kind": "base/stack" });
     for i in (0..n - 1).rev() {
-        tree = serde_json::json!({ "id": format!("c{i}"), "kind": "canvas", "params": { "children": [tree] } });
+        tree = serde_json::json!({ "id": format!("c{i}"), "kind": "base/stack", "params": { "children": [tree] } });
     }
     let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [tree] } }] });
     serde_json::from_value(deck).unwrap_or_else(|e| panic!("deck de test : {e}"))
@@ -418,7 +419,7 @@ fn canvas_chain(n: usize) -> Deck {
 
 #[test]
 fn new_with_elements_nested_too_deep_returns_too_deep() {
-    let Err(err) = SourceBundle::new(canvas_chain(20), crate::test_registry::shared()) else {
+    let Err(err) = SourceBundle::new(stack_chain(20), crate::test_registry::shared()) else {
         panic!("un deck trop profond devait être refusé")
     };
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::TooDeep);
@@ -430,7 +431,7 @@ fn new_with_elements_nested_too_deep_returns_too_deep() {
 
 #[test]
 fn new_with_elements_nested_to_the_slot_bound_opens() {
-    let deck = canvas_chain(MAX_SLOT_DEPTH);
+    let deck = stack_chain(MAX_SLOT_DEPTH);
     let bundle = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     assert_that!(bundle.deck().slides[0].walk().count()).is_equal_to(MAX_SLOT_DEPTH);
 }
@@ -439,9 +440,9 @@ fn new_with_elements_nested_to_the_slot_bound_opens() {
 /// lignes ni de colonnes.
 fn deck_without_ids() -> Deck {
     let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-        { "id": "t", "kind": "table", "params": { "data": {
+        { "id": "t", "kind": "base/table", "params": { "data": {
             "dataset": { "source": [["Pays", "Ventes"], ["FR", 1], ["DE", 2]] } } } },
-        { "id": "g", "kind": "chart", "params": { "option": {
+        { "id": "g", "kind": "base/chart", "params": { "option": {
             "dataset": { "source": [["Mois", "Ventes"], ["Jan", 10]] }, "series": [{ "type": "bar" }] } } }
     ] } }] });
     Deck::from_json(&deck.to_string()).unwrap()
@@ -488,7 +489,7 @@ fn concurrent_cell_edits_of_a_json_deck_both_survive_the_merge() {
 /// Un deck au tableau `t`, dont `data` est écrit tel quel (sans identifiants).
 fn raw_table_deck() -> Deck {
     let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-        { "id": "t", "kind": "table", "params": { "data": { "dataset": {
+        { "id": "t", "kind": "base/table", "params": { "data": { "dataset": {
             "source": [["Pays", "Ventes"], ["FR", 1]] } } } } ] } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck : {e}"))
 }

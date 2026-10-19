@@ -19,16 +19,16 @@ fn registry() -> WidgetRegistry {
 }
 
 fn deck(params: Value) -> Deck {
-    let deck = json!({ "version": 6, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    let deck = json!({ "version": 7, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
         { "id": "b", "kind": "boite", "params": params },
         { "id": "c", "kind": "cadre", "params": { "data": { "columns": 2, "rows": 2 } } },
-        { "id": "t", "kind": "text", "params": {} }
+        { "id": "t", "kind": "base/text", "params": {} }
     ] } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck : {e}"))
 }
 
 fn set_kind(element: &str) -> Op {
-    let op = json!({ "op": "set_kind", "target": { "slide": "s", "element": element }, "kind": "table" });
+    let op = json!({ "op": "set_kind", "target": { "slide": "s", "element": element }, "kind": "base/table" });
     serde_json::from_value(op).unwrap_or_else(|e| panic!("op : {e}"))
 }
 

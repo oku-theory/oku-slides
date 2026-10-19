@@ -594,6 +594,11 @@ impl PackLibrary {
             .map(|s| PackInfo::of(&s.manifest, s.version, Self::is_builtin(s.manifest.id), s.received))
             .collect()
     }
+
+    /// Les packs qui ont des modèles : l'ajout de slide et l'import n'offrent qu'eux.
+    pub fn template_sets(&self) -> Vec<PackInfo> {
+        self.packs().into_iter().filter(|p| p.count > 0).collect()
+    }
 }
 
 #[cfg(test)]

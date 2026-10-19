@@ -348,7 +348,7 @@ fn table_deck() -> Deck {
     let mut deck = ok(Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#));
     let add = serde_json::from_value(serde_json::json!({ "op": "add_element",
         "slot": { "owner": { "slide": "s" }, "param": "blocks" },
-        "element": { "id": "t", "kind": "table", "params": { "data": { "dataset": {
+        "element": { "id": "t", "kind": "base/table", "params": { "data": { "dataset": {
             "source": [["Pays", "Ventes"], ["FR", 10], ["DE", 20]],
             "ids": ["h", "fr", "de"], "columns": ["pays", "ventes"] } } } } }))
     .unwrap_or_else(|e| panic!("op invalide : {e}"));
@@ -441,7 +441,7 @@ fn with_ops(deck: &Deck, ops: Vec<crate::Op>) -> Deck {
 
 /// Un texte `id` de corps `t`.
 fn text(id: &str, t: &str) -> serde_json::Value {
-    serde_json::json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": t }] }] } })
+    serde_json::json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": t }] }] } })
 }
 
 /// Ajoute `element` au slot `param` de `owner` (`None` : la slide `s-constat`).
@@ -467,14 +467,14 @@ fn two_slots() -> Deck {
 /// `roadmap` et, dans `blocks` de `s-constat`, une `pile` à deux enfants
 /// dont un texte riche (gras, italique, lien).
 fn with_pile() -> Deck {
-    let rich = serde_json::json!({ "id": "riche", "kind": "text", "params": { "body": [
+    let rich = serde_json::json!({ "id": "riche", "kind": "base/text", "params": { "body": [
         { "runs": [{ "t": "Gras", "bold": true }, { "t": " et " }, { "t": "lien", "italic": true,
             "link": "https://example.org" }] },
         { "list": "bullet", "runs": [{ "t": "Puce" }] } ] } });
     with_ops(
         &roadmap(),
         vec![
-            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "stack" })),
+            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "base/stack" })),
             add(Some("pile"), "children", text("k1", "Un")),
             add(Some("pile"), "children", rich),
         ],
@@ -715,7 +715,7 @@ fn undo_redo_of_a_slide_removal_an_element_move_and_a_reorder_in_one_apply_resto
 /// `pile` (enfants `k1`, `k2`) ajoutée à `blocks` de `s-constat`.
 fn pile_with_children() -> Vec<crate::Op> {
     vec![
-        add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "stack" })),
+        add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "base/stack" })),
         add(Some("pile"), "children", text("k1", "Un")),
         add(Some("pile"), "children", text("k2", "Deux")),
     ]
@@ -738,7 +738,7 @@ fn undo_redo_of_adding_a_slide_with_elements_restores_exactly() {
         &after,
         vec![
             add_to("s-neuve", None, "blocks", None, text("n1", "Un")),
-            add_to("s-neuve", None, "blocks", None, serde_json::json!({ "id": "n2", "kind": "stack" })),
+            add_to("s-neuve", None, "blocks", None, serde_json::json!({ "id": "n2", "kind": "base/stack" })),
         ],
     );
     assert_deck_undo_redo_exact(&before, &after, false);
@@ -753,7 +753,7 @@ fn undo_redo_of_moving_an_element_into_a_new_owner_restores_exactly() {
     let after = with_ops(
         &before,
         vec![
-            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "stack" })),
+            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "base/stack" })),
             remove("b-points"),
             add(Some("pile"), "children", points),
         ],

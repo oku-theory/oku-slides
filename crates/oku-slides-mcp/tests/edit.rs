@@ -1,6 +1,7 @@
 mod common;
 
 use common::*;
+use oku_slides_core::kinds;
 use oku_slides_mcp::McpEvent;
 use rust_mcp_sdk::McpClient;
 use serde_json::json;
@@ -101,7 +102,7 @@ async fn apply_move_element_through_mcp_keeps_the_concurrent_edit() {
     tokio::task::spawn_blocking(move || {
         let dup = |slide: &str| {
             json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-                "element": { "id": "dup", "kind": "text", "params": { "body": [{ "runs": [{ "t": slide }] }] } } })
+                "element": { "id": "dup", "kind": kinds::base::TEXT, "params": { "body": [{ "runs": [{ "t": slide }] }] } } })
         };
         let neuve = json!({ "op": "add_slide", "slide": { "id": "s-neuve", "kind": "content" } });
         let ops = serde_json::from_value(json!([dup("s-constat"), dup("s-priorites"), dup("s-libre"), neuve]))

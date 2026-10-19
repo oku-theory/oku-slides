@@ -98,7 +98,7 @@ test("instantiate renouvelle les identifiants de la slide et des éléments, dan
   const template = {
     id: "t",
     kind: "content",
-    params: { elements: [{ id: "a", kind: "canvas", params: { children: [{ id: "b", kind: "text" }] } }] },
+    params: { elements: [{ id: "a", kind: "base/stack", params: { children: [{ id: "b", kind: "base/text" }] } }] },
   };
   const copy = instantiate(template);
   expect(copy.id).not.toBe("t");
@@ -122,7 +122,7 @@ function view(params: Record<string, unknown>, targets: SlideView["targets"] = [
 }
 
 const box = (id: string, x: number, y: number, w: number, h: number) => ({
-  id, kind: "text", free: false, x, y, w, h,
+  id, kind: "base/text", free: false, x, y, w, h,
 });
 
 const fv: FieldView = {
@@ -142,7 +142,7 @@ describe("fieldOps", () => {
   });
 
   test("fieldOps of an element rich field sets paragraphs", () => {
-    const v = view({ blocks: [{ id: "c1", kind: "card", params: { body: [{ runs: [{ t: "Avant" }] }] } }] });
+    const v = view({ blocks: [{ id: "c1", kind: "base/card", params: { body: [{ runs: [{ t: "Avant" }] }] } }] });
     const ops = fieldOps(v, { ...fv, owner: "c1", owner_kind: "element", field: "body", kind: "rich", text: "Avant" }, "Titre\n- Point");
     expect(ops).toEqual([
       {
@@ -156,7 +156,7 @@ describe("fieldOps", () => {
 
   test("fieldOps of an element rich field keeps the runs of an unchanged line", () => {
     const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
-    const v = view({ blocks: [{ id: "c1", kind: "card", params: { body: [colored] } }] });
+    const v = view({ blocks: [{ id: "c1", kind: "base/card", params: { body: [colored] } }] });
     const ops = fieldOps(v, { ...fv, owner: "c1", owner_kind: "element", field: "body", kind: "rich", text: "Rouge" }, "Rouge\nB");
     expect((ops[0] as { value: Paragraph[] }).value[0]).toEqual(colored);
   });
@@ -176,7 +176,7 @@ describe("fieldOps", () => {
 });
 
 describe("fieldOps d'un item de liste", () => {
-  const frise = (etapes: unknown[]) => view({ blocks: [{ id: "f", kind: "frise", params: { etapes } }] });
+  const frise = (etapes: unknown[]) => view({ blocks: [{ id: "f", kind: "deck/frise", params: { etapes } }] });
   const itemField = (kind: "plain" | "rich", column: string, text = ""): FieldView => ({
     ...fv, owner: "f", owner_kind: "element", field: `etapes/d0/${column}`, list: "etapes", item: "d0", column, kind, text,
   });
@@ -227,7 +227,7 @@ describe("fieldValue", () => {
 
   test("fieldValue of a rich field is the paragraphs set_param would write, unchanged lines keeping their runs", () => {
     const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
-    const v = view({ blocks: [{ id: "c1", kind: "card", params: { body: [colored] } }] });
+    const v = view({ blocks: [{ id: "c1", kind: "base/card", params: { body: [colored] } }] });
     const f = { ...fv, owner: "c1", owner_kind: "element" as const, field: "body", kind: "rich" as const, text: "Rouge" };
     expect(fieldValue(v, f, "Rouge\n- **Point**")).toEqual([
       colored,
@@ -237,7 +237,7 @@ describe("fieldValue", () => {
 
   test("fieldValue of a rich list item field keeps the runs of its column", () => {
     const colored: Paragraph = { runs: [{ t: "Rouge", color: "accent" }] };
-    const v = view({ blocks: [{ id: "f", kind: "frise", params: { etapes: [{ id: "d0", texte: [colored] }] } }] });
+    const v = view({ blocks: [{ id: "f", kind: "deck/frise", params: { etapes: [{ id: "d0", texte: [colored] }] } }] });
     const f: FieldView = {
       ...fv, owner: "f", owner_kind: "element", field: "etapes/d0/texte", list: "etapes", item: "d0", column: "texte", kind: "rich", text: "Rouge",
     };
@@ -247,17 +247,17 @@ describe("fieldValue", () => {
 
 describe("rich", () => {
   test("un tableau de paragraphes est rendu tel quel", () => {
-    const e = { id: "e", kind: "text", params: { body: [{ runs: [{ t: "a" }] }] } };
+    const e = { id: "e", kind: "base/text", params: { body: [{ runs: [{ t: "a" }] }] } };
     expect(rich(e, "body")).toEqual([{ runs: [{ t: "a" }] }]);
   });
 
   test("un tableau qui a la forme d'un slot (items avec id et kind) est refusé, symétrique de slot()", () => {
-    const e = { id: "e", kind: "card", params: { body: [{ id: "c", kind: "text" }] } };
+    const e = { id: "e", kind: "base/card", params: { body: [{ id: "c", kind: "base/text" }] } };
     expect(rich(e, "body")).toBeUndefined();
   });
 
   test("un paramètre absent ou non tableau rend undefined", () => {
-    const e = { id: "e", kind: "text", params: { title: "x" } };
+    const e = { id: "e", kind: "base/text", params: { title: "x" } };
     expect(rich(e, "body")).toBeUndefined();
     expect(rich(e, "title")).toBeUndefined();
   });
@@ -278,7 +278,7 @@ describe("fieldChanged", () => {
 
 describe("gridPlacement et placeOnGridOps", () => {
   test("un élément accroché garde sa case ; le poser ailleurs ne touche que sa case", () => {
-    const v = view({ elements: [{ id: "e", kind: "text", cell: { col: 1, row: 1 } }] });
+    const v = view({ elements: [{ id: "e", kind: "base/text", cell: { col: 1, row: 1 } }] });
     const p = gridPlacement(v, "e")!;
     expect(p).toMatchObject({ cell: { col: 1, row: 1 }, frame: { x: 250, y: 200, w: 250, h: 200 }, block: false, onCell: true });
     expect(placeOnGridOps(v, "e", { col: 2, row: 0 })).toEqual([
@@ -287,7 +287,7 @@ describe("gridPlacement et placeOnGridOps", () => {
   });
 
   test("un élément à cadre s'accroche à la case la plus proche et perd son cadre", () => {
-    const v = view({ elements: [{ id: "e", kind: "text", frame: { x: 240, y: 10, w: 260, h: 190 } }] });
+    const v = view({ elements: [{ id: "e", kind: "base/text", frame: { x: 240, y: 10, w: 260, h: 190 } }] });
     const p = gridPlacement(v, "e")!;
     expect(p.cell).toEqual({ col: 1, row: 0, cols: 1, rows: 1 });
     expect(p.onCell).toBe(false);
@@ -296,7 +296,7 @@ describe("gridPlacement et placeOnGridOps", () => {
 
   test("un bloc part de sa place à l'écran, et le poser fait passer toute la slide sur la grille", () => {
     const v = view(
-      { blocks: [{ id: "a", kind: "text" }, { id: "b", kind: "text" }] },
+      { blocks: [{ id: "a", kind: "base/text" }, { id: "b", kind: "base/text" }] },
       [box("a", 100, 100, 500, 200), box("b", 100, 300, 1000, 400)],
     );
     const p = gridPlacement(v, "a")!;
@@ -308,7 +308,7 @@ describe("gridPlacement et placeOnGridOps", () => {
   });
 
   test("un élément d'un groupe ou sans place ne se pose pas sur la grille", () => {
-    const v = view({ elements: [{ id: "g", kind: "canvas", params: { children: [{ id: "c", kind: "text", cell: { col: 0, row: 0 } }] } }] });
+    const v = view({ elements: [{ id: "g", kind: "base/stack", params: { children: [{ id: "c", kind: "base/text", cell: { col: 0, row: 0 } }] } }] });
     expect(gridPlacement(v, "c")).toBeNull();
     expect(gridPlacement(v, "g")).toBeNull();
   });
@@ -316,8 +316,8 @@ describe("gridPlacement et placeOnGridOps", () => {
 
 describe("pasteOps", () => {
   test("une copie sur la grille prend de nouveaux identifiants et la première ligne libre, même étendue", () => {
-    const source = { id: "e", kind: "canvas", cell: { col: 2, row: 0, cols: 2, rows: 1 }, params: { children: [{ id: "c", kind: "text" }] } };
-    const v = view({ elements: [source, { id: "f", kind: "text", cell: { col: 0, row: 1 } }] });
+    const source = { id: "e", kind: "base/stack", cell: { col: 2, row: 0, cols: 2, rows: 1 }, params: { children: [{ id: "c", kind: "base/text" }] } };
+    const v = view({ elements: [source, { id: "f", kind: "base/text", cell: { col: 0, row: 1 } }] });
     const { id, ops } = pasteOps(v, source);
     expect(ops).toHaveLength(1);
     expect(ops[0]).toMatchObject({ op: "add_element", slot: { owner: { slide: "s" }, param: "elements" }, element: { id, cell: { col: 0, row: 2, cols: 2, rows: 1 } } });
@@ -328,25 +328,25 @@ describe("pasteOps", () => {
   });
 
   test("une grille pleine reçoit la copie sur sa première ligne", () => {
-    const source = { id: "e", kind: "text", cell: { col: 0, row: 0, cols: 4, rows: 3 } };
+    const source = { id: "e", kind: "base/text", cell: { col: 0, row: 0, cols: 4, rows: 3 } };
     const { ops } = pasteOps(view({ elements: [source] }), source);
     expect(ops[0]).toMatchObject({ element: { cell: { col: 0, row: 0, cols: 4, rows: 3 } } });
   });
 
   test("un bloc collé sur une grille prend la moitié gauche de la ligne libre", () => {
-    const { ops } = pasteOps(view({ elements: [] }), { id: "b", kind: "text" });
+    const { ops } = pasteOps(view({ elements: [] }), { id: "b", kind: "base/text" });
     expect(ops[0]).toMatchObject({ slot: { owner: { slide: "s" }, param: "elements" }, element: { cell: { col: 0, row: 0, cols: 2, rows: 1 } } });
   });
 
   test("sans grille, un élément à cadre se colle décalé", () => {
     const v = { ...view({ elements: [] }), zone: null };
-    const { ops } = pasteOps(v, { id: "e", kind: "shape", frame: { x: 10, y: 20, w: 100, h: 50 } });
+    const { ops } = pasteOps(v, { id: "e", kind: "base/shape", frame: { x: 10, y: 20, w: 100, h: 50 } });
     expect(ops[0]).toMatchObject({ slot: { owner: { slide: "s" }, param: "elements" }, element: { frame: { x: 22, y: 32, w: 100, h: 50 } } });
   });
 
   test("une slide à blocs reçoit un bloc de plus, sans case ni cadre", () => {
-    const v = view({ blocks: [{ id: "a", kind: "text" }] });
-    const { ops } = pasteOps(v, { id: "e", kind: "text", cell: { col: 1, row: 1 } });
+    const v = view({ blocks: [{ id: "a", kind: "base/text" }] });
+    const { ops } = pasteOps(v, { id: "e", kind: "base/text", cell: { col: 1, row: 1 } });
     expect(ops[0]).toMatchObject({ slot: { owner: { slide: "s" }, param: "blocks" } });
     expect((ops[0].element as Element).cell).toBeUndefined();
   });
@@ -354,16 +354,16 @@ describe("pasteOps", () => {
 
 describe("moveOps", () => {
   test("moveOps keeps the ids and targets blocks on a block slide", () => {
-    const source = { id: "e", kind: "card", cell: { col: 1, row: 1 }, params: { children: [{ id: "c", kind: "text" }] } };
-    const v = view({ blocks: [{ id: "a", kind: "text" }] });
+    const source = { id: "e", kind: "base/card", cell: { col: 1, row: 1 }, params: { children: [{ id: "c", kind: "base/text" }] } };
+    const v = view({ blocks: [{ id: "a", kind: "base/text" }] });
     const { id, ops } = moveOps(v, source, "t");
     expect(id).toBe("e");
     expect(ops).toEqual([{ op: "move_element", slide: "t", element: "e", to: { owner: { slide: "s" }, param: "blocks" } }]);
   });
 
   test("moveOps places on a free cell on a grid slide", () => {
-    const source = { id: "e", kind: "canvas", cell: { col: 2, row: 0, cols: 2, rows: 1 } };
-    const v = view({ elements: [{ id: "f", kind: "text", cell: { col: 0, row: 0, cols: 4, rows: 2 } }] });
+    const source = { id: "e", kind: "base/stack", cell: { col: 2, row: 0, cols: 2, rows: 1 } };
+    const v = view({ elements: [{ id: "f", kind: "base/text", cell: { col: 0, row: 0, cols: 4, rows: 2 } }] });
     const { id, ops } = moveOps(v, source, "t");
     expect(id).toBe("e");
     expect(ops).toEqual([
@@ -373,7 +373,7 @@ describe("moveOps", () => {
   });
 
   test("moveOps drops the frame of a framed element placed on a grid", () => {
-    const source = { id: "e", kind: "shape", frame: { x: 10, y: 20, w: 100, h: 50 } };
+    const source = { id: "e", kind: "base/shape", frame: { x: 10, y: 20, w: 100, h: 50 } };
     const { ops } = moveOps(view({ elements: [] }), source, "t");
     expect(ops.map((o) => o.op)).toEqual(["move_element", "set_cell", "set_frame"]);
     expect(ops[2]).toEqual({ op: "set_frame", slide: "s", element: "e", frame: null });
@@ -381,13 +381,13 @@ describe("moveOps", () => {
 
   test("moveOps keeps the frame on a free slide without grid", () => {
     const v = { ...view({ elements: [] }), zone: null };
-    const { ops } = moveOps(v, { id: "e", kind: "shape", frame: { x: 10, y: 20, w: 100, h: 50 } }, "t");
+    const { ops } = moveOps(v, { id: "e", kind: "base/shape", frame: { x: 10, y: 20, w: 100, h: 50 } }, "t");
     expect(ops).toEqual([{ op: "move_element", slide: "t", element: "e", to: { owner: { slide: "s" }, param: "elements" } }]);
   });
 
   test("moveOps within the same slide moves, never copies", () => {
-    const source = { id: "e", kind: "text", params: { children: [{ id: "c", kind: "text" }] } };
-    const v = view({ blocks: [source, { id: "a", kind: "text" }] });
+    const source = { id: "e", kind: "base/text", params: { children: [{ id: "c", kind: "base/text" }] } };
+    const v = view({ blocks: [source, { id: "a", kind: "base/text" }] });
     const { id, ops } = moveOps(v, source, "s");
     expect(id).toBe("e");
     expect(ops.map((o) => o.op)).not.toContain("add_element");
@@ -441,18 +441,18 @@ describe("pickSlide", () => {
 
 describe("amorce des listes (defaults)", () => {
   test("newElementOps : un élément neuf de la bibliothèque demande l'amorce des listes", () => {
-    const ops = newElementOps(view({ blocks: [] }), { id: "w-1", kind: "frise" });
+    const ops = newElementOps(view({ blocks: [] }), { id: "w-1", kind: "deck/frise" });
     expect(ops).toEqual([{ op: "add_element", slot: { owner: { slide: "s" }, param: "elements" }, defaults: true,
-      element: { id: "w-1", kind: "frise", cell: expect.anything() } }]);
+      element: { id: "w-1", kind: "deck/frise", cell: expect.anything() } }]);
   });
 
   test("newElementOps : sur une slide à blocs, un bloc de plus, avec l'amorce", () => {
-    const ops = newElementOps(view({ blocks: [{ id: "b", kind: "text" }] }), { id: "w-1", kind: "frise" });
-    expect(ops).toEqual([{ op: "add_element", slot: { owner: { slide: "s" }, param: "blocks" }, defaults: true, element: { id: "w-1", kind: "frise" } }]);
+    const ops = newElementOps(view({ blocks: [{ id: "b", kind: "base/text" }] }), { id: "w-1", kind: "deck/frise" });
+    expect(ops).toEqual([{ op: "add_element", slot: { owner: { slide: "s" }, param: "blocks" }, defaults: true, element: { id: "w-1", kind: "deck/frise" } }]);
   });
 
   test("pasteOps : une copie collée garde ses items, sans amorce", () => {
-    const { ops } = pasteOps(view({ blocks: [] }), { id: "f", kind: "frise", params: { etapes: [] } });
+    const { ops } = pasteOps(view({ blocks: [] }), { id: "f", kind: "deck/frise", params: { etapes: [] } });
     expect(ops[0]).not.toHaveProperty("defaults");
   });
 });
@@ -508,12 +508,12 @@ describe("copyAfterRefusedMove", () => {
   });
 
   test("copyAfterRefusedMove copies when the element left the source slide", async () => {
-    expect(await copyAfterRefusedMove(slides, "t", "e", fetched([{ id: "a", kind: "text" }]))).toBe(true);
+    expect(await copyAfterRefusedMove(slides, "t", "e", fetched([{ id: "a", kind: "base/text" }]))).toBe(true);
   });
 
   test("copyAfterRefusedMove keeps the refusal when the element is still there", async () => {
-    expect(await copyAfterRefusedMove(slides, "t", "e", fetched([{ id: "e", kind: "text" }]))).toBe(false);
-    const nested = [{ id: "p", kind: "stack", params: { children: [{ id: "e", kind: "text" }] } }];
+    expect(await copyAfterRefusedMove(slides, "t", "e", fetched([{ id: "e", kind: "base/text" }]))).toBe(false);
+    const nested = [{ id: "p", kind: "base/stack", params: { children: [{ id: "e", kind: "base/text" }] } }];
     expect(await copyAfterRefusedMove(slides, "t", "e", fetched(nested))).toBe(false);
   });
 

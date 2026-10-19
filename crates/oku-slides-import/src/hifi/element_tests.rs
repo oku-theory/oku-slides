@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Op, ParamValue, Slide};
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -171,40 +172,40 @@ fn pen(mut style: Value) -> Value {
 }
 
 fn image(id: &str, frame: Value) -> Value {
-    json!({ "id": id, "kind": "image", "frame": frame, "params": { "asset": "sha256:aa", "fit": "stretch" } })
+    json!({ "id": id, "kind": base::IMAGE, "frame": frame, "params": { "asset": "sha256:aa", "fit": "stretch" } })
 }
 
 #[rstest]
 #[case::rect(
     shape(preset("rect", &[]), solid("accent1"), Some(stroke(Dash::Solid))),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": pen(json!({ "fill": "accent" })),
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": pen(json!({ "fill": "accent" })),
         "params": { "shape": "rect" } }]),
     vec![],
 )]
 #[case::round_rect(
     shape(preset("roundRect", &[("adj", 25_000.0)]), solid("accent2"), None),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent-2", "radius": 25.0 },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent-2", "radius": 25.0 },
         "params": { "shape": "rect" } }]),
     vec![],
 )]
 #[case::ellipse_flipped(
     with_frame(shape(preset("ellipse", &[]), solid("accent1"), None), |f| f.flip_h = true),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent" },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" },
         "params": { "shape": "ellipse" } }]),
     vec![],
 )]
 #[case::horizontal_line(
     with_frame(shape(preset("line", &[]), Fill::None, Some(stroke(Dash::Solid))), |f| f.h = 0.0),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
         "style": pen(json!({})), "params": { "shape": "line" } }]),
     vec![],
 )]
 #[case::horizontal_line_with_tail_triangle(
     with_frame(shape(preset("line", &[]), Fill::None, Some(arrowed(None, Some(ArrowKind::Triangle)))), |f| f.h = 0.0),
     json!([
-        { "id": "s1-1", "kind": "shape", "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
+        { "id": "s1-1", "kind": base::SHAPE, "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
           "style": pen(json!({})), "params": { "shape": "line" } },
-        { "id": "s1-2", "kind": "shape", "frame": { "x": 214.0, "y": 37.0, "w": 6.0, "h": 6.0 },
+        { "id": "s1-2", "kind": base::SHAPE, "frame": { "x": 214.0, "y": 37.0, "w": 6.0, "h": 6.0 },
           "style": { "fill": "#123456" }, "params": { "shape": "path", "path": { "d": "M 1 0.5 L 0 1 L 0 0 Z" } } },
     ]),
     vec![],
@@ -214,51 +215,51 @@ fn image(id: &str, frame: Value) -> Value {
         (f.h, f.flip_h) = (0.0, true)
     }),
     json!([
-        { "id": "s1-1", "kind": "shape", "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
+        { "id": "s1-1", "kind": base::SHAPE, "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
           "style": pen(json!({})), "params": { "shape": "line" } },
-        { "id": "s1-2", "kind": "shape", "frame": { "x": 214.0, "y": 37.0, "w": 6.0, "h": 6.0 },
+        { "id": "s1-2", "kind": base::SHAPE, "frame": { "x": 214.0, "y": 37.0, "w": 6.0, "h": 6.0 },
           "style": pen(json!({})), "params": { "shape": "path", "path": { "d": "M 0 1 L 1 0.5 L 0 0" } } },
     ]),
     vec![],
 )]
 #[case::diagonal_line_flipped(
     with_frame(shape(preset("line", &[]), Fill::None, Some(stroke(Dash::Solid))), |f| f.flip_h = true),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": pen(json!({})),
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": pen(json!({})),
         "params": { "shape": "path", "path": { "d": "M 1 0 L 0 1" } } }]),
     vec![],
 )]
 #[case::vertical_line(
     with_frame(shape(preset("line", &[]), Fill::None, Some(stroke(Dash::Solid))), |f| f.w = 0.0),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": { "x": 19.5, "y": 40.0, "w": 1.0, "h": 100.0 },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": { "x": 19.5, "y": 40.0, "w": 1.0, "h": 100.0 },
         "style": pen(json!({})), "params": { "shape": "path", "path": { "d": "M 0.5 0 L 0.5 1" } } }]),
     vec![],
 )]
 #[case::line_without_stroke(shape(preset("line", &[]), Fill::None, None), json!([]), vec![])]
 #[case::preset_as_path(
     shape(preset("triangle", &[]), solid("accent1"), None),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent" },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" },
         "params": { "shape": "path", "path": { "d": "M 0 1 L 0.5 0 L 1 1 Z" } } }]),
     vec![],
 )]
 #[case::filled_and_stroked_apart(
     shape(split_path(), solid("accent1"), Some(stroke(Dash::Solid))),
     json!([
-        { "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent" },
+        { "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" },
           "params": { "shape": "path", "path": { "d": "M 0 1 L 0.5 0 L 1 1 Z" } } },
-        { "id": "s1-2", "kind": "shape", "frame": frame(), "style": pen(json!({})),
+        { "id": "s1-2", "kind": base::SHAPE, "frame": frame(), "style": pen(json!({})),
           "params": { "shape": "path", "path": { "d": "M 0 0.5 L 1 0.5" } } },
     ]),
     vec![],
 )]
 #[case::path_flipped_vertically(
     with_frame(shape(split_path(), solid("accent1"), None), |f| f.flip_v = true),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent" },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" },
         "params": { "shape": "path", "path": { "d": "M 0 0 L 0.5 1 L 1 0 Z" } } }]),
     vec![],
 )]
 #[case::unknown_preset(
     shape(preset("notAPreset", &[]), solid("accent1"), None),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent" },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" },
         "params": { "shape": "rect" } }]),
     vec![LossKind::ShapeStyle(ShapeEffect::Geometry)],
 )]
@@ -267,7 +268,7 @@ fn image(id: &str, frame: Value) -> Value {
         GradientStop { pos: 1.0, color: scheme("accent2") },
         GradientStop { pos: 0.0, color: scheme("accent1") },
     ] }, Some(stroke(Dash::Dash))),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": pen(json!({ "fill": "accent" })),
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": pen(json!({ "fill": "accent" })),
         "params": { "shape": "rect" } }]),
     vec![LossKind::ShapeStyle(ShapeEffect::Gradient), LossKind::ShapeStyle(ShapeEffect::Dash)],
 )]
@@ -275,7 +276,7 @@ fn image(id: &str, frame: Value) -> Value {
     shape(preset("ellipse", &[]), Fill::Picture { asset: "sha256:aa".into() }, Some(stroke(Dash::Solid))),
     json!([
         image("s1-1", frame()),
-        { "id": "s1-2", "kind": "shape", "frame": frame(), "style": pen(json!({})), "params": { "shape": "ellipse" } },
+        { "id": "s1-2", "kind": base::SHAPE, "frame": frame(), "style": pen(json!({})), "params": { "shape": "ellipse" } },
     ]),
     vec![LossKind::ShapeStyle(ShapeEffect::Picture)],
 )]
@@ -304,7 +305,7 @@ fn image(id: &str, frame: Value) -> Value {
 #[case::group_flattened(
     group(),
     json!([
-        { "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent" }, "params": { "shape": "rect" } },
+        { "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" }, "params": { "shape": "rect" } },
         image("s1-2", json!({ "x": 400.0, "y": 200.0, "w": 200.0, "h": 100.0 })),
     ]),
     vec![],
@@ -313,7 +314,7 @@ fn image(id: &str, frame: Value) -> Value {
 #[case::opaque_without_fallback(opaque(None), json!([]), vec![LossKind::Opaque(OpaqueReason::Ole)])]
 #[case::rotated(
     with_frame(shape(preset("rect", &[]), solid("accent1"), None), |f| f.rot = 30.0),
-    json!([{ "id": "s1-1", "kind": "shape", "frame": frame(), "style": { "fill": "accent" },
+    json!([{ "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" },
         "params": { "shape": "rect" } }]),
     vec![LossKind::Transform],
 )]
@@ -355,7 +356,7 @@ fn elements_of_a_shape_with_text_put_the_text_over_the_shape_inside_its_text_rec
     let tb = TextBox { anchor: Anchor::Middle, ..text_box(vec![para(vec![run("Bonjour")])]) };
     let placed = Setup::new().convert(&shape_item(preset("ellipse", &[]), solid("accent1"), None, Some(tb)));
     let kinds: Vec<&str> = placed.elements.iter().map(|e| e.kind.as_str()).collect();
-    assert_that!(kinds).is_equal_to(vec!["shape", "text"]);
+    assert_that!(kinds).is_equal_to(vec![base::SHAPE, base::TEXT]);
     let text = &placed.elements[1];
     assert_that!(text.frame).is_equal_to(placed.elements[0].frame);
     // Zone de texte d'une ellipse : le carré inscrit, ≈ 14,6 % de chaque côté ;
@@ -453,7 +454,7 @@ fn elements_of_a_table_reuse_the_retrofit_conversion() {
         },
     };
     let placed = Setup::new().convert(&item("s1/1", (10.0, 20.0, 100.0, 50.0), ItemKind::Table(t)));
-    assert_that!(placed.elements[0].kind.as_str()).is_equal_to("table");
+    assert_that!(placed.elements[0].kind.as_str()).is_equal_to(base::TABLE);
     assert_that!(placed.elements[0].params.get("data")).is_some();
     checked(&placed.elements, &[]);
 }

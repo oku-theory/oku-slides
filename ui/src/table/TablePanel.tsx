@@ -22,18 +22,21 @@ const FLAGS: { key: TableFlag; label: string; icon: ReactNode }[] = [
 
 const tableColumnName = (n: number) => t("ui-table-column", { n: n + 1 });
 
-export function TablePanel({ slide, element, onApply, onShowAs }: {
+/** Le panneau d'un élément à hôte tableau, qui lit et écrit son paramètre `param`. */
+export function TablePanel({ slide, element, param, onApply, onShowAs }: {
   slide: string;
   element: Element;
+  /** Le paramètre d'hôte tableau de l'élément (`host_params`). */
+  param: string;
   onApply: (label: string, ops: Op[]) => void;
   /** Affiche le tableau en graphique (requête `show_as`). */
   onShowAs: (view: View) => void;
 }) {
-  const option = tableOption(element);
+  const option = tableOption(element, param);
   if (!option) return <p className="a2ui-hint">{t("ui-table-no-data")}</p>;
   const target = { slide, element: element.id };
   const patch = (label: string, p: Record<string, unknown>) =>
-    onApply(label, [{ op: "set_table_option", target, param: "data", patch: p }]);
+    onApply(label, [{ op: "set_table_option", target, param, patch: p }]);
   const header = option.dataset.source[0] ?? [];
   return (
     <section className="table-panel chart-panel" aria-label={t("ui-table-panel")}>
@@ -67,7 +70,7 @@ export function TablePanel({ slide, element, onApply, onShowAs }: {
         source={option.dataset.source}
         firstColumnIsLabel={flag(option, "header-column")}
         newColumnName={tableColumnName}
-        onOp={(change) => onApply(t("ui-undo-table-data"), [{ op: "set_data", target, param: "data", change }])}
+        onOp={(change) => onApply(t("ui-undo-table-data"), [{ op: "set_data", target, param, change }])}
       />
     </section>
   );

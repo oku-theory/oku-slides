@@ -27,6 +27,7 @@
 - Treat Backspace like Delete in delete-key handlers so behaviour matches App on macOS. (t-420)
 - Import a2ui.css after styles.css and before glass.css so the glass theme can override cards. (plan:2026-10-03-agent-a2ui)
 - Keep one MessageProcessor per A2UI surface and feed it new messages instead of rebuilding it. (t-221)
+- Choose an element's own panel and its param from snapshot.host_params, never from its kind. (plan:2026-10-18-packs-lot2-base)
 
 ## Pitfalls
 

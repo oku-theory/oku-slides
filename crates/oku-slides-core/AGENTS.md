@@ -29,6 +29,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Route all list edits, deck or widget trial values, through ListOp::apply. (spec:2026-10-04-parametre-liste-design)
 - Revalidate host params with check_host_params whenever an op changes a widget kind, as Op::SetKind does. (t-591)
 - Never serialize PackScope::Library, so library pack and theme manifests keep their existing hashes. (ADR-0009, t-692)
+- Change kinds::base and ui/src/baseKinds.ts together; a UI test compares BASE with the registry fixture. (plan:2026-10-18-packs-lot2-base)
 
 ## Pitfalls
 
@@ -56,4 +57,4 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep set_grid as a deck op visible to the agent, with placed elements rescaled in Rust. (plan:2026-10-03-widgets-agent-a2ui)
 - Validate widget schemas in Rust check_widget; Typst asserts only the argument types serde reads, so one bad file fails alone. (spec:2026-10-04-parametre-liste-design, t-938)
 - Keep deck.widgets a map of whole PackPins by namespace; never patch a pin field by field. (plan:2026-10-18-packs-lot1-widget-packs)
-- Build a qualified kind only with qualify and read it only with split_kind; a bare kind is a core widget. (plan:2026-10-18-packs-lot1-widget-packs)
+- Build a qualified kind only with qualify or take a base kind from kinds::base; read one only with split_kind. (plan:2026-10-18-packs-lot1-widget-packs, plan:2026-10-18-packs-lot2-base)

@@ -31,7 +31,7 @@ use uuid::Uuid;
 
 use oku_slides_core::{
     Namespace, PackManifest, PackScope, ParamValue, Slide, Template, WidgetError, WidgetFile, WidgetRegistry,
-    WidgetSchema, qualify,
+    WidgetSchema, kinds, qualify,
 };
 
 use super::typst::{GenCtx, Typst};
@@ -234,7 +234,7 @@ pub(crate) fn pack_manifest(
         id,
         name: name.to_owned(),
         namespace: Namespace::deck(),
-        requires: vec![],
+        requires: vec![kinds::base::namespace()],
         description: String::new(),
         parent: None,
         created: created.to_owned(),

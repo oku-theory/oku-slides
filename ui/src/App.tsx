@@ -425,7 +425,7 @@ export default function App({
             même fiche des réglages du modèle affiché (pas au dock de l'agent) ; sur l'onglet « Thème », les jetons à droite. */}
         {!themeActive && (
           <TargetPanel
-            view={view} readOnly={readOnly} selected={selectedElement} target={target} palette={snap.appearance.chart_palette}
+            view={view} readOnly={readOnly} selected={selectedElement} hostParams={snap.host_params} target={target} palette={snap.appearance.chart_palette}
             onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
             folded={paramsHidden}
             band={keptUi.band} onBand={keptUi.setBand}

@@ -18,12 +18,13 @@ const snapshot = (o: Snap = {}): Snapshot =>
   ({
     editing: null, widgets: {}, history: o.history ? {} : null, read_only: !!o.readOnly,
     undo_label: null, redo_label: null,
+    host_params: { "acme/plot": { chart: "series" }, "base/chart": { chart: "option" }, "base/table": { table: "data" } },
     slides: [{ id: "s-ch1", hash: o.hash ?? "h" }],
   }) as unknown as Snapshot;
 const action = (context: Record<string, unknown>): A2uiClientAction =>
   ({ name: "param", surfaceId: HOST_TARGET, sourceComponentId: "f0", timestamp: new Date(0).toISOString(), context }) as unknown as A2uiClientAction;
 
-/** `element` : l'id de l'élément sélectionné, de nature `kind` (une frise par défaut). */
+/** `element` : l'id de l'élément sélectionné, de nature `kind` (une frise du deck par défaut). */
 interface Props { snap: Snapshot; current: string; element: string | null; kind?: string; widgetActive?: boolean }
 let unmount: (() => Promise<void>) | null = null;
 afterEach(async () => {
@@ -44,7 +45,7 @@ async function mountTarget(api: TabApi, first: Props) {
     }
   };
   function Probe(p: Props) {
-    const element = p.element === null ? null : { id: p.element, kind: p.kind ?? "frise" };
+    const element = p.element === null ? null : { id: p.element, kind: p.kind ?? "deck/frise" };
     out.h = useTargetSettings(api, p.snap, p.current, element, !!p.widgetActive, run, (m) => out.toasts.push(m));
     return null;
   }
@@ -120,7 +121,7 @@ describe("useTargetSettings", () => {
 
   test("useTargetSettings chart selected sends no request", async () => {
     const { fake, asked } = asking();
-    const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "c1", kind: "chart" });
+    const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "c1", kind: "base/chart" });
     expect(m.out.h!.surface).toBeNull();
     expect(asked).toEqual([]);
     await m.render({ snap: snapshot(), current: "s-ch1", element: "fr" });
@@ -129,9 +130,15 @@ describe("useTargetSettings", () => {
 
   test("useTargetSettings table selected sends no request", async () => {
     const { fake, asked } = asking();
-    const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "t1", kind: "table" });
+    const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "t1", kind: "base/table" });
     expect(m.out.h!.surface).toBeNull();
     expect(asked).toEqual([]);
+  });
+
+  test.each([["acme/plot", 0], ["base/text", 1]])("useTargetSettings %s selected asks %i surface", async (kind, n) => {
+    const { fake, asked } = asking();
+    await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "x1", kind });
+    expect(asked).toHaveLength(n);
   });
 
   test("useTargetSettings same snapshot does not reread", async () => {

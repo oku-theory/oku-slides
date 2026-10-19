@@ -18,6 +18,7 @@ diagnostic-hint = tip: { $hint }
 render-chart-failed = grafiek kon niet worden getekend
 
 registry-bad-pack-id = Ongeldige id van sjabloonpakket: { $id }
+registry-base-pack-broken = Het ingebouwde widgetpakket is beschadigd ({ $file }); installeer de app opnieuw.
 registry-duplicate-pack = Twee widgetpakketten van de presentatie delen { $pack }.
 registry-compile = De widgets van het sjabloonpakket konden niet worden gecompileerd
 registry-missing = Het sjabloonpakket declareert geen widgets

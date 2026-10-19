@@ -17,7 +17,7 @@ use crate::params::{ParamValue, Params};
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 6;
+pub const DECK_VERSION: u32 = 7;
 
 /// Un deck complet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -442,9 +442,9 @@ impl Element {
         }
     }
 
-    /// Un élément `text` dont le corps (`body`) est `paragraphs`.
+    /// Un élément `base/text` dont le corps (`body`) est `paragraphs`.
     pub fn text(id: impl Into<String>, paragraphs: Vec<Paragraph>) -> Self {
-        let mut e = Self::new(id, "text");
+        let mut e = Self::new(id, crate::kinds::base::TEXT);
         e.params.set("body", ParamValue::Rich(paragraphs));
         e
     }

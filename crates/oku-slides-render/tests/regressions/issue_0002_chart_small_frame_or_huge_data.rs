@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_render::{Fonts, Renderer};
+use oku_slides_core::kinds::base;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -14,14 +14,14 @@ fn deck_with(frame: serde_json::Value, rows: usize) -> Deck {
     let mut source = vec![json!(["Mois", "Ventes"])];
     source.extend((0..rows).map(|i| json!([format!("m{i}"), i])));
     serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [{
-        "id": "g", "kind": "chart", "frame": frame, "params": {
+        "id": "g", "kind": base::CHART, "frame": frame, "params": {
         "option": { "dataset": { "source": source }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } }
     }] } }] }))
     .unwrap_or_else(|e| panic!("{e}"))
 }
 
 fn compiles(deck: &Deck) -> bool {
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = crate::common::renderer();
     r.set_deck(deck, &BTreeMap::new()).is_ok() && r.compile().is_ok()
 }
 
@@ -36,7 +36,7 @@ fn chart_in_tiny_frames_renders_without_panic() {
 #[test]
 fn chart_with_huge_dataset_falls_back_instead_of_rendering() {
     let deck = deck_with(json!({ "x": 0, "y": 0, "w": 800, "h": 450 }), 200_000);
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = crate::common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let page = r.compile().unwrap().svg(0).unwrap();
     // Le cadre de repli, pas un graphique de dizaines de Mo embarqué.

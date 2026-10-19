@@ -1,15 +1,11 @@
 //! Graphique ↔ tableau : la requête `show_as`, en une transaction.
 
-use oku_slides_core::{Element, HostType, Op, ParamValue, Params};
+use oku_slides_core::{Element, HostType, Op, ParamValue, Params, kinds};
 use snafu::{OptionExt, ResultExt};
 
 use crate::Session;
 use crate::error::{ChartSnafu, NoChartSnafu, NoSlideSnafu, NoTableSnafu, ResponseSnafu, Result};
 use crate::request::View;
-
-/// Widgets de base sous lesquels on montre des données.
-const CHART: &str = "chart";
-const TABLE: &str = "table";
 
 impl Session {
     /// Montre l'élément `element` en `view`, avec les mêmes données ; une seule étape d'annulation.
@@ -24,8 +20,9 @@ impl Session {
         let located = deck.slide(&slide).context(NoSlideSnafu { id: &slide })?.locate(element);
         let mut next = located.map(|l| l.element.clone()).ok_or_else(not_found)?;
         let (from, to, target_kind) = match view {
-            View::Table => (HostType::Chart, HostType::Table, TABLE),
-            View::Chart => (HostType::Table, HostType::Chart, CHART),
+            // Le widget de base sous lequel on montre des données.
+            View::Table => (HostType::Chart, HostType::Table, kinds::base::TABLE),
+            View::Chart => (HostType::Table, HostType::Chart, kinds::base::CHART),
         };
         let value = self.host_value(&next, from).ok_or_else(not_found)?;
         let converted = match view {

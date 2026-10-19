@@ -23,7 +23,7 @@ fn deck_of(v: Value) -> Deck {
 }
 
 fn text(id: &str) -> Value {
-    json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": id }] }] } })
+    json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": id }] }] } })
 }
 
 /// `move_element` de `element` (slide `slide`) vers le slot `param` de `owner` (`None` : la slide `to`).
@@ -48,7 +48,7 @@ fn with_ops(deck: &Deck, ops: Vec<Op>) -> Deck {
 
 /// La fixture, avec une pile `pile` (enfants `k1`, `k2`) à la fin de `blocks` de `s-constat`.
 fn with_pile() -> Deck {
-    let pile = json!({ "id": "pile", "kind": "stack", "params": { "children": [text("k1"), text("k2")] } });
+    let pile = json!({ "id": "pile", "kind": "base/stack", "params": { "children": [text("k1"), text("k2")] } });
     with_ops(&fixture(), vec![add_to("s-constat", "blocks", pile)])
 }
 
@@ -143,10 +143,11 @@ fn accepts_registry() -> WidgetRegistry {
         { "name": "free", "category": "slide",
           "params": [{ "name": "items", "type": "slot", "mode": "flow" }] },
         { "name": "box", "category": "element",
-          "params": [{ "name": "children", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
+          "params": [{ "name": "children", "type": "slot", "mode": "flow", "accepts": ["base/text"] }] },
+    ], "packs": [{ "namespace": "base", "widgets": [
         { "name": "text", "category": "element", "params": [] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "packs": [] }))
+    ] }] }))
     .unwrap_or_else(|e| panic!("registre de test : {e}"))
 }
 
@@ -157,7 +158,7 @@ fn move_element_to_an_unknown_slot_is_refused() {
     assert_that!(kind).is_equal_to(OpErrorKind::UnknownParam);
 
     let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "free", "params": { "items": [
-        { "id": "b", "kind": "box" }, { "id": "f", "kind": "shape" }
+        { "id": "b", "kind": "box" }, { "id": "f", "kind": "base/shape" }
     ] } }] }));
     let kind = refused(&deck, vec![mv("s", "f", "s", Some("b"), "children", None)], &accepts_registry());
     assert_that!(kind).is_equal_to(OpErrorKind::SlotRejects);
@@ -195,9 +196,9 @@ fn move_element_from_or_to_an_unknown_slide_is_refused() {
 
 /// Une chaîne de `n` piles imbriquées, d'ids `{prefix}0` (en haut) à `{prefix}{n-1}`.
 fn pile_chain(prefix: &str, n: usize) -> Value {
-    let mut tree = json!({ "id": format!("{prefix}{}", n - 1), "kind": "stack" });
+    let mut tree = json!({ "id": format!("{prefix}{}", n - 1), "kind": "base/stack" });
     for i in (0..n - 1).rev() {
-        tree = json!({ "id": format!("{prefix}{i}"), "kind": "stack", "params": { "children": [tree] } });
+        tree = json!({ "id": format!("{prefix}{i}"), "kind": "base/stack", "params": { "children": [tree] } });
     }
     tree
 }

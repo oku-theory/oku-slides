@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use oku_slides_core::{Op, Paragraph, apply_all};
+use oku_slides_core::{Deck, Op, Paragraph, apply_all};
 use serde::Deserialize;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
@@ -149,13 +149,15 @@ impl Session {
     pub fn variants_surface(&mut self, id: &str, spec: &ShowVariants) -> Result<Surface> {
         check_len("variants", spec.variants.len(), forms::VARIANTS)?;
         self.deck().slide(&spec.slide).context(NoSlideSnafu { id: &spec.slide })?;
-        let svgs = self.with_fallback(|s| s.render_variants(spec))?;
+        let svgs = self.with_fallback(|s| s.variant_decks(spec), |s| s.render_variants(spec))?;
         Ok(forms::variants(id, spec, &svgs, &self.localizer))
     }
 
     /// SVG de la slide de `spec` dans chaque variante, rendue dans son emplacement.
     fn render_variants(&mut self, spec: &ShowVariants) -> Result<Vec<Arc<str>>> {
         let set = self.usable_packs()?;
+        // Après `usable_packs` : un pack écarté n'est plus au registre qui valide les variantes.
+        let decks = self.variant_decks(spec)?;
         let tokens = self.theme_tokens(self.doc.sources.deck());
         let renderer = match &mut self.variant_renderer {
             Some(r) => r,
@@ -167,7 +169,22 @@ impl Session {
                 &self.registry,
             )?),
         };
-        let mut svgs: Vec<Arc<str>> = Vec::with_capacity(spec.variants.len());
+        let mut svgs: Vec<Arc<str>> = Vec::with_capacity(decks.len());
+        for (i, deck) in decks.iter().enumerate() {
+            // Le thème du deck : une variante qui en changerait garde celui-ci à l'aperçu.
+            let compiled = crate::deck_theme::render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets)
+                .context(RenderSnafu)?;
+            let page = compiled.layout().page_of(&spec.slide).context(AgentFormSnafu {
+                reason: AgentFormReason::SlideRemoved { at: format!("variants[{i}]"), slide: spec.slide.clone() },
+            })?;
+            svgs.push(compiled.svg(page - 1).context(RenderSnafu)?.into());
+        }
+        Ok(svgs)
+    }
+
+    /// Le deck de chaque variante de `spec` : un clone du deck, ses ops appliquées.
+    fn variant_decks(&self, spec: &ShowVariants) -> Result<Vec<Deck>> {
+        let mut decks = Vec::with_capacity(spec.variants.len());
         for (i, variant) in spec.variants.iter().enumerate() {
             let (min, max) = forms::OPS;
             ensure!(
@@ -184,15 +201,9 @@ impl Session {
             let mut deck = self.doc.sources.deck().clone();
             apply_all(&mut deck, variant.ops.clone(), &self.registry)
                 .map_err(|e| refused(format!("variants[{i}]"), e))?;
-            // Le thème du deck : une variante qui en changerait garde celui-ci à l'aperçu.
-            let compiled = crate::deck_theme::render_themed(renderer, &deck, tokens.as_ref(), &self.doc.sources.assets)
-                .context(RenderSnafu)?;
-            let page = compiled.layout().page_of(&spec.slide).context(AgentFormSnafu {
-                reason: AgentFormReason::SlideRemoved { at: format!("variants[{i}]"), slide: spec.slide.clone() },
-            })?;
-            svgs.push(compiled.svg(page - 1).context(RenderSnafu)?.into());
+            decks.push(deck);
         }
-        Ok(svgs)
+        Ok(decks)
     }
 }
 

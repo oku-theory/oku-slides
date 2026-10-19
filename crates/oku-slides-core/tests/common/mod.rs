@@ -7,11 +7,27 @@
 
 use oku_slides_core::WidgetRegistry;
 
-pub fn registry() -> WidgetRegistry {
+/// La sonde du fichier de base, plus le pack de test `test` : son widget d'élément
+/// `frame-box` a un slot libre `children` (cadres sous un élément).
+fn probe() -> serde_json::Value {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
-    let probe = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
-    WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{path} : {e}"))
+    let mut probe: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let widget = serde_json::json!({
+        "name": "frame-box",
+        "category": "element",
+        "params": [{ "name": "children", "type": "slot", "mode": "free" }]
+    });
+    let Some(packs) = probe["packs"].as_array_mut() else { panic!("sonde : packs attendu") };
+    packs.push(serde_json::json!({ "namespace": "test", "widgets": [widget] }));
+    probe
+}
+
+/// Le kind du widget `frame-box` du pack de test.
+pub const FRAME_BOX_KIND: &str = "test/frame-box";
+
+pub fn registry() -> WidgetRegistry {
+    WidgetRegistry::from_probe(probe()).unwrap_or_else(|e| panic!("sonde : {e}"))
 }
 
 /// Le registre de base, partagé comme le prennent le replica et les sources.
@@ -24,9 +40,7 @@ pub fn shared() -> std::sync::Arc<WidgetRegistry> {
 /// bornée de 1 à 2 items), `plan` (étapes `titre`, à liste imbriquée `taches` de 3 items
 /// au plus, colonne `texte`).
 pub fn list_registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
-    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
-    let mut probe: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let mut probe = probe();
     let widgets = serde_json::json!([{
         "name": "liste",
         "category": "element",

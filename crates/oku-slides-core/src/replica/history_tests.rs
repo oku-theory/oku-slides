@@ -288,7 +288,7 @@ fn two_slots() -> Deck {
         serde_json::from_value(v).unwrap_or_else(|e| panic!("op invalide : {e}"))
     };
     let mut deck = roadmap();
-    let n = serde_json::json!({ "id": "n", "kind": "text", "frame": { "x": 100, "y": 100, "w": 400, "h": 200 },
+    let n = serde_json::json!({ "id": "n", "kind": "base/text", "frame": { "x": 100, "y": 100, "w": 400, "h": 200 },
         "params": { "body": [{ "runs": [{ "t": "Note libre" }] }] } });
     let add = op(serde_json::json!({ "op": "add_element",
         "slot": { "owner": { "slide": "s-constat" }, "param": "elements" }, "element": n }));

@@ -66,7 +66,7 @@ pub(crate) enum RenderInner {
     Path { path: String, source: typst::syntax::PathError, backtrace: Backtrace },
     #[snafu(display("the deck could not be written as JSON"))]
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
-    #[snafu(display("the base widget registry could not be read"))]
+    #[snafu(display("the built-in widget registry could not be read"))]
     BaseRegistry { source: Box<RegistryError>, backtrace: Backtrace },
     #[snafu(display("rendering took more than {ms} ms"))]
     Timeout { ms: u64, backtrace: Backtrace },
@@ -218,6 +218,8 @@ pub enum RegistryErrorKind {
     /// Un widget est mal déclaré ou remplace mal un widget de base.
     Schema,
     Setup,
+    /// Le pack `base` intégré est illisible (binaire abîmé).
+    BasePack,
 }
 
 #[derive(Debug, Snafu)]
@@ -239,6 +241,8 @@ pub(crate) enum RegistryInner {
     Worker { source: Box<RenderError>, backtrace: Backtrace },
     #[snafu(display("invalid widget registry: {message}"))]
     RemoteSchema { message: String, backtrace: Backtrace },
+    #[snafu(display("built-in base pack unreadable: {file}"))]
+    BasePack { file: String, backtrace: Backtrace },
 }
 
 impl RegistryError {
@@ -250,6 +254,7 @@ impl RegistryError {
             RegistryInner::Missing { .. } => RegistryErrorKind::Missing,
             RegistryInner::Schema { .. } | RegistryInner::RemoteSchema { .. } => RegistryErrorKind::Schema,
             RegistryInner::Setup { .. } | RegistryInner::Worker { .. } => RegistryErrorKind::Setup,
+            RegistryInner::BasePack { .. } => RegistryErrorKind::BasePack,
         }
     }
 
@@ -303,6 +308,9 @@ impl Localize for RegistryError {
             RegistryInner::Setup { source, .. } | RegistryInner::Worker { source, .. } => source.localize(l),
             RegistryInner::RemoteSchema { message, .. } => {
                 l.tr_with("registry-schema-remote", &[("message", message.as_str().into())])
+            }
+            RegistryInner::BasePack { file, .. } => {
+                l.tr_with("registry-base-pack-broken", &[("file", file.as_str().into())])
             }
         }
     }

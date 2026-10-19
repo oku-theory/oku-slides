@@ -4,6 +4,7 @@
 //! même deck, sans `Issue`, et chaque id n'y figure qu'une fois, à toutes les
 //! profondeurs ; une réécriture du deck relu puis un échange ne changent rien.
 
+use oku_slides_core::kinds::base;
 use std::sync::Arc;
 
 use oku_slides_core::{Deck, DeckReplica, Element, Frame, Op, ParamValue, WidgetRegistry, apply_all};
@@ -139,10 +140,12 @@ fn undo_remove_while_peer_moves_and_bolds_element_across_slots_keeps_the_peer_mo
 #[test]
 fn undo_remove_while_peer_moves_owner_with_children_keeps_ids_unique_at_every_depth() {
     let text = |id: &str| -> Element {
-        serde_json::from_value(json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": id }] }] } }))
-            .unwrap_or_else(|e| panic!("texte : {e}"))
+        serde_json::from_value(
+            json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": id }] }] } }),
+        )
+        .unwrap_or_else(|e| panic!("texte : {e}"))
     };
-    let pile = Element::new("pile", "stack");
+    let pile = Element::new("pile", base::STACK);
     let deck = with_ops(
         &roadmap(),
         vec![

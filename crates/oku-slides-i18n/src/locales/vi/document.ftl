@@ -18,6 +18,7 @@ diagnostic-hint = gợi ý: { $hint }
 render-chart-failed = không thể vẽ biểu đồ
 
 registry-bad-pack-id = Định danh gói mẫu không hợp lệ: { $id }
+registry-base-pack-broken = Gói widget tích hợp bị hỏng ({ $file }); hãy cài đặt lại ứng dụng.
 registry-duplicate-pack = Hai gói widget của bản trình bày dùng chung { $pack }.
 registry-compile = Không thể biên dịch các widget của gói mẫu
 registry-missing = Gói mẫu không khai báo widget của nó

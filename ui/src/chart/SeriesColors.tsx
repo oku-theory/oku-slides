@@ -6,15 +6,18 @@ import type { Element } from "../api";
 import { t } from "../i18n";
 import { seriesColor, seriesNames } from "./chartDeck";
 
-export function SeriesColors({ element, colors, onColor }: {
+/** Les pastilles de couleur des séries du paramètre graphique `param`. */
+export function SeriesColors({ element, param, colors, onColor }: {
   element: Element;
+  /** Le paramètre d'hôte graphique de l'élément. */
+  param: string;
   /** Palette des graphiques du thème, déjà validée (voir paletteOf). */
   colors: string[];
   /** Couleur choisie pour la série `index` ; `null` = la palette. */
   onColor: (index: number, color: string | null) => void;
 }) {
   const [open, setOpen] = useState<number | null>(null);
-  const names = seriesNames(element);
+  const names = seriesNames(element, param);
   if (names.length === 0 || colors.length === 0) return null;
   // « Automatique » : les premières couleurs de la palette, en diagonale.
   const auto = {
@@ -22,12 +25,12 @@ export function SeriesColors({ element, colors, onColor }: {
   };
   const pick = (i: number, color: string | null) => {
     setOpen(null);
-    if (color !== seriesColor(element, i)) onColor(i, color);
+    if (color !== seriesColor(element, param, i)) onColor(i, color);
   };
   return (
     <div className="series-colors" role="group" aria-label={t("ui-chart-colors")}>
       {names.map((name, i) => {
-        const own = seriesColor(element, i);
+        const own = seriesColor(element, param, i);
         return (
           <div key={i} className="series-color">
             <button

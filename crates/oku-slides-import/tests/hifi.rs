@@ -8,6 +8,7 @@ mod common;
 
 use std::collections::{BTreeMap, HashSet};
 
+use oku_slides_core::kinds;
 use oku_slides_core::{
     Deck, Element, Namespace, Op, PackManifest, ParamValue, Params, ThemeManifest, WidgetRegistry, apply_all, validate,
 };
@@ -32,6 +33,7 @@ fn plan(fixture: &str) -> ImportPlan {
     let (base, fonts) = (common::registry(), common::app_fonts());
     let target = HifiTarget {
         registry: &base,
+        base: common::base_pin(),
         fonts: &fonts,
         pack_id: Uuid::from_u128(1),
         theme_id: Uuid::from_u128(2),
@@ -84,6 +86,28 @@ fn hifi_applies_without_issue_and_covers_everything(
 fn hifi_plan_pins_its_pack_under_deck_namespace() {
     let ops = plan("minimal").ops;
     assert_that!(ops.iter().any(|o| matches!(o, Op::AddPack { namespace, .. } if namespace.is_deck()))).is_true();
+}
+
+#[test]
+fn hifi_plan_pins_base_before_the_deck_pack() {
+    let ops = plan("minimal").ops;
+    let pins: Vec<&str> = ops
+        .iter()
+        .filter_map(|o| match o {
+            Op::AddPack { namespace, .. } => Some(namespace.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_that!(pins).is_equal_to(vec!["base", "deck"]);
+}
+
+#[test]
+fn hifi_deck_kinds_are_all_base_or_deck() {
+    let (_, deck) = import("kitchen");
+    let kinds = common::deck_kinds(&deck);
+    let stray: Vec<&String> =
+        kinds.iter().filter(|k| !k.starts_with("deck/") && !kinds::base::ALL.contains(&k.as_str())).collect();
+    assert_that!((kinds.is_empty(), stray.is_empty())).is_equal_to((false, true));
 }
 
 #[test]

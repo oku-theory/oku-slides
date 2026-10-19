@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::*;
-use crate::pack::{DEFAULT_PACK, GRID_PACK, Relation};
+use crate::pack::{BASE_PACK, DEFAULT_PACK, GRID_PACK, Relation};
 use crate::test_support::{add_version, fresh_dir, manifest};
 
 fn library(dir: &Path) -> PackLibrary {
@@ -15,18 +15,22 @@ fn library(dir: &Path) -> PackLibrary {
 #[test]
 fn builtin_versions_have_the_constant_ids() {
     let ids: Vec<Uuid> = builtin_versions().iter().map(|b| b.manifest.id).collect();
-    assert_that!(ids).is_equal_to(vec![DEFAULT_PACK, GRID_PACK]);
-    for b in builtin_versions() {
-        assert_that!(b.manifest.parent).is_none();
-        assert_that!(b.manifest.created.as_str()).is_equal_to("2026-10-01T00:00:00Z");
-    }
+    assert_that!(ids).is_equal_to(vec![DEFAULT_PACK, GRID_PACK, BASE_PACK]);
+    let created: Vec<(Uuid, &str)> =
+        builtin_versions().iter().map(|b| (b.manifest.id, b.manifest.created.as_str())).collect();
+    assert_that!(created).is_equal_to(vec![
+        (DEFAULT_PACK, "2026-10-01T00:00:00Z"),
+        (GRID_PACK, "2026-10-01T00:00:00Z"),
+        (BASE_PACK, "2026-10-18T00:00:00Z"),
+    ]);
+    assert_that!(builtin_versions().iter().all(|b| b.manifest.parent.is_none())).is_true();
 }
 
 #[test]
 fn builtin_pack_is_current_by_default_and_read_only() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(builtin.clone()));
     assert_that!(PackLibrary::is_builtin(DEFAULT_PACK)).is_true();
     // Rien n'est écrit pour une version intégrée.
@@ -76,7 +80,7 @@ fn add_version_does_not_change_current() {
 fn add_version_under_a_builtin_id_keeps_the_builtin_current() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     add_version(&lib, &manifest(DEFAULT_PACK, "Sœur", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
     assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(builtin));
     assert_that!(lib.versions(DEFAULT_PACK).len()).is_equal_to(2);
@@ -86,7 +90,7 @@ fn add_version_under_a_builtin_id_keeps_the_builtin_current() {
 fn set_current_makes_a_version_current_even_over_a_builtin() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let mine = add_version(&lib, &manifest(DEFAULT_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
     lib.set_current(DEFAULT_PACK, &mine.version).unwrap();
     assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(mine.version));
@@ -97,7 +101,7 @@ fn set_current_makes_a_version_current_even_over_a_builtin() {
 fn replace_version_keeps_the_parent_removes_the_old_one_and_updates_current() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let first = add_version(&lib, &manifest(DEFAULT_PACK, "Un", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
     lib.set_current(DEFAULT_PACK, &first.version).unwrap();
     let next =
@@ -117,7 +121,7 @@ fn replace_version_keeps_the_parent_removes_the_old_one_and_updates_current() {
 fn replace_version_never_deletes_the_builtin_version() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let next =
         manifest(DEFAULT_PACK, "Mien", Some(&builtin), "2026-10-02T10:00:00Z").to_files(BTreeMap::new()).unwrap();
     lib.replace_version(DEFAULT_PACK, &builtin, &next).unwrap();
@@ -196,6 +200,7 @@ fn packs_lists_builtins_first_then_user_packs_by_name() {
     assert_that!(ids).is_equal_to(vec![
         (DEFAULT_PACK, true, true),
         (GRID_PACK, true, false),
+        (BASE_PACK, true, false),
         (a, false, false),
         (z, false, false),
     ]);
@@ -311,7 +316,7 @@ fn relation_with_a_dangling_parent_chain_is_sibling() {
 fn delete_under_a_builtin_id_reverts_to_the_builtin_version() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let mine = add_version(&lib, &manifest(DEFAULT_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
     lib.set_current(DEFAULT_PACK, &mine.version).unwrap();
     lib.delete(DEFAULT_PACK).unwrap();

@@ -63,15 +63,21 @@ impl<M: VersionManifest> StoredVersion<M> {
 #[derive(Debug, Clone)]
 pub struct Templates;
 
-/// Packs intégrés, lus une fois par processus, dans l'ordre.
+/// Packs intégrés, lus une fois par processus, dans l'ordre : Essentiel, Grilles, puis `base`.
 static BUILTIN_PACKS: LazyLock<Vec<StoredVersion<PackManifest>>> = LazyLock::new(|| {
     // Les fichiers du dépôt gardent leur nom `pack.json` jusqu'au lot 3 ; la bibliothèque écrit `widgets.json`.
-    [include_str!("../../../templates/essentiel/pack.json"), include_str!("../../../templates/grilles/pack.json")]
-        .iter()
-        .filter_map(|json| {
-            let read = PackFiles::from_bytes(json.as_bytes(), [])
-                .ok_or_else(|| "widgets.json is not a json object".to_owned())
-                .and_then(StoredVersion::read);
+    let templates =
+        [include_str!("../../../templates/essentiel/pack.json"), include_str!("../../../templates/grilles/pack.json")]
+            .map(|json| {
+                PackFiles::from_bytes(json.as_bytes(), []).ok_or_else(|| "widgets.json is not a json object".to_owned())
+            });
+    // `base` : ses sources sont celles du rendu, qui les embarque.
+    let base = oku_slides_render::base_pack_files().map_err(|e| oku_slides_platform::errors::one_line(&e));
+    templates
+        .into_iter()
+        .chain([base])
+        .filter_map(|files| {
+            let read = files.and_then(StoredVersion::read);
             // Couvert par les tests : n'arrive qu'avec un fichier du dépôt cassé.
             read.inspect_err(|e| tracing::error!(error = %e, "pack intégré illisible")).ok()
         })

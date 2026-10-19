@@ -26,7 +26,9 @@ use sha2::{Digest, Sha256};
 use snafu::{OptionExt, ResultExt};
 use uuid::{Builder, Uuid};
 
-use oku_slides_core::{Deck, Namespace, PackPin, WidgetFile, WidgetRegistry, WidgetSchema, now_created, qualify};
+use oku_slides_core::{
+    Deck, Namespace, PackManifest, PackPin, WidgetFile, WidgetRegistry, WidgetSchema, now_created, qualify,
+};
 use oku_slides_import::fonts::{FontCatalog, FontOrigin};
 use oku_slides_import::hifi;
 use oku_slides_import::{HifiTarget, PackLimits};
@@ -35,17 +37,19 @@ use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::Fonts;
 
 use super::error::{
-    PackMissingSnafu, PresentationSnafu, ProbeFailedSnafu, ProbeLimitSnafu, ProbeMismatchSnafu, Result,
-    ThemeMissingSnafu,
+    BadPackSnafu, LibrarySnafu, PackMissingSnafu, PresentationSnafu, ProbeFailedSnafu, ProbeLimitSnafu,
+    ProbeMismatchSnafu, Result, ThemeMissingSnafu,
 };
 use super::{Input, Prepared};
+use crate::deck_pack::builtin_pin;
+use crate::pack::BASE_PACK;
 use crate::{PackLibrary, sources_with_packs};
 
 /// Ce que le hi-fi prend de la demande d'import.
 pub(crate) struct HifiArgs<'a> {
     /// Les polices de l'app, celles du rendu.
     pub(crate) fonts: &'a Fonts,
-    /// Le registre de base.
+    /// Le registre intégré : le noyau et le `base` intégré.
     pub(crate) base: &'a Arc<WidgetRegistry>,
     /// Le nom du pack et du thème générés.
     pub(crate) name: String,
@@ -64,7 +68,10 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
         super::system_fonts::add(&mut catalog, &hifi::sought_fonts(&input.source));
     }
     let (pack_id, theme_id) = identity(&input.bytes);
+    // Le `base` intégré, jamais la version de l'utilisateur : le registre de la cible est le sien.
+    let (base_ns, base_pin, base_files) = builtin_pin(BASE_PACK).context(LibrarySnafu)?;
     let target = HifiTarget {
+        base: base_pin.clone(),
         registry: args.base,
         fonts: &catalog,
         pack_id,
@@ -80,10 +87,14 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
 
     let version = pack.version();
     let sizes: BTreeMap<WidgetFile, usize> = pack.widgets().iter().map(|(n, s)| (n.clone(), s.len())).collect();
+    // Un manifeste généré illisible est un bogue du générateur, dit comme un pack illisible.
+    let requires = PackManifest::from_files(&pack).context(BadPackSnafu { pack: target.name.as_str() })?.requires;
     let mut deck = Deck::empty();
-    // Le pack généré est le pack propre du deck : épinglé sous `deck`.
-    deck.widgets.insert(Namespace::deck(), PackPin { id: pack_id, version: version.clone(), requires: Vec::new() });
-    let packs = BTreeMap::from([(version, pack)]);
+    // `base` d'abord, épinglé avant la sonde ; l'op `AddPack base` du plan le retrouve tel quel.
+    deck.widgets.insert(base_ns, base_pin.clone());
+    // Le pack généré est le pack propre du deck : épinglé sous `deck`, il requiert `base`.
+    deck.widgets.insert(Namespace::deck(), PackPin { id: pack_id, version: version.clone(), requires });
+    let packs = BTreeMap::from([(base_pin.version, base_files), (version, pack)]);
     let library = PackLibrary::user(platform);
     let (mut bundle, widgets) = sources_with_packs(platform, &library, args.base, deck, packs)?;
     // Une sonde tout entière échouée (processus de rendu) n'est pas un écart du générateur.

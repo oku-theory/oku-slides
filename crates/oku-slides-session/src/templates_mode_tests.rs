@@ -1,6 +1,5 @@
 use speculoos::prelude::*;
 
-use crate::library::builtin_versions;
 use crate::pack::{DEFAULT_PACK, PackManifest};
 use crate::test_support::{adopt_deck_only_pack, fresh_dir, library_files, library_of, ns, pin, session_on};
 
@@ -8,7 +7,7 @@ use crate::test_support::{adopt_deck_only_pack, fresh_dir, library_files, librar
 fn save_templates_creates_a_version_whose_parent_is_the_old_current() {
     let data = fresh_dir("oku-slides-templates-mode-");
     let mut s = session_on(data.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     s.edit_templates(DEFAULT_PACK).unwrap();
     s.apply(
         "Nom",
@@ -47,7 +46,7 @@ fn saving_twice_in_one_session_keeps_one_version_and_the_deck_follows_in_one_und
     let data = fresh_dir("oku-slides-templates-mode-");
     let mut s = session_on(data.path());
     let before = pin(&s, "essentiel");
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     s.edit_templates(DEFAULT_PACK).unwrap();
     let rename = |t: &str| {
         serde_json::from_value(serde_json::json!(
@@ -106,7 +105,8 @@ fn save_templates_as_copy_creates_a_new_id_and_the_session_continues_on_it() {
     let copy = library_of(&s).current_version(edit.set).unwrap();
     assert_that!(copy.manifest.parent.clone()).is_none();
     assert_that!(copy.manifest.name.as_str()).is_equal_to("Essentiel (copie)");
-    assert_that!(library_of(&s).current(DEFAULT_PACK)).is_equal_to(Some(builtin_versions()[0].version.clone()));
+    assert_that!(library_of(&s).current(DEFAULT_PACK))
+        .is_equal_to(Some(crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone()));
     // Les enregistrements suivants remplacent la version de la copie, toujours sans parente.
     s.apply(
         "Nom",
@@ -155,7 +155,7 @@ fn templates_view_of_the_deck_pack_shows_the_embedded_version() {
     s.undo().unwrap();
     let view = s.templates_view(None).unwrap();
     assert_that!(view.set.version.clone()).is_equal_to(embedded.version.clone());
-    let manifest = PackManifest::from_files(&builtin_versions()[0].files).unwrap();
+    let manifest = PackManifest::from_files(&crate::test_support::builtin(crate::pack::DEFAULT_PACK).files).unwrap();
     assert_that!(view.templates.len()).is_equal_to(manifest.templates.len());
 }
 
@@ -404,4 +404,62 @@ fn save_as_copy_of_a_deck_only_pack_stays_deck_only() {
     assert_that!((m.id, m.scope, m.parent)).is_equal_to((edit.set, oku_slides_core::PackScope::Deck, None));
     s.close_templates().unwrap();
     assert_that!(pin(&s, "deck").map(|t| t.id)).is_equal_to(Some(edit.set));
+}
+
+/// Une session sur `data` dont la bibliothèque a le pack `namespace`, sans besoins, au seul modèle
+/// `texte` d'Essentiel ; son id.
+fn session_on_pack_without_base(data: &std::path::Path, namespace: &str) -> (crate::Session, uuid::Uuid) {
+    let s = session_on(data);
+    let texte = crate::test_support::builtin(DEFAULT_PACK).manifest.templates.iter().find(|t| t.id == "texte").cloned();
+    let m = PackManifest {
+        templates: texte.into_iter().collect(),
+        ..crate::test_support::manifest_ns(uuid::Uuid::new_v4(), namespace, &[])
+    };
+    crate::test_support::add_version(library_of(&s), &m, &[]);
+    (s, m.id)
+}
+
+/// L'op qui ajoute un `base/text` aux blocs du premier modèle édité.
+fn add_text_to_first_template(s: &crate::Session) -> oku_slides_core::Op {
+    let slide = s.deck().slides[0].id.clone();
+    serde_json::from_value(serde_json::json!({
+        "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
+        "element": { "id": "t-neuf", "kind": oku_slides_core::kinds::base::TEXT,
+            "params": { "body": [{ "runs": [{ "t": "Bonjour" }] }] } } }))
+    .unwrap()
+}
+
+#[test]
+fn edit_templates_of_a_pack_without_base_can_add_a_base_text() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let (mut s, id) = session_on_pack_without_base(data.path(), "acme");
+    s.edit_templates(id).unwrap();
+    let op = add_text_to_first_template(&s);
+    let r = s.apply("Ajouter", vec![op], None);
+    assert_that!(r.is_ok()).is_true();
+}
+
+#[test]
+fn saved_pack_requires_the_namespaces_its_templates_use() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let (mut s, id) = session_on_pack_without_base(data.path(), "acme");
+    s.edit_templates(id).unwrap();
+    let op = add_text_to_first_template(&s);
+    s.apply("Ajouter", vec![op], None).unwrap();
+    s.save_templates(false).unwrap();
+    s.close_templates().unwrap();
+    let requires = library_of(&s).current_version(id).unwrap().manifest.requires;
+    assert_that!(requires).is_equal_to(vec![oku_slides_core::kinds::base::namespace()]);
+}
+
+#[test]
+fn edit_templates_deck_pinning_a_base_version_found_nowhere_returns_pack_version_missing() {
+    let data = fresh_dir("oku-slides-templates-mode-");
+    let (mut s, id) = session_on_pack_without_base(data.path(), "acme");
+    let mut deck = s.deck().clone();
+    let base = deck.widgets.get_mut(&oku_slides_core::kinds::base::namespace()).unwrap();
+    base.version = oku_slides_core::PackVersion::from_hex(&"0".repeat(64)).unwrap();
+    s.doc.sources.apply_silent(deck).unwrap();
+    let err = s.edit_templates(id).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::PackVersionMissing);
 }

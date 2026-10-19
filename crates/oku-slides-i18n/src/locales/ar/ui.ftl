@@ -162,7 +162,9 @@ ui-element-kind = { $kind ->
     [card] بطاقة
     [image] صورة
     [shape] شكل
-    [group] مجموعة
+    [chart] مخطط
+    [table] جدول
+    [stack] مكدس
    *[other] { $kind }
 }
 ui-grid-cell = عمود { $cols } · صف { $rows }

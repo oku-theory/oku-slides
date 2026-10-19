@@ -18,6 +18,7 @@ diagnostic-hint = संकेत: { $hint }
 render-chart-failed = चार्ट बनाया नहीं जा सका
 
 registry-bad-pack-id = अमान्य टेम्पलेट पैक पहचानकर्ता: { $id }
+registry-base-pack-broken = अंतर्निहित विजेट पैक क्षतिग्रस्त है ({ $file }); ऐप को फिर से इंस्टॉल करें।
 registry-duplicate-pack = प्रेज़ेंटेशन के दो विजेट पैक { $pack } साझा करते हैं।
 registry-compile = टेम्पलेट पैक के विजेट कंपाइल नहीं हो सके
 registry-missing = टेम्पलेट पैक अपने विजेट घोषित नहीं करता

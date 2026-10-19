@@ -29,6 +29,7 @@
 
 use std::collections::BTreeSet;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Element, Frame, ParamValue, PathCommand, ShapePath, TokenValue};
 use serde_json::{Value, json};
 
@@ -181,7 +182,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
                     look.set_flags(&mut option);
                     (option, lost)
                 });
-                self.host(item, frame, "table", "data", option);
+                self.host(item, frame, base::TABLE, "data", option);
             }
             ItemKind::Chart(c) => {
                 if flipped {
@@ -191,7 +192,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
                     series_colors(&mut option, c);
                     (option, lost)
                 });
-                self.host(item, frame, "chart", "option", option);
+                self.host(item, frame, base::CHART, "option", option);
             }
             ItemKind::Group { items, .. } => {
                 if flipped {
@@ -236,7 +237,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
             return;
         }
         self.out.assets.insert(asset.to_owned());
-        let e = self.push("image", widened(frame));
+        let e = self.push(base::IMAGE, widened(frame));
         e.params.set("asset", ParamValue::Text(asset.to_owned()));
         e.params.set("fit", ParamValue::Text("stretch".to_owned()));
     }
@@ -310,7 +311,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
         if paint.is_none() {
             return;
         }
-        let e = self.push("shape", widened(frame));
+        let e = self.push(base::SHAPE, widened(frame));
         e.params.set("shape", ParamValue::Text(shape.to_owned()));
         e.style.radius = radius.map(TokenValue::Number);
         paint.apply(e);
@@ -323,7 +324,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
         let paint = Paint { fill: None, pen: Some(pen) };
         if frame.h == 0.0 && frame.w > 0.0 {
             // Le widget tire la ligne en haut de son cadre : le cadre part de la ligne.
-            let e = self.push("shape", Frame { h: MIN_SIDE, ..frame });
+            let e = self.push(base::SHAPE, Frame { h: MIN_SIDE, ..frame });
             e.params.set("shape", ParamValue::Text("line".to_owned()));
             paint.apply(e);
             return;
@@ -381,7 +382,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
             self.native(frame, "rect", None, paint);
             return;
         };
-        let e = self.push("shape", frame);
+        let e = self.push(base::SHAPE, frame);
         e.params.set("shape", ParamValue::Text("path".to_owned()));
         e.params.set("path", ParamValue::Value(json!({ "d": path.d })));
         paint.apply(e);

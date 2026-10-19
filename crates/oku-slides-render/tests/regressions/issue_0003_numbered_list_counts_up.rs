@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 use oku_slides_core::Deck;
-use oku_slides_render::{Fonts, Renderer};
+use oku_slides_core::kinds::base;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -14,14 +14,14 @@ use speculoos::prelude::*;
 fn numbered(n: usize) -> Deck {
     let text: Vec<_> = (0..n).map(|_| json!({ "list": "number", "runs": [{ "t": "a" }] })).collect();
     serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [{
-        "id": "e", "kind": "text", "frame": { "x": 0, "y": 0, "w": 800, "h": 400 }, "params": { "body": text }
+        "id": "e", "kind": base::TEXT, "frame": { "x": 0, "y": 0, "w": 800, "h": 400 }, "params": { "body": text }
     }] } }] }))
     .unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Glyphes distincts dessinés sur la page : un chiffre de plus en ajoute un.
 fn distinct_glyphs(deck: &Deck) -> usize {
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = crate::common::renderer();
     r.set_deck(deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     let svg = r.compile().unwrap_or_else(|e| panic!("{e}")).svg(0).unwrap_or_else(|e| panic!("{e}"));
     svg.split("xlink:href=\"#g").skip(1).filter_map(|s| s.split('"').next()).collect::<BTreeSet<_>>().len()

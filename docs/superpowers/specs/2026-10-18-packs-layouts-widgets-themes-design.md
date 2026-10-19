@@ -7,7 +7,7 @@ The user's answers: several packs per deck; pack widgets named by a declared nam
 three typed pack kinds (layouts, widgets, theme); a theme `extends` zero or more themes and the
 deck keeps its own token overrides (`deck.tokens`, which exists today); component tokens are declared by the pack that owns the
 component; the core keeps no widget at all; `canvas`, templates (gabarits) and the Grilles pack
-are deleted; `citation` moves into `base`.
+are deleted; `citation` moves into `base` (revised by the lot 2 plan: no `citation` widget exists, it is a template).
 
 ## Problem
 
@@ -71,11 +71,12 @@ All three share a trunk: `id` (UUID), `namespace`, content-addressed versions (s
 
 | Namespace | Kind | Content | Requires / extends |
 |---|---|---|---|
-| `base` | widgets | `text`, `image`, `card`, `shape`, `chart`, `table`, `stack`, `citation` | — |
+| `base` | widgets | `text`, `image`, `card`, `shape`, `chart`, `table`, `stack` | — |
 | `essentiel` | layouts | `title`, `content`, `chapter`, `toc`, `end`, `blank` | requires `base` |
 | `pro`, `papier` | themes | today's global tokens, without `component.*` | — |
 
-Grilles is deleted. `citation` (today Grilles' only widget) moves to `base`. The component tokens
+Grilles is deleted. (Revised by the lot 2 plan: no `citation` widget exists — `citation` is an Essentiel
+template — so `base` holds seven widgets.) The component tokens
 now in `default-tokens.json` and the themes move to the pack owning the component (`card`,
 `table`… to `base`; `title`… to `essentiel`), with values that render identically.
 
@@ -191,7 +192,8 @@ Snafu, a backtrace in every variant, opaque public types, Fluent messages (en re
 - **Golden render**: the golden deck is rewritten with qualified kinds on `essentiel` + `base`
   and must stay pixel-identical. Any diff is a bug, never a re-record.
 - **Registries**: `fixtures/widgets/base-registry.json` and its snapshot are replaced by one
-  snapshot per built-in pack.
+  snapshot per built-in pack (revised by the lot 2 plan: one combined core + `base` fixture until
+  lot 3).
 - **Core** (rstest, speculoos): `requires` closure, `AddPack` replacing a version, `RemovePack`
   refusals, namespace validation, `extends` linearization (single, multiple, diamond, cycle,
   last parent wins, list replaces), canonical order of `layouts` / `widgets`.
@@ -212,8 +214,10 @@ One spec, five plans, each merged green on its own. Revised 2026-10-18 with the 
    `AddPack` / `RemovePack`, sources 11, qualified registry, multi-pack rendering and worker
    protocol 4, per-pack fallback, explicit write target with a `deck` pack for the deck's own
    widgets. Core widgets keep bare names.
-2. Pack `base`: the eight element widgets out of the core, `grow` in the schema, host-typed
-   consumers, import constants, `canvas` deleted.
+2. Pack `base`: the seven element widgets out of the core, `grow` and `typography` in the schema,
+   host-typed consumers (`Snapshot.host_params`), import constants, `canvas` deleted, deck version 7,
+   built-in pack versions trusted by the per-pack fallback, one combined core + `base` registry
+   fixture until lot 3 (see `docs/superpowers/plans/2026-10-18-packs-lot2-base.md`, deviations).
 3. Layout packs and pack `essentiel`: `deck.layouts`, the six layouts out of the core,
    templates and Grilles deleted.
 4. Themes: `extends`, linearization, component tokens declared by packs, composed editor

@@ -11,7 +11,7 @@ expression: summary(&plan(fixture))
         "titre"
       ],
       "elements": [
-        "table @132,287 600×180"
+        "base/table @132,287 600×180"
       ],
       "losses": {
         "merged_cells": 1,
@@ -25,10 +25,10 @@ expression: summary(&plan(fixture))
         "titre"
       ],
       "elements": [
-        "chart @132,287 960×540",
-        "image @1152,287 480×480",
-        "text @132,864 480×80",
-        "text @612,864 480×80"
+        "base/chart @132,287 960×540",
+        "base/image @1152,287 480×480",
+        "base/text @132,864 480×80",
+        "base/text @612,864 480×80"
       ],
       "losses": {}
     },
@@ -39,11 +39,11 @@ expression: summary(&plan(fixture))
         "titre"
       ],
       "elements": [
-        "shape @200,200 200×100",
-        "text @200,200 200×100",
-        "shape @500,200 200×100",
-        "text @500,200 200×100",
-        "image @200,500 400×80"
+        "base/shape @200,200 200×100",
+        "base/text @200,200 200×100",
+        "base/shape @500,200 200×100",
+        "base/text @500,200 200×100",
+        "base/image @200,500 400×80"
       ],
       "losses": {}
     }

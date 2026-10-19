@@ -188,19 +188,28 @@ pub type ProbedPack<'a> = (&'a Namespace, &'a mut BTreeMap<WidgetFile, FileProbe
 /// son espace de noms. Un widget que le registre refuse devient écarté, avec un
 /// diagnostic, et l'assemblage reprend sans lui. Un nom nu dans l'erreur (schéma)
 /// désigne le premier pack qui a ce fichier valide.
+///
+/// Les packs déjà sondés avec la base (`packs` de sa sonde, comme `base` dans
+/// [`crate::builtin_probe`]) entrent tels quels au registre : leurs widgets ne
+/// sont jamais écartés ici.
 pub fn assemble_set(base: &Json, packs: &mut [ProbedPack<'_>]) -> Result<WidgetRegistry, RegistryError> {
+    let fixed: Vec<Json> = match base.get("packs") {
+        None => Vec::new(),
+        Some(p) => p.as_array().cloned().ok_or_else(|| RegistryError::from(MissingSnafu.build()))?,
+    };
     let base = base.get("base").cloned().ok_or_else(|| RegistryError::from(MissingSnafu.build()))?;
     loop {
-        let entries: Vec<Json> = packs
+        let entries: Vec<Json> = fixed
             .iter()
-            .map(|(namespace, files)| {
+            .cloned()
+            .chain(packs.iter().map(|(namespace, files)| {
                 let widgets: Vec<Json> = files
                     .iter()
                     .filter(|(n, p)| !n.is_common() && p.is_valid())
                     .filter_map(|(_, p)| p.schema.clone())
                     .collect();
                 json!({ "namespace": namespace, "widgets": widgets })
-            })
+            }))
             .collect();
         let err = match WidgetRegistry::from_probe(json!({ "base": base, "packs": entries })) {
             Ok(registry) => return Ok(registry),

@@ -4,6 +4,14 @@ expression: "plan(\"minimal\").ops"
 ---
 [
   {
+    "op": "add_pack",
+    "namespace": "base",
+    "pin": {
+      "id": "3b1f6c2e-5a4d-4e8b-9c71-0d2e4f6a8b13",
+      "version": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  {
     "op": "set_theme",
     "theme": {
       "id": "00000000-0000-0000-0000-000000000002",
@@ -15,7 +23,10 @@ expression: "plan(\"minimal\").ops"
     "namespace": "deck",
     "pin": {
       "id": "00000000-0000-0000-0000-000000000001",
-      "version": "sha256:a39a8562b515c76f7feabb6a5c7ec6da883cfcbe59a4ef27fc65283524ce24b2"
+      "version": "sha256:a1d6da1ea0059d448890a17ace7b2bf8758eb452804efc913c805e149db65692",
+      "requires": [
+        "base"
+      ]
     }
   },
   {
@@ -78,7 +89,7 @@ expression: "plan(\"minimal\").ops"
         "extras": [
           {
             "id": "s2-1",
-            "kind": "text",
+            "kind": "base/text",
             "frame": {
               "x": 132.0,
               "y": 960.0,
@@ -114,7 +125,7 @@ expression: "plan(\"minimal\").ops"
           },
           {
             "id": "s2-2",
-            "kind": "shape",
+            "kind": "base/shape",
             "frame": {
               "x": 1320.0,
               "y": 287.5,
@@ -133,7 +144,7 @@ expression: "plan(\"minimal\").ops"
           },
           {
             "id": "s2-3",
-            "kind": "text",
+            "kind": "base/text",
             "frame": {
               "x": 1320.0,
               "y": 287.5,
@@ -195,7 +206,7 @@ expression: "plan(\"minimal\").ops"
         "extras": [
           {
             "id": "s3-1",
-            "kind": "shape",
+            "kind": "base/shape",
             "frame": {
               "x": 0.0,
               "y": 0.0,
@@ -211,7 +222,7 @@ expression: "plan(\"minimal\").ops"
           },
           {
             "id": "s3-2",
-            "kind": "text",
+            "kind": "base/text",
             "frame": {
               "x": 132.0,
               "y": 480.0,

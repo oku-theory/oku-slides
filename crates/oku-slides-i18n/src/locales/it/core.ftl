@@ -29,6 +29,7 @@ op-pack-in-use = Il pacchetto di widget { $pack } è ancora usato da { $count ->
    *[other] { $count } elementi
 }.
 op-pack-requirement-missing = Il pacchetto di widget { $pack } richiede { $required }, che questa presentazione non ha.
+op-base-required = Ogni presentazione mantiene il pacchetto di widget di base.
 op-unknown-param = Parametro sconosciuto: { $subject }
 op-param-type-because = Valore non valido per { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -183,6 +184,7 @@ widget-fault-list-bounds = Widget { $widget }: il massimo di un elenco è inferi
 widget-fault-list-default-too-large = Widget { $widget }: il valore predefinito di un elenco supera i limiti di dimensione degli elenchi
 widget-fault-list-depth = Widget { $widget }: un elenco annidato non può contenere una colonna elenco; gli elenchi si annidano su un solo livello
 widget-fault-list-default-below-min = Widget { $widget }: il valore predefinito di un elenco annidato ha meno voci del suo minimo
+widget-fault-slide-sizing = Widget { $widget } è una slide: solo i widget di elemento dichiarano grow o typography
 issue-empty-item-id = l'elenco { $param } ha una voce senza identificatore
 issue-duplicate-item-id = l'elenco { $param } ha un identificatore di voce duplicato
 issue-invalid-item-id = l'elenco { $param } ha un identificatore di voce che contiene una barra

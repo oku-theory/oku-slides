@@ -88,7 +88,7 @@ fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item 
 {pack_import}#let available = {available}
 #let fallback(label) = rect(width: 100%, height: 100%, fill: luma(230),
   align(center + horizon, text(size: 20pt, fill: luma(90), label)))
-#let load-image(e, asset: none, fit: "cover", chart: false) = {{
+#let load-image(e, asset: none, fit: "cover", chart: false, flow: false) = {{
   if chart {{
     if "{svg_field}" not in e {{ fallback({chart_failed}) }}
     else if "frame" in e {{
@@ -105,8 +105,9 @@ fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item 
     let hex = if asset == none {{ "" }} else {{ asset.trim("sha256:", at: start) }}
     if hex in available {{
       let path = "/assets/" + hex
-      if e.at("kind", default: none) == "image" and "frame" not in e {{
-        // Dans le flux : toute la largeur, à ses proportions, sans dépasser la hauteur disponible.
+      if flow {{
+        // Le widget le demande : dans le flux, à ses proportions (toute la largeur,
+        // sans dépasser la hauteur disponible).
         layout(size => {{
           let h = measure(image(path, width: size.width)).height
           if size.height < h {{ h = size.height }}

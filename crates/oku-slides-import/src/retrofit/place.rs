@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Cell, Element, Grid, ParamValue, Slide, WidgetRegistry};
 
 use super::cluster::{Unit, cells_meet, is_bare_shape, reading};
@@ -20,7 +21,7 @@ use crate::source::{Fill, Item, ItemKind};
 /// Les assets des éléments `list` et de leurs descendants.
 pub(crate) fn collect_assets(list: &[Element], out: &mut BTreeSet<String>) {
     for e in list {
-        if e.kind == "image"
+        if e.kind == base::IMAGE
             && let Some(a) = e.params.text("asset")
         {
             out.insert(a.to_owned());
@@ -81,7 +82,7 @@ pub(crate) fn snap_all(elements: &mut [Element], zone: &Zone, grid: &Grid, gap: 
     let solid: Vec<(usize, Cell)> = cells
         .iter()
         .enumerate()
-        .filter(|(k, _)| elements[*k].kind != "shape")
+        .filter(|(k, _)| elements[*k].kind != base::SHAPE)
         .filter_map(|(k, c)| c.map(|c| (k, c)))
         .collect();
     let disjoint = solid.iter().enumerate().all(|(i, (_, a))| solid[i + 1..].iter().all(|(_, b)| !cells_meet(a, b)));
@@ -249,7 +250,7 @@ pub(crate) fn arrange<'a>(placement: Placement, slide: &Slide, a: &Arrange<'_, '
             made.push(e);
         }
         if block.len() > 1 && !made.is_empty() {
-            let mut row = Element::new(block_id, "stack");
+            let mut row = Element::new(block_id, base::STACK);
             row.params.set("layout", ParamValue::Text("columns".to_owned()));
             row.params.set("children", ParamValue::Slot(made));
             out.elements.push(row);
@@ -267,7 +268,7 @@ pub(crate) fn arrange<'a>(placement: Placement, slide: &Slide, a: &Arrange<'_, '
         out.fits = out.elements.iter().all(|e| {
             let Some(f) = e.frame.or_else(|| e.cell.map(|c| cell_rect(&zone, &grid, gap, &c))) else { return true };
             let need = a.measure.element(e, f.w, f.h, true);
-            if e.kind == "card" { need <= f.h + 1.0 } else { f.y + need <= zone.h + 1.0 }
+            if e.kind == base::CARD { need <= f.h + 1.0 } else { f.y + need <= zone.h + 1.0 }
         });
     }
     out

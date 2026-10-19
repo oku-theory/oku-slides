@@ -176,7 +176,7 @@ fn from_snapshot_with_a_huge_slot_map_reads() {
         let node = tree.create(slide).unwrap_or_else(|e| panic!("nœud : {e}"));
         let meta = tree.get_meta(node).unwrap_or_else(|e| panic!("méta : {e}"));
         meta.insert("id", "x").unwrap_or_else(|e| panic!("id : {e}"));
-        meta.insert("kind", "text").unwrap_or_else(|e| panic!("kind : {e}"));
+        meta.insert("kind", "base/text").unwrap_or_else(|e| panic!("kind : {e}"));
         let slot = meta.ensure_mergeable_map("@slot").unwrap_or_else(|e| panic!("@slot : {e}"));
         for i in 0..HOSTILE_KEYS {
             slot.insert(&format!("{i}@1"), "blocks").unwrap_or_else(|e| panic!("entrée : {e}"));

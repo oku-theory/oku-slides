@@ -21,7 +21,9 @@
 //! - Un échec borné (délai, mémoire, arrêt) pendant la sonde d'un pack, ou
 //!   pendant une opération d'un emplacement (pose des widgets, rendu, export),
 //!   envoi de la file compris, marque le pack fautif : celui posé par
-//!   `set_widgets`, celui de l'emplacement pour les autres. Il n'est plus
+//!   `set_widgets`, celui de l'emplacement pour les autres, s'il y est seul
+//!   et n'est pas une version livrée de `base` (un emplacement qui en porte
+//!   une n'accuse personne ; la session tranche, `mark_faulty`). Il n'est plus
 //!   exécuté dans ce travailleur, et le rendu de l'emplacement répond
 //!   `PackDisabled` sans appel.
 //! - Un emplacement d'essai (`trial_slot`, aperçu d'un widget en cours
@@ -43,11 +45,12 @@ use oku_slides_core::WidgetRegistry;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{FileProbeCache, Fonts, PackWidgets, RenderError};
+use oku_slides_render::{FileProbeCache, Fonts, PackWidgets, RenderError, is_trusted_pack};
 use sha2::{Digest, Sha256};
 
 use crate::link::{Link, SlotState, fingerprint_hex};
 use crate::protocol::{Request, Response, SlotId, WirePack};
+use crate::serve::pack_of;
 use crate::slot::RenderSlot;
 
 /// Une requête mise en file par un `Drop`.
@@ -130,16 +133,24 @@ pub(crate) fn expect_ok(link: &mut Link, req: &Request, payload: &[u8]) -> Resul
     }
 }
 
-/// Marque fautif l'unique pack de l'emplacement si `e` est un échec borné.
+/// Marque fautif l'unique pack de l'emplacement si `e` est un échec borné et qu'il n'est pas de confiance.
 ///
-/// L'échec ne dit pas lequel de plusieurs packs en est la cause : avec plus d'un
-/// pack, aucun n'est accusé (la session isole le coupable en rendant des sous-ensembles).
+/// L'échec ne dit pas lequel de plusieurs packs en est la cause, ni s'il vient
+/// du contenu `base` du deck : avec plus d'un pack, ou avec une version livrée
+/// de `base` (`is_trusted_pack`), aucun n'est accusé. La session tranche par
+/// son rendu témoin et sa dichotomie (`RenderWorker::mark_faulty`).
 pub(crate) fn blame(link: &mut Link, packs: &[WirePack], e: &RenderError) {
     if let [pack] = packs
         && e.kind().is_bounded()
+        && !is_trusted_wire(pack)
     {
         link.faulty_packs.insert(fingerprint_hex(pack));
     }
+}
+
+/// Le pack envoyé est-il une version livrée de `base` ? Illisible, il ne l'est pas.
+fn is_trusted_wire(p: &WirePack) -> bool {
+    pack_of(p.clone()).is_ok_and(|pack| is_trusted_pack(&pack))
 }
 
 /// Le premier pack fautif d'un emplacement, s'il y en a un.
@@ -249,6 +260,16 @@ impl RenderWorker {
     /// `pack` a fait échouer le rendu (délai, mémoire, arrêt) : il n'est plus exécuté dans ce travailleur.
     pub fn is_faulty(&self, pack: &PackWidgets) -> bool {
         self.link().faulty_packs.contains(&hex::encode(pack.fingerprint()))
+    }
+
+    /// Marque `pack` fautif, sauf version livrée de `base` : il n'est plus exécuté dans ce travailleur.
+    ///
+    /// Pour la session, quand son essai d'un pack seul à côté des packs de
+    /// confiance échoue : l'emplacement, qui en porte un, n'a accusé personne.
+    pub fn mark_faulty(&self, pack: &PackWidgets) {
+        if !is_trusted_pack(pack) {
+            self.link().faulty_packs.insert(hex::encode(pack.fingerprint()));
+        }
     }
 
     /// Ouvre un emplacement avec ces polices, les widgets de base et la langue `l`.

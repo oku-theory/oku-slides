@@ -1,7 +1,7 @@
-// Rendu d'un deck JSON v5 (le modèle de données de l'app Oku Slides).
+// Rendu d'un deck JSON v7 (le modèle de données de l'app Oku Slides).
 //
 // {
-//   "version": 5,
+//   "version": 7,
 //   "params": { "title": "…", "author": "…", "date": "…" },
 //   "vars":   { "client": "Acme" },
 //   "tokens": { "color": { "accent": "#8a5a1c" } },
@@ -9,7 +9,7 @@
 //     { "id": "s1", "kind": "title" },
 //     { "id": "s2", "kind": "chapter", "params": { "title": "Contexte" } },
 //     { "id": "s3", "kind": "content", "params": { "title": "…", "layout": "columns",
-//       "blocks": [ { "id": "e1", "kind": "text", "params": { "body": [ … ] } } ] } },
+//       "blocks": [ { "id": "e1", "kind": "base/text", "params": { "body": [ … ] } } ] } },
 //     { "id": "s4", "kind": "end", "params": { "text": "Merci" } }
 //   ]
 // }
@@ -28,14 +28,28 @@
 #import "widgets.typ": registry
 #import "widget.typ": by-name
 
-// Widgets de base, par nom : ceux du rendu quand `widgets` vaut none.
+// Widgets du noyau (les slides) : ceux du rendu quand `widgets` vaut none.
 #let _base = by-name(registry)
 
-// Entrées de slot : (kind, id, body) dans le flux ; (kind, id, frame, cell,
-// show) en placement libre. `render` rend un élément (Typst ne connaît pas
-// les fonctions déclarées plus bas : `render-element` est passé ici).
+// Le widget `name` s'il est de catégorie `category`, sinon none.
+#let _widget(widgets, name, category) = {
+  let w = widgets.at(if type(name) == str { name } else { "" }, default: none)
+  if w != none and w.schema.category == category { w } else { none }
+}
+
+// `grow` du widget d'élément `kind` : `true`, `"fit"`, sinon false (sans widget aussi).
+#let _grow(widgets, kind) = {
+  let w = _widget(widgets, kind, "element")
+  let g = if w == none { false } else { w.schema.at("grow", default: false) }
+  if g == true or g == "fit" { g } else { false }
+}
+
+// Entrées de slot : (kind, id, grow, body) dans le flux ; (kind, id, frame,
+// cell, show) en placement libre. `render` rend un élément (Typst ne connaît
+// pas les fonctions déclarées plus bas : `render-element` est passé ici).
 #let _flow(t, list, vars, image-loader, widgets, deck-params, render) = list.map(b => (
   kind: b.at("kind", default: none), id: b.at("id", default: none),
+  grow: _grow(widgets, b.at("kind", default: none)),
   body: render(t, b, vars, image-loader: image-loader, widgets: widgets, deck-params: deck-params)))
 #let _placed(t, list, vars, image-loader, widgets, deck-params, render) = list.map(e => (
   kind: e.at("kind", default: none), id: e.at("id", default: none),
@@ -121,12 +135,6 @@
   out
 }
 
-// Le widget `name` s'il est de catégorie `category`, sinon none.
-#let _widget(widgets, name, category) = {
-  let w = widgets.at(if type(name) == str { name } else { "" }, default: none)
-  if w != none and w.schema.category == category { w } else { none }
-}
-
 // Taille de la zone de corps d'une slide de contenu avec titre.
 #let body-size(t, with-title: true) = {
   let pg = t.page
@@ -137,7 +145,7 @@
 
 /// Rend un élément avec le widget de son `kind` (catégorie "element") ;
 /// sans widget, un encart « élément inconnu ». widgets : dictionnaire nom →
-/// widget (none : ceux de base). deck-params : paramètres du deck, pour les
+/// widget (none : ceux du noyau). deck-params : paramètres du deck, pour les
 /// paramètres liés (`bind`).
 #let render-element(t, e, vars, image-loader: none, widgets: none, deck-params: (:)) = {
   let widgets = if widgets == none { _base } else { widgets }
@@ -148,6 +156,9 @@
   // Un widget existant mais qui n'est pas de catégorie "element" (p. ex.
   // une slide comme "title") ne rend pas ici : boîte d'élément inconnu.
   let w = _widget(widgets, kind, "element")
+  // Lus avant `let (w, h)`, qui masque `w`.
+  let grows = _grow(widgets, kind) != false
+  let typo = w != none and w.schema.at("typography", default: false) == true
   let el = if w == none { text(fill: red)[oku-slides : élément inconnu « #kind »] }
     else { (w.render)(_args(t, w.schema, e.at("params", default: (:)), vars, deck-params, image-loader, widgets,
       render-element), ctx) }
@@ -156,13 +167,13 @@
   if "id" not in e { return block(width: w, height: h, el) }
   // Boîte de l'élément pour l'app : page, position et taille réelles.
   let sized = block(width: w, height: h, layout(sz => {
-    // Un graphique ou un tableau s'adapte à la hauteur disponible : il se mesure dans celle-ci.
-    let real-h = if fixed { sz.height } else if kind in ("chart", "table") and sz.height < float.inf * 1pt {
+    // Un widget qui prend sa part de hauteur (`grow`) s'y adapte : il se mesure dans celle-ci.
+    let real-h = if fixed { sz.height } else if grows and sz.height < float.inf * 1pt {
       measure(block(width: sz.width, el), height: sz.height).height
     } else { measure(block(width: sz.width, el)).height }
     context {
       let p = here().position()
-      let over = if kind == "text" { _text-over(t, style) } else { (:) }
+      let over = if typo { _text-over(t, style) } else { (:) }
       [#metadata((id: str(e.id), page: p.page, x: p.x / 1pt, y: p.y / 1pt,
         w: sz.width / 1pt, h: real-h / 1pt, ax: p.x / 1pt, aw: sz.width / 1pt, style: text-probe(over)))<oku-slides-box>]
     }
@@ -189,9 +200,9 @@
 }
 
 /// Rend un deck JSON complet : `#render-deck(json("deck.json"))`.
-/// image-loader : fonction (élément, asset: none, fit: "cover", chart: false)
-/// => contenu, pour les images et les graphiques.
-/// widgets : dictionnaire nom → widget (`by-name(registre)`) ; none : ceux de base.
+/// image-loader : fonction (élément, asset: none, fit: "cover", chart: false,
+/// flow: false) => contenu, pour les images et les graphiques.
+/// widgets : dictionnaire nom → widget (`by-name(registre)`) ; none : ceux du noyau.
 #let render-deck(data, theme: none, image-loader: none, widgets: none) = {
   let widgets = if widgets == none { _base } else { widgets }
   let params = data.at("params", default: (:))

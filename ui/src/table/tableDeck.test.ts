@@ -6,27 +6,39 @@ const option: TableOption = { dataset: { source: [["A", "B", "C"], [1, 2, 3]] },
 
 describe("tableDeck", () => {
   test("tableOption of a table element returns its data", () => {
-    expect(tableOption({ id: "t", kind: "table", params: { data: option } })?.dataset.source[0]).toEqual(["A", "B", "C"]);
+    expect(tableOption({ id: "t", kind: "base/table", params: { data: option } }, "data")?.dataset.source[0]).toEqual(["A", "B", "C"]);
   });
 
-  test("tableOption of a chart returns null", () => {
-    expect(tableOption({ id: "g", kind: "chart", params: { option: {} } })).toBeNull();
+  test("tableOption with a missing param returns null", () => {
+    expect(tableOption({ id: "g", kind: "base/chart", params: { option: {} } }, "data")).toBeNull();
+  });
+
+  test("tableOption with a non-object param returns null", () => {
+    expect(tableOption({ id: "t", kind: "base/table", params: { data: "x" } }, "data")).toBeNull();
+  });
+
+  test("tableOption of a pack table reads its own param", () => {
+    expect(tableOption({ id: "t", kind: "acme/grid", params: { grid: option } }, "grid")?.dataset.source[0]).toEqual(["A", "B", "C"]);
+  });
+
+  test.each(["__proto__", "constructor"])("tableOption with an absent %s param returns null", (param) => {
+    expect(tableOption({ id: "t", kind: "acme/grid", params: {} }, param)).toBeNull();
   });
 
   test("tableOption with a non-array source returns null", () => {
-    expect(tableOption({ id: "t", kind: "table", params: { data: { dataset: { source: "x" } } } })).toBeNull();
+    expect(tableOption({ id: "t", kind: "base/table", params: { data: { dataset: { source: "x" } } } }, "data")).toBeNull();
   });
 
   test("tableOption with a non-array row returns null", () => {
-    expect(tableOption({ id: "t", kind: "table", params: { data: { dataset: { source: ["x"] } } } })).toBeNull();
+    expect(tableOption({ id: "t", kind: "base/table", params: { data: { dataset: { source: ["x"] } } } }, "data")).toBeNull();
   });
 
   test("tableOption with an object cell returns null", () => {
-    expect(tableOption({ id: "t", kind: "table", params: { data: { dataset: { source: [["A"], [{ a: 1 }]] } } } })).toBeNull();
+    expect(tableOption({ id: "t", kind: "base/table", params: { data: { dataset: { source: [["A"], [{ a: 1 }]] } } } }, "data")).toBeNull();
   });
 
   test("tableOption with an empty source returns null", () => {
-    expect(tableOption({ id: "t", kind: "table", params: { data: { dataset: { source: [] } } } })).toBeNull();
+    expect(tableOption({ id: "t", kind: "base/table", params: { data: { dataset: { source: [] } } } }, "data")).toBeNull();
   });
 
   test("flag without value returns the default", () => {

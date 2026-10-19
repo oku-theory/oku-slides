@@ -14,7 +14,7 @@ use speculoos::prelude::*;
 #[test]
 fn canonicalize_of_five_thousand_copies_names_them_in_order() {
     let blocks: Vec<_> = (0..5_000)
-        .map(|n| json!({ "id": "x", "kind": "text", "params": { "body": [{ "runs": [{ "t": format!("texte {n}") }] }] } }))
+        .map(|n| json!({ "id": "x", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": format!("texte {n}") }] }] } }))
         .collect();
     let mut deck = Deck::from_json(
         &json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }] }).to_string(),

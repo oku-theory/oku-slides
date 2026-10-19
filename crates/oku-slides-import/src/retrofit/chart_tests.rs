@@ -1,4 +1,5 @@
 use oku_slides_chart::{ChartLabels, ChartModel, Length, canonicalize, normalize, parse_option};
+use oku_slides_core::kinds::base;
 use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -257,7 +258,7 @@ fn chart_element_of_every_kind_is_accepted_by_add_slide(
     kind: ChartKind,
 ) {
     let option = option_of(&source_chart(kind, Grouping::Stacked));
-    assert_that!(apply_blocks(vec![element_with("c", "chart", "option", option)])).is_ok();
+    assert_that!(apply_blocks(vec![element_with("c", base::CHART, "option", option)])).is_ok();
 }
 
 /// Au-delà des bornes de relecture du cœur, les lignes sont coupées à

@@ -17,14 +17,13 @@
 //! nœud de premier niveau : son texte en `title`, ses descendants en `body`,
 //! dans l'ordre de lecture du modèle ; sa géométrie est perdue (`SmartArtLayout`).
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Element, ParamValue};
 
 use super::content::{ContentCx, Ground, body, card, leaf, lose, plain_of, transform};
 use crate::report::{Loss, LossKind};
 use crate::source::{Frame, Item, ItemKind, SmartArt, TextBox};
 
-/// Repli des groupes : une pile.
-pub(crate) const STACK: &str = "stack";
 /// Écart relatif toléré entre des tailles ou des pas « semblables ».
 const SIMILAR: f64 = 0.75;
 
@@ -140,12 +139,12 @@ pub(crate) fn group(
     let spread_of = |f: fn(&Frame) -> f64| spread(frames.iter().map(f));
     let e = stack(id, spread_of(|f| f.x + f.w / 2.0) > spread_of(|f| f.y + f.h / 2.0), children);
     let lossy = omitted || smartart || regular(&frames);
-    (Some(e), lossy.then(|| STACK.to_owned()))
+    (Some(e), lossy.then(|| base::STACK.to_owned()))
 }
 
 /// Pile de `children` : en colonnes si `columns`, sinon en lignes.
 fn stack(id: &str, columns: bool, children: Vec<Element>) -> Element {
-    let mut e = Element::new(id, STACK);
+    let mut e = Element::new(id, base::STACK);
     e.params.set("layout", ParamValue::Text(if columns { "columns" } else { "rows" }.to_owned()));
     e.params.set("children", ParamValue::Slot(children));
     e
@@ -187,7 +186,7 @@ pub(crate) fn diagram(
         return (None, None);
     }
     let columns = (2..=DIAGRAM_COLUMNS).contains(&cards.len());
-    (Some(stack(id, columns, cards)), Some(STACK.to_owned()))
+    (Some(stack(id, columns, cards)), Some(base::STACK.to_owned()))
 }
 
 #[cfg(test)]

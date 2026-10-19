@@ -45,14 +45,14 @@ fn data() -> Value {
 /// Le deck au tableau `t`, de données `data`.
 fn table_deck(data: Value) -> Deck {
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s" }, "param": "blocks" },
-        "element": { "id": "t", "kind": "table", "params": { "data": data } } }));
+        "element": { "id": "t", "kind": "base/table", "params": { "data": data } } }));
     with_ops(&empty_deck(), vec![add])
 }
 
 /// Un deck au tableau `t` écrit tel quel, sans passer par les ops.
 fn raw_table_deck(data: Value) -> Deck {
     let deck = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-        { "id": "t", "kind": "table", "params": { "data": data } } ] } }] });
+        { "id": "t", "kind": "base/table", "params": { "data": data } } ] } }] });
     ok(Deck::from_json(&deck.to_string()))
 }
 
@@ -181,7 +181,7 @@ fn host_chart_round_trips_through_the_replica() {
         "series": [{ "type": "bar" }]
     });
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s" }, "param": "blocks" },
-        "element": { "id": "g", "kind": "chart", "params": { "option": option } } }));
+        "element": { "id": "g", "kind": "base/chart", "params": { "option": option } } }));
     let deck = with_ops(&empty_deck(), vec![add]);
     let back = round_trip(&deck);
     assert_that!(back).is_equal_to(&deck);

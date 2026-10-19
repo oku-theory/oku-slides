@@ -6,7 +6,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
   "elements": [
     {
       "id": "s2-1",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 128.0,
         "y": 112.0,
@@ -43,7 +43,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-2",
-      "kind": "shape",
+      "kind": "base/shape",
       "frame": {
         "x": 128.0,
         "y": 156.59,
@@ -59,7 +59,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-3",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 128.0,
         "y": 179.59,
@@ -96,7 +96,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-4",
-      "kind": "shape",
+      "kind": "base/shape",
       "frame": {
         "x": 128.0,
         "y": 352.39,
@@ -112,7 +112,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-5",
-      "kind": "shape",
+      "kind": "base/shape",
       "frame": {
         "x": 128.0,
         "y": 354.39,
@@ -129,7 +129,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-6",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 160.0,
         "y": 392.39,
@@ -165,7 +165,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-7",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 160.0,
         "y": 439.59,
@@ -200,7 +200,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-8",
-      "kind": "shape",
+      "kind": "base/shape",
       "frame": {
         "x": 682.66,
         "y": 352.39,
@@ -216,7 +216,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-9",
-      "kind": "shape",
+      "kind": "base/shape",
       "frame": {
         "x": 682.66,
         "y": 354.39,
@@ -233,7 +233,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-10",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 714.66,
         "y": 392.39,
@@ -269,7 +269,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-11",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 714.66,
         "y": 439.59,
@@ -304,7 +304,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-12",
-      "kind": "shape",
+      "kind": "base/shape",
       "frame": {
         "x": 1237.34,
         "y": 352.39,
@@ -320,7 +320,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-13",
-      "kind": "shape",
+      "kind": "base/shape",
       "frame": {
         "x": 1237.34,
         "y": 354.39,
@@ -337,7 +337,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-14",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 1269.34,
         "y": 392.39,
@@ -373,7 +373,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-15",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 1269.34,
         "y": 439.59,
@@ -422,7 +422,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-16",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 128.0,
         "y": 995.0,
@@ -458,7 +458,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-17",
-      "kind": "text",
+      "kind": "base/text",
       "frame": {
         "x": 880.14,
         "y": 989.41,
@@ -494,7 +494,7 @@ expression: "DeckSetup::new(&deck).slide(&deck, 2)"
     },
     {
       "id": "s2-18",
-      "kind": "image",
+      "kind": "base/image",
       "frame": {
         "x": 1647.86,
         "y": 968.0,

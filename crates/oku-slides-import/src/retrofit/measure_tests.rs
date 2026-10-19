@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Element, Paragraph, ParamValue, Run, TokenValue};
 use rstest::rstest;
 use serde_json::json;
@@ -17,7 +18,7 @@ fn text(id: &str, paragraphs: Vec<Paragraph>) -> Element {
 }
 
 fn card(body: &str, title: Option<&str>, kicker: Option<&str>) -> Element {
-    let mut e = Element::new("c", "card");
+    let mut e = Element::new("c", base::CARD);
     if let Some(t) = title {
         e.params.set("title", ParamValue::Text(t.to_owned()));
     }
@@ -29,7 +30,7 @@ fn card(body: &str, title: Option<&str>, kicker: Option<&str>) -> Element {
 }
 
 fn stack(layout: &str, children: Vec<Element>) -> Element {
-    let mut e = Element::new("s", "stack");
+    let mut e = Element::new("s", base::STACK);
     e.params.set("layout", ParamValue::Text(layout.to_owned()));
     e.params.set("children", ParamValue::Slot(children));
     e
@@ -107,6 +108,23 @@ fn paragraphs_of_reduced_runs_keep_the_leading_of_the_body() {
 /// Carte de 533 pt : marges 2 × 40, surtitre (0,72 × 24), titre d'une ligne
 /// (0,72 × 40), corps d'une ligne (0,72 × 32), deux écarts de 16.
 #[test]
+fn measure_base_card_measures_its_content() {
+    let t = papier();
+    let aspects = BTreeMap::new();
+    let h = measure(&t, &aspects).element(&card("Corps", None, None), 533.0, 690.0, false);
+    assert_that!(h > 0.0).is_true();
+}
+
+#[test]
+fn measure_unknown_kind_is_zero() {
+    let t = papier();
+    let aspects = BTreeMap::new();
+    let mut e = card("Corps", None, None);
+    e.kind = "acme/card".to_owned();
+    assert_that!(measure(&t, &aspects).element(&e, 533.0, 690.0, false)).is_close_to(0.0, 1e-9);
+}
+
+#[test]
 fn card_adds_paddings_kicker_title_body_and_gaps() {
     let t = papier();
     let aspects = BTreeMap::new();
@@ -143,7 +161,7 @@ fn image_takes_its_source_aspect_capped_by_the_room() {
     let t = papier();
     let aspects = BTreeMap::from([("a".to_owned(), 0.5)]);
     let m = measure(&t, &aspects);
-    let mut img = Element::new("i", "image");
+    let mut img = Element::new("i", base::IMAGE);
     img.params.set("asset", ParamValue::Text("a".into()));
     assert_that!(m.element(&img, 800.0, 690.0, false)).is_equal_to(400.0);
     assert_that!(m.element(&img, 800.0, 300.0, false)).is_equal_to(300.0);
@@ -154,7 +172,7 @@ fn image_takes_its_source_aspect_capped_by_the_room() {
 fn chart_takes_the_render_aspect() {
     let t = papier();
     let aspects = BTreeMap::new();
-    let mut chart = Element::new("g", "chart");
+    let mut chart = Element::new("g", base::CHART);
     chart.params.set("option", ParamValue::Value(json!({})));
     assert_that!(measure(&t, &aspects).element(&chart, 800.0, 690.0, false)).is_equal_to(450.0);
 }
@@ -163,7 +181,7 @@ fn chart_takes_the_render_aspect() {
 fn table_counts_one_line_per_row() {
     let t = papier();
     let aspects = BTreeMap::new();
-    let mut table = Element::new("t", "table");
+    let mut table = Element::new("t", base::TABLE);
     table.params.set("data", ParamValue::Value(json!({ "dataset": { "source": [["a"], ["b"], ["c"]] } })));
     let h = measure(&t, &aspects).element(&table, 800.0, 690.0, false);
     assert_that!(h).is_close_to(3.0 * (0.72 * 26.0 + 2.0 * 8.0), 1e-9);
@@ -177,7 +195,7 @@ fn flow_default_adds_blocks_and_counts_a_lone_media_at_its_minimum() {
     let aspects = BTreeMap::new();
     let m = measure(&t, &aspects);
     let body = text("t", vec![Paragraph::plain("Corps")]);
-    let mut chart = Element::new("g", "chart");
+    let mut chart = Element::new("g", base::CHART);
     chart.params.set("option", ParamValue::Value(json!({})));
     let h = m.flow(&[body.clone(), chart], "default", 1680.0, 690.0);
     assert_that!(h).is_close_to(m.element(&body, 1680.0, 690.0, false) + 24.0 + MIN_MEDIA, 1e-9);

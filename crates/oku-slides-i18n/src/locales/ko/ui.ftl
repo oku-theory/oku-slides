@@ -152,7 +152,9 @@ ui-element-kind = { $kind ->
     [card] 카드
     [image] 이미지
     [shape] 도형
-    [group] 그룹
+    [chart] 차트
+    [table] 표
+    [stack] 스택
    *[other] { $kind }
 }
 ui-grid-cell = { $cols }열 · { $rows }행

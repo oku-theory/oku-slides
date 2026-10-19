@@ -2,9 +2,10 @@ use rstest::rstest;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-use oku_slides_core::{ParamSchema, ParamType, ParamValue};
+use oku_slides_core::{ParamSchema, ParamType, ParamValue, kinds};
+use oku_slides_i18n::Localizer;
 
-use super::{coerce, schema_default};
+use super::{coerce, kind_name, param_name, schema_default};
 
 fn schema(ty: ParamType, default: Option<Value>) -> ParamSchema {
     ParamSchema { name: "p".into(), label: None, ty, default, bind: None }
@@ -32,4 +33,22 @@ fn schema_default_plain_returns_the_default_text() {
 fn schema_default_null_or_absent_returns_none() {
     assert_that!(schema_default(&schema(ParamType::Plain, Some(Value::Null)))).is_none();
     assert_that!(schema_default(&schema(ParamType::Plain, None))).is_none();
+}
+
+#[rstest]
+#[case(kinds::base::CARD, "Carte")]
+#[case(kinds::base::TEXT, "Texte")]
+#[case(kinds::base::CHART, "Graphique")]
+#[case(kinds::base::TABLE, "Tableau")]
+#[case("content", "Contenu")]
+#[case("acme/card", "acme/card")]
+#[case("base-x/card", "base-x/card")]
+fn kind_name_in_french(#[case] kind: &str, #[case] expected: &str) {
+    assert_that!(kind_name(kind, None, &Localizer::new(Some("fr")))).is_equal_to(expected.to_owned());
+}
+
+#[test]
+fn param_name_of_base_card_title_is_localized_in_french() {
+    let p = ParamSchema { name: "title".into(), label: None, ty: ParamType::Plain, default: None, bind: None };
+    assert_that!(param_name(kinds::base::CARD, &p, &Localizer::new(Some("fr")))).is_equal_to("Titre".to_owned());
 }

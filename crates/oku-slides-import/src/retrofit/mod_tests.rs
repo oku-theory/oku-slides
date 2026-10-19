@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Op, asset_id};
 use speculoos::prelude::*;
 
@@ -68,7 +69,7 @@ fn project_groups_widget_requests_by_signature_across_slides() {
     let plan = plan_of(&source, &essentiel());
     let requests: Vec<(&str, Vec<String>, usize)> =
         plan.widget_requests.iter().map(|r| (r.fallback.as_str(), r.slides.clone(), r.sample.len())).collect();
-    assert_that!(requests).is_equal_to(vec![("stack", vec!["s1".to_owned(), "s3".to_owned()], 3)]);
+    assert_that!(requests).is_equal_to(vec![(base::STACK, vec!["s1".to_owned(), "s3".to_owned()], 3)]);
     assert_that!(plan.widget_requests[0].signature.as_str()).is_equal_to("text×3|0014,2034,3044");
     applied(plan.ops, &[]);
 }

@@ -245,7 +245,7 @@ fn merge_report_does_not_count_the_compaction() {
 #[test]
 #[ignore = "mesure"]
 fn measure_compaction_cost_40x20_with_10000_marked() {
-    let text = |id: String, t: &str| serde_json::json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": t }] }] } });
+    let text = |id: String, t: &str| serde_json::json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": t }] }] } });
     let slot = |v: Vec<serde_json::Value>| -> crate::ParamValue {
         crate::ParamValue::Slot(serde_json::from_value(serde_json::Value::Array(v)).unwrap_or_else(|e| panic!("{e}")))
     };

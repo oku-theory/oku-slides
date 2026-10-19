@@ -1,4 +1,4 @@
-// Tableaux dans le deck, côté interface : lecture d'un élément `table` (param `data`).
+// Tableaux dans le deck, côté interface : lecture du paramètre d'hôte tableau d'un élément.
 // Le cœur Rust valide et applique ; le tableau de départ est nommé ici, dans la
 // langue de l'utilisateur, faute de canonicalisation des tableaux côté session.
 
@@ -31,10 +31,11 @@ export const TABLE_DEFAULTS: Readonly<Record<TableFlag, boolean>> = { "header-ro
 /** Le drapeau `key`, ou sa valeur par défaut. */
 export const flag = (option: TableOption, key: TableFlag): boolean => option[key] ?? TABLE_DEFAULTS[key];
 
-/** Options d'un élément `table`, ou `null`. */
-export function tableOption(el: Element): TableOption | null {
-  const data: unknown = el.params?.data;
-  if (el.kind !== "table" || typeof data !== "object" || data === null) return null;
+/** Options du paramètre tableau `param` d'un élément (propriété propre seulement), ou `null`. */
+export function tableOption(el: Element, param: string): TableOption | null {
+  const params = el.params ?? {};
+  const data: unknown = Object.hasOwn(params, param) ? params[param] : null;
+  if (typeof data !== "object" || data === null) return null;
   const source = (data as { dataset?: { source?: unknown } }).dataset?.source;
   const isCell = (c: unknown) => c === null || ["string", "number", "boolean"].includes(typeof c);
   const wellFormed = Array.isArray(source) && source.length > 0 && source.every((row) => Array.isArray(row) && row.every(isCell));

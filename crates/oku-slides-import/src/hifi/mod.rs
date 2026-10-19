@@ -35,7 +35,7 @@ mod widget;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use oku_slides_core::{Deck, Namespace, Op, PackPin, Slide, ThemeRef, WidgetRegistry, apply_all};
+use oku_slides_core::{Deck, Namespace, Op, PackPin, Slide, ThemeRef, WidgetRegistry, apply_all, kinds};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -55,12 +55,14 @@ use crate::report::{ImportReport, Loss, LossKind, Mode, SlideReport};
 use crate::retrofit::text::note;
 use crate::source::{SourceDeck, ThemeFonts};
 
-/// La cible d'un import hi-fi : la base des widgets, les polices disponibles,
+/// La cible d'un import hi-fi : la base des widgets, son épinglage, les polices disponibles,
 /// l'identité du thème et du pack générés.
 #[derive(Debug, Clone)]
 pub struct HifiTarget<'a> {
-    /// Le registre des widgets de base (sans pack) : le pack généré s'y ajoute.
+    /// Le registre du cœur et du pack `base` : le pack généré s'y ajoute.
     pub registry: &'a WidgetRegistry,
+    /// L'épinglage de `base` que le deck importé prend ; la session le remplit.
+    pub base: PackPin,
     /// Les polices de l'app et du système.
     pub fonts: &'a FontCatalog,
     /// Id du pack généré.
@@ -152,10 +154,12 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         debug_assert!(false, "un manifeste se sérialise toujours");
         return plan;
     };
+    // `base` d'abord : le pack généré le requiert, et les éléments sont des widgets de `base`.
+    plan.ops.push(Op::AddPack { namespace: kinds::base::namespace(), pin: target.base.clone() });
     plan.ops.push(Op::SetTheme { theme: Some(ThemeRef { id: target.theme_id, version: theme.version() }) });
     plan.ops.push(Op::AddPack {
         namespace: Namespace::deck(),
-        pin: PackPin { id: target.pack_id, version: pack_files.version(), requires: vec![] },
+        pin: PackPin { id: target.pack_id, version: pack_files.version(), requires: manifest.requires.clone() },
     });
     if let Some(lang) = &lang {
         plan.ops.push(Op::SetDeckParam { key: "lang".to_owned(), value: Value::String(lang.clone()) });

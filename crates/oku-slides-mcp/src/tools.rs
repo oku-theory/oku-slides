@@ -237,7 +237,7 @@ pub(crate) fn list() -> Vec<Tool> {
             ),
             tool::<NoArgs>(
                 "widgets",
-                "Widgets available in this deck: every widget with its parameters and their types. A kind is qualified by its pack: `namespace/name` (the deck's own pack is `deck`). Read it before adding an element.",
+                "Widgets available in this deck: every widget with its parameters and their types. A kind is qualified by its pack: `namespace/name`. The base widgets are `base/<name>` (`base/text`, `base/card`, `base/image`, `base/shape`, `base/chart`, `base/table`, `base/stack`); a deck's other widgets come from its packs, `namespace/name` (the deck's own pack is `deck`). Read it before adding an element.",
             ),
             tool::<crate::read_tools::ThemeArgs>(
                 "theme_tokens",

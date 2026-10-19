@@ -29,6 +29,7 @@ op-pack-in-use = The widget pack { $pack } is still used by { $count ->
    *[other] { $count } items
 }.
 op-pack-requirement-missing = The widget pack { $pack } needs { $required }, which this deck does not have.
+op-base-required = Every deck keeps the base widget pack.
 op-unknown-param = Unknown parameter: { $subject }
 op-param-type-because = Invalid value for { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -183,6 +184,7 @@ widget-fault-list-bounds = Widget { $widget }: a list max is below its min
 widget-fault-list-default-too-large = Widget { $widget }: a list default exceeds the list size limits
 widget-fault-list-depth = Widget { $widget }: a nested list cannot itself contain a list column; lists nest one level only
 widget-fault-list-default-below-min = Widget { $widget }: a nested list default has fewer items than its minimum
+widget-fault-slide-sizing = Widget { $widget } is a slide: only element widgets declare grow or typography
 issue-empty-item-id = list { $param } has an item without identifier
 issue-duplicate-item-id = list { $param } has a duplicate item identifier
 issue-invalid-item-id = list { $param } has an item identifier containing a slash

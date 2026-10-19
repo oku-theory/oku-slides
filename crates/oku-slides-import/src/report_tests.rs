@@ -1,3 +1,4 @@
+use oku_slides_core::kinds::base;
 use oku_slides_i18n::{Localize, Localizer, english};
 use rstest::rstest;
 use serde_json::json;
@@ -15,7 +16,7 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
         template: "texte".into(),
         placement: Placement::Flow,
         losses,
-        fallbacks: vec!["stack".into()],
+        fallbacks: vec![base::STACK.into()],
         score: None,
     }
 }

@@ -18,6 +18,7 @@ diagnostic-hint = คำแนะนำ: { $hint }
 render-chart-failed = วาดแผนภูมิไม่ได้
 
 registry-bad-pack-id = รหัสชุดเทมเพลตไม่ถูกต้อง: { $id }
+registry-base-pack-broken = แพ็กวิดเจ็ตในตัวเสียหาย ({ $file }) โปรดติดตั้งแอปใหม่
 registry-duplicate-pack = แพ็กวิดเจ็ตสองแพ็กของงานนำเสนอใช้ { $pack } ร่วมกัน
 registry-compile = คอมไพล์วิดเจ็ตของชุดเทมเพลตไม่ได้
 registry-missing = ชุดเทมเพลตไม่ได้ประกาศวิดเจ็ตของตน

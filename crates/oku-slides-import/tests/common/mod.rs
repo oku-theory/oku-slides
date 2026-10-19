@@ -81,6 +81,36 @@ pub fn registry() -> oku_slides_core::WidgetRegistry {
         .unwrap_or_else(|e| panic!("{e}"))
 }
 
+/// L'épinglage de `base` dans les tests : l'id du pack de la fixture, une version quelconque.
+pub fn base_pin() -> oku_slides_core::PackPin {
+    oku_slides_core::PackPin {
+        id: "3b1f6c2e-5a4d-4e8b-9c71-0d2e4f6a8b13".parse().unwrap_or_else(|e| panic!("{e}")),
+        version: oku_slides_core::PackVersion::from_hex(&"0".repeat(64)).unwrap_or_else(|| panic!("version")),
+        requires: vec![],
+    }
+}
+
+/// Les sortes des éléments de `list` et de leurs descendants.
+fn collect_kinds(list: &[oku_slides_core::Element], out: &mut Vec<String>) {
+    for e in list {
+        out.push(e.kind.clone());
+        for (_, children) in e.params.slots() {
+            collect_kinds(children, out);
+        }
+    }
+}
+
+/// Les sortes de tous les éléments des slides de `deck`, descendants compris.
+pub fn deck_kinds(deck: &oku_slides_core::Deck) -> Vec<String> {
+    let mut out = Vec::new();
+    for s in &deck.slides {
+        for (_, list) in s.params.slots() {
+            collect_kinds(list, &mut out);
+        }
+    }
+    out
+}
+
 /// Les modèles du pack intégré `name` (`templates/<name>/pack.json`), dans l'ordre du pack.
 pub fn templates(name: &str) -> Vec<oku_slides_core::Template> {
     let path = root().join(format!("../../templates/{name}/pack.json"));

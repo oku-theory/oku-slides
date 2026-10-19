@@ -406,8 +406,8 @@ export default function Stage(props: Props) {
                   {sel && !editing && (packWidgets?.has(tg.kind) && onOpenWidget ? (
                     <button
                       className="tag tag-open"
-                      aria-label={t("ui-widgets-open", { name: tg.kind })}
-                      title={t("ui-widgets-open", { name: tg.kind })}
+                      aria-label={t("ui-widgets-open", { name: label })}
+                      title={t("ui-widgets-open", { name: label })}
                       onPointerDown={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => e.stopPropagation()}
                       // Entrée / Espace ouvrent le widget (clic du bouton) : jamais l'édition du champ par la fenêtre.

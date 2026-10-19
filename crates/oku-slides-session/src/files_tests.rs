@@ -24,7 +24,7 @@ fn opened(modified_elsewhere: bool, issues: usize) -> Opened {
 }
 
 fn with_issues(modified_elsewhere: bool, issues: Vec<Issue>) -> Opened {
-    let deck = Deck::from_json(r#"{"version":6,"slides":[]}"#).unwrap();
+    let deck = Deck::from_json(r#"{"version": 7,"slides":[]}"#).unwrap();
     Opened {
         sources: SourceBundle::new(deck, registry()).unwrap(),
         issues,
@@ -87,7 +87,7 @@ fn log_issues_counts_the_unreadable_parts_only() {
 fn deck_uid_of_a_json_deck_is_none() {
     let dir = crate::test_support::fresh_dir("oku-slides-files-").keep();
     let path = dir.join("deck.json");
-    std::fs::write(&path, r#"{"version":6,"slides":[]}"#).unwrap();
+    std::fs::write(&path, r#"{"version": 7,"slides":[]}"#).unwrap();
     let limits = SourceLimits { replica_bytes: 1 << 20, total_bytes: 1 << 20, compact_after_secs: 0 };
     let uid = deck_uid_of(&Storage::local().unwrap(), &path, limits, &registry());
     std::fs::remove_dir_all(&dir).ok();

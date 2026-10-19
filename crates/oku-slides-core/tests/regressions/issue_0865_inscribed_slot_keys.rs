@@ -50,7 +50,7 @@ fn forged(depth: usize) -> Vec<u8> {
     let element = tree.create(TreeParentId::Node(slide_node(&tree, "s-title"))).unwrap_or_else(|e| panic!("{e}"));
     let meta = tree.get_meta(element).unwrap_or_else(|e| panic!("{e}"));
     meta.insert("id", "e-forge").unwrap_or_else(|e| panic!("{e}"));
-    meta.insert("kind", "text").unwrap_or_else(|e| panic!("{e}"));
+    meta.insert("kind", "base/text").unwrap_or_else(|e| panic!("{e}"));
     let slots = meta.ensure_mergeable_map("@slot").unwrap_or_else(|e| panic!("{e}"));
     for leaf in leaves {
         slots.insert(&leaf.to_string(), "body").unwrap_or_else(|e| panic!("{e}"));

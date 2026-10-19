@@ -1,6 +1,8 @@
 use serde_json::json;
 use speculoos::prelude::*;
 
+use oku_slides_core::kinds::base;
+
 use super::*;
 
 fn registry() -> WidgetRegistry {
@@ -12,7 +14,7 @@ fn registry() -> WidgetRegistry {
 
 fn deck(data: Json) -> Json {
     json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-        { "id": "t1", "kind": "table", "params": { "data": data } } ] } }] })
+        { "id": "t1", "kind": base::TABLE, "params": { "data": data } } ] } }] })
 }
 
 fn data_of(d: &Json) -> &Json {

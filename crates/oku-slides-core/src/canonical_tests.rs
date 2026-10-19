@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 use super::*;
+use crate::kinds::base;
 use crate::model::*;
 use crate::params::{ListItem, ParamValue, Params};
 use crate::{DeckReplica, SourceBundle};
@@ -68,7 +69,7 @@ fn canonicalize_paragraph_separator_in_run_becomes_newline() {
 #[test]
 fn canonicalize_blank_prose_becomes_none_and_other_prose_is_trimmed() {
     let card: Element = serde_json::from_value(json!({
-        "id": "c", "kind": "card", "params": { "title": " ", "kicker": " k " }
+        "id": "c", "kind": "base/card", "params": { "title": " ", "kicker": " k " }
     }))
     .unwrap();
     let mut d = deck_with(vec![card]);
@@ -89,7 +90,7 @@ fn canonicalize_blank_prose_becomes_none_and_other_prose_is_trimmed() {
 #[test]
 fn canonicalize_empty_rich_text_and_null_param_are_dropped() {
     let card: Element = serde_json::from_value(json!({
-        "id": "c", "kind": "card", "params": { "body": [], "highlight": null }
+        "id": "c", "kind": "base/card", "params": { "body": [], "highlight": null }
     }))
     .unwrap();
     let d = canonical(deck_with(vec![card]));
@@ -114,7 +115,7 @@ fn canonicalize_unknown_param_is_kept() {
 #[test]
 fn canonicalize_chart_option_numbers_beyond_i64_become_float() {
     let chart: Element = serde_json::from_value(json!({
-        "id": "g", "kind": "chart", "params": { "option": { "series": [], "n": u64::MAX } }
+        "id": "g", "kind": "base/chart", "params": { "option": { "series": [], "n": u64::MAX } }
     }))
     .unwrap();
     let d = canonical(deck_with(vec![chart]));
@@ -156,7 +157,7 @@ fn canonicalize_empty_tokens_object_becomes_null() {
 #[test]
 fn canonicalize_slot_children_are_canonicalized() {
     let child = Element::text("t", vec![Paragraph { runs: vec![run("a"), run("b")], list: None }]);
-    let mut group = Element::new("g", "canvas");
+    let mut group = Element::new("g", base::STACK);
     group.params.set("children", ParamValue::Slot(vec![child]));
     let d = canonical(deck_with(vec![group]));
     let children = blocks(&d)[0].params.slot("children").unwrap_or_default();
@@ -327,11 +328,11 @@ fn leaf() -> impl Strategy<Value = Element> {
                 t.map(|t| ParamValue::List(vec![ListItem { id: "b".into(), values: row(vec![("t", Some(t))]) }]));
             with("bornes", vec![("bornee", bornee), ("images", images)])
         }),
-        paragraphs().prop_map(|p| with("text", vec![("body", Some(ParamValue::Rich(p)))])),
+        paragraphs().prop_map(|p| with(base::TEXT, vec![("body", Some(ParamValue::Rich(p)))])),
         (text_param(), text_param(), any::<bool>(), paragraphs()).prop_map(|(title, kicker, highlight, body)| {
             let highlight = highlight.then(|| ParamValue::Value(Value::Bool(true)));
             with(
-                "card",
+                base::CARD,
                 vec![
                     ("title", title),
                     ("kicker", kicker),
@@ -340,8 +341,8 @@ fn leaf() -> impl Strategy<Value = Element> {
                 ],
             )
         }),
-        Just(with("shape", vec![("shape", Some(ParamValue::Text("ellipse".into())))])),
-        Just(with("image", vec![("asset", Some(ParamValue::Text("sha256:00".into())))])),
+        Just(with(base::SHAPE, vec![("shape", Some(ParamValue::Text("ellipse".into())))])),
+        Just(with(base::IMAGE, vec![("asset", Some(ParamValue::Text("sha256:00".into())))])),
     ]
 }
 
@@ -349,7 +350,7 @@ fn element() -> impl Strategy<Value = Element> {
     prop_oneof![
         3 => leaf(),
         1 => proptest::collection::vec(leaf(), 0..3)
-            .prop_map(|children| with("canvas", vec![("children", Some(ParamValue::Slot(children)))])),
+            .prop_map(|children| with(base::STACK, vec![("children", Some(ParamValue::Slot(children)))])),
     ]
 }
 

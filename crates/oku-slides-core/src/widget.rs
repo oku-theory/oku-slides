@@ -34,13 +34,67 @@ pub enum SlotMode {
 }
 
 /// Types de paramètres fournis et validés par l'hôte Rust.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HostType {
     Chart,
     Table,
     /// Chemin d'une forme ([`ShapePath`](crate::ShapePath)).
     Path,
+}
+
+/// Comment un bloc du flux d'une slide prend la hauteur (attribut `grow` du schéma).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(from = "GrowRepr", into = "GrowRepr")]
+pub enum Grow {
+    /// Sa hauteur propre (`false`).
+    #[default]
+    Fixed,
+    /// Une part de la hauteur qui reste (`true`).
+    Fill,
+    /// Sa hauteur si elle tient dans une part, sinon une part (`"fit"`).
+    Fit,
+}
+
+impl Grow {
+    /// Vrai pour la valeur par défaut, `false`.
+    pub fn is_fixed(&self) -> bool {
+        *self == Grow::Fixed
+    }
+}
+
+/// Forme JSON de [`Grow`] : un booléen ou la chaîne `"fit"` ; toute autre valeur est refusée.
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum GrowRepr {
+    Flag(bool),
+    Word(GrowWord),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum GrowWord {
+    Fit,
+}
+
+impl From<GrowRepr> for Grow {
+    fn from(r: GrowRepr) -> Self {
+        match r {
+            GrowRepr::Flag(false) => Grow::Fixed,
+            GrowRepr::Flag(true) => Grow::Fill,
+            GrowRepr::Word(GrowWord::Fit) => Grow::Fit,
+        }
+    }
+}
+
+impl From<Grow> for GrowRepr {
+    fn from(g: Grow) -> Self {
+        match g {
+            Grow::Fixed => GrowRepr::Flag(false),
+            Grow::Fill => GrowRepr::Flag(true),
+            Grow::Fit => GrowRepr::Word(GrowWord::Fit),
+        }
+    }
 }
 
 impl ParamType {
@@ -143,6 +197,12 @@ pub struct WidgetSchema {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub category: Category,
+    /// Hauteur d'un bloc du flux : la sienne, une part, ou la sienne si elle tient.
+    #[serde(default, skip_serializing_if = "Grow::is_fixed")]
+    pub grow: Grow,
+    /// Le style de l'élément met en forme son texte ; sa boîte en mesure la typographie.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub typography: bool,
     pub params: Vec<ParamSchema>,
 }
 
@@ -201,6 +261,24 @@ impl WidgetRegistry {
         Ok(registry)
     }
 
+    /// Pour chaque widget d'élément à paramètre d'hôte : hôte → premier paramètre de cet hôte.
+    pub fn host_params(&self) -> BTreeMap<String, BTreeMap<HostType, String>> {
+        let mut out = BTreeMap::new();
+        for (kind, w) in self.widgets.iter().filter(|(_, w)| w.category == Category::Element) {
+            let mut hosts = BTreeMap::new();
+            // Le premier paramètre d'un hôte gagne, comme dans `host_param`.
+            for p in &w.params {
+                if let Some(h) = p.ty.host() {
+                    hosts.entry(h).or_insert_with(|| p.name.clone());
+                }
+            }
+            if !hosts.is_empty() {
+                out.insert(kind.clone(), hosts);
+            }
+        }
+        out
+    }
+
     pub fn get(&self, name: &str) -> Option<&WidgetSchema> {
         self.widgets.get(name)
     }
@@ -250,6 +328,9 @@ fn collect(list: Vec<WidgetSchema>) -> Result<BTreeMap<String, WidgetSchema>, Wi
 }
 
 fn check_widget(w: &WidgetSchema) -> Result<(), WidgetError> {
+    if w.category == Category::Slide && (!w.grow.is_fixed() || w.typography) {
+        return Err(fault(w, SchemaFault::SlideSizing));
+    }
     if w.name.is_empty() || w.params.iter().any(|p| p.name.is_empty()) {
         return Err(fault(w, SchemaFault::EmptyName));
     }

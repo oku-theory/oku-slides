@@ -255,7 +255,7 @@ fn new_deck_is_valid_v2() {
     let kinds: Vec<&str> = s.deck().slides.iter().map(|sl| sl.kind.as_str()).collect();
     assert_that!(kinds).is_equal_to(vec!["title", "content"]);
     let body = s.deck().slides[1].walk().map(|l| l.element.kind.as_str()).collect::<Vec<_>>();
-    assert_that!(body).is_equal_to(vec!["text"]);
+    assert_that!(body).is_equal_to(vec![oku_slides_core::kinds::base::TEXT]);
     assert_that!(oku_slides_core::validate(s.deck(), &base_registry(), None)).is_empty();
 }
 
@@ -303,4 +303,16 @@ fn snapshot_lists_widget_pins_by_namespace() {
     assert_that!(pin["id"].as_str()).is_equal_to(Some(DEFAULT_PACK.to_string().as_str()));
     assert_that!(pin["version"].as_str().unwrap_or_default()).starts_with("sha256:");
     assert_that!(snap.get("templates").is_none()).is_true();
+}
+
+#[test]
+fn snapshot_host_params_maps_every_base_host() {
+    use oku_slides_core::{HostType, kinds};
+    let s = session_with_fixture();
+    let expected = std::collections::BTreeMap::from([
+        (kinds::base::CHART.to_owned(), std::collections::BTreeMap::from([(HostType::Chart, "option".to_owned())])),
+        (kinds::base::SHAPE.to_owned(), std::collections::BTreeMap::from([(HostType::Path, "path".to_owned())])),
+        (kinds::base::TABLE.to_owned(), std::collections::BTreeMap::from([(HostType::Table, "data".to_owned())])),
+    ]);
+    assert_that!(s.snapshot().host_params).is_equal_to(expected);
 }

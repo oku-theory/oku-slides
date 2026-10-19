@@ -154,7 +154,9 @@ ui-element-kind = { $kind ->
     [card] Carte
     [image] Image
     [shape] Forme
-    [group] Groupe
+    [chart] Graphique
+    [table] Tableau
+    [stack] Pile
    *[other] { $kind }
 }
 ui-grid-cell = col. { $cols } · lig. { $rows }

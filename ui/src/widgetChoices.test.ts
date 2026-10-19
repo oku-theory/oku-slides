@@ -1,24 +1,28 @@
 import { describe, expect, test } from "bun:test";
 import { filterChoices, widgetChoices, type WidgetChoice } from "./widgetChoices";
 
-const kpi = { name: "kpi", label: "KPI", description: "Une valeur en grand" };
+const kpi = { name: "acme/kpi", label: "KPI", description: "Une valeur en grand" };
 
 describe("widgetChoices", () => {
   test("widgetChoices without pack widgets lists the native kinds in card order", () => {
-    expect(widgetChoices([]).map((c) => c.key)).toEqual(["text", "card", "shape", "chart", "table"]);
+    expect(widgetChoices([]).map((c) => c.key)).toEqual(["base/text", "base/card", "base/shape", "base/chart", "base/table"]);
   });
 
   test("widgetChoices with pack widgets puts them after the native kinds", () => {
-    expect(widgetChoices([kpi]).map((c) => c.key)).toEqual(["text", "card", "shape", "chart", "table", "widget:kpi"]);
+    expect(widgetChoices([kpi]).map((c) => c.key)).toEqual(["base/text", "base/card", "base/shape", "base/chart", "base/table", "widget:acme/kpi"]);
   });
 
-  test("widgetChoices with a pack widget named like a native kind keeps the native one only", () => {
-    const cards = widgetChoices([{ name: "card", label: "Carte du pack", description: null }]).filter((c) => c.name === "card");
+  test("widgetChoices with the base card widget keeps the native card only", () => {
+    const cards = widgetChoices([{ name: "base/card", label: "Carte", description: null }]).filter((c) => c.name.endsWith("card"));
     expect(cards.map((c) => c.pick)).toEqual([{ native: "card" }]);
   });
 
+  test("le filtre « base » ne retient aucune carte native", () => {
+    expect(filterChoices(widgetChoices([]), "base")).toEqual([]);
+  });
+
   test("widgetChoices for a pack widget without label shows its name", () => {
-    expect(widgetChoices([{ name: "frise", label: null, description: null }]).find((c) => c.key === "widget:frise")?.label).toBe("frise");
+    expect(widgetChoices([{ name: "deck/frise", label: null, description: null }]).find((c) => c.key === "widget:deck/frise")?.label).toBe("deck/frise");
   });
 
   test("widgetChoices for a pack widget without description does not match the word null", () => {

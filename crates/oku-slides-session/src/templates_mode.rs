@@ -12,7 +12,8 @@
 //! « Enregistrer comme copie » : un nouvel id, sans parente, un nouvel espace
 //! de noms tiré de son nom (`namespace_slug`), et la session continue sur la
 //! copie. Un pack intégré suit la même règle, sous son id.
-//! Le deck des modèles épingle le pack édité et ses besoins, rien d'autre.
+//! Le deck des modèles épingle le pack édité, ses besoins et `base` (celui du deck, sinon
+//! l'intégré), rien d'autre ; un enregistrement requiert les espaces de noms qu'emploient ses modèles.
 //! Un pack du deck seul (import) part de la version qu'embarque le deck ;
 //! ses versions, copie comprise, restent dans le deck (`templates_library`).
 //! Le thème du deck s'y édite en brouillon (voir `theme_edit`).
@@ -23,10 +24,11 @@ use std::sync::Arc;
 use snafu::{OptionExt, ResultExt};
 use uuid::Uuid;
 
-use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, PackVersion, Slide, SourceBundle};
+use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, PackVersion, Slide, SourceBundle, kinds};
 use oku_slides_i18n::Localize;
 
-use crate::deck_closure::{Pinned, closure_with_files};
+use crate::deck_closure::{Pinned, closure_with_files, templates_requires};
+use crate::deck_pack::builtin_pin;
 use crate::error::{
     InHistorySnafu, NotEditingTemplatesSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu, RenderSnafu,
     SourcesSnafu, UnknownPackSnafu,
@@ -34,7 +36,7 @@ use crate::error::{
 use crate::library::PackLibrary;
 use crate::library_kind::StoredVersion;
 use crate::namespace_slug::{library_namespace, rename_namespace};
-use crate::pack::{DEFAULT_PACK, PackInfo, PackManifest, PackScope, Template, now_created};
+use crate::pack::{BASE_PACK, DEFAULT_PACK, PackInfo, PackManifest, PackScope, Template, now_created};
 use crate::template_scratch::TemplateScratch;
 use crate::templates_library::{restore_session_version, write_session_version};
 use crate::theme_edit::tokens_value;
@@ -131,7 +133,11 @@ impl Session {
         // Le pack édité et ses besoins, seuls : les autres packs du deck n'y servent pas.
         deck.widgets.clear();
         let edited = pinned(&stored.manifest, version.clone(), stored.files);
-        let packs = closure_with_files(&self.library, &deck, edited, &self.user_blobs().packs)?;
+        let mut packs = closure_with_files(&self.library, &deck, edited, &self.user_blobs().packs)?;
+        // Les modèles écrivent des éléments `base/*` : le `base` du deck, sinon l'intégré, si la fermeture ne l'a pas.
+        if !packs.iter().any(|(ns, _, _)| ns.as_str() == kinds::base::NAMESPACE) {
+            packs.insert(0, self.user_base_pin()?);
+        }
         for (ns, pin, _) in &packs {
             deck.widgets.insert(ns.clone(), pin.clone());
         }
@@ -190,6 +196,19 @@ impl Session {
         Ok(())
     }
 
+    /// Le `base` que le deck de l'utilisateur épingle, avec ses fichiers ; sans épingle, le `base` intégré.
+    ///
+    /// Les fichiers viennent des sources du deck, sinon de la bibliothèque ; absents des deux : `PackVersionMissing`.
+    fn user_base_pin(&self) -> Result<Pinned> {
+        let ns = kinds::base::namespace();
+        let Some(pin) = self.deck_pins().get(&ns) else { return builtin_pin(BASE_PACK) };
+        let held = self.user_blobs().packs.get(&pin.version).cloned();
+        let files = held
+            .or_else(|| self.library.version(pin.id, &pin.version))
+            .context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
+        Ok((ns, pin.clone(), files))
+    }
+
     /// Le `widgets.json` que montre `deck`, le deck des modèles en cours d'édition.
     ///
     /// `kept` : la dernière version enregistrée, dont la description, les
@@ -218,8 +237,10 @@ impl Session {
             None if !scope.is_library() => Namespace::deck(),
             _ => library_namespace(&self.library, &name)?,
         };
-        let requires = kept.as_ref().map(|m| m.requires.clone()).unwrap_or_default();
-        let (description, examples) = kept.map(|m| (m.description, m.examples)).unwrap_or_default();
+        let (description, examples, kept_requires) =
+            kept.map(|m| (m.description, m.examples, m.requires)).unwrap_or_default();
+        // Ses besoins suivent ce qu'emploient ses modèles et ses exemples (`base/text`…).
+        let requires = templates_requires(&namespace, &kept_requires, &deck.slides, &examples);
         let templates = deck
             .slides
             .iter()
@@ -473,7 +494,7 @@ impl Session {
             None => {
                 let templates = shown.manifest.templates.clone();
                 let deck = styled_like(self.style_deck(), templates.iter().map(|t| t.slide.clone()).collect());
-                let views = self.with_fallback(|s| s.render_previews(&deck, &templates))?;
+                let views = self.with_fallback(|_| Ok(vec![deck.clone()]), |s| s.render_previews(&deck, &templates))?;
                 self.template_cache = Some(Previews { key, deck, views: views.clone() });
                 views
             }

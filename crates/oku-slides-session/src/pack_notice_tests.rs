@@ -26,9 +26,9 @@ fn pinned_version(s: &Session, id: Uuid) -> Option<PackVersion> {
     s.deck().widgets.get(&namespace_of(id)).map(|r| r.version.clone())
 }
 
-/// L'id du pack de l'utilisateur épinglé par le deck de `s` (pas le pack par défaut).
+/// L'id du pack de l'utilisateur épinglé par le deck de `s` (aucun pack intégré).
 fn user_pack_id(s: &Session) -> Uuid {
-    s.deck().widgets.values().map(|r| r.id).find(|id| *id != crate::DEFAULT_PACK).unwrap()
+    s.deck().widgets.values().map(|r| r.id).find(|id| !crate::PackLibrary::is_builtin(*id)).unwrap()
 }
 
 /// Un fichier enregistré par une autre session (dossier `them`), dont le deck embarque `pack`.

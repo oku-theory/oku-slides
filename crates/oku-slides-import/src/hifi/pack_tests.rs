@@ -342,3 +342,10 @@ fn generate_pack_drops_a_widget_too_large_even_without_decor() {
     assert_that!(kept).is_equal_to(vec!["l2"]);
     assert_that!(pack.dropped).is_equal_to(vec!["l3".to_owned()]);
 }
+
+#[test]
+fn pack_manifest_requires_base() {
+    let deck = synthetic();
+    let m = pack_manifest(&generated(&deck), Uuid::nil(), "Import", "2026-10-18T00:00:00Z", &BTreeMap::new());
+    assert_that!(m.requires).is_equal_to(vec![oku_slides_core::kinds::base::namespace()]);
+}

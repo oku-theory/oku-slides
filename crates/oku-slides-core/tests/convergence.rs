@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 
 use oku_slides_chart::{Cell, DataOp, parse_table};
+use oku_slides_core::kinds::base;
 use oku_slides_core::{
     Deck, DeckReplica, Element, Frame, Moved, Op, PackVersion, ParamType, ParamValue, Params, Slide, Target, ThemeRef,
     WidgetRegistry, apply_all, apply_all_moving, validate,
@@ -162,7 +163,7 @@ fn assert_table_ok(data: &Value) -> Vec<Vec<Cell>> {
 fn toggle_bold(params: &mut Params) -> Option<(String, bool)> {
     for (_, list) in params.slots_mut() {
         for el in list.iter_mut() {
-            if el.kind == "text"
+            if el.kind == base::TEXT
                 && let Some(ParamValue::Rich(body)) = el.params.0.get_mut("body")
                 && let Some(run) = body.first_mut().and_then(|p| p.runs.first_mut())
             {
@@ -235,7 +236,7 @@ fn move_across_slots(params: &mut Params, a: usize) {
 }
 
 /// Le widget des piles et leur slot.
-const PILE: &str = "stack";
+const PILE: &str = base::STACK;
 const PILE_SLOT: &str = "children";
 
 /// `deck` et une pile vide d'id `id` à la fin de `blocks` de `s-constat`.
@@ -703,7 +704,7 @@ fn with_table(deck: Deck, registry: &WidgetRegistry) -> Deck {
         "columns": ["pays", "ventes"],
     } });
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-        "element": { "id": "t", "kind": "table", "params": { "data": data } } }));
+        "element": { "id": "t", "kind": "base/table", "params": { "data": data } } }));
     let mut d = deck;
     ok(apply_all(&mut d, vec![add], registry));
     d
@@ -713,7 +714,7 @@ fn with_table(deck: Deck, registry: &WidgetRegistry) -> Deck {
 /// slots de la slide sont peuplés.
 fn with_free_element(deck: Deck) -> Deck {
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": FREE_SLOT },
-        "element": { "id": "n", "kind": "text", "frame": { "x": 100, "y": 100, "w": 400, "h": 200 },
+        "element": { "id": "n", "kind": "base/text", "frame": { "x": 100, "y": 100, "w": 400, "h": 200 },
             "params": { "body": [{ "runs": [{ "t": "Note libre" }] }] } } }));
     let mut d = deck;
     ok(apply_all(&mut d, vec![add], base()));

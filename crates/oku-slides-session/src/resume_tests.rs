@@ -152,7 +152,7 @@ fn read_state_missing_returns_none() {
 #[test]
 fn write_state_then_read_state_round_trips_mode_and_ui() {
     let r = resume();
-    let v = crate::library::builtin_versions()[0].version.clone();
+    let v = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let edit = TemplateMode {
         set: crate::DEFAULT_PACK,
         name: "Essentiel".into(),
@@ -616,7 +616,7 @@ fn resume_in_templates_mode_on_a_deck_only_pack_keeps_it_deck_only() {
 fn read_state_in_templates_mode_without_deck_only_reads_as_a_library_pack() {
     let r = resume();
     std::fs::create_dir_all(&r.dir).unwrap();
-    let v = crate::library::builtin_versions()[0].version.clone();
+    let v = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let edit = format!(
         r#"{{"set":"{}","name":"Essentiel","builtin":true,"base":"{v}","parent":"{v}","session_version":null}}"#,
         crate::DEFAULT_PACK

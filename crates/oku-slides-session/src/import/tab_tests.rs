@@ -86,7 +86,8 @@ fn retrofit_session(data: &std::path::Path) -> crate::Session {
 
 /// La version courante du pack cible (Essentiel) dans la bibliothèque de `s`.
 fn target_of(s: &crate::Session) -> PackPin {
-    PackPin { id: DEFAULT_PACK, version: library_of(s).current(DEFAULT_PACK).unwrap(), requires: Vec::new() }
+    let current = library_of(s).current_version(DEFAULT_PACK).unwrap();
+    PackPin { id: DEFAULT_PACK, version: current.version, requires: current.manifest.requires }
 }
 
 /// L'espace de noms du pack cible du retrofit, que l'enfant reprend.

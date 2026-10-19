@@ -39,7 +39,7 @@ fn qualify_joins_with_a_slash() {
 #[rstest]
 #[case("base/card", Some(("base", "card")))]
 #[case("acme.charts/bar", Some(("acme.charts", "bar")))]
-#[case("text", None)]
+#[case("blank", None)]
 #[case("/card", None)]
 #[case("base/", None)]
 #[case("a/b/c", None)]

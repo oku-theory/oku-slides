@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
+use oku_slides_core::kinds::base;
 use oku_slides_render::{Fonts, Renderer};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -17,7 +18,7 @@ fn deck_with_one_chart() -> Deck {
     });
     serde_json::from_value(json!({ "slides": [
         { "id": "libre", "kind": "blank", "params": {
-          "elements": [{ "id": "g", "kind": "chart", "params": { "option": option },
+          "elements": [{ "id": "g", "kind": base::CHART, "params": { "option": option },
                          "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] } }
     ] }))
     .unwrap_or_else(|e| panic!("{e}"))
@@ -34,7 +35,7 @@ fn theme_fonts() -> Fonts {
 
 /// La page SVG (graphique embarqué) d'un rendu avec les jetons `tokens`.
 fn chart_svgs(tokens: Option<serde_json::Value>) -> String {
-    let mut r = Renderer::new(theme_fonts()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = Renderer::with_builtins(theme_fonts()).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(tokens.and_then(|t| t.as_object().cloned())).unwrap_or_else(|e| panic!("{e}"));
     let compiled = r.render(&deck_with_one_chart(), &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     compiled.svg(0).unwrap_or_else(|e| panic!("{e}"))

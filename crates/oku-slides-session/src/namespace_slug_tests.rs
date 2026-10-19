@@ -61,7 +61,7 @@ fn rename_namespace_moves_slide_and_nested_elements_of_that_namespace_only() {
         "id": "s", "kind": "acme/cover", "params": { "blocks": [
             { "id": "a", "kind": "acme/card", "params": { "inner": [{ "id": "b", "kind": "acme/note" }] } },
             { "id": "c", "kind": "autre/card" },
-            { "id": "d", "kind": "text" }
+            { "id": "d", "kind": oku_slides_core::kinds::base::TEXT }
         ] }
     }))
     .unwrap();
@@ -73,6 +73,6 @@ fn rename_namespace_moves_slide_and_nested_elements_of_that_namespace_only() {
         &"copie/card".to_owned(),
         &"copie/note".to_owned(),
         &"autre/card".to_owned(),
-        &"text".to_owned(),
+        &oku_slides_core::kinds::base::TEXT.to_owned(),
     ]);
 }

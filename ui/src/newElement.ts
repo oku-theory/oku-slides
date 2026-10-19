@@ -1,24 +1,26 @@
-// Élément neuf de la barre d'outils, par sorte : contenu de départ prêt à ajouter à une slide.
+// Élément neuf de la barre d'outils, par nom : contenu de départ prêt à ajouter à une slide.
 
 import type { Element } from "./api";
+import { BASE } from "./baseKinds";
 import { starterChart } from "./chart/chartDeck";
 import { t } from "./i18n";
 import { starterTable } from "./table/tableDeck";
-import type { AddKind } from "./slideTools";
+import type { AddName } from "./slideTools";
 
 /** Élément neuf pour la barre d'outils (`id` fourni par l'appelant), avec son contenu de départ. */
-export function newElement(kind: AddKind, id: string): Element {
-  switch (kind) {
+export function newElement(name: AddName, id: string): Element {
+  const kind = BASE[name];
+  switch (name) {
     case "text":
-      return { id, kind: "text", params: { body: [{ runs: [{ t: t("ui-new-text") }] }] } };
+      return { id, kind, params: { body: [{ runs: [{ t: t("ui-new-text") }] }] } };
     case "card":
-      return { id, kind: "card", params: { title: t("ui-new-card-title"), body: [{ runs: [{ t: t("ui-new-card-detail") }] }] } };
+      return { id, kind, params: { title: t("ui-new-card-title"), body: [{ runs: [{ t: t("ui-new-card-detail") }] }] } };
     case "shape":
-      return { id, kind: "shape", style: { fill: "surface", radius: "md" } };
+      return { id, kind, style: { fill: "surface", radius: "md" } };
     case "chart":
-      return { id, kind: "chart", params: { option: starterChart() } };
+      return { id, kind, params: { option: starterChart() } };
     case "table":
-      return { id, kind: "table", params: { data: starterTable() } };
+      return { id, kind, params: { data: starterTable() } };
   }
 }
 

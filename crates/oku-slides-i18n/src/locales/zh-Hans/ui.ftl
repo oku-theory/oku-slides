@@ -154,7 +154,9 @@ ui-element-kind = { $kind ->
     [card] 卡片
     [image] 图片
     [shape] 形状
-    [group] 组合
+    [chart] 图表
+    [table] 表格
+    [stack] 堆叠
    *[other] { $kind }
 }
 ui-grid-cell = 列 { $cols } · 行 { $rows }

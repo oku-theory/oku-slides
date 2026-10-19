@@ -7,6 +7,7 @@ mod common;
 
 use std::collections::HashSet;
 
+use oku_slides_core::kinds::{self, base};
 use oku_slides_core::{Deck, Element, Op, Template, WidgetRegistry, apply_all, validate};
 use oku_slides_import::report::LossKind;
 use oku_slides_import::retrofit::{ColorTokens, PageTokens, project};
@@ -40,8 +41,11 @@ fn import_source(fixture: &str, src: &SourceDeck, pack: &str, theme: &str) -> (I
         page: PageTokens::from_tokens(&tokens),
     };
     let plan = project(src, &target);
+    // La session épingle `base` avant d'appliquer un retrofit.
+    let mut ops = vec![Op::AddPack { namespace: kinds::base::namespace(), pin: common::base_pin() }];
+    ops.extend(plan.ops.clone());
     let mut deck = Deck::empty();
-    apply_all(&mut deck, plan.ops.clone(), &registry).unwrap_or_else(|e| panic!("{fixture}/{pack}/{theme} : {e:?}"));
+    apply_all(&mut deck, ops, &registry).unwrap_or_else(|e| panic!("{fixture}/{pack}/{theme} : {e:?}"));
     let assets: HashSet<String> = plan.assets.keys().cloned().collect();
     let issues = validate(&deck, &registry, Some(&assets));
     assert!(issues.is_empty(), "{fixture}/{pack}/{theme} : {issues:?}");
@@ -50,26 +54,6 @@ fn import_source(fixture: &str, src: &SourceDeck, pack: &str, theme: &str) -> (I
 
 fn templates_chosen(plan: &ImportPlan) -> Vec<&str> {
     plan.report.slides.iter().map(|s| s.template.as_str()).collect()
-}
-
-/// Les sortes des éléments de `list` et de leurs descendants.
-fn kinds(list: &[Element], out: &mut Vec<String>) {
-    for e in list {
-        out.push(e.kind.clone());
-        for (_, children) in e.params.slots() {
-            kinds(children, out);
-        }
-    }
-}
-
-fn deck_kinds(deck: &Deck) -> Vec<String> {
-    let mut out = Vec::new();
-    for s in &deck.slides {
-        for (_, list) in s.params.slots() {
-            kinds(list, &mut out);
-        }
-    }
-    out
 }
 
 #[rstest]
@@ -112,8 +96,8 @@ fn retrofit_minimal_ops_match() {
 #[test]
 fn retrofit_kitchen_keeps_table_chart_picture_and_fallbacks() {
     let (plan, deck) = import("kitchen", "essentiel", "papier");
-    let kinds = deck_kinds(&deck);
-    for k in ["table", "chart", "image", "stack", "card"] {
+    let kinds = common::deck_kinds(&deck);
+    for k in [base::TABLE, base::CHART, base::IMAGE, base::STACK, base::CARD] {
         assert_that!(kinds.iter().any(|x| x == k)).named(k).is_true();
     }
     // L'image de la slide 2 et le repli de l'équation de la slide 3 sont le même PNG : un seul asset.
@@ -121,7 +105,7 @@ fn retrofit_kitchen_keeps_table_chart_picture_and_fallbacks() {
     let requests: Vec<(Vec<String>, &str)> =
         plan.widget_requests.iter().map(|r| (r.slides.clone(), r.fallback.as_str())).collect();
     // Le groupe de la slide 2 (deux boîtes, rien d'omis) se replie sans demande ; le SmartArt de la slide 3 en fait une.
-    assert_that!(requests).is_equal_to(vec![(vec!["s3".to_owned()], "stack")]);
+    assert_that!(requests).is_equal_to(vec![(vec!["s3".to_owned()], base::STACK)]);
 }
 
 #[test]
@@ -158,13 +142,15 @@ fn retrofit_alto_infers_the_cover_and_the_titles(#[values("essentiel", "grilles"
     let titled: Vec<bool> = deck.slides[1..].iter().map(|s| s.params.text("title").is_some()).collect();
     assert_that!(titled).is_equal_to(vec![true; 7]);
     // Les flèches de la slide 3 restent des images ; le logo répété est omis.
-    assert_that!(deck_kinds(&deck).iter().filter(|k| *k == "image").count()).is_equal_to(4);
+    assert_that!(common::deck_kinds(&deck).iter().filter(|k| *k == base::IMAGE).count()).is_equal_to(4);
     assert_that!(plan.assets.len()).is_equal_to(1);
 }
 
 /// Les éléments porteurs de texte (y compris leurs descendants) d'une liste libre.
 fn texts_with_place(list: &[Element]) -> Vec<&Element> {
-    list.iter().filter(|e| matches!(e.kind.as_str(), "text" | "card" | "stack" | "table" | "chart")).collect()
+    list.iter()
+        .filter(|e| matches!(e.kind.as_str(), base::TEXT | base::CARD | base::STACK | base::TABLE | base::CHART))
+        .collect()
 }
 
 fn meet(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> bool {
@@ -211,7 +197,7 @@ fn retrofit_alto_makes_cards_and_picks_card_templates() {
         "cartes",
         "cartes",
     ]);
-    let cards = deck_kinds(&deck).iter().filter(|k| *k == "card").count();
+    let cards = common::deck_kinds(&deck).iter().filter(|k| *k == base::CARD).count();
     // 3 + 6 + 4 + 3 + 4 + 4 + 4 cartes (slides 2 à 8).
     assert_that!(cards).is_equal_to(28);
 }
@@ -363,4 +349,17 @@ fn collect_texts(list: &[Element], out: &mut Vec<String>) {
             collect_texts(children, out);
         }
     }
+}
+
+#[test]
+fn retrofit_deck_element_kinds_are_all_base() {
+    let (_, deck) = import("alto", "essentiel", "papier");
+    let kinds = common::deck_kinds(&deck);
+    let stray: Vec<&String> = kinds.iter().filter(|k| !kinds::base::ALL.contains(&k.as_str())).collect();
+    assert_that!((
+        stray.is_empty(),
+        kinds.contains(&kinds::base::TEXT.to_owned()),
+        kinds.contains(&kinds::base::STACK.to_owned())
+    ))
+    .is_equal_to((true, true, true));
 }

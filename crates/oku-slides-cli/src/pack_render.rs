@@ -65,6 +65,10 @@ impl Rendered {
 
 /// Rend `deck` avec `widgets`, ceux du pack embarqué dans `bundle` (voir [`ProbedWidgets::probe`]).
 ///
+/// Un deck sans pack se rend avec le registre du noyau, comme l'ensemble vide de la session
+/// (`adopt_default_packs` rend la branche locale inatteignable pour un deck ouvert par
+/// `sources_with_packs`).
+///
 /// `deck` est la vue de `bundle`, thème éventuellement changé (sa version
 /// embarquée dans `bundle`). Un pack à widgets valides passe par le processus
 /// de rendu ; sinon, le rendu se fait en mémoire avec la base. Le thème se

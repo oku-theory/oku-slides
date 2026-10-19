@@ -187,7 +187,8 @@ const noTurnSince = async (p, from, ms) => {
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).slides.length === 8, "l'import ne se refait pas");
   // L'atelier édite le pack du deck seul : enregistré dans le deck, jamais dans la bibliothèque.
   const packsBefore = await api(p, hifi, { cmd: 'template_sets' });
-  const pinOf = (snap) => Object.values(snap.widgets)[0];
+  // Le deck épingle `base` et son propre pack : celui-ci se lit par son espace de noms.
+  const pinOf = (snap) => snap.widgets.deck;
   const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.getByRole('menuitem', { name: 'Atelier' }).click();

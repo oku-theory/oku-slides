@@ -12,7 +12,7 @@ expression: plan.ops
         "blocks": [
           {
             "id": "s1-1",
-            "kind": "table",
+            "kind": "base/table",
             "params": {
               "data": {
                 "dataset": {
@@ -51,12 +51,12 @@ expression: plan.ops
         "blocks": [
           {
             "id": "s2-1",
-            "kind": "stack",
+            "kind": "base/stack",
             "params": {
               "children": [
                 {
                   "id": "s2-1-1",
-                  "kind": "chart",
+                  "kind": "base/chart",
                   "params": {
                     "option": {
                       "dataset": {
@@ -107,7 +107,7 @@ expression: plan.ops
                 },
                 {
                   "id": "s2-1-2",
-                  "kind": "image",
+                  "kind": "base/image",
                   "params": {
                     "asset": "sha256:d28c139bba718d60154960eaca75535a5cc5b59fe2153e998a29251e8e5f4667",
                     "fit": "contain"
@@ -119,12 +119,12 @@ expression: plan.ops
           },
           {
             "id": "s2-2",
-            "kind": "stack",
+            "kind": "base/stack",
             "params": {
               "children": [
                 {
                   "id": "s2-2-1",
-                  "kind": "card",
+                  "kind": "base/card",
                   "params": {
                     "body": [
                       {
@@ -139,7 +139,7 @@ expression: plan.ops
                 },
                 {
                   "id": "s2-2-2",
-                  "kind": "card",
+                  "kind": "base/card",
                   "params": {
                     "body": [
                       {
@@ -171,7 +171,7 @@ expression: plan.ops
         "elements": [
           {
             "id": "s3-1",
-            "kind": "stack",
+            "kind": "base/stack",
             "frame": {
               "x": 590.0,
               "y": 155.0,
@@ -182,7 +182,7 @@ expression: plan.ops
               "children": [
                 {
                   "id": "s3-1-1",
-                  "kind": "card",
+                  "kind": "base/card",
                   "params": {
                     "body": [
                       {
@@ -197,7 +197,7 @@ expression: plan.ops
                 },
                 {
                   "id": "s3-1-2",
-                  "kind": "card",
+                  "kind": "base/card",
                   "params": {
                     "body": [
                       {
@@ -216,7 +216,7 @@ expression: plan.ops
           },
           {
             "id": "s3-2",
-            "kind": "image",
+            "kind": "base/image",
             "frame": {
               "x": 590.0,
               "y": 455.0,

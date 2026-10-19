@@ -90,7 +90,7 @@ fn move_between_slides_keeps_the_concurrent_bold() {
 fn move_element_with_a_repeated_id_keeps_the_concurrent_bold() {
     let dup = |slide: &str| {
         op(json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-            "element": { "id": "dup", "kind": "text", "params": { "body": [{ "runs": [{ "t": slide }] }] } } }))
+            "element": { "id": "dup", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": slide }] }] } } }))
     };
     let mut deck = with_ops(&roadmap(), vec![dup("s-constat"), dup("s-priorites"), dup("s-libre")]);
     deck.slides.push(Slide::new("s-neuve", "content"));

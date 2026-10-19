@@ -2,7 +2,7 @@
   "id": "b8e2d4f6-1a3c-4e5b-8d7f-9c0a2e4b6d81",
   "name": "Grilles",
   "namespace": "grilles",
-  "requires": [],
+  "requires": ["base"],
   "description": "Des slides construites sur une grille : chaque bloc s'accroche à des cases.",
   "parent": null,
   "created": "2026-10-01T00:00:00Z",
@@ -46,7 +46,7 @@
                 "cols": 8,
                 "rows": 6
               },
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -84,7 +84,7 @@
                 "cols": 4,
                 "rows": 6
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "À retenir",
                 "title": "Une idée",
@@ -124,7 +124,7 @@
                 "col": 0,
                 "row": 0
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "1",
                 "title": "Première",
@@ -145,7 +145,7 @@
                 "col": 1,
                 "row": 0
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "2",
                 "title": "Deuxième",
@@ -166,7 +166,7 @@
                 "col": 0,
                 "row": 1
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "3",
                 "title": "Troisième",
@@ -187,7 +187,7 @@
                 "col": 1,
                 "row": 1
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "4",
                 "title": "Quatrième",
@@ -232,7 +232,7 @@
                 "size": "lead",
                 "font": "display"
               },
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -252,7 +252,7 @@
                 "row": 1,
                 "rows": 2
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "title": "Un",
                 "body": [
@@ -274,7 +274,7 @@
                 "row": 1,
                 "rows": 2
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "title": "Deux",
                 "body": [
@@ -296,7 +296,7 @@
                 "row": 1,
                 "rows": 2
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "title": "Trois",
                 "body": [
@@ -341,7 +341,7 @@
                 "fill": "surface",
                 "radius": "md"
               },
-              "kind": "shape"
+              "kind": "base/shape"
             },
             {
               "id": "t",
@@ -355,7 +355,7 @@
                 "size": "lead",
                 "font": "display"
               },
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -376,7 +376,7 @@
                 "cols": 5,
                 "rows": 3
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "title": "Un détail",
                 "body": [
@@ -398,7 +398,7 @@
                 "cols": 5,
                 "rows": 3
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "title": "Un autre",
                 "body": [
@@ -437,7 +437,7 @@
                 "row": 0,
                 "rows": 2
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "Clients",
                 "title": "1 200",
@@ -459,7 +459,7 @@
                 "row": 0,
                 "rows": 2
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "Croissance",
                 "title": "+ 38 %",
@@ -481,7 +481,7 @@
                 "row": 0,
                 "rows": 2
               },
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "Délai",
                 "title": "48 h",

@@ -44,7 +44,7 @@ pub(crate) fn files(entries: &[(&str, &str)]) -> std::collections::BTreeMap<oku_
 
 /// Un deck d'une seule diapositive de titre.
 pub(crate) fn tiny_deck() -> oku_slides_core::Deck {
-    let json = r#"{"version":6,"params":{"title":"T"},"slides":[{"id":"s","kind":"title","params":{}}]}"#;
+    let json = r#"{"version": 7,"params":{"title":"T"},"slides":[{"id":"s","kind":"title","params":{}}]}"#;
     oku_slides_core::Deck::from_json(json).expect("deck minimal")
 }
 

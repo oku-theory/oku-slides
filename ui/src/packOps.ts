@@ -1,6 +1,7 @@
 // Opérations sur les packs de widgets épinglés par le deck.
 
 import type { Op, PackInfo, PackPin, Snapshot } from "./api";
+import { BASE_NAMESPACE } from "./baseKinds";
 import { t } from "./i18n";
 
 /** Le deck épingle ce pack sous son espace de noms : référence complète (id, version, besoins). */
@@ -22,10 +23,14 @@ export function packOptionLabel(pack: PackInfo): string {
   return pack.received ? t("ui-picker-set-received", { name: pack.name }) : t("ui-picker-set-mine", { name: pack.name });
 }
 
-/** Id du pack proposé et édité par défaut : le premier pack de bibliothèque épinglé, sinon celui du deck. */
+/**
+ * Id du pack proposé et édité par défaut : le premier pack de bibliothèque épinglé hors de
+ * `base`, sinon celui du deck, sinon `base` s'il est seul.
+ */
 export function firstPackId(snap: Snapshot | null): string | null {
   const pins = Object.entries(snap?.widgets ?? {});
-  return (pins.find(([ns]) => ns !== "deck") ?? pins[0])?.[1].id ?? null;
+  const pin = pins.find(([ns]) => ns !== "deck" && ns !== BASE_NAMESPACE) ?? pins.find(([ns]) => ns !== BASE_NAMESPACE) ?? pins[0];
+  return pin?.[1].id ?? null;
 }
 
 /** Longueur maximale d'un espace de noms, en octets (comme le noyau). */

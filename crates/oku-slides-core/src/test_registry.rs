@@ -2,11 +2,29 @@
 
 use crate::WidgetRegistry;
 
-pub(crate) fn registry() -> WidgetRegistry {
+/// Le widget d'élément `test/frame-box` : un slot libre, pour les tests qui ont besoin de cadres sous un élément.
+pub(crate) const FRAME_BOX: &str = r#"{
+    "name": "frame-box",
+    "category": "element",
+    "params": [{ "name": "children", "type": "slot", "mode": "free" }]
+}"#;
+
+/// Le kind du widget [`FRAME_BOX`] dans le pack de test.
+pub(crate) const FRAME_BOX_KIND: &str = "test/frame-box";
+
+/// La sonde du fichier de base, plus le pack de test `test` (widget [`FRAME_BOX`]).
+fn probe() -> serde_json::Value {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
-    let probe = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
-    WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{path} : {e}"))
+    let mut probe: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let widget: serde_json::Value = serde_json::from_str(FRAME_BOX).unwrap_or_else(|e| panic!("{FRAME_BOX} : {e}"));
+    let packs = probe["packs"].as_array_mut().unwrap_or_else(|| panic!("sonde : packs attendu"));
+    packs.push(serde_json::json!({ "namespace": "test", "widgets": [widget] }));
+    probe
+}
+
+pub(crate) fn registry() -> WidgetRegistry {
+    WidgetRegistry::from_probe(probe()).unwrap_or_else(|e| panic!("sonde : {e}"))
 }
 
 /// Une référence de thème de test : version `<c>` répété 64 fois, id dérivé.
@@ -95,9 +113,7 @@ pub(crate) const PLAN: &str = r#"{
 
 /// Le registre de base, plus les widgets [`LISTE`], [`BORNES`], [`CHRONO`], [`MESURES`] et [`PLAN`].
 pub(crate) fn with_list() -> std::sync::Arc<WidgetRegistry> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
-    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
-    let mut probe: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let mut probe = probe();
     let base = probe["base"].as_array_mut().unwrap_or_else(|| panic!("sonde : base attendu"));
     for widget in [LISTE, BORNES, CHRONO, MESURES, PLAN] {
         base.push(serde_json::from_str(widget).unwrap_or_else(|e| panic!("{widget} : {e}")));

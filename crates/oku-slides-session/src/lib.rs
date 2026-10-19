@@ -108,7 +108,7 @@ pub use library::{Library, PackLibrary, builtin_versions};
 pub use library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
 pub use library_lookup::{embed_theme, library_pack, read_pack_dir, resolve_pack};
 pub use merge::Saved;
-pub use pack::{DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, PackScope, Relation, Template};
+pub use pack::{BASE_PACK, DEFAULT_PACK, GRID_PACK, PackInfo, PackManifest, PackScope, Relation, Template};
 pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
@@ -282,12 +282,13 @@ pub struct Session {
 /// Un emplacement de `worker` avec les widgets des packs `set` (de registre
 /// `registry`), dont l'image absente se dit dans la langue de l'utilisateur.
 ///
-/// Un ensemble qui porte un pack fautif n'est pas posé : la base reste. À
-/// l'appelant d'avoir écarté ce pack d'abord (`Session::usable_packs`), pour
-/// que la session suive.
+/// Un ensemble qui porte un pack fautif n'est pas posé : l'emplacement ne
+/// rend alors que le noyau (widgets de slide), et tout élément y est inconnu.
+/// À l'appelant d'avoir écarté ce pack d'abord (`Session::usable_packs`),
+/// pour que l'ensemble soit sain et que la session suive.
 ///
 /// Sans pack posé (vide ou fautif), `registry` n'est pas lu : l'emplacement
-/// rend avec la base tirée de `fonts`, à l'appelant d'y accorder son registre.
+/// rend avec le noyau tiré de `fonts`, à l'appelant d'y accorder son registre.
 pub(crate) fn new_renderer(
     worker: &RenderWorker,
     fonts: Fonts,
@@ -295,7 +296,7 @@ pub(crate) fn new_renderer(
     set: &PackSet,
     registry: &Arc<WidgetRegistry>,
 ) -> Result<RenderSlot> {
-    let base = oku_slides_render::base_registry(&fonts).context(RegistrySnafu)?;
+    let base = oku_slides_render::core_registry(&fonts).context(RegistrySnafu)?;
     let mut slot = worker.slot(&fonts, l, base).context(RenderSnafu)?;
     if !set.is_empty() && !set.packs().iter().any(|p| worker.is_faulty(p)) {
         slot.set_widgets(set, registry.clone()).context(RenderSnafu)?;
@@ -304,7 +305,7 @@ pub(crate) fn new_renderer(
 }
 
 /// Deck vide : une couverture (`title`) et une slide de contenu (`content`)
-/// avec un `text`, dans la langue de l'utilisateur.
+/// avec un `base/text`, dans la langue de l'utilisateur.
 pub fn blank_deck(l: &Localizer) -> Deck {
     let mut content = Slide::new("s-1", "content");
     content.params.set("title", ParamValue::Text(l.tr("deck-new-slide-title")));
@@ -323,7 +324,7 @@ pub fn blank_deck(l: &Localizer) -> Deck {
         },
         vars: BTreeMap::new(),
         tokens: Value::Null,
-        // Adoptés au chargement : le pack par défaut et ses besoins.
+        // Adoptés au chargement : `base`, le pack par défaut et leurs besoins.
         widgets: BTreeMap::new(),
         slides: vec![Slide::new("s-titre", "title"), content],
     }
@@ -357,10 +358,13 @@ impl Session {
         let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
         let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
         let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
-        let registry = oku_slides_render::base_registry(&app_fonts).context(RegistrySnafu)?;
+        // Aucun pack installé encore : le noyau seul, jusqu'à `sync_widgets`.
+        let registry = oku_slides_render::core_registry(&app_fonts).context(RegistrySnafu)?;
         let library = PackLibrary::user(platform);
         let themes = ThemeLibrary::user(platform);
-        let mut blank = SourceBundle::new(blank_deck(l), registry.clone()).context(SourcesSnafu)?;
+        // Le premier replica connaît déjà les widgets de `base` que le deck neuf épingle.
+        let builtin = oku_slides_render::builtin_registry(&app_fonts).context(RegistrySnafu)?;
+        let mut blank = SourceBundle::new(blank_deck(l), builtin).context(SourcesSnafu)?;
         deck_pack::adopt_default_packs(&library, &mut blank)?;
         deck_theme::adopt_default_theme(&themes, &mut blank)?;
         let mut s = Self {
@@ -677,6 +681,7 @@ impl Session {
                 _ => None,
             },
             read_only: self.help().is_some(),
+            host_params: self.registry.host_params(),
         }
     }
 

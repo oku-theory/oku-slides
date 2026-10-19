@@ -18,6 +18,7 @@ diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 無法繪製圖表
 
 registry-bad-pack-id = 範本套件識別碼無效: { $id }
+registry-base-pack-broken = 內建小工具套件已損毀 ({ $file })；請重新安裝 App。
 registry-duplicate-pack = 簡報的兩個小工具套件共用 { $pack }。
 registry-compile = 無法編譯範本套件的元件
 registry-missing = 範本套件未宣告其元件

@@ -1,4 +1,5 @@
 use oku_slides_core::asset_id;
+use oku_slides_core::kinds::base;
 use rstest::rstest;
 use speculoos::prelude::*;
 
@@ -70,7 +71,7 @@ fn texts(e: &Element, param: &str) -> Vec<String> {
 fn element_of_a_text_box_is_a_text_element() {
     let (e, losses, fallback) = convert(&text_item("t", BOX, "Bonjour"));
     let e = e.unwrap();
-    assert_that!((e.id.as_str(), e.kind.as_str())).is_equal_to(("e1", "text"));
+    assert_that!((e.id.as_str(), e.kind.as_str())).is_equal_to(("e1", base::TEXT));
     assert_that!(texts(&e, "body")).is_equal_to(vec!["Bonjour".to_owned()]);
     assert_that!(losses).is_empty();
     assert_that!(fallback).is_none();
@@ -95,7 +96,7 @@ fn element_of_a_filled_shape_with_text_is_a_card() {
     let (e, _, _) =
         convert(&shape_item("s", "rect", solid(Styled::explicit(Rgba::new(0xf7, 0xf5, 0xf0))), None, Some("Note")));
     let e = e.unwrap();
-    assert_that!(e.kind.as_str()).is_equal_to("card");
+    assert_that!(e.kind.as_str()).is_equal_to(base::CARD);
     assert_that!(texts(&e, "body")).is_equal_to(vec!["Note".to_owned()]);
     assert_that!(e.params.value("highlight")).is_none();
 }
@@ -110,7 +111,7 @@ fn element_of_a_shape_filled_with_the_accent_is_a_highlighted_card() {
 fn element_of_an_outlined_shape_with_text_is_a_text_element() {
     let stroke = Stroke { width: 1.0, color: accent1(), dash: Dash::Solid, head: None, tail: None };
     let (e, _, _) = convert(&shape_item("s", "rect", Fill::None, Some(stroke), Some("Encadré")));
-    assert_that!(e.unwrap().kind.as_str()).is_equal_to("text");
+    assert_that!(e.unwrap().kind.as_str()).is_equal_to(base::TEXT);
 }
 
 #[rstest]
@@ -123,7 +124,7 @@ fn element_of_an_outlined_shape_with_text_is_a_text_element() {
 fn element_of_a_shape_without_text_maps_its_preset(#[case] preset: &str, #[case] expected: &str) {
     let (e, _, _) = convert(&shape_item("s", preset, solid(accent1()), None, None));
     let e = e.unwrap();
-    assert_that!(e.kind.as_str()).is_equal_to("shape");
+    assert_that!(e.kind.as_str()).is_equal_to(base::SHAPE);
     assert_that!(e.params.text("shape")).is_equal_to(Some(expected));
 }
 
@@ -166,13 +167,13 @@ fn element_of_an_invisible_shape_is_nothing() {
 #[test]
 fn element_of_a_shape_filled_with_a_picture_is_an_image() {
     let e = convert(&shape_item("s", "rect", Fill::Picture { asset: png() }, None, None)).0.unwrap();
-    assert_that!((e.kind.as_str(), e.params.text("asset"))).is_equal_to(("image", Some(png().as_str())));
+    assert_that!((e.kind.as_str(), e.params.text("asset"))).is_equal_to((base::IMAGE, Some(png().as_str())));
 }
 
 #[test]
 fn element_of_a_picture_is_an_image_with_the_same_asset() {
     let e = convert(&picture(&png())).0.unwrap();
-    assert_that!(e.kind.as_str()).is_equal_to("image");
+    assert_that!(e.kind.as_str()).is_equal_to(base::IMAGE);
     assert_that!(e.params.text("asset")).is_equal_to(Some(png().as_str()));
     assert_that!(e.params.text("fit")).is_equal_to(Some("contain"));
 }
@@ -219,7 +220,7 @@ fn element_of_a_table_is_a_table_element() {
         rows: vec![vec![cell]],
     };
     let e = convert(&item("t", BOX, ItemKind::Table(t))).0.unwrap();
-    assert_that!(e.kind.as_str()).is_equal_to("table");
+    assert_that!(e.kind.as_str()).is_equal_to(base::TABLE);
     assert_that!(e.params.value("data").map(|d| d["dataset"]["source"].clone()))
         .is_equal_to(Some(serde_json::json!([["A"]])));
 }
@@ -234,7 +235,7 @@ fn element_of_a_chart_is_a_chart_element_with_its_losses() {
         series: vec![source::Series { name: "S".into(), values: vec![Some(1.0)], color: None, x: None, format: None }],
     };
     let (e, losses, _) = convert(&item("c", BOX, ItemKind::Chart(c)));
-    assert_that!(e.unwrap().kind.as_str()).is_equal_to("chart");
+    assert_that!(e.unwrap().kind.as_str()).is_equal_to(base::CHART);
     assert_that!(losses).is_equal_to(vec![Loss::on("c", LossKind::PercentStacked)]);
 }
 
@@ -247,7 +248,7 @@ fn element_of_an_opaque_item_uses_its_fallback_image_and_reports_it(
 ) {
     let o = item("o", BOX, ItemKind::Opaque(Opaque { reason: OpaqueReason::Ole, fallback }));
     let (e, losses, _) = convert(&o);
-    assert_that!(e.map(|e| e.kind)).is_equal_to(image.then(|| "image".to_owned()));
+    assert_that!(e.map(|e| e.kind)).is_equal_to(image.then(|| base::IMAGE.to_owned()));
     assert_that!(losses).is_equal_to(vec![Loss::on("o", LossKind::Opaque(OpaqueReason::Ole))]);
 }
 
@@ -296,7 +297,7 @@ fn element_of_a_card_unit_takes_its_kicker_title_and_body() {
     let unit = Unit::Card { shape: &ground, texts: texts.iter().collect(), inner: Vec::new() };
     let e = convert_unit(&unit).0.unwrap();
     assert_that!((e.kind.as_str(), e.params.text("kicker"), e.params.text("title"))).is_equal_to((
-        "card",
+        base::CARD,
         Some("PILLAR 1 — PRODUCT"),
         Some("Amundi Funds"),
     ));
@@ -340,7 +341,7 @@ fn element_of_merged_texts_puts_their_paragraphs_end_to_end() {
     let (a, b) = (text_item("a", BOX, "Distribution"), text_item("b", BOX, "Matthieu"));
     let e = convert_unit(&Unit::Text(vec![&a, &b])).0.unwrap();
     assert_that!((e.kind.as_str(), texts_of(&e)))
-        .is_equal_to(("text", vec!["Distribution".to_owned(), "Matthieu".to_owned()]));
+        .is_equal_to((base::TEXT, vec!["Distribution".to_owned(), "Matthieu".to_owned()]));
 }
 
 #[test]

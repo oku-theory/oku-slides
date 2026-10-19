@@ -3,19 +3,19 @@ use oku_slides_i18n::Localizer;
 use serde_json::json;
 use speculoos::prelude::*;
 
-use oku_slides_core::WidgetRegistry;
+use oku_slides_core::{WidgetRegistry, kinds::base};
 
 use super::{Charts, SVG_FIELD, TextSizes, text_sizes};
 use crate::fonts::Fonts;
 use crate::world::file_id;
 
 fn deck(option: serde_json::Value, frame: Option<serde_json::Value>) -> serde_json::Value {
-    let mut chart = json!({ "id": "g", "kind": "chart", "params": { "option": option } });
+    let mut chart = json!({ "id": "g", "kind": base::CHART, "params": { "option": option } });
     if let Some(f) = frame {
         chart["frame"] = f;
     }
     json!({ "slides": [{ "id": "s", "kind": "content", "params": {
-        "blocks": [{ "id": "grp", "kind": "stack", "params": { "children": [chart] } }] } }] })
+        "blocks": [{ "id": "grp", "kind": base::STACK, "params": { "children": [chart] } }] } }] })
 }
 
 /// Registre de base, lu dans sa sonde figée (`fixtures/widgets`).
@@ -136,7 +136,7 @@ fn set_palette_changes_the_key_and_reports_the_change() {
 fn attach_element_without_a_chart_param_gets_no_key() {
     let mut charts = Charts::default();
     let mut d = deck(bars(), None);
-    d["slides"][0]["params"]["blocks"][0]["params"]["children"][0]["kind"] = json!("text");
+    d["slides"][0]["params"]["blocks"][0]["params"]["children"][0]["kind"] = json!(base::TEXT);
     charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&d)).is_none();
     assert_that!(charts.files.len()).is_equal_to(0);

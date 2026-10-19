@@ -31,10 +31,11 @@ fn readme_example_widget_probes_valid_and_renders_its_fields() {
     let registry = Arc::new(load_registry(&fonts, &set).unwrap());
     let mut r = Renderer::new(fonts).unwrap();
     r.set_widgets(&set, registry).unwrap();
-    let deck = Deck::from_json(
-        r#"{"version":6,"slides":[{"id":"s","kind":"content","params":{"blocks":[
-            {"id":"k","kind":"exemple/kpi","params":{"value":"42 %","label":"Croissance"}}]}}]}"#,
-    )
+    let deck = Deck::from_json(&format!(
+        r#"{{"version":{},"slides":[{{"id":"s","kind":"content","params":{{"blocks":[
+            {{"id":"k","kind":"exemple/kpi","params":{{"value":"42 %","label":"Croissance"}}}}]}}}}]}}"#,
+        oku_slides_core::DECK_VERSION
+    ))
     .unwrap();
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap();
     let fields: Vec<&str> = compiled.layout().fields.iter().map(|f| f.field.as_str()).collect();

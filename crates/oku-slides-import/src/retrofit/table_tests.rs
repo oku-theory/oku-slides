@@ -1,4 +1,5 @@
 use oku_slides_chart::parse_table;
+use oku_slides_core::kinds::base;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -113,6 +114,6 @@ fn table_without_cells_is_none() {
 #[test]
 fn table_element_is_accepted_by_add_slide() {
     let (option, _) = data(&grid(4, 3));
-    let deck = apply_blocks(vec![element_with("t", "table", "data", option)]);
+    let deck = apply_blocks(vec![element_with("t", base::TABLE, "data", option)]);
     assert_that!(deck).is_ok();
 }

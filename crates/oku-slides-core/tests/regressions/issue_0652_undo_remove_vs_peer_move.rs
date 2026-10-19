@@ -243,12 +243,12 @@ fn hand_made_duplicates(registry: &WidgetRegistry) -> Deck {
     c1b.params.set("kicker", ParamValue::Text("Autre".into()));
     blocks(&mut deck).extend([c1, c1b]);
     let libre = deck.slides.iter_mut().find(|s| s.id == "s-libre").unwrap_or_else(|| panic!("s-libre"));
-    let canvas: Element = serde_json::from_value(json!({ "id": "cv", "kind": "canvas",
+    let frame_box: Element = serde_json::from_value(json!({ "id": "cv", "kind": "test/frame-box",
         "frame": { "x": 0.0, "y": 0.0, "w": 10.0, "h": 10.0 },
-        "params": { "children": [{ "id": "e-texte", "kind": "shape", "frame": { "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0 } }] } }))
+        "params": { "children": [{ "id": "e-texte", "kind": "base/shape", "frame": { "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0 } }] } }))
     .unwrap_or_else(|e| panic!("canevas : {e}"));
     match libre.params.0.get_mut("elements") {
-        Some(ParamValue::Slot(l)) => l.push(canvas),
+        Some(ParamValue::Slot(l)) => l.push(frame_box),
         _ => panic!("elements absent"),
     }
     let items = etapes(&mut deck);

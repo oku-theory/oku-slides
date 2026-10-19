@@ -90,7 +90,7 @@ fn slide_view_targets_are_element_boxes_only() {
     let s = session_with_fixture();
     let v = s.slide("s-libre").unwrap();
     let shape = v.targets.iter().find(|t| t.id == "e-fond").unwrap();
-    assert_that!(shape.kind).is_equal_to("shape");
+    assert_that!(shape.kind).is_equal_to(oku_slides_core::kinds::base::SHAPE);
     assert_that!(shape.free).is_true();
     assert_that!(v.targets.iter().any(|t| t.id.starts_with('@'))).is_false();
 }

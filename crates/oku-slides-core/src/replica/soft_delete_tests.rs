@@ -239,7 +239,7 @@ fn undo_of_an_owner_removal_brings_back_a_child_moved_in_by_the_peer() {
 fn undo_of_an_add_marks_the_node_and_hides_a_child_moved_in_by_the_peer() {
     let deck = roadmap();
     let (mut a, mut b) = fixed_peers(&deck, 1, 2);
-    let added = with_ops(&deck, vec![add(None, "blocks", None, json!({ "id": "pile", "kind": "stack" }))]);
+    let added = with_ops(&deck, vec![add(None, "blocks", None, json!({ "id": "pile", "kind": "base/stack" }))]);
     apply(&mut a, &added);
     exchange(&mut a, &mut b);
     let (_, pile) = node_of(&a.doc, "s-constat", "pile");
@@ -347,7 +347,7 @@ fn apply_with_nested_creations_adds_a_bounded_number_of_changes() {
     let deck = roadmap();
     let mut r = new(&deck);
     let nested = |i: usize| {
-        json!({ "id": format!("q{i}"), "kind": "stack",
+        json!({ "id": format!("q{i}"), "kind": "base/stack",
         "params": { "children": [text(&format!("q{i}a"), "a"), text(&format!("q{i}b"), "b")] } })
     };
     let before = r.len_changes();
@@ -557,7 +557,7 @@ fn measure_paste_cost_flat_and_nested() {
             let deck = with_pile();
             let element = |i: usize| {
                 if nested {
-                    json!({ "id": format!("q{i}"), "kind": "stack",
+                    json!({ "id": format!("q{i}"), "kind": "base/stack",
                         "params": { "children": [text(&format!("q{i}a"), "a"), text(&format!("q{i}b"), "b")] } })
                 } else {
                     text(&format!("q{i}"), "Collé")

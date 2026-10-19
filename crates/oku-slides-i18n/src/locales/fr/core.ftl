@@ -29,6 +29,7 @@ op-pack-in-use = Le pack de widgets { $pack } est encore utilisé par { $count -
    *[other] { $count } éléments
 }.
 op-pack-requirement-missing = Le pack de widgets { $pack } a besoin de { $required }, que ce deck n'a pas.
+op-base-required = Chaque deck garde le pack de widgets de base.
 op-unknown-param = Paramètre inconnu : { $subject }
 op-param-type-because = Valeur invalide pour { $subject } : { $reason }
 op-param-shape-text = { $nullable ->
@@ -183,6 +184,7 @@ widget-fault-list-bounds = Widget { $widget } : le max d'une liste est sous son 
 widget-fault-list-default-too-large = Widget { $widget } : le défaut d'une liste dépasse les bornes de taille des listes
 widget-fault-list-depth = Widget { $widget } : une liste imbriquée ne peut pas contenir de colonne liste ; les listes ne s'imbriquent que sur un niveau
 widget-fault-list-default-below-min = Widget { $widget } : le défaut d'une liste imbriquée a moins d'items que son minimum
+widget-fault-slide-sizing = Widget { $widget } : c'est une slide, seuls les widgets d'élément déclarent grow ou typography
 issue-empty-item-id = la liste { $param } a un item sans identifiant
 issue-duplicate-item-id = la liste { $param } a un identifiant d'item en double
 issue-invalid-item-id = la liste { $param } a un identifiant d'item qui contient une barre oblique

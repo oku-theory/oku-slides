@@ -47,6 +47,11 @@ impl Namespace {
         Self(DECK.to_owned())
     }
 
+    /// Un espace de noms intégré, écrit dans le code ; `kinds_tests` vérifie sa syntaxe.
+    pub(crate) fn builtin(s: &'static str) -> Self {
+        Self(s.to_owned())
+    }
+
     /// Vrai pour l'espace de noms réservé `deck`.
     pub fn is_deck(&self) -> bool {
         self.0 == DECK

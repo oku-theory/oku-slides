@@ -2,11 +2,13 @@
 
 use std::path::Path;
 
+use oku_slides_core::kinds;
+use rstest::rstest;
 use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::*;
-use crate::pack::DEFAULT_PACK;
+use crate::pack::{BASE_PACK, DEFAULT_PACK};
 use crate::test_support::{add_version, files_of, fresh_dir, manifest_ns};
 
 fn library(dir: &Path) -> PackLibrary {
@@ -48,7 +50,41 @@ fn library_add_version_new_version_of_the_same_pack_keeps_its_namespace() {
 #[test]
 fn library_builtins_have_their_namespaces() {
     let names: Vec<_> = builtin_versions().iter().map(|b| b.manifest.namespace.to_string()).collect();
-    assert_that!(names).is_equal_to(vec!["essentiel".to_owned(), "grilles".to_owned()]);
+    assert_that!(names).is_equal_to(vec!["essentiel".to_owned(), "grilles".to_owned(), "base".to_owned()]);
+}
+
+#[test]
+fn library_builtin_base_has_its_id_and_seven_widget_files() {
+    let base = builtin_versions().iter().find(|b| b.manifest.namespace == kinds::base::namespace()).unwrap();
+    let files = base.files.widgets().keys().filter(|f| !f.is_common()).count();
+    assert_that!((base.manifest.id, files)).is_equal_to((BASE_PACK, 7));
+}
+
+#[rstest]
+#[case("base")]
+#[case("essentiel")]
+#[case("grilles")]
+fn library_add_another_pack_claiming_a_builtin_namespace_is_refused(#[case] namespace: &str) {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let other = manifest_ns(Uuid::new_v4(), namespace, &[]);
+    let err = lib.add_version(other.id, &files_of(&other)).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceTaken);
+}
+
+#[test]
+fn library_namespace_of_a_pack_named_base_skips_the_builtin() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let slug = crate::namespace_slug::library_namespace(&lib, "Base").unwrap();
+    assert_that!(slug.as_str()).is_not_equal_to("base");
+}
+
+#[test]
+fn library_template_sets_leave_out_packs_without_templates() {
+    let dir = fresh_dir("oku-slides-library-");
+    let ids: Vec<Uuid> = library(dir.path()).template_sets().iter().map(|p| p.id).collect();
+    assert_that!((ids.contains(&DEFAULT_PACK), ids.contains(&BASE_PACK))).is_equal_to((true, false));
 }
 
 #[test]

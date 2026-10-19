@@ -22,9 +22,9 @@ expression: summary(&plan(fixture))
         "titre"
       ],
       "elements": [
-        "text @132,960 480×58",
-        "shape @1320,288 468×216",
-        "text @1320,288 468×216"
+        "base/text @132,960 480×58",
+        "base/shape @1320,288 468×216",
+        "base/text @1320,288 468×216"
       ],
       "losses": {
         "list_levels": 1,
@@ -38,8 +38,8 @@ expression: summary(&plan(fixture))
         "titre"
       ],
       "elements": [
-        "shape @0,0 1920×1080",
-        "text @132,480 480×58"
+        "base/shape @0,0 1920×1080",
+        "base/text @132,480 480×58"
       ],
       "losses": {}
     }

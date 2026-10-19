@@ -8,9 +8,13 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::deck_widgets_tests::{
-    LOOP_ON_IMPORT, LOOP_ON_RENDER, LOOP_TIMEOUT_MS, QUOTE, add_loop, assert_registry_agrees, data_dir, fixture_path,
-    kind_of, op, pin_pack, session_in, session_with_timeout, unpin_pack, user_pack,
+    LOOP_ON_IMPORT, LOOP_ON_RENDER, LOOP_TIMEOUT_MS, QUOTE, add_base_loop, add_loop, assert_registry_agrees, data_dir,
+    edited_base_pack, fixture_path, kind_of, namespace_of_pack, op, pin_pack, session_with_timeout, unpin_pack,
+    user_pack,
 };
+use oku_slides_core::kinds;
+use oku_slides_render::is_trusted_pack;
+
 use crate::test_support::ns;
 use crate::{Session, SessionErrorKind};
 
@@ -39,6 +43,27 @@ fn apply_set_templates_to_a_pack_that_loops_keeps_the_base_registry_and_sets_a_n
     assert_that!(Arc::ptr_eq(&s.registry, &base)).is_true();
     assert_that!(s.doc.notice.is_some()).is_true();
     assert_registry_agrees(&s);
+}
+
+#[test]
+fn a_single_looping_user_pack_beside_the_builtins_is_disabled_and_base_kept() {
+    let data = data_dir();
+    let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_RENDER)]);
+    s.apply("Pack", vec![pin_pack(&looping), add_loop(&looping)], None).unwrap();
+    let disabled: Vec<String> = s.widgets_disabled.keys().map(ToString::to_string).collect();
+    assert_that!(disabled).is_equal_to(vec![namespace_of_pack(&looping)]);
+    assert_that!(s.registry.get(kinds::base::TEXT).is_some()).is_true();
+}
+
+#[test]
+fn an_edited_base_that_loops_is_not_trusted_and_is_disabled() {
+    let data = data_dir();
+    let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
+    // Une version modifiée de `base` (même id, un widget qui boucle) épinglée sous `base`.
+    let edited = edited_base_pack(&s, LOOP_ON_RENDER);
+    s.apply("Pack", vec![pin_pack(&edited), add_base_loop()], None).unwrap();
+    assert_that!(s.widgets_disabled.contains_key(&kinds::base::namespace())).is_true();
 }
 
 #[test]
@@ -88,19 +113,23 @@ fn session_on_looping_pack(data: &Path) -> (Session, oku_slides_core::PackPin) {
 }
 
 /// Rend fautif le pack `looping` du deck hors du rendu du deck : un autre
-/// emplacement rend un élément `boucle`, sans passer par la session.
+/// emplacement, qui ne porte que ce pack (le processus de rendu l'accuse
+/// alors), rend un élément `boucle`, sans passer par la session.
 fn fault_pack_outside_the_deck(s: &Session, looping: &oku_slides_core::PackPin) {
-    let mut slot = crate::new_renderer(&s.worker, s.render_fonts.clone(), &s.localizer, &s.packs, &s.registry).unwrap();
+    let alone: Vec<_> = s.packs.packs().iter().filter(|p| !is_trusted_pack(p)).cloned().collect();
+    let set = oku_slides_render::PackSet::new(alone).unwrap();
+    let mut slot = crate::new_renderer(&s.worker, s.render_fonts.clone(), &s.localizer, &set, &s.registry).unwrap();
     let mut deck = s.deck().clone();
     oku_slides_core::apply_all(&mut deck, vec![add_loop(looping)], &s.registry).unwrap();
     let err = slot.render(&deck, &s.doc.sources.assets).unwrap_err();
     assert_that!(err.kind().is_bounded()).is_true();
 }
 
-/// Le repli a eu lieu : la base, l'avis qui nomme le pack (son nom), les registres d'accord.
-fn assert_fell_back(s: &Session, base: &Arc<oku_slides_core::WidgetRegistry>) {
-    assert_that!(Arc::ptr_eq(&s.registry, base)).is_true();
-    assert_that!(s.packs.is_empty()).is_true();
+/// Le repli a eu lieu : seuls les packs de confiance restent, sans les widgets de `looping` ;
+/// l'avis nomme le pack (son nom), les registres sont d'accord.
+fn assert_fell_back(s: &Session, looping: &oku_slides_core::PackPin) {
+    assert_that!(s.packs.packs().iter().all(is_trusted_pack)).is_true();
+    assert_that!(s.registry.get(&kind_of(looping, "boucle"))).is_none();
     assert_that!(s.doc.notice.clone().unwrap_or_default().as_str()).contains("Boucle");
     assert_registry_agrees(s);
 }
@@ -129,7 +158,6 @@ fn svg_and_png_after_a_restart_outside_the_deck_render_are_served() {
 #[test]
 fn templates_view_with_a_template_that_loops_falls_back_to_the_base_with_a_notice() {
     let data = data_dir();
-    let base = session_in(&data.0).registry.clone();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
     // Un modèle du pack porte un élément `boucle` : son aperçu boucle.
     let mut m = crate::test_support::manifest(uuid::Uuid::new_v4(), "Boucle", None, "2026-10-01T10:00:00Z");
@@ -141,13 +169,12 @@ fn templates_view_with_a_template_that_loops_falls_back_to_the_base_with_a_notic
     s.apply("Pack", vec![pin_pack(&looping)], None).unwrap();
     let view = s.templates_view(Some(looping.id)).unwrap();
     assert_that!(view.templates.len()).is_equal_to(1);
-    assert_fell_back(&s, &base);
+    assert_fell_back(&s, &looping);
 }
 
 #[test]
 fn variants_with_an_element_that_loops_fall_back_to_the_base_with_a_notice() {
     let data = data_dir();
-    let base = session_in(&data.0).registry.clone();
     let (mut s, looping) = session_on_looping_pack(&data.0);
     let spec: crate::agent::ShowVariants = serde_json::from_value(json!({ "slide": "s-constat", "variants": [
         { "label": "a", "ops": [serde_json::to_value(add_loop(&looping)).unwrap()] },
@@ -157,17 +184,16 @@ fn variants_with_an_element_that_loops_fall_back_to_the_base_with_a_notice() {
     // Refaites avec la base, qui ne connaît pas `boucle` : la variante est refusée, pas gelée.
     let err = s.variants_surface("v-1", &spec).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
-    assert_fell_back(&s, &base);
+    assert_fell_back(&s, &looping);
 }
 
 #[test]
 fn refresh_fonts_after_the_pack_faulted_elsewhere_falls_back_and_succeeds() {
     let data = data_dir();
-    let base = session_in(&data.0).registry.clone();
     let (mut s, looping) = session_on_looping_pack(&data.0);
     fault_pack_outside_the_deck(&s, &looping);
     s.refresh_fonts().unwrap();
-    assert_fell_back(&s, &base);
+    assert_fell_back(&s, &looping);
     s.rerender().unwrap();
 }
 
@@ -298,15 +324,14 @@ fn render_whose_fall_back_fails_returns_the_render_error() {
 #[test]
 fn history_open_after_the_pack_faulted_elsewhere_falls_back_and_shows_the_notice() {
     let data = data_dir();
-    let base = session_in(&data.0).registry.clone();
     let (mut s, looping) = session_on_looping_pack(&data.0);
     fault_pack_outside_the_deck(&s, &looping);
     s.doc.notice = None;
     s.history_open().unwrap();
     // L'avis est sur le document montré, pas sur le deck mis de côté.
-    assert_fell_back(&s, &base);
+    assert_fell_back(&s, &looping);
     s.history_close().unwrap();
-    assert_that!(s.packs.is_empty()).is_true();
+    assert_that!(s.packs.packs().iter().all(is_trusted_pack)).is_true();
     assert_registry_agrees(&s);
 }
 
@@ -319,14 +344,13 @@ fn history_open_after_the_pack_faulted_elsewhere_falls_back_and_shows_the_notice
 #[test]
 fn history_seek_after_the_pack_faulted_elsewhere_keeps_the_notice() {
     let data = data_dir();
-    let base = session_in(&data.0).registry.clone();
     let (mut s, looping) = session_on_looping_pack(&data.0);
     s.history_open().unwrap();
     fault_pack_outside_the_deck(&s, &looping);
     s.doc.notice = None;
     let last = s.history_versions().unwrap().len() - 1;
     s.history_seek(last).unwrap();
-    assert_fell_back(&s, &base);
+    assert_fell_back(&s, &looping);
 }
 
 /// t-355 : une version d'un autre pack se montre sans l'avis du pack fautif,
@@ -334,16 +358,15 @@ fn history_seek_after_the_pack_faulted_elsewhere_keeps_the_notice() {
 #[test]
 fn history_seek_to_a_version_without_the_faulted_pack_then_close_says_it_on_the_deck() {
     let data = data_dir();
-    let base = session_in(&data.0).registry.clone();
     let (mut s, looping) = session_on_looping_pack(&data.0);
     s.history_open().unwrap();
     fault_pack_outside_the_deck(&s, &looping);
     s.doc.notice = None;
     s.history_seek(0).unwrap();
-    assert_that!(s.packs.is_empty()).is_true();
+    assert_that!(s.packs.packs().iter().all(is_trusted_pack)).is_true();
     assert_that!(s.doc.notice.clone().unwrap_or_default().as_str()).does_not_contain("Boucle");
     s.history_close().unwrap();
-    assert_fell_back(&s, &base);
+    assert_fell_back(&s, &looping);
 }
 
 // ---- Repli par pack : un pack fautif est écarté seul ---------------------------------
@@ -393,7 +416,7 @@ fn faulty_pack_is_disabled_alone() {
     let s = session_with_packs(&data.0, &[("good", &[], GOOD_NOTE), ("bad", &[], &looping)]);
     assert_that!(notes_of(&s, &["good", "bad"])).is_equal_to(vec![true, false]);
     // Les épinglages restent ; l'élément du pack écarté reste aussi.
-    assert_that!(s.deck().widgets.len()).is_equal_to(3);
+    assert_that!(s.deck().widgets.len()).is_equal_to(4);
     assert_that!(s.deck().slide("s-constat").is_some_and(|sl| sl.locate("n-bad").is_some())).is_true();
     assert_registry_agrees(&s);
 }

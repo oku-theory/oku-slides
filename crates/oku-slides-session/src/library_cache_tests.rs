@@ -105,7 +105,7 @@ fn index_version_altered_after_indexing_is_rejected_on_load() {
 fn index_after_writes_matches_a_fresh_instance() {
     let dir = fresh_dir("oku-slides-library-index-");
     let lib = library(dir.path());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let (x, y) = (Uuid::new_v4(), Uuid::new_v4());
     let x1 = add_version(&lib, &manifest(x, "X", None, "2026-10-01T10:00:00Z"), &[("kpi", "K")]);
     let next = manifest(x, "X2", None, "2026-10-02T10:00:00Z").to_files(Default::default()).unwrap();

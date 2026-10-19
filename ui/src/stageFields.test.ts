@@ -15,7 +15,7 @@ afterAll(resetMessages);
 
 const style: TextStyle = { size: 20, leading: 6, tracking: 0, font: ["Inter"], weight: 400, fill: null, align: "left", case: null, bg: null };
 const f = (owner: string, field: string, extra: Partial<FieldView> = {}): FieldView => ({
-  owner, owner_kind: owner === "s" ? "slide" : "element", widget: "card", field, kind: "plain", label: null,
+  owner, owner_kind: owner === "s" ? "slide" : "element", widget: "base/card", field, kind: "plain", label: null,
   text: "x", empty: false, side: null, x: 10, y: 100, w: 50, h: 20, ax: 10, aw: 200, style, ...extra,
 });
 const view = (fields: FieldView[]) => ({ fields } as unknown as SlideView);

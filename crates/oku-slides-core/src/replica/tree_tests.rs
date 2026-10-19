@@ -44,7 +44,7 @@ pub(super) fn ops_of(r: &DeckReplica) -> usize {
 
 /// Un texte `id` de corps `t`.
 pub(super) fn text(id: &str, t: &str) -> Value {
-    json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": t }] }] } })
+    json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": t }] }] } })
 }
 
 /// Ajoute `element` au slot `param` de `owner` (`None` : la slide `s-constat`).
@@ -69,7 +69,7 @@ pub(super) fn two_slots() -> Deck {
 
 /// `roadmap` et un `stack` `pile` dans `blocks` de `s-constat`.
 pub(super) fn with_pile() -> Deck {
-    with_ops(&roadmap(), vec![add(None, "blocks", None, json!({ "id": "pile", "kind": "stack" }))])
+    with_ops(&roadmap(), vec![add(None, "blocks", None, json!({ "id": "pile", "kind": "base/stack" }))])
 }
 
 pub(super) fn new(deck: &Deck) -> DeckReplica {
@@ -221,7 +221,7 @@ pub(super) fn forge(
 }
 
 pub(super) fn text_meta(id: &str) -> Vec<(&str, LoroValue)> {
-    vec![("id", LoroValue::from(id)), ("kind", LoroValue::from("text"))]
+    vec![("id", LoroValue::from(id)), ("kind", LoroValue::from("base/text"))]
 }
 
 /// Les ids du slot `name` de l'élément `owner` (ou de la slide) de `slide`.
@@ -295,7 +295,7 @@ fn reordered(deck: &Deck, ids: &[&str]) -> Deck {
 #[test]
 fn reserved_keys_never_collide_with_model_fields() {
     let element: Element = ok(serde_json::from_value(json!({
-        "id": "e", "kind": "text",
+        "id": "e", "kind": "base/text",
         "frame": { "x": 1, "y": 2, "w": 3, "h": 4 },
         "cell": { "col": 1, "row": 1, "cols": 2, "rows": 1 },
         "style": { "color": "accent", "size": "lead" },
@@ -457,7 +457,7 @@ fn lis_marks_a_longest_increasing_subsequence() {
 /// avec t-652) ; le second `apply` n'écrit plus rien.
 #[test]
 fn nested_duplicate_keeps_the_outer_tree_id() {
-    let pile = json!({ "id": "pile", "kind": "stack", "params": { "children": [text("x", "A")] } });
+    let pile = json!({ "id": "pile", "kind": "base/stack", "params": { "children": [text("x", "A")] } });
     let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "content", "params": {
         "blocks": [pile, text("x", "B")] } }] }));
     let mut r = new(&deck);
@@ -490,20 +490,20 @@ fn nested_duplicate_keeps_the_outer_tree_id() {
     assert_that!(reread(&r)).is_equal_to((read, Vec::new()));
 }
 
-/// Un deck d'une slide `blank` portant une chaîne de `n` canvas imbriqués
+/// Un deck d'une slide `blank` portant une chaîne de `n` `base/stack` imbriqués
 /// (copie de `sources_tests.rs`).
-fn canvas_chain(n: usize) -> Deck {
-    let mut tree = json!({ "id": format!("c{}", n - 1), "kind": "canvas" });
+fn stack_chain(n: usize) -> Deck {
+    let mut tree = json!({ "id": format!("c{}", n - 1), "kind": "base/stack" });
     for i in (0..n - 1).rev() {
-        tree = json!({ "id": format!("c{i}"), "kind": "canvas", "params": { "children": [tree] } });
+        tree = json!({ "id": format!("c{i}"), "kind": "base/stack", "params": { "children": [tree] } });
     }
     deck_of(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [tree] } }] }))
 }
 
 #[test]
 fn apply_of_a_too_deep_deck_twice_does_not_grow() {
-    let mut r = new(&canvas_chain(MAX_SLOT_DEPTH));
-    let deep = canvas_chain(MAX_SLOT_DEPTH + 1);
+    let mut r = new(&stack_chain(MAX_SLOT_DEPTH));
+    let deep = stack_chain(MAX_SLOT_DEPTH + 1);
     let Err(first) = r.apply(&deep, "trop", None) else { panic!("un deck trop profond devait être refusé") };
     assert_that!(first.kind()).is_equal_to(ReplicaErrorKind::Write);
     let after_first = ops_of(&r);
@@ -514,9 +514,9 @@ fn apply_of_a_too_deep_deck_twice_does_not_grow() {
 
 #[test]
 fn apply_of_a_too_deep_deck_leaves_the_slide_untouched() {
-    let mut r = new(&canvas_chain(MAX_SLOT_DEPTH));
+    let mut r = new(&stack_chain(MAX_SLOT_DEPTH));
     let before = r.deck().0;
-    let mut deep = canvas_chain(MAX_SLOT_DEPTH + 1);
+    let mut deep = stack_chain(MAX_SLOT_DEPTH + 1);
     let Some(slide) = deep.slide_mut("s") else { panic!("slide s absente") };
     slide.name = Some("Renommée".into());
     slide.notes = "Notes changées".into();
@@ -652,7 +652,7 @@ fn removing_an_owner_while_moving_its_child_out_keeps_the_child() {
 
 #[test]
 fn slots_of_takes_declared_and_shaped_slots_sorted() {
-    let el = json!({ "id": "e", "kind": "text" });
+    let el = json!({ "id": "e", "kind": "base/text" });
     let params = json!({ "zzz": [el], "blocks": [el], "title": "x", "": [el] });
     let registry = registry();
     let schema = registry.get("content").map(|w| w.params.as_slice());
@@ -666,11 +666,11 @@ fn forge_chain(r: &DeckReplica, n: usize) {
         r,
         "s-constat",
         None,
-        &[("id", LoroValue::from("c0")), ("kind", LoroValue::from("stack"))],
+        &[("id", LoroValue::from("c0")), ("kind", LoroValue::from("base/stack"))],
         Some(&[("", "blocks")]),
     );
     for i in 1..n {
-        let meta = [("id", LoroValue::from(format!("c{i}").as_str())), ("kind", LoroValue::from("stack"))];
+        let meta = [("id", LoroValue::from(format!("c{i}").as_str())), ("kind", LoroValue::from("base/stack"))];
         let owner = format!("c{}", i - 1);
         forge(r, "s-constat", Some(&owner), &meta, Some(&[(owner.as_str(), "children")]));
     }
@@ -703,7 +703,7 @@ fn apply_on_a_forged_deep_chain_leaves_unread_nodes_untouched() {
 
 #[test]
 fn empty_param_name_with_elements_round_trips() {
-    let host = json!({ "id": "host", "kind": "stack", "params": { "": [text("dedans", "Dedans")] } });
+    let host = json!({ "id": "host", "kind": "base/stack", "params": { "": [text("dedans", "Dedans")] } });
     let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [host] } }] }));
     let mut r = new(&deck);
     let tree = slide_tree(&r, "s");
@@ -775,7 +775,7 @@ fn from_snapshot_of_a_v7_shaped_replica_is_refused() {
     let blocks = ok(params.insert_container("blocks", loro::LoroMovableList::new()));
     let element = ok(blocks.push_container(LoroMap::new()));
     ok(element.insert("id", "t"));
-    ok(element.insert("kind", "text"));
+    ok(element.insert("kind", "base/text"));
     doc.commit();
     let bytes = ok(doc.export(loro::ExportMode::Snapshot));
     assert_that!(refused_kind(&bytes)).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
@@ -801,7 +801,7 @@ fn merge_of_a_peer_that_rewrites_the_format_is_refused() {
 /// visible à sa place dans `blocks`.
 #[test]
 fn concurrent_crossed_nesting_moves_converge_without_cycle() {
-    let pile = |id: &str| json!({ "id": id, "kind": "stack" });
+    let pile = |id: &str| json!({ "id": id, "kind": "base/stack" });
     let deck = with_ops(
         &roadmap(),
         vec![add(None, "blocks", None, pile("pile-a")), add(None, "blocks", None, pile("pile-b"))],
@@ -844,10 +844,10 @@ fn concurrent_crossed_nesting_moves_converge_without_cycle() {
 #[test]
 fn style_anchor_and_shape_path_round_trip_through_the_replica() {
     let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [
-        { "id": "t", "kind": "text", "frame": { "x": 0, "y": 0, "w": 100, "h": 50 },
+        { "id": "t", "kind": "base/text", "frame": { "x": 0, "y": 0, "w": 100, "h": 50 },
           "style": { "valign": "bottom", "inset": [7.2, 3.6, 0.0, 3.6], "tracking": -1.5, "spacing": 9.0 },
           "params": { "body": [{ "runs": [{ "t": "x" }] }] } },
-        { "id": "p", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 100, "h": 50 },
+        { "id": "p", "kind": "base/shape", "frame": { "x": 0, "y": 0, "w": 100, "h": 50 },
           "params": { "shape": "path", "path": { "d": "M 0 0 L 1 1 Z" } } }
     ] } }] }));
     let (read, issues) = reread(&new(&deck));

@@ -29,6 +29,7 @@ op-pack-in-use = Das Widget-Paket { $pack } wird noch von { $count ->
    *[other] { $count } Objekten
 } verwendet.
 op-pack-requirement-missing = Das Widget-Paket { $pack } benötigt { $required }, das dieses Deck nicht hat.
+op-base-required = Jedes Deck behält das Basis-Widget-Paket.
 op-unknown-param = Unbekannter Parameter: { $subject }
 op-param-type-because = Ungültiger Wert für { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -183,6 +184,7 @@ widget-fault-list-bounds = Widget { $widget }: Das Maximum einer Liste liegt unt
 widget-fault-list-default-too-large = Widget { $widget }: Der Standardwert einer Liste überschreitet die Größengrenzen von Listen
 widget-fault-list-depth = Widget { $widget }: Eine verschachtelte Liste darf keine Listenspalte enthalten; Listen lassen sich nur eine Ebene tief verschachteln
 widget-fault-list-default-below-min = Widget { $widget }: Der Standardwert einer verschachtelten Liste hat weniger Einträge als ihr Minimum
+widget-fault-slide-sizing = Widget { $widget } ist eine Folie: nur Element-Widgets deklarieren grow oder typography
 issue-empty-item-id = Liste { $param } hat einen Eintrag ohne Kennung
 issue-duplicate-item-id = Liste { $param } hat eine doppelte Eintragskennung
 issue-invalid-item-id = Liste { $param } hat eine Eintragskennung mit einem Schrägstrich

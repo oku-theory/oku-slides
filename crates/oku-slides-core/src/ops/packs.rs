@@ -2,8 +2,10 @@
 
 use snafu::ensure;
 
-use crate::error::{OpError, PackInUseSnafu, PackRequiredSnafu, PackRequirementMissingSnafu, UnknownNamespaceSnafu};
-use crate::{Deck, Namespace, PackPin, split_kind};
+use crate::error::{
+    BaseRequiredSnafu, OpError, PackInUseSnafu, PackRequiredSnafu, PackRequirementMissingSnafu, UnknownNamespaceSnafu,
+};
+use crate::{Deck, Namespace, PackPin, kinds, split_kind};
 
 /// Épingle `pin` sous `ns` ; refuse un besoin non épinglé.
 pub(super) fn add(deck: &mut Deck, ns: Namespace, pin: PackPin) -> Result<(), OpError> {
@@ -16,8 +18,9 @@ pub(super) fn add(deck: &mut Deck, ns: Namespace, pin: PackPin) -> Result<(), Op
     Ok(())
 }
 
-/// Retire le pack `ns` ; refuse s'il est requis par un autre ou utilisé.
+/// Retire le pack `ns` ; refuse `base`, un pack requis par un autre ou utilisé.
 pub(super) fn remove(deck: &mut Deck, ns: &Namespace) -> Result<(), OpError> {
+    ensure!(ns.as_str() != kinds::base::NAMESPACE, BaseRequiredSnafu);
     ensure!(deck.widgets.contains_key(ns), UnknownNamespaceSnafu { namespace: ns.to_string() });
     if let Some((by, _)) = deck.widgets.iter().find(|(other, p)| *other != ns && p.requires.contains(ns)) {
         return Err(PackRequiredSnafu { namespace: ns.to_string(), by: by.to_string() }.build().into());

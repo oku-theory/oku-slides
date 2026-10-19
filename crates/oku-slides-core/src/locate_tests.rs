@@ -1,3 +1,4 @@
+use crate::kinds::base;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -16,16 +17,16 @@ fn nested() -> Slide {
         "params": {
             "title": "Titre",
             "elements": [
-                { "id": "e1", "kind": "text", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } },
-                { "id": "e2", "kind": "text", "cell": { "col": 0, "row": 0 } }
+                { "id": "e1", "kind": "base/text", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } },
+                { "id": "e2", "kind": "base/text", "cell": { "col": 0, "row": 0 } }
             ],
             "blocks": [
-                { "id": "b1", "kind": "text" },
-                { "id": "st", "kind": "stack", "params": { "layout": "columns", "children": [
-                    { "id": "c1", "kind": "card" },
-                    { "id": "c2", "kind": "card" }
+                { "id": "b1", "kind": "base/text" },
+                { "id": "st", "kind": "base/stack", "params": { "layout": "columns", "children": [
+                    { "id": "c1", "kind": "base/card" },
+                    { "id": "c2", "kind": "base/card" }
                 ] } },
-                { "id": "b2", "kind": "text" }
+                { "id": "b2", "kind": "base/text" }
             ]
         }
     }))
@@ -95,14 +96,14 @@ fn locate_absent_id_returns_none() {
 
 #[test]
 fn slot_depth_element_without_children_is_zero() {
-    assert_that!(slot_depth(&Element::new("e", "text"))).is_equal_to(0);
+    assert_that!(slot_depth(&Element::new("e", base::TEXT))).is_equal_to(0);
 }
 
 #[test]
-fn slot_depth_chain_of_twenty_canvases_is_nineteen() {
-    let mut e = Element::new("c19", "canvas");
+fn slot_depth_chain_of_twenty_stacks_is_nineteen() {
+    let mut e = Element::new("c19", base::STACK);
     for i in (0..19).rev() {
-        let mut parent = Element::new(format!("c{i}"), "canvas");
+        let mut parent = Element::new(format!("c{i}"), base::STACK);
         parent.params.set("children", ParamValue::Slot(vec![e]));
         e = parent;
     }
@@ -111,9 +112,9 @@ fn slot_depth_chain_of_twenty_canvases_is_nineteen() {
 
 #[test]
 fn walk_deep_chain_reports_each_depth() {
-    let mut e = Element::new("c19", "canvas");
+    let mut e = Element::new("c19", base::STACK);
     for i in (0..19).rev() {
-        let mut parent = Element::new(format!("c{i}"), "canvas");
+        let mut parent = Element::new(format!("c{i}"), base::STACK);
         parent.params.set("children", ParamValue::Slot(vec![e]));
         e = parent;
     }

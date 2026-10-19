@@ -33,7 +33,7 @@ pub fn bench(
     }
     let assets = BTreeMap::new();
     let t = Instant::now();
-    let mut r = Renderer::new(fonts)?;
+    let mut r = Renderer::with_builtins(fonts)?;
     r.set_theme(tokens)?;
     let registry = r.registry().clone();
     out.line("cli-bench-world", &[("time", ms(t.elapsed()).into())])?;

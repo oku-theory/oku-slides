@@ -22,16 +22,21 @@ afterEach(async () => {
 type Applied = { label: string; ops: Record<string, unknown>[] };
 const target = { slide: "s1", element: "t1" };
 
-async function mount(data: Record<string, unknown> = { dataset: { source: [["A", "B"], ["x", 1]] } }, onShowAs = (_view: string) => {}, numberLang?: string) {
+async function mount(
+  data: Record<string, unknown> = { dataset: { source: [["A", "B"], ["x", 1]] } },
+  onShowAs = (_view: string) => {},
+  numberLang?: string,
+  { kind, param }: { kind: string; param: string } = { kind: "base/table", param: "data" },
+) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   const applied: Applied[] = [];
-  const element = { id: "t1", kind: "table" as const, params: { data } };
+  const element = { id: "t1", kind, params: { [param]: data } };
   const onApply = (label: string, ops: Record<string, unknown>[]) => applied.push({ label, ops });
   await act(async () => {
-    const panel = createElement(TablePanel, { slide: "s1", element, onApply, onShowAs });
+    const panel = createElement(TablePanel, { slide: "s1", element, param, onApply, onShowAs });
     root.render(numberLang === undefined ? panel : createElement(NumberLangContext.Provider, { value: numberLang }, panel));
   });
   return { host, applied };
@@ -107,5 +112,11 @@ describe("TablePanel", () => {
     const toolbar = host.querySelector(".panel-toolbar") as HTMLElement;
     expect(toolbar.querySelector(".table-options")).not.toBeNull();
     expect(toolbar.lastElementChild?.classList.contains("show-as")).toBe(true);
+  });
+
+  test("le panneau d'un tableau de pack écrit dans son paramètre", async () => {
+    const { host, applied } = await mount(undefined, undefined, undefined, { kind: "acme/grid", param: "grid" });
+    await act(async () => options(host)[2].click());
+    expect(applied[0].ops[0]).toEqual({ op: "set_table_option", target, param: "grid", patch: { striped: true } });
   });
 });

@@ -18,6 +18,7 @@ diagnostic-hint = подсказка: { $hint }
 render-chart-failed = не удалось построить диаграмму
 
 registry-bad-pack-id = Недопустимый идентификатор пакета шаблонов: { $id }
+registry-base-pack-broken = Встроенный пакет виджетов повреждён ({ $file }); переустановите приложение.
 registry-duplicate-pack = Два пакета виджетов презентации используют одно и то же: { $pack }.
 registry-compile = Не удалось скомпилировать виджеты пакета шаблонов
 registry-missing = Пакет шаблонов не объявляет свои виджеты

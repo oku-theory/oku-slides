@@ -28,4 +28,4 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Settled decisions
 
 - Never package the oku-slides-render-worker binary; it exists only for tests. (plan:2026-09-29-compilation-bornee)
-- Keep widget fallback policy in the session; the render client only flags faulty pack fingerprints. (spec:2026-09-29-compilation-bornee-design)
+- Keep widget fallback policy in the session; the render client flags only a slot's lone untrusted pack, never one beside a shipped base. (plan:2026-10-18-packs-lot2-base)

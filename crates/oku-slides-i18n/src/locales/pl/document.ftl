@@ -18,6 +18,7 @@ diagnostic-hint = wskazówka: { $hint }
 render-chart-failed = nie udało się narysować wykresu
 
 registry-bad-pack-id = Nieprawidłowy identyfikator pakietu szablonów: { $id }
+registry-base-pack-broken = Wbudowany pakiet widżetów jest uszkodzony ({ $file }); zainstaluj aplikację ponownie.
 registry-duplicate-pack = Dwa pakiety widżetów prezentacji współdzielą { $pack }.
 registry-compile = Nie udało się skompilować widżetów pakietu szablonów
 registry-missing = Pakiet szablonów nie deklaruje swoich widżetów

@@ -4,6 +4,7 @@
 mod common;
 
 use common::{req, session, snapshot_json};
+use oku_slides_core::kinds;
 use oku_slides_session::{Session, SessionErrorKind};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -18,7 +19,7 @@ fn with_chart(s: &mut Session) -> String {
     let slide = s.snapshot().slides[1].id.to_string();
     ok(s.handle(req(json!({ "cmd": "apply", "label": "graphique", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-        "element": { "id": "g", "kind": "chart", "params": { "option": {
+        "element": { "id": "g", "kind": kinds::base::CHART, "params": { "option": {
             "dataset": { "source": [["M", "A", "B"], ["x", 1, 2], ["y", 3, 4]] },
             "xAxis": { "type": "category" }, "series": [{ "type": "bar" }, { "type": "bar" }] } } } }] }))));
     slide
@@ -46,8 +47,19 @@ fn show_as_table_keeps_id_and_dataset() {
     let slide = with_chart(&mut s);
     ok(show_as(&mut s, &slide, "table"));
     let e = element(&mut s, &slide);
-    assert_that!(e["kind"]).is_equal_to(json!("table"));
+    assert_that!(e["kind"]).is_equal_to(json!(kinds::base::TABLE));
     assert_that!(e["params"]["data"]["dataset"]["source"][2]).is_equal_to(json!(["y", 3.0, 4.0]));
+}
+
+#[test]
+fn show_as_table_makes_a_base_table_with_the_same_dataset() {
+    let mut s = session();
+    let slide = with_chart(&mut s);
+    let before = element(&mut s, &slide)["params"]["option"]["dataset"]["source"].clone();
+    ok(show_as(&mut s, &slide, "table"));
+    let after = element(&mut s, &slide);
+    assert_that!((after["kind"].as_str(), after["params"]["data"]["dataset"]["source"].clone()))
+        .is_equal_to((Some(kinds::base::TABLE), before));
 }
 
 #[test]
@@ -67,7 +79,7 @@ fn show_as_chart_from_a_table_gets_one_series_per_column() {
     ok(show_as(&mut s, &slide, "table"));
     ok(show_as(&mut s, &slide, "chart"));
     let e = element(&mut s, &slide);
-    assert_that!(e["kind"]).is_equal_to(json!("chart"));
+    assert_that!(e["kind"]).is_equal_to(json!(kinds::base::CHART));
     assert_that!(e["params"]["option"]["series"].as_array().map(Vec::len)).is_equal_to(Some(2));
 }
 
@@ -98,7 +110,7 @@ fn show_as_table_on_a_chart_beyond_table_limits_is_refused() {
     let row: Vec<Value> = (0..21).map(|i| json!(i)).collect();
     ok(s.handle(req(json!({ "cmd": "apply", "label": "graphique large", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-        "element": { "id": "g", "kind": "chart", "params": { "option": {
+        "element": { "id": "g", "kind": kinds::base::CHART, "params": { "option": {
             "dataset": { "source": [header, row] }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } } }] }))));
     let before = slide_json(&mut s, &slide);
     assert_that!(show_as(&mut s, &slide, "table").is_err()).is_true();
@@ -146,7 +158,7 @@ fn show_as_round_trip_keeps_the_chart_type() {
     let slide = s.snapshot().slides[1].id.to_string();
     ok(s.handle(req(json!({ "cmd": "apply", "label": "graphique", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-        "element": { "id": "g", "kind": "chart", "params": { "option": {
+        "element": { "id": "g", "kind": kinds::base::CHART, "params": { "option": {
             "dataset": { "source": [["M", "A", "B"], ["x", 1, 2], ["y", 3, 4]] },
             "xAxis": { "type": "category" }, "series": [{ "type": "line" }, { "type": "line" }] } } } }] }))));
     ok(show_as(&mut s, &slide, "table"));
@@ -162,7 +174,7 @@ fn show_as_round_trip_after_removing_a_middle_column_keeps_each_series_color() {
     let slide = s.snapshot().slides[1].id.to_string();
     ok(s.handle(req(json!({ "cmd": "apply", "label": "graphique", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-        "element": { "id": "g", "kind": "chart", "params": { "option": {
+        "element": { "id": "g", "kind": kinds::base::CHART, "params": { "option": {
             "dataset": { "source": [["M", "A", "B", "C"], ["x", 1, 2, 3], ["y", 4, 5, 6]] },
             "xAxis": { "type": "category" }, "series": [
                 { "type": "line", "itemStyle": { "color": "#ff0000" } },

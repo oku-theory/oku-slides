@@ -152,7 +152,9 @@ ui-element-kind = { $kind ->
     [card] Thẻ
     [image] Hình ảnh
     [shape] Hình
-    [group] Nhóm
+    [chart] Biểu đồ
+    [table] Bảng
+    [stack] Ngăn xếp
    *[other] { $kind }
 }
 ui-grid-cell = cột { $cols } · hàng { $rows }

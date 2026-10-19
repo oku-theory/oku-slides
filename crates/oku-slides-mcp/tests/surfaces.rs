@@ -1,6 +1,7 @@
 mod common;
 
 use common::*;
+use oku_slides_core::kinds;
 use oku_slides_i18n::{Localize, english};
 use oku_slides_mcp::{HubErrorKind, McpEvent};
 use oku_slides_session::agent::{AgentScope, AskChoice, forms};
@@ -648,11 +649,11 @@ async fn prune_with_only_static_surfaces_does_not_wait_for_the_session() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn widgets_tool_lists_card_with_its_params() {
+async fn widgets_tool_lists_base_card_with_its_params() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let widgets = json_of(&call(&c, "widgets", json!({})).await);
-    let card = &widgets["widgets"]["card"];
+    let card = &widgets["widgets"][kinds::base::CARD];
     assert_that!(card["category"].as_str()).is_equal_to(Some("element"));
     let params: Vec<&str> = card["params"].as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap()).collect();
     assert_that!(params).is_equal_to(vec!["kicker", "title", "body", "highlight"]);

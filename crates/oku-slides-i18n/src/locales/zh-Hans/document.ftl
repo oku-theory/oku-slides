@@ -18,6 +18,7 @@ diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 无法绘制图表
 
 registry-bad-pack-id = 模板包标识符无效: { $id }
+registry-base-pack-broken = 内置小组件包已损坏 ({ $file })；请重新安装应用。
 registry-duplicate-pack = 演示文稿的两个小组件包共用 { $pack }。
 registry-compile = 无法编译模板包的组件
 registry-missing = 模板包未声明其组件

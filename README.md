@@ -61,7 +61,7 @@ just oku-slides schema                                              # JSON schem
 `import` maps the content of a `.pptx` onto an existing pack (`--pack`: id, pack
 folder or name) and theme (`--theme`: id or name; default: the default theme):
 the style comes from the target theme. Titles are inferred when the slides have no
-placeholders, drawn cards become `card` elements, repeated headers and footers are
+placeholders, drawn cards become `base/card` elements, repeated headers and footers are
 left to the theme. `--report` writes the JSON report: template chosen per slide,
 losses, fallbacks, widget requests, reader warnings and content coverage.
 `--mode` defaults to `retrofit`.
@@ -181,7 +181,7 @@ deck's template set.
 - **Widgets**: template sets can ship Typst widgets. In template mode, the Widgets
   section of the pile opens their code next to a live preview. Rendering runs in a
   separate worker process, bounded in time and memory (`[render]` settings); past
-  the limit, the deck falls back to the base widgets.
+  the limit, the faulty pack is disabled.
 
 ### Grid, templates, themes
 

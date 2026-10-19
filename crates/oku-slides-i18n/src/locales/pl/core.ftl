@@ -31,6 +31,7 @@ op-pack-in-use = Pakiet widżetów { $pack } jest nadal używany przez { $count 
    *[other] { $count } elementu
 }.
 op-pack-requirement-missing = Pakiet widżetów { $pack } wymaga pakietu { $required }, którego ta prezentacja nie ma.
+op-base-required = Każda prezentacja zachowuje podstawowy pakiet widżetów.
 op-unknown-param = Nieznany parametr: { $subject }
 op-param-type-because = Nieprawidłowa wartość dla { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -189,6 +190,7 @@ widget-fault-list-bounds = Widżet { $widget }: maksimum listy jest poniżej jej
 widget-fault-list-default-too-large = Widżet { $widget }: wartość domyślna listy przekracza limity rozmiaru list
 widget-fault-list-depth = Widżet { $widget }: zagnieżdżona lista nie może zawierać kolumny listy; listy zagnieżdżają się tylko na jednym poziomie
 widget-fault-list-default-below-min = Widżet { $widget }: wartość domyślna zagnieżdżonej listy ma mniej pozycji niż jej minimum
+widget-fault-slide-sizing = Widżet { $widget } jest slajdem: tylko widżety elementów deklarują grow lub typography
 issue-empty-item-id = lista { $param } ma pozycję bez identyfikatora
 issue-duplicate-item-id = lista { $param } ma zduplikowany identyfikator pozycji
 issue-invalid-item-id = lista { $param } ma identyfikator pozycji zawierający ukośnik

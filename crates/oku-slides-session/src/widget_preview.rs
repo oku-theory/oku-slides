@@ -26,7 +26,7 @@ use snafu::{ResultExt, ensure};
 
 use oku_slides_core::{
     Category, Cell, Deck, Element, Namespace, Paragraph, ParamType, ParamValue, Params, Slide, WidgetFile,
-    WidgetRegistry, WidgetSchema, default_items, qualify,
+    WidgetRegistry, WidgetSchema, default_items, kinds, qualify,
 };
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_render::{FileProbe, Layout, PackSet, PackWidgets, RenderError};
@@ -300,7 +300,18 @@ impl Session {
         let Some(schema) = probe.registry.get(&kind).cloned() else { return Ok(no_schema(&name)) };
         let inputs = self.preview_inputs(pack, &name, &schema, params)?;
         let deck = self.preview_deck(&schema, &inputs);
-        self.render_preview(&name, probe.pack.as_ref(), probe.registry.clone(), &deck, format)
+        // Le `base` intégré accompagne un autre pack : ses valeurs d'exemple peuvent porter des éléments `base/*`.
+        let pack = probe.pack.as_ref();
+        let (set, registry) = match pack {
+            Some(p) if p.namespace().as_str() != kinds::base::NAMESPACE => {
+                let base = oku_slides_render::base_pack_widgets().context(RegistrySnafu)?;
+                let set = PackSet::new(vec![base, p.clone()]).context(RegistrySnafu)?;
+                let registry = self.worker.registry_of(&set).context(RegistrySnafu)?;
+                (set, registry)
+            }
+            _ => (PackSet::new(pack.into_iter().cloned().collect()).context(RegistrySnafu)?, probe.registry.clone()),
+        };
+        self.render_preview(&name, (pack, &set), registry, &deck, format)
     }
 
     /// Valeurs d'aperçu de `name` (pack `pack`) : ses valeurs d'exemple encore valides, puis `given`.
@@ -340,24 +351,23 @@ impl Session {
         styled_like(self.style_deck(), vec![slide])
     }
 
-    /// Rend `deck` dans l'emplacement d'essai, avec les widgets valides `pack`.
+    /// Rend `deck` dans l'emplacement d'essai, avec les widgets valides de `set` (registre `registry`).
     ///
-    /// Le widget montré `name` y porte son nom qualifié, celui de son schéma.
+    /// Le widget montré `name`, du pack `pack` de `set`, y porte son nom qualifié, celui de son schéma.
     fn render_preview(
         &mut self,
         name: &WidgetFile,
-        pack: Option<&PackWidgets>,
+        (pack, set): (Option<&PackWidgets>, &PackSet),
         registry: Arc<WidgetRegistry>,
         deck: &Deck,
         format: PreviewFormat,
     ) -> Result<WidgetPreview> {
         let fonts = self.doc.sources.fonts.len();
         let tokens = self.theme_tokens(deck);
-        let set = PackSet::new(pack.into_iter().cloned().collect()).context(RegistrySnafu)?;
         let kept = match self.widget_preview.take().filter(|p| p.fonts == fonts) {
             Some(p) => p,
             None => {
-                let base = oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?;
+                let base = oku_slides_render::core_registry(&self.app_fonts).context(RegistrySnafu)?;
                 let slot = self.worker.trial_slot(&self.render_fonts, &self.localizer, base).context(RenderSnafu)?;
                 PreviewSlot { slot, fonts, bare: None }
             }
@@ -366,7 +376,7 @@ impl Session {
         let assets = user_assets(&self.mode, &self.doc);
         // Posé avant chaque rendu : après une relance, le rejeu a pu l'écarter.
         let attempt = (|| -> std::result::Result<WidgetPreview, RenderError> {
-            preview.slot.set_widgets(&set, registry.clone())?;
+            preview.slot.set_widgets(set, registry.clone())?;
             let compiled = render_themed(&mut preview.slot, deck, tokens.as_ref(), assets)?;
             let diagnostics = compiled.warnings.iter().map(WidgetDiagnostic::of).collect();
             // Seul un widget d'élément a une boîte : celle de l'élément d'aperçu.

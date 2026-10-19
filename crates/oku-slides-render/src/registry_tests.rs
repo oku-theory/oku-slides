@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{Namespace, WidgetErrorKind, WidgetFile, WidgetRegistry, qualify};
+use oku_slides_core::{Namespace, WidgetErrorKind, WidgetFile, WidgetRegistry, kinds::base, qualify};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -35,7 +35,7 @@ fn probe_json_conversion_failure_returns_schema_unreadable() {
 }
 
 #[test]
-fn registry_from_probe_of_base_probe_equals_load_registry() {
+fn registry_from_probe_of_core_probe_equals_load_registry() {
     let json = probe_registry(&Fonts::default(), &PackSet::default()).unwrap();
     let from = registry_from_probe(json).unwrap();
     assert_that!(from).is_equal_to(load_registry(&Fonts::default(), &PackSet::default()).unwrap());
@@ -168,11 +168,10 @@ fn load_registry_two_packs_registers_both_namespaces() {
 }
 
 #[test]
-fn load_registry_pack_widget_named_like_a_base_widget_keeps_the_base_one() {
-    let set = PackSet::new(vec![pack("a1", "acme", "card")]).unwrap();
+fn load_registry_pack_card_and_base_card_coexist() {
+    let set = PackSet::new(vec![pack("a1", "acme", "card"), crate::base_pack_widgets().unwrap()]).unwrap();
     let r = load_registry(&fonts(), &set).unwrap();
-    assert_that!(r.get("card")).is_equal_to(crate::base_registry(&fonts()).unwrap().get("card"));
-    assert_that!(r.get("acme/card").map(|w| w.params.len())).is_equal_to(Some(1));
+    assert_that!((r.get("acme/card").is_some(), r.get(base::CARD).is_some())).is_equal_to((true, true));
 }
 
 #[test]
@@ -204,9 +203,9 @@ fn pack_set_new_two_packs_sharing_a_namespace_or_an_id_returns_duplicate_pack(
 }
 
 #[test]
-fn registries_get_empty_set_is_the_base_registry() {
-    let base = registries().get(&PackSet::default()).unwrap();
-    assert_that!(Arc::ptr_eq(&base, &crate::base_registry(&fonts()).unwrap())).is_true();
+fn registries_get_empty_set_is_the_core_registry() {
+    let core = registries().get(&PackSet::default()).unwrap();
+    assert_that!(Arc::ptr_eq(&core, &crate::core_registry(&fonts()).unwrap())).is_true();
 }
 
 #[test]
@@ -254,7 +253,7 @@ fn probe_file_whose_declared_name_differs_from_its_file_is_refused() {
 #[test]
 fn assemble_keeps_the_valid_widgets_and_sets_aside_the_broken_one() {
     let fonts = Fonts::default();
-    let base = crate::registry::base_probe(&fonts).unwrap();
+    let base = crate::registry::core_probe(&fonts).unwrap();
     let mut probes: BTreeMap<WidgetFile, FileProbe> = BTreeMap::from([
         (wf("quote"), probe_file(&fonts, &wf("quote"), QUOTE_FILE, None)),
         (wf("casse"), probe_file(&fonts, &wf("casse"), "#let widget = (", None)),
@@ -262,13 +261,13 @@ fn assemble_keeps_the_valid_widgets_and_sets_aside_the_broken_one() {
     let registry = assemble(&base, &ns("acme"), &mut probes).unwrap();
     assert_that!(registry.get("acme/quote")).is_some();
     assert_that!(registry.get("acme/casse")).is_none();
-    assert_that!(registry.get("card")).is_some();
+    assert_that!(registry.get("content")).is_some();
 }
 
 #[test]
 fn assemble_sets_aside_a_widget_whose_slot_accepts_an_unknown_kind() {
     let fonts = Fonts::default();
-    let base = crate::registry::base_probe(&fonts).unwrap();
+    let base = crate::registry::core_probe(&fonts).unwrap();
     let holder = "#import \"/oku-slides/lib.typ\": widget, params as p\n\
         #let widget = widget(\"holder\", params: (kids: p.slot(accepts: (\"acme/nope\",))), (args, ctx) => [])\n";
     let mut probes = BTreeMap::from([
@@ -285,7 +284,7 @@ fn assemble_sets_aside_a_widget_whose_slot_accepts_an_unknown_kind() {
 #[test]
 fn assemble_set_registers_every_namespace_and_sets_aside_the_broken_widget_of_its_pack() {
     let fonts = Fonts::default();
-    let base = crate::registry::base_probe(&fonts).unwrap();
+    let base = crate::registry::core_probe(&fonts).unwrap();
     let mut acme = BTreeMap::from([
         (wf("quote"), probe_file(&fonts, &wf("quote"), QUOTE_FILE, None)),
         (wf("casse"), probe_file(&fonts, &wf("casse"), "#let widget = (", None)),
@@ -296,13 +295,13 @@ fn assemble_set_registers_every_namespace_and_sets_aside_the_broken_widget_of_it
     assert_that!((registry.get("acme/quote").is_some(), registry.get("beta/quote").is_some()))
         .is_equal_to((true, true));
     assert_that!(registry.get("acme/casse")).is_none();
-    assert_that!(registry.get("card")).is_some();
+    assert_that!(registry.get("content")).is_some();
 }
 
 #[test]
 fn assemble_set_sets_aside_the_culprit_in_the_pack_that_holds_it() {
     let fonts = Fonts::default();
-    let base = crate::registry::base_probe(&fonts).unwrap();
+    let base = crate::registry::core_probe(&fonts).unwrap();
     let holder = "#import \"/oku-slides/lib.typ\": widget, params as p\n\
         #let widget = widget(\"holder\", params: (kids: p.slot(accepts: (\"acme/nope\",))), (args, ctx) => [])\n";
     let mut acme = BTreeMap::from([(wf("holder"), probe_file(&fonts, &wf("holder"), holder, None))]);

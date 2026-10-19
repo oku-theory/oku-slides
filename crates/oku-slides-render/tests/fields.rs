@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use oku_slides_core::Namespace;
 use oku_slides_core::{Deck, WidgetFile};
-use oku_slides_render::{FieldBox, FieldSide, Fonts, PackSet, PackWidgets, Renderer, load_registry};
+use oku_slides_render::{FieldBox, FieldSide, Fonts, PackSet, PackWidgets, load_registry};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -19,7 +19,7 @@ fn roadmap_json() -> serde_json::Value {
 
 fn render(deck: serde_json::Value) -> Vec<FieldBox> {
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = common::renderer();
     r.set_theme(common::theme_tokens(common::theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).layout().fields.clone()
 }
@@ -127,10 +127,10 @@ fn fields_stack_with_empty_markers_keeps_the_stack_height() {
     let set = PackSet::new(vec![PackWidgets::new("duo", Namespace::parse("duo").unwrap(), files).unwrap()])
         .unwrap_or_else(|e| panic!("{e}"));
     let registry = Arc::new(load_registry(&Fonts::default(), &set).unwrap());
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_widgets(&set, registry).unwrap();
     let deck = json!({
-        "version": 6, "params": { "title": "T" },
+        "version": oku_slides_core::DECK_VERSION, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
             { "id": "d", "kind": "duo/duo", "params": { "b": "Texte" } },
             { "id": "o", "kind": "duo/solo", "params": { "b": "Texte" } }

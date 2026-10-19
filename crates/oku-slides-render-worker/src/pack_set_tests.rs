@@ -4,7 +4,7 @@ use std::sync::Arc;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, base_registry};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, core_registry};
 use speculoos::prelude::*;
 
 use super::*;
@@ -56,7 +56,7 @@ fn set_widgets_two_packs_renders_both_namespaces() {
     let set = PackSet::new(vec![test_pack("beta"), test_pack("acme")]).unwrap();
     let registry = w.registry_of(&set).unwrap();
     let mut slot =
-        w.slot(&Fonts::default(), &Localizer::new(Some("fr")), base_registry(&Fonts::default()).unwrap()).unwrap();
+        w.slot(&Fonts::default(), &Localizer::new(Some("fr")), core_registry(&Fonts::default()).unwrap()).unwrap();
     slot.set_widgets(&set, registry).unwrap();
     let compiled = slot.render(&deck_with(&["acme", "beta"]), &BTreeMap::new()).unwrap();
     let mut ids: Vec<String> = compiled.layout().boxes.iter().map(|b| b.id.clone()).collect();
@@ -83,7 +83,7 @@ fn registry_of_same_set_returns_the_same_arc_and_lists_every_pack() {
 #[test]
 fn registry_of_empty_set_is_the_base_registry() {
     let registry = worker().registry_of(&PackSet::default()).unwrap();
-    let base = base_registry(&Fonts::default()).unwrap();
+    let base = core_registry(&Fonts::default()).unwrap();
     assert_that!(&*registry).is_equal_to(&*base);
 }
 
@@ -145,7 +145,7 @@ fn render_looping(packs: Vec<PackWidgets>) -> (RenderErrorKind, bool, bool) {
     let set = PackSet::new(packs.into_iter().chain([looping.clone()]).collect()).unwrap();
     let registry = w.registry_of(&set).unwrap();
     let mut slot =
-        w.slot(&Fonts::default(), &Localizer::new(Some("fr")), base_registry(&Fonts::default()).unwrap()).unwrap();
+        w.slot(&Fonts::default(), &Localizer::new(Some("fr")), core_registry(&Fonts::default()).unwrap()).unwrap();
     slot.set_widgets(&set, registry).unwrap();
     let kind = slot.render(&looping_deck(), &BTreeMap::new()).unwrap_err().kind();
     (kind, w.is_faulty(&looping), w.is_faulty(&acme))
@@ -161,4 +161,19 @@ fn bounded_failure_with_two_packs_marks_none_faulty() {
 fn bounded_failure_with_one_pack_marks_it_faulty() {
     let (kind, looping, acme) = render_looping(vec![]);
     assert_that!((kind, looping, acme)).is_equal_to((RenderErrorKind::Timeout, true, false));
+}
+
+/// Le widget `holder` : un slot qui n'accepte que des textes du pack `base`.
+const HOLDER_OF_BASE_TEXT: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("holder", params: (kids: p.slot(accepts: ("base/text",))), (args, ctx) => [])
+"#;
+
+#[test]
+fn probe_pack_with_a_slot_accepting_base_text_keeps_the_widget_valid() {
+    let w = worker();
+    let pack = PackWidgets::new("acme", ns("acme"), files(&[("holder", HOLDER_OF_BASE_TEXT)])).unwrap();
+    let probe = w.probe_pack(&pack).unwrap();
+    let holder = oku_slides_core::WidgetFile::parse("holder").unwrap();
+    assert_that!((probe.files[&holder].is_valid(), probe.registry.get("acme/holder").is_some()))
+        .is_equal_to((true, true));
 }

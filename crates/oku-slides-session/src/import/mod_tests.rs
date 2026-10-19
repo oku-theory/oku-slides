@@ -1,4 +1,4 @@
-use oku_slides_core::{PackManifest, PackPin, PackScope, ThemeManifest};
+use oku_slides_core::{PackManifest, PackPin, PackScope, ThemeManifest, kinds};
 use speculoos::prelude::*;
 
 use super::*;
@@ -57,7 +57,7 @@ fn import_retrofit_keeps_the_target_library_pack_and_plans_its_child() {
     assert_that!(r.clone()).is_equal_to(PackPin {
         id: DEFAULT_PACK,
         version: target.version.clone(),
-        requires: vec![],
+        requires: target.manifest.requires.clone(),
     });
     assert_that!(imported.sources.packs[&r.version]).is_equal_to(&target.files);
     // Le pack enfant n'existe pas encore : l'état sait seulement quelle version il prendra.
@@ -239,7 +239,36 @@ fn hifi_import_pins_generated_pack_under_deck() {
     let data = fresh_dir("oku-slides-import-hifi-deck-pack-");
     let imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
     let pinned: Vec<String> = imported.sources.deck().widgets.keys().map(ToString::to_string).collect();
-    assert_that!(pinned).is_equal_to(vec!["deck".to_owned()]);
+    assert_that!(pinned).is_equal_to(vec!["base".to_owned(), "deck".to_owned()]);
     let kinds = imported.sources.deck().slides.iter().map(|s| s.kind.as_str());
     assert_that!(kinds.clone().count() > 0 && kinds.into_iter().all(|k| k.starts_with("deck/"))).is_true();
+}
+
+#[test]
+fn hifi_import_pins_the_builtin_base_before_the_deck_pack() {
+    let data = fresh_dir("oku-slides-import-hifi-base-");
+    let imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
+    let pins: Vec<String> = imported.sources.deck().widgets.keys().map(ToString::to_string).collect();
+    let shape = imported.widgets.registry.get(kinds::base::SHAPE).is_some();
+    assert_that!((pins, shape)).is_equal_to((vec!["base".into(), "deck".into()], true));
+}
+
+/// Un pack `acme` de la bibliothèque, sans besoins, au seul modèle `texte` d'Essentiel.
+fn acme_without_base(data: &std::path::Path) {
+    let essentiel = crate::test_support::builtin(DEFAULT_PACK);
+    let texte = essentiel.manifest.templates.iter().find(|t| t.id == "texte").cloned().unwrap();
+    let acme =
+        PackManifest { templates: vec![texte], ..crate::test_support::manifest_ns(uuid::Uuid::new_v4(), "acme", &[]) };
+    let library = PackLibrary::user(&platform(settings_on(data)));
+    crate::test_support::add_version(&library, &acme, &[]);
+}
+
+#[test]
+fn retrofit_onto_a_library_pack_without_base_pins_base() {
+    let data = fresh_dir("oku-slides-import-retrofit-acme-");
+    acme_without_base(data.path());
+    let imported = import_minimal(data.path(), retrofit("acme", None)).unwrap();
+    let deck = imported.sources.deck();
+    assert_that!(deck.widgets.contains_key(&kinds::base::namespace())).is_true();
+    assert_that!(oku_slides_core::validate(deck, &imported.widgets.registry, None).is_empty()).is_true();
 }

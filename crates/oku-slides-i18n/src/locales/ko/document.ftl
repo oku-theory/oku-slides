@@ -18,6 +18,7 @@ diagnostic-hint = 힌트: { $hint }
 render-chart-failed = 차트를 그릴 수 없음
 
 registry-bad-pack-id = 잘못된 템플릿 팩 식별자: { $id }
+registry-base-pack-broken = 기본 제공 위젯 팩이 손상되었습니다({ $file }). 앱을 다시 설치하세요.
 registry-duplicate-pack = 프레젠테이션의 위젯 팩 두 개가 { $pack }을(를) 공유합니다.
 registry-compile = 템플릿 팩의 위젯을 컴파일할 수 없습니다
 registry-missing = 템플릿 팩이 위젯을 선언하지 않았습니다

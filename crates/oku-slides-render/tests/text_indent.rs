@@ -1,10 +1,13 @@
 //! Retraits d'un texte (`style.indent`, t-863) : marge gauche des
 //! paragraphes et décalage de leur première ligne, puce suspendue.
 
+mod common;
+
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_render::{Compiled, Fonts, Renderer};
+use oku_slides_core::kinds::base;
+use oku_slides_render::Compiled;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
@@ -18,10 +21,10 @@ fn compile(style: Value, body: Value) -> Compiled {
     }
     let d = json!({ "tokens": { "component": { "list": { "marker": "•", "marker-color": "#00ff00" } } },
         "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [
-            { "id": "t", "kind": "text", "frame": { "x": 100, "y": 100, "w": 800, "h": 400 },
+            { "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 800, "h": 400 },
               "style": style, "params": { "body": body } }] } }] });
     let deck = Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"));
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = common::renderer();
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 

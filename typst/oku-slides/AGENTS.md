@@ -8,6 +8,8 @@
 - Ensure an empty field never changes layout, so export output stays identical. (spec:2026-09-28-champs-editables-design)
 - Emit list items as enum.item and list.item, never one enum or list per paragraph. (t-173)
 - When shipping a font for a new script, add it to script-fallback in tokens.typ and to the issue_0176 test. (t-177)
+- Declare zone sizing and typography in the widget schema (grow, typography); never test a kind name in the core library. (plan:2026-10-18-packs-lot2-base)
+- Append the new base version to packs/base/versions.txt whenever a file of packs/base changes. (plan:2026-10-18-packs-lot2-base)
 
 ## Pitfalls
 

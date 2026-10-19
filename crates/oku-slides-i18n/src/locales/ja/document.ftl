@@ -17,6 +17,7 @@ diagnostic-hint = ヒント：{ $hint }
 render-chart-failed = グラフを描画できませんでした
 
 registry-bad-pack-id = テンプレートパックの識別子が無効です: { $id }
+registry-base-pack-broken = 組み込みのウィジェットパックが破損しています ({ $file })。アプリを再インストールしてください。
 registry-duplicate-pack = プレゼンテーションの2つのウィジェットパックが { $pack } を共有しています。
 registry-compile = テンプレートパックのウィジェットをコンパイルできませんでした
 registry-missing = テンプレートパックがウィジェットを宣言していません

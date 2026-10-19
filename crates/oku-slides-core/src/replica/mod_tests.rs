@@ -1,3 +1,4 @@
+use crate::kinds::base;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -116,7 +117,7 @@ fn concurrent_first_element_on_empty_slide_keeps_both() {
     let deck = roadmap();
     // `s-constat` (`content`) n'a pas d'élément libre : son slot `elements` est vide.
     let empty = deck.slide_index("s-constat").unwrap();
-    let mut donor = crate::Element::new("x", "shape");
+    let mut donor = crate::Element::new("x", base::SHAPE);
     donor.frame = Some(crate::Frame { x: 0.0, y: 0.0, w: 10.0, h: 10.0 });
     let (mut a, mut b) = peers(&deck);
     let (mut da, mut db) = (deck.clone(), deck.clone());
@@ -269,7 +270,7 @@ fn changing_element_kind_from_card_to_text_loses_title_and_kicker() {
     let mut edited = deck.clone();
     let slide = edited.slides.iter_mut().find(|s| s.id == "s-priorites").unwrap();
     let el = slot_mut(slide, "blocks").iter_mut().find(|e| e.id == "c1").unwrap();
-    el.kind = "text".into();
+    el.kind = base::TEXT.into();
     el.params.remove("title");
     el.params.remove("kicker");
     r.apply(&edited, "carte en texte", None).unwrap();
@@ -358,7 +359,7 @@ fn array_of_foreign_objects_round_trips_unchanged() {
     // Rien ne se perd : un tableau d'objets qui ne sont pas des paragraphes,
     // sur un paramètre inconnu comme sur un paramètre `rich`, reste tel quel.
     let deck: Deck = serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "content", "params": {
-        "blocks": [{ "id": "t", "kind": "text", "params": { "body": [{ "x": 1 }], "data": [{ "x": 1 }] } }]
+        "blocks": [{ "id": "t", "kind": "base/text", "params": { "body": [{ "x": 1 }], "data": [{ "x": 1 }] } }]
     } }] }))
     .unwrap();
     let r = DeckReplica::new(&deck, registry()).unwrap();
@@ -466,7 +467,7 @@ fn slot_mut<'a>(s: &'a mut crate::Slide, name: &str) -> &'a mut Vec<crate::Eleme
 
 #[test]
 fn reconcile_new_card_creates_its_text_params_before_any_value() {
-    let r = DeckReplica::new(&roadmap_with_block(Element::new("carte", "card")), registry()).unwrap();
+    let r = DeckReplica::new(&roadmap_with_block(Element::new("carte", base::CARD)), registry()).unwrap();
     let params = block_params(&r, "carte");
     for key in ["kicker", "title"] {
         assert_that!(matches!(params.get(key), Some(ValueOrContainer::Container(loro::Container::Text(_))))).is_true();
@@ -483,7 +484,7 @@ fn reconcile_new_card_creates_its_text_params_before_any_value() {
 
 #[test]
 fn concurrent_first_edit_of_card_title_merges_both() {
-    let deck = roadmap_with_block(Element::new("carte", "card"));
+    let deck = roadmap_with_block(Element::new("carte", base::CARD));
     let (mut a, mut b) = peers(&deck);
     a.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Alpha"))]), "A", None).unwrap();
     b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Bravo"))]), "B", None).unwrap();
@@ -494,7 +495,7 @@ fn concurrent_first_edit_of_card_title_merges_both() {
 
 #[test]
 fn concurrent_edit_of_title_and_body_of_one_card_keeps_both() {
-    let deck = roadmap_with_block(Element::new("carte", "card"));
+    let deck = roadmap_with_block(Element::new("carte", base::CARD));
     let (mut a, mut b) = peers(&deck);
     let body = json!([{ "runs": [{ "t": "Corps" }] }]);
     a.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre"))]), "A", None).unwrap();
@@ -522,18 +523,18 @@ fn read_rich_param_without_registry_gives_paragraphs() {
 
 #[test]
 fn concurrent_set_kind_and_param_edit_keep_the_param() {
-    let mut card = Element::new("carte", "card");
+    let mut card = Element::new("carte", base::CARD);
     card.params.set("title", ParamValue::Text("Titre".into()));
     let deck = roadmap_with_block(card);
     let (mut a, mut b) = peers(&deck);
-    let to_text = Op::SetKind { target: target("s-constat", "carte"), kind: "text".into() };
+    let to_text = Op::SetKind { target: target("s-constat", "carte"), kind: base::TEXT.into() };
     a.apply(&with_ops(&deck, vec![to_text]), "A", None).unwrap();
     b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre révisé"))]), "B", None)
         .unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let el = block(&merged, "carte");
-    assert_that!(el.kind.as_str()).is_equal_to("text");
+    assert_that!(el.kind.as_str()).is_equal_to(base::TEXT);
     assert_that!(el.params.text("title")).is_equal_to(Some("Titre révisé"));
     let issues = crate::validate(&merged, &crate::test_registry::registry(), None);
     assert_that!(issues.iter().any(|i| i.message.id() == "issue-unknown-param")).is_true();
@@ -543,14 +544,14 @@ fn concurrent_set_kind_and_param_edit_keep_the_param() {
 /// retiré par le changement de widget, la première édition concurrente survit.
 #[test]
 fn concurrent_set_kind_and_first_param_edit_keep_the_param() {
-    let deck = roadmap_with_block(Element::new("carte", "card"));
+    let deck = roadmap_with_block(Element::new("carte", base::CARD));
     let (mut a, mut b) = peers(&deck);
-    let to_text = Op::SetKind { target: target("s-constat", "carte"), kind: "text".into() };
+    let to_text = Op::SetKind { target: target("s-constat", "carte"), kind: base::TEXT.into() };
     a.apply(&with_ops(&deck, vec![to_text]), "A", None).unwrap();
     b.apply(&with_ops(&deck, vec![set_param("s-constat", "carte", "title", json!("Titre"))]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
-    assert_that!(block(&merged, "carte").kind.as_str()).is_equal_to("text");
+    assert_that!(block(&merged, "carte").kind.as_str()).is_equal_to(base::TEXT);
     assert_that!(block(&merged, "carte").params.text("title")).is_equal_to(Some("Titre"));
 }
 
@@ -566,7 +567,7 @@ fn round_trip_roadmap_is_identical() {
 
 #[test]
 fn concurrent_edit_of_image_fit_keeps_one_whole_value() {
-    let mut image = Element::new("img", "image");
+    let mut image = Element::new("img", base::IMAGE);
     image.params.set("fit", ParamValue::Text("cover".into()));
     let deck = roadmap_with_block(image);
     let (mut a, mut b) = peers(&deck);
@@ -602,17 +603,18 @@ fn concurrent_add_element_into_one_slot_keeps_both() {
 
 #[test]
 fn concurrent_add_element_and_set_kind_of_owner_keeps_the_child() {
-    let deck = roadmap_with_block(Element::new("pile", "stack"));
+    let deck = roadmap_with_block(Element::new("pile", base::STACK));
     let (mut a, mut b) = peers(&deck);
     let slot = SlotRef { owner: target("s-constat", "pile"), param: "children".into() };
     let add = Op::AddElement { slot, index: None, defaults: false, element: Element::text("enfant", vec![]) };
     a.apply(&with_ops(&deck, vec![add]), "A", None).unwrap();
-    let to_canvas = Op::SetKind { target: target("s-constat", "pile"), kind: "canvas".into() };
-    b.apply(&with_ops(&deck, vec![to_canvas]), "B", None).unwrap();
+    let to_frame_box =
+        Op::SetKind { target: target("s-constat", "pile"), kind: crate::test_registry::FRAME_BOX_KIND.into() };
+    b.apply(&with_ops(&deck, vec![to_frame_box]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let merged = a.deck().0;
     let pile = block(&merged, "pile");
-    assert_that!(pile.kind.as_str()).is_equal_to("canvas");
+    assert_that!(pile.kind.as_str()).is_equal_to(crate::test_registry::FRAME_BOX_KIND);
     let children: Vec<&str> = pile.params.slot("children").unwrap_or_default().iter().map(|e| e.id.as_str()).collect();
     assert_that!(children).is_equal_to(vec!["enfant"]);
 }
@@ -632,14 +634,14 @@ fn max_slot_depth(deck: &Deck) -> Option<usize> {
 /// contrainte.
 #[test]
 fn read_deeply_nested_slots_stops_at_the_depth_bound() {
-    let deck = roadmap_with_block(Element::new("pile-0", "stack"));
+    let deck = roadmap_with_block(Element::new("pile-0", base::STACK));
     let r = DeckReplica::new(&deck, registry()).unwrap();
     let (tree, mut prev) = tree::node_of(&r.doc, "s-constat", "pile-0");
     for i in 1..HOSTILE_SLOT_DEPTH {
         let node = tree.create(loro::TreeParentId::Node(prev)).unwrap();
         let meta = tree.get_meta(node).unwrap();
         meta.insert("id", format!("pile-{i}")).unwrap();
-        meta.insert("kind", "stack").unwrap();
+        meta.insert("kind", "base/stack").unwrap();
         let slot = meta.ensure_mergeable_map(schema::SLOT).unwrap();
         slot.insert(&prev.to_string(), "children").unwrap();
         prev = node;
@@ -663,7 +665,7 @@ fn read_deeply_nested_slots_stops_at_the_depth_bound() {
 /// La profondeur que les ops permettent se relit en entier.
 #[test]
 fn round_trip_elements_nested_to_the_slot_bound_is_identical() {
-    let mut deck = roadmap_with_block(Element::new("pile-0", "stack"));
+    let mut deck = roadmap_with_block(Element::new("pile-0", base::STACK));
     for i in 1..crate::MAX_SLOT_DEPTH {
         let slot = SlotRef { owner: target("s-constat", &format!("pile-{}", i - 1)), param: "children".into() };
         deck = with_ops(
@@ -672,7 +674,7 @@ fn round_trip_elements_nested_to_the_slot_bound_is_identical() {
                 slot,
                 index: None,
                 defaults: false,
-                element: Element::new(format!("pile-{i}"), "stack"),
+                element: Element::new(format!("pile-{i}"), base::STACK),
             }],
         );
     }

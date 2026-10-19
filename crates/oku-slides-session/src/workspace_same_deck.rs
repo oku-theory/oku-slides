@@ -41,14 +41,18 @@ impl Workspace {
 
     /// De quoi lire `path` hors du verrou ; `None` : déjà ouvert tel quel,
     /// rien à lire.
-    /// Le registre de base suffit : seule l'identité du deck est lue.
+    /// Le registre intégré suffit : seule l'identité du deck est lue, d'un replica qui connaît `base`.
     fn reader(ws: &Mutex<Self>, path: &Path) -> Result<Option<(Storage, SourceLimits, Arc<WidgetRegistry>)>> {
-        let w = Self::lock(ws);
-        if w.tab_with_path(path).is_some() {
-            return Ok(None);
-        }
-        let registry = oku_slides_render::base_registry(&w.fonts).context(RegistrySnafu)?;
-        Ok(Some((w.platform.storage.clone(), source_limits(&w.platform.settings), registry)))
+        let (storage, limits, fonts) = {
+            let w = Self::lock(ws);
+            if w.tab_with_path(path).is_some() {
+                return Ok(None);
+            }
+            (w.platform.storage.clone(), source_limits(&w.platform.settings), w.fonts.clone())
+        };
+        // Hors du verrou : son premier appel sonde les widgets intégrés.
+        let registry = oku_slides_render::builtin_registry(&fonts).context(RegistrySnafu)?;
+        Ok(Some((storage, limits, registry)))
     }
 
     /// L'onglet non vierge qui tient le deck `uid` sous un autre fichier que

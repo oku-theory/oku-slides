@@ -1,0 +1,10 @@
+{
+  "id": "3b1f6c2e-5a4d-4e8b-9c71-0d2e4f6a8b13",
+  "name": "Base",
+  "namespace": "base",
+  "requires": [],
+  "description": "Les widgets de base : texte, carte, image, forme, graphique, tableau, pile.",
+  "parent": null,
+  "created": "2026-10-18T00:00:00Z",
+  "templates": []
+}

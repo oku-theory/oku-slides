@@ -2,7 +2,7 @@
 //! panneau de la cible (valeurs du deck).
 
 use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn, SubColumn, SubList};
-use oku_slides_core::{LIST_ITEMS_MAX, ListSpec, ParamSchema, ParamType, ParamValue, default_items};
+use oku_slides_core::{LIST_ITEMS_MAX, ListSpec, ParamSchema, ParamType, ParamValue, default_items, kinds, split_kind};
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
 
@@ -12,22 +12,35 @@ pub(crate) fn label(p: &ParamSchema) -> String {
     p.label.clone().unwrap_or_else(|| p.name.clone())
 }
 
-/// Le nom montré du widget `kind` : son `label`, sinon le nom traduit d'un widget de base
-/// (`session-widget-kind-<kind>`), sinon `kind` tel quel.
+/// La clé Fluent d'un widget du noyau ou du pack `base` ; `None` pour tout autre pack.
+fn widget_key(kind: &str) -> Option<String> {
+    match split_kind(kind) {
+        None => Some(kind.to_owned()),
+        Some((ns, name)) if kinds::base::ALL.contains(&kind) => Some(format!("{ns}-{name}")),
+        Some(_) => None,
+    }
+}
+
+/// Le nom montré du widget `kind` : son `label`, sinon le nom traduit d'un widget du noyau ou
+/// de `base` (`session-widget-kind-<clé>`, voir [`widget_key`]), sinon `kind` tel quel.
 pub(crate) fn kind_name(kind: &str, label: Option<&str>, l: &Localizer) -> String {
     match label {
         Some(label) => label.to_owned(),
-        None => l.try_tr(&format!("session-widget-kind-{kind}")).unwrap_or_else(|| kind.to_owned()),
+        None => widget_key(kind)
+            .and_then(|k| l.try_tr(&format!("session-widget-kind-{k}")))
+            .unwrap_or_else(|| kind.to_owned()),
     }
 }
 
 /// Le nom montré du paramètre `p` du widget `kind` : son `label`, sinon le nom traduit d'un
-/// paramètre de widget de base (`session-param-<kind>-<nom>`, propre à chaque widget : `layout`
-/// n'a pas les mêmes valeurs dans `content` et `stack`), sinon son nom tel quel.
+/// paramètre d'un widget du noyau ou de `base` (`session-param-<clé>-<nom>`, propre à chaque
+/// widget : `layout` n'a pas les mêmes valeurs dans `content` et `base/stack`), sinon son nom tel quel.
 pub(crate) fn param_name(kind: &str, p: &ParamSchema, l: &Localizer) -> String {
     match &p.label {
         Some(label) => label.clone(),
-        None => l.try_tr(&format!("session-param-{kind}-{}", p.name)).unwrap_or_else(|| p.name.clone()),
+        None => widget_key(kind)
+            .and_then(|k| l.try_tr(&format!("session-param-{k}-{}", p.name)))
+            .unwrap_or_else(|| p.name.clone()),
     }
 }
 

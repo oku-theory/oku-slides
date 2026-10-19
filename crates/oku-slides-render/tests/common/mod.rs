@@ -7,8 +7,10 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, Namespace, PackFiles, ThemeRef, WidgetFile};
-use oku_slides_render::{Compiled, Fonts, Layout, PackSet, PackWidgets, Renderer, load_registry};
+use oku_slides_core::{DECK_VERSION, Deck, Namespace, PackFiles, ThemeRef, WidgetFile, kinds::base};
+use oku_slides_render::{
+    Compiled, ElementBox, Fonts, Layout, PackSet, PackWidgets, Renderer, base_pack_widgets, load_registry,
+};
 use serde_json::json;
 
 /// Source du widget de pack `frise` : liste `etapes` (date, texte), quatre étapes par défaut.
@@ -45,28 +47,70 @@ pub fn frise_pack() -> PackWidgets {
     pack("frise-test", &[("frise", FRISE_TEST)])
 }
 
-/// Un rendu aux widgets de base et à ceux de `set`.
+/// Le kind d'un élément image.
+pub const IMAGE_KIND: &str = base::IMAGE;
+/// Le kind d'un élément texte.
+pub const TEXT_KIND: &str = base::TEXT;
+
+/// Un rendu aux widgets intégrés : le noyau et le pack `base`.
+pub fn renderer() -> Renderer {
+    Renderer::with_builtins(Fonts::default()).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Un rendu aux widgets intégrés et à ceux de `set`.
 pub fn renderer_with(set: &PackSet) -> Renderer {
-    let registry = Arc::new(load_registry(&Fonts::default(), set).unwrap_or_else(|e| panic!("{e}")));
+    let mut packs = set.packs().to_vec();
+    packs.push(base_pack_widgets().unwrap_or_else(|e| panic!("{e}")));
+    let set = PackSet::new(packs).unwrap_or_else(|e| panic!("{e}"));
+    let registry = Arc::new(load_registry(&Fonts::default(), &set).unwrap_or_else(|e| panic!("{e}")));
     let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
-    r.set_widgets(set, registry).unwrap_or_else(|e| panic!("{e}"));
+    r.set_widgets(&set, registry).unwrap_or_else(|e| panic!("{e}"));
     r
 }
 
-/// Rend un deck d'une slide `content` dont les blocs sont `blocks`, avec les widgets de `pack`.
-pub fn compile_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Compiled {
-    let mut r = renderer_with(&PackSet::new(vec![pack.clone()]).unwrap_or_else(|e| panic!("{e}")));
+/// Rend un deck d'une slide `content` dont les blocs sont `blocks`, avec les widgets intégrés et `packs`.
+pub fn compile_with_packs(packs: &[PackWidgets], blocks: serde_json::Value) -> Compiled {
+    let mut r = renderer_with(&PackSet::new(packs.to_vec()).unwrap_or_else(|e| panic!("{e}")));
     let deck = json!({
-        "version": 6, "params": { "title": "T" },
+        "version": DECK_VERSION, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }]
     });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 
+/// Comme [`compile_with_packs`], pour la seule mise en page.
+pub fn render_with_packs(packs: &[PackWidgets], blocks: serde_json::Value) -> Layout {
+    compile_with_packs(packs, blocks).layout().clone()
+}
+
+/// Rend un deck d'une slide `content` dont les blocs sont `blocks`, avec les widgets de `pack`.
+pub fn compile_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Compiled {
+    compile_with_packs(std::slice::from_ref(pack), blocks)
+}
+
 /// Comme [`compile_with_pack`], pour la seule mise en page.
 pub fn render_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Layout {
-    compile_with_pack(pack, blocks).layout().clone()
+    render_with_packs(std::slice::from_ref(pack), blocks)
+}
+
+/// Un deck d'une slide `blank` dont le slot `elements` tient le seul `element`.
+pub fn blank_with_element(element: serde_json::Value) -> Deck {
+    let deck = json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [element] } }] });
+    Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"))
+}
+
+/// La boîte de l'élément `id` sur la page 1.
+pub fn box_of<'a>(layout: &'a Layout, id: &str) -> &'a ElementBox {
+    layout.boxes_on(1).iter().find(|b| b.id == id).unwrap_or_else(|| panic!("pas de boîte {id} en page 1"))
+}
+
+/// La taille `size.<name>` des jetons par défaut, en pt.
+pub fn token_size(name: &str) -> f64 {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../typst/oku-slides/src/default-tokens.json");
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} illisible : {e}"));
+    let tokens: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} invalide : {e}"));
+    tokens["size"][name].as_f64().unwrap_or_else(|| panic!("size.{name} absent"))
 }
 
 /// Le `theme.json` d'un thème intégré (`papier`, `pro`), lu dans la bibliothèque Typst.

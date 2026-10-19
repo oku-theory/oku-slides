@@ -6,30 +6,31 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_render::{ElementBox, Fonts, Layout, Renderer};
+use oku_slides_core::kinds::base;
+use oku_slides_render::{ElementBox, Layout};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 fn table(n: usize) -> Value {
     let mut source = vec![json!(["Pays", "Ventes"])];
     source.extend((0..n).map(|i| json!([format!("P{i}"), i])));
-    json!({ "id": "t", "kind": "table", "params": { "data": { "dataset": { "source": source } } } })
+    json!({ "id": "t", "kind": base::TABLE, "params": { "data": { "dataset": { "source": source } } } })
 }
 
 fn chart() -> Value {
-    json!({ "id": "g", "kind": "chart", "params": { "option": {
+    json!({ "id": "g", "kind": base::CHART, "params": { "option": {
         "dataset": { "source": [["Mois", "Ventes"], ["Janvier", 3], ["Février", 5]] },
         "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } })
 }
 
 fn text() -> Value {
-    json!({ "id": "x", "kind": "text", "params": { "body": "Un point à retenir" } })
+    json!({ "id": "x", "kind": base::TEXT, "params": { "body": "Un point à retenir" } })
 }
 
 fn layout(blocks: Value) -> Layout {
     let deck = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": blocks } }] });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = crate::common::renderer();
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).layout().clone()
 }
 

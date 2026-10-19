@@ -3,6 +3,7 @@
 
 mod common;
 
+use oku_slides_core::kinds::base;
 use std::sync::Arc;
 
 use oku_slides_core::{
@@ -53,7 +54,7 @@ fn remove(id: &str) -> Op {
 
 /// `deck` et un `stack` d'id `id` à la fin de `blocks` de `s-constat`.
 fn with_pile(deck: Deck, id: &str) -> Deck {
-    with_ops(&deck, vec![add(None, "blocks", &Element::new(id, "stack"))])
+    with_ops(&deck, vec![add(None, "blocks", &Element::new(id, base::STACK))])
 }
 
 /// Les occurrences de `id` dans `s-constat`, à toutes les profondeurs.
@@ -156,7 +157,7 @@ fn concurrent_moves_of_one_element_to_two_places_agree() {
 #[test]
 fn concurrent_nest_and_reorder_keep_the_element_in_a_declared_slot() {
     let x: Element = ok(serde_json::from_value(
-        json!({ "id": "x", "kind": "text", "params": { "body": [{ "runs": [{ "t": "Texte x" }] }] } }),
+        json!({ "id": "x", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "Texte x" }] }] } }),
     ));
     let deck = with_ops(&with_pile(roadmap(), "pile"), vec![add(None, "blocks", &x)]);
     let blocks = |d: &Deck| -> Vec<String> {
@@ -455,7 +456,7 @@ fn move_then_removal_of_the_source_slide_keeps_the_peer_edit() {
 fn move_then_removal_of_the_source_slide_drops_a_removed_child() {
     let child = |id: &str| -> Element {
         ok(serde_json::from_value(
-            json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": id }] }] } }),
+            json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": id }] }] } }),
         ))
     };
     let deck = with_pile(roadmap(), "pile");

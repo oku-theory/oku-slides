@@ -2,7 +2,7 @@
   "id": "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10",
   "name": "Essentiel",
   "namespace": "essentiel",
-  "requires": [],
+  "requires": ["base"],
   "description": "Les mises en page de base : texte, cartes, colonnes, chapitres.",
   "parent": null,
   "created": "2026-10-01T00:00:00Z",
@@ -20,7 +20,7 @@
           "blocks": [
             {
               "id": "b",
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -68,7 +68,7 @@
           "blocks": [
             {
               "id": "c1",
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "Un",
                 "title": "Première",
@@ -86,7 +86,7 @@
             },
             {
               "id": "c2",
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "Deux",
                 "title": "Deuxième",
@@ -104,7 +104,7 @@
             },
             {
               "id": "c3",
-              "kind": "card",
+              "kind": "base/card",
               "params": {
                 "kicker": "Trois",
                 "title": "Troisième",
@@ -138,7 +138,7 @@
           "blocks": [
             {
               "id": "g",
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -169,7 +169,7 @@
             },
             {
               "id": "d",
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -215,7 +215,7 @@
           "blocks": [
             {
               "id": "q",
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -249,7 +249,7 @@
                 "font": "display",
                 "align": "center"
               },
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {
@@ -288,7 +288,7 @@
                 "fill": "surface",
                 "radius": "md"
               },
-              "kind": "shape"
+              "kind": "base/shape"
             },
             {
               "id": "t",
@@ -302,7 +302,7 @@
                 "size": "lead",
                 "font": "display"
               },
-              "kind": "text",
+              "kind": "base/text",
               "params": {
                 "body": [
                   {

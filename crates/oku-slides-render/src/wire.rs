@@ -63,6 +63,7 @@ impl WireError {
             RegistryInner::Schema { source, .. } => Self::RegistrySchema { message: source.to_string() },
             RegistryInner::RemoteSchema { message, .. } => Self::RegistrySchema { message: message.clone() },
             RegistryInner::Setup { source, .. } | RegistryInner::Worker { source, .. } => Self::from_render(source),
+            other @ RegistryInner::BasePack { .. } => Self::Setup { message: first_line(other) },
         }
     }
 
@@ -107,7 +108,7 @@ impl WireError {
 }
 
 /// Une ligne pour les variantes internes qui ne traversent pas le tube telles quelles.
-fn first_line(inner: &RenderInner) -> String {
+fn first_line(inner: &impl std::fmt::Display) -> String {
     inner.to_string().lines().next().unwrap_or_default().to_owned()
 }
 

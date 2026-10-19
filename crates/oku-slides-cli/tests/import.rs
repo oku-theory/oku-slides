@@ -11,7 +11,9 @@ use std::process::{Command, Output};
 use std::sync::Arc;
 
 use common::{Server, assert_success, files, fixtures, free_port, http, oku_slides, pptx, pptx_with, workdir};
-use oku_slides_core::{Namespace, PackManifest, PackScope, SourceBundle, SourceLimits, WidgetRegistry, validate};
+use oku_slides_core::{
+    Namespace, PackManifest, PackScope, SourceBundle, SourceLimits, WidgetRegistry, kinds, validate,
+};
 use oku_slides_session::{DEFAULT_PACK, GRID_PACK, PRO_THEME};
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -249,7 +251,11 @@ fn import_hifi_of_minimal_embeds_its_own_pack_and_theme_and_leaves_the_library_a
     assert_that!(deck.slides.len()).is_equal_to(3);
     let pack = deck.widgets.get(&Namespace::deck()).cloned().unwrap_or_else(|| panic!("deck sans pack"));
     let theme = deck.theme.clone().unwrap_or_else(|| panic!("deck sans thème"));
-    assert_that!(bundle.packs.keys().collect::<Vec<_>>()).is_equal_to(vec![&pack.version]);
+    // L'import épingle le pack `base` intégré, que le pack du deck requiert, et le sien.
+    let base = deck.widgets.get(&kinds::base::namespace()).cloned().unwrap_or_else(|| panic!("deck sans base"));
+    let mut versions = vec![&pack.version, &base.version];
+    versions.sort();
+    assert_that!(bundle.packs.keys().collect::<Vec<_>>()).is_equal_to(versions);
     assert_that!(bundle.themes.keys().collect::<Vec<_>>()).is_equal_to(vec![&theme.version]);
     assert_that!(pack.id).is_not_equal_to(DEFAULT_PACK);
     assert_that!(theme.id).is_not_equal_to(PRO_THEME);
@@ -274,7 +280,7 @@ fn import_hifi_of_alto_writes_a_reopenable_deck_with_its_images_and_report() {
     let pdf = dir.join("alto.oku-slides.pdf");
     assert_that!(stdout(&out)).starts_with(format!("{}: 8 slides, 8 pages, ", pdf.display()));
     let bundle = sources(&pdf);
-    assert_that!((bundle.deck().slides.len(), bundle.packs.len(), bundle.themes.len())).is_equal_to((8, 1, 1));
+    assert_that!((bundle.deck().slides.len(), bundle.packs.len(), bundle.themes.len())).is_equal_to((8, 2, 1));
     assert_that!(bundle.assets.is_empty()).is_false();
     assert_that!(stdout(&open_hifi(&dir, &pdf))).contains(": 8 slides, ");
     assert_that!(library_files(&dir)).is_empty();

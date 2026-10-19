@@ -1,6 +1,7 @@
 mod common;
 
 use common::registry;
+use oku_slides_core::kinds::base;
 use oku_slides_core::*;
 use oku_slides_i18n::{Localize, Localizer};
 use rstest::rstest;
@@ -266,7 +267,7 @@ fn set_param_shape_path_refused_returns_its_kind(#[case] value: Value, #[case] k
 #[test]
 fn add_element_shape_with_a_malformed_path_is_refused() {
     let mut deck = fixture();
-    let shape = element(json!({ "id": "e-chemin", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 },
+    let shape = element(json!({ "id": "e-chemin", "kind": "base/shape", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 },
         "params": { "shape": "path", "path": { "d": "M 0 0 L" } } }));
     let err = apply_err(&mut deck, add(slot(slide("s-libre"), "elements"), None, shape));
     assert_that!(err.value_reason()).is_equal_to(Some(ValueReason::Path));
@@ -364,7 +365,7 @@ fn set_param_choice_out_of_values_returns_choice_out_of_range() {
 #[case::negative(json!(-3))]
 fn set_param_number_out_of_bounds_returns_invalid_value(#[case] count: Value) {
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "content",
-        "params": { "blocks": [{ "id": "p", "kind": "stack" }] } }] }));
+        "params": { "blocks": [{ "id": "p", "kind": "base/stack" }] } }] }));
     let err = apply_err(&mut deck, set_param(at("s", "p"), "count", count));
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);
 }
@@ -434,9 +435,9 @@ fn set_kind_keeps_params() {
 #[test]
 fn set_kind_on_element_sets_the_kind() {
     let mut deck = fixture();
-    apply(&mut deck, Op::SetKind { target: at("s-constat", "b-points"), kind: "card".into() }).unwrap();
+    apply(&mut deck, Op::SetKind { target: at("s-constat", "b-points"), kind: base::CARD.into() }).unwrap();
     let e = deck.slide("s-constat").unwrap().locate("b-points").unwrap().element;
-    assert_that!(e.kind.as_str()).is_equal_to("card");
+    assert_that!(e.kind.as_str()).is_equal_to(base::CARD);
 }
 
 #[test]
@@ -458,8 +459,8 @@ fn set_kind_to_unknown_widget_returns_unknown_widget() {
 
 fn with_stack() -> Deck {
     deck(json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-        { "id": "p", "kind": "stack", "params": { "children": [
-            { "id": "a", "kind": "text" }, { "id": "b", "kind": "text" }
+        { "id": "p", "kind": "base/stack", "params": { "children": [
+            { "id": "a", "kind": "base/text" }, { "id": "b", "kind": "base/text" }
         ] } }
     ] } }] }))
 }
@@ -507,27 +508,27 @@ fn add_element_into_empty_slot_creates_it() {
     assert_that!(deck.slides[0].params.slot("elements").map(<[Element]>::len)).is_equal_to(Some(1));
 }
 
-/// Chaîne de `n` canvas imbriqués (`c0` ⊃ `c1` ⊃ …), `c0` dans `elements`.
-fn canvas_chain(n: usize) -> Deck {
+/// Chaîne de `n` `base/stack` imbriqués (`c0` ⊃ `c1` ⊃ …), `c0` dans `elements`.
+fn stack_chain(n: usize) -> Deck {
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "blank" }] }));
-    let canvas = |i: usize| {
-        let mut e = Element::new(format!("c{i}"), "canvas");
+    let stack = |i: usize| {
+        let mut e = Element::new(format!("c{i}"), base::STACK);
         e.frame = Some(Frame { x: 0.0, y: 0.0, w: 10.0, h: 10.0 });
         e
     };
-    apply(&mut deck, add(slot(slide("s"), "elements"), None, canvas(0))).unwrap_or_else(|e| panic!("canvas 0 : {e}"));
+    apply(&mut deck, add(slot(slide("s"), "elements"), None, stack(0))).unwrap_or_else(|e| panic!("stack 0 : {e}"));
     for i in 1..n {
-        let op = add(slot(at("s", &format!("c{}", i - 1)), "children"), None, canvas(i));
-        apply(&mut deck, op).unwrap_or_else(|e| panic!("canvas {i} : {e}"));
+        let op = add(slot(at("s", &format!("c{}", i - 1)), "children"), None, stack(i));
+        apply(&mut deck, op).unwrap_or_else(|e| panic!("stack {i} : {e}"));
     }
     deck
 }
 
 #[test]
 fn add_element_beyond_max_slot_depth_returns_invalid_value() {
-    let mut deck = canvas_chain(MAX_SLOT_DEPTH);
+    let mut deck = stack_chain(MAX_SLOT_DEPTH);
     let last = format!("c{}", MAX_SLOT_DEPTH - 1);
-    let err = apply_err(&mut deck, add(slot(at("s", &last), "children"), None, Element::new("trop", "canvas")));
+    let err = apply_err(&mut deck, add(slot(at("s", &last), "children"), None, Element::new("trop", base::STACK)));
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);
     assert_that!(err.to_string()).contains("nest too deeply");
 }
@@ -535,9 +536,9 @@ fn add_element_beyond_max_slot_depth_returns_invalid_value() {
 #[test]
 fn add_element_whose_subtree_exceeds_max_slot_depth_returns_invalid_value() {
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "blank" }] }));
-    let mut tree = json!({ "id": format!("c{MAX_SLOT_DEPTH}"), "kind": "canvas" });
+    let mut tree = json!({ "id": format!("c{MAX_SLOT_DEPTH}"), "kind": "base/stack" });
     for i in (0..MAX_SLOT_DEPTH).rev() {
-        tree = json!({ "id": format!("c{i}"), "kind": "canvas", "params": { "children": [tree] } });
+        tree = json!({ "id": format!("c{i}"), "kind": "base/stack", "params": { "children": [tree] } });
     }
     let err = apply_err(&mut deck, add(slot(slide("s"), "elements"), None, element(tree)));
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);
@@ -545,10 +546,10 @@ fn add_element_whose_subtree_exceeds_max_slot_depth_returns_invalid_value() {
 
 #[test]
 fn replace_element_with_too_deep_tree_returns_invalid_value() {
-    let mut deck = canvas_chain(2);
-    let mut tree = json!({ "id": "x", "kind": "canvas" });
+    let mut deck = stack_chain(2);
+    let mut tree = json!({ "id": "x", "kind": "base/stack" });
     for i in 0..MAX_SLOT_DEPTH {
-        tree = json!({ "id": format!("x{i}"), "kind": "canvas", "params": { "children": [tree] } });
+        tree = json!({ "id": format!("x{i}"), "kind": "base/stack", "params": { "children": [tree] } });
     }
     let mut e = element(tree);
     e.id = "c1".into();
@@ -559,9 +560,9 @@ fn replace_element_with_too_deep_tree_returns_invalid_value() {
 #[test]
 fn add_slide_with_too_deep_tree_returns_invalid_value() {
     let mut deck = fixture();
-    let mut tree = json!({ "id": "x", "kind": "canvas" });
+    let mut tree = json!({ "id": "x", "kind": "base/stack" });
     for i in 0..=MAX_SLOT_DEPTH {
-        tree = json!({ "id": format!("x{i}"), "kind": "canvas", "params": { "children": [tree] } });
+        tree = json!({ "id": format!("x{i}"), "kind": "base/stack", "params": { "children": [tree] } });
     }
     let s: Slide =
         serde_json::from_value(json!({ "id": "s-neuve", "kind": "blank", "params": { "elements": [tree] } })).unwrap();
@@ -589,18 +590,19 @@ fn add_element_into_undeclared_param_returns_unknown_param() {
 fn add_element_rejected_by_accepts_returns_slot_rejects() {
     let probe = json!({ "base": [
         { "name": "only-text", "category": "slide",
-          "params": [{ "name": "items", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
+          "params": [{ "name": "items", "type": "slot", "mode": "flow", "accepts": ["base/text"] }] },
+    ], "packs": [{ "namespace": "base", "widgets": [
         { "name": "text", "category": "element", "params": [{ "name": "body", "type": "rich" }] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "packs": [] });
+    ] }] });
     let registry = WidgetRegistry::from_probe(probe).unwrap();
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "only-text" }] }));
     let items = || slot(slide("s"), "items");
     add(items(), None, Element::text("t", vec![])).apply(&mut deck, &registry).unwrap();
     let before = deck.clone();
-    let err = add(items(), None, Element::new("f", "shape")).apply(&mut deck, &registry).unwrap_err();
+    let err = add(items(), None, Element::new("f", base::SHAPE)).apply(&mut deck, &registry).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::SlotRejects);
-    assert_that!(err.subject()).is_equal_to(Some("shape"));
+    assert_that!(err.subject()).is_equal_to(Some(base::SHAPE));
     assert_that!(deck).is_equal_to(before);
 }
 
@@ -629,7 +631,8 @@ fn add_element_duplicate_id_returns_duplicate_id() {
 #[test]
 fn add_element_with_owner_missing_returns_element_not_found() {
     let mut deck = fixture();
-    let err = apply_err(&mut deck, add(slot(at("s-constat", "absent"), "children"), None, Element::new("n", "text")));
+    let err =
+        apply_err(&mut deck, add(slot(at("s-constat", "absent"), "children"), None, Element::new("n", base::TEXT)));
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ElementNotFound);
 }
 
@@ -637,12 +640,12 @@ fn add_element_with_owner_missing_returns_element_not_found() {
 
 #[test]
 fn remove_element_with_duplicate_owner_ids_removes_the_located_element() {
-    // Deux canvas `g` : l'élément `t` est dans le second, à l'index 1, alors
+    // Deux stacks `g` : l'élément `t` est dans le second, à l'index 1, alors
     // que le premier `g` n'a qu'un enfant.
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "content", "params": {
-        "blocks": [{ "id": "g", "kind": "canvas", "params": { "children": [{ "id": "z", "kind": "text" }] } }],
-        "elements": [{ "id": "g", "kind": "canvas", "params": { "children": [
-            { "id": "y", "kind": "text" }, { "id": "t", "kind": "text" }
+        "blocks": [{ "id": "g", "kind": "base/stack", "params": { "children": [{ "id": "z", "kind": "base/text" }] } }],
+        "elements": [{ "id": "g", "kind": "base/stack", "params": { "children": [
+            { "id": "y", "kind": "base/text" }, { "id": "t", "kind": "base/text" }
         ] } }]
     } }] }));
     apply(&mut deck, Op::RemoveElement { slide: "s".into(), element: "t".into() }).unwrap();
@@ -788,7 +791,7 @@ fn op_errors_localize_with_their_subject_and_reason() {
         (Op::SetKind { target: slide("s-fin"), kind: "inconnu".into() }, "Widget inconnu : inconnu"),
         (set_param(slide("s-fin"), "titre", json!("x")), "Paramètre inconnu : titre"),
         (set_param(slide("s-constat"), "layout", json!("x")), "Valeur non permise pour layout"),
-        (Op::SetKind { target: slide("s-fin"), kind: "text".into() }, "text ne peut pas être utilisé ici"),
+        (Op::SetKind { target: slide("s-fin"), kind: base::TEXT.into() }, "base/text ne peut pas être utilisé ici"),
         (
             Op::AddSlide { index: None, defaults: false, slide: Slide::new("s-fin", "content") },
             "Identifiant déjà utilisé : s-fin",
@@ -823,7 +826,7 @@ fn param_type_says_what_was_expected_in_the_user_language(
 #[test]
 fn param_type_of_a_number_param_says_a_number_is_expected_in_french() {
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "content",
-        "params": { "blocks": [{ "id": "p", "kind": "stack" }] } }] }));
+        "params": { "blocks": [{ "id": "p", "kind": "base/stack" }] } }] }));
     let err = apply_err(&mut deck, set_param(at("s", "p"), "count", json!("4")));
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
     assert_that!(err.localize(&Localizer::new(Some("fr"))))
@@ -834,15 +837,17 @@ fn param_type_of_a_number_param_says_a_number_is_expected_in_french() {
 fn slot_rejects_localizes_with_the_kind() {
     let probe = json!({ "base": [
         { "name": "only-text", "category": "slide",
-          "params": [{ "name": "items", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
+          "params": [{ "name": "items", "type": "slot", "mode": "flow", "accepts": ["base/text"] }] },
+    ], "packs": [{ "namespace": "base", "widgets": [
         { "name": "text", "category": "element", "params": [] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "packs": [] });
+    ] }] });
     let registry = WidgetRegistry::from_probe(probe).unwrap();
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "only-text" }] }));
-    let err = add(slot(slide("s"), "items"), None, Element::new("f", "shape")).apply(&mut deck, &registry).unwrap_err();
-    assert_that!(err.localize(&Localizer::new(Some("fr")))).is_equal_to("shape n'est pas accepté ici".to_owned());
-    assert_that!(err.to_string()).is_equal_to("items does not accept shape".to_owned());
+    let err =
+        add(slot(slide("s"), "items"), None, Element::new("f", base::SHAPE)).apply(&mut deck, &registry).unwrap_err();
+    assert_that!(err.localize(&Localizer::new(Some("fr")))).is_equal_to("base/shape n'est pas accepté ici".to_owned());
+    assert_that!(err.to_string()).is_equal_to("items does not accept base/shape".to_owned());
 }
 
 // ---- Sous-arbres insérés : paramètres typés, genres connus, slots qui acceptent ---------
@@ -854,17 +859,18 @@ fn accepts_registry() -> WidgetRegistry {
         { "name": "free", "category": "slide",
           "params": [{ "name": "items", "type": "slot", "mode": "flow" }] },
         { "name": "box", "category": "element",
-          "params": [{ "name": "children", "type": "slot", "mode": "flow", "accepts": ["text"] }] },
+          "params": [{ "name": "children", "type": "slot", "mode": "flow", "accepts": ["base/text"] }] },
+    ], "packs": [{ "namespace": "base", "widgets": [
         { "name": "text", "category": "element", "params": [{ "name": "body", "type": "rich" }] },
         { "name": "shape", "category": "element", "params": [] }
-    ], "packs": [] }))
+    ] }] }))
     .unwrap_or_else(|e| panic!("registre de test : {e}"))
 }
 
 #[test]
 fn add_element_with_wrong_typed_param_returns_param_type() {
     let mut deck = fixture();
-    let e = element(json!({ "id": "n", "kind": "text", "params": { "body": "hello" } }));
+    let e = element(json!({ "id": "n", "kind": "base/text", "params": { "body": "hello" } }));
     let err = apply_err(&mut deck, add(slot(slide("s-constat"), "blocks"), None, e));
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
     assert_that!(err.subject()).is_equal_to(Some("body"));
@@ -873,8 +879,8 @@ fn add_element_with_wrong_typed_param_returns_param_type() {
 #[test]
 fn add_element_with_undeclared_nested_param_returns_unknown_param() {
     let mut deck = fixture();
-    let e = element(json!({ "id": "n", "kind": "stack", "params": { "children": [
-        { "id": "n1", "kind": "text", "params": { "titre": "x" } }
+    let e = element(json!({ "id": "n", "kind": "base/stack", "params": { "children": [
+        { "id": "n1", "kind": "base/text", "params": { "titre": "x" } }
     ] } }));
     let err = apply_err(&mut deck, add(slot(slide("s-constat"), "blocks"), None, e));
     assert_that!(err.kind()).is_equal_to(OpErrorKind::UnknownParam);
@@ -883,7 +889,7 @@ fn add_element_with_undeclared_nested_param_returns_unknown_param() {
 #[test]
 fn add_element_with_nested_unknown_kind_returns_unknown_widget() {
     let mut deck = fixture();
-    let e = element(json!({ "id": "n", "kind": "stack", "params": { "children": [
+    let e = element(json!({ "id": "n", "kind": "base/stack", "params": { "children": [
         { "id": "n1", "kind": "mystere" }
     ] } }));
     let err = apply_err(&mut deck, add(slot(slide("s-constat"), "blocks"), None, e));
@@ -894,7 +900,7 @@ fn add_element_with_nested_unknown_kind_returns_unknown_widget() {
 #[test]
 fn add_element_with_nested_slide_kind_returns_wrong_category() {
     let mut deck = fixture();
-    let e = element(json!({ "id": "n", "kind": "stack", "params": { "children": [
+    let e = element(json!({ "id": "n", "kind": "base/stack", "params": { "children": [
         { "id": "n1", "kind": "content" }
     ] } }));
     let err = apply_err(&mut deck, add(slot(slide("s-constat"), "blocks"), None, e));
@@ -907,11 +913,11 @@ fn add_element_with_nested_child_refused_by_accepts_returns_slot_rejects() {
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "free" }] }));
     let before = deck.clone();
     let e = element(json!({ "id": "b", "kind": "box", "params": { "children": [
-        { "id": "t", "kind": "text" }, { "id": "f", "kind": "shape" }
+        { "id": "t", "kind": "base/text" }, { "id": "f", "kind": "base/shape" }
     ] } }));
     let err = add(slot(slide("s"), "items"), None, e).apply(&mut deck, &registry).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::SlotRejects);
-    assert_that!(err.subject()).is_equal_to(Some("shape"));
+    assert_that!(err.subject()).is_equal_to(Some(base::SHAPE));
     assert_that!(deck).is_equal_to(before);
 }
 
@@ -929,7 +935,7 @@ fn add_slide_with_choice_out_of_values_returns_choice_out_of_range() {
 fn add_slide_with_wrong_typed_nested_param_returns_param_type() {
     let mut deck = fixture();
     let s: Slide = serde_json::from_value(json!({ "id": "s-neuve", "kind": "content", "params": { "blocks": [
-        { "id": "n", "kind": "card", "params": { "highlight": "oui" } }
+        { "id": "n", "kind": "base/card", "params": { "highlight": "oui" } }
     ] } }))
     .unwrap();
     let err = apply_err(&mut deck, Op::AddSlide { index: None, defaults: false, slide: s });
@@ -939,8 +945,8 @@ fn add_slide_with_wrong_typed_nested_param_returns_param_type() {
 #[test]
 fn replace_element_with_wrong_typed_nested_param_returns_param_type() {
     let mut deck = with_stack();
-    let e = element(json!({ "id": "p", "kind": "stack", "params": { "children": [
-        { "id": "a", "kind": "text", "params": { "body": 3 } }
+    let e = element(json!({ "id": "p", "kind": "base/stack", "params": { "children": [
+        { "id": "a", "kind": "base/text", "params": { "body": 3 } }
     ] } }));
     let err = apply_err(&mut deck, Op::ReplaceElement { slide: "s".into(), element: e });
     assert_that!(err.kind()).is_equal_to(OpErrorKind::ParamType);
@@ -950,8 +956,8 @@ fn replace_element_with_wrong_typed_nested_param_returns_param_type() {
 #[test]
 fn replace_element_with_valid_subtree_replaces_it() {
     let mut deck = with_stack();
-    let e = element(json!({ "id": "p", "kind": "stack", "params": { "layout": "columns", "children": [
-        { "id": "a", "kind": "text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }
+    let e = element(json!({ "id": "p", "kind": "base/stack", "params": { "layout": "columns", "children": [
+        { "id": "a", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "x" }] }] } }
     ] } }));
     apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: e }).unwrap();
     assert_that!(children(&deck)).is_equal_to(vec!["a".to_owned()]);
@@ -961,10 +967,10 @@ fn replace_element_with_valid_subtree_replaces_it() {
 fn set_kind_of_child_to_kind_refused_by_its_slot_returns_slot_rejects() {
     let registry = accepts_registry();
     let mut deck = deck(json!({ "slides": [{ "id": "s", "kind": "free", "params": { "items": [
-        { "id": "b", "kind": "box", "params": { "children": [{ "id": "t", "kind": "text" }] } }
+        { "id": "b", "kind": "box", "params": { "children": [{ "id": "t", "kind": "base/text" }] } }
     ] } }] }));
     let before = deck.clone();
-    let err = Op::SetKind { target: at("s", "t"), kind: "shape".into() }.apply(&mut deck, &registry).unwrap_err();
+    let err = Op::SetKind { target: at("s", "t"), kind: base::SHAPE.into() }.apply(&mut deck, &registry).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::SlotRejects);
     assert_that!(deck).is_equal_to(before);
 }

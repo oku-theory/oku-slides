@@ -176,7 +176,7 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
     let slide = s.snapshot().slides[1].id.to_string();
     let add = serde_json::json!({ "cmd": "apply", "label": "graphique", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-        "element": { "id": "g", "kind": "chart", "params": { "option": {
+        "element": { "id": "g", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
             "xAxis": { "type": "category", "data": ["1", "2"] },
             "series": [{ "type": "bar", "data": [3, 5] }] } } } }] });
     request(&mut s, add).unwrap();
@@ -196,8 +196,8 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
 fn open_deck_with_inline_chart_makes_its_data_editable() {
     let dir = workdir();
     let file = dir.join("deck.json");
-    let deck = serde_json::json!({ "version": 6, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
-        "id": "g", "kind": "chart", "params": { "option": {
+    let deck = serde_json::json!({ "version": 7, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
+        "id": "g", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
             "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } } }] } }] });
     std::fs::write(&file, deck.to_string()).unwrap();
@@ -219,7 +219,7 @@ fn chart_kind_converts_the_data_and_undoes_in_one_step() {
     let slide = s.snapshot().slides[1].id.to_string();
     let add = serde_json::json!({ "cmd": "apply", "label": "graphique", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
-        "element": { "id": "g", "kind": "chart", "params": { "option": {
+        "element": { "id": "g", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
             "series": [{ "type": "bar", "data": [3, 5] }] } } } }] });
     request(&mut s, add).unwrap();

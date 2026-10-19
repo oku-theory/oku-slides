@@ -37,8 +37,8 @@ setMessages("fr", [
 ]);
 
 const PACK = [
-  { name: "kpi", label: "Indicateur", description: "Une valeur en grand" },
-  { name: "frise", label: "Frise", description: "Des étapes datées" },
+  { name: "acme/kpi", label: "Indicateur", description: "Une valeur en grand" },
+  { name: "acme/frise", label: "Frise", description: "Des étapes datées" },
 ];
 
 type Root = ReturnType<typeof createRoot>;
@@ -141,7 +141,7 @@ test("WidgetPicker Enter after the guard picks the focused filtered card", async
   await type(filter(), "valeur");
   await arm();
   await key(filter(), "Enter");
-  expect(picked).toEqual(["widget:kpi"]);
+  expect(picked).toEqual(["widget:acme/kpi"]);
 });
 
 test("WidgetPicker Enter during the guard picks nothing", async () => {
@@ -158,7 +158,7 @@ test("WidgetPicker arrow right moves the focus to the next card", async () => {
 });
 
 test("WidgetPicker card refused by canPick is disabled", async () => {
-  const { host } = await mount({ canPick: (c) => c.key !== "text" });
+  const { host } = await mount({ canPick: (c) => c.key !== "base/text" });
   expect(host.querySelector<HTMLButtonElement>('[role="option"]')!.disabled).toBe(true);
 });
 
@@ -169,7 +169,7 @@ test("WidgetPicker pack widget shows its rendered preview in an img", async () =
 
 test("WidgetPicker previews are asked for each pack widget, in order", async () => {
   const { asked } = await mount();
-  expect(asked).toEqual(["kpi", "frise"]);
+  expect(asked).toEqual(["acme/kpi", "acme/frise"]);
 });
 
 test("WidgetPicker pack widget preview is cropped to what the widget draws", async () => {
@@ -193,7 +193,7 @@ test("WidgetPicker pack widget preview is cropped to what the widget draws", asy
 });
 
 test("WidgetPicker pack widget whose preview fails keeps the generic icon, the others load", async () => {
-  const { host } = await mount({ preview: async (name) => (name === "kpi" ? Promise.reject(new Error("rendu")) : SVG) });
+  const { host } = await mount({ preview: async (name) => (name === "acme/kpi" ? Promise.reject(new Error("rendu")) : SVG) });
   const faces = [...host.querySelectorAll('[role="option"] .widget-choice-face')].slice(5);
   expect(faces.map((f) => (f.querySelector("img") ? "img" : "icon"))).toEqual(["icon", "img"]);
 });
@@ -231,12 +231,12 @@ test("WidgetPicker arrow right with the caret at the end of the filter moves the
 });
 
 test("WidgetPicker opened with the first card refused focuses the first pickable one", async () => {
-  const { selected } = await mount({ canPick: (c) => c.key !== "text" });
+  const { selected } = await mount({ canPick: (c) => c.key !== "base/text" });
   expect(selected()).toBe("Carte");
 });
 
 test("WidgetPicker arrows skip refused cards", async () => {
-  const { filter, selected } = await mount({ canPick: (c) => c.key !== "card" });
+  const { filter, selected } = await mount({ canPick: (c) => c.key !== "base/card" });
   await key(filter(), "ArrowRight");
   expect(selected()).toBe("Forme");
 });
@@ -258,7 +258,7 @@ test("WidgetPicker focused card kept when the same choices come again", async ()
 test("WidgetPicker focused card that becomes refused falls back to the first pickable card", async () => {
   const { filter, selected, rerender } = await mount();
   for (let i = 0; i < 2; i++) await key(filter(), "ArrowRight");
-  await rerender(PACK, (c) => c.key !== "shape");
+  await rerender(PACK, (c) => c.key !== "base/shape");
   expect(selected()).toBe("Texte");
 });
 
@@ -304,7 +304,7 @@ test("WidgetPicker arrow up moves the focus one row above", async () => {
 });
 
 test("WidgetPicker arrow down onto a refused card goes on down, or stays", async () => {
-  const { filter, host, selected } = await mount({ canPick: (c) => c.key !== "table" });
+  const { filter, host, selected } = await mount({ canPick: (c) => c.key !== "base/table" });
   rows(host, 3);
   await key(filter(), "ArrowRight");
   await key(filter(), "ArrowDown");
@@ -385,7 +385,7 @@ test("WidgetPicker click on a card after the guard picks it", async () => {
   const { host, picked } = await mount();
   now += ARMING_MS + 1;
   await act(async () => host.querySelectorAll<HTMLButtonElement>('[role="option"]')[3].click());
-  expect(picked).toEqual(["chart"]);
+  expect(picked).toEqual(["base/chart"]);
 });
 
 test("WidgetPicker click on a card during the guard picks nothing", async () => {

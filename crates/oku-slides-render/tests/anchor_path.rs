@@ -2,23 +2,26 @@
 //! (`tracking`), interligné (`leading`), paragraphes espacés (`spacing`), puce de liste sans couleur propre,
 //! et forme `path`.
 
+mod common;
+
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_render::{Compiled, ElementBox, FieldBox, Fonts, Renderer};
+use oku_slides_core::kinds::base;
+use oku_slides_render::{Compiled, ElementBox, FieldBox};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 fn compile(elements: Value) -> Compiled {
     let d = json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": elements } }] });
     let deck = Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"));
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = common::renderer();
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Un texte d'une ligne sur un cadre de 600 × 400 pt, au style `style`.
 fn text(style: Value) -> Value {
-    json!([{ "id": "t", "kind": "text", "frame": { "x": 100, "y": 100, "w": 600, "h": 400 }, "style": style,
+    json!([{ "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 600, "h": 400 }, "style": style,
         "params": { "body": [{ "runs": [{ "t": "Ancré" }] }] } }])
 }
 
@@ -57,10 +60,10 @@ fn text_without_valign_nor_inset_keeps_the_body_at_the_top_left() {
 fn text_in_flow_ignores_valign() {
     let slide = |style: Value| {
         let d = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
-            { "id": "t", "kind": "text", "style": style, "params": { "body": [{ "runs": [{ "t": "Flux" }] }] } }
+            { "id": "t", "kind": base::TEXT, "style": style, "params": { "body": [{ "runs": [{ "t": "Flux" }] }] } }
         ] } }] });
         let deck = Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"));
-        let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+        let mut r = common::renderer();
         boxes(&r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))).1
     };
     assert_that!(slide(json!({ "valign": "bottom" }))).is_equal_to(slide(json!({})));
@@ -78,7 +81,7 @@ fn text_tracking_widens_the_body_and_its_absence_keeps_it() {
 
 /// Les boîtes d'un texte de deux lignes de 20 pt à l'interligne `leading` (em).
 fn two_lines(leading: f64) -> (ElementBox, FieldBox) {
-    let e = json!([{ "id": "t", "kind": "text", "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
+    let e = json!([{ "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
         "style": { "size": 20, "leading": leading },
         "params": { "body": [{ "runs": [{ "t": "Une\nDeux" }] }] } }]);
     boxes(&compile(e))
@@ -105,7 +108,7 @@ fn two_paragraphs(list: Value, style: Value) -> f64 {
         s.extend(extra.clone());
     }
     let para = |t: &str| json!({ "runs": [{ "t": t }], "list": list });
-    let e = json!([{ "id": "t", "kind": "text", "frame": { "x": 100, "y": 100, "w": 600, "h": 400 }, "style": s,
+    let e = json!([{ "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 600, "h": 400 }, "style": s,
         "params": { "body": [para("Un"), para("Deux")] } }]);
     boxes(&compile(e)).1.h
 }
@@ -124,7 +127,7 @@ fn text_spacing_sets_the_gap_between_paragraphs(#[case] list: Value) {
 #[test]
 fn text_spacing_between_a_paragraph_and_a_list_item_is_the_same() {
     let mixed = |spacing: f64| {
-        let e = json!([{ "id": "t", "kind": "text", "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
+        let e = json!([{ "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
             "style": { "size": 20, "spacing": spacing },
             "params": { "body": [{ "runs": [{ "t": "Un" }] }, { "runs": [{ "t": "Deux" }], "list": "bullet" }] } }]);
         boxes(&compile(e)).1.h
@@ -145,11 +148,11 @@ fn text_without_spacing_keeps_the_theme_gaps() {
 fn bullets_svg(marker_color: Value) -> String {
     let d = json!({ "tokens": { "component": { "list": { "marker": "•", "marker-color": marker_color } } },
         "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [
-            { "id": "t", "kind": "text", "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
+            { "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
               "style": { "color": "#00ff00" },
               "params": { "body": [{ "runs": [{ "t": "Un" }], "list": "bullet" }] } }] } }] });
     let deck = Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"));
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = common::renderer();
     let c = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     c.svg(0).unwrap_or_else(|e| panic!("{e}")).to_lowercase()
 }
@@ -196,7 +199,7 @@ fn circle(r: f64, clockwise: bool) -> String {
 
 /// Une forme `path` rouge de 200 × 200 pt.
 fn path(d: &str) -> Value {
-    json!([{ "id": "p", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 200, "h": 200 },
+    json!([{ "id": "p", "kind": base::SHAPE, "frame": { "x": 0, "y": 0, "w": 200, "h": 200 },
         "params": { "shape": "path", "path": { "d": d } }, "style": { "fill": "#ff0000" } }])
 }
 

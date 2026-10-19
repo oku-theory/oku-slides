@@ -1,8 +1,13 @@
+use std::collections::BTreeMap;
+
 use rstest::rstest;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-use crate::{Category, HostType, ParamType, SchemaFault, SlotMode, WidgetError, WidgetErrorKind, WidgetRegistry};
+use crate::{
+    Category, Grow, HostType, ParamType, SchemaFault, SlotMode, WidgetError, WidgetErrorKind, WidgetRegistry,
+    WidgetSchema,
+};
 
 fn widget(name: &str, category: &str, params: Value) -> Value {
     json!({ "name": name, "label": null, "category": category, "params": params })
@@ -265,7 +270,7 @@ fn registry_from_probe_bad_namespace_returns_unreadable() {
 #[test]
 fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
     let json = serde_json::json!({
-        "version": 6,
+        "version": 7,
         "slides": [{ "id": "s", "kind": "content", "params": {
             "elements": [{ "id": "e1", "kind": "title", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } }] } }]
     });
@@ -510,4 +515,82 @@ fn localize_list_default_below_min_in_french_names_the_widget() {
     let err = list_probe(nested_min(2, json!([{ "texte": "un" }]))).unwrap_err();
     let text = err.localize(&oku_slides_i18n::Localizer::new(Some("fr")));
     assert_that!(text).contains("minimum");
+}
+
+#[rstest]
+#[case(json!(false), Grow::Fixed)]
+#[case(json!(true), Grow::Fill)]
+#[case(json!("fit"), Grow::Fit)]
+fn grow_from_json_reads_the_three_forms(#[case] v: Value, #[case] expected: Grow) {
+    assert_that!(serde_json::from_value::<Grow>(v).unwrap()).is_equal_to(expected);
+}
+
+#[rstest]
+#[case(json!("fill"))]
+#[case(json!(1))]
+#[case(json!(null))]
+fn grow_from_json_other_value_is_refused(#[case] v: Value) {
+    assert_that!(serde_json::from_value::<Grow>(v)).is_err();
+}
+
+#[test]
+fn widget_schema_without_grow_is_fixed_and_without_typography() {
+    let w: WidgetSchema = serde_json::from_value(json!({"name": "x", "category": "element", "params": []})).unwrap();
+    assert_that!((w.grow, w.typography)).is_equal_to((Grow::Fixed, false));
+}
+
+#[test]
+fn widget_schema_fit_and_typography_round_trip() {
+    // `label` s'écrit toujours (`null` absent), `description` jamais quand elle manque.
+    let src =
+        json!({"name": "x", "label": null, "category": "element", "grow": "fit", "typography": true, "params": []});
+    let w: WidgetSchema = serde_json::from_value(src.clone()).unwrap();
+    assert_that!(serde_json::to_value(&w).unwrap()).is_equal_to(src);
+}
+
+#[test]
+fn widget_schema_defaults_are_not_serialized() {
+    let w: WidgetSchema = serde_json::from_value(json!({"name": "x", "category": "element", "params": []})).unwrap();
+    let out = serde_json::to_value(&w).unwrap();
+    assert_that!((out.get("grow").is_none(), out.get("typography").is_none())).is_equal_to((true, true));
+}
+
+#[rstest]
+#[case(json!({"grow": true}))]
+#[case(json!({"typography": true}))]
+fn registry_from_probe_slide_declaring_sizing_is_refused(#[case] extra: Value) {
+    let mut slide = json!({"name": "s", "category": "slide", "params": []});
+    slide.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+    let err = WidgetRegistry::from_probe(json!({"base": [slide], "packs": []})).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::SlideSizing));
+}
+
+#[rstest]
+#[case("en", "only element widgets")]
+#[case("fr", "seuls les widgets d'élément")]
+fn localize_slide_sizing_fault_names_the_widget_in_each_locale(#[case] locale: &str, #[case] fragment: &str) {
+    use oku_slides_i18n::{Localize, Localizer};
+    let slide = json!({"name": "s", "category": "slide", "params": [], "grow": true});
+    let err = WidgetRegistry::from_probe(json!({"base": [slide], "packs": []})).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::SlideSizing));
+    let text = err.localize(&Localizer::new(Some(locale)));
+    assert_that!(text).contains(fragment);
+    assert_that!(text).contains("Widget s");
+}
+
+#[test]
+fn host_params_maps_each_host_of_element_widgets_only() {
+    let probe = json!({"base": [
+        {"name": "s", "category": "slide", "params": [{"name": "o", "type": "host", "host": "chart"}]},
+    ], "packs": [{"namespace": "acme", "widgets": [
+        {"name": "plot", "category": "element", "params": [
+            {"name": "series", "type": "host", "host": "chart"},
+            {"name": "other", "type": "host", "host": "chart"},
+            {"name": "grid", "type": "host", "host": "table"},
+        ]},
+        {"name": "note", "category": "element", "params": [{"name": "body", "type": "rich"}]},
+    ]}]});
+    let hosts = WidgetRegistry::from_probe(probe).unwrap().host_params();
+    let plot = BTreeMap::from([(HostType::Chart, "series".to_owned()), (HostType::Table, "grid".to_owned())]);
+    assert_that!(hosts).is_equal_to(BTreeMap::from([("acme/plot".to_owned(), plot)]));
 }

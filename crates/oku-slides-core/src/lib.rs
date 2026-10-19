@@ -20,13 +20,15 @@
 //! - [`Slide::text_fields`] : les champs texte d'une slide dans l'ordre de
 //!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
 //! - [`is_hex_color`] : forme hexadécimale des couleurs des jetons.
-//! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu.
+//! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu (hôtes : [`WidgetRegistry::host_params`] ; hauteur d'un bloc : [`Grow`]).
+//! - [`kinds`] : les kinds du pack intégré `base`, seul endroit où ils s'écrivent.
 //! - [`tokens`] : jetons effectifs d'un thème ([`tokens::effective_tokens`], fusion [`tokens::merge`]).
 
 mod canonical;
 mod color;
 pub mod error;
 mod fields;
+pub mod kinds;
 pub mod locate;
 pub mod model;
 mod namespace;
@@ -69,4 +71,4 @@ pub use replica::{
 pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use validate::{Issue, validate};
-pub use widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema, is_text};
+pub use widget::{Category, Grow, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema, is_text};

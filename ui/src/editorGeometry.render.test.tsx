@@ -7,7 +7,7 @@ const { editorGeometry } = await import("./editorGeometry");
 
 const style: TextStyle = { size: 40, leading: 24, tracking: 0, font: ["Newsreader"], weight: 500, fill: "#2e2b26", align: "left", case: null, bg: null };
 const field = (extra: Partial<FieldView> = {}): FieldView => ({
-  owner: "e", owner_kind: "element", widget: "text", field: "body", kind: "rich", label: null,
+  owner: "e", owner_kind: "element", widget: "base/text", field: "body", kind: "rich", label: null,
   text: "Un bloc", empty: false, side: null, x: 160, y: 300, w: 120, h: 27, ax: 160, aw: 720, style, ...extra,
 });
 const numbers = (css: Record<string, unknown>) =>

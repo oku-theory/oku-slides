@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, Renderer, base_registry};
+use oku_slides_render::{
+    Fonts, PackSet, PackWidgets, RenderErrorKind, Renderer, base_pack_widgets, builtin_registry, core_registry,
+};
 use oku_slides_render_worker::RenderWorker;
 use speculoos::prelude::*;
 
@@ -41,7 +43,7 @@ fn roadmap() -> oku_slides_core::Deck {
 #[test]
 fn process_render_is_identical_to_in_memory_render() {
     let l = Localizer::new(Some("fr"));
-    let mut local = Renderer::new(Fonts::default()).unwrap();
+    let mut local = Renderer::with_builtins(Fonts::default()).unwrap();
     local.set_language(&l).unwrap();
     // La maquette est en `papier` : le même thème est posé au travailleur par `SetTheme`.
     let papier = include_str!("../../../typst/oku-slides/themes/papier.json");
@@ -50,7 +52,10 @@ fn process_render_is_identical_to_in_memory_render() {
     local.set_theme(tokens.clone()).unwrap();
     let expected = local.render(&roadmap(), &BTreeMap::new()).unwrap();
     let w = worker(30_000, 4096);
-    let mut s = w.slot(&Fonts::default(), &l, base_registry(&Fonts::default()).unwrap()).unwrap();
+    let mut s = w.slot(&Fonts::default(), &l, core_registry(&Fonts::default()).unwrap()).unwrap();
+    // Les mêmes widgets intégrés : le noyau et le pack `base`.
+    let base = PackSet::new(vec![base_pack_widgets().unwrap()]).unwrap();
+    s.set_widgets(&base, builtin_registry(&Fonts::default()).unwrap()).unwrap();
     s.set_theme(tokens.as_ref()).unwrap();
     let got = s.render(&roadmap(), &BTreeMap::new()).unwrap();
     assert_that!(got.page_count()).is_equal_to(expected.page_count());
@@ -64,7 +69,7 @@ fn process_render_is_identical_to_in_memory_render() {
 /// `SetWidgets` du pack `id` au seul fichier `name` : l'erreur du travailleur.
 fn set_widgets_error(w: &RenderWorker, id: &str, name: &str, source: &str) -> RenderErrorKind {
     let l = Localizer::new(Some("fr"));
-    let base = || base_registry(&Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let base = || core_registry(&Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
     let mut s = w.slot(&Fonts::default(), &l, base()).unwrap_or_else(|e| panic!("{e}"));
     let pack = PackWidgets::new(id, test_packs::ns(id), test_packs::files(&[(name, source)]))
         .unwrap_or_else(|e| panic!("{e}"));
@@ -92,7 +97,7 @@ fn process_set_widgets_that_allocates_is_stopped_out_of_memory() {
 fn process_killed_at_rest_is_restarted_without_error() {
     let w = worker(30_000, 4096);
     let l = Localizer::new(Some("fr"));
-    let mut s = w.slot(&Fonts::default(), &l, base_registry(&Fonts::default()).unwrap()).unwrap();
+    let mut s = w.slot(&Fonts::default(), &l, core_registry(&Fonts::default()).unwrap()).unwrap();
     s.render(&roadmap(), &BTreeMap::new()).unwrap();
     w.kill_for_test();
     // Mort au repos : la requête suivante relance un travailleur, sans erreur (t-340).
@@ -105,7 +110,7 @@ fn process_killed_at_rest_does_not_blame_the_slot_pack() {
     let l = Localizer::new(Some("fr"));
     let pack = PackWidgets::new("vide", test_packs::ns("vide"), BTreeMap::new()).unwrap();
     let registry = w.probe_pack(&pack).unwrap().registry;
-    let mut s = w.slot(&Fonts::default(), &l, base_registry(&Fonts::default()).unwrap()).unwrap();
+    let mut s = w.slot(&Fonts::default(), &l, core_registry(&Fonts::default()).unwrap()).unwrap();
     s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap_or_else(|e| panic!("{e}")), registry).unwrap();
     s.render(&roadmap(), &BTreeMap::new()).unwrap();
     w.kill_for_test();

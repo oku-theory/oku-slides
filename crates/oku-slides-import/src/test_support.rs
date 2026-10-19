@@ -9,8 +9,11 @@ use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, Element, Op, ParamValue, Slide, Template, WidgetRegistry, apply_all, validate};
+use oku_slides_core::{
+    Deck, Element, Op, PackPin, PackVersion, ParamValue, Slide, Template, WidgetRegistry, apply_all, kinds, validate,
+};
 use serde_json::{Map, Value};
+use uuid::Uuid;
 
 use crate::fonts::{FontCatalog, FontOrigin};
 use crate::retrofit::ColorTokens;
@@ -123,6 +126,15 @@ pub(crate) fn registry() -> WidgetRegistry {
     WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap()
 }
 
+/// L'épinglage de `base` dans les tests : l'id du pack de la fixture, une version quelconque.
+pub(crate) fn base_pin() -> PackPin {
+    PackPin {
+        id: Uuid::parse_str("3b1f6c2e-5a4d-4e8b-9c71-0d2e4f6a8b13").unwrap(),
+        version: PackVersion::from_hex(&"0".repeat(64)).unwrap(),
+        requires: vec![],
+    }
+}
+
 /// Un élément `kind` d'id `id` dont le paramètre `param` vaut `value`.
 pub(crate) fn element_with(id: &str, kind: &str, param: &str, value: Value) -> Element {
     let mut e = Element::new(id, kind);
@@ -136,7 +148,8 @@ pub(crate) fn apply_blocks(blocks: Vec<Element>) -> Result<Deck, oku_slides_core
     let mut slide = Slide::new("s1", "content");
     slide.params.set("blocks", ParamValue::Slot(blocks));
     let mut deck = Deck::empty();
-    apply_all(&mut deck, vec![Op::AddSlide { index: None, defaults: false, slide }], &registry())?;
+    let pin = Op::AddPack { namespace: kinds::base::namespace(), pin: base_pin() };
+    apply_all(&mut deck, vec![pin, Op::AddSlide { index: None, defaults: false, slide }], &registry())?;
     Ok(deck)
 }
 

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Element, ParamValue, validate};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -12,7 +13,8 @@ use crate::source::{
     Rgba, Role, Shape, Size, SourceSlide, Styled, TextBox,
 };
 use crate::test_support::{
-    app_fonts, item, layout, office_theme, para, registry, run, run_style, source_deck, source_slide, text_box,
+    app_fonts, base_pin, item, layout, office_theme, para, registry, run, run_style, source_deck, source_slide,
+    text_box,
 };
 
 /// Un deck Office : master `m1` (un bandeau en décor), layout `l1` au titre
@@ -69,6 +71,7 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
     let base = registry();
     let target = HifiTarget {
         registry: &base,
+        base: base_pin(),
         fonts,
         pack_id: Uuid::from_u128(1),
         theme_id: Uuid::from_u128(2),
@@ -121,7 +124,7 @@ fn project_puts_a_moved_placeholder_in_extras() {
     let s = slide(&plan, 0);
     assert_that!(s.params.get("titre")).is_none();
     let kinds: Vec<String> = extras(s).into_iter().map(|e| e.kind).collect();
-    assert_that!(kinds).is_equal_to(vec!["text".to_owned()]);
+    assert_that!(kinds).is_equal_to(vec![base::TEXT.to_owned()]);
 }
 
 #[test]
@@ -232,7 +235,7 @@ fn project_of_more_used_layouts_than_the_pack_holds_puts_the_rest_on_blank() {
     let elements = extras(s);
     assert_that!(elements.len()).is_equal_to(3);
     assert_that!(elements[0].style.fill.as_deref()).is_equal_to(Some("#ff0000"));
-    assert_that!(elements[2].kind.as_str()).is_equal_to("text");
+    assert_that!(elements[2].kind.as_str()).is_equal_to(base::TEXT);
     let dropped: Vec<&LossKind> = plan.report.slides[63].losses.iter().map(|l| &l.kind).collect();
     assert_that!(dropped).is_equal_to(vec![&LossKind::LayoutDropped { layout: "Layout 64".into() }]);
     assert_that!(plan.report.slides[62].losses).is_empty();

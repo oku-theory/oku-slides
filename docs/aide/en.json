@@ -1,5 +1,5 @@
 {
- "version": 6,
+ "version": 7,
  "params": {
   "title": "Oku Slides Help",
   "subtitle": "Getting around, shortcuts, Typst library, file format",
@@ -35,7 +35,7 @@
     "blocks": [
      {
       "id": "b-table-pile",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "The pile",
        "body": [
@@ -52,7 +52,7 @@
      },
      {
       "id": "b-table-feuille",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "The sheet",
        "body": [
@@ -69,7 +69,7 @@
      },
      {
       "id": "b-table-fil",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "The thread",
        "body": [
@@ -97,7 +97,7 @@
     "blocks": [
      {
       "id": "b-editer",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -200,7 +200,7 @@
     "blocks": [
      {
       "id": "b-grille",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -279,7 +279,7 @@
     "blocks": [
      {
       "id": "b-dicter",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -346,7 +346,7 @@
     "blocks": [
      {
       "id": "b-agent-annule",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Everything undoes",
        "body": [
@@ -362,7 +362,7 @@
      },
      {
       "id": "b-agent-confirme",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Nothing irreversible without you",
        "body": [
@@ -378,7 +378,7 @@
      },
      {
       "id": "b-agent-decide",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "You decide",
        "body": [
@@ -394,7 +394,7 @@
      },
      {
       "id": "b-agent-detache",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Detach the agent",
        "body": [
@@ -421,7 +421,7 @@
     "blocks": [
      {
       "id": "b-fichiers",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -500,7 +500,7 @@
     "blocks": [
      {
       "id": "b-import",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -611,7 +611,7 @@
     "blocks": [
      {
       "id": "b-rac-document",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -707,7 +707,7 @@
      },
      {
       "id": "b-rac-onglets",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -806,7 +806,7 @@
     "blocks": [
      {
       "id": "b-rac-edition",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -901,7 +901,7 @@
      },
      {
       "id": "b-rac-slides",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -985,7 +985,7 @@
     "blocks": [
      {
       "id": "b-rac-dictee",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1037,7 +1037,7 @@
      },
      {
       "id": "b-rac-agent",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1114,7 +1114,7 @@
     "blocks": [
      {
       "id": "b-rac-historique",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1158,7 +1158,7 @@
      },
      {
       "id": "b-rac-aide",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1232,7 +1232,7 @@
     "blocks": [
      {
       "id": "b-typst-principes",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1311,7 +1311,7 @@
     "blocks": [
      {
       "id": "b-typst-demarrer",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1422,7 +1422,7 @@
      },
      {
       "id": "b-typst-json",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1454,7 +1454,7 @@
     "blocks": [
      {
       "id": "b-typst-slides",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1550,7 +1550,7 @@
     "blocks": [
      {
       "id": "b-typst-params",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Deck parameters",
        "body": [
@@ -1580,7 +1580,7 @@
      },
      {
       "id": "b-typst-vars",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Variables",
        "body": [
@@ -1614,7 +1614,7 @@
     "blocks": [
      {
       "id": "b-typst-jetons",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1693,7 +1693,7 @@
     "blocks": [
      {
       "id": "b-typst-widgets",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1711,11 +1711,11 @@
         {
          "runs": [
           {
-           "t": "14 base widgets",
+           "t": "6 core widgets",
            "bold": true
           },
           {
-           "t": " : text, card, image, shape, chart, table, stack, canvas, title, toc, chapter, content, end, blank."
+           "t": ": title, toc, chapter, content, end, blank. The element widgets (base/text, base/card, base/image, base/shape, base/chart, base/table, base/stack) come from the built-in base pack."
           }
          ],
          "list": "bullet"
@@ -1772,7 +1772,7 @@
     "blocks": [
      {
       "id": "b-typst-kpi",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1855,7 +1855,7 @@
      },
      {
       "id": "b-typst-kpi-note",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1884,7 +1884,7 @@
     "blocks": [
      {
       "id": "b-typst-p1",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -1947,7 +1947,7 @@
      },
      {
       "id": "b-typst-p2",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2010,7 +2010,7 @@
     "blocks": [
      {
       "id": "b-typst-field",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "field(ctx, name, body)",
        "body": [
@@ -2026,7 +2026,7 @@
      },
      {
       "id": "b-typst-surcharge",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Widgets from several packs",
        "body": [
@@ -2053,7 +2053,7 @@
     "blocks": [
      {
       "id": "b-typst-liste",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Lists (p.list)",
        "body": [
@@ -2069,7 +2069,7 @@
      },
      {
       "id": "b-typst-liste-app",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "In the app",
        "body": [
@@ -2104,7 +2104,7 @@
     "blocks": [
      {
       "id": "b-format-lire",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Opens anywhere",
        "body": [
@@ -2120,7 +2120,7 @@
      },
      {
       "id": "b-format-editer",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Reopens for editing",
        "body": [
@@ -2136,7 +2136,7 @@
      },
      {
       "id": "b-format-propre",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Shares clean",
        "body": [
@@ -2163,7 +2163,7 @@
     "blocks": [
      {
       "id": "b-format-piece",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2239,7 +2239,7 @@
      },
      {
       "id": "b-format-piece-note",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2268,7 +2268,7 @@
     "blocks": [
      {
       "id": "b-format-zip",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2323,7 +2323,7 @@
      },
      {
       "id": "b-format-zip-note",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2352,7 +2352,7 @@
     "blocks": [
      {
       "id": "b-format-loro",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2419,7 +2419,7 @@
     "blocks": [
      {
       "id": "b-format-json",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2509,7 +2509,7 @@
      },
      {
       "id": "b-format-json-note",
-      "kind": "text",
+      "kind": "base/text",
       "params": {
        "body": [
         {
@@ -2538,7 +2538,7 @@
     "blocks": [
      {
       "id": "b-format-versions",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Versions",
        "body": [
@@ -2554,7 +2554,7 @@
      },
      {
       "id": "b-format-limites",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "Limits",
        "body": [
@@ -2570,7 +2570,7 @@
      },
      {
       "id": "b-format-outils",
-      "kind": "card",
+      "kind": "base/card",
       "params": {
        "title": "On the command line",
        "body": [

@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use oku_slides_core::{Deck, Namespace, WidgetFile};
-use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, load_registry};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, base_pack_widgets, load_registry};
 use speculoos::prelude::*;
 
 /// PNG 1 × 1.
@@ -49,12 +49,13 @@ fn decor_pack(code: &str) -> PackWidgets {
 /// Le SVG de l'unique slide `decor` rendue avec le pack de `code`.
 fn render(code: &str) -> String {
     let fonts = Fonts::default();
-    let set = PackSet::new(vec![decor_pack(code)]).unwrap_or_else(|e| panic!("{e}"));
+    let set = PackSet::new(vec![decor_pack(code), base_pack_widgets().unwrap_or_else(|e| panic!("{e}"))])
+        .unwrap_or_else(|e| panic!("{e}"));
     let registry = load_registry(&fonts, &set).unwrap_or_else(|e| panic!("sonde : {e}"));
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
     r.set_widgets(&set, Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(Some(theme())).unwrap_or_else(|e| panic!("{e}"));
-    let deck = Deck::from_json(r#"{"version":6,"slides":[{"id":"s","kind":"decor/decor"}]}"#)
+    let deck = Deck::from_json(r#"{"version": 7,"slides":[{"id":"s","kind":"decor/decor"}]}"#)
         .unwrap_or_else(|e| panic!("{e}"));
     let assets = BTreeMap::from([(ASSET.to_owned(), PNG.to_vec())]);
     let compiled = r.render(&deck, &assets).unwrap_or_else(|e| panic!("rendu : {e}"));

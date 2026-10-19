@@ -489,7 +489,7 @@ impl Session {
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
             Request::Templates { set } => return json(&self.templates_view(set)?),
-            Request::TemplateSets => return json(&self.library.packs()),
+            Request::TemplateSets => return json(&self.library.template_sets()),
             Request::WidgetStatus { pack } => return json(&self.widget_status(pack.as_ref())?),
             Request::WidgetSource { pack, name } => return json(&self.widget_source(pack.as_ref(), &name)?),
             Request::SetWidget { pack, name, source } => {

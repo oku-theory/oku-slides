@@ -4,7 +4,7 @@ import { CHART_KINDS, chartKind, checkboxColumns, chartSource, colorPatch, hexCo
 
 const canonical = (series: object[], source = [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]): Element => ({
   id: "g",
-  kind: "chart",
+  kind: "base/chart",
   params: { option: { dataset: { source }, xAxis: { type: "category" }, series } },
 });
 
@@ -19,29 +19,39 @@ describe("starterChart", () => {
 describe("chartSource et chartKind", () => {
   test("lisent le dataset et le type de la première série", () => {
     const el = canonical([{ type: "line" }, { type: "bar" }]);
-    expect(chartSource(el)).toEqual([["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]);
-    expect(chartKind(el)).toBe("line");
+    expect(chartSource(el, "option")).toEqual([["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]);
+    expect(chartKind(el, "option")).toBe("line");
   });
 
-  test("un autre élément n'a ni données ni type", () => {
-    const text: Element = { id: "t", kind: "text" };
-    expect(chartSource(text)).toBeNull();
-    expect(chartKind(text)).toBeNull();
+  test("un paramètre absent ou qui n'est pas un objet n'a ni données ni type", () => {
+    const missing: Element = { id: "t", kind: "base/text" };
+    const scalar: Element = { id: "t", kind: "base/chart", params: { option: "x" } };
+    expect([chartSource(missing, "option"), chartKind(missing, "option")]).toEqual([null, null]);
+    expect([chartSource(scalar, "option"), chartKind(scalar, "option")]).toEqual([null, null]);
+  });
+
+  test("chartSource d'un graphique de pack lit son paramètre", () => {
+    const el = { id: "c", kind: "acme/plot", params: { series: { dataset: { source: [["x"], [1]] } } } };
+    expect(chartSource(el, "series")).toEqual([["x"], [1]]);
+  });
+
+  test.each(["__proto__", "constructor"])("chartSource d'un paramètre %s absent rend null", (param) => {
+    expect(chartSource({ id: "c", kind: "acme/plot", params: {} }, param)).toBeNull();
   });
 });
 
 describe("checkboxColumns", () => {
   test("la colonne Total d'une cascade se coche", () => {
     const el = canonical([{ type: "waterfall" }], [["Poste", "Montant", "Total"], ["Fin", null, true]]);
-    expect(checkboxColumns(el)).toEqual([2]);
+    expect(checkboxColumns(el, "option")).toEqual([2]);
   });
 
   test("une cascade sans colonne Total n'a pas de case", () => {
-    expect(checkboxColumns(canonical([{ type: "waterfall" }], [["Poste", "Montant"]]))).toEqual([]);
+    expect(checkboxColumns(canonical([{ type: "waterfall" }], [["Poste", "Montant"]]), "option")).toEqual([]);
   });
 
   test("des barres n'ont pas de case", () => {
-    expect(checkboxColumns(canonical([{ type: "bar" }, { type: "bar" }]))).toEqual([]);
+    expect(checkboxColumns(canonical([{ type: "bar" }, { type: "bar" }]), "option")).toEqual([]);
   });
 });
 
@@ -51,65 +61,65 @@ test("les six types sont proposés", () => {
 
 describe("empilement", () => {
   test("des barres ou des lignes à plusieurs séries s'empilent", () => {
-    expect(stackable(canonical([{ type: "bar" }, { type: "bar" }]))).toBe(true);
-    expect(stackable(canonical([{ type: "line" }, { type: "line" }]))).toBe(true);
+    expect(stackable(canonical([{ type: "bar" }, { type: "bar" }]), "option")).toBe(true);
+    expect(stackable(canonical([{ type: "line" }, { type: "line" }]), "option")).toBe(true);
   });
 
   test("une seule série, un camembert ou un nuage ne s'empilent pas", () => {
-    expect(stackable(canonical([{ type: "bar" }]))).toBe(false);
-    expect(stackable(canonical([{ type: "pie" }]))).toBe(false);
-    expect(stackable(canonical([{ type: "scatter" }, { type: "scatter" }]))).toBe(false);
+    expect(stackable(canonical([{ type: "bar" }]), "option")).toBe(false);
+    expect(stackable(canonical([{ type: "pie" }]), "option")).toBe(false);
+    expect(stackable(canonical([{ type: "scatter" }, { type: "scatter" }]), "option")).toBe(false);
   });
 
   test("empilé quand toutes les séries partagent un groupe", () => {
-    expect(isStacked(canonical([{ type: "bar", stack: "total" }, { type: "bar", stack: "total" }]))).toBe(true);
-    expect(isStacked(canonical([{ type: "bar", stack: "total" }, { type: "bar" }]))).toBe(false);
+    expect(isStacked(canonical([{ type: "bar", stack: "total" }, { type: "bar", stack: "total" }]), "option")).toBe(true);
+    expect(isStacked(canonical([{ type: "bar", stack: "total" }, { type: "bar" }]), "option")).toBe(false);
   });
 
   test("stackPatch met toutes les séries dans un groupe, en gardant leurs réglages", () => {
     const el = canonical([{ type: "bar", label: { show: true } }, { type: "line" }]);
-    expect(stackPatch(el, true)).toEqual({
+    expect(stackPatch(el, "option", true)).toEqual({
       series: [{ type: "bar", label: { show: true }, stack: "total" }, { type: "line", stack: "total" }],
     });
   });
 
   test("stackPatch sans empilement retire le groupe", () => {
     const el = canonical([{ type: "bar", stack: "total" }, { type: "bar", stack: "total" }]);
-    expect(stackPatch(el, false)).toEqual({ series: [{ type: "bar" }, { type: "bar" }] });
+    expect(stackPatch(el, "option", false)).toEqual({ series: [{ type: "bar" }, { type: "bar" }] });
   });
 });
 
 describe("couleurs des séries", () => {
   test("barres et lignes : une série par colonne de valeurs, nommée par son en-tête", () => {
-    expect(seriesNames(canonical([{ type: "bar" }, { type: "line" }]))).toEqual(["Ventes", "Objectif"]);
+    expect(seriesNames(canonical([{ type: "bar" }, { type: "line" }]), "option")).toEqual(["Ventes", "Objectif"]);
   });
 
   test("nuage : une série par paire de colonnes, nommée par la colonne des y", () => {
     const el = canonical([{ type: "scatter" }], [["x de A", "A", "x de B", "B"], [1, 2, 3, 4]]);
-    expect(seriesNames({ ...el, params: { option: { ...(el.params?.option as object), series: [{ type: "scatter" }, { type: "scatter" }] } } })).toEqual(["A", "B"]);
+    expect(seriesNames({ ...el, params: { option: { ...(el.params?.option as object), series: [{ type: "scatter" }, { type: "scatter" }] } } }, "option")).toEqual(["A", "B"]);
   });
 
   test("secteurs, radar et cascade suivent la palette : aucune série à colorer", () => {
-    expect(seriesNames(canonical([{ type: "pie" }]))).toEqual([]);
-    expect(seriesNames(canonical([{ type: "radar" }]))).toEqual([]);
-    expect(seriesNames(canonical([{ type: "waterfall" }]))).toEqual([]);
+    expect(seriesNames(canonical([{ type: "pie" }]), "option")).toEqual([]);
+    expect(seriesNames(canonical([{ type: "radar" }]), "option")).toEqual([]);
+    expect(seriesNames(canonical([{ type: "waterfall" }]), "option")).toEqual([]);
   });
 
   test("seriesColor lit itemStyle.color", () => {
     const el = canonical([{ type: "bar" }, { type: "bar", itemStyle: { color: "#C4622D" } }]);
-    expect([seriesColor(el, 0), seriesColor(el, 1)]).toEqual([null, "#c4622d"]);
+    expect([seriesColor(el, "option", 0), seriesColor(el, "option", 1)]).toEqual([null, "#c4622d"]);
   });
 
   test("colorPatch colore une série et garde les autres réglages", () => {
     const el = canonical([{ type: "bar", stack: "total" }, { type: "bar" }]);
-    expect(colorPatch(el, 0, "#5B8A3C")).toEqual({
+    expect(colorPatch(el, "option", 0, "#5B8A3C")).toEqual({
       series: [{ type: "bar", stack: "total", itemStyle: { color: "#5B8A3C" } }, { type: "bar" }],
     });
   });
 
   test("colorPatch sans couleur rend la série à la palette", () => {
     const el = canonical([{ type: "bar", itemStyle: { color: "#5B8A3C" } }]);
-    expect(colorPatch(el, 0, null)).toEqual({ series: [{ type: "bar" }] });
+    expect(colorPatch(el, "option", 0, null)).toEqual({ series: [{ type: "bar" }] });
   });
 });
 
@@ -126,11 +136,11 @@ describe("hexColor", () => {
 
   test("seriesColor ignore une couleur invalide dans le deck", () => {
     const el = canonical([{ type: "bar", itemStyle: { color: "red;background:url(x)" } }]);
-    expect(seriesColor(el, 0)).toBeNull();
+    expect(seriesColor(el, "option", 0)).toBeNull();
   });
 
   test("seriesColor rend la couleur normalisée", () => {
-    expect(seriesColor(canonical([{ type: "bar", itemStyle: { color: "#ABC" } }]), 0)).toBe("#aabbcc");
+    expect(seriesColor(canonical([{ type: "bar", itemStyle: { color: "#ABC" } }]), "option", 0)).toBe("#aabbcc");
   });
 });
 

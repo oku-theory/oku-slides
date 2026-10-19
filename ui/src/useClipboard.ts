@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Element, Op, Paragraph, SlideView, Snapshot, TabApi } from "./api";
+import { baseName } from "./baseKinds";
 import { copyAfterRefusedMove, findElement, literalToParagraphs, moveOps, pasteOps } from "./deck";
 import { t } from "./i18n";
-import type { AddKind } from "./slideTools";
+import type { AddName } from "./slideTools";
 import { canAdd } from "./slideTools";
 import type { FieldKey } from "./stageFields";
 import { primaryFieldOf } from "./stageFields";
@@ -55,7 +56,7 @@ interface ClipboardEventsContext extends Omit<Clipboard, "cutMark"> {
   dialogOpen: boolean;
   widgetActive: boolean;
   apply: (label: string, ops: Op[]) => Promise<boolean>;
-  addElement: (kind: AddKind, text?: Paragraph[], label?: string) => void;
+  addElement: (name: AddName, text?: Paragraph[], label?: string) => void;
   setSelected: (id: string | null) => void;
 }
 
@@ -90,7 +91,8 @@ export function useClipboardEvents({
       if (clip.current && text === clip.current.text) {
         e.preventDefault();
         const { element, cut: from } = clip.current;
-        if (!canAdd(element.kind, view.slide.kind)) return;
+        // Un texte de base suit la règle du texte natif ; tout autre élément, celle d'un widget.
+        if (!canAdd(baseName(element.kind) === "text" ? "text" : "widget", view.slide.kind)) return;
         const here = view;
         const copyHere = () => {
           const { id, ops } = pasteOps(here, element);

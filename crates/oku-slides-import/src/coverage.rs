@@ -34,6 +34,7 @@
 
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Deck, Element, HostType, ParamType, ParamValue, Params, Slide, WidgetRegistry};
 use serde_json::Value;
 
@@ -94,7 +95,7 @@ impl<'d> Seen<'d> {
             let ty = schema.and_then(|w| w.param(name)).map(|p| &p.ty);
             match (value, ty) {
                 (ParamValue::Text(t), Some(ParamType::Plain) | None) => self.text(t, owners),
-                (ParamValue::Text(a), Some(ParamType::Asset)) if kind == "image" => self.images.push(a),
+                (ParamValue::Text(a), Some(ParamType::Asset)) if kind == base::IMAGE => self.images.push(a),
                 (ParamValue::Rich(ps), _) => {
                     for t in rich_text(ps) {
                         self.text(&t, owners);

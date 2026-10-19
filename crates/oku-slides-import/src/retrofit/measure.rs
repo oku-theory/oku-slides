@@ -26,6 +26,7 @@
 
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Element, Paragraph, ParamValue, Run, TokenValue};
 use serde_json::{Map, Value};
 
@@ -221,7 +222,7 @@ impl Measure<'_> {
     pub(crate) fn element(&self, e: &Element, width: f64, room: f64, framed: bool) -> f64 {
         let t = self.tokens;
         match e.kind.as_str() {
-            "text" => {
+            base::TEXT => {
                 let size = match &e.style.size {
                     Some(TokenValue::Number(n)) => *n,
                     Some(TokenValue::Name(n)) => t.smaller.iter().find(|(k, _)| k == n).map_or(t.body, |(_, s)| *s),
@@ -229,16 +230,16 @@ impl Measure<'_> {
                 };
                 self.paragraphs(e.params.rich("body").unwrap_or_default(), width, size)
             }
-            "card" => self.card(e, width),
-            "stack" => self.stack(e, width, room),
-            "table" => {
+            base::CARD => self.card(e, width),
+            base::STACK => self.stack(e, width, room),
+            base::TABLE => {
                 let rows = e.params.value("data").and_then(|d| d.pointer("/dataset/source")).and_then(Value::as_array);
                 // Au plus 100 lignes (`MAX_TABLE_ROWS`) : la conversion est exacte.
                 let rows = rows.map_or(1, Vec::len) as f64;
                 rows * (CAP * t.table + 2.0 * t.table_padding)
             }
-            "chart" if !framed => (width * CHART_ASPECT).min(room),
-            "image" if !framed => (width * self.aspect(e)).min(room),
+            base::CHART if !framed => (width * CHART_ASPECT).min(room),
+            base::IMAGE if !framed => (width * self.aspect(e)).min(room),
             _ => 0.0,
         }
     }
@@ -311,7 +312,7 @@ impl Measure<'_> {
                 let need: f64 = blocks
                     .iter()
                     .map(|b| match b.kind.as_str() {
-                        "chart" | "image" => self.element(b, width, height, false).min(MIN_MEDIA),
+                        base::CHART | base::IMAGE => self.element(b, width, height, false).min(MIN_MEDIA),
                         _ => self.element(b, width, height, false),
                     })
                     .sum();
@@ -336,7 +337,7 @@ pub(crate) fn title_band(t: &TextTokens, title: Option<&str>, kicker: Option<&st
 /// passés à la taille `size` (un jeton du thème).
 pub(crate) fn resize(list: &mut [Element], size: &str) {
     for e in list.iter_mut() {
-        if matches!(e.kind.as_str(), "text" | "card")
+        if [base::TEXT, base::CARD].contains(&e.kind.as_str())
             && let Some(ParamValue::Rich(paras)) = e.params.0.get_mut("body")
         {
             for r in paras.iter_mut().flat_map(|p| p.runs.iter_mut()) {

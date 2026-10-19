@@ -5,13 +5,14 @@
 //     (args, ctx) => field(ctx, "title", args.title) + args.body)
 //
 // args : valeurs des paramètres, prêtes à rendre. Slot flow : entrées
-// (kind, id, body) ; slot free : entrées (kind, id, frame, cell, show),
+// (kind, id, grow, body) ; slot free : entrées (kind, id, frame, cell, show),
 // `show(frame)` rendant l'enfant. Liste : items (id, colonnes prêtes à
 // rendre), chacun rendu dans `list-item` pour que ses champs s'adressent à lui.
 // ctx : id (élément ou slide), tokens, vars, style (style de l'élément),
 // framed (l'élément a un cadre), load (chargeur d'image ou de graphique de
-// l'hôte, ou none) : `(ctx.load)(asset: …, fit: …)` pour une image (élément
-// ou slide), `(ctx.load)(chart: true)` pour un graphique dessiné par l'hôte.
+// l'hôte, ou none) : `(ctx.load)(asset: …, fit: …, flow: …)` pour une image
+// (élément ou slide ; `flow: true` la pose dans le flux, à ses proportions),
+// `(ctx.load)(chart: true)` pour un graphique dessiné par l'hôte.
 
 #import "core.typ": _measured, text-probe
 
@@ -19,7 +20,11 @@
 
 /// Déclare un widget. category : "element" ou "slide" ; description : ce
 /// qu'il montre, en une phrase (la grille d'ajout la filtre).
-#let widget(name, label: none, description: none, category: "element", params: (:), render) = {
+/// grow (élément) : false, sa hauteur ; true, une part de la hauteur qui
+/// reste ; "fit", sa hauteur si elle tient dans une part, sinon une part.
+/// typography (élément) : sa boîte porte la typographie de son style.
+#let widget(name, label: none, description: none, category: "element", grow: false, typography: false,
+  params: (:), render) = {
   assert(type(name) == str and name != "", message: "oku-slides : un widget a besoin d'un nom")
   assert(category in ("slide", "element"),
     message: "oku-slides : widget « " + name + " » : catégorie inconnue « " + repr(category) + " »")
@@ -29,6 +34,12 @@
     message: "oku-slides : widget « " + name + " » : le label doit être un texte")
   assert(description == none or type(description) == str,
     message: "oku-slides : widget « " + name + " » : la description doit être un texte")
+  assert(grow in (false, true, "fit"),
+    message: "oku-slides : widget « " + name + " » : grow vaut false, true ou \"fit\"")
+  assert(type(typography) == bool,
+    message: "oku-slides : widget « " + name + " » : typography est un booléen")
+  assert(category == "element" or (grow == false and not typography),
+    message: "oku-slides : widget « " + name + " » : une slide ne déclare ni grow ni typography")
   // Vide ou d'espaces : rien à montrer, comme absent.
   let label = if label == none or label.trim() == "" { none } else { label }
   let description = if description == none or description.trim() == "" { none } else { description }
@@ -38,7 +49,8 @@
       message: "oku-slides : widget « " + name + " » : le paramètre « " + key + " » n'est pas un descripteur p.*")
     list.push((name: key) + d)
   }
-  (name: name, schema: (name: name, label: label, description: description, category: category, params: list), render: render)
+  (name: name, schema: (name: name, label: label, description: description, category: category, grow: grow,
+    typography: typography, params: list), render: render)
 }
 
 /// Widgets d'un registre, par nom ; un nom répété remplace le précédent.

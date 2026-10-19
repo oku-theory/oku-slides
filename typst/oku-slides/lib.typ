@@ -1,6 +1,9 @@
 // Oku Slides — bibliothèque Typst de slides structurées et pilotées par jetons.
 
+// Ce qu'un widget de pack peut importer ; le pack `base` s'en sert.
 #import "src/tokens.typ": default-tokens, default-params, merge, color-of, size-of, space-of, font-of, weight-of
+#import "src/tokens.typ": radius-of, stroke-of, leading-of, list-marker
+#import "src/numbers.typ": format-number, deck-lang
 #import "src/core.typ": var, interp, config, current-chapter, page-context, format-date, fill-template, template-fields
 #import "src/slides.typ": deck, slide, title-slide, chapter, toc, end-slide, blank-slide, kicker, card
 #import "src/data.typ": render-deck, render-slide, body-size

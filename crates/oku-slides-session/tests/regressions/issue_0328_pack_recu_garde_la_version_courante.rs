@@ -75,7 +75,11 @@ fn received_deck_with_the_same_pack_id_never_changes_the_current_version() {
 #[test]
 fn received_version_of_a_builtin_pack_never_replaces_the_builtin_current() {
     let (me, them) = (data_dir(), data_dir());
-    let builtin = builtin_versions()[0].version.clone();
+    let builtin = builtin_versions()
+        .iter()
+        .find(|b| b.manifest.id == DEFAULT_PACK)
+        .map(|b| b.version.clone())
+        .unwrap_or_else(|| panic!("Essentiel"));
     let theirs = version(DEFAULT_PACK, "Essentiel retouché", Some(&builtin), "2026-10-05T10:00:00Z");
     let path = received(&them, DEFAULT_PACK, &theirs);
     let mut s = session_in(&me);

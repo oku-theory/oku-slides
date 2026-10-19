@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, base_registry};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, core_registry};
 use speculoos::prelude::*;
 
 use super::*;
@@ -25,7 +25,7 @@ fn worker(timeout_ms: u64) -> RenderWorker {
 }
 
 fn slot(w: &RenderWorker) -> RenderSlot {
-    w.slot(&Fonts::default(), &Localizer::new(Some("fr")), base_registry(&Fonts::default()).unwrap()).unwrap()
+    w.slot(&Fonts::default(), &Localizer::new(Some("fr")), core_registry(&Fonts::default()).unwrap()).unwrap()
 }
 
 #[test]
@@ -60,10 +60,50 @@ fn set_widgets_that_loops_marks_pack_faulty() {
     let pack = PackWidgets::new("boucle", ns("boucle"), files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
     let mut s = slot(&w);
     let err = s
-        .set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), base_registry(&Fonts::default()).unwrap())
+        .set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), core_registry(&Fonts::default()).unwrap())
         .unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Timeout);
     assert_that!(w.is_faulty(&pack)).is_true();
+}
+
+/// Un emplacement qui porte un pack de confiance n'accuse aucun pack : l'échec peut venir du
+/// contenu `base` du deck ; la session tranche par son rendu témoin.
+#[test]
+fn set_widgets_that_loops_beside_trusted_base_marks_no_pack_faulty() {
+    let w = worker(300);
+    let base = oku_slides_render::base_pack_widgets().unwrap();
+    let looping = PackWidgets::new("boucle", ns("boucle"), files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
+    let mut s = slot(&w);
+    let set = PackSet::new(vec![base.clone(), looping.clone()]).unwrap();
+    let err = s.set_widgets(&set, core_registry(&Fonts::default()).unwrap()).unwrap_err();
+    assert_that!((err.kind(), w.is_faulty(&looping), w.is_faulty(&base))).is_equal_to((
+        RenderErrorKind::Timeout,
+        false,
+        false,
+    ));
+}
+
+#[test]
+fn a_bounded_failure_with_trusted_base_alone_marks_nothing_faulty() {
+    let w = worker(300);
+    let base = oku_slides_render::base_pack_widgets().unwrap();
+    // Un pack que le prédicat dit de confiance (espace de noms `base`, version livrée) et qui
+    // dépasse le délai : un délai d'1 ms ferait échouer l'ouverture même de l'emplacement.
+    let trusted = PackWidgets::new(base.id(), base.namespace().clone(), files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
+    let mut s = slot(&w);
+    let set = PackSet::new(vec![trusted.clone()]).unwrap();
+    let err = s.set_widgets(&set, core_registry(&Fonts::default()).unwrap()).unwrap_err();
+    assert_that!((err.kind(), w.is_faulty(&trusted))).is_equal_to((RenderErrorKind::Timeout, false));
+}
+
+#[test]
+fn mark_faulty_marks_an_untrusted_pack_but_never_a_trusted_one() {
+    let w = worker(300);
+    let base = oku_slides_render::base_pack_widgets().unwrap();
+    let other = PackWidgets::new("autre", ns("autre"), files(&[("quote", QUOTE)])).unwrap();
+    w.mark_faulty(&base);
+    w.mark_faulty(&other);
+    assert_that!((w.is_faulty(&base), w.is_faulty(&other))).is_equal_to((false, true));
 }
 
 #[test]
@@ -73,7 +113,7 @@ fn render_with_looping_widget_times_out_then_is_disabled_without_retry() {
     let registry = w.probe_pack(&pack).unwrap().registry;
     let mut s = slot(&w);
     s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), registry).unwrap();
-    let deck = oku_slides_core::Deck::from_json(r#"{"version":6,"params":{"title":"T"},"slides":[{"id":"s","kind":"content","params":{"blocks":[{"id":"b","kind":"rendu/boucle","params":{"body":"x"}}]}}]}"#).unwrap();
+    let deck = oku_slides_core::Deck::from_json(r#"{"version": 7,"params":{"title":"T"},"slides":[{"id":"s","kind":"content","params":{"blocks":[{"id":"b","kind":"rendu/boucle","params":{"body":"x"}}]}}]}"#).unwrap();
     assert_that!(s.render(&deck, &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::Timeout);
     let started = std::time::Instant::now();
     assert_that!(s.render(&deck, &BTreeMap::new()).unwrap_err().kind()).is_equal_to(RenderErrorKind::PackDisabled);
@@ -137,7 +177,7 @@ fn set_widgets_with_faulty_pack_is_disabled_without_call() {
     let w = worker(3_000);
     let pack = PackWidgets::new("boucle", ns("boucle"), files(&[("boucle", LOOP_ON_IMPORT)])).unwrap();
     let mut s = slot(&w);
-    let base = base_registry(&Fonts::default()).unwrap();
+    let base = core_registry(&Fonts::default()).unwrap();
     assert_that!(s.set_widgets(&PackSet::new(vec![pack.clone()]).unwrap(), base.clone()).unwrap_err().kind())
         .is_equal_to(RenderErrorKind::Timeout);
     force_restart(&w, "boucle-b");
@@ -329,7 +369,7 @@ fn trial_slot_render_that_loops_times_out_and_accuses_nothing() {
     let pack = PackWidgets::new("rendu", ns("rendu"), files(&[("boucle", LOOP_ON_RENDER)])).unwrap();
     let probe = w.probe_pack(&pack).unwrap();
     let kept = probe.pack.clone().unwrap();
-    let base = base_registry(&Fonts::default()).unwrap();
+    let base = core_registry(&Fonts::default()).unwrap();
     let mut s = w.trial_slot(&Fonts::default(), &Localizer::new(Some("fr")), base).unwrap();
     s.set_widgets(&PackSet::new(vec![kept.clone()]).unwrap(), probe.registry.clone()).unwrap();
     let deck = looping_deck();
@@ -354,7 +394,7 @@ fn trial_slot_with_a_faulty_pack_renders_it_until_a_restart_then_is_disabled() {
         .is_equal_to(RenderErrorKind::Timeout);
     assert_that!(w.is_faulty(&kept)).is_true();
     // L'essai pose tout de même le pack fautif, et rend.
-    let base = base_registry(&Fonts::default()).unwrap();
+    let base = core_registry(&Fonts::default()).unwrap();
     let mut s = w.trial_slot(&Fonts::default(), &Localizer::new(Some("fr")), base).unwrap();
     s.set_widgets(&PackSet::new(vec![kept.clone()]).unwrap(), probe.registry).unwrap();
     assert_that!(s.render(&tiny_deck(), &BTreeMap::new())).is_ok();

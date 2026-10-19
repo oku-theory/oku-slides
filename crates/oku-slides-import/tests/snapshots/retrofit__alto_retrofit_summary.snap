@@ -18,9 +18,9 @@ expression: summary(&plan)
     "kicker": "OUR CONVICTION",
     "title": "The agent becomes the only interface — and, soon, the more trusted confidant.",
     "elements": [
-      "card « The only window »",
-      "card « A deeper confidant »",
-      "card « Attacked on two fronts »"
+      "base/card « The only window »",
+      "base/card « A deeper confidant »",
+      "base/card « Attacked on two fronts »"
     ]
   },
   {
@@ -30,19 +30,19 @@ expression: summary(&plan)
     "kicker": "THE SHIFT",
     "title": "From selling software to a connected bank",
     "elements": [
-      "text @0,44 1680×116",
-      "card @0,173 481×132 « Alto Wealth »",
-      "image @504,229 47×22",
-      "card @575,173 481×132 « Private banker »",
-      "image @1080,229 47×22",
-      "card @1150,173 481×132 « End client »",
-      "text @0,349 1680×34",
-      "card @1,398 480×134 « End client »",
-      "image @506,454 47×22",
-      "card @577,398 480×134 « Claude · ChatGPT »",
-      "image @1082,454 47×22",
-      "card @1153,399 478×132 « Alto Wealth »",
-      "text @0,576 1514×70"
+      "base/text @0,44 1680×116",
+      "base/card @0,173 481×132 « Alto Wealth »",
+      "base/image @504,229 47×22",
+      "base/card @575,173 481×132 « Private banker »",
+      "base/image @1080,229 47×22",
+      "base/card @1150,173 481×132 « End client »",
+      "base/text @0,349 1680×34",
+      "base/card @1,398 480×134 « End client »",
+      "base/image @506,454 47×22",
+      "base/card @577,398 480×134 « Claude · ChatGPT »",
+      "base/image @1082,454 47×22",
+      "base/card @1153,399 478×132 « Alto Wealth »",
+      "base/text @0,576 1514×70"
     ]
   },
   {
@@ -52,9 +52,9 @@ expression: summary(&plan)
     "kicker": "OUR MOAT",
     "title": "Our moat isn't the code. It's the ecosystem behind it.",
     "elements": [
-      "text",
-      "stack [card « Amundi Funds », card « Alto Wealth », card « Amundi Services »]",
-      "card"
+      "base/text",
+      "base/stack [base/card « Amundi Funds », base/card « Alto Wealth », base/card « Amundi Services »]",
+      "base/card"
     ]
   },
   {
@@ -64,9 +64,9 @@ expression: summary(&plan)
     "kicker": "OUR RESPONSE",
     "title": "Expose the ecosystem, not just the software",
     "elements": [
-      "text",
-      "stack [card « MCP », card « AG-UI »]",
-      "card"
+      "base/text",
+      "base/stack [base/card « MCP », base/card « AG-UI »]",
+      "base/card"
     ]
   },
   {
@@ -76,9 +76,9 @@ expression: summary(&plan)
     "kicker": "WHY US, NOT JUST ANY MCP SERVER",
     "title": "The financial coach for someone's entire life",
     "elements": [
-      "text",
-      "stack [card « A lifelong financial planner », card « Products no one else offers », card « A product for every life stage »]",
-      "card"
+      "base/text",
+      "base/stack [base/card « A lifelong financial planner », base/card « Products no one else offers », base/card « A product for every life stage »]",
+      "base/card"
     ]
   },
   {
@@ -88,8 +88,8 @@ expression: summary(&plan)
     "kicker": "ROADMAP",
     "title": "First mover, standard setter",
     "elements": [
-      "stack [card « Live in every agent marketplace », card « Transact from the marketplace », card « Become the default choice »]",
-      "card"
+      "base/stack [base/card « Live in every agent marketplace », base/card « Transact from the marketplace », base/card « Become the default choice »]",
+      "base/card"
     ]
   },
   {
@@ -99,10 +99,10 @@ expression: summary(&plan)
     "kicker": "ORGANIZATIONAL ANATOMY",
     "title": "The wealth management value chain, front to back",
     "elements": [
-      "card « Front & Distribution »",
-      "card « Product & Investment »",
-      "card « Operations & Custody »",
-      "card « Governance & Control »"
+      "base/card « Front & Distribution »",
+      "base/card « Product & Investment »",
+      "base/card « Operations & Custody »",
+      "base/card « Governance & Control »"
     ]
   }
 ]

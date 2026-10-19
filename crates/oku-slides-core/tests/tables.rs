@@ -4,6 +4,7 @@ mod common;
 
 use common::registry;
 use oku_slides_chart::{Cell, DataOp};
+use oku_slides_core::kinds::base;
 use oku_slides_core::*;
 use oku_slides_i18n::{Localize, Localizer};
 use serde_json::{Value, json};
@@ -22,11 +23,11 @@ fn element(v: Value) -> Element {
 }
 
 fn table(id: &str, data: Value) -> Element {
-    element(json!({ "id": id, "kind": "table", "params": { "data": data } }))
+    element(json!({ "id": id, "kind": "base/table", "params": { "data": data } }))
 }
 
 fn chart(id: &str) -> Element {
-    element(json!({ "id": id, "kind": "chart", "params": { "option": {
+    element(json!({ "id": id, "kind": "base/chart", "params": { "option": {
         "dataset": { "source": [["M", "V"], ["a", 1]] }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } }))
 }
 
@@ -78,8 +79,8 @@ fn add_element_ragged_table_is_invalid_table() {
 
 #[test]
 fn add_element_ragged_table_inside_a_stack_is_invalid_table() {
-    let stack = element(json!({ "id": "p", "kind": "stack", "params": { "children": [
-        { "id": "t1", "kind": "table", "params": { "data": ragged() } } ] } }));
+    let stack = element(json!({ "id": "p", "kind": "base/stack", "params": { "children": [
+        { "id": "t1", "kind": "base/table", "params": { "data": ragged() } } ] } }));
     assert_that!(kind_of(add(&mut empty_deck(), stack))).is_equal_to(OpErrorKind::InvalidTable);
 }
 
@@ -96,7 +97,7 @@ fn replace_element_chart_by_table_keeps_the_id() {
     let mut deck = deck_with(chart("t1"));
     apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: table("t1", data()) }).unwrap();
     let e = deck.slides[0].locate("t1").unwrap_or_else(|| panic!("t1 absent")).element;
-    assert_that!(e.kind.as_str()).is_equal_to("table");
+    assert_that!(e.kind.as_str()).is_equal_to(base::TABLE);
 }
 
 #[test]
@@ -181,7 +182,7 @@ fn validate_deck_with_valid_table_reports_nothing() {
 fn validate_deck_with_ragged_table_reports_one_issue() {
     let deck = Deck::from_json(
         &json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-            { "id": "t1", "kind": "table", "params": { "data": ragged() } } ] } }] })
+            { "id": "t1", "kind": "base/table", "params": { "data": ragged() } } ] } }] })
         .to_string(),
     )
     .unwrap_or_else(|e| panic!("{e}"));
@@ -243,7 +244,7 @@ fn set_param_table_without_ids_stores_ids() {
 fn add_slide_with_table_without_ids_stores_ids() {
     let mut deck = empty_deck();
     let slide: Slide = serde_json::from_value(json!({ "id": "s2", "kind": "content", "params": { "blocks": [
-        { "id": "t1", "kind": "table", "params": { "data": data() } }] } }))
+        { "id": "t1", "kind": "base/table", "params": { "data": data() } }] } }))
     .unwrap_or_else(|e| panic!("{e}"));
     apply(&mut deck, Op::AddSlide { index: None, defaults: false, slide }).unwrap_or_else(|e| panic!("{e}"));
     let e = deck.slide("s2").and_then(|s| s.locate("t1")).unwrap_or_else(|| panic!("absent")).element;
@@ -279,8 +280,8 @@ fn forged_stored(deck: &Deck, param: &str) -> Value {
 
 #[test]
 fn add_element_table_inside_a_stack_stores_aligned_ids_and_columns() {
-    let stack = element(json!({ "id": "p", "kind": "stack", "params": { "children": [
-        { "id": "t1", "kind": "table", "params": { "data": data() } } ] } }));
+    let stack = element(json!({ "id": "p", "kind": "base/stack", "params": { "children": [
+        { "id": "t1", "kind": "base/table", "params": { "data": data() } } ] } }));
     let deck = deck_with(stack);
     let e = deck.slides[0].locate("t1").unwrap_or_else(|| panic!("t1 absent")).element;
     let v = e.params.value("data").unwrap_or_else(|| panic!("data absent")).clone();
@@ -289,9 +290,9 @@ fn add_element_table_inside_a_stack_stores_aligned_ids_and_columns() {
 
 #[test]
 fn set_kind_table_keeping_a_value_without_ids_normalizes_it() {
-    let mut deck = forged_deck("table", json!({ "data": data() }));
+    let mut deck = forged_deck(base::TABLE, json!({ "data": data() }));
     assert_that!(forged_stored(&deck, "data")["dataset"]["ids"].is_null()).is_true();
-    apply(&mut deck, Op::SetKind { target: t1(), kind: "table".into() }).unwrap_or_else(|e| panic!("{e}"));
+    apply(&mut deck, Op::SetKind { target: t1(), kind: base::TABLE.into() }).unwrap_or_else(|e| panic!("{e}"));
     assert_aligned(&forged_stored(&deck, "data"), 2, 2);
 }
 
@@ -299,7 +300,7 @@ fn set_kind_table_keeping_a_value_without_ids_normalizes_it() {
 fn set_chart_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
     let option = json!({ "dataset": { "source": [["M", "V"], ["a", 1]] }, "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }] });
-    let mut deck = forged_deck("chart", json!({ "option": option }));
+    let mut deck = forged_deck(base::CHART, json!({ "option": option }));
     assert_that!(forged_stored(&deck, "option")["dataset"]["ids"].is_null()).is_true();
     let patch = json!({ "title": { "text": "T" } });
     apply(&mut deck, Op::SetChartOption { target: t1(), param: "option".into(), patch })
@@ -309,7 +310,7 @@ fn set_chart_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
 
 #[test]
 fn set_table_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
-    let mut deck = forged_deck("table", json!({ "data": data() }));
+    let mut deck = forged_deck(base::TABLE, json!({ "data": data() }));
     assert_that!(forged_stored(&deck, "data")["dataset"]["ids"].is_null()).is_true();
     let patch = json!({ "striped": true });
     apply(&mut deck, Op::SetTableOption { target: t1(), param: "data".into(), patch })

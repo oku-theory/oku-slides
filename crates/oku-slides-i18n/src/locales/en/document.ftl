@@ -17,6 +17,7 @@ diagnostic-hint = hint: { $hint }
 render-chart-failed = chart could not be drawn
 
 registry-bad-pack-id = Invalid template pack identifier: { $id }
+registry-base-pack-broken = The built-in widget pack is damaged ({ $file }); reinstall the app.
 registry-duplicate-pack = Two widget packs of the presentation share { $pack }.
 registry-compile = The widgets of the template pack could not be compiled
 registry-missing = The template pack does not declare its widgets

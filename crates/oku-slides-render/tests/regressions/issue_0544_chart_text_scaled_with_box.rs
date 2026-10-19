@@ -7,12 +7,12 @@ use std::collections::BTreeMap;
 
 use base64::Engine;
 use oku_slides_core::Deck;
-use oku_slides_render::{Fonts, Renderer};
+use oku_slides_core::kinds::base;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 fn chart(placement: Value) -> Value {
-    let mut c = json!({ "id": "g", "kind": "chart", "params": { "option": {
+    let mut c = json!({ "id": "g", "kind": base::CHART, "params": { "option": {
         "dataset": { "source": [["Mois", "Ventes"], ["Janvier", 3], ["Février", 5]] },
         "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } });
     if let (Value::Object(c), Value::Object(p)) = (&mut c, placement) {
@@ -41,7 +41,7 @@ fn drawn_size(page: &str) -> (f64, f64) {
 }
 
 fn assert_drawn_at_box_size(deck: &Deck) {
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = crate::common::renderer();
     let doc = r.render(deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     let b = doc.layout().boxes.iter().find(|b| b.id == "g").cloned().unwrap_or_else(|| panic!("boîte absente"));
     let (w, h) = drawn_size(&doc.svg(0).unwrap_or_else(|e| panic!("{e}")));
@@ -57,7 +57,7 @@ fn chart_on_a_wide_grid_cell_is_drawn_at_the_cell_size() {
 
 #[test]
 fn chart_in_the_flow_is_drawn_at_its_box_size() {
-    let blocks = [json!({ "id": "t", "kind": "text", "params": { "body": "Un point" } }), chart(json!({}))];
+    let blocks = [json!({ "id": "t", "kind": base::TEXT, "params": { "body": "Un point" } }), chart(json!({}))];
     assert_drawn_at_box_size(&deck(json!({ "id": "s", "kind": "content", "params": { "blocks": blocks } })));
 }
 

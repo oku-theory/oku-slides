@@ -18,7 +18,7 @@ fn element(v: serde_json::Value) -> Element {
 fn start() -> Deck {
     let mut deck =
         Deck::from_json(include_str!("../../../../fixtures/roadmap.json")).unwrap_or_else(|e| panic!("fixture : {e}"));
-    slot(&mut deck, CONTENT[0]).push(element(json!({ "id": "pile", "kind": "stack" })));
+    slot(&mut deck, CONTENT[0]).push(element(json!({ "id": "pile", "kind": "base/stack" })));
     canonicalize(&mut deck);
     deck
 }
@@ -122,9 +122,11 @@ fn edited(deck: &Deck, rng: &mut Lcg, round: usize) -> (Deck, Edit) {
         }
         Edit::AddOwner => {
             let text = |id: String| {
-                element(json!({ "id": id, "kind": "text", "params": { "body": [{ "runs": [{ "t": "Enfant" }] }] } }))
+                element(
+                    json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "Enfant" }] }] } }),
+                )
             };
-            let mut owner = element(json!({ "id": format!("pile-{round}"), "kind": "stack" }));
+            let mut owner = element(json!({ "id": format!("pile-{round}"), "kind": "base/stack" }));
             owner.params.set(
                 "children",
                 oku_slides_core::ParamValue::Slot(vec![

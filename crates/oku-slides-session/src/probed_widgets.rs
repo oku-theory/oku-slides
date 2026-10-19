@@ -25,12 +25,12 @@ use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, PackVersion, SourceBu
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_platform::errors::one_line;
-use oku_slides_render::{Fonts, PackSet, PackWidgets, RegistryError, RenderError};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, RegistryError, RenderError, is_trusted_pack};
 use oku_slides_render_worker::{RenderSlot, RenderWorker};
 
 use crate::deck_closure::dependents;
-use crate::deck_pack::check_pack_id;
-use crate::import::error::{LibrarySnafu, Result, SourcesSnafu};
+use crate::deck_pack::{check_pack_id, in_process_pack, only_builtin_base};
+use crate::import::error::{LibrarySnafu, RegistrySnafu, Result, SourcesSnafu};
 use crate::{PackLibrary, adopt_default_packs};
 
 /// Appels de sonde d'un pack au plus.
@@ -169,12 +169,16 @@ impl ProbedWidgets {
     /// erreur ([`Self::probe_failed`]). Un assemblage raté n'écarte que les
     /// packs qui le font échouer ([`assemble_each`]). Le temps de relance est
     /// commun aux packs.
+    ///
+    /// # Errors
+    /// Un `base` livré (de confiance) n'est jamais écarté : illisible ou
+    /// sonde échouée, son erreur remonte.
     pub fn probe(
         platform: &Platform,
         base: &Arc<WidgetRegistry>,
         deck: &Deck,
         packs: &BTreeMap<PackVersion, PackFiles>,
-    ) -> Self {
+    ) -> Result<Self, RegistryError> {
         let l: &Localizer = &platform.localizer;
         let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
         let (start, total) = (Instant::now(), platform.settings.render.probe_budget().saturating_mul(PROBE_BUDGETS));
@@ -196,12 +200,21 @@ impl ProbedWidgets {
             if files.widgets().is_empty() {
                 continue;
             }
-            let probed = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone()).and_then(|pack| {
+            // Le `base` intégré courant se résout ici, sans sonde, comme dans la session.
+            // De confiance, il n'est jamais écarté : illisible, l'erreur remonte (arbitrage 94).
+            if let Some(builtin) = in_process_pack(&pin.version) {
+                usable.push(builtin?);
+                continue;
+            }
+            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone());
+            let trusted = pack.as_ref().is_ok_and(is_trusted_pack);
+            let probed = pack.and_then(|pack| {
                 probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len(), || start.elapsed() >= total)
             });
             let probe = match probed {
                 Ok(probe) => probe,
                 Err(e) => {
+                    let e = disable_unless_trusted(trusted, e)?;
                     let message = e.localize(l);
                     tracing::warn!(pack = %pin.id, error = %one_line(&e), "{message}");
                     probe_failed.get_or_insert(message);
@@ -225,16 +238,25 @@ impl ProbedWidgets {
         }
         usable.retain(|p| !gone.contains(p.namespace()));
         if usable.is_empty() {
-            return Self { registry: base.clone(), unprobed, probe_failed, worker, set: PackSet::default() };
+            return Ok(Self { registry: base.clone(), unprobed, probe_failed, worker, set: PackSet::default() });
         }
-        let (set, registry, error) = assemble_each(&deck.widgets, usable, |set| worker.registry_of(set));
+        // Le seul `base` intégré : son registre est celui de l'app, sans processus de rendu. Les
+        // schémas ne dépendent pas des polices : le registre intégré garde celles de son premier appel.
+        let registry_of = |set: &PackSet| {
+            if only_builtin_base(set) {
+                oku_slides_render::builtin_registry(&Fonts::default())
+            } else {
+                worker.registry_of(set)
+            }
+        };
+        let (set, registry, error) = assemble_each(&deck.widgets, usable, registry_of);
         if let Some(e) = error {
             let message = e.localize(l);
             tracing::warn!(error = %one_line(&e), "{message}");
             probe_failed.get_or_insert(message);
         }
         let registry = registry.unwrap_or_else(|| base.clone());
-        Self { registry, unprobed, probe_failed, worker, set }
+        Ok(Self { registry, unprobed, probe_failed, worker, set })
     }
 
     /// Un pack a-t-il des widgets valides, que seul le processus de rendu exécute ?
@@ -248,6 +270,11 @@ impl ProbedWidgets {
         slot.set_widgets(&self.set, self.registry.clone())?;
         Ok(slot)
     }
+}
+
+/// La panne d'un pack, à écarter ; de confiance (`base` livré), elle remonte plutôt.
+fn disable_unless_trusted(trusted: bool, e: RegistryError) -> Result<RegistryError, RegistryError> {
+    if trusted { Err(e) } else { Ok(e) }
 }
 
 /// Les sources de `deck` avec ses packs `packs`, et ses widgets sondés.
@@ -268,7 +295,7 @@ pub fn sources_with_packs(
         bundle.add_pack(files);
     }
     adopt_default_packs(library, &mut bundle).context(LibrarySnafu)?;
-    let widgets = ProbedWidgets::probe(platform, base, bundle.deck(), &bundle.packs);
+    let widgets = ProbedWidgets::probe(platform, base, bundle.deck(), &bundle.packs).context(RegistrySnafu)?;
     if !Arc::ptr_eq(&widgets.registry, base) {
         let packs = std::mem::take(&mut bundle.packs);
         bundle = SourceBundle::new(bundle.deck().clone(), widgets.registry.clone()).context(SourcesSnafu)?;

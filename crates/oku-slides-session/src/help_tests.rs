@@ -211,7 +211,7 @@ fn open_help_uses_the_builtin_default_pack_not_the_users_current_one() {
 
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let builtin = crate::builtin_versions()[0].version.clone();
+    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
     let mine = manifest(crate::DEFAULT_PACK, "Mon Essentiel", Some(&builtin), "2027-01-01T00:00:00Z");
     let r = add_version(library_of(&s), &mine, &[("title", "#let widget = none")]);
     library_of(&s).set_current(crate::DEFAULT_PACK, &r.version).unwrap();
@@ -343,4 +343,16 @@ fn search_with_only_the_title_matching_has_no_excerpt() {
     let hits = s.search("onglets, historique");
     let hit = hits.iter().find(|h| h.slide == "s-fichiers").unwrap();
     assert_that!(hit.excerpt.as_deref()).is_none();
+}
+
+#[test]
+fn help_deck_pins_the_builtin_base_and_essentiel() {
+    let (_data, s) = help_session("fr");
+    let builtin = |id| crate::test_support::builtin(id).version.clone();
+    let pins: Vec<(String, oku_slides_core::PackVersion)> =
+        s.deck().widgets.iter().map(|(n, p)| (n.to_string(), p.version.clone())).collect();
+    assert_that!(pins).is_equal_to(vec![
+        ("base".into(), builtin(crate::pack::BASE_PACK)),
+        ("essentiel".into(), builtin(crate::DEFAULT_PACK)),
+    ]);
 }

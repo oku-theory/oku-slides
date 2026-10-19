@@ -12,7 +12,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use oku_slides_core::{Deck, Namespace, ParamType, WidgetFile, WidgetSchema, qualify};
-use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, load_registry, probe_registry};
+use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, base_pack_widgets, load_registry, probe_registry};
 use rstest::rstest;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -87,7 +87,7 @@ fn slide(id: &str, w: &WidgetSchema, filled: bool) -> Value {
                 }]),
                 ParamType::Plain => json!("Page {n}"),
                 ParamType::Slot { .. } => json!([{
-                    "id": format!("{id}-e"), "kind": "text", "frame": { "x": 100, "y": 100, "w": 400, "h": 100 },
+                    "id": format!("{id}-e"), "kind": oku_slides_core::kinds::base::TEXT, "frame": { "x": 100, "y": 100, "w": 400, "h": 100 },
                     "params": { "body": [{ "runs": [{ "t": "En plus" }] }] }
                 }]),
                 _ => continue,
@@ -119,7 +119,10 @@ fn import_pack_probe_reads_the_declared_schemas(#[case] case: &str) {
 #[case("synthetic")]
 fn import_pack_widgets_render_their_fields_and_extras(#[case] case: &str) {
     let fonts = Fonts::default();
-    let pack = pack(case);
+    // Le pack généré requiert `base` : ses éléments en extras en sont.
+    let mut packs = pack(case).packs().to_vec();
+    packs.push(base_pack_widgets().unwrap_or_else(|e| panic!("{e}")));
+    let pack = PackSet::new(packs).unwrap_or_else(|e| panic!("{e}"));
     let registry = load_registry(&fonts, &pack).unwrap_or_else(|e| panic!("sonde : {e}"));
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
     r.set_widgets(&pack, Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
@@ -131,7 +134,7 @@ fn import_pack_widgets_render_their_fields_and_extras(#[case] case: &str) {
         .flat_map(|(i, w)| [slide(&format!("p{i}"), w, true), slide(&format!("v{i}"), w, false)])
         .collect();
     let deck =
-        Deck::from_json(&json!({ "version": 6, "slides": slides }).to_string()).unwrap_or_else(|e| panic!("{e}"));
+        Deck::from_json(&json!({ "version": 7, "slides": slides }).to_string()).unwrap_or_else(|e| panic!("{e}"));
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("rendu : {e}"));
     assert_that!(compiled.page_count()).is_equal_to(slides.len());
     let layout = compiled.layout();

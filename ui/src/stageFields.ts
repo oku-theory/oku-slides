@@ -4,6 +4,7 @@
  * étiquette d'un objet (sorte et case de grille).
  */
 import type { FieldView, SlideView, TextStyle } from "./api";
+import { baseName } from "./baseKinds";
 import { capHeight, cssFont } from "./fontMetrics";
 import type { Cell } from "./grid";
 import { cellLabel } from "./grid";
@@ -37,8 +38,8 @@ export function primaryFieldOf(view: SlideView, owner: string): FieldView | null
   return own.find((f) => !f.empty) ?? own.find((f) => f.kind === "rich") ?? own[0] ?? null;
 }
 
-/** Nom d'une sorte d'élément (texte, carte…) ; une sorte inconnue garde son identifiant. */
-export const kindLabel = (kind: string) => t("ui-element-kind", { kind });
+/** Nom d'une sorte d'élément (texte, carte…) ; un kind hors de `base` garde son identifiant. */
+export const kindLabel = (kind: string) => t("ui-element-kind", { kind: baseName(kind) ?? kind });
 
 /** Étiquette d'un objet : sa sorte, et sa case s'il est sur la grille. */
 export const elementTag = (kind: string, cell: Cell | null | undefined) =>

@@ -40,6 +40,11 @@ pub(crate) fn opened_on(data: &std::path::Path) -> Session {
     s
 }
 
+/// La version intégrée du pack `id` (cherchée par id, jamais par rang).
+pub(crate) fn builtin(id: uuid::Uuid) -> &'static crate::library_kind::StoredVersion<crate::pack::PackManifest> {
+    builtin_versions().iter().find(|b| b.manifest.id == id).unwrap_or_else(|| panic!("pack intégré inconnu : {id}"))
+}
+
 /// Un espace de noms des tests.
 pub(crate) fn ns(s: &str) -> oku_slides_core::Namespace {
     oku_slides_core::Namespace::parse(s).unwrap_or_else(|| panic!("espace de noms invalide : {s}"))

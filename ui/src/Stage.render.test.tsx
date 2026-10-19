@@ -163,7 +163,7 @@ test("Stage without ghosts draws no ghost layer", async () => {
 });
 
 test("Stage with ghosts outlines each element with its kind", async () => {
-  const core = { ...view, targets: [{ ...view.targets[0], kind: "card" }] } as SlideView;
+  const core = { ...view, targets: [{ ...view.targets[0], kind: "base/card" }] } as SlideView;
   const { host } = await mount({ view: core, showGhosts: true });
   const tags = [...host.querySelectorAll(".stage-ghost-target .stage-ghost-tag")].map((e) => e.textContent);
   expect(tags).toEqual(["Carte"]);
@@ -185,9 +185,9 @@ test("Stage with ghosts shows placeholders of empty fields without selection", a
 test("Stage with ghosts outlines the body zone and tags gridded elements with their cell", async () => {
   const v = {
     ...view,
-    slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "text", cell: { col: 1, row: 0, cols: 2 } }] } },
+    slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "base/text", cell: { col: 1, row: 0, cols: 2 } }] } },
     zone: { page: 1, x: 100, y: 100, w: 1000, h: 600, grid: { columns: 4, rows: 3, gap: 0 } },
-    targets: [{ id: "t1", kind: "text", free: true, x: 350, y: 100, w: 500, h: 200 }],
+    targets: [{ id: "t1", kind: "base/text", free: true, x: 350, y: 100, w: 500, h: 200 }],
     fields: [],
   } as unknown as SlideView;
   const { host } = await mount({ view: v, showGhosts: true });
@@ -206,9 +206,9 @@ test("Stage read only with ghosts outlines elements and fields but shows no fiel
 const gridded = {
   ...view,
   width: 1000, height: 600,
-  slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "text", cell: { col: 1, row: 0, cols: 2 } }] } },
+  slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "base/text", cell: { col: 1, row: 0, cols: 2 } }] } },
   zone: { page: 1, x: 0, y: 0, w: 1000, h: 600, grid: { columns: 4, rows: 3, gap: 0 } },
-  targets: [{ id: "t1", kind: "text", free: true, x: 250, y: 0, w: 500, h: 200 }],
+  targets: [{ id: "t1", kind: "base/text", free: true, x: 250, y: 0, w: 500, h: 200 }],
   fields: [],
 } as unknown as SlideView;
 
@@ -488,7 +488,16 @@ test("Stage double click on the tag button does not edit the field", async () =>
   expect(calls.edit).toEqual([]);
 });
 
-test("Stage selected built-in element keeps a plain tag, no button", async () => {
+test("Stage selected base element: the open tag is named by its localized kind", async () => {
+  const opened: string[] = [];
+  const { host } = await mount({ view: gridded, selected: "t1", packWidgets: new Set(["base/text"]), onOpenWidget: (n: string) => opened.push(n) });
+  const tag = host.querySelector("button.tag-open")!;
+  expect([tag.getAttribute("aria-label"), tag.getAttribute("title")]).toEqual(["Ouvrir le widget Texte", "Ouvrir le widget Texte"]);
+  await act(async () => tag.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  expect(opened).toEqual(["base/text"]);
+});
+
+test("Stage selected element outside the pack widgets keeps a plain tag, no button", async () => {
   const { host } = await mount({ view: gridded, selected: "t1", packWidgets: new Set(["acme/card"]), onOpenWidget: () => {} });
   expect(host.querySelector("button.tag-open")).toBeNull();
   expect(host.querySelector(".target.selected span.tag")).not.toBeNull();
@@ -531,8 +540,8 @@ const itemOf = (id: string, index: number, x: number) => ({
 /** Une frise de deux étapes côte à côte, chacune avec son champ `date`. */
 const frise = {
   ...view,
-  slide: { id: "s", kind: "content", params: { blocks: [{ id: "f", kind: "frise", params: { etapes: [{ id: "a", date: "2019" }, { id: "b", date: "2020" }] } }] } },
-  targets: [{ id: "f", kind: "frise", free: false, x: 0, y: 100, w: 400, h: 200 }],
+  slide: { id: "s", kind: "content", params: { blocks: [{ id: "f", kind: "deck/frise", params: { etapes: [{ id: "a", date: "2019" }, { id: "b", date: "2020" }] } }] } },
+  targets: [{ id: "f", kind: "deck/frise", free: false, x: 0, y: 100, w: 400, h: 200 }],
   fields: [
     fv("f", "etapes/a/date", "2019", 110, { list: "etapes", item: "a", column: "date", x: 0 }),
     fv("f", "etapes/b/date", "2020", 110, { list: "etapes", item: "b", column: "date", x: 120 }),

@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
+use oku_slides_core::kinds::base;
 use oku_slides_render::{Fonts, Renderer};
 use serde_json::json;
 
@@ -28,11 +29,11 @@ fn pdf(theme: Option<&str>, lang: &str, text: &str) -> Vec<u8> {
     let deck: Deck = serde_json::from_value(json!({
         "theme": theme.map(theme_ref), "params": { "lang": lang },
         "slides": [{ "id": "s", "kind": "content", "params": { "title": text, "blocks": [
-            { "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": text }] }] } }
+            { "id": "b", "kind": base::TEXT, "params": { "body": [{ "runs": [{ "t": text }] }] } }
         ] } }]
     }))
     .unwrap_or_else(|e| panic!("{e}"));
-    let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = Renderer::with_builtins(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(theme_tokens(theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
     r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     r.compile().and_then(|d| d.pdf()).unwrap_or_else(|e| panic!("{e}"))
@@ -100,11 +101,11 @@ fn pdf_title_body(theme: Option<&str>, lang: &str, title: &str, body: &str) -> V
     let deck: Deck = serde_json::from_value(json!({
         "theme": theme.map(theme_ref), "params": { "lang": lang },
         "slides": [{ "id": "s", "kind": "content", "params": { "title": title, "blocks": [
-            { "id": "b", "kind": "text", "params": { "body": [{ "runs": [{ "t": body }] }] } }
+            { "id": "b", "kind": base::TEXT, "params": { "body": [{ "runs": [{ "t": body }] }] } }
         ] } }]
     }))
     .unwrap_or_else(|e| panic!("{e}"));
-    let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = Renderer::with_builtins(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(theme_tokens(theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
     r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     r.compile().and_then(|d| d.pdf()).unwrap_or_else(|e| panic!("{e}"))
@@ -142,7 +143,7 @@ fn unknown_script_style_fails_to_compile() {
         "slides": [{ "id": "s", "kind": "content", "params": { "title": "題名", "blocks": [] } }]
     }))
     .unwrap_or_else(|e| panic!("{e}"));
-    let mut r = Renderer::new(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = Renderer::with_builtins(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(theme_tokens(theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
     r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     let err = r.compile().err().map(|e| e.to_string()).unwrap_or_default();

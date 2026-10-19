@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use oku_slides_core::Deck;
-use oku_slides_render::{Fonts, Renderer};
+use oku_slides_core::kinds::base;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -15,18 +15,19 @@ use speculoos::prelude::*;
 fn left_covered(with_table: bool) -> Deck {
     let mut elements = Vec::new();
     if with_table {
-        elements.push(json!({ "id": "t", "kind": "table",
+        elements.push(json!({ "id": "t", "kind": base::TABLE,
             "params": { "data": { "dataset": { "source": [["A", "B"], [1, 2]] } } },
             "frame": { "x": 10, "y": 10, "w": 300, "h": 120 } }));
     }
-    elements.push(json!({ "id": "cache", "kind": "shape", "params": { "shape": "rect" }, "style": { "fill": "ink" },
+    elements
+        .push(json!({ "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
         "frame": { "x": 6, "y": 6, "w": 264, "h": 128 } }));
     let deck = json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": elements } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"))
 }
 
 fn hash(d: &Deck) -> u64 {
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = crate::common::renderer();
     let png = r.render(d, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).png(0, 1.0);
     let mut h = DefaultHasher::new();
     png.unwrap_or_else(|e| panic!("{e}")).hash(&mut h);

@@ -7,24 +7,24 @@ use crate::test_support::{add_current, deck_pinning, library_with, namespaces_ad
 
 #[test]
 fn closure_ops_prepends_missing_requirement() {
-    let lib = library_with(&[("base", &[]), ("acme", &["base"])]);
+    let lib = library_with(&[("socle", &[]), ("acme", &["socle"])]);
     let ops = closure_ops(&lib, &Deck::empty(), &[add_current(&lib, "acme")]).unwrap();
-    assert_that!(namespaces_added(&ops)).is_equal_to(vec!["base".to_owned(), "acme".to_owned()]);
+    assert_that!(namespaces_added(&ops)).is_equal_to(vec!["socle".to_owned(), "acme".to_owned()]);
 }
 
 #[test]
 fn closure_ops_skips_requirement_already_pinned() {
-    let lib = library_with(&[("base", &[]), ("acme", &["base"])]);
-    let deck = deck_pinning(&lib, &["base"]);
+    let lib = library_with(&[("socle", &[]), ("acme", &["socle"])]);
+    let deck = deck_pinning(&lib, &["socle"]);
     let ops = closure_ops(&lib, &deck, &[add_current(&lib, "acme")]).unwrap();
     assert_that!(namespaces_added(&ops)).is_equal_to(vec!["acme".to_owned()]);
 }
 
 #[test]
 fn closure_ops_diamond_adds_shared_requirement_once() {
-    let lib = library_with(&[("base", &[]), ("left", &["base"]), ("right", &["base"]), ("top", &["left", "right"])]);
+    let lib = library_with(&[("socle", &[]), ("left", &["socle"]), ("right", &["socle"]), ("top", &["left", "right"])]);
     let ops = closure_ops(&lib, &Deck::empty(), &[add_current(&lib, "top")]).unwrap();
-    let expected: Vec<String> = ["base", "left", "right", "top"].map(str::to_owned).to_vec();
+    let expected: Vec<String> = ["socle", "left", "right", "top"].map(str::to_owned).to_vec();
     assert_that!(namespaces_added(&ops)).is_equal_to(expected);
 }
 
@@ -46,7 +46,7 @@ fn closure_ops_cycle_is_refused() {
 
 #[test]
 fn closure_ops_keeps_other_ops_in_place() {
-    let lib = library_with(&[("base", &[]), ("acme", &["base"])]);
+    let lib = library_with(&[("socle", &[]), ("acme", &["socle"])]);
     let other = oku_slides_core::Op::SetDeckParam { key: "lang".into(), value: serde_json::json!("fr") };
     let ops = closure_ops(&lib, &Deck::empty(), &[other.clone(), add_current(&lib, "acme")]).unwrap();
     assert_that!(ops.first()).is_equal_to(Some(&other));
@@ -78,8 +78,8 @@ fn names(set: &BTreeSet<Namespace>) -> Vec<&str> {
 
 #[test]
 fn dependents_of_an_off_pack_include_its_transitive_dependents_only() {
-    let pins = pins_of(&[("base", &[]), ("mid", &["base"]), ("top", &["mid"]), ("free", &[])]);
-    let off = BTreeSet::from([crate::test_support::ns("base")]);
+    let pins = pins_of(&[("socle", &[]), ("mid", &["socle"]), ("top", &["mid"]), ("free", &[])]);
+    let off = BTreeSet::from([crate::test_support::ns("socle")]);
     assert_that!(names(&dependents(&pins, &off))).is_equal_to(vec!["mid", "top"]);
 }
 

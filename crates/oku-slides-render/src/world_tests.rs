@@ -51,9 +51,19 @@ fn main_source_without_theme_passes_none() {
     assert_that!(source).contains("theme: none");
 }
 
-/// La valeur de `#let <name> = <nombre>` dans le fichier `file` de la bibliothèque embarquée.
+/// La source embarquée de `file` : un fichier de la bibliothèque, ou du pack `base`
+/// (`packs/base/widgets/<nom>.typ`).
+fn embedded_source(file: &str) -> Option<&'static str> {
+    if let Some(name) = file.strip_prefix("packs/base/widgets/").and_then(|f| f.strip_suffix(".typ")) {
+        let (_, bytes) = crate::base_pack::BASE_WIDGETS.iter().find(|(n, _)| *n == name)?;
+        return std::str::from_utf8(bytes).ok();
+    }
+    LIBRARY.iter().find(|(path, _)| *path == file).map(|(_, source)| *source)
+}
+
+/// La valeur de `#let <name> = <nombre>` dans le fichier embarqué `file`.
 fn typst_bound(file: &str, name: &str) -> Option<f64> {
-    let (_, source) = LIBRARY.iter().find(|(path, _)| *path == file)?;
+    let source = embedded_source(file)?;
     let prefix = format!("#let {name} = ");
     let line = source.lines().find_map(|l| l.strip_prefix(&prefix))?;
     line.split_whitespace().next()?.parse().ok()
@@ -61,8 +71,8 @@ fn typst_bound(file: &str, name: &str) -> Option<f64> {
 
 /// Les bornes que la bibliothèque Typst recopie restent celles du cœur.
 #[rstest::rstest]
-#[case::inset("src/widgets.typ", "_inset-max", oku_slides_core::STYLE_INSET_MAX)]
-#[case::spacing("src/widgets.typ", "_spacing-max", oku_slides_core::STYLE_SPACING_MAX)]
+#[case::inset("packs/base/widgets/text.typ", "_inset-max", oku_slides_core::STYLE_INSET_MAX)]
+#[case::spacing("packs/base/widgets/text.typ", "_spacing-max", oku_slides_core::STYLE_SPACING_MAX)]
 #[case::tracking("src/content.typ", "_tracking-max", oku_slides_core::STYLE_TRACKING_MAX)]
 fn library_style_bounds_equal_the_core_constants(#[case] file: &str, #[case] name: &str, #[case] core: f64) {
     assert_that!(typst_bound(file, name)).is_equal_to(Some(core));

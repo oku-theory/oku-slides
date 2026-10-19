@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Cell, Deck, Template, asset_id};
 use speculoos::prelude::*;
 
@@ -187,8 +188,8 @@ fn project_slide_group_falls_back_to_a_stack_with_child_losses_on_source_ids() {
     let (_, reports, deck) = project(&essentiel(), &[source_slide(1, Some("l2"), vec![title("Processus"), group])]);
     let stack = &deck.slides[0].params.slot("blocks").unwrap()[0];
     let ids: Vec<&str> = stack.params.slot("children").unwrap().iter().map(|c| c.id.as_str()).collect();
-    assert_that!((stack.kind.as_str(), ids)).is_equal_to(("stack", vec!["s1-1-1", "s1-1-2"]));
-    assert_that!(reports[0].fallbacks.clone()).is_equal_to(vec!["stack".to_owned()]);
+    assert_that!((stack.kind.as_str(), ids)).is_equal_to((base::STACK, vec!["s1-1-1", "s1-1-2"]));
+    assert_that!(reports[0].fallbacks.clone()).is_equal_to(vec![base::STACK.to_owned()]);
     assert_that!(reports[0].losses.clone())
         .is_equal_to(vec![Loss::on("g/2", LossKind::RunStyle(RunEffect::Underline))]);
 }
@@ -297,9 +298,9 @@ fn project_slide_without_placeholders_infers_its_title_and_kicker_and_makes_card
     let blocks = s.params.slot("blocks").unwrap();
     let cards: Vec<(&str, Option<&str>)> = blocks.iter().map(|e| (e.kind.as_str(), e.params.text("title"))).collect();
     assert_that!(cards).is_equal_to(vec![
-        ("card", Some("Carte 0")),
-        ("card", Some("Carte 1")),
-        ("card", Some("Carte 2")),
+        (base::CARD, Some("Carte 0")),
+        (base::CARD, Some("Carte 1")),
+        (base::CARD, Some("Carte 2")),
     ]);
     assert_that!(block_texts(s, "blocks")).is_equal_to(vec![
         "Corps 0".to_owned(),
@@ -327,7 +328,7 @@ fn project_slide_row_between_wide_units_becomes_a_stack_of_columns() {
     let s = &deck.slides[0];
     let blocks = s.params.slot("blocks").unwrap();
     let kinds: Vec<(&str, &str)> = blocks.iter().map(|e| (e.id.as_str(), e.kind.as_str())).collect();
-    assert_that!(kinds).is_equal_to(vec![("s2-1", "text"), ("s2-2", "stack"), ("s2-3", "card")]);
+    assert_that!(kinds).is_equal_to(vec![("s2-1", base::TEXT), ("s2-2", base::STACK), ("s2-3", base::CARD)]);
     let row: Vec<&str> = blocks[1].params.slot("children").unwrap().iter().map(|c| c.id.as_str()).collect();
     assert_that!(row).is_equal_to(vec!["s2-2-1", "s2-2-2", "s2-2-3"]);
     assert_that!((reports[0].template.as_str(), s.params.text("layout"))).is_equal_to(("cartes", Some("default")));

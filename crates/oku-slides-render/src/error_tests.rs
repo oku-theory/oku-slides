@@ -75,3 +75,15 @@ fn remote_failure_has_its_own_message_not_the_setup_one(#[case] locale: &str) {
     assert_that!(e.localize(&l)).is_equal_to(l.tr("render-remote"));
     assert_that!(e.localize(&l)).is_not_equal_to(l.tr("render-setup"));
 }
+
+#[rstest]
+#[case("en", "reinstall the app")]
+#[case("fr", "réinstallez")]
+fn base_pack_failure_is_its_own_kind_and_localizes_with_its_file(#[case] locale: &str, #[case] fragment: &str) {
+    let l = Localizer::new(Some(locale));
+    let e: RegistryError = BasePackSnafu { file: "widgets.json".to_owned() }.build().into();
+    assert_that!(e.kind()).is_equal_to(RegistryErrorKind::BasePack);
+    let text = e.localize(&l);
+    assert_that!(text).contains("widgets.json");
+    assert_that!(text).contains(fragment);
+}

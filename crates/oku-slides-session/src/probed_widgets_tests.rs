@@ -161,11 +161,11 @@ fn pack_files(namespace: &str, requires: &[&str]) -> (PackPin, PackFiles) {
 fn probe_of(pins: BTreeMap<Namespace, PackPin>, packs: Vec<PackFiles>) -> ProbedWidgets {
     let data = crate::test_support::fresh_dir("oku-slides-probed-");
     let platform = crate::test_support::workspace_platform(data.path());
-    let base = oku_slides_render::base_registry(&Fonts::default()).unwrap();
+    let base = oku_slides_render::core_registry(&Fonts::default()).unwrap();
     let mut deck = Deck::empty();
     deck.widgets = pins;
     let packs = packs.into_iter().map(|f| (f.version(), f)).collect();
-    ProbedWidgets::probe(&platform, &base, &deck, &packs)
+    ProbedWidgets::probe(&platform, &base, &deck, &packs).unwrap()
 }
 
 #[test]
@@ -189,4 +189,20 @@ fn probe_disables_a_pin_under_another_namespace_than_its_manifest_with_a_localiz
     let expected =
         oku_slides_i18n::Localizer::new(Some("fr")).tr_with("issue-pack-pin-mismatch", &[("pack", "autre".into())]);
     assert_that!(probed.probe_failed).is_equal_to(Some(expected));
+}
+
+fn lost_worker() -> RegistryError {
+    RegistryError::worker(oku_slides_render::RenderError::worker_lost("panne simulée"))
+}
+
+#[test]
+fn disable_unless_trusted_of_a_trusted_pack_returns_its_error() {
+    let out = disable_unless_trusted(true, lost_worker());
+    assert_that!(out.err().map(|e| e.kind())).is_equal_to(Some(oku_slides_render::RegistryErrorKind::Setup));
+}
+
+#[test]
+fn disable_unless_trusted_of_an_untrusted_pack_hands_the_error_back_to_disable() {
+    let out = disable_unless_trusted(false, lost_worker());
+    assert_that!(out.ok().map(|e| e.kind())).is_equal_to(Some(oku_slides_render::RegistryErrorKind::Setup));
 }

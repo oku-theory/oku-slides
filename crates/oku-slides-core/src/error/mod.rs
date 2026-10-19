@@ -53,6 +53,8 @@ pub enum OpErrorKind {
     PackInUse,
     /// Un pack dont le pack ajouté a besoin n'est pas épinglé.
     PackRequirementMissing,
+    /// Le pack `base` ne se retire jamais d'un deck.
+    BaseRequired,
 }
 
 /// La borne d'une liste qu'une opération dépasserait.
@@ -117,6 +119,8 @@ pub(crate) enum OpInner {
     PackInUse { namespace: String, users: Vec<String>, backtrace: Backtrace },
     #[snafu(display("widget pack {namespace} needs {required} first"))]
     PackRequirementMissing { namespace: String, required: String, backtrace: Backtrace },
+    #[snafu(display("every deck keeps the base widget pack"))]
+    BaseRequired { backtrace: Backtrace },
 }
 
 fn bound_reason(bound: &ListBound) -> String {
@@ -151,6 +155,7 @@ impl OpError {
             OpInner::PackRequired { .. } => OpErrorKind::PackRequired,
             OpInner::PackInUse { .. } => OpErrorKind::PackInUse,
             OpInner::PackRequirementMissing { .. } => OpErrorKind::PackRequirementMissing,
+            OpInner::BaseRequired { .. } => OpErrorKind::BaseRequired,
         }
     }
 
@@ -175,7 +180,7 @@ impl OpError {
             | OpInner::PackRequired { namespace, .. }
             | OpInner::PackInUse { namespace, .. }
             | OpInner::PackRequirementMissing { namespace, .. } => Some(namespace),
-            OpInner::IndexOutOfRange { .. } => None,
+            OpInner::IndexOutOfRange { .. } | OpInner::BaseRequired { .. } => None,
         }
     }
 
@@ -356,6 +361,7 @@ impl Localize for OpError {
             OpErrorKind::ChoiceOutOfRange => "op-choice-out-of-range",
             OpErrorKind::SlotRejects => "op-slot-rejects",
             OpErrorKind::WrongCategory => "op-wrong-category",
+            OpErrorKind::BaseRequired => "op-base-required",
             // Traités plus haut : ces erreurs portent leurs arguments.
             OpErrorKind::ParamType
             | OpErrorKind::ListBound
@@ -549,6 +555,8 @@ pub enum SchemaFault {
     /// Le défaut d'une liste imbriquée (le sien, ou celui d'une ligne parente) a moins
     /// d'items que son `min`.
     ListDefaultBelowMin,
+    /// Une slide déclare `grow` ou `typography`, réservés aux éléments.
+    SlideSizing,
 }
 
 impl std::fmt::Display for SchemaFault {
@@ -569,6 +577,7 @@ impl std::fmt::Display for SchemaFault {
             SchemaFault::ListDefaultTooLarge => "list default exceeds the list size limits",
             SchemaFault::ListDepth => "list nested more than one level",
             SchemaFault::ListDefaultBelowMin => "nested list default below its min",
+            SchemaFault::SlideSizing => "slide declares grow or typography",
         })
     }
 }
@@ -591,6 +600,7 @@ impl SchemaFault {
             SchemaFault::ListDefaultTooLarge => "widget-fault-list-default-too-large",
             SchemaFault::ListDepth => "widget-fault-list-depth",
             SchemaFault::ListDefaultBelowMin => "widget-fault-list-default-below-min",
+            SchemaFault::SlideSizing => "widget-fault-slide-sizing",
         }
     }
 }

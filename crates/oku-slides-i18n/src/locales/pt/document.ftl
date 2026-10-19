@@ -18,6 +18,7 @@ diagnostic-hint = dica: { $hint }
 render-chart-failed = não foi possível desenhar o gráfico
 
 registry-bad-pack-id = Identificador de pacote de modelos inválido: { $id }
+registry-base-pack-broken = O pacote de widgets integrado está danificado ({ $file }); reinstale o app.
 registry-duplicate-pack = Dois pacotes de widgets da apresentação partilham { $pack }.
 registry-compile = Não foi possível compilar os widgets do pacote de modelos
 registry-missing = O pacote de modelos não declara seus widgets

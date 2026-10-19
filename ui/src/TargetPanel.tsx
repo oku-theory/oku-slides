@@ -1,6 +1,7 @@
 /**
- * La carte de la cible, sous la scène : le panneau d'un graphique ou d'un tableau
- * sélectionné, sinon les paramètres de la cible (`useTargetSettings`), sinon rien.
+ * La carte de la cible, sous la scène : le panneau propre de l'élément sélectionné
+ * (graphique ou tableau, choisi par `host_params`), sinon les paramètres de la cible
+ * (`useTargetSettings`), sinon rien.
  * Hors vue, en lecture seule ou masquée depuis la barre d'outils, rien. Les réglages du
  * modèle (`lead`, mode modèles) s'affichent toujours, en tête de la fiche de la cible.
  * Le tout dans la bande sous la scène (`.settings-band`), présente même sans carte quand
@@ -8,11 +9,12 @@
  */
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { useRef } from "react";
-import type { Element, Op, SlideView, Surface } from "./api";
+import type { Element, HostParams, Op, SlideView, Surface } from "./api";
 import BandDivider from "./BandDivider";
 import { bandHeight } from "./bandSplit";
 import { ChartPanel } from "./chart/ChartPanel";
 import HostSettings, { type SettingsSection } from "./HostSettings";
+import { ownPanel } from "./hostParams";
 import { t } from "./i18n";
 import type { View } from "./table/ShowAsButton";
 import { TablePanel } from "./table/TablePanel";
@@ -23,6 +25,8 @@ type Props = {
   readOnly: boolean;
   /** L'élément sélectionné résolu dans la vue. */
   selected: Element | undefined;
+  /** Paramètres d'hôte des widgets du deck (`Snapshot.host_params`) : choisissent le panneau propre. */
+  hostParams: HostParams;
   target: Target;
   /** Palette des graphiques du thème (apparence). */
   palette: string[];
@@ -74,23 +78,23 @@ export function TargetPanel(props: Props) {
   );
 }
 
-function cardOf({ view, readOnly, selected, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
+function cardOf({ view, readOnly, selected, hostParams, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
   const alone = lead ? <HostSettings {...lead} onAction={onSurfaceAction} onError={onError} /> : null;
   if (!view || readOnly || folded) return alone;
-  // Données du graphique sélectionné : hors de la feuille, pour ne rien masquer.
-  // Les sortes ci-dessous doivent rester celles de OWN_PANEL (ownPanel.ts).
-  if (selected?.kind === "chart")
+  // Données du graphique ou du tableau sélectionné : hors de la feuille, pour ne rien masquer.
+  const own = ownPanel(hostParams, selected?.kind);
+  if (selected && own?.panel === "chart")
     return (
       <>
         {alone}
-        <ChartPanel slide={view.slide.id} element={selected} palette={palette} onApply={onApply} onKind={onKind} onShowAs={onShowAs} />
+        <ChartPanel slide={view.slide.id} element={selected} param={own.param} palette={palette} onApply={onApply} onKind={onKind} onShowAs={onShowAs} />
       </>
     );
-  if (selected?.kind === "table")
+  if (selected && own?.panel === "table")
     return (
       <>
         {alone}
-        <TablePanel slide={view.slide.id} element={selected} onApply={onApply} onShowAs={onShowAs} />
+        <TablePanel slide={view.slide.id} element={selected} param={own.param} onApply={onApply} onShowAs={onShowAs} />
       </>
     );
   if (!target.surface) return alone;

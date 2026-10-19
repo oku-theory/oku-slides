@@ -1,4 +1,4 @@
-use oku_slides_core::Deck;
+use oku_slides_core::{Deck, kinds};
 use oku_slides_session::{DEFAULT_PACK, GRID_PACK, PackLibrary};
 use speculoos::prelude::*;
 
@@ -21,7 +21,8 @@ fn deck_pinning(pin: PackPin) -> Deck {
 /// La version intégrée du pack Grilles et son épinglage.
 fn grid_ref() -> (PackFiles, PackPin) {
     let files = PackFiles::from_bytes(include_str!("../../../templates/grilles/pack.json").as_bytes(), []).unwrap();
-    let r = PackPin { id: GRID_PACK, version: files.version(), requires: vec![] };
+    // Grilles requiert `base` : le manifeste le dit, l'épinglage aussi.
+    let r = PackPin { id: GRID_PACK, version: files.version(), requires: vec![kinds::base::namespace()] };
     (files, r)
 }
 

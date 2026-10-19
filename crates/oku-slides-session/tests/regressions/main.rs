@@ -23,3 +23,7 @@ mod issue_0902_deck_only_workshop;
 mod issue_0903_repick_deck_only_theme;
 mod issue_1015_pack_fault_isolated;
 mod issue_1016_deck_widget_goes_to_deck_pack;
+mod issue_1039_new_deck_pins_base;
+mod issue_1039_replicas_know_base_hosts;
+mod issue_1040_heavy_base_content_disables_no_pack;
+mod issue_1040_heavy_base_content_spares_a_cheap_user_pack;

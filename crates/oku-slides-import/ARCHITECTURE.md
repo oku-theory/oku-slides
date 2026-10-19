@@ -6,15 +6,16 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 ## API
 
 - `read_pptx(bytes, &ReadLimits) -> Result<SourceDeck, ImportError>`.
-- `retrofit::project(&SourceDeck, &RetrofitTarget) -> ImportPlan` : content on an existing pack and theme.
-- `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : the source reproduced on a generated
-  theme and pack; `hifi::sought_fonts`, the families it looks for; `hifi::source_rect`, the page.
+- `retrofit::project(&SourceDeck, &RetrofitTarget) -> ImportPlan` : content on an existing pack and theme; the
+  session pins `base` first. Element kinds come only from `oku_slides_core::kinds::base`.
+- `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : the source on a generated theme and pack requiring `base`;
+  ops start with `AddPack base` (`HifiTarget.base`); `hifi::sought_fonts`, fonts it looks for; `hifi::source_rect`, the page.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report, `origins` (item → element); in hi-fi the
-  generated theme, pack, schemas, fonts, `targets` (item → its elements or slide param) and `groups` (`hifi::groups`);
+  generated theme, pack, schemas, fonts, `targets` (item → elements or slide param), `groups` (`hifi::groups`);
   `report_json` is the `--report` form; `check_budget` (fatal `TooLarge`) gives the `CheckedPlan` to apply.
 - `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`, `ReferenceReport`, slide
-  `score`; `coverage::coverage` measures what of the source survives in the resulting deck.
-- `metrics` : a hi-fi slide's gap to the reference, its regions ranked, `suspect` ones last (pure);
+  `score`; `coverage::coverage` measures what of the source survives in the deck.
+- `metrics` : a hi-fi slide's gap to the reference, regions ranked, `suspect` ones last (pure);
   `fonts` : `FontCatalog`, `FontOrigin`, `FontPlan`, `SUBSTITUTES`, `FALLBACKS`.
 
 ## Layers
@@ -45,6 +46,5 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 - New loss: a `LossKind` variant and its `import-loss-*` Fluent key.
 
 ## Dependencies
-
 `oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`, `serde`,
-`serde_json`, `snafu`. Render snapshots: `oku-slides-render/tests/import_*.rs`.
+`serde_json`, `snafu`. Render checks: `oku-slides-render/tests/import_*.rs`.

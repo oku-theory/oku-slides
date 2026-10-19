@@ -34,21 +34,21 @@ fn assert_single(element: &Value) {
 
 #[test]
 fn bundle_new_with_duplicate_chart_keeps_one() {
-    assert_single(&json!({ "id": "e", "kind": "chart", "params": { "option": {
+    assert_single(&json!({ "id": "e", "kind": "base/chart", "params": { "option": {
         "dataset": { "source": [["M", "V"], ["a", 1]] }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } }));
 }
 
 #[test]
 fn bundle_new_with_duplicate_table_keeps_one() {
-    assert_single(&json!({ "id": "e", "kind": "table", "params": { "data": {
+    assert_single(&json!({ "id": "e", "kind": "base/table", "params": { "data": {
         "dataset": { "source": [["Pays", "Ventes"], ["FR", 10]] } } } }));
 }
 
 #[test]
 fn bundle_new_with_copies_differing_by_edge_whitespace_keeps_one() {
-    let a = json!({ "id": "e", "kind": "text", "params": { "body": [{ "runs": [{ "t": "salut" }] }], "title": "x" } });
-    let b =
-        json!({ "id": "e", "kind": "text", "params": { "body": [{ "runs": [{ "t": "salut" }] }], "title": " x " } });
+    let a =
+        json!({ "id": "e", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "salut" }] }], "title": "x" } });
+    let b = json!({ "id": "e", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "salut" }] }], "title": " x " } });
     let deck = Deck::from_json(
         &json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [a, b] } }] }).to_string(),
     )

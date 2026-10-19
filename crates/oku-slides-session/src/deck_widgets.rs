@@ -11,10 +11,14 @@
 //!
 //! Un pack est écarté seul : version absente des sources, épingle qui ne
 //! dit pas son manifeste (`check_pack_id`), sonde illisible ou pack devenu
-//! fautif (voir `deck_fallback`). Ceux qui le requièrent le sont aussi
-//! (`deck_closure::dependents`) ; un avis `session-packs-disabled` les
-//! nomme. `deck.widgets` ne change pas. Un assemblage raté du registre
-//! n'accuse aucun pack : l'erreur remonte, les widgets installés restent.
+//! fautif (voir `deck_fallback`). Une version livrée de `base`
+//! (`is_trusted_pack`) n'est jamais écartée pour une faute (lecture, sonde,
+//! rendu) : l'échec remonte ; elle l'est encore si sa version manque aux
+//! sources ou si son épingle ment. Ceux qui requièrent un pack écarté le
+//! sont aussi (`deck_closure::dependents`) ; un avis
+//! `session-packs-disabled` les nomme. `deck.widgets` ne change pas. Un
+//! assemblage raté du registre n'accuse aucun pack : l'erreur remonte, les
+//! widgets installés restent.
 //!
 //! Sonde inachevée : des fichiers laissés non sondés (budget épuisé) le
 //! sont au rendu suivant du deck, qui résout de nouveau ses widgets, un
@@ -32,11 +36,11 @@ use oku_slides_core::{
     Deck, Moved, Namespace, Op, PackFiles, PackPin, PackVersion, WidgetFile, WidgetRegistry, qualify,
 };
 use oku_slides_i18n::Localize;
-use oku_slides_render::{FileProbe, PackSet, PackWidgets};
+use oku_slides_render::{FileProbe, PackSet, PackWidgets, is_trusted_pack};
 use oku_slides_render_worker::RemoteCompiled;
 
 use crate::deck_closure::{closure_ops, dependents};
-use crate::deck_pack::check_pack_id;
+use crate::deck_pack::{check_pack_id, in_process_pack, only_builtin_base};
 use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
 use crate::pack::PackManifest;
 use crate::{Result, Session, charts};
@@ -63,7 +67,7 @@ pub(crate) struct Failpoints {
     pub(crate) sources_apply: bool,
     /// L'installation de widgets échoue.
     pub(crate) install_widgets: bool,
-    /// Le rendu témoin sans pack (`deck_fallback`) échoue d'un échec borné.
+    /// Le rendu témoin avec les seuls packs de confiance (`deck_fallback`) échoue d'un échec borné.
     pub(crate) control_render: bool,
     /// L'assemblage du registre des packs échoue.
     pub(crate) registry: bool,
@@ -134,10 +138,18 @@ impl Session {
             if files.widgets().is_empty() {
                 continue;
             }
-            let probed = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone())
-                .and_then(|pack| self.worker.probe_pack(&pack));
-            let probe = match probed {
+            // Le `base` intégré courant se résout ici, sans sonde : aucun processus de rendu lancé.
+            // De confiance, il n'est jamais écarté : illisible, l'erreur remonte.
+            if let Some(builtin) = in_process_pack(&pin.version) {
+                usable.push(builtin.context(RegistrySnafu)?);
+                continue;
+            }
+            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone());
+            let trusted = pack.as_ref().is_ok_and(is_trusted_pack);
+            let probe = match pack.and_then(|pack| self.worker.probe_pack(&pack)) {
                 Ok(probe) => probe,
+                // Une version livrée de `base` n'est jamais écartée : l'échec de sa sonde remonte.
+                Err(e) if trusted => return Err(e).context(RegistrySnafu)?,
                 Err(e) => {
                     tracing::warn!(pack = %pin.id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets illisible : écarté");
                     notices.push(e.localize(&self.localizer));
@@ -171,8 +183,9 @@ impl Session {
         Ok((DeckWidgets { pins: pins.clone(), set, registry, unprobed, disabled }, notice))
     }
 
-    /// Le registre de `set` : la base seule s'il est vide (sans lancer le processus de rendu).
-    fn registry_for(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>> {
+    /// Le registre de `set` : le noyau seul s'il est vide, le registre intégré s'il ne tient que
+    /// le `base` intégré courant (sans lancer le processus de rendu dans ces deux cas).
+    pub(crate) fn registry_for(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>> {
         #[cfg(test)]
         if !set.is_empty() && self.failpoints.registry {
             let e =
@@ -180,7 +193,10 @@ impl Session {
             return Err(e).context(RegistrySnafu)?;
         }
         if set.is_empty() {
-            return Ok(oku_slides_render::base_registry(&self.app_fonts).context(RegistrySnafu)?);
+            return Ok(oku_slides_render::core_registry(&self.app_fonts).context(RegistrySnafu)?);
+        }
+        if only_builtin_base(set) {
+            return Ok(oku_slides_render::builtin_registry(&self.app_fonts).context(RegistrySnafu)?);
         }
         Ok(self.worker.registry_of(set).context(RegistrySnafu)?)
     }

@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Op, PackFiles, Slide, WidgetFile};
 use rstest::rstest;
 use serde_json::json;
@@ -32,7 +33,7 @@ fn import_plan_serializes_ops_assets_by_length_and_requests() {
             signature: "text×1|0000".into(),
             slides: vec!["s3".into(), "s5".into()],
             sample: vec![item()],
-            fallback: "stack".into(),
+            fallback: base::STACK.into(),
         }],
         ..ImportPlan::new(ImportReport::new(Mode::Retrofit))
     };
@@ -51,14 +52,14 @@ fn import_plan_report_json_adds_the_widget_requests_to_the_report() {
             signature: "text×1|0044".into(),
             slides: vec!["s2".into()],
             sample: vec![item()],
-            fallback: "stack".into(),
+            fallback: base::STACK.into(),
         }],
         ..ImportPlan::new(ImportReport::new(Mode::Retrofit))
     };
     let v = plan.report_json(oku_slides_i18n::english());
     assert_that!(v["mode"]).is_equal_to(json!("retrofit"));
     assert_that!(v["widget_requests"][0]["slides"]).is_equal_to(json!(["s2"]));
-    assert_that!(v["widget_requests"][0]["fallback"]).is_equal_to(json!("stack"));
+    assert_that!(v["widget_requests"][0]["fallback"]).is_equal_to(json!(base::STACK));
 }
 
 /// Un plan dont une seule partie de la sortie est non vide, et la taille de cette sortie.

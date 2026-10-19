@@ -41,7 +41,7 @@
               "align": "center",
               "leading": "tight"
             },
-            "kind": "text",
+            "kind": "base/text",
             "params": {
               "body": [
                 {
@@ -67,7 +67,7 @@
           },
           {
             "id": "c1",
-            "kind": "card",
+            "kind": "base/card",
             "params": {
               "kicker": "Blague",
               "title": "Toto et la géographie",
@@ -92,7 +92,7 @@
           },
           {
             "id": "g1",
-            "kind": "chart",
+            "kind": "base/chart",
             "params": {
               "option": {
                 "dataset": {
@@ -124,7 +124,7 @@
           },
           {
             "id": "tb1",
-            "kind": "table",
+            "kind": "base/table",
             "params": {
               "data": {
                 "dataset": {
@@ -163,7 +163,7 @@
         "blocks": [
           {
             "id": "c2",
-            "kind": "card",
+            "kind": "base/card",
             "params": {
               "title": "Mise en avant",
               "highlight": true,
@@ -189,7 +189,7 @@
           },
           {
             "id": "c3",
-            "kind": "card",
+            "kind": "base/card",
             "params": {
               "kicker": "Sans corps",
               "title": "Carte vide"
@@ -207,7 +207,7 @@
         "blocks": [
           {
             "id": "t2",
-            "kind": "text",
+            "kind": "base/text",
             "params": {
               "body": [
                 {
@@ -222,7 +222,7 @@
           },
           {
             "id": "i1",
-            "kind": "image",
+            "kind": "base/image",
             "params": {
               "asset": "sha256:00",
               "fit": "contain"
@@ -240,7 +240,7 @@
         "blocks": [
           {
             "id": "t3",
-            "kind": "text",
+            "kind": "base/text",
             "params": {
               "body": [
                 {
@@ -264,7 +264,7 @@
         "blocks": [
           {
             "id": "t4",
-            "kind": "text",
+            "kind": "base/text",
             "params": {
               "body": [
                 {
@@ -289,7 +289,7 @@
         "blocks": [
           {
             "id": "grp-col",
-            "kind": "stack",
+            "kind": "base/stack",
             "params": {
               "layout": "columns",
               "count": 3,
@@ -297,21 +297,21 @@
               "children": [
                 {
                   "id": "gc1",
-                  "kind": "card",
+                  "kind": "base/card",
                   "params": {
                     "title": "A"
                   }
                 },
                 {
                   "id": "gc2",
-                  "kind": "card",
+                  "kind": "base/card",
                   "params": {
                     "title": "B"
                   }
                 },
                 {
                   "id": "gc3",
-                  "kind": "card",
+                  "kind": "base/card",
                   "params": {
                     "title": "C"
                   }
@@ -321,14 +321,14 @@
           },
           {
             "id": "grp-rows",
-            "kind": "stack",
+            "kind": "base/stack",
             "params": {
               "layout": "rows",
               "gap": "sm",
               "children": [
                 {
                   "id": "gr1",
-                  "kind": "text",
+                  "kind": "base/text",
                   "params": {
                     "body": [
                       {
@@ -343,7 +343,7 @@
                 },
                 {
                   "id": "gr2",
-                  "kind": "text",
+                  "kind": "base/text",
                   "params": {
                     "body": [
                       {
@@ -361,7 +361,7 @@
           },
           {
             "id": "grp-grid",
-            "kind": "stack",
+            "kind": "base/stack",
             "params": {
               "layout": "grid",
               "count": 2,
@@ -372,7 +372,7 @@
                     "fill": "accent",
                     "radius": "sm"
                   },
-                  "kind": "shape",
+                  "kind": "base/shape",
                   "params": {
                     "shape": "rect"
                   }
@@ -383,7 +383,7 @@
                     "fill": "surface",
                     "stroke": "rule"
                   },
-                  "kind": "shape",
+                  "kind": "base/shape",
                   "params": {
                     "shape": "ellipse"
                   }
@@ -413,7 +413,7 @@
               "cols": 6,
               "rows": 3
             },
-            "kind": "card",
+            "kind": "base/card",
             "params": {
               "title": "Case"
             }
@@ -426,58 +426,44 @@
               "w": 600,
               "h": 10
             },
-            "kind": "shape",
+            "kind": "base/shape",
             "params": {
               "shape": "line"
             }
           },
           {
-            "id": "e-libre",
+            "id": "el1",
             "frame": {
-              "x": 800,
-              "y": 0,
-              "w": 800,
-              "h": 400
+              "x": 820,
+              "y": 20,
+              "w": 300,
+              "h": 100
             },
-            "kind": "canvas",
+            "kind": "base/text",
             "params": {
-              "children": [
+              "body": [
                 {
-                  "id": "el1",
-                  "frame": {
-                    "x": 20,
-                    "y": 20,
-                    "w": 300,
-                    "h": 100
-                  },
-                  "kind": "text",
-                  "params": {
-                    "body": [
-                      {
-                        "runs": [
-                          {
-                            "t": "Libre"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                },
-                {
-                  "id": "el2",
-                  "frame": {
-                    "x": 400,
-                    "y": 50,
-                    "w": 200,
-                    "h": 200
-                  },
-                  "style": {
-                    "fill": "accent"
-                  },
-                  "kind": "shape"
+                  "runs": [
+                    {
+                      "t": "Libre"
+                    }
+                  ]
                 }
               ]
             }
+          },
+          {
+            "id": "el2",
+            "frame": {
+              "x": 1200,
+              "y": 50,
+              "w": 200,
+              "h": 200
+            },
+            "style": {
+              "fill": "accent"
+            },
+            "kind": "base/shape"
           }
         ]
       }
@@ -498,7 +484,7 @@
             "style": {
               "size": "title"
             },
-            "kind": "text",
+            "kind": "base/text",
             "params": {
               "body": [
                 {
@@ -522,5 +508,5 @@
       }
     }
   ],
-  "version": 6
+  "version": 7
 }

@@ -5,10 +5,10 @@ too much memory is killed without taking the app down.
 
 ## Key types
 
-- `RenderWorker` (`client.rs`): the shared link (`Arc<Mutex<Link>>`); `is_faulty`, `slot`. A
-  pack that makes rendering fail (timeout, memory, crash) is blamed only when it was alone in the set.
-- `probe_pack` (`pack_probe.rs`): per-file probe, never blaming (a timeout is a diagnostic),
-  keyed by `probe_key`, budget `timeout_ms` per call; `trial_slot`: a slot that blames no pack.
+- `RenderWorker` (`client.rs`): the shared link; `is_faulty`, `mark_faulty`, `slot`. `blame`: a failure (timeout,
+  memory, crash) marks a slot's lone pack, unless trusted; a slot holding a shipped `base` blames nobody.
+- `probe_pack` (`pack_probe.rs`): per-file probe assembled beside built-in `base` (core alone for `base`),
+  no blame (a timeout is a diagnostic), keyed by `probe_key`, budget per call; `trial_slot` blames no pack.
 - `RenderSlot` (`slot.rs`): a slot (`set_widgets`, `set_language`, `render`); its `Drop`
   queues `CloseSlot`.
 - `RemoteCompiled` (`compiled.rs`): a generation; `layout`, `page_hash` local, `svg`/`png`/`pdf`

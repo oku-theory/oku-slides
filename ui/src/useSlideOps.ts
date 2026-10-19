@@ -6,7 +6,7 @@ import type { AddWidget, Element, Op, Paragraph, SlideView, Snapshot, TabApi } f
 import { neighbourSlide, newElementOps, newId } from "./deck";
 import { t } from "./i18n";
 import { newElement, newPackWidget } from "./newElement";
-import type { AddKind } from "./slideTools";
+import type { AddName } from "./slideTools";
 import { canRemoveSlide } from "./slideTools";
 import type { FieldKey } from "./stageFields";
 import type { TemplateWidgets } from "./useTemplateWidgets";
@@ -44,10 +44,10 @@ export function useSlideOps({
   );
 
   /** Ajoute un texte, une carte, une forme ou un graphique ; sur une grille, accroché aux nœuds. */
-  const addElement = (kind: AddKind, text?: Paragraph[], label?: string) => {
-    const element = newElement(kind, newId(kind[0]));
-    if (kind === "text" && text) element.params = { ...element.params, body: text };
-    place(element, label ?? t("ui-undo-add", { kind }), kind === "text" && !text);
+  const addElement = (name: AddName, text?: Paragraph[], label?: string) => {
+    const element = newElement(name, newId(name[0]));
+    if (name === "text" && text) element.params = { ...element.params, body: text };
+    place(element, label ?? t("ui-undo-add", { kind: name }), name === "text" && !text);
   };
 
   /** Ajoute un widget du pack, avec les défauts de ses paramètres. */

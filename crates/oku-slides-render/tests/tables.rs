@@ -1,10 +1,13 @@
 //! Widget `table` : rendu Typst natif, mise à l'échelle, garde des données, jetons.
 
+mod common;
+
 use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use oku_slides_core::Deck;
-use oku_slides_render::{Compiled, Fonts, Renderer};
+use oku_slides_core::kinds::base;
+use oku_slides_render::Compiled;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
@@ -22,7 +25,7 @@ fn deck_of(slides: Value, tokens: Option<Value>) -> Deck {
 /// Une slide de contenu dont l'unique bloc est le tableau `t1`.
 fn in_flow(data: Value) -> Value {
     json!([{ "id": "s", "kind": "content", "params": { "title": "T",
-        "blocks": [{ "id": "t1", "kind": "table", "params": { "data": data } }] } }])
+        "blocks": [{ "id": "t1", "kind": base::TABLE, "params": { "data": data } }] } }])
 }
 
 fn rows(n: usize) -> Value {
@@ -35,7 +38,7 @@ fn rows(n: usize) -> Value {
 fn placeholder() -> Deck {
     deck_of(
         json!([{ "id": "s", "kind": "content", "params": { "title": "T",
-        "blocks": [{ "id": "t1", "kind": "table" }] } }]),
+        "blocks": [{ "id": "t1", "kind": base::TABLE }] } }]),
         None,
     )
 }
@@ -46,7 +49,7 @@ fn with(mut data: Value, key: &str, v: Value) -> Value {
 }
 
 fn compile(d: &Deck) -> Compiled {
-    let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
+    let mut r = common::renderer();
     r.render(d, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 
@@ -72,10 +75,11 @@ fn flow_hash(data: Value) -> u64 {
 fn covered(table: Option<Value>) -> Deck {
     let mut elements = Vec::new();
     if let Some(data) = table {
-        elements.push(json!({ "id": "t1", "kind": "table", "params": { "data": data },
+        elements.push(json!({ "id": "t1", "kind": base::TABLE, "params": { "data": data },
             "frame": { "x": 10, "y": 10, "w": 300, "h": 120 } }));
     }
-    elements.push(json!({ "id": "cache", "kind": "shape", "params": { "shape": "rect" }, "style": { "fill": "ink" },
+    elements
+        .push(json!({ "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
         "frame": { "x": 6, "y": 6, "w": 308, "h": 128 } }));
     deck_of(json!([{ "id": "s", "kind": "blank", "params": { "elements": elements } }]), None)
 }
@@ -124,10 +128,10 @@ fn tall_table_in_flow_keeps_its_box_on_the_page() {
 /// il n'a pas de cadre à lui, seulement la hauteur que la pile lui laisse.
 fn covered_in_stack(table: Option<Value>) -> Deck {
     let children: Vec<Value> =
-        table.into_iter().map(|data| json!({ "id": "t1", "kind": "table", "params": { "data": data } })).collect();
+        table.into_iter().map(|data| json!({ "id": "t1", "kind": base::TABLE, "params": { "data": data } })).collect();
     let elements = json!([
-        { "id": "pile", "kind": "stack", "params": { "children": children }, "frame": { "x": 10, "y": 10, "w": 300, "h": 120 } },
-        { "id": "cache", "kind": "shape", "params": { "shape": "rect" }, "style": { "fill": "ink" },
+        { "id": "pile", "kind": base::STACK, "params": { "children": children }, "frame": { "x": 10, "y": 10, "w": 300, "h": 120 } },
+        { "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
             "frame": { "x": 6, "y": 6, "w": 308, "h": 128 } },
     ]);
     deck_of(json!([{ "id": "s", "kind": "blank", "params": { "elements": elements } }]), None)
@@ -171,6 +175,24 @@ fn malformed_table_data_renders_the_placeholder() {
 #[test]
 fn oversized_table_data_renders_the_placeholder() {
     assert_that!(flow_hash(rows(200))).is_equal_to(hash(&placeholder()));
+}
+
+/// Un widget de pack à paramètre `host("table")` : un bloc haut d'un pt par ligne reçue (10 pt sans données).
+const GRID: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("grid", params: (data: p.host("table")), (args, ctx) => {
+  let n = if type(args.data) == dictionary { args.data.dataset.source.len() } else { 10 }
+  block(width: 100%, height: n * 1pt)
+})"#;
+
+#[test]
+fn table_of_a_pack_widget_is_sanitized_before_typst() {
+    let pack = common::pack("grid", &[("grid", GRID)]);
+    let layout = common::render_with_packs(
+        &[pack],
+        json!([{ "id": "g", "kind": "test/grid", "params": { "data": rows(500) } }]),
+    );
+    // Comme pour `base/table` : au-delà de 100 lignes, les données sont retirées avant Typst.
+    assert_that!(common::box_of(&layout, "g").h).is_less_than(20.0);
 }
 
 #[test]
@@ -274,9 +296,9 @@ fn pixels(d: &Deck) -> Vec<u8> {
 fn right_edge(w: f64) -> Deck {
     let data = json!({ "dataset": { "source": [["Mois", "A", "B"], ["Jan", 1, 2]] } });
     let elements = json!([
-        { "id": "t1", "kind": "table", "params": { "data": data },
+        { "id": "t1", "kind": base::TABLE, "params": { "data": data },
             "frame": { "x": 410.0 - w, "y": 10, "w": w, "h": 120 } },
-        { "id": "cache", "kind": "shape", "params": { "shape": "rect" }, "style": { "fill": "ink" },
+        { "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
             "frame": { "x": 0, "y": 0, "w": 300, "h": 140 } },
     ]);
     deck_of(json!([{ "id": "s", "kind": "blank", "params": { "elements": elements } }]), None)

@@ -6,7 +6,6 @@ mod common;
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_render::{Fonts, Renderer};
 use sha2::{Digest, Sha256};
 
 fn deck(path: &str) -> Deck {
@@ -34,7 +33,7 @@ fn reference_theme(name: &str, deck: &Deck) -> Option<&'static str> {
 
 #[test]
 fn render_reference_decks_keeps_every_page_pixel_identical() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let mut lines = Vec::new();
     for (name, path) in REFERENCES {
         let deck = deck(path);
@@ -55,7 +54,7 @@ fn render_reference_decks_keeps_every_page_pixel_identical() {
 fn dump_reference_pages() {
     let dir = std::env::var("GOLDEN_DUMP_DIR").unwrap();
     std::fs::create_dir_all(&dir).unwrap();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     for (name, path) in REFERENCES {
         let deck = deck(path);
         r.set_theme(common::theme_tokens(reference_theme(name, &deck))).unwrap();
@@ -64,4 +63,26 @@ fn dump_reference_pages() {
             std::fs::write(format!("{dir}/{name}-p{}.png", page + 1), compiled.png(page, 0.5).unwrap()).unwrap();
         }
     }
+}
+
+/// Chaque boîte d'élément des decks de référence : deck, page, id, x, y, w, h au dixième de pt.
+fn reference_boxes() -> Vec<String> {
+    let mut r = common::renderer();
+    let mut lines = Vec::new();
+    for (name, path) in REFERENCES {
+        let deck = deck(path);
+        r.set_theme(common::theme_tokens(reference_theme(name, &deck))).unwrap_or_else(|e| panic!("{e}"));
+        let compiled = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
+        for page in 1..=compiled.page_count() {
+            for b in compiled.layout().boxes_on(page) {
+                lines.push(format!("{name} p{page} {} {:.1} {:.1} {:.1} {:.1}", b.id, b.x, b.y, b.w, b.h));
+            }
+        }
+    }
+    lines
+}
+
+#[test]
+fn reference_decks_element_boxes_are_unchanged() {
+    insta::assert_snapshot!("reference_boxes", reference_boxes().join("\n"));
 }

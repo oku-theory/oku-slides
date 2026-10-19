@@ -1,6 +1,9 @@
 //! Sonde d'un pack fichier par fichier, côté hôte : chaque fichier de
 //! widget est compilé seul dans le travailleur, puis le registre des seuls
-//! valides est assemblé ici.
+//! valides est assemblé ici : à côté du `base` intégré pour un pack d'un
+//! autre espace de noms (ses slots peuvent accepter `base/*`), avec le noyau
+//! seul pour un pack `base`. Un slot qui accepte un kind d'un autre pack
+//! (hors `base`) y reste refusé.
 //!
 //! Règles :
 //! - Un échec borné (délai, mémoire, arrêt) pendant la sonde d'un fichier
@@ -38,10 +41,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, PoisonError};
 use std::time::Instant;
 
-use oku_slides_core::{WidgetFile, WidgetRegistry};
+use oku_slides_core::{WidgetFile, WidgetRegistry, kinds};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_render::{
-    FileProbe, Fonts, PackSet, PackWidgets, RegistryError, RenderError, assemble, assemble_set, base_probe, probe_key,
+    FileProbe, Fonts, PackSet, PackWidgets, RegistryError, RenderError, assemble, assemble_set, builtin_probe,
+    core_probe, probe_key,
 };
 
 use crate::client::{RenderWorker, unexpected};
@@ -97,8 +101,13 @@ impl RenderWorker {
             };
             files.insert(name.clone(), probe);
         }
-        // Les schémas ne dépendent pas des polices : celles de Typst suffisent.
-        let base = base_probe(&Fonts::default())?;
+        // Les schémas ne dépendent pas des polices : celles de Typst suffisent. Un pack autre que
+        // `base` s'assemble à côté du `base` intégré : ses slots peuvent accepter des kinds `base/*`.
+        let base = if pack.namespace().as_str() == kinds::base::NAMESPACE {
+            core_probe(&Fonts::default())?
+        } else {
+            builtin_probe(&Fonts::default())?
+        };
         let registry = assemble(&base, pack.namespace(), &mut files)?;
         let valid: BTreeSet<WidgetFile> =
             files.iter().filter(|(n, p)| !n.is_common() && p.is_valid()).map(|(n, _)| n.clone()).collect();
@@ -113,7 +122,7 @@ impl RenderWorker {
     /// pour le même ensemble donnent le même `Arc`.
     pub fn registry_of(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
         self.kept_registry(set.fingerprint(), || {
-            let base = base_probe(&Fonts::default())?;
+            let base = core_probe(&Fonts::default())?;
             // Sondes gardées par `probe_key` : un pack déjà sondé ne recompile rien.
             let mut probes = set.packs().iter().map(|p| self.probe_pack(p)).collect::<Result<Vec<_>, _>>()?;
             // Un fichier non sondé manque au registre : il ne doit pas être gardé sous l'ensemble complet.

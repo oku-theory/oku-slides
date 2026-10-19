@@ -19,8 +19,8 @@ fn start() -> Deck {
         Deck::from_json(include_str!("../../../../fixtures/roadmap.json")).unwrap_or_else(|e| panic!("fixture : {e}"));
     let slide = constat(&mut deck);
     let pile: Element =
-        serde_json::from_value(json!({ "id": "pile", "kind": "stack" })).unwrap_or_else(|e| panic!("pile : {e}"));
-    let n: Element = serde_json::from_value(json!({ "id": "n", "kind": "text",
+        serde_json::from_value(json!({ "id": "pile", "kind": "base/stack" })).unwrap_or_else(|e| panic!("pile : {e}"));
+    let n: Element = serde_json::from_value(json!({ "id": "n", "kind": "base/text",
         "params": { "body": [{ "runs": [{ "t": "Note libre" }] }] } }))
     .unwrap_or_else(|e| panic!("n : {e}"));
     slot(slide, PLACES[0]).push(pile);

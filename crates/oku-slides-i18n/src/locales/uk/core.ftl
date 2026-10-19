@@ -31,6 +31,7 @@ op-pack-in-use = Пакет віджетів { $pack } досі використ
    *[other] { $count } об'єкта
 }.
 op-pack-requirement-missing = Пакету віджетів { $pack } потрібен пакет { $required }, якого немає в цій презентації.
+op-base-required = У кожній презентації залишається базовий пакет віджетів.
 op-unknown-param = Невідомий параметр: { $subject }
 op-param-type-because = Недопустиме значення для { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -189,6 +190,7 @@ widget-fault-list-bounds = Віджет { $widget }: максимум списк
 widget-fault-list-default-too-large = Віджет { $widget }: типове значення списку перевищує обмеження розміру списків
 widget-fault-list-depth = Віджет { $widget }: вкладений список не може містити колонку-список; списки вкладаються лише на один рівень
 widget-fault-list-default-below-min = Віджет { $widget }: у типовому значенні вкладеного списку менше пунктів, ніж його мінімум
+widget-fault-slide-sizing = Віджет { $widget } — слайд: grow і typography оголошують лише віджети елементів
 issue-empty-item-id = у списку { $param } є пункт без ідентифікатора
 issue-duplicate-item-id = у списку { $param } повторюється ідентифікатор пункту
 issue-invalid-item-id = у списку { $param } є ідентифікатор пункту з косою рискою

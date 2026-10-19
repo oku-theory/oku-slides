@@ -14,7 +14,7 @@ export const stroke = (children: ReactNode) => (
 export const Icon = {
   undo: stroke(<><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></>),
   redo: stroke(<><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></>),
-  // Ce qu'on ajoute à la slide, dans l'ordre d'ADD_KINDS.
+  // Ce qu'on ajoute à la slide, dans l'ordre d'ADD_NAMES.
   text: stroke(<><path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" /></>),
   card: stroke(<><rect x="3.5" y="5" width="17" height="14" rx="2.5" /><path d="M7 10h10M7 14h6" /></>),
   shape: stroke(<><circle cx="9" cy="9" r="5" /><path d="M14 11h6v9h-9v-5" /></>),

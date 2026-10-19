@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "params": {
     "title": "Feuille de route {{annee}}",
     "subtitle": "Trois chantiers pour {{client}}",
@@ -38,7 +38,7 @@
         "blocks": [
           {
             "id": "b-points",
-            "kind": "text",
+            "kind": "base/text",
             "params": {
               "body": [
                 {
@@ -81,7 +81,7 @@
         "blocks": [
           {
             "id": "c1",
-            "kind": "card",
+            "kind": "base/card",
             "params": {
               "kicker": "Pilier 1",
               "title": "Fiabilité",
@@ -99,7 +99,7 @@
           },
           {
             "id": "c2",
-            "kind": "card",
+            "kind": "base/card",
             "params": {
               "kicker": "Pilier 2",
               "title": "Vitesse",
@@ -117,7 +117,7 @@
           },
           {
             "id": "c3",
-            "kind": "card",
+            "kind": "base/card",
             "params": {
               "kicker": "Pilier 3",
               "title": "Clients",
@@ -163,7 +163,7 @@
               "fill": "surface",
               "radius": "md"
             },
-            "kind": "shape"
+            "kind": "base/shape"
           },
           {
             "id": "e-texte",
@@ -177,7 +177,7 @@
               "size": "lead",
               "font": "display"
             },
-            "kind": "text",
+            "kind": "base/text",
             "params": {
               "body": [
                 {
@@ -198,7 +198,7 @@
               "w": 800,
               "h": 480
             },
-            "kind": "image",
+            "kind": "base/image",
             "params": {
               "asset": "sha256:0000"
             }

@@ -8,14 +8,15 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, Template, apply_all};
+use oku_slides_core::{Deck, Op, PackManifest, PackPin, Template, apply_all, kinds};
 use oku_slides_import::report::LossKind;
 use oku_slides_import::retrofit::{ColorTokens, PageTokens, project};
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{ReadLimits, RetrofitTarget, read_pptx};
-use oku_slides_render::{Fonts, PackSet, Renderer, load_registry};
+use oku_slides_render::{Fonts, PackSet, Renderer, base_pack_files, base_pack_widgets, load_registry};
 use rstest::rstest;
 use serde_json::{Map, Value};
 use speculoos::prelude::*;
@@ -64,6 +65,13 @@ fn templates(pack: &str) -> Vec<Template> {
     serde_json::from_value(pack["templates"].clone()).unwrap_or_else(|e| panic!("{e}"))
 }
 
+/// L'épinglage du pack `base` intégré.
+fn base_pin() -> PackPin {
+    let files = base_pack_files().unwrap_or_else(|e| panic!("{e}"));
+    let manifest = PackManifest::from_files(&files).unwrap_or_else(|e| panic!("{e}"));
+    PackPin { id: manifest.id, version: files.version(), requires: vec![] }
+}
+
 /// Les jetons effectifs du thème intégré `theme` : les défauts, puis les siens.
 fn tokens(theme: &str) -> Map<String, Value> {
     let path = root().join("typst/oku-slides/src/default-tokens.json");
@@ -80,16 +88,22 @@ fn import_retrofit_flow_blocks_stay_in_the_body_zone_or_are_reported(
 ) {
     let source: SourceDeck = read_pptx(&pptx(fixture), &ReadLimits::default()).unwrap_or_else(|e| panic!("{e}"));
     let fonts = Fonts::default();
-    let registry = load_registry(&fonts, &PackSet::default()).unwrap_or_else(|e| panic!("{e}"));
+    // Le registre du deck importé : le noyau et le pack `base`, que la session épingle avant un retrofit.
+    let set =
+        PackSet::new(vec![base_pack_widgets().unwrap_or_else(|e| panic!("{e}"))]).unwrap_or_else(|e| panic!("{e}"));
+    let registry = Arc::new(load_registry(&fonts, &set).unwrap_or_else(|e| panic!("{e}")));
     let (templates, tokens) = (templates("essentiel"), tokens(theme));
     let page = PageTokens::from_tokens(&tokens);
     let target =
         RetrofitTarget { templates: &templates, registry: &registry, colors: ColorTokens::from_tokens(&tokens), page };
     let plan = project(&source, &target);
+    let mut ops = vec![Op::AddPack { namespace: kinds::base::namespace(), pin: base_pin() }];
+    ops.extend(plan.ops.clone());
     let mut deck = Deck::empty();
-    apply_all(&mut deck, plan.ops.clone(), &registry).unwrap_or_else(|e| panic!("{e:?}"));
+    apply_all(&mut deck, ops, &registry).unwrap_or_else(|e| panic!("{e:?}"));
     let assets: BTreeMap<String, Vec<u8>> = plan.assets.iter().map(|(id, a)| (id.clone(), a.bytes.clone())).collect();
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
+    r.set_widgets(&set, registry).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(common::theme_tokens(Some(theme))).unwrap_or_else(|e| panic!("{e}"));
     let compiled = r.render(&deck, &assets).unwrap_or_else(|e| panic!("rendu : {e}"));
     let layout = compiled.layout();

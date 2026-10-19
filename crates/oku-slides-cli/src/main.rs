@@ -186,7 +186,8 @@ fn load_bundle(
             .wrap_err_with(|| l.tr_with("cli-reading", &[("path", path.display().to_string().into())]))
     };
     let mut opened = read(base)?;
-    let widgets = ProbedWidgets::probe(platform, base, opened.sources.deck(), &opened.sources.packs);
+    let widgets = ProbedWidgets::probe(platform, base, opened.sources.deck(), &opened.sources.packs)
+        .map_err(|e| eyre!(e.localize(l)))?;
     if !Arc::ptr_eq(&widgets.registry, base) {
         // Relu avec les widgets du pack : sa validation ne les dit plus inconnus.
         opened = read(&widgets.registry)?;

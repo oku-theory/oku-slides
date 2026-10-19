@@ -105,7 +105,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     await unmoved('à la désélection');
     // Du tableau (son panneau, pas de carte de paramètres) au texte : la carte du texte se lit après
     // le clic, la slide est relevée dès le clic.
-    await p.click('.target[aria-label="table"]');
+    await p.click('.target[aria-label="Tableau"]');
     await p.waitForSelector('.table-panel');
     await unmoved('à la sélection du tableau');
     // Lecture de la carte ralentie (300 ms) : l'intervalle sans carte est relevé à coup sûr.
@@ -122,7 +122,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   // Un tableau sur la slide 4, retiré (annulé) après l'étape 0.
   const tabled = await post(p, '/api', {
     tab: 't-1',
-    req: { cmd: 'apply', label: 'tableau', merge: null, ops: [{ op: 'add_element', slot: { owner: { slide: 's-constat' }, param: 'blocks' }, element: { id: 'e2e-table', kind: 'table', params: { data: { dataset: { source: [['A', 'B'], ['x', 1]] } } } }, defaults: true }] },
+    req: { cmd: 'apply', label: 'tableau', merge: null, ops: [{ op: 'add_element', slot: { owner: { slide: 's-constat' }, param: 'blocks' }, element: { id: 'e2e-table', kind: 'base/table', params: { data: { dataset: { source: [['A', 'B'], ['x', 1]] } } } }, defaults: true }] },
   });
   assert.ok(!tabled.error, JSON.stringify(tabled));
   // Fil réduit à sa largeur minimale : la feuille s'élargit, la hauteur de la boîte borne la slide (t-647).

@@ -237,7 +237,7 @@ pub enum Op {
         namespace: Namespace,
         pin: PackPin,
     },
-    /// Retire le pack `namespace`, s'il n'est ni requis ni utilisé.
+    /// Retire le pack `namespace`, s'il n'est ni requis ni utilisé ; `base` ne se retire jamais.
     RemovePack {
         namespace: Namespace,
     },

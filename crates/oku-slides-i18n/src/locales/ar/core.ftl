@@ -33,6 +33,7 @@ op-pack-in-use = لا تزال حزمة الأدوات { $pack } مستخدمة 
    *[other] { $count } عنصر
 }.
 op-pack-requirement-missing = تحتاج حزمة الأدوات { $pack } إلى { $required }، وهي غير موجودة في هذا العرض.
+op-base-required = تحتفظ كل عروض التقديم بحزمة الأدوات الأساسية.
 op-unknown-param = معامل غير معروف: { $subject }
 op-param-type-because = قيمة غير صالحة لـ { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -195,6 +196,7 @@ widget-fault-list-bounds = الودجة { $widget }: الحد الأقصى لل�
 widget-fault-list-default-too-large = الودجة { $widget }: القيمة الافتراضية لقائمة تتجاوز حدود حجم القوائم
 widget-fault-list-depth = الودجة { $widget }: لا يمكن أن تحتوي قائمة متداخلة على عمود قائمة؛ تتداخل القوائم بمستوى واحد فقط
 widget-fault-list-default-below-min = الودجة { $widget }: القيمة الافتراضية لقائمة متداخلة تضم بنودًا أقل من حدها الأدنى
+widget-fault-slide-sizing = الودجة { $widget } شريحة: ودجات العناصر وحدها تصرّح بـ grow أو typography
 issue-empty-item-id = القائمة { $param } تحتوي على بند بلا معرّف
 issue-duplicate-item-id = القائمة { $param } تحتوي على معرّف بند مكرر
 issue-invalid-item-id = القائمة { $param } فيها معرّف بند يحتوي على شرطة مائلة

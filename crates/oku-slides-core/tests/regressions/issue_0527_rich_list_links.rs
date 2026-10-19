@@ -8,7 +8,7 @@ use speculoos::prelude::*;
 use crate::common;
 
 fn issues_of(run: Value) -> Vec<(Option<String>, Option<String>, String)> {
-    let deck = json!({ "version": 6, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    let deck = json!({ "version": 7, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
         { "id": "n", "kind": "liste", "params": { "etapes": [{ "id": "a", "note": [{ "runs": [run] }] }] } }
     ] } }] });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck : {e}"));

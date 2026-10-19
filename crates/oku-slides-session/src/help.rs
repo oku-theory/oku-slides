@@ -3,24 +3,23 @@
 //! Le deck d'aide (`docs/aide/<langue>.json`) est compilé dans l'app. Une
 //! session qui le montre refuse toute modification (`ReadOnly`), de
 //! l'interface comme de l'agent ; sa reprise ne garde que la langue et
-//! relit le deck livré, jamais une ancienne copie. Il se rend avec la
-//! version livrée du pack par défaut, pas celle que l'utilisateur a pu modifier,
+//! relit le deck livré, jamais une ancienne copie. Il se rend avec les
+//! versions livrées de `base` et du pack par défaut, pas celles que l'utilisateur a pu modifier,
 //! et au thème du deck d'où on l'ouvre (version courante de la bibliothèque,
 //! embarquée), sinon au thème par défaut. Le JSON livré ne porte pas de thème.
 
 use std::borrow::Cow;
 
-use oku_slides_core::{Deck, PackPin, SourceBundle, ThemeRef};
+use oku_slides_core::{Deck, SourceBundle, ThemeRef};
 use oku_slides_i18n::platform_keys;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
+use crate::deck_pack::builtin_pin;
 use crate::error::{
-    EditingTemplatesSnafu, HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, SourcesSnafu, UnknownPackSnafu,
-    UnknownThemeSnafu,
+    EditingTemplatesSnafu, HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, RegistrySnafu, SourcesSnafu, UnknownThemeSnafu,
 };
-use crate::library::builtin_versions;
-use crate::pack::DEFAULT_PACK;
+use crate::pack::{BASE_PACK, DEFAULT_PACK};
 use crate::{Mode, Result, Session};
 
 /// Les decks d'aide livrés, par langue ; le premier sert aux autres langues.
@@ -62,15 +61,15 @@ impl Session {
         // Le deck mis de côté par l'édition des modèles serait perdu.
         ensure!(!matches!(self.mode, Mode::Templates { .. }), EditingTemplatesSnafu);
         let locale = help_locale(locale);
-        let builtin = builtin_versions()
-            .iter()
-            .find(|v| v.manifest.id == DEFAULT_PACK)
-            .context(UnknownPackSnafu { id: DEFAULT_PACK })?;
-        let mut sources = SourceBundle::new(help_deck(locale)?, self.registry.clone()).context(SourcesSnafu)?;
-        let version = sources.add_pack(builtin.files.clone());
+        // Son premier replica connaît déjà les widgets de `base` (hôtes des tableaux et graphiques).
+        let registry = oku_slides_render::builtin_registry(&self.app_fonts).context(RegistrySnafu)?;
+        let mut sources = SourceBundle::new(help_deck(locale)?, registry).context(SourcesSnafu)?;
         let mut deck = sources.deck().clone();
-        let pin = PackPin { id: DEFAULT_PACK, version, requires: builtin.manifest.requires.clone() };
-        deck.widgets.insert(builtin.manifest.namespace.clone(), pin);
+        for id in [BASE_PACK, DEFAULT_PACK] {
+            let (ns, pin, files) = builtin_pin(id)?;
+            sources.add_pack(files);
+            deck.widgets.insert(ns, pin);
+        }
         if let Some(current) = theme.and_then(|id| self.themes.current_version(id)) {
             let id = current.manifest.id;
             deck.theme = Some(ThemeRef { id, version: sources.add_theme(current.files) });

@@ -164,7 +164,7 @@ fn slot<'a>(s: &'a crate::Slide, name: &str) -> &'a [crate::Element] {
 #[test]
 fn read_unreadable_element_drops_it_only_and_names_its_slide() {
     let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "content", "params": { "elements": [
-        { "id": "e-ok", "kind": "shape" },
+        { "id": "e-ok", "kind": "base/shape" },
         { "id": "e-ko", "kind": 42 }
     ]}}]}))
     .unwrap();
@@ -176,14 +176,14 @@ fn read_unreadable_element_drops_it_only_and_names_its_slide() {
 #[test]
 fn read_unreadable_nested_child_drops_the_child_only() {
     let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "blank", "params": { "elements": [
-        { "id": "c", "kind": "canvas", "params": { "children": [
-            { "id": "ok", "kind": "shape" },
-            { "id": "ko", "kind": "shape", "frame": "pas un cadre" }
+        { "id": "c", "kind": "test/frame-box", "params": { "children": [
+            { "id": "ok", "kind": "base/shape" },
+            { "id": "ko", "kind": "base/shape", "frame": "pas un cadre" }
         ]}}
     ]}}]}))
     .unwrap();
-    let canvas = &slot(&deck.slides[0], "elements")[0];
-    assert_that!(canvas.params.slot("children").map(<[crate::Element]>::len)).is_equal_to(Some(1));
+    let frame_box = &slot(&deck.slides[0], "elements")[0];
+    assert_that!(frame_box.params.slot("children").map(<[crate::Element]>::len)).is_equal_to(Some(1));
     assert_that!(issues[0].element.as_deref()).is_equal_to(Some("ko"));
 }
 
@@ -218,7 +218,13 @@ fn read_deck_of_version_1_returns_unsupported_version() {
 
 #[test]
 fn read_deck_of_a_newer_version_returns_unsupported_version() {
-    let err = read(json!({ "version": 7, "slides": [] })).unwrap_err();
+    let err = read(json!({ "version": crate::DECK_VERSION + 1, "slides": [] })).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::ReplicaErrorKind::UnsupportedVersion);
+}
+
+#[test]
+fn read_deck_of_version_6_returns_unsupported_version() {
+    let err = read(json!({ "version": 6, "slides": [] })).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::ReplicaErrorKind::UnsupportedVersion);
 }
 
@@ -260,9 +266,9 @@ fn read_diverged_slides_sharing_an_id_renames_the_later_one() {
 
 #[test]
 fn read_diverged_elements_sharing_an_id_rename_the_copy_and_its_children() {
-    let canvas = |title: &str| json!({ "id": "c", "kind": "canvas", "params": { "title": title, "children": [{ "id": "x", "kind": "shape" }] } });
+    let stack = |title: &str| json!({ "id": "c", "kind": "base/stack", "params": { "title": title, "children": [{ "id": "x", "kind": "base/shape" }] } });
     let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "blank", "params": { "elements": [
-        canvas("a"), canvas("a"), canvas("b")
+        stack("a"), stack("a"), stack("b")
     ]}}]}))
     .unwrap();
     let ids: Vec<(&str, Vec<&str>)> = slot(&deck.slides[0], "elements")

@@ -1,12 +1,13 @@
 // Ce que propose la grille d'ajout : les éléments natifs, puis les widgets d'élément du pack.
 
 import type { AddWidget } from "./api";
+import { BASE } from "./baseKinds";
 import { t } from "./i18n";
-import { ADD_KINDS, type AddKind, packOnlyWidgets } from "./slideTools";
+import { ADD_NAMES, type AddName, packOnlyWidgets } from "./slideTools";
 
 /** Une carte de la grille d'ajout. */
 export interface WidgetChoice {
-  /** Clé stable : la sorte native, ou `widget:<nom>`. */
+  /** Clé stable : le kind `base/<nom>` d'une carte native, ou `widget:<kind>`. */
   key: string;
   /** Nom technique, cherché par le filtre. */
   name: string;
@@ -15,17 +16,17 @@ export interface WidgetChoice {
   /** Ce que montre l'élément, en une phrase ; vide si le widget n'en dit rien. */
   description: string;
   /** Ce qu'ajoute la carte : un élément natif ou un widget du pack. */
-  pick: { native: AddKind } | { widget: AddWidget };
+  pick: { native: AddName } | { widget: AddWidget };
 }
 
-/** Les cartes de la grille : les sortes natives, puis les widgets du pack sans doublon. */
+/** Les cartes de la grille : les cartes natives, puis les widgets du pack hors de `base`. */
 export function widgetChoices(pack: AddWidget[]): WidgetChoice[] {
-  const natives = ADD_KINDS.map((kind) => ({
-    key: kind,
-    name: kind,
-    label: t("ui-add-kind", { kind }),
-    description: t("ui-add-kind-description", { kind }),
-    pick: { native: kind },
+  const natives = ADD_NAMES.map((name) => ({
+    key: BASE[name],
+    name,
+    label: t("ui-add-kind", { kind: name }),
+    description: t("ui-add-kind-description", { kind: name }),
+    pick: { native: name },
   }));
   const widgets = packOnlyWidgets(pack).map((w) => ({
     key: `widget:${w.name}`,

@@ -18,9 +18,9 @@ fn text_fields_of_content_lists_slide_then_elements_in_reading_order() {
     let s = slide(json!({
         "id": "s", "kind": "content",
         "params": { "title": "T", "blocks": [
-            { "id": "b1", "kind": "text" },
-            { "id": "st", "kind": "stack", "params": { "layout": "columns", "children": [
-                { "id": "c1", "kind": "card" }
+            { "id": "b1", "kind": "base/text" },
+            { "id": "st", "kind": "base/stack", "params": { "layout": "columns", "children": [
+                { "id": "c1", "kind": "base/card" }
             ] } }
         ] }
     }));
@@ -37,7 +37,7 @@ fn text_fields_of_content_lists_slide_then_elements_in_reading_order() {
 #[test]
 fn text_fields_skip_widgets_without_text_params() {
     let s = slide(json!({ "id": "s", "kind": "blank", "params": { "elements": [
-        { "id": "f", "kind": "shape", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 } }
+        { "id": "f", "kind": "base/shape", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 } }
     ] } }));
     assert_that!(order(&s)).is_empty();
 }

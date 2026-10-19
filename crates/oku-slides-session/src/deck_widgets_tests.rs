@@ -125,6 +125,32 @@ pub(super) fn add_loop(pack: &PackPin) -> Op {
     }))
 }
 
+/// L'espace de noms du pack `pin`, en texte.
+pub(super) fn namespace_of_pack(pin: &PackPin) -> String {
+    namespace_of(pin.id).to_string()
+}
+
+/// Ajoute à la bibliothèque de `s` une version modifiée du pack `base` : ses
+/// widgets et un widget `boucle` de source `source` ; son épinglage.
+pub(super) fn edited_base_pack(s: &Session, source: &str) -> PackPin {
+    let builtin = crate::test_support::builtin(crate::pack::BASE_PACK);
+    let mut widgets = builtin.files.widgets().clone();
+    widgets.extend(crate::test_support::widget_files(&[("boucle", source)]));
+    let files = oku_slides_core::PackFiles::new(builtin.files.manifest().clone(), widgets);
+    s.library.add_version(crate::pack::BASE_PACK, &files).unwrap();
+    PackPin { id: crate::pack::BASE_PACK, version: files.version(), requires: Vec::new() }
+}
+
+/// Un élément `base/boucle` ajouté aux blocs de `s-constat`.
+pub(super) fn add_base_loop() -> Op {
+    let kind = oku_slides_core::qualify(&oku_slides_core::kinds::base::namespace(), "boucle");
+    op(json!({
+        "op": "add_element",
+        "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
+        "element": { "id": "l", "kind": kind, "params": { "body": "x" } }
+    }))
+}
+
 /// La requête `widgets` connaît-elle le widget `quote` du pack `pack` ?
 pub(super) fn widgets_have_quote(s: &mut Session, pack: &PackPin) -> bool {
     let reply: serde_json::Value = serde_json::from_str(&s.handle(Request::Widgets).unwrap()).unwrap();
@@ -270,6 +296,10 @@ fn bundle_with_pack(s: &Session, name: &str, widgets: &[(&str, &str)]) -> (Sourc
     let mut deck = s.deck().clone();
     deck.widgets.insert(m.namespace.clone(), r.clone());
     let mut sources = SourceBundle::new(deck, s.registry.clone()).unwrap();
+    // Les packs déjà épinglés (`base`, `essentiel`) restent embarqués.
+    for held in s.doc.sources.packs.values() {
+        sources.add_pack(held.clone());
+    }
     sources.add_pack(files);
     (sources, r)
 }
@@ -395,7 +425,7 @@ fn version_absent_from_the_sources_renders_base_widgets_with_a_notice() {
     let path = data.0.join("absent.json");
     let id = uuid::Uuid::new_v4();
     let pin = json!({ "id": id, "version": format!("sha256:{}", "0".repeat(64)) });
-    let deck = json!({ "version": 6, "widgets": { namespace_of(id).as_str(): pin },
+    let deck = json!({ "version": 7, "widgets": { namespace_of(id).as_str(): pin },
         "slides": [{ "id": "s", "kind": "title" }] });
     std::fs::write(&path, serde_json::to_vec(&deck).unwrap()).unwrap();
     let mut s = session_in(&data.0);

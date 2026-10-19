@@ -31,6 +31,7 @@ op-pack-in-use = Пакет виджетов { $pack } всё ещё испол�
    *[other] { $count } объекта
 }.
 op-pack-requirement-missing = Пакету виджетов { $pack } нужен пакет { $required }, которого нет в этой презентации.
+op-base-required = В каждой презентации остаётся базовый пакет виджетов.
 op-unknown-param = Неизвестный параметр: { $subject }
 op-param-type-because = Недопустимое значение для { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -189,6 +190,7 @@ widget-fault-list-bounds = Виджет { $widget }: максимум списк
 widget-fault-list-default-too-large = Виджет { $widget }: значение списка по умолчанию превышает ограничения размера списков
 widget-fault-list-depth = Виджет { $widget }: вложенный список не может содержать колонку-список; списки вкладываются только на один уровень
 widget-fault-list-default-below-min = Виджет { $widget }: в значении вложенного списка по умолчанию меньше пунктов, чем его минимум
+widget-fault-slide-sizing = Виджет { $widget } — слайд: grow и typography объявляют только виджеты элементов
 issue-empty-item-id = в списке { $param } есть пункт без идентификатора
 issue-duplicate-item-id = в списке { $param } повторяется идентификатор пункта
 issue-invalid-item-id = в списке { $param } есть идентификатор пункта с косой чертой

@@ -114,7 +114,7 @@ fn add_element_without_defaults_keeps_an_absent_list_absent() {
 #[test]
 fn add_element_with_defaults_seeds_a_nested_slot_element() {
     let mut deck = fixture();
-    let stack = json!({ "id": "p", "kind": "stack", "params": { "children": [{ "id": "f", "kind": "liste" }] } });
+    let stack = json!({ "id": "p", "kind": "base/stack", "params": { "children": [{ "id": "f", "kind": "liste" }] } });
     apply(&mut deck, add_new(stack)).unwrap();
     assert_that!(list_of(&deck, "s-constat", "f", "etapes")).is_equal_to(Some(vec!["d0".to_owned()]));
 }

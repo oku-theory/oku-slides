@@ -4,6 +4,8 @@
       "name": "blank",
       "label": null,
       "category": "slide",
+      "grow": false,
+      "typography": false,
       "params": [
         {
           "name": "grid",
@@ -12,8 +14,7 @@
           "default": {
             "columns": 12,
             "rows": 6
-          },
-          "bind": null
+          }
         },
         {
           "name": "elements",
@@ -21,59 +22,7 @@
           "type": "slot",
           "mode": "free",
           "accepts": null,
-          "default": null,
-          "bind": null
-        }
-      ]
-    },
-    {
-      "name": "canvas",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "children",
-          "label": null,
-          "type": "slot",
-          "mode": "free",
-          "accepts": null,
-          "default": null,
-          "bind": null
-        }
-      ]
-    },
-    {
-      "name": "card",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "kicker",
-          "label": null,
-          "type": "plain",
-          "default": null,
-          "bind": null
-        },
-        {
-          "name": "title",
-          "label": null,
-          "type": "plain",
-          "default": null,
-          "bind": null
-        },
-        {
-          "name": "body",
-          "label": null,
-          "type": "rich",
-          "default": null,
-          "bind": null
-        },
-        {
-          "name": "highlight",
-          "label": null,
-          "type": "flag",
-          "default": false,
-          "bind": null
+          "default": null
         }
       ]
     },
@@ -81,6 +30,8 @@
       "name": "chapter",
       "label": null,
       "category": "slide",
+      "grow": false,
+      "typography": false,
       "params": [
         {
           "name": "title",
@@ -99,24 +50,11 @@
       ]
     },
     {
-      "name": "chart",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "option",
-          "label": null,
-          "type": "host",
-          "host": "chart",
-          "default": null,
-          "bind": null
-        }
-      ]
-    },
-    {
       "name": "content",
       "label": null,
       "category": "slide",
+      "grow": false,
+      "typography": false,
       "params": [
         {
           "name": "kicker",
@@ -143,8 +81,7 @@
             "center",
             "quote"
           ],
-          "default": "default",
-          "bind": null
+          "default": "default"
         },
         {
           "name": "grid",
@@ -153,8 +90,7 @@
           "default": {
             "columns": 12,
             "rows": 6
-          },
-          "bind": null
+          }
         },
         {
           "name": "blocks",
@@ -162,8 +98,7 @@
           "type": "slot",
           "mode": "flow",
           "accepts": null,
-          "default": null,
-          "bind": null
+          "default": null
         },
         {
           "name": "elements",
@@ -171,8 +106,7 @@
           "type": "slot",
           "mode": "free",
           "accepts": null,
-          "default": null,
-          "bind": null
+          "default": null
         }
       ]
     },
@@ -180,6 +114,8 @@
       "name": "end",
       "label": null,
       "category": "slide",
+      "grow": false,
+      "typography": false,
       "params": [
         {
           "name": "text",
@@ -191,144 +127,11 @@
       ]
     },
     {
-      "name": "image",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "asset",
-          "label": null,
-          "type": "asset",
-          "default": null,
-          "bind": null
-        },
-        {
-          "name": "fit",
-          "label": null,
-          "type": "choice",
-          "values": [
-            "cover",
-            "contain",
-            "stretch"
-          ],
-          "default": "cover",
-          "bind": null
-        }
-      ]
-    },
-    {
-      "name": "shape",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "shape",
-          "label": null,
-          "type": "choice",
-          "values": [
-            "rect",
-            "ellipse",
-            "line",
-            "path"
-          ],
-          "default": "rect",
-          "bind": null
-        },
-        {
-          "name": "path",
-          "label": null,
-          "type": "host",
-          "host": "path",
-          "default": null,
-          "bind": null
-        }
-      ]
-    },
-    {
-      "name": "stack",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "layout",
-          "label": null,
-          "type": "choice",
-          "values": [
-            "rows",
-            "columns",
-            "grid"
-          ],
-          "default": "rows",
-          "bind": null
-        },
-        {
-          "name": "count",
-          "label": null,
-          "type": "number",
-          "min": 1.0,
-          "max": null,
-          "default": null,
-          "bind": null
-        },
-        {
-          "name": "gap",
-          "label": null,
-          "type": "choice",
-          "values": [
-            "xs",
-            "sm",
-            "md",
-            "lg",
-            "xl",
-            "xxl"
-          ],
-          "default": "lg",
-          "bind": null
-        },
-        {
-          "name": "children",
-          "label": null,
-          "type": "slot",
-          "mode": "flow",
-          "accepts": null,
-          "default": null,
-          "bind": null
-        }
-      ]
-    },
-    {
-      "name": "table",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "data",
-          "label": null,
-          "type": "host",
-          "host": "table",
-          "default": null,
-          "bind": null
-        }
-      ]
-    },
-    {
-      "name": "text",
-      "label": null,
-      "category": "element",
-      "params": [
-        {
-          "name": "body",
-          "label": null,
-          "type": "rich",
-          "default": null,
-          "bind": null
-        }
-      ]
-    },
-    {
       "name": "title",
       "label": null,
       "category": "slide",
+      "grow": false,
+      "typography": false,
       "params": [
         {
           "name": "title",
@@ -371,6 +174,8 @@
       "name": "toc",
       "label": null,
       "category": "slide",
+      "grow": false,
+      "typography": false,
       "params": [
         {
           "name": "title",
@@ -382,5 +187,197 @@
       ]
     }
   ],
-  "packs": []
+  "packs": [
+    {
+      "namespace": "base",
+      "widgets": [
+        {
+          "name": "card",
+          "label": null,
+          "category": "element",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "kicker",
+              "label": null,
+              "type": "plain",
+              "default": null,
+              "bind": null
+            },
+            {
+              "name": "title",
+              "label": null,
+              "type": "plain",
+              "default": null,
+              "bind": null
+            },
+            {
+              "name": "body",
+              "label": null,
+              "type": "rich",
+              "default": null
+            },
+            {
+              "name": "highlight",
+              "label": null,
+              "type": "flag",
+              "default": false
+            }
+          ]
+        },
+        {
+          "name": "chart",
+          "label": null,
+          "category": "element",
+          "grow": true,
+          "typography": false,
+          "params": [
+            {
+              "name": "option",
+              "label": null,
+              "type": "host",
+              "host": "chart",
+              "default": null
+            }
+          ]
+        },
+        {
+          "name": "image",
+          "label": null,
+          "category": "element",
+          "grow": true,
+          "typography": false,
+          "params": [
+            {
+              "name": "asset",
+              "label": null,
+              "type": "asset",
+              "default": null
+            },
+            {
+              "name": "fit",
+              "label": null,
+              "type": "choice",
+              "values": [
+                "cover",
+                "contain",
+                "stretch"
+              ],
+              "default": "cover"
+            }
+          ]
+        },
+        {
+          "name": "shape",
+          "label": null,
+          "category": "element",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "shape",
+              "label": null,
+              "type": "choice",
+              "values": [
+                "rect",
+                "ellipse",
+                "line",
+                "path"
+              ],
+              "default": "rect"
+            },
+            {
+              "name": "path",
+              "label": null,
+              "type": "host",
+              "host": "path",
+              "default": null
+            }
+          ]
+        },
+        {
+          "name": "stack",
+          "label": null,
+          "category": "element",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "layout",
+              "label": null,
+              "type": "choice",
+              "values": [
+                "rows",
+                "columns",
+                "grid"
+              ],
+              "default": "rows"
+            },
+            {
+              "name": "count",
+              "label": null,
+              "type": "number",
+              "min": 1,
+              "max": null,
+              "default": null
+            },
+            {
+              "name": "gap",
+              "label": null,
+              "type": "choice",
+              "values": [
+                "xs",
+                "sm",
+                "md",
+                "lg",
+                "xl",
+                "xxl"
+              ],
+              "default": "lg"
+            },
+            {
+              "name": "children",
+              "label": null,
+              "type": "slot",
+              "mode": "flow",
+              "accepts": null,
+              "default": null
+            }
+          ]
+        },
+        {
+          "name": "table",
+          "label": null,
+          "category": "element",
+          "grow": "fit",
+          "typography": false,
+          "params": [
+            {
+              "name": "data",
+              "label": null,
+              "type": "host",
+              "host": "table",
+              "default": null
+            }
+          ]
+        },
+        {
+          "name": "text",
+          "label": null,
+          "category": "element",
+          "grow": false,
+          "typography": true,
+          "params": [
+            {
+              "name": "body",
+              "label": null,
+              "type": "rich",
+              "default": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

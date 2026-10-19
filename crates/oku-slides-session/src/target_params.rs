@@ -1,8 +1,8 @@
 //! Paramètres de la cible : l'élément sélectionné, sinon le widget de la slide.
 //! Lus dans le deck (jamais de valeur d'exemple ni neutre) et réglés par
 //! `set_param` / `edit_list`, un pas d'annulation par réglage (fusionnés pour un curseur).
-//! Un widget ou un paramètre sans `label` (ceux de base) prend son nom traduit
-//! (`session-widget-kind-<kind>`, `session-param-<kind>-<nom>`, voir `param_fields`).
+//! Un widget ou un paramètre sans `label` (ceux du noyau et de `base`) prend son nom traduit
+//! (`session-widget-kind-<clé>`, `session-param-<clé>-<nom>` ; clé `content` ou `base-card`, voir `param_fields`).
 
 use oku_slides_core::{ListOp, ListPath, Op, ParamSchema, ParamType, ParamValue, Params, Target, WidgetSchema};
 use serde_json::Value;

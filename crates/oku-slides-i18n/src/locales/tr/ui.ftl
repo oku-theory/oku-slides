@@ -154,7 +154,9 @@ ui-element-kind = { $kind ->
     [card] Kart
     [image] Görsel
     [shape] Şekil
-    [group] Grup
+    [chart] Grafik
+    [table] Tablo
+    [stack] Yığın
    *[other] { $kind }
 }
 ui-grid-cell = süt. { $cols } · satır { $rows }

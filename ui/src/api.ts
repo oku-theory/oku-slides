@@ -53,6 +53,12 @@ export interface AddWidget {
   description: string | null;
 }
 
+/** Type d'hôte d'un paramètre de widget : le panneau ou l'éditeur qui le lit. */
+export type HostType = "chart" | "table" | "path";
+
+/** Paramètres d'hôte des widgets d'élément : kind, puis type d'hôte, puis nom du paramètre. */
+export type HostParams = Record<string, Partial<Record<HostType, string>>>;
+
 export interface Snapshot {
   path: string | null;
   name: string;
@@ -100,6 +106,8 @@ export interface Snapshot {
   /** L'aide de l'app : le deck se lit, il ne se modifie pas. */
   read_only: boolean;
   ui: UiState;
+  /** Paramètres d'hôte des widgets d'élément du deck, par kind et type d'hôte. */
+  host_params: HostParams;
 }
 
 /** Une slide où le texte cherché apparaît. */

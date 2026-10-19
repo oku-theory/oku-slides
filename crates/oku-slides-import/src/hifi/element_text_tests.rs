@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{ListKind, ParamValue, RICH_PARAGRAPHS_MAX};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -56,7 +57,7 @@ fn text_element_writes_the_box_style_anchor_and_insets() {
     let e = element(tb);
     assert_that!(serde_json::to_value(&e).unwrap()).is_equal_to(json!({
         "id": "s1-1",
-        "kind": "text",
+        "kind": base::TEXT,
         "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 100.0 },
         "style": {
             "size": 36.0, "color": "ink", "font": "body", "align": "left", "leading": 0.56,

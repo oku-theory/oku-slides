@@ -6,14 +6,12 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 ## Key types
 
 - `Renderer` (`lib.rs`): keeps a live Typst world between renders (incremental compilation).
-  `render`/`set_deck` compile the deck; `set_widgets` loads the base widgets plus a `PackSet`
-  (each pack's widgets as `ns/name`, never overriding a base widget: one assembly per pack with its
-  prefix); `set_language` sets the language of fallback frames. `set_theme` sets the theme
-  tokens resolved by the session (served as `/theme.json`, passed to `render-deck(…, theme:)`):
-  rendering reads neither `deck.theme` nor a theme library; without a theme, the default tokens. Charts are redrawn before Typst when the compiled theme's
-  palette differs from the one they were drawn with (a second pass).
-- `Compiled` (`lib.rs`): a compiled document: `svg`/`png`/`pdf`, `page_hash` (cache key),
-  `layout()` (read once from the document, `OnceCell`).
+  `render`/`set_deck` compile the deck; `set_widgets` loads the core (slide) widgets plus a
+  `PackSet` (one assembly per pack, widgets as `ns/name`, never overriding a core widget);
+  `with_builtins` adds the built-in `base` pack; `set_language`: language of fallback frames.
+  `set_theme`: theme tokens resolved by the session (`/theme.json`, `render-deck(…, theme:)`),
+  never `deck.theme`; default tokens without one. Charts are redrawn when the compiled palette changes.
+- `Compiled` (`lib.rs`): `svg`/`png`/`pdf`, `page_hash` (cache key), `layout()` (read once).
 - `Layout` (`lib.rs`): what rendering says about the document, by page: `SlidePage`,
   `ElementBox` (real box), `FieldBox` (editable field), `ItemBox` (list item, `list-item`),
   `ZoneBox`/`GridBox` (free zone and its grid), `TextStyle` (measured typography). `field()`
@@ -23,16 +21,18 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
   plus a generated `/packs/<id>/widgets.typ` naming them `ns/name`; `PackSet`: a deck's packs by
   namespace, unique namespaces and ids (`DuplicatePack`). `probe_file` (`widget_probe.rs`): one file alone, no other pack reachable, gives a
   `FileProbe` (schema or diagnostics; declared name = file name); `assemble`: base + one pack's
-  valid files. `Registries` memoizes by `PackSet::fingerprint` and `probe_key`; `base_registry`.
+  valid files. `Registries` memoizes by `PackSet::fingerprint` and `probe_key`; `core_registry`
+  (slides), `builtin_probe` / `builtin_registry` (core + `base`, memoized; `assemble` keeps a probe's packs).
+- `base_pack.rs`: render owns the `base` pack sources (`typst/oku-slides/packs/base`, embedded),
+  the session lists them; `is_trusted_pack`: namespace `base` and a version of `versions.txt`.
 - Bounded errors (`error.rs`): `RenderErrorKind` has `Timeout`, `OutOfMemory`, `WorkerLost`,
   `Frame`, `Stale`, `PackDisabled`, `Protocol` besides Typst failures; `is_bounded` says which
-  ones (not `Frame`, `Stale`, `Protocol`) make the session fall back to the base widgets.
-- `wire` (`wire.rs`): `WireError`, the serializable form (no backtrace) of
-  `RenderError`/`RegistryError` for the worker pipe; `Layout` is serializable too;
-  `Fonts::files` exposes font bytes for fingerprints and replay.
+  ones (not `Frame`, `Stale`, `Protocol`) make the session disable the faulty pack.
+- `wire` (`wire.rs`): `WireError`, serializable `RenderError`/`RegistryError` (no backtrace) for
+  the worker pipe; `Layout` too; `Fonts::files` exposes font bytes for fingerprints and replay.
 - `OkuSlidesWorld` (`world.rs`, private): virtual file system (embedded library with its JSON
-  data `src/default-tokens.json` and `themes/*.json`; deck, theme, assets, pack) and fonts
-  (`Fonts`, `fonts.rs`), no system font.
+  data; deck, theme, assets, packs) and fonts (`Fonts`), no system font; `load-image(…, flow:)`
+  sizes a flow image at its proportions when its widget asks.
 - `charts` (private): an element with `host("chart")` becomes an SVG drawn by
   `oku-slides-chart`, served as `/charts/<fingerprint>.svg` (options, size, font, palette,
   labels); drawn at its box size (measured at compilation), never scaled.
@@ -42,7 +42,7 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 ## Extension points
 
 - A new page output format: a method on `Compiled`. New document metadata: a Typst label
-  (`oku-slides-*`) in the library, a `Layout` field and an entry in `Layout::layout()`.
+  (`oku-slides-*`), a `Layout` field and an entry in `Layout::layout()`.
 
 ## Dependencies
 

@@ -3,7 +3,7 @@ import type { FieldView } from "../api";
 import { agentUi } from "./ui";
 
 const field = (owner: string, owner_kind: "slide" | "element", name: string): FieldView => ({
-  owner, owner_kind, widget: "card", field: name, kind: "plain", label: null, text: "", empty: false, side: null,
+  owner, owner_kind, widget: "base/card", field: name, kind: "plain", label: null, text: "", empty: false, side: null,
   x: 0, y: 0, w: 0, h: 0, ax: 0, aw: 0, style: null,
 });
 

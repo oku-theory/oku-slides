@@ -2,8 +2,9 @@ mod common;
 
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits, Target};
-use oku_slides_render::{Fonts, Renderer};
+use oku_slides_render::Renderer;
 use speculoos::prelude::*;
 
 /// Remplace le corps de `b-points` (slide `s-constat`) par `text`.
@@ -26,7 +27,7 @@ fn fixture() -> Deck {
 #[test]
 fn compile_fixture_deck_renders_every_slide_and_its_boxes() {
     let deck = fixture();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let doc = r.compile().expect("compilation");
     assert_that!(doc.page_count()).is_equal_to(deck.slides.len());
@@ -63,7 +64,7 @@ fn compile_fixture_deck_renders_every_slide_and_its_boxes() {
 #[test]
 fn compile_after_edit_or_theme_change_changes_only_affected_pages() {
     let mut deck = fixture();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let before = r.compile().unwrap();
     let h4 = before.page_hash(3).unwrap();
@@ -83,7 +84,7 @@ fn compile_after_edit_or_theme_change_changes_only_affected_pages() {
 #[test]
 fn compile_dictated_text_with_typst_markup_renders_it_verbatim() {
     let mut deck = fixture();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     set_points(&mut deck, &r, vec![Paragraph::plain("#panic(\"x\") ] ) } #read(\"/etc/passwd\") $x$ <lbl> @ref")]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     // Le texte est rendu tel quel.
@@ -95,7 +96,7 @@ fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
     let mut deck = fixture();
     let run =
         oku_slides_core::Run { link: Some("https://example.com/oku".into()), ..oku_slides_core::Run::plain("site") };
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None }]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
@@ -107,7 +108,7 @@ fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
 fn compile_run_with_a_non_web_link_renders_plain_text_without_a_pdf_link() {
     let mut deck = fixture();
     let run = oku_slides_core::Run { link: Some("javascript:alert(1)".into()), ..oku_slides_core::Run::plain("site") };
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None }]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
@@ -120,7 +121,7 @@ fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
     // SVG de la page de `s-constat` après avoir remplacé ses puces par `runs`.
     let constat_svg = |runs: Vec<oku_slides_core::Run>| {
         let mut deck = fixture();
-        let mut r = Renderer::new(Fonts::default()).unwrap();
+        let mut r = common::renderer();
         set_points(&mut deck, &r, vec![Paragraph { runs, list: None }]);
         r.set_deck(&deck, &BTreeMap::new()).unwrap();
         let doc = r.compile().unwrap();
@@ -137,7 +138,7 @@ fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
 #[test]
 fn embed_sources_then_extract_gives_back_same_bundle() {
     let deck = fixture();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     let mut bundle = SourceBundle::new(deck.clone(), r.registry().clone()).unwrap();
     bundle.add_asset(vec![0u8; 64]);
     // La version du thème que référence la maquette (`papier`) voyage avec elle.
@@ -178,7 +179,7 @@ const PNG: &[u8] = &[
 fn set_deck_asset_added_then_removed_follows_the_deck() {
     let deck = fixture();
     let page = deck.slide_index("s-libre").unwrap();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let first = r.compile().unwrap();
     let missing = first.page_hash(page).unwrap();
@@ -203,7 +204,7 @@ fn set_language_translates_the_missing_image_frame() {
     use oku_slides_i18n::Localizer;
     let deck = fixture();
     let page = deck.slide_index("s-libre").unwrap();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let english = r.compile().unwrap().svg(page).unwrap();
     r.set_language(&Localizer::new(Some("fr"))).unwrap();
@@ -217,11 +218,11 @@ fn chart_deck() -> Deck {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }]
     });
-    let json = serde_json::json!({ "version": 6, "slides": [
+    let json = serde_json::json!({ "version": oku_slides_core::DECK_VERSION, "slides": [
         { "id": "flux", "kind": "content", "params": { "title": "Ventes",
-          "blocks": [{ "id": "g1", "kind": "chart", "params": { "option": option } }] } },
+          "blocks": [{ "id": "g1", "kind": base::CHART, "params": { "option": option } }] } },
         { "id": "libre", "kind": "blank", "params": {
-          "elements": [{ "id": "g2", "kind": "chart", "params": { "option": option },
+          "elements": [{ "id": "g2", "kind": base::CHART, "params": { "option": option },
                          "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] } }
     ] });
     Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
@@ -230,7 +231,7 @@ fn chart_deck() -> Deck {
 #[test]
 fn compile_deck_with_charts_places_them_and_exports_pdf() {
     let deck = chart_deck();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let doc = r.compile().unwrap();
     assert_that!(doc.page_count()).is_equal_to(2);
@@ -250,7 +251,7 @@ fn compile_invalid_token_returns_localized_compile_error_with_diagnostics() {
         r#"{"tokens":{"color":{"accent":5}},"slides":[{"id":"s","kind":"content","params":{"title":"x"}}]}"#,
     )
     .unwrap();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let err = r.compile().unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Compile);
@@ -264,7 +265,7 @@ fn compile_invalid_token_returns_localized_compile_error_with_diagnostics() {
 #[test]
 fn svg_of_missing_page_returns_no_page() {
     use oku_slides_i18n::{Localize, Localizer};
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&fixture(), &BTreeMap::new()).unwrap();
     let err = r.compile().unwrap().svg(99).unwrap_err();
     assert_that!(err.kind()).is_equal_to(oku_slides_render::RenderErrorKind::NoPage);
@@ -294,7 +295,7 @@ fn diagnostic_localize_formats_place_and_hints() {
 #[test]
 fn set_language_after_set_deck_with_charts_still_compiles() {
     let deck = chart_deck();
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     r.set_language(&oku_slides_i18n::Localizer::new(Some("fr"))).unwrap();
     let doc = r.compile().unwrap();
@@ -309,7 +310,7 @@ fn themed_chart_deck(theme: &str) -> Deck {
 
 #[test]
 fn render_papier_deck_draws_charts_with_the_papier_palette_from_the_first_render() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     let doc = r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
     assert_that!(doc.page_count()).is_equal_to(2);
@@ -320,7 +321,7 @@ fn render_papier_deck_draws_charts_with_the_papier_palette_from_the_first_render
 
 #[test]
 fn render_theme_change_switches_the_chart_palette() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
     r.set_theme(common::theme_tokens(Some("pro"))).unwrap();
@@ -332,7 +333,7 @@ fn render_theme_change_switches_the_chart_palette() {
 fn render_deck_tokens_override_the_chart_palette() {
     let mut deck = themed_chart_deck("papier");
     deck.tokens = serde_json::json!({ "chart": { "palette": ["#010203", "accent"] } });
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     r.render(&deck, &BTreeMap::new()).unwrap();
     assert_that!(r.chart_palette().to_vec()).is_equal_to(vec!["#010203".to_owned(), "#3f6b5e".to_owned()]);
@@ -352,7 +353,7 @@ fn embedded_chart(page: &str) -> String {
 fn render_chart_texts_take_the_body_size_of_the_theme() {
     let mut deck = themed_chart_deck("papier");
     deck.tokens = serde_json::json!({ "size": { "body": 27 } });
-    let mut r = Renderer::new(Fonts::default()).unwrap();
+    let mut r = common::renderer();
     r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
     let doc = r.render(&deck, &BTreeMap::new()).unwrap();
     let chart = embedded_chart(&doc.svg(1).unwrap());

@@ -16,8 +16,9 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   `widgets`: a `PackPin` per `Namespace`), `Style`, JSON schema via `schemars`. `params.rs`: `Params`,
   `ParamValue`, `ListItem`. `shape_path.rs`: `ShapePath`, the `path` host param of `shape`.
 - `namespace.rs`: `Namespace` (`deck` reserved), `qualify` / `split_kind`: a pack widget's kind is `ns/name`, a bare kind is core.
+  `kinds.rs`: `kinds::base`, the built-in `base` pack's kinds.
 - `widget.rs`: `WidgetRegistry` and `WidgetSchema` / `ParamSchema` / `ParamType` / `Category` /
-  `HostType` / `SlotMode`, declared in Typst, pack widgets under `ns/name`; ops and `validate` ask it.
+  `HostType` / `SlotMode` / `Grow`, declared in Typst, pack widgets under `ns/name`; ops and `validate` ask it.
 - `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`); `check.rs` types inserted subtrees;
   `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs`
   (`ListPath`: `param` or `param/item/column`, an item's nested list, one level); `grid.rs`
@@ -29,15 +30,14 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   `PackPin` (id, version, `requires`), `PackFiles`, `WidgetFile`, `PackManifest`, `Template`; a theme version is a
   `PackFiles` without widgets whose manifest is `theme.json` (`ThemeManifest`, `ThemeRef`).
   `PackScope` (`library`, default, unwritten; `deck`: an import's, never in the library; `PackFiles::scope`).
-- `tokens.rs`: a theme's effective tokens (defaults, then theme) and `merge`.
 - `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot,
   assets, fonts, `widgets/<hex>/{widgets.json, widgets/<name>.typ}` (`sources_packs.rs`),
   `themes/<hex>/theme.json` (`sources_themes.rs`), all add-only, verified on read (a forged
   version is reported once) and unioned on merge; reads bounded by `SourceLimits`.
-- `validate.rs`: deck consistency against the registry, as `Issue`s; `canonical.rs`: `canonicalize`
+- `tokens.rs`: a theme's effective tokens and `merge`. `validate.rs`: deck consistency against the registry, as `Issue`s; `canonical.rs`: `canonicalize`
   (sorted keys, empty slots dropped, duplicate ids repaired).
-- `fields.rs`, `locate.rs` (`Located`, `MAX_SLOT_DEPTH`), `color.rs`: text fields, element lookup, colors.
-- `error/`: `OpError`, `ReplicaError`, `SourcesError`, `TransactionError`… (Snafu, Fluent); `reason.rs`: refusal reasons.
+- `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors. `error/` (Snafu, Fluent): `OpError`,
+  `ReplicaError`, `SourcesError`…; `reason.rs`: refusal reasons.
 
 ## Extension points
 

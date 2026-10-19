@@ -12,7 +12,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use snafu::OptionExt;
 
-use oku_slides_core::{Deck, Namespace, Op, PackFiles, PackPin, PackVersion};
+use serde_json::{Map, Value};
+
+use oku_slides_core::{
+    Deck, Element, Namespace, Op, PackFiles, PackPin, PackVersion, ParamValue, Slide, WidgetFile, split_kind,
+};
 
 use crate::Result;
 use crate::error::{PackVersionMissingSnafu, RequiresCycleSnafu, UnknownNamespaceSnafu};
@@ -99,6 +103,42 @@ pub(crate) fn closure_ops(library: &PackLibrary, deck: &Deck, wanted: &[Op]) -> 
         closure.ops.push(op.clone());
     }
     Ok(closure.ops)
+}
+
+/// Les `requires` d'un pack qui enregistre `slides` et `examples` sous l'espace de noms `own`.
+///
+/// Ses `requires` d'avant (`kept`), puis, triés, les espaces de noms des kinds
+/// qualifiés qu'emploient ses modèles et ses valeurs d'exemple, le sien excepté.
+pub(crate) fn templates_requires(
+    own: &Namespace,
+    kept: &[Namespace],
+    slides: &[Slide],
+    examples: &BTreeMap<WidgetFile, Map<String, Value>>,
+) -> Vec<Namespace> {
+    fn walk(elements: &[Element], out: &mut BTreeSet<Namespace>) {
+        for e in elements {
+            out.extend(split_kind(&e.kind).and_then(|(ns, _)| Namespace::parse(ns)));
+            for (_, children) in e.params.slots() {
+                walk(children, out);
+            }
+        }
+    }
+    let mut used = BTreeSet::new();
+    for slide in slides {
+        used.extend(split_kind(&slide.kind).and_then(|(ns, _)| Namespace::parse(ns)));
+        for (_, elements) in slide.params.slots() {
+            walk(elements, &mut used);
+        }
+    }
+    // Une valeur d'exemple de slot porte des éléments ; toute autre n'a pas de kind.
+    for value in examples.values().flat_map(Map::values) {
+        if let Ok(ParamValue::Slot(elements)) = serde_json::from_value(value.clone()) {
+            walk(&elements, &mut used);
+        }
+    }
+    let mut out = kept.to_vec();
+    out.extend(used.into_iter().filter(|ns| ns != own && !kept.contains(ns)));
+    out
 }
 
 /// Un pack à épingler : son espace de noms, son épinglage et ses fichiers.

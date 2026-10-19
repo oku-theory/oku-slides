@@ -158,7 +158,9 @@ ui-element-kind = { $kind ->
     [card] Картка
     [image] Зображення
     [shape] Фігура
-    [group] Група
+    [chart] Діаграма
+    [table] Таблиця
+    [stack] Стос
    *[other] { $kind }
 }
 ui-grid-cell = стовп. { $cols } · рядок { $rows }

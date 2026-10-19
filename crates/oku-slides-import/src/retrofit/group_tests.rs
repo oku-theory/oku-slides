@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use oku_slides_core::kinds::base;
 use oku_slides_core::{Element, Paragraph};
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -61,16 +62,16 @@ fn steps() -> Vec<Item> {
 fn group_falls_back_to_a_stack_of_cards() {
     let (e, losses, fallback) = fold(&steps(), false);
     let e = e.unwrap();
-    assert_that!((e.kind.as_str(), e.params.text("layout"))).is_equal_to(("stack", Some("columns")));
+    assert_that!((e.kind.as_str(), e.params.text("layout"))).is_equal_to((base::STACK, Some("columns")));
     let children = e.params.slot("children").unwrap();
     assert_that!(children.iter().map(|c| (c.id.as_str(), c.kind.as_str())).collect::<Vec<_>>()).is_equal_to(vec![
-        ("e1-1", "card"),
-        ("e1-2", "card"),
-        ("e1-3", "card"),
+        ("e1-1", base::CARD),
+        ("e1-2", base::CARD),
+        ("e1-3", base::CARD),
     ]);
     assert_that!(children[0].params.text("title")).is_equal_to(Some("Étape 1"));
     assert_that!(body_texts(&children[2])).is_equal_to(vec!["Détail 3".to_owned()]);
-    assert_that!(fallback.as_deref()).is_equal_to(Some("stack"));
+    assert_that!(fallback.as_deref()).is_equal_to(Some(base::STACK));
     assert_that!(losses).is_empty();
 }
 
@@ -87,7 +88,7 @@ fn group_of_two_stacked_texts_is_a_silent_row_stack() {
 #[test]
 fn group_of_a_smartart_is_always_a_fallback() {
     let items = vec![text_item("a", (0.0, 0.0, 300.0, 50.0), "A"), text_item("b", (0.0, 200.0, 300.0, 50.0), "B")];
-    assert_that!(fold(&items, true).2.as_deref()).is_equal_to(Some("stack"));
+    assert_that!(fold(&items, true).2.as_deref()).is_equal_to(Some(base::STACK));
 }
 
 #[test]
@@ -146,7 +147,7 @@ fn group_with_a_nested_smartart_is_a_fallback() {
         },
     );
     let items = vec![nested, text_item("b", (0.0, 200.0, 300.0, 50.0), "B")];
-    assert_that!(fold(&items, false).2.as_deref()).is_equal_to(Some("stack"));
+    assert_that!(fold(&items, false).2.as_deref()).is_equal_to(Some(base::STACK));
 }
 
 /// Un SmartArt sans dessin aux nœuds `(texte, profondeur)`.
@@ -206,7 +207,7 @@ fn diagram_of_many_top_nodes_is_in_rows() {
 fn diagram_reports_its_lost_layout_and_asks_for_a_widget() {
     let (_, losses, fallback) = lay_out(&[("A", 0), ("B", 0)]);
     assert_that!(losses).is_equal_to(vec![Loss::on("sa", LossKind::SmartArtLayout)]);
-    assert_that!(fallback.as_deref()).is_equal_to(Some("stack"));
+    assert_that!(fallback.as_deref()).is_equal_to(Some(base::STACK));
 }
 
 #[test]

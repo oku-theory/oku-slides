@@ -154,7 +154,9 @@ ui-element-kind = { $kind ->
     [card] কার্ড
     [image] ছবি
     [shape] আকৃতি
-    [group] গ্রুপ
+    [chart] চার্ট
+    [table] টেবিল
+    [stack] স্ট্যাক
    *[other] { $kind }
 }
 ui-grid-cell = কলাম { $cols } · সারি { $rows }

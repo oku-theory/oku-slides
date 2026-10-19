@@ -4,6 +4,7 @@ mod common;
 
 use common::registry;
 use oku_slides_chart::{Cell, ChartOption, DataOp};
+use oku_slides_core::kinds::base;
 use oku_slides_core::*;
 use oku_slides_i18n::{Localize, Localizer};
 use serde_json::{Value, json};
@@ -18,7 +19,7 @@ fn g() -> Target {
 }
 
 fn chart(id: &str, option: Value) -> Element {
-    serde_json::from_value(json!({ "id": id, "kind": "chart", "params": { "option": option } }))
+    serde_json::from_value(json!({ "id": id, "kind": "base/chart", "params": { "option": option } }))
         .unwrap_or_else(|e| panic!("{e}"))
 }
 
@@ -160,7 +161,7 @@ fn add_element_with_inconsistent_chart_is_refused() {
 #[test]
 fn add_element_with_inconsistent_nested_chart_is_refused() {
     let mut deck = deck_with_chart();
-    let mut stack = Element::new("p", "stack");
+    let mut stack = Element::new("p", base::STACK);
     stack.params.set("children", ParamValue::Slot(vec![chart("x", json!({ "series": [] }))]));
     let err =
         apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: stack }).unwrap_err();
