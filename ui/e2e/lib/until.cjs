@@ -1,6 +1,7 @@
 // Attente par sondage côté Node, pour les conditions asynchrones (fetch, API).
 // `page.waitForFunction` n'attend pas la Promise d'un prédicat async : elle est vraie d'emblée.
-// Le seul délai fixe des specs hors attentes négatives : le pas de sondage ci-dessous (100 ms ; réglable pour `settled`).
+// Les seuls délais fixes des specs hors attentes négatives : le pas de sondage ci-dessous (100 ms ; réglable pour `settled`),
+// et la reprise de lecture d'un aperçu de widget (`widget.cjs`, 50 ms).
 const assert = require('node:assert/strict');
 
 /** Rejoue `fn` jusqu'à une valeur vraie ; échoue avec `why` après `timeout` ms. */

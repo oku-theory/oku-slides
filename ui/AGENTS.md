@@ -45,6 +45,7 @@
 ## Testing
 
 - Never pass an async predicate to page.waitForFunction; it resolves at once, so poll from Node instead. (t-570)
+- Read widget preview SVGs in e2e with widgetPreviewSvg; each new preview revokes the old blob URL. (t-1087)
 
 ## Settled decisions
 

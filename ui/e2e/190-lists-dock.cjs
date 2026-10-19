@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const { openAtelier } = require('./lib/atelier.cjs');
 const { post } = require('./lib/http.cjs');
 const { until } = require('./lib/until.cjs');
+const { PREVIEW, widgetPreviewSvg } = require('./lib/widget.cjs');
 
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
@@ -27,12 +28,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   const name = p.getByRole('textbox', { name: /Nom du widget/ });
   await name.fill('jalons');
   await name.press('Enter');
-  const IMG = '.widget-tab:not([hidden]) .widget-tab-preview img';
-  await p.waitForSelector(IMG);
-  const svgOf = () => p.evaluate(async (sel) => {
-    const img = document.querySelector(sel);
-    return img ? (await fetch(img.src)).text() : null;
-  }, IMG);
+  await p.waitForSelector(PREVIEW);
   // Le widget d'essai déclare une liste de trois colonnes (dont une riche), trois lignes par défaut.
   const source = [
     '#import "/oku-slides/lib.typ": widget, field, list-item, params as p',
@@ -51,11 +47,11 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await p.waitForSelector(`${table} [data-list-add]`, { timeout: 15000 });
   const rows = () => p.locator(`${table} tbody tr`).count();
   assert.equal(await rows(), 3, 'trois lignes par défaut');
-  const before = await svgOf();
+  const before = await widgetPreviewSvg(p);
   assert.ok(before, 'aperçu rendu');
   const rowsAre = (n) => p.waitForFunction(([sel, n]) => document.querySelectorAll(`${sel} tbody tr`).length === n, [table, n]);
   const preview = (same) => until(p, async () => {
-    const now = await svgOf();
+    const now = await widgetPreviewSvg(p);
     return now !== null && (now === before) === same;
   }, same ? "l'aperçu ne revient pas à l'identique" : "l'aperçu ne change pas", 15000);
   await p.locator(`${table} [data-list-add]`).click();
