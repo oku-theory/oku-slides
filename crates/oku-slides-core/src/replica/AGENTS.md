@@ -25,9 +25,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never index with lengths read from the replica; use get and fail with TreeOrder, never a silent fallback. (plan:2026-10-10-deck-en-arbre)
 - Keep reading, writing and input checks of an untrusted replica iterative, never unboundedly recursive. (plan:2026-10-10-deck-en-arbre)
 - Keep reading the replica independent of the widget registry; only writing may consult it. (plan:2026-09-28-widgets-typst-2)
-- Build the UndoManager after the initial commit so that creating the deck is not undoable. (plan:2026-09-27-sources-loro-fondation)
 - Separate rich prose paragraphs in the replica text with U+2029. (plan:2026-09-27-sources-loro-fondation)
-- Cap replica dataset reads at 10000 rows and 1000 columns, truncating and reporting the excess. (plan:2026-10-08-fusion-cellules)
 - Use a fresh random PeerID on every load and never persist it; two writers sharing a peer corrupt the doc. (spec:2026-09-27-sources-loro-design)
 - Import untrusted bytes and do the first full read inside guarded; after a panic, forget the doc, never drop it. (spec:2026-09-27-sources-loro-design)
 - Merge two replicas only when their deck_uid is equal; otherwise fail with Unrelated. (spec:2026-09-27-sources-loro-design)
@@ -42,7 +40,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Mark only visible nodes; Loro skips an equal insert, which would leave undo nothing to revert. (plan:2026-10-10-deck-en-arbre)
 - On import, check deck_uid, then the replica format, then check_trees, so old replicas read as unsupported. (plan:2026-10-10-deck-en-arbre)
 - Group undo steps in our own stack or by merge key; never use Loro group_start. (spec:2026-09-27-sources-loro-design)
-- Never call get_deep_value on a received Loro document; its recursion can overflow the stack. (spec:2026-10-10-arbre-deck-robustesse-design)
+- Never call get_deep_value or is_node_deleted on a received Loro document; both recurse, so use entry::deleted_nodes or Ancestry. (spec:2026-10-10-arbre-deck-robustesse-design, t-865)
 
 ## Testing
 
@@ -51,7 +49,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Settled decisions
 
 - Apply edits by diffing the Deck into the replica; never translate Op variants into Loro mutations. (ADR-0002)
-- Never persist the undo stack; it belongs to the session and starts empty on every open. (ADR-0002)
 - Restore a version as one undoable apply, tried first on a fork; never use Loro revert_to. (ADR-0002, spec:2026-09-27-sources-loro-design)
 - Store host datasets as row, column and cell containers matched by id, never as one JSON atom. (ADR-0004, plan:2026-10-08-fusion-cellules)
 - Keep the whole deck in one LoroTree whose roots, and only they, are slides; elements are descendants. (ADR-0006, plan:2026-10-10-deck-en-arbre)

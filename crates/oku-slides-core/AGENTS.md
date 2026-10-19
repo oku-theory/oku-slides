@@ -9,7 +9,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Validate links and highlights in rich list columns with the same rules as other rich params. (plan:2026-10-04-suivis-listes, t-527)
 - In SourceBundle::new, canonicalize before and after normalize_hosts so exact copies are dropped first. (plan:2026-10-09-finitions-ids, t-688)
 - Never add a top-level Slide or Element field starting with the at sign; such meta keys are reserved. (plan:2026-10-10-deck-en-arbre)
-- Wrap every LoroError with LoroSnafu. (plan:2026-10-09-elements-en-arbre)
 - Name widget files [a-z][a-z0-9-]* up to 64 chars or _commun (else, like non-hex64 pack dirs, BadName); an empty one, widgets.typ included, is absent from the hash. (plan:2026-10-02-creation-widgets)
 - Keep unknown widget kinds and params verbatim as Value, never erroring on read; let validate report them. (spec:2026-09-27-widgets-typst-design)
 - Refuse ops that would nest elements deeper than MAX_SLOT_DEPTH, since recursive walkers rely on that bound. (plan:2026-09-28-widgets-typst-2)
@@ -29,12 +28,10 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Route all list edits, deck or widget trial values, through ListOp::apply. (spec:2026-10-04-parametre-liste-design)
 - Revalidate host params with check_host_params whenever an op changes a widget kind, as Op::SetKind does. (t-591)
 - Never serialize PackScope::Library, so library pack and theme manifests keep their existing hashes. (ADR-0009, t-692)
-- Change kinds::base and ui/src/baseKinds.ts together; a UI test compares BASE with the registry fixture. (plan:2026-10-18-packs-lot2-base)
+- Change kinds::base, ui/src/baseKinds.ts and the base kind list in the MCP widgets tool text together; only the UI pair is tested. (plan:2026-10-18-packs-lot2-base)
 
 ## Pitfalls
 
-- Move elements across slides with the move_element op; a duplicated id loses concurrent edits. (ADR-0006)
-- Duplicate test helpers in tests/common/mod.rs, since integration tests cannot see the crate's cfg(test) code. (plan:2026-09-28-widgets-typst-2)
 - Expect any change to widgets.json, including name or description, to produce a new content-addressed PackVersion. (plan:2026-10-01-packs-portables)
 - Generate random element ids; concurrent adds with the same id produce duplicates that validate flags. (spec:2026-09-27-sources-loro-design)
 - Beware Loro UndoManager on commits with several mov on the slides list; undo can lose elements or panic. (t-263)
@@ -49,7 +46,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Settled decisions
 
 - Never flatten or prune Loro history or assets when saving, so every past version still renders and merges. (ADR-0002)
-- Keep Loro pinned at 1.16.2; an upgrade must keep loro_tree_probe and loro_deck_tree_probe passing. (ADR-0005, ADR-0006)
 - Add no backward compatibility: refuse old deck, sources and replica formats; drop replaced ops, no aliases. (spec:2026-09-27-widgets-typst-design)
 - Let an inconsistent deck open and report issues via validate, but make ops refuse badly typed values. (spec:2026-09-27-widgets-typst-design)
 - Use SetSlideField only for slide name and description; change kind with SetKind and other params with SetParam. (plan:2026-09-28-widgets-typst-2)

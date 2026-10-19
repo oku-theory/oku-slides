@@ -10,8 +10,9 @@
 - Return MCP tool and agent-form errors localized via Fluent in the user's language, never as raw English text. (t-403, t-650)
 - Localize hub, MCP tool and agent texts via LiveLocalizer::current at each use, never a launch snapshot. (t-793)
 - Keep dataset ids and columns aligned with source on every core write; rereads only repair merged states. (ADR-0004)
-- Never make oku-slides-core depend on oku-slides-import; import may depend only on core and i18n. (plan:2026-10-09-import-pptx-lot1)
+- Never make oku-slides-core depend on oku-slides-import; among workspace crates import may depend only on core, chart and i18n. (plan:2026-10-09-import-pptx-lot1, plan:2026-10-10-import-pptx-lot2)
 - Never write a deck-only pack or theme (PackScope::Deck) to the library; its new versions stay deck-only. (t-692)
+- Add or remove a Rust advisory exception in deny.toml and .cargo/audit.toml together, with its reason in deny.toml. (t-890, t-897)
 
 ## Pitfalls
 

@@ -4,7 +4,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
-- Keep host-only components (Prompt, Timeline, Receipt, SlideThumb, Notice) refused in the agent render tool. (spec:2026-10-03-agent-a2ui-design, t-966)
 - Require render to be a strict tree (unique ids, no sharing, cycles or orphans, depth 6, 40 components max); reject agent texts with bidirectional control or invisible characters. (spec:2026-10-03-agent-a2ui-design)
 - Lock the workspace before a session, never the reverse, only try_lock a session under it, and never read files, render or build a session under it. (ADR-0001, spec:2026-09-26-onglets-fenetres-design)
 - Never reuse tab or window ids, accept only valid unique t-N and w-N ids from workspace.json, which only the Workspace writes; a session writes only its tab folder. (ADR-0001, spec:2026-09-26-onglets-fenetres-design)
@@ -16,7 +15,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - In history mode transitions, put moved assets and fonts back before propagating any error. (plan:2026-09-27-sources-loro-historique)
 - Validate SetToken and UnsetToken ops before applying any, Color and Palette ones outside templates mode too. (plan:2026-10-05-themes-packs-editeur)
 - Resolve and render deck widgets only from the pack version embedded in SourceBundle.packs, never the library; check each pin with check_pack_id, in the session and ProbedWidgets alike. (plan:2026-10-02-creation-widgets, t-1008)
-- Never let a received deck change a pack's current library version; add its versions silently via receive_version. (spec:2026-10-01-packs-portables-design, t-355)
+- Never let a received deck change a pack's current library version: add its versions via receive_version, and make the current fallback prefer locally created versions whatever a received created says. (spec:2026-10-01-packs-portables-design, t-355)
 - Pin base where element kinds are produced (new deck, import, help, templates mode), before probing, never on open; build a first replica or validate elements before the deck's packs resolve with builtin_registry, a slot without a set with core_registry. (plan:2026-10-18-packs-lot2-base)
 - Write a pack version's widget files before its widgets.json in the pack library; refuse a version whose namespace differs from its pack's earlier ones (NamespaceChanged). (plan:2026-10-02-creation-widgets, plan:2026-10-18-packs-lot1-widget-packs, t-1008)
 - In deck mode, send a widget write without a namespace to the deck's own pack deck; embed and render it before writing the library; on failure change nothing. (spec:2026-10-02-creation-widgets-design, t-1016)
@@ -28,9 +27,9 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Recognize workspace windows only through is_window_label; do not redefine the w-N pattern. (plan:2026-10-09-agent-detachable)
 - Define KEPT_TURNS only once, in the oku-slides-session agent module, and reuse it elsewhere. (spec:2026-10-08-sessions-par-perspective-design)
 - Move a widget conversation on rename, undo or redo, never overwriting one; refuse keep_thread and keep_agent_session for unknown Widget scopes. (plan:2026-10-08-sessions-par-perspective)
-- Serialize AgentScope as kind-tagged JSON (slides, atelier with pack, widget with pack and name). (plan:2026-10-08-sessions-par-perspective)
 - On save, count only NotFound as an unchanged file; treat any other read error as disk replaced. (spec:2026-09-27-sources-loro-design)
-- Re-render once on a Stale handle; on a bounded failure disable only the faulty pack and its dependents (bisect only untrusted packs, the control render keeping the shipped base; never disable a trusted pack), never falling back to core widgets for the whole deck, and if that fails log it and return the original render error; a registry that fails to assemble disables no pack: keep the installed widgets and return the error. (spec:2026-09-29-compilation-bornee-design, t-344, t-1015, plan:2026-10-18-packs-lot1-widget-packs, t-1008, plan:2026-10-18-packs-lot2-base)
+- Re-render once on a Stale handle; on a bounded failure disable only the faulty pack and its dependents, never core widgets for the whole deck; if that fails, log it and return the original error. (spec:2026-09-29-compilation-bornee-design, t-344, t-1015, plan:2026-10-18-packs-lot1-widget-packs)
+- Bisect only untrusted packs, keeping the shipped base in the control render, never disable a trusted pack; a registry that fails to assemble disables no pack and returns the error. (plan:2026-10-18-packs-lot1-widget-packs, t-1008, plan:2026-10-18-packs-lot2-base)
 - Reach a tab session from the agent only via Workspace::with_session, which drops the workspace lock first, and never after Workspace::settle at app shutdown. (spec:2026-09-27-agent-onglets-design, t-251)
 - Build design variants on a throwaway deck clone and fail the whole call if any variant is invalid. (spec:2026-09-26-agent-vocal-design)
 - Count import tuning tries on the scored raster's fingerprint, never page_hash; draw the global budget only for an unchanged slide model; key the deck state by theme and pack content, never versions. (t-692)
@@ -39,11 +38,12 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep ImportState in memory only: never resumed, cleared by load_document once the new document is set. (t-692)
 - Choose the import witness only in ImportState::choose_witness, never replacing a missing soffice by office2pdf, and never run it under the session lock; callers run the ReferenceJob from import_reference_job first, in a blocking task. (t-692, t-905)
 - Create a retrofit's child pack only at its first deck-mode widget write, in that undo step, under the target's namespace; the app imports onto library packs by id or name, never a folder. (t-692, t-1016)
+- Bump the library generation file on every library write, and re-hash a version's bytes on load; never trust the in-memory index for content. (t-355)
+- Shorten agent text shown as is only with agent::bounds::clip, which drops invisible and bidi controls and counts the ellipsis. (t-842)
 
 ## Pitfalls
 
 - Guard session edits with self.ensure_editable(); there is no read_only() or in_history() helper. (plan:2026-10-05-parametres-a-la-selection)
-- Call TabSession::with only off the async runtime, for example in spawn_blocking, because it blocks. (plan:2026-09-27-agent-onglets)
 
 ## Settled decisions
 
@@ -57,4 +57,4 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Put new impl Session code, agent code included in src/agent, in its own module; add only match arms to lib.rs. (plan:2026-10-08-widget-tableau)
 - Expose UI-actionable states such as disk_replaced as snapshot flags, never as session errors. (spec:2026-09-27-sources-loro-design)
 - Model help as Mode::Help, exclusive of templates and history, and add no request whitelist to it. (plan:2026-10-09-tickets-debloques-t598, t-489)
-- Add a pack's missing requirements through closure_ops in the same transaction, dependencies first. (plan:2026-10-18-packs-lot1-widget-packs)
+- Undo an agent turn only while its steps are on top of the deck undo stack (TurnNotOnTop); never restore a pre-turn state under later edits. (t-417)

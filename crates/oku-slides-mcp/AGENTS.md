@@ -30,6 +30,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Make the set_setting tool refuse agent settings. (t-786)
 - Refuse save with a path to a file that is already open in another tab. (t-255)
 - Push every resync and follow to all views of a tab, not only to the view that asked. (t-670)
+- Emit page events (Present, OpenHistory, Interface) only after ensure_shown, and open history through the tab so its pending edit and save go first. (t-988, t-991, t-992)
 
 ## Pitfalls
 

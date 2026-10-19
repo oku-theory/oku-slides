@@ -6,6 +6,7 @@
 - Never follow symlinks in Storage::delete_dir, and read untrusted files with read_limited and a size cap. (t-163)
 - Give each agent preset exactly one of command or builtin, and fail config loading otherwise. (t-1020, spec:2026-10-18-agent-local-repli-design)
 - Download model files only through models::download, which checks pinned SHA-256 and writes .complete last. (plan:2026-10-18-agent-local-repli-lot3)
+- Build a shipped binary's Platform only with Platform::load; with_settings renders InProcess, unbounded and unsandboxed. (spec:2026-10-17-render-worker-sandbox-design, plan:2026-09-29-compilation-bornee)
 
 ## Pitfalls
 

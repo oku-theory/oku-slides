@@ -9,7 +9,7 @@
 - Emit list items as enum.item and list.item, never one enum or list per paragraph. (t-173)
 - When shipping a font for a new script, add it to script-fallback in tokens.typ and to the issue_0176 test. (t-177)
 - Declare zone sizing and typography in the widget schema (grow, typography); never test a kind name in the core library. (plan:2026-10-18-packs-lot2-base)
-- Append the new base version to packs/base/versions.txt whenever a file of packs/base changes. (plan:2026-10-18-packs-lot2-base)
+- Append the new base version to packs/base/versions.txt whenever a file of packs/base changes; never remove a line, so decks embedding an older base stay trusted. (plan:2026-10-18-packs-lot2-base)
 
 ## Pitfalls
 
@@ -27,7 +27,6 @@
 ## Settled decisions
 
 - Take chart colors from the theme chart.palette token, overridable by the deck, never from hardcoded palettes. (t-77)
-- Treat frise as a pack widget only; a deck with a base frise element gets an unknown-widget issue, no migration. (plan:2026-10-04-suivis-listes, t-532)
 - Make widgets read colors and sizes from theme tokens via color-of and size-of, never hard-coded values. (plan:2026-10-02-creation-widgets)
 - Model repeated widget items with p.list; never simulate a list with numbered params like date1, date2. (plan:2026-10-04-parametre-liste)
 - Do not wrap the cover author and date in field(); they share one line and field() renders a block. (plan:2026-09-28-champs-editables)

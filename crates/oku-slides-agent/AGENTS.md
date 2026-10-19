@@ -50,3 +50,4 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep one ACP session and thread per scope (Slides, Workshop, Widget name), restored on reopen. (t-598)
 - Write agent instructions in English only; pass the interface language in each turn context. (t-774, t-771)
 - Pick the deck language as declared params.lang, else inferred from slides, else the user's language. (t-780)
+- Hold every import tuning bound in session code that refuses with TuneError; import.md only explains the bounds and never enforces them. (ADR-0009, t-924)

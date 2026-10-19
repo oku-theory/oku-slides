@@ -4,14 +4,12 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
-- Keep oku-slides-import free of any dependency on oku-slides-session, oku-slides-render or the CLI. (plan:2026-10-10-import-pptx-lot2)
 - Keep the retrofit projector deterministic (no randomness, no clock, ids s plus slide number and slide-rank) and bounded: at most MAX_SLIDE_ITEMS items per slide, the rest reported as ItemsDropped. (plan:2026-10-10-import-pptx-lot2, t-817)
 - Emit a text color token only if it reaches WCAG contrast 3:1 on its actual background, otherwise emit none. (plan:2026-10-10-import-pptx-lot2)
 - Use Decor::skips as the single predicate for omitting decor items in both projection and coverage. (plan:2026-10-10-import-pptx-lot2)
 - Never put a shape without text into a flow slot; place it as a free element. (plan:2026-10-10-import-pptx-lot2)
 - Never copy a template's example text into imported slides; reuse only its layout or grid. (plan:2026-10-10-import-pptx-lot2)
 - Keep imported links only when they start with http, https or mailto, ignoring case. (plan:2026-10-10-import-pptx-lot2)
-- Do no I/O inside oku-slides-import; it receives in-memory bytes only. (plan:2026-10-09-import-pptx-lot1)
 - Cut groups and AlternateContent at MAX_NESTING, SmartArt node trees at MAX_NODES and MAX_NODE_DEPTH, and never follow a SmartArt inside a SmartArt drawing. (plan:2026-10-09-import-pptx-lot1, t-722)
 - Use attr_r only for relationship-namespace attributes; the other attr_ helpers read only attributes without namespace. (plan:2026-10-09-import-pptx-lot1)
 - Propagate TooLarge from any part, linked parts included, as fatal via cx.fail, never as a warning; count decompressed bytes even when a read fails, and after a first TooLarge fail every read without decompressing. (spec:2026-10-09-import-pptx-design, plan:2026-10-09-import-pptx-lot1)
@@ -22,7 +20,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Resolve PPTX text style inheritance only in the single cascade function, and hi-fi line metrics only in GenCtx::line_metrics, never ad hoc. (spec:2026-10-09-import-pptx-design, t-863)
 - Clamp numeric text and fill values to their OOXML schema range and custGeom values to MAX_PATH_SPAN, listed with dropped color modifiers in bounds::clamped to warn Approximated; parse a shared theme once. (t-755, t-892, t-757)
 - Type every asset with media::sniff, refuse a raster whose header is unreadable or above max_image_pixels, and pass every SVG through svg::sanitize (literal internal entities only). (t-752, t-892, t-730)
-- Apply or write only a CheckedPlan, which only ImportPlan::check_budget returns. (t-753, t-892)
 - Mark regions suspect only for a measured limit of the witness that rendered the reference, rank them last and never let one flag a slide. (t-692, t-905)
 
 ## Pitfalls
@@ -47,14 +44,12 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Map source colors to target theme tokens or drop them; never emit raw hex colors or token overrides. (spec:2026-10-09-import-pptx-design)
 - Fit an overflowing flow by the grid, else a smaller theme size, else report Overflow, never splitting; the import_retrofit render test checks retrofit/measure. (t-816)
 - Fail only on unreadable package, non-presentation, protection, no master or limit; report every other loss. (spec:2026-10-09-import-pptx-design)
-- Do not flat re-export retrofit from the import lib.rs; re-export only ImportPlan, ImportReport and RetrofitTarget. (plan:2026-10-10-import-pptx-lot2)
+- Do not flat re-export retrofit or hifi from the import lib.rs. (plan:2026-10-10-import-pptx-lot2)
 - Derive a template profile from its example slide and widget schema, never from template names. (plan:2026-10-10-import-pptx-lot2)
 - Break template score ties by pack order so the template choice stays deterministic. (plan:2026-10-10-import-pptx-lot2)
 - Only the first source title slide fills deck title and subtitle, keeping a title template when its other content is text (moved to notes); later ones become chapters. (plan:2026-10-10-import-pptx-lot2, t-817)
 - Report a group fallback, and thus a WidgetRequest, only when the fallback actually loses something. (plan:2026-10-10-import-pptx-lot2)
 - Read colors, fills and lines unresolved and bounded; resolve them with the color context of the displaying part. (plan:2026-10-09-import-pptx-lot1)
 - Read multi-level chart categories from their leaf level and warn Approximated for the outer levels. (t-755)
-- Do not mark the source representation non_exhaustive; projectors match exhaustively, only ImportErrorKind is. (plan:2026-10-09-import-pptx-lot1)
 - Keep a conservative Default on ReadLimits so adding a limit later does not break callers. (plan:2026-10-09-import-pptx-lot1)
-- In retrofit, never modify the target pack; put agent-created widgets in a child pack, one widget per pattern. (spec:2026-10-09-import-pptx-design)
 - Always apply a deterministic retrofit fallback that never blocks and leaves the deck complete and renderable. (spec:2026-10-09-import-pptx-design)

@@ -4,10 +4,7 @@ The harness (`AGENTS.md` files, spec `docs/superpowers/specs/2026-10-11-agents-h
 was distilled once from the ADRs, specs, plans and tickets. New decisions keep landing, and not
 every commit updates the nearest `AGENTS.md` as the root rule asks. This review catches up.
 
-Last review: df386b85 (2026-10-13, t-833)
-
-The commit right after it (t-867 to t-872) translated the ADRs and specs and trimmed
-`ARCHITECTURE.md` files without new decisions: skip its changes in the first review.
+Last review: e7f2097f (2026-10-19)
 
 ## When
 

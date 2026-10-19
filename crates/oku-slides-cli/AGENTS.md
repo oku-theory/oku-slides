@@ -16,7 +16,7 @@
 
 ## Testing
 
-- In CLI import tests, build pptx zips in memory and never launch LibreOffice or the app. (plan:2026-10-10-import-pptx-lot2)
+- In CLI import tests, build pptx zips in memory; never launch the app, nor LibreOffice outside OKU_SLIDES_TEST_SOFFICE tests. (plan:2026-10-10-import-pptx-lot2, t-896)
 - Run CLI tests through the oku_slides() helper so the data directory points at a temporary dir. (plan:2026-10-10-import-pptx-lot2)
 - In reference tests, pass --fonts assets/fonts so Oku and the witness render with the app fonts. (t-692)
 
