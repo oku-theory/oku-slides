@@ -8,6 +8,7 @@ agent-surface-pick = 选择{ $n }
 agent-surface-keep = 保留原文
 agent-surface-edit = 应用前编辑
 agent-surface-close = 关闭
+agent-surface-themes = 主题
 agent-surface-variants = 变体
 agent-surface-permission-always = 永久
 agent-surface-permission-title = 智能体请求一项权限

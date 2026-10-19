@@ -252,6 +252,8 @@ export function AgentWindowFor({
         keysOff={context?.keysOff ?? false}
         keyPlaces={DOCK_ONLY}
         thread
+        // La fenêtre de l'agent ignore le mode deck : garde-fous normaux.
+        shortcuts={false}
         thumbs={thumbs}
         slots={slots}
         handle={handle}
@@ -278,6 +280,7 @@ export function AgentWindowFor({
         busy={status.busy}
         notice={status.notice}
         ready={status.ready}
+        shortcuts={false}
         onChange={draft.change}
         onSend={(text) => void actions.sendDraft(text)}
         onDiscard={draft.close}

@@ -100,6 +100,8 @@ tiny_http = "0.12"
 similar = "3"
 # Catégories Unicode (ponctuation et symboles) : le markdown d'édition suit celles de Lezer.
 unicode-properties = { version = "0.1", default-features = false, features = ["general-category"] }
+# Repli des diacritiques (NFD) pour reconnaître les raccourcis de l'agent (« Thème. » = « theme »).
+unicode-normalization = "0.1"
 loro = "1.16"
 # Dictée
 ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }

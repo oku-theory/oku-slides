@@ -21,6 +21,8 @@ import type { TextEditorHandle } from "./TextEditor";
 import TextEditor from "./TextEditor";
 import type { FieldKey } from "./stageFields";
 import { anchorBox, elementTag, fieldHitBox, fieldKey, fieldLabel, findField, kindLabel, nextField, primaryFieldOf } from "./stageFields";
+import type { StagePreviewStore } from "./a2ui/stagePreview";
+import { useStagePreview } from "./a2ui/stagePreview";
 import { DragGhost, DragOrigin } from "./DragGhost";
 import GhostLayer from "./GhostLayer";
 import { randomId } from "./randomId";
@@ -104,6 +106,8 @@ interface DeckProps extends CommonProps {
   packWidgets?: ReadonlySet<string>;
   /** Reçoit le genre qualifié (`espace/nom`) du widget à ouvrir. */
   onOpenWidget?: (kind: string) => void;
+  /** Aperçu du thème survolé dans le sélecteur de l'hôte ; absent : aucun. */
+  themePreview?: StagePreviewStore;
 }
 
 /**
@@ -166,7 +170,7 @@ export default function Stage(props: Props) {
   const preview = deck === null;
   const {
     selected = null, cut = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
-    variantUrl = null, templates = false, showGhosts = false, packWidgets, onOpenWidget,
+    variantUrl = null, templates = false, showGhosts = false, packWidgets, onOpenWidget, themePreview,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
   const editable = preview ? { ...view, fields: view.fields.filter((f) => !f.bound) } : view;
@@ -500,11 +504,19 @@ export default function Stage(props: Props) {
           })()}
           {/* Décorative : la miniature survolée ou au focus porte déjà le nom de la variante. */}
           {variantUrl && <img className="stage-variant" src={variantUrl} alt="" draggable={false} />}
+          {themePreview && editing === null && <ThemePreviewLayer store={themePreview} slide={view.slide.id} />}
         </div>
         {overlay && <SheetOverlay view={view} scale={scale} overlay={overlay} />}
       </div>
     </div>
   );
+}
+
+/** L'aperçu d'un thème sur la slide montrée ; seul ce composant suit le survol. */
+function ThemePreviewLayer({ store, slide }: { store: StagePreviewStore; slide: string }) {
+  const preview = useStagePreview(store);
+  if (!preview || preview.slide !== slide) return null;
+  return <img className="stage-theme-preview" src={preview.url} alt="" draggable={false} />;
 }
 
 type SheetMeasure = { sheet: { width: number; height: number }; zone: PxZone };

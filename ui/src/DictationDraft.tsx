@@ -3,6 +3,7 @@
 // Il se lit sur une carte ; un clic l'ouvre en édition.
 // Ouvert au clavier (⌘K), il s'ouvre en édition pour écrire sans dicter.
 
+import { isShortcut } from "./agent/shortcut";
 import { useEffect, useRef, useState } from "react";
 import { t } from "./i18n";
 import { Icon } from "./icons";
@@ -15,6 +16,7 @@ export function DictationDraft({
   busy,
   notice = null,
   ready,
+  shortcuts,
   onChange,
   onSend,
   onDiscard,
@@ -31,6 +33,8 @@ export function DictationDraft({
   notice?: string | null;
   /** Un agent répond : sans lui, rien ne s'envoie (le texte reste au brouillon). */
   ready: boolean;
+  /** Mode deck de l'onglet principal : seul cas où l'hôte traite un mot-raccourci sans agent ni tour. */
+  shortcuts: boolean;
   onChange: (text: string) => void;
   onSend: (text: string) => void;
   onDiscard: () => void;
@@ -64,7 +68,9 @@ export function DictationDraft({
     if (said === "") onDiscard();
     else setEditing(false);
   };
-  const canSend = said !== "" && !busy && !notice && ready;
+  // Un mot-raccourci (« thème ») part toujours en mode deck : l'hôte l'ouvre sans agent ni tour.
+  // Ailleurs il irait à l'agent : mêmes garde-fous que tout texte.
+  const canSend = said !== "" && ((shortcuts && isShortcut(said)) || (!busy && !notice && ready));
   const send = () => {
     if (canSend) onSend(said);
   };

@@ -8,6 +8,7 @@ agent-surface-pick = Choisir { $n }
 agent-surface-keep = Garder l'original
 agent-surface-edit = Retoucher avant d'appliquer
 agent-surface-close = Fermer
+agent-surface-themes = Thèmes
 agent-surface-variants = Variantes
 agent-surface-permission-always = pour toujours
 agent-surface-permission-title = L'agent demande une permission

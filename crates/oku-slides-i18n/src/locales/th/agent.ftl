@@ -8,6 +8,7 @@ agent-surface-pick = เลือก { $n }
 agent-surface-keep = เก็บต้นฉบับไว้
 agent-surface-edit = แก้ไขก่อนนำไปใช้
 agent-surface-close = ปิด
+agent-surface-themes = ธีม
 agent-surface-variants = ตัวเลือกอื่น
 agent-surface-permission-always = ตลอดไป
 agent-surface-permission-title = เอเจนต์ขอสิทธิ์

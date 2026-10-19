@@ -8,6 +8,7 @@ agent-surface-pick = { $n } を選ぶ
 agent-surface-keep = 元の文章を保持
 agent-surface-edit = 適用前に編集
 agent-surface-close = 閉じる
+agent-surface-themes = テーマ
 agent-surface-variants = バリエーション
 agent-surface-permission-always = 常に
 agent-surface-permission-title = エージェントが許可を求めています

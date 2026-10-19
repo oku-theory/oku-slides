@@ -414,3 +414,5 @@ ui-update-later = لاحقًا
 ui-update-installing = جارٍ تنزيل التحديث… { $percent }%
 ui-update-downloading = جارٍ تنزيل التحديث…
 ui-update-up-to-date = Oku Slides محدَّث.
+
+ui-shortcut-theme = سمة, السمة, ثيم, theme, themes

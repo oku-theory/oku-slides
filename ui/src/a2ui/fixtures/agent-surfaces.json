@@ -1430,6 +1430,107 @@
     ]
   },
   {
+    "id": "host-theme-picker",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-theme-picker",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-theme-picker",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "title",
+                "row",
+                "close"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Thèmes",
+              "variant": "h4"
+            },
+            {
+              "id": "row",
+              "component": "Row",
+              "children": [
+                "c0",
+                "c1"
+              ]
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            },
+            {
+              "id": "c0",
+              "component": "ThemeChoice",
+              "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+              "name": "Papier",
+              "slide": "s-4",
+              "swatches": [
+                "#ffffff",
+                "#2f5fb3"
+              ],
+              "active": true,
+              "action": {
+                "event": {
+                  "name": "theme",
+                  "context": {
+                    "theme": "00000000-0000-0000-0000-000000000001"
+                  }
+                }
+              }
+            },
+            {
+              "id": "c1",
+              "component": "ThemeChoice",
+              "name": "Pro",
+              "slide": "s-4",
+              "swatches": [
+                "#101418"
+              ],
+              "active": false,
+              "action": {
+                "event": {
+                  "name": "theme",
+                  "context": {
+                    "theme": "00000000-0000-0000-0000-000000000002"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-theme-picker",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
     "id": "host-pack-notice",
     "place": "banner",
     "live": true,

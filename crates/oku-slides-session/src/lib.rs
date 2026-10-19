@@ -84,6 +84,7 @@ mod theme;
 mod theme_controls;
 mod theme_edit;
 mod theme_panel;
+mod theme_picker;
 pub mod theme_schema;
 mod undo;
 mod views;
@@ -117,6 +118,7 @@ pub use text::{interp, paragraphs_to_text};
 pub use theme::{DEFAULT_THEME, PAPIER_THEME, PRO_THEME, ThemeInfo, ThemeLibrary, ThemeManifest, Themes};
 pub use theme_edit::{ThemeEdit, ThemeEditView};
 pub use theme_panel::{TokenAction, TokenState};
+pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme_id, theme_picker};
 pub use views::{
     AddWidget, EditingView, HistoryView, PageHash, PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target,
     TemplateMode, TemplateView, TemplatesView, UiState,

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { byPlace, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
+import { byPlace, isHostSettings, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
+import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
 
 const s = (id: string, place: Surface["place"]): Surface => ({ id, place, live: false, question: false, messages: [] });
 
@@ -189,4 +190,12 @@ describe("sendThenPrompt", () => {
     await sendThenPrompt({ name: "choose", context: { prompt: "x" } }, async () => true, (t) => sent.push(t));
     expect(sent).toEqual([]);
   });
+});
+
+test("isHostSettings ne compte pas le sélecteur de thème", () => {
+  expect(isHostSettings(real("host-theme-picker"))).toBe(false);
+});
+
+test("isHostSettings compte les réglages de l'hôte", () => {
+  expect(isHostSettings(real("host-widget"))).toBe(true);
 });

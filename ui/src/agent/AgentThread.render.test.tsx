@@ -281,6 +281,14 @@ describe("fil de l'agent par tours", () => {
     expect(host.querySelector('.agent-dock [data-surface-id="ask-8"]')?.getAttribute("aria-live")).not.toBe("off");
   });
 
+  test("le sélecteur de thème reste ouvert et annoncé à côté d'une question", async () => {
+    const { host } = await mount([realSurface("host-theme-picker"), realSurface("ask-8")]);
+    const item = host.querySelector('.agent-dock [data-surface-id="host-theme-picker"]') as HTMLElement;
+    expect(item.querySelector("button[aria-expanded]")).toBeNull();
+    expect(item.children.length).toBeGreaterThan(0);
+    expect(item.getAttribute("aria-live")).not.toBe("off");
+  });
+
   test("à une nouvelle question, les réglages ouverts se replient à nouveau", async () => {
     const settings = surface("show-9", "thread", { live: true, turn: 3 });
     const { host, rerender } = await mount([settings, realSurface("ask-8")]);

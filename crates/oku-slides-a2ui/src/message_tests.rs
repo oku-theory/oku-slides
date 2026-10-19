@@ -589,3 +589,45 @@ fn notice_without_close_fails_to_deserialize() {
     let json = json!({"id": "n", "component": "Notice", "text": "x", "children": [], "close_label": "Fermer"});
     assert_that!(serde_json::from_value::<Component>(json).is_err()).is_true();
 }
+
+fn theme_choice() -> Component {
+    Component::new(
+        "c0",
+        ComponentKind::ThemeChoice {
+            svg: Some("<svg/>".into()),
+            name: "Papier".into(),
+            slide: "s-1".into(),
+            swatches: vec!["#ffffff".into(), "#2f5fb3".into()],
+            active: true,
+            action: Some(Action::event("theme", [("theme", Dynamic::Literal(json!("id-1")))])),
+        },
+    )
+}
+
+#[test]
+fn theme_choice_serializes_with_its_catalog_shape() {
+    let v = serde_json::to_value(theme_choice()).unwrap();
+    assert_that!(v).is_equal_to(json!({
+        "id": "c0", "component": "ThemeChoice", "svg": "<svg/>", "name": "Papier", "slide": "s-1",
+        "swatches": ["#ffffff", "#2f5fb3"], "active": true,
+        "action": { "event": { "name": "theme", "context": { "theme": "id-1" } } }
+    }));
+}
+
+#[test]
+fn theme_choice_is_reserved_to_the_host() {
+    assert_that!(theme_choice().agent_allowed()).is_false();
+}
+
+#[test]
+fn theme_choice_without_action_keeps_everything_else() {
+    let plain = theme_choice().kind.without_action().unwrap();
+    assert_that!(plain).is_equal_to(ComponentKind::ThemeChoice {
+        svg: Some("<svg/>".into()),
+        name: "Papier".into(),
+        slide: "s-1".into(),
+        swatches: vec!["#ffffff".into(), "#2f5fb3".into()],
+        active: true,
+        action: None,
+    });
+}

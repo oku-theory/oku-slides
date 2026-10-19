@@ -6,6 +6,7 @@
 // route : un état réduit à des valeurs simples (`onStatus`, appelé quand elles changent) et une
 // poignée (`handle`) pour envoyer une consigne, une action de surface ou arrêter le tour.
 
+import { isShortcut } from "./shortcut";
 import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
@@ -89,6 +90,8 @@ export interface AgentPanelProps {
   /** Ce que voit l'utilisateur, joint aux consignes. */
   ui: AgentUi;
   /** Où les touches rapides agissent ; défaut : toutes. */
+  /** Mode deck de l'onglet principal : l'hôte traite un mot-raccourci sans agent ni tour (faux dans la fenêtre de l'agent). */
+  shortcuts: boolean;
   keyPlaces?: QuickTarget["kind"][];
   /** Un brouillon reçu de l'hôte. */
   onDraft?: (e: { text: string | null; origin: string | null }) => void;
@@ -213,8 +216,9 @@ export function AgentPanel(props: AgentPanelProps) {
   const busy = agentBusy(agentState, answerTarget(keysTarget));
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit les touches. */
   const promptAgent = (text: string, answer = answerTarget(keysTarget)): Promise<boolean> => {
-    // Pendant un tour ailleurs, seule une réponse à une question part.
-    if (elsewhereNotice && answer === null) {
+    // Pendant un tour ailleurs, seule une réponse à une question part ; un mot-raccourci
+    // n'ouvre jamais de tour en mode deck (l'hôte l'ouvre seul) : il part alors toujours.
+    if (elsewhereNotice && answer === null && !(props.shortcuts && isShortcut(text))) {
       say(elsewhereNotice, true);
       return Promise.resolve(false);
     }

@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-           "t": ": Papier, Pro or your own, ask the agent. It is independent of the template set. In template mode, the Theme tab sets its tokens one by one; “Done” saves it, as a copy for Papier or Pro."
+           "t": ": Papier, Pro or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. It is independent of the template set. In template mode, the Theme tab sets its tokens one by one; “Done” saves it, as a copy for Papier or Pro."
           }
          ],
          "list": "bullet"

@@ -79,7 +79,7 @@ pub struct Component {
 
 /// Composants du catalogue [`CATALOG_ID`]. Noms et propriétés reprennent
 /// ceux du catalogue de base v0.9 ; `Stepper`, `ChoiceChips`, `ColorField`,
-/// `SlideThumb`, `DiffText`, `Notice` sont propres à Oku Slides.
+/// `SlideThumb`, `ThemeChoice`, `DiffText`, `Notice` sont propres à Oku Slides.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
@@ -197,6 +197,22 @@ pub enum ComponentKind {
     SlideThumb {
         svg: String,
         label: Dynamic<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
+    /// Un thème offert par l'hôte : miniature, pastilles, nom.
+    ///
+    /// `svg` absent : rendu borné, en échec ou deck vide ; la carte reste choisissable.
+    /// `slide` : la slide que montre la miniature (l'aperçu de la scène ne vaut que pour elle).
+    ThemeChoice {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        svg: Option<String>,
+        name: String,
+        slide: String,
+        /// Couleurs hexadécimales lues dans les jetons du thème.
+        swatches: Vec<String>,
+        /// Le thème du deck.
+        active: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         action: Option<Action>,
     },
@@ -525,6 +541,7 @@ impl ComponentKind {
             | Self::Select { .. }
             | Self::ListTable { .. }
             | Self::SlideThumb { .. }
+            | Self::ThemeChoice { .. }
             | Self::DiffText { .. }
             | Self::Prompt { .. }
             | Self::Timeline { .. }
@@ -546,7 +563,8 @@ impl ComponentKind {
             | Self::ColorField { action, .. }
             | Self::Select { action, .. }
             | Self::ListTable { action, .. }
-            | Self::SlideThumb { action, .. } => action.iter().collect(),
+            | Self::SlideThumb { action, .. }
+            | Self::ThemeChoice { action, .. } => action.iter().collect(),
             // Sans `_` : un nouveau composant doit dire ici s'il envoie une action (la validation de `render` en dépend).
             Self::Column { .. }
             | Self::Row { .. }
@@ -582,6 +600,9 @@ impl ComponentKind {
                 Self::ListTable { label, rows, change, markdown, columns, min, max, item_label, palette, action: None }
             }
             Self::SlideThumb { svg, label, .. } => Self::SlideThumb { svg, label, action: None },
+            Self::ThemeChoice { svg, name, slide, swatches, active, .. } => {
+                Self::ThemeChoice { svg, name, slide, swatches, active, action: None }
+            }
             // Sans `_` : un nouveau composant doit dire ici comment il se fige.
             kind @ (Self::Column { .. }
             | Self::Row { .. }
@@ -599,7 +620,7 @@ impl ComponentKind {
 }
 
 impl Component {
-    /// `false` pour les composants réservés à l'hôte (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`).
+    /// `false` pour les composants réservés à l'hôte (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`, `ThemeChoice`).
     ///
     /// Un reçu passe par l'outil `report` (bornes, miniature rendue par l'hôte) ; une miniature
     /// est toujours rendue par l'hôte.
@@ -611,6 +632,7 @@ impl Component {
                 | ComponentKind::Receipt { .. }
                 | ComponentKind::SlideThumb { .. }
                 | ComponentKind::Notice { .. }
+                | ComponentKind::ThemeChoice { .. }
         )
     }
 

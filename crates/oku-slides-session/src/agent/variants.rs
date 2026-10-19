@@ -12,7 +12,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 use super::forms::{self, FieldKind, ParamField, ShowParams, ShowVariants, Surface};
 use super::{AgentFormReason, check_len, check_options};
 use crate::error::{AgentFormSnafu, NoSlideSnafu, RenderSnafu};
-use crate::{Result, Session, new_renderer};
+use crate::{Result, Session};
 
 /// Profondeur maximale d'un gabarit : au-delà, on le laisse tel quel plutôt
 /// que de récurser indéfiniment sur une valeur JSON forgée par l'agent.
@@ -159,21 +159,10 @@ impl Session {
         // Après `usable_packs` : un pack écarté n'est plus au registre qui valide les variantes.
         let decks = self.variant_decks(spec)?;
         let tokens = self.theme_tokens(self.doc.sources.deck());
-        let renderer = match &mut self.variant_renderer {
-            Some(r) => r,
-            None => self.variant_renderer.insert(new_renderer(
-                &self.worker,
-                self.render_fonts.clone(),
-                &self.localizer,
-                &set,
-                &self.registry,
-            )?),
-        };
         let mut svgs: Vec<Arc<str>> = Vec::with_capacity(decks.len());
         for (i, deck) in decks.iter().enumerate() {
             // Le thème du deck : une variante qui en changerait garde celui-ci à l'aperçu.
-            let compiled = crate::deck_theme::render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets)
-                .context(RenderSnafu)?;
+            let compiled = self.render_deck_preview(&set, deck, tokens.as_ref())?;
             let page = compiled.layout().page_of(&spec.slide).context(AgentFormSnafu {
                 reason: AgentFormReason::SlideRemoved { at: format!("variants[{i}]"), slide: spec.slide.clone() },
             })?;

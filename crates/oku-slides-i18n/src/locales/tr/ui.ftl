@@ -406,3 +406,5 @@ ui-update-later = Daha sonra
 ui-update-installing = Güncelleme indiriliyor… %{ $percent }
 ui-update-downloading = Güncelleme indiriliyor…
 ui-update-up-to-date = Oku Slides güncel.
+
+ui-shortcut-theme = tema, temalar, theme, themes

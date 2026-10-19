@@ -6,9 +6,9 @@ with the UI context; agent updates become A2UI turn surfaces.
 
 ## Modules
 
-- `stack` : `Stack`, the table of tabs and the entry point; `handle` takes an `AgentCommand`
-  (`Prompt`, `Tune`, `Cancel`, `NewConversation`, `SurfaceAction`, `Resync`, `Follow`, `SetDraft`,
-  `Picker`, `Availability`, `SelectAgent`, `DownloadModel`, `CancelDownload`), `tune` starts an
+- `stack` : `Stack`, the table of tabs and the entry point; `handle` takes an `AgentCommand`; a
+  `Prompt` that is a shortcut word (`shortcut`: `matches_shortcut` on a `ui.ftl` key, mirrored by
+  the UI) shows the hub's theme picker instead of a turn in deck mode. `tune` starts an
   import's fine-tuning turn for the host (never deserialized; refused, the tab told why, while
   `availability` gives a reason), `forward` relays `{tab, event}`, `shutdown` kills it.
 - `choice` : `AgentChoice` (an `Arc`): active agent, `availability` (no program on `PATH`; built-in:

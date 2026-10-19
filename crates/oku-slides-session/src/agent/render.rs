@@ -97,6 +97,7 @@ fn check_content(i: usize, c: &Component, name: &str) -> Result<()> {
         | ComponentKind::ListTable { .. }
         | ComponentKind::ChoiceChips { .. }
         | ComponentKind::SlideThumb { .. }
+        | ComponentKind::ThemeChoice { .. }
         | ComponentKind::Prompt { .. }
         | ComponentKind::Timeline { .. }
         | ComponentKind::Receipt { .. }

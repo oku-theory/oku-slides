@@ -18,6 +18,7 @@ use crate::choice::AgentChoice;
 use crate::command_error::{CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu};
 use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
+use crate::shortcut::{THEME_SHORTCUT, matches_shortcut};
 use crate::tab_agent::{Command, Instruction};
 use crate::tab_entry::{Out, TabEntry, TabLink, emit};
 use crate::{AgentEvent, Link};
@@ -206,7 +207,7 @@ impl Stack {
     /// Traite une commande de l'interface ; l'erreur est lue par l'interface.
     ///
     /// Peut bloquer (`select_agent` écrit `config.toml`, le panneau lit l'état du modèle) : à
-    /// appeler hors des fils du runtime.
+    /// appeler hors des fils du runtime ; un raccourci « thème » rend jusqu'à 12 miniatures, 4 s au plus.
     pub fn handle(&self, cmd: AgentCommand) -> Result<(), String> {
         if self.is_closed(cmd.tab()) {
             tracing::debug!(tab = cmd.tab(), "commande pour un onglet fermé : ignorée");
@@ -219,9 +220,21 @@ impl Stack {
                 // Réponse à la question désignée, jamais à une autre. Si elle n'attend plus (répondue
                 // ou annulée entre-temps), la consigne n'est pas perdue : elle part comme toute
                 // consigne (nouveau tour ; pendant un tour, elle l'interrompt puis le remplace).
-                if !answer.is_some_and(|id| t.hub.answer(&id, &text)) {
-                    t.send(Command::Prompt(Instruction { scope, text, ui, tune: false }));
+                if answer.is_some_and(|id| t.hub.answer(&id, &text)) {
+                    return Ok(());
                 }
+                // Raccourci « thème » : le sélecteur de l'hôte, sans tour ni agent ; un tour en cours
+                // continue. Hors du mode deck, ou s'il échoue (journalisé), la consigne part à l'agent.
+                if matches_shortcut(&text, THEME_SHORTCUT, &self.platform.live_localizer.current()) {
+                    match t.hub.show_themes(ui.slide.clone()) {
+                        Ok(true) => return Ok(()),
+                        Ok(false) => {}
+                        Err(e) => {
+                            tracing::warn!(tab, error = %snafu::Report::from_error(&e), "sélecteur de thème impossible");
+                        }
+                    }
+                }
+                t.send(Command::Prompt(Instruction { scope, text, ui, tune: false }));
             }
             AgentCommand::Tune { tab } => {
                 let Some(t) = self.open(&tab) else { return Ok(()) };

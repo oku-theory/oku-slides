@@ -21,9 +21,9 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   text). `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.
 - `settings` : `SettingsPort` (implemented by the host), `Applied`, the agent's key whitelist.
 - `hub` : `SurfaceHub`, open surfaces and events to the UI (`McpEvent`); `emit` alone changes
-  the open list; `resync` resends it whole. `hub/asks` (pending questions, confirmations,
-  permissions), `hub/actions` (`SurfaceAction`, `act`, `prune`), `hub/error` (`HubError`,
-  `HubErrorKind`).
+  the open list; `resync` resends it whole. `hub/asks` (questions, confirmations, permissions),
+  `hub/actions` (`SurfaceAction`, `act`, `prune`), `hub/themes` (`show_themes`: the only box the
+  hub builds itself; cached cards, `theme` picks, `prune` refreshes), `hub/error` (`HubError`, `HubErrorKind`).
 - `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`),
   freezing answered questions, eviction past `KEPT_TURNS` per scope.
 - `hub_scopes` : turns filed by scope; only the viewed thread is sent. The hub never touches

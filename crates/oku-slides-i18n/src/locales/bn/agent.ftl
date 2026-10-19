@@ -8,6 +8,7 @@ agent-surface-pick = { $n } বেছে নিন
 agent-surface-keep = মূলটি রাখুন
 agent-surface-edit = প্রয়োগের আগে সম্পাদনা করুন
 agent-surface-close = বন্ধ করুন
+agent-surface-themes = থিম
 agent-surface-variants = ভ্যারিয়েন্ট
 agent-surface-permission-always = চিরদিনের জন্য
 agent-surface-permission-title = এজেন্ট একটি অনুমতি চাইছে

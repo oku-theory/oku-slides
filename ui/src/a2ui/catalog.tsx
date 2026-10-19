@@ -3,7 +3,7 @@
 // @a2ui/web_core.
 //
 // Noms et propriétés reprennent le catalogue de base v0.9 ; `RichTextField`, `Stepper`, `ListTable`,
-// `ChoiceChips`, `ColorField`, `SlideThumb`, `DiffText`, `Prompt`, `Timeline`,
+// `ChoiceChips`, `ColorField`, `SlideThumb`, `ThemeChoice`, `DiffText`, `Prompt`, `Timeline`,
 // `Receipt`, `Disclosure`, `Badge`, `Markdown`, `Notice` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +21,8 @@ import { ListTable, type ListRow } from "./ListTable";
 import { RichTextField } from "./RichTextField";
 import { SlidePreviewContext } from "./slidePreview";
 import { Hex, ToneSchema, toneClass } from "./schemas";
+import { svgSrc } from "./svgSrc";
+import { ThemeChoice } from "./ThemeChoice";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
 export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v3";
@@ -490,7 +492,7 @@ const ListTableField = createComponentImplementation(ListTableApi, ({ props }) =
  * Survolée ou au focus, la scène montre son rendu ; quittée ou démontée, la slide.
  */
 const SlideThumb = createComponentImplementation(SlideThumbApi, ({ props }) => {
-  const src = useMemo(() => `data:image/svg+xml;utf8,${encodeURIComponent(props.svg)}`, [props.svg]);
+  const src = useMemo(() => svgSrc(props.svg), [props.svg]);
   const preview = useContext(SlidePreviewContext);
   // Survol et focus se suivent à part : quitter l'un garde l'aperçu tant que l'autre dure.
   const [hovered, setHovered] = useState(false);
@@ -547,6 +549,6 @@ const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild }) 
 
 /** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
 export const catalog = new Catalog(CATALOG_ID, [
-  Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, ListTableField, SlideThumb, DiffText,
+  Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, ListTableField, SlideThumb, ThemeChoice, DiffText,
   Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice,
 ]);

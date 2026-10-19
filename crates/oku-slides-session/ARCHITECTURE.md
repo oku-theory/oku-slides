@@ -15,9 +15,9 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
   replica uses `builtin_registry`, a slot without a set `core_registry`. `deck_fallback.rs` disables a faulty pack alone, never a shipped `base`;
   `deck_closure.rs` adds `requires`, lists dependents; `deck_pack.rs` (`check_pack_id`, `builtin_pin`), `deck_theme.rs` embed
   defaults; `library.rs` (unique namespace; `namespace_slug.rs`), `library_kind.rs`, `library_index.rs` (in-memory) hold `Library<K>`.
-- Theme editing: `theme_edit.rs` (`ThemeEdit` draft in templates mode, `save_theme_edit`), `deck_theme_edit.rs` (`edit_theme`
-  in deck mode), `theme_schema.rs` (token controls, bounds), `theme_panel.rs` + `theme_controls.rs` (`host-theme` surface),
-  `appearance.rs`; `deck_themes.rs`: deck-only themes the sources embed (`Snapshot.deck_themes`), picked after the library.
+- Theme editing: `theme_edit.rs` (templates-mode draft, `save_theme_edit`), `deck_theme_edit.rs` (`edit_theme` in deck mode),
+  `theme_schema.rs` (controls, bounds), `theme_panel.rs` + `theme_controls.rs` (`host-theme`), `theme_picker.rs` (`host-theme-picker`:
+  bounded thumbnails, swatches, `pick_theme`), `appearance.rs`; `deck_themes.rs`: deck-only themes (`Snapshot.deck_themes`), after the library.
 - Widget workshop: `widgets_edit.rs`, `widget_preview.rs` (built-in `base` beside the pack), `widget_examples.rs`, `widget_params.rs`,
   `param_fields.rs` (Fluent names for core and `base` kinds only), `items.rs`, `widgets_deck.rs`; host settings: `panel.rs`, `target_params.rs`.
 - Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`.

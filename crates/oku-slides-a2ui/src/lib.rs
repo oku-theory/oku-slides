@@ -4,7 +4,7 @@
 //!   `updateDataModel`, `deleteSurface`, au format v0.9.
 //! - [`Component`] / [`ComponentKind`] : le catalogue [`CATALOG_ID`] (Column,
 //!   Row, Card, Text, TextField, RichTextField, Stepper, Button, ChoiceChips,
-//!   Slider, ColorField, Select, ListTable, SlideThumb, DiffText, Prompt,
+//!   Slider, ColorField, Select, ListTable, SlideThumb, ThemeChoice, DiffText, Prompt,
 //!   Timeline, Receipt, Disclosure, Badge, Markdown, Notice), à plat, relié par
 //!   identifiants.
 //! - [`TimelineStep`] / [`ToolCallDetail`] : les étapes d'un tour et le détail de leurs appels d'outils.

@@ -73,10 +73,25 @@ impl Tools {
     /// Une requête qui change la session ; `Changed` si elle aboutit.
     async fn change(&self, req: Request) -> CallToolResult {
         let done = self.with_session(move |s| s.handle(req).map(|_| ())).await;
-        self.reply(done, |()| {
+        let ok = done.is_ok();
+        let result = self.reply(done, |()| {
             self.hub.emit(McpEvent::Changed);
             self.json_result(&json!({ "ok": true }))
-        })
+        });
+        if ok {
+            self.prune_surfaces().await;
+        }
+        result
+    }
+
+    /// Élague et rafraîchit les surfaces du hub après un changement du deck.
+    ///
+    /// `SurfaceHub::prune` verrouille la session : il tourne hors du fil async.
+    pub(crate) async fn prune_surfaces(&self) {
+        let hub = self.hub.clone();
+        if let Err(e) = tokio::task::spawn_blocking(move || hub.prune()).await {
+            tracing::warn!(error = %e, "surfaces non élaguées");
+        }
     }
 
     pub(crate) async fn apply(&self, args: Value) -> CallToolResult {

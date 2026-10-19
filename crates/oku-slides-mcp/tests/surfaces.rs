@@ -358,9 +358,10 @@ async fn act_keeps_surface_on_apply_error_so_it_can_still_be_dismissed() {
         call(&c, "show_variants", json!({ "slide": "s-libre", "variants": [variant("Un"), variant("Deux")] })).await;
     let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
-    // La slide visée par les variantes disparaît sans passer par `prune` :
-    // choisir une variante doit maintenant échouer à l'application.
-    call(&c, "apply", json!({ "ops": [{ "op": "remove_slide", "slide": "s-libre" }] })).await;
+    // La slide visée par les variantes disparaît sans passer par `prune` (la session, pas l'outil
+    // `apply`, qui élague) : choisir une variante doit maintenant échouer à l'application.
+    let remove = serde_json::from_value(json!({ "op": "remove_slide", "slide": "s-libre" })).unwrap();
+    tokio::task::block_in_place(|| h.session.lock().unwrap().apply("Retrait", vec![remove], None).unwrap());
     let refused = h.hub.act(action(&id, "variant", json!({ "index": 0 }))).unwrap_err();
     assert_that!(refused.kind()).is_equal_to(HubErrorKind::Session);
     // L'erreur de la session, dite en français.

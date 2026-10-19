@@ -8,6 +8,7 @@ agent-surface-pick = { $n } 선택
 agent-surface-keep = 원본 유지
 agent-surface-edit = 적용 전에 수정
 agent-surface-close = 닫기
+agent-surface-themes = 테마
 agent-surface-variants = 변형
 agent-surface-permission-always = 항상
 agent-surface-permission-title = 에이전트가 권한을 요청합니다

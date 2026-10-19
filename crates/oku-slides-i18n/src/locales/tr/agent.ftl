@@ -8,6 +8,7 @@ agent-surface-pick = { $n } seç
 agent-surface-keep = Orijinali koru
 agent-surface-edit = Uygulamadan önce düzenle
 agent-surface-close = Kapat
+agent-surface-themes = Temalar
 agent-surface-variants = Varyantlar
 agent-surface-permission-always = her zaman için
 agent-surface-permission-title = Ajan bir izin istiyor

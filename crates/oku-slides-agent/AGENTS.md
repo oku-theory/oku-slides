@@ -4,6 +4,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
+- Check a prompt for an answer first, then for a shortcut word, before any agent launch; a shortcut never interrupts a turn. (spec:2026-10-19-raccourci-theme-design, t-1071)
 - Refuse agent and agent.* keys in agent settings writes; only the user chooses the agent. (spec:2026-10-10-agent-panneau-configuration-design)
 - Never quote user data in localized agent command errors; keep the details in Display for logs. (plan:2026-10-10-agent-panneau-configuration)
 - Route a resumed session only after its load reply; ignore its replay updates until its first prompt. (spec:2026-10-08-sessions-par-perspective-design)

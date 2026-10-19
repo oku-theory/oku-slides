@@ -410,3 +410,5 @@ ui-update-later = Пізніше
 ui-update-installing = Завантаження оновлення… { $percent }%
 ui-update-downloading = Завантаження оновлення…
 ui-update-up-to-date = Oku Slides має найновішу версію.
+
+ui-shortcut-theme = тема, теми, theme, themes

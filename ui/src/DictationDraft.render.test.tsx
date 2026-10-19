@@ -1,7 +1,15 @@
 // Rendu du brouillon de consigne dans un DOM happy-dom.
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import "./test/dom";
+import { applyMessages } from "./i18n";
+import { resetMessages } from "./test/messages";
+
+// Le mot-raccourci vient de `ui-shortcut-theme` : le français est chargé pour ce fichier.
+const ftl = (l: string) => readFileSync(`${import.meta.dir}/../../crates/oku-slides-i18n/src/locales/${l}/ui.ftl`, "utf8");
+beforeAll(() => applyMessages({ locale: "fr", resources: [ftl("en"), ftl("fr")], chosen: null }));
+afterAll(resetMessages);
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -21,7 +29,7 @@ afterEach(async () => {
 
 async function mount(
   text: string | null,
-  { busy = false, typing = 0, notice = null as string | null, ready = true } = {},
+  { busy = false, typing = 0, notice = null as string | null, ready = true, shortcuts = false } = {},
 ) {
   const sent: string[] = [];
   const changes: string[] = [];
@@ -39,6 +47,7 @@ async function mount(
         busy,
         notice,
         ready,
+        shortcuts,
         onChange: (v: string) => changes.push(v),
         onSend: (v: string) => sent.push(v),
         onDiscard: () => discarded++,
@@ -55,6 +64,31 @@ const key = (el: Element, init: KeyboardEventInit) =>
   el.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
 
 describe("brouillon de dictée", () => {
+  test("DictationDraft sends the shortcut word with no agent ready", async () => {
+    const d = await mount("Thème.", { ready: false, shortcuts: true });
+    expect(d.send().disabled).toBe(false);
+  });
+
+  test("DictationDraft sends the shortcut word during a turn", async () => {
+    const d = await mount("thème", { busy: true, shortcuts: true });
+    expect(d.send().disabled).toBe(false);
+  });
+
+  test("DictationDraft sends the shortcut word with a notice", async () => {
+    const d = await mount("thème", { notice: "L'agent répond dans l'atelier…", shortcuts: true });
+    expect(d.send().disabled).toBe(false);
+  });
+
+  test("DictationDraft keeps the shortcut word gated during a turn outside deck mode", async () => {
+    const d = await mount("thème", { busy: true, shortcuts: false });
+    expect(d.send().disabled).toBe(true);
+  });
+
+  test("DictationDraft keeps other text gated during a turn", async () => {
+    const d = await mount("change le thème", { busy: true });
+    expect(d.send().disabled).toBe(true);
+  });
+
   test("DictationDraft sans agent disponible ne peut pas envoyer (t-211)", async () => {
     const d = await mount("Ajoute une slide", { ready: false });
     expect(d.send().disabled).toBe(true);

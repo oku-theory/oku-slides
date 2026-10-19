@@ -24,6 +24,8 @@ enum After {
     Keep,
     Close,
     Freeze,
+    /// La surface reste, avec cet état (sélecteur de thème refait).
+    Replace(Shown),
 }
 
 impl SurfaceHub {
@@ -51,6 +53,9 @@ impl SurfaceHub {
         // que l'utilisateur puisse corriger ou la fermer explicitement.
         let result = match (&shown, action.name.as_str()) {
             (Shown::Params(_), "dismiss") => Ok(After::Freeze),
+            (Shown::Themes(picker), name) if name == oku_slides_session::THEME_EVENT => {
+                self.apply_theme(picker, &action.context).map(|p| After::Replace(Shown::Themes(p)))
+            }
             (_, "dismiss") => Ok(After::Close),
             (Shown::Params(spec), "param") => {
                 self.apply_param(&action.surface, spec, &action.context).map(|()| After::Keep)
@@ -63,6 +68,10 @@ impl SurfaceHub {
         match result {
             Ok(After::Keep) => {
                 self.state().shows.insert(action.surface, shown);
+                Ok(())
+            }
+            Ok(After::Replace(next)) => {
+                self.state().shows.insert(action.surface, next);
                 Ok(())
             }
             Ok(After::Freeze) => {
@@ -129,10 +138,13 @@ impl SurfaceHub {
         Ok(())
     }
 
-    /// Ferme les surfaces dont la slide n'existe plus ; sans réglage vivant
-    /// (`Params`, `Variants`), ne prend pas la session (appelée après chaque
-    /// requête qui change le deck).
+    /// Rafraîchit le sélecteur de thème et ferme les surfaces orphelines.
+    ///
+    /// Prend la session si le sélecteur de thème est ouvert ou si un réglage vivant
+    /// (`Params`, `Variants`) existe ; sinon n'y touche pas. Verrouille la session : à lancer
+    /// hors du runtime asynchrone (appelée après chaque requête qui change le deck).
     pub fn prune(&self) {
+        self.refresh_themes();
         if !self.state().shows.values().any(|s| matches!(s, Shown::Params(_) | Shown::Variants(_))) {
             return;
         }
@@ -146,7 +158,7 @@ impl SurfaceHub {
                     let slide = match shown {
                         Shown::Params(p) => &p.slide,
                         Shown::Variants(v) => &v.slide,
-                        Shown::Static { .. } => return false,
+                        Shown::Static { .. } | Shown::Themes(_) => return false,
                     };
                     deck.slide(slide).is_none()
                 })

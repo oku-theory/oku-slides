@@ -20,7 +20,7 @@ function typesOf(components: unknown[], data: unknown = {}) {
 
 const V3 = [
   "Column", "Row", "Card", "Text", "TextField", "RichTextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select",
-  "ListTable", "SlideThumb", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown", "Notice",
+  "ListTable", "SlideThumb", "ThemeChoice", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown", "Notice",
 ];
 
 describe("catalogue v3", () => {

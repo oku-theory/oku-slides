@@ -15,12 +15,14 @@ use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
 use oku_slides_core::{Deck, Op, PackFiles, PackVersion, SourceBundle, ThemeRef};
-use oku_slides_render::RenderError;
+use oku_slides_render::{PackSet, RenderError};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot};
 
-use crate::error::{SourcesSnafu, ThemeIdMismatchSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu, UnknownThemeSnafu};
+use crate::error::{
+    RenderSnafu, SourcesSnafu, ThemeIdMismatchSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu, UnknownThemeSnafu,
+};
 use crate::theme::{DEFAULT_THEME, ThemeLibrary, ThemeManifest};
-use crate::{Mode, Result, Session};
+use crate::{Mode, Result, Session, new_renderer};
 
 /// Un deck sans thème adopte la version courante du thème par défaut.
 ///
@@ -103,6 +105,28 @@ pub(crate) fn render_themed(
 }
 
 impl Session {
+    /// Rend `deck` avec `tokens` dans l'emplacement des aperçus.
+    ///
+    /// Variantes et thèmes ; l'emplacement est ouvert au premier appel ; `set` : les packs utilisables.
+    pub(crate) fn render_deck_preview(
+        &mut self,
+        set: &PackSet,
+        deck: &Deck,
+        tokens: Option<&Map<String, Value>>,
+    ) -> Result<RemoteCompiled> {
+        let renderer = match &mut self.variant_renderer {
+            Some(r) => r,
+            None => self.variant_renderer.insert(new_renderer(
+                &self.worker,
+                self.render_fonts.clone(),
+                &self.localizer,
+                set,
+                &self.registry,
+            )?),
+        };
+        Ok(render_themed(renderer, deck, tokens, &self.doc.sources.assets).context(RenderSnafu)?)
+    }
+
     /// Le thème du deck de l'utilisateur, même pendant l'édition des modèles.
     pub(crate) fn deck_theme(&self) -> Option<&ThemeRef> {
         self.user_deck().theme.as_ref()

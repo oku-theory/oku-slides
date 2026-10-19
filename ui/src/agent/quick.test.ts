@@ -46,7 +46,21 @@ const variants = surface([
   { id: "v1", component: "SlideThumb", svg: "", label: "2", action: { event: { name: "variant", context: { index: 1 } } } },
 ]);
 
+const themes = surface([
+  { id: "c0", component: "ThemeChoice", name: "Papier", slide: "s-1", swatches: [], active: true, action: { event: { name: "theme", context: { theme: "id-1" } } } },
+  { id: "c1", component: "ThemeChoice", name: "Pro", slide: "s-1", swatches: [], active: false, action: { event: { name: "theme", context: { theme: "id-2" } } } },
+  { id: "close", component: "Button", label: "Fermer", action: { event: { name: "dismiss", context: {} } } },
+]);
+
 describe("touches des surfaces", () => {
+  test("un chiffre choisit le thème correspondant", () => {
+    expect(quickAction(themes, "2")).toEqual({ name: "theme", context: { theme: "id-2" } });
+  });
+
+  test("le bouton Fermer n'est pas numéroté", () => {
+    expect(quickAction(themes, "3")).toBeNull();
+  });
+
   test("un chiffre choisit l'option correspondante", () => {
     expect(quickAction(chips(2), "2")).toEqual({ name: "choose", context: { choice: "b" } });
   });

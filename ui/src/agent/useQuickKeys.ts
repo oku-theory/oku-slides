@@ -9,10 +9,10 @@ import type { Surface } from "../api";
 import type { QuickAction } from "./quick";
 import { quickAction, quickKey } from "./quick";
 import type { Routed } from "./surfaces";
-import { isQuestion } from "./surfaces";
+import { HOST_THEME_PICKER, isQuestion } from "./surfaces";
 import { ARMING_MS } from "../modalFrame";
 
-/** La surface qui reçoit les touches, et sa sorte (`dock` : une question du fil). */
+/** La surface qui reçoit les touches, et sa sorte (`dock` : une question du fil ou le sélecteur de thème de l'hôte). */
 export interface QuickTarget {
   surface: Surface;
   kind: "sheet" | "drawer" | "modal" | "dock";
@@ -20,15 +20,18 @@ export interface QuickTarget {
 
 /**
  * La surface qui reçoit les touches : la fenêtre, sinon la fiche, sinon une question du
- * dock (elle bloque l'agent, le tiroir non), sinon le tiroir. Plusieurs questions au dock :
- * la dernière, au plus près du micro. Une consigne y répond aussi (`answerTarget`).
- * Les réglages du dock n'en reçoivent pas : leurs champs ont leurs propres touches.
+ * dock (elle bloque l'agent, le tiroir non), sinon le sélecteur de thème de l'hôte (1–4,
+ * Échap avec le focus dans le dock), sinon le tiroir. Plusieurs questions au dock : la dernière,
+ * au plus près du micro. Une consigne répond à une question (`answerTarget`), jamais au sélecteur.
+ * Les autres réglages du dock n'en reçoivent pas : leurs champs ont leurs propres touches.
  */
 export function quickTarget({ modal, sheet, drawer, dock }: Pick<Routed, "modal" | "drawer" | "dock"> & { sheet?: Surface }): QuickTarget | null {
   if (modal) return { surface: modal, kind: "modal" };
   if (sheet) return { surface: sheet, kind: "sheet" };
   const question = dock.filter(isQuestion).at(-1);
   if (question) return { surface: question, kind: "dock" };
+  const picker = dock.find((s) => s.id === HOST_THEME_PICKER);
+  if (picker) return { surface: picker, kind: "dock" };
   return drawer ? { surface: drawer, kind: "drawer" } : null;
 }
 

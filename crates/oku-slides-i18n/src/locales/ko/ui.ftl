@@ -404,3 +404,5 @@ ui-update-later = 나중에
 ui-update-installing = 업데이트 다운로드 중… { $percent }%
 ui-update-downloading = 업데이트 다운로드 중…
 ui-update-up-to-date = Oku Slides가 최신 버전입니다.
+
+ui-shortcut-theme = 테마, theme, themes

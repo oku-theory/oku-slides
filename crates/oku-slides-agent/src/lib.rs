@@ -25,6 +25,7 @@ mod model_download;
 mod permission;
 mod picker;
 mod settings_port;
+mod shortcut;
 mod stack;
 mod tab_agent;
 mod tab_entry;

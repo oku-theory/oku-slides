@@ -710,3 +710,101 @@ async fn prompt_after_a_tune_sends_no_import_instructions() {
     let second = common::logged(&log, "session/prompt")[1]["prompt"].to_string();
     assert_that!(second.contains("import_report")).is_false();
 }
+
+/// Relayé : une surface `host-theme-picker`.
+fn is_picker(v: &(&'static str, serde_json::Value)) -> bool {
+    v.0 == "mcp" && v.1["event"]["kind"] == "surface" && v.1["event"]["surface"]["id"] == "host-theme-picker"
+}
+
+/// Le `slide` de la première carte d'une surface relayée.
+fn first_card_slide(v: &serde_json::Value) -> Option<String> {
+    v["event"]["surface"]["messages"].as_array()?.iter().find_map(|m| {
+        m["updateComponents"]["components"]
+            .as_array()?
+            .iter()
+            .find_map(|c| (c["component"] == "ThemeChoice").then(|| c["slide"].as_str().map(str::to_owned)).flatten())
+    })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_theme_shows_the_picker_on_the_slide_shown() {
+    let (stack, rx, _log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
+    let prompt = json!({ "cmd": "prompt", "tab": "t-1", "text": "Thème.", "ui": { "slide": "s-libre" } });
+    tokio::task::block_in_place(|| stack.handle(cmd(prompt))).unwrap();
+    let shown = wait_for(&rx, is_picker).await;
+    assert_that!(first_card_slide(&shown.1)).is_equal_to(Some("s-libre".to_owned()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_theme_sends_nothing_to_the_agent() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "Thème." }))))
+        .unwrap();
+    wait_for(&rx, is_picker).await;
+    // Témoin : les commandes d'un onglet passent dans l'ordre, une consigne envoyée à tort serait la première.
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "salut" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    let prompts = common::logged(&log, "session/prompt");
+    assert_that!((
+        prompts.len(),
+        prompts[0].to_string().contains("salut"),
+        common::logged(&log, "session/cancel").len()
+    ))
+    .is_equal_to((1, true, 0));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_theme_answering_a_waiting_question_answers_it() {
+    let ask = json!({ "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [
+        { "id": "a", "label": "A" }, { "id": "b", "label": "B" } ] } });
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "mcp": [ask] }] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "demande-moi" }))).unwrap();
+    let asked = wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
+    let id = asked.1["event"]["surface"]["id"].clone();
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "thème", "answer": id }))).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    let outs: Vec<String> = common::logged(&log, "mcp/result").iter().map(|r| r["out"].to_string()).collect();
+    assert_that!((outs.len(), outs.first().is_some_and(|o| o.contains("thème")))).is_equal_to((1, true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_theme_during_a_turn_leaves_the_turn_running() {
+    let ask = json!({ "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [
+        { "id": "a", "label": "A" }, { "id": "b", "label": "B" } ] } });
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "mcp": [ask] }] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "demande-moi" }))).unwrap();
+    let asked = wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
+    let id = asked.1["event"]["surface"]["id"].as_str().unwrap().to_owned();
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "thème" }))))
+        .unwrap();
+    wait_for(&rx, is_picker).await;
+    // La question attend toujours : y répondre finit le tour, sans annulation.
+    let answer =
+        json!({ "cmd": "surface_action", "tab": "t-1", "surface": id, "name": "choose", "context": { "choice": "a" } });
+    stack.handle(cmd(answer)).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    let outs = common::logged(&log, "mcp/result");
+    assert_that!((
+        outs.len(),
+        common::logged(&log, "session/cancel").len(),
+        common::logged(&log, "session/prompt").len()
+    ))
+    .is_equal_to((1, 0, 1));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_theme_outside_deck_mode_goes_to_the_agent() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
+    stack.on_session("t-1", |s| s.edit_templates(oku_slides_session::pack::DEFAULT_PACK).unwrap());
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "thème" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    assert_that!(common::logged(&log, "session/prompt")).has_length(1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_containing_theme_in_a_sentence_goes_to_the_agent() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "change le thème" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    assert_that!(common::logged(&log, "session/prompt")).has_length(1);
+}

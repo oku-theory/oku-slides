@@ -8,6 +8,7 @@ agent-surface-pick = Chọn { $n }
 agent-surface-keep = Giữ bản gốc
 agent-surface-edit = Chỉnh sửa trước khi áp dụng
 agent-surface-close = Đóng
+agent-surface-themes = Chủ đề
 agent-surface-variants = Các biến thể
 agent-surface-permission-always = vĩnh viễn
 agent-surface-permission-title = Tác nhân AI xin một quyền

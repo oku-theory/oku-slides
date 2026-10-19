@@ -8,7 +8,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { openAtelier } = require('./lib/atelier.cjs');
-const { readFileSync, statSync } = require('node:fs');
+const agentLog = require('./lib/agentLog.cjs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
@@ -21,24 +21,8 @@ const PAPIER = '2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31';
 
 const api = (p, tab, req) => post(p, '/api', { tab, req });
 
-/** La taille du journal du faux agent : ce qui s'écrit ensuite vient de l'import qui suit. */
-const logOffset = () => statSync(LOG).size;
-
-/**
- * Les messages notés par le faux agent depuis `from` (octets), dans l'ordre. La dernière ligne,
- * peut-être en cours d'écriture (sans saut de ligne final), n'est pas lue ; une ligne illisible est ignorée.
- */
-const logSince = (from) => {
-  const lines = readFileSync(LOG).subarray(from).toString('utf8').split('\n');
-  lines.pop();
-  return lines.flatMap((l) => {
-    try {
-      return [JSON.parse(l)];
-    } catch {
-      return [];
-    }
-  });
-};
+const logOffset = () => agentLog.logOffset(LOG);
+const logSince = (from) => agentLog.logSince(LOG, from);
 
 /** Les résultats MCP (`mcp/result`) notés pour `tool` depuis `from`, dans l'ordre. */
 const mcpResults = (tool, from) =>

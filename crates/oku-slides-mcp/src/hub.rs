@@ -89,6 +89,8 @@ pub enum Answer {
 /// Surface persistante et ce qu'il faut pour appliquer ses actions.
 #[derive(Debug)]
 enum Shown {
+    /// Sélecteur de thème de l'hôte : ses cartes rendues et l'actif montré.
+    Themes(ThemePicker),
     Params(ShowParams),
     Variants(ShowVariants),
     /// Figée (question répondue, composition `render`) : seules ses suites (`suggest`) partent
@@ -100,6 +102,13 @@ enum Shown {
         expired: bool,
         report: bool,
     },
+}
+
+/// Le sélecteur de thème montré : un choix ou `prune` le refait sans rien rendre.
+#[derive(Debug, Clone)]
+struct ThemePicker {
+    cards: Vec<oku_slides_session::ThemeCard>,
+    active: uuid::Uuid,
 }
 
 #[derive(Debug, Default)]
@@ -284,7 +293,7 @@ impl SurfaceHub {
     fn show_alone(&self, surface: Surface, shown: Shown, same: impl Fn(&Shown) -> bool) {
         let old = self.take_shown(same);
         self.state().shows.insert(surface.id.clone(), shown);
-        for id in old {
+        for id in old.into_iter().filter(|id| *id != surface.id) {
             self.emit(McpEvent::CloseSurface { id });
         }
         self.emit(McpEvent::Surface { surface });
@@ -306,6 +315,8 @@ pub use actions::SurfaceAction;
 
 mod asks;
 use asks::PendingAsk;
+
+mod themes;
 
 mod error;
 pub use error::{HubError, HubErrorKind};

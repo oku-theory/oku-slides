@@ -72,9 +72,9 @@ function actionOf(c: Component | undefined, model: Record<string, unknown>, boun
   return { name: ev.name, context };
 }
 
-/** Les composants numérotés 1–4 : boutons et miniatures qui portent une action, sauf « abandonner ». */
+/** Les composants numérotés 1–4 : boutons, miniatures et cartes de thème qui portent une action, sauf « abandonner ». */
 const numbered = (cs: Component[]) =>
-  cs.filter((c) => (c.component === "Button" || c.component === "SlideThumb") && eventOf(c) && eventOf(c)?.name !== DISMISS);
+  cs.filter((c) => (c.component === "Button" || c.component === "SlideThumb" || c.component === "ThemeChoice") && eventOf(c) && eventOf(c)?.name !== DISMISS);
 
 /** L'action qu'une touche déclenche dans `surface` ; `null` si elle n'en déclenche pas. */
 export function quickAction(surface: Surface, key: string): QuickAction | null {

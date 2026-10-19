@@ -1,3 +1,4 @@
+import { StagePreviewContext, createStagePreviewStore } from "./a2ui/stagePreview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PackNotice from "./PackNotice";
 import type { ImportTarget, InterfaceChange, PileSectionName, SlideView, Snapshot } from "./api";
@@ -301,6 +302,8 @@ export default function App({
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
   useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, widgetActive, deckLook });
 
+  const [previewStore] = useState(createStagePreviewStore);
+
   if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>{t("ui-loading")}</p></div>;
 
   const cur = snap.slides.find((s) => s.id === current);
@@ -313,6 +316,8 @@ export default function App({
   const history = snap.history;
   // Historique ou aide : la scène et la pile se lisent, elles ne se modifient pas.
   const readOnly = !!history || snap.read_only;
+  // Mode deck : ni modèles, ni historique, ni lecture seule (là l'hôte passe « thème » à l'agent).
+  const deckMode = !snap.editing && !readOnly;
   const noop = () => {};
   const paramsHidden = keptUi.folded.includes("params");
 
@@ -338,6 +343,7 @@ export default function App({
 
   return (
     <NumberLangContext.Provider value={snap.lang ?? null}>
+    <StagePreviewContext.Provider value={previewStore}>
     <div className={`table${agentDetached && !themeActive ? " agent-detached" : ""}`}>
       {history ? (
         <HistoryBar
@@ -424,6 +430,7 @@ export default function App({
             readOnly={readOnly}
             templates={!!snap.editing}
             packWidgets={packWidgets}
+            themePreview={readOnly || snap.editing ? undefined : previewStore}
             onOpenWidget={(kind) => {
               // Le genre est qualifié (`espace/nom`) : l'atelier du pack épinglé sous cet espace, onglet `nom`.
               const target = widgetToOpen(snap, kind);
@@ -471,7 +478,7 @@ export default function App({
         {themeActive && <ThemePanel api={api} snap={snap} run={run} say={say} />}
         <AgentPanel
           tab={tab} agent={agent} scope={scopeSource} route={route} ui={agentUiNow}
-          keysOff={!!editing || dialogOpen || widgetActive} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
+          keysOff={!!editing || dialogOpen || widgetActive} shortcuts={deckMode} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
           onHostAction={(s, a) => host.onAction(s, a) || target.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
@@ -488,6 +495,7 @@ export default function App({
           busy={agentStatus.busy}
           notice={agentStatus.notice}
           ready={agentStatus.ready}
+          shortcuts={deckMode}
           onChange={dictation.draft.change}
           onSend={(text) => void dictation.actions.sendDraft(text)}
           onDiscard={dictation.draft.close}
@@ -563,6 +571,7 @@ export default function App({
 
       {toastNode}
     </div>
+    </StagePreviewContext.Provider>
     </NumberLangContext.Provider>
   );
 }

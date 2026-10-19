@@ -8,6 +8,7 @@ agent-surface-pick = اختيار { $n }
 agent-surface-keep = الاحتفاظ بالأصل
 agent-surface-edit = التعديل قبل التطبيق
 agent-surface-close = إغلاق
+agent-surface-themes = السمات
 agent-surface-variants = البدائل
 agent-surface-permission-always = بشكل دائم
 agent-surface-permission-title = يطلب الوكيل إذنًا
