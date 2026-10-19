@@ -158,10 +158,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .object {
   background: var(--paper-200); color: var(--ink); border: 0; border-radius: var(--radius-md);
   box-shadow: var(--edge-light), var(--shadow-object); cursor: pointer;
-  transition: var(--theme-fade), transform 180ms ease-out;
+  transition: var(--theme-fade);
 }
-.object:hover:not(:disabled) { transform: var(--lift); box-shadow: var(--edge-light), var(--shadow-floating); }
-.object:active:not(:disabled) { transform: none; box-shadow: var(--shadow-rest); }
+/* Au survol, l'ombre seule répond : rien ne bouge. */
+.object:hover:not(:disabled) { box-shadow: var(--edge-light), var(--shadow-floating); }
+.object:active:not(:disabled) { box-shadow: var(--shadow-rest); }
 .object:disabled { cursor: default; opacity: 0.72; box-shadow: var(--edge-light), var(--shadow-rest); }
 .object:disabled svg { opacity: 0.6; }
 
@@ -208,7 +209,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn.danger { background: transparent; color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
 .btn.primary.danger { background: var(--danger); color: white; box-shadow: none; }
 .theme-card { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-4); height: 44px; cursor: default; }
-.theme-card:hover { transform: none; box-shadow: var(--shadow-object); }
+.theme-card:hover { box-shadow: var(--shadow-object); }
 /* Sous la feuille : ajouter à la slide, puis annuler / rétablir, dans une seule barre. */
 .tools-tray { grid-area: tools; justify-self: center; align-self: center; position: relative; z-index: 2; gap: 2px; padding: 0 var(--space-1); }
 .tools-tray .token.ghost { width: 36px; height: 36px; }
@@ -238,7 +239,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   width: var(--thumb-w); aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--t-bg); display: block; overflow: hidden;
   box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: var(--theme-fade), transform 180ms ease-out;
 }
-.thumb:hover .thumb-img { transform: var(--lift); box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
+.thumb:hover .thumb-img { box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
 .thumb[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
 .add-slide { margin-inline-start: 26px; width: var(--thumb-w); height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
 
@@ -386,7 +387,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   display: flex; align-items: center; gap: var(--space-4); padding: 10px var(--space-4) 10px 12px;
   border-radius: calc(var(--radius-lg) + 8px); cursor: default;
 }
-.device:hover { transform: none; box-shadow: var(--edge-light), var(--shadow-object); }
+.device:hover { box-shadow: var(--edge-light), var(--shadow-object); }
 /* Au repos sans rien à dire : micro et réglages seuls, la pastille se resserre au centre. */
 .device.idle:not(:has(.dictation-body)) { justify-self: center; }
 .device.recording, .device.transcribing { box-shadow: var(--edge-light), var(--shadow-floating); }
@@ -442,7 +443,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 }
 /* En défilant, les rangées gardent leur hauteur (colonne flex : elles ne rétrécissent pas). */
 .dictation-settings > * { flex-shrink: 0; }
-.dictation-settings:hover { transform: none; box-shadow: var(--edge-light), var(--shadow-floating); }
+.dictation-settings:hover { box-shadow: var(--edge-light), var(--shadow-floating); }
 .settings-title { font: 500 16px/22px var(--serif); }
 .model-list { display: flex; flex-direction: column; gap: 6px; }
 .model {
@@ -596,7 +597,6 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .thumb { touch-action: none; user-select: none; -webkit-user-select: none; }
 .thumb.lifted .thumb-img { opacity: 0.3; transform: none; box-shadow: none; outline: 2px dashed color-mix(in oklab, var(--accent) 50%, transparent); outline-offset: -2px; }
 .pile.dragging, .pile.dragging .thumb { cursor: grabbing; }
-.pile.dragging .thumb:hover .thumb-img { transform: none; }
 .thumb-ghost {
   position: fixed; z-index: 50; pointer-events: none; border-radius: var(--radius-sm); overflow: hidden;
   transform: rotate(-2deg) scale(1.04); box-shadow: var(--sheet-ring), var(--shadow-floating);
@@ -804,7 +804,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   display: flex; flex-direction: column; padding: 6px; border-radius: var(--radius-lg); cursor: default;
   box-shadow: var(--edge-light), var(--shadow-floating); animation: rise 140ms ease-out;
 }
-.action-menu-list:hover { transform: none; box-shadow: var(--edge-light), var(--shadow-floating); }
+.action-menu-list:hover { box-shadow: var(--edge-light), var(--shadow-floating); }
 .action-menu-list [role="menuitem"] {
   display: flex; justify-content: space-between; align-items: center; gap: var(--space-4);
   border: 0; background: none; color: var(--ink); text-align: start; padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer;
@@ -881,7 +881,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .notice-bar .btn { height: 36px; border: 0; border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
 /* Les boutons du catalogue A2UI sont des objets : posés dans le bandeau, aucun ne se soulève ;
    les secondaires sont plats, comme `.ghost`. */
-.notice-bar .btn.object, .notice-bar .btn.object:hover, .notice-bar .btn.object:active { transform: none; box-shadow: none; }
+.notice-bar .btn.object, .notice-bar .btn.object:hover, .notice-bar .btn.object:active { box-shadow: none; }
 .notice-bar .btn.object:not(.primary) { background: transparent; color: var(--ink-muted); }
 .notice-bar .btn.object:not(.primary):hover { background: color-mix(in oklab, var(--paper-200) 88%, var(--ink)); color: var(--ink); }
 .notice-bar-close { flex: none; margin-inline-start: auto; }
