@@ -9,7 +9,7 @@ import { newElement, newPackWidget } from "./newElement";
 import type { AddName } from "./slideTools";
 import { canRemoveSlide } from "./slideTools";
 import type { FieldKey } from "./stageFields";
-import type { TemplateWidgets } from "./useTemplateWidgets";
+import type { PackWidgetEditor } from "./usePackWidgetEditor";
 
 /** Ce dont les gestes sur les slides ont besoin de l'onglet. */
 interface SlideOpsContext {
@@ -25,7 +25,7 @@ interface SlideOpsContext {
   editWhenShown: (owner: string) => void;
   showSlide: (id: string) => void;
   widgetActive: boolean;
-  widgets: TemplateWidgets;
+  widgets: PackWidgetEditor;
 }
 
 /** `apply` et les gestes sur les slides et leurs éléments. */
@@ -66,25 +66,26 @@ export function useSlideOps({
   };
 
   // --- Réarranger les slides par glisser-déposer -----------------------------
+  // En mode pack, les slides du deck de travail sont fixes (une par layout) : l'hôte refuserait.
   const moveSlide = (id: string, slot: number) => {
-    if (!snap) return;
+    if (!snap || snap.editing) return;
     const from = snap.slides.findIndex((s) => s.id === id);
     // `slot` : place entre deux vignettes (0 = avant la première).
     const to = slot > from ? slot - 1 : slot;
     if (from < 0 || to === from) return;
-    apply(t(snap.editing ? "ui-undo-move-template" : "ui-undo-move-slide"), [{ op: "move_slide", slide: id, index: to }]);
+    apply(t("ui-undo-move-slide"), [{ op: "move_slide", slide: id, index: to }]);
   };
 
   /** Supprime une slide ; la slide affichée supprimée, on passe à sa voisine. */
   const removeSlide = (id: string) => {
-    if (!snap || !canRemoveSlide(snap.slides.length)) return;
+    if (!snap || snap.editing || !canRemoveSlide(snap.slides.length)) return;
     const next = id === current ? neighbourSlide(snap.slides, id) : current;
     run(api.apply(t("ui-undo-remove-slide"), [{ op: "remove_slide", slide: id }])).then((s) => {
       if (s) setCurrent(next);
     });
   };
 
-  /** Montre une slide, sans sélection ; un sous-onglet widget ouvert cède la place au modèle, « Thème » reste. */
+  /** Montre une slide, sans sélection ; un sous-onglet widget ouvert cède la place à la scène, « Thème » reste. */
   const goToSlide = (id: string) => {
     showSlide(id);
     setSelected(null);

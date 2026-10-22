@@ -1,6 +1,6 @@
 //! Historique du deck : lire, parcourir et restaurer une version.
 //!
-//! Comme pendant l'édition des modèles, le deck attend de côté (`stash`) ;
+//! Comme pendant l'édition d'un pack, le deck attend de côté (`stash`) ;
 //! un document d'aperçu montre la version, en lecture seule. Images, polices
 //! et packs passent d'un document à l'autre sans copie : chaque étape qui
 //! peut échouer se fait avant de les déplacer, rien ne les perd. La version
@@ -18,10 +18,9 @@ use oku_slides_core::{
 };
 use oku_slides_render_worker::RemoteCompiled;
 
+use crate::deck_closure::combined_pins;
 use crate::deck_widgets::DeckWidgets;
-use crate::error::{
-    EditingTemplatesSnafu, HistoryNotOpenSnafu, InHistorySnafu, ReadOnlySnafu, SourcesSnafu, VersionSnafu,
-};
+use crate::error::{EditingPackSnafu, HistoryNotOpenSnafu, InHistorySnafu, ReadOnlySnafu, SourcesSnafu, VersionSnafu};
 use crate::views::HistoryView;
 use crate::{Document, Mode, Result, Session};
 
@@ -96,7 +95,7 @@ impl Session {
         if !issues.is_empty() {
             tracing::debug!(index, issues = issues.len(), "version lue en partie");
         }
-        let (previous, widgets_notice) = self.install_version_widgets(&deck.widgets)?;
+        let (previous, widgets_notice) = self.install_version_widgets(&combined_pins(&deck))?;
         let (compiled, mut sources) = match self.render_version(deck) {
             Ok(shown) => shown,
             Err(e) => {
@@ -189,13 +188,13 @@ impl Session {
     }
 
     /// Le deck est-il en mode deck, le seul où ouvrir l'historique, déplacer, copier ou
-    /// fusionner ? Sinon, pourquoi (aide, modèles, historique).
+    /// fusionner ? Sinon, pourquoi (aide, pack, historique).
     pub fn ensure_deck_mode(&self) -> Result<()> {
         self.ensure_not_help()?;
         match self.mode {
             Mode::Deck => Ok(()),
             Mode::Help { .. } => ReadOnlySnafu.fail()?,
-            Mode::Templates { .. } => EditingTemplatesSnafu.fail()?,
+            Mode::Pack { .. } => EditingPackSnafu.fail()?,
             Mode::History { .. } => InHistorySnafu.fail()?,
         }
     }

@@ -41,13 +41,19 @@ fn library_pack(library: &PackLibrary, namespace: &str, source: &str) -> Op {
         parent: None,
         created: "2026-10-18T10:00:00Z".into(),
         scope: PackScope::Library,
-        templates: Vec::new(),
+        profiles: Vec::new(),
         examples: BTreeMap::new(),
     };
     let note = WidgetFile::parse("note").unwrap_or_else(|| panic!("nom"));
-    let files = manifest.to_files(BTreeMap::from([(note, source.to_owned())])).unwrap_or_else(|e| panic!("{e}"));
+    let files = manifest
+        .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::from([(note, source.to_owned())]))
+        .unwrap_or_else(|e| panic!("{e}"));
     library.add_version(id, &files).unwrap_or_else(|e| panic!("{}", e.one_line()));
-    Op::AddPack { namespace, pin: PackPin { id, version: files.version(), requires: Vec::new() } }
+    Op::AddPack {
+        kind: oku_slides_core::PackKind::Widgets,
+        namespace,
+        pin: PackPin { id, version: files.version(), requires: Vec::new() },
+    }
 }
 
 /// Un élément `<namespace>/note` ajouté à `s-constat`.
@@ -64,7 +70,7 @@ fn note_of(namespace: &str) -> Op {
 fn bounded_failure_among_three_packs_disables_only_the_looping_one() {
     let data = data_dir();
     let library =
-        PackLibrary::new(Some(data.as_ref().join("widgets")), Storage::local().unwrap_or_else(|e| panic!("{e}")));
+        PackLibrary::new(Some(data.as_ref().join("widgets")), None, Storage::local().unwrap_or_else(|e| panic!("{e}")));
     let mut ops: Vec<Op> = [("alpha", GOOD_NOTE), ("beta", LOOPING_NOTE), ("gamma", GOOD_NOTE)]
         .iter()
         .map(|(n, src)| library_pack(&library, n, src))

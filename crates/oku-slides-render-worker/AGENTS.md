@@ -29,5 +29,5 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Settled decisions
 
 - Never package the oku-slides-render-worker binary; it exists only for tests. (plan:2026-09-29-compilation-bornee)
-- Keep widget fallback policy in the session; the render client flags only a slot's lone untrusted pack, never one beside a shipped base. (plan:2026-10-18-packs-lot2-base)
-- Resolve the current shipped base in-process (in_process_pack), so a deck on built-in packs alone never starts the render worker. (plan:2026-10-18-packs-lot2-base)
+- Keep widget fallback policy in the session; the render client flags only a slot's lone untrusted pack, never one beside a shipped base or essentiel. (plan:2026-10-18-packs-lot2-base, plan:2026-10-19-packs-lot3-essentiel)
+- Resolve the current shipped base and essentiel in-process (in_process_pack), so a deck on built-in packs alone never starts the render worker. (plan:2026-10-18-packs-lot2-base, plan:2026-10-19-packs-lot3-essentiel)

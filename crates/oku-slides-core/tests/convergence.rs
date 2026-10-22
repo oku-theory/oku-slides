@@ -2,6 +2,7 @@
 
 mod common;
 
+use oku_slides_core::kinds::essentiel::CONTENT;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 
@@ -327,7 +328,7 @@ fn remove_owner(slide: &mut Slide, i: usize) {
 /// Le premier slot déclaré par le layout `content`.
 fn first_content_slot() -> &'static str {
     base()
-        .get("content")
+        .get(CONTENT)
         .and_then(|w| w.params.iter().find(|p| matches!(p.ty, ParamType::Slot { .. })))
         .map(|p| p.name.as_str())
         .unwrap_or_else(|| panic!("le layout content ne déclare aucun slot"))
@@ -336,7 +337,7 @@ fn first_content_slot() -> &'static str {
 /// `Edit::MoveToSlide` par l'op `move_element` ; ses déplacements entre
 /// slides, vides s'il n'y a qu'une slide `content` ou si l'op est refusée.
 fn move_to_slide(deck: &mut Deck, a: usize, b: usize, at: usize) -> Vec<Moved> {
-    let contents: Vec<&Slide> = deck.slides.iter().filter(|s| s.kind == "content").collect();
+    let contents: Vec<&Slide> = deck.slides.iter().filter(|s| s.kind == CONTENT).collect();
     if contents.len() < 2 {
         return Vec::new();
     }
@@ -397,12 +398,12 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) -> Applied {
         Edit::Undo | Edit::RemoveElementThenUndo(_) | Edit::DeleteThenUndo(_) => {}
         Edit::Add(i) => {
             *n += 1;
-            let s = Slide::new(format!("p{peer}-{n}"), "content");
+            let s = Slide::new(format!("p{peer}-{n}"), CONTENT);
             deck.slides.insert(if len == 0 { 0 } else { i % (len + 1) }, s);
         }
         _ if len == 0 => {}
         Edit::Title(i, s) => {
-            let contents: Vec<usize> = (0..len).filter(|&k| deck.slides[k].kind == "content").collect();
+            let contents: Vec<usize> = (0..len).filter(|&k| deck.slides[k].kind == CONTENT).collect();
             if let Some(&k) = contents.get(i % contents.len().max(1)) {
                 let params = &mut deck.slides[k].params;
                 match s.trim() {
@@ -615,7 +616,7 @@ fn deck_with_list(ids: &[&str]) -> Deck {
     let items: Vec<Value> =
         ids.iter().enumerate().map(|(i, id)| json!({ "id": id, "date": (2019 + i).to_string() })).collect();
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-        "element": { "id": "f", "kind": "liste" } }));
+        "element": { "id": "f", "kind": "test-el/liste" } }));
     let set = op(json!({ "op": "set_param", "target": { "slide": "s-constat", "element": "f" },
         "param": "etapes", "value": items }));
     with_ops(&deck, vec![add, set])

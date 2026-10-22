@@ -190,3 +190,27 @@ pub fn pptx_with(dir: &Path, name: &str, replaced: &[(&str, &[u8])]) -> PathBuf 
     std::fs::write(&path, bytes).unwrap_or_else(|e| panic!("{e}"));
     path
 }
+
+/// Les épinglages des packs intégrés `base` (widgets) et `essentiel` (layouts), et leurs fichiers.
+pub fn builtin_pins() -> (oku_slides_core::PackPin, oku_slides_core::PackPin, Vec<oku_slides_core::PackFiles>) {
+    let storage = oku_slides_session::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let library = oku_slides_session::PackLibrary::new(None, None, storage);
+    let pin = |id| {
+        let v = library.current_version(id).unwrap_or_else(|| panic!("pack intégré {id}"));
+        (oku_slides_core::PackPin { id, version: v.version, requires: v.manifest.requires }, v.files)
+    };
+    let (base, base_files) = pin(oku_slides_session::BASE_PACK);
+    let (essentiel, essentiel_files) = pin(oku_slides_session::ESSENTIEL_PACK);
+    (base, essentiel, vec![base_files, essentiel_files])
+}
+
+/// Un deck JSON (version 8) de `slides` qui épingle les packs de widgets `widgets`, plus `base`
+/// et le pack de layouts `essentiel` : un deck qui épingle un pack n'en reçoit pas d'autre.
+pub fn deck_json(widgets: serde_json::Value, slides: serde_json::Value) -> serde_json::Value {
+    let (base, essentiel, _) = builtin_pins();
+    let mut widgets = widgets;
+    if let Some(map) = widgets.as_object_mut() {
+        map.insert("base".to_owned(), serde_json::json!(base));
+    }
+    serde_json::json!({ "version": 8, "widgets": widgets, "layouts": { "essentiel": essentiel }, "slides": slides })
+}

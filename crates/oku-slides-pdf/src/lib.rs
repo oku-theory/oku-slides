@@ -15,15 +15,18 @@
 //!          └─ /Sources → flux = zip des sources
 //! ```
 //!
-//! Le zip des sources (version 10) :
+//! Le zip des sources (version 12) :
 //!
 //! ```text
-//! manifest.json          { format: "oku-slides-sources", version: 10 }
+//! manifest.json          { format: "oku-slides-sources", version: 12 }
 //! deck.loro              snapshot complet du replica Loro du deck
 //! assets/<hex>           tels quels
 //! fonts/<nom>            tels quels
-//! packs/<hex>/pack.json  version de pack de modèles (hex = sha-256 du contenu canonique)
-//! packs/<hex>/widgets/<nom>.typ  un par fichier de widget (_commun compris)
+//! widgets/<hex>/widgets.json  version de pack de widgets (hex = sha-256 du contenu canonique)
+//! widgets/<hex>/widgets/<nom>.typ  un par fichier de widget (_commun compris)
+//! layouts/<hex>/layouts.json  version de pack de layouts
+//! layouts/<hex>/layouts/<nom>.typ  un par fichier de layout (_commun compris)
+//! themes/<hex>/theme.json  version de thème
 //! ```
 //!
 //! Une enveloppe plus ancienne (`/Version 1`, `deck.json`) est ignorée :

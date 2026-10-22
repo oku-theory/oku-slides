@@ -7,7 +7,7 @@ use speculoos::prelude::*;
 use super::canonicalize_charts;
 
 fn registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap();
     WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap()
 }
@@ -57,7 +57,7 @@ fn canonicalize_charts_reaches_slot_children_and_new_slides() {
         "id": "grp", "kind": oku_slides_core::kinds::base::STACK, "params": { "children": [serde_json::to_value(inline_chart("g1")).unwrap()] }
     }))
     .unwrap();
-    let mut slide = Slide::new("s2", "content");
+    let mut slide = Slide::new("s2", oku_slides_core::kinds::essentiel::CONTENT);
     slide.params.set("blocks", ParamValue::Slot(vec![inline_chart("g2")]));
     let mut ops = vec![
         Op::ReplaceElement { slide: "s".into(), element: stack },

@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::{ElementBox, Layout};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -28,7 +28,8 @@ fn text() -> Value {
 }
 
 fn layout(blocks: Value) -> Layout {
-    let deck = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": blocks } }] });
+    let deck =
+        json!({ "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T", "blocks": blocks } }] });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
     let mut r = crate::common::renderer();
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).layout().clone()

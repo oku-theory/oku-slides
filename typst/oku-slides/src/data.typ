@@ -1,22 +1,23 @@
-// Rendu d'un deck JSON v7 (le modèle de données de l'app Oku Slides).
+// Rendu d'un deck JSON v8 (le modèle de données de l'app Oku Slides).
 //
 // {
-//   "version": 7,
+//   "version": 8,
 //   "params": { "title": "…", "author": "…", "date": "…" },
 //   "vars":   { "client": "Acme" },
 //   "tokens": { "color": { "accent": "#8a5a1c" } },
 //   "slides": [
-//     { "id": "s1", "kind": "title" },
-//     { "id": "s2", "kind": "chapter", "params": { "title": "Contexte" } },
-//     { "id": "s3", "kind": "content", "params": { "title": "…", "layout": "columns",
+//     { "id": "s1", "kind": "essentiel/title" },
+//     { "id": "s2", "kind": "essentiel/chapter", "params": { "title": "Contexte" } },
+//     { "id": "s3", "kind": "essentiel/content", "params": { "title": "…", "layout": "columns",
 //       "blocks": [ { "id": "e1", "kind": "base/text", "params": { "body": [ … ] } } ] } },
-//     { "id": "s4", "kind": "end", "params": { "text": "Merci" } }
+//     { "id": "s4", "kind": "essentiel/end", "params": { "text": "Merci" } }
 //   ]
 // }
 //
 // Chaque slide et chaque élément sont rendus par le widget de leur `kind`,
 // avec les arguments tirés de leur `params` selon le schéma du widget
-// (`_args`). Un élément d'un slot libre porte un "frame" { x, y, w, h } en
+// (`_args`). Le noyau n'en déclare aucun : ils viennent des packs (`widgets`,
+// requis). Un élément d'un slot libre porte un "frame" { x, y, w, h } en
 // pt, relatif à la zone de corps, ou une "cell" de la grille.
 // Chaque élément porte un "id" ; il est étiqueté <e-ID> pour l'introspection.
 
@@ -25,11 +26,12 @@
 #import "slides.typ": deck, blank-slide
 #import "content.typ": _text-over, _paragraphs
 #import "zone.typ": default-grid
-#import "widgets.typ": registry
-#import "widget.typ": by-name
 
-// Widgets du noyau (les slides) : ceux du rendu quand `widgets` vaut none.
-#let _base = by-name(registry)
+// Les widgets du rendu : `widgets` est requis, le noyau n'en déclare aucun.
+#let _required(widgets, caller) = {
+  assert(widgets != none, message: caller + ": widgets is required")
+  widgets
+}
 
 // Le widget `name` s'il est de catégorie `category`, sinon none.
 #let _widget(widgets, name, category) = {
@@ -148,7 +150,7 @@
 /// widget (none : ceux du noyau). deck-params : paramètres du deck, pour les
 /// paramètres liés (`bind`).
 #let render-element(t, e, vars, image-loader: none, widgets: none, deck-params: (:)) = {
-  let widgets = if widgets == none { _base } else { widgets }
+  let widgets = _required(widgets, "render-element")
   let kind = e.at("kind", default: none)
   let style = e.at("style", default: (:))
   let ctx = (id: e.at("id", default: none), tokens: t, vars: vars, style: style, framed: "frame" in e,
@@ -188,7 +190,7 @@
 #let render-slide(s, image-loader: none, widgets: none) = context {
   let c = config()
   let t = c.tokens
-  let widgets = if widgets == none { _base } else { widgets }
+  let widgets = _required(widgets, "render-slide")
   let kind = s.at("kind", default: none)
   let id = s.at("id", default: none)
   let w = _widget(widgets, kind, "slide")
@@ -202,9 +204,9 @@
 /// Rend un deck JSON complet : `#render-deck(json("deck.json"))`.
 /// image-loader : fonction (élément, asset: none, fit: "cover", chart: false,
 /// flow: false) => contenu, pour les images et les graphiques.
-/// widgets : dictionnaire nom → widget (`by-name(registre)`) ; none : ceux du noyau.
+/// widgets : dictionnaire nom → widget (`by-name(registre)`), requis.
 #let render-deck(data, theme: none, image-loader: none, widgets: none) = {
-  let widgets = if widgets == none { _base } else { widgets }
+  let widgets = _required(widgets, "render-deck")
   let params = data.at("params", default: (:))
   show: deck.with(
     theme: theme,

@@ -47,7 +47,6 @@ cli-imported = { $path }: { $slides ->
        [one] { $requests } widget isteği
       *[other] { $requests } widget isteği
     }
-cli-import-pack-required = retrofit modunda --pack gerekir: bir şablon paketinin kimliği, klasörü ya da adı
 cli-import-write-failed = içe aktarılan sunu { $path } yazılamadı
 cli-import-hifi-no-target = --pack ve --theme yalnızca retrofit modu içindir: yüksek doğruluklu içe aktarma (--mode hifi) kendi paketini ve temasını üretir
 cli-import-reference-hifi-only = --reference hifi moduna aittir: retrofit içe aktarma bir referans oluşturmayla karşılaştırılmaz
@@ -82,7 +81,7 @@ cli-arg-ui = Derlenmiş arayüzün klasörü (ui/dist)
 cli-cmd-import = Bir PowerPoint sunusunu (.pptx) .oku-slides.pdf olarak içe aktar
 cli-arg-pptx = PowerPoint sunusu (.pptx)
 cli-arg-mode = retrofit: içerik mevcut bir şablon paketi ve tema üzerinde; hifi: aslına uygun kopya, onun için üretilen paket ve tema üzerinde
-cli-arg-pack = Hedef şablon paketi: kimlik, paket klasörü (widgets.json, widgets/), ad ya da ad alanı
+cli-arg-pack = retrofit için yerleşim paketi (ad alanı, kimlik ya da klasör); tekrarlanabilir, varsayılan essentiel
 cli-arg-import-theme = Hedef tema: yerleşik ya da kitaplıktaki bir tema, kimliği ya da adıyla; varsayılan: varsayılan tema
 cli-arg-report = İçe aktarma raporunu da (JSON) yaz: kayıplar, yedekler, kapsam
 cli-arg-no-system-fonts = hifi modunda sununun yazı tiplerini sistem yazı tipleri arasında arama

@@ -212,11 +212,10 @@ fn target_settings_in_help_returns_none() {
 }
 
 #[test]
-fn target_settings_template_slide_in_templates_mode_shows_fields() {
+fn target_settings_layout_slide_in_pack_mode_shows_fields() {
     let mut s = session_with_fixture();
-    let set = crate::DEFAULT_PACK;
-    s.edit_templates(set).unwrap();
-    let slide = s.deck().slides.iter().find(|sl| sl.kind == "content").map(|sl| sl.id.clone()).unwrap();
+    s.edit_pack(crate::ESSENTIEL_PACK).unwrap();
+    let slide = "layout-content".to_owned();
     let v = surface_json(&s, &slide, None).unwrap();
     assert_that!(has(&v, "\"host-target\"")).is_true();
     let (keys, _, _) = resolved(&s, &slide, None);
@@ -466,4 +465,58 @@ fn target_settings_list_table_describes_the_nested_list_column() {
     assert_that!(has(&v, "\"kind\":\"list\"")).is_true();
     assert_that!(has(&v, "\"item_label\":\"tâche\"")).is_true();
     assert_that!(has(&v, "\"key\":\"fait\"")).is_true();
+}
+
+// Grille d'une slide en mode pack (`target_grid`).
+
+/// Clés et valeurs des réglages de la cible `slide` (slide entière), s'il y en a.
+fn grid_fields(s: &crate::Session, slide: &str) -> Vec<(String, serde_json::Value)> {
+    let Some(r) = s.resolve_target(slide, None).unwrap() else { return Vec::new() };
+    let pairs = r.params.keys.iter().zip(&r.params.spec.fields).map(|(k, f)| (k.clone(), f.value.clone()));
+    pairs.filter(|(k, _)| k.starts_with("grid/")).collect()
+}
+
+#[test]
+fn target_settings_of_a_layout_slide_in_pack_mode_offer_its_grid() {
+    let mut s = crate::test_support::session();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    assert_that!(grid_fields(&s, "layout-blank"))
+        .is_equal_to(vec![("grid/columns".to_owned(), json!(12)), ("grid/rows".to_owned(), json!(6))]);
+}
+
+#[test]
+fn target_settings_of_a_layout_without_a_grid_param_offer_no_grid() {
+    let mut s = crate::test_support::session();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    assert_that!(grid_fields(&s, "layout-title")).is_empty();
+}
+
+#[test]
+fn target_settings_of_a_deck_slide_offer_no_grid() {
+    let s = crate::test_support::session();
+    assert_that!(grid_fields(&s, "s-libre")).is_empty();
+}
+
+#[test]
+fn target_param_grid_columns_sets_the_slide_grid() {
+    let mut s = crate::test_support::session();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    s.target_param("layout-blank", None, "grid/columns", json!(4)).unwrap();
+    let registry = s.registry.clone();
+    let grid = s.deck().slide("layout-blank").unwrap().resolved_grid(&registry);
+    assert_that!((grid.columns, grid.rows)).is_equal_to((4, 6));
+}
+
+#[test]
+fn target_param_grid_rows_out_of_range_is_refused() {
+    let mut s = crate::test_support::session();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    assert_that!(s.target_param("layout-blank", None, "grid/rows", json!(99)).is_err()).is_true();
+}
+
+#[test]
+fn target_param_grid_on_a_deck_slide_is_refused() {
+    let mut s = crate::test_support::session();
+    let err = s.target_param("s-libre", None, "grid/columns", json!(4)).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::HostKey);
 }

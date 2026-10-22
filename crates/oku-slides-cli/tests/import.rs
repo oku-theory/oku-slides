@@ -14,7 +14,7 @@ use common::{Server, assert_success, files, fixtures, free_port, http, oku_slide
 use oku_slides_core::{
     Namespace, PackManifest, PackScope, SourceBundle, SourceLimits, WidgetRegistry, kinds, validate,
 };
-use oku_slides_session::{DEFAULT_PACK, GRID_PACK, PRO_THEME};
+use oku_slides_session::{ESSENTIEL_PACK, PRO_THEME};
 use rstest::rstest;
 use speculoos::prelude::*;
 use zip::write::SimpleFileOptions;
@@ -34,7 +34,7 @@ fn stderr(out: &Output) -> String {
 }
 
 fn base_registry() -> Arc<WidgetRegistry> {
-    let probe = serde_json::from_str(include_str!("../../../fixtures/widgets/base-registry.json"))
+    let probe = serde_json::from_str(include_str!("../../../fixtures/widgets/builtin-registry.json"))
         .unwrap_or_else(|e| panic!("registre de base : {e}"));
     Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("registre de base : {e}")))
 }
@@ -69,16 +69,14 @@ fn import_minimal_on_essentiel_and_pro_writes_a_reopenable_deck() {
     let bundle = reopened(&pdf);
     let deck = bundle.deck();
     assert_that!((deck.slides.len(), deck.params.title.as_deref())).is_equal_to((3, Some("Rapport annuel")));
-    assert_that!(retrofit_targets(&bundle).contains(&DEFAULT_PACK)).is_true();
+    assert_that!(retrofit_targets(&bundle).contains(&ESSENTIEL_PACK)).is_true();
     assert_that!(deck.theme.as_ref().map(|r| r.id)).is_equal_to(Some(PRO_THEME));
     assert_that!(deck.slides[1].notes.starts_with("Dire bonjour.")).is_true();
 }
 
-/// Le pack de la bibliothèque que le deck de retrofit de `bundle` a pris tel quel, vérifié de la bibliothèque.
-///
-/// Son pack enfant, du deck seul, ne vient qu'à la première écriture d'un widget, dans l'app.
+/// Les packs de layouts de la bibliothèque que le deck de retrofit de `bundle` a pris tels quels.
 fn retrofit_targets(bundle: &SourceBundle) -> Vec<uuid::Uuid> {
-    let pinned = bundle.deck().widgets.values();
+    let pinned = bundle.deck().layouts.values();
     pinned
         .filter_map(|pin| {
             let manifest = PackManifest::from_files(bundle.packs.get(&pin.version)?).ok()?;
@@ -136,19 +134,19 @@ fn import_retrofit_of_a_text_too_long_for_its_place_reports_an_overflow() {
 }
 
 #[test]
-fn import_kitchen_on_grilles_writes_its_report_with_coverage_and_messages() {
+fn import_kitchen_on_essentiel_writes_its_report_with_coverage_and_messages() {
     let dir = workdir("import-kitchen");
     let (input, pdf, report) = (pptx(&dir, "kitchen"), dir.join("k.oku-slides.pdf"), dir.join("k.json"));
     let out = run(oku_slides(&dir, "fr")
         .arg("import")
         .arg(&input)
-        .args(["--mode", "retrofit", "--pack", "grilles", "-o"])
+        .args(["--mode", "retrofit", "-o"])
         .arg(&pdf)
         .arg("--report")
         .arg(&report));
     assert_success("import", &out, &[]);
     let bundle = reopened(&pdf);
-    assert_that!(retrofit_targets(&bundle).contains(&GRID_PACK)).is_true();
+    assert_that!(retrofit_targets(&bundle).contains(&ESSENTIEL_PACK)).is_true();
     assert_that!(bundle.assets.len()).is_equal_to(1);
     let r: serde_json::Value = serde_json::from_slice(&std::fs::read(&report).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("rapport : {e}"));
@@ -167,7 +165,7 @@ fn import_alto_with_pack_and_theme_ids_keeps_its_images() {
     let out = run(oku_slides(&dir, "en")
         .arg("import")
         .arg(fixtures().join("alto-wealth.pptx"))
-        .args(["--pack", &DEFAULT_PACK.to_string(), "--theme", &PRO_THEME.to_string(), "-o"])
+        .args(["--pack", &ESSENTIEL_PACK.to_string(), "--theme", &PRO_THEME.to_string(), "-o"])
         .arg(&pdf));
     assert_success("import", &out, &[]);
     let bundle = reopened(&pdf);
@@ -178,14 +176,20 @@ fn import_alto_with_pack_and_theme_ids_keeps_its_images() {
 #[test]
 fn import_with_a_pack_folder_uses_that_pack() {
     let dir = workdir("import-folder");
+    // Une copie du pack de layouts intégré `essentiel` : `layouts.json` et `layouts/`.
     let pack = dir.join("mon-pack");
-    std::fs::create_dir_all(&pack).unwrap_or_else(|e| panic!("{e}"));
-    std::fs::write(pack.join("widgets.json"), include_str!("../../../templates/grilles/pack.json"))
-        .unwrap_or_else(|e| panic!("{e}"));
+    let builtin = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../typst/oku-slides/packs/essentiel");
+    std::fs::create_dir_all(pack.join("layouts")).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::copy(builtin.join("layouts.json"), pack.join("layouts.json")).unwrap_or_else(|e| panic!("{e}"));
+    for entry in std::fs::read_dir(builtin.join("layouts")).unwrap_or_else(|e| panic!("{e}")) {
+        let path = entry.unwrap_or_else(|e| panic!("{e}")).path();
+        let name = path.file_name().unwrap_or_else(|| panic!("nom de fichier"));
+        std::fs::copy(&path, pack.join("layouts").join(name)).unwrap_or_else(|e| panic!("{e}"));
+    }
     let (input, pdf) = (pptx(&dir, "minimal"), dir.join("m.oku-slides.pdf"));
     let out = run(oku_slides(&dir, "en").arg("import").arg(&input).arg("--pack").arg(&pack).arg("-o").arg(&pdf));
     assert_success("import", &out, &[]);
-    assert_that!(retrofit_targets(&reopened(&pdf)).contains(&GRID_PACK)).is_true();
+    assert_that!(retrofit_targets(&reopened(&pdf)).contains(&ESSENTIEL_PACK)).is_true();
 }
 
 /// Les sources d'un `.oku-slides.pdf`, relues avec la seule base : les
@@ -220,7 +224,7 @@ fn report(path: &Path) -> serde_json::Value {
 /// Les fichiers de la bibliothèque de l'utilisateur (packs et thèmes) sous `dir/data`.
 fn library_files(dir: &Path) -> Vec<PathBuf> {
     let mut found = Vec::new();
-    for sub in ["widgets", "themes"] {
+    for sub in ["widgets", "layouts", "themes"] {
         let at = dir.join("data").join(sub);
         if at.exists() {
             files(&at, &mut found);
@@ -249,20 +253,22 @@ fn import_hifi_of_minimal_embeds_its_own_pack_and_theme_and_leaves_the_library_a
     let bundle = sources(&pdf);
     let deck = bundle.deck();
     assert_that!(deck.slides.len()).is_equal_to(3);
-    let pack = deck.widgets.get(&Namespace::deck()).cloned().unwrap_or_else(|| panic!("deck sans pack"));
+    let pack = deck.layouts.get(&Namespace::deck_layouts()).cloned().unwrap_or_else(|| panic!("deck sans pack"));
     let theme = deck.theme.clone().unwrap_or_else(|| panic!("deck sans thème"));
-    // L'import épingle le pack `base` intégré, que le pack du deck requiert, et le sien.
+    // L'import épingle `base`, que le pack du deck requiert, `essentiel` (ses slides de repli) et le sien.
     let base = deck.widgets.get(&kinds::base::namespace()).cloned().unwrap_or_else(|| panic!("deck sans base"));
-    let mut versions = vec![&pack.version, &base.version];
+    let essentiel =
+        deck.layouts.get(&kinds::essentiel::namespace()).cloned().unwrap_or_else(|| panic!("deck sans essentiel"));
+    let mut versions = vec![&pack.version, &base.version, &essentiel.version];
     versions.sort();
     assert_that!(bundle.packs.keys().collect::<Vec<_>>()).is_equal_to(versions);
     assert_that!(bundle.themes.keys().collect::<Vec<_>>()).is_equal_to(vec![&theme.version]);
-    assert_that!(pack.id).is_not_equal_to(DEFAULT_PACK);
+    assert_that!(pack.id).is_not_equal_to(ESSENTIEL_PACK);
     assert_that!(theme.id).is_not_equal_to(PRO_THEME);
 
     let opened = open_hifi(&dir, &pdf);
     assert_that!(stdout(&opened)).contains(": 3 slides, ");
-    assert_that!(dir.join("open/widgets").join(pack.version.hex()).join("widgets.json").exists()).is_true();
+    assert_that!(dir.join("open/layouts").join(pack.version.hex()).join("layouts.json").exists()).is_true();
     assert_that!(library_files(&dir)).is_empty();
 
     let r = report(&dir.join("minimal.json"));
@@ -280,7 +286,7 @@ fn import_hifi_of_alto_writes_a_reopenable_deck_with_its_images_and_report() {
     let pdf = dir.join("alto.oku-slides.pdf");
     assert_that!(stdout(&out)).starts_with(format!("{}: 8 slides, 8 pages, ", pdf.display()));
     let bundle = sources(&pdf);
-    assert_that!((bundle.deck().slides.len(), bundle.packs.len(), bundle.themes.len())).is_equal_to((8, 2, 1));
+    assert_that!((bundle.deck().slides.len(), bundle.packs.len(), bundle.themes.len())).is_equal_to((8, 3, 1));
     assert_that!(bundle.assets.is_empty()).is_false();
     assert_that!(stdout(&open_hifi(&dir, &pdf))).contains(": 8 slides, ");
     assert_that!(library_files(&dir)).is_empty();
@@ -297,7 +303,7 @@ fn import_hifi_twice_of_the_same_file_generates_the_same_pack_and_theme_ids() {
         assert_success("import", &import_hifi(&dir, &input, stem), &[]);
         let bundle = sources(&dir.join(format!("{stem}.oku-slides.pdf")));
         let deck = bundle.deck();
-        (deck.widgets.get(&Namespace::deck()).map(|r| r.id), deck.theme.as_ref().map(|r| r.id))
+        (deck.layouts.get(&Namespace::deck_layouts()).map(|r| r.id), deck.theme.as_ref().map(|r| r.id))
     };
     let first = ids("a");
     assert_that!(first.0.is_some() && first.1.is_some()).is_true();
@@ -333,15 +339,44 @@ fn import_hifi_with_a_pack_is_refused_even_for_a_missing_pptx() {
 }
 
 #[test]
-fn import_without_pack_is_refused_in_retrofit_mode() {
+fn import_retrofit_without_pack_uses_essentiel() {
     let dir = workdir("import-nopack");
+    let (input, pdf) = (pptx(&dir, "minimal"), dir.join("m.oku-slides.pdf"));
+    let out = run(oku_slides(&dir, "en").arg("import").arg(&input).args(["--mode", "retrofit", "-o"]).arg(&pdf));
+    assert_success("import", &out, &[]);
+    let bundle = reopened(&pdf);
+    let layouts: Vec<&str> = bundle.deck().layouts.keys().map(Namespace::as_str).collect();
+    assert_that!(layouts).is_equal_to(vec![kinds::essentiel::NAMESPACE]);
+}
+
+#[test]
+fn import_retrofit_on_a_widget_pack_fails() {
+    let dir = workdir("import-widget-pack");
     let out = run(oku_slides(&dir, "fr")
         .arg("import")
-        .arg(fixtures().join("alto-wealth.pptx"))
-        .arg("-o")
+        .arg(pptx(&dir, "minimal"))
+        .args(["--mode", "retrofit", "--pack", "base", "-o"])
         .arg(dir.join("x.pdf")));
+    // Le message de la clé `import-not-layout-pack`, en français, sans les marques d'isolement de Fluent.
+    let unmark = |s: String| s.replace(['\u{2068}', '\u{2069}'], "");
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    let expected = unmark(fr.tr_with("import-not-layout-pack", &[("pack", "base".into())]));
     assert_that!(out.status.success()).is_false();
-    assert_that!(stderr(&out)).contains("--pack est obligatoire en mode retrofit");
+    assert_that!(unmark(stderr(&out))).contains(expected.as_str());
+}
+
+/// `--pack` se répète : chaque pack de layouts nommé est épinglé.
+#[test]
+fn import_retrofit_with_a_repeated_pack_pins_each_layout_pack() {
+    let dir = workdir("import-two-packs");
+    let (input, pdf) = (pptx(&dir, "minimal"), dir.join("m.oku-slides.pdf"));
+    let out = run(oku_slides(&dir, "en")
+        .arg("import")
+        .arg(&input)
+        .args(["--pack", "essentiel", "--pack", &ESSENTIEL_PACK.to_string(), "-o"])
+        .arg(&pdf));
+    assert_success("import", &out, &[]);
+    assert_that!(retrofit_targets(&reopened(&pdf))).is_equal_to(vec![ESSENTIEL_PACK]);
 }
 
 #[test]
@@ -361,7 +396,7 @@ fn import_with_a_pack_folder_whose_manifest_is_not_a_pack_fails_with_its_name() 
     let dir = workdir("import-badpack");
     let pack = dir.join("faux-pack");
     std::fs::create_dir_all(&pack).unwrap_or_else(|e| panic!("{e}"));
-    std::fs::write(pack.join("widgets.json"), r#"{"templates": "aucun"}"#).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(pack.join("layouts.json"), r#"{"profiles": "aucun"}"#).unwrap_or_else(|e| panic!("{e}"));
     let out = run(oku_slides(&dir, "fr")
         .arg("import")
         .arg(fixtures().join("alto-wealth.pptx"))
@@ -478,7 +513,7 @@ fn import_retrofit_whose_output_exceeds_max_sources_is_refused() {
         .env("OKU_SLIDES_SOURCES__MAX_SOURCES_MIB", "1")
         .arg("import")
         .arg(&input)
-        .args(["--pack", "grilles", "-o"])
+        .arg("-o")
         .arg(&output));
     assert_that!(out.status.success()).is_false();
     assert_that!(stderr(&out)).contains(OUTPUT_TOO_LARGE_FR);
@@ -532,25 +567,27 @@ fn serve_imports_a_pptx_into_a_new_tab_and_starts_its_fine_tuning() {
 fn import_pack_by_namespace_is_accepted() {
     let dir = workdir("import-namespace");
     let (input, pdf) = (pptx(&dir, "minimal"), dir.join("m.oku-slides.pdf"));
-    let out = run(oku_slides(&dir, "en").arg("import").arg(&input).args(["--pack", "grilles", "-o"]).arg(&pdf));
+    let out = run(oku_slides(&dir, "en").arg("import").arg(&input).args(["--pack", "essentiel", "-o"]).arg(&pdf));
     assert_success("import", &out, &[]);
     let bundle = reopened(&pdf);
-    let ns = Namespace::parse("grilles").unwrap_or_else(|| panic!("espace de noms"));
-    assert_that!(bundle.deck().widgets.contains_key(&ns)).is_true();
+    assert_that!(bundle.deck().layouts.contains_key(&kinds::essentiel::namespace())).is_true();
 }
 
 #[test]
-fn open_out_writes_each_pinned_pack_under_widgets_dir() {
+fn open_out_writes_each_pinned_pack_under_the_dir_of_its_kind() {
     let dir = workdir("open-pins");
     let (input, pdf) = (pptx(&dir, "minimal"), dir.join("m.oku-slides.pdf"));
-    let out = run(oku_slides(&dir, "en").arg("import").arg(&input).args(["--pack", "grilles", "-o"]).arg(&pdf));
+    let out = run(oku_slides(&dir, "en").arg("import").arg(&input).arg("-o").arg(&pdf));
     assert_success("import", &out, &[]);
-    let pinned = reopened(&pdf).deck().widgets.len();
     let extract = dir.join("extract");
     assert_success("open", &run(oku_slides(&dir, "en").arg("open").arg(&pdf).arg("--out").arg(&extract)), &[]);
-    let deck = reopened(&pdf);
-    assert_that!(pinned >= 1).is_true();
-    for pin in deck.deck().widgets.values() {
+    let bundle = reopened(&pdf);
+    let deck = bundle.deck();
+    assert_that!((deck.widgets.len(), deck.layouts.len())).is_equal_to((1, 1));
+    for pin in deck.widgets.values() {
         assert_that!(extract.join("widgets").join(pin.version.hex()).join("widgets.json").exists()).is_true();
+    }
+    for pin in deck.layouts.values() {
+        assert_that!(extract.join("layouts").join(pin.version.hex()).join("layouts.json").exists()).is_true();
     }
 }

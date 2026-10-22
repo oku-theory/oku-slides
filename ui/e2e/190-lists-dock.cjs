@@ -18,7 +18,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await p.goto(URL);
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
-  // Le test précédent peut avoir laissé l'onglet en mode modèles : on y entre s'il le faut.
+  // Le test précédent peut avoir laissé l'onglet en mode pack : on y entre s'il le faut.
   await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
   const add = p.getByRole('button', { name: 'Nouveau widget' });
   if (!(await add.isVisible())) {
@@ -30,14 +30,18 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await name.press('Enter');
   await p.waitForSelector(PREVIEW);
   // Le widget d'essai déclare une liste de trois colonnes (dont une riche), trois lignes par défaut.
+  // Un élément dans un pack de widgets (le pack propre du deck, que l'atelier du menu ouvre) ; une
+  // slide dans un pack de layouts (Essentiel, si le deck n'a pas de pack propre).
+  const kind = (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).editing?.kind;
+  const slide = kind === 'layouts';
+  const items = 'stack(spacing: 6pt, ..args.etapes.map(e => list-item(ctx, "etapes", e, c => field(c, "texte", e.at("texte", default: "")))))';
   const source = [
-    '#import "/oku-slides/lib.typ": widget, field, list-item, params as p',
-    '#let widget = widget("jalons", label: "Jalons",',
+    '#import "/oku-slides/lib.typ": widget, field, list-item, blank-slide, params as p',
+    `#let widget = widget("jalons", label: "Jalons",${slide ? ' category: "slide",' : ''}`,
     '  params: (etapes: p.list(label: "Étapes", item-label: "jalon", min: 1, max: 6,',
     '    item: (date: p.plain(label: "Date"), texte: p.plain(label: "Texte", default: "Nouveau"), note: p.rich(label: "Note")),',
     '    default: ((date: "2019", texte: "A"), (date: "2021", texte: "B"), (date: "2023", texte: "C")))),',
-    '  (args, ctx) => stack(spacing: 6pt, ..args.etapes.map(e => list-item(ctx, "etapes", e,',
-    '    c => field(c, "texte", e.at("texte", default: "")))))) ',
+    `  (args, ctx) => ${slide ? `blank-slide(id: ctx.id, ${items})` : items})`,
     '',
   ].join('\n');
   const set = await post(p, '/api', { tab: 't-1', req: { cmd: 'set_widget', name: 'jalons', source } });

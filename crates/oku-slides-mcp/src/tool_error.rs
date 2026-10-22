@@ -22,7 +22,7 @@ pub(crate) enum ToolError {
     Arguments { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unknown tool {name}"))]
     UnknownTool { name: String, backtrace: Backtrace },
-    #[snafu(display("not a template set id"))]
+    #[snafu(display("not a pack id"))]
     PackId { source: uuid::Error, backtrace: Backtrace },
     #[snafu(display("the session refused the call"))]
     Session { source: SessionError, backtrace: Backtrace },
@@ -56,7 +56,7 @@ pub(crate) enum ToolError {
     UnexpectedAction { action: String, backtrace: Backtrace },
     #[snafu(display("the tab did not open the history in time"))]
     HistoryNotOpened { backtrace: Backtrace },
-    #[snafu(display("the deck pins no template pack"))]
+    #[snafu(display("the deck pins no pack"))]
     NoPack { backtrace: Backtrace },
     #[snafu(display("history seek needs an index"))]
     HistoryIndex { backtrace: Backtrace },

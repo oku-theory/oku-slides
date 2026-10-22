@@ -9,9 +9,9 @@ fn schema(name: &str, param: &str) -> WidgetSchema {
         .unwrap_or_else(|e| panic!("schéma : {e}"))
 }
 
-/// Le registre sondé d'un pack généré : `schemas` sous l'espace de noms `deck`.
+/// Le registre sondé d'un pack généré : `schemas` sous l'espace de noms `deck-layouts`.
 fn registry(schemas: &[WidgetSchema]) -> WidgetRegistry {
-    let probe = json!({ "base": [], "packs": [{ "namespace": "deck", "widgets": schemas }] });
+    let probe = json!({ "packs": [{ "namespace": "deck-layouts", "kind": "layouts", "widgets": schemas }] });
     WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("registre : {e}"))
 }
 

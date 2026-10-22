@@ -1,8 +1,8 @@
 // Import PowerPoint dans l'app : « Ouvrir » un .pptx (alto) ouvre le dialogue d'import ; en copie
 // fidèle avec le peaufinage, l'onglet importé s'ouvre et le faux agent joue son tour de
-// fine-tuning (import_report, import_diff de la slide 7, report) ; l'atelier édite son pack du deck
-// seul, et son thème du deck seul se reprend après Papier ; puis un import sur mes modèles
-// (pack par défaut, sans agent).
+// fine-tuning (import_report, import_diff de la slide 7, report) ; l'atelier édite son pack de layouts
+// du deck seul, et son thème du deck seul se reprend après Papier ; puis un import sur mes layouts
+// (Essentiel par défaut, sans agent).
 // Contre `oku-slides serve` lancé par `just e2e` : faux agent « Faux » choisi, son journal dans
 // E2E_AGENT_LOG (les résultats MCP s'y lisent). Le témoin (office2pdf) tourne pour de vrai : attentes longues.
 const { chromium } = require('playwright');
@@ -162,18 +162,22 @@ const noTurnSince = async (p, from, ms) => {
 
   await p.keyboard.press('Control+Shift+z');
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).slides.length === 8, "l'import ne se refait pas");
-  // L'atelier édite le pack du deck seul : enregistré dans le deck, jamais dans la bibliothèque.
-  const packsBefore = await api(p, hifi, { cmd: 'template_sets' });
-  // Le deck épingle `base` et son propre pack : celui-ci se lit par son espace de noms.
-  const pinOf = (snap) => snap.widgets.deck;
+  // L'atelier édite le pack de layouts du deck seul : enregistré dans le deck, jamais dans la bibliothèque.
+  const library = async () => [await api(p, hifi, { cmd: 'packs', kind: 'layouts' }), await api(p, hifi, { cmd: 'packs', kind: 'widgets' })];
+  const packsBefore = await library();
+  // Le deck épingle `base`, `essentiel` et son propre pack de layouts : celui-ci se lit par son espace de noms.
+  const pinOf = (snap) => snap.layouts['deck-layouts'];
   const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
+  assert.ok(packBefore, 'le deck importé épingle son pack de layouts');
+  // L'atelier demandé à l'agent (t-988) ouvre le pack de layouts propre du deck.
   await openAtelier(p, hifi);
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
-  await p.locator('.brand-note', { hasText: 'Enregistrés dans cette présentation seulement' }).waitFor();
+  await p.locator('.brand-note', { hasText: 'Enregistré dans cette présentation seulement' }).waitFor();
+  assert.match(await p.locator('.label .brand').textContent(), / · pack de layouts$/);
   await p.locator('.doc-name-button').click();
-  await p.getByRole('textbox', { name: 'Titre de la présentation' }).fill('Alto (modèles)');
+  await p.getByRole('textbox', { name: 'Titre de la présentation' }).fill('Alto (layouts)');
   await p.keyboard.press('Enter');
-  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).title === 'Alto (modèles)', "le pack n'est pas renommé");
+  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).title === 'Alto (layouts)', "le pack n'est pas renommé");
   // ✓ : l'enregistrement automatique part d'abord, puis le deck revient.
   await p.getByRole('button', { name: 'Terminer' }).click();
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing === null, "l'atelier ne se ferme pas");
@@ -181,7 +185,7 @@ const noTurnSince = async (p, from, ms) => {
   assert.ok(back.deck_pack, 'le pack enregistré reste propre au deck');
   assert.equal(pinOf(back).id, packBefore.id);
   assert.notEqual(pinOf(back).version, packBefore.version, 'le deck passe à la version enregistrée');
-  assert.deepEqual(await api(p, hifi, { cmd: 'template_sets' }), packsBefore, 'la bibliothèque ne change pas');
+  assert.deepEqual(await library(), packsBefore, 'la bibliothèque ne change pas');
 
   // Le thème du deck seul se reprend après Papier (t-903) ; l'agent choisit le thème par l'op set_theme (t-988).
   assert.deepEqual(back.theme, importTheme, "l'atelier garde le thème de l'import");
@@ -196,19 +200,21 @@ const noTurnSince = async (p, from, ms) => {
   assert.equal(repicked.theme.version, importTheme.version, "le thème de l'import revient dans sa version d'origine");
   assert.deepEqual(repicked.themes, onPapier.themes, 'la bibliothèque des thèmes ne change pas');
 
-  // 2. Sur mes modèles : le pack par défaut présélectionné, le thème du pack, sans agent.
+  // 2. Sur mes layouts : Essentiel coché par défaut, le thème du pack, sans agent.
   const second = await openImport(p, ALTO);
   await second.locator('input[name=import-mode][value=retrofit]').check();
-  const pack = second.locator('.import-target select').first();
-  await untilValue(p, () => pack.inputValue(), (v) => v !== '', 'aucun pack présélectionné');
-  assert.equal(await second.locator('.import-target select').nth(1).inputValue(), '');
+  const checked = second.locator('fieldset.import-layouts input[type=checkbox]:checked');
+  await until(p, async () => (await checked.count()) === 1, 'Essentiel n\'est pas coché par défaut');
+  // Essentiel lui-même, pas « Essentiel (copie) · à moi » enregistré par 030.
+  assert.equal(await second.getByRole('checkbox', { name: 'Essentiel', exact: true }).isChecked(), true);
+  assert.equal(await second.locator('.import-target select').first().inputValue(), '');
   await second.getByRole('checkbox', { name: "Peaufiner avec l'agent" }).uncheck();
   const { tab: retrofit, offset: retrofitLog } = await submitImport(p, second);
   assert.ok(![hifi, 't-1'].includes(retrofit), `nouvel onglet attendu, pas ${retrofit}`);
   const snap2 = await api(p, retrofit, { cmd: 'snapshot' });
   assert.equal(snap2.slides.length, 8);
-  // Le pack enfant ne vient qu'à la première écriture d'un widget : le deck reste sur le pack de la bibliothèque.
-  assert.ok(!snap2.deck_pack, "le retrofit sans widget devrait garder le pack de la bibliothèque");
+  // Sans écriture de widget, le deck n'a pas de pack propre : il reste sur les packs de la bibliothèque.
+  assert.ok(!snap2.deck_pack, "le retrofit sans widget devrait garder les packs de la bibliothèque");
   await p.waitForSelector('.stage img');
   // Sans peaufinage, aucun tour ne part dans l'onglet (le prompt du peaufinage part dès l'onglet prêt).
   await noTurnSince(p, retrofitLog, 4000);

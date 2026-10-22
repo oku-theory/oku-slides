@@ -96,8 +96,8 @@ interface DeckProps extends CommonProps {
   overlay?: { anchor: { owner: string; field?: string }; node: ReactNode };
   /** Lecture seule (historique) : pas de couche des champs. */
   readOnly?: boolean;
-  /** Mode modèles : les placeholders de tous les champs vides se voient. */
-  templates?: boolean;
+  /** Mode pack : les placeholders de tous les champs vides se voient. */
+  packMode?: boolean;
   /** Fantômes : zone, objets et champs annotés ; placeholders de tous les champs vides. */
   showGhosts?: boolean;
   /** Widgets du pack, en genres qualifiés : leur étiquette ouvre le widget. */
@@ -168,7 +168,7 @@ export default function Stage(props: Props) {
   const preview = deck === null;
   const {
     selected = null, cut = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
-    templates = false, showGhosts = false, packWidgets, onOpenWidget, hoverPreview,
+    packMode = false, showGhosts = false, packWidgets, onOpenWidget, hoverPreview,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
   const editable = preview ? { ...view, fields: view.fields.filter((f) => !f.bound) } : view;
@@ -438,9 +438,9 @@ export default function Stage(props: Props) {
               {view.fields.map((f) => {
                 const key = fieldKey(f);
                 const bound = preview && f.bound;
-                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode modèles,
+                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode pack,
                 // fantômes ou aperçu (sauf un champ lié au deck).
-                const hot = !bound && (preview || templates || showGhosts || f.owner === selected || editField?.owner === f.owner);
+                const hot = !bound && (preview || packMode || showGhosts || f.owner === selected || editField?.owner === f.owner);
                 const ghost = f.empty && key !== editing && hot;
                 return (
                   <div
@@ -501,7 +501,7 @@ export default function Stage(props: Props) {
             );
           })()}
           {hoverPreview && (
-            <PreviewLayer store={hoverPreview} slide={view.slide.id} hold={editing !== null || readOnly || templates} />
+            <PreviewLayer store={hoverPreview} slide={view.slide.id} hold={editing !== null || readOnly || packMode} />
           )}
         </div>
         {overlay && <SheetOverlay view={view} scale={scale} overlay={overlay} />}
@@ -512,7 +512,7 @@ export default function Stage(props: Props) {
 
 /**
  * L'aperçu posé sur la scène ; seul ce composant suit le survol. Celui d'une slide (thème) ne
- * se montre que sur elle et pas pendant `hold` (édition, lecture seule, modèles).
+ * se montre que sur elle et pas pendant `hold` (édition, lecture seule, mode pack).
  */
 function PreviewLayer({ store, slide, hold }: { store: StagePreviewStore; slide: string; hold: boolean }) {
   const preview = useStagePreview(store);

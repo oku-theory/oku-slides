@@ -12,7 +12,7 @@ use crate::common;
 
 fn bundle(element: &Value) -> SourceBundle {
     let deck = Deck::from_json(
-        &json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [element, element] } }] })
+        &json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [element, element] } }] })
             .to_string(),
     )
     .unwrap_or_else(|e| panic!("deck : {e}"));
@@ -50,7 +50,7 @@ fn bundle_new_with_copies_differing_by_edge_whitespace_keeps_one() {
         json!({ "id": "e", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "salut" }] }], "title": "x" } });
     let b = json!({ "id": "e", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "salut" }] }], "title": " x " } });
     let deck = Deck::from_json(
-        &json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [a, b] } }] }).to_string(),
+        &json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [a, b] } }] }).to_string(),
     )
     .unwrap_or_else(|e| panic!("deck : {e}"));
     let bundle = SourceBundle::new(deck, common::shared()).unwrap_or_else(|e| panic!("bundle : {e}"));

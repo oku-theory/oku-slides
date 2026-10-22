@@ -39,7 +39,7 @@ export const byPlace = (list: Surface[], place: Place) => list.filter((s) => s.p
 export const isQuestion = (s: Surface) => s.question;
 /** Le sélecteur de thème de l'hôte : une boîte demandée, annoncée, jamais repliée. */
 export const HOST_THEME_PICKER = "host-theme-picker";
-/** Une surface de réglages de l'hôte (`host-template`, `host-widget`) : reconstruite à chaque relecture. */
+/** Une surface de réglages de l'hôte (`host-widget`, `host-target`, `host-theme`) : reconstruite à chaque relecture. */
 export const isHostSettings = (s: Surface) => s.id.startsWith("host-") && s.id !== HOST_THEME_PICKER;
 /** Le reçu d'un tour (outil `report`, ou reçu de repli) : identifiant `report-N` du hub. */
 export const isReceipt = (s: Surface) => s.id.startsWith("report-");

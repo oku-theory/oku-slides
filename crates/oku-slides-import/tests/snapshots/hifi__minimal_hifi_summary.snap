@@ -6,7 +6,7 @@ expression: summary(&plan(fixture))
   "slides": [
     {
       "slide": "s1",
-      "kind": "deck/l1-diapositive-de-titre",
+      "kind": "deck-layouts/l1-diapositive-de-titre",
       "params": [
         "sous-titre",
         "titre"
@@ -16,7 +16,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s2",
-      "kind": "deck/l2-titre-et-contenu",
+      "kind": "deck-layouts/l2-titre-et-contenu",
       "params": [
         "corps",
         "titre"
@@ -33,7 +33,7 @@ expression: summary(&plan(fixture))
     },
     {
       "slide": "s3",
-      "kind": "deck/l2-titre-et-contenu",
+      "kind": "deck-layouts/l2-titre-et-contenu",
       "params": [
         "titre"
       ],

@@ -1,4 +1,4 @@
-//! Les outils des widgets du pack, en mode deck et en mode modèles.
+//! Les outils des widgets du pack, en mode deck et en mode pack.
 
 mod common;
 
@@ -61,21 +61,56 @@ async fn set_widget_on_common_reports_diagnostics_and_broken_widgets() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn widget_tools_work_in_templates_mode_and_remove_refuses_a_used_widget() {
+async fn widget_tools_work_in_pack_mode() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": SET })).await;
+    call(&c, "edit_pack", json!({ "pack": SET })).await;
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     assert_that!(call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await.is_error)
         .is_not_equal_to(Some(true));
-    let slide = json!({ "op": "add_slide", "index": 0, "slide": {
-        "id": "t-kpi", "kind": "blank", "name": "Indicateur", "params": { "elements": [
-            { "id": "k", "kind": "essentiel/kpi", "cell": { "col": 0, "row": 0, "cols": 4, "rows": 2 }, "params": { "value": "1" } }
-        ] } } });
-    call(&c, "apply", json!({ "ops": [slide] })).await;
+    let sources = json_of(&call(&c, "widget_sources", json!({})).await);
+    let names: Vec<&str> = sources.as_array().into_iter().flatten().filter_map(|w| w["name"].as_str()).collect();
+    assert_that!(names).contains("kpi");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remove_widget_used_by_a_slide_is_refused_in_the_user_language() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+    let add = json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
+        "element": { "id": "k", "kind": "deck/kpi", "params": { "value": "1" } } });
+    assert_that!(call(&c, "apply", json!({ "ops": [add] })).await.is_error).is_not_equal_to(Some(true));
     // Le message de Fluent, dans la langue de l'utilisateur (`fr`).
     assert_that!(error_text(&c, "remove_widget", json!({ "name": "kpi" })).await)
-        .is_equal_to("Le widget « essentiel/kpi » est encore utilisé ici : Indicateur.".to_owned());
+        .starts_with("Le widget « deck/kpi » est encore utilisé ici");
+}
+
+/// Un layout minimal : un titre seul.
+const COVER: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("cover", category: "slide", params: (title: p.plain()),
+  (args, ctx) => field(ctx, "title", args.title))
+"#;
+
+/// En mode deck, sans `pack`, un layout va à `deck-layouts` : `pack` le retrouve, comme le
+/// disent les descriptions des outils de widgets.
+#[tokio::test(flavor = "multi_thread")]
+async fn slide_widget_written_without_pack_is_read_through_pack_deck_layouts() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    assert_that!(call(&c, "set_widget", json!({ "name": "cover", "source": COVER })).await.is_error)
+        .is_not_equal_to(Some(true));
+    let names = |v: &Value| -> Vec<String> {
+        v.as_array().into_iter().flatten().filter_map(|w| w["name"].as_str().map(str::to_owned)).collect()
+    };
+    let layouts = json_of(&call(&c, "widget_sources", json!({ "pack": "deck-layouts" })).await);
+    assert_that!(names(&layouts)).contains("cover".to_owned());
+    let own = json_of(&call(&c, "widget_sources", json!({})).await);
+    assert_that!(names(&own)).does_not_contain("cover".to_owned());
+    let source = call(&c, "widget_source", json!({ "pack": "deck-layouts", "name": "cover" })).await;
+    assert_that!(text_of(&source)).is_equal_to(COVER.to_owned());
 }
 
 /// Le texte d'un résultat d'erreur, débarrassé des isolants Unicode de Fluent.
@@ -144,10 +179,11 @@ async fn widget_tools_on_a_closed_tab_answer_in_the_user_language() {
     assert_that!(text).is_equal_to("Cet onglet n'est plus ouvert.".to_owned());
 }
 
-const SET: &str = "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10";
+/// Le pack de widgets intégré `base`, édité en mode pack.
+const SET: uuid::Uuid = oku_slides_session::pack::BASE_PACK;
 
-async fn in_templates_with_kpi(c: &std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>) {
-    call(c, "edit_templates", json!({ "set": SET })).await;
+async fn in_pack_mode_with_kpi(c: &std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>) {
+    call(c, "edit_pack", json!({ "pack": SET })).await;
     call(c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
 }
@@ -163,19 +199,19 @@ fn touched(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> Vec<(String, 
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn set_widget_trial_in_templates_mode_returns_the_trials() {
+async fn set_widget_trial_in_pack_mode_returns_the_trials() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    in_templates_with_kpi(&c).await;
+    in_pack_mode_with_kpi(&c).await;
     let r = json_of(&call(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await);
     assert_that!(r["trials"]["value"].as_str()).is_equal_to(Some("12"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn set_widget_trial_in_templates_mode_emits_changed() {
+async fn set_widget_trial_in_pack_mode_emits_changed() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    in_templates_with_kpi(&c).await;
+    in_pack_mode_with_kpi(&c).await;
     let mut rx = h.hub.subscribe();
     call(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await;
     let mut changed = false;
@@ -185,13 +221,13 @@ async fn set_widget_trial_in_templates_mode_emits_changed() {
     assert_that!(changed).is_true();
 }
 
-/// t-524 : deux `set_widget_trial` d'un même tour, en mode modèles, sont une seule étape
+/// t-524 : deux `set_widget_trial` d'un même tour, en mode pack, sont une seule étape
 /// d'annulation ; l'annuler ramène l'étape d'avant le tour.
 #[tokio::test(flavor = "multi_thread")]
-async fn set_widget_trial_twice_in_a_templates_turn_is_one_undo_step() {
+async fn set_widget_trial_twice_in_a_pack_mode_turn_is_one_undo_step() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    in_templates_with_kpi(&c).await;
+    in_pack_mode_with_kpi(&c).await;
     let session = std::sync::Arc::clone(&h.session);
     let before = tokio::task::spawn_blocking(move || {
         let mut s = session.lock().unwrap();
@@ -224,14 +260,14 @@ async fn set_widget_trial_in_deck_mode_is_refused() {
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
     let msg = error_text(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await;
-    assert_that!(msg.as_str()).contains("modèles");
+    assert_that!(msg).is_equal_to(h.localizer.tr("session-not-editing-pack"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn set_and_remove_widget_in_templates_mode_emit_widget_touched() {
+async fn set_and_remove_widget_in_pack_mode_emit_widget_touched() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": SET })).await;
+    call(&c, "edit_pack", json!({ "pack": SET })).await;
     let mut rx = h.hub.subscribe();
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
@@ -256,17 +292,17 @@ async fn set_widget_in_deck_mode_emits_no_widget_touched() {
 async fn set_widget_refused_emits_no_widget_touched() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": SET })).await;
+    call(&c, "edit_pack", json!({ "pack": SET })).await;
     let mut rx = h.hub.subscribe();
     call(&c, "set_widget", json!({ "name": "kpi", "source": "a\0b" })).await;
     assert_that!(touched(&mut rx)).is_empty();
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn set_widget_twice_in_a_templates_turn_is_one_undo_step() {
+async fn set_widget_twice_in_a_pack_mode_turn_is_one_undo_step() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": SET })).await;
+    call(&c, "edit_pack", json!({ "pack": SET })).await;
     h.session.lock().unwrap().begin_turn(1, "deux widgets");
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
@@ -321,11 +357,12 @@ async fn apply_edit_list_on_a_nested_path_edits_the_step_tasks_and_undoes() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn deck_outline_lists_the_pinned_widget_packs_by_namespace() {
+async fn deck_outline_lists_the_pinned_widget_and_layout_packs_by_namespace() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    assert_that!(outline["widget_packs"]["essentiel"]["id"].is_string()).is_true();
+    assert_that!(outline["widget_packs"]["base"]["id"].is_string()).is_true();
+    assert_that!(outline["layout_packs"]["essentiel"]["id"].is_string()).is_true();
     assert_that!(outline.get("template_set").is_none()).is_true();
 }
 

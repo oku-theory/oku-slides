@@ -3,7 +3,7 @@
 use std::io::Cursor;
 
 use super::*;
-use crate::{Namespace, PackFiles, PackPin, PackVersion};
+use crate::{Namespace, PackFiles, PackKind, PackPin, PackVersion};
 
 /// Id du pack de test, celui que `pin_pack` épingle.
 const PACK_ID: &str = "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10";
@@ -15,12 +15,37 @@ fn pack(name: &str, widgets: &[(&str, &str)]) -> PackFiles {
 
 /// Comme `pack`, sous l'espace de noms `ns` et avec les besoins `requires`.
 fn pack_in(ns: &str, requires: &[&str], name: &str, widgets: &[(&str, &str)]) -> PackFiles {
+    kinded_pack(PackKind::Widgets, ns, requires, name, widgets)
+}
+
+/// Un pack de test de sorte `kind`, sous l'espace de noms `ns`.
+fn kinded_pack(kind: PackKind, ns: &str, requires: &[&str], name: &str, widgets: &[(&str, &str)]) -> PackFiles {
     let manifest = serde_json::json!({
         "id": PACK_ID, "name": name, "namespace": ns, "requires": requires,
-        "created": "2026-10-18T00:00:00Z", "templates": [],
+        "created": "2026-10-18T00:00:00Z",
     });
     let widgets = widgets.iter().map(|(n, s)| (crate::WidgetFile::parse(n).unwrap(), (*s).to_owned())).collect();
-    PackFiles::new(manifest.as_object().cloned().unwrap(), widgets)
+    PackFiles::new(kind, manifest.as_object().cloned().unwrap(), widgets)
+}
+
+/// `roadmap` qui épingle sous `ns`, dans la carte de sa sorte, le pack `files`, et son bundle.
+fn kinded_bundle(files: &PackFiles, ns: &str) -> SourceBundle {
+    let mut deck = roadmap();
+    let pin = PackPin { id: PACK_ID.parse().unwrap(), version: files.version(), requires: Vec::new() };
+    let pins = match files.kind() {
+        PackKind::Widgets => &mut deck.widgets,
+        PackKind::Layouts => &mut deck.layouts,
+    };
+    pins.insert(Namespace::parse(ns).unwrap(), pin);
+    let mut b = SourceBundle::new(deck, crate::test_registry::shared()).unwrap();
+    b.add_pack(files.clone());
+    b
+}
+
+/// Les noms des entrées du zip `bytes`.
+fn zip_entry_names(bytes: &[u8]) -> Vec<String> {
+    let za = zip::ZipArchive::new(Cursor::new(bytes.to_vec())).unwrap();
+    za.file_names().map(|n| n.unwrap().into_owned()).collect()
 }
 
 /// Épingle `version` sous l'espace de noms de test `p`, à la place du précédent.
@@ -83,6 +108,8 @@ fn from_zip_pack_whose_content_differs_from_its_hash_is_discarded_and_reported()
 #[case("widgets/abc/widgets.json")]
 #[case("widgets/FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/widgets.json")]
 #[case("widgets/../widgets.json")]
+#[case(&format!("layouts/{}/widgets/kpi.typ", "a".repeat(64)))]
+#[case("layouts/abc/layouts.json")]
 fn from_zip_pack_with_an_invalid_path_returns_bad_name(#[case] name: &str) {
     let loro = deck_loro();
     let entries: &[(&str, &[u8])] = &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name, b"{}")];
@@ -159,6 +186,8 @@ fn from_zip_pack_with_widgets_but_no_pack_json_is_discarded_and_reported() {
 /// t-328 : les entrées de répertoire `widgets/` et `widgets/<hex>/` sont ignorées.
 #[rstest::rstest]
 #[case("widgets/")]
+#[case("layouts/")]
+#[case(&format!("layouts/{}/layouts/", "a".repeat(64)))]
 #[case(&format!("widgets/{}/", "a".repeat(64)))]
 #[case(&format!("widgets/{}/widgets/", "a".repeat(64)))]
 #[case(&format!("widgets/{}/widgets.typ", "a".repeat(64)))]
@@ -364,4 +393,90 @@ fn sources_same_missing_version_pinned_twice_is_reported_once() {
     b.packs.clear();
     let ids = issue_ids_after_roundtrip(&b);
     assert_that!(ids.iter().filter(|i| *i == "issue-pack-version-missing").count()).is_equal_to(1);
+}
+
+#[test]
+fn sources_layouts_pack_round_trips_under_layouts_dir() {
+    let files = kinded_pack(PackKind::Layouts, "essentiel", &[], "E", &[("content", "#let widget = none")]);
+    let zip = kinded_bundle(&files, "essentiel").to_zip().unwrap();
+    let hex = files.version().hex().to_owned();
+    let names = zip_entry_names(&zip);
+    let (back, issues) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
+    let expected = [format!("layouts/{hex}/layouts.json"), format!("layouts/{hex}/layouts/content.typ")];
+    assert_that!(expected.iter().all(|e| names.contains(e))).is_true();
+    assert_that!(issues).is_empty();
+    assert_that!(back.packs.get(&files.version())).is_equal_to(Some(&files));
+    assert_that!(back.packs.values().next().map(PackFiles::kind)).is_equal_to(Some(PackKind::Layouts));
+}
+
+#[test]
+fn sources_pin_of_layouts_on_widget_files_is_an_issue() {
+    let files = pack("P", &[]);
+    let mut b = kinded_bundle(&files, "p");
+    let mut deck = b.deck().clone();
+    let pin = deck.widgets.remove(&Namespace::parse("p").unwrap()).unwrap();
+    deck.layouts.insert(Namespace::parse("p").unwrap(), pin);
+    b.apply_silent(deck).unwrap();
+    let keys: Vec<String> = b.embedded_issues().iter().map(|i| i.message.id().to_owned()).collect();
+    assert_that!(keys).is_equal_to(vec!["issue-pack-kind-mismatch".to_owned()]);
+}
+
+#[test]
+fn sources_namespace_pinned_under_both_kinds_is_a_conflict_issue() {
+    let widgets = pack("P", &[]);
+    let layouts = kinded_pack(PackKind::Layouts, "p", &[], "P", &[]);
+    let mut b = kinded_bundle(&widgets, "p");
+    let mut deck = b.deck().clone();
+    let pin = PackPin { id: PACK_ID.parse().unwrap(), version: layouts.version(), requires: Vec::new() };
+    deck.layouts.insert(Namespace::parse("p").unwrap(), pin);
+    b.add_pack(layouts);
+    b.apply_silent(deck).unwrap();
+    let keys: Vec<String> = b.embedded_issues().iter().map(|i| i.message.id().to_owned()).collect();
+    assert_that!(keys).is_equal_to(vec!["issue-pack-kind-conflict".to_owned()]);
+}
+
+#[test]
+fn sources_pin_of_widgets_on_layout_files_is_an_issue() {
+    let files = kinded_pack(PackKind::Layouts, "p", &[], "P", &[]);
+    let mut b = kinded_bundle(&files, "p");
+    let mut deck = b.deck().clone();
+    let pin = deck.layouts.remove(&Namespace::parse("p").unwrap()).unwrap();
+    deck.widgets.insert(Namespace::parse("p").unwrap(), pin);
+    b.apply_silent(deck).unwrap();
+    assert_that!(issue_ids_after_roundtrip(&b)).is_equal_to(vec!["issue-pack-kind-mismatch".to_owned()]);
+}
+
+#[test]
+fn sources_layouts_pin_requiring_an_unpinned_widget_pack_reports_it() {
+    let files = kinded_pack(PackKind::Layouts, "p", &["base"], "P", &[]);
+    let mut deck = roadmap();
+    deck.layouts.insert(Namespace::parse("p").unwrap(), pin_of(&files, &["base"]));
+    let mut b = SourceBundle::new(deck, crate::test_registry::shared()).unwrap();
+    b.add_pack(files);
+    assert_that!(issue_ids_after_roundtrip(&b)).is_equal_to(vec!["issue-pack-requirement-missing".to_owned()]);
+}
+
+#[test]
+fn from_zip_layouts_entry_named_widgets_json_is_ignored() {
+    // Un pack de widgets rangé sous `layouts/` : son manifeste n'est pas `layouts.json`, il est ignoré.
+    let files = pack("P", &[]);
+    let loro = deck_loro();
+    let name = format!("layouts/{}/widgets.json", files.version().hex());
+    let json = files.pack_json().unwrap();
+    let entries: &[(&str, &[u8])] = &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name.as_str(), &json)];
+    let (b, issues) = SourceBundle::from_zip(&zip(entries), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!((b.packs.is_empty(), issues.is_empty())).is_equal_to((true, true));
+}
+
+#[test]
+fn from_zip_widgets_files_relabelled_as_layouts_fail_their_hash() {
+    // Les octets d'un pack de widgets sous `layouts/<même hex>/layouts.json` : la sorte change l'empreinte.
+    let files = pack("P", &[]);
+    let loro = deck_loro();
+    let name = format!("layouts/{}/layouts.json", files.version().hex());
+    let json = files.pack_json().unwrap();
+    let entries: &[(&str, &[u8])] = &[("manifest.json", MANIFEST), ("deck.loro", &loro), (name.as_str(), &json)];
+    let (b, issues) = SourceBundle::from_zip(&zip(entries), MAX, crate::test_registry::shared()).unwrap();
+    let ids: Vec<&str> = issues.iter().map(|i| i.message.id()).collect();
+    assert_that!((b.packs.is_empty(), ids)).is_equal_to((true, vec!["issue-pack-version-mismatch"]));
 }

@@ -48,7 +48,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Prefix dictation settings keys with dictation. so they are not confused with the stt section of config.toml. (plan:2026-09-26-agent-vocal)
 - Confirm non-undoable MCP tools through SurfaceHub::confirm before executing; add no host-side permission trait. (spec:2026-09-26-agent-vocal-design)
 - Ask no confirmation for edit_theme on a deck-only theme; its new version stays in the deck as one undo step. (t-692)
-- Emit widget_touched only in templates mode. (plan:2026-10-03-widgets-agent-a2ui)
+- Emit widget_touched only in pack mode. (plan:2026-10-03-widgets-agent-a2ui, t-1065)
 - Return invalid render or report input to the agent as a readable tool-result error, and display nothing. (spec:2026-10-03-agent-a2ui-design)
 - Change the interface language through set_interface, never set_setting, so every window follows at once. (t-988)
 - Open the theme picker for the agent only through show_themes and SurfaceHub::show_themes, outside any turn, refusing an unknown slide; ThemeChoice stays host-only in render. (t-1089)

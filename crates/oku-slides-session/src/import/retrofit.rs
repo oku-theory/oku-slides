@@ -1,36 +1,39 @@
 //! Le retrofit.
 //!
-//! Le contenu de la présentation projeté sur un pack et un thème existants
-//! (`oku_slides_import::retrofit`). Le pack est désigné par son id ou son nom
-//! ([`PackLookup::Library`], l'app), ou aussi son dossier ([`PackLookup::LibraryOrDir`], la CLI) ;
-//! le thème par son id ou son nom, sinon le thème par défaut.
+//! Le contenu de la présentation projeté sur des packs de layouts et un thème
+//! existants (`oku_slides_import::retrofit`), guidé par les profils de chaque
+//! pack cible, dans l'ordre donné. Un pack est désigné par son id ou son nom
+//! ([`PackLookup::Library`], l'app), ou aussi son dossier
+//! ([`PackLookup::LibraryOrDir`], la CLI) ; sans pack désigné, `essentiel`.
+//! Le thème par son id ou son nom, sinon le thème par défaut.
 //!
-//! Le deck prend la version cible du pack, telle quelle ; son pack enfant
-//! ([`ChildPack`]) n'est créé qu'à la première écriture d'un widget, et ni le
-//! pack cible ni la bibliothèque ne changent.
+//! Le deck épingle le `base` intégré, puis chaque pack cible dans sa version
+//! désignée et ses besoins ; ni les packs cibles ni la bibliothèque ne changent.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::{Map, Value};
-use snafu::{OptionExt, ResultExt};
+use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, PackManifest, PackPin, SourceBundle, ThemeRef, WidgetRegistry, kinds};
+use oku_slides_core::{
+    Deck, LayoutProfile, Namespace, PackFiles, PackKind, PackManifest, PackPin, SourceBundle, ThemeRef, WidgetRegistry,
+};
 use oku_slides_import::RetrofitTarget;
 use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
 use oku_slides_platform::Platform;
 
-use super::child_pack::ChildPack;
 use super::error::{
-    BadPackSnafu, BadThemeSnafu, LibrarySnafu, PresentationSnafu, Result, SourcesSnafu, UnknownThemeSnafu,
+    BadPackSnafu, BadThemeSnafu, LibrarySnafu, NotLayoutPackSnafu, PresentationSnafu, Result, SourcesSnafu,
+    UnknownThemeSnafu,
 };
 use super::{Input, PackLookup, Prepared};
 use crate::deck_closure::closure_with_files;
 use crate::deck_pack::builtin_pin;
 use crate::deck_theme::manifest_of;
 use crate::error::ThemeVersionMissingSnafu;
-use crate::pack::BASE_PACK;
+use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::theme_schema::default_tokens;
 use crate::{
     DEFAULT_THEME, PackLibrary, ThemeLibrary, adopt_default_theme, embed_theme, library_pack, resolve_pack,
@@ -55,39 +58,53 @@ fn deck_tokens(bundle: &SourceBundle, r: &ThemeRef) -> Result<Map<String, Value>
     Ok(effective_tokens(default_tokens(), &own))
 }
 
-/// Le retrofit de `input` sur le pack `wanted` et le thème `theme`.
+/// Les fichiers du pack de layouts désigné par `wanted`, cherché selon `lookup`.
 ///
-/// `input` est le `.pptx` nommé `name` ; `wanted` se cherche selon `lookup`.
+/// Un pack d'une autre sorte est refusé (`NotLayoutPack`).
+fn layout_pack(platform: &Platform, library: &PackLibrary, wanted: &str, lookup: PackLookup) -> Result<PackFiles> {
+    let files = match lookup {
+        PackLookup::Library => library_pack(library, wanted)?,
+        PackLookup::LibraryOrDir => {
+            resolve_pack(&platform.storage, library, wanted, platform.settings.sources.max_sources_bytes())?
+        }
+    };
+    ensure!(files.kind() == PackKind::Layouts, NotLayoutPackSnafu { pack: wanted });
+    Ok(files)
+}
+
+/// Le retrofit de `input` sur les packs de layouts `wanted` (vide : `essentiel`) et le thème `theme`.
+///
+/// Chaque pack de `wanted` se cherche selon `lookup` ; ses profils s'ajoutent, dans l'ordre.
 pub(crate) fn prepare(
     platform: &Platform,
     base: &Arc<WidgetRegistry>,
-    (wanted, theme, lookup): (&str, Option<&str>, PackLookup),
-    name: &str,
+    (wanted, theme, lookup): (&[String], Option<&str>, PackLookup),
     input: &Input,
 ) -> Result<Prepared> {
     let library = PackLibrary::user(platform);
-    let target = match lookup {
-        PackLookup::Library => library_pack(&library, wanted)?,
-        PackLookup::LibraryOrDir => {
-            resolve_pack(&platform.storage, &library, wanted, platform.settings.sources.max_sources_bytes())?
-        }
-    };
-    let manifest = PackManifest::from_files(&target).context(BadPackSnafu { pack: wanted })?;
-    let pin = PackPin { id: manifest.id, version: target.version(), requires: manifest.requires.clone() };
-    let child = ChildPack::new(&platform.live_localizer.current(), &input.bytes, pin.clone(), &manifest.name, name);
+    let essentiel = [ESSENTIEL_PACK.to_string()];
+    let wanted = if wanted.is_empty() { essentiel.as_slice() } else { wanted };
     let mut deck = Deck::empty();
-    let mut packs = BTreeMap::from([(pin.version.clone(), target.clone())]);
-    // Le pack cible et ses besoins, pris dans la bibliothèque.
-    let wanted = (manifest.namespace.clone(), pin, target);
-    for (ns, pin, files) in closure_with_files(&library, &deck, wanted, &packs).context(LibrarySnafu)? {
-        packs.insert(pin.version.clone(), files);
-        deck.widgets.insert(ns, pin);
-    }
-    // Le retrofit écrit des éléments `base/*` : le `base` intégré si la fermeture de la cible ne l'a pas.
-    if !deck.widgets.contains_key(&kinds::base::namespace()) {
-        let (ns, pin, files) = builtin_pin(BASE_PACK).context(LibrarySnafu)?;
-        packs.insert(pin.version.clone(), files);
-        deck.widgets.insert(ns, pin);
+    // Le retrofit écrit des éléments `base/*` : le `base` intégré, épinglé d'abord.
+    let (ns, pin, files) = builtin_pin(BASE_PACK).context(LibrarySnafu)?;
+    let mut packs = BTreeMap::from([(pin.version.clone(), files)]);
+    deck.widgets.insert(ns, pin);
+    let mut profiles: Vec<(Namespace, LayoutProfile)> = Vec::new();
+    for name in wanted {
+        let target = layout_pack(platform, &library, name, lookup)?;
+        let manifest = PackManifest::from_files(&target).context(BadPackSnafu { pack: name.as_str() })?;
+        // Un pack désigné deux fois ne compte qu'une fois.
+        if deck.layouts.contains_key(&manifest.namespace) {
+            continue;
+        }
+        let pin = PackPin { id: manifest.id, version: target.version(), requires: manifest.requires.clone() };
+        // Le pack cible et ses besoins, pris dans la bibliothèque.
+        let pinned = (manifest.namespace.clone(), pin, target);
+        for (ns, pin, files) in closure_with_files(&library, &deck, pinned, &packs).context(LibrarySnafu)? {
+            deck.pins_mut(files.kind()).insert(ns, pin.clone());
+            packs.insert(pin.version, files);
+        }
+        profiles.extend(manifest.profiles.iter().map(|p| (manifest.namespace.clone(), p.clone())));
     }
     let (mut bundle, widgets) = sources_with_packs(platform, &library, base, deck, packs)?;
     let themes = ThemeLibrary::user(platform);
@@ -102,13 +119,15 @@ pub(crate) fn prepare(
     let theme = bundle.deck().theme.clone().context(UnknownThemeSnafu { theme: DEFAULT_THEME.to_string() })?;
     let tokens = deck_tokens(&bundle, &theme)?;
     let target = RetrofitTarget {
-        templates: &manifest.templates,
+        profiles: &profiles,
         registry: &widgets.registry,
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
     };
-    let plan = retrofit::project(&input.source, &target).check_budget(&input.limits).context(PresentationSnafu)?;
-    Ok(Prepared { bundle, widgets, plan, child: Some(child) })
+    let plan = retrofit::project(&input.source, &target)
+        .and_then(|plan| plan.check_budget(&input.limits))
+        .context(PresentationSnafu)?;
+    Ok(Prepared { bundle, widgets, plan })
 }
 
 #[cfg(test)]

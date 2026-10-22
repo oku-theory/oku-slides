@@ -72,7 +72,7 @@ async fn show_themes_twice_replaces_the_picker_without_closing_it() {
 async fn show_themes_outside_deck_mode_shows_nothing() {
     let h = start().await;
     tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_templates(oku_slides_session::pack::DEFAULT_PACK).unwrap()
+        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap()
     });
     assert_that!((show(&h), open(&h))).is_equal_to((false, false));
 }
@@ -164,11 +164,11 @@ async fn prune_after_an_outside_theme_change_marks_it_active() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn prune_in_templates_mode_closes_the_picker() {
+async fn prune_in_pack_mode_closes_the_picker() {
     let h = start().await;
     show(&h);
     tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_templates(oku_slides_session::pack::DEFAULT_PACK).unwrap()
+        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap()
     });
     tokio::task::block_in_place(|| h.hub.prune());
     assert_that!(open(&h)).is_false();
@@ -290,7 +290,7 @@ async fn show_themes_tool_pick_is_noted_for_the_agent() {
 async fn show_themes_tool_outside_deck_mode_says_so_in_french() {
     let h = start().await;
     tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_templates(oku_slides_session::pack::DEFAULT_PACK).unwrap()
+        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap()
     });
     let r = call_show_themes(&h, json!({})).await;
     let said = (r.is_error, common::text_of(&r), open(&h));

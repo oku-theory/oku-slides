@@ -173,7 +173,7 @@ fn import_diff_of_an_unknown_slide_or_region_is_refused() {
 #[test]
 fn import_diff_of_a_retrofit_import_is_refused() {
     let data = fresh_dir("oku-slides-import-diff-retrofit-");
-    let target = ImportTarget::Retrofit { pack: "Essentiel".into(), theme: None };
+    let target = ImportTarget::Retrofit { layouts: Vec::new(), theme: None };
     let mut s = imported_fixture(data.path(), "minimal", target, |_| {});
     let slide = s.deck().slides[0].id.clone();
     let e = s.import_diff(&slide, None).unwrap_err();

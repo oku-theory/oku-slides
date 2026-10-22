@@ -150,7 +150,7 @@ export default function WidgetPicker({ choices, canPick, themeKey, preview, onPi
               <span className="widget-choice-face">
                 {"native" in c.pick ? Icon[c.pick.native] : urls.has(c.name) ? <img src={urls.get(c.name)} alt="" draggable={false} /> : Icon.widget}
               </span>
-              <span className="template-name">{c.label}</span>
+              <span className="card-name">{c.label}</span>
               <span className="caption">{c.description}</span>
             </button>
           ))}

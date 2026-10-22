@@ -96,7 +96,7 @@ export function useAppKeys({
           return;
         }
       }
-      // Sous-onglet widget : ⌘Z va à son éditeur (`useTemplateWidgets`), jamais aux modèles.
+      // Sous-onglet widget : ⌘Z va à son éditeur (`usePackWidgetEditor`), jamais au deck de travail.
       if (mod && e.key.toLowerCase() === "z") {
         if (widgetActive) return;
         e.preventDefault();

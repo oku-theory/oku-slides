@@ -111,14 +111,14 @@ fn undo_turn_refusal_is_localized() {
 }
 
 #[test]
-fn undo_turn_in_templates_mode_is_none() {
+fn undo_turn_in_pack_mode_is_none() {
     let data = fresh_dir("oku-slides-turn-undo-");
     let mut s = opened_on(data.path());
     agent_turn(&mut s, 5, "Par l'agent");
-    let set = crate::DEFAULT_PACK;
-    s.edit_templates(set).unwrap();
+    let set = crate::ESSENTIEL_PACK;
+    s.edit_pack(set).unwrap();
     assert_that!(s.snapshot().undo_turn).is_none();
-    s.close_templates().unwrap();
+    s.close_pack().unwrap();
     assert_that!(s.undo_turn()).is_equal_to(Some(5));
 }
 
@@ -141,8 +141,8 @@ fn undo_after_a_tune_turn_restores_the_imported_deck_then_undoes_the_import() {
     // Le tour de fine-tuning : deux corrections de l'agent, sur deux slides.
     s.begin_turn(1, "fine-tune l'import");
     for slide in [imported.slides[0].id.clone(), imported.slides[1].id.clone()] {
-        let op = Op::SetSlideField { slide, field: oku_slides_core::SlideField::Description, value: json!("Revue") };
-        s.apply("Décrire", vec![op], None).unwrap();
+        let op = Op::SetNotes { slide, notes: "Revue".into() };
+        s.apply("Noter", vec![op], None).unwrap();
     }
     s.end_turn();
     assert_that!(s.deck()).is_not_equal_to(&imported);

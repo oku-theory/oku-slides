@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = wskazówka: { $hint }
 render-chart-failed = nie udało się narysować wykresu
 
-registry-bad-pack-id = Nieprawidłowy identyfikator pakietu szablonów: { $id }
-registry-base-pack-broken = Wbudowany pakiet widżetów jest uszkodzony ({ $file }); zainstaluj aplikację ponownie.
-registry-duplicate-pack = Dwa pakiety widżetów prezentacji współdzielą { $pack }.
-registry-compile = Nie udało się skompilować widżetów pakietu szablonów
-registry-missing = Pakiet szablonów nie deklaruje swoich widżetów
+registry-bad-pack-id = Nieprawidłowy identyfikator pakietu: { $id }
+registry-base-pack-broken = Wbudowany pakiet jest uszkodzony ({ $file }); zainstaluj aplikację ponownie.
+registry-duplicate-pack = Dwa pakiety prezentacji współdzielą { $pack }.
+registry-compile = Nie udało się skompilować widżetów pakietu
+registry-missing = Pakiet nie deklaruje swoich widżetów
 render-timeout = Renderowanie trwało dłużej niż { $seconds } s i zostało przerwane
 render-out-of-memory = Renderowanie wymagało więcej niż { $mib } MiB pamięci i zostało przerwane
 render-worker-lost = Proces renderowania został zatrzymany
@@ -41,6 +41,7 @@ import-not-a-presentation = Ten plik nie jest prezentacją PowerPoint
 import-protected = Ta prezentacja jest zaszyfrowana lub w starym formacie .ppt: najpierw zapisz ją jako .pptx
 import-too-large = Ta prezentacja jest zbyt duża, aby ją zaimportować
 import-output-too-large = Powstała prezentacja przekroczyłaby rozmiar dozwolony dla importu
+import-no-profiles = Wybrane pakiety układów nie proponują żadnego profilu.
 import-loss-list-levels = Poziomy listy spłaszczone do jednego
 import-loss-merged-cells = Scalone komórki rozdzielone
 import-loss-percent-stacked = Wykres skumulowany 100% pokazany jako skumulowany
@@ -79,7 +80,7 @@ import-loss-repeated-decor = { $slides ->
    [many] Nagłówek lub stopka „{ $text }” powtórzone na { $slides } slajdach pominięte: motyw rysuje własne
   *[other] Nagłówek lub stopka „{ $text }” powtórzone na { $slides } slajdu pominięte: motyw rysuje własne
 }
-import-loss-no-slot = Treść pominięta: wybrany szablon nie ma na nią miejsca
+import-loss-no-slot = Treść pominięta: wybrany układ nie ma na nią miejsca
 import-loss-moved-to-notes = Tekst przeniesiony do notatek prelegenta: okładka nie ma na niego miejsca
 import-loss-items-dropped = Zbyt wiele elementów na slajdzie: pominięte elementy: { $dropped }
 import-loss-page-fitted = Strona źródłowa { $width } × { $height } pt nie ma proporcji 16:9: treść przeskalowana i wyśrodkowana
@@ -91,7 +92,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Groty strzałek linii nie zostały narysowane
    *[geometry] Nieznany kształt pokazano jako prostokąt
 }
-import-loss-layout-dropped = Za dużo układów na jeden pakiet: „{ $layout }” nie ma szablonu; jego slajdy używają pustego widżetu i dostają jego dekorację jako elementy
+import-loss-layout-dropped = Za dużo układów na jeden pakiet: „{ $layout }” nie ma widżetu; jego slajdy używają pustego widżetu i dostają jego dekorację jako elementy
 import-loss-decor-truncated = Dekoracja przycięta, by zmieścić się w rozmiarze pliku pakietu: pominięte elementy: { $omitted }
 import-loss-table-style = Styl tabeli przybliżony: jej własne tła komórek, obramowania, szerokości kolumn, wysokości wierszy lub rozmiary tekstu są tracone
 import-loss-overflow = Element „{ $element }” wychodzi poza krawędź slajdu

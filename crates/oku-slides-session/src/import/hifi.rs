@@ -1,6 +1,8 @@
 //! Le hi-fi : la présentation reproduite fidèlement (`oku_slides_import::hifi`).
 //!
-//! Elle vient sur un thème et un pack générés pour elle.
+//! Elle vient sur un thème et un pack de layouts générés pour elle (`deck-layouts`,
+//! du deck seul, qui requiert `base`), avec `base` et `essentiel` intégrés (les
+//! slides de repli sont des `essentiel/blank`).
 //!
 //! Le catalogue des polices réunit celles de l'app (celles du rendu) et, si
 //! demandé, celles du système des seules familles que cherche la présentation
@@ -42,14 +44,14 @@ use super::error::{
 };
 use super::{Input, Prepared};
 use crate::deck_pack::builtin_pin;
-use crate::pack::BASE_PACK;
+use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::{PackLibrary, sources_with_packs};
 
 /// Ce que le hi-fi prend de la demande d'import.
 pub(crate) struct HifiArgs<'a> {
     /// Les polices de l'app, celles du rendu.
     pub(crate) fonts: &'a Fonts,
-    /// Le registre intégré : le noyau et le `base` intégré.
+    /// Le registre intégré : les packs `base` et `essentiel` intégrés.
     pub(crate) base: &'a Arc<WidgetRegistry>,
     /// Le nom du pack et du thème générés.
     pub(crate) name: String,
@@ -70,8 +72,10 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
     let (pack_id, theme_id) = identity(&input.bytes);
     // Le `base` intégré, jamais la version de l'utilisateur : le registre de la cible est le sien.
     let (base_ns, base_pin, base_files) = builtin_pin(BASE_PACK).context(LibrarySnafu)?;
+    let (essentiel_ns, essentiel_pin, essentiel_files) = builtin_pin(ESSENTIEL_PACK).context(LibrarySnafu)?;
     let target = HifiTarget {
         base: base_pin.clone(),
+        essentiel: essentiel_pin.clone(),
         registry: args.base,
         fonts: &catalog,
         pack_id,
@@ -90,11 +94,13 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
     // Un manifeste généré illisible est un bogue du générateur, dit comme un pack illisible.
     let requires = PackManifest::from_files(&pack).context(BadPackSnafu { pack: target.name.as_str() })?.requires;
     let mut deck = Deck::empty();
-    // `base` d'abord, épinglé avant la sonde ; l'op `AddPack base` du plan le retrouve tel quel.
+    // `base` et `essentiel` d'abord, épinglés avant la sonde ; les ops `AddPack` du plan les retrouvent tels quels.
     deck.widgets.insert(base_ns, base_pin.clone());
-    // Le pack généré est le pack propre du deck : épinglé sous `deck`, il requiert `base`.
-    deck.widgets.insert(Namespace::deck(), PackPin { id: pack_id, version: version.clone(), requires });
-    let packs = BTreeMap::from([(base_pin.version, base_files), (version, pack)]);
+    deck.layouts.insert(essentiel_ns, essentiel_pin.clone());
+    // Le pack généré est le pack de layouts propre du deck : épinglé sous `deck-layouts`, il requiert `base`.
+    deck.layouts.insert(Namespace::deck_layouts(), PackPin { id: pack_id, version: version.clone(), requires });
+    let packs =
+        BTreeMap::from([(base_pin.version, base_files), (essentiel_pin.version, essentiel_files), (version, pack)]);
     let library = PackLibrary::user(platform);
     let (mut bundle, widgets) = sources_with_packs(platform, &library, args.base, deck, packs)?;
     // Une sonde tout entière échouée (processus de rendu) n'est pas un écart du générateur.
@@ -104,7 +110,7 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
     let files: Vec<WidgetFile> = sizes.keys().cloned().collect();
     if let Err(widget) = check_probe(&widgets.registry, &plan.schemas, &files) {
         let none = BTreeSet::new();
-        let unprobed = widgets.unprobed.get(&Namespace::deck()).unwrap_or(&none);
+        let unprobed = widgets.unprobed.get(&Namespace::deck_layouts()).unwrap_or(&none);
         let refused = if beyond_limits(&widget, &sizes, unprobed, target.limits) {
             ProbeLimitSnafu { widget }.build()
         } else {
@@ -114,7 +120,7 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
     }
     bundle.add_theme(theme);
     bundle.fonts.extend(plan.take_fonts());
-    Ok(Prepared { bundle, widgets, plan, child: None })
+    Ok(Prepared { bundle, widgets, plan })
 }
 
 /// Ids du pack et du thème générés pour un `.pptx`.
@@ -164,9 +170,9 @@ fn beyond_limits(
 /// nom du premier widget en écart (absent, différent ou non déclaré). Le
 /// registre sondé porte aussi la base : ses autres widgets ne sont pas du
 /// pack, d'où le contrôle des fichiers plutôt que du registre entier. Les
-/// schémas déclarés portent leur nom nu ; la sonde, leur nom qualifié sous `deck`.
+/// schémas déclarés portent leur nom nu ; la sonde, leur nom qualifié sous `deck-layouts`.
 fn check_probe(probed: &WidgetRegistry, declared: &[WidgetSchema], files: &[WidgetFile]) -> Result<(), String> {
-    let deck = Namespace::deck();
+    let deck = Namespace::deck_layouts();
     let same = |s: &WidgetSchema| {
         let qualified = WidgetSchema { name: qualify(&deck, &s.name), ..s.clone() };
         probed.get(&qualified.name) == Some(&qualified)

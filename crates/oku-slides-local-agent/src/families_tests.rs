@@ -35,3 +35,25 @@ fn route_grammar_names_every_routable_family() {
         assert_that!(grammar.as_str()).contains(format!("\"{}\"", f.key()).as_str());
     }
 }
+
+#[rstest]
+#[case("packs")]
+#[case("edit_pack")]
+#[case("save_pack")]
+#[case("close_pack")]
+#[case("delete_pack")]
+fn families_of_a_pack_tool_is_packs(#[case] tool: &str) {
+    assert_that!(families_of(tool)).is_equal_to(&[Family::Packs][..]);
+}
+
+/// Les layouts donnent les kinds de slide : utiles pour éditer comme pour l'atelier.
+#[test]
+fn families_of_layouts_is_edit_and_packs() {
+    assert_that!(families_of("layouts")).is_equal_to(&[Family::Edit, Family::Packs][..]);
+}
+
+#[test]
+fn families_no_mcp_tool_name_contains_template() {
+    let named: Vec<String> = oku_slides_mcp::tool_names().into_iter().filter(|t| t.contains("template")).collect();
+    assert_that!(named).is_empty();
+}

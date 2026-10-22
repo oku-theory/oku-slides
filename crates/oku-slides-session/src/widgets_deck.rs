@@ -1,16 +1,21 @@
 //! Widgets modifiés en mode deck : un pack épinglé par le deck gagne une version.
 //!
 //! La cible : le pack épinglé sous l'espace de noms demandé, sinon le pack
-//! propre du deck (`deck`, du deck seul), créé à la première écriture (sans
-//! parente). Jamais un autre pack par défaut : une écriture sans espace de
-//! noms ne touche pas le pack intégré du deck.
+//! propre du deck de la catégorie du widget écrit, créé à la première
+//! écriture (sans parente) : `deck` (widgets) pour un élément, `deck-layouts`
+//! (layouts) pour une slide, tous deux du deck seul. La catégorie vient de la
+//! sonde du fichier écrit ; un fichier qui ne se sonde pas (ou `_commun`) va au
+//! pack nommé, sinon à `deck`, ou à `deck-layouts` si le deck n'épingle que lui
+//! (le pack d'un import hi-fi). Un pack nommé d'une autre sorte que la catégorie du widget
+//! est refusé (`SchemaFault::PackCategory`, `widgets_edit.rs`). Jamais un autre pack par défaut : une
+//! écriture sans espace de noms ne touche pas les packs intégrés du deck.
 //!
 //! Séance : la première modification crée une version du pack cible
 //! (`parent` = la version embarquée), l'ajoute à la bibliothèque, la rend
 //! courante et l'épingle (`AddPack`, qui l'embarque) ; les
 //! suivantes la remplacent (`Library::replace_version`, nouvel
 //! `AddPack`), en une seule étape d'annulation (clé
-//! `templates-adopt:<id>:<parent>`). La version remplacée quitte les sources
+//! `pack-adopt:<id>:<parent>`). La version remplacée quitte les sources
 //! du deck et la bibliothèque seulement si l'écriture a rejoint son étape
 //! (`undo_steps` inchangé) ; sinon annuler y revient, elle reste. Annuler
 //! rend la version d'avant ; la bibliothèque garde la version créée. La
@@ -24,26 +29,43 @@
 //! diagnostics). Une écriture qui échoue ensuite pose l'avis
 //! `session-widgets-not-saved` : le deck garde la version, pas la bibliothèque.
 //!
-//! Un pack du deck seul (`PackScope::Deck` : le pack de l'import) suit la
-//! même séance, sans jamais écrire la bibliothèque ni poser d'avis : ses
-//! versions ne vivent que dans les sources du deck. Un deck de retrofit sur
-//! son pack cible y passe à la première écriture : la version de la séance
-//! est alors celle de son pack enfant (`import::child_pack`), de parente la
-//! version cible.
+//! Un pack du deck seul (`PackScope::Deck` : `deck`, `deck-layouts`, le pack
+//! d'un import hi-fi) suit la même séance, sans jamais écrire la bibliothèque
+//! ni poser d'avis : ses versions ne vivent que dans les sources du deck.
 
 use std::collections::BTreeMap;
 
+use serde_json::Map;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, Op, PackFiles, PackPin, PackScope, PackVersion, WidgetFile, now_created};
+use oku_slides_core::{
+    Category, Namespace, Op, PackFiles, PackKind, PackPin, PackScope, PackVersion, WidgetFile, now_created,
+};
+use oku_slides_render::PackWidgets;
 
-use crate::error::{NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackVersionMissingSnafu};
+use crate::error::{NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackVersionMissingSnafu, RegistrySnafu};
 use crate::pack::PackManifest;
+use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_notice::is_deck_only;
-use crate::templates_mode::adopt_merge_key;
 use crate::widgets_edit::WidgetTarget;
 use crate::{Result, Session};
+
+/// L'espace de noms du pack propre d'un deck de sorte `kind` : `deck` ou `deck-layouts`.
+fn own_namespace(kind: PackKind) -> Namespace {
+    match kind {
+        PackKind::Widgets => Namespace::deck(),
+        PackKind::Layouts => Namespace::deck_layouts(),
+    }
+}
+
+/// La sorte de pack dont les widgets ont la catégorie `category`.
+fn kind_of_category(category: Category) -> PackKind {
+    match category {
+        Category::Element => PackKind::Widgets,
+        Category::Slide => PackKind::Layouts,
+    }
+}
 
 /// La séance de modification des widgets en mode deck.
 #[derive(Debug, Clone)]
@@ -61,47 +83,95 @@ impl Session {
         self.widget_session = None;
     }
 
-    /// Le pack du deck de l'utilisateur sous `pack` (sans : `deck`) et ses fichiers.
+    /// Le pack du deck de l'utilisateur et sa sorte, épinglé sous `ns`, s'il y en a un.
+    fn user_pin(&self, ns: &Namespace) -> Option<(PackKind, &PackPin)> {
+        self.user_deck().all_pins().find(|(_, n, _)| *n == ns).map(|(kind, _, pin)| (kind, pin))
+    }
+
+    /// Les fichiers embarqués du pack `pin`.
+    fn user_pack_files(&self, pin: &PackPin) -> Result<PackFiles> {
+        let files = self.user_blobs().packs.get(&pin.version).cloned();
+        Ok(files.context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?)
+    }
+
+    /// La catégorie du widget `name` de source `source`, par la sonde ; `None` s'il ne se sonde pas.
     ///
-    /// Sans `pack` ni pack `deck` épinglé : un pack du deck seul neuf, vide,
-    /// au nom du deck, que la première écriture épingle. Un `pack` que le deck
-    /// n'épingle pas est refusé (`UnknownNamespace`).
-    pub(crate) fn deck_widget_target(&self, pack: Option<&Namespace>) -> Result<WidgetTarget> {
-        let namespace = pack.cloned().unwrap_or_else(Namespace::deck);
-        let Some(pin) = self.deck_pins().get(&namespace) else {
+    /// Sondé seul, avec le `_commun` du pack qui le recevrait : d'abord dans la
+    /// sorte du pack `pack` (sans : widgets), puis dans l'autre.
+    pub(crate) fn written_category(
+        &self,
+        pack: Option<&Namespace>,
+        name: &WidgetFile,
+        source: &str,
+    ) -> Result<Option<Category>> {
+        let named = pack.and_then(|ns| self.user_pin(ns));
+        let first = named.map_or(PackKind::Widgets, |(kind, _)| kind);
+        let other = if first == PackKind::Widgets { PackKind::Layouts } else { PackKind::Widgets };
+        for kind in [first, other] {
+            let ns = pack.filter(|_| first == kind).cloned().unwrap_or_else(|| own_namespace(kind));
+            let mut widgets = BTreeMap::from([(name.clone(), source.to_owned())]);
+            if let Some((_, pin)) = self.user_pin(&ns).filter(|(k, _)| *k == kind) {
+                let common = self.user_pack_files(pin)?.widget(&WidgetFile::common()).map(str::to_owned);
+                widgets.extend(common.map(|c| (WidgetFile::common(), c)));
+            }
+            let id = PackFiles::new(kind, Map::new(), widgets.clone()).version();
+            let trial = PackWidgets::new(id.hex(), ns, kind, widgets).context(RegistrySnafu)?;
+            let probe = self.worker.probe_pack(&trial).context(RegistrySnafu)?;
+            if probe.files.get(name).is_some_and(oku_slides_render::FileProbe::is_valid) {
+                return Ok(Some(kind.category()));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Le pack du deck de l'utilisateur sous `pack`, sinon son pack propre pour `category`, et ses fichiers.
+    ///
+    /// Sans `pack` : `deck-layouts` pour une slide, `deck` pour un élément ; pour
+    /// une catégorie inconnue, `deck`, ou `deck-layouts` si le deck n'épingle que
+    /// lui. Sans pack propre épinglé : un pack du deck seul
+    /// neuf, vide, au nom du deck, que la première écriture épingle. Un `pack`
+    /// que le deck n'épingle pas est refusé (`NotPinned`).
+    pub(crate) fn deck_widget_target(
+        &self,
+        pack: Option<&Namespace>,
+        category: Option<Category>,
+    ) -> Result<WidgetTarget> {
+        let only_layouts =
+            self.user_pin(&Namespace::deck()).is_none() && self.user_pin(&Namespace::deck_layouts()).is_some();
+        let unknown = if only_layouts { PackKind::Layouts } else { PackKind::Widgets };
+        let wanted = category.map_or(unknown, kind_of_category);
+        let namespace = pack.cloned().unwrap_or_else(|| own_namespace(wanted));
+        let Some((kind, pin)) = self.user_pin(&namespace) else {
             if pack.is_some() {
                 return NotPinnedSnafu { namespace: namespace.as_str() }.fail()?;
             }
-            return self.new_deck_pack();
+            return self.new_deck_pack(wanted);
         };
-        let files = self
-            .user_blobs()
-            .packs
-            .get(&pin.version)
-            .cloned()
-            .context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
-        // `deck` n'appartient qu'au pack du deck seul : un pack de bibliothèque reçu sous ce nom n'est pas écrit.
-        ensure!(!namespace.is_deck() || is_deck_only(&files), NamespaceReservedSnafu { namespace: namespace.as_str() });
-        Ok(WidgetTarget { namespace, id: pin.id, version: pin.version.clone(), files })
+        let files = self.user_pack_files(pin)?;
+        // `deck` et `deck-layouts` n'appartiennent qu'aux packs du deck seul : un pack de bibliothèque reçu sous ce nom n'est pas écrit.
+        let own = namespace.is_deck() || namespace.is_deck_layouts();
+        ensure!(!own || is_deck_only(&files), NamespaceReservedSnafu { namespace: namespace.as_str() });
+        Ok(WidgetTarget { kind, namespace, id: pin.id, version: pin.version.clone(), files })
     }
 
-    /// Le pack propre du deck, pas encore créé : vide, du deck seul, au nom du deck.
-    fn new_deck_pack(&self) -> Result<WidgetTarget> {
+    /// Le pack propre du deck de sorte `kind`, pas encore créé : vide, du deck seul, au nom du deck.
+    fn new_deck_pack(&self, kind: PackKind) -> Result<WidgetTarget> {
         let id = Uuid::new_v4();
+        let namespace = own_namespace(kind);
         let manifest = PackManifest {
             id,
             name: self.document_name(&self.doc),
-            namespace: Namespace::deck(),
+            namespace: namespace.clone(),
             requires: Vec::new(),
             description: String::new(),
             parent: None,
             created: now_created(),
             scope: PackScope::Deck,
-            templates: Vec::new(),
+            profiles: Vec::new(),
             examples: Default::default(),
         };
-        let files = manifest.to_files(BTreeMap::new()).context(PackJsonSnafu { id })?;
-        Ok(WidgetTarget { namespace: Namespace::deck(), id, version: files.version(), files })
+        let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
+        Ok(WidgetTarget { kind, namespace, id, version: files.version(), files })
     }
 
     /// `manifest` et `widgets` deviennent la version de la séance ; le deck y passe.
@@ -114,9 +184,6 @@ impl Session {
         mut manifest: PackManifest,
         widgets: BTreeMap<WidgetFile, String>,
     ) -> Result<()> {
-        // Un deck de retrofit sur son pack cible : l'écriture crée son pack enfant, du deck seul.
-        let child = self.retrofit_child_target(t, &mut manifest);
-        let t = child.as_ref().unwrap_or(t);
         // La séance continue tant que le deck est sur sa version.
         let session = self.widget_session.take().filter(|s| s.id == t.id && s.version == t.version);
         let committed = self.adopt_deck_widgets(t, &mut manifest, widgets, session.as_ref());
@@ -146,7 +213,7 @@ impl Session {
         let created = !self.doc.sources.packs.contains_key(&t.version);
         let parent = session.map_or_else(|| (!created).then(|| t.version.clone()), |s| s.parent.clone());
         manifest.parent.clone_from(&parent);
-        let files = manifest.to_files(widgets).context(PackJsonSnafu { id: t.id })?;
+        let files = manifest.to_files(t.kind, widgets).context(PackJsonSnafu { id: t.id })?;
         let version = files.version();
         let embedded = self.doc.sources.packs.contains_key(&version);
         self.doc.sources.add_pack(files.clone());
@@ -154,7 +221,7 @@ impl Session {
         let merge = adopt_merge_key(t.id, parent.as_ref());
         let pin = PackPin { id: t.id, version: version.clone(), requires: manifest.requires.clone() };
         let steps = self.doc.sources.undo_steps();
-        let op = Op::AddPack { namespace: t.namespace.clone(), pin };
+        let op = Op::AddPack { kind: t.kind, namespace: t.namespace.clone(), pin };
         if let Err(e) = self.apply(&label, vec![op], Some(&merge)) {
             if !embedded {
                 self.doc.sources.packs.remove(&version);

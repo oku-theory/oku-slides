@@ -263,9 +263,9 @@ async fn merge_confirmation_names_the_file() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn merge_in_templates_mode_is_refused_without_asking() {
+async fn merge_in_pack_mode_is_refused_without_asking() {
     let h = start().await;
-    handle(&h, req(json!({ "cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK })));
+    handle(&h, req(json!({ "cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK })));
     let dir = temp_dir("oku-slides-merge-tpl-");
     let r = direct(&h, "merge", json!({ "path": dir.path().join("x.oku-slides.pdf").to_string_lossy() })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
@@ -398,7 +398,7 @@ async fn present_without_mode_presents_on_screen() {
 #[derive(Debug, Clone, Copy)]
 enum NoPresent {
     History,
-    Templates,
+    Pack,
     NoSlide,
 }
 
@@ -408,8 +408,8 @@ fn enter(h: &Harness, mode: NoPresent) {
         NoPresent::History => {
             handle(h, Request::HistoryOpen);
         }
-        NoPresent::Templates => {
-            handle(h, req(json!({ "cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK })));
+        NoPresent::Pack => {
+            handle(h, req(json!({ "cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK })));
         }
         NoPresent::NoSlide => {
             let ids: Vec<String> = snapshot(h, |s| s.slides.iter().map(|s| s.id.to_owned()).collect());
@@ -421,7 +421,7 @@ fn enter(h: &Harness, mode: NoPresent) {
 
 #[rstest]
 #[case::history(NoPresent::History)]
-#[case::templates(NoPresent::Templates)]
+#[case::pack(NoPresent::Pack)]
 #[case::no_slide(NoPresent::NoSlide)]
 #[tokio::test(flavor = "multi_thread")]
 async fn present_where_the_page_cannot_present_is_refused_and_emits_nothing(#[case] mode: NoPresent) {
@@ -513,19 +513,25 @@ async fn set_setting_no_longer_writes_the_locale() {
     assert_that!(text_of(&r)).is_equal_to(refused);
 }
 
-// --- edit_templates ---------------------------------------------------------
+// --- edit_pack --------------------------------------------------------------
 
-/// Revue t-988 : sans `set`, le pack du deck autre que `base` (celui que l'interface ouvre aussi).
+/// Revue t-988 : sans `pack`, le pack principal du deck (celui que l'interface ouvre aussi) : un
+/// pack non intégré, layouts d'abord, sinon Essentiel ; jamais `base`.
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_templates_without_set_opens_the_deck_pack_not_base() {
+async fn edit_pack_without_pack_opens_the_deck_pack_not_base() {
+    use oku_slides_session::{BASE_PACK, ESSENTIEL_PACK};
     let h = start().await;
-    let own: Vec<_> = snapshot(&h, |s| {
-        s.widgets.values().map(|pin| pin.id).filter(|id| *id != oku_slides_session::BASE_PACK).collect()
+    let builtin = |id: &uuid::Uuid| *id == BASE_PACK || *id == ESSENTIEL_PACK;
+    let (layouts, widgets): (Vec<_>, Vec<_>) = snapshot(&h, |s| {
+        let own = |pins: &std::collections::BTreeMap<oku_slides_core::Namespace, oku_slides_core::PackPin>| {
+            pins.values().map(|pin| pin.id).filter(|id| !builtin(id)).collect::<Vec<_>>()
+        };
+        (own(s.layouts), own(s.widgets))
     });
-    assert_that!(own.len()).is_equal_to(1);
-    direct(&h, "edit_templates", json!({})).await;
-    let editing = snapshot(&h, |s| s.editing.map(|e| e.set));
-    assert_that!(editing).is_equal_to(own.first().copied());
+    let expected = layouts.first().or(widgets.first()).copied().unwrap_or(ESSENTIEL_PACK);
+    direct(&h, "edit_pack", json!({})).await;
+    let editing = snapshot(&h, |s| s.editing.map(|e| e.pack));
+    assert_that!(editing).is_equal_to(Some(expected));
 }
 
 // --- contrat avec l'interface -------------------------------------------------

@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 8,
  "params": {
   "title": "Aide d'Oku Slides",
   "subtitle": "Ergonomie, raccourcis, bibliothèque Typst, format de fichier",
@@ -11,15 +11,15 @@
  "slides": [
   {
    "id": "s-titre",
-   "kind": "title"
+   "kind": "essentiel/title"
   },
   {
    "id": "s-sommaire",
-   "kind": "toc"
+   "kind": "essentiel/toc"
   },
   {
    "id": "s-ch-ergonomie",
-   "kind": "chapter",
+   "kind": "essentiel/chapter",
    "params": {
     "title": "Ergonomie",
     "subtitle": "La table de travail, l'édition, la dictée et l'agent"
@@ -27,7 +27,7 @@
   },
   {
    "id": "s-table",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Ergonomie",
     "title": "La table de travail",
@@ -42,7 +42,7 @@
         {
          "runs": [
           {
-           "t": "À gauche : les miniatures des slides. Un clic en montre une ; on la glisse pour la déplacer ; + en ajoute une depuis un modèle."
+           "t": "À gauche : les miniatures des slides. Un clic en montre une ; on la glisse pour la déplacer ; + en ajoute une depuis un layout."
           }
          ]
         }
@@ -89,7 +89,7 @@
   },
   {
    "id": "s-editer",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Ergonomie",
     "title": "Éditer à la main",
@@ -192,10 +192,10 @@
   },
   {
    "id": "s-grille",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Ergonomie",
-    "title": "Grille, modèles, thème",
+    "title": "Grille, layouts, thème",
     "layout": "default",
     "blocks": [
      {
@@ -210,7 +210,7 @@
            "bold": true
           },
           {
-           "t": " : 12 × 6 cases par défaut, réglée dans le modèle. L'accrochage ne se désactive pas ; ⌘' montre les nœuds."
+           "t": " : 12 × 6 cases par défaut, réglée dans le layout. L'accrochage ne se désactive pas ; ⌘' montre les nœuds."
           }
          ],
          "list": "bullet"
@@ -218,11 +218,11 @@
         {
          "runs": [
           {
-           "t": "Ensembles de modèles",
+           "t": "Packs de layouts",
            "bold": true
           },
           {
-           "t": " : « Nouvelle slide » propose les modèles de l'ensemble du deck (Essentiel, Grilles, ou les vôtres)."
+           "t": " : « Nouvelle slide » propose les layouts des packs de layouts du deck (Essentiel, ou les vôtres)."
           }
          ],
          "list": "bullet"
@@ -230,11 +230,11 @@
         {
          "runs": [
           {
-           "t": "Éditer les modèles",
+           "t": "Éditer un pack",
            "bold": true
           },
           {
-           "t": " : demandez l'atelier à l'agent. Chaque modèle devient une slide ; « Terminer » ramène au deck."
+            "t": " : demandez l'atelier à l'agent. Le pack s'ouvre comme un deck, une slide par layout ; « Terminer » ramène au deck."
           }
          ],
          "list": "bullet"
@@ -246,7 +246,7 @@
            "bold": true
           },
           {
-           "t": " : en mode modèles, la section Widgets de la pile ouvre leur code Typst, avec un aperçu en direct."
+           "t": " : en mode pack, la section Widgets de la pile ouvre leur code Typst, avec un aperçu en direct."
           }
          ],
          "list": "bullet"
@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-           "t": " : Papier, Pro ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant de l'ensemble de modèles. En mode modèles, l'onglet Thème règle ses jetons un par un ; « Terminer » l'enregistre, en copie pour Papier ou Pro."
+            "t": " : Papier, Pro ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. En mode pack, l'onglet Thème règle ses jetons un par un ; « Terminer » l'enregistre, en copie pour Papier ou Pro."
           }
          ],
          "list": "bullet"
@@ -271,7 +271,7 @@
   },
   {
    "id": "s-dicter",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Ergonomie",
     "title": "Dicter",
@@ -338,7 +338,7 @@
   },
   {
    "id": "s-agent",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Ergonomie",
     "title": "L'agent",
@@ -413,7 +413,7 @@
   },
   {
    "id": "s-fichiers",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Ergonomie",
     "title": "Fichiers, onglets, historique",
@@ -492,7 +492,7 @@
   },
   {
    "id": "s-import",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Ergonomie",
     "title": "Importer un PowerPoint",
@@ -522,7 +522,7 @@
            "bold": true
           },
           {
-           "t": " : garde l'aspect de l'original, avec un thème et des modèles faits pour cette présentation."
+           "t": " : garde l'aspect de l'original, avec un thème et des layouts faits pour cette présentation."
           }
          ],
          "list": "bullet"
@@ -530,11 +530,11 @@
         {
          "runs": [
           {
-           "t": "Utiliser mes modèles",
+           "t": "Utiliser mes layouts",
            "bold": true
           },
           {
-           "t": " : refait les slides avec un pack de modèles et un thème de la bibliothèque."
+           "t": " : refait les slides avec des packs de layouts et un thème de la bibliothèque."
           }
          ],
          "list": "bullet"
@@ -570,7 +570,7 @@
            "bold": true
           },
           {
-           "t": " : l'atelier, demandé à l'agent, édite ses modèles, enregistrés dans cette présentation seulement ; son thème reste offert parmi les thèmes, sous « Cette présentation »."
+            "t": " : l'atelier, demandé à l'agent, édite ses layouts, enregistrés dans cette présentation seulement ; son thème reste offert parmi les thèmes, sous « Cette présentation »."
           }
          ],
          "list": "bullet"
@@ -595,7 +595,7 @@
   },
   {
    "id": "s-ch-raccourcis",
-   "kind": "chapter",
+   "kind": "essentiel/chapter",
    "params": {
     "title": "Raccourcis clavier",
     "subtitle": "Les touches de votre système"
@@ -603,7 +603,7 @@
   },
   {
    "id": "s-rac-document",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Raccourcis",
     "title": "Document et onglets",
@@ -798,7 +798,7 @@
   },
   {
    "id": "s-rac-edition",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Raccourcis",
     "title": "Édition",
@@ -977,7 +977,7 @@
   },
   {
    "id": "s-rac-voix",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Raccourcis",
     "title": "Dictée et agent",
@@ -1106,7 +1106,7 @@
   },
   {
    "id": "s-rac-lecture",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "Raccourcis",
     "title": "Historique et aide",
@@ -1216,7 +1216,7 @@
   },
   {
    "id": "s-ch-typst",
-   "kind": "chapter",
+   "kind": "essentiel/chapter",
    "params": {
     "title": "Bibliothèque Typst",
     "subtitle": "oku-slides : slides structurées, pilotées par des jetons"
@@ -1224,7 +1224,7 @@
   },
   {
    "id": "s-typst-principes",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Les principes",
@@ -1303,7 +1303,7 @@
   },
   {
    "id": "s-typst-demarrer",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Démarrer en Typst",
@@ -1446,7 +1446,7 @@
   },
   {
    "id": "s-typst-slides",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Types de slides",
@@ -1542,7 +1542,7 @@
   },
   {
    "id": "s-typst-parametres",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Paramètres et variables",
@@ -1606,7 +1606,7 @@
   },
   {
    "id": "s-typst-jetons",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Jetons et thèmes",
@@ -1685,7 +1685,7 @@
   },
   {
    "id": "s-typst-widgets",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Widgets",
@@ -1711,11 +1711,11 @@
         {
          "runs": [
           {
-           "t": "6 widgets du noyau",
+           "t": "6 layouts de slide",
            "bold": true
           },
           {
-           "t": " : title, toc, chapter, content, end, blank. Les widgets d'élément (base/text, base/card, base/image, base/shape, base/chart, base/table, base/stack) viennent du pack intégré base."
+           "t": " : essentiel/title, essentiel/toc, essentiel/chapter, essentiel/content, essentiel/end, essentiel/blank, du pack intégré essentiel. Les widgets d'élément (base/text, base/card, base/image, base/shape, base/chart, base/table, base/stack) viennent du pack intégré base."
           }
          ],
          "list": "bullet"
@@ -1764,7 +1764,7 @@
   },
   {
    "id": "s-typst-kpi",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Déclarer un widget",
@@ -1876,7 +1876,7 @@
   },
   {
    "id": "s-typst-p",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Descripteurs de paramètres",
@@ -2002,7 +2002,7 @@
   },
   {
    "id": "s-typst-champs",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Champs éditables et widgets de packs",
@@ -2045,7 +2045,7 @@
   },
   {
    "id": "s-typst-listes",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": "oku-slides",
     "title": "Listes",
@@ -2088,7 +2088,7 @@
   },
   {
    "id": "s-ch-format",
-   "kind": "chapter",
+   "kind": "essentiel/chapter",
    "params": {
     "title": "Le format .oku-slides.pdf",
     "subtitle": "Un PDF ordinaire qui garde ses sources"
@@ -2096,7 +2096,7 @@
   },
   {
    "id": "s-format-principe",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
     "title": "Un PDF qui contient ses sources",
@@ -2127,7 +2127,7 @@
         {
          "runs": [
           {
-           "t": "Oku Slides y relit le deck, ses images, ses polices et ses packs de widgets, avec tout son historique."
+           "t": "Oku Slides y relit le deck, ses images, ses polices et ses packs, avec tout son historique."
           }
          ]
         }
@@ -2155,7 +2155,7 @@
   },
   {
    "id": "s-format-piece",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
     "title": "Où sont rangées les sources",
@@ -2260,10 +2260,10 @@
   },
   {
    "id": "s-format-zip",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "Le zip des sources (version 11)",
+    "title": "Le zip des sources (version 12)",
     "layout": "default",
     "blocks": [
      {
@@ -2274,7 +2274,7 @@
         {
          "runs": [
           {
-           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 11 }"
+           "t": "manifest.json                   { format: \"oku-slides-sources\", version: 12 }"
           }
          ]
         },
@@ -2312,6 +2312,27 @@
            "t": "widgets/<hex>/widgets/<nom>.typ un fichier par widget, _commun compris"
           }
          ]
+        },
+        {
+         "runs": [
+          {
+           "t": "layouts/<hex>/layouts.json      version du pack de layouts"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "layouts/<hex>/layouts/<nom>.typ un fichier par layout, _commun compris"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "themes/<hex>/theme.json         version de thème"
+          }
+         ]
         }
        ]
       },
@@ -2344,7 +2365,7 @@
   },
   {
    "id": "s-format-loro",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
     "title": "Le deck est un CRDT Loro",
@@ -2386,7 +2407,7 @@
            "bold": true
           },
           {
-           "t": " : le deck JSON v5 est la relecture canonique du replica."
+           "t": " : le deck JSON v8 est la relecture canonique du replica."
           }
          ],
          "list": "bullet"
@@ -2411,10 +2432,10 @@
   },
   {
    "id": "s-format-json",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "Le deck JSON (version 5)",
+    "title": "Le deck JSON (version 8)",
     "layout": "default",
     "blocks": [
      {
@@ -2432,7 +2453,7 @@
         {
          "runs": [
           {
-           "t": "  \"version\": 5,"
+           "t": "  \"version\": 8,"
           }
          ]
         },
@@ -2460,21 +2481,21 @@
         {
          "runs": [
           {
-           "t": "    { \"id\": \"s1\", \"kind\": \"title\" },"
+           "t": "    { \"id\": \"s1\", \"kind\": \"essentiel/title\" },"
           }
          ]
         },
         {
          "runs": [
           {
-           "t": "    { \"id\": \"s2\", \"kind\": \"content\", \"params\": { \"title\": \"Priorités\","
+           "t": "    { \"id\": \"s2\", \"kind\": \"essentiel/content\", \"params\": { \"title\": \"Priorités\","
           }
          ]
         },
         {
          "runs": [
           {
-           "t": "      \"blocks\": [ { \"id\": \"b1\", \"kind\": \"text\", \"params\": { \"body\": ["
+           "t": "      \"blocks\": [ { \"id\": \"b1\", \"kind\": \"base/text\", \"params\": { \"body\": ["
           }
          ]
         },
@@ -2530,7 +2551,7 @@
   },
   {
    "id": "s-format-versions",
-   "kind": "content",
+   "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
     "title": "Versions, limites, outils",
@@ -2545,7 +2566,7 @@
         {
          "runs": [
           {
-           "t": "Enveloppe /Version 2, zip version 11. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
+           "t": "Enveloppe /Version 2, zip version 12. Plus ancien : ignoré, le PDF s'ouvre comme un PDF d'ailleurs. Plus récent : refusé."
           }
          ]
         }
@@ -2589,7 +2610,7 @@
   },
   {
    "id": "s-fin",
-   "kind": "end",
+   "kind": "essentiel/end",
    "params": {
     "text": "Bonnes présentations"
    }

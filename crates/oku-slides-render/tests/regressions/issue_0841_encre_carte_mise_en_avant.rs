@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -28,7 +28,7 @@ fn card_svg(highlight: bool) -> String {
     let card = json!({ "id": "c", "kind": base::CARD, "frame": { "x": 40, "y": 40, "w": 400, "h": 200 },
         "params": { "highlight": highlight, "body": [{ "runs": [{ "t": "Corps" }] }] } });
     let deck = json!({ "theme": theme_ref("pro"),
-        "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [card] } }] });
+        "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [card] } }] });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"));
     let mut r = crate::common::renderer();
     r.set_theme(theme_tokens(Some("pro"))).unwrap_or_else(|e| panic!("{e}"));

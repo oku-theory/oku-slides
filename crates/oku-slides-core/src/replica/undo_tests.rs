@@ -1,3 +1,4 @@
+use crate::kinds::essentiel::CONTENT;
 use speculoos::prelude::*;
 
 use crate::{Deck, DeckReplica, Slide};
@@ -167,7 +168,7 @@ fn with_items(ids: &[String]) -> Deck {
     let ops = vec![
         json_op(
             serde_json::json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-            "element": { "id": "f", "kind": "liste" } }),
+            "element": { "id": "f", "kind": "test-el/liste" } }),
         ),
         json_op(serde_json::json!({ "op": "set_param", "target": { "slide": "s-constat", "element": "f" },
             "param": "etapes", "value": items })),
@@ -345,7 +346,7 @@ fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
 
 /// Le deck au tableau `t` (3 lignes × 2 colonnes) dans la slide `s`.
 fn table_deck() -> Deck {
-    let mut deck = ok(Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#));
+    let mut deck = ok(Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#));
     let add = serde_json::from_value(serde_json::json!({ "op": "add_element",
         "slot": { "owner": { "slide": "s" }, "param": "blocks" },
         "element": { "id": "t", "kind": "base/table", "params": { "data": { "dataset": {
@@ -548,7 +549,7 @@ fn undo_redo_of_a_move_into_a_child_slot_restores_exactly() {
 fn undo_redo_of_a_full_element_reversal_restores_exactly() {
     let blocks: Vec<serde_json::Value> = (0..8).map(|k| text(&format!("t{k}"), &format!("Texte {k}"))).collect();
     let before: Deck = ok(serde_json::from_value(serde_json::json!({
-        "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }] })));
+        "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": blocks } }] })));
     let mut after = before.clone();
     let Some(slot) = after.slides[0].params.slot_mut("blocks") else { panic!("blocks absent") };
     slot.reverse();
@@ -733,7 +734,7 @@ fn undo_redo_of_adding_an_owner_with_children_restores_exactly() {
 fn undo_redo_of_adding_a_slide_with_elements_restores_exactly() {
     let before = roadmap();
     let mut after = before.clone();
-    after.slides.insert(2, Slide::new("s-neuve", "content"));
+    after.slides.insert(2, Slide::new("s-neuve", CONTENT));
     let after = with_ops(
         &after,
         vec![

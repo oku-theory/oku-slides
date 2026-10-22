@@ -1,7 +1,8 @@
-//! Le zip des sources (format `oku-slides-sources`, version 11) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 12) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine, les polices, les
 //! versions de packs de widgets (`widgets/<hex>/widgets.json`,
-//! `widgets/<hex>/widgets/<nom>.typ`) et les versions de thèmes
+//! `widgets/<hex>/widgets/<nom>.typ`) et de layouts (`layouts/<hex>/layouts.json`,
+//! `layouts/<hex>/layouts/<nom>.typ`), et les versions de thèmes
 //! (`themes/<hex>/theme.json`, voir `sources_themes.rs`). C'est ce blob qui
 //! est stocké dans le PDF.
 //!
@@ -13,7 +14,7 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 10) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 11) n'est plus lu.
 //!
 //! Le bundle porte le registre des widgets, que son replica utilise à
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
@@ -29,6 +30,7 @@ use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::Deck;
 use crate::ops::Moved;
 use crate::pack::{PackFiles, PackManifest, PackVersion};
+use crate::pack_kind::PackKind;
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview, ReplicaLimits};
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
@@ -43,7 +45,7 @@ mod zip_io;
 use themes::theme_issues;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 11;
+pub const SOURCES_VERSION: u32 = 12;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,23 +141,39 @@ impl SourceBundle {
         (bundle, issues)
     }
 
-    /// Chaque épinglage du deck : version embarquée, manifeste conforme, besoins épinglés.
-    /// Une version absente n'est signalée qu'une fois, même épinglée sous deux espaces de noms.
+    /// Chaque épinglage du deck (widgets et layouts) : version embarquée, de
+    /// la sorte de sa carte, manifeste conforme, besoins épinglés parmi les
+    /// packs de widgets. Une version absente n'est signalée qu'une fois, même
+    /// épinglée sous deux espaces de noms. Un espace de noms épinglé sous les
+    /// deux sortes (fusion, deck écrit à la main) est signalé : le rendu n'en
+    /// garde qu'une.
     fn embedded_issues(&self) -> Vec<Issue> {
-        let mut issues = Vec::new();
+        let mut issues: Vec<Issue> = self
+            .deck
+            .widgets
+            .keys()
+            .filter(|ns| self.deck.layouts.contains_key(*ns))
+            .map(Issue::pack_kind_conflict)
+            .collect();
         let mut missing = HashSet::new();
-        for (ns, pin) in &self.deck.widgets {
-            match self.packs.get(&pin.version).map(PackManifest::from_files) {
-                None => {
-                    if missing.insert(&pin.version) {
-                        issues.push(Issue::pack_version_missing(&pin.version));
+        let maps = [(PackKind::Widgets, &self.deck.widgets), (PackKind::Layouts, &self.deck.layouts)];
+        for (kind, pins) in maps {
+            for (ns, pin) in pins {
+                match self.packs.get(&pin.version) {
+                    None => {
+                        if missing.insert(&pin.version) {
+                            issues.push(Issue::pack_version_missing(&pin.version));
+                        }
                     }
+                    Some(files) if files.kind() != kind => issues.push(Issue::pack_kind_mismatch(ns)),
+                    Some(files) => match PackManifest::from_files(files) {
+                        Ok(m) if m.id == pin.id && m.namespace == *ns && m.requires == pin.requires => {}
+                        _ => issues.push(Issue::pack_pin_mismatch(ns)),
+                    },
                 }
-                Some(Ok(m)) if m.id == pin.id && m.namespace == *ns && m.requires == pin.requires => {}
-                Some(_) => issues.push(Issue::pack_pin_mismatch(ns)),
-            }
-            for required in pin.requires.iter().filter(|r| !self.deck.widgets.contains_key(*r)) {
-                issues.push(Issue::pack_requirement_missing(ns, required));
+                for required in pin.requires.iter().filter(|r| !self.deck.widgets.contains_key(*r)) {
+                    issues.push(Issue::pack_requirement_missing(ns, required));
+                }
             }
         }
         issues.extend(theme_issues(&self.deck, &self.themes));

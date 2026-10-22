@@ -9,8 +9,8 @@ pub(crate) enum Family {
     Present,
     /// Ouvrir, créer, enregistrer, fusionner, historique.
     Files,
-    /// Modèles, widgets et thèmes.
-    Templates,
+    /// Packs (widgets et layouts) et thèmes.
+    Packs,
     /// Réglages de l'app.
     Configure,
     /// Expliquer ou diagnostiquer un échec.
@@ -22,7 +22,7 @@ pub(crate) enum Family {
 impl Family {
     /// Les familles que le modèle peut choisir.
     pub(crate) const ROUTABLE: [Family; 6] =
-        [Family::Edit, Family::Present, Family::Files, Family::Templates, Family::Configure, Family::Troubleshoot];
+        [Family::Edit, Family::Present, Family::Files, Family::Packs, Family::Configure, Family::Troubleshoot];
 
     /// Clé écrite par le modèle dans sa réponse de routage.
     pub(crate) fn key(self) -> &'static str {
@@ -30,7 +30,7 @@ impl Family {
             Family::Edit => "edit",
             Family::Present => "present",
             Family::Files => "files",
-            Family::Templates => "templates",
+            Family::Packs => "packs",
             Family::Configure => "configure",
             Family::Troubleshoot => "troubleshoot",
             Family::AskReport => "ask_report",
@@ -43,7 +43,7 @@ impl Family {
             Family::Edit => "change slide content, elements, charts and tables, or move between slides",
             Family::Present => "start, steer or stop a presentation",
             Family::Files => "open, create, save, copy, move, merge a deck or browse its history",
-            Family::Templates => "edit templates, widgets and themes",
+            Family::Packs => "edit packs of widgets and slide layouts, and themes",
             Family::Configure => "change app settings: language, dictation, interface",
             Family::Troubleshoot => "diagnose an error, a failed render or import, or why something fails",
             Family::AskReport => "ask the user a question or report back",
@@ -53,7 +53,7 @@ impl Family {
 
 /// Familles d'un outil MCP ; vide si l'outil est inconnu.
 pub(crate) fn families_of(tool: &str) -> &'static [Family] {
-    use Family::{AskReport, Configure, Edit, Files, Present, Templates, Troubleshoot};
+    use Family::{AskReport, Configure, Edit, Files, Packs, Present, Troubleshoot};
     match tool {
         "apply" | "slide" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants" | "show_themes" => {
             &[Edit]
@@ -63,19 +63,10 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         "render_slide" => &[Edit, Troubleshoot],
         "present" => &[Present],
         "open" | "new" | "save" | "save_copy" | "move" | "merge" | "history" => &[Files],
-        "templates"
-        | "edit_templates"
-        | "save_templates"
-        | "close_templates"
-        | "delete_template_set"
-        | "edit_theme"
-        | "theme_tokens"
-        | "widget_source"
-        | "widget_sources"
-        | "set_widget"
-        | "remove_widget"
-        | "set_widget_trial"
-        | "preview_widget" => &[Templates],
+        "layouts" => &[Edit, Packs],
+        "packs" | "edit_pack" | "save_pack" | "close_pack" | "delete_pack" | "edit_theme" | "theme_tokens"
+        | "widget_source" | "widget_sources" | "set_widget" | "remove_widget" | "set_widget_trial"
+        | "preview_widget" => &[Packs],
         "settings" => &[Configure, Troubleshoot],
         "set_setting" | "set_interface" => &[Configure],
         "import_report" | "import_diff" | "diagnose" => &[Troubleshoot],

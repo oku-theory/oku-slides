@@ -27,9 +27,10 @@ as **JSON** (the data model of the Oku Slides app).
 #end-slide[Merci]
 ```
 
-From a JSON: `#render-deck(json("deck.json"), theme: papier)`
-(see `examples/deck.json` and [Deck JSON](#deck-json-v7)); element kinds
-need the `base` pack's widgets (see `examples/from-json.typ`).
+From a JSON: `#render-deck(json("deck.json"), theme: papier, widgets: …)`
+(see `examples/deck.json` and [Deck JSON](#deck-json-v8)); slide kinds
+need the `essentiel` pack's layouts and element kinds the `base` pack's widgets
+(see `examples/from-json.typ`).
 
 ## Slide types
 
@@ -121,7 +122,7 @@ as before, and any token dictionary works too.
 
 In the app, these two files are the built-in themes (fixed identifiers);
 the user creates versioned copies of them (the `themes/` folder of the app
-data) in the “Theme” tab of templates mode. A deck embeds the version of its
+data) in the “Theme” tab of pack mode. A deck embeds the version of its
 theme.
 
 ### Theme notes
@@ -151,7 +152,7 @@ JSON has no comments: what used to explain the values is here.
   `"fill"` (all the available height). `app`: `null` derives the color from the
   slides' background and ink.
 
-## Deck JSON (v7)
+## Deck JSON (v8)
 
 Each slide and each element names its widget (`kind`) and carries its
 parameters (`params`), described by its schema (see [Widgets](#widgets)).
@@ -161,22 +162,22 @@ body area) or a `cell` of the slide's grid.
 
 ```json
 {
-  "version": 7,
+  "version": 8,
   "params": { "title": "Feuille de route", "subtitle": "Pour {{client}}", "author": "Matthieu" },
   "vars": { "client": "Acme" },
   "slides": [
-    { "id": "s1", "kind": "title" },
-    { "id": "s2", "kind": "chapter", "params": { "title": "Contexte" } },
-    { "id": "s3", "kind": "content", "params": { "title": "Trois priorités", "layout": "columns",
+    { "id": "s1", "kind": "essentiel/title" },
+    { "id": "s2", "kind": "essentiel/chapter", "params": { "title": "Contexte" } },
+    { "id": "s3", "kind": "essentiel/content", "params": { "title": "Trois priorités", "layout": "columns",
       "blocks": [
         { "id": "c1", "kind": "base/card", "params": { "title": "Fiabilité",
           "body": [ { "runs": [ { "t": "Diviser par deux les incidents" } ] } ] } }
       ] } },
-    { "id": "s4", "kind": "blank", "params": { "elements": [
+    { "id": "s4", "kind": "essentiel/blank", "params": { "elements": [
       { "id": "e1", "kind": "base/text", "frame": { "x": 40, "y": 40, "w": 600, "h": 200 },
         "params": { "body": [ { "runs": [ { "t": "Posé à 40 pt du coin" } ] } ] } }
     ] } },
-    { "id": "s5", "kind": "end", "params": { "text": "Merci {{client}}" } }
+    { "id": "s5", "kind": "essentiel/end", "params": { "text": "Merci {{client}}" } }
   ]
 }
 ```
@@ -201,7 +202,7 @@ whitespace, coordinates from 0 to 1 stretched to the frame, non-zero fill.
 resolves it and passes its tokens to `render-deck(…, theme:)`; the library
 does not read it.
 
-Bound parameters (`bind`, like the title and subtitle of the `title`
+Bound parameters (`bind`, like the title and subtitle of the `essentiel/title`
 slide) are read from the deck's `params`, not from the slide's.
 
 `render-deck(data, theme: none, image-loader: none, widgets: none)` :
@@ -210,9 +211,9 @@ slide) are read from the deck's `params`, not from the slide's.
   flow: false) => content`, supplied by the host for images (`asset`, `fit`;
   `flow: true` sizes a flow image at its proportions, within the available
   height) and for the charts it draws (`chart: true`); without it, a gray frame.
-- `widgets`: name → widget dictionary, typically
-  `by-name(core + base + pack)`; `none` renders with the core (slide) widgets
-  only. A `kind`
+- `widgets` (required): name → widget dictionary, typically
+  `by-name(essentiel + base + pack)`; the core declares no widget, and `none`
+  fails with “render-deck: widgets is required”. A `kind`
   with no widget of the right category gives an “unknown element” box
   (element) or an “unknown slide” page (slide).
 
@@ -232,21 +233,32 @@ empty or not: `kicker` (`plain` layout only), `title` and
 (`slide`, `title-slide`, `chapter`, `toc`, `end-slide`) take a
 `wrap: (name, content, style) => content` for this, like `card`. A pack widget
 that passes `wrap` to `slide()` thus receives the `kicker` and `title` fields; the
-core `_toc` filters out `kicker`, which is not one of its parameters.
+`essentiel/toc` layout filters out `kicker`, which is not one of its parameters.
 
 ## Widgets
 
-A **widget** is a component declared with the schema of its parameters; the
-core registry (`src/widgets.typ`, the six slide widgets: `title`, `toc`,
-`chapter`, `content`, `end`, `blank`) is read by the host (`<oku-widgets>`
-probe) and is used to render the JSON deck.
+A **widget** is a component declared with the schema of its parameters. The
+core registers none: every widget comes from a pack, whose registry the host
+reads (`<oku-widgets>` probe) and uses to render the JSON deck.
 
-Element widgets come from packs. The built-in **`base` pack** (`packs/base`:
-manifest `widgets.json`, files `widgets/*.typ`) holds `base/text`,
-`base/card`, `base/image`, `base/shape`, `base/chart`, `base/table` and
-`base/stack`; the app embeds it and renders it like any pack. Its files import
-`/oku-slides/lib.typ`, so they compile only under the app's virtual root: the
-folder that contains `oku-slides/` (`--root` pointing at `typst/`).
+A pack has a kind. A **widgets** pack (manifest `widgets.json`, files
+`widgets/*.typ`) declares element widgets (`category: "element"`); a
+**layouts** pack (manifest `layouts.json`, files `layouts/*.typ`) declares
+slide layouts (`category: "slide"`). A file whose category contradicts its
+pack's kind is dropped with a diagnostic.
+
+Two packs are built in, and the app embeds and renders them like any pack:
+
+- **`base`** (`packs/base`, widgets) holds `base/text`, `base/card`,
+  `base/image`, `base/shape`, `base/chart`, `base/table` and `base/stack`;
+- **`essentiel`** (`packs/essentiel`, layouts) holds the six slide layouts
+  `essentiel/title`, `essentiel/toc`, `essentiel/chapter`, `essentiel/content`,
+  `essentiel/end` and `essentiel/blank`. Its manifest also gives each layout's
+  starting values (`examples`) and the import presets (`profiles`).
+
+Their files import `/oku-slides/lib.typ`, so they compile only under the
+app's virtual root: the folder that contains `oku-slides/` (`--root`
+pointing at `typst/`).
 
 A **widget pack** adds its own widgets, which never replace those of the
 base; the deck pins each pack under a namespace, and its widgets are named
@@ -408,10 +420,9 @@ marker receives the spacing and the empty field has no anchor.
 
 A deck pins several widget packs, each under its own namespace. A pack
 widget's kind is `namespace/name`, qualified by the namespace of the pack that
-declares it; a bare kind (`content`, `title`...) is always a core widget, a
-slide. A pack cannot override a core widget, nor a widget of another pack: a
-widget file named like a `base` widget is simply a different widget,
-`namespace/card`.
+declares it; slides too (`essentiel/content`). A pack cannot override a widget
+of another pack: a widget file named like a `base` widget is simply a different
+widget, `namespace/card`.
 A pack may require other packs (`requires`); the host adds them to the deck
 with it.
 
@@ -423,7 +434,7 @@ typst compile --root .. demo.typ
 typst compile --root ../.. from-json.typ
 ```
 
-`from-json.typ` imports the `base` pack, whose files import
+`from-json.typ` imports the `base` and `essentiel` packs, whose files import
 `/oku-slides/lib.typ`: its root is `typst/`.
 
 The Papier theme fonts (Newsreader, Instrument Sans) must be

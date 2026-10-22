@@ -133,13 +133,13 @@ async fn set_setting_confirmed_writes_through_port() {
     assert_that!(h.settings.read().get("dictation.language").cloned()).is_equal_to(Some(json!("fr")));
 }
 
-/// La confirmation de `delete_template_set`, sérialisée ; l'utilisateur refuse.
-async fn delete_confirmation(h: &Harness, set: &str) -> String {
+/// La confirmation de `delete_pack`, sérialisée ; l'utilisateur refuse.
+async fn delete_confirmation(h: &Harness, pack: &str) -> String {
     let mut rx = h.hub.subscribe();
     let c =
         client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
-    let args = json!({ "set": set });
-    let pending = tokio::spawn(async move { call(&c, "delete_template_set", args).await });
+    let args = json!({ "pack": pack });
+    let pending = tokio::spawn(async move { call(&c, "delete_pack", args).await });
     let surface = next_surface(&mut rx).await;
     let json = serde_json::to_string(&surface).unwrap_or_else(|e| panic!("sérialisation de la surface : {e}"));
     answer(h, &surface.id, false);
@@ -149,30 +149,31 @@ async fn delete_confirmation(h: &Harness, set: &str) -> String {
 
 /// t-328 : la confirmation nomme le pack, pas son UUID.
 #[tokio::test(flavor = "multi_thread")]
-async fn delete_template_set_confirmation_names_the_pack() {
+async fn delete_pack_confirmation_names_the_pack() {
     let h = start().await;
-    let json = delete_confirmation(&h, "6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10").await;
+    let id = oku_slides_session::pack::ESSENTIEL_PACK.to_string();
+    let json = delete_confirmation(&h, &id).await;
     assert_that!(json.contains("Essentiel")).is_true();
-    assert_that!(json.contains("6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10")).is_false();
+    assert_that!(json.contains(&id)).is_false();
 }
 
 /// t-328 : un id inconnu de la bibliothèque est montré tel quel.
 #[tokio::test(flavor = "multi_thread")]
-async fn delete_template_set_confirmation_of_unknown_pack_shows_its_id() {
+async fn delete_pack_confirmation_of_unknown_pack_shows_its_id() {
     let h = start().await;
     let json = delete_confirmation(&h, "00000000-0000-4000-8000-000000000001").await;
     assert_that!(json.contains("00000000-0000-4000-8000-000000000001")).is_true();
 }
 
 /// t-355 : un id qui n'est pas un UUID est refusé sans rien demander, par le
-/// message qui renvoie vers `templates`.
+/// message qui renvoie vers `packs`.
 #[tokio::test(flavor = "multi_thread")]
-async fn delete_template_set_with_a_slug_points_to_templates_without_asking() {
+async fn delete_pack_with_a_slug_points_to_packs_without_asking() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c =
         client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
-    let r = call(&c, "delete_template_set", json!({ "set": "essentiel" })).await;
+    let r = call(&c, "delete_pack", json!({ "pack": "essentiel" })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-pack-id"));
     assert_that!(rx.try_recv().is_err()).is_true();
@@ -188,7 +189,7 @@ async fn deck_theme_name(h: &Harness) -> Value {
     json_of(&call(&c, "deck_outline", json!({})).await)["theme"]["name"].clone()
 }
 
-/// t-783 : l'agent renomme le thème du deck sans passer par l'édition des modèles.
+/// t-783 : l'agent renomme le thème du deck sans passer par le mode pack.
 #[tokio::test(flavor = "multi_thread")]
 async fn edit_theme_confirmed_renames_the_deck_theme_in_deck_mode() {
     let h = start().await;

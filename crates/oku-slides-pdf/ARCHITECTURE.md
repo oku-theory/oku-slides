@@ -1,46 +1,48 @@
 # oku-slides-pdf
 
-Le blob des sources Oku Slides (zip, contenant le replica Loro du deck)
-rangé dans un PDF, dans son dictionnaire de pièce de page
-(`/PieceInfo/OkuSlides/Private`, ISO 32000 §14.5). N'apparaît pas dans le
-panneau des pièces jointes des lecteurs PDF.
+The Oku Slides sources blob (a zip holding the deck's Loro replica), stored
+in a PDF in its page-piece dictionary (`/PieceInfo/OkuSlides/Private`,
+ISO 32000 §14.5). PDF readers do not list it among attachments.
 
 ## API
 
-- `embed_sources(pdf, zip)` : écrit ou remplace le blob (`/Format`,
+- `embed_sources(pdf, zip)`: writes or replaces the blob (`/Format`,
   `/Version 2`, `/SHA256`, `/LastModified`).
-- `extract_sources(pdf) -> Option<Sources>` : lit le blob. `None` si absent
-  **ou** d'une version antérieure à 2 (une enveloppe `/Version 1`,
-  `deck.json`, est ignorée comme si elle n'existait pas — pas de
-  conversion). `PdfErrorKind::UnsupportedVersion` pour une version plus
-  récente que celle que ce binaire connaît.
-- `strip_sources(pdf)` : retire le blob (export « propre » d'un PDF sans
-  historique).
-- `Sources::modified_elsewhere()` : le PDF sur disque diffère du hash connu
-  à l'ouverture (déclenche la fusion à l'enregistrement, côté session).
+- `extract_sources(pdf) -> Option<Sources>`: reads the blob. `None` when it
+  is absent **or** older than version 2 (a `/Version 1` envelope,
+  `deck.json`, is ignored as if it did not exist; no conversion).
+  `PdfErrorKind::UnsupportedVersion` for a version newer than this binary
+  knows.
+- `strip_sources(pdf)`: removes the blob ("clean" export of a PDF without
+  history).
+- `Sources::modified_elsewhere()`: the PDF on disk differs from the hash
+  known at opening (triggers the merge on save, in the session).
 
-## Format du zip (version 10)
+## Zip format (version 12)
 
 ```
-manifest.json          { format: "oku-slides-sources", version: 10 }
-deck.loro              snapshot complet du replica (oku-slides-core::DeckReplica)
-assets/<hex>           tels quels
-fonts/<nom>            tels quels
-packs/<hex>/pack.json  version de pack de modèles (hex = sha-256 du contenu canonique)
-packs/<hex>/widgets/<nom>.typ  un par fichier de widget (_commun compris)
+manifest.json          { format: "oku-slides-sources", version: 12 }
+deck.loro              full snapshot of the replica (oku-slides-core::DeckReplica)
+assets/<hex>           as is
+fonts/<name>           as is
+widgets/<hex>/widgets.json  widget pack version (hex = sha-256 of the canonical content)
+widgets/<hex>/widgets/<name>.typ  one per widget file (_commun included)
+layouts/<hex>/layouts.json  layout pack version
+layouts/<hex>/layouts/<name>.typ  one per layout file (_commun included)
+themes/<hex>/theme.json  theme version
 ```
 
-Le contenu du zip n'est pas interprété ici : `oku-slides-core::SourceBundle`
-le construit et le relit. Ce crate ne voit qu'un flux d'octets à poser dans
-le PDF ou à en extraire.
+This crate does not interpret the zip: `oku-slides-core::SourceBundle`
+builds and reads it. Here it is only a byte stream to put into the PDF or
+take out of it.
 
-## Points d'extension
+## Extension points
 
-- Un nouveau format de blob : incrémenter `/Version`, garder l'ancienne
-  branche de lecture (`Ok(None)` ou `UnsupportedVersion` selon le sens),
-  jamais de migration en place.
+- A new blob format: bump `/Version`, keep the old read branch (`Ok(None)`
+  or `UnsupportedVersion` depending on the direction), never migrate in
+  place.
 
-## Dépendances
+## Dependencies
 
-`lopdf` (structure PDF bas niveau), `oku-slides-i18n` (messages Fluent),
-`sha2`/`hex` (intégrité), `time` (horodatage).
+`lopdf` (low-level PDF structure), `oku-slides-i18n` (Fluent messages),
+`sha2`/`hex` (integrity), `time` (timestamps).

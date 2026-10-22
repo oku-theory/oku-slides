@@ -4,23 +4,30 @@ ui-loading = Loading…
 ## Document
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · templates
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · layout pack
+   *[other] { $name } · widget pack
+}
 ui-title-rename = Rename the presentation
 ui-title-field = Presentation title
 ui-status-unsaved = unsaved changes
 ui-status-saved = saved
 ui-status-never-saved = not saved yet
-ui-caption-templates = { $count ->
-    [one] { $count } template
-   *[other] { $count } templates
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } layout
+       *[other] { $count } layouts
+    }
+   *[other] { $count ->
+        [one] { $count } widget
+       *[other] { $count } widgets
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } slide
    *[other] { $count } slides
 } · { $status }
-ui-template-default-name = Template
-ui-template-variant-name = { $name } (variant)
-ui-confirm-quit-templates = Quit without saving the modified templates?
+ui-confirm-quit-pack = Quit without saving the modified pack?
 
 ## Toasts
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = Theme
 ui-toolbar-theme-embedded = File theme
 ui-toolbar-theme-deck-group = This presentation
 ui-toolbar-finish = Done
-ui-templates-deck-only = Saved in this presentation only
+ui-pack-deck-only = Saved in this presentation only
 ui-toolbar-open = Open
 ui-menu = Menu
 ui-toolbar-add-label = Add to the slide
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] A table of data
    *[text] A paragraph of text
 }
-ui-toolbar-remove-template = Delete the template
 ui-toolbar-remove-slide = Delete the slide
 ui-toolbar-remove-hint = Slide { $n } · undo with ⌘Z
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] Add a text
 }
 ui-undo-add-widget = Add “{ $name }”
-ui-undo-new-template = New template: { $name }
 ui-undo-new-slide = New slide: { $name }
-ui-undo-templates = Templates: { $name }
-ui-undo-move-template = Move the template
 ui-undo-move-slide = Move the slide
 ui-undo-remove-slide = Delete the slide
 ui-undo-remove = Delete
@@ -89,7 +92,7 @@ ui-undo-change-anchor = Change the anchoring
 ui-undo-move = Move
 ui-undo-resize = Resize
 ui-undo-edit-slide = Edit slide
-ui-undo-rename-set = Rename the set
+ui-undo-rename-pack = Rename the pack
 ui-undo-rename-deck = Rename the presentation
 ui-undo-chart-kind = Change the chart type
 ui-undo-chart-data = Edit the data
@@ -108,15 +111,15 @@ ui-new-card-detail = Detail
 ## Slide pile
 
 ui-pile-slides = Slides
-ui-pile-templates = Templates
+ui-pile-layouts = Layouts
 ui-pile-add-slide = + New slide
-ui-pile-add-template = + New template
 ui-pile-drag-hint = Drag to move · ⌥↑ ⌥↓
 ui-slide-alt = Slide { $n }
 
 ## Stage
 
 ui-stage-rendering = Rendering…
+ui-stage-widget-pack = Open a widget from the pile, or create one.
 ui-stage-elements = Slide elements
 ui-stage-fields = Slide fields
 ui-stage-edit-text = Edit the text
@@ -235,18 +238,14 @@ ui-seconds = { NUMBER($value, maximumFractionDigits: 1) } s
 ui-size-gb = { NUMBER($value, maximumFractionDigits: 1) } GB
 ui-size-mb = { $value } MB
 
-## Template picker
+## Layout picker
 
 ui-picker-new-slide = New slide
-ui-picker-new-template = New template, based on…
-ui-picker-set = Templates
 ui-picker-set-mine = { $name } · mine
 ui-picker-set-received = { $name } · received
 ui-picker-keys = ← → to browse · Enter to add · Esc to close
 ui-picker-close = Close
-ui-picker-previous = Previous template
-ui-picker-next = Next template
-ui-picker-list = Slide templates
+ui-picker-list = Layouts
 ui-widget-picker-filter = Filter by name, label or description
 ui-widget-picker-empty = No widget matches “{ $query }”.
 ui-widget-picker-list = Widgets
@@ -319,7 +318,7 @@ ui-tabs = Open presentations
 ui-tab-new = New tab
 ui-tab-close = Close tab
 ui-tab-unsaved = Unsaved changes
-ui-tab-templates = Templates
+ui-tab-pack = Pack
 ui-tab-move-new-window = Move to new window
 ui-tab-move-to = Move to window { $n }
 ui-tab-close-others = Close other tabs
@@ -377,8 +376,8 @@ ui-widgets-open = Open widget { $name }
 ui-widgets-delete-named = Delete { $name }
 ui-widgets-confirm-delete = Delete the widget “{ $name }”?
 ui-widgets-rename-hint = Double-click or F2 to rename
-ui-widgets-tabs = Template tabs
-ui-widgets-templates-tab = Templates
+ui-pack-tabs = Pack tabs
+ui-pack-layouts-tab = Layouts
 ui-theme-tab = Theme
 ui-theme-picker = Theme
 ui-theme-name = Theme name
@@ -391,14 +390,15 @@ ui-widgets-removed-by-agent = The agent deleted widget { $name }.
 ui-import-title = Import a PowerPoint presentation
 ui-import-mode = Import mode
 ui-import-hifi = Faithful copy
-ui-import-hifi-note = Keeps the original look, with a theme and templates made for this presentation.
-ui-import-retrofit = Use my templates
-ui-import-retrofit-note = Rebuilds the slides with a template set and a theme from the library.
+ui-import-hifi-note = Keeps the original look, with a theme and layouts made for this presentation.
+ui-import-retrofit = Use my layouts
+ui-import-retrofit-note = Rebuilds the slides with layout packs and a theme from the library.
+ui-import-layout-packs = Layout packs
 ui-import-theme-default = Default theme
-ui-import-no-packs = No template set in the library.
+ui-import-no-packs = No layout pack in the library.
 ui-import-tune = Fine-tune with the agent
 ui-import-tune-note = The agent compares each slide with the original and corrects the gaps.
-ui-import-tune-note-retrofit = The agent compares each slide with the original and designs widgets for the shapes your templates cannot show.
+ui-import-tune-note-retrofit = The agent compares each slide with the original and designs widgets for the shapes your layouts cannot show.
 ui-import-tune-unavailable = No usable agent: { $reason }
 ui-import-submit = Import
 ui-import-busy = Importing…

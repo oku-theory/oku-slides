@@ -2,7 +2,7 @@ use speculoos::prelude::*;
 
 use super::{AgentScope, SavedConversation, ScopeMove};
 use crate::agent::forms::frozen_choice;
-use crate::pack::DEFAULT_PACK;
+use crate::pack::ESSENTIEL_PACK;
 use crate::test_support::{fresh_dir, session_on};
 
 /// Une surface du fil, figée, rangée dans le tour `turn`.
@@ -56,7 +56,7 @@ fn unreadable_conversation_file_is_skipped_and_the_others_kept() {
     a.keep_thread(AgentScope::Slides, vec![frozen("report-1", 1)]);
     drop(a);
     // Sous un nom valide : seul le contenu illisible le fait sauter.
-    let atelier = AgentScope::Atelier { pack: DEFAULT_PACK };
+    let atelier = AgentScope::Atelier { pack: ESSENTIEL_PACK };
     std::fs::write(dir.join("agent").join(atelier.file_name()), b"{pas du json").unwrap();
 
     let mut b = session_on(data.path());
@@ -94,14 +94,14 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 "#;
 
 fn widget(name: &str) -> AgentScope {
-    AgentScope::Widget { pack: DEFAULT_PACK, name: name.into() }
+    AgentScope::Widget { pack: ESSENTIEL_PACK, name: name.into() }
 }
 
 /// Une session reprise dans `resume/`, en édition du pack par défaut, avec le widget `kpi`.
 fn editing_with_kpi(data: &std::path::Path) -> crate::Session {
     let mut s = session_on(data);
     assert!(s.resume(data.join("resume")));
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     s
 }
@@ -184,7 +184,7 @@ fn resume_prunes_only_conversations_of_widgets_missing_from_known_pack_files() {
     a.keep_thread(widget("kpi"), vec![frozen("report-1", 1)]);
     a.keep_thread(widget("disparu"), vec![frozen("report-2", 2)]);
     let foreign = AgentScope::Widget { pack: uuid::Uuid::from_u128(42), name: "kpi".into() };
-    a.keep_thread(AgentScope::Atelier { pack: DEFAULT_PACK }, vec![frozen("report-4", 4)]);
+    a.keep_thread(AgentScope::Atelier { pack: ESSENTIEL_PACK }, vec![frozen("report-4", 4)]);
     a.set_widget(None, "disparu", String::new()).unwrap(); // supprimé : sa conversation reste jusqu'à la reprise
     a.flush_resume();
     drop(a);
@@ -197,7 +197,7 @@ fn resume_prunes_only_conversations_of_widgets_missing_from_known_pack_files() {
     assert!(b.resume(data.path().join("resume")));
     let mut scopes: Vec<_> = b.conversations().into_iter().map(|c| c.scope).collect();
     scopes.sort();
-    let mut expected = vec![AgentScope::Atelier { pack: DEFAULT_PACK }, foreign, widget("kpi")];
+    let mut expected = vec![AgentScope::Atelier { pack: ESSENTIEL_PACK }, foreign, widget("kpi")];
     expected.sort();
     assert_that!(scopes).is_equal_to(expected);
     b.flush_resume();

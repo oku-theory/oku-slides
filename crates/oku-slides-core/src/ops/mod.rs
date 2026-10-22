@@ -34,6 +34,7 @@ use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
 use crate::namespace::Namespace;
 use crate::pack::{PackPin, ThemeRef};
+use crate::pack_kind::PackKind;
 use crate::params::{ParamValue, Params};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
@@ -64,17 +65,6 @@ pub struct Target {
 pub struct SlotRef {
     pub owner: Target,
     pub param: String,
-}
-
-/// Métadonnée d'une slide, modifiable par `set_slide_field`. Hors rendu :
-/// le contenu passe par `set_param`, le widget par `set_kind`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum SlideField {
-    /// Nom d'une slide modèle.
-    Name,
-    /// Description d'une slide modèle.
-    Description,
 }
 
 /// Une opération sur le deck.
@@ -199,12 +189,6 @@ pub enum Op {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
     },
-    /// Nom ou description d'une slide ; `null` l'efface.
-    SetSlideField {
-        slide: String,
-        field: SlideField,
-        value: Value,
-    },
     AddSlide {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
@@ -229,16 +213,20 @@ pub enum Op {
     SetTheme {
         theme: Option<ThemeRef>,
     },
-    /// Épingle la version `pin` du pack de widgets `namespace` (ajout ou remplacement).
+    /// Épingle la version `pin` du pack `namespace` de sorte `kind` (ajout ou remplacement).
     ///
-    /// Chaque espace de noms de `pin.requires` doit déjà être épinglé : la
-    /// session ajoute les besoins d'abord, dans la même transaction.
+    /// Chaque espace de noms de `pin.requires` doit déjà être épinglé parmi les
+    /// packs de widgets : la session ajoute les besoins d'abord, dans la même
+    /// transaction. Un espace de noms épinglé sous l'autre sorte est refusé.
     AddPack {
+        kind: PackKind,
         namespace: Namespace,
         pin: PackPin,
     },
-    /// Retire le pack `namespace`, s'il n'est ni requis ni utilisé ; `base` ne se retire jamais.
+    /// Retire le pack `namespace` de sorte `kind`, s'il n'est ni requis ni utilisé ;
+    /// le pack de widgets `base` ne se retire jamais.
     RemovePack {
+        kind: PackKind,
         namespace: Namespace,
     },
     /// Jeton de design au chemin donné (`["color", "accent"]`). `null` est
@@ -623,14 +611,6 @@ impl Op {
             Op::MoveElement { slide, element, to, index } => {
                 moving::move_element(deck, registry, slide, element, to, index)
             }
-            Op::SetSlideField { slide, field, value } => {
-                let s = slide_mut(deck, &slide)?;
-                match field {
-                    SlideField::Name => s.name = opt_string("name", value)?,
-                    SlideField::Description => s.description = opt_string("description", value)?,
-                }
-                Ok(())
-            }
             Op::AddSlide { index, defaults, mut slide } => {
                 if deck.slide(&slide.id).is_some() {
                     return Err(DuplicateIdSnafu { id: slide.id }.build().into());
@@ -684,8 +664,8 @@ impl Op {
                 deck.theme = theme;
                 Ok(())
             }
-            Op::AddPack { namespace, pin } => packs::add(deck, namespace, pin),
-            Op::RemovePack { namespace } => packs::remove(deck, &namespace),
+            Op::AddPack { kind, namespace, pin } => packs::add(deck, kind, namespace, pin),
+            Op::RemovePack { kind, namespace } => packs::remove(deck, kind, &namespace),
             Op::SetToken { path, value } => {
                 token_path(&path)?;
                 set_path(&mut deck.tokens, &path, value);

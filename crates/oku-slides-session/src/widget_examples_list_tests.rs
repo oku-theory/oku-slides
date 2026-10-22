@@ -27,8 +27,8 @@ fn bornee(max: usize) -> String {
 fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-example-lists-");
     let mut s = opened_on(data.path());
-    let set = crate::DEFAULT_PACK;
-    s.edit_templates(set).unwrap();
+    let set = crate::BASE_PACK;
+    s.edit_pack(set).unwrap();
     set_frise_widget(&mut s);
     s.set_widget(None, "bornee", bornee(3)).unwrap();
     (data, s)

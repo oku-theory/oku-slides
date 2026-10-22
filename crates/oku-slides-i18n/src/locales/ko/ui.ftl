@@ -4,21 +4,27 @@ ui-loading = 불러오는 중…
 ## 문서
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · 템플릿
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · 레이아웃 팩
+   *[other] { $name } · 위젯 팩
+}
 ui-title-rename = 프레젠테이션 이름 바꾸기
 ui-title-field = 프레젠테이션 제목
 ui-status-unsaved = 저장되지 않은 변경 사항
 ui-status-saved = 저장됨
 ui-status-never-saved = 아직 저장되지 않음
-ui-caption-templates = { $count ->
-   *[other] 템플릿 { $count }개
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+       *[other] 레이아웃 { $count }개
+    }
+   *[other] { $count ->
+       *[other] 위젯 { $count }개
+    }
 } · { $status }
 ui-caption-slides = { $count ->
    *[other] 슬라이드 { $count }개
 } · { $status }
-ui-template-default-name = 템플릿
-ui-template-variant-name = { $name } (변형)
-ui-confirm-quit-templates = 수정한 템플릿을 저장하지 않고 종료할까요?
+ui-confirm-quit-pack = 수정한 팩을 저장하지 않고 종료할까요?
 
 ## 알림
 
@@ -40,7 +46,7 @@ ui-toolbar-theme = 테마
 ui-toolbar-theme-embedded = 파일의 테마
 ui-toolbar-theme-deck-group = 이 프레젠테이션
 ui-toolbar-finish = 완료
-ui-templates-deck-only = 이 프레젠테이션에만 저장됨
+ui-pack-deck-only = 이 프레젠테이션에만 저장됨
 ui-toolbar-open = 열기
 ui-menu = 메뉴
 ui-toolbar-add-label = 슬라이드에 추가
@@ -58,7 +64,6 @@ ui-add-kind-description = { $kind ->
     [table] 데이터 표
    *[text] 텍스트 단락
 }
-ui-toolbar-remove-template = 템플릿 삭제
 ui-toolbar-remove-slide = 슬라이드 삭제
 ui-toolbar-remove-hint = 슬라이드 { $n } · ⌘Z로 실행 취소
 
@@ -72,10 +77,7 @@ ui-undo-add = { $kind ->
    *[text] 텍스트 추가
 }
 ui-undo-add-widget = ‘{ $name }’ 추가
-ui-undo-new-template = 새 템플릿: { $name }
 ui-undo-new-slide = 새 슬라이드: { $name }
-ui-undo-templates = 템플릿: { $name }
-ui-undo-move-template = 템플릿 이동
 ui-undo-move-slide = 슬라이드 이동
 ui-undo-remove-slide = 슬라이드 삭제
 ui-undo-remove = 삭제
@@ -87,7 +89,7 @@ ui-undo-change-anchor = 고정 위치 변경
 ui-undo-move = 이동
 ui-undo-resize = 크기 조정
 ui-undo-edit-slide = 슬라이드 편집
-ui-undo-rename-set = 세트 이름 바꾸기
+ui-undo-rename-pack = 팩 이름 바꾸기
 ui-undo-rename-deck = 프레젠테이션 이름 바꾸기
 ui-undo-chart-kind = 차트 유형 변경
 ui-undo-chart-data = 데이터 편집
@@ -106,15 +108,15 @@ ui-new-card-detail = 세부 정보
 ## 슬라이드 목록
 
 ui-pile-slides = 슬라이드
-ui-pile-templates = 템플릿
+ui-pile-layouts = 레이아웃
 ui-pile-add-slide = + 새 슬라이드
-ui-pile-add-template = + 새 템플릿
 ui-pile-drag-hint = 드래그하여 이동 · ⌥↑ ⌥↓
 ui-slide-alt = 슬라이드 { $n }
 
 ## 스테이지
 
 ui-stage-rendering = 렌더링 중…
+ui-stage-widget-pack = 더미에서 위젯을 열거나 새로 만드세요.
 ui-stage-elements = 슬라이드 요소
 ui-stage-fields = 슬라이드 필드
 ui-stage-edit-text = 텍스트 편집
@@ -236,15 +238,11 @@ ui-size-mb = { $value } MB
 ## 템플릿 선택기
 
 ui-picker-new-slide = 새 슬라이드
-ui-picker-new-template = 새 템플릿, 기반으로 할 템플릿…
-ui-picker-set = 템플릿
 ui-picker-set-mine = { $name } · 내 템플릿
 ui-picker-set-received = { $name } · 받은 템플릿
 ui-picker-keys = ← →로 탐색 · Enter로 추가 · Esc로 닫기
 ui-picker-close = 닫기
-ui-picker-previous = 이전 템플릿
-ui-picker-next = 다음 템플릿
-ui-picker-list = 슬라이드 템플릿
+ui-picker-list = 레이아웃
 ui-widget-picker-filter = 이름, 레이블 또는 설명으로 필터
 ui-widget-picker-empty = “{ $query }”와(과) 일치하는 위젯이 없습니다.
 ui-widget-picker-list = 위젯
@@ -317,7 +315,7 @@ ui-tabs = 열린 프레젠테이션
 ui-tab-new = 새 탭
 ui-tab-close = 탭 닫기
 ui-tab-unsaved = 저장하지 않은 변경 사항
-ui-tab-templates = 템플릿
+ui-tab-pack = 팩
 ui-tab-move-new-window = 새 창으로 이동
 ui-tab-move-to = { $n }번 창으로 이동
 ui-tab-close-others = 다른 탭 닫기
@@ -372,8 +370,8 @@ ui-widgets-open = 위젯 { $name } 열기
 ui-widgets-delete-named = { $name } 삭제
 ui-widgets-confirm-delete = 위젯 “{ $name }”을(를) 삭제할까요?
 ui-widgets-rename-hint = 이름을 바꾸려면 두 번 클릭하거나 F2를 누르세요
-ui-widgets-tabs = 템플릿 탭
-ui-widgets-templates-tab = 템플릿
+ui-pack-tabs = 팩 탭
+ui-pack-layouts-tab = 레이아웃
 ui-theme-tab = 테마
 ui-theme-picker = 테마
 ui-theme-name = 테마 이름
@@ -386,14 +384,15 @@ ui-widgets-removed-by-agent = 에이전트가 위젯 { $name }을(를) 삭제했
 ui-import-title = PowerPoint 프레젠테이션 가져오기
 ui-import-mode = 가져오기 방식
 ui-import-hifi = 원본 그대로 복사
-ui-import-hifi-note = 이 프레젠테이션용으로 만든 테마와 템플릿으로 원본의 모양을 유지합니다.
-ui-import-retrofit = 내 템플릿 사용
-ui-import-retrofit-note = 라이브러리의 템플릿과 테마로 슬라이드를 다시 만듭니다.
+ui-import-hifi-note = 이 프레젠테이션용으로 만든 테마와 레이아웃으로 원본의 모양을 유지합니다.
+ui-import-retrofit = 내 레이아웃 사용
+ui-import-retrofit-note = 라이브러리의 레이아웃 팩과 테마로 슬라이드를 다시 만듭니다.
+ui-import-layout-packs = 레이아웃 팩
 ui-import-theme-default = 기본 테마
-ui-import-no-packs = 라이브러리에 템플릿 세트가 없습니다.
+ui-import-no-packs = 라이브러리에 레이아웃 팩이 없습니다.
 ui-import-tune = 에이전트로 미세 조정
 ui-import-tune-note = 에이전트가 각 슬라이드를 원본과 비교해 차이를 바로잡습니다.
-ui-import-tune-note-retrofit = 에이전트가 각 슬라이드를 원본과 비교하고, 템플릿으로 표현할 수 없는 도형을 위한 위젯을 만듭니다.
+ui-import-tune-note-retrofit = 에이전트가 각 슬라이드를 원본과 비교하고, 레이아웃으로 표현할 수 없는 도형을 위한 위젯을 만듭니다.
 ui-import-tune-unavailable = 사용할 수 있는 에이전트가 없습니다: { $reason }
 ui-import-submit = 가져오기
 ui-import-busy = 가져오는 중…

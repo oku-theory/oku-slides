@@ -138,7 +138,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
      Largeurs par défaut, remplacées sur la table par celles choisies aux séparateurs ;
      le fil cède toujours 320px à la feuille (fenêtre rétrécie depuis le choix). */
   --pile-w: 236px;
-  /* Place gardée de part et d'autre du titre centré pour le jeton « Terminer » du mode modèles
+  /* Place gardée de part et d'autre du titre centré pour le jeton « Terminer » du mode pack
      et sa marge (voir `.tray`). */
   --tray-reserve: 80px;
   --notes-w: clamp(420px, 40vw, 760px);
@@ -174,7 +174,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   text-align: center; cursor: default;
 }
 .brand { font: 600 11px/14px var(--sans); color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
-/* Sous la marque, en mode modèles : le pack du deck seul ne quitte pas la présentation. */
+/* Sous la marque, en mode pack : le pack du deck seul ne quitte pas la présentation. */
 .brand-note { font: 400 11px/14px var(--sans); color: var(--ink-muted); }
 .doc-name { font: 500 15px/20px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .doc-name-button {
@@ -250,7 +250,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-4) var(--space-6);
   display: grid; grid-template-rows: minmax(0, 1fr) auto; grid-auto-columns: minmax(0, 1fr);
 }
-.sheet-area > .templates-panel, .sheet-area > .widget-pane { grid-row: 1; }
+.sheet-area > .stage-panel, .sheet-area > .widget-pane { grid-row: 1; }
 /* La scène et, dans la marge de part et d'autre, les boutons slide précédente / suivante. */
 /* 16px de plus que la marge de la feuille : de quoi y loger les boutons, à 8px de la slide et du séparateur. */
 .stage-box { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; margin-inline: var(--space-4); }
@@ -473,7 +473,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .toast.error { color: var(--danger); }
 .empty { color: var(--ink-muted); }
 
-/* ---- Carrousel des modèles ---- */
+/* ---- Sélecteurs : layouts et grille d'ajout ---- */
 .picker-scrim {
   position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
   background: color-mix(in oklab, var(--paper-000) 55%, transparent); backdrop-filter: blur(6px);
@@ -487,24 +487,23 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .picker-head { display: flex; align-items: center; gap: var(--space-4); }
 .picker-head h2 { margin: 0; font: 500 24px/30px var(--serif); }
 .picker-head > .caption { flex: 1; }
-.picker-row { display: flex; align-items: center; gap: var(--space-4); }
-.picker-nav { flex: none; }
-.picker-strip {
-  flex: 1; display: flex; gap: 28px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 18px 12px 26px;
-  scrollbar-width: none;
-}
-.picker-strip::-webkit-scrollbar { display: none; }
-.template {
-  flex: none; width: 272px; scroll-snap-align: center; display: flex; flex-direction: column; gap: 6px; padding: 0;
+/* Sélecteur de layouts : une section par pack, ses cartes en colonnes souples ; le tout défile. */
+.layout-picker { max-height: 84vh; }
+.layout-packs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-6); padding: 4px 12px 16px; }
+.layout-pack h3 { margin: 0 0 12px; font: 600 13px/18px var(--sans); color: var(--ink-muted); }
+.layout-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px 20px; }
+.layout-card {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 0;
   background: none; border: 0; text-align: start; cursor: pointer; color: var(--ink);
 }
-.template img, .template-empty {
-  width: 272px; aspect-ratio: 16 / 9; display: block; border-radius: var(--radius-sm); background: var(--t-bg);
+.layout-card img {
+  width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: var(--radius-sm); background: var(--t-bg);
   box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: transform 180ms ease-out, box-shadow 180ms ease-out;
 }
-.template.focused img { transform: var(--lift) scale(1.04); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
-.template-name { margin-top: 10px; font-weight: 600; }
-.template:focus-visible { outline: none; }
+.layout-card:hover img, .layout-card:focus-visible img { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
+.layout-card:focus-visible { outline: none; }
+@media (prefers-reduced-motion: reduce) { .layout-card img { transition: none; } }
+.card-name { margin-top: 10px; font-weight: 600; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
 @media (prefers-reduced-motion: reduce) { .picker-scrim, .picker { animation: none; } }
@@ -545,7 +544,6 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .stepper-value { text-align: center; font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .linkish { align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer; font-size: 12px; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; opacity: 0.75; }
 .linkish:hover { opacity: 1; }
-.picker-set { display: inline-flex; align-items: center; gap: var(--space-2); }
 /* Grille d'ajout : le filtre dans l'en-tête ; une carte montre l'aperçu du widget, ou l'icône d'un élément natif. */
 /* Ancrée en haut : filtrer change sa hauteur sans la faire sauter. */
 .widget-picker { width: min(980px, calc(100vw - 80px)); max-height: 84vh; align-self: start; margin-top: 8vh; }
@@ -564,7 +562,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   background: none; border: 0; text-align: start; cursor: pointer; color: var(--ink);
 }
 .widget-choice:focus-visible { outline: none; }
-.widget-choice .template-name { margin-top: 8px; }
+.widget-choice .card-name { margin-top: 8px; }
 .widget-choice .caption { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .widget-choice-face {
   width: 100%; aspect-ratio: 16 / 9; display: grid; place-items: center; padding: 12px; box-sizing: border-box;
@@ -583,7 +581,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 /* ---- Pile : glisser-déposer ---- */
 .thumb-slot { position: relative; }
 /* Supprimer : une corbeille estompée en bas à droite de chaque miniature, nette au survol.
-   Placée depuis le coin haut de l'image (26px de numéro, --thumb-w de large, 16/9) : un nom de modèle dessous ne la déplace pas. */
+   Placée depuis le coin haut de l'image (26px de numéro, --thumb-w de large, 16/9) : un nom de layout dessous ne la déplace pas. */
 .thumb-remove {
   position: absolute; z-index: 1; width: 24px; height: 24px;
   top: calc(var(--thumb-w) * 9 / 16 - 24px - 5px); inset-inline-start: calc(26px + var(--thumb-w) - 24px - 5px);
@@ -628,7 +626,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .rich-field-editor .cm-editor.cm-focused { outline: none; }
 .rich-field-editor .cm-scroller, .rich-field-editor .cm-content { font: inherit; }
 .rich-field-editor .cm-cursor, .rich-field-editor .cm-dropCursor { border-left-color: var(--accent); }
-.label.editing-templates .brand { color: var(--app-danger, var(--accent)); }
+.label.editing-pack .brand { color: var(--app-danger, var(--accent)); }
 .toggle { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; cursor: pointer; }
 .toggle-track {
   position: relative; width: 30px; height: 18px; border-radius: 9px; flex: none; transition: background 140ms;

@@ -5,25 +5,25 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
 ## Session
 
 - `Session` (`lib.rs`) answers `Request` through `Session::handle` (`request.rs`): one deck (`SourceBundle`, Loro replica, undo by
-  the non-persisted `UndoManager`), its rendering, templates, resume (`resume.rs`, `resume_writer.rs`), file (`deck_file.rs`, `files.rs`, `merge.rs`).
-- `Mode`: `Deck`, `Help` (read-only, `help.rs`), `Templates`, `History`; the last two set the deck aside (`stash`) in
-  `templates_mode.rs` (`templates_library.rs`: base, library writes; a deck-only pack edits its embedded version) and `history.rs`.
-- Packs (`deck.widgets`, one pin per namespace) and themes: embedded versions are authoritative; a deck-only one never reaches
-  the library. Built-ins: Essentiel, Grilles, `base` (`BASE_PACK`: element widgets, sources from render), pinned before probing
-  by producers: new deck (`adopt_default_packs`), help, imports (built-in version), templates mode; open never completes pins.
-  The current built-in `base` resolves in-process (`deck_widgets.rs`, `probed_widgets`: no worker, `builtin_registry`); a first
-  replica uses `builtin_registry`, a slot without a set `core_registry`. `deck_fallback.rs` disables a faulty pack alone, never a shipped `base`;
-  `deck_closure.rs` adds `requires`, lists dependents; `deck_pack.rs` (`check_pack_id`, `builtin_pin`), `deck_theme.rs` embed
-  defaults; `library.rs` (unique namespace; `namespace_slug.rs`), `library_kind.rs`, `library_index.rs` (in-memory) hold `Library<K>`.
-- Theme editing: `theme_edit.rs` (templates-mode draft, `save_theme_edit`), `deck_theme_edit.rs` (`edit_theme` in deck mode),
+  the non-persisted `UndoManager`), its rendering, pack mode, resume (`resume.rs`, `resume_writer.rs`), file (`deck_file.rs`, `files.rs`, `merge.rs`).
+- `Mode`: `Deck`, `Help` (`help.rs`), `Pack`, `History`; the last two set the deck aside (`stash`): `history.rs`, `pack_mode.rs` (a slide
+  `layout-<name>` per layout, preview of its example), `layout_examples.rs` (slide op → example), `pack_mode_save.rs`, `pack_library.rs`, `pack_mode_previews.rs`.
+- Packs (`deck.widgets`, `deck.layouts`; a namespace in one kind only) and themes: embedded versions are authoritative, a deck-only
+  one never reaches the library. Built-ins `base` (widgets) and `essentiel` (layouts), sources from render, pinned by producers
+  (new deck with no pin: `adopt_default_packs`; help; imports, built-in version; pack mode), never on open; current built-ins
+  resolve in-process (`deck_widgets.rs`, `probed_widgets`: `builtin_registry` for exactly both), no packs `WidgetRegistry::default()`.
+  `deck_fallback.rs` never disables a shipped built-in; `deck_closure.rs` (`requires`, dependents, `examples_requires`); `deck_pack.rs`,
+  `deck_theme.rs` embed defaults; `library_packs.rs` (`PackLibrary`: one `Library<K>` per kind of `library_kind.rs`, namespace
+  unique across kinds, `deck`/`deck-layouts` reserved, built-in ones never owned by a user copy; `namespace_slug.rs`), `library.rs`, `library_index.rs` (in-memory).
+- Theme editing: `theme_edit.rs` (pack-mode draft, `save_theme_edit`), `deck_theme_edit.rs` (`edit_theme` in deck mode),
   `theme_schema.rs` (controls, bounds), `theme_panel.rs` + `theme_controls.rs` (`host-theme`), `theme_picker.rs` (`host-theme-picker`:
   bounded thumbnails, swatches, `pick_theme`), `appearance.rs`; `deck_themes.rs`: deck-only themes (`Snapshot.deck_themes`), after the library.
-- Widget workshop: `widgets_edit.rs`, `widget_preview.rs` (built-in `base` beside the pack), `widget_examples.rs`, `widget_params.rs`,
-  `param_fields.rs` (Fluent names for core and `base` kinds only), `items.rs`, `widgets_deck.rs`; host settings: `panel.rs`, `target_params.rs`.
+- Workshop: `widgets_edit.rs`, `widget_preview.rs` (working deck's packs), `widget_examples.rs`, `widget_params.rs`, `param_fields.rs`
+  (Fluent names of built-in kinds), `items.rs`, `widgets_deck.rs` (`deck`/`deck-layouts` by category); `panel.rs`, `target_params.rs` + `target_grid.rs` (pack-mode slide grid).
 - Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`.
 - Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts unrendered, its worker at the first render.
-- `import/`: PowerPoint import, CLI and app (one history step; a retrofit keeps the library pack until its first widget
-  write makes the deck-only `child_pack`), `render`, `note_overflows`, `reference`, `state` (`ImportState`, tab memory),
+- `import/`: PowerPoint import, CLI and app (one history step; a retrofit pins `base` and its layout packs, scored by their
+  profiles; hi-fi makes a deck-only `deck-layouts`), `render`, `note_overflows`, `reference`, `state` (`ImportState`, tab memory),
   `score`, `geometry`, tuning (`queue`, `sample`, `diff`, `tune`). Also for the CLI: `library_lookup`, `probed_widgets`.
 - `agent/`: what the session offers the agent. `tabs` (`Sessions`, `TabSession`), turns as undo
   groups (`begin_turn`; `turn_undo` names the turn atop the deck undo stack for its receipt), A2UI
@@ -41,9 +41,9 @@ detached agent. `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds
 never the reverse; only `try_lock` a session under it. `apply`, `with_session`, `open_files`, `settle`, `post_notice` take both in sequence, never nested; slow work outside.
 
 `<data>/resume/`: `workspace.json` (layout version 2, counters, `kept`, per-tab `info`) and
-`tabs/t-<n>/{state.json, deck/, templates/, agent/<scope>.json}`, each written by its session only;
+`tabs/t-<n>/{state.json, deck/, pack/, agent/<scope>.json}`, each written by its session only;
 `deck/` holds `deck.loro`, `document.json`, `assets/`, `fonts/`, `packs/`. Unreadable parts are set
-aside as `*.failed-…`. Tabs restore lazily: the tab bar comes from `info` (ADR-0001).
+aside as `*.failed-…` (state version 2; an older unsaved tab: `notice-tab-set-aside`). Tabs restore lazily from `info` (ADR-0001).
 
 ## Dependencies
 

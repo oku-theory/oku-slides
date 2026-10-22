@@ -6,14 +6,14 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use serde_json::json;
 use speculoos::prelude::*;
 
 fn deck_with(frame: serde_json::Value, rows: usize) -> Deck {
     let mut source = vec![json!(["Mois", "Ventes"])];
     source.extend((0..rows).map(|i| json!([format!("m{i}"), i])));
-    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [{
+    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [{
         "id": "g", "kind": base::CHART, "frame": frame, "params": {
         "option": { "dataset": { "source": source }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } }
     }] } }] }))

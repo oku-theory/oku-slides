@@ -90,12 +90,12 @@ pub(super) fn op(v: serde_json::Value) -> Op {
 
 /// L'op qui épingle `pin` sous l'espace de noms de son pack.
 pub(super) fn pin_pack(pin: &PackPin) -> Op {
-    Op::AddPack { namespace: namespace_of(pin.id), pin: pin.clone() }
+    Op::AddPack { kind: oku_slides_core::PackKind::Widgets, namespace: namespace_of(pin.id), pin: pin.clone() }
 }
 
 /// L'op qui retire le pack `pin`.
 pub(super) fn unpin_pack(pin: &PackPin) -> Op {
-    Op::RemovePack { namespace: namespace_of(pin.id) }
+    Op::RemovePack { kind: oku_slides_core::PackKind::Widgets, namespace: namespace_of(pin.id) }
 }
 
 /// Le `kind` qualifié du widget `name` du pack `pin`.
@@ -136,7 +136,7 @@ pub(super) fn edited_base_pack(s: &Session, source: &str) -> PackPin {
     let builtin = crate::test_support::builtin(crate::pack::BASE_PACK);
     let mut widgets = builtin.files.widgets().clone();
     widgets.extend(crate::test_support::widget_files(&[("boucle", source)]));
-    let files = oku_slides_core::PackFiles::new(builtin.files.manifest().clone(), widgets);
+    let files = oku_slides_core::PackFiles::new(builtin.files.kind(), builtin.files.manifest().clone(), widgets);
     s.library.add_version(crate::pack::BASE_PACK, &files).unwrap();
     PackPin { id: crate::pack::BASE_PACK, version: files.version(), requires: Vec::new() }
 }
@@ -185,7 +185,7 @@ fn session_with_pack_widgets_uses_the_pack_registry() {
 }
 
 #[test]
-fn apply_set_templates_then_pack_element_in_one_transaction_succeeds() {
+fn apply_set_pack_then_pack_element_in_one_transaction_succeeds() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
@@ -207,7 +207,7 @@ fn apply_pack_element_without_its_pack_is_refused() {
 }
 
 #[test]
-fn apply_set_templates_with_render_failure_keeps_the_previous_registry() {
+fn apply_set_pack_with_render_failure_keeps_the_previous_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
@@ -221,7 +221,7 @@ fn apply_set_templates_with_render_failure_keeps_the_previous_registry() {
 }
 
 #[test]
-fn apply_set_templates_with_sources_failure_keeps_the_previous_registry() {
+fn apply_set_pack_with_sources_failure_keeps_the_previous_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
@@ -273,7 +273,7 @@ fn merge_file_that_brings_a_pack_uses_its_registry() {
 }
 
 #[test]
-fn history_restore_before_set_templates_returns_to_the_base_registry() {
+fn history_restore_before_set_pack_returns_to_the_base_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
@@ -291,7 +291,7 @@ fn history_restore_before_set_templates_returns_to_the_base_registry() {
 /// Les sources de la fixture, qui embarquent un pack `name` de widgets `widgets` et y renvoient.
 fn bundle_with_pack(s: &Session, name: &str, widgets: &[(&str, &str)]) -> (SourceBundle, PackPin) {
     let m = crate::test_support::manifest(uuid::Uuid::new_v4(), name, None, "2026-10-01T10:00:00Z");
-    let files = m.to_files(crate::test_support::widget_files(widgets)).unwrap();
+    let files = m.to_files(oku_slides_core::PackKind::Widgets, crate::test_support::widget_files(widgets)).unwrap();
     let r = PackPin { id: m.id, version: files.version(), requires: Vec::new() };
     let mut deck = s.deck().clone();
     deck.widgets.insert(m.namespace.clone(), r.clone());
@@ -331,7 +331,7 @@ fn load_sources_with_an_embedded_pack_unknown_to_the_library_uses_its_widgets() 
 }
 
 #[test]
-fn apply_set_templates_to_a_broken_pack_keeps_the_base_registry_and_sets_a_notice() {
+fn apply_set_pack_to_a_broken_pack_keeps_the_base_registry_and_sets_a_notice() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let broken = user_pack(&s, "Cassé", &[("casse", BROKEN)]);
@@ -345,7 +345,7 @@ fn apply_set_templates_to_a_broken_pack_keeps_the_base_registry_and_sets_a_notic
 
 /// t-329 : un widget cassé est écarté, les autres du même pack restent.
 #[test]
-fn apply_set_templates_to_a_pack_with_one_broken_widget_keeps_the_others() {
+fn apply_set_pack_to_a_pack_with_one_broken_widget_keeps_the_others() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let mixed = user_pack(&s, "Mixte", &[("quote", QUOTE), ("casse", BROKEN)]);
@@ -372,26 +372,26 @@ fn load_with_a_failed_registry_install_keeps_the_previous_document() {
 }
 
 #[test]
-fn edit_templates_of_a_pack_with_widgets_uses_them_then_close_returns_to_the_deck_registry() {
+fn edit_pack_of_a_pack_with_widgets_uses_them_then_close_returns_to_the_deck_registry() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
-    s.edit_templates(quote.id).unwrap();
+    s.edit_pack(quote.id).unwrap();
     assert_that!(widgets_have_quote(&mut s, &quote)).is_true();
     assert_registry_agrees(&s);
-    s.close_templates().unwrap();
+    s.close_pack().unwrap();
     assert_that!(widgets_have_quote(&mut s, &quote)).is_false();
     assert_registry_agrees(&s);
 }
 
 #[test]
-fn save_templates_as_a_copy_takes_the_pack_widgets_along() {
+fn save_pack_as_a_copy_takes_the_pack_widgets_along() {
     let data = data_dir();
     let mut s = session_in(&data.0);
     let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
-    s.edit_templates(quote.id).unwrap();
-    s.save_templates(true).unwrap();
-    let copy = s.snapshot().editing.unwrap().set;
+    s.edit_pack(quote.id).unwrap();
+    s.save_pack(true).unwrap();
+    let copy = s.snapshot().editing.unwrap().pack;
     assert_that!(copy).is_not_equal_to(quote.id);
     let stored = s.library.current_version(copy).unwrap();
     assert_that!(stored.files.widget(&oku_slides_core::WidgetFile::parse("quote").unwrap())).is_equal_to(Some(QUOTE));
@@ -425,8 +425,8 @@ fn version_absent_from_the_sources_renders_base_widgets_with_a_notice() {
     let path = data.0.join("absent.json");
     let id = uuid::Uuid::new_v4();
     let pin = json!({ "id": id, "version": format!("sha256:{}", "0".repeat(64)) });
-    let deck = json!({ "version": 7, "widgets": { namespace_of(id).as_str(): pin },
-        "slides": [{ "id": "s", "kind": "title" }] });
+    let deck = json!({ "version": 8, "widgets": { namespace_of(id).as_str(): pin },
+        "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::TITLE }] });
     std::fs::write(&path, serde_json::to_vec(&deck).unwrap()).unwrap();
     let mut s = session_in(&data.0);
     s.open(&path).unwrap();

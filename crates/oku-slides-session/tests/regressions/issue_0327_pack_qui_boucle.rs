@@ -57,18 +57,18 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         parent: None,
         created: "2026-10-01T00:00:00Z".into(),
         scope: oku_slides_core::PackScope::Library,
-        templates: vec![],
+        profiles: Vec::new(),
         examples: BTreeMap::new(),
     };
     let files = manifest
-        .to_files(BTreeMap::from([(
-            WidgetFile::parse("boucle").unwrap_or_else(|| panic!("nom")),
-            LOOP_ON_RENDER.into(),
-        )]))
+        .to_files(
+            oku_slides_core::PackKind::Widgets,
+            BTreeMap::from([(WidgetFile::parse("boucle").unwrap_or_else(|| panic!("nom")), LOOP_ON_RENDER.into())]),
+        )
         .unwrap_or_else(|e| panic!("{e}"));
     let version = files.version();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.path().join("widgets")), storage)
+    PackLibrary::new(Some(data.path().join("widgets")), None, storage)
         .add_version(id, &files)
         .unwrap_or_else(|e| panic!("{e}"));
 
@@ -89,7 +89,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         .unwrap_or_else(|e| panic!("ouverture refusée : {}", e.one_line()));
 
     let ops: Vec<Op> = serde_json::from_value(serde_json::json!([
-        { "op": "add_pack", "namespace": "boucle", "pin": { "id": id, "version": version } },
+        { "op": "add_pack", "kind": "widgets", "namespace": "boucle", "pin": { "id": id, "version": version } },
         { "op": "add_element",
           "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
           "element": { "id": "l", "kind": "boucle/boucle", "params": { "body": "x" } } }

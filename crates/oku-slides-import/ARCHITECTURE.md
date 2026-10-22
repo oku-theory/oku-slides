@@ -6,10 +6,10 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 ## API
 
 - `read_pptx(bytes, &ReadLimits) -> Result<SourceDeck, ImportError>`.
-- `retrofit::project(&SourceDeck, &RetrofitTarget) -> ImportPlan` : content on an existing pack and theme; the
-  session pins `base` first. Element kinds come only from `oku_slides_core::kinds::base`.
-- `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : the source on a generated theme and pack requiring `base`;
-  ops start with `AddPack base` (`HifiTarget.base`); `hifi::sought_fonts`, fonts it looks for; `hifi::source_rect`, the page.
+- `retrofit::project(&SourceDeck, &RetrofitTarget) -> Result<…>` : content on the `profiles` of the chosen layout
+  packs (in order; none: `NoProfiles`) and a theme, after the session pins `base` and `essentiel`; kinds from `kinds`.
+- `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : on a generated theme and deck-only layout pack `deck-layouts`;
+  ops start with `AddPack` `base`, `essentiel` (fallback `essentiel/blank`), `deck-layouts`; `sought_fonts`, `source_rect`.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report, `origins` (item → element); in hi-fi the
   generated theme, pack, schemas, fonts, `targets` (item → elements or slide param), `groups` (`hifi::groups`);
   `report_json` is the `--report` form; `check_budget` (fatal `TooLarge`) gives the `CheckedPlan` to apply.
@@ -28,11 +28,11 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
   by their bytes (`media::sniff`), rasters refused on a bad header (`media::dimensions`), SVGs sanitized.
 - Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`,
   never `pptx/`. They are pure: ids and dates come from the target (ADR-0008).
-- `retrofit/` : decor omission (`decor`, shared with `coverage`), template choice (`template`), headings, clusters,
+- `retrofit/` : decor omission (`decor`, shared with `coverage`), profile choice (`profile`), headings, clusters,
   placement (`slide`, `zone`, `MAX_SLIDE_ITEMS`), text, tables, charts (`dataset_row_budget`), `color`, card
-  stacks (`group`, SmartArt). A text-only first cover keeps a title template, other texts in notes.
+  stacks (`group`, SmartArt). A text-only first cover keeps a title profile, other texts in notes.
 - `hifi/` : page fit (`page`), theme tokens and `ThemeManifest` (`theme`, `color`), one slide
-  widget per layout (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
+  widget per layout in `deck-layouts` (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
   Typst (`typst/`), shape outlines and arrowheads (`geometry/`, with the embedded ECMA-376
   `presetShapeDefinitions.xml`), slide items as elements (`slide`, `element`, `table`).
 - `pattern` : repeated-item signatures (retrofit requests, hi-fi `groups`); `fonts/` : embedded, catalog, substitute, `Missing`.

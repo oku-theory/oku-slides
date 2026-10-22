@@ -181,7 +181,7 @@ fn open_compaction_is_not_undoable_and_leaves_no_history_notch() {
     assert_that!(reopened.history().len()).is_equal_to(versions);
     // Une édition après l'ouverture se défait sans ramener le nœud compacté.
     let mut renamed = reopened.deck().0;
-    renamed.slides[0].name = Some("renommée".to_owned());
+    renamed.slides[0].notes = "renommée".to_owned();
     reopened.apply(&renamed, "Renommer", None).unwrap_or_else(|e| panic!("{e}"));
     assert_that!(reopened.undo().unwrap_or_else(|e| panic!("{e}"))).is_true();
     assert_that!(deleted(&reopened, points)).is_true();
@@ -222,7 +222,7 @@ fn compacted_and_uncompacted_copies_converge() {
     assert_that!(deleted(&a, points)).named("précondition a").is_true();
     assert_that!(deleted(&b, points)).named("précondition b").is_false();
     let mut renamed = b.deck().0;
-    renamed.slides[0].name = Some("renommée".to_owned());
+    renamed.slides[0].notes = "renommée".to_owned();
     b.apply(&renamed, "Renommer", None).unwrap_or_else(|e| panic!("{e}"));
     a.merge(&b).unwrap_or_else(|e| panic!("{e}"));
     b.merge(&a).unwrap_or_else(|e| panic!("{e}"));
@@ -278,7 +278,7 @@ fn measure_compaction_cost_40x20_with_10000_marked() {
         let (mut back, _) = DeckReplica::from_snapshot(&bytes, 1 << 26, registry()).unwrap_or_else(|e| panic!("{e}"));
         let open_time = t.elapsed();
         let mut renamed = read.clone();
-        renamed.slides[0].name = Some("renommée".to_owned());
+        renamed.slides[0].notes = "renommée".to_owned();
         let t = std::time::Instant::now();
         back.apply(&renamed, "titre", None).unwrap_or_else(|e| panic!("{e}"));
         let apply_time = t.elapsed();

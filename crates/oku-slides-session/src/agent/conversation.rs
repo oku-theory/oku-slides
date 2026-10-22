@@ -145,7 +145,7 @@ impl Session {
     }
 
     /// Avant annuler ou rétablir : le pack en cours, les sources de ses widgets et
-    /// les noms connus de ses fichiers. `None` : ni deck ni modèles.
+    /// les noms connus de ses fichiers. `None` : ni deck ni pack édité.
     pub(crate) fn widgets_before(&self) -> Option<WidgetsBefore> {
         let pack = self.widgets_pack()?;
         // Sans lire la bibliothèque (pas d'accès disque à chaque annulation) : sa
@@ -159,7 +159,7 @@ impl Session {
     /// propre du deck (`deck`) ; `None` sans lui, dans l'aide et l'historique.
     fn widgets_pack(&self) -> Option<uuid::Uuid> {
         match &self.mode {
-            Mode::Templates { edit, .. } => Some(edit.set),
+            Mode::Pack { edit, .. } => Some(edit.pack),
             Mode::Deck => self.deck_pins().get(&oku_slides_core::Namespace::deck()).map(|pin| pin.id),
             Mode::Help { .. } | Mode::History { .. } => None,
         }

@@ -11,7 +11,7 @@ export function agentStatusReducer(cur: AgentStatus, e: AgentEvent): AgentStatus
   return e.kind === "status" ? { state: e.state, scope: e.scope } : cur;
 }
 
-const NO_VIEW: ScopeView = { templates: false, history: false, pack: null, widget: null };
+const NO_VIEW: ScopeView = { packMode: false, history: false, pack: null, widget: null };
 
 /** Ce que l'interface lit de la portée de l'agent. */
 export interface AgentScopeState {

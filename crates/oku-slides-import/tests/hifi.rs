@@ -1,8 +1,9 @@
 //! Le hi-fi de bout en bout : les fixtures `minimal`, `kitchen`,
 //! `libreoffice.pptx` et le vrai deck `alto-wealth.pptx`, projetés sur un
 //! thème et un pack générés. Le plan s'applique en une transaction sur un
-//! deck vide (registre : la base plus les schémas déclarés), désigne le
-//! thème et le pack qu'il porte, et le deck obtenu ne lève aucune `Issue`.
+//! deck vide (registre : les packs intégrés plus les schémas déclarés),
+//! épingle `base`, `essentiel` et le pack de layouts `deck-layouts` qu'il
+//! porte, et le deck obtenu ne lève aucune `Issue`.
 
 mod common;
 
@@ -10,7 +11,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use oku_slides_core::kinds;
 use oku_slides_core::{
-    Deck, Element, Namespace, Op, PackManifest, ParamValue, Params, ThemeManifest, WidgetRegistry, apply_all, validate,
+    Deck, Element, Namespace, Op, PackKind, ParamValue, Params, ThemeManifest, WidgetRegistry, apply_all, validate,
 };
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{HifiTarget, ImportPlan, PackLimits, hifi, read_pptx};
@@ -34,6 +35,7 @@ fn plan(fixture: &str) -> ImportPlan {
     let target = HifiTarget {
         registry: &base,
         base: common::base_pin(),
+        essentiel: common::essentiel_pin(),
         fonts: &fonts,
         pack_id: Uuid::from_u128(1),
         theme_id: Uuid::from_u128(2),
@@ -44,11 +46,9 @@ fn plan(fixture: &str) -> ImportPlan {
     hifi::project(&source(fixture), &target)
 }
 
-/// Le registre du deck importé : la base et les schémas déclarés du pack.
+/// Le registre du deck importé : les packs intégrés et les schémas déclarés du pack.
 fn registry(plan: &ImportPlan) -> WidgetRegistry {
-    let base: Vec<_> = common::registry().iter().cloned().collect();
-    WidgetRegistry::from_probe(json!({ "base": base, "packs": [{ "namespace": "deck", "widgets": plan.schemas }] }))
-        .unwrap_or_else(|e| panic!("{e}"))
+    common::registry_with_deck_layouts(&plan.schemas)
 }
 
 /// Le plan de `fixture` et le deck obtenu, contrôlé.
@@ -72,42 +72,51 @@ fn hifi_applies_without_issue_and_covers_everything(
     let (theme, pack) = (plan.theme.as_ref().unwrap(), plan.pack.as_ref().unwrap());
     assert_that!(deck.theme.as_ref().map(|t| (t.id, t.version.clone())))
         .is_equal_to(Some((Uuid::from_u128(2), theme.version())));
-    assert_that!(deck.widgets.get(&Namespace::deck()).map(|p| (p.id, p.version.clone())))
+    assert_that!(deck.layouts.get(&Namespace::deck_layouts()).map(|p| (p.id, p.version.clone())))
         .is_equal_to(Some((Uuid::from_u128(1), pack.version())));
     assert_that!(ThemeManifest::from_files(theme).unwrap().tokens["weight"]["strong"]).is_equal_to(json!(700));
-    let manifest = PackManifest::from_files(pack).unwrap();
-    assert_that!(manifest.templates.len()).is_equal_to(plan.schemas.len());
+    // Un fichier par widget déclaré, plus `_commun`.
+    assert_that!((pack.kind(), pack.widgets().len() - 1)).is_equal_to((PackKind::Layouts, plan.schemas.len()));
     let c = plan.report.coverage.clone().unwrap_or_else(|| panic!("couverture mesurée"));
     assert_that!(c.missing).is_empty();
     assert_that!([c.runs, c.images, c.tables, c.charts].iter().all(|r| r.is_complete())).is_true();
 }
 
 #[test]
-fn hifi_plan_pins_its_pack_under_deck_namespace() {
+fn hifi_plan_pins_base_essentiel_then_deck_layouts() {
     let ops = plan("minimal").ops;
-    assert_that!(ops.iter().any(|o| matches!(o, Op::AddPack { namespace, .. } if namespace.is_deck()))).is_true();
-}
-
-#[test]
-fn hifi_plan_pins_base_before_the_deck_pack() {
-    let ops = plan("minimal").ops;
-    let pins: Vec<&str> = ops
+    let pins: Vec<(PackKind, &str)> = ops
         .iter()
         .filter_map(|o| match o {
-            Op::AddPack { namespace, .. } => Some(namespace.as_str()),
+            Op::AddPack { kind, namespace, .. } => Some((*kind, namespace.as_str())),
             _ => None,
         })
         .collect();
-    assert_that!(pins).is_equal_to(vec!["base", "deck"]);
+    assert_that!(pins).is_equal_to(vec![
+        (PackKind::Widgets, "base"),
+        (PackKind::Layouts, "essentiel"),
+        (PackKind::Layouts, "deck-layouts"),
+    ]);
 }
 
 #[test]
-fn hifi_deck_kinds_are_all_base_or_deck() {
+fn hifi_element_kinds_are_all_base() {
     let (_, deck) = import("kitchen");
     let kinds = common::deck_kinds(&deck);
-    let stray: Vec<&String> =
-        kinds.iter().filter(|k| !k.starts_with("deck/") && !kinds::base::ALL.contains(&k.as_str())).collect();
+    let stray: Vec<&String> = kinds.iter().filter(|k| !kinds::base::ALL.contains(&k.as_str())).collect();
     assert_that!((kinds.is_empty(), stray.is_empty())).is_equal_to((false, true));
+}
+
+#[test]
+fn hifi_slide_kinds_are_deck_layouts_or_essentiel_blank() {
+    let (_, deck) = import("kitchen");
+    let stray: Vec<&str> = deck
+        .slides
+        .iter()
+        .map(|s| s.kind.as_str())
+        .filter(|k| !k.starts_with("deck-layouts/") && *k != kinds::essentiel::BLANK)
+        .collect();
+    assert_that!(stray).is_empty();
 }
 
 #[test]

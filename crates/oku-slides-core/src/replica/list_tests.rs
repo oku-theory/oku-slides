@@ -49,7 +49,7 @@ fn deck_with_list(ids: &[&str]) -> Deck {
         })
         .collect();
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-        "element": { "id": "f", "kind": "liste" } }));
+        "element": { "id": "f", "kind": "test-el/liste" } }));
     with_ops(&roadmap(), vec![add, set_list(Value::Array(items))])
 }
 
@@ -267,7 +267,7 @@ fn apply_reorder_of_items_marks_intermediate_commits_as_parts() {
 /// `roadmap` et l'élément `p` (`plan`) : étape `a` aux tâches `t1`, `t2`, étape `b` sans tâche.
 fn deck_with_plan() -> Deck {
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-        "element": { "id": "p", "kind": "plan" } }));
+        "element": { "id": "p", "kind": "test-el/plan" } }));
     let set = op(json!({ "op": "set_param", "target": { "slide": "s-constat", "element": "p" }, "param": "etapes",
         "value": [
             { "id": "a", "titre": "A", "taches": [{ "id": "t1", "texte": "un", "fait": true }, { "id": "t2", "texte": "deux" }] },

@@ -1,6 +1,7 @@
 //! Le pack généré : `_commun.typ` (le champ d'un placeholder, le décor de
 //! chaque master appelé), un widget de slide par layout utilisé
-//! ([`super::widget`]), leurs schémas déclarés et le `widgets.json`.
+//! ([`super::widget`]), leurs schémas déclarés et le `layouts.json` : un pack
+//! de layouts sous l'espace de noms réservé `deck-layouts`.
 //!
 //! Un layout est utilisé si une slide source le désigne ; les widgets
 //! suivent l'ordre des layouts de la source, les fonctions de master celui
@@ -17,8 +18,8 @@
 //! - au plus `max_files − 1` widgets : les layouts les plus employés (par
 //!   nombre de slides, à égalité dans l'ordre de la source) ; les autres
 //!   ([`GeneratedPack::dropped`]) n'ont pas de widget, leurs slides prennent
-//!   `blank` et y reçoivent fond et décor en éléments ([`super::slide`]) :
-//!   garder les plus employés minimise les slides sans modèle ;
+//!   `essentiel/blank` et y reçoivent fond et décor en éléments ([`super::slide`]) :
+//!   garder les plus employés minimise les slides sans layout généré ;
 //! - chaque fichier sous `max_file_bytes` : le décor qui ne tient plus est
 //!   omis, en partant de la fin de l'ordre de dessin (perte `DecorTruncated`) ;
 //!   un widget trop gros même sans décor est laissé de côté comme les
@@ -30,8 +31,8 @@ use serde_json::{Map, Value, json};
 use uuid::Uuid;
 
 use oku_slides_core::{
-    Namespace, PackManifest, PackScope, ParamValue, Slide, Template, WidgetError, WidgetFile, WidgetRegistry,
-    WidgetSchema, kinds, qualify,
+    Category, Namespace, PackKind, PackManifest, PackScope, ParamValue, SchemaFault, Slide, WidgetError, WidgetFile,
+    WidgetRegistry, WidgetSchema, kinds, split_kind,
 };
 
 use super::typst::{GenCtx, Typst};
@@ -190,20 +191,38 @@ fn common_file(deck: &SourceDeck, called: &BTreeSet<usize>, ctx: &GenCtx<'_>, ma
     (common, drawn)
 }
 
-/// Le registre du deck importé : les widgets de `base` (ceux de la
-/// bibliothèque, sans pack) et les widgets déclarés de `pack`, contrôlés
-/// comme le serait la sonde (`WidgetRegistry::from_probe`).
-pub(crate) fn generated_registry(base: &WidgetRegistry, pack: &GeneratedPack) -> Result<WidgetRegistry, WidgetError> {
-    let base: Vec<&WidgetSchema> = base.iter().collect();
-    let pack: Vec<&WidgetSchema> = pack.schemas().collect();
-    WidgetRegistry::from_probe(json!({ "base": base, "packs": [{ "namespace": Namespace::deck(), "widgets": pack }] }))
+/// L'espace de noms et le nom court de `w`, widget d'un registre ; sans espace de noms, refusé.
+fn probe_name(w: &WidgetSchema) -> Result<(&str, &str), WidgetError> {
+    split_kind(&w.name).ok_or_else(|| WidgetError::bad_schema(&w.name, SchemaFault::Unqualified))
 }
 
-/// Le `widgets.json` du pack généré (première version, sans parent, du deck seul).
+/// Le registre du deck importé : les packs de `base` (intégrés : `base`,
+/// `essentiel`) et les widgets déclarés de `pack` sous `deck-layouts`,
+/// contrôlés comme le serait la sonde (`WidgetRegistry::from_probe`).
+pub(crate) fn generated_registry(base: &WidgetRegistry, pack: &GeneratedPack) -> Result<WidgetRegistry, WidgetError> {
+    // La sonde nomme les widgets sans leur espace de noms : on le retire, pack par pack.
+    let mut packs: BTreeMap<(&str, PackKind), Vec<WidgetSchema>> = BTreeMap::new();
+    for w in base.iter() {
+        let (ns, name) = probe_name(w)?;
+        let kind = match w.category {
+            Category::Element => PackKind::Widgets,
+            Category::Slide => PackKind::Layouts,
+        };
+        packs.entry((ns, kind)).or_default().push(WidgetSchema { name: name.to_owned(), ..w.clone() });
+    }
+    let mut probe: Vec<Value> = packs
+        .into_iter()
+        .map(|((ns, kind), widgets)| json!({ "namespace": ns, "kind": kind, "widgets": widgets }))
+        .collect();
+    let generated: Vec<&WidgetSchema> = pack.schemas().collect();
+    probe.push(json!({ "namespace": Namespace::deck_layouts(), "kind": PackKind::Layouts, "widgets": generated }));
+    WidgetRegistry::from_probe(json!({ "packs": probe }))
+}
+
+/// Le `layouts.json` du pack généré (première version, sans parent, du deck seul, requérant `base`).
 ///
-/// Un modèle par widget, nommé comme son layout, dont la slide est `examples[layout]` (la première
-/// slide source sur ce layout, projetée) ou, à défaut, une slide nue du widget. Les textes de ces
-/// slides sont aussi les valeurs d'exemple des widgets (aperçu, réglages).
+/// Les valeurs d'exemple d'un widget (aperçu, réglages) sont les textes de `examples[layout]`, la
+/// première slide source sur son layout, projetée ; un widget sans texte d'exemple n'a pas d'entrée.
 pub(crate) fn pack_manifest(
     pack: &GeneratedPack,
     id: Uuid,
@@ -211,35 +230,22 @@ pub(crate) fn pack_manifest(
     created: &str,
     examples: &BTreeMap<String, Slide>,
 ) -> PackManifest {
-    let templates: Vec<Template> = pack
+    let values = pack
         .widgets
         .iter()
-        .map(|w| Template {
-            id: w.name.as_str().to_owned(),
-            name: w.schema.label.clone().unwrap_or_else(|| w.name.as_str().to_owned()),
-            description: String::new(),
-            slide: examples
-                .get(&w.layout)
-                .cloned()
-                .unwrap_or_else(|| Slide::new(w.name.as_str(), &qualify(&Namespace::deck(), w.name.as_str()))),
-        })
-        .collect();
-    let values = templates
-        .iter()
-        .zip(&pack.widgets)
-        .map(|(t, w)| (w.name.clone(), text_values(&t.slide)))
+        .filter_map(|w| Some((w.name.clone(), text_values(examples.get(&w.layout)?))))
         .filter(|(_, v)| !v.is_empty())
         .collect();
     PackManifest {
         id,
         name: name.to_owned(),
-        namespace: Namespace::deck(),
+        namespace: Namespace::deck_layouts(),
         requires: vec![kinds::base::namespace()],
         description: String::new(),
         parent: None,
         created: created.to_owned(),
         scope: PackScope::Deck,
-        templates,
+        profiles: Vec::new(),
         examples: values,
     }
 }

@@ -22,16 +22,17 @@ op-value-unreadable = wartość nie ma oczekiwanej postaci
 op-value-valign = oczekiwano top, middle lub bottom
 op-value-path = ścieżka składa się z poleceń M, L, C, Q i Z z ich liczbami i zaczyna się od M
 op-unknown-widget = Nieznany widżet: { $subject }
-op-unknown-namespace = Ta prezentacja nie ma pakietu widżetów { $pack }.
-op-pack-required = Pakiet widżetów { $pack } jest potrzebny pakietowi { $by }; najpierw usuń tamten.
-op-pack-in-use = Pakiet widżetów { $pack } jest nadal używany przez { $count ->
+op-unknown-namespace = Ta prezentacja nie ma pakietu { $pack }.
+op-pack-required = Pakiet { $pack } jest potrzebny pakietowi { $by }; najpierw usuń tamten.
+op-pack-in-use = Pakiet { $pack } jest nadal używany przez { $count ->
     [one] { $count } element
     [few] { $count } elementy
     [many] { $count } elementów
    *[other] { $count } elementu
 }.
-op-pack-requirement-missing = Pakiet widżetów { $pack } wymaga pakietu { $required }, którego ta prezentacja nie ma.
+op-pack-requirement-missing = Pakiet { $pack } wymaga pakietu { $required }, którego ta prezentacja nie ma.
 op-base-required = Każda prezentacja zachowuje podstawowy pakiet widżetów.
+op-pack-kind-conflict = Ta prezentacja ma już pakiet { $pack } drugiego rodzaju (widżety lub układy).
 op-unknown-param = Nieznany parametr: { $subject }
 op-param-type-because = Nieprawidłowa wartość dla { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -151,8 +152,10 @@ issue-invalid-style = nieprawidłowa wartość stylu: { $field } ({ $reason ->
 issue-missing-asset = brakujący zasób: { $asset }
 issue-pack-version-mismatch = zmieniona wersja pakietu odrzucona: { $version }
 issue-pack-version-missing = brak wersji pakietu w źródłach: { $version }
-issue-pack-pin-mismatch = Osadzony pakiet widżetów { $pack } nie odpowiada temu, czego oczekuje prezentacja.
-issue-pack-requirement-missing = Pakiet widżetów { $pack } wymaga pakietu { $required }, którego ta prezentacja nie ma.
+issue-pack-pin-mismatch = Osadzony pakiet { $pack } nie odpowiada temu, czego oczekuje prezentacja.
+issue-pack-kind-mismatch = Osadzony pakiet { $pack } nie jest rodzaju, którego oczekuje prezentacja (widżety lub układy).
+issue-pack-kind-conflict = Przestrzeń nazw { $pack } jest przypięta jednocześnie jako pakiet widżetów i jako pakiet układów: można użyć tylko jednego.
+issue-pack-requirement-missing = Pakiet { $pack } wymaga pakietu { $required }, którego ta prezentacja nie ma.
 issue-theme-version-mismatch = zmieniona wersja motywu odrzucona: { $version }
 issue-theme-version-missing = brak wersji motywu w źródłach: { $version }
 issue-unsupported-link = nieobsługiwany link: { $link }
@@ -191,6 +194,8 @@ widget-fault-list-default-too-large = Widżet { $widget }: wartość domyślna l
 widget-fault-list-depth = Widżet { $widget }: zagnieżdżona lista nie może zawierać kolumny listy; listy zagnieżdżają się tylko na jednym poziomie
 widget-fault-list-default-below-min = Widżet { $widget }: wartość domyślna zagnieżdżonej listy ma mniej pozycji niż jej minimum
 widget-fault-slide-sizing = Widżet { $widget } jest slajdem: tylko widżety elementów deklarują grow lub typography
+widget-fault-pack-category = Widżet { $widget } nie pasuje do swojego pakietu: pakiety układów zawierają widżety slajdów, pakiety widżetów zawierają widżety elementów
+widget-fault-unqualified = Widżet { $widget } nie ma przestrzeni nazw pakietu
 issue-empty-item-id = lista { $param } ma pozycję bez identyfikatora
 issue-duplicate-item-id = lista { $param } ma zduplikowany identyfikator pozycji
 issue-invalid-item-id = lista { $param } ma identyfikator pozycji zawierający ukośnik

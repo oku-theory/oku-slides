@@ -1,5 +1,5 @@
 /** Liste des fichiers de widgets : ordre, libellés, états, squelettes. */
-import type { WidgetDiagnostic, WidgetStatus } from "./api";
+import type { PackKind, WidgetDiagnostic, WidgetStatus } from "./api";
 import { t } from "./i18n";
 
 /** Le fichier de code partagé du pack. */
@@ -125,14 +125,27 @@ export function declaredAs(text: string, from: string, to: string): string {
   return text.replace(`widget("${from}"`, `widget("${to}"`);
 }
 
-/** Squelette d'un nouveau fichier : imports, déclaration, un champ éditable. */
-export function skeleton(name: string): string {
+/**
+ * Squelette d'un nouveau fichier : imports, déclaration, un champ éditable. Dans un pack de
+ * layouts, une slide (la sorte du pack fixe la catégorie : un élément y serait écarté), posée
+ * sur une page marquée de son id comme toute slide.
+ */
+export function skeleton(name: string, kind: PackKind): string {
   if (name === COMMON) return '// Code partagé : #import "_commun.typ": …\n#import "/oku-slides/lib.typ": color-of, size-of\n';
+  const title = 'field(ctx, "title", { set text(fill: color-of(ctx.tokens, "accent")); args.title })';
+  if (kind === "layouts")
+    return [
+      '#import "/oku-slides/lib.typ": widget, field, blank-slide, params as p, color-of, size-of',
+      "",
+      `#let widget = widget("${name}", category: "slide", params: (title: p.plain()),`,
+      `  (args, ctx) => blank-slide(${title}, id: ctx.id))`,
+      "",
+    ].join("\n");
   return [
     '#import "/oku-slides/lib.typ": widget, field, fields-stack, params as p, color-of, size-of',
     "",
     `#let widget = widget("${name}", params: (title: p.plain()),`,
-    '  (args, ctx) => field(ctx, "title", { set text(fill: color-of(ctx.tokens, "accent")); args.title }))',
+    `  (args, ctx) => ${title})`,
     "",
   ].join("\n");
 }

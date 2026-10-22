@@ -1,7 +1,7 @@
 // Ce que propose la grille d'ajout : les éléments natifs, puis les widgets d'élément du pack.
 
 import type { AddWidget } from "./api";
-import { BASE } from "./baseKinds";
+import { BASE } from "./builtinKinds";
 import { t } from "./i18n";
 import { ADD_NAMES, type AddName, packOnlyWidgets } from "./slideTools";
 

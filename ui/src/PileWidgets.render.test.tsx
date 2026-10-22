@@ -36,7 +36,7 @@ async function mount(fake: TabApi, over: Over = {}) {
   const renamed: string[] = [];
   const box: { files: Files | null } = { files: null };
   const Probe = () => {
-    const files = useWidgetFiles(fake, "p", "r", {
+    const files = useWidgetFiles(fake, "p", "widgets", "r", {
       changed: () => {},
       error: (m) => errors.push(m),
       renamed: (from, to) => renamed.push(`${from}>${to}`),
@@ -114,7 +114,7 @@ describe("PileWidgets", () => {
     await act(async () => add(host).click());
     await submitName(host, "abc");
     await wait(10);
-    expect(log).toEqual([`set abc:${skeleton("abc")}`]);
+    expect(log).toEqual([`set abc:${skeleton("abc", "widgets")}`]);
     expect(opened).toEqual(["abc"]);
   });
 
@@ -153,7 +153,7 @@ describe("PileWidgets", () => {
     await act(async () => add(host).click());
     await submitName(host, "_commun");
     await wait(10);
-    expect(log).toEqual([`set _commun:${skeleton("_commun")}`]);
+    expect(log).toEqual([`set _commun:${skeleton("_commun", "widgets")}`]);
     await act(async () => add(host).click());
     expect((await submitName(host, "_commun"))?.getAttribute("aria-invalid")).toBe("true");
     await wait(10);
@@ -340,7 +340,7 @@ describe("PileWidgets, nom saisi", () => {
     await act(async () => add(host).click());
     await submitName(host, "Météo du jour");
     await wait(10);
-    expect(log).toEqual([`set meteo-du-jour:${skeleton("meteo-du-jour")}`]);
+    expect(log).toEqual([`set meteo-du-jour:${skeleton("meteo-du-jour", "widgets")}`]);
     expect(opened).toEqual(["meteo-du-jour"]);
   });
 

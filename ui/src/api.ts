@@ -24,8 +24,6 @@ export interface SlideSummary {
   id: string;
   kind: SlideKind;
   title: string | null;
-  /** Nom de la slide quand elle sert de modèle. */
-  name?: string | null;
   page: number;
   hash: string;
 }
@@ -90,8 +88,10 @@ export interface Snapshot {
   appearance: Appearance;
   /** Packs de widgets épinglés par le deck, par espace de noms. */
   widgets: Record<string, PackPin>;
-  /** Édition d'un pack de modèles en cours. */
-  editing: TemplateMode | null;
+  /** Packs de layouts épinglés par le deck, par espace de noms. */
+  layouts: Record<string, PackPin>;
+  /** Édition d'un pack en cours (mode pack). */
+  editing: PackMode | null;
   /** Le pack du deck n'appartient qu'à lui (import) : jamais dans la bibliothèque. */
   deck_pack: boolean;
   /** Bandeau du pack, en surface A2UI : le deck embarque une autre version que ma version courante. */
@@ -156,9 +156,9 @@ export interface UiState {
   pile: number | null;
   /** Largeur du fil de l'agent en px, choisie au séparateur ; `null` : largeur par défaut. */
   notes: number | null;
-  /** Sous-onglets de widgets ouverts en mode modèles, dans l'ordre d'ouverture. */
+  /** Sous-onglets de widgets ouverts en mode pack, dans l'ordre d'ouverture. */
   widgets: string[];
-  /** Sous-onglet actif ; `null` : « Modèles ». */
+  /** Sous-onglet actif ; `null` : la scène, ou « Thème ». */
   widget: string | null;
   /** Code source des widgets déplié à droite de l'aperçu ; replié par défaut. */
   code: boolean;
@@ -177,8 +177,11 @@ export interface UiOrder {
   seq: number;
 }
 
-/** Section repliable : slides hors mode modèles, modèles et widgets en mode modèles, carte des paramètres. */
-export type PileSectionName = "slides" | "templates" | "widgets" | "params";
+/** Section repliable : slides hors mode pack, layouts et widgets en mode pack, carte des paramètres. */
+export type PileSectionName = "slides" | "layouts" | "widgets" | "params";
+
+/** Sorte d'un pack : widgets d'éléments ou layouts de slide. */
+export type PackKind = "widgets" | "layouts";
 
 /** Un pack épinglé par le deck : id, version embarquée et espaces de noms requis. */
 export interface PackPin {
@@ -209,9 +212,12 @@ export interface ThemeInfo {
   deck_only: boolean;
 }
 
-export interface TemplateMode {
-  set: string;
+/** Le pack édité en mode pack, et le brouillon du thème. */
+export interface PackMode {
+  /** Id du pack édité. */
+  pack: string;
   name: string;
+  kind: PackKind;
   /** Pack intégré : l'enregistrer crée ma version sous son id. */
   builtin: boolean;
   /** Version dont viennent widgets et description. */
@@ -238,7 +244,9 @@ export interface ThemeEditView {
   revision: string;
 }
 
+/** Un pack de la bibliothèque dans sa version courante. */
 export interface PackInfo {
+  kind: PackKind;
   id: string;
   version: string;
   name: string;
@@ -248,17 +256,37 @@ export interface PackInfo {
   requires: string[];
   description: string;
   builtin: boolean;
-  /** Le pack d'un deck qui n'en choisit pas. */
+  /** Un pack qu'épingle un deck neuf (`base`, `essentiel`). */
   default: boolean;
   /** Cette version est arrivée avec un deck reçu, l'utilisateur ne l'a pas créée. */
   received: boolean;
-  count: number;
+  /** Le nombre de ses fichiers de widgets, `_commun` excepté. */
+  widgets: number;
+  /** Le nombre de ses profils d'import (pack de layouts). */
+  profiles: number;
 }
 
-export interface TemplatesView {
-  set: PackInfo;
-  sets: PackInfo[];
-  templates: TemplateView[];
+/** Un layout avec son aperçu (SVG) dans le thème du deck. */
+export interface LayoutView {
+  /** Son kind qualifié (`essentiel/content`). */
+  kind: string;
+  /** Son nom dans la langue de l'utilisateur. */
+  label: string;
+  /** Sa slide de départ, à sa valeur d'exemple. */
+  slide: Slide;
+  svg: string;
+}
+
+/** Les layouts d'un pack de layouts épinglé, avec leurs aperçus. */
+export interface LayoutPackView {
+  namespace: string;
+  name: string;
+  layouts: LayoutView[];
+}
+
+/** Les layouts de chaque pack de layouts épinglé, dans l'ordre des espaces de noms. */
+export interface LayoutsView {
+  packs: LayoutPackView[];
 }
 
 /** Un message de Typst (ou du contrôle) sur un fichier de widget ; ligne et colonne à partir de 1. */
@@ -341,9 +369,6 @@ export interface Slide {
   id: string;
   kind: SlideKind;
   params?: Params;
-  /** Nom et description d'une slide modèle. */
-  name?: string;
-  description?: string;
   notes?: string;
 }
 
@@ -462,14 +487,6 @@ export interface SlotRef {
   param: string;
 }
 
-export interface TemplateView {
-  id: string;
-  name: string;
-  description: string;
-  slide: Slide;
-  svg: string;
-}
-
 // --- Dictée ---------------------------------------------------------------
 
 export type SttModel = "apple" | "turbo" | "large" | "base";
@@ -549,14 +566,13 @@ export type Op =
   | { op: "add_element"; slot: SlotRef; index?: number; defaults?: boolean; element: Element }
   | { op: "remove_element"; slide: string; element: string }
   | { op: "move_element"; slide: string; element: string; to: SlotRef; index?: number }
-  | { op: "set_slide_field"; slide: string; field: "name" | "description"; value: unknown }
   | { op: "add_slide"; index?: number; defaults?: boolean; slide: Slide }
   | { op: "remove_slide"; slide: string }
   | { op: "move_slide"; slide: string; index: number }
   | { op: "set_notes"; slide: string; notes: string }
   | { op: "set_theme"; theme: ThemeRef | null }
-  | { op: "add_pack"; namespace: string; pin: PackPin }
-  | { op: "remove_pack"; namespace: string }
+  | { op: "add_pack"; kind: PackKind; namespace: string; pin: PackPin }
+  | { op: "remove_pack"; kind: PackKind; namespace: string }
   | { op: "set_token"; path: string[]; value: unknown }
   | { op: "unset_token"; path: string[] }
   | { op: "set_tokens"; tokens: unknown }
@@ -583,12 +599,12 @@ type Request =
   | { cmd: "undo" }
   | { cmd: "redo" }
   | { cmd: "undo_turn"; turn: number }
-  | { cmd: "templates"; set?: string | null }
-  | { cmd: "template_sets" }
-  | { cmd: "edit_templates"; set: string }
-  | { cmd: "save_templates"; as_new: boolean }
-  | { cmd: "close_templates" }
-  | { cmd: "delete_template_set"; set: string }
+  | { cmd: "layouts" }
+  | { cmd: "packs"; kind: PackKind }
+  | { cmd: "edit_pack"; pack: string }
+  | { cmd: "save_pack"; as_new: boolean }
+  | { cmd: "close_pack" }
+  | { cmd: "delete_pack"; pack: string }
   | { cmd: "pack_use_mine" }
   | { cmd: "set_edited_theme"; id: string }
   | { cmd: "rename_edited_theme"; name: string }
@@ -596,8 +612,7 @@ type Request =
   | { cmd: "pack_notice_close" }
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
   | { cmd: "show_as"; label: string; slide: string; element: string; view: View }
-  | { cmd: "host_settings"; slide: string; widget: string | null }
-  | { cmd: "host_param"; slide: string; key: string; value: unknown }
+  | { cmd: "host_settings"; widget: string | null }
   | { cmd: "set_example_value"; name: string; param: string; value: unknown }
   | { cmd: "edit_example_list"; name: string; param: string; change: ListOp }
   | { cmd: "host_theme"; filter: string }
@@ -778,10 +793,9 @@ export function tabApi(tab: string) {
     saveCopy: (path: string) => call<Snapshot>({ cmd: "save_copy", path }),
     slide: (id: string) => call<SlideView>({ cmd: "slide", id }),
     svg: (id: string) => call<string>({ cmd: "svg", id }),
-    /** Surface A2UI des réglages de l'hôte pour une slide, ou du widget à ses valeurs d'exemple ; vide hors des modèles. */
-    hostSettings: (slide: string, widget: string | null) => call<Surface | null>({ cmd: "host_settings", slide, widget }),
-    hostParam: (slide: string, key: string, value: unknown) => call<Snapshot>({ cmd: "host_param", slide, key, value }),
-    /** Règle une valeur d'exemple d'un widget, dans le pack (mode modèles). */
+    /** Surface A2UI des réglages du widget à ses valeurs d'exemple ; vide hors du mode pack ou sans widget. */
+    hostSettings: (widget: string | null) => call<Surface | null>({ cmd: "host_settings", widget }),
+    /** Règle une valeur d'exemple d'un widget, dans le pack (mode pack). */
     setExampleValue: (name: string, param: string, value: unknown) =>
       call<Snapshot>({ cmd: "set_example_value", name, param, value }),
     /** Change la liste `param` des valeurs d'exemple ; sans valeur gardée, elle part des items par défaut du schéma. */
@@ -802,13 +816,17 @@ export function tabApi(tab: string) {
     redo: () => call<Snapshot>({ cmd: "redo" }),
     /** Annule le tour `turn` de l'agent, refusé s'il n'est plus la dernière modification. */
     undoTurn: (turn: number) => call<Snapshot>({ cmd: "undo_turn", turn }),
-    templates: (set?: string | null) => call<TemplatesView>({ cmd: "templates", set: set ?? null }),
-    templateSets: () => call<PackInfo[]>({ cmd: "template_sets" }),
-    editTemplates: (set: string) => call<Snapshot>({ cmd: "edit_templates", set }),
-    /** Enregistre le pack édité (une copie : l'agent, outil `save_templates`). */
-    saveTemplates: () => call<Snapshot>({ cmd: "save_templates", as_new: false }),
-    closeTemplates: () => call<Snapshot>({ cmd: "close_templates" }),
-    deleteTemplateSet: (set: string) => call<PackInfo[]>({ cmd: "delete_template_set", set }),
+    /** Layouts des packs de layouts épinglés, rendus dans le thème du deck. */
+    layouts: () => call<LayoutsView>({ cmd: "layouts" }),
+    /** Packs de la bibliothèque de sorte `kind`, dans leur version courante. */
+    packs: (kind: PackKind) => call<PackInfo[]>({ cmd: "packs", kind }),
+    /** Passe en édition de la version courante du pack `pack` (id). */
+    editPack: (pack: string) => call<Snapshot>({ cmd: "edit_pack", pack }),
+    /** Enregistre le pack édité (une copie : l'agent, outil `save_pack`). */
+    savePack: () => call<Snapshot>({ cmd: "save_pack", as_new: false }),
+    closePack: () => call<Snapshot>({ cmd: "close_pack" }),
+    /** Supprime un pack de l'utilisateur, toutes versions ; répond les packs restants de sa sorte. */
+    deletePack: (pack: string) => call<PackInfo[]>({ cmd: "delete_pack", pack }),
     /** Fichiers de widgets du pack en cours, `_commun` en tête. */
     widgetStatus: (pack?: string) => call<WidgetStatus[]>({ cmd: "widget_status", pack }),
     widgetSource: (name: string, pack?: string) => call<string>({ cmd: "widget_source", name, pack }),
@@ -818,13 +836,13 @@ export function tabApi(tab: string) {
     renameWidget: (from: string, to: string, pack?: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to, pack }),
     /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
     previewWidget: (name: string, pack?: string) => call<WidgetPreview>({ cmd: "preview_widget", name, pack }),
-    /** Mode modèles : le brouillon du thème repart de la version courante du thème `id` (annulable). */
+    /** Mode pack : le brouillon du thème repart de la version courante du thème `id` (annulable). */
     setEditedTheme: (id: string) => call<Snapshot>({ cmd: "set_edited_theme", id }),
-    /** Mode modèles : renomme le thème édité (annulable). */
+    /** Mode pack : renomme le thème édité (annulable). */
     renameEditedTheme: (name: string) => call<Snapshot>({ cmd: "rename_edited_theme", name }),
-    /** Surface A2UI des jetons du thème édité, filtrée ; `null` hors mode modèles. */
+    /** Surface A2UI des jetons du thème édité, filtrée ; `null` hors mode pack. */
     hostTheme: (filter: string) => call<Surface | null>({ cmd: "host_theme", filter }),
-    /** Change le jeton `path` du thème édité (mode modèles, annulable). */
+    /** Change le jeton `path` du thème édité (mode pack, annulable). */
     hostToken: (path: string[], action: TokenAction, value?: unknown) =>
       call<Snapshot>({ cmd: "host_token", path, action, ...(value === undefined ? {} : { value }) }),
     /** Bandeau du pack : passer à ma version (annulable), faire de la sienne ma version courante, ou fermer. */

@@ -11,7 +11,7 @@ export const AUTOSAVE_DELAY_MS = 1500;
 interface Saveable {
   dirty: boolean;
   path: string | null;
-  /** Modèles en cours d'édition : enregistrer crée la version de la session, puis la remplace. */
+  /** Pack en cours d'édition : enregistrer crée la version de la session, puis la remplace. */
   editing: unknown;
   /** Historique ouvert : la version montrée n'est qu'un aperçu. */
   history?: unknown;
@@ -19,7 +19,7 @@ interface Saveable {
 
 /**
  * Faut-il enregistrer ? Un deck modifié, avec ou sans fichier (il ira au
- * dossier par défaut) ; des modèles modifiés, intégrés compris : une version
+ * dossier par défaut) ; un pack modifié, intégré compris : une version
  * par session d'édition, créée au premier enregistrement puis remplacée.
  * `paused` : un enregistrement a été refusé (fichier remplacé). Jamais
  * pendant l'historique (la session le refuserait) : le deck mis de côté

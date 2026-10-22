@@ -8,11 +8,14 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::*;
-use crate::pack::{BASE_PACK, DEFAULT_PACK};
+use crate::PackLibrary;
+use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::test_support::{add_version, files_of, fresh_dir, manifest_ns};
 
+/// Une bibliothèque des packs : les widgets sous `dir`, les layouts sous `dir/../<nom>-layouts`.
 fn library(dir: &Path) -> PackLibrary {
-    PackLibrary::new(Some(dir.to_owned()), Storage::local().unwrap())
+    let layouts = dir.with_file_name(format!("{}-layouts", dir.file_name().unwrap().to_string_lossy()));
+    PackLibrary::new(Some(dir.to_owned()), Some(layouts), Storage::local().unwrap())
 }
 
 #[test]
@@ -34,7 +37,7 @@ fn library_add_version_namespace_of_a_builtin_is_refused() {
     let err = lib.add_version(other.id, &files_of(&other)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceTaken);
     let shown = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("fr")));
-    assert_that!(shown.as_str()).contains(DEFAULT_PACK.to_string().as_str());
+    assert_that!(shown.as_str()).contains(ESSENTIEL_PACK.to_string().as_str());
 }
 
 #[test]
@@ -48,12 +51,6 @@ fn library_add_version_new_version_of_the_same_pack_keeps_its_namespace() {
 }
 
 #[test]
-fn library_builtins_have_their_namespaces() {
-    let names: Vec<_> = builtin_versions().iter().map(|b| b.manifest.namespace.to_string()).collect();
-    assert_that!(names).is_equal_to(vec!["essentiel".to_owned(), "grilles".to_owned(), "base".to_owned()]);
-}
-
-#[test]
 fn library_builtin_base_has_its_id_and_seven_widget_files() {
     let base = builtin_versions().iter().find(|b| b.manifest.namespace == kinds::base::namespace()).unwrap();
     let files = base.files.widgets().keys().filter(|f| !f.is_common()).count();
@@ -63,7 +60,6 @@ fn library_builtin_base_has_its_id_and_seven_widget_files() {
 #[rstest]
 #[case("base")]
 #[case("essentiel")]
-#[case("grilles")]
 fn library_add_another_pack_claiming_a_builtin_namespace_is_refused(#[case] namespace: &str) {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
@@ -78,13 +74,6 @@ fn library_namespace_of_a_pack_named_base_skips_the_builtin() {
     let lib = library(dir.path());
     let slug = crate::namespace_slug::library_namespace(&lib, "Base").unwrap();
     assert_that!(slug.as_str()).is_not_equal_to("base");
-}
-
-#[test]
-fn library_template_sets_leave_out_packs_without_templates() {
-    let dir = fresh_dir("oku-slides-library-");
-    let ids: Vec<Uuid> = library(dir.path()).template_sets().iter().map(|p| p.id).collect();
-    assert_that!((ids.contains(&DEFAULT_PACK), ids.contains(&BASE_PACK))).is_equal_to((true, false));
 }
 
 #[test]
@@ -109,6 +98,16 @@ fn library_add_version_library_scope_deck_namespace_is_refused() {
     let de = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("de")));
     let en = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("en")));
     assert_that!(de).is_not_equal_to(en);
+}
+
+#[test]
+fn library_add_version_deck_layouts_namespace_is_refused() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let m = manifest_ns(Uuid::new_v4(), "deck-layouts", &[]);
+    let files = m.to_files(oku_slides_core::PackKind::Layouts, Default::default()).unwrap();
+    let err = lib.add_version(m.id, &files).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceReserved);
 }
 
 #[test]
@@ -150,9 +149,9 @@ fn library_add_version_new_version_under_another_namespace_is_refused() {
 fn library_receive_version_of_a_builtin_under_another_namespace_is_refused() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = builtin_versions().iter().find(|b| b.manifest.id == DEFAULT_PACK).unwrap();
+    let builtin = builtin_versions().iter().find(|b| b.manifest.id == BASE_PACK).unwrap();
     let next = renamed(&builtin.manifest, builtin.version.clone(), "autre");
     let err = lib.receive_version(next.id, &files_of(&next)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceChanged);
-    assert_that!(dir.path().join(DEFAULT_PACK.to_string()).exists()).is_false();
+    assert_that!(dir.path().join(BASE_PACK.to_string()).exists()).is_false();
 }

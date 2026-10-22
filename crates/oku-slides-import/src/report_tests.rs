@@ -13,7 +13,7 @@ fn slide(losses: Vec<Loss>) -> SlideReport {
     SlideReport {
         source: 2,
         slide: "s2".into(),
-        template: "texte".into(),
+        profile: "essentiel/texte".into(),
         placement: Placement::Flow,
         losses,
         fallbacks: vec![base::STACK.into()],

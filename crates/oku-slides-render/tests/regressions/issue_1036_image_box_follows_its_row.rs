@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
+use oku_slides_core::kinds::essentiel;
 use speculoos::prelude::*;
 
 use crate::common::{IMAGE_KIND, TEXT_KIND, renderer};
@@ -16,7 +17,7 @@ fn issue_1036_flow_image_box_is_the_drawn_height() {
     let deck = Deck::from_json(
         &serde_json::json!({
             "version": oku_slides_core::DECK_VERSION, "params": {"title": "T"},
-            "slides": [{"id": "s", "kind": "content", "params": {"title": "Titre", "blocks": [
+            "slides": [{"id": "s", "kind": essentiel::CONTENT, "params": {"title": "Titre", "blocks": [
                 {"id": "t", "kind": TEXT_KIND, "params": {"body": [{"runs": [{"t": "Avant"}]}]}},
                 {"id": "i", "kind": IMAGE_KIND, "params": {"asset": "sha256:1036", "fit": "contain"}},
             ]}}]

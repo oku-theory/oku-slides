@@ -78,14 +78,14 @@ fn merge_file_of_a_json_deck_returns_not_oku_slides() {
 }
 
 #[test]
-fn merge_request_while_editing_templates_is_refused() {
+fn merge_request_while_editing_pack_is_refused() {
     let dir = data_dir();
     let path = dir.join("deck.oku-slides.pdf");
     let mut a = session();
     a.save(Some(&path)).unwrap();
-    a.edit_templates(oku_slides_session::GRID_PACK).unwrap();
+    a.edit_pack(oku_slides_session::BASE_PACK).unwrap();
     let err = a.handle(req(json!({"cmd": "merge", "path": path}))).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(oku_slides_session::SessionErrorKind::EditingTemplates);
+    assert_that!(err.kind()).is_equal_to(oku_slides_session::SessionErrorKind::EditingPack);
 }
 
 #[test]

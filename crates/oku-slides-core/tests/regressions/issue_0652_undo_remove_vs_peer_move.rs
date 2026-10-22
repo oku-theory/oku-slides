@@ -151,7 +151,7 @@ fn deck_with_list(registry: &WidgetRegistry) -> Deck {
     let op = |v| serde_json::from_value::<Op>(v).unwrap_or_else(|e| panic!("op : {e}"));
     let ops = vec![
         op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-            "element": { "id": "f", "kind": "liste" } })),
+            "element": { "id": "f", "kind": "test-el/liste" } })),
         op(json!({ "op": "set_param", "target": { "slide": "s-constat", "element": "f" }, "param": "etapes",
             "value": [{ "id": "a", "date": "1" }, { "id": "b", "date": "2" }, { "id": "c", "date": "3" }] })),
     ];

@@ -16,11 +16,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = hint: { $hint }
 render-chart-failed = chart could not be drawn
 
-registry-bad-pack-id = Invalid template pack identifier: { $id }
-registry-base-pack-broken = The built-in widget pack is damaged ({ $file }); reinstall the app.
-registry-duplicate-pack = Two widget packs of the presentation share { $pack }.
-registry-compile = The widgets of the template pack could not be compiled
-registry-missing = The template pack does not declare its widgets
+registry-bad-pack-id = Invalid pack identifier: { $id }
+registry-base-pack-broken = The built-in pack is damaged ({ $file }); reinstall the app.
+registry-duplicate-pack = Two packs of the presentation share { $pack }.
+registry-compile = The widgets of the pack could not be compiled
+registry-missing = The pack does not declare its widgets
 render-timeout = Rendering took more than { $seconds } s and was stopped
 render-out-of-memory = Rendering needed more than { $mib } MiB of memory and was stopped
 render-worker-lost = The rendering process stopped
@@ -40,6 +40,7 @@ import-not-a-presentation = This file is not a PowerPoint presentation
 import-protected = This presentation is encrypted or in the old .ppt format: save it as .pptx first
 import-too-large = This presentation is too large to import
 import-output-too-large = The resulting deck would exceed the size allowed for an import
+import-no-profiles = The chosen layout packs propose no profile.
 import-loss-list-levels = List levels flattened to one level
 import-loss-merged-cells = Merged cells flattened
 import-loss-percent-stacked = 100% stacked chart shown as stacked
@@ -76,7 +77,7 @@ import-loss-repeated-decor = { $slides ->
    [one] Header or footer “{ $text }” repeated on { $slides } slide left out: the theme draws its own
   *[other] Header or footer “{ $text }” repeated on { $slides } slides left out: the theme draws its own
 }
-import-loss-no-slot = Content left out: the chosen template has no place for it
+import-loss-no-slot = Content left out: the chosen layout has no place for it
 import-loss-moved-to-notes = Text moved to the speaker notes: the cover has no place for it
 import-loss-items-dropped = Too many items on the slide: { $dropped } items left out
 import-loss-page-fitted = Source page { $width } × { $height } pt is not 16:9: content scaled and centered
@@ -88,7 +89,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Line arrowheads not drawn
    *[geometry] Unknown shape rendered as a rectangle
 }
-import-loss-layout-dropped = Too many layouts for one pack: “{ $layout }” has no template; its slides use the blank widget and get its decoration as elements
+import-loss-layout-dropped = Too many layouts for one pack: “{ $layout }” has no widget; its slides use the blank widget and get its decoration as elements
 import-loss-decor-truncated = { $omitted ->
     [one] Decoration cut to fit the size of a pack file: { $omitted } item left out
    *[other] Decoration cut to fit the size of a pack file: { $omitted } items left out

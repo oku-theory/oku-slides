@@ -1,6 +1,6 @@
 //! Annuler et rétablir, par le replica Loro du document.
 //!
-//! Après l'étape : l'édition des modèles est réalignée, les widgets resynchronisés,
+//! Après l'étape : l'édition d'un pack est réalignée, les widgets resynchronisés,
 //! et un renommage de widget défait ou refait (un nom retiré et un ajouté dans le
 //! même pack) déplace la conversation de l'agent comme `rename_widget` (t-613).
 
@@ -30,7 +30,7 @@ impl Session {
         let before = self.widgets_before();
         if step(&mut self.doc.sources).context(SourcesSnafu)? {
             self.doc.dirty = true;
-            self.realign_templates()?;
+            self.realign_pack()?;
             self.sync_widgets()?;
             self.follow_widget_rename(before);
             self.rerender()?;

@@ -18,7 +18,7 @@ import type { ImportJob } from "./useImportJob";
 import { anchorBox } from "./stageFields";
 import type { useDictation } from "./useDictation";
 import type { useFieldEditing } from "./useFieldEditing";
-import type { TemplateWidgets } from "./useTemplateWidgets";
+import type { PackWidgetEditor } from "./usePackWidgetEditor";
 
 /** Ce que l'agent lit de l'onglet. */
 interface AgentWiringContext {
@@ -29,7 +29,7 @@ interface AgentWiringContext {
   selected: string | null;
   editing: ReturnType<typeof useFieldEditing>["editing"];
   editField: ReturnType<typeof useFieldEditing>["editField"];
-  widgets: TemplateWidgets;
+  widgets: PackWidgetEditor;
   importJob: ImportJob | null;
   say: (text: string, error?: boolean) => void;
   showSlide: (id: string) => void;
@@ -63,12 +63,12 @@ export function useAgentWiring({
     () => agentUi(current, selected, editField, widgets.activeName),
     [current, selected, editField, widgets.activeName],
   );
-  const templates = !!snap?.editing;
+  const packMode = !!snap?.editing;
   const inHistory = !!snap?.history;
-  const pack = snap?.editing?.set ?? snap?.widgets?.deck?.id ?? null;
+  const pack = snap?.editing?.pack ?? snap?.widgets?.deck?.id ?? null;
   const scopeSource = useMemo<ScopeSource>(
-    () => ({ kind: "drive", view: { templates, history: inHistory, pack, widget: widgets.activeName } }),
-    [templates, inHistory, pack, widgets.activeName],
+    () => ({ kind: "drive", view: { packMode, history: inHistory, pack, widget: widgets.activeName } }),
+    [packMode, inHistory, pack, widgets.activeName],
   );
   const agentHandle = useRef<AgentHandle>(null);
   const promptAgent = (text: string) => agentHandle.current?.prompt(text) ?? Promise.resolve(false);

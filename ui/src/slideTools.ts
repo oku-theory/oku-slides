@@ -1,7 +1,7 @@
 // Règles des outils de slide de la barre d'outils : ajout d'éléments, suppression.
 
 import type { AddWidget } from "./api";
-import { type BaseName, baseName } from "./baseKinds";
+import { type BaseName, ESSENTIEL, baseName } from "./builtinKinds";
 
 /** Widgets de `base` de la grille d'ajout, par nom, dans l'ordre des cartes. */
 export const ADD_NAMES = ["text", "card", "shape", "chart", "table"] as const satisfies readonly BaseName[];
@@ -14,11 +14,12 @@ export function packOnlyWidgets(list: AddWidget[]): AddWidget[] {
 }
 
 /**
- * Un élément s'ajoute (ou se colle) sur une slide de contenu ; sur une vide,
- * tout sauf le texte. `name` : la carte native, ou `widget` pour tout autre élément.
+ * Un élément s'ajoute (ou se colle) sur le layout de contenu d'`essentiel` ; sur le vide, tout
+ * sauf le texte. `name` : la carte native, ou `widget` pour tout autre élément. Règle du lot 2 sur
+ * les constantes ; les slots du schéma la remplaceront (t-1008).
  */
-export function canAdd(name: AddName | "widget", slide: string | undefined): boolean {
-  return slide === "content" || (slide === "blank" && name !== "text");
+export function canAdd(slideKind: string | undefined, name: AddName | "widget"): boolean {
+  return slideKind === ESSENTIEL.content || (slideKind === ESSENTIEL.blank && name !== "text");
 }
 
 /** Un deck (ou un jeu de modèles) garde toujours au moins une slide. */

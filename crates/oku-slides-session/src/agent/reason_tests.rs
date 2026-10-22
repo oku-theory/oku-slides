@@ -13,7 +13,7 @@ fn at(path: &str) -> String {
 /// Une transaction refusée : la slide `s-x` n'existe pas.
 fn refused() -> Box<oku_slides_core::TransactionError> {
     let mut deck: Deck = serde_json::from_value(json!({ "slides": [] })).unwrap();
-    let registry = WidgetRegistry::from_probe(json!({ "base": [] })).unwrap();
+    let registry = WidgetRegistry::from_probe(json!({ "packs": [] })).unwrap();
     let op = Op::RemoveSlide { slide: "s-x".into() };
     Box::new(apply_all(&mut deck, vec![op], &registry).unwrap_err())
 }

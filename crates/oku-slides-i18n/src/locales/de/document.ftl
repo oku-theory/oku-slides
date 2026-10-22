@@ -16,11 +16,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = Hinweis: { $hint }
 render-chart-failed = Diagramm konnte nicht gezeichnet werden
 
-registry-bad-pack-id = Ungültige Vorlagenpaket-Kennung: { $id }
-registry-base-pack-broken = Das integrierte Widget-Paket ist beschädigt ({ $file }); installieren Sie die App neu.
-registry-duplicate-pack = Zwei Widget-Pakete der Präsentation teilen sich { $pack }.
-registry-compile = Die Widgets des Vorlagenpakets konnten nicht kompiliert werden
-registry-missing = Das Vorlagenpaket deklariert keine Widgets
+registry-bad-pack-id = Ungültige Paket-Kennung: { $id }
+registry-base-pack-broken = Das integrierte Paket ist beschädigt ({ $file }); installieren Sie die App neu.
+registry-duplicate-pack = Zwei Pakete der Präsentation teilen sich { $pack }.
+registry-compile = Die Widgets des Pakets konnten nicht kompiliert werden
+registry-missing = Das Paket deklariert keine Widgets
 render-timeout = Das Rendern dauerte länger als { $seconds } s und wurde abgebrochen
 render-out-of-memory = Das Rendern benötigte mehr als { $mib } MiB Speicher und wurde abgebrochen
 render-worker-lost = Der Rendering-Prozess wurde beendet
@@ -40,6 +40,7 @@ import-not-a-presentation = Diese Datei ist keine PowerPoint-Präsentation
 import-protected = Diese Präsentation ist verschlüsselt oder im alten .ppt-Format: Speichern Sie sie zuerst als .pptx
 import-too-large = Diese Präsentation ist zu groß für den Import
 import-output-too-large = Das entstehende Deck würde die für einen Import zulässige Größe überschreiten
+import-no-profiles = Die gewählten Layout-Pakete bieten kein Profil an.
 import-loss-list-levels = Listenebenen auf eine Ebene reduziert
 import-loss-merged-cells = Verbundene Zellen aufgelöst
 import-loss-percent-stacked = 100-%-gestapeltes Diagramm als gestapelt dargestellt
@@ -76,7 +77,7 @@ import-loss-repeated-decor = { $slides ->
    [one] Kopf- oder Fußzeile „{ $text }“ auf { $slides } Folie wiederholt, weggelassen: das Design zeichnet eigene
   *[other] Kopf- oder Fußzeile „{ $text }“ auf { $slides } Folien wiederholt, weggelassen: das Design zeichnet eigene
 }
-import-loss-no-slot = Inhalt weggelassen: die gewählte Vorlage hat keinen Platz dafür
+import-loss-no-slot = Inhalt weggelassen: das gewählte Layout hat keinen Platz dafür
 import-loss-moved-to-notes = Text in die Sprechernotizen verschoben: die Titelfolie hat keinen Platz dafür
 import-loss-items-dropped = Zu viele Elemente auf der Folie: { $dropped } Elemente ausgelassen
 import-loss-page-fitted = Quellseite { $width } × { $height } pt ist nicht 16:9: Inhalt skaliert und zentriert
@@ -88,7 +89,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Pfeilspitzen der Linie nicht gezeichnet
    *[geometry] Unbekannte Form als Rechteck dargestellt
 }
-import-loss-layout-dropped = Zu viele Layouts für ein Paket: „{ $layout }“ hat keine Vorlage; seine Folien nutzen das leere Widget und erhalten seine Dekoration als Elemente
+import-loss-layout-dropped = Zu viele Layouts für ein Paket: „{ $layout }“ hat kein Widget; seine Folien nutzen das leere Widget und erhalten seine Dekoration als Elemente
 import-loss-decor-truncated = { $omitted ->
     [one] Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Element ausgelassen
    *[other] Dekoration gekürzt, um in die Größe einer Paketdatei zu passen: { $omitted } Elemente ausgelassen

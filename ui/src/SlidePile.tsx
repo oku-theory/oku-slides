@@ -15,7 +15,7 @@ interface Props {
   current: string | null;
   /** URL du SVG d'une slide (null tant qu'il n'est pas rendu). */
   svg: (id: string, hash: string) => string | null;
-  /** Noms affichés sous les miniatures (mode modèles). */
+  /** Noms affichés sous les miniatures (mode pack). */
   names?: Record<string, string>;
   label: string;
   addLabel: string;

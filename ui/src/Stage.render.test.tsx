@@ -7,6 +7,7 @@ import type { FieldView, SlideView } from "./api";
 import { setMessages } from "./i18n";
 import { fieldKey } from "./stageFields";
 import { resetMessages } from "./test/messages";
+import { ESSENTIEL } from "./builtinKinds";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -41,7 +42,7 @@ const fv = (owner: string, field: string, text: string, y: number, extra: Partia
   x: 10, y, w: 100, h: 20, ax: 10, aw: 300, style: { ...style }, ...extra,
 });
 const view = {
-  slide: { id: "s", kind: "content", params: { blocks: [{ id: "c1", kind: "acme/card", params: { title: "Titre", kicker: "Sur" } }] } },
+  slide: { id: "s", kind: ESSENTIEL.content, params: { blocks: [{ id: "c1", kind: "acme/card", params: { title: "Titre", kicker: "Sur" } }] } },
   page: 1, hash: "h", width: 1920, height: 1080, zone: null,
   targets: [{ id: "c1", kind: "acme/card", free: false, x: 0, y: 0, w: 400, h: 200 }],
   fields: [fv("c1", "kicker", "Sur", 20), fv("c1", "title", "Titre", 60)],
@@ -158,17 +159,17 @@ test("Stage empty field of an unselected element shows no placeholder", async ()
   expect(host.querySelector(".field-placeholder")).toBeNull();
 });
 
-test("Stage empty field in template mode shows its placeholder", async () => {
+test("Stage empty field in pack mode shows its placeholder", async () => {
   const empty = { ...fv("c1", "kicker", "", 60), empty: true, side: "before" as const, h: 0, w: 0 };
   const v = { ...view, fields: [empty, fv("c1", "title", "Titre", 60)] } as SlideView;
-  const { host } = await mount({ view: v, templates: true });
+  const { host } = await mount({ view: v, packMode: true });
   expect(host.querySelector(".field-placeholder")?.textContent).toBe("Surtitre");
 });
 
 test("Stage empty field that keeps a text shows that text ghosted", async () => {
   const hidden = { ...fv("s", "kicker", "Chapitre 2", 60), owner_kind: "slide" as const, empty: true, side: "before" as const, h: 0, w: 0 };
   const v = { ...view, fields: [hidden] } as SlideView;
-  const { host } = await mount({ view: v, templates: true });
+  const { host } = await mount({ view: v, packMode: true });
   expect(host.querySelector(".field-placeholder")?.textContent).toBe("Chapitre 2");
 });
 
@@ -200,7 +201,7 @@ test("Stage with ghosts shows placeholders of empty fields without selection", a
 test("Stage with ghosts outlines the body zone and tags gridded elements with their cell", async () => {
   const v = {
     ...view,
-    slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "base/text", cell: { col: 1, row: 0, cols: 2 } }] } },
+    slide: { id: "s", kind: ESSENTIEL.content, params: { elements: [{ id: "t1", kind: "base/text", cell: { col: 1, row: 0, cols: 2 } }] } },
     zone: { page: 1, x: 100, y: 100, w: 1000, h: 600, grid: { columns: 4, rows: 3, gap: 0 } },
     targets: [{ id: "t1", kind: "base/text", free: true, x: 350, y: 100, w: 500, h: 200 }],
     fields: [],
@@ -221,7 +222,7 @@ test("Stage read only with ghosts outlines elements and fields but shows no fiel
 const gridded = {
   ...view,
   width: 1000, height: 600,
-  slide: { id: "s", kind: "content", params: { elements: [{ id: "t1", kind: "base/text", cell: { col: 1, row: 0, cols: 2 } }] } },
+  slide: { id: "s", kind: ESSENTIEL.content, params: { elements: [{ id: "t1", kind: "base/text", cell: { col: 1, row: 0, cols: 2 } }] } },
   zone: { page: 1, x: 0, y: 0, w: 1000, h: 600, grid: { columns: 4, rows: 3, gap: 0 } },
   targets: [{ id: "t1", kind: "base/text", free: true, x: 250, y: 0, w: 500, h: 200 }],
   fields: [],
@@ -555,7 +556,7 @@ const itemOf = (id: string, index: number, x: number) => ({
 /** Une frise de deux étapes côte à côte, chacune avec son champ `date`. */
 const frise = {
   ...view,
-  slide: { id: "s", kind: "content", params: { blocks: [{ id: "f", kind: "deck/frise", params: { etapes: [{ id: "a", date: "2019" }, { id: "b", date: "2020" }] } }] } },
+  slide: { id: "s", kind: ESSENTIEL.content, params: { blocks: [{ id: "f", kind: "deck/frise", params: { etapes: [{ id: "a", date: "2019" }, { id: "b", date: "2020" }] } }] } },
   targets: [{ id: "f", kind: "deck/frise", free: false, x: 0, y: 100, w: 400, h: 200 }],
   fields: [
     fv("f", "etapes/a/date", "2019", 110, { list: "etapes", item: "a", column: "date", x: 0 }),
@@ -627,7 +628,7 @@ test("Stage Cmd/Ctrl+Alt+arrow in the only item of a list moves nothing", async 
 const pv = (field: string, kind: "plain" | "rich", text: string, y: number, extra: Partial<FieldView> = {}) =>
   fv("apercu-el", field, text, y, { widget: "kpi", kind, ...extra });
 const previewView = {
-  slide: { id: "apercu", kind: "blank", params: { elements: [{ id: "apercu-el", kind: "kpi", params: { body: [{ runs: [{ t: "Corps" }] }] } }] } },
+  slide: { id: "apercu", kind: ESSENTIEL.blank, params: { elements: [{ id: "apercu-el", kind: "kpi", params: { body: [{ runs: [{ t: "Corps" }] }] } }] } },
   page: 1, hash: "h", width: 600, height: 300, zone: null, targets: [],
   fields: [
     pv("title", "plain", "Titre", 20),

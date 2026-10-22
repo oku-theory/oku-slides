@@ -13,7 +13,7 @@ use oku_slides_core::{Namespace, ParamValue, Params, Slide, qualify, split_kind}
 
 use crate::Result;
 use crate::error::UnknownNamespaceSnafu;
-use crate::library::PackLibrary;
+use crate::library_packs::PackLibrary;
 
 /// Longueur maximale d'un espace de noms, en octets (celle du cœur).
 const MAX: usize = 64;
@@ -55,13 +55,13 @@ pub(crate) fn slug(name: &str, max: usize) -> String {
     out.trim_end_matches('-').to_owned()
 }
 
-/// L'espace de noms libre d'un nouveau pack nommé `name` dans `library`.
+/// L'espace de noms libre d'un nouveau pack nommé `name` dans `library`, toutes sortes confondues.
 ///
-/// Le slug de `name`, sinon suivi de `-2`, `-3`… : parmi autant de candidats
+/// Ni `deck` ni `deck-layouts`, réservés. Le slug de `name`, sinon suivi de `-2`, `-3`… : parmi autant de candidats
 /// que de packs (plus deux), l'un est libre.
 pub(crate) fn library_namespace(library: &PackLibrary, name: &str) -> Result<Namespace> {
-    let taken: Vec<Namespace> = library.entries().into_iter().map(|s| s.manifest.namespace).collect();
-    let free = |ns: &Namespace| !ns.is_deck() && !taken.contains(ns);
+    let taken = library.namespaces();
+    let free = |ns: &Namespace| !ns.is_deck() && !ns.is_deck_layouts() && !taken.contains(ns);
     let base = slug(name, MAX);
     let candidates = (1..=taken.len() + 2).map(|n| match n {
         1 => base.clone(),

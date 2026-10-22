@@ -4,7 +4,7 @@
 //! session qui le montre refuse toute modification (`ReadOnly`), de
 //! l'interface comme de l'agent ; sa reprise ne garde que la langue et
 //! relit le deck livré, jamais une ancienne copie. Il se rend avec les
-//! versions livrées de `base` et du pack par défaut, pas celles que l'utilisateur a pu modifier,
+//! versions livrées de `base` et d'`essentiel`, pas celles que l'utilisateur a pu modifier,
 //! et au thème du deck d'où on l'ouvre (version courante de la bibliothèque,
 //! embarquée), sinon au thème par défaut. Le JSON livré ne porte pas de thème.
 
@@ -17,9 +17,9 @@ use uuid::Uuid;
 
 use crate::deck_pack::builtin_pin;
 use crate::error::{
-    EditingTemplatesSnafu, HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, RegistrySnafu, SourcesSnafu, UnknownThemeSnafu,
+    EditingPackSnafu, HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, RegistrySnafu, SourcesSnafu, UnknownThemeSnafu,
 };
-use crate::pack::{BASE_PACK, DEFAULT_PACK};
+use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::{Mode, Result, Session};
 
 /// Les decks d'aide livrés, par langue ; le premier sert aux autres langues.
@@ -58,17 +58,17 @@ impl Session {
     /// Pour une session neuve (onglet d'aide, reprise) : le deck ouvert est
     /// remplacé sans question.
     pub fn open_help(&mut self, locale: &str, theme: Option<Uuid>) -> Result<()> {
-        // Le deck mis de côté par l'édition des modèles serait perdu.
-        ensure!(!matches!(self.mode, Mode::Templates { .. }), EditingTemplatesSnafu);
+        // Le deck mis de côté par l'édition d'un pack serait perdu.
+        ensure!(!matches!(self.mode, Mode::Pack { .. }), EditingPackSnafu);
         let locale = help_locale(locale);
-        // Son premier replica connaît déjà les widgets de `base` (hôtes des tableaux et graphiques).
+        // Son premier replica connaît déjà les widgets de `base` (hôtes des tableaux et graphiques) et d'`essentiel`.
         let registry = oku_slides_render::builtin_registry(&self.app_fonts).context(RegistrySnafu)?;
         let mut sources = SourceBundle::new(help_deck(locale)?, registry).context(SourcesSnafu)?;
         let mut deck = sources.deck().clone();
-        for id in [BASE_PACK, DEFAULT_PACK] {
+        for id in [BASE_PACK, ESSENTIEL_PACK] {
             let (ns, pin, files) = builtin_pin(id)?;
+            deck.pins_mut(files.kind()).insert(ns, pin);
             sources.add_pack(files);
-            deck.widgets.insert(ns, pin);
         }
         if let Some(current) = theme.and_then(|id| self.themes.current_version(id)) {
             let id = current.manifest.id;
@@ -103,7 +103,7 @@ impl Session {
     pub(crate) fn help(&self) -> Option<&'static str> {
         match self.mode {
             Mode::Help { locale } => Some(locale),
-            Mode::Deck | Mode::Templates { .. } | Mode::History { .. } => None,
+            Mode::Deck | Mode::Pack { .. } | Mode::History { .. } => None,
         }
     }
 

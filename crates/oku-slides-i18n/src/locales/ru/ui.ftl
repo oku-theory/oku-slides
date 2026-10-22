@@ -4,17 +4,28 @@ ui-loading = Загрузка…
 ## Документ
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · шаблоны
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · набор макетов
+   *[other] { $name } · набор виджетов
+}
 ui-title-rename = Переименовать презентацию
 ui-title-field = Название презентации
 ui-status-unsaved = есть несохранённые изменения
 ui-status-saved = сохранено
 ui-status-never-saved = ещё не сохранено
-ui-caption-templates = { $count ->
-    [one] { $count } шаблон
-    [few] { $count } шаблона
-    [many] { $count } шаблонов
-   *[other] { $count } шаблона
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } макет
+        [few] { $count } макета
+        [many] { $count } макетов
+       *[other] { $count } макета
+    }
+   *[other] { $count ->
+        [one] { $count } виджет
+        [few] { $count } виджета
+        [many] { $count } виджетов
+       *[other] { $count } виджета
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } слайд
@@ -22,9 +33,7 @@ ui-caption-slides = { $count ->
     [many] { $count } слайдов
    *[other] { $count } слайда
 } · { $status }
-ui-template-default-name = Шаблон
-ui-template-variant-name = { $name } (вариант)
-ui-confirm-quit-templates = Выйти, не сохранив изменённые шаблоны?
+ui-confirm-quit-pack = Выйти, не сохранив изменённый набор?
 
 ## Уведомления
 
@@ -46,7 +55,7 @@ ui-toolbar-theme = Тема
 ui-toolbar-theme-embedded = Тема из файла
 ui-toolbar-theme-deck-group = Эта презентация
 ui-toolbar-finish = Готово
-ui-templates-deck-only = Сохраняются только в этой презентации
+ui-pack-deck-only = Сохраняется только в этой презентации
 ui-toolbar-open = Открыть
 ui-menu = Меню
 ui-toolbar-add-label = Добавить на слайд
@@ -64,7 +73,6 @@ ui-add-kind-description = { $kind ->
     [table] Таблица данных
    *[text] Абзац текста
 }
-ui-toolbar-remove-template = Удалить шаблон
 ui-toolbar-remove-slide = Удалить слайд
 ui-toolbar-remove-hint = Слайд { $n } · отменить: ⌘Z
 
@@ -78,10 +86,7 @@ ui-undo-add = { $kind ->
    *[text] Добавить текст
 }
 ui-undo-add-widget = Добавить «{ $name }»
-ui-undo-new-template = Новый шаблон: { $name }
 ui-undo-new-slide = Новый слайд: { $name }
-ui-undo-templates = Шаблоны: { $name }
-ui-undo-move-template = Переместить шаблон
 ui-undo-move-slide = Переместить слайд
 ui-undo-remove-slide = Удалить слайд
 ui-undo-remove = Удалить
@@ -93,7 +98,7 @@ ui-undo-change-anchor = Изменить привязку
 ui-undo-move = Переместить
 ui-undo-resize = Изменить размер
 ui-undo-edit-slide = Изменить слайд
-ui-undo-rename-set = Переименовать набор
+ui-undo-rename-pack = Переименовать набор
 ui-undo-rename-deck = Переименовать презентацию
 ui-undo-chart-kind = Сменить тип диаграммы
 ui-undo-chart-data = Изменить данные
@@ -112,15 +117,15 @@ ui-new-card-detail = Подробности
 ## Стопка слайдов
 
 ui-pile-slides = Слайды
-ui-pile-templates = Шаблоны
+ui-pile-layouts = Макеты
 ui-pile-add-slide = + Новый слайд
-ui-pile-add-template = + Новый шаблон
 ui-pile-drag-hint = Перетащите для перемещения · ⌥↑ ⌥↓
 ui-slide-alt = Слайд { $n }
 
 ## Сцена
 
 ui-stage-rendering = Отрисовка…
+ui-stage-widget-pack = Откройте виджет из стопки или создайте новый.
 ui-stage-elements = Элементы слайда
 ui-stage-fields = Поля слайда
 ui-stage-edit-text = Изменить текст
@@ -242,15 +247,11 @@ ui-size-mb = { $value } МБ
 ## Выбор шаблона
 
 ui-picker-new-slide = Новый слайд
-ui-picker-new-template = Новый шаблон на основе…
-ui-picker-set = Шаблоны
 ui-picker-set-mine = { $name } · мои
 ui-picker-set-received = { $name } · полученные
 ui-picker-keys = ← → — листать · Enter — добавить · Esc — закрыть
 ui-picker-close = Закрыть
-ui-picker-previous = Предыдущий шаблон
-ui-picker-next = Следующий шаблон
-ui-picker-list = Шаблоны слайдов
+ui-picker-list = Макеты
 ui-widget-picker-filter = Фильтр по имени, подписи или описанию
 ui-widget-picker-empty = Нет виджетов, подходящих под «{ $query }».
 ui-widget-picker-list = Виджеты
@@ -323,7 +324,7 @@ ui-tabs = Открытые презентации
 ui-tab-new = Новая вкладка
 ui-tab-close = Закрыть вкладку
 ui-tab-unsaved = Несохранённые изменения
-ui-tab-templates = Шаблоны
+ui-tab-pack = Набор
 ui-tab-move-new-window = Переместить в новое окно
 ui-tab-move-to = Переместить в окно { $n }
 ui-tab-close-others = Закрыть другие вкладки
@@ -378,8 +379,8 @@ ui-widgets-open = Открыть виджет { $name }
 ui-widgets-delete-named = Удалить { $name }
 ui-widgets-confirm-delete = Удалить виджет «{ $name }»?
 ui-widgets-rename-hint = Дважды щёлкните или нажмите F2, чтобы переименовать
-ui-widgets-tabs = Вкладки шаблонов
-ui-widgets-templates-tab = Шаблоны
+ui-pack-tabs = Вкладки набора
+ui-pack-layouts-tab = Макеты
 ui-theme-tab = Тема
 ui-theme-picker = Тема
 ui-theme-name = Название темы
@@ -392,14 +393,15 @@ ui-widgets-removed-by-agent = Агент удалил виджет { $name }.
 ui-import-title = Импорт презентации PowerPoint
 ui-import-mode = Режим импорта
 ui-import-hifi = Точная копия
-ui-import-hifi-note = Сохраняет вид оригинала с темой и шаблонами, созданными для этой презентации.
-ui-import-retrofit = Использовать мои шаблоны
-ui-import-retrofit-note = Пересобирает слайды на шаблонах и теме из библиотеки.
+ui-import-hifi-note = Сохраняет вид оригинала с темой и макетами, созданными для этой презентации.
+ui-import-retrofit = Использовать мои макеты
+ui-import-retrofit-note = Пересобирает слайды на наборах макетов и теме из библиотеки.
+ui-import-layout-packs = Наборы макетов
 ui-import-theme-default = Тема по умолчанию
-ui-import-no-packs = В библиотеке нет набора шаблонов.
+ui-import-no-packs = В библиотеке нет набора макетов.
 ui-import-tune = Доработать с агентом
 ui-import-tune-note = Агент сравнивает каждый слайд с оригиналом и исправляет расхождения.
-ui-import-tune-note-retrofit = Агент сравнивает каждый слайд с оригиналом и создаёт виджеты для фигур, которые ваши шаблоны не показывают.
+ui-import-tune-note-retrofit = Агент сравнивает каждый слайд с оригиналом и создаёт виджеты для фигур, которые ваши макеты не показывают.
 ui-import-tune-unavailable = Нет доступного агента: { $reason }
 ui-import-submit = Импортировать
 ui-import-busy = Импорт…

@@ -170,8 +170,8 @@ test("useKeptUi premier snapshot reprend les sections repliées gardées par l'h
 
 test("useKeptUi setFolded replie une section et la sauve avec le reste", async () => {
   const { out } = await mount();
-  await act(async () => { out.hook!.setFolded("templates", true); });
-  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", folded: ["widgets", "templates"] });
+  await act(async () => { out.hook!.setFolded("layouts", true); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", folded: ["widgets", "layouts"] });
 });
 
 test("useKeptUi setFolded rouvre une section repliée", async () => {

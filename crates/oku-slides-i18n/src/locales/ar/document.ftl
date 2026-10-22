@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = تلميح: { $hint }
 render-chart-failed = تعذّر رسم المخطط
 
-registry-bad-pack-id = معرّف حزمة القوالب غير صالح: { $id }
-registry-base-pack-broken = حزمة عناصر الواجهة المدمجة تالفة ({ $file })؛ أعد تثبيت التطبيق.
-registry-duplicate-pack = تشترك حزمتا عناصر واجهة في العرض التقديمي في { $pack }.
-registry-compile = تعذّر ترجمة عناصر واجهة حزمة القوالب
-registry-missing = حزمة القوالب لا تُعلن عن عناصر واجهتها
+registry-bad-pack-id = معرّف الحزمة غير صالح: { $id }
+registry-base-pack-broken = الحزمة المدمجة تالفة ({ $file })؛ أعد تثبيت التطبيق.
+registry-duplicate-pack = تشترك حزمتان في العرض التقديمي في { $pack }.
+registry-compile = تعذّر ترجمة عناصر واجهة الحزمة
+registry-missing = الحزمة لا تُعلن عن عناصر واجهتها
 render-timeout = استغرق العرض أكثر من { $seconds } ثانية وتم إيقافه
 render-out-of-memory = احتاج العرض إلى أكثر من { $mib } ميبيبايت من الذاكرة وتم إيقافه
 render-worker-lost = توقفت عملية العرض
@@ -41,6 +41,7 @@ import-not-a-presentation = هذا الملف ليس عرضًا تقديميًا
 import-protected = هذا العرض التقديمي مشفّر أو بتنسيق .ppt القديم: احفظه أولًا بتنسيق .pptx
 import-too-large = هذا العرض التقديمي أكبر من أن يُستورد
 import-output-too-large = سيتجاوز العرض الناتج الحجم المسموح به للاستيراد
+import-no-profiles = لا تقترح حزم التخطيطات المختارة أي ملف تعريف.
 import-loss-list-levels = تم دمج مستويات القائمة في مستوى واحد
 import-loss-merged-cells = تم فصل الخلايا المدمجة
 import-loss-percent-stacked = عُرض المخطط المكدس بنسبة 100% كمخطط مكدس
@@ -81,7 +82,7 @@ import-loss-repeated-decor = { $slides ->
    [many] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شريحة: يرسم النسق رأسه وتذييله
   *[other] حُذف الرأس أو التذييل «{ $text }» المكرر في { $slides } شريحة: يرسم النسق رأسه وتذييله
 }
-import-loss-no-slot = حُذف المحتوى: لا مكان له في القالب المختار
+import-loss-no-slot = حُذف المحتوى: لا مكان له في التخطيط المختار
 import-loss-moved-to-notes = نُقل النص إلى ملاحظات المتحدث: لا مكان له في الغلاف
 import-loss-items-dropped = عناصر كثيرة جدًا في الشريحة: عناصر محذوفة: { $dropped }
 import-loss-page-fitted = صفحة المصدر { $width } × { $height } نقطة ليست بنسبة 16:9: غُيّر حجم المحتوى ووُسِّط
@@ -93,7 +94,7 @@ import-loss-shape-style = { $effect ->
     [arrow] لم تُرسم رؤوس أسهم الخط
    *[geometry] عُرض شكل غير معروف كمستطيل
 }
-import-loss-layout-dropped = تخطيطات كثيرة جدًا لحزمة واحدة: «{ $layout }» بلا قالب؛ تستخدم شرائحه الأداة الفارغة وتتلقى زخرفته كعناصر
+import-loss-layout-dropped = تخطيطات كثيرة جدًا لحزمة واحدة: «{ $layout }» بلا أداة؛ تستخدم شرائحه الأداة الفارغة وتتلقى زخرفته كعناصر
 import-loss-decor-truncated = قُصّت الزخرفة لتلائم حجم ملف الحزمة: عناصر محذوفة: { $omitted }
 import-loss-table-style = قُرّب نمط الجدول: خلفيات الخلايا أو الحدود أو عروض الأعمدة أو ارتفاعات الصفوف أو أحجام النص الخاصة به فُقدت
 import-loss-overflow = العنصر «{ $element }» يتجاوز حافة الشريحة

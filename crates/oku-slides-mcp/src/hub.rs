@@ -53,7 +53,7 @@ pub enum McpEvent {
         id: String,
         messages: Vec<oku_slides_a2ui::ServerMessage>,
     },
-    /// Fichier de widget écrit ou supprimé par l'agent (mode modèles) : l'éditeur le suit.
+    /// Fichier de widget écrit ou supprimé par l'agent (mode pack) : l'éditeur le suit.
     WidgetTouched {
         name: String,
         removed: bool,

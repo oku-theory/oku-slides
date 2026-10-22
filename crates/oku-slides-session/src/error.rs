@@ -37,10 +37,10 @@ pub enum SessionErrorKind {
     /// Le graphique n'a pas pu changer de type.
     Chart,
     /// Un pack intégré ne se supprime pas.
-    BuiltinTemplateSet,
+    BuiltinPack,
     /// Pas de dossier pour la bibliothèque de l'utilisateur.
     NoLibraryDir,
-    /// Pack de modèles inconnu.
+    /// Pack inconnu.
     UnknownPack,
     /// Version de pack introuvable.
     PackVersionMissing,
@@ -52,6 +52,8 @@ pub enum SessionErrorKind {
     NamespaceReserved,
     /// Nouvelle version d'un pack sous un autre espace de noms que les siennes.
     NamespaceChanged,
+    /// Nouvelle version d'un pack d'une autre sorte (widgets, layouts) que les siennes.
+    PackKindChanged,
     /// Espace de noms qu'aucun pack ne porte (bibliothèque ou deck).
     UnknownNamespace,
     /// Packs qui se requièrent en boucle.
@@ -60,11 +62,13 @@ pub enum SessionErrorKind {
     Import,
     /// Un outil d'ajustement de l'import a refusé l'appel (voir `TuneErrorKind`).
     ImportTune,
-    /// Requête impossible pendant l'édition des modèles.
-    EditingTemplates,
-    /// Requête qui demande l'édition des modèles.
-    NotEditingTemplates,
-    /// En mode modèles, un choix de thème mêlé à d'autres ops.
+    /// Requête impossible pendant l'édition d'un pack.
+    EditingPack,
+    /// Requête qui demande l'édition d'un pack.
+    NotEditingPack,
+    /// En mode pack, une op qui ajoute, retire, déplace une slide ou change son widget.
+    PackModeSlides,
+    /// En mode pack, un choix de thème mêlé à d'autres ops.
     ThemeChoiceAlone,
     /// Réglage de l'hôte inconnu.
     HostKey,
@@ -161,8 +165,8 @@ pub(crate) enum SessionInner {
     NoTable { id: String, backtrace: Backtrace },
     #[snafu(display("chart conversion failed"))]
     Chart { source: oku_slides_chart::ChartError, backtrace: Backtrace },
-    #[snafu(display("built-in template set {id} cannot be deleted"))]
-    BuiltinTemplateSet { id: String, backtrace: Backtrace },
+    #[snafu(display("built-in pack {id} cannot be deleted"))]
+    BuiltinPack { id: String, backtrace: Backtrace },
     #[snafu(display("no folder for the user {kind} library"))]
     NoLibraryDir { kind: &'static str, backtrace: Backtrace },
     #[snafu(display("pack not found: {id}"))]
@@ -181,6 +185,8 @@ pub(crate) enum SessionInner {
     NamespaceReserved { namespace: String, backtrace: Backtrace },
     #[snafu(display("pack {id} keeps its namespace {expected}, not {found}"))]
     NamespaceChanged { id: uuid::Uuid, expected: String, found: String, backtrace: Backtrace },
+    #[snafu(display("pack {id} is not a {found} pack"))]
+    PackKindChanged { id: uuid::Uuid, found: String, backtrace: Backtrace },
     #[snafu(display("no pack named {namespace} in the library"))]
     UnknownNamespace { namespace: String, backtrace: Backtrace },
     #[snafu(display("the deck pins no widget pack {namespace}"))]
@@ -193,11 +199,13 @@ pub(crate) enum SessionInner {
     Import { source: crate::import::ImportError, backtrace: Backtrace },
     #[snafu(display("import tuning refused"))]
     Tune { source: crate::import::TuneError, backtrace: Backtrace },
-    #[snafu(display("finish editing the templates first"))]
-    EditingTemplates { backtrace: Backtrace },
-    #[snafu(display("no template set is being edited"))]
-    NotEditingTemplates { backtrace: Backtrace },
-    #[snafu(display("in template mode, choose the theme alone and edit its tokens with set_token"))]
+    #[snafu(display("finish editing the pack first"))]
+    EditingPack { backtrace: Backtrace },
+    #[snafu(display("no pack is being edited"))]
+    NotEditingPack { backtrace: Backtrace },
+    #[snafu(display("in pack mode, slides cannot be added, removed, moved or change their widget"))]
+    PackModeSlides { backtrace: Backtrace },
+    #[snafu(display("in pack mode, choose the theme alone and edit its tokens with set_token"))]
     ThemeChoiceAlone { backtrace: Backtrace },
     #[snafu(display("unknown host setting: {key}"))]
     HostKey { key: String, backtrace: Backtrace },
@@ -299,7 +307,7 @@ impl SessionError {
             NoChart { .. } => SessionErrorKind::NoChart,
             NoTable { .. } => SessionErrorKind::NoTable,
             Chart { .. } => SessionErrorKind::Chart,
-            BuiltinTemplateSet { .. } => SessionErrorKind::BuiltinTemplateSet,
+            BuiltinPack { .. } => SessionErrorKind::BuiltinPack,
             NoLibraryDir { .. } => SessionErrorKind::NoLibraryDir,
             UnknownPack { .. } => SessionErrorKind::UnknownPack,
             PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
@@ -307,12 +315,14 @@ impl SessionError {
             NamespaceTaken { .. } => SessionErrorKind::NamespaceTaken,
             NamespaceReserved { .. } => SessionErrorKind::NamespaceReserved,
             NamespaceChanged { .. } => SessionErrorKind::NamespaceChanged,
+            PackKindChanged { .. } => SessionErrorKind::PackKindChanged,
             UnknownNamespace { .. } | NotPinned { .. } => SessionErrorKind::UnknownNamespace,
             RequiresCycle { .. } => SessionErrorKind::RequiresCycle,
             Import { .. } => SessionErrorKind::Import,
             Tune { .. } => SessionErrorKind::ImportTune,
-            EditingTemplates { .. } => SessionErrorKind::EditingTemplates,
-            NotEditingTemplates { .. } => SessionErrorKind::NotEditingTemplates,
+            EditingPack { .. } => SessionErrorKind::EditingPack,
+            NotEditingPack { .. } => SessionErrorKind::NotEditingPack,
+            PackModeSlides { .. } => SessionErrorKind::PackModeSlides,
             ThemeChoiceAlone { .. } => SessionErrorKind::ThemeChoiceAlone,
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
@@ -385,6 +395,15 @@ impl SessionError {
         }
     }
 
+    /// L'erreur des widgets à l'origine de celle-ci, s'il y en a une.
+    #[cfg(test)]
+    pub(crate) fn registry_error(&self) -> Option<&oku_slides_render::RegistryError> {
+        match &*self.0 {
+            SessionInner::Registry { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+
     /// L'erreur et ses causes, sur une ligne.
     pub fn one_line(&self) -> String {
         oku_slides_platform::errors::one_line(self)
@@ -426,7 +445,7 @@ impl Localize for SessionError {
             NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", id.as_str().into())]),
             NoTable { id, .. } => l.tr_with("session-no-table", &[("subject", id.as_str().into())]),
             Chart { source, .. } => source.localize(l),
-            BuiltinTemplateSet { .. } => l.tr("session-builtin-template-set"),
+            BuiltinPack { .. } => l.tr("session-builtin-pack"),
             NoLibraryDir { .. } => l.tr("session-no-library-dir"),
             UnknownPack { id, .. } => l.tr_with("session-unknown-pack", &[("id", id.to_string().into())]),
             PackVersionMissing { id, version, .. } => l.tr_with(
@@ -442,6 +461,7 @@ impl Localize for SessionError {
             NamespaceReserved { namespace, .. } => {
                 l.tr_with("session-namespace-reserved", &[("namespace", namespace.as_str().into())])
             }
+            PackKindChanged { id, .. } => l.tr_with("session-pack-kind-changed", &[("id", id.to_string().into())]),
             NamespaceChanged { id, expected, found, .. } => l.tr_with(
                 "session-namespace-changed",
                 &[
@@ -464,8 +484,9 @@ impl Localize for SessionError {
             }
             Import { source, .. } => source.localize(l),
             Tune { source, .. } => source.localize(l),
-            EditingTemplates { .. } => l.tr("session-editing-templates"),
-            NotEditingTemplates { .. } => l.tr("session-not-editing-templates"),
+            EditingPack { .. } => l.tr("session-editing-pack"),
+            NotEditingPack { .. } => l.tr("session-not-editing-pack"),
+            PackModeSlides { .. } => l.tr("session-pack-mode-slides"),
             ThemeChoiceAlone { .. } => l.tr("session-theme-choice-alone"),
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),

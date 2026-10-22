@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use oku_slides_core::{Namespace, Op, PackFiles, PackPin, PackVersion};
-use oku_slides_session::{DEFAULT_PACK, PackLibrary, PackManifest, Request, Storage, builtin_versions};
+use oku_slides_session::{BASE_PACK, PackLibrary, PackManifest, Request, Storage, builtin_versions};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
@@ -16,12 +16,12 @@ use crate::common::{data_dir, session_in};
 
 fn library(data: &Path) -> PackLibrary {
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.join("widgets")), storage)
+    PackLibrary::new(Some(data.join("widgets")), None, storage)
 }
 
-/// L'espace de noms du pack `id` : `essentiel` pour le pack par défaut, sinon `pack`.
+/// L'espace de noms du pack `id` : `base` pour le pack intégré, sinon `pack`.
 fn namespace(id: Uuid) -> Namespace {
-    let name = if id == DEFAULT_PACK { "essentiel" } else { "pack" };
+    let name = if id == BASE_PACK { "base" } else { "pack" };
     Namespace::parse(name).unwrap_or_else(|| panic!("espace de noms"))
 }
 
@@ -35,10 +35,10 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
         parent: parent.cloned(),
         created: created.into(),
         scope: oku_slides_core::PackScope::Library,
-        templates: Vec::new(),
+        profiles: Vec::new(),
         examples: Default::default(),
     };
-    m.to_files(BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
+    m.to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Un fichier enregistré par quelqu'un d'autre, dont le deck embarque `pack`.
@@ -46,7 +46,12 @@ fn received(them: &Path, id: Uuid, pack: &PackFiles) -> PathBuf {
     library(them).add_version(id, pack).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(them);
     let pin = PackPin { id, version: pack.version(), requires: Vec::new() };
-    s.apply("Pack", vec![Op::AddPack { namespace: namespace(id), pin }], None).unwrap_or_else(|e| panic!("{e}"));
+    s.apply(
+        "Pack",
+        vec![Op::AddPack { kind: oku_slides_core::PackKind::Widgets, namespace: namespace(id), pin }],
+        None,
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
     let path = them.join("recu.oku-slides.pdf");
     s.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap_or_else(|e| panic!("{e}"));
     path
@@ -75,14 +80,18 @@ fn received_deck_with_the_same_pack_id_never_changes_the_current_version() {
 #[test]
 fn received_version_of_a_builtin_pack_never_replaces_the_builtin_current() {
     let (me, them) = (data_dir(), data_dir());
-    let builtin = builtin_versions()
-        .iter()
-        .find(|b| b.manifest.id == DEFAULT_PACK)
-        .map(|b| b.version.clone())
-        .unwrap_or_else(|| panic!("Essentiel"));
-    let theirs = version(DEFAULT_PACK, "Essentiel retouché", Some(&builtin), "2026-10-05T10:00:00Z");
-    let path = received(&them, DEFAULT_PACK, &theirs);
+    let base = builtin_versions().iter().find(|b| b.manifest.id == BASE_PACK).unwrap_or_else(|| panic!("base"));
+    // Ses widgets restent ceux de `base` : le deck qui la reçoit s'en sert.
+    let m = PackManifest {
+        name: "Base retouché".into(),
+        parent: Some(base.version.clone()),
+        created: "2026-10-05T10:00:00Z".into(),
+        ..base.manifest.clone()
+    };
+    let theirs =
+        m.to_files(oku_slides_core::PackKind::Widgets, base.files.widgets().clone()).unwrap_or_else(|e| panic!("{e}"));
+    let path = received(&them, BASE_PACK, &theirs);
     let mut s = session_in(&me);
     s.open(&path).unwrap_or_else(|e| panic!("{e}"));
-    assert_that!(library(&me).current(DEFAULT_PACK)).is_equal_to(Some(builtin));
+    assert_that!(library(&me).current(BASE_PACK)).is_equal_to(Some(base.version.clone()));
 }

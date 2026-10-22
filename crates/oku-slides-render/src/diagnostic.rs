@@ -1,7 +1,7 @@
 //! Messages de Typst : erreurs et avertissements, avec leur place dans les
 //! sources et leurs indices. Ils se disent dans la langue de l'utilisateur.
 
-use oku_slides_core::WidgetFile;
+use oku_slides_core::{PackKind, WidgetFile};
 use oku_slides_i18n::{Localize, Localizer};
 
 use crate::widget_probe::PROBE_PACK;
@@ -71,7 +71,9 @@ impl Diagnostic {
             }
         };
         let rest = path.trim_start_matches('/').strip_prefix("packs/")?;
-        let (_, file) = rest.split_once("/widgets/")?;
+        let (_, rest) = rest.split_once('/')?;
+        // Le dossier des fichiers dit la sorte du pack : `widgets/` ou `layouts/`.
+        let file = PackKind::ALL.into_iter().find_map(|k| rest.strip_prefix(k.files_dir())?.strip_prefix('/'))?;
         WidgetFile::from_file_name(file)
     }
 

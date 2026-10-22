@@ -1,10 +1,9 @@
-// Éditeur de thème (t-554) : onglet « Thème » du mode modèles, un jeton changé se voit sur la scène,
+// Éditeur de thème (t-554) : onglet « Thème » du mode pack, un jeton changé se voit sur la scène,
 // et ✓ enregistre le brouillon en copie du thème de base, choisie pour le deck.
 // Contre `oku-slides serve fixtures/roadmap.json` (thème Papier). Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { openAtelier } = require('./lib/atelier.cjs');
-const { activeSnapshot } = require('./lib/http.cjs');
+const { activeSnapshot, post } = require('./lib/http.cjs');
 const { stageSvg } = require('./lib/stage.cjs');
 const { untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -23,17 +22,23 @@ const RED = /#ff0000/i;
     void d.dismiss();
   });
   await p.goto(URL);
-  // Un test précédent peut avoir laissé l'onglet en mode modèles (sous-onglet d'un widget ouvert) :
-  // on y entre s'il le faut.
-  await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
-  const tab = p.getByRole('tab', { name: 'Thème', exact: true });
-  if (!(await tab.isVisible())) {
-    await openAtelier(p);
+  // Le thème se voit sur des slides : l'atelier d'Essentiel (pack de layouts). L'agent ouvrirait le
+  // pack propre du deck, s'il en a un : Essentiel s'ouvre par la session, après le pack laissé ouvert.
+  const api = (req) => post(p, '/api', { tab: 't-1', req });
+  let snap = await api({ cmd: 'snapshot' });
+  if (snap.editing?.kind !== 'layouts') {
+    if (snap.editing) {
+      if (snap.dirty) await api({ cmd: 'save_pack', as_new: false });
+      snap = await api({ cmd: 'close_pack' });
+    }
+    assert.equal((await api({ cmd: 'edit_pack', pack: snap.layouts.essentiel.id })).editing?.kind, 'layouts');
+    await p.reload();
   }
+  const tab = p.getByRole('tab', { name: 'Thème', exact: true });
   await tab.click();
   await p.waitForSelector(`${SURFACE} .a2ui-disclosure`);
-  // Le premier modèle (couverture), qui emploie l'accent.
-  await p.click('.thumb >> nth=0');
+  // La slide du layout `title`, qui emploie l'accent.
+  await p.click('.thumb:has(.thumb-name:text-is("title"))');
   await p.waitForSelector('.stage img');
   assert.doesNotMatch(await stageSvg(p), RED);
 
@@ -57,8 +62,8 @@ const RED = /#ff0000/i;
   await p.waitForSelector('#theme-panel', { state: 'detached' });
   const deckTheme = async () => (await activeSnapshot(p)).theme_name;
   await untilValue(p, deckTheme, (name) => name === 'Papier (copie)', 'le thème du deck n\'est pas « Papier (copie) »');
-  // Hors du mode modèles, la scène garde l'accent rouge.
-  await untilValue(p, () => stageSvg(p), (svg) => RED.test(svg), "hors du mode modèles, la scène perd l'accent rouge");
+  // Hors du mode pack, la scène garde l'accent rouge.
+  await untilValue(p, () => stageSvg(p), (svg) => RED.test(svg), "hors du mode pack, la scène perd l'accent rouge");
 
   assert.deepEqual(errors, []);
   console.log('éditeur de thème ok');

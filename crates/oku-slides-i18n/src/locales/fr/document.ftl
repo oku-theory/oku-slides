@@ -16,11 +16,11 @@ diagnostic-unplaced = { $level } : { $message }
 diagnostic-hint = indice : { $hint }
 render-chart-failed = graphique impossible à dessiner
 
-registry-bad-pack-id = Identifiant de pack de modèles invalide : { $id }
-registry-base-pack-broken = Le pack de widgets intégré est endommagé ({ $file }) ; réinstallez l'app.
-registry-duplicate-pack = Deux packs de widgets de la présentation partagent { $pack }.
-registry-compile = Les widgets du pack de modèles ne compilent pas
-registry-missing = Le pack de modèles ne déclare pas ses widgets
+registry-bad-pack-id = Identifiant de pack invalide : { $id }
+registry-base-pack-broken = Le pack intégré est endommagé ({ $file }) ; réinstallez l'app.
+registry-duplicate-pack = Deux packs de la présentation partagent { $pack }.
+registry-compile = Les widgets du pack ne compilent pas
+registry-missing = Le pack ne déclare pas ses widgets
 render-timeout = Le rendu a pris plus de { $seconds } s ; il a été interrompu
 render-out-of-memory = Le rendu a demandé plus de { $mib } Mio de mémoire ; il a été interrompu
 render-worker-lost = Le processus de rendu s'est arrêté
@@ -40,6 +40,7 @@ import-not-a-presentation = Ce fichier n'est pas une présentation PowerPoint
 import-protected = Cette présentation est chiffrée ou à l'ancien format .ppt : enregistrez-la d'abord en .pptx
 import-too-large = Cette présentation est trop volumineuse pour être importée
 import-output-too-large = Le deck obtenu dépasserait la taille admise pour un import
+import-no-profiles = Les packs de layouts choisis ne proposent aucun profil.
 import-loss-list-levels = Niveaux de liste ramenés à un seul
 import-loss-merged-cells = Cellules fusionnées séparées
 import-loss-percent-stacked = Graphique empilé à 100 % rendu en empilé simple
@@ -76,7 +77,7 @@ import-loss-repeated-decor = { $slides ->
    [one] En-tête ou pied « { $text } » répété sur { $slides } slide omis : le thème dessine les siens
   *[other] En-tête ou pied « { $text } » répété sur { $slides } slides omis : le thème dessine les siens
 }
-import-loss-no-slot = Contenu omis : le modèle choisi n'a pas de place pour lui
+import-loss-no-slot = Contenu omis : le layout choisi n'a pas de place pour lui
 import-loss-moved-to-notes = Texte déplacé dans les notes de l'orateur : la couverture n'a pas de place pour lui
 import-loss-items-dropped = Trop d'éléments sur la slide : { $dropped } éléments omis
 import-loss-page-fitted = Page source de { $width } × { $height } pt, d'un autre format que 16:9 : contenu mis à l'échelle et centré
@@ -88,7 +89,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Pointes de flèche du trait non dessinées
    *[geometry] Forme inconnue rendue en rectangle
 }
-import-loss-layout-dropped = Trop de layouts pour un pack : « { $layout } » n'a pas de modèle, ses slides prennent le widget vierge et reçoivent son décor en éléments
+import-loss-layout-dropped = Trop de layouts pour un pack : « { $layout } » n'a pas de widget, ses slides prennent le widget vierge et reçoivent son décor en éléments
 import-loss-decor-truncated = { $omitted ->
     [one] Décor coupé pour tenir dans la taille d'un fichier de pack : { $omitted } élément omis
    *[other] Décor coupé pour tenir dans la taille d'un fichier de pack : { $omitted } éléments omis

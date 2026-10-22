@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = dica: { $hint }
 render-chart-failed = não foi possível desenhar o gráfico
 
-registry-bad-pack-id = Identificador de pacote de modelos inválido: { $id }
-registry-base-pack-broken = O pacote de widgets integrado está danificado ({ $file }); reinstale o app.
-registry-duplicate-pack = Dois pacotes de widgets da apresentação partilham { $pack }.
-registry-compile = Não foi possível compilar os widgets do pacote de modelos
-registry-missing = O pacote de modelos não declara seus widgets
+registry-bad-pack-id = Identificador de pacote inválido: { $id }
+registry-base-pack-broken = O pacote integrado está danificado ({ $file }); reinstale o app.
+registry-duplicate-pack = Dois pacotes da apresentação partilham { $pack }.
+registry-compile = Não foi possível compilar os widgets do pacote
+registry-missing = O pacote não declara seus widgets
 render-timeout = A renderização demorou mais de { $seconds } s e foi interrompida
 render-out-of-memory = A renderização precisou de mais de { $mib } MiB de memória e foi interrompida
 render-worker-lost = O processo de renderização parou
@@ -41,6 +41,7 @@ import-not-a-presentation = Este arquivo não é uma apresentação do PowerPoin
 import-protected = Esta apresentação está criptografada ou no antigo formato .ppt: salve-a primeiro como .pptx
 import-too-large = Esta apresentação é grande demais para ser importada
 import-output-too-large = A apresentação resultante excederia o tamanho permitido para uma importação
+import-no-profiles = Os pacotes de layouts escolhidos não propõem nenhum perfil.
 import-loss-list-levels = Níveis de lista reduzidos a um
 import-loss-merged-cells = Células mescladas separadas
 import-loss-percent-stacked = Gráfico empilhado 100% exibido como empilhado
@@ -77,7 +78,7 @@ import-loss-repeated-decor = { $slides ->
    [one] Cabeçalho ou rodapé “{ $text }” repetido em { $slides } slide omitido: o tema desenha os seus
   *[other] Cabeçalho ou rodapé “{ $text }” repetido em { $slides } slides omitido: o tema desenha os seus
 }
-import-loss-no-slot = Conteúdo omitido: o modelo escolhido não tem lugar para ele
+import-loss-no-slot = Conteúdo omitido: o layout escolhido não tem lugar para ele
 import-loss-moved-to-notes = Texto movido para as anotações do apresentador: a capa não tem lugar para ele
 import-loss-items-dropped = Elementos demais no slide: { $dropped } elementos omitidos
 import-loss-page-fitted = A página de origem ({ $width } × { $height } pt) não é 16:9: conteúdo redimensionado e centralizado
@@ -89,7 +90,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Pontas de seta da linha não desenhadas
    *[geometry] Forma desconhecida mostrada como retângulo
 }
-import-loss-layout-dropped = Layouts demais para um pacote: “{ $layout }” não tem modelo; seus slides usam o widget vazio e recebem sua decoração como elementos
+import-loss-layout-dropped = Layouts demais para um pacote: “{ $layout }” não tem widget; seus slides usam o widget vazio e recebem sua decoração como elementos
 import-loss-decor-truncated = { $omitted ->
     [one] Decoração cortada para caber no tamanho de um arquivo do pacote: { $omitted } elemento omitido
    *[other] Decoração cortada para caber no tamanho de um arquivo do pacote: { $omitted } elementos omitidos

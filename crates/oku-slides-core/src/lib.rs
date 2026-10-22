@@ -21,7 +21,8 @@
 //!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
 //! - [`is_hex_color`] : forme hexadécimale des couleurs des jetons.
 //! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu (hôtes : [`WidgetRegistry::host_params`] ; hauteur d'un bloc : [`Grow`]).
-//! - [`kinds`] : les kinds du pack intégré `base`, seul endroit où ils s'écrivent.
+//! - [`PackKind`] : la sorte d'un pack (`widgets` d'éléments, `layouts` de slides) ; [`LayoutProfile`] : préréglage d'un layout pour l'import.
+//! - [`kinds`] : les kinds des packs intégrés `base` et `essentiel`, seul endroit où ils s'écrivent.
 //! - [`tokens`] : jetons effectifs d'un thème ([`tokens::effective_tokens`], fusion [`tokens::merge`]).
 
 mod canonical;
@@ -29,11 +30,13 @@ mod color;
 pub mod error;
 mod fields;
 pub mod kinds;
+mod layout_profile;
 pub mod locate;
 pub mod model;
 mod namespace;
 pub mod ops;
 pub mod pack;
+mod pack_kind;
 pub mod params;
 pub mod replica;
 mod shape_path;
@@ -51,18 +54,20 @@ pub use error::{
     SourcesError, SourcesErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};
+pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
 pub use namespace::{Namespace, qualify, split_kind};
 pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListPath, ListSpec, Moved, NESTED_ITEMS_MAX, Op, PLAIN_MAX,
-    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlideField, SlotRef, Target, apply_all, apply_all_moving, default_items,
-    ops_schema, pack_users, param_value, text_fits,
+    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, default_items, ops_schema,
+    pack_users, param_value, text_fits,
 };
 pub use pack::{
-    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, Template, ThemeManifest, ThemeRef,
-    WidgetFile, now_created,
+    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, ThemeRef, WidgetFile,
+    now_created,
 };
+pub use pack_kind::PackKind;
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{
     DeckRead, DeckReplica, HistoryPreview, MergeReport, ReplicaLimits, SlideChanges, Version, dataset_row_budget,

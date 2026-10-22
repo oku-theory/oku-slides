@@ -1,12 +1,12 @@
 /** Les sous-onglets ouverts, montés ; seul l'actif est visible. */
 import type { ReactNode } from "react";
 import type { Snapshot, TabApi } from "./api";
-import type { TemplateWidgets } from "./useTemplateWidgets";
+import type { PackWidgetEditor } from "./usePackWidgetEditor";
 import WidgetTab from "./WidgetTab";
 
 interface Props {
   api: TabApi;
-  widgets: TemplateWidgets;
+  widgets: PackWidgetEditor;
   /** Révision des essais (commune au pack) : l'aperçu se relance quand elle change. */
   trials: number;
   /** Empreinte du style du deck : les aperçus se relancent quand elle change. */

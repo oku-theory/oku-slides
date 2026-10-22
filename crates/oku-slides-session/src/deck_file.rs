@@ -11,6 +11,7 @@ use oku_slides_core::SourceBundle;
 use oku_slides_render_worker::RemoteCompiled;
 use snafu::ResultExt;
 
+use crate::deck_closure::combined_pins;
 use crate::error::{PdfSnafu, SourcesSnafu, WriteSnafu};
 use crate::files::{EXTENSION, read_document};
 use crate::{Document, Result, Session, blank_deck, charts, deck_pack, deck_theme};
@@ -63,7 +64,7 @@ impl Session {
         self.end_widget_session();
         deck_pack::adopt_default_packs(&self.library, &mut doc.sources)?;
         deck_theme::adopt_default_theme(&self.themes, &mut doc.sources)?;
-        let (widgets, notice) = self.resolve_widgets(&doc.sources.deck().widgets, &doc.sources.packs)?;
+        let (widgets, notice) = self.resolve_widgets(&combined_pins(doc.sources.deck()), &doc.sources.packs)?;
         doc.sources.set_registry(widgets.registry.clone());
         let mut deck = doc.sources.deck().clone();
         charts::canonicalize_deck(&mut deck, &self.chart_labels, &widgets.registry);

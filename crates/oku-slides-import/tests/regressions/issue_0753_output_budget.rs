@@ -27,6 +27,7 @@ fn plan(bytes: &[u8], limits: &ReadLimits) -> ImportPlan {
     let target = HifiTarget {
         registry: &registry,
         base: common::base_pin(),
+        essentiel: common::essentiel_pin(),
         fonts: &fonts,
         pack_id: Uuid::from_u128(1),
         theme_id: Uuid::from_u128(2),

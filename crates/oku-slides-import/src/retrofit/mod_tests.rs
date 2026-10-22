@@ -5,9 +5,11 @@ use oku_slides_core::{Op, asset_id};
 use speculoos::prelude::*;
 
 use super::*;
+use crate::ImportErrorKind;
 use crate::source::{Asset, Picture, Size, SourceSlide, Warning, WarningKind};
 use crate::test_support::{
-    PAPIER, applied, colors, essentiel, item, layout, para, registry, run, run_with, source_slide, text_box, text_item,
+    PAPIER, applied, colors, essentiel_profiles, item, layout, para, registry, run, run_with, source_slide, text_box,
+    text_item,
 };
 
 fn png() -> String {
@@ -34,10 +36,13 @@ fn deck(slides: Vec<SourceSlide>) -> SourceDeck {
     }
 }
 
-fn plan_of(source: &SourceDeck, templates: &[Template]) -> ImportPlan {
+fn target<'a>(profiles: &'a [(Namespace, LayoutProfile)], registry: &'a WidgetRegistry) -> RetrofitTarget<'a> {
+    RetrofitTarget { profiles, registry, colors: colors(PAPIER), page: PageTokens::default() }
+}
+
+fn plan_of(source: &SourceDeck, profiles: &[(Namespace, LayoutProfile)]) -> ImportPlan {
     let registry = registry();
-    let target = RetrofitTarget { templates, registry: &registry, colors: colors(PAPIER), page: PageTokens::default() };
-    project(source, &target)
+    project(source, &target(profiles, &registry)).unwrap()
 }
 
 /// Un groupe de trois boîtes de texte en frise, à `(x, y)`, de largeur `w` par boîte.
@@ -52,7 +57,7 @@ fn project_names_slides_by_number_and_keeps_only_referenced_assets() {
     let pic =
         item("p", (66.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
     let source = deck(vec![source_slide(1, Some("l2"), vec![pic]), source_slide(4, Some("l2"), Vec::new())]);
-    let plan = plan_of(&source, &essentiel());
+    let plan = plan_of(&source, &essentiel_profiles());
     let ids: Vec<&str> = plan.report.slides.iter().map(|s| s.slide.as_str()).collect();
     assert_that!(ids).is_equal_to(vec!["s1", "s4"]);
     assert_that!(plan.assets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![png()]);
@@ -66,7 +71,7 @@ fn project_groups_widget_requests_by_signature_across_slides() {
         source_slide(2, Some("l2"), vec![text_item("x", (60.0, 100.0, 400.0, 100.0), "Seul")]),
         source_slide(3, Some("l2"), vec![frieze("b", (200.0, 300.0), 50.0)]),
     ]);
-    let plan = plan_of(&source, &essentiel());
+    let plan = plan_of(&source, &essentiel_profiles());
     let requests: Vec<(&str, Vec<String>, usize)> =
         plan.widget_requests.iter().map(|r| (r.fallback.as_str(), r.slides.clone(), r.sample.len())).collect();
     assert_that!(requests).is_equal_to(vec![(base::STACK, vec!["s1".to_owned(), "s3".to_owned()], 3)]);
@@ -79,22 +84,21 @@ fn project_copies_the_reader_warnings() {
     let mut source = deck(Vec::new());
     let warning = Warning { slide: Some(2), item: None, kind: WarningKind::UnsupportedChart("bubbleChart".into()) };
     source.warnings.push(warning.clone());
-    assert_that!(plan_of(&source, &essentiel()).report.warnings).is_equal_to(vec![warning]);
+    assert_that!(plan_of(&source, &essentiel_profiles()).report.warnings).is_equal_to(vec![warning]);
 }
 
 #[test]
-fn project_with_an_empty_pack_makes_bare_content_slides() {
+fn project_without_profiles_is_refused() {
     let source = deck(vec![source_slide(1, Some("l2"), vec![text_item("b", (66.0, 143.0, 828.0, 342.0), "Corps")])]);
-    let plan = plan_of(&source, &[]);
-    let Some(Op::AddSlide { slide, .. }) = plan.ops.first() else { panic!("AddSlide attendu") };
-    assert_that!((slide.kind.as_str(), plan.report.slides[0].template.as_str())).is_equal_to(("content", "content"));
-    applied(plan.ops, &[]);
+    let registry = registry();
+    let err = project(&source, &target(&[], &registry)).map(|_| ()).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ImportErrorKind::NoProfiles);
 }
 
 #[test]
 fn project_is_deterministic() {
     let source = deck(vec![source_slide(1, Some("l2"), vec![frieze("a", (60.0, 100.0), 100.0)])]);
-    assert_that!(plan_of(&source, &essentiel())).is_equal_to(plan_of(&source, &essentiel()));
+    assert_that!(plan_of(&source, &essentiel_profiles())).is_equal_to(plan_of(&source, &essentiel_profiles()));
 }
 
 #[test]
@@ -103,7 +107,7 @@ fn project_measures_the_coverage_of_its_own_deck() {
         item("p", (500.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
     let body = text_item("b", (66.0, 143.0, 300.0, 200.0), "Corps");
     let source = deck(vec![source_slide(1, Some("l2"), vec![body, pic])]);
-    let c = plan_of(&source, &essentiel()).report.coverage.unwrap();
+    let c = plan_of(&source, &essentiel_profiles()).report.coverage.unwrap();
     assert_that!((c.runs.found, c.runs.total, c.images.found, c.images.total)).is_equal_to((1, 1, 1, 1));
 }
 
@@ -112,7 +116,7 @@ fn project_sets_the_deck_language_of_most_of_the_text() {
     let tb = text_box(vec![para(vec![run_with("مرحبا بكم جميعا", |s| s.lang = Some("ar-SA".into())), run("x")])]);
     let source =
         deck(vec![source_slide(1, Some("l2"), vec![item("t", (66.0, 143.0, 300.0, 200.0), ItemKind::Text(tb))])]);
-    let plan = plan_of(&source, &essentiel());
+    let plan = plan_of(&source, &essentiel_profiles());
     let lang = plan.ops.iter().find_map(|op| match op {
         Op::SetDeckParam { key, value } if key == "lang" => Some(value.clone()),
         _ => None,
@@ -124,6 +128,6 @@ fn project_sets_the_deck_language_of_most_of_the_text() {
 #[test]
 fn project_without_language_sets_none() {
     let source = deck(vec![source_slide(1, Some("l2"), vec![text_item("t", (66.0, 143.0, 300.0, 200.0), "Texte")])]);
-    let plan = plan_of(&source, &essentiel());
+    let plan = plan_of(&source, &essentiel_profiles());
     assert_that!(plan.ops.iter().any(|op| matches!(op, Op::SetDeckParam { key, .. } if key == "lang"))).is_false();
 }

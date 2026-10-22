@@ -10,12 +10,13 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
 - `handler` : the `ServerHandler`; `Tools::call` dispatches a call to its tool.
 - `tools` : `Tools`, the tool list (`list`) and input schemas (`nest_schema` adapts JSON Schema
   to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
-- Tool families: `read_tools` (outline, theme_tokens, slide, render, templates, widgets, settings),
-  `edit_tools` (undoable deck edits), `widget_tools` (sources, preview, trials),
-  `guarded_tools` (user-confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`, `edit_theme`, `set_setting`…),
-  `app_tools` (`history`; opening it, `present` and `set_interface` emit an event the shown tab applies),
-  `surface_tools` (`report`, `render`, `ask_*`, `show_*`; `show_themes` opens the hub's theme picker), `import_tools` (`import_report`,
-  `import_diff`: the session's import tuning; its `ReferenceJob` runs in a blocking task, unlocked).
+- Tool families: `read_tools` (outline, theme_tokens, slide, render, `packs`, `layouts`, widgets,
+  settings), `edit_tools` (undoable edits, `edit_pack`), `widget_tools` (no `pack`: `deck`, so
+  `deck-layouts` is named), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
+  `save_pack`, `delete_pack`, `edit_theme` unless deck-only, `set_setting`…), `app_tools` (`history`; opening it,
+  `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
+  `show_*`; `show_themes` opens the hub's theme picker), `import_tools` (`import_report`, `import_diff`: import
+  tuning; `ReferenceJob` in a blocking task).
 - `tool_error` : `ToolError`; `Tools::fail_with` logs it whole and tells the agent a localized
   message in the current interface language (`LiveLocalizer`, also read by the hub at each
   text). `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.
@@ -26,8 +27,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   hub builds itself; cached cards, `theme` picks, `prune` refreshes), `hub/error` (`HubError`, `HubErrorKind`).
 - `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`),
   freezing answered questions, eviction past `KEPT_TURNS` per scope.
-- `hub_scopes` : turns filed by scope; only the viewed thread is sent. The hub never touches
-  the session; the agent's tab keeper persists the thread.
+- `hub_scopes` : turns filed by scope, only the viewed thread sent; the agent's tab keeper persists it.
 
 ## Turn of a tool call
 

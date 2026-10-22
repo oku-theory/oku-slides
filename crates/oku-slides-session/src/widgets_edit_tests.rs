@@ -1,6 +1,6 @@
 use speculoos::prelude::*;
 
-use crate::pack::DEFAULT_PACK;
+use crate::test_support::ATELIER;
 use crate::{Request, Session, SessionErrorKind};
 
 const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
@@ -18,21 +18,20 @@ const FRAMED: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as 
 #let widget = widget("cadre", params: (value: p.plain()), (args, ctx) => cadre(field(ctx, "value", args.value)))
 "#;
 
-/// Une session sur un dossier neuf, en édition du pack par défaut.
+/// Une session sur un dossier neuf, en édition du pack de widgets `atelier`, vide, que le deck épingle.
 fn editing(data: &std::path::Path) -> Session {
     let mut s = crate::test_support::session_on(data);
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    crate::test_support::pin_atelier(&mut s);
+    s.edit_pack(ATELIER).unwrap();
     s
 }
 
-/// Une session dont les fichiers de widgets sont bornés.
+/// Une session en mode deck dont les fichiers de widgets sont bornés : ses écritures vont au pack `deck`, vide.
 fn bounded(data: &std::path::Path, max_widget_kib: usize, max_widgets: usize) -> Session {
     let mut settings = crate::test_support::settings_on(data);
     settings.render.max_widget_kib = max_widget_kib;
     settings.render.max_widgets = max_widgets;
-    let mut s = crate::test_support::session_with(settings);
-    s.edit_templates(DEFAULT_PACK).unwrap();
-    s
+    crate::test_support::session_with(settings)
 }
 
 #[test]
@@ -41,31 +40,31 @@ fn set_widget_twice_then_save_makes_one_version_holding_the_file() {
     let mut s = editing(data.path());
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     s.set_widget(None, "kpi", KPI_V2.into()).unwrap();
-    s.save_templates(false).unwrap();
+    s.save_pack(false).unwrap();
     let lib = crate::test_support::library_of(&s);
-    // L'intégrée, puis la seule version de la séance.
-    assert_that!(lib.versions(DEFAULT_PACK).len()).is_equal_to(2);
-    let current = lib.current_version(DEFAULT_PACK).unwrap();
+    // La première, puis la seule version de la séance.
+    assert_that!(lib.versions(ATELIER).len()).is_equal_to(2);
+    let current = lib.current_version(ATELIER).unwrap();
     let kpi = oku_slides_core::WidgetFile::parse("kpi").unwrap();
     assert_that!(current.files.widget(&kpi)).is_equal_to(Some(KPI_V2));
     assert_that!(current.manifest.parent.is_some()).is_true();
 }
 
-/// Mode modèles sur un pack du deck seul : l'écriture d'un widget reste dans le deck.
+/// Mode pack sur un pack du deck seul : l'écriture d'un widget reste dans le deck.
 #[test]
-fn set_widget_in_templates_mode_on_a_deck_only_pack_writes_no_library() {
+fn set_widget_in_pack_mode_on_a_deck_only_pack_writes_no_library() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = crate::test_support::session_on(data.path());
     let r = crate::test_support::adopt_deck_only_pack(&mut s);
     let before = crate::test_support::library_files(data.path());
-    s.edit_templates(r.id).unwrap();
+    s.edit_pack(r.id).unwrap();
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     s.set_widget(None, "kpi", KPI_V2.into()).unwrap();
     assert_that!(crate::test_support::library_files(data.path())).is_equal_to(before);
     assert_that!(crate::test_support::library_of(&s).versions(r.id)).is_empty();
     let edit = s.snapshot().editing.map(|e| e.mode.clone()).unwrap();
     let version = edit.session_version.clone().unwrap();
-    let crate::Mode::Templates { stash, .. } = &s.mode else { panic!("mode modèles attendu") };
+    let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
     let files = stash.sources.packs.get(&version).cloned().unwrap();
     let kpi = oku_slides_core::WidgetFile::parse("kpi").unwrap();
     assert_that!(files.widget(&kpi)).is_equal_to(Some(KPI_V2));
@@ -82,7 +81,7 @@ fn set_widget_returns_the_status_with_its_schema() {
     assert_that!(change.status.schema.as_ref().map(|w| w.params.len())).is_equal_to(Some(1));
     assert_that!(change.broken).is_empty();
     let reply: serde_json::Value = serde_json::from_str(&s.handle(Request::Widgets).unwrap()).unwrap();
-    assert_that!(reply["widgets"].get("essentiel/kpi").is_some()).is_true();
+    assert_that!(reply["widgets"].get("atelier/kpi").is_some()).is_true();
 }
 
 #[test]
@@ -108,27 +107,63 @@ fn widget_status_lists_common_first() {
     assert_that!(s.widget_source(None, "kpi").unwrap()).is_equal_to(KPI.to_owned());
 }
 
-#[test]
-fn remove_widget_used_by_a_template_is_refused_with_the_template_names() {
-    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = editing(data.path());
+/// Un widget d'élément qui empile ses enfants.
+const PILE: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("pile", params: (children: p.slot(mode: "flow")), (args, ctx) => stack(..args.children.map(c => c.body)))
+"#;
+
+/// En mode pack sur `atelier` : les widgets `kpi` et `pile`, l'exemple de `pile` portant un `kpi`.
+fn example_using_kpi(data: &std::path::Path) -> Session {
+    let mut s = editing(data);
     s.set_widget(None, "kpi", KPI.into()).unwrap();
-    let slide = serde_json::json!({
-        "op": "add_slide", "index": 0,
-        "slide": { "id": "t-kpi", "kind": "blank", "name": "Indicateur", "params": { "elements": [
-            { "id": "k", "kind": "essentiel/kpi", "cell": { "col": 0, "row": 0, "cols": 4, "rows": 2 }, "params": { "value": "1" } }
-        ] } }
-    });
-    s.apply("Modèle", vec![serde_json::from_value(slide).unwrap()], None).unwrap();
+    s.set_widget(None, "pile", PILE.into()).unwrap();
+    let t = s.widget_target(None).unwrap();
+    let mut manifest = crate::pack::PackManifest::from_files(&t.files).unwrap();
+    let kpi = serde_json::json!([{ "id": "k", "kind": "atelier/kpi", "params": { "value": "1" } }]);
+    let example = serde_json::Map::from_iter([("children".to_owned(), kpi)]);
+    manifest.examples.insert(oku_slides_core::WidgetFile::parse("pile").unwrap(), example);
+    let widgets = t.files.widgets().clone();
+    s.commit_manifest(&t, manifest, widgets).unwrap();
+    s
+}
+
+#[test]
+fn remove_widget_used_by_an_example_is_refused_with_the_example_names() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = example_using_kpi(data.path());
     let err = s.remove_widget(None, "kpi").unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::WidgetInUse);
-    assert_that!(err.one_line()).contains("Indicateur");
     let shown = oku_slides_i18n::Localize::localize(&err, &s.localizer);
-    let expected = s
-        .localizer
-        .tr_with("session-widget-in-use", &[("name", "essentiel/kpi".into()), ("uses", "Indicateur".into())]);
+    let expected =
+        s.localizer.tr_with("session-widget-in-use", &[("name", "atelier/kpi".into()), ("uses", "pile".into())]);
     assert_that!(shown).is_equal_to(expected);
-    assert_that!(shown).contains("Indicateur");
+}
+
+#[test]
+fn remove_widget_used_by_a_saved_example_is_refused_in_deck_mode() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = example_using_kpi(data.path());
+    s.save_pack(false).unwrap();
+    s.close_pack().unwrap();
+    // Mode deck : aucune slide du deck ne l'utilise, seul l'exemple enregistré de `pile`.
+    let err = s.remove_widget(Some(&crate::test_support::ns("atelier")), "kpi").unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::WidgetInUse);
+    assert_that!(err.one_line()).contains("pile");
+}
+
+#[test]
+fn remove_widget_whose_own_example_uses_nothing_else_is_accepted() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = example_using_kpi(data.path());
+    assert_that!(s.remove_widget(None, "pile").is_ok()).is_true();
+}
+
+#[test]
+fn remove_layout_in_pack_mode_is_not_refused_by_its_own_slide() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let mut s = crate::test_support::session_on(data.path());
+    s.edit_pack(crate::ESSENTIEL_PACK).unwrap();
+    assert_that!(s.remove_widget(None, "end").is_ok()).is_true();
 }
 
 #[test]
@@ -174,21 +209,21 @@ fn set_widget_that_breaks_a_widget_posts_no_broken_widgets_notice() {
     s.set_widget(None, "kpi", "#let widget = (".into()).unwrap();
     assert_that!(s.doc.notice).is_none();
     // Hors écriture, l'avis revient : une session neuve sur la version cassée le pose.
-    s.save_templates(false).unwrap();
-    s.close_templates().unwrap();
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.save_pack(false).unwrap();
+    s.close_pack().unwrap();
+    s.edit_pack(ATELIER).unwrap();
     assert_that!(s.doc.notice.as_deref().unwrap_or_default()).contains("kpi");
 }
 
 #[test]
-fn set_widget_in_templates_mode_changes_the_pack_version_of_the_snapshot_each_time() {
+fn set_widget_in_pack_mode_changes_the_pack_version_of_the_snapshot_each_time() {
     // L'interface relit le panneau Widgets quand `templates.version | editing.base` change.
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     let signal = |s: &Session| {
         let snap = s.snapshot();
         (
-            snap.widgets.get(&crate::test_support::ns("essentiel")).map(|r| r.version.clone()),
+            snap.widgets.get(&crate::test_support::ns("atelier")).map(|r| r.version.clone()),
             snap.editing.map(|e| e.base.clone()),
         )
     };
@@ -210,30 +245,29 @@ const QUOTE_FAILING: &str = r#"#import "/oku-slides/lib.typ": widget, field, par
 #let widget = widget("quote", params: (body: p.plain()), (args, ctx) => panic("corps fautif"))
 "#;
 
-/// En édition du pack par défaut, un modèle de contenu porte un élément `quote`.
-fn template_using_quote(data: &std::path::Path) -> Session {
+/// En édition du pack `atelier`, une slide hôte de contenu porte un élément `quote`.
+fn layout_using_quote(data: &std::path::Path) -> Session {
     let mut s = editing(data);
     s.set_widget(None, "quote", QUOTE.into()).unwrap();
-    let slide = s.deck().slides.iter().find(|sl| sl.kind == "content").map(|sl| sl.id.clone()).unwrap();
-    let add: oku_slides_core::Op = serde_json::from_value(serde_json::json!({
-        "op": "add_element",
-        "slot": { "owner": { "slide": slide }, "param": "blocks" },
-        "element": { "id": "q", "kind": "essentiel/quote", "params": { "body": "Tout coule." } }
-    }))
-    .unwrap();
-    s.apply("Citation", vec![add], None).unwrap();
+    // Une slide hôte d'`essentiel`, que le deck de travail d'un pack de widgets épingle.
+    crate::test_support::host_slide(
+        &mut s,
+        serde_json::json!({ "id": "t-q", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [
+            { "id": "q", "kind": "atelier/quote", "params": { "body": "Tout coule." } }
+        ] } }),
+    );
     s
 }
 
 #[test]
-fn set_widget_whose_body_fails_in_a_template_keeps_the_version_and_returns_diagnostics() {
+fn set_widget_whose_body_fails_in_a_layout_keeps_the_version_and_returns_diagnostics() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = template_using_quote(data.path());
+    let mut s = layout_using_quote(data.path());
     let change = s.set_widget(None, "quote", QUOTE_FAILING.into()).unwrap();
-    // Choix du mode modèles : la version reste écrite, le rendu rend ses diagnostics.
+    // Choix du mode pack : la version reste écrite, le rendu rend ses diagnostics.
     assert_that!(change.saved).is_true();
     assert_that!(change.status.diagnostics.iter().any(|d| d.error && d.message.contains("corps fautif"))).is_true();
-    let current = crate::test_support::library_of(&s).current_version(DEFAULT_PACK).unwrap();
+    let current = crate::test_support::library_of(&s).current_version(ATELIER).unwrap();
     let quote = oku_slides_core::WidgetFile::parse("quote").unwrap();
     assert_that!(current.files.widget(&quote)).is_equal_to(Some(QUOTE_FAILING));
     assert_that!(s.widget_source(None, "quote").unwrap()).is_equal_to(QUOTE_FAILING.to_owned());
@@ -244,23 +278,23 @@ fn set_widget_with_the_same_source_commits_nothing() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     s.set_widget(None, "kpi", KPI.into()).unwrap();
-    let before = crate::test_support::library_of(&s).current(DEFAULT_PACK);
-    let crate::Mode::Templates { stash, .. } = &mut s.mode else { panic!("mode modèles attendu") };
+    let before = crate::test_support::library_of(&s).current(ATELIER);
+    let crate::Mode::Pack { stash, .. } = &mut s.mode else { panic!("mode pack attendu") };
     stash.dirty = false;
     let change = s.set_widget(None, "kpi", KPI.into()).unwrap();
     assert_that!(change.status.is_valid()).is_true();
-    let crate::Mode::Templates { stash, .. } = &s.mode else { panic!("mode modèles attendu") };
+    let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
     assert_that!(stash.dirty).is_false();
-    assert_that!(crate::test_support::library_of(&s).current(DEFAULT_PACK)).is_equal_to(before);
+    assert_that!(crate::test_support::library_of(&s).current(ATELIER)).is_equal_to(before);
 }
 
 #[test]
-fn successive_writes_in_templates_mode_keep_only_the_session_version_in_the_stash_sources() {
+fn successive_writes_in_pack_mode_keep_only_the_session_version_in_the_stash_sources() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     let count = |s: &Session| {
-        let crate::Mode::Templates { stash, .. } = &s.mode else { panic!("mode modèles attendu") };
-        // Le document des modèles garde ses versions (une étape peut y ramener) ;
+        let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
+        // Le document du pack garde ses versions (une étape peut y ramener) ;
         // le deck mis de côté, lui, n'a que celle de la séance.
         stash.sources.packs.len()
     };
@@ -283,22 +317,22 @@ fn set_widget_with_a_nul_character_is_refused() {
 }
 
 #[test]
-fn save_templates_whose_render_fails_keeps_the_version_and_posts_the_failure() {
+fn save_pack_whose_render_fails_keeps_the_version_and_posts_the_failure() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = template_using_quote(data.path());
+    let mut s = layout_using_quote(data.path());
     s.set_widget(None, "quote", QUOTE_FAILING.into()).unwrap();
     let rename: oku_slides_core::Op =
         serde_json::from_value(serde_json::json!({ "op": "set_deck_param", "key": "title", "value": "Cassé" }))
             .unwrap();
-    // Le rendu du document des modèles échoue : l'op n'est pas appliquée,
+    // Le rendu du document du pack échoue : l'op n'est pas appliquée,
     // mais l'enregistrement, lui, réussit.
     let _ = s.apply("Nom", vec![rename], None);
     s.doc.notice = None;
-    s.save_templates(true).unwrap();
-    let crate::Mode::Templates { edit, .. } = &s.mode else { panic!("mode modèles attendu") };
+    s.save_pack(true).unwrap();
+    let crate::Mode::Pack { edit, .. } = &s.mode else { panic!("mode pack attendu") };
     let lib = crate::test_support::library_of(&s);
-    assert_that!(edit.set).is_not_equal_to(DEFAULT_PACK);
-    assert_that!(lib.current(edit.set)).is_equal_to(Some(edit.base.clone()));
+    assert_that!(edit.pack).is_not_equal_to(ATELIER);
+    assert_that!(lib.current(edit.pack)).is_equal_to(Some(edit.base.clone()));
     assert_that!(s.doc.dirty).is_false();
     assert_that!(s.doc.notice.as_deref().unwrap_or_default()).contains("corps fautif");
 }
@@ -315,28 +349,6 @@ fn rename_widget_to_an_existing_name_is_refused() {
     assert_that!(shown).contains("« quote » existe déjà");
     assert_that!(s.widget_source(None, "kpi").unwrap()).is_equal_to(KPI.to_owned());
     assert_that!(s.widget_source(None, "quote").unwrap()).is_equal_to(QUOTE.to_owned());
-}
-
-#[test]
-fn remove_widget_used_by_a_saved_template_is_refused_in_deck_mode() {
-    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = crate::test_support::opened_on(data.path());
-    let set = crate::DEFAULT_PACK;
-    s.edit_templates(set).unwrap();
-    s.set_widget(None, "kpi", KPI.into()).unwrap();
-    let slide = serde_json::json!({
-        "op": "add_slide", "index": 0,
-        "slide": { "id": "t-kpi", "kind": "blank", "name": "Indicateur", "params": { "elements": [
-            { "id": "k", "kind": "essentiel/kpi", "cell": { "col": 0, "row": 0, "cols": 4, "rows": 2 }, "params": { "value": "1" } }
-        ] } }
-    });
-    s.apply("Modèle", vec![serde_json::from_value(slide).unwrap()], None).unwrap();
-    s.save_templates(false).unwrap();
-    s.close_templates().unwrap();
-    // Mode deck : aucun modèle en cours d'édition, seul le modèle enregistré l'utilise.
-    let err = s.remove_widget(Some(&crate::test_support::ns("essentiel")), "kpi").unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::WidgetInUse);
-    assert_that!(err.one_line()).contains("Indicateur");
 }
 
 #[test]
@@ -399,7 +411,7 @@ fn set_widget_by_agent_deleting_leaves_no_mark() {
 }
 
 #[test]
-fn set_widget_by_agent_in_templates_turn_can_be_undone() {
+fn set_widget_by_agent_in_pack_mode_turn_can_be_undone() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     s.begin_turn(1, "widget kpi");
@@ -409,7 +421,7 @@ fn set_widget_by_agent_in_templates_turn_can_be_undone() {
 }
 
 #[test]
-fn two_widget_writes_in_templates_turn_are_one_step_labelled_by_the_turn() {
+fn two_widget_writes_in_pack_mode_turn_are_one_step_labelled_by_the_turn() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     s.begin_turn(1, "deux écritures");
@@ -420,7 +432,7 @@ fn two_widget_writes_in_templates_turn_are_one_step_labelled_by_the_turn() {
 }
 
 #[test]
-fn two_widget_writes_in_templates_mode_outside_a_turn_merge_into_one_step() {
+fn two_widget_writes_in_pack_mode_outside_a_turn_merge_into_one_step() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     s.set_widget(None, "kpi", KPI.into()).unwrap();
@@ -440,7 +452,7 @@ fn written_then_agent_turn(s: &mut Session) -> oku_slides_core::PackVersion {
 }
 
 #[test]
-fn undo_of_a_templates_turn_restores_the_widget_source() {
+fn undo_of_a_pack_turn_restores_the_widget_source() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     written_then_agent_turn(&mut s);
@@ -449,16 +461,16 @@ fn undo_of_a_templates_turn_restores_the_widget_source() {
 }
 
 #[test]
-fn undo_of_a_templates_turn_brings_the_replaced_version_back_to_the_library() {
+fn undo_of_a_pack_turn_brings_the_replaced_version_back_to_the_library() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     let v1 = written_then_agent_turn(&mut s);
     s.undo().unwrap();
-    assert_that!(crate::test_support::library_of(&s).version(DEFAULT_PACK, &v1).is_some()).is_true();
+    assert_that!(crate::test_support::library_of(&s).version(ATELIER, &v1).is_some()).is_true();
 }
 
 #[test]
-fn redo_of_a_templates_turn_restores_the_turn_source() {
+fn redo_of_a_pack_turn_restores_the_turn_source() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     written_then_agent_turn(&mut s);
@@ -476,8 +488,8 @@ fn undo_to_the_parent_then_close_leaves_the_deck_on_the_parent_version() {
     s.set_widget_by_agent(None, "kpi", KPI.into()).unwrap();
     s.end_turn();
     s.undo().unwrap();
-    s.close_templates().unwrap();
-    assert_that!(crate::test_support::pin(&s, "essentiel").map(|r| r.version)).is_equal_to(parent);
+    s.close_pack().unwrap();
+    assert_that!(crate::test_support::pin(&s, "atelier").map(|r| r.version)).is_equal_to(parent);
 }
 
 #[test]
@@ -499,17 +511,17 @@ fn undo_of_a_widget_write_made_before_a_silent_save_restores_its_source() {
     s.begin_turn(1, "v2");
     s.set_widget_by_agent(None, "kpi", KPI_V2.into()).unwrap();
     s.end_turn();
-    s.save_templates(false).unwrap();
+    s.save_pack(false).unwrap();
     s.undo().unwrap();
     assert_that!(s.widget_source(None, "kpi").unwrap()).is_equal_to(KPI.to_owned());
 }
 
 #[test]
-fn save_as_copy_starts_the_templates_document_without_undo_history() {
+fn save_as_copy_starts_the_pack_document_without_undo_history() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     s.set_widget(None, "kpi", KPI.into()).unwrap();
-    s.save_templates(true).unwrap();
+    s.save_pack(true).unwrap();
     assert_that!(s.snapshot().can_undo).is_false();
 }
 
@@ -518,10 +530,10 @@ fn undo_of_a_write_on_the_copy_keeps_editing_the_copy() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     s.set_widget(None, "kpi", KPI.into()).unwrap();
-    s.save_templates(true).unwrap();
-    let copy = s.snapshot().editing.unwrap().set;
+    s.save_pack(true).unwrap();
+    let copy = s.snapshot().editing.unwrap().pack;
     s.set_widget(None, "kpi", KPI_V2.into()).unwrap();
     s.undo().unwrap();
-    assert_that!((s.snapshot().editing.unwrap().set, s.widget_source(None, "kpi").unwrap()))
+    assert_that!((s.snapshot().editing.unwrap().pack, s.widget_source(None, "kpi").unwrap()))
         .is_equal_to((copy, KPI.to_owned()));
 }

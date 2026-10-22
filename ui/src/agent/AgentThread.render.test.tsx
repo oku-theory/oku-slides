@@ -263,9 +263,9 @@ describe("fil de l'agent par tours", () => {
     expect(host.querySelector('[data-surface-id="show-9"] button.btn')).not.toBeNull();
   });
 
-  test("une question replie la carte du modèle (host-template) derrière « réglages », qu'un clic rouvre", async () => {
-    const { host } = await mount([surface("host-template", "thread", { live: true, turn: 1 }), realSurface("ask-8")]);
-    const item = '.agent-dock [data-surface-id="host-template"]';
+  test("une question replie la carte du widget (host-widget) derrière « réglages », qu'un clic rouvre", async () => {
+    const { host } = await mount([surface("host-widget", "thread", { live: true, turn: 1 }), realSurface("ask-8")]);
+    const item = '.agent-dock [data-surface-id="host-widget"]';
     const toggle = host.querySelector(`${item} button[aria-expanded]`) as HTMLButtonElement;
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(host.querySelector(`${item} button.btn`)).toBeNull();

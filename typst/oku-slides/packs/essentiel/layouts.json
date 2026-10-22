@@ -1,0 +1,172 @@
+{
+  "id": "d5eb8a57-07b4-47f7-a818-dde5347160cf",
+  "name": "Essentiel",
+  "namespace": "essentiel",
+  "requires": [
+    "base"
+  ],
+  "description": "Les mises en page de base : couverture, sommaire, chapitre, contenu, fin, slide vide.",
+  "parent": null,
+  "created": "2026-10-19T00:00:00Z",
+  "profiles": [
+    {
+      "id": "texte",
+      "name": "Texte",
+      "layout": "content",
+      "role": "content",
+      "arrangement": "default",
+      "blocks": 1,
+      "title": true,
+      "kicker": true
+    },
+    {
+      "id": "cartes",
+      "name": "Trois cartes",
+      "layout": "content",
+      "role": "content",
+      "arrangement": "columns",
+      "blocks": 3,
+      "title": true,
+      "kicker": true,
+      "params": {
+        "layout": "columns"
+      }
+    },
+    {
+      "id": "colonnes",
+      "name": "Deux colonnes",
+      "layout": "content",
+      "role": "content",
+      "arrangement": "split",
+      "blocks": 2,
+      "title": true,
+      "kicker": false,
+      "params": {
+        "layout": "split"
+      }
+    },
+    {
+      "id": "citation",
+      "name": "Citation",
+      "layout": "content",
+      "role": "content",
+      "arrangement": "quote",
+      "blocks": 1,
+      "title": true,
+      "kicker": false,
+      "params": {
+        "layout": "quote"
+      }
+    },
+    {
+      "id": "message",
+      "name": "Message central",
+      "layout": "content",
+      "role": "content",
+      "arrangement": "center",
+      "blocks": 1,
+      "title": false,
+      "kicker": false,
+      "params": {
+        "layout": "center"
+      }
+    },
+    {
+      "id": "libre",
+      "name": "Libre",
+      "layout": "content",
+      "role": "content",
+      "arrangement": "free",
+      "blocks": 2,
+      "title": true,
+      "kicker": false
+    },
+    {
+      "id": "chapitre",
+      "name": "Chapitre",
+      "layout": "chapter",
+      "role": "chapter",
+      "arrangement": "default",
+      "blocks": 0,
+      "title": true,
+      "kicker": false
+    },
+    {
+      "id": "sommaire",
+      "name": "Sommaire",
+      "layout": "toc",
+      "role": "toc",
+      "arrangement": "default",
+      "blocks": 0,
+      "title": false,
+      "kicker": false
+    },
+    {
+      "id": "couverture",
+      "name": "Couverture",
+      "layout": "title",
+      "role": "title",
+      "arrangement": "default",
+      "blocks": 0,
+      "title": true,
+      "kicker": false
+    },
+    {
+      "id": "fin",
+      "name": "Fin",
+      "layout": "end",
+      "role": "end",
+      "arrangement": "default",
+      "blocks": 0,
+      "title": false,
+      "kicker": false
+    }
+  ],
+  "examples": {
+    "chapter": {
+      "title": "Nouvelle partie",
+      "subtitle": "En une phrase"
+    },
+    "content": {
+      "title": "Titre de la slide",
+      "kicker": "Surtitre",
+      "blocks": [
+        {
+          "id": "b",
+          "kind": "base/text",
+          "params": {
+            "body": [
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "t": "Premier point"
+                  }
+                ]
+              },
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "t": "Deuxième point"
+                  }
+                ]
+              },
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "t": "Troisième point"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "end": {
+      "text": "Merci"
+    }
+  }
+}

@@ -3,7 +3,7 @@
 import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import { resetMessages } from "./test/messages";
-import type { ImportTarget, PackInfo, ThemeInfo } from "./api";
+import type { ImportTarget, PackInfo, PackKind, ThemeInfo } from "./api";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -17,9 +17,10 @@ setMessages("fr", [
   [
     "ui-import-title = Importer une présentation PowerPoint",
     "ui-import-hifi = Copie fidèle",
-    "ui-import-retrofit = Utiliser mes modèles",
+    "ui-import-retrofit = Utiliser mes layouts",
     "ui-import-theme-default = Thème par défaut",
-    "ui-import-no-packs = Aucun pack de modèles dans la bibliothèque.",
+    "ui-import-no-packs = Aucun pack de layouts dans la bibliothèque.",
+    "ui-import-layout-packs = Packs de layouts",
     "ui-import-tune = Peaufiner avec l'agent",
     "ui-import-tune-note = L'agent compare chaque slide à l'original.",
     "ui-import-tune-note-retrofit = L'agent compare chaque slide et dessine les widgets manquants.",
@@ -32,11 +33,16 @@ setMessages("fr", [
   ].join("\n") + "\n",
 ]);
 
+/** Un pack de layouts de la bibliothèque : `profiles` profils d'import. */
+const layoutPack = (namespace: string, name: string, profiles: number, over: Partial<PackInfo> = {}): PackInfo => ({
+  kind: "layouts", id: `p-${namespace}`, version: "v1", name, namespace, requires: ["base"], description: "",
+  builtin: false, default: false, received: false, widgets: 6, profiles, ...over,
+});
 const PACKS: PackInfo[] = [
-  { id: "p-base", version: "v1", name: "Base", description: "", builtin: true, default: false, received: false, count: 3 },
-  { id: "p-pro", version: "v1", name: "Pro", description: "", builtin: true, default: true, received: false, count: 5 },
-  { id: "p-moi", version: "v2", name: "Maison", description: "", builtin: false, default: false, received: false, count: 2 },
-  { id: "p-recu", version: "v1", name: "Client", description: "", builtin: false, default: false, received: true, count: 4 },
+  layoutPack("essentiel", "Essentiel", 10, { builtin: true, default: true }),
+  layoutPack("vide", "Sans profils", 0),
+  layoutPack("maison", "Maison", 2),
+  layoutPack("client", "Client", 4, { received: true }),
 ];
 const THEMES: ThemeInfo[] = [
   { id: "t-papier", version: "v1", name: "Papier", builtin: true, default: true, deck_only: false },
@@ -66,7 +72,7 @@ interface Calls {
 }
 
 interface Options {
-  packs?: () => Promise<PackInfo[]>;
+  packs?: (kind: PackKind) => Promise<PackInfo[]>;
   busy?: boolean;
   error?: string | null;
   initial?: { target: ImportTarget; tune: boolean };
@@ -85,7 +91,8 @@ async function mount({
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const api = { templateSets: packs };
+  const asked: PackKind[] = [];
+  const api = { packs: (kind: PackKind) => (asked.push(kind), packs(kind)) };
   const render = (state: {
     busy: boolean;
     error: string | null;
@@ -109,10 +116,12 @@ async function mount({
   await render({ busy, error });
   const radio = (value: string) => host.querySelector<HTMLInputElement>(`input[type="radio"][value="${value}"]`)!;
   const selects = () => [...host.querySelectorAll("select")] as HTMLSelectElement[];
-  const tune = () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+  const tune = () => host.querySelector<HTMLInputElement>('.import-tune input[type="checkbox"]')!;
+  const layouts = () => [...host.querySelectorAll<HTMLInputElement>('.import-layouts input[type="checkbox"]')];
+  const layout = (label: string) => layouts().find((c) => c.closest("label")?.textContent === label)!;
   const button = (label: string) => [...host.querySelectorAll("button")].find((b) => b.textContent === label)!;
   const dialog = () => host.querySelector<HTMLElement>('[role="dialog"]')!;
-  return { host, calls, radio, selects, tune, button, dialog, render };
+  return { host, calls, asked, radio, selects, tune, layouts, layout, button, dialog, render };
 }
 
 /** Clique après la garde des 500 ms. */
@@ -150,26 +159,29 @@ test("ImportDialog prend le focus à l'ouverture", async () => {
   expect(document.activeElement).toBe(dialog());
 });
 
-test("ImportDialog en retrofit montre les packs (défaut choisi, reçus et à moi nommés)", async () => {
-  const { radio, selects } = await mount();
+test("ImportDialog en retrofit liste les packs de layouts qui ont des profils, Essentiel coché", async () => {
+  const { asked, radio, layouts } = await mount();
   await click(radio("retrofit"));
-  const [pack] = selects();
-  expect([...pack!.options].map((o) => o.textContent)).toEqual(["Base", "Pro", "Maison · à moi", "Client · reçu"]);
-  expect(pack!.value).toBe("p-pro");
+  expect(asked).toEqual(["layouts"]);
+  expect(layouts().map((c) => c.closest("label")?.textContent)).toEqual(["Essentiel", "Maison · à moi", "Client · reçu"]);
+  expect(layouts().map((c) => c.checked)).toEqual([true, false, false]);
 });
 
 test("ImportDialog en retrofit liste les thèmes sans le défaut ni un thème du deck seul", async () => {
   const { radio, selects } = await mount();
   await click(radio("retrofit"));
-  const theme = selects()[1]!;
+  const theme = selects()[0]!;
   expect([...theme.options].map((o) => o.textContent)).toEqual(["Thème par défaut", "Nuit"]);
   expect(theme.value).toBe("");
 });
 
-test("ImportDialog sans aucun pack le dit en retrofit et n'importe pas", async () => {
-  const { host, radio, button } = await mount({ packs: () => Promise.resolve([]) });
+test.each([
+  ["aucun pack", []],
+  ["seulement un pack sans profils", [layoutPack("vide", "Sans profils", 0)]],
+])("ImportDialog avec %s le dit en retrofit et n'importe pas", async (_, list) => {
+  const { host, radio, button } = await mount({ packs: () => Promise.resolve(list) });
   await click(radio("retrofit"));
-  expect(host.querySelector(".import-target .caption.import-empty")?.textContent).toBe("Aucun pack de modèles dans la bibliothèque.");
+  expect(host.querySelector(".import-target .caption.import-empty")?.textContent).toBe("Aucun pack de layouts dans la bibliothèque.");
   expect(button("Importer").disabled).toBe(true);
 });
 
@@ -204,21 +216,39 @@ test("ImportDialog Importer en copie fidèle envoie hifi et le peaufinage, sans 
   expect(calls.closed).toBe(0);
 });
 
-test("ImportDialog Importer en retrofit envoie le pack et le thème choisis, sans peaufinage", async () => {
-  const { calls, radio, selects, tune, button } = await mount();
+test("ImportDialog Importer en retrofit envoie les packs cochés dans l'ordre de la liste et le thème, sans peaufinage", async () => {
+  const { calls, radio, selects, tune, layout, button } = await mount();
   await click(radio("retrofit"));
-  await choose(selects()[0]!, "p-moi");
-  await choose(selects()[1]!, "t-nuit");
+  await click(layout("Client · reçu"));
+  await click(layout("Maison · à moi"));
+  await choose(selects()[0]!, "t-nuit");
   await click(tune());
   await click(button("Importer"));
-  expect(calls.imports).toEqual([{ target: { mode: "retrofit", pack: "p-moi", theme: "t-nuit" }, tune: false }]);
+  expect(calls.imports).toEqual([{ target: { mode: "retrofit", layouts: ["p-essentiel", "p-maison", "p-client"], theme: "t-nuit" }, tune: false }]);
 });
 
-test("ImportDialog retrofit sur le thème par défaut envoie theme null", async () => {
+test("ImportDialog retrofit by default sends the essentiel pack id and theme null", async () => {
   const { calls, radio, button } = await mount();
   await click(radio("retrofit"));
   await click(button("Importer"));
-  expect(calls.imports[0]!.target).toEqual({ mode: "retrofit", pack: "p-pro", theme: null });
+  expect(calls.imports[0]!.target).toEqual({ mode: "retrofit", layouts: ["p-essentiel"], theme: null });
+});
+
+test("ImportDialog sends the pack id, not a namespace another pack could bear as its name", async () => {
+  const { calls, radio, layout, button } = await mount({
+    packs: () => Promise.resolve([...PACKS, layoutPack("essentiel-2", "Essentiel", 1, { id: "p-autre" })]),
+  });
+  await click(radio("retrofit"));
+  await click(button("Importer"));
+  expect(calls.imports[0]!.target).toEqual({ mode: "retrofit", layouts: ["p-essentiel"], theme: null });
+  expect(layout("Maison · à moi").checked).toBe(false);
+});
+
+test("ImportDialog retrofit sans pack coché n'importe pas", async () => {
+  const { radio, layout, button } = await mount();
+  await click(radio("retrofit"));
+  await click(layout("Essentiel"));
+  expect(button("Importer").disabled).toBe(true);
 });
 
 test("ImportDialog ignore un clic des 500 premières ms", async () => {
@@ -314,13 +344,14 @@ test("ImportDialog : un focus perdu revient dans la fenêtre au Tab", async () =
 });
 
 test("ImportDialog rouvert pendant l'import garde les choix de l'import qui tourne", async () => {
-  const { radio, selects, tune } = await mount({
+  const { radio, selects, tune, layouts } = await mount({
     busy: true,
-    initial: { target: { mode: "retrofit", pack: "p-moi", theme: "t-nuit" }, tune: false },
+    initial: { target: { mode: "retrofit", layouts: ["p-maison"], theme: "t-nuit" }, tune: false },
   });
   expect(radio("retrofit").checked).toBe(true);
-  expect(selects()[0]!.value).toBe("p-moi");
-  expect(selects()[1]!.value).toBe("t-nuit");
+  expect(layouts().map((c) => c.checked)).toEqual([false, true, false]);
+  expect(layouts().every((c) => c.closest("fieldset")?.disabled)).toBe(true);
+  expect(selects()[0]!.value).toBe("t-nuit");
   expect(tune().checked).toBe(false);
 });
 

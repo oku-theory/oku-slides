@@ -1,13 +1,11 @@
-// Opérations sur les packs de widgets épinglés par le deck.
+// Lectures des packs épinglés par le deck : widgets et layouts.
 
-import type { Op, PackInfo, PackPin, Snapshot } from "./api";
-import { BASE_NAMESPACE } from "./baseKinds";
+import type { PackInfo, PackPin, Snapshot } from "./api";
+import { BASE_NAMESPACE, ESSENTIEL_NAMESPACE } from "./builtinKinds";
 import { t } from "./i18n";
 
-/** Le deck épingle ce pack sous son espace de noms : référence complète (id, version, besoins). */
-export function addPackOp(pack: PackInfo): Op {
-  return { op: "add_pack", namespace: pack.namespace, pin: { id: pack.id, version: pack.version, requires: pack.requires } };
-}
+/** Espaces de noms réservés aux packs du deck seul : ses widgets et ses layouts. */
+const DECK_OWN = ["deck", "deck-layouts"];
 
 /** Clé stable des épingles d'un deck : `espace@version` triés, joints par une virgule. */
 export function pinsKey(pins: Record<string, PackPin>): string {
@@ -17,6 +15,11 @@ export function pinsKey(pins: Record<string, PackPin>): string {
     .join(",");
 }
 
+/** Clé des épingles du deck, widgets puis layouts : change avec la version d'un pack épinglé. */
+export function deckPinsKey(snap: Pick<Snapshot, "widgets" | "layouts"> | null): string {
+  return `${pinsKey(snap?.widgets ?? {})}|${pinsKey(snap?.layouts ?? {})}`;
+}
+
 /** Nom d'un pack dans la liste des packs : intégré tel quel, sinon dit reçu (arrivé avec un deck) ou à moi. */
 export function packOptionLabel(pack: PackInfo): string {
   if (pack.builtin) return pack.name;
@@ -24,12 +27,22 @@ export function packOptionLabel(pack: PackInfo): string {
 }
 
 /**
- * Id du pack proposé et édité par défaut : le premier pack de bibliothèque épinglé hors de
- * `base`, sinon celui du deck, sinon `base` s'il est seul.
+ * Id du pack édité par défaut (l'atelier du menu) : le pack de layouts propre du deck, sinon son
+ * pack de widgets propre, sinon le premier pack non intégré (layouts d'abord), sinon Essentiel,
+ * enfin `base`.
  */
 export function firstPackId(snap: Snapshot | null): string | null {
-  const pins = Object.entries(snap?.widgets ?? {});
-  const pin = pins.find(([ns]) => ns !== "deck" && ns !== BASE_NAMESPACE) ?? pins.find(([ns]) => ns !== BASE_NAMESPACE) ?? pins[0];
+  const layouts = Object.entries(snap?.layouts ?? {});
+  const widgets = Object.entries(snap?.widgets ?? {});
+  const named = (ns: string) => ([n]: [string, PackPin]) => n === ns;
+  const own = ([ns]: [string, PackPin]) => !DECK_OWN.includes(ns) && ns !== BASE_NAMESPACE && ns !== ESSENTIEL_NAMESPACE;
+  const pin =
+    layouts.find(named("deck-layouts")) ??
+    widgets.find(named("deck")) ??
+    layouts.find(own) ??
+    widgets.find(own) ??
+    layouts.find(named(ESSENTIEL_NAMESPACE)) ??
+    widgets.find(named(BASE_NAMESPACE));
   return pin?.[1].id ?? null;
 }
 
@@ -48,9 +61,9 @@ export function splitKind(kind: string): { ns: string; name: string } | null {
   return valid ? { ns, name } : null;
 }
 
-/** Pack épinglé (id) et nom de fichier d'un widget de pack ; `pack` nul hors des épingles. */
+/** Pack épinglé (id, widgets ou layouts) et nom de fichier d'un widget de pack ; `pack` nul hors des épingles. */
 export function widgetToOpen(snap: Snapshot, kind: string): { pack: string | null; name: string } | null {
   const parts = splitKind(kind);
   if (!parts) return null;
-  return { pack: snap.widgets[parts.ns]?.id ?? null, name: parts.name };
+  return { pack: (snap.widgets[parts.ns] ?? snap.layouts[parts.ns])?.id ?? null, name: parts.name };
 }

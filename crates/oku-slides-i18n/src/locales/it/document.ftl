@@ -16,11 +16,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = suggerimento: { $hint }
 render-chart-failed = impossibile disegnare il grafico
 
-registry-bad-pack-id = Identificatore del pacchetto di modelli non valido: { $id }
-registry-base-pack-broken = Il pacchetto di widget integrato è danneggiato ({ $file }); reinstalla l'app.
-registry-duplicate-pack = Due pacchetti di widget della presentazione condividono { $pack }.
-registry-compile = Impossibile compilare i widget del pacchetto di modelli
-registry-missing = Il pacchetto di modelli non dichiara i propri widget
+registry-bad-pack-id = Identificatore del pacchetto non valido: { $id }
+registry-base-pack-broken = Il pacchetto integrato è danneggiato ({ $file }); reinstalla l'app.
+registry-duplicate-pack = Due pacchetti della presentazione condividono { $pack }.
+registry-compile = Impossibile compilare i widget del pacchetto
+registry-missing = Il pacchetto non dichiara i propri widget
 render-timeout = Il rendering ha impiegato più di { $seconds } s ed è stato interrotto
 render-out-of-memory = Il rendering ha richiesto più di { $mib } MiB di memoria ed è stato interrotto
 render-worker-lost = Il processo di rendering si è arrestato
@@ -40,6 +40,7 @@ import-not-a-presentation = Questo file non è una presentazione PowerPoint
 import-protected = Questa presentazione è crittografata o nel vecchio formato .ppt: salvala prima come .pptx
 import-too-large = Questa presentazione è troppo grande per essere importata
 import-output-too-large = La presentazione risultante supererebbe la dimensione consentita per un'importazione
+import-no-profiles = I pacchetti di layout scelti non propongono alcun profilo.
 import-loss-list-levels = Livelli dell'elenco ridotti a uno
 import-loss-merged-cells = Celle unite separate
 import-loss-percent-stacked = Grafico in pila al 100% mostrato in pila
@@ -76,7 +77,7 @@ import-loss-repeated-decor = { $slides ->
    [one] Intestazione o piè di pagina «{ $text }» ripetuto su { $slides } diapositiva omesso: il tema disegna i propri
   *[other] Intestazione o piè di pagina «{ $text }» ripetuto su { $slides } diapositive omesso: il tema disegna i propri
 }
-import-loss-no-slot = Contenuto omesso: il modello scelto non ha posto per esso
+import-loss-no-slot = Contenuto omesso: il layout scelto non ha posto per esso
 import-loss-moved-to-notes = Testo spostato nelle note del relatore: la copertina non ha posto per esso
 import-loss-items-dropped = Troppi elementi nella diapositiva: { $dropped } elementi omessi
 import-loss-page-fitted = La pagina di origine ({ $width } × { $height } pt) non è 16:9: contenuto ridimensionato e centrato
@@ -88,7 +89,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Punte di freccia della linea non disegnate
    *[geometry] Forma sconosciuta resa come rettangolo
 }
-import-loss-layout-dropped = Troppi layout per un pacchetto: «{ $layout }» non ha un modello; le sue slide usano il widget vuoto e ricevono la sua decorazione come elementi
+import-loss-layout-dropped = Troppi layout per un pacchetto: «{ $layout }» non ha un widget; le sue slide usano il widget vuoto e ricevono la sua decorazione come elementi
 import-loss-decor-truncated = { $omitted ->
     [one] Decorazione tagliata per stare nella dimensione di un file del pacchetto: { $omitted } elemento omesso
    *[other] Decorazione tagliata per stare nella dimensione di un file del pacchetto: { $omitted } elementi omessi

@@ -11,9 +11,9 @@ fn title_op(s: &Session, title: &str) -> Op {
     Op::SetParam { target: OpTarget { slide, element: None }, param: "title".into(), value: json!(title) }
 }
 
-/// Le registre de base figé (`fixtures/widgets/base-registry.json`).
+/// Le registre de base figé (`fixtures/widgets/builtin-registry.json`).
 fn base_registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap();
     WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap()
 }
@@ -141,16 +141,16 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "svg", "id": "s-1" }),
         json!({ "cmd": "schema" }),
         json!({ "cmd": "widgets" }),
-        json!({ "cmd": "templates" }),
-        json!({ "cmd": "template_sets" }),
+        json!({ "cmd": "layouts" }),
+        json!({ "cmd": "packs", "kind": "layouts" }),
         json!({ "cmd": "ui", "slide": null, "grid": false, "ghosts": true }),
-        json!({ "cmd": "save_templates" }),
-        json!({ "cmd": "delete_template_set", "set": uuid::Uuid::new_v4() }),
+        json!({ "cmd": "save_pack" }),
+        json!({ "cmd": "delete_pack", "pack": uuid::Uuid::new_v4() }),
         json!({ "cmd": "history_versions" }),
         json!({ "cmd": "widget_status" }),
         json!({ "cmd": "widget_source", "name": "kpi" }),
         json!({ "cmd": "preview_widget", "name": "kpi" }),
-        json!({ "cmd": "host_settings", "slide": "s-1", "widget": null }),
+        json!({ "cmd": "host_settings", "widget": null }),
         json!({ "cmd": "target_settings", "slide": "s-1" }),
         json!({ "cmd": "target_settings", "slide": "s-1", "element": "e" }),
     ];
@@ -169,8 +169,8 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "undo" }),
         json!({ "cmd": "redo" }),
         json!({ "cmd": "save", "path": null }),
-        json!({ "cmd": "edit_templates", "set": uuid::Uuid::new_v4() }),
-        json!({ "cmd": "close_templates" }),
+        json!({ "cmd": "edit_pack", "pack": uuid::Uuid::new_v4() }),
+        json!({ "cmd": "close_pack" }),
         json!({ "cmd": "merge", "path": "/tmp/x.oku-slides.pdf" }),
         json!({ "cmd": "history_open" }),
         json!({ "cmd": "history_seek", "index": 0 }),
@@ -179,7 +179,6 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "set_widget", "name": "kpi", "source": "x" }),
         json!({ "cmd": "remove_widget", "name": "kpi" }),
         json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
-        json!({ "cmd": "host_param", "slide": "s-1", "key": "name", "value": "x" }),
         json!({ "cmd": "set_example_value", "name": "kpi", "param": "p", "value": 1 }),
         json!({ "cmd": "target_param", "slide": "s-1", "key": "title", "value": "x" }),
         json!({ "cmd": "target_list", "slide": "s-1", "element": "e", "key": "k", "change": { "op": "remove", "item": "i" } }),
@@ -211,7 +210,7 @@ fn is_widget_edit_widget_writes_return_true_and_others_false() {
         json!({ "cmd": "set_example_value", "name": "kpi", "param": "p", "value": 1 }),
     ];
     assert_that!(writes.into_iter().map(request).all(|r| r.is_widget_edit())).is_true();
-    let others = [json!({ "cmd": "widget_status" }), json!({ "cmd": "undo" }), json!({ "cmd": "save_templates" })];
+    let others = [json!({ "cmd": "widget_status" }), json!({ "cmd": "undo" }), json!({ "cmd": "save_pack" })];
     assert_that!(others.into_iter().map(request).any(|r| r.is_widget_edit())).is_false();
 }
 
@@ -224,8 +223,7 @@ fn ends_widget_session_spares_save_and_widget_writes() {
         json!({ "cmd": "snapshot" }),
     ];
     assert_that!(kept.into_iter().map(request).any(|r| r.ends_widget_session())).is_false();
-    let ending =
-        [json!({ "cmd": "undo" }), json!({ "cmd": "merge", "path": "x" }), json!({ "cmd": "close_templates" })];
+    let ending = [json!({ "cmd": "undo" }), json!({ "cmd": "merge", "path": "x" }), json!({ "cmd": "close_pack" })];
     assert_that!(ending.into_iter().map(request).all(|r| r.ends_widget_session())).is_true();
 }
 
@@ -253,7 +251,8 @@ fn new_deck_is_valid_v2() {
     let mut s = session_in(&data.0);
     s.new_deck().unwrap();
     let kinds: Vec<&str> = s.deck().slides.iter().map(|sl| sl.kind.as_str()).collect();
-    assert_that!(kinds).is_equal_to(vec!["title", "content"]);
+    assert_that!(kinds)
+        .is_equal_to(vec![oku_slides_core::kinds::essentiel::TITLE, oku_slides_core::kinds::essentiel::CONTENT]);
     let body = s.deck().slides[1].walk().map(|l| l.element.kind.as_str()).collect::<Vec<_>>();
     assert_that!(body).is_equal_to(vec![oku_slides_core::kinds::base::TEXT]);
     assert_that!(oku_slides_core::validate(s.deck(), &base_registry(), None)).is_empty();
@@ -273,7 +272,7 @@ fn snapshot_slide_summary_takes_bound_title_from_the_deck() {
     let s = session_with_fixture();
     let snap = s.snapshot();
     let cover = snap.slides.iter().find(|sl| sl.id == "s-title").unwrap();
-    assert_that!(cover.kind).is_equal_to("title");
+    assert_that!(cover.kind).is_equal_to(oku_slides_core::kinds::essentiel::TITLE);
     // Le titre de la couverture est lié à celui du deck, variables remplacées.
     assert_that!(cover.title.clone()).is_equal_to(Some("Feuille de route 2027".to_owned()));
     let constat = snap.slides.iter().find(|sl| sl.id == "s-constat").unwrap();
@@ -299,8 +298,8 @@ fn handle_apply_with_same_merge_key_makes_one_undo_step() {
 fn snapshot_lists_widget_pins_by_namespace() {
     let s = session_with_fixture();
     let snap = serde_json::to_value(s.snapshot()).unwrap();
-    let pin = &snap["widgets"]["essentiel"];
-    assert_that!(pin["id"].as_str()).is_equal_to(Some(DEFAULT_PACK.to_string().as_str()));
+    let pin = &snap["widgets"]["base"];
+    assert_that!(pin["id"].as_str()).is_equal_to(Some(crate::BASE_PACK.to_string().as_str()));
     assert_that!(pin["version"].as_str().unwrap_or_default()).starts_with("sha256:");
     assert_that!(snap.get("templates").is_none()).is_true();
 }

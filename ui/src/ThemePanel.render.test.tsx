@@ -1,4 +1,4 @@
-// Rendu du panneau du thème (mode modèles) dans un DOM happy-dom.
+// Rendu du panneau du thème (mode pack) dans un DOM happy-dom.
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -25,10 +25,10 @@ const themes = [
   { id: PRO_ID, version: "v1", name: "Pro", builtin: true, default: false },
 ];
 
-/** Un instantané en mode modèles, le thème `name` en brouillon. */
+/** Un instantané en mode pack, le thème `name` en brouillon. */
 const snapEditingTheme = (name: string, o: { dirty?: boolean; base?: string } = {}): Snapshot =>
   ({
-    editing: { set: "p", base: "b", theme: { base: { id: o.base ?? PAPIER_ID, version: "v1" }, name, builtin: true, dirty: o.dirty ?? false, revision: "r1" } },
+    editing: { pack: "p", base: "b", theme: { base: { id: o.base ?? PAPIER_ID, version: "v1" }, name, builtin: true, dirty: o.dirty ?? false, revision: "r1" } },
     themes, deck_themes: [], history: null, undo_label: null, redo_label: null, slides: [],
   }) as unknown as Snapshot;
 

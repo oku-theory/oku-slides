@@ -9,7 +9,7 @@ use crate::Namespace;
 
 #[test]
 fn from_json_version_1_deck_returns_an_error() {
-    let err = Deck::from_json(r#"{"version": 1, "slides": [{"id": "s", "kind": "content", "blocks": []}]}"#);
+    let err = Deck::from_json(r#"{"version": 1, "slides": [{"id": "s", "kind": "essentiel/content", "blocks": []}]}"#);
     assert_that!(err.map_err(|e| e.to_string()).unwrap_err()).contains("unsupported deck version 1");
 }
 
@@ -22,6 +22,7 @@ fn from_json_newer_version_returns_an_error() {
 #[case(1)]
 #[case(5)]
 #[case(6)]
+#[case(7)]
 fn deck_from_json_older_version_is_refused(#[case] version: u32) {
     let err = Deck::from_json(&format!(r#"{{"version": {version}, "slides": []}}"#)).unwrap_err();
     assert_that!(err.to_string()).contains(format!("unsupported deck version {version}"));
@@ -29,26 +30,41 @@ fn deck_from_json_older_version_is_refused(#[case] version: u32) {
 
 #[test]
 fn deck_from_json_current_version_is_read() {
-    assert_that!(Deck::from_json(r#"{"version": 7, "slides": []}"#).ok().map(|d| d.version)).is_equal_to(Some(7));
+    assert_that!(Deck::from_json(r#"{"version": 8, "slides": []}"#).ok().map(|d| d.version)).is_equal_to(Some(8));
 }
 
 #[test]
-fn deck_empty_is_version_7() {
-    assert_that!(Deck::empty().version).is_equal_to(7);
+fn deck_empty_is_version_8() {
+    assert_that!(Deck::empty().version).is_equal_to(8);
+}
+
+/// Un épinglage quelconque, pour les tests de forme.
+fn pin_for_tests() -> PackPin {
+    let version = crate::PackVersion::parse(&format!("sha256:{}", "c".repeat(64))).unwrap();
+    PackPin { id: Uuid::nil(), version, requires: vec![crate::kinds::base::namespace()] }
+}
+
+#[test]
+fn deck_layouts_round_trip_and_are_omitted_when_empty() {
+    let mut deck = Deck::empty();
+    let empty = serde_json::to_value(&deck).unwrap();
+    deck.layouts.insert(crate::kinds::essentiel::namespace(), pin_for_tests());
+    let back = Deck::from_json(&serde_json::to_string(&deck).unwrap()).unwrap();
+    assert_that!((empty.get("layouts").is_none(), back.layouts == deck.layouts)).is_equal_to((true, true));
 }
 
 const REF: &str = r#"{"id":"6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10","version":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#;
 
 #[test]
 fn deck_from_json_reads_widget_pins_by_namespace() {
-    let json = json!({"version": 7, "widgets": {"essentiel": {"id": Uuid::nil(), "version": format!("sha256:{}", "b".repeat(64))}}, "slides": []});
+    let json = json!({"version": 8, "widgets": {"essentiel": {"id": Uuid::nil(), "version": format!("sha256:{}", "b".repeat(64))}}, "slides": []});
     let deck = Deck::from_json(&json.to_string()).unwrap();
     assert_that!(deck.widgets.keys().map(Namespace::as_str).collect::<Vec<_>>()).is_equal_to(vec!["essentiel"]);
 }
 
 #[test]
 fn deck_from_json_reads_theme_as_a_theme_ref() {
-    let deck = Deck::from_json(&format!(r#"{{"version":7,"theme":{REF},"slides":[]}}"#)).unwrap();
+    let deck = Deck::from_json(&format!(r#"{{"version":8,"theme":{REF},"slides":[]}}"#)).unwrap();
     let r = deck.theme.unwrap();
     assert_that!(r.id.to_string()).is_equal_to("6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10".to_owned());
     assert_that!(r.version.hex()).is_equal_to(&*"a".repeat(64));
@@ -56,7 +72,7 @@ fn deck_from_json_reads_theme_as_a_theme_ref() {
 
 #[test]
 fn deck_from_json_with_a_theme_name_is_refused() {
-    assert_that!(Deck::from_json(r#"{"version":7,"theme":"papier","slides":[]}"#).is_err()).is_true();
+    assert_that!(Deck::from_json(r#"{"version":8,"theme":"papier","slides":[]}"#).is_err()).is_true();
 }
 
 #[test]
@@ -77,7 +93,7 @@ fn deck_v4_is_refused_as_unsupported_version() {
 
 #[test]
 fn from_json_current_version_reads_the_deck() {
-    let deck = Deck::from_json(r#"{"version": 7, "slides": [{"id": "s", "kind": "content"}]}"#).unwrap();
+    let deck = Deck::from_json(r#"{"version": 8, "slides": [{"id": "s", "kind": "essentiel/content"}]}"#).unwrap();
     assert_that!(deck.slides.len()).is_equal_to(1);
 }
 
@@ -269,4 +285,14 @@ fn style_invalid_with_bounded_spacing_returns_none() {
         let style = Style { spacing: Some(spacing), ..Default::default() };
         assert_that!(style.invalid()).named(&spacing.to_string()).is_none();
     }
+}
+
+#[test]
+fn all_pins_lists_widgets_then_layouts_with_their_kind() {
+    let mut deck = Deck::empty();
+    deck.pins_mut(PackKind::Layouts).insert(Namespace::parse("alpha").unwrap(), pin_for_tests());
+    deck.pins_mut(PackKind::Widgets).insert(Namespace::parse("zeta").unwrap(), pin_for_tests());
+    let listed: Vec<(PackKind, String)> = deck.all_pins().map(|(k, ns, _)| (k, ns.to_string())).collect();
+    assert_that!(listed)
+        .is_equal_to(vec![(PackKind::Widgets, "zeta".to_owned()), (PackKind::Layouts, "alpha".to_owned())]);
 }

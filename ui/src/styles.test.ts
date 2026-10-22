@@ -14,10 +14,12 @@ test("aucun style post-it ne reste dans les feuilles de style", () => {
 });
 
 test("la carte n'est définie que dans a2ui.css", () => {
-  expect(own("a2ui/a2ui.css")).toMatch(/\.card\b/);
+  // `.card` seule, pas `.card-name` (le nom d'une carte de sélecteur).
+  const card = /\.card(?![\w-])/;
+  expect(own("a2ui/a2ui.css")).toMatch(card);
   // Seule exception : la mise en page du brouillon, plus spécifique que `.card.prompt`.
   const rest = APP.replace(/\.draft\.card\.prompt/g, "");
-  expect(rest).not.toMatch(/\.card\b/);
+  expect(rest).not.toMatch(card);
 });
 
 test("la consigne se colle au bord de fin, aussi en RTL", () => {
@@ -98,5 +100,5 @@ test("le tiroir des variantes a sa place sous la scène, qui rétrécit, au lieu
   expect(area).toMatch(/display:\s*grid/);
   // La scène prend ce qui reste ; le tiroir, sa hauteur.
   expect(area).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/);
-  expect(ruleOf(APP, ".sheet-area > .templates-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
+  expect(ruleOf(APP, ".sheet-area > .stage-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
 });

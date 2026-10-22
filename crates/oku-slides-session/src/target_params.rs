@@ -1,7 +1,7 @@
 //! Paramètres de la cible : l'élément sélectionné, sinon le widget de la slide.
 //! Lus dans le deck (jamais de valeur d'exemple ni neutre) et réglés par
 //! `set_param` / `edit_list`, un pas d'annulation par réglage (fusionnés pour un curseur).
-//! Un widget ou un paramètre sans `label` (ceux du noyau et de `base`) prend son nom traduit
+//! Un widget ou un paramètre sans `label` (ceux des packs intégrés `base` et `essentiel`) prend son nom traduit
 //! (`session-widget-kind-<clé>`, `session-param-<clé>-<nom>` ; clé `content` ou `base-card`, voir `param_fields`).
 
 use oku_slides_core::{ListOp, ListPath, Op, ParamSchema, ParamType, ParamValue, Params, Target, WidgetSchema};
@@ -13,6 +13,7 @@ use crate::agent::{FieldKind, ShowParams, Surface};
 use crate::error::HostKeySnafu;
 use crate::panel::{HOST_TARGET, HostParams};
 use crate::param_fields::{coerce, field, kind_name, param_name, schema_default, settable};
+use crate::target_grid::{GRID_KEY, grid_fields};
 use crate::{Result, Session};
 
 /// La cible résolue : son schéma et les réglages qu'on en montre.
@@ -39,6 +40,9 @@ impl Session {
     ///
     /// Pour une liste, `value` est le tableau de ses items (il remplace la liste).
     pub(crate) fn target_param(&mut self, slide: &str, element: Option<&str>, key: &str, value: Value) -> Result<()> {
+        if key.starts_with(GRID_KEY) {
+            return self.target_grid(slide, element, key, &value);
+        }
         let (p, name, kind) = self.param_of(slide, element, key)?;
         // Un `null` ou un objet n'efface jamais une liste.
         ensure!(!matches!(p.ty, ParamType::List { .. }) || value.is_array(), HostKeySnafu { key });
@@ -76,6 +80,11 @@ impl Session {
     /// `None` : pas de cible montrable (élément disparu, sans schéma, graphique, sans champ).
     fn resolve_target(&self, slide: &str, element: Option<&str>) -> Result<Option<Resolved<'_>>> {
         let view = self.slide(slide)?;
+        // En mode pack, la grille de la slide entière (colonnes, lignes) : voir `target_grid`.
+        let grid = match element {
+            None => self.settable_grid(&view),
+            Some(_) => None,
+        };
         let (kind, params): (&str, &Params) = match element {
             Some(id) => match view.slide.locate(id) {
                 Some(l) => (l.element.kind.as_str(), &l.element.params),
@@ -110,6 +119,10 @@ impl Session {
                 keys.push(p.name.clone());
                 fields.push(f);
             }
+        }
+        for (key, f) in grid.map(|g| grid_fields(slide, g, l)).into_iter().flatten() {
+            keys.push(key);
+            fields.push(f);
         }
         if fields.is_empty() {
             return Ok(None);

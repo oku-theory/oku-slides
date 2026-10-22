@@ -12,7 +12,7 @@ use oku_slides_core::{PackFiles, PackPin, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 
-use crate::common::{oku_slides, workdir};
+use crate::common::{deck_json, oku_slides, workdir};
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
@@ -33,20 +33,24 @@ fn quote_pack(id: uuid::Uuid, namespace: &str) -> PackFiles {
         parent: None,
         created: "2026-10-01T00:00:00Z".to_owned(),
         scope: oku_slides_core::PackScope::Library,
-        templates: Vec::new(),
+        profiles: Vec::new(),
         examples: Default::default(),
     };
     let file = WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget"));
-    manifest.to_files([(file, QUOTE.to_owned())].into()).unwrap_or_else(|e| panic!("pack.json : {e}"))
+    manifest
+        .to_files(oku_slides_core::PackKind::Widgets, [(file, QUOTE.to_owned())].into())
+        .unwrap_or_else(|e| panic!("pack.json : {e}"))
 }
 
 /// Un deck JSON dans `dir` qui utilise le widget `quote` du pack `r`, épinglé sous `namespace`.
 fn quote_deck(dir: &Path, r: &PackPin, namespace: &str) -> std::path::PathBuf {
     let deck = dir.join("deck.json");
-    let json = serde_json::json!({ "version": 7, "widgets": { namespace: r },
-        "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
+    let json = deck_json(
+        serde_json::json!({ namespace: r }),
+        serde_json::json!([{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "title": "T", "blocks": [
             { "id": "q", "kind": format!("{namespace}/quote"), "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
-        ] } }] });
+        ] } }]),
+    );
     std::fs::create_dir_all(dir).unwrap_or_else(|e| panic!("{e}"));
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("{e}"));
@@ -58,7 +62,8 @@ fn library_quote(dir: &Path) -> PackPin {
     let id = uuid::Uuid::new_v4();
     let files = quote_pack(id, "pack");
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = PackLibrary::new(Some(dir.join("data").join("widgets")), storage);
+    let library =
+        PackLibrary::new(Some(dir.join("data").join("widgets")), Some(dir.join("data").join("layouts")), storage);
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     PackPin { id, version: files.version(), requires: vec![] }
 }
@@ -118,22 +123,32 @@ fn save_ignores_a_pack_beside_the_deck_whose_manifest_id_is_another_pack() {
     assert_that!(pdf.exists()).is_false();
 }
 
-/// Dans `dir` : le pack par défaut courant a le widget `quote` ; un deck sans pack l'utilise.
+/// Dans `dir` : la version courante du pack de widgets par défaut `base` a aussi le widget
+/// `quote` ; un deck sans pack l'utilise.
 fn deck_without_pack_and_default_quote(dir: &Path) -> std::path::PathBuf {
-    let id = oku_slides_session::DEFAULT_PACK;
-    // Toute version du pack par défaut garde son espace de noms.
-    let files = quote_pack(id, "essentiel");
+    let id = oku_slides_session::BASE_PACK;
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = PackLibrary::new(Some(dir.join("data").join("widgets")), storage);
+    let library =
+        PackLibrary::new(Some(dir.join("data").join("widgets")), Some(dir.join("data").join("layouts")), storage);
+    // Une version de `base` (même espace de noms, mêmes widgets) qui gagne `quote`.
+    let builtin = library.current_version(id).unwrap_or_else(|| panic!("base intégré")).files;
+    let manifest = PackManifest::from_files(&builtin).unwrap_or_else(|e| panic!("manifeste de base : {e}"));
+    let mut widgets = builtin.widgets().clone();
+    widgets.insert(WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget")), QUOTE.to_owned());
+    let files =
+        manifest.to_files(oku_slides_core::PackKind::Widgets, widgets).unwrap_or_else(|e| panic!("widgets.json : {e}"));
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     library.set_current(id, &files.version()).unwrap_or_else(|e| panic!("courante : {e}"));
     let deck = dir.join("deck.json");
     let mut json: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(quote_deck(dir, &PackPin { id, version: files.version(), requires: vec![] }, "essentiel"))
+        &std::fs::read(quote_deck(dir, &PackPin { id, version: files.version(), requires: vec![] }, "base"))
             .unwrap_or_else(|e| panic!("{e}")),
     )
     .unwrap_or_else(|e| panic!("{e}"));
-    json.as_object_mut().unwrap_or_else(|| panic!("objet")).remove("widgets");
+    // Sans aucun épinglage : le deck reçoit les packs par défaut courants.
+    let object = json.as_object_mut().unwrap_or_else(|| panic!("objet"));
+    object.remove("widgets");
+    object.remove("layouts");
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("{e}"));
     deck

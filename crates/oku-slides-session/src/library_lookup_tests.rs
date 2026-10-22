@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::import::ImportErrorKind;
-use crate::{DEFAULT_PACK, GRID_PACK, PRO_THEME};
+use crate::{BASE_PACK, ESSENTIEL_PACK, PRO_THEME};
 
 /// L'interface en français : les erreurs se testent hors de l'anglais.
 fn fr() -> &'static oku_slides_i18n::Localizer {
@@ -16,7 +16,7 @@ fn fr() -> &'static oku_slides_i18n::Localizer {
 /// Une bibliothèque de packs vide dans un dossier temporaire (les intégrés seulement).
 fn library(dir: &Path) -> (Storage, PackLibrary) {
     let storage = Storage::local().unwrap();
-    let library = PackLibrary::new(Some(dir.join("templates")), storage.clone());
+    let library = PackLibrary::new(Some(dir.join("widgets")), Some(dir.join("layouts")), storage.clone());
     (storage, library)
 }
 
@@ -27,12 +27,12 @@ fn pack_id(files: &PackFiles) -> uuid::Uuid {
     PackManifest::from_files(files).unwrap().id
 }
 
-/// Écrit dans `dir` le `widgets.json` du pack intégré Grilles et un widget `citation`.
+/// Écrit dans `dir` le manifeste du pack intégré `essentiel` (`layouts.json`) et un layout `citation`.
 fn write_pack_dir(dir: &Path) {
-    let json = include_str!("../../../templates/grilles/pack.json");
-    std::fs::create_dir_all(dir.join("widgets")).unwrap();
-    std::fs::write(dir.join("widgets.json"), json).unwrap();
-    std::fs::write(dir.join("widgets").join("citation.typ"), "// widget").unwrap();
+    let json = crate::test_support::builtin(ESSENTIEL_PACK).files.pack_json().unwrap();
+    std::fs::create_dir_all(dir.join("layouts")).unwrap();
+    std::fs::write(dir.join("layouts.json"), json).unwrap();
+    std::fs::write(dir.join("layouts").join("citation.typ"), "// widget").unwrap();
 }
 
 /// Des sources vides, sur le registre de base figé.
@@ -47,11 +47,15 @@ fn read_pack_dir_reads_the_manifest_and_the_widget_files() {
     let (storage, _) = library(tmp.path());
     let files = read_pack_dir(&storage, tmp.path(), MAX).unwrap().unwrap();
     let names: Vec<String> = files.widgets().keys().map(|w| w.file_name()).collect();
-    assert_that!((pack_id(&files), names)).is_equal_to((GRID_PACK, vec!["citation.typ".to_owned()]));
+    assert_that!((pack_id(&files), files.kind(), names)).is_equal_to((
+        ESSENTIEL_PACK,
+        oku_slides_core::PackKind::Layouts,
+        vec!["citation.typ".to_owned()],
+    ));
 }
 
 #[test]
-fn read_pack_dir_without_widgets_json_is_none() {
+fn read_pack_dir_without_a_manifest_is_none() {
     let tmp = tempfile::tempdir().unwrap();
     let (storage, _) = library(tmp.path());
     assert_that!(read_pack_dir(&storage, tmp.path(), MAX).unwrap()).is_none();
@@ -62,8 +66,8 @@ fn read_pack_dir_beyond_its_budget_is_too_large() {
     let tmp = tempfile::tempdir().unwrap();
     write_pack_dir(tmp.path());
     let (storage, _) = library(tmp.path());
-    let size = std::fs::metadata(tmp.path().join("widgets.json")).unwrap().len() as usize;
-    // Le widgets.json tient, le widget (10 octets) non.
+    let size = std::fs::metadata(tmp.path().join("layouts.json")).unwrap().len() as usize;
+    // Le layouts.json tient, le layout (10 octets) non.
     let err = read_pack_dir(&storage, tmp.path(), size + 5).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::TooLarge);
     assert_that!(err.localize(fr())).contains("pack");
@@ -85,7 +89,7 @@ fn read_pack_dir_whose_widgets_cannot_be_listed_is_a_file_error() {
     use std::os::unix::fs::PermissionsExt;
     let tmp = tempfile::tempdir().unwrap();
     write_pack_dir(tmp.path());
-    let widgets = tmp.path().join("widgets");
+    let widgets = tmp.path().join("layouts");
     // Un dossier qu'on ne lit pas : sa liste échoue, elle n'est pas vide.
     std::fs::set_permissions(&widgets, std::fs::Permissions::from_mode(0o000)).unwrap();
     let (storage, _) = library(tmp.path());
@@ -99,15 +103,15 @@ fn resolve_pack_by_name_ignores_case() {
     let tmp = tempfile::tempdir().unwrap();
     let (storage, library) = library(tmp.path());
     let files = resolve_pack(&storage, &library, "essentiel", MAX).unwrap();
-    assert_that!(pack_id(&files)).is_equal_to(DEFAULT_PACK);
+    assert_that!(pack_id(&files)).is_equal_to(ESSENTIEL_PACK);
 }
 
 #[test]
 fn resolve_pack_by_id_takes_the_current_version() {
     let tmp = tempfile::tempdir().unwrap();
     let (storage, library) = library(tmp.path());
-    let files = resolve_pack(&storage, &library, &GRID_PACK.to_string(), MAX).unwrap();
-    assert_that!(files.version()).is_equal_to(library.current_version(GRID_PACK).unwrap().version);
+    let files = resolve_pack(&storage, &library, &BASE_PACK.to_string(), MAX).unwrap();
+    assert_that!(files.version()).is_equal_to(library.current_version(BASE_PACK).unwrap().version);
 }
 
 #[test]
@@ -142,10 +146,10 @@ fn resolve_pack_unknown_id_fails_too() {
 fn library_pack_by_name_or_id_gives_the_current_version() {
     let tmp = tempfile::tempdir().unwrap();
     let (_, library) = library(tmp.path());
-    let by_name = library_pack(&library, "GRILLES").unwrap();
-    let by_id = library_pack(&library, &GRID_PACK.to_string()).unwrap();
+    let by_name = library_pack(&library, "ESSENTIEL").unwrap();
+    let by_id = library_pack(&library, &ESSENTIEL_PACK.to_string()).unwrap();
     assert_that!(by_name.version()).is_equal_to(by_id.version());
-    assert_that!(pack_id(&by_id)).is_equal_to(GRID_PACK);
+    assert_that!(pack_id(&by_id)).is_equal_to(ESSENTIEL_PACK);
 }
 
 #[test]

@@ -10,7 +10,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 pub use oku_slides_core::ThemeManifest;
-use oku_slides_core::{PackFiles, PackScope, PackVersion};
+use oku_slides_core::{PackFiles, PackKind, PackScope, PackVersion};
 
 use crate::library::Library;
 use crate::library_kind::{LibraryKind, StoredVersion, VersionManifest};
@@ -73,7 +73,7 @@ static BUILTIN_THEME_VERSIONS: LazyLock<Vec<StoredVersion<ThemeManifest>>> = Laz
     ]
     .iter()
     .filter_map(|json| {
-        let read = PackFiles::from_bytes(json.as_bytes(), [])
+        let read = PackFiles::from_bytes(PackKind::Widgets, json.as_bytes(), [])
             .ok_or_else(|| "theme.json is not a json object".to_owned())
             .and_then(StoredVersion::read);
         // Couvert par les tests : n'arrive qu'avec un fichier du dépôt cassé.
@@ -85,7 +85,7 @@ static BUILTIN_THEME_VERSIONS: LazyLock<Vec<StoredVersion<ThemeManifest>>> = Laz
 impl LibraryKind for Themes {
     const DIR: &'static str = "themes";
     const MANIFEST_FILE: &'static str = "theme.json";
-    const HAS_WIDGETS: bool = false;
+    const PACK_KIND: Option<PackKind> = None;
     type Manifest = ThemeManifest;
 
     fn builtins() -> &'static [StoredVersion<ThemeManifest>] {

@@ -1,6 +1,6 @@
 //! Surface `host-theme` : chaque jeton du brouillon du thème, par section,
 //! avec son état et ses actions (`host_theme`, `host_token`). L'interface la
-//! rend au dock de l'agent, en mode modèles.
+//! rend au dock de l'agent, en mode pack.
 //!
 //! Chaque action est l'évènement `token` : `{token, action, value?, name?}`,
 //! avec `token` le chemin du jeton (un tableau de segments) et `action` un
@@ -21,7 +21,7 @@ use snafu::ensure;
 
 use crate::agent::Surface;
 use crate::agent::forms::{FieldEvent, Place, field_components, lit, surface};
-use crate::error::{InvalidTokenValueSnafu, NotEditingTemplatesSnafu};
+use crate::error::{InvalidTokenValueSnafu, NotEditingPackSnafu};
 use crate::theme_controls::{Shown, token_fields, token_value};
 use crate::theme_schema::{Section, TokenSpec, default_tokens, lookup, merge, schema, spec};
 use crate::{Mode, Result, Session};
@@ -222,10 +222,10 @@ impl Session {
         rows
     }
 
-    /// La surface des jetons du brouillon (mode modèles) ; `filter` garde les
+    /// La surface des jetons du brouillon (mode pack) ; `filter` garde les
     /// jetons dont le libellé traduit ou le chemin le contient (casse ignorée).
     pub(crate) fn host_theme(&self, filter: &str) -> Result<Option<Surface>> {
-        let Mode::Templates { theme, .. } = &self.mode else { return Ok(None) };
+        let Mode::Pack { theme, .. } = &self.mode else { return Ok(None) };
         let l = &self.localizer;
         let typed = filter;
         // Normalisé pour la recherche seulement : le champ garde la saisie telle quelle.
@@ -275,7 +275,7 @@ impl Session {
     /// Agit sur le jeton `path` du brouillon : une étape d'annulation, vérifiée
     /// par le schéma ; sans effet si le jeton a déjà la valeur visée.
     pub(crate) fn host_token(&mut self, path: Vec<String>, action: TokenAction, value: Option<Value>) -> Result<()> {
-        ensure!(self.in_templates(), NotEditingTemplatesSnafu);
+        ensure!(self.in_pack_mode(), NotEditingPackSnafu);
         let draft = self.edited_tokens();
         let (path, target) = match action {
             TokenAction::Set => {

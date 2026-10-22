@@ -4,23 +4,30 @@ ui-loading = Wird geladen…
 ## Dokument
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · Vorlagen
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · Layout-Paket
+   *[other] { $name } · Widget-Paket
+}
 ui-title-rename = Präsentation umbenennen
 ui-title-field = Titel der Präsentation
 ui-status-unsaved = ungespeicherte Änderungen
 ui-status-saved = gespeichert
 ui-status-never-saved = noch nicht gespeichert
-ui-caption-templates = { $count ->
-    [one] { $count } Vorlage
-   *[other] { $count } Vorlagen
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } Layout
+       *[other] { $count } Layouts
+    }
+   *[other] { $count ->
+        [one] { $count } Widget
+       *[other] { $count } Widgets
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } Folie
    *[other] { $count } Folien
 } · { $status }
-ui-template-default-name = Vorlage
-ui-template-variant-name = { $name } (Variante)
-ui-confirm-quit-templates = Beenden, ohne die geänderten Vorlagen zu speichern?
+ui-confirm-quit-pack = Beenden, ohne das geänderte Paket zu speichern?
 
 ## Meldungen
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = Design
 ui-toolbar-theme-embedded = Design der Datei
 ui-toolbar-theme-deck-group = Diese Präsentation
 ui-toolbar-finish = Fertig
-ui-templates-deck-only = Nur in dieser Präsentation gespeichert
+ui-pack-deck-only = Nur in dieser Präsentation gespeichert
 ui-toolbar-open = Öffnen
 ui-menu = Menü
 ui-toolbar-add-label = Zur Folie hinzufügen
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] Eine Datentabelle
    *[text] Ein Textabsatz
 }
-ui-toolbar-remove-template = Vorlage löschen
 ui-toolbar-remove-slide = Folie löschen
 ui-toolbar-remove-hint = Folie { $n } · rückgängig mit ⌘Z
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] Text hinzufügen
 }
 ui-undo-add-widget = „{ $name }“ hinzufügen
-ui-undo-new-template = Neue Vorlage: { $name }
 ui-undo-new-slide = Neue Folie: { $name }
-ui-undo-templates = Vorlagen: { $name }
-ui-undo-move-template = Vorlage verschieben
 ui-undo-move-slide = Folie verschieben
 ui-undo-remove-slide = Folie löschen
 ui-undo-remove = Löschen
@@ -89,7 +92,7 @@ ui-undo-change-anchor = Verankerung ändern
 ui-undo-move = Verschieben
 ui-undo-resize = Größe ändern
 ui-undo-edit-slide = Folie bearbeiten
-ui-undo-rename-set = Set umbenennen
+ui-undo-rename-pack = Paket umbenennen
 ui-undo-rename-deck = Präsentation umbenennen
 ui-undo-chart-kind = Diagrammtyp ändern
 ui-undo-chart-data = Daten bearbeiten
@@ -108,15 +111,15 @@ ui-new-card-detail = Detail
 ## Folienstapel
 
 ui-pile-slides = Folien
-ui-pile-templates = Vorlagen
+ui-pile-layouts = Layouts
 ui-pile-add-slide = + Neue Folie
-ui-pile-add-template = + Neue Vorlage
 ui-pile-drag-hint = Zum Verschieben ziehen · ⌥↑ ⌥↓
 ui-slide-alt = Folie { $n }
 
 ## Bühne
 
 ui-stage-rendering = Wird gerendert…
+ui-stage-widget-pack = Öffnen Sie ein Widget aus dem Stapel oder erstellen Sie eines.
 ui-stage-elements = Folienelemente
 ui-stage-fields = Folienfelder
 ui-stage-edit-text = Text bearbeiten
@@ -238,15 +241,11 @@ ui-size-mb = { $value } MB
 ## Vorlagenauswahl
 
 ui-picker-new-slide = Neue Folie
-ui-picker-new-template = Neue Vorlage, basierend auf…
-ui-picker-set = Vorlagen
 ui-picker-set-mine = { $name } · eigene
 ui-picker-set-received = { $name } · empfangen
 ui-picker-keys = ← → zum Blättern · Enter zum Hinzufügen · Esc zum Schließen
 ui-picker-close = Schließen
-ui-picker-previous = Vorherige Vorlage
-ui-picker-next = Nächste Vorlage
-ui-picker-list = Folienvorlagen
+ui-picker-list = Layouts
 ui-widget-picker-filter = Nach Name, Bezeichnung oder Beschreibung filtern
 ui-widget-picker-empty = Kein Widget passt zu „{ $query }“.
 ui-widget-picker-list = Widgets
@@ -319,7 +318,7 @@ ui-tabs = Geöffnete Präsentationen
 ui-tab-new = Neuer Tab
 ui-tab-close = Tab schließen
 ui-tab-unsaved = Nicht gespeicherte Änderungen
-ui-tab-templates = Vorlagen
+ui-tab-pack = Paket
 ui-tab-move-new-window = In neues Fenster verschieben
 ui-tab-move-to = In Fenster { $n } verschieben
 ui-tab-close-others = Andere Tabs schließen
@@ -374,8 +373,8 @@ ui-widgets-open = Widget { $name } öffnen
 ui-widgets-delete-named = { $name } löschen
 ui-widgets-confirm-delete = Widget „{ $name }“ löschen?
 ui-widgets-rename-hint = Doppelklick oder F2 zum Umbenennen
-ui-widgets-tabs = Vorlagen-Tabs
-ui-widgets-templates-tab = Vorlagen
+ui-pack-tabs = Paket-Tabs
+ui-pack-layouts-tab = Layouts
 ui-theme-tab = Design
 ui-theme-picker = Design
 ui-theme-name = Name des Designs
@@ -388,14 +387,15 @@ ui-widgets-removed-by-agent = Der Agent hat das Widget { $name } gelöscht.
 ui-import-title = PowerPoint-Präsentation importieren
 ui-import-mode = Importmodus
 ui-import-hifi = Originalgetreue Kopie
-ui-import-hifi-note = Behält das Aussehen des Originals, mit einem Design und Vorlagen für diese Präsentation.
-ui-import-retrofit = Meine Vorlagen verwenden
-ui-import-retrofit-note = Baut die Folien mit Vorlagen und einem Design aus der Bibliothek neu auf.
+ui-import-hifi-note = Behält das Aussehen des Originals, mit einem Design und Layouts für diese Präsentation.
+ui-import-retrofit = Meine Layouts verwenden
+ui-import-retrofit-note = Baut die Folien mit Layout-Paketen und einem Design aus der Bibliothek neu auf.
+ui-import-layout-packs = Layout-Pakete
 ui-import-theme-default = Standarddesign
-ui-import-no-packs = Keine Vorlagensammlung in der Bibliothek.
+ui-import-no-packs = Kein Layout-Paket in der Bibliothek.
 ui-import-tune = Mit dem Agenten feinabstimmen
 ui-import-tune-note = Der Agent vergleicht jede Folie mit dem Original und korrigiert die Abweichungen.
-ui-import-tune-note-retrofit = Der Agent vergleicht jede Folie mit dem Original und entwirft Widgets für die Formen, die Ihre Vorlagen nicht darstellen.
+ui-import-tune-note-retrofit = Der Agent vergleicht jede Folie mit dem Original und entwirft Widgets für die Formen, die Ihre Layouts nicht darstellen.
 ui-import-tune-unavailable = Kein nutzbarer Agent: { $reason }
 ui-import-submit = Importieren
 ui-import-busy = Wird importiert…

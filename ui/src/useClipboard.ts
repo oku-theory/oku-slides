@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Element, Op, Paragraph, SlideView, Snapshot, TabApi } from "./api";
-import { baseName } from "./baseKinds";
+import { baseName } from "./builtinKinds";
 import { copyAfterRefusedMove, findElement, literalToParagraphs, moveOps, pasteOps } from "./deck";
 import { t } from "./i18n";
 import type { AddName } from "./slideTools";
@@ -92,7 +92,7 @@ export function useClipboardEvents({
         e.preventDefault();
         const { element, cut: from } = clip.current;
         // Un texte de base suit la règle du texte natif ; tout autre élément, celle d'un widget.
-        if (!canAdd(baseName(element.kind) === "text" ? "text" : "widget", view.slide.kind)) return;
+        if (!canAdd(view.slide.kind, baseName(element.kind) === "text" ? "text" : "widget")) return;
         const here = view;
         const copyHere = () => {
           const { id, ops } = pasteOps(here, element);
@@ -113,7 +113,7 @@ export function useClipboardEvents({
             await copyAfterRefusedMove(snapRef.current?.slides ?? [], from.slide, element.id, (s) => api.slide(s))
           ) copyHere();
         });
-      } else if (text.trim() && canAdd("text", view.slide.kind)) {
+      } else if (text.trim() && canAdd(view.slide.kind, "text")) {
         // Du texte venu d'ailleurs devient un élément texte ; son markdown reste littéral.
         e.preventDefault();
         dropCut();

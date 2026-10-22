@@ -6,25 +6,25 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 ## Key types
 
 - `Renderer` (`lib.rs`): keeps a live Typst world between renders (incremental compilation).
-  `render`/`set_deck` compile the deck; `set_widgets` loads the core (slide) widgets plus a
-  `PackSet` (one assembly per pack, widgets as `ns/name`, never overriding a core widget);
-  `with_builtins` adds the built-in `base` pack; `set_language`: language of fallback frames.
-  `set_theme`: theme tokens resolved by the session (`/theme.json`, `render-deck(…, theme:)`),
-  never `deck.theme`; default tokens without one. Charts are redrawn when the compiled palette changes.
+  `render`/`set_deck` compile; `set_widgets` loads a `PackSet` (an assembly per pack, `ns/name`;
+  the core has none: `new` draws "unknown slide"); `with_builtins`: `base` + `essentiel`.
+  `set_language`: fallback frames' language. `set_theme`: tokens resolved by the session
+  (`/theme.json`, `render-deck(…, theme:)`), never `deck.theme`; defaults without one. Charts
+  are redrawn when the compiled palette changes.
 - `Compiled` (`lib.rs`): `svg`/`png`/`pdf`, `page_hash` (cache key), `layout()` (read once).
-- `Layout` (`lib.rs`): what rendering says about the document, by page: `SlidePage`,
-  `ElementBox` (real box), `FieldBox` (editable field), `ItemBox` (list item, `list-item`),
-  `ZoneBox`/`GridBox` (free zone and its grid), `TextStyle` (measured typography). `field()`
-  emits one box per field, even empty; `fields-stack` sticks an empty field's marker to the
-  next item, taking no room (`FieldBox.empty`, `side`).
-- `PackWidgets`: a namespace and `widgets/<name>.typ` files (`_commun` shared) under `/packs/<id>/`,
-  plus a generated `/packs/<id>/widgets.typ` naming them `ns/name`; `PackSet`: a deck's packs by
-  namespace, unique namespaces and ids (`DuplicatePack`). `probe_file` (`widget_probe.rs`): one file alone, no other pack reachable, gives a
-  `FileProbe` (schema or diagnostics; declared name = file name); `assemble`: base + one pack's
-  valid files. `Registries` memoizes by `PackSet::fingerprint` and `probe_key`; `core_registry`
-  (slides), `builtin_probe` / `builtin_registry` (core + `base`, memoized; `assemble` keeps a probe's packs).
-- `base_pack.rs`: render owns the `base` pack sources (`typst/oku-slides/packs/base`, embedded),
-  the session lists them; `is_trusted_pack`: namespace `base` and a version of `versions.txt`.
+- `Layout` (`lib.rs`): by page, `SlidePage`, `ElementBox` (real box), `FieldBox` (editable
+  field), `ItemBox` (`list-item`), `ZoneBox`/`GridBox` (free zone, grid), `TextStyle` (measured).
+  `field()` emits a box per field, even empty; `fields-stack` sticks an empty field's marker to
+  the next item, taking no room (`FieldBox.empty`, `side`).
+- `PackWidgets`: namespace, `PackKind`, `<dir>/<name>.typ` files (`widgets` or `layouts`,
+  `_commun` shared) under `/packs/<id>/` and a generated `/packs/<id>/<dir>.typ` naming them
+  `ns/name`; `PackSet`: packs by namespace, unique namespaces and ids (`DuplicatePack`).
+  `probe_file` (`widget_probe.rs`): one file alone, by kind, gives a `FileProbe` (schema or
+  diagnostics); `assemble_set`: a fixed probe's packs + valid files (category contrary to the
+  kind dropped). `Registries` memoizes by fingerprint and `probe_key` (empty set: empty
+  registry); `base_probe` (`base`), `builtin_registry` (`base` + `essentiel`) are memoized.
+- `builtin_packs.rs`: `BuiltinPack` (`Base`, `Essentiel`) embeds `typst/oku-slides/packs/*`;
+  `is_trusted_pack`: a built-in namespace and a version of that pack's `versions.txt`.
 - Bounded errors (`error.rs`): `RenderErrorKind` has `Timeout`, `OutOfMemory`, `WorkerLost`,
   `Frame`, `Stale`, `PackDisabled`, `Protocol` besides Typst failures; `is_bounded` says which
   ones (not `Frame`, `Stale`, `Protocol`) make the session disable the faulty pack.

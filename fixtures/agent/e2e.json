@@ -1,7 +1,7 @@
 {
   "http": true,
   "by_prompt": {
-    "ouvre l'atelier": { "mcp": [{ "tool": "edit_templates", "args": {} }], "chunks": ["Atelier ouvert."] },
+    "ouvre l'atelier": { "mcp": [{ "tool": "edit_pack", "args": {} }], "chunks": ["Atelier ouvert."] },
     "portée slides": { "chunks": ["Réponse des slides."] },
     "propose les thèmes": {
       "mcp": [

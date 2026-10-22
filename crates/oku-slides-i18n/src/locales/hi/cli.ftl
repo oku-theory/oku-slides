@@ -47,7 +47,6 @@ cli-imported = { $path }: { $slides ->
        [one] { $requests } विजेट अनुरोध
       *[other] { $requests } विजेट अनुरोध
     }
-cli-import-pack-required = retrofit मोड में --pack ज़रूरी है: टेम्पलेट पैक की आईडी, फ़ोल्डर या नाम
 cli-import-write-failed = आयात किया गया डेक { $path } लिखा नहीं जा सका
 cli-import-hifi-no-target = --pack और --theme केवल retrofit मोड के लिए हैं: उच्च-निष्ठा आयात (--mode hifi) अपना पैक और थीम ख़ुद बनाता है
 cli-import-reference-hifi-only = --reference hifi मोड का हिस्सा है: retrofit आयात की तुलना संदर्भ रेंडर से नहीं होती
@@ -83,7 +82,7 @@ cli-arg-ui = बने हुए इंटरफ़ेस का फ़ोल्
 cli-cmd-import = PowerPoint प्रेज़ेंटेशन (.pptx) को .oku-slides.pdf के रूप में आयात करें
 cli-arg-pptx = PowerPoint प्रेज़ेंटेशन (.pptx)
 cli-arg-mode = retrofit: मौजूदा टेम्पलेट पैक और थीम पर सामग्री; hifi: हूबहू प्रति, उसके लिए बनाए गए पैक और थीम पर
-cli-arg-pack = लक्ष्य टेम्पलेट पैक: आईडी, पैक फ़ोल्डर (widgets.json, widgets/), नाम या नेमस्पेस
+cli-arg-pack = retrofit के लिए लेआउट पैक (नेमस्पेस, आईडी या फ़ोल्डर); दोहराया जा सकता है, डिफ़ॉल्ट essentiel
 cli-arg-import-theme = लक्ष्य थीम: बिल्ट-इन या लाइब्रेरी की थीम, आईडी या नाम से; डिफ़ॉल्ट: डिफ़ॉल्ट थीम
 cli-arg-report = आयात रिपोर्ट (JSON) भी लिखें: हानियाँ, विकल्प, कवरेज
 cli-arg-no-system-fonts = hifi मोड में, प्रस्तुति के फ़ॉन्ट सिस्टम फ़ॉन्ट में न खोजें

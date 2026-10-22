@@ -17,7 +17,7 @@ interface Snap { history?: boolean; undo?: string | null; dirty?: boolean; name?
 const snapshot = (o: Snap = {}): Snapshot =>
   ({
     editing: o.editing === false ? null : {
-      set: "p", base: "b",
+      pack: "p", base: "b",
       theme: { base: { id: PAPIER, version: "v1" }, name: o.name ?? "Papier", builtin: true, dirty: o.dirty ?? false, revision: "r1" },
     },
     history: o.history ? {} : null, undo_label: o.undo ?? null, redo_label: null, slides: [],
@@ -89,7 +89,7 @@ describe("useThemeSettings", () => {
     expect(asked).toEqual(["", "taille", "taille", "taille"]);
   });
 
-  test("hors mode modèles ou pendant l'historique : aucune surface, aucune lecture", async () => {
+  test("hors mode pack ou pendant l'historique : aucune surface, aucune lecture", async () => {
     const { fake, asked } = counted();
     const m = await mountTheme(fake, { snap: snapshot({ history: true }), filter: "" });
     expect(m.out.h!.surface).toBeNull();

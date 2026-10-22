@@ -19,16 +19,16 @@ describe("fermeture d'un onglet modifié", () => {
     expect(save).toHaveBeenCalledWith(null, false);
   });
 
-  test("saveForClose : modèles modifiés enregistrés, puis le deck retrouvé", async () => {
+  test("closing a tab in pack mode with changes asks to save the pack", async () => {
     const calls: string[] = [];
     const api = {
-      snapshot: async () => snap({ dirty: true, editing: { set: "s", name: "S", builtin: false } }),
-      saveTemplates: async () => (calls.push("saveTemplates"), snap({ editing: { set: "s", name: "S", builtin: false } })),
-      closeTemplates: async () => (calls.push("closeTemplates"), snap({})),
+      snapshot: async () => snap({ dirty: true, editing: { pack: "s", name: "S", kind: "layouts", builtin: false } }),
+      savePack: async () => (calls.push("savePack"), snap({ editing: { pack: "s", name: "S", kind: "layouts", builtin: false } })),
+      closePack: async () => (calls.push("closePack"), snap({})),
       save: async () => (calls.push("save"), snap({})),
     } as unknown as TabApi;
     expect(await saveForClose(api)).toBe(true);
-    expect(calls).toEqual(["saveTemplates", "closeTemplates"]);
+    expect(calls).toEqual(["savePack", "closePack"]);
   });
 
   test("saveForClose : historique ouvert, fermé d'abord : c'est le deck retrouvé qui s'enregistre", async () => {
@@ -43,16 +43,16 @@ describe("fermeture d'un onglet modifié", () => {
     expect(calls).toEqual(["historyClose", "save"]);
   });
 
-  test("saveForClose : modèles fermés mais deck resté modifié, l'enregistrement a lieu", async () => {
+  test("saveForClose : pack fermé mais deck resté modifié, l'enregistrement a lieu", async () => {
     const calls: string[] = [];
     const api = {
-      snapshot: async () => snap({ dirty: true, editing: { set: "s", name: "S", builtin: false } }),
-      saveTemplates: async () => (calls.push("saveTemplates"), snap({ editing: { set: "s", name: "S", builtin: false } })),
-      closeTemplates: async () => (calls.push("closeTemplates"), snap({ dirty: true, path: "/x.oku-slides.pdf" })),
+      snapshot: async () => snap({ dirty: true, editing: { pack: "s", name: "S", kind: "layouts", builtin: false } }),
+      savePack: async () => (calls.push("savePack"), snap({ editing: { pack: "s", name: "S", kind: "layouts", builtin: false } })),
+      closePack: async () => (calls.push("closePack"), snap({ dirty: true, path: "/x.oku-slides.pdf" })),
       save: async () => (calls.push("save"), snap({})),
     } as unknown as TabApi;
     expect(await saveForClose(api)).toBe(true);
-    expect(calls).toEqual(["saveTemplates", "closeTemplates", "save"]);
+    expect(calls).toEqual(["savePack", "closePack", "save"]);
   });
 
   test("saveForClose : nouveau deck, enregistré au dossier par défaut sans dialogue", async () => {
@@ -83,7 +83,7 @@ describe("fermeture d'un onglet modifié", () => {
 
 describe("mayClose", () => {
   const snap = (s: Partial<Snapshot>) => ({ dirty: false, path: null, name: "essai", editing: null, ...s }) as Snapshot;
-  const tab = (dirty: boolean): TabInfo => ({ id: "t1", title: "essai", dirty, editing_templates: false, path: null, pristine: !dirty, deck_uid: null });
+  const tab = (dirty: boolean): TabInfo => ({ id: "t1", title: "essai", dirty, editing_pack: false, path: null, pristine: !dirty, deck_uid: null });
 
   test("onglet propre : keep, rien n'est enregistré", async () => {
     const api = { snapshot: mock(async () => snap({})) } as unknown as TabApi;

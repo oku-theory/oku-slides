@@ -9,7 +9,7 @@ use common::{
 };
 use oku_slides_agent::AgentCommand;
 use oku_slides_session::agent::AgentScope;
-use oku_slides_session::pack::DEFAULT_PACK;
+use oku_slides_session::pack::BASE_PACK;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -308,7 +308,7 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 "#;
 
 fn widget(name: &str) -> serde_json::Value {
-    serde_json::to_value(AgentScope::Widget { pack: DEFAULT_PACK, name: name.into() })
+    serde_json::to_value(AgentScope::Widget { pack: BASE_PACK, name: name.into() })
         .unwrap_or_else(|e| panic!("portée : {e}"))
 }
 
@@ -328,7 +328,7 @@ async fn listed(rx: &common::Relayed, nth: usize) -> Vec<serde_json::Value> {
 async fn kpi_renamed_then_recreated() -> (common::TestStack, common::Relayed, std::path::PathBuf) {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
     stack.on_session("t-1", |s| {
-        s.edit_templates(DEFAULT_PACK).unwrap_or_else(|e| panic!("édition du pack : {e}"));
+        s.edit_pack(BASE_PACK).unwrap_or_else(|e| panic!("édition du pack : {e}"));
         s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}"));
     });
     // 1re liste : la relecture des fils ; 2e : ce `resync`.
@@ -377,7 +377,7 @@ async fn renamed_from_the_ui_then_a_new_widget_of_the_old_name_gets_its_own_thre
 }
 
 fn atelier_json() -> serde_json::Value {
-    json!({ "kind": "atelier", "pack": DEFAULT_PACK })
+    json!({ "kind": "atelier", "pack": BASE_PACK })
 }
 
 fn is(ch: &'static str, kind: &'static str, tab: &'static str) -> impl Fn(&(&'static str, serde_json::Value)) -> bool {
@@ -795,7 +795,7 @@ async fn prompt_theme_during_a_turn_leaves_the_turn_running() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prompt_theme_outside_deck_mode_goes_to_the_agent() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
-    stack.on_session("t-1", |s| s.edit_templates(oku_slides_session::pack::DEFAULT_PACK).unwrap());
+    stack.on_session("t-1", |s| s.edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap());
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "thème" }))).unwrap();
     wait_turn_done(&rx, "t-1", 1).await;
     assert_that!(common::logged(&log, "session/prompt")).has_length(1);

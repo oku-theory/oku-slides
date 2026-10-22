@@ -23,6 +23,8 @@ pub enum ImportErrorKind {
     Protected,
     /// Une limite de [`crate::ReadLimits`] est dépassée.
     TooLarge,
+    /// Les packs de layouts cibles d'un retrofit ne proposent aucun profil.
+    NoProfiles,
 }
 
 impl ImportError {
@@ -35,6 +37,7 @@ impl ImportError {
             Inner::NotAPresentation { .. } => ImportErrorKind::NotAPresentation,
             Inner::Protected { .. } => ImportErrorKind::Protected,
             Inner::TooLarge { .. } | Inner::OutputTooLarge { .. } => ImportErrorKind::TooLarge,
+            Inner::NoProfiles { .. } => ImportErrorKind::NoProfiles,
         }
     }
 }
@@ -46,6 +49,7 @@ pub(crate) fn message_id(kind: ImportErrorKind) -> &'static str {
         ImportErrorKind::NotAPresentation => "import-not-a-presentation",
         ImportErrorKind::Protected => "import-protected",
         ImportErrorKind::TooLarge => "import-too-large",
+        ImportErrorKind::NoProfiles => "import-no-profiles",
     }
 }
 
@@ -81,6 +85,8 @@ enum Inner {
     TooLarge { what: String, backtrace: Backtrace },
     #[snafu(display("import output exceeds {max} bytes"))]
     OutputTooLarge { max: u64, backtrace: Backtrace },
+    #[snafu(display("the target layout packs declare no profile"))]
+    NoProfiles { backtrace: Backtrace },
 }
 
 // Constructeurs plutôt que `.context()` : `clip` n'est appelé que sur le chemin d'erreur, et
@@ -115,6 +121,10 @@ pub(crate) fn too_large(what: &str) -> ImportError {
 
 pub(crate) fn output_too_large(max: u64) -> ImportError {
     ImportError(Box::new(OutputTooLargeSnafu { max }.build()))
+}
+
+pub(crate) fn no_profiles() -> ImportError {
+    ImportError(Box::new(NoProfilesSnafu.build()))
 }
 
 pub(crate) fn not_a_presentation(content_type: &str) -> ImportError {

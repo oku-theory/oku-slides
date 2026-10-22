@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = 힌트: { $hint }
 render-chart-failed = 차트를 그릴 수 없음
 
-registry-bad-pack-id = 잘못된 템플릿 팩 식별자: { $id }
-registry-base-pack-broken = 기본 제공 위젯 팩이 손상되었습니다({ $file }). 앱을 다시 설치하세요.
-registry-duplicate-pack = 프레젠테이션의 위젯 팩 두 개가 { $pack }을(를) 공유합니다.
-registry-compile = 템플릿 팩의 위젯을 컴파일할 수 없습니다
-registry-missing = 템플릿 팩이 위젯을 선언하지 않았습니다
+registry-bad-pack-id = 잘못된 팩 식별자: { $id }
+registry-base-pack-broken = 기본 제공 팩이 손상되었습니다({ $file }). 앱을 다시 설치하세요.
+registry-duplicate-pack = 프레젠테이션의 팩 두 개가 { $pack }을(를) 공유합니다.
+registry-compile = 팩의 위젯을 컴파일할 수 없습니다
+registry-missing = 팩이 위젯을 선언하지 않았습니다
 render-timeout = 렌더링이 { $seconds }초를 넘겨 중단되었습니다
 render-out-of-memory = 렌더링에 { $mib } MiB가 넘는 메모리가 필요해 중단되었습니다
 render-worker-lost = 렌더링 프로세스가 중지되었습니다
@@ -41,6 +41,7 @@ import-not-a-presentation = 이 파일은 PowerPoint 프레젠테이션이 아�
 import-protected = 이 프레젠테이션은 암호화되었거나 이전 .ppt 형식입니다. 먼저 .pptx로 저장하세요
 import-too-large = 이 프레젠테이션은 너무 커서 가져올 수 없습니다
 import-output-too-large = 가져온 프레젠테이션이 가져오기에 허용되는 크기를 초과합니다
+import-no-profiles = 선택한 레이아웃 팩에 프로필이 없습니다.
 import-loss-list-levels = 목록 수준을 한 단계로 합쳤습니다
 import-loss-merged-cells = 병합된 셀을 분리했습니다
 import-loss-percent-stacked = 100% 누적 차트를 누적 차트로 표시했습니다
@@ -74,7 +75,7 @@ import-loss-hidden-slide = 숨긴 슬라이드를 표시 상태로 가져왔습�
 import-loss-effects = 그림자, 반사, 3D 효과가 사라졌습니다
 import-loss-series-dropped = 원형 차트는 계열 하나만 표시합니다. { $kept }개 유지, { $dropped }개 제외
 import-loss-repeated-decor = 슬라이드 { $slides }장에서 반복되는 머리글 또는 바닥글 “{ $text }”을(를) 생략했습니다. 테마가 자체적으로 그립니다
-import-loss-no-slot = 콘텐츠를 생략했습니다. 선택한 템플릿에 놓을 자리가 없습니다
+import-loss-no-slot = 콘텐츠를 생략했습니다. 선택한 레이아웃에 놓을 자리가 없습니다
 import-loss-moved-to-notes = 텍스트를 발표자 노트로 옮겼습니다. 표지에 놓을 자리가 없습니다
 import-loss-items-dropped = 슬라이드에 요소가 너무 많습니다: 빠진 요소 { $dropped }개
 import-loss-page-fitted = 원본 페이지({ $width } × { $height } pt)가 16:9가 아닙니다. 콘텐츠를 크기 조정하여 가운데에 배치했습니다
@@ -86,7 +87,7 @@ import-loss-shape-style = { $effect ->
     [arrow] 선의 화살촉이 그려지지 않음
    *[geometry] 알 수 없는 도형이 사각형으로 표시되었습니다
 }
-import-loss-layout-dropped = 한 팩에 레이아웃이 너무 많습니다: “{ $layout }”에는 템플릿이 없어 해당 슬라이드는 빈 위젯을 쓰고 장식을 요소로 받습니다
+import-loss-layout-dropped = 한 팩에 레이아웃이 너무 많습니다: “{ $layout }”에는 위젯이 없어 해당 슬라이드는 빈 위젯을 쓰고 장식을 요소로 받습니다
 import-loss-decor-truncated = 팩 파일 크기에 맞추려고 장식을 잘랐습니다: 빠진 요소 { $omitted }개
 import-loss-table-style = 표 스타일을 근사했습니다: 고유한 셀 배경, 테두리, 열 너비, 행 높이 또는 글자 크기가 사라집니다
 import-loss-overflow = 요소 “{ $element }”이(가) 슬라이드 가장자리를 벗어납니다

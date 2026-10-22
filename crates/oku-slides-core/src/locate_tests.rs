@@ -1,4 +1,5 @@
 use crate::kinds::base;
+use crate::kinds::essentiel::BLANK;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -13,7 +14,7 @@ fn slide(v: serde_json::Value) -> Slide {
 /// imbriquée dans `blocks`.
 fn nested() -> Slide {
     slide(json!({
-        "id": "s", "kind": "content",
+        "id": "s", "kind": "essentiel/content",
         "params": {
             "title": "Titre",
             "elements": [
@@ -61,7 +62,7 @@ fn walk_child_of_slide_slot_has_no_owner_and_depth_zero() {
 
 #[test]
 fn walk_slide_without_slot_is_empty() {
-    let s = slide(json!({ "id": "s", "kind": "title" }));
+    let s = slide(json!({ "id": "s", "kind": "essentiel/title" }));
     assert_that!(s.walk().count()).is_equal_to(0);
 }
 
@@ -118,7 +119,7 @@ fn walk_deep_chain_reports_each_depth() {
         parent.params.set("children", ParamValue::Slot(vec![e]));
         e = parent;
     }
-    let mut s = Slide::new("s", "blank");
+    let mut s = Slide::new("s", BLANK);
     s.params.set("elements", ParamValue::Slot(vec![e]));
     assert_that!(s.locate("c19").map(|l| l.depth)).is_equal_to(Some(19));
 }

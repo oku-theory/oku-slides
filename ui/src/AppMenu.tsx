@@ -7,8 +7,8 @@ import type { PresentMode } from "./present";
 
 /** Ce que les entrées du menu principal déclenchent. */
 interface Props {
-  /** Mode modèles : ni présenter ni ouvrir. */
-  templatesMode: boolean;
+  /** Mode pack : ni présenter ni ouvrir. */
+  packMode: boolean;
   /** Lance la présentation. */
   present: (mode: PresentMode) => void;
   /** Ouvre un fichier. */
@@ -18,9 +18,9 @@ interface Props {
 }
 
 /** Le menu principal : ce qu'un geste fait plus vite que la voix, et l'aide. */
-export function AppMenu({ templatesMode, present, open, onHelp }: Props) {
+export function AppMenu({ packMode, present, open, onHelp }: Props) {
   const help: MenuEntry = { label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp };
-  const menuEntries: MenuEntry[] = templatesMode
+  const menuEntries: MenuEntry[] = packMode
     ? [help]
     : [
         { label: t("ui-present-screen"), shortcut: "⌘↩", onSelect: () => present("screen") },

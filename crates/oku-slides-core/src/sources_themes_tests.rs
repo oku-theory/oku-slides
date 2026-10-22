@@ -14,7 +14,7 @@ fn theme_files(name: &str) -> PackFiles {
         "id": THEME_ID.to_string(), "name": name, "description": "", "parent": null,
         "created": "2026-10-05T00:00:00Z", "tokens": { "color": { "accent": "#ff0000" } },
     });
-    PackFiles::new(manifest.as_object().cloned().unwrap(), BTreeMap::new())
+    PackFiles::new(crate::PackKind::Widgets, manifest.as_object().cloned().unwrap(), BTreeMap::new())
 }
 
 /// Pose `theme` sur le deck du bundle, en une étape d'annulation.

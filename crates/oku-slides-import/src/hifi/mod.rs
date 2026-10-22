@@ -7,11 +7,13 @@
 //! un widget par layout utilisé, schémas déclarés), puis chaque slide
 //! ([`slide`]). Le plan porte le thème et le pack (à ajouter au bundle), les
 //! schémas déclarés (que la sonde du rendu doit retrouver), les polices à
-//! embarquer, les assets, et des ops qui désignent d'abord le thème et le
-//! pack générés (`set_theme`, `add_pack` sous l'espace de noms `deck`), posent la langue du texte
-//! (`lang`, [`SourceDeck::language`]), puis ajoutent les slides
-//! (`s<numéro>`, éléments `s<numéro>-<rang>`) et leurs notes. Un modèle par
-//! widget, sa slide d'exemple étant la première slide de son layout.
+//! embarquer, les assets, et des ops qui épinglent d'abord `base` (widgets) et
+//! `essentiel` (layouts, pour le repli `essentiel/blank`), désignent le thème
+//! et le pack générés (`set_theme`, `add_pack` du pack de layouts
+//! `deck-layouts`), posent la langue du texte (`lang`,
+//! [`SourceDeck::language`]), puis ajoutent les slides (`s<numéro>`, éléments
+//! `s<numéro>-<rang>`) et leurs notes. Les valeurs d'exemple d'un widget sont
+//! les textes de la première slide de son layout.
 //!
 //! Pertes : celles du pack (fond, décor) vont à la première slide de leur
 //! layout ou de leur master, `PageFitted` à la première slide, `LayoutDropped`
@@ -35,7 +37,7 @@ mod widget;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use oku_slides_core::{Deck, Namespace, Op, PackPin, Slide, ThemeRef, WidgetRegistry, apply_all, kinds};
+use oku_slides_core::{Deck, Namespace, Op, PackKind, PackPin, Slide, ThemeRef, WidgetRegistry, apply_all, kinds};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -55,14 +57,16 @@ use crate::report::{ImportReport, Loss, LossKind, Mode, SlideReport};
 use crate::retrofit::text::note;
 use crate::source::{SourceDeck, ThemeFonts};
 
-/// La cible d'un import hi-fi : la base des widgets, son épinglage, les polices disponibles,
+/// La cible d'un import hi-fi : les packs intégrés, leurs épinglages, les polices disponibles,
 /// l'identité du thème et du pack générés.
 #[derive(Debug, Clone)]
 pub struct HifiTarget<'a> {
-    /// Le registre du cœur et du pack `base` : le pack généré s'y ajoute.
+    /// Le registre des packs intégrés `base` et `essentiel` : le pack généré s'y ajoute.
     pub registry: &'a WidgetRegistry,
     /// L'épinglage de `base` que le deck importé prend ; la session le remplit.
     pub base: PackPin,
+    /// L'épinglage d'`essentiel` que le deck importé prend ; la session le remplit.
+    pub essentiel: PackPin,
     /// Les polices de l'app et du système.
     pub fonts: &'a FontCatalog,
     /// Id du pack généré.
@@ -133,7 +137,7 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         if let Some(layout) = &src.layout
             && let Some(w) = pack.widget(layout)
         {
-            examples.entry(layout.clone()).or_insert_with(|| example(&slide, w.name.as_str()));
+            examples.entry(w.layout.clone()).or_insert_with(|| slide.clone());
         }
         assets.extend(drawn);
         origins.extend(o);
@@ -149,16 +153,27 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
     let tokens = master.map_or_else(|| masterless_tokens(&fonts), |m| theme_tokens(deck, m, &fonts, &page));
     let theme = theme_manifest(tokens, target.theme_id, &target.name, &target.created).to_files();
     let manifest = pack_manifest(&pack, target.pack_id, &target.name, &target.created, &examples);
-    let pack_files = manifest.to_files(pack.files.clone());
+    let pack_files = manifest.to_files(PackKind::Layouts, pack.files.clone());
     let (Ok(theme), Ok(pack_files)) = (theme, pack_files) else {
         debug_assert!(false, "un manifeste se sérialise toujours");
         return plan;
     };
-    // `base` d'abord : le pack généré le requiert, et les éléments sont des widgets de `base`.
-    plan.ops.push(Op::AddPack { namespace: kinds::base::namespace(), pin: target.base.clone() });
+    // `base` d'abord : le pack généré le requiert, et les éléments sont des widgets de `base` ;
+    // `essentiel` ensuite, pour les slides de repli `essentiel/blank`.
+    plan.ops.push(Op::AddPack {
+        kind: PackKind::Widgets,
+        namespace: kinds::base::namespace(),
+        pin: target.base.clone(),
+    });
+    plan.ops.push(Op::AddPack {
+        kind: PackKind::Layouts,
+        namespace: kinds::essentiel::namespace(),
+        pin: target.essentiel.clone(),
+    });
     plan.ops.push(Op::SetTheme { theme: Some(ThemeRef { id: target.theme_id, version: theme.version() }) });
     plan.ops.push(Op::AddPack {
-        namespace: Namespace::deck(),
+        kind: PackKind::Layouts,
+        namespace: Namespace::deck_layouts(),
         pin: PackPin { id: target.pack_id, version: pack_files.version(), requires: manifest.requires.clone() },
     });
     if let Some(lang) = &lang {
@@ -212,11 +227,6 @@ fn theme_families<'a>(deck: &'a SourceDeck) -> Vec<&'a str> {
         [f.major.as_str(), f.minor.as_str()].into_iter().chain(scripts).collect()
     };
     fonts.map(all).unwrap_or_default()
-}
-
-/// La slide d'exemple du modèle `template` : `slide`, sous l'id du modèle, sans notes.
-fn example(slide: &Slide, template: &str) -> Slide {
-    Slide { id: template.to_owned(), notes: String::new(), ..slide.clone() }
 }
 
 /// Attache chaque perte du pack à la première slide de son layout, sinon de

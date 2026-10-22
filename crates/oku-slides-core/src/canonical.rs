@@ -19,7 +19,7 @@ use crate::replica::PARAGRAPH_SEPARATOR;
 /// Met `deck` sous forme canonique :
 ///
 /// - prose facultative faite d'espaces → `None`, autre prose rognée (même
-///   règle que les ops `set_slide_field` et `set_deck_param`) ;
+///   règle que l'op `set_deck_param`) ;
 /// - paramètres des slides et des éléments : texte simple rogné (vide →
 ///   retiré), texte riche, slot et liste vides retirés, valeurs des items canonisées
 ///   comme des paramètres, `null` retiré ;
@@ -43,9 +43,6 @@ pub fn canonicalize(deck: &mut Deck) {
         deck.tokens = Value::Null;
     }
     for s in &mut deck.slides {
-        for field in [&mut s.name, &mut s.description] {
-            prose(field);
-        }
         if s.notes.trim().is_empty() {
             s.notes.clear();
         }

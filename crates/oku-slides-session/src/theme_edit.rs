@@ -1,6 +1,6 @@
-//! Brouillon du thème en mode modèles : le deck de travail porte ses jetons.
+//! Brouillon du thème en mode pack : le deck de travail porte ses jetons.
 //!
-//! À l'entrée du mode modèles, le deck de travail perd son thème (`theme:
+//! À l'entrée du mode pack, le deck de travail perd son thème (`theme:
 //! None`) et reçoit **tous** les jetons du thème du deck mis de côté (sa
 //! base) ; il se rend alors sur les seuls jetons par défaut (voir
 //! `Session::theme_tokens`), comme tout deck qui utiliserait ce thème. Chaque
@@ -9,7 +9,7 @@
 //! annulable (`SetTokens`), et la base suit l'annulation (`ThemeSwitch`).
 //! Renommer le thème est un simple changement d'état, sans étape.
 //!
-//! À l'enregistrement des modèles, un brouillon qui diffère de sa base
+//! À l'enregistrement du pack, un brouillon qui diffère de sa base
 //! (jetons ou nom) devient une version : nouvelle version courante d'un
 //! thème de l'utilisateur, ou copie d'un thème intégré (nouvel id, nommée
 //! « (copie) » si le nom n'a pas changé). Sinon, une base autre que le thème
@@ -27,17 +27,17 @@ use oku_slides_core::{Deck, Op, ThemeRef};
 
 use crate::deck_theme_edit::token_deck;
 use crate::error::{
-    NotEditingTemplatesSnafu, SourcesSnafu, ThemeChoiceAloneSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu,
+    NotEditingPackSnafu, SourcesSnafu, ThemeChoiceAloneSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu,
     UnknownThemeSnafu,
 };
 use crate::pack::now_created;
-use crate::templates_mode::adopt_merge_key;
+use crate::pack_mode_save::adopt_merge_key;
 use crate::theme::{DEFAULT_THEME, ThemeLibrary, ThemeManifest};
 use crate::theme_schema::{Control, default_tokens, ensure_unused, lookup, merge, spec, validate, validate_tree};
 use crate::views::EditingView;
 use crate::{Mode, Result, Session};
 
-/// Le thème édité en mode modèles : sa version de base et son nom.
+/// Le thème édité en mode pack : sa version de base et son nom.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThemeEdit {
     pub base: ThemeRef,
@@ -89,24 +89,24 @@ fn has_path(tokens: &Map<String, Value>, path: &[String]) -> bool {
     lookup(tokens, path).is_some()
 }
 
-/// Une op de jetons, vérifiée par le schéma en dehors du mode modèles : la
+/// Une op de jetons, vérifiée par le schéma en dehors du mode pack : la
 /// valeur d'une couleur ou d'une palette (règle t-194).
 fn checked_outside_drafts(path: &[String]) -> bool {
     spec(path).is_some_and(|s| matches!(s.control, Control::Color | Control::Palette))
 }
 
 impl Session {
-    /// Les jetons du deck de travail : le brouillon du thème en mode modèles.
+    /// Les jetons du deck de travail : le brouillon du thème en mode pack.
     pub(crate) fn edited_tokens(&self) -> Map<String, Value> {
         tokens_of(&self.doc.sources.deck().tokens)
     }
 
-    /// Le deck dont les aperçus (modèles, widgets) prennent le style : en mode
-    /// modèles, le deck de travail (le brouillon du thème, sans surcharges du
+    /// Le deck dont les aperçus (layouts, widgets) prennent le style : en mode
+    /// pack, le deck de travail (le brouillon du thème, sans surcharges du
     /// deck) ; sinon le deck de l'utilisateur.
     pub(crate) fn style_deck(&self) -> &Deck {
         match &self.mode {
-            Mode::Templates { .. } => self.doc.sources.deck(),
+            Mode::Pack { .. } => self.doc.sources.deck(),
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } => self.user_deck(),
         }
     }
@@ -122,7 +122,7 @@ impl Session {
     /// souvent). Le deck de l'utilisateur n'en reçoit rien : seul un
     /// enregistrement y embarque une version.
     pub(crate) fn embed_theme_base(&mut self) {
-        let Mode::Templates { theme, .. } = &self.mode else { return };
+        let Mode::Pack { theme, .. } = &self.mode else { return };
         let base = theme.base.clone();
         if self.theme_manifest(&base).is_some() {
             return;
@@ -134,16 +134,16 @@ impl Session {
 
     /// Le manifeste de la version de base du brouillon.
     fn base_manifest(&self) -> Option<ThemeManifest> {
-        let Mode::Templates { theme, .. } = &self.mode else { return None };
+        let Mode::Pack { theme, .. } = &self.mode else { return None };
         self.theme_version(&theme.base)
     }
 
-    /// Les jetons de la version de base du brouillon (vides hors mode modèles).
+    /// Les jetons de la version de base du brouillon (vides hors mode pack).
     pub(crate) fn base_tokens(&self) -> Map<String, Value> {
         self.base_manifest().map(|m| m.tokens).unwrap_or_default()
     }
 
-    /// Le thème à éditer en entrant en mode modèles, et ses jetons : celui du
+    /// Le thème à éditer en entrant en mode pack, et ses jetons : celui du
     /// deck de l'utilisateur, sinon la version courante du thème par défaut.
     pub(crate) fn initial_theme_edit(&self) -> Result<(ThemeEdit, Map<String, Value>)> {
         let base = match self.deck_theme() {
@@ -172,9 +172,9 @@ impl Session {
         base.name != edit.name || base.tokens != self.edited_tokens()
     }
 
-    /// Le mode modèles pour le snapshot : le pack et le brouillon du thème.
+    /// Le mode pack pour le snapshot : le pack et le brouillon du thème.
     pub(crate) fn editing_view(&self) -> Option<EditingView<'_>> {
-        let Mode::Templates { edit, theme, .. } = &self.mode else { return None };
+        let Mode::Pack { edit, theme, .. } = &self.mode else { return None };
         let view = ThemeEditView {
             base: theme.base.clone(),
             name: theme.name.clone(),
@@ -190,8 +190,8 @@ impl Session {
     /// Celle du deck seul pour un thème embarqué (`picked_theme`) ; ses jetons
     /// remplacent ceux du deck de travail en une étape annulable.
     pub fn set_edited_theme(&mut self, id: Uuid) -> Result<()> {
-        let Mode::Templates { theme, .. } = &self.mode else {
-            return NotEditingTemplatesSnafu.fail()?;
+        let Mode::Pack { theme, .. } = &self.mode else {
+            return NotEditingPackSnafu.fail()?;
         };
         let from = theme.clone();
         let base = self.picked_theme(id)?;
@@ -209,15 +209,15 @@ impl Session {
             return Err(e);
         }
         let after = self.edited_tokens();
-        if let Mode::Templates { switches, .. } = &mut self.mode {
+        if let Mode::Pack { switches, .. } = &mut self.mode {
             switches.push(ThemeSwitch { from, to, before, after });
         }
         Ok(())
     }
 
-    /// Le thème édité devient `edit` (en mode modèles).
+    /// Le thème édité devient `edit` (en mode pack).
     fn set_theme_edit(&mut self, edit: ThemeEdit) {
-        if let Mode::Templates { theme, .. } = &mut self.mode {
+        if let Mode::Pack { theme, .. } = &mut self.mode {
             *theme = edit;
         }
     }
@@ -226,14 +226,14 @@ impl Session {
     ///
     /// Un changement d'état, sans étape d'annulation : le nom n'est pas dans le deck.
     pub fn rename_edited_theme(&mut self, name: String) -> Result<()> {
-        if !matches!(self.mode, Mode::Templates { .. }) {
-            return NotEditingTemplatesSnafu.fail()?;
+        if !matches!(self.mode, Mode::Pack { .. }) {
+            return NotEditingPackSnafu.fail()?;
         }
         let name = match name.trim() {
             "" => self.base_manifest().map(|m| m.name).unwrap_or_default(),
             trimmed => trimmed.to_owned(),
         };
-        if let Mode::Templates { theme, .. } = &mut self.mode {
+        if let Mode::Pack { theme, .. } = &mut self.mode {
             theme.name = name;
         }
         self.doc.dirty = true;
@@ -244,7 +244,7 @@ impl Session {
     /// changement de thème (`set_edited_theme`) défait ou refait.
     pub(crate) fn realign_theme_edit(&mut self) {
         let tokens = self.edited_tokens();
-        let Mode::Templates { theme, switches, .. } = &mut self.mode else { return };
+        let Mode::Pack { theme, switches, .. } = &mut self.mode else { return };
         let undone = switches.iter().rev().find(|s| s.to.base == theme.base && s.before == tokens).map(|s| &s.from);
         let redone = || switches.iter().rev().find(|s| s.from.base == theme.base && s.after == tokens).map(|s| &s.to);
         if let Some(edit) = undone.or_else(redone) {
@@ -262,8 +262,8 @@ impl Session {
     /// brouillon d'un thème du deck seul en reste une version, jamais écrite
     /// dans la bibliothèque.
     pub(crate) fn save_theme_edit(&mut self) -> Result<Option<ThemeRef>> {
-        let Mode::Templates { theme, .. } = &self.mode else {
-            return NotEditingTemplatesSnafu.fail()?;
+        let Mode::Pack { theme, .. } = &self.mode else {
+            return NotEditingPackSnafu.fail()?;
         };
         let edit = theme.clone();
         let base = self
@@ -305,7 +305,7 @@ impl Session {
         };
         let files = self.theme_files(&r).context(ThemeVersionMissingSnafu { id: r.id, version: r.version.clone() })?;
         let name = ThemeManifest::from_files(&files).context(ThemeJsonSnafu { id: r.id })?.name;
-        if let Mode::Templates { stash, theme, switches, .. } = &mut self.mode {
+        if let Mode::Pack { stash, theme, switches, .. } = &mut self.mode {
             stash.sources.add_theme(files);
             let saved = ThemeEdit { base: r.clone(), name };
             // L'historique du deck de travail reste : les changements de base
@@ -325,11 +325,11 @@ impl Session {
     /// Le deck mis de côté passe au thème `r` (déjà embarqué), dans l'étape
     /// d'annulation de l'enregistrement du pack qui vient d'avoir lieu.
     pub(crate) fn stash_adopt_theme(&mut self, r: ThemeRef) -> Result<()> {
-        let Mode::Templates { stash, edit, .. } = &mut self.mode else {
-            return NotEditingTemplatesSnafu.fail()?;
+        let Mode::Pack { stash, edit, .. } = &mut self.mode else {
+            return NotEditingPackSnafu.fail()?;
         };
-        let label = self.localizer.tr_with("templates-adopt-label", &[("name", edit.name.as_str().into())]);
-        let merge_key = adopt_merge_key(edit.set, edit.parent.as_ref());
+        let label = self.localizer.tr_with("pack-adopt-label", &[("name", edit.name.as_str().into())]);
+        let merge_key = adopt_merge_key(edit.pack, edit.parent.as_ref());
         let mut user = stash.sources.deck().clone();
         user.theme = Some(r);
         stash.sources.apply(user, &label, Some(&merge_key)).context(SourcesSnafu)?;
@@ -337,28 +337,28 @@ impl Session {
         Ok(())
     }
 
-    /// En mode modèles, une transaction faite du seul choix d'un thème : son
+    /// En mode pack, une transaction faite du seul choix d'un thème : son
     /// id (`null` : le thème par défaut), dont le brouillon part alors
     /// (`set_edited_theme`). `None` ailleurs ou pour toute autre transaction.
     pub(crate) fn drafted_theme_choice(&self, ops: &[Op]) -> Option<Uuid> {
         match (&self.mode, ops) {
-            (Mode::Templates { .. }, [Op::SetTheme { theme }]) => Some(theme.as_ref().map_or(DEFAULT_THEME, |r| r.id)),
+            (Mode::Pack { .. }, [Op::SetTheme { theme }]) => Some(theme.as_ref().map_or(DEFAULT_THEME, |r| r.id)),
             _ => None,
         }
     }
 
     /// Vérifie les ops de jetons de `ops` avant leur application.
     ///
-    /// En mode modèles (brouillon du thème) : chaque `SetToken` passe par le
+    /// En mode pack (brouillon du thème) : chaque `SetToken` passe par le
     /// schéma, et un `UnsetToken` qui retire un jeton encore nommé ailleurs
     /// est refusé. Ailleurs : seules les couleurs et palettes des surcharges
     /// du deck sont vérifiées (t-194). Chaque op est vérifiée dans les jetons
     /// effectifs (défauts, thème, surcharges) laissés par les précédentes ; un
     /// `SetTokens` l'est feuille à feuille, selon la même règle. En mode
-    /// modèles, un `SetTheme` mêlé à d'autres ops est refusé : le thème s'y
+    /// pack, un `SetTheme` mêlé à d'autres ops est refusé : le thème s'y
     /// choisit seul (`drafted_theme_choice`), ses jetons par `SetToken`.
     pub(crate) fn check_token_ops(&self, ops: &[Op]) -> Result<()> {
-        let drafting = matches!(self.mode, Mode::Templates { .. });
+        let drafting = matches!(self.mode, Mode::Pack { .. });
         if drafting && ops.iter().any(|op| matches!(op, Op::SetTheme { .. })) {
             return ThemeChoiceAloneSnafu.fail()?;
         }

@@ -78,6 +78,8 @@ pub struct PathSettings {
     pub models: Option<PathBuf>,
     /// Packs de widgets de l'utilisateur (la bibliothèque).
     pub widgets: Option<PathBuf>,
+    /// Packs de layouts de l'utilisateur (la bibliothèque).
+    pub layouts: Option<PathBuf>,
     pub themes: Option<PathBuf>,
     /// Polices supplémentaires (TTF/OTF).
     pub fonts: Option<PathBuf>,
@@ -505,9 +507,14 @@ impl PathSettings {
         self.models.clone().unwrap_or_else(|| self.data().join("models"))
     }
 
-    /// Packs de widgets de l'utilisateur, avec leurs modèles de slides.
+    /// Packs de widgets de l'utilisateur.
     pub fn widgets(&self) -> PathBuf {
         self.widgets.clone().unwrap_or_else(|| self.data().join("widgets"))
+    }
+
+    /// Packs de layouts de l'utilisateur.
+    pub fn layouts(&self) -> PathBuf {
+        self.layouts.clone().unwrap_or_else(|| self.data().join("layouts"))
     }
 
     /// Thèmes de l'utilisateur.

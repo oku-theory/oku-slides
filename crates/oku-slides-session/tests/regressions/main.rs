@@ -27,3 +27,7 @@ mod issue_1039_new_deck_pins_base;
 mod issue_1039_replicas_know_base_hosts;
 mod issue_1040_heavy_base_content_disables_no_pack;
 mod issue_1040_heavy_base_content_spares_a_cheap_user_pack;
+mod issue_1063_new_deck_pins_essentiel_layouts;
+mod issue_1063_old_tab_set_aside_notice;
+mod issue_1068_layout_example_emptied_by_element_op;
+mod issue_1068_legacy_essentiel_copy;

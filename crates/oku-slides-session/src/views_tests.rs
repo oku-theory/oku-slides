@@ -11,20 +11,20 @@ fn tabs(widgets: &[&str], widget: Option<&str>) -> UiState {
 }
 
 #[test]
-fn sanitized_outside_templates_clears_the_tabs() {
+fn sanitized_outside_pack_clears_the_tabs() {
     let ui = tabs(&["kpi"], Some("kpi")).sanitized(false);
     assert_that!(ui.widgets).is_empty();
     assert_that!(ui.widget).is_none();
 }
 
 #[test]
-fn sanitized_in_templates_drops_invalid_and_duplicate_names() {
+fn sanitized_in_pack_mode_drops_invalid_and_duplicate_names() {
     let ui = tabs(&["kpi", "../x", "Kpi", "kpi", "_commun"], Some("kpi")).sanitized(true);
     assert_that!(ui.widgets).is_equal_to(vec!["kpi".to_owned(), "_commun".to_owned()]);
 }
 
 #[test]
-fn sanitized_in_templates_caps_the_list() {
+fn sanitized_in_pack_mode_caps_the_list() {
     let names: Vec<String> = (0..MAX_WIDGET_TABS + 10).map(|i| format!("w{i}")).collect();
     let refs: Vec<&str> = names.iter().map(String::as_str).collect();
     assert_that!(tabs(&refs, None).sanitized(true).widgets).has_length(MAX_WIDGET_TABS);
@@ -38,16 +38,16 @@ fn sanitized_with_an_active_tab_not_open_drops_it() {
 #[test]
 fn sanitized_drops_duplicate_folded_sections() {
     let ui = UiState {
-        folded: vec![PileSection::Widgets, PileSection::Templates, PileSection::Widgets],
+        folded: vec![PileSection::Widgets, PileSection::Layouts, PileSection::Widgets],
         ..UiState::default()
     };
-    assert_that!(ui.sanitized(true).folded).is_equal_to(vec![PileSection::Widgets, PileSection::Templates]);
+    assert_that!(ui.sanitized(true).folded).is_equal_to(vec![PileSection::Widgets, PileSection::Layouts]);
 }
 
 #[test]
-fn sanitized_outside_templates_keeps_folded_sections() {
-    let ui = UiState { folded: vec![PileSection::Templates], ..UiState::default() };
-    assert_that!(ui.sanitized(false).folded).is_equal_to(vec![PileSection::Templates]);
+fn sanitized_outside_pack_keeps_folded_sections() {
+    let ui = UiState { folded: vec![PileSection::Layouts], ..UiState::default() };
+    assert_that!(ui.sanitized(false).folded).is_equal_to(vec![PileSection::Layouts]);
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn ui_state_with_the_removed_current_cases_still_reads() {
     });
 }
 
-/// La pile des slides, repliée hors mode modèles, se garde comme les sections du mode modèles.
+/// La pile des slides, repliée hors mode pack, se garde comme les sections du mode pack.
 #[test]
 fn ui_state_with_the_slides_section_folded_reads() {
     let ui: UiState = serde_json::from_str(r#"{"slide":null,"folded":["slides"]}"#).unwrap();

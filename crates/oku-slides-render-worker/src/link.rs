@@ -11,7 +11,7 @@
 //!
 //! Après tout échec du lien, la requête suivante lance un travailleur neuf et
 //! lui rejoue [`ReplayState`] : langue, polices, emplacements et leurs packs
-//! (sauf les packs fautifs, remplacés par la base).
+//! (sauf les packs fautifs, écartés).
 //!
 //! Chaque connexion commence par `Hello` : un travailleur d'une autre version
 //! du protocole est refusé (`Protocol`) et arrêté. Sous macOS il tourne sous
@@ -50,6 +50,8 @@ pub(crate) fn fingerprint_hex(pack: &WirePack) -> String {
     h.update(pack.id.as_bytes());
     h.update([0]);
     h.update(pack.namespace.as_bytes());
+    h.update([0]);
+    h.update(pack.kind.files_dir().as_bytes());
     h.update([0]);
     for (name, source) in &pack.files {
         h.update(name.as_bytes());
@@ -179,7 +181,7 @@ pub(crate) struct Link {
     pub(crate) state: ReplayState,
     pub(crate) sent_fonts: HashSet<String>,
     pub(crate) sent_assets: HashSet<String>,
-    /// Empreintes (hex) des packs fautifs : rejoués avec la base.
+    /// Empreintes (hex) des packs fautifs : écartés du rejeu.
     pub(crate) faulty_packs: HashSet<String>,
     pub(crate) restarts: u64,
     started: bool,

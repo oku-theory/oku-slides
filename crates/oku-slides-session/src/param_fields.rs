@@ -12,33 +12,30 @@ pub(crate) fn label(p: &ParamSchema) -> String {
     p.label.clone().unwrap_or_else(|| p.name.clone())
 }
 
-/// La clé Fluent d'un widget du noyau ou du pack `base` ; `None` pour tout autre pack.
-fn widget_key(kind: &str) -> Option<String> {
-    match split_kind(kind) {
-        None => Some(kind.to_owned()),
-        Some((ns, name)) if kinds::base::ALL.contains(&kind) => Some(format!("{ns}-{name}")),
-        Some(_) => None,
-    }
+/// La clé Fluent d'un widget d'un pack intégré (`base`, `essentiel`) : `<pack>-<nom>` ; `None` sinon.
+pub(crate) fn kind_key(kind: &str) -> Option<String> {
+    let (ns, name) = split_kind(kind).filter(|_| kinds::is_builtin_kind(kind))?;
+    Some(format!("{ns}-{name}"))
 }
 
-/// Le nom montré du widget `kind` : son `label`, sinon le nom traduit d'un widget du noyau ou
-/// de `base` (`session-widget-kind-<clé>`, voir [`widget_key`]), sinon `kind` tel quel.
+/// Le nom montré du widget `kind` : son `label`, sinon le nom traduit d'un widget d'un pack
+/// intégré (`session-widget-kind-<clé>`, voir [`kind_key`]), sinon `kind` tel quel.
 pub(crate) fn kind_name(kind: &str, label: Option<&str>, l: &Localizer) -> String {
     match label {
         Some(label) => label.to_owned(),
-        None => widget_key(kind)
+        None => kind_key(kind)
             .and_then(|k| l.try_tr(&format!("session-widget-kind-{k}")))
             .unwrap_or_else(|| kind.to_owned()),
     }
 }
 
 /// Le nom montré du paramètre `p` du widget `kind` : son `label`, sinon le nom traduit d'un
-/// paramètre d'un widget du noyau ou de `base` (`session-param-<clé>-<nom>`, propre à chaque
-/// widget : `layout` n'a pas les mêmes valeurs dans `content` et `base/stack`), sinon son nom tel quel.
+/// paramètre d'un widget d'un pack intégré (`session-param-<clé>-<nom>`, propre à chaque widget :
+/// `layout` n'a pas les mêmes valeurs dans `essentiel/content` et `base/stack`), sinon son nom tel quel.
 pub(crate) fn param_name(kind: &str, p: &ParamSchema, l: &Localizer) -> String {
     match &p.label {
         Some(label) => label.clone(),
-        None => widget_key(kind)
+        None => kind_key(kind)
             .and_then(|k| l.try_tr(&format!("session-param-{k}-{}", p.name)))
             .unwrap_or_else(|| p.name.clone()),
     }

@@ -56,6 +56,16 @@ impl Issue {
         Self { slide: None, element: None, message: Message::new("issue-pack-pin-mismatch").arg("pack", ns.as_str()) }
     }
 
+    /// Les fichiers embarqués d'un épinglage sont d'une autre sorte que sa carte.
+    pub fn pack_kind_mismatch(ns: &Namespace) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-pack-kind-mismatch").arg("pack", ns.as_str()) }
+    }
+
+    /// Un espace de noms épinglé à la fois comme pack de widgets et de layouts.
+    pub fn pack_kind_conflict(ns: &Namespace) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-pack-kind-conflict").arg("pack", ns.as_str()) }
+    }
+
     /// Un pack du deck a besoin d'un espace de noms que le deck n'épingle pas.
     pub fn pack_requirement_missing(ns: &Namespace, required: &Namespace) -> Self {
         let message =

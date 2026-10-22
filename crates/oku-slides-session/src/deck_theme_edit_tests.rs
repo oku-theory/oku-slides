@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::TokenOp;
 use crate::library_kind::LibraryKind;
-use crate::pack::DEFAULT_PACK;
+use crate::pack::ESSENTIEL_PACK;
 use crate::pack::PackScope;
 use crate::test_support::{adopt_deck_only_theme, fresh_dir, opened_on};
 use crate::theme::{PAPIER_THEME, PRO_THEME, ThemeManifest, Themes};
@@ -113,12 +113,12 @@ fn edit_theme_with_an_invalid_token_is_refused_without_a_version() {
 }
 
 #[test]
-fn edit_theme_is_refused_while_editing_templates() {
+fn edit_theme_is_refused_while_editing_pack() {
     let data = fresh_dir("oku-slides-deck-theme-edit-");
     let mut s = session_with_theme(&data, PAPIER_THEME);
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
     let err = s.handle(Request::EditTheme { id: PAPIER_THEME, name: None, ops: vec![accent("#c0392b")] });
-    assert_that!(err.unwrap_err().kind()).is_equal_to(SessionErrorKind::EditingTemplates);
+    assert_that!(err.unwrap_err().kind()).is_equal_to(SessionErrorKind::EditingPack);
 }
 
 #[test]

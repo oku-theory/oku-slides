@@ -40,21 +40,6 @@ const surface: Surface = {
   ] as unknown as A2uiMessage[],
 };
 
-const templateSurface: Surface = {
-  ...surface,
-  id: "host-template",
-  messages: [
-    { version: "v0.9", createSurface: { surfaceId: "host-template", catalogId: CATALOG_ID } },
-    {
-      version: "v0.9",
-      updateComponents: {
-        surfaceId: "host-template",
-        components: [{ id: "root", component: "Button", label: "Modèle", action: { event: { name: "param", context: {} } } }],
-      },
-    },
-  ] as unknown as A2uiMessage[],
-};
-
 const view = { slide: { id: "s-ch1", elements: [] } } as unknown as SlideView;
 const chart = {
   id: "c1",
@@ -71,10 +56,10 @@ const plot = { id: "p1", kind: "acme/plot", params: { series: { dataset: { sourc
 const text = { id: "x1", kind: "base/text", params: {} } as unknown as Element;
 const params: HostParams = { "base/chart": { chart: "option" }, "base/table": { table: "data" }, "acme/plot": { chart: "series" } };
 
-interface Opts { selected?: Element; hostParams?: HostParams; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean; lead?: Surface;
+interface Opts { selected?: Element; hostParams?: HostParams; shown?: Surface | null; readOnly?: boolean; withView?: boolean; folded?: boolean;
   band?: number | null; onBand?: (band: number | null) => void }
 
-async function mount({ selected, hostParams = params, shown = surface, readOnly = false, withView = true, folded = false, lead, band = null, onBand = () => {} }: Opts) {
+async function mount({ selected, hostParams = params, shown = surface, readOnly = false, withView = true, folded = false, band = null, onBand = () => {} }: Opts) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
@@ -85,7 +70,6 @@ async function mount({ selected, hostParams = params, shown = surface, readOnly 
         view: withView ? view : null, readOnly, selected, hostParams, target, palette: ["#0077b6"],
         onApply: () => {}, onKind: () => {}, onSurfaceAction: () => {}, onError: () => {},
         folded, band, onBand,
-        lead: lead && { surface: lead, outcome: { current: null } },
       }),
     );
   });
@@ -207,29 +191,5 @@ describe("TargetPanel", () => {
 
   test("TargetPanel without view shows nothing", async () => {
     expect((await mount({ selected: chart, withView: false })).innerHTML).toBe("");
-  });
-
-  test("TargetPanel with a lead merges it with the target settings in one card", async () => {
-    const host = await mount({ selected: widget, lead: templateSurface });
-    const boxes = host.querySelectorAll(".host-settings");
-    const ids = [...host.querySelectorAll<HTMLElement>("[data-surface-id]")].map((e) => e.dataset.surfaceId);
-    expect([boxes.length, ids]).toEqual([1, ["host-template", "host-target"]]);
-  });
-
-  test("TargetPanel with a lead and no target settings shows the lead alone", async () => {
-    const host = await mount({ selected: widget, shown: null, lead: templateSurface });
-    const ids = [...host.querySelectorAll<HTMLElement>("[data-surface-id]")].map((e) => e.dataset.surfaceId);
-    expect(ids).toEqual(["host-template"]);
-  });
-
-  test("TargetPanel with a lead and a chart selected shows the lead beside the chart panel", async () => {
-    const host = await mount({ selected: chart, lead: templateSurface });
-    expect([!!host.querySelector('[data-surface-id="host-template"]'), !!host.querySelector(".chart-panel")]).toEqual([true, true]);
-  });
-
-  test("TargetPanel folded still shows the lead", async () => {
-    const host = await mount({ selected: widget, folded: true, lead: templateSurface });
-    const ids = [...host.querySelectorAll<HTMLElement>("[data-surface-id]")].map((e) => e.dataset.surfaceId);
-    expect(ids).toEqual(["host-template"]);
   });
 });

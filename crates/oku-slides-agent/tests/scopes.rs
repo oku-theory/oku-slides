@@ -5,7 +5,7 @@ mod common;
 use common::*;
 use oku_slides_agent::{AgentEvent, AgentState, Keep};
 use oku_slides_session::agent::{AgentScope, AgentUi};
-use oku_slides_session::pack::DEFAULT_PACK;
+use oku_slides_session::pack::BASE_PACK;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -14,11 +14,11 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 "#;
 
 fn atelier() -> AgentScope {
-    AgentScope::Atelier { pack: DEFAULT_PACK }
+    AgentScope::Atelier { pack: BASE_PACK }
 }
 
 fn widget(name: &str) -> AgentScope {
-    AgentScope::Widget { pack: DEFAULT_PACK, name: name.into() }
+    AgentScope::Widget { pack: BASE_PACK, name: name.into() }
 }
 
 /// `f` sur la session de `t-1`, hors du fil async (le stockage de la session bloque).
@@ -29,7 +29,7 @@ fn on_session<R>(h: &Harness, f: impl FnOnce(&mut oku_slides_session::Session) -
 /// `t-1` en édition du pack par défaut, avec le widget `kpi`.
 fn editing_with_kpi(h: &Harness) {
     on_session(h, |s| {
-        s.edit_templates(DEFAULT_PACK).unwrap_or_else(|e| panic!("édition du pack : {e}"));
+        s.edit_pack(BASE_PACK).unwrap_or_else(|e| panic!("édition du pack : {e}"));
         s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {e}"));
     });
 }

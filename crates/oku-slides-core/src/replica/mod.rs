@@ -65,8 +65,9 @@ const DECK_UID: &str = "deck_uid";
 const FORMAT: &str = "format";
 /// 3 : le deck en un seul `LoroTree`, suppression douce (ADR-0006).
 /// 4 : marques datées, t-770. 5 : `widgets`, packs par espace de noms (t-1011).
+/// 6 : `layouts` ; plus de nom ni de description de slide.
 /// Le changer impose de changer `SOURCES_VERSION`.
-const REPLICA_FORMAT: i64 = 5;
+const REPLICA_FORMAT: i64 = 6;
 
 /// Préfixe du message d'un commit intermédiaire d'une application (avant
 /// un `mov` de liste) : l'état qui suit n'est pas une version du deck.

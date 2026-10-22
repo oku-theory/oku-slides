@@ -47,7 +47,7 @@ export function useFileActions({ api, snap, snapRef, run, say, onOpen, onImportP
         const s = snapRef.current;
         if (!s || !wantsAutosave(s, pausedRef.current)) return;
         if (s.editing) {
-          await run(api.saveTemplates());
+          await run(api.savePack());
           return;
         }
         const saved = await run(saveGuarded(api, s));

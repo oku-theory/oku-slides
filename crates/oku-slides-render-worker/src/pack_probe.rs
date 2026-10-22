@@ -1,14 +1,15 @@
 //! Sonde d'un pack fichier par fichier, côté hôte : chaque fichier de
-//! widget est compilé seul dans le travailleur, puis le registre des seuls
-//! valides est assemblé ici : à côté du `base` intégré pour un pack d'un
-//! autre espace de noms (ses slots peuvent accepter `base/*`), avec le noyau
-//! seul pour un pack `base`. Un slot qui accepte un kind d'un autre pack
-//! (hors `base`) y reste refusé.
+//! widget est compilé seul dans le travailleur (dans le dossier de la sorte du
+//! pack), puis le registre des seuls valides est assemblé ici : à côté du
+//! `base` intégré pour un pack d'un autre espace de noms (ses slots peuvent
+//! accepter `base/*`), sur une sonde vide pour un pack `base`. Un slot qui
+//! accepte un kind d'un autre pack (hors `base`) y reste refusé, comme un
+//! widget dont la catégorie contredit la sorte du pack.
 //!
 //! Règles :
 //! - Un échec borné (délai, mémoire, arrêt) pendant la sonde d'un fichier
 //!   donne un diagnostic pour ce fichier ; aucun pack n'est accusé.
-//! - Les sondes sont gardées par `probe_key` (nom, source, `_commun`),
+//! - Les sondes sont gardées par `probe_key` (sorte, nom, source, `_commun`),
 //!   échecs bornés de la sonde compris : un fichier qui boucle ne se
 //!   recompile qu'une fois modifié, ou `_commun` modifié. Quelques sondes
 //!   par fichier sont gardées (`FileProbeCache`) : le cache ne grandit pas à
@@ -41,12 +42,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, PoisonError};
 use std::time::Instant;
 
-use oku_slides_core::{WidgetFile, WidgetRegistry, kinds};
+use oku_slides_core::{PackKind, WidgetFile, WidgetRegistry, kinds};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_render::{
-    FileProbe, Fonts, PackSet, PackWidgets, RegistryError, RenderError, assemble, assemble_set, builtin_probe,
-    core_probe, probe_key,
+    FileProbe, Fonts, PackSet, PackWidgets, RegistryError, RenderError, assemble, assemble_set, base_probe, probe_key,
 };
+use serde_json::{Value as Json, json};
 
 use crate::client::{RenderWorker, unexpected};
 use crate::protocol::{Request, Response};
@@ -61,7 +62,7 @@ pub struct PackProbe {
     pub files: BTreeMap<WidgetFile, FileProbe>,
     /// `_commun` et les widgets valides ; `None` sans widget valide.
     pub pack: Option<PackWidgets>,
-    /// La base surchargée par les widgets valides.
+    /// Le registre des widgets valides, à côté de `base` (sauf pour `base` lui-même).
     pub registry: Arc<WidgetRegistry>,
     /// Fichiers non exécutés (budget épuisé, lien indisponible) : à sonder au prochain appel.
     pub unprobed: BTreeSet<WidgetFile>,
@@ -90,7 +91,7 @@ impl RenderWorker {
                 FileProbe::broken(name, l().tr_with("probe-too-large", &[("max", (max_bytes / 1024).into())]))
             } else {
                 let common = common.filter(|_| !name.is_common());
-                self.probe_file(name, source, common, &mut budget).unwrap_or_else(|skipped| {
+                self.probe_file(pack.kind(), name, source, common, &mut budget).unwrap_or_else(|skipped| {
                     unprobed.insert(name.clone());
                     let message = match skipped {
                         Skipped::Budget => l().tr("probe-not-probed"),
@@ -103,12 +104,12 @@ impl RenderWorker {
         }
         // Les schémas ne dépendent pas des polices : celles de Typst suffisent. Un pack autre que
         // `base` s'assemble à côté du `base` intégré : ses slots peuvent accepter des kinds `base/*`.
-        let base = if pack.namespace().as_str() == kinds::base::NAMESPACE {
-            core_probe(&Fonts::default())?
+        let fixed = if pack.namespace().as_str() == kinds::base::NAMESPACE {
+            empty_probe()
         } else {
-            builtin_probe(&Fonts::default())?
+            (*base_probe(&Fonts::default())?).clone()
         };
-        let registry = assemble(&base, pack.namespace(), &mut files)?;
+        let registry = assemble(&fixed, pack.namespace(), pack.kind(), &mut files)?;
         let valid: BTreeSet<WidgetFile> =
             files.iter().filter(|(n, p)| !n.is_common() && p.is_valid()).map(|(n, _)| n.clone()).collect();
         let kept = pack.only(&valid);
@@ -117,19 +118,22 @@ impl RenderWorker {
         Ok(PackProbe { files, pack, registry, unprobed })
     }
 
-    /// Le registre de la base et des packs de `set`, déjà sondés (les fichiers
-    /// invalides en sont écartés), gardé par empreinte de l'ensemble : deux appels
-    /// pour le même ensemble donnent le même `Arc`.
+    /// Le registre des packs de `set`, déjà sondés (les fichiers invalides en
+    /// sont écartés), gardé par empreinte de l'ensemble : deux appels pour le
+    /// même ensemble donnent le même `Arc`.
     pub fn registry_of(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
         self.kept_registry(set.fingerprint(), || {
-            let base = core_probe(&Fonts::default())?;
             // Sondes gardées par `probe_key` : un pack déjà sondé ne recompile rien.
             let mut probes = set.packs().iter().map(|p| self.probe_pack(p)).collect::<Result<Vec<_>, _>>()?;
             // Un fichier non sondé manque au registre : il ne doit pas être gardé sous l'ensemble complet.
             let complete = probes.iter().all(|p| p.unprobed.is_empty());
-            let mut packs: Vec<_> =
-                set.packs().iter().map(PackWidgets::namespace).zip(probes.iter_mut().map(|p| &mut p.files)).collect();
-            Ok((assemble_set(&base, &mut packs)?, complete))
+            let mut packs: Vec<_> = set
+                .packs()
+                .iter()
+                .zip(probes.iter_mut())
+                .map(|(pack, probe)| (pack.namespace(), pack.kind(), &mut probe.files))
+                .collect();
+            Ok((assemble_set(&empty_probe(), &mut packs)?, complete))
         })
     }
 
@@ -187,18 +191,23 @@ impl RenderWorker {
     /// exécutée, [`Skipped`].
     fn probe_file(
         &self,
+        kind: PackKind,
         name: &WidgetFile,
         source: &str,
         common: Option<&str>,
         budget: &mut Budget,
     ) -> Result<FileProbe, Skipped> {
-        let key = probe_key(name, source, common);
+        let key = probe_key(kind, name, source, common);
         if let Some(p) = self.1.file_probes.lock().unwrap_or_else(PoisonError::into_inner).get(name, &key) {
             return Ok(p);
         }
         budget.spend()?;
-        let req =
-            Request::ProbeFile { name: name.to_string(), source: source.to_owned(), common: common.map(str::to_owned) };
+        let req = Request::ProbeFile {
+            kind,
+            name: name.to_string(),
+            source: source.to_owned(),
+            common: common.map(str::to_owned),
+        };
         let mut link = self.link();
         // Un échec de la préparation n'est pas celui de ce fichier : non sondé.
         self.prepare(&mut link).map_err(Skipped::Link)?;
@@ -217,6 +226,11 @@ impl RenderWorker {
         }
         Ok(probe)
     }
+}
+
+/// Une sonde sans pack : la base d'assemblage de `base` et d'un ensemble.
+fn empty_probe() -> Json {
+    json!({ "packs": [] })
 }
 
 /// Le budget de temps d'un appel : le premier fichier exécuté passe toujours.

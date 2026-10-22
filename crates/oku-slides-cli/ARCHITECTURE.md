@@ -11,12 +11,13 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
   from JSON or `.oku-slides.pdf` (`load_bundle`), embed its pack and theme, and write the
   document (`write_document`, `write_rendered`).
 - `out.rs`: `Out`, localized command output on stdout; a closed pipe ends the command.
-- `library.rs`: `deck_pack_version`, a deck's pack version beside it (`open --out`) or in the
-  library, checked against its id.
+- `library.rs`: `deck_pack_versions`, the versions of a deck's widget then layout packs, each
+  beside it (`open --out` writes `widgets/<hex>/` or `layouts/<hex>/`) or in the library, checked
+  against its id.
 - `pack_render.rs`: `render` renders a deck in memory, or in the render worker when its pack
   (`session::ProbedWidgets`) has valid widgets.
 - `import.rs`: `oku-slides import`, `ImportMode` `retrofit` or `hifi` (into the session's by `From`) gives
-  the `ImportTarget`; `session::import` applies and renders it, notes overflows (text fields past their
+  the `ImportTarget` (retrofit: the layout packs of repeated `--pack`, none = `essentiel`); `session::import` applies and renders it, notes overflows (text fields past their
   page, in retrofit boxes past the bottom margin) and, in hi-fi unless `--reference none`, scores it
   at once (the witness chosen by `session::import`, the app's `ReferenceJob::run`, then `score_deck`;
   `auto` = `[import] witness`, `office2pdf|soffice` override it, `none`; t-905); saved like `save`,

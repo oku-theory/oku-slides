@@ -54,6 +54,14 @@ fn namespace_deck_is_reserved_name() {
 }
 
 #[test]
+fn namespace_deck_layouts_is_reserved_name() {
+    assert_that!(Namespace::deck_layouts().is_deck_layouts()).is_true();
+    assert_that!(Namespace::parse("deck-layouts").unwrap().is_deck_layouts()).is_true();
+    assert_that!((Namespace::deck().is_deck_layouts(), Namespace::deck_layouts().is_deck()))
+        .is_equal_to((false, false));
+}
+
+#[test]
 fn namespace_serde_round_trips_as_string() {
     let ns: Namespace = serde_json::from_str("\"essentiel\"").unwrap();
     assert_that!(serde_json::to_string(&ns).unwrap()).is_equal_to("\"essentiel\"".to_owned());

@@ -11,8 +11,8 @@ use crate::{Session, SessionErrorKind};
 fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-preview-items-");
     let mut s = opened_on(data.path());
-    let set = crate::DEFAULT_PACK;
-    s.edit_templates(set).unwrap();
+    let set = crate::BASE_PACK;
+    s.edit_pack(set).unwrap();
     set_frise_widget(&mut s);
     (data, s)
 }
@@ -56,11 +56,9 @@ fn preview_items_of_a_list_widget_give_its_items_and_list() {
 #[test]
 fn preview_items_have_the_boxes_of_the_same_element_on_a_slide() {
     let (_d, mut s) = editing();
-    let grid = Slide::new("x", "blank").resolved_grid(&s.registry);
-    let slide = json!({
-        "op": "add_slide", "index": 0,
-        "slide": { "id": "t-frise", "kind": "blank", "name": "Frise", "params": { "elements": [{
-            "id": "apercu-element", "kind": "essentiel/frise",
+    let grid = Slide::new("x", oku_slides_core::kinds::essentiel::BLANK).resolved_grid(&s.registry);
+    let slide = json!({ "id": "t-frise", "kind": oku_slides_core::kinds::essentiel::BLANK, "params": { "elements": [{
+            "id": "apercu-element", "kind": "base/frise",
             "cell": { "col": 0, "row": 0, "cols": grid.columns, "rows": grid.rows },
             "params": { "etapes": [
                 { "id": "d0", "date": "2019", "texte": "Création" },
@@ -68,9 +66,8 @@ fn preview_items_have_the_boxes_of_the_same_element_on_a_slide() {
                 { "id": "d2", "date": "2023", "texte": "International" },
                 { "id": "d3", "date": "2025", "texte": "Série B" }
             ] }
-        }] } }
-    });
-    s.apply("Modèle", vec![serde_json::from_value(slide).unwrap()], None).unwrap();
+        }] } });
+    crate::test_support::host_slide(&mut s, slide);
     let on_slide = serde_json::to_value(s.slide("t-frise").unwrap().items).unwrap();
     let view = preview_view(&mut s);
     assert_that!(boxes(&view["items"])).is_equal_to(boxes(&on_slide));
@@ -100,13 +97,13 @@ fn preview_items_follow_the_example_values() {
 
 #[test]
 fn preview_list_edit_never_changes_the_deck() {
-    // Hors mode modèles : refusé, la frise du deck reste telle quelle.
+    // Hors mode pack : refusé, la frise du deck reste telle quelle.
     let mut s = crate::lib_tests_support::session_with_frise();
     let before = s.deck().clone();
     let err = s.edit_example_list("frise", "etapes", insert("neuf", 0)).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingPack);
     assert_that!(s.deck()).is_equal_to(&before);
-    // En mode modèles : seules les valeurs d'exemple changent, ni les modèles ni le deck mis de côté.
+    // En mode pack : seules les valeurs d'exemple changent, ni les modèles ni le deck mis de côté.
     let (_d, mut s) = editing();
     let (templates, user) = (s.deck().slides.clone(), s.user_deck().slides.clone());
     s.edit_example_list("frise", "etapes", insert("neuf", 0)).unwrap();

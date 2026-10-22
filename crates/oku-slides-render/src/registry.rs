@@ -1,8 +1,9 @@
-//! Registre des widgets : une sonde Typst par ensemble de packs (noyau, puis le
-//! module d'assemblage de chaque pack) et une sonde par fichier de widget (`widget_probe`).
+//! Registre des widgets : une sonde Typst par ensemble de packs (le module
+//! d'assemblage de chaque pack) et une sonde par fichier de widget (`widget_probe`).
+//! Le noyau ne déclare aucun widget : sans pack, le registre est vide.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use serde_json::Value as Json;
 use sha2::{Digest, Sha256};
@@ -12,9 +13,9 @@ use typst::introspection::Introspector;
 use typst::utils::PicoStr;
 use typst_layout::PagedDocument;
 
-use oku_slides_core::{Namespace, WidgetFile, WidgetRegistry};
+use oku_slides_core::{Namespace, PackKind, WidgetFile, WidgetRegistry};
 
-use crate::base_pack::base_pack_widgets;
+use crate::builtin_packs::{BuiltinPack, builtin_pack_set};
 use crate::error::{
     BadPackIdSnafu, DuplicatePackSnafu, MissingSnafu, RegistryCompileSnafu, RegistryError, SchemaSnafu, SetupSnafu,
 };
@@ -29,26 +30,28 @@ pub fn is_pack_id(id: &str) -> bool {
     !id.is_empty() && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 
-/// Les widgets d'un pack : son identifiant, son espace de noms et ses fichiers.
+/// Les widgets d'un pack : son identifiant, son espace de noms, sa sorte et ses fichiers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackWidgets {
     id: String,
     namespace: Namespace,
+    kind: PackKind,
     files: BTreeMap<WidgetFile, String>,
 }
 
 impl PackWidgets {
-    /// `id` : voir [`is_pack_id`] ; il devient un chemin.
+    /// `id` : voir [`is_pack_id`] ; il devient un chemin. `kind` fixe le dossier des fichiers.
     pub fn new(
         id: impl Into<String>,
         namespace: Namespace,
+        kind: PackKind,
         files: BTreeMap<WidgetFile, String>,
     ) -> Result<Self, RegistryError> {
         let id = id.into();
         if !is_pack_id(&id) {
             return Err(BadPackIdSnafu { id }.build().into());
         }
-        Ok(Self { id, namespace, files })
+        Ok(Self { id, namespace, kind, files })
     }
 
     /// L'identifiant du pack, servi comme dossier sous `/packs/`.
@@ -59,6 +62,11 @@ impl PackWidgets {
     /// L'espace de noms qui préfixe les widgets du pack.
     pub fn namespace(&self) -> &Namespace {
         &self.namespace
+    }
+
+    /// La sorte du pack : widgets d'élément ou layouts de slide.
+    pub fn kind(&self) -> PackKind {
+        self.kind
     }
 
     /// Les fichiers du pack, `_commun` compris.
@@ -79,15 +87,17 @@ impl PackWidgets {
             .filter(|(n, _)| n.is_common() || keep.contains(*n))
             .map(|(n, s)| (n.clone(), s.clone()))
             .collect();
-        Self { id: self.id.clone(), namespace: self.namespace.clone(), files }
+        Self { id: self.id.clone(), namespace: self.namespace.clone(), kind: self.kind, files }
     }
 
-    /// Empreinte (identifiant, espace de noms et fichiers) : clé des caches de registre.
+    /// Empreinte (identifiant, espace de noms, sorte et fichiers) : clé des caches de registre.
     pub fn fingerprint(&self) -> [u8; 32] {
         let mut h = Sha256::new();
         h.update(self.id.as_bytes());
         h.update([0]);
         h.update(self.namespace.as_str().as_bytes());
+        h.update([0]);
+        h.update(self.kind.files_dir().as_bytes());
         h.update([0]);
         for (name, source) in &self.files {
             h.update(name.as_str().as_bytes());
@@ -104,7 +114,7 @@ impl PackWidgets {
         let mut out = String::new();
         let mut names = String::new();
         for (i, name) in self.files.keys().filter(|n| !n.is_common()).enumerate() {
-            out.push_str(&format!("#import \"widgets/{}\": widget as w{i}\n", name.file_name()));
+            out.push_str(&format!("#import \"{}/{}\": widget as w{i}\n", self.kind.files_dir(), name.file_name()));
             names.push_str(&format!("w{i},"));
         }
         // Le préfixe suit `qualify` : `<namespace>/<nom>` ; l'espace de noms est contrôlé.
@@ -115,9 +125,9 @@ impl PackWidgets {
         out
     }
 
-    /// Chemin du module d'assemblage.
+    /// Chemin du module d'assemblage : `/packs/<id>/<dossier de la sorte>.typ`.
     pub(crate) fn path(&self) -> String {
-        format!("/packs/{}/widgets.typ", self.id)
+        format!("/packs/{}/{}.typ", self.id, self.kind.files_dir())
     }
 
     /// Chaque source du pack et son chemin, assemblage compris.
@@ -125,7 +135,7 @@ impl PackWidgets {
         let mut out: Vec<(String, String)> = self
             .files
             .iter()
-            .map(|(n, s)| (format!("/packs/{}/widgets/{}", self.id, n.file_name()), s.clone()))
+            .map(|(n, s)| (format!("/packs/{}/{}/{}", self.id, self.kind.files_dir(), n.file_name()), s.clone()))
             .collect();
         out.push((self.path(), self.assembly()));
         out
@@ -160,7 +170,7 @@ impl PackSet {
         &self.0
     }
 
-    /// Vrai sans aucun pack : seuls les widgets du noyau.
+    /// Vrai sans aucun pack : aucun widget.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -180,18 +190,22 @@ impl PackSet {
     }
 }
 
-/// Source de la sonde : importe le noyau et le module d'assemblage de chaque pack
-/// (`(espace de noms, chemin)`), émet leurs schémas.
-pub(crate) fn probe_source<'a>(packs: impl IntoIterator<Item = (&'a Namespace, String)>) -> String {
-    let mut s = String::from("#import \"/oku-slides/src/widgets.typ\": registry as base\n");
+/// Source de la sonde : importe le module d'assemblage de chaque pack et émet
+/// leurs schémas, avec l'espace de noms et la sorte de chacun.
+pub(crate) fn probe_source<'a>(packs: impl IntoIterator<Item = &'a PackWidgets>) -> String {
+    let mut s = String::new();
     // Un tableau Typst à un élément s'écrit `(x,)` : chaque entrée finit par une virgule.
     let mut entries = String::new();
-    for (i, (namespace, path)) in packs.into_iter().enumerate() {
-        s.push_str(&format!("#import \"{path}\": registry as pack{i}\n"));
+    for (i, p) in packs.into_iter().enumerate() {
+        s.push_str(&format!("#import \"{}\": registry as pack{i}\n", p.path()));
         // Le schéma garde le nom nu : `WidgetRegistry::from_probe` le qualifie.
-        entries.push_str(&format!("(namespace: \"{namespace}\", widgets: pack{i}.map(w => w.schema)),"));
+        entries.push_str(&format!(
+            "(namespace: \"{}\", kind: \"{}\", widgets: pack{i}.map(w => w.schema)),",
+            p.namespace,
+            p.kind.files_dir()
+        ));
     }
-    s.push_str(&format!("#metadata((base: base.map(w => w.schema), packs: ({entries})))<oku-widgets>\n"));
+    s.push_str(&format!("#metadata((packs: ({entries})))<oku-widgets>\n"));
     s
 }
 
@@ -207,90 +221,66 @@ pub(crate) fn compile_probe(world: &OkuSlidesWorld) -> Result<Json, RegistryErro
     probe_json(metadata.map(|v| serde_json::to_value(&v)))
 }
 
-/// Compile la sonde et rend son JSON brut (schémas du noyau et de chaque pack).
+/// Compile la sonde et rend son JSON brut (schémas de chaque pack).
 pub fn probe_registry(fonts: &Fonts, packs: &PackSet) -> Result<Json, RegistryError> {
     let mut world = OkuSlidesWorld::new(fonts.clone()).map_err(Box::new).context(SetupSnafu)?;
     for (path, text) in packs.sources() {
         world.add_source(&path, text).map_err(Box::new).context(SetupSnafu)?;
     }
-    world.set_main_text(&probe_source(packs.packs().iter().map(|p| (p.namespace(), p.path()))));
+    world.set_main_text(&probe_source(packs.packs()));
     compile_probe(&world)
 }
 
-/// Le registre (noyau, et widgets qualifiés des packs) décrit par le JSON d'une sonde.
+/// Le registre (widgets qualifiés des packs) décrit par le JSON d'une sonde.
 pub fn registry_from_probe(json: Json) -> Result<WidgetRegistry, RegistryError> {
     Ok(WidgetRegistry::from_probe(json).map_err(Box::new).context(SchemaSnafu)?)
 }
 
-/// Compile la sonde et lit le registre (noyau, et widgets qualifiés des packs).
+/// Compile la sonde et lit le registre (widgets qualifiés des packs).
 pub fn load_registry(fonts: &Fonts, packs: &PackSet) -> Result<WidgetRegistry, RegistryError> {
     registry_from_probe(probe_registry(fonts, packs)?)
 }
 
-/// Sonde brute du noyau, lue une fois par processus.
-static CORE_PROBE: Mutex<Option<Arc<Json>>> = Mutex::new(None);
+/// Sonde brute du pack `base` intégré, lue une fois par processus.
+static BASE_PROBE: Mutex<Option<Arc<Json>>> = Mutex::new(None);
 
-/// La sonde brute (JSON) du noyau (les slides), compilée au premier appel.
-pub fn core_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
-    let mut probe = CORE_PROBE.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(p) = probe.as_ref() {
-        return Ok(p.clone());
-    }
-    let p = Arc::new(probe_registry(fonts, &PackSet::default())?);
-    *probe = Some(p.clone());
-    Ok(p)
-}
-
-/// Registre du noyau, lu une fois par processus : la bibliothèque est dans
-/// le binaire, et les polices n'entrent pas dans les schémas.
-static CORE: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
-
-/// Le registre des widgets du noyau (les slides), sonde compilée au premier appel.
-///
-/// Les polices du premier appel servent : les schémas n'en dépendent pas.
-pub fn core_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
-    let mut core = CORE.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(r) = core.as_ref() {
-        return Ok(r.clone());
-    }
-    let r = Arc::new(registry_from_probe((*core_probe(fonts)?).clone())?);
-    *core = Some(r.clone());
-    Ok(r)
-}
-
-/// Sonde brute du noyau et du pack `base` intégré, lue une fois par processus.
-static BUILTIN_PROBE: Mutex<Option<Arc<Json>>> = Mutex::new(None);
-
-/// La sonde brute (JSON) du noyau et du pack `base` intégré, compilée au premier appel.
+/// La sonde brute (JSON) du seul pack `base` intégré, compilée au premier appel.
 ///
 /// Pour assembler un autre pack à côté de `base` : ses slots peuvent accepter
-/// des kinds `base/*`. Comme pour [`core_probe`], les polices du premier appel servent.
-pub fn builtin_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
-    let mut probe = BUILTIN_PROBE.lock().unwrap_or_else(PoisonError::into_inner);
+/// des kinds `base/*`. Les polices du premier appel servent : les schémas n'en
+/// dépendent pas.
+pub fn base_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
+    let mut probe = BASE_PROBE.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(p) = probe.as_ref() {
         return Ok(p.clone());
     }
-    let p = Arc::new(probe_registry(fonts, &PackSet::new(vec![base_pack_widgets()?])?)?);
+    let p = Arc::new(probe_registry(fonts, &PackSet::new(vec![BuiltinPack::Base.widgets()?])?)?);
     *probe = Some(p.clone());
     Ok(p)
 }
 
-/// Registre intégré, lu une fois par processus : noyau et pack `base` intégré.
+/// Registre intégré, lu une fois par processus : les packs `base` et `essentiel`.
 static BUILTIN: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
 
-/// Le registre intégré : les slides du noyau et les widgets du pack `base` intégré.
+/// Le registre intégré : les widgets de `base` et les layouts d'`essentiel`.
 ///
-/// Pour tout ce qui écrit ou valide des éléments avant que les packs du deck
-/// soient résolus (premier replica, import, aperçus). Comme pour
-/// [`core_registry`], les polices du premier appel servent.
+/// Pour tout ce qui écrit ou valide des slides et des éléments avant que les
+/// packs du deck soient résolus (premier replica, import, aperçus). Comme pour
+/// [`base_probe`], les polices du premier appel servent.
 pub fn builtin_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
     let mut builtin = BUILTIN.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(r) = builtin.as_ref() {
         return Ok(r.clone());
     }
-    let r = Arc::new(registry_from_probe((*builtin_probe(fonts)?).clone())?);
+    let r = Arc::new(load_registry(fonts, &builtin_pack_set()?)?);
     *builtin = Some(r.clone());
     Ok(r)
+}
+
+/// Le registre sans pack : vide, le même `Arc` à chaque appel.
+pub(crate) fn empty_registry() -> Arc<WidgetRegistry> {
+    static EMPTY: LazyLock<Arc<WidgetRegistry>> = LazyLock::new(Arc::default);
+    EMPTY.clone()
 }
 
 /// Sépare « la sonde n'a émis aucune métadonnée » (`Missing`) de « la
@@ -332,6 +322,7 @@ impl std::fmt::Debug for Registries {
 }
 
 impl Registries {
+    /// Des caches vides ; `fonts` sert aux sondes.
     pub fn new(fonts: Fonts) -> Self {
         Self {
             fonts,
@@ -343,19 +334,19 @@ impl Registries {
         }
     }
 
-    /// Le registre du noyau et des widgets qualifiés de `set`. Sans pack :
-    /// celui du noyau, lu une fois par processus (le même que [`crate::Renderer::new`]).
+    /// Le registre des widgets qualifiés de `set`. Sans pack : le registre
+    /// vide, le même que celui de [`crate::Renderer::new`].
     pub fn get(&mut self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
         if set.is_empty() {
-            return core_registry(&self.fonts);
+            return Ok(empty_registry());
         }
         self.entry(set)
     }
 
-    /// La sonde du fichier `name` (avec `_commun`), mémoïsée par [`probe_key`]
-    /// dans un [`FileProbeCache`].
-    pub fn probe_file(&mut self, name: &WidgetFile, source: &str, common: Option<&str>) -> FileProbe {
-        let key = probe_key(name, source, common);
+    /// La sonde du fichier `name` d'un pack de sorte `kind` (avec `_commun`),
+    /// mémoïsée par [`probe_key`] dans un [`FileProbeCache`].
+    pub fn probe_file(&mut self, kind: PackKind, name: &WidgetFile, source: &str, common: Option<&str>) -> FileProbe {
+        let key = probe_key(kind, name, source, common);
         if let Some(probe) = self.files.get(name, &key) {
             return probe;
         }
@@ -363,7 +354,7 @@ impl Registries {
         {
             self.file_compiles += 1;
         }
-        let probe = crate::widget_probe::probe_file(&self.fonts, name, source, common);
+        let probe = crate::widget_probe::probe_file(&self.fonts, kind, name, source, common);
         self.files.insert(name, key, probe.clone());
         probe
     }

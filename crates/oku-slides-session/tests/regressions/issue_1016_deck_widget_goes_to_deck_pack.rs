@@ -6,7 +6,7 @@
 //! deck seul, créé à la première écriture.
 
 use oku_slides_core::Namespace;
-use oku_slides_session::{DEFAULT_PACK, PackLibrary, PackScope, Storage};
+use oku_slides_session::{ESSENTIEL_PACK, PackLibrary, PackScope, Storage};
 use speculoos::prelude::*;
 
 use crate::common::{data_dir, fixture_path, session_in};
@@ -30,8 +30,8 @@ fn widget_written_in_deck_mode_without_a_pack_goes_to_the_deck_pack() {
     // Le pack intégré du deck n'a pas changé, ni dans le deck ni dans la bibliothèque.
     assert_that!(s.deck().widgets.get(&essentiel).cloned()).is_equal_to(before);
     let library =
-        PackLibrary::new(Some(data.as_ref().join("widgets")), Storage::local().unwrap_or_else(|e| panic!("{e}")));
-    assert_that!(library.versions(DEFAULT_PACK).len()).is_equal_to(1);
+        PackLibrary::new(Some(data.as_ref().join("widgets")), None, Storage::local().unwrap_or_else(|e| panic!("{e}")));
+    assert_that!(library.versions(ESSENTIEL_PACK).len()).is_equal_to(1);
     // Le widget est au pack `deck`, du deck seul.
     let pin = s.deck().widgets.get(&Namespace::deck()).cloned().unwrap_or_else(|| panic!("pack du deck"));
     let files = s.sources_for_tests().packs.get(&pin.version).cloned().unwrap_or_else(|| panic!("version embarquée"));

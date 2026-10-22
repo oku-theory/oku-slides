@@ -1,15 +1,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use oku_slides_core::kinds::base;
-use oku_slides_core::{Cell, Deck, Template, asset_id};
+use oku_slides_core::kinds::{base, essentiel};
+use oku_slides_core::{Cell, Deck, LayoutProfile, Namespace, asset_id};
 use speculoos::prelude::*;
 
 use super::*;
 use crate::report::RunEffect;
-use crate::retrofit::template::profiles;
+use crate::retrofit::profile::profiles;
 use crate::source::{Asset, Fill, Geometry, ItemKind, Picture, Rgba, Role, Styled};
 use crate::test_support::{
-    PAPIER, applied, colors, essentiel, grilles, item, layout, para, registry, run_with, source_deck, source_slide,
+    PAPIER, applied, colors, essentiel_profiles, item, layout, para, registry, run_with, source_deck, source_slide,
     text_box, text_item, with_role,
 };
 
@@ -22,9 +22,22 @@ fn png() -> String {
     asset_id(b"png")
 }
 
-/// Les slides `slides` projetées sur `templates` et Papier, dans l'ordre ; le
+/// Deux profils à grille du layout `essentiel/content` : `grille-vide` (12 × 6, sans bloc)
+/// et `grille-quatre` (2 × 2, quatre blocs).
+fn grids() -> Vec<(Namespace, LayoutProfile)> {
+    let grid = |id: &str, columns: u32, rows: u32, blocks: u8| {
+        let p = serde_json::json!({
+            "id": id, "name": id, "layout": "content", "role": "content", "arrangement": "grid", "blocks": blocks,
+            "title": true, "params": { "grid": { "columns": columns, "rows": rows } },
+        });
+        (essentiel::namespace(), serde_json::from_value(p).unwrap())
+    };
+    vec![grid("grille-vide", 12, 6, 0), grid("grille-quatre", 2, 2, 4)]
+}
+
+/// Les slides `slides` projetées sur les profils `list` et Papier, dans l'ordre ; le
 /// deck obtenu par `apply_all` (aucune `Issue`).
-fn project(templates: &[Template], slides: &[SourceSlide]) -> (Vec<Op>, Vec<SlideReport>, Deck) {
+fn project(list: &[(Namespace, LayoutProfile)], slides: &[SourceSlide]) -> (Vec<Op>, Vec<SlideReport>, Deck) {
     let (registry, tokens, layouts) = (registry(), colors(PAPIER), layouts());
     let assets = BTreeMap::from([(png(), Asset { mime: "image/png".into(), bytes: b"png".to_vec() })]);
     let page = PageTokens::default();
@@ -40,7 +53,7 @@ fn project(templates: &[Template], slides: &[SourceSlide]) -> (Vec<Op>, Vec<Slid
         decor: &decor,
         effects: &effects,
     };
-    let profiles = profiles(templates, &registry);
+    let profiles = profiles(list, &registry);
     let mut titled = false;
     let (mut ops, mut reports) = (Vec::new(), Vec::new());
     for s in slides {
@@ -79,42 +92,45 @@ fn block_texts(slide: &Slide, slot: &str) -> Vec<String> {
 
 #[test]
 fn project_slide_first_cover_fills_the_deck_params() {
-    let (ops, reports, deck) = project(&essentiel(), &[cover(1, "Rapport annuel", "Exercice 2026")]);
+    let (ops, reports, deck) = project(&essentiel_profiles(), &[cover(1, "Rapport annuel", "Exercice 2026")]);
     assert_that!(ops[..2].to_vec()).is_equal_to(vec![
         Op::SetDeckParam { key: "title".into(), value: "Rapport annuel".into() },
         Op::SetDeckParam { key: "subtitle".into(), value: "Exercice 2026".into() },
     ]);
-    assert_that!((deck.slides[0].kind.as_str(), deck.slides[0].params.is_empty())).is_equal_to(("title", true));
-    assert_that!((deck.params.title.as_deref(), reports[0].template.as_str()))
-        .is_equal_to((Some("Rapport annuel"), "couverture"));
+    assert_that!((deck.slides[0].kind.as_str(), deck.slides[0].params.is_empty()))
+        .is_equal_to((essentiel::TITLE, true));
+    assert_that!((deck.params.title.as_deref(), reports[0].profile.as_str()))
+        .is_equal_to((Some("Rapport annuel"), "essentiel/couverture"));
 }
 
 #[test]
 fn project_slide_later_cover_becomes_a_chapter() {
-    let (_, reports, deck) = project(&essentiel(), &[cover(1, "Rapport", "2026"), cover(2, "Partie 2", "Les comptes")]);
+    let (_, reports, deck) =
+        project(&essentiel_profiles(), &[cover(1, "Rapport", "2026"), cover(2, "Partie 2", "Les comptes")]);
     let s2 = &deck.slides[1];
     assert_that!((s2.kind.as_str(), s2.params.text("title"), s2.params.text("subtitle"))).is_equal_to((
-        "chapter",
+        essentiel::CHAPTER,
         Some("Partie 2"),
         Some("Les comptes"),
     ));
-    assert_that!((deck.params.title.as_deref(), reports[1].template.as_str()))
-        .is_equal_to((Some("Rapport"), "chapitre"));
+    assert_that!((deck.params.title.as_deref(), reports[1].profile.as_str()))
+        .is_equal_to((Some("Rapport"), "essentiel/chapitre"));
 }
 
 #[test]
 fn project_slide_title_and_body_go_to_flow_blocks() {
     let body = text_item("b", (66.0, 143.0, 828.0, 342.0), "Chiffre d'affaires en hausse");
-    let (_, reports, deck) = project(&essentiel(), &[source_slide(2, Some("l2"), vec![title("Résultats"), body])]);
+    let (_, reports, deck) =
+        project(&essentiel_profiles(), &[source_slide(2, Some("l2"), vec![title("Résultats"), body])]);
     let s = &deck.slides[0];
     assert_that!((s.id.as_str(), s.kind.as_str(), s.params.text("title"))).is_equal_to((
         "s2",
-        "content",
+        essentiel::CONTENT,
         Some("Résultats"),
     ));
     assert_that!(block_texts(s, "blocks")).is_equal_to(vec!["Chiffre d'affaires en hausse".to_owned()]);
     assert_that!(s.params.slot("blocks").unwrap()[0].id.as_str()).is_equal_to("s2-1");
-    assert_that!((reports[0].template.as_str(), reports[0].placement)).is_equal_to(("texte", Placement::Flow));
+    assert_that!((reports[0].profile.as_str(), reports[0].placement)).is_equal_to(("essentiel/texte", Placement::Flow));
 }
 
 #[test]
@@ -122,34 +138,35 @@ fn project_slide_two_columns_keep_the_split_layout_in_reading_order() {
     let right = text_item("r", (500.0, 143.0, 394.0, 300.0), "Droite");
     let left = text_item("l", (66.0, 143.0, 394.0, 300.0), "Gauche");
     let (_, reports, deck) =
-        project(&essentiel(), &[source_slide(1, Some("l2"), vec![title("Avant, après"), right, left])]);
+        project(&essentiel_profiles(), &[source_slide(1, Some("l2"), vec![title("Avant, après"), right, left])]);
     let s = &deck.slides[0];
     assert_that!(s.params.text("layout")).is_equal_to(Some("split"));
     assert_that!(block_texts(s, "blocks")).is_equal_to(vec!["Gauche".to_owned(), "Droite".to_owned()]);
-    assert_that!(reports[0].template.as_str()).is_equal_to("colonnes");
+    assert_that!(reports[0].profile.as_str()).is_equal_to("essentiel/colonnes");
 }
 
 #[test]
-fn project_slide_scattered_items_snap_to_the_template_grid() {
+fn project_slide_scattered_items_snap_to_the_profile_grid() {
     let boxes = [(60.0, 125.0), (500.0, 125.0), (60.0, 300.0), (500.0, 300.0)];
     let mut items = vec![title("Quatre idées")];
     items.extend(
         boxes.iter().enumerate().map(|(i, (x, y))| text_item(&format!("i{i}"), (*x, *y, 400.0, 150.0), "Idée")),
     );
-    let (_, reports, deck) = project(&grilles(), &[source_slide(1, Some("l2"), items)]);
+    let (_, reports, deck) = project(&grids(), &[source_slide(1, Some("l2"), items)]);
     let s = &deck.slides[0];
     let cells: Vec<Option<Cell>> = s.params.slot("elements").unwrap().iter().map(|e| e.cell).collect();
     let cell = |col, row| Some(Cell { col, row, cols: 1, rows: 1 });
     assert_that!(cells).is_equal_to(vec![cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1)]);
     assert_that!(s.params.value("grid")).is_equal_to(Some(&serde_json::json!({ "columns": 2, "rows": 2 })));
-    assert_that!((reports[0].template.as_str(), reports[0].placement)).is_equal_to(("grille-quatre", Placement::Grid));
+    assert_that!((reports[0].profile.as_str(), reports[0].placement))
+        .is_equal_to(("essentiel/grille-quatre", Placement::Grid));
 }
 
 #[test]
 fn project_slide_notes_become_a_set_notes_op() {
     let mut s = source_slide(3, Some("l2"), vec![title("Résultats")]);
     s.notes = "Dire bonjour.".into();
-    let (ops, _, deck) = project(&essentiel(), &[s]);
+    let (ops, _, deck) = project(&essentiel_profiles(), &[s]);
     assert_that!(ops.last()).is_equal_to(Some(&Op::SetNotes { slide: "s3".into(), notes: "Dire bonjour.".into() }));
     assert_that!(deck.slides[0].notes.as_str()).is_equal_to("Dire bonjour.");
 }
@@ -158,7 +175,7 @@ fn project_slide_notes_become_a_set_notes_op() {
 fn project_slide_hidden_slide_is_imported_with_a_loss() {
     let mut s = source_slide(1, Some("l2"), vec![title("Annexe")]);
     s.hidden = true;
-    let (_, reports, deck) = project(&essentiel(), &[s]);
+    let (_, reports, deck) = project(&essentiel_profiles(), &[s]);
     assert_that!(deck.slides.len()).is_equal_to(1);
     assert_that!(reports[0].losses.clone()).is_equal_to(vec![Loss::slide(LossKind::HiddenSlide)]);
 }
@@ -172,7 +189,7 @@ fn project_slide_date_footer_and_number_are_skipped() {
         with_role(text_item("f", (300.0, 500.0, 300.0, 20.0), "Confidentiel"), Role::Footer),
         with_role(text_item("n", (800.0, 500.0, 60.0, 20.0), "3"), Role::SlideNum),
     ];
-    let (_, _, deck) = project(&essentiel(), &[source_slide(1, Some("l2"), items)]);
+    let (_, _, deck) = project(&essentiel_profiles(), &[source_slide(1, Some("l2"), items)]);
     assert_that!(block_texts(&deck.slides[0], "blocks")).is_equal_to(vec!["Corps".to_owned()]);
 }
 
@@ -185,7 +202,8 @@ fn project_slide_group_falls_back_to_a_stack_with_child_losses_on_source_ids() {
         item("g/2", (300.0, 432.0, 200.0, 40.0), ItemKind::Text(text_box(vec![para(vec![underlined])]))),
     ];
     let group = item("g", (66.0, 432.0, 434.0, 40.0), ItemKind::Group { items: children, smartart: None });
-    let (_, reports, deck) = project(&essentiel(), &[source_slide(1, Some("l2"), vec![title("Processus"), group])]);
+    let (_, reports, deck) =
+        project(&essentiel_profiles(), &[source_slide(1, Some("l2"), vec![title("Processus"), group])]);
     let stack = &deck.slides[0].params.slot("blocks").unwrap()[0];
     let ids: Vec<&str> = stack.params.slot("children").unwrap().iter().map(|c| c.id.as_str()).collect();
     assert_that!((stack.kind.as_str(), ids)).is_equal_to((base::STACK, vec!["s1-1-1", "s1-1-2"]));
@@ -196,23 +214,25 @@ fn project_slide_group_falls_back_to_a_stack_with_child_losses_on_source_ids() {
 
 #[test]
 fn project_slide_subtitle_without_a_param_becomes_content() {
-    let (_, reports, deck) = project(&grilles(), &[cover(1, "Rapport annuel", "Exercice 2026")]);
+    let (_, reports, deck) = project(&grids(), &[cover(1, "Rapport annuel", "Exercice 2026")]);
     let s = &deck.slides[0];
-    assert_that!((s.kind.as_str(), s.params.text("title"))).is_equal_to(("content", Some("Rapport annuel")));
+    assert_that!((s.kind.as_str(), s.params.text("title"))).is_equal_to((essentiel::CONTENT, Some("Rapport annuel")));
     assert_that!(block_texts(s, "elements")).is_equal_to(vec!["Exercice 2026".to_owned()]);
-    assert_that!((deck.params.subtitle.as_deref(), reports[0].template.as_str()))
-        .is_equal_to((Some("Exercice 2026"), "grille-vide"));
+    assert_that!((deck.params.subtitle.as_deref(), reports[0].profile.as_str()))
+        .is_equal_to((Some("Exercice 2026"), "essentiel/grille-vide"));
 }
 
 #[test]
-fn project_slide_cover_with_content_avoids_templates_without_a_slot() {
+fn project_slide_cover_with_content_avoids_profiles_without_a_slot() {
     let logo =
         item("p", (400.0, 420.0, 160.0, 90.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
-    let (_, reports, deck) = project(&essentiel(), &[source_slide(1, Some("l1"), vec![title("Rapport"), logo])]);
+    let (_, reports, deck) =
+        project(&essentiel_profiles(), &[source_slide(1, Some("l1"), vec![title("Rapport"), logo])]);
     let s = &deck.slides[0];
-    assert_that!((s.kind.as_str(), s.params.text("title"))).is_equal_to(("content", Some("Rapport")));
+    assert_that!((s.kind.as_str(), s.params.text("title"))).is_equal_to((essentiel::CONTENT, Some("Rapport")));
     assert_that!(s.params.slot("blocks").unwrap()[0].params.text("asset")).is_equal_to(Some(png().as_str()));
-    assert_that!((deck.params.title.as_deref(), reports[0].template.as_str())).is_equal_to((Some("Rapport"), "texte"));
+    assert_that!((deck.params.title.as_deref(), reports[0].profile.as_str()))
+        .is_equal_to((Some("Rapport"), "essentiel/texte"));
 }
 
 #[test]
@@ -220,7 +240,7 @@ fn project_slide_collects_the_assets_of_its_images() {
     let registry = registry();
     let tokens = colors(PAPIER);
     let assets = BTreeMap::from([(png(), Asset { mime: "image/png".into(), bytes: b"png".to_vec() })]);
-    let (page, layouts, templates, decor) = (PageTokens::default(), layouts(), essentiel(), Decor::default());
+    let (page, layouts, list, decor) = (PageTokens::default(), layouts(), essentiel_profiles(), Decor::default());
     let effects = BTreeSet::new();
     let cx = SlideCx {
         registry: &registry,
@@ -235,7 +255,7 @@ fn project_slide_collects_the_assets_of_its_images() {
     let pic =
         item("p", (66.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
     let src = source_slide(1, Some("l2"), vec![title("Image"), pic]);
-    let p = project_slide(&src, &profiles(&templates, &registry), &mut false, &cx).unwrap();
+    let p = project_slide(&src, &profiles(&list, &registry), &mut false, &cx).unwrap();
     assert_that!(p.assets.into_iter().collect::<Vec<_>>()).is_equal_to(vec![png()]);
 }
 
@@ -250,7 +270,7 @@ fn project_slide_title_run_effects_are_lost_on_the_title_item() {
         Role::Title,
     );
     let (_, reports, _) = project(
-        &essentiel(),
+        &essentiel_profiles(),
         &[source_slide(1, Some("l2"), vec![t, text_item("b", (66.0, 143.0, 828.0, 342.0), "Corps")])],
     );
     assert_that!(reports[0].losses.clone()).is_equal_to(vec![Loss::on("t", LossKind::RunStyle(RunEffect::Strike))]);
@@ -291,7 +311,7 @@ fn conviction() -> SourceSlide {
 
 #[test]
 fn project_slide_without_placeholders_infers_its_title_and_kicker_and_makes_cards() {
-    let (_, reports, deck) = project(&essentiel(), &[conviction()]);
+    let (_, reports, deck) = project(&essentiel_profiles(), &[conviction()]);
     let s = &deck.slides[0];
     assert_that!((s.params.text("kicker"), s.params.text("title")))
         .is_equal_to((Some("OUR CONVICTION"), Some("The agent becomes the only interface")));
@@ -307,7 +327,8 @@ fn project_slide_without_placeholders_infers_its_title_and_kicker_and_makes_card
         "Corps 1".to_owned(),
         "Corps 2".to_owned(),
     ]);
-    assert_that!((reports[0].template.as_str(), s.params.text("layout"))).is_equal_to(("cartes", Some("columns")));
+    assert_that!((reports[0].profile.as_str(), s.params.text("layout")))
+        .is_equal_to(("essentiel/cartes", Some("columns")));
 }
 
 /// Une introduction et un bandeau pleine largeur autour de la rangée : agencement
@@ -324,38 +345,39 @@ fn project_slide_row_between_wide_units_becomes_a_stack_of_columns() {
     }
     slide.items.push(bare("banner", "rect", (64.0, 410.0, 832.0, 60.0)));
     slide.items.push(sized("result", (96.0, 420.0, 612.0, 20.0), "Résultat", 12.0));
-    let (_, reports, deck) = project(&essentiel(), &[slide]);
+    let (_, reports, deck) = project(&essentiel_profiles(), &[slide]);
     let s = &deck.slides[0];
     let blocks = s.params.slot("blocks").unwrap();
     let kinds: Vec<(&str, &str)> = blocks.iter().map(|e| (e.id.as_str(), e.kind.as_str())).collect();
     assert_that!(kinds).is_equal_to(vec![("s2-1", base::TEXT), ("s2-2", base::STACK), ("s2-3", base::CARD)]);
     let row: Vec<&str> = blocks[1].params.slot("children").unwrap().iter().map(|c| c.id.as_str()).collect();
     assert_that!(row).is_equal_to(vec!["s2-2-1", "s2-2-2", "s2-2-3"]);
-    assert_that!((reports[0].template.as_str(), s.params.text("layout"))).is_equal_to(("cartes", Some("default")));
+    assert_that!((reports[0].profile.as_str(), s.params.text("layout")))
+        .is_equal_to(("essentiel/cartes", Some("default")));
 }
 
 /// `libre` n'a pas de grille : les unités sont posées en cadres, leur boîte
 /// englobante ajustée dans la zone de corps.
 #[test]
-fn project_slide_on_a_free_template_places_frames_not_cells() {
+fn project_slide_on_a_free_profile_places_frames_not_cells() {
     let items = vec![
         title("Libre"),
         text_item("a", (66.0, 150.0, 300.0, 60.0), "A"),
         text_item("b", (500.0, 260.0, 300.0, 60.0), "B"),
         text_item("c", (66.0, 380.0, 700.0, 60.0), "C"),
     ];
-    let (_, reports, deck) = project(&essentiel(), &[source_slide(1, Some("l2"), items)]);
+    let (_, reports, deck) = project(&essentiel_profiles(), &[source_slide(1, Some("l2"), items)]);
     let elements = deck.slides[0].params.slot("elements").unwrap();
-    assert_that!(reports[0].template.as_str()).is_equal_to("libre");
+    assert_that!(reports[0].profile.as_str()).is_equal_to("essentiel/libre");
     assert_that!(elements.iter().all(|e| e.frame.is_some() && e.cell.is_none())).is_true();
 }
 
-/// Un modèle sans aucun slot (une couverture seule dans le pack) : le contenu
-/// est dit perdu, jamais omis en silence. Le titre, que le widget `title` lie au
+/// Un profil sans aucun slot (une couverture seule dans le pack) : le contenu
+/// est dit perdu, jamais omis en silence. Le titre, que le layout `title` lie au
 /// deck sans être une couverture, devient un contenu lui aussi.
 #[test]
 fn project_slide_content_without_a_slot_is_reported() {
-    let cover_only: Vec<Template> = essentiel().into_iter().filter(|t| t.id == "couverture").collect();
+    let cover_only: Vec<_> = essentiel_profiles().into_iter().filter(|p| p.1.id == "couverture").collect();
     let body = text_item("b", (66.0, 143.0, 828.0, 342.0), "Corps");
     let (_, reports, _) = project(&cover_only, &[source_slide(1, Some("l2"), vec![title("Seul"), body])]);
     assert_that!(reports[0].losses.clone())
@@ -365,7 +387,7 @@ fn project_slide_content_without_a_slot_is_reported() {
 #[test]
 fn project_slide_never_flows_a_bare_shape() {
     let items = vec![title("Formes"), bare("deco", "ellipse", (400.0, 200.0, 100.0, 100.0))];
-    let (_, _, deck) = project(&essentiel(), &[source_slide(1, Some("l2"), items)]);
+    let (_, _, deck) = project(&essentiel_profiles(), &[source_slide(1, Some("l2"), items)]);
     assert_that!(deck.slides[0].params.slot("blocks")).is_none();
 }
 
@@ -374,9 +396,10 @@ fn project_slide_cover_with_extra_texts_keeps_the_cover_and_moves_them_to_notes(
     let tagline = text_item("tag", (120.0, 420.0, 720.0, 40.0), "Une année de croissance");
     let mut src = source_slide(1, Some("l1"), vec![title("Rapport"), subtitle("2026"), tagline]);
     src.notes = "Accueillir le public.".into();
-    let (_, reports, deck) = project(&essentiel(), &[src]);
+    let (_, reports, deck) = project(&essentiel_profiles(), &[src]);
     let s = &deck.slides[0];
-    assert_that!((s.kind.as_str(), reports[0].template.as_str())).is_equal_to(("title", "couverture"));
+    assert_that!((s.kind.as_str(), reports[0].profile.as_str()))
+        .is_equal_to((essentiel::TITLE, "essentiel/couverture"));
     assert_that!(s.notes.as_str()).is_equal_to("Une année de croissance\n\nAccueillir le public.");
     assert_that!(reports[0].losses.clone()).is_equal_to(vec![Loss::on("tag", LossKind::MovedToNotes)]);
 }
@@ -384,7 +407,8 @@ fn project_slide_cover_with_extra_texts_keeps_the_cover_and_moves_them_to_notes(
 #[test]
 fn project_slide_effects_ignored_by_the_reader_are_lost_on_their_item() {
     let shadowed = text_item("fx", (66.0, 143.0, 828.0, 342.0), "Ombré");
-    let (_, reports, _) = project(&essentiel(), &[source_slide(2, Some("l2"), vec![title("Effets"), shadowed])]);
+    let (_, reports, _) =
+        project(&essentiel_profiles(), &[source_slide(2, Some("l2"), vec![title("Effets"), shadowed])]);
     assert_that!(reports[0].losses.clone()).is_equal_to(vec![Loss::on("fx", LossKind::Effects)]);
 }
 
@@ -396,6 +420,6 @@ fn project_slide_items_beyond_the_bound_are_dropped_with_a_loss() {
             (f64::from(u32::try_from(i % 40).unwrap()) * 20.0, f64::from(u32::try_from(i / 40).unwrap()) * 25.0);
         text_item(&format!("i{i}"), (x, 140.0 + y, 18.0, 20.0), "x")
     }));
-    let (_, reports, _) = project(&grilles(), &[source_slide(1, Some("l2"), items)]);
+    let (_, reports, _) = project(&grids(), &[source_slide(1, Some("l2"), items)]);
     assert_that!(reports[0].losses.clone()).contains(Loss::slide(LossKind::ItemsDropped { dropped: 3 }));
 }

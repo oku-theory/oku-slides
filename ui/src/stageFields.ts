@@ -4,7 +4,7 @@
  * étiquette d'un objet (sorte et case de grille).
  */
 import type { FieldView, SlideView, TextStyle } from "./api";
-import { baseName } from "./baseKinds";
+import { baseName } from "./builtinKinds";
 import { capHeight, cssFont } from "./fontMetrics";
 import type { Cell } from "./grid";
 import { cellLabel } from "./grid";

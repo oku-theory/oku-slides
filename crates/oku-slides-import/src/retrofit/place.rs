@@ -12,7 +12,7 @@ use oku_slides_core::{Cell, Element, Grid, ParamValue, Slide, WidgetRegistry};
 use super::cluster::{Unit, cells_meet, is_bare_shape, reading};
 use super::content::{ContentCx, effect_losses, element};
 use super::measure::Measure;
-use super::template::Shape;
+use super::profile::Shape;
 use super::text::{note, plain};
 use super::zone::{Fit, PageTokens, Zone, body_zone, cell_rect, grid_gap, snap, to_zone, track_size};
 use crate::report::{Loss, LossKind, Placement};
@@ -190,7 +190,7 @@ pub(crate) struct Arrange<'s, 'u, 'a> {
     pub stack: bool,
     /// Les unités vont dans les notes (couverture sans slot).
     pub to_notes: bool,
-    /// Le modèle n'a pas de grille : cadres libres, jamais accrochés.
+    /// Le profil n'a pas de grille : cadres libres, jamais accrochés.
     pub free: bool,
     /// Échelle des pt source vers la page Oku.
     pub scale: f64,

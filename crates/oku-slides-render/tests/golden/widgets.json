@@ -12,15 +12,15 @@
   "slides": [
     {
       "id": "s-titre",
-      "kind": "title"
+      "kind": "essentiel/title"
     },
     {
       "id": "s-sommaire",
-      "kind": "toc"
+      "kind": "essentiel/toc"
     },
     {
       "id": "s-chap",
-      "kind": "chapter",
+      "kind": "essentiel/chapter",
       "params": {
         "title": "Chapitre {{client}}",
         "subtitle": "Sous-titre"
@@ -28,7 +28,7 @@
     },
     {
       "id": "s-flux",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Flux",
         "kicker": "Surtitre",
@@ -156,7 +156,7 @@
     },
     {
       "id": "s-colonnes",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Colonnes",
         "layout": "columns",
@@ -200,7 +200,7 @@
     },
     {
       "id": "s-split",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Split",
         "layout": "split",
@@ -233,7 +233,7 @@
     },
     {
       "id": "s-centre",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Centre",
         "layout": "center",
@@ -258,7 +258,7 @@
     },
     {
       "id": "s-citation",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "layout": "quote",
         "blocks": [
@@ -283,7 +283,7 @@
     },
     {
       "id": "s-groupes",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Groupes",
         "blocks": [
@@ -396,7 +396,7 @@
     },
     {
       "id": "s-grille",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Grille",
         "grid": {
@@ -470,7 +470,7 @@
     },
     {
       "id": "s-nue",
-      "kind": "blank",
+      "kind": "essentiel/blank",
       "params": {
         "elements": [
           {
@@ -502,11 +502,11 @@
     },
     {
       "id": "s-fin",
-      "kind": "end",
+      "kind": "essentiel/end",
       "params": {
         "text": "Merci {{client}}"
       }
     }
   ],
-  "version": 7
+  "version": 8
 }

@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = ipucu: { $hint }
 render-chart-failed = grafik çizilemedi
 
-registry-bad-pack-id = Geçersiz şablon paketi tanımlayıcısı: { $id }
-registry-base-pack-broken = Yerleşik widget paketi bozuk ({ $file }); uygulamayı yeniden yükleyin.
-registry-duplicate-pack = Sununun iki widget paketi { $pack } değerini paylaşıyor.
-registry-compile = Şablon paketinin widget'ları derlenemedi
-registry-missing = Şablon paketi widget'larını bildirmiyor
+registry-bad-pack-id = Geçersiz paket tanımlayıcısı: { $id }
+registry-base-pack-broken = Yerleşik paket bozuk ({ $file }); uygulamayı yeniden yükleyin.
+registry-duplicate-pack = Sununun iki paket { $pack } değerini paylaşıyor.
+registry-compile = Paketin widget'ları derlenemedi
+registry-missing = Paket widget'larını bildirmiyor
 render-timeout = Oluşturma { $seconds } sn'den uzun sürdü ve durduruldu
 render-out-of-memory = Oluşturma { $mib } MiB'den fazla bellek gerektirdi ve durduruldu
 render-worker-lost = Oluşturma işlemi durdu
@@ -41,6 +41,7 @@ import-not-a-presentation = Bu dosya bir PowerPoint sunusu değil
 import-protected = Bu sunu şifreli veya eski .ppt biçiminde: önce .pptx olarak kaydedin
 import-too-large = Bu sunu içe aktarılamayacak kadar büyük
 import-output-too-large = Ortaya çıkacak sunu, içe aktarma için izin verilen boyutu aşar
+import-no-profiles = Seçilen düzen paketleri hiçbir profil önermiyor.
 import-loss-list-levels = Liste düzeyleri tek düzeye indirildi
 import-loss-merged-cells = Birleştirilmiş hücreler ayrıldı
 import-loss-percent-stacked = %100 yığılmış grafik yığılmış olarak gösterildi
@@ -74,7 +75,7 @@ import-loss-hidden-slide = Gizli slayt görünür olarak içe aktarıldı
 import-loss-effects = Gölgeler, yansımalar ve 3B efektler kayboldu
 import-loss-series-dropped = Pasta grafik tek bir seri gösterir: { $kept } korundu, { $dropped } çıkarıldı
 import-loss-repeated-decor = { $slides } slaytta tekrarlanan “{ $text }” üst veya alt bilgisi atlandı: tema kendisininkini çizer
-import-loss-no-slot = İçerik atlandı: seçilen şablonda ona yer yok
+import-loss-no-slot = İçerik atlandı: seçilen düzende ona yer yok
 import-loss-moved-to-notes = Metin konuşmacı notlarına taşındı: kapakta ona yer yok
 import-loss-items-dropped = Slaytta çok fazla öğe var: { $dropped } öğe atlandı
 import-loss-page-fitted = Kaynak sayfa ({ $width } × { $height } pt) 16:9 değil: içerik ölçeklendi ve ortalandı
@@ -86,7 +87,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Çizginin ok uçları çizilmedi
    *[geometry] Bilinmeyen şekil dikdörtgen olarak gösterildi
 }
-import-loss-layout-dropped = Bir paket için çok fazla düzen: “{ $layout }” için şablon yok; slaytları boş widget'ı kullanır ve süslemesini öğe olarak alır
+import-loss-layout-dropped = Bir paket için çok fazla düzen: “{ $layout }” için widget yok; slaytları boş widget'ı kullanır ve süslemesini öğe olarak alır
 import-loss-decor-truncated = Süsleme bir paket dosyasının boyutuna sığması için kısaltıldı: { $omitted } öğe atlandı
 import-loss-table-style = Tablo stili yaklaşık: kendi hücre arka planları, kenarlıkları, sütun genişlikleri, satır yükseklikleri veya metin boyutları kayboldu
 import-loss-overflow = “{ $element }” öğesi slaytın kenarını aşıyor

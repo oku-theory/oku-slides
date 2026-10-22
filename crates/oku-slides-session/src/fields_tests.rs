@@ -109,13 +109,14 @@ fn slide_view_element_plain_field_shows_its_param_text() {
 #[test]
 fn field_views_rich_slide_param_carries_its_markdown_text() {
     // Un widget de slide (de pack) peut déclarer un paramètre `rich`.
-    let registry = WidgetRegistry::from_probe(json!({ "base": [{
+    let registry =
+        WidgetRegistry::from_probe(json!({ "packs": [{ "namespace": "notes", "kind": "layouts", "widgets": [{
         "name": "note", "label": null, "category": "slide",
         "params": [{ "name": "body", "label": null, "type": "rich", "default": null, "bind": null }]
-    }] }))
-    .unwrap();
+    }] }] }))
+        .unwrap();
     let deck: Deck = serde_json::from_value(json!({ "slides": [{
-        "id": "s-1", "kind": "note", "params": { "body": [{ "runs": [{ "t": "Une note" }] }] }
+        "id": "s-1", "kind": "notes/note", "params": { "body": [{ "runs": [{ "t": "Une note" }] }] }
     }] }))
     .unwrap();
     let slide = deck.slide("s-1").unwrap();

@@ -292,7 +292,7 @@ fn set_witness_none_offers_no_job_and_frees_the_presentation() {
 fn retrofit_import_keeps_neither_witness_nor_presentation() {
     let data = fresh_dir("oku-slides-import-state-retrofit-");
     let platform = Platform::with_settings(settings_on(data.path())).unwrap();
-    let target = ImportTarget::Retrofit { pack: "Essentiel".into(), theme: None };
+    let target = ImportTarget::Retrofit { layouts: Vec::new(), theme: None };
     let request = ImportRequest {
         pptx: pptx_fixture(data.path(), "minimal"),
         target,

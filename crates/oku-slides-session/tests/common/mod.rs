@@ -100,10 +100,10 @@ pub fn snapshot_json(s: &mut Session) -> serde_json::Value {
     serde_json::from_str(&reply).unwrap_or_else(|e| panic!("snapshot illisible : {e}"))
 }
 
-/// Le registre de base figé (`fixtures/widgets/base-registry.json`).
+/// Le registre de base figé (`fixtures/widgets/builtin-registry.json`).
 #[allow(dead_code, reason = "lu par certains binaires de test seulement")]
 pub fn registry() -> std::sync::Arc<oku_slides_core::WidgetRegistry> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     let probe = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
     std::sync::Arc::new(oku_slides_core::WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{path} : {e}")))

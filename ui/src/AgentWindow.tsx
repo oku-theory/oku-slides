@@ -257,7 +257,7 @@ export function AgentWindowFor({
         thumbs={thumbs}
         slots={slots}
         handle={handle}
-        // Les réglages de l'hôte (modèle, cible) restent dans la fenêtre principale.
+        // Les réglages de l'hôte (widget, cible) restent dans la fenêtre principale.
         onHostAction={() => false}
         onStatus={setStatus}
         onChanged={reread}

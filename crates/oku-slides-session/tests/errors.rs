@@ -102,42 +102,42 @@ fn svg_of_missing_slide_returns_no_slide() {
 }
 
 #[test]
-fn edit_unknown_template_pack_returns_unknown_pack() {
+fn edit_unknown_pack_returns_unknown_pack() {
     let dir = workdir();
     let id = uuid::Uuid::new_v4();
-    let err = session(&dir).edit_templates(id).unwrap_err();
+    let err = session(&dir).edit_pack(id).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownPack);
     assert_that!(french(&err)).is_equal_to(format!("Pack introuvable : {id}"));
 }
 
 #[test]
-fn save_templates_while_not_editing_returns_not_editing() {
+fn save_pack_while_not_editing_returns_not_editing() {
     let dir = workdir();
-    let err = session(&dir).save_templates(false).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
-    assert_that!(french(&err)).is_equal_to("Pas de modèles en cours d'édition".to_owned());
+    let err = session(&dir).save_pack(false).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingPack);
+    assert_that!(french(&err)).is_equal_to("Pas de pack en cours d'édition".to_owned());
 }
 
 #[test]
-fn delete_builtin_template_set_is_refused() {
+fn delete_builtin_pack_is_refused() {
     let dir = workdir();
     let err = request(
         &mut session(&dir),
-        serde_json::json!({"cmd": "delete_template_set", "set": oku_slides_session::DEFAULT_PACK}),
+        serde_json::json!({"cmd": "delete_pack", "pack": oku_slides_session::ESSENTIEL_PACK}),
     )
     .unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::BuiltinTemplateSet);
-    assert_that!(french(&err)).is_equal_to("Un ensemble intégré ne se supprime pas".to_owned());
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::BuiltinPack);
+    assert_that!(french(&err)).is_equal_to("Un pack intégré ne se supprime pas".to_owned());
 }
 
 #[test]
-fn save_while_editing_templates_is_refused() {
+fn save_while_editing_pack_is_refused() {
     let dir = workdir();
     let mut s = session(&dir);
-    s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
+    s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
     let err = request(&mut s, serde_json::json!({"cmd": "save", "path": null})).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingTemplates);
-    assert_that!(french(&err)).is_equal_to("Terminez d'abord l'édition des modèles".to_owned());
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
+    assert_that!(french(&err)).is_equal_to("Terminez d'abord l'édition du pack".to_owned());
 }
 
 #[test]
@@ -146,12 +146,10 @@ fn handle_queries_answer_in_json() {
     let mut s = session(&dir);
     let schema = request(&mut s, serde_json::json!({"cmd": "schema"})).unwrap();
     assert_that!(schema).contains("set_param");
-    let sets = request(&mut s, serde_json::json!({"cmd": "template_sets"})).unwrap();
+    let sets = request(&mut s, serde_json::json!({"cmd": "packs", "kind": "layouts"})).unwrap();
     assert_that!(sets).contains("\"default\":true");
-    let templates =
-        request(&mut s, serde_json::json!({"cmd": "templates", "set": oku_slides_session::GRID_PACK.to_string()}))
-            .unwrap();
-    assert_that!(templates).contains("\"svg\":\"<svg");
+    let layouts = request(&mut s, serde_json::json!({"cmd": "layouts"})).unwrap();
+    assert_that!(layouts).contains("\"svg\":\"<svg");
     let undone = request(&mut s, serde_json::json!({"cmd": "undo"})).unwrap();
     assert_that!(undone).contains("\"can_undo\":false");
     let redone = request(&mut s, serde_json::json!({"cmd": "redo"})).unwrap();
@@ -196,7 +194,7 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
 fn open_deck_with_inline_chart_makes_its_data_editable() {
     let dir = workdir();
     let file = dir.join("deck.json");
-    let deck = serde_json::json!({ "version": 7, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [{
+    let deck = serde_json::json!({ "version": 8, "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [{
         "id": "g", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
             "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } } }] } }] });

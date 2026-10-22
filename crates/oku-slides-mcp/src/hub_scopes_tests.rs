@@ -4,7 +4,7 @@ use oku_slides_i18n::{LiveLocalizer, Localizer};
 use oku_slides_session::agent::forms::{self, AskChoice};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
 use oku_slides_session::agent::{AgentScope, KEPT_TURNS, SavedConversation, Sessions, Surface, TabSession};
-use oku_slides_session::pack::DEFAULT_PACK;
+use oku_slides_session::pack::ESSENTIEL_PACK;
 use speculoos::prelude::*;
 use uuid::Uuid;
 
@@ -353,8 +353,8 @@ fn viewing_after_resync_is_the_scope_shown() {
 #[test]
 fn rename_of_the_viewed_scope_announces_the_new_one() {
     let hub = hub();
-    let from = AgentScope::Widget { pack: DEFAULT_PACK, name: "kpi".into() };
-    let to = AgentScope::Widget { pack: DEFAULT_PACK, name: "score".into() };
+    let from = AgentScope::Widget { pack: ESSENTIEL_PACK, name: "kpi".into() };
+    let to = AgentScope::Widget { pack: ESSENTIEL_PACK, name: "score".into() };
     hub.resync(from.clone());
     let mut rx = hub.subscribe();
     hub.rename_scope(&from, &to);

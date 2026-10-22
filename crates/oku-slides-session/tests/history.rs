@@ -78,7 +78,7 @@ fn history_seek_past_the_end_shows_the_last_version() {
 fn history_seek_to_the_first_version_marks_later_slides_as_added() {
     let mut s = edited_session();
     s.handle(req(json!({ "cmd": "apply", "label": "Ajout", "ops": [
-        { "op": "add_slide", "slide": { "id": "s-neuve", "kind": "content" } }
+        { "op": "add_slide", "slide": { "id": "s-neuve", "kind": oku_slides_core::kinds::essentiel::CONTENT } }
     ] })))
     .unwrap();
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
@@ -134,7 +134,7 @@ fn history_requests_outside_the_mode_return_history_not_open() {
 }
 
 #[test]
-fn history_mode_refuses_edits_saves_merges_and_templates() {
+fn history_mode_refuses_edits_saves_merges_and_pack() {
     let mut s = edited_session();
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
     for cmd in [
@@ -145,10 +145,10 @@ fn history_mode_refuses_edits_saves_merges_and_templates() {
         json!({ "cmd": "merge", "path": "/nulle/part.oku-slides.pdf" }),
         json!({ "cmd": "chart_kind", "label": "x", "slide": "s", "element": "e", "kind": "bar" }),
         json!({ "cmd": "show_as", "label": "x", "slide": "s", "element": "e", "view": "table" }),
-        json!({ "cmd": "edit_templates", "set": uuid::Uuid::new_v4() }),
-        json!({ "cmd": "save_templates" }),
-        json!({ "cmd": "close_templates" }),
-        json!({ "cmd": "delete_template_set", "set": uuid::Uuid::new_v4() }),
+        json!({ "cmd": "edit_pack", "pack": uuid::Uuid::new_v4() }),
+        json!({ "cmd": "save_pack" }),
+        json!({ "cmd": "close_pack" }),
+        json!({ "cmd": "delete_pack", "pack": uuid::Uuid::new_v4() }),
     ] {
         let err = s.handle(req(cmd.clone())).unwrap_err();
         assert_that!(err.kind()).named(&cmd.to_string()).is_equal_to(SessionErrorKind::InHistory);

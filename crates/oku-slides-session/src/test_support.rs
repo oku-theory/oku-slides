@@ -6,9 +6,9 @@ use oku_slides_core::WidgetRegistry;
 
 use crate::{Fonts, Platform, Session, Settings, builtin_versions};
 
-/// Le registre de base figé (`fixtures/widgets/base-registry.json`).
+/// Le registre de base figé (`fixtures/widgets/builtin-registry.json`).
 pub(crate) fn registry() -> Arc<WidgetRegistry> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     let probe = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
     Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{path} : {e}")))
@@ -59,7 +59,7 @@ pub(crate) fn namespace_of(id: uuid::Uuid) -> oku_slides_core::Namespace {
     }
 }
 
-/// Un manifeste sans modèles : pack `id`, nom `name`, parente `parent`, créé à `created`.
+/// Un manifeste sans profils ni exemples : pack `id`, nom `name`, parente `parent`, créé à `created`.
 ///
 /// Son espace de noms est celui de son id ([`namespace_of`]), sans besoins.
 pub(crate) fn manifest(
@@ -77,7 +77,7 @@ pub(crate) fn manifest(
         parent: parent.cloned(),
         created: created.into(),
         scope: oku_slides_core::PackScope::Library,
-        templates: Vec::new(),
+        profiles: Vec::new(),
         examples: Default::default(),
     }
 }
@@ -95,12 +95,12 @@ pub(crate) fn widget_files(
         .collect()
 }
 
-/// L'épinglage du deck de `s` sous l'espace de noms `namespace`.
+/// L'épinglage du deck de `s` sous l'espace de noms `namespace`, de l'une ou l'autre sorte.
 pub(crate) fn pin(s: &Session, namespace: &str) -> Option<oku_slides_core::PackPin> {
-    s.deck().widgets.get(&ns(namespace)).cloned()
+    s.deck().all_pins().find(|(_, n, _)| n.as_str() == namespace).map(|(_, _, pin)| pin.clone())
 }
 
-/// Un manifeste sans modèles du pack `id` sous l'espace de noms `namespace`, avec ces besoins.
+/// Un manifeste sans profils ni exemples du pack `id` sous l'espace de noms `namespace`, avec ces besoins.
 pub(crate) fn manifest_ns(id: uuid::Uuid, namespace: &str, requires: &[&str]) -> crate::pack::PackManifest {
     crate::pack::PackManifest {
         namespace: ns(namespace),
@@ -109,35 +109,64 @@ pub(crate) fn manifest_ns(id: uuid::Uuid, namespace: &str, requires: &[&str]) ->
     }
 }
 
-/// Les fichiers de `manifest`, sans widgets.
+/// Les fichiers de `manifest`, pack de widgets sans widgets.
 pub(crate) fn files_of(manifest: &crate::pack::PackManifest) -> oku_slides_core::PackFiles {
-    manifest.to_files(Default::default()).unwrap_or_else(|e| panic!("manifeste : {e}"))
+    manifest
+        .to_files(oku_slides_core::PackKind::Widgets, Default::default())
+        .unwrap_or_else(|e| panic!("manifeste : {e}"))
 }
 
-/// Ajoute `manifest` (et ses fichiers de widgets) à `library` ; son épinglage.
+/// Ajoute `manifest` (et ses fichiers de widgets), pack de widgets, à `library` ; son épinglage.
 pub(crate) fn add_version(
-    library: &crate::library::PackLibrary,
+    library: &crate::PackLibrary,
     manifest: &crate::pack::PackManifest,
     widgets: &[(&str, &str)],
 ) -> oku_slides_core::PackPin {
-    let files = manifest.to_files(widget_files(widgets)).unwrap_or_else(|e| panic!("manifeste : {e}"));
+    add_version_of(library, oku_slides_core::PackKind::Widgets, manifest, widgets)
+}
+
+/// Ajoute `manifest` (et ses fichiers), pack de sorte `kind`, à `library` ; son épinglage.
+pub(crate) fn add_version_of(
+    library: &crate::PackLibrary,
+    kind: oku_slides_core::PackKind,
+    manifest: &crate::pack::PackManifest,
+    widgets: &[(&str, &str)],
+) -> oku_slides_core::PackPin {
+    let files = manifest.to_files(kind, widget_files(widgets)).unwrap_or_else(|e| panic!("manifeste : {e}"));
     library.add_version(manifest.id, &files).unwrap_or_else(|e| panic!("version : {}", e.one_line()));
     oku_slides_core::PackPin { id: manifest.id, version: files.version(), requires: manifest.requires.clone() }
 }
 
-/// L'op qui épingle `pin`, version de `manifest`, sous son espace de noms.
+/// L'op qui épingle `pin`, version de `manifest`, pack de widgets, sous son espace de noms.
 pub(crate) fn add_pack(manifest: &crate::pack::PackManifest, pin: &oku_slides_core::PackPin) -> oku_slides_core::Op {
-    oku_slides_core::Op::AddPack { namespace: manifest.namespace.clone(), pin: pin.clone() }
+    let kind = oku_slides_core::PackKind::Widgets;
+    oku_slides_core::Op::AddPack { kind, namespace: manifest.namespace.clone(), pin: pin.clone() }
+}
+
+/// L'id du pack de widgets `atelier` des tests (voir [`pin_atelier`]).
+pub(crate) const ATELIER: uuid::Uuid = uuid::Uuid::from_u128(0xa7e11e40_0000_4000_8000_000000000001);
+
+/// Ajoute à la bibliothèque de `s` le pack de widgets `atelier`, vide, qui requiert `base`, et le deck l'épingle.
+pub(crate) fn pin_atelier(s: &mut Session) {
+    let m = manifest_ns(ATELIER, "atelier", &["base"]);
+    let pin = add_version(&s.library, &m, &[]);
+    s.apply("Atelier", vec![add_pack(&m, &pin)], None).unwrap_or_else(|e| panic!("atelier : {}", e.one_line()));
+}
+
+/// Une bibliothèque des packs sous `data` : `widgets/` et `layouts/`, comme celle de l'app.
+pub(crate) fn pack_library(data: &std::path::Path) -> crate::PackLibrary {
+    let storage = crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    crate::PackLibrary::new(Some(data.join("widgets")), Some(data.join("layouts")), storage)
 }
 
 /// Une bibliothèque sur un dossier neuf, gardé tant qu'elle vit.
 pub(crate) struct TestLibrary {
     _dir: tempfile::TempDir,
-    library: crate::library::PackLibrary,
+    library: crate::PackLibrary,
 }
 
 impl std::ops::Deref for TestLibrary {
-    type Target = crate::library::PackLibrary;
+    type Target = crate::PackLibrary;
 
     fn deref(&self) -> &Self::Target {
         &self.library
@@ -148,7 +177,7 @@ impl std::ops::Deref for TestLibrary {
 pub(crate) fn library_with(packs: &[(&str, &[&str])]) -> TestLibrary {
     let dir = fresh_dir("oku-slides-library-with-");
     let storage = crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = crate::library::PackLibrary::new(Some(dir.path().to_owned()), storage);
+    let library = crate::PackLibrary::new(Some(dir.path().join("widgets")), Some(dir.path().join("layouts")), storage);
     for (namespace, requires) in packs {
         add_version(&library, &manifest_ns(uuid::Uuid::new_v4(), namespace, requires), &[]);
     }
@@ -156,17 +185,18 @@ pub(crate) fn library_with(packs: &[(&str, &[&str])]) -> TestLibrary {
 }
 
 /// L'épinglage de la version courante du pack `namespace` de `library`.
-pub(crate) fn current_pin(library: &crate::library::PackLibrary, namespace: &str) -> oku_slides_core::PackPin {
+pub(crate) fn current_pin(library: &crate::PackLibrary, namespace: &str) -> oku_slides_core::PackPin {
     crate::deck_closure::current_pin(library, &ns(namespace)).unwrap_or_else(|e| panic!("{}", e.one_line()))
 }
 
-/// L'op qui épingle la version courante du pack `namespace` de `library`.
-pub(crate) fn add_current(library: &crate::library::PackLibrary, namespace: &str) -> oku_slides_core::Op {
-    oku_slides_core::Op::AddPack { namespace: ns(namespace), pin: current_pin(library, namespace) }
+/// L'op qui épingle la version courante du pack de widgets `namespace` de `library`.
+pub(crate) fn add_current(library: &crate::PackLibrary, namespace: &str) -> oku_slides_core::Op {
+    let kind = oku_slides_core::PackKind::Widgets;
+    oku_slides_core::Op::AddPack { kind, namespace: ns(namespace), pin: current_pin(library, namespace) }
 }
 
 /// Un deck vide qui épingle la version courante des packs `namespaces` de `library`.
-pub(crate) fn deck_pinning(library: &crate::library::PackLibrary, namespaces: &[&str]) -> oku_slides_core::Deck {
+pub(crate) fn deck_pinning(library: &crate::PackLibrary, namespaces: &[&str]) -> oku_slides_core::Deck {
     let mut deck = oku_slides_core::Deck::empty();
     for n in namespaces {
         deck.widgets.insert(ns(n), current_pin(library, n));
@@ -225,7 +255,7 @@ pub(crate) fn session_on(data: &std::path::Path) -> Session {
 }
 
 /// La bibliothèque de la session `s`.
-pub(crate) fn library_of(s: &Session) -> &crate::library::PackLibrary {
+pub(crate) fn library_of(s: &Session) -> &crate::PackLibrary {
     &s.library
 }
 
@@ -240,19 +270,20 @@ pub(crate) fn touch_elsewhere(path: &std::path::Path) {
     std::fs::write(path, bytes).unwrap_or_else(|e| panic!("{} : {e}", path.display()));
 }
 
-/// Le deck de `s` épingle sous `deck` une copie du deck seul de son pack `essentiel`
-/// (nouvel id), embarquée ; son épinglage.
+/// Le deck de `s` épingle sous `deck` une copie du deck seul de son pack `base`
+/// (nouvel id, mêmes widgets), embarquée ; son épinglage.
 ///
 /// Comme le pack d'un import : la bibliothèque ne l'a pas.
 pub(crate) fn adopt_deck_only_pack(s: &mut Session) -> oku_slides_core::PackPin {
-    let t = s.widget_target(Some(&ns("essentiel"))).unwrap_or_else(|e| panic!("pack du deck : {}", e.one_line()));
+    let t = s.widget_target(Some(&ns("base"))).unwrap_or_else(|e| panic!("pack du deck : {}", e.one_line()));
     let mut m = crate::pack::PackManifest::from_files(&t.files).unwrap_or_else(|e| panic!("manifeste : {e}"));
     m.id = uuid::Uuid::new_v4();
     m.name = "Importé".into();
     m.namespace = oku_slides_core::Namespace::deck();
+    m.requires = vec![oku_slides_core::kinds::base::namespace()];
     m.parent = Some(t.version);
     m.scope = oku_slides_core::PackScope::Deck;
-    let files = m.to_files(t.files.widgets().clone()).unwrap_or_else(|e| panic!("manifeste : {e}"));
+    let files = m.to_files(t.kind, t.files.widgets().clone()).unwrap_or_else(|e| panic!("manifeste : {e}"));
     let pin = oku_slides_core::PackPin { id: m.id, version: files.version(), requires: m.requires.clone() };
     s.doc.sources.add_pack(files);
     s.apply("Pack importé", vec![add_pack(&m, &pin)], None)
@@ -501,4 +532,53 @@ impl std::io::Write for Log {
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
+}
+
+/// L'op qui renomme le deck (en mode pack : le pack édité) en `t`.
+pub(crate) fn rename_title(t: &str) -> oku_slides_core::Op {
+    serde_json::from_value(serde_json::json!({ "op": "set_deck_param", "key": "title", "value": t }))
+        .unwrap_or_else(|e| panic!("op : {e}"))
+}
+
+/// L'édition en cours (mode pack) de `s`.
+pub(crate) fn edit_of(s: &Session) -> crate::PackMode {
+    s.snapshot().editing.map(|e| e.mode.clone()).unwrap_or_else(|| panic!("mode pack attendu"))
+}
+
+/// Le deck mis de côté par le mode pack de `s`.
+pub(crate) fn stash_of(s: &Session) -> &crate::Document {
+    let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
+    stash
+}
+
+/// La source d'un layout `name` des tests : un widget de slide au seul paramètre `title`.
+pub(crate) fn slide_widget(name: &str) -> String {
+    format!(
+        "#import \"/oku-slides/lib.typ\": widget, field, params as p\n\
+         #let widget = widget(\"{name}\", category: \"slide\", params: (title: p.plain()), \
+         (args, ctx) => field(ctx, \"title\", args.title))\n"
+    )
+}
+
+/// Une session sur `data` dont la bibliothèque a le pack de layouts `namespace` (besoin `base`),
+/// aux layouts `layouts` ; en mode pack sur lui. Son id.
+pub(crate) fn editing_layout_pack(data: &std::path::Path, namespace: &str, layouts: &[&str]) -> (Session, uuid::Uuid) {
+    let mut s = session_on(data);
+    let m = manifest_ns(uuid::Uuid::new_v4(), namespace, &["base"]);
+    let sources: Vec<(String, String)> = layouts.iter().map(|n| ((*n).to_owned(), slide_widget(n))).collect();
+    let files: Vec<(&str, &str)> = sources.iter().map(|(n, src)| (n.as_str(), src.as_str())).collect();
+    add_version_of(&s.library, oku_slides_core::PackKind::Layouts, &m, &files);
+    s.edit_pack(m.id).unwrap_or_else(|e| panic!("mode pack : {}", e.one_line()));
+    (s, m.id)
+}
+
+/// Pose `slide` en tête du deck de travail de `s` (mode pack), sans étape ni garde des slides, et rend.
+///
+/// Une slide hôte pour montrer un widget d'élément sur une slide : le mode pack refuse `add_slide`.
+pub(crate) fn host_slide(s: &mut Session, slide: serde_json::Value) {
+    let slide: oku_slides_core::Slide = serde_json::from_value(slide).unwrap_or_else(|e| panic!("slide : {e}"));
+    let mut deck = s.doc.sources.deck().clone();
+    deck.slides.insert(0, slide);
+    s.doc.sources.apply_silent(deck).unwrap_or_else(|e| panic!("slide hôte : {e}"));
+    s.rerender().unwrap_or_else(|e| panic!("rendu : {}", e.one_line()));
 }

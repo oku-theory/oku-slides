@@ -166,7 +166,7 @@ pub(crate) fn body_zone(page: &PageTokens, titled: bool) -> Zone {
 
 /// La gouttière de `grid` en pt : un nombre tel quel, sinon `page.gap`.
 ///
-/// Un nom de jeton autre que `lg` est approché par `page.gap` : aucun modèle
+/// Un nom de jeton autre que `lg` est approché par `page.gap` : aucun profil
 /// intégré n'en déclare, et le projecteur n'émet jamais de gouttière.
 pub(crate) fn grid_gap(grid: &Grid, page: &PageTokens) -> f64 {
     match &grid.gap {

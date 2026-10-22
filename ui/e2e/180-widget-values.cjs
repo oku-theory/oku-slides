@@ -14,7 +14,7 @@ const TAB = '.widget-tab:not([hidden])';
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  // Un test précédent peut avoir laissé l'onglet en mode modèles : on y entre s'il le faut.
+  // Un test précédent peut avoir laissé l'onglet en mode pack : on y entre s'il le faut.
   await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
   const add = p.getByRole('button', { name: 'Nouveau widget' });
   if (!(await add.isVisible())) {

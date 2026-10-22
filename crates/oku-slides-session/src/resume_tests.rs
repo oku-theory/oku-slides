@@ -152,10 +152,11 @@ fn read_state_missing_returns_none() {
 #[test]
 fn write_state_then_read_state_round_trips_mode_and_ui() {
     let r = resume();
-    let v = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    let edit = TemplateMode {
-        set: crate::DEFAULT_PACK,
+    let v = crate::test_support::builtin(crate::pack::ESSENTIEL_PACK).version.clone();
+    let edit = PackMode {
+        pack: crate::ESSENTIEL_PACK,
         name: "Essentiel".into(),
+        kind: oku_slides_core::PackKind::Layouts,
         builtin: true,
         base: v.clone(),
         parent: Some(v),
@@ -177,14 +178,14 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
     };
     r.write_state(&State {
         version: VERSION,
-        mode: SavedMode::Templates(edit),
+        mode: SavedMode::Pack(edit),
         ui: ui.clone(),
         help_theme: None,
         theme_edit: None,
     })
     .unwrap();
     let back = r.read_state().unwrap().unwrap();
-    assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK)).is_true();
+    assert_that!(matches!(back.mode, SavedMode::Pack(ref m) if m.pack == crate::ESSENTIEL_PACK)).is_true();
     assert_that!(back.ui).is_equal_to(ui);
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -276,8 +277,8 @@ fn read_state_oversized_returns_access_error_too_large() {
 fn read_state_future_version_with_other_shape_returns_version_error() {
     let r = resume();
     std::fs::create_dir_all(&r.dir).unwrap();
-    std::fs::write(r.dir.join("state.json"), br#"{"version":2,"mode":{"nouveau":1}}"#).unwrap();
-    assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version: 2, .. }))).is_true();
+    std::fs::write(r.dir.join("state.json"), br#"{"version":3,"mode":{"nouveau":1}}"#).unwrap();
+    assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version: 3, .. }))).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -437,7 +438,7 @@ fn new_deck_without_handle_resumes_to_a_blank_deck() {
 /// Un pack de l'utilisateur, avec ses fichiers `widgets`.
 fn pack_files(name: &str, widgets: &[(&str, &str)]) -> oku_slides_core::PackFiles {
     let m = crate::test_support::manifest(uuid::Uuid::new_v4(), name, None, "2026-10-01T10:00:00Z");
-    m.to_files(crate::test_support::widget_files(widgets)).unwrap()
+    m.to_files(oku_slides_core::PackKind::Widgets, crate::test_support::widget_files(widgets)).unwrap()
 }
 
 /// Les fichiers `<hex>.*.typ` de `packs`.
@@ -496,7 +497,8 @@ fn write_snapshot_removes_orphan_packs() {
 /// Une version de thème de test : un `theme.json` sans widget.
 fn theme_files(name: &str) -> PackFiles {
     let manifest = serde_json::json!({ "id": uuid::Uuid::from_u128(0x554).to_string(), "name": name, "tokens": {} });
-    PackFiles::new(manifest.as_object().cloned().unwrap(), std::collections::BTreeMap::new())
+    let kind = oku_slides_core::PackKind::Widgets;
+    PackFiles::new(kind, manifest.as_object().cloned().unwrap(), std::collections::BTreeMap::new())
 }
 
 #[test]
@@ -543,13 +545,13 @@ fn set_example_value_writes_the_resume_documents() {
     let dir = temp_dir();
     let mut s = crate::test_support::opened_on(data.path());
     assert_that!(s.resume(dir.clone())).is_true();
-    let set = crate::DEFAULT_PACK;
-    s.edit_templates(set).unwrap();
+    let set = crate::BASE_PACK;
+    s.edit_pack(set).unwrap();
     let source = "#import \"/oku-slides/lib.typ\": widget, params as p\n\
                   #let widget = widget(\"essai\", params: (title: p.plain()), (args, ctx) => args.title)\n";
     s.handle(crate::Request::SetWidget { pack: None, name: "essai".into(), source: source.into() }).unwrap();
     s.flush_resume();
-    let docs = [dir.join(DECK_DIR).join("document.json"), dir.join(TEMPLATES_DIR).join("document.json")];
+    let docs = [dir.join(DECK_DIR).join("document.json"), dir.join(PACK_DIR).join("document.json")];
     for d in &docs {
         std::fs::remove_file(d).unwrap();
     }
@@ -590,41 +592,23 @@ fn read_doc_compacts_a_node_marked_before_the_delay() {
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
-/// Reprise en mode modèles sur un pack du deck seul : l'édition le reste, la bibliothèque n'en reçoit rien.
+/// Reprise en mode pack sur un pack du deck seul : l'édition le reste, la bibliothèque n'en reçoit rien.
 #[test]
-fn resume_in_templates_mode_on_a_deck_only_pack_keeps_it_deck_only() {
+fn resume_in_pack_mode_on_a_deck_only_pack_keeps_it_deck_only() {
     let dir = temp_dir();
     let data = crate::test_support::fresh_dir("oku-slides-resume-");
     let mut s = crate::test_support::session_on(data.path());
     assert_that!(s.resume(dir.clone())).is_true();
     let r = crate::test_support::adopt_deck_only_pack(&mut s);
     let before = crate::test_support::library_files(data.path());
-    s.handle(crate::Request::EditTemplates { set: r.id }).unwrap();
+    s.handle(crate::Request::EditPack { pack: r.id }).unwrap();
     s.flush_resume();
     drop(s);
     let mut back = crate::test_support::session_on(data.path());
     assert_that!(back.resume(dir.clone())).is_true();
     let edit = back.snapshot().editing.map(|e| e.mode.clone()).unwrap();
-    assert_that!((edit.set, edit.deck_only)).is_equal_to((r.id, true));
-    back.save_templates(false).unwrap();
+    assert_that!((edit.pack, edit.deck_only)).is_equal_to((r.id, true));
+    back.save_pack(false).unwrap();
     assert_that!(crate::test_support::library_files(data.path())).is_equal_to(before);
     std::fs::remove_dir_all(&dir).ok();
-}
-
-/// Un `state.json` en mode modèles écrit avant `deck_only` se relit : pack de la bibliothèque.
-#[test]
-fn read_state_in_templates_mode_without_deck_only_reads_as_a_library_pack() {
-    let r = resume();
-    std::fs::create_dir_all(&r.dir).unwrap();
-    let v = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    let edit = format!(
-        r#"{{"set":"{}","name":"Essentiel","builtin":true,"base":"{v}","parent":"{v}","session_version":null}}"#,
-        crate::DEFAULT_PACK
-    );
-    let state = format!(r#"{{"version":{VERSION},"mode":{{"templates":{edit}}},"ui":{{}}}}"#);
-    std::fs::write(r.dir.join("state.json"), state).unwrap();
-    let back = r.read_state().unwrap().unwrap();
-    assert_that!(matches!(back.mode, SavedMode::Templates(ref m) if m.set == crate::DEFAULT_PACK && !m.deck_only))
-        .is_true();
-    std::fs::remove_dir_all(&r.dir).ok();
 }

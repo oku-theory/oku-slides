@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -22,7 +22,7 @@ fn left_covered(with_table: bool) -> Deck {
     elements
         .push(json!({ "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
         "frame": { "x": 6, "y": 6, "w": 264, "h": 128 } }));
-    let deck = json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": elements } }] });
+    let deck = json!({ "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"))
 }
 

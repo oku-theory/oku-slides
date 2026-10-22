@@ -2,8 +2,8 @@
  * La carte de la cible, sous la scène : le panneau propre de l'élément sélectionné
  * (graphique ou tableau, choisi par `host_params`), sinon les paramètres de la cible
  * (`useTargetSettings`), sinon rien.
- * Hors vue, en lecture seule ou masquée depuis la barre d'outils, rien. Les réglages du
- * modèle (`lead`, mode modèles) s'affichent toujours, en tête de la fiche de la cible.
+ * Hors vue, en lecture seule ou masquée depuis la barre d'outils, rien. En mode pack, la
+ * cible d'une slide sans sélection est l'exemple de son layout.
  * Le tout dans la bande sous la scène (`.settings-band`), présente même sans carte quand
  * une carte peut venir.
  */
@@ -13,7 +13,7 @@ import type { Element, HostParams, Op, SlideView, Surface } from "./api";
 import BandDivider from "./BandDivider";
 import { bandHeight } from "./bandSplit";
 import { ChartPanel } from "./chart/ChartPanel";
-import HostSettings, { type SettingsSection } from "./HostSettings";
+import HostSettings from "./HostSettings";
 import { ownPanel } from "./hostParams";
 import { t } from "./i18n";
 import type { View } from "./table/ShowAsButton";
@@ -37,8 +37,6 @@ type Props = {
   onError: (m: string) => void;
   /** Carte masquée depuis la barre d'outils (gardé par l'hôte). */
   folded: boolean;
-  /** Réglages du modèle affiché (mode modèles), réunis en tête de la même fiche. */
-  lead?: SettingsSection;
   /** Hauteur de la bande choisie au séparateur, en px ; `null` : celle de la feuille de style. */
   band: number | null;
   /** Retient une hauteur de bande (au relâcher, au clavier, ou `null` au double-clic). */
@@ -78,27 +76,14 @@ export function TargetPanel(props: Props) {
   );
 }
 
-function cardOf({ view, readOnly, selected, hostParams, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded, lead }: Props) {
-  const alone = lead ? <HostSettings {...lead} onAction={onSurfaceAction} onError={onError} /> : null;
-  if (!view || readOnly || folded) return alone;
+function cardOf({ view, readOnly, selected, hostParams, target, palette, onApply, onKind, onShowAs, onSurfaceAction, onError, folded }: Props) {
+  if (!view || readOnly || folded) return null;
   // Données du graphique ou du tableau sélectionné : hors de la feuille, pour ne rien masquer.
   const own = ownPanel(hostParams, selected?.kind);
   if (selected && own?.panel === "chart")
-    return (
-      <>
-        {alone}
-        <ChartPanel slide={view.slide.id} element={selected} param={own.param} palette={palette} onApply={onApply} onKind={onKind} onShowAs={onShowAs} />
-      </>
-    );
+    return <ChartPanel slide={view.slide.id} element={selected} param={own.param} palette={palette} onApply={onApply} onKind={onKind} onShowAs={onShowAs} />;
   if (selected && own?.panel === "table")
-    return (
-      <>
-        {alone}
-        <TablePanel slide={view.slide.id} element={selected} param={own.param} onApply={onApply} onShowAs={onShowAs} />
-      </>
-    );
-  if (!target.surface) return alone;
-  return (
-    <HostSettings surface={target.surface} outcome={target.outcome} lead={lead} onAction={onSurfaceAction} onError={onError} />
-  );
+    return <TablePanel slide={view.slide.id} element={selected} param={own.param} onApply={onApply} onShowAs={onShowAs} />;
+  if (!target.surface) return null;
+  return <HostSettings surface={target.surface} outcome={target.outcome} onAction={onSurfaceAction} onError={onError} />;
 }

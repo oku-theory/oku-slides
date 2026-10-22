@@ -11,7 +11,7 @@ export interface PileWidgetsProps {
   /** Section ouverte (gardé par l'hôte) ; `onOpenChange` la replie ou la rouvre. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Fichier du sous-onglet actif ; `null` : « Modèles ». */
+  /** Fichier du sous-onglet actif ; `null` : la scène. */
   current: string | null;
   onOpen: (name: string) => void;
   /** Après une suppression réussie (le sous-onglet se ferme). */

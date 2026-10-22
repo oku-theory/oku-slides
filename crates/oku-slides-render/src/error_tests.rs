@@ -79,11 +79,22 @@ fn remote_failure_has_its_own_message_not_the_setup_one(#[case] locale: &str) {
 #[rstest]
 #[case("en", "reinstall the app")]
 #[case("fr", "réinstallez")]
-fn base_pack_failure_is_its_own_kind_and_localizes_with_its_file(#[case] locale: &str, #[case] fragment: &str) {
+fn builtin_pack_failure_is_its_own_kind_and_localizes_with_its_file(#[case] locale: &str, #[case] fragment: &str) {
     let l = Localizer::new(Some(locale));
-    let e: RegistryError = BasePackSnafu { file: "widgets.json".to_owned() }.build().into();
-    assert_that!(e.kind()).is_equal_to(RegistryErrorKind::BasePack);
+    let e: RegistryError = BuiltinPackSnafu { file: "essentiel/layouts.json".to_owned() }.build().into();
+    assert_that!(e.kind()).is_equal_to(RegistryErrorKind::BuiltinPack);
     let text = e.localize(&l);
-    assert_that!(text).contains("widgets.json");
+    assert_that!(text).contains("essentiel/layouts.json");
     assert_that!(text).contains(fragment);
+}
+
+#[test]
+fn schema_from_a_widget_error_keeps_it() {
+    let source = oku_slides_core::WidgetError::bad_schema("cover", oku_slides_core::SchemaFault::PackCategory);
+    let e = RegistryError::schema(source);
+    let kinds = (e.kind(), e.widget_error().map(oku_slides_core::WidgetError::kind));
+    assert_that!(kinds).is_equal_to((
+        RegistryErrorKind::Schema,
+        Some(oku_slides_core::WidgetErrorKind::BadSchema(oku_slides_core::SchemaFault::PackCategory)),
+    ));
 }

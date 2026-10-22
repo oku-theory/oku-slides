@@ -41,25 +41,25 @@ pub(crate) struct ChartKindArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub(crate) struct SetArgs {
-    /// Id d'un pack de modèles (UUID, voir `templates`).
-    pub set: String,
+pub(crate) struct PackIdArgs {
+    /// Id d'un pack (UUID, voir `packs`).
+    pub pack: String,
 }
 
-impl SetArgs {
+impl PackIdArgs {
     /// L'id du pack ; un texte qui n'est pas un UUID est refusé par un
-    /// message qui renvoie l'agent vers `templates`.
-    pub(crate) fn pack(&self) -> Result<uuid::Uuid, ToolError> {
-        uuid::Uuid::parse_str(&self.set).context(PackIdSnafu)
+    /// message qui renvoie l'agent vers `packs`.
+    pub(crate) fn id(&self) -> Result<uuid::Uuid, ToolError> {
+        uuid::Uuid::parse_str(&self.pack).context(PackIdSnafu)
     }
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub(crate) struct EditTemplatesArgs {
-    /// Id d'un pack de modèles (UUID, voir `templates`) ; absent : le pack principal du deck (un
-    /// pack de la bibliothèque autre que `base`, sinon son pack propre).
+pub(crate) struct EditPackArgs {
+    /// Id d'un pack (UUID, voir `packs`) ; absent : le pack principal du deck (son pack de layouts
+    /// propre, sinon son pack de widgets propre, sinon un pack non intégré, sinon Essentiel).
     #[serde(default)]
-    pub set: Option<String>,
+    pub pack: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -121,28 +121,27 @@ impl Tools {
         self.change(Request::ShowAs { label, slide, element, view }).await
     }
 
-    pub(crate) async fn edit_templates(&self, args: Value) -> CallToolResult {
-        let set = match self.parse::<EditTemplatesArgs>(args) {
-            Ok(EditTemplatesArgs { set: Some(set) }) => SetArgs { set }.pack(),
-            // Le pack du deck, choisi comme l'interface (`firstPackId`) : un pack ni `deck` ni
-            // `base`, sinon un autre que `base`, sinon le premier épinglé.
-            Ok(EditTemplatesArgs { set: None }) => {
-                match self.with_session(|s| Ok(main_pack(s.snapshot().widgets))).await {
-                    Ok(Some(set)) => Ok(set),
+    pub(crate) async fn edit_pack(&self, args: Value) -> CallToolResult {
+        let pack = match self.parse::<EditPackArgs>(args) {
+            Ok(EditPackArgs { pack: Some(pack) }) => PackIdArgs { pack }.id(),
+            // Le pack du deck, choisi comme l'interface (`firstPackId`).
+            Ok(EditPackArgs { pack: None }) => {
+                match self.with_session(|s| Ok(main_pack(s.snapshot().widgets, s.snapshot().layouts))).await {
+                    Ok(Some(pack)) => Ok(pack),
                     Ok(None) => Err(NoPackSnafu.build()),
                     Err(e) => Err(e),
                 }
             }
             Err(r) => return r,
         };
-        match set {
-            Ok(set) => self.change(Request::EditTemplates { set }).await,
+        match pack {
+            Ok(pack) => self.change(Request::EditPack { pack }).await,
             Err(e) => self.fail_with(e),
         }
     }
 
-    pub(crate) async fn close_templates(&self) -> CallToolResult {
-        self.change(Request::CloseTemplates).await
+    pub(crate) async fn close_pack(&self) -> CallToolResult {
+        self.change(Request::ClosePack).await
     }
 
     pub(crate) fn focus(&self, args: Value) -> CallToolResult {
@@ -156,14 +155,26 @@ impl Tools {
     }
 }
 
-/// Le pack à éditer quand l'agent n'en nomme pas, choisi comme `firstPackId` côté interface :
-/// un pack ni `deck` ni `base`, sinon un autre que `base`, sinon le premier épinglé.
-pub(crate) fn main_pack(pins: &BTreeMap<Namespace, PackPin>) -> Option<uuid::Uuid> {
-    let is_base = |ns: &Namespace| ns.as_str() == oku_slides_core::kinds::base::NAMESPACE;
-    pins.iter()
-        .find(|(ns, _)| !ns.is_deck() && !is_base(ns))
-        .or_else(|| pins.iter().find(|(ns, _)| !is_base(ns)))
-        .or_else(|| pins.iter().next())
+/// Le pack à éditer quand l'agent n'en nomme pas, choisi comme `firstPackId` côté interface.
+///
+/// Le pack de layouts propre du deck, sinon son pack de widgets propre, sinon le premier pack non
+/// intégré (layouts d'abord), sinon Essentiel, enfin `base`.
+pub(crate) fn main_pack(
+    widgets: &BTreeMap<Namespace, PackPin>,
+    layouts: &BTreeMap<Namespace, PackPin>,
+) -> Option<uuid::Uuid> {
+    use oku_slides_core::kinds::{base, essentiel};
+    let builtin = |ns: &Namespace| ns.as_str() == base::NAMESPACE || ns.as_str() == essentiel::NAMESPACE;
+    let own = |(ns, _): &(&Namespace, &PackPin)| !ns.is_deck() && !ns.is_deck_layouts() && !builtin(ns);
+    let named = |name: &'static str| move |(ns, _): &(&Namespace, &PackPin)| ns.as_str() == name;
+    layouts
+        .iter()
+        .find(|(ns, _)| ns.is_deck_layouts())
+        .or_else(|| widgets.iter().find(|(ns, _)| ns.is_deck()))
+        .or_else(|| layouts.iter().find(own))
+        .or_else(|| widgets.iter().find(own))
+        .or_else(|| layouts.iter().find(named(essentiel::NAMESPACE)))
+        .or_else(|| widgets.iter().find(named(base::NAMESPACE)))
         .map(|(_, pin)| pin.id)
 }
 

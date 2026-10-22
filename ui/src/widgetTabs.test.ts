@@ -23,8 +23,8 @@ describe("widgetTabs", () => {
     expect(activeName(s)).toBe("a");
   });
 
-  // Décision : à gauche du premier sous-onglet, il y a « Modèles ».
-  test("closed du premier actif revient à Modèles", () => {
+  // Décision : fermer le premier sous-onglet actif rend la scène, pas « Thème ».
+  test("closed du premier actif revient à la scène", () => {
     let s = opened(opened(NO_TABS, "a"), "b");
     s = closed(activated(s, s.tabs[0].id), s.tabs[0].id);
     expect(s.active).toBeNull();
@@ -43,7 +43,7 @@ describe("widgetTabs", () => {
     expect(r.tabs[0].id).toBe(s.tabs[0].id);
   });
 
-  test("pruned retire les noms disparus ; actif disparu → Modèles", () => {
+  test("pruned retire les noms disparus ; actif disparu → la scène", () => {
     const s = pruned(opened(opened(NO_TABS, "a"), "b"), new Set(["a"]));
     expect(names(s)).toEqual(["a"]);
     expect(s.active).toBeNull();

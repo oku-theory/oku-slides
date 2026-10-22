@@ -377,7 +377,7 @@ fn theme_field(template: serde_json::Value) -> ParamField {
 }
 
 #[test]
-fn params_surface_valid_template_goes_to_the_thread() {
+fn params_surface_valid_layout_goes_to_the_thread() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     let spec = ShowParams {
@@ -817,14 +817,14 @@ fn turn_groups_every_apply_into_one_undo() {
 }
 
 #[test]
-fn end_turn_after_edit_templates_closes_stashed_group_too() {
+fn end_turn_after_edit_pack_closes_stashed_group_too() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.begin_turn(1, "modèles");
     s.apply("a", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
-    s.edit_templates(oku_slides_session::DEFAULT_PACK).unwrap();
+    s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
     s.end_turn();
-    s.close_templates().unwrap();
+    s.close_pack().unwrap();
     s.apply("Seul", vec![Op::SetTheme { theme: common::theme_ref("papier") }], None).unwrap();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Seul"));
 }

@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 無法繪製圖表
 
-registry-bad-pack-id = 範本套件識別碼無效: { $id }
-registry-base-pack-broken = 內建小工具套件已損毀 ({ $file })；請重新安裝 App。
-registry-duplicate-pack = 簡報的兩個小工具套件共用 { $pack }。
-registry-compile = 無法編譯範本套件的元件
-registry-missing = 範本套件未宣告其元件
+registry-bad-pack-id = 套件識別碼無效: { $id }
+registry-base-pack-broken = 內建套件已損毀 ({ $file })；請重新安裝 App。
+registry-duplicate-pack = 簡報的兩個套件共用 { $pack }。
+registry-compile = 無法編譯套件的元件
+registry-missing = 套件未宣告其元件
 render-timeout = 算繪耗時超過 { $seconds }秒，已中斷
 render-out-of-memory = 算繪所需記憶體超過 { $mib } MiB，已中斷
 render-worker-lost = 算繪程序已停止
@@ -41,6 +41,7 @@ import-not-a-presentation = 此檔案不是 PowerPoint 簡報
 import-protected = 此簡報已加密或為舊版 .ppt 格式：請先另存為 .pptx
 import-too-large = 此簡報太大，無法匯入
 import-output-too-large = 匯入後的簡報將超過匯入允許的大小
+import-no-profiles = 所選版面配置套件未提供任何設定檔。
 import-loss-list-levels = 清單層級已合併為一層
 import-loss-merged-cells = 已分割合併的儲存格
 import-loss-percent-stacked = 百分比堆疊圖已顯示為堆疊圖
@@ -74,7 +75,7 @@ import-loss-hidden-slide = 隱藏的投影片已以可見方式匯入
 import-loss-effects = 陰影、反射與立體效果已遺失
 import-loss-series-dropped = 圓餅圖只顯示一個數列：保留 { $kept }個，捨棄 { $dropped }個
 import-loss-repeated-decor = 已省略在 { $slides }張投影片上重複的頁首或頁尾「{ $text }」：佈景主題會繪製自己的頁首頁尾
-import-loss-no-slot = 已省略內容：所選範本中沒有可放置它的位置
+import-loss-no-slot = 已省略內容：所選版面配置中沒有可放置它的位置
 import-loss-moved-to-notes = 文字已移至演講者備忘稿：封面上沒有可放置它的位置
 import-loss-items-dropped = 投影片上的元素過多：省略了{ $dropped }個元素
 import-loss-page-fitted = 來源頁面（{ $width } × { $height } pt）不是 16:9：內容已縮放並置中
@@ -86,7 +87,7 @@ import-loss-shape-style = { $effect ->
     [arrow] 未繪製線條箭頭
    *[geometry] 未知圖案已顯示為矩形
 }
-import-loss-layout-dropped = 一個套件中的版面配置過多：「{ $layout }」沒有範本，其投影片使用空白元件，並以元素形式取得其裝飾
+import-loss-layout-dropped = 一個套件中的版面配置過多：「{ $layout }」沒有元件，其投影片使用空白元件，並以元素形式取得其裝飾
 import-loss-decor-truncated = 為符合套件檔案大小而截斷了裝飾：省略了{ $omitted }個元素
 import-loss-table-style = 表格樣式為近似：其自身的儲存格背景、框線、欄寬、列高或文字大小已遺失
 import-loss-overflow = 元素「{ $element }」超出了投影片邊緣

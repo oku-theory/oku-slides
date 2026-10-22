@@ -4,23 +4,30 @@ ui-loading = Yükleniyor…
 ## Belge
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · şablonlar
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · düzen paketi
+   *[other] { $name } · widget paketi
+}
 ui-title-rename = Sunuyu yeniden adlandır
 ui-title-field = Sunu başlığı
 ui-status-unsaved = kaydedilmemiş değişiklikler
 ui-status-saved = kaydedildi
 ui-status-never-saved = henüz kaydedilmedi
-ui-caption-templates = { $count ->
-    [one] { $count } şablon
-   *[other] { $count } şablon
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } düzen
+       *[other] { $count } düzen
+    }
+   *[other] { $count ->
+        [one] { $count } widget
+       *[other] { $count } widget
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } slayt
    *[other] { $count } slayt
 } · { $status }
-ui-template-default-name = Şablon
-ui-template-variant-name = { $name } (varyant)
-ui-confirm-quit-templates = Değiştirilen şablonlar kaydedilmeden çıkılsın mı?
+ui-confirm-quit-pack = Değiştirilen paket kaydedilmeden çıkılsın mı?
 
 ## Bildirimler
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Dosyanın teması
 ui-toolbar-theme-deck-group = Bu sunu
 ui-toolbar-finish = Bitti
-ui-templates-deck-only = Yalnızca bu sunuya kaydedilir
+ui-pack-deck-only = Yalnızca bu sunuya kaydedilir
 ui-toolbar-open = Aç
 ui-menu = Menü
 ui-toolbar-add-label = Slayta ekle
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] Bir veri tablosu
    *[text] Bir metin paragrafı
 }
-ui-toolbar-remove-template = Şablonu sil
 ui-toolbar-remove-slide = Slaytı sil
 ui-toolbar-remove-hint = Slayt { $n } · ⌘Z ile geri alın
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] Metin ekle
 }
 ui-undo-add-widget = “{ $name }” ekle
-ui-undo-new-template = Yeni şablon: { $name }
 ui-undo-new-slide = Yeni slayt: { $name }
-ui-undo-templates = Şablonlar: { $name }
-ui-undo-move-template = Şablonu taşı
 ui-undo-move-slide = Slaytı taşı
 ui-undo-remove-slide = Slaytı sil
 ui-undo-remove = Sil
@@ -89,7 +92,7 @@ ui-undo-change-anchor = Sabitlemeyi değiştir
 ui-undo-move = Taşı
 ui-undo-resize = Yeniden boyutlandır
 ui-undo-edit-slide = Slaytı düzenle
-ui-undo-rename-set = Seti yeniden adlandır
+ui-undo-rename-pack = Paketi yeniden adlandır
 ui-undo-rename-deck = Sunuyu yeniden adlandır
 ui-undo-chart-kind = Grafik türünü değiştir
 ui-undo-chart-data = Verileri düzenle
@@ -108,15 +111,15 @@ ui-new-card-detail = Ayrıntı
 ## Slayt yığını
 
 ui-pile-slides = Slaytlar
-ui-pile-templates = Şablonlar
+ui-pile-layouts = Düzenler
 ui-pile-add-slide = + Yeni slayt
-ui-pile-add-template = + Yeni şablon
 ui-pile-drag-hint = Taşımak için sürükleyin · ⌥↑ ⌥↓
 ui-slide-alt = Slayt { $n }
 
 ## Sahne
 
 ui-stage-rendering = Oluşturuluyor…
+ui-stage-widget-pack = Yığından bir widget açın ya da yeni bir tane oluşturun.
 ui-stage-elements = Slayt öğeleri
 ui-stage-fields = Slayt alanları
 ui-stage-edit-text = Metni düzenle
@@ -238,15 +241,11 @@ ui-size-mb = { $value } MB
 ## Şablon seçici
 
 ui-picker-new-slide = Yeni slayt
-ui-picker-new-template = Yeni şablon, temel alınan…
-ui-picker-set = Şablonlar
 ui-picker-set-mine = { $name } · benim
 ui-picker-set-received = { $name } · alınan
 ui-picker-keys = Gezinmek için ← → · eklemek için Enter · kapatmak için Esc
 ui-picker-close = Kapat
-ui-picker-previous = Önceki şablon
-ui-picker-next = Sonraki şablon
-ui-picker-list = Slayt şablonları
+ui-picker-list = Düzenler
 ui-widget-picker-filter = Ada, etikete veya açıklamaya göre filtrele
 ui-widget-picker-empty = “{ $query }” ile eşleşen widget yok.
 ui-widget-picker-list = Widget'lar
@@ -319,7 +318,7 @@ ui-tabs = Açık sunumlar
 ui-tab-new = Yeni sekme
 ui-tab-close = Sekmeyi kapat
 ui-tab-unsaved = Kaydedilmemiş değişiklikler
-ui-tab-templates = Şablonlar
+ui-tab-pack = Paket
 ui-tab-move-new-window = Yeni pencereye taşı
 ui-tab-move-to = { $n }. pencereye taşı
 ui-tab-close-others = Diğer sekmeleri kapat
@@ -374,8 +373,8 @@ ui-widgets-open = { $name } widget'ını aç
 ui-widgets-delete-named = { $name } öğesini sil
 ui-widgets-confirm-delete = “{ $name }” widget'ı silinsin mi?
 ui-widgets-rename-hint = Yeniden adlandırmak için çift tıklayın veya F2'ye basın
-ui-widgets-tabs = Şablon sekmeleri
-ui-widgets-templates-tab = Şablonlar
+ui-pack-tabs = Paket sekmeleri
+ui-pack-layouts-tab = Düzenler
 ui-theme-tab = Tema
 ui-theme-picker = Tema
 ui-theme-name = Tema adı
@@ -388,14 +387,15 @@ ui-widgets-removed-by-agent = Ajan { $name } widget'ını sildi.
 ui-import-title = PowerPoint sunumunu içe aktar
 ui-import-mode = İçe aktarma modu
 ui-import-hifi = Aslına uygun kopya
-ui-import-hifi-note = Bu sunum için hazırlanmış bir tema ve şablonlarla orijinalin görünümünü korur.
-ui-import-retrofit = Şablonlarımı kullan
-ui-import-retrofit-note = Slaytları kitaplıktaki şablonlar ve bir temayla yeniden kurar.
+ui-import-hifi-note = Bu sunum için hazırlanmış bir tema ve düzenlerle orijinalin görünümünü korur.
+ui-import-retrofit = Düzenlerimi kullan
+ui-import-retrofit-note = Slaytları kitaplıktaki düzen paketleri ve bir temayla yeniden kurar.
+ui-import-layout-packs = Düzen paketleri
 ui-import-theme-default = Varsayılan tema
-ui-import-no-packs = Kitaplıkta şablon seti yok.
+ui-import-no-packs = Kitaplıkta düzen paketi yok.
 ui-import-tune = Ajanla ince ayar yap
 ui-import-tune-note = Ajan her slaytı orijinalle karşılaştırır ve farkları düzeltir.
-ui-import-tune-note-retrofit = Ajan her slaytı orijinalle karşılaştırır ve şablonlarınızın gösteremediği şekiller için bileşenler tasarlar.
+ui-import-tune-note-retrofit = Ajan her slaytı orijinalle karşılaştırır ve düzenlerinizin gösteremediği şekiller için bileşenler tasarlar.
 ui-import-tune-unavailable = Kullanılabilir ajan yok: { $reason }
 ui-import-submit = İçe aktar
 ui-import-busy = İçe aktarılıyor…

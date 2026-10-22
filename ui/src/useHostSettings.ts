@@ -1,19 +1,17 @@
-// Réglages de l'hôte en mode modèles (modèle affiché, ou widget du sous-onglet
-// actif, à ses valeurs d'exemple) : une surface de réglages construite par la
-// session. Chaque champ porte sa clé ; une action part avec la slide et le
-// widget de la surface affichée. Un réglage refusé relit la surface : le champ reprend la
-// valeur de la session, celle que dessine l'aperçu.
+// Réglages de l'hôte en mode pack : ceux du widget du sous-onglet actif, à ses valeurs
+// d'exemple, en une surface construite par la session. Chaque champ porte sa clé ; une
+// action part avec le widget de la surface affichée. Un réglage refusé relit la surface :
+// le champ reprend la valeur de la session, celle que dessine l'aperçu. Une slide du deck
+// de travail se règle par sa carte de cible (`useTargetSettings`) : c'est l'exemple de son layout.
 
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { ListOp, Snapshot, Surface, TabApi } from "./api";
-import { pinsKey } from "./packOps";
+import { deckPinsKey } from "./packOps";
 import type { ActionOutcome } from "./a2ui/actionOutcome";
 import type { ListChange } from "./a2ui/ListTable";
 import { fromA2ui } from "./agent/quick";
 
-/** Surface des réglages du modèle affiché. */
-export const HOST_TEMPLATE = "host-template";
 /** Surface des réglages du widget du sous-onglet actif. */
 export const HOST_WIDGET = "host-widget";
 /** Surface des jetons du thème édité (onglet « Thème », routée par `useThemeSettings`). */
@@ -34,36 +32,31 @@ export interface HostSettings {
   outcome: ActionOutcome;
 }
 
-/** Réglages de l'hôte : relus quand la slide, le widget, ses valeurs d'exemple ou le deck changent. */
+/** Réglages du widget `widget` : relus quand lui, ses valeurs d'exemple ou les packs changent. */
 export function useHostSettings(
   api: TabApi,
   snap: Snapshot | null,
-  current: string | null,
   widget: string | null,
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>,
   say: (m: string, error?: boolean) => void,
 ): HostSettings {
-  const slide = snap?.slides.find((s) => s.id === current);
   return useSessionSurface({
     ids: HOST_IDS,
     // Les jetons ont leur routeur (`useThemeSettings`).
     held: [HOST_THEME],
-    active: !!current && !!snap?.editing && !snap.history,
-    scope: { slide: current ?? "", widget },
-    // Tout ce qui peut changer la carte : pack, valeurs d'exemple, slide (rendu, nom), annulation.
-    key: [current, widget, snap?.editing?.base, pinsKey(snap?.widgets ?? {}), snap?.widget_trials, slide?.hash, slide?.name, snap?.undo_label, snap?.redo_label].join("|"),
-    fetch: (scope) => api.hostSettings(scope.slide, scope.widget),
-    send: (scope, field, context, surface) =>
-      surface.id === HOST_WIDGET && scope.widget
-        ? // Le widget que montre la surface.
-          exampleValue(api, scope.widget, field, context)
-        : api.hostParam(scope.slide, field, context.value),
+    active: widget !== null && !!snap?.editing && !snap.history,
+    scope: { widget: widget ?? "" },
+    // Tout ce qui peut changer la carte : packs, valeurs d'exemple, annulation.
+    key: [widget, snap?.editing?.base, deckPinsKey(snap), snap?.widget_trials, snap?.undo_label, snap?.redo_label].join("|"),
+    fetch: (scope) => api.hostSettings(scope.widget),
+    // Le widget que montre la surface.
+    send: (scope, field, context) => exampleValue(api, scope.widget, field, context),
     run,
     say,
   });
 }
 
-const HOST_IDS = [HOST_TEMPLATE, HOST_WIDGET] as const;
+const HOST_IDS = [HOST_WIDGET] as const;
 
 /**
  * Le cycle d'une surface de réglages construite par la session : lue quand `key` change,

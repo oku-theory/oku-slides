@@ -47,7 +47,7 @@ fn import_tab_retrofit_beside_an_edited_tab_adds_a_tab_holding_the_import() {
     let theme = json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref("pro")}]});
     Workspace::request(&ws, "t-1", serde_json::from_value::<Request>(theme).unwrap()).0.unwrap();
     let pptx = pptx_fixture(data.path(), "minimal");
-    import_tab(&ws, &pptx, json!({ "mode": "retrofit", "pack": "Essentiel" }), false).unwrap();
+    import_tab(&ws, &pptx, json!({ "mode": "retrofit", "layouts": ["Essentiel"] }), false).unwrap();
     let w = &Workspace::lock(&ws).view().windows[0];
     let tabs: Vec<&str> = w.tabs.iter().map(|t| t.id.as_str()).collect();
     assert_that!(tabs).is_equal_to(vec!["t-1", "t-2"]);
@@ -97,10 +97,11 @@ fn import_tab_with_a_pack_folder_as_target_is_a_localized_unknown_pack_and_keeps
     let ws = workspace_on(data.path());
     let dir = data.path().join("mon-pack");
     std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("widgets.json"), include_str!("../../../templates/grilles/pack.json")).unwrap();
+    let json = crate::test_support::builtin(crate::ESSENTIEL_PACK).files.pack_json().unwrap();
+    std::fs::write(dir.join("layouts.json"), json).unwrap();
     let pptx = pptx_fixture(data.path(), "minimal");
     // Un dossier venu de l'interface n'est jamais lu : seule la bibliothèque compte.
-    let err = import_tab(&ws, &pptx, json!({ "mode": "retrofit", "pack": dir }), false).unwrap_err();
+    let err = import_tab(&ws, &pptx, json!({ "mode": "retrofit", "layouts": [dir] }), false).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Import);
     let fr = err.localize(&Localizer::new(Some("fr")));
     assert_that!(fr.as_str()).contains(dir.to_string_lossy().as_ref());
@@ -109,9 +110,9 @@ fn import_tab_with_a_pack_folder_as_target_is_a_localized_unknown_pack_and_keeps
 }
 
 #[test]
-fn import_tab_with_retrofit_and_no_pack_is_refused_when_read() {
+fn import_tab_with_retrofit_and_no_layouts_is_read() {
     let req = json!({ "cmd": "import_tab", "window": "w-1", "path": "/x.pptx", "mode": "retrofit" });
-    assert_that!(serde_json::from_value::<WorkspaceRequest>(req).is_err()).is_true();
+    assert_that!(serde_json::from_value::<WorkspaceRequest>(req).is_ok()).is_true();
 }
 
 #[test]
@@ -176,7 +177,7 @@ fn import_tab_hifi_with_an_absent_soffice_witness_says_it_is_missing_without_off
 fn import_tab_retrofit_has_no_witness_even_with_soffice_set() {
     let data = fresh_dir("oku-slides-workspace-import-retrofit-witness-");
     let ws = workspace_with(data.path(), |s| s.import.witness = oku_slides_platform::config::ImportWitness::Soffice);
-    let target = json!({ "mode": "retrofit", "pack": "Essentiel" });
+    let target = json!({ "mode": "retrofit", "layouts": ["Essentiel"] });
     import_tab(&ws, &pptx_fixture(data.path(), "minimal"), target, false).unwrap();
     assert_that!(witness_of(&ws, "t-2")).is_equal_to((None, None));
 }

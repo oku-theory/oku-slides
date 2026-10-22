@@ -34,7 +34,7 @@ fn apply_with_a_widget_that_loops_falls_back_to_the_base_registry_with_a_notice(
 }
 
 #[test]
-fn apply_set_templates_to_a_pack_that_loops_keeps_the_base_registry_and_sets_a_notice() {
+fn apply_set_pack_to_a_pack_that_loops_keeps_the_base_registry_and_sets_a_notice() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
     let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_IMPORT)]);
@@ -96,7 +96,8 @@ fn restart_worker_outside_the_deck(s: &Session) {
     let n = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let source = format!("{LOOP_ON_IMPORT}// {n}\n");
     let files = crate::test_support::widget_files(&[("boucle", &source)]);
-    let other = oku_slides_render::PackWidgets::new("autre", ns("autre"), files).unwrap();
+    let other =
+        oku_slides_render::PackWidgets::new("autre", ns("autre"), oku_slides_core::PackKind::Widgets, files).unwrap();
     let probe = s.worker.probe_pack(&other).unwrap();
     let boucle = oku_slides_core::WidgetFile::parse("boucle").unwrap();
     assert_that!(probe.files[&boucle].diagnostics[0].message.as_str()).contains("took more than");
@@ -112,21 +113,23 @@ fn session_on_looping_pack(data: &Path) -> (Session, oku_slides_core::PackPin) {
     (s, looping)
 }
 
-/// Rend fautif le pack `looping` du deck hors du rendu du deck : un autre
-/// emplacement, qui ne porte que ce pack (le processus de rendu l'accuse
-/// alors), rend un élément `boucle`, sans passer par la session.
+/// Rend fautif le pack `looping` du deck hors du rendu du deck, comme un autre
+/// onglet dont le rendu l'aurait accusé : le processus de rendu le tient fautif,
+/// sans que la session le sache.
 fn fault_pack_outside_the_deck(s: &Session, looping: &oku_slides_core::PackPin) {
-    let alone: Vec<_> = s.packs.packs().iter().filter(|p| !is_trusted_pack(p)).cloned().collect();
-    let set = oku_slides_render::PackSet::new(alone).unwrap();
-    let mut slot = crate::new_renderer(&s.worker, s.render_fonts.clone(), &s.localizer, &set, &s.registry).unwrap();
-    let mut deck = s.deck().clone();
-    oku_slides_core::apply_all(&mut deck, vec![add_loop(looping)], &s.registry).unwrap();
-    let err = slot.render(&deck, &s.doc.sources.assets).unwrap_err();
-    assert_that!(err.kind().is_bounded()).is_true();
+    let pack = s.packs.packs().iter().find(|p| p.id() == looping.version.hex()).unwrap();
+    s.worker.mark_faulty(pack);
+    assert_that!(s.worker.is_faulty(pack)).is_true();
 }
 
 /// Le repli a eu lieu : seuls les packs de confiance restent, sans les widgets de `looping` ;
 /// l'avis nomme le pack (son nom), les registres sont d'accord.
+/// Le layout `boucle` : boucle à chaque rendu d'une slide qui l'emploie.
+const LOOP_SLIDE_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("boucle", category: "slide", params: (body: p.plain()),
+  (args, ctx) => { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; [#n] })
+"#;
+
 fn assert_fell_back(s: &Session, looping: &oku_slides_core::PackPin) {
     assert_that!(s.packs.packs().iter().all(is_trusted_pack)).is_true();
     assert_that!(s.registry.get(&kind_of(looping, "boucle"))).is_none();
@@ -156,19 +159,18 @@ fn svg_and_png_after_a_restart_outside_the_deck_render_are_served() {
 }
 
 #[test]
-fn templates_view_with_a_template_that_loops_falls_back_to_the_base_with_a_notice() {
+fn layouts_view_with_a_layout_that_loops_leaves_its_pack_out_with_a_notice() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
-    // Un modèle du pack porte un élément `boucle` : son aperçu boucle.
-    let mut m = crate::test_support::manifest(uuid::Uuid::new_v4(), "Boucle", None, "2026-10-01T10:00:00Z");
-    let kind = oku_slides_core::qualify(&m.namespace, "boucle");
-    let slide = json!({ "id": "tpl-l", "kind": "content", "params": { "blocks": [
-        { "id": "l", "kind": kind, "params": { "body": "x" } } ] } });
-    m.templates = vec![serde_json::from_value(json!({ "id": "l", "name": "Boucle", "slide": slide })).unwrap()];
-    let looping = crate::test_support::add_version(&s.library, &m, &[("boucle", LOOP_ON_RENDER)]);
-    s.apply("Pack", vec![pin_pack(&looping)], None).unwrap();
-    let view = s.templates_view(Some(looping.id)).unwrap();
-    assert_that!(view.templates.len()).is_equal_to(1);
+    // Un pack de layouts dont le layout `boucle` boucle au rendu : son aperçu boucle.
+    let m = crate::test_support::manifest(uuid::Uuid::new_v4(), "Boucle", None, "2026-10-01T10:00:00Z");
+    let kind = oku_slides_core::PackKind::Layouts;
+    let looping = crate::test_support::add_version_of(&s.library, kind, &m, &[("boucle", LOOP_SLIDE_ON_RENDER)]);
+    let op = oku_slides_core::Op::AddPack { kind, namespace: m.namespace.clone(), pin: looping.clone() };
+    s.apply("Pack", vec![op], None).unwrap();
+    let view = s.layouts_view().unwrap();
+    let shown: Vec<&str> = view.packs.iter().map(|p| p.namespace.as_str()).collect();
+    assert_that!(shown).is_equal_to(vec!["essentiel"]);
     assert_fell_back(&s, &looping);
 }
 
@@ -211,7 +213,7 @@ fn fall_back_on_a_pack_disabled_elsewhere_names_the_pack_once() {
 }
 
 #[test]
-fn set_templates_back_to_a_faulty_pack_names_it_by_its_name() {
+fn set_pack_back_to_a_faulty_pack_names_it_by_its_name() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
     let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_RENDER)]);
@@ -416,7 +418,7 @@ fn faulty_pack_is_disabled_alone() {
     let s = session_with_packs(&data.0, &[("good", &[], GOOD_NOTE), ("bad", &[], &looping)]);
     assert_that!(notes_of(&s, &["good", "bad"])).is_equal_to(vec![true, false]);
     // Les épinglages restent ; l'élément du pack écarté reste aussi.
-    assert_that!(s.deck().widgets.len()).is_equal_to(4);
+    assert_that!(s.deck().widgets.len()).is_equal_to(3);
     assert_that!(s.deck().slide("s-constat").is_some_and(|sl| sl.locate("n-bad").is_some())).is_true();
     assert_registry_agrees(&s);
 }
@@ -471,7 +473,8 @@ fn bounded_failure_without_any_pack_blames_none() {
         let pin = crate::test_support::add_version(&s.library, &m, &[("note", source)]);
         ops.push(crate::test_support::add_pack(&m, &pin));
         let files = crate::test_support::widget_files(&[("note", source)]);
-        packs.push(oku_slides_render::PackWidgets::new(pin.version.hex(), m.namespace.clone(), files).unwrap());
+        let kind = oku_slides_core::PackKind::Widgets;
+        packs.push(oku_slides_render::PackWidgets::new(pin.version.hex(), m.namespace.clone(), kind, files).unwrap());
     }
     ops.push(op(json!({
         "op": "add_element",

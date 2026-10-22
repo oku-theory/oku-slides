@@ -9,6 +9,7 @@ use super::*;
 #[case(ImportErrorKind::NotAPresentation)]
 #[case(ImportErrorKind::Protected)]
 #[case(ImportErrorKind::TooLarge)]
+#[case(ImportErrorKind::NoProfiles)]
 fn message_id_of_each_kind_exists_in_english(#[case] kind: ImportErrorKind) {
     assert_that!(english().try_tr(message_id(kind))).is_some();
 }
@@ -39,4 +40,15 @@ fn output_too_large_message_key_exists_in_english() {
 fn localize_output_too_large_in_french_names_the_output() {
     assert_that!(output_too_large(10).localize(&Localizer::new(Some("fr"))))
         .is_equal_to("Le deck obtenu dépasserait la taille admise pour un import".to_owned());
+}
+
+#[test]
+fn no_profiles_kind_is_no_profiles() {
+    assert_that!(no_profiles().kind()).is_equal_to(ImportErrorKind::NoProfiles);
+}
+
+#[test]
+fn localize_no_profiles_in_french_names_the_layout_packs() {
+    assert_that!(no_profiles().localize(&Localizer::new(Some("fr"))))
+        .is_equal_to("Les packs de layouts choisis ne proposent aucun profil.".to_owned());
 }

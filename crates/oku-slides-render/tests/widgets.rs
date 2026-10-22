@@ -3,10 +3,13 @@ use std::sync::Arc;
 
 mod common;
 
-use oku_slides_core::{Category, DECK_VERSION, Deck, Namespace, ParamType, WidgetFile, kinds::base};
+use oku_slides_core::{
+    Category, DECK_VERSION, Deck, Namespace, PackKind, ParamType, WidgetFile,
+    kinds::{base, essentiel},
+};
 use oku_slides_render::{
-    Fonts, Layout, PackSet, PackWidgets, Registries, RegistryErrorKind, Renderer, base_pack_widgets, load_registry,
-    probe_file,
+    BuiltinPack, Fonts, Layout, PackSet, PackWidgets, Registries, RegistryErrorKind, Renderer, assemble, base_probe,
+    builtin_pack_set, builtin_registry, load_registry, probe_file, probe_registry,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -24,13 +27,13 @@ fn one_pack(id: &str, entries: &[(&str, &str)]) -> PackSet {
 
 /// L'ensemble du seul pack `base` intégré.
 fn base_set() -> PackSet {
-    PackSet::new(vec![base_pack_widgets().unwrap_or_else(|e| panic!("{e}"))]).unwrap_or_else(|e| panic!("{e}"))
+    PackSet::new(vec![BuiltinPack::Base.widgets().unwrap_or_else(|e| panic!("{e}"))]).unwrap_or_else(|e| panic!("{e}"))
 }
 
 #[test]
 fn load_registry_with_pack_adds_its_qualified_widgets_to_the_base() {
     let set = PackSet::new(vec![
-        base_pack_widgets().unwrap(),
+        BuiltinPack::Base.widgets().unwrap(),
         common::pack_in("citations", "citations", &[("quote", QUOTE)]),
     ])
     .unwrap();
@@ -63,7 +66,7 @@ fn probe_file_with_a_non_text_label_or_description_is_set_aside(#[case] arg: &st
     let src = format!(
         "#import \"/oku-slides/lib.typ\": widget, params as p\n#let widget = widget(\"kpi\", {arg}, params: (:), (args, ctx) => [])\n"
     );
-    let probe = probe_file(&Fonts::default(), &WidgetFile::parse("kpi").unwrap(), &src, None);
+    let probe = probe_file(&Fonts::default(), PackKind::Widgets, &WidgetFile::parse("kpi").unwrap(), &src, None);
     assert_that!(probe.is_valid()).is_false();
     assert_that!(probe.diagnostics.iter().any(|d| d.message.contains(named))).is_true();
 }
@@ -83,7 +86,7 @@ fn probe_file_text_label_or_description_is_kept_or_blank_becomes_none(
     let src = format!(
         "#import \"/oku-slides/lib.typ\": widget, params as p\n#let widget = widget(\"kpi\", {arg}, params: (:), (args, ctx) => [])\n"
     );
-    let probe = probe_file(&Fonts::default(), &WidgetFile::parse("kpi").unwrap(), &src, None);
+    let probe = probe_file(&Fonts::default(), PackKind::Widgets, &WidgetFile::parse("kpi").unwrap(), &src, None);
     assert_that!(probe.is_valid()).is_true();
     assert_that!(probe.schema.as_ref().and_then(|s| s.get(field)).cloned()).is_equal_to(Some(read));
 }
@@ -92,13 +95,17 @@ fn probe_file_text_label_or_description_is_kept_or_blank_becomes_none(
 fn pack_widgets_new_with_a_path_like_id_returns_bad_pack_id() {
     for id in ["", "../x", "A", "a/b", "é"] {
         asserting(id)
-            .that(&PackWidgets::new(id, Namespace::deck(), BTreeMap::new()).map(|_| ()).map_err(|e| e.kind()))
+            .that(
+                &PackWidgets::new(id, Namespace::deck(), PackKind::Widgets, BTreeMap::new())
+                    .map(|_| ())
+                    .map_err(|e| e.kind()),
+            )
             .is_equal_to(Err(RegistryErrorKind::BadPackId));
     }
 }
 
 #[test]
-fn registries_get_without_pack_is_the_renderer_base_registry() {
+fn registries_get_without_pack_is_the_renderer_empty_registry() {
     let base = Registries::new(Fonts::default()).get(&PackSet::default()).unwrap();
     let renderer = Renderer::new(Fonts::default()).unwrap();
     assert_that!(Arc::ptr_eq(&base, renderer.registry())).is_true();
@@ -145,28 +152,54 @@ fn load_registry_base_declares_every_element_widget() {
 }
 
 #[test]
-fn load_registry_base_declares_every_slide_widget() {
-    let r = load_registry(&Fonts::default(), &base_set()).unwrap();
-    for name in ["title", "toc", "chapter", "content", "end", "blank"] {
+fn load_registry_essentiel_declares_every_slide_layout() {
+    let set = PackSet::new(vec![BuiltinPack::Essentiel.widgets().unwrap()]).unwrap();
+    let r = load_registry(&Fonts::default(), &set).unwrap();
+    for name in essentiel::ALL {
         asserting(name).that(&r.get(name).map(|w| w.category)).is_equal_to(Some(Category::Slide));
     }
-    let title = r.get("title").unwrap();
+    let title = r.get(essentiel::TITLE).unwrap();
     assert_that!(title.param("title").and_then(|p| p.bind.as_deref())).is_equal_to(Some("title"));
     assert_that!(title.param("kicker").and_then(|p| p.bind.as_deref())).is_equal_to(Some("organization"));
 }
 
-#[test]
-fn load_registry_base_matches_its_snapshot() {
-    let r = load_registry(&Fonts::default(), &base_set()).unwrap();
-    insta::assert_json_snapshot!("base_registry", r);
+#[rstest]
+#[case(BuiltinPack::Base, "pack_base")]
+#[case(BuiltinPack::Essentiel, "pack_essentiel")]
+fn builtin_pack_registry_snapshot(#[case] pack: BuiltinPack, #[case] name: &str) {
+    let registry = load_registry(&Fonts::default(), &PackSet::new(vec![pack.widgets().unwrap()]).unwrap()).unwrap();
+    insta::assert_json_snapshot!(name, registry);
 }
 
 #[test]
-fn base_registry_fixture_matches_the_live_registry() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
-    let text = std::fs::read_to_string(path).unwrap();
-    let fixture = oku_slides_core::WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap();
-    assert_that!(load_registry(&Fonts::default(), &base_set()).unwrap()).is_equal_to(fixture);
+fn builtin_registry_fixture_matches_the_live_registry() {
+    let live = probe_registry(&Fonts::default(), &builtin_pack_set().unwrap()).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!("../../../fixtures/widgets/builtin-registry.json")).unwrap();
+    assert_that!(live).is_equal_to(fixture);
+}
+
+#[test]
+fn a_layouts_pack_widget_declaring_element_is_dropped_with_a_diagnostic() {
+    let src = "#import \"/oku-slides/lib.typ\": widget\n#let widget = widget(\"w\", category: \"element\", params: (:), (args, ctx) => [])\n";
+    let w = WidgetFile::parse("w").unwrap();
+    let fonts = Fonts::default();
+    let mut files = BTreeMap::from([(w.clone(), probe_file(&fonts, PackKind::Layouts, &w, src, None))]);
+    let acme = Namespace::parse("acme").unwrap();
+    let registry = assemble(&base_probe(&fonts).unwrap(), &acme, PackKind::Layouts, &mut files).unwrap();
+    assert_that!(files[&w].diagnostics.iter().any(|d| d.message.contains("category"))).is_true();
+    assert_that!(registry.get("acme/w")).is_none();
+}
+
+#[test]
+fn render_with_no_packs_draws_the_unknown_slide_frame() {
+    let json =
+        json!({"version": DECK_VERSION, "slides": [{"id": "s", "kind": essentiel::TITLE, "params": {"title": "T"}}]});
+    let deck = Deck::from_json(&json.to_string()).unwrap();
+    let bare = Renderer::new(Fonts::default()).unwrap().render(&deck, &BTreeMap::new()).unwrap();
+    let full = common::renderer().render(&deck, &BTreeMap::new()).unwrap();
+    // Sans pack, une page « slide inconnue » sans champ ; avec `essentiel`, la couverture et ses champs.
+    let fields = |c: &oku_slides_render::Compiled| c.layout().fields.iter().any(|f| f.owner == "s");
+    assert_that!((bare.page_count(), fields(&bare), fields(&full))).is_equal_to((1, false, true));
 }
 
 fn roadmap() -> Deck {
@@ -243,7 +276,7 @@ fn compile_content_slide_emits_kicker_and_title_fields() {
 
 /// Deck d'une slide libre avec un seul élément `kind`, sur un cadre.
 fn one_element_deck(kind: &str, params: serde_json::Value) -> Deck {
-    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "blank", "params": {
+    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": {
         "elements": [{ "id": "e", "kind": kind, "frame": { "x": 40, "y": 40, "w": 600, "h": 300 }, "params": params }]
     } }] });
     Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
@@ -251,11 +284,8 @@ fn one_element_deck(kind: &str, params: serde_json::Value) -> Deck {
 
 #[test]
 fn compile_pack_widget_renders_in_the_deck() {
-    let mut r = Renderer::new(Fonts::default()).unwrap();
-    let set = one_pack("citations", &[("quote", QUOTE)]);
-    let registry = Arc::new(load_registry(&Fonts::default(), &set).unwrap());
-    r.set_widgets(&set, registry.clone()).unwrap();
-    assert_that!(Arc::ptr_eq(r.registry(), &registry)).is_true();
+    let mut r = common::renderer_with(&one_pack("citations", &[("quote", QUOTE)]));
+    assert_that!(r.registry().get("citations/quote")).is_some();
     let deck = one_element_deck(
         "citations/quote",
         serde_json::json!({ "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "Héraclite" }),
@@ -284,7 +314,7 @@ fn compile_pack_card_renders_under_its_qualified_kind_beside_the_base_card() {
     let red = r.render(&one_element_deck("rouge/card", params), &BTreeMap::new()).unwrap();
 
     // Le crate `png` n'est pas une dépendance du workspace : le fond rouge se
-    // lit dans le SVG, et le PNG diffère de celui de la carte du noyau.
+    // lit dans le SVG, et le PNG diffère de celui de la carte de `base`.
     assert_that!(red.svg(0).unwrap().to_lowercase()).contains("#ff0000");
     assert_that!(plain.svg(0).unwrap().to_lowercase()).does_not_contain("#ff0000");
     assert_that!(red.png(0, 0.5).unwrap()).is_not_equal_to(plain.png(0, 0.5).unwrap());
@@ -303,14 +333,11 @@ fn compile_unknown_element_kind_draws_the_unknown_box() {
 }
 
 #[test]
-fn set_widgets_back_to_the_base_drops_the_pack_widgets() {
+fn set_widgets_back_to_the_builtins_drops_the_pack_widgets() {
     let deck = one_element_deck("rouge/card", serde_json::json!({ "title": "Rouge" }));
-    let mut r = Renderer::new(Fonts::default()).unwrap();
-    let base = r.registry().clone();
-    let set = one_pack("rouge", &[("card", RED_CARD)]);
-    r.set_widgets(&set, Arc::new(load_registry(&Fonts::default(), &set).unwrap())).unwrap();
+    let mut r = common::renderer_with(&one_pack("rouge", &[("card", RED_CARD)]));
     assert_that!(r.render(&deck, &BTreeMap::new()).unwrap().svg(0).unwrap().to_lowercase()).contains("#ff0000");
-    r.set_widgets(&PackSet::default(), base).unwrap();
+    r.set_widgets(&builtin_pack_set().unwrap(), builtin_registry(&Fonts::default()).unwrap()).unwrap();
     let svg = r.render(&deck, &BTreeMap::new()).unwrap().svg(0).unwrap().to_lowercase();
     assert_that!(svg).does_not_contain("#ff0000");
 }
@@ -335,7 +362,7 @@ fn compile_deck_with_wrong_typed_params_renders_every_page() {
     // Un deck incohérent (écrit sans passer par les ops) s'ouvre et se rend :
     // chaque valeur qui n'a pas le type déclaré retombe sur le défaut.
     let json = serde_json::json!({ "version": DECK_VERSION, "slides": [
-        { "id": "s-blank", "kind": "blank", "params": { "grid": "x", "elements": [
+        { "id": "s-blank", "kind": essentiel::BLANK, "params": { "grid": "x", "elements": [
             framed("card", base::CARD, serde_json::json!({ "title": 3, "kicker": ["a"], "body": "texte", "highlight": "oui" })),
             framed("stack", base::STACK, serde_json::json!({ "count": "trois", "layout": 7, "gap": "énorme", "children": "x" })),
             framed("image", base::IMAGE, serde_json::json!({ "asset": 42, "fit": "blob" })),
@@ -346,11 +373,11 @@ fn compile_deck_with_wrong_typed_params_renders_every_page() {
             framed("text4", base::TEXT, serde_json::json!({ "body": [{ "runs": [1] }] })),
             framed("chart", base::CHART, serde_json::json!({ "option": "x" })),
         ] } },
-        { "id": "s-content", "kind": "content",
+        { "id": "s-content", "kind": essentiel::CONTENT,
           "params": { "layout": 5, "title": ["t"], "kicker": { "a": 1 }, "grid": [1], "blocks": "x", "elements": 3 } },
-        { "id": "s-chapter", "kind": "chapter", "params": { "title": 12, "subtitle": true } },
-        { "id": "s-end", "kind": "end", "params": { "text": true } },
-        { "id": "s-toc", "kind": "toc", "params": { "title": 1 } },
+        { "id": "s-chapter", "kind": essentiel::CHAPTER, "params": { "title": 12, "subtitle": true } },
+        { "id": "s-end", "kind": essentiel::END, "params": { "text": true } },
+        { "id": "s-toc", "kind": essentiel::TOC, "params": { "title": 1 } },
     ] });
     let deck = Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"));
     let mut r = common::renderer();
@@ -371,7 +398,7 @@ fn elements_deck(elements: &[(&str, &str)]) -> Deck {
                 "frame": { "x": 40 + 700 * i, "y": 40, "w": 600, "h": 300 } })
         })
         .collect();
-    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "blank", "params": { "elements": elements } }] });
+    let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }] });
     Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
 }
 
@@ -477,7 +504,7 @@ fn element_box_reports_the_style_size_only_with_typography(#[case] kind: &str, #
 #[case(r#"widget("s", typography: "yes", (a, c) => [])"#)]
 fn widget_with_invalid_sizing_is_refused_by_the_probe(#[case] call: &str) {
     let src = format!("#import \"/oku-slides/lib.typ\": widget\n#let widget = {call}\n");
-    let probe = probe_file(&Fonts::default(), &WidgetFile::parse("s").unwrap(), &src, None);
+    let probe = probe_file(&Fonts::default(), PackKind::Widgets, &WidgetFile::parse("s").unwrap(), &src, None);
     assert_that!(probe.is_valid()).is_false();
 }
 

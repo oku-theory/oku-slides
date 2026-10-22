@@ -7,7 +7,7 @@ use oku_slides_core::{MergeReport, SourceBundle};
 use oku_slides_i18n::Localizer;
 use snafu::{ResultExt, ensure};
 
-use crate::error::{EditingTemplatesSnafu, NoPathSnafu, NotOkuSlidesSnafu, ReadSnafu, TargetExistsSnafu, merge_error};
+use crate::error::{EditingPackSnafu, NoPathSnafu, NotOkuSlidesSnafu, ReadSnafu, TargetExistsSnafu, merge_error};
 use oku_slides_platform::storage::StorageErrorKind;
 
 use crate::deck_file::{free_path, safe_stem};
@@ -54,10 +54,10 @@ impl Session {
     ///
     /// La fusion ne s'annule pas (les modifications importées sont celles
     /// d'autres pairs) ; le document devient modifié et l'avis de fusion part
-    /// avec le prochain snapshot. Refusée pendant l'édition des modèles.
+    /// avec le prochain snapshot. Refusée pendant l'édition d'un pack.
     pub fn merge_file(&mut self, path: &Path) -> Result<MergeReport> {
         self.ensure_not_help()?;
-        ensure!(matches!(self.mode, Mode::Deck), EditingTemplatesSnafu);
+        ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
         let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
         ensure!(opened.pdf, NotOkuSlidesSnafu);
         self.absorb(opened.sources, &file_name(path), false)

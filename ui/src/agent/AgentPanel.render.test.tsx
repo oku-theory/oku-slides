@@ -46,7 +46,7 @@ const patch = (id: string, label: string): McpEvent => ({
   messages: [{ version: "v0.9", updateComponents: { surfaceId: id, components: [button(label)] } }] as unknown as Surface["messages"],
 });
 
-const DRIVE: ScopeSource = { kind: "drive", view: { templates: false, history: false, pack: null, widget: null } };
+const DRIVE: ScopeSource = { kind: "drive", view: { packMode: false, history: false, pack: null, widget: null } };
 const UI = { slide: "s1", element: null, field: null, editing: false, widget: null };
 const route = (list: Surface[]) => routeSurfaces(list, { slide: "s1", has: () => true });
 /** Échap, une fois la fenêtre armée (un geste trop tôt est ignoré). */

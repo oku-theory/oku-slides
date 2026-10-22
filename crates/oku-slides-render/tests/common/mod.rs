@@ -7,9 +7,12 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{DECK_VERSION, Deck, Namespace, PackFiles, ThemeRef, WidgetFile, kinds::base};
+use oku_slides_core::{
+    DECK_VERSION, Deck, Namespace, PackFiles, PackKind, ThemeRef, WidgetFile,
+    kinds::{base, essentiel},
+};
 use oku_slides_render::{
-    Compiled, ElementBox, Fonts, Layout, PackSet, PackWidgets, Renderer, base_pack_widgets, load_registry,
+    Compiled, ElementBox, Fonts, Layout, PackSet, PackWidgets, Renderer, builtin_pack_set, load_registry,
 };
 use serde_json::json;
 
@@ -32,14 +35,19 @@ pub fn pack(id: &str, files: &[(&str, &str)]) -> PackWidgets {
     pack_in(id, TEST_NS, files)
 }
 
-/// Un pack `id` d'espace de noms `namespace`, aux fichiers `files` (nom, source).
+/// Un pack de widgets `id` d'espace de noms `namespace`, aux fichiers `files` (nom, source).
 pub fn pack_in(id: &str, namespace: &str, files: &[(&str, &str)]) -> PackWidgets {
+    pack_of_kind(PackKind::Widgets, id, namespace, files)
+}
+
+/// Un pack de sorte `kind`, `id` d'espace de noms `namespace`, aux fichiers `files` (nom, source).
+pub fn pack_of_kind(kind: PackKind, id: &str, namespace: &str, files: &[(&str, &str)]) -> PackWidgets {
     let namespace = Namespace::parse(namespace).unwrap_or_else(|| panic!("espace de noms invalide : {namespace}"));
     let files = files
         .iter()
         .map(|(n, s)| (WidgetFile::parse(n).unwrap_or_else(|| panic!("nom de widget invalide : {n}")), (*s).to_owned()))
         .collect();
-    PackWidgets::new(id, namespace, files).unwrap_or_else(|e| panic!("{e}"))
+    PackWidgets::new(id, namespace, kind, files).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Le pack de test qui porte la frise.
@@ -52,15 +60,15 @@ pub const IMAGE_KIND: &str = base::IMAGE;
 /// Le kind d'un élément texte.
 pub const TEXT_KIND: &str = base::TEXT;
 
-/// Un rendu aux widgets intégrés : le noyau et le pack `base`.
+/// Un rendu aux packs intégrés : `base` et `essentiel`.
 pub fn renderer() -> Renderer {
     Renderer::with_builtins(Fonts::default()).unwrap_or_else(|e| panic!("{e}"))
 }
 
-/// Un rendu aux widgets intégrés et à ceux de `set`.
+/// Un rendu aux packs intégrés et à ceux de `set`.
 pub fn renderer_with(set: &PackSet) -> Renderer {
     let mut packs = set.packs().to_vec();
-    packs.push(base_pack_widgets().unwrap_or_else(|e| panic!("{e}")));
+    packs.extend(builtin_pack_set().unwrap_or_else(|e| panic!("{e}")).packs().iter().cloned());
     let set = PackSet::new(packs).unwrap_or_else(|e| panic!("{e}"));
     let registry = Arc::new(load_registry(&Fonts::default(), &set).unwrap_or_else(|e| panic!("{e}")));
     let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
@@ -68,12 +76,12 @@ pub fn renderer_with(set: &PackSet) -> Renderer {
     r
 }
 
-/// Rend un deck d'une slide `content` dont les blocs sont `blocks`, avec les widgets intégrés et `packs`.
+/// Rend un deck d'une slide `essentiel/content` dont les blocs sont `blocks`, avec les packs intégrés et `packs`.
 pub fn compile_with_packs(packs: &[PackWidgets], blocks: serde_json::Value) -> Compiled {
     let mut r = renderer_with(&PackSet::new(packs.to_vec()).unwrap_or_else(|e| panic!("{e}")));
     let deck = json!({
         "version": DECK_VERSION, "params": { "title": "T" },
-        "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }]
+        "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": blocks } }]
     });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
@@ -94,9 +102,12 @@ pub fn render_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Layout
     render_with_packs(std::slice::from_ref(pack), blocks)
 }
 
-/// Un deck d'une slide `blank` dont le slot `elements` tient le seul `element`.
+/// Un deck d'une slide `essentiel/blank` dont le slot `elements` tient le seul `element`.
 pub fn blank_with_element(element: serde_json::Value) -> Deck {
-    let deck = json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [element] } }] });
+    let deck = json!({
+        "version": DECK_VERSION,
+        "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [element] } }]
+    });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"))
 }
 
@@ -128,7 +139,8 @@ pub fn theme_tokens(name: Option<&str>) -> Option<serde_json::Map<String, serde_
 
 /// La version d'un thème intégré : son `theme.json`, sans widget.
 pub fn theme_files(name: &str) -> PackFiles {
-    PackFiles::from_bytes(theme_json(name).as_bytes(), []).unwrap_or_else(|| panic!("{name} invalide"))
+    PackFiles::from_bytes(PackKind::Widgets, theme_json(name).as_bytes(), [])
+        .unwrap_or_else(|| panic!("{name} invalide"))
 }
 
 /// La référence d'un thème intégré : son id et la version de son `theme.json`.

@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
+use oku_slides_core::kinds::essentiel;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -15,7 +16,7 @@ fn plain_cover_without_text_anchors_its_empty_fields_at_the_bottom() {
         "version": oku_slides_core::DECK_VERSION,
         "params": { "title": "", "author": "Matthieu" },
         "tokens": { "component": { "title-slide": { "bar": false } } },
-        "slides": [{ "id": "s", "kind": "title" }]
+        "slides": [{ "id": "s", "kind": essentiel::TITLE }]
     });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
     let mut r = crate::common::renderer();

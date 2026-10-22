@@ -13,8 +13,8 @@ use crate::source::{
     Rgba, Role, Shape, Size, SourceSlide, Styled, TextBox,
 };
 use crate::test_support::{
-    app_fonts, base_pin, item, layout, office_theme, para, registry, run, run_style, source_deck, source_slide,
-    text_box,
+    app_fonts, base_pin, essentiel_pin, item, layout, office_theme, para, registry, registry_with_deck_layouts, run,
+    run_style, source_deck, source_slide, text_box,
 };
 
 /// Un deck Office : master `m1` (un bandeau en décor), layout `l1` au titre
@@ -72,6 +72,7 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
     let target = HifiTarget {
         registry: &base,
         base: base_pin(),
+        essentiel: essentiel_pin(),
         fonts,
         pack_id: Uuid::from_u128(1),
         theme_id: Uuid::from_u128(2),
@@ -80,11 +81,7 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
         limits: PackLimits::default(),
     };
     let plan = project(deck, &target);
-    let base_schemas: Vec<_> = base.iter().cloned().collect();
-    let registry = WidgetRegistry::from_probe(
-        json!({ "base": base_schemas, "packs": [{ "namespace": "deck", "widgets": plan.schemas }] }),
-    )
-    .unwrap();
+    let registry = registry_with_deck_layouts(&plan.schemas);
     let mut d = Deck::empty();
     apply_all(&mut d, plan.ops.clone(), &registry).unwrap();
     let assets: HashSet<String> = plan.assets.keys().cloned().collect();
@@ -110,7 +107,7 @@ fn project_puts_a_placeholder_at_its_layout_box_in_the_widget_param() {
     let plan =
         projected(&deck(vec![source_slide(1, Some("l1"), vec![title("s1/2", (60.0, 30.0, 840.0, 70.0), "Bonjour")])]));
     let s = slide(&plan, 0);
-    assert_that!(s.kind.as_str()).is_equal_to("deck/l1-titre");
+    assert_that!(s.kind.as_str()).is_equal_to("deck-layouts/l1-titre");
     assert_that!(serde_json::to_value(s.params.get("titre")).unwrap())
         .is_equal_to(json!([{ "runs": [{ "t": "Bonjour" }] }]));
     assert_that!(extras(s)).is_empty();
@@ -171,7 +168,7 @@ fn project_without_layout_takes_the_blank_widget() {
     let text = item("s1/2", (10.0, 10.0, 100.0, 20.0), ItemKind::Text(text_box(vec![para(vec![run("Seul")])])));
     let plan = projected(&deck(vec![source_slide(1, None, vec![text])]));
     let s = slide(&plan, 0);
-    assert_that!(s.kind.as_str()).is_equal_to("blank");
+    assert_that!(s.kind.as_str()).is_equal_to(kinds::essentiel::BLANK);
     assert_that!(s.params.slot("elements").map(<[Element]>::len)).is_equal_to(Some(1));
 }
 
@@ -186,15 +183,15 @@ fn project_fits_another_page_ratio_and_says_it_on_the_first_slide() {
 }
 
 #[test]
-fn project_template_example_is_the_first_slide_of_its_layout() {
+fn project_widget_examples_are_the_first_slide_of_its_layout() {
     let mut first = source_slide(1, Some("l1"), vec![title("s1/2", (60.0, 30.0, 840.0, 70.0), "Premier")]);
     first.notes = "Notes".into();
     let second = source_slide(2, Some("l1"), vec![title("s2/2", (60.0, 30.0, 840.0, 70.0), "Second")]);
     let plan = projected(&deck(vec![first, second]));
     let manifest = oku_slides_core::PackManifest::from_files(plan.pack.as_ref().unwrap()).unwrap();
-    let example = &manifest.templates[0].slide;
-    assert_that!((example.id.as_str(), example.notes.as_str())).is_equal_to(("l1-titre", ""));
-    assert_that!(serde_json::to_value(example.params.get("titre")).unwrap().to_string()).contains("Premier");
+    let values = &manifest.examples[&oku_slides_core::WidgetFile::parse("l1-titre").unwrap()];
+    assert_that!(values["titre"].to_string()).contains("Premier");
+    assert_that!(values["titre"].to_string()).does_not_contain("Second");
     assert_that!(
         plan.ops.iter().any(|op| matches!(op, Op::SetNotes { slide, notes } if slide == "s1" && notes == "Notes"))
     )
@@ -227,10 +224,10 @@ fn project_of_more_used_layouts_than_the_pack_holds_puts_the_rest_on_blank() {
     let pack = plan.pack.as_ref().unwrap();
     assert_that!(pack.widgets().len()).is_less_than_or_equal_to(64);
     // Toutes employées une fois : les 63 premières dans l'ordre de la source ont un widget.
-    let kinds: Vec<&str> = plan.report.slides.iter().map(|s| s.template.as_str()).collect();
-    assert_that!(kinds[62]).is_equal_to("deck/l64-layout-63");
-    assert_that!(kinds[63..].iter().all(|k| *k == "blank")).is_true();
-    // Sur `blank` : le fond du layout, le bandeau du master, puis le filet du layout.
+    let kinds: Vec<&str> = plan.report.slides.iter().map(|s| s.profile.as_str()).collect();
+    assert_that!(kinds[62]).is_equal_to("deck-layouts/l64-layout-63");
+    assert_that!(kinds[63..].iter().all(|k| *k == kinds::essentiel::BLANK)).is_true();
+    // Sur `essentiel/blank` : le fond du layout, le bandeau du master, puis le filet du layout.
     let s = slide(&plan, 63);
     let elements = extras(s);
     assert_that!(elements.len()).is_equal_to(3);
@@ -277,7 +274,7 @@ fn reports(deck: &SourceDeck) -> Vec<SlideReport> {
         .map(|s| SlideReport {
             source: s.number,
             slide: format!("s{}", s.number),
-            template: String::new(),
+            profile: String::new(),
             placement: Placement::Free,
             losses: Vec::new(),
             fallbacks: Vec::new(),

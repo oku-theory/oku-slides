@@ -2,9 +2,10 @@
 //!
 //! Par l'import de la session (`oku_slides_session::import`), le même que l'app.
 //!
-//! Mode `retrofit` (le défaut) : le contenu est projeté sur un pack et un
-//! thème existants ; `--pack` est obligatoire (id, dossier ou nom), `--theme`
-//! facultatif (id ou nom ; défaut : le thème par défaut). Mode `hifi` : la
+//! Mode `retrofit` (le défaut) : le contenu est projeté sur des packs de layouts et un
+//! thème existants ; `--pack`, répétable, nomme chaque pack de layouts (espace de noms,
+//! id, dossier ou nom ; aucun : `essentiel`), `--theme` facultatif (id ou nom ; défaut :
+//! le thème par défaut). Mode `hifi` : la
 //! présentation est reproduite fidèlement sur un pack et un thème générés pour
 //! elle, embarqués dans le deck seulement ; `--pack` et `--theme` y sont refusés.
 //!
@@ -74,8 +75,10 @@ pub(crate) struct ImportArgs {
     pub(crate) input: PathBuf,
     /// Le mode.
     pub(crate) mode: ImportMode,
-    /// Le pack cible : id, dossier ou nom.
-    pub(crate) pack: Option<String>,
+    /// Les packs de layouts cibles du retrofit, dans l'ordre : id, dossier, nom ou espace de noms.
+    ///
+    /// Vide : `essentiel`.
+    pub(crate) packs: Vec<String>,
     /// Le thème cible : id ou nom.
     pub(crate) theme: Option<String>,
     /// Le `.oku-slides.pdf` à écrire.
@@ -118,15 +121,12 @@ fn witness(platform: &Platform, reference: Option<ReferenceMode>) -> Option<Impo
 /// La cible de l'import selon les options ; une option d'un autre mode est refusée.
 fn target(platform: &Platform, l: &Localizer, args: &ImportArgs) -> Result<ImportTarget> {
     match SessionMode::from(args.mode) {
-        SessionMode::Hifi if args.pack.is_some() || args.theme.is_some() => {
+        SessionMode::Hifi if !args.packs.is_empty() || args.theme.is_some() => {
             Err(eyre!(l.tr("cli-import-hifi-no-target")))
         }
         SessionMode::Hifi => Ok(ImportTarget::Hifi { witness: witness(platform, args.reference) }),
         SessionMode::Retrofit if args.reference.is_some() => Err(eyre!(l.tr("cli-import-reference-hifi-only"))),
-        SessionMode::Retrofit => {
-            let pack = args.pack.clone().ok_or_else(|| eyre!(l.tr("cli-import-pack-required")))?;
-            Ok(ImportTarget::Retrofit { pack, theme: args.theme.clone() })
-        }
+        SessionMode::Retrofit => Ok(ImportTarget::Retrofit { layouts: args.packs.clone(), theme: args.theme.clone() }),
     }
 }
 

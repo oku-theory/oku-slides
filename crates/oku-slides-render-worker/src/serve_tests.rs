@@ -2,6 +2,7 @@ use std::io::{PipeReader, PipeWriter};
 use std::path::PathBuf;
 use std::thread::JoinHandle;
 
+use oku_slides_core::PackKind;
 use speculoos::prelude::*;
 
 use super::*;
@@ -94,7 +95,7 @@ fn serve_set_widgets_of_broken_pack_returns_registry_compile_error() {
     let mut h = Harness::new();
     h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
     let files = std::collections::BTreeMap::from([("casse".into(), "#let widget = (".into())]);
-    let pack = WirePack { id: "casse".into(), namespace: "casse".into(), files };
+    let pack = WirePack { id: "casse".into(), namespace: "casse".into(), kind: PackKind::Widgets, files };
     let (resp, _) = h.call(&Request::SetWidgets { slot: 1, packs: vec![pack] }, &[]);
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::RegistryCompile { .. } }))
         .is_true();
@@ -188,7 +189,12 @@ fn worker_args_of_an_ordinary_launch_is_none() {
 #[test]
 fn probe_file_request_returns_the_file_probe() {
     let mut worker = Worker::default();
-    let req = Request::ProbeFile { name: "casse".into(), source: "#let widget = (".into(), common: None };
+    let req = Request::ProbeFile {
+        kind: PackKind::Widgets,
+        name: "casse".into(),
+        source: "#let widget = (".into(),
+        common: None,
+    };
     let (reply, _) = worker.handle(req, Vec::new());
     let Response::FileProbe { probe } = reply else { panic!("réponse inattendue : {reply:?}") };
     assert_that!(probe.is_valid()).is_false();
@@ -199,7 +205,7 @@ fn set_widgets_with_a_bad_widget_file_name_returns_setup_error() {
     let mut worker = Worker::default();
     worker.handle(Request::OpenSlot { slot: 1, fonts: vec![] }, Vec::new());
     let files = std::collections::BTreeMap::from([("Casse".into(), "#let widget = (".into())]);
-    let pack = WirePack { id: "p".into(), namespace: "p".into(), files };
+    let pack = WirePack { id: "p".into(), namespace: "p".into(), kind: PackKind::Widgets, files };
     let (reply, _) = worker.handle(Request::SetWidgets { slot: 1, packs: vec![pack] }, Vec::new());
     assert_that!(matches!(reply, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
 }
@@ -228,7 +234,7 @@ fn serve_set_theme_on_unknown_slot_returns_setup_error() {
 #[test]
 fn serve_refuses_a_request_header_over_an_eighth_of_the_frame_size() {
     let source = "x".repeat(200);
-    let req = Request::ProbeFile { name: "w".into(), source, common: None };
+    let req = Request::ProbeFile { kind: PackKind::Widgets, name: "w".into(), source, common: None };
     let mut input = Vec::new();
     write_frame(&mut input, &req, &[], FrameLimits::uniform(usize::MAX)).unwrap();
     // 1024 octets par trame : l'en-tête (plus de 200) dépasse 1024 / 8.

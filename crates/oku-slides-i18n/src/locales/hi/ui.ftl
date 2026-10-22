@@ -4,23 +4,30 @@ ui-loading = लोड हो रहा है…
 ## दस्तावेज़
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · टेम्पलेट
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · लेआउट पैक
+   *[other] { $name } · विजेट पैक
+}
 ui-title-rename = प्रेज़ेंटेशन का नाम बदलें
 ui-title-field = प्रेज़ेंटेशन का शीर्षक
 ui-status-unsaved = बिना सहेजे बदलाव
 ui-status-saved = सहेजा गया
 ui-status-never-saved = अभी सहेजा नहीं गया
-ui-caption-templates = { $count ->
-    [one] { $count } टेम्पलेट
-   *[other] { $count } टेम्पलेट
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } लेआउट
+       *[other] { $count } लेआउट
+    }
+   *[other] { $count ->
+        [one] { $count } विजेट
+       *[other] { $count } विजेट
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } स्लाइड
    *[other] { $count } स्लाइड
 } · { $status }
-ui-template-default-name = टेम्पलेट
-ui-template-variant-name = { $name } (वैरिएंट)
-ui-confirm-quit-templates = बदले गए टेम्पलेट सहेजे बिना बाहर निकलें?
+ui-confirm-quit-pack = बदला गया पैक सहेजे बिना बाहर निकलें?
 
 ## सूचनाएँ
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = थीम
 ui-toolbar-theme-embedded = फ़ाइल की थीम
 ui-toolbar-theme-deck-group = यह प्रस्तुति
 ui-toolbar-finish = हो गया
-ui-templates-deck-only = केवल इसी प्रस्तुति में सहेजे गए
+ui-pack-deck-only = केवल इसी प्रस्तुति में सहेजा गया
 ui-toolbar-open = खोलें
 ui-menu = मेनू
 ui-toolbar-add-label = स्लाइड में जोड़ें
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] डेटा की तालिका
    *[text] पाठ का एक अनुच्छेद
 }
-ui-toolbar-remove-template = टेम्पलेट हटाएँ
 ui-toolbar-remove-slide = स्लाइड हटाएँ
 ui-toolbar-remove-hint = स्लाइड { $n } · ⌘Z से पूर्ववत करें
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] टेक्स्ट जोड़ें
 }
 ui-undo-add-widget = “{ $name }” जोड़ें
-ui-undo-new-template = नया टेम्पलेट: { $name }
 ui-undo-new-slide = नई स्लाइड: { $name }
-ui-undo-templates = टेम्पलेट: { $name }
-ui-undo-move-template = टेम्पलेट खिसकाएँ
 ui-undo-move-slide = स्लाइड खिसकाएँ
 ui-undo-remove-slide = स्लाइड हटाएँ
 ui-undo-remove = हटाएँ
@@ -89,7 +92,7 @@ ui-undo-change-anchor = एंकरिंग बदलें
 ui-undo-move = खिसकाएँ
 ui-undo-resize = आकार बदलें
 ui-undo-edit-slide = स्लाइड संपादित करें
-ui-undo-rename-set = सेट का नाम बदलें
+ui-undo-rename-pack = पैक का नाम बदलें
 ui-undo-rename-deck = प्रेज़ेंटेशन का नाम बदलें
 ui-undo-chart-kind = चार्ट का प्रकार बदलें
 ui-undo-chart-data = डेटा संपादित करें
@@ -108,15 +111,15 @@ ui-new-card-detail = विवरण
 ## स्लाइड सूची
 
 ui-pile-slides = स्लाइड
-ui-pile-templates = टेम्पलेट
+ui-pile-layouts = लेआउट
 ui-pile-add-slide = + नई स्लाइड
-ui-pile-add-template = + नया टेम्पलेट
 ui-pile-drag-hint = खिसकाने के लिए खींचें · ⌥↑ ⌥↓
 ui-slide-alt = स्लाइड { $n }
 
 ## स्टेज
 
 ui-stage-rendering = रेंडर हो रहा है…
+ui-stage-widget-pack = ढेर से कोई विजेट खोलें, या नया बनाएँ।
 ui-stage-elements = स्लाइड के एलिमेंट
 ui-stage-fields = स्लाइड के फ़ील्ड
 ui-stage-edit-text = टेक्स्ट संपादित करें
@@ -238,15 +241,11 @@ ui-size-mb = { $value } MB
 ## टेम्पलेट चयनकर्ता
 
 ui-picker-new-slide = नई स्लाइड
-ui-picker-new-template = नया टेम्पलेट, इस पर आधारित…
-ui-picker-set = टेम्पलेट
 ui-picker-set-mine = { $name } · मेरे
 ui-picker-set-received = { $name } · प्राप्त
 ui-picker-keys = ब्राउज़ करने के लिए ← → · जोड़ने के लिए Enter · बंद करने के लिए Esc
 ui-picker-close = बंद करें
-ui-picker-previous = पिछला टेम्पलेट
-ui-picker-next = अगला टेम्पलेट
-ui-picker-list = स्लाइड टेम्पलेट
+ui-picker-list = लेआउट
 ui-widget-picker-filter = नाम, लेबल या विवरण से फ़िल्टर करें
 ui-widget-picker-empty = “{ $query }” से कोई विजेट मेल नहीं खाता।
 ui-widget-picker-list = विजेट
@@ -319,7 +318,7 @@ ui-tabs = खुली प्रस्तुतियाँ
 ui-tab-new = नया टैब
 ui-tab-close = टैब बंद करें
 ui-tab-unsaved = बिना सहेजे बदलाव
-ui-tab-templates = टेम्पलेट
+ui-tab-pack = पैक
 ui-tab-move-new-window = नई विंडो में ले जाएँ
 ui-tab-move-to = विंडो { $n } में ले जाएँ
 ui-tab-close-others = अन्य टैब बंद करें
@@ -374,8 +373,8 @@ ui-widgets-open = विजेट { $name } खोलें
 ui-widgets-delete-named = { $name } हटाएँ
 ui-widgets-confirm-delete = विजेट “{ $name }” हटाएँ?
 ui-widgets-rename-hint = नाम बदलने के लिए डबल-क्लिक करें या F2 दबाएँ
-ui-widgets-tabs = टेम्पलेट टैब
-ui-widgets-templates-tab = टेम्पलेट
+ui-pack-tabs = पैक के टैब
+ui-pack-layouts-tab = लेआउट
 ui-theme-tab = थीम
 ui-theme-picker = थीम
 ui-theme-name = थीम का नाम
@@ -388,14 +387,15 @@ ui-widgets-removed-by-agent = एजेंट ने विजेट { $name } �
 ui-import-title = PowerPoint प्रस्तुति आयात करें
 ui-import-mode = आयात मोड
 ui-import-hifi = हूबहू प्रति
-ui-import-hifi-note = इस प्रस्तुति के लिए बनी थीम और टेम्पलेट के साथ मूल का रूप बनाए रखता है।
-ui-import-retrofit = मेरे टेम्पलेट इस्तेमाल करें
-ui-import-retrofit-note = लाइब्रेरी के टेम्पलेट और एक थीम से स्लाइड फिर से बनाता है।
+ui-import-hifi-note = इस प्रस्तुति के लिए बनी थीम और लेआउट के साथ मूल का रूप बनाए रखता है।
+ui-import-retrofit = मेरे लेआउट इस्तेमाल करें
+ui-import-retrofit-note = लाइब्रेरी के लेआउट पैक और एक थीम से स्लाइड फिर से बनाता है।
+ui-import-layout-packs = लेआउट पैक
 ui-import-theme-default = डिफ़ॉल्ट थीम
-ui-import-no-packs = लाइब्रेरी में कोई टेम्पलेट सेट नहीं है।
+ui-import-no-packs = लाइब्रेरी में कोई लेआउट पैक नहीं है।
 ui-import-tune = एजेंट के साथ बारीकी से सुधारें
 ui-import-tune-note = एजेंट हर स्लाइड की मूल से तुलना करता है और अंतर ठीक करता है।
-ui-import-tune-note-retrofit = एजेंट हर स्लाइड की मूल से तुलना करता है और उन आकृतियों के लिए विजेट बनाता है जिन्हें आपके टेम्पलेट नहीं दिखा सकते।
+ui-import-tune-note-retrofit = एजेंट हर स्लाइड की मूल से तुलना करता है और उन आकृतियों के लिए विजेट बनाता है जिन्हें आपके लेआउट नहीं दिखा सकते।
 ui-import-tune-unavailable = कोई उपयोग योग्य एजेंट नहीं: { $reason }
 ui-import-submit = आयात करें
 ui-import-busy = आयात हो रहा है…

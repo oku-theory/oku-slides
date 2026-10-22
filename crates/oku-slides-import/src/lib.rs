@@ -9,7 +9,8 @@
 //! deck Oku, les assets qu'elles référencent et un [`ImportReport`] (pertes,
 //! replis, couverture du contenu) ; l'appelant borne sa taille par
 //! [`ImportPlan::check_budget`]. Le retrofit ([`retrofit::project`]) projette
-//! la source sur un pack et un thème existants ([`RetrofitTarget`]) ; le hi-fi
+//! la source sur les profils de packs de layouts et un thème existants
+//! ([`RetrofitTarget`]) ; le hi-fi
 //! ([`hifi::project`]) la reproduit fidèlement sur un thème et un pack générés
 //! pour elle ([`HifiTarget`]), que le plan porte avec les polices à embarquer.
 //! [`coverage::coverage`] mesure ce que le deck obtenu garde de la source ;

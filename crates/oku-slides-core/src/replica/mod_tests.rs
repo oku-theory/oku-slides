@@ -358,7 +358,7 @@ fn object_valued_var_round_trips_unchanged() {
 fn array_of_foreign_objects_round_trips_unchanged() {
     // Rien ne se perd : un tableau d'objets qui ne sont pas des paragraphes,
     // sur un paramètre inconnu comme sur un paramètre `rich`, reste tel quel.
-    let deck: Deck = serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "content", "params": {
+    let deck: Deck = serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": {
         "blocks": [{ "id": "t", "kind": "base/text", "params": { "body": [{ "x": 1 }], "data": [{ "x": 1 }] } }]
     } }] }))
     .unwrap();
@@ -512,7 +512,7 @@ fn read_rich_param_without_registry_gives_paragraphs() {
     let mut deck = roadmap();
     crate::canonicalize(&mut deck);
     let snap = DeckReplica::new(&deck, registry()).unwrap().snapshot().unwrap();
-    let empty = Arc::new(WidgetRegistry::from_probe(json!({ "base": [] })).unwrap());
+    let empty = Arc::new(WidgetRegistry::from_probe(json!({ "packs": [] })).unwrap());
     let (_, (read, issues)) = DeckReplica::from_snapshot(&snap, 1 << 20, empty).unwrap();
     let card = read.slide("s-priorites").unwrap().locate("c1").unwrap().element;
     assert_that!(card.params.rich("body").map(<[crate::Paragraph]>::len)).is_equal_to(Some(1));
@@ -755,6 +755,21 @@ fn merge_of_concurrent_adds_of_two_namespaces_keeps_both() {
     a.merge(&b).unwrap();
     let merged = a.deck().0.widgets;
     assert_that!(merged.keys().map(crate::Namespace::as_str).collect::<Vec<_>>()).is_equal_to(vec!["acme", "base"]);
+}
+
+/// Deux pairs ajoutent chacun un pack de layouts : les deux restent (une feuille LWW par espace de noms).
+#[test]
+fn replica_layouts_pins_of_two_peers_merge() {
+    let ns = |s: &str| crate::Namespace::parse(s).unwrap();
+    let mut base = Deck::empty();
+    base.widgets.insert(ns("base"), pack_pin(9, "c", &[]));
+    let (mut a, mut b) = pack_peers(&base);
+    let add = |n: &str, pin| Op::AddPack { kind: crate::PackKind::Layouts, namespace: ns(n), pin };
+    a.apply(&with_ops(&base, vec![add("un", pack_pin(1, "a", &["base"]))]), "A", None).unwrap();
+    b.apply(&with_ops(&base, vec![add("deux", pack_pin(2, "b", &["base"]))]), "B", None).unwrap();
+    a.merge(&b).unwrap();
+    let merged = a.deck().0.layouts;
+    assert_that!(merged.keys().map(crate::Namespace::as_str).collect::<Vec<_>>()).is_equal_to(vec!["deux", "un"]);
 }
 
 /// Un pair retire le dernier pack pendant qu'un autre en épingle un

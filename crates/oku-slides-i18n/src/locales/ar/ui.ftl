@@ -4,19 +4,32 @@ ui-loading = جارٍ التحميل…
 ## المستند
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · القوالب
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · حزمة تخطيطات
+   *[other] { $name } · حزمة أدوات
+}
 ui-title-rename = إعادة تسمية العرض التقديمي
 ui-title-field = عنوان العرض التقديمي
 ui-status-unsaved = تغييرات غير محفوظة
 ui-status-saved = محفوظ
 ui-status-never-saved = لم يُحفظ بعد
-ui-caption-templates = { $count ->
-    [zero] لا قوالب
-    [one] قالب واحد
-    [two] قالبان
-    [few] { $count } قوالب
-    [many] { $count } قالبًا
-   *[other] { $count } قالب
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [zero] لا تخطيطات
+        [one] تخطيط واحد
+        [two] تخطيطان
+        [few] { $count } تخطيطات
+        [many] { $count } تخطيطًا
+       *[other] { $count } تخطيط
+    }
+   *[other] { $count ->
+        [zero] لا أدوات
+        [one] أداة واحدة
+        [two] أداتان
+        [few] { $count } أدوات
+        [many] { $count } أداةً
+       *[other] { $count } أداة
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [zero] لا شرائح
@@ -26,9 +39,7 @@ ui-caption-slides = { $count ->
     [many] { $count } شريحة
    *[other] { $count } شريحة
 } · { $status }
-ui-template-default-name = قالب
-ui-template-variant-name = { $name } (متغيّر)
-ui-confirm-quit-templates = هل تريد الخروج دون حفظ القوالب المعدّلة؟
+ui-confirm-quit-pack = هل تريد الخروج دون حفظ الحزمة المعدّلة؟
 
 ## الإشعارات
 
@@ -50,7 +61,7 @@ ui-toolbar-theme = السمة
 ui-toolbar-theme-embedded = سمة الملف
 ui-toolbar-theme-deck-group = هذا العرض التقديمي
 ui-toolbar-finish = تم
-ui-templates-deck-only = محفوظة في هذا العرض التقديمي فقط
+ui-pack-deck-only = محفوظة في هذا العرض التقديمي فقط
 ui-toolbar-open = فتح
 ui-menu = القائمة
 ui-toolbar-add-label = إضافة إلى الشريحة
@@ -68,7 +79,6 @@ ui-add-kind-description = { $kind ->
     [table] جدول بيانات
    *[text] فقرة نصية
 }
-ui-toolbar-remove-template = حذف القالب
 ui-toolbar-remove-slide = حذف الشريحة
 ui-toolbar-remove-hint = الشريحة { $n } · تراجع باستخدام ⌘Z
 
@@ -82,10 +92,7 @@ ui-undo-add = { $kind ->
    *[text] إضافة نص
 }
 ui-undo-add-widget = إضافة «{ $name }»
-ui-undo-new-template = قالب جديد: { $name }
 ui-undo-new-slide = شريحة جديدة: { $name }
-ui-undo-templates = القوالب: { $name }
-ui-undo-move-template = نقل القالب
 ui-undo-move-slide = نقل الشريحة
 ui-undo-remove-slide = حذف الشريحة
 ui-undo-remove = حذف
@@ -97,7 +104,7 @@ ui-undo-change-anchor = تغيير التثبيت
 ui-undo-move = نقل
 ui-undo-resize = تغيير الحجم
 ui-undo-edit-slide = تعديل الشريحة
-ui-undo-rename-set = إعادة تسمية المجموعة
+ui-undo-rename-pack = إعادة تسمية الحزمة
 ui-undo-rename-deck = إعادة تسمية العرض التقديمي
 ui-undo-chart-kind = تغيير نوع المخطط
 ui-undo-chart-data = تعديل البيانات
@@ -116,15 +123,15 @@ ui-new-card-detail = تفاصيل
 ## كومة الشرائح
 
 ui-pile-slides = الشرائح
-ui-pile-templates = القوالب
+ui-pile-layouts = التخطيطات
 ui-pile-add-slide = + شريحة جديدة
-ui-pile-add-template = + قالب جديد
 ui-pile-drag-hint = اسحب للنقل · ⌥↑ ⌥↓
 ui-slide-alt = الشريحة { $n }
 
 ## المسرح
 
 ui-stage-rendering = جارٍ العرض…
+ui-stage-widget-pack = افتح أداة من الكومة، أو أنشئ واحدة.
 ui-stage-elements = عناصر الشريحة
 ui-stage-fields = حقول الشريحة
 ui-stage-edit-text = تعديل النص
@@ -246,15 +253,11 @@ ui-size-mb = { $value } ميغابايت
 ## منتقي القوالب
 
 ui-picker-new-slide = شريحة جديدة
-ui-picker-new-template = قالب جديد، مبني على…
-ui-picker-set = القوالب
 ui-picker-set-mine = { $name } · خاصتي
 ui-picker-set-received = { $name } · مُستلَمة
 ui-picker-keys = ← → للتصفح · Enter للإضافة · Esc للإغلاق
 ui-picker-close = إغلاق
-ui-picker-previous = القالب السابق
-ui-picker-next = القالب التالي
-ui-picker-list = قوالب الشرائح
+ui-picker-list = التخطيطات
 ui-widget-picker-filter = التصفية حسب الاسم أو التسمية أو الوصف
 ui-widget-picker-empty = لا توجد أداة تطابق «{ $query }».
 ui-widget-picker-list = الأدوات
@@ -327,7 +330,7 @@ ui-tabs = العروض المفتوحة
 ui-tab-new = علامة تبويب جديدة
 ui-tab-close = إغلاق علامة التبويب
 ui-tab-unsaved = تغييرات غير محفوظة
-ui-tab-templates = القوالب
+ui-tab-pack = الحزمة
 ui-tab-move-new-window = نقل إلى نافذة جديدة
 ui-tab-move-to = نقل إلى النافذة { $n }
 ui-tab-close-others = إغلاق علامات التبويب الأخرى
@@ -382,8 +385,8 @@ ui-widgets-open = فتح الودجة { $name }
 ui-widgets-delete-named = حذف { $name }
 ui-widgets-confirm-delete = هل تريد حذف الودجة «{ $name }»؟
 ui-widgets-rename-hint = انقر نقرًا مزدوجًا أو اضغط F2 لإعادة التسمية
-ui-widgets-tabs = علامات تبويب القوالب
-ui-widgets-templates-tab = القوالب
+ui-pack-tabs = علامات تبويب الحزمة
+ui-pack-layouts-tab = التخطيطات
 ui-theme-tab = السمة
 ui-theme-picker = السمة
 ui-theme-name = اسم السمة
@@ -396,14 +399,15 @@ ui-widgets-removed-by-agent = حذف الوكيل الودجة { $name }.
 ui-import-title = استيراد عرض تقديمي من PowerPoint
 ui-import-mode = وضع الاستيراد
 ui-import-hifi = نسخة مطابقة
-ui-import-hifi-note = يحتفظ بمظهر الأصل، مع سمة وقوالب مصنوعة لهذا العرض التقديمي.
-ui-import-retrofit = استخدام قوالبي
-ui-import-retrofit-note = يعيد بناء الشرائح بقوالب وسمة من المكتبة.
+ui-import-hifi-note = يحتفظ بمظهر الأصل، مع سمة وتخطيطات مصنوعة لهذا العرض التقديمي.
+ui-import-retrofit = استخدام تخطيطاتي
+ui-import-retrofit-note = يعيد بناء الشرائح بحزم تخطيطات وسمة من المكتبة.
+ui-import-layout-packs = حزم التخطيطات
 ui-import-theme-default = السمة الافتراضية
-ui-import-no-packs = لا توجد مجموعة قوالب في المكتبة.
+ui-import-no-packs = لا توجد حزمة تخطيطات في المكتبة.
 ui-import-tune = الضبط الدقيق مع الوكيل
 ui-import-tune-note = يقارن الوكيل كل شريحة بالأصل ويصحّح الفروق.
-ui-import-tune-note-retrofit = يقارن الوكيل كل شريحة بالأصل ويصمّم عناصر للأشكال التي لا تعرضها قوالبك.
+ui-import-tune-note-retrofit = يقارن الوكيل كل شريحة بالأصل ويصمّم عناصر للأشكال التي لا تعرضها تخطيطاتك.
 ui-import-tune-unavailable = لا يوجد وكيل قابل للاستخدام: { $reason }
 ui-import-submit = استيراد
 ui-import-busy = جارٍ الاستيراد…

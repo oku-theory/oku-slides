@@ -4,7 +4,7 @@
 //!
 //! Avant : une entrée invalide (nom de widget hors de `[a-z][a-z0-9-]*`,
 //! valeurs qui ne sont pas un objet) faisait échouer `PackManifest::from_files` ;
-//! le pack n'entrait pas dans la bibliothèque, et `save_templates` (`.ok()`)
+//! le pack n'entrait pas dans la bibliothèque, et `save_pack` (`.ok()`)
 //! perdait en silence description et valeurs d'exemple. Une valeur reçue plus
 //! longue que `PLAIN_MAX` passait telle quelle dans l'aperçu.
 
@@ -38,14 +38,14 @@ fn received(id: Uuid, label: &str) -> PackFiles {
         }
     });
     let Value::Object(manifest) = manifest else { panic!("objet") };
-    PackFiles::new(manifest, BTreeMap::from([(kpi(), KPI.to_owned())]))
+    PackFiles::new(oku_slides_core::PackKind::Widgets, manifest, BTreeMap::from([(kpi(), KPI.to_owned())]))
 }
 
 /// Le même pack, sans entrée mal formée : seule la valeur `label` dépasse éventuellement.
 fn well_formed(id: Uuid, label: &str) -> PackFiles {
     let mut manifest = received(id, label).manifest().clone();
     manifest.insert("examples".into(), json!({ "kpi": { "value": "12", "label": label } }));
-    PackFiles::new(manifest, BTreeMap::from([(kpi(), KPI.to_owned())]))
+    PackFiles::new(oku_slides_core::PackKind::Widgets, manifest, BTreeMap::from([(kpi(), KPI.to_owned())]))
 }
 
 #[test]
@@ -60,20 +60,21 @@ fn malformed_example_entries_are_dropped_and_the_valid_ones_kept() {
 fn examples_that_are_not_an_object_leave_the_manifest_readable() {
     let mut files = received(Uuid::new_v4(), "Ventes").manifest().clone();
     files.insert("examples".into(), json!("pas un objet"));
-    let m = PackManifest::from_files(&PackFiles::new(files, BTreeMap::new())).unwrap_or_else(|e| panic!("{e}"));
+    let m = PackManifest::from_files(&PackFiles::new(oku_slides_core::PackKind::Widgets, files, BTreeMap::new()))
+        .unwrap_or_else(|e| panic!("{e}"));
     assert_that!(m.examples.is_empty()).is_true();
 }
 
 #[test]
-fn a_received_pack_with_malformed_examples_keeps_its_values_through_save_templates() {
+fn a_received_pack_with_malformed_examples_keeps_its_values_through_save_pack() {
     let data = data_dir();
     let id = Uuid::new_v4();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    let library = PackLibrary::new(Some(data.join("widgets")), storage);
+    let library = PackLibrary::new(Some(data.join("widgets")), None, storage);
     library.add_version(id, &received(id, "Ventes")).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
-    s.edit_templates(id).unwrap_or_else(|e| panic!("{e}"));
-    s.save_templates(false).unwrap_or_else(|e| panic!("{e}"));
+    s.edit_pack(id).unwrap_or_else(|e| panic!("{e}"));
+    s.save_pack(false).unwrap_or_else(|e| panic!("{e}"));
     let current = library.current_version(id).unwrap_or_else(|| panic!("version courante"));
     assert_that!(current.manifest.description.as_str()).is_equal_to("Ma charte");
     assert_that!(current.manifest.examples.get(&kpi()).and_then(|v| v.get("value"))).is_equal_to(Some(&json!("12")));
@@ -84,11 +85,11 @@ fn a_received_value_over_the_text_bound_is_ignored_in_the_preview_and_dropped_at
     let data = data_dir();
     let id = Uuid::new_v4();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    let library = PackLibrary::new(Some(data.join("widgets")), storage);
+    let library = PackLibrary::new(Some(data.join("widgets")), None, storage);
     let long = "x".repeat(PLAIN_MAX + 1);
     library.add_version(id, &well_formed(id, &long)).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
-    s.edit_templates(id).unwrap_or_else(|e| panic!("{e}"));
+    s.edit_pack(id).unwrap_or_else(|e| panic!("{e}"));
     let p = s.preview_widget(None, "kpi", &Map::new(), PreviewFormat::Svg).unwrap_or_else(|e| panic!("{e}"));
     let params = &p.view.unwrap_or_else(|| panic!("vue de l'aperçu"))["slide"]["params"]["elements"][0]["params"];
     assert_that!(params["value"]).is_equal_to(json!("12"));

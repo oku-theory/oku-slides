@@ -88,3 +88,38 @@ fn dependents_of_an_unpinned_requirement_are_off() {
     let pins = pins_of(&[("acme", &["absent"]), ("free", &[])]);
     assert_that!(names(&dependents(&pins, &BTreeSet::new()))).is_equal_to(vec!["acme"]);
 }
+
+/// Un élément de slot `{"id", "kind"}` ; `@nested:outer>inner` place `inner` dans le slot `items` d'un `outer`.
+fn slot_element(kind: &str, i: usize) -> serde_json::Value {
+    match kind.strip_prefix("@nested:").and_then(|k| k.split_once('>')) {
+        Some((outer, inner)) => serde_json::json!({
+            "id": format!("e{i}"),
+            "kind": outer,
+            "params": { "items": [{ "id": format!("e{i}-in"), "kind": inner }] },
+        }),
+        None => serde_json::json!({ "id": format!("e{i}"), "kind": kind }),
+    }
+}
+
+/// Le manifeste du pack `ns`, de besoins `previous`, avec un exemple par kind de `kinds` : `{"blocks": [élément]}`.
+fn manifest_with_examples(ns: &str, previous: &[&str], kinds: &[&str]) -> PackManifest {
+    let mut m = crate::test_support::manifest_ns(uuid::Uuid::new_v4(), ns, previous);
+    for (i, kind) in kinds.iter().enumerate() {
+        let name = oku_slides_core::WidgetFile::parse(&format!("w{i}")).unwrap();
+        let example = serde_json::json!({ "blocks": [slot_element(kind, i)] });
+        m.examples.insert(name, example.as_object().unwrap().clone());
+    }
+    m
+}
+
+#[rstest::rstest]
+#[case::own_namespace_excluded(&[], &["acme/a"], &[])]
+#[case::previous_requires_first(&["zeta"], &["base/text"], &["zeta", "base"])]
+#[case::duplicates_ignored(&[], &["base/text", "base/card", "base/text"], &["base"])]
+#[case::nested_slot_walked(&[], &["@nested:base/stack>essentiel-x/w"], &["base", "essentiel-x"])]
+fn examples_requires_table(#[case] previous: &[&str], #[case] kinds: &[&str], #[case] expected: &[&str]) {
+    let manifest = manifest_with_examples("acme", previous, kinds);
+    let got: Vec<String> =
+        examples_requires(&crate::test_support::ns("acme"), &manifest).iter().map(ToString::to_string).collect();
+    assert_that!(got).is_equal_to(expected.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>());
+}

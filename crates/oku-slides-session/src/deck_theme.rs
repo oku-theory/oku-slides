@@ -127,7 +127,7 @@ impl Session {
         Ok(render_themed(renderer, deck, tokens, &self.doc.sources.assets).context(RenderSnafu)?)
     }
 
-    /// Le thème du deck de l'utilisateur, même pendant l'édition des modèles.
+    /// Le thème du deck de l'utilisateur, même pendant l'édition d'un pack.
     pub(crate) fn deck_theme(&self) -> Option<&ThemeRef> {
         self.user_deck().theme.as_ref()
     }
@@ -152,9 +152,9 @@ impl Session {
     /// Le deck prend le thème `id` dans sa version courante, embarquée ; annulable.
     ///
     /// Un thème du deck seul embarqué reprend sa version (`picked_theme`). En
-    /// mode modèles, le brouillon du thème part de `id` (`set_edited_theme`).
+    /// mode pack, le brouillon du thème part de `id` (`set_edited_theme`).
     pub fn set_theme(&mut self, id: Uuid) -> Result<()> {
-        if matches!(self.mode, Mode::Templates { .. }) {
+        if matches!(self.mode, Mode::Pack { .. }) {
             return self.set_edited_theme(id);
         }
         let theme = self.picked_theme(id)?;
@@ -198,7 +198,7 @@ impl Session {
     pub(crate) fn embedded_themes(&self) -> impl Iterator<Item = &BTreeMap<PackVersion, PackFiles>> {
         let stash = match &self.mode {
             Mode::Deck | Mode::Help { .. } => None,
-            Mode::Templates { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources.themes),
+            Mode::Pack { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources.themes),
         };
         [Some(&self.doc.sources.themes), stash].into_iter().flatten()
     }
@@ -206,12 +206,12 @@ impl Session {
     /// Les jetons avec lesquels se rend `deck` : ceux de sa version embarquée,
     /// sinon ceux du thème par défaut.
     ///
-    /// En mode modèles, un deck sans thème est le brouillon du thème édité :
+    /// En mode pack, un deck sans thème est le brouillon du thème édité :
     /// il porte tous ses jetons et se rend sur les seuls défauts, comme le
     /// thème édité (un thème est partiel : les clés qu'il omet viennent des
     /// défauts, pas du thème par défaut).
     pub(crate) fn theme_tokens(&self, deck: &Deck) -> Option<Map<String, Value>> {
-        if deck.theme.is_none() && matches!(self.mode, Mode::Templates { .. }) {
+        if deck.theme.is_none() && matches!(self.mode, Mode::Pack { .. }) {
             return None;
         }
         let own = deck.theme.as_ref().and_then(|r| self.theme_manifest(r));

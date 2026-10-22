@@ -1,19 +1,19 @@
 use serde_json::json;
 use speculoos::prelude::*;
 
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 
 use super::*;
 
 fn registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{e}"));
     WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("{e}"))
 }
 
 fn deck(data: Json) -> Json {
-    json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    json!({ "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": [
         { "id": "t1", "kind": base::TABLE, "params": { "data": data } } ] } }] })
 }
 

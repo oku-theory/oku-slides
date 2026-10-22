@@ -27,10 +27,10 @@ const state = (p) => p.evaluate(() => ({
   const picker = p.getByRole('dialog', { name: 'Ajouter sur la slide' });
   await picker.waitFor();
   const options = picker.getByRole('option');
-  assert.deepEqual(await options.locator('.template-name').allTextContents(), ['Texte', 'Carte', 'Forme', 'Graphique', 'Tableau']);
+  assert.deepEqual(await options.locator('.card-name').allTextContents(), ['Texte', 'Carte', 'Forme', 'Graphique', 'Tableau']);
   await picker.getByRole('combobox').fill('tiré');
   await until(p, async () => (await options.count()) === 1, 'le filtre sur la description ne garde pas le seul graphique');
-  assert.equal(await options.locator('.template-name').textContent(), 'Graphique');
+  assert.equal(await options.locator('.card-name').textContent(), 'Graphique');
   await p.waitForSelector('.widget-picker[data-armed]');
   await p.keyboard.press('Enter');
   await picker.waitFor({ state: 'detached' });

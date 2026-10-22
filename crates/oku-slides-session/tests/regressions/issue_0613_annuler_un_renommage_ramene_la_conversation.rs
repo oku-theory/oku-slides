@@ -6,7 +6,7 @@
 
 use oku_slides_core::Op;
 use oku_slides_session::agent::{AgentScope, ScopeMove};
-use oku_slides_session::{DEFAULT_PACK, Session};
+use oku_slides_session::{ESSENTIEL_PACK, Session};
 use speculoos::prelude::*;
 
 use crate::common::{Data, data_dir, session_in};
@@ -16,7 +16,7 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 "#;
 
 fn widget(name: &str) -> AgentScope {
-    AgentScope::Widget { pack: DEFAULT_PACK, name: name.into() }
+    AgentScope::Widget { pack: ESSENTIEL_PACK, name: name.into() }
 }
 
 /// La session ACP gardée pour `scope`, s'il y en a une.
@@ -28,7 +28,7 @@ fn session_of(s: &Session, scope: &AgentScope) -> Option<String> {
 fn editing_with_kpi(data: &Data) -> Session {
     let mut s = session_in(data);
     assert!(s.resume(data.join("resume")));
-    s.edit_templates(DEFAULT_PACK).unwrap_or_else(|e| panic!("édition : {}", e.one_line()));
+    s.edit_pack(ESSENTIEL_PACK).unwrap_or_else(|e| panic!("édition : {}", e.one_line()));
     s.set_widget(None, "kpi", KPI.into()).unwrap_or_else(|e| panic!("widget : {}", e.one_line()));
     s
 }

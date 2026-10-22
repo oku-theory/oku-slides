@@ -1,9 +1,10 @@
 //! Fermeture des besoins des packs épinglés : `requires`, pris dans la bibliothèque.
 //!
-//! `Op::AddPack` n'épingle qu'un pack et refuse un besoin absent du deck ;
-//! la session ajoute d'abord, dans la même transaction, chaque espace de
-//! noms requis que le deck n'épingle pas, dans la version courante du pack
-//! de la bibliothèque qui le porte. Parcours en profondeur, besoins d'abord
+//! `Op::AddPack` n'épingle qu'un pack et refuse un besoin absent des packs de
+//! widgets du deck ; la session ajoute d'abord, dans la même transaction,
+//! chaque espace de noms requis que le deck n'épingle pas, dans la version
+//! courante du pack de widgets de la bibliothèque qui le porte (les
+//! `requires` des deux sortes ne nomment que des packs de widgets). Parcours en profondeur, besoins d'abord
 //! (ordre postfixe), chaque espace de noms une fois ; une boucle de
 //! `requires` est refusée (`RequiresCycle`), un espace de noms inconnu de la
 //! bibliothèque aussi (`UnknownNamespace`).
@@ -12,20 +13,24 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use snafu::OptionExt;
 
-use serde_json::{Map, Value};
-
 use oku_slides_core::{
-    Deck, Element, Namespace, Op, PackFiles, PackPin, PackVersion, ParamValue, Slide, WidgetFile, split_kind,
+    Deck, Element, Namespace, Op, PackFiles, PackKind, PackManifest, PackPin, PackVersion, ParamValue, split_kind,
 };
 
 use crate::Result;
 use crate::error::{PackVersionMissingSnafu, RequiresCycleSnafu, UnknownNamespaceSnafu};
-use crate::library::PackLibrary;
+use crate::library_packs::PackLibrary;
 
-/// L'épinglage de la version courante du pack de la bibliothèque qui porte `ns`.
+/// L'épinglage de la version courante du pack de widgets de la bibliothèque qui porte `ns`.
 pub(crate) fn current_pin(library: &PackLibrary, ns: &Namespace) -> Result<PackPin> {
-    let stored = library.by_namespace(ns).context(UnknownNamespaceSnafu { namespace: ns.as_str() })?;
+    let found = library.entries(PackKind::Widgets).into_iter().find(|s| s.manifest.namespace == *ns);
+    let stored = found.context(UnknownNamespaceSnafu { namespace: ns.as_str() })?;
     Ok(PackPin { id: stored.manifest.id, version: stored.version, requires: stored.manifest.requires })
+}
+
+/// Les épinglages du deck des deux sortes, en une carte : un espace de noms n'est que d'une sorte.
+pub(crate) fn combined_pins(deck: &Deck) -> BTreeMap<Namespace, PackPin> {
+    deck.all_pins().map(|(_, ns, pin)| (ns.clone(), pin.clone())).collect()
 }
 
 /// Les packs de `pins` à écarter avec ceux de `off` : ceux qui requièrent, même de loin,
@@ -79,7 +84,7 @@ impl Closure<'_> {
             self.require(&pin.requires)?;
             self.path.pop();
             self.present.insert(ns.clone());
-            self.ops.push(Op::AddPack { namespace: ns.clone(), pin });
+            self.ops.push(Op::AddPack { kind: PackKind::Widgets, namespace: ns.clone(), pin });
         }
         Ok(())
     }
@@ -94,50 +99,47 @@ pub(crate) fn closure_ops(library: &PackLibrary, deck: &Deck, wanted: &[Op]) -> 
     let present = deck.widgets.keys().cloned().collect();
     let mut closure = Closure { library, present, ops: Vec::with_capacity(wanted.len()), path: Vec::new() };
     for op in wanted {
-        if let Op::AddPack { namespace, pin } = op {
+        if let Op::AddPack { kind, namespace, pin } = op {
             closure.path.push(namespace.clone());
             closure.require(&pin.requires)?;
             closure.path.pop();
-            closure.present.insert(namespace.clone());
+            // Seul un pack de widgets peut être requis.
+            if *kind == PackKind::Widgets {
+                closure.present.insert(namespace.clone());
+            }
         }
         closure.ops.push(op.clone());
     }
     Ok(closure.ops)
 }
 
-/// Les `requires` d'un pack qui enregistre `slides` et `examples` sous l'espace de noms `own`.
+/// Les `requires` du pack `manifest` enregistré sous l'espace de noms `own`, d'après ses exemples.
 ///
-/// Ses `requires` d'avant (`kept`), puis, triés, les espaces de noms des kinds
-/// qualifiés qu'emploient ses modèles et ses valeurs d'exemple, le sien excepté.
-pub(crate) fn templates_requires(
-    own: &Namespace,
-    kept: &[Namespace],
-    slides: &[Slide],
-    examples: &BTreeMap<WidgetFile, Map<String, Value>>,
-) -> Vec<Namespace> {
-    fn walk(elements: &[Element], out: &mut BTreeSet<Namespace>) {
+/// Ses `requires` d'avant, puis, dans l'ordre où ses exemples les emploient et
+/// chacun une fois, les espaces de noms des kinds qualifiés de leurs valeurs
+/// de slot (slots imbriqués compris), le sien excepté.
+pub(crate) fn examples_requires(own: &Namespace, manifest: &PackManifest) -> Vec<Namespace> {
+    fn walk(elements: &[Element], out: &mut Vec<Namespace>) {
         for e in elements {
-            out.extend(split_kind(&e.kind).and_then(|(ns, _)| Namespace::parse(ns)));
+            if let Some(ns) = split_kind(&e.kind).and_then(|(ns, _)| Namespace::parse(ns))
+                && !out.contains(&ns)
+            {
+                out.push(ns);
+            }
             for (_, children) in e.params.slots() {
                 walk(children, out);
             }
         }
     }
-    let mut used = BTreeSet::new();
-    for slide in slides {
-        used.extend(split_kind(&slide.kind).and_then(|(ns, _)| Namespace::parse(ns)));
-        for (_, elements) in slide.params.slots() {
-            walk(elements, &mut used);
-        }
-    }
+    let mut used = Vec::new();
     // Une valeur d'exemple de slot porte des éléments ; toute autre n'a pas de kind.
-    for value in examples.values().flat_map(Map::values) {
+    for value in manifest.examples.values().flat_map(|m| m.values()) {
         if let Ok(ParamValue::Slot(elements)) = serde_json::from_value(value.clone()) {
             walk(&elements, &mut used);
         }
     }
-    let mut out = kept.to_vec();
-    out.extend(used.into_iter().filter(|ns| ns != own && !kept.contains(ns)));
+    let mut out = manifest.requires.clone();
+    out.extend(used.into_iter().filter(|ns| ns != own && !manifest.requires.contains(ns)));
     out
 }
 
@@ -154,10 +156,10 @@ pub(crate) fn closure_with_files(
     (ns, pin, files): Pinned,
     held: &BTreeMap<PackVersion, PackFiles>,
 ) -> Result<Vec<Pinned>> {
-    let wanted = Op::AddPack { namespace: ns.clone(), pin };
+    let wanted = Op::AddPack { kind: files.kind(), namespace: ns.clone(), pin };
     let mut out = Vec::new();
     for op in closure_ops(library, deck, &[wanted])? {
-        let Op::AddPack { namespace, pin } = op else { continue };
+        let Op::AddPack { namespace, pin, .. } = op else { continue };
         let found = if namespace == ns {
             files.clone()
         } else {

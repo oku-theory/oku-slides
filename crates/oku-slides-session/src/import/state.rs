@@ -16,8 +16,6 @@
 //! sont libérés dès que la référence est faite ([`ImportState::settle`]).
 //! Le témoin est celui de `[import] witness` ([`ImportState::choose_witness`]) ;
 //! les régions suspectes sont celles de ses limites connues.
-//! En retrofit, l'état garde aussi le pack enfant, créé à la première
-//! écriture d'un widget sur le pack cible ([`super::child_pack`]).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -37,7 +35,6 @@ use oku_slides_reference::SOFFICE_WITNESS;
 use oku_slides_render::Fonts;
 use oku_slides_render_worker::ReferenceWitness;
 
-use super::child_pack::ChildPack;
 use super::geometry::Geometry;
 use super::reference::{Failure, Reference, ReferenceJob, ReferenceSlot, limits_of, log_failure, soffice};
 use super::tune::{TuneLimits, Tuner, Tuning};
@@ -85,8 +82,6 @@ pub struct ImportState {
     pub(super) scored: BTreeMap<String, u128>,
     /// La langue du journal : un échec du témoin y dit sa cause.
     pub(super) log: LiveLocalizer,
-    /// Retrofit : le pack enfant, créé au premier widget écrit sur le pack cible.
-    child: Option<ChildPack>,
 }
 
 impl ImportState {
@@ -94,9 +89,9 @@ impl ImportState {
     ///
     /// Aucun témoin n'est encore choisi ([`Self::choose_witness`]) ; le hi-fi garde
     /// les octets du `.pptx` pour lui, le retrofit non. `threshold` : le seuil et les bornes de l'ajustement ; `log` : la langue
-    /// courante, celle des échecs journalisés ; `child` : le pack enfant du retrofit.
+    /// courante, celle des échecs journalisés.
     pub(crate) fn new(
-        (mode, child): (ImportMode, Option<ChildPack>),
+        mode: ImportMode,
         plan: CheckedPlan,
         input: Input,
         fonts: Fonts,
@@ -116,13 +111,7 @@ impl ImportState {
             tuner: Tuner::new(limits),
             scored: BTreeMap::new(),
             log,
-            child,
         }
-    }
-
-    /// Retrofit : le pack enfant, créé au premier widget écrit sur le pack cible.
-    pub(crate) fn child(&self) -> Option<&ChildPack> {
-        self.child.as_ref()
     }
 
     /// Journalise un échec du témoin ou d'une note : sa cause localisée, son détail.

@@ -14,7 +14,7 @@ use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic};
 use serde_json::json;
 use snafu::OptionExt;
 
-use oku_slides_core::{Namespace, Op, PackFiles, PackPin};
+use oku_slides_core::{Namespace, Op, PackFiles, PackKind, PackPin};
 use oku_slides_i18n::Localizer;
 
 use crate::agent::Surface;
@@ -39,6 +39,8 @@ pub(crate) fn is_deck_only(files: &PackFiles) -> bool {
 /// Le bandeau : la version d'un pack épinglé n'est pas la courante.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PackNotice {
+    /// La sorte du pack épinglé.
+    pub(crate) kind: PackKind,
     /// L'espace de noms du pack épinglé.
     pub(crate) namespace: Namespace,
     /// Le pack, dans sa version embarquée.
@@ -97,15 +99,15 @@ impl Session {
     }
 
     /// Le bandeau du deck ouvert, s'il en faut un : le premier pack épinglé
-    /// (par espace de noms) dont la version n'est pas la courante.
+    /// (widgets puis layouts, par espace de noms) dont la version n'est pas la courante.
     ///
     /// Jamais pour un pack du deck seul, ni pour un bandeau fermé.
     pub(crate) fn pack_notice_for_deck(&self) -> Option<PackNotice> {
-        self.doc.sources.deck().widgets.iter().find_map(|(ns, pin)| self.pack_notice_for(ns, pin))
+        self.doc.sources.deck().all_pins().find_map(|(kind, ns, pin)| self.pack_notice_for(kind, ns, pin))
     }
 
-    /// Le bandeau du pack `pin` épinglé sous `ns`, s'il en faut un.
-    fn pack_notice_for(&self, ns: &Namespace, pin: &PackPin) -> Option<PackNotice> {
+    /// Le bandeau du pack `pin` de sorte `kind` épinglé sous `ns`, s'il en faut un.
+    fn pack_notice_for(&self, kind: PackKind, ns: &Namespace, pin: &PackPin) -> Option<PackNotice> {
         if self.pack_notices_closed.contains(pin) {
             return None;
         }
@@ -119,7 +121,7 @@ impl Session {
             return None;
         }
         let name = files.and_then(|f| PackManifest::from_files(f).ok()).map(|m| m.name).unwrap_or_default();
-        Some(PackNotice { namespace: ns.clone(), pin: pin.clone(), name, relation })
+        Some(PackNotice { kind, namespace: ns.clone(), pin: pin.clone(), name, relation })
     }
 
     /// Vrai si le deck épingle un pack qui n'appartient qu'à lui (`PackScope::Deck`) : jamais dans la bibliothèque.
@@ -127,7 +129,7 @@ impl Session {
     /// Lu à chaque instantané : la seule clé `scope`, jamais tout le manifeste.
     pub(crate) fn deck_pack_is_deck_only(&self) -> bool {
         let deck = self.doc.sources.deck();
-        deck.widgets.values().filter_map(|pin| self.doc.sources.packs.get(&pin.version)).any(is_deck_only)
+        deck.all_pins().filter_map(|(_, _, pin)| self.doc.sources.packs.get(&pin.version)).any(is_deck_only)
     }
 
     /// Vrai si le deck embarque le pack `id` en version du deck seul.
@@ -141,7 +143,7 @@ impl Session {
     /// Le deck a pu changer ce pack depuis l'ouverture (modification,
     /// fusion, restauration) : le bandeau ne parle plus de lui.
     fn live_pack_notice(&self) -> Option<&PackNotice> {
-        self.pack_notice.as_ref().filter(|n| self.doc.sources.deck().widgets.get(&n.namespace) == Some(&n.pin))
+        self.pack_notice.as_ref().filter(|n| self.doc.sources.deck().pins(n.kind).get(&n.namespace) == Some(&n.pin))
     }
 
     /// Le bandeau à montrer, s'il y en a un : une surface A2UI `Notice`.
@@ -169,7 +171,7 @@ impl Session {
         let current = self.library.current_version(id).context(UnknownPackSnafu { id })?;
         let pin = PackPin { id, version: current.version, requires: current.manifest.requires };
         let label = self.localizer.tr("pack-notice-use-mine");
-        self.apply(&label, vec![Op::AddPack { namespace: n.namespace, pin }], None)?;
+        self.apply(&label, vec![Op::AddPack { kind: n.kind, namespace: n.namespace, pin }], None)?;
         self.pack_notice_close();
         Ok(())
     }
@@ -178,7 +180,7 @@ impl Session {
     pub fn pack_make_current(&mut self) -> Result<()> {
         let Some(n) = self.live_pack_notice().cloned() else { return Ok(()) };
         self.library.set_current(n.pin.id, &n.pin.version)?;
-        self.template_cache = None;
+        self.pack_cache.clear();
         self.pack_notice_close();
         Ok(())
     }

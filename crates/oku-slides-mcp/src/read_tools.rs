@@ -1,11 +1,14 @@
 //! Outils de lecture : ils ne changent rien.
 
+use oku_slides_core::PackKind;
 use oku_slides_session::Request;
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use snafu::ResultExt;
 
+use crate::tool_error::{ResponseSnafu, ToolError};
 use crate::tools::{SlideId, Tools, png, text};
 
 /// Le thème lu par `theme_tokens`.
@@ -14,6 +17,14 @@ pub(crate) struct ThemeArgs {
     /// Id du thème (UUID, voir `deck_outline`).
     #[schemars(with = "String")]
     pub theme: uuid::Uuid,
+}
+
+/// La sorte des packs lus par `packs`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct PacksArgs {
+    /// `widgets` (éléments) ou `layouts` (slides) ; absent : les deux, widgets d'abord.
+    #[serde(default)]
+    pub kind: Option<PackKind>,
 }
 
 impl Tools {
@@ -38,11 +49,11 @@ impl Tools {
                 Ok(json!({
                     "mode": match (&snap.history, &snap.editing) {
                         (Some(_), _) => "history",
-                        (None, Some(_)) => "templates",
+                        (None, Some(_)) => "pack",
                         (None, None) => "deck",
                     },
                     "theme": snap.theme.map(|r| json!({ "id": r.id, "name": snap.theme_name })),
-                    // En mode modèles : le thème dont part le brouillon (`set_theme` le change).
+                    // En mode pack : le thème dont part le brouillon (`set_theme` le change).
                     "edited_theme": snap.editing.as_ref().map(|e| json!({
                         "id": e.theme.base.id,
                         "version": e.theme.base.version,
@@ -58,6 +69,7 @@ impl Tools {
                         .map(|t| json!({ "id": t.id, "name": t.name, "version": t.version, "deck_only": t.deck_only }))
                         .collect::<Vec<_>>(),
                     "widget_packs": snap.widgets,
+                    "layout_packs": snap.layouts,
                     "dirty": snap.dirty,
                     "slides": slides,
                 }))
@@ -108,8 +120,43 @@ impl Tools {
         self.reply(self.with_session(|s| s.handle(Request::Widgets)).await, text)
     }
 
-    pub(crate) async fn templates(&self) -> CallToolResult {
-        self.reply(self.with_session(|s| s.handle(Request::TemplateSets)).await, text)
+    /// Les packs de la bibliothèque, dans leur version courante, d'une sorte ou des deux.
+    pub(crate) async fn packs(&self, args: Value) -> CallToolResult {
+        let PacksArgs { kind } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let kinds = kind.map_or_else(|| PackKind::ALL.to_vec(), |k| vec![k]);
+        let listed =
+            self.with_session(move |s| kinds.into_iter().map(|kind| s.handle(Request::Packs { kind })).collect()).await;
+        // Chaque sorte répond un tableau JSON : mis bout à bout.
+        let packs = listed.and_then(|lists: Vec<String>| {
+            lists.iter().try_fold(Vec::new(), |mut packs, list| {
+                packs.extend(serde_json::from_str::<Vec<Value>>(list).context(ResponseSnafu)?);
+                Ok::<_, ToolError>(packs)
+            })
+        });
+        self.reply(packs, |v| self.json_result(&v))
+    }
+
+    /// Les layouts des packs de layouts du deck, sans leurs aperçus.
+    pub(crate) async fn layouts(&self) -> CallToolResult {
+        let r = self
+            .with_session(|s| {
+                let view = s.layouts_view()?;
+                let packs: Vec<Value> = view
+                    .packs
+                    .iter()
+                    .map(|p| {
+                        let layouts: Vec<Value> =
+                            p.layouts.iter().map(|l| json!({ "kind": l.kind, "label": l.label })).collect();
+                        json!({ "namespace": p.namespace, "name": p.name, "layouts": layouts })
+                    })
+                    .collect();
+                Ok(json!({ "packs": packs }))
+            })
+            .await;
+        self.reply(r, |v| self.json_result(&v))
     }
 
     pub(crate) async fn settings(&self) -> CallToolResult {

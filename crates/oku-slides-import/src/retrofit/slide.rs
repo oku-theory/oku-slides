@@ -6,25 +6,26 @@
 //! textes fusionnés), sans les fonds (une forme sans texte d'au moins la
 //! moitié de la page), les formes sans texte des bandes d'en-tête et de pied,
 //! ni les filets posés au-dessus du bas du titre. La forme de la slide choisit
-//! un modèle ([`choose`]) ; la slide Oku prend la sorte du modèle, son
-//! agencement (`layout`) ou sa grille (`grid`), jamais ses textes d'exemple.
+//! un profil de layout ([`choose`]) ; la slide Oku prend son layout
+//! (`<namespace>/<layout>`) et ses paramètres (agencement `layout`, grille
+//! `grid`), jamais de texte d'exemple.
 //! Titre, surtitre et sous-titre vont dans les paramètres que le widget
 //! déclare ; ceux qu'il ne déclare pas deviennent des contenus.
 //!
 //! Placement (décision 6) : une slide « titre + un corps » (au plus une
 //! unité, ou une rangée de colonnes, seule ou entre des unités pleine
-//! largeur) sur un modèle à blocs va dans le slot `flow`, en ordre de
+//! largeur) sur un profil à blocs va dans le slot `flow`, en ordre de
 //! lecture ; une rangée entourée d'autres unités devient une pile `stack` en
 //! colonnes, et la slide garde l'agencement `default`. Une forme sans texte
 //! n'entre jamais dans un flux. Sinon les unités vont dans le slot libre, dans
 //! l'ordre de dessin, leur boîte englobante ajustée dans la zone de corps
-//! ([`Fit`]) : posées en cadre (`frame`) sur un modèle libre, sans grille ;
-//! sur un modèle à grille, accrochées à la cellule la plus proche ([`snap`])
+//! ([`Fit`]) : posées en cadre (`frame`) sur un profil libre, sans grille ;
+//! sur un profil à grille, accrochées à la cellule la plus proche ([`snap`])
 //! si aucun contenu n'y recouvre un autre, sinon laissées en cadres (la
-//! grille du modèle ne sait pas tenir l'arrangement).
+//! grille du profil ne sait pas tenir l'arrangement).
 //!
 //! Slides de titre (décision 7) : la première couverture remplit les
-//! paramètres du deck (`title`, `subtitle`) et prend un modèle de couverture
+//! paramètres du deck (`title`, `subtitle`) et prend un profil de couverture
 //! même si elle porte d'autres textes (ni image, ni tableau, ni graphique) ;
 //! ceux que le widget ne peut pas tenir vont dans les notes de la slide
 //! (perte `MovedToNotes`). Les couvertures suivantes sont choisies comme des
@@ -37,7 +38,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use oku_slides_core::{Cell, Element, Grid, Op, ParamType, ParamValue, Slide, SlotMode, WidgetRegistry, WidgetSchema};
+use oku_slides_core::{
+    Arrangement, Cell, Element, Grid, Op, ParamType, ParamValue, Slide, SlotMode, WidgetRegistry, WidgetSchema,
+};
 use serde_json::Value;
 
 use super::cluster::{Unit, is_bare_shape, units};
@@ -46,7 +49,7 @@ use super::decor::{Decor, in_band, is_backdrop};
 use super::heading::{Headings, headings};
 use super::measure::{Measure, TextTokens, resize, title_band};
 use super::place::{Arrange, arrange, aspects, collect_assets, track};
-use super::template::{ContentKind, ContentLayout, Profile, Shape, choose, content_items, shape};
+use super::profile::{ContentKind, Profile, Shape, choose, content_items, shape, slide_params};
 use super::text::note;
 use super::zone::{Fit, PageTokens, Zone, body_zone, grid_gap, snap, to_zone};
 use crate::report::{Loss, LossKind, Placement, SlideReport};
@@ -115,10 +118,10 @@ fn slot(schema: Option<&WidgetSchema>, mode: SlotMode) -> Option<&str> {
     })
 }
 
-/// Le modèle de `shape` : parmi ceux qui ont un slot si la slide a du contenu.
-fn pick<'t>(shape: &Shape, profiles: &[Profile<'t>]) -> Option<Profile<'t>> {
+/// Le profil de `shape` : parmi ceux qui ont un slot si la slide a du contenu.
+fn pick<'p>(shape: &Shape, profiles: &[Profile<'p>]) -> Option<Profile<'p>> {
     if !shape.content.is_empty() {
-        let roomy: Vec<Profile<'t>> = profiles.iter().filter(|p| p.has_slot).cloned().collect();
+        let roomy: Vec<Profile<'p>> = profiles.iter().filter(|p| p.has_slot).cloned().collect();
         if let Some(p) = choose(shape, &roomy) {
             return Some(p.clone());
         }
@@ -136,7 +139,7 @@ fn is_slide_decor(item: &Item, size: Size, title_bottom: f64, track: (f64, f64))
     is_backdrop(item, size) || in_band(f, size) || (is_thin(f, track) && f.y + f.h <= title_bottom)
 }
 
-/// La grille de référence d'une slide avant le choix du modèle : la grille
+/// La grille de référence d'une slide avant le choix du profil : la grille
 /// par défaut (12 × 6) sur la zone de corps titrée, les items ajustés dedans.
 struct Reference {
     zone: Zone,
@@ -262,7 +265,7 @@ pub(crate) fn project_slide<'a>(
     let first_cover = cover && !*deck_titled;
     // La couverture du deck reste une couverture si ses autres contenus sont
     // des textes (ils iront dans les notes) ; une image, un tableau ou un
-    // graphique demandent un modèle qui les tienne.
+    // graphique demandent un profil qui les tienne.
     let as_title = first_cover
         && shape.content.iter().all(|k| matches!(k, ContentKind::Text | ContentKind::Card | ContentKind::Shape));
     if as_title {
@@ -271,8 +274,9 @@ pub(crate) fn project_slide<'a>(
         shape.layout_kind = Some(LayoutKind::SectionHeader);
     }
     let profile = if as_title { choose(&shape, profiles).cloned() } else { pick(&shape, profiles) }?;
-    let template = &profile.template.slide;
-    let schema = cx.registry.get(&template.kind);
+    let kind = profile.kind();
+    let hints = &profile.source.1;
+    let schema = cx.registry.get(&kind);
     let id = format!("s{}", src.number);
     let mut losses: Vec<Loss> = cx.decor.losses(src.number).to_vec();
     if src.hidden {
@@ -284,7 +288,8 @@ pub(crate) fn project_slide<'a>(
     for item in [heads.kicker, heads.title, heads.subtitle].into_iter().flatten() {
         effect_losses(item, cx.effects, &mut losses);
     }
-    let mut slide = Slide::new(id.clone(), &template.kind);
+    let mut slide = Slide::new(id.clone(), &kind);
+    slide.params = slide_params(hints);
     let titles = place_titles(&heads, first_cover, schema, &mut slide, &mut losses);
     let mut ops = titles.ops;
     if first_cover {
@@ -297,10 +302,10 @@ pub(crate) fn project_slide<'a>(
         let rank: BTreeMap<&str, usize> = kept.iter().enumerate().map(|(k, i)| (i.id.as_str(), k)).collect();
         all.sort_by_key(|i| rank.get(i.id.as_str()).copied());
         found = units(&all, |f| reference.cell(f));
-        shape = Shape { layout_kind: shape.layout_kind, ..super::template::shape(src, cx.layouts, &heads, &found) };
+        shape = Shape { layout_kind: shape.layout_kind, ..super::profile::shape(src, cx.layouts, &heads, &found) };
     }
     let (flow_slot, free_slot) = (slot(schema, SlotMode::Flow), slot(schema, SlotMode::Free));
-    let flowable = !matches!(profile.layout, ContentLayout::Free | ContentLayout::Grid)
+    let flowable = !matches!(profile.arrangement, Arrangement::Free | Arrangement::Grid)
         && (found.len() <= 1 || shape.columns >= 2);
     let mut placement = match (flow_slot, free_slot) {
         (Some(_), None) => Placement::Flow,
@@ -309,18 +314,14 @@ pub(crate) fn project_slide<'a>(
         (None, None) => Placement::Flow,
     };
     let stack = shape.columns >= 2 && shape.row.len() < found.len();
+    // La slide porte déjà les paramètres du profil : en grille, son agencement tombe.
     let grid_slide = |mut s: Slide| {
         s.params.remove("layout");
-        if let Some(grid) = template.params.get("grid") {
-            s.params.set("grid", grid.clone());
-        }
         s
     };
     if placement == Placement::Flow {
         if stack {
             slide.params.set("layout", ParamValue::Text("default".to_owned()));
-        } else if let Some(layout) = template.params.get("layout") {
-            slide.params.set("layout", layout.clone());
         }
     } else {
         slide = grid_slide(slide);
@@ -336,7 +337,7 @@ pub(crate) fn project_slide<'a>(
         shape: &shape,
         stack,
         to_notes: target_of(placement).is_none() && first_cover,
-        free: template.params.get("grid").is_none() && profile.layout == ContentLayout::Free,
+        free: !hints.params.contains_key("grid") && profile.arrangement == Arrangement::Free,
         scale: cx.scale,
         page: cx.page,
         registry: cx.registry,
@@ -396,7 +397,7 @@ pub(crate) fn project_slide<'a>(
     let report = SlideReport {
         source: src.number,
         slide: id,
-        template: profile.template.id.clone(),
+        profile: profile.name(),
         placement,
         losses,
         fallbacks: built.kinds,

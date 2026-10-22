@@ -17,7 +17,7 @@ fn canonicalize_of_five_thousand_copies_names_them_in_order() {
         .map(|n| json!({ "id": "x", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": format!("texte {n}") }] }] } }))
         .collect();
     let mut deck = Deck::from_json(
-        &json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }] }).to_string(),
+        &json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": blocks } }] }).to_string(),
     )
     .unwrap_or_else(|e| panic!("deck : {e}"));
     canonicalize(&mut deck);

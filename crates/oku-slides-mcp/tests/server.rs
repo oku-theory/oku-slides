@@ -18,9 +18,54 @@ async fn tool_list_names_every_read_tool() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
-    for n in ["deck_outline", "slide", "render_slide", "templates", "settings"] {
+    for n in ["deck_outline", "slide", "render_slide", "packs", "layouts", "settings"] {
         assert_that!(names.contains(&n.to_owned())).is_true();
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tools_list_has_pack_tools_and_no_template_tool() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
+    for t in ["packs", "edit_pack", "save_pack", "close_pack", "delete_pack", "layouts"] {
+        assert_that!(names.contains(&t.to_owned())).named(t).is_true();
+    }
+    assert_that!(names.iter().any(|n| n.contains("template"))).is_false();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn packs_of_kind_layouts_lists_essentiel_with_its_profiles() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let packs = json_of(&call(&c, "packs", serde_json::json!({ "kind": "layouts" })).await);
+    let packs = packs.as_array().cloned().unwrap_or_default();
+    assert_that!(packs.iter().all(|p| p["kind"] == "layouts")).is_true();
+    let essentiel = packs.iter().find(|p| p["namespace"] == "essentiel").cloned().unwrap();
+    assert_that!(essentiel["profiles"].as_u64().unwrap_or_default()).is_greater_than(0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn packs_without_kind_lists_widget_packs_then_layout_packs() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let packs = json_of(&call(&c, "packs", serde_json::json!({})).await);
+    let kinds: Vec<&str> = packs.as_array().into_iter().flatten().filter_map(|p| p["kind"].as_str()).collect();
+    assert_that!(kinds.first().copied()).is_equal_to(Some("widgets"));
+    assert_that!(kinds.last().copied()).is_equal_to(Some("layouts"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn layouts_lists_the_essentiel_kinds_without_previews() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let layouts = json_of(&call(&c, "layouts", serde_json::json!({})).await);
+    let pack = layouts["packs"].as_array().and_then(|p| p.first()).cloned().unwrap();
+    assert_that!(pack["namespace"].as_str()).is_equal_to(Some("essentiel"));
+    let kinds: Vec<&str> =
+        pack["layouts"].as_array().into_iter().flatten().filter_map(|l| l["kind"].as_str()).collect();
+    assert_that!(kinds).contains(oku_slides_core::kinds::essentiel::CONTENT);
+    assert_that!(text_of(&call(&c, "layouts", serde_json::json!({})).await)).does_not_contain("svg");
 }
 
 #[tokio::test(flavor = "multi_thread")]

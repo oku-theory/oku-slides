@@ -1,41 +1,72 @@
 use std::path::Path;
 
-use oku_slides_core::{PackFiles, PackVersion};
+use oku_slides_core::{PackFiles, PackKind, PackVersion};
+
+use crate::SessionErrorKind;
 use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::*;
-use crate::pack::{BASE_PACK, DEFAULT_PACK, GRID_PACK, Relation};
-use crate::test_support::{add_version, fresh_dir, manifest};
+use crate::PackLibrary;
+use crate::pack::{BASE_PACK, ESSENTIEL_PACK, Relation};
+use crate::test_support::{add_version, fresh_dir, manifest, manifest_ns};
 
+/// Une bibliothèque des packs : les widgets sous `dir`, les layouts sous `dir/../<nom>-layouts`.
 fn library(dir: &Path) -> PackLibrary {
-    PackLibrary::new(Some(dir.to_owned()), Storage::local().unwrap())
+    let layouts = dir.with_file_name(format!("{}-layouts", dir.file_name().unwrap().to_string_lossy()));
+    PackLibrary::new(Some(dir.to_owned()), Some(layouts), Storage::local().unwrap())
 }
 
 #[test]
 fn builtin_versions_have_the_constant_ids() {
-    let ids: Vec<Uuid> = builtin_versions().iter().map(|b| b.manifest.id).collect();
-    assert_that!(ids).is_equal_to(vec![DEFAULT_PACK, GRID_PACK, BASE_PACK]);
     let created: Vec<(Uuid, &str)> =
         builtin_versions().iter().map(|b| (b.manifest.id, b.manifest.created.as_str())).collect();
-    assert_that!(created).is_equal_to(vec![
-        (DEFAULT_PACK, "2026-10-01T00:00:00Z"),
-        (GRID_PACK, "2026-10-01T00:00:00Z"),
-        (BASE_PACK, "2026-10-18T00:00:00Z"),
-    ]);
+    assert_that!(created)
+        .is_equal_to(vec![(BASE_PACK, "2026-10-18T00:00:00Z"), (ESSENTIEL_PACK, "2026-10-19T00:00:00Z")]);
     assert_that!(builtin_versions().iter().all(|b| b.manifest.parent.is_none())).is_true();
+}
+
+#[rstest::rstest]
+#[case(PackKind::Widgets, vec!["base"])]
+#[case(PackKind::Layouts, vec!["essentiel"])]
+fn library_builtins_by_kind(#[case] kind: PackKind, #[case] expected: Vec<&str>) {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let names: Vec<String> = lib.packs(kind).iter().filter(|p| p.default).map(|p| p.namespace.to_string()).collect();
+    assert_that!(names).is_equal_to(expected.into_iter().map(str::to_owned).collect::<Vec<_>>());
+}
+
+#[test]
+fn library_has_no_grilles() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let all: Vec<String> = PackKind::ALL.iter().flat_map(|k| lib.packs(*k)).map(|p| p.namespace.to_string()).collect();
+    assert_that!(all.contains(&"grilles".to_owned())).is_false();
+}
+
+#[rstest::rstest]
+#[case(PackKind::Widgets, "essentiel")]
+#[case(PackKind::Layouts, "base")]
+#[case(PackKind::Layouts, "deck-layouts")]
+fn library_add_namespace_taken_by_any_kind_is_refused(#[case] kind: PackKind, #[case] namespace: &str) {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let m = manifest_ns(Uuid::new_v4(), namespace, &[]);
+    let err = lib.add_version(m.id, &m.to_files(kind, BTreeMap::new()).unwrap()).unwrap_err();
+    assert_that!(matches!(err.kind(), SessionErrorKind::NamespaceTaken | SessionErrorKind::NamespaceReserved))
+        .is_true();
 }
 
 #[test]
 fn builtin_pack_is_current_by_default_and_read_only() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(builtin.clone()));
-    assert_that!(PackLibrary::is_builtin(DEFAULT_PACK)).is_true();
+    let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
+    assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(builtin.clone()));
+    assert_that!(PackLibrary::is_builtin(BASE_PACK)).is_true();
     // Rien n'est écrit pour une version intégrée.
-    assert_that!(dir.path().join(DEFAULT_PACK.to_string()).exists()).is_false();
-    assert_that!(lib.version(DEFAULT_PACK, &builtin).is_some()).is_true();
+    assert_that!(dir.path().join(BASE_PACK.to_string()).exists()).is_false();
+    assert_that!(lib.version(BASE_PACK, &builtin).is_some()).is_true();
 }
 
 #[test]
@@ -80,20 +111,20 @@ fn add_version_does_not_change_current() {
 fn add_version_under_a_builtin_id_keeps_the_builtin_current() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    add_version(&lib, &manifest(DEFAULT_PACK, "Sœur", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
-    assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(builtin));
-    assert_that!(lib.versions(DEFAULT_PACK).len()).is_equal_to(2);
+    let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
+    add_version(&lib, &manifest(BASE_PACK, "Sœur", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
+    assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(builtin));
+    assert_that!(lib.versions(BASE_PACK).len()).is_equal_to(2);
 }
 
 #[test]
 fn set_current_makes_a_version_current_even_over_a_builtin() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    let mine = add_version(&lib, &manifest(DEFAULT_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
-    lib.set_current(DEFAULT_PACK, &mine.version).unwrap();
-    assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(mine.version));
+    let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
+    let mine = add_version(&lib, &manifest(BASE_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
+    lib.set_current(BASE_PACK, &mine.version).unwrap();
+    assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(mine.version));
 }
 
 /// Une session d'édition des modèles n'a qu'une version : chaque enregistrement remplace la précédente.
@@ -101,32 +132,33 @@ fn set_current_makes_a_version_current_even_over_a_builtin() {
 fn replace_version_keeps_the_parent_removes_the_old_one_and_updates_current() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    let first = add_version(&lib, &manifest(DEFAULT_PACK, "Un", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
-    lib.set_current(DEFAULT_PACK, &first.version).unwrap();
-    let next =
-        manifest(DEFAULT_PACK, "Deux", Some(&builtin), "2026-10-02T10:05:00Z").to_files(BTreeMap::new()).unwrap();
-    let replaced = lib.replace_version(DEFAULT_PACK, &first.version, &next).unwrap();
+    let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
+    let first = add_version(&lib, &manifest(BASE_PACK, "Un", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
+    lib.set_current(BASE_PACK, &first.version).unwrap();
+    let next = manifest(BASE_PACK, "Deux", Some(&builtin), "2026-10-02T10:05:00Z")
+        .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
+        .unwrap();
+    let replaced = lib.replace_version(BASE_PACK, &first.version, &next).unwrap();
     assert_that!(replaced).is_equal_to(next.version());
-    assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(next.version()));
-    assert_that!(lib.version(DEFAULT_PACK, &first.version)).is_none();
-    assert_that!(dir.path().join(DEFAULT_PACK.to_string()).join("versions").join(first.version.hex()).exists())
-        .is_false();
-    let current = lib.current_version(DEFAULT_PACK).unwrap();
+    assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(next.version()));
+    assert_that!(lib.version(BASE_PACK, &first.version)).is_none();
+    assert_that!(dir.path().join(BASE_PACK.to_string()).join("versions").join(first.version.hex()).exists()).is_false();
+    let current = lib.current_version(BASE_PACK).unwrap();
     assert_that!(current.manifest.parent).is_equal_to(Some(builtin));
-    assert_that!(lib.versions(DEFAULT_PACK).len()).is_equal_to(2);
+    assert_that!(lib.versions(BASE_PACK).len()).is_equal_to(2);
 }
 
 #[test]
 fn replace_version_never_deletes_the_builtin_version() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    let next =
-        manifest(DEFAULT_PACK, "Mien", Some(&builtin), "2026-10-02T10:00:00Z").to_files(BTreeMap::new()).unwrap();
-    lib.replace_version(DEFAULT_PACK, &builtin, &next).unwrap();
-    assert_that!(lib.version(DEFAULT_PACK, &builtin).is_some()).is_true();
-    assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(next.version()));
+    let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
+    let next = manifest(BASE_PACK, "Mien", Some(&builtin), "2026-10-02T10:00:00Z")
+        .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
+        .unwrap();
+    lib.replace_version(BASE_PACK, &builtin, &next).unwrap();
+    assert_that!(lib.version(BASE_PACK, &builtin).is_some()).is_true();
+    assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(next.version()));
 }
 
 #[test]
@@ -134,7 +166,7 @@ fn set_current_to_an_absent_version_returns_pack_version_missing() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
     let absent = PackVersion::from_hex(&"0".repeat(64)).unwrap();
-    let err = lib.set_current(DEFAULT_PACK, &absent).unwrap_err();
+    let err = lib.set_current(BASE_PACK, &absent).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::PackVersionMissing);
     let err = lib.set_current(Uuid::new_v4(), &absent).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::UnknownPack);
@@ -196,14 +228,9 @@ fn packs_lists_builtins_first_then_user_packs_by_name() {
     add_version(&lib, &manifest(z, "Zeta", None, "2026-10-01T10:00:00Z"), &[]);
     add_version(&lib, &manifest(a, "alpha", None, "2026-10-01T10:00:00Z"), &[]);
     std::fs::create_dir_all(dir.path().join("pas-un-uuid")).unwrap();
-    let ids: Vec<(Uuid, bool, bool)> = lib.packs().into_iter().map(|p| (p.id, p.builtin, p.default)).collect();
-    assert_that!(ids).is_equal_to(vec![
-        (DEFAULT_PACK, true, true),
-        (GRID_PACK, true, false),
-        (BASE_PACK, true, false),
-        (a, false, false),
-        (z, false, false),
-    ]);
+    let ids: Vec<(Uuid, bool, bool)> =
+        lib.packs(PackKind::Widgets).into_iter().map(|p| (p.id, p.builtin, p.default)).collect();
+    assert_that!(ids).is_equal_to(vec![(BASE_PACK, true, true), (a, false, false), (z, false, false)]);
 }
 
 #[test]
@@ -218,10 +245,10 @@ fn delete_removes_every_version_of_a_user_pack() {
 }
 
 #[test]
-fn add_version_without_templates_dir_returns_no_templates_dir() {
-    let lib = PackLibrary::new(None, Storage::local().unwrap());
+fn add_version_without_pack_dir_returns_no_pack_dir() {
+    let lib = PackLibrary::new(None, None, Storage::local().unwrap());
     let id = Uuid::new_v4();
-    let files = manifest(id, "A", None, "2026-10-01T10:00:00Z").to_files(BTreeMap::new()).unwrap();
+    let files = manifest(id, "A", None, "2026-10-01T10:00:00Z").to_files(PackKind::Widgets, BTreeMap::new()).unwrap();
     let err = lib.add_version(id, &files).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NoLibraryDir);
 }
@@ -232,7 +259,7 @@ fn add_version_with_malformed_pack_json_is_refused_and_writes_nothing() {
     let lib = library(dir.path());
     let id = Uuid::new_v4();
     let json = serde_json::json!({ "id": id.to_string(), "name": "Sans modèles ni date" });
-    let files = PackFiles::new(json.as_object().cloned().unwrap(), BTreeMap::new());
+    let files = PackFiles::new(PackKind::Widgets, json.as_object().cloned().unwrap(), BTreeMap::new());
     let err = lib.add_version(id, &files).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::InvalidDocument);
     assert_that!(dir.path().join(id.to_string()).exists()).is_false();
@@ -243,7 +270,9 @@ fn add_version_of_another_pack_is_refused_and_writes_nothing() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
     let (id, other) = (Uuid::new_v4(), Uuid::new_v4());
-    let files = manifest(other, "Autre", None, "2026-10-01T10:00:00Z").to_files(BTreeMap::new()).unwrap();
+    let files = manifest(other, "Autre", None, "2026-10-01T10:00:00Z")
+        .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
+        .unwrap();
     let err = lib.add_version(id, &files).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::InvalidDocument);
     assert_that!(dir.path().join(id.to_string()).exists()).is_false();
@@ -257,7 +286,8 @@ fn add_version_of_a_deck_only_pack_is_refused_and_writes_nothing() {
     let id = Uuid::new_v4();
     let mut m = manifest(id, "Importé", None, "2026-10-01T10:00:00Z");
     m.scope = oku_slides_core::PackScope::Deck;
-    let err = lib.add_version(id, &m.to_files(BTreeMap::new()).unwrap()).unwrap_err();
+    let err =
+        lib.add_version(id, &m.to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new()).unwrap()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::DeckOnly);
     let message = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("fr")));
     assert_that!(message).contains(id.to_string().as_str());
@@ -272,7 +302,9 @@ fn replace_version_keeps_old_when_it_is_the_parent_of_the_new_one() {
     let lib = library(dir.path());
     let id = Uuid::new_v4();
     let first = add_version(&lib, &manifest(id, "Un", None, "2026-10-01T10:00:00Z"), &[]);
-    let next = manifest(id, "Deux", Some(&first.version), "2026-10-01T10:05:00Z").to_files(BTreeMap::new()).unwrap();
+    let next = manifest(id, "Deux", Some(&first.version), "2026-10-01T10:05:00Z")
+        .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
+        .unwrap();
     lib.replace_version(id, &first.version, &next).unwrap();
     assert_that!(lib.current(id)).is_equal_to(Some(next.version()));
     assert_that!(lib.version(id, &first.version).is_some()).is_true();
@@ -291,7 +323,9 @@ fn replace_version_whose_old_folder_cannot_be_deleted_still_succeeds() {
     let old = dir.path().join(id.to_string()).join("versions").join(first.version.hex());
     // Dossier en lecture seule : son `pack.json` ne peut pas être retiré.
     std::fs::set_permissions(&old, std::fs::Permissions::from_mode(0o555)).unwrap();
-    let next = manifest(id, "Deux", None, "2026-10-01T10:05:00Z").to_files(BTreeMap::new()).unwrap();
+    let next = manifest(id, "Deux", None, "2026-10-01T10:05:00Z")
+        .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
+        .unwrap();
     let replaced = lib.replace_version(id, &first.version, &next);
     std::fs::set_permissions(&old, std::fs::Permissions::from_mode(0o755)).unwrap();
     assert_that!(replaced.unwrap()).is_equal_to(next.version());
@@ -316,110 +350,13 @@ fn relation_with_a_dangling_parent_chain_is_sibling() {
 fn delete_under_a_builtin_id_reverts_to_the_builtin_version() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    let mine = add_version(&lib, &manifest(DEFAULT_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
-    lib.set_current(DEFAULT_PACK, &mine.version).unwrap();
-    lib.delete(DEFAULT_PACK).unwrap();
-    assert_that!(lib.current(DEFAULT_PACK)).is_equal_to(Some(builtin));
-    assert_that!(lib.versions(DEFAULT_PACK).len()).is_equal_to(1);
-    assert_that!(lib.version(DEFAULT_PACK, &mine.version)).is_none();
-}
-
-/// Un deck d'une slide, `slide`, sans pack choisi.
-fn deck_of(slide: oku_slides_core::Slide) -> oku_slides_core::Deck {
-    oku_slides_core::Deck {
-        version: oku_slides_core::DECK_VERSION,
-        theme: None,
-        params: Default::default(),
-        vars: Default::default(),
-        tokens: serde_json::Value::Null,
-        widgets: Default::default(),
-        slides: vec![slide],
-    }
-}
-
-/// Le texte d'un paramètre : une chaîne, les runs de ses paragraphes, et
-/// le texte des paramètres des éléments d'un slot (pas leurs identifiants).
-fn texts(value: &oku_slides_core::ParamValue, out: &mut Vec<String>) {
-    match value {
-        oku_slides_core::ParamValue::Text(s) => out.push(s.clone()),
-        other => collect(&serde_json::to_value(other).unwrap(), out),
-    }
-}
-
-fn collect(json: &serde_json::Value, out: &mut Vec<String>) {
-    match json {
-        serde_json::Value::Array(a) => a.iter().for_each(|v| collect(v, out)),
-        serde_json::Value::Object(o) => {
-            for (k, v) in o {
-                match (k.as_str(), v) {
-                    ("t", serde_json::Value::String(s)) => out.push(s.clone()),
-                    ("params", serde_json::Value::Object(params)) => {
-                        for p in params.values() {
-                            match p {
-                                serde_json::Value::String(s) => out.push(s.clone()),
-                                p => collect(p, out),
-                            }
-                        }
-                    }
-                    (_, v) => collect(v, out),
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-#[test]
-fn builtin_versions_every_template_has_a_unique_id() {
-    assert_that!(builtin_versions().len()).is_greater_than_or_equal_to(2);
-    for m in builtin_versions().iter().map(|b| &b.manifest) {
-        let mut ids: Vec<&str> = m.templates.iter().map(|t| t.id.as_str()).collect();
-        ids.sort();
-        ids.dedup();
-        asserting(&format!("identifiants en double dans {}", m.name)).that(&ids.len()).is_equal_to(m.templates.len());
-    }
-}
-
-#[test]
-fn builtin_versions_every_template_is_valid() {
-    let registry = crate::test_support::registry();
-    for m in builtin_versions().iter().map(|b| &b.manifest) {
-        for t in &m.templates {
-            asserting(&format!("{} / {}", m.name, t.id))
-                .that(&oku_slides_core::validate(&deck_of(t.slide.clone()), &registry, None))
-                .is_empty();
-        }
-    }
-}
-
-#[test]
-fn builtin_versions_converted_to_v2_keep_their_text() {
-    let manifests: Vec<&PackManifest> = builtin_versions().iter().map(|b| &b.manifest).collect();
-    let essentiel = manifests.iter().find(|m| m.id == DEFAULT_PACK).unwrap();
-    let texte = &essentiel.templates[0].slide;
-    // Le premier modèle d'« essentiel » : son titre, son surtitre et ses
-    // points, passés de la slide v1 aux paramètres v2.
-    assert_that!(texte.params.text("title")).is_equal_to(Some("Titre de la slide"));
-    assert_that!(texte.params.text("kicker")).is_equal_to(Some("Surtitre"));
-    let mut body = Vec::new();
-    texts(texte.params.get("blocks").unwrap(), &mut body);
-    assert_that!(body).contains("Premier point".to_owned());
-    assert_that!(body).contains("Troisième point".to_owned());
-    // La fin garde son texte.
-    let fin = essentiel.templates.iter().find(|t| t.slide.kind == "end").unwrap();
-    assert_that!(fin.slide.params.text("text")).is_equal_to(Some("Merci"));
-    // Aucun modèle n'est vide : chaque pack garde du texte dans chacun de
-    // ses modèles à contenu (hors couverture et sommaire, liés au deck).
-    for m in &manifests {
-        for t in m.templates.iter().filter(|t| !matches!(t.slide.kind.as_str(), "title" | "toc")) {
-            let mut all = Vec::new();
-            for (_, v) in t.slide.params.iter() {
-                texts(v, &mut all);
-            }
-            asserting(&format!("{} / {} sans texte", m.name, t.id)).that(&all.is_empty()).is_false();
-        }
-    }
+    let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
+    let mine = add_version(&lib, &manifest(BASE_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
+    lib.set_current(BASE_PACK, &mine.version).unwrap();
+    lib.delete(BASE_PACK).unwrap();
+    assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(builtin));
+    assert_that!(lib.versions(BASE_PACK).len()).is_equal_to(1);
+    assert_that!(lib.version(BASE_PACK, &mine.version)).is_none();
 }
 
 /// t-328 : un dossier au format ancien (nom non-UUID) est ignoré, signalé une fois.
@@ -430,7 +367,7 @@ fn packs_ignore_a_legacy_folder_and_report_it_once() {
     std::fs::create_dir_all(&legacy).unwrap();
     std::fs::write(legacy.join("pack.json"), br#"{"name":"Ma charte"}"#).unwrap();
     let lib = library(dir.path());
-    assert_that!(lib.packs().iter().any(|p| p.name == "Ma charte")).is_false();
+    assert_that!(lib.packs(PackKind::Widgets).iter().any(|p| p.name == "Ma charte")).is_false();
     // `packs()` l'a déjà signalé : plus jamais pour ce dossier.
     assert_that!(first_legacy_sighting(&legacy)).is_false();
     assert_that!(first_legacy_sighting(&dir.path().join("autre-ancien"))).is_true();
@@ -439,7 +376,7 @@ fn packs_ignore_a_legacy_folder_and_report_it_once() {
 
 /// Une version reçue avec un deck pour `m`.
 fn receive(lib: &PackLibrary, m: &crate::pack::PackManifest) -> oku_slides_core::PackPin {
-    let files = m.to_files(Default::default()).unwrap();
+    let files = m.to_files(oku_slides_core::PackKind::Widgets, Default::default()).unwrap();
     lib.receive_version(m.id, &files).unwrap();
     oku_slides_core::PackPin { id: m.id, version: files.version(), requires: Vec::new() }
 }
@@ -451,7 +388,7 @@ fn receive_version_of_an_unknown_pack_lists_it_as_received() {
     let lib = library(dir.path());
     let id = Uuid::new_v4();
     let r = receive(&lib, &manifest(id, "Reçu", None, "2026-10-01T10:00:00Z"));
-    let info = lib.packs().into_iter().find(|p| p.id == id).unwrap();
+    let info = lib.packs(PackKind::Widgets).into_iter().find(|p| p.id == id).unwrap();
     assert_that!((info.version, info.received)).is_equal_to((r.version.clone(), true));
     assert_that!(lib.is_received(id, &r.version)).is_true();
 }
@@ -463,7 +400,8 @@ fn receive_version_of_a_deck_only_pack_is_refused_and_writes_no_mark() {
     let id = Uuid::new_v4();
     let mut m = manifest(id, "Importé", None, "2026-10-01T10:00:00Z");
     m.scope = oku_slides_core::PackScope::Deck;
-    let err = lib.receive_version(id, &m.to_files(BTreeMap::new()).unwrap()).unwrap_err();
+    let err =
+        lib.receive_version(id, &m.to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new()).unwrap()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::DeckOnly);
     assert_that!(dir.path().join(id.to_string()).exists()).is_false();
 }
@@ -474,7 +412,8 @@ fn add_version_is_not_received() {
     let lib = library(dir.path());
     let id = Uuid::new_v4();
     let r = add_version(&lib, &manifest(id, "Mien", None, "2026-10-01T10:00:00Z"), &[]);
-    assert_that!(lib.packs().into_iter().find(|p| p.id == id).map(|p| p.received)).is_equal_to(Some(false));
+    assert_that!(lib.packs(PackKind::Widgets).into_iter().find(|p| p.id == id).map(|p| p.received))
+        .is_equal_to(Some(false));
     assert_that!(lib.is_received(id, &r.version)).is_false();
 }
 
@@ -512,6 +451,6 @@ fn packs_ignore_a_non_canonical_uuid_folder() {
     let lib = library(dir.path());
     add_version(&lib, &manifest(id, "Mien", None, "2026-10-01T10:00:00Z"), &[]);
     std::fs::rename(dir.path().join(id.to_string()), &upper).unwrap();
-    assert_that!(library(dir.path()).packs().iter().any(|p| p.id == id)).is_false();
+    assert_that!(library(dir.path()).packs(PackKind::Widgets).iter().any(|p| p.id == id)).is_false();
     assert_that!(first_legacy_sighting(&upper)).is_false();
 }

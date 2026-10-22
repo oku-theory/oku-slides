@@ -28,7 +28,7 @@ no network, and acts only through the MCP tools of the tab (no `fs`, no `termina
   in the prompt's locale (`local-agent-*` keys), one `local-agent-retry` fact. Cancel: no report.
 - `mcp` : `McpTools`, the `ToolPort` over one `rust-mcp-sdk` client per session.
 - `tool_error` : `ToolError`: `Rejected` (repairable), `Transport`, `Schema`.
-- `families` : `Family` (edit, present, files, templates, configure, troubleshoot, plus the
+- `families` : `Family` (edit, present, files, packs, configure, troubleshoot, plus the
   always-exposed `AskReport`), `families_of(tool)` (the static table; a test checks that every MCP
   tool has a family), `parse_route` (first two family keys in the reply), `route_grammar` (GBNF
   for the route step).

@@ -158,7 +158,7 @@ fn read_diverged_copies_rename_the_later_occurrence() {
 
 #[test]
 fn duplicate_ids_round_trip_keeps_the_edited_node() {
-    let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "content", "params": {
+    let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": {
         "blocks": [text("x", "A"), text("x", "B")] } }] }));
     let mut r = new(&deck);
     let tree = slide_tree(&r, "s");

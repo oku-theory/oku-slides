@@ -11,6 +11,7 @@ fn fr() -> Localizer {
 #[case(ProbeMismatchSnafu { widget: "l1" }.build(), ImportErrorKind::Probe, "le pack généré ne se sonde pas comme il est déclaré (widget l1)")]
 #[case(ProbeLimitSnafu { widget: "l2" }.build(), ImportErrorKind::Probe, "le pack généré dépasse les bornes de la sonde (widget l2)")]
 #[case(UnknownPackSnafu { pack: "Nope" }.build(), ImportErrorKind::UnknownPack, "pack inconnu : Nope")]
+#[case(NotLayoutPackSnafu { pack: "base" }.build(), ImportErrorKind::NotLayoutPack, "base")]
 #[case(BadPackFilesSnafu { pack: "x" }.build(), ImportErrorKind::BadPack, "pack illisible x")]
 #[case(PackTooLargeSnafu { path: "/p", max: 3u64 << 20 }.build(), ImportErrorKind::TooLarge, "3")]
 #[case(ReaderPanicSnafu { path: "/x.pptx" }.build(), ImportErrorKind::Presentation, "/x.pptx")]

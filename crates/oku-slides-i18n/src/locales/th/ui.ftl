@@ -4,21 +4,27 @@ ui-loading = กำลังโหลด…
 ## เอกสาร
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · เทมเพลต
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · ชุดเลย์เอาต์
+   *[other] { $name } · ชุดวิดเจ็ต
+}
 ui-title-rename = เปลี่ยนชื่องานนำเสนอ
 ui-title-field = ชื่องานนำเสนอ
 ui-status-unsaved = มีการเปลี่ยนแปลงที่ยังไม่บันทึก
 ui-status-saved = บันทึกแล้ว
 ui-status-never-saved = ยังไม่ได้บันทึก
-ui-caption-templates = { $count ->
-   *[other] { $count } เทมเพลต
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+       *[other] { $count } เลย์เอาต์
+    }
+   *[other] { $count ->
+       *[other] { $count } วิดเจ็ต
+    }
 } · { $status }
 ui-caption-slides = { $count ->
    *[other] { $count } สไลด์
 } · { $status }
-ui-template-default-name = เทมเพลต
-ui-template-variant-name = { $name } (รูปแบบอื่น)
-ui-confirm-quit-templates = ออกโดยไม่บันทึกเทมเพลตที่แก้ไขหรือไม่
+ui-confirm-quit-pack = ออกโดยไม่บันทึกชุดที่แก้ไขหรือไม่
 
 ## การแจ้งเตือน
 
@@ -40,7 +46,7 @@ ui-toolbar-theme = ธีม
 ui-toolbar-theme-embedded = ธีมของไฟล์
 ui-toolbar-theme-deck-group = งานนำเสนอนี้
 ui-toolbar-finish = เสร็จสิ้น
-ui-templates-deck-only = บันทึกไว้ในงานนำเสนอนี้เท่านั้น
+ui-pack-deck-only = บันทึกไว้ในงานนำเสนอนี้เท่านั้น
 ui-toolbar-open = เปิด
 ui-menu = เมนู
 ui-toolbar-add-label = เพิ่มลงในสไลด์
@@ -58,7 +64,6 @@ ui-add-kind-description = { $kind ->
     [table] ตารางข้อมูล
    *[text] ย่อหน้าข้อความ
 }
-ui-toolbar-remove-template = ลบเทมเพลต
 ui-toolbar-remove-slide = ลบสไลด์
 ui-toolbar-remove-hint = สไลด์ { $n } · เลิกทำด้วย ⌘Z
 
@@ -72,10 +77,7 @@ ui-undo-add = { $kind ->
    *[text] เพิ่มข้อความ
 }
 ui-undo-add-widget = เพิ่ม “{ $name }”
-ui-undo-new-template = เทมเพลตใหม่: { $name }
 ui-undo-new-slide = สไลด์ใหม่: { $name }
-ui-undo-templates = เทมเพลต: { $name }
-ui-undo-move-template = ย้ายเทมเพลต
 ui-undo-move-slide = ย้ายสไลด์
 ui-undo-remove-slide = ลบสไลด์
 ui-undo-remove = ลบ
@@ -87,7 +89,7 @@ ui-undo-change-anchor = เปลี่ยนจุดยึด
 ui-undo-move = ย้าย
 ui-undo-resize = ปรับขนาด
 ui-undo-edit-slide = แก้ไขสไลด์
-ui-undo-rename-set = เปลี่ยนชื่อชุด
+ui-undo-rename-pack = เปลี่ยนชื่อชุด
 ui-undo-rename-deck = เปลี่ยนชื่องานนำเสนอ
 ui-undo-chart-kind = เปลี่ยนประเภทแผนภูมิ
 ui-undo-chart-data = แก้ไขข้อมูล
@@ -106,15 +108,15 @@ ui-new-card-detail = รายละเอียด
 ## รายการสไลด์
 
 ui-pile-slides = สไลด์
-ui-pile-templates = เทมเพลต
+ui-pile-layouts = เลย์เอาต์
 ui-pile-add-slide = + สไลด์ใหม่
-ui-pile-add-template = + เทมเพลตใหม่
 ui-pile-drag-hint = ลากเพื่อย้าย · ⌥↑ ⌥↓
 ui-slide-alt = สไลด์ { $n }
 
 ## พื้นที่ทำงาน
 
 ui-stage-rendering = กำลังเรนเดอร์…
+ui-stage-widget-pack = เปิดวิดเจ็ตจากกอง หรือสร้างใหม่
 ui-stage-elements = องค์ประกอบของสไลด์
 ui-stage-fields = ช่องของสไลด์
 ui-stage-edit-text = แก้ไขข้อความ
@@ -236,15 +238,11 @@ ui-size-mb = { $value } MB
 ## ตัวเลือกเทมเพลต
 
 ui-picker-new-slide = สไลด์ใหม่
-ui-picker-new-template = เทมเพลตใหม่ โดยอิงจาก…
-ui-picker-set = เทมเพลต
 ui-picker-set-mine = { $name } · ของฉัน
 ui-picker-set-received = { $name } · ที่ได้รับ
 ui-picker-keys = ← → เพื่อเลื่อนดู · Enter เพื่อเพิ่ม · Esc เพื่อปิด
 ui-picker-close = ปิด
-ui-picker-previous = เทมเพลตก่อนหน้า
-ui-picker-next = เทมเพลตถัดไป
-ui-picker-list = เทมเพลตสไลด์
+ui-picker-list = เลย์เอาต์
 ui-widget-picker-filter = กรองตามชื่อ ป้ายกำกับ หรือคำอธิบาย
 ui-widget-picker-empty = ไม่มีวิดเจ็ตที่ตรงกับ “{ $query }”
 ui-widget-picker-list = วิดเจ็ต
@@ -317,7 +315,7 @@ ui-tabs = งานนำเสนอที่เปิดอยู่
 ui-tab-new = แท็บใหม่
 ui-tab-close = ปิดแท็บ
 ui-tab-unsaved = การเปลี่ยนแปลงที่ยังไม่บันทึก
-ui-tab-templates = เทมเพลต
+ui-tab-pack = ชุด
 ui-tab-move-new-window = ย้ายไปหน้าต่างใหม่
 ui-tab-move-to = ย้ายไปหน้าต่าง { $n }
 ui-tab-close-others = ปิดแท็บอื่น
@@ -372,8 +370,8 @@ ui-widgets-open = เปิดวิดเจ็ต { $name }
 ui-widgets-delete-named = ลบ { $name }
 ui-widgets-confirm-delete = ลบวิดเจ็ต “{ $name }” หรือไม่?
 ui-widgets-rename-hint = ดับเบิลคลิกหรือกด F2 เพื่อเปลี่ยนชื่อ
-ui-widgets-tabs = แท็บเทมเพลต
-ui-widgets-templates-tab = เทมเพลต
+ui-pack-tabs = แท็บของชุด
+ui-pack-layouts-tab = เลย์เอาต์
 ui-theme-tab = ธีม
 ui-theme-picker = ธีม
 ui-theme-name = ชื่อธีม
@@ -386,14 +384,15 @@ ui-widgets-removed-by-agent = เอเจนต์ลบวิดเจ็ต {
 ui-import-title = นำเข้างานนำเสนอ PowerPoint
 ui-import-mode = โหมดการนำเข้า
 ui-import-hifi = สำเนาตรงต้นฉบับ
-ui-import-hifi-note = คงรูปลักษณ์ของต้นฉบับไว้ ด้วยธีมและเทมเพลตที่สร้างขึ้นสำหรับงานนำเสนอนี้
-ui-import-retrofit = ใช้เทมเพลตของฉัน
-ui-import-retrofit-note = สร้างสไลด์ใหม่ด้วยเทมเพลตและธีมจากคลัง
+ui-import-hifi-note = คงรูปลักษณ์ของต้นฉบับไว้ ด้วยธีมและเลย์เอาต์ที่สร้างขึ้นสำหรับงานนำเสนอนี้
+ui-import-retrofit = ใช้เลย์เอาต์ของฉัน
+ui-import-retrofit-note = สร้างสไลด์ใหม่ด้วยชุดเลย์เอาต์และธีมจากคลัง
+ui-import-layout-packs = ชุดเลย์เอาต์
 ui-import-theme-default = ธีมเริ่มต้น
-ui-import-no-packs = ไม่มีชุดเทมเพลตในคลัง
+ui-import-no-packs = ไม่มีชุดเลย์เอาต์ในคลัง
 ui-import-tune = ปรับแต่งอย่างละเอียดกับเอเจนต์
 ui-import-tune-note = เอเจนต์เทียบแต่ละสไลด์กับต้นฉบับและแก้ส่วนที่ต่างกัน
-ui-import-tune-note-retrofit = เอเจนต์เทียบแต่ละสไลด์กับต้นฉบับ และออกแบบวิดเจ็ตสำหรับรูปทรงที่เทมเพลตของคุณแสดงไม่ได้
+ui-import-tune-note-retrofit = เอเจนต์เทียบแต่ละสไลด์กับต้นฉบับ และออกแบบวิดเจ็ตสำหรับรูปทรงที่เลย์เอาต์ของคุณแสดงไม่ได้
 ui-import-tune-unavailable = ไม่มีเอเจนต์ที่ใช้งานได้: { $reason }
 ui-import-submit = นำเข้า
 ui-import-busy = กำลังนำเข้า…

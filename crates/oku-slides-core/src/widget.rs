@@ -1,7 +1,7 @@
 //! Registre des widgets : le schéma des paramètres de chaque composant.
 //!
-//! Les widgets sont déclarés en Typst (`typst/oku-slides/src/widgets.typ`,
-//! et les fichiers `widgets/<nom>.typ` d'un pack, avec `_commun`). Le rendu
+//! Les widgets sont déclarés en Typst, dans les fichiers `<dossier>/<nom>.typ`
+//! d'un pack (avec `_commun`) ; le cœur n'en déclare aucun. Le rendu
 //! compile une sonde qui émet leurs schémas en JSON ; [`WidgetRegistry::from_probe`] les lit, les contrôle et
 //! range ceux de chaque pack sous leur nom qualifié ([`qualify`]). Le cœur ne voit que ce JSON.
 
@@ -14,6 +14,7 @@ use snafu::ResultExt;
 use crate::error::{BadSchemaSnafu, SchemaFault, UnreadableSnafu, WidgetError};
 use crate::namespace::{Namespace, qualify};
 use crate::ops::{DefaultFault, default_fault};
+use crate::pack_kind::PackKind;
 
 /// Ce qu'un widget rend : une slide entière, ou un élément de slide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -218,8 +219,8 @@ impl WidgetSchema {
     }
 }
 
-/// Les widgets disponibles : ceux du noyau, et ceux de chaque pack sous leur nom qualifié.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// Les widgets disponibles : ceux de chaque pack, sous leur nom qualifié.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct WidgetRegistry {
     widgets: BTreeMap<String, WidgetSchema>,
 }
@@ -229,30 +230,32 @@ pub struct WidgetRegistry {
 #[serde(deny_unknown_fields)]
 struct ProbedPack {
     namespace: Namespace,
+    kind: PackKind,
     widgets: Vec<WidgetSchema>,
 }
 
-/// La sonde entière ; une clé inconnue (l'ancienne forme `pack`) la rend illisible.
+/// La sonde entière ; une clé inconnue (l'ancienne clé `base`) la rend illisible.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Probe {
-    base: Vec<WidgetSchema>,
-    #[serde(default)]
     packs: Vec<ProbedPack>,
 }
 
 impl WidgetRegistry {
-    /// Lit la sonde `{"base": [..], "packs": [{namespace, widgets}]}` émise par Typst.
+    /// Lit la sonde `{"packs": [{namespace, kind, widgets}]}` émise par Typst.
     ///
     /// Un widget de pack est rangé sous son nom qualifié (`acme/card`), qui
-    /// devient aussi son `name` : il ne remplace jamais un widget du noyau.
+    /// devient aussi son `name`. Sa catégorie doit être celle de la sorte du pack.
     pub fn from_probe(probe: Value) -> Result<Self, WidgetError> {
         let probe: Probe = serde_json::from_value(probe).context(UnreadableSnafu)?;
-        let mut widgets = collect(probe.base)?;
+        let mut widgets = BTreeMap::new();
         for pack in probe.packs {
             for (name, mut w) in collect(pack.widgets)? {
                 let qualified = qualify(&pack.namespace, &name);
                 w.name = qualified.clone();
+                if w.category != pack.kind.category() {
+                    return Err(fault(&w, SchemaFault::PackCategory));
+                }
                 widgets.insert(qualified, w);
             }
         }

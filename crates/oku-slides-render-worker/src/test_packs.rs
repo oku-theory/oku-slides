@@ -1,7 +1,7 @@
 //! Fichiers de widgets hostiles et deck minimal, pour les tests.
 //!
-//! Autonome (ne dépend que de `oku_slides_core`) : les tests d'intégration
-//! l'incluent par `#[path]`.
+//! Autonome (ne dépend que de `oku_slides_core`, `oku_slides_render` et
+//! `serde_json`) : les tests d'intégration l'incluent par `#[path]`.
 
 #![allow(dead_code, reason = "partagé : chaque binaire de test n'en utilise qu'une partie")]
 
@@ -14,9 +14,12 @@ pub(crate) const LOOP_ON_IMPORT: &str = r#"#import "/oku-slides/lib.typ": widget
 #let widget = widget("boucle", params: (body: p.plain()), (args, ctx) => [])
 "#;
 
-/// Le fichier `boucle` : boucle au rendu du widget seulement.
+/// Le layout `boucle` (pack de layouts) : boucle au rendu de la slide seulement.
+///
+/// Un layout et non un élément : seul dans son emplacement, il est rendu sans
+/// autre pack (un élément demande un layout qui le porte).
 pub(crate) const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
-#let widget = widget("boucle", params: (body: p.plain()),
+#let widget = widget("boucle", category: "slide", params: (body: p.plain()),
   (args, ctx) => { let n = 0; for _ in range(100000) { for _ in range(100000) { n += 1 } }; [#n] })
 "#;
 
@@ -42,10 +45,27 @@ pub(crate) fn files(entries: &[(&str, &str)]) -> std::collections::BTreeMap<oku_
         .collect()
 }
 
-/// Un deck d'une seule diapositive de titre.
+/// Un deck d'une seule diapositive de titre (`essentiel/title`).
 pub(crate) fn tiny_deck() -> oku_slides_core::Deck {
-    let json = r#"{"version": 7,"params":{"title":"T"},"slides":[{"id":"s","kind":"title","params":{}}]}"#;
-    oku_slides_core::Deck::from_json(json).expect("deck minimal")
+    deck_of(serde_json::json!({ "id": "s", "kind": oku_slides_core::kinds::essentiel::TITLE, "params": {} }))
+}
+
+/// Un deck d'une seule diapositive `slide`.
+pub(crate) fn deck_of(slide: serde_json::Value) -> oku_slides_core::Deck {
+    let json =
+        serde_json::json!({ "version": oku_slides_core::DECK_VERSION, "params": { "title": "T" }, "slides": [slide] });
+    oku_slides_core::Deck::from_json(&json.to_string()).expect("deck minimal")
+}
+
+/// Un deck d'une seule diapositive au layout `rendu/boucle` ([`LOOP_ON_RENDER`]), qui boucle au rendu.
+pub(crate) fn looping_deck() -> oku_slides_core::Deck {
+    deck_of(serde_json::json!({ "id": "s", "kind": "rendu/boucle", "params": { "body": "x" } }))
+}
+
+/// Le pack de layouts `rendu`, au seul layout `boucle` qui boucle au rendu.
+pub(crate) fn looping_layouts() -> oku_slides_render::PackWidgets {
+    let files = files(&[("boucle", LOOP_ON_RENDER)]);
+    oku_slides_render::PackWidgets::new("rendu", ns("rendu"), oku_slides_core::PackKind::Layouts, files).expect("pack")
 }
 
 /// L'espace de noms `name` ; panique s'il est invalide (test).

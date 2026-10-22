@@ -35,8 +35,7 @@ output are in French.
 | `src-tauri` | Tauri 2 desktop app |
 | `ui` | React + TypeScript interface (Papier design system) |
 | `assets/fonts` | Bundled fonts (Newsreader, Instrument Sans, Inter; Noto Sans/Serif for non-Latin scripts; Carlito, Caladea, Liberation as metric-compatible substitutes for imports), in Git LFS |
-| `typst/oku-slides` | Typst slide library (structure, default tokens, built-in `papier` and `pro` themes as JSON) |
-| `templates/` | Built-in template sets (`essentiel`, `grilles`) |
+| `typst/oku-slides` | Typst slide library (structure, default tokens, built-in packs `base` (widgets) and `essentiel` (slide layouts), built-in `papier` and `pro` themes as JSON) |
 | `fixtures/` | Sample decks, agent scripts, import, dictation and widget samples |
 | `docs/aide/` | In-app help: one JSON deck per language (fr, en), compiled into the app, opened read-only (⌘?) |
 | `docs/adr/` | Architecture decision records |
@@ -49,7 +48,7 @@ just oku-slides render fixtures/roadmap.json --out out --theme pro  # SVG + layo
 just save fixtures/roadmap.json deck.oku-slides.pdf                 # save as .oku-slides.pdf
 just oku-slides open deck.oku-slides.pdf --out extracted/           # deck.json, assets, fonts, packs (not embedded themes)
 just oku-slides strip deck.oku-slides.pdf copy.pdf                  # copy without sources
-just oku-slides import deck.pptx --pack Essentiel --theme Pro -o deck.oku-slides.pdf --report r.json  # PPTX → deck (retrofit)
+just oku-slides import deck.pptx --pack essentiel --theme Pro -o deck.oku-slides.pdf --report r.json  # PPTX → deck (retrofit)
 just oku-slides import deck.pptx --mode hifi -o deck.oku-slides.pdf --report r.json                    # PPTX → deck (faithful copy)
 just bench                                                          # render and save latencies (release build)
 just oku-slides schema                                              # JSON schema of operations
@@ -58,11 +57,11 @@ just oku-slides schema                                              # JSON schem
 `--fonts <dir>` adds fonts (TTF/OTF); without it, Typst uses its built-in fonts
 (Libertinus Serif, New Computer Modern, DejaVu Sans Mono).
 
-`import` maps the content of a `.pptx` onto an existing pack (`--pack`: id, pack
-folder or name) and theme (`--theme`: id or name; default: the default theme):
+`import` maps the content of a `.pptx` onto layout packs (`--pack`, repeatable: namespace, id,
+pack folder or name; default `essentiel`) and a theme (`--theme`: id or name; default: the default theme):
 the style comes from the target theme. Titles are inferred when the slides have no
 placeholders, drawn cards become `base/card` elements, repeated headers and footers are
-left to the theme. `--report` writes the JSON report: template chosen per slide,
+left to the theme. `--report` writes the JSON report: profile chosen per slide,
 losses, fallbacks, widget requests, reader warnings and content coverage.
 `--mode` defaults to `retrofit`.
 
@@ -99,7 +98,7 @@ Both modes refuse a `.pptx` larger than `[import] max_input_mib` (default 256 Mi
 least 1), checked before the file is read so a bigger one never enters memory.
 
 In the app, Open (⌘O) accepts a `.pptx`. A dialog asks for the mode (faithful copy,
-or your templates with a library pack and theme) and offers "Fine-tune with the
+or your layouts, with library layout packs and a theme) and offers "Fine-tune with the
 agent", checked by default; it is unchecked and disabled, with the reason, when the
 chosen agent cannot run (program not found, launch failed, no MCP over HTTP). The import opens a new tab, autosaved into the decks
 folder like a new deck (undo removes the import whole) and, when asked, the agent
@@ -110,8 +109,8 @@ in a row without gain, and `tune_global` (default 3) for theme and pack changes,
 which change the whole deck.
 Hi-fi packs and themes belong to the deck: the pack workshop edits them from the
 version the deck embeds and saves them in the deck, never in the library; the hi-fi
-theme stays offered under “This presentation” after another is picked. A retrofit deck stays on the library pack until a widget is
-written for it; that first write moves it onto its own copy of the pack, deck-only too.
+theme stays offered under “This presentation” after another is picked. A retrofit deck pins
+the library layout packs; a widget written for it goes to the deck's own packs, as in any deck.
 
 ## Running the app
 
@@ -143,7 +142,7 @@ temporary directory to keep your own data untouched.
 ### The workspace
 
 - **Pile** (left): slide thumbnails. Click to show, drag to reorder (or ⌥↑ / ⌥↓),
-  `+` adds a slide from a template.
+  `+` adds a slide from a layout.
 - **Sheet** (middle): the slide exactly as it prints; elements are selected, moved
   and edited right on it.
 - **Thread** (right): the conversation with the agent and the dictation draft. The
@@ -170,7 +169,7 @@ temporary directory to keep your own data untouched.
 | ⌘? | App help (read-only deck in French or English, otherwise English; `docs/aide/`) |
 
 The bottom bar adds a text, a card, a shape, a chart, a table or a widget from the
-deck's template set.
+deck's widget packs.
 
 ### Charts, tables, widgets
 
@@ -179,32 +178,35 @@ deck's template set.
 - **Tables**: the same data grid; header row, first column as header, striped rows
   and per-column alignment (automatic puts numbers at the end). A chart converts to
   a table and back.
-- **Widgets**: template sets can ship Typst widgets. In template mode, the Widgets
-  section of the pile opens their code next to a live preview. Rendering runs in a
+- **Widgets**: packs ship Typst widgets: `base` (text, card, image, shape, chart, table,
+  stack) and layout packs such as `essentiel`, whose widgets are whole slides. In pack
+  mode, the Widgets section of the pile opens their code next to a live preview. Rendering runs in a
   separate worker process, bounded in time and memory (`[render]` settings); past
   the limit, the faulty pack is disabled.
 
-### Grid, templates, themes
+### Grid, packs, themes
 
-- **Grid**: every slide has a grid (12 × 6 by default), set in its template (template mode,
-  template settings); slides created from the template inherit it.
+- **Grid**: every slide has a grid (12 × 6 by default), set in its layout (pack mode,
+  the slide's settings); slides created from the layout inherit it.
   Snapping is always on: an element covers a block of cells, moves cell by cell
   (mouse or arrows), and each corner snaps to the nodes. ⌘' (or ask the agent)
   shows the nodes; during a drag they show anyway. The geometry is computed
   identically by `ui/src/grid.ts` (editing) and `grid-frame` in `typst/oku-slides/src/zone.typ`
   (rendering).
-- **Template sets**: “New slide” templates are grouped into sets (built-in
-  `templates/<id>/pack.json`: Essentiel, Grilles; user sets in the app data folder).
-  A set does not depend on the theme: a deck picks its set and its theme
-  independently.
-- **Editing templates** (ask the agent for the workshop): each template becomes a slide edited like
-  any other (grid, elements, texts), with its name and description. A built-in set is
-  saved as a copy; the deck is set aside and comes back with “Done”.
+- **Layout packs**: “New slide” lists the layouts of the layout packs the deck pins
+  (built-in `typst/oku-slides/packs/essentiel/layouts.json`: title, contents, chapter,
+  content, end, blank; user packs in the `layouts/` folder of the app data). A new slide
+  starts from the layout's example values. A pack does not depend on the theme: a deck
+  picks its packs and its theme independently.
+- **Editing a pack** (ask the agent for the workshop): the deck is set aside and the pack opens as a
+  working deck, one slide per layout, seeded from its example; each edit on a slide is
+  written to the layout's example at once (one undo step), and saving only saves the
+  pack's name and theme. Slides cannot be added, removed or moved there. A built-in pack is saved as a copy; “Done” brings the deck back.
 - **Themes**: a theme is a set of design tokens (colors, fonts, sizes, margins,
-  components), versioned like template sets. Papier and Pro are built in
+  components), versioned like packs. Papier and Pro are built in
   (`typst/oku-slides/themes/*.json`); user themes go to the `themes/` folder of the
   app data. The agent picks the deck's theme; the deck embeds its version, and a
-  received file keeps its own (“File theme”). In template mode, the Theme tab sets
+  received file keeps its own (“File theme”). In pack mode, the Theme tab sets
   tokens one by one (filter, state of each token, ↺): the sheet follows every change,
   and “Done” saves the draft, as a copy (“Papier (copy)”) for a built-in theme.
 
@@ -279,7 +281,7 @@ use goes through a permission request you answer. Its instructions are in Englis
 deck languages are passed in its context, and it answers in yours.
 
 - **Everything undoes**: one agent turn is a single ⌘Z entry.
-- **What cannot be undone** (saving, opening, deleting a template set, changing a
+- **What cannot be undone** (saving, opening, deleting a pack, changing a
   setting) waits for your confirmation, like the permissions the agent requests: a
   click, never Enter, and never “always allow” by default.
 - **Decisions**: the agent asks its questions in a card under the element (choices,

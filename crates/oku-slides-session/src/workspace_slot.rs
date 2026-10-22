@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{Result, UnknownTabSnafu};
+use crate::resume::Resumed;
 use crate::views::TabInfo;
 use crate::{Fonts, Platform, Session};
 
@@ -15,6 +16,8 @@ use crate::{Fonts, Platform, Session};
 pub(super) struct Dormant {
     /// Dossier de reprise de l'onglet (`tabs/<id>`).
     pub(super) dir: PathBuf,
+    /// Son titre enregistré, que nomme l'avis d'un état mis de côté.
+    pub(super) title: String,
     pub(super) fonts: Fonts,
     pub(super) platform: Platform,
 }
@@ -23,15 +26,21 @@ impl Dormant {
     /// Relit la session de l'onglet.
     ///
     /// Un état illisible est mis de côté par [`Session::resume`] ; l'onglet
-    /// repart d'un deck vierge avec une reprise neuve, et le dit.
+    /// repart d'un deck vierge avec une reprise neuve, et le dit. Un état d'une
+    /// version plus ancienne qui avait du travail non enregistré le dit en nommant l'onglet.
     fn wake(&self) -> Result<Session> {
         let mut session = super::tab_session(&self.fonts, &self.platform)?;
-        if !session.resume(self.dir.clone()) {
-            if !session.resume_fresh(self.dir.clone()) {
-                tracing::warn!(path = %self.dir.display(), "reprise de l'onglet inactive");
+        let notice = match session.resume_checked(self.dir.clone()) {
+            Resumed::Restored => return Ok(session),
+            Resumed::Unreadable => self.platform.localizer.tr("notice-tab-resume-failed"),
+            Resumed::Outdated => {
+                self.platform.localizer.tr_with("notice-tab-set-aside", &[("name", self.title.as_str().into())])
             }
-            session.set_notice(self.platform.localizer.tr("notice-tab-resume-failed"));
+        };
+        if !session.resume_fresh(self.dir.clone()) {
+            tracing::warn!(path = %self.dir.display(), "reprise de l'onglet inactive");
         }
+        session.set_notice(notice);
         Ok(session)
     }
 }

@@ -1,22 +1,20 @@
-//! Le résumé d'un pack de modèles et les ids des packs intégrés (`essentiel`, `grilles`, `base`).
+//! Le résumé d'un pack et les ids des packs intégrés (`base`, `essentiel`).
 //!
-//! Le contenu d'un pack (`widgets.json` : [`PackManifest`], ses [`Template`])
+//! Le contenu d'un pack (`widgets.json` ou `layouts.json` : [`PackManifest`])
 //! est défini dans le cœur, qui le partage avec l'import ; il est ré-exporté ici.
 
 use serde::Serialize;
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, PackFiles, PackVersion};
-pub use oku_slides_core::{PackManifest, PackScope, Template, now_created};
+use oku_slides_core::{Namespace, PackFiles, PackKind, PackVersion};
+pub use oku_slides_core::{PackManifest, PackScope, now_created};
 
 use crate::library_kind::VersionManifest;
 
-/// Pack par défaut, `templates/essentiel` : id constant ; un deck neuf l'épingle sous `essentiel`.
-pub const DEFAULT_PACK: Uuid = Uuid::from_u128(0x6f3c1e2a_8b4d_4c1e_9a57_2d0e5b7c9f10);
-/// Pack intégré `templates/grilles` : id constant.
-pub const GRID_PACK: Uuid = Uuid::from_u128(0xb8e2d4f6_1a3c_4e5b_8d7f_9c0a2e4b6d81);
 /// L'id du pack de widgets intégré `base`.
 pub const BASE_PACK: Uuid = Uuid::from_u128(0x3b1f6c2e_5a4d_4e8b_9c71_0d2e4f6a8b13);
+/// L'id du pack de layouts intégré `essentiel`.
+pub const ESSENTIEL_PACK: Uuid = Uuid::from_u128(0xd5eb8a57_07b4_47f7_a818_dde5347160cf);
 
 impl VersionManifest for PackManifest {
     fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
@@ -51,6 +49,8 @@ impl VersionManifest for PackManifest {
 /// Résumé d'un pack dans une version, pour les listes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PackInfo {
+    /// Sa sorte : widgets d'éléments ou layouts de slide.
+    pub kind: PackKind,
     pub id: Uuid,
     pub version: PackVersion,
     pub name: String,
@@ -60,27 +60,32 @@ pub struct PackInfo {
     pub requires: Vec<Namespace>,
     pub description: String,
     pub builtin: bool,
-    /// Le pack d'un deck neuf ([`DEFAULT_PACK`]).
+    /// Un pack qu'épingle un deck neuf : [`BASE_PACK`] ou [`ESSENTIEL_PACK`].
     pub default: bool,
     /// Cette version est arrivée avec un deck reçu (pas créée par l'utilisateur).
     pub received: bool,
-    pub count: usize,
+    /// Le nombre de ses fichiers de widgets, `_commun` excepté.
+    pub widgets: usize,
+    /// Le nombre de ses profils d'import (pack de layouts).
+    pub profiles: usize,
 }
 
 impl PackInfo {
-    /// Résumé de la version `version` de `manifest` pour les listes.
-    pub fn of(manifest: &PackManifest, version: PackVersion, builtin: bool, received: bool) -> Self {
+    /// Résumé de la version `files` du pack `manifest`, pour les listes.
+    pub fn of(files: &PackFiles, manifest: &PackManifest, builtin: bool, received: bool) -> Self {
         Self {
+            kind: files.kind(),
             id: manifest.id,
-            version,
+            version: files.version(),
             name: manifest.name.clone(),
             namespace: manifest.namespace.clone(),
             requires: manifest.requires.clone(),
             description: manifest.description.clone(),
             builtin,
-            default: manifest.id == DEFAULT_PACK,
+            default: manifest.id == BASE_PACK || manifest.id == ESSENTIEL_PACK,
             received,
-            count: manifest.templates.len(),
+            widgets: files.widgets().keys().filter(|n| !n.is_common()).count(),
+            profiles: manifest.profiles.len(),
         }
     }
 }

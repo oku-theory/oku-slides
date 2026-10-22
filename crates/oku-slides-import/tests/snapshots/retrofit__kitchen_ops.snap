@@ -7,7 +7,7 @@ expression: plan.ops
     "op": "add_slide",
     "slide": {
       "id": "s1",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "blocks": [
           {
@@ -46,7 +46,7 @@ expression: plan.ops
     "op": "add_slide",
     "slide": {
       "id": "s2",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "blocks": [
           {
@@ -166,7 +166,7 @@ expression: plan.ops
     "op": "add_slide",
     "slide": {
       "id": "s3",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "elements": [
           {

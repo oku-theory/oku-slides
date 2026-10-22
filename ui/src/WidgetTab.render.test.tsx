@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { FieldView, ItemView, ListView, SlideView, Snapshot, TabApi, WidgetStatus } from "./api";
 import { codeTrack, SIDE_MIN, SPLIT } from "./codeSplit";
+import { ESSENTIEL } from "./builtinKinds";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -34,7 +35,7 @@ async function mount(fake: TabApi, first: Shown) {
   const widths: (number | null)[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
   function Probe({ name, active = true, revision = "r", trials = 0, code = true, codeWidth = null, look = "clair", settings = false }: Shown) {
-    const f = useWidgetFiles(fake, "p", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
+    const f = useWidgetFiles(fake, "p", "widgets", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     return createElement(WidgetTab, {
       api: fake, files: f, id: 1, name, revision, active, trials, code, codeWidth, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCodeWidth: (w: number | null) => widths.push(w),
@@ -430,7 +431,7 @@ describe("WidgetTab, scène", () => {
     side: null, x, y, w: 100, h: 20, ax: x, aw: 300, style: null, ...extra,
   });
   const slideView = (fields: FieldView[], items: ItemView[] = [], lists: ListView[] = []) => ({
-    slide: { id: "apercu", kind: "blank", params: { elements: [{ id: "apercu-el", kind: "kpi", params: { body: [{ runs: [{ t: "Corps", italic: true }] }] } }] } },
+    slide: { id: "apercu", kind: ESSENTIEL.blank, params: { elements: [{ id: "apercu-el", kind: "kpi", params: { body: [{ runs: [{ t: "Corps", italic: true }] }] } }] } },
     page: 1, hash: "h", width: 1920, height: 1080, targets: [], zone: null, fields, items, lists,
   }) as unknown as SlideView;
   const FIELDS = [field("title", "plain", "Titre", 150, 230), field("body", "rich", "Corps", 150, 300)];

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use snafu::{OptionExt, ResultExt, ensure};
 use zip::write::SimpleFileOptions;
 
-use super::packs::{PACKS_DIR, PackPart, RawPack, pack_entry, report_discarded, verify_packs, write_packs};
+use super::packs::{PackPart, RawPack, pack_dir, pack_entry, report_discarded, verify_packs, write_packs};
 use super::themes::{THEME_VERSIONS_DIR, report_discarded_themes, theme_entry, verify_themes, write_themes};
 use super::{SOURCES_FORMAT, SOURCES_VERSION, SourceBundle, SourceLimits};
 use crate::error::{
@@ -17,6 +17,7 @@ use crate::error::{
     TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
 };
 use crate::pack::PackVersion;
+use crate::pack_kind::PackKind;
 use crate::replica::DeckReplica;
 use crate::validate::Issue;
 use crate::widget::WidgetRegistry;
@@ -122,7 +123,7 @@ impl SourceBundle {
         let mut manifest: Option<Manifest> = None;
         let mut snapshot: Option<Snapshot> = None;
         let (mut assets, mut fonts) = (BTreeMap::new(), BTreeMap::new());
-        let mut raw_packs: BTreeMap<PackVersion, RawPack> = BTreeMap::new();
+        let mut raw_packs: BTreeMap<(PackKind, PackVersion), RawPack> = BTreeMap::new();
         let mut raw_themes: BTreeMap<PackVersion, Vec<u8>> = BTreeMap::new();
         // Octets décompressés encore permis (anti-bombe de décompression).
         let mut budget = limits.total_bytes;
@@ -140,8 +141,9 @@ impl SourceBundle {
                 });
                 continue;
             }
-            if name == PACKS_DIR || name == THEME_VERSIONS_DIR {
-                continue; // Entrée de répertoire nue, comme `packs/<hex>/`.
+            let kind = pack_dir(&name);
+            if name == THEME_VERSIONS_DIR || kind.is_some_and(|k| name.strip_prefix(k.files_dir()) == Some("/")) {
+                continue; // Entrée de répertoire nue, comme `widgets/` ou `themes/`.
             }
             if name.starts_with(THEME_VERSIONS_DIR) {
                 let Some(version) = theme_entry(&name)? else { continue };
@@ -149,13 +151,13 @@ impl SourceBundle {
                 raw_themes.insert(version, data);
                 continue;
             }
-            if name.starts_with(PACKS_DIR) {
-                let (version, part) = pack_entry(&name)?;
+            if let Some(kind) = kind {
+                let (version, part) = pack_entry(kind, &name)?;
                 if matches!(part, PackPart::Ignored) {
                     continue; // Dossier ou fichier inconnu : ni lu, ni compté.
                 }
                 let data = read_entry(f, size, usize::MAX, &mut budget, limits.total_bytes)?;
-                raw_packs.entry(version).or_default().put(part, data);
+                raw_packs.entry((kind, version)).or_default().put(part, data);
                 continue;
             }
             let known = name == "manifest.json" || name.starts_with("assets/") || name.starts_with("fonts/");

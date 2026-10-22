@@ -22,7 +22,7 @@ afterEach(async () => {
   cleanup = null;
 });
 
-const api = { templateSets: () => Promise.resolve([]) };
+const api = { packs: () => Promise.resolve([]) };
 
 /** La vue de numéro `generation`, avec le choix d'import `pick`. */
 function view(generation: number, pick: ImportPick | null): WorkspaceView {

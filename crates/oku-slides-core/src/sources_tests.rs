@@ -25,7 +25,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":11}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":12}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -93,12 +93,20 @@ fn from_zip_with_sources_version_4_returns_not_sources() {
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
 }
 
-/// Sources v6 : refusées.
-#[test]
-fn sources_v6_zip_is_refused() {
-    let manifest = br#"{"format":"oku-slides-sources","version":6}"#;
+/// Sources plus anciennes : refusées sans conversion. 6 et 7 : formats de replica
+/// dépassés ; 8 : arbre par slide ; 9 : marques non datées ; 10 : un seul pack de
+/// modèles (`packs/`) ; 11 : sans `deck.layouts` (replica au format 5).
+#[rstest::rstest]
+#[case(6)]
+#[case(7)]
+#[case(8)]
+#[case(9)]
+#[case(10)]
+#[case(11)]
+fn sources_older_version_zip_is_refused(#[case] version: u32) {
+    let manifest = format!(r#"{{"format":"oku-slides-sources","version":{version}}}"#);
     let err = SourceBundle::from_zip(
-        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
+        &zip(&[("manifest.json", manifest.as_bytes()), ("deck.loro", &deck_loro())]),
         MAX,
         crate::test_registry::shared(),
     )
@@ -413,7 +421,8 @@ fn stack_chain(n: usize) -> Deck {
     for i in (0..n - 1).rev() {
         tree = serde_json::json!({ "id": format!("c{i}"), "kind": "base/stack", "params": { "children": [tree] } });
     }
-    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [tree] } }] });
+    let deck =
+        serde_json::json!({ "slides": [{ "id": "s", "kind": "essentiel/blank", "params": { "elements": [tree] } }] });
     serde_json::from_value(deck).unwrap_or_else(|e| panic!("deck de test : {e}"))
 }
 
@@ -439,7 +448,7 @@ fn new_with_elements_nested_to_the_slot_bound_opens() {
 /// Un deck JSON au tableau `t` et au graphique `g`, sans identifiants de
 /// lignes ni de colonnes.
 fn deck_without_ids() -> Deck {
-    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "t", "kind": "base/table", "params": { "data": {
             "dataset": { "source": [["Pays", "Ventes"], ["FR", 1], ["DE", 2]] } } } },
         { "id": "g", "kind": "base/chart", "params": { "option": {
@@ -488,7 +497,7 @@ fn concurrent_cell_edits_of_a_json_deck_both_survive_the_merge() {
 
 /// Un deck au tableau `t`, dont `data` est écrit tel quel (sans identifiants).
 fn raw_table_deck() -> Deck {
-    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "t", "kind": "base/table", "params": { "data": { "dataset": {
             "source": [["Pays", "Ventes"], ["FR", 1]] } } } } ] } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck : {e}"))
@@ -512,58 +521,6 @@ fn restore_of_a_version_without_host_ids_normalizes_it_like_the_preview() {
     assert_that!(dataset["columns"].as_array().map(Vec::len)).is_equal_to(Some(2));
     // Le replica relit exactement la vue : le jeu n'est pas resté opaque.
     assert_that!(b.replica().deck().0).is_equal_to(b.deck().clone());
-}
-
-/// Sources v7 : refusées.
-#[test]
-fn sources_v7_zip_is_refused() {
-    let manifest = br#"{"format":"oku-slides-sources","version":7}"#;
-    let err = SourceBundle::from_zip(
-        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
-        MAX,
-        crate::test_registry::shared(),
-    )
-    .unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
-}
-
-/// Sources v10 : refusées (un seul pack de modèles, dossier `packs/`).
-#[test]
-fn sources_v10_zip_is_refused() {
-    let manifest = br#"{"format":"oku-slides-sources","version":10}"#;
-    let err = SourceBundle::from_zip(
-        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
-        MAX,
-        crate::test_registry::shared(),
-    )
-    .unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
-}
-
-/// Sources v9 : refusées (marques de suppression non datées, replica au format 3).
-#[test]
-fn sources_v9_zip_is_refused() {
-    let manifest = br#"{"format":"oku-slides-sources","version":9}"#;
-    let err = SourceBundle::from_zip(
-        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
-        MAX,
-        crate::test_registry::shared(),
-    )
-    .unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
-}
-
-/// Sources v8 : refusées (arbre par slide, replica au format 2).
-#[test]
-fn sources_v8_zip_is_refused() {
-    let manifest = br#"{"format":"oku-slides-sources","version":8}"#;
-    let err = SourceBundle::from_zip(
-        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
-        MAX,
-        crate::test_registry::shared(),
-    )
-    .unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
 }
 
 /// Le replica de `roadmap` dont la première slide porte une marque datée de 1 (1970).

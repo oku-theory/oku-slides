@@ -260,7 +260,7 @@ fn theme_choices_on_an_empty_deck_keep_every_card_without_thumbnail() {
 #[test]
 fn theme_choices_outside_deck_mode_are_none() {
     let mut s = session();
-    s.edit_templates(crate::pack::DEFAULT_PACK).unwrap();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
     assert_that!(s.theme_choices(None).unwrap()).is_none();
 }
 
@@ -303,8 +303,8 @@ fn pick_theme_of_an_unknown_id_is_refused() {
 }
 
 #[test]
-fn pick_theme_in_templates_mode_is_refused() {
+fn pick_theme_in_pack_mode_is_refused() {
     let mut s = session();
-    s.edit_templates(crate::pack::DEFAULT_PACK).unwrap();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
     assert_that!(s.pick_theme(PRO_THEME)).is_err();
 }

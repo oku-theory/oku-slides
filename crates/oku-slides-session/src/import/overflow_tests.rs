@@ -44,7 +44,7 @@ fn report_of(mode: Mode) -> ImportReport {
     let slide = |n: u32| SlideReport {
         source: n,
         slide: format!("s{n}"),
-        template: "t".into(),
+        profile: "t".into(),
         placement: Placement::Flow,
         losses: vec![],
         fallbacks: vec![],

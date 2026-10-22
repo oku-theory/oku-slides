@@ -22,16 +22,17 @@ op-value-unreadable = значение имеет неожиданную фор�
 op-value-valign = ожидается top, middle или bottom
 op-value-path = путь состоит из команд M, L, C, Q и Z с их числами и начинается с M
 op-unknown-widget = Неизвестный виджет: { $subject }
-op-unknown-namespace = В этой презентации нет пакета виджетов { $pack }.
-op-pack-required = Пакет виджетов { $pack } нужен пакету { $by }; сначала удалите его.
-op-pack-in-use = Пакет виджетов { $pack } всё ещё используется: { $count ->
+op-unknown-namespace = В этой презентации нет пакета { $pack }.
+op-pack-required = Пакет { $pack } нужен пакету { $by }; сначала удалите его.
+op-pack-in-use = Пакет { $pack } всё ещё используется: { $count ->
     [one] { $count } объект
     [few] { $count } объекта
     [many] { $count } объектов
    *[other] { $count } объекта
 }.
-op-pack-requirement-missing = Пакету виджетов { $pack } нужен пакет { $required }, которого нет в этой презентации.
+op-pack-requirement-missing = Пакету { $pack } нужен пакет { $required }, которого нет в этой презентации.
 op-base-required = В каждой презентации остаётся базовый пакет виджетов.
+op-pack-kind-conflict = В этой презентации уже есть пакет { $pack } другого вида (виджеты или макеты).
 op-unknown-param = Неизвестный параметр: { $subject }
 op-param-type-because = Недопустимое значение для { $subject }: { $reason }
 op-param-shape-text = { $nullable ->
@@ -151,8 +152,10 @@ issue-invalid-style = недопустимое значение стиля: { $f
 issue-missing-asset = отсутствует ресурс: { $asset }
 issue-pack-version-mismatch = изменённая версия пакета отброшена: { $version }
 issue-pack-version-missing = версия пакета отсутствует в исходниках: { $version }
-issue-pack-pin-mismatch = Встроенный пакет виджетов { $pack } не соответствует тому, что ожидает презентация.
-issue-pack-requirement-missing = Пакету виджетов { $pack } нужен пакет { $required }, которого нет в этой презентации.
+issue-pack-pin-mismatch = Встроенный пакет { $pack } не соответствует тому, что ожидает презентация.
+issue-pack-kind-mismatch = Встроенный пакет { $pack } не того вида, который ожидает презентация (виджеты или макеты).
+issue-pack-kind-conflict = Пространство имён { $pack } закреплено одновременно как пакет виджетов и как пакет макетов: использовать можно только один.
+issue-pack-requirement-missing = Пакету { $pack } нужен пакет { $required }, которого нет в этой презентации.
 issue-theme-version-mismatch = изменённая версия темы отброшена: { $version }
 issue-theme-version-missing = версия темы отсутствует в исходниках: { $version }
 issue-unsupported-link = неподдерживаемая ссылка: { $link }
@@ -191,6 +194,8 @@ widget-fault-list-default-too-large = Виджет { $widget }: значение
 widget-fault-list-depth = Виджет { $widget }: вложенный список не может содержать колонку-список; списки вкладываются только на один уровень
 widget-fault-list-default-below-min = Виджет { $widget }: в значении вложенного списка по умолчанию меньше пунктов, чем его минимум
 widget-fault-slide-sizing = Виджет { $widget } — слайд: grow и typography объявляют только виджеты элементов
+widget-fault-pack-category = Виджет { $widget } не подходит своему пакету: пакеты макетов содержат виджеты слайдов, пакеты виджетов — виджеты элементов
+widget-fault-unqualified = У виджета { $widget } нет пространства имён пакета
 issue-empty-item-id = в списке { $param } есть пункт без идентификатора
 issue-duplicate-item-id = в списке { $param } повторяется идентификатор пункта
 issue-invalid-item-id = в списке { $param } есть идентификатор пункта с косой чертой

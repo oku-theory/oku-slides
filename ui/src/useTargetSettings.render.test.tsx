@@ -9,14 +9,14 @@ import type { Snapshot, Surface, TabApi } from "./api";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { HOST_TARGET, useTargetSettings } = await import("./useTargetSettings");
-const { HOST_TEMPLATE, HOST_WIDGET } = await import("./useHostSettings");
+const { HOST_WIDGET } = await import("./useHostSettings");
 const { memory, stub, wait } = await import("./test/widgetApi");
 
 const surface = (id: string): Surface => ({ id, place: "dock", live: true, turn: null, messages: [] }) as unknown as Surface;
-interface Snap { history?: boolean; readOnly?: boolean; hash?: string }
+interface Snap { history?: boolean; readOnly?: boolean; hash?: string; layoutVersion?: string }
 const snapshot = (o: Snap = {}): Snapshot =>
   ({
-    editing: null, widgets: {}, history: o.history ? {} : null, read_only: !!o.readOnly,
+    editing: null, widgets: {}, layouts: { essentiel: { id: "e", version: o.layoutVersion ?? "1" } }, history: o.history ? {} : null, read_only: !!o.readOnly,
     undo_label: null, redo_label: null,
     host_params: { "acme/plot": { chart: "series" }, "base/chart": { chart: "option" }, "base/table": { table: "data" } },
     slides: [{ id: "s-ch1", hash: o.hash ?? "h" }],
@@ -150,6 +150,13 @@ describe("useTargetSettings", () => {
     expect(asked).toHaveLength(2);
   });
 
+  test("useTargetSettings layout pin change rereads the surface", async () => {
+    const { fake, asked } = asking();
+    const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: null });
+    await m.render({ snap: snapshot({ layoutVersion: "2" }), current: "s-ch1", element: null });
+    expect(asked).toHaveLength(2);
+  });
+
   test("useTargetSettings value action sends targetParam to the shown target", async () => {
     const { fake, sent } = sending();
     const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "fr" });
@@ -223,10 +230,9 @@ describe("useTargetSettings", () => {
     expect(m.out.runs).toBe(0);
   });
 
-  test("useTargetSettings ignores host-template and host-widget", async () => {
+  test("useTargetSettings ignores host-widget", async () => {
     const { fake, sent } = sending();
     const m = await mountTarget(fake, { snap: snapshot(), current: "s-ch1", element: "fr" });
-    expect(m.out.h!.onAction(surface(HOST_TEMPLATE), action({ key: "titre", value: "x" }))).toBe(false);
     expect(m.out.h!.onAction(surface(HOST_WIDGET), action({ key: "titre", value: "x" }))).toBe(false);
     await wait(10);
     expect(sent).toEqual([]);

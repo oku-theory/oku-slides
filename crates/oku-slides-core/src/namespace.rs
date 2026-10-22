@@ -17,6 +17,9 @@ const MAX_NAMESPACE: usize = 64;
 /// L'espace de noms réservé au pack propre d'un deck.
 const DECK: &str = "deck";
 
+/// L'espace de noms réservé au pack de layouts propre d'un deck.
+const DECK_LAYOUTS: &str = "deck-layouts";
+
 /// Espace de noms d'un pack : `[a-z][a-z0-9-]*`, éventuellement `éditeur.nom`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(try_from = "String", into = "String")]
@@ -47,6 +50,11 @@ impl Namespace {
         Self(DECK.to_owned())
     }
 
+    /// L'espace de noms `deck-layouts`, celui du pack de layouts propre d'un deck.
+    pub fn deck_layouts() -> Self {
+        Self(DECK_LAYOUTS.to_owned())
+    }
+
     /// Un espace de noms intégré, écrit dans le code ; `kinds_tests` vérifie sa syntaxe.
     pub(crate) fn builtin(s: &'static str) -> Self {
         Self(s.to_owned())
@@ -55,6 +63,11 @@ impl Namespace {
     /// Vrai pour l'espace de noms réservé `deck`.
     pub fn is_deck(&self) -> bool {
         self.0 == DECK
+    }
+
+    /// Vrai pour l'espace de noms réservé `deck-layouts`.
+    pub fn is_deck_layouts(&self) -> bool {
+        self.0 == DECK_LAYOUTS
     }
 
     /// L'espace de noms sous forme de texte.

@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, Op};
+use oku_slides_core::{Namespace, Op, PackKind};
 
-use crate::error::{BuiltinTemplateSetSnafu, EditingTemplatesSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
+use crate::error::{BuiltinPackSnafu, EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
 use crate::views::UiState;
 use crate::{Mode, PackLibrary, PreviewFormat, Result, Session};
 
@@ -80,25 +80,18 @@ pub enum Request {
     Schema,
     /// Registre des widgets du deck ouvert (base, surchargée par son pack).
     Widgets,
-    /// Réglages de l'hôte (surface ou `null`) : le widget s'il en a, sinon le modèle `slide`.
+    /// Réglages de l'hôte en mode pack (surface ou `null`) : ceux du widget `widget`.
     HostSettings {
-        slide: String,
         #[serde(default)]
         widget: Option<String>,
     },
-    /// Applique le réglage `key` du modèle `slide` (mode modèles, annulable).
-    HostParam {
-        slide: String,
-        key: String,
-        value: serde_json::Value,
-    },
-    /// Mode modèles : la surface des jetons du brouillon du thème (`null`
+    /// Mode pack : la surface des jetons du brouillon du thème (`null`
     /// ailleurs) ; `filter` garde les jetons dont le libellé ou le chemin le contient.
     HostTheme {
         #[serde(default)]
         filter: String,
     },
-    /// Mode modèles : agit sur le jeton `path` du brouillon (une étape
+    /// Mode pack : agit sur le jeton `path` du brouillon (une étape
     /// d'annulation) ; `value` pour `set` seulement.
     HostToken {
         path: Vec<String>,
@@ -143,34 +136,31 @@ pub enum Request {
         element: String,
         view: View,
     },
-    /// Modèles d'un pack, rendus avec le thème du deck.
-    ///
-    /// Par défaut, celui du deck, dans sa version embarquée.
-    Templates {
-        #[serde(default)]
-        set: Option<Uuid>,
+    /// Layouts des packs de layouts épinglés par le deck, rendus avec son thème (`LayoutsView`).
+    Layouts,
+    /// Packs de la bibliothèque de sorte `kind`, dans leur version courante.
+    Packs {
+        kind: PackKind,
     },
-    /// Liste des packs de modèles, dans leur version courante.
-    TemplateSets,
     /// Passe en édition de la version courante d'un pack (le deck est mis de côté).
-    EditTemplates {
-        set: Uuid,
+    EditPack {
+        pack: Uuid,
     },
     /// Enregistre le pack édité dans la version de cette session d'édition.
     ///
     /// `as_new` : une copie (nouvel id).
-    SaveTemplates {
+    SavePack {
         #[serde(default)]
         as_new: bool,
     },
-    /// Quitte l'édition des modèles et retrouve le deck.
-    CloseTemplates,
-    /// Mode modèles : le brouillon du thème part du thème `id` (version
+    /// Quitte l'édition du pack et retrouve le deck.
+    ClosePack,
+    /// Mode pack : le brouillon du thème part du thème `id` (version
     /// courante), ses jetons remplacés en une étape annulable.
     SetEditedTheme {
         id: Uuid,
     },
-    /// Mode modèles : renomme le thème édité (sans étape d'annulation).
+    /// Mode pack : renomme le thème édité (sans étape d'annulation).
     RenameEditedTheme {
         name: String,
     },
@@ -186,8 +176,8 @@ pub enum Request {
     /// Supprime un pack de l'utilisateur, toutes versions comprises.
     ///
     /// Refusé sous l'id d'un pack intégré.
-    DeleteTemplateSet {
-        set: Uuid,
+    DeletePack {
+        pack: Uuid,
     },
     /// Slide courante, grille et fantômes de l'interface (gardés pour la reprise).
     ///
@@ -273,14 +263,14 @@ pub enum Request {
         params: serde_json::Map<String, serde_json::Value>,
     },
     /// Règle une valeur d'exemple du widget `name` ; `null` ou la valeur neutre
-    /// l'effacent, un texte vidé reste vide (mode modèles, dans le pack).
+    /// l'effacent, un texte vidé reste vide (mode pack, dans le pack).
     SetExampleValue {
         name: String,
         param: String,
         value: serde_json::Value,
     },
     /// Change la liste `param` des valeurs d'exemple ; sans valeur gardée, elle
-    /// part des items par défaut du schéma (mode modèles).
+    /// part des items par défaut du schéma (mode pack).
     EditExampleList {
         name: String,
         param: String,
@@ -305,8 +295,8 @@ impl Request {
             | Self::UndoTurn { .. }
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }
-            | Self::EditTemplates { .. }
-            | Self::CloseTemplates
+            | Self::EditPack { .. }
+            | Self::ClosePack
             | Self::SetEditedTheme { .. }
             | Self::Merge { .. }
             | Self::HistoryOpen
@@ -320,7 +310,6 @@ impl Request {
             | Self::RenameWidget { .. }
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
-            | Self::HostParam { .. }
             | Self::HostToken { .. }
             | Self::TargetParam { .. }
             | Self::TargetList { .. } => true,
@@ -333,11 +322,11 @@ impl Request {
             | Self::HostSettings { .. }
             | Self::HostTheme { .. }
             | Self::TargetSettings { .. }
-            | Self::Templates { .. }
-            | Self::TemplateSets
-            | Self::SaveTemplates { .. }
+            | Self::Layouts
+            | Self::Packs { .. }
+            | Self::SavePack { .. }
             | Self::RenameEditedTheme { .. }
-            | Self::DeleteTemplateSet { .. }
+            | Self::DeletePack { .. }
             | Self::SaveCopy { .. }
             | Self::Ui { .. }
             | Self::HistoryVersions
@@ -350,7 +339,7 @@ impl Request {
     }
 
     /// Requêtes refusées pendant l'historique : elles modifieraient le deck,
-    /// l'enregistreraient, ou passeraient aux modèles.
+    /// l'enregistreraient, ou passeraient en mode pack.
     pub(crate) fn edits(&self) -> bool {
         matches!(
             self,
@@ -366,17 +355,16 @@ impl Request {
                 | Self::SaveCopy { .. }
                 | Self::ChartKind { .. }
                 | Self::ShowAs { .. }
-                | Self::EditTemplates { .. }
-                | Self::SaveTemplates { .. }
-                | Self::CloseTemplates
+                | Self::EditPack { .. }
+                | Self::SavePack { .. }
+                | Self::ClosePack
                 | Self::SetEditedTheme { .. }
                 | Self::RenameEditedTheme { .. }
-                | Self::DeleteTemplateSet { .. }
+                | Self::DeletePack { .. }
                 | Self::PackUseMine
                 | Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
-                | Self::HostParam { .. }
                 | Self::HostToken { .. }
                 | Self::TargetParam { .. }
                 | Self::TargetList { .. }
@@ -415,7 +403,7 @@ impl Session {
         fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
             Ok(serde_json::to_string(v).context(ResponseSnafu)?)
         }
-        if matches!(self.mode, Mode::Templates { .. })
+        if matches!(self.mode, Mode::Pack { .. })
             && matches!(
                 req,
                 Request::Save { .. }
@@ -427,7 +415,7 @@ impl Session {
                     | Request::PackMakeCurrent
             )
         {
-            return EditingTemplatesSnafu.fail()?;
+            return EditingPackSnafu.fail()?;
         }
         if matches!(self.mode, Mode::History { .. }) && req.edits() {
             return InHistorySnafu.fail()?;
@@ -449,7 +437,6 @@ impl Session {
                     | Request::Apply { .. }
                     | Request::SetTheme { .. }
                     | Request::SetEditedTheme { .. }
-                    | Request::HostParam { .. }
                     | Request::HostToken { .. }
                     | Request::TargetParam { .. }
                     | Request::TargetList { .. }
@@ -479,17 +466,15 @@ impl Session {
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Search { query } => return json(&self.search(&query)),
             Request::Svg { id } => return json(&*self.svg(&id)?),
-            Request::HostSettings { slide, widget } => {
-                return json(&self.host_settings(&slide, widget.as_deref())?);
-            }
+            Request::HostSettings { widget } => return json(&self.host_settings(widget.as_deref())?),
             Request::HostTheme { filter } => return json(&self.host_theme(&filter)?),
             Request::TargetSettings { slide, element } => {
                 return json(&self.target_settings(&slide, element.as_deref())?);
             }
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
-            Request::Templates { set } => return json(&self.templates_view(set)?),
-            Request::TemplateSets => return json(&self.library.template_sets()),
+            Request::Layouts => return json(&self.layouts_view()?),
+            Request::Packs { kind } => return json(&self.library.packs(kind)),
             Request::WidgetStatus { pack } => return json(&self.widget_status(pack.as_ref())?),
             Request::WidgetSource { pack, name } => return json(&self.widget_source(pack.as_ref(), &name)?),
             Request::SetWidget { pack, name, source } => {
@@ -513,11 +498,12 @@ impl Session {
             Request::PreviewWidget { pack, name, params } => {
                 return json(&self.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Svg)?);
             }
-            Request::DeleteTemplateSet { set } => {
-                ensure!(!PackLibrary::is_builtin(set), BuiltinTemplateSetSnafu { id: set.to_string() });
-                self.library.delete(set)?;
-                self.template_cache = None;
-                return json(&self.library.packs());
+            Request::DeletePack { pack } => {
+                ensure!(!PackLibrary::is_builtin(pack), BuiltinPackSnafu { id: pack.to_string() });
+                let kind = self.library.kind_of(pack);
+                self.library.delete(pack)?;
+                self.pack_cache.clear();
+                return json(&self.library.packs(kind));
             }
             Request::Save { path, overwrite } => {
                 self.save_checked(path.as_deref(), overwrite)?;
@@ -529,7 +515,6 @@ impl Session {
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
             Request::SetTheme { id } => self.set_theme(id)?,
-            Request::HostParam { slide, key, value } => self.host_param(&slide, &key, value)?,
             Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
             Request::TargetParam { slide, element, key, value } => {
                 self.target_param(&slide, element.as_deref(), &key, value)?;
@@ -548,9 +533,11 @@ impl Session {
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
             Request::UndoTurn { turn } => self.undo_agent_turn(turn)?,
-            Request::EditTemplates { set } => self.edit_templates(set)?,
-            Request::SaveTemplates { as_new } => self.save_templates(as_new)?,
-            Request::CloseTemplates => self.close_templates()?,
+            Request::EditPack { pack } => self.edit_pack(pack)?,
+            Request::SavePack { as_new } => {
+                self.save_pack(as_new)?;
+            }
+            Request::ClosePack => self.close_pack()?,
             Request::SetEditedTheme { id } => self.set_edited_theme(id)?,
             Request::RenameEditedTheme { name } => self.rename_edited_theme(name)?,
             Request::Ui { ui, order } => self.keep_ui(ui, order),
@@ -570,7 +557,7 @@ impl Session {
         // Les avis ne s'affichent qu'une fois : celui du document affiché
         // vient d'être envoyé, il ne le sera plus. (Celui du deck mis de
         // côté, s'il y en a un, n'est pas encore montré : il reste, pour
-        // apparaître à son tour quand `close_templates` le rendra visible.)
+        // apparaître à son tour quand `close_pack` le rendra visible.)
         self.doc.notice = None;
         self.doc.disk_replaced = false;
         Ok(out)
@@ -588,6 +575,6 @@ impl Session {
         if order.is_some() {
             self.ui_order = order;
         }
-        self.ui = ui.sanitized(matches!(self.mode, Mode::Templates { .. }));
+        self.ui = ui.sanitized(matches!(self.mode, Mode::Pack { .. }));
     }
 }

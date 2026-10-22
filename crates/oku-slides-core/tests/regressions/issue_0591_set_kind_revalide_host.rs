@@ -6,22 +6,21 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 fn registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     let mut probe: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
     let boite = json!({ "name": "boite", "category": "element", "params": [{ "name": "data", "type": "plain" }] });
-    let Some(base) = probe["base"].as_array_mut() else { panic!("sonde : base attendu") };
+    let Some(packs) = probe["packs"].as_array_mut() else { panic!("sonde : packs attendu") };
     let cadre = json!({ "name": "cadre", "category": "element", "params": [{ "name": "data", "type": "grid" }] });
-    base.push(boite);
-    base.push(cadre);
+    packs.push(json!({ "namespace": "t", "kind": "widgets", "widgets": [boite, cadre] }));
     let probe = serde_json::from_value(probe).unwrap_or_else(|e| panic!("sonde : {e}"));
     WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("sonde : {e}"))
 }
 
 fn deck(params: Value) -> Deck {
-    let deck = json!({ "version": 7, "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-        { "id": "b", "kind": "boite", "params": params },
-        { "id": "c", "kind": "cadre", "params": { "data": { "columns": 2, "rows": 2 } } },
+    let deck = json!({ "version": 8, "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
+        { "id": "b", "kind": "t/boite", "params": params },
+        { "id": "c", "kind": "t/cadre", "params": { "data": { "columns": 2, "rows": 2 } } },
         { "id": "t", "kind": "base/text", "params": {} }
     ] } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck : {e}"))

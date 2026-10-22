@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { agentScope, busyElsewhere, sameScope, scopeKey, scopePlace } from "./scope";
 
-const view = { templates: true, history: false, pack: "p-1", widget: null };
+const view = { packMode: true, history: false, pack: "p-1", widget: null };
 const slides = { kind: "slides" } as const;
 const atelier = { kind: "atelier", pack: "p-1" } as const;
 const kpi = { kind: "widget", pack: "p-1", name: "kpi" } as const;
 
 describe("agentScope", () => {
-  test("agentScope on the deck gives slides", () => expect(agentScope({ ...view, templates: false })).toEqual(slides));
+  test("agentScope on the deck gives slides", () => expect(agentScope({ ...view, packMode: false })).toEqual(slides));
   test("agentScope in the history gives slides", () => expect(agentScope({ ...view, history: true, widget: "kpi" })).toEqual(slides));
-  test("agentScope in templates without widget gives the pack atelier", () => expect(agentScope(view)).toEqual(atelier));
+  test("agentScope in pack mode without widget gives the pack atelier", () => expect(agentScope(view)).toEqual(atelier));
   test("agentScope on a widget tab gives that widget of the pack", () => expect(agentScope({ ...view, widget: "kpi" })).toEqual(kpi));
-  test("agentScope in templates without pack gives slides", () => expect(agentScope({ ...view, pack: null })).toEqual(slides));
+  test("agentScope in pack mode without pack gives slides", () => expect(agentScope({ ...view, pack: null })).toEqual(slides));
 });
 
 describe("scopeKey", () => {

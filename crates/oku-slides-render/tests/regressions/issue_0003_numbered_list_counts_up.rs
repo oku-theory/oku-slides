@@ -6,14 +6,14 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use serde_json::json;
 use speculoos::prelude::*;
 
 /// Une slide avec `n` paragraphes numérotés, tous « a ».
 fn numbered(n: usize) -> Deck {
     let text: Vec<_> = (0..n).map(|_| json!({ "list": "number", "runs": [{ "t": "a" }] })).collect();
-    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [{
+    serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [{
         "id": "e", "kind": base::TEXT, "frame": { "x": 0, "y": 0, "w": 800, "h": 400 }, "params": { "body": text }
     }] } }] }))
     .unwrap_or_else(|e| panic!("{e}"))

@@ -1,0 +1,188 @@
+---
+source: crates/oku-slides-render/tests/widgets.rs
+expression: registry
+---
+{
+  "widgets": {
+    "essentiel/blank": {
+      "name": "essentiel/blank",
+      "label": null,
+      "category": "slide",
+      "params": [
+        {
+          "name": "grid",
+          "label": null,
+          "type": "grid",
+          "default": {
+            "columns": 12,
+            "rows": 6
+          },
+          "bind": null
+        },
+        {
+          "name": "elements",
+          "label": null,
+          "type": "slot",
+          "mode": "free",
+          "accepts": null,
+          "default": null,
+          "bind": null
+        }
+      ]
+    },
+    "essentiel/chapter": {
+      "name": "essentiel/chapter",
+      "label": null,
+      "category": "slide",
+      "params": [
+        {
+          "name": "title",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": null
+        },
+        {
+          "name": "subtitle",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": null
+        }
+      ]
+    },
+    "essentiel/content": {
+      "name": "essentiel/content",
+      "label": null,
+      "category": "slide",
+      "params": [
+        {
+          "name": "kicker",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": null
+        },
+        {
+          "name": "title",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": null
+        },
+        {
+          "name": "layout",
+          "label": null,
+          "type": "choice",
+          "values": [
+            "default",
+            "columns",
+            "split",
+            "center",
+            "quote"
+          ],
+          "default": "default",
+          "bind": null
+        },
+        {
+          "name": "grid",
+          "label": null,
+          "type": "grid",
+          "default": {
+            "columns": 12,
+            "rows": 6
+          },
+          "bind": null
+        },
+        {
+          "name": "blocks",
+          "label": null,
+          "type": "slot",
+          "mode": "flow",
+          "accepts": null,
+          "default": null,
+          "bind": null
+        },
+        {
+          "name": "elements",
+          "label": null,
+          "type": "slot",
+          "mode": "free",
+          "accepts": null,
+          "default": null,
+          "bind": null
+        }
+      ]
+    },
+    "essentiel/end": {
+      "name": "essentiel/end",
+      "label": null,
+      "category": "slide",
+      "params": [
+        {
+          "name": "text",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": null
+        }
+      ]
+    },
+    "essentiel/title": {
+      "name": "essentiel/title",
+      "label": null,
+      "category": "slide",
+      "params": [
+        {
+          "name": "title",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": "title"
+        },
+        {
+          "name": "subtitle",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": "subtitle"
+        },
+        {
+          "name": "author",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": "author"
+        },
+        {
+          "name": "date",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": "date"
+        },
+        {
+          "name": "kicker",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": "organization"
+        }
+      ]
+    },
+    "essentiel/toc": {
+      "name": "essentiel/toc",
+      "label": null,
+      "category": "slide",
+      "params": [
+        {
+          "name": "title",
+          "label": null,
+          "type": "plain",
+          "default": null,
+          "bind": null
+        }
+      ]
+    }
+  }
+}

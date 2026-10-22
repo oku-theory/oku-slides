@@ -3,6 +3,7 @@
 import { afterEach, expect, test } from "bun:test";
 import "../test/dom";
 import type { SlideSummary, SlideView } from "../api";
+import { ESSENTIEL } from "../builtinKinds";
 
 const { act, createElement, useMemo, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -17,7 +18,7 @@ afterEach(async () => {
 const slides = [{ id: "s1" }, { id: "s2" }, { id: "s3" }] as SlideSummary[];
 /** La vue d'une slide : son élément `<id>-e1`, plus `added`. */
 const viewOf = (id: string, added: string[]) =>
-  ({ slide: { id, kind: "content", params: { body: [`${id}-e1`, ...added].map((e) => ({ id: e, kind: "base/text" })) } } }) as unknown as SlideView;
+  ({ slide: { id, kind: ESSENTIEL.content, params: { body: [`${id}-e1`, ...added].map((e) => ({ id: e, kind: "base/text" })) } } }) as unknown as SlideView;
 
 /** Un onglet réduit : slide courante (sa vue suit), sélection, édition ; rend le rappel `focus`. */
 async function mount() {

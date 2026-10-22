@@ -44,7 +44,7 @@ fn apply(deck: &mut Deck, op: Op) -> Result<(), OpError> {
 }
 
 fn empty_deck() -> Deck {
-    Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#).unwrap_or_else(|e| panic!("{e}"))
+    Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#).unwrap_or_else(|e| panic!("{e}"))
 }
 
 fn add(deck: &mut Deck, e: Element) -> Result<(), OpError> {
@@ -181,7 +181,7 @@ fn validate_deck_with_valid_table_reports_nothing() {
 #[test]
 fn validate_deck_with_ragged_table_reports_one_issue() {
     let deck = Deck::from_json(
-        &json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+        &json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
             { "id": "t1", "kind": "base/table", "params": { "data": ragged() } } ] } }] })
         .to_string(),
     )
@@ -243,7 +243,7 @@ fn set_param_table_without_ids_stores_ids() {
 #[test]
 fn add_slide_with_table_without_ids_stores_ids() {
     let mut deck = empty_deck();
-    let slide: Slide = serde_json::from_value(json!({ "id": "s2", "kind": "content", "params": { "blocks": [
+    let slide: Slide = serde_json::from_value(json!({ "id": "s2", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "t1", "kind": "base/table", "params": { "data": data() } }] } }))
     .unwrap_or_else(|e| panic!("{e}"));
     apply(&mut deck, Op::AddSlide { index: None, defaults: false, slide }).unwrap_or_else(|e| panic!("{e}"));
@@ -268,7 +268,7 @@ fn apply_all_keeps_existing_ids() {
 
 /// Un deck dont l'élément `t1` porte `params` tels quels, sans passer par les ops.
 fn forged_deck(kind: &str, params: Value) -> Deck {
-    let deck = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    let deck = json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "t1", "kind": kind, "params": params }] } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"))
 }

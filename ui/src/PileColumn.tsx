@@ -1,21 +1,22 @@
 /**
- * Colonne de gauche. En mode modèles : section repliable des miniatures (qui défile), puis la
- * section Widgets (ancrée). Sinon, les miniatures se replient vers la gauche : la colonne
- * devient un rail (`data-folded`) et la feuille reprend la place.
+ * Colonne de gauche. En mode pack : section repliable des miniatures (qui défile, layouts d'un
+ * pack de layouts ; aucune pour un pack de widgets), puis la section Widgets (ancrée). Sinon,
+ * les miniatures se replient vers la gauche : la colonne devient un rail (`data-folded`) et la
+ * feuille reprend la place.
  */
 import type { ReactNode } from "react";
 import { Icon } from "./icons";
 import PileSection from "./PileSection";
 
 export interface PileColumnProps {
-  /** Titre de la section des miniatures (Slides ou Modèles), nom du bouton de repli. */
+  /** Titre de la section des miniatures (Slides ou Layouts), nom du bouton de repli. */
   title: string;
   /** Miniatures montrées (gardé par l'hôte). */
   open: boolean;
   onToggle: () => void;
-  /** La pile des miniatures (`SlidePile`), qui défile seule. */
-  slides: ReactNode;
-  /** La section Widgets (`PileWidgets`) du mode modèles, repliable de son côté. */
+  /** La pile des miniatures (`DeckPile`), qui défile seule ; nulle pour un pack de widgets. */
+  slides: ReactNode | null;
+  /** La section Widgets (`PileWidgets`) du mode pack, repliable de son côté. */
   widgets?: ReactNode;
 }
 
@@ -23,9 +24,11 @@ export default function PileColumn({ title, open, onToggle, slides, widgets }: P
   if (widgets)
     return (
       <div className="pile-column">
-        <PileSection className="pile-thumbs" title={title} open={open} onToggle={onToggle}>
-          {slides}
-        </PileSection>
+        {slides !== null && (
+          <PileSection className="pile-thumbs" title={title} open={open} onToggle={onToggle}>
+            {slides}
+          </PileSection>
+        )}
         {widgets}
       </div>
     );

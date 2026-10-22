@@ -17,8 +17,7 @@
 - Defer agent focus during text editing, apply only the last one when editing ends, and ignore unknown ids. (plan:2026-10-09-tickets-debloques-t598, t-210)
 - textToParagraphs must keep the existing paragraph, with its formatting, for any line whose text did not change. (plan:2026-09-27-markdown-lezer)
 - In ListTable, insert a row only after the cell save succeeds, and revert the cell when the core refuses it. (plan:2026-10-04-suivis-listes, t-534)
-- Send every widget file write, rename, delete and create through the single useWidgetFiles queue. (plan:2026-10-03-widgets-onglets)
-- Show widget SVG previews only in an img element, never in object, iframe or dangerouslySetInnerHTML. (plan:2026-10-03-widgets-onglets)
+- Send every widget file write, rename, delete and create through the single useWidgetFiles queue; show widget SVG previews only in an img element, never in object, iframe or dangerouslySetInnerHTML. (plan:2026-10-03-widgets-onglets)
 - Send surface actions to the scope of the displayed surface, never to the current selection. (spec:2026-10-03-widgets-agent-a2ui-design)
 - Format grid and list numbers with ui/src/table/numbers.ts: deck language separators, U+2212 minus, shortest form. (t-655)
 - In parseCell convert only unambiguous decimals to numbers; keep leading-zero codes, hex and exponents as text. (t-592)
@@ -27,6 +26,7 @@
 - Import a2ui.css after styles.css and before glass.css so the glass theme can override cards. (plan:2026-10-03-agent-a2ui)
 - Keep one MessageProcessor per A2UI surface and feed it new messages instead of rebuilding it. (t-221)
 - Choose an element's own panel and its param from snapshot.host_params, never from its kind. (plan:2026-10-18-packs-lot2-base)
+- Take base and essentiel slide kinds in UI code only from ui/src/builtinKinds.ts; never write their qualified names as literals. (plan:2026-10-19-packs-lot3-essentiel)
 - Build buttons, icon toggles, selects and labelled fields with ui/src/primitives.tsx, shared with the A2UI catalog; no hand-written .btn or select.select. (t-982)
 
 ## Pitfalls

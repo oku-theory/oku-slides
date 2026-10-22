@@ -30,7 +30,7 @@ fn with_ops(deck: &Deck, ops: Vec<Op>) -> Deck {
 }
 
 fn empty_deck() -> Deck {
-    ok(Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#))
+    ok(Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#))
 }
 
 /// Les données de départ : 3 lignes × 3 colonnes, nombres, booléens, `null`.
@@ -51,7 +51,7 @@ fn table_deck(data: Value) -> Deck {
 
 /// Un deck au tableau `t` écrit tel quel, sans passer par les ops.
 fn raw_table_deck(data: Value) -> Deck {
-    let deck = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    let deck = json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "t", "kind": "base/table", "params": { "data": data } } ] } }] });
     ok(Deck::from_json(&deck.to_string()))
 }

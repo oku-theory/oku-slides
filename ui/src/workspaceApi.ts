@@ -8,7 +8,8 @@ export interface TabInfo {
   id: string;
   title: string;
   dirty: boolean;
-  editing_templates: boolean;
+  /** L'onglet est en mode pack (l'atelier). */
+  editing_pack: boolean;
   path: string | null;
   pristine: boolean;
   /** Identité du deck : une autre copie du même deck la partage. */
@@ -42,8 +43,11 @@ export interface WorkspaceView {
   windows: WindowView[];
 }
 
-/** La cible d'un import PowerPoint : retrofit sur un pack (et un thème), ou hi-fi. */
-export type ImportTarget = { mode: "retrofit"; pack: string; theme: string | null } | { mode: "hifi" };
+/**
+ * La cible d'un import PowerPoint : retrofit sur des packs de layouts (ids, dans l'ordre ;
+ * vide : `essentiel`) et un thème, ou hi-fi.
+ */
+export type ImportTarget = { mode: "retrofit"; layouts: string[]; theme: string | null } | { mode: "hifi" };
 
 type WorkspaceRequest =
   | { cmd: "view" }

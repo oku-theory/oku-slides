@@ -9,7 +9,10 @@ use std::process::{Command, Output, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use common::{FIXTURE, Server, assert_stdout_lacks, assert_success, free_port, http, oku_slides, request, workdir};
+use common::{
+    FIXTURE, Server, assert_stdout_lacks, assert_success, builtin_pins, deck_json, free_port, http, oku_slides,
+    request, workdir,
+};
 use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
@@ -40,7 +43,7 @@ fn check_fixture_reports_the_missing_asset_in_each_language() {
 fn check_valid_deck_prints_slide_count() {
     let dir = workdir("valid");
     let deck = dir.join("deck.json");
-    std::fs::write(&deck, r#"{"slides":[{"id":"s","kind":"title"}]}"#).unwrap();
+    std::fs::write(&deck, r#"{"slides":[{"id":"s","kind":"essentiel/title"}]}"#).unwrap();
     let out = run(oku_slides(&dir, "en").args(["check"]).arg(&deck));
     assert_that!(stdout(&out)).is_equal_to("valid deck: 1 slides\n".to_owned());
 }
@@ -617,7 +620,7 @@ const LOOP_ON_RENDER: &str = r#"#import "/oku-slides/lib.typ": widget, params as
 "#;
 
 fn base_registry() -> Arc<WidgetRegistry> {
-    let probe = serde_json::from_str(include_str!("../../../fixtures/widgets/base-registry.json"))
+    let probe = serde_json::from_str(include_str!("../../../fixtures/widgets/builtin-registry.json"))
         .unwrap_or_else(|e| panic!("registre de base : {e}"));
     Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("registre de base : {e}")))
 }
@@ -633,7 +636,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         parent: None,
         created: "2026-10-01T00:00:00Z".to_owned(),
         scope: oku_slides_core::PackScope::Library,
-        templates: Vec::new(),
+        profiles: Vec::new(),
         examples: Default::default(),
     };
     let widgets = widgets
@@ -643,7 +646,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
             (file, (*source).to_owned())
         })
         .collect();
-    manifest.to_files(widgets).unwrap_or_else(|e| panic!("pack.json : {e}"))
+    manifest.to_files(oku_slides_core::PackKind::Widgets, widgets).unwrap_or_else(|e| panic!("pack.json : {e}"))
 }
 
 /// Ajoute un pack de l'utilisateur à la bibliothèque de `dir` ; sa référence.
@@ -651,7 +654,8 @@ fn user_pack(dir: &Path, widgets: &[(&str, &str)]) -> PackPin {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, widgets);
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = PackLibrary::new(Some(dir.join("data").join("widgets")), storage);
+    let library =
+        PackLibrary::new(Some(dir.join("data").join("widgets")), Some(dir.join("data").join("layouts")), storage);
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     PackPin { id, version: files.version(), requires: vec![] }
 }
@@ -665,14 +669,17 @@ fn sources_of(pdf: &Path) -> SourceBundle {
 }
 
 #[test]
-fn save_of_a_deck_without_templates_embeds_the_default_pack() {
+fn save_of_a_deck_embeds_the_default_widget_and_layout_packs() {
     let dir = workdir("pack-default");
     let pdf = dir.join("deck.oku-slides.pdf");
     assert_that!(run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf)).status.success()).is_true();
     let bundle = sources_of(&pdf);
-    let r = bundle.deck().widgets.values().find(|p| p.id == oku_slides_session::DEFAULT_PACK).cloned().unwrap();
-    assert_that!(r.id).is_equal_to(oku_slides_session::DEFAULT_PACK);
-    assert_that!(bundle.packs.contains_key(&r.version)).is_true();
+    let base = bundle.deck().widgets.get(&oku_slides_core::kinds::base::namespace()).cloned().unwrap();
+    assert_that!(base.id).is_equal_to(oku_slides_session::BASE_PACK);
+    assert_that!(bundle.packs.contains_key(&base.version)).is_true();
+    let essentiel = bundle.deck().layouts.get(&oku_slides_core::kinds::essentiel::namespace()).cloned().unwrap();
+    assert_that!(essentiel.id).is_equal_to(oku_slides_session::ESSENTIEL_PACK);
+    assert_that!(bundle.packs.contains_key(&essentiel.version)).is_true();
 }
 
 #[test]
@@ -682,10 +689,9 @@ fn save_embeds_the_referenced_pack_and_renders_its_widgets() {
     let deck = dir.join("deck.json");
     std::fs::write(
         &deck,
-        serde_json::to_vec(&serde_json::json!({ "version": 7, "widgets": { "pack": r },
-        "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
+        serde_json::to_vec(&deck_json(serde_json::json!({ "pack": r }), serde_json::json!([{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "pack/quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
-        ] } }] }))
+        ] } }])))
         .unwrap(),
     )
     .unwrap();
@@ -707,13 +713,17 @@ fn render_of_a_pdf_whose_pack_loops_stops_at_the_timeout() {
     let pdf = oku_slides_pdf::strip_sources(&std::fs::read(&base).unwrap()).unwrap();
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("boucle", LOOP_ON_RENDER)]);
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 7,
-        "widgets": { "pack": { "id": id, "version": files.version() } },
-        "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
-            { "id": "l", "kind": "pack/boucle", "params": { "body": "x" } }] } }] }))
+    let deck: Deck = serde_json::from_value(deck_json(
+        serde_json::json!({ "pack": { "id": id, "version": files.version() } }),
+        serde_json::json!([{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [
+            { "id": "l", "kind": "pack/boucle", "params": { "body": "x" } }] } }]),
+    ))
     .unwrap();
     let mut bundle = SourceBundle::new(deck, base_registry()).unwrap();
     bundle.add_pack(files);
+    for files in builtin_pins().2 {
+        bundle.add_pack(files);
+    }
     let looping = dir.join("boucle.oku-slides.pdf");
     std::fs::write(&looping, oku_slides_pdf::embed_sources(&pdf, &bundle.to_zip().unwrap()).unwrap()).unwrap();
 
@@ -749,8 +759,10 @@ fn render_of_a_json_deck_whose_pack_is_not_embedded_warns_and_uses_the_base() {
     let dir = workdir("pack-json");
     let r = user_pack(&dir, &[("quote", QUOTE)]);
     let deck = dir.join("deck.json");
-    let json =
-        serde_json::json!({ "version": 7, "widgets": { "pack": r }, "slides": [{ "id": "s", "kind": "title" }] });
+    let json = deck_json(
+        serde_json::json!({ "pack": r }),
+        serde_json::json!([{ "id": "s", "kind": oku_slides_core::kinds::essentiel::TITLE }]),
+    );
     std::fs::write(&deck, serde_json::to_vec(&json).unwrap()).unwrap();
     let rendered = run(oku_slides(&dir, "en").arg("render").arg(&deck).arg("--out").arg(dir.join("out")));
     assert_that!(rendered.status.success()).is_true();
@@ -766,13 +778,15 @@ fn received_quote_pdf(dir: &Path) -> (std::path::PathBuf, PackPin) {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, &[("quote", QUOTE)]);
     let r = PackPin { id, version: files.version(), requires: vec![] };
-    let deck: Deck = serde_json::from_value(serde_json::json!({ "version": 7, "widgets": { "pack": r },
-        "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
+    let deck: Deck = serde_json::from_value(deck_json(serde_json::json!({ "pack": r }), serde_json::json!([{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "title": "T", "blocks": [
             { "id": "q", "kind": "pack/quote", "params": { "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "H" } }
-        ] } }] }))
+        ] } }])))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut bundle = SourceBundle::new(deck, base_registry()).unwrap_or_else(|e| panic!("{e}"));
     bundle.add_pack(files);
+    for files in builtin_pins().2 {
+        bundle.add_pack(files);
+    }
     let received = dir.join("recu.oku-slides.pdf");
     std::fs::write(
         &received,

@@ -1,5 +1,5 @@
 //! Regroupement des items d'une slide en unités de contenu, avant le choix
-//! du modèle.
+//! du profil.
 //!
 //! Une diapositive dessinée à la main empile des formes et des boîtes de
 //! texte : un fond arrondi, un filet d'accent, un titre et un paragraphe

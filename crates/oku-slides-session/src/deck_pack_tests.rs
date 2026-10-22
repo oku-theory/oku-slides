@@ -1,12 +1,13 @@
-use oku_slides_core::{Op, PackPin, PackVersion, SourceBundle, kinds};
+use oku_slides_core::{Namespace, Op, PackKind, PackPin, PackVersion, SourceBundle, kinds};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::*;
 use crate::SessionErrorKind;
-use crate::pack::DEFAULT_PACK;
+use crate::pack::ESSENTIEL_PACK;
 use crate::test_support::{
-    add_pack, add_version, fresh_dir, library_of, library_with, manifest, manifest_ns, ns, pin, session_on,
+    add_pack, add_version, add_version_of, fresh_dir, library_of, library_with, manifest, manifest_ns, ns, pin,
+    session_on,
 };
 
 /// Des sources vierges : un deck vide, sans pack, sur le registre de base des tests.
@@ -14,18 +15,23 @@ fn blank_sources() -> SourceBundle {
     SourceBundle::new(oku_slides_core::Deck::empty(), crate::test_support::registry()).unwrap()
 }
 
-/// L'épinglage de la version intégrée du pack par défaut.
+/// L'épinglage de la version intégrée d'`essentiel`.
 fn builtin_pin() -> PackPin {
-    let essentiel = crate::test_support::builtin(DEFAULT_PACK);
-    PackPin { id: DEFAULT_PACK, version: essentiel.version.clone(), requires: essentiel.manifest.requires.clone() }
+    let essentiel = crate::test_support::builtin(ESSENTIEL_PACK);
+    PackPin { id: ESSENTIEL_PACK, version: essentiel.version.clone(), requires: essentiel.manifest.requires.clone() }
+}
+
+/// Les espaces de noms épinglés par `sources`, widgets puis layouts.
+fn pinned(sources: &SourceBundle) -> (Vec<&str>, Vec<&str>) {
+    let deck = sources.deck();
+    (deck.widgets.keys().map(Namespace::as_str).collect(), deck.layouts.keys().map(Namespace::as_str).collect())
 }
 
 #[test]
-fn adopt_default_packs_empty_deck_pins_base_and_essentiel() {
+fn adopt_default_packs_pins_base_widgets_and_essentiel_layouts() {
     let (lib, mut sources) = (library_with(&[]), blank_sources());
     adopt_default_packs(&lib, &mut sources).unwrap();
-    let pinned: Vec<String> = sources.deck().widgets.keys().map(ToString::to_string).collect();
-    assert_that!(pinned).is_equal_to(vec!["base".to_owned(), "essentiel".to_owned()]);
+    assert_that!(pinned(&sources)).is_equal_to((vec!["base"], vec!["essentiel"]));
     assert_that!(sources.packs.contains_key(&builtin_pin().version)).is_true();
 }
 
@@ -33,16 +39,16 @@ fn adopt_default_packs_empty_deck_pins_base_and_essentiel() {
 fn adopt_default_packs_twice_adds_nothing() {
     let (lib, mut sources) = (library_with(&[]), blank_sources());
     adopt_default_packs(&lib, &mut sources).unwrap();
-    let once = sources.deck().widgets.clone();
+    let once = sources.deck().clone();
     adopt_default_packs(&lib, &mut sources).unwrap();
-    assert_that!(sources.deck().widgets.clone()).is_equal_to(once);
+    assert_that!(sources.deck().clone()).is_equal_to(once);
 }
 
 #[test]
-fn adopt_default_packs_deck_pinning_essentiel_without_base_is_not_repaired() {
+fn adopt_default_packs_leaves_a_deck_with_only_layout_pins() {
     let (lib, mut sources) = (library_with(&[]), blank_sources());
     let mut deck = sources.deck().clone();
-    deck.widgets.insert(ns("essentiel"), builtin_pin());
+    deck.layouts.insert(ns("essentiel"), builtin_pin());
     sources.apply_silent(deck).unwrap();
     adopt_default_packs(&lib, &mut sources).unwrap();
     assert_that!(sources.deck().widgets.contains_key(&kinds::base::namespace())).is_false();
@@ -73,19 +79,19 @@ fn new_deck_takes_the_current_version_of_the_default_pack() {
     let data = fresh_dir("oku-slides-deck-pack-");
     let mut s = session_on(data.path());
     let builtin = builtin_pin().version;
-    let mine =
-        add_version(library_of(&s), &manifest(DEFAULT_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z"), &[]);
-    library_of(&s).set_current(DEFAULT_PACK, &mine.version).unwrap();
+    let m = manifest(ESSENTIEL_PACK, "Le mien", Some(&builtin), "2026-10-02T10:00:00Z");
+    let mine = add_version_of(library_of(&s), PackKind::Layouts, &m, &[]);
+    library_of(&s).set_current(ESSENTIEL_PACK, &mine.version).unwrap();
     s.new_deck().unwrap();
     assert_that!(pin(&s, "essentiel")).is_equal_to(Some(mine.clone()));
     assert_that!(s.sources_for_tests().packs.contains_key(&mine.version)).is_true();
 }
 
 #[test]
-fn json_deck_without_widgets_adopts_base_and_the_default_pack() {
+fn json_deck_without_packs_adopts_base_and_essentiel() {
     let s = crate::test_support::session();
     let ids = (pin(&s, "base").map(|p| p.id), pin(&s, "essentiel").map(|p| p.id));
-    assert_that!(ids).is_equal_to((Some(crate::pack::BASE_PACK), Some(DEFAULT_PACK)));
+    assert_that!(ids).is_equal_to((Some(crate::pack::BASE_PACK), Some(ESSENTIEL_PACK)));
     assert_that!(s.sources_for_tests().packs.len()).is_equal_to(2);
 }
 
@@ -120,7 +126,8 @@ fn add_pack_to_an_unknown_version_returns_pack_version_missing() {
     let data = fresh_dir("oku-slides-deck-pack-");
     let mut s = session_on(data.path());
     let r = PackPin { version: PackVersion::from_hex(&"0".repeat(64)).unwrap(), ..builtin_pin() };
-    let err = s.apply("Pack", vec![Op::AddPack { namespace: ns("essentiel"), pin: r }], None).unwrap_err();
+    let op = Op::AddPack { kind: PackKind::Layouts, namespace: ns("essentiel"), pin: r };
+    let err = s.apply("Pack", vec![op], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::PackVersionMissing);
 }
 
@@ -129,25 +136,27 @@ fn add_pack_to_an_unknown_version_returns_pack_version_missing() {
 fn add_pack_whose_version_belongs_to_another_pack_is_refused() {
     let data = fresh_dir("oku-slides-deck-pack-");
     let mut s = session_on(data.path());
-    let before = s.deck().widgets.clone();
+    let before = s.deck().layouts.clone();
     let other = Uuid::new_v4();
     let r = PackPin { id: other, ..builtin_pin() };
-    let err = s.apply("Pack", vec![Op::AddPack { namespace: ns("essentiel"), pin: r }], None).unwrap_err();
+    let op = Op::AddPack { kind: PackKind::Layouts, namespace: ns("essentiel"), pin: r };
+    let err = s.apply("Pack", vec![op], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InvalidDocument);
     let shown = oku_slides_i18n::Localize::localize(&err, &s.localizer);
     assert_that!(shown).contains(other.to_string().as_str());
-    assert_that!(shown).contains(DEFAULT_PACK.to_string().as_str());
-    assert_that!(s.deck().widgets.clone()).is_equal_to(before);
+    assert_that!(shown).contains(ESSENTIEL_PACK.to_string().as_str());
+    assert_that!(s.deck().layouts.clone()).is_equal_to(before);
 }
 
 #[test]
 fn add_pack_under_another_namespace_than_its_manifest_is_refused() {
     let data = fresh_dir("oku-slides-deck-pack-");
     let mut s = session_on(data.path());
-    let before = s.deck().widgets.clone();
-    let err = s.apply("Pack", vec![Op::AddPack { namespace: ns("autre"), pin: builtin_pin() }], None).unwrap_err();
+    let before = s.deck().layouts.clone();
+    let op = Op::AddPack { kind: PackKind::Layouts, namespace: ns("autre"), pin: builtin_pin() };
+    let err = s.apply("Pack", vec![op], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InvalidDocument);
-    assert_that!(s.deck().widgets.clone()).is_equal_to(before);
+    assert_that!(s.deck().layouts.clone()).is_equal_to(before);
 }
 
 /// t-355 : un deck qui épingle une version du pack par défaut absente de ses
@@ -159,7 +168,7 @@ fn load_of_a_deck_whose_default_pack_version_is_missing_keeps_it_and_says_so() {
     let mut s = session_on(data.path());
     let absent = PackPin { version: PackVersion::from_hex(&"0".repeat(64)).unwrap(), ..builtin_pin() };
     let mut deck = s.deck().clone();
-    deck.widgets.insert(ns("essentiel"), absent.clone());
+    deck.layouts.insert(ns("essentiel"), absent.clone());
     let mut sources = SourceBundle::new(deck, s.registry.clone()).unwrap();
     // `base` reste embarqué : seul le pack par défaut manque.
     sources.add_pack(crate::test_support::builtin(crate::pack::BASE_PACK).files.clone());

@@ -63,7 +63,7 @@ impl WireError {
             RegistryInner::Schema { source, .. } => Self::RegistrySchema { message: source.to_string() },
             RegistryInner::RemoteSchema { message, .. } => Self::RegistrySchema { message: message.clone() },
             RegistryInner::Setup { source, .. } | RegistryInner::Worker { source, .. } => Self::from_render(source),
-            other @ RegistryInner::BasePack { .. } => Self::Setup { message: first_line(other) },
+            other @ RegistryInner::BuiltinPack { .. } => Self::Setup { message: first_line(other) },
         }
     }
 
@@ -82,10 +82,10 @@ impl WireError {
             Self::PackDisabled { pack } => RenderError::pack_disabled(pack),
             Self::Setup { message } | Self::RegistrySchema { message } => RemoteSnafu { message }.build().into(),
             Self::RegistryBadPackId { id } => {
-                RemoteSnafu { message: format!("invalid template pack identifier: {id}") }.build().into()
+                RemoteSnafu { message: format!("invalid pack identifier: {id}") }.build().into()
             }
             Self::RegistryDuplicatePack { pack } => {
-                RemoteSnafu { message: format!("two widget packs share {pack}") }.build().into()
+                RemoteSnafu { message: format!("two packs share {pack}") }.build().into()
             }
             Self::RegistryCompile { diagnostics } => CompileSnafu { diagnostics }.build().into(),
             Self::RegistryMissing => {

@@ -5,6 +5,7 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
+use oku_slides_core::PackKind;
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
@@ -103,7 +104,7 @@ fn bounded_failure_while_flushing_the_deferred_queue_blames_the_pack() {
     w.link().unsandboxed = true;
     w.link().ensure_connected().unwrap();
     w.1.defer(Deferred::Close { slot: 1 });
-    let pack = WirePack { id: "p".into(), namespace: "p".into(), files: BTreeMap::new() };
+    let pack = WirePack { id: "p".into(), namespace: "p".into(), kind: PackKind::Widgets, files: BTreeMap::new() };
     let mut link = w.link();
     let e = w.prepare_for(&mut link, std::slice::from_ref(&pack)).unwrap_err();
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::WorkerLost);

@@ -82,7 +82,7 @@ enum Cmd {
         #[arg(long, value_enum, default_value_t = ImportMode::Retrofit)]
         mode: ImportMode,
         #[arg(long)]
-        pack: Option<String>,
+        pack: Vec<String>,
         #[arg(long)]
         theme: Option<String>,
         #[arg(short = 'o', long)]
@@ -424,11 +424,13 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 for (name, bytes) in &bundle.fonts {
                     storage.write(&dir.join("fonts").join(name), bytes.as_slice())?;
                 }
+                // Chaque version dans le dossier de sa sorte : `widgets/<hex>/` ou `layouts/<hex>/`.
                 for (version, files) in &bundle.packs {
-                    let at = dir.join("widgets").join(version.hex());
-                    storage.write(&at.join("widgets.json"), files.pack_json()?)?;
+                    let kind = files.kind();
+                    let at = dir.join(kind.files_dir()).join(version.hex());
+                    storage.write(&at.join(kind.manifest_file()), files.pack_json()?)?;
                     for (name, source) in files.widgets() {
-                        storage.write(&at.join("widgets").join(name.file_name()), source.as_bytes())?;
+                        storage.write(&at.join(kind.files_dir()).join(name.file_name()), source.as_bytes())?;
                     }
                 }
                 out.line("cli-extracted", &[("dir", dir.display().to_string().into())])?;
@@ -440,8 +442,16 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             out.line("cli-stripped", &[("path", output.display().to_string().into())])?;
         }
         Cmd::Import { input, mode, pack, theme, output, report, no_system_fonts, reference } => {
-            let args =
-                ImportArgs { input, mode, pack, theme, output, report, system_fonts: !no_system_fonts, reference };
+            let args = ImportArgs {
+                input,
+                mode,
+                packs: pack,
+                theme,
+                output,
+                report,
+                system_fonts: !no_system_fonts,
+                reference,
+            };
             import::import(platform, out, &app_fonts, args)?;
         }
         Cmd::Bench { deck, iterations } => {

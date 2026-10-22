@@ -112,6 +112,7 @@ fn paths_without_overrides_live_under_data_dir() {
     let paths = PathSettings { data: Some(PathBuf::from("/d")), ..PathSettings::default() };
     assert_that!(paths.models()).is_equal_to(PathBuf::from("/d/models"));
     assert_that!(paths.widgets()).is_equal_to(PathBuf::from("/d/widgets"));
+    assert_that!(paths.layouts()).is_equal_to(PathBuf::from("/d/layouts"));
     assert_that!(paths.themes()).is_equal_to(PathBuf::from("/d/themes"));
 }
 

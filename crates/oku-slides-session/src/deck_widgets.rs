@@ -1,22 +1,22 @@
-//! Widgets du deck : ceux du noyau, et les widgets valides de chaque pack
-//! qu'il épingle (`deck.widgets`, versions cherchées dans
-//! `SourceBundle.packs`, jamais dans la bibliothèque), sous leur nom
-//! qualifié ; chaque fichier est sondé à part.
+//! Widgets du deck : les widgets valides de chaque pack qu'il épingle, de
+//! widgets (`deck.widgets`) et de layouts (`deck.layouts`), versions cherchées
+//! dans `SourceBundle.packs`, jamais dans la bibliothèque, sous leur nom
+//! qualifié ; chaque fichier est sondé à part, dans la sorte de son pack.
 //!
 //! Invariant : le registre de la session (`Session::registry`), celui des
 //! sources du document ouvert et celui du rendu du deck sont le même, celui
 //! des packs `Session::widgets_pins`, qui sont ceux du deck ouvert.
-//! Tout ce qui change `deck.widgets` (ops, annuler, rétablir, fusion,
+//! Tout ce qui change `deck.widgets` ou `deck.layouts` (ops, annuler, rétablir, fusion,
 //! restauration, autre document) passe par ici.
 //!
 //! Un pack est écarté seul : version absente des sources, épingle qui ne
 //! dit pas son manifeste (`check_pack_id`), sonde illisible ou pack devenu
-//! fautif (voir `deck_fallback`). Une version livrée de `base`
+//! fautif (voir `deck_fallback`). Une version livrée de `base` ou d'`essentiel`
 //! (`is_trusted_pack`) n'est jamais écartée pour une faute (lecture, sonde,
 //! rendu) : l'échec remonte ; elle l'est encore si sa version manque aux
 //! sources ou si son épingle ment. Ceux qui requièrent un pack écarté le
 //! sont aussi (`deck_closure::dependents`) ; un avis
-//! `session-packs-disabled` les nomme. `deck.widgets` ne change pas. Un
+//! `session-packs-disabled` les nomme. Le deck ne change pas. Un
 //! assemblage raté du registre n'accuse aucun pack : l'erreur remonte, les
 //! widgets installés restent.
 //!
@@ -39,8 +39,8 @@ use oku_slides_i18n::Localize;
 use oku_slides_render::{FileProbe, PackSet, PackWidgets, is_trusted_pack};
 use oku_slides_render_worker::RemoteCompiled;
 
-use crate::deck_closure::{closure_ops, dependents};
-use crate::deck_pack::{check_pack_id, in_process_pack, only_builtin_base};
+use crate::deck_closure::{closure_ops, combined_pins, dependents};
+use crate::deck_pack::{check_pack_id, empty_registry, in_process_pack, only_builtins};
 use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
 use crate::pack::PackManifest;
 use crate::{Result, Session, charts};
@@ -48,7 +48,7 @@ use crate::{Result, Session, charts};
 /// Les widgets résolus pour les packs épinglés d'un deck.
 #[derive(Debug, Clone)]
 pub(crate) struct DeckWidgets {
-    /// Les packs épinglés dont ils viennent.
+    /// Les packs épinglés dont ils viennent, des deux sortes (voir `combined_pins`).
     pub(crate) pins: BTreeMap<Namespace, PackPin>,
     /// Les packs utilisables, réduits à leurs widgets valides.
     pub(crate) set: PackSet,
@@ -73,15 +73,15 @@ pub(crate) struct Failpoints {
     pub(crate) registry: bool,
 }
 
-/// Les packs épinglés après `ops`, appliquées à `pins`.
+/// Les packs épinglés après `ops`, appliquées à `pins` (les deux sortes en une carte).
 fn pins_after(pins: &BTreeMap<Namespace, PackPin>, ops: &[Op]) -> BTreeMap<Namespace, PackPin> {
     let mut out = pins.clone();
     for op in ops {
         match op {
-            Op::AddPack { namespace, pin } => {
+            Op::AddPack { namespace, pin, .. } => {
                 out.insert(namespace.clone(), pin.clone());
             }
-            Op::RemovePack { namespace } => {
+            Op::RemovePack { namespace, .. } => {
                 out.remove(namespace);
             }
             _ => {}
@@ -91,8 +91,8 @@ fn pins_after(pins: &BTreeMap<Namespace, PackPin>, ops: &[Op]) -> BTreeMap<Names
 }
 
 impl Session {
-    /// Les widgets des packs `pins`, lus dans `packs` (les sources du
-    /// document) : le noyau et les widgets valides de chaque pack utilisable.
+    /// Les widgets des packs `pins` (les deux sortes, voir `combined_pins`), lus dans
+    /// `packs` (les sources du document) : les widgets valides de chaque pack utilisable.
     ///
     /// Un pack dont la version manque aux sources, dont l'épingle ne dit pas
     /// le manifeste, dont la sonde échoue ou devenu fautif est écarté, avec
@@ -138,17 +138,17 @@ impl Session {
             if files.widgets().is_empty() {
                 continue;
             }
-            // Le `base` intégré courant se résout ici, sans sonde : aucun processus de rendu lancé.
+            // Un pack intégré courant se résout ici, sans sonde : aucun processus de rendu lancé.
             // De confiance, il n'est jamais écarté : illisible, l'erreur remonte.
             if let Some(builtin) = in_process_pack(&pin.version) {
                 usable.push(builtin.context(RegistrySnafu)?);
                 continue;
             }
-            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone());
+            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.kind(), files.widgets().clone());
             let trusted = pack.as_ref().is_ok_and(is_trusted_pack);
             let probe = match pack.and_then(|pack| self.worker.probe_pack(&pack)) {
                 Ok(probe) => probe,
-                // Une version livrée de `base` n'est jamais écartée : l'échec de sa sonde remonte.
+                // Une version livrée d'un pack intégré n'est jamais écartée : l'échec de sa sonde remonte.
                 Err(e) if trusted => return Err(e).context(RegistrySnafu)?,
                 Err(e) => {
                     tracing::warn!(pack = %pin.id, error = %oku_slides_platform::errors::one_line(&e), "pack de widgets illisible : écarté");
@@ -183,8 +183,8 @@ impl Session {
         Ok((DeckWidgets { pins: pins.clone(), set, registry, unprobed, disabled }, notice))
     }
 
-    /// Le registre de `set` : le noyau seul s'il est vide, le registre intégré s'il ne tient que
-    /// le `base` intégré courant (sans lancer le processus de rendu dans ces deux cas).
+    /// Le registre de `set` : vide sans pack, le registre intégré s'il tient exactement les packs
+    /// intégrés courants (sans lancer le processus de rendu dans ces deux cas).
     pub(crate) fn registry_for(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>> {
         #[cfg(test)]
         if !set.is_empty() && self.failpoints.registry {
@@ -193,9 +193,9 @@ impl Session {
             return Err(e).context(RegistrySnafu)?;
         }
         if set.is_empty() {
-            return Ok(oku_slides_render::core_registry(&self.app_fonts).context(RegistrySnafu)?);
+            return Ok(empty_registry());
         }
-        if only_builtin_base(set) {
+        if only_builtins(set) {
             return Ok(oku_slides_render::builtin_registry(&self.app_fonts).context(RegistrySnafu)?);
         }
         Ok(self.worker.registry_of(set).context(RegistrySnafu)?)
@@ -259,9 +259,9 @@ impl Session {
                 }
                 return Err(e).context(RenderSnafu)?;
             }
-            self.template_renderer = None;
+            self.pack_renderer = None;
             self.variant_renderer = None;
-            self.template_cache = None;
+            self.pack_cache.clear();
             self.svg_cache.clear();
         }
         Ok(DeckWidgets {
@@ -284,25 +284,27 @@ impl Session {
     /// résolus avant ses ops : elle peut ajouter un de leurs widgets. En cas
     /// d'échec, le registre d'avant revient.
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
-        // En mode modèles, choisir un thème fait partir le brouillon de ce thème.
+        // En mode pack, choisir un thème fait partir le brouillon de ce thème.
         if let Some(id) = self.drafted_theme_choice(&ops) {
             return self.set_edited_theme(id);
         }
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
         self.ensure_editable()?;
+        // Les slides du deck de travail sont les exemples du pack : leur liste ne change pas.
+        self.ensure_pack_slides(&ops)?;
         if ops.iter().any(|op| matches!(op, Op::AddPack { .. })) {
             ops = closure_ops(&self.library, self.doc.sources.deck(), &ops)?;
         }
         self.check_token_ops(&ops)?;
         self.embed_op_themes(&mut ops)?;
-        let pins = pins_after(&self.doc.sources.deck().widgets, &ops);
+        let pins = pins_after(&combined_pins(self.doc.sources.deck()), &ops);
         let (widgets, notice) = if pins == self.widgets_pins {
             (None, None)
         } else {
             // Les versions voulues entrent dans les sources avant d'être lues (en ajout seul).
             for op in &ops {
-                if let Op::AddPack { namespace, pin } = op {
+                if let Op::AddPack { namespace, pin, .. } = op {
                     self.embed_from_library(namespace, pin)?;
                 }
             }
@@ -312,7 +314,14 @@ impl Session {
         let registry = widgets.as_ref().map_or_else(|| self.registry.clone(), |w| w.registry.clone());
         charts::canonicalize_charts(&mut ops, &self.chart_labels, &registry);
         let mut next = self.doc.sources.deck().clone();
+        // Mode pack : une op sur la slide d'un layout s'écrit dans son exemple (`layout_examples`).
+        let pack_ops = matches!(self.mode, crate::Mode::Pack { .. }).then(|| ops.clone());
         let moves = oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
+        if let Some(pack_ops) = pack_ops
+            && self.commit_layout_examples(&next, &pack_ops, label, merge, &moves)?
+        {
+            return Ok(());
+        }
         let previous = widgets.map(|w| self.install_widgets(w)).transpose()?;
         self.doc.sources.set_registry(registry);
         // Un repli pendant le rendu pose son avis : il ne vaut plus si les widgets d'avant reviennent.
@@ -363,7 +372,7 @@ impl Session {
     /// Au mieux : un échec (résolution, installation) est journalisé, les
     /// widgets installés restent et la sonde est reprise au rendu suivant.
     pub(crate) fn probe_remaining(&mut self) {
-        let current = self.doc.sources.deck().widgets == self.widgets_pins;
+        let current = combined_pins(self.doc.sources.deck()) == self.widgets_pins;
         if self.widgets_unprobed.is_empty() || !current || matches!(self.mode, crate::Mode::History { .. }) {
             return;
         }
@@ -386,11 +395,11 @@ impl Session {
     }
 
     /// Le registre suit les packs du document ouvert : s'ils ont changé
-    /// (annuler, rétablir, fusion, restauration, modèles), leurs widgets sont
+    /// (annuler, rétablir, fusion, restauration, mode pack), leurs widgets sont
     /// résolus et installés, et les sources les reçoivent. Un pack cassé est
     /// écarté seul et pose son avis.
     pub(crate) fn sync_widgets(&mut self) -> Result<()> {
-        let pins = self.doc.sources.deck().widgets.clone();
+        let pins = combined_pins(self.doc.sources.deck());
         if pins != self.widgets_pins {
             let (widgets, notice) = self.resolve_widgets(&pins, &self.doc.sources.packs)?;
             self.install_widgets(widgets)?;

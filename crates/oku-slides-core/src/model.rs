@@ -13,11 +13,12 @@ use serde_json::Value;
 use crate::error::ValueReason;
 use crate::namespace::Namespace;
 use crate::pack::{PackPin, ThemeRef};
+use crate::pack_kind::PackKind;
 use crate::params::{ParamValue, Params};
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 7;
+pub const DECK_VERSION: u32 = 8;
 
 /// Un deck complet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -39,6 +40,9 @@ pub struct Deck {
     /// Packs de widgets du deck, par espace de noms ; fermeture de leurs `requires` comprise.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub widgets: BTreeMap<Namespace, PackPin>,
+    /// Packs de layouts du deck, par espace de noms ; leurs `requires` nomment des packs de widgets.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub layouts: BTreeMap<Namespace, PackPin>,
     pub slides: Vec<Slide>,
 }
 
@@ -126,25 +130,13 @@ pub struct Slide {
     pub kind: String,
     #[serde(default, skip_serializing_if = "Params::is_empty")]
     pub params: Params,
-    /// Nom et description, pour une slide qui sert de modèle.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub notes: String,
 }
 
 impl Slide {
     pub fn new(id: impl Into<String>, kind: &str) -> Self {
-        Self {
-            id: id.into(),
-            kind: kind.to_owned(),
-            params: Params::default(),
-            name: None,
-            description: None,
-            notes: String::new(),
-        }
+        Self { id: id.into(), kind: kind.to_owned(), params: Params::default(), notes: String::new() }
     }
 
     /// Le paramètre `grid` de la slide, sinon la grille 12 × 6 par défaut : ce n'est
@@ -460,8 +452,30 @@ impl Deck {
             vars: BTreeMap::new(),
             tokens: Value::Null,
             widgets: BTreeMap::new(),
+            layouts: BTreeMap::new(),
             slides: Vec::new(),
         }
+    }
+
+    /// Les épinglages du deck de sorte `kind`.
+    pub fn pins(&self, kind: PackKind) -> &BTreeMap<Namespace, PackPin> {
+        match kind {
+            PackKind::Widgets => &self.widgets,
+            PackKind::Layouts => &self.layouts,
+        }
+    }
+
+    /// Les épinglages du deck de sorte `kind`, à modifier.
+    pub fn pins_mut(&mut self, kind: PackKind) -> &mut BTreeMap<Namespace, PackPin> {
+        match kind {
+            PackKind::Widgets => &mut self.widgets,
+            PackKind::Layouts => &mut self.layouts,
+        }
+    }
+
+    /// Chaque épinglage du deck avec sa sorte : les widgets, puis les layouts.
+    pub fn all_pins(&self) -> impl Iterator<Item = (PackKind, &Namespace, &PackPin)> {
+        PackKind::ALL.into_iter().flat_map(move |kind| self.pins(kind).iter().map(move |(ns, pin)| (kind, ns, pin)))
     }
 
     pub fn slide(&self, id: &str) -> Option<&Slide> {

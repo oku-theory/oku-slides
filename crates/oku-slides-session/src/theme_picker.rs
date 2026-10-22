@@ -230,6 +230,7 @@ impl Session {
             vars: deck.vars.clone(),
             tokens: deck.tokens.clone(),
             widgets: deck.widgets.clone(),
+            layouts: deck.layouts.clone(),
             slides: vec![keep],
         })
     }

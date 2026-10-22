@@ -71,12 +71,12 @@ fn restore_label_uses_the_fluent_message() {
 }
 
 #[test]
-fn history_open_in_templates_mode_returns_editing_templates() {
+fn history_open_in_pack_mode_returns_editing_pack() {
     let mut s = session_in(data_dir().path());
-    s.handle(req(json!({ "cmd": "edit_templates", "set": crate::DEFAULT_PACK }))).unwrap();
+    s.handle(req(json!({ "cmd": "edit_pack", "pack": crate::ESSENTIEL_PACK }))).unwrap();
     let err = s.handle(req(json!({ "cmd": "history_open" }))).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingTemplates);
-    assert_that!(matches!(s.mode, Mode::Templates { .. })).is_true();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
+    assert_that!(matches!(s.mode, Mode::Pack { .. })).is_true();
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn history_unsaved_and_tab_info_see_the_stashed_deck() {
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
     assert_that!(s.unsaved()).is_true();
     assert_that!(s.user_deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("papier"));
-    assert_that!(s.tab_info().editing_templates).is_false();
+    assert_that!(s.tab_info().editing_pack).is_false();
 }
 
 /// Un onglet rouvert ne revient pas dans l'historique : la reprise garde le

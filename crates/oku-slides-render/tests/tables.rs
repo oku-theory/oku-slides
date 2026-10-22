@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::Compiled;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -24,7 +24,7 @@ fn deck_of(slides: Value, tokens: Option<Value>) -> Deck {
 
 /// Une slide de contenu dont l'unique bloc est le tableau `t1`.
 fn in_flow(data: Value) -> Value {
-    json!([{ "id": "s", "kind": "content", "params": { "title": "T",
+    json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
         "blocks": [{ "id": "t1", "kind": base::TABLE, "params": { "data": data } }] } }])
 }
 
@@ -37,7 +37,7 @@ fn rows(n: usize) -> Value {
 /// La slide de `in_flow`, avec un tableau sans `data`.
 fn placeholder() -> Deck {
     deck_of(
-        json!([{ "id": "s", "kind": "content", "params": { "title": "T",
+        json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
         "blocks": [{ "id": "t1", "kind": base::TABLE }] } }]),
         None,
     )
@@ -81,7 +81,7 @@ fn covered(table: Option<Value>) -> Deck {
     elements
         .push(json!({ "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
         "frame": { "x": 6, "y": 6, "w": 308, "h": 128 } }));
-    deck_of(json!([{ "id": "s", "kind": "blank", "params": { "elements": elements } }]), None)
+    deck_of(json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn covered_in_stack(table: Option<Value>) -> Deck {
         { "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
             "frame": { "x": 6, "y": 6, "w": 308, "h": 128 } },
     ]);
-    deck_of(json!([{ "id": "s", "kind": "blank", "params": { "elements": elements } }]), None)
+    deck_of(json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn table_in_flow_grows_with_its_rows() {
 #[test]
 fn table_without_data_differs_from_an_unknown_element() {
     let unknown = deck_of(
-        json!([{ "id": "s", "kind": "content", "params": { "title": "T",
+        json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
         "blocks": [{ "id": "t1", "kind": "inconnu" }] } }]),
         None,
     );
@@ -301,7 +301,7 @@ fn right_edge(w: f64) -> Deck {
         { "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
             "frame": { "x": 0, "y": 0, "w": 300, "h": 140 } },
     ]);
-    deck_of(json!([{ "id": "s", "kind": "blank", "params": { "elements": elements } }]), None)
+    deck_of(json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
 }
 
 #[test]

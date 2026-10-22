@@ -1,7 +1,7 @@
 //! Les versions de thèmes dans le zip des sources : `themes/<hex>/theme.json`.
 //!
-//! Une version de thème est un [`PackFiles`] sans widget dont le manifeste
-//! est `theme.json` ; elle est vérifiée par son empreinte à la lecture, comme
+//! Une version de thème est un [`PackFiles`] de la sorte widgets (sans
+//! préfixe canonique), sans widget, dont le manifeste est `theme.json` ; elle est vérifiée par son empreinte à la lecture, comme
 //! une version de pack. Un chemin invalide (dossier autre que 64 hex
 //! minuscules, sous-dossier, fichier autre que `theme.json`) refuse le zip.
 //! Une version écartée est signalée une seule fois, comme celles des packs.
@@ -15,6 +15,7 @@ use zip::write::SimpleFileOptions;
 use crate::error::{BadNameSnafu, IoSnafu, JsonSnafu, SourcesInner, ZipSnafu};
 use crate::model::Deck;
 use crate::pack::{PackFiles, PackVersion};
+use crate::pack_kind::PackKind;
 use crate::validate::Issue;
 
 /// Dossier des versions de thèmes dans le zip.
@@ -45,7 +46,7 @@ pub(super) fn verify_themes(
     let mut themes = BTreeMap::new();
     let mut discarded = Vec::new();
     for (version, json) in raw {
-        match PackFiles::from_bytes(&json, []).filter(|f| f.matches(&version)) {
+        match PackFiles::from_bytes(PackKind::Widgets, &json, []).filter(|f| f.matches(&version)) {
             Some(files) => {
                 themes.insert(version, files);
             }

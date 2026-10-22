@@ -4,23 +4,30 @@ ui-loading = Chargement…
 ## Document
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · modèles
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · pack de layouts
+   *[other] { $name } · pack de widgets
+}
 ui-title-rename = Renommer la présentation
 ui-title-field = Titre de la présentation
 ui-status-unsaved = modifications non enregistrées
 ui-status-saved = enregistré
 ui-status-never-saved = pas encore enregistré
-ui-caption-templates = { $count ->
-    [one] { $count } modèle
-   *[other] { $count } modèles
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } layout
+       *[other] { $count } layouts
+    }
+   *[other] { $count ->
+        [one] { $count } widget
+       *[other] { $count } widgets
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } slide
    *[other] { $count } slides
 } · { $status }
-ui-template-default-name = Modèle
-ui-template-variant-name = { $name } (variante)
-ui-confirm-quit-templates = Quitter sans enregistrer les modèles modifiés ?
+ui-confirm-quit-pack = Quitter sans enregistrer le pack modifié ?
 
 ## Toasts
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = Thème
 ui-toolbar-theme-embedded = Thème du fichier
 ui-toolbar-theme-deck-group = Cette présentation
 ui-toolbar-finish = Terminer
-ui-templates-deck-only = Enregistrés dans cette présentation seulement
+ui-pack-deck-only = Enregistré dans cette présentation seulement
 ui-toolbar-open = Ouvrir
 ui-menu = Menu
 ui-toolbar-add-label = Ajouter sur la slide
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] Un tableau de données
    *[text] Un paragraphe de texte
 }
-ui-toolbar-remove-template = Supprimer le modèle
 ui-toolbar-remove-slide = Supprimer la slide
 ui-toolbar-remove-hint = Slide { $n } · annulable avec ⌘Z
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] Ajouter un texte
 }
 ui-undo-add-widget = Ajouter « { $name } »
-ui-undo-new-template = Nouveau modèle : { $name }
 ui-undo-new-slide = Nouvelle slide : { $name }
-ui-undo-templates = Modèles : { $name }
-ui-undo-move-template = Déplacer le modèle
 ui-undo-move-slide = Déplacer la slide
 ui-undo-remove-slide = Supprimer la slide
 ui-undo-remove = Supprimer
@@ -89,7 +92,7 @@ ui-undo-change-anchor = Changer l'accroche
 ui-undo-move = Déplacer
 ui-undo-resize = Redimensionner
 ui-undo-edit-slide = Modifier la slide
-ui-undo-rename-set = Renommer l'ensemble
+ui-undo-rename-pack = Renommer le pack
 ui-undo-rename-deck = Renommer la présentation
 ui-undo-chart-kind = Changer le type du graphique
 ui-undo-chart-data = Modifier les données
@@ -108,15 +111,15 @@ ui-new-card-detail = Détail
 ## Slide pile
 
 ui-pile-slides = Slides
-ui-pile-templates = Modèles
+ui-pile-layouts = Layouts
 ui-pile-add-slide = + Nouvelle slide
-ui-pile-add-template = + Nouveau modèle
 ui-pile-drag-hint = Glisser pour déplacer · ⌥↑ ⌥↓
 ui-slide-alt = Slide { $n }
 
 ## Stage
 
 ui-stage-rendering = Rendu…
+ui-stage-widget-pack = Ouvrez un widget de la pile, ou créez-en un.
 ui-stage-elements = Éléments de la slide
 ui-stage-fields = Champs de la slide
 ui-stage-edit-text = Modifier le texte
@@ -235,18 +238,14 @@ ui-seconds = { NUMBER($value, maximumFractionDigits: 1) } s
 ui-size-gb = { NUMBER($value, maximumFractionDigits: 1) } Go
 ui-size-mb = { $value } Mo
 
-## Template picker
+## Layout picker
 
 ui-picker-new-slide = Nouvelle slide
-ui-picker-new-template = Nouveau modèle, à partir de…
-ui-picker-set = Modèles
 ui-picker-set-mine = { $name } · à moi
 ui-picker-set-received = { $name } · reçu
 ui-picker-keys = ← → pour parcourir · Entrée pour ajouter · Échap pour fermer
 ui-picker-close = Fermer
-ui-picker-previous = Modèle précédent
-ui-picker-next = Modèle suivant
-ui-picker-list = Modèles de slides
+ui-picker-list = Layouts
 ui-widget-picker-filter = Filtrer par nom, libellé ou description
 ui-widget-picker-empty = Aucun widget ne correspond à « { $query } ».
 ui-widget-picker-list = Widgets
@@ -319,7 +318,7 @@ ui-tabs = Présentations ouvertes
 ui-tab-new = Nouvel onglet
 ui-tab-close = Fermer l'onglet
 ui-tab-unsaved = Modifications non enregistrées
-ui-tab-templates = Modèles
+ui-tab-pack = Pack
 ui-tab-move-new-window = Déplacer vers une nouvelle fenêtre
 ui-tab-move-to = Déplacer vers la fenêtre { $n }
 ui-tab-close-others = Fermer les autres onglets
@@ -377,8 +376,8 @@ ui-widgets-open = Ouvrir le widget { $name }
 ui-widgets-delete-named = Supprimer { $name }
 ui-widgets-confirm-delete = Supprimer le widget « { $name } » ?
 ui-widgets-rename-hint = Double-clic ou F2 pour renommer
-ui-widgets-tabs = Onglets des modèles
-ui-widgets-templates-tab = Modèles
+ui-pack-tabs = Onglets du pack
+ui-pack-layouts-tab = Layouts
 ui-theme-tab = Thème
 ui-theme-picker = Thème
 ui-theme-name = Nom du thème
@@ -391,14 +390,15 @@ ui-widgets-removed-by-agent = L'agent a supprimé le widget { $name }.
 ui-import-title = Importer une présentation PowerPoint
 ui-import-mode = Mode d'import
 ui-import-hifi = Copie fidèle
-ui-import-hifi-note = Garde l'aspect de l'original, avec un thème et des modèles faits pour cette présentation.
-ui-import-retrofit = Utiliser mes modèles
-ui-import-retrofit-note = Refait les slides avec des modèles et un thème de la bibliothèque.
+ui-import-hifi-note = Garde l'aspect de l'original, avec un thème et des layouts faits pour cette présentation.
+ui-import-retrofit = Utiliser mes layouts
+ui-import-retrofit-note = Refait les slides avec des packs de layouts et un thème de la bibliothèque.
+ui-import-layout-packs = Packs de layouts
 ui-import-theme-default = Thème par défaut
-ui-import-no-packs = Aucun pack de modèles dans la bibliothèque.
+ui-import-no-packs = Aucun pack de layouts dans la bibliothèque.
 ui-import-tune = Peaufiner avec l'agent
 ui-import-tune-note = L'agent compare chaque slide à l'original et corrige les écarts.
-ui-import-tune-note-retrofit = L'agent compare chaque slide à l'original et dessine des widgets pour les formes que vos modèles ne montrent pas.
+ui-import-tune-note-retrofit = L'agent compare chaque slide à l'original et dessine des widgets pour les formes que vos layouts ne montrent pas.
 ui-import-tune-unavailable = Aucun agent utilisable : { $reason }
 ui-import-submit = Importer
 ui-import-busy = Import en cours…

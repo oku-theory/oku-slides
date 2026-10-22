@@ -44,9 +44,9 @@ pub enum WorkspaceRequest {
     ///
     /// Comme `OpenTab`, il remplace l'onglet actif s'il est vierge ; deux
     /// imports du même fichier font deux onglets (deux decks neufs). La
-    /// cible est à plat : `"mode": "retrofit"` avec `pack` (son id ou son
-    /// nom dans la bibliothèque, jamais un dossier) et `theme` facultatif,
-    /// ou `"mode": "hifi"`.
+    /// cible est à plat : `"mode": "retrofit"` avec `layouts` (ids ou noms de
+    /// packs de layouts de la bibliothèque, jamais un dossier ; absent : `essentiel`)
+    /// et `theme` facultatif, ou `"mode": "hifi"`.
     ImportTab {
         /// Fenêtre d'arrivée du nouvel onglet.
         window: String,

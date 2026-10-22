@@ -6,13 +6,17 @@
 //! schéma admet encore (`widget_examples.rs`). Manquants : le `default` du schéma, sinon un exemple localisé
 //! (`plain`, `rich`) ou la valeur neutre du type ; sans valeur neutre
 //! (asset, slot, grille, hôte), le paramètre reste absent. Un widget
-//! d'élément occupe toute la grille d'une slide `blank` ; l'aperçu donne la
-//! boîte de ce qu'il y dessine (`bbox`), pour que l'interface s'y recadre.
+//! d'élément occupe toute la grille d'une slide `essentiel/blank` ; un widget
+//! de slide est la slide elle-même. L'aperçu donne la boîte de ce qu'un
+//! élément dessine (`bbox`), pour que l'interface s'y recadre.
+//!
+//! Les packs de l'aperçu sont ceux qu'épingle le deck ouvert (en mode pack,
+//! le deck de travail), le pack montré dans sa version éditée à leur place.
 //!
 //! Les assets sont ceux du deck de l'utilisateur (mis de côté en mode
-//! modèles) : un paramètre `asset` montre l'image du deck.
+//! pack) : un paramètre `asset` montre l'image du deck.
 //!
-//! Seul le pack rendu par `probe_pack` (widgets valides) est posé, avant
+//! Du pack montré, seul ce que rend `probe_pack` (widgets valides) est posé, avant
 //! chaque rendu : après une relance du travailleur, l'emplacement d'essai
 //! le retrouve. Un pack écarté malgré tout donne un diagnostic explicite.
 
@@ -35,9 +39,9 @@ use oku_slides_render_worker::RenderSlot;
 use crate::deck_theme::render_themed;
 use crate::error::{RegistrySnafu, RenderSnafu, UnknownWidgetSnafu};
 use crate::fields;
+use crate::pack_mode::styled_like;
 use crate::param_fields::schema_default;
 use crate::preview_crop::{CROP_PIXEL_PER_PT, crop_box};
-use crate::templates_mode::styled_like;
 use crate::views::{PageHash, SLIDE_HEIGHT, SLIDE_WIDTH, SlideView};
 use crate::widget_preview_items::preview_items;
 use crate::widgets_edit::{WidgetDiagnostic, parse_name, trial_fits};
@@ -160,7 +164,7 @@ type Assets = BTreeMap<String, Vec<u8>>;
 fn user_assets<'a>(mode: &'a Mode, doc: &'a Document) -> &'a Assets {
     match mode {
         Mode::Deck | Mode::Help { .. } | Mode::History { .. } => &doc.sources.assets,
-        Mode::Templates { stash, .. } => &stash.sources.assets,
+        Mode::Pack { stash, .. } => &stash.sources.assets,
     }
 }
 
@@ -289,8 +293,8 @@ impl Session {
         let t = self.widget_target(pack)?;
         // `_commun` n'est pas un widget : rien à montrer.
         ensure!(t.files.widget(&name).is_some() && !name.is_common(), UnknownWidgetSnafu { name: name.as_str() });
-        let widgets =
-            PackWidgets::new(t.version.hex(), t.namespace.clone(), t.files.widgets().clone()).context(RegistrySnafu)?;
+        let widgets = PackWidgets::new(t.version.hex(), t.namespace.clone(), t.kind, t.files.widgets().clone())
+            .context(RegistrySnafu)?;
         let probe = self.worker.probe_pack(&widgets).context(RegistrySnafu)?;
         let file = probe.files.get(&name);
         if !file.is_some_and(FileProbe::is_valid) {
@@ -300,18 +304,19 @@ impl Session {
         let Some(schema) = probe.registry.get(&kind).cloned() else { return Ok(no_schema(&name)) };
         let inputs = self.preview_inputs(pack, &name, &schema, params)?;
         let deck = self.preview_deck(&schema, &inputs);
-        // Le `base` intégré accompagne un autre pack : ses valeurs d'exemple peuvent porter des éléments `base/*`.
         let pack = probe.pack.as_ref();
-        let (set, registry) = match pack {
-            Some(p) if p.namespace().as_str() != kinds::base::NAMESPACE => {
-                let base = oku_slides_render::base_pack_widgets().context(RegistrySnafu)?;
-                let set = PackSet::new(vec![base, p.clone()]).context(RegistrySnafu)?;
-                let registry = self.worker.registry_of(&set).context(RegistrySnafu)?;
-                (set, registry)
-            }
-            _ => (PackSet::new(pack.into_iter().cloned().collect()).context(RegistrySnafu)?, probe.registry.clone()),
-        };
+        let set = self.preview_set(&t.namespace, pack)?;
+        let registry = self.registry_for(&set)?;
         self.render_preview(&name, (pack, &set), registry, &deck, format)
+    }
+
+    /// Les packs de l'aperçu : ceux du deck ouvert, `pack` (le pack montré, sous `ns`) à la place du sien.
+    ///
+    /// Les valeurs d'exemple du pack montré peuvent porter leurs éléments, et un élément s'y
+    /// montre sur leur `essentiel/blank` : jamais les packs intégrés courants à leur place (t-1057).
+    pub(crate) fn preview_set(&self, ns: &Namespace, pack: Option<&PackWidgets>) -> Result<PackSet> {
+        let others = self.packs.packs().iter().filter(|p| p.namespace() != ns).cloned();
+        Ok(PackSet::new(others.chain(pack.cloned()).collect()).context(RegistrySnafu)?)
     }
 
     /// Valeurs d'aperçu de `name` (pack `pack`) : ses valeurs d'exemple encore valides, puis `given`.
@@ -339,7 +344,7 @@ impl Session {
                 slide
             }
             Category::Element => {
-                let mut slide = Slide::new(PREVIEW_SLIDE, "blank");
+                let mut slide = Slide::new(PREVIEW_SLIDE, kinds::essentiel::BLANK);
                 let grid = slide.resolved_grid(&self.registry);
                 let mut element = Element::new(PREVIEW_ELEMENT, &schema.name);
                 element.params = params;
@@ -367,8 +372,8 @@ impl Session {
         let kept = match self.widget_preview.take().filter(|p| p.fonts == fonts) {
             Some(p) => p,
             None => {
-                let base = oku_slides_render::core_registry(&self.app_fonts).context(RegistrySnafu)?;
-                let slot = self.worker.trial_slot(&self.render_fonts, &self.localizer, base).context(RenderSnafu)?;
+                let none = crate::deck_pack::empty_registry();
+                let slot = self.worker.trial_slot(&self.render_fonts, &self.localizer, none).context(RenderSnafu)?;
                 PreviewSlot { slot, fonts, bare: None }
             }
         };

@@ -27,7 +27,11 @@ fn item() -> Item {
 #[test]
 fn import_plan_serializes_ops_assets_by_length_and_requests() {
     let plan = ImportPlan {
-        ops: vec![Op::AddSlide { index: None, defaults: false, slide: Slide::new("s1", "content") }],
+        ops: vec![Op::AddSlide {
+            index: None,
+            defaults: false,
+            slide: Slide::new("s1", oku_slides_core::kinds::essentiel::CONTENT),
+        }],
         assets: BTreeMap::from([("sha256:ab".to_owned(), Asset { mime: "image/png".into(), bytes: vec![1, 2, 3] })]),
         widget_requests: vec![WidgetRequest {
             signature: "text×1|0000".into(),
@@ -68,7 +72,7 @@ fn plan_with(part: &str) -> (ImportPlan, u64) {
     let files = || {
         let manifest = json!({ "id": "p", "name": "Généré" });
         let widgets = BTreeMap::from([(WidgetFile::common(), "#let x = 1".to_owned())]);
-        PackFiles::new(manifest.as_object().cloned().unwrap(), widgets)
+        PackFiles::new(oku_slides_core::PackKind::Layouts, manifest.as_object().cloned().unwrap(), widgets)
     };
     match part {
         "assets" => {
@@ -77,7 +81,13 @@ fn plan_with(part: &str) -> (ImportPlan, u64) {
         "fonts" => {
             plan.fonts.insert("a.ttf".into(), vec![0; 12]);
         }
-        "ops" => plan.ops = vec![Op::AddSlide { index: None, defaults: false, slide: Slide::new("s1", "content") }],
+        "ops" => {
+            plan.ops = vec![Op::AddSlide {
+                index: None,
+                defaults: false,
+                slide: Slide::new("s1", oku_slides_core::kinds::essentiel::CONTENT),
+            }]
+        }
         "theme" => plan.theme = Some(files()),
         "pack" => plan.pack = Some(files()),
         _ => unreachable!("partie inconnue"),

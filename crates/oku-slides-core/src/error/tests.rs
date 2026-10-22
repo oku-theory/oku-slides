@@ -182,28 +182,33 @@ fn replica_too_deep_localizes_with_its_own_key() {
     assert_that!(err.localize(&fr)).starts_with("Impossible d'enregistrer cette présentation");
 }
 
-/// Les quatre refus d'épinglage de pack, chacun avec ses arguments.
+/// Les refus d'épinglage de pack, chacun avec ses arguments.
 fn pack_errors() -> Vec<(OpError, OpErrorKind, &'static str)> {
     vec![
         (
             super::UnknownNamespaceSnafu { namespace: "acme" }.build().into(),
             OpErrorKind::UnknownNamespace,
-            "Ce deck n'a pas de pack de widgets acme.",
+            "Ce deck n'a pas de pack acme.",
         ),
         (
             super::PackRequiredSnafu { namespace: "acme", by: "base" }.build().into(),
             OpErrorKind::PackRequired,
-            "Le pack de widgets acme est nécessaire à base ; retirez d'abord celui-ci.",
+            "Le pack acme est nécessaire à base ; retirez d'abord celui-ci.",
         ),
         (
             super::PackInUseSnafu { namespace: "acme", users: vec!["s1".to_owned(), "e1".to_owned()] }.build().into(),
             OpErrorKind::PackInUse,
-            "Le pack de widgets acme est encore utilisé par 2 éléments.",
+            "Le pack acme est encore utilisé par 2 éléments.",
         ),
         (
             super::PackRequirementMissingSnafu { namespace: "acme", required: "base" }.build().into(),
             OpErrorKind::PackRequirementMissing,
-            "Le pack de widgets acme a besoin de base, que ce deck n'a pas.",
+            "Le pack acme a besoin de base, que ce deck n'a pas.",
+        ),
+        (
+            super::PackKindConflictSnafu { namespace: "acme" }.build().into(),
+            OpErrorKind::PackKindConflict,
+            "Ce deck a déjà un pack acme de l'autre sorte (widgets ou layouts).",
         ),
     ]
 }
@@ -226,7 +231,15 @@ fn pack_errors_localize_with_their_arguments_in_french() {
 
 #[test]
 fn pack_error_keys_exist_in_every_locale() {
-    let keys = ["op-unknown-namespace", "op-pack-required", "op-pack-in-use", "op-pack-requirement-missing"];
+    let keys = [
+        "op-unknown-namespace",
+        "op-pack-required",
+        "op-pack-in-use",
+        "op-pack-requirement-missing",
+        "op-pack-kind-conflict",
+        "issue-pack-kind-mismatch",
+        "issue-pack-kind-conflict",
+    ];
     for locale in oku_slides_i18n::available() {
         let l = Localizer::new(Some(locale));
         for key in keys {
@@ -237,4 +250,15 @@ fn pack_error_keys_exist_in_every_locale() {
             assert!(text.contains("acme"), "{locale} : le pack manque dans {text}");
         }
     }
+}
+
+#[test]
+fn widget_error_bad_schema_names_its_widget_and_fault() {
+    let e = super::WidgetError::bad_schema("cover", super::SchemaFault::PackCategory);
+    let shown = e.localize(&Localizer::new(Some("fr")));
+    assert_that!((e.kind(), e.widget(), shown == e.localize(english()))).is_equal_to((
+        super::WidgetErrorKind::BadSchema(super::SchemaFault::PackCategory),
+        Some("cover"),
+        false,
+    ));
 }

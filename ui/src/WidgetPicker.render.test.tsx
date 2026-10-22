@@ -88,9 +88,9 @@ async function mount({ preview = async () => SVG, canPick = () => true, pack = P
     );
   await render(pack);
   await act(async () => new Promise((r) => setTimeout(r, 0)));
-  const names = () => [...host.querySelectorAll('[role="option"] .template-name')].map((n) => n.textContent);
+  const names = () => [...host.querySelectorAll('[role="option"] .card-name')].map((n) => n.textContent);
   const filter = () => host.querySelector<HTMLInputElement>('input[type="search"]')!;
-  const selected = () => host.querySelector('[aria-selected="true"] .template-name')?.textContent;
+  const selected = () => host.querySelector('[aria-selected="true"] .card-name')?.textContent;
   const button = (label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
   return { host, picked, asked, closed: () => closed, names, filter, selected, button, rerender: render };
 }
@@ -324,7 +324,7 @@ test("WidgetPicker arrow down with text in the filter still moves a row", async 
   filter().setSelectionRange(0, 0);
   rows(host, 3);
   await key(filter(), "ArrowDown");
-  expect(selected()).toBe((host.querySelectorAll('[role="option"] .template-name')[3] as HTMLElement).textContent);
+  expect(selected()).toBe((host.querySelectorAll('[role="option"] .card-name')[3] as HTMLElement).textContent);
 });
 
 test("WidgetPicker shift arrow down keeps the card focus and the text field's own behaviour", async () => {
@@ -378,7 +378,7 @@ test("WidgetPicker filter field points at the focused card for screen readers", 
   const { filter, host } = await mount();
   await key(filter(), "ArrowRight");
   const id = filter().getAttribute("aria-activedescendant");
-  expect(id && host.querySelector(`#${id} .template-name`)?.textContent).toBe("Carte");
+  expect(id && host.querySelector(`#${id} .card-name`)?.textContent).toBe("Carte");
 });
 
 test("WidgetPicker click on a card after the guard picks it", async () => {

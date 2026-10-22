@@ -3,7 +3,10 @@ use oku_slides_i18n::Localizer;
 use serde_json::json;
 use speculoos::prelude::*;
 
-use oku_slides_core::{WidgetRegistry, kinds::base};
+use oku_slides_core::{
+    WidgetRegistry,
+    kinds::{base, essentiel},
+};
 
 use super::{Charts, SVG_FIELD, TextSizes, text_sizes};
 use crate::fonts::Fonts;
@@ -14,13 +17,13 @@ fn deck(option: serde_json::Value, frame: Option<serde_json::Value>) -> serde_js
     if let Some(f) = frame {
         chart["frame"] = f;
     }
-    json!({ "slides": [{ "id": "s", "kind": "content", "params": {
+    json!({ "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": {
         "blocks": [{ "id": "grp", "kind": base::STACK, "params": { "children": [chart] } }] } }] })
 }
 
 /// Registre de base, lu dans sa sonde figée (`fixtures/widgets`).
 fn registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap();
     WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap()
 }
@@ -144,10 +147,10 @@ fn attach_element_without_a_chart_param_gets_no_key() {
 
 #[test]
 fn attach_pack_widget_with_a_host_chart_param_renders_it() {
-    let probe = json!({ "base": [], "packs": [{ "namespace": "acme", "widgets": [{ "name": "kpi", "category": "element",
+    let probe = json!({ "packs": [{ "namespace": "acme", "kind": "widgets", "widgets": [{ "name": "kpi", "category": "element",
         "params": [{ "name": "data", "type": "host", "host": "chart" }] }] }] });
     let reg = WidgetRegistry::from_probe(probe).unwrap();
-    let mut d = json!({ "slides": [{ "id": "s", "kind": "blank", "params": {
+    let mut d = json!({ "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": {
         "elements": [{ "id": "k", "kind": "acme/kpi", "params": { "data": bars() } }] } }] });
     let mut charts = Charts::default();
     charts.attach(&mut d, &Fonts::default(), &reg).unwrap();

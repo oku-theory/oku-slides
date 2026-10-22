@@ -139,12 +139,13 @@ fn move_element_onto_a_taken_id_is_refused() {
 /// Slide `free` (slot `items` libre de tout filtre), élément `box` dont le
 /// slot `children` n'accepte que `text`.
 fn accepts_registry() -> WidgetRegistry {
-    WidgetRegistry::from_probe(json!({ "base": [
+    WidgetRegistry::from_probe(json!({ "packs": [{ "namespace": "t", "kind": "layouts", "widgets": [
         { "name": "free", "category": "slide",
           "params": [{ "name": "items", "type": "slot", "mode": "flow" }] },
+    ] }, { "namespace": "t", "kind": "widgets", "widgets": [
         { "name": "box", "category": "element",
           "params": [{ "name": "children", "type": "slot", "mode": "flow", "accepts": ["base/text"] }] },
-    ], "packs": [{ "namespace": "base", "widgets": [
+    ] }, { "namespace": "base", "kind": "widgets", "widgets": [
         { "name": "text", "category": "element", "params": [] },
         { "name": "shape", "category": "element", "params": [] }
     ] }] }))
@@ -157,8 +158,8 @@ fn move_element_to_an_unknown_slot_is_refused() {
     let kind = refused(&deck, vec![mv("s-constat", "pile", "s-priorites", None, "zone", None)], &registry());
     assert_that!(kind).is_equal_to(OpErrorKind::UnknownParam);
 
-    let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "free", "params": { "items": [
-        { "id": "b", "kind": "box" }, { "id": "f", "kind": "base/shape" }
+    let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "t/free", "params": { "items": [
+        { "id": "b", "kind": "t/box" }, { "id": "f", "kind": "base/shape" }
     ] } }] }));
     let kind = refused(&deck, vec![mv("s", "f", "s", Some("b"), "children", None)], &accepts_registry());
     assert_that!(kind).is_equal_to(OpErrorKind::SlotRejects);
@@ -206,7 +207,7 @@ fn pile_chain(prefix: &str, n: usize) -> Value {
 #[test]
 fn move_element_too_deep_is_refused() {
     // `h1` est déjà imbriqué (dans `h0`) ; la chaîne a MAX_SLOT_DEPTH - 1 piles.
-    let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": [
+    let deck = deck_of(json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         pile_chain("c", MAX_SLOT_DEPTH - 1), pile_chain("h", 2)
     ] } }] }));
     let kind = refused(&deck, vec![mv("s", "c0", "s", Some("h1"), "children", None)], &registry());

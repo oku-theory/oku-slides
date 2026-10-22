@@ -248,7 +248,7 @@ fn import_report_after_set_widget_restores_a_widget_already_scored_is_free() {
     let mut s = hifi(data.path());
     let witness = WhiteWitness::default();
     report(&mut s, &witness);
-    let pack = crate::test_support::pin(&s, "deck").unwrap();
+    let pack = crate::test_support::pin(&s, "deck-layouts").unwrap();
     let original = s.doc.sources.packs[&pack.version].widget(&WidgetFile::common()).unwrap().to_owned();
     // Le décor du master : son bandeau du bas monté plus haut change toutes les pages.
     set_banner(&mut s, &original, "0pt");
@@ -309,7 +309,7 @@ fn import_report_after_the_global_budget_charges_each_changed_slide() {
 #[test]
 fn import_report_retrofit_gives_the_widget_requests_and_no_queue() {
     let data = fresh_dir("oku-slides-import-queue-retrofit-");
-    let target = ImportTarget::Retrofit { pack: "Essentiel".into(), theme: None };
+    let target = ImportTarget::Retrofit { layouts: Vec::new(), theme: None };
     let mut s = imported_fixture(data.path(), "minimal", target, |_| {});
     let witness = WhiteWitness::default();
     let report = report(&mut s, &witness);
@@ -323,7 +323,7 @@ fn import_report_retrofit_gives_the_widget_requests_and_no_queue() {
 #[test]
 fn import_report_retrofit_samples_each_widget_request_without_its_text() {
     let data = fresh_dir("oku-slides-import-queue-sample-");
-    let target = ImportTarget::Retrofit { pack: "Essentiel".into(), theme: None };
+    let target = ImportTarget::Retrofit { layouts: Vec::new(), theme: None };
     let mut s = imported_fixture(data.path(), "kitchen", target, |_| {});
     let report = report(&mut s, &WhiteWitness::default());
     // kitchen : le SmartArt de la slide 3 fait la seule demande de widget.
@@ -344,7 +344,7 @@ fn import_reference_job_is_none_in_retrofit_and_once_done_in_hifi() {
     let job = s.import_reference_job().unwrap().unwrap();
     job.run_with(&WhiteWitness::default());
     assert_that!(s.import_reference_job().unwrap()).is_none();
-    let target = ImportTarget::Retrofit { pack: "Essentiel".into(), theme: None };
+    let target = ImportTarget::Retrofit { layouts: Vec::new(), theme: None };
     let mut r = imported_fixture(data.path(), "minimal", target, |_| {});
     assert_that!(r.import_reference_job().unwrap()).is_none();
 }
@@ -407,7 +407,7 @@ fn import_report_with_one_slide_failing_marks_it_unscored_and_scores_the_others(
 /// Fait passer `s` dans un autre mode que le deck.
 fn enter(s: &mut crate::Session, mode: &str) {
     match mode {
-        "templates" => s.edit_templates(crate::DEFAULT_PACK).unwrap(),
+        "pack" => s.edit_pack(crate::ESSENTIEL_PACK).unwrap(),
         "history" => s.history_open().unwrap(),
         "help" => s.open_help("fr", None).unwrap(),
         other => panic!("mode inconnu : {other}"),
@@ -415,9 +415,9 @@ fn enter(s: &mut crate::Session, mode: &str) {
 }
 
 #[rstest::rstest]
-#[case::templates_report("templates", "import_report", crate::SessionErrorKind::EditingTemplates)]
-#[case::templates_diff("templates", "import_diff", crate::SessionErrorKind::EditingTemplates)]
-#[case::templates_job("templates", "import_reference_job", crate::SessionErrorKind::EditingTemplates)]
+#[case::pack_report("pack", "import_report", crate::SessionErrorKind::EditingPack)]
+#[case::pack_diff("pack", "import_diff", crate::SessionErrorKind::EditingPack)]
+#[case::pack_job("pack", "import_reference_job", crate::SessionErrorKind::EditingPack)]
 #[case::history_report("history", "import_report", crate::SessionErrorKind::InHistory)]
 #[case::history_diff("history", "import_diff", crate::SessionErrorKind::InHistory)]
 #[case::history_job("history", "import_reference_job", crate::SessionErrorKind::InHistory)]

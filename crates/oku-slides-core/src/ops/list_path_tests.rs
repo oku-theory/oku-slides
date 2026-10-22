@@ -151,7 +151,7 @@ fn default_items_of_a_nested_default_assigns_d_ids_at_both_levels() {
 
 #[test]
 fn plan_widget_is_in_the_list_registry() {
-    assert_that!(with_list().get("plan")).is_some();
+    assert_that!(with_list().get("test-el/plan")).is_some();
 }
 
 #[test]

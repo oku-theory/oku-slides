@@ -1,21 +1,21 @@
 import { StagePreviewContext, createStagePreviewStore } from "./a2ui/stagePreview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PackNotice from "./PackNotice";
-import type { ImportTarget, InterfaceChange, PileSectionName, SlideView, Snapshot } from "./api";
+import type { ImportTarget, InterfaceChange, SlideView, Snapshot } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
-import { firstPackId, widgetToOpen } from "./packOps";
+import { widgetToOpen } from "./packOps";
 import { appearanceLook } from "./appearance";
 import { useAppearance } from "./useAppearance";
 import { AttachButton } from "./agent/AttachButton";
 import { changeScheme } from "./scheme";
 import { findElement, pickSlide, previewLook, slideToFetch } from "./deck";
-import TemplatePicker from "./TemplatePicker";
+import LayoutPicker from "./LayoutPicker";
 import WidgetPicker from "./WidgetPicker";
 import type { WidgetChoice } from "./widgetChoices";
 import ImportDialog from "./ImportDialog";
 import type { ImportJob } from "./useImportJob";
 import { useFileActions } from "./useFileActions";
-import SlidePile from "./SlidePile";
+import DeckPile, { pileSection } from "./DeckPile";
 import { ColumnDividers } from "./ColumnDivider";
 import Stage from "./Stage";
 import { useFieldEditing } from "./useFieldEditing";
@@ -29,7 +29,7 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { useDictation } from "./useDictation";
 import { Icon } from "./icons";
-import { canAdd, canRemoveSlide } from "./slideTools";
+import { canAdd } from "./slideTools";
 import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel } from "./agent/AgentPanel";
 import { SlotView } from "./agent/slot";
@@ -37,17 +37,17 @@ import type { QuickTarget } from "./agent/useQuickKeys";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
-import { pileMarks } from "./history";
-import { useTemplateWidgets } from "./useTemplateWidgets";
+import { usePackWidgetEditor } from "./usePackWidgetEditor";
+import { COMMON } from "./widgetList";
 import { THEME_TAB, activeWidget } from "./widgetTabs";
 import ThemePanel from "./ThemePanel";
 import HostSettings from "./HostSettings";
-import { HOST_TEMPLATE, HOST_WIDGET, useHostSettings } from "./useHostSettings";
+import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { TargetPanel } from "./TargetPanel";
 import { useTargetSettings } from "./useTargetSettings";
 import WidgetPane from "./WidgetPane";
-import TemplateTabs from "./TemplateTabs";
-import { TemplatesBrand } from "./TemplatesBrand";
+import PackTabs from "./PackTabs";
+import { PackBrand } from "./PackBrand";
 import Presenter from "./Presenter";
 import type { PresentMode } from "./present";
 import PileWidgets from "./PileWidgets";
@@ -60,7 +60,9 @@ import { useAgentLink, useAgentWiring } from "./useAgentWiring";
 import { useAppKeys } from "./useAppKeys";
 import { useClipboard, useClipboardEvents } from "./useClipboard";
 import { useSlideOps } from "./useSlideOps";
-import { useTemplatesMode } from "./useTemplatesMode";
+import { useLayoutInsert } from "./useLayoutInsert";
+import { usePackMode } from "./usePackMode";
+import { usePackWidgets } from "./usePackWidgets";
 import { ToolsTray } from "./ToolsTray";
 
 /** Agent détaché : le dock n'est pas à l'écran, ses touches rapides ne le visent pas. */
@@ -121,7 +123,7 @@ export default function App({
   // Une relecture (`nonce`) croise parfois une modification : la réponse la
   // plus ancienne, arrivée en dernier, ne ramène pas le deck en arrière.
   const latest = useRef(new Latest());
-  // Le dernier instantané accepté, à jour dès sa réception : `finishTemplates` le lit
+  // Le dernier instantané accepté, à jour dès sa réception : `finishPack` le lit
   // juste après l'enregistrement en attente, avant le rendu qui suit.
   const snapRef = useRef(snap);
   snapRef.current = snap;
@@ -149,8 +151,8 @@ export default function App({
     if (notice) say(notice, true);
   }, [notice]);
 
-  // --- Sous-onglets de widgets du mode modèles ------------------------------
-  const widgets = useTemplateWidgets(api, snap, {
+  // --- Sous-onglets de widgets du mode pack --------------------------------
+  const widgets = usePackWidgetEditor(api, snap, {
     changed: () => void run(api.snapshot()),
     error: (m) => say(m, true),
     notice: (m) => say(m),
@@ -203,7 +205,7 @@ export default function App({
 
   const [picking, setPicking] = useState(false);
   const [adding, setAdding] = useState(false);
-  // Une fenêtre de l'app (modèles, ajout, import) est ouverte : rien derrière elle ne réagit.
+  // Une fenêtre de l'app (layouts, ajout, import) est ouverte : rien derrière elle ne réagit.
   const dialogOpen = picking || adding || importJob !== null;
   /** Ajoute la carte choisie dans la grille d'ajout, qui se ferme. */
   const addChoice = (c: WidgetChoice) => {
@@ -219,9 +221,8 @@ export default function App({
 
   const { open, autosave, saveCopy } = useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick });
 
-  // Réglages du modèle affiché, ou du widget du sous-onglet actif à ses valeurs d'exemple.
-  // Sur l'onglet « Thème », aucun réglage du modèle sous la scène.
-  const host = useHostSettings(api, snap, themeActive ? null : current, widgets.activeName, run, say);
+  // Réglages du widget du sous-onglet actif, à ses valeurs d'exemple.
+  const host = useHostSettings(api, snap, widgets.activeName, run, say);
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
   // Paramètres de l'élément sélectionné (résolu dans la vue), ou du widget de la slide. Sur
   // l'onglet « Thème », la colonne de droite montre les jetons : la cible n'est pas lue.
@@ -235,12 +236,10 @@ export default function App({
     setSelected,
   });
 
-  const {
-    insertTemplate, editTemplates, packWidgets, addChoices, finishTemplates,
-    adoptSet,
-  } = useTemplatesMode({
-    api, snap, snapRef, current, run, apply, autosave, widgets, setCurrent, setSelected,
-    setPicking,
+  const { insertLayout } = useLayoutInsert({ snap, current, apply, setCurrent, setSelected, setPicking });
+  const { packWidgets, addChoices } = usePackWidgets(snap);
+  const { editPack, finishPack } = usePackMode({
+    api, snap, snapRef, run, autosave, widgets, setCurrent, setSelected,
   });
 
   // --- Présentation : la slide seule, sur tout l'écran ou toute la fenêtre ----
@@ -304,38 +303,26 @@ export default function App({
 
   const cur = snap.slides.find((s) => s.id === current);
   const mainMenu = (
-    <AppMenu templatesMode={!!snap.editing} present={present} open={open} onHelp={onHelp} />
+    <AppMenu packMode={!!snap.editing} present={present} open={open} onHelp={onHelp} />
   );
-  const templateNames: Record<string, string> = Object.fromEntries(snap.slides.map((s) => [s.id, s.name ?? s.title ?? t("ui-template-default-name")]));
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).
   const history = snap.history;
   // Historique ou aide : la scène et la pile se lisent, elles ne se modifient pas.
   const readOnly = !!history || snap.read_only;
-  // Mode deck : ni modèles, ni historique, ni lecture seule (là l'hôte passe « thème » à l'agent).
+  // Mode deck : ni pack, ni historique, ni lecture seule (là l'hôte passe « thème » à l'agent).
   const deckMode = !snap.editing && !readOnly;
   const noop = () => {};
   const paramsHidden = keptUi.folded.includes("params");
 
-  // Section des miniatures, repliée à part en mode modèles.
-  const thumbsSection: PileSectionName = snap.editing ? "templates" : "slides";
-  const pileView = (
-    <SlidePile
-      slides={snap.slides}
-      current={current}
-      svg={svgs.svg}
-      names={snap.editing ? templateNames : undefined}
-      label={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
-      addLabel={t(snap.editing ? "ui-pile-add-template" : "ui-pile-add-slide")}
-      marks={history ? pileMarks(history.changes) : undefined}
-      onSelect={goToSlide}
-      onMove={readOnly ? undefined : moveSlide}
-      onAdd={readOnly ? undefined : addSlide}
-      removeLabel={t(snap.editing ? "ui-toolbar-remove-template" : "ui-toolbar-remove-slide")}
-      canRemove={canRemoveSlide(snap.slides.length)}
-      onRemove={readOnly ? undefined : removeSlide}
-    />
-  );
+  // Section des miniatures (repliée à part en mode pack) ; aucune pour un pack de widgets.
+  const thumbsSection = pileSection(snap);
+  const thumbsOpen = thumbsSection === null || !keptUi.folded.includes(thumbsSection);
+  // Un pack de widgets n'a pas de slides : la scène vide invite à ouvrir un widget.
+  const widgetPack = snap.editing?.kind === "widgets";
+  const layoutPackStage = snap.editing?.kind === "layouts" && !themeActive;
+  // Légende du pack édité : ses layouts, ou ses widgets (sans le fichier commun).
+  const packCount = widgetPack ? (widgets.files.statuses ?? []).filter((w) => w.name !== COMMON).length : snap.slides.length;
 
   return (
     <NumberLangContext.Provider value={snap.lang ?? null}>
@@ -354,24 +341,25 @@ export default function App({
       {snap.pack_notice && (
         <PackNotice surface={snap.pack_notice} onCommand={(cmd) => run(api.packNotice(cmd))} onError={(m) => say(m, true)} />
       )}
-      {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition des modèles. */}
-      <header className={`label${snap.editing ? " editing-templates" : ""}`}>
-        {snap.editing && <TemplatesBrand deckOnly={snap.editing.deck_only} />}
+      {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition d'un pack. */}
+      <header className={`label${snap.editing ? " editing-pack" : ""}`}>
+        {snap.editing && <PackBrand name={snap.editing.name} kind={snap.editing.kind} deckOnly={snap.editing.deck_only} />}
         <TitleField
           value={snap.title_source ?? ""}
           display={snap.title ?? snap.name}
-          onCommit={(v) => apply(t(snap.editing ? "ui-undo-rename-set" : "ui-undo-rename-deck"), [{ op: "set_deck_param", key: "title", value: v }])}
+          onCommit={(v) => apply(t(snap.editing ? "ui-undo-rename-pack" : "ui-undo-rename-deck"), [{ op: "set_deck_param", key: "title", value: v }])}
         />
         <span className="caption" role="status">
           {snap.editing
-            ? t("ui-caption-templates", {
-                count: snap.slides.length,
+            ? t("ui-caption-pack", {
+                kind: snap.editing.kind,
+                count: packCount,
                 status: t(snap.dirty ? "ui-status-unsaved" : "ui-status-saved"),
               })
             : <>{snap.path ? `${snap.name}.oku-slides.pdf · ` : ""}{t("ui-caption-slides", { count: snap.slides.length, status })}</>}
         </span>
       </header>
-      {snap.editing && <TemplateTabs tabs={widgets.tabs.tabs} active={widgets.tabs.active} unsaved={widgets.files.unsaved} onActivate={widgets.activate} onClose={widgets.close} />}
+      {snap.editing && <PackTabs kind={snap.editing.kind} tabs={widgets.tabs.tabs} active={widgets.tabs.active} unsaved={widgets.files.unsaved} onActivate={widgets.activate} onClose={widgets.close} />}
 
       <ToolsTray
         api={api} snap={snap} view={view} widgetActive={widgetActive} widgets={widgets}
@@ -379,20 +367,22 @@ export default function App({
         run={run} onAdd={() => setAdding(true)}
       />
 
-      {/* En haut à droite, en mode modèles : terminer. */}
+      {/* En haut à droite, en mode pack : terminer. */}
       {snap.editing && (
         <div className="tray">
-          <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={finishTemplates}>{Icon.check}</button>
+          <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={finishPack}>{Icon.check}</button>
         </div>
       )}
       </>)}
 
-      {/* Pile de slides (repliable), à gauche ; en mode modèles, sections Modèles et Widgets. */}
+      {/* Pile de slides (repliable), à gauche ; en mode pack, sections Layouts (pack de layouts) et Widgets. */}
       <PileColumn
-        title={t(snap.editing ? "ui-pile-templates" : "ui-pile-slides")}
-        open={!keptUi.folded.includes(thumbsSection)}
-        onToggle={() => keptUi.setFolded(thumbsSection, !keptUi.folded.includes(thumbsSection))}
-        slides={pileView}
+        title={t(thumbsSection === "layouts" ? "ui-pile-layouts" : "ui-pile-slides")}
+        open={thumbsOpen}
+        onToggle={() => thumbsSection && keptUi.setFolded(thumbsSection, thumbsOpen)}
+        slides={thumbsSection && (
+          <DeckPile snap={snap} current={current} svg={svgs.svg} onSelect={goToSlide} onMove={moveSlide} onAdd={addSlide} onRemove={removeSlide} />
+        )}
         widgets={
           snap.editing && !history ? (
             <PileWidgets
@@ -410,9 +400,12 @@ export default function App({
       {/* La feuille, posée au centre. */}
       <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
         {/* Sous-onglet widget actif : la scène reste montée (sélection, défilement), cachée. */}
-        <div id="templates-panel" className="templates-panel" role={snap.editing && !themeActive ? "tabpanel" : undefined} aria-labelledby={snap.editing && !themeActive ? "widget-tab-0" : undefined} hidden={widgetActive}>
+        {/* La scène : panneau de l'onglet « Layouts » d'un pack de layouts (hors « Thème »). */}
+        <div id="stage-panel" className="stage-panel" role={layoutPackStage ? "tabpanel" : undefined} aria-labelledby={layoutPackStage ? "widget-tab-0" : undefined} hidden={widgetActive}>
         <div className="stage-box">
-        {view && view.slide.id === current ? (
+        {widgetPack ? (
+          <div className="stage-wrap empty">{t("ui-stage-widget-pack")}</div>
+        ) : view && view.slide.id === current ? (
           <Stage
             ref={stage}
             view={view}
@@ -424,13 +417,13 @@ export default function App({
             onEdit={readOnly ? noop : setEditing}
             onApply={readOnly ? noop : apply}
             readOnly={readOnly}
-            templates={!!snap.editing}
+            packMode={!!snap.editing}
             packWidgets={packWidgets}
             hoverPreview={previewStore}
             onOpenWidget={(kind) => {
               // Le genre est qualifié (`espace/nom`) : l'atelier du pack épinglé sous cet espace, onglet `nom`.
               const target = widgetToOpen(snap, kind);
-              if (target) void widgets.enterAndOpen(() => editTemplates(target.pack), target.name);
+              if (target) void widgets.enterAndOpen(() => editPack(target.pack), target.name);
             }}
             onNotice={(m) => say(m, true)}
             dictated={dictation.dictated}
@@ -443,17 +436,16 @@ export default function App({
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
-        {!readOnly && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
+        {!readOnly && !widgetPack && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
         </div>
-        {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide, précédés dans la
-            même fiche des réglages du modèle affiché (pas au dock de l'agent) ; sur l'onglet « Thème », les jetons à droite. */}
+        {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide (pas au dock de
+            l'agent) : en mode pack, l'exemple du layout de la slide ; sur l'onglet « Thème », les jetons à droite. */}
         {!themeActive && (
           <TargetPanel
             view={view} readOnly={readOnly} selected={selectedElement} hostParams={snap.host_params} target={target} palette={snap.appearance.chart_palette}
             onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
             folded={paramsHidden}
             band={keptUi.band} onBand={keptUi.setBand}
-            lead={host.surface?.id === HOST_TEMPLATE ? { surface: host.surface, outcome: host.outcome } : undefined}
             onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
             onShowAs={(v) => view && selectedElement && run(api.showAs(t(v === "table" ? "ui-undo-show-as-table" : "ui-undo-show-as-chart"), view.slide.id, selectedElement.id, v))}
           />
@@ -520,21 +512,13 @@ export default function App({
       />}
 
       {picking && (
-        <TemplatePicker
-          themeKey={deckLook}
-          initialSet={snap.editing ? snap.editing.set : firstPackId(snap)}
-          title={t(snap.editing ? "ui-picker-new-template" : "ui-picker-new-slide")}
-          onPick={insertTemplate}
-          onSetChange={adoptSet}
-          onClose={() => setPicking(false)}
-          api={api}
-        />
+        <LayoutPicker themeKey={deckLook} onPick={insertLayout} onClose={() => setPicking(false)} api={api} />
       )}
 
       {adding && (
         <WidgetPicker
           choices={addChoices}
-          canPick={(c) => canAdd("native" in c.pick ? c.pick.native : "widget", view?.slide.kind)}
+          canPick={(c) => canAdd(view?.slide.kind, "native" in c.pick ? c.pick.native : "widget")}
           themeKey={deckLook}
           preview={api.previewWidget}
           onPick={addChoice}

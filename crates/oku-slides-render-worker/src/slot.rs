@@ -45,7 +45,7 @@ impl RenderSlot {
         Self { worker, id, registry, chart_palette: Vec::new(), accuse, pack_epoch: 0 }
     }
 
-    /// Widgets rendus : la base et ceux des packs de `set` (la base seule, si vide).
+    /// Widgets rendus : ceux des packs de `set` (aucun, si vide).
     pub fn set_widgets(&mut self, set: &PackSet, registry: Arc<WidgetRegistry>) -> Result<(), RenderError> {
         let mut link = self.worker.link();
         let wire: Vec<_> = set.packs().iter().map(wire).collect();

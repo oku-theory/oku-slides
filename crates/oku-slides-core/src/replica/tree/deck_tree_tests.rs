@@ -1,5 +1,6 @@
 //! L'arbre du deck : slides en racine, appariement, entrée, coût.
 
+use crate::kinds::essentiel::CONTENT;
 use loro::{Container, LoroMap, LoroMovableList, LoroTree, LoroValue, TreeID, TreeParentId, ValueOrContainer};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -69,8 +70,8 @@ fn assert_reapply_writes_nothing(r: &mut DeckReplica, case: &str) {
 /// Deux slides `a` et `b` de contenu, chacune avec un texte `t` de corps différent.
 fn two_slides_with_t() -> Deck {
     deck_of(json!({ "slides": [
-        { "id": "a", "kind": "content", "params": { "blocks": [text("t", "Dans a")] } },
-        { "id": "b", "kind": "content", "params": { "blocks": [text("t", "Dans b")] } }
+        { "id": "a", "kind": "essentiel/content", "params": { "blocks": [text("t", "Dans a")] } },
+        { "id": "b", "kind": "essentiel/content", "params": { "blocks": [text("t", "Dans b")] } }
     ] }))
 }
 
@@ -236,7 +237,7 @@ fn same_element_id_in_two_slides_keeps_each_node() {
 #[test]
 fn element_ids_repeated_across_slides_are_not_paired_between_slides() {
     let mut deck = two_slides_with_t();
-    deck.slides.push(Slide::new("c", "content"));
+    deck.slides.push(Slide::new("c", CONTENT));
     let deck = with_ops(
         &deck,
         vec![
@@ -260,8 +261,8 @@ fn element_ids_repeated_across_slides_are_not_paired_between_slides() {
 #[test]
 fn element_moved_with_another_kind_is_not_paired_between_slides() {
     let deck = deck_of(json!({ "slides": [
-        { "id": "a", "kind": "content", "params": { "blocks": [text("x", "X")] } },
-        { "id": "b", "kind": "content" }
+        { "id": "a", "kind": "essentiel/content", "params": { "blocks": [text("x", "X")] } },
+        { "id": "b", "kind": "essentiel/content" }
     ] }));
     let mut r = new(&deck);
     let (tree, old) = node_of(&r.doc, "a", "x");
@@ -278,10 +279,10 @@ fn element_moved_with_another_kind_is_not_paired_between_slides() {
 /// Trois slides `a`, `b`, `c` avec chacune un texte `title`, et une slide `d` vide.
 fn title_in_three_slides() -> Deck {
     deck_of(json!({ "slides": [
-        { "id": "a", "kind": "content", "params": { "blocks": [text("title", "A")] } },
-        { "id": "b", "kind": "content", "params": { "blocks": [text("title", "B")] } },
-        { "id": "c", "kind": "content", "params": { "blocks": [text("title", "C")] } },
-        { "id": "d", "kind": "content" }
+        { "id": "a", "kind": "essentiel/content", "params": { "blocks": [text("title", "A")] } },
+        { "id": "b", "kind": "essentiel/content", "params": { "blocks": [text("title", "B")] } },
+        { "id": "c", "kind": "essentiel/content", "params": { "blocks": [text("title", "C")] } },
+        { "id": "d", "kind": "essentiel/content" }
     ] }))
 }
 
@@ -510,7 +511,7 @@ fn undo_of_a_slide_move_after_the_peer_undid_its_creation_leaves_no_empty_root()
     let deck = roadmap();
     let (mut a, mut b) = fixed_peers(&deck, 1, 2);
     let mut added = deck.clone();
-    added.slides.push(Slide::new("s-neuve", "content"));
+    added.slides.push(Slide::new("s-neuve", CONTENT));
     apply(&mut b, &added);
     exchange(&mut a, &mut b);
     let mut moved = added.clone();
@@ -573,7 +574,7 @@ fn too_deep_slide_leaves_the_whole_deck_untouched() {
     let mut target = without_slide(&deck, "s-fin");
     target.slides.swap(0, 1);
     let Some(title) = target.slide_mut("s-title") else { panic!("s-title absente") };
-    title.name = Some("Renommée".into());
+    title.notes = "Renommée".into();
     let mut json = ok(serde_json::to_value(&target));
     let Some(slides) = json["slides"].as_array_mut() else { panic!("slides attendues") };
     let Some(constat) = slides.iter_mut().find(|s| s["id"] == "s-constat") else { panic!("s-constat absente") };
@@ -591,8 +592,8 @@ fn pair_has_one_entry_per_wanted_slide() {
     let deck = roadmap();
     let r = new(&deck);
     let mut target = without_slide(&without_slide(&deck, "s-ch1"), "s-fin");
-    target.slides.insert(0, Slide::new("s-a", "content"));
-    target.slides.push(Slide::new("s-b", "content"));
+    target.slides.insert(0, Slide::new("s-a", CONTENT));
+    target.slides.push(Slide::new("s-b", CONTENT));
     let target = with_ops(
         &target,
         vec![
@@ -707,7 +708,7 @@ fn assert_linear_cost(r: &mut DeckReplica, case: &str) {
 #[test]
 fn marked_slides_cost_stays_linear() {
     let mut many = Deck::empty();
-    many.slides = (0..10_001).map(|i| Slide::new(format!("s{i}"), "content")).collect();
+    many.slides = (0..10_001).map(|i| Slide::new(format!("s{i}"), CONTENT)).collect();
     let mut r = new(&many);
     let mut one = many.clone();
     one.slides.truncate(1);
@@ -716,9 +717,10 @@ fn marked_slides_cost_stays_linear() {
     assert_linear_cost(&mut r, "10 000 slides marquées");
 
     let blocks: Vec<Value> = (0..10_000).map(|i| text(&format!("t{i}"), "T")).collect();
-    let full = deck_of(json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }] }));
+    let full =
+        deck_of(json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": blocks } }] }));
     let mut r = new(&full);
-    apply(&mut r, &deck_of(json!({ "slides": [{ "id": "s", "kind": "content" }] })));
+    apply(&mut r, &deck_of(json!({ "slides": [{ "id": "s", "kind": "essentiel/content" }] })));
     assert_that!(deck_tree(&r).nodes().len()).is_equal_to(10_001);
     assert_linear_cost(&mut r, "10 000 éléments marqués");
 }
@@ -728,7 +730,8 @@ fn marked_slides_cost_stays_linear() {
 #[test]
 fn live_elements_cost_stays_linear() {
     let blocks: Vec<Value> = (0..2_000).map(|i| text(&format!("t{i}"), "T")).collect();
-    let full = deck_of(json!({ "slides": [{ "id": "s", "kind": "content", "params": { "blocks": blocks } }] }));
+    let full =
+        deck_of(json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": blocks } }] }));
     let mut r = new(&full);
     assert_linear_cost(&mut r, "2 000 éléments vivants");
     let nodes = deck_tree(&r).nodes().len();
@@ -849,7 +852,7 @@ fn v8_shaped_snapshot() -> Vec<u8> {
     let slides = ok(deck.insert_container("slides", LoroMovableList::new()));
     let slide = ok(slides.push_container(LoroMap::new()));
     ok(slide.insert("id", "s"));
-    ok(slide.insert("kind", "content"));
+    ok(slide.insert("kind", CONTENT));
     let tree = ok(slide.insert_container("@elements", LoroTree::new()));
     let node = ok(tree.create(TreeParentId::Root));
     ok(ok(tree.get_meta(node)).insert("id", "t"));
@@ -884,6 +887,6 @@ fn merge_of_a_format_2_peer_is_refused() {
     b.doc.commit();
     let Err(e) = a.merge(&b) else { panic!("un pair au format 2 devait être refusé") };
     assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
-    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(5)));
+    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(6)));
     assert_that!(a.deck().0).is_equal_to(&deck);
 }

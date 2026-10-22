@@ -4,7 +4,7 @@ import type { AgentScope, AgentState } from "../api";
 
 /** Ce qui décide de la portée : mode, historique, pack édité, widget actif. */
 export interface ScopeView {
-  templates: boolean;
+  packMode: boolean;
   history: boolean;
   pack: string | null;
   widget: string | null;
@@ -18,7 +18,7 @@ export interface AgentStatus {
 
 /** La portée de ce que l'utilisateur regarde. */
 export function agentScope(v: ScopeView): AgentScope {
-  if (!v.templates || v.history || v.pack === null) return { kind: "slides" };
+  if (!v.packMode || v.history || v.pack === null) return { kind: "slides" };
   return v.widget === null ? { kind: "atelier", pack: v.pack } : { kind: "widget", pack: v.pack, name: v.widget };
 }
 

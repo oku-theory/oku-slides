@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = संकेत: { $hint }
 render-chart-failed = चार्ट बनाया नहीं जा सका
 
-registry-bad-pack-id = अमान्य टेम्पलेट पैक पहचानकर्ता: { $id }
-registry-base-pack-broken = अंतर्निहित विजेट पैक क्षतिग्रस्त है ({ $file }); ऐप को फिर से इंस्टॉल करें।
-registry-duplicate-pack = प्रेज़ेंटेशन के दो विजेट पैक { $pack } साझा करते हैं।
-registry-compile = टेम्पलेट पैक के विजेट कंपाइल नहीं हो सके
-registry-missing = टेम्पलेट पैक अपने विजेट घोषित नहीं करता
+registry-bad-pack-id = अमान्य पैक पहचानकर्ता: { $id }
+registry-base-pack-broken = अंतर्निहित पैक क्षतिग्रस्त है ({ $file }); ऐप को फिर से इंस्टॉल करें।
+registry-duplicate-pack = प्रेज़ेंटेशन के दो पैक { $pack } साझा करते हैं।
+registry-compile = पैक के विजेट कंपाइल नहीं हो सके
+registry-missing = पैक अपने विजेट घोषित नहीं करता
 render-timeout = रेंडरिंग में { $seconds } सेकंड से अधिक लगे और उसे रोक दिया गया
 render-out-of-memory = रेंडरिंग को { $mib } MiB से अधिक मेमोरी चाहिए थी और उसे रोक दिया गया
 render-worker-lost = रेंडरिंग प्रोसेस रुक गया
@@ -41,6 +41,7 @@ import-not-a-presentation = यह फ़ाइल PowerPoint प्रस्त
 import-protected = यह प्रस्तुति एन्क्रिप्टेड है या पुराने .ppt फ़ॉर्मैट में है: पहले इसे .pptx के रूप में सहेजें
 import-too-large = यह प्रस्तुति आयात करने के लिए बहुत बड़ी है
 import-output-too-large = परिणामी प्रस्तुति आयात के लिए अनुमत आकार से बड़ी हो जाएगी
+import-no-profiles = चुने गए लेआउट पैक कोई प्रोफ़ाइल प्रस्तावित नहीं करते।
 import-loss-list-levels = सूची के स्तर एक स्तर में बदल दिए गए
 import-loss-merged-cells = मर्ज किए गए सेल अलग कर दिए गए
 import-loss-percent-stacked = 100% स्टैक्ड चार्ट स्टैक्ड के रूप में दिखाया गया
@@ -77,7 +78,7 @@ import-loss-repeated-decor = { $slides ->
    [one] { $slides } स्लाइड पर दोहराया गया हेडर या फ़ुटर “{ $text }” छोड़ दिया गया: थीम अपना बनाती है
   *[other] { $slides } स्लाइडों पर दोहराया गया हेडर या फ़ुटर “{ $text }” छोड़ दिया गया: थीम अपना बनाती है
 }
-import-loss-no-slot = सामग्री छोड़ दी गई: चुने गए टेम्पलेट में इसके लिए जगह नहीं है
+import-loss-no-slot = सामग्री छोड़ दी गई: चुने गए लेआउट में इसके लिए जगह नहीं है
 import-loss-moved-to-notes = पाठ वक्ता नोट्स में ले जाया गया: आवरण में इसके लिए जगह नहीं है
 import-loss-items-dropped = स्लाइड पर बहुत अधिक तत्व: छोड़े गए तत्व: { $dropped }
 import-loss-page-fitted = स्रोत पृष्ठ { $width } × { $height } pt, 16:9 नहीं है: सामग्री का आकार बदलकर बीच में रखा गया
@@ -89,7 +90,7 @@ import-loss-shape-style = { $effect ->
     [arrow] रेखा के तीर-शीर्ष नहीं बनाए गए
    *[geometry] अज्ञात आकृति आयत के रूप में दिखाई गई
 }
-import-loss-layout-dropped = एक पैक के लिए बहुत अधिक लेआउट: “{ $layout }” का कोई टेम्पलेट नहीं; इसकी स्लाइडें खाली विजेट लेती हैं और इसकी सजावट तत्वों के रूप में पाती हैं
+import-loss-layout-dropped = एक पैक के लिए बहुत अधिक लेआउट: “{ $layout }” का कोई विजेट नहीं; इसकी स्लाइडें खाली विजेट लेती हैं और इसकी सजावट तत्वों के रूप में पाती हैं
 import-loss-decor-truncated = पैक फ़ाइल के आकार में समाने के लिए सजावट काटी गई: छोड़े गए तत्व: { $omitted }
 import-loss-table-style = तालिका की शैली अनुमानित: इसकी अपनी सेल पृष्ठभूमि, किनारे, स्तंभ चौड़ाई, पंक्ति ऊँचाई या पाठ आकार खो गए
 import-loss-overflow = तत्व “{ $element }” स्लाइड के किनारे से बाहर जाता है

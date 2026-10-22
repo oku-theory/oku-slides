@@ -37,7 +37,7 @@ the CLI, the session, the agent and dictation.
 Three layers, the last wins: embedded `src/config.default.toml`, then `config.toml` in
 the data dir, then `OKU_SLIDES_<SECTION>__<KEY>` env vars (`OKU_SLIDES_STT__VAD__PAUSE`).
 `OKU_SLIDES_PATHS__DATA` also moves where `config.toml` is read. `PathSettings` puts the data dir at `~/Library/Application Support/me.dartiguenave.oku-slides` on macOS (XDG or
-`APPDATA` elsewhere), with `models/`, `templates/`, `themes/` and `config.toml` under it;
+`APPDATA` elsewhere), with `models/`, `widgets/`, `layouts/`, `themes/` and `config.toml` under it;
 decks default to `~/Documents/Oku Slides`.
 
 ## Extension points

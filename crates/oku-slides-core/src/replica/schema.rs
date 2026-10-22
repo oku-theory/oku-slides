@@ -24,8 +24,8 @@ pub(super) enum Ctx {
     /// JSON (spec : chaque entrée de `vars` est LWW, jamais fusionnée champ à
     /// champ même si elle contient un objet).
     Vars,
-    /// Chaque entrée de `widgets` est une feuille LWW : un épinglage entier,
-    /// jamais champ à champ.
+    /// Chaque entrée de `widgets` et de `layouts` est une feuille LWW : un
+    /// épinglage entier, jamais champ à champ.
     PackPins,
     /// `tokens`, `style`, `frame`, `cell`, extras des `params` du deck :
     /// cartes à feuilles LWW.
@@ -110,14 +110,14 @@ impl Ctx {
         match (self, key) {
             // Une référence de thème entière : l'id et la version ne se mêlent jamais.
             (Deck, "theme") => Kind::Atom,
-            (Deck, "widgets") => Kind::Nested(PackPins),
+            (Deck, "widgets" | "layouts") => Kind::Nested(PackPins),
             (PackPins, _) => Kind::Atom,
             (Deck, SLIDES) => Kind::Slides,
             (Deck, "params") => Kind::Nested(DeckParams),
             (Deck, "vars") => Kind::Nested(Vars),
             (Vars, _) => Kind::Atom,
             (DeckParams, "title" | "subtitle" | "author" | "date" | "organization") => Kind::Prose,
-            (Slide, "name" | "description" | "notes") => Kind::Prose,
+            (Slide, "notes") => Kind::Prose,
             (Slide | Element, "params") => Kind::Nested(Params),
             (Slide | Element, "id" | "kind") => Kind::Atom,
             _ => Kind::Nested(Opaque),
@@ -129,17 +129,17 @@ impl Ctx {
     pub(super) fn texts(self) -> &'static [&'static str] {
         match self {
             Ctx::DeckParams => &["title", "subtitle", "author", "date", "organization"],
-            Ctx::Slide => &["name", "description", "notes"],
+            Ctx::Slide => &["notes"],
             Ctx::Deck | Ctx::Element | Ctx::Params | Ctx::Vars | Ctx::PackPins | Ctx::Opaque | Ctx::Host => &[],
         }
     }
 
     /// Cartes créées dès la création de l'objet et jamais retirées : vides
     /// quand le deck n'en a pas. Deux pairs qui épinglent chacun un premier
-    /// pack écrivent ainsi dans la même carte `widgets`.
+    /// pack écrivent ainsi dans la même carte `widgets` (ou `layouts`).
     pub(super) fn maps(self) -> &'static [&'static str] {
         match self {
-            Ctx::Deck => &["widgets"],
+            Ctx::Deck => &["widgets", "layouts"],
             _ => &[],
         }
     }

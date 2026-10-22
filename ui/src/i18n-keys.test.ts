@@ -53,6 +53,7 @@ describe("messages de l'interface", () => {
     setMessages("fr", [en, fr]);
     expect(t("ui-caption-slides", { count: 1, status: "enregistré" })).toBe("1 slide · enregistré");
     expect(t("ui-caption-slides", { count: 8, status: "enregistré" })).toBe("8 slides · enregistré");
+    expect(t("ui-caption-pack", { kind: "widgets", count: 1, status: "enregistré" })).toBe("1 widget · enregistré");
     expect(t("ui-seconds", { value: 1.5 })).toBe("1,5 s");
     expect(t("ui-undo-add-widget", { name: "Bonjour" })).toBe("Ajouter « Bonjour »");
     expect(t("ui-field", { kind: "kicker" })).toBe("Surtitre");
@@ -63,7 +64,8 @@ describe("messages de l'interface", () => {
 
   test("les mêmes messages en anglais", () => {
     setMessages("en", [en]);
-    expect(t("ui-caption-templates", { count: 1, status: "saved" })).toBe("1 template · saved");
+    expect(t("ui-caption-pack", { kind: "layouts", count: 1, status: "saved" })).toBe("1 layout · saved");
+    expect(t("ui-caption-pack", { kind: "widgets", count: 3, status: "saved" })).toBe("3 widgets · saved");
     expect(t("ui-seconds", { value: 1.5 })).toBe("1.5 s");
     expect(t("ui-undo-add", { kind: "card" })).toBe("Add a card");
   });

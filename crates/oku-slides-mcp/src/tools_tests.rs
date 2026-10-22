@@ -1,7 +1,14 @@
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
+use oku_slides_core::kinds;
+
 use super::{list, nest_schema};
+
+/// La description de l'outil `name`.
+fn tool_description(name: &str) -> String {
+    list().into_iter().find(|t| t.name == name).and_then(|t| t.description).unwrap_or_default()
+}
 
 /// Chaque `$ref` du schéma désigne un chemin qui existe.
 fn refs_resolve(root: &Value, node: &Value) -> bool {
@@ -81,4 +88,36 @@ fn tools_import_diff_description_states_the_real_bounds() {
     assert_that!(text).contains(format!("top {LISTED}").as_str());
     assert_that!(text).contains(format!("{REFERENCE_WIDTH} px wide").as_str());
     assert_that!(text).contains(format!("{ZOOM}x").as_str());
+}
+
+#[test]
+fn widgets_description_names_every_builtin_kind() {
+    let d = tool_description("widgets");
+    let missing: Vec<&str> =
+        kinds::base::ALL.iter().chain(kinds::essentiel::ALL.iter()).copied().filter(|k| !d.contains(k)).collect();
+    assert_that!(missing).is_empty();
+}
+
+/// `op_template`, un champ de `show_params`, n'est pas un modèle de slides.
+#[test]
+fn no_tool_description_mentions_templates() {
+    let offenders: Vec<String> = list()
+        .into_iter()
+        .filter(|t| {
+            let d = t.description.as_deref().unwrap_or_default().replace("op_template", "");
+            d.to_lowercase().contains("template")
+        })
+        .map(|t| t.name)
+        .collect();
+    assert_that!(offenders).is_empty();
+}
+
+#[rstest::rstest]
+#[case("widget_sources")]
+#[case("widget_source")]
+#[case("set_widget")]
+#[case("remove_widget")]
+#[case("preview_widget")]
+fn widget_tool_description_says_how_to_reach_deck_layouts(#[case] name: &str) {
+    assert_that!(tool_description(name)).contains("`deck-layouts`");
 }

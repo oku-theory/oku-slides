@@ -189,7 +189,7 @@ fn replica_at_the_bound_merges_restores_and_reads_history_on_an_app_thread() {
         let open = || DeckReplica::from_snapshot(&bytes, 1 << 26, common::shared()).unwrap_or_else(|e| panic!("{e}")).0;
         let (mut mine, mut theirs) = (open(), open());
         let mut renamed = theirs.deck().0;
-        renamed.slides[0].name = Some("renommée".to_owned());
+        renamed.slides[0].notes = "renommée".to_owned();
         theirs.apply(&renamed, "Renommer", None).unwrap_or_else(|e| panic!("{e}"));
         mine.merge(&theirs).unwrap_or_else(|e| panic!("merge : {e}"));
         let history = mine.history();

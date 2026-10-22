@@ -27,7 +27,7 @@ describe("enregistrement automatique", () => {
     expect(wantsAutosave({ ...deck, history: null }, false)).toBe(true);
   });
 
-  test("wantsAutosave modèles modifiés : oui, intégrés compris (une version par session d'édition)", () => {
+  test("wantsAutosave pack modifié : oui, intégré compris (une version par session d'édition)", () => {
     expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: false } }, false)).toBe(true);
     expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: true } }, false)).toBe(true);
   });

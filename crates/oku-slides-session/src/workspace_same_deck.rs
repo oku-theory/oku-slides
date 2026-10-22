@@ -57,16 +57,13 @@ impl Workspace {
 
     /// L'onglet non vierge qui tient le deck `uid` sous un autre fichier que
     /// `path`, et son titre ; le plus ancien s'il y en a plusieurs. Un onglet
-    /// en mode modèles ne compte pas : il refuserait la fusion.
+    /// en mode pack ne compte pas : il refuserait la fusion.
     fn tab_of_deck(&self, uid: &str, path: &Path) -> Option<(String, String)> {
         self.tabs
             .iter()
             .filter(|(_, t)| {
                 let i = &t.info;
-                !i.pristine
-                    && !i.editing_templates
-                    && i.path.as_deref() != Some(path)
-                    && i.deck_uid.as_deref() == Some(uid)
+                !i.pristine && !i.editing_pack && i.path.as_deref() != Some(path) && i.deck_uid.as_deref() == Some(uid)
             })
             .min_by_key(|(id, _)| number(id))
             .map(|(id, t)| (id.clone(), t.info.title.clone()))

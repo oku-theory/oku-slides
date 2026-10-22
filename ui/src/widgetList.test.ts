@@ -114,8 +114,15 @@ describe("widgetList", () => {
   });
 
   test("squelette : déclare le nom de son fichier", () => {
-    expect(skeleton("kpi")).toContain('widget("kpi"');
-    expect(skeleton(COMMON)).not.toContain("#let widget");
+    expect(skeleton("kpi", "widgets")).toContain('widget("kpi"');
+    expect(skeleton(COMMON, "widgets")).not.toContain("#let widget");
+  });
+
+  test("skeleton of a layout pack declares a slide widget, of a widget pack an element", () => {
+    expect(skeleton("hero", "layouts")).toContain('widget("hero", category: "slide",');
+    expect(skeleton("hero", "layouts")).toContain("blank-slide(");
+    expect(skeleton("hero", "layouts")).toContain("id: ctx.id))");
+    expect(skeleton("kpi", "widgets")).not.toContain("category");
   });
 
   test("liste des diagnostics : ceux de _commun compris, sans doublon avec l'aperçu", () => {

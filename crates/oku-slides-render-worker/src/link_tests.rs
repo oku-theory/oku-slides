@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Instant;
 
+use oku_slides_core::PackKind;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{PackWidgets, RenderErrorKind};
@@ -23,13 +24,14 @@ fn settings(timeout_ms: u64) -> RenderSettings {
 }
 
 fn looping_probe() -> Request {
-    Request::ProbeFile { name: "boucle".into(), source: LOOP_ON_IMPORT.into(), common: None }
+    Request::ProbeFile { kind: PackKind::Widgets, name: "boucle".into(), source: LOOP_ON_IMPORT.into(), common: None }
 }
 
 fn looping_pack() -> WirePack {
     WirePack {
         id: "boucle".into(),
         namespace: "boucle".into(),
+        kind: PackKind::Widgets,
         files: BTreeMap::from([("boucle".into(), LOOP_ON_IMPORT.into())]),
     }
 }
@@ -101,10 +103,12 @@ fn link_error_response_is_not_a_link_failure() {
 
 #[test]
 fn fingerprint_hex_matches_pack_fingerprint() {
-    let pack = PackWidgets::new("p", ns("p"), files(&[("_commun", "#let c = 1"), ("quote", "Q")])).unwrap();
+    let pack =
+        PackWidgets::new("p", ns("p"), PackKind::Layouts, files(&[("_commun", "#let c = 1"), ("quote", "Q")])).unwrap();
     let wire = WirePack {
         id: "p".into(),
         namespace: "p".into(),
+        kind: PackKind::Layouts,
         files: BTreeMap::from([("_commun".into(), "#let c = 1".into()), ("quote".into(), "Q".into())]),
     };
     assert_that!(fingerprint_hex(&wire)).is_equal_to(hex::encode(pack.fingerprint()));
@@ -126,7 +130,8 @@ fn link_replay_with_missing_font_fails_then_reconnects() {
 #[test]
 fn link_replay_refused_by_worker_drops_the_half_replayed_worker() {
     let mut link = Link::new(RenderLaunch::InProcess, settings(10_000));
-    let bad = WirePack { id: "pas un id/".into(), namespace: "p".into(), files: BTreeMap::new() };
+    let bad =
+        WirePack { id: "pas un id/".into(), namespace: "p".into(), kind: PackKind::Widgets, files: BTreeMap::new() };
     link.state.slots.insert(5, SlotState { fonts: vec![], packs: vec![bad], last_assets: vec![], theme: None });
     assert_that!(link.call(&Request::Release { slot: 5, generations: vec![] }, &[])).is_err();
     link.state.slots.get_mut(&5).unwrap().packs.clear();
@@ -178,7 +183,8 @@ fn link_outgoing_header_over_an_eighth_of_the_frame_size_is_refused_as_frame_and
     let mut link = Link::new(RenderLaunch::InProcess, RenderSettings { max_frame_mib: 1, ..settings(10_000) });
     link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
     // Un en-tête de plus de 128 Kio, sous la taille de trame (1 Mio).
-    let req = Request::ProbeFile { name: "w".into(), source: "x".repeat(200 * 1024), common: None };
+    let req =
+        Request::ProbeFile { kind: PackKind::Widgets, name: "w".into(), source: "x".repeat(200 * 1024), common: None };
     let err = link.call(&req, &[]).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
     assert_that!(link.connected()).is_true();
@@ -226,6 +232,7 @@ fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
 #[rstest::rstest]
 #[case(Response::Hello { version: PROTOCOL_VERSION + 1, canary: None })]
 #[case::protocol_3(Response::Hello { version: 3, canary: None })]
+#[case::protocol_4(Response::Hello { version: 4, canary: None })]
 #[case(Response::Error { error: oku_slides_render::WireError::Frame { message: "unknown op".into() } })]
 #[case(Response::Ok)]
 fn check_hello_of_another_protocol_is_a_protocol_error(#[case] reply: Response) {

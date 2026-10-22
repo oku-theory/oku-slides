@@ -5,13 +5,20 @@
 //! neutres ; il n'a d'entrée qu'à son premier changement, et la perd quand ses
 //! valeurs redeviennent neutres.
 //!
-//! Chaque changement passe, en mode modèles seulement, par le chemin des
+//! Ils sont la seule source des exemples, layouts compris : en mode pack, la
+//! slide `layout-<nom>` du deck de travail n'en est que l'aperçu, refaite
+//! depuis le manifeste à chaque écriture (`pack_mode::realign_layouts`) ; une
+//! op sur elle s'écrit dans l'exemple (`layout_examples`).
+//!
+//! Chaque changement passe, en mode pack seulement, par le chemin des
 //! écritures du pack (`commit_manifest` → version de la séance, une étape
 //! d'annulation du deck mis de côté). Les valeurs se contrôlent comme celles
 //! des réglages (`widget_params.rs`) ; une valeur que le schéma n'admet plus
 //! est ignorée à l'aperçu et retirée à la prochaine écriture du widget. Une
 //! liste gardée que le schéma ne lit plus repart, au geste suivant sur elle
 //! (`edit_example_list`), des items par défaut que montre l'aperçu.
+
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
@@ -22,8 +29,8 @@ use oku_slides_core::{
 
 use crate::agent::clip;
 use crate::error::{
-    NotEditingTemplatesSnafu, PackJsonSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu,
-    UnknownWidgetSnafu, WidgetInvalidSnafu,
+    NotEditingPackSnafu, PackJsonSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu, UnknownWidgetSnafu,
+    WidgetInvalidSnafu,
 };
 use crate::pack::PackManifest;
 use crate::widget_params::{checked_value, same_as};
@@ -40,14 +47,20 @@ impl Session {
     ///
     /// Tirée de l'empreinte de la version éditée, qui couvre `widgets.json` et
     /// donc les valeurs : elle change avec elles (et avec toute autre écriture
-    /// du pack). `0` hors du mode modèles.
+    /// du pack) ; pour un pack de layouts, aussi des slides du deck de travail,
+    /// ses exemples vivants. `0` hors du mode pack.
     pub(crate) fn examples_revision(&self) -> u64 {
-        match &self.mode {
-            Mode::Templates { edit, .. } => {
-                edit.base.hex().get(..REVISION_HEX).and_then(|h| u64::from_str_radix(h, 16).ok()).unwrap_or_default()
-            }
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => 0,
+        let Mode::Pack { edit, .. } = &self.mode else { return 0 };
+        let base = edit.base.hex().get(..REVISION_HEX).and_then(|h| u64::from_str_radix(h, 16).ok());
+        let slides = &self.doc.sources.deck().slides;
+        if slides.is_empty() {
+            return base.unwrap_or_default();
         }
+        let mut hasher = DefaultHasher::new();
+        base.hash(&mut hasher);
+        // Comparée dans la même session seulement : la forme de débogage suffit.
+        format!("{slides:?}").hash(&mut hasher);
+        hasher.finish() >> (64 - 4 * REVISION_HEX)
     }
 
     /// Les valeurs d'exemple de `name` dans le pack `pack` (voir `widget_target`) ; aucune s'il n'en a pas.
@@ -64,7 +77,7 @@ impl Session {
     /// plus sont retirées. Rend les valeurs du widget après l'écriture.
     pub fn set_example_values(&mut self, widget: &str, values: Map<String, Value>) -> Result<Map<String, Value>> {
         let file = parse_name(widget)?;
-        ensure!(self.in_templates(), NotEditingTemplatesSnafu);
+        ensure!(self.in_pack_mode(), NotEditingPackSnafu);
         ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
         let schema = self.valid_schema(&file)?.context(WidgetInvalidSnafu { name: file.as_str() })?;
         let neutral = preview_params(&schema, &Map::new(), &self.localizer);
@@ -96,7 +109,7 @@ impl Session {
     /// reste `[]`. Rend les valeurs du widget après l'écriture.
     pub fn edit_example_list(&mut self, widget: &str, param: &str, change: ListOp) -> Result<Map<String, Value>> {
         let file = parse_name(widget)?;
-        ensure!(self.in_templates(), NotEditingTemplatesSnafu);
+        ensure!(self.in_pack_mode(), NotEditingPackSnafu);
         ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
         let schema = self.valid_schema(&file)?.context(WidgetInvalidSnafu { name: file.as_str() })?;
         // `param` : le paramètre, ou `param/item/colonne` pour la liste imbriquée d'un item.
@@ -138,16 +151,17 @@ impl Session {
     }
 
     /// Change les valeurs d'exemple de `widget` par `change`, puis écrit le manifeste
-    /// (mode modèles seulement) ; rend les valeurs écrites.
+    /// (mode pack seulement) ; rend les valeurs écrites.
     ///
-    /// Redevenues vides, les valeurs ne sont plus enregistrées.
+    /// Redevenues vides, les valeurs ne sont plus enregistrées. La slide d'un layout
+    /// suit son exemple, dans la même étape (`commit_manifest`).
     fn write_examples(
         &mut self,
         widget: &str,
         change: impl FnOnce(&mut Map<String, Value>) -> Result<()>,
     ) -> Result<Map<String, Value>> {
         let file = parse_name(widget)?;
-        ensure!(self.in_templates(), NotEditingTemplatesSnafu);
+        ensure!(self.in_pack_mode(), NotEditingPackSnafu);
         ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
         let t: WidgetTarget = self.widget_target(None)?;
         ensure!(t.files.widget(&file).is_some(), UnknownWidgetSnafu { name: file.as_str() });
@@ -174,7 +188,7 @@ mod widget_examples_list_tests;
 /// Un texte ou une liste vidés : gardés vides (pour essayer le widget sans eux), et non
 /// remis à la valeur de l'aperçu comme le ferait `checked_value`. Seul `null` remet la
 /// valeur d'aperçu. Une liste vidée sous son `min` passe par `checked_value`, qui la refuse.
-fn emptied(ty: &ParamType, value: &Value) -> Option<Value> {
+pub(crate) fn emptied(ty: &ParamType, value: &Value) -> Option<Value> {
     let blank = |v: &Value| v.as_str().is_some_and(|s| s.trim().is_empty());
     match ty {
         ParamType::List { min: 0, .. } if value.as_array().is_some_and(Vec::is_empty) => Some(Value::Array(Vec::new())),

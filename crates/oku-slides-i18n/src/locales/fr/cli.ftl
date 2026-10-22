@@ -47,7 +47,6 @@ cli-imported = { $path } : { $slides ->
        [one] { $requests } demande de widget
       *[other] { $requests } demandes de widget
     }
-cli-import-pack-required = --pack est obligatoire en mode retrofit : un id, un dossier ou un nom de pack
 cli-import-write-failed = impossible d'écrire le deck importé { $path }
 cli-import-hifi-no-target = --pack et --theme sont propres au mode retrofit : l'import haute fidélité (--mode hifi) génère son propre pack et son propre thème
 cli-import-reference-hifi-only = --reference appartient au mode hifi : un import retrofit n'est pas comparé à un rendu de référence
@@ -83,7 +82,7 @@ cli-arg-ui = Dossier de l'interface compilée (ui/dist)
 cli-cmd-import = Importe une présentation PowerPoint (.pptx) en deck .oku-slides.pdf
 cli-arg-pptx = Présentation PowerPoint (.pptx)
 cli-arg-mode = retrofit : le contenu sur un pack et un thème existants ; hifi : copie fidèle, sur un pack et un thème générés pour elle
-cli-arg-pack = Pack cible : id, dossier de pack (widgets.json, widgets/), nom ou espace de noms
+cli-arg-pack = Pack de layouts pour retrofit (espace de noms, id ou dossier) ; répétable, essentiel par défaut
 cli-arg-import-theme = Thème cible : un thème intégré ou de la bibliothèque, par son id ou son nom ; défaut : le thème par défaut
 cli-arg-report = Écrit aussi le rapport d'import (JSON) : pertes, replis, couverture
 cli-arg-no-system-fonts = En mode hifi, ne cherche pas les polices de la présentation parmi celles du système

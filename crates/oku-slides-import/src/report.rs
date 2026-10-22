@@ -1,4 +1,4 @@
-//! Le rapport d'import : par slide, le modèle choisi, le placement, les pertes
+//! Le rapport d'import : par slide, le profil de layout choisi, le placement, les pertes
 //! et les replis ; les avertissements du lecteur ; la couverture du contenu.
 //! Une perte n'est jamais une erreur : l'import continue, le rapport la dit.
 //! [`ImportReport::to_json`] donne la forme écrite par `--report`, avec le
@@ -36,9 +36,9 @@ pub enum Mode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Placement {
-    /// Blocs du slot `flow`, dans l'agencement du modèle.
+    /// Blocs du slot `flow`, dans l'agencement du profil.
     Flow,
-    /// Éléments du slot libre, placés en cellules de la grille du modèle.
+    /// Éléments du slot libre, placés en cellules de la grille du profil.
     Grid,
     /// Éléments du slot libre, chacun en cadre à sa place source (hi-fi).
     Free,
@@ -136,7 +136,7 @@ pub enum LossKind {
         /// Nombre de slides où il apparaît.
         slides: u32,
     },
-    /// Contenu sans place : le modèle choisi n'a aucun slot.
+    /// Contenu sans place : le profil choisi n'a aucun slot.
     NoSlot,
     /// Texte sans place sur une couverture : mis dans les notes de la slide (retrofit).
     MovedToNotes,
@@ -370,8 +370,8 @@ pub struct SlideReport {
     pub source: u32,
     /// Id de la slide Oku produite.
     pub slide: String,
-    /// Id du modèle choisi.
-    pub template: String,
+    /// Le profil de layout choisi, qualifié par son pack.
+    pub profile: String,
     /// Placement des contenus.
     pub placement: Placement,
     /// Pertes.

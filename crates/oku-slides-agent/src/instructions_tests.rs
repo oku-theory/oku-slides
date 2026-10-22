@@ -22,7 +22,7 @@ fn instructions_ask_for_report_not_suggest_next() {
 #[case("History: history")]
 #[case("Presenting: present")]
 #[case("set_interface (scheme, locale, grid, guides)")]
-#[case("edit_templates (the deck's own pack")]
+#[case("edit_pack (the deck's own pack")]
 #[case("the set_theme op")]
 fn instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
     let at = INSTRUCTIONS.find("You also run the app");
@@ -211,8 +211,28 @@ fn import_stops_a_slide_on_done_exhausted_or_stalled() {
 }
 
 #[test]
-fn import_keeps_templates_mode_away_from_an_imported_deck() {
-    assert_that!(IMPORT).contains("Never use edit_templates on an imported deck");
+fn import_keeps_pack_mode_away_from_an_imported_deck() {
+    assert_that!(IMPORT).contains("Never use edit_pack on an imported deck");
+}
+
+#[rstest]
+#[case::agent(INSTRUCTIONS)]
+#[case::widgets(WIDGETS)]
+#[case::import(IMPORT)]
+fn instructions_mention_neither_edit_templates_nor_templates_mode(#[case] text: &str) {
+    assert_that!(text).does_not_contain("edit_templates");
+    assert_that!(text.to_lowercase()).does_not_contain("templates mode");
+    assert_that!(text.to_lowercase()).does_not_contain("template");
+}
+
+#[test]
+fn widgets_names_the_deck_own_layout_pack() {
+    assert_that!(WIDGETS).contains("deck-layouts");
+}
+
+#[test]
+fn instructions_name_the_essentiel_content_layout_for_slides() {
+    assert_that!(INSTRUCTIONS).contains(oku_slides_core::kinds::essentiel::CONTENT);
 }
 
 #[test]

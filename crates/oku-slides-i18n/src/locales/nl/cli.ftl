@@ -47,7 +47,6 @@ cli-imported = { $path }: { $slides ->
        [one] { $requests } widgetverzoek
       *[other] { $requests } widgetverzoeken
     }
-cli-import-pack-required = --pack is verplicht in de modus retrofit: de id, map of naam van een sjabloonpakket
 cli-import-write-failed = kon de geïmporteerde presentatie { $path } niet schrijven
 cli-import-hifi-no-target = --pack en --theme horen bij de modus retrofit: import met hoge getrouwheid (--mode hifi) maakt een eigen pakket en thema
 cli-import-reference-hifi-only = --reference hoort bij de hifi-modus: een retrofit-import wordt niet met een referentieweergave vergeleken
@@ -83,7 +82,7 @@ cli-arg-ui = Map van de gebouwde interface (ui/dist)
 cli-cmd-import = Een PowerPoint-presentatie (.pptx) importeren als .oku-slides.pdf
 cli-arg-pptx = PowerPoint-presentatie (.pptx)
 cli-arg-mode = retrofit: de inhoud op een bestaand sjabloonpakket en thema; hifi: getrouwe kopie, op een daarvoor gemaakt pakket en thema
-cli-arg-pack = Doelpakket: id, pakketmap (widgets.json, widgets/), naam of naamruimte
+cli-arg-pack = Lay-outpakket voor retrofit (naamruimte, id of map); herhaalbaar, standaard essentiel
 cli-arg-import-theme = Doelthema: een ingebouwd thema of een uit de bibliotheek, op id of naam; standaard: het standaardthema
 cli-arg-report = Ook het importrapport (JSON) schrijven: verliezen, vervangingen, dekking
 cli-arg-no-system-fonts = In modus hifi de lettertypen van de presentatie niet tussen de systeemlettertypen zoeken

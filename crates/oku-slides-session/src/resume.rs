@@ -2,7 +2,7 @@
 //! Écrit à chaque modification dans son dossier, relu au lancement suivant.
 //!
 //! `state.json` dit le mode et l'état de l'interface ; chaque document
-//! (`deck/`, `templates/`) tient dans un `deck.loro` (le replica : deck,
+//! (`deck/`, `pack/`) tient dans un `deck.loro` (le replica : deck,
 //! identité et historique complet ; pas la pile d'annulation) et un
 //! `document.json` (fichier, état), chacun écrit d'un coup, plus ses assets,
 //! polices, packs (`<hex>.json`, `<hex>.<nom>.typ`) et thèmes (`themes/<hex>.json`),
@@ -20,21 +20,22 @@ use serde::{Deserialize, Serialize};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
 use oku_slides_core::{
-    DeckReplica, PackFiles, PackVersion, ReplicaError, ReplicaLimits, SourceBundle, WidgetFile, WidgetRegistry,
+    DeckReplica, PackFiles, PackKind, PackVersion, ReplicaError, ReplicaErrorKind, ReplicaLimits, SourceBundle,
+    WidgetFile, WidgetRegistry,
 };
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::agent::{AgentScope, SavedConversation};
 use crate::files::read_document;
+use crate::pack_scratch::PackScratch;
 use crate::resume_writer::{Job, Writer};
-use crate::template_scratch::TemplateScratch;
 use crate::theme_edit::ThemeEdit;
-use crate::views::{TemplateMode, UiState};
+use crate::views::{PackMode, UiState};
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
 
-pub(crate) const VERSION: u32 = 1;
+pub(crate) const VERSION: u32 = 2;
 pub(crate) const DECK_DIR: &str = "deck";
-pub(crate) const TEMPLATES_DIR: &str = "templates";
+pub(crate) const PACK_DIR: &str = "pack";
 /// Taille maximale d'un JSON relu par [`Resume::read_json`] : au-delà, illisible.
 pub(crate) const MAX_JSON_BYTES: u64 = 1024 * 1024;
 
@@ -60,12 +61,34 @@ pub(crate) enum ResumeError {
 
 pub(crate) type Result<T, E = ResumeError> = std::result::Result<T, E>;
 
+impl ResumeError {
+    /// L'état vient d'une version plus ancienne de l'app : état ou deck d'un format refusé.
+    fn is_outdated(&self) -> bool {
+        match self {
+            Self::Version { version, .. } => *version < VERSION,
+            Self::Replica { source, .. } => source.kind() == ReplicaErrorKind::UnsupportedVersion,
+            Self::Access { .. } | Self::Json { .. } | Self::Session { .. } => false,
+        }
+    }
+}
+
+/// Ce qu'a donné la reprise d'un onglet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Resumed {
+    /// L'état est relu.
+    Restored,
+    /// L'état, illisible, est mis de côté.
+    Unreadable,
+    /// L'état d'une version plus ancienne, avec du travail non enregistré, est mis de côté.
+    Outdated,
+}
+
 /// Ce que la session éditait.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SavedMode {
     Deck,
-    Templates(TemplateMode),
+    Pack(PackMode),
     /// L'aide, dans cette langue : relue depuis l'app, aucun document gardé.
     Help(String),
 }
@@ -79,7 +102,7 @@ pub(crate) struct State {
     /// Id du thème de l'aide (`SavedMode::Help`), relu avec elle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub help_theme: Option<uuid::Uuid>,
-    /// Le thème édité (`SavedMode::Templates`) ; absent : celui du deck.
+    /// Le thème édité (`SavedMode::Pack`) ; absent : celui du deck.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme_edit: Option<ThemeEdit>,
 }
@@ -148,7 +171,7 @@ impl DocSnapshot {
                     packs: sources.packs.clone(),
                     themes: sources.themes.clone(),
                 });
-                // Deck et ensemble de modèles : deux documents au plus.
+                // Deck et pack édité : deux documents au plus.
                 if cache.len() >= 2 {
                     cache.remove(0);
                 }
@@ -429,6 +452,20 @@ impl Resume {
         }
     }
 
+    /// Le deck gardé (`deck/document.json`) avait-il du travail non enregistré ?
+    ///
+    /// Lu seul, sans le replica : un état refusé se lit encore ici. Illisible : faux, journalisé.
+    pub(crate) fn deck_unsaved(&self) -> bool {
+        let path = self.dir.join(DECK_DIR).join("document.json");
+        let read = self
+            .get(&path)
+            .and_then(|bytes| serde_json::from_slice::<DocIn>(&bytes).context(JsonSnafu { path: &path }));
+        read.inspect_err(
+            |e| tracing::warn!(error = %oku_slides_platform::errors::one_line(e), "document de reprise illisible"),
+        )
+        .is_ok_and(|doc| doc.dirty)
+    }
+
     /// Relit un document : son replica (`deck.loro`, au plus
     /// `limits.max_bytes`, compacté selon `limits.compact_after_secs`), avec une pile d'annulation neuve et l'auteur de
     /// `defaults`, écrit ensuite avec les widgets de `registry`. Sans
@@ -486,8 +523,12 @@ impl Resume {
             let widgets = raw_packs
                 .iter()
                 .filter_map(|(n, b)| WidgetFile::from_file_name(n.strip_prefix(&prefix)?).map(|w| (w, b.as_slice())));
-            // Vérifiée par son empreinte : un pack altéré est ignoré.
-            match PackFiles::verified(hex, bytes, widgets) {
+            // Vérifiée par son empreinte, qui dit aussi sa sorte : un pack altéré est ignoré.
+            let widgets: Vec<_> = widgets.collect();
+            let verified = PackKind::ALL
+                .into_iter()
+                .find_map(|kind| PackFiles::verified(kind, hex, bytes, widgets.iter().map(|(n, b)| (n.clone(), *b))));
+            match verified {
                 Some((version, files)) => {
                     packs.insert(version, files);
                 }
@@ -498,7 +539,7 @@ impl Resume {
         for (name, bytes) in self.read_files(&dir.join("themes"))? {
             let Some(hex) = name.strip_suffix(".json") else { continue };
             // Vérifié par son empreinte : un thème altéré est ignoré.
-            match PackFiles::verified(hex, &bytes, []) {
+            match PackFiles::verified(PackKind::Widgets, hex, &bytes, []) {
                 Some((version, files)) => {
                     themes.insert(version, files);
                 }
@@ -556,13 +597,22 @@ impl Session {
     /// lancement, ou le garde vierge s'il le relit plus tard (`workspace_slot.rs`).
     #[must_use]
     pub fn resume(&mut self, dir: PathBuf) -> bool {
+        self.resume_checked(dir) == Resumed::Restored
+    }
+
+    /// [`Self::resume`], qui dit aussi pourquoi un état est mis de côté.
+    ///
+    /// `Outdated` : un état d'une version plus ancienne de l'app (état ou deck
+    /// d'un format refusé) dont le deck avait du travail non enregistré.
+    pub(crate) fn resume_checked(&mut self, dir: PathBuf) -> Resumed {
         // Un seul écrivain par dossier : l'ancien fil finit et s'arrête d'abord.
         self.resume = None;
         let resume = Resume::new(self.storage.clone(), dir);
         if let Err(e) = self.restore(&resume) {
             tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible");
+            let outdated = e.is_outdated() && resume.deck_unsaved();
             // `restore` peut avoir échoué après avoir déjà basculé en mode
-            // modèles (son propre rendu a échoué) : on repart d'un mode
+            // pack (son propre rendu a échoué) : on repart d'un mode
             // cohérent avant `new_deck`, qui ne touche qu'au deck.
             self.mode = Mode::Deck;
             if let Err(e) = self.new_deck() {
@@ -578,13 +628,13 @@ impl Session {
             self.conversations = Default::default();
             // Rien n'est écrit à la place, même si `resume` était déjà activée.
             self.resume = None;
-            return false;
+            return if outdated { Resumed::Outdated } else { Resumed::Unreadable };
         }
         self.resume = Some(Writer::new(resume));
         self.prune_conversations();
         self.persist(true);
         self.flush_resume();
-        true
+        Resumed::Restored
     }
 
     /// Active la reprise d'un onglet neuf dans `dir`, sans rien y relire.
@@ -633,28 +683,27 @@ impl Session {
         }
         let max = self.source_limits.replica();
         let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
-        let templates = match state.mode {
+        let pack = match state.mode {
             SavedMode::Deck | SavedMode::Help(_) => None,
-            SavedMode::Templates(edit) => match resume.read_doc(TEMPLATES_DIR, &self.doc_defaults, max, &self.registry)
-            {
+            SavedMode::Pack(edit) => match resume.read_doc(PACK_DIR, &self.doc_defaults, max, &self.registry) {
                 Ok(doc) => Some((doc, edit)),
                 Err(e) => {
-                    tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "modèles de reprise illisibles");
+                    tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "pack de reprise illisible");
                     None
                 }
             },
         };
         self.load_document(deck).context(SessionSnafu)?;
-        if let Some((doc, edit)) = templates {
+        if let Some((doc, edit)) = pack {
             let theme = match state.theme_edit {
                 Some(theme) => theme,
                 None => self.initial_theme_edit().context(SessionSnafu)?.0,
             };
             let stash = std::mem::replace(&mut self.doc, doc);
-            self.mode = Mode::Templates {
+            self.mode = Mode::Pack {
                 stash: Box::new(stash),
                 edit,
-                scratch: TemplateScratch::default(),
+                scratch: PackScratch::default(),
                 theme,
                 switches: Vec::new(),
             };
@@ -662,7 +711,7 @@ impl Session {
             self.sync_widgets().context(SessionSnafu)?;
             self.rerender().context(SessionSnafu)?;
         }
-        self.ui = state.ui.sanitized(matches!(self.mode, Mode::Templates { .. }));
+        self.ui = state.ui.sanitized(matches!(self.mode, Mode::Pack { .. }));
         Ok(())
     }
 
@@ -716,16 +765,15 @@ impl Session {
                 return;
             }
             Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck, None),
-            Mode::Templates { stash, edit, theme, .. } => {
-                (&**stash, &**stash, SavedMode::Templates(edit.clone()), Some(theme.clone()))
+            Mode::Pack { stash, edit, theme, .. } => {
+                (&**stash, &**stash, SavedMode::Pack(edit.clone()), Some(theme.clone()))
             }
             Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck, None),
         };
         let mut docs = Vec::new();
         if documents {
-            let templates =
-                matches!(self.mode, Mode::Templates { .. }).then_some((TEMPLATES_DIR, &self.doc, &self.doc));
-            for (sub, doc, blobs) in std::iter::once((DECK_DIR, deck, blobs)).chain(templates) {
+            let pack = matches!(self.mode, Mode::Pack { .. }).then_some((PACK_DIR, &self.doc, &self.doc));
+            for (sub, doc, blobs) in std::iter::once((DECK_DIR, deck, blobs)).chain(pack) {
                 match DocSnapshot::with_blobs(doc, &blobs.sources, &mut self.sent_blobs) {
                     Ok(snapshot) => docs.push((sub, snapshot)),
                     Err(e) => tracing::warn!(

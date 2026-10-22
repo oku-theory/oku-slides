@@ -118,7 +118,7 @@ fn resume_restores_windows_tabs_focus_mode_and_deck_without_undo() {
     send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
     tab(&a, "t-2", set_theme("pro"));
     send(&a, json!({"cmd": "new_window"}));
-    tab(&a, "t-3", json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}));
+    tab(&a, "t-3", json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}));
     send(&a, json!({"cmd": "activate", "tab": "t-1"}));
     let before = view(&a);
     assert_that!(before.focused.as_str()).is_equal_to("w-1");
@@ -127,7 +127,7 @@ fn resume_restores_windows_tabs_focus_mode_and_deck_without_undo() {
     let after = view(&b);
     assert_that!(after.focused).is_equal_to(&before.focused);
     assert_that!(after.windows).is_equal_to(&before.windows);
-    assert_that!(view(&b).windows[1].tabs[0].info.editing_templates).is_true();
+    assert_that!(view(&b).windows[1].tabs[0].info.editing_pack).is_true();
     // Le deck revient tel quel ; la pile d'annulation ne survit pas au relancement.
     let snap = tab(&b, "t-2", json!({"cmd": "undo"}));
     assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
@@ -659,17 +659,17 @@ fn resume_prunes_with_the_configured_count_and_spares_this_launch() {
     assert_that!(root.iter().any(|n| n == "resume.failed-10" || n == "resume.failed-20")).is_false();
 }
 
-/// t-145 : au relancement, ouvrir le fichier d'un onglet en mode modèles
+/// t-145 : au relancement, ouvrir le fichier d'un onglet en mode pack
 /// active cet onglet (son fichier reste celui du deck mis de côté), sans
-/// doublon, et il reste en mode modèles.
+/// doublon, et il reste en mode pack.
 #[test]
-fn open_tab_of_a_file_whose_tab_edits_templates_activates_it() {
+fn open_tab_of_a_file_whose_tab_edits_pack_activates_it() {
     let data = Data::new();
     let file = saved_pdf(&data, "atelier");
     let a = resumed(&data);
     send(&a, json!({"cmd": "open_tab", "window": "w-1", "path": file}));
     let id = view(&a).windows[0].active.clone();
-    tab(&a, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}));
+    tab(&a, &id, json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}));
     send(&a, json!({"cmd": "new_tab", "window": "w-1"}));
     drop(a);
     // Relancé : l'onglet dort (t-158), reconnu d'après ses infos enregistrées.
@@ -678,8 +678,8 @@ fn open_tab_of_a_file_whose_tab_edits_templates_activates_it() {
     let v = view(&b);
     assert_that!(v.windows[0].tabs).has_length(2);
     assert_that!(v.windows[0].active.as_str()).is_equal_to(id.as_str());
-    assert_that!(tab(&b, &id, json!({"cmd": "snapshot"}))["editing"]["set"])
-        .is_equal_to(json!(oku_slides_session::DEFAULT_PACK));
+    assert_that!(tab(&b, &id, json!({"cmd": "snapshot"}))["editing"]["pack"])
+        .is_equal_to(json!(oku_slides_session::ESSENTIEL_PACK));
 }
 
 /// Un `OpenTab` de `path` dans la première fenêtre de la vue.
@@ -834,13 +834,13 @@ fn open_files_of_a_copy_with_its_own_notice_keeps_both_notices() {
 }
 
 #[test]
-fn same_deck_skips_a_tab_editing_templates() {
+fn same_deck_skips_a_tab_editing_pack() {
     let data = Data::new();
     let ws = resumed(&data);
     let original = saved_pdf(&data, "deck");
     open_in_first_window(&ws, &original);
     let id = view(&ws).windows[0].active.clone();
-    tab(&ws, &id, json!({"cmd": "edit_templates", "set": oku_slides_session::DEFAULT_PACK}));
+    tab(&ws, &id, json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}));
     assert_that!(same_deck(&ws, &copy_of(&data, &original))["tab"].is_null()).is_true();
 }
 

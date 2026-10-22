@@ -8,14 +8,14 @@
  * renommage redirigée vers le nouveau nom.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { errorText, type TabApi, type WidgetStatus } from "./api";
+import { errorText, type PackKind, type TabApi, type WidgetStatus } from "./api";
 import { PREVIEW_DELAY_MS, debounced } from "./debounce";
 import { t } from "./i18n";
 import type { Rewrite } from "./TypstEditor";
 import { declaredAs, merged, ordered, skeleton, withTrial } from "./widgetList";
 
 export interface WidgetFiles {
-  /** Statuts du pack, `_commun` en tête ; `null` hors mode modèles ou pas encore lus. */
+  /** Statuts du pack, `_commun` en tête ; `null` hors mode pack ou pas encore lus. */
   statuses: WidgetStatus[] | null;
   /** La `revision` pour laquelle `statuses` a été lu ; `null` sans statuts. */
   statusesFor: string | null;
@@ -79,11 +79,11 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
 const EMPTY_MAP = new Map<string, never>();
 
 /**
- * `pack` : le pack édité (`null` hors mode modèles : rien n'est lu). Un
+ * `pack` : le pack édité (`null` hors mode pack : rien n'est lu). Un
  * autre pack remet tout à zéro, frappes en attente annulées.
  * `on.renamed` est appelé dans la file, avant les nouveaux statuts.
  */
-export function useWidgetFiles(api: TabApi, pack: string | null, revision: string, on: Callbacks): WidgetFiles {
+export function useWidgetFiles(api: TabApi, pack: string | null, kind: PackKind, revision: string, on: Callbacks): WidgetFiles {
   const [statuses, setStatuses] = useState<WidgetStatus[] | null>(null);
   const [statusesFor, setStatusesFor] = useState<string | null>(null);
   const [unsaved, setUnsaved] = useState<ReadonlySet<string>>(EMPTY_SET);
@@ -134,7 +134,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
   }, []);
   const check = useCallback((name: string, text: string) => setChecked((c) => withEntry(c, name, text)), []);
 
-  // Un autre pack (ou la sortie du mode modèles) : tout repart de zéro.
+  // Un autre pack (ou la sortie du mode pack) : tout repart de zéro.
   useEffect(() => {
     generation.current++;
     refreshSeq.current++;
@@ -347,15 +347,15 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
     (name: string) => {
       flush();
       return enqueue((live) =>
-        apiRef.current.setWidget(name, skeleton(name)).then((c) => {
+        apiRef.current.setWidget(name, skeleton(name, kind)).then((c) => {
           if (!live()) return false;
           if (!c.saved) {
             onRef.current.error(c.status.diagnostics[0]?.message ?? t("ui-widgets-unsaved"));
             return false;
           }
           markUnsaved(name, false);
-          sent.current.set(name, skeleton(name));
-          trials.current.set(name, { statuses: [c.status, ...c.broken], text: skeleton(name) });
+          sent.current.set(name, skeleton(name, kind));
+          trials.current.set(name, { statuses: [c.status, ...c.broken], text: skeleton(name, kind) });
           setStatuses((s) => merged(s, [c.status, ...c.broken]));
           invalidate();
           onRef.current.changed();
@@ -363,7 +363,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
         }),
       ).then((ok) => ok === true);
     },
-    [enqueue, flush, markUnsaved, invalidate],
+    [enqueue, flush, markUnsaved, invalidate, kind],
   );
 
   const rename = useCallback(
@@ -436,7 +436,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, revision: strin
         }),
       ).then((ok) => {
         if (ok === true) return true;
-        // Refusé (un modèle l'utilise) : la frappe annulée revient, sauf si une plus récente la remplace.
+        // Refusé (une slide l'utilise) : la frappe annulée revient, sauf si une plus récente la remplace.
         if (held && born === generation.current && (edits.current.get(name) ?? 0) === typedAt) {
           markUnsaved(name, true);
           bump(edits.current, name, 1);

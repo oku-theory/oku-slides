@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = gợi ý: { $hint }
 render-chart-failed = không thể vẽ biểu đồ
 
-registry-bad-pack-id = Định danh gói mẫu không hợp lệ: { $id }
-registry-base-pack-broken = Gói widget tích hợp bị hỏng ({ $file }); hãy cài đặt lại ứng dụng.
-registry-duplicate-pack = Hai gói widget của bản trình bày dùng chung { $pack }.
-registry-compile = Không thể biên dịch các widget của gói mẫu
-registry-missing = Gói mẫu không khai báo widget của nó
+registry-bad-pack-id = Định danh gói không hợp lệ: { $id }
+registry-base-pack-broken = Gói tích hợp bị hỏng ({ $file }); hãy cài đặt lại ứng dụng.
+registry-duplicate-pack = Hai gói của bản trình bày dùng chung { $pack }.
+registry-compile = Không thể biên dịch các widget của gói
+registry-missing = Gói không khai báo widget của nó
 render-timeout = Kết xuất mất hơn { $seconds } giây và đã bị dừng
 render-out-of-memory = Kết xuất cần hơn { $mib } MiB bộ nhớ và đã bị dừng
 render-worker-lost = Tiến trình kết xuất đã dừng
@@ -41,6 +41,7 @@ import-not-a-presentation = Tệp này không phải là bản trình bày Power
 import-protected = Bản trình bày này đã được mã hóa hoặc ở định dạng .ppt cũ: hãy lưu thành .pptx trước
 import-too-large = Bản trình bày này quá lớn để nhập
 import-output-too-large = Bản trình bày thu được sẽ vượt quá kích thước cho phép khi nhập
+import-no-profiles = Các gói bố cục đã chọn không đề xuất hồ sơ nào.
 import-loss-list-levels = Các cấp danh sách được gộp thành một cấp
 import-loss-merged-cells = Các ô đã hợp nhất được tách ra
 import-loss-percent-stacked = Biểu đồ xếp chồng 100% được hiển thị dạng xếp chồng
@@ -74,7 +75,7 @@ import-loss-hidden-slide = Trang chiếu ẩn được nhập dưới dạng hi�
 import-loss-effects = Mất bóng đổ, phản chiếu và hiệu ứng 3D
 import-loss-series-dropped = Biểu đồ tròn chỉ hiển thị một chuỗi: giữ { $kept }, bỏ { $dropped }
 import-loss-repeated-decor = Đã bỏ đầu trang hoặc chân trang “{ $text }” lặp lại trên { $slides } trang chiếu: chủ đề tự vẽ của nó
-import-loss-no-slot = Đã bỏ nội dung: mẫu đã chọn không có chỗ cho nó
+import-loss-no-slot = Đã bỏ nội dung: bố cục đã chọn không có chỗ cho nó
 import-loss-moved-to-notes = Đã chuyển văn bản vào ghi chú của người thuyết trình: trang bìa không có chỗ cho nó
 import-loss-items-dropped = Trang chiếu có quá nhiều phần tử: bỏ qua { $dropped } phần tử
 import-loss-page-fitted = Trang nguồn { $width } × { $height } pt không phải 16:9: nội dung đã được co giãn và căn giữa
@@ -86,7 +87,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Không vẽ đầu mũi tên của đường
    *[geometry] Hình không xác định được hiển thị thành hình chữ nhật
 }
-import-loss-layout-dropped = Quá nhiều bố cục cho một gói: “{ $layout }” không có mẫu; các trang chiếu của nó dùng widget trống và nhận phần trang trí dưới dạng phần tử
+import-loss-layout-dropped = Quá nhiều bố cục cho một gói: “{ $layout }” không có widget; các trang chiếu của nó dùng widget trống và nhận phần trang trí dưới dạng phần tử
 import-loss-decor-truncated = Phần trang trí bị cắt để vừa kích thước tệp gói: bỏ qua { $omitted } phần tử
 import-loss-table-style = Kiểu bảng được ước lượng: nền ô, đường viền, độ rộng cột, chiều cao hàng hoặc cỡ chữ riêng của bảng bị mất
 import-loss-overflow = Phần tử “{ $element }” vượt quá mép trang chiếu

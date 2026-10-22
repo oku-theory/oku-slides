@@ -6,7 +6,7 @@ use speculoos::prelude::*;
 
 use crate::{
     Category, Grow, HostType, ParamType, SchemaFault, SlotMode, WidgetError, WidgetErrorKind, WidgetRegistry,
-    WidgetSchema,
+    WidgetSchema, kinds,
 };
 
 fn widget(name: &str, category: &str, params: Value) -> Value {
@@ -26,10 +26,17 @@ fn card() -> Value {
     )
 }
 
-/// Sonde de `base` et, s'il y en a un, d'un pack `acme` aux widgets `pack`.
-fn probe(base: Vec<Value>, pack: Option<Vec<Value>>) -> Value {
-    let packs: Vec<Value> = pack.into_iter().map(|w| json!({ "namespace": "acme", "widgets": w })).collect();
-    json!({ "base": base, "packs": packs })
+/// Un pack `namespace` de la sorte `kind` aux widgets `widgets`.
+fn pack(namespace: &str, kind: &str, widgets: Vec<Value>) -> Value {
+    json!({ "namespace": namespace, "kind": kind, "widgets": widgets })
+}
+
+/// Sonde de `widgets` rangés par catégorie (éléments dans `u`, slides dans `t`) et, s'il y en a un, d'un pack `acme`.
+fn probe(widgets: Vec<Value>, acme: Option<Vec<Value>>) -> Value {
+    let of = |category: &str| widgets.iter().filter(|w| w["category"] == category).cloned().collect::<Vec<_>>();
+    let mut packs = vec![pack("u", "widgets", of("element")), pack("t", "layouts", of("slide"))];
+    packs.extend(acme.map(|w| pack("acme", "widgets", w)));
+    json!({ "packs": packs })
 }
 
 /// Un widget d'élément `name` à un paramètre `title`.
@@ -45,7 +52,7 @@ fn slot_schema(name: &str, accepts: &[&str]) -> Value {
 #[test]
 fn from_probe_base_keeps_params_in_declaration_order() {
     let r = WidgetRegistry::from_probe(probe(vec![card()], None)).unwrap();
-    let names: Vec<&str> = r.get("card").unwrap().params.iter().map(|p| p.name.as_str()).collect();
+    let names: Vec<&str> = r.get("u/card").unwrap().params.iter().map(|p| p.name.as_str()).collect();
     assert_that!(names).is_equal_to(vec!["kicker", "title", "body", "highlight"]);
 }
 
@@ -61,14 +68,14 @@ fn from_probe_description_is_read_or_none(#[case] given: Option<Value>, #[case] 
         kpi["description"] = d;
     }
     let r = WidgetRegistry::from_probe(probe(vec![card(), kpi], None)).unwrap();
-    assert_that!(r.get("kpi").unwrap().description.as_deref()).is_equal_to(read);
+    assert_that!(r.get("u/kpi").unwrap().description.as_deref()).is_equal_to(read);
 }
 
 /// Sans description, le schéma sérialisé n'a pas la clé : les schémas existants ne changent pas.
 #[test]
 fn widget_schema_without_description_serializes_without_the_key() {
     let r = WidgetRegistry::from_probe(probe(vec![card()], None)).unwrap();
-    let json = serde_json::to_value(r.get("card").unwrap()).unwrap();
+    let json = serde_json::to_value(r.get("u/card").unwrap()).unwrap();
     assert_that!(json.get("description")).is_none();
 }
 
@@ -84,26 +91,26 @@ fn from_probe_reads_every_param_type() {
             { "name": "d", "type": "number", "min": 1, "max": null, "default": null },
             { "name": "e", "type": "choice", "values": ["cover", "contain"], "default": "cover" },
             { "name": "f", "type": "asset" },
-            { "name": "g", "type": "slot", "mode": "free", "accepts": ["card"] },
+            { "name": "g", "type": "slot", "mode": "free", "accepts": ["u/card"] },
             { "name": "h", "type": "grid", "default": { "columns": 12, "rows": 6 } },
             { "name": "i", "type": "host", "host": "chart" },
         ]),
     );
     let r = WidgetRegistry::from_probe(probe(vec![card(), all], None)).unwrap();
-    let w = r.get("all").unwrap();
+    let w = r.get("t/all").unwrap();
     assert_that!(w.category).is_equal_to(Category::Slide);
     let ty = |n: &str| w.param(n).unwrap().ty.clone();
     assert_that!(ty("a")).is_equal_to(ParamType::Plain);
     assert_that!(w.param("a").unwrap().bind.as_deref()).is_equal_to(Some("title"));
     assert_that!(ty("d")).is_equal_to(ParamType::Number { min: Some(1.0), max: None });
     assert_that!(ty("e")).is_equal_to(ParamType::Choice { values: vec!["cover".into(), "contain".into()] });
-    assert_that!(ty("g")).is_equal_to(ParamType::Slot { mode: SlotMode::Free, accepts: Some(vec!["card".into()]) });
+    assert_that!(ty("g")).is_equal_to(ParamType::Slot { mode: SlotMode::Free, accepts: Some(vec!["u/card".into()]) });
     assert_that!(ty("i")).is_equal_to(ParamType::Host { host: crate::HostType::Chart });
 }
 
 #[test]
 fn from_probe_unreadable_json_returns_unreadable() {
-    let err = WidgetRegistry::from_probe(json!({ "base": 3 })).unwrap_err();
+    let err = WidgetRegistry::from_probe(json!({ "packs": 3 })).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
 }
 
@@ -202,7 +209,7 @@ fn from_probe_duplicate_widget_returns_duplicate_widget() {
 #[test]
 fn from_probe_slot_accepting_a_slide_widget_returns_unknown_slot_kind() {
     let slide =
-        widget("content", "slide", json!([{ "name": "b", "type": "slot", "mode": "flow", "accepts": ["content"] }]));
+        widget("content", "slide", json!([{ "name": "b", "type": "slot", "mode": "flow", "accepts": ["t/content"] }]));
     let err = WidgetRegistry::from_probe(probe(vec![slide], None)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::UnknownSlotKind));
 }
@@ -216,50 +223,51 @@ fn from_probe_pack_adds_a_new_widget() {
 
 #[test]
 fn registry_from_probe_qualifies_pack_widgets() {
-    let probe = json!({"base": [schema("text")], "packs": [{"namespace": "acme", "widgets": [schema("card")]}]});
+    let probe = json!({"packs": [pack("acme", "widgets", vec![schema("card")])]});
     let r = WidgetRegistry::from_probe(probe).unwrap();
     assert_that!(r.get("acme/card").map(|w| w.name.clone())).is_equal_to(Some("acme/card".to_owned()));
 }
 
 #[test]
-fn registry_from_probe_pack_widget_named_like_base_keeps_both() {
-    let probe = json!({"base": [schema("card")], "packs": [{"namespace": "acme", "widgets": [schema("card")]}]});
+fn registry_from_probe_widgets_named_alike_in_two_packs_keep_both() {
+    let probe =
+        json!({"packs": [pack("u", "widgets", vec![schema("card")]), pack("acme", "widgets", vec![schema("card")])]});
     let r = WidgetRegistry::from_probe(probe).unwrap();
-    assert_that!((r.get("card").is_some(), r.get("acme/card").is_some())).is_equal_to((true, true));
+    assert_that!((r.get("u/card").is_some(), r.get("acme/card").is_some())).is_equal_to((true, true));
 }
 
 #[test]
 fn registry_from_probe_slot_accepting_a_qualified_sibling_is_valid() {
     let holder = slot_schema("holder", &["acme/card"]);
-    let probe = json!({"base": [], "packs": [{"namespace": "acme", "widgets": [schema("card"), holder]}]});
+    let probe = json!({"packs": [pack("acme", "widgets", vec![schema("card"), holder])]});
     assert_that!(WidgetRegistry::from_probe(probe)).is_ok();
 }
 
 #[test]
 fn registry_from_probe_slot_accepting_a_bare_pack_name_returns_unknown_slot_kind() {
     let holder = slot_schema("holder", &["card"]);
-    let probe = json!({"base": [], "packs": [{"namespace": "acme", "widgets": [schema("card"), holder]}]});
+    let probe = json!({"packs": [pack("acme", "widgets", vec![schema("card"), holder])]});
     let err = WidgetRegistry::from_probe(probe).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::UnknownSlotKind));
 }
 
 #[test]
 fn registry_from_probe_old_pack_key_returns_unreadable() {
-    let probe = json!({ "base": [schema("text")], "pack": [schema("card")] });
+    let probe = json!({ "packs": [], "pack": [schema("card")] });
     let err = WidgetRegistry::from_probe(probe).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
 }
 
 #[test]
 fn registry_from_probe_unknown_pack_key_returns_unreadable() {
-    let probe = json!({ "base": [], "packs": [{ "namespace": "acme", "widgets": [], "id": "x" }] });
+    let probe = json!({ "packs": [{ "namespace": "acme", "kind": "widgets", "widgets": [], "id": "x" }] });
     let err = WidgetRegistry::from_probe(probe).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
 }
 
 #[test]
 fn registry_from_probe_bad_namespace_returns_unreadable() {
-    let probe = json!({"base": [], "packs": [{"namespace": "Acme", "widgets": [schema("card")]}]});
+    let probe = json!({"packs": [pack("Acme", "widgets", vec![schema("card")])]});
     let err = WidgetRegistry::from_probe(probe).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
 }
@@ -270,9 +278,9 @@ fn registry_from_probe_bad_namespace_returns_unreadable() {
 #[test]
 fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
     let json = serde_json::json!({
-        "version": 7,
-        "slides": [{ "id": "s", "kind": "content", "params": {
-            "elements": [{ "id": "e1", "kind": "title", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } }] } }]
+        "version": 8,
+        "slides": [{ "id": "s", "kind": "essentiel/content", "params": {
+            "elements": [{ "id": "e1", "kind": "essentiel/title", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } }] } }]
     });
     let deck = crate::Deck::from_json(&json.to_string()).unwrap();
     let issues = crate::validate(&deck, &crate::test_registry::registry(), None);
@@ -285,12 +293,13 @@ fn widget_error_names_the_refused_widget() {
     let pack = vec![widget("card", "element", json!([{ "name": "a", "type": "choice", "values": [] }]))];
     let err = WidgetRegistry::from_probe(probe(vec![card()], Some(pack))).unwrap_err();
     assert_that!(err.widget()).is_equal_to(Some("card"));
-    let unreadable = WidgetRegistry::from_probe(json!({ "base": [card()], "packs": 1 })).unwrap_err();
+    let unreadable = WidgetRegistry::from_probe(json!({ "packs": 1 })).unwrap_err();
     assert_that!(unreadable.widget()).is_none();
 }
 
 fn list_probe(params: Value) -> Result<WidgetRegistry, WidgetError> {
-    WidgetRegistry::from_probe(json!({ "base": [{ "name": "w", "category": "element", "params": params }] }))
+    let widget = json!({ "name": "w", "category": "element", "params": params });
+    WidgetRegistry::from_probe(json!({ "packs": [pack("u", "widgets", vec![widget])] }))
 }
 
 fn col(name: &str, ty: &str) -> Value {
@@ -306,7 +315,7 @@ fn from_probe_list_reads_columns_and_bounds() {
     let r = list_probe(json!([{ "name": "etapes", "type": "list", "item-label": "étape",
         "item": [col("date", "plain"), col("texte", "rich")], "min": 1, "max": 5 }]))
     .unwrap();
-    let p = r.get("w").unwrap().param("etapes").unwrap();
+    let p = r.get("u/w").unwrap().param("etapes").unwrap();
     let ParamType::List { item, item_label, min, max } = &p.ty else { panic!("pas une liste") };
     assert_that!(item.iter().map(|c| c.name.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["date", "texte"]);
     assert_that!(item_label.as_deref()).is_equal_to(Some("étape"));
@@ -384,7 +393,7 @@ fn fault_of(r: Result<WidgetRegistry, WidgetError>) -> Option<SchemaFault> {
 fn from_probe_list_with_a_nested_list_column_reads_its_columns() {
     let r =
         list_probe(list(json!([col("titre", "plain"), sublist("taches", json!([col("texte", "plain")]))]))).unwrap();
-    let ParamType::List { item, .. } = &r.get("w").unwrap().param("etapes").unwrap().ty else {
+    let ParamType::List { item, .. } = &r.get("u/w").unwrap().param("etapes").unwrap().ty else {
         panic!("pas une liste")
     };
     let ParamType::List { item: sub, .. } = &item[1].ty else { panic!("colonne imbriquée attendue") };
@@ -494,7 +503,7 @@ fn from_probe_nested_default_rows_with_explicit_ids_are_accepted_and_kept() {
         "item": [sublist("taches", json!([col("texte", "plain")]))],
         "default": [{ "taches": [{ "id": "x", "texte": "un" }, { "texte": "deux" }] }] }]);
     let r = list_probe(p).unwrap();
-    let d = crate::default_items(r.get("w").unwrap().param("l").unwrap()).unwrap();
+    let d = crate::default_items(r.get("u/w").unwrap().param("l").unwrap()).unwrap();
     let ids: Vec<&str> = d[0].values.list("taches").unwrap().iter().map(|t| t.id.as_str()).collect();
     assert_that!(ids).is_equal_to(vec!["x", "d1"]);
 }
@@ -561,7 +570,7 @@ fn widget_schema_defaults_are_not_serialized() {
 fn registry_from_probe_slide_declaring_sizing_is_refused(#[case] extra: Value) {
     let mut slide = json!({"name": "s", "category": "slide", "params": []});
     slide.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
-    let err = WidgetRegistry::from_probe(json!({"base": [slide], "packs": []})).unwrap_err();
+    let err = WidgetRegistry::from_probe(json!({"packs": [pack("t", "layouts", vec![slide])]})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::SlideSizing));
 }
 
@@ -571,7 +580,7 @@ fn registry_from_probe_slide_declaring_sizing_is_refused(#[case] extra: Value) {
 fn localize_slide_sizing_fault_names_the_widget_in_each_locale(#[case] locale: &str, #[case] fragment: &str) {
     use oku_slides_i18n::{Localize, Localizer};
     let slide = json!({"name": "s", "category": "slide", "params": [], "grow": true});
-    let err = WidgetRegistry::from_probe(json!({"base": [slide], "packs": []})).unwrap_err();
+    let err = WidgetRegistry::from_probe(json!({"packs": [pack("t", "layouts", vec![slide])]})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::SlideSizing));
     let text = err.localize(&Localizer::new(Some(locale)));
     assert_that!(text).contains(fragment);
@@ -580,9 +589,8 @@ fn localize_slide_sizing_fault_names_the_widget_in_each_locale(#[case] locale: &
 
 #[test]
 fn host_params_maps_each_host_of_element_widgets_only() {
-    let probe = json!({"base": [
-        {"name": "s", "category": "slide", "params": [{"name": "o", "type": "host", "host": "chart"}]},
-    ], "packs": [{"namespace": "acme", "widgets": [
+    let slide = json!({"name": "s", "category": "slide", "params": [{"name": "o", "type": "host", "host": "chart"}]});
+    let probe = json!({"packs": [pack("t", "layouts", vec![slide]), {"namespace": "acme", "kind": "widgets", "widgets": [
         {"name": "plot", "category": "element", "params": [
             {"name": "series", "type": "host", "host": "chart"},
             {"name": "other", "type": "host", "host": "chart"},
@@ -593,4 +601,53 @@ fn host_params_maps_each_host_of_element_widgets_only() {
     let hosts = WidgetRegistry::from_probe(probe).unwrap().host_params();
     let plot = BTreeMap::from([(HostType::Chart, "series".to_owned()), (HostType::Table, "grid".to_owned())]);
     assert_that!(hosts).is_equal_to(BTreeMap::from([("acme/plot".to_owned(), plot)]));
+}
+
+#[test]
+fn registry_from_probe_with_a_base_key_is_unreadable() {
+    let err = WidgetRegistry::from_probe(json!({"base": [], "packs": []})).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(WidgetErrorKind::Unreadable);
+}
+
+#[test]
+fn registry_from_probe_without_packs_is_empty() {
+    assert_that!(WidgetRegistry::from_probe(json!({"packs": []})).unwrap()).is_equal_to(WidgetRegistry::default());
+}
+
+#[rstest]
+#[case("layouts", "element")]
+#[case("widgets", "slide")]
+fn registry_from_probe_widget_of_the_other_category_is_refused(#[case] kind: &str, #[case] category: &str) {
+    let probe = json!({"packs": [{"namespace": "acme", "kind": kind,
+        "widgets": [{"name": "w", "category": category, "params": []}]}]});
+    let err = WidgetRegistry::from_probe(probe).unwrap_err();
+    assert_that!((err.kind(), err.widget().map(str::to_owned)))
+        .is_equal_to((WidgetErrorKind::BadSchema(SchemaFault::PackCategory), Some("acme/w".to_owned())));
+}
+
+#[test]
+fn registry_from_probe_pack_without_kind_is_unreadable() {
+    let probe = json!({"packs": [{"namespace": "acme", "widgets": []}]});
+    assert_that!(WidgetRegistry::from_probe(probe).unwrap_err().kind()).is_equal_to(WidgetErrorKind::Unreadable);
+}
+
+#[test]
+fn builtin_fixture_slide_widgets_are_essentiel_kinds() {
+    let slides: Vec<String> = crate::test_registry::registry()
+        .iter()
+        .filter(|w| w.category == Category::Slide)
+        .map(|w| w.name.clone())
+        .collect();
+    let mut expected: Vec<String> = kinds::essentiel::ALL.map(str::to_owned).to_vec();
+    expected.sort();
+    assert_that!(slides).is_equal_to(expected);
+}
+
+#[test]
+fn localize_pack_category_fault_in_french_names_the_widget() {
+    use oku_slides_i18n::Localize;
+    let probe = json!({"packs": [pack("acme", "layouts", vec![schema("w")])]});
+    let err = WidgetRegistry::from_probe(probe).unwrap_err();
+    let text = err.localize(&oku_slides_i18n::Localizer::new(Some("fr")));
+    assert_that!(text).contains("acme/w");
 }

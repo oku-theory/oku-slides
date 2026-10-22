@@ -1,5 +1,5 @@
-//! Projecteur retrofit : une [`SourceDeck`] projetée sur un pack et un thème
-//! existants.
+//! Projecteur retrofit : une [`SourceDeck`] projetée sur les profils des packs
+//! de layouts choisis et un thème existant.
 //!
 //! Le style vient du thème cible : couleurs ramenées à ses jetons ([`ColorTokens`]),
 //! texte riche réduit à ce que le cœur exprime, éléments libres placés sur la
@@ -19,15 +19,15 @@ mod group;
 mod heading;
 mod measure;
 mod place;
+mod profile;
 mod slide;
 pub(crate) mod table;
-mod template;
 pub(crate) mod text;
 mod zone;
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::{Deck, Op, Slide, Template, WidgetRegistry, apply_all};
+use oku_slides_core::{Deck, LayoutProfile, Namespace, Op, WidgetRegistry, apply_all};
 use serde_json::Value;
 
 pub use color::ColorTokens;
@@ -38,32 +38,24 @@ use self::content::ContentCx;
 use self::decor::Decor;
 use self::slide::{SlideCx, project_slide};
 use crate::coverage::coverage;
+use crate::error::{ImportError, no_profiles};
 use crate::pattern::signature;
 use crate::plan::{ImportPlan, WidgetRequest};
 use crate::report::{ImportReport, Mode};
 use crate::source::{Item, ItemKind, SourceDeck};
 
-/// La cible d'un retrofit : les modèles et le registre du pack, les jetons du thème.
+/// La cible d'un retrofit : les profils des packs de layouts, le registre, les jetons du thème.
 #[derive(Debug, Clone)]
 pub struct RetrofitTarget<'a> {
-    /// Les modèles du pack, dans l'ordre du pack.
-    pub templates: &'a [Template],
-    /// Le registre des widgets du pack (widgets de base et du pack).
+    /// Les profils de chaque pack de layouts cible, sous son espace de noms :
+    /// dans l'ordre des packs cibles, puis celui de leur manifeste.
+    pub profiles: &'a [(Namespace, LayoutProfile)],
+    /// Le registre des widgets (`base` et les packs de layouts cibles).
     pub registry: &'a WidgetRegistry,
     /// Les couleurs effectives du thème.
     pub colors: ColorTokens,
     /// Les jetons de page effectifs du thème.
     pub page: PageTokens,
-}
-
-/// Le modèle d'un pack sans modèle : une slide `content` nue.
-fn bare_template() -> Template {
-    Template {
-        id: "content".to_owned(),
-        name: "content".to_owned(),
-        description: String::new(),
-        slide: Slide::new("content", "content"),
-    }
 }
 
 /// Ajoute l'occurrence `item` (rendue par le repli `fallback` sur la slide
@@ -93,16 +85,23 @@ fn request(requests: &mut Vec<WidgetRequest>, item: &Item, fallback: &str, slide
 ///
 /// Échelle : la page source est ramenée dans la page du thème en gardant ses
 /// proportions (`min(largeur / w, hauteur / h)`, soit `1920 / w` pour une
-/// source 16:9). Un pack sans modèle reçoit des slides `content` nues.
+/// source 16:9). Chaque slide prend le layout du profil le mieux noté
+/// (`profile::choose`).
 ///
 /// La couverture (`report.coverage`) est mesurée sur le deck que donnent les
 /// ops appliquées à un deck vide sans thème ni pack embarqué : le thème ne
 /// change pas le contenu, et le registre de la cible suffit à appliquer.
 /// `None` seulement si le cœur refusait le plan.
-pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
-    let bare = [bare_template()];
-    let templates = if target.templates.is_empty() { &bare[..] } else { target.templates };
-    let profiles = template::profiles(templates, target.registry);
+///
+/// # Errors
+///
+/// [`ImportErrorKind::NoProfiles`](crate::ImportErrorKind::NoProfiles) si
+/// les packs cibles ne proposent aucun profil.
+pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> Result<ImportPlan, ImportError> {
+    if target.profiles.is_empty() {
+        return Err(no_profiles());
+    }
+    let profiles = profile::profiles(target.profiles, target.registry);
     let scale = if deck.size.w > 0.0 && deck.size.h > 0.0 {
         (target.page.width / deck.size.w).min(target.page.height / deck.size.h)
     } else {
@@ -158,7 +157,7 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> ImportPlan {
         }
     };
     plan.origins = origins;
-    plan
+    Ok(plan)
 }
 
 #[cfg(test)]

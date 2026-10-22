@@ -4,11 +4,11 @@
 //!
 //! [`import`] lit le `.pptx` (taille vue avant toute lecture, puis lu sur un
 //! fil à pile connue, une panique du lecteur dite comme une erreur),
-//! projette son contenu ([`ImportTarget`] : retrofit sur un pack et un thème
-//! de la bibliothèque, dont le deck crée un pack enfant du deck seul à sa
-//! première écriture d'un widget ([`child_pack`]) ; ou hi-fi sur un pack et
-//! un thème générés, du deck seul ; la bibliothèque n'est jamais touchée),
-//! sonde le pack du deck dans le processus de rendu, puis applique le plan aux
+//! projette son contenu ([`ImportTarget`] : retrofit sur des packs de layouts
+//! et un thème de la bibliothèque, dont les profils guident la projection ;
+//! ou hi-fi sur un pack de layouts (`deck-layouts`) et un thème générés, du
+//! deck seul ; la bibliothèque n'est jamais touchée),
+//! sonde les packs du deck dans le processus de rendu, puis applique le plan aux
 //! sources en une transaction : une seule étape d'historique, que l'annulation
 //! défait d'un coup, validée par les règles ordinaires du cœur.
 //! Le retrofit refuse un thème cible dont les jetons ne se lisent pas : ses
@@ -31,7 +31,6 @@
 //! une estimation précoce du contenu produit, pas une garantie). Rien n'est
 //! écrit : l'appelant enregistre le deck obtenu.
 
-mod child_pack;
 mod diff;
 pub(crate) mod error;
 mod geometry;
@@ -80,7 +79,7 @@ pub use tune_error::{TuneError, TuneErrorKind};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImportMode {
-    /// Contenu projeté sur un pack et un thème existants.
+    /// Contenu projeté sur des packs de layouts et un thème existants.
     Retrofit,
     /// Copie fidèle, sur un pack et un thème générés.
     Hifi,
@@ -88,17 +87,17 @@ pub enum ImportMode {
 
 /// Où va le contenu importé.
 ///
-/// En JSON, étiqueté par `mode` : `{"mode": "retrofit", "pack": …, "theme": …}`
-/// (`theme` facultatif) ou `{"mode": "hifi"}` (le témoin n'en vient jamais : l'hôte le choisit).
+/// En JSON, étiqueté par `mode` : `{"mode": "retrofit", "layouts": […], "theme": …}`
+/// (`layouts` et `theme` facultatifs) ou `{"mode": "hifi"}` (le témoin n'en vient jamais : l'hôte le choisit).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum ImportTarget {
-    /// Sur un pack et un thème de la bibliothèque.
-    ///
-    /// Le pack enfant, du deck seul, vient à la première écriture d'un widget.
+    /// Sur des packs de layouts et un thème de la bibliothèque.
     Retrofit {
-        /// Le pack : son id ou son nom ; aussi son dossier avec [`PackLookup::LibraryOrDir`].
-        pack: String,
+        /// Les packs de layouts, dans l'ordre : chacun son id ou son nom ; aussi son dossier avec
+        /// [`PackLookup::LibraryOrDir`]. Vide : `essentiel`.
+        #[serde(default)]
+        layouts: Vec<String>,
         /// Le thème : son id ou son nom ; `None` : le thème par défaut.
         #[serde(default)]
         theme: Option<String>,
@@ -121,7 +120,7 @@ impl ImportTarget {
     }
 }
 
-/// Où un retrofit cherche son pack cible.
+/// Où un retrofit cherche ses packs cibles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PackLookup {
     /// Dans la bibliothèque seulement, par id ou par nom.
@@ -137,11 +136,11 @@ pub enum PackLookup {
 pub struct ImportRequest {
     /// Le `.pptx` à importer.
     ///
-    /// Son nom de fichier nomme le pack et le thème générés (le pack enfant du retrofit).
+    /// Son nom de fichier nomme le pack et le thème générés (hi-fi).
     pub pptx: PathBuf,
     /// Le mode et sa cible.
     pub target: ImportTarget,
-    /// Où le retrofit cherche son pack ; sans effet en hi-fi.
+    /// Où le retrofit cherche ses packs ; sans effet en hi-fi.
     pub packs: PackLookup,
     /// Hi-fi : chercher aussi les polices de la présentation parmi celles du système.
     pub system_fonts: bool,
@@ -170,8 +169,6 @@ struct Prepared {
     bundle: SourceBundle,
     widgets: ProbedWidgets,
     plan: CheckedPlan,
-    /// Retrofit : le pack enfant à créer à la première écriture d'un widget.
-    child: Option<child_pack::ChildPack>,
 }
 
 /// Importe `request` : lu, projeté, sondé et appliqué en une étape d'historique.
@@ -181,26 +178,26 @@ struct Prepared {
 /// `fonts` : les polices de l'app, celles du rendu (le catalogue du hi-fi en
 /// part ; l'état y ajoute celles du deck). En hi-fi, `[import] score_threshold`
 /// est vérifié avant toute lecture. Rien n'est écrit. Le libellé de l'étape
-/// et le nom du pack enfant sont dans la langue courante de l'interface.
+/// est dans la langue courante de l'interface.
 pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Result<Imported> {
     let threshold = platform.settings.import.score_threshold;
     if matches!(request.target, ImportTarget::Hifi { .. }) {
         snafu::ensure!(threshold.is_finite() && threshold >= 0.0, ThresholdSnafu { value: threshold });
     }
     let input = input::read_input(platform, &request.pptx)?;
-    // Le noyau et le `base` intégré : la cible du hi-fi et le premier replica de l'import.
+    // Les packs intégrés `base` et `essentiel` : la cible du hi-fi et le premier replica de l'import.
     let base = oku_slides_render::builtin_registry(fonts).context(RegistrySnafu)?;
     let name = request.pptx.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
     let prepared = match &request.target {
-        ImportTarget::Retrofit { pack, theme } => {
-            retrofit::prepare(platform, &base, (pack, theme.as_deref(), request.packs), &name, &input)?
+        ImportTarget::Retrofit { layouts, theme } => {
+            retrofit::prepare(platform, &base, (layouts, theme.as_deref(), request.packs), &input)?
         }
         ImportTarget::Hifi { .. } => {
             let args = hifi::HifiArgs { fonts, base: &base, name, system_fonts: request.system_fonts };
             hifi::prepare(platform, args, &input)?
         }
     };
-    let Prepared { mut bundle, widgets, mut plan, child } = prepared;
+    let Prepared { mut bundle, widgets, mut plan } = prepared;
     for asset in plan.assets.values() {
         bundle.add_asset(asset.bytes.clone());
     }
@@ -213,7 +210,7 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
     let fonts = fonts.with(bundle.fonts.values().cloned());
     let limits = tune::TuneLimits::of(&platform.settings.import);
     let mut state = ImportState::new(
-        (request.target.mode(), child),
+        request.target.mode(),
         plan,
         input,
         fonts,

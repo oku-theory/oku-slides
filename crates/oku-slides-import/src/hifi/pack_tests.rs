@@ -16,6 +16,7 @@ use crate::source::{
 use crate::test_support::{
     app_fonts, bullet, fixture, item, layout, office_theme, para, registry, run_style, source_deck, source_slide,
 };
+use oku_slides_core::qualify;
 
 /// Le pack généré pour `deck`, au thème de son master de thème.
 fn generated(deck: &SourceDeck) -> GeneratedPack {
@@ -228,43 +229,59 @@ fn generate_pack_of_fixture_names_are_unique_and_valid() {
 }
 
 #[test]
-fn generated_registry_adds_the_declared_widgets_to_the_base() {
+fn generated_registry_adds_the_declared_widgets_to_the_builtins() {
     let pack = generated(&fixture("kitchen"));
     let base = registry();
     let r = generated_registry(&base, &pack).unwrap();
     assert_that!(r.len()).is_equal_to(base.len() + pack.widgets.len());
     for w in &pack.widgets {
-        let qualified = qualify(&Namespace::deck(), w.name.as_str());
+        let qualified = qualify(&Namespace::deck_layouts(), w.name.as_str());
         let schema = WidgetSchema { name: qualified.clone(), ..w.schema.clone() };
         assert_that!(r.get(&qualified)).is_equal_to(Some(&schema));
     }
-    assert_that!(r.get("blank")).is_equal_to(base.get("blank"));
+    assert_that!(r.get(kinds::essentiel::BLANK)).is_equal_to(base.get(kinds::essentiel::BLANK));
+    assert_that!(r.get(kinds::base::TEXT)).is_equal_to(base.get(kinds::base::TEXT));
 }
 
 #[test]
-fn pack_manifest_has_a_template_per_widget_with_its_example_slide() {
+fn probe_name_of_an_unqualified_registry_widget_is_a_bad_schema() {
+    let w = WidgetSchema { name: "nu".into(), ..registry().get(kinds::essentiel::BLANK).unwrap().clone() };
+    let e = probe_name(&w).unwrap_err();
+    assert_that!((e.kind(), e.widget())).is_equal_to((
+        oku_slides_core::WidgetErrorKind::BadSchema(oku_slides_core::SchemaFault::Unqualified),
+        Some("nu"),
+    ));
+}
+
+#[test]
+fn pack_manifest_examples_are_the_texts_of_the_example_slide() {
     let pack = generated(&synthetic());
     let mut slide = Slide::new("s1", "l2-blank");
     slide.params.set("titre", ParamValue::Rich(vec![oku_slides_core::Paragraph::default()]));
     slide.params.set("pied", ParamValue::Text("Acme".into()));
     slide.params.set("numero", ParamValue::Text(String::new()));
     let id = Uuid::from_u128(7);
-    let m =
-        pack_manifest(&pack, id, "Import", "2026-10-11T08:00:00Z", &BTreeMap::from([("l2".to_owned(), slide.clone())]));
+    let m = pack_manifest(&pack, id, "Import", "2026-10-11T08:00:00Z", &BTreeMap::from([("l2".to_owned(), slide)]));
     assert_that!((m.id, m.name.as_str(), m.parent.is_none())).is_equal_to((id, "Import", true));
-    assert_that!(m.templates.len()).is_equal_to(1);
-    let t = &m.templates[0];
-    assert_that!((t.id.as_str(), t.name.as_str(), &t.slide)).is_equal_to(("l2-blank", "blank", &slide));
     let values = &m.examples[&WidgetFile::parse("l2-blank").unwrap()];
     assert_that!(values.keys().map(String::as_str).collect::<Vec<_>>()).is_equal_to(vec!["pied", "titre"]);
 }
 
 #[test]
-fn pack_manifest_without_example_takes_a_bare_slide() {
+fn pack_manifest_without_example_has_no_values() {
     let pack = generated(&synthetic());
     let m = pack_manifest(&pack, Uuid::from_u128(1), "Import", "2026-10-11T08:00:00Z", &BTreeMap::new());
-    assert_that!(m.templates[0].slide).is_equal_to(Slide::new("l2-blank", "deck/l2-blank"));
     assert_that!(m.examples.is_empty()).is_true();
+}
+
+#[test]
+fn pack_manifest_has_no_templates_and_layouts_files() {
+    let pack = generated(&synthetic());
+    let m = pack_manifest(&pack, Uuid::from_u128(1), "Import", "2026-10-11T08:00:00Z", &BTreeMap::new());
+    let files = m.to_files(PackKind::Layouts, pack.files.clone()).unwrap();
+    assert_that!(files.kind()).is_equal_to(PackKind::Layouts);
+    assert_that!(serde_json::to_value(&m).unwrap().get("templates")).is_none();
+    assert_that!((m.namespace.is_deck_layouts(), m.scope)).is_equal_to((true, PackScope::Deck));
 }
 
 #[test]

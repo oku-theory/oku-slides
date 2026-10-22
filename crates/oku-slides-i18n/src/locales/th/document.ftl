@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = คำแนะนำ: { $hint }
 render-chart-failed = วาดแผนภูมิไม่ได้
 
-registry-bad-pack-id = รหัสชุดเทมเพลตไม่ถูกต้อง: { $id }
-registry-base-pack-broken = แพ็กวิดเจ็ตในตัวเสียหาย ({ $file }) โปรดติดตั้งแอปใหม่
-registry-duplicate-pack = แพ็กวิดเจ็ตสองแพ็กของงานนำเสนอใช้ { $pack } ร่วมกัน
-registry-compile = คอมไพล์วิดเจ็ตของชุดเทมเพลตไม่ได้
-registry-missing = ชุดเทมเพลตไม่ได้ประกาศวิดเจ็ตของตน
+registry-bad-pack-id = รหัสแพ็กไม่ถูกต้อง: { $id }
+registry-base-pack-broken = แพ็กในตัวเสียหาย ({ $file }) โปรดติดตั้งแอปใหม่
+registry-duplicate-pack = สองแพ็กของงานนำเสนอใช้ { $pack } ร่วมกัน
+registry-compile = คอมไพล์วิดเจ็ตของแพ็กไม่ได้
+registry-missing = แพ็กไม่ได้ประกาศวิดเจ็ตของตน
 render-timeout = การเรนเดอร์ใช้เวลานานเกิน { $seconds } วินาทีและถูกหยุด
 render-out-of-memory = การเรนเดอร์ต้องใช้หน่วยความจำเกิน { $mib } MiB และถูกหยุด
 render-worker-lost = กระบวนการเรนเดอร์หยุดทำงาน
@@ -41,6 +41,7 @@ import-not-a-presentation = ไฟล์นี้ไม่ใช่งานน�
 import-protected = งานนำเสนอนี้ถูกเข้ารหัสหรือเป็นรูปแบบ .ppt แบบเก่า: โปรดบันทึกเป็น .pptx ก่อน
 import-too-large = งานนำเสนอนี้ใหญ่เกินกว่าจะนำเข้าได้
 import-output-too-large = งานนำเสนอที่ได้จะมีขนาดเกินกว่าที่อนุญาตสำหรับการนำเข้า
+import-no-profiles = แพ็กเลย์เอาต์ที่เลือกไม่มีโปรไฟล์ให้ใช้
 import-loss-list-levels = ลดระดับรายการเหลือระดับเดียว
 import-loss-merged-cells = แยกเซลล์ที่ผสานไว้
 import-loss-percent-stacked = แสดงแผนภูมิแบบเรียงซ้อน 100% เป็นแบบเรียงซ้อน
@@ -74,7 +75,7 @@ import-loss-hidden-slide = นำเข้าสไลด์ที่ซ่อ�
 import-loss-effects = เงา การสะท้อน และเอฟเฟกต์ 3 มิติหายไป
 import-loss-series-dropped = แผนภูมิวงกลมแสดงได้เพียงชุดข้อมูลเดียว: เก็บไว้ { $kept } ตัดออก { $dropped }
 import-loss-repeated-decor = ละส่วนหัวหรือท้ายกระดาษ “{ $text }” ที่ซ้ำใน { $slides } สไลด์: ธีมวาดของตัวเอง
-import-loss-no-slot = ละเนื้อหา: เทมเพลตที่เลือกไม่มีที่สำหรับเนื้อหานี้
+import-loss-no-slot = ละเนื้อหา: เลย์เอาต์ที่เลือกไม่มีที่สำหรับเนื้อหานี้
 import-loss-moved-to-notes = ย้ายข้อความไปที่บันทึกของผู้บรรยาย: หน้าปกไม่มีที่สำหรับข้อความนี้
 import-loss-items-dropped = สไลด์มีองค์ประกอบมากเกินไป: ละองค์ประกอบ { $dropped } รายการ
 import-loss-page-fitted = หน้าต้นฉบับ { $width } × { $height } pt ไม่ใช่ 16:9: ปรับขนาดเนื้อหาและจัดกึ่งกลางแล้ว
@@ -86,7 +87,7 @@ import-loss-shape-style = { $effect ->
     [arrow] ไม่ได้วาดหัวลูกศรของเส้น
    *[geometry] รูปร่างที่ไม่รู้จักแสดงเป็นสี่เหลี่ยมผืนผ้า
 }
-import-loss-layout-dropped = เลย์เอาต์มากเกินไปสำหรับแพ็กเดียว: “{ $layout }” ไม่มีเทมเพลต สไลด์ของมันใช้วิดเจ็ตว่างและได้รับการตกแต่งเป็นองค์ประกอบ
+import-loss-layout-dropped = เลย์เอาต์มากเกินไปสำหรับแพ็กเดียว: “{ $layout }” ไม่มีวิดเจ็ต สไลด์ของมันใช้วิดเจ็ตว่างและได้รับการตกแต่งเป็นองค์ประกอบ
 import-loss-decor-truncated = ตัดการตกแต่งให้พอดีกับขนาดไฟล์แพ็ก: ละองค์ประกอบ { $omitted } รายการ
 import-loss-table-style = รูปแบบตารางเป็นค่าประมาณ: พื้นหลังเซลล์ เส้นขอบ ความกว้างคอลัมน์ ความสูงแถว หรือขนาดข้อความเฉพาะของตารางหายไป
 import-loss-overflow = องค์ประกอบ “{ $element }” เกินขอบสไลด์

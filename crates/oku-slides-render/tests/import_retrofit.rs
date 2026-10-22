@@ -11,12 +11,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, Op, PackManifest, PackPin, Template, apply_all, kinds};
+use oku_slides_core::{Deck, LayoutProfile, Op, PackManifest, PackPin, apply_all};
 use oku_slides_import::report::LossKind;
 use oku_slides_import::retrofit::{ColorTokens, PageTokens, project};
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{ReadLimits, RetrofitTarget, read_pptx};
-use oku_slides_render::{Fonts, PackSet, Renderer, base_pack_files, base_pack_widgets, load_registry};
+use oku_slides_render::{BuiltinPack, Fonts, Renderer, builtin_pack_set, load_registry};
 use rstest::rstest;
 use serde_json::{Map, Value};
 use speculoos::prelude::*;
@@ -59,17 +59,20 @@ fn pptx(fixture: &str) -> Vec<u8> {
     w.finish().unwrap_or_else(|e| panic!("{e}")).into_inner()
 }
 
-fn templates(pack: &str) -> Vec<Template> {
-    let text = fs::read_to_string(root().join(format!("templates/{pack}/pack.json"))).unwrap_or_else(|e| panic!("{e}"));
+/// Les profils du pack de layouts intégré `pack`, dans l'ordre de son manifeste.
+fn profiles(pack: &str) -> Vec<LayoutProfile> {
+    let path = root().join(format!("typst/oku-slides/packs/{pack}/layouts.json"));
+    let text = fs::read_to_string(path).unwrap_or_else(|e| panic!("{e}"));
     let pack: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
-    serde_json::from_value(pack["templates"].clone()).unwrap_or_else(|e| panic!("{e}"))
+    serde_json::from_value(pack["profiles"].clone()).unwrap_or_else(|e| panic!("{e}"))
 }
 
-/// L'épinglage du pack `base` intégré.
-fn base_pin() -> PackPin {
-    let files = base_pack_files().unwrap_or_else(|e| panic!("{e}"));
+/// L'op qui épingle le pack intégré `pack`, comme la session avant un retrofit.
+fn pin(pack: BuiltinPack) -> Op {
+    let files = pack.files().unwrap_or_else(|e| panic!("{e}"));
     let manifest = PackManifest::from_files(&files).unwrap_or_else(|e| panic!("{e}"));
-    PackPin { id: manifest.id, version: files.version(), requires: vec![] }
+    let pin = PackPin { id: manifest.id, version: files.version(), requires: manifest.requires };
+    Op::AddPack { kind: pack.kind(), namespace: pack.namespace(), pin }
 }
 
 /// Les jetons effectifs du thème intégré `theme` : les défauts, puis les siens.
@@ -88,16 +91,17 @@ fn import_retrofit_flow_blocks_stay_in_the_body_zone_or_are_reported(
 ) {
     let source: SourceDeck = read_pptx(&pptx(fixture), &ReadLimits::default()).unwrap_or_else(|e| panic!("{e}"));
     let fonts = Fonts::default();
-    // Le registre du deck importé : le noyau et le pack `base`, que la session épingle avant un retrofit.
-    let set =
-        PackSet::new(vec![base_pack_widgets().unwrap_or_else(|e| panic!("{e}"))]).unwrap_or_else(|e| panic!("{e}"));
+    // Le registre du deck importé : les packs `base` et `essentiel`, que la session épingle avant un retrofit.
+    let set = builtin_pack_set().unwrap_or_else(|e| panic!("{e}"));
     let registry = Arc::new(load_registry(&fonts, &set).unwrap_or_else(|e| panic!("{e}")));
-    let (templates, tokens) = (templates("essentiel"), tokens(theme));
+    let ns = BuiltinPack::Essentiel.namespace();
+    let profiles: Vec<_> = profiles("essentiel").into_iter().map(|p| (ns.clone(), p)).collect();
+    let tokens = tokens(theme);
     let page = PageTokens::from_tokens(&tokens);
     let target =
-        RetrofitTarget { templates: &templates, registry: &registry, colors: ColorTokens::from_tokens(&tokens), page };
-    let plan = project(&source, &target);
-    let mut ops = vec![Op::AddPack { namespace: kinds::base::namespace(), pin: base_pin() }];
+        RetrofitTarget { profiles: &profiles, registry: &registry, colors: ColorTokens::from_tokens(&tokens), page };
+    let plan = project(&source, &target).unwrap_or_else(|e| panic!("{e}"));
+    let mut ops = vec![pin(BuiltinPack::Base), pin(BuiltinPack::Essentiel)];
     ops.extend(plan.ops.clone());
     let mut deck = Deck::empty();
     apply_all(&mut deck, ops, &registry).unwrap_or_else(|e| panic!("{e:?}"));

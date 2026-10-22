@@ -28,7 +28,8 @@ fn apply(deck: &mut Deck, op: Op) -> Result<(), OpError> {
 }
 
 fn deck_with_chart() -> Deck {
-    let mut deck = Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#).unwrap_or_else(|e| panic!("{e}"));
+    let mut deck =
+        Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#).unwrap_or_else(|e| panic!("{e}"));
     let option = json!({
         "dataset": { "source": [["Mois", "Ventes", "Objectif"], ["Jan", 10, 12], ["Fév", 14, 12]] },
         "xAxis": { "type": "category" },
@@ -196,7 +197,7 @@ fn set_data_cell_that_adds_a_column_aligns_the_series() {
 
 #[test]
 fn set_data_on_inline_chart_without_dataset_is_invalid_value() {
-    let mut deck = Deck::from_json(r#"{"slides":[{"id":"s","kind":"content"}]}"#).unwrap();
+    let mut deck = Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#).unwrap();
     let inline = chart("g", json!({ "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }] }));
     apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: inline }).unwrap();
     let err = apply(&mut deck, data(DataOp::RemoveRow { at: 1 })).unwrap_err();

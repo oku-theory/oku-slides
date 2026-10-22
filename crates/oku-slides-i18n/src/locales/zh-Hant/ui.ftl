@@ -4,23 +4,30 @@ ui-loading = 載入中…
 ## 文件
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · 範本
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · 版面配置套件
+   *[other] { $name } · 小工具套件
+}
 ui-title-rename = 重新命名簡報
 ui-title-field = 簡報標題
 ui-status-unsaved = 有未儲存的變更
 ui-status-saved = 已儲存
 ui-status-never-saved = 尚未儲存
-ui-caption-templates = { $count ->
-    [one] { $count }個範本
-   *[other] { $count }個範本
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count }個版面配置
+       *[other] { $count }個版面配置
+    }
+   *[other] { $count ->
+        [one] { $count }個小工具
+       *[other] { $count }個小工具
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count }張投影片
    *[other] { $count }張投影片
 } · { $status }
-ui-template-default-name = 範本
-ui-template-variant-name = { $name }（變體）
-ui-confirm-quit-templates = 要結束而不儲存已修改的範本嗎？
+ui-confirm-quit-pack = 要結束而不儲存已修改的套件嗎？
 
 ## 通知
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = 主題
 ui-toolbar-theme-embedded = 檔案主題
 ui-toolbar-theme-deck-group = 此簡報
 ui-toolbar-finish = 完成
-ui-templates-deck-only = 僅儲存在此簡報中
+ui-pack-deck-only = 僅儲存在此簡報中
 ui-toolbar-open = 開啟
 ui-menu = 選單
 ui-toolbar-add-label = 新增至投影片
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] 資料表
    *[text] 一段文字
 }
-ui-toolbar-remove-template = 刪除範本
 ui-toolbar-remove-slide = 刪除投影片
 ui-toolbar-remove-hint = 投影片 { $n } · 按 ⌘Z 還原
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] 新增文字
 }
 ui-undo-add-widget = 新增「{ $name }」
-ui-undo-new-template = 新範本：{ $name }
 ui-undo-new-slide = 新投影片：{ $name }
-ui-undo-templates = 範本：{ $name }
-ui-undo-move-template = 移動範本
 ui-undo-move-slide = 移動投影片
 ui-undo-remove-slide = 刪除投影片
 ui-undo-remove = 刪除
@@ -89,7 +92,7 @@ ui-undo-change-anchor = 變更錨定
 ui-undo-move = 移動
 ui-undo-resize = 調整大小
 ui-undo-edit-slide = 編輯投影片
-ui-undo-rename-set = 重新命名範本集
+ui-undo-rename-pack = 重新命名套件
 ui-undo-rename-deck = 重新命名簡報
 ui-undo-chart-kind = 變更圖表類型
 ui-undo-chart-data = 編輯資料
@@ -108,15 +111,15 @@ ui-new-card-detail = 詳細資訊
 ## 投影片列表
 
 ui-pile-slides = 投影片
-ui-pile-templates = 範本
+ui-pile-layouts = 版面配置
 ui-pile-add-slide = + 新投影片
-ui-pile-add-template = + 新範本
 ui-pile-drag-hint = 拖曳以移動 · ⌥↑ ⌥↓
 ui-slide-alt = 投影片 { $n }
 
 ## 舞台
 
 ui-stage-rendering = 渲染中…
+ui-stage-widget-pack = 從堆疊中開啟一個小工具，或建立新的。
 ui-stage-elements = 投影片元素
 ui-stage-fields = 投影片欄位
 ui-stage-edit-text = 編輯文字
@@ -238,15 +241,11 @@ ui-size-mb = { $value } MB
 ## 範本選擇器
 
 ui-picker-new-slide = 新投影片
-ui-picker-new-template = 新範本，根據…
-ui-picker-set = 範本
 ui-picker-set-mine = { $name } · 我的
 ui-picker-set-received = { $name } · 收到的
 ui-picker-keys = ← → 瀏覽 · Enter 新增 · Esc 關閉
 ui-picker-close = 關閉
-ui-picker-previous = 上一個範本
-ui-picker-next = 下一個範本
-ui-picker-list = 投影片範本
+ui-picker-list = 版面配置
 ui-widget-picker-filter = 依名稱、標籤或說明篩選
 ui-widget-picker-empty = 沒有符合「{ $query }」的小工具。
 ui-widget-picker-list = 小工具
@@ -319,7 +318,7 @@ ui-tabs = 已開啟的簡報
 ui-tab-new = 新增分頁
 ui-tab-close = 關閉分頁
 ui-tab-unsaved = 未儲存的變更
-ui-tab-templates = 範本
+ui-tab-pack = 套件
 ui-tab-move-new-window = 移至新視窗
 ui-tab-move-to = 移至視窗 { $n }
 ui-tab-close-others = 關閉其他分頁
@@ -374,8 +373,8 @@ ui-widgets-open = 開啟小工具 { $name }
 ui-widgets-delete-named = 刪除 { $name }
 ui-widgets-confirm-delete = 刪除小工具「{ $name }」?
 ui-widgets-rename-hint = 按兩下或按 F2 重新命名
-ui-widgets-tabs = 範本分頁
-ui-widgets-templates-tab = 範本
+ui-pack-tabs = 套件分頁
+ui-pack-layouts-tab = 版面配置
 ui-theme-tab = 主題
 ui-theme-picker = 主題
 ui-theme-name = 主題名稱
@@ -388,14 +387,15 @@ ui-widgets-removed-by-agent = AI 代理刪除了小工具 { $name }。
 ui-import-title = 匯入 PowerPoint 簡報
 ui-import-mode = 匯入方式
 ui-import-hifi = 忠實副本
-ui-import-hifi-note = 保留原稿的外觀，使用為此簡報產生的主題和範本。
-ui-import-retrofit = 使用我的範本
-ui-import-retrofit-note = 以資料庫中的範本和主題重建投影片。
+ui-import-hifi-note = 保留原稿的外觀，使用為此簡報產生的主題和版面配置。
+ui-import-retrofit = 使用我的版面配置
+ui-import-retrofit-note = 以資料庫中的版面配置套件和主題重建投影片。
+ui-import-layout-packs = 版面配置套件
 ui-import-theme-default = 預設主題
-ui-import-no-packs = 資料庫中沒有範本組。
+ui-import-no-packs = 資料庫中沒有版面配置套件。
 ui-import-tune = 由 AI 代理微調
 ui-import-tune-note = AI 代理會將每張投影片與原稿比較並修正差異。
-ui-import-tune-note-retrofit = AI 代理會將每張投影片與原稿比較，並為範本無法呈現的形狀設計小工具。
+ui-import-tune-note-retrofit = AI 代理會將每張投影片與原稿比較，並為版面配置無法呈現的形狀設計小工具。
 ui-import-tune-unavailable = 沒有可用的 AI 代理：{ $reason }
 ui-import-submit = 匯入
 ui-import-busy = 正在匯入…

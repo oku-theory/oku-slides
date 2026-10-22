@@ -54,7 +54,7 @@ impl Session {
     fn turn_deck_steps(&self) -> u64 {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } => self.doc.sources.undo_steps(),
-            Mode::Templates { stash, .. } | Mode::History { stash, .. } => stash.sources.undo_steps(),
+            Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash.sources.undo_steps(),
         }
     }
 
@@ -74,7 +74,7 @@ impl Session {
 
     /// Le tour de l'agent dont l'étape est au sommet de la pile d'annulation du deck.
     ///
-    /// `None` hors du mode deck : les modèles et l'historique ont leur propre annuler.
+    /// `None` hors du mode deck : le mode pack et l'historique ont leur propre annuler.
     pub fn undo_turn(&self) -> Option<u32> {
         if !matches!(self.mode, Mode::Deck) {
             return None;

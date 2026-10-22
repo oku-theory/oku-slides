@@ -269,20 +269,20 @@ fn close_edited_tab_without_discard_returns_unsaved_and_keeps_it() {
     assert_that!(w.tabs[0].info.dirty).is_true();
 }
 
-/// Seul l'ensemble de modèles en cours est modifié : c'est du travail aussi.
+/// Seul le pack en cours d'édition est modifié : c'est du travail aussi.
 #[test]
-fn close_tab_with_only_edited_templates_returns_unsaved() {
+fn close_tab_with_only_edited_pack_returns_unsaved() {
     let data = Data::new();
     let ws = workspace_on(&data.0);
-    let edit: Request = serde_json::from_value(json!({"cmd": "edit_templates", "set": crate::DEFAULT_PACK})).unwrap();
+    let edit: Request = serde_json::from_value(json!({"cmd": "edit_pack", "pack": crate::ESSENTIEL_PACK})).unwrap();
     Workspace::request(&ws, "t-1", edit).0.unwrap();
     let first =
         Workspace::lock(&ws).session("t-1").unwrap().lock().unwrap().ready().unwrap().deck().slides[0].id.clone();
-    let remove: Request = serde_json::from_value(
-        json!({"cmd": "apply", "label": "Retirer", "ops": [{"op": "remove_slide", "slide": first}]}),
+    let notes: Request = serde_json::from_value(
+        json!({"cmd": "apply", "label": "Noter", "ops": [{"op": "set_notes", "slide": first, "notes": "Changé"}]}),
     )
     .unwrap();
-    Workspace::request(&ws, "t-1", remove).0.unwrap();
+    Workspace::request(&ws, "t-1", notes).0.unwrap();
     let err = apply_ws(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::Unsaved);
 }
@@ -762,7 +762,8 @@ fn view_generation_of_a_reply_is_newer_than_an_earlier_view() {
 fn slot_closed_while_dormant_refuses_to_wake_and_writes_nothing() {
     let data = Data::new();
     let dir = data.0.join("tabs/t-9");
-    let dormant = Dormant { dir: dir.clone(), fonts: Fonts::default(), platform: workspace_platform(&data.0) };
+    let platform = workspace_platform(&data.0);
+    let dormant = Dormant { dir: dir.clone(), title: "t-9".into(), fonts: Fonts::default(), platform };
     let mut slot = Slot::Dormant(Box::new(dormant));
     slot.stop_resume("t-9");
     let err = slot.ready().err().map(|e| e.kind());

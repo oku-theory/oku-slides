@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::{Fonts, Renderer};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -17,7 +17,7 @@ fn deck_with_one_chart() -> Deck {
         "series": [{ "type": "bar" }]
     });
     serde_json::from_value(json!({ "slides": [
-        { "id": "libre", "kind": "blank", "params": {
+        { "id": "libre", "kind": essentiel::BLANK, "params": {
           "elements": [{ "id": "g", "kind": base::CHART, "params": { "option": option },
                          "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] } }
     ] }))

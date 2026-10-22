@@ -1,19 +1,24 @@
-// Réglages du modèle au dock de l'agent (surface A2UI) : renommer un modèle et changer sa grille, puis annuler.
+// Atelier d'un pack de layouts (mode pack) : la grille de `layout-blank` changée par la carte de la
+// slide (son exemple), enregistrée dans un nouveau pack, se retrouve en le rouvrant. L'atelier se
+// demande à l'agent (t-988). Au passage : pas de sous-onglet
+// « Modèles » (sa scène est l'onglet « Layouts »), une miniature ramène la scène, l'onglet « Thème »
+// montre les jetons à droite.
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (serveur neuf, port 4872).
 // À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { openAtelier } = require('./lib/atelier.cjs');
-const { untilValue } = require('./lib/until.cjs');
+const { post } = require('./lib/http.cjs');
+const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-// Modèle « libre » (6e) : sans blocs, il a une carte de grille (les blocs n'en ont pas, t-292).
-const LIBRE = 5;
-const state = (p) => p.evaluate((LIBRE) => ({
-  cards: document.querySelectorAll('[data-surface-id="host-template"]').length,
-  name: document.querySelector('[data-surface-id="host-template"] input')?.value,
-  grid: [...document.querySelectorAll('[data-surface-id="host-template"] .stepper-value')].map((e) => Number(e.textContent)),
-  thumb: document.querySelectorAll('.thumb')[LIBRE]?.parentElement?.innerText,
-}), LIBRE);
+const TAB = 't-1';
+const api = (p, req) => post(p, '/api', { tab: TAB, req });
+const TARGET = '.settings-band [data-surface-id="host-target"]';
+const thumb = (name) => `.thumb:has(.thumb-name:text-is("${name}"))`;
+/** Valeurs des steppers de la carte de la slide (colonnes, lignes de sa grille). */
+const grid = (p) => p.evaluate((sel) => [...document.querySelectorAll(`${sel} .stepper-value`)].map((e) => Number(e.textContent)), TARGET);
+const stageHidden = (p) => p.evaluate(() => document.getElementById('stage-panel').hidden);
+
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
@@ -22,83 +27,79 @@ const state = (p) => p.evaluate((LIBRE) => ({
   p.on('dialog', (d) => d.accept());
   await p.goto(URL);
   await p.waitForSelector('.stage img');
-  // Hors des modèles, aucune carte.
-  assert.equal((await state(p)).cards, 0);
-  // Les modèles s'ouvrent en les demandant à l'agent (t-988).
+
+  // 1. L'atelier s'ouvre en le demandant à l'agent (t-988), sur Essentiel (pack de layouts épinglé par le deck).
   await openAtelier(p);
-  await p.waitForSelector('[data-surface-id="host-template"]');
-  // Sous la slide qu'ils règlent, pas au dock de l'agent.
-  assert.equal(await p.locator('.templates-panel [data-surface-id="host-template"]').count(), 1);
-  assert.equal(await p.locator('.notes [data-surface-id="host-template"]').count(), 0);
-  await p.click(`.thumb >> nth=${LIBRE}`);
-  await p.waitForSelector('[data-surface-id="host-template"] .stepper-value');
-  const before = await state(p);
-  assert.equal(before.cards, 1);
-  // Renommer : la vignette suit, l'annulation porte le libellé.
-  await p.locator('[data-surface-id="host-template"] input').first().fill('Texte A2UI');
-  await p.keyboard.press('Enter');
-  await untilValue(p, () => state(p), (s) => /Texte A2UI/.test(s.thumb), 'la vignette ne suit pas le nouveau nom');
-  // Une colonne de moins.
-  await p.getByRole('button', { name: 'Colonnes : une de moins' }).click();
-  const fewer = JSON.stringify([before.grid[0] - 1, before.grid[1]]);
-  await untilValue(p, () => state(p), (s) => JSON.stringify(s.grid) === fewer, 'la grille ne perd pas une colonne');
-  // Deux annulations, dès le clic sur le stepper (le bouton garde le focus) : la grille revient,
-  // puis le nom.
-  await p.keyboard.press('Control+z');
-  const regrid = await untilValue(p, () => state(p), (s) => JSON.stringify(s.grid) === JSON.stringify(before.grid), 'première annulation : la grille ne revient pas');
-  assert.equal(regrid.name, 'Texte A2UI', 'la première annulation a défait le renommage');
-  await p.keyboard.press('Control+z');
-  await untilValue(
-    p,
-    () => state(p),
-    (s) => s.name === before.name && JSON.stringify(s.grid) === JSON.stringify(before.grid),
-    'seconde annulation : le nom ne revient pas (ou la grille a changé)',
-  );
-  // Un widget ouvert, une miniature cliquée : retour au sous-onglet Modèles, sur ce modèle.
-  const panelHidden = () => p.evaluate(() => document.getElementById('templates-panel').hidden);
-  // Créé, il s'ouvre dans son sous-onglet.
+  await until(p, async () => (await api(p, { cmd: 'snapshot' })).editing?.kind === 'layouts', "l'atelier ne s'ouvre pas sur un pack de layouts");
+  const essentiel = (await api(p, { cmd: 'snapshot' })).editing.pack;
+  await p.waitForSelector(thumb('blank'));
+  assert.equal(await p.getByRole('tab', { name: 'Modèles', exact: true }).count(), 0, 'plus de sous-onglet Modèles');
+  assert.equal(await p.getByRole('button', { name: /Nouvelle slide/ }).count(), 0, "pas d'ajout de slide en mode pack");
+  assert.equal(await p.locator('.thumb-remove').count(), 0, 'pas de suppression de slide en mode pack');
+
+  // Un widget ouvert, une miniature cliquée : la scène revient, sur cette slide.
   await p.click('.pile-widgets .pile-section-head .token');
   await p.fill('.pile-widgets-name .select', 'essai-pile');
   await p.keyboard.press('Enter');
   await p.waitForSelector('.widget-tab:not([hidden])');
-  assert.equal(await panelHidden(), true);
-  await p.click('.thumb >> nth=0');
-  await untilValue(p, panelHidden, (hidden) => hidden === false, 'le sous-onglet Modèles ne revient pas');
-  assert.equal(await p.locator('.thumb >> nth=0').getAttribute('aria-current'), 'true');
+  assert.equal(await stageHidden(p), true);
+  await p.click(thumb('title'));
+  await untilValue(p, () => stageHidden(p), (hidden) => hidden === false, 'la scène ne revient pas');
+  assert.equal(await p.locator(thumb('title')).getAttribute('aria-current'), 'true');
   await p.click('.pile-widgets-row:has-text("essai-pile") .pile-widgets-remove');
   await p.waitForSelector('.pile-widgets-row:has-text("essai-pile")', { state: 'detached' });
-  // Onglet « Thème » : les jetons à droite, à la place du fil ; aucun réglage du modèle sous la scène.
+
+  // Onglet « Thème » : les jetons à droite, à la place du fil ; une miniature cliquée le garde.
   await p.getByRole('tab', { name: 'Thème', exact: true }).click();
   await p.waitForSelector('#theme-panel [data-surface-id="host-theme"] .a2ui-disclosure');
   assert.equal(await p.locator('.notes #theme-panel').count(), 1);
-  assert.equal(await p.locator('[data-surface-id="host-template"]').count(), 0);
-  assert.equal(await panelHidden(), false);
-  assert.equal(await p.getByRole('combobox', { name: 'Thème' }).inputValue(), '2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31');
-  // Le filtre de la surface est relu par la session : moins de sections, toutes dépliées.
-  const sections = () => p.locator('[data-surface-id="host-theme"] .a2ui-disclosure').count();
-  const all = await sections();
-  await p.locator('[data-surface-id="host-theme"] input').first().fill('accent');
-  await p.keyboard.press('Enter');
-  await p.waitForFunction((n) => document.querySelectorAll('[data-surface-id="host-theme"] .a2ui-disclosure').length < n, all);
-  // Une miniature cliquée garde l'onglet « Thème ».
-  await p.click('.thumb >> nth=1');
-  // Point de synchronisation : le clic a bien été traité (la miniature est la courante).
-  await untilValue(p, () => p.locator('.thumb >> nth=1').getAttribute('aria-current'), (v) => v === 'true', 'la miniature cliquée ne devient pas la courante');
-  // négatif : un retour fautif au sous-onglet Modèles aurait le temps d'arriver.
+  assert.equal(await stageHidden(p), false);
+  await p.click(thumb('blank'));
+  await untilValue(p, () => p.locator(thumb('blank')).getAttribute('aria-current'), (v) => v === 'true', 'la miniature cliquée ne devient pas la courante');
+  // négatif : un retour fautif à la scène seule aurait le temps d'arriver.
   await p.waitForTimeout(300);
   assert.equal(await p.getByRole('tab', { name: 'Thème', exact: true }).getAttribute('aria-selected'), 'true');
-  // Le menu ⋯ du mode modèles n'offre que l'aide : le reste se demande à l'agent (t-988).
+  // Le menu ⋯ du mode pack n'offre que l'aide : le reste se demande à l'agent (t-988).
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.waitForSelector('[role="menu"]');
   assert.deepEqual(await p.locator('[role="menu"] [role="menuitem"] > span').allTextContents(), ['Aide']);
   await p.keyboard.press('Escape');
-  await p.getByRole('tab', { name: 'Modèles', exact: true }).click();
-  await p.waitForSelector('.templates-panel [data-surface-id="host-template"]');
-  assert.equal(await p.locator('#theme-panel').count(), 0);
-  // En quittant les modèles, les cartes disparaissent.
+  // Retour à la scène par l'onglet « Layouts » : le Thème rend la colonne de droite.
+  await p.getByRole('tab', { name: 'Layouts', exact: true }).click();
+  await p.waitForSelector('#theme-panel', { state: 'detached' });
+
+  // 2-3. La slide `layout-blank` : sa grille passe à 4 colonnes par la carte de la slide (son exemple).
+  await p.click(thumb('blank'));
+  await p.waitForSelector(`${TARGET} .stepper-value`);
+  const rows = (await grid(p))[1];
+  const fewer = p.locator(TARGET).getByRole('button', { name: 'Colonnes : une de moins' });
+  for (let cols = (await grid(p))[0]; cols > 4; cols--) {
+    await fewer.click();
+    await untilValue(p, () => grid(p), (g) => g[0] === cols - 1, `la grille ne passe pas à ${cols - 1} colonnes`);
+  }
+  assert.deepEqual(await grid(p), [4, rows]);
+
+  // 4. Enregistrer une copie (plus au menu : l'agent, outil `save_pack`, t-988 ; ici par la session) :
+  // un nouveau pack, que l'atelier édite désormais.
+  await api(p, { cmd: 'save_pack', as_new: true });
+  const copy = await untilValue(p, async () => (await api(p, { cmd: 'snapshot' })).editing, (e) => !!e && e.pack !== essentiel && !e.builtin, "la copie n'est pas éditée");
+
+  // 5. Terminer.
   await p.getByRole('button', { name: 'Terminer' }).click();
-  await untilValue(p, () => state(p), (s) => s.cards === 0, 'les cartes ne disparaissent pas hors des modèles');
+  await until(p, async () => (await api(p, { cmd: 'snapshot' })).editing === null, "l'atelier ne se ferme pas");
+  await p.waitForSelector('.stage img');
+
+  // 6. Rouvrir le nouveau pack (aucun deck ne l'épingle : par la session), puis recharger la page.
+  const reopened = await api(p, { cmd: 'edit_pack', pack: copy.pack });
+  assert.equal(reopened.editing?.pack, copy.pack, `le nouveau pack ne se rouvre pas : ${JSON.stringify(reopened).slice(0, 200)}`);
+  await p.reload();
+
+  // 7. `layout-blank` garde ses 4 colonnes.
+  await p.click(thumb('blank'));
+  await untilValue(p, () => grid(p), (g) => g[0] === 4 && g[1] === rows, 'la grille de layout-blank ne garde pas ses 4 colonnes');
+  await p.getByRole('button', { name: 'Terminer' }).click();
+  await until(p, async () => (await api(p, { cmd: 'snapshot' })).editing === null, "l'atelier rouvert ne se ferme pas");
   assert.deepEqual(errors, []);
-  console.log('réglages du modèle ok');
+  console.log('atelier de layouts ok');
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });

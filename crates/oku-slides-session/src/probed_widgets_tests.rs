@@ -91,7 +91,8 @@ fn pins_of(entries: &[(&str, &[&str])]) -> BTreeMap<Namespace, PackPin> {
 
 fn widgets_of(ns: &str) -> PackWidgets {
     let files = crate::test_support::widget_files(&[("quote", QUOTE)]);
-    PackWidgets::new(format!("id-{ns}"), crate::test_support::ns(ns), files).unwrap()
+    PackWidgets::new(format!("id-{ns}"), crate::test_support::ns(ns), oku_slides_core::PackKind::Widgets, files)
+        .unwrap()
 }
 
 /// Les ensembles essayés par un assemblage, par leurs espaces de noms.
@@ -154,14 +155,15 @@ fn assemble_each_with_no_pack_assembling_has_no_registry() {
 /// Les fichiers d'un pack `namespace` qui requiert `requires`, au widget `quote`.
 fn pack_files(namespace: &str, requires: &[&str]) -> (PackPin, PackFiles) {
     let m = crate::test_support::manifest_ns(uuid::Uuid::new_v4(), namespace, requires);
-    let files = m.to_files(crate::test_support::widget_files(&[("quote", QUOTE)])).unwrap();
+    let files =
+        m.to_files(oku_slides_core::PackKind::Widgets, crate::test_support::widget_files(&[("quote", QUOTE)])).unwrap();
     (PackPin { id: m.id, version: files.version(), requires: m.requires.clone() }, files)
 }
 
 fn probe_of(pins: BTreeMap<Namespace, PackPin>, packs: Vec<PackFiles>) -> ProbedWidgets {
     let data = crate::test_support::fresh_dir("oku-slides-probed-");
     let platform = crate::test_support::workspace_platform(data.path());
-    let base = oku_slides_render::core_registry(&Fonts::default()).unwrap();
+    let base = std::sync::Arc::default();
     let mut deck = Deck::empty();
     deck.widgets = pins;
     let packs = packs.into_iter().map(|f| (f.version(), f)).collect();

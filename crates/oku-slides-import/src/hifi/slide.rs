@@ -4,11 +4,11 @@
 //!
 //! | Source | Slide Oku |
 //! |---|---|
-//! | layout | `kind` = son widget généré ; sans layout lisible, `blank` (la base) |
+//! | layout | `kind` = son widget généré (`deck-layouts/…`) ; sans layout lisible, `essentiel/blank` |
 //! | placeholder de texte du layout, à sa boîte, sans fond ni trait | le paramètre du placeholder : `rich` sur le style du placeholder de layout, `plain` (date, pied, numéro ; `{n}` pour le champ numéro) |
 //! | autre item (placeholder déplacé, rempli ou sans paramètre compris) | éléments de `extras` ([`super::element`]), dans l'ordre de dessin |
 //! | fond propre (autre que celui du layout) | premier élément de `extras` : une forme `rect` (ou une image) sur toute la page |
-//! | layout sans widget (bornes du pack) | `blank` ; fond hérité, décor du master (s'il est montré) et du layout en premiers éléments de `extras` |
+//! | layout sans widget (bornes du pack) | `essentiel/blank` ; fond hérité, décor du master (s'il est montré) et du layout en premiers éléments de `extras` |
 //! | décor du layout masqué (`showMasterSp="0"`) | `decor` à faux |
 //! | slide masquée | perte `HiddenSlide` : le cœur n'a pas de slide masquée |
 //! | notes | notes |
@@ -18,7 +18,7 @@
 
 use std::collections::BTreeSet;
 
-use oku_slides_core::{Namespace, ParamType, ParamValue, Slide, SlotMode, WidgetRegistry, qualify};
+use oku_slides_core::{Namespace, ParamType, ParamValue, Slide, SlotMode, WidgetRegistry, kinds, qualify};
 
 use super::element::{ElementCtx, elements};
 use super::element_text::placeholder_text;
@@ -31,8 +31,6 @@ use crate::source::{
     Fill, Frame, Geometry, Item, ItemKind, Layout, Placeholder, SLIDE_NUMBER, Shape, SourceDeck, SourceSlide, TextBox,
 };
 
-/// Widget de base d'une slide sans layout lisible.
-pub(super) const BLANK: &str = "blank";
 /// Écart (pt source) sous lequel un placeholder de slide est à la boîte de son placeholder de layout.
 const SAME_BOX: f64 = 0.5;
 
@@ -60,7 +58,7 @@ pub(super) struct SlideCx<'a> {
     pub(super) deck: &'a SourceDeck,
     /// Le pack généré.
     pub(super) pack: &'a GeneratedPack,
-    /// Le registre déclaré (base et pack).
+    /// Le registre déclaré (packs intégrés et pack généré).
     pub(super) registry: &'a WidgetRegistry,
     /// Le contexte des éléments.
     pub(super) elements: ElementCtx<'a>,
@@ -71,7 +69,8 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
     let id = format!("s{}", src.number);
     let layout = src.layout.as_deref().and_then(|l| cx.deck.layouts.iter().find(|x| x.id == l));
     let widget = layout.and_then(|l| cx.pack.widget(&l.id));
-    let kind = widget.map_or_else(|| BLANK.to_owned(), |w| qualify(&Namespace::deck(), w.name.as_str()));
+    let kind = widget
+        .map_or_else(|| kinds::essentiel::BLANK.to_owned(), |w| qualify(&Namespace::deck_layouts(), w.name.as_str()));
     let mut slide = Slide::new(id.clone(), &kind);
     let mut out = Out {
         id: id.clone(),
@@ -129,7 +128,7 @@ pub(super) fn project_slide(src: &SourceSlide, cx: &SlideCx<'_>) -> Projected {
     let report = SlideReport {
         source: src.number,
         slide: id,
-        template: kind,
+        profile: kind,
         placement: Placement::Free,
         losses,
         fallbacks: Vec::new(),

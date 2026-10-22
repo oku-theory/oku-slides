@@ -66,13 +66,17 @@ All three share a trunk: `id` (UUID), `namespace`, content-addressed versions (s
   (`CrossPackImport`). A layout reaches another pack's widget through the registry in `ctx`.
 - Templates (pre-filled slides) no longer exist: `Template`, `PackManifest.templates` and the
   template metadata of `Slide` are deleted. A layout's defaults and `examples` replace them.
+  (Revised by the lot 3 plan: a layout manifest also declares `profiles`, named presets of one of
+  its layouts with fit hints, that the retrofit import scores across every target layout pack; a
+  pack's kind fixes its widgets' category, a file of the other category is dropped at the probe;
+  `deck-layouts` is reserved for the deck's own layout pack, as `deck` is for its widget pack.)
 
 ### Built-in packs
 
 | Namespace | Kind | Content | Requires / extends |
 |---|---|---|---|
 | `base` | widgets | `text`, `image`, `card`, `shape`, `chart`, `table`, `stack` | — |
-| `essentiel` | layouts | `title`, `content`, `chapter`, `toc`, `end`, `blank` | requires `base` |
+| `essentiel` | layouts | `title`, `content`, `chapter`, `toc`, `end`, `blank` (new id in lot 3) | requires `base` |
 | `pro`, `papier` | themes | today's global tokens, without `component.*` | — |
 
 Grilles is deleted. (Revised by the lot 2 plan: no `citation` widget exists — `citation` is an Essentiel
@@ -86,7 +90,9 @@ now in `default-tokens.json` and the themes move to the pack owning the componen
 `namespace → PackPin { id, version, requires }`, and `layouts` follows the same shape in lot 3):
 
 - `layouts: Vec<PackRef>` and `widgets: Vec<PackRef>`, sorted by namespace in canonical form,
-  at most one version per namespace;
+  at most one version per namespace (revised by the lot 3 plan: `layouts` is a map of `PackPin`s
+  like `widgets`; `requires` of either kind names widget namespaces; a namespace pinned under one
+  kind is refused under the other with `PackKindConflict`);
 - `theme: ThemeRef` and every ancestor theme reachable through `extends`, embedded.
 
 `deck.tokens` (the deck's own token overrides, edited by `SetToken`, `UnsetToken`, `SetTokens`)
@@ -107,7 +113,8 @@ whose name is not in that pack.
 **Ops.** `Op::SetTemplates` is replaced by `Op::AddPack { kind, pack }` (adds or replaces the
 version of that namespace, plus missing requirements) and `Op::RemovePack { kind, namespace }`,
 refused with `PackRequired { by }` when another embedded pack requires it and with
-`PackInUse { elements }` while an element or slide uses one of its widgets. `Op::SetTheme`
+`PackInUse { elements }` while an element or slide uses one of its widgets. (Revised by the lot 3
+plan: `AddPack` and `RemovePack` carry `kind: widgets | layouts`.) `Op::SetTheme`
 embeds the `extends` graph. All go through the replica like today's ops, with one undo step
 each.
 
@@ -156,7 +163,9 @@ removed: there is no base registry any more.
 
 ## 6. Consumers
 
-- **Import** builds decks on `essentiel` + `base`. Every widget name it emits comes from one
+- **Import** builds decks on `essentiel` + `base` (revised by the lot 3 plan: the retrofit targets
+  one or more layout packs, default `essentiel`, and scores their `profiles`; it has no child pack;
+  the hi-fi import puts its generated slide widgets in a deck-only `deck-layouts` layout pack). Every widget name it emits comes from one
   constants module (`base/card`, `base/shape`, `base/stack`, `base/table`, `base/chart`,
   `essentiel/content`…); `place.rs` and `measure.rs` stop matching bare names. The generated
   theme becomes `deck.tokens` on a built-in theme instead of a deck-only theme, so deck-only
@@ -165,6 +174,10 @@ removed: there is no base registry any more.
 - **Agent (MCP)**: the widget and layout catalogue is grouped by pack with qualified kinds; new
   tools `add_pack` / `remove_pack` map to the ops; the widget-writing tools target a layout or
   widget pack namespace; the receipt (`receipt.rs`) and prompts use qualified names.
+- **Pack mode** (lot 3 plan): templates mode becomes pack mode; a layout pack's working deck has
+  one slide per layout whose params are saved as that layout's example; requests, MCP tools and
+  UI move from "templates" to "pack(s)" (`edit_pack`, `save_pack`, `close_pack`, `delete_pack`,
+  `packs`, `layouts`).
 - **UI**:
   - `ADD_KINDS` and the hard-coded `newElement.ts` cases go: the add grid lists the widgets of
     every embedded widget pack, grouped by pack, seeded from `examples` or schema defaults;
@@ -193,7 +206,9 @@ Snafu, a backtrace in every variant, opaque public types, Fluent messages (en re
   and must stay pixel-identical. Any diff is a bug, never a re-record.
 - **Registries**: `fixtures/widgets/base-registry.json` and its snapshot are replaced by one
   snapshot per built-in pack (revised by the lot 2 plan: one combined core + `base` fixture until
-  lot 3).
+  lot 3; revised by the lot 3 plan: one fixture `fixtures/widgets/builtin-registry.json` holding
+  the probe of `base` + `essentiel`, and one render snapshot per built-in pack; the probe has no
+  `base` key any more since the core registers nothing).
 - **Core** (rstest, speculoos): `requires` closure, `AddPack` replacing a version, `RemovePack`
   refusals, namespace validation, `extends` linearization (single, multiple, diamond, cycle,
   last parent wins, list replaces), canonical order of `layouts` / `widgets`.
@@ -219,7 +234,9 @@ One spec, five plans, each merged green on its own. Revised 2026-10-18 with the 
    built-in pack versions trusted by the per-pack fallback, one combined core + `base` registry
    fixture until lot 3 (see `docs/superpowers/plans/2026-10-18-packs-lot2-base.md`, deviations).
 3. Layout packs and pack `essentiel`: `deck.layouts`, the six layouts out of the core,
-   templates and Grilles deleted.
+   templates and Grilles deleted (see `docs/superpowers/plans/2026-10-19-packs-lot3-essentiel.md`,
+   deviations: kinded pack ops, category fixed by pack kind, layout `profiles` for the retrofit,
+   pack mode, renamed vocabulary, deck 8, replica 6, sources 12, worker protocol 5).
 4. Themes: `extends`, linearization, component tokens declared by packs, composed editor
    schema, import writing `deck.tokens`.
 5. UI: the "Deck packs" panel, add grid and slide add from packs, theme editor.

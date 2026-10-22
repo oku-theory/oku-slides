@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { FieldView, ItemView, ListView, SlideView } from "./api";
 import { croppedSvg, croppedView } from "./widgetPreview";
+import { ESSENTIEL } from "./builtinKinds";
 
 const SVG = '<svg viewBox="0 0 1920 1080" width="1920pt" height="1080pt" xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>';
 
@@ -30,7 +31,7 @@ const field = (owner: string, widget: string, x: number, y: number): FieldView =
   bound: false, side: null, x, y, w: 50, h: 20, ax: x - 10, aw: 300, style: null,
 });
 const slideView = (fields: FieldView[], items: ItemView[] = [], lists: ListView[] = []) => ({
-  slide: { id: "apercu", kind: "blank", params: {} }, page: 1, hash: "h", width: 1920, height: 1080,
+  slide: { id: "apercu", kind: ESSENTIEL.blank, params: {} }, page: 1, hash: "h", width: 1920, height: 1080,
   targets: [{ id: "x", kind: "kpi", free: false, x: 0, y: 0, w: 1, h: 1 }], fields, items, lists,
   zone: { page: 1, x: 0, y: 0, w: 1920, h: 1080, grid: null },
 }) as unknown as SlideView;

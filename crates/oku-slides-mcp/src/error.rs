@@ -29,7 +29,7 @@ impl Localize for McpError {
 pub(crate) fn say_session(e: &oku_slides_session::SessionError, l: &Localizer) -> String {
     match e.kind() {
         oku_slides_session::SessionErrorKind::File => l.tr("agent-error-file"),
-        // L'agent a donné un id qu'aucun pack ne porte : `templates` les liste.
+        // L'agent a donné un id qu'aucun pack ne porte : `packs` les liste.
         oku_slides_session::SessionErrorKind::UnknownPack => l.tr("agent-error-pack-id"),
         _ => e.localize(l),
     }

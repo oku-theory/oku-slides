@@ -4,21 +4,27 @@ ui-loading = Đang tải…
 ## Tài liệu
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · mẫu
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · gói bố cục
+   *[other] { $name } · gói widget
+}
 ui-title-rename = Đổi tên bản trình bày
 ui-title-field = Tiêu đề bản trình bày
 ui-status-unsaved = có thay đổi chưa lưu
 ui-status-saved = đã lưu
 ui-status-never-saved = chưa lưu
-ui-caption-templates = { $count ->
-   *[other] { $count } mẫu
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+       *[other] { $count } bố cục
+    }
+   *[other] { $count ->
+       *[other] { $count } widget
+    }
 } · { $status }
 ui-caption-slides = { $count ->
    *[other] { $count } trang chiếu
 } · { $status }
-ui-template-default-name = Mẫu
-ui-template-variant-name = { $name } (biến thể)
-ui-confirm-quit-templates = Thoát mà không lưu các mẫu đã sửa?
+ui-confirm-quit-pack = Thoát mà không lưu gói đã sửa?
 
 ## Thông báo
 
@@ -40,7 +46,7 @@ ui-toolbar-theme = Chủ đề
 ui-toolbar-theme-embedded = Chủ đề của tệp
 ui-toolbar-theme-deck-group = Bài trình bày này
 ui-toolbar-finish = Xong
-ui-templates-deck-only = Chỉ được lưu trong bài trình bày này
+ui-pack-deck-only = Chỉ được lưu trong bài trình bày này
 ui-toolbar-open = Mở
 ui-menu = Menu
 ui-toolbar-add-label = Thêm vào trang chiếu
@@ -58,7 +64,6 @@ ui-add-kind-description = { $kind ->
     [table] Một bảng dữ liệu
    *[text] Một đoạn văn bản
 }
-ui-toolbar-remove-template = Xóa mẫu
 ui-toolbar-remove-slide = Xóa trang chiếu
 ui-toolbar-remove-hint = Trang chiếu { $n } · hoàn tác bằng ⌘Z
 
@@ -72,10 +77,7 @@ ui-undo-add = { $kind ->
    *[text] Thêm văn bản
 }
 ui-undo-add-widget = Thêm “{ $name }”
-ui-undo-new-template = Mẫu mới: { $name }
 ui-undo-new-slide = Trang chiếu mới: { $name }
-ui-undo-templates = Mẫu: { $name }
-ui-undo-move-template = Di chuyển mẫu
 ui-undo-move-slide = Di chuyển trang chiếu
 ui-undo-remove-slide = Xóa trang chiếu
 ui-undo-remove = Xóa
@@ -87,7 +89,7 @@ ui-undo-change-anchor = Đổi điểm neo
 ui-undo-move = Di chuyển
 ui-undo-resize = Đổi kích thước
 ui-undo-edit-slide = Sửa trang chiếu
-ui-undo-rename-set = Đổi tên bộ mẫu
+ui-undo-rename-pack = Đổi tên gói
 ui-undo-rename-deck = Đổi tên bản trình bày
 ui-undo-chart-kind = Đổi loại biểu đồ
 ui-undo-chart-data = Sửa dữ liệu
@@ -106,15 +108,15 @@ ui-new-card-detail = Chi tiết
 ## Danh sách trang chiếu
 
 ui-pile-slides = Trang chiếu
-ui-pile-templates = Mẫu
+ui-pile-layouts = Bố cục
 ui-pile-add-slide = + Trang chiếu mới
-ui-pile-add-template = + Mẫu mới
 ui-pile-drag-hint = Kéo để di chuyển · ⌥↑ ⌥↓
 ui-slide-alt = Trang chiếu { $n }
 
 ## Vùng làm việc
 
 ui-stage-rendering = Đang kết xuất…
+ui-stage-widget-pack = Mở một widget từ chồng, hoặc tạo widget mới.
 ui-stage-elements = Các phần tử của trang chiếu
 ui-stage-fields = Các trường của trang chiếu
 ui-stage-edit-text = Sửa văn bản
@@ -236,15 +238,11 @@ ui-size-mb = { $value } MB
 ## Bộ chọn mẫu
 
 ui-picker-new-slide = Trang chiếu mới
-ui-picker-new-template = Mẫu mới, dựa trên…
-ui-picker-set = Mẫu
 ui-picker-set-mine = { $name } · của tôi
 ui-picker-set-received = { $name } · đã nhận
 ui-picker-keys = ← → để duyệt · Enter để thêm · Esc để đóng
 ui-picker-close = Đóng
-ui-picker-previous = Mẫu trước
-ui-picker-next = Mẫu tiếp theo
-ui-picker-list = Mẫu trang chiếu
+ui-picker-list = Bố cục
 ui-widget-picker-filter = Lọc theo tên, nhãn hoặc mô tả
 ui-widget-picker-empty = Không có widget nào khớp với “{ $query }”.
 ui-widget-picker-list = Widget
@@ -317,7 +315,7 @@ ui-tabs = Bản trình bày đang mở
 ui-tab-new = Thẻ mới
 ui-tab-close = Đóng thẻ
 ui-tab-unsaved = Thay đổi chưa lưu
-ui-tab-templates = Mẫu
+ui-tab-pack = Gói
 ui-tab-move-new-window = Chuyển sang cửa sổ mới
 ui-tab-move-to = Chuyển sang cửa sổ { $n }
 ui-tab-close-others = Đóng các thẻ khác
@@ -372,8 +370,8 @@ ui-widgets-open = Mở widget { $name }
 ui-widgets-delete-named = Xóa { $name }
 ui-widgets-confirm-delete = Xóa widget “{ $name }”?
 ui-widgets-rename-hint = Nhấp đúp hoặc nhấn F2 để đổi tên
-ui-widgets-tabs = Tab mẫu
-ui-widgets-templates-tab = Mẫu
+ui-pack-tabs = Tab của gói
+ui-pack-layouts-tab = Bố cục
 ui-theme-tab = Chủ đề
 ui-theme-picker = Chủ đề
 ui-theme-name = Tên chủ đề
@@ -386,14 +384,15 @@ ui-widgets-removed-by-agent = Tác nhân AI đã xóa widget { $name }.
 ui-import-title = Nhập bài trình bày PowerPoint
 ui-import-mode = Chế độ nhập
 ui-import-hifi = Bản sao trung thực
-ui-import-hifi-note = Giữ giao diện của bản gốc, với chủ đề và mẫu được tạo cho bài trình bày này.
-ui-import-retrofit = Dùng mẫu của tôi
-ui-import-retrofit-note = Dựng lại các trang chiếu bằng mẫu và một chủ đề trong thư viện.
+ui-import-hifi-note = Giữ giao diện của bản gốc, với chủ đề và bố cục được tạo cho bài trình bày này.
+ui-import-retrofit = Dùng bố cục của tôi
+ui-import-retrofit-note = Dựng lại các trang chiếu bằng các gói bố cục và một chủ đề trong thư viện.
+ui-import-layout-packs = Gói bố cục
 ui-import-theme-default = Chủ đề mặc định
-ui-import-no-packs = Thư viện không có bộ mẫu nào.
+ui-import-no-packs = Thư viện không có gói bố cục nào.
 ui-import-tune = Tinh chỉnh với tác nhân AI
 ui-import-tune-note = Tác nhân AI so sánh từng trang chiếu với bản gốc và sửa các chỗ lệch.
-ui-import-tune-note-retrofit = Tác nhân AI so sánh từng trang chiếu với bản gốc và thiết kế widget cho các hình mà mẫu của bạn không thể hiện được.
+ui-import-tune-note-retrofit = Tác nhân AI so sánh từng trang chiếu với bản gốc và thiết kế widget cho các hình mà bố cục của bạn không thể hiện được.
 ui-import-tune-unavailable = Không có tác nhân AI nào dùng được: { $reason }
 ui-import-submit = Nhập
 ui-import-busy = Đang nhập…

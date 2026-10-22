@@ -35,14 +35,16 @@ fn mixed_pack(data: &Path) -> PackPin {
         parent: None,
         created: "2026-10-02T10:00:00Z".into(),
         scope: oku_slides_core::PackScope::Library,
-        templates: Vec::new(),
+        profiles: Vec::new(),
         examples: Default::default(),
     };
     let name = |n: &str| WidgetFile::parse(n).unwrap_or_else(|| panic!("nom invalide : {n}"));
     let widgets = BTreeMap::from([(name("quote"), QUOTE.to_owned()), (name("casse"), BROKEN.to_owned())]);
-    let files = manifest.to_files(widgets).unwrap_or_else(|e| panic!("{e}"));
+    let files = manifest.to_files(oku_slides_core::PackKind::Widgets, widgets).unwrap_or_else(|e| panic!("{e}"));
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.join("widgets")), storage).add_version(id, &files).unwrap_or_else(|e| panic!("{e}"));
+    PackLibrary::new(Some(data.join("widgets")), None, storage)
+        .add_version(id, &files)
+        .unwrap_or_else(|e| panic!("{e}"));
     PackPin { id, version: files.version(), requires: Vec::new() }
 }
 
@@ -63,7 +65,7 @@ fn deck_with_one_broken_widget_still_renders_the_other_widgets_of_the_pack() {
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let namespace = Namespace::parse("mixte").unwrap_or_else(|| panic!("espace de noms"));
-    s.apply("Pack", vec![Op::AddPack { namespace, pin: r }, quote], None)
+    s.apply("Pack", vec![Op::AddPack { kind: oku_slides_core::PackKind::Widgets, namespace, pin: r }, quote], None)
         .unwrap_or_else(|e| panic!("{}", e.one_line()));
     let widgets: serde_json::Value =
         serde_json::from_str(&s.handle(Request::Widgets).unwrap_or_else(|e| panic!("{e}")))

@@ -11,12 +11,13 @@ use std::path::Path;
 
 use snafu::{IntoError, OptionExt, ResultExt};
 
-use oku_slides_core::{Namespace, PackFiles, SourceBundle, ThemeRef, WidgetFile};
+use oku_slides_core::{Namespace, PackFiles, PackKind, SourceBundle, ThemeRef, WidgetFile};
 use oku_slides_platform::storage::{Storage, StorageErrorKind};
 
 use crate::import::error::{
     BadPackFilesSnafu, PackDirSnafu, PackTooLargeSnafu, Result, UnknownPackSnafu, UnknownThemeSnafu,
 };
+use crate::library::may_own;
 use crate::{PackLibrary, ThemeLibrary};
 
 /// `n` octets en `u64`.
@@ -28,18 +29,23 @@ pub(crate) fn as_u64(n: usize) -> u64 {
 
 /// Les fichiers du pack rangé dans `dir`, `max_bytes` octets au plus.
 ///
-/// Soit `widgets.json` et `widgets/<nom>.typ`.
+/// Soit `widgets.json` et `widgets/<nom>.typ`, soit `layouts.json` et `layouts/<nom>.typ`.
 ///
-/// C'est la disposition d'une version de pack ; `Ok(None)` sans `widgets.json`.
+/// C'est la disposition d'une version de pack ; `Ok(None)` sans l'un ni l'autre manifeste.
 /// Un fichier qu'on ne lit pas, un dossier qu'on ne liste pas : `File` ;
 /// au-delà de `max_bytes` : `TooLarge`, avant de lire le fichier de trop ;
-/// un `widgets.json` qui n'est pas un objet ou un widget qui n'est pas du texte :
+/// un manifeste qui n'est pas un objet ou un widget qui n'est pas du texte :
 /// `BadPack`.
 pub fn read_pack_dir(storage: &Storage, dir: &Path, max_bytes: usize) -> Result<Option<PackFiles>> {
-    let manifest = dir.join("widgets.json");
-    if storage.len(&manifest).context(PackDirSnafu { path: &manifest })?.is_none() {
-        return Ok(None);
+    let mut found = None;
+    for kind in PackKind::ALL {
+        let manifest = dir.join(kind.manifest_file());
+        if storage.len(&manifest).context(PackDirSnafu { path: &manifest })?.is_some() {
+            found = Some((kind, manifest));
+            break;
+        }
     }
+    let Some((kind, manifest)) = found else { return Ok(None) };
     let max = as_u64(max_bytes);
     let mut left = max;
     let mut read = |path: &Path| -> Result<Vec<u8>> {
@@ -54,7 +60,7 @@ pub fn read_pack_dir(storage: &Storage, dir: &Path, max_bytes: usize) -> Result<
         Ok(bytes)
     };
     let pack_json = read(&manifest)?;
-    let widgets_dir = dir.join("widgets");
+    let widgets_dir = dir.join(kind.files_dir());
     let listed = storage.list_files(&widgets_dir).context(PackDirSnafu { path: &widgets_dir })?;
     let mut widgets = BTreeMap::new();
     for path in listed {
@@ -63,7 +69,7 @@ pub fn read_pack_dir(storage: &Storage, dir: &Path, max_bytes: usize) -> Result<
         };
         widgets.insert(name, read(&path)?);
     }
-    let files = PackFiles::from_bytes(&pack_json, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))
+    let files = PackFiles::from_bytes(kind, &pack_json, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))
         .context(BadPackFilesSnafu { pack: dir.display().to_string() })?;
     Ok(Some(files))
 }
@@ -72,13 +78,18 @@ pub fn read_pack_dir(storage: &Storage, dir: &Path, max_bytes: usize) -> Result<
 ///
 /// Un id donne la version courante ; un nom est celui d'un pack intégré ou de
 /// la bibliothèque, sans casse ; un espace de noms, celui du pack qui le porte.
+/// Une copie de l'utilisateur sous un espace de noms intégré ne répond qu'à son id.
 /// Jamais un dossier : c'est la cible de l'app.
 /// Introuvable : `UnknownPack`.
 pub fn library_pack(library: &PackLibrary, wanted: &str) -> Result<PackFiles> {
     let unknown = || UnknownPackSnafu { pack: wanted };
     let id = match uuid::Uuid::parse_str(wanted) {
         Ok(id) => id,
-        Err(_) => match library.packs().into_iter().find(|p| p.name.eq_ignore_ascii_case(wanted)) {
+        Err(_) => match PackKind::ALL
+            .into_iter()
+            .flat_map(|k| library.packs(k))
+            .find(|p| p.name.eq_ignore_ascii_case(wanted) && may_own(p.id, &p.namespace))
+        {
             Some(p) => p.id,
             None => Namespace::parse(wanted).and_then(|ns| library.by_namespace(&ns)).context(unknown())?.manifest.id,
         },
@@ -90,7 +101,7 @@ pub fn library_pack(library: &PackLibrary, wanted: &str) -> Result<PackFiles> {
 ///
 /// Un id, un dossier de pack, sinon un nom.
 ///
-/// Comme [`library_pack`], plus un dossier qui a un `widgets.json`, lu par
+/// Comme [`library_pack`], plus un dossier qui a un `widgets.json` ou un `layouts.json`, lu par
 /// [`read_pack_dir`] en `max_bytes` octets au plus.
 pub fn resolve_pack(storage: &Storage, library: &PackLibrary, wanted: &str, max_bytes: usize) -> Result<PackFiles> {
     if uuid::Uuid::parse_str(wanted).is_err()

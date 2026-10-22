@@ -41,7 +41,7 @@ use super::sample::sample;
 use super::tune::{Charge, SlideState, excess, fingerprint, round};
 use super::tune_error::{CompareSnafu, NoImportSnafu, TuneError, TuneInner};
 use super::{ImportMode, ImportState};
-use crate::error::{EditingTemplatesSnafu, InHistorySnafu, ReadOnlySnafu, TuneSnafu};
+use crate::error::{EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, TuneSnafu};
 use crate::theme_schema::default_tokens;
 use crate::{Mode, Result, Session, SessionError};
 
@@ -72,7 +72,7 @@ impl Session {
     pub(crate) fn tuned_import(&mut self) -> Result<&mut ImportState> {
         match self.mode {
             Mode::Deck => {}
-            Mode::Templates { .. } => return EditingTemplatesSnafu.fail()?,
+            Mode::Pack { .. } => return EditingPackSnafu.fail()?,
             Mode::History { .. } => return InHistorySnafu.fail()?,
             Mode::Help { .. } => return ReadOnlySnafu.fail()?,
         }
@@ -137,7 +137,7 @@ impl Session {
     /// Les contenus, pas les versions : une version porte aussi son parent et
     /// sa date, si bien que rendre au thème ou à un widget du pack son contenu
     /// d'avant revient à un état déjà noté. Le thème compte par ses jetons
-    /// effectifs, le pack par ses modèles, ses exemples et ses fichiers de
+    /// effectifs, chaque pack (widgets et layouts) par ses profils, ses exemples et ses fichiers de
     /// widgets. Une page changée alors que cette empreinte a changé, et pas le
     /// modèle de la slide ([`Self::slide_key`]), puise dans le budget global
     /// ([`super::tune`]).
@@ -146,13 +146,13 @@ impl Session {
         let deck = self.deck();
         // Les jetons du thème tels que le rendu les lit (le thème par défaut pour un deck sans thème).
         let theme = self.theme_tokens(deck).map(|tokens| effective_tokens(default_tokens(), &tokens));
-        // Chaque pack épinglé, par espace de noms : ses modèles, ses exemples et ses widgets.
-        let mut packs = Vec::with_capacity(deck.widgets.len());
-        for (ns, pin) in &deck.widgets {
+        // Chaque pack épinglé, widgets puis layouts, par espace de noms : ses profils, ses exemples et ses widgets.
+        let mut packs = Vec::new();
+        for (_, ns, pin) in deck.all_pins() {
             let files = self.doc.sources.packs.get(&pin.version);
             let files = files.ok_or_else(|| failed(format!("pack {} absent", pin.id)))?;
             let m = PackManifest::from_files(files).map_err(|e| failed(format!("pack {} : {e}", pin.id)))?;
-            packs.push((ns, m.templates, m.examples, files.widgets()));
+            packs.push((ns, m.profiles, m.examples, files.widgets()));
         }
         let state = (&theme, &packs, &deck.tokens, &deck.params, &deck.vars);
         let bytes = serde_json::to_vec(&state).map_err(|e| failed(format!("état du deck : {e}")))?;

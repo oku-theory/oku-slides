@@ -1,7 +1,7 @@
 // Élément neuf de la barre d'outils, par nom : contenu de départ prêt à ajouter à une slide.
 
 import type { Element } from "./api";
-import { BASE } from "./baseKinds";
+import { BASE } from "./builtinKinds";
 import { starterChart } from "./chart/chartDeck";
 import { t } from "./i18n";
 import { starterTable } from "./table/tableDeck";

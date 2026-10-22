@@ -4,7 +4,8 @@
 //! est sondé à part, les widgets cassés écartés (diagnostics au journal) ; le registre sondé valide
 //! le deck (t-355). Comme dans la session, un pack est écarté seul (version absente, épingle qui
 //! ne dit pas son manifeste, sonde échouée), avec ceux qui le requièrent ; un assemblage raté du
-//! registre n'écarte que les packs dont l'ajout le fait échouer ([`assemble_each`]).
+//! registre n'écarte que les packs dont l'ajout le fait échouer ([`assemble_each`]), sauf avec un
+//! pack de confiance (`base`, `essentiel` livrés) : l'erreur remonte alors, rien n'est réduit.
 //!
 //! Un import ou une commande n'a pas de « rendu suivant » : les fichiers
 //! laissés non sondés (budget épuisé) sont sondés de nouveau, tant qu'un appel
@@ -28,8 +29,8 @@ use oku_slides_platform::errors::one_line;
 use oku_slides_render::{Fonts, PackSet, PackWidgets, RegistryError, RenderError, is_trusted_pack};
 use oku_slides_render_worker::{RenderSlot, RenderWorker};
 
-use crate::deck_closure::dependents;
-use crate::deck_pack::{check_pack_id, in_process_pack, only_builtin_base};
+use crate::deck_closure::{combined_pins, dependents};
+use crate::deck_pack::{check_pack_id, in_process_pack, only_builtins};
 use crate::import::error::{LibrarySnafu, RegistrySnafu, Result, SourcesSnafu};
 use crate::{PackLibrary, adopt_default_packs};
 
@@ -143,8 +144,8 @@ fn assemble_each<R>(
 
 /// Les widgets sondés d'un deck, et le processus de rendu qui les rend.
 ///
-/// Le registre est le noyau et les widgets valides de chacun de ses packs ;
-/// sans pack à widgets valides, la base seule.
+/// Le registre est fait des widgets valides de chacun de ses packs ;
+/// sans pack à widgets valides, le registre de base donné.
 #[derive(Debug)]
 pub struct ProbedWidgets {
     /// Le registre qui valide le deck et ses sources.
@@ -161,7 +162,7 @@ pub struct ProbedWidgets {
 }
 
 impl ProbedWidgets {
-    /// Sonde chaque pack que `deck` épingle, pris dans `packs`.
+    /// Sonde chaque pack que `deck` épingle (widgets et layouts), pris dans `packs`.
     ///
     /// Sans pack, ou sans widgets : la base. Version absente de `packs`,
     /// épingle incohérente ou pack cassé : journalisés, le pack écarté avec
@@ -171,8 +172,8 @@ impl ProbedWidgets {
     /// commun aux packs.
     ///
     /// # Errors
-    /// Un `base` livré (de confiance) n'est jamais écarté : illisible ou
-    /// sonde échouée, son erreur remonte.
+    /// Un pack intégré livré (de confiance) n'est jamais écarté : illisible ou
+    /// sonde échouée, son erreur remonte, comme l'assemblage raté d'un ensemble qui en tient un.
     pub fn probe(
         platform: &Platform,
         base: &Arc<WidgetRegistry>,
@@ -184,7 +185,8 @@ impl ProbedWidgets {
         let (start, total) = (Instant::now(), platform.settings.render.probe_budget().saturating_mul(PROBE_BUDGETS));
         let (mut usable, mut unprobed, mut probe_failed, mut off) =
             (Vec::new(), BTreeMap::new(), None, BTreeSet::new());
-        for (ns, pin) in &deck.widgets {
+        let pins = combined_pins(deck);
+        for (ns, pin) in &pins {
             let Some(files) = packs.get(&pin.version) else {
                 tracing::warn!(pack = %pin.id, version = %pin.version, "version du pack absente des sources : écarté");
                 off.insert(ns.clone());
@@ -200,13 +202,13 @@ impl ProbedWidgets {
             if files.widgets().is_empty() {
                 continue;
             }
-            // Le `base` intégré courant se résout ici, sans sonde, comme dans la session.
+            // Un pack intégré courant se résout ici, sans sonde, comme dans la session.
             // De confiance, il n'est jamais écarté : illisible, l'erreur remonte (arbitrage 94).
             if let Some(builtin) = in_process_pack(&pin.version) {
                 usable.push(builtin?);
                 continue;
             }
-            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.widgets().clone());
+            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.kind(), files.widgets().clone());
             let trusted = pack.as_ref().is_ok_and(is_trusted_pack);
             let probed = pack.and_then(|pack| {
                 probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len(), || start.elapsed() >= total)
@@ -232,7 +234,7 @@ impl ProbedWidgets {
             }
             usable.extend(probe.pack);
         }
-        let gone = dependents(&deck.widgets, &off);
+        let gone = dependents(&pins, &off);
         for ns in &gone {
             tracing::warn!(pack = %ns, "pack qui requiert un pack écarté : écarté");
         }
@@ -240,16 +242,22 @@ impl ProbedWidgets {
         if usable.is_empty() {
             return Ok(Self { registry: base.clone(), unprobed, probe_failed, worker, set: PackSet::default() });
         }
-        // Le seul `base` intégré : son registre est celui de l'app, sans processus de rendu. Les
+        // Les seuls packs intégrés : leur registre est celui de l'app, sans processus de rendu. Les
         // schémas ne dépendent pas des polices : le registre intégré garde celles de son premier appel.
         let registry_of = |set: &PackSet| {
-            if only_builtin_base(set) {
+            if only_builtins(set) {
                 oku_slides_render::builtin_registry(&Fonts::default())
             } else {
                 worker.registry_of(set)
             }
         };
-        let (set, registry, error) = assemble_each(&deck.widgets, usable, registry_of);
+        // Avec un pack de confiance, un assemblage raté remonte : l'ensemble n'est jamais réduit (t-1057).
+        if usable.iter().any(is_trusted_pack) {
+            let set = PackSet::new(usable)?;
+            let registry = registry_of(&set)?;
+            return Ok(Self { registry, unprobed, probe_failed, worker, set });
+        }
+        let (set, registry, error) = assemble_each(&pins, usable, registry_of);
         if let Some(e) = error {
             let message = e.localize(l);
             tracing::warn!(error = %one_line(&e), "{message}");
@@ -272,15 +280,15 @@ impl ProbedWidgets {
     }
 }
 
-/// La panne d'un pack, à écarter ; de confiance (`base` livré), elle remonte plutôt.
+/// La panne d'un pack, à écarter ; de confiance (pack intégré livré), elle remonte plutôt.
 fn disable_unless_trusted(trusted: bool, e: RegistryError) -> Result<RegistryError, RegistryError> {
     if trusted { Err(e) } else { Ok(e) }
 }
 
 /// Les sources de `deck` avec ses packs `packs`, et ses widgets sondés.
 ///
-/// Sans pack épinglé, le deck adopte la version courante du pack par défaut
-/// et ses besoins, modifiables : ils peuvent avoir des widgets. Les packs
+/// Sans pack épinglé, le deck adopte la version courante de `base` et d'`essentiel`
+/// et leurs besoins, modifiables : ils peuvent avoir des widgets. Les packs
 /// sont sondés avant toute écriture ; les sources sont recréées avec le
 /// registre sondé, pour que le replica et la validation aient leurs widgets.
 pub fn sources_with_packs(

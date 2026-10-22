@@ -1,4 +1,4 @@
-// Jetons du thème édité (onglet « Thème » du mode modèles) : la surface
+// Jetons du thème édité (onglet « Thème » du mode pack) : la surface
 // `host-theme` construite par la session, filtrée. Chaque ligne envoie
 // l'évènement `token` ; le champ de filtre, `filter`. Même contrat que
 // `useHostSettings` : un changement refusé relit la surface, le champ reprend

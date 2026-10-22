@@ -4,23 +4,30 @@ ui-loading = 読み込み中…
 ## ドキュメント
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · テンプレート
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · レイアウトパック
+   *[other] { $name } · ウィジェットパック
+}
 ui-title-rename = プレゼンテーション名を変更
 ui-title-field = プレゼンテーションのタイトル
 ui-status-unsaved = 未保存の変更あり
 ui-status-saved = 保存済み
 ui-status-never-saved = 未保存
-ui-caption-templates = { $count ->
-    [one] テンプレート { $count }個
-   *[other] テンプレート { $count }個
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] レイアウト { $count }個
+       *[other] レイアウト { $count }個
+    }
+   *[other] { $count ->
+        [one] ウィジェット { $count }個
+       *[other] ウィジェット { $count }個
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] スライド { $count }枚
    *[other] スライド { $count }枚
 } · { $status }
-ui-template-default-name = テンプレート
-ui-template-variant-name = { $name }（バリエーション）
-ui-confirm-quit-templates = 変更したテンプレートを保存せずに終了しますか？
+ui-confirm-quit-pack = 変更したパックを保存せずに終了しますか？
 
 ## トースト
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = テーマ
 ui-toolbar-theme-embedded = ファイルのテーマ
 ui-toolbar-theme-deck-group = このプレゼンテーション
 ui-toolbar-finish = 完了
-ui-templates-deck-only = このプレゼンテーションにのみ保存されます
+ui-pack-deck-only = このプレゼンテーションにのみ保存されます
 ui-toolbar-open = 開く
 ui-menu = メニュー
 ui-toolbar-add-label = スライドに追加
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] データの表
    *[text] テキストの段落
 }
-ui-toolbar-remove-template = テンプレートを削除
 ui-toolbar-remove-slide = スライドを削除
 ui-toolbar-remove-hint = スライド { $n } · ⌘Z で取り消し
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] テキストを追加
 }
 ui-undo-add-widget = 「{ $name }」を追加
-ui-undo-new-template = 新規テンプレート：{ $name }
 ui-undo-new-slide = 新規スライド：{ $name }
-ui-undo-templates = テンプレート：{ $name }
-ui-undo-move-template = テンプレートを移動
 ui-undo-move-slide = スライドを移動
 ui-undo-remove-slide = スライドを削除
 ui-undo-remove = 削除
@@ -89,7 +92,7 @@ ui-undo-change-anchor = アンカーを変更
 ui-undo-move = 移動
 ui-undo-resize = サイズ変更
 ui-undo-edit-slide = スライドを編集
-ui-undo-rename-set = セット名を変更
+ui-undo-rename-pack = パック名を変更
 ui-undo-rename-deck = プレゼンテーション名を変更
 ui-undo-chart-kind = グラフの種類を変更
 ui-undo-chart-data = データを編集
@@ -108,15 +111,15 @@ ui-new-card-detail = 詳細
 ## スライド一覧
 
 ui-pile-slides = スライド
-ui-pile-templates = テンプレート
+ui-pile-layouts = レイアウト
 ui-pile-add-slide = + 新規スライド
-ui-pile-add-template = + 新規テンプレート
 ui-pile-drag-hint = ドラッグで移動 · ⌥↑ ⌥↓
 ui-slide-alt = スライド { $n }
 
 ## ステージ
 
 ui-stage-rendering = レンダリング中…
+ui-stage-widget-pack = パイルからウィジェットを開くか、新しく作成してください。
 ui-stage-elements = スライドの要素
 ui-stage-fields = スライドのフィールド
 ui-stage-edit-text = テキストを編集
@@ -238,15 +241,11 @@ ui-size-mb = { $value } MB
 ## テンプレートピッカー
 
 ui-picker-new-slide = 新規スライド
-ui-picker-new-template = 新規テンプレートのベースを選択…
-ui-picker-set = テンプレート
 ui-picker-set-mine = { $name } · マイ
 ui-picker-set-received = { $name } · 受信
 ui-picker-keys = ← → で切り替え · Enter で追加 · Esc で閉じる
 ui-picker-close = 閉じる
-ui-picker-previous = 前のテンプレート
-ui-picker-next = 次のテンプレート
-ui-picker-list = スライドテンプレート
+ui-picker-list = レイアウト
 ui-widget-picker-filter = 名前、ラベル、説明で絞り込む
 ui-widget-picker-empty = 「{ $query }」に一致するウィジェットはありません。
 ui-widget-picker-list = ウィジェット
@@ -319,7 +318,7 @@ ui-tabs = 開いているプレゼンテーション
 ui-tab-new = 新しいタブ
 ui-tab-close = タブを閉じる
 ui-tab-unsaved = 未保存の変更
-ui-tab-templates = テンプレート
+ui-tab-pack = パック
 ui-tab-move-new-window = 新しいウィンドウに移動
 ui-tab-move-to = ウィンドウ { $n } に移動
 ui-tab-close-others = ほかのタブを閉じる
@@ -374,8 +373,8 @@ ui-widgets-open = ウィジェット { $name } を開く
 ui-widgets-delete-named = { $name } を削除
 ui-widgets-confirm-delete = ウィジェット「{ $name }」を削除しますか?
 ui-widgets-rename-hint = ダブルクリックまたは F2 で名前を変更
-ui-widgets-tabs = テンプレートのタブ
-ui-widgets-templates-tab = テンプレート
+ui-pack-tabs = パックのタブ
+ui-pack-layouts-tab = レイアウト
 ui-theme-tab = テーマ
 ui-theme-picker = テーマ
 ui-theme-name = テーマ名
@@ -388,14 +387,15 @@ ui-widgets-removed-by-agent = エージェントがウィジェット { $name } 
 ui-import-title = PowerPoint プレゼンテーションをインポート
 ui-import-mode = インポート方法
 ui-import-hifi = 忠実なコピー
-ui-import-hifi-note = このプレゼンテーション用のテーマとテンプレートで、元の見た目を保ちます。
-ui-import-retrofit = 自分のテンプレートを使う
-ui-import-retrofit-note = ライブラリのテンプレートとテーマでスライドを作り直します。
+ui-import-hifi-note = このプレゼンテーション用のテーマとレイアウトで、元の見た目を保ちます。
+ui-import-retrofit = 自分のレイアウトを使う
+ui-import-retrofit-note = ライブラリのレイアウトパックとテーマでスライドを作り直します。
+ui-import-layout-packs = レイアウトパック
 ui-import-theme-default = 既定のテーマ
-ui-import-no-packs = ライブラリにテンプレートセットがありません。
+ui-import-no-packs = ライブラリにレイアウトパックがありません。
 ui-import-tune = エージェントで微調整
 ui-import-tune-note = エージェントが各スライドを元のものと比べ、ずれを直します。
-ui-import-tune-note-retrofit = エージェントが各スライドを元のものと比べ、テンプレートで表せない図形のためにウィジェットを作ります。
+ui-import-tune-note-retrofit = エージェントが各スライドを元のものと比べ、レイアウトで表せない図形のためにウィジェットを作ります。
 ui-import-tune-unavailable = 使用できるエージェントがありません：{ $reason }
 ui-import-submit = インポート
 ui-import-busy = インポート中…

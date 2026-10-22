@@ -28,7 +28,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Route all list edits, deck or widget trial values, through ListOp::apply. (spec:2026-10-04-parametre-liste-design)
 - Revalidate host params with check_host_params whenever an op changes a widget kind, as Op::SetKind does. (t-591)
 - Never serialize PackScope::Library, so library pack and theme manifests keep their existing hashes. (ADR-0009, t-692)
-- Change kinds::base, ui/src/baseKinds.ts and the base kind list in the MCP widgets tool text together; only the UI pair is tested. (plan:2026-10-18-packs-lot2-base)
+- Change kinds::base or kinds::essentiel, ui/src/builtinKinds.ts and the built-in kind lists in the MCP widgets tool text together; a UI test compares BASE and ESSENTIEL with the registry fixture. (plan:2026-10-18-packs-lot2-base, plan:2026-10-19-packs-lot3-essentiel)
 
 ## Pitfalls
 
@@ -48,9 +48,9 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never flatten or prune Loro history or assets when saving, so every past version still renders and merges. (ADR-0002)
 - Add no backward compatibility: refuse old deck, sources and replica formats; drop replaced ops, no aliases. (spec:2026-09-27-widgets-typst-design)
 - Let an inconsistent deck open and report issues via validate, but make ops refuse badly typed values. (spec:2026-09-27-widgets-typst-design)
-- Use SetSlideField only for slide name and description; change kind with SetKind and other params with SetParam. (plan:2026-09-28-widgets-typst-2)
+- Change a slide's kind with SetKind and its params with SetParam; slides have no name or description. (plan:2026-09-28-widgets-typst-2, plan:2026-10-19-packs-lot3-essentiel)
 - Use the registry-resolved grid (Slide::resolved_grid) for set_cell, validation and preview. (plan:2026-10-03-widgets-agent-a2ui)
 - Keep set_grid as a deck op visible to the agent, with placed elements rescaled in Rust. (plan:2026-10-03-widgets-agent-a2ui)
 - Validate widget schemas in Rust check_widget; Typst asserts only the argument types serde reads, so one bad file fails alone. (spec:2026-10-04-parametre-liste-design, t-938)
-- Keep deck.widgets a map of whole PackPins by namespace; never patch a pin field by field. (plan:2026-10-18-packs-lot1-widget-packs)
-- Build a qualified kind only with qualify or take a base kind from kinds::base; read one only with split_kind. (plan:2026-10-18-packs-lot1-widget-packs, plan:2026-10-18-packs-lot2-base)
+- Keep deck.widgets and deck.layouts maps of whole PackPins by namespace, unique across both; never patch a pin field by field. (plan:2026-10-18-packs-lot1-widget-packs, plan:2026-10-19-packs-lot3-essentiel)
+- Build a qualified kind only with qualify or take a built-in kind from kinds::base or kinds::essentiel; read one only with split_kind. (plan:2026-10-18-packs-lot1-widget-packs, plan:2026-10-18-packs-lot2-base, plan:2026-10-19-packs-lot3-essentiel)

@@ -7,13 +7,12 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use oku_slides_core::{Namespace, PackPin, PackVersion, Slide, SlideChanges, Version, WidgetFile};
+use oku_slides_core::{Namespace, PackKind, PackPin, PackVersion, Slide, SlideChanges, Version, WidgetFile};
 use oku_slides_render::{ElementBox, ZoneBox};
 
 use crate::appearance::Appearance;
 use crate::fields::FieldView;
 use crate::items::{ItemView, ListView};
-use crate::pack::{PackInfo, Template};
 
 /// Empreinte d'une page (clé de cache de son SVG), écrite en hex ; vide si
 /// la page manque.
@@ -36,14 +35,11 @@ impl Serialize for PageHash {
 #[derive(Debug, Serialize)]
 pub struct SlideSummary<'a> {
     pub id: &'a str,
-    /// Widget de la slide (`title`, `content`…).
+    /// Widget de la slide (`essentiel/title`, `essentiel/content`…).
     pub kind: &'a str,
     /// Son paramètre `title`, sinon (paramètre lié) le titre du deck ;
     /// variables remplacées.
     pub title: Option<String>,
-    /// Nom de la slide quand elle sert de modèle.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<&'a str>,
     /// Page dans le document, à partir de 1.
     pub page: usize,
     pub hash: PageHash,
@@ -88,7 +84,9 @@ pub struct Snapshot<'a> {
     pub appearance: &'a Appearance,
     /// Packs de widgets épinglés par le deck, par espace de noms (id, version embarquée, besoins).
     pub widgets: &'a BTreeMap<Namespace, PackPin>,
-    /// Mode d'édition des modèles : le pack en cours de modification et le thème édité.
+    /// Packs de layouts épinglés par le deck, par espace de noms (id, version embarquée, besoins).
+    pub layouts: &'a BTreeMap<Namespace, PackPin>,
+    /// Mode pack : le pack en cours de modification et le thème édité.
     pub editing: Option<EditingView<'a>>,
     /// Le deck épingle un pack qui n'appartient qu'à lui (import, pack `deck`).
     ///
@@ -98,7 +96,7 @@ pub struct Snapshot<'a> {
     pub pack_notice: Option<crate::agent::Surface>,
     /// Widgets des packs en cours, qualifiés (`<namespace>/<nom>`, sans `_commun`), sans sonde.
     ///
-    /// Ceux du pack édité en mode modèles, sinon ceux de chaque pack épinglé.
+    /// Ceux du pack édité en mode pack, sinon ceux de chaque pack épinglé.
     pub pack_widgets: Vec<String>,
     /// Widgets d'élément du pack au registre : ceux de la barre d'ajout.
     pub add_widgets: Vec<AddWidget<'a>>,
@@ -157,10 +155,10 @@ pub struct UiState {
     /// Largeur du fil de l'agent en px, choisie au séparateur ; `None` : largeur par défaut.
     #[serde(default)]
     pub notes: Option<u32>,
-    /// Sous-onglets de widgets ouverts en mode modèles, dans l'ordre d'ouverture.
+    /// Sous-onglets de widgets ouverts en mode pack, dans l'ordre d'ouverture.
     #[serde(default)]
     pub widgets: Vec<String>,
-    /// Sous-onglet actif ; `None` : « Modèles ».
+    /// Sous-onglet actif ; `None` : « Layouts ».
     #[serde(default)]
     pub widget: Option<String>,
     /// Code source des widgets déplié à droite de l'aperçu ; replié par défaut.
@@ -182,10 +180,10 @@ pub struct UiState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PileSection {
-    /// Les miniatures des slides, hors mode modèles.
+    /// Les miniatures des slides, hors mode pack.
     Slides,
-    /// Les miniatures des modèles.
-    Templates,
+    /// Les miniatures des layouts, en mode pack.
+    Layouts,
     /// Les fichiers de widgets du pack.
     Widgets,
     /// La carte des paramètres de la cible, sous la scène.
@@ -219,12 +217,12 @@ pub const MAX_WIDGET_TABS: usize = 64;
 
 impl UiState {
     /// L'état admis : sections repliées sans doublon ; sous-onglets vidés hors
-    /// du mode modèles, sinon noms valides, sans doublon, au plus
+    /// du mode pack, sinon noms valides, sans doublon, au plus
     /// `MAX_WIDGET_TABS`, actif parmi eux.
-    pub fn sanitized(mut self, templates: bool) -> Self {
+    pub fn sanitized(mut self, pack_mode: bool) -> Self {
         let mut folded = std::collections::BTreeSet::new();
         self.folded.retain(|s| folded.insert(*s));
-        if !templates {
+        if !pack_mode {
             self.widgets.clear();
             self.widget = None;
             return self;
@@ -251,10 +249,11 @@ mod views_tests;
 pub struct TabInfo {
     /// Nom du fichier du deck, sinon son titre.
     pub title: String,
-    /// Travail non enregistré : le deck, ou l'ensemble de modèles en cours.
+    /// Travail non enregistré : le deck, ou le pack en cours d'édition.
     pub dirty: bool,
-    /// L'onglet édite un ensemble de modèles.
-    pub editing_templates: bool,
+    /// L'onglet édite un pack (mode pack).
+    #[serde(default)]
+    pub editing_pack: bool,
     /// Fichier du deck, absolu et normalisé : un fichier ouvert une fois.
     pub path: Option<PathBuf>,
     /// Deck neuf jamais touché : ouvrir un fichier le remplace.
@@ -271,11 +270,15 @@ pub struct TabInfo {
     pub theme: Option<uuid::Uuid>,
 }
 
-/// Édition d'un pack de modèles : chaque slide est un modèle.
+/// Édition d'un pack : un pack de layouts y a une slide par layout, à sa valeur d'exemple.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TemplateMode {
-    pub set: uuid::Uuid,
+pub struct PackMode {
+    /// Id du pack édité.
+    pub pack: uuid::Uuid,
+    /// Nom du pack édité, lu dans son manifeste.
     pub name: String,
+    /// Sorte du pack édité : widgets ou layouts.
+    pub kind: PackKind,
     /// Pack intégré : l'enregistrer crée la version de l'utilisateur sous son id.
     pub builtin: bool,
     /// Version d'où viennent widgets et description : la dernière enregistrée.
@@ -291,42 +294,54 @@ pub struct TemplateMode {
     /// Pack du deck seul, celui d'un import.
     ///
     /// Ses versions restent dans le deck, jamais dans la bibliothèque.
-    /// Absent d'un `state.json` plus ancien : faux, et c'est exact, car un pack du deck seul
-    /// n'entrait pas en mode modèles avant ce champ ; l'édition reprise était donc de la bibliothèque.
-    #[serde(default)]
     pub deck_only: bool,
 }
 
-/// Le mode modèles vu par l'interface : le pack édité et le brouillon du thème.
+/// Le mode pack vu par l'interface : le pack édité et le brouillon du thème.
 #[derive(Debug, Serialize)]
 pub struct EditingView<'a> {
     #[serde(flatten)]
-    pub mode: &'a TemplateMode,
+    pub mode: &'a PackMode,
     pub theme: crate::ThemeEditView,
 }
 
 impl std::ops::Deref for EditingView<'_> {
-    type Target = TemplateMode;
+    type Target = PackMode;
 
-    fn deref(&self) -> &TemplateMode {
+    fn deref(&self) -> &PackMode {
         self.mode
     }
 }
 
-/// Un modèle avec son aperçu (SVG) dans le thème courant.
+/// Un layout avec son aperçu (SVG) dans le thème du deck.
 #[derive(Debug, Clone, Serialize)]
-pub struct TemplateView {
-    #[serde(flatten)]
-    pub template: Template,
+pub struct LayoutView {
+    /// Son kind qualifié (`essentiel/content`).
+    pub kind: String,
+    /// Son nom dans la langue de l'utilisateur (`param_fields::kind_name`).
+    pub label: String,
+    /// Sa slide de départ : ce layout, id `layout-<nom>`, à sa valeur d'exemple.
+    pub slide: Slide,
+    /// L'aperçu de cette slide, en SVG.
     pub svg: Arc<str>,
 }
 
-/// Aperçus d'un pack de modèles, et la liste des packs.
+/// Les layouts d'un pack de layouts épinglé, avec leurs aperçus.
+#[derive(Debug, Clone, Serialize)]
+pub struct LayoutPackView {
+    /// Espace de noms du pack dans le deck.
+    pub namespace: Namespace,
+    /// Nom du pack, lu dans son manifeste.
+    pub name: String,
+    /// Ses layouts, dans l'ordre des fichiers.
+    pub layouts: Vec<LayoutView>,
+}
+
+/// Les layouts de chaque pack de layouts épinglé, dans l'ordre des espaces de noms.
 #[derive(Debug, Serialize)]
-pub struct TemplatesView {
-    pub set: PackInfo,
-    pub sets: Vec<PackInfo>,
-    pub templates: Arc<[TemplateView]>,
+pub struct LayoutsView {
+    /// Un pack de layouts épinglé par entrée.
+    pub packs: Vec<LayoutPackView>,
 }
 
 /// Boîte d'un élément du deck, sélectionnable.

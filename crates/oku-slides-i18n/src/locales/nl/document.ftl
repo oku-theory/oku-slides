@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = tip: { $hint }
 render-chart-failed = grafiek kon niet worden getekend
 
-registry-bad-pack-id = Ongeldige id van sjabloonpakket: { $id }
-registry-base-pack-broken = Het ingebouwde widgetpakket is beschadigd ({ $file }); installeer de app opnieuw.
-registry-duplicate-pack = Twee widgetpakketten van de presentatie delen { $pack }.
-registry-compile = De widgets van het sjabloonpakket konden niet worden gecompileerd
-registry-missing = Het sjabloonpakket declareert geen widgets
+registry-bad-pack-id = Ongeldige id van pakket: { $id }
+registry-base-pack-broken = Het ingebouwde pakket is beschadigd ({ $file }); installeer de app opnieuw.
+registry-duplicate-pack = Twee pakketten van de presentatie delen { $pack }.
+registry-compile = De widgets van het pakket konden niet worden gecompileerd
+registry-missing = Het pakket declareert geen widgets
 render-timeout = Het renderen duurde langer dan { $seconds } s en is afgebroken
 render-out-of-memory = Het renderen had meer dan { $mib } MiB geheugen nodig en is afgebroken
 render-worker-lost = Het renderproces is gestopt
@@ -41,6 +41,7 @@ import-not-a-presentation = Dit bestand is geen PowerPoint-presentatie
 import-protected = Deze presentatie is versleuteld of in het oude .ppt-formaat: sla haar eerst op als .pptx
 import-too-large = Deze presentatie is te groot om te importeren
 import-output-too-large = Het resulterende deck zou de toegestane grootte voor een import overschrijden
+import-no-profiles = De gekozen lay-outpakketten bieden geen profiel aan.
 import-loss-list-levels = Lijstniveaus teruggebracht tot één
 import-loss-merged-cells = Samengevoegde cellen gesplitst
 import-loss-percent-stacked = 100%-gestapelde grafiek als gestapeld weergegeven
@@ -77,7 +78,7 @@ import-loss-repeated-decor = { $slides ->
    [one] Kop- of voettekst “{ $text }” herhaald op { $slides } dia weggelaten: het thema tekent er zelf een
   *[other] Kop- of voettekst “{ $text }” herhaald op { $slides } dia’s weggelaten: het thema tekent er zelf een
 }
-import-loss-no-slot = Inhoud weggelaten: de gekozen sjabloon heeft er geen plaats voor
+import-loss-no-slot = Inhoud weggelaten: de gekozen lay-out heeft er geen plaats voor
 import-loss-moved-to-notes = Tekst verplaatst naar de sprekersnotities: de titeldia heeft er geen plaats voor
 import-loss-items-dropped = Te veel elementen op de dia: { $dropped } elementen weggelaten
 import-loss-page-fitted = Bronpagina van { $width } × { $height } pt is geen 16:9: inhoud geschaald en gecentreerd
@@ -89,7 +90,7 @@ import-loss-shape-style = { $effect ->
     [arrow] Pijlpunten van de lijn niet getekend
    *[geometry] Onbekende vorm weergegeven als rechthoek
 }
-import-loss-layout-dropped = Te veel lay-outs voor één pakket: ‘{ $layout }’ heeft geen sjabloon; de dia's ervan gebruiken de lege widget en krijgen de decoratie als elementen
+import-loss-layout-dropped = Te veel lay-outs voor één pakket: ‘{ $layout }’ heeft geen widget; de dia's ervan gebruiken de lege widget en krijgen de decoratie als elementen
 import-loss-decor-truncated = { $omitted ->
     [one] Decoratie ingekort om in de grootte van een pakketbestand te passen: { $omitted } element weggelaten
    *[other] Decoratie ingekort om in de grootte van een pakketbestand te passen: { $omitted } elementen weggelaten

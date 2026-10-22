@@ -16,11 +16,11 @@ diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = ヒント：{ $hint }
 render-chart-failed = グラフを描画できませんでした
 
-registry-bad-pack-id = テンプレートパックの識別子が無効です: { $id }
-registry-base-pack-broken = 組み込みのウィジェットパックが破損しています ({ $file })。アプリを再インストールしてください。
-registry-duplicate-pack = プレゼンテーションの2つのウィジェットパックが { $pack } を共有しています。
-registry-compile = テンプレートパックのウィジェットをコンパイルできませんでした
-registry-missing = テンプレートパックがウィジェットを宣言していません
+registry-bad-pack-id = パックの識別子が無効です: { $id }
+registry-base-pack-broken = 組み込みのパックが破損しています ({ $file })。アプリを再インストールしてください。
+registry-duplicate-pack = プレゼンテーションの2つのパックが { $pack } を共有しています。
+registry-compile = パックのウィジェットをコンパイルできませんでした
+registry-missing = パックがウィジェットを宣言していません
 render-timeout = レンダリングが { $seconds }秒を超えたため中断しました
 render-out-of-memory = レンダリングが { $mib } MiB を超えるメモリを必要としたため中断しました
 render-worker-lost = レンダリングプロセスが停止しました
@@ -40,6 +40,7 @@ import-not-a-presentation = このファイルは PowerPoint プレゼンテー�
 import-protected = このプレゼンテーションは暗号化されているか旧形式の .ppt です。先に .pptx として保存してください
 import-too-large = このプレゼンテーションは大きすぎてインポートできません
 import-output-too-large = 変換後のプレゼンテーションがインポートで許可されるサイズを超えます
+import-no-profiles = 選択したレイアウトパックにはプロファイルがありません。
 import-loss-list-levels = リストの階層を 1 段にまとめました
 import-loss-merged-cells = 結合セルを解除しました
 import-loss-percent-stacked = 100% 積み上げグラフを積み上げグラフとして表示しました
@@ -73,7 +74,7 @@ import-loss-hidden-slide = 非表示のスライドを表示状態でインポ�
 import-loss-effects = 影、反射、3D 効果が失われました
 import-loss-series-dropped = 円グラフは 1 系列のみ表示します。{ $kept } 系列を保持、{ $dropped } 系列を除外しました
 import-loss-repeated-decor = { $slides }枚のスライドで繰り返されるヘッダーまたはフッター「{ $text }」を省きました。テーマが独自に描画します
-import-loss-no-slot = コンテンツを省きました。選んだテンプレートに配置できる場所がありません
+import-loss-no-slot = コンテンツを省きました。選んだレイアウトに配置できる場所がありません
 import-loss-moved-to-notes = テキストを発表者ノートに移しました。表紙に配置できる場所がありません
 import-loss-items-dropped = スライドの要素が多すぎます：{ $dropped }個の要素を省きました
 import-loss-page-fitted = 元のページ（{ $width } × { $height } pt）は 16:9 ではありません。内容を拡大縮小して中央に配置しました
@@ -85,7 +86,7 @@ import-loss-shape-style = { $effect ->
     [arrow] 線の矢印は描画されません
    *[geometry] 不明な図形が四角形で表示されました
 }
-import-loss-layout-dropped = 1つのパックにはレイアウトが多すぎます：「{ $layout }」にはテンプレートがなく、そのスライドは空のウィジェットを使い、装飾を要素として受け取ります
+import-loss-layout-dropped = 1つのパックにはレイアウトが多すぎます：「{ $layout }」にはウィジェットがなく、そのスライドは空のウィジェットを使い、装飾を要素として受け取ります
 import-loss-decor-truncated = パックファイルのサイズに収めるため装飾を切り詰めました：{ $omitted }個の要素を省きました
 import-loss-table-style = 表のスタイルを近似しました：独自のセルの背景、罫線、列幅、行の高さ、文字サイズは失われます
 import-loss-overflow = 要素「{ $element }」がスライドの端からはみ出しています

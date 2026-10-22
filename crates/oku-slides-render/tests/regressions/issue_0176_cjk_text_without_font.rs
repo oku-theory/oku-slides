@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::{Fonts, Renderer};
 use serde_json::json;
 
@@ -28,7 +28,7 @@ fn app_fonts() -> Fonts {
 fn pdf(theme: Option<&str>, lang: &str, text: &str) -> Vec<u8> {
     let deck: Deck = serde_json::from_value(json!({
         "theme": theme.map(theme_ref), "params": { "lang": lang },
-        "slides": [{ "id": "s", "kind": "content", "params": { "title": text, "blocks": [
+        "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": text, "blocks": [
             { "id": "b", "kind": base::TEXT, "params": { "body": [{ "runs": [{ "t": text }] }] } }
         ] } }]
     }))
@@ -100,7 +100,7 @@ fn devanagari_bengali_and_thai_in_every_theme_are_drawn_with_their_fonts() {
 fn pdf_title_body(theme: Option<&str>, lang: &str, title: &str, body: &str) -> Vec<u8> {
     let deck: Deck = serde_json::from_value(json!({
         "theme": theme.map(theme_ref), "params": { "lang": lang },
-        "slides": [{ "id": "s", "kind": "content", "params": { "title": title, "blocks": [
+        "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": title, "blocks": [
             { "id": "b", "kind": base::TEXT, "params": { "body": [{ "runs": [{ "t": body }] }] } }
         ] } }]
     }))
@@ -140,7 +140,7 @@ fn unknown_script_style_fails_to_compile() {
     let deck: Deck = serde_json::from_value(json!({
         "theme": theme_ref("papier"), "params": { "lang": "ja" },
         "tokens": { "script-style": { "display": "serf" } },
-        "slides": [{ "id": "s", "kind": "content", "params": { "title": "題名", "blocks": [] } }]
+        "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "題名", "blocks": [] } }]
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut r = Renderer::with_builtins(app_fonts()).unwrap_or_else(|e| panic!("{e}"));

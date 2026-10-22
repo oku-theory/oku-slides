@@ -16,7 +16,7 @@ fn order(s: &Slide) -> Vec<String> {
 #[test]
 fn text_fields_of_content_lists_slide_then_elements_in_reading_order() {
     let s = slide(json!({
-        "id": "s", "kind": "content",
+        "id": "s", "kind": "essentiel/content",
         "params": { "title": "T", "blocks": [
             { "id": "b1", "kind": "base/text" },
             { "id": "st", "kind": "base/stack", "params": { "layout": "columns", "children": [
@@ -36,7 +36,7 @@ fn text_fields_of_content_lists_slide_then_elements_in_reading_order() {
 
 #[test]
 fn text_fields_skip_widgets_without_text_params() {
-    let s = slide(json!({ "id": "s", "kind": "blank", "params": { "elements": [
+    let s = slide(json!({ "id": "s", "kind": "essentiel/blank", "params": { "elements": [
         { "id": "f", "kind": "base/shape", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 } }
     ] } }));
     assert_that!(order(&s)).is_empty();
@@ -51,8 +51,8 @@ fn text_fields_of_unknown_widget_are_empty() {
 #[test]
 fn text_fields_expand_list_items_in_item_order() {
     let reg = test_registry::with_list();
-    let s = slide(json!({ "id": "s", "kind": "blank", "params": { "elements": [
-        { "id": "f", "kind": "liste", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 }, "params": { "etapes": [
+    let s = slide(json!({ "id": "s", "kind": "essentiel/blank", "params": { "elements": [
+        { "id": "f", "kind": "test-el/liste", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 }, "params": { "etapes": [
             { "id": "d0", "date": "2019", "fait": true },
             { "id": "i-1", "texte": "x" }
         ] } }
@@ -71,8 +71,8 @@ fn text_fields_expand_list_items_in_item_order() {
 #[test]
 fn text_fields_of_an_item_read_the_item_values() {
     let reg = test_registry::with_list();
-    let s = slide(json!({ "id": "s", "kind": "blank", "params": { "elements": [
-        { "id": "f", "kind": "liste", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 },
+    let s = slide(json!({ "id": "s", "kind": "essentiel/blank", "params": { "elements": [
+        { "id": "f", "kind": "test-el/liste", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 },
           "params": { "etapes": [{ "id": "d0", "date": "2019" }] } }
     ] } }));
     let fields = s.text_fields(&reg);
@@ -83,7 +83,7 @@ fn text_fields_of_an_item_read_the_item_values() {
 
 #[test]
 fn text_fields_of_a_plain_param_have_the_owner_values_and_no_list() {
-    let s = slide(json!({ "id": "s", "kind": "content", "params": { "title": "T" } }));
+    let s = slide(json!({ "id": "s", "kind": "essentiel/content", "params": { "title": "T" } }));
     let reg = test_registry::shared();
     let fields = s.text_fields(&reg);
     let title = fields.iter().find(|f| f.name() == "title");
@@ -92,8 +92,8 @@ fn text_fields_of_a_plain_param_have_the_owner_values_and_no_list() {
 }
 
 fn plan_slide() -> Slide {
-    slide(json!({ "id": "s", "kind": "blank", "params": { "elements": [
-        { "id": "p", "kind": "plan", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 }, "params": { "etapes": [
+    slide(json!({ "id": "s", "kind": "essentiel/blank", "params": { "elements": [
+        { "id": "p", "kind": "test-el/plan", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 }, "params": { "etapes": [
             { "id": "a", "titre": "A", "taches": [{ "id": "t1", "texte": "un" }, { "id": "t2" }] },
             { "id": "b", "titre": "B" }
         ] } }

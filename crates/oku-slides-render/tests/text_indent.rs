@@ -6,7 +6,7 @@ mod common;
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::Compiled;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -20,7 +20,7 @@ fn compile(style: Value, body: Value) -> Compiled {
         s.insert("color".into(), json!("#ff0000"));
     }
     let d = json!({ "tokens": { "component": { "list": { "marker": "•", "marker-color": "#00ff00" } } },
-        "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [
+        "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [
             { "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 800, "h": 400 },
               "style": style, "params": { "body": body } }] } }] });
     let deck = Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"));

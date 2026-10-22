@@ -102,9 +102,9 @@ function renewIds(list: Element[]) {
   }
 }
 
-/** Copie d'une slide modèle avec de nouveaux identifiants (slide et éléments, dans tous leurs slots). */
-export function instantiate(template: Slide): Slide {
-  const copy: Slide = structuredClone(template);
+/** Copie d'une slide (celle d'un layout) avec de nouveaux identifiants, éléments compris dans tous leurs slots. */
+export function instantiate(slide: Slide): Slide {
+  const copy: Slide = structuredClone(slide);
   copy.id = newId("s");
   for (const v of Object.values(copy.params ?? {})) {
     if (isElementArray(v)) renewIds(v);
@@ -353,7 +353,7 @@ type LookSource = Pick<Snapshot, "theme" | "appearance" | "editing" | "undo_labe
 /**
  * Style du deck vu par les aperçus de widgets : un changement le relance.
  *
- * En mode modèles, le deck de travail n'a pas de thème : le brouillon (base,
+ * En mode pack, le deck de travail n'a pas de thème : le brouillon (base,
  * nom, modifié, révision de ses jetons) et les étapes d'annulation (une
  * modification de l'agent, une annulation) en tiennent lieu. La révision
  * distingue deux réglages successifs du même jeton, que rien d'autre ne sépare.

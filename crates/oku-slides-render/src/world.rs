@@ -41,7 +41,6 @@ const LIBRARY: &[(&str, &str)] = lib_files!(
     "src/numbers.typ",
     "src/params.typ",
     "src/widget.typ",
-    "src/widgets.typ",
     "src/data.typ",
 );
 
@@ -57,8 +56,8 @@ pub(crate) fn file_id(path: &str) -> Result<FileId, RenderError> {
     Ok(FileId::new(RootedPath::new(VirtualRoot::Project, vpath)))
 }
 
-/// Source principale : importe la bibliothèque et les widgets (base, puis
-/// ceux de chaque pack, sous leur nom qualifié), et rend `/deck.json` avec les jetons de
+/// Source principale : importe la bibliothèque et les widgets de chaque pack
+/// (le noyau n'en a aucun), sous leur nom qualifié, et rend `/deck.json` avec les jetons de
 /// `/theme.json` si un thème est posé (`has_theme`).
 /// `assets` : empreintes (hex) des assets disponibles.
 /// `labels` : textes des cadres de repli (échappés ici, pas du code).
@@ -77,14 +76,15 @@ fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item 
     // L'identifiant d'un pack est contrôlé (`PackWidgets::new`) : il peut
     // entrer dans un chemin.
     let mut pack_import = String::new();
-    let mut pack_registry = String::new();
+    let mut registries = Vec::new();
     for (i, p) in packs.packs().iter().enumerate() {
         pack_import.push_str(&format!("#import \"{}\": registry as pack-registry-{i}\n", p.path()));
-        pack_registry.push_str(&format!(" + pack-registry-{i}"));
+        registries.push(format!("pack-registry-{i}"));
     }
+    // Sans pack, un registre vide : chaque slide rend le cadre « slide inconnue ».
+    let registry = if registries.is_empty() { "()".to_owned() } else { registries.join(" + ") };
     format!(
         r#"#import "/oku-slides/lib.typ": *
-#import "/oku-slides/src/widgets.typ": registry as base-registry
 {pack_import}#let available = {available}
 #let fallback(label) = rect(width: 100%, height: 100%, fill: luma(230),
   align(center + horizon, text(size: 20pt, fill: luma(90), label)))
@@ -118,7 +118,7 @@ fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item 
   }}
 }}
 #render-deck(json("/deck.json"), theme: {theme}, image-loader: load-image,
-  widgets: by-name(base-registry{pack_registry}))
+  widgets: by-name({registry}))
 "#,
         svg_field = SVG_FIELD,
         aspect = DEFAULT_SIZE.height / DEFAULT_SIZE.width,
@@ -177,7 +177,7 @@ pub(crate) struct OkuSlidesWorld {
     /// Assets du dernier deck reçu, pour refaire la source principale.
     hexes: Vec<String>,
     labels: Labels,
-    /// Widgets des packs : fichiers sous /packs/<id>/widgets/, assemblage sous /packs/<id>/widgets.typ.
+    /// Widgets des packs : fichiers sous /packs/<id>/<dossier>/, assemblage sous /packs/<id>/<dossier>.typ.
     packs: PackSet,
     charts: Charts,
     /// Assets par fichier (`/assets/<hex>`). Leur identifiant est l'empreinte

@@ -29,7 +29,7 @@ pub struct AgentUi {
     pub field: Option<String>,
     #[serde(default)]
     pub editing: bool,
-    /// Sous-onglet de widget actif (mode modèles).
+    /// Sous-onglet de widget actif (mode pack).
     #[serde(default)]
     pub widget: Option<String>,
     /// Langue que l'interface affiche : elle change à chaud, la session garde celle du lancement.
@@ -86,11 +86,11 @@ impl Session {
         self.turn_steps_begin(turn);
     }
 
-    /// Ferme le groupe du tour, y compris sur le deck mis de côté (modèles, historique).
+    /// Ferme le groupe du tour, y compris sur le deck mis de côté (mode pack, historique).
     pub fn end_turn(&mut self) {
         self.end_widget_session();
         self.doc.sources.end_group();
-        if let Mode::Templates { stash, .. } | Mode::History { stash, .. } = &mut self.mode {
+        if let Mode::Pack { stash, .. } | Mode::History { stash, .. } = &mut self.mode {
             stash.sources.end_group();
         }
         self.turn_steps_end();
@@ -112,17 +112,17 @@ impl Session {
         let mut out = String::from("<oku-slides-context>\n");
         let mode = match &self.mode {
             Mode::Deck | Mode::Help { .. } => "deck".to_owned(),
-            Mode::Templates { edit, .. } => format!("templates(set={})", edit.set),
+            Mode::Pack { edit, .. } => format!("pack(id={})", edit.pack),
             Mode::History { history, .. } => {
                 let view = history.view();
                 format!("history(read_only, version={}/{})", view.index + 1, view.count)
             }
         };
         let _ = writeln!(out, "mode: {mode}");
-        // En mode modèles, le deck de travail n'a pas de thème : le brouillon
+        // En mode pack, le deck de travail n'a pas de thème : le brouillon
         // part du thème édité, que l'agent change par `set_theme`.
         let theme = match &self.mode {
-            Mode::Templates { theme, .. } => format!("theme (draft): {}", theme.name),
+            Mode::Pack { theme, .. } => format!("theme (draft): {}", theme.name),
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } => format!(
                 "theme: {}",
                 deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map_or_else(|| "none".to_owned(), |m| m.name)

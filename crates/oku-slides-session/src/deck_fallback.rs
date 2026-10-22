@@ -64,7 +64,7 @@ impl Session {
     /// qui le requièrent sont écartés (rendu du deck, session, sources), et un
     /// avis les nomme. Vrai si un pack a été écarté ; jamais un pack de confiance.
     ///
-    /// Tout emplacement y passe : deck, aperçus de modèles, variantes, polices.
+    /// Tout emplacement y passe : deck, aperçus de layouts, variantes, polices.
     pub(crate) fn disable_faulty(&mut self, e: &RenderError, deck: &Deck) -> Result<bool> {
         let (trusted, others): (Vec<_>, Vec<_>) = self.packs.packs().iter().cloned().partition(is_trusted_pack);
         if !e.kind().is_bounded() || others.is_empty() {

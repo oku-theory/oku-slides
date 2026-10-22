@@ -8,7 +8,7 @@
 //! | placeholder date, pied, numéro | paramètre `plain` : `date`, `pied`, `numero` (défaut `{n}`) |
 //! | placeholder image, graphique, tableau, média | rien : le contenu de la slide va dans `extras`, à sa place |
 //! | une slide du layout masque son décor (`showMasterSp="0"`) | `decor` (`flag`, défaut vrai) : le décor du master et du layout est dessiné |
-//! | | `grid` (grille de `blank`) et `extras` (slot `free`) |
+//! | | `grid` (grille d'`essentiel/blank`) et `extras` (slot `free`) |
 //!
 //! Un nom répété dans un layout prend un suffixe : `corps`, `corps-2`…
 //!
@@ -36,7 +36,7 @@ use crate::source::{Layout, Master, Role};
 /// Paramètre du décor : faux, la slide masque le décor du master et du layout
 /// (pas leur fond), comme une slide PowerPoint `showMasterSp="0"`.
 pub(crate) const DECOR_PARAM: &str = "decor";
-/// Paramètre de la grille de la zone libre (celle du widget `blank`).
+/// Paramètre de la grille de la zone libre (celle du layout `essentiel/blank`).
 pub(crate) const GRID_PARAM: &str = "grid";
 /// Paramètre du slot libre : ce que la slide pose sur son layout.
 pub(crate) const EXTRAS_PARAM: &str = "extras";

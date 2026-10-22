@@ -7,6 +7,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Draw charts at their box size, never at a fixed size scaled by Typst, so text size stays constant. (t-544)
 - Keep each widget file name equal to its declared widget name; _commun is shared code, never a registry widget. (spec:2026-10-02-creation-widgets-design)
 - Compile each widget alone so a broken one is dropped with diagnostics while the others keep rendering. (spec:2026-10-02-creation-widgets-design)
+- Serve a pack's files under its kind's directory, and hash the kind into PackWidgets::fingerprint and probe_key. (plan:2026-10-19-packs-lot3-essentiel)
 - Sanitize every table param with parse_table before Typst; on bad data render null and warn, never refuse the deck. (spec:2026-10-08-widget-tableau-design)
 - Decide pack trust only with is_trusted_pack: namespace base and a version listed in packs/base/versions.txt, never namespace or id alone. (plan:2026-10-18-packs-lot2-base)
 

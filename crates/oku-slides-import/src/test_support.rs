@@ -1,6 +1,6 @@
 //! Aides de test du projecteur : jetons effectifs des thèmes intégrés, texte, items,
 //! slides, layouts et decks source, registre de base, application d'une slide ou d'un
-//! plan par les ops du cœur, modèles des packs intégrés, thème Office, fixtures
+//! plan par les ops du cœur, profils du pack intégré `essentiel`, thème Office, fixtures
 //! d'import lues et polices de l'app.
 
 use std::collections::{BTreeMap, HashSet};
@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 
 use oku_slides_core::tokens::effective_tokens;
 use oku_slides_core::{
-    Deck, Element, Op, PackPin, PackVersion, ParamValue, Slide, Template, WidgetRegistry, apply_all, kinds, validate,
+    Deck, Element, LayoutProfile, Namespace, Op, PackKind, PackPin, PackVersion, ParamValue, Slide, WidgetRegistry,
+    WidgetSchema, apply_all, kinds, validate,
 };
 use serde_json::{Map, Value};
 use uuid::Uuid;
@@ -119,11 +120,25 @@ pub(crate) fn text_box(paragraphs: Vec<Paragraph>) -> TextBox {
     TextBox { paragraphs, ..TextBox::default() }
 }
 
-/// Le registre des widgets de base (`fixtures/widgets/base-registry.json`).
-pub(crate) fn registry() -> WidgetRegistry {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+/// La sonde des packs intégrés `base` et `essentiel` (`fixtures/widgets/builtin-registry.json`).
+fn builtin_probe() -> Value {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
-    WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap()).unwrap()
+    serde_json::from_str(&text).unwrap()
+}
+
+/// Le registre des packs intégrés `base` et `essentiel` (`fixtures/widgets/builtin-registry.json`).
+pub(crate) fn registry() -> WidgetRegistry {
+    WidgetRegistry::from_probe(builtin_probe()).unwrap()
+}
+
+/// Le registre des packs intégrés plus les layouts `schemas` sous `deck-layouts` (un import hi-fi).
+pub(crate) fn registry_with_deck_layouts(schemas: &[WidgetSchema]) -> WidgetRegistry {
+    let mut probe = builtin_probe();
+    let pack =
+        serde_json::json!({ "namespace": Namespace::deck_layouts(), "kind": PackKind::Layouts, "widgets": schemas });
+    probe["packs"].as_array_mut().unwrap().push(pack);
+    WidgetRegistry::from_probe(probe).unwrap()
 }
 
 /// L'épinglage de `base` dans les tests : l'id du pack de la fixture, une version quelconque.
@@ -135,6 +150,23 @@ pub(crate) fn base_pin() -> PackPin {
     }
 }
 
+/// L'épinglage d'`essentiel` dans les tests : un id et une version quelconques, requérant `base`.
+pub(crate) fn essentiel_pin() -> PackPin {
+    PackPin {
+        id: Uuid::parse_str("d5eb8a57-07b4-47f7-a818-dde5347160cf").unwrap(),
+        version: PackVersion::from_hex(&"0".repeat(64)).unwrap(),
+        requires: vec![kinds::base::namespace()],
+    }
+}
+
+/// Les ops qui épinglent `base` puis `essentiel`, comme la session avant un import.
+pub(crate) fn builtin_pins() -> Vec<Op> {
+    vec![
+        Op::AddPack { kind: PackKind::Widgets, namespace: kinds::base::namespace(), pin: base_pin() },
+        Op::AddPack { kind: PackKind::Layouts, namespace: kinds::essentiel::namespace(), pin: essentiel_pin() },
+    ]
+}
+
 /// Un élément `kind` d'id `id` dont le paramètre `param` vaut `value`.
 pub(crate) fn element_with(id: &str, kind: &str, param: &str, value: Value) -> Element {
     let mut e = Element::new(id, kind);
@@ -142,14 +174,15 @@ pub(crate) fn element_with(id: &str, kind: &str, param: &str, value: Value) -> E
     e
 }
 
-/// Le deck obtenu en ajoutant une slide `content` dont les blocs sont `blocks`,
-/// par `Op::AddSlide` sur le registre de base.
+/// Le deck obtenu en ajoutant une slide `essentiel/content` dont les blocs sont `blocks`,
+/// par `Op::AddSlide` sur le registre des packs intégrés.
 pub(crate) fn apply_blocks(blocks: Vec<Element>) -> Result<Deck, oku_slides_core::TransactionError> {
-    let mut slide = Slide::new("s1", "content");
+    let mut slide = Slide::new("s1", kinds::essentiel::CONTENT);
     slide.params.set("blocks", ParamValue::Slot(blocks));
     let mut deck = Deck::empty();
-    let pin = Op::AddPack { namespace: kinds::base::namespace(), pin: base_pin() };
-    apply_all(&mut deck, vec![pin, Op::AddSlide { index: None, defaults: false, slide }], &registry())?;
+    let mut ops = builtin_pins();
+    ops.push(Op::AddSlide { index: None, defaults: false, slide });
+    apply_all(&mut deck, ops, &registry())?;
     Ok(deck)
 }
 
@@ -158,19 +191,12 @@ pub(crate) fn text_item(id: &str, frame: (f64, f64, f64, f64), text: &str) -> It
     item(id, frame, ItemKind::Text(text_box(vec![para(vec![run(text)])])))
 }
 
-/// Les modèles du pack intégré Essentiel, dans l'ordre du pack.
-pub(crate) fn essentiel() -> Vec<Template> {
-    templates(include_str!("../../../templates/essentiel/pack.json"))
-}
-
-/// Les modèles du pack intégré Grilles, dans l'ordre du pack.
-pub(crate) fn grilles() -> Vec<Template> {
-    templates(include_str!("../../../templates/grilles/pack.json"))
-}
-
-fn templates(pack_json: &str) -> Vec<Template> {
-    let pack: Value = serde_json::from_str(pack_json).unwrap();
-    serde_json::from_value(pack["templates"].clone()).unwrap()
+/// Les profils du pack intégré `essentiel`, sous son espace de noms, dans l'ordre du manifeste.
+pub(crate) fn essentiel_profiles() -> Vec<(Namespace, LayoutProfile)> {
+    let manifest: Value =
+        serde_json::from_str(include_str!("../../../typst/oku-slides/packs/essentiel/layouts.json")).unwrap();
+    let profiles: Vec<LayoutProfile> = serde_json::from_value(manifest["profiles"].clone()).unwrap();
+    profiles.into_iter().map(|p| (kinds::essentiel::namespace(), p)).collect()
 }
 
 /// `item` avec le rôle de placeholder `role`.

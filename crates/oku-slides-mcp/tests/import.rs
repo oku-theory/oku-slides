@@ -191,7 +191,7 @@ async fn import_diff_of_a_region_crops_it_at_twice_the_size() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn import_report_retrofit_gives_the_widget_requests_and_import_diff_is_refused() {
-    let target = ImportTarget::Retrofit { pack: "Essentiel".into(), theme: None };
+    let target = ImportTarget::Retrofit { layouts: Vec::new(), theme: None };
     let h = start_imported("minimal", target, |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let report = json_of(&call(&c, "import_report", json!({})).await);
@@ -278,7 +278,7 @@ async fn theme_tokens_of_an_unknown_theme_says_so_in_the_user_language() {
     assert_that!(text_of(&r)).is_equal_to(expected);
 }
 
-/// Les fichiers de la bibliothèque de modèles sous `data`, avec leurs octets, triés.
+/// Les fichiers de la bibliothèque de packs (les deux sortes) sous `data`, avec leurs octets, triés.
 fn library_files(data: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
     fn walk(dir: &std::path::Path, out: &mut Vec<(std::path::PathBuf, Vec<u8>)>) {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
@@ -293,18 +293,22 @@ fn library_files(data: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         }
     }
     let mut out = Vec::new();
-    walk(&data.join("templates"), &mut out);
+    use oku_slides_session::{Layouts, LibraryKind, Widgets};
+    for dir in [Widgets::DIR, Layouts::DIR] {
+        walk(&data.join(dir), &mut out);
+    }
     out.sort();
     out
 }
 
-/// Un widget minimal, écrit dans le pack édité.
-const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
-#let widget = widget("kpi", params: (value: p.plain()), (args, ctx) => field(ctx, "value", args.value))
+/// Un layout minimal, écrit dans le pack de layouts édité.
+const COVER: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("cover", category: "slide", params: (title: p.plain()),
+  (args, ctx) => field(ctx, "title", args.title))
 "#;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_templates_of_the_hifi_pack_edits_it_in_the_deck_and_never_writes_the_library() {
+async fn edit_pack_of_the_hifi_pack_edits_it_in_the_deck_and_never_writes_the_library() {
     let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let pack = h
@@ -312,44 +316,47 @@ async fn edit_templates_of_the_hifi_pack_edits_it_in_the_deck_and_never_writes_t
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .deck()
-        .widgets
-        .get(&Namespace::deck())
+        .layouts
+        .get(&Namespace::deck_layouts())
         .cloned();
     let pack = pack.unwrap_or_else(|| panic!("pack du deck"));
     let before = library_files(h.data());
-    let r = call(&c, "edit_templates", json!({ "set": pack.id })).await;
+    let r = call(&c, "edit_pack", json!({ "pack": pack.id })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
-    let r = call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
+    let r = call(&c, "set_widget", json!({ "name": "cover", "source": COVER })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     let edit = {
         let s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        s.snapshot().editing.map(|e| e.mode.clone()).unwrap_or_else(|| panic!("mode modèles attendu"))
+        s.snapshot().editing.map(|e| e.mode.clone()).unwrap_or_else(|| panic!("mode pack attendu"))
     };
-    assert_that!((edit.set, edit.deck_only)).is_equal_to((pack.id, true));
+    assert_that!((edit.pack, edit.deck_only)).is_equal_to((pack.id, true));
     assert_that!(edit.session_version.is_some()).is_true();
     assert_that!(library_files(h.data())).is_equal_to(before);
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_templates_of_a_hifi_pack_left_in_history_is_refused_as_deck_only() {
+async fn edit_pack_of_a_hifi_pack_left_in_history_is_refused_as_deck_only() {
     let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let session = h.session.clone();
-    // Le deck passe au pack par défaut (hors du runtime : le stockage bloque) : celui de l'import ne
+    // Le deck quitte le pack de l'import (hors du runtime : le stockage bloque) : celui de l'import ne
     // reste que dans l'historique.
     let pack = tokio::task::spawn_blocking(move || {
         let mut s = session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let pack = s.deck().widgets.get(&Namespace::deck()).cloned().unwrap_or_else(|| panic!("pack du deck"));
+        let pack = s.deck().layouts.get(&Namespace::deck_layouts()).cloned().unwrap_or_else(|| panic!("pack du deck"));
         // Le pack ne se retire qu'une fois ses slides parties.
         let mut ops: Vec<_> =
             s.deck().slides.iter().map(|sl| oku_slides_core::Op::RemoveSlide { slide: sl.id.clone() }).collect();
-        ops.push(oku_slides_core::Op::RemovePack { namespace: Namespace::deck() });
-        s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("pack par défaut : {}", e.one_line()));
+        ops.push(oku_slides_core::Op::RemovePack {
+            kind: oku_slides_core::PackKind::Layouts,
+            namespace: Namespace::deck_layouts(),
+        });
+        s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("pack retiré : {}", e.one_line()));
         pack
     })
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
-    let r = call(&c, "edit_templates", json!({ "set": pack.id })).await;
+    let r = call(&c, "edit_pack", json!({ "pack": pack.id })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     let expected = h.localizer.tr_with("session-deck-only", &[("id", pack.id.to_string().into())]);
     assert_that!(text_of(&r)).is_equal_to(expected);

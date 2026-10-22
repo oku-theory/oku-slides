@@ -22,8 +22,9 @@
 //!   pendant une opération d'un emplacement (pose des widgets, rendu, export),
 //!   envoi de la file compris, marque le pack fautif : celui posé par
 //!   `set_widgets`, celui de l'emplacement pour les autres, s'il y est seul
-//!   et n'est pas une version livrée de `base` (un emplacement qui en porte
-//!   une n'accuse personne ; la session tranche, `mark_faulty`). Il n'est plus
+//!   et n'est pas une version livrée d'un pack intégré, `base` ou `essentiel`
+//!   (un emplacement qui en porte une n'accuse personne ; la session tranche,
+//!   `mark_faulty`). Il n'est plus
 //!   exécuté dans ce travailleur, et le rendu de l'emplacement répond
 //!   `PackDisabled` sans appel.
 //! - Un emplacement d'essai (`trial_slot`, aperçu d'un widget en cours
@@ -116,6 +117,7 @@ pub(crate) fn wire(pack: &PackWidgets) -> WirePack {
     WirePack {
         id: pack.id().to_owned(),
         namespace: pack.namespace().to_string(),
+        kind: pack.kind(),
         files: pack.files().iter().map(|(n, s)| (n.to_string(), s.clone())).collect(),
     }
 }
@@ -136,8 +138,8 @@ pub(crate) fn expect_ok(link: &mut Link, req: &Request, payload: &[u8]) -> Resul
 /// Marque fautif l'unique pack de l'emplacement si `e` est un échec borné et qu'il n'est pas de confiance.
 ///
 /// L'échec ne dit pas lequel de plusieurs packs en est la cause, ni s'il vient
-/// du contenu `base` du deck : avec plus d'un pack, ou avec une version livrée
-/// de `base` (`is_trusted_pack`), aucun n'est accusé. La session tranche par
+/// du contenu `base` ou `essentiel` du deck : avec plus d'un pack, ou avec une
+/// version livrée d'un pack intégré (`is_trusted_pack`), aucun n'est accusé. La session tranche par
 /// son rendu témoin et sa dichotomie (`RenderWorker::mark_faulty`).
 pub(crate) fn blame(link: &mut Link, packs: &[WirePack], e: &RenderError) {
     if let [pack] = packs
@@ -148,7 +150,7 @@ pub(crate) fn blame(link: &mut Link, packs: &[WirePack], e: &RenderError) {
     }
 }
 
-/// Le pack envoyé est-il une version livrée de `base` ? Illisible, il ne l'est pas.
+/// Le pack envoyé est-il une version livrée d'un pack intégré ? Illisible, il ne l'est pas.
 fn is_trusted_wire(p: &WirePack) -> bool {
     pack_of(p.clone()).is_ok_and(|pack| is_trusted_pack(&pack))
 }
@@ -262,7 +264,7 @@ impl RenderWorker {
         self.link().faulty_packs.contains(&hex::encode(pack.fingerprint()))
     }
 
-    /// Marque `pack` fautif, sauf version livrée de `base` : il n'est plus exécuté dans ce travailleur.
+    /// Marque `pack` fautif, sauf version livrée d'un pack intégré : il n'est plus exécuté ici.
     ///
     /// Pour la session, quand son essai d'un pack seul à côté des packs de
     /// confiance échoue : l'emplacement, qui en porte un, n'a accusé personne.
@@ -272,7 +274,7 @@ impl RenderWorker {
         }
     }
 
-    /// Ouvre un emplacement avec ces polices, les widgets de base et la langue `l`.
+    /// Ouvre un emplacement avec ces polices, un registre de départ (`base`, avant `set_widgets`) et la langue `l`.
     pub fn slot(&self, fonts: &Fonts, l: &Localizer, base: Arc<WidgetRegistry>) -> Result<RenderSlot, RenderError> {
         self.open_slot(fonts, l, base, true)
     }

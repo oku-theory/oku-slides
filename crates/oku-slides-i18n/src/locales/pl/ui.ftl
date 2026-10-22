@@ -4,17 +4,28 @@ ui-loading = Wczytywanie…
 ## Dokument
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · szablony
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · pakiet układów
+   *[other] { $name } · pakiet widżetów
+}
 ui-title-rename = Zmień nazwę prezentacji
 ui-title-field = Tytuł prezentacji
 ui-status-unsaved = niezapisane zmiany
 ui-status-saved = zapisano
 ui-status-never-saved = jeszcze nie zapisano
-ui-caption-templates = { $count ->
-    [one] { $count } szablon
-    [few] { $count } szablony
-    [many] { $count } szablonów
-   *[other] { $count } szablonu
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } układ
+        [few] { $count } układy
+        [many] { $count } układów
+       *[other] { $count } układu
+    }
+   *[other] { $count ->
+        [one] { $count } widżet
+        [few] { $count } widżety
+        [many] { $count } widżetów
+       *[other] { $count } widżetu
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } slajd
@@ -22,9 +33,7 @@ ui-caption-slides = { $count ->
     [many] { $count } slajdów
    *[other] { $count } slajdu
 } · { $status }
-ui-template-default-name = Szablon
-ui-template-variant-name = { $name } (wariant)
-ui-confirm-quit-templates = Zakończyć bez zapisywania zmienionych szablonów?
+ui-confirm-quit-pack = Zakończyć bez zapisywania zmienionego pakietu?
 
 ## Powiadomienia
 
@@ -46,7 +55,7 @@ ui-toolbar-theme = Motyw
 ui-toolbar-theme-embedded = Motyw z pliku
 ui-toolbar-theme-deck-group = Ta prezentacja
 ui-toolbar-finish = Gotowe
-ui-templates-deck-only = Zapisywane tylko w tej prezentacji
+ui-pack-deck-only = Zapisywany tylko w tej prezentacji
 ui-toolbar-open = Otwórz
 ui-menu = Menu
 ui-toolbar-add-label = Dodaj do slajdu
@@ -64,7 +73,6 @@ ui-add-kind-description = { $kind ->
     [table] Tabela danych
    *[text] Akapit tekstu
 }
-ui-toolbar-remove-template = Usuń szablon
 ui-toolbar-remove-slide = Usuń slajd
 ui-toolbar-remove-hint = Slajd { $n } · cofnij za pomocą ⌘Z
 
@@ -78,10 +86,7 @@ ui-undo-add = { $kind ->
    *[text] Dodaj tekst
 }
 ui-undo-add-widget = Dodaj „{ $name }”
-ui-undo-new-template = Nowy szablon: { $name }
 ui-undo-new-slide = Nowy slajd: { $name }
-ui-undo-templates = Szablony: { $name }
-ui-undo-move-template = Przenieś szablon
 ui-undo-move-slide = Przenieś slajd
 ui-undo-remove-slide = Usuń slajd
 ui-undo-remove = Usuń
@@ -93,7 +98,7 @@ ui-undo-change-anchor = Zmień zakotwiczenie
 ui-undo-move = Przenieś
 ui-undo-resize = Zmień rozmiar
 ui-undo-edit-slide = Edytuj slajd
-ui-undo-rename-set = Zmień nazwę zestawu
+ui-undo-rename-pack = Zmień nazwę pakietu
 ui-undo-rename-deck = Zmień nazwę prezentacji
 ui-undo-chart-kind = Zmień typ wykresu
 ui-undo-chart-data = Edytuj dane
@@ -112,15 +117,15 @@ ui-new-card-detail = Szczegóły
 ## Stos slajdów
 
 ui-pile-slides = Slajdy
-ui-pile-templates = Szablony
+ui-pile-layouts = Układy
 ui-pile-add-slide = + Nowy slajd
-ui-pile-add-template = + Nowy szablon
 ui-pile-drag-hint = Przeciągnij, aby przenieść · ⌥↑ ⌥↓
 ui-slide-alt = Slajd { $n }
 
 ## Scena
 
 ui-stage-rendering = Renderowanie…
+ui-stage-widget-pack = Otwórz widżet ze stosu lub utwórz nowy.
 ui-stage-elements = Elementy slajdu
 ui-stage-fields = Pola slajdu
 ui-stage-edit-text = Edytuj tekst
@@ -242,15 +247,11 @@ ui-size-mb = { $value } MB
 ## Wybór szablonu
 
 ui-picker-new-slide = Nowy slajd
-ui-picker-new-template = Nowy szablon na podstawie…
-ui-picker-set = Szablony
 ui-picker-set-mine = { $name } · moje
 ui-picker-set-received = { $name } · otrzymane
 ui-picker-keys = ← →, aby przeglądać · Enter, aby dodać · Esc, aby zamknąć
 ui-picker-close = Zamknij
-ui-picker-previous = Poprzedni szablon
-ui-picker-next = Następny szablon
-ui-picker-list = Szablony slajdów
+ui-picker-list = Układy
 ui-widget-picker-filter = Filtruj według nazwy, etykiety lub opisu
 ui-widget-picker-empty = Żaden widżet nie pasuje do „{ $query }”.
 ui-widget-picker-list = Widżety
@@ -323,7 +324,7 @@ ui-tabs = Otwarte prezentacje
 ui-tab-new = Nowa karta
 ui-tab-close = Zamknij kartę
 ui-tab-unsaved = Niezapisane zmiany
-ui-tab-templates = Szablony
+ui-tab-pack = Pakiet
 ui-tab-move-new-window = Przenieś do nowego okna
 ui-tab-move-to = Przenieś do okna { $n }
 ui-tab-close-others = Zamknij pozostałe karty
@@ -378,8 +379,8 @@ ui-widgets-open = Otwórz widżet { $name }
 ui-widgets-delete-named = Usuń { $name }
 ui-widgets-confirm-delete = Usunąć widget „{ $name }”?
 ui-widgets-rename-hint = Kliknij dwukrotnie lub naciśnij F2, aby zmienić nazwę
-ui-widgets-tabs = Karty szablonów
-ui-widgets-templates-tab = Szablony
+ui-pack-tabs = Karty pakietu
+ui-pack-layouts-tab = Układy
 ui-theme-tab = Motyw
 ui-theme-picker = Motyw
 ui-theme-name = Nazwa motywu
@@ -392,14 +393,15 @@ ui-widgets-removed-by-agent = Agent usunął widżet { $name }.
 ui-import-title = Importuj prezentację PowerPoint
 ui-import-mode = Tryb importu
 ui-import-hifi = Wierna kopia
-ui-import-hifi-note = Zachowuje wygląd oryginału, z motywem i szablonami utworzonymi dla tej prezentacji.
-ui-import-retrofit = Użyj moich szablonów
-ui-import-retrofit-note = Odtwarza slajdy z szablonami i motywem z biblioteki.
+ui-import-hifi-note = Zachowuje wygląd oryginału, z motywem i układami utworzonymi dla tej prezentacji.
+ui-import-retrofit = Użyj moich układów
+ui-import-retrofit-note = Odtwarza slajdy z pakietami układów i motywem z biblioteki.
+ui-import-layout-packs = Pakiety układów
 ui-import-theme-default = Motyw domyślny
-ui-import-no-packs = Brak zestawu szablonów w bibliotece.
+ui-import-no-packs = Brak pakietu układów w bibliotece.
 ui-import-tune = Dopracuj z agentem
 ui-import-tune-note = Agent porównuje każdy slajd z oryginałem i poprawia różnice.
-ui-import-tune-note-retrofit = Agent porównuje każdy slajd z oryginałem i projektuje widżety dla kształtów, których Twoje szablony nie pokazują.
+ui-import-tune-note-retrofit = Agent porównuje każdy slajd z oryginałem i projektuje widżety dla kształtów, których Twoje układy nie pokazują.
 ui-import-tune-unavailable = Brak dostępnego agenta: { $reason }
 ui-import-submit = Importuj
 ui-import-busy = Importowanie…

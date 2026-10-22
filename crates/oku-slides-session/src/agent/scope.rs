@@ -13,7 +13,7 @@ pub enum AgentScope {
     /// Le deck (et son historique).
     #[default]
     Slides,
-    /// Le mode modèles du pack `pack` : « Modèles » et « Thème ».
+    /// Le mode pack du pack `pack` : « Modèles » et « Thème ».
     Atelier { pack: Uuid },
     /// Le sous-onglet du widget `name` du pack `pack`.
     Widget { pack: Uuid, name: String },

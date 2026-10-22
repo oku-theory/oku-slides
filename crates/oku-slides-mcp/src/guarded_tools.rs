@@ -32,8 +32,8 @@ pub(crate) struct OpenArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub(crate) struct SaveTemplatesArgs {
-    /// Enregistrer comme nouvel ensemble.
+pub(crate) struct SavePackArgs {
+    /// Enregistrer comme nouveau pack (une copie, nouvel id).
     #[serde(default)]
     pub as_new: bool,
 }
@@ -257,8 +257,8 @@ impl Tools {
         result
     }
 
-    pub(crate) async fn save_templates(&self, args: Value) -> CallToolResult {
-        let SaveTemplatesArgs { as_new } = match self.parse(args) {
+    pub(crate) async fn save_pack(&self, args: Value) -> CallToolResult {
+        let SavePackArgs { as_new } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
@@ -268,25 +268,25 @@ impl Tools {
             .ok()
             .flatten()
             .unwrap_or_default();
-        let message = self.localizer.current().tr_with("agent-confirm-save-templates", &[("name", name.into())]);
-        self.guarded(message, false, Request::SaveTemplates { as_new }).await
+        let message = self.localizer.current().tr_with("agent-confirm-save-pack", &[("name", name.into())]);
+        self.guarded(message, false, Request::SavePack { as_new }).await
     }
 
-    pub(crate) async fn delete_template_set(&self, args: Value) -> CallToolResult {
-        let set = match self.parse::<crate::edit_tools::SetArgs>(args).map(|a| a.pack()) {
-            Ok(Ok(set)) => set,
+    pub(crate) async fn delete_pack(&self, args: Value) -> CallToolResult {
+        let pack = match self.parse::<crate::edit_tools::PackIdArgs>(args).map(|a| a.id()) {
+            Ok(Ok(pack)) => pack,
             Ok(Err(e)) => return self.fail_with(e),
             Err(r) => return r,
         };
         // Le nom du pack dans sa version courante ; inconnu : son id.
         let name = self
-            .with_session(move |s| Ok(s.library_pack_name(set)))
+            .with_session(move |s| Ok(s.library_pack_name(pack)))
             .await
             .ok()
             .flatten()
-            .unwrap_or_else(|| set.to_string());
-        let message = self.localizer.current().tr_with("agent-confirm-delete-set", &[("name", name.into())]);
-        self.guarded(message, true, Request::DeleteTemplateSet { set }).await
+            .unwrap_or_else(|| pack.to_string());
+        let message = self.localizer.current().tr_with("agent-confirm-delete-pack", &[("name", name.into())]);
+        self.guarded(message, true, Request::DeletePack { pack }).await
     }
 
     /// Nouvelle version d'un thème (copie d'un thème intégré), en mode deck :

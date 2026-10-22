@@ -218,16 +218,16 @@ pub enum RegistryErrorKind {
     /// Un widget est mal déclaré ou remplace mal un widget de base.
     Schema,
     Setup,
-    /// Le pack `base` intégré est illisible (binaire abîmé).
-    BasePack,
+    /// Un pack intégré est illisible (binaire abîmé).
+    BuiltinPack,
 }
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub(crate) enum RegistryInner {
-    #[snafu(display("invalid template pack identifier: {id}"))]
+    #[snafu(display("invalid pack identifier: {id}"))]
     BadPackId { id: String, backtrace: Backtrace },
-    #[snafu(display("two widget packs share {pack}"))]
+    #[snafu(display("two packs share {pack}"))]
     DuplicatePack { pack: String, backtrace: Backtrace },
     #[snafu(display("widget compilation failed:\n{}", lines(diagnostics)))]
     RegistryCompile { diagnostics: Vec<Diagnostic>, backtrace: Backtrace },
@@ -241,8 +241,8 @@ pub(crate) enum RegistryInner {
     Worker { source: Box<RenderError>, backtrace: Backtrace },
     #[snafu(display("invalid widget registry: {message}"))]
     RemoteSchema { message: String, backtrace: Backtrace },
-    #[snafu(display("built-in base pack unreadable: {file}"))]
-    BasePack { file: String, backtrace: Backtrace },
+    #[snafu(display("built-in pack unreadable: {file}"))]
+    BuiltinPack { file: String, backtrace: Backtrace },
 }
 
 impl RegistryError {
@@ -254,13 +254,18 @@ impl RegistryError {
             RegistryInner::Missing { .. } => RegistryErrorKind::Missing,
             RegistryInner::Schema { .. } | RegistryInner::RemoteSchema { .. } => RegistryErrorKind::Schema,
             RegistryInner::Setup { .. } | RegistryInner::Worker { .. } => RegistryErrorKind::Setup,
-            RegistryInner::BasePack { .. } => RegistryErrorKind::BasePack,
+            RegistryInner::BuiltinPack { .. } => RegistryErrorKind::BuiltinPack,
         }
     }
 
     /// La sonde n'a pas abouti dans le processus de rendu.
     pub fn worker(source: RenderError) -> Self {
         WorkerSnafu.into_error(Box::new(source)).into()
+    }
+
+    /// Un widget mal déclaré, constaté hors de l'assemblage du registre.
+    pub fn schema(source: oku_slides_core::WidgetError) -> Self {
+        SchemaSnafu.into_error(Box::new(source)).into()
     }
 
     /// L'erreur de rendu à l'origine de celle-ci (délai, mémoire, arrêt).
@@ -309,7 +314,7 @@ impl Localize for RegistryError {
             RegistryInner::RemoteSchema { message, .. } => {
                 l.tr_with("registry-schema-remote", &[("message", message.as_str().into())])
             }
-            RegistryInner::BasePack { file, .. } => {
+            RegistryInner::BuiltinPack { file, .. } => {
                 l.tr_with("registry-base-pack-broken", &[("file", file.as_str().into())])
             }
         }

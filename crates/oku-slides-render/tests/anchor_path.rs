@@ -7,13 +7,13 @@ mod common;
 use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::{Compiled, ElementBox, FieldBox};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 fn compile(elements: Value) -> Compiled {
-    let d = json!({ "slides": [{ "id": "s", "kind": "blank", "params": { "elements": elements } }] });
+    let d = json!({ "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }] });
     let deck = Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"));
     let mut r = common::renderer();
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
@@ -59,7 +59,7 @@ fn text_without_valign_nor_inset_keeps_the_body_at_the_top_left() {
 #[test]
 fn text_in_flow_ignores_valign() {
     let slide = |style: Value| {
-        let d = json!({ "slides": [{ "id": "s", "kind": "content", "params": { "title": "T", "blocks": [
+        let d = json!({ "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T", "blocks": [
             { "id": "t", "kind": base::TEXT, "style": style, "params": { "body": [{ "runs": [{ "t": "Flux" }] }] } }
         ] } }] });
         let deck = Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"));
@@ -147,7 +147,7 @@ fn text_without_spacing_keeps_the_theme_gaps() {
 /// SVG d'une liste à puces en `#00ff00` dont la puce du thème est `•` en `marker_color`.
 fn bullets_svg(marker_color: Value) -> String {
     let d = json!({ "tokens": { "component": { "list": { "marker": "•", "marker-color": marker_color } } },
-        "slides": [{ "id": "s", "kind": "blank", "params": { "elements": [
+        "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [
             { "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
               "style": { "color": "#00ff00" },
               "params": { "body": [{ "runs": [{ "t": "Un" }], "list": "bullet" }] } }] } }] });

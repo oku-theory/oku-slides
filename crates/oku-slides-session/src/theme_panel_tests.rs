@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::{TokenAction, TokenState, token_state};
-use crate::pack::DEFAULT_PACK;
+use crate::pack::ESSENTIEL_PACK;
 use crate::test_support::session;
 use crate::theme::{PAPIER_THEME, PRO_THEME};
 use crate::theme_schema::schema;
@@ -20,13 +20,13 @@ fn p(path: &[&str]) -> Vec<String> {
     path.iter().map(|s| (*s).to_owned()).collect()
 }
 
-/// Une session en mode modèles dont le brouillon part du thème intégré `id`.
-fn templates_session(id: Uuid) -> Session {
+/// Une session en mode pack dont le brouillon part du thème intégré `id`.
+fn pack_session(id: Uuid) -> Session {
     let mut s = session();
     if s.deck().theme.as_ref().map(|r| r.id) != Some(id) {
         s.set_theme(id).unwrap();
     }
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
     s
 }
 
@@ -58,7 +58,7 @@ fn token_state_compares_draft_and_base(#[case] draft: Value, #[case] base: Value
 
 #[test]
 fn host_theme_filter_keeps_matching_rows_only() {
-    let s = templates_session(PAPIER_THEME);
+    let s = pack_session(PAPIER_THEME);
     let json = surface_json(&s, "accent");
     assert_that!(json.contains("color.accent")).is_true();
     assert_that!(json.contains("size.body")).is_false();
@@ -66,7 +66,7 @@ fn host_theme_filter_keeps_matching_rows_only() {
 
 #[test]
 fn host_theme_filter_matches_the_translated_label() {
-    let s = templates_session(PAPIER_THEME);
+    let s = pack_session(PAPIER_THEME);
     let label = s.localizer.tr("theme-token-page-margin-x").to_lowercase();
     let json = surface_json(&s, &label);
     assert_that!(json.contains("page.margin-x")).is_true();
@@ -75,18 +75,18 @@ fn host_theme_filter_matches_the_translated_label() {
 
 #[test]
 fn host_theme_filter_without_match_omits_every_section() {
-    let s = templates_session(PAPIER_THEME);
+    let s = pack_session(PAPIER_THEME);
     assert_that!(surface_json(&s, "zzz-aucun").contains("\"Disclosure\"")).is_false();
 }
 
 #[test]
-fn host_theme_outside_templates_is_none() {
+fn host_theme_outside_pack_is_none() {
     assert_that!(session().host_theme("").unwrap()).is_none();
 }
 
 #[test]
 fn host_theme_opens_only_the_colors_section_without_filter() {
-    let s = templates_session(PAPIER_THEME);
+    let s = pack_session(PAPIER_THEME);
     let surface = serde_json::to_value(s.host_theme("").unwrap().unwrap()).unwrap();
     let open: Vec<(String, bool)> = disclosures(&surface);
     assert_that!(open.first().cloned()).is_equal_to(Some(("s-colors".to_owned(), true)));
@@ -96,7 +96,7 @@ fn host_theme_opens_only_the_colors_section_without_filter() {
 
 #[test]
 fn host_theme_opens_every_matching_section_with_a_filter() {
-    let s = templates_session(PAPIER_THEME);
+    let s = pack_session(PAPIER_THEME);
     let surface = serde_json::to_value(s.host_theme("accent").unwrap().unwrap()).unwrap();
     let open = disclosures(&surface);
     assert_that!(open.len()).is_greater_than(1);
@@ -119,7 +119,7 @@ fn disclosures(surface: &Value) -> Vec<(String, bool)> {
 
 #[test]
 fn host_theme_rows_show_state_and_their_actions() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(&["color", "accent"]), TokenAction::Set, Some(json!("#ff0000"))).unwrap();
     let json = surface_json(&s, "color.accent");
     assert_that!(json.contains(&s.localizer.tr("theme-state-modified"))).is_true();
@@ -130,7 +130,7 @@ fn host_theme_rows_show_state_and_their_actions() {
 
 #[test]
 fn host_theme_optional_absent_token_is_default_without_remove() {
-    let s = templates_session(PAPIER_THEME);
+    let s = pack_session(PAPIER_THEME);
     let json = surface_json(&s, "app-light.desk");
     assert_that!(json.contains(&s.localizer.tr("theme-state-default"))).is_true();
     assert_that!(json.contains("app-light.desk:remove")).is_false();
@@ -138,7 +138,7 @@ fn host_theme_optional_absent_token_is_default_without_remove() {
 
 #[test]
 fn host_theme_lists_free_colors_and_the_new_color_row() {
-    let s = templates_session(PRO_THEME);
+    let s = pack_session(PRO_THEME);
     let json = surface_json(&s, "");
     assert_that!(json.contains("color.brand-ink")).is_true();
     assert_that!(json.contains("new-color:add")).is_true();
@@ -146,7 +146,7 @@ fn host_theme_lists_free_colors_and_the_new_color_row() {
 
 #[test]
 fn host_token_reset_restores_base_value() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(&["color", "accent"]), TokenAction::Set, Some(json!("#ff0000"))).unwrap();
     s.host_token(p(&["color", "accent"]), TokenAction::Reset, None).unwrap();
     assert_that!(s.deck().tokens.pointer("/color/accent")).is_equal_to(Some(&json!("#3f6b5e")));
@@ -154,7 +154,7 @@ fn host_token_reset_restores_base_value() {
 
 #[test]
 fn host_token_reset_of_a_key_absent_from_base_unsets_it() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(&["color", "brand"]), TokenAction::Set, Some(json!("#123456"))).unwrap();
     s.host_token(p(&["color", "brand"]), TokenAction::Reset, None).unwrap();
     assert_that!(token(&s, "/color/brand")).is_none();
@@ -162,7 +162,7 @@ fn host_token_reset_of_a_key_absent_from_base_unsets_it() {
 
 #[test]
 fn host_token_set_is_one_undo_step_with_the_token_label() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(&["color", "accent"]), TokenAction::Set, Some(json!("#ff0000"))).unwrap();
     let label = s.localizer.tr("theme-token-color-accent");
     assert_that!(s.snapshot().undo_label.unwrap_or_default().contains(&label)).is_true();
@@ -172,7 +172,7 @@ fn host_token_set_is_one_undo_step_with_the_token_label() {
 
 #[test]
 fn host_token_remove_of_a_referenced_token_is_refused() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(&["color", "brand"]), TokenAction::Set, Some(json!("#123456"))).unwrap();
     s.host_token(p(&["color", "accent"]), TokenAction::Set, Some(json!("brand"))).unwrap();
     let err = s.host_token(p(&["color", "brand"]), TokenAction::Remove, None).unwrap_err();
@@ -181,23 +181,23 @@ fn host_token_remove_of_a_referenced_token_is_refused() {
 
 #[test]
 fn host_token_clear_of_a_non_nullable_token_is_refused() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     let err = s.host_token(p(&["color", "accent"]), TokenAction::Clear, None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InvalidTokenValue);
 }
 
 #[test]
 fn host_token_new_color_with_a_bad_name_is_refused() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     let err = s.host_token(p(&["color", "Brand"]), TokenAction::Set, Some(json!("#123456"))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InvalidTokenValue);
 }
 
 #[test]
-fn host_token_outside_templates_is_refused() {
+fn host_token_outside_pack_is_refused() {
     let mut s = session();
     let err = s.host_token(p(&["color", "accent"]), TokenAction::Set, Some(json!("#ff0000"))).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingPack);
 }
 
 #[rstest]
@@ -213,14 +213,14 @@ fn host_token_set_converts_the_control_value(
     #[case] pointer: &str,
     #[case] want: Value,
 ) {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(path), TokenAction::Set, Some(value)).unwrap();
     assert_that!(token(&s, pointer)).is_equal_to(Some(want));
 }
 
 #[test]
 fn host_token_list_changes_edit_the_font_families_in_order() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     let path = p(&["font", "body"]);
     s.host_token(path.clone(), TokenAction::Set, Some(json!(["A", "B"]))).unwrap();
     let change = |s: &mut Session, c: Value| s.host_token(path.clone(), TokenAction::Set, Some(c)).unwrap();
@@ -236,7 +236,7 @@ fn host_token_list_changes_edit_the_font_families_in_order() {
 
 #[test]
 fn host_token_rule_field_starts_a_cleared_rule() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(&["component", "title", "rule"]), TokenAction::Clear, None).unwrap();
     s.host_token(p(&["component", "title", "rule", "color"]), TokenAction::Set, Some(json!("ink"))).unwrap();
     let rule = token(&s, "/component/title/rule").unwrap();
@@ -246,7 +246,7 @@ fn host_token_rule_field_starts_a_cleared_rule() {
 
 #[test]
 fn host_token_every_action_round_trips_through_the_request() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     request(&mut s, &["color", "brand"], "set", Some(json!("#123456"))).unwrap();
     assert_that!(token(&s, "/color/brand")).is_equal_to(Some(json!("#123456")));
     request(&mut s, &["color", "brand"], "remove", None).unwrap();
@@ -261,7 +261,7 @@ fn host_token_every_action_round_trips_through_the_request() {
 
 #[test]
 fn host_theme_request_returns_the_surface() {
-    let mut s = templates_session(PAPIER_THEME);
+    let mut s = pack_session(PAPIER_THEME);
     let json = s.handle(serde_json::from_value(json!({"cmd": "host_theme", "filter": "accent"})).unwrap()).unwrap();
     assert_that!(json.contains("host-theme")).is_true();
 }
@@ -277,7 +277,7 @@ fn every_schema_entry_has_an_english_and_french_label() {
 
 #[test]
 fn host_theme_keeps_the_typed_filter_in_the_data_model() {
-    let s = templates_session(PAPIER_THEME);
+    let s = pack_session(PAPIER_THEME);
     let surface = serde_json::to_value(s.host_theme("Taille ").unwrap().unwrap()).unwrap();
     let data = surface["messages"].as_array().unwrap().iter().find_map(|m| m.get("updateDataModel")).unwrap();
     assert_that!(data["value"]["filter"].clone()).is_equal_to(json!("Taille "));

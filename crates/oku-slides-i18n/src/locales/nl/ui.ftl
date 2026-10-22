@@ -4,23 +4,30 @@ ui-loading = Laden…
 ## Document
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · sjablonen
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · lay-outpakket
+   *[other] { $name } · widgetpakket
+}
 ui-title-rename = Presentatie hernoemen
 ui-title-field = Titel van de presentatie
 ui-status-unsaved = niet-opgeslagen wijzigingen
 ui-status-saved = opgeslagen
 ui-status-never-saved = nog niet opgeslagen
-ui-caption-templates = { $count ->
-    [one] { $count } sjabloon
-   *[other] { $count } sjablonen
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count } lay-out
+       *[other] { $count } lay-outs
+    }
+   *[other] { $count ->
+        [one] { $count } widget
+       *[other] { $count } widgets
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count } dia
    *[other] { $count } dia's
 } · { $status }
-ui-template-default-name = Sjabloon
-ui-template-variant-name = { $name } (variant)
-ui-confirm-quit-templates = Afsluiten zonder de gewijzigde sjablonen op te slaan?
+ui-confirm-quit-pack = Afsluiten zonder het gewijzigde pakket op te slaan?
 
 ## Meldingen
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = Thema
 ui-toolbar-theme-embedded = Thema van het bestand
 ui-toolbar-theme-deck-group = Deze presentatie
 ui-toolbar-finish = Klaar
-ui-templates-deck-only = Alleen in deze presentatie opgeslagen
+ui-pack-deck-only = Alleen in deze presentatie opgeslagen
 ui-toolbar-open = Openen
 ui-menu = Menu
 ui-toolbar-add-label = Toevoegen aan de dia
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] Een gegevenstabel
    *[text] Een alinea tekst
 }
-ui-toolbar-remove-template = Sjabloon verwijderen
 ui-toolbar-remove-slide = Dia verwijderen
 ui-toolbar-remove-hint = Dia { $n } · ongedaan maken met ⌘Z
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] Tekst toevoegen
 }
 ui-undo-add-widget = “{ $name }” toevoegen
-ui-undo-new-template = Nieuw sjabloon: { $name }
 ui-undo-new-slide = Nieuwe dia: { $name }
-ui-undo-templates = Sjablonen: { $name }
-ui-undo-move-template = Sjabloon verplaatsen
 ui-undo-move-slide = Dia verplaatsen
 ui-undo-remove-slide = Dia verwijderen
 ui-undo-remove = Verwijderen
@@ -89,7 +92,7 @@ ui-undo-change-anchor = Verankering wijzigen
 ui-undo-move = Verplaatsen
 ui-undo-resize = Formaat wijzigen
 ui-undo-edit-slide = Dia bewerken
-ui-undo-rename-set = Set hernoemen
+ui-undo-rename-pack = Pakket hernoemen
 ui-undo-rename-deck = Presentatie hernoemen
 ui-undo-chart-kind = Grafiektype wijzigen
 ui-undo-chart-data = Gegevens bewerken
@@ -108,15 +111,15 @@ ui-new-card-detail = Detail
 ## Diastapel
 
 ui-pile-slides = Dia's
-ui-pile-templates = Sjablonen
+ui-pile-layouts = Lay-outs
 ui-pile-add-slide = + Nieuwe dia
-ui-pile-add-template = + Nieuw sjabloon
 ui-pile-drag-hint = Sleep om te verplaatsen · ⌥↑ ⌥↓
 ui-slide-alt = Dia { $n }
 
 ## Podium
 
 ui-stage-rendering = Weergeven…
+ui-stage-widget-pack = Open een widget uit de stapel of maak er een.
 ui-stage-elements = Dia-elementen
 ui-stage-fields = Diavelden
 ui-stage-edit-text = Tekst bewerken
@@ -238,15 +241,11 @@ ui-size-mb = { $value } MB
 ## Sjabloonkiezer
 
 ui-picker-new-slide = Nieuwe dia
-ui-picker-new-template = Nieuw sjabloon, gebaseerd op…
-ui-picker-set = Sjablonen
 ui-picker-set-mine = { $name } · eigen
 ui-picker-set-received = { $name } · ontvangen
 ui-picker-keys = ← → om te bladeren · Enter om toe te voegen · Esc om te sluiten
 ui-picker-close = Sluiten
-ui-picker-previous = Vorig sjabloon
-ui-picker-next = Volgend sjabloon
-ui-picker-list = Diasjablonen
+ui-picker-list = Lay-outs
 ui-widget-picker-filter = Filteren op naam, label of beschrijving
 ui-widget-picker-empty = Geen widget komt overeen met ‘{ $query }’.
 ui-widget-picker-list = Widgets
@@ -319,7 +318,7 @@ ui-tabs = Geopende presentaties
 ui-tab-new = Nieuw tabblad
 ui-tab-close = Tabblad sluiten
 ui-tab-unsaved = Niet-opgeslagen wijzigingen
-ui-tab-templates = Sjablonen
+ui-tab-pack = Pakket
 ui-tab-move-new-window = Naar nieuw venster verplaatsen
 ui-tab-move-to = Naar venster { $n } verplaatsen
 ui-tab-close-others = Andere tabbladen sluiten
@@ -377,8 +376,8 @@ ui-widgets-open = Widget { $name } openen
 ui-widgets-delete-named = { $name } verwijderen
 ui-widgets-confirm-delete = De widget “{ $name }” verwijderen?
 ui-widgets-rename-hint = Dubbelklik of F2 om te hernoemen
-ui-widgets-tabs = Sjabloontabbladen
-ui-widgets-templates-tab = Sjablonen
+ui-pack-tabs = Pakkettabbladen
+ui-pack-layouts-tab = Lay-outs
 ui-theme-tab = Thema
 ui-theme-picker = Thema
 ui-theme-name = Naam van het thema
@@ -391,14 +390,15 @@ ui-widgets-removed-by-agent = De agent heeft widget { $name } verwijderd.
 ui-import-title = Een PowerPoint-presentatie importeren
 ui-import-mode = Importmodus
 ui-import-hifi = Getrouwe kopie
-ui-import-hifi-note = Behoudt het uiterlijk van het origineel, met een thema en sjablonen voor deze presentatie.
-ui-import-retrofit = Mijn sjablonen gebruiken
-ui-import-retrofit-note = Bouwt de dia's opnieuw op met sjablonen en een thema uit de bibliotheek.
+ui-import-hifi-note = Behoudt het uiterlijk van het origineel, met een thema en lay-outs voor deze presentatie.
+ui-import-retrofit = Mijn lay-outs gebruiken
+ui-import-retrofit-note = Bouwt de dia's opnieuw op met lay-outpakketten en een thema uit de bibliotheek.
+ui-import-layout-packs = Lay-outpakketten
 ui-import-theme-default = Standaardthema
-ui-import-no-packs = Geen sjabloonset in de bibliotheek.
+ui-import-no-packs = Geen lay-outpakket in de bibliotheek.
 ui-import-tune = Verfijnen met de agent
 ui-import-tune-note = De agent vergelijkt elke dia met het origineel en corrigeert de verschillen.
-ui-import-tune-note-retrofit = De agent vergelijkt elke dia met het origineel en ontwerpt widgets voor de vormen die je sjablonen niet kunnen tonen.
+ui-import-tune-note-retrofit = De agent vergelijkt elke dia met het origineel en ontwerpt widgets voor de vormen die je lay-outs niet kunnen tonen.
 ui-import-tune-unavailable = Geen bruikbare agent: { $reason }
 ui-import-submit = Importeren
 ui-import-busy = Bezig met importeren…

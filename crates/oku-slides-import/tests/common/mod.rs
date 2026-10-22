@@ -74,11 +74,27 @@ pub fn text(name: &str) -> String {
     fs::read_to_string(root().join(name)).unwrap_or_else(|e| panic!("lecture de {name}: {e}"))
 }
 
-/// Le registre des widgets de base (`fixtures/widgets/base-registry.json`).
+/// La sonde des packs intégrés `base` et `essentiel` (`fixtures/widgets/builtin-registry.json`).
+pub fn builtin_probe() -> serde_json::Value {
+    let text = fs::read_to_string(root().join("../widgets/builtin-registry.json")).unwrap_or_else(|e| panic!("{e}"));
+    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Le registre des packs intégrés `base` et `essentiel`.
 pub fn registry() -> oku_slides_core::WidgetRegistry {
-    let text = fs::read_to_string(root().join("../widgets/base-registry.json")).unwrap_or_else(|e| panic!("{e}"));
-    oku_slides_core::WidgetRegistry::from_probe(serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}")))
-        .unwrap_or_else(|e| panic!("{e}"))
+    registry_plus(Vec::new())
+}
+
+/// Le registre des packs intégrés plus les packs sondés `extra` (`{namespace, kind, widgets}`).
+pub fn registry_plus(extra: Vec<serde_json::Value>) -> oku_slides_core::WidgetRegistry {
+    let mut probe = builtin_probe();
+    probe["packs"].as_array_mut().unwrap_or_else(|| panic!("packs")).extend(extra);
+    oku_slides_core::WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Le registre d'un deck hi-fi : les packs intégrés et les layouts `schemas` sous `deck-layouts`.
+pub fn registry_with_deck_layouts(schemas: &[oku_slides_core::WidgetSchema]) -> oku_slides_core::WidgetRegistry {
+    registry_plus(vec![serde_json::json!({ "namespace": "deck-layouts", "kind": "layouts", "widgets": schemas })])
 }
 
 /// L'épinglage de `base` dans les tests : l'id du pack de la fixture, une version quelconque.
@@ -88,6 +104,24 @@ pub fn base_pin() -> oku_slides_core::PackPin {
         version: oku_slides_core::PackVersion::from_hex(&"0".repeat(64)).unwrap_or_else(|| panic!("version")),
         requires: vec![],
     }
+}
+
+/// L'épinglage d'`essentiel` dans les tests : l'id du manifeste, une version quelconque, requérant `base`.
+pub fn essentiel_pin() -> oku_slides_core::PackPin {
+    oku_slides_core::PackPin {
+        id: "d5eb8a57-07b4-47f7-a818-dde5347160cf".parse().unwrap_or_else(|e| panic!("{e}")),
+        version: oku_slides_core::PackVersion::from_hex(&"0".repeat(64)).unwrap_or_else(|| panic!("version")),
+        requires: vec![oku_slides_core::kinds::base::namespace()],
+    }
+}
+
+/// Les ops qui épinglent `base` puis `essentiel`, comme la session avant un retrofit.
+pub fn builtin_pins() -> Vec<oku_slides_core::Op> {
+    use oku_slides_core::{Op, PackKind, kinds};
+    vec![
+        Op::AddPack { kind: PackKind::Widgets, namespace: kinds::base::namespace(), pin: base_pin() },
+        Op::AddPack { kind: PackKind::Layouts, namespace: kinds::essentiel::namespace(), pin: essentiel_pin() },
+    ]
 }
 
 /// Les sortes des éléments de `list` et de leurs descendants.
@@ -111,13 +145,13 @@ pub fn deck_kinds(deck: &oku_slides_core::Deck) -> Vec<String> {
     out
 }
 
-/// Les modèles du pack intégré `name` (`templates/<name>/pack.json`), dans l'ordre du pack.
-pub fn templates(name: &str) -> Vec<oku_slides_core::Template> {
-    let path = root().join(format!("../../templates/{name}/pack.json"));
+/// Les profils du pack de layouts intégré `name` (`typst/oku-slides/packs/<name>/layouts.json`), dans l'ordre.
+pub fn profiles(name: &str) -> Vec<oku_slides_core::LayoutProfile> {
+    let path = root().join(format!("../../typst/oku-slides/packs/{name}/layouts.json"));
     let pack: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display())))
             .unwrap_or_else(|e| panic!("{e}"));
-    serde_json::from_value(pack["templates"].clone()).unwrap_or_else(|e| panic!("{e}"))
+    serde_json::from_value(pack["profiles"].clone()).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Les jetons effectifs du thème intégré `name` (`papier`, `pro`) : les défauts, puis les siens.

@@ -1,8 +1,9 @@
-// Dialogue d'import d'une présentation PowerPoint : copie fidèle (hi-fi) ou sur mes modèles
-// (retrofit, avec son pack et son thème), et peaufinage par l'agent une fois l'onglet prêt.
+// Dialogue d'import d'une présentation PowerPoint : copie fidèle (hi-fi) ou sur mes layouts
+// (retrofit, avec ses packs de layouts et son thème), et peaufinage par l'agent une fois l'onglet prêt.
 
 import { useEffect, useRef, useState } from "react";
 import { errorText, type ImportTarget, type PackInfo, type TabApi, type ThemeInfo } from "./api";
+import { ESSENTIEL_NAMESPACE } from "./builtinKinds";
 import { t } from "./i18n";
 import { fileName } from "./importFile";
 import { useModalFrame } from "./modalFrame";
@@ -14,7 +15,7 @@ interface Props {
   /** Le `.pptx` choisi par « Ouvrir ». */
   path: string;
   /** Requêtes de l'onglet d'où l'on importe : les packs de la bibliothèque. */
-  api: Pick<TabApi, "templateSets">;
+  api: Pick<TabApi, "packs">;
   /** Thèmes de l'onglet (snapshot) : ceux de la bibliothèque sont proposés. */
   themes: ThemeInfo[];
   /** L'import tourne (tenu par l'espace de travail : il continue si le dialogue se ferme). */
@@ -50,9 +51,14 @@ export default function ImportDialog({
   onClose,
 }: Props) {
   const [mode, setMode] = useState<ImportTarget["mode"]>(initial?.target.mode ?? "hifi");
-  const [sets, setSets] = useState<PackInfo[] | null>(null);
+  // Les packs de layouts qui ont des profils : les seuls que le retrofit sait viser.
+  const [packs, setPacks] = useState<PackInfo[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [pack, setPack] = useState(initial?.target.mode === "retrofit" ? initial.target.pack : "");
+  // Ids des packs cochés, envoyés dans l'ordre de la liste : l'hôte lit un nom avant un espace de
+  // noms, seul l'id désigne sûrement le pack. `null` : le défaut (`essentiel`), posé à l'arrivée de la liste.
+  const [checked, setChecked] = useState<string[] | null>(
+    initial?.target.mode === "retrofit" ? initial.target.layouts : null,
+  );
   // `""` : le thème par défaut de la bibliothèque.
   const [theme, setTheme] = useState(initial?.target.mode === "retrofit" ? (initial.target.theme ?? "") : "");
   const [tune, setTune] = useState(initial?.tune ?? true);
@@ -62,11 +68,12 @@ export default function ImportDialog({
   useEffect(() => {
     let live = true;
     api
-      .templateSets()
+      .packs("layouts")
       .then((list) => {
         if (!live) return;
-        setSets(list);
-        setPack((p) => p || ((list.find((s) => s.default) ?? list[0])?.id ?? ""));
+        const usable = list.filter((p) => p.profiles > 0);
+        setPacks(usable);
+        setChecked((c) => c ?? usable.filter((p) => p.namespace === ESSENTIEL_NAMESPACE).map((p) => p.id));
       })
       .catch((e) => live && setListError(errorText(e)));
     return () => {
@@ -79,13 +86,15 @@ export default function ImportDialog({
     if (busy) ref.current?.focus();
   }, [busy]);
 
-  const ready = mode === "hifi" || pack !== "";
+  const layouts = (packs ?? []).map((p) => p.id).filter((id) => checked?.includes(id));
+  const toggle = (id: string, on: boolean) => setChecked((c) => (on ? [...(c ?? []), id] : (c ?? []).filter((x) => x !== id)));
+  const ready = mode === "hifi" || layouts.length > 0;
   // Sans agent utilisable, le peaufinage est décoché sans perdre le choix, rendu s'il revient.
   // Pendant l'import, la case figée montre ce qui a été envoyé (le choix de l'import qui tourne).
   const tuning = busy ? (initial?.tune ?? tune) : tune && !agentUnusable;
   const submit = () => {
     if (busy || !ready) return;
-    onImport(mode === "hifi" ? { mode: "hifi" } : { mode: "retrofit", pack, theme: theme || null }, tuning);
+    onImport(mode === "hifi" ? { mode: "hifi" } : { mode: "retrofit", layouts, theme: theme || null }, tuning);
   };
   const tuneNote = agentUnusable
     ? t("ui-import-tune-unavailable", { reason: agentUnusable })
@@ -127,11 +136,16 @@ export default function ImportDialog({
         </fieldset>
         {mode === "retrofit" && (
           <div className="import-target">
-            <Field variant="row" label={t("ui-picker-set")}>
-              <Select value={pack} disabled={busy || !sets?.length} onChange={setPack}
-                options={(sets ?? []).map((s) => ({ value: s.id, label: packOptionLabel(s) }))} />
-            </Field>
-            {sets?.length === 0 && <p className="caption import-empty">{t("ui-import-no-packs")}</p>}
+            <fieldset className="import-layouts" disabled={busy}>
+              <legend className="caption">{t("ui-import-layout-packs")}</legend>
+              {(packs ?? []).map((p) => (
+                <label key={p.id} className="check">
+                  <input type="checkbox" checked={!!checked?.includes(p.id)} onChange={(e) => toggle(p.id, e.target.checked)} />
+                  <span>{packOptionLabel(p)}</span>
+                </label>
+              ))}
+            </fieldset>
+            {packs?.length === 0 && <p className="caption import-empty">{t("ui-import-no-packs")}</p>}
             {listError && <p className="import-error" role="alert">{listError}</p>}
             <Field variant="row" label={t("ui-toolbar-theme")}>
               <Select value={theme} disabled={busy} onChange={setTheme}

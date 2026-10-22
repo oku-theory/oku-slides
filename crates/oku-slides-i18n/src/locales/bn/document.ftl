@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = ইঙ্গিত: { $hint }
 render-chart-failed = চার্ট আঁকা যায়নি
 
-registry-bad-pack-id = অবৈধ টেমপ্লেট প্যাক শনাক্তকারী: { $id }
-registry-base-pack-broken = অন্তর্নির্মিত উইজেট প্যাকটি ক্ষতিগ্রস্ত ({ $file }); অ্যাপটি আবার ইনস্টল করুন।
-registry-duplicate-pack = প্রেজেন্টেশনের দুটি উইজেট প্যাক { $pack } ভাগ করে।
-registry-compile = টেমপ্লেট প্যাকের উইজেটগুলি কম্পাইল করা যায়নি
-registry-missing = টেমপ্লেট প্যাক তার উইজেটগুলি ঘোষণা করে না
+registry-bad-pack-id = অবৈধ প্যাক শনাক্তকারী: { $id }
+registry-base-pack-broken = অন্তর্নির্মিত প্যাকটি ক্ষতিগ্রস্ত ({ $file }); অ্যাপটি আবার ইনস্টল করুন।
+registry-duplicate-pack = প্রেজেন্টেশনের দুটি প্যাক { $pack } ভাগ করে।
+registry-compile = প্যাকের উইজেটগুলি কম্পাইল করা যায়নি
+registry-missing = প্যাক তার উইজেটগুলি ঘোষণা করে না
 render-timeout = রেন্ডারিং { $seconds } সেকেন্ডের বেশি সময় নিয়েছে এবং থামিয়ে দেওয়া হয়েছে
 render-out-of-memory = রেন্ডারিংয়ে { $mib } MiB-এর বেশি মেমরি লেগেছে এবং থামিয়ে দেওয়া হয়েছে
 render-worker-lost = রেন্ডারিং প্রসেস থেমে গেছে
@@ -41,6 +41,7 @@ import-not-a-presentation = এই ফাইলটি PowerPoint উপস্থ
 import-protected = এই উপস্থাপনাটি এনক্রিপ্ট করা বা পুরোনো .ppt ফরম্যাটে: আগে এটি .pptx হিসেবে সংরক্ষণ করুন
 import-too-large = এই উপস্থাপনাটি ইমপোর্ট করার জন্য খুব বড়
 import-output-too-large = ফলাফল উপস্থাপনাটি ইমপোর্টের জন্য অনুমোদিত আকার ছাড়িয়ে যাবে
+import-no-profiles = বেছে নেওয়া লেআউট প্যাকগুলো কোনো প্রোফাইল প্রস্তাব করে না।
 import-loss-list-levels = তালিকার স্তরগুলো একটি স্তরে নামানো হয়েছে
 import-loss-merged-cells = একত্রিত ঘরগুলো আলাদা করা হয়েছে
 import-loss-percent-stacked = ১০০% স্তূপীকৃত চার্ট স্তূপীকৃত হিসেবে দেখানো হয়েছে
@@ -77,7 +78,7 @@ import-loss-repeated-decor = { $slides ->
    [one] { $slides }টি স্লাইডে পুনরাবৃত্ত হেডার বা ফুটার “{ $text }” বাদ দেওয়া হয়েছে: থিম নিজেরটি আঁকে
   *[other] { $slides }টি স্লাইডে পুনরাবৃত্ত হেডার বা ফুটার “{ $text }” বাদ দেওয়া হয়েছে: থিম নিজেরটি আঁকে
 }
-import-loss-no-slot = বিষয়বস্তু বাদ দেওয়া হয়েছে: বেছে নেওয়া টেমপ্লেটে এর জায়গা নেই
+import-loss-no-slot = বিষয়বস্তু বাদ দেওয়া হয়েছে: বেছে নেওয়া লেআউটে এর জায়গা নেই
 import-loss-moved-to-notes = লেখা বক্তার নোটে সরানো হয়েছে: প্রচ্ছদে এর জায়গা নেই
 import-loss-items-dropped = স্লাইডে অনেক বেশি উপাদান: বাদ পড়া উপাদান: { $dropped }
 import-loss-page-fitted = উৎস পৃষ্ঠা { $width } × { $height } pt, 16:9 নয়: বিষয়বস্তু মাপে বদলে মাঝখানে রাখা হয়েছে
@@ -89,7 +90,7 @@ import-loss-shape-style = { $effect ->
     [arrow] রেখার তীরের মাথা আঁকা হয়নি
    *[geometry] অজানা আকৃতি আয়তক্ষেত্র হিসেবে দেখানো হয়েছে
 }
-import-loss-layout-dropped = একটি প্যাকের জন্য অনেক বেশি লেআউট: “{ $layout }”-এর কোনো টেমপ্লেট নেই; এর স্লাইডগুলো ফাঁকা উইজেট নেয় এবং এর সজ্জা উপাদান হিসেবে পায়
+import-loss-layout-dropped = একটি প্যাকের জন্য অনেক বেশি লেআউট: “{ $layout }”-এর কোনো উইজেট নেই; এর স্লাইডগুলো ফাঁকা উইজেট নেয় এবং এর সজ্জা উপাদান হিসেবে পায়
 import-loss-decor-truncated = প্যাক ফাইলের আকারে আঁটাতে সজ্জা ছাঁটা হয়েছে: বাদ পড়া উপাদান: { $omitted }
 import-loss-table-style = টেবিলের শৈলী আনুমানিক: এর নিজস্ব ঘরের পটভূমি, সীমানা, কলামের প্রস্থ, সারির উচ্চতা বা লেখার আকার হারিয়েছে
 import-loss-overflow = উপাদান “{ $element }” স্লাইডের প্রান্ত ছাড়িয়ে যায়

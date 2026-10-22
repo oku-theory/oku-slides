@@ -163,7 +163,7 @@ fn slot<'a>(s: &'a crate::Slide, name: &str) -> &'a [crate::Element] {
 
 #[test]
 fn read_unreadable_element_drops_it_only_and_names_its_slide() {
-    let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "content", "params": { "elements": [
+    let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "essentiel/content", "params": { "elements": [
         { "id": "e-ok", "kind": "base/shape" },
         { "id": "e-ko", "kind": 42 }
     ]}}]}))
@@ -175,7 +175,7 @@ fn read_unreadable_element_drops_it_only_and_names_its_slide() {
 
 #[test]
 fn read_unreadable_nested_child_drops_the_child_only() {
-    let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "blank", "params": { "elements": [
+    let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "essentiel/blank", "params": { "elements": [
         { "id": "c", "kind": "test/frame-box", "params": { "children": [
             { "id": "ok", "kind": "base/shape" },
             { "id": "ko", "kind": "base/shape", "frame": "pas un cadre" }
@@ -190,7 +190,7 @@ fn read_unreadable_nested_child_drops_the_child_only() {
 #[test]
 fn read_bad_slide_drops_slide_only() {
     let (deck, issues) =
-        read(json!({ "slides": [{ "id": "s1", "kind": "content" }, { "id": "s2", "kind": 42 }]})).unwrap();
+        read(json!({ "slides": [{ "id": "s1", "kind": "essentiel/content" }, { "id": "s2", "kind": 42 }]})).unwrap();
     assert_that!(deck.slides.len()).is_equal_to(1);
     assert_that!(issues_ids(&issues)).is_equal_to(vec!["issue-unreadable-slide"]);
 }
@@ -205,7 +205,8 @@ fn read_bad_top_level_field_resets_it() {
 #[test]
 fn read_value_param_holding_an_array_keeps_it_whole() {
     let (deck, issues) =
-        read(json!({ "slides": [{ "id": "s1", "kind": "content", "params": { "series": [1, 2] } }]})).unwrap();
+        read(json!({ "slides": [{ "id": "s1", "kind": "essentiel/content", "params": { "series": [1, 2] } }]}))
+            .unwrap();
     assert_that!(deck.slides[0].params.value("series")).is_equal_to(Some(&json!([1, 2])));
     assert_that!(issues).is_empty();
 }
@@ -229,6 +230,12 @@ fn read_deck_of_version_6_returns_unsupported_version() {
 }
 
 #[test]
+fn read_deck_of_version_7_returns_unsupported_version() {
+    let err = read(json!({ "version": 7, "slides": [] })).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::ReplicaErrorKind::UnsupportedVersion);
+}
+
+#[test]
 fn read_deck_without_version_reads_as_current() {
     let (deck, issues) = read(json!({ "slides": [] })).unwrap();
     assert_that!(deck.version).is_equal_to(crate::DECK_VERSION);
@@ -242,9 +249,9 @@ fn slide_ids(deck: &crate::Deck) -> Vec<&str> {
 #[test]
 fn read_slide_copied_twice_keeps_first_occurrence() {
     let (deck, issues) = read(json!({ "slides": [
-        { "id": "s1", "kind": "content", "notes": "a" },
-        { "id": "s2", "kind": "content" },
-        { "id": "s1", "kind": "content", "notes": "a" }
+        { "id": "s1", "kind": "essentiel/content", "notes": "a" },
+        { "id": "s2", "kind": "essentiel/content" },
+        { "id": "s1", "kind": "essentiel/content", "notes": "a" }
     ]}))
     .unwrap();
     assert_that!(slide_ids(&deck)).is_equal_to(vec!["s1", "s2"]);
@@ -254,9 +261,9 @@ fn read_slide_copied_twice_keeps_first_occurrence() {
 #[test]
 fn read_diverged_slides_sharing_an_id_renames_the_later_one() {
     let (deck, issues) = read(json!({ "slides": [
-        { "id": "s1", "kind": "content", "notes": "a" },
-        { "id": "s1-2", "kind": "content" },
-        { "id": "s1", "kind": "content", "notes": "b" }
+        { "id": "s1", "kind": "essentiel/content", "notes": "a" },
+        { "id": "s1-2", "kind": "essentiel/content" },
+        { "id": "s1", "kind": "essentiel/content", "notes": "b" }
     ]}))
     .unwrap();
     assert_that!(slide_ids(&deck)).is_equal_to(vec!["s1", "s1-2", "s1-3"]);
@@ -267,7 +274,7 @@ fn read_diverged_slides_sharing_an_id_renames_the_later_one() {
 #[test]
 fn read_diverged_elements_sharing_an_id_rename_the_copy_and_its_children() {
     let stack = |title: &str| json!({ "id": "c", "kind": "base/stack", "params": { "title": title, "children": [{ "id": "x", "kind": "base/shape" }] } });
-    let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "blank", "params": { "elements": [
+    let (deck, issues) = read(json!({ "slides": [{ "id": "s1", "kind": "essentiel/blank", "params": { "elements": [
         stack("a"), stack("a"), stack("b")
     ]}}]}))
     .unwrap();
@@ -282,9 +289,9 @@ fn read_diverged_elements_sharing_an_id_rename_the_copy_and_its_children() {
 #[test]
 fn read_copy_of_a_renamed_slide_is_dropped() {
     let (deck, _) = read(json!({ "slides": [
-        { "id": "x", "kind": "content", "notes": "A" },
-        { "id": "x", "kind": "content", "notes": "B" },
-        { "id": "x", "kind": "content", "notes": "B" }
+        { "id": "x", "kind": "essentiel/content", "notes": "A" },
+        { "id": "x", "kind": "essentiel/content", "notes": "B" },
+        { "id": "x", "kind": "essentiel/content", "notes": "B" }
     ]}))
     .unwrap();
     assert_that!(slide_ids(&deck)).is_equal_to(vec!["x", "x-2"]);

@@ -4,23 +4,30 @@ ui-loading = 正在加载…
 ## 文档
 
 ui-brand = Oku Slides
-ui-brand-templates = Oku Slides · 模板
+ui-brand-pack = { $kind ->
+    [layouts] { $name } · 版式包
+   *[other] { $name } · 小组件包
+}
 ui-title-rename = 重命名演示文稿
 ui-title-field = 演示文稿标题
 ui-status-unsaved = 有未保存的更改
 ui-status-saved = 已保存
 ui-status-never-saved = 尚未保存
-ui-caption-templates = { $count ->
-    [one] { $count }个模板
-   *[other] { $count }个模板
+ui-caption-pack = { $kind ->
+    [layouts] { $count ->
+        [one] { $count }个版式
+       *[other] { $count }个版式
+    }
+   *[other] { $count ->
+        [one] { $count }个小组件
+       *[other] { $count }个小组件
+    }
 } · { $status }
 ui-caption-slides = { $count ->
     [one] { $count }张幻灯片
    *[other] { $count }张幻灯片
 } · { $status }
-ui-template-default-name = 模板
-ui-template-variant-name = { $name }（变体）
-ui-confirm-quit-templates = 不保存已修改的模板就退出吗？
+ui-confirm-quit-pack = 不保存已修改的包就退出吗？
 
 ## 提示消息
 
@@ -42,7 +49,7 @@ ui-toolbar-theme = 主题
 ui-toolbar-theme-embedded = 文件主题
 ui-toolbar-theme-deck-group = 此演示文稿
 ui-toolbar-finish = 完成
-ui-templates-deck-only = 仅保存在此演示文稿中
+ui-pack-deck-only = 仅保存在此演示文稿中
 ui-toolbar-open = 打开
 ui-menu = 菜单
 ui-toolbar-add-label = 添加到幻灯片
@@ -60,7 +67,6 @@ ui-add-kind-description = { $kind ->
     [table] 数据表
    *[text] 一段文本
 }
-ui-toolbar-remove-template = 删除模板
 ui-toolbar-remove-slide = 删除幻灯片
 ui-toolbar-remove-hint = 幻灯片 { $n } · 按 ⌘Z 撤销
 
@@ -74,10 +80,7 @@ ui-undo-add = { $kind ->
    *[text] 添加文本
 }
 ui-undo-add-widget = 添加“{ $name }”
-ui-undo-new-template = 新模板：{ $name }
 ui-undo-new-slide = 新幻灯片：{ $name }
-ui-undo-templates = 模板：{ $name }
-ui-undo-move-template = 移动模板
 ui-undo-move-slide = 移动幻灯片
 ui-undo-remove-slide = 删除幻灯片
 ui-undo-remove = 删除
@@ -89,7 +92,7 @@ ui-undo-change-anchor = 更改锚定
 ui-undo-move = 移动
 ui-undo-resize = 调整大小
 ui-undo-edit-slide = 编辑幻灯片
-ui-undo-rename-set = 重命名模板集
+ui-undo-rename-pack = 重命名包
 ui-undo-rename-deck = 重命名演示文稿
 ui-undo-chart-kind = 更改图表类型
 ui-undo-chart-data = 编辑数据
@@ -108,15 +111,15 @@ ui-new-card-detail = 详细信息
 ## 幻灯片列表
 
 ui-pile-slides = 幻灯片
-ui-pile-templates = 模板
+ui-pile-layouts = 版式
 ui-pile-add-slide = + 新幻灯片
-ui-pile-add-template = + 新模板
 ui-pile-drag-hint = 拖动以移动 · ⌥↑ ⌥↓
 ui-slide-alt = 幻灯片 { $n }
 
 ## 舞台
 
 ui-stage-rendering = 正在渲染…
+ui-stage-widget-pack = 从堆栈中打开一个小组件，或新建一个。
 ui-stage-elements = 幻灯片元素
 ui-stage-fields = 幻灯片字段
 ui-stage-edit-text = 编辑文本
@@ -238,15 +241,11 @@ ui-size-mb = { $value } MB
 ## 模板选择器
 
 ui-picker-new-slide = 新幻灯片
-ui-picker-new-template = 新模板，基于…
-ui-picker-set = 模板
 ui-picker-set-mine = { $name } · 我的
 ui-picker-set-received = { $name } · 收到的
 ui-picker-keys = ← → 浏览 · Enter 添加 · Esc 关闭
 ui-picker-close = 关闭
-ui-picker-previous = 上一个模板
-ui-picker-next = 下一个模板
-ui-picker-list = 幻灯片模板
+ui-picker-list = 版式
 ui-widget-picker-filter = 按名称、标签或描述筛选
 ui-widget-picker-empty = 没有与“{ $query }”匹配的小组件。
 ui-widget-picker-list = 小组件
@@ -319,7 +318,7 @@ ui-tabs = 已打开的演示文稿
 ui-tab-new = 新建标签页
 ui-tab-close = 关闭标签页
 ui-tab-unsaved = 未保存的更改
-ui-tab-templates = 模板
+ui-tab-pack = 包
 ui-tab-move-new-window = 移到新窗口
 ui-tab-move-to = 移到窗口 { $n }
 ui-tab-close-others = 关闭其他标签页
@@ -374,8 +373,8 @@ ui-widgets-open = 打开小组件 { $name }
 ui-widgets-delete-named = 删除 { $name }
 ui-widgets-confirm-delete = 删除小组件“{ $name }”?
 ui-widgets-rename-hint = 双击或按 F2 重命名
-ui-widgets-tabs = 模板标签页
-ui-widgets-templates-tab = 模板
+ui-pack-tabs = 包的标签页
+ui-pack-layouts-tab = 版式
 ui-theme-tab = 主题
 ui-theme-picker = 主题
 ui-theme-name = 主题名称
@@ -388,14 +387,15 @@ ui-widgets-removed-by-agent = 智能体删除了小组件 { $name }。
 ui-import-title = 导入 PowerPoint 演示文稿
 ui-import-mode = 导入方式
 ui-import-hifi = 忠实副本
-ui-import-hifi-note = 保留原稿的外观，使用为此演示文稿生成的主题和模板。
-ui-import-retrofit = 使用我的模板
-ui-import-retrofit-note = 用库中的模板和主题重建幻灯片。
+ui-import-hifi-note = 保留原稿的外观，使用为此演示文稿生成的主题和版式。
+ui-import-retrofit = 使用我的版式
+ui-import-retrofit-note = 用库中的版式包和主题重建幻灯片。
+ui-import-layout-packs = 版式包
 ui-import-theme-default = 默认主题
-ui-import-no-packs = 库中没有模板集。
+ui-import-no-packs = 库中没有版式包。
 ui-import-tune = 由智能体微调
 ui-import-tune-note = 智能体将每张幻灯片与原稿比较并修正差异。
-ui-import-tune-note-retrofit = 智能体将每张幻灯片与原稿比较，并为模板无法呈现的形状设计小组件。
+ui-import-tune-note-retrofit = 智能体将每张幻灯片与原稿比较，并为版式无法呈现的形状设计小组件。
 ui-import-tune-unavailable = 没有可用的智能体：{ $reason }
 ui-import-submit = 导入
 ui-import-busy = 正在导入…

@@ -13,12 +13,15 @@ use crate::test_support::{adopt_deck_only_pack, fresh_dir, logged, manifest, nam
 use crate::{Request, Session};
 
 fn files(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) -> PackFiles {
-    manifest(id, name, parent, created).to_files(std::collections::BTreeMap::new()).unwrap()
+    manifest(id, name, parent, created)
+        .to_files(oku_slides_core::PackKind::Widgets, std::collections::BTreeMap::new())
+        .unwrap()
 }
 
 /// L'op qui épingle la version `pack` du pack `id`, sous l'espace de noms de son id.
 fn pin_op(id: Uuid, pack: &PackFiles) -> Op {
-    Op::AddPack { namespace: namespace_of(id), pin: PackPin { id, version: pack.version(), requires: Vec::new() } }
+    let pin = PackPin { id, version: pack.version(), requires: Vec::new() };
+    Op::AddPack { kind: oku_slides_core::PackKind::Widgets, namespace: namespace_of(id), pin }
 }
 
 /// La version du pack `id` que le deck de `s` épingle.
@@ -191,11 +194,11 @@ fn pack_notice_close_hides_the_banner_for_the_session() {
 }
 
 #[test]
-fn pack_use_mine_is_refused_while_editing_templates() {
+fn pack_use_mine_is_refused_while_editing_pack() {
     let (_me, _them, mut s, _v0, _v1) = opened_on_newer();
-    s.edit_templates(crate::pack::DEFAULT_PACK).unwrap();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
     let err = s.handle(Request::PackUseMine).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::EditingTemplates);
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::EditingPack);
 }
 
 /// Une version enregistrée par l'autre session à partir du fichier `base`, son deck passé à `pack`.
@@ -240,12 +243,12 @@ fn pack_notice_after_the_deck_changes_pack_is_gone_and_make_current_does_nothing
 }
 
 #[test]
-fn pack_make_current_is_refused_while_editing_templates() {
+fn pack_make_current_is_refused_while_editing_pack() {
     let (_me, _them, mut s, v0, _v1) = opened_on_newer();
     let id = user_pack_id(&s);
-    s.edit_templates(crate::pack::DEFAULT_PACK).unwrap();
+    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
     let err = s.handle(Request::PackMakeCurrent).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::EditingTemplates);
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::EditingPack);
     assert_that!(s.library.current(id)).is_equal_to(Some(v0.version()));
 }
 
@@ -339,11 +342,11 @@ fn open_of_a_deck_only_pack_adds_nothing_to_the_library_and_shows_no_notice() {
     let path = them.path().join("importe.oku-slides.pdf");
     other.handle(Request::Save { path: Some(path.clone()), overwrite: false }).unwrap();
     let mut s = session_on(me.path());
-    let packs = s.library.packs();
+    let packs = s.library.packs(oku_slides_core::PackKind::Widgets);
     s.open(&path).unwrap();
     assert_that!(pin(&s, "deck")).is_equal_to(Some(r.clone()));
     assert_that!(s.library.versions(r.id).is_empty()).is_true();
-    assert_that!(s.library.packs()).is_equal_to(&packs);
+    assert_that!(s.library.packs(oku_slides_core::PackKind::Widgets)).is_equal_to(&packs);
     assert_that!(notice(&mut s)).is_equal_to(serde_json::Value::Null);
 }
 
@@ -371,7 +374,7 @@ fn snapshot_deck_pack_is_true_once_the_deck_takes_a_deck_only_pack() {
 fn is_deck_only_with_an_unreadable_scope_is_false_and_logged() {
     let mut manifest = serde_json::Map::new();
     manifest.insert("scope".into(), serde_json::json!("ailleurs"));
-    let files = PackFiles::new(manifest, std::collections::BTreeMap::new());
+    let files = PackFiles::new(oku_slides_core::PackKind::Widgets, manifest, std::collections::BTreeMap::new());
     let mut deck_only = true;
     let log = logged(|| deck_only = super::is_deck_only(&files));
     assert_that!(deck_only).is_false();

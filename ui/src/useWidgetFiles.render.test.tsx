@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { TabApi, WidgetChange } from "./api";
+import type { PackKind, TabApi, WidgetChange } from "./api";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -24,14 +24,14 @@ afterEach(async () => {
 interface Out { files: Files | null; errors: string[]; changed: string[]; renamed: string[] }
 
 /** Monte le hook ; `render` le relance (pack, revision, rappels). */
-async function mount(fake: TabApi) {
+async function mount(fake: TabApi, kind: PackKind = "widgets") {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   const out: Out = { files: null, errors: [], changed: [], renamed: [] };
   function Probe({ pack, rev, tag }: { pack: string | null; rev: string; tag: string }) {
-    out.files = useWidgetFiles(fake, pack, rev, {
+    out.files = useWidgetFiles(fake, pack, kind, rev, {
       changed: () => out.changed.push(tag),
       error: (m) => out.errors.push(m),
       renamed: (f, t) => out.renamed.push(`${f}>${t}`),
@@ -71,7 +71,7 @@ describe("useWidgetFiles, statuts", () => {
   });
 
   // 2
-  test("hors mode modèles (pack null) : rien n'est lu", async () => {
+  test("hors mode pack (pack null) : rien n'est lu", async () => {
     const { fake, calls } = memory({ kpi: "k" });
     const { out, render } = await mount(fake);
     calls.length = 0;
@@ -263,7 +263,14 @@ describe("useWidgetFiles, frappes et file", () => {
     expect(log).toEqual([]);
     await h.release();
     await act(async () => { await created; });
-    expect(log).toEqual(["remove kpi", `set abc:${skeleton("abc")}`]);
+    expect(log).toEqual(["remove kpi", `set abc:${skeleton("abc", "widgets")}`]);
+  });
+
+  test("useWidgetFiles create in a layout pack writes a slide widget skeleton", async () => {
+    const { fake, log } = memory({});
+    const { out } = await mount(fake, "layouts");
+    await act(async () => { await out.files!.create("hero"); });
+    expect(log).toEqual([`set hero:${skeleton("hero", "layouts")}`]);
   });
 
   // 11
@@ -647,7 +654,7 @@ describe("useWidgetFiles, revue finale", () => {
     await act(async () => gates.abc.resolve());
     await act(async () => settling);
     expect(done).toBe(true);
-    expect(log).toEqual(["set kpi:k2", `set abc:${skeleton("abc")}`]);
+    expect(log).toEqual(["set kpi:k2", `set abc:${skeleton("abc", "widgets")}`]);
   });
 
   test("remove refusé pendant le délai : la frappe annulée revient, écrite ensuite", async () => {

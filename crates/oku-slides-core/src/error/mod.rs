@@ -55,6 +55,8 @@ pub enum OpErrorKind {
     PackRequirementMissing,
     /// Le pack `base` ne se retire jamais d'un deck.
     BaseRequired,
+    /// L'espace de noms est déjà épinglé sous l'autre sorte de pack.
+    PackKindConflict,
 }
 
 /// La borne d'une liste qu'une opération dépasserait.
@@ -121,6 +123,8 @@ pub(crate) enum OpInner {
     PackRequirementMissing { namespace: String, required: String, backtrace: Backtrace },
     #[snafu(display("every deck keeps the base widget pack"))]
     BaseRequired { backtrace: Backtrace },
+    #[snafu(display("pack {namespace} is already pinned under the other pack kind"))]
+    PackKindConflict { namespace: String, backtrace: Backtrace },
 }
 
 fn bound_reason(bound: &ListBound) -> String {
@@ -156,6 +160,7 @@ impl OpError {
             OpInner::PackInUse { .. } => OpErrorKind::PackInUse,
             OpInner::PackRequirementMissing { .. } => OpErrorKind::PackRequirementMissing,
             OpInner::BaseRequired { .. } => OpErrorKind::BaseRequired,
+            OpInner::PackKindConflict { .. } => OpErrorKind::PackKindConflict,
         }
     }
 
@@ -179,7 +184,8 @@ impl OpError {
             OpInner::UnknownNamespace { namespace, .. }
             | OpInner::PackRequired { namespace, .. }
             | OpInner::PackInUse { namespace, .. }
-            | OpInner::PackRequirementMissing { namespace, .. } => Some(namespace),
+            | OpInner::PackRequirementMissing { namespace, .. }
+            | OpInner::PackKindConflict { namespace, .. } => Some(namespace),
             OpInner::IndexOutOfRange { .. } | OpInner::BaseRequired { .. } => None,
         }
     }
@@ -368,7 +374,8 @@ impl Localize for OpError {
             | OpErrorKind::UnknownNamespace
             | OpErrorKind::PackRequired
             | OpErrorKind::PackInUse
-            | OpErrorKind::PackRequirementMissing => "op-invalid-value",
+            | OpErrorKind::PackRequirementMissing
+            | OpErrorKind::PackKindConflict => "op-invalid-value",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
     }
@@ -391,6 +398,9 @@ impl OpError {
                 "op-pack-requirement-missing",
                 &[("pack", namespace.as_str().into()), ("required", required.as_str().into())],
             ),
+            OpInner::PackKindConflict { namespace, .. } => {
+                l.tr_with("op-pack-kind-conflict", &[("pack", namespace.as_str().into())])
+            }
             _ => return None,
         })
     }
@@ -557,6 +567,10 @@ pub enum SchemaFault {
     ListDefaultBelowMin,
     /// Une slide déclare `grow` ou `typography`, réservés aux éléments.
     SlideSizing,
+    /// La catégorie d'un widget ne correspond pas à la sorte de son pack.
+    PackCategory,
+    /// Un widget de registre sans espace de noms (un registre se lit toujours qualifié).
+    Unqualified,
 }
 
 impl std::fmt::Display for SchemaFault {
@@ -578,6 +592,8 @@ impl std::fmt::Display for SchemaFault {
             SchemaFault::ListDepth => "list nested more than one level",
             SchemaFault::ListDefaultBelowMin => "nested list default below its min",
             SchemaFault::SlideSizing => "slide declares grow or typography",
+            SchemaFault::PackCategory => "widget category differs from its pack kind",
+            SchemaFault::Unqualified => "registry widget without a namespace",
         })
     }
 }
@@ -601,6 +617,8 @@ impl SchemaFault {
             SchemaFault::ListDepth => "widget-fault-list-depth",
             SchemaFault::ListDefaultBelowMin => "widget-fault-list-default-below-min",
             SchemaFault::SlideSizing => "widget-fault-slide-sizing",
+            SchemaFault::PackCategory => "widget-fault-pack-category",
+            SchemaFault::Unqualified => "widget-fault-unqualified",
         }
     }
 }
@@ -628,6 +646,11 @@ impl WidgetError {
     /// convertir la valeur Typst en JSON).
     pub fn unreadable(source: serde_json::Error) -> Self {
         UnreadableSnafu.into_error(source).into()
+    }
+
+    /// Le widget `widget` mal déclaré pour `fault`, constaté hors du registre.
+    pub fn bad_schema(widget: &str, fault: SchemaFault) -> Self {
+        BadSchemaSnafu { widget, fault }.build().into()
     }
 
     pub fn kind(&self) -> WidgetErrorKind {

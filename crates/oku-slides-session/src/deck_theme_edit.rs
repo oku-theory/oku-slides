@@ -1,7 +1,7 @@
-//! Éditer un thème depuis le mode deck, sans passer par l'édition des modèles.
+//! Éditer un thème depuis le mode deck, sans passer par l'édition d'un pack.
 //!
 //! `edit_theme` part de la version courante d'un thème, y applique des ops de
-//! jetons (vérifiées par le schéma, comme le brouillon du mode modèles) et un
+//! jetons (vérifiées par le schéma, comme le brouillon du mode pack) et un
 //! nouveau nom, puis enregistre le résultat : nouvelle version courante d'un
 //! thème de l'utilisateur, ou copie d'un thème intégré (nouvel id, nommée
 //! « (copie) » sans autre nom). Un deck qui utilise ce thème passe à la
@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use oku_slides_core::{DECK_VERSION, Deck, Op, PackVersion, ThemeRef};
 
-use crate::error::{EditingTemplatesSnafu, OpSnafu, ThemeJsonSnafu, UnknownThemeSnafu};
+use crate::error::{EditingPackSnafu, OpSnafu, ThemeJsonSnafu, UnknownThemeSnafu};
 use crate::pack::now_created;
 use crate::theme::{ThemeInfo, ThemeLibrary, ThemeManifest};
 use crate::theme_schema::default_tokens;
@@ -69,6 +69,7 @@ pub(crate) fn token_deck(tokens: Value) -> Deck {
         vars: Default::default(),
         tokens,
         widgets: Default::default(),
+        layouts: Default::default(),
         slides: Vec::new(),
     }
 }
@@ -123,7 +124,7 @@ impl Session {
     /// Refusé hors du mode deck. Un nom vide garde le nom actuel. Sans
     /// changement, rien n'est enregistré.
     pub fn edit_theme(&mut self, id: Uuid, name: Option<String>, ops: Vec<TokenOp>) -> Result<EditedTheme> {
-        ensure!(matches!(self.mode, Mode::Deck), EditingTemplatesSnafu);
+        ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
         let (current, base) = self.theme_base(id)?;
         let ops: Vec<Op> = ops.into_iter().map(Op::from).collect();
         let start = Value::Object(base.tokens.clone());

@@ -4,6 +4,7 @@
 mod common;
 
 use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::essentiel::CONTENT;
 use std::sync::Arc;
 
 use oku_slides_core::{
@@ -388,7 +389,7 @@ fn concurrent_slide_inserts_at_one_place_and_a_reorder_keep_every_slide() {
     let (mut a, mut b, mut c) = (open(), open(), open());
     let inserted = |id: &str| {
         let mut d = deck.clone();
-        d.slides.insert(2, Slide::new(id, "content"));
+        d.slides.insert(2, Slide::new(id, CONTENT));
         d
     };
     ok(a.apply(&inserted("s-a"), "A", None));
@@ -417,7 +418,7 @@ fn concurrent_slide_inserts_at_one_place_and_a_reorder_keep_every_slide() {
         panic!("s-a ou s-b perdue : {ids:?}")
     };
     let mut between = merged.clone();
-    between.slides.insert(ia.max(ib), Slide::new("s-c", "content"));
+    between.slides.insert(ia.max(ib), Slide::new("s-c", CONTENT));
     ok(a.apply(&between, "A", None));
     let last = all(&mut a, &mut b, &mut c);
     let mut got: Vec<&str> = slide_ids(&last);

@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "params": {
     "title": "Feuille de route {{annee}}",
     "subtitle": "Trois chantiers pour {{client}}",
@@ -15,15 +15,15 @@
   "slides": [
     {
       "id": "s-title",
-      "kind": "title"
+      "kind": "essentiel/title"
     },
     {
       "id": "s-toc",
-      "kind": "toc"
+      "kind": "essentiel/toc"
     },
     {
       "id": "s-ch1",
-      "kind": "chapter",
+      "kind": "essentiel/chapter",
       "params": {
         "title": "Contexte",
         "subtitle": "Où en est {{client}} aujourd'hui"
@@ -31,7 +31,7 @@
     },
     {
       "id": "s-constat",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Ce qui a changé en {{annee}}",
         "kicker": "Constat",
@@ -73,7 +73,7 @@
     },
     {
       "id": "s-priorites",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Trois priorités",
         "kicker": "Organisation",
@@ -139,14 +139,14 @@
     },
     {
       "id": "s-ch2",
-      "kind": "chapter",
+      "kind": "essentiel/chapter",
       "params": {
         "title": "Plan d'action"
       }
     },
     {
       "id": "s-libre",
-      "kind": "content",
+      "kind": "essentiel/content",
       "params": {
         "title": "Placement libre",
         "kicker": "Exemple",
@@ -208,7 +208,7 @@
     },
     {
       "id": "s-fin",
-      "kind": "end",
+      "kind": "essentiel/end",
       "params": {
         "text": "Merci {{client}}"
       }

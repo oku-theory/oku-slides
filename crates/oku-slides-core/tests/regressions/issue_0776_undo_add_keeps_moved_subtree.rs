@@ -67,7 +67,7 @@ fn scenario() -> (DeckReplica, DeckReplica) {
     let registry = common::shared();
     let (mut a, mut b) = peers(&roadmap(), &registry);
     let mut added = b.deck().0;
-    let slide = json!({ "id": "s-neuve", "kind": "content", "params": { "title": "Neuve" } });
+    let slide = json!({ "id": "s-neuve", "kind": "essentiel/content", "params": { "title": "Neuve" } });
     apply_all(&mut added, vec![op(json!({ "op": "add_slide", "slide": slide }))], &registry)
         .unwrap_or_else(|e| panic!("{e:?}"));
     b.apply(&added, "Ajouter une slide", None).unwrap_or_else(|e| panic!("{e}"));

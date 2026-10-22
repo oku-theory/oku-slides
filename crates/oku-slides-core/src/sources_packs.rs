@@ -1,11 +1,14 @@
-//! Les versions de packs dans le zip des sources : `widgets/<hex>/widgets.json` et
-//! `widgets/<hex>/widgets/<nom>.typ`.
+//! Les versions de packs dans le zip des sources, par sorte ([`PackKind`]) :
+//! `widgets/<hex>/widgets.json` et `widgets/<hex>/widgets/<nom>.typ` pour un
+//! pack de widgets, `layouts/<hex>/layouts.json` et `layouts/<hex>/layouts/<nom>.typ`
+//! pour un pack de layouts.
 //!
-//! Chaque version est vérifiée par son empreinte à la lecture ; une version
-//! dont le contenu ne la donne pas est écartée et signalée une seule fois (le
-//! deck qui la référence ne la dit pas en plus « manquante »). Un chemin
-//! invalide (dossier autre que 64 hex minuscules, sous-dossier autre que
-//! `widgets/`, nom de widget invalide) refuse le zip.
+//! Chaque version est vérifiée par son empreinte à la lecture, dans la sorte
+//! de son dossier ; une version dont le contenu ne la donne pas est écartée et
+//! signalée une seule fois (le deck qui la référence ne la dit pas en plus
+//! « manquante »). Un chemin invalide (dossier autre que 64 hex minuscules,
+//! sous-dossier autre que celui des fichiers de la sorte, nom de widget
+//! invalide) refuse le zip.
 
 use std::collections::BTreeMap;
 use std::io::{Seek, Write};
@@ -15,15 +18,8 @@ use zip::write::SimpleFileOptions;
 
 use crate::error::{BadNameSnafu, IoSnafu, JsonSnafu, SourcesInner, ZipSnafu};
 use crate::pack::{PackFiles, PackVersion, WidgetFile};
+use crate::pack_kind::PackKind;
 use crate::validate::Issue;
-
-/// Dossier des versions de packs dans le zip.
-pub(super) const PACKS_DIR: &str = "widgets/";
-
-/// Le manifeste d'une version de pack, dans son dossier.
-const PACK_JSON: &str = "widgets.json";
-/// Les fichiers de widgets d'une version de pack, dans son dossier.
-const WIDGETS_DIR: &str = "widgets";
 
 /// Fichiers d'une version de pack lus du zip, avant vérification.
 #[derive(Default)]
@@ -45,7 +41,7 @@ impl RawPack {
     }
 }
 
-/// Ce qu'est une entrée `widgets/<hex>/…`.
+/// Ce qu'est une entrée `<sorte>/<hex>/…`.
 pub(super) enum PackPart {
     Manifest,
     Widget(WidgetFile),
@@ -53,18 +49,25 @@ pub(super) enum PackPart {
     Ignored,
 }
 
-/// `widgets/<hex>/<fichier>` : la version annoncée par le dossier (64 hex
-/// minuscules, sinon refusée) et la partie. Sous `widgets/`, un nom hors de
-/// [`WidgetFile`] est refusé, comme tout sous-dossier autre que `widgets/`.
-pub(super) fn pack_entry(name: &str) -> Result<(PackVersion, PackPart), SourcesInner> {
-    let rest = name.strip_prefix(PACKS_DIR).unwrap_or(name);
+/// La sorte dont `name` est sous le dossier (`widgets/` ou `layouts/`), si elle existe.
+///
+/// Le dossier d'une sorte dans le zip porte le nom de son dossier de fichiers.
+pub(super) fn pack_dir(name: &str) -> Option<PackKind> {
+    PackKind::ALL.into_iter().find(|k| name.strip_prefix(k.files_dir()).is_some_and(|rest| rest.starts_with('/')))
+}
+
+/// `<sorte>/<hex>/<fichier>` : la version annoncée par le dossier (64 hex
+/// minuscules, sinon refusée) et la partie. Sous le dossier des fichiers de
+/// la sorte, un nom hors de [`WidgetFile`] est refusé, comme tout autre sous-dossier.
+pub(super) fn pack_entry(kind: PackKind, name: &str) -> Result<(PackVersion, PackPart), SourcesInner> {
+    let rest = name.strip_prefix(kind.files_dir()).and_then(|r| r.strip_prefix('/')).unwrap_or(name);
     let (hex, file) = rest.split_once('/').unwrap_or((rest, ""));
     let version = PackVersion::from_hex(hex).context(BadNameSnafu { name })?;
     let part = match file.split_once('/') {
-        None if file == PACK_JSON => PackPart::Manifest,
+        None if file == kind.manifest_file() => PackPart::Manifest,
         None => PackPart::Ignored,
-        Some((WIDGETS_DIR, "")) => PackPart::Ignored,
-        Some((WIDGETS_DIR, widget)) => {
+        Some((dir, "")) if dir == kind.files_dir() => PackPart::Ignored,
+        Some((dir, widget)) if dir == kind.files_dir() => {
             PackPart::Widget(WidgetFile::from_file_name(widget).context(BadNameSnafu { name })?)
         }
         Some(_) => return BadNameSnafu { name }.fail(),
@@ -72,16 +75,16 @@ pub(super) fn pack_entry(name: &str) -> Result<(PackVersion, PackPart), SourcesI
     Ok((version, part))
 }
 
-/// Les versions lues, vérifiées ; les écartées (sans `widgets.json`, ou dont le
-/// contenu ne donne pas l'empreinte annoncée) sont rendues à part.
+/// Les versions lues, vérifiées dans leur sorte ; les écartées (sans manifeste,
+/// ou dont le contenu ne donne pas l'empreinte annoncée) sont rendues à part.
 pub(super) fn verify_packs(
-    raw: BTreeMap<PackVersion, RawPack>,
+    raw: BTreeMap<(PackKind, PackVersion), RawPack>,
 ) -> (BTreeMap<PackVersion, PackFiles>, Vec<PackVersion>) {
     let mut packs = BTreeMap::new();
     let mut discarded = Vec::new();
-    for (version, RawPack { pack_json, widgets }) in raw {
+    for ((kind, version), RawPack { pack_json, widgets }) in raw {
         let files = pack_json
-            .and_then(|p| PackFiles::from_bytes(&p, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice()))))
+            .and_then(|p| PackFiles::from_bytes(kind, &p, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice()))))
             .filter(|f| f.matches(&version));
         match files {
             Some(files) => {
@@ -106,18 +109,20 @@ pub(super) fn report_discarded(issues: &mut Vec<Issue>, discarded: &[PackVersion
     }
 }
 
-/// Écrit chaque version sous `widgets/<hex>/` : `widgets.json`, puis ses widgets.
+/// Écrit chaque version sous `<sorte>/<hex>/` : son manifeste, puis ses widgets.
 pub(super) fn write_packs<W: Write + Seek>(
     zw: &mut zip::ZipWriter<W>,
     packs: &BTreeMap<PackVersion, PackFiles>,
     options: SimpleFileOptions,
 ) -> Result<(), SourcesInner> {
     for (version, files) in packs {
-        let dir = format!("{PACKS_DIR}{}", version.hex());
-        zw.start_file(format!("{dir}/{PACK_JSON}"), options).context(ZipSnafu)?;
-        zw.write_all(&files.pack_json().context(JsonSnafu { file: PACK_JSON })?).context(IoSnafu)?;
+        let kind = files.kind();
+        let (files_dir, manifest) = (kind.files_dir(), kind.manifest_file());
+        let dir = format!("{files_dir}/{}", version.hex());
+        zw.start_file(format!("{dir}/{manifest}"), options).context(ZipSnafu)?;
+        zw.write_all(&files.pack_json().context(JsonSnafu { file: manifest })?).context(IoSnafu)?;
         for (name, source) in files.widgets() {
-            zw.start_file(format!("{dir}/{WIDGETS_DIR}/{}", name.file_name()), options).context(ZipSnafu)?;
+            zw.start_file(format!("{dir}/{files_dir}/{}", name.file_name()), options).context(ZipSnafu)?;
             zw.write_all(source.as_bytes()).context(IoSnafu)?;
         }
     }

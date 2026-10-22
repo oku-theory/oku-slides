@@ -3,6 +3,7 @@
 //! dans l'autre slide). Le deck est désormais un seul `LoroTree` : le passage
 //! d'une slide à l'autre est un `mov`, l'édition concurrente reste.
 
+use oku_slides_core::kinds::essentiel::CONTENT;
 use oku_slides_core::{Deck, DeckReplica, Element, Op, ParamValue, Slide, apply_all, apply_all_moving};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -93,7 +94,7 @@ fn move_element_with_a_repeated_id_keeps_the_concurrent_bold() {
             "element": { "id": "dup", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": slide }] }] } } }))
     };
     let mut deck = with_ops(&roadmap(), vec![dup("s-constat"), dup("s-priorites"), dup("s-libre")]);
-    deck.slides.push(Slide::new("s-neuve", "content"));
+    deck.slides.push(Slide::new("s-neuve", CONTENT));
     let registry = common::shared();
     let snap = DeckReplica::new(&deck, registry.clone())
         .unwrap_or_else(|e| panic!("replica : {e}"))

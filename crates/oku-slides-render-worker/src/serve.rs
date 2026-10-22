@@ -10,7 +10,8 @@
 //!   crée le `Renderer`, puis lui pose la langue courante si elle l'est.
 //! - `SetWidgets` demande le registre de l'ensemble de packs à `Registries`, puis le pose.
 //! - `SetTheme` pose les jetons du thème du slot (`None` : jetons par défaut).
-//! - `ProbeFile` sonde un fichier seul (`Registries::probe_file`, mémoïsé).
+//! - `ProbeFile` sonde un fichier seul, dans le dossier de la sorte de son pack
+//!   (`Registries::probe_file`, mémoïsé).
 //! - Un nom de fichier de widget invalide répond `Error Setup`.
 //! - `Render` rend le deck sous une nouvelle génération (compteur global,
 //!   croissant), rangée dans l'emplacement. Ensuite, les assets qui ne sont
@@ -34,7 +35,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use oku_slides_core::{Namespace, WidgetFile};
+use oku_slides_core::{Namespace, PackKind, WidgetFile};
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::storage::Storage;
 use oku_slides_reference::{
@@ -136,7 +137,7 @@ pub(crate) fn pack_of(p: WirePack) -> Result<PackWidgets, WireError> {
         .into_iter()
         .map(|(n, s)| WidgetFile::parse(&n).map(|n| (n, s)).ok_or_else(|| setup(format!("bad widget file {n}"))))
         .collect::<Result<BTreeMap<_, _>, _>>()?;
-    PackWidgets::new(p.id, namespace, files).map_err(|e| WireError::from_registry(&e))
+    PackWidgets::new(p.id, namespace, p.kind, files).map_err(|e| WireError::from_registry(&e))
 }
 
 impl Worker {
@@ -158,7 +159,9 @@ impl Worker {
                 self.assets.insert(id, payload);
                 ok()
             }
-            Request::ProbeFile { name, source, common } => self.probe_file(&name, &source, common.as_deref()),
+            Request::ProbeFile { kind, name, source, common } => {
+                self.probe_file(kind, &name, &source, common.as_deref())
+            }
             Request::OpenSlot { slot, fonts } => self.open_slot(slot, &fonts),
             Request::CloseSlot { slot } => {
                 self.slots.remove(&slot);
@@ -282,9 +285,15 @@ impl Worker {
         self.registries.get_or_insert_with(|| Registries::new(Fonts::default()))
     }
 
-    fn probe_file(&mut self, name: &str, source: &str, common: Option<&str>) -> Result<Reply, WireError> {
+    fn probe_file(
+        &mut self,
+        kind: PackKind,
+        name: &str,
+        source: &str,
+        common: Option<&str>,
+    ) -> Result<Reply, WireError> {
         let name = WidgetFile::parse(name).ok_or_else(|| setup(format!("bad widget file {name}")))?;
-        let probe = self.registries().probe_file(&name, source, common);
+        let probe = self.registries().probe_file(kind, &name, source, common);
         Ok((Response::FileProbe { probe }, Vec::new()))
     }
 

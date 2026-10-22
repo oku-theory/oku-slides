@@ -63,7 +63,6 @@ cli-imported = { $path }: { $slides ->
        [many] { $requests } طلب أداة
       *[other] { $requests } طلب أداة
     }
-cli-import-pack-required = الخيار --pack مطلوب في وضع retrofit: معرّف حزمة القوالب أو مجلدها أو اسمها
 cli-import-write-failed = تعذّرت كتابة العرض المستورد { $path }
 cli-import-hifi-no-target = --pack و--theme خاصّان بوضع retrofit: الاستيراد عالي الدقة (--mode hifi) يولّد حزمته وسمته
 cli-import-reference-hifi-only = ‎--reference خاص بوضع hifi: لا يُقارَن استيراد retrofit بعرض مرجعي
@@ -99,7 +98,7 @@ cli-arg-ui = مجلد الواجهة المبنية (ui/dist)
 cli-cmd-import = استيراد عرض PowerPoint (.pptx) بصيغة .oku-slides.pdf
 cli-arg-pptx = عرض PowerPoint (.pptx)
 cli-arg-mode = retrofit: المحتوى على حزمة قوالب وسمة موجودتين؛ hifi: نسخة مطابقة، على حزمة وسمة مولَّدتين لها
-cli-arg-pack = حزمة القوالب الهدف: المعرّف أو مجلد الحزمة (widgets.json، widgets/) أو الاسم أو فضاء الأسماء
+cli-arg-pack = حزمة التخطيطات للتحويل retrofit (فضاء الأسماء أو المعرّف أو المجلد)؛ قابل للتكرار، الافتراضي essentiel
 cli-arg-import-theme = السمة الهدف: سمة مدمجة أو من المكتبة، بمعرّفها أو اسمها؛ الافتراضي: السمة الافتراضية
 cli-arg-report = كتابة تقرير الاستيراد (JSON) أيضًا: المفقودات والبدائل والتغطية
 cli-arg-no-system-fonts = في وضع hifi، لا تبحث عن خطوط العرض بين خطوط النظام

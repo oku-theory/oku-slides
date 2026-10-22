@@ -17,11 +17,11 @@ diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = 提示：{ $hint }
 render-chart-failed = 无法绘制图表
 
-registry-bad-pack-id = 模板包标识符无效: { $id }
-registry-base-pack-broken = 内置小组件包已损坏 ({ $file })；请重新安装应用。
-registry-duplicate-pack = 演示文稿的两个小组件包共用 { $pack }。
-registry-compile = 无法编译模板包的组件
-registry-missing = 模板包未声明其组件
+registry-bad-pack-id = 包标识符无效: { $id }
+registry-base-pack-broken = 内置包已损坏 ({ $file })；请重新安装应用。
+registry-duplicate-pack = 演示文稿的两个包共用 { $pack }。
+registry-compile = 无法编译包的组件
+registry-missing = 包未声明其组件
 render-timeout = 渲染耗时超过 { $seconds }秒，已中断
 render-out-of-memory = 渲染所需内存超过 { $mib } MiB，已中断
 render-worker-lost = 渲染进程已停止
@@ -41,6 +41,7 @@ import-not-a-presentation = 此文件不是 PowerPoint 演示文稿
 import-protected = 此演示文稿已加密或为旧版 .ppt 格式：请先另存为 .pptx
 import-too-large = 此演示文稿太大，无法导入
 import-output-too-large = 导入后的演示文稿将超过导入允许的大小
+import-no-profiles = 所选布局包未提供任何配置。
 import-loss-list-levels = 列表级别已合并为一级
 import-loss-merged-cells = 已拆分合并的单元格
 import-loss-percent-stacked = 百分比堆积图已显示为堆积图
@@ -74,7 +75,7 @@ import-loss-hidden-slide = 隐藏的幻灯片已作为可见幻灯片导入
 import-loss-effects = 阴影、映像和三维效果已丢失
 import-loss-series-dropped = 饼图只显示一个系列：保留 { $kept }个，舍弃 { $dropped }个
 import-loss-repeated-decor = 已省略在 { $slides }张幻灯片上重复的页眉或页脚“{ $text }”：主题会绘制自己的页眉页脚
-import-loss-no-slot = 已省略内容：所选模板中没有可放置它的位置
+import-loss-no-slot = 已省略内容：所选版式中没有可放置它的位置
 import-loss-moved-to-notes = 文本已移至演讲者备注：封面上没有可放置它的位置
 import-loss-items-dropped = 幻灯片上的元素过多：省略了{ $dropped }个元素
 import-loss-page-fitted = 源页面（{ $width } × { $height } pt）不是 16:9：内容已缩放并居中
@@ -86,7 +87,7 @@ import-loss-shape-style = { $effect ->
     [arrow] 未绘制线条箭头
    *[geometry] 未知形状已显示为矩形
 }
-import-loss-layout-dropped = 一个包中的版式过多：“{ $layout }”没有模板，其幻灯片使用空白组件，并以元素形式获得其装饰
+import-loss-layout-dropped = 一个包中的版式过多：“{ $layout }”没有组件，其幻灯片使用空白组件，并以元素形式获得其装饰
 import-loss-decor-truncated = 为适应包文件大小而截断了装饰：省略了{ $omitted }个元素
 import-loss-table-style = 表格样式为近似：其自身的单元格背景、边框、列宽、行高或文字大小已丢失
 import-loss-overflow = 元素“{ $element }”超出了幻灯片边缘

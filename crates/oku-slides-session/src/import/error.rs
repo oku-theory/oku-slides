@@ -27,6 +27,8 @@ pub enum ImportErrorKind {
     Threshold,
     /// Pack cible introuvable.
     UnknownPack,
+    /// Pack cible du retrofit qui n'est pas un pack de layouts.
+    NotLayoutPack,
     /// Pack cible illisible : `widgets.json` invalide, ou un widget qui n'est pas du texte.
     BadPack,
     /// Thème cible introuvable.
@@ -62,6 +64,8 @@ pub(crate) enum ImportInner {
     Threshold { value: f64, backtrace: Backtrace },
     #[snafu(display("unknown pack: {pack}"))]
     UnknownPack { pack: String, backtrace: Backtrace },
+    #[snafu(display("not a layout pack: {pack}"))]
+    NotLayoutPack { pack: String, backtrace: Backtrace },
     #[snafu(display("unreadable pack: {pack}"))]
     BadPack { pack: String, source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unreadable pack files: {pack}"))]
@@ -104,6 +108,7 @@ impl ImportError {
             Presentation { .. } | ReaderPanic { .. } => ImportErrorKind::Presentation,
             Threshold { .. } => ImportErrorKind::Threshold,
             UnknownPack { .. } => ImportErrorKind::UnknownPack,
+            NotLayoutPack { .. } => ImportErrorKind::NotLayoutPack,
             BadPack { .. } | BadPackFiles { .. } => ImportErrorKind::BadPack,
             UnknownTheme { .. } => ImportErrorKind::UnknownTheme,
             BadTheme { .. } => ImportErrorKind::BadTheme,
@@ -148,6 +153,7 @@ impl Localize for ImportError {
                 l.tr_with("session-import-bad-threshold", &[("value", value.to_string().into())])
             }
             UnknownPack { pack, .. } => l.tr_with("session-import-unknown-pack", &[("pack", pack.as_str().into())]),
+            NotLayoutPack { pack, .. } => l.tr_with("import-not-layout-pack", &[("pack", pack.as_str().into())]),
             BadPack { pack, .. } | BadPackFiles { pack, .. } => {
                 l.tr_with("session-import-bad-pack", &[("pack", pack.as_str().into())])
             }

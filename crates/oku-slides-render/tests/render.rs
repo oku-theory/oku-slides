@@ -2,7 +2,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::kinds::base;
+use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_core::{Deck, Op, Paragraph, SourceBundle, SourceLimits, Target};
 use oku_slides_render::Renderer;
 use speculoos::prelude::*;
@@ -219,9 +219,9 @@ fn chart_deck() -> Deck {
         "series": [{ "type": "bar" }]
     });
     let json = serde_json::json!({ "version": oku_slides_core::DECK_VERSION, "slides": [
-        { "id": "flux", "kind": "content", "params": { "title": "Ventes",
+        { "id": "flux", "kind": essentiel::CONTENT, "params": { "title": "Ventes",
           "blocks": [{ "id": "g1", "kind": base::CHART, "params": { "option": option } }] } },
-        { "id": "libre", "kind": "blank", "params": {
+        { "id": "libre", "kind": essentiel::BLANK, "params": {
           "elements": [{ "id": "g2", "kind": base::CHART, "params": { "option": option },
                          "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] } }
     ] });
@@ -247,9 +247,10 @@ fn compile_deck_with_charts_places_them_and_exports_pdf() {
 fn compile_invalid_token_returns_localized_compile_error_with_diagnostics() {
     use oku_slides_i18n::{Localize, Localizer};
     use oku_slides_render::{RenderErrorKind, Severity};
-    let deck: Deck = serde_json::from_str(
-        r#"{"tokens":{"color":{"accent":5}},"slides":[{"id":"s","kind":"content","params":{"title":"x"}}]}"#,
-    )
+    let deck: Deck = serde_json::from_value(serde_json::json!({
+        "tokens": {"color": {"accent": 5}},
+        "slides": [{"id": "s", "kind": essentiel::CONTENT, "params": {"title": "x"}}]
+    }))
     .unwrap();
     let mut r = common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();

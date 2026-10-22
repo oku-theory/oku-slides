@@ -1,4 +1,4 @@
-//! Les sortes de versions que la bibliothèque range : packs de widgets, puis thèmes.
+//! Les sortes de versions que la bibliothèque range : packs de widgets, de layouts, puis thèmes.
 //!
 //! Une sorte donne son dossier, le nom du manifeste d'une version, et ses
 //! versions intégrées ; la [`crate::Library`] fait le reste.
@@ -7,7 +7,8 @@ use std::sync::LazyLock;
 
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, PackFiles, PackScope, PackVersion};
+use oku_slides_core::{Namespace, PackFiles, PackKind, PackScope, PackVersion};
+use oku_slides_render::{BuiltinPack, RegistryError};
 
 use crate::pack::PackManifest;
 
@@ -34,8 +35,8 @@ pub trait LibraryKind: std::fmt::Debug + Clone + 'static {
     /// Dossier sous `<data>` et nom du manifeste dans une version.
     const DIR: &'static str;
     const MANIFEST_FILE: &'static str;
-    /// Les sortes à fichiers de widgets les lisent (`widgets/<nom>.typ`).
-    const HAS_WIDGETS: bool;
+    /// La sorte de pack d'une sorte à fichiers de widgets (`widgets/` ou `layouts/<nom>.typ`) ; `None` sans fichiers.
+    const PACK_KIND: Option<PackKind>;
     type Manifest: VersionManifest;
     /// Versions intégrées à l'app, dans l'ordre.
     fn builtins() -> &'static [StoredVersion<Self::Manifest>];
@@ -59,38 +60,47 @@ impl<M: VersionManifest> StoredVersion<M> {
     }
 }
 
-/// Les packs de widgets (et leurs modèles).
+/// Une version intégrée lue de `files`, journalisée et écartée si elle est illisible.
+fn builtin_version(files: Result<PackFiles, RegistryError>) -> Option<StoredVersion<PackManifest>> {
+    let read = files.map_err(|e| oku_slides_platform::errors::one_line(&e)).and_then(StoredVersion::read);
+    // Couvert par les tests : n'arrive qu'avec un fichier du dépôt cassé.
+    read.inspect_err(|e| tracing::error!(error = %e, "pack intégré illisible")).ok()
+}
+
+/// Les packs de widgets d'éléments.
 #[derive(Debug, Clone)]
-pub struct Templates;
+pub struct Widgets;
 
-/// Packs intégrés, lus une fois par processus, dans l'ordre : Essentiel, Grilles, puis `base`.
-static BUILTIN_PACKS: LazyLock<Vec<StoredVersion<PackManifest>>> = LazyLock::new(|| {
-    // Les fichiers du dépôt gardent leur nom `pack.json` jusqu'au lot 3 ; la bibliothèque écrit `widgets.json`.
-    let templates =
-        [include_str!("../../../templates/essentiel/pack.json"), include_str!("../../../templates/grilles/pack.json")]
-            .map(|json| {
-                PackFiles::from_bytes(json.as_bytes(), []).ok_or_else(|| "widgets.json is not a json object".to_owned())
-            });
-    // `base` : ses sources sont celles du rendu, qui les embarque.
-    let base = oku_slides_render::base_pack_files().map_err(|e| oku_slides_platform::errors::one_line(&e));
-    templates
-        .into_iter()
-        .chain([base])
-        .filter_map(|files| {
-            let read = files.and_then(StoredVersion::read);
-            // Couvert par les tests : n'arrive qu'avec un fichier du dépôt cassé.
-            read.inspect_err(|e| tracing::error!(error = %e, "pack intégré illisible")).ok()
-        })
-        .collect()
-});
+/// Le pack de widgets intégré `base`, lu une fois par processus ; ses sources sont celles du rendu.
+static BUILTIN_WIDGETS: LazyLock<Vec<StoredVersion<PackManifest>>> =
+    LazyLock::new(|| builtin_version(BuiltinPack::Base.files()).into_iter().collect());
 
-impl LibraryKind for Templates {
+impl LibraryKind for Widgets {
     const DIR: &'static str = "widgets";
     const MANIFEST_FILE: &'static str = "widgets.json";
-    const HAS_WIDGETS: bool = true;
+    const PACK_KIND: Option<PackKind> = Some(PackKind::Widgets);
     type Manifest = PackManifest;
 
     fn builtins() -> &'static [StoredVersion<PackManifest>] {
-        &BUILTIN_PACKS
+        &BUILTIN_WIDGETS
+    }
+}
+
+/// Les packs de layouts de slide.
+#[derive(Debug, Clone)]
+pub struct Layouts;
+
+/// Le pack de layouts intégré `essentiel`, lu une fois par processus ; ses sources sont celles du rendu.
+static BUILTIN_LAYOUTS: LazyLock<Vec<StoredVersion<PackManifest>>> =
+    LazyLock::new(|| builtin_version(BuiltinPack::Essentiel.files()).into_iter().collect());
+
+impl LibraryKind for Layouts {
+    const DIR: &'static str = "layouts";
+    const MANIFEST_FILE: &'static str = "layouts.json";
+    const PACK_KIND: Option<PackKind> = Some(PackKind::Layouts);
+    type Manifest = PackManifest;
+
+    fn builtins() -> &'static [StoredVersion<PackManifest>] {
+        &BUILTIN_LAYOUTS
     }
 }

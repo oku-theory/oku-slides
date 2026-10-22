@@ -6,9 +6,9 @@ too much memory is killed without taking the app down.
 ## Key types
 
 - `RenderWorker` (`client.rs`): the shared link; `is_faulty`, `mark_faulty`, `slot`. `blame`: a failure (timeout,
-  memory, crash) marks a slot's lone pack, unless trusted; a slot holding a shipped `base` blames nobody.
-- `probe_pack` (`pack_probe.rs`): per-file probe assembled beside built-in `base` (core alone for `base`),
-  no blame (a timeout is a diagnostic), keyed by `probe_key`, budget per call; `trial_slot` blames no pack.
+  memory, crash) marks a slot's lone pack, unless trusted; a slot holding a shipped built-in blames nobody.
+- `probe_pack` (`pack_probe.rs`): per-file probe (kind's directory) assembled beside built-in `base`
+  (empty probe for `base`), no blame (a timeout is a diagnostic), keyed by `probe_key`, budget per call.
 - `RenderSlot` (`slot.rs`): a slot (`set_widgets`, `set_language`, `render`); its `Drop`
   queues `CloseSlot`.
 - `RemoteCompiled` (`compiled.rs`): a generation; `layout`, `page_hash` local, `svg`/`png`/`pdf`
@@ -31,8 +31,8 @@ too much memory is killed without taking the app down.
 - `serve` (`serve.rs`): the worker loop, run by `exit_if_worker` on `--render-worker`, under the
   watchdog (`watchdog.rs`): request > 2 × timeout, memory over the limit for 1 s, parent gone →
   exit 3. Frames go to a copy of stdout; stdout points to stderr.
-- `Hello` starts each connection: another `PROTOCOL_VERSION` (4) is refused (`Protocol`). Before each
-  request, fonts no open slot uses are dropped (`DropFonts`); `registry_of` gives a set's registry.
+- `Hello` starts each connection: another `PROTOCOL_VERSION` (5) is refused (`Protocol`). Before each
+  request, unused fonts are dropped (`DropFonts`); `registry_of`: a set's registry; `trial_slot` blames none.
 - `Request`/`Response` (`protocol.rs`), frames (`frame.rs`): JSON header and raw payload, bounded
   by `FrameLimits` (`max_frame_mib`): header an eighth, SVG a quarter, any other payload the whole.
 

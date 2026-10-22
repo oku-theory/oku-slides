@@ -3,6 +3,7 @@ mod common;
 use common::*;
 use oku_slides_core::kinds;
 use oku_slides_mcp::McpEvent;
+use oku_slides_session::pack::ESSENTIEL_PACK;
 use rust_mcp_sdk::McpClient;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -104,7 +105,7 @@ async fn apply_move_element_through_mcp_keeps_the_concurrent_edit() {
             json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
                 "element": { "id": "dup", "kind": kinds::base::TEXT, "params": { "body": [{ "runs": [{ "t": slide }] }] } } })
         };
-        let neuve = json!({ "op": "add_slide", "slide": { "id": "s-neuve", "kind": "content" } });
+        let neuve = json!({ "op": "add_slide", "slide": { "id": "s-neuve", "kind": kinds::essentiel::CONTENT } });
         let ops = serde_json::from_value(json!([dup("s-constat"), dup("s-priorites"), dup("s-libre"), neuve]))
             .unwrap_or_else(|e| panic!("ops : {e}"));
         let mut a = session.lock().unwrap_or_else(|e| panic!("session : {e}"));
@@ -164,34 +165,33 @@ async fn focus_emits_focus_event_without_changing_deck() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_then_close_templates_round_trips_mode() {
+async fn edit_then_close_pack_round_trips_mode() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let set = oku_slides_session::DEFAULT_PACK;
-    call(&c, "edit_templates", json!({ "set": set })).await;
+    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
     assert_that!(h.session.lock().unwrap().snapshot().editing.is_some()).is_true();
-    call(&c, "close_templates", json!({})).await;
+    call(&c, "close_pack", json!({})).await;
     assert_that!(h.session.lock().unwrap().snapshot().editing.is_none()).is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn in_templates_outline_reports_the_edited_theme() {
+async fn in_pack_mode_outline_reports_the_edited_theme() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": oku_slides_session::DEFAULT_PACK })).await;
+    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
     let outline = json_of(&call(&c, "deck_outline", json!({})).await);
     let papier = theme_ref("papier").unwrap();
-    assert_that!(outline["mode"].as_str()).is_equal_to(Some("templates"));
+    assert_that!(outline["mode"].as_str()).is_equal_to(Some("pack"));
     assert_that!(outline["edited_theme"]).is_equal_to(json!({
         "id": papier.id, "version": papier.version, "name": "Papier", "dirty": false,
     }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn in_templates_set_theme_alone_chooses_the_edited_theme() {
+async fn in_pack_mode_set_theme_alone_chooses_the_edited_theme() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": oku_slides_session::DEFAULT_PACK })).await;
+    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
     let r = call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": theme_ref("pro") }] })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     let outline = json_of(&call(&c, "deck_outline", json!({})).await);
@@ -199,10 +199,10 @@ async fn in_templates_set_theme_alone_chooses_the_edited_theme() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn in_templates_set_theme_with_other_ops_is_refused_with_a_dedicated_message() {
+async fn in_pack_mode_set_theme_with_other_ops_is_refused_with_a_dedicated_message() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_templates", json!({ "set": oku_slides_session::DEFAULT_PACK })).await;
+    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
     let ops = json!([
         { "op": "set_theme", "theme": theme_ref("pro") },
         { "op": "set_token", "path": ["color", "accent"], "value": "#ff0000" },
@@ -214,13 +214,13 @@ async fn in_templates_set_theme_with_other_ops_is_refused_with_a_dedicated_messa
     assert_that!(outline["edited_theme"]["name"].as_str()).is_equal_to(Some("Papier"));
 }
 
-/// `edit_templates` sur `set` : refusé par le message qui renvoie vers
-/// `templates`, sans passer en mode modèles (t-355).
-async fn assert_wrong_set_points_to_templates(set: &str) {
+/// `edit_pack` sur `pack` : refusé par le message qui renvoie vers
+/// `packs`, sans passer en mode pack (t-355).
+async fn assert_wrong_pack_points_to_packs(pack: &str) {
     let h = start().await;
     let c =
         client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
-    let r = call(&c, "edit_templates", json!({ "set": set })).await;
+    let r = call(&c, "edit_pack", json!({ "pack": pack })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-pack-id"));
     let editing = h.session.lock().unwrap_or_else(|e| panic!("session : {e}")).snapshot().editing.is_none();
@@ -228,13 +228,13 @@ async fn assert_wrong_set_points_to_templates(set: &str) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_templates_with_a_slug_points_to_templates() {
-    assert_wrong_set_points_to_templates("essentiel").await;
+async fn edit_pack_with_a_slug_points_to_packs() {
+    assert_wrong_pack_points_to_packs("essentiel").await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_templates_with_an_unknown_id_points_to_templates() {
-    assert_wrong_set_points_to_templates("00000000-0000-4000-8000-000000000001").await;
+async fn edit_pack_with_an_unknown_id_points_to_packs() {
+    assert_wrong_pack_points_to_packs("00000000-0000-4000-8000-000000000001").await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

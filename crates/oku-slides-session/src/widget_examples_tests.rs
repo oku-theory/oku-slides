@@ -2,7 +2,7 @@ use rstest::rstest;
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
-use crate::pack::{DEFAULT_PACK, PackManifest};
+use crate::pack::{BASE_PACK, PackManifest};
 use crate::test_support::{fresh_dir, session_on};
 use crate::widgets_edit::parse_name;
 use crate::{Request, Session, SessionErrorKind};
@@ -15,7 +15,7 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-examples-");
     let mut s = session_on(data.path());
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.edit_pack(BASE_PACK).unwrap();
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     (data, s)
 }
@@ -66,11 +66,11 @@ fn set_example_values_back_to_neutral_leaves_no_stored_values() {
 }
 
 #[test]
-fn set_example_values_outside_templates_mode_is_refused() {
+fn set_example_values_outside_pack_mode_is_refused() {
     let (_d, mut s) = editing();
-    s.close_templates().unwrap();
+    s.close_pack().unwrap();
     let err = s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingPack);
 }
 
 #[test]
@@ -92,12 +92,12 @@ fn set_example_values_drops_a_stored_value_the_schema_no_longer_takes() {
 }
 
 #[test]
-fn example_requests_outside_templates_mode_are_refused() {
+fn example_requests_outside_pack_mode_are_refused() {
     let (_d, mut s) = editing();
-    s.close_templates().unwrap();
+    s.close_pack().unwrap();
     let req = json!({ "cmd": "set_example_value", "name": "kpi", "param": "value", "value": "12" });
     let err = s.handle(serde_json::from_value::<Request>(req).unwrap()).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingTemplates);
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingPack);
 }
 
 #[test]
@@ -139,17 +139,17 @@ fn snapshot_revision_is_a_safe_javascript_integer() {
 fn set_example_values_moves_the_deck_to_the_session_version_in_one_undo_step() {
     let data = fresh_dir("oku-slides-examples-");
     let mut s = session_on(data.path());
-    let original = crate::test_support::pin(&s, "essentiel");
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    let original = crate::test_support::pin(&s, "base");
+    s.edit_pack(BASE_PACK).unwrap();
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     let before = s.snapshot().editing.map(|e| e.base.clone()).unwrap();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
     let written = s.snapshot().editing.map(|e| e.base.clone()).unwrap();
     assert_that!(written).is_not_equal_to(&before);
-    s.close_templates().unwrap();
-    assert_that!(crate::test_support::pin(&s, "essentiel").map(|r| r.version)).is_equal_to(Some(written));
+    s.close_pack().unwrap();
+    assert_that!(crate::test_support::pin(&s, "base").map(|r| r.version)).is_equal_to(Some(written));
     s.undo().unwrap();
-    assert_that!(crate::test_support::pin(&s, "essentiel")).is_equal_to(original);
+    assert_that!(crate::test_support::pin(&s, "base")).is_equal_to(original);
 }
 
 #[test]
@@ -178,13 +178,13 @@ fn set_widget_with_empty_source_drops_its_values() {
 }
 
 #[test]
-fn save_templates_keeps_the_values() {
+fn save_pack_keeps_the_values() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
-    s.save_templates(false).unwrap();
+    s.save_pack(false).unwrap();
     assert_that!(value_of(&s, "kpi", "value")).is_equal_to(Some(json!("12")));
     let lib = crate::test_support::library_of(&s);
-    let current = lib.current_version(DEFAULT_PACK).unwrap();
+    let current = lib.current_version(BASE_PACK).unwrap();
     let kept = current.manifest.examples.get(&parse_name("kpi").unwrap()).cloned();
     assert_that!(kept).is_equal_to(Some(values(json!({ "value": "12" }))));
 }
@@ -193,8 +193,8 @@ fn save_templates_keeps_the_values() {
 fn values_survive_leaving_and_editing_again() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
-    s.close_templates().unwrap();
-    s.edit_templates(DEFAULT_PACK).unwrap();
+    s.close_pack().unwrap();
+    s.edit_pack(BASE_PACK).unwrap();
     assert_that!(value_of(&s, "kpi", "value")).is_equal_to(Some(json!("12")));
 }
 

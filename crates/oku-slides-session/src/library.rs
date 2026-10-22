@@ -1,4 +1,4 @@
-//! Bibliothèque versionnée, générique sur la sorte ([`LibraryKind`]) : packs de widgets et thèmes.
+//! Bibliothèque versionnée, générique sur la sorte ([`LibraryKind`]) : packs de widgets, de layouts et thèmes.
 //!
 //! Une entrée est un id et des versions adressées par contenu ; chaque version
 //! connaît sa parente (`parent` de son manifeste). Sur disque, sous le dossier
@@ -10,11 +10,13 @@
 //! <data>/widgets/<uuid>/versions/<hex>/widgets/<nom>.typ  (un par fichier de widget)
 //! <data>/widgets/<uuid>/versions/<hex>/received          version reçue avec un deck
 //!
+//! <data>/layouts/<uuid>/versions/<hex>/layouts.json      (de même, fichiers sous `layouts/`)
+//!
 //! <data>/themes/<uuid>/current
 //! <data>/themes/<uuid>/versions/<hex>/theme.json            (jamais de widgets)
 //! ```
 //!
-//! Entrées intégrées (`templates/essentiel`, `templates/grilles`,
+//! Entrées intégrées (`typst/oku-slides/packs/{base,essentiel}`,
 //! `typst/oku-slides/themes/*` du dépôt) : id constant, version de l'app en
 //! lecture seule, courante tant que l'utilisateur n'a pas de fichier
 //! `current`. La version courante ne change que par [`Library::set_current`],
@@ -22,10 +24,15 @@
 //! ([`Library::receive_version`]) est marquée : son `created` vient d'ailleurs,
 //! et le repli de la version courante ne lui fait pas confiance.
 //!
-//! Un espace de noms n'appartient qu'à un pack de la bibliothèque : une
-//! version d'un autre id sous le même espace de noms est refusée
-//! (`NamespaceTaken`), comme une version d'un pack connu sous un autre
-//! espace de noms que le sien (`NamespaceChanged`). L'ancien dossier `templates/` n'est pas relu.
+//! Un espace de noms n'appartient qu'à un pack de la bibliothèque, toutes
+//! sortes confondues ([`crate::PackLibrary`]) : une version d'un autre id sous
+//! le même espace de noms est refusée (`NamespaceTaken`), comme une version
+//! d'un pack connu sous un autre espace de noms que le sien (`NamespaceChanged`).
+//! L'espace de noms d'un pack intégré lui appartient dans les deux sortes : une
+//! ancienne copie de l'utilisateur qui le porte se lit par son id, mais n'a plus
+//! de version neuve et ne répond plus aux recherches par nom ou espace de noms.
+//! `deck` et `deck-layouts` sont réservés aux packs propres d'un deck
+//! (`NamespaceReserved`). L'ancien dossier `templates/` n'est pas relu.
 //!
 //! Un index en mémoire ([`crate::library_index`]) évite de relire et
 //! re-hacher toutes les versions à chaque accès ; charger une version vérifie
@@ -39,7 +46,7 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard, PoisonError};
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, PackFiles, PackVersion, WidgetFile};
+use oku_slides_core::{Namespace, PackFiles, PackKind, PackVersion, WidgetFile};
 use oku_slides_platform::errors::one_line;
 use oku_slides_platform::storage::Storage;
 
@@ -49,20 +56,36 @@ use crate::error::{
     PackIdMismatchSnafu, PackJsonSnafu, PackVersionMissingSnafu, UnknownPackSnafu, WriteSnafu,
 };
 use crate::library_index::{Current, Index, Indexed, PackEntry};
-use crate::library_kind::{LibraryKind, StoredVersion, Templates, VersionManifest};
-use crate::pack::{PackInfo, PackManifest, Relation};
+use crate::library_kind::{Layouts, LibraryKind, StoredVersion, VersionManifest, Widgets};
+use crate::pack::{PackManifest, Relation};
 
 /// Version courante d'un pack, dans son dossier.
 const CURRENT_FILE: &str = "current";
 /// Versions d'un pack, dans son dossier.
 const VERSIONS_DIR: &str = "versions";
-const WIDGETS_DIR: &str = "widgets";
 /// Marque d'une version reçue avec un deck, dans son dossier.
 const RECEIVED_FILE: &str = "received";
 
-/// Versions des packs intégrés, dans l'ordre.
+/// Versions des packs intégrés des deux sortes, lues une fois par processus.
+static BUILTIN_PACKS: LazyLock<Vec<StoredVersion<PackManifest>>> =
+    LazyLock::new(|| Widgets::builtins().iter().chain(Layouts::builtins()).cloned().collect());
+
+/// Versions des packs intégrés, dans l'ordre : `base` (widgets), puis `essentiel` (layouts).
 pub fn builtin_versions() -> &'static [StoredVersion<PackManifest>] {
-    Templates::builtins()
+    &BUILTIN_PACKS
+}
+
+/// L'id du pack intégré qui porte l'espace de noms `ns`, de l'une ou l'autre sorte.
+///
+/// Un espace de noms intégré (`base`, `essentiel`) n'appartient qu'à ce pack : un pack de
+/// l'utilisateur qui le porte (une copie d'avant le lot 3) se lit par son id, sans plus.
+pub(crate) fn builtin_owner(ns: &Namespace) -> Option<Uuid> {
+    BUILTIN_PACKS.iter().find(|b| b.manifest.namespace == *ns).map(|b| b.manifest.id)
+}
+
+/// L'entrée `id` peut-elle porter l'espace de noms `ns` ? Pas celui d'un autre pack intégré.
+pub(crate) fn may_own(id: Uuid, ns: &Namespace) -> bool {
+    builtin_owner(ns).is_none_or(|owner| owner == id)
 }
 
 /// La plus récente par `created` (la dernière vue à égalité), parmi les
@@ -137,16 +160,6 @@ pub struct Library<K: LibraryKind> {
     kind: PhantomData<K>,
 }
 
-/// La bibliothèque des packs de widgets.
-pub type PackLibrary = Library<Templates>;
-
-impl Library<Templates> {
-    /// Les packs de l'utilisateur (`paths.widgets` des réglages), et les intégrés.
-    pub fn user(platform: &oku_slides_platform::Platform) -> Self {
-        Self::new(Some(platform.settings.paths.widgets()), platform.storage.clone())
-    }
-}
-
 impl<K: LibraryKind> Library<K> {
     /// `dir` : `<data>/<K::DIR>`, créé à la première écriture.
     pub fn new(dir: Option<PathBuf>, storage: Storage) -> Self {
@@ -162,7 +175,7 @@ impl<K: LibraryKind> Library<K> {
         K::builtins().iter().find(|b| b.manifest.id() == id)
     }
 
-    /// Dossier du pack `id` ; `None` sans dossier des modèles.
+    /// Dossier de l'entrée `id` ; `None` sans dossier de la bibliothèque.
     fn pack_dir(&self, id: Uuid) -> Option<PathBuf> {
         Some(self.dir.as_ref()?.join(id.to_string()))
     }
@@ -235,10 +248,9 @@ impl<K: LibraryKind> Library<K> {
         let expected = PackVersion::from_hex(name).ok_or_else(|| format!("not a version folder: {name}"))?;
         let pack = self.storage.read(&folder.join(K::MANIFEST_FILE)).map_err(|e| one_line(&e))?;
         let mut widgets = BTreeMap::new();
-        let widget_paths = if K::HAS_WIDGETS {
-            self.storage.list_files(&folder.join(WIDGETS_DIR)).map_err(|e| one_line(&e))?
-        } else {
-            Vec::new()
+        let widget_paths = match K::PACK_KIND {
+            Some(kind) => self.storage.list_files(&folder.join(kind.files_dir())).map_err(|e| one_line(&e))?,
+            None => Vec::new(),
         };
         for path in widget_paths {
             let file = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
@@ -248,7 +260,9 @@ impl<K: LibraryKind> Library<K> {
             };
             widgets.insert(name, self.storage.read(&path).map_err(|e| one_line(&e))?);
         }
-        let files = PackFiles::from_bytes(&pack, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))
+        // Une sorte sans fichiers de widgets (les thèmes) se lit comme un pack de widgets sans widgets.
+        let kind = K::PACK_KIND.unwrap_or(PackKind::Widgets);
+        let files = PackFiles::from_bytes(kind, &pack, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))
             .ok_or_else(|| "unreadable pack files".to_owned())?;
         if !files.matches(&expected) {
             return Err(format!("content does not match {expected}"));
@@ -362,7 +376,7 @@ impl<K: LibraryKind> Library<K> {
     ///
     /// Les fichiers sont validés d'abord : un manifeste illisible, d'un
     /// autre pack, d'une version du deck seul (`DeckOnly`), sous l'espace de
-    /// noms réservé `deck` (`NamespaceReserved`), sous celui d'un autre pack
+    /// noms réservé `deck` ou `deck-layouts` (`NamespaceReserved`), sous celui d'un autre pack
     /// (`NamespaceTaken`) ou sous un autre que celui des versions connues du
     /// pack (`NamespaceChanged`) est refusé, rien n'est écrit.
     pub fn add_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
@@ -383,14 +397,18 @@ impl<K: LibraryKind> Library<K> {
         ensure!(manifest.id() == id, PackIdMismatchSnafu { id, found: manifest.id() });
         ensure!(manifest.scope().is_library(), DeckOnlySnafu { id });
         if let Some(ns) = manifest.namespace() {
-            ensure!(!ns.is_deck(), NamespaceReservedSnafu { namespace: ns.as_str() });
+            ensure!(!ns.is_deck() && !ns.is_deck_layouts(), NamespaceReservedSnafu { namespace: ns.as_str() });
+            // L'espace de noms d'un pack intégré lui reste, toutes sortes confondues.
+            if let Some(owner) = builtin_owner(ns).filter(|owner| *owner != id) {
+                return NamespaceTakenSnafu { namespace: ns.as_str(), owner: owner.to_string() }.fail()?;
+            }
             // Lu avant de prendre l'index : `owner_of` le prend aussi.
             if let Some(owner) = self.owner_of(ns).filter(|owner| *owner != id) {
                 return NamespaceTakenSnafu { namespace: ns.as_str(), owner: owner.to_string() }.fail()?;
             }
         }
         // Une sorte sans widgets les perdrait à l'écriture, mais ils compteraient dans l'empreinte.
-        debug_assert!(K::HAS_WIDGETS || files.widgets().is_empty(), "widgets given to a kind without widgets");
+        debug_assert!(K::PACK_KIND.is_some() || files.widgets().is_empty(), "widgets given to a kind without widgets");
         let version = files.version();
         let mut index = self.fresh();
         let known = &self.entry(&mut index, id).versions;
@@ -414,9 +432,9 @@ impl<K: LibraryKind> Library<K> {
             self.storage.write_atomic(&path, b"").context(WriteSnafu { path: &path })?;
         }
         // Les widgets ensuite : un `widgets.json` présent dit la version complète.
-        if K::HAS_WIDGETS {
+        if let Some(kind) = K::PACK_KIND {
             for (name, source) in files.widgets() {
-                let path = at.join(WIDGETS_DIR).join(name.file_name());
+                let path = at.join(kind.files_dir()).join(name.file_name());
                 self.storage.write_atomic(&path, source.as_bytes()).context(WriteSnafu { path: &path })?;
             }
         }
@@ -435,8 +453,8 @@ impl<K: LibraryKind> Library<K> {
 
     /// Rend la version `v` courante pour l'entrée `id`.
     ///
-    /// Elle s'écrit dans `<data>/<K::DIR>/<id>/current` : `templates/` pour
-    /// les packs de modèles, `themes/` pour les thèmes.
+    /// Elle s'écrit dans `<data>/<K::DIR>/<id>/current` : `widgets/`, `layouts/`
+    /// ou `themes/` selon la sorte.
     pub fn set_current(&self, id: Uuid, v: &PackVersion) -> Result<()> {
         let mut index = self.fresh();
         let versions = &self.entry(&mut index, id).versions;
@@ -510,9 +528,24 @@ impl<K: LibraryKind> Library<K> {
         }
     }
 
-    /// L'id de l'entrée dont la version courante porte l'espace de noms `ns`.
-    fn owner_of(&self, ns: &Namespace) -> Option<Uuid> {
-        self.entries().into_iter().find(|s| s.manifest.namespace() == Some(ns)).map(|s| s.manifest.id())
+    /// Entrées lues sur le disque par cet index depuis sa création.
+    #[cfg(test)]
+    pub(crate) fn scans(&self) -> usize {
+        self.index.lock().unwrap_or_else(PoisonError::into_inner).scans
+    }
+
+    /// L'entrée `id` a-t-elle une version (intégrée ou de l'utilisateur) ?
+    pub(crate) fn knows(&self, id: Uuid) -> bool {
+        let mut index = self.fresh();
+        !self.entry(&mut index, id).versions.is_empty()
+    }
+
+    /// L'id de l'entrée dont la version courante porte l'espace de noms `ns` (voir [`may_own`]).
+    pub(crate) fn owner_of(&self, ns: &Namespace) -> Option<Uuid> {
+        self.entries()
+            .into_iter()
+            .find(|s| s.manifest.namespace() == Some(ns) && may_own(s.manifest.id(), ns))
+            .map(|s| s.manifest.id())
     }
 
     /// Toutes les entrées dans leur version courante : intégrées d'abord, puis
@@ -577,27 +610,6 @@ impl<K: LibraryKind> Library<K> {
         self.bump(&mut index);
         deleted?;
         Ok(())
-    }
-}
-
-impl PackLibrary {
-    /// La version courante du pack qui porte l'espace de noms `ns`, s'il y en a un.
-    pub fn by_namespace(&self, ns: &Namespace) -> Option<StoredVersion<PackManifest>> {
-        self.entries().into_iter().find(|s| s.manifest.namespace == *ns)
-    }
-
-    /// Tous les packs dans leur version courante : intégrés d'abord, puis
-    /// ceux de l'utilisateur, par nom.
-    pub fn packs(&self) -> Vec<PackInfo> {
-        self.entries()
-            .into_iter()
-            .map(|s| PackInfo::of(&s.manifest, s.version, Self::is_builtin(s.manifest.id), s.received))
-            .collect()
-    }
-
-    /// Les packs qui ont des modèles : l'ajout de slide et l'import n'offrent qu'eux.
-    pub fn template_sets(&self) -> Vec<PackInfo> {
-        self.packs().into_iter().filter(|p| p.count > 0).collect()
     }
 }
 

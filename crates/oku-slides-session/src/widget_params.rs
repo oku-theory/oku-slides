@@ -11,7 +11,7 @@ use serde_json::{Map, Value};
 use snafu::{ResultExt, ensure};
 
 use crate::agent::ShowParams;
-use crate::error::{NotEditingTemplatesSnafu, TrialEncodeSnafu, TrialFixedSnafu, TrialTooLongSnafu, TrialValueSnafu};
+use crate::error::{NotEditingPackSnafu, TrialEncodeSnafu, TrialFixedSnafu, TrialTooLongSnafu, TrialValueSnafu};
 use crate::panel::HostParams;
 use crate::param_fields::{coerce, field, label, settable};
 use crate::widget_preview::preview_params;
@@ -22,7 +22,7 @@ impl Session {
     /// Réglages du widget `name`, à ses valeurs d'exemple ; `None` pour Commun.
     pub(crate) fn widget_settings(&self, name: &str) -> Result<Option<HostParams>> {
         let file = parse_name(name)?;
-        ensure!(self.in_templates(), NotEditingTemplatesSnafu);
+        ensure!(self.in_pack_mode(), NotEditingPackSnafu);
         if file.is_common() {
             return Ok(None);
         }

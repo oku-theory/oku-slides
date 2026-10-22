@@ -78,9 +78,9 @@ impl Session {
         self.render_fonts = built.fonts;
         self.renderer = Some(built.renderer);
         self.render_deck_fonts = built.deck_fonts;
-        self.template_renderer = None;
+        self.pack_renderer = None;
         self.variant_renderer = None;
-        self.template_cache = None;
+        self.pack_cache.clear();
         self.svg_cache.clear();
     }
 }

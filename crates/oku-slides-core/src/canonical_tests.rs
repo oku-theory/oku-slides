@@ -1,3 +1,4 @@
+use crate::kinds::essentiel::CONTENT;
 use proptest::prelude::*;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -17,7 +18,7 @@ fn bold(t: &str) -> Run {
 }
 
 fn deck_with(elements: Vec<Element>) -> Deck {
-    let mut slide = Slide::new("s", "content");
+    let mut slide = Slide::new("s", CONTENT);
     slide.params.set("blocks", ParamValue::Slot(elements));
     Deck {
         version: DECK_VERSION,
@@ -26,6 +27,7 @@ fn deck_with(elements: Vec<Element>) -> Deck {
         vars: Default::default(),
         tokens: Value::Null,
         widgets: Default::default(),
+        layouts: Default::default(),
         slides: vec![slide],
     }
 }
@@ -76,12 +78,10 @@ fn canonicalize_blank_prose_becomes_none_and_other_prose_is_trimmed() {
     d.params.author = Some("\n ".into());
     d.params.title = Some(" Titre ".into());
     d.slides[0].params.set("title", ParamValue::Text("\t".into()));
-    d.slides[0].name = Some(" nom".into());
     let d = canonical(d);
     assert_that!(d.params.author).is_none();
     assert_that!(d.params.title).is_equal_to(Some("Titre".to_owned()));
     assert_that!(d.slides[0].params.get("title")).is_none();
-    assert_that!(d.slides[0].name).is_equal_to(Some("nom".to_owned()));
     let card = &blocks(&d)[0];
     assert_that!(card.params.get("title")).is_none();
     assert_that!(card.params.text("kicker")).is_equal_to(Some("k"));
@@ -321,12 +321,12 @@ fn images() -> impl Strategy<Value = Option<ParamValue>> {
 
 fn leaf() -> impl Strategy<Value = Element> {
     prop_oneof![
-        steps().prop_map(|etapes| with("liste", vec![("etapes", etapes)])),
-        measures().prop_map(|lignes| with("mesures", vec![("lignes", lignes)])),
+        steps().prop_map(|etapes| with("test-el/liste", vec![("etapes", etapes)])),
+        measures().prop_map(|lignes| with("test-el/mesures", vec![("lignes", lignes)])),
         (cell_text(), images()).prop_map(|(t, images)| {
             let bornee =
                 t.map(|t| ParamValue::List(vec![ListItem { id: "b".into(), values: row(vec![("t", Some(t))]) }]));
-            with("bornes", vec![("bornee", bornee), ("images", images)])
+            with("test-el/bornes", vec![("bornee", bornee), ("images", images)])
         }),
         paragraphs().prop_map(|p| with(base::TEXT, vec![("body", Some(ParamValue::Rich(p)))])),
         (text_param(), text_param(), any::<bool>(), paragraphs()).prop_map(|(title, kicker, highlight, body)| {
@@ -373,15 +373,15 @@ fn json_value() -> impl Strategy<Value = Value> {
 
 fn slide() -> impl Strategy<Value = Slide> {
     (
-        (prose(), prose(), text_param(), text_param(), text_param()),
+        (text_param(), text_param(), text_param()),
         "[ a\n]{0,3}",
         proptest::collection::vec(element(), 0..3),
         proptest::option::of(chrono_steps()),
     )
-        .prop_map(|((name, description, title, subtitle, kicker), notes, blocks, chrono)| {
-            let mut s = Slide { name, description, notes, ..Slide::new("", "content") };
+        .prop_map(|((title, subtitle, kicker), notes, blocks, chrono)| {
+            let mut s = Slide { notes, ..Slide::new("", CONTENT) };
             if let Some(etapes) = chrono {
-                s.kind = "chrono".into();
+                s.kind = "test/chrono".into();
                 if let Some(etapes) = etapes {
                     s.params.set("etapes", etapes);
                 }
@@ -421,7 +421,8 @@ fn deck() -> impl Strategy<Value = Deck> {
                 number(&mut s.params, &mut next);
             }
             let params = DeckParams { title, author, date, ..Default::default() };
-            Deck { version: DECK_VERSION, theme: None, params, vars, tokens, widgets: Default::default(), slides }
+            let (widgets, layouts) = Default::default();
+            Deck { version: DECK_VERSION, theme: None, params, vars, tokens, widgets, layouts, slides }
         })
 }
 
@@ -437,8 +438,8 @@ fn deck_strategy_generates_list_states_and_number_and_choice_cells() {
         for slide in &deck.slides {
             for e in slide.params.slot("blocks").expect("blocks est posé") {
                 let state = match e.kind.as_str() {
-                    "liste" => e.params.get("etapes"),
-                    "mesures" => e.params.get("lignes"),
+                    "test-el/liste" => e.params.get("etapes"),
+                    "test-el/mesures" => e.params.get("lignes"),
                     _ => continue,
                 };
                 match state {

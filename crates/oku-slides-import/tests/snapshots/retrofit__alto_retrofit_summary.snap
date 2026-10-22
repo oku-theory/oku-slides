@@ -5,7 +5,7 @@ expression: summary(&plan)
 [
   {
     "slide": "s1",
-    "template": "couverture",
+    "profile": "essentiel/couverture",
     "placement": "flow",
     "kicker": null,
     "title": null,
@@ -13,7 +13,7 @@ expression: summary(&plan)
   },
   {
     "slide": "s2",
-    "template": "cartes",
+    "profile": "essentiel/cartes",
     "placement": "flow",
     "kicker": "OUR CONVICTION",
     "title": "The agent becomes the only interface — and, soon, the more trusted confidant.",
@@ -25,7 +25,7 @@ expression: summary(&plan)
   },
   {
     "slide": "s3",
-    "template": "libre",
+    "profile": "essentiel/libre",
     "placement": "grid",
     "kicker": "THE SHIFT",
     "title": "From selling software to a connected bank",
@@ -47,7 +47,7 @@ expression: summary(&plan)
   },
   {
     "slide": "s4",
-    "template": "cartes",
+    "profile": "essentiel/cartes",
     "placement": "flow",
     "kicker": "OUR MOAT",
     "title": "Our moat isn't the code. It's the ecosystem behind it.",
@@ -59,7 +59,7 @@ expression: summary(&plan)
   },
   {
     "slide": "s5",
-    "template": "colonnes",
+    "profile": "essentiel/colonnes",
     "placement": "flow",
     "kicker": "OUR RESPONSE",
     "title": "Expose the ecosystem, not just the software",
@@ -71,7 +71,7 @@ expression: summary(&plan)
   },
   {
     "slide": "s6",
-    "template": "cartes",
+    "profile": "essentiel/cartes",
     "placement": "flow",
     "kicker": "WHY US, NOT JUST ANY MCP SERVER",
     "title": "The financial coach for someone's entire life",
@@ -83,7 +83,7 @@ expression: summary(&plan)
   },
   {
     "slide": "s7",
-    "template": "cartes",
+    "profile": "essentiel/cartes",
     "placement": "flow",
     "kicker": "ROADMAP",
     "title": "First mover, standard setter",
@@ -94,7 +94,7 @@ expression: summary(&plan)
   },
   {
     "slide": "s8",
-    "template": "cartes",
+    "profile": "essentiel/cartes",
     "placement": "flow",
     "kicker": "ORGANIZATIONAL ANATOMY",
     "title": "The wealth management value chain, front to back",

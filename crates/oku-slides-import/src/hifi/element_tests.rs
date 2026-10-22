@@ -52,13 +52,13 @@ impl Setup {
     }
 }
 
-/// Les éléments posés dans le slot libre d'une slide `blank` du registre de
-/// base : panique si le cœur refuse une op ou lève une `Issue`.
+/// Les éléments posés dans le slot libre d'une slide `essentiel/blank` du
+/// registre intégré : panique si le cœur refuse une op ou lève une `Issue`.
 pub(crate) fn checked(elements: &[Element], assets: &[String]) {
     if elements.is_empty() {
         return;
     }
-    let mut slide = Slide::new("s1", "blank");
+    let mut slide = Slide::new("s1", oku_slides_core::kinds::essentiel::BLANK);
     slide.params.set("elements", ParamValue::Slot(elements.to_vec()));
     applied(vec![Op::AddSlide { index: None, defaults: false, slide }], assets);
 }

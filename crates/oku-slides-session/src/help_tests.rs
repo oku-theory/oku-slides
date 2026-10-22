@@ -142,17 +142,17 @@ fn help_resume_file_written_before_mode_help_still_loads_and_keeps_its_form() {
     assert_that!(written["help_theme"]).is_equal_to(json!(crate::PRO_THEME));
 }
 
-/// L'aide est un mode (t-489) : l'ouvrir pendant l'édition des modèles est
+/// L'aide est un mode (t-489) : l'ouvrir pendant l'édition d'un pack est
 /// refusé, le deck mis de côté reste.
 #[test]
-fn open_help_while_editing_templates_is_refused_and_keeps_the_stashed_deck() {
+fn open_help_while_editing_pack_is_refused_and_keeps_the_stashed_deck() {
     let data = data_dir();
     let mut s = session_in(&data.0);
-    s.edit_templates(crate::DEFAULT_PACK).unwrap();
+    s.edit_pack(crate::ESSENTIEL_PACK).unwrap();
     let err = s.open_help("fr", None).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingTemplates);
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
     assert_that!(s.snapshot().read_only).is_false();
-    assert_that!(s.close_templates()).is_ok();
+    assert_that!(s.close_pack()).is_ok();
     assert_that!(s.tab_info().help).is_none();
 }
 
@@ -188,9 +188,9 @@ fn help_direct_history_open_is_refused_as_read_only() {
 }
 
 #[test]
-fn help_direct_edit_templates_is_refused_as_read_only() {
+fn help_direct_edit_pack_is_refused_as_read_only() {
     let (_data, mut s) = help_session("fr");
-    let err = s.edit_templates(crate::DEFAULT_PACK).unwrap_err();
+    let err = s.edit_pack(crate::ESSENTIEL_PACK).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
 }
 
@@ -207,14 +207,15 @@ fn help_handle_undo_redo_and_pack_make_current_are_refused_as_read_only() {
 /// se rend avec la version livrée avec l'app.
 #[test]
 fn open_help_uses_the_builtin_default_pack_not_the_users_current_one() {
-    use crate::test_support::{add_version, library_of, manifest};
+    use crate::test_support::{add_version_of, library_of, manifest};
 
     let data = data_dir();
     let mut s = session_in(&data.0);
-    let builtin = crate::test_support::builtin(crate::pack::DEFAULT_PACK).version.clone();
-    let mine = manifest(crate::DEFAULT_PACK, "Mon Essentiel", Some(&builtin), "2027-01-01T00:00:00Z");
-    let r = add_version(library_of(&s), &mine, &[("title", "#let widget = none")]);
-    library_of(&s).set_current(crate::DEFAULT_PACK, &r.version).unwrap();
+    let builtin = crate::test_support::builtin(crate::pack::ESSENTIEL_PACK).version.clone();
+    let mine = manifest(crate::ESSENTIEL_PACK, "Mon Essentiel", Some(&builtin), "2027-01-01T00:00:00Z");
+    let r =
+        add_version_of(library_of(&s), oku_slides_core::PackKind::Layouts, &mine, &[("title", "#let widget = none")]);
+    library_of(&s).set_current(crate::ESSENTIEL_PACK, &r.version).unwrap();
     s.open_help("fr", None).unwrap();
     let used = crate::test_support::pin(&s, "essentiel").unwrap();
     assert_that!(used.version).is_equal_to(builtin);
@@ -350,9 +351,9 @@ fn help_deck_pins_the_builtin_base_and_essentiel() {
     let (_data, s) = help_session("fr");
     let builtin = |id| crate::test_support::builtin(id).version.clone();
     let pins: Vec<(String, oku_slides_core::PackVersion)> =
-        s.deck().widgets.iter().map(|(n, p)| (n.to_string(), p.version.clone())).collect();
+        s.deck().all_pins().map(|(_, n, p)| (n.to_string(), p.version.clone())).collect();
     assert_that!(pins).is_equal_to(vec![
         ("base".into(), builtin(crate::pack::BASE_PACK)),
-        ("essentiel".into(), builtin(crate::DEFAULT_PACK)),
+        ("essentiel".into(), builtin(crate::ESSENTIEL_PACK)),
     ]);
 }

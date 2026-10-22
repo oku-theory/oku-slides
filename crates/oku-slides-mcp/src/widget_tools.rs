@@ -1,8 +1,8 @@
 //! Outils des widgets du pack : statut, source, écriture, suppression et
-//! aperçu. Disponibles en mode deck comme en mode modèles.
+//! aperçu. Disponibles en mode deck comme en mode pack.
 //!
 //! Les erreurs reviennent dans la langue de l'utilisateur, comme celles de tous les outils
-//! ([`Tools::fail_with`]) : nom invalide, widget introuvable ou utilisé par un modèle, limites
+//! ([`Tools::fail_with`]) : nom invalide, widget introuvable ou utilisé par un exemple, limites
 //! de taille et de nombre, caractère nul.
 
 use oku_slides_core::Namespace;
@@ -98,16 +98,16 @@ impl Tools {
         let done = {
             let name = name.clone();
             self.with_session(move |s| {
-                s.set_widget_by_agent(pack.as_ref(), &name, source).map(|c| (c, s.in_templates()))
+                s.set_widget_by_agent(pack.as_ref(), &name, source).map(|c| (c, s.in_pack_mode()))
             })
             .await
         };
-        let (change, templates) = match done {
+        let (change, pack_mode) = match done {
             Ok(d) => d,
             Err(e) => return self.fail_with(e),
         };
         // Le texte de l'utilisateur est mis en file avant que l'instantané soit relu.
-        if templates && change.saved {
+        if pack_mode && change.saved {
             self.hub.emit(McpEvent::WidgetTouched { name, removed: removing });
         }
         self.hub.emit(McpEvent::Changed);
@@ -123,15 +123,15 @@ impl Tools {
             let name = name.clone();
             // Le mode est lu sous le même verrou que la suppression.
             self.with_session(move |s| {
-                let templates = s.in_templates();
-                s.handle(Request::RemoveWidget { pack, name }).map(|json| (json, templates))
+                let pack_mode = s.in_pack_mode();
+                s.handle(Request::RemoveWidget { pack, name }).map(|json| (json, pack_mode))
             })
             .await
         };
         match done {
-            Ok((json, templates)) => {
+            Ok((json, pack_mode)) => {
                 self.hub.emit(McpEvent::Changed);
-                if templates {
+                if pack_mode {
                     self.hub.emit(McpEvent::WidgetTouched { name, removed: true });
                 }
                 text(json)
@@ -140,7 +140,7 @@ impl Tools {
         }
     }
 
-    /// Valeurs d'exemple d'un widget (mode modèles, dans le pack) ;
+    /// Valeurs d'exemple d'un widget (mode pack, dans le pack) ;
     /// l'utilisateur les voit dans ses réglages et dans l'aperçu.
     pub(crate) async fn set_widget_trial(&self, args: Value) -> CallToolResult {
         let SetWidgetTrialArgs { name, values } = match self.parse(args) {

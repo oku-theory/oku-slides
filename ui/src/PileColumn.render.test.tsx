@@ -1,4 +1,4 @@
-// Rendu de la colonne de gauche (miniatures, et widgets en mode modèles) dans un DOM happy-dom.
+// Rendu de la colonne de gauche (miniatures, et widgets en mode pack) dans un DOM happy-dom.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -18,7 +18,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount(withWidgets = true) {
+async function mount(withWidgets = true, withSlides = true) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -26,10 +26,10 @@ async function mount(withWidgets = true) {
   const Probe = () => {
     const [open, setOpen] = useState(true);
     return createElement(PileColumn, {
-      title: "Modèles",
+      title: "Layouts",
       open,
       onToggle: () => setOpen((o) => !o),
-      slides: createElement("nav", { id: "slides" }),
+      slides: withSlides ? createElement("nav", { id: "slides" }) : null,
       widgets: withWidgets ? createElement("section", { id: "widgets" }) : undefined,
     });
   };
@@ -56,6 +56,11 @@ describe("PileColumn", () => {
     await fold(host);
     expect(host.querySelector("#slides")).toBeNull();
     expect(host.querySelector("#widgets")).not.toBeNull();
+  });
+
+  test("PileColumn of a widget pack shows the widgets without a thumbnail section", async () => {
+    const host = await mount(true, false);
+    expect([host.querySelector(".pile-thumbs"), !!host.querySelector(".pile-column > #widgets")]).toEqual([null, true]);
   });
 
   test("PileColumn sans widgets replier vers la gauche cache les miniatures et marque la colonne", async () => {

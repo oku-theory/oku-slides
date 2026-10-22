@@ -1,4 +1,4 @@
-use oku_slides_core::{Deck, PackFiles, ThemeRef};
+use oku_slides_core::{Deck, PackFiles, PackKind, ThemeRef};
 use speculoos::prelude::*;
 
 use super::deck_tokens;
@@ -15,7 +15,7 @@ fn bundle_with_theme(files: PackFiles) -> (crate::SourceBundle, ThemeRef) {
 #[test]
 fn deck_tokens_of_an_unreadable_embedded_theme_is_refused() {
     let serde_json::Value::Object(manifest) = serde_json::json!({ "name": 3 }) else { unreachable!() };
-    let (bundle, r) = bundle_with_theme(PackFiles::new(manifest, Default::default()));
+    let (bundle, r) = bundle_with_theme(PackFiles::new(PackKind::Widgets, manifest, Default::default()));
     let err = deck_tokens(&bundle, &r).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::BadTheme);
     let (fr, en) = (err.localize(&Localizer::new(Some("fr"))), err.localize(&Localizer::new(Some("en"))));
@@ -24,10 +24,13 @@ fn deck_tokens_of_an_unreadable_embedded_theme_is_refused() {
 
 #[test]
 fn deck_tokens_of_a_theme_missing_from_the_sources_is_refused() {
-    let (bundle, mut r) = bundle_with_theme(PackFiles::new(Default::default(), Default::default()));
-    r.version =
-        PackFiles::new(Default::default(), [(oku_slides_core::WidgetFile::parse("x").unwrap(), String::new())].into())
-            .version();
+    let (bundle, mut r) = bundle_with_theme(PackFiles::new(PackKind::Widgets, Default::default(), Default::default()));
+    r.version = PackFiles::new(
+        PackKind::Widgets,
+        Default::default(),
+        [(oku_slides_core::WidgetFile::parse("x").unwrap(), String::new())].into(),
+    )
+    .version();
     let err = deck_tokens(&bundle, &r).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::BadTheme);
 }

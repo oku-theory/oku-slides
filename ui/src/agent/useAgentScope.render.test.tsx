@@ -43,8 +43,8 @@ async function mountHook(view: ScopeView | null, fail = false) {
   return { resyncs, cleared, rerender, state: () => state! };
 }
 
-const deck: ScopeView = { templates: false, history: false, pack: null, widget: null };
-const atelier: ScopeView = { templates: true, history: false, pack: "p-1", widget: null };
+const deck: ScopeView = { packMode: false, history: false, pack: null, widget: null };
+const atelier: ScopeView = { packMode: true, history: false, pack: "p-1", widget: null };
 
 test("useAgentScope before the subscription is ready does not resync", async () => {
   const h = await mountHook(deck);

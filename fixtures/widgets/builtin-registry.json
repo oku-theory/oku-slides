@@ -1,0 +1,401 @@
+{
+  "packs": [
+    {
+      "namespace": "base",
+      "kind": "widgets",
+      "widgets": [
+        {
+          "name": "card",
+          "label": null,
+          "description": null,
+          "category": "element",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "kicker",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            },
+            {
+              "name": "title",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            },
+            {
+              "name": "body",
+              "type": "rich",
+              "label": null,
+              "default": null
+            },
+            {
+              "name": "highlight",
+              "type": "flag",
+              "label": null,
+              "default": false
+            }
+          ]
+        },
+        {
+          "name": "chart",
+          "label": null,
+          "description": null,
+          "category": "element",
+          "grow": true,
+          "typography": false,
+          "params": [
+            {
+              "name": "option",
+              "type": "host",
+              "label": null,
+              "default": null,
+              "host": "chart"
+            }
+          ]
+        },
+        {
+          "name": "image",
+          "label": null,
+          "description": null,
+          "category": "element",
+          "grow": true,
+          "typography": false,
+          "params": [
+            {
+              "name": "asset",
+              "type": "asset",
+              "label": null,
+              "default": null
+            },
+            {
+              "name": "fit",
+              "type": "choice",
+              "label": null,
+              "default": "cover",
+              "values": [
+                "cover",
+                "contain",
+                "stretch"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "shape",
+          "label": null,
+          "description": null,
+          "category": "element",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "shape",
+              "type": "choice",
+              "label": null,
+              "default": "rect",
+              "values": [
+                "rect",
+                "ellipse",
+                "line",
+                "path"
+              ]
+            },
+            {
+              "name": "path",
+              "type": "host",
+              "label": null,
+              "default": null,
+              "host": "path"
+            }
+          ]
+        },
+        {
+          "name": "stack",
+          "label": null,
+          "description": null,
+          "category": "element",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "layout",
+              "type": "choice",
+              "label": null,
+              "default": "rows",
+              "values": [
+                "rows",
+                "columns",
+                "grid"
+              ]
+            },
+            {
+              "name": "count",
+              "type": "number",
+              "label": null,
+              "default": null,
+              "min": 1,
+              "max": null
+            },
+            {
+              "name": "gap",
+              "type": "choice",
+              "label": null,
+              "default": "lg",
+              "values": [
+                "xs",
+                "sm",
+                "md",
+                "lg",
+                "xl",
+                "xxl"
+              ]
+            },
+            {
+              "name": "children",
+              "type": "slot",
+              "label": null,
+              "default": null,
+              "mode": "flow",
+              "accepts": null
+            }
+          ]
+        },
+        {
+          "name": "table",
+          "label": null,
+          "description": null,
+          "category": "element",
+          "grow": "fit",
+          "typography": false,
+          "params": [
+            {
+              "name": "data",
+              "type": "host",
+              "label": null,
+              "default": null,
+              "host": "table"
+            }
+          ]
+        },
+        {
+          "name": "text",
+          "label": null,
+          "description": null,
+          "category": "element",
+          "grow": false,
+          "typography": true,
+          "params": [
+            {
+              "name": "body",
+              "type": "rich",
+              "label": null,
+              "default": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "essentiel",
+      "kind": "layouts",
+      "widgets": [
+        {
+          "name": "blank",
+          "label": null,
+          "description": null,
+          "category": "slide",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "grid",
+              "type": "grid",
+              "label": null,
+              "default": {
+                "columns": 12,
+                "rows": 6
+              }
+            },
+            {
+              "name": "elements",
+              "type": "slot",
+              "label": null,
+              "default": null,
+              "mode": "free",
+              "accepts": null
+            }
+          ]
+        },
+        {
+          "name": "chapter",
+          "label": null,
+          "description": null,
+          "category": "slide",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "title",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            },
+            {
+              "name": "subtitle",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            }
+          ]
+        },
+        {
+          "name": "content",
+          "label": null,
+          "description": null,
+          "category": "slide",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "kicker",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            },
+            {
+              "name": "title",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            },
+            {
+              "name": "layout",
+              "type": "choice",
+              "label": null,
+              "default": "default",
+              "values": [
+                "default",
+                "columns",
+                "split",
+                "center",
+                "quote"
+              ]
+            },
+            {
+              "name": "grid",
+              "type": "grid",
+              "label": null,
+              "default": {
+                "columns": 12,
+                "rows": 6
+              }
+            },
+            {
+              "name": "blocks",
+              "type": "slot",
+              "label": null,
+              "default": null,
+              "mode": "flow",
+              "accepts": null
+            },
+            {
+              "name": "elements",
+              "type": "slot",
+              "label": null,
+              "default": null,
+              "mode": "free",
+              "accepts": null
+            }
+          ]
+        },
+        {
+          "name": "end",
+          "label": null,
+          "description": null,
+          "category": "slide",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "text",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            }
+          ]
+        },
+        {
+          "name": "title",
+          "label": null,
+          "description": null,
+          "category": "slide",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "title",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": "title"
+            },
+            {
+              "name": "subtitle",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": "subtitle"
+            },
+            {
+              "name": "author",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": "author"
+            },
+            {
+              "name": "date",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": "date"
+            },
+            {
+              "name": "kicker",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": "organization"
+            }
+          ]
+        },
+        {
+          "name": "toc",
+          "label": null,
+          "description": null,
+          "category": "slide",
+          "grow": false,
+          "typography": false,
+          "params": [
+            {
+              "name": "title",
+              "type": "plain",
+              "label": null,
+              "default": null,
+              "bind": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

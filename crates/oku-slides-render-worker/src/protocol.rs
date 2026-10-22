@@ -3,20 +3,22 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use oku_slides_core::PackKind;
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole : à changer à toute modification de [`Request`], de
 /// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
-pub(crate) const PROTOCOL_VERSION: u32 = 4;
+pub(crate) const PROTOCOL_VERSION: u32 = 5;
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
 
-/// Un pack de widgets : son identifiant, son espace de noms et ses fichiers (nom → source).
+/// Un pack : son identifiant, son espace de noms, sa sorte et ses fichiers (nom → source).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct WirePack {
     pub(crate) id: String,
     pub(crate) namespace: String,
+    pub(crate) kind: PackKind,
     pub(crate) files: BTreeMap<String, String>,
 }
 
@@ -46,8 +48,9 @@ pub(crate) enum Request {
     PutAsset {
         id: String,
     },
-    /// Sonde un fichier de widget seul ; `common` : la source de `_commun`.
+    /// Sonde un fichier seul d'un pack de sorte `kind` ; `common` : la source de `_commun`.
     ProbeFile {
+        kind: PackKind,
         name: String,
         source: String,
         #[serde(default)]
@@ -60,7 +63,7 @@ pub(crate) enum Request {
     CloseSlot {
         slot: SlotId,
     },
-    /// Pose les widgets de la base et ceux de ces packs (vide : la base seule).
+    /// Pose les widgets de ces packs (vide : aucun widget).
     SetWidgets {
         slot: SlotId,
         packs: Vec<WirePack>,

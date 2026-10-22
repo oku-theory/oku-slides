@@ -1,4 +1,4 @@
-// Sous-onglets de widgets du mode modèles : logique pure.
+// Sous-onglets de widgets du mode pack : logique pure.
 
 import type { UiState } from "./api";
 
@@ -11,10 +11,10 @@ export interface OpenWidget {
   name: string;
 }
 
-/** L'onglet fixe « Thème », après « Modèles ». */
+/** L'onglet fixe « Thème », après « Layouts » (la scène d'un pack de layouts). */
 export const THEME_TAB = "theme";
 
-/** Onglet actif : `null` pour « Modèles », `THEME_TAB`, ou l'id d'un sous-onglet widget. */
+/** Onglet actif : `null` pour la scène (une slide choisie dans la pile), `THEME_TAB`, ou l'id d'un sous-onglet widget. */
 export type ActiveTab = number | typeof THEME_TAB | null;
 
 /** Sous-onglets ouverts, dans l'ordre d'ouverture, et l'onglet actif. */
@@ -24,7 +24,7 @@ export interface WidgetTabs {
   next: number;
 }
 
-/** Aucun sous-onglet : « Modèles » seul. */
+/** Aucun sous-onglet : la scène. */
 export const NO_TABS: WidgetTabs = { tabs: [], active: null, next: 1 };
 
 /** Ajoute les sous-onglets gardés absents ; un actif déjà choisi reste. */
@@ -58,7 +58,7 @@ export function placeTouched(s: WidgetTabs, name: string, pending: (name: string
   return current !== null && current !== name && pending(current) ? openedBehind(s, name) : opened(s, name);
 }
 
-/** Ferme `id` ; s'il était actif, son voisin de gauche le devient (aucun : « Modèles »). */
+/** Ferme `id` ; s'il était actif, son voisin de gauche le devient (aucun : la scène). */
 export function closed(s: WidgetTabs, id: number): WidgetTabs {
   const i = s.tabs.findIndex((t) => t.id === id);
   if (i < 0) return s;
@@ -67,7 +67,7 @@ export function closed(s: WidgetTabs, id: number): WidgetTabs {
   return { ...s, tabs, active };
 }
 
-/** Active `id` ; `null` : « Modèles » ; `THEME_TAB` : « Thème ». */
+/** Active `id` ; `null` : la scène ; `THEME_TAB` : « Thème ». */
 export function activated(s: WidgetTabs, id: ActiveTab): WidgetTabs {
   return s.active === id ? s : { ...s, active: id };
 }
@@ -78,7 +78,7 @@ export function renamed(s: WidgetTabs, from: string, to: string): WidgetTabs {
   return { ...s, tabs: s.tabs.map((t) => (t.name === from ? { ...t, name: to } : t)) };
 }
 
-/** Retire les sous-onglets dont le fichier n'existe plus ; actif retiré : « Modèles ». */
+/** Retire les sous-onglets dont le fichier n'existe plus ; actif retiré : la scène. */
 export function pruned(s: WidgetTabs, names: ReadonlySet<string>): WidgetTabs {
   const tabs = s.tabs.filter((t) => names.has(t.name));
   if (tabs.length === s.tabs.length) return s;
@@ -86,17 +86,17 @@ export function pruned(s: WidgetTabs, names: ReadonlySet<string>): WidgetTabs {
   return { ...s, tabs, active };
 }
 
-/** Nom du sous-onglet widget actif ; `null` : « Modèles » ou « Thème ». */
+/** Nom du sous-onglet widget actif ; `null` : la scène ou « Thème ». */
 export function activeName(s: WidgetTabs): string | null {
   return s.tabs.find((t) => t.id === s.active)?.name ?? null;
 }
 
-/** Id du sous-onglet widget actif ; `null` : « Modèles » ou « Thème ». */
+/** Id du sous-onglet widget actif ; `null` : la scène ou « Thème ». */
 export function activeWidget(s: WidgetTabs): number | null {
   return typeof s.active === "number" ? s.active : null;
 }
 
-/** Ce que l'hôte garde pour la reprise (« Thème » n'est pas gardé : la reprise ouvre « Modèles »). */
+/** Ce que l'hôte garde pour la reprise (« Thème » n'est pas gardé : la reprise ouvre la scène). */
 export function kept(s: WidgetTabs): KeptTabs {
   return { widgets: s.tabs.map((t) => t.name), widget: activeName(s) };
 }

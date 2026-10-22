@@ -9,8 +9,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, Namespace, WidgetFile};
-use oku_slides_render::{Fonts, PackSet, PackWidgets, Renderer, base_pack_widgets, load_registry};
+use oku_slides_core::{Deck, Namespace, PackKind, WidgetFile};
+use oku_slides_render::{BuiltinPack, Fonts, PackSet, PackWidgets, Renderer, load_registry};
 use speculoos::prelude::*;
 
 /// PNG 1 × 1.
@@ -34,7 +34,7 @@ fn theme() -> serde_json::Map<String, serde_json::Value> {
     tokens
 }
 
-/// Un pack d'un widget de slide `decor` qui dessine `code` (mode code, `t` et `ctx` en portée).
+/// Un pack de layouts d'un widget de slide `decor` qui dessine `code` (mode code, `t` et `ctx` en portée).
 fn decor_pack(code: &str) -> PackWidgets {
     let source = format!(
         "#import \"/oku-slides/lib.typ\": widget, blank-slide, color-of, font-of\n\
@@ -43,19 +43,20 @@ fn decor_pack(code: &str) -> PackWidgets {
     );
     let name = WidgetFile::parse("decor").unwrap_or_else(|| panic!("nom de widget"));
     let namespace = Namespace::parse("decor").unwrap_or_else(|| panic!("espace de noms"));
-    PackWidgets::new("decor", namespace, BTreeMap::from([(name, source)])).unwrap_or_else(|e| panic!("{e}"))
+    PackWidgets::new("decor", namespace, PackKind::Layouts, BTreeMap::from([(name, source)]))
+        .unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Le SVG de l'unique slide `decor` rendue avec le pack de `code`.
 fn render(code: &str) -> String {
     let fonts = Fonts::default();
-    let set = PackSet::new(vec![decor_pack(code), base_pack_widgets().unwrap_or_else(|e| panic!("{e}"))])
+    let set = PackSet::new(vec![decor_pack(code), BuiltinPack::Base.widgets().unwrap_or_else(|e| panic!("{e}"))])
         .unwrap_or_else(|e| panic!("{e}"));
     let registry = load_registry(&fonts, &set).unwrap_or_else(|e| panic!("sonde : {e}"));
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
     r.set_widgets(&set, Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(Some(theme())).unwrap_or_else(|e| panic!("{e}"));
-    let deck = Deck::from_json(r#"{"version": 7,"slides":[{"id":"s","kind":"decor/decor"}]}"#)
+    let deck = Deck::from_json(r#"{"version": 8,"slides":[{"id":"s","kind":"decor/decor"}]}"#)
         .unwrap_or_else(|e| panic!("{e}"));
     let assets = BTreeMap::from([(ASSET.to_owned(), PNG.to_vec())]);
     let compiled = r.render(&deck, &assets).unwrap_or_else(|e| panic!("rendu : {e}"));

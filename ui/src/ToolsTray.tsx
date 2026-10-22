@@ -8,7 +8,7 @@ import { Icon } from "./icons";
 import { IconToggle } from "./primitives";
 import { canAdd } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
-import type { TemplateWidgets } from "./useTemplateWidgets";
+import type { PackWidgetEditor } from "./usePackWidgetEditor";
 import { activeWidget } from "./widgetTabs";
 import WidgetTools from "./WidgetTools";
 
@@ -22,8 +22,8 @@ interface Props {
   view: SlideView | null;
   /** Un sous-onglet widget est actif : la barre montre ses outils. */
   widgetActive: boolean;
-  /** Les sous-onglets widget du mode modèles. */
-  widgets: TemplateWidgets;
+  /** Les sous-onglets widget du mode pack. */
+  widgets: PackWidgetEditor;
   /** Les réglages d'interface gardés par l'hôte. */
   keptUi: KeptUi;
   /** Les paramètres de contenu sont masqués. */
@@ -68,7 +68,7 @@ export function ToolsTray({
         title={t("ui-toolbar-add-label")}
         aria-haspopup="dialog"
         hidden={widgetActive}
-        disabled={!canAdd("widget", view?.slide.kind)}
+        disabled={!canAdd(view?.slide.kind, "widget")}
         onClick={onAdd}
       >
         {Icon.widget}

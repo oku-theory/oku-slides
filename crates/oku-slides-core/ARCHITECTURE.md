@@ -13,27 +13,27 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 ## Modules
 
 - `model.rs`: `Deck` (slides, generic elements `{id, kind, params}`, theme `ThemeRef`, `vars`,
-  `widgets`: a `PackPin` per `Namespace`), `Style`, JSON schema via `schemars`. `params.rs`: `Params`,
+  `widgets` and `layouts`: a `PackPin` per `Namespace`, unique across both), `Style`, JSON schema via `schemars`. `params.rs`: `Params`,
   `ParamValue`, `ListItem`. `shape_path.rs`: `ShapePath`, the `path` host param of `shape`.
-- `namespace.rs`: `Namespace` (`deck` reserved), `qualify` / `split_kind`: a pack widget's kind is `ns/name`, a bare kind is core.
-  `kinds.rs`: `kinds::base`, the built-in `base` pack's kinds.
-- `widget.rs`: `WidgetRegistry` and `WidgetSchema` / `ParamSchema` / `ParamType` / `Category` /
-  `HostType` / `SlotMode` / `Grow`, declared in Typst, pack widgets under `ns/name`; ops and `validate` ask it.
+- `namespace.rs`: `Namespace` (`deck` reserved), `qualify` / `split_kind` (every kind is `ns/name`). `kinds.rs`: `kinds::base`,
+  `kinds::essentiel`, `is_builtin_kind`. `pack_kind.rs`: `PackKind` (`widgets`: elements, `layouts`: slides).
+- `widget.rs`: `WidgetRegistry`, `WidgetSchema` and its param types, declared in Typst; ops and `validate` ask it. Probe
+  `{"packs": [{namespace, kind, widgets}]}`; a widget whose category is not its pack kind's is refused.
 - `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`); `check.rs` types inserted subtrees;
   `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs`
   (`ListPath`: `param` or `param/item/column`, an item's nested list, one level); `grid.rs`
   (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)` params, `set_data`);
-  `moving.rs` (`move_element`, `apply_all_moving`); `packs.rs` (`add_pack`, `remove_pack`, `pack_users`: no removal while used).
+  `moving.rs` (`move_element`, `apply_all_moving`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`: no removal while used).
 - `replica/`: `DeckReplica`, the deck in a `LoroDoc`: merge, history, undo; see
   [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
-- `pack.rs`: content-addressed `PackVersion` (sha-256 of the canonical manifest (`widgets.json`) and widget files),
-  `PackPin` (id, version, `requires`), `PackFiles`, `WidgetFile`, `PackManifest`, `Template`; a theme version is a
-  `PackFiles` without widgets whose manifest is `theme.json` (`ThemeManifest`, `ThemeRef`).
+- `pack.rs`: content-addressed `PackVersion` (sha-256 of `layouts\0` for a layout pack, the canonical manifest and widget files),
+  `PackPin` (id, version, `requires`), `PackFiles` (with its `PackKind`), `WidgetFile`, `PackManifest` (`examples`, `profiles`:
+  `LayoutProfile` in `layout_profile.rs`); a theme version (`ThemeManifest`, `ThemeRef`) is a widgets-kind `PackFiles` without widgets, manifest `theme.json`.
   `PackScope` (`library`, default, unwritten; `deck`: an import's, never in the library; `PackFiles::scope`).
 - `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot,
-  assets, fonts, `widgets/<hex>/{widgets.json, widgets/<name>.typ}` (`sources_packs.rs`),
+  assets, fonts, `<kind>/<hex>/{<kind>.json, <kind>/<name>.typ}` per `PackKind` (`sources_packs.rs`),
   `themes/<hex>/theme.json` (`sources_themes.rs`), all add-only, verified on read (a forged
-  version is reported once) and unioned on merge; reads bounded by `SourceLimits`.
+  version is reported once, as is a namespace pinned under both kinds) and unioned on merge; reads bounded by `SourceLimits`.
 - `tokens.rs`: a theme's effective tokens and `merge`. `validate.rs`: deck consistency against the registry, as `Issue`s; `canonical.rs`: `canonicalize`
   (sorted keys, empty slots dropped, duplicate ids repaired).
 - `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors. `error/` (Snafu, Fluent): `OpError`,

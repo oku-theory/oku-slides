@@ -1,5 +1,5 @@
 /**
- * Panneau de l'onglet « Thème » du mode modèles, à droite de la scène : le thème
+ * Panneau de l'onglet « Thème » du mode pack, à droite de la scène : le thème
  * de base du brouillon, son nom, la marque non enregistré, puis les jetons
  * (surface `host-theme`, filtrée par son propre champ).
  */

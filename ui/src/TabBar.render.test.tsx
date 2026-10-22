@@ -17,18 +17,18 @@ afterEach(async () => {
   m.host.remove();
 });
 
-const tab = (id: string): TabInfo => ({
+const tab = (id: string, editing_pack = false): TabInfo => ({
   id,
   title: id,
   dirty: false,
-  editing_templates: false,
+  editing_pack,
   path: null,
   pristine: true,
   deck_uid: null,
 });
 
-async function mount() {
-  const win: WindowView = { label: "main", active: "a", tabs: [tab("a"), tab("b")] };
+async function mount(packTab = false) {
+  const win: WindowView = { label: "main", active: "a", tabs: [tab("a", packTab), tab("b")] };
   const view: WorkspaceView = { generation: 1, focused: "main", agent_detached: false, import_pick: null, windows: [win] };
   const noop = () => {};
   const host = document.createElement("div");
@@ -65,4 +65,10 @@ test("TabBar context menu renders outside the glass tab bar", async () => {
     first.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 880 }));
   });
   expect(document.querySelector(".tab-menu")?.parentElement).toBe(document.body);
+});
+
+test("TabBar tab in pack mode shows the pack badge", async () => {
+  const host = await mount(true);
+  const badges = [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
+  expect(badges).toEqual(["ui-tab-pack", null]);
 });

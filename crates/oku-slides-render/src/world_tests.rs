@@ -1,9 +1,9 @@
 use speculoos::prelude::*;
 
-use oku_slides_core::Namespace;
+use oku_slides_core::{Namespace, PackKind};
 
 use super::{LIBRARY, Labels, main_source, typst_string};
-use crate::{PackSet, PackWidgets};
+use crate::{BuiltinPack, PackSet, PackWidgets};
 
 #[test]
 fn typst_string_escapes_quotes_backslashes_and_newlines() {
@@ -19,24 +19,35 @@ fn main_source_quotes_labels_instead_of_running_them() {
     assert_that!(source).contains(r#"#let available = ("ab12",)"#);
 }
 
-fn empty_pack(id: &str, ns: &str) -> PackWidgets {
-    PackWidgets::new(id, Namespace::parse(ns).unwrap(), std::collections::BTreeMap::new()).unwrap()
+fn empty_pack(id: &str, ns: &str, kind: PackKind) -> PackWidgets {
+    PackWidgets::new(id, Namespace::parse(ns).unwrap(), kind, std::collections::BTreeMap::new()).unwrap()
 }
 
 #[test]
-fn main_source_with_packs_imports_each_after_the_base() {
-    let set = PackSet::new(vec![empty_pack("citations", "zeta"), empty_pack("frises", "alpha")]).unwrap();
+fn main_source_with_packs_imports_each_by_kind() {
+    let set = PackSet::new(vec![
+        empty_pack("citations", "zeta", PackKind::Widgets),
+        empty_pack("frises", "alpha", PackKind::Layouts),
+    ])
+    .unwrap();
     let source = main_source(false, &set, std::iter::empty(), &Labels::default());
-    assert_that!(source).contains(r#"#import "/packs/frises/widgets.typ": registry as pack-registry-0"#);
+    assert_that!(source).contains(r#"#import "/packs/frises/layouts.typ": registry as pack-registry-0"#);
     assert_that!(source).contains(r#"#import "/packs/citations/widgets.typ": registry as pack-registry-1"#);
-    assert_that!(source).contains("widgets: by-name(base-registry + pack-registry-0 + pack-registry-1)");
+    assert_that!(source).contains("widgets: by-name(pack-registry-0 + pack-registry-1)");
 }
 
 #[test]
-fn main_source_without_pack_renders_the_base_widgets() {
+fn main_source_imports_no_core_widgets() {
+    let set = PackSet::new(vec![BuiltinPack::Essentiel.widgets().unwrap()]).unwrap();
+    let src = main_source(false, &set, std::iter::empty(), &Labels::default());
+    assert_that!((src.contains("src/widgets.typ"), src.contains("/layouts.typ"))).is_equal_to((false, true));
+}
+
+#[test]
+fn main_source_without_pack_renders_with_no_widgets() {
     let source = main_source(false, &PackSet::default(), std::iter::empty(), &Labels::default());
     assert_that!(source).does_not_contain("/packs/");
-    assert_that!(source).contains("widgets: by-name(base-registry)");
+    assert_that!(source).contains("widgets: by-name(())");
 }
 
 #[test]
@@ -55,7 +66,7 @@ fn main_source_without_theme_passes_none() {
 /// (`packs/base/widgets/<nom>.typ`).
 fn embedded_source(file: &str) -> Option<&'static str> {
     if let Some(name) = file.strip_prefix("packs/base/widgets/").and_then(|f| f.strip_suffix(".typ")) {
-        let (_, bytes) = crate::base_pack::BASE_WIDGETS.iter().find(|(n, _)| *n == name)?;
+        let (_, bytes) = crate::builtin_packs::BASE_WIDGETS.iter().find(|(n, _)| *n == name)?;
         return std::str::from_utf8(bytes).ok();
     }
     LIBRARY.iter().find(|(path, _)| *path == file).map(|(_, source)| *source)

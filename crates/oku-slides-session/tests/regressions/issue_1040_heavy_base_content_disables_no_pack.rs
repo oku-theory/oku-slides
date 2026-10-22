@@ -25,7 +25,7 @@ pub(crate) fn heavy_table_slides(slides: usize, rows: usize, columns: usize) -> 
             let body = (1..rows).map(|r| (0..columns).map(|c| json!(format!("Cellule {i}-{r}-{c}"))).collect());
             let source: Vec<Vec<Value>> = std::iter::once(header).chain(body).collect();
             serde_json::from_value(json!({ "op": "add_slide", "slide": {
-                "id": format!("s-lourde-{i}"), "kind": "content", "params": { "blocks": [{
+                "id": format!("s-lourde-{i}"), "kind": kinds::essentiel::CONTENT, "params": { "blocks": [{
                     "id": format!("t-{i}"), "kind": kinds::base::TABLE,
                     "params": { "data": { "dataset": { "source": source } } } }] } } }))
             .unwrap_or_else(|e| panic!("{e}"))

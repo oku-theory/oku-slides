@@ -1,4 +1,4 @@
-//! Registre de base pour les tests du cœur (`fixtures/widgets/base-registry.json`).
+//! Registre intégré (`base` et `essentiel`) pour les tests du cœur (`fixtures/widgets/builtin-registry.json`).
 
 use crate::WidgetRegistry;
 
@@ -12,14 +12,14 @@ pub(crate) const FRAME_BOX: &str = r#"{
 /// Le kind du widget [`FRAME_BOX`] dans le pack de test.
 pub(crate) const FRAME_BOX_KIND: &str = "test/frame-box";
 
-/// La sonde du fichier de base, plus le pack de test `test` (widget [`FRAME_BOX`]).
+/// La sonde du fichier des packs intégrés, plus le pack de test `test` (widget [`FRAME_BOX`]).
 fn probe() -> serde_json::Value {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/base-registry.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
     let mut probe: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
     let widget: serde_json::Value = serde_json::from_str(FRAME_BOX).unwrap_or_else(|e| panic!("{FRAME_BOX} : {e}"));
     let packs = probe["packs"].as_array_mut().unwrap_or_else(|| panic!("sonde : packs attendu"));
-    packs.push(serde_json::json!({ "namespace": "test", "widgets": [widget] }));
+    packs.push(serde_json::json!({ "namespace": "test", "kind": "widgets", "widgets": [widget] }));
     probe
 }
 
@@ -33,7 +33,7 @@ pub(crate) fn theme_ref(c: &str) -> crate::ThemeRef {
     crate::ThemeRef { id: uuid::Uuid::from_u128(u128::from(c.as_bytes()[0])), version }
 }
 
-/// Le registre de base, partagé comme le prennent le replica et les sources.
+/// Le registre intégré, partagé comme le prennent le replica et les sources.
 pub(crate) fn shared() -> std::sync::Arc<WidgetRegistry> {
     std::sync::Arc::new(registry())
 }
@@ -111,12 +111,14 @@ pub(crate) const PLAN: &str = r#"{
     }]
 }"#;
 
-/// Le registre de base, plus les widgets [`LISTE`], [`BORNES`], [`CHRONO`], [`MESURES`] et [`PLAN`].
+/// Le registre intégré, plus les widgets d'élément [`LISTE`], [`BORNES`], [`MESURES`] et [`PLAN`]
+/// (pack `test-el`) et le widget de slide [`CHRONO`] (pack de layouts `test`).
 pub(crate) fn with_list() -> std::sync::Arc<WidgetRegistry> {
+    let parse = |w: &str| -> serde_json::Value { serde_json::from_str(w).unwrap_or_else(|e| panic!("{w} : {e}")) };
     let mut probe = probe();
-    let base = probe["base"].as_array_mut().unwrap_or_else(|| panic!("sonde : base attendu"));
-    for widget in [LISTE, BORNES, CHRONO, MESURES, PLAN] {
-        base.push(serde_json::from_str(widget).unwrap_or_else(|e| panic!("{widget} : {e}")));
-    }
+    let packs = probe["packs"].as_array_mut().unwrap_or_else(|| panic!("sonde : packs attendu"));
+    let elements: Vec<_> = [LISTE, BORNES, MESURES, PLAN].map(parse).into();
+    packs.push(serde_json::json!({ "namespace": "test-el", "kind": "widgets", "widgets": elements }));
+    packs.push(serde_json::json!({ "namespace": "test", "kind": "layouts", "widgets": [parse(CHRONO)] }));
     std::sync::Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("sonde : {e}")))
 }

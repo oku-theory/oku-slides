@@ -106,7 +106,7 @@ export interface AgentPanelProps {
   thumbs: SlideThumbs;
   slots: AgentSlots;
   handle: Ref<AgentHandle>;
-  /** Une action de réglages de l'hôte (modèle, cible) ; `true` si elle a été prise. */
+  /** Une action de réglages de l'hôte (widget, cible, thème) ; `true` si elle a été prise. */
   onHostAction: (s: Surface, a: A2uiClientAction) => boolean;
   onStatus: (status: AgentStatusView) => void;
   /** Le deck a pu changer (outils de l'agent, abonnement prêt) : à relire. */

@@ -40,9 +40,9 @@ fn source(slides: Vec<SourceSlide>) -> SourceDeck {
     }
 }
 
-/// Un deck d'une slide `content` `s1`, de titre `title`, aux blocs `blocks`.
+/// Un deck d'une slide `essentiel/content` `s1`, de titre `title`, aux blocs `blocks`.
 fn deck(title: Option<&str>, blocks: Vec<Element>) -> Deck {
-    let mut s = Slide::new("s1", "content");
+    let mut s = Slide::new("s1", oku_slides_core::kinds::essentiel::CONTENT);
     if let Some(t) = title {
         s.params.set("title", ParamValue::Text(t.into()));
     }

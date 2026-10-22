@@ -1,5 +1,6 @@
 //! Suppression douce dans l'arbre des éléments : marques, annulation, entrée.
 
+use crate::kinds::essentiel::CONTENT;
 use loro::{LoroMap, LoroText, LoroValue, TreeID, TreeParentId, ValueOrContainer};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -500,8 +501,8 @@ fn pasting_a_slide_at_the_front_does_not_move_existing_slides() {
     let mut r = new(&base);
     let before = last_moves(&r);
     let mut pasted = base.clone();
-    pasted.slides.insert(0, crate::Slide::new("s-neuve-2", "content"));
-    pasted.slides.insert(0, crate::Slide::new("s-neuve", "content"));
+    pasted.slides.insert(0, crate::Slide::new("s-neuve-2", CONTENT));
+    pasted.slides.insert(0, crate::Slide::new("s-neuve", CONTENT));
     apply(&mut r, &pasted);
     let after = last_moves(&r);
     for (n, mv) in &before {

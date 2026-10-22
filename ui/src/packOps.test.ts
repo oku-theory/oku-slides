@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import type { PackInfo, PackPin, Snapshot } from "./api";
 import { setMessages } from "./i18n";
-import { addPackOp, firstPackId, packOptionLabel, pinsKey, splitKind, widgetToOpen } from "./packOps";
+import { deckPinsKey, firstPackId, packOptionLabel, pinsKey, splitKind, widgetToOpen } from "./packOps";
 import { resetMessages } from "./test/messages";
 
 afterAll(resetMessages);
@@ -16,13 +16,10 @@ const pack = (over: Partial<PackInfo>): PackInfo => ({
   builtin: true,
   default: false,
   received: false,
-  count: 3,
+  kind: "layouts",
+  widgets: 6,
+  profiles: 10,
   ...over,
-});
-
-test("addPackOp pins the pack under its namespace", () => {
-  const op = addPackOp(pack({ namespace: "acme", requires: ["base"] }));
-  expect(op).toEqual({ op: "add_pack", namespace: "acme", pin: { id: pack({}).id, version: pack({}).version, requires: ["base"] } });
 });
 
 test("pinsKey is independent of key order", () => {
@@ -32,6 +29,14 @@ test("pinsKey is independent of key order", () => {
   expect(pinsKey({})).toBe("");
 });
 
+test("deckPinsKey changes when a layout pin changes", () => {
+  const pin = (version: string): PackPin => ({ id: "x", version });
+  const widgets = { base: pin("1") };
+  expect(deckPinsKey({ widgets, layouts: { essentiel: pin("1") } })).not.toBe(deckPinsKey({ widgets, layouts: { essentiel: pin("2") } }));
+  expect(deckPinsKey({ widgets, layouts: {} })).not.toBe(deckPinsKey({ widgets: {}, layouts: widgets }));
+  expect(deckPinsKey(null)).toBe("|");
+});
+
 test("packOptionLabel tells a received pack from mine and leaves a built-in one bare", () => {
   setMessages("en", ["ui-picker-set-mine = { $name } · mine\nui-picker-set-received = { $name } · received"]);
   expect(packOptionLabel(pack({}))).toBe("Essentiel");
@@ -39,21 +44,26 @@ test("packOptionLabel tells a received pack from mine and leaves a built-in one 
   expect(packOptionLabel(pack({ builtin: false, received: true, name: "Charte" }))).toBe("Charte · received");
 });
 
-const snapOf = (widgets: Record<string, PackPin>) => ({ widgets }) as unknown as Snapshot;
-
-test("firstPackId prefers a library pack over the deck pack", () => {
-  expect(firstPackId(snapOf({ deck: { id: "d", version: "1" }, essentiel: { id: "e", version: "1" } }))).toBe("e");
-});
-
-test("firstPackId falls back to the deck pack", () => {
-  expect(firstPackId(snapOf({ deck: { id: "d", version: "1" } }))).toBe("d");
-});
+const snapOf = (widgets: Record<string, PackPin>, layouts: Record<string, PackPin> = {}) => ({ widgets, layouts }) as unknown as Snapshot;
 
 const pin = (id: string): PackPin => ({ id, version: "1" });
 
-test("firstPackId saute base pour essentiel", () => expect(firstPackId(snapOf({ base: pin("b"), essentiel: pin("e") }))).toBe("e"));
+test("firstPackId prefers the deck's own layout pack", () => {
+  expect(firstPackId(snapOf({ base: pin("b"), deck: pin("d"), acme: pin("a") }, { "deck-layouts": pin("dl"), essentiel: pin("e") }))).toBe("dl");
+});
 
-test("firstPackId saute base pour le pack du deck", () => expect(firstPackId(snapOf({ base: pin("b"), deck: pin("d") }))).toBe("d"));
+test("firstPackId takes the deck's own widget pack without its layout pack", () => {
+  expect(firstPackId(snapOf({ base: pin("b"), deck: pin("d"), acme: pin("a") }, { essentiel: pin("e") }))).toBe("d");
+});
+
+test("firstPackId takes the first non-builtin pack, layouts before widgets", () => {
+  expect(firstPackId(snapOf({ base: pin("b"), acme: pin("a") }, { essentiel: pin("e"), maison: pin("m") }))).toBe("m");
+  expect(firstPackId(snapOf({ base: pin("b"), acme: pin("a") }, { essentiel: pin("e") }))).toBe("a");
+});
+
+test("firstPackId falls back to Essentiel", () => {
+  expect(firstPackId(snapOf({ base: pin("b") }, { essentiel: pin("e") }))).toBe("e");
+});
 
 test("firstPackId with base alone returns base", () => expect(firstPackId(snapOf({ base: pin("b") }))).toBe("b"));
 
@@ -86,4 +96,9 @@ test("widgetToOpen of an unpinned namespace has no pack, and of a core kind is n
   const snap = snapOf({ essentiel: { id: "e", version: "1" } });
   expect(widgetToOpen(snap, "acme/card")).toEqual({ pack: null, name: "card" });
   expect(widgetToOpen(snap, "card")).toBeNull();
+});
+
+test("widgetToOpen targets the layout pack pinned under the kind's namespace", () => {
+  const snap = snapOf({ base: { id: "b", version: "1" } }, { essentiel: { id: "e", version: "1" } });
+  expect(widgetToOpen(snap, "essentiel/title")).toEqual({ pack: "e", name: "title" });
 });

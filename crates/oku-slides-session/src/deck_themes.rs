@@ -4,7 +4,7 @@
 //! bibliothèque ; ses versions restent embarquées (les sources sont en ajout
 //! seul). Le deck peut donc le reprendre après en avoir choisi un autre : la
 //! liste du snapshot (`deck_themes`) l'offre, et `set_theme`, le brouillon du
-//! mode modèles et `edit_theme` le résolvent après la bibliothèque.
+//! mode pack et `edit_theme` le résolvent après la bibliothèque.
 //!
 //! Pour chaque id, la version offerte est celle qu'utilise le deck s'il porte
 //! ce thème, sinon la feuille de la chaîne des `parent` parmi les versions
