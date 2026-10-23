@@ -145,17 +145,26 @@ log-document-saved = ドキュメントを保存しました
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = 列
-session-panel-rows = 行
 session-widget-params = { $name } のパラメーター
 session-widget-no-params = このウィジェットにはパラメーターがありません。
 session-widget-param-fixed = { $name }：プレビューでは調整できません
 session-widget-param-yes = はい
 session-widget-param-no = いいえ
 session-widget-invalid-file = 無効なファイル：設定を利用できません
-session-undo-grid = グリッド { $columns } × { $rows }
-session-undo-param = 設定：{ $label }
-session-target-bound = { $name } はプレゼンテーションの変数「{ $var }」に従います
+session-data-chart = グラフ
+session-data-table = 表
+session-undo-chart-kind = グラフの種類を変更
+session-undo-chart-data = データを編集
+session-undo-chart-color = 系列に色を付ける
+session-undo-chart-stack = { $stacked ->
+    [yes] 系列を積み上げ
+   *[no] 系列の積み上げを解除
+}
+session-undo-table-option = 表のオプション
+session-undo-table-align = 列を揃える
+session-undo-table-data = 表を編集
+session-undo-show-as-table = 表として表示
+session-undo-show-as-chart = グラフとして表示
 session-widget-kind-base-card = カード
 session-widget-kind-base-chart = グラフ
 session-widget-kind-base-table = 表
@@ -169,23 +178,6 @@ session-widget-kind-base-text = テキスト
 session-widget-kind-essentiel-toc = 目次
 session-widget-kind-essentiel-title = タイトルスライド
 session-widget-kind-essentiel-blank = 空白
-session-param-base-card-kicker = キッカー
-session-param-base-card-title = タイトル
-session-param-base-card-body = 本文
-session-param-base-card-highlight = 強調
-session-param-essentiel-chapter-title = タイトル
-session-param-essentiel-chapter-subtitle = サブタイトル
-session-param-essentiel-content-kicker = キッカー
-session-param-essentiel-content-title = タイトル
-session-param-essentiel-content-layout = レイアウト
-session-param-essentiel-end-text = テキスト
-session-param-base-image-fit = フィット
-session-param-base-shape-shape = 図形
-session-param-base-stack-layout = レイアウト
-session-param-base-stack-count = 項目数
-session-param-base-stack-gap = 間隔
-session-param-base-text-body = 本文
-session-param-essentiel-toc-title = タイトル
 
 ## Menu
 

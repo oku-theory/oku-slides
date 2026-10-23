@@ -36,6 +36,8 @@ use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 pub mod agent;
 mod appearance;
 mod charts;
+mod data_edit;
+mod data_panel;
 mod deck_closure;
 mod deck_fallback;
 mod deck_file;
@@ -80,8 +82,6 @@ mod resume_agent;
 mod resume_writer;
 mod search;
 mod tables;
-mod target_grid;
-mod target_params;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod text;
@@ -105,6 +105,7 @@ mod widgets_edit;
 mod workspace;
 
 pub use appearance::{Appearance, appearance};
+pub use data_edit::{DataEdit, TableFlag};
 pub use deck_pack::{adopt_default_packs, check_pack_id};
 pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};

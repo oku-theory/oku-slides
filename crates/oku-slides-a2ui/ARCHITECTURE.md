@@ -9,14 +9,17 @@ rendering, no disk access.
 - `ServerMessage` (`message.rs`): `createSurface`, `updateComponents`, `updateDataModel`,
   `deleteSurface`; serialization follows v0.9, JSON schema via `schemars`.
 - `Component { id, kind }` and `ComponentKind`: the catalog (layout, text, card, buttons, `Receipt`,
-  `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `ThemeChoice`, `Notice`…); constructors `card`, `column`, `row`,
+  `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `ThemeChoice`, `Notice`, `ChartData`, `TableData`…); constructors `card`, `column`, `row`,
   `text`, `button`; button builders `danger`, `icon` (`ButtonIcon`). `Dynamic<T>`: a literal value or a `{path}` binding to the data model.
 - `SlideRef { id, hash }`: a `Receipt`'s slide, named by its page hash, never by its rendering (the
   UI resolves the thumbnail; the "state at receipt or current" choice is described in
   `oku-slides-session`).
 - Helpers on `ComponentKind`: `children` (child ids), `actions` (actions it carries),
   `without_action` (the component without its action, or nothing), `agent_allowed` (allowed in
-  `render`; `Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`, `ThemeChoice` are reserved to the host).
+  `render`; `Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`, `ThemeChoice`, `ChartData`,
+  `TableData` are reserved to the host).
+- `SeriesSwatch` (`data.rs`): a colourable series of `ChartData`. `ChartData` / `TableData` carry a
+  chart's or table's data; the UI writes one edit at their `edit` path, then sends `action`.
 
 ## Extension point
 

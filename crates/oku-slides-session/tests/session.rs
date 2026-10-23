@@ -325,7 +325,7 @@ fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_width": null, "band": null, "folded": []}));
+        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_width": null, "folded": []}));
 }
 
 #[test]
@@ -351,14 +351,6 @@ fn ui_request_with_code_width_keeps_it_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "code_width": 640}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]["code_width"]).is_equal_to(json!(640));
-}
-
-/// La hauteur de la bande sous la scène est gardée.
-#[test]
-fn ui_request_with_band_height_keeps_it_in_snapshot() {
-    let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "band": 320}))).unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"]["band"]).is_equal_to(json!(320));
 }
 
 /// Les sections repliées de la pile sont gardées.
@@ -388,7 +380,7 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_width": null, "band": null, "folded": []}));
+        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_width": null, "folded": []}));
 }
 
 #[test]
@@ -398,7 +390,7 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_grid_ghosts_and_columns() {
         .unwrap();
     s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
-        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null, "code": false, "code_width": null, "band": null, "folded": []}),
+        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null, "code": false, "code_width": null, "folded": []}),
     );
 }
 

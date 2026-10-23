@@ -145,17 +145,26 @@ log-document-saved = ডকুমেন্ট সংরক্ষিত হয়
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = কলাম
-session-panel-rows = সারি
 session-widget-params = { $name }-এর প্যারামিটার
 session-widget-no-params = এই উইজেটের কোনো প্যারামিটার নেই।
 session-widget-param-fixed = { $name }: প্রিভিউতে সমন্বয়যোগ্য নয়
 session-widget-param-yes = হ্যাঁ
 session-widget-param-no = না
 session-widget-invalid-file = অবৈধ ফাইল: সেটিংস অনুপলব্ধ
-session-undo-grid = গ্রিড { $columns } × { $rows }
-session-undo-param = সেটিং: { $label }
-session-target-bound = { $name } প্রেজেন্টেশনের ভেরিয়েবল “{ $var }” অনুসরণ করে
+session-data-chart = চার্ট
+session-data-table = টেবিল
+session-undo-chart-kind = চার্টের ধরন বদলান
+session-undo-chart-data = ডেটা সম্পাদনা করুন
+session-undo-chart-color = সিরিজে রং দিন
+session-undo-chart-stack = { $stacked ->
+    [yes] সিরিজগুলো স্তূপ করুন
+   *[no] সিরিজগুলো আলাদা করুন
+}
+session-undo-table-option = টেবিলের বিকল্প
+session-undo-table-align = কলাম সারিবদ্ধ করুন
+session-undo-table-data = টেবিল সম্পাদনা করুন
+session-undo-show-as-table = টেবিল হিসেবে দেখান
+session-undo-show-as-chart = চার্ট হিসেবে দেখান
 session-widget-kind-base-card = কার্ড
 session-widget-kind-base-chart = চার্ট
 session-widget-kind-base-table = টেবিল
@@ -169,23 +178,6 @@ session-widget-kind-base-text = টেক্সট
 session-widget-kind-essentiel-toc = সূচিপত্র
 session-widget-kind-essentiel-title = শিরোনাম স্লাইড
 session-widget-kind-essentiel-blank = ফাঁকা
-session-param-base-card-kicker = কিকার
-session-param-base-card-title = শিরোনাম
-session-param-base-card-body = মূল অংশ
-session-param-base-card-highlight = হাইলাইট
-session-param-essentiel-chapter-title = শিরোনাম
-session-param-essentiel-chapter-subtitle = উপশিরোনাম
-session-param-essentiel-content-kicker = কিকার
-session-param-essentiel-content-title = শিরোনাম
-session-param-essentiel-content-layout = বিন্যাস
-session-param-essentiel-end-text = টেক্সট
-session-param-base-image-fit = ফিট
-session-param-base-shape-shape = আকৃতি
-session-param-base-stack-layout = বিন্যাস
-session-param-base-stack-count = উপাদানের সংখ্যা
-session-param-base-stack-gap = ব্যবধান
-session-param-base-text-body = মূল অংশ
-session-param-essentiel-toc-title = শিরোনাম
 
 ## Menu
 

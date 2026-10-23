@@ -44,7 +44,6 @@ ui-toolbar-redo-label = 重做：{ $label }
 ui-divider-pile = 投影片堆寬度
 ui-divider-notes = AI 代理對話寬度
 ui-divider-code = 程式碼大小
-ui-divider-band = 設定區高度
 ui-toolbar-theme = 主題
 ui-toolbar-theme-embedded = 檔案主題
 ui-toolbar-finish = 完成
@@ -93,13 +92,6 @@ ui-undo-resize = 調整大小
 ui-undo-edit-slide = 編輯投影片
 ui-undo-rename-pack = 重新命名套件
 ui-undo-rename-deck = 重新命名簡報
-ui-undo-chart-kind = 變更圖表類型
-ui-undo-chart-data = 編輯資料
-ui-undo-chart-color = 為系列設定顏色
-ui-undo-chart-stack = { $stacked ->
-    [yes] 堆疊系列
-   *[no] 取消堆疊系列
-}
 
 ## 新元素
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = 欄 { $n }
 ui-table-no-data = 此表格沒有資料。
-ui-undo-table-option = 表格選項
-ui-undo-table-align = 對齊該欄
-ui-undo-table-data = 編輯表格
 ui-show-as = 顯示為
 ui-show-as-table = 顯示為表格
 ui-show-as-chart = 顯示為圖表
-ui-undo-show-as-table = 顯示為表格
-ui-undo-show-as-chart = 顯示為圖表
 
 ## 檔案
 
@@ -344,8 +331,6 @@ ui-slide-next = 下一張投影片
 ui-present = 簡報
 ui-present-slide = 第{ $index }張，共 { $count }張
 ui-present-screen = 全螢幕簡報
-ui-toolbar-params-hide = 隱藏設定
-ui-toolbar-params-show = 顯示設定
 ui-help-close = 關閉說明
 ui-help-search = 搜尋說明
 ui-help-search-placeholder = 搜尋…

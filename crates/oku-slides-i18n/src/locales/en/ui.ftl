@@ -44,7 +44,6 @@ ui-toolbar-redo-label = Redo: { $label }
 ui-divider-pile = Width of the slide pile
 ui-divider-notes = Width of the agent thread
 ui-divider-code = Code size
-ui-divider-band = Settings height
 ui-toolbar-theme = Theme
 ui-toolbar-theme-embedded = File theme
 ui-toolbar-finish = Done
@@ -93,13 +92,6 @@ ui-undo-resize = Resize
 ui-undo-edit-slide = Edit slide
 ui-undo-rename-pack = Rename the pack
 ui-undo-rename-deck = Rename the presentation
-ui-undo-chart-kind = Change the chart type
-ui-undo-chart-data = Edit the data
-ui-undo-chart-color = Color a series
-ui-undo-chart-stack = { $stacked ->
-    [yes] Stack the series
-   *[no] Unstack the series
-}
 
 ## New elements
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Column { $n }
 ui-table-no-data = This table has no data.
-ui-undo-table-option = Table options
-ui-undo-table-align = Align the column
-ui-undo-table-data = Edit the table
 ui-show-as = Show as
 ui-show-as-table = Show as a table
 ui-show-as-chart = Show as a chart
-ui-undo-show-as-table = Show as a table
-ui-undo-show-as-chart = Show as a chart
 
 ## Files
 
@@ -344,8 +331,6 @@ ui-slide-next = Next slide
 ui-present = Presentation
 ui-present-slide = Slide { $index } of { $count }
 ui-present-screen = Present full screen
-ui-toolbar-params-hide = Hide settings
-ui-toolbar-params-show = Show settings
 ui-help-close = Close the help
 ui-help-search = Search the help
 ui-help-search-placeholder = Search…

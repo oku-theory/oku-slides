@@ -97,7 +97,7 @@ pub(crate) enum SavedMode {
 pub(crate) struct State {
     pub version: u32,
     pub mode: SavedMode,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::views::kept_ui")]
     pub ui: UiState,
     /// Id du thème de l'aide (`SavedMode::Help`), relu avec elle.
     #[serde(default, skip_serializing_if = "Option::is_none")]

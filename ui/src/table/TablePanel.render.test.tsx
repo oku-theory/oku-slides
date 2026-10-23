@@ -1,11 +1,12 @@
-// Rendu du panneau de tableau dans un DOM happy-dom.
+// Rendu de la vue des données d'un tableau dans un DOM happy-dom.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "../test/dom";
+import type { DataEdit } from "../chart/dataEdit";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { TablePanel } = await import("./TablePanel");
+const { TableDataView } = await import("./TablePanel");
 const { NumberLangContext } = await import("../a2ui/numberLang");
 const { expectIconOnly } = await import("../test/iconOnly");
 
@@ -19,104 +20,89 @@ afterEach(async () => {
   m.host.remove();
 });
 
-type Applied = { label: string; ops: Record<string, unknown>[] };
-const target = { slide: "s1", element: "t1" };
+type Props = { source: (string | number)[][]; headerRow: boolean; headerColumn: boolean; striped: boolean; align: string[] };
+const DEFAULTS: Props = { source: [["A", "B"], ["x", 1]], headerRow: true, headerColumn: false, striped: false, align: [] };
 
-async function mount(
-  data: Record<string, unknown> = { dataset: { source: [["A", "B"], ["x", 1]] } },
-  onShowAs = (_view: string) => {},
-  numberLang?: string,
-  { kind, param }: { kind: string; param: string } = { kind: "base/table", param: "data" },
-) {
+async function mount(props: Partial<Props> = {}, numberLang?: string) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const applied: Applied[] = [];
-  const element = { id: "t1", kind, params: { [param]: data } };
-  const onApply = (label: string, ops: Record<string, unknown>[]) => applied.push({ label, ops });
+  const edits: DataEdit[] = [];
   await act(async () => {
-    const panel = createElement(TablePanel, { slide: "s1", element, param, onApply, onShowAs });
-    root.render(numberLang === undefined ? panel : createElement(NumberLangContext.Provider, { value: numberLang }, panel));
+    const view = createElement(TableDataView, { ...DEFAULTS, ...props, onEdit: (e: DataEdit) => edits.push(e) });
+    root.render(numberLang === undefined ? view : createElement(NumberLangContext.Provider, { value: numberLang }, view));
   });
-  return { host, applied };
+  return { host, edits };
 }
 
 const options = (host: HTMLElement) => [...host.querySelectorAll(".table-options button")] as HTMLButtonElement[];
 
-describe("TablePanel", () => {
-  test("TablePanel grid writes numbers in the deck language", async () => {
-    const { host } = await mount({ dataset: { source: [["A"], [12345.5]] } }, undefined, "fr");
+describe("TableDataView", () => {
+  test("TableDataView grid writes numbers in the deck language", async () => {
+    const { host } = await mount({ source: [["A"], [12345.5]] }, "fr");
     const input = host.querySelector("input.cdg-number") as HTMLInputElement;
     expect(input.value).toBe("12\u202f345,5");
   });
 
-  test("TablePanel option buttons show icons only", async () => {
+  test("TableDataView option buttons show icons only", async () => {
     const { host } = await mount();
     expect(options(host)).toHaveLength(3);
     for (const b of options(host)) expectIconOnly(b);
   });
 
-  test("TablePanel defaults press header row only", async () => {
-    const { host } = await mount();
-    expect(options(host).map((b) => b.getAttribute("aria-pressed"))).toEqual(["true", "false", "false"]);
+  test("TableDataView presses the flags it is given", async () => {
+    const { host } = await mount({ headerRow: false, striped: true });
+    expect(options(host).map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "false", "true"]);
   });
 
-  test("TablePanel striped toggle sends a set_table_option patch to the table", async () => {
-    const { host, applied } = await mount();
+  test("TableDataView striped toggle sends a flag edit", async () => {
+    const { host, edits } = await mount();
     await act(async () => options(host)[2].click());
-    expect(applied[0].ops[0]).toEqual({ op: "set_table_option", target, param: "data", patch: { striped: true } });
+    expect(edits).toEqual([{ edit: "flag", flag: "striped", on: true }]);
   });
 
-  test("TablePanel header row off toggle sends header-row true", async () => {
-    const { host, applied } = await mount({ dataset: { source: [["A"], [1]] }, "header-row": false });
-    await act(async () => options(host)[0].click());
-    expect(applied[0].ops[0]).toMatchObject({ patch: { "header-row": true } });
-  });
-
-  test("TablePanel alignment select sends the align patch", async () => {
-    const { host, applied } = await mount();
+  test("TableDataView alignment select sends an align edit", async () => {
+    const { host, edits } = await mount();
     const select = host.querySelectorAll(".table-align select")[1] as HTMLSelectElement;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(select, "center");
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    expect(applied[0].ops[0]).toEqual({ op: "set_table_option", target, param: "data", patch: { align: ["auto", "center"] } });
+    expect(edits).toEqual([{ edit: "align", column: 1, align: "center" }]);
   });
 
-  test("TablePanel add column sends set_data on the data param with a column name", async () => {
-    const { host, applied } = await mount();
+  test("TableDataView alignment select shows the given alignment", async () => {
+    const { host } = await mount({ align: ["auto", "end"] });
+    expect((host.querySelectorAll(".table-align select")[1] as HTMLSelectElement).value).toBe("end");
+  });
+
+  test("TableDataView add column sends a cells edit with a column name", async () => {
+    const { host, edits } = await mount();
     const [, addColumn] = host.querySelectorAll(".cdg-actions button");
     await act(async () => (addColumn as HTMLButtonElement).click());
-    expect(applied[0].ops[0]).toMatchObject({ op: "set_data", target, param: "data", change: { op: "insert_column", at: 2 } });
-    const cells = (applied[0].ops[0].change as { cells: string[] }).cells;
+    expect(edits[0]).toMatchObject({ edit: "cells", change: { op: "insert_column", at: 2 } });
+    const cells = (edits[0] as { change: { cells: string[] } }).change.cells;
     expect(cells[0]).not.toContain("Series");
   });
 
-  test("TablePanel without data shows the no-data hint", async () => {
-    const { host } = await mount({});
+  test("TableDataView without data shows the no-data hint", async () => {
+    const { host } = await mount({ source: [] });
     expect(host.querySelector(".a2ui-hint")).not.toBeNull();
   });
 
-  test("TablePanel show-as-chart button asks for the chart view", async () => {
-    const views: string[] = [];
-    const { host } = await mount(undefined, (view: string) => views.push(view));
+  test("TableDataView show-as-chart button sends a show_as edit", async () => {
+    const { host, edits } = await mount();
     const button = host.querySelector(".show-as button") as HTMLButtonElement;
     expectIconOnly(button);
     await act(async () => button.click());
-    expect(views).toEqual(["chart"]);
+    expect(edits).toEqual([{ edit: "show_as", view: "chart" }]);
   });
 
-  test("TablePanel show-as button closes the options toolbar row", async () => {
+  test("TableDataView show-as button closes the options toolbar row", async () => {
     const { host } = await mount();
     const toolbar = host.querySelector(".panel-toolbar") as HTMLElement;
     expect(toolbar.querySelector(".table-options")).not.toBeNull();
     expect(toolbar.lastElementChild?.classList.contains("show-as")).toBe(true);
-  });
-
-  test("le panneau d'un tableau de pack écrit dans son paramètre", async () => {
-    const { host, applied } = await mount(undefined, undefined, undefined, { kind: "acme/grid", param: "grid" });
-    await act(async () => options(host)[2].click());
-    expect(applied[0].ops[0]).toEqual({ op: "set_table_option", target, param: "grid", patch: { striped: true } });
   });
 });

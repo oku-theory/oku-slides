@@ -145,17 +145,26 @@ log-document-saved = Documento salvato
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Colonne
-session-panel-rows = Righe
 session-widget-params = Parametri di { $name }
 session-widget-no-params = Questo widget non ha parametri.
 session-widget-param-fixed = { $name }: non regolabile nell'anteprima
 session-widget-param-yes = Sì
 session-widget-param-no = No
 session-widget-invalid-file = File non valido: impostazioni non disponibili
-session-undo-grid = Griglia { $columns } × { $rows }
-session-undo-param = Impostazione: { $label }
-session-target-bound = { $name } segue la variabile della presentazione «{ $var }»
+session-data-chart = Grafico
+session-data-table = Tabella
+session-undo-chart-kind = Cambia il tipo di grafico
+session-undo-chart-data = Modifica i dati
+session-undo-chart-color = Colora una serie
+session-undo-chart-stack = { $stacked ->
+    [yes] Impila le serie
+   *[no] Separa le serie
+}
+session-undo-table-option = Opzioni della tabella
+session-undo-table-align = Allinea la colonna
+session-undo-table-data = Modifica la tabella
+session-undo-show-as-table = Mostra come tabella
+session-undo-show-as-chart = Mostra come grafico
 session-widget-kind-base-card = Scheda
 session-widget-kind-base-chart = Grafico
 session-widget-kind-base-table = Tabella
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Testo
 session-widget-kind-essentiel-toc = Indice
 session-widget-kind-essentiel-title = Copertina
 session-widget-kind-essentiel-blank = Vuota
-session-param-base-card-kicker = Occhiello
-session-param-base-card-title = Titolo
-session-param-base-card-body = Corpo
-session-param-base-card-highlight = Evidenza
-session-param-essentiel-chapter-title = Titolo
-session-param-essentiel-chapter-subtitle = Sottotitolo
-session-param-essentiel-content-kicker = Occhiello
-session-param-essentiel-content-title = Titolo
-session-param-essentiel-content-layout = Layout
-session-param-essentiel-end-text = Testo
-session-param-base-image-fit = Adattamento
-session-param-base-shape-shape = Forma
-session-param-base-stack-layout = Layout
-session-param-base-stack-count = Numero di elementi
-session-param-base-stack-gap = Spaziatura
-session-param-base-text-body = Corpo
-session-param-essentiel-toc-title = Titolo
 
 ## Menu
 

@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 use oku_slides_core::{ParamSchema, ParamType, ParamValue, kinds};
 use oku_slides_i18n::Localizer;
 
-use super::{coerce, kind_key, kind_name, param_name, schema_default};
+use super::{coerce, kind_key, kind_name, schema_default};
 
 fn schema(ty: ParamType, default: Option<Value>) -> ParamSchema {
     ParamSchema { name: "p".into(), label: None, ty, default, bind: None }
@@ -48,12 +48,6 @@ fn kind_name_in_french(#[case] kind: &str, #[case] expected: &str) {
     assert_that!(kind_name(kind, None, &Localizer::new(Some("fr")))).is_equal_to(expected.to_owned());
 }
 
-#[test]
-fn param_name_of_base_card_title_is_localized_in_french() {
-    let p = ParamSchema { name: "title".into(), label: None, ty: ParamType::Plain, default: None, bind: None };
-    assert_that!(param_name(kinds::base::CARD, &p, &Localizer::new(Some("fr")))).is_equal_to("Titre".to_owned());
-}
-
 #[rstest]
 #[case(kinds::essentiel::CONTENT, Some("session-widget-kind-essentiel-content"))]
 #[case(kinds::base::CARD, Some("session-widget-kind-base-card"))]
@@ -68,11 +62,4 @@ fn widget_key_only_for_builtin_kinds(#[case] kind: &str, #[case] expected: Optio
 fn kind_name_of_essentiel_title_is_localized_in_french() {
     let fr = kind_name(kinds::essentiel::TITLE, None, &Localizer::new(Some("fr")));
     assert_that!(fr).is_not_equal_to(kinds::essentiel::TITLE.to_owned());
-}
-
-#[test]
-fn param_name_of_essentiel_content_layout_is_localized_in_french() {
-    let p = ParamSchema { name: "layout".into(), label: None, ty: ParamType::Plain, default: None, bind: None };
-    let fr = param_name(kinds::essentiel::CONTENT, &p, &Localizer::new(Some("fr")));
-    assert_that!(fr).is_equal_to("Disposition".to_owned());
 }

@@ -21,6 +21,7 @@ function typesOf(components: unknown[], data: unknown = {}) {
 const V3 = [
   "Column", "Row", "Card", "Text", "TextField", "RichTextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select",
   "ListTable", "SlideThumb", "ThemeChoice", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown", "Notice",
+  "ChartData", "TableData",
 ];
 
 describe("catalogue v3", () => {
@@ -46,6 +47,17 @@ describe("catalogue v3", () => {
     expect(tables).toHaveLength(1);
     const { id: _id, component: _component, ...props } = tables[0];
     expect(catalog.components.get("ListTable")?.schema.safeParse(props).success).toBe(true);
+  });
+
+  test("les données d'un graphique et d'un tableau produites par la session Rust passent leurs schémas", () => {
+    const data = (agentSurfaces as { id: string; messages: { updateComponents?: { components: Record<string, unknown>[] } }[] }[])
+      .filter((s) => s.id === "host-data")
+      .flatMap((s) => s.messages.flatMap((m) => m.updateComponents?.components ?? []))
+      .filter((c) => c.component === "ChartData" || c.component === "TableData");
+    expect(data.map((c) => c.component)).toEqual(["ChartData", "TableData"]);
+    for (const { id: _id, component, ...props } of data) {
+      expect(catalog.components.get(component as string)?.schema.safeParse(props).success).toBe(true);
+    }
   });
 
   test("accepte les composants de l'agent", () => {

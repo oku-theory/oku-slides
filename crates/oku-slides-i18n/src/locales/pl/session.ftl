@@ -145,17 +145,26 @@ log-document-saved = Dokument zapisany
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Kolumny
-session-panel-rows = Wiersze
 session-widget-params = Parametry { $name }
 session-widget-no-params = Ten widżet nie ma parametrów.
 session-widget-param-fixed = { $name }: nie do ustawienia w podglądzie
 session-widget-param-yes = Tak
 session-widget-param-no = Nie
 session-widget-invalid-file = Nieprawidłowy plik: ustawienia niedostępne
-session-undo-grid = Siatka { $columns } × { $rows }
-session-undo-param = Ustawienie: { $label }
-session-target-bound = { $name } podąża za zmienną prezentacji „{ $var }”
+session-data-chart = Wykres
+session-data-table = Tabela
+session-undo-chart-kind = Zmień typ wykresu
+session-undo-chart-data = Edytuj dane
+session-undo-chart-color = Pokoloruj serię
+session-undo-chart-stack = { $stacked ->
+    [yes] Skumuluj serie
+   *[no] Rozdziel serie
+}
+session-undo-table-option = Opcje tabeli
+session-undo-table-align = Wyrównaj kolumnę
+session-undo-table-data = Edytuj tabelę
+session-undo-show-as-table = Pokaż jako tabelę
+session-undo-show-as-chart = Pokaż jako wykres
 session-widget-kind-base-card = Karta
 session-widget-kind-base-chart = Wykres
 session-widget-kind-base-table = Tabela
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Tekst
 session-widget-kind-essentiel-toc = Spis treści
 session-widget-kind-essentiel-title = Strona tytułowa
 session-widget-kind-essentiel-blank = Pusta
-session-param-base-card-kicker = Nadtytuł
-session-param-base-card-title = Tytuł
-session-param-base-card-body = Treść
-session-param-base-card-highlight = Wyróżnienie
-session-param-essentiel-chapter-title = Tytuł
-session-param-essentiel-chapter-subtitle = Podtytuł
-session-param-essentiel-content-kicker = Nadtytuł
-session-param-essentiel-content-title = Tytuł
-session-param-essentiel-content-layout = Układ
-session-param-essentiel-end-text = Tekst
-session-param-base-image-fit = Dopasowanie
-session-param-base-shape-shape = Kształt
-session-param-base-stack-layout = Układ
-session-param-base-stack-count = Liczba elementów
-session-param-base-stack-gap = Odstęp
-session-param-base-text-body = Treść
-session-param-essentiel-toc-title = Tytuł
 
 ## Menu
 

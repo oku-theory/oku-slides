@@ -1,5 +1,4 @@
-//! Champs de réglage d'un paramètre de widget, partagés par l'atelier (valeurs d'exemple) et le
-//! panneau de la cible (valeurs du deck).
+//! Champs de réglage d'un paramètre de widget, ceux de l'atelier (valeurs d'exemple).
 
 use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn, SubColumn, SubList};
 use oku_slides_core::{LIST_ITEMS_MAX, ListSpec, ParamSchema, ParamType, ParamValue, default_items, kinds, split_kind};
@@ -26,18 +25,6 @@ pub(crate) fn kind_name(kind: &str, label: Option<&str>, l: &Localizer) -> Strin
         None => kind_key(kind)
             .and_then(|k| l.try_tr(&format!("session-widget-kind-{k}")))
             .unwrap_or_else(|| kind.to_owned()),
-    }
-}
-
-/// Le nom montré du paramètre `p` du widget `kind` : son `label`, sinon le nom traduit d'un
-/// paramètre d'un widget d'un pack intégré (`session-param-<clé>-<nom>`, propre à chaque widget :
-/// `layout` n'a pas les mêmes valeurs dans `essentiel/content` et `base/stack`), sinon son nom tel quel.
-pub(crate) fn param_name(kind: &str, p: &ParamSchema, l: &Localizer) -> String {
-    match &p.label {
-        Some(label) => label.clone(),
-        None => kind_key(kind)
-            .and_then(|k| l.try_tr(&format!("session-param-{k}-{}", p.name)))
-            .unwrap_or_else(|| p.name.clone()),
     }
 }
 

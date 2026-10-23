@@ -44,7 +44,6 @@ ui-toolbar-redo-label = फिर से करें: { $label }
 ui-divider-pile = स्लाइड ढेर की चौड़ाई
 ui-divider-notes = एजेंट थ्रेड की चौड़ाई
 ui-divider-code = कोड का आकार
-ui-divider-band = सेटिंग्स की ऊँचाई
 ui-toolbar-theme = थीम
 ui-toolbar-theme-embedded = फ़ाइल की थीम
 ui-toolbar-finish = हो गया
@@ -93,13 +92,6 @@ ui-undo-resize = आकार बदलें
 ui-undo-edit-slide = स्लाइड संपादित करें
 ui-undo-rename-pack = पैक का नाम बदलें
 ui-undo-rename-deck = प्रेज़ेंटेशन का नाम बदलें
-ui-undo-chart-kind = चार्ट का प्रकार बदलें
-ui-undo-chart-data = डेटा संपादित करें
-ui-undo-chart-color = श्रृंखला को रंगें
-ui-undo-chart-stack = { $stacked ->
-    [yes] श्रृंखलाओं को स्टैक करें
-   *[no] श्रृंखलाओं को अलग करें
-}
 
 ## नए एलिमेंट
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = स्तंभ { $n }
 ui-table-no-data = इस तालिका में कोई डेटा नहीं है।
-ui-undo-table-option = तालिका के विकल्प
-ui-undo-table-align = स्तंभ संरेखित करें
-ui-undo-table-data = तालिका संपादित करें
 ui-show-as = इस रूप में दिखाएँ
 ui-show-as-table = तालिका के रूप में दिखाएँ
 ui-show-as-chart = चार्ट के रूप में दिखाएँ
-ui-undo-show-as-table = तालिका के रूप में दिखाएँ
-ui-undo-show-as-chart = चार्ट के रूप में दिखाएँ
 
 ## फ़ाइलें
 
@@ -344,8 +331,6 @@ ui-slide-next = अगली स्लाइड
 ui-present = प्रस्तुति
 ui-present-slide = स्लाइड { $index } / { $count }
 ui-present-screen = पूर्ण स्क्रीन में प्रस्तुत करें
-ui-toolbar-params-hide = सेटिंग्स छिपाएँ
-ui-toolbar-params-show = सेटिंग्स दिखाएँ
 ui-help-close = सहायता बंद करें
 ui-help-search = सहायता में खोजें
 ui-help-search-placeholder = खोजें…

@@ -60,7 +60,8 @@ async function mount({
   promptFails = false,
   scope = DRIVE,
   keyPlaces,
-}: { promptFails?: boolean; scope?: ScopeSource; keyPlaces?: QuickTarget["kind"][] } = {}) {
+  hostSurfaces,
+}: { promptFails?: boolean; scope?: ScopeSource; keyPlaces?: QuickTarget["kind"][]; hostSurfaces?: Surface[] } = {}) {
   const renders = { app: 0, stage: 0, pile: 0 };
   let handlers: HostHandlers | null = null;
   const subscribe = (_tab: string, h: HostHandlers) => {
@@ -124,6 +125,7 @@ async function mount({
         agent,
         scope,
         keyPlaces,
+        hostSurfaces,
         route,
         ui: UI,
         onDraft: (e: { text: string | null; origin: string | null }) => void drafts.push(e),
@@ -349,4 +351,22 @@ test("AgentPanel digit key inside the agents picker sends no answer to the sheet
   } finally {
     picker.remove();
   }
+});
+
+test("AgentPanel host surfaces open the dock, before the agent's settings", async () => {
+  const data = surface("host-data", "Données", {});
+  const p = await mount({ hostSurfaces: [data] });
+  await p.mcp({ kind: "surfaces", list: [dock] });
+  await p.until(() => (p.host.querySelector(".agent-dock")?.textContent ?? "").includes("Régler"));
+  const ids = [...p.host.querySelectorAll(".agent-dock-item")].map((e) => e.getAttribute("data-surface-id"));
+  expect(ids).toEqual(["host-data", "set-1"]);
+});
+
+test("AgentPanel a host surface folds behind the settings line while a question waits", async () => {
+  const data = surface("host-data", "Données", {});
+  const ask = surface("ask-1", "Oui", { question: true });
+  const p = await mount({ hostSurfaces: [data] });
+  await p.mcp({ kind: "surfaces", list: [ask] });
+  await p.until(() => (p.host.querySelector(".agent-dock")?.textContent ?? "").includes("Oui"));
+  expect(p.host.querySelector('[data-surface-id="host-data"]')?.textContent).not.toContain("Données");
 });

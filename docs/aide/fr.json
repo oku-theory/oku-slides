@@ -155,7 +155,7 @@
            "bold": true
           },
           {
-           "t": " : un tableau de données édité dans son panneau avec la même grille que les graphiques. Activez la ligne d'en-tête, la première colonne en en-tête et les lignes zébrées ; alignez chaque colonne (automatique place les nombres à la fin). Un tableau plus grand que son cadre est réduit pour y tenir. « Afficher en graphique » et « Afficher en tableau » passent de l'un à l'autre en gardant les données, en une seule étape d'annulation."
+           "t": " : un tableau de données édité, comme un graphique, dans le dock de l'agent quand il est sélectionné, avec la même grille. Activez la ligne d'en-tête, la première colonne en en-tête et les lignes zébrées ; alignez chaque colonne (automatique place les nombres à la fin). Un tableau plus grand que son cadre est réduit pour y tenir. « Afficher en graphique » et « Afficher en tableau » passent de l'un à l'autre en gardant les données, en une seule étape d'annulation."
           }
          ],
          "list": "bullet"
@@ -2076,7 +2076,7 @@
         {
          "runs": [
           {
-           "t": "Dans le panneau des paramètres, à droite (et dans l'éditeur de widget), un tableau : ajouter, supprimer, réordonner (⌥↑/↓ sur une ligne), coller du TSV. Sur la slide : × pour supprimer, ⋮⋮ pour glisser ; l'ajout se fait dans le tableau. L'agent édite par id avec edit_list."
+           "t": "Dans l'éditeur de widget, un tableau : ajouter, supprimer, réordonner (⌥↑/↓ sur une ligne), coller du TSV. Sur la slide, un item se déplace au clavier depuis un de ses champs ; le reste se demande à l'agent, qui édite par id avec edit_list."
           }
          ]
         }

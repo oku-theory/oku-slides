@@ -145,17 +145,26 @@ log-document-saved = Document saved
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Columns
-session-panel-rows = Rows
 session-widget-params = Parameters of { $name }
 session-widget-no-params = This widget has no parameters.
 session-widget-param-fixed = { $name }: not adjustable in the preview
 session-widget-param-yes = Yes
 session-widget-param-no = No
 session-widget-invalid-file = Invalid file: settings unavailable
-session-undo-grid = Grid { $columns } × { $rows }
-session-undo-param = Setting: { $label }
-session-target-bound = { $name } follows the deck variable “{ $var }”
+session-data-chart = Chart
+session-data-table = Table
+session-undo-chart-kind = Change the chart type
+session-undo-chart-data = Edit the data
+session-undo-chart-color = Color a series
+session-undo-chart-stack = { $stacked ->
+    [yes] Stack the series
+   *[no] Unstack the series
+}
+session-undo-table-option = Table options
+session-undo-table-align = Align the column
+session-undo-table-data = Edit the table
+session-undo-show-as-table = Show as a table
+session-undo-show-as-chart = Show as a chart
 session-widget-kind-base-card = Card
 session-widget-kind-base-chart = Chart
 session-widget-kind-base-table = Table
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Text
 session-widget-kind-essentiel-toc = Table of contents
 session-widget-kind-essentiel-title = Title slide
 session-widget-kind-essentiel-blank = Blank
-session-param-base-card-kicker = Kicker
-session-param-base-card-title = Title
-session-param-base-card-body = Body
-session-param-base-card-highlight = Highlight
-session-param-essentiel-chapter-title = Title
-session-param-essentiel-chapter-subtitle = Subtitle
-session-param-essentiel-content-kicker = Kicker
-session-param-essentiel-content-title = Title
-session-param-essentiel-content-layout = Layout
-session-param-essentiel-end-text = Text
-session-param-base-image-fit = Fit
-session-param-base-shape-shape = Shape
-session-param-base-stack-layout = Layout
-session-param-base-stack-count = Number of items
-session-param-base-stack-gap = Spacing
-session-param-base-text-body = Body
-session-param-essentiel-toc-title = Title
 
 ## Menu
 

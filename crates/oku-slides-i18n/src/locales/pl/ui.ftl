@@ -50,7 +50,6 @@ ui-toolbar-redo-label = Ponów: { $label }
 ui-divider-pile = Szerokość stosu slajdów
 ui-divider-notes = Szerokość wątku agenta
 ui-divider-code = Rozmiar kodu
-ui-divider-band = Wysokość ustawień
 ui-toolbar-theme = Motyw
 ui-toolbar-theme-embedded = Motyw z pliku
 ui-toolbar-finish = Gotowe
@@ -99,13 +98,6 @@ ui-undo-resize = Zmień rozmiar
 ui-undo-edit-slide = Edytuj slajd
 ui-undo-rename-pack = Zmień nazwę pakietu
 ui-undo-rename-deck = Zmień nazwę prezentacji
-ui-undo-chart-kind = Zmień typ wykresu
-ui-undo-chart-data = Edytuj dane
-ui-undo-chart-color = Pokoloruj serię
-ui-undo-chart-stack = { $stacked ->
-    [yes] Skumuluj serie
-   *[no] Rozdziel serie
-}
 
 ## Nowe elementy
 
@@ -301,14 +293,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Kolumna { $n }
 ui-table-no-data = Ta tabela nie zawiera danych.
-ui-undo-table-option = Opcje tabeli
-ui-undo-table-align = Wyrównaj kolumnę
-ui-undo-table-data = Edytuj tabelę
 ui-show-as = Pokaż jako
 ui-show-as-table = Pokaż jako tabelę
 ui-show-as-chart = Pokaż jako wykres
-ui-undo-show-as-table = Pokaż jako tabelę
-ui-undo-show-as-chart = Pokaż jako wykres
 
 ## Pliki
 
@@ -350,8 +337,6 @@ ui-slide-next = Następny slajd
 ui-present = Prezentacja
 ui-present-slide = Slajd { $index } z { $count }
 ui-present-screen = Prezentuj na pełnym ekranie
-ui-toolbar-params-hide = Ukryj ustawienia
-ui-toolbar-params-show = Pokaż ustawienia
 ui-help-close = Zamknij pomoc
 ui-help-search = Szukaj w pomocy
 ui-help-search-placeholder = Szukaj…

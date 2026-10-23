@@ -4,7 +4,8 @@
 //
 // Noms et propriétés reprennent le catalogue de base v0.9 ; `RichTextField`, `Stepper`, `ListTable`,
 // `ChoiceChips`, `ColorField`, `SlideThumb`, `ThemeChoice`, `DiffText`, `Prompt`, `Timeline`,
-// `Receipt`, `Disclosure`, `Badge`, `Markdown`, `Notice` sont propres à Oku Slides. Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
+// `Receipt`, `Disclosure`, `Badge`, `Markdown`, `Notice`, `ChartData`, `TableData` sont propres à Oku Slides.
+// Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -23,6 +24,7 @@ import { StagePreviewContext } from "./stagePreview";
 import { Hex, ToneSchema, toneClass } from "./schemas";
 import { svgSrc } from "./svgSrc";
 import { ThemeChoice } from "./ThemeChoice";
+import { ChartData, TableData } from "./dataComponents";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
 export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v3";
@@ -560,5 +562,5 @@ const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild }) 
 /** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
 export const catalog = new Catalog(CATALOG_ID, [
   Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, ListTableField, SlideThumb, ThemeChoice, DiffText,
-  Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice,
+  Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice, ChartData, TableData,
 ]);

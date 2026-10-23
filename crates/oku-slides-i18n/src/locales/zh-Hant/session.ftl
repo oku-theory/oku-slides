@@ -145,17 +145,26 @@ log-document-saved = 文件已儲存
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = 欄
-session-panel-rows = 列
 session-widget-params = { $name } 的參數
 session-widget-no-params = 此小工具沒有參數。
 session-widget-param-fixed = { $name }：無法在預覽中調整
 session-widget-param-yes = 是
 session-widget-param-no = 否
 session-widget-invalid-file = 檔案無效：設定無法使用
-session-undo-grid = 格線 { $columns } × { $rows }
-session-undo-param = 設定：{ $label }
-session-target-bound = { $name } 跟隨簡報變數「{ $var }」
+session-data-chart = 圖表
+session-data-table = 表格
+session-undo-chart-kind = 變更圖表類型
+session-undo-chart-data = 編輯資料
+session-undo-chart-color = 為系列設定顏色
+session-undo-chart-stack = { $stacked ->
+    [yes] 堆疊系列
+   *[no] 取消堆疊系列
+}
+session-undo-table-option = 表格選項
+session-undo-table-align = 對齊該欄
+session-undo-table-data = 編輯表格
+session-undo-show-as-table = 顯示為表格
+session-undo-show-as-chart = 顯示為圖表
 session-widget-kind-base-card = 卡片
 session-widget-kind-base-chart = 圖表
 session-widget-kind-base-table = 表格
@@ -169,23 +178,6 @@ session-widget-kind-base-text = 文字
 session-widget-kind-essentiel-toc = 目錄
 session-widget-kind-essentiel-title = 標題頁
 session-widget-kind-essentiel-blank = 空白
-session-param-base-card-kicker = 眉標
-session-param-base-card-title = 標題
-session-param-base-card-body = 正文
-session-param-base-card-highlight = 醒目顯示
-session-param-essentiel-chapter-title = 標題
-session-param-essentiel-chapter-subtitle = 副標題
-session-param-essentiel-content-kicker = 眉標
-session-param-essentiel-content-title = 標題
-session-param-essentiel-content-layout = 版面配置
-session-param-essentiel-end-text = 文字
-session-param-base-image-fit = 適應方式
-session-param-base-shape-shape = 形狀
-session-param-base-stack-layout = 版面配置
-session-param-base-stack-count = 項目數
-session-param-base-stack-gap = 間距
-session-param-base-text-body = 正文
-session-param-essentiel-toc-title = 標題
 
 ## Menu
 

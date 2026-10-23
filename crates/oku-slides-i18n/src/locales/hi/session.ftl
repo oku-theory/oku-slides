@@ -145,17 +145,26 @@ log-document-saved = दस्तावेज़ सहेजा गया
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = कॉलम
-session-panel-rows = पंक्तियाँ
 session-widget-params = { $name } के पैरामीटर
 session-widget-no-params = इस विजेट में कोई पैरामीटर नहीं है।
 session-widget-param-fixed = { $name }: पूर्वावलोकन में समायोज्य नहीं
 session-widget-param-yes = हाँ
 session-widget-param-no = नहीं
 session-widget-invalid-file = अमान्य फ़ाइल: सेटिंग्स उपलब्ध नहीं
-session-undo-grid = ग्रिड { $columns } × { $rows }
-session-undo-param = सेटिंग: { $label }
-session-target-bound = { $name } प्रस्तुति के वेरिएबल “{ $var }” का अनुसरण करता है
+session-data-chart = चार्ट
+session-data-table = तालिका
+session-undo-chart-kind = चार्ट का प्रकार बदलें
+session-undo-chart-data = डेटा संपादित करें
+session-undo-chart-color = श्रृंखला को रंगें
+session-undo-chart-stack = { $stacked ->
+    [yes] श्रृंखलाओं को स्टैक करें
+   *[no] श्रृंखलाओं को अलग करें
+}
+session-undo-table-option = तालिका के विकल्प
+session-undo-table-align = स्तंभ संरेखित करें
+session-undo-table-data = तालिका संपादित करें
+session-undo-show-as-table = तालिका के रूप में दिखाएँ
+session-undo-show-as-chart = चार्ट के रूप में दिखाएँ
 session-widget-kind-base-card = कार्ड
 session-widget-kind-base-chart = चार्ट
 session-widget-kind-base-table = तालिका
@@ -169,23 +178,6 @@ session-widget-kind-base-text = टेक्स्ट
 session-widget-kind-essentiel-toc = विषय-सूची
 session-widget-kind-essentiel-title = शीर्षक स्लाइड
 session-widget-kind-essentiel-blank = खाली
-session-param-base-card-kicker = किकर
-session-param-base-card-title = शीर्षक
-session-param-base-card-body = मुख्य भाग
-session-param-base-card-highlight = हाइलाइट
-session-param-essentiel-chapter-title = शीर्षक
-session-param-essentiel-chapter-subtitle = उपशीर्षक
-session-param-essentiel-content-kicker = किकर
-session-param-essentiel-content-title = शीर्षक
-session-param-essentiel-content-layout = लेआउट
-session-param-essentiel-end-text = टेक्स्ट
-session-param-base-image-fit = फ़िट
-session-param-base-shape-shape = आकृति
-session-param-base-stack-layout = लेआउट
-session-param-base-stack-count = आइटम की संख्या
-session-param-base-stack-gap = अंतराल
-session-param-base-text-body = मुख्य भाग
-session-param-essentiel-toc-title = शीर्षक
 
 ## Menu
 

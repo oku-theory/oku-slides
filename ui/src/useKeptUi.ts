@@ -1,5 +1,5 @@
 // L'état d'interface gardé par l'hôte pour la reprise : slide courante, grille et fantômes de la scène,
-// largeurs des colonnes, code des widgets (affiché, largeur), hauteur de la bande, sections repliées, sous-onglets.
+// largeurs des colonnes, code des widgets (affiché, largeur), sections repliées, sous-onglets.
 
 import { useEffect, useState } from "react";
 import type { PileSectionName, UiOrder, UiState } from "./api";
@@ -66,11 +66,7 @@ export interface KeptUi {
   codeWidth: number | null;
   /** Retient une nouvelle largeur du code (et la fait garder par l'hôte). */
   setCodeWidth: (width: number | null) => void;
-  /** Hauteur de la bande sous la scène choisie au séparateur, en px ; `null` : hauteur par défaut. */
-  band: number | null;
-  /** Retient une nouvelle hauteur de la bande (et la fait garder par l'hôte). */
-  setBand: (band: number | null) => void;
-  /** Sections repliées (pile, carte des paramètres). */
+  /** Sections repliées (miniatures, widgets). */
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
   setFolded: (section: PileSectionName, folded: boolean) => void;
@@ -102,7 +98,6 @@ export function useKeptUi(
   const [columns, setColumns] = useState<ColumnWidths>({ pile: null, notes: null });
   const [code, setCode] = useState(false);
   const [codeWidth, setCodeWidth] = useState<number | null>(null);
-  const [band, setBand] = useState<number | null>(null);
   const [folded, setFoldedList] = useState<PileSectionName[]>([]);
   // Reprise unique ; un état, pas une référence : la sauvegarde attend le rendu
   // où les choix repris sont en place, sans écraser d'abord l'état gardé par les défauts.
@@ -114,16 +109,15 @@ export function useKeptUi(
     setColumns({ pile: kept.pile, notes: kept.notes });
     setCode(kept.code);
     setCodeWidth(kept.code_width);
-    setBand(kept.band);
     setFoldedList(kept.folded);
     setRestored(true);
   }, [kept, restored]);
 
   useEffect(() => {
     if (!restored) return;
-    send(save, { slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, band, folded }, timers);
+    send(save, { slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded }, timers);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` et `timers` sont stables (voir plus haut)
-  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeWidth, band, folded]);
+  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeWidth, folded]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>
@@ -136,5 +130,5 @@ export function useKeptUi(
     flip(which);
     return true;
   };
-  return { grid, ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, band, setBand, folded, setFolded, setGrid, setGhosts, handleKey };
+  return { grid, ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, folded, setFolded, setGrid, setGhosts, handleKey };
 }

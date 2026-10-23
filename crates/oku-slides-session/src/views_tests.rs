@@ -51,11 +51,6 @@ fn sanitized_outside_pack_keeps_folded_sections() {
 }
 
 #[test]
-fn ui_state_default_has_the_band_at_its_default_height() {
-    assert_that!(UiState::default().band).is_none();
-}
-
-#[test]
 fn ui_state_default_has_the_code_at_its_default_width() {
     assert_that!(UiState::default().code_width).is_none();
 }
@@ -91,9 +86,20 @@ fn ui_state_with_the_slides_section_folded_reads() {
     assert_that!(ui.folded).is_equal_to(vec![PileSection::Slides]);
 }
 
-/// La carte des paramètres de la cible, repliée, se garde comme les sections de la pile.
+/// L'état gardé d'avant le retrait de la carte des paramètres se relit sans elle.
 #[test]
-fn ui_state_with_the_params_card_folded_reads() {
-    let ui: UiState = serde_json::from_str(r#"{"slide":null,"folded":["params"]}"#).unwrap();
-    assert_that!(ui.folded).is_equal_to(vec![PileSection::Params]);
+fn kept_ui_with_a_retired_section_folded_drops_it() {
+    #[derive(serde::Deserialize)]
+    struct Kept {
+        #[serde(deserialize_with = "crate::views::kept_ui")]
+        ui: UiState,
+    }
+    let kept: Kept = serde_json::from_str(r#"{"ui":{"slide":null,"folded":["params","widgets"]}}"#).unwrap();
+    assert_that!(kept.ui.folded).is_equal_to(vec![PileSection::Widgets]);
+}
+
+/// Hors de l'état gardé, une section inconnue est refusée.
+#[test]
+fn ui_state_with_an_unknown_section_folded_is_refused() {
+    assert_that!(serde_json::from_str::<UiState>(r#"{"slide":null,"folded":["params"]}"#).is_err()).is_true();
 }

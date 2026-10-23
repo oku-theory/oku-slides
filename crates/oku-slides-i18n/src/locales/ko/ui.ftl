@@ -41,7 +41,6 @@ ui-toolbar-redo-label = 다시 실행: { $label }
 ui-divider-pile = 슬라이드 더미 너비
 ui-divider-notes = 에이전트 스레드 너비
 ui-divider-code = 코드 크기
-ui-divider-band = 설정 높이
 ui-toolbar-theme = 테마
 ui-toolbar-theme-embedded = 파일의 테마
 ui-toolbar-finish = 완료
@@ -90,13 +89,6 @@ ui-undo-resize = 크기 조정
 ui-undo-edit-slide = 슬라이드 편집
 ui-undo-rename-pack = 팩 이름 바꾸기
 ui-undo-rename-deck = 프레젠테이션 이름 바꾸기
-ui-undo-chart-kind = 차트 유형 변경
-ui-undo-chart-data = 데이터 편집
-ui-undo-chart-color = 계열 색 지정
-ui-undo-chart-stack = { $stacked ->
-    [yes] 계열 누적
-   *[no] 계열 누적 해제
-}
 
 ## 새 요소
 
@@ -292,14 +284,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = 열 { $n }
 ui-table-no-data = 이 표에는 데이터가 없습니다.
-ui-undo-table-option = 표 옵션
-ui-undo-table-align = 열 정렬
-ui-undo-table-data = 표 편집
 ui-show-as = 표시 형식
 ui-show-as-table = 표로 표시
 ui-show-as-chart = 차트로 표시
-ui-undo-show-as-table = 표로 표시
-ui-undo-show-as-chart = 차트로 표시
 
 ## 파일
 
@@ -341,8 +328,6 @@ ui-slide-next = 다음 슬라이드
 ui-present = 프레젠테이션
 ui-present-slide = 슬라이드 { $index } / { $count }
 ui-present-screen = 전체 화면으로 발표
-ui-toolbar-params-hide = 설정 숨기기
-ui-toolbar-params-show = 설정 표시
 ui-help-close = 도움말 닫기
 ui-help-search = 도움말 검색
 ui-help-search-placeholder = 검색…

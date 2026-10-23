@@ -44,7 +44,6 @@ ui-toolbar-redo-label = Ripeti: { $label }
 ui-divider-pile = Larghezza della pila di slide
 ui-divider-notes = Larghezza del filo dell'agente
 ui-divider-code = Dimensione del codice
-ui-divider-band = Altezza delle impostazioni
 ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Tema del file
 ui-toolbar-finish = Fine
@@ -93,13 +92,6 @@ ui-undo-resize = Ridimensiona
 ui-undo-edit-slide = Modifica la diapositiva
 ui-undo-rename-pack = Rinomina il pacchetto
 ui-undo-rename-deck = Rinomina la presentazione
-ui-undo-chart-kind = Cambia il tipo di grafico
-ui-undo-chart-data = Modifica i dati
-ui-undo-chart-color = Colora una serie
-ui-undo-chart-stack = { $stacked ->
-    [yes] Impila le serie
-   *[no] Separa le serie
-}
 
 ## Nuovi elementi
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Colonna { $n }
 ui-table-no-data = Questa tabella non ha dati.
-ui-undo-table-option = Opzioni della tabella
-ui-undo-table-align = Allinea la colonna
-ui-undo-table-data = Modifica la tabella
 ui-show-as = Mostra come
 ui-show-as-table = Mostra come tabella
 ui-show-as-chart = Mostra come grafico
-ui-undo-show-as-table = Mostra come tabella
-ui-undo-show-as-chart = Mostra come grafico
 
 ## File
 
@@ -344,8 +331,6 @@ ui-slide-next = Diapositiva successiva
 ui-present = Presentazione
 ui-present-slide = Slide { $index } di { $count }
 ui-present-screen = Presenta a schermo intero
-ui-toolbar-params-hide = Nascondi le impostazioni
-ui-toolbar-params-show = Mostra le impostazioni
 ui-help-close = Chiudi la guida
 ui-help-search = Cerca nella guida
 ui-help-search-placeholder = Cerca…

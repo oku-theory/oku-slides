@@ -12,7 +12,7 @@ const used = (css: string) => [...new Set([...css.matchAll(/var\(\s*(--[\w-]+)/g
 
 describe("jetons des tableaux", () => {
   const sources = ["../styles.css", "./a2ui.css"];
-  for (const sheet of ["./ListTable.css", "../chart/ChartDataGrid.css"]) {
+  for (const sheet of ["./ListTable.css"]) {
     test(`${sheet} : chaque var() lit un jeton défini par l'app`, async () => {
       const defined = new Set<string>();
       for (const s of [...sources, sheet]) for (const name of declared(await read(s))) defined.add(name);

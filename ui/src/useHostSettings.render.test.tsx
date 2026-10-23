@@ -200,10 +200,10 @@ describe("useHostSettings", () => {
     expect(m.out.runs).toBe(0);
   });
 
-  test("useHostSettings ignores host-target", async () => {
+  test("useHostSettings ignores host-data", async () => {
     const { fake } = counted(HOST_WIDGET);
     const m = await mountHost(fake, { snap: snapshot(), widget: "carte" });
-    expect(m.out.h!.onAction(surface("host-target"), action({ key: "titre", value: "x" }))).toBe(false);
+    expect(m.out.h!.onAction(surface("host-data"), action({ key: "titre", value: "x" }))).toBe(false);
     expect(m.out.runs).toBe(0);
   });
 

@@ -2,35 +2,31 @@
 // propose la palette du thème (apparence) ou « Automatique ».
 
 import { useState } from "react";
-import type { Element } from "../api";
 import { t } from "../i18n";
-import { seriesColor, seriesNames } from "./chartDeck";
+import type { SeriesSwatch } from "./ChartPanel";
 
-/** Les pastilles de couleur des séries du paramètre graphique `param`. */
-export function SeriesColors({ element, param, colors, onColor }: {
-  element: Element;
-  /** Le paramètre d'hôte graphique de l'élément. */
-  param: string;
-  /** Palette des graphiques du thème, déjà validée (voir paletteOf). */
-  colors: string[];
+/** Les pastilles de couleur des séries qu'on peut colorer. */
+export function SeriesColors({ series, colors, onColor }: {
+  series: readonly SeriesSwatch[];
+  /** Palette des graphiques du thème, en `#rrggbb` (validée par la session). */
+  colors: readonly string[];
   /** Couleur choisie pour la série `index` ; `null` = la palette. */
   onColor: (index: number, color: string | null) => void;
 }) {
   const [open, setOpen] = useState<number | null>(null);
-  const names = seriesNames(element, param);
-  if (names.length === 0 || colors.length === 0) return null;
+  if (series.length === 0 || colors.length === 0) return null;
   // « Automatique » : les premières couleurs de la palette, en diagonale.
   const auto = {
     background: `repeating-linear-gradient(135deg, ${colors.slice(0, 3).map((c, k) => `${c} ${4 * k}px ${4 * k + 4}px`).join(", ")})`,
   };
   const pick = (i: number, color: string | null) => {
     setOpen(null);
-    if (color !== seriesColor(element, param, i)) onColor(i, color);
+    if (color !== (series[i].color ?? null)) onColor(i, color);
   };
   return (
     <div className="series-colors" role="group" aria-label={t("ui-chart-colors")}>
-      {names.map((name, i) => {
-        const own = seriesColor(element, param, i);
+      {series.map(({ name, color }, i) => {
+        const own = color ?? null;
         return (
           <div key={i} className="series-color">
             <button

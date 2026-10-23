@@ -1,5 +1,5 @@
-// Atelier d'un pack de layouts (mode pack) : la grille de `layout-blank` changée par la carte de la
-// slide (son exemple), enregistrée dans un nouveau pack, se retrouve en le rouvrant. L'atelier se
+// Atelier d'un pack de layouts (mode pack) : la grille de `layout-blank` changée (`set_grid`, comme
+// le fait l'agent : plus de carte de la slide), enregistrée dans un nouveau pack, se retrouve en le rouvrant. L'atelier se
 // demande à l'agent (t-988). Au passage : pas de sous-onglet
 // « Modèles » (sa scène est l'onglet « Layouts »), une miniature ramène la scène, l'onglet « Thème »
 // montre les jetons à droite.
@@ -13,10 +13,12 @@ const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = 't-1';
 const api = (p, req) => post(p, '/api', { tab: TAB, req });
-const TARGET = '.settings-band [data-surface-id="host-target"]';
 const thumb = (name) => `.thumb:has(.thumb-name:text-is("${name}"))`;
-/** Valeurs des steppers de la carte de la slide (colonnes, lignes de sa grille). */
-const grid = (p) => p.evaluate((sel) => [...document.querySelectorAll(`${sel} .stepper-value`)].map((e) => Number(e.textContent)), TARGET);
+/** La grille de `layout-blank` (colonnes, lignes), lue dans la session. */
+const grid = async (p) => {
+  const g = (await api(p, { cmd: 'slide', id: 'layout-blank' })).slide?.params?.grid ?? {};
+  return [g.columns, g.rows];
+};
 const stageHidden = (p) => p.evaluate(() => document.getElementById('stage-panel').hidden);
 
 (async () => {
@@ -72,16 +74,10 @@ const stageHidden = (p) => p.evaluate(() => document.getElementById('stage-panel
   await p.getByRole('tab', { name: 'Layouts', exact: true }).click();
   await p.waitForSelector('#theme-panel', { state: 'detached' });
 
-  // 2-3. La slide `layout-blank` : sa grille passe à 4 colonnes par la carte de la slide (son exemple).
+  // 2-3. La slide `layout-blank` : sa grille passe à 4 colonnes.
   await p.click(thumb('blank'));
-  await p.waitForSelector(`${TARGET} .stepper-value`);
-  const rows = (await grid(p))[1];
-  const fewer = p.locator(TARGET).getByRole('button', { name: 'Colonnes : une de moins' });
-  for (let cols = (await grid(p))[0]; cols > 4; cols--) {
-    await fewer.click();
-    await untilValue(p, () => grid(p), (g) => g[0] === cols - 1, `la grille ne passe pas à ${cols - 1} colonnes`);
-  }
-  assert.deepEqual(await grid(p), [4, rows]);
+  await api(p, { cmd: 'apply', label: 'Grille', ops: [{ op: 'set_grid', slide: 'layout-blank', columns: 4 }] });
+  const [, rows] = await untilValue(p, () => grid(p), (g) => g[0] === 4, 'la grille ne passe pas à 4 colonnes');
 
   // 4. Enregistrer une copie (plus au menu : l'agent, outil `save_pack`, t-988 ; ici par la session) :
   // un nouveau pack, que l'atelier édite désormais.

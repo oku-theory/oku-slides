@@ -1,11 +1,10 @@
-// La barre d'outils sous la feuille. On y ouvre la grille d'ajout, montre les paramètres,
+// La barre d'outils sous la feuille. On y ouvre la grille d'ajout,
 // ouvre le menu, annule et rétablit ; sur un sous-onglet widget, elle porte ses propres outils.
 
 import type { ReactNode } from "react";
 import type { SlideView, Snapshot, TabApi } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { IconToggle } from "./primitives";
 import { canAdd } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
 import type { PackWidgetEditor } from "./usePackWidgetEditor";
@@ -26,8 +25,6 @@ interface Props {
   widgets: PackWidgetEditor;
   /** Les réglages d'interface gardés par l'hôte. */
   keptUi: KeptUi;
-  /** Les paramètres de contenu sont masqués. */
-  paramsHidden: boolean;
   /** Le menu principal, posé dans la barre. */
   mainMenu: ReactNode;
   /** Applique une requête qui rend un snapshot. */
@@ -44,19 +41,17 @@ export function ToolsTray({
   widgetActive,
   widgets,
   keptUi,
-  paramsHidden,
   mainMenu,
   run,
   onAdd,
 }: Props) {
-  const paramsLabel = t(paramsHidden ? "ui-toolbar-params-show" : "ui-toolbar-params-hide");
   const undoLabel = snap.undo_label
     ? t("ui-toolbar-undo-label", { label: snap.undo_label })
     : t("ui-toolbar-undo");
   const redoLabel = snap.redo_label
     ? t("ui-toolbar-redo-label", { label: snap.redo_label })
     : t("ui-toolbar-redo");
-  // Ce qu'on ajoute à la slide, les paramètres et le menu de ce qui sert rarement, puis
+  // Ce qu'on ajoute à la slide, le menu de ce qui sert rarement, puis
   // annuler / rétablir : posés sous la feuille.
   return (
     <div className="object theme-card tools-tray">
@@ -88,14 +83,6 @@ export function ToolsTray({
         </>
       ) : (
         <>
-          {/* Les paramètres de contenu sous la slide : affichés ou masqués (gardé par l'hôte). */}
-          <IconToggle
-            className="token ghost"
-            pressed={!paramsHidden}
-            label={paramsLabel}
-            onToggle={() => keptUi.setFolded("params", !paramsHidden)}
-            icon={Icon.panelBottom}
-          />
           {mainMenu}
           <span className="tools-sep" aria-hidden />
           <button

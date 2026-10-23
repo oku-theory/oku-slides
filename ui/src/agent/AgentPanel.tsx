@@ -106,7 +106,9 @@ export interface AgentPanelProps {
   thumbs: SlideThumbs;
   slots: AgentSlots;
   handle: Ref<AgentHandle>;
-  /** Une action de réglages de l'hôte (widget, cible, thème) ; `true` si elle a été prise. */
+  /** Surfaces de l'hôte posées en tête du dock (données du graphique ou du tableau sélectionné). */
+  hostSurfaces?: readonly Surface[];
+  /** Une action de réglages de l'hôte (widget, données, thème) ; `true` si elle a été prise. */
   onHostAction: (s: Surface, a: A2uiClientAction) => boolean;
   onStatus: (status: AgentStatusView) => void;
   /** Le deck a pu changer (outils de l'agent, abonnement prêt) : à relire. */
@@ -134,6 +136,7 @@ export interface AgentPanelProps {
 
 const ALL_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal", "dock"];
 const NOOP = () => {};
+const NO_SURFACES: readonly Surface[] = [];
 
 /** Ce que lit l'abonnement, posé une fois par onglet : toujours la dernière version. */
 interface Latest {
@@ -160,7 +163,10 @@ export function AgentPanel(props: AgentPanelProps) {
   // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
   // sinon dans le fil ; le tiroir sous la scène ; la fenêtre par-dessus tout.
   const routed = useMemo(() => props.route(surfaces), [surfaces, props.route]);
-  const { stage: sheet, drawer, modal, dock } = routed;
+  const { stage: sheet, drawer, modal } = routed;
+  // Les surfaces de l'hôte d'abord : des réglages, avant ceux de l'agent et la question.
+  const hostSurfaces = props.hostSurfaces ?? NO_SURFACES;
+  const dock = useMemo(() => (hostSurfaces.length === 0 ? routed.dock : [...hostSurfaces, ...routed.dock]), [hostSurfaces, routed.dock]);
   const cancel = () => void agent.cancel().catch((err) => say(String(err), true));
   const subscribe = props.subscribe ?? subscribeHost;
   useEffect(

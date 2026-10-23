@@ -145,17 +145,26 @@ log-document-saved = Документ сохранён
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Столбцы
-session-panel-rows = Строки
 session-widget-params = Параметры { $name }
 session-widget-no-params = У этого виджета нет параметров.
 session-widget-param-fixed = { $name }: не настраивается в предпросмотре
 session-widget-param-yes = Да
 session-widget-param-no = Нет
 session-widget-invalid-file = Недопустимый файл: настройки недоступны
-session-undo-grid = Сетка { $columns } × { $rows }
-session-undo-param = Настройка: { $label }
-session-target-bound = { $name } следует переменной презентации «{ $var }»
+session-data-chart = Диаграмма
+session-data-table = Таблица
+session-undo-chart-kind = Сменить тип диаграммы
+session-undo-chart-data = Изменить данные
+session-undo-chart-color = Задать цвет ряда
+session-undo-chart-stack = { $stacked ->
+    [yes] Сложить ряды
+   *[no] Разделить ряды
+}
+session-undo-table-option = Параметры таблицы
+session-undo-table-align = Выровнять столбец
+session-undo-table-data = Изменить таблицу
+session-undo-show-as-table = Показать в виде таблицы
+session-undo-show-as-chart = Показать в виде диаграммы
 session-widget-kind-base-card = Карточка
 session-widget-kind-base-chart = Диаграмма
 session-widget-kind-base-table = Таблица
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Текст
 session-widget-kind-essentiel-toc = Оглавление
 session-widget-kind-essentiel-title = Титульный слайд
 session-widget-kind-essentiel-blank = Пустой
-session-param-base-card-kicker = Надзаголовок
-session-param-base-card-title = Заголовок
-session-param-base-card-body = Основной текст
-session-param-base-card-highlight = Выделение
-session-param-essentiel-chapter-title = Заголовок
-session-param-essentiel-chapter-subtitle = Подзаголовок
-session-param-essentiel-content-kicker = Надзаголовок
-session-param-essentiel-content-title = Заголовок
-session-param-essentiel-content-layout = Макет
-session-param-essentiel-end-text = Текст
-session-param-base-image-fit = Вписывание
-session-param-base-shape-shape = Фигура
-session-param-base-stack-layout = Макет
-session-param-base-stack-count = Количество элементов
-session-param-base-stack-gap = Отступ
-session-param-base-text-body = Основной текст
-session-param-essentiel-toc-title = Заголовок
 
 ## Menu
 

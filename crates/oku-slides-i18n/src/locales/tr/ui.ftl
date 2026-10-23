@@ -44,7 +44,6 @@ ui-toolbar-redo-label = Yinele: { $label }
 ui-divider-pile = Slayt yığınının genişliği
 ui-divider-notes = Ajan akışının genişliği
 ui-divider-code = Kod boyutu
-ui-divider-band = Ayarların yüksekliği
 ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Dosyanın teması
 ui-toolbar-finish = Bitti
@@ -93,13 +92,6 @@ ui-undo-resize = Yeniden boyutlandır
 ui-undo-edit-slide = Slaytı düzenle
 ui-undo-rename-pack = Paketi yeniden adlandır
 ui-undo-rename-deck = Sunuyu yeniden adlandır
-ui-undo-chart-kind = Grafik türünü değiştir
-ui-undo-chart-data = Verileri düzenle
-ui-undo-chart-color = Seriyi renklendir
-ui-undo-chart-stack = { $stacked ->
-    [yes] Serileri yığ
-   *[no] Serileri ayır
-}
 
 ## Yeni öğeler
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Sütun { $n }
 ui-table-no-data = Bu tabloda veri yok.
-ui-undo-table-option = Tablo seçenekleri
-ui-undo-table-align = Sütunu hizala
-ui-undo-table-data = Tabloyu düzenle
 ui-show-as = Şu olarak göster
 ui-show-as-table = Tablo olarak göster
 ui-show-as-chart = Grafik olarak göster
-ui-undo-show-as-table = Tablo olarak göster
-ui-undo-show-as-chart = Grafik olarak göster
 
 ## Dosyalar
 
@@ -344,8 +331,6 @@ ui-slide-next = Sonraki slayt
 ui-present = Sunum
 ui-present-slide = Slayt { $index } / { $count }
 ui-present-screen = Tam ekranda sun
-ui-toolbar-params-hide = Ayarları gizle
-ui-toolbar-params-show = Ayarları göster
 ui-help-close = Yardımı kapat
 ui-help-search = Yardımda ara
 ui-help-search-placeholder = Ara…

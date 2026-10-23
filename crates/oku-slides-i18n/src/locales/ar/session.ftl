@@ -145,17 +145,26 @@ log-document-saved = حُفظ المستند
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = الأعمدة
-session-panel-rows = الصفوف
 session-widget-params = معلمات { $name }
 session-widget-no-params = لا توجد معلمات لهذه الأداة.
 session-widget-param-fixed = { $name }: غير قابل للضبط في المعاينة
 session-widget-param-yes = نعم
 session-widget-param-no = لا
 session-widget-invalid-file = ملف غير صالح: الإعدادات غير متاحة
-session-undo-grid = شبكة { $columns } × { $rows }
-session-undo-param = ضبط: { $label }
-session-target-bound = يتبع { $name } متغير العرض التقديمي «{ $var }»
+session-data-chart = المخطط
+session-data-table = جدول
+session-undo-chart-kind = تغيير نوع المخطط
+session-undo-chart-data = تعديل البيانات
+session-undo-chart-color = تلوين سلسلة
+session-undo-chart-stack = { $stacked ->
+    [yes] تكديس السلاسل
+   *[no] فصل السلاسل
+}
+session-undo-table-option = خيارات الجدول
+session-undo-table-align = محاذاة العمود
+session-undo-table-data = تعديل الجدول
+session-undo-show-as-table = عرض على شكل جدول
+session-undo-show-as-chart = عرض على شكل رسم بياني
 session-widget-kind-base-card = بطاقة
 session-widget-kind-base-chart = مخطط
 session-widget-kind-base-table = جدول
@@ -169,23 +178,6 @@ session-widget-kind-base-text = نص
 session-widget-kind-essentiel-toc = جدول المحتويات
 session-widget-kind-essentiel-title = شريحة العنوان
 session-widget-kind-essentiel-blank = فارغة
-session-param-base-card-kicker = العنوان التمهيدي
-session-param-base-card-title = العنوان
-session-param-base-card-body = المتن
-session-param-base-card-highlight = إبراز
-session-param-essentiel-chapter-title = العنوان
-session-param-essentiel-chapter-subtitle = العنوان الفرعي
-session-param-essentiel-content-kicker = العنوان التمهيدي
-session-param-essentiel-content-title = العنوان
-session-param-essentiel-content-layout = التخطيط
-session-param-essentiel-end-text = النص
-session-param-base-image-fit = الملاءمة
-session-param-base-shape-shape = شكل
-session-param-base-stack-layout = التخطيط
-session-param-base-stack-count = عدد العناصر
-session-param-base-stack-gap = التباعد
-session-param-base-text-body = المتن
-session-param-essentiel-toc-title = العنوان
 
 ## Menu
 

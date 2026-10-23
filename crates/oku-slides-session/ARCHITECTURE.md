@@ -19,7 +19,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
   closure (`theme_closure.rs`); `deck_theme.rs` renders with `theme_layer` (pack defaults, then the linearized chain), repairs a merge-broken closure.
   Editing: `theme_edit.rs` + `theme_draft.rs` (draft over the base's parents, or empty child of a built-in), `deck_theme_edit.rs`, `theme_schema.rs` + `theme_composed.rs` (plus packs' tokens), `theme_panel.rs` + `theme_controls.rs`, `theme_picker.rs`, `appearance.rs`.
 - Workshop: `widgets_edit.rs`, `widget_preview.rs` (working deck's packs), `widget_examples.rs`, `widget_params.rs`, `param_fields.rs`
-  (Fluent names of built-in kinds), `items.rs`, `widgets_deck.rs` (`deck`/`deck-layouts` by category); `panel.rs`, `target_params.rs` + `target_grid.rs` (pack-mode slide grid).
+  (Fluent names of built-in kinds), `items.rs`, `widgets_deck.rs` (`deck`/`deck-layouts` by category); `panel.rs`; `data_panel.rs` + `data_edit.rs` (the `host-data` surface of a selected chart or table and its edits, one undo step each).
 - Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`.
 - Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts unrendered, its worker at the first render.
 - `import/`: PowerPoint import, CLI and app (one history step; a retrofit pins `base` and its layout packs, scored by their

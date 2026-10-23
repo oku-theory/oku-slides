@@ -37,6 +37,8 @@ fn render_valid_composition_is_a_frozen_thread_surface() {
 #[case::slide_thumb(json!([{"id": "root", "component": "SlideThumb", "svg": "<svg/>", "label": "x"}]), "SlideThumb is reserved")]
 #[case::notice(json!([{"id": "root", "component": "Notice", "text": "x", "children": [], "close": {"event": {"name": "close"}}, "close_label": "x"}]), "Notice is reserved")]
 #[case::theme_choice(json!([{"id": "root", "component": "ThemeChoice", "name": "x", "slide": "s-1", "swatches": [], "active": false}]), "ThemeChoice is reserved")]
+#[case::chart_data(json!([{"id": "root", "component": "ChartData", "source": [], "checkbox_columns": [], "series": [], "palette": [], "edit": null, "action": {"event": {"name": "data"}}}]), "ChartData is reserved")]
+#[case::table_data(json!([{"id": "root", "component": "TableData", "source": [], "header_row": true, "header_column": false, "striped": false, "align": [], "edit": null, "action": {"event": {"name": "data"}}}]), "TableData is reserved")]
 #[case::no_root(json!([{"id": "a", "component": "Text", "text": "x"}]), "no component has the id “root”")]
 #[case::missing_child(json!([{"id": "root", "component": "Card", "child": "nope"}]), "unknown child “nope”")]
 #[case::unknown_property(json!([{"id": "root", "component": "Text", "text": "x", "weight": 700}]), "components[0]: unknown property “weight”")]

@@ -44,7 +44,6 @@ ui-toolbar-redo-label = Wiederholen: { $label }
 ui-divider-pile = Breite des Folienstapels
 ui-divider-notes = Breite des Agenten-Verlaufs
 ui-divider-code = Codegröße
-ui-divider-band = Höhe der Einstellungen
 ui-toolbar-theme = Design
 ui-toolbar-theme-embedded = Design der Datei
 ui-toolbar-finish = Fertig
@@ -93,13 +92,6 @@ ui-undo-resize = Größe ändern
 ui-undo-edit-slide = Folie bearbeiten
 ui-undo-rename-pack = Paket umbenennen
 ui-undo-rename-deck = Präsentation umbenennen
-ui-undo-chart-kind = Diagrammtyp ändern
-ui-undo-chart-data = Daten bearbeiten
-ui-undo-chart-color = Reihe einfärben
-ui-undo-chart-stack = { $stacked ->
-    [yes] Reihen stapeln
-   *[no] Reihen trennen
-}
 
 ## Neue Elemente
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Spalte { $n }
 ui-table-no-data = Diese Tabelle enthält keine Daten.
-ui-undo-table-option = Tabellenoptionen
-ui-undo-table-align = Spalte ausrichten
-ui-undo-table-data = Tabelle bearbeiten
 ui-show-as = Anzeigen als
 ui-show-as-table = Als Tabelle anzeigen
 ui-show-as-chart = Als Diagramm anzeigen
-ui-undo-show-as-table = Als Tabelle anzeigen
-ui-undo-show-as-chart = Als Diagramm anzeigen
 
 ## Dateien
 
@@ -344,8 +331,6 @@ ui-slide-next = Nächste Folie
 ui-present = Präsentation
 ui-present-slide = Folie { $index } von { $count }
 ui-present-screen = Im Vollbild präsentieren
-ui-toolbar-params-hide = Einstellungen ausblenden
-ui-toolbar-params-show = Einstellungen einblenden
 ui-help-close = Hilfe schließen
 ui-help-search = In der Hilfe suchen
 ui-help-search-placeholder = Suchen…

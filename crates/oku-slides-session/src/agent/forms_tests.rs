@@ -553,6 +553,22 @@ fn every_form() -> Vec<super::Surface> {
             &l,
         ),
         pack_notice_banner("Ce deck utilise une version plus récente de « Charte ».".into(), true, &l),
+        super::data_surface(
+            "host-data",
+            "Graphique".into(),
+            crate::data_panel::chart_data(
+                &json!({ "dataset": { "source": [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]] },
+                    "series": [{ "type": "bar" }, { "type": "bar", "stack": "total", "itemStyle": { "color": "#1F4E79" } }] }),
+                &["#1f4e79".into(), "#c2573a".into()],
+            ),
+        ),
+        super::data_surface(
+            "host-data",
+            "Tableau".into(),
+            crate::data_panel::table_data(
+                &json!({ "dataset": { "source": [["A", "B"], [1, null]] }, "striped": true, "align": ["auto", "end"] }),
+            ),
+        ),
     ]
 }
 

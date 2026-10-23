@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::data::SeriesSwatch;
+
 /// Catalogue des surfaces d'Oku Slides (panneau et agent), implémenté par l'interface (`ui/src/a2ui`).
 pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:v3";
 
@@ -79,7 +81,7 @@ pub struct Component {
 
 /// Composants du catalogue [`CATALOG_ID`]. Noms et propriétés reprennent
 /// ceux du catalogue de base v0.9 ; `Stepper`, `ChoiceChips`, `ColorField`,
-/// `SlideThumb`, `ThemeChoice`, `DiffText`, `Notice` sont propres à Oku Slides.
+/// `SlideThumb`, `ThemeChoice`, `DiffText`, `Notice`, `ChartData`, `TableData` sont propres à Oku Slides.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
@@ -251,6 +253,38 @@ pub enum ComponentKind {
     Markdown { text: Dynamic<String> },
     /// Un bandeau annoncé (hôte seul) : `text`, les boutons `children`, puis la croix `close`.
     Notice { text: Dynamic<String>, children: Vec<String>, close: Action, close_label: Dynamic<String> },
+    /// Les données d'un graphique et ses réglages (hôte seul) ; une modification est écrite
+    /// dans `edit`, puis `action` part.
+    ChartData {
+        /// Type de la première série ; absent sans données.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kind: Option<String>,
+        /// `dataset.source` : ligne 0 = en-têtes ; nombres, textes, booléens ou `null`.
+        source: Vec<Vec<Value>>,
+        /// Colonnes éditées en cases à cocher (le Total d'une cascade).
+        checkbox_columns: Vec<usize>,
+        /// Séries empilées ; absent quand l'empilement n'a pas de sens.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stacked: Option<bool>,
+        /// Les séries qu'on peut colorer.
+        series: Vec<SeriesSwatch>,
+        /// Palette des graphiques du thème, en `#rrggbb`.
+        palette: Vec<String>,
+        edit: Dynamic<Value>,
+        action: Action,
+    },
+    /// Les données d'un tableau et ses options d'affichage (hôte seul) ; comme `ChartData`.
+    TableData {
+        /// `dataset.source` : ligne 0 = noms de colonnes.
+        source: Vec<Vec<Value>>,
+        header_row: bool,
+        header_column: bool,
+        striped: bool,
+        /// Alignement de chaque colonne (`auto`, `start`, `center`, `end`) ; sans entrée : `auto`.
+        align: Vec<String>,
+        edit: Dynamic<Value>,
+        action: Action,
+    },
 }
 
 /// Teinte d'une carte ou d'un badge.
@@ -558,14 +592,19 @@ impl ComponentKind {
             | Self::Timeline { .. }
             | Self::Receipt { .. }
             | Self::Badge { .. }
-            | Self::Markdown { .. } => Vec::new(),
+            | Self::Markdown { .. }
+            | Self::ChartData { .. }
+            | Self::TableData { .. } => Vec::new(),
         }
     }
 
     /// Les actions que le composant peut envoyer.
     pub fn actions(&self) -> Vec<&Action> {
         match self {
-            Self::Button { action, .. } | Self::Notice { close: action, .. } => vec![action],
+            Self::Button { action, .. }
+            | Self::Notice { close: action, .. }
+            | Self::ChartData { action, .. }
+            | Self::TableData { action, .. } => vec![action],
             Self::TextField { action, .. }
             | Self::RichTextField { action, .. }
             | Self::Stepper { action, .. }
@@ -591,11 +630,11 @@ impl ComponentKind {
         }
     }
 
-    /// Le même composant, en lecture seule ; `None` pour un bouton ou un bandeau.
+    /// Le même composant, en lecture seule ; `None` pour un bouton, un bandeau ou une grille de données.
     pub fn without_action(self) -> Option<Self> {
         Some(match self {
-            // Sans action, un bouton ou un bandeau n'a plus de sens.
-            Self::Button { .. } | Self::Notice { .. } => return None,
+            // Sans action, un bouton, un bandeau ou une grille de données n'a plus de sens.
+            Self::Button { .. } | Self::Notice { .. } | Self::ChartData { .. } | Self::TableData { .. } => return None,
             Self::TextField { label, value, .. } => Self::TextField { label, value, action: None },
             Self::RichTextField { label, value, source, palette, .. } => {
                 Self::RichTextField { label, value, source, palette, action: None }
@@ -631,7 +670,8 @@ impl ComponentKind {
 }
 
 impl Component {
-    /// `false` pour les composants réservés à l'hôte (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`, `ThemeChoice`).
+    /// `false` pour les composants réservés à l'hôte (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`,
+    /// `ThemeChoice`, `ChartData`, `TableData`).
     ///
     /// Un reçu passe par l'outil `report` (bornes, miniature rendue par l'hôte) ; une miniature
     /// est toujours rendue par l'hôte.
@@ -644,6 +684,8 @@ impl Component {
                 | ComponentKind::SlideThumb { .. }
                 | ComponentKind::Notice { .. }
                 | ComponentKind::ThemeChoice { .. }
+                | ComponentKind::ChartData { .. }
+                | ComponentKind::TableData { .. }
         )
     }
 

@@ -1,8 +1,7 @@
 // Réglages de l'hôte en mode pack : ceux du widget du sous-onglet actif, à ses valeurs
 // d'exemple, en une surface construite par la session. Chaque champ porte sa clé ; une
 // action part avec le widget de la surface affichée. Un réglage refusé relit la surface :
-// le champ reprend la valeur de la session, celle que dessine l'aperçu. Une slide du deck
-// de travail se règle par sa carte de cible (`useTargetSettings`) : c'est l'exemple de son layout.
+// le champ reprend la valeur de la session, celle que dessine l'aperçu.
 
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
@@ -10,7 +9,7 @@ import type { ListOp, Snapshot, Surface, TabApi } from "./api";
 import { deckPinsKey } from "./packOps";
 import type { ActionOutcome } from "./a2ui/actionOutcome";
 import type { ListChange } from "./a2ui/ListTable";
-import { fromA2ui } from "./agent/quick";
+import { fromA2ui, type QuickAction } from "./agent/quick";
 
 /** Surface des réglages du widget du sous-onglet actif. */
 export const HOST_WIDGET = "host-widget";
@@ -49,8 +48,9 @@ export function useHostSettings(
     // Tout ce qui peut changer la carte : packs, valeurs d'exemple, annulation.
     key: [widget, snap?.editing?.base, deckPinsKey(snap), snap?.widget_trials, snap?.undo_label, snap?.redo_label].join("|"),
     fetch: (scope) => api.hostSettings(scope.widget),
-    // Le widget que montre la surface.
-    send: (scope, field, context) => exampleValue(api, scope.widget, field, context),
+    // Le widget que montre la surface ; seul un réglage (`param`) adressé par sa clé part.
+    send: (scope, { name, context }) =>
+      name === "param" && typeof context.key === "string" ? exampleValue(api, scope.widget, context.key, context) : null,
     run,
     say,
   });
@@ -78,8 +78,8 @@ export function useSessionSurface<S>(opts: {
   /** Tout ce qui peut changer la surface, en une chaîne. */
   key: string;
   fetch: (scope: S) => Promise<Surface | null>;
-  /** Envoie le réglage `field` ; `surface` : la surface affichée d'où part l'action. */
-  send: (scope: S, field: string, context: Record<string, unknown>, surface: Surface) => Promise<Snapshot>;
+  /** Envoie l'action de la surface affichée vers `scope` ; `null` : rien à envoyer. */
+  send: (scope: S, action: QuickAction) => Promise<Snapshot> | null;
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   say: (m: string, error?: boolean) => void;
 }): HostSettings {
@@ -128,10 +128,9 @@ export function useSessionSurface<S>(opts: {
     // Une surface tenue a son propre routeur : une action égarée ici ne part pas à l'agent.
     if (held.includes(s.id)) return true;
     if (!now || s !== now.surface) return true;
-    const { name, context } = fromA2ui(a);
-    const field = context.key;
-    if (name !== "param" || typeof field !== "string") return true;
-    outcome.current = run(send(now.scope, field, context, s)).then((done) => {
+    const sent = send(now.scope, fromA2ui(a));
+    if (!sent) return true;
+    outcome.current = run(sent).then((done) => {
       // Refusé (dit en toast par `run`) : l'instantané n'a pas changé, la surface est relue.
       if (!done) setSync((n) => n + 1);
       return !!done;

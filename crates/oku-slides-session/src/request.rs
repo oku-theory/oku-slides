@@ -101,28 +101,16 @@ pub enum Request {
         #[serde(default)]
         value: Option<serde_json::Value>,
     },
-    /// Réglages de la cible (surface ou `null`) : l'élément `element`, sinon le widget de la slide.
-    TargetSettings {
+    /// Surface `host-data` (ou `null`) : les données du graphique ou du tableau `element`.
+    DataPanel {
         slide: String,
-        #[serde(default)]
-        element: Option<String>,
+        element: String,
     },
-    /// Règle le paramètre `key` de la cible (annulable) ; pour une liste, `value`
-    /// est le tableau de ses items.
-    TargetParam {
+    /// Applique une modification de la surface `host-data` à `element` (annulable).
+    DataEdit {
         slide: String,
-        #[serde(default)]
-        element: Option<String>,
-        key: String,
-        value: serde_json::Value,
-    },
-    /// Change la liste `key` de la cible (annulable).
-    TargetList {
-        slide: String,
-        #[serde(default)]
-        element: Option<String>,
-        key: String,
-        change: oku_slides_core::ListOp,
+        element: String,
+        edit: crate::DataEdit,
     },
     /// Change le type d'un graphique ; ses données sont converties. Annulable.
     ChartKind {
@@ -313,8 +301,7 @@ impl Request {
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::HostToken { .. }
-            | Self::TargetParam { .. }
-            | Self::TargetList { .. } => true,
+            | Self::DataEdit { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
             | Self::Search { .. }
@@ -323,7 +310,7 @@ impl Request {
             | Self::Widgets
             | Self::HostSettings { .. }
             | Self::HostTheme { .. }
-            | Self::TargetSettings { .. }
+            | Self::DataPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
             | Self::SavePack { .. }
@@ -368,8 +355,7 @@ impl Request {
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
                 | Self::HostToken { .. }
-                | Self::TargetParam { .. }
-                | Self::TargetList { .. }
+                | Self::DataEdit { .. }
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
         )
@@ -440,8 +426,7 @@ impl Session {
                     | Request::SetTheme { .. }
                     | Request::SetEditedTheme { .. }
                     | Request::HostToken { .. }
-                    | Request::TargetParam { .. }
-                    | Request::TargetList { .. }
+                    | Request::DataEdit { .. }
             ),
             !matches!(
                 req,
@@ -470,9 +455,7 @@ impl Session {
             Request::Svg { id } => return json(&*self.svg(&id)?),
             Request::HostSettings { widget } => return json(&self.host_settings(widget.as_deref())?),
             Request::HostTheme { filter } => return json(&self.host_theme(&filter)?),
-            Request::TargetSettings { slide, element } => {
-                return json(&self.target_settings(&slide, element.as_deref())?);
-            }
+            Request::DataPanel { slide, element } => return json(&self.data_panel(&slide, &element)?),
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
             Request::Layouts => return json(&self.layouts_view()?),
@@ -522,18 +505,13 @@ impl Session {
                 self.set_theme(&ns)?
             }
             Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
-            Request::TargetParam { slide, element, key, value } => {
-                self.target_param(&slide, element.as_deref(), &key, value)?;
-            }
-            Request::TargetList { slide, element, key, change } => {
-                self.target_list(&slide, element.as_deref(), &key, change)?;
-            }
             Request::SetExampleValue { name, param, value } => {
                 self.set_example_values(&name, serde_json::Map::from_iter([(param, value)]))?;
             }
             Request::EditExampleList { name, param, change } => {
                 self.edit_example_list(&name, &param, change)?;
             }
+            Request::DataEdit { slide, element, edit } => self.data_edit(slide, &element, edit)?,
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::ShowAs { label, slide, element, view } => self.show_as(&label, slide, &element, view)?,
             Request::Undo => self.undo()?,

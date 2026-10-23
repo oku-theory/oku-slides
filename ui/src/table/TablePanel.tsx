@@ -1,15 +1,17 @@
-// Panneau d'un tableau sélectionné : options d'affichage, alignement des colonnes
-// et grille de ses données (celle des graphiques). Chaque modification part en op.
+// Vue des données d'un tableau (composant `TableData` de la surface `host-data`) : options
+// d'affichage, alignement des colonnes et grille de ses données (celle des graphiques).
+// Chaque geste part en une modification (`DataEdit`) que la session applique.
 
 import type { ReactNode } from "react";
 
-import type { Element, Op } from "../api";
 import { ChartDataGrid } from "../chart/ChartDataGrid";
+import type { Cell } from "../chart/chartTypes";
+import type { DataEdit } from "../chart/dataEdit";
 import { t } from "../i18n";
 import { stroke } from "../icons";
 import { IconToggle } from "../primitives";
-import { ShowAsButton, type View } from "./ShowAsButton";
-import { COLUMN_ALIGNS, type TableFlag, alignPatch, asColumnAlign, columnAlign, flag, tableOption } from "./tableDeck";
+import { ShowAsButton } from "./ShowAsButton";
+import { COLUMN_ALIGNS, type TableFlag, asColumnAlign } from "./tableDeck";
 
 const FLAGS: { key: TableFlag; label: string; icon: ReactNode }[] = [
   { key: "header-row", label: "ui-table-header-row",
@@ -22,35 +24,30 @@ const FLAGS: { key: TableFlag; label: string; icon: ReactNode }[] = [
 
 const tableColumnName = (n: number) => t("ui-table-column", { n: n + 1 });
 
-/** Le panneau d'un élément à hôte tableau, qui lit et écrit son paramètre `param`. */
-export function TablePanel({ slide, element, param, onApply, onShowAs }: {
-  slide: string;
-  element: Element;
-  /** Le paramètre d'hôte tableau de l'élément (`host_params`). */
-  param: string;
-  onApply: (label: string, ops: Op[]) => void;
-  /** Affiche le tableau en graphique (requête `show_as`). */
-  onShowAs: (view: View) => void;
+/** Les données d'un tableau et ses options ; chaque geste part en une modification (`onEdit`). */
+export function TableDataView({ source, headerRow, headerColumn, striped, align, onEdit }: {
+  /** dataset.source : ligne 0 = noms de colonnes ; vide sans données. */
+  source: Cell[][];
+  headerRow: boolean;
+  headerColumn: boolean;
+  striped: boolean;
+  /** Alignement de chaque colonne ; sans entrée : `auto`. */
+  align: readonly string[];
+  onEdit: (edit: DataEdit) => void;
 }) {
-  const option = tableOption(element, param);
-  if (!option) return <p className="a2ui-hint">{t("ui-table-no-data")}</p>;
-  const target = { slide, element: element.id };
-  const patch = (label: string, p: Record<string, unknown>) =>
-    onApply(label, [{ op: "set_table_option", target, param, patch: p }]);
-  const header = option.dataset.source[0] ?? [];
+  if (source.length === 0) return <p className="a2ui-hint">{t("ui-table-no-data")}</p>;
+  const flags: Record<TableFlag, boolean> = { "header-row": headerRow, "header-column": headerColumn, striped };
+  const header = source[0] ?? [];
   return (
     <section className="table-panel chart-panel" aria-label={t("ui-table-panel")}>
       <div className="panel-toolbar">
         <div className="table-options chart-options" role="group" aria-label={t("ui-table-options")}>
-          {FLAGS.map(({ key, label, icon }) => {
-            const pressed = flag(option, key);
-            return (
-              <IconToggle key={key} label={t(label)} pressed={pressed} icon={icon}
-                onToggle={() => patch(t("ui-undo-table-option"), { [key]: !pressed })} />
-            );
-          })}
+          {FLAGS.map(({ key, label, icon }) => (
+            <IconToggle key={key} label={t(label)} pressed={flags[key]} icon={icon}
+              onToggle={() => onEdit({ edit: "flag", flag: key, on: !flags[key] })} />
+          ))}
         </div>
-        <ShowAsButton view="chart" onShowAs={onShowAs} />
+        <ShowAsButton view="chart" onShowAs={(view) => onEdit({ edit: "show_as", view })} />
       </div>
       <div className="table-align" role="group" aria-label={t("ui-table-alignment")}>
         {header.map((name, i) => {
@@ -58,8 +55,8 @@ export function TablePanel({ slide, element, param, onApply, onShowAs }: {
           return (
             <label key={i}>
               <span>{shown}</span>
-              <select aria-label={t("ui-table-align-of", { name: shown })} value={columnAlign(option, i)}
-                onChange={(e) => patch(t("ui-undo-table-align"), alignPatch(option, i, asColumnAlign(e.target.value)))}>
+              <select aria-label={t("ui-table-align-of", { name: shown })} value={asColumnAlign(align[i])}
+                onChange={(e) => onEdit({ edit: "align", column: i, align: asColumnAlign(e.target.value) })}>
                 {COLUMN_ALIGNS.map((a) => <option key={a} value={a}>{t("ui-table-align", { align: a })}</option>)}
               </select>
             </label>
@@ -67,10 +64,10 @@ export function TablePanel({ slide, element, param, onApply, onShowAs }: {
         })}
       </div>
       <ChartDataGrid
-        source={option.dataset.source}
-        firstColumnIsLabel={flag(option, "header-column")}
+        source={source}
+        firstColumnIsLabel={headerColumn}
         newColumnName={tableColumnName}
-        onOp={(change) => onApply(t("ui-undo-table-data"), [{ op: "set_data", target, param, change }])}
+        onOp={(change) => onEdit({ edit: "cells", change })}
       />
     </section>
   );

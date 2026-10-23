@@ -1,15 +1,17 @@
-// Panneau d'un graphique sélectionné : son type et la grille de ses données.
-// Chaque modification part en op vers le cœur, qui redessine le graphique.
+// Vue des données d'un graphique (composant `ChartData` de la surface `host-data`) : son type,
+// l'empilement, la couleur des séries et la grille de ses données. Chaque geste part en une
+// modification (`DataEdit`) que la session applique, puis la surface est relue.
 
 import type { ReactNode } from "react";
 
-import type { Element, Op } from "../api";
 import { t } from "../i18n";
 import { Icon, stroke } from "../icons";
 import { IconToggle } from "../primitives";
-import { ShowAsButton, type View } from "../table/ShowAsButton";
+import { ShowAsButton } from "../table/ShowAsButton";
 import { ChartDataGrid } from "./ChartDataGrid";
-import { CHART_KINDS, type ChartKind, chartKind, chartSource, checkboxColumns, colorPatch, isStacked, paletteOf, stackPatch, stackable } from "./chartDeck";
+import { CHART_KINDS, type ChartKind, asChartKind } from "./chartDeck";
+import type { Cell } from "./chartTypes";
+import type { DataEdit } from "./dataEdit";
 import { SeriesColors } from "./SeriesColors";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
@@ -24,60 +26,46 @@ const KIND_ICON: Record<ChartKind, ReactNode> = {
   waterfall: stroke(<><path d="M4 20h16" /><path d="M6 20v-8M10 12V7M14 7v5M18 12v8" /><path d="M6 12h4M10 7h4M14 12h4" /></>),
 };
 
-/** Le panneau d'un élément à hôte graphique, qui lit et écrit son paramètre `param`. */
-export function ChartPanel({ slide, element, param, palette, onApply, onKind, onShowAs }: {
-  slide: string;
-  element: Element;
-  /** Le paramètre d'hôte graphique de l'élément (`host_params`). */
-  param: string;
-  /** Palette des graphiques du thème (apparence). */
+/** Une série qu'on peut colorer : son nom et sa couleur propre (absente : la palette). */
+export type SeriesSwatch = { name: string; color?: string };
+
+/** Les données d'un graphique et ses réglages ; chaque geste part en une modification (`onEdit`). */
+export function ChartDataView({ kind, source, checkboxColumns, stacked, series, palette, onEdit }: {
+  /** Type de la première série ; absent sans données. */
+  kind?: string;
+  /** dataset.source : ligne 0 = en-têtes ; vide sans données. */
+  source: Cell[][];
+  /** Colonnes de cases à cocher (le Total d'une cascade). */
+  checkboxColumns: readonly number[];
+  /** Séries empilées ; absent quand l'empilement n'a pas de sens. */
+  stacked?: boolean;
+  series: readonly SeriesSwatch[];
+  /** Palette des graphiques du thème, en `#rrggbb`. */
   palette: readonly string[];
-  onApply: (label: string, ops: Op[]) => void;
-  /** Change le type : le cœur convertit les données (requête `chart_kind`). */
-  onKind: (kind: ChartKind) => void;
-  /** Affiche le graphique en tableau (requête `show_as`). */
-  onShowAs: (view: View) => void;
+  onEdit: (edit: DataEdit) => void;
 }) {
-  const source = chartSource(element, param);
-  const current = chartKind(element, param);
-  const setKind = (kind: ChartKind) => {
-    if (kind !== current) onKind(kind);
-  };
-  const stacked = isStacked(element, param);
-  const toggleStack = () =>
-    onApply(t("ui-undo-chart-stack", { stacked: stacked ? "no" : "yes" }), [
-      { op: "set_chart_option", target: { slide, element: element.id }, param, patch: stackPatch(element, param, !stacked) },
-    ]);
+  const current = asChartKind(kind);
+  const hasData = source.length > 0;
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
       <div className="panel-toolbar">
         <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
           {CHART_KINDS.map((k) => (
-            <IconToggle key={k} label={kindLabel(k)} pressed={current === k} disabled={!source} onToggle={() => setKind(k)} icon={KIND_ICON[k]} />
+            <IconToggle key={k} label={kindLabel(k)} pressed={current === k} disabled={!hasData}
+              onToggle={() => k !== current && onEdit({ edit: "kind", kind: k })} icon={KIND_ICON[k]} />
           ))}
         </div>
-        {stackable(element, param) && (
+        {stacked !== undefined && (
           <div className="chart-stack chart-options" role="group" aria-label={t("ui-chart-options")}>
-            <IconToggle label={t("ui-chart-stack")} pressed={stacked} onToggle={toggleStack} icon={Icon.stack} />
+            <IconToggle label={t("ui-chart-stack")} pressed={stacked} onToggle={() => onEdit({ edit: "stack", stacked: !stacked })} icon={Icon.stack} />
           </div>
         )}
-        <ShowAsButton view="table" onShowAs={onShowAs} disabled={!source} />
+        <ShowAsButton view="table" onShowAs={(view) => onEdit({ edit: "show_as", view })} disabled={!hasData} />
       </div>
-      <SeriesColors
-        element={element}
-        param={param}
-        colors={paletteOf(palette)}
-        onColor={(index, color) =>
-          onApply(t("ui-undo-chart-color"), [{ op: "set_chart_option", target: { slide, element: element.id }, param, patch: colorPatch(element, param, index, color) }])
-        }
-      />
+      <SeriesColors series={series} colors={palette} onColor={(index, color) => onEdit({ edit: "color", index, color })} />
       {current === "waterfall" && <p className="a2ui-hint">{t("ui-chart-waterfall-hint")}</p>}
-      {source ? (
-        <ChartDataGrid
-          source={source}
-          checkboxColumns={checkboxColumns(element, param)}
-          onOp={(change) => onApply(t("ui-undo-chart-data"), [{ op: "set_data", target: { slide, element: element.id }, param, change }])}
-        />
+      {hasData ? (
+        <ChartDataGrid source={source} checkboxColumns={checkboxColumns} onOp={(change) => onEdit({ edit: "cells", change })} />
       ) : (
         <p className="a2ui-hint">{t("ui-chart-no-data")}</p>
       )}

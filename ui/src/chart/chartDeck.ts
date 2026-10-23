@@ -1,22 +1,12 @@
-// Graphiques dans le deck, côté interface : lecture du paramètre d'hôte graphique d'un élément.
-// Le cœur Rust valide, convertit et applique ; rien n'est modifié ici.
+// Graphiques côté interface : leurs types et l'option d'un graphique neuf.
+// Le cœur Rust lit, valide, convertit et applique ; rien n'est modifié ici.
 
-import type { Element } from "../api";
-import type { Cell } from "./chartTypes";
-
-/** Types de graphique ; en changer convertit les données (requête `chart_kind`). */
+/** Types de graphique ; en changer convertit les données (modification `kind`). */
 export type ChartKind = "bar" | "line" | "pie" | "scatter" | "radar" | "waterfall";
 export const CHART_KINDS: readonly ChartKind[] = ["bar", "line", "pie", "scatter", "radar", "waterfall"];
 
-type Series = { type: string; [key: string]: unknown };
-type Option = { dataset?: { source: Cell[][] }; series?: Series[]; [key: string]: unknown };
-
-/** L'option du paramètre `param` (propriété propre seulement), ou null. */
-const optionOf = (el: Element, param: string): Option | null => {
-  const params = el.params ?? {};
-  const option = Object.hasOwn(params, param) ? params[param] : null;
-  return typeof option === "object" && option !== null ? (option as Option) : null;
-};
+/** Le type `value` s'il est connu, sinon `null`. */
+export const asChartKind = (value: string | undefined): ChartKind | null => CHART_KINDS.find((k) => k === value) ?? null;
 
 /**
  * Option d'un nouveau graphique : données en ligne, sans noms. La session les
@@ -27,98 +17,4 @@ export function starterChart() {
     xAxis: { type: "category", data: ["1", "2", "3"] },
     series: [{ type: "bar", data: [3, 5, 2] }],
   };
-}
-
-/** `dataset.source` d'un graphique (ligne 0 = en-têtes), ou `null`. */
-export function chartSource(el: Element, param: string): Cell[][] | null {
-  return optionOf(el, param)?.dataset?.source ?? null;
-}
-
-/** Type de la première série d'un graphique, ou `null`. */
-export function chartKind(el: Element, param: string): string | null {
-  return optionOf(el, param)?.series?.[0]?.type ?? null;
-}
-
-/**
- * Colonnes de cases à cocher de la grille : la colonne Total d'une cascade,
- * celle qui suit les valeurs (forme canonique), si elle existe.
- */
-export function checkboxColumns(el: Element, param: string): number[] {
-  const width = chartSource(el, param)?.[0]?.length ?? 0;
-  return chartKind(el, param) === "waterfall" && width > 2 ? [2] : [];
-}
-
-/** Groupe d'empilement que pose l'interface. */
-const STACK = "total";
-
-const cartesian = (s: Series) => s.type === "bar" || s.type === "line";
-
-/** Barres ou lignes à plusieurs séries : l'empilement a un sens. */
-export function stackable(el: Element, param: string): boolean {
-  const series = optionOf(el, param)?.series ?? [];
-  return series.length > 1 && series.every(cartesian);
-}
-
-/** Toutes les séries partagent un même groupe d'empilement. */
-export function isStacked(el: Element, param: string): boolean {
-  const series = optionOf(el, param)?.series ?? [];
-  return series.length > 0 && series.every((s) => typeof s.stack === "string" && s.stack === series[0].stack);
-}
-
-/**
- * Patch `set_chart_option` qui empile (ou non) toutes les séries. Un merge
- * patch remplace le tableau entier : chaque série garde ses autres réglages.
- */
-export function stackPatch(el: Element, param: string, stacked: boolean): { series: Series[] } {
-  const series = (optionOf(el, param)?.series ?? []).map(({ stack: _stack, ...rest }) => (stacked ? { ...rest, stack: STACK } : rest));
-  return { series };
-}
-
-/**
- * Séries qu'on peut colorer, nommées par leur en-tête (forme canonique) :
- * barres et lignes lisent la colonne i + 1, un nuage la paire (2i, 2i + 1).
- * Secteurs, radar et cascade suivent la palette : aucune.
- */
-export function seriesNames(el: Element, param: string): string[] {
-  const option = optionOf(el, param);
-  const series = option?.series ?? [];
-  const header = option?.dataset?.source?.[0] ?? [];
-  const label = (col: number) => String(header[col] ?? "");
-  if (series.length > 0 && series.every(cartesian)) return series.map((_, i) => label(i + 1));
-  if (series.length > 0 && series.every((s) => s.type === "scatter")) return series.map((_, i) => label(2 * i + 1));
-  return [];
-}
-
-/**
- * Couleur `#rgb` ou `#rrggbb` ramenée à `#rrggbb` en minuscules ; `null`
- * pour toute autre valeur. Une couleur lue dans le deck passe par là avant
- * d'atteindre le CSS.
- */
-export function hexColor(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value.trim());
-  if (!m) return null;
-  const h = m[1].toLowerCase();
-  return `#${h.length === 3 ? [...h].map((c) => c + c).join("") : h}`;
-}
-
-/** Couleur propre à la série `i` (`itemStyle.color`, normalisée), ou `null` (palette). */
-export function seriesColor(el: Element, param: string, i: number): string | null {
-  const style = optionOf(el, param)?.series?.[i]?.itemStyle as { color?: unknown } | undefined;
-  return hexColor(style?.color);
-}
-
-/** Patch `set_chart_option` qui colore la série `i`, ou la rend à la palette. */
-export function colorPatch(el: Element, param: string, i: number, color: string | null): { series: Series[] } {
-  const series = (optionOf(el, param)?.series ?? []).map((s, j) => {
-    if (j !== i) return s;
-    const { itemStyle: _itemStyle, ...rest } = s;
-    return color ? { ...rest, itemStyle: { color } } : rest;
-  });
-  return { series };
-}
-
-/** Palette des graphiques du thème (apparence), réduite aux couleurs valides. */
-export function paletteOf(colors: readonly unknown[] | undefined): string[] {
-  return (colors ?? []).map(hexColor).filter((c): c is string => c !== null);
 }

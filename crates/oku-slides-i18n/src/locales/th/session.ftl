@@ -145,17 +145,26 @@ log-document-saved = บันทึกเอกสารแล้ว
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = คอลัมน์
-session-panel-rows = แถว
 session-widget-params = พารามิเตอร์ของ { $name }
 session-widget-no-params = วิดเจ็ตนี้ไม่มีพารามิเตอร์
 session-widget-param-fixed = { $name }: ปรับไม่ได้ในตัวอย่าง
 session-widget-param-yes = ใช่
 session-widget-param-no = ไม่
 session-widget-invalid-file = ไฟล์ไม่ถูกต้อง: ไม่มีการตั้งค่าให้ใช้
-session-undo-grid = เส้นตาราง { $columns } × { $rows }
-session-undo-param = การตั้งค่า: { $label }
-session-target-bound = { $name } ตามตัวแปรของงานนำเสนอ “{ $var }”
+session-data-chart = แผนภูมิ
+session-data-table = ตาราง
+session-undo-chart-kind = เปลี่ยนประเภทแผนภูมิ
+session-undo-chart-data = แก้ไขข้อมูล
+session-undo-chart-color = กำหนดสีชุดข้อมูล
+session-undo-chart-stack = { $stacked ->
+    [yes] ซ้อนชุดข้อมูล
+   *[no] แยกชุดข้อมูล
+}
+session-undo-table-option = ตัวเลือกตาราง
+session-undo-table-align = จัดแนวคอลัมน์
+session-undo-table-data = แก้ไขตาราง
+session-undo-show-as-table = แสดงเป็นตาราง
+session-undo-show-as-chart = แสดงเป็นแผนภูมิ
 session-widget-kind-base-card = การ์ด
 session-widget-kind-base-chart = แผนภูมิ
 session-widget-kind-base-table = ตาราง
@@ -169,23 +178,6 @@ session-widget-kind-base-text = ข้อความ
 session-widget-kind-essentiel-toc = สารบัญ
 session-widget-kind-essentiel-title = สไลด์ชื่อเรื่อง
 session-widget-kind-essentiel-blank = ว่าง
-session-param-base-card-kicker = คำนำ
-session-param-base-card-title = ชื่อเรื่อง
-session-param-base-card-body = เนื้อหา
-session-param-base-card-highlight = ไฮไลต์
-session-param-essentiel-chapter-title = ชื่อเรื่อง
-session-param-essentiel-chapter-subtitle = ชื่อรอง
-session-param-essentiel-content-kicker = คำนำ
-session-param-essentiel-content-title = ชื่อเรื่อง
-session-param-essentiel-content-layout = เลย์เอาต์
-session-param-essentiel-end-text = ข้อความ
-session-param-base-image-fit = การปรับพอดี
-session-param-base-shape-shape = รูปร่าง
-session-param-base-stack-layout = เลย์เอาต์
-session-param-base-stack-count = จำนวนรายการ
-session-param-base-stack-gap = ระยะห่าง
-session-param-base-text-body = เนื้อหา
-session-param-essentiel-toc-title = ชื่อเรื่อง
 
 ## Menu
 

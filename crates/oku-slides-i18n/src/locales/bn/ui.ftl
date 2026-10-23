@@ -44,7 +44,6 @@ ui-toolbar-redo-label = আবার করুন: { $label }
 ui-divider-pile = স্লাইড স্তূপের প্রস্থ
 ui-divider-notes = এজেন্ট থ্রেডের প্রস্থ
 ui-divider-code = কোডের আকার
-ui-divider-band = সেটিংসের উচ্চতা
 ui-toolbar-theme = থিম
 ui-toolbar-theme-embedded = ফাইলের থিম
 ui-toolbar-finish = সম্পন্ন
@@ -93,13 +92,6 @@ ui-undo-resize = আকার বদলান
 ui-undo-edit-slide = স্লাইড সম্পাদনা করুন
 ui-undo-rename-pack = প্যাকের নাম বদলান
 ui-undo-rename-deck = প্রেজেন্টেশনের নাম বদলান
-ui-undo-chart-kind = চার্টের ধরন বদলান
-ui-undo-chart-data = ডেটা সম্পাদনা করুন
-ui-undo-chart-color = সিরিজে রং দিন
-ui-undo-chart-stack = { $stacked ->
-    [yes] সিরিজগুলো স্তূপ করুন
-   *[no] সিরিজগুলো আলাদা করুন
-}
 
 ## নতুন উপাদান
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = কলাম { $n }
 ui-table-no-data = এই টেবিলে কোনো ডেটা নেই।
-ui-undo-table-option = টেবিলের বিকল্প
-ui-undo-table-align = কলাম সারিবদ্ধ করুন
-ui-undo-table-data = টেবিল সম্পাদনা করুন
 ui-show-as = এভাবে দেখান
 ui-show-as-table = টেবিল হিসেবে দেখান
 ui-show-as-chart = চার্ট হিসেবে দেখান
-ui-undo-show-as-table = টেবিল হিসেবে দেখান
-ui-undo-show-as-chart = চার্ট হিসেবে দেখান
 
 ## ফাইল
 
@@ -344,8 +331,6 @@ ui-slide-next = পরের স্লাইড
 ui-present = উপস্থাপনা
 ui-present-slide = স্লাইড { $index } / { $count }
 ui-present-screen = পূর্ণ স্ক্রিনে উপস্থাপন করুন
-ui-toolbar-params-hide = সেটিংস লুকান
-ui-toolbar-params-show = সেটিংস দেখান
 ui-help-close = সহায়িকা বন্ধ করুন
 ui-help-search = সহায়িকায় খুঁজুন
 ui-help-search-placeholder = খুঁজুন…

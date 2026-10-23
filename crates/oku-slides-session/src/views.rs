@@ -165,16 +165,12 @@ pub struct UiState {
     /// Largeur du code en px, choisie au séparateur ; `None` : proportion par défaut.
     #[serde(default)]
     pub code_width: Option<u32>,
-    /// Hauteur de la bande sous la scène en px, choisie au séparateur ; `None` : hauteur par défaut.
-    /// Une seule pour toutes les cartes : la slide ne change pas de taille à la sélection (t-647).
-    #[serde(default)]
-    pub band: Option<u32>,
-    /// Sections repliées (pile, carte des paramètres) ; toutes ouvertes par défaut.
+    /// Sections repliées (miniatures, widgets) ; toutes ouvertes par défaut.
     #[serde(default)]
     pub folded: Vec<PileSection>,
 }
 
-/// Section repliable de l'interface : de la pile, ou la carte des paramètres de la cible.
+/// Section repliable de l'interface : les miniatures ou les widgets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PileSection {
@@ -184,8 +180,17 @@ pub enum PileSection {
     Layouts,
     /// Les fichiers de widgets du pack.
     Widgets,
-    /// La carte des paramètres de la cible, sous la scène.
-    Params,
+}
+
+/// L'état d'interface d'un `state.json` gardé : une section repliée retirée depuis de l'interface
+/// (la carte des paramètres) est oubliée au lieu de rendre l'état illisible. Une requête `ui`,
+/// elle, refuse toute section inconnue.
+pub(crate) fn kept_ui<'de, D: serde::Deserializer<'de>>(d: D) -> Result<UiState, D::Error> {
+    let mut value = serde_json::Value::deserialize(d)?;
+    if let Some(folded) = value.get_mut("folded").and_then(serde_json::Value::as_array_mut) {
+        folded.retain(|s| serde_json::from_value::<PileSection>(s.clone()).is_ok());
+    }
+    serde_json::from_value(value).map_err(serde::de::Error::custom)
 }
 
 fn shown() -> bool {
@@ -204,7 +209,6 @@ impl Default for UiState {
             widget: None,
             code: false,
             code_width: None,
-            band: None,
             folded: Vec::new(),
         }
     }

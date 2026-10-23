@@ -1596,5 +1596,176 @@
         }
       }
     ]
+  },
+  {
+    "id": "host-data",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-data",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-data",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "title",
+                "data"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Graphique",
+              "variant": "h4"
+            },
+            {
+              "id": "data",
+              "component": "ChartData",
+              "kind": "bar",
+              "source": [
+                [
+                  "Mois",
+                  "Ventes",
+                  "Objectif"
+                ],
+                [
+                  "Jan",
+                  3,
+                  4
+                ]
+              ],
+              "checkbox_columns": [],
+              "stacked": false,
+              "series": [
+                {
+                  "name": "Ventes"
+                },
+                {
+                  "name": "Objectif",
+                  "color": "#1f4e79"
+                }
+              ],
+              "palette": [
+                "#1f4e79",
+                "#c2573a"
+              ],
+              "edit": {
+                "path": "/edit"
+              },
+              "action": {
+                "event": {
+                  "name": "data",
+                  "context": {
+                    "edit": {
+                      "path": "/edit"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-data",
+          "value": {
+            "edit": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "host-data",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-data",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-data",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "title",
+                "data"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Tableau",
+              "variant": "h4"
+            },
+            {
+              "id": "data",
+              "component": "TableData",
+              "source": [
+                [
+                  "A",
+                  "B"
+                ],
+                [
+                  1,
+                  null
+                ]
+              ],
+              "header_row": true,
+              "header_column": false,
+              "striped": true,
+              "align": [
+                "auto",
+                "end"
+              ],
+              "edit": {
+                "path": "/edit"
+              },
+              "action": {
+                "event": {
+                  "name": "data",
+                  "context": {
+                    "edit": {
+                      "path": "/edit"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-data",
+          "value": {
+            "edit": null
+          }
+        }
+      }
+    ]
   }
 ]

@@ -44,7 +44,6 @@ ui-toolbar-redo-label = やり直す：{ $label }
 ui-divider-pile = スライド一覧の幅
 ui-divider-notes = エージェントのスレッドの幅
 ui-divider-code = コードのサイズ
-ui-divider-band = 設定の高さ
 ui-toolbar-theme = テーマ
 ui-toolbar-theme-embedded = ファイルのテーマ
 ui-toolbar-finish = 完了
@@ -93,13 +92,6 @@ ui-undo-resize = サイズ変更
 ui-undo-edit-slide = スライドを編集
 ui-undo-rename-pack = パック名を変更
 ui-undo-rename-deck = プレゼンテーション名を変更
-ui-undo-chart-kind = グラフの種類を変更
-ui-undo-chart-data = データを編集
-ui-undo-chart-color = 系列に色を付ける
-ui-undo-chart-stack = { $stacked ->
-    [yes] 系列を積み上げ
-   *[no] 系列の積み上げを解除
-}
 
 ## 新しい要素
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = 列 { $n }
 ui-table-no-data = この表にはデータがありません。
-ui-undo-table-option = 表のオプション
-ui-undo-table-align = 列を揃える
-ui-undo-table-data = 表を編集
 ui-show-as = 表示形式
 ui-show-as-table = 表として表示
 ui-show-as-chart = グラフとして表示
-ui-undo-show-as-table = 表として表示
-ui-undo-show-as-chart = グラフとして表示
 
 ## ファイル
 
@@ -344,8 +331,6 @@ ui-slide-next = 次のスライド
 ui-present = プレゼンテーション
 ui-present-slide = スライド { $index } / { $count }
 ui-present-screen = フルスクリーンで発表
-ui-toolbar-params-hide = 設定を隠す
-ui-toolbar-params-show = 設定を表示
 ui-help-close = ヘルプを閉じる
 ui-help-search = ヘルプを検索
 ui-help-search-placeholder = 検索…

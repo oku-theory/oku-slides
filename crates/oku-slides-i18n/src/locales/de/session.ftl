@@ -145,17 +145,26 @@ log-document-saved = Dokument gespeichert
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Spalten
-session-panel-rows = Zeilen
 session-widget-params = Parameter von { $name }
 session-widget-no-params = Dieses Widget hat keine Parameter.
 session-widget-param-fixed = { $name }: in der Vorschau nicht einstellbar
 session-widget-param-yes = Ja
 session-widget-param-no = Nein
 session-widget-invalid-file = Ungültige Datei: Einstellungen nicht verfügbar
-session-undo-grid = Raster { $columns } × { $rows }
-session-undo-param = Einstellung: { $label }
-session-target-bound = { $name } folgt der Präsentationsvariable „{ $var }“
+session-data-chart = Diagramm
+session-data-table = Tabelle
+session-undo-chart-kind = Diagrammtyp ändern
+session-undo-chart-data = Daten bearbeiten
+session-undo-chart-color = Reihe einfärben
+session-undo-chart-stack = { $stacked ->
+    [yes] Reihen stapeln
+   *[no] Reihen trennen
+}
+session-undo-table-option = Tabellenoptionen
+session-undo-table-align = Spalte ausrichten
+session-undo-table-data = Tabelle bearbeiten
+session-undo-show-as-table = Als Tabelle anzeigen
+session-undo-show-as-chart = Als Diagramm anzeigen
 session-widget-kind-base-card = Karte
 session-widget-kind-base-chart = Diagramm
 session-widget-kind-base-table = Tabelle
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Text
 session-widget-kind-essentiel-toc = Inhaltsverzeichnis
 session-widget-kind-essentiel-title = Titelfolie
 session-widget-kind-essentiel-blank = Leer
-session-param-base-card-kicker = Dachzeile
-session-param-base-card-title = Titel
-session-param-base-card-body = Textkörper
-session-param-base-card-highlight = Hervorhebung
-session-param-essentiel-chapter-title = Titel
-session-param-essentiel-chapter-subtitle = Untertitel
-session-param-essentiel-content-kicker = Dachzeile
-session-param-essentiel-content-title = Titel
-session-param-essentiel-content-layout = Layout
-session-param-essentiel-end-text = Text
-session-param-base-image-fit = Einpassung
-session-param-base-shape-shape = Form
-session-param-base-stack-layout = Layout
-session-param-base-stack-count = Anzahl der Elemente
-session-param-base-stack-gap = Abstand
-session-param-base-text-body = Textkörper
-session-param-essentiel-toc-title = Titel
 
 ## Menu
 

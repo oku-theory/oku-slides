@@ -25,7 +25,7 @@
 - Treat Backspace like Delete in delete-key handlers so behaviour matches App on macOS. (t-420)
 - Import a2ui.css after styles.css and before glass.css so the glass theme can override cards. (plan:2026-10-03-agent-a2ui)
 - Keep one MessageProcessor per A2UI surface and feed it new messages instead of rebuilding it. (t-221)
-- Choose an element's own panel and its param from snapshot.host_params, never from its kind. (plan:2026-10-18-packs-lot2-base)
+- Choose an element's own panel from snapshot.host_params, never its kind; edit chart or table data only via the dock's host-data surface, sending DataEdit, no patch. (plan:2026-10-18-packs-lot2-base, t-1119)
 - Take base and essentiel slide kinds in UI code only from ui/src/builtinKinds.ts; never write their qualified names as literals. (plan:2026-10-19-packs-lot3-essentiel)
 - Build buttons, icon toggles, selects and labelled fields with ui/src/primitives.tsx, shared with the A2UI catalog; no hand-written .btn or select.select. (t-982)
 

@@ -7,7 +7,7 @@ import { join } from "node:path";
 const own = (f: string) => readFileSync(join(import.meta.dir, f), "utf8");
 /** Les feuilles de l'app, chargées à la suite par main.tsx (styles.css continué par import.css et workshop.css). */
 const APP = ["styles.css", "import.css", "workshop.css"].map(own).join("\n");
-const css = [APP, ...["glass.css", "a2ui/a2ui.css", "chart/ChartDataGrid.css"].map(own)].join("\n");
+const css = [APP, ...["glass.css", "a2ui/a2ui.css"].map(own)].join("\n");
 
 test("aucun style post-it ne reste dans les feuilles de style", () => {
   expect(css).not.toMatch(/postit|--tilt|shadow-note/);
@@ -54,37 +54,6 @@ test("la bande des miniatures défile à l'horizontale sous la scène", () => {
   expect(ruleOf(APP, ".slide-strip")).toMatch(/flex:\s*none/);
 });
 
-test("la carte de la cible se pose sous la scène, défilant seule", () => {
-  const rule = ruleOf(APP, ".settings-band > .host-settings, .settings-band > .chart-panel");
-  // Dans la bande sous la scène : la carte rétrécit (et défile) plutôt que de déborder.
-  expect(rule).toMatch(/flex:\s*0 1 auto/);
-  expect(rule).toMatch(/min-height:\s*0/);
-  expect(rule).toMatch(/overflow-y:\s*auto/);
-  // L'ombre de la feuille (positionnée) passe sous la carte, posée à distance de la slide.
-  expect(rule).toMatch(/position:\s*relative/);
-  expect(rule).toMatch(/z-index:\s*1/);
-  // La distance à la slide est celle du séparateur au-dessus de la carte (`.band-divider`).
-  expect(rule).toMatch(/margin:\s*0 auto/);
-  // Bande de hauteur fixe sous la scène : la boîte de la slide ne suit pas la hauteur de la carte (t-647) ;
-  // la hauteur choisie au séparateur (`--band-h`) l'emporte sur le défaut.
-  const band = ruleOf(APP, ".settings-band");
-  expect(band).toMatch(/flex:\s*none/);
-  expect(band).toMatch(/height:\s*var\(--band-h,\s*clamp\([^)]*vh[^)]*\)\)/);
-});
-
-test("le panneau d'un graphique ou d'un tableau remplit la bande, sans plafond propre", () => {
-  expect(ruleOf(own("chart/ChartDataGrid.css"), ".chart-panel")).not.toMatch(/max-height/);
-});
-
-test("la bascule graphique / tableau se cale en fin de rangée, de droite à gauche aussi", () => {
-  expect(ruleOf(own("chart/ChartDataGrid.css"), ".panel-toolbar > .show-as")).toMatch(/margin-inline-start:\s*auto/);
-});
-
-test("le séparateur de la bande garde à la carte la distance d'avant à la slide", () => {
-  const rule = ruleOf(APP, ".band-divider");
-  expect(rule).toMatch(/height:\s*12px/);
-  expect(rule).toMatch(/margin-block:\s*calc\(\(var\(--space-10\) - 12px\) \/ 2\)/);
-});
 
 test("la feuille prend le plus de place possible dans sa zone", () => {
   expect(ruleOf(APP, ".sheet-area")).toMatch(/padding:\s*var\(--space-4\) var\(--space-6\)\s*;/);

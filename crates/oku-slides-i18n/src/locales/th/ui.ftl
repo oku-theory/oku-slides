@@ -41,7 +41,6 @@ ui-toolbar-redo-label = ทำซ้ำ: { $label }
 ui-divider-pile = ความกว้างของกองสไลด์
 ui-divider-notes = ความกว้างของเธรดเอเจนต์
 ui-divider-code = ขนาดโค้ด
-ui-divider-band = ความสูงของการตั้งค่า
 ui-toolbar-theme = ธีม
 ui-toolbar-theme-embedded = ธีมของไฟล์
 ui-toolbar-finish = เสร็จสิ้น
@@ -90,13 +89,6 @@ ui-undo-resize = ปรับขนาด
 ui-undo-edit-slide = แก้ไขสไลด์
 ui-undo-rename-pack = เปลี่ยนชื่อชุด
 ui-undo-rename-deck = เปลี่ยนชื่องานนำเสนอ
-ui-undo-chart-kind = เปลี่ยนประเภทแผนภูมิ
-ui-undo-chart-data = แก้ไขข้อมูล
-ui-undo-chart-color = กำหนดสีชุดข้อมูล
-ui-undo-chart-stack = { $stacked ->
-    [yes] ซ้อนชุดข้อมูล
-   *[no] แยกชุดข้อมูล
-}
 
 ## องค์ประกอบใหม่
 
@@ -292,14 +284,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = คอลัมน์ { $n }
 ui-table-no-data = ตารางนี้ไม่มีข้อมูล
-ui-undo-table-option = ตัวเลือกตาราง
-ui-undo-table-align = จัดแนวคอลัมน์
-ui-undo-table-data = แก้ไขตาราง
 ui-show-as = แสดงเป็น
 ui-show-as-table = แสดงเป็นตาราง
 ui-show-as-chart = แสดงเป็นแผนภูมิ
-ui-undo-show-as-table = แสดงเป็นตาราง
-ui-undo-show-as-chart = แสดงเป็นแผนภูมิ
 
 ## ไฟล์
 
@@ -341,8 +328,6 @@ ui-slide-next = สไลด์ถัดไป
 ui-present = งานนำเสนอ
 ui-present-slide = สไลด์ { $index } จาก { $count }
 ui-present-screen = นำเสนอแบบเต็มหน้าจอ
-ui-toolbar-params-hide = ซ่อนการตั้งค่า
-ui-toolbar-params-show = แสดงการตั้งค่า
 ui-help-close = ปิดความช่วยเหลือ
 ui-help-search = ค้นหาในความช่วยเหลือ
 ui-help-search-placeholder = ค้นหา…

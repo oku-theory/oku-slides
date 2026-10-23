@@ -56,7 +56,6 @@ ui-toolbar-redo-label = إعادة: { $label }
 ui-divider-pile = عرض كومة الشرائح
 ui-divider-notes = عرض سلسلة الوكيل
 ui-divider-code = حجم الشيفرة
-ui-divider-band = ارتفاع الإعدادات
 ui-toolbar-theme = السمة
 ui-toolbar-theme-embedded = سمة الملف
 ui-toolbar-finish = تم
@@ -105,13 +104,6 @@ ui-undo-resize = تغيير الحجم
 ui-undo-edit-slide = تعديل الشريحة
 ui-undo-rename-pack = إعادة تسمية الحزمة
 ui-undo-rename-deck = إعادة تسمية العرض التقديمي
-ui-undo-chart-kind = تغيير نوع المخطط
-ui-undo-chart-data = تعديل البيانات
-ui-undo-chart-color = تلوين سلسلة
-ui-undo-chart-stack = { $stacked ->
-    [yes] تكديس السلاسل
-   *[no] فصل السلاسل
-}
 
 ## العناصر الجديدة
 
@@ -307,14 +299,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = العمود { $n }
 ui-table-no-data = لا توجد بيانات في هذا الجدول.
-ui-undo-table-option = خيارات الجدول
-ui-undo-table-align = محاذاة العمود
-ui-undo-table-data = تعديل الجدول
 ui-show-as = عرض على شكل
 ui-show-as-table = عرض على شكل جدول
 ui-show-as-chart = عرض على شكل رسم بياني
-ui-undo-show-as-table = عرض على شكل جدول
-ui-undo-show-as-chart = عرض على شكل رسم بياني
 
 ## الملفات
 
@@ -356,8 +343,6 @@ ui-slide-next = الشريحة التالية
 ui-present = العرض التقديمي
 ui-present-slide = الشريحة { $index } من { $count }
 ui-present-screen = العرض بملء الشاشة
-ui-toolbar-params-hide = إخفاء الإعدادات
-ui-toolbar-params-show = إظهار الإعدادات
 ui-help-close = إغلاق المساعدة
 ui-help-search = البحث في التعليمات
 ui-help-search-placeholder = ابحث…

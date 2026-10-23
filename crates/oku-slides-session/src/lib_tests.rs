@@ -151,8 +151,7 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "widget_source", "name": "kpi" }),
         json!({ "cmd": "preview_widget", "name": "kpi" }),
         json!({ "cmd": "host_settings", "widget": null }),
-        json!({ "cmd": "target_settings", "slide": "s-1" }),
-        json!({ "cmd": "target_settings", "slide": "s-1", "element": "e" }),
+        json!({ "cmd": "data_panel", "slide": "s-1", "element": "e" }),
     ];
     let changing: Vec<_> = reads
         .into_iter()
@@ -180,8 +179,7 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "remove_widget", "name": "kpi" }),
         json!({ "cmd": "rename_widget", "from": "kpi", "to": "k" }),
         json!({ "cmd": "set_example_value", "name": "kpi", "param": "p", "value": 1 }),
-        json!({ "cmd": "target_param", "slide": "s-1", "key": "title", "value": "x" }),
-        json!({ "cmd": "target_list", "slide": "s-1", "element": "e", "key": "k", "change": { "op": "remove", "item": "i" } }),
+        json!({ "cmd": "data_edit", "slide": "s-1", "element": "e", "edit": { "edit": "stack", "stacked": true } }),
     ];
     let kept: Vec<_> = edits
         .into_iter()
@@ -192,12 +190,12 @@ fn changes_deck_edit_requests_return_true() {
 }
 
 #[test]
-fn edits_target_param_and_target_list_return_true_target_settings_false() {
+fn edits_data_edit_returns_true_data_panel_false() {
     let classify = |v: serde_json::Value| serde_json::from_value::<Request>(v).unwrap().edits();
-    assert_that!(classify(json!({ "cmd": "target_param", "slide": "s-1", "key": "title", "value": "x" }))).is_true();
-    let list = json!({ "cmd": "target_list", "slide": "s-1", "key": "k", "change": { "op": "remove", "item": "i" } });
-    assert_that!(classify(list)).is_true();
-    assert_that!(classify(json!({ "cmd": "target_settings", "slide": "s-1" }))).is_false();
+    let edit =
+        json!({ "cmd": "data_edit", "slide": "s-1", "element": "e", "edit": { "edit": "kind", "kind": "line" } });
+    assert_that!(classify(edit)).is_true();
+    assert_that!(classify(json!({ "cmd": "data_panel", "slide": "s-1", "element": "e" }))).is_false();
 }
 
 #[test]

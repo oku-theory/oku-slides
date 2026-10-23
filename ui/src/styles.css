@@ -374,15 +374,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 /* Poignée : une pastille discrète au repos dit que la zone se redimensionne ; plus nette au survol,
    elle s'efface au glisser et au focus, où le trait d'accent prend le relais. */
-.col-divider::after, .code-divider::after, .band-divider::after {
+.col-divider::after, .code-divider::after {
   content: ""; position: absolute; border-radius: 2px; background: var(--ink); opacity: 0.16;
   transition: opacity 160ms ease-out; pointer-events: none;
 }
 .col-divider::after { top: 50%; inset-inline-start: 2px; width: 4px; height: 32px; margin-top: -16px; }
-.col-divider:hover::after, .code-divider:hover::after, .band-divider:hover::after { opacity: 0.32; }
+.col-divider:hover::after, .code-divider:hover::after { opacity: 0.32; }
 .col-divider.active::after, .col-divider:focus-visible::after,
-.code-divider.active::after, .code-divider:focus-visible::after,
-.band-divider.active::after, .band-divider:focus-visible::after { opacity: 0; }
+.code-divider.active::after, .code-divider:focus-visible::after { opacity: 0; }
 
 /* ---- Appareil de dictée ---- */
 .device {

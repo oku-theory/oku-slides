@@ -245,6 +245,17 @@ pub(crate) fn surface(
     }
 }
 
+/// Surface `id` des données d'un graphique ou d'un tableau : un titre, puis `data`
+/// (`ChartData` ou `TableData`), dont la modification s'écrit en `/edit`.
+pub(crate) fn data_surface(id: &str, title: String, data: ComponentKind) -> Surface {
+    let components = vec![
+        Component::column("root", &["title", "data"]),
+        Component::text("title", title, Some(TextVariant::H4)),
+        Component::new("data", data),
+    ];
+    surface(id, Place::Thread, None, components, json!({ "edit": null }))
+}
+
 /// `s`, marquée comme une question (elle attend la réponse de l'utilisateur).
 fn question(mut s: Surface) -> Surface {
     s.question = true;

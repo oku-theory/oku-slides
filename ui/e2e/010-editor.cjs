@@ -59,11 +59,10 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
 
-  // 0. Sélectionner ne déplace ni ne réduit la slide (la carte des paramètres change dessous) :
-  // sinon le 2e clic d'un double-clic tombe à côté du champ.
+  // 0. Sélectionner ne déplace ni ne réduit la slide (les données d'un tableau s'ouvrent au dock de
+  // l'agent, pas sous la slide) : sinon le 2e clic d'un double-clic tombe à côté du champ.
   // Les flèches slide précédente / suivante restent à mi-hauteur de la slide.
   const stageBox = () => p.locator('.stage').boundingBox();
-  const card = () => p.evaluate(() => [...document.querySelectorAll('.host-settings')].map((e) => e.innerText).join('\n'));
   const navOffset = () => p.evaluate(() => {
     const mid = (r) => (r.top + r.bottom) / 2;
     return mid(document.querySelector('.slide-nav.next').getBoundingClientRect())
@@ -74,9 +73,6 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     // Slide 4 : le bloc de puces.
     await p.click('.thumb >> nth=3');
     await p.waitForSelector('.field[aria-label="Corps"]');
-    // La carte montre d'abord les paramètres de la slide (chargés après elle), puis ceux de l'élément
-    // sélectionné, d'une autre hauteur : la mise en page a changé dessous.
-    await untilValue(p, card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide`);
     // La mise en page se pose : deux relevés de suite identiques.
     const still = await settled(p, stageBox, `${size} : slide jamais posée`);
     assert.ok(still, `${size} : pas de slide`);
@@ -85,11 +81,8 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
       assert.ok(still.height >= box.height - 1 && still.width < box.width - 1, `${size} : slide pas bornée par la hauteur de sa boîte`);
     }
     assert.ok(Math.abs(await navOffset()) <= 1, `${size} : flèches hors de la mi-hauteur de la slide`);
-    await p.click('.field[aria-label="Corps"] >> nth=0');
-    await untilValue(p, card, (t) => t.includes('Paramètres de Texte') && !t.includes('Paramètres de Contenu'), `${size} : paramètres de l'élément`);
-    // Relevée pendant 500 ms : ni la fin du changement ni un état transitoire (pas encore de carte,
-    // le temps de la lire) ne la déplacent.
-    // Chaque appel suit un point de synchronisation positif (carte ou panneau attendus) et en précède un.
+    // Relevée pendant 500 ms : ni la sélection ni l'ouverture des données au dock ne la déplacent.
+    // Chaque appel suit un point de synchronisation positif et en précède un.
     const unmoved = async (what) => {
       for (let i = 0; i < 20; i++) {
         assert.deepEqual(await stageBox(), still, `${size} : la slide a bougé ${what}`);
@@ -98,25 +91,18 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
       }
       assert.ok(Math.abs(await navOffset()) <= 1, `${size} : flèches hors de la mi-hauteur de la slide`);
     };
-    await unmoved('à la sélection');
-    // Désélection : retour à la carte de la slide, la plus haute.
-    await p.keyboard.press('Escape');
-    await untilValue(p, card, (t) => t.includes('Paramètres de Contenu'), `${size} : paramètres de la slide (désélection)`);
-    await unmoved('à la désélection');
-    // Du tableau (son panneau, pas de carte de paramètres) au texte : la carte du texte se lit après
-    // le clic, la slide est relevée dès le clic.
-    await p.click('.target[aria-label="Tableau"]');
-    await p.waitForSelector('.table-panel');
-    await unmoved('à la sélection du tableau');
-    // Lecture de la carte ralentie (300 ms) : l'intervalle sans carte est relevé à coup sûr.
-    await p.route('**/api', async (route) => {
-      await new Promise((r) => setTimeout(r, 300));
-      await route.continue();
-    });
     await p.click('.field[aria-label="Corps"] >> nth=0');
-    await unmoved('du tableau au texte');
-    await p.unroute('**/api');
-    await untilValue(p, card, (t) => t.includes('Paramètres de Texte'), `${size} : paramètres du texte après le tableau`);
+    await p.waitForSelector('.target.selected');
+    await unmoved('à la sélection');
+    await p.keyboard.press('Escape');
+    await p.waitForSelector('.target.selected', { state: 'detached' });
+    await unmoved('à la désélection');
+    // Le tableau : ses données s'ouvrent au dock de l'agent ; le texte ensuite les retire.
+    await p.click('.target[aria-label="Tableau"]');
+    await p.waitForSelector('.agent-dock [data-surface-id="host-data"] .table-panel');
+    await unmoved('à la sélection du tableau');
+    await p.click('.field[aria-label="Corps"] >> nth=0');
+    await p.waitForSelector('.agent-dock [data-surface-id="host-data"]', { state: 'detached' });
     await unmoved('du tableau au texte');
   };
   // Un tableau sur la slide 4, retiré (annulé) après l'étape 0.

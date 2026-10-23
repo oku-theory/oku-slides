@@ -44,7 +44,6 @@ ui-toolbar-redo-label = Opnieuw: { $label }
 ui-divider-pile = Breedte van de diastapel
 ui-divider-notes = Breedte van de agentdraad
 ui-divider-code = Grootte van de code
-ui-divider-band = Hoogte van de instellingen
 ui-toolbar-theme = Thema
 ui-toolbar-theme-embedded = Thema van het bestand
 ui-toolbar-finish = Klaar
@@ -93,13 +92,6 @@ ui-undo-resize = Formaat wijzigen
 ui-undo-edit-slide = Dia bewerken
 ui-undo-rename-pack = Pakket hernoemen
 ui-undo-rename-deck = Presentatie hernoemen
-ui-undo-chart-kind = Grafiektype wijzigen
-ui-undo-chart-data = Gegevens bewerken
-ui-undo-chart-color = Reeks kleuren
-ui-undo-chart-stack = { $stacked ->
-    [yes] Reeksen stapelen
-   *[no] Reeksen scheiden
-}
 
 ## Nieuwe elementen
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Kolom { $n }
 ui-table-no-data = Deze tabel bevat geen gegevens.
-ui-undo-table-option = Tabelopties
-ui-undo-table-align = De kolom uitlijnen
-ui-undo-table-data = De tabel bewerken
 ui-show-as = Weergeven als
 ui-show-as-table = Weergeven als tabel
 ui-show-as-chart = Weergeven als grafiek
-ui-undo-show-as-table = Weergeven als tabel
-ui-undo-show-as-chart = Weergeven als grafiek
 
 ## Bestanden
 
@@ -344,8 +331,6 @@ ui-slide-next = Volgende dia
 ui-present = Presentatie
 ui-present-slide = Dia { $index } van { $count }
 ui-present-screen = Presenteren op volledig scherm
-ui-toolbar-params-hide = Instellingen verbergen
-ui-toolbar-params-show = Instellingen tonen
 ui-help-close = Help sluiten
 ui-help-search = Zoeken in de help
 ui-help-search-placeholder = Zoeken…

@@ -145,17 +145,26 @@ log-document-saved = 文档已保存
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = 列
-session-panel-rows = 行
 session-widget-params = { $name } 的参数
 session-widget-no-params = 此小组件没有参数。
 session-widget-param-fixed = { $name }：无法在预览中调整
 session-widget-param-yes = 是
 session-widget-param-no = 否
 session-widget-invalid-file = 文件无效：设置不可用
-session-undo-grid = 网格 { $columns } × { $rows }
-session-undo-param = 设置：{ $label }
-session-target-bound = { $name } 跟随演示文稿变量“{ $var }”
+session-data-chart = 图表
+session-data-table = 表格
+session-undo-chart-kind = 更改图表类型
+session-undo-chart-data = 编辑数据
+session-undo-chart-color = 为系列设置颜色
+session-undo-chart-stack = { $stacked ->
+    [yes] 堆叠系列
+   *[no] 取消堆叠系列
+}
+session-undo-table-option = 表格选项
+session-undo-table-align = 对齐该列
+session-undo-table-data = 编辑表格
+session-undo-show-as-table = 显示为表格
+session-undo-show-as-chart = 显示为图表
 session-widget-kind-base-card = 卡片
 session-widget-kind-base-chart = 图表
 session-widget-kind-base-table = 表格
@@ -169,23 +178,6 @@ session-widget-kind-base-text = 文本
 session-widget-kind-essentiel-toc = 目录
 session-widget-kind-essentiel-title = 标题页
 session-widget-kind-essentiel-blank = 空白
-session-param-base-card-kicker = 眉题
-session-param-base-card-title = 标题
-session-param-base-card-body = 正文
-session-param-base-card-highlight = 突出显示
-session-param-essentiel-chapter-title = 标题
-session-param-essentiel-chapter-subtitle = 副标题
-session-param-essentiel-content-kicker = 眉题
-session-param-essentiel-content-title = 标题
-session-param-essentiel-content-layout = 布局
-session-param-essentiel-end-text = 文本
-session-param-base-image-fit = 适应方式
-session-param-base-shape-shape = 形状
-session-param-base-stack-layout = 布局
-session-param-base-stack-count = 项目数
-session-param-base-stack-gap = 间距
-session-param-base-text-body = 正文
-session-param-essentiel-toc-title = 标题
 
 ## Menu
 

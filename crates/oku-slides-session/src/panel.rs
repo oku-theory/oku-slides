@@ -1,7 +1,5 @@
 //! Réglages de l'hôte en mode pack : le widget du sous-onglet actif, adressé
-//! par clé (`host_settings`). L'interface les rend au dock de l'agent. Une
-//! slide du deck de travail se règle par sa carte de cible (`target_params`) :
-//! c'est l'exemple de son layout.
+//! par clé (`host_settings`). L'interface les rend sous l'aperçu du widget.
 
 use crate::agent::forms::{FormExtras, params_with};
 use crate::agent::{ShowParams, Surface};
@@ -9,8 +7,6 @@ use crate::{Result, Session};
 
 /// Surface des réglages du widget du sous-onglet actif.
 pub(crate) const HOST_WIDGET: &str = "host-widget";
-/// Surface des réglages de la cible : l'élément sélectionné, sinon le widget de la slide.
-pub(crate) const HOST_TARGET: &str = "host-target";
 
 /// Réglages de l'hôte : champs, leurs clés et des lignes en lecture seule.
 #[derive(Debug)]

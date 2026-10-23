@@ -155,7 +155,7 @@
            "bold": true
           },
           {
-           "t": ": a data table edited in its panel with the same grid as charts. Toggle the header row, the first column as header and striped rows; align each column (automatic puts numbers at the end). A table larger than its box shrinks to fit. “Show as a chart” and “Show as a table” switch between the two, keeping the data, in one undo step."
+           "t": ": a data table edited, like a chart, in the agent's dock while it is selected, with the same grid. Toggle the header row, the first column as header and striped rows; align each column (automatic puts numbers at the end). A table larger than its box shrinks to fit. “Show as a chart” and “Show as a table” switch between the two, keeping the data, in one undo step."
           }
          ],
          "list": "bullet"
@@ -2076,7 +2076,7 @@
         {
          "runs": [
           {
-           "t": "In the settings panel on the right (and in the widget editor), a table: add, remove, reorder (⌥↑/↓ on a row), paste TSV. On the slide: × to remove, ⋮⋮ to drag; items are added in the table. The agent edits by id with edit_list."
+           "t": "In the widget editor, a table: add, remove, reorder (⌥↑/↓ on a row), paste TSV. On the slide, an item moves with the keyboard from one of its fields; for the rest, ask the agent, which edits by id with edit_list."
           }
          ]
         }

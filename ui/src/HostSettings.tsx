@@ -1,9 +1,9 @@
 /**
  * Une surface de réglages de l'hôte, en fiche : en mode pack (« Paramètres de <widget> »),
- * posée sous l'aperçu qu'elle règle plutôt qu'au dock de l'agent ; ou les paramètres de la
- * cible, sous la scène (`TargetPanel`). La surface et le routage de ses actions viennent de
- * `useHostSettings`, `useTargetSettings` ou `useThemeSettings` ; elle est reconstruite à chaque
- * relecture, donc pas annoncée.
+ * posée sous l'aperçu qu'elle règle plutôt qu'au dock de l'agent ; ou, agent détaché, les données
+ * du graphique ou du tableau sélectionné dans la colonne de droite. La surface et le routage de
+ * ses actions viennent de `useHostSettings`, `useDataSettings` ou `useThemeSettings` ; elle est
+ * reconstruite à chaque relecture, donc pas annoncée.
  */
 import { lazy, Suspense } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";

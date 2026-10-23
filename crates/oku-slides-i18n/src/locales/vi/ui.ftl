@@ -41,7 +41,6 @@ ui-toolbar-redo-label = Làm lại: { $label }
 ui-divider-pile = Độ rộng chồng trang chiếu
 ui-divider-notes = Độ rộng luồng của tác nhân AI
 ui-divider-code = Kích thước mã
-ui-divider-band = Chiều cao phần cài đặt
 ui-toolbar-theme = Chủ đề
 ui-toolbar-theme-embedded = Chủ đề của tệp
 ui-toolbar-finish = Xong
@@ -90,13 +89,6 @@ ui-undo-resize = Đổi kích thước
 ui-undo-edit-slide = Sửa trang chiếu
 ui-undo-rename-pack = Đổi tên gói
 ui-undo-rename-deck = Đổi tên bản trình bày
-ui-undo-chart-kind = Đổi loại biểu đồ
-ui-undo-chart-data = Sửa dữ liệu
-ui-undo-chart-color = Tô màu một chuỗi
-ui-undo-chart-stack = { $stacked ->
-    [yes] Xếp chồng các chuỗi
-   *[no] Tách các chuỗi
-}
 
 ## Phần tử mới
 
@@ -292,14 +284,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Cột { $n }
 ui-table-no-data = Bảng này không có dữ liệu.
-ui-undo-table-option = Tùy chọn bảng
-ui-undo-table-align = Căn lề cột
-ui-undo-table-data = Sửa bảng
 ui-show-as = Hiển thị dưới dạng
 ui-show-as-table = Hiển thị dưới dạng bảng
 ui-show-as-chart = Hiển thị dưới dạng biểu đồ
-ui-undo-show-as-table = Hiển thị dưới dạng bảng
-ui-undo-show-as-chart = Hiển thị dưới dạng biểu đồ
 
 ## Tệp
 
@@ -341,8 +328,6 @@ ui-slide-next = Trang sau
 ui-present = Bản trình bày
 ui-present-slide = Trang chiếu { $index } / { $count }
 ui-present-screen = Trình chiếu toàn màn hình
-ui-toolbar-params-hide = Ẩn cài đặt
-ui-toolbar-params-show = Hiện cài đặt
 ui-help-close = Đóng trợ giúp
 ui-help-search = Tìm trong trợ giúp
 ui-help-search-placeholder = Tìm…

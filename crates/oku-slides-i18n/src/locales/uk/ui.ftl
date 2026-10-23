@@ -50,7 +50,6 @@ ui-toolbar-redo-label = Повторити: { $label }
 ui-divider-pile = Ширина стосу слайдів
 ui-divider-notes = Ширина стрічки агента
 ui-divider-code = Розмір коду
-ui-divider-band = Висота налаштувань
 ui-toolbar-theme = Тема
 ui-toolbar-theme-embedded = Тема з файлу
 ui-toolbar-finish = Готово
@@ -99,13 +98,6 @@ ui-undo-resize = Змінити розмір
 ui-undo-edit-slide = Змінити слайд
 ui-undo-rename-pack = Перейменувати набір
 ui-undo-rename-deck = Перейменувати презентацію
-ui-undo-chart-kind = Змінити тип діаграми
-ui-undo-chart-data = Змінити дані
-ui-undo-chart-color = Задати колір ряду
-ui-undo-chart-stack = { $stacked ->
-    [yes] Скласти ряди
-   *[no] Розділити ряди
-}
 
 ## Нові елементи
 
@@ -301,14 +293,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = Стовпець { $n }
 ui-table-no-data = У цій таблиці немає даних.
-ui-undo-table-option = Параметри таблиці
-ui-undo-table-align = Вирівняти стовпець
-ui-undo-table-data = Редагувати таблицю
 ui-show-as = Показати як
 ui-show-as-table = Показати у вигляді таблиці
 ui-show-as-chart = Показати у вигляді діаграми
-ui-undo-show-as-table = Показати у вигляді таблиці
-ui-undo-show-as-chart = Показати у вигляді діаграми
 
 ## Файли
 
@@ -350,8 +337,6 @@ ui-slide-next = Наступний слайд
 ui-present = Презентація
 ui-present-slide = Слайд { $index } з { $count }
 ui-present-screen = Показати на весь екран
-ui-toolbar-params-hide = Сховати параметри
-ui-toolbar-params-show = Показати параметри
 ui-help-close = Закрити довідку
 ui-help-search = Пошук у довідці
 ui-help-search-placeholder = Пошук…

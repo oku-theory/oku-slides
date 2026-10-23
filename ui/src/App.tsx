@@ -43,8 +43,7 @@ import { THEME_TAB, activeWidget } from "./widgetTabs";
 import ThemePanel from "./ThemePanel";
 import HostSettings from "./HostSettings";
 import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
-import { TargetPanel } from "./TargetPanel";
-import { useTargetSettings } from "./useTargetSettings";
+import { useDataSettings } from "./useDataSettings";
 import WidgetPane from "./WidgetPane";
 import PackTabs from "./PackTabs";
 import { PackBrand } from "./PackBrand";
@@ -224,10 +223,11 @@ export default function App({
 
   // Réglages du widget du sous-onglet actif, à ses valeurs d'exemple.
   const host = useHostSettings(api, snap, widgets.activeName, run, say);
+  // Données du graphique ou du tableau sélectionné (résolu dans la vue), au dock de l'agent ; ni sur
+  // l'onglet « Thème » ni sur un sous-onglet widget, où la scène n'est pas montrée.
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
-  // Paramètres de l'élément sélectionné (résolu dans la vue), ou du widget de la slide. Sur
-  // l'onglet « Thème », la colonne de droite montre les jetons : la cible n'est pas lue.
-  const target = useTargetSettings(api, snap, current, selectedElement ?? null, widgetActive || themeActive, run, say);
+  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, widgetActive || themeActive, run, say);
+  const dataSurfaces = useMemo(() => (data.surface ? [data.surface] : []), [data.surface]);
 
   const {
     agent, agentSlots, agentStatus, setAgentStatus, agentPicker, agentAvailability, route,
@@ -314,7 +314,6 @@ export default function App({
   // Mode deck : ni pack, ni historique, ni lecture seule (là l'hôte passe « thème » à l'agent).
   const deckMode = !snap.editing && !readOnly;
   const noop = () => {};
-  const paramsHidden = keptUi.folded.includes("params");
 
   // Section des miniatures (repliée à part en mode pack) ; aucune pour un pack de widgets.
   const thumbsSection = pileSection(snap);
@@ -335,7 +334,8 @@ export default function App({
   return (
     <NumberLangContext.Provider value={snap.lang ?? null}>
     <StagePreviewContext.Provider value={previewStore}>
-    <div className={`table${agentDetached && !themeActive ? " agent-detached" : ""}`}>
+    {/* Agent détaché : la colonne de droite se replie, sauf pour montrer les données sélectionnées. */}
+    <div className={`table${agentDetached && !themeActive && !data.surface ? " agent-detached" : ""}`}>
       {history ? (
         <HistoryBar
           history={history}
@@ -371,7 +371,7 @@ export default function App({
 
       <ToolsTray
         api={api} snap={snap} view={view} widgetActive={widgetActive} widgets={widgets}
-        keptUi={keptUi} paramsHidden={paramsHidden} mainMenu={mainMenu}
+        keptUi={keptUi} mainMenu={mainMenu}
         run={run} onAdd={() => setAdding(true)}
       />
 
@@ -450,18 +450,6 @@ export default function App({
             {deckPile("x")}
           </PileSection>
         )}
-        {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide (pas au dock de
-            l'agent) : en mode pack, l'exemple du layout de la slide ; sur l'onglet « Thème », les jetons à droite. */}
-        {!themeActive && (
-          <TargetPanel
-            view={view} readOnly={readOnly} selected={selectedElement} hostParams={snap.host_params} target={target} palette={snap.appearance.chart_palette}
-            onApply={apply} onSurfaceAction={onSurfaceAction} onError={(m) => say(m, true)}
-            folded={paramsHidden}
-            band={keptUi.band} onBand={keptUi.setBand}
-            onKind={(kind) => view && selectedElement && run(api.chartKind(t("ui-undo-chart-kind"), view.slide.id, selectedElement.id, kind))}
-            onShowAs={(v) => view && selectedElement && run(api.showAs(t(v === "table" ? "ui-undo-show-as-table" : "ui-undo-show-as-chart"), view.slide.id, selectedElement.id, v))}
-          />
-        )}
         </div>
         {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={keptUi.code} codeWidth={keptUi.codeWidth} onCodeWidth={keptUi.setCodeWidth}
           run={run} palette={snap.appearance.chart_palette}
@@ -473,11 +461,15 @@ export default function App({
       <aside className={`notes${themeActive ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
         {/* Onglet « Thème » : les jetons en tête ; le fil de l'agent reste monté, caché (styles.css). */}
         {themeActive && <ThemePanel api={api} snap={snap} run={run} say={say} />}
+        {/* Agent détaché : pas de dock ici, les données sélectionnées se montrent seules. */}
+        {agentDetached && data.surface && (
+          <HostSettings surface={data.surface} onAction={onSurfaceAction} outcome={data.outcome} onError={(m) => say(m, true)} />
+        )}
         <AgentPanel
           tab={tab} agent={agent} scope={scopeSource} route={route} ui={agentUiNow}
           keysOff={!!editing || dialogOpen || widgetActive} shortcuts={deckMode} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
-          onHostAction={(s, a) => host.onAction(s, a) || target.onAction(s, a)} onStatus={setAgentStatus}
+          hostSurfaces={dataSurfaces} onHostAction={(s, a) => host.onAction(s, a) || data.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
           onPresent={present} onInterface={onInterface} onOpenHistory={() => void openHistory()}
           onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}

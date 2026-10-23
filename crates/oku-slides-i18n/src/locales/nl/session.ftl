@@ -145,17 +145,26 @@ log-document-saved = Document opgeslagen
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Kolommen
-session-panel-rows = Rijen
 session-widget-params = Parameters van { $name }
 session-widget-no-params = Deze widget heeft geen parameters.
 session-widget-param-fixed = { $name }: niet instelbaar in de voorvertoning
 session-widget-param-yes = Ja
 session-widget-param-no = Nee
 session-widget-invalid-file = Ongeldig bestand: instellingen niet beschikbaar
-session-undo-grid = Raster { $columns } × { $rows }
-session-undo-param = Instelling: { $label }
-session-target-bound = { $name } volgt de presentatievariabele ‘{ $var }’
+session-data-chart = Grafiek
+session-data-table = Tabel
+session-undo-chart-kind = Grafiektype wijzigen
+session-undo-chart-data = Gegevens bewerken
+session-undo-chart-color = Reeks kleuren
+session-undo-chart-stack = { $stacked ->
+    [yes] Reeksen stapelen
+   *[no] Reeksen scheiden
+}
+session-undo-table-option = Tabelopties
+session-undo-table-align = De kolom uitlijnen
+session-undo-table-data = De tabel bewerken
+session-undo-show-as-table = Weergeven als tabel
+session-undo-show-as-chart = Weergeven als grafiek
 session-widget-kind-base-card = Kaart
 session-widget-kind-base-chart = Grafiek
 session-widget-kind-base-table = Tabel
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Tekst
 session-widget-kind-essentiel-toc = Inhoudsopgave
 session-widget-kind-essentiel-title = Titeldia
 session-widget-kind-essentiel-blank = Leeg
-session-param-base-card-kicker = Bovenregel
-session-param-base-card-title = Titel
-session-param-base-card-body = Hoofdtekst
-session-param-base-card-highlight = Uitlichten
-session-param-essentiel-chapter-title = Titel
-session-param-essentiel-chapter-subtitle = Ondertitel
-session-param-essentiel-content-kicker = Bovenregel
-session-param-essentiel-content-title = Titel
-session-param-essentiel-content-layout = Indeling
-session-param-essentiel-end-text = Tekst
-session-param-base-image-fit = Passing
-session-param-base-shape-shape = Vorm
-session-param-base-stack-layout = Indeling
-session-param-base-stack-count = Aantal elementen
-session-param-base-stack-gap = Tussenruimte
-session-param-base-text-body = Hoofdtekst
-session-param-essentiel-toc-title = Titel
 
 ## Menu
 

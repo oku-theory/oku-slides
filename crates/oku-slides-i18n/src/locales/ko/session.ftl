@@ -145,17 +145,26 @@ log-document-saved = 문서를 저장했습니다
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = 열
-session-panel-rows = 행
 session-widget-params = { $name }의 매개변수
 session-widget-no-params = 이 위젯에는 매개변수가 없습니다.
 session-widget-param-fixed = { $name }: 미리 보기에서 조정할 수 없음
 session-widget-param-yes = 예
 session-widget-param-no = 아니요
 session-widget-invalid-file = 잘못된 파일: 설정을 사용할 수 없음
-session-undo-grid = 그리드 { $columns } × { $rows }
-session-undo-param = 설정: { $label }
-session-target-bound = { $name }은(는) 프레젠테이션 변수 “{ $var }”을(를) 따릅니다
+session-data-chart = 차트
+session-data-table = 표
+session-undo-chart-kind = 차트 유형 변경
+session-undo-chart-data = 데이터 편집
+session-undo-chart-color = 계열 색 지정
+session-undo-chart-stack = { $stacked ->
+    [yes] 계열 누적
+   *[no] 계열 누적 해제
+}
+session-undo-table-option = 표 옵션
+session-undo-table-align = 열 정렬
+session-undo-table-data = 표 편집
+session-undo-show-as-table = 표로 표시
+session-undo-show-as-chart = 차트로 표시
 session-widget-kind-base-card = 카드
 session-widget-kind-base-chart = 차트
 session-widget-kind-base-table = 표
@@ -169,23 +178,6 @@ session-widget-kind-base-text = 텍스트
 session-widget-kind-essentiel-toc = 목차
 session-widget-kind-essentiel-title = 제목 슬라이드
 session-widget-kind-essentiel-blank = 빈 슬라이드
-session-param-base-card-kicker = 머리말
-session-param-base-card-title = 제목
-session-param-base-card-body = 본문
-session-param-base-card-highlight = 강조
-session-param-essentiel-chapter-title = 제목
-session-param-essentiel-chapter-subtitle = 부제목
-session-param-essentiel-content-kicker = 머리말
-session-param-essentiel-content-title = 제목
-session-param-essentiel-content-layout = 레이아웃
-session-param-essentiel-end-text = 텍스트
-session-param-base-image-fit = 맞춤
-session-param-base-shape-shape = 도형
-session-param-base-stack-layout = 레이아웃
-session-param-base-stack-count = 항목 수
-session-param-base-stack-gap = 간격
-session-param-base-text-body = 본문
-session-param-essentiel-toc-title = 제목
 
 ## Menu
 

@@ -4,6 +4,7 @@
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { DataOp } from "./chart/chartTypes";
+import type { DataEdit } from "./chart/dataEdit";
 import type { Cell, ZoneView } from "./grid";
 import { locale } from "./i18n";
 import type { PackNoticeCommand } from "./packNoticeCommand";
@@ -146,7 +147,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets, bande et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
+/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -164,9 +165,7 @@ export interface UiState {
   code: boolean;
   /** Largeur du code en px, choisie au séparateur ; `null` : proportion par défaut. */
   code_width: number | null;
-  /** Hauteur de la bande sous la scène en px, choisie au séparateur ; `null` : hauteur par défaut. */
-  band: number | null;
-  /** Sections repliées (pile, carte des paramètres) ; toutes ouvertes par défaut. */
+  /** Sections repliées (miniatures, widgets) ; toutes ouvertes par défaut. */
   folded: PileSectionName[];
 }
 
@@ -177,8 +176,8 @@ export interface UiOrder {
   seq: number;
 }
 
-/** Section repliable : slides hors mode pack, layouts et widgets en mode pack, carte des paramètres. */
-export type PileSectionName = "slides" | "layouts" | "widgets" | "params";
+/** Section repliable : slides hors mode pack, layouts et widgets en mode pack. */
+export type PileSectionName = "slides" | "layouts" | "widgets";
 
 /** Sorte d'un pack : widgets d'éléments ou layouts de slide. */
 export type PackKind = "widgets" | "layouts";
@@ -611,16 +610,16 @@ type Request =
   | { cmd: "rename_edited_theme"; name: string }
   | { cmd: "pack_make_current" }
   | { cmd: "pack_notice_close" }
+  | { cmd: "host_settings"; widget: string | null }
+  | { cmd: "data_panel"; slide: string; element: string }
+  | { cmd: "data_edit"; slide: string; element: string; edit: DataEdit }
+  // Demandées par l'agent (outils MCP) ; l'interface passe par `data_edit`.
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
   | { cmd: "show_as"; label: string; slide: string; element: string; view: View }
-  | { cmd: "host_settings"; widget: string | null }
   | { cmd: "set_example_value"; name: string; param: string; value: unknown }
   | { cmd: "edit_example_list"; name: string; param: string; change: ListOp }
   | { cmd: "host_theme"; filter: string }
   | { cmd: "host_token"; path: string[]; action: TokenAction; value?: unknown }
-  | { cmd: "target_settings"; slide: string; element: string | null }
-  | { cmd: "target_param"; slide: string; element: string | null; key: string; value: unknown }
-  | { cmd: "target_list"; slide: string; element: string | null; key: string; change: ListOp }
   | ({ cmd: "ui"; order?: UiOrder } & UiState)
   | { cmd: "history_open" }
   | { cmd: "history_seek"; index: number }
@@ -783,10 +782,6 @@ export function tabApi(tab: string) {
   const call = <T>(req: Request) => host<T>("request", { tab, req }, "/api", { tab, req });
   return {
     snapshot: () => call<Snapshot>({ cmd: "snapshot" }),
-    chartKind: (label: string, slide: string, element: string, kind: string) =>
-      call<Snapshot>({ cmd: "chart_kind", label, slide, element, kind }),
-    showAs: (label: string, slide: string, element: string, view: View) =>
-      call<Snapshot>({ cmd: "show_as", label, slide, element, view }),
     save: (path: string | null, overwrite = false) => call<Snapshot>({ cmd: "save", path, overwrite }),
     /** Fusionne un autre PDF du même deck ; l'avis de fusion arrive par `notice`. */
     merge: (path: string) => call<Snapshot>({ cmd: "merge", path }),
@@ -796,21 +791,16 @@ export function tabApi(tab: string) {
     svg: (id: string) => call<string>({ cmd: "svg", id }),
     /** Surface A2UI des réglages du widget à ses valeurs d'exemple ; vide hors du mode pack ou sans widget. */
     hostSettings: (widget: string | null) => call<Surface | null>({ cmd: "host_settings", widget }),
+    /** Surface `host-data` du graphique ou du tableau `element` ; `null` pour un autre élément. */
+    dataPanel: (slide: string, element: string) => call<Surface | null>({ cmd: "data_panel", slide, element }),
+    /** Applique une modification de la surface `host-data` : une étape d'annulation. */
+    dataEdit: (slide: string, element: string, edit: DataEdit) => call<Snapshot>({ cmd: "data_edit", slide, element, edit }),
     /** Règle une valeur d'exemple d'un widget, dans le pack (mode pack). */
     setExampleValue: (name: string, param: string, value: unknown) =>
       call<Snapshot>({ cmd: "set_example_value", name, param, value }),
     /** Change la liste `param` des valeurs d'exemple ; sans valeur gardée, elle part des items par défaut du schéma. */
     editExampleList: (name: string, param: string, change: ListOp) =>
       call<Snapshot>({ cmd: "edit_example_list", name, param, change }),
-    /** Surface des paramètres de l'élément `element` (ou, sans élément, du widget de la slide) ; vide si rien n'est réglable. */
-    targetSettings: (slide: string, element: string | null) =>
-      call<Surface | null>({ cmd: "target_settings", slide, element }),
-    /** Règle le paramètre `key` de la cible (pour une liste, `value` porte tous ses items) : un pas d'annulation. */
-    targetParam: (slide: string, element: string | null, key: string, value: unknown) =>
-      call<Snapshot>({ cmd: "target_param", slide, element, key, value }),
-    /** Change la liste `key` de la cible : un pas d'annulation. */
-    targetList: (slide: string, element: string | null, key: string, change: ListOp) =>
-      call<Snapshot>({ cmd: "target_list", slide, element, key, change }),
     apply: (label: string, ops: Op[], merge?: string) =>
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
     undo: () => call<Snapshot>({ cmd: "undo" }),

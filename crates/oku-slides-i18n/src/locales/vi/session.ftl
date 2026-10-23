@@ -145,17 +145,26 @@ log-document-saved = Đã lưu tài liệu
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Cột
-session-panel-rows = Hàng
 session-widget-params = Tham số của { $name }
 session-widget-no-params = Tiện ích này không có tham số.
 session-widget-param-fixed = { $name }: không chỉnh được trong bản xem trước
 session-widget-param-yes = Có
 session-widget-param-no = Không
 session-widget-invalid-file = Tệp không hợp lệ: không có cài đặt
-session-undo-grid = Lưới { $columns } × { $rows }
-session-undo-param = Cài đặt: { $label }
-session-target-bound = { $name } theo biến của bản trình bày “{ $var }”
+session-data-chart = Biểu đồ
+session-data-table = Bảng
+session-undo-chart-kind = Đổi loại biểu đồ
+session-undo-chart-data = Sửa dữ liệu
+session-undo-chart-color = Tô màu một chuỗi
+session-undo-chart-stack = { $stacked ->
+    [yes] Xếp chồng các chuỗi
+   *[no] Tách các chuỗi
+}
+session-undo-table-option = Tùy chọn bảng
+session-undo-table-align = Căn lề cột
+session-undo-table-data = Sửa bảng
+session-undo-show-as-table = Hiển thị dưới dạng bảng
+session-undo-show-as-chart = Hiển thị dưới dạng biểu đồ
 session-widget-kind-base-card = Thẻ
 session-widget-kind-base-chart = Biểu đồ
 session-widget-kind-base-table = Bảng
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Văn bản
 session-widget-kind-essentiel-toc = Mục lục
 session-widget-kind-essentiel-title = Trang tiêu đề
 session-widget-kind-essentiel-blank = Trống
-session-param-base-card-kicker = Dòng dẫn
-session-param-base-card-title = Tiêu đề
-session-param-base-card-body = Nội dung
-session-param-base-card-highlight = Làm nổi bật
-session-param-essentiel-chapter-title = Tiêu đề
-session-param-essentiel-chapter-subtitle = Phụ đề
-session-param-essentiel-content-kicker = Dòng dẫn
-session-param-essentiel-content-title = Tiêu đề
-session-param-essentiel-content-layout = Bố cục
-session-param-essentiel-end-text = Văn bản
-session-param-base-image-fit = Vừa khung
-session-param-base-shape-shape = Hình
-session-param-base-stack-layout = Bố cục
-session-param-base-stack-count = Số mục
-session-param-base-stack-gap = Khoảng cách
-session-param-base-text-body = Nội dung
-session-param-essentiel-toc-title = Tiêu đề
 
 ## Menu
 

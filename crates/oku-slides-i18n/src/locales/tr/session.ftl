@@ -145,17 +145,26 @@ log-document-saved = Belge kaydedildi
 
 ## Réglages de l'hôte (dock A2UI)
 
-session-panel-columns = Sütunlar
-session-panel-rows = Satırlar
 session-widget-params = { $name } parametreleri
 session-widget-no-params = Bu widget'ın parametresi yok.
 session-widget-param-fixed = { $name }: önizlemede ayarlanamaz
 session-widget-param-yes = Evet
 session-widget-param-no = Hayır
 session-widget-invalid-file = Geçersiz dosya: ayarlar kullanılamıyor
-session-undo-grid = Izgara { $columns } × { $rows }
-session-undo-param = Ayar: { $label }
-session-target-bound = { $name }, sunum değişkeni “{ $var }” değerini izler
+session-data-chart = Grafik
+session-data-table = Tablo
+session-undo-chart-kind = Grafik türünü değiştir
+session-undo-chart-data = Verileri düzenle
+session-undo-chart-color = Seriyi renklendir
+session-undo-chart-stack = { $stacked ->
+    [yes] Serileri yığ
+   *[no] Serileri ayır
+}
+session-undo-table-option = Tablo seçenekleri
+session-undo-table-align = Sütunu hizala
+session-undo-table-data = Tabloyu düzenle
+session-undo-show-as-table = Tablo olarak göster
+session-undo-show-as-chart = Grafik olarak göster
 session-widget-kind-base-card = Kart
 session-widget-kind-base-chart = Grafik
 session-widget-kind-base-table = Tablo
@@ -169,23 +178,6 @@ session-widget-kind-base-text = Metin
 session-widget-kind-essentiel-toc = İçindekiler
 session-widget-kind-essentiel-title = Kapak
 session-widget-kind-essentiel-blank = Boş
-session-param-base-card-kicker = Üst başlık
-session-param-base-card-title = Başlık
-session-param-base-card-body = Gövde
-session-param-base-card-highlight = Vurgu
-session-param-essentiel-chapter-title = Başlık
-session-param-essentiel-chapter-subtitle = Alt başlık
-session-param-essentiel-content-kicker = Üst başlık
-session-param-essentiel-content-title = Başlık
-session-param-essentiel-content-layout = Düzen
-session-param-essentiel-end-text = Metin
-session-param-base-image-fit = Sığdırma
-session-param-base-shape-shape = Şekil
-session-param-base-stack-layout = Düzen
-session-param-base-stack-count = Öğe sayısı
-session-param-base-stack-gap = Aralık
-session-param-base-text-body = Gövde
-session-param-essentiel-toc-title = Başlık
 
 ## Menu
 

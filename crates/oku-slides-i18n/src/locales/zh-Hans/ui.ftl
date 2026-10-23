@@ -44,7 +44,6 @@ ui-toolbar-redo-label = 重做：{ $label }
 ui-divider-pile = 幻灯片堆宽度
 ui-divider-notes = 智能体对话宽度
 ui-divider-code = 代码大小
-ui-divider-band = 设置区高度
 ui-toolbar-theme = 主题
 ui-toolbar-theme-embedded = 文件主题
 ui-toolbar-finish = 完成
@@ -93,13 +92,6 @@ ui-undo-resize = 调整大小
 ui-undo-edit-slide = 编辑幻灯片
 ui-undo-rename-pack = 重命名包
 ui-undo-rename-deck = 重命名演示文稿
-ui-undo-chart-kind = 更改图表类型
-ui-undo-chart-data = 编辑数据
-ui-undo-chart-color = 为系列设置颜色
-ui-undo-chart-stack = { $stacked ->
-    [yes] 堆叠系列
-   *[no] 取消堆叠系列
-}
 
 ## 新元素
 
@@ -295,14 +287,9 @@ ui-table-align = { $align ->
 }
 ui-table-column = 列 { $n }
 ui-table-no-data = 此表格没有数据。
-ui-undo-table-option = 表格选项
-ui-undo-table-align = 对齐该列
-ui-undo-table-data = 编辑表格
 ui-show-as = 显示为
 ui-show-as-table = 显示为表格
 ui-show-as-chart = 显示为图表
-ui-undo-show-as-table = 显示为表格
-ui-undo-show-as-chart = 显示为图表
 
 ## 文件
 
@@ -344,8 +331,6 @@ ui-slide-next = 下一张幻灯片
 ui-present = 演示
 ui-present-slide = 第{ $index }张，共 { $count }张
 ui-present-screen = 全屏演示
-ui-toolbar-params-hide = 隐藏设置
-ui-toolbar-params-show = 显示设置
 ui-help-close = 关闭帮助
 ui-help-search = 搜索帮助
 ui-help-search-placeholder = 搜索…
