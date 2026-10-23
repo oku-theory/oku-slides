@@ -48,13 +48,13 @@ const MARKER: f64 = 0.6;
 /// Jetons d'une carte, en pt.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CardTokens {
-    /// Marge horizontale (`component.card.padding-x`).
+    /// Marge horizontale (`component.base.card.padding-x`).
     pub padding_x: f64,
-    /// Marge verticale (`component.card.padding-y`).
+    /// Marge verticale (`component.base.card.padding-y`).
     pub padding_y: f64,
-    /// Taille du titre (`component.card.title-size`).
+    /// Taille du titre (`component.base.card.title-size`).
     pub title: f64,
-    /// Espace entre surtitre, titre et corps (`component.card.gap`).
+    /// Espace entre surtitre, titre et corps (`component.base.card.gap`).
     pub gap: f64,
 }
 
@@ -67,27 +67,27 @@ pub struct TextTokens {
     pub leading: f64,
     /// Espace entre deux paragraphes et entre deux blocs empilés (`space.md`).
     pub paragraph: f64,
-    /// Espace entre deux items de liste (`component.list.spacing`).
+    /// Espace entre deux items de liste (`list.spacing`).
     pub list_spacing: f64,
-    /// Retrait d'un item de liste (`component.list.indent`).
+    /// Retrait d'un item de liste (`list.indent`).
     pub list_indent: f64,
-    /// Taille du titre de slide (`component.title.size`).
+    /// Taille du titre de slide (`component.essentiel.title.size`).
     pub title: f64,
-    /// Interligne du titre de slide, en em (`component.title.leading`).
+    /// Interligne du titre de slide, en em (`component.essentiel.title.leading`).
     pub title_leading: f64,
-    /// Taille du surtitre (`component.kicker.size`).
+    /// Taille du surtitre (`kicker.size`).
     pub kicker: f64,
     /// Espace entre le surtitre et le titre (`space.sm`).
     pub kicker_gap: f64,
-    /// Gouttière des mises en page `columns` et `split` (`component.columns.gap`).
+    /// Gouttière des mises en page `columns` et `split` (`component.essentiel.columns.gap`).
     pub columns_gap: f64,
     /// Gouttière d'une pile (`space.lg`, celle du widget `stack` par défaut).
     pub stack_gap: f64,
     /// Jetons des cartes.
     pub card: CardTokens,
-    /// Taille du texte d'un tableau (`component.table.size`).
+    /// Taille du texte d'un tableau (`component.base.table.size`).
     pub table: f64,
-    /// Marge verticale d'une cellule (`component.table.padding-y`).
+    /// Marge verticale d'une cellule (`component.base.table.padding-y`).
     pub table_padding: f64,
     /// Tailles plus petites que le corps qu'offre le thème, de la plus grande
     /// à la plus petite : la réduction d'un flux qui déborde n'en prend pas d'autre.
@@ -105,22 +105,22 @@ impl TextTokens {
             body: num(&["size", "body"]),
             leading: num(&["leading", "normal"]),
             paragraph: num(&["space", "md"]),
-            list_spacing: tok("space", &["component", "list", "spacing"]),
-            list_indent: tok("space", &["component", "list", "indent"]),
-            title: tok("size", &["component", "title", "size"]),
-            title_leading: leading(&["component", "title", "leading"]),
-            kicker: tok("size", &["component", "kicker", "size"]),
+            list_spacing: tok("space", &["list", "spacing"]),
+            list_indent: tok("space", &["list", "indent"]),
+            title: tok("size", &["component", "essentiel", "title", "size"]),
+            title_leading: leading(&["component", "essentiel", "title", "leading"]),
+            kicker: tok("size", &["kicker", "size"]),
             kicker_gap: num(&["space", "sm"]),
-            columns_gap: tok("space", &["component", "columns", "gap"]),
+            columns_gap: tok("space", &["component", "essentiel", "columns", "gap"]),
             stack_gap: num(&["space", "lg"]),
             card: CardTokens {
-                padding_x: tok("space", &["component", "card", "padding-x"]),
-                padding_y: tok("space", &["component", "card", "padding-y"]),
-                title: tok("size", &["component", "card", "title-size"]),
-                gap: tok("space", &["component", "card", "gap"]),
+                padding_x: tok("space", &["component", "base", "card", "padding-x"]),
+                padding_y: tok("space", &["component", "base", "card", "padding-y"]),
+                title: tok("size", &["component", "base", "card", "title-size"]),
+                gap: tok("space", &["component", "base", "card", "gap"]),
             },
-            table: tok("size", &["component", "table", "size"]),
-            table_padding: tok("space", &["component", "table", "padding-y"]),
+            table: tok("size", &["component", "base", "table", "size"]),
+            table_padding: tok("space", &["component", "base", "table", "padding-y"]),
             smaller: [("small", num(&["size", "small"])), ("caption", num(&["size", "caption"]))],
         }
     }

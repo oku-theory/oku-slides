@@ -44,7 +44,7 @@ fn import_tab_hifi_replaces_the_pristine_tab_with_an_unsaved_imported_deck() {
 fn import_tab_retrofit_beside_an_edited_tab_adds_a_tab_holding_the_import() {
     let data = fresh_dir("oku-slides-workspace-import-retrofit-");
     let ws = workspace_on(data.path());
-    let theme = json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref("pro")}]});
+    let theme = json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": "pro"}]});
     Workspace::request(&ws, "t-1", serde_json::from_value::<Request>(theme).unwrap()).0.unwrap();
     let pptx = pptx_fixture(data.path(), "minimal");
     import_tab(&ws, &pptx, json!({ "mode": "retrofit", "layouts": ["Essentiel"] }), false).unwrap();

@@ -39,10 +39,10 @@ impl Session {
     /// (voir `disable_faulty`) et le rendu refait une fois.
     pub(crate) fn render_deck(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
         self.probe_remaining();
-        let tokens = self.theme_tokens(deck);
+        let layer = self.theme_layer(deck)?;
         self.open_deck_renderer()?;
         let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
-        let e = match render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets) {
+        let e = match render_themed(renderer, deck, &layer, &self.doc.sources.assets) {
             Ok(compiled) => return Ok(compiled),
             Err(e) => e,
         };
@@ -51,7 +51,7 @@ impl Session {
         }
         self.open_deck_renderer()?;
         let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
-        Ok(render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets).context(RenderSnafu)?)
+        Ok(render_themed(renderer, deck, &layer, &self.doc.sources.assets).context(RenderSnafu)?)
     }
 
     /// Un pack installé est-il fautif ?
@@ -131,11 +131,11 @@ impl Session {
         let set = PackSet::new(packs).context(RegistrySnafu)?;
         // Le `base` intégré courant seul : registre intégré, sans sonde.
         let registry = self.registry_for(&set)?;
-        let tokens = self.theme_tokens(deck);
+        let layer = self.theme_layer(deck)?;
         let names: Vec<&Namespace> = set.packs().iter().map(PackWidgets::namespace).collect();
         let slot = new_renderer(&self.worker, self.render_fonts.clone(), &self.localizer, &set, &registry);
         let rendered = slot.and_then(|mut slot| {
-            render_themed(&mut slot, deck, tokens.as_ref(), &self.doc.sources.assets).context(RenderSnafu)?;
+            render_themed(&mut slot, deck, &layer, &self.doc.sources.assets).context(RenderSnafu)?;
             Ok(())
         });
         let failed = rendered.as_ref().err().and_then(|e| e.render_error()).is_some_and(|e| e.kind().is_bounded());

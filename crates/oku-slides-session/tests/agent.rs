@@ -808,8 +808,18 @@ fn turn_groups_every_apply_into_one_undo() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.begin_turn(1, "titre plus percutant");
-    s.apply("a", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
-    s.apply("b", vec![Op::SetTheme { theme: common::theme_ref("papier") }], None).unwrap();
+    s.apply(
+        "a",
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        None,
+    )
+    .unwrap();
+    s.apply(
+        "b",
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("papier")), themes: Default::default() }],
+        None,
+    )
+    .unwrap();
     s.end_turn();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Agent : titre plus percutant"));
     s.undo().unwrap();
@@ -821,11 +831,21 @@ fn end_turn_after_edit_pack_closes_stashed_group_too() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     s.begin_turn(1, "modèles");
-    s.apply("a", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
+    s.apply(
+        "a",
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        None,
+    )
+    .unwrap();
     s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
     s.end_turn();
     s.close_pack().unwrap();
-    s.apply("Seul", vec![Op::SetTheme { theme: common::theme_ref("papier") }], None).unwrap();
+    s.apply(
+        "Seul",
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("papier")), themes: Default::default() }],
+        None,
+    )
+    .unwrap();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Seul"));
 }
 

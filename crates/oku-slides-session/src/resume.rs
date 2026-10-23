@@ -539,9 +539,9 @@ impl Resume {
         for (name, bytes) in self.read_files(&dir.join("themes"))? {
             let Some(hex) = name.strip_suffix(".json") else { continue };
             // Vérifié par son empreinte : un thème altéré est ignoré.
-            match PackFiles::verified(PackKind::Widgets, hex, &bytes, []) {
-                Some((version, files)) => {
-                    themes.insert(version, files);
+            match PackFiles::verified_theme(hex, &bytes) {
+                Some(files) => {
+                    themes.insert(files.version(), files);
                 }
                 None => tracing::warn!(version = hex, "thème de reprise altéré ignoré"),
             }
@@ -758,7 +758,10 @@ impl Session {
                     version: VERSION,
                     mode: SavedMode::Help((*locale).to_owned()),
                     ui: self.ui.clone(),
-                    help_theme: self.doc.sources.deck().theme.as_ref().map(|t| t.id),
+                    help_theme: {
+                        let deck = self.doc.sources.deck();
+                        deck.theme.as_ref().and_then(|ns| deck.themes.get(ns)).map(|pin| pin.id)
+                    },
                     theme_edit: None,
                 };
                 writer.send(Job { docs: Vec::new(), state, agent });

@@ -41,11 +41,9 @@ expression: fixture_tokens(fixture)
     "title": 88.0,
     "body": 64.0
   },
-  "component": {
-    "list": {
-      "marker": "•",
-      "marker-color": null
-    }
+  "list": {
+    "marker": "•",
+    "marker-color": null
   },
   "weight": {
     "body": 400,

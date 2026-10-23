@@ -18,7 +18,7 @@
 - Write a conditional set rule as set rule if cond; a set inside an if block applies to nothing. (t-841)
 - Change the example widget fixtures and the Typst README code blocks together; a test compares them verbatim. (plan:2026-10-02-creation-widgets)
 - Scale a table down only if it still overflows after wrapping, never from a zero measurement. (spec:2026-10-08-widget-tableau-design)
-- Add new component tokens to themes/pro.json too; it is a full snapshot, not a partial override. (plan:2026-10-08-widget-tableau)
+- Declare a component token in its owning pack manifest's tokens, never in default-tokens.json; a theme sets it under component.<namespace>. (plan:2026-10-22-packs-lot4-themes)
 - Stack template fields with fields-stack, not stack, or empty-field markers get spacing or stay inert. (spec:2026-09-28-champs-editables-design)
 - Attach empty-field markers with place() to neighbor items; never wrap the stack in layout(), it shifts rendering. (spec:2026-09-28-champs-editables-design)
 

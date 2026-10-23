@@ -1,7 +1,7 @@
-//! Le thème généré : les jetons d'un thème Oku tirés du thème source d'un
+//! Les jetons générés : ceux d'un thème Oku tirés du thème source d'un
 //! master, des polices retenues et des styles de texte de ce master.
 //!
-//! Un seul thème par deck : celui du master de la première slide
+//! Ils s'écrivent dans `deck.tokens` (`SetTokens`) sur le thème Neutre. Un seul jeu par deck : celui du master de la première slide
 //! ([`theme_master`]). Les couleurs d'un autre master au thème différent
 //! s'écrivent en hexadécimal ([`super::color::ThemeColors::write`]).
 //!
@@ -12,23 +12,18 @@
 //! | `fontScheme` | `font.display` = majeure retenue, `font.body` = mineure retenue ; introuvable : le repli (`FontPlan::fallback`) ; puis leurs polices `ea` et `cs` retenues ([`role_families`]) |
 //! | placeholders du master et de ses layouts, `txStyles` | `size.title`, `size.subtitle`, `size.body`, `size.small` |
 //! | gras d'un run, texte maigre | `weight.strong` = 700, `weight.body` = 400 : les graisses de PowerPoint |
-//! | puce (caractère) du premier niveau du corps du master | `component.list.marker`, `component.list.marker-color` (`null` : celle du texte) |
-//! | premier tableau du deck | `component.table` : fonds d'en-tête, du corps et des bandes, couleur et graisse de l'en-tête, taille, filet ([`super::table`]) |
+//! | puce (caractère) du premier niveau du corps du master | `list.marker`, `list.marker-color` (`null` : celle du texte) |
+//! | premier tableau du deck | `component.base.table` : fonds d'en-tête, du corps et des bandes, couleur et graisse de l'en-tête, taille, filet ([`super::table`]) |
 //! | page | `page.margin-*` nulles : la zone de corps est la page |
 //!
 //! Ce qui manque à la source (emplacement absent, police introuvable,
-//! placeholder sans style) n'est pas écrit : le jeton par défaut du rendu
+//! placeholder sans style) n'est pas écrit : le jeton du thème Neutre
 //! reste. `page.width` et `page.height` restent ceux du rendu (1920 × 1080,
-//! voir [`super::page`]) ; les autres jetons `component.*` ne servent pas
+//! voir [`super::page`]) ; les autres jetons de composant ne servent pas
 //! aux widgets générés et restent aussi. Une puce numérotée ou absente
 //! laisse la puce par défaut ; le retrait de la puce source n'est pas
-//! repris : `component.list.indent` est l'écart de la puce au texte, hors
+//! repris : `list.indent` est l'écart de la puce au texte, hors
 //! largeur de la puce, que la source ne donne pas.
-
-use serde_json::{Map, Value, json};
-use uuid::Uuid;
-
-use oku_slides_core::{PackScope, ThemeManifest};
 
 use super::color::{SLOT_TOKENS, ThemeColors};
 use super::page::Page;
@@ -36,6 +31,7 @@ use super::table::{TableLook, first_table};
 use crate::fonts::FontPlan;
 use crate::retrofit::color::contrast;
 use crate::source::{Bullet, Master, Placeholder, Rgba, Role, Script, SourceDeck, ThemeFonts};
+use serde_json::{Map, Value, json};
 
 /// Part de l'encre dans le filet (`rule`) : le « Arrière-plan 1, plus sombre
 /// 15 % » de PowerPoint, le gris des séparateurs d'un thème Office (`#d9d9d9`
@@ -82,15 +78,12 @@ pub(crate) fn theme_tokens(deck: &SourceDeck, master: &Master, fonts: &FontPlan,
     if !size.is_empty() {
         tokens.insert("size".to_owned(), Value::Object(size));
     }
-    let mut component = Map::new();
     if let Some(list) = list_tokens(master, &colors) {
-        component.insert("list".to_owned(), list);
+        tokens.insert("list".to_owned(), list);
     }
     if let Some(look) = first_table(deck).map(|t| TableLook::of(t, &colors, page)) {
-        component.insert("table".to_owned(), Value::Object(look.tokens));
-    }
-    if !component.is_empty() {
-        tokens.insert("component".to_owned(), Value::Object(component));
+        // Le tableau est un composant du pack `base` : `component.base.table`.
+        tokens.insert("component".to_owned(), json!({ "base": { "table": Value::Object(look.tokens) } }));
     }
     tokens.extend(bare_tokens());
     tokens
@@ -132,19 +125,6 @@ fn bare_tokens() -> Map<String, Value> {
     tokens.insert("weight".to_owned(), json!({ "body": WEIGHT_BODY, "strong": WEIGHT_BOLD }));
     tokens.insert("page".to_owned(), json!({ "margin-x": 0, "margin-top": 0, "margin-bottom": 0 }));
     tokens
-}
-
-/// Le `theme.json` du thème généré (première version, sans parent, du deck seul).
-pub(crate) fn theme_manifest(tokens: Map<String, Value>, id: Uuid, name: &str, created: &str) -> ThemeManifest {
-    ThemeManifest {
-        id,
-        name: name.to_owned(),
-        description: String::new(),
-        parent: None,
-        created: created.to_owned(),
-        scope: PackScope::Deck,
-        tokens,
-    }
 }
 
 /// Les familles retenues des titres (`major`) ou du corps du thème `tf` : la
@@ -215,7 +195,7 @@ fn size_tokens(deck: &SourceDeck, master: &Master, page: &Page) -> Map<String, V
         .collect()
 }
 
-/// `component.list` : la puce du premier niveau du corps du master (son
+/// `list` : la puce du premier niveau du corps du master (son
 /// placeholder de corps, sinon ses `txStyles`), si c'est un caractère ; sa
 /// couleur propre, sinon `null` (la couleur du texte).
 fn list_tokens(master: &Master, colors: &ThemeColors) -> Option<Value> {

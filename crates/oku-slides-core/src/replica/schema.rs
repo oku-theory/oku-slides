@@ -24,8 +24,8 @@ pub(super) enum Ctx {
     /// JSON (spec : chaque entrée de `vars` est LWW, jamais fusionnée champ à
     /// champ même si elle contient un objet).
     Vars,
-    /// Chaque entrée de `widgets` et de `layouts` est une feuille LWW : un
-    /// épinglage entier, jamais champ à champ.
+    /// Chaque entrée de `widgets`, de `layouts` et de `themes` est une feuille
+    /// LWW : un épinglage entier, jamais champ à champ.
     PackPins,
     /// `tokens`, `style`, `frame`, `cell`, extras des `params` du deck :
     /// cartes à feuilles LWW.
@@ -108,9 +108,9 @@ impl Ctx {
     pub(super) fn kind(self, key: &str) -> Kind {
         use Ctx::*;
         match (self, key) {
-            // Une référence de thème entière : l'id et la version ne se mêlent jamais.
+            // L'espace de noms du thème du deck : un atome.
             (Deck, "theme") => Kind::Atom,
-            (Deck, "widgets" | "layouts") => Kind::Nested(PackPins),
+            (Deck, "widgets" | "layouts" | "themes") => Kind::Nested(PackPins),
             (PackPins, _) => Kind::Atom,
             (Deck, SLIDES) => Kind::Slides,
             (Deck, "params") => Kind::Nested(DeckParams),
@@ -136,10 +136,10 @@ impl Ctx {
 
     /// Cartes créées dès la création de l'objet et jamais retirées : vides
     /// quand le deck n'en a pas. Deux pairs qui épinglent chacun un premier
-    /// pack écrivent ainsi dans la même carte `widgets` (ou `layouts`).
+    /// pack écrivent ainsi dans la même carte `widgets` (ou `layouts`, `themes`).
     pub(super) fn maps(self) -> &'static [&'static str] {
         match self {
-            Ctx::Deck => &["widgets", "layouts"],
+            Ctx::Deck => &["widgets", "layouts", "themes"],
             _ => &[],
         }
     }

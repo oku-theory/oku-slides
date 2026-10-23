@@ -6,6 +6,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::{Fonts, PackSet, builtin_registry, load_registry};
 use oku_slides_core::{Category, Grow, Namespace, PackKind, PackManifest, WidgetRegistry, kinds};
+use serde_json::{Map, Value};
 
 fn registry_of(pack: BuiltinPack) -> WidgetRegistry {
     load_registry(&Fonts::default(), &PackSet::new(vec![pack.widgets().unwrap()]).unwrap()).unwrap()
@@ -189,4 +190,39 @@ fn is_trusted_pack_essentiel_under_the_base_id_is_not_trusted() {
         PackWidgets::new(base.id(), essentiel.namespace().clone(), PackKind::Layouts, essentiel.files().clone())
             .unwrap();
     assert_that!(is_trusted_pack(&swapped)).is_false();
+}
+
+#[rstest]
+#[case(BuiltinPack::Base, &["card", "table"])]
+#[case(BuiltinPack::Essentiel, &["chapter", "columns", "end-slide", "quote", "title", "title-slide", "toc"])]
+fn builtin_pack_declares_its_component_groups(#[case] pack: BuiltinPack, #[case] groups: &[&str]) {
+    let defaults = pack.component_defaults().unwrap();
+    // Les clés suivent l'ordre du manifeste (`preserve_order`) : comparées triées.
+    let mut keys = defaults.keys().map(String::as_str).collect::<Vec<_>>();
+    keys.sort_unstable();
+    assert_that!(keys).is_equal_to(groups.to_vec());
+}
+
+#[test]
+fn default_tokens_have_no_component_and_the_four_frame_families() {
+    let defaults: Map<String, Value> =
+        serde_json::from_slice(include_bytes!("../../../typst/oku-slides/src/default-tokens.json")).unwrap();
+    assert_that!(defaults.contains_key("component")).is_false();
+    for family in ["header", "footer", "list", "kicker"] {
+        assert_that!(defaults.contains_key(family)).is_true();
+    }
+}
+
+#[rstest]
+#[case(BuiltinPack::Base)]
+#[case(BuiltinPack::Essentiel)]
+fn builtin_pack_has_two_shipped_versions(#[case] pack: BuiltinPack) {
+    assert_that!(pack.shipped_versions().count()).is_equal_to(2);
+}
+
+#[test]
+fn builtin_component_defaults_lists_base_then_essentiel() {
+    let names: Vec<String> =
+        builtin_component_defaults().unwrap().into_iter().map(|(ns, _)| ns.as_str().to_owned()).collect();
+    assert_that!(names).is_equal_to(vec!["base".to_owned(), "essentiel".to_owned()]);
 }

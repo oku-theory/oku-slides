@@ -14,8 +14,8 @@ use crate::pack::PackManifest;
 
 /// Le manifeste d'une version, lu de ses fichiers.
 pub trait VersionManifest: Sized + Clone + std::fmt::Debug + 'static {
-    /// Lit le manifeste de `files`.
-    fn from_files(files: &PackFiles) -> Result<Self, serde_json::Error>;
+    /// Lit le manifeste de `files` ; illisible, l'erreur de la session (`PackManifest`, `ThemeJson`).
+    fn from_files(files: &PackFiles) -> crate::Result<Self>;
     fn id(&self) -> Uuid;
     fn name(&self) -> &str;
     /// Version dont celle-ci est issue ; `None` pour une première version.
@@ -23,7 +23,11 @@ pub trait VersionManifest: Sized + Clone + std::fmt::Debug + 'static {
     /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
     fn created(&self) -> &str;
     /// Portée : une version du deck seul n'entre jamais dans la bibliothèque.
-    fn scope(&self) -> PackScope;
+    ///
+    /// Un thème n'a pas de portée : toujours de la bibliothèque.
+    fn scope(&self) -> PackScope {
+        PackScope::Library
+    }
     /// Espace de noms, unique dans la bibliothèque ; `None` pour une sorte qui n'en a pas.
     fn namespace(&self) -> Option<&Namespace> {
         None
@@ -55,7 +59,7 @@ pub struct StoredVersion<M> {
 impl<M: VersionManifest> StoredVersion<M> {
     /// `files` lus, d'une version créée ici ; sinon l'erreur, sur une ligne.
     pub(crate) fn read(files: PackFiles) -> Result<Self, String> {
-        let manifest = M::from_files(&files).map_err(|e| e.to_string())?;
+        let manifest = M::from_files(&files).map_err(|e| e.one_line())?;
         Ok(Self { version: files.version(), files, manifest, received: false })
     }
 }

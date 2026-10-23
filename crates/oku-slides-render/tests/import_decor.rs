@@ -56,8 +56,11 @@ fn render(code: &str) -> String {
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
     r.set_widgets(&set, Arc::new(registry)).unwrap_or_else(|e| panic!("{e}"));
     r.set_theme(Some(theme())).unwrap_or_else(|e| panic!("{e}"));
-    let deck = Deck::from_json(r#"{"version": 8,"slides":[{"id":"s","kind":"decor/decor"}]}"#)
-        .unwrap_or_else(|e| panic!("{e}"));
+    let deck = Deck::from_json(&format!(
+        r#"{{"version": {},"slides":[{{"id":"s","kind":"decor/decor"}}]}}"#,
+        oku_slides_core::DECK_VERSION
+    ))
+    .unwrap_or_else(|e| panic!("{e}"));
     let assets = BTreeMap::from([(ASSET.to_owned(), PNG.to_vec())]);
     let compiled = r.render(&deck, &assets).unwrap_or_else(|e| panic!("rendu : {e}"));
     compiled.svg(0).unwrap_or_else(|e| panic!("{e}"))

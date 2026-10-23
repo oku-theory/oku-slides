@@ -2,7 +2,7 @@
 //!
 //! Minuscules ASCII, chiffres et `-` ; les lettres accentuées latines
 //! courantes perdent leur accent, tout autre signe devient `-`. Une lettre en
-//! tête (sinon `pack-` devant), 64 octets au plus. Pris par un pack de la
+//! tête (sinon `pack-` devant), 64 octets au plus. Pris par un pack ou un thème de la
 //! bibliothèque, ou `deck` (réservé) : `-2`, `-3`… s'y ajoutent, si bien
 //! que `NamespaceTaken` ne survient jamais à l'enregistrement. Les modèles
 //! d'une copie renommée suivent ses widgets (`rename_namespace`).
@@ -55,10 +55,10 @@ pub(crate) fn slug(name: &str, max: usize) -> String {
     out.trim_end_matches('-').to_owned()
 }
 
-/// L'espace de noms libre d'un nouveau pack nommé `name` dans `library`, toutes sortes confondues.
+/// L'espace de noms libre d'un nouveau pack ou thème nommé `name` dans `library`, toutes sortes confondues.
 ///
 /// Ni `deck` ni `deck-layouts`, réservés. Le slug de `name`, sinon suivi de `-2`, `-3`… : parmi autant de candidats
-/// que de packs (plus deux), l'un est libre.
+/// que d'espaces de noms pris (plus deux), l'un est libre.
 pub(crate) fn library_namespace(library: &PackLibrary, name: &str) -> Result<Namespace> {
     let taken = library.namespaces();
     let free = |ns: &Namespace| !ns.is_deck() && !ns.is_deck_layouts() && !taken.contains(ns);

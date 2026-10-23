@@ -1,14 +1,15 @@
 //! Le hi-fi : la présentation reproduite fidèlement (`oku_slides_import::hifi`).
 //!
-//! Elle vient sur un thème et un pack de layouts générés pour elle (`deck-layouts`,
-//! du deck seul, qui requiert `base`), avec `base` et `essentiel` intégrés (les
-//! slides de repli sont des `essentiel/blank`).
+//! Elle vient sur un pack de layouts généré pour elle (`deck-layouts`, du deck
+//! seul, qui requiert `base`), avec `base` et `essentiel` intégrés (les slides
+//! de repli sont des `essentiel/blank`), et sur le thème intégré Neutre : ses
+//! jetons générés vont dans `deck.tokens` (op `SetTokens` du plan).
 //!
 //! Le catalogue des polices réunit celles de l'app (celles du rendu) et, si
 //! demandé, celles du système des seules familles que cherche la présentation
-//! ([`super::system_fonts`]). Le pack et le thème générés ont une identité
-//! tirée des octets du `.pptx` (deux imports du même fichier donnent le même
-//! pack) ; ils ne vivent que dans le deck : la bibliothèque n'est pas touchée.
+//! ([`super::system_fonts`]). Le pack généré a une identité tirée des octets
+//! du `.pptx` (deux imports du même fichier donnent le même pack) ; il ne vit
+//! que dans le deck : la bibliothèque n'est pas touchée.
 //!
 //! Le pack généré est sondé par le processus de rendu, comme tout pack
 //! embarqué ; le registre sondé doit porter exactement les schémas que le
@@ -40,11 +41,12 @@ use oku_slides_render::Fonts;
 
 use super::error::{
     BadPackSnafu, LibrarySnafu, PackMissingSnafu, PresentationSnafu, ProbeFailedSnafu, ProbeLimitSnafu,
-    ProbeMismatchSnafu, Result, ThemeMissingSnafu,
+    ProbeMismatchSnafu, Result,
 };
 use super::{Input, Prepared};
 use crate::deck_pack::builtin_pin;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
+use crate::theme::{NEUTRE_NAMESPACE, builtin_namespace};
 use crate::{PackLibrary, sources_with_packs};
 
 /// Ce que le hi-fi prend de la demande d'import.
@@ -53,14 +55,14 @@ pub(crate) struct HifiArgs<'a> {
     pub(crate) fonts: &'a Fonts,
     /// Le registre intégré : les packs `base` et `essentiel` intégrés.
     pub(crate) base: &'a Arc<WidgetRegistry>,
-    /// Le nom du pack et du thème générés.
+    /// Le nom du pack généré.
     pub(crate) name: String,
     /// Chercher aussi les polices de la présentation parmi celles du système.
     pub(crate) system_fonts: bool,
 }
 
-/// Le hi-fi de `input` : les sources du deck, avec le pack, le thème et les
-/// polices générés pour lui, et le pack sondé.
+/// Le hi-fi de `input` : les sources du deck, avec le pack et les polices
+/// générés pour lui, et le pack sondé ; le plan pose Neutre et les jetons générés.
 pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) -> Result<Prepared> {
     let mut catalog = FontCatalog::new();
     for data in args.fonts.shared_files() {
@@ -69,7 +71,8 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
     if args.system_fonts {
         super::system_fonts::add(&mut catalog, &hifi::sought_fonts(&input.source));
     }
-    let (pack_id, theme_id) = identity(&input.bytes);
+    let pack_id = identity(&input.bytes);
+    let theme = builtin_namespace(NEUTRE_NAMESPACE).context(LibrarySnafu)?;
     // Le `base` intégré, jamais la version de l'utilisateur : le registre de la cible est le sien.
     let (base_ns, base_pin, base_files) = builtin_pin(BASE_PACK).context(LibrarySnafu)?;
     let (essentiel_ns, essentiel_pin, essentiel_files) = builtin_pin(ESSENTIEL_PACK).context(LibrarySnafu)?;
@@ -79,15 +82,14 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
         registry: args.base,
         fonts: &catalog,
         pack_id,
-        theme_id,
+        theme,
         name: args.name,
         created: now_created(),
         limits: pack_limits(&platform.settings.render),
     };
     let mut plan = hifi::project(&input.source, &target).check_budget(&input.limits).context(PresentationSnafu)?;
-    // Sans pack ou sans thème, le projecteur n'a pu sérialiser son manifeste : un bogue, dit pour lui.
+    // Sans pack, le projecteur n'a pu sérialiser son manifeste : un bogue, dit pour lui.
     let pack = plan.take_pack().context(PackMissingSnafu)?;
-    let theme = plan.take_theme().context(ThemeMissingSnafu)?;
 
     let version = pack.version();
     let sizes: BTreeMap<WidgetFile, usize> = pack.widgets().iter().map(|(n, s)| (n.clone(), s.len())).collect();
@@ -118,22 +120,18 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
         };
         return Err(refused.into());
     }
-    bundle.add_theme(theme);
     bundle.fonts.extend(plan.take_fonts());
     Ok(Prepared { bundle, widgets, plan })
 }
 
-/// Ids du pack et du thème générés pour un `.pptx`.
+/// Id du pack généré pour un `.pptx`.
 ///
-/// Ce sont les deux moitiés du SHA-256 de ses octets, en UUID v8 (version et variante posées).
-pub(crate) fn identity(bytes: &[u8]) -> (Uuid, Uuid) {
+/// C'est la première moitié du SHA-256 de ses octets, en UUID v8 (version et variante posées).
+pub(crate) fn identity(bytes: &[u8]) -> Uuid {
     let digest: [u8; 32] = Sha256::digest(bytes).into();
-    let half = |at: usize| {
-        let mut b = [0u8; 16];
-        b.copy_from_slice(&digest[at..at + 16]);
-        Builder::from_custom_bytes(b).into_uuid()
-    };
-    (half(0), half(16))
+    let mut b = [0u8; 16];
+    b.copy_from_slice(&digest[..16]);
+    Builder::from_custom_bytes(b).into_uuid()
 }
 
 /// Les bornes de la sonde d'un pack, lues dans `[render]`.

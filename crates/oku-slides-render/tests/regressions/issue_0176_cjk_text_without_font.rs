@@ -11,7 +11,7 @@ use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::{Fonts, Renderer};
 use serde_json::json;
 
-use crate::common::{theme_name, theme_ref, theme_tokens};
+use crate::common::{theme_name, theme_pins, theme_tokens};
 use speculoos::prelude::*;
 
 /// Les polices livrées avec l'app, comme les charge `oku-slides --fonts`.
@@ -27,7 +27,7 @@ fn app_fonts() -> Fonts {
 /// PDF d'une slide de titre et de texte en `theme`, dans la langue `lang`.
 fn pdf(theme: Option<&str>, lang: &str, text: &str) -> Vec<u8> {
     let deck: Deck = serde_json::from_value(json!({
-        "theme": theme.map(theme_ref), "params": { "lang": lang },
+        "theme": theme, "themes": theme.map(theme_pins).unwrap_or_default(), "params": { "lang": lang },
         "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": text, "blocks": [
             { "id": "b", "kind": base::TEXT, "params": { "body": [{ "runs": [{ "t": text }] }] } }
         ] } }]
@@ -99,7 +99,7 @@ fn devanagari_bengali_and_thai_in_every_theme_are_drawn_with_their_fonts() {
 /// PDF d'une slide dont le titre et le texte diffèrent.
 fn pdf_title_body(theme: Option<&str>, lang: &str, title: &str, body: &str) -> Vec<u8> {
     let deck: Deck = serde_json::from_value(json!({
-        "theme": theme.map(theme_ref), "params": { "lang": lang },
+        "theme": theme, "themes": theme.map(theme_pins).unwrap_or_default(), "params": { "lang": lang },
         "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": title, "blocks": [
             { "id": "b", "kind": base::TEXT, "params": { "body": [{ "runs": [{ "t": body }] }] } }
         ] } }]
@@ -138,7 +138,7 @@ fn pro_cjk_titles_stay_sans() {
 #[test]
 fn unknown_script_style_fails_to_compile() {
     let deck: Deck = serde_json::from_value(json!({
-        "theme": theme_ref("papier"), "params": { "lang": "ja" },
+        "theme": "papier", "themes": theme_pins("papier"), "params": { "lang": "ja" },
         "tokens": { "script-style": { "display": "serf" } },
         "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "題名", "blocks": [] } }]
     }))

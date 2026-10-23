@@ -19,6 +19,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Testing
 
 - Put Typst widget tests in oku-slides-render tests; there is no native Typst test runner. (spec:2026-10-04-parametre-liste-design)
+- Render essentiel or base in tests over a theme layer holding builtin_component_defaults; without it their component tokens are missing. (plan:2026-10-22-packs-lot4-themes)
 
 ## Settled decisions
 

@@ -1,16 +1,16 @@
-//! Projecteur hi-fi : la source reproduite fidèlement, avec un pack et un
-//! thème générés pour elle.
+//! Projecteur hi-fi : la source reproduite fidèlement, avec un pack de layouts
+//! et des jetons générés pour elle, sur le thème Neutre.
 //!
 //! [`project`] enchaîne : la page ([`page`]), les polices ([`crate::fonts::resolve`] :
-//! familles de la source et du thème), le thème généré ([`theme`], celui du
+//! familles de la source et du thème), les jetons générés ([`theme`], ceux du
 //! master de la première slide), le pack généré ([`pack`] : décor des masters,
 //! un widget par layout utilisé, schémas déclarés), puis chaque slide
-//! ([`slide`]). Le plan porte le thème et le pack (à ajouter au bundle), les
+//! ([`slide`]). Le plan porte le pack (à ajouter au bundle), les
 //! schémas déclarés (que la sonde du rendu doit retrouver), les polices à
 //! embarquer, les assets, et des ops qui épinglent d'abord `base` (widgets) et
 //! `essentiel` (layouts, pour le repli `essentiel/blank`), désignent le thème
-//! et le pack générés (`set_theme`, `add_pack` du pack de layouts
-//! `deck-layouts`), posent la langue du texte (`lang`,
+//! (`set_theme`, que la session complète), posent les jetons (`set_tokens`) et
+//! ajoutent le pack généré (`add_pack` du pack de layouts `deck-layouts`), posent la langue du texte (`lang`,
 //! [`SourceDeck::language`]), puis ajoutent les slides (`s<numéro>`, éléments
 //! `s<numéro>-<rang>`) et leurs notes. Les valeurs d'exemple d'un widget sont
 //! les textes de la première slide de son layout.
@@ -37,7 +37,7 @@ mod widget;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use oku_slides_core::{Deck, Namespace, Op, PackKind, PackPin, Slide, ThemeRef, WidgetRegistry, apply_all, kinds};
+use oku_slides_core::{Deck, Namespace, Op, PackKind, PackPin, Slide, WidgetRegistry, apply_all, kinds};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -48,7 +48,7 @@ use self::pack::{GeneratedPack, generate_pack, generated_registry, pack_manifest
 use self::page::Page;
 use self::slide::{Projected, SlideCx, project_slide};
 use self::table::{TableLook, first_table};
-use self::theme::{masterless_tokens, theme_colors, theme_manifest, theme_master, theme_tokens};
+use self::theme::{masterless_tokens, theme_colors, theme_master, theme_tokens};
 use self::typst::GenCtx;
 use crate::coverage::coverage;
 use crate::fonts::{FontCatalog, resolve, sought};
@@ -58,7 +58,7 @@ use crate::retrofit::text::note;
 use crate::source::{SourceDeck, ThemeFonts};
 
 /// La cible d'un import hi-fi : les packs intégrés, leurs épinglages, les polices disponibles,
-/// l'identité du thème et du pack générés.
+/// le thème à épingler et l'identité du pack généré.
 #[derive(Debug, Clone)]
 pub struct HifiTarget<'a> {
     /// Le registre des packs intégrés `base` et `essentiel` : le pack généré s'y ajoute.
@@ -71,9 +71,9 @@ pub struct HifiTarget<'a> {
     pub fonts: &'a FontCatalog,
     /// Id du pack généré.
     pub pack_id: Uuid,
-    /// Id du thème généré.
-    pub theme_id: Uuid,
-    /// Nom du thème et du pack générés (celui de la présentation).
+    /// Le thème que le deck importé épingle (Neutre) ; la session en remplit la fermeture.
+    pub theme: Namespace,
+    /// Nom du pack généré (celui de la présentation).
     pub name: String,
     /// Création, au format des manifestes (`AAAA-MM-JJTHH:MM:SSZ`).
     pub created: String,
@@ -151,10 +151,9 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
     }
 
     let tokens = master.map_or_else(|| masterless_tokens(&fonts), |m| theme_tokens(deck, m, &fonts, &page));
-    let theme = theme_manifest(tokens, target.theme_id, &target.name, &target.created).to_files();
     let manifest = pack_manifest(&pack, target.pack_id, &target.name, &target.created, &examples);
     let pack_files = manifest.to_files(PackKind::Layouts, pack.files.clone());
-    let (Ok(theme), Ok(pack_files)) = (theme, pack_files) else {
+    let Ok(pack_files) = pack_files else {
         debug_assert!(false, "un manifeste se sérialise toujours");
         return plan;
     };
@@ -170,7 +169,9 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         namespace: kinds::essentiel::namespace(),
         pin: target.essentiel.clone(),
     });
-    plan.ops.push(Op::SetTheme { theme: Some(ThemeRef { id: target.theme_id, version: theme.version() }) });
+    // La fermeture des thèmes (`themes`) est celle de la session, qui lit les manifestes.
+    plan.ops.push(Op::SetTheme { theme: Some(target.theme.clone()), themes: BTreeMap::new() });
+    plan.ops.push(Op::SetTokens { tokens: Value::Object(tokens) });
     plan.ops.push(Op::AddPack {
         kind: PackKind::Layouts,
         namespace: Namespace::deck_layouts(),
@@ -187,13 +188,22 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         }
     }
     plan.assets = assets.into_iter().filter_map(|id| Some((id.clone(), deck.assets.get(&id)?.clone()))).collect();
-    plan.theme = Some(theme);
     plan.pack = Some(pack_files);
     plan.schemas = pack.schemas().cloned().collect();
     plan.fonts = fonts.files;
 
+    // La couverture ne dépend pas du thème : sans la fermeture que la session remplit, le cœur
+    // refuserait `set_theme`, que le deck de mesure prend donc sans thème.
+    let measured = plan
+        .ops
+        .iter()
+        .map(|op| match op {
+            Op::SetTheme { .. } => Op::SetTheme { theme: None, themes: BTreeMap::new() },
+            op => op.clone(),
+        })
+        .collect();
     let mut scratch = Deck::empty();
-    plan.report.coverage = match apply_all(&mut scratch, plan.ops.clone(), &registry) {
+    plan.report.coverage = match apply_all(&mut scratch, measured, &registry) {
         Ok(()) => Some(coverage(deck, &scratch, &registry, &origins, None, &|_| false)),
         Err(e) => {
             debug_assert!(false, "le cœur refuse le plan, valide par construction : {e:?}");

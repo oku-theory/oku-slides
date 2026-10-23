@@ -26,6 +26,7 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackPin {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        tokens: Vec::new(),
     };
     let widgets = widgets
         .iter()
@@ -37,8 +38,13 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackPin {
     let files =
         manifest.to_files(oku_slides_core::PackKind::Widgets, widgets).unwrap_or_else(|e| panic!("pack.json : {e}"));
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library =
-        PackLibrary::new(Some(dir.join("data").join("widgets")), Some(dir.join("data").join("layouts")), storage);
+    let themes = oku_slides_session::ThemeLibrary::new(Some(dir.join("data").join("themes")), storage.clone());
+    let library = PackLibrary::new(
+        Some(dir.join("data").join("widgets")),
+        Some(dir.join("data").join("layouts")),
+        themes,
+        storage,
+    );
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     PackPin { id, version: files.version(), requires: vec![] }
 }

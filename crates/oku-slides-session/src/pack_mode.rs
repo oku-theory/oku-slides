@@ -2,7 +2,8 @@
 //!
 //! Le deck de travail d'un pack de layouts a une slide par layout (id
 //! `layout-<nom>`, dans l'ordre des fichiers), à la valeur d'exemple du
-//! layout ; celui d'un pack de widgets n'en a pas. Ses slides sont les
+//! layout ; celui d'un pack de widgets a une slide d'aperçu en lecture seule
+//! par widget (`pack_mode_preview`). Ses slides sont les
 //! exemples : aucune ne s'ajoute, ne se retire, ne se déplace ni ne change
 //! de widget (`PackModeSlides`) ; écrire un layout ajoute sa slide, le
 //! supprimer la retire (`realign_layouts`). Elles ne sont que l'aperçu des
@@ -35,6 +36,7 @@ use crate::error::{
 use crate::library_packs::PackLibrary;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
 use crate::pack_library::restore_session_version;
+use crate::pack_mode_preview::preview_slides;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_scratch::PackScratch;
 use crate::theme_edit::tokens_value;
@@ -46,7 +48,7 @@ pub(crate) fn layout_slide_id(name: &WidgetFile) -> String {
 }
 
 /// Les paramètres d'une valeur d'exemple ; une valeur illisible est journalisée et laissée de côté.
-fn example_params(kind: &str, example: Option<&Map<String, Value>>) -> Params {
+pub(crate) fn example_params(kind: &str, example: Option<&Map<String, Value>>) -> Params {
     let values = example.into_iter().flatten();
     let params = values.filter_map(|(key, value)| match serde_json::from_value::<ParamValue>(value.clone()) {
         Ok(v) => Some((key.clone(), v)),
@@ -103,6 +105,7 @@ pub(crate) fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
     Deck {
         version: base.version,
         theme: base.theme.clone(),
+        themes: base.themes.clone(),
         params: base.params.clone(),
         vars: base.vars.clone(),
         tokens: base.tokens.clone(),
@@ -150,11 +153,11 @@ fn is_structural(op: &Op) -> bool {
 impl Session {
     /// Passe en édition de la version courante du pack `id`.
     ///
-    /// Ses layouts deviennent les slides, à leurs valeurs d'exemple, rendus avec ses widgets. Le
-    /// deck de travail garde les paramètres et variables du deck ; à la place
-    /// de son thème, il porte tous les jetons du thème édité (le brouillon,
-    /// gardé d'un pack à l'autre). Il ne porte pas d'assets (un pack n'en
-    /// enregistre pas).
+    /// Ses layouts deviennent les slides, à leurs valeurs d'exemple, rendus
+    /// avec ses widgets ; un pack de widgets a ses slides d'aperçu. Le deck de
+    /// travail garde les paramètres et variables du deck ; à la place de son
+    /// thème, il porte le brouillon du thème édité (`theme_edit`, gardé d'un
+    /// pack à l'autre). Il ne porte pas d'assets (un pack n'en enregistre pas).
     pub fn edit_pack(&mut self, id: Uuid) -> Result<()> {
         // L'historique ouvert se ferme d'abord ; l'aide ne passe jamais en mode pack.
         self.ensure_editable()?;
@@ -162,16 +165,18 @@ impl Session {
         let stored = self.pack_base(id)?;
         let deck_only = !stored.manifest.scope.is_library();
         let version = stored.version.clone();
-        let slides = layout_slides(&stored.manifest, &stored.files);
+        let mut slides = layout_slides(&stored.manifest, &stored.files);
+        slides.extend(preview_slides(&stored.manifest, &stored.files));
         // Le brouillon du thème : gardé d'un pack à l'autre, sinon le thème du deck.
         let (theme, tokens) = match &self.mode {
             Mode::Pack { theme, .. } => (theme.clone(), self.edited_tokens()),
             _ => self.initial_theme_edit()?,
         };
-        // Sans thème, avec tous les jetons du thème édité : les surcharges du
-        // deck ne s'y appliquent pas, les layouts se voient avec le thème pur.
+        // Sans thème, avec le brouillon du thème édité (rendu sur le calque de
+        // ses parents) : les surcharges du deck ne s'y appliquent pas.
         let mut deck = styled_like(self.user_deck(), slides);
         deck.theme = None;
+        deck.themes.clear();
         deck.tokens = tokens_value(tokens);
         deck.params.title = Some(stored.manifest.name.clone());
         // Les exemples peuvent garder `""` (texte vidé) : les slides ont la forme du replica.

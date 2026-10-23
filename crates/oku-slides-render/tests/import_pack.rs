@@ -135,8 +135,8 @@ fn import_pack_widgets_render_their_fields_and_extras(#[case] case: &str) {
         .enumerate()
         .flat_map(|(i, w)| [slide(&format!("p{i}"), w, true), slide(&format!("v{i}"), w, false)])
         .collect();
-    let deck =
-        Deck::from_json(&json!({ "version": 8, "slides": slides }).to_string()).unwrap_or_else(|e| panic!("{e}"));
+    let deck = Deck::from_json(&json!({ "version": oku_slides_core::DECK_VERSION, "slides": slides }).to_string())
+        .unwrap_or_else(|e| panic!("{e}"));
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("rendu : {e}"));
     assert_that!(compiled.page_count()).is_equal_to(slides.len());
     let layout = compiled.layout();

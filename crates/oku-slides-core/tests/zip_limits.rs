@@ -53,7 +53,7 @@ fn sources_zip(assets: &[(&str, Vec<u8>)], method: zip::CompressionMethod) -> Re
         let mut zw = zip::ZipWriter::new(&mut buf);
         let opts = SimpleFileOptions::default().compression_method(method);
         zw.start_file("manifest.json", opts)?;
-        zw.write_all(br#"{"format":"oku-slides-sources","version":12}"#)?;
+        zw.write_all(br#"{"format":"oku-slides-sources","version":13}"#)?;
         zw.start_file("deck.loro", opts)?;
         zw.write_all(&loro)?;
         for (name, data) in assets {

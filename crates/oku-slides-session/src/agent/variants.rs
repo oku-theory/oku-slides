@@ -11,6 +11,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 
 use super::forms::{self, FieldKind, ParamField, ShowParams, ShowVariants, Surface};
 use super::{AgentFormReason, check_len, check_options};
+use crate::deck_theme::fill_op_closures;
 use crate::error::{AgentFormSnafu, NoSlideSnafu, RenderSnafu};
 use crate::{Result, Session};
 
@@ -134,8 +135,11 @@ impl Session {
             check_field(i, field)?;
             let op = parse_op(&field.op_template, &field.value)
                 .map_err(|e| malformed(format!("fields[{i}].op_template"), &e))?;
+            // Un `set_theme` sans épinglages prend sa fermeture, comme dans `apply` ; rien n'est embarqué.
+            let mut ops = vec![op];
+            fill_op_closures(&self.themes, &self.doc.sources.themes, &mut ops)?;
             let mut deck = self.deck().clone();
-            apply_all(&mut deck, vec![op], &self.registry).map_err(|e| refused(format!("fields[{i}]"), e))?;
+            apply_all(&mut deck, ops, &self.registry).map_err(|e| refused(format!("fields[{i}]"), e))?;
         }
         let palette = self.slide_palette();
         Ok(forms::params(id, spec, &palette, &self.localizer))
@@ -158,11 +162,11 @@ impl Session {
         let set = self.usable_packs()?;
         // Après `usable_packs` : un pack écarté n'est plus au registre qui valide les variantes.
         let decks = self.variant_decks(spec)?;
-        let tokens = self.theme_tokens(self.doc.sources.deck());
+        let layer = self.theme_layer(self.doc.sources.deck())?;
         let mut svgs: Vec<Arc<str>> = Vec::with_capacity(decks.len());
         for (i, deck) in decks.iter().enumerate() {
             // Le thème du deck : une variante qui en changerait garde celui-ci à l'aperçu.
-            let compiled = self.render_deck_preview(&set, deck, tokens.as_ref())?;
+            let compiled = self.render_deck_preview(&set, deck, &layer)?;
             let page = compiled.layout().page_of(&spec.slide).context(AgentFormSnafu {
                 reason: AgentFormReason::SlideRemoved { at: format!("variants[{i}]"), slide: spec.slide.clone() },
             })?;
@@ -187,9 +191,11 @@ impl Session {
                     }
                 }
             );
+            // Un `set_theme` sans épinglages prend sa fermeture, comme dans `apply` ; rien n'est embarqué.
+            let mut ops = variant.ops.clone();
+            fill_op_closures(&self.themes, &self.doc.sources.themes, &mut ops)?;
             let mut deck = self.doc.sources.deck().clone();
-            apply_all(&mut deck, variant.ops.clone(), &self.registry)
-                .map_err(|e| refused(format!("variants[{i}]"), e))?;
+            apply_all(&mut deck, ops, &self.registry).map_err(|e| refused(format!("variants[{i}]"), e))?;
             decks.push(deck);
         }
         Ok(decks)

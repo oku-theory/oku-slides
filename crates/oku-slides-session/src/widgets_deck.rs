@@ -169,6 +169,7 @@ impl Session {
             scope: PackScope::Deck,
             profiles: Vec::new(),
             examples: Default::default(),
+            tokens: Vec::new(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
         Ok(WidgetTarget { kind, namespace, id, version: files.version(), files })

@@ -47,7 +47,6 @@ ui-divider-code = コードのサイズ
 ui-divider-band = 設定の高さ
 ui-toolbar-theme = テーマ
 ui-toolbar-theme-embedded = ファイルのテーマ
-ui-toolbar-theme-deck-group = このプレゼンテーション
 ui-toolbar-finish = 完了
 ui-pack-deck-only = このプレゼンテーションにのみ保存されます
 ui-toolbar-open = 開く

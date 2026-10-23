@@ -1,6 +1,7 @@
 {
   "id": "7e1b9c3d-2f4a-4d6e-a8b0-5c7d9e1f3b42",
   "name": "Pro",
+  "namespace": "pro",
   "description": "",
   "parent": null,
   "created": "2026-10-05T00:00:00Z",
@@ -121,117 +122,121 @@
       "danger": "#ff6b5e",
       "shadow": "#000000"
     },
+    "header": {
+      "left": null,
+      "right": null
+    },
+    "footer": {
+      "left": "{n} · {title}",
+      "right": "{confidential}",
+      "size": 20,
+      "color": "ink-muted",
+      "tracking": 1
+    },
+    "kicker": {
+      "size": "kicker",
+      "color": "accent-text",
+      "weight": 700,
+      "tracking": 1,
+      "case": "upper"
+    },
+    "list": {
+      "marker": "•",
+      "marker-color": "accent-text"
+    },
     "component": {
-      "header": {
-        "left": null,
-        "right": null
-      },
-      "footer": {
-        "left": "{n} · {title}",
-        "right": "{confidential}",
-        "size": 20,
-        "color": "ink-muted",
-        "tracking": 1
-      },
-      "kicker": {
-        "size": "kicker",
-        "color": "accent-text",
-        "weight": 700,
-        "tracking": 1,
-        "case": "upper"
-      },
-      "title": {
-        "size": "title",
-        "color": "brand-ink",
-        "weight": 800,
-        "tracking": -1,
-        "gap": 44,
-        "rule": {
-          "width": 64,
-          "height": 5,
-          "color": "accent"
+      "essentiel": {
+        "title": {
+          "size": "title",
+          "color": "brand-ink",
+          "weight": 800,
+          "tracking": -1,
+          "gap": 44,
+          "rule": {
+            "width": 64,
+            "height": 5,
+            "color": "accent"
+          }
+        },
+        "title-slide": {
+          "layout": "band",
+          "bg": "bg",
+          "band-bg": "surface-dark",
+          "band-ratio": 0.62,
+          "title-size": "display",
+          "title-tracking": -2,
+          "band-title-color": "white",
+          "subtitle-size": "subtitle",
+          "band-subtitle-color": "on-dark-body",
+          "meta-size": "small",
+          "band-meta-color": "on-dark-muted",
+          "bar": true,
+          "bar-color": "accent",
+          "bar-width": 88,
+          "bar-height": 6,
+          "top-left": "{organization}",
+          "top-right": null,
+          "top-rule-color": "accent",
+          "top-rule-width": 6,
+          "badge": "Confidential",
+          "badge-bg": "accent",
+          "badge-color": "on-accent"
+        },
+        "chapter": {
+          "bg": "surface-dark",
+          "ink": "white",
+          "number-color": "accent",
+          "number-opacity": 1,
+          "title-tracking": -2,
+          "number-size": 180
+        },
+        "toc": {
+          "number-color": "accent-text",
+          "size": 32
+        },
+        "quote": {
+          "size": 40,
+          "color": "brand-ink",
+          "bar-color": "accent"
+        },
+        "columns": {
+          "gap": 24
+        },
+        "end-slide": {
+          "bg": "surface-dark",
+          "color": "white"
         }
       },
-      "title-slide": {
-        "layout": "band",
-        "bg": "bg",
-        "band-bg": "surface-dark",
-        "band-ratio": 0.62,
-        "title-size": "display",
-        "title-tracking": -2,
-        "band-title-color": "white",
-        "subtitle-size": "subtitle",
-        "band-subtitle-color": "on-dark-body",
-        "meta-size": "small",
-        "band-meta-color": "on-dark-muted",
-        "bar": true,
-        "bar-color": "accent",
-        "bar-width": 88,
-        "bar-height": 6,
-        "top-left": "{organization}",
-        "top-right": null,
-        "top-rule-color": "accent",
-        "top-rule-width": 6,
-        "badge": "Confidential",
-        "badge-bg": "accent",
-        "badge-color": "on-accent"
-      },
-      "chapter": {
-        "bg": "surface-dark",
-        "ink": "white",
-        "number-color": "accent",
-        "number-opacity": 1,
-        "title-tracking": -2,
-        "number-size": 180
-      },
-      "toc": {
-        "number-color": "accent-text",
-        "size": 32
-      },
-      "card": {
-        "bg": "bg",
-        "border-color": "rule",
-        "border-width": "hairline",
-        "radius": "md",
-        "top-rule-color": "accent",
-        "top-rule-width": 4,
-        "padding-x": 32,
-        "padding-y": 36,
-        "title-size": "lead",
-        "title-weight": 800,
-        "title-color": "brand-ink",
-        "gap": "sm",
-        "highlight-bg": "surface-dark",
-        "highlight-ink": "on-dark-body",
-        "highlight-title": "white",
-        "highlight-kicker": "accent-on-dark"
-      },
-      "list": {
-        "marker": "•",
-        "marker-color": "accent-text"
-      },
-      "quote": {
-        "size": 40,
-        "color": "brand-ink",
-        "bar-color": "accent"
-      },
-      "columns": {
-        "gap": 24
-      },
-      "table": {
-        "size": "small",
-        "header-bg": "brand-ink",
-        "header-color": "white",
-        "header-weight": 700,
-        "stripe-bg": "#f3f5f7",
-        "rule-color": "rule",
-        "rule-width": "hairline",
-        "padding-x": "sm",
-        "padding-y": "xs"
-      },
-      "end-slide": {
-        "bg": "surface-dark",
-        "color": "white"
+      "base": {
+        "card": {
+          "bg": "bg",
+          "border-color": "rule",
+          "border-width": "hairline",
+          "radius": "md",
+          "top-rule-color": "accent",
+          "top-rule-width": 4,
+          "padding-x": 32,
+          "padding-y": 36,
+          "title-size": "lead",
+          "title-weight": 800,
+          "title-color": "brand-ink",
+          "gap": "sm",
+          "highlight-bg": "surface-dark",
+          "highlight-ink": "on-dark-body",
+          "highlight-title": "white",
+          "highlight-kicker": "accent-on-dark"
+        },
+        "table": {
+          "size": "small",
+          "header-bg": "brand-ink",
+          "header-color": "white",
+          "header-weight": 700,
+          "stripe-bg": "#f3f5f7",
+          "rule-color": "rule",
+          "rule-width": "hairline",
+          "padding-x": "sm",
+          "padding-y": "xs"
+        }
       }
     }
   }

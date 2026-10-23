@@ -8,9 +8,9 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 - `Renderer` (`lib.rs`): keeps a live Typst world between renders (incremental compilation).
   `render`/`set_deck` compile; `set_widgets` loads a `PackSet` (an assembly per pack, `ns/name`;
   the core has none: `new` draws "unknown slide"); `with_builtins`: `base` + `essentiel`.
-  `set_language`: fallback frames' language. `set_theme`: tokens resolved by the session
-  (`/theme.json`, `render-deck(…, theme:)`), never `deck.theme`; defaults without one. Charts
-  are redrawn when the compiled palette changes.
+  `set_language`: fallback frames' language. `set_theme`: the caller's layer (`/theme.json`:
+  packs' `component.<ns>` defaults, then the theme chain), never `deck.theme`; packs fail
+  without it. Charts are redrawn when the compiled palette changes.
 - `Compiled` (`lib.rs`): `svg`/`png`/`pdf`, `page_hash` (cache key), `layout()` (read once).
 - `Layout` (`lib.rs`): by page, `SlidePage`, `ElementBox` (real box), `FieldBox` (editable
   field), `ItemBox` (`list-item`), `ZoneBox`/`GridBox` (free zone, grid), `TextStyle` (measured).
@@ -24,10 +24,10 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
   kind dropped). `Registries` memoizes by fingerprint and `probe_key` (empty set: empty
   registry); `base_probe` (`base`), `builtin_registry` (`base` + `essentiel`) are memoized.
 - `builtin_packs.rs`: `BuiltinPack` (`Base`, `Essentiel`) embeds `typst/oku-slides/packs/*`;
-  `is_trusted_pack`: a built-in namespace and a version of that pack's `versions.txt`.
+  `is_trusted_pack`: a built-in namespace and a shipped version (`versions.txt`);
+  `builtin_component_defaults`: each manifest's token defaults (`component_defaults`).
 - Bounded errors (`error.rs`): `RenderErrorKind` has `Timeout`, `OutOfMemory`, `WorkerLost`,
-  `Frame`, `Stale`, `PackDisabled`, `Protocol` besides Typst failures; `is_bounded` says which
-  ones (not `Frame`, `Stale`, `Protocol`) make the session disable the faulty pack.
+  `Frame`, `Stale`, `PackDisabled`, `Protocol`; `is_bounded` (not `Frame`, `Stale`, `Protocol`): the session disables the pack.
 - `wire` (`wire.rs`): `WireError`, serializable `RenderError`/`RegistryError` (no backtrace) for
   the worker pipe; `Layout` too; `Fonts::files` exposes font bytes for fingerprints and replay.
 - `OkuSlidesWorld` (`world.rs`, private): virtual file system (embedded library with its JSON

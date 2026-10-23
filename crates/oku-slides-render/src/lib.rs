@@ -47,7 +47,7 @@ use typst_layout::PagedDocument;
 
 use oku_slides_core::{Deck, WidgetRegistry};
 
-pub use builtin_packs::{BuiltinPack, builtin_pack_set, is_trusted_pack};
+pub use builtin_packs::{BuiltinPack, builtin_component_defaults, builtin_pack_set, is_trusted_pack};
 pub use diagnostic::{Diagnostic, Severity, SourceAt};
 use error::{BaseRegistrySnafu, CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RegistryError, RegistryErrorKind, RenderError, RenderErrorKind};

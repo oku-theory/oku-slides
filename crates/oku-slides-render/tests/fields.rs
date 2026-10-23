@@ -235,7 +235,8 @@ fn title_slide_without_subtitle_emits_an_empty_subtitle() {
 #[test]
 fn title_slide_in_band_layout_emits_title_and_subtitle_without_kicker() {
     let mut deck = roadmap_json();
-    deck["theme"] = json!(common::theme_ref("pro"));
+    deck["theme"] = json!("pro");
+    deck["themes"] = json!(common::theme_pins("pro"));
     let fields = render(deck);
     assert_that!(has_field(&fields, "s-title", "title")).is_true();
     assert_that!(has_field(&fields, "s-title", "subtitle")).is_true();

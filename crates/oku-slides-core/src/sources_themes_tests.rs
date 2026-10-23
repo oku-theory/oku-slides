@@ -8,27 +8,51 @@ use crate::PackFiles;
 /// Id des thèmes de test.
 const THEME_ID: uuid::Uuid = uuid::Uuid::from_u128(0x554);
 
-/// Une version de thème : `theme.json` seul, sans widget.
-fn theme_files(name: &str) -> PackFiles {
-    let manifest = serde_json::json!({
-        "id": THEME_ID.to_string(), "name": name, "description": "", "parent": null,
-        "created": "2026-10-05T00:00:00Z", "tokens": { "color": { "accent": "#ff0000" } },
-    });
-    PackFiles::new(crate::PackKind::Widgets, manifest.as_object().cloned().unwrap(), BTreeMap::new())
+/// Espace de noms des thèmes de test.
+const THEME_NS: &str = "mien";
+
+fn ns(s: &str) -> crate::Namespace {
+    crate::Namespace::parse(s).unwrap()
 }
 
-/// Pose `theme` sur le deck du bundle, en une étape d'annulation.
-fn set_deck_theme(b: &mut SourceBundle, theme: crate::ThemeRef) {
+/// Une version du thème `namespace` : `theme.json` seul, sans widget.
+fn theme_files_of(namespace: &str, name: &str, extends: &[&str]) -> PackFiles {
+    let manifest = serde_json::json!({
+        "id": THEME_ID.to_string(), "name": name, "namespace": namespace, "extends": extends,
+        "description": "", "parent": null,
+        "created": "2026-10-05T00:00:00Z", "tokens": { "color": { "accent": "#ff0000" } },
+    });
+    PackFiles::theme(manifest.as_object().cloned().unwrap())
+}
+
+/// Une version du thème de test [`THEME_NS`].
+fn theme_files(name: &str) -> PackFiles {
+    theme_files_of(THEME_NS, name, &[])
+}
+
+/// L'épinglage de la version `version` du thème de test, sans parent.
+fn theme_pin(version: PackVersion) -> crate::ThemePin {
+    crate::ThemePin { id: THEME_ID, version, extends: Vec::new() }
+}
+
+/// Pose les épinglages `themes` sur le deck du bundle (thème : `theme`), en une étape d'annulation.
+fn set_deck_themes(b: &mut SourceBundle, theme: &str, themes: BTreeMap<crate::Namespace, crate::ThemePin>) {
     let mut next = b.deck().clone();
-    next.theme = Some(theme);
+    next.theme = Some(ns(theme));
+    next.themes = themes;
     b.apply(next, "thème", None).unwrap();
+}
+
+/// Pose `pin` comme seul thème du deck, sous [`THEME_NS`].
+fn set_deck_theme(b: &mut SourceBundle, pin: crate::ThemePin) {
+    set_deck_themes(b, THEME_NS, [(ns(THEME_NS), pin)].into());
 }
 
 /// `roadmap` qui référence `files` comme thème, et son bundle qui l'embarque.
 fn bundle_with_theme(files: &PackFiles) -> SourceBundle {
     let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
     let v = b.add_theme(files.clone());
-    set_deck_theme(&mut b, crate::ThemeRef { id: THEME_ID, version: v });
+    set_deck_theme(&mut b, theme_pin(v));
     b
 }
 
@@ -49,7 +73,7 @@ fn theme_versions_round_trip_through_zip() {
     let (read, issues) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
     assert_that!(issue_ids(&issues)).does_not_contain("issue-theme-version-missing");
     assert_that!(read.themes.get(&v)).is_equal_to(Some(&files));
-    assert_that!(read.deck().theme.as_ref().map(|t| t.version.clone())).is_equal_to(Some(v));
+    assert_that!(read.deck().themes.get(&ns(THEME_NS)).map(|t| t.version.clone())).is_equal_to(Some(v));
 }
 
 #[test]
@@ -141,7 +165,7 @@ fn theme_versions_referenced_by_the_history_are_kept_on_save() {
     // Un autre libellé que celui de `T` : au rejeu (t-809), deux changes de même
     // message dans la même seconde ne feraient qu'une version (ADR-0006, Limites).
     let mut next = b.deck().clone();
-    next.theme = Some(crate::ThemeRef { id: THEME_ID, version: v });
+    next.themes = [(ns(THEME_NS), theme_pin(v))].into();
     b.apply(next, "thème U", None).unwrap();
     let (back, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
     assert_that!(issue_ids(&issues)).does_not_contain("issue-theme-version-missing");
@@ -150,7 +174,7 @@ fn theme_versions_referenced_by_the_history_are_kept_on_save() {
     let mut restored = back;
     // Version 1 : le thème `T` posé (0 : création du deck, sans thème).
     restored.restore(&preview, 1, "restaurer").unwrap();
-    assert_that!(restored.deck().theme.as_ref().map(|r| r.version.clone())).is_equal_to(Some(t.version()));
+    assert_that!(restored.deck().themes.get(&ns(THEME_NS)).map(|r| r.version.clone())).is_equal_to(Some(t.version()));
 }
 
 #[test]
@@ -182,4 +206,103 @@ fn forged_deck_theme_version_is_reported_once() {
     let (b, issues) = SourceBundle::from_zip(&zip(&refs), MAX, crate::test_registry::shared()).unwrap();
     assert_that!(b.themes.is_empty()).is_true();
     assert_that!(issue_ids(&issues)).is_equal_to(vec!["issue-theme-version-mismatch"]);
+}
+
+/// Chaque épinglage du deck, parent compris, doit avoir sa version dans les sources.
+#[test]
+fn every_missing_theme_pin_version_gives_issue() {
+    let (child, parent) = (theme_files_of("enfant", "E", &["parent"]), theme_files_of("parent", "P", &[]));
+    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    let pins = [
+        (ns("enfant"), crate::ThemePin { id: THEME_ID, version: child.version(), extends: vec![ns("parent")] }),
+        (ns("parent"), theme_pin(parent.version())),
+    ];
+    set_deck_themes(&mut b, "enfant", pins.into());
+    let (_, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(issue_ids(&issues)).is_equal_to(vec!["issue-theme-version-missing", "issue-theme-version-missing"]);
+}
+
+#[test]
+fn complete_theme_closure_gives_no_issue() {
+    let (child, parent) = (theme_files_of("enfant", "E", &["parent"]), theme_files_of("parent", "P", &[]));
+    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    let pins = [
+        (ns("enfant"), crate::ThemePin { id: THEME_ID, version: b.add_theme(child), extends: vec![ns("parent")] }),
+        (ns("parent"), theme_pin(b.add_theme(parent))),
+    ];
+    set_deck_themes(&mut b, "enfant", pins.into());
+    let (_, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(issues.is_empty()).is_true();
+}
+
+/// Un épinglage dont le manifeste embarqué a un autre espace de noms, id ou `extends`.
+#[rstest::rstest]
+#[case::namespace(theme_files_of("autre", "T", &[]), THEME_ID, &[])]
+#[case::id(theme_files("T"), uuid::Uuid::from_u128(1), &[])]
+#[case::extends(theme_files("T"), THEME_ID, &["papier"])]
+fn theme_pin_not_matching_its_manifest_gives_issue(
+    #[case] files: PackFiles,
+    #[case] id: uuid::Uuid,
+    #[case] extends: &[&str],
+) {
+    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    let version = b.add_theme(files);
+    let mut pins: BTreeMap<_, _> =
+        [(ns(THEME_NS), crate::ThemePin { id, version, extends: extends.iter().map(|e| ns(e)).collect() })].into();
+    for parent in extends {
+        pins.insert(ns(parent), theme_pin(b.add_theme(theme_files_of(parent, "P", &[]))));
+    }
+    set_deck_themes(&mut b, THEME_NS, pins);
+    let (_, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(issue_ids(&issues)).is_equal_to(vec!["issue-theme-pin-mismatch"]);
+}
+
+/// Des épinglages qui ne sont pas la fermeture du thème sont signalés.
+#[test]
+fn theme_pins_not_the_closure_give_issue() {
+    let (t, extra) = (theme_files("T"), theme_files_of("autre", "A", &[]));
+    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    let pins = [(ns(THEME_NS), theme_pin(b.add_theme(t))), (ns("autre"), theme_pin(b.add_theme(extra)))];
+    set_deck_themes(&mut b, THEME_NS, pins.into());
+    let (_, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(issues).is_equal_to(vec![Issue::theme_closure(&ns("autre"))]);
+}
+
+/// Deux `set_theme` concurrents depuis `x` (épinglages `{x, p}`) : A pose `y` (`{y}`), B pose `z`
+/// (`{z, p}`). `theme` est un atome LWW, `themes` fusionne par entrée : `x` est retiré des deux
+/// côtés, `p` par A seul (B ne l'écrit pas), `y` et `z` ajoutés. La fusion épingle `{y, z}`, ce qui
+/// n'est la fermeture ni de `y` (`z` de trop) ni de `z` (`p` manque) : le cas est signalé.
+#[test]
+fn concurrent_set_theme_merge_reports_the_broken_closure() {
+    let files = [
+        theme_files_of("x", "X", &["p"]),
+        theme_files_of("p", "P", &[]),
+        theme_files_of("y", "Y", &[]),
+        theme_files_of("z", "Z", &["p"]),
+    ];
+    let mut base = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    let versions: Vec<PackVersion> = files.iter().map(|f| base.add_theme(f.clone())).collect();
+    let pin = |i: usize, extends: &[&str]| crate::ThemePin {
+        id: THEME_ID,
+        version: versions[i].clone(),
+        extends: extends.iter().map(|e| ns(e)).collect(),
+    };
+    set_deck_themes(&mut base, "x", [(ns("x"), pin(0, &["p"])), (ns("p"), pin(1, &[]))].into());
+    let zip = base.to_zip().unwrap();
+    let open = || SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap().0;
+    let (mut a, mut b) = (open(), open());
+    set_deck_themes(&mut a, "y", [(ns("y"), pin(2, &[]))].into());
+    set_deck_themes(&mut b, "z", [(ns("z"), pin(3, &["p"])), (ns("p"), pin(1, &[]))].into());
+    let (_, issues) = a.merge(b).unwrap();
+    let deck = a.deck();
+    assert_that!(deck.themes.keys().map(|n| n.as_str().to_owned()).collect::<Vec<_>>())
+        .is_equal_to(vec!["y".to_owned(), "z".to_owned()]);
+    let expected = match deck.theme.as_ref().map(crate::Namespace::as_str) {
+        Some("y") => Issue::theme_closure(&ns("z")),
+        Some("z") => Issue::theme_closure(&ns("p")),
+        other => panic!("thème fusionné inattendu : {other:?}"),
+    };
+    assert_that!(crate::check_closure(deck.theme.as_ref(), &deck.themes)).is_err();
+    assert_that!(issues.iter().filter(|i| i.message.id() == "issue-theme-closure").cloned().collect::<Vec<_>>())
+        .is_equal_to(vec![expected]);
 }

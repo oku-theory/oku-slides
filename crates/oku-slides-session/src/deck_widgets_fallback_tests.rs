@@ -284,7 +284,7 @@ fn a_failed_install_while_probing_again_does_not_fail_the_edit() {
     let quote = std::collections::BTreeSet::from([oku_slides_core::WidgetFile::parse("quote").unwrap()]);
     s.widgets_unprobed.insert(crate::test_support::namespace_of(pack.id), quote);
     s.failpoints.install_widgets = true;
-    let theme = oku_slides_core::Op::SetTheme { theme: crate::test_support::theme_ref("pro") };
+    let theme = crate::test_support::set_theme_op("pro");
     s.apply("Thème", vec![theme], None).unwrap();
     // Les widgets installés restent ; la sonde sera reprise au rendu suivant.
     assert_that!(Arc::ptr_eq(&s.registry, &registry)).is_true();

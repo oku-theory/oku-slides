@@ -5,21 +5,23 @@
 //! l'interface comme de l'agent ; sa reprise ne garde que la langue et
 //! relit le deck livré, jamais une ancienne copie. Il se rend avec les
 //! versions livrées de `base` et d'`essentiel`, pas celles que l'utilisateur a pu modifier,
-//! et au thème du deck d'où on l'ouvre (version courante de la bibliothèque,
-//! embarquée), sinon au thème par défaut. Le JSON livré ne porte pas de thème.
+//! et au thème du deck d'où on l'ouvre (sa fermeture dans la
+//! bibliothèque, versions courantes embarquées), sinon au thème par défaut. Le JSON livré ne porte pas de thème.
 
 use std::borrow::Cow;
 
-use oku_slides_core::{Deck, SourceBundle, ThemeRef};
+use oku_slides_core::{Deck, SourceBundle};
 use oku_slides_i18n::platform_keys;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
 use crate::deck_pack::builtin_pin;
+use crate::deck_theme::pin_closure;
 use crate::error::{
     EditingPackSnafu, HelpDeckSnafu, NotHelpSnafu, ReadOnlySnafu, RegistrySnafu, SourcesSnafu, UnknownThemeSnafu,
 };
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
+use crate::theme_closure::theme_closure;
 use crate::{Mode, Result, Session};
 
 /// Les decks d'aide livrés, par langue ; le premier sert aux autres langues.
@@ -71,8 +73,9 @@ impl Session {
             sources.add_pack(files);
         }
         if let Some(current) = theme.and_then(|id| self.themes.current_version(id)) {
-            let id = current.manifest.id;
-            deck.theme = Some(ThemeRef { id, version: sources.add_theme(current.files) });
+            let ns = current.manifest.namespace;
+            let closure = theme_closure(&self.themes, &ns)?;
+            pin_closure(&mut sources, &mut deck, ns, closure);
         }
         sources.apply_silent(deck).context(SourcesSnafu)?;
         self.load(sources, None)?;
@@ -87,12 +90,14 @@ impl Session {
     /// l'aide, ou thème inconnu de la bibliothèque : refusé.
     pub fn set_help_theme(&mut self, id: Uuid) -> Result<()> {
         ensure!(self.help().is_some(), NotHelpSnafu);
-        let current = self.themes.current_version(id).context(UnknownThemeSnafu { id })?;
+        let current = self.themes.current_version(id).context(UnknownThemeSnafu { theme: id.to_string() })?;
+        let ns = current.manifest.namespace;
+        let closure = theme_closure(&self.themes, &ns)?;
         let mut deck = self.doc.sources.deck().clone();
-        if deck.theme.as_ref().is_some_and(|t| t.id == id && t.version == current.version) {
+        if deck.theme.as_ref() == Some(&ns) && deck.themes == closure.0 {
             return Ok(());
         }
-        deck.theme = Some(ThemeRef { id, version: self.doc.sources.add_theme(current.files) });
+        pin_closure(&mut self.doc.sources, &mut deck, ns, closure);
         self.doc.sources.apply_silent(deck).context(SourcesSnafu)?;
         self.rerender()?;
         self.persist(false);

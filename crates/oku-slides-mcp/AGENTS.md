@@ -47,7 +47,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Stay on rust-mcp-sdk 1.x until agents embed MCP 2026-07-28 clients; the 2.0 server speaks only that version. (plan:2026-09-26-agent-vocal)
 - Prefix dictation settings keys with dictation. so they are not confused with the stt section of config.toml. (plan:2026-09-26-agent-vocal)
 - Confirm non-undoable MCP tools through SurfaceHub::confirm before executing; add no host-side permission trait. (spec:2026-09-26-agent-vocal-design)
-- Ask no confirmation for edit_theme on a deck-only theme; its new version stays in the deck as one undo step. (t-692)
+- Confirm every edit_theme, a built-in theme included (saved as a variant extending it); a change to this deck only goes through set_token ops on deck.tokens. (t-692, t-1100)
 - Emit widget_touched only in pack mode. (plan:2026-10-03-widgets-agent-a2ui, t-1065)
 - Return invalid render or report input to the agent as a readable tool-result error, and display nothing. (spec:2026-10-03-agent-a2ui-design)
 - Change the interface language through set_interface, never set_setting, so every window follows at once. (t-988)

@@ -27,7 +27,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep the materialized deck canonical and equal to the replica re-read; canonicalize before writing to the replica. (spec:2026-09-27-sources-loro-design)
 - Route all list edits, deck or widget trial values, through ListOp::apply. (spec:2026-10-04-parametre-liste-design)
 - Revalidate host params with check_host_params whenever an op changes a widget kind, as Op::SetKind does. (t-591)
-- Never serialize PackScope::Library, so library pack and theme manifests keep their existing hashes. (ADR-0009, t-692)
+- Never serialize PackScope::Library, so library pack manifests keep their existing hashes. (ADR-0009, t-692)
+- Resolve a theme's tokens only through theme_chain::linearize and tokens::theme_layer; never merge a theme chain by hand. (plan:2026-10-22-packs-lot4-themes)
 - Change kinds::base or kinds::essentiel, ui/src/builtinKinds.ts and the built-in kind lists in the MCP widgets tool text together; a UI test compares BASE and ESSENTIEL with the registry fixture. (plan:2026-10-18-packs-lot2-base, plan:2026-10-19-packs-lot3-essentiel)
 
 ## Pitfalls
@@ -53,4 +54,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep set_grid as a deck op visible to the agent, with placed elements rescaled in Rust. (plan:2026-10-03-widgets-agent-a2ui)
 - Validate widget schemas in Rust check_widget; Typst asserts only the argument types serde reads, so one bad file fails alone. (spec:2026-10-04-parametre-liste-design, t-938)
 - Keep deck.widgets and deck.layouts maps of whole PackPins by namespace, unique across both; never patch a pin field by field. (plan:2026-10-18-packs-lot1-widget-packs, plan:2026-10-19-packs-lot3-essentiel)
+- Keep deck.themes exactly the extends closure of deck.theme via set_theme and check_closure; after a merge, issue-theme-closure reports a broken one and the session repairs it. (plan:2026-10-22-packs-lot4-themes)
+- Read pack manifests through PackManifest::from_files, which refuses invalid tokens entries; never deserialize one directly. (plan:2026-10-22-packs-lot4-themes)
 - Build a qualified kind only with qualify or take a built-in kind from kinds::base or kinds::essentiel; read one only with split_kind. (plan:2026-10-18-packs-lot1-widget-packs, plan:2026-10-18-packs-lot2-base, plan:2026-10-19-packs-lot3-essentiel)

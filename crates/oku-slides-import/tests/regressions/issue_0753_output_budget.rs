@@ -1,5 +1,6 @@
 //! Régression (t-753) : seule l'entrée était bornée ; un petit zip pouvait gonfler en un gros deck Oku.
 
+use oku_slides_core::Namespace;
 use oku_slides_import::fonts::FontCatalog;
 use oku_slides_import::{HifiTarget, ImportErrorKind, ImportPlan, PackLimits, ReadLimits, hifi, read_pptx};
 use speculoos::prelude::*;
@@ -30,7 +31,7 @@ fn plan(bytes: &[u8], limits: &ReadLimits) -> ImportPlan {
         essentiel: common::essentiel_pin(),
         fonts: &fonts,
         pack_id: Uuid::from_u128(1),
-        theme_id: Uuid::from_u128(2),
+        theme: Namespace::parse("neutre").unwrap_or_else(|| panic!("espace de noms")),
         name: "Import".to_owned(),
         created: "2026-10-14T08:00:00Z".to_owned(),
         limits: PackLimits::default(),

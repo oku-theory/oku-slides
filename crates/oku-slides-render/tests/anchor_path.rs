@@ -146,7 +146,7 @@ fn text_without_spacing_keeps_the_theme_gaps() {
 
 /// SVG d'une liste à puces en `#00ff00` dont la puce du thème est `•` en `marker_color`.
 fn bullets_svg(marker_color: Value) -> String {
-    let d = json!({ "tokens": { "component": { "list": { "marker": "•", "marker-color": marker_color } } },
+    let d = json!({ "tokens": { "list": { "marker": "•", "marker-color": marker_color } },
         "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [
             { "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 600, "h": 400 },
               "style": { "color": "#00ff00" },

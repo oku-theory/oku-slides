@@ -86,10 +86,16 @@ fn sample_ops() -> Vec<Op> {
         Op::RemoveSlide { slide: "s-ch2".into() },
         Op::SetNotes { slide: "s-title".into(), notes: "Bonjour à tous".into() },
         Op::SetTheme {
-            theme: Some(ThemeRef {
-                id: uuid::Uuid::from_u128(9),
-                version: PackVersion::from_hex(&"d".repeat(64)).unwrap_or_else(|| panic!("hex invalide")),
-            }),
+            theme: Namespace::parse("marque"),
+            themes: [(
+                Namespace::parse("marque").unwrap_or_else(|| panic!("espace de noms invalide")),
+                ThemePin {
+                    id: uuid::Uuid::from_u128(9),
+                    version: PackVersion::from_hex(&"d".repeat(64)).unwrap_or_else(|| panic!("hex invalide")),
+                    extends: Vec::new(),
+                },
+            )]
+            .into(),
         },
         Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#2f5fb3") },
         Op::SetToken { path: vec!["component".into(), "header".into(), "left".into()], value: Value::Null },

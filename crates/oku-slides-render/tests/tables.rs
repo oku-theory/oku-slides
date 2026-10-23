@@ -228,13 +228,14 @@ fn start_alignment_of_a_number_column_changes_the_page() {
 
 #[test]
 fn header_tokens_change_the_page() {
-    let themed = deck_of(in_flow(rows(2)), Some(json!({ "component": { "table": { "header-bg": "#ff0000" } } })));
+    let themed =
+        deck_of(in_flow(rows(2)), Some(json!({ "component": { "base": { "table": { "header-bg": "#ff0000" } } } })));
     assert_that!(hash(&themed)).is_not_equal_to(flow_hash(rows(2)));
 }
 
 #[test]
 fn zero_padding_single_empty_cell_compiles() {
-    let tokens = json!({ "component": { "table": { "padding-x": 0, "padding-y": 0 } } });
+    let tokens = json!({ "component": { "base": { "table": { "padding-x": 0, "padding-y": 0 } } } });
     let d = deck_of(in_flow(json!({ "dataset": { "source": [[null]] } })), Some(tokens));
     assert_that!(compile(&d).page_count()).is_equal_to(1);
     assert_that!(hash(&d)).is_not_equal_to(hash(&placeholder()));
@@ -323,8 +324,9 @@ fn empty_text_column_beside_numbers_compiles() {
 
 #[test]
 fn body_bg_token_changes_the_page_and_null_does_not() {
-    let painted = deck_of(in_flow(rows(2)), Some(json!({ "component": { "table": { "body-bg": "#00ff00" } } })));
+    let painted =
+        deck_of(in_flow(rows(2)), Some(json!({ "component": { "base": { "table": { "body-bg": "#00ff00" } } } })));
     assert_that!(hash(&painted)).is_not_equal_to(flow_hash(rows(2)));
-    let bare = deck_of(in_flow(rows(2)), Some(json!({ "component": { "table": { "body-bg": null } } })));
+    let bare = deck_of(in_flow(rows(2)), Some(json!({ "component": { "base": { "table": { "body-bg": null } } } })));
     assert_that!(hash(&bare)).is_equal_to(flow_hash(rows(2)));
 }

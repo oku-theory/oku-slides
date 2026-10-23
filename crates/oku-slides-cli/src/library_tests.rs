@@ -7,7 +7,12 @@ use super::*;
 /// Une bibliothèque de packs vide dans un dossier temporaire (les intégrés seulement).
 fn library(dir: &Path) -> (Storage, PackLibrary) {
     let storage = Storage::local().unwrap();
-    let library = PackLibrary::new(Some(dir.join("widgets")), Some(dir.join("layouts")), storage.clone());
+    let library = PackLibrary::new(
+        Some(dir.join("widgets")),
+        Some(dir.join("layouts")),
+        oku_slides_session::ThemeLibrary::new(None, storage.clone()),
+        storage.clone(),
+    );
     (storage, library)
 }
 

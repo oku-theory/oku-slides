@@ -16,14 +16,15 @@
 //! - [`SourceBundle`] : zip des sources (deck, assets) ; sa vue du deck est
 //!   la relecture du replica, sous forme canonique ([`canonicalize`]) ;
 //!   [`SourceBundle::merge`] y ajoute l'union des assets et des polices.
-//! - [`PackPin`], [`PackVersion`], [`PackFiles`], [`WidgetFile`] : pack de widgets épinglé par un deck sous un [`Namespace`], version adressée par contenu, fichiers de widgets ; [`ThemeRef`] : thème d'un deck, versionné de même.
+//! - [`PackPin`], [`PackVersion`], [`PackFiles`], [`WidgetFile`] : pack de widgets épinglé par un deck sous un [`Namespace`], version adressée par contenu, fichiers de widgets ; [`ThemePin`] : thème épinglé par un deck, versionné de même, sa chaîne d'`extends` dans [`theme_chain`].
+//! - [`token_spec`] : jetons de composant déclarés par les packs ([`ComponentToken`]) et contrôle d'éditeur ([`Control`]).
 //! - [`Slide::text_fields`] : les champs texte d'une slide dans l'ordre de
 //!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
 //! - [`is_hex_color`] : forme hexadécimale des couleurs des jetons.
 //! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu (hôtes : [`WidgetRegistry::host_params`] ; hauteur d'un bloc : [`Grow`]).
 //! - [`PackKind`] : la sorte d'un pack (`widgets` d'éléments, `layouts` de slides) ; [`LayoutProfile`] : préréglage d'un layout pour l'import.
 //! - [`kinds`] : les kinds des packs intégrés `base` et `essentiel`, seul endroit où ils s'écrivent.
-//! - [`tokens`] : jetons effectifs d'un thème ([`tokens::effective_tokens`], fusion [`tokens::merge`]).
+//! - [`tokens`] : jetons effectifs d'un thème ([`tokens::effective_tokens`], fusion [`tokens::merge`], couche de thème [`tokens::theme_layer`]).
 
 mod canonical;
 mod color;
@@ -36,6 +37,7 @@ pub mod model;
 mod namespace;
 pub mod ops;
 pub mod pack;
+mod pack_examples;
 mod pack_kind;
 pub mod params;
 pub mod replica;
@@ -43,6 +45,8 @@ mod shape_path;
 pub mod sources;
 #[cfg(test)]
 pub(crate) mod test_registry;
+pub mod theme_chain;
+pub mod token_spec;
 pub mod tokens;
 pub mod validate;
 pub mod widget;
@@ -50,8 +54,9 @@ pub mod widget;
 pub use canonical::canonicalize;
 pub use color::is_hex_color;
 pub use error::{
-    ListBound, NamespaceError, OpError, OpErrorKind, PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault,
-    SourcesError, SourcesErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
+    ListBound, NamespaceError, OpError, OpErrorKind, PackManifestError, PackManifestErrorKind, PackVersionError,
+    ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind, TokenEntryError, TokenEntryErrorKind,
+    TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
@@ -64,7 +69,7 @@ pub use ops::{
     pack_users, param_value, text_fits,
 };
 pub use pack::{
-    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, ThemeRef, WidgetFile,
+    COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, WidgetFile,
     now_created,
 };
 pub use pack_kind::PackKind;
@@ -75,5 +80,7 @@ pub use replica::{
 };
 pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
+pub use theme_chain::{ThemeChainError, ThemePin, check_closure, linearize};
+pub use token_spec::{ComponentToken, Control, check_entries};
 pub use validate::{Issue, validate};
 pub use widget::{Category, Grow, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema, is_text};

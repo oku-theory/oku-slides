@@ -14,9 +14,8 @@ use crate::tools::{SlideId, Tools, png, text};
 /// Le thème lu par `theme_tokens`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ThemeArgs {
-    /// Id du thème (UUID, voir `deck_outline`).
-    #[schemars(with = "String")]
-    pub theme: uuid::Uuid,
+    /// Espace de noms du thème (voir `deck_outline`) ; son id ou son nom sont aussi compris.
+    pub theme: String,
 }
 
 /// La sorte des packs lus par `packs`.
@@ -52,21 +51,21 @@ impl Tools {
                         (None, Some(_)) => "pack",
                         (None, None) => "deck",
                     },
-                    "theme": snap.theme.map(|r| json!({ "id": r.id, "name": snap.theme_name })),
+                    "theme": snap.theme.map(|ns| json!({ "namespace": ns, "name": snap.theme_name })),
                     // En mode pack : le thème dont part le brouillon (`set_theme` le change).
                     "edited_theme": snap.editing.as_ref().map(|e| json!({
                         "id": e.theme.base.id,
                         "version": e.theme.base.version,
                         "name": e.theme.name,
+                        "child": e.theme.child,
+                        "extends": e.theme.extends,
                         "dirty": e.theme.dirty,
                     })),
-                    // Version courante de chaque thème : ce que pose l'op `set_theme`. Puis ceux
-                    // du deck seul embarqués (l'import), dans la version que reprendrait le deck.
+                    // Les thèmes de la bibliothèque : ce que désigne l'op `set_theme` par son espace de noms.
                     "themes": snap
                         .themes
                         .iter()
-                        .chain(&snap.deck_themes)
-                        .map(|t| json!({ "id": t.id, "name": t.name, "version": t.version, "deck_only": t.deck_only }))
+                        .map(|t| json!({ "namespace": t.namespace, "name": t.name, "extends": t.extends, "builtin": t.builtin }))
                         .collect::<Vec<_>>(),
                     "widget_packs": snap.widgets,
                     "layout_packs": snap.layouts,
@@ -86,14 +85,15 @@ impl Tools {
         };
         let r = self
             .with_session(move |s| {
-                let info = s.theme_info(theme)?;
-                let tokens = s.theme_tokens_of(theme)?;
+                let info = s.find_theme_info(&theme)?;
+                let tokens = s.theme_tokens_of(info.id)?;
                 Ok(json!({
-                    "id": info.id,
-                    "version": info.version,
+                    "namespace": info.namespace,
+                    "extends": info.extends,
                     "name": info.name,
-                    "deck_only": info.deck_only,
+                    "version": info.version,
                     "tokens": tokens,
+                    "deck_tokens": s.deck().tokens,
                 }))
             })
             .await;

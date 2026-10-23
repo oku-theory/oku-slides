@@ -1,5 +1,5 @@
 {
- "version": 8,
+ "version": 9,
  "params": {
   "title": "Oku Slides Help",
   "subtitle": "Getting around, shortcuts, Typst library, file format",
@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-            "t": ": Papier, Pro or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. In pack mode, the Theme tab sets its tokens one by one; “Done” saves it, as a copy for Papier or Pro."
+            "t": ": Papier, Pro, Neutre or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. In pack mode, the Theme tab sets its tokens one by one; the editor shows what the theme extends and what the deck overrides, with a section per widget pack. “Done” saves it: editing Papier, Pro or Neutre creates a variant that extends it. A widget pack’s Theme tab shows preview slides."
           }
          ],
          "list": "bullet"
@@ -522,7 +522,7 @@
            "bold": true
           },
           {
-           "t": ": keeps the original look, with a theme and layouts made for this presentation."
+           "t": ": keeps the original look: the deck pins the Neutre theme and carries its own tokens, with layouts made for this presentation."
           }
          ],
          "list": "bullet"
@@ -570,7 +570,7 @@
            "bold": true
           },
           {
-            "t": ": the workshop, asked of the agent, edits its layouts, saved in this presentation only; its theme stays offered among the themes, under “This presentation”."
+            "t": ": the workshop, asked of the agent, edits its layouts, saved in this presentation only; its look stays in the deck’s own tokens, over the Neutre theme."
           }
          ],
          "list": "bullet"
@@ -1624,7 +1624,7 @@
            "bold": true
           },
           {
-           "t": " : default-tokens ← theme ← tokens."
+           "t": " : default-tokens ← component defaults of each pack (component.<namespace>.*) ← theme chain ← tokens. Objects merge key by key; any other value, a list included, replaces the one below."
           }
          ],
          "list": "bullet"
@@ -1660,7 +1660,7 @@
            "bold": true
           },
           {
-           "t": ": header, footer, kicker, title, title-slide, chapter, toc, card, end-slide, list, quote, columns."
+           "t": ": owned by packs. card and table under component.base.*; title, title-slide, chapter, toc, end-slide, quote and columns under component.essentiel.*. header, footer, list and kicker are global families, outside component."
           }
          ],
          "list": "bullet"
@@ -1672,7 +1672,7 @@
            "bold": true
           },
           {
-           "t": ": papier (Newsreader, Instrument Sans, sage green) and pro (Inter, navy and cyan)."
+           "t": ": papier (Newsreader, Instrument Sans, sage green), pro (Inter, navy and cyan) and neutre (no tokens of its own, for imported decks). A theme has a namespace and an ordered extends list: parents apply first, later ones win, a list replaces."
           }
          ],
          "list": "bullet"
@@ -2330,7 +2330,7 @@
         {
          "runs": [
           {
-           "t": "themes/<hex>/theme.json         theme version"
+           "t": "themes/<hex>/theme.json         one file per pinned theme version (the theme and its extends closure)"
           }
          ]
         }
@@ -2407,7 +2407,7 @@
            "bold": true
           },
           {
-           "t": ": the v8 JSON deck is the canonical read-back of the replica."
+           "t": ": the v9 JSON deck is the canonical read-back of the replica."
           }
          ],
          "list": "bullet"
@@ -2435,7 +2435,7 @@
    "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "The JSON deck (version 8)",
+    "title": "The JSON deck (version 9)",
     "layout": "default",
     "blocks": [
      {
@@ -2453,7 +2453,7 @@
         {
          "runs": [
           {
-           "t": "  \"version\": 8,"
+           "t": "  \"version\": 9,"
           }
          ]
         },

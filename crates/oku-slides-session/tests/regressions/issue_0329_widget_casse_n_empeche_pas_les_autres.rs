@@ -37,12 +37,13 @@ fn mixed_pack(data: &Path) -> PackPin {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        tokens: Vec::new(),
     };
     let name = |n: &str| WidgetFile::parse(n).unwrap_or_else(|| panic!("nom invalide : {n}"));
     let widgets = BTreeMap::from([(name("quote"), QUOTE.to_owned()), (name("casse"), BROKEN.to_owned())]);
     let files = manifest.to_files(oku_slides_core::PackKind::Widgets, widgets).unwrap_or_else(|e| panic!("{e}"));
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.join("widgets")), None, storage)
+    PackLibrary::new(Some(data.join("widgets")), None, crate::common::no_user_themes(), storage)
         .add_version(id, &files)
         .unwrap_or_else(|e| panic!("{e}"));
     PackPin { id, version: files.version(), requires: Vec::new() }

@@ -15,4 +15,7 @@
 // Comme l'assemblage généré par l'app : chaque nom préfixé par l'espace de noms de son pack.
 #let base = (text-w, card-w, image-w, shape-w, chart-w, table-w, stack-w).map(w => w + (name: "base/" + w.name))
 #let essentiel = (title-l, toc-l, chapter-l, content-l, end-l, blank-l).map(w => w + (name: "essentiel/" + w.name))
-#render-deck(json("deck.json"), theme: papier, widgets: by-name(essentiel + base))
+// Comme la couche de thème de l'app : les jetons de composant des packs, puis le thème.
+#let packs = merge(pack-tokens("base", json("../packs/base/widgets.json")),
+  pack-tokens("essentiel", json("../packs/essentiel/layouts.json")))
+#render-deck(json("deck.json"), theme: merge(packs, papier), widgets: by-name(essentiel + base))

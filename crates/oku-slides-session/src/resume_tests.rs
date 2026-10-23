@@ -3,7 +3,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::test_support::registry;
 use crate::views::PileSection;
-use oku_slides_core::{Deck, Op, SourceBundle};
+use oku_slides_core::{Deck, SourceBundle};
 use oku_slides_platform::storage::StorageErrorKind;
 
 /// Réglages de test : 10 étapes d'annulation, sans auteur réglé.
@@ -21,7 +21,7 @@ fn resume() -> Resume {
 
 fn deck() -> Deck {
     let mut deck = Deck::from_json(r#"{"slides":[]}"#).unwrap();
-    deck.theme = crate::test_support::theme_ref("papier");
+    crate::test_support::pin_builtin_theme(&mut deck, "papier");
     deck
 }
 
@@ -31,7 +31,7 @@ fn document() -> Document {
     sources.fonts.insert("Inter.ttf".into(), b"police".to_vec());
     let mut doc = Document::new(sources, Some(PathBuf::from("/tmp/essai.oku-slides.pdf")), &defaults());
     let mut next = doc.sources.deck().clone();
-    next.theme = crate::test_support::theme_ref("pro");
+    crate::test_support::pin_builtin_theme(&mut next, "pro");
     doc.sources.apply(next, "Thème", None).unwrap();
     doc.dirty = true;
     doc.saved_hash = Some("sha256:00".into());
@@ -412,7 +412,7 @@ fn apply_without_handle_writes_the_op_for_resume() {
     let dir = temp_dir();
     let mut s = crate::test_support::session();
     assert_that!(s.resume(dir.clone())).is_true();
-    s.apply("Thème", vec![Op::SetTheme { theme: crate::test_support::theme_ref("pro") }], None).unwrap();
+    s.apply("Thème", vec![crate::test_support::set_theme_op("pro")], None).unwrap();
     s.flush_resume();
     let mut back = crate::test_support::session();
     assert_that!(back.resume(dir.clone())).is_true();
@@ -611,4 +611,26 @@ fn resume_in_pack_mode_on_a_deck_only_pack_keeps_it_deck_only() {
     back.save_pack(false).unwrap();
     assert_that!(crate::test_support::library_files(data.path())).is_equal_to(before);
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Un onglet repris dont le deck est encore en version 8 (thème par id) : mis de côté, signalé comme ancien.
+#[test]
+fn resume_of_a_version_8_tab_with_unsaved_work_is_set_aside_as_outdated() {
+    let data = crate::test_support::fresh_dir("oku-slides-resume-v8-");
+    let dir = data.path().join("tab");
+    let mut s = crate::test_support::session_on(data.path());
+    assert_that!(s.resume(dir.clone())).is_true();
+    s.apply("Thème", vec![crate::test_support::set_theme_op("pro")], None).unwrap();
+    s.flush_resume();
+    drop(s);
+    let path = dir.join(DECK_DIR).join("deck.loro");
+    let doc = loro::LoroDoc::new();
+    doc.import(&std::fs::read(&path).unwrap()).unwrap();
+    doc.get_map("deck").insert("version", 8_i64).unwrap();
+    doc.commit();
+    std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
+    let mut back = crate::test_support::session_on(data.path());
+    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Outdated);
+    assert_that!(back.deck().theme.as_ref().map(|t| t.as_str())).is_equal_to(Some(crate::PAPIER_NAMESPACE));
+    assert_that!(dir.exists()).is_false();
 }

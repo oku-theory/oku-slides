@@ -5,8 +5,8 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::{TokenAction, TokenState, token_state};
-use crate::pack::ESSENTIEL_PACK;
-use crate::test_support::session;
+use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
+use crate::test_support::{add_user_theme, builtin, fresh_dir, ns, opened_on, session};
 use crate::theme::{PAPIER_THEME, PRO_THEME};
 use crate::theme_schema::schema;
 use crate::{Request, Session, SessionErrorKind};
@@ -23,8 +23,15 @@ fn p(path: &[&str]) -> Vec<String> {
 /// Une session en mode pack dont le brouillon part du thème intégré `id`.
 fn pack_session(id: Uuid) -> Session {
     let mut s = session();
-    if s.deck().theme.as_ref().map(|r| r.id) != Some(id) {
-        s.set_theme(id).unwrap();
+    if s.deck_theme_pin().map(|r| r.id) != Some(id) {
+        let namespace = <crate::theme::Themes as crate::library_kind::LibraryKind>::builtins()
+            .iter()
+            .find(|b| b.manifest.id == id)
+            .unwrap()
+            .manifest
+            .namespace
+            .clone();
+        s.set_theme(&namespace).unwrap();
     }
     s.edit_pack(ESSENTIEL_PACK).unwrap();
     s
@@ -145,11 +152,25 @@ fn host_theme_lists_free_colors_and_the_new_color_row() {
 }
 
 #[test]
-fn host_token_reset_restores_base_value() {
+fn host_token_reset_in_a_child_draft_unsets_the_token() {
     let mut s = pack_session(PAPIER_THEME);
     s.host_token(p(&["color", "accent"]), TokenAction::Set, Some(json!("#ff0000"))).unwrap();
     s.host_token(p(&["color", "accent"]), TokenAction::Reset, None).unwrap();
-    assert_that!(s.deck().tokens.pointer("/color/accent")).is_equal_to(Some(&json!("#3f6b5e")));
+    assert_that!(token(&s, "/color/accent")).is_none();
+}
+
+#[test]
+fn host_token_reset_in_a_user_theme_restores_its_value() {
+    let data = fresh_dir("oku-slides-theme-panel-");
+    let mut s = opened_on(data.path());
+    let tokens = json!({"color": {"accent": "#204060"}}).as_object().unwrap().clone();
+    add_user_theme(&s.themes, Uuid::new_v4(), "maison", &[], tokens, None);
+    s.set_theme(&ns("maison")).unwrap();
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let before = token(&s, "/color/accent");
+    s.host_token(p(&["color", "accent"]), TokenAction::Set, Some(json!("#ff0000"))).unwrap();
+    s.host_token(p(&["color", "accent"]), TokenAction::Reset, None).unwrap();
+    assert_that!(token(&s, "/color/accent")).is_equal_to(before);
 }
 
 #[test]
@@ -167,7 +188,7 @@ fn host_token_set_is_one_undo_step_with_the_token_label() {
     let label = s.localizer.tr("theme-token-color-accent");
     assert_that!(s.snapshot().undo_label.unwrap_or_default().contains(&label)).is_true();
     s.undo().unwrap();
-    assert_that!(token(&s, "/color/accent")).is_equal_to(Some(json!("#3f6b5e")));
+    assert_that!(token(&s, "/color/accent")).is_none();
 }
 
 #[test]
@@ -204,8 +225,8 @@ fn host_token_outside_pack_is_refused() {
 #[case(&["weight", "title"], json!("700"), "/weight/title", json!(700))]
 #[case(&["size", "body"], json!("30.5"), "/size/body", json!(30.5))]
 #[case(&["size", "lead"], json!("title"), "/size/lead", json!("title"))]
-#[case(&["component", "header", "rule"], json!("true"), "/component/header/rule", json!(true))]
-#[case(&["component", "title", "rule", "height"], json!(6), "/component/title/rule/height", json!(6))]
+#[case(&["header", "rule"], json!("true"), "/header/rule", json!(true))]
+#[case(&["component", "essentiel", "title", "rule", "height"], json!(6), "/component/essentiel/title/rule/height", json!(6))]
 #[case(&["font", "body"], json!([{"id": "0", "family": "Inter"}]), "/font/body", json!(["Inter"]))]
 fn host_token_set_converts_the_control_value(
     #[case] path: &[&str],
@@ -237,9 +258,10 @@ fn host_token_list_changes_edit_the_font_families_in_order() {
 #[test]
 fn host_token_rule_field_starts_a_cleared_rule() {
     let mut s = pack_session(PAPIER_THEME);
-    s.host_token(p(&["component", "title", "rule"]), TokenAction::Clear, None).unwrap();
-    s.host_token(p(&["component", "title", "rule", "color"]), TokenAction::Set, Some(json!("ink"))).unwrap();
-    let rule = token(&s, "/component/title/rule").unwrap();
+    s.host_token(p(&["component", "essentiel", "title", "rule"]), TokenAction::Clear, None).unwrap();
+    let rule = p(&["component", "essentiel", "title", "rule", "color"]);
+    s.host_token(rule, TokenAction::Set, Some(json!("ink"))).unwrap();
+    let rule = token(&s, "/component/essentiel/title/rule").unwrap();
     assert_that!(rule["color"].clone()).is_equal_to(json!("ink"));
     assert_that!(rule["width"].is_number()).is_true();
 }
@@ -251,12 +273,11 @@ fn host_token_every_action_round_trips_through_the_request() {
     assert_that!(token(&s, "/color/brand")).is_equal_to(Some(json!("#123456")));
     request(&mut s, &["color", "brand"], "remove", None).unwrap();
     assert_that!(token(&s, "/color/brand")).is_none();
-    request(&mut s, &["component", "header", "left"], "clear", None).unwrap();
-    assert_that!(token(&s, "/component/header/left")).is_equal_to(Some(Value::Null));
-    request(&mut s, &["component", "header", "left"], "reset", None).unwrap();
+    request(&mut s, &["header", "left"], "clear", None).unwrap();
+    assert_that!(token(&s, "/header/left")).is_equal_to(Some(Value::Null));
+    request(&mut s, &["header", "left"], "reset", None).unwrap();
     let base = s.base_tokens();
-    assert_that!(token(&s, "/component/header/left").as_ref())
-        .is_equal_to(Value::Object(base).pointer("/component/header/left"));
+    assert_that!(token(&s, "/header/left").as_ref()).is_equal_to(Value::Object(base).pointer("/header/left"));
 }
 
 #[test]
@@ -270,9 +291,89 @@ fn host_theme_request_returns_the_surface() {
 fn every_schema_entry_has_an_english_and_french_label() {
     for spec in schema() {
         let id = format!("theme-token-{}", spec.path.join("-"));
-        assert_that!(english().has(&id)).is_true();
-        assert_that!(french().has(&id)).is_true();
+        asserting(&id).that(&(english().has(&id), french().has(&id))).is_equal_to((true, true));
     }
+}
+
+#[test]
+fn every_builtin_pack_entry_has_an_english_and_french_label() {
+    for id in [BASE_PACK, ESSENTIEL_PACK] {
+        let m = &builtin(id).manifest;
+        assert_that!(m.tokens.is_empty()).is_false();
+        for t in &m.tokens {
+            let key = format!("theme-token-component-{}-{}", m.namespace.as_str(), t.path.join("-"));
+            asserting(&key).that(&(english().has(&key), french().has(&key))).is_equal_to((true, true));
+        }
+    }
+}
+
+/// Les ids des sections de la surface, dans l'ordre.
+fn section_ids(s: &Session) -> Vec<String> {
+    let surface = serde_json::to_value(s.host_theme("").unwrap().unwrap()).unwrap();
+    disclosures(&surface).into_iter().map(|(id, _)| id).collect()
+}
+
+#[test]
+fn host_theme_sections_are_global_then_one_per_pack_then_interface() {
+    let s = pack_session(PAPIER_THEME);
+    let want = [
+        "s-colors",
+        "s-typography",
+        "s-scripts",
+        "s-spacing",
+        "s-shapes",
+        "s-page",
+        "s-charts",
+        "s-frame",
+        "s-pack:base",
+        "s-pack:essentiel",
+        "s-app-light",
+        "s-app-dark",
+    ];
+    assert_that!(section_ids(&s)).is_equal_to(want.map(String::from).to_vec());
+}
+
+#[test]
+fn host_theme_pack_section_is_named_after_its_pack() {
+    let s = pack_session(PAPIER_THEME);
+    let json = surface_json(&s, "");
+    assert_that!(json.contains(&format!("\"{}\"", builtin(BASE_PACK).manifest.name))).is_true();
+}
+
+#[test]
+fn host_theme_labels_builtin_pack_tokens_through_fluent() {
+    let s = pack_session(PAPIER_THEME);
+    let label = s.localizer.tr("theme-token-component-base-card-bg");
+    assert_that!(surface_json(&s, "component.base.card.bg").contains(&label)).is_true();
+}
+
+#[test]
+fn host_theme_shows_the_extends_row_of_a_child_draft() {
+    let s = pack_session(PAPIER_THEME);
+    let text = s.localizer.tr_with("theme-extends", &[("names", "Papier".into())]);
+    assert_that!(surface_json(&s, "").contains(&text)).is_true();
+}
+
+#[test]
+fn host_theme_lists_the_stashed_deck_overrides() {
+    let mut s = session();
+    let op = oku_slides_core::Op::SetToken { path: p(&["color", "accent"]), value: json!("#123456") };
+    s.apply("x", vec![op], None).unwrap();
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let text = s.localizer.tr_with("theme-deck-overrides", &[("paths", "color.accent".into())]);
+    assert_that!(surface_json(&s, "").contains(&text)).is_true();
+}
+
+#[test]
+fn host_theme_without_deck_overrides_has_no_overrides_row() {
+    let s = pack_session(PAPIER_THEME);
+    assert_that!(surface_json(&s, "").contains("deck-overrides")).is_false();
+}
+
+#[test]
+fn host_theme_shows_the_inherited_value_of_a_token_absent_from_a_child_draft() {
+    let s = pack_session(PAPIER_THEME);
+    assert_that!(surface_json(&s, "color.accent").contains("#3f6b5e")).is_true();
 }
 
 #[test]

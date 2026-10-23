@@ -94,7 +94,7 @@ impl Session {
     /// Rend `deck`, les slides des layouts au style du document, dans l'emplacement des aperçus.
     fn render_previews(&mut self, deck: &Deck) -> Result<Vec<LayoutView>> {
         let set = self.usable_packs()?;
-        let tokens = self.theme_tokens(deck);
+        let layer = self.theme_layer(deck)?;
         let renderer = match &mut self.pack_renderer {
             Some(r) => r,
             None => self.pack_renderer.insert(new_renderer(
@@ -105,8 +105,8 @@ impl Session {
                 &self.registry,
             )?),
         };
-        let compiled = crate::deck_theme::render_themed(renderer, deck, tokens.as_ref(), &self.doc.sources.assets)
-            .context(RenderSnafu)?;
+        let compiled =
+            crate::deck_theme::render_themed(renderer, deck, &layer, &self.doc.sources.assets).context(RenderSnafu)?;
         let layout = compiled.layout();
         deck.slides
             .iter()

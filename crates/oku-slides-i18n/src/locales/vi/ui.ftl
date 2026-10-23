@@ -44,7 +44,6 @@ ui-divider-code = Kích thước mã
 ui-divider-band = Chiều cao phần cài đặt
 ui-toolbar-theme = Chủ đề
 ui-toolbar-theme-embedded = Chủ đề của tệp
-ui-toolbar-theme-deck-group = Bài trình bày này
 ui-toolbar-finish = Xong
 ui-pack-deck-only = Chỉ được lưu trong bài trình bày này
 ui-toolbar-open = Mở

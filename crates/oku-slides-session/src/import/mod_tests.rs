@@ -1,4 +1,4 @@
-use oku_slides_core::{Namespace, PackKind, PackManifest, PackPin, PackScope, ThemeManifest, WidgetFile, kinds};
+use oku_slides_core::{Namespace, PackKind, PackManifest, PackPin, PackScope, WidgetFile, kinds};
 use speculoos::prelude::*;
 
 use super::*;
@@ -50,7 +50,7 @@ fn import_retrofit_is_one_history_step_on_the_target_pack_and_theme() {
     let mut imported = import_minimal(data.path(), retrofit(&["Essentiel"], Some("Pro"))).unwrap();
     let deck = imported.sources.deck();
     assert_that!(deck.slides.len()).is_equal_to(3);
-    assert_that!(deck.theme.as_ref().map(|r| r.id)).is_equal_to(Some(PRO_THEME));
+    assert_that!(deck.theme.as_ref().and_then(|ns| deck.themes.get(ns)).map(|p| p.id)).is_equal_to(Some(PRO_THEME));
     assert_that!(imported.issues).is_empty();
     assert_that!(imported.state.mode()).is_equal_to(ImportMode::Retrofit);
     assert_that!(imported.sources.undo_steps()).is_equal_to(1);
@@ -64,7 +64,7 @@ fn import_retrofit_embeds_the_target_pack_and_theme_versions() {
     let imported = import_minimal(data.path(), retrofit(&["Essentiel"], Some("Pro"))).unwrap();
     let (deck, sources) = (imported.sources.deck(), &imported.sources);
     let pack = deck.layouts.get(&ns("essentiel")).unwrap();
-    let theme = deck.theme.as_ref().unwrap();
+    let theme = &deck.themes[deck.theme.as_ref().unwrap()];
     assert_that!(sources.packs.contains_key(&pack.version)).is_true();
     assert_that!(sources.themes.contains_key(&theme.version)).is_true();
 }
@@ -132,17 +132,15 @@ fn import_retrofit_is_labelled_in_the_live_language() {
 }
 
 #[test]
-fn import_hifi_is_one_history_step_on_its_generated_pack_and_theme() {
+fn import_hifi_is_one_history_step_on_its_generated_pack() {
     let data = fresh_dir("oku-slides-import-hifi-");
     let mut imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
-    let (pack_id, theme_id) = hifi::identity(&std::fs::read(data.path().join("minimal.pptx")).unwrap());
+    let pack_id = hifi::identity(&std::fs::read(data.path().join("minimal.pptx")).unwrap());
     let deck = imported.sources.deck();
     let pack = deck.layouts.get(&Namespace::deck_layouts()).cloned().unwrap();
-    let theme = deck.theme.clone().unwrap();
-    assert_that!((pack.id, theme.id)).is_equal_to((pack_id, theme_id));
+    assert_that!(pack.id).is_equal_to(pack_id);
     let manifest = PackManifest::from_files(&imported.sources.packs[&pack.version]).unwrap();
     assert_that!(manifest.name).is_equal_to("minimal".to_owned());
-    assert_that!(imported.sources.themes.contains_key(&theme.version)).is_true();
     assert_that!(imported.issues).is_empty();
     assert_that!(imported.sources.undo_steps()).is_equal_to(1);
     assert_that!(imported.sources.undo().unwrap()).is_true();
@@ -150,25 +148,33 @@ fn import_hifi_is_one_history_step_on_its_generated_pack_and_theme() {
 }
 
 #[test]
-fn import_hifi_generates_a_deck_only_pack_and_theme() {
+fn import_hifi_generates_a_deck_only_pack() {
     let data = fresh_dir("oku-slides-import-hifi-scope-");
     let imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
-    let deck = imported.sources.deck();
-    let (pack, theme) = (deck.layouts.get(&Namespace::deck_layouts()).cloned().unwrap(), deck.theme.clone().unwrap());
+    let pack = imported.sources.deck().layouts.get(&Namespace::deck_layouts()).cloned().unwrap();
     let pack = PackManifest::from_files(&imported.sources.packs[&pack.version]).unwrap();
-    let theme = ThemeManifest::from_files(&imported.sources.themes[&theme.version]).unwrap();
-    assert_that!((pack.scope, theme.scope)).is_equal_to((PackScope::Deck, PackScope::Deck));
+    assert_that!(pack.scope).is_equal_to(PackScope::Deck);
 }
 
 #[test]
-fn import_retrofit_keeps_the_library_scope_of_its_target_pack_and_theme() {
+fn hifi_imports_pin_neutre_with_deck_tokens() {
+    let data = fresh_dir("oku-slides-import-hifi-neutre-");
+    let imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
+    let deck = imported.sources.deck();
+    assert_that!(deck.theme.as_ref().map(|t| t.as_str())).is_equal_to(Some(crate::NEUTRE_NAMESPACE));
+    let pin = &deck.themes[&ns(crate::NEUTRE_NAMESPACE)];
+    assert_that!((deck.themes.len(), pin.id)).is_equal_to((1, crate::NEUTRE_THEME));
+    assert_that!(imported.sources.themes.contains_key(&pin.version)).is_true();
+    assert_that!(deck.tokens.as_object().is_some_and(|t| !t.is_empty())).is_true();
+}
+
+#[test]
+fn import_retrofit_keeps_the_library_scope_of_its_target_pack() {
     let data = fresh_dir("oku-slides-import-retrofit-scope-");
     let imported = import_minimal(data.path(), retrofit(&["Essentiel"], Some("Pro"))).unwrap();
-    let deck = imported.sources.deck();
-    let (pack, theme) = (deck.layouts.get(&ns("essentiel")).cloned().unwrap(), deck.theme.clone().unwrap());
+    let pack = imported.sources.deck().layouts.get(&ns("essentiel")).cloned().unwrap();
     let pack = PackManifest::from_files(&imported.sources.packs[&pack.version]).unwrap();
-    let theme = ThemeManifest::from_files(&imported.sources.themes[&theme.version]).unwrap();
-    assert_that!((pack.scope, theme.scope)).is_equal_to((PackScope::Library, PackScope::Library));
+    assert_that!(pack.scope).is_equal_to(PackScope::Library);
 }
 
 #[test]
@@ -179,8 +185,7 @@ fn import_hifi_leaves_the_pack_and_theme_libraries_untouched() {
     let id = imported.sources.deck().layouts.get(&Namespace::deck_layouts()).unwrap().id;
     assert_that!(library.current_version(id)).is_none();
     let themes = ThemeLibrary::user(&platform(settings_on(data.path())));
-    let theme = imported.sources.deck().theme.as_ref().unwrap().id;
-    assert_that!(themes.current_version(theme)).is_none();
+    assert_that!(themes.entries().len()).is_equal_to(3);
 }
 
 #[test]

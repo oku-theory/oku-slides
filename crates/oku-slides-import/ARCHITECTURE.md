@@ -7,11 +7,12 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 
 - `read_pptx(bytes, &ReadLimits) -> Result<SourceDeck, ImportError>`.
 - `retrofit::project(&SourceDeck, &RetrofitTarget) -> Result<…>` : content on the `profiles` of the chosen layout
-  packs (in order; none: `NoProfiles`) and a theme, after the session pins `base` and `essentiel`; kinds from `kinds`.
-- `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : on a generated theme and deck-only layout pack `deck-layouts`;
-  ops start with `AddPack` `base`, `essentiel` (fallback `essentiel/blank`), `deck-layouts`; `sought_fonts`, `source_rect`.
+  packs (in order; none: `NoProfiles`) and the tokens of a theme, after the session pins `base` and `essentiel`; kinds from `kinds`.
+- `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : on the pinned theme (`HifiTarget.theme`, Neutre) with generated tokens and a deck-only layout pack
+  `deck-layouts`; ops: `AddPack` `base`, `essentiel` (fallback `essentiel/blank`), `SetTheme` (the session fills the
+  closure), `SetTokens` (the generated tokens), `AddPack` `deck-layouts`; `sought_fonts`, `source_rect`.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report, `origins` (item → element); in hi-fi the
-  generated theme, pack, schemas, fonts, `targets` (item → elements or slide param), `groups` (`hifi::groups`);
+  generated pack, schemas, fonts, `targets` (item → elements or slide param), `groups` (`hifi::groups`);
   `report_json` is the `--report` form; `check_budget` (fatal `TooLarge`) gives the `CheckedPlan` to apply.
 - `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`, `ReferenceReport`, slide
   `score`; `coverage::coverage` measures what of the source survives in the deck.
@@ -31,20 +32,19 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 - `retrofit/` : decor omission (`decor`, shared with `coverage`), profile choice (`profile`), headings, clusters,
   placement (`slide`, `zone`, `MAX_SLIDE_ITEMS`), text, tables, charts (`dataset_row_budget`), `color`, card
   stacks (`group`, SmartArt). A text-only first cover keeps a title profile, other texts in notes.
-- `hifi/` : page fit (`page`), theme tokens and `ThemeManifest` (`theme`, `color`), one slide
+- `hifi/` : page fit (`page`), generated tokens: `list` global, `component.base.table` (`theme`, `color`), one slide
   widget per layout in `deck-layouts` (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
   Typst (`typst/`), shape outlines and arrowheads (`geometry/`, with the embedded ECMA-376
   `presetShapeDefinitions.xml`), slide items as elements (`slide`, `element`, `table`).
 - `pattern` : repeated-item signatures (retrofit requests, hi-fi `groups`); `fonts/` : embedded, catalog, substitute, `Missing`.
-- `retrofit/measure`: a flow's height from theme tokens (`TextTokens`); too tall, it goes to the grid if
-  that fits, else a smaller theme size, else reports `Overflow` (t-816; never split). `place` lays out.
+- `retrofit/measure`: a flow's height from theme tokens (`TextTokens`); too tall: grid if it fits, else a smaller size, else
+  `Overflow` (t-816). `retrofit/zone` reads the built-in packs' manifests for the component defaults.
 
 ## Extension points
-
 - New source format (PDF): a `pptx/` sibling emitting the same `SourceDeck` in OOXML terms (`source` docs).
 - New projector: a sibling of `retrofit/` and `hifi/` returning an `ImportPlan` (+ session `ImportTarget`).
 - New loss: a `LossKind` variant and its `import-loss-*` Fluent key.
 
 ## Dependencies
 `oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`, `serde`,
-`serde_json`, `snafu`. Render checks: `oku-slides-render/tests/import_*.rs`.
+`serde_json`, `snafu` (not render). Render checks: `oku-slides-render/tests/import_*.rs`.

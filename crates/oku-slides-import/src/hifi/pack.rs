@@ -246,6 +246,7 @@ pub(crate) fn pack_manifest(
         created: created.to_owned(),
         scope: PackScope::Deck,
         profiles: Vec::new(),
+        tokens: Vec::new(),
         examples: values,
     }
 }

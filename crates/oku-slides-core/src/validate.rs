@@ -78,7 +78,20 @@ impl Issue {
         Self { slide: None, element: None, message: Message::new("issue-theme-version-mismatch").arg("version", hex) }
     }
 
-    /// La version de thème du deck manque dans ses sources.
+    /// Le `theme.json` embarqué d'un thème ne correspond pas à son épinglage dans le deck.
+    pub fn theme_pin_mismatch(ns: &Namespace) -> Self {
+        let message = Message::new("issue-theme-pin-mismatch").arg("namespace", ns.as_str());
+        Self { slide: None, element: None, message }
+    }
+
+    /// Les thèmes épinglés ne sont pas exactement la fermeture du thème du deck.
+    ///
+    /// `ns` : le thème manquant ou de trop, ou le thème du deck pour un cycle.
+    pub fn theme_closure(ns: &Namespace) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-theme-closure").arg("namespace", ns.as_str()) }
+    }
+
+    /// La version d'un thème épinglé par le deck manque dans ses sources.
     pub fn theme_version_missing(version: &PackVersion) -> Self {
         let message = Message::new("issue-theme-version-missing").arg("version", version.as_str());
         Self { slide: None, element: None, message }

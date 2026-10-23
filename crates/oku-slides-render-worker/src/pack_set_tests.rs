@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{PackKind, WidgetRegistry, kinds::essentiel};
+use oku_slides_core::{PackKind, WidgetRegistry, kinds::essentiel, tokens::theme_layer};
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
@@ -60,6 +60,9 @@ fn set_widgets_two_packs_renders_both_namespaces() {
     let registry = w.registry_of(&set).unwrap();
     let mut slot = w.slot(&Fonts::default(), &Localizer::new(Some("fr")), empty()).unwrap();
     slot.set_widgets(&set, registry).unwrap();
+    // La slide lit les jetons de composant d'`essentiel` : la couche de thème les porte.
+    let essentiel = (BuiltinPack::Essentiel.namespace(), BuiltinPack::Essentiel.component_defaults().unwrap());
+    slot.set_theme(Some(&theme_layer([(&essentiel.0, essentiel.1)], []))).unwrap();
     let compiled = slot.render(&deck_with(&["acme", "beta"]), &BTreeMap::new()).unwrap();
     let mut ids: Vec<String> = compiled.layout().boxes.iter().map(|b| b.id.clone()).collect();
     ids.sort();

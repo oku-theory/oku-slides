@@ -1,7 +1,12 @@
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
-use super::{effective_tokens, merge};
+use super::{effective_tokens, merge, theme_layer};
+use crate::Namespace;
+
+fn ns(s: &str) -> Namespace {
+    Namespace::parse(s).unwrap_or_else(|| panic!("espace de noms invalide : {s}"))
+}
 
 fn map(v: Value) -> Map<String, Value> {
     match v {
@@ -32,4 +37,31 @@ fn effective_tokens_layer_the_theme_over_the_defaults_without_touching_them() {
     assert_that!(Value::Object(tokens))
         .is_equal_to(json!({"color": {"ink": "#000000", "accent": "#00bef4", "white": "#ffffff"}}));
     assert_that!(defaults.get("color").and_then(|c| c.get("accent"))).is_equal_to(Some(&json!("#2f5fb3")));
+}
+
+#[test]
+fn theme_layer_later_parent_wins_and_list_replaces() {
+    let components = [(ns("base"), map(json!({"card": {"bg": "bg", "gap": "sm"}})))];
+    let papier = map(json!({"color": {"accent": "#111"}, "font": {"body": ["A", "B"]}}));
+    let sombre = map(
+        json!({"color": {"accent": "#222"}, "font": {"body": ["C"]}, "component": {"base": {"card": {"bg": "ink"}}}}),
+    );
+    let layer = theme_layer(components.iter().map(|(n, m)| (n, m.clone())), [&papier, &sombre]);
+    assert_that!(Value::Object(layer)).is_equal_to(json!({
+        "component": {"base": {"card": {"bg": "ink", "gap": "sm"}}},
+        "color": {"accent": "#222"}, "font": {"body": ["C"]},
+    }));
+}
+
+#[test]
+fn theme_layer_without_components_or_chain_is_empty() {
+    let layer = theme_layer(std::iter::empty(), std::iter::empty());
+    assert_that!(layer.is_empty()).is_true();
+}
+
+#[test]
+fn theme_layer_skips_a_pack_without_component_defaults() {
+    let components = [(ns("base"), Map::new())];
+    let layer = theme_layer(components.iter().map(|(n, m)| (n, m.clone())), std::iter::empty());
+    assert_that!(Value::Object(layer)).is_equal_to(json!({}));
 }

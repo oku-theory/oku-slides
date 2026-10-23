@@ -2,6 +2,15 @@
 //! avec son état et ses actions (`host_theme`, `host_token`). L'interface la
 //! rend au dock de l'agent, en mode pack.
 //!
+//! Les jetons sont ceux du schéma composé du deck de travail : les sections
+//! globales, puis une par pack épinglé (nommée comme lui, dans l'ordre des
+//! espaces de noms), puis les variantes d'interface. Un jeton d'un pack
+//! intégré se nomme par Fluent (`theme-token-component-<ns>-…`), celui d'un
+//! autre pack par le `label` de son entrée, sinon par son chemin pointé. En
+//! tête, en lecture seule : les thèmes qu'étendra le thème enregistré
+//! (`theme-extends`) et les surcharges du deck mis de côté
+//! (`theme-deck-overrides`), qui ne s'y appliquent pas.
+//!
 //! Chaque action est l'évènement `token` : `{token, action, value?, name?}`,
 //! avec `token` le chemin du jeton (un tableau de segments) et `action` un
 //! [`TokenAction`]. Jamais de clé `path` dans le contexte : @a2ui y verrait
@@ -22,8 +31,9 @@ use snafu::ensure;
 use crate::agent::Surface;
 use crate::agent::forms::{FieldEvent, Place, field_components, lit, surface};
 use crate::error::{InvalidTokenValueSnafu, NotEditingPackSnafu};
+use crate::theme_composed::is_builtin_namespace;
 use crate::theme_controls::{Shown, token_fields, token_value};
-use crate::theme_schema::{Section, TokenSpec, default_tokens, lookup, merge, schema, spec};
+use crate::theme_schema::{Section, TokenSpec, default_tokens, lookup, merge, spec, token_paths};
 use crate::{Mode, Result, Session};
 
 /// Surface des jetons du brouillon du thème.
@@ -32,8 +42,8 @@ pub(crate) const HOST_THEME: &str = "host-theme";
 /// Évènement des actions sur un jeton.
 const TOKEN_EVENT: &str = "token";
 
-/// Sections, dans l'ordre d'affichage, et leur nom (clés Fluent `theme-section-*`).
-const SECTIONS: [(Section, &str); 10] = [
+/// Sections globales d'avant les packs, dans l'ordre, et leur nom (clés Fluent `theme-section-*`).
+const SECTIONS_BEFORE: [(Section, &str); 8] = [
     (Section::Colors, "colors"),
     (Section::Typography, "typography"),
     (Section::Scripts, "scripts"),
@@ -41,10 +51,11 @@ const SECTIONS: [(Section, &str); 10] = [
     (Section::Shapes, "shapes"),
     (Section::Page, "page"),
     (Section::Charts, "charts"),
-    (Section::Components, "components"),
-    (Section::AppLight, "app-light"),
-    (Section::AppDark, "app-dark"),
+    (Section::Frame, "frame"),
 ];
+
+/// Sections globales d'après les packs.
+const SECTIONS_AFTER: [(Section, &str); 2] = [(Section::AppLight, "app-light"), (Section::AppDark, "app-dark")];
 
 /// Où en est un jeton du brouillon par rapport à sa base.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -81,18 +92,25 @@ pub(crate) fn token_state(path: &[String], draft: &Map<String, Value>, base: &Ma
     }
 }
 
-/// Le libellé d'un jeton : `theme-token-<chemin à tirets>`, ou le nom d'une couleur libre.
-fn token_label(path: &[String], l: &Localizer) -> String {
-    match schema().iter().any(|s| s.path == path) {
-        true => l.tr(&format!("theme-token-{}", path.join("-"))),
-        false => path.last().cloned().unwrap_or_default(),
+/// Le libellé d'un jeton de `schema`.
+///
+/// `theme-token-<chemin à tirets>` pour une entrée globale ou d'un pack
+/// intégré ; le `label` de l'entrée d'un autre pack, sinon son chemin pointé
+/// dans le pack ; le nom d'une couleur libre.
+fn token_label(schema: &[TokenSpec], path: &[String], l: &Localizer) -> String {
+    match schema.iter().find(|s| s.path == path) {
+        Some(TokenSpec { section: Section::Pack(ns), label, .. }) if !is_builtin_namespace(ns) => {
+            label.clone().unwrap_or_else(|| path.get(2..).unwrap_or_default().join("."))
+        }
+        Some(_) => l.tr(&format!("theme-token-{}", path.join("-"))),
+        None => path.last().cloned().unwrap_or_default(),
     }
 }
 
 /// Une ligne de la surface : un jeton et ce qu'on en montre.
-struct Row {
+struct Row<'s> {
     path: Vec<String>,
-    spec: &'static TokenSpec,
+    spec: &'s TokenSpec,
     label: String,
     /// Valeur effective : du brouillon, sinon des défauts.
     value: Option<Value>,
@@ -101,7 +119,7 @@ struct Row {
     differs: bool,
 }
 
-impl Row {
+impl Row<'_> {
     fn key(&self) -> String {
         self.path.join(".")
     }
@@ -196,14 +214,44 @@ impl Builder {
     }
 }
 
+/// Une section de la surface : son id, son libellé, et ce qu'elle tient.
+struct SectionView {
+    section: Section,
+    id: String,
+    summary: String,
+}
+
+/// Les sections, dans l'ordre : globales, une par pack de `packs`, variantes d'interface.
+fn sections(packs: &[(oku_slides_core::Namespace, String)], l: &Localizer) -> Vec<SectionView> {
+    let global = |(section, name): &(Section, &str)| SectionView {
+        section: section.clone(),
+        id: format!("s-{name}"),
+        summary: l.tr(&format!("theme-section-{name}")),
+    };
+    let packs = packs.iter().map(|(ns, name)| SectionView {
+        section: Section::Pack(ns.clone()),
+        id: format!("s-pack:{}", ns.as_str()),
+        summary: name.clone(),
+    });
+    SECTIONS_BEFORE.iter().map(global).chain(packs).chain(SECTIONS_AFTER.iter().map(global)).collect()
+}
+
 impl Session {
-    /// Les lignes du brouillon : le schéma, puis ses couleurs libres.
-    fn theme_rows(&self) -> Vec<Row> {
+    /// Les jetons sous le brouillon : défauts, puis calque du deck de travail.
+    fn draft_lower(&self) -> Result<Map<String, Value>> {
+        let mut lower = default_tokens().clone();
+        merge(&mut lower, &self.theme_layer(self.doc.sources.deck())?);
+        Ok(lower)
+    }
+
+    /// Les lignes du brouillon : le schéma composé `schema`, puis les couleurs
+    /// libres du brouillon et de `lower` (les jetons sous lui).
+    fn theme_rows<'s>(&self, schema: &'s [TokenSpec], lower: &Map<String, Value>) -> Vec<Row<'s>> {
         let (draft, base, l) = (self.edited_tokens(), self.base_tokens(), &self.localizer);
-        let row = |path: Vec<String>, spec: &'static TokenSpec| {
-            let value = lookup(&draft, &path).or_else(|| lookup(default_tokens(), &path)).cloned();
+        let row = |path: Vec<String>, spec: &'s TokenSpec| {
+            let value = lookup(&draft, &path).or_else(|| lookup(lower, &path)).cloned();
             Row {
-                label: token_label(&path, l),
+                label: token_label(schema, &path, l),
                 state: token_state(&path, &draft, &base),
                 differs: lookup(&draft, &path) != lookup(&base, &path),
                 value,
@@ -211,15 +259,36 @@ impl Session {
                 path,
             }
         };
-        let mut rows: Vec<Row> = schema().iter().map(|s| row(s.path.clone(), s)).collect();
-        let free = draft.get("color").and_then(Value::as_object).into_iter().flatten();
+        let mut rows: Vec<Row> = schema.iter().map(|s| row(s.path.clone(), s)).collect();
+        // Les couleurs libres du brouillon et celles qu'il hérite des thèmes dessous.
+        let mut effective = lower.clone();
+        merge(&mut effective, &draft);
+        let free = effective.get("color").and_then(Value::as_object).into_iter().flatten();
         for name in free.map(|(name, _)| name) {
             let path = vec!["color".to_owned(), name.clone()];
-            if let Some(s) = spec(&path).filter(|_| !schema().iter().any(|s| s.path == path)) {
+            if let Some(s) = spec(schema, &path).filter(|_| !schema.iter().any(|s| s.path == path)) {
                 rows.push(row(path, s));
             }
         }
         rows
+    }
+
+    /// Les lignes en lecture seule d'en tête : parents, surcharges du deck mis de côté.
+    fn theme_header(&self, b: &mut Builder, schema: &[TokenSpec], body: &mut Vec<String>) {
+        let Mode::Pack { theme, .. } = &self.mode else { return };
+        let l = &self.localizer;
+        let names = self.draft_extends_names(theme);
+        if !names.is_empty() {
+            let text = l.tr_with("theme-extends", &[("names", names.join(", ").into())]);
+            b.components.push(Component::text("extends", text, Some(TextVariant::Caption)));
+            body.push("extends".to_owned());
+        }
+        let overrides = self.user_deck().tokens.as_object().map(|t| token_paths(schema, t)).unwrap_or_default();
+        if !overrides.is_empty() {
+            let text = l.tr_with("theme-deck-overrides", &[("paths", overrides.join(", ").into())]);
+            b.components.push(Component::text("deck-overrides", text, Some(TextVariant::Caption)));
+            body.push("deck-overrides".to_owned());
+        }
     }
 
     /// La surface des jetons du brouillon (mode pack) ; `filter` garde les
@@ -231,12 +300,18 @@ impl Session {
         // Normalisé pour la recherche seulement : le champ garde la saisie telle quelle.
         let filter = filter.trim().to_lowercase();
         let palette: Vec<String> = self.appearance.slide.values().cloned().collect();
-        let mut tokens = default_tokens().clone();
+        let deck = self.doc.sources.deck();
+        let schema = self.token_schema(deck);
+        let packs: Vec<_> = self.pack_tokens(deck).into_iter().map(|(ns, name, _)| (ns, name)).collect();
+        let lower = self.draft_lower()?;
+        let mut tokens = lower.clone();
         merge(&mut tokens, &self.edited_tokens());
-        let rows: Vec<Row> = self.theme_rows().into_iter().filter(|r| r.matches(&filter)).collect();
+        let rows: Vec<Row> = self.theme_rows(&schema, &lower).into_iter().filter(|r| r.matches(&filter)).collect();
         let mut b = Builder::default();
-        let mut body = vec!["title".to_owned(), "filter".to_owned()];
+        let mut body = vec!["title".to_owned()];
         b.components.push(Component::text("title", theme.name.clone(), Some(TextVariant::H4)));
+        self.theme_header(&mut b, &schema, &mut body);
+        body.push("filter".to_owned());
         b.components.push(Component::new(
             "filter",
             ComponentKind::TextField {
@@ -246,25 +321,27 @@ impl Session {
             },
         ));
         b.data.insert("filter".into(), json!(typed));
-        for (section, name) in SECTIONS {
+        for view in sections(&packs, l) {
             let mut ids: Vec<String> = Vec::new();
-            for r in rows.iter().filter(|r| r.spec.section == section) {
+            for r in rows.iter().filter(|r| r.spec.section == view.section) {
                 ids.push(b.row(r, &palette, &tokens, l));
             }
-            if section == Section::Colors && filter.is_empty() {
+            if view.section == Section::Colors && filter.is_empty() {
                 ids.push(b.new_color(&palette, l));
             }
             if ids.is_empty() {
                 continue;
             }
-            let (id, rows_id) = (format!("s-{name}"), format!("s-{name}-rows"));
+            let rows_id = format!("{}-rows", view.id);
             let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
             b.components.push(Component::column(&rows_id, &refs));
-            let open = !filter.is_empty() || section == Section::Colors;
-            let summary = Dynamic::Literal(l.tr(&format!("theme-section-{name}")));
-            b.components
-                .push(Component::new(&id, ComponentKind::Disclosure { summary, child: rows_id, open: Some(open) }));
-            body.push(id);
+            let open = !filter.is_empty() || view.section == Section::Colors;
+            let summary = Dynamic::Literal(view.summary);
+            b.components.push(Component::new(
+                &view.id,
+                ComponentKind::Disclosure { summary, child: rows_id, open: Some(open) },
+            ));
+            body.push(view.id);
         }
         let refs: Vec<&str> = body.iter().map(String::as_str).collect();
         b.components.insert(0, Component::column("body", &refs));
@@ -277,10 +354,12 @@ impl Session {
     pub(crate) fn host_token(&mut self, path: Vec<String>, action: TokenAction, value: Option<Value>) -> Result<()> {
         ensure!(self.in_pack_mode(), NotEditingPackSnafu);
         let draft = self.edited_tokens();
+        let schema = self.token_schema(self.doc.sources.deck());
         let (path, target) = match action {
             TokenAction::Set => {
-                let current = |p: &[String]| lookup(&draft, p).or_else(|| lookup(default_tokens(), p)).cloned();
-                let (path, v) = token_value(path, value.unwrap_or(Value::Null), current)?;
+                let lower = self.draft_lower()?;
+                let current = |p: &[String]| lookup(&draft, p).or_else(|| lookup(&lower, p)).cloned();
+                let (path, v) = token_value(&schema, path, value.unwrap_or(Value::Null), current)?;
                 (path, Some(v))
             }
             TokenAction::Reset => {
@@ -290,14 +369,14 @@ impl Session {
             TokenAction::Remove => (path, None),
             TokenAction::Clear => (path, Some(Value::Null)),
         };
-        if spec(&path).is_none() {
+        if spec(&schema, &path).is_none() {
             let reason = if matches!(path.as_slice(), [g, _] if g == "color") { "bad-name" } else { "unknown-token" };
             return InvalidTokenValueSnafu { path: path.join("."), reason }.fail()?;
         }
         if lookup(&draft, &path) == target.as_ref() {
             return Ok(());
         }
-        let token = token_label(&path, &self.localizer);
+        let token = token_label(&schema, &path, &self.localizer);
         let label = self.localizer.tr_with("session-undo-theme-token", &[("token", token.into())]);
         let op = match target {
             Some(value) => Op::SetToken { path, value },

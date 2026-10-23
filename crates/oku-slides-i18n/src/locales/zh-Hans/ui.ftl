@@ -47,7 +47,6 @@ ui-divider-code = 代码大小
 ui-divider-band = 设置区高度
 ui-toolbar-theme = 主题
 ui-toolbar-theme-embedded = 文件主题
-ui-toolbar-theme-deck-group = 此演示文稿
 ui-toolbar-finish = 完成
 ui-pack-deck-only = 仅保存在此演示文稿中
 ui-toolbar-open = 打开

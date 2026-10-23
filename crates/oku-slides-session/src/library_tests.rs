@@ -14,7 +14,12 @@ use crate::test_support::{add_version, fresh_dir, manifest, manifest_ns};
 /// Une bibliothèque des packs : les widgets sous `dir`, les layouts sous `dir/../<nom>-layouts`.
 fn library(dir: &Path) -> PackLibrary {
     let layouts = dir.with_file_name(format!("{}-layouts", dir.file_name().unwrap().to_string_lossy()));
-    PackLibrary::new(Some(dir.to_owned()), Some(layouts), Storage::local().unwrap())
+    PackLibrary::new(
+        Some(dir.to_owned()),
+        Some(layouts),
+        crate::ThemeLibrary::builtin_only(),
+        Storage::local().unwrap(),
+    )
 }
 
 #[test]
@@ -246,7 +251,7 @@ fn delete_removes_every_version_of_a_user_pack() {
 
 #[test]
 fn add_version_without_pack_dir_returns_no_pack_dir() {
-    let lib = PackLibrary::new(None, None, Storage::local().unwrap());
+    let lib = PackLibrary::new(None, None, crate::ThemeLibrary::builtin_only(), Storage::local().unwrap());
     let id = Uuid::new_v4();
     let files = manifest(id, "A", None, "2026-10-01T10:00:00Z").to_files(PackKind::Widgets, BTreeMap::new()).unwrap();
     let err = lib.add_version(id, &files).unwrap_err();

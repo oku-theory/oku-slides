@@ -105,138 +105,40 @@
     "elevation": 1.4,
     "sheet-elevation": 2.4
   },
-  "component": {
-    "header": {
-      "left": "{chapter-label}",
-      "right": "{organization}",
-      "size": "caption",
-      "color": "ink-muted",
-      "weight": "label",
-      "tracking": 0,
-      "case": null,
-      "rule": false,
-      "rule-color": "rule"
-    },
-    "footer": {
-      "left": "{author} · {date}",
-      "right": "{page-label}",
-      "size": "caption",
-      "color": "ink-muted",
-      "weight": "body",
-      "tracking": 0,
-      "case": null,
-      "rule": false,
-      "rule-color": "rule"
-    },
-    "kicker": {
-      "size": "kicker",
-      "color": "accent",
-      "weight": "label",
-      "font": "body",
-      "tracking": 0,
-      "case": null
-    },
-    "title": {
-      "size": "title",
-      "color": "ink",
-      "weight": "title",
-      "font": "display",
-      "tracking": 0,
-      "leading": "tight",
-      "gap": "lg",
-      "rule": null
-    },
-    "title-slide": {
-      "layout": "plain",
-      "bg": "bg",
-      "title-size": "display",
-      "title-color": "ink",
-      "title-tracking": 0,
-      "subtitle-size": "subtitle",
-      "subtitle-color": "ink-muted",
-      "meta-size": "small",
-      "meta-color": "ink-muted",
-      "bar": true,
-      "bar-color": "accent",
-      "bar-width": 160,
-      "bar-height": 6,
-      "band-bg": "ink",
-      "band-ratio": 0.62,
-      "band-title-color": "bg",
-      "band-subtitle-color": "bg",
-      "band-meta-color": "bg",
-      "top-left": "{organization}",
-      "top-right": null,
-      "top-rule-color": "accent",
-      "top-rule-width": 6,
-      "badge": null,
-      "badge-bg": "accent",
-      "badge-color": "on-accent"
-    },
-    "chapter": {
-      "bg": "accent",
-      "ink": "on-accent",
-      "number-size": 220,
-      "number-opacity": 0.55,
-      "title-size": "display",
-      "title-tracking": 0,
-      "subtitle-size": "subtitle"
-    },
-    "card": {
-      "bg": "bg",
-      "border-color": "rule",
-      "border-width": "hairline",
-      "radius": "md",
-      "top-rule-color": "accent",
-      "top-rule-width": 4,
-      "padding-x": "lg",
-      "padding-y": "lg",
-      "title-size": "lead",
-      "title-weight": "strong",
-      "title-color": "ink",
-      "gap": "sm",
-      "height": "auto",
-      "highlight-bg": "ink",
-      "highlight-ink": "bg",
-      "highlight-title": "bg",
-      "highlight-kicker": "bg"
-    },
-    "toc": {
-      "size": "lead",
-      "number-color": "accent",
-      "page-color": "ink-muted",
-      "gap": "md"
-    },
-    "end-slide": {
-      "bg": "surface",
-      "size": "display",
-      "color": "ink"
-    },
-    "list": {
-      "marker": "–",
-      "marker-color": "accent",
-      "indent": "md",
-      "spacing": "sm"
-    },
-    "quote": {
-      "size": 56,
-      "color": "ink",
-      "bar-color": "accent"
-    },
-    "columns": {
-      "gap": "xl"
-    },
-    "table": {
-      "size": "small",
-      "header-bg": "accent",
-      "header-color": "on-accent",
-      "header-weight": "strong",
-      "body-bg": null,
-      "stripe-bg": "surface",
-      "rule-color": "rule",
-      "rule-width": "hairline",
-      "padding-x": "sm",
-      "padding-y": "xs"
-    }
+  "header": {
+    "left": "{chapter-label}",
+    "right": "{organization}",
+    "size": "caption",
+    "color": "ink-muted",
+    "weight": "label",
+    "tracking": 0,
+    "case": null,
+    "rule": false,
+    "rule-color": "rule"
+  },
+  "footer": {
+    "left": "{author} · {date}",
+    "right": "{page-label}",
+    "size": "caption",
+    "color": "ink-muted",
+    "weight": "body",
+    "tracking": 0,
+    "case": null,
+    "rule": false,
+    "rule-color": "rule"
+  },
+  "kicker": {
+    "size": "kicker",
+    "color": "accent",
+    "weight": "label",
+    "font": "body",
+    "tracking": 0,
+    "case": null
+  },
+  "list": {
+    "marker": "–",
+    "marker-color": "accent",
+    "indent": "md",
+    "spacing": "sm"
   }
 }

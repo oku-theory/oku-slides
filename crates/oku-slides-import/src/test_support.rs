@@ -8,33 +8,51 @@ use std::fs;
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 
-use oku_slides_core::tokens::effective_tokens;
+use oku_slides_core::tokens::{merge, theme_layer};
 use oku_slides_core::{
-    Deck, Element, LayoutProfile, Namespace, Op, PackKind, PackPin, PackVersion, ParamValue, Slide, WidgetRegistry,
-    WidgetSchema, apply_all, kinds, validate,
+    Deck, Element, LayoutProfile, Namespace, Op, PackKind, PackPin, PackVersion, ParamValue, Slide, ThemePin,
+    WidgetRegistry, WidgetSchema, apply_all, kinds, validate,
 };
 use serde_json::{Map, Value};
 use uuid::Uuid;
 
 use crate::fonts::{FontCatalog, FontOrigin};
 use crate::retrofit::ColorTokens;
+use crate::retrofit::zone::{builtin_component_defaults, render_defaults};
 use crate::source::{
     Align, Bullet, Caps, Color, Fill, Frame, Item, ItemKind, Layout, LayoutKind, ParaStyle, Paragraph, Rgba, Role, Run,
     RunStyle, Size, SourceDeck, SourceSlide, SourceTheme, Spacing, Styled, TextBox,
 };
 
-/// Jetons par défaut du rendu.
-pub(crate) const DEFAULT_TOKENS: &str = include_str!("../../../typst/oku-slides/src/default-tokens.json");
 /// Thème intégré Papier (`theme.json`).
 pub(crate) const PAPIER: &str = include_str!("../../../typst/oku-slides/themes/papier.json");
 /// Thème intégré Pro (`theme.json`).
 pub(crate) const PRO: &str = include_str!("../../../typst/oku-slides/themes/pro.json");
 
-/// Les jetons effectifs du thème `theme` (un `theme.json`) : les défauts, puis les siens.
+/// Les jetons effectifs du thème `theme` (un `theme.json`) : les défauts, les défauts de composant
+/// des packs intégrés, puis les siens, comme la couche de thème envoyée au rendu.
 pub(crate) fn tokens(theme: &str) -> Map<String, Value> {
-    let Value::Object(defaults) = serde_json::from_str(DEFAULT_TOKENS).unwrap() else { panic!("jetons par défaut") };
     let theme: Value = serde_json::from_str(theme).unwrap();
-    effective_tokens(&defaults, theme["tokens"].as_object().unwrap())
+    let packs = builtin_component_defaults().unwrap();
+    let layer = theme_layer(packs.iter().map(|(ns, d)| (ns, d.clone())), [theme["tokens"].as_object().unwrap()]);
+    let mut tokens = render_defaults().unwrap();
+    merge(&mut tokens, &layer);
+    tokens
+}
+
+/// Les ops de `ops` dont `set_theme` porte la fermeture du thème Neutre : un épinglage de test
+/// (la session remplit la vraie), pour que le cœur accepte le plan hi-fi.
+pub(crate) fn with_theme_closure(ops: Vec<Op>) -> Vec<Op> {
+    let pin =
+        ThemePin { id: Uuid::from_u128(2), version: PackVersion::from_hex(&"1".repeat(64)).unwrap(), extends: vec![] };
+    ops.into_iter()
+        .map(|op| match op {
+            Op::SetTheme { theme: Some(ns), .. } => {
+                Op::SetTheme { themes: BTreeMap::from([(ns.clone(), pin.clone())]), theme: Some(ns) }
+            }
+            op => op,
+        })
+        .collect()
 }
 
 /// Les couleurs effectives du thème `theme`.

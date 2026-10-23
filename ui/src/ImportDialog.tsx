@@ -99,8 +99,8 @@ export default function ImportDialog({
   const tuneNote = agentUnusable
     ? t("ui-import-tune-unavailable", { reason: agentUnusable })
     : t(mode === "hifi" ? "ui-import-tune-note" : "ui-import-tune-note-retrofit");
-  // « Thème par défaut » tient lieu du thème par défaut ; un thème du deck seul n'est pas dans la bibliothèque.
-  const choices = themes.filter((th) => !th.default && !th.deck_only);
+  // « Thème par défaut » tient lieu du thème par défaut.
+  const choices = themes.filter((th) => !th.default);
 
   const modeChoice = (value: ImportTarget["mode"], name: string, note: string) => (
     <label className={`model${mode === value ? " chosen" : ""}`}>

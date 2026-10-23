@@ -8,9 +8,14 @@ use oku_slides_i18n::{Localize, Localizer};
 use snafu::{Backtrace, IntoError, Snafu};
 
 mod reason;
+mod token;
 
 pub use reason::ValueReason;
 pub(crate) use reason::{ExpectedType, Shape};
+pub(crate) use token::{
+    EmptyPathSnafu, ManifestJsonSnafu, ManifestTokensSnafu, MissingDefaultSnafu, PathConflictSnafu,
+};
+pub use token::{PackManifestError, PackManifestErrorKind, TokenEntryError, TokenEntryErrorKind};
 
 /// Une opération refusée. Le deck n'a pas changé.
 #[derive(Debug, Snafu)]
@@ -57,6 +62,10 @@ pub enum OpErrorKind {
     BaseRequired,
     /// L'espace de noms est déjà épinglé sous l'autre sorte de pack.
     PackKindConflict,
+    /// Les `extends` des thèmes épinglés bouclent.
+    ThemeCycle,
+    /// Les thèmes épinglés ne sont pas exactement la fermeture du thème du deck.
+    ThemeClosure,
 }
 
 /// La borne d'une liste qu'une opération dépasserait.
@@ -125,6 +134,27 @@ pub(crate) enum OpInner {
     BaseRequired { backtrace: Backtrace },
     #[snafu(display("pack {namespace} is already pinned under the other pack kind"))]
     PackKindConflict { namespace: String, backtrace: Backtrace },
+    /// `chain` : les espaces de noms de la boucle, joints par ` → `.
+    #[snafu(display("themes extend each other in a cycle: {chain}"))]
+    ThemeCycle { chain: String, backtrace: Backtrace },
+    #[snafu(display("the pinned themes are not the closure of the deck theme ({namespace})"))]
+    ThemeClosure { namespace: String, backtrace: Backtrace },
+}
+
+/// Un refus de la chaîne d'un thème devient le refus de l'op qui la pose.
+impl From<crate::theme_chain::ThemeChainError> for OpError {
+    fn from(e: crate::theme_chain::ThemeChainError) -> Self {
+        use crate::theme_chain::ThemeChainError as E;
+        match e {
+            E::Cycle { chain } => {
+                let chain = chain.iter().map(crate::Namespace::as_str).collect::<Vec<_>>().join(" → ");
+                ThemeCycleSnafu { chain }.build().into()
+            }
+            E::Missing { namespace } | E::Extra { namespace } => {
+                ThemeClosureSnafu { namespace: namespace.as_str() }.build().into()
+            }
+        }
+    }
 }
 
 fn bound_reason(bound: &ListBound) -> String {
@@ -161,6 +191,8 @@ impl OpError {
             OpInner::PackRequirementMissing { .. } => OpErrorKind::PackRequirementMissing,
             OpInner::BaseRequired { .. } => OpErrorKind::BaseRequired,
             OpInner::PackKindConflict { .. } => OpErrorKind::PackKindConflict,
+            OpInner::ThemeCycle { .. } => OpErrorKind::ThemeCycle,
+            OpInner::ThemeClosure { .. } => OpErrorKind::ThemeClosure,
         }
     }
 
@@ -185,7 +217,9 @@ impl OpError {
             | OpInner::PackRequired { namespace, .. }
             | OpInner::PackInUse { namespace, .. }
             | OpInner::PackRequirementMissing { namespace, .. }
-            | OpInner::PackKindConflict { namespace, .. } => Some(namespace),
+            | OpInner::PackKindConflict { namespace, .. }
+            | OpInner::ThemeClosure { namespace, .. } => Some(namespace),
+            OpInner::ThemeCycle { chain, .. } => Some(chain),
             OpInner::IndexOutOfRange { .. } | OpInner::BaseRequired { .. } => None,
         }
     }
@@ -375,14 +409,16 @@ impl Localize for OpError {
             | OpErrorKind::PackRequired
             | OpErrorKind::PackInUse
             | OpErrorKind::PackRequirementMissing
-            | OpErrorKind::PackKindConflict => "op-invalid-value",
+            | OpErrorKind::PackKindConflict
+            | OpErrorKind::ThemeCycle
+            | OpErrorKind::ThemeClosure => "op-invalid-value",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
     }
 }
 
 impl OpError {
-    /// Message d'un refus d'épinglage de pack, avec ses arguments.
+    /// Message d'un refus d'épinglage de pack ou de thème, avec ses arguments.
     fn localize_pack(&self, l: &Localizer) -> Option<String> {
         Some(match &*self.0 {
             OpInner::UnknownNamespace { namespace, .. } => {
@@ -400,6 +436,10 @@ impl OpError {
             ),
             OpInner::PackKindConflict { namespace, .. } => {
                 l.tr_with("op-pack-kind-conflict", &[("pack", namespace.as_str().into())])
+            }
+            OpInner::ThemeCycle { chain, .. } => l.tr_with("op-theme-cycle", &[("chain", chain.as_str().into())]),
+            OpInner::ThemeClosure { namespace, .. } => {
+                l.tr_with("op-theme-closure", &[("namespace", namespace.as_str().into())])
             }
             _ => return None,
         })

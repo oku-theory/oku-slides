@@ -262,3 +262,50 @@ fn widget_error_bad_schema_names_its_widget_and_fault() {
         false,
     ));
 }
+
+/// Les refus de `set_theme` : un cycle d'`extends`, ou une carte qui n'est pas la fermeture du thème.
+#[rstest]
+#[case::cycle(crate::error::ThemeCycleSnafu { chain: "a → b → a" }.build().into(), OpErrorKind::ThemeCycle, "op-theme-cycle", "chain", "a → b → a")]
+#[case::closure(crate::error::ThemeClosureSnafu { namespace: "b" }.build().into(), OpErrorKind::ThemeClosure, "op-theme-closure", "namespace", "b")]
+fn theme_errors_localize_with_their_key(
+    #[case] err: OpError,
+    #[case] kind: OpErrorKind,
+    #[case] key: &str,
+    #[case] arg: &str,
+    #[case] value: &str,
+) {
+    assert_that!(err.kind()).is_equal_to(kind);
+    for l in [english(), &Localizer::new(Some("fr"))] {
+        assert_that!(l.has(key)).is_true();
+        assert_that!(err.localize(l)).is_equal_to(l.tr_with(key, &[(arg, value.into())]));
+    }
+    assert_that!(err.localize(english())).is_not_equal_to(err.localize(&Localizer::new(Some("fr"))));
+}
+
+#[test]
+fn theme_error_keys_exist_in_every_locale() {
+    for locale in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(locale));
+        for key in [
+            "op-theme-cycle",
+            "op-theme-closure",
+            "issue-theme-pin-mismatch",
+            "issue-theme-closure",
+            "pack-token-entry-invalid",
+        ] {
+            assert!(l.has(key), "{locale} : {key} absent");
+        }
+    }
+}
+
+/// Une entrée `tokens` refusée se dit avec sa clé et son chemin, en anglais comme en français.
+#[test]
+fn token_entry_error_localizes_with_its_key_and_path() {
+    let entry: crate::ComponentToken =
+        serde_json::from_value(serde_json::json!({"path": ["card", "bg"], "control": "color"})).unwrap();
+    let err = entry.check().unwrap_err();
+    for l in [english(), &Localizer::new(Some("fr"))] {
+        assert_that!(err.localize(l)).is_equal_to(l.tr_with("pack-token-entry-invalid", &[("path", "card.bg".into())]));
+    }
+    assert_that!(err.localize(english())).is_not_equal_to(err.localize(&Localizer::new(Some("fr"))));
+}

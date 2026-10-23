@@ -24,7 +24,7 @@ The deck in a `LoroDoc` (CRDT): full history, merge, undo. `DeckReplica` is auth
 - `Slot`: element nodes; meta = the element without its slots, `@slot` = mergeable map
   { parent `TreeID` → slot }. `List`: `LoroMap { list: LoroMovableList }` (also as a column).
 - `Host`: `LoroMap`; `dataset` as `{columns, rows}` (`rows` of `{id, cells}`), other keys
-  LWW; any other `dataset` shape: opaque. `Atom`: whole JSON, LWW (a `widgets` or `layouts` pin). `Nested`: `LoroMap`.
+  LWW; any other `dataset` shape: opaque. `Atom`: whole JSON, LWW (a `widgets`, `layouts` or `themes` pin; the `theme` namespace). `Nested`: `LoroMap`.
 
 ## Rules
 
@@ -46,5 +46,5 @@ The deck in a `LoroDoc` (CRDT): full history, merge, undo. `DeckReplica` is auth
   (t-652): exact copy dropped, other occurrence renamed `{id}-{n}`. Without the parent's
   `@slot`: a sibling's slot, else the recorded slot, else `orphans` (`issue-slot-repaired`).
   Empty node (born from an undo): ignored.
-- **Guards**: t-188, containers, tree and `widgets` / `layouts` maps (never removed) created up front; t-263, one commit per list `mov`.
-- **Format**: `meta.format = 6` (6: `layouts`, no slide name or description), checked on import and merge; change `SOURCES_VERSION` with it.
+- **Guards**: t-188, containers, tree and `widgets` / `layouts` / `themes` pin maps (never removed) created up front; t-263, one commit per list `mov`.
+- **Format**: `meta.format = 7` (7: `theme` a namespace atom, `themes` pins), checked on import and merge; change `SOURCES_VERSION` with it.

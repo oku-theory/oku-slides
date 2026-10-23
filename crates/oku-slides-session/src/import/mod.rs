@@ -6,8 +6,9 @@
 //! fil à pile connue, une panique du lecteur dite comme une erreur),
 //! projette son contenu ([`ImportTarget`] : retrofit sur des packs de layouts
 //! et un thème de la bibliothèque, dont les profils guident la projection ;
-//! ou hi-fi sur un pack de layouts (`deck-layouts`) et un thème générés, du
-//! deck seul ; la bibliothèque n'est jamais touchée),
+//! ou hi-fi sur un pack de layouts généré (`deck-layouts`), du deck seul, et
+//! le thème Neutre, ses jetons générés dans `deck.tokens` ; la bibliothèque
+//! n'est jamais touchée),
 //! sonde les packs du deck dans le processus de rendu, puis applique le plan aux
 //! sources en une transaction : une seule étape d'historique, que l'annulation
 //! défait d'un coup, validée par les règles ordinaires du cœur.
@@ -65,7 +66,7 @@ use crate::ProbedWidgets;
 
 pub use diff::{ImportDiff, MARGIN, ZOOM};
 pub use error::{ImportError, ImportErrorKind};
-use error::{OpSnafu, RegistrySnafu, Result, SourcesSnafu, ThresholdSnafu};
+use error::{LibrarySnafu, OpSnafu, RegistrySnafu, Result, SourcesSnafu, ThresholdSnafu};
 use input::Input;
 pub use overflow::note_overflows;
 pub use queue::LISTED;
@@ -81,7 +82,7 @@ pub use tune_error::{TuneError, TuneErrorKind};
 pub enum ImportMode {
     /// Contenu projeté sur des packs de layouts et un thème existants.
     Retrofit,
-    /// Copie fidèle, sur un pack et un thème générés.
+    /// Copie fidèle, sur un pack généré et le thème Neutre.
     Hifi,
 }
 
@@ -102,7 +103,7 @@ pub enum ImportTarget {
         #[serde(default)]
         theme: Option<String>,
     },
-    /// Sur un pack et un thème générés pour la présentation.
+    /// Sur un pack généré pour la présentation et le thème Neutre, ses jetons dans le deck.
     Hifi {
         /// Le témoin de la référence (`[import] witness` dans l'app) ; `None` : pas de référence.
         #[serde(skip)]
@@ -136,7 +137,7 @@ pub enum PackLookup {
 pub struct ImportRequest {
     /// Le `.pptx` à importer.
     ///
-    /// Son nom de fichier nomme le pack et le thème générés (hi-fi).
+    /// Son nom de fichier nomme le pack généré (hi-fi).
     pub pptx: PathBuf,
     /// Le mode et sa cible.
     pub target: ImportTarget,
@@ -202,7 +203,11 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
         bundle.add_asset(asset.bytes.clone());
     }
     let mut deck = bundle.deck().clone();
-    apply_all(&mut deck, plan.take_ops(), &widgets.registry).context(OpSnafu)?;
+    let mut ops = plan.take_ops();
+    // Le thème du plan (Neutre en hi-fi) vient sans épinglages : sa fermeture est prise dans la bibliothèque.
+    let themes = crate::ThemeLibrary::user(platform);
+    crate::deck_theme::embed_op_closures(&themes, &mut bundle, &mut ops).context(LibrarySnafu)?;
+    apply_all(&mut deck, ops, &widgets.registry).context(OpSnafu)?;
     let label = platform.live_localizer.current().tr("session-import-label");
     bundle.apply(deck, &label, None).context(SourcesSnafu)?;
     let ids: HashSet<String> = bundle.assets.keys().cloned().collect();

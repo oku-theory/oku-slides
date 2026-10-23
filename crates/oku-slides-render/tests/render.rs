@@ -305,7 +305,8 @@ fn set_language_after_set_deck_with_charts_still_compiles() {
 
 fn themed_chart_deck(theme: &str) -> Deck {
     let mut deck = chart_deck();
-    deck.theme = Some(common::theme_ref(theme));
+    deck.theme = Some(oku_slides_core::Namespace::parse(theme).unwrap_or_else(|| panic!("{theme}")));
+    deck.themes = common::theme_pins(theme);
     deck
 }
 
@@ -359,4 +360,26 @@ fn render_chart_texts_take_the_body_size_of_the_theme() {
     let doc = r.render(&deck, &BTreeMap::new()).unwrap();
     let chart = embedded_chart(&doc.svg(1).unwrap());
     assert_that!(chart).contains("font-size=\"27\"");
+}
+
+/// SVG d'une slide nue portant une carte, rendue sur la couche des packs plus `over`.
+fn card_svg_over(over: serde_json::Value) -> String {
+    let card = serde_json::json!({ "id": "c", "kind": base::CARD, "frame": { "x": 40, "y": 40, "w": 400, "h": 200 },
+        "params": { "title": "Carte" } });
+    let deck = serde_json::json!({ "version": oku_slides_core::DECK_VERSION,
+        "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [card] } }] });
+    let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"));
+    let mut layer = common::theme_tokens(None).unwrap_or_else(|| panic!("couche des packs"));
+    oku_slides_core::tokens::merge(&mut layer, over.as_object().unwrap_or_else(|| panic!("objet")));
+    let mut r = common::renderer();
+    r.set_theme(Some(layer)).unwrap_or_else(|e| panic!("{e}"));
+    let doc = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
+    doc.svg(0).unwrap_or_else(|e| panic!("{e}")).to_lowercase()
+}
+
+#[rstest::rstest]
+#[case::pack_path(serde_json::json!({ "component": { "base": { "card": { "bg": "#ff0123" } } } }), true)]
+#[case::former_path(serde_json::json!({ "component": { "card": { "bg": "#ff0123" } } }), false)]
+fn render_card_fill_follows_component_base_card_bg_only(#[case] over: serde_json::Value, #[case] filled: bool) {
+    assert_that!(card_svg_over(over).contains("#ff0123")).is_equal_to(filled);
 }

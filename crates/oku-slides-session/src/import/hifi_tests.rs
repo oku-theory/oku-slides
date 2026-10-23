@@ -16,12 +16,11 @@ fn registry(schemas: &[WidgetSchema]) -> WidgetRegistry {
 }
 
 #[test]
-fn identity_of_the_same_bytes_is_the_same_pair_of_v8_uuids() {
-    let (pack, theme) = identity(b"pptx");
-    assert_that!(identity(b"pptx")).is_equal_to((pack, theme));
-    assert_that!(pack).is_not_equal_to(theme);
-    assert_that!((pack.get_version_num(), theme.get_version_num())).is_equal_to((8, 8));
-    assert_that!(identity(b"autre pptx").0).is_not_equal_to(pack);
+fn identity_of_the_same_bytes_is_the_same_v8_uuid() {
+    let pack = identity(b"pptx");
+    assert_that!(identity(b"pptx")).is_equal_to(pack);
+    assert_that!(pack.get_version_num()).is_equal_to(8);
+    assert_that!(identity(b"autre pptx")).is_not_equal_to(pack);
 }
 
 #[test]

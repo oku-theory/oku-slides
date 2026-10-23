@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::kinds::essentiel::CONTENT;
 use proptest::prelude::*;
 use serde_json::{Value, json};
@@ -23,6 +25,7 @@ fn deck_with(elements: Vec<Element>) -> Deck {
     Deck {
         version: DECK_VERSION,
         theme: None,
+        themes: BTreeMap::new(),
         params: DeckParams::default(),
         vars: Default::default(),
         tokens: Value::Null,
@@ -422,7 +425,17 @@ fn deck() -> impl Strategy<Value = Deck> {
             }
             let params = DeckParams { title, author, date, ..Default::default() };
             let (widgets, layouts) = Default::default();
-            Deck { version: DECK_VERSION, theme: None, params, vars, tokens, widgets, layouts, slides }
+            Deck {
+                version: DECK_VERSION,
+                theme: None,
+                themes: BTreeMap::new(),
+                params,
+                vars,
+                tokens,
+                widgets,
+                layouts,
+                slides,
+            }
         })
 }
 

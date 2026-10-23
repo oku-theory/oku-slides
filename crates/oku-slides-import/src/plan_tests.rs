@@ -88,7 +88,6 @@ fn plan_with(part: &str) -> (ImportPlan, u64) {
                 slide: Slide::new("s1", oku_slides_core::kinds::essentiel::CONTENT),
             }]
         }
-        "theme" => plan.theme = Some(files()),
         "pack" => plan.pack = Some(files()),
         _ => unreachable!("partie inconnue"),
     }
@@ -111,7 +110,6 @@ fn limits(max_output_bytes: u64) -> ReadLimits {
 #[case("assets")]
 #[case("fonts")]
 #[case("ops")]
-#[case("theme")]
 #[case("pack")]
 fn check_budget_output_at_limit_is_ok(#[case] part: &str) {
     let (plan, size) = plan_with(part);
@@ -122,7 +120,6 @@ fn check_budget_output_at_limit_is_ok(#[case] part: &str) {
 #[case("assets")]
 #[case("fonts")]
 #[case("ops")]
-#[case("theme")]
 #[case("pack")]
 fn check_budget_output_one_byte_over_is_too_large(#[case] part: &str) {
     let (plan, size) = plan_with(part);
@@ -172,12 +169,12 @@ fn checked_plan_reads_as_its_plan_and_gives_up_its_ops() {
 }
 
 #[test]
-fn checked_plan_gives_up_its_generated_theme_pack_and_fonts() {
+fn checked_plan_gives_up_its_generated_pack_and_fonts() {
     let (mut plan, _) = plan_with("pack");
     plan.fonts.insert("a.ttf".into(), vec![0; 3]);
     let mut checked = plan.check_budget(&ReadLimits::default()).unwrap();
-    let taken = (checked.take_theme().is_some(), checked.take_pack().is_some(), checked.take_fonts().len());
-    assert_that!(taken).is_equal_to((false, true, 1));
+    let taken = (checked.take_pack().is_some(), checked.take_fonts().len());
+    assert_that!(taken).is_equal_to((true, 1));
     assert_that!((checked.pack.is_none(), checked.fonts.is_empty())).is_equal_to((true, true));
 }
 

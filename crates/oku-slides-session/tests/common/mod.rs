@@ -87,7 +87,7 @@ pub fn session() -> Isolated {
 
 #[allow(dead_code, reason = "lu par certains binaires de test seulement")]
 pub fn set_theme(theme: &str) -> Request {
-    req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme_ref(theme)}]}))
+    req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}))
 }
 
 pub fn req(v: serde_json::Value) -> Request {
@@ -113,19 +113,41 @@ pub fn fixture_path() -> std::path::PathBuf {
     std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
 }
 
-/// La référence de la version intégrée du thème nommé `name` (sans casse).
+/// Un espace de noms des tests.
 #[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
-pub fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {
-    use oku_slides_session::{LibraryKind, Themes};
-    Themes::builtins()
-        .iter()
-        .find(|b| b.manifest.name.eq_ignore_ascii_case(name))
-        .map(|b| oku_slides_core::ThemeRef { id: b.manifest.id, version: b.version.clone() })
+pub fn ns(s: &str) -> oku_slides_core::Namespace {
+    oku_slides_core::Namespace::parse(s).unwrap_or_else(|| panic!("espace de noms invalide : {s}"))
 }
 
-/// Le nom court (`papier`, `pro`) du thème intégré de même id que `r`.
+/// Ajoute à la bibliothèque de thèmes sous `data` un thème `namespace` qui étend `extends`, de jetons `tokens`.
 #[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
-pub fn theme_name(r: &oku_slides_core::ThemeRef) -> Option<&'static str> {
-    use oku_slides_session::{PAPIER_THEME, PRO_THEME};
-    [(PAPIER_THEME, "papier"), (PRO_THEME, "pro")].into_iter().find(|(id, _)| *id == r.id).map(|(_, n)| n)
+pub fn add_user_theme(data: &std::path::Path, namespace: &str, extends: &[&str], tokens: serde_json::Value) {
+    let storage = oku_slides_session::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let themes = oku_slides_session::ThemeLibrary::new(Some(data.join("themes")), storage);
+    let manifest = oku_slides_session::ThemeManifest {
+        id: uuid::Uuid::new_v4(),
+        name: namespace.to_owned(),
+        namespace: ns(namespace),
+        extends: extends.iter().map(|e| ns(e)).collect(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-22T10:00:00Z".to_owned(),
+        tokens: tokens.as_object().cloned().unwrap_or_default(),
+    };
+    let files = manifest.to_files().unwrap_or_else(|e| panic!("theme.json : {e}"));
+    themes.add_version(manifest.id, &files).unwrap_or_else(|e| panic!("thème : {}", e.one_line()));
+}
+
+/// Une bibliothèque de thèmes sans dossier : les seuls intégrés.
+#[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
+pub fn no_user_themes() -> oku_slides_session::ThemeLibrary {
+    let storage = oku_slides_session::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    oku_slides_session::ThemeLibrary::new(None, storage)
+}
+
+/// Le nom court (`papier`, `pro`, `neutre`) d'un thème intégré, depuis son espace de noms.
+#[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
+pub fn theme_name(ns: &oku_slides_core::Namespace) -> Option<&'static str> {
+    use oku_slides_session::{NEUTRE_NAMESPACE, PAPIER_NAMESPACE, PRO_NAMESPACE};
+    [PAPIER_NAMESPACE, PRO_NAMESPACE, NEUTRE_NAMESPACE].into_iter().find(|n| *n == ns.as_str())
 }

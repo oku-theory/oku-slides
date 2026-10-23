@@ -49,6 +49,7 @@ const LIBRARY_DATA: &[(&str, &[u8])] = &[
     ("src/default-tokens.json", include_bytes!("../../../typst/oku-slides/src/default-tokens.json")),
     ("themes/papier.json", include_bytes!("../../../typst/oku-slides/themes/papier.json")),
     ("themes/pro.json", include_bytes!("../../../typst/oku-slides/themes/pro.json")),
+    ("themes/neutre.json", include_bytes!("../../../typst/oku-slides/themes/neutre.json")),
 ];
 
 pub(crate) fn file_id(path: &str) -> Result<FileId, RenderError> {

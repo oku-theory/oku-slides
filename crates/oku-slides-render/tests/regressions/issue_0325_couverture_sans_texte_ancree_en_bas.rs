@@ -15,7 +15,7 @@ fn plain_cover_without_text_anchors_its_empty_fields_at_the_bottom() {
     let deck = json!({
         "version": oku_slides_core::DECK_VERSION,
         "params": { "title": "", "author": "Matthieu" },
-        "tokens": { "component": { "title-slide": { "bar": false } } },
+        "tokens": { "component": { "essentiel": { "title-slide": { "bar": false } } } },
         "slides": [{ "id": "s", "kind": essentiel::TITLE }]
     });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));

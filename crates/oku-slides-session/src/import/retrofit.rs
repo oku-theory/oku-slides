@@ -5,7 +5,9 @@
 //! pack cible, dans l'ordre donné. Un pack est désigné par son id ou son nom
 //! ([`PackLookup::Library`], l'app), ou aussi son dossier
 //! ([`PackLookup::LibraryOrDir`], la CLI) ; sans pack désigné, `essentiel`.
-//! Le thème par son id ou son nom, sinon le thème par défaut.
+//! Le thème par son id, son espace de noms ou son nom, sinon le thème par
+//! défaut ; le deck épingle sa fermeture. Les jetons qui guident la projection
+//! sont les défauts sous le calque du deck (défauts des packs, puis chaîne de thèmes).
 //!
 //! Le deck épingle le `base` intégré, puis chaque pack cible dans sa version
 //! désignée et ses besoins ; ni les packs cibles ni la bibliothèque ne changent.
@@ -14,11 +16,11 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::{Map, Value};
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{ResultExt, ensure};
 
 use oku_slides_core::tokens::effective_tokens;
 use oku_slides_core::{
-    Deck, LayoutProfile, Namespace, PackFiles, PackKind, PackManifest, PackPin, SourceBundle, ThemeRef, WidgetRegistry,
+    Deck, LayoutProfile, Namespace, PackFiles, PackKind, PackManifest, PackPin, SourceBundle, WidgetRegistry,
 };
 use oku_slides_import::RetrofitTarget;
 use oku_slides_import::retrofit::{self, ColorTokens, PageTokens};
@@ -26,36 +28,25 @@ use oku_slides_platform::Platform;
 
 use super::error::{
     BadPackSnafu, BadThemeSnafu, LibrarySnafu, NotLayoutPackSnafu, PresentationSnafu, Result, SourcesSnafu,
-    UnknownThemeSnafu,
 };
 use super::{Input, PackLookup, Prepared};
 use crate::deck_closure::closure_with_files;
 use crate::deck_pack::builtin_pin;
-use crate::deck_theme::manifest_of;
-use crate::error::ThemeVersionMissingSnafu;
+use crate::deck_theme::strict_sources_layer;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::theme_schema::default_tokens;
 use crate::{
-    DEFAULT_THEME, PackLibrary, ThemeLibrary, adopt_default_theme, embed_theme, library_pack, resolve_pack,
-    sources_with_packs,
+    PackLibrary, ThemeLibrary, adopt_default_theme, embed_theme, library_pack, resolve_pack, sources_with_packs,
 };
 
-/// Les jetons effectifs du thème `r` de `bundle`.
+/// Les jetons effectifs du deck de `bundle` : les défauts, puis son calque de thème.
 ///
-/// Les défauts, puis ceux de sa version embarquée.
-///
-/// Le thème est lu tel quel, sans repli sur le thème par défaut : illisible,
+/// Le calque est lu strictement (`strict_sources_layer`) : thème illisible,
 /// absent des sources ou d'un autre id, c'est une erreur. Ses couleurs et sa
 /// page guident le retrofit ; les défauts seuls donneraient un deck faux sans le dire.
-fn deck_tokens(bundle: &SourceBundle, r: &ThemeRef) -> Result<Map<String, Value>> {
-    let files = bundle
-        .themes
-        .get(&r.version)
-        .context(ThemeVersionMissingSnafu { id: r.id, version: r.version.clone() })
-        .map_err(crate::SessionError::from)
-        .context(BadThemeSnafu)?;
-    let own = manifest_of(r, files).context(BadThemeSnafu)?.tokens;
-    Ok(effective_tokens(default_tokens(), &own))
+fn deck_tokens(themes: &ThemeLibrary, bundle: &SourceBundle) -> Result<Map<String, Value>> {
+    let layer = strict_sources_layer(themes, bundle).context(BadThemeSnafu)?;
+    Ok(effective_tokens(default_tokens(), &layer))
 }
 
 /// Les fichiers du pack de layouts désigné par `wanted`, cherché selon `lookup`.
@@ -110,14 +101,13 @@ pub(crate) fn prepare(
     let themes = ThemeLibrary::user(platform);
     if let Some(wanted) = theme {
         let mut deck = bundle.deck().clone();
-        deck.theme = Some(embed_theme(&themes, wanted, &mut bundle)?);
+        let (ns, pins) = embed_theme(&themes, wanted, &mut bundle)?;
+        deck.theme = Some(ns);
+        deck.themes = pins;
         bundle.apply_silent(deck).context(SourcesSnafu)?;
     }
     adopt_default_theme(&themes, &mut bundle).context(LibrarySnafu)?;
-
-    // Le thème par défaut adopté juste avant : son absence serait un bogue, dit comme un thème inconnu.
-    let theme = bundle.deck().theme.clone().context(UnknownThemeSnafu { theme: DEFAULT_THEME.to_string() })?;
-    let tokens = deck_tokens(&bundle, &theme)?;
+    let tokens = deck_tokens(&themes, &bundle)?;
     let target = RetrofitTarget {
         profiles: &profiles,
         registry: &widgets.registry,

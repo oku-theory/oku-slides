@@ -179,8 +179,8 @@ async fn delete_pack_with_a_slug_points_to_packs_without_asking() {
     assert_that!(rx.try_recv().is_err()).is_true();
 }
 
-/// Le thème intégré Papier, thème du deck de test.
-const PAPIER: &str = "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31";
+/// L'espace de noms du thème intégré Papier, thème du deck de test.
+const PAPIER: &str = "papier";
 
 /// Le thème du deck, lu par `deck_outline`.
 async fn deck_theme_name(h: &Harness) -> Value {
@@ -189,9 +189,9 @@ async fn deck_theme_name(h: &Harness) -> Value {
     json_of(&call(&c, "deck_outline", json!({})).await)["theme"]["name"].clone()
 }
 
-/// t-783 : l'agent renomme le thème du deck sans passer par le mode pack.
+/// t-783 : l'agent édite le thème du deck sans passer par le mode pack (une variante, Papier étant intégré).
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_theme_confirmed_renames_the_deck_theme_in_deck_mode() {
+async fn edit_theme_confirmed_of_the_deck_builtin_theme_names_a_variant_in_deck_mode() {
     let h = start().await;
     let r = guarded(&h, "edit_theme", json!({ "theme": PAPIER, "name": "Vinci" }), true).await;
     let v = json_of(&r);
@@ -218,4 +218,36 @@ async fn edit_theme_of_an_unknown_theme_is_refused_without_asking() {
         client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
     let r = call(&c, "edit_theme", json!({ "theme": "00000000-0000-4000-8000-000000000001", "name": "Vinci" })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
+}
+
+/// t-1100 : éditer un thème intégré demande toujours, puis crée une variante qui l'étend.
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_theme_of_a_builtin_asks_and_creates_a_variant() {
+    let h = start().await;
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    let before = json_of(&call(&c, "theme_tokens", json!({ "theme": "pro" })).await);
+    let op = json!({ "op": "set_token", "path": ["color", "accent"], "value": "#112233" });
+    let r = guarded(&h, "edit_theme", json!({ "theme": "pro", "name": "Marque", "ops": [op] }), true).await;
+    let edited = json_of(&r);
+    assert_that!(edited["namespace"].clone()).is_equal_to(json!("marque"));
+    assert_that!(edited["tokens"]["color"]["accent"].clone()).is_equal_to(json!("#112233"));
+    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
+    let listed = outline["themes"].as_array().unwrap().iter().find(|t| t["namespace"] == "marque").cloned();
+    let listed = listed.unwrap_or_else(|| panic!("la variante est absente de la liste"));
+    assert_that!((listed["extends"].clone(), listed["builtin"].clone())).is_equal_to((json!(["pro"]), json!(false)));
+    // Le thème intégré n'a pas bougé.
+    let after = json_of(&call(&c, "theme_tokens", json!({ "theme": "pro" })).await);
+    assert_that!(after).is_equal_to(before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_theme_of_a_builtin_denied_creates_no_variant() {
+    let h = start().await;
+    let c =
+        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
+    let r = guarded(&h, "edit_theme", json!({ "theme": "pro", "name": "Marque" }), false).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
+    assert_that!(outline["themes"].as_array().unwrap().iter().any(|t| t["namespace"] == "marque")).is_false();
 }

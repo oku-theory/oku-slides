@@ -50,16 +50,14 @@ pub struct Snapshot<'a> {
     pub path: Option<&'a Path>,
     pub name: String,
     pub dirty: bool,
-    /// Thème du deck : id et version embarquée.
-    pub theme: Option<&'a oku_slides_core::ThemeRef>,
+    /// Thème du deck : son espace de noms.
+    pub theme: Option<&'a oku_slides_core::Namespace>,
+    /// Les thèmes épinglés par le deck : son thème et ceux qu'il étend, versions embarquées.
+    pub theme_pins: &'a std::collections::BTreeMap<oku_slides_core::Namespace, oku_slides_core::ThemePin>,
     /// Nom du thème tel qu'embarqué par le deck (absent de la bibliothèque s'il vient d'un autre fichier).
     pub theme_name: Option<String>,
     /// Thèmes de la bibliothèque dans leur version courante : intégrés, puis ceux de l'utilisateur.
     pub themes: &'a [crate::ThemeInfo],
-    /// Thèmes du deck seul embarqués dans ses sources, un par id : « cette présentation ».
-    ///
-    /// Celui d'un import, repris après un autre.
-    pub deck_themes: Vec<crate::ThemeInfo>,
     pub title: Option<String>,
     /// Titre tel que saisi (avec ses {{variables}}), pour l'éditer.
     pub title_source: Option<&'a str>,

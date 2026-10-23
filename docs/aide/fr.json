@@ -1,5 +1,5 @@
 {
- "version": 8,
+ "version": 9,
  "params": {
   "title": "Aide d'Oku Slides",
   "subtitle": "Ergonomie, raccourcis, bibliothèque Typst, format de fichier",
@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-            "t": " : Papier, Pro ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. En mode pack, l'onglet Thème règle ses jetons un par un ; « Terminer » l'enregistre, en copie pour Papier ou Pro."
+            "t": " : Papier, Pro, Neutre ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. En mode pack, l'onglet Thème règle ses jetons un par un ; l'éditeur montre ce que le thème étend et ce que le deck surcharge, avec une section par pack de widgets. « Terminer » l'enregistre : modifier Papier, Pro ou Neutre crée une variante qui l'étend. L'onglet Thème d'un pack de widgets montre des slides d'aperçu."
           }
          ],
          "list": "bullet"
@@ -522,7 +522,7 @@
            "bold": true
           },
           {
-           "t": " : garde l'aspect de l'original, avec un thème et des layouts faits pour cette présentation."
+           "t": " : garde l'aspect de l'original : le deck épingle le thème Neutre et porte ses propres jetons, avec des layouts faits pour cette présentation."
           }
          ],
          "list": "bullet"
@@ -570,7 +570,7 @@
            "bold": true
           },
           {
-            "t": " : l'atelier, demandé à l'agent, édite ses layouts, enregistrés dans cette présentation seulement ; son thème reste offert parmi les thèmes, sous « Cette présentation »."
+            "t": " : l'atelier, demandé à l'agent, édite ses layouts, enregistrés dans cette présentation seulement ; son aspect reste dans les jetons du deck, par-dessus le thème Neutre."
           }
          ],
          "list": "bullet"
@@ -1624,7 +1624,7 @@
            "bold": true
           },
           {
-           "t": " : default-tokens ← theme ← tokens."
+           "t": " : default-tokens ← défauts de composant de chaque pack (component.<espace>.*) ← chaîne du thème ← tokens. Les objets fusionnent clé par clé ; toute autre valeur, liste comprise, remplace celle du dessous."
           }
          ],
          "list": "bullet"
@@ -1660,7 +1660,7 @@
            "bold": true
           },
           {
-           "t": " : header, footer, kicker, title, title-slide, chapter, toc, card, end-slide, list, quote, columns."
+           "t": " : propres aux packs. card et table sous component.base.* ; title, title-slide, chapter, toc, end-slide, quote et columns sous component.essentiel.*. header, footer, list et kicker sont des familles globales, hors de component."
           }
          ],
          "list": "bullet"
@@ -1672,7 +1672,7 @@
            "bold": true
           },
           {
-           "t": " : papier (Newsreader, Instrument Sans, vert sauge) et pro (Inter, navy et cyan)."
+           "t": " : papier (Newsreader, Instrument Sans, vert sauge), pro (Inter, navy et cyan) et neutre (sans jetons propres, pour les decks importés). Un thème a un espace de noms et une liste extends ordonnée : les parents s'appliquent d'abord, les suivants l'emportent, une liste remplace."
           }
          ],
          "list": "bullet"
@@ -2330,7 +2330,7 @@
         {
          "runs": [
           {
-           "t": "themes/<hex>/theme.json         version de thème"
+           "t": "themes/<hex>/theme.json         une version de thème épinglée (le thème et la fermeture de ses extends)"
           }
          ]
         }
@@ -2407,7 +2407,7 @@
            "bold": true
           },
           {
-           "t": " : le deck JSON v8 est la relecture canonique du replica."
+           "t": " : le deck JSON v9 est la relecture canonique du replica."
           }
          ],
          "list": "bullet"
@@ -2435,7 +2435,7 @@
    "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "Le deck JSON (version 8)",
+    "title": "Le deck JSON (version 9)",
     "layout": "default",
     "blocks": [
      {
@@ -2453,7 +2453,7 @@
         {
          "runs": [
           {
-           "t": "  \"version\": 8,"
+           "t": "  \"version\": 9,"
           }
          ]
         },

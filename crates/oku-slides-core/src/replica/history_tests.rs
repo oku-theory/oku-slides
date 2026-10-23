@@ -59,7 +59,7 @@ fn history_marks_the_merge_and_keeps_concurrent_branches_in_each_prefix() {
     let (mut b, _) = SourceBundle::from_zip(&zip, limits, crate::test_registry::shared()).unwrap();
     a.apply(titled(&deck, "de A"), "A", None).unwrap();
     let mut d = deck.clone();
-    d.theme = Some(crate::test_registry::theme_ref("b"));
+    crate::test_registry::set_theme(&mut d, "b");
     b.apply(d, "B", None).unwrap();
     a.merge(b).unwrap();
     let mut after = a.deck().clone();
@@ -71,7 +71,7 @@ fn history_marks_the_merge_and_keeps_concurrent_branches_in_each_prefix() {
     // Le cran juste avant la fusion contient les deux branches (préfixe, pas ancêtres).
     let before = h.deck_at(last - 1).unwrap().0;
     assert_that!(before.slides[2].params.text("title")).is_equal_to(Some("de A"));
-    assert_that!(before.theme).is_equal_to(Some(crate::test_registry::theme_ref("b")));
+    assert_that!(before.themes).is_equal_to(crate::test_registry::theme_pins("b"));
 }
 
 #[test]

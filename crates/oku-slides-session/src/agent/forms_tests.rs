@@ -535,21 +535,21 @@ fn every_form() -> Vec<super::Surface> {
         crate::theme_picker(
             &[
                 crate::ThemeCard {
-                    id: uuid::Uuid::from_u128(1),
+                    namespace: crate::test_support::ns("papier"),
                     name: "Papier".into(),
                     slide: "s-4".into(),
                     swatches: vec!["#ffffff".into(), "#2f5fb3".into()],
                     svg: Some("<svg xmlns=\"http://www.w3.org/2000/svg\"/>".into()),
                 },
                 crate::ThemeCard {
-                    id: uuid::Uuid::from_u128(2),
+                    namespace: crate::test_support::ns("pro"),
                     name: "Pro".into(),
                     slide: "s-4".into(),
                     swatches: vec!["#101418".into()],
                     svg: None,
                 },
             ],
-            uuid::Uuid::from_u128(1),
+            &crate::test_support::ns("papier"),
             &l,
         ),
         pack_notice_banner("Ce deck utilise une version plus récente de « Charte ».".into(), true, &l),

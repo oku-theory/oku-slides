@@ -11,21 +11,22 @@
 //! d'octet `0` (refusée à la lecture et à l'écriture), et le JSON compact
 //! l'échappe : le contenu canonique est sans ambiguïté.
 //!
-//! Un thème ([`ThemeRef`]) suit le même modèle : une version de thème est un
-//! [`PackFiles`] de la sorte widgets dont le manifeste est `theme.json`
-//! ([`ThemeManifest`]), sans fichier de widget.
+//! Un thème suit le même modèle : une version de thème est un [`PackFiles`]
+//! sans préfixe ni fichier de widget dont le manifeste est `theme.json`
+//! ([`ThemeManifest`], construit par [`PackFiles::theme`]) ; un deck l'épingle
+//! par un [`ThemePin`](crate::theme_chain::ThemePin).
 //!
 //! Le manifeste d'une version se lit en [`PackManifest`] : valeurs d'exemple
-//! des widgets et, pour un pack de layouts, ses préréglages ([`LayoutProfile`]).
+//! des widgets, jetons de composant déclarés ([`ComponentToken`]) et, pour un
+//! pack de layouts, ses préréglages ([`LayoutProfile`]).
 //!
-//! Une version porte sa portée ([`PackScope`]) : celles de la bibliothèque
-//! (par défaut, non écrite dans le manifeste), ou celles d'un deck seul
-//! (pack et thème générés par l'import), que la bibliothèque n'enregistre
+//! Une version de pack porte sa portée ([`PackScope`]) : celles de la
+//! bibliothèque (par défaut, non écrite dans le manifeste), ou celles d'un
+//! deck seul (pack généré par l'import), que la bibliothèque n'enregistre
 //! jamais ; une nouvelle version issue d'elles garde leur portée.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fmt;
-use std::sync::{Mutex, PoisonError};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -35,10 +36,17 @@ use time::OffsetDateTime;
 use time::macros::format_description;
 use uuid::Uuid;
 
-use crate::error::{PackVersionError, PackVersionSnafu, WidgetFileError, WidgetFileSnafu};
+use snafu::{OptionExt, ResultExt};
+
+use crate::error::{
+    EmptyPathSnafu, ManifestJsonSnafu, ManifestTokensSnafu, PackManifestError, PackVersionError, PackVersionSnafu,
+    TokenEntryError, WidgetFileError, WidgetFileSnafu,
+};
 use crate::layout_profile::LayoutProfile;
 use crate::namespace::Namespace;
 use crate::pack_kind::PackKind;
+use crate::token_spec::{ComponentToken, check_entries};
+use crate::tokens::merge;
 
 /// Préfixe d'une [`PackVersion`].
 const PREFIX: &str = "sha256:";
@@ -191,17 +199,6 @@ pub struct PackPin {
     pub requires: Vec<Namespace>,
 }
 
-/// Le thème d'un deck : son id et la version embarquée.
-///
-/// Une version de thème est un [`PackFiles`] sans widget dont le manifeste
-/// est `theme.json` : même contenu canonique, même empreinte.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-pub struct ThemeRef {
-    #[schemars(with = "String")]
-    pub id: Uuid,
-    pub version: PackVersion,
-}
-
 /// Les fichiers d'une version : sa sorte, son manifeste (un objet) et ses widgets.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackFiles {
@@ -249,6 +246,23 @@ impl PackFiles {
             })
             .collect::<Option<BTreeMap<_, _>>>()?;
         Some(Self::new(kind, manifest, widgets))
+    }
+
+    /// Les fichiers d'une version de thème : son seul `theme.json`.
+    ///
+    /// Sans préfixe canonique : la version d'un thème ne dépend que de son `theme.json`.
+    pub fn theme(manifest: Map<String, Value>) -> Self {
+        Self::new(PackKind::Widgets, manifest, BTreeMap::new())
+    }
+
+    /// Une version de thème depuis les octets de son `theme.json` ; `None` s'il n'est pas un objet JSON.
+    pub fn theme_from_bytes(json: &[u8]) -> Option<Self> {
+        Self::from_bytes(PackKind::Widgets, json, [])
+    }
+
+    /// La version de thème lue sous l'empreinte annoncée `hex`, si son contenu la donne.
+    pub fn verified_theme(hex: &str, json: &[u8]) -> Option<Self> {
+        Self::verified(PackKind::Widgets, hex, json, []).map(|(_, files)| files)
     }
 
     /// La sorte du pack : elle fixe son manifeste, son dossier et sa version.
@@ -329,7 +343,7 @@ fn sorted(v: &Value) -> Value {
     }
 }
 
-/// Où vit un pack ou un thème : la bibliothèque, ou un seul deck.
+/// Où vit un pack : la bibliothèque, ou un seul deck.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PackScope {
@@ -376,89 +390,46 @@ pub struct PackManifest {
     /// paragraphes) ; une valeur égale à la valeur neutre n'est pas gardée. Un
     /// widget sans valeurs n'a pas d'entrée ; vide, la clé n'est pas écrite (les
     /// versions sans valeurs gardent leur empreinte). Lu aussi dans sa forme
-    /// d'avant t-541 (voir [`lenient_examples`]).
-    #[serde(default, deserialize_with = "lenient_examples", skip_serializing_if = "BTreeMap::is_empty")]
+    /// d'avant t-541 (voir `pack_examples::lenient_examples`).
+    #[serde(
+        default,
+        deserialize_with = "crate::pack_examples::lenient_examples",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
     pub examples: BTreeMap<WidgetFile, Map<String, Value>>,
-}
-
-/// Les valeurs d'exemple d'un widget dans `widgets.json`, telles qu'écrites.
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum StoredValues {
-    /// Forme actuelle : les valeurs.
-    Values(Map<String, Value>),
-    /// Forme d'avant t-541 : une liste de cas nommés (`{"name", "values"}`).
-    Cases(Vec<StoredCase>),
-}
-
-/// Un cas nommé d'avant t-541 : seules ses valeurs comptent.
-#[derive(Deserialize)]
-struct StoredCase {
-    #[serde(default)]
-    values: Map<String, Value>,
-}
-
-/// Lit `examples` sans rendre illisible le pack qui le porte (t-524) : d'un
-/// pack d'avant t-541 (une liste de cas), le premier cas donne les valeurs du
-/// widget (celles que montraient l'aperçu et les réglages par défaut), les
-/// autres sont oubliés. Une entrée mal formée (nom qui n'est pas celui d'un
-/// fichier de widget, valeurs qui ne sont pas un objet) est écartée avec un
-/// diagnostic au journal ; les autres restent. Les valeurs vides sont omises.
-///
-/// Les bornes des valeurs (`PLAIN_MAX`…) dépendent du schéma du widget : elles
-/// s'appliquent à leur usage (`trial_fits`), pas ici.
-fn lenient_examples<'de, D>(de: D) -> std::result::Result<BTreeMap<WidgetFile, Map<String, Value>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let Value::Object(stored) = Value::deserialize(de)? else {
-        diagnose("", "`examples` n'est pas un objet, ignoré");
-        return Ok(BTreeMap::new());
-    };
-    Ok(stored
-        .into_iter()
-        .filter_map(|(name, v)| {
-            let Some(widget) = WidgetFile::parse(&name) else {
-                diagnose(&name, "valeurs d'exemple d'un nom de widget invalide, ignorées");
-                return None;
-            };
-            let values = match serde_json::from_value(v) {
-                Ok(StoredValues::Values(m)) => m,
-                Ok(StoredValues::Cases(cases)) => cases.into_iter().next().map(|c| c.values).unwrap_or_default(),
-                Err(e) => {
-                    diagnose(&name, &format!("valeurs d'exemple mal formées, ignorées : {e}"));
-                    return None;
-                }
-            };
-            (!values.is_empty()).then_some((widget, values))
-        })
-        .collect())
-}
-
-/// Problèmes distincts déjà signalés : au-delà, plus rien n'est retenu.
-const DIAGNOSED_MAX: usize = 256;
-
-/// Signale un problème de `examples` : au journal (`warn`) la première fois
-/// dans le processus, puis en `debug` (le manifeste est relu à chaque accès
-/// à la bibliothèque).
-fn diagnose(widget: &str, problem: &str) {
-    static SEEN: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
-    let key = format!("{widget}\0{problem}");
-    let first = {
-        let mut seen = SEEN.lock().unwrap_or_else(PoisonError::into_inner);
-        seen.len() < DIAGNOSED_MAX && seen.insert(key)
-    };
-    if first {
-        tracing::warn!(widget, "widgets.json : {problem}");
-    } else {
-        tracing::debug!(widget, "widgets.json : {problem}");
-    }
+    /// Jetons de composant du pack, sous `component.<namespace>` ; vide, la clé
+    /// n'est pas écrite (les versions sans jetons gardent leur empreinte).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tokens: Vec<ComponentToken>,
 }
 
 impl PackManifest {
-    /// Lit le manifeste de `files`.
-    pub fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
-        serde_json::from_value(Value::Object(files.manifest().clone()))
+    /// Lit le manifeste de `files` et vérifie ses entrées `tokens` ([`check_entries`]).
+    ///
+    /// Une entrée refusée fait échouer la lecture ([`PackManifestError::token_entry`]).
+    pub fn from_files(files: &PackFiles) -> Result<Self, PackManifestError> {
+        let manifest: Self =
+            serde_json::from_value(Value::Object(files.manifest().clone())).context(ManifestJsonSnafu)?;
+        check_entries(&manifest.tokens).context(ManifestTokensSnafu)?;
+        Ok(manifest)
+    }
+
+    /// Les défauts des jetons de composant, imbriqués par chemin.
+    ///
+    /// C'est la couche `component.<namespace>` du pack, avant tout thème. Une
+    /// entrée `optional` sans défaut n'y figure pas ; des entrées refusées par
+    /// [`check_entries`] rendent l'erreur.
+    pub fn component_defaults(&self) -> Result<Map<String, Value>, TokenEntryError> {
+        check_entries(&self.tokens)?;
+        let mut out = Map::new();
+        for token in &self.tokens {
+            let Some(default) = &token.default else { continue }; // `optional` sans défaut : documenté.
+            let (first, rest) = token.path.split_first().context(EmptyPathSnafu)?;
+            let value =
+                rest.iter().rev().fold(default.clone(), |inner, g| Value::Object(Map::from_iter([(g.clone(), inner)])));
+            merge(&mut out, &Map::from_iter([(first.clone(), value)]));
+        }
+        Ok(out)
     }
 
     /// Les fichiers de cette version, de sorte `kind`, avec ses fichiers de widgets.
@@ -475,6 +446,11 @@ impl PackManifest {
 pub struct ThemeManifest {
     pub id: Uuid,
     pub name: String,
+    /// Espace de noms du thème, unique parmi les trois sortes de la bibliothèque.
+    pub namespace: Namespace,
+    /// Thèmes parents, dans l'ordre : les suivants l'emportent ; vide, la clé n'est pas écrite.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extends: Vec<Namespace>,
     #[serde(default)]
     pub description: String,
     /// Version dont celle-ci est issue ; `None` pour une première version.
@@ -482,9 +458,6 @@ pub struct ThemeManifest {
     pub parent: Option<PackVersion>,
     /// Création, UTC à la seconde : `AAAA-MM-JJTHH:MM:SSZ`.
     pub created: String,
-    /// Portée : écrite seulement pour un thème du deck seul (les autres gardent leur empreinte).
-    #[serde(default, skip_serializing_if = "PackScope::is_library")]
-    pub scope: PackScope,
     /// Jetons de conception, par groupe (`color`, `font`, …).
     pub tokens: Map<String, Value>,
 }
@@ -495,12 +468,10 @@ impl ThemeManifest {
         serde_json::from_value(Value::Object(files.manifest().clone()))
     }
 
-    /// Les fichiers de cette version : le seul `theme.json`.
-    ///
-    /// De la sorte widgets, sans préfixe : un thème garde sa version.
+    /// Les fichiers de cette version : le seul `theme.json` ([`PackFiles::theme`]).
     pub fn to_files(&self) -> serde_json::Result<PackFiles> {
         match serde_json::to_value(self)? {
-            Value::Object(manifest) => Ok(PackFiles::new(PackKind::Widgets, manifest, BTreeMap::new())),
+            Value::Object(manifest) => Ok(PackFiles::theme(manifest)),
             _ => Err(serde::ser::Error::custom("theme manifest is not an object")),
         }
     }

@@ -11,13 +11,14 @@ use std::path::Path;
 
 use snafu::{IntoError, OptionExt, ResultExt};
 
-use oku_slides_core::{Namespace, PackFiles, PackKind, SourceBundle, ThemeRef, WidgetFile};
+use oku_slides_core::{Namespace, PackFiles, PackKind, SourceBundle, ThemePin, WidgetFile};
 use oku_slides_platform::storage::{Storage, StorageErrorKind};
 
 use crate::import::error::{
-    BadPackFilesSnafu, PackDirSnafu, PackTooLargeSnafu, Result, UnknownPackSnafu, UnknownThemeSnafu,
+    BadPackFilesSnafu, LibrarySnafu, PackDirSnafu, PackTooLargeSnafu, Result, UnknownPackSnafu, UnknownThemeSnafu,
 };
 use crate::library::may_own;
+use crate::theme_closure::theme_closure;
 use crate::{PackLibrary, ThemeLibrary};
 
 /// `n` octets en `u64`.
@@ -112,18 +113,34 @@ pub fn resolve_pack(storage: &Storage, library: &PackLibrary, wanted: &str, max_
     library_pack(library, wanted)
 }
 
-/// Embarque dans `bundle` la version courante du thème désigné par `wanted`.
+/// L'espace de noms du thème de `themes` désigné par `wanted`.
 ///
-/// `wanted` est son id, sinon son nom (intégré ou de la bibliothèque, sans
-/// casse) ; rend sa référence. Inconnu : `UnknownTheme`.
-pub fn embed_theme(themes: &ThemeLibrary, wanted: &str, bundle: &mut SourceBundle) -> Result<ThemeRef> {
-    let unknown = || UnknownThemeSnafu { theme: wanted };
-    let id = match uuid::Uuid::parse_str(wanted) {
-        Ok(id) => id,
-        Err(_) => themes.themes().into_iter().find(|t| t.name.eq_ignore_ascii_case(wanted)).context(unknown())?.id,
-    };
-    let current = themes.current_version(id).context(unknown())?;
-    Ok(ThemeRef { id, version: bundle.add_theme(current.files) })
+/// Son id, son espace de noms, sinon son nom (intégré ou de la bibliothèque, sans casse).
+pub(crate) fn find_theme(themes: &ThemeLibrary, wanted: &str) -> Option<Namespace> {
+    if let Ok(id) = uuid::Uuid::parse_str(wanted) {
+        return themes.current_version(id).map(|s| s.manifest.namespace);
+    }
+    let by_namespace = Namespace::parse(wanted).filter(|ns| themes.by_namespace(ns).is_some());
+    by_namespace
+        .or_else(|| themes.themes().into_iter().find(|t| t.name.eq_ignore_ascii_case(wanted)).map(|t| t.namespace))
+}
+
+/// Embarque dans `bundle` la fermeture du thème désigné par `wanted`, versions courantes.
+///
+/// `wanted` est son id, son espace de noms, sinon son nom (voir [`find_theme`]) ;
+/// rend son espace de noms et les épinglages de sa fermeture. Inconnu :
+/// `UnknownTheme` ; un parent introuvable ou une boucle : `Library`.
+pub fn embed_theme(
+    themes: &ThemeLibrary,
+    wanted: &str,
+    bundle: &mut SourceBundle,
+) -> Result<(Namespace, BTreeMap<Namespace, ThemePin>)> {
+    let ns = find_theme(themes, wanted).context(UnknownThemeSnafu { theme: wanted })?;
+    let (pins, files) = theme_closure(themes, &ns).context(LibrarySnafu)?;
+    for f in files {
+        bundle.add_theme(f);
+    }
+    Ok((ns, pins))
 }
 
 #[cfg(test)]

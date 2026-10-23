@@ -47,7 +47,6 @@ ui-divider-code = 程式碼大小
 ui-divider-band = 設定區高度
 ui-toolbar-theme = 主題
 ui-toolbar-theme-embedded = 檔案主題
-ui-toolbar-theme-deck-group = 此簡報
 ui-toolbar-finish = 完成
 ui-pack-deck-only = 僅儲存在此簡報中
 ui-toolbar-open = 開啟

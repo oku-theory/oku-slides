@@ -14,7 +14,7 @@ const prompts = (from) => logSince(LOG, from).filter((m) => m.method === 'sessio
 /** Les résultats MCP (`mcp/result`) de `tool` notés depuis `from`. */
 const results = (tool, from) =>
   logSince(LOG, from).filter((m) => m.method === 'mcp/result' && m.params.tool === tool).map((m) => m.params.out);
-const themeId = async (p) => (await activeSnapshot(p)).theme?.id ?? null;
+const themeNs = async (p) => (await activeSnapshot(p)).theme ?? null;
 const picker = (p) => p.locator('.agent-dock [data-surface-id="host-theme-picker"]');
 const cards = (p) => picker(p).locator('.theme-choice');
 const prompt = (p, text) => post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', text, ui: {} });
@@ -31,7 +31,7 @@ const prompt = (p, text) => post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', t
   await p.reload();
   await p.waitForSelector('.stage img');
   const from = logOffset(LOG);
-  const before = await themeId(p);
+  const before = await themeNs(p);
 
   // 1. L'agent appelle show_themes : l'outil répond tout de suite, le sélecteur arrive au dock.
   await prompt(p, 'propose les thèmes');
@@ -51,7 +51,7 @@ const prompt = (p, text) => post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', t
   const other = picker(p).locator('.theme-choice[aria-pressed="false"]').first();
   const name = await other.locator('bdi').innerText();
   await other.click();
-  await until(p, async () => (await themeId(p)) !== before, 'le thème du deck doit changer');
+  await until(p, async () => (await themeNs(p)) !== before, 'le thème du deck doit changer');
 
   // 4. Le choix est noté pour l'agent : la consigne suivante le porte.
   const picked = logOffset(LOG);
@@ -63,7 +63,7 @@ const prompt = (p, text) => post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', t
   await picker(p).getByRole('button', { name: 'Fermer', exact: true }).click();
   await picker(p).waitFor({ state: 'detached' });
   await post(p, '/api', { tab: 't-1', req: { cmd: 'undo' } });
-  await until(p, async () => (await themeId(p)) === before, "l'annulation doit rendre le thème du début");
+  await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème du début");
 
   assert.deepEqual(errors, []);
   console.log('agent-themes : ok');

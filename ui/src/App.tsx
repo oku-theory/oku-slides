@@ -318,7 +318,7 @@ export default function App({
   // Section des miniatures (repliée à part en mode pack) ; aucune pour un pack de widgets.
   const thumbsSection = pileSection(snap);
   const thumbsOpen = thumbsSection === null || !keptUi.folded.includes(thumbsSection);
-  // Un pack de widgets n'a pas de slides : la scène vide invite à ouvrir un widget.
+  // Un pack de widgets n'a de slides (aperçus en lecture seule) que sur l'onglet « Thème » : ailleurs la scène vide invite à ouvrir un widget.
   const widgetPack = snap.editing?.kind === "widgets";
   const layoutPackStage = snap.editing?.kind === "layouts" && !themeActive;
   // Légende du pack édité : ses layouts, ou ses widgets (sans le fichier commun).
@@ -403,7 +403,7 @@ export default function App({
         {/* La scène : panneau de l'onglet « Layouts » d'un pack de layouts (hors « Thème »). */}
         <div id="stage-panel" className="stage-panel" role={layoutPackStage ? "tabpanel" : undefined} aria-labelledby={layoutPackStage ? "widget-tab-0" : undefined} hidden={widgetActive}>
         <div className="stage-box">
-        {widgetPack ? (
+        {widgetPack && !themeActive ? (
           <div className="stage-wrap empty">{t("ui-stage-widget-pack")}</div>
         ) : view && view.slide.id === current ? (
           <Stage
@@ -436,7 +436,7 @@ export default function App({
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
-        {!readOnly && !widgetPack && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
+        {!readOnly && (!widgetPack || themeActive) && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
         </div>
         {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide (pas au dock de
             l'agent) : en mode pack, l'exemple du layout de la slide ; sur l'onglet « Thème », les jetons à droite. */}

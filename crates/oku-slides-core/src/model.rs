@@ -12,23 +12,26 @@ use serde_json::Value;
 
 use crate::error::ValueReason;
 use crate::namespace::Namespace;
-use crate::pack::{PackPin, ThemeRef};
+use crate::pack::PackPin;
 use crate::pack_kind::PackKind;
 use crate::params::{ParamValue, Params};
+use crate::theme_chain::ThemePin;
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 8;
+pub const DECK_VERSION: u32 = 9;
 
 /// Un deck complet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Deck {
     #[serde(default = "default_version")]
     pub version: u32,
-    /// Thème du deck, dans la version embarquée par ses sources ; `None` :
-    /// le thème par défaut.
+    /// Espace de noms du thème du deck, épinglé dans `themes` ; `None` : le thème par défaut.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub theme: Option<ThemeRef>,
+    pub theme: Option<Namespace>,
+    /// Thèmes épinglés, par espace de noms : exactement la fermeture des `extends` de `theme`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub themes: BTreeMap<Namespace, ThemePin>,
     #[serde(default)]
     pub params: DeckParams,
     /// Variables utilisables dans les textes : `{{client}}`.
@@ -448,6 +451,7 @@ impl Deck {
         Self {
             version: DECK_VERSION,
             theme: None,
+            themes: BTreeMap::new(),
             params: DeckParams::default(),
             vars: BTreeMap::new(),
             tokens: Value::Null,

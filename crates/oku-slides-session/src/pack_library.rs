@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use oku_slides_core::{PackFiles, PackVersion};
 
-use crate::error::{DeckOnlySnafu, PackJsonSnafu, PackVersionMissingSnafu, UnknownPackSnafu};
+use crate::error::{DeckOnlySnafu, PackManifestSnafu, PackVersionMissingSnafu, UnknownPackSnafu};
 use crate::library_kind::StoredVersion;
 use crate::library_packs::PackLibrary;
 use crate::pack::PackManifest;
@@ -29,7 +29,7 @@ impl Session {
         let packs = &self.user_blobs().packs;
         if let Some((_, _, pin)) = self.user_deck().all_pins().find(|(_, _, pin)| pin.id == id) {
             if let Some(files) = packs.get(&pin.version).filter(|f| is_deck_only(f)) {
-                let manifest = PackManifest::from_files(files).context(PackJsonSnafu { id })?;
+                let manifest = PackManifest::from_files(files).context(PackManifestSnafu { id })?;
                 return Ok(StoredVersion {
                     version: pin.version.clone(),
                     files: files.clone(),

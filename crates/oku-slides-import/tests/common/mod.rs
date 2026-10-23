@@ -154,8 +154,10 @@ pub fn profiles(name: &str) -> Vec<oku_slides_core::LayoutProfile> {
     serde_json::from_value(pack["profiles"].clone()).unwrap_or_else(|e| panic!("{e}"))
 }
 
-/// Les jetons effectifs du thème intégré `name` (`papier`, `pro`) : les défauts, puis les siens.
+/// Les jetons effectifs du thème intégré `name` (`papier`, `pro`) : les défauts, les défauts de
+/// composant des packs intégrés (`base`, `essentiel`), puis les siens.
 pub fn tokens(name: &str) -> serde_json::Map<String, serde_json::Value> {
+    use oku_slides_core::{PackFiles, PackKind, PackManifest};
     let typst = root().join("../../typst/oku-slides");
     let read = |p: PathBuf| -> serde_json::Value {
         serde_json::from_str(&fs::read_to_string(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display())))
@@ -163,10 +165,42 @@ pub fn tokens(name: &str) -> serde_json::Map<String, serde_json::Value> {
     };
     let serde_json::Value::Object(defaults) = read(typst.join("src/default-tokens.json")) else { panic!("jetons") };
     let theme = read(typst.join(format!("themes/{name}.json")));
-    oku_slides_core::tokens::effective_tokens(
-        &defaults,
-        theme["tokens"].as_object().unwrap_or_else(|| panic!("tokens de {name}")),
-    )
+    let packs: Vec<_> = [(PackKind::Widgets, "base/widgets.json"), (PackKind::Layouts, "essentiel/layouts.json")]
+        .into_iter()
+        .map(|(kind, file)| {
+            let bytes = fs::read(typst.join("packs").join(file)).unwrap_or_else(|e| panic!("{file}: {e}"));
+            let files = PackFiles::from_bytes(kind, &bytes, []).unwrap_or_else(|| panic!("{file}"));
+            let manifest = PackManifest::from_files(&files).unwrap_or_else(|e| panic!("{file}: {e:?}"));
+            let defaults = manifest.component_defaults().unwrap_or_else(|e| panic!("{file}: {e:?}"));
+            (manifest.namespace, defaults)
+        })
+        .collect();
+    let layer = oku_slides_core::tokens::theme_layer(
+        packs.iter().map(|(ns, d)| (ns, d.clone())),
+        [theme["tokens"].as_object().unwrap_or_else(|| panic!("tokens de {name}"))],
+    );
+    let mut tokens = defaults;
+    oku_slides_core::tokens::merge(&mut tokens, &layer);
+    tokens
+}
+
+/// Les ops de `ops` dont `set_theme` porte la fermeture du thème épinglé : un épinglage de test
+/// (la session remplit la vraie), pour que le cœur accepte le plan hi-fi.
+pub fn with_theme_closure(ops: Vec<oku_slides_core::Op>) -> Vec<oku_slides_core::Op> {
+    let pin = oku_slides_core::ThemePin {
+        id: "7c9e6679-7425-40de-944b-e07fc1f90ae7".parse().unwrap_or_else(|e| panic!("{e}")),
+        version: oku_slides_core::PackVersion::from_hex(&"1".repeat(64)).unwrap_or_else(|| panic!("version")),
+        extends: vec![],
+    };
+    ops.into_iter()
+        .map(|op| match op {
+            oku_slides_core::Op::SetTheme { theme: Some(ns), .. } => oku_slides_core::Op::SetTheme {
+                themes: std::collections::BTreeMap::from([(ns.clone(), pin.clone())]),
+                theme: Some(ns),
+            },
+            op => op,
+        })
+        .collect()
 }
 
 /// Les polices livrées avec l'app (`assets/fonts/*.ttf`), sans police système.

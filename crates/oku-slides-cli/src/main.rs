@@ -27,7 +27,7 @@ use oku_slides_platform::Platform;
 use oku_slides_render::{Fonts, PackSet};
 use oku_slides_session::{
     PackLibrary, ProbedWidgets, Storage, ThemeLibrary, adopt_default_theme, embed_theme, read_document,
-    sources_with_packs, theme_tokens,
+    repair_theme_closure, sources_theme_layer, sources_with_packs,
 };
 
 use crate::bench::ms;
@@ -171,6 +171,25 @@ fn read_deck(storage: &Storage, l: &Localizer, path: &Path) -> Result<Deck> {
     serde_json::from_slice(&bytes).wrap_err_with(|| l.tr_with("cli-invalid-deck", &[("path", shown().into())]))
 }
 
+/// Le deck de `bundle` adopte Papier s'il n'a pas de thème, puis refait la fermeture de son thème si elle manque.
+///
+/// Comme à l'ouverture d'une session : un JSON qui nomme un thème sans épinglages se rend avec ce thème.
+fn adopt_theme(themes: &ThemeLibrary, bundle: &mut SourceBundle, l: &Localizer) -> Result<()> {
+    adopt_default_theme(themes, bundle).map_err(|e| eyre!(e.localize(l)))?;
+    repair_theme_closure(themes, bundle).map_err(|e| eyre!(e.localize(l)))?;
+    Ok(())
+}
+
+/// Le deck de `bundle` prend le thème `wanted` (espace de noms, id ou nom) et sa fermeture, embarquée.
+fn use_theme(themes: &ThemeLibrary, bundle: &mut SourceBundle, wanted: &str, l: &Localizer) -> Result<()> {
+    let (ns, pins) = embed_theme(themes, wanted, bundle).map_err(|e| eyre!(e.localize(l)))?;
+    let mut deck = bundle.deck().clone();
+    deck.theme = Some(ns);
+    deck.themes = pins;
+    bundle.apply_silent(deck)?;
+    Ok(())
+}
+
 /// Charge un deck depuis un JSON ou un .oku-slides.pdf ; `limits` borne les
 /// sources lues dans le PDF. Rend aussi les widgets du pack qu'il embarque :
 /// le deck est relu et validé avec eux, pas avec la seule base `base`.
@@ -256,7 +275,7 @@ fn write_document(
     bundle: &SourceBundle,
     output: &Path,
 ) -> Result<Written> {
-    let doc = pack_render::render(platform, l, fonts, widgets, bundle, bundle.deck())?;
+    let doc = pack_render::render(platform, l, fonts, widgets, bundle)?;
     write_rendered(platform, &doc.pdf()?, doc.page_count(), bundle, output)
 }
 
@@ -340,14 +359,13 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
         Cmd::Render { input, out: dir, theme } => {
             let (mut bundle, widgets) = load_bundle(platform, l, &input, limits, &registry(&app_fonts)?)?;
             let themes = ThemeLibrary::user(platform);
-            adopt_default_theme(&themes, &mut bundle).map_err(|e| eyre!(e.localize(l)))?;
-            let mut deck = bundle.deck().clone();
-            if let Some(name) = theme {
-                deck.theme = Some(embed_theme(&themes, &name, &mut bundle).map_err(|e| eyre!(e.localize(l)))?);
+            adopt_theme(&themes, &mut bundle, l)?;
+            if let Some(wanted) = theme {
+                use_theme(&themes, &mut bundle, &wanted, l)?;
             }
             let t = Instant::now();
             let fonts = app_fonts.with(bundle.fonts.values().cloned());
-            let doc = pack_render::render(platform, l, fonts, &widgets, &bundle, &deck)?;
+            let doc = pack_render::render(platform, l, fonts, &widgets, &bundle)?;
             let compile = t.elapsed();
             for w in doc.warnings() {
                 tracing::warn!("{}", w.localize(l));
@@ -377,12 +395,10 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let (mut bundle, widgets) =
                 sources_with_packs(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
             let themes = ThemeLibrary::user(platform);
-            if let Some(name) = theme {
-                let mut deck = bundle.deck().clone();
-                deck.theme = Some(embed_theme(&themes, &name, &mut bundle).map_err(|e| eyre!(e.localize(l)))?);
-                bundle.apply_silent(deck)?;
+            if let Some(wanted) = theme {
+                use_theme(&themes, &mut bundle, &wanted, l)?;
             }
-            adopt_default_theme(&themes, &mut bundle).map_err(|e| eyre!(e.localize(l)))?;
+            adopt_theme(&themes, &mut bundle, l)?;
             if let Some(dir) = assets {
                 for path in storage.list_files(&dir)? {
                     let id = bundle.add_asset(storage.read(&path)?);
@@ -455,16 +471,18 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             import::import(platform, out, &app_fonts, args)?;
         }
         Cmd::Bench { deck, iterations } => {
+            let base = registry(&app_fonts)?;
+            let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
             let deck = read_deck(storage, l, &deck)?;
-            let themes = ThemeLibrary::user(platform);
+            let library = PackLibrary::user(platform);
+            let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck)?;
             // Un deck JSON n'embarque rien : son thème se résout par la bibliothèque, sinon un deck Pro serait mesuré en Papier.
-            let embedded: BTreeMap<_, _> = deck
-                .theme
-                .iter()
-                .filter_map(|r| themes.version(r.id, &r.version).map(|f| (r.version.clone(), f)))
-                .collect();
-            let tokens = theme_tokens(&themes, &embedded, &deck);
-            bench::bench(out, deck, tokens, app_fonts, iterations, limits)?
+            let (mut bundle, _) =
+                sources_with_packs(platform, &library, &base, deck.clone(), packs).map_err(|e| eyre!(e.localize(l)))?;
+            let themes = ThemeLibrary::user(platform);
+            adopt_theme(&themes, &mut bundle, l)?;
+            let layer = sources_theme_layer(&themes, &bundle).map_err(|e| eyre!(e.localize(l)))?;
+            bench::bench(out, deck, layer, app_fonts, iterations, limits)?
         }
         Cmd::Schema => out.data(&serde_json::to_string_pretty(&oku_slides_core::ops_schema()?)?)?,
         Cmd::Serve { input, port, ui } => serve::serve(out, input, port, &ui, app_fonts, platform)?,

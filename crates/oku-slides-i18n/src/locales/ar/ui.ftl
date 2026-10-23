@@ -59,7 +59,6 @@ ui-divider-code = حجم الشيفرة
 ui-divider-band = ارتفاع الإعدادات
 ui-toolbar-theme = السمة
 ui-toolbar-theme-embedded = سمة الملف
-ui-toolbar-theme-deck-group = هذا العرض التقديمي
 ui-toolbar-finish = تم
 ui-pack-deck-only = محفوظة في هذا العرض التقديمي فقط
 ui-toolbar-open = فتح

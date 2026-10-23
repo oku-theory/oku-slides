@@ -68,16 +68,36 @@ fn render_writes_one_svg_per_page_and_the_layout() {
     assert_that!(layout).contains("\"slides\"");
 }
 
-/// Le thème du deck enregistré dans `pdf` : son `deck.json` extrait, et la version embarquée ?
-fn saved_theme(dir: &Path, pdf: &Path) -> (serde_json::Value, bool) {
+#[test]
+fn render_with_theme_namespace_uses_that_theme() {
+    let dir = workdir("render-theme-namespace");
+    let page = |theme: Option<&str>, name: &str| {
+        let out_dir = dir.join(name);
+        let mut cmd = oku_slides(&dir, "en");
+        cmd.args(["render", FIXTURE]);
+        if let Some(t) = theme {
+            cmd.args(["--theme", t]);
+        }
+        let out = run(cmd.arg("--out").arg(&out_dir));
+        assert_success("render", &out, &[]);
+        std::fs::read_to_string(out_dir.join("page-01.svg")).unwrap_or_else(|e| panic!("page-01.svg : {e}"))
+    };
+    let (default, pro, pro_again) = (page(None, "default"), page(Some("pro"), "pro"), page(Some("pro"), "pro-2"));
+    assert_that!(pro == default).is_false();
+    assert_that!(pro == pro_again).is_true();
+}
+
+/// Le thème du deck enregistré dans `pdf` (son espace de noms), ses épinglages dans `deck.json`, et sa version embarquée ?
+fn saved_theme(dir: &Path, pdf: &Path) -> (serde_json::Value, serde_json::Value, bool) {
     let extract = dir.join("extract-theme");
     let opened = run(oku_slides(dir, "en").arg("open").arg(pdf).arg("--out").arg(&extract));
     assert_that!(opened.status.success()).is_true();
     let json = std::fs::read_to_string(extract.join("deck.json")).unwrap_or_else(|e| panic!("deck.json : {e}"));
     let deck: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("deck.json : {e}"));
     let bundle = sources_of(pdf);
-    let embedded = bundle.deck().theme.as_ref().is_some_and(|t| bundle.themes.contains_key(&t.version));
-    (deck["theme"].clone(), embedded)
+    let pin = bundle.deck().theme.as_ref().and_then(|ns| bundle.deck().themes.get(ns));
+    let embedded = pin.is_some_and(|p| bundle.themes.contains_key(&p.version));
+    (deck["theme"].clone(), deck["themes"].clone(), embedded)
 }
 
 #[test]
@@ -86,8 +106,27 @@ fn save_with_theme_name_embeds_that_builtin_theme() {
     let pdf = dir.join("deck.oku-slides.pdf");
     let saved = run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf).args(["--theme", "PRO"]));
     assert_that!(saved.status.success()).is_true();
-    let (theme, embedded) = saved_theme(&dir, &pdf);
-    assert_that!(theme["id"].as_str()).is_equal_to(Some(oku_slides_session::PRO_THEME.to_string().as_str()));
+    let (theme, pins, embedded) = saved_theme(&dir, &pdf);
+    assert_that!(theme.as_str()).is_equal_to(Some(oku_slides_session::PRO_NAMESPACE));
+    assert_that!(pins[oku_slides_session::PRO_NAMESPACE]["id"].as_str())
+        .is_equal_to(Some(oku_slides_session::PRO_THEME.to_string().as_str()));
+    assert_that!(embedded).is_true();
+}
+
+#[test]
+fn save_of_a_json_deck_naming_a_theme_without_pins_embeds_that_theme() {
+    let dir = workdir("save-json-theme-no-pins");
+    let mut deck: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(FIXTURE).unwrap()).unwrap();
+    deck["theme"] = serde_json::json!(oku_slides_session::PRO_NAMESPACE);
+    let input = dir.join("pro.json");
+    std::fs::write(&input, deck.to_string()).unwrap();
+    let pdf = dir.join("deck.oku-slides.pdf");
+    let saved = run(oku_slides(&dir, "en").arg("save").arg(&input).arg(&pdf));
+    assert_that!(saved.status.success()).is_true();
+    let (theme, pins, embedded) = saved_theme(&dir, &pdf);
+    assert_that!(theme.as_str()).is_equal_to(Some(oku_slides_session::PRO_NAMESPACE));
+    assert_that!(pins[oku_slides_session::PRO_NAMESPACE]["id"].as_str())
+        .is_equal_to(Some(oku_slides_session::PRO_THEME.to_string().as_str()));
     assert_that!(embedded).is_true();
 }
 
@@ -96,8 +135,10 @@ fn save_without_theme_embeds_the_default_theme() {
     let dir = workdir("save-default-theme");
     let pdf = dir.join("deck.oku-slides.pdf");
     assert_that!(run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf)).status.success()).is_true();
-    let (theme, embedded) = saved_theme(&dir, &pdf);
-    assert_that!(theme["id"].as_str()).is_equal_to(Some(oku_slides_session::DEFAULT_THEME.to_string().as_str()));
+    let (theme, pins, embedded) = saved_theme(&dir, &pdf);
+    assert_that!(theme.as_str()).is_equal_to(Some(oku_slides_session::PAPIER_NAMESPACE));
+    assert_that!(pins[oku_slides_session::PAPIER_NAMESPACE]["id"].as_str())
+        .is_equal_to(Some(oku_slides_session::DEFAULT_THEME.to_string().as_str()));
     assert_that!(embedded).is_true();
 }
 
@@ -108,10 +149,11 @@ fn save_with_the_name_of_a_library_theme_embeds_its_current_version() {
     let manifest = oku_slides_session::ThemeManifest {
         id,
         name: "Rouge Vif".into(),
+        namespace: Namespace::parse("rouge-vif").unwrap_or_else(|| panic!("espace de noms")),
+        extends: Vec::new(),
         description: String::new(),
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
-        scope: oku_slides_core::PackScope::Library,
         tokens: serde_json::json!({"color": {"accent": "#ff0000"}}).as_object().cloned().unwrap(),
     };
     let files = manifest.to_files().unwrap();
@@ -121,9 +163,10 @@ fn save_with_the_name_of_a_library_theme_embeds_its_current_version() {
     let pdf = dir.join("deck.oku-slides.pdf");
     let saved = run(oku_slides(&dir, "en").args(["save", FIXTURE]).arg(&pdf).args(["--theme", "rouge vif"]));
     assert_that!(saved.status.success()).is_true();
-    let (theme, embedded) = saved_theme(&dir, &pdf);
-    assert_that!(theme["id"].as_str()).is_equal_to(Some(id.to_string().as_str()));
-    assert_that!(theme["version"].as_str()).is_equal_to(Some(files.version().as_str()));
+    let (theme, pins, embedded) = saved_theme(&dir, &pdf);
+    assert_that!(theme.as_str()).is_equal_to(Some("rouge-vif"));
+    assert_that!(pins["rouge-vif"]["id"].as_str()).is_equal_to(Some(id.to_string().as_str()));
+    assert_that!(pins["rouge-vif"]["version"].as_str()).is_equal_to(Some(files.version().as_str()));
     assert_that!(embedded).is_true();
 }
 
@@ -638,6 +681,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        tokens: Vec::new(),
     };
     let widgets = widgets
         .iter()
@@ -654,8 +698,13 @@ fn user_pack(dir: &Path, widgets: &[(&str, &str)]) -> PackPin {
     let id = uuid::Uuid::new_v4();
     let files = pack_files(id, widgets);
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library =
-        PackLibrary::new(Some(dir.join("data").join("widgets")), Some(dir.join("data").join("layouts")), storage);
+    let themes = oku_slides_session::ThemeLibrary::new(Some(dir.join("data").join("themes")), storage.clone());
+    let library = PackLibrary::new(
+        Some(dir.join("data").join("widgets")),
+        Some(dir.join("data").join("layouts")),
+        themes,
+        storage,
+    );
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     PackPin { id, version: files.version(), requires: vec![] }
 }

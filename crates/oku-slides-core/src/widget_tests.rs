@@ -278,7 +278,7 @@ fn registry_from_probe_bad_namespace_returns_unreadable() {
 #[test]
 fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
     let json = serde_json::json!({
-        "version": 8,
+        "version": 9,
         "slides": [{ "id": "s", "kind": "essentiel/content", "params": {
             "elements": [{ "id": "e1", "kind": "essentiel/title", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 } }] } }]
     });

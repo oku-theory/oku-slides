@@ -146,7 +146,12 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
     asserting("les références par nom sont résolues").that(&papier.app["ink"].as_str()).is_equal_to("#2e2b26");
     assert_that!(papier.font_display.first().map(String::as_str)).is_equal_to(Some("Newsreader"));
 
-    s.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
+    s.apply(
+        "Thème",
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        None,
+    )
+    .unwrap();
     let pro = s.snapshot().appearance;
     assert_that!(pro.scheme.as_str()).is_equal_to("light");
     assert_that!(pro.app["desk"].as_str()).is_equal_to("#e1e5ea");
@@ -168,14 +173,14 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
     assert_that!(pro.metrics["elevation"]).is_close_to(1.5, f64::EPSILON);
 
     // `set_theme` à `null` : le thème par défaut, dans sa version courante.
-    s.apply("Thème par défaut", vec![Op::SetTheme { theme: None }], None).unwrap();
+    s.apply("Thème par défaut", vec![Op::SetTheme { theme: None, themes: Default::default() }], None).unwrap();
     assert_that!(s.snapshot().appearance).is_equal_to(&papier);
 
     // Une surcharge du deck l'emporte sur le thème, pour les slides comme pour l'app.
     s.apply(
         "Accent",
         vec![
-            Op::SetTheme { theme: common::theme_ref("pro") },
+            oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() },
             Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") },
             Op::SetToken { path: vec!["app".into(), "desk".into()], value: json!("#222222") },
         ],
@@ -201,7 +206,12 @@ fn layouts_view_renders_previews_in_deck_theme() {
     assert_that!(papier.iter().all(|t| t.svg.starts_with("<svg"))).is_true();
     assert_that!(papier.iter().any(|t| t.kind == oku_slides_core::kinds::essentiel::CONTENT)).is_true();
 
-    s.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
+    s.apply(
+        "Thème",
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        None,
+    )
+    .unwrap();
     let pro = s.layouts_view().unwrap().packs.remove(0).layouts;
     asserting("l'aperçu suit le thème").that(&papier[0].svg).is_not_equal_to(&pro[0].svg);
 
@@ -286,19 +296,11 @@ fn errors_localize_in_the_configured_language() {
 #[test]
 fn appearance_carries_the_chart_palette_of_the_deck_theme() {
     let mut s = session();
-    s.apply(
-        "Thème",
-        vec![serde_json::from_value(json!({ "op": "set_theme", "theme": common::theme_ref("papier") })).unwrap()],
-        None,
-    )
-    .unwrap();
+    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "papier" })).unwrap()], None)
+        .unwrap();
     assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#3f6b5e"));
-    s.apply(
-        "Thème",
-        vec![serde_json::from_value(json!({ "op": "set_theme", "theme": common::theme_ref("pro") })).unwrap()],
-        None,
-    )
-    .unwrap();
+    s.apply("Thème", vec![serde_json::from_value(json!({ "op": "set_theme", "theme": "pro" })).unwrap()], None)
+        .unwrap();
     assert_that!(s.snapshot().appearance.chart_palette.first().map(String::as_str)).is_equal_to(Some("#0072b0"));
 }
 
@@ -429,7 +431,7 @@ fn resume_while_editing_pack_restores_mode_and_stashed_deck() {
     assert_that!(snapshot_json(&mut b)["editing"]["pack"]).is_equal_to(json!(oku_slides_session::ESSENTIEL_PACK));
     b.handle(req(json!({"cmd": "close_pack"}))).unwrap();
     let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["dirty"]).is_equal_to(json!(true));
 }
 
@@ -443,11 +445,17 @@ fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
     // Un autre lancement (sans reprise) change le fichier.
     let mut other = session();
     other.open(&file).unwrap();
-    other.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
+    other
+        .apply(
+            "Thème",
+            vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+            None,
+        )
+        .unwrap();
     other.save(Some(&file)).unwrap();
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["can_undo"]).is_equal_to(json!(false));
 }
 
@@ -672,7 +680,7 @@ fn resume_with_unreadable_pack_returns_to_the_deck_without_loss() {
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
     assert_that!(snap["editing"]).is_equal_to(json!(null));
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["dirty"]).is_equal_to(json!(true));
 }
 
@@ -738,7 +746,7 @@ fn resume_with_the_deck_file_deleted_keeps_the_working_copy() {
     std::fs::remove_file(&file).unwrap();
     let mut b = resumed(&data);
     let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["dirty"]).is_equal_to(json!(false));
     assert_that!(b.tab_info().path).is_equal_to(Some(oku_slides_platform::storage::resolve(&file)));
 }
@@ -751,7 +759,12 @@ fn appearance_carries_the_dark_interface_palette_of_papier_and_pro() {
     asserting("papier : table sombre")
         .that(&papier.variants["dark"].get("desk").map(String::as_str))
         .is_equal_to(Some("#1f1d1a"));
-    s.apply("Thème", vec![Op::SetTheme { theme: common::theme_ref("pro") }], None).unwrap();
+    s.apply(
+        "Thème",
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        None,
+    )
+    .unwrap();
     let pro = s.snapshot().appearance;
     asserting("pro : table navy")
         .that(&pro.variants["dark"].get("desk").map(String::as_str))

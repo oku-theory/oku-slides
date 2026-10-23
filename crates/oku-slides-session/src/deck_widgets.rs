@@ -30,7 +30,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use snafu::ResultExt;
+use snafu::{ResultExt, ensure};
 
 use oku_slides_core::{
     Deck, Moved, Namespace, Op, PackFiles, PackPin, PackVersion, WidgetFile, WidgetRegistry, qualify,
@@ -41,7 +41,7 @@ use oku_slides_render_worker::RemoteCompiled;
 
 use crate::deck_closure::{closure_ops, combined_pins, dependents};
 use crate::deck_pack::{check_pack_id, empty_registry, in_process_pack, only_builtins};
-use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
+use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, TrustedPackBrokenSnafu};
 use crate::pack::PackManifest;
 use crate::{Result, Session, charts};
 
@@ -157,6 +157,13 @@ impl Session {
                     continue;
                 }
             };
+            // Une version livrée dont un widget ne compile plus (t-1055 : l'ancien `base` qui importe
+            // `card` de `lib.typ`) : jamais écartée, l'erreur remonte.
+            if trusted {
+                let broken: Vec<String> =
+                    probe.files.iter().filter(|(_, p)| !p.is_valid()).map(|(n, _)| qualify(ns, n.as_str())).collect();
+                ensure!(broken.is_empty(), TrustedPackBrokenSnafu { names: broken.join(", ") });
+            }
             let shown = among.map(|a| a.get(ns).unwrap_or(&none));
             notices.extend(self.broken_widgets_notice(ns, &probe.files, &probe.unprobed, shown));
             if !probe.unprobed.is_empty() {
@@ -285,13 +292,15 @@ impl Session {
     /// d'échec, le registre d'avant revient.
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         // En mode pack, choisir un thème fait partir le brouillon de ce thème.
-        if let Some(id) = self.drafted_theme_choice(&ops) {
-            return self.set_edited_theme(id);
+        if let Some(ns) = self.drafted_theme_choice(&ops) {
+            return self.set_edited_theme(&ns?);
         }
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
         self.ensure_editable()?;
-        // Les slides du deck de travail sont les exemples du pack : leur liste ne change pas.
+        // Les slides d'aperçu d'un pack de widgets sont en lecture seule ; les
+        // slides du deck de travail sont les exemples du pack : leur liste ne change pas.
+        self.ensure_no_preview_ops(&ops)?;
         self.ensure_pack_slides(&ops)?;
         if ops.iter().any(|op| matches!(op, Op::AddPack { .. })) {
             ops = closure_ops(&self.library, self.doc.sources.deck(), &ops)?;

@@ -46,7 +46,7 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard, PoisonError};
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, PackFiles, PackKind, PackVersion, WidgetFile};
+use oku_slides_core::{Namespace, PackFiles, PackVersion, WidgetFile};
 use oku_slides_platform::errors::one_line;
 use oku_slides_platform::storage::Storage;
 
@@ -260,10 +260,12 @@ impl<K: LibraryKind> Library<K> {
             };
             widgets.insert(name, self.storage.read(&path).map_err(|e| one_line(&e))?);
         }
-        // Une sorte sans fichiers de widgets (les thèmes) se lit comme un pack de widgets sans widgets.
-        let kind = K::PACK_KIND.unwrap_or(PackKind::Widgets);
-        let files = PackFiles::from_bytes(kind, &pack, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice())))
-            .ok_or_else(|| "unreadable pack files".to_owned())?;
+        // Une sorte sans fichiers de widgets (les thèmes) n'a que son manifeste.
+        let files = match K::PACK_KIND {
+            Some(kind) => PackFiles::from_bytes(kind, &pack, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice()))),
+            None => PackFiles::theme_from_bytes(&pack),
+        };
+        let files = files.ok_or_else(|| "unreadable pack files".to_owned())?;
         if !files.matches(&expected) {
             return Err(format!("content does not match {expected}"));
         }
@@ -393,7 +395,7 @@ impl<K: LibraryKind> Library<K> {
 
     fn add(&self, id: Uuid, files: &PackFiles, origin: Origin) -> Result<bool> {
         let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
-        let manifest = K::Manifest::from_files(files).context(PackJsonSnafu { id })?;
+        let manifest = K::Manifest::from_files(files)?;
         ensure!(manifest.id() == id, PackIdMismatchSnafu { id, found: manifest.id() });
         ensure!(manifest.scope().is_library(), DeckOnlySnafu { id });
         if let Some(ns) = manifest.namespace() {
@@ -551,19 +553,30 @@ impl<K: LibraryKind> Library<K> {
     /// Toutes les entrées dans leur version courante : intégrées d'abord, puis
     /// celles de l'utilisateur, par nom.
     pub fn entries(&self) -> Vec<StoredVersion<K::Manifest>> {
+        self.scan().0
+    }
+
+    /// Les entrées de l'utilisateur sans version lisible, écartées de [`Self::entries`].
+    ///
+    /// Par exemple un thème d'avant les espaces de noms, que le manifeste actuel ne lit plus.
+    pub fn skipped(&self) -> usize {
+        self.scan().1
+    }
+
+    /// Les entrées dans leur version courante (voir [`Self::entries`]), et le
+    /// nombre d'entrées de l'utilisateur écartées faute de version lisible.
+    fn scan(&self) -> (Vec<StoredVersion<K::Manifest>>, usize) {
         let user_ids = {
             let mut index = self.fresh();
             index.ids.get_or_insert_with(|| self.user_ids()).clone()
         };
         let mut out: Vec<_> = K::builtins().iter().filter_map(|b| self.current_version(b.manifest.id())).collect();
-        let mut user: Vec<_> = user_ids
-            .into_iter()
-            .filter(|id| !Self::is_builtin(*id))
-            .filter_map(|id| self.current_version(id))
-            .collect();
+        let user_ids: Vec<Uuid> = user_ids.into_iter().filter(|id| !Self::is_builtin(*id)).collect();
+        let mut user: Vec<_> = user_ids.iter().filter_map(|id| self.current_version(*id)).collect();
+        let skipped = user_ids.len() - user.len();
         user.sort_by_key(|s| s.manifest.name().to_lowercase());
         out.extend(user);
-        out
+        (out, skipped)
     }
 
     /// Ids des éléments de l'utilisateur : dossiers nommés par un UUID canonique.

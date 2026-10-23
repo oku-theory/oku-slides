@@ -45,9 +45,10 @@ const PACKS: PackInfo[] = [
   layoutPack("client", "Client", 4, { received: true }),
 ];
 const THEMES: ThemeInfo[] = [
-  { id: "t-papier", version: "v1", name: "Papier", builtin: true, default: true, deck_only: false },
-  { id: "t-nuit", version: "v1", name: "Nuit", builtin: true, default: false, deck_only: false },
-  { id: "t-import", version: "v1", name: "Alto", builtin: false, default: false, deck_only: true },
+  { id: "t-papier", version: "v1", name: "Papier", namespace: "papier", extends: [], builtin: true, default: true },
+  { id: "t-nuit", version: "v1", name: "Nuit", namespace: "nuit", extends: [], builtin: true, default: false },
+  { id: "t-neutre", version: "v1", name: "Neutre", namespace: "neutre", extends: [], builtin: true, default: false },
+  { id: "t-alto", version: "v1", name: "Alto", namespace: "alto", extends: ["nuit"], builtin: false, default: false },
 ];
 
 type Root = ReturnType<typeof createRoot>;
@@ -167,11 +168,11 @@ test("ImportDialog en retrofit liste les packs de layouts qui ont des profils, E
   expect(layouts().map((c) => c.checked)).toEqual([true, false, false]);
 });
 
-test("ImportDialog en retrofit liste les thèmes sans le défaut ni un thème du deck seul", async () => {
+test("ImportDialog offers every non-default library theme", async () => {
   const { radio, selects } = await mount();
   await click(radio("retrofit"));
   const theme = selects()[0]!;
-  expect([...theme.options].map((o) => o.textContent)).toEqual(["Thème par défaut", "Nuit"]);
+  expect([...theme.options].map((o) => o.textContent)).toEqual(["Thème par défaut", "Nuit", "Neutre", "Alto"]);
   expect(theme.value).toBe("");
 });
 

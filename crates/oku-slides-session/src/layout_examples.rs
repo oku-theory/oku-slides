@@ -13,7 +13,7 @@ use snafu::{OptionExt, ResultExt};
 
 use oku_slides_core::{Deck, Moved, Op, ParamType, ParamValue, Params, Slide, WidgetFile, WidgetSchema};
 
-use crate::error::{PackJsonSnafu, UnknownWidgetSnafu};
+use crate::error::{PackJsonSnafu, PackManifestSnafu, UnknownWidgetSnafu};
 use crate::pack::{PackManifest, now_created};
 use crate::pack_mode::realign_layouts;
 use crate::pack_mode_save::AdoptStep;
@@ -140,7 +140,7 @@ impl Session {
             return Ok(false);
         }
         let t = self.widget_target(None)?;
-        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         let examples_before = manifest.examples.clone();
         for (before, after, name) in &changed {
             let schema = self.registry.get(&after.kind).context(UnknownWidgetSnafu { name: name.as_str() })?;

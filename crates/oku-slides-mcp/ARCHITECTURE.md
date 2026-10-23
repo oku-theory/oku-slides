@@ -10,10 +10,10 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
 - `handler` : the `ServerHandler`; `Tools::call` dispatches a call to its tool.
 - `tools` : `Tools`, the tool list (`list`) and input schemas (`nest_schema` adapts JSON Schema
   to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
-- Tool families: `read_tools` (outline, theme_tokens, slide, render, `packs`, `layouts`, widgets,
+- Tool families: `read_tools` (outline, theme_tokens (themes go by namespace), slide, render, `packs`, `layouts`, widgets,
   settings), `edit_tools` (undoable edits, `edit_pack`), `widget_tools` (no `pack`: `deck`, so
   `deck-layouts` is named), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
-  `save_pack`, `delete_pack`, `edit_theme` unless deck-only, `set_setting`…), `app_tools` (`history`; opening it,
+  `save_pack`, `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes` opens the hub's theme picker), `import_tools` (`import_report`, `import_diff`: import
   tuning; `ReferenceJob` in a blocking task).

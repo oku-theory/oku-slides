@@ -1,40 +1,31 @@
-// Sélecteur d'un thème pour le deck. Il propose la bibliothèque, ceux de la présentation (thème du
-// deck seul d'un import), plus le thème montré s'il ne fait partie d'aucune des deux (base du
-// brouillon dans l'onglet « Thème »).
+// Sélecteur d'un thème de la bibliothèque, par espace de noms. Il montre aussi le thème épinglé
+// qui n'en fait plus partie (reçu dans le fichier d'un autre, ou base d'un brouillon).
 
-import type { ThemeInfo, ThemeRef } from "./api";
+import type { ThemeInfo } from "./api";
 import { t } from "./i18n";
 import { Field } from "./primitives";
 
 interface Props {
-  /** Thème embarqué par le deck. */
-  theme: ThemeRef | null;
-  /** Nom du thème embarqué, quand le deck le fournit. */
+  /** Espace de noms du thème montré. */
+  theme: string | null;
+  /** Nom du thème montré, quand le deck le fournit. */
   themeName: string | null;
   /** Thèmes de la bibliothèque. */
   themes: ThemeInfo[];
-  /** Thèmes du deck seul embarqués dans la présentation : ils se reprennent comme les autres. */
-  deckThemes: ThemeInfo[];
-  onPick: (id: string) => void;
+  /** Reçoit l'espace de noms choisi. */
+  onPick: (namespace: string) => void;
   /** Étiquette du champ. */
   label: string;
 }
 
-export default function ThemeMenu({ theme, themeName, themes, deckThemes, onPick, label }: Props) {
-  // Thème reçu dans le fichier d'un autre : il reste affiché, sans pouvoir être rechoisi.
-  const known = (id: string) => themes.some((th) => th.id === id) || deckThemes.some((th) => th.id === id);
-  const foreign = theme !== null && !known(theme.id);
+export default function ThemeMenu({ theme, themeName, themes, onPick, label }: Props) {
+  // Thème absent de la bibliothèque : il reste affiché, sans pouvoir être rechoisi.
+  const foreign = theme !== null && !themes.some((th) => th.namespace === theme);
   return (
-    // Pas de `Select` : il ne connaît pas les groupes d'options.
     <Field variant="menu" label={label}>
-      <select className="select" value={theme?.id ?? ""} onChange={(e) => onPick(e.target.value)}>
-        {foreign && <option value={theme.id} disabled>{themeName ?? t("ui-toolbar-theme-embedded")}</option>}
-        {themes.map((th) => <option key={th.id} value={th.id}>{th.name}</option>)}
-        {deckThemes.length > 0 && (
-          <optgroup label={t("ui-toolbar-theme-deck-group")}>
-            {deckThemes.map((th) => <option key={th.id} value={th.id}>{th.name}</option>)}
-          </optgroup>
-        )}
+      <select className="select" value={theme ?? ""} onChange={(e) => onPick(e.target.value)}>
+        {foreign && <option value={theme} disabled>{themeName ?? t("ui-toolbar-theme-embedded")}</option>}
+        {themes.map((th) => <option key={th.namespace} value={th.namespace}>{th.name}</option>)}
       </select>
     </Field>
   );

@@ -30,9 +30,7 @@ fn req(v: serde_json::Value) -> Request {
 }
 
 fn set_theme(theme: &str) -> Request {
-    req(
-        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref(theme)}]}),
-    )
+    req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}))
 }
 
 /// Le deck de démonstration avec une image et une police, puis deux thèmes.
@@ -209,7 +207,7 @@ fn history_agent_apply_is_refused_and_leaves_the_stash_and_the_preview_untouched
     s.handle(req(json!({ "cmd": "history_seek", "index": 0 }))).unwrap();
     let (shown, changes) = (s.deck().clone(), s.doc.sources.replica().len_changes());
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(s)));
-    let op = Op::SetTheme { theme: crate::test_support::theme_ref("pro") };
+    let op = crate::test_support::set_theme_op("pro");
     let err = tab.with(|s| s.apply("Agent", vec![op], None)).unwrap().unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InHistory);
     let err = tab.with(Session::new_deck).unwrap().unwrap_err();

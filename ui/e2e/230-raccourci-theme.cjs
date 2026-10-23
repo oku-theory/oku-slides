@@ -10,7 +10,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const LOG = process.env.E2E_AGENT_LOG;
 
 const prompts = (from) => logSince(LOG, from).filter((m) => m.method === 'session/prompt');
-const themeId = async (p) => (await activeSnapshot(p)).theme?.id ?? null;
+const themeNs = async (p) => (await activeSnapshot(p)).theme ?? null;
 const picker = (p) => p.locator('.agent-dock [data-surface-id="host-theme-picker"]');
 const cards = (p) => picker(p).locator('.theme-choice');
 /** Les noms des cartes actives ; jamais d'exception, une liste vide s'il n'y en a pas. */
@@ -40,7 +40,7 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   await p.reload();
   await p.waitForSelector('.stage img');
   const from = logOffset(LOG);
-  const before = await themeId(p);
+  const before = await themeNs(p);
 
   // 1. « Thème. » tapé dans le brouillon ouvre le sélecteur au dock ; un seul thème est actif.
   await say(p, 'Thème.');
@@ -63,13 +63,13 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
 
   // 3. Cliquer l'applique : le thème du deck change, la carte cliquée devient l'active.
   await other.click();
-  await until(p, async () => (await themeId(p)) !== before, 'le thème du deck doit changer');
+  await until(p, async () => (await themeNs(p)) !== before, 'le thème du deck doit changer');
   await until(p, async () => JSON.stringify(await activeNames(p)) === JSON.stringify([name]), 'la carte choisie doit être active');
 
   // 4. ⌘Z (focus hors du dock) rend le thème précédent, et l'active redevient celle du début.
   await blur(p);
   await p.keyboard.press('ControlOrMeta+z');
-  await until(p, async () => (await themeId(p)) === before, "l'annulation doit rendre le thème précédent");
+  await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème précédent");
   await until(p, async () => JSON.stringify(await activeNames(p)) === JSON.stringify(startActive), "l'active doit suivre l'annulation");
 
   // 5. Le chiffre d'une carte non active l'applique (touches 1–4 du sélecteur).
@@ -78,7 +78,7 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   await until(p, async () => JSON.stringify(await activeNames(p)) === JSON.stringify([name]), 'la touche doit appliquer le thème');
   await blur(p);
   await p.keyboard.press('ControlOrMeta+z');
-  await until(p, async () => (await themeId(p)) === before, "l'annulation doit rendre le thème précédent");
+  await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème précédent");
 
   // 6. Fermer le sélecteur.
   await picker(p).getByRole('button', { name: 'Fermer', exact: true }).click();

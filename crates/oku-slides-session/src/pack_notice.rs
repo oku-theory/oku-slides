@@ -10,6 +10,8 @@
 //! session. Un pack du deck seul (`PackScope::Deck`) n'est jamais reçu dans la
 //! bibliothèque et n'a pas de bandeau.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic};
 use serde_json::json;
 use snafu::OptionExt;
@@ -35,6 +37,9 @@ pub(crate) fn is_deck_only(files: &PackFiles) -> bool {
         }
     }
 }
+
+/// Les thèmes écartés de la bibliothèque ont déjà été signalés dans le processus.
+static THEMES_SKIPPED_SEEN: AtomicBool = AtomicBool::new(false);
 
 /// Le bandeau : la version d'un pack épinglé n'est pas la courante.
 #[derive(Debug, Clone, PartialEq)]
@@ -77,6 +82,29 @@ pub(crate) fn pack_notice_banner(message: String, make_current: bool, l: &Locali
 }
 
 impl Session {
+    /// Signale une fois par processus les thèmes de la bibliothèque écartés (`notice-themes-skipped`).
+    ///
+    /// Un thème d'avant les espaces de noms ne se lit plus : il n'est ni listé ni proposé.
+    /// L'avis est gardé (`themes_notice`) pour suivre le document qui remplacerait le deck
+    /// vierge avant qu'il soit vu ([`Self::carried_themes_notice`]).
+    pub(crate) fn notice_skipped_themes(&mut self) {
+        let count = self.themes.skipped();
+        if count > 0 && !THEMES_SKIPPED_SEEN.swap(true, Ordering::Relaxed) {
+            tracing::warn!(count, "thèmes de la bibliothèque écartés : sans espace de noms ou illisibles");
+            let text = self.localizer.tr_with("notice-themes-skipped", &[("count", count.into())]);
+            self.themes_notice = Some(text.clone());
+            self.set_notice(text);
+        }
+    }
+
+    /// L'avis des thèmes écartés que le document montré porte encore, pas encore vu : le suivant le reprend.
+    ///
+    /// Un avis déjà montré (le snapshot le vide) ne revient pas.
+    pub(crate) fn carried_themes_notice(&mut self) -> Option<String> {
+        let text = self.themes_notice.take()?;
+        self.doc.notice.as_deref().is_some_and(|pending| pending.contains(text.as_str())).then_some(text)
+    }
+
     /// Ajoute en silence à la bibliothèque les versions embarquées qu'elle n'a pas.
     ///
     /// Une version déjà connue ou nouvelle d'un pack connu ne change jamais

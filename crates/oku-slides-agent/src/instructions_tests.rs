@@ -23,7 +23,9 @@ fn instructions_ask_for_report_not_suggest_next() {
 #[case("Presenting: present")]
 #[case("set_interface (scheme, locale, grid, guides)")]
 #[case("edit_pack (the deck's own pack")]
-#[case("the set_theme op")]
+#[case("the set_theme op with a namespace")]
+#[case("set_token ops on deck.tokens")]
+#[case("component.base.card")]
 fn instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
     let at = INSTRUCTIONS.find("You also run the app");
     assert_that!(at).is_some();
@@ -146,7 +148,7 @@ fn widgets_import_line_lists_list_item() {
 #[case::frame("set_frame")]
 #[case::widget("set_widget")]
 #[case::preview("preview_widget")]
-#[case::theme("edit_theme")]
+#[case::theme("set_token ops on deck.tokens")]
 #[case::tokens("theme_tokens")]
 #[case::confirm("ask_confirm")]
 #[case::receipt("report")]
@@ -182,11 +184,11 @@ fn import_says_the_tools_count_tries_on_report_and_diff_alike() {
 }
 
 #[test]
-fn import_puts_theme_and_pack_widget_edits_on_the_global_budget() {
+fn import_puts_deck_tokens_and_pack_widget_edits_on_the_global_budget() {
     let rule = IMPORT.find("changes the whole deck").map_or("", |at| &IMPORT[at..]);
     let line = rule.split('\n').next().unwrap_or("");
     let parts =
-        ["global_tries_left", "edit neither the theme nor the pack widgets", "never makes your slide edits free"];
+        ["global_tries_left", "edit neither the deck tokens nor the pack widgets", "never makes your slide edits free"];
     for part in parts {
         asserting(part).that(&line.contains(part)).is_true();
     }

@@ -35,6 +35,7 @@ fn quote_pack(id: uuid::Uuid, namespace: &str) -> PackFiles {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        tokens: Vec::new(),
     };
     let file = WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget"));
     manifest
@@ -62,8 +63,13 @@ fn library_quote(dir: &Path) -> PackPin {
     let id = uuid::Uuid::new_v4();
     let files = quote_pack(id, "pack");
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library =
-        PackLibrary::new(Some(dir.join("data").join("widgets")), Some(dir.join("data").join("layouts")), storage);
+    let themes = oku_slides_session::ThemeLibrary::new(Some(dir.join("data").join("themes")), storage.clone());
+    let library = PackLibrary::new(
+        Some(dir.join("data").join("widgets")),
+        Some(dir.join("data").join("layouts")),
+        themes,
+        storage,
+    );
     library.add_version(id, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));
     PackPin { id, version: files.version(), requires: vec![] }
 }
@@ -128,8 +134,13 @@ fn save_ignores_a_pack_beside_the_deck_whose_manifest_id_is_another_pack() {
 fn deck_without_pack_and_default_quote(dir: &Path) -> std::path::PathBuf {
     let id = oku_slides_session::BASE_PACK;
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library =
-        PackLibrary::new(Some(dir.join("data").join("widgets")), Some(dir.join("data").join("layouts")), storage);
+    let themes = oku_slides_session::ThemeLibrary::new(Some(dir.join("data").join("themes")), storage.clone());
+    let library = PackLibrary::new(
+        Some(dir.join("data").join("widgets")),
+        Some(dir.join("data").join("layouts")),
+        themes,
+        storage,
+    );
     // Une version de `base` (même espace de noms, mêmes widgets) qui gagne `quote`.
     let builtin = library.current_version(id).unwrap_or_else(|| panic!("base intégré")).files;
     let manifest = PackManifest::from_files(&builtin).unwrap_or_else(|e| panic!("manifeste de base : {e}"));

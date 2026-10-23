@@ -23,7 +23,7 @@ mod profile;
 mod slide;
 pub(crate) mod table;
 pub(crate) mod text;
-mod zone;
+pub(crate) mod zone;
 
 use std::collections::BTreeMap;
 
@@ -98,6 +98,7 @@ fn request(requests: &mut Vec<WidgetRequest>, item: &Item, fallback: &str, slide
 /// [`ImportErrorKind::NoProfiles`](crate::ImportErrorKind::NoProfiles) si
 /// les packs cibles ne proposent aucun profil.
 pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> Result<ImportPlan, ImportError> {
+    zone::check_defaults()?;
     if target.profiles.is_empty() {
         return Err(no_profiles());
     }

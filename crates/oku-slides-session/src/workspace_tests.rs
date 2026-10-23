@@ -32,10 +32,8 @@ fn ids(w: &WindowView) -> Vec<&str> {
 }
 
 fn set_theme() -> Request {
-    serde_json::from_value(
-        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref("pro")}]}),
-    )
-    .unwrap()
+    serde_json::from_value(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": "pro"}]}))
+        .unwrap()
 }
 
 /// Un vrai `.oku-slides.pdf` : un deck JSON n'a pas de fichier associé.

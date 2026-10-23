@@ -26,9 +26,64 @@ expression: "plan(\"minimal\").ops"
   },
   {
     "op": "set_theme",
-    "theme": {
-      "id": "00000000-0000-0000-0000-000000000002",
-      "version": "sha256:9a3464ab01f724886984dd0311f482456e836818d0e67caf7794780929264475"
+    "theme": "neutre",
+    "themes": {}
+  },
+  {
+    "op": "set_tokens",
+    "tokens": {
+      "color": {
+        "bg": "#ffffff",
+        "ink": "#000000",
+        "ink-muted": "#44546a",
+        "surface": "#e7e6e6",
+        "accent": "#4472c4",
+        "accent-2": "#ed7d31",
+        "accent-3": "#a5a5a5",
+        "accent-4": "#ffc000",
+        "accent-5": "#5b9bd5",
+        "accent-6": "#70ad47",
+        "link": "#0563c1",
+        "link-visited": "#954f72",
+        "on-accent": "bg",
+        "rule": "#d9d9d9"
+      },
+      "chart": {
+        "palette": [
+          "accent",
+          "accent-2",
+          "accent-3",
+          "accent-4",
+          "accent-5",
+          "accent-6"
+        ]
+      },
+      "font": {
+        "display": [
+          "Carlito"
+        ],
+        "body": [
+          "Carlito"
+        ]
+      },
+      "size": {
+        "title": 88.0,
+        "subtitle": 48.0,
+        "body": 56.0
+      },
+      "list": {
+        "marker": "•",
+        "marker-color": null
+      },
+      "weight": {
+        "body": 400,
+        "strong": 700
+      },
+      "page": {
+        "margin-x": 0,
+        "margin-top": 0,
+        "margin-bottom": 0
+      }
     }
   },
   {

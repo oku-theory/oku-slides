@@ -47,7 +47,6 @@ ui-divider-code = कोड का आकार
 ui-divider-band = सेटिंग्स की ऊँचाई
 ui-toolbar-theme = थीम
 ui-toolbar-theme-embedded = फ़ाइल की थीम
-ui-toolbar-theme-deck-group = यह प्रस्तुति
 ui-toolbar-finish = हो गया
 ui-pack-deck-only = केवल इसी प्रस्तुति में सहेजा गया
 ui-toolbar-open = खोलें

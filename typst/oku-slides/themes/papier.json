@@ -1,6 +1,7 @@
 {
   "id": "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31",
   "name": "Papier",
+  "namespace": "papier",
   "description": "",
   "parent": null,
   "created": "2026-10-05T00:00:00Z",
@@ -77,21 +78,25 @@
       "shadow": "#000000"
     },
     "component": {
-      "chapter": {
-        "bg": "surface",
-        "ink": "ink",
-        "number-color": "accent",
-        "number-opacity": 1
+      "essentiel": {
+        "chapter": {
+          "bg": "surface",
+          "ink": "ink",
+          "number-color": "accent",
+          "number-opacity": 1
+        },
+        "title-slide": {
+          "bg": "bg",
+          "bar-color": "accent"
+        },
+        "end-slide": {
+          "bg": "surface"
+        }
       },
-      "title-slide": {
-        "bg": "bg",
-        "bar-color": "accent"
-      },
-      "card": {
-        "highlight-kicker": "accent-soft"
-      },
-      "end-slide": {
-        "bg": "surface"
+      "base": {
+        "card": {
+          "highlight-kicker": "accent-soft"
+        }
       }
     }
   }

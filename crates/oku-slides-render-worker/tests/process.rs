@@ -8,8 +8,11 @@ use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
 use std::sync::Arc;
 
-use oku_slides_core::{PackKind, WidgetRegistry};
-use oku_slides_render::{Fonts, PackSet, PackWidgets, RenderErrorKind, Renderer, builtin_pack_set, builtin_registry};
+use oku_slides_core::{PackKind, WidgetRegistry, tokens::theme_layer};
+use oku_slides_render::{
+    Fonts, PackSet, PackWidgets, RenderErrorKind, Renderer, builtin_component_defaults, builtin_pack_set,
+    builtin_registry,
+};
 use oku_slides_render_worker::RenderWorker;
 use speculoos::prelude::*;
 
@@ -51,10 +54,12 @@ fn process_render_is_identical_to_in_memory_render() {
     let l = Localizer::new(Some("fr"));
     let mut local = Renderer::with_builtins(Fonts::default()).unwrap();
     local.set_language(&l).unwrap();
-    // La maquette est en `papier` : le même thème est posé au travailleur par `SetTheme`.
+    // La maquette est en `papier` : la même couche (défauts des packs intégrés, puis
+    // `papier`) est posée au travailleur par `SetTheme`.
     let papier = include_str!("../../../typst/oku-slides/themes/papier.json");
     let papier: serde_json::Value = serde_json::from_str(papier).unwrap();
-    let tokens = papier["tokens"].as_object().cloned();
+    let packs = builtin_component_defaults().unwrap();
+    let tokens = Some(theme_layer(packs.iter().map(|(ns, d)| (ns, d.clone())), papier["tokens"].as_object()));
     local.set_theme(tokens.clone()).unwrap();
     let expected = local.render(&roadmap(), &BTreeMap::new()).unwrap();
     let w = worker(30_000, 4096);

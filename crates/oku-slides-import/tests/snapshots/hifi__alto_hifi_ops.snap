@@ -4,7 +4,8 @@ expression: "op_lines(&plan(\"alto\"))"
 ---
 {"op":"add_pack","kind":"widgets","namespace":"base","pin":{"id":"3b1f6c2e-5a4d-4e8b-9c71-0d2e4f6a8b13","version":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
 {"op":"add_pack","kind":"layouts","namespace":"essentiel","pin":{"id":"d5eb8a57-07b4-47f7-a818-dde5347160cf","version":"sha256:0000000000000000000000000000000000000000000000000000000000000000","requires":["base"]}}
-{"op":"set_theme","theme":{"id":"00000000-0000-0000-0000-000000000002","version":"sha256:8fcb0d016ab5dac766f6c810607a578755223ed983f75fd892a54db1a7f5366a"}}
+{"op":"set_theme","theme":"neutre","themes":{}}
+{"op":"set_tokens","tokens":{"color":{"bg":"#ffffff","ink":"#000000","ink-muted":"#44546a","surface":"#e7e6e6","accent":"#4472c4","accent-2":"#ed7d31","accent-3":"#a5a5a5","accent-4":"#ffc000","accent-5":"#5b9bd5","accent-6":"#70ad47","link":"#0563c1","link-visited":"#954f72","on-accent":"bg","rule":"#d9d9d9"},"chart":{"palette":["accent","accent-2","accent-3","accent-4","accent-5","accent-6"]},"font":{"display":["Carlito"],"body":["Carlito"]},"size":{"title":88.0,"body":64.0},"list":{"marker":"•","marker-color":null},"weight":{"body":400,"strong":700},"page":{"margin-x":0,"margin-top":0,"margin-bottom":0}}}
 {"op":"add_pack","kind":"layouts","namespace":"deck-layouts","pin":{"id":"00000000-0000-0000-0000-000000000001","version":"sha256:c9570e68f20eb4c09481579c86461bc174e599ff70382497f775ef3098957fe2","requires":["base"]}}
 {"op":"set_deck_param","key":"lang","value":"en-US"}
 slide s1 deck-layouts/l1-default {}

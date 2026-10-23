@@ -47,7 +47,6 @@ ui-divider-code = Tamanho do código
 ui-divider-band = Altura das configurações
 ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Tema do arquivo
-ui-toolbar-theme-deck-group = Esta apresentação
 ui-toolbar-finish = Concluir
 ui-pack-deck-only = Salvo apenas nesta apresentação
 ui-toolbar-open = Abrir

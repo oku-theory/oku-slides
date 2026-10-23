@@ -47,7 +47,6 @@ ui-divider-code = Kod boyutu
 ui-divider-band = Ayarların yüksekliği
 ui-toolbar-theme = Tema
 ui-toolbar-theme-embedded = Dosyanın teması
-ui-toolbar-theme-deck-group = Bu sunu
 ui-toolbar-finish = Bitti
 ui-pack-deck-only = Yalnızca bu sunuya kaydedilir
 ui-toolbar-open = Aç

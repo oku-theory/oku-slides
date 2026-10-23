@@ -75,10 +75,6 @@ pub struct ImportPlan {
     pub widget_requests: Vec<WidgetRequest>,
     /// Rapport.
     pub report: ImportReport,
-    /// Thème généré (hi-fi) : la version (`theme.json`) que désigne l'op
-    /// `set_theme`, à ajouter aux thèmes du bundle (`add_theme`).
-    #[serde(skip)]
-    pub theme: Option<PackFiles>,
     /// Pack généré (hi-fi) : la version (`widgets.json` et widgets) que désigne
     /// l'op `add_pack` (espace de noms `deck`), à ajouter aux packs du bundle.
     #[serde(skip)]
@@ -112,7 +108,6 @@ impl ImportPlan {
             assets: BTreeMap::new(),
             widget_requests: Vec::new(),
             report,
-            theme: None,
             pack: None,
             schemas: Vec::new(),
             fonts: BTreeMap::new(),
@@ -161,9 +156,8 @@ impl ImportPlan {
             && self.assets.values().all(|a| budget.take(a.bytes.len()))
             && self.fonts.values().all(|f| budget.take(f.len()))
             && self
-                .theme
+                .pack
                 .iter()
-                .chain(&self.pack)
                 .all(|f| budget.take_json(f.manifest()) && f.widgets().values().all(|w| budget.take(w.len())));
         if fits { Ok(()) } else { Err(output_too_large(limits.max_output_bytes)) }
     }
@@ -171,7 +165,7 @@ impl ImportPlan {
 
 /// Un plan dont la sortie tient dans les budgets : seul [`ImportPlan::check_budget`] en rend un.
 ///
-/// Il se lit comme un [`ImportPlan`] ; on peut en retirer les ops, le thème, le pack et les
+/// Il se lit comme un [`ImportPlan`] ; on peut en retirer les ops, le pack et les
 /// polices, ou annoter le rapport, jamais y ajouter : il reste dans les budgets vérifiés.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedPlan(ImportPlan);
@@ -188,11 +182,6 @@ impl CheckedPlan {
     /// Retire les opérations, à appliquer dans l'ordre en une transaction.
     pub fn take_ops(&mut self) -> Vec<Op> {
         std::mem::take(&mut self.0.ops)
-    }
-
-    /// Retire le thème généré (hi-fi).
-    pub fn take_theme(&mut self) -> Option<PackFiles> {
-        self.0.theme.take()
     }
 
     /// Retire le pack généré (hi-fi).

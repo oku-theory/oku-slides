@@ -43,6 +43,7 @@ fn library_pack(library: &PackLibrary, namespace: &str, source: &str) -> Op {
         scope: PackScope::Library,
         profiles: Vec::new(),
         examples: BTreeMap::new(),
+        tokens: Vec::new(),
     };
     let note = WidgetFile::parse("note").unwrap_or_else(|| panic!("nom"));
     let files = manifest
@@ -69,8 +70,12 @@ fn note_of(namespace: &str) -> Op {
 #[test]
 fn bounded_failure_among_three_packs_disables_only_the_looping_one() {
     let data = data_dir();
-    let library =
-        PackLibrary::new(Some(data.as_ref().join("widgets")), None, Storage::local().unwrap_or_else(|e| panic!("{e}")));
+    let library = PackLibrary::new(
+        Some(data.as_ref().join("widgets")),
+        None,
+        crate::common::no_user_themes(),
+        Storage::local().unwrap_or_else(|e| panic!("{e}")),
+    );
     let mut ops: Vec<Op> = [("alpha", GOOD_NOTE), ("beta", LOOPING_NOTE), ("gamma", GOOD_NOTE)]
         .iter()
         .map(|(n, src)| library_pack(&library, n, src))

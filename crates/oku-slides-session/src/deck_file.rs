@@ -64,6 +64,10 @@ impl Session {
         self.end_widget_session();
         deck_pack::adopt_default_packs(&self.library, &mut doc.sources)?;
         deck_theme::adopt_default_theme(&self.themes, &mut doc.sources)?;
+        // Une reprise ou un fichier peut porter une fermeture cassée par une fusion.
+        if let Err(e) = deck_theme::repair_theme_closure(&self.themes, &mut doc.sources) {
+            tracing::warn!(error = %e.one_line(), "épinglages des thèmes non réparés");
+        }
         let (widgets, notice) = self.resolve_widgets(&combined_pins(doc.sources.deck()), &doc.sources.packs)?;
         doc.sources.set_registry(widgets.registry.clone());
         let mut deck = doc.sources.deck().clone();
@@ -82,7 +86,12 @@ impl Session {
             .then(|| self.fonts_renderer(&doc.sources.fonts, &widgets.set, &widgets.registry))
             .transpose()?;
         self.install_widgets(widgets)?;
+        // L'avis des thèmes écartés posé sur le deck vierge, pas encore vu, suit le document (reprise d'onglet).
+        let carried = self.carried_themes_notice();
         self.doc = doc;
+        if let Some(text) = carried {
+            self.set_notice(text);
+        }
         // Un autre document : l'état d'un import ne vaut plus (`load_import` le pose après) ;
         // un document refusé plus haut laisse l'onglet et son import tels quels.
         self.import = None;

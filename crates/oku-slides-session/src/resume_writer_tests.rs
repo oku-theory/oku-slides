@@ -28,10 +28,10 @@ fn resume(dir: &std::path::Path) -> Resume {
 
 fn document(theme: &str) -> Document {
     let mut deck = Deck::from_json(r#"{"slides":[]}"#).unwrap();
-    deck.theme = crate::test_support::theme_ref("papier");
+    crate::test_support::pin_builtin_theme(&mut deck, "papier");
     let mut doc = Document::new(SourceBundle::new(deck.clone(), registry()).unwrap(), None, &defaults());
     let mut next = deck;
-    next.theme = crate::test_support::theme_ref(theme);
+    crate::test_support::pin_builtin_theme(&mut next, theme);
     doc.sources.apply(next, "Thème", None).unwrap();
     doc
 }

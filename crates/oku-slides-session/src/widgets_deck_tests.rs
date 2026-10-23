@@ -60,7 +60,7 @@ fn a_non_widget_operation_ends_the_widget_session() {
     let mut s = opened_on(data.path());
     s.set_widget(Some(&ess()), "quote", QUOTE.into()).unwrap();
     let first = pin(&s, "base").unwrap();
-    s.apply("Thème", vec![Op::SetTheme { theme: crate::test_support::theme_ref("pro") }], None).unwrap();
+    s.apply("Thème", vec![crate::test_support::set_theme_op("pro")], None).unwrap();
     s.set_widget(Some(&ess()), "quote", QUOTE_V2.into()).unwrap();
     let second = pin(&s, "base").unwrap();
     assert_that!(second.version).is_not_equal_to(first.version.clone());

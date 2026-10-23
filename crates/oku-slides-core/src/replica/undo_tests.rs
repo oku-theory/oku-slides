@@ -93,7 +93,7 @@ fn undo_limit_drops_oldest_steps() {
 
 fn themed(deck: &Deck, t: &str) -> Deck {
     let mut d = deck.clone();
-    d.theme = Some(crate::test_registry::theme_ref(t));
+    crate::test_registry::set_theme(&mut d, t);
     d
 }
 

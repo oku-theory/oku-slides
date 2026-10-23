@@ -44,7 +44,6 @@ ui-divider-code = ขนาดโค้ด
 ui-divider-band = ความสูงของการตั้งค่า
 ui-toolbar-theme = ธีม
 ui-toolbar-theme-embedded = ธีมของไฟล์
-ui-toolbar-theme-deck-group = งานนำเสนอนี้
 ui-toolbar-finish = เสร็จสิ้น
 ui-pack-deck-only = บันทึกไว้ในงานนำเสนอนี้เท่านั้น
 ui-toolbar-open = เปิด

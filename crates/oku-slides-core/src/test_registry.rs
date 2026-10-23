@@ -27,10 +27,18 @@ pub(crate) fn registry() -> WidgetRegistry {
     WidgetRegistry::from_probe(probe()).unwrap_or_else(|e| panic!("sonde : {e}"))
 }
 
-/// Une référence de thème de test : version `<c>` répété 64 fois, id dérivé.
-pub(crate) fn theme_ref(c: &str) -> crate::ThemeRef {
+/// Les épinglages d'un thème de test `<c>` sans parent : version `<c>` répété 64 fois, id dérivé.
+pub(crate) fn theme_pins(c: &str) -> std::collections::BTreeMap<crate::Namespace, crate::ThemePin> {
     let version = crate::PackVersion::from_hex(&c.repeat(64)).unwrap_or_else(|| panic!("hex invalide : {c}"));
-    crate::ThemeRef { id: uuid::Uuid::from_u128(u128::from(c.as_bytes()[0])), version }
+    let id = uuid::Uuid::from_u128(u128::from(c.as_bytes()[0]));
+    let ns = crate::Namespace::parse(c).unwrap_or_else(|| panic!("espace de noms invalide : {c}"));
+    [(ns, crate::ThemePin { id, version, extends: Vec::new() })].into()
+}
+
+/// Pose sur `deck` le thème de test `<c>` et ses épinglages ([`theme_pins`]).
+pub(crate) fn set_theme(deck: &mut crate::Deck, c: &str) {
+    deck.theme = crate::Namespace::parse(c);
+    deck.themes = theme_pins(c);
 }
 
 /// Le registre intégré, partagé comme le prennent le replica et les sources.

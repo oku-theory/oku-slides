@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use oku_slides_core::kinds;
 use oku_slides_core::{
-    Deck, Element, Namespace, Op, PackKind, ParamValue, Params, ThemeManifest, WidgetRegistry, apply_all, validate,
+    Deck, Element, Namespace, Op, PackKind, ParamValue, Params, WidgetRegistry, apply_all, validate,
 };
 use oku_slides_import::source::SourceDeck;
 use oku_slides_import::{HifiTarget, ImportPlan, PackLimits, hifi, read_pptx};
@@ -38,7 +38,7 @@ fn plan(fixture: &str) -> ImportPlan {
         essentiel: common::essentiel_pin(),
         fonts: &fonts,
         pack_id: Uuid::from_u128(1),
-        theme_id: Uuid::from_u128(2),
+        theme: Namespace::parse("neutre").unwrap_or_else(|| panic!("espace de noms")),
         name: "Import".to_owned(),
         created: "2026-10-11T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
@@ -56,7 +56,8 @@ fn import(fixture: &str) -> (ImportPlan, Deck) {
     let plan = plan(fixture);
     let registry = registry(&plan);
     let mut deck = Deck::empty();
-    apply_all(&mut deck, plan.ops.clone(), &registry).unwrap_or_else(|e| panic!("{fixture} : {e:?}"));
+    apply_all(&mut deck, common::with_theme_closure(plan.ops.clone()), &registry)
+        .unwrap_or_else(|e| panic!("{fixture} : {e:?}"));
     let assets: HashSet<String> = plan.assets.keys().cloned().collect();
     let issues = validate(&deck, &registry, Some(&assets));
     assert!(issues.is_empty(), "{fixture} : {issues:?}");
@@ -69,12 +70,11 @@ fn hifi_applies_without_issue_and_covers_everything(
 ) {
     let (plan, deck) = import(fixture);
     assert_that!(deck.slides.len()).is_equal_to(source(fixture).slides.len());
-    let (theme, pack) = (plan.theme.as_ref().unwrap(), plan.pack.as_ref().unwrap());
-    assert_that!(deck.theme.as_ref().map(|t| (t.id, t.version.clone())))
-        .is_equal_to(Some((Uuid::from_u128(2), theme.version())));
+    let pack = plan.pack.as_ref().unwrap();
+    assert_that!(deck.theme.as_ref().map(Namespace::as_str)).is_equal_to(Some("neutre"));
     assert_that!(deck.layouts.get(&Namespace::deck_layouts()).map(|p| (p.id, p.version.clone())))
         .is_equal_to(Some((Uuid::from_u128(1), pack.version())));
-    assert_that!(ThemeManifest::from_files(theme).unwrap().tokens["weight"]["strong"]).is_equal_to(json!(700));
+    assert_that!(deck.tokens["weight"]["strong"].clone()).is_equal_to(json!(700));
     // Un fichier par widget déclaré, plus `_commun`.
     assert_that!((pack.kind(), pack.widgets().len() - 1)).is_equal_to((PackKind::Layouts, plan.schemas.len()));
     let c = plan.report.coverage.clone().unwrap_or_else(|| panic!("couverture mesurée"));

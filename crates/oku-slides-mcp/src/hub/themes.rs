@@ -3,7 +3,7 @@
 //! Le seul `show_*` que le hub construit lui-même : il le refait après un choix ou
 //! un changement du deck (`prune`), à partir des cartes gardées, sans rien rendre.
 
-use oku_slides_session::{HOST_THEME_PICKER, picked_theme_id, theme_picker};
+use oku_slides_session::{HOST_THEME_PICKER, picked_theme, theme_picker};
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
@@ -17,7 +17,7 @@ impl SurfaceHub {
     pub fn show_themes(&self, slide: Option<String>) -> Result<bool, HubError> {
         let choices = self.session.with(|s| s.theme_choices(slide.as_deref())).and_then(|r| r).context(SessionSnafu)?;
         let Some(choices) = choices else { return Ok(false) };
-        let surface = theme_picker(&choices.cards, choices.active, &self.localizer.current());
+        let surface = theme_picker(&choices.cards, &choices.active, &self.localizer.current());
         let picker = ThemePicker { cards: choices.cards, active: choices.active };
         self.show_alone(surface, Shown::Themes(picker), |s| matches!(s, Shown::Themes(_)));
         Ok(true)
@@ -29,11 +29,11 @@ impl SurfaceHub {
         picker: &ThemePicker,
         context: &Map<String, Value>,
     ) -> Result<ThemePicker, HubInner> {
-        let id = picked_theme_id(context).context(IncompleteSnafu { key: oku_slides_session::THEME_EVENT })?;
-        self.session.with(|s| s.pick_theme(id)).and_then(|r| r).context(SessionSnafu)?;
+        let ns = picked_theme(context).context(IncompleteSnafu { key: oku_slides_session::THEME_EVENT })?;
+        self.session.with(|s| s.pick_theme(&ns)).and_then(|r| r).context(SessionSnafu)?;
         self.emit(McpEvent::Changed);
-        let next = ThemePicker { cards: picker.cards.clone(), active: id };
-        self.emit(McpEvent::Surface { surface: theme_picker(&next.cards, id, &self.localizer.current()) });
+        let next = ThemePicker { cards: picker.cards.clone(), active: ns };
+        self.emit(McpEvent::Surface { surface: theme_picker(&next.cards, &next.active, &self.localizer.current()) });
         Ok(next)
     }
 
@@ -56,9 +56,9 @@ impl SurfaceHub {
             let deck = s.deck();
             let gone =
                 seen.is_some_and(|id| if id.is_empty() { !deck.slides.is_empty() } else { deck.slide(&id).is_none() });
-            (s.in_deck_mode(), s.active_theme(), gone)
+            Ok((s.in_deck_mode(), s.active_theme()?, gone))
         });
-        let (deck_mode, active, gone) = match read {
+        let (deck_mode, active, gone) = match read.and_then(|r| r) {
             Ok(read) => read,
             Err(e) => {
                 tracing::warn!(error = %e, "sélecteur de thème non rafraîchi : session illisible");
@@ -76,7 +76,7 @@ impl SurfaceHub {
         if active == picker.active {
             return;
         }
-        let surface = theme_picker(&picker.cards, active, &self.localizer.current());
+        let surface = theme_picker(&picker.cards, &active, &self.localizer.current());
         state.shows.insert(HOST_THEME_PICKER.to_owned(), Shown::Themes(ThemePicker { active, ..picker }));
         self.record_and_send(&mut state, McpEvent::Surface { surface });
     }

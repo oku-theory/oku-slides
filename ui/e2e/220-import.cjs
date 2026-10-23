@@ -17,7 +17,6 @@ const LOG = process.env.E2E_AGENT_LOG;
 const ALTO = path.resolve(__dirname, '..', '..', 'fixtures', 'import', 'alto-wealth.pptx');
 /** Import et premier rendu d'alto, puis le tour de l'agent avec le témoin : bien plus que les 8 s par défaut. */
 const SLOW = 180_000;
-const PAPIER = '2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31';
 
 const api = (p, tab, req) => post(p, '/api', { tab, req });
 
@@ -114,8 +113,10 @@ const noTurnSince = async (p, from, ms) => {
   const snap = await api(p, hifi, { cmd: 'snapshot' });
   assert.equal(snap.slides.length, 8);
   assert.ok(snap.deck_pack, 'le pack généré est propre au deck');
-  const importTheme = snap.theme;
-  assert.deepEqual(snap.deck_themes.map((th) => [th.id, th.version, th.deck_only]), [[importTheme.id, importTheme.version, true]]);
+  // Le thème de l'import est le thème intégré `neutre`, et le style généré tient dans `deck.tokens`.
+  assert.equal(snap.theme, 'neutre', "l'import n'épingle pas neutre");
+  assert.ok(snap.theme_pins.neutre, 'neutre n\'est pas épinglé par le deck');
+  const importTheme = snap.theme_pins.neutre;
   await p.waitForSelector('.stage img');
   // Le deck importé est neuf : l'enregistrement automatique lui donne un fichier, au nom du .pptx.
   const hifiTab = await savedTab(p, hifi);
@@ -169,6 +170,15 @@ const noTurnSince = async (p, from, ms) => {
   const pinOf = (snap) => snap.layouts['deck-layouts'];
   const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
   assert.ok(packBefore, 'le deck importé épingle son pack de layouts');
+  // Le panneau du thème d'un atelier liste les surcharges du deck, que l'import a générées.
+  const deckOverrides = async (pack) => {
+    await api(p, hifi, { cmd: 'edit_pack', pack });
+    const text = JSON.stringify(await api(p, hifi, { cmd: 'host_theme', filter: '' }));
+    await api(p, hifi, { cmd: 'close_pack' });
+    return /Surcharges du deck[^"]*/.exec(text)?.[0] ?? '';
+  };
+  const overridesAtImport = await deckOverrides(packBefore.id);
+  assert.match(overridesAtImport, /Surcharges du deck/, "l'import n'écrit pas de jetons dans deck.tokens");
   // L'atelier demandé à l'agent (t-988) ouvre le pack de layouts propre du deck.
   await openAtelier(p, hifi);
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
@@ -187,17 +197,21 @@ const noTurnSince = async (p, from, ms) => {
   assert.notEqual(pinOf(back).version, packBefore.version, 'le deck passe à la version enregistrée');
   assert.deepEqual(await library(), packsBefore, 'la bibliothèque ne change pas');
 
-  // Le thème du deck seul se reprend après Papier (t-903) ; l'agent choisit le thème par l'op set_theme (t-988).
-  assert.deepEqual(back.theme, importTheme, "l'atelier garde le thème de l'import");
+  // L'agent choisit le thème par l'op set_theme (t-988) : Papier, puis Neutre, sans perdre les jetons du deck.
+  assert.equal(back.theme, 'neutre', "l'atelier garde le thème de l'import");
   const setTheme = (theme) => api(p, hifi, { cmd: 'apply', label: 'Thème', ops: [{ op: 'set_theme', theme }], merge: null });
-  await setTheme({ id: PAPIER, version: back.themes.find((th) => th.id === PAPIER).version });
+  await setTheme('papier');
   const onPapier = await api(p, hifi, { cmd: 'snapshot' });
-  assert.equal(onPapier.theme?.id, PAPIER, "Papier n'est pas choisi");
-  assert.deepEqual(onPapier.deck_themes.map((th) => th.id), [importTheme.id], "le thème de l'import n'est plus offert");
-  await setTheme(importTheme);
+  assert.equal(onPapier.theme, 'papier', "Papier n'est pas choisi");
+  await setTheme('neutre');
   const repicked = await api(p, hifi, { cmd: 'snapshot' });
-  assert.equal(repicked.theme?.id, importTheme.id, "le thème de l'import ne revient pas");
-  assert.equal(repicked.theme.version, importTheme.version, "le thème de l'import revient dans sa version d'origine");
+  assert.equal(repicked.theme, 'neutre', 'Neutre ne revient pas');
+  assert.equal(repicked.theme_pins.neutre.version, importTheme.version, 'Neutre revient dans une autre version');
+  // Les surcharges du deck (deck.tokens) se lisent dans le panneau du thème d'un atelier : Neutre les garde.
+  const packId = pinOf(repicked).id;
+  const overridesAfterRepick = await deckOverrides(packId);
+  assert.match(overridesAfterRepick, /Surcharges du deck/, 'les jetons du deck ont disparu au changement de thème');
+  assert.equal(overridesAfterRepick, overridesAtImport, 'les jetons du deck ont changé avec le thème');
   assert.deepEqual(repicked.themes, onPapier.themes, 'la bibliothèque des thèmes ne change pas');
 
   // 2. Sur mes layouts : Essentiel coché par défaut, le thème du pack, sans agent.

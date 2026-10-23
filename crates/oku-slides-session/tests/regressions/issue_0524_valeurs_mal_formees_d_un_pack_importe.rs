@@ -70,7 +70,7 @@ fn a_received_pack_with_malformed_examples_keeps_its_values_through_save_pack() 
     let data = data_dir();
     let id = Uuid::new_v4();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    let library = PackLibrary::new(Some(data.join("widgets")), None, storage);
+    let library = PackLibrary::new(Some(data.join("widgets")), None, crate::common::no_user_themes(), storage);
     library.add_version(id, &received(id, "Ventes")).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
     s.edit_pack(id).unwrap_or_else(|e| panic!("{e}"));
@@ -85,7 +85,7 @@ fn a_received_value_over_the_text_bound_is_ignored_in_the_preview_and_dropped_at
     let data = data_dir();
     let id = Uuid::new_v4();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    let library = PackLibrary::new(Some(data.join("widgets")), None, storage);
+    let library = PackLibrary::new(Some(data.join("widgets")), None, crate::common::no_user_themes(), storage);
     let long = "x".repeat(PLAIN_MAX + 1);
     library.add_version(id, &well_formed(id, &long)).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);

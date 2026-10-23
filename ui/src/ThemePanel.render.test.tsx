@@ -21,15 +21,15 @@ const PAPIER_ID = "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31";
 const PRO_ID = "7e1b9c3d-2f4a-4d6e-a8b0-5c7d9e1f3b42";
 const OTHER_ID = "11111111-1111-4111-8111-111111111111";
 const themes = [
-  { id: PAPIER_ID, version: "v1", name: "Papier", builtin: true, default: true },
-  { id: PRO_ID, version: "v1", name: "Pro", builtin: true, default: false },
+  { id: PAPIER_ID, version: "v1", name: "Papier", namespace: "papier", extends: [], builtin: true, default: true },
+  { id: PRO_ID, version: "v1", name: "Pro", namespace: "pro", extends: [], builtin: true, default: false },
 ];
 
 /** Un instantané en mode pack, le thème `name` en brouillon. */
 const snapEditingTheme = (name: string, o: { dirty?: boolean; base?: string } = {}): Snapshot =>
   ({
-    editing: { pack: "p", base: "b", theme: { base: { id: o.base ?? PAPIER_ID, version: "v1" }, name, builtin: true, dirty: o.dirty ?? false, revision: "r1" } },
-    themes, deck_themes: [], history: null, undo_label: null, redo_label: null, slides: [],
+    editing: { pack: "p", base: "b", theme: { base: { id: o.base ?? PAPIER_ID, version: "v1" }, name, child: true, extends: [], dirty: o.dirty ?? false, revision: "r1" } },
+    themes, history: null, undo_label: null, redo_label: null, slides: [],
   }) as unknown as Snapshot;
 
 /** Une api en mémoire qui note les changements du thème édité. */
@@ -81,7 +81,7 @@ describe("ThemePanel", () => {
   test("ThemePanel lists themes and renames the edited theme", async () => {
     const { host, calls } = await mount(snapEditingTheme("Papier"));
     const select = byLabel<HTMLSelectElement>(host, "Theme");
-    expect(select.value).toBe(PAPIER_ID);
+    expect(select.value).toBe("papier");
     expect([...select.options].map((o) => o.textContent)).toEqual(["Papier", "Pro"]);
     const name = byLabel<HTMLInputElement>(host, "Theme name");
     expect(name.value).toBe("Papier");
@@ -109,7 +109,7 @@ describe("ThemePanel", () => {
     const { host, calls } = await mount(snapEditingTheme("Papier"));
     const select = byLabel<HTMLSelectElement>(host, "Theme");
     await act(async () => {
-      select.value = PRO_ID;
+      select.value = "pro";
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await wait(10);

@@ -12,7 +12,7 @@ use crate::test_support::{add_version, fresh_dir, manifest};
 
 /// Une bibliothèque des packs, ses widgets sous `dir` (sans dossier de layouts).
 fn library(dir: &Path) -> PackLibrary {
-    PackLibrary::new(Some(dir.to_owned()), None, Storage::local().unwrap())
+    PackLibrary::new(Some(dir.to_owned()), None, crate::ThemeLibrary::builtin_only(), Storage::local().unwrap())
 }
 
 /// Packs de widgets lus sur le disque par cette instance depuis sa création.

@@ -20,7 +20,8 @@ use oku_slides_render::{BuiltinPack, PackSet, PackWidgets, RegistryError};
 
 use crate::deck_closure::{Pinned, closure_ops};
 use crate::error::{
-    PackIdMismatchSnafu, PackJsonSnafu, PackPinMismatchSnafu, PackVersionMissingSnafu, SourcesSnafu, UnknownPackSnafu,
+    PackIdMismatchSnafu, PackManifestSnafu, PackPinMismatchSnafu, PackVersionMissingSnafu, SourcesSnafu,
+    UnknownPackSnafu,
 };
 use crate::library::builtin_versions;
 use crate::library_packs::PackLibrary;
@@ -115,7 +116,7 @@ pub(crate) fn empty_registry() -> Arc<WidgetRegistry> {
 /// Manifeste lisible, d'id `pin.id`, d'espace de noms `ns` et de besoins
 /// `pin.requires`. Seule règle : la session et la CLI passent par ici.
 pub fn check_pack_id(ns: &Namespace, pin: &PackPin, files: &PackFiles) -> Result<()> {
-    let manifest = PackManifest::from_files(files).context(PackJsonSnafu { id: pin.id })?;
+    let manifest = PackManifest::from_files(files).context(PackManifestSnafu { id: pin.id })?;
     ensure!(manifest.id == pin.id, PackIdMismatchSnafu { id: pin.id, found: manifest.id });
     let same = manifest.namespace == *ns && manifest.requires == pin.requires;
     ensure!(same, PackPinMismatchSnafu { namespace: ns.as_str() });

@@ -1,8 +1,17 @@
 // Même structure que demo.typ, rendue avec le thème Template Pro.
 #import "../lib.typ": *
+#import "../packs/essentiel/layouts/_commun.typ": title-slide, toc, chapter, slide, end-slide
+#import "../packs/base/widgets/card.typ": card
+
+// Les fonctions de slide (et la carte) viennent des packs : elles lisent leurs
+// jetons de composant, défauts du pack puis thème, dans `ctx.component`.
+#let theme = merge(merge(pack-tokens("essentiel", json("../packs/essentiel/layouts.json")),
+  pack-tokens("base", json("../packs/base/widgets.json"))), pro)
+#let ess = (component: theme.component.essentiel)
+#let base = (component: theme.component.base)
 
 #show: deck.with(
-  theme: pro,
+  theme: theme,
   title: "Feuille de route {{annee}}",
   subtitle: "Trois chantiers pour {{client}}",
   author: "Matthieu",
@@ -11,44 +20,44 @@
   vars: (client: "Acme", annee: 2027, confidential: "CONFIDENTIAL"),
 )
 
-#title-slide()
-#toc()
+#title-slide(ess)
+#toc(ess)
 
-#chapter("Contexte", subtitle: "Où en est {{client}} aujourd'hui")
+#chapter(ess, "Contexte", subtitle: "Où en est {{client}} aujourd'hui")
 
-#slide(title: "Ce qui a changé en {{annee}}", kicker: "Constat")[
+#slide(ess, title: "Ce qui a changé en {{annee}}", kicker: "Constat")[
   - Le marché a doublé en deux ans.
   - Les clients attendent des réponses en temps réel.
   - Notre socle technique date de 2019.
 ]
 
-#slide(title: "Trois priorités", kicker: "Organisation", layout: "columns")[
-  #card(kicker: "Pilier 1", title: "Fiabilité")[
+#slide(ess, title: "Trois priorités", kicker: "Organisation", layout: "columns")[
+  #card(base, kicker: "Pilier 1", title: "Fiabilité")[
     - Diviser par deux les incidents
     - Astreinte partagée
   ]
 ][
-  #card(kicker: "Pilier 2", title: "Vitesse")[
+  #card(base, kicker: "Pilier 2", title: "Vitesse")[
     - Livrer chaque semaine
     - Déploiement continu
   ]
 ][
-  #card(kicker: "Pilier 3", title: "Clients", highlight: true)[
+  #card(base, kicker: "Pilier 3", title: "Clients", highlight: true)[
     - Un interlocuteur unique pour #var("client")
     - Revue trimestrielle
   ]
 ]
 
-#chapter("Plan d'action")
+#chapter(ess, "Plan d'action")
 
-#slide(title: "Une idée par slide", kicker: "Principe", layout: "quote")[
+#slide(ess, title: "Une idée par slide", kicker: "Principe", layout: "quote")[
   « Si une slide a besoin d'une légende, elle a deux idées. »
 ]
 
-#slide(title: "Avant et après", kicker: "Comparaison", layout: "split", ratio: (2fr, 1fr))[
+#slide(ess, title: "Avant et après", kicker: "Comparaison", layout: "split", ratio: (2fr, 1fr))[
   Le texte principal occupe les deux tiers de la largeur.
 ][
   #rect(width: 100%, height: 300pt, fill: luma(235))
 ]
 
-#end-slide[Merci]
+#end-slide(ess)[Merci]

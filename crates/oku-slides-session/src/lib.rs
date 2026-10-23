@@ -42,7 +42,6 @@ mod deck_file;
 mod deck_pack;
 mod deck_theme;
 mod deck_theme_edit;
-mod deck_themes;
 mod deck_widgets;
 mod error;
 mod fields;
@@ -65,6 +64,7 @@ mod namespace_slug;
 pub mod pack;
 mod pack_library;
 mod pack_mode;
+mod pack_mode_preview;
 mod pack_mode_previews;
 mod pack_mode_save;
 mod pack_notice;
@@ -86,7 +86,10 @@ mod target_params;
 pub(crate) mod test_support;
 mod text;
 mod theme;
+mod theme_closure;
+mod theme_composed;
 mod theme_controls;
+mod theme_draft;
 mod theme_edit;
 mod theme_panel;
 mod theme_picker;
@@ -103,7 +106,7 @@ mod workspace;
 
 pub use appearance::{Appearance, appearance};
 pub use deck_pack::{adopt_default_packs, check_pack_id};
-pub use deck_theme::{adopt_default_theme, theme_tokens};
+pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};
 use error::{NoSlideSnafu, NotRenderedSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
 pub use error::{Result, SessionError, SessionErrorKind};
@@ -121,10 +124,13 @@ pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
 pub use text::{interp, paragraphs_to_text};
-pub use theme::{DEFAULT_THEME, PAPIER_THEME, PRO_THEME, ThemeInfo, ThemeLibrary, ThemeManifest, Themes};
+pub use theme::{
+    DEFAULT_THEME, NEUTRE_NAMESPACE, NEUTRE_THEME, PAPIER_NAMESPACE, PAPIER_THEME, PRO_NAMESPACE, PRO_THEME, ThemeInfo,
+    ThemeLibrary, ThemeManifest, Themes,
+};
 pub use theme_edit::{ThemeEdit, ThemeEditView};
 pub use theme_panel::{TokenAction, TokenState};
-pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme_id, theme_picker};
+pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme, theme_picker};
 pub use views::{
     AddWidget, EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection,
     SlideSummary, SlideView, Snapshot, TabInfo, Target, UiState,
@@ -271,6 +277,8 @@ pub struct Session {
     conversations: agent::conversation::Conversations,
     /// Bandeau d'un pack du deck ouvert (autre version que la courante).
     pack_notice: Option<pack_notice::PackNotice>,
+    /// L'avis des thèmes écartés posé sur le deck vierge, tant qu'un autre document peut le remplacer avant qu'il soit vu.
+    themes_notice: Option<String>,
     /// Bandeaux fermés : ils ne reviennent plus dans cette session.
     pack_notices_closed: HashSet<PackPin>,
     /// Bornes des fichiers de widgets (`[render]`).
@@ -320,8 +328,9 @@ pub fn blank_deck(l: &Localizer) -> Deck {
     content.params.set("blocks", ParamValue::Slot(vec![text]));
     Deck {
         version: oku_slides_core::DECK_VERSION,
-        // Adopté au chargement : la version courante du thème par défaut.
+        // Adoptés au chargement : la fermeture du thème par défaut, dans sa version courante.
         theme: None,
+        themes: BTreeMap::new(),
         params: DeckParams {
             title: Some(l.tr("deck-new-title")),
             // Code de langue seul (`zh-Hant` → `zh`) : Typst en déduit la
@@ -368,8 +377,8 @@ impl Session {
         let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
         // Aucun pack installé encore : aucun widget, jusqu'à `sync_widgets`.
         let registry = deck_pack::empty_registry();
-        let library = PackLibrary::user(platform);
         let themes = ThemeLibrary::user(platform);
+        let library = PackLibrary::with_themes(platform, themes.clone());
         // Le premier replica connaît déjà les widgets de `base` et d'`essentiel` que le deck neuf épingle.
         let builtin = oku_slides_render::builtin_registry(&app_fonts).context(RegistrySnafu)?;
         let mut blank = SourceBundle::new(blank_deck(l), builtin).context(SourcesSnafu)?;
@@ -410,6 +419,7 @@ impl Session {
             turn_steps: Default::default(),
             conversations: Default::default(),
             pack_notice: None,
+            themes_notice: None,
             pack_notices_closed: HashSet::new(),
             widget_limits: widgets_edit::WidgetLimits::of(&settings.render),
             widget_edit: false,
@@ -420,6 +430,7 @@ impl Session {
             #[cfg(test)]
             failpoints: Default::default(),
         };
+        s.notice_skipped_themes();
         // Les packs par défaut de l'utilisateur (`base`, `essentiel` modifiés) se sondent ici.
         s.sync_widgets()?;
         Ok(s)
@@ -550,7 +561,10 @@ impl Session {
                 && !deck.sources.replica().can_redo(),
             deck_uid: Some(deck.sources.replica().deck_uid()),
             help: self.help().map(str::to_owned),
-            theme: deck.sources.deck().theme.as_ref().map(|t| t.id),
+            theme: {
+                let user = deck.sources.deck();
+                user.theme.as_ref().and_then(|ns| user.themes.get(ns)).map(|pin| pin.id)
+            },
         }
     }
 
@@ -579,7 +593,8 @@ impl Session {
 
     /// Dossiers des packs de widgets et de layouts de l'utilisateur (la bibliothèque).
     pub fn set_pack_dirs(&mut self, widgets: impl Into<PathBuf>, layouts: impl Into<PathBuf>) {
-        self.library = PackLibrary::new(Some(widgets.into()), Some(layouts.into()), self.storage.clone());
+        let themes = self.themes.clone();
+        self.library = PackLibrary::new(Some(widgets.into()), Some(layouts.into()), themes, self.storage.clone());
         self.pack_cache.clear();
     }
 
@@ -657,9 +672,9 @@ impl Session {
             name,
             dirty: doc.dirty,
             theme: deck.theme.as_ref(),
-            theme_name: deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map(|m| m.name),
+            theme_pins: &deck.themes,
+            theme_name: deck.theme.as_ref().and_then(|ns| self.theme_manifest(deck.themes.get(ns)?)).map(|m| m.name),
             themes: &self.theme_list,
-            deck_themes: self.deck_only_themes(),
             title: deck.params.title.as_deref().map(|t| interp(t, &deck.vars)),
             title_source: deck.params.title.as_deref(),
             lang: deck.params.lang.as_deref(),

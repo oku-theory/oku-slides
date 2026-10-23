@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, Namespace, PackKind, WidgetFile};
+use oku_slides_core::{Deck, Namespace, PackKind, WidgetFile, tokens::theme_layer};
 use oku_slides_render::{BuiltinPack, Fonts, PackSet, PackWidgets, Renderer, load_registry, probe_file};
 use speculoos::prelude::*;
 
@@ -32,6 +32,9 @@ fn readme_example_widget_probes_valid_and_renders_its_fields() {
     let registry = Arc::new(load_registry(&fonts, &set).unwrap());
     let mut r = Renderer::new(fonts).unwrap();
     r.set_widgets(&set, registry).unwrap();
+    // La couche de thème porte les défauts de composant d'`essentiel` (sa slide les lit).
+    let essentiel = (BuiltinPack::Essentiel.namespace(), BuiltinPack::Essentiel.component_defaults().unwrap());
+    r.set_theme(Some(theme_layer([(&essentiel.0, essentiel.1)], []))).unwrap();
     let deck = Deck::from_json(&format!(
         r#"{{"version":{},"slides":[{{"id":"s","kind":"{}","params":{{"blocks":[
             {{"id":"k","kind":"exemple/kpi","params":{{"value":"42 %","label":"Croissance"}}}}]}}}}]}}"#,

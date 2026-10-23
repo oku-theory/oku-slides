@@ -3,8 +3,8 @@ use serde_json::Value;
 use speculoos::prelude::*;
 
 use super::super::{ImportTarget, SlideState, TuneErrorKind};
+use crate::Request;
 use crate::test_support::{WhiteWitness, fresh_dir, imported_fixture, session, witnessed};
-use crate::{Request, TokenOp};
 
 /// Le hi-fi de `kitchen` : des régions non suspectes (formes, image, tableau), donc des slides à ajuster.
 fn hifi(data: &std::path::Path) -> crate::Session {
@@ -25,11 +25,10 @@ fn change(s: &mut crate::Session, slide: &str) {
     s.handle(Request::Apply { label: "Retirer".into(), ops, merge: None }).unwrap();
 }
 
-/// Change la marge haute de la page du thème du deck (le thème généré du hi-fi) : toutes les pages bougent.
+/// Change la marge haute de la page dans les jetons du deck (ceux du hi-fi, sur Neutre) : toutes les pages bougent.
 fn edit_theme(s: &mut crate::Session, margin: f64) {
-    let id = s.deck().theme.as_ref().unwrap().id;
-    let op = TokenOp::SetToken { path: vec!["page".into(), "margin-top".into()], value: serde_json::json!(margin) };
-    assert_that!(s.edit_theme(id, None, vec![op]).unwrap().changed).is_true();
+    let op = Op::SetToken { path: vec!["page".into(), "margin-top".into()], value: serde_json::json!(margin) };
+    s.handle(Request::Apply { label: "Marge".into(), ops: vec![op], merge: None }).unwrap();
 }
 
 /// Les essais restants de chaque slide de la file.

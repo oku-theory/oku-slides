@@ -4,11 +4,17 @@ mod common;
 
 use common::{action, next_surface, start, wait_event};
 use oku_slides_a2ui::{ComponentKind, ServerBody};
+use oku_slides_core::Namespace;
 use oku_slides_mcp::{HubErrorKind, McpEvent};
 use oku_slides_session::agent::Surface;
-use oku_slides_session::{HOST_THEME_PICKER, PRO_THEME};
+use oku_slides_session::{HOST_THEME_PICKER, PRO_NAMESPACE};
 use serde_json::json;
 use speculoos::prelude::*;
+
+/// L'espace de noms du thème intégré Pro.
+fn pro_namespace() -> Namespace {
+    Namespace::parse(PRO_NAMESPACE).unwrap_or_else(|| panic!("espace de noms"))
+}
 
 /// Les `ThemeChoice` d'une surface : (nom, actif, a une miniature).
 fn cards(s: &Surface) -> Vec<(String, bool, bool)> {
@@ -81,15 +87,16 @@ async fn show_themes_outside_deck_mode_shows_nothing() {
 async fn picking_a_theme_sets_the_deck_theme() {
     let h = start().await;
     show(&h);
-    pick(&h, &PRO_THEME.to_string()).unwrap();
-    assert_that!(h.session.lock().unwrap().deck().theme.as_ref().map(|r| r.id)).is_equal_to(Some(PRO_THEME));
+    pick(&h, PRO_NAMESPACE).unwrap();
+    assert_that!(h.session.lock().unwrap().deck().theme.as_ref().map(Namespace::as_str))
+        .is_equal_to(Some(PRO_NAMESPACE));
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn picking_a_theme_is_labelled_as_a_theme_change() {
     let h = start().await;
     show(&h);
-    pick(&h, &PRO_THEME.to_string()).unwrap();
+    pick(&h, PRO_NAMESPACE).unwrap();
     let label = h.localizer.tr("session-undo-theme");
     assert_that!(h.session.lock().unwrap().snapshot().undo_label).is_equal_to(Some(label));
 }
@@ -100,7 +107,7 @@ async fn picking_a_theme_emits_changed_then_the_picker_with_it_active() {
     let mut rx = h.hub.subscribe();
     show(&h);
     next_surface(&mut rx).await;
-    pick(&h, &PRO_THEME.to_string()).unwrap();
+    pick(&h, PRO_NAMESPACE).unwrap();
     wait_event(&mut rx, |e| matches!(e, McpEvent::Changed).then_some(())).await;
     let rebuilt = next_surface(&mut rx).await;
     assert_that!(active_names(&rebuilt)).is_equal_to(vec!["Pro".to_owned()]);
@@ -112,24 +119,24 @@ async fn picking_a_theme_keeps_the_cached_thumbnails() {
     let mut rx = h.hub.subscribe();
     show(&h);
     let first = next_surface(&mut rx).await;
-    pick(&h, &PRO_THEME.to_string()).unwrap();
+    pick(&h, PRO_NAMESPACE).unwrap();
     let rebuilt = next_surface(&mut rx).await;
     let thumbs = |s: &Surface| cards(s).into_iter().map(|(n, _, svg)| (n, svg)).collect::<Vec<_>>();
     assert_that!(thumbs(&rebuilt)).is_equal_to(thumbs(&first));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn picking_a_malformed_id_is_incomplete() {
+async fn picking_a_malformed_namespace_is_incomplete() {
     let h = start().await;
     show(&h);
-    assert_that!(pick(&h, "pas-un-uuid").unwrap_err().kind()).is_equal_to(HubErrorKind::Incomplete);
+    assert_that!(pick(&h, "Pas Un Espace").unwrap_err().kind()).is_equal_to(HubErrorKind::Incomplete);
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn picking_a_malformed_id_keeps_the_picker() {
+async fn picking_a_malformed_namespace_keeps_the_picker() {
     let h = start().await;
     show(&h);
-    let _ = pick(&h, "pas-un-uuid");
+    let _ = pick(&h, "Pas Un Espace");
     assert_that!(open(&h)).is_true();
 }
 
@@ -137,7 +144,7 @@ async fn picking_a_malformed_id_keeps_the_picker() {
 async fn picking_an_unknown_theme_is_a_session_error() {
     let h = start().await;
     show(&h);
-    let refused = pick(&h, &uuid::Uuid::from_u128(7).to_string()).unwrap_err();
+    let refused = pick(&h, "inconnu").unwrap_err();
     assert_that!(refused.kind()).is_equal_to(HubErrorKind::Session);
 }
 
@@ -157,7 +164,7 @@ async fn prune_after_an_outside_theme_change_marks_it_active() {
     let mut rx = h.hub.subscribe();
     show(&h);
     next_surface(&mut rx).await;
-    tokio::task::block_in_place(|| h.session.lock().unwrap().set_theme(PRO_THEME).unwrap());
+    tokio::task::block_in_place(|| h.session.lock().unwrap().set_theme(&pro_namespace()).unwrap());
     tokio::task::block_in_place(|| h.hub.prune());
     let refreshed = next_surface(&mut rx).await;
     assert_that!(active_names(&refreshed)).is_equal_to(vec!["Pro".to_owned()]);
@@ -179,7 +186,7 @@ async fn prune_after_dismiss_does_not_reopen_the_picker() {
     let h = start().await;
     show(&h);
     h.hub.act(action(HOST_THEME_PICKER, "dismiss", json!({}))).unwrap();
-    tokio::task::block_in_place(|| h.session.lock().unwrap().set_theme(PRO_THEME).unwrap());
+    tokio::task::block_in_place(|| h.session.lock().unwrap().set_theme(&pro_namespace()).unwrap());
     tokio::task::block_in_place(|| h.hub.prune());
     assert_that!(open(&h)).is_false();
 }
@@ -281,7 +288,7 @@ async fn show_themes_tool_keeps_the_picker_after_the_turn_closes() {
 async fn show_themes_tool_pick_is_noted_for_the_agent() {
     let h = start().await;
     shown(&h, json!({})).await;
-    pick(&h, &PRO_THEME.to_string()).unwrap();
+    pick(&h, PRO_NAMESPACE).unwrap();
     let ctx = h.session.lock().unwrap().agent_context(&Default::default());
     assert_that!(ctx).contains("theme picked: \"Pro\"");
 }
@@ -305,4 +312,38 @@ async fn show_themes_tool_on_an_unknown_slide_is_refused_without_a_picker() {
     let said = (r.is_error, common::text_of(&r), open(&h));
     let want = (Some(true), "Slide introuvable : s-inconnue".to_owned(), false);
     assert_that!(said).is_equal_to(want);
+}
+
+/// Crée la variante « Marque » du thème Pro dans la bibliothèque (sans confirmation, hors outil).
+fn with_child_theme(h: &common::Harness) {
+    let pro_id = oku_slides_session::PRO_THEME;
+    tokio::task::block_in_place(|| {
+        let mut s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        s.edit_theme(pro_id, Some("Marque".into()), Vec::new()).unwrap_or_else(|e| panic!("variante : {e}"));
+    });
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn deck_outline_lists_themes_by_namespace_with_extends() {
+    let h = start().await;
+    with_child_theme(&h);
+    let c = common::client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let out = common::json_of(&common::call(&c, "deck_outline", json!({})).await);
+    let themes = out["themes"].as_array().unwrap();
+    let marque = themes.iter().find(|t| t["namespace"] == "marque").unwrap();
+    assert_that!(marque["extends"].clone()).is_equal_to(json!(["pro"]));
+    assert_that!(themes.iter().all(|t| t.get("deck_only").is_none() && t.get("id").is_none())).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_set_theme_by_namespace_pins_the_closure() {
+    let h = start().await;
+    with_child_theme(&h);
+    let c = common::client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = common::call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": "marque" }] })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let s = h.session.lock().unwrap();
+    let pinned: Vec<&str> = s.deck().themes.keys().map(Namespace::as_str).collect();
+    assert_that!(pinned).is_equal_to(vec!["marque", "pro"]);
+    assert_that!(s.deck().theme.as_ref().map(Namespace::as_str)).is_equal_to(Some("marque"));
 }

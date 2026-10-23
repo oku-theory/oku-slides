@@ -53,6 +53,10 @@ const stageHidden = (p) => p.evaluate(() => document.getElementById('stage-panel
   await p.getByRole('tab', { name: 'Thème', exact: true }).click();
   await p.waitForSelector('#theme-panel [data-surface-id="host-theme"] .a2ui-disclosure');
   assert.equal(await p.locator('.notes #theme-panel').count(), 1);
+  // Les sections : les jetons globaux (dont l'habillage), puis une par pack embarqué.
+  const sections = await p.locator('#theme-panel [data-surface-id="host-theme"]').innerText();
+  assert.match(sections, /Couleurs/);
+  assert.match(sections, /Habillage/);
   assert.equal(await stageHidden(p), false);
   await p.click(thumb('blank'));
   await untilValue(p, () => p.locator(thumb('blank')).getAttribute('aria-current'), (v) => v === 'true', 'la miniature cliquée ne devient pas la courante');

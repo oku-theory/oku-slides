@@ -18,7 +18,7 @@ const snapshot = (o: Snap = {}): Snapshot =>
   ({
     editing: o.editing === false ? null : {
       pack: "p", base: "b",
-      theme: { base: { id: PAPIER, version: "v1" }, name: o.name ?? "Papier", builtin: true, dirty: o.dirty ?? false, revision: "r1" },
+      theme: { base: { id: PAPIER, version: "v1" }, name: o.name ?? "Papier", child: true, extends: [], dirty: o.dirty ?? false, revision: "r1" },
     },
     history: o.history ? {} : null, undo_label: o.undo ?? null, redo_label: null, slides: [],
   }) as unknown as Snapshot;

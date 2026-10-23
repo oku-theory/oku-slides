@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use snafu::{ResultExt, ensure};
+use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
 use oku_slides_core::{Namespace, Op, PackKind};
@@ -67,9 +67,11 @@ pub enum Request {
         #[serde(default)]
         merge: Option<String>,
     },
-    /// Le deck prend le thème `id` dans sa version courante, embarquée. Annulable.
+    /// Le deck prend le thème `theme` et sa fermeture, versions courantes embarquées. Annulable.
+    ///
+    /// `theme` : son espace de noms, son id ou son nom (sans casse), comme [`crate::embed_theme`].
     SetTheme {
-        id: Uuid,
+        theme: String,
     },
     Undo,
     Redo,
@@ -514,7 +516,11 @@ impl Session {
                 self.merge_file(&path)?;
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
-            Request::SetTheme { id } => self.set_theme(id)?,
+            Request::SetTheme { theme } => {
+                let ns = crate::library_lookup::find_theme(&self.themes, &theme)
+                    .context(crate::error::UnknownThemeSnafu { theme: theme.as_str() })?;
+                self.set_theme(&ns)?
+            }
             Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
             Request::TargetParam { slide, element, key, value } => {
                 self.target_param(&slide, element.as_deref(), &key, value)?;
@@ -538,7 +544,10 @@ impl Session {
                 self.save_pack(as_new)?;
             }
             Request::ClosePack => self.close_pack()?,
-            Request::SetEditedTheme { id } => self.set_edited_theme(id)?,
+            Request::SetEditedTheme { id } => {
+                let ns = self.themes.current_version(id).map(|s| s.manifest.namespace);
+                self.set_edited_theme(&ns.context(crate::error::UnknownThemeSnafu { theme: id.to_string() })?)?
+            }
             Request::RenameEditedTheme { name } => self.rename_edited_theme(name)?,
             Request::Ui { ui, order } => self.keep_ui(ui, order),
             Request::HistoryOpen => self.history_open()?,

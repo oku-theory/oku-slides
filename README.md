@@ -35,7 +35,7 @@ output are in French.
 | `src-tauri` | Tauri 2 desktop app |
 | `ui` | React + TypeScript interface (Papier design system) |
 | `assets/fonts` | Bundled fonts (Newsreader, Instrument Sans, Inter; Noto Sans/Serif for non-Latin scripts; Carlito, Caladea, Liberation as metric-compatible substitutes for imports), in Git LFS |
-| `typst/oku-slides` | Typst slide library (structure, default tokens, built-in packs `base` (widgets) and `essentiel` (slide layouts), built-in `papier` and `pro` themes as JSON) |
+| `typst/oku-slides` | Typst slide library (structure, default tokens, built-in packs `base` (widgets) and `essentiel` (slide layouts), built-in `papier`, `pro` and `neutre` themes as JSON, each with a namespace and an ordered `extends`) |
 | `fixtures/` | Sample decks, agent scripts, import, dictation and widget samples |
 | `docs/aide/` | In-app help: one JSON deck per language (fr, en), compiled into the app, opened read-only (⌘?) |
 | `docs/adr/` | Architecture decision records |
@@ -58,7 +58,7 @@ just oku-slides schema                                              # JSON schem
 (Libertinus Serif, New Computer Modern, DejaVu Sans Mono).
 
 `import` maps the content of a `.pptx` onto layout packs (`--pack`, repeatable: namespace, id,
-pack folder or name; default `essentiel`) and a theme (`--theme`: id or name; default: the default theme):
+pack folder or name; default `essentiel`) and a theme (`--theme`: namespace, id or name; default: the default theme):
 the style comes from the target theme. Titles are inferred when the slides have no
 placeholders, drawn cards become `base/card` elements, repeated headers and footers are
 left to the theme. `--report` writes the JSON report: profile chosen per slide,
@@ -107,9 +107,9 @@ adjusts the slides the witness flags (`[import] witness`) with the tools
 `[import] tune_iterations` (default 3) per slide, `tune_stall` (default 2) tries
 in a row without gain, and `tune_global` (default 3) for theme and pack changes,
 which change the whole deck.
-Hi-fi packs and themes belong to the deck: the pack workshop edits them from the
-version the deck embeds and saves them in the deck, never in the library; the hi-fi
-theme stays offered under “This presentation” after another is picked. A retrofit deck pins
+Hi-fi packs belong to the deck: the pack workshop edits them from the
+version the deck embeds and saves them in the deck, never in the library. The hi-fi
+import pins the Neutre theme and writes its generated tokens in the deck's `tokens`. A retrofit deck pins
 the library layout packs; a widget written for it goes to the deck's own packs, as in any deck.
 
 ## Running the app
@@ -202,13 +202,18 @@ deck's widget packs.
   working deck, one slide per layout, seeded from its example; each edit on a slide is
   written to the layout's example at once (one undo step), and saving only saves the
   pack's name and theme. Slides cannot be added, removed or moved there. A built-in pack is saved as a copy; “Done” brings the deck back.
-- **Themes**: a theme is a set of design tokens (colors, fonts, sizes, margins,
-  components), versioned like packs. Papier and Pro are built in
-  (`typst/oku-slides/themes/*.json`); user themes go to the `themes/` folder of the
-  app data. The agent picks the deck's theme; the deck embeds its version, and a
-  received file keeps its own (“File theme”). In pack mode, the Theme tab sets
-  tokens one by one (filter, state of each token, ↺): the sheet follows every change,
-  and “Done” saves the draft, as a copy (“Papier (copy)”) for a built-in theme.
+- **Themes**: a theme is a set of design tokens (colors, fonts, sizes, margins, components),
+  versioned like packs. Papier, Pro and Neutre are built in (`typst/oku-slides/themes/*.json`);
+  user themes go to the `themes/` folder of the app data. A theme has a namespace and an ordered
+  `extends` list (parents first, later ones win, cycles refused). The agent picks the deck's
+  theme; the deck pins it and its whole `extends` closure, and a received file keeps its own
+  (“File theme”). Component tokens are owned by packs (`component.base.*`,
+  `component.essentiel.*`); a deck's `tokens` override the theme. In pack mode, the Theme tab
+  sets tokens one by one (filter, state of each token, ↺): the sheet follows every change, and
+  “Done” saves the draft: editing a built-in theme creates a variant that extends it. The editor
+  shows `extends` read-only and the deck's overrides, with a section per embedded pack; a widget
+  pack's Theme tab shows preview slides. User themes without a namespace are ignored, with a
+  notice.
 
 ### Files, tabs, history
 

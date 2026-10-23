@@ -16,7 +16,7 @@ use crate::common::{data_dir, session_in};
 
 fn library(data: &Path) -> PackLibrary {
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.join("widgets")), None, storage)
+    PackLibrary::new(Some(data.join("widgets")), None, crate::common::no_user_themes(), storage)
 }
 
 /// L'espace de noms du pack `id` : `base` pour le pack intégré, sinon `pack`.
@@ -37,6 +37,7 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        tokens: Vec::new(),
     };
     m.to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }

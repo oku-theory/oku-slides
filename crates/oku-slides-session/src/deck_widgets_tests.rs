@@ -425,7 +425,7 @@ fn version_absent_from_the_sources_renders_base_widgets_with_a_notice() {
     let path = data.0.join("absent.json");
     let id = uuid::Uuid::new_v4();
     let pin = json!({ "id": id, "version": format!("sha256:{}", "0".repeat(64)) });
-    let deck = json!({ "version": 8, "widgets": { namespace_of(id).as_str(): pin },
+    let deck = json!({ "version": 9, "widgets": { namespace_of(id).as_str(): pin },
         "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::TITLE }] });
     std::fs::write(&path, serde_json::to_vec(&deck).unwrap()).unwrap();
     let mut s = session_in(&data.0);
@@ -542,4 +542,33 @@ fn undo_of_add_pack_restores_previous_widgets() {
     assert_that!(s.deck().widgets.clone()).is_equal_to(before);
     assert_that!(s.registry.iter().any(|w| w.name.starts_with(namespace_of(quote.id).as_str()))).is_false();
     assert_registry_agrees(&s);
+}
+
+/// Les fichiers du pack rangé sous `fixtures/<rel>`.
+fn fixture_pack(rel: &str) -> oku_slides_core::PackFiles {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(rel);
+    let storage = crate::Storage::local().unwrap();
+    crate::read_pack_dir(&storage, &dir, 1 << 20).unwrap().unwrap()
+}
+
+/// Les widgets du deck de la fixture résolus avec `old` à la place de `base`.
+fn resolve_with(old: oku_slides_core::PackFiles) -> crate::Result<()> {
+    let data = data_dir();
+    let s = session_in(&data.0);
+    let base = oku_slides_core::kinds::base::namespace();
+    let pin = PackPin { id: crate::BASE_PACK, version: old.version(), requires: Vec::new() };
+    let pins = std::collections::BTreeMap::from([(base, pin)]);
+    let packs = std::collections::BTreeMap::from([(old.version(), old)]);
+    s.resolve_widgets(&pins, &packs).map(drop)
+}
+
+/// t-1055 : l'ancien `base` livré importe `card` de `lib.typ`, qui ne l'exporte plus.
+#[test]
+fn trusted_old_shipped_base_failing_its_probe_is_an_error() {
+    let old = fixture_pack("packs/base-fe1495fc");
+    let base = oku_slides_core::kinds::base::namespace();
+    let pack = oku_slides_render::PackWidgets::new(old.version().hex(), base, old.kind(), old.widgets().clone());
+    assert_that!(oku_slides_render::is_trusted_pack(&pack.unwrap())).is_true();
+    let err = resolve_with(old).unwrap_err();
+    assert_that!(err.to_string()).contains("card");
 }

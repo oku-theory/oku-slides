@@ -2,9 +2,10 @@
 //!
 //! Chaque sorte a son dossier (`<data>/widgets`, `<data>/layouts`) et sa
 //! [`Library`] ; un pack n'appartient qu'à une sorte, celle de ses fichiers.
-//! Un espace de noms n'appartient qu'à un pack, toutes sortes confondues
-//! (`NamespaceTaken`) ; une version d'un pack connu sous l'autre sorte est
-//! refusée (`PackKindChanged`).
+//! Un espace de noms n'appartient qu'à un pack ou à un thème, toutes sortes
+//! confondues (`NamespaceTaken`) : la bibliothèque des packs garde un clone de
+//! celle des thèmes (même index) pour le vérifier. Une version d'un pack connu
+//! sous l'autre sorte est refusée (`PackKindChanged`).
 
 use std::path::PathBuf;
 
@@ -15,10 +16,11 @@ use oku_slides_core::{Namespace, PackFiles, PackKind, PackVersion};
 use oku_slides_platform::storage::Storage;
 
 use crate::Result;
-use crate::error::{NamespaceTakenSnafu, PackKindChangedSnafu};
-use crate::library::{Library, may_own};
+use crate::error::{NamespaceReservedSnafu, NamespaceTakenSnafu, PackKindChangedSnafu};
+use crate::library::{Library, builtin_owner, may_own};
 use crate::library_kind::{Layouts, StoredVersion, Widgets};
 use crate::pack::{PackInfo, PackManifest, Relation};
+use crate::theme::ThemeLibrary;
 
 /// Appelle `$body` avec `$l`, la bibliothèque de la sorte `$kind`.
 macro_rules! by_kind {
@@ -41,6 +43,8 @@ macro_rules! by_kind {
 pub struct PackLibrary {
     widgets: Library<Widgets>,
     layouts: Library<Layouts>,
+    /// Les thèmes, pour l'unicité des espaces de noms entre les trois sortes.
+    themes: ThemeLibrary,
 }
 
 /// L'autre sorte que `kind`.
@@ -53,14 +57,28 @@ fn other(kind: PackKind) -> PackKind {
 
 impl PackLibrary {
     /// `widgets` et `layouts` : les dossiers de chaque sorte, créés à la première écriture.
-    pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, storage: Storage) -> Self {
-        Self { widgets: Library::new(widgets, storage.clone()), layouts: Library::new(layouts, storage) }
+    ///
+    /// `themes` : la bibliothèque des thèmes de la même session (un clone partage son index).
+    pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, themes: ThemeLibrary, storage: Storage) -> Self {
+        Self { widgets: Library::new(widgets, storage.clone()), layouts: Library::new(layouts, storage), themes }
     }
 
     /// Les packs de l'utilisateur (`paths.widgets` et `paths.layouts` des réglages), et les intégrés.
+    ///
+    /// Ses thèmes sont ceux de l'utilisateur ([`ThemeLibrary::user`]).
     pub fn user(platform: &oku_slides_platform::Platform) -> Self {
+        Self::with_themes(platform, ThemeLibrary::user(platform))
+    }
+
+    /// Comme [`Self::user`], avec la bibliothèque des thèmes `themes` (celle de la session).
+    pub fn with_themes(platform: &oku_slides_platform::Platform, themes: ThemeLibrary) -> Self {
         let paths = &platform.settings.paths;
-        Self::new(Some(paths.widgets()), Some(paths.layouts()), platform.storage.clone())
+        Self::new(Some(paths.widgets()), Some(paths.layouts()), themes, platform.storage.clone())
+    }
+
+    /// La bibliothèque des thèmes que celle-ci consulte.
+    pub fn themes(&self) -> &ThemeLibrary {
+        &self.themes
     }
 
     /// Un pack intégré à l'app, de l'une ou l'autre sorte ?
@@ -102,7 +120,7 @@ impl PackLibrary {
         by_kind!(self, self.kind_of(id), l => l.is_received(id, v))
     }
 
-    /// Refuse `files` pour `id` si l'autre sorte connaît ce pack ou son espace de noms.
+    /// Refuse `files` pour `id` si l'autre sorte connaît ce pack, ou si l'autre sorte ou un thème a son espace de noms.
     fn check_kinds(&self, id: Uuid, files: &PackFiles) -> Result<()> {
         let kind = files.kind();
         let elsewhere = by_kind!(self, other(kind), l => l.knows(id));
@@ -110,9 +128,26 @@ impl PackLibrary {
         // Un manifeste illisible est refusé ensuite, par la bibliothèque de sa sorte.
         if let Ok(manifest) = PackManifest::from_files(files) {
             let ns = &manifest.namespace;
-            if let Some(owner) = by_kind!(self, other(kind), l => l.owner_of(ns)) {
+            let owner = by_kind!(self, other(kind), l => l.owner_of(ns)).or_else(|| self.themes.owner_of(ns));
+            if let Some(owner) = owner {
                 return NamespaceTakenSnafu { namespace: ns.as_str(), owner: owner.to_string() }.fail()?;
             }
+        }
+        Ok(())
+    }
+
+    /// Vérifie que le thème `id` peut prendre l'espace de noms `ns` dans la bibliothèque.
+    ///
+    /// Ni `deck` ni `deck-layouts` (`NamespaceReserved`), ni celui d'un pack
+    /// (intégré compris) ou d'un autre thème (`NamespaceTaken`). Le thème qui
+    /// le porte déjà le garde : une nouvelle version passe.
+    pub fn check_theme(&self, id: Uuid, ns: &Namespace) -> Result<()> {
+        ensure!(!ns.is_deck() && !ns.is_deck_layouts(), NamespaceReservedSnafu { namespace: ns.as_str() });
+        let pack = builtin_owner(ns)
+            .or_else(|| PackKind::ALL.into_iter().find_map(|k| by_kind!(self, k, l => l.owner_of(ns))));
+        let owner = pack.or_else(|| self.themes.owner_of(ns).filter(|owner| *owner != id));
+        if let Some(owner) = owner {
+            return NamespaceTakenSnafu { namespace: ns.as_str(), owner: owner.to_string() }.fail()?;
         }
         Ok(())
     }
@@ -164,9 +199,10 @@ impl PackLibrary {
         })
     }
 
-    /// Tous les espaces de noms pris dans la bibliothèque, toutes sortes confondues.
+    /// Tous les espaces de noms pris dans la bibliothèque, toutes sortes confondues, thèmes compris.
     pub(crate) fn namespaces(&self) -> Vec<Namespace> {
-        PackKind::ALL.into_iter().flat_map(|kind| self.entries(kind)).map(|s| s.manifest.namespace).collect()
+        let packs = PackKind::ALL.into_iter().flat_map(|kind| self.entries(kind)).map(|s| s.manifest.namespace);
+        packs.chain(self.themes.entries().into_iter().map(|s| s.manifest.namespace)).collect()
     }
 
     /// Packs de widgets lus sur le disque par cette instance depuis sa création.

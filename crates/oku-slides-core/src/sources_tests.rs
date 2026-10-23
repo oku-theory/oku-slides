@@ -25,7 +25,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":12}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":13}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -95,7 +95,8 @@ fn from_zip_with_sources_version_4_returns_not_sources() {
 
 /// Sources plus anciennes : refusées sans conversion. 6 et 7 : formats de replica
 /// dépassés ; 8 : arbre par slide ; 9 : marques non datées ; 10 : un seul pack de
-/// modèles (`packs/`) ; 11 : sans `deck.layouts` (replica au format 5).
+/// modèles (`packs/`) ; 11 : sans `deck.layouts` (replica au format 5) ; 12 : thème
+/// en `ThemeRef`, sans `deck.themes` (replica au format 6).
 #[rstest::rstest]
 #[case(6)]
 #[case(7)]
@@ -103,6 +104,7 @@ fn from_zip_with_sources_version_4_returns_not_sources() {
 #[case(9)]
 #[case(10)]
 #[case(11)]
+#[case(12)]
 fn sources_older_version_zip_is_refused(#[case] version: u32) {
     let manifest = format!(r#"{{"format":"oku-slides-sources","version":{version}}}"#);
     let err = SourceBundle::from_zip(
@@ -205,9 +207,9 @@ fn apply_then_undo_restores_view() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let mut next = deck.clone();
-    next.theme = Some(crate::test_registry::theme_ref("b"));
+    crate::test_registry::set_theme(&mut next, "b");
     b.apply(next, "Thème", None).unwrap();
-    assert_that!(b.deck().theme.clone()).is_equal_to(Some(crate::test_registry::theme_ref("b")));
+    assert_that!(b.deck().themes.clone()).is_equal_to(crate::test_registry::theme_pins("b"));
     assert_that!(b.undo().unwrap()).is_true();
     assert_that!(b.deck()).is_equal_to(&deck);
 }
@@ -217,10 +219,10 @@ fn apply_silent_then_undo_returns_false() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let mut next = deck;
-    next.theme = Some(crate::test_registry::theme_ref("b"));
+    crate::test_registry::set_theme(&mut next, "b");
     b.apply_silent(next).unwrap();
     assert_that!(b.undo().unwrap()).is_false();
-    assert_that!(b.deck().theme.clone()).is_equal_to(Some(crate::test_registry::theme_ref("b")));
+    assert_that!(b.deck().themes.clone()).is_equal_to(crate::test_registry::theme_pins("b"));
 }
 
 #[test]
@@ -228,7 +230,7 @@ fn undo_then_redo_restores_applied_view() {
     let deck = roadmap();
     let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
     let mut next = deck;
-    next.theme = Some(crate::test_registry::theme_ref("b"));
+    crate::test_registry::set_theme(&mut next, "b");
     b.apply(next.clone(), "Thème", None).unwrap();
     b.undo().unwrap();
     assert_that!(b.redo().unwrap()).is_true();
@@ -409,7 +411,7 @@ fn undo_rereads_value_params_with_the_same_json_as_the_view() {
     sources.apply(deck, "graphique", None).unwrap();
     let before = sources.deck().to_json().unwrap();
     let mut other = sources.deck().clone();
-    other.theme = Some(crate::test_registry::theme_ref("b"));
+    crate::test_registry::set_theme(&mut other, "b");
     sources.apply(other, "thème", None).unwrap();
     sources.undo().unwrap();
     assert_that!(sources.deck().to_json().unwrap()).is_equal_to(before);

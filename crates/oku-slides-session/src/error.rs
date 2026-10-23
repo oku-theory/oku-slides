@@ -44,7 +44,7 @@ pub enum SessionErrorKind {
     UnknownPack,
     /// Version de pack introuvable.
     PackVersionMissing,
-    /// Pack ou thème du deck seul, que la bibliothèque n'enregistre pas.
+    /// Pack du deck seul, que la bibliothèque n'enregistre pas.
     DeckOnly,
     /// Espace de noms déjà pris par un autre pack de la bibliothèque.
     NamespaceTaken,
@@ -68,6 +68,8 @@ pub enum SessionErrorKind {
     NotEditingPack,
     /// En mode pack, une op qui ajoute, retire, déplace une slide ou change son widget.
     PackModeSlides,
+    /// En mode pack, une op sur une slide d'aperçu d'un pack de widgets.
+    PackModePreview,
     /// En mode pack, un choix de thème mêlé à d'autres ops.
     ThemeChoiceAlone,
     /// Réglage de l'hôte inconnu.
@@ -108,6 +110,10 @@ pub enum SessionErrorKind {
     UnknownTheme,
     /// Version de thème introuvable.
     ThemeVersionMissing,
+    /// Des thèmes s'étendent en boucle.
+    ThemeCycle,
+    /// Les thèmes épinglés ne sont pas exactement le thème et ses parents.
+    ThemeClosure,
     /// Valeur de jeton de design refusée par le schéma.
     InvalidTokenValue,
     /// Jeton de design encore référencé par d'autres jetons.
@@ -175,6 +181,10 @@ pub(crate) enum SessionInner {
     PackVersionMissing { id: uuid::Uuid, version: oku_slides_core::PackVersion, backtrace: Backtrace },
     #[snafu(display("invalid manifest for pack {id}"))]
     PackJson { id: uuid::Uuid, source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("invalid manifest for pack {id}"))]
+    PackManifest { id: uuid::Uuid, source: oku_slides_core::PackManifestError, backtrace: Backtrace },
+    #[snafu(display("invalid component tokens for pack {id}"))]
+    PackTokens { id: uuid::Uuid, source: oku_slides_core::TokenEntryError, backtrace: Backtrace },
     #[snafu(display("manifest of pack {found} given for pack {id}"))]
     PackIdMismatch { id: uuid::Uuid, found: uuid::Uuid, backtrace: Backtrace },
     #[snafu(display("{id} belongs to its deck only and never enters the library"))]
@@ -205,6 +215,8 @@ pub(crate) enum SessionInner {
     NotEditingPack { backtrace: Backtrace },
     #[snafu(display("in pack mode, slides cannot be added, removed, moved or change their widget"))]
     PackModeSlides { backtrace: Backtrace },
+    #[snafu(display("in pack mode, the widget preview slides are read-only"))]
+    PackModePreview { backtrace: Backtrace },
     #[snafu(display("in pack mode, choose the theme alone and edit its tokens with set_token"))]
     ThemeChoiceAlone { backtrace: Backtrace },
     #[snafu(display("unknown host setting: {key}"))]
@@ -241,8 +253,14 @@ pub(crate) enum SessionInner {
     NotHelp { backtrace: Backtrace },
     #[snafu(display("agent turn {turn} is no longer the last change"))]
     TurnNotOnTop { turn: u32, backtrace: Backtrace },
-    #[snafu(display("unknown theme: {id}"))]
-    UnknownTheme { id: uuid::Uuid, backtrace: Backtrace },
+    #[snafu(display("unknown theme: {theme}"))]
+    UnknownTheme { theme: String, backtrace: Backtrace },
+    #[snafu(display("themes extend each other in a loop: {chain}"))]
+    ThemeCycle { chain: String, backtrace: Backtrace },
+    #[snafu(display("the pinned themes are not exactly the theme and its parents ({namespace})"))]
+    ThemeClosure { namespace: String, backtrace: Backtrace },
+    #[snafu(display("shipped widgets do not compile: {names}"))]
+    TrustedPackBroken { names: String, backtrace: Backtrace },
     #[snafu(display("version {version} of theme {id} not found"))]
     ThemeVersionMissing { id: uuid::Uuid, version: oku_slides_core::PackVersion, backtrace: Backtrace },
     #[snafu(display("invalid manifest for theme {id}"))]
@@ -295,13 +313,15 @@ impl SessionError {
             | Sources { .. }
             | DeckJson { .. }
             | PackJson { .. }
+            | PackManifest { .. }
+            | PackTokens { .. }
             | PackIdMismatch { .. }
             | PackPinMismatch { .. }
             | ThemeJson { .. }
             | ThemeIdMismatch { .. }
             | Version { .. } => SessionErrorKind::InvalidDocument,
             Op { .. } => SessionErrorKind::Op,
-            Render { .. } | NotRendered { .. } | Registry { .. } => SessionErrorKind::Render,
+            Render { .. } | NotRendered { .. } | Registry { .. } | TrustedPackBroken { .. } => SessionErrorKind::Render,
             NoPath { .. } => SessionErrorKind::NoPath,
             NoSlide { .. } => SessionErrorKind::NoSlide,
             NoChart { .. } => SessionErrorKind::NoChart,
@@ -323,6 +343,7 @@ impl SessionError {
             EditingPack { .. } => SessionErrorKind::EditingPack,
             NotEditingPack { .. } => SessionErrorKind::NotEditingPack,
             PackModeSlides { .. } => SessionErrorKind::PackModeSlides,
+            PackModePreview { .. } => SessionErrorKind::PackModePreview,
             ThemeChoiceAlone { .. } => SessionErrorKind::ThemeChoiceAlone,
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
@@ -342,6 +363,8 @@ impl SessionError {
             NotHelp { .. } => SessionErrorKind::NotHelp,
             TurnNotOnTop { .. } => SessionErrorKind::TurnNotOnTop,
             UnknownTheme { .. } => SessionErrorKind::UnknownTheme,
+            ThemeCycle { .. } => SessionErrorKind::ThemeCycle,
+            ThemeClosure { .. } => SessionErrorKind::ThemeClosure,
             ThemeVersionMissing { .. } => SessionErrorKind::ThemeVersionMissing,
             InvalidTokenValue { .. } => SessionErrorKind::InvalidTokenValue,
             TokenInUse { .. } => SessionErrorKind::TokenInUse,
@@ -423,6 +446,24 @@ pub(crate) fn merge_error(source: oku_slides_core::SourcesError) -> SessionError
 
 pub type Result<T, E = SessionError> = std::result::Result<T, E>;
 
+/// Le refus d'une chaîne de thèmes, comme le cœur le dit pour l'op `set_theme`.
+///
+/// Une boucle donne `ThemeCycle`, un thème manquant ou de trop `ThemeClosure`.
+pub(crate) fn theme_chain_error(e: oku_slides_core::ThemeChainError) -> SessionError {
+    use oku_slides_core::ThemeChainError as E;
+    match e {
+        E::Cycle { chain } => {
+            let chain = chain.iter().map(oku_slides_core::Namespace::as_str).collect::<Vec<_>>().join(" → ");
+            ThemeCycleSnafu { chain }.build().into()
+        }
+        E::Missing { namespace } | E::Extra { namespace } => {
+            ThemeClosureSnafu { namespace: namespace.as_str() }.build().into()
+        }
+        // Une variante ajoutée au cœur : dite comme une fermeture refusée.
+        _ => ThemeClosureSnafu { namespace: String::new() }.build().into(),
+    }
+}
+
 impl Localize for SessionError {
     /// Le message, ou celui de l'erreur d'en dessous quand elle dit quelque
     /// chose à l'utilisateur (opération refusée, rendu, PDF).
@@ -452,7 +493,9 @@ impl Localize for SessionError {
                 "session-pack-version-missing",
                 &[("id", id.to_string().into()), ("version", version.as_str().into())],
             ),
-            PackJson { id, .. } => l.tr_with("session-invalid-pack", &[("id", id.to_string().into())]),
+            PackJson { id, .. } | PackManifest { id, .. } | PackTokens { id, .. } => {
+                l.tr_with("session-invalid-pack", &[("id", id.to_string().into())])
+            }
             PackIdMismatch { id, found, .. } => l.tr_with(
                 "session-pack-id-mismatch",
                 &[("id", id.to_string().into()), ("found", found.to_string().into())],
@@ -487,6 +530,7 @@ impl Localize for SessionError {
             EditingPack { .. } => l.tr("session-editing-pack"),
             NotEditingPack { .. } => l.tr("session-not-editing-pack"),
             PackModeSlides { .. } => l.tr("session-pack-mode-slides"),
+            PackModePreview { .. } => l.tr("session-pack-mode-preview"),
             ThemeChoiceAlone { .. } => l.tr("session-theme-choice-alone"),
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),
@@ -511,7 +555,12 @@ impl Localize for SessionError {
             ReadOnly { .. } => l.tr("session-read-only"),
             NotHelp { .. } => l.tr("session-not-help"),
             TurnNotOnTop { .. } => l.tr("session-turn-not-on-top"),
-            UnknownTheme { id, .. } => l.tr_with("session-unknown-theme", &[("theme", id.to_string().into())]),
+            UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", theme.as_str().into())]),
+            ThemeCycle { chain, .. } => l.tr_with("session-theme-cycle", &[("chain", chain.as_str().into())]),
+            ThemeClosure { namespace, .. } => {
+                l.tr_with("session-theme-closure", &[("namespace", namespace.as_str().into())])
+            }
+            TrustedPackBroken { names, .. } => l.tr_with("session-widgets-broken", &[("names", names.as_str().into())]),
             ThemeVersionMissing { id, version, .. } => l.tr_with(
                 "session-theme-version-missing",
                 &[("id", id.to_string().into()), ("version", version.as_str().into())],

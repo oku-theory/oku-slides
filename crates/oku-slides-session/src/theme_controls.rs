@@ -240,16 +240,17 @@ fn apply_list_op(path: &[String], mut list: Vec<Value>, op: ListOp, column: &str
     Ok(list)
 }
 
-/// Le jeton et sa valeur qu'envoie un champ au chemin `path`, valeur `value` ;
-/// `current` lit la valeur effective d'un jeton (liste, filet).
+/// Le jeton et sa valeur qu'envoie un champ au chemin `path` du schéma
+/// `schema`, valeur `value` ; `current` lit la valeur effective d'un jeton (liste, filet).
 pub(crate) fn token_value(
+    schema: &[TokenSpec],
     path: Vec<String>,
     value: Value,
     current: impl Fn(&[String]) -> Option<Value>,
 ) -> Result<(Vec<String>, Value)> {
-    if spec(&path).is_none()
+    if spec(schema, &path).is_none()
         && let Some((side, parent)) = path.split_last()
-        && spec(parent).is_some_and(|s| s.control == Control::Rule)
+        && spec(schema, parent).is_some_and(|s| s.control == Control::Rule)
     {
         if !RULE_SIDES.contains(&side.as_str()) {
             return Err(malformed(&path));
@@ -259,7 +260,7 @@ pub(crate) fn token_value(
         rule[side.as_str()] = v;
         return Ok((parent.to_vec(), rule));
     }
-    let Some(s) = spec(&path) else { return Ok((path, value)) };
+    let Some(s) = spec(schema, &path) else { return Ok((path, value)) };
     let value = match &s.control {
         Control::Pt { .. } | Control::Em { .. } | Control::Number { .. } | Control::Weight => numeric(value),
         Control::Bool => match value.as_str() {

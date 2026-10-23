@@ -136,16 +136,17 @@ impl Session {
     ///
     /// Les contenus, pas les versions : une version porte aussi son parent et
     /// sa date, si bien que rendre au thème ou à un widget du pack son contenu
-    /// d'avant revient à un état déjà noté. Le thème compte par ses jetons
-    /// effectifs, chaque pack (widgets et layouts) par ses profils, ses exemples et ses fichiers de
+    /// d'avant revient à un état déjà noté. Le thème compte par son calque
+    /// (jetons effectifs) et les surcharges du deck, chaque pack (widgets et layouts) par ses profils, ses exemples et ses fichiers de
     /// widgets. Une page changée alors que cette empreinte a changé, et pas le
     /// modèle de la slide ([`Self::slide_key`]), puise dans le budget global
     /// ([`super::tune`]).
     pub(crate) fn deck_key(&self) -> Result<u128> {
         let failed = |what: String| compare_failed((ReferenceCause::Failed, what));
         let deck = self.deck();
-        // Les jetons du thème tels que le rendu les lit (le thème par défaut pour un deck sans thème).
-        let theme = self.theme_tokens(deck).map(|tokens| effective_tokens(default_tokens(), &tokens));
+        // Le calque de thème tel que le rendu le reçoit (défauts des packs, chaîne de thèmes) ; `deck.tokens` suit.
+        let layer = self.theme_layer(deck).map_err(|e| failed(format!("calque du thème : {}", e.one_line())))?;
+        let theme = effective_tokens(default_tokens(), &layer);
         // Chaque pack épinglé, widgets puis layouts, par espace de noms : ses profils, ses exemples et ses widgets.
         let mut packs = Vec::new();
         for (_, ns, pin) in deck.all_pins() {

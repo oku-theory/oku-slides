@@ -35,11 +35,11 @@ pub enum ImportErrorKind {
     UnknownTheme,
     /// Thème cible dont les jetons ne se lisent pas.
     BadTheme,
-    /// Le projecteur n'a produit aucun pack ou aucun thème pour le deck : un bogue.
+    /// Le projecteur n'a produit aucun pack pour le deck : un bogue.
     Generated,
     /// Le pack généré se sonde mal : autrement que déclaré, hors bornes, en échec.
     Probe,
-    /// Pack ou thème par défaut impossible à adopter.
+    /// Pack ou thème par défaut impossible à adopter, ou fermeture d'un thème introuvable.
     Library,
     /// Widgets de base illisibles.
     Render,
@@ -67,7 +67,7 @@ pub(crate) enum ImportInner {
     #[snafu(display("not a layout pack: {pack}"))]
     NotLayoutPack { pack: String, backtrace: Backtrace },
     #[snafu(display("unreadable pack: {pack}"))]
-    BadPack { pack: String, source: serde_json::Error, backtrace: Backtrace },
+    BadPack { pack: String, source: oku_slides_core::PackManifestError, backtrace: Backtrace },
     #[snafu(display("unreadable pack files: {pack}"))]
     BadPackFiles { pack: String, backtrace: Backtrace },
     #[snafu(display("cannot read the pack file {}", path.display()))]
@@ -80,8 +80,6 @@ pub(crate) enum ImportInner {
     BadTheme { source: crate::SessionError, backtrace: Backtrace },
     #[snafu(display("the importer produced no pack"))]
     PackMissing { backtrace: Backtrace },
-    #[snafu(display("the importer produced no theme"))]
-    ThemeMissing { backtrace: Backtrace },
     #[snafu(display("generated pack probed differently: {widget}"))]
     ProbeMismatch { widget: String, backtrace: Backtrace },
     #[snafu(display("generated pack beyond the probe limits: {widget}"))]
@@ -112,7 +110,7 @@ impl ImportError {
             BadPack { .. } | BadPackFiles { .. } => ImportErrorKind::BadPack,
             UnknownTheme { .. } => ImportErrorKind::UnknownTheme,
             BadTheme { .. } => ImportErrorKind::BadTheme,
-            PackMissing { .. } | ThemeMissing { .. } => ImportErrorKind::Generated,
+            PackMissing { .. } => ImportErrorKind::Generated,
             ProbeMismatch { .. } | ProbeLimit { .. } | ProbeFailed { .. } => ImportErrorKind::Probe,
             Library { .. } => ImportErrorKind::Library,
             Registry { .. } => ImportErrorKind::Render,
@@ -164,7 +162,6 @@ impl Localize for ImportError {
             UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", theme.as_str().into())]),
             BadTheme { .. } => l.tr("session-import-bad-theme"),
             PackMissing { .. } => l.tr("session-import-pack-missing"),
-            ThemeMissing { .. } => l.tr("session-import-theme-missing"),
             ProbeMismatch { widget, .. } => {
                 l.tr_with("session-import-probe-mismatch", &[("widget", widget.as_str().into())])
             }

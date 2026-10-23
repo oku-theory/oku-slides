@@ -44,6 +44,10 @@ The library `typst/oku-slides` keeps only the engine: `widget()`, the param type
 `fields-stack`, `list-item`, zones and grids (`free-area`, `zone-marker`), token resolution
 (`color-of`, `size-of`…), the slide frame helpers used by layouts, and the fallback frame.
 It registers **no widget** and owns no bare name. `canvas` is deleted (no production use).
+(Revised by the lot 4 plan: the slide functions that read component tokens — `slide`,
+`title-slide`, `chapter`, `toc`, `end-slide`, `card` — move into `essentiel` and `base` and read
+`ctx.component`, the tokens of their own pack's namespace; the core keeps `deck`, `blank-slide`,
+`kicker`, the page chrome and the helpers.)
 
 ## 2. Pack kinds
 
@@ -61,7 +65,10 @@ All three share a trunk: `id` (UUID), `namespace`, content-addressed versions (s
   every new version, fork and deck-only child of a pack.
 - Layout and widget packs declare the defaults of their **component tokens** in their manifest,
   under `tokens`, as values or references to global tokens (`color.surface`, `space.md`). They
-  are exposed to Typst and to the theme editor as `component.<namespace>.<name>`.
+  are exposed to Typst and to the theme editor as `component.<namespace>.<name>`. (Revised by the
+  lot 4 plan: `tokens` is a list of typed entries `{path, default, control, nullable, optional,
+  label}` in the format of the theme editor schema, one source for the default, the editor control
+  and the validation.)
 - A Typst file of a pack never `import`s a file of another pack; the probe refuses it
   (`CrossPackImport`). A layout reaches another pack's widget through the registry in `ctx`.
 - Templates (pre-filled slides) no longer exist: `Template`, `PackManifest.templates` and the
@@ -78,11 +85,15 @@ All three share a trunk: `id` (UUID), `namespace`, content-addressed versions (s
 | `base` | widgets | `text`, `image`, `card`, `shape`, `chart`, `table`, `stack` | — |
 | `essentiel` | layouts | `title`, `content`, `chapter`, `toc`, `end`, `blank` (new id in lot 3) | requires `base` |
 | `pro`, `papier` | themes | today's global tokens, without `component.*` | — |
+| `neutre` | theme | no tokens (lot 4: the base theme of hi-fi imports) | — |
 
 Grilles is deleted. (Revised by the lot 2 plan: no `citation` widget exists — `citation` is an Essentiel
 template — so `base` holds seven widgets.) The component tokens
 now in `default-tokens.json` and the themes move to the pack owning the component (`card`,
-`table`… to `base`; `title`… to `essentiel`), with values that render identically.
+`table`… to `base`; `title`… to `essentiel`), with values that render identically. (Revised by the
+lot 4 plan: `header`, `footer`, `list` and `kicker`, read by the core or by both built-ins, become
+global token families instead; a theme has a required `namespace`, unique across the three kinds,
+and loses `scope`.)
 
 ## 3. The deck
 
@@ -93,7 +104,10 @@ now in `default-tokens.json` and the themes move to the pack owning the componen
   at most one version per namespace (revised by the lot 3 plan: `layouts` is a map of `PackPin`s
   like `widgets`; `requires` of either kind names widget namespaces; a namespace pinned under one
   kind is refused under the other with `PackKindConflict`);
-- `theme: ThemeRef` and every ancestor theme reachable through `extends`, embedded.
+- `theme: ThemeRef` and every ancestor theme reachable through `extends`, embedded (revised by
+  the lot 4 plan: `theme: Option<Namespace>` plus `themes: BTreeMap<Namespace, ThemePin { id,
+  version, extends }>`, exactly the closure of `theme`; `Op::SetTheme { theme, themes }` is refused
+  with `ThemeCycle` or `ThemeClosure` otherwise).
 
 `deck.tokens` (the deck's own token overrides, edited by `SetToken`, `UnsetToken`, `SetTokens`)
 is unchanged and applied last.
@@ -135,12 +149,17 @@ A theme's `extends` is an ordered list. Effective tokens are applied in this ord
 5. `deck.tokens`.
 
 Merging is deep by token path: an object merges key by key, a scalar or a list (`font.body`)
-replaces. A cycle is refused with `ThemeCycle { chain }`. Example: `marque` extends
+replaces. (Revised by the lot 4 plan: Rust composes layers 2–4 into one theme layer,
+`tokens::theme_layer`, sent to Typst as `/theme.json`; Typst still merges defaults, that layer and
+`deck.tokens`, so the worker protocol is unchanged.) A cycle is refused with `ThemeCycle { chain }`. Example: `marque` extends
 `[papier, sombre]`, both extend `neutre` → defaults, packs, `neutre`, `papier`, `sombre`,
 `marque`, `deck.tokens`.
 
 The theme editor's schema (`theme_schema.json`) becomes the global section plus one section per
-embedded pack, built from that pack's declared component tokens.
+embedded pack, built from that pack's declared component tokens. (Revised by the lot 4 plan:
+saving an edited built-in theme creates a theme that extends it and holds only the edits; the
+editor shows `extends` read-only and the deck's overrides; editing `extends` is lot 5. User library
+themes without a namespace are ignored with a notice, no migration.)
 
 ## 5. Rendering
 
@@ -169,7 +188,8 @@ removed: there is no base registry any more.
   constants module (`base/card`, `base/shape`, `base/stack`, `base/table`, `base/chart`,
   `essentiel/content`…); `place.rs` and `measure.rs` stop matching bare names. The generated
   theme becomes `deck.tokens` on a built-in theme instead of a deck-only theme, so deck-only
-  themes (`PackScope::Deck` on `theme.json`) disappear. The
+  themes (`PackScope::Deck` on `theme.json`) disappear (lot 4: on `neutre`; the retrofit measures
+  with the built-ins' title, card and table tokens, as before). The
   agent's deck-only child pack stays a deck-only widget pack inheriting its parent's namespace.
 - **Agent (MCP)**: the widget and layout catalogue is grouped by pack with qualified kinds; new
   tools `add_pack` / `remove_pack` map to the ops; the widget-writing tools target a layout or
@@ -186,7 +206,9 @@ removed: there is no base registry any more.
     Widgets, Theme): version, add from the library, remove (refusals give their reason),
     new-version notice;
   - `TargetPanel.tsx` and `chartDeck.ts` pick panels by the host type of a param, not by kind;
-  - the theme editor shows `extends` and the deck overrides.
+  - the theme editor shows `extends` and the deck overrides;
+  - (lot 4) in pack mode, a widget pack's Theme tab shows read-only preview slides, one
+    `essentiel/content` slide per widget.
 - **CLI**: `render`, `check`, `import` read and write the new format; `--pack` flags take a
   namespace.
 - **Docs**: `docs/aide` (en, fr), `typst/oku-slides/README.md`, every touched
@@ -197,7 +219,8 @@ removed: there is no base registry any more.
 
 Snafu, a backtrace in every variant, opaque public types, Fluent messages (en reference, fr):
 `NamespaceInvalid`, `NamespaceTaken`, `UnknownNamespace`, `PackRequired { by }`,
-`PackInUse { elements }`, `ThemeCycle { chain }`, `CrossPackImport { file, target }`,
+`PackInUse { elements }`, `ThemeCycle { chain }`, `ThemeClosure { namespace }` (lot 4),
+`CrossPackImport { file, target }`,
 `SourcesVersionTooOld { found }`. Tests assert on keys or variants plus one non-English locale.
 
 ## 8. Testing
@@ -238,7 +261,10 @@ One spec, five plans, each merged green on its own. Revised 2026-10-18 with the 
    deviations: kinded pack ops, category fixed by pack kind, layout `profiles` for the retrofit,
    pack mode, renamed vocabulary, deck 8, replica 6, sources 12, worker protocol 5).
 4. Themes: `extends`, linearization, component tokens declared by packs, composed editor
-   schema, import writing `deck.tokens`.
+   schema, import writing `deck.tokens` (see `docs/superpowers/plans/2026-10-22-packs-lot4-themes.md`,
+   deviations: slide functions moved into the packs, global `header`/`footer`/`list`/`kicker`,
+   typed manifest `tokens`, `deck.themes` pins, theme layer composed in Rust, built-in `neutre`,
+   child copies, widget-pack previews, deck 9, replica 7, sources 13).
 5. UI: the "Deck packs" panel, add grid and slide add from packs, theme editor.
 
 Plans 2 and 3 depend on 1; 4 on 1; 5 on all. Each lot updates every hard-coded kind in the UI

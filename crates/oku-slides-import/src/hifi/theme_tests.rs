@@ -5,9 +5,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::fonts::{FontChoice, FontDecision, FontOrigin, resolve};
 use crate::source::{Bullet, Color, Fill, Frame, LevelStyle, MasterTextStyles, Placeholder, Size, Styled, TextBox};
-use crate::test_support::{
-    DEFAULT_TOKENS, app_fonts, fixture, layout, office_theme, para, run_style, source_deck, source_slide,
-};
+use crate::test_support::{app_fonts, fixture, layout, office_theme, para, run_style, source_deck, source_slide};
 
 /// Placeholder de rôle `role` dont le premier niveau est en `size` pt.
 fn placeholder(id: &str, role: Role, size: f64) -> Placeholder {
@@ -210,7 +208,8 @@ fn masterless_tokens_take_the_fallback_font() {
 
 /// Chaque jeton produit est une feuille de `default-tokens.json`, ou une couleur libre `[a-z][a-z0-9-]*`.
 fn assert_known_paths(tokens: &Map<String, Value>) {
-    let defaults: Value = serde_json::from_str(DEFAULT_TOKENS).unwrap();
+    // Les défauts du rendu et les défauts de composant des packs intégrés.
+    let defaults = Value::Object(crate::retrofit::zone::defaults().clone());
     let free_color = |name: &str| {
         name.starts_with(|c: char| c.is_ascii_lowercase())
             && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
@@ -220,8 +219,12 @@ fn assert_known_paths(tokens: &Map<String, Value>) {
             let known = defaults[group].get(name).is_some() || (group == "color" && free_color(name));
             assert_that!(known).named(&format!("{group}.{name}")).is_true();
             if group == "component" {
-                for key in value.as_object().unwrap().keys() {
-                    assert_that!(defaults[group][name].get(key)).named(&format!("{group}.{name}.{key}")).is_some();
+                // `component.<pack>.<composant>.<jeton>`.
+                for (component, leaves) in value.as_object().unwrap() {
+                    for key in leaves.as_object().unwrap().keys() {
+                        let at = defaults[group][name].get(component).and_then(|c| c.get(key));
+                        assert_that!(at).named(&format!("{group}.{name}.{component}.{key}")).is_some();
+                    }
                 }
             }
             if group == "color" {
@@ -257,21 +260,6 @@ fn theme_tokens_of_a_fixture(#[case] fixture: &str, #[case] snapshot: &str) {
 }
 
 #[test]
-fn theme_manifest_is_a_first_version_of_the_tokens() {
-    let tokens = office_tokens();
-    let id = Uuid::from_u128(7);
-    let m = theme_manifest(tokens.clone(), id, "Alto Wealth", "2026-10-11T08:00:00Z");
-    let files = m.to_files().unwrap();
-    assert_that!(ThemeManifest::from_files(&files).unwrap()).is_equal_to(&m);
-    assert_that!((m.id, m.name.as_str(), m.parent.is_none(), &m.tokens)).is_equal_to((
-        id,
-        "Alto Wealth",
-        true,
-        &tokens,
-    ));
-}
-
-#[test]
 fn theme_colors_of_the_theme_master_agree_with_its_tokens() {
     let deck = office_deck();
     let colors = theme_colors(&deck, &deck.masters[0]);
@@ -293,10 +281,18 @@ fn bullet_char(char: &str, color: Option<Color>) -> Bullet {
 }
 
 #[test]
+fn theme_tokens_put_list_global_and_table_under_base() {
+    let tokens = fixture_tokens("kitchen");
+    assert_that!(tokens.contains_key("list")).is_true();
+    assert_that!(tokens["component"]["base"].get("table")).is_some();
+    assert_that!(tokens["component"].get("list")).is_none();
+}
+
+#[test]
 fn theme_tokens_take_the_list_marker_of_the_master_body() {
     let tokens = bulleted(bullet_char("•", None));
     // Une puce sans couleur propre prend celle du texte.
-    assert_that!(tokens["component"]).is_equal_to(json!({ "list": { "marker": "•", "marker-color": null } }));
+    assert_that!(tokens["list"]).is_equal_to(json!({ "marker": "•", "marker-color": null }));
     assert_known_paths(&tokens);
 }
 
@@ -304,16 +300,16 @@ fn theme_tokens_take_the_list_marker_of_the_master_body() {
 fn theme_tokens_give_the_marker_its_own_color() {
     let accent = Styled::scheme(office_theme().colors["accent2"], "accent2");
     let tokens = bulleted(bullet_char("▪", Some(accent)));
-    assert_that!(tokens["component"]["list"]).is_equal_to(json!({ "marker": "▪", "marker-color": "accent-2" }));
+    assert_that!(tokens["list"]).is_equal_to(json!({ "marker": "▪", "marker-color": "accent-2" }));
     let odd = bulleted(bullet_char("▪", Some(Styled::explicit(Rgba::new(1, 2, 3)))));
-    assert_that!(odd["component"]["list"]["marker-color"]).is_equal_to(json!("#010203"));
+    assert_that!(odd["list"]["marker-color"]).is_equal_to(json!("#010203"));
 }
 
 #[rstest]
 #[case::none(Bullet::None)]
 #[case::numbered(Bullet::AutoNum { scheme: "arabicPeriod".into(), start: 1 })]
 fn theme_tokens_without_a_bullet_character_keep_the_default_list(#[case] bullet: Bullet) {
-    assert_that!(bulleted(bullet).get("component")).is_none();
+    assert_that!(bulleted(bullet).get("list")).is_none();
 }
 
 #[test]
@@ -322,5 +318,5 @@ fn theme_tokens_without_body_placeholder_take_the_master_body_style() {
     deck.masters[0].placeholders.clear();
     deck.masters[0].text_styles.body.para.bullet = bullet_char("–", None);
     let tokens = theme_tokens(&deck, &deck.masters[0], &office_fonts(), &Page::new(deck.size));
-    assert_that!(tokens["component"]["list"]["marker"]).is_equal_to(json!("–"));
+    assert_that!(tokens["list"]["marker"]).is_equal_to(json!("–"));
 }

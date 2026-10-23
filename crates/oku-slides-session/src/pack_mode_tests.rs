@@ -27,10 +27,10 @@ fn edit_pack_essentiel_working_deck_has_one_slide_per_layout() {
 }
 
 #[test]
-fn edit_pack_base_working_deck_has_no_slides() {
+fn edit_pack_base_working_deck_has_only_preview_slides() {
     let mut s = session();
     s.edit_pack(BASE_PACK).unwrap();
-    assert_that!(s.deck().slides.is_empty()).is_true();
+    assert_that!(slide_ids(&s).iter().all(|id| id.starts_with("widget-"))).is_true();
 }
 
 #[test]
@@ -278,7 +278,10 @@ fn session_on_pack_without_base(data: &std::path::Path, namespace: &str) -> (cra
     let files = &crate::test_support::builtin(ESSENTIEL_PACK).files;
     let content = files.widget(&oku_slides_core::WidgetFile::parse("content").unwrap()).unwrap();
     let common = files.widget(&oku_slides_core::WidgetFile::common()).unwrap();
-    let m = crate::test_support::manifest_ns(uuid::Uuid::new_v4(), namespace, &[]);
+    // Les layouts d'Essentiel lisent ses jetons de composant : la copie les déclare aussi.
+    let tokens = crate::test_support::builtin(ESSENTIEL_PACK).manifest.tokens.clone();
+    let m =
+        crate::pack::PackManifest { tokens, ..crate::test_support::manifest_ns(uuid::Uuid::new_v4(), namespace, &[]) };
     let kind = oku_slides_core::PackKind::Layouts;
     crate::test_support::add_version_of(library_of(&s), kind, &m, &[("content", content), ("_commun", common)]);
     (s, m.id)

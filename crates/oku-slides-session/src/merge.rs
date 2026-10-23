@@ -80,6 +80,11 @@ impl Session {
         log_issues(&issues, &self.localizer, IssuesAt::Merge);
         // Les versions d'un fichier fusionné entrent aussi en silence, sans bandeau.
         self.receive_packs();
+        // Deux `set_theme` concurrents laissent l'union des épinglages : la fermeture est refaite.
+        match crate::deck_theme::repair_theme_closure(&self.themes, &mut self.doc.sources) {
+            Ok(repaired) => self.doc.dirty |= repaired,
+            Err(e) => tracing::warn!(error = %e.one_line(), "épinglages des thèmes non réparés après fusion"),
+        }
         // La fusion n'ajoute que des polices, des assets, des packs et des thèmes (à nom égal, on garde les nôtres).
         if report.changes > 0 || count(&self.doc.sources) != before {
             self.doc.dirty = true;

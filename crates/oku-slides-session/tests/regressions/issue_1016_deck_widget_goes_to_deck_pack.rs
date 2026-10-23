@@ -29,8 +29,12 @@ fn widget_written_in_deck_mode_without_a_pack_goes_to_the_deck_pack() {
 
     // Le pack intégré du deck n'a pas changé, ni dans le deck ni dans la bibliothèque.
     assert_that!(s.deck().widgets.get(&essentiel).cloned()).is_equal_to(before);
-    let library =
-        PackLibrary::new(Some(data.as_ref().join("widgets")), None, Storage::local().unwrap_or_else(|e| panic!("{e}")));
+    let library = PackLibrary::new(
+        Some(data.as_ref().join("widgets")),
+        None,
+        crate::common::no_user_themes(),
+        Storage::local().unwrap_or_else(|e| panic!("{e}")),
+    );
     assert_that!(library.versions(ESSENTIEL_PACK).len()).is_equal_to(1);
     // Le widget est au pack `deck`, du deck seul.
     let pin = s.deck().widgets.get(&Namespace::deck()).cloned().unwrap_or_else(|| panic!("pack du deck"));

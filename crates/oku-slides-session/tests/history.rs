@@ -46,7 +46,7 @@ fn history_open_shows_the_last_version_read_only() {
     assert_that!(snap["history"]["index"]).is_equal_to(json!(count - 1));
     assert_that!(snap["history"]["version"]["label"]).is_equal_to(json!("Thème"));
     assert_that!(snap["history"]["changes"]["changed_since"]).is_equal_to(json!([]));
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PAPIER_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("papier"));
     assert_that!(snap["can_undo"]).is_equal_to(json!(false));
     let err = s.handle(set_theme("pro")).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InHistory);
@@ -59,7 +59,7 @@ fn history_seek_shows_an_earlier_version() {
     let count = count(&mut s);
     s.handle(req(json!({ "cmd": "history_seek", "index": count - 2 }))).unwrap();
     let snap = snapshot_json(&mut s);
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["history"]["index"]).is_equal_to(json!(count - 2));
 }
 
@@ -71,7 +71,7 @@ fn history_seek_past_the_end_shows_the_last_version() {
     s.handle(req(json!({ "cmd": "history_seek", "index": count + 10 }))).unwrap();
     let snap = snapshot_json(&mut s);
     assert_that!(snap["history"]["index"]).is_equal_to(json!(count - 1));
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PAPIER_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("papier"));
 }
 
 #[test]
@@ -111,12 +111,12 @@ fn history_restore_is_a_new_undoable_commit() {
     s.handle(req(json!({ "cmd": "history_restore" }))).unwrap();
     let snap = snapshot_json(&mut s);
     assert_that!(snap["history"].is_null()).is_true();
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["dirty"]).is_equal_to(json!(true));
     assert_that!(snap["can_undo"]).is_equal_to(json!(true));
     assert_that!(snap["undo_label"].as_str().unwrap()).starts_with("Restaurer la version du ");
     s.handle(req(json!({ "cmd": "undo" }))).unwrap();
-    assert_that!(snapshot_json(&mut s)["theme"]["id"]).is_equal_to(json!(oku_slides_session::PAPIER_THEME));
+    assert_that!(snapshot_json(&mut s)["theme"]).is_equal_to(json!("papier"));
 }
 
 #[test]

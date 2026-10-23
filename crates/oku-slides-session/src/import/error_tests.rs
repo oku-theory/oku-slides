@@ -18,7 +18,6 @@ fn fr() -> Localizer {
 #[case(ThresholdSnafu { value: -1.0 }.build(), ImportErrorKind::Threshold, "pas -1")]
 #[case(TooLargeSnafu.build(), ImportErrorKind::TooLarge, "")]
 #[case(PackMissingSnafu.build(), ImportErrorKind::Generated, "aucun pack")]
-#[case(ThemeMissingSnafu.build(), ImportErrorKind::Generated, "aucun thème")]
 #[case(ProbeFailedSnafu { error: "lien rompu" }.build(), ImportErrorKind::Probe, "processus de rendu : lien rompu")]
 fn import_error_has_its_kind_and_a_french_message(
     #[case] inner: ImportInner,

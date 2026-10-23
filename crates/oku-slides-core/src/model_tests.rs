@@ -23,6 +23,7 @@ fn from_json_newer_version_returns_an_error() {
 #[case(5)]
 #[case(6)]
 #[case(7)]
+#[case(8)]
 fn deck_from_json_older_version_is_refused(#[case] version: u32) {
     let err = Deck::from_json(&format!(r#"{{"version": {version}, "slides": []}}"#)).unwrap_err();
     assert_that!(err.to_string()).contains(format!("unsupported deck version {version}"));
@@ -30,12 +31,12 @@ fn deck_from_json_older_version_is_refused(#[case] version: u32) {
 
 #[test]
 fn deck_from_json_current_version_is_read() {
-    assert_that!(Deck::from_json(r#"{"version": 8, "slides": []}"#).ok().map(|d| d.version)).is_equal_to(Some(8));
+    assert_that!(Deck::from_json(r#"{"version": 9, "slides": []}"#).ok().map(|d| d.version)).is_equal_to(Some(9));
 }
 
 #[test]
-fn deck_empty_is_version_8() {
-    assert_that!(Deck::empty().version).is_equal_to(8);
+fn deck_empty_is_version_9() {
+    assert_that!(Deck::empty().version).is_equal_to(9);
 }
 
 /// Un épinglage quelconque, pour les tests de forme.
@@ -57,22 +58,32 @@ const REF: &str = r#"{"id":"6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10","version":"sha
 
 #[test]
 fn deck_from_json_reads_widget_pins_by_namespace() {
-    let json = json!({"version": 8, "widgets": {"essentiel": {"id": Uuid::nil(), "version": format!("sha256:{}", "b".repeat(64))}}, "slides": []});
+    let json = json!({"version": 9, "widgets": {"essentiel": {"id": Uuid::nil(), "version": format!("sha256:{}", "b".repeat(64))}}, "slides": []});
     let deck = Deck::from_json(&json.to_string()).unwrap();
     assert_that!(deck.widgets.keys().map(Namespace::as_str).collect::<Vec<_>>()).is_equal_to(vec!["essentiel"]);
 }
 
+const PIN: &str = r#"{"id":"6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10","version":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","extends":["papier"]}"#;
+
 #[test]
-fn deck_from_json_reads_theme_as_a_theme_ref() {
-    let deck = Deck::from_json(&format!(r#"{{"version":8,"theme":{REF},"slides":[]}}"#)).unwrap();
-    let r = deck.theme.unwrap();
-    assert_that!(r.id.to_string()).is_equal_to("6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10".to_owned());
-    assert_that!(r.version.hex()).is_equal_to(&*"a".repeat(64));
+fn deck_from_json_reads_theme_as_a_namespace_and_its_pins() {
+    let json = format!(r#"{{"version":9,"theme":"marque","themes":{{"marque":{PIN},"papier":{REF}}},"slides":[]}}"#);
+    let deck = Deck::from_json(&json).unwrap();
+    assert_that!(deck.theme.as_ref().map(Namespace::as_str)).is_equal_to(Some("marque"));
+    let marque = &deck.themes[&Namespace::parse("marque").unwrap()];
+    assert_that!(marque.extends.iter().map(Namespace::as_str).collect::<Vec<_>>()).is_equal_to(vec!["papier"]);
+    assert_that!(deck.themes[&Namespace::parse("papier").unwrap()].version.hex()).is_equal_to(&*"a".repeat(64));
 }
 
 #[test]
-fn deck_from_json_with_a_theme_name_is_refused() {
-    assert_that!(Deck::from_json(r#"{"version":8,"theme":"papier","slides":[]}"#).is_err()).is_true();
+fn deck_from_json_with_a_theme_ref_object_is_refused() {
+    assert_that!(Deck::from_json(&format!(r#"{{"version":9,"theme":{REF},"slides":[]}}"#)).is_err()).is_true();
+}
+
+#[test]
+fn deck_without_theme_omits_theme_and_themes() {
+    let json = serde_json::to_value(Deck::empty()).unwrap();
+    assert_that!((json.get("theme"), json.get("themes"))).is_equal_to((None, None));
 }
 
 #[test]
@@ -93,7 +104,7 @@ fn deck_v4_is_refused_as_unsupported_version() {
 
 #[test]
 fn from_json_current_version_reads_the_deck() {
-    let deck = Deck::from_json(r#"{"version": 8, "slides": [{"id": "s", "kind": "essentiel/content"}]}"#).unwrap();
+    let deck = Deck::from_json(r#"{"version": 9, "slides": [{"id": "s", "kind": "essentiel/content"}]}"#).unwrap();
     assert_that!(deck.slides.len()).is_equal_to(1);
 }
 

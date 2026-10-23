@@ -89,7 +89,7 @@ fn resolve(color: &Map<String, Value>, name: &str) -> Option<Rgba> {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ColorTokens {
     colors: BTreeMap<String, Rgba>,
-    /// Fond d'une carte (`component.card.bg`), puis d'une carte en relief (`highlight-bg`).
+    /// Fond d'une carte (`component.base.card.bg`), puis d'une carte en relief (`highlight-bg`).
     cards: [Option<Rgba>; 2],
     /// Couleurs du deck ramenées à un accent, par ordre d'usage.
     accents: Vec<(Rgba, String)>,
@@ -99,12 +99,12 @@ impl ColorTokens {
     /// Depuis les jetons effectifs du thème (défauts fusionnés) : le groupe
     /// `color`, dont une valeur est `#rgb`, `#rrggbb`, `#rrggbbaa` ou le nom
     /// d'un autre jeton de couleur (un nom inconnu, une boucle d'alias ou une
-    /// autre valeur : jeton écarté) ; les fonds `component.card.bg` et
-    /// `component.card.highlight-bg`, des noms de couleur.
+    /// autre valeur : jeton écarté) ; les fonds `component.base.card.bg` et
+    /// `component.base.card.highlight-bg`, des noms de couleur.
     pub fn from_tokens(tokens: &Map<String, Value>) -> Self {
         let empty = Map::new();
         let color = tokens.get("color").and_then(Value::as_object).unwrap_or(&empty);
-        let card = tokens.get("component").and_then(|c| c.get("card"));
+        let card = tokens.get("component").and_then(|c| c.get("base")).and_then(|b| b.get("card"));
         let card_color =
             |key: &str| card.and_then(|c| c.get(key)).and_then(Value::as_str).and_then(|n| resolve(color, n));
         Self {

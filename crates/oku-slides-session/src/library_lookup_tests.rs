@@ -16,7 +16,12 @@ fn fr() -> &'static oku_slides_i18n::Localizer {
 /// Une bibliothèque de packs vide dans un dossier temporaire (les intégrés seulement).
 fn library(dir: &Path) -> (Storage, PackLibrary) {
     let storage = Storage::local().unwrap();
-    let library = PackLibrary::new(Some(dir.join("widgets")), Some(dir.join("layouts")), storage.clone());
+    let library = PackLibrary::new(
+        Some(dir.join("widgets")),
+        Some(dir.join("layouts")),
+        crate::ThemeLibrary::builtin_only(),
+        storage.clone(),
+    );
     (storage, library)
 }
 
@@ -170,7 +175,7 @@ fn embed_theme_by_name_or_id_embeds_the_same_version() {
     let by_name = embed_theme(&themes, "PRO", &mut bundle).unwrap();
     let by_id = embed_theme(&themes, &PRO_THEME.to_string(), &mut bundle).unwrap();
     assert_that!(by_name).is_equal_to(by_id.clone());
-    assert_that!(by_id.id).is_equal_to(PRO_THEME);
+    assert_that!(by_id.1.get(&by_id.0).map(|p| p.id)).is_equal_to(Some(PRO_THEME));
 }
 
 #[test]
@@ -193,4 +198,25 @@ fn library_pack_by_namespace_gives_the_current_version_of_its_owner() {
     let found = library_pack(&library, "acme").unwrap();
     assert_that!(found.version()).is_equal_to(pin.version);
     assert_that!(library_pack(&library, "absent").is_err()).is_true();
+}
+
+#[test]
+fn embed_theme_by_namespace_embeds_its_closure() {
+    let tmp = tempfile::tempdir().unwrap();
+    let themes = ThemeLibrary::new(Some(tmp.path().join("themes")), Storage::local().unwrap());
+    crate::test_support::add_user_theme(&themes, uuid::Uuid::new_v4(), "marque", &["pro"], Default::default(), None);
+    let mut bundle = empty_bundle();
+    let (ns, pins) = embed_theme(&themes, "marque", &mut bundle).unwrap();
+    assert_that!(ns.as_str()).is_equal_to("marque");
+    assert_that!(pins.keys().map(|n| n.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["marque", "pro"]);
+    assert_that!(pins.values().all(|p| bundle.themes.contains_key(&p.version))).is_true();
+}
+
+#[test]
+fn embed_theme_of_a_child_with_a_missing_parent_is_a_library_error() {
+    let tmp = tempfile::tempdir().unwrap();
+    let themes = ThemeLibrary::new(Some(tmp.path().join("themes")), Storage::local().unwrap());
+    crate::test_support::add_user_theme(&themes, uuid::Uuid::new_v4(), "marque", &["absent"], Default::default(), None);
+    let err = embed_theme(&themes, "marque", &mut empty_bundle()).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ImportErrorKind::Library);
 }

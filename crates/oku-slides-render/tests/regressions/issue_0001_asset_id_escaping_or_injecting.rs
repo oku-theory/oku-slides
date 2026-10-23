@@ -16,6 +16,7 @@ fn fixture() -> Deck {
 
 fn render_with_asset(id: &str) -> Result<usize, String> {
     let mut r = Renderer::with_builtins(Fonts::default()).map_err(|e| e.to_string())?;
+    r.set_theme(crate::common::theme_tokens(None)).map_err(|e| e.to_string())?;
     let assets = BTreeMap::from([(id.to_owned(), vec![0u8; 8])]);
     r.set_deck(&fixture(), &assets).map_err(|e| e.to_string())?;
     r.compile().map(|c| c.page_count()).map_err(|e| e.to_string())

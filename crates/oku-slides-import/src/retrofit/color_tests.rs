@@ -245,7 +245,7 @@ fn builtin_theme_highlight_kicker_reads_on_the_highlight_card() {
     themes.push(("default-tokens.json".to_owned(), r#"{"tokens": {}}"#.to_owned()));
     for (name, theme) in &themes {
         let tokens = crate::test_support::tokens(theme);
-        let kicker = tokens["component"]["card"]["highlight-kicker"].as_str().unwrap();
+        let kicker = tokens["component"]["base"]["card"]["highlight-kicker"].as_str().unwrap();
         let c = colors(theme);
         let ratio = contrast(c.get(kicker).unwrap(), c.card(true));
         asserting(name).that(&ratio).is_greater_than_or_equal_to(MIN_CONTRAST);

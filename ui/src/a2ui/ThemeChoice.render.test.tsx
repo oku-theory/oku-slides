@@ -17,9 +17,9 @@ const card = {
   slide: "s-1",
   swatches: ["#ffffff", "#2f5fb3"],
   active: true,
-  action: { event: { name: "theme", context: { theme: "id-1" } } },
+  action: { event: { name: "theme", context: { theme: "papier" } } },
 };
-const other = { ...card, svg: "<svg>pro</svg>", name: "Pro", active: false, action: { event: { name: "theme", context: { theme: "id-2" } } } };
+const other = { ...card, svg: "<svg>pro</svg>", name: "Pro", active: false, action: { event: { name: "theme", context: { theme: "pro" } } } };
 
 type Store = ReturnType<typeof createStagePreviewStore>;
 
@@ -65,10 +65,10 @@ describe("ThemeChoice", () => {
     expect(buttons[0].querySelector("bdi.caption")?.textContent).toBe("Papier");
   });
 
-  test("un clic envoie theme avec l'id du thème", async () => {
+  test("un clic envoie theme avec l'espace de noms du thème", async () => {
     const { buttons, actions } = await mount();
     await act(async () => buttons[0].click());
-    expect(actions.map((a) => [a.name, a.context])).toEqual([["theme", { theme: "id-1" }]]);
+    expect(actions.map((a) => [a.name, a.context])).toEqual([["theme", { theme: "papier" }]]);
   });
 
   test("le survol pose l'aperçu de sa slide", async () => {

@@ -62,14 +62,14 @@ export interface Snapshot {
   path: string | null;
   name: string;
   dirty: boolean;
-  /** Thème du deck : id et version embarquée. */
-  theme: ThemeRef | null;
+  /** Espace de noms du thème du deck. */
+  theme: string | null;
+  /** Thème du deck et ses parents, épinglés par espace de noms. */
+  theme_pins: Record<string, ThemePin>;
   /** Nom du thème tel qu'embarqué par le deck. */
   theme_name: string | null;
   /** Thèmes de la bibliothèque dans leur version courante : intégrés, puis ceux de l'utilisateur. */
   themes: ThemeInfo[];
-  /** Thèmes du deck seul embarqués dans ses sources (celui d'un import), un par id : « cette présentation ». */
-  deck_themes: ThemeInfo[];
   title: string | null;
   title_source: string | null;
   /** Langue du deck (`params.lang`) : les grilles écrivent les nombres comme les slides. */
@@ -190,26 +190,25 @@ export interface PackPin {
   requires?: string[];
 }
 
-/** Le thème d'un deck à une version donnée. */
-export interface ThemeRef {
+/** Un thème épinglé par le deck : id, version embarquée et espaces de noms des parents. */
+export interface ThemePin {
   id: string;
   version: string;
+  extends?: string[];
 }
 
-/**
- * Un thème proposé, de la bibliothèque ou du deck seul.
- *
- * Celui de la bibliothèque dans sa version courante, celui du deck seul dans celle qu'il reprendrait.
- */
+/** Un thème de la bibliothèque dans sa version courante. */
 export interface ThemeInfo {
   id: string;
   version: string;
   name: string;
+  /** Son espace de noms, unique dans la bibliothèque : le deck l'épingle sous ce nom. */
+  namespace: string;
+  /** Les thèmes qu'il étend, dans l'ordre (les suivants l'emportent). */
+  extends: string[];
   builtin: boolean;
   /** Le thème d'un deck neuf. */
   default: boolean;
-  /** Le thème n'appartient qu'au deck (celui d'un import) : jamais dans la bibliothèque. */
-  deck_only: boolean;
 }
 
 /** Le pack édité en mode pack, et le brouillon du thème. */
@@ -234,10 +233,12 @@ export interface PackMode {
 
 export interface ThemeEditView {
   /** Version de base du brouillon. */
-  base: ThemeRef;
+  base: ThemePin;
   name: string;
-  /** Thème intégré : l'enregistrer en crée une copie. */
-  builtin: boolean;
+  /** La base est intégrée : l'enregistrer en crée un enfant qui l'étend. */
+  child: boolean;
+  /** Noms des thèmes qu'étend le thème enregistré, dans l'ordre (lecture seule). */
+  extends: string[];
   /** Le brouillon diffère de sa base (jetons ou nom). */
   dirty: boolean;
   /** Empreinte des jetons du brouillon : change avec eux. */
@@ -570,7 +571,7 @@ export type Op =
   | { op: "remove_slide"; slide: string }
   | { op: "move_slide"; slide: string; index: number }
   | { op: "set_notes"; slide: string; notes: string }
-  | { op: "set_theme"; theme: ThemeRef | null }
+  | { op: "set_theme"; theme: string | null }
   | { op: "add_pack"; kind: PackKind; namespace: string; pin: PackPin }
   | { op: "remove_pack"; kind: PackKind; namespace: string }
   | { op: "set_token"; path: string[]; value: unknown }

@@ -3,7 +3,7 @@ use speculoos::prelude::*;
 
 use super::{AgentUi, declared_language, turn_label};
 use crate::agent::clip;
-use crate::test_support::{fresh_dir, opened_on};
+use crate::test_support::{add_user_theme, fresh_dir, ns, opened_on};
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
@@ -88,8 +88,27 @@ fn agent_context_trial_value_cannot_close_the_context_tag() {
 fn agent_context_in_pack_mode_names_the_draft_theme() {
     let (_d, mut s) = pack_with_quote();
     let context = s.agent_context(&AgentUi::default());
-    assert_that!(context.as_str()).contains("theme (draft): Papier");
+    assert_that!(context.as_str()).contains("theme (draft): Papier (extends Papier)");
     assert_that!(context.as_str()).does_not_contain("theme: none");
+}
+
+#[test]
+fn agent_context_names_the_parents_of_a_child_theme() {
+    let data = fresh_dir("oku-slides-context-");
+    let mut s = opened_on(data.path());
+    let tokens = json!({"color": {"accent": "#123456"}}).as_object().cloned().unwrap();
+    add_user_theme(&s.themes, uuid::Uuid::new_v4(), "marque", &["pro"], tokens, None);
+    s.set_theme(&ns("marque")).unwrap();
+    let context = s.agent_context(&AgentUi::default());
+    assert_that!(context.as_str()).contains("theme: marque (extends Pro)");
+}
+
+#[test]
+fn agent_context_names_a_theme_without_parents_alone() {
+    let data = fresh_dir("oku-slides-context-");
+    let mut s = opened_on(data.path());
+    let context = s.agent_context(&AgentUi::default());
+    assert_that!(context.as_str()).contains("theme: Papier ·");
 }
 
 /// La partie du contexte qui commence par `key` ; tout le contexte si elle manque (échec lisible).

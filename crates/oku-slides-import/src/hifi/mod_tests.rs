@@ -75,7 +75,7 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
         essentiel: essentiel_pin(),
         fonts,
         pack_id: Uuid::from_u128(1),
-        theme_id: Uuid::from_u128(2),
+        theme: Namespace::parse("neutre").unwrap(),
         name: "Import".into(),
         created: "2026-10-11T08:00:00Z".into(),
         limits: PackLimits::default(),
@@ -83,7 +83,7 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
     let plan = project(deck, &target);
     let registry = registry_with_deck_layouts(&plan.schemas);
     let mut d = Deck::empty();
-    apply_all(&mut d, plan.ops.clone(), &registry).unwrap();
+    apply_all(&mut d, crate::test_support::with_theme_closure(plan.ops.clone()), &registry).unwrap();
     let assets: HashSet<String> = plan.assets.keys().cloned().collect();
     assert_that!(validate(&d, &registry, Some(&assets))).is_empty();
     plan
@@ -245,17 +245,38 @@ fn project_without_the_body_font_falls_back_to_a_sans_app_font() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/fonts");
     liberation.add(crate::fonts::FontOrigin::App, std::fs::read(dir.join("liberation-sans-400.ttf")).unwrap());
     let plan = projected_with(&deck(vec![source_slide(1, Some("l1"), Vec::new())]), &liberation);
-    let theme = oku_slides_core::ThemeManifest::from_files(plan.theme.as_ref().unwrap()).unwrap();
-    assert_that!(theme.tokens["font"].clone())
+    assert_that!(generated_tokens(&plan)["font"].clone())
         .is_equal_to(json!({ "display": ["Liberation Sans"], "body": ["Liberation Sans"] }));
     let fallbacks: Vec<Option<&str>> = plan.report.fonts.iter().map(|c| c.fallback.as_deref()).collect();
     assert_that!(fallbacks).is_equal_to(vec![Some("Liberation Sans"), Some("Liberation Sans")]);
 
     // Sans aucune police de l'app : pas de jeton de police, le moteur prend la sienne.
     let plan = projected_with(&deck(vec![source_slide(1, Some("l1"), Vec::new())]), &FontCatalog::new());
-    let theme = oku_slides_core::ThemeManifest::from_files(plan.theme.as_ref().unwrap()).unwrap();
-    assert_that!(theme.tokens.get("font")).is_none();
+    assert_that!(generated_tokens(&plan).get("font")).is_none();
     assert_that!(plan.report.fonts.iter().all(|c| c.fallback.is_none())).is_true();
+}
+
+/// Les jetons que le plan écrit dans `deck.tokens`.
+fn generated_tokens(plan: &ImportPlan) -> &serde_json::Map<String, Value> {
+    plan.ops
+        .iter()
+        .find_map(|op| match op {
+            Op::SetTokens { tokens } => tokens.as_object(),
+            _ => None,
+        })
+        .unwrap()
+}
+
+#[test]
+fn hifi_plan_pins_the_target_theme_then_sets_its_tokens() {
+    let plan = projected(&deck(vec![source_slide(1, Some("l1"), Vec::new())]));
+    let ops: Vec<&Op> = plan.ops.iter().filter(|o| matches!(o, Op::SetTheme { .. } | Op::SetTokens { .. })).collect();
+    assert_that!(ops.len()).is_equal_to(2);
+    assert_that!(
+        matches!(ops[0], Op::SetTheme { theme: Some(t), themes } if t.as_str() == "neutre" && themes.is_empty())
+    )
+    .is_true();
+    assert_that!(matches!(ops[1], Op::SetTokens { tokens } if tokens["weight"]["strong"] == 700)).is_true();
 }
 
 #[test]
@@ -263,7 +284,7 @@ fn project_of_alto_twice_gives_the_same_plan() {
     let deck = crate::test_support::fixture("alto-wealth.pptx");
     let (first, second) = (projected(&deck), projected(&deck));
     assert_that!(first.ops == second.ops).is_true();
-    assert_that!(first.pack == second.pack && first.theme == second.theme).is_true();
+    assert_that!(first.pack == second.pack).is_true();
     assert_that!(first.report == second.report && first.assets == second.assets).is_true();
 }
 

@@ -1,6 +1,6 @@
 //! Le style d'un tableau source dans les termes du widget `table` de base :
 //! drapeaux de son option (`header-row`, `striped`) et jetons du composant
-//! `component.table` du thème.
+//! `component.base.table` du thème.
 //!
 //! Les cellules du lecteur sont résolues (style de tableau appliqué, ou
 //! remplissages explicites comme LibreOffice les écrit, `tblPr` vide) : le
@@ -50,7 +50,7 @@ pub(crate) struct TableLook {
     pub(crate) header_row: bool,
     /// Les lignes du corps alternent deux fonds.
     pub(crate) striped: bool,
-    /// Les jetons `component.table` qui le rendent.
+    /// Les jetons `component.base.table` qui le rendent.
     pub(crate) tokens: Map<String, Value>,
     /// Une part du style n'a pas d'équivalent dans le widget.
     pub(crate) irregular: bool,

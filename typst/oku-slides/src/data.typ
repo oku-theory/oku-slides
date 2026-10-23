@@ -1,7 +1,7 @@
-// Rendu d'un deck JSON v8 (le modèle de données de l'app Oku Slides).
+// Rendu d'un deck JSON v9 (le modèle de données de l'app Oku Slides).
 //
 // {
-//   "version": 8,
+//   "version": 9,
 //   "params": { "title": "…", "author": "…", "date": "…" },
 //   "vars":   { "client": "Acme" },
 //   "tokens": { "color": { "accent": "#8a5a1c" } },
@@ -57,6 +57,13 @@
   kind: e.at("kind", default: none), id: e.at("id", default: none),
   frame: e.at("frame", default: none), cell: e.at("cell", default: none),
   "show": f => render(t, e + (frame: f), vars, image-loader: image-loader, widgets: widgets, deck-params: deck-params)))
+
+// Jetons de composant du pack du `kind` (`ns/nom`) : `component.<ns>` des
+// jetons, vide si le pack n'en déclare aucun (ou sans espace de noms).
+#let _component(t, kind) = {
+  let ns = if type(kind) == str and kind.contains("/") { kind.split("/").first() } else { none }
+  if ns == none { (:) } else { t.at("component", default: (:)).at(ns, default: (:)) }
+}
 
 // Un run de paragraphe (côté Typst) : un objet dont, s'il est présent, `t`
 // est une chaîne. Mirroir de `RUN_KEYS`/`is_paragraphs` côté Rust
@@ -153,8 +160,8 @@
   let widgets = _required(widgets, "render-element")
   let kind = e.at("kind", default: none)
   let style = e.at("style", default: (:))
-  let ctx = (id: e.at("id", default: none), tokens: t, vars: vars, style: style, framed: "frame" in e,
-    load: if image-loader != none { (..a) => image-loader(e, ..a) } else { none })
+  let ctx = (id: e.at("id", default: none), tokens: t, component: _component(t, kind), vars: vars, style: style,
+    framed: "frame" in e, load: if image-loader != none { (..a) => image-loader(e, ..a) } else { none })
   // Un widget existant mais qui n'est pas de catégorie "element" (p. ex.
   // une slide comme "title") ne rend pas ici : boîte d'élément inconnu.
   let w = _widget(widgets, kind, "element")
@@ -195,7 +202,7 @@
   let id = s.at("id", default: none)
   let w = _widget(widgets, kind, "slide")
   if w == none { return blank-slide(text(fill: red)[oku-slides : slide inconnue « #kind »], id: id) }
-  let ctx = (id: id, tokens: t, vars: c.vars, style: (:), framed: false,
+  let ctx = (id: id, tokens: t, component: _component(t, kind), vars: c.vars, style: (:), framed: false,
     load: if image-loader != none { (..a) => image-loader(s, ..a) } else { none })
   (w.render)(_args(t, w.schema, s.at("params", default: (:)), c.vars, c.params, image-loader, widgets,
     render-element), ctx)

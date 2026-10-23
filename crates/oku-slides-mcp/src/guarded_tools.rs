@@ -40,10 +40,9 @@ pub(crate) struct SavePackArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct EditThemeArgs {
-    /// Id du thème (UUID, voir `deck_outline`), édité dans sa version courante.
-    #[schemars(with = "String")]
-    pub theme: uuid::Uuid,
-    /// Nouveau nom ; absent : le nom actuel (« (copie) » pour un thème intégré).
+    /// Espace de noms du thème (voir `deck_outline`), édité dans sa version courante ; son id ou son nom sont aussi compris.
+    pub theme: String,
+    /// Nouveau nom ; absent : le nom actuel (« (variante) » pour un thème intégré).
     #[serde(default)]
     pub name: Option<String>,
     /// Ops de jetons, appliquées dans l'ordre.
@@ -289,30 +288,26 @@ impl Tools {
         self.guarded(message, true, Request::DeletePack { pack }).await
     }
 
-    /// Nouvelle version d'un thème (copie d'un thème intégré), en mode deck :
+    /// Nouvelle version d'un thème, ou variante d'un thème intégré, en mode deck :
     /// l'écran reste sur les slides. Répond le thème obtenu.
     ///
-    /// Confirmé par l'utilisateur, sauf pour un thème du deck seul (`ThemeInfo::deck_only`).
+    /// Toujours confirmé par l'utilisateur : un thème intégré fait une variante qui l'étend.
     pub(crate) async fn edit_theme(&self, args: Value) -> CallToolResult {
         let EditThemeArgs { theme, name, ops } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         // Un thème inconnu est refusé sans rien demander.
-        let info = match self.with_session(move |s| s.theme_info(theme)).await {
+        let info = match self.with_session(move |s| s.find_theme_info(&theme)).await {
             Ok(i) => i,
             Err(e) => return self.fail_with(e),
         };
-        // Un thème du deck seul (celui d'un import) : sa nouvelle version reste dans le deck,
-        // en une étape annulable, sans toucher la bibliothèque ; rien à confirmer.
-        if !info.deck_only {
-            let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
-            let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
-            if !self.hub.confirm(message, false).await {
-                return self.denied();
-            }
+        let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
+        let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
+        if !self.hub.confirm(message, false).await {
+            return self.denied();
         }
-        let done = self.with_session(move |s| s.handle(Request::EditTheme { id: theme, name, ops })).await;
+        let done = self.with_session(move |s| s.handle(Request::EditTheme { id: info.id, name, ops })).await;
         self.reply(done, |edited| {
             self.hub.emit(McpEvent::Changed);
             text(edited)

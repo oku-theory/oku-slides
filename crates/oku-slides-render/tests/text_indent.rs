@@ -19,7 +19,7 @@ fn compile(style: Value, body: Value) -> Compiled {
         s.insert("size".into(), json!(40));
         s.insert("color".into(), json!("#ff0000"));
     }
-    let d = json!({ "tokens": { "component": { "list": { "marker": "•", "marker-color": "#00ff00" } } },
+    let d = json!({ "tokens": { "list": { "marker": "•", "marker-color": "#00ff00" } },
         "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [
             { "id": "t", "kind": base::TEXT, "frame": { "x": 100, "y": 100, "w": 800, "h": 400 },
               "style": style, "params": { "body": body } }] } }] });

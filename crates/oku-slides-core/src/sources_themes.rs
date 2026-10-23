@@ -1,8 +1,8 @@
 //! Les versions de thèmes dans le zip des sources : `themes/<hex>/theme.json`.
 //!
-//! Une version de thème est un [`PackFiles`] de la sorte widgets (sans
-//! préfixe canonique), sans widget, dont le manifeste est `theme.json` ; elle est vérifiée par son empreinte à la lecture, comme
-//! une version de pack. Un chemin invalide (dossier autre que 64 hex
+//! Une version de thème est un [`PackFiles`] de thème ([`PackFiles::theme`] :
+//! sans préfixe canonique ni widget, manifeste `theme.json`) ; elle est
+//! vérifiée par son empreinte à la lecture, comme une version de pack. Un chemin invalide (dossier autre que 64 hex
 //! minuscules, sous-dossier, fichier autre que `theme.json`) refuse le zip.
 //! Une version écartée est signalée une seule fois, comme celles des packs.
 
@@ -14,8 +14,8 @@ use zip::write::SimpleFileOptions;
 
 use crate::error::{BadNameSnafu, IoSnafu, JsonSnafu, SourcesInner, ZipSnafu};
 use crate::model::Deck;
-use crate::pack::{PackFiles, PackVersion};
-use crate::pack_kind::PackKind;
+use crate::pack::{PackFiles, PackVersion, ThemeManifest};
+use crate::theme_chain::{ThemeChainError, check_closure};
 use crate::validate::Issue;
 
 /// Dossier des versions de thèmes dans le zip.
@@ -46,7 +46,7 @@ pub(super) fn verify_themes(
     let mut themes = BTreeMap::new();
     let mut discarded = Vec::new();
     for (version, json) in raw {
-        match PackFiles::from_bytes(PackKind::Widgets, &json, []).filter(|f| f.matches(&version)) {
+        match PackFiles::verified_theme(version.hex(), &json) {
             Some(files) => {
                 themes.insert(version, files);
             }
@@ -82,10 +82,35 @@ pub(super) fn write_themes<W: Write + Seek>(
     Ok(())
 }
 
-/// La version de thème du deck manque-t-elle dans les sources ?
+/// Chaque thème épinglé par le deck : version embarquée, manifeste conforme
+/// (espace de noms, id et `extends` de l'épinglage). Une version absente n'est
+/// signalée qu'une fois, même épinglée sous deux espaces de noms. Des
+/// épinglages qui ne sont pas la fermeture du thème (fusion concurrente de deux
+/// `set_theme`) sont signalés : la session répare la fermeture.
 pub(super) fn theme_issues(deck: &Deck, themes: &BTreeMap<PackVersion, PackFiles>) -> Vec<Issue> {
-    match &deck.theme {
-        Some(r) if !themes.contains_key(&r.version) => vec![Issue::theme_version_missing(&r.version)],
-        _ => Vec::new(),
+    let mut issues = Vec::new();
+    if let Err(e) = check_closure(deck.theme.as_ref(), &deck.themes) {
+        let culprit = match &e {
+            ThemeChainError::Missing { namespace } | ThemeChainError::Extra { namespace } => Some(namespace),
+            ThemeChainError::Cycle { .. } => deck.theme.as_ref(),
+        };
+        // Un cycle a toujours un thème : `check_closure` sans thème ne rend que `Extra`.
+        if let Some(ns) = culprit {
+            issues.push(Issue::theme_closure(ns));
+        }
     }
+    for (ns, pin) in &deck.themes {
+        let Some(files) = themes.get(&pin.version) else {
+            let missing = Issue::theme_version_missing(&pin.version);
+            if !issues.contains(&missing) {
+                issues.push(missing);
+            }
+            continue;
+        };
+        match ThemeManifest::from_files(files) {
+            Ok(m) if m.namespace == *ns && m.id == pin.id && m.extends == pin.extends => {}
+            _ => issues.push(Issue::theme_pin_mismatch(ns)),
+        }
+    }
+    issues
 }

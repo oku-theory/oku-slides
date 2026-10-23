@@ -79,7 +79,7 @@ fn saved_pdf(data: &Data, name: &str) -> PathBuf {
 }
 
 fn set_theme(theme: &str) -> serde_json::Value {
-    json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme_ref(theme)}]})
+    json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]})
 }
 
 fn fixture() -> PathBuf {
@@ -130,7 +130,7 @@ fn resume_restores_windows_tabs_focus_mode_and_deck_without_undo() {
     assert_that!(view(&b).windows[1].tabs[0].info.editing_pack).is_true();
     // Le deck revient tel quel ; la pile d'annulation ne survit pas au relancement.
     let snap = tab(&b, "t-2", json!({"cmd": "undo"}));
-    assert_that!(snap["theme"]["id"]).is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["can_undo"]).is_equal_to(json!(false));
 }
 
@@ -200,8 +200,7 @@ fn resume_reads_an_inactive_tab_at_its_first_request() {
     drop(a);
     let b = resumed(&data);
     assert_that!(view(&b).windows[0].tabs[1].info.dirty).is_true();
-    assert_that!(tab(&b, "t-2", json!({"cmd": "snapshot"}))["theme"]["id"])
-        .is_equal_to(json!(oku_slides_session::PRO_THEME));
+    assert_that!(tab(&b, "t-2", json!({"cmd": "snapshot"}))["theme"]).is_equal_to(json!("pro"));
 }
 
 /// t-158 : les infos d'onglet sont enregistrées dès qu'elles changent, pas
@@ -928,13 +927,4 @@ fn sessions_open_tab_of_a_workspace_opens_beside() {
     let opened = ws.open_tab("t-1", &file).unwrap_or_else(|e| panic!("{}", e.one_line()));
     assert_that!(opened.as_str()).is_equal_to("t-2");
     assert_that!(view(&ws).windows[0].tabs).has_length(2);
-}
-
-/// La référence de la version intégrée du thème nommé `name` (sans casse).
-fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {
-    use oku_slides_session::{LibraryKind, Themes};
-    Themes::builtins()
-        .iter()
-        .find(|b| b.manifest.name.eq_ignore_ascii_case(name))
-        .map(|b| oku_slides_core::ThemeRef { id: b.manifest.id, version: b.version.clone() })
 }

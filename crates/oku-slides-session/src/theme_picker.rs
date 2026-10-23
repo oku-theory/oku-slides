@@ -15,17 +15,17 @@ use std::time::{Duration, Instant};
 
 use oku_slides_a2ui::{Action, ButtonIcon, Component, ComponentKind, TextVariant};
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, is_hex_color};
+use oku_slides_core::{Deck, Namespace, is_hex_color};
 use oku_slides_i18n::Localizer;
 use oku_slides_render::PackSet;
 use serde_json::{Map, Value, json};
-use snafu::ResultExt;
-use uuid::Uuid;
+use snafu::{OptionExt, ResultExt};
 
 use crate::agent::clip;
 use crate::agent::forms::{Place, Surface, lit, surface};
 use crate::error::RenderSnafu;
-use crate::theme::DEFAULT_THEME;
+use crate::theme::default_namespace;
+use crate::theme_closure::theme_closure;
 use crate::theme_schema::{default_tokens, lookup};
 use crate::{Mode, Result, Session};
 
@@ -33,7 +33,7 @@ use crate::{Mode, Result, Session};
 pub const HOST_THEME_PICKER: &str = "host-theme-picker";
 /// Évènement d'un choix de thème.
 pub const THEME_EVENT: &str = "theme";
-/// Clé du contexte d'un choix : l'id du thème.
+/// Clé du contexte d'un choix : l'espace de noms du thème.
 pub(crate) const THEME_KEY: &str = "theme";
 /// Miniatures rendues au plus, l'actif compris.
 pub(crate) const THEMES_RENDERED: usize = 12;
@@ -62,8 +62,8 @@ impl Bounds {
 /// Un thème offert par le sélecteur.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ThemeCard {
-    /// L'id du thème.
-    pub id: Uuid,
+    /// L'espace de noms du thème.
+    pub namespace: Namespace,
     /// Son nom, coupé à 80 caractères.
     pub name: String,
     /// La slide que montre la miniature.
@@ -77,10 +77,10 @@ pub struct ThemeCard {
 /// Les cartes du sélecteur et le thème actif du deck.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ThemeChoices {
-    /// Bibliothèque d'abord, puis thèmes du deck seul.
+    /// Les thèmes de la bibliothèque, dans son ordre.
     pub cards: Vec<ThemeCard>,
     /// Le thème du deck, ou celui par défaut.
-    pub active: Uuid,
+    pub active: Namespace,
 }
 
 /// La couleur hexadécimale de `value`, ou celle de la couleur qu'elle nomme.
@@ -90,7 +90,7 @@ fn colour(all: &Map<String, Value>, value: &Value) -> Option<String> {
     hex.filter(|h| is_hex_color(h)).map(str::to_owned)
 }
 
-/// Les pastilles des jetons propres `tokens`, posés sur les défauts.
+/// Les pastilles du calque de thème `tokens`, posé sur les défauts.
 pub(crate) fn swatches(tokens: &Map<String, Value>) -> Vec<String> {
     let all = effective_tokens(default_tokens(), tokens);
     let named = SWATCH_NAMES.iter().filter_map(|n| lookup(&all, &["color".to_owned(), (*n).to_owned()]));
@@ -99,7 +99,7 @@ pub(crate) fn swatches(tokens: &Map<String, Value>) -> Vec<String> {
 }
 
 /// La surface : un titre, un `ThemeChoice` par carte, une croix pour fermer.
-pub fn theme_picker(cards: &[ThemeCard], active: Uuid, l: &Localizer) -> Surface {
+pub fn theme_picker(cards: &[ThemeCard], active: &Namespace, l: &Localizer) -> Surface {
     let ids: Vec<String> = (0..cards.len()).map(|i| format!("c{i}")).collect();
     let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
     let mut components = vec![
@@ -117,17 +117,17 @@ pub fn theme_picker(cards: &[ThemeCard], active: Uuid, l: &Localizer) -> Surface
                 name: card.name.clone(),
                 slide: card.slide.clone(),
                 swatches: card.swatches.clone(),
-                active: card.id == active,
-                action: Some(Action::event(THEME_EVENT, [(THEME_KEY, lit(json!(card.id.to_string())))])),
+                active: card.namespace == *active,
+                action: Some(Action::event(THEME_EVENT, [(THEME_KEY, lit(json!(card.namespace.as_str())))])),
             },
         ));
     }
     surface(HOST_THEME_PICKER, Place::Thread, None, components, json!({}))
 }
 
-/// L'id du thème d'un choix ; `None` s'il manque ou n'est pas un uuid.
-pub fn picked_theme_id(context: &Map<String, Value>) -> Option<Uuid> {
-    context.get(THEME_KEY).and_then(Value::as_str).and_then(|s| Uuid::parse_str(s).ok())
+/// L'espace de noms du thème d'un choix ; `None` s'il manque ou n'en est pas un.
+pub fn picked_theme(context: &Map<String, Value>) -> Option<Namespace> {
+    context.get(THEME_KEY).and_then(Value::as_str).and_then(Namespace::parse)
 }
 
 impl Session {
@@ -137,8 +137,8 @@ impl Session {
     }
 
     /// Le thème avec lequel le deck se rend.
-    pub fn active_theme(&self) -> Uuid {
-        self.deck_theme().map_or(DEFAULT_THEME, |r| r.id)
+    pub fn active_theme(&self) -> Result<Namespace> {
+        self.deck_theme().cloned().map_or_else(default_namespace, Ok)
     }
 
     /// Les cartes du sélecteur sur `slide` ; `None` hors du mode deck.
@@ -153,29 +153,25 @@ impl Session {
         if !self.in_deck_mode() {
             return Ok(None);
         }
-        let active = self.active_theme();
+        let active = self.active_theme()?;
         let shown = self.one_slide_deck(slide);
         let shown_id = shown.as_ref().and_then(|d| d.slides.first()).map(|s| s.id.clone()).unwrap_or_default();
-        let offered: Vec<(Uuid, String)> = self
-            .theme_list
-            .iter()
-            .map(|t| (t.id, t.name.clone()))
-            .chain(self.deck_only_themes().into_iter().map(|t| (t.id, t.name)))
-            .collect();
-        let tokens: HashMap<Uuid, Option<Map<String, Value>>> =
-            offered.iter().map(|(id, _)| (*id, self.offered_tokens(*id))).collect();
+        let offered: Vec<(Namespace, String)> =
+            self.theme_list.iter().map(|t| (t.namespace.clone(), t.name.clone())).collect();
+        let tokens: HashMap<Namespace, Option<Map<String, Value>>> =
+            offered.iter().map(|(ns, _)| (ns.clone(), self.offered_layer(ns))).collect();
         let svgs = match &shown {
-            Some(deck) => self.thumbnails(deck, active, &offered, &tokens, bounds)?,
+            Some(deck) => self.thumbnails(deck, &active, &offered, &tokens, bounds)?,
             None => HashMap::new(),
         };
         let cards = offered
             .into_iter()
-            .map(|(id, name)| ThemeCard {
-                id,
+            .map(|(namespace, name)| ThemeCard {
                 name: clip(&name, NAME_CHARS),
                 slide: shown_id.clone(),
-                swatches: tokens.get(&id).and_then(Option::as_ref).map(swatches).unwrap_or_default(),
-                svg: svgs.get(&id).cloned(),
+                swatches: tokens.get(&namespace).and_then(Option::as_ref).map(swatches).unwrap_or_default(),
+                svg: svgs.get(&namespace).cloned(),
+                namespace,
             })
             .collect();
         Ok(Some(ThemeChoices { cards, active }))
@@ -184,11 +180,12 @@ impl Session {
     /// Applique le thème choisi au deck et le note pour l'agent.
     ///
     /// Refusé hors du mode deck ou pour un thème inconnu ; une étape d'annulation.
-    pub fn pick_theme(&mut self, id: Uuid) -> Result<()> {
+    pub fn pick_theme(&mut self, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
-        let name = self.theme_info(id)?.name;
-        self.set_theme(id)?;
-        self.note(format!("theme picked: {:?} ({id})", clip(&name, NAME_CHARS)));
+        let name = self.themes.by_namespace(ns).map(|s| s.manifest.name);
+        let name = name.context(crate::error::UnknownThemeSnafu { theme: ns.as_str() })?;
+        self.set_theme(ns)?;
+        self.note(format!("theme picked: {:?} ({ns})", clip(&name, NAME_CHARS)));
         Ok(())
     }
 
@@ -196,24 +193,24 @@ impl Session {
     fn thumbnails(
         &mut self,
         deck: &Deck,
-        active: Uuid,
-        offered: &[(Uuid, String)],
-        tokens: &HashMap<Uuid, Option<Map<String, Value>>>,
+        active: &Namespace,
+        offered: &[(Namespace, String)],
+        tokens: &HashMap<Namespace, Option<Map<String, Value>>>,
         bounds: Bounds,
-    ) -> Result<HashMap<Uuid, Arc<str>>> {
+    ) -> Result<HashMap<Namespace, Arc<str>>> {
         let set = self.usable_packs()?;
-        let mut order: Vec<Uuid> = vec![active];
-        order.extend(offered.iter().map(|(id, _)| *id).filter(|id| *id != active));
+        let mut order: Vec<&Namespace> = vec![active];
+        order.extend(offered.iter().map(|(ns, _)| ns).filter(|ns| *ns != active));
         order.truncate(THEMES_RENDERED);
         let deadline = Instant::now() + bounds.budget;
         let mut svgs = HashMap::new();
-        for id in order {
-            if id != active && Instant::now() >= deadline {
+        for ns in order {
+            if ns != active && Instant::now() >= deadline {
                 break;
             }
-            let Some(Some(theme)) = tokens.get(&id) else { continue };
-            if let Some(svg) = self.thumbnail(&set, deck, theme, id, bounds.thumb_bytes) {
-                svgs.insert(id, svg);
+            let Some(Some(layer)) = tokens.get(ns) else { continue };
+            if let Some(svg) = self.thumbnail(&set, deck, layer, ns, bounds.thumb_bytes) {
+                svgs.insert(ns.clone(), svg);
             }
         }
         Ok(svgs)
@@ -226,6 +223,7 @@ impl Session {
         Some(Deck {
             version: deck.version,
             theme: deck.theme.clone(),
+            themes: deck.themes.clone(),
             params: deck.params.clone(),
             vars: deck.vars.clone(),
             tokens: deck.tokens.clone(),
@@ -235,13 +233,26 @@ impl Session {
         })
     }
 
-    /// Les jetons propres du thème `id` dans la version que prendrait `set_theme`.
+    /// Le calque du deck sous le thème `ns`, dans la fermeture que prendrait `set_theme`.
     ///
-    /// `None` (journalisé) si sa version a disparu entre la liste et la lecture.
-    fn offered_tokens(&self, id: Uuid) -> Option<Map<String, Value>> {
-        self.theme_tokens_of(id)
-            .inspect_err(|e| tracing::warn!(theme = %id, error = %e.one_line(), "jetons du thème illisibles"))
-            .ok()
+    /// `None` (journalisé) si le thème ou un parent a disparu entre la liste et la lecture.
+    fn offered_layer(&self, ns: &Namespace) -> Option<Map<String, Value>> {
+        let layer = || -> Result<Map<String, Value>> {
+            let (pins, files) = theme_closure(&self.themes, ns)?;
+            let files: HashMap<_, _> = files.into_iter().map(|f| (f.version(), f)).collect();
+            let mut deck = self.deck().clone();
+            deck.theme = Some(ns.clone());
+            deck.themes = pins;
+            let packs = |v: &oku_slides_core::PackVersion| self.doc.sources.packs.get(v);
+            crate::deck_theme::compose_layer(
+                &self.themes,
+                packs,
+                |v| files.get(v),
+                &deck,
+                crate::deck_theme::LayerReading::Lenient,
+            )
+        };
+        layer().inspect_err(|e| tracing::warn!(theme = %ns, error = %e.one_line(), "calque du thème illisible")).ok()
     }
 
     /// La miniature du thème `id`, sous `max` octets ; `None` (journalisé) sinon.
@@ -249,11 +260,11 @@ impl Session {
         &mut self,
         set: &PackSet,
         deck: &Deck,
-        tokens: &Map<String, Value>,
-        id: Uuid,
+        layer: &Map<String, Value>,
+        id: &Namespace,
         max: usize,
     ) -> Option<Arc<str>> {
-        match self.thumbnail_svg(set, deck, tokens) {
+        match self.thumbnail_svg(set, deck, layer) {
             Ok(Some(svg)) if svg.len() <= max => Some(svg.into()),
             Ok(Some(svg)) => {
                 tracing::warn!(theme = %id, bytes = svg.len(), "miniature du thème trop lourde : écartée");
@@ -270,10 +281,10 @@ impl Session {
         }
     }
 
-    /// Le SVG de l'unique slide de `deck` rendue avec `tokens` ; `None` si elle n'a pas de page.
-    fn thumbnail_svg(&mut self, set: &PackSet, deck: &Deck, tokens: &Map<String, Value>) -> Result<Option<String>> {
+    /// Le SVG de l'unique slide de `deck` rendue avec le calque `layer` ; `None` si elle n'a pas de page.
+    fn thumbnail_svg(&mut self, set: &PackSet, deck: &Deck, layer: &Map<String, Value>) -> Result<Option<String>> {
         let Some(slide) = deck.slides.first().map(|s| s.id.clone()) else { return Ok(None) };
-        let compiled = self.render_deck_preview(set, deck, Some(tokens))?;
+        let compiled = self.render_deck_preview(set, deck, layer)?;
         let Some(page) = compiled.layout().page_of(&slide) else { return Ok(None) };
         Ok(Some(compiled.svg(page - 1).context(RenderSnafu)?))
     }

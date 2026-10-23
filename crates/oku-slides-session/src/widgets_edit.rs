@@ -29,12 +29,13 @@ use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{Diagnostic, FileProbe, PackWidgets, RegistryError, Severity};
 
 use crate::error::{
-    InHistorySnafu, InvalidWidgetNameSnafu, PackJsonSnafu, PackVersionMissingSnafu, ReadOnlySnafu, RegistrySnafu,
-    TooManyWidgetsSnafu, UnknownWidgetSnafu, WidgetExistsSnafu, WidgetHasNulSnafu, WidgetInUseSnafu,
+    InHistorySnafu, InvalidWidgetNameSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, ReadOnlySnafu,
+    RegistrySnafu, TooManyWidgetsSnafu, UnknownWidgetSnafu, WidgetExistsSnafu, WidgetHasNulSnafu, WidgetInUseSnafu,
     WidgetTooLargeSnafu,
 };
 use crate::pack::{PackManifest, now_created};
 use crate::pack_mode::{example_slide, layout_slide_id, realign_layouts};
+use crate::pack_mode_preview::realign_widget_previews;
 use crate::pack_mode_save::AdoptStep;
 use crate::{Mode, Result, Session};
 
@@ -206,7 +207,7 @@ impl Session {
             .context(PackVersionMissingSnafu { id: edit.pack, version: edit.base.clone() })?;
         let namespace = match self.edited_pin() {
             Some((ns, _)) => ns.clone(),
-            None => PackManifest::from_files(&files).context(PackJsonSnafu { id: edit.pack })?.namespace,
+            None => PackManifest::from_files(&files).context(PackManifestSnafu { id: edit.pack })?.namespace,
         };
         Ok(WidgetTarget { kind: files.kind(), namespace, id: edit.pack, version: edit.base.clone(), files })
     }
@@ -288,7 +289,7 @@ impl Session {
             widgets.insert(name.clone(), source);
         }
         let before = self.statuses((t.kind, &t.namespace), &t.version, t.files.widgets())?;
-        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         if removing {
             manifest.examples.remove(&name);
         }
@@ -356,7 +357,7 @@ impl Session {
         self.ensure_unused(&t, &name)?;
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&name);
-        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         manifest.examples.remove(&name);
         let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &name))?;
         if let Some(scratch) = self.scratch_mut() {
@@ -382,7 +383,7 @@ impl Session {
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&from);
         widgets.insert(to.clone(), renamed);
-        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         // L'exemple suit le widget.
         if let Some(examples) = manifest.examples.remove(&from).filter(|e| !e.is_empty()) {
             manifest.examples.insert(to.clone(), examples);
@@ -430,7 +431,7 @@ impl Session {
     fn ensure_unused(&self, t: &WidgetTarget, name: &WidgetFile) -> Result<()> {
         let kind = qualify(&t.namespace, name.as_str());
         let uses = |s: &Slide| s.kind == kind || s.walk().any(|l| l.element.kind == kind);
-        let manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         let working = &self.doc.sources.deck().slides;
         let pack_mode = self.in_pack_mode();
         // L'exemple de `e` : sa slide en mode pack, sinon celui du manifeste.
@@ -467,7 +468,7 @@ impl Session {
         widgets: BTreeMap<WidgetFile, String>,
     ) -> Result<Committed> {
         self.ensure_editable()?;
-        let before = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let before = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         if widgets == *t.files.widgets() && manifest == before {
             return Ok((self.statuses((t.kind, &t.namespace), &t.version, &widgets)?, Vec::new()));
         }
@@ -496,9 +497,11 @@ impl Session {
                 manifest.parent = edit.parent.clone();
                 let label = self.localizer.tr_with("widgets-edit-label", &[("name", manifest.name.as_str().into())]);
                 let files = manifest.to_files(t.kind, widgets).context(PackJsonSnafu { id: t.id })?;
-                // Un layout écrit ajoute sa slide au deck de travail, un layout supprimé retire la sienne.
+                // Un layout écrit ajoute sa slide au deck de travail, un layout supprimé retire la sienne ;
+                // les slides d'aperçu d'un pack de widgets suivent ses widgets.
                 let mut deck = self.doc.sources.deck().clone();
                 realign_layouts(&mut deck, &manifest, &files);
+                realign_widget_previews(&mut deck, &manifest, &files);
                 self.adopt_session_version(deck, files, &edit, false, AdoptStep::Session(&label))?;
                 match self.rerender() {
                     Ok(()) => Ok(Vec::new()),

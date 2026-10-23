@@ -14,7 +14,7 @@ use common::{Server, assert_success, files, fixtures, free_port, http, oku_slide
 use oku_slides_core::{
     Namespace, PackManifest, PackScope, SourceBundle, SourceLimits, WidgetRegistry, kinds, validate,
 };
-use oku_slides_session::{ESSENTIEL_PACK, PRO_THEME};
+use oku_slides_session::{ESSENTIEL_PACK, NEUTRE_NAMESPACE, NEUTRE_THEME, PRO_NAMESPACE, PRO_THEME};
 use rstest::rstest;
 use speculoos::prelude::*;
 use zip::write::SimpleFileOptions;
@@ -70,7 +70,9 @@ fn import_minimal_on_essentiel_and_pro_writes_a_reopenable_deck() {
     let deck = bundle.deck();
     assert_that!((deck.slides.len(), deck.params.title.as_deref())).is_equal_to((3, Some("Rapport annuel")));
     assert_that!(retrofit_targets(&bundle).contains(&ESSENTIEL_PACK)).is_true();
-    assert_that!(deck.theme.as_ref().map(|r| r.id)).is_equal_to(Some(PRO_THEME));
+    assert_that!(deck.theme.as_ref().map(Namespace::as_str)).is_equal_to(Some(PRO_NAMESPACE));
+    let pro = Namespace::parse(PRO_NAMESPACE).unwrap_or_else(|| panic!("espace de noms"));
+    assert_that!(deck.themes.get(&pro).map(|pin| pin.id)).is_equal_to(Some(PRO_THEME));
     assert_that!(deck.slides[1].notes.starts_with("Dire bonjour.")).is_true();
 }
 
@@ -242,7 +244,7 @@ fn open_hifi(dir: &Path, pdf: &Path) -> Output {
 }
 
 #[test]
-fn import_hifi_of_minimal_embeds_its_own_pack_and_theme_and_leaves_the_library_alone() {
+fn import_hifi_of_minimal_embeds_its_own_pack_pins_neutre_and_leaves_the_library_alone() {
     let dir = workdir("import-hifi-minimal");
     let input = pptx(&dir, "minimal");
     let out = import_hifi(&dir, &input, "minimal");
@@ -255,6 +257,7 @@ fn import_hifi_of_minimal_embeds_its_own_pack_and_theme_and_leaves_the_library_a
     assert_that!(deck.slides.len()).is_equal_to(3);
     let pack = deck.layouts.get(&Namespace::deck_layouts()).cloned().unwrap_or_else(|| panic!("deck sans pack"));
     let theme = deck.theme.clone().unwrap_or_else(|| panic!("deck sans thème"));
+    let theme_pin = deck.themes.get(&theme).cloned().unwrap_or_else(|| panic!("thème non épinglé"));
     // L'import épingle `base`, que le pack du deck requiert, `essentiel` (ses slides de repli) et le sien.
     let base = deck.widgets.get(&kinds::base::namespace()).cloned().unwrap_or_else(|| panic!("deck sans base"));
     let essentiel =
@@ -262,9 +265,11 @@ fn import_hifi_of_minimal_embeds_its_own_pack_and_theme_and_leaves_the_library_a
     let mut versions = vec![&pack.version, &base.version, &essentiel.version];
     versions.sort();
     assert_that!(bundle.packs.keys().collect::<Vec<_>>()).is_equal_to(versions);
-    assert_that!(bundle.themes.keys().collect::<Vec<_>>()).is_equal_to(vec![&theme.version]);
+    assert_that!(bundle.themes.keys().collect::<Vec<_>>()).is_equal_to(vec![&theme_pin.version]);
     assert_that!(pack.id).is_not_equal_to(ESSENTIEL_PACK);
-    assert_that!(theme.id).is_not_equal_to(PRO_THEME);
+    // Plus de thème du deck seul : l'import épingle `neutre` et écrit ses jetons dans `deck.tokens`.
+    assert_that!((theme.as_str(), theme_pin.id)).is_equal_to((NEUTRE_NAMESPACE, NEUTRE_THEME));
+    assert_that!(deck.tokens.as_object().is_some_and(|t| !t.is_empty())).is_true();
 
     let opened = open_hifi(&dir, &pdf);
     assert_that!(stdout(&opened)).contains(": 3 slides, ");
@@ -296,14 +301,14 @@ fn import_hifi_of_alto_writes_a_reopenable_deck_with_its_images_and_report() {
 }
 
 #[test]
-fn import_hifi_twice_of_the_same_file_generates_the_same_pack_and_theme_ids() {
+fn import_hifi_twice_of_the_same_file_generates_the_same_pack_id_and_pins_the_same_theme() {
     let dir = workdir("import-hifi-twice");
     let input = pptx(&dir, "minimal");
     let ids = |stem: &str| {
         assert_success("import", &import_hifi(&dir, &input, stem), &[]);
         let bundle = sources(&dir.join(format!("{stem}.oku-slides.pdf")));
         let deck = bundle.deck();
-        (deck.layouts.get(&Namespace::deck_layouts()).map(|r| r.id), deck.theme.as_ref().map(|r| r.id))
+        (deck.layouts.get(&Namespace::deck_layouts()).map(|r| r.id), deck.theme.clone())
     };
     let first = ids("a");
     assert_that!(first.0.is_some() && first.1.is_some()).is_true();

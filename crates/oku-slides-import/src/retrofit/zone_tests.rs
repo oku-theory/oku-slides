@@ -28,12 +28,22 @@ fn page_tokens_of_papier_are_the_default_tokens() {
 }
 
 /// Pro : titre `size.title` = 56, filet de 5 pt plus l'espace `sm` (16), gouttière
-/// `component.title.gap` = 44 : bande de `56 + 21 + 44 = 121` ; `space.lg` = 32.
+/// `component.essentiel.title.gap` = 44 : bande de `56 + 21 + 44 = 121` ; `space.lg` = 32.
 #[test]
 fn page_tokens_of_pro_read_its_margins_title_rule_and_spacing() {
     let page = PageTokens::from_tokens(&tokens(PRO));
     let read = (page.width, page.height, page.margin_x, page.margin_top, page.margin_bottom, page.title_band, page.gap);
     assert_that!(read).is_equal_to((1920.0, 1080.0, 128.0, 112.0, 160.0, 121.0, 32.0));
+}
+
+/// Les manifestes livrés des packs intégrés se lisent, dans l'ordre `base`, `essentiel`.
+#[test]
+fn builtin_manifests_give_the_component_defaults_of_both_packs() {
+    let packs = builtin_component_defaults().unwrap();
+    let names: Vec<&str> = packs.iter().map(|(ns, _)| ns.as_str()).collect();
+    assert_that!(names).is_equal_to(vec!["base", "essentiel"]);
+    assert_that!(render_defaults().is_ok()).is_true();
+    assert_that!(check_defaults().is_ok()).is_true();
 }
 
 /// Les jetons par défaut se lisent, et portent chaque chemin que lisent
@@ -61,17 +71,17 @@ fn default_tokens_hold_every_read_path() {
         assert_that!(number(defaults(), p)).named(&p.join(".")).is_some();
     }
     let tokens: [(&str, &[&str]); 11] = [
-        ("space", &["component", "list", "spacing"]),
-        ("space", &["component", "list", "indent"]),
-        ("size", &["component", "title", "size"]),
-        ("leading", &["component", "title", "leading"]),
-        ("size", &["component", "kicker", "size"]),
-        ("space", &["component", "columns", "gap"]),
-        ("space", &["component", "card", "padding-x"]),
-        ("space", &["component", "card", "padding-y"]),
-        ("size", &["component", "card", "title-size"]),
-        ("space", &["component", "card", "gap"]),
-        ("size", &["component", "table", "size"]),
+        ("space", &["list", "spacing"]),
+        ("space", &["list", "indent"]),
+        ("size", &["component", "essentiel", "title", "size"]),
+        ("leading", &["component", "essentiel", "title", "leading"]),
+        ("size", &["kicker", "size"]),
+        ("space", &["component", "essentiel", "columns", "gap"]),
+        ("space", &["component", "base", "card", "padding-x"]),
+        ("space", &["component", "base", "card", "padding-y"]),
+        ("size", &["component", "base", "card", "title-size"]),
+        ("space", &["component", "base", "card", "gap"]),
+        ("size", &["component", "base", "table", "size"]),
     ];
     for (family, p) in tokens {
         assert_that!(token_or_default(&Map::new(), family, p)).named(&p.join(".")).is_greater_than(0.0);
@@ -84,9 +94,9 @@ fn page_tokens_of_empty_tokens_fall_back_to_the_defaults() {
 }
 
 #[test]
-fn page_tokens_read_a_numeric_title_size() {
-    let t = json!({ "component": { "title": { "size": 80, "gap": 10 } } });
-    assert_that!(PageTokens::from_tokens(t.as_object().unwrap()).title_band).is_equal_to(90.0);
+fn page_tokens_read_the_essentiel_title() {
+    let t = json!({ "component": { "essentiel": { "title": { "size": 77, "gap": 10 } } } });
+    assert_that!(PageTokens::from_tokens(t.as_object().unwrap()).title_band).is_equal_to(87.0);
 }
 
 #[rstest]
@@ -220,4 +230,19 @@ fn track_size_divides_the_zone_between_the_gutters() {
     let (w, h) = track_size(&papier_zone(), &grid(12, 6), 40.0);
     assert_that!(w).is_close_to(1240.0 / 12.0, 1e-9);
     assert_that!(h).is_close_to(590.0 / 6.0, 1e-9);
+}
+
+const BROKEN_MANIFEST: &str = r#"{ "id": 3 "#;
+
+#[rstest]
+#[case::broken_tokens("[1, 2]", &[], Err(DefaultsFault))]
+#[case::broken_manifest("{}", &[(PackKind::Widgets, BROKEN_MANIFEST)], Err(DefaultsFault))]
+#[case::no_manifest_is_fine("{\"a\": 1}", &[], Ok(json!({ "a": 1 })))]
+fn parse_defaults_of_a_broken_shipped_file_is_an_error(
+    #[case] tokens: &str,
+    #[case] manifests: &[(PackKind, &'static str)],
+    #[case] expected: Result<Value, DefaultsFault>,
+) {
+    let parsed = parse_defaults(tokens, manifests.iter().copied()).map(Value::Object);
+    assert_that!(parsed).is_equal_to(expected);
 }

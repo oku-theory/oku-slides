@@ -59,6 +59,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: BTreeMap::new(),
+        tokens: Vec::new(),
     };
     let files = manifest
         .to_files(
@@ -68,9 +69,14 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         .unwrap_or_else(|e| panic!("{e}"));
     let version = files.version();
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.path().join("widgets")), None, storage)
-        .add_version(id, &files)
-        .unwrap_or_else(|e| panic!("{e}"));
+    PackLibrary::new(
+        Some(data.path().join("widgets")),
+        None,
+        oku_slides_session::ThemeLibrary::new(None, storage.clone()),
+        storage,
+    )
+    .add_version(id, &files)
+    .unwrap_or_else(|e| panic!("{e}"));
 
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("{e}"));
     settings.paths.data = Some(data.path().to_owned());

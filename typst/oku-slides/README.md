@@ -9,9 +9,14 @@ as **JSON** (the data model of the Oku Slides app).
 
 ```typ
 #import "lib.typ": *
+#import "packs/essentiel/layouts/_commun.typ": title-slide, toc, chapter, slide, end-slide
+
+// Les fonctions de slide lisent les jetons de composant de leur pack dans `ctx.component`.
+#let theme = merge(pack-tokens("essentiel", json("packs/essentiel/layouts.json")), papier)
+#let ess = (component: theme.component.essentiel)
 
 #show: deck.with(
-  theme: papier,                       // jeu de jetons (optionnel)
+  theme: theme,                        // jeu de jetons (optionnel)
   tokens: (color: (accent: "#8a5a1c")), // surcharges ponctuelles
   title: "Feuille de route {{annee}}",
   author: "Matthieu",
@@ -20,19 +25,27 @@ as **JSON** (the data model of the Oku Slides app).
   vars: (client: "Acme", annee: 2027),
 )
 
-#title-slide()
-#toc()
-#chapter("Contexte")
-#slide(title: "Trois priorités", layout: "columns")[Fiabilité][Vitesse][Clients #var("client")]
-#end-slide[Merci]
+#title-slide(ess)
+#toc(ess)
+#chapter(ess, "Contexte")
+#slide(ess, title: "Trois priorités", layout: "columns")[Fiabilité][Vitesse][Clients #var("client")]
+#end-slide(ess)[Merci]
 ```
 
-From a JSON: `#render-deck(json("deck.json"), theme: papier, widgets: …)`
-(see `examples/deck.json` and [Deck JSON](#deck-json-v8)); slide kinds
+The pack files import `/oku-slides/lib.typ`: compile with `--root` at `typst/`.
+
+From a JSON: `#render-deck(json("deck.json"), theme: merge(packs, papier), widgets: …)`,
+where `packs` merges the `pack-tokens(…)` of each pack
+(see `examples/deck.json` and [Deck JSON](#deck-json-v9)); slide kinds
 need the `essentiel` pack's layouts and element kinds the `base` pack's widgets
 (see `examples/from-json.typ`).
 
 ## Slide types
+
+The slide functions live in the `essentiel` pack (`packs/essentiel/layouts/_commun.typ`)
+and `card` in the `base` pack (`packs/base/widgets/card.typ`); `lib.typ` exports only
+`deck`, `blank-slide` and `kicker`. Each takes the widget `ctx` first: it reads its
+pack's component tokens in `ctx.component`.
 
 | Function | Role | Chrome |
 | --- | --- | --- |
@@ -66,9 +79,13 @@ content, or `{{client}}` in titles, parameters and JSON texts.
 ## Tokens
 
 JSON primitives only, deep-merged:
-`default-tokens` ← `theme` ← `tokens`. The defaults are in
-`src/default-tokens.json` (`null` = undefined token, derived from the background
-and the ink for `app`).
+`default-tokens` ← packs' component defaults ← theme chain ← deck `tokens`. The
+defaults are in `src/default-tokens.json` (`null` = undefined token, derived from
+the background and the ink for `app`). A pack declares its component tokens in
+its manifest (`tokens` entries `{path, default, control, …}`, `path` relative to
+`component.<namespace>`); `pack-tokens(namespace, manifest)` gives
+`(component: ((namespace): defaults))`. The app sends the packs' defaults then
+the linearized theme chain as one layer (`render-deck(…, theme:)`).
 
 | Family | Example | Values |
 | --- | --- | --- |
@@ -80,10 +97,13 @@ and the ink for `app`).
 | `page` | `margin-x: 120` | page geometry and header/footer positions |
 | `chart` | `palette: ("accent", "#c4622d")` | series colors, in order |
 | `app`, `app-dark`, `app-light` | `desk: "#ece8e0"` | colors, radii (px) and elevations of the app interface, not of the slides |
-| `component.*` | `chapter: (bg: "accent")` | style of each component, by references |
+| `header`, `footer` | `left: "{n} · {title}"` | page chrome: templates and text style |
+| `list` | `marker: "–"` | bullet, its color, indent and spacing |
+| `kicker` | `case: "upper"` | the kicker text style, shared by slides and cards |
+| `component.<namespace>.*` | `essentiel: (chapter: (bg: "accent"))` | style of each pack component, by references |
 
-Components: `header`, `footer`, `kicker`, `title`, `title-slide`, `chapter`,
-`toc`, `card`, `end-slide`, `list`, `quote`, `columns`, `table`.
+Pack components: `base` has `card` and `table`; `essentiel` has `title`,
+`title-slide`, `chapter`, `toc`, `end-slide`, `quote` and `columns`.
 
 Every text component accepts `size`, `color`, `weight`, `font`,
 `tracking` (pt) and `case` (`"upper"`, `"lower"`). In the app's theme editor,
@@ -111,19 +131,25 @@ offered, even though the library accepts them.
 ## Bundled themes
 
 Each theme is a file `themes/<name>.json`:
-`{ id, name, description, parent, created, tokens }`. `lib.typ` exports its
-`tokens` under the theme's name: `theme: papier` and `theme: pro` are written
-as before, and any token dictionary works too.
+`{ id, name, namespace, extends, description, parent, created, tokens }`
+(`extends`: ordered parent namespaces, omitted when empty; the app applies each
+parent first, later ones winning). `lib.typ` exports its `tokens` under the
+theme's name: `theme: papier`, `theme: pro` and `theme: neutre`; merge them over
+`pack-tokens(…)` for the pack components (see `examples/from-json.typ`), and any
+token dictionary works too.
 
 - `papier`: the Papier design system (Newsreader, Instrument Sans, sage green).
 - `pro`: the Template Pro design system (Inter, navy and cyan, banded cover,
   uppercase kickers, footer “n · title” and “CONFIDENTIAL”).
   See `examples/pro.typ`.
+- `neutre`: no token of its own: the defaults and the packs' component
+  defaults. The PowerPoint import pins it and writes the deck's tokens.
 
-In the app, these two files are the built-in themes (fixed identifiers);
-the user creates versioned copies of them (the `themes/` folder of the app
-data) in the “Theme” tab of pack mode. A deck embeds the version of its
-theme.
+In the app, these three files are the built-in themes (fixed identifiers);
+the user edits them in the “Theme” tab of pack mode: saving an edited built-in
+creates a variant that extends it (a new theme in the `themes/` folder of the
+app data), not a versioned copy. A deck embeds the versions of its theme and of
+its `extends` closure.
 
 ### Theme notes
 
@@ -148,11 +174,11 @@ JSON has no comments: what used to explain the values is here.
   lightened for text.
 - **Defaults** (`src/default-tokens.json`): non-Latin scripts go
   through `script-fallback`, added by `deck`; `script-style` is `"sans"` for
-  each role. `component.card.height`: `"auto"` (content height) or
+  each role. `component.base.card.height`: `"auto"` (content height) or
   `"fill"` (all the available height). `app`: `null` derives the color from the
   slides' background and ink.
 
-## Deck JSON (v8)
+## Deck JSON (v9)
 
 Each slide and each element names its widget (`kind`) and carries its
 parameters (`params`), described by its schema (see [Widgets](#widgets)).
@@ -162,7 +188,7 @@ body area) or a `cell` of the slide's grid.
 
 ```json
 {
-  "version": 8,
+  "version": 9,
   "params": { "title": "Feuille de route", "subtitle": "Pour {{client}}", "author": "Matthieu" },
   "vars": { "client": "Acme" },
   "slides": [
@@ -198,9 +224,10 @@ commands `M`, `L`, `C`, `Q`, `Z`, each letter and number separated by
 whitespace, coordinates from 0 to 1 stretched to the frame, non-zero fill.
 
 `tokens` (optional) overrides the theme's tokens for this deck. `theme`
-(optional) is the `{ id, version }` reference of an app theme: the host
-resolves it and passes its tokens to `render-deck(…, theme:)`; the library
-does not read it.
+(optional) is the namespace of the deck's app theme (`null`: the default
+theme) and `themes` maps each namespace of its `extends` closure to its pin
+`{ id, version, extends }`: the host resolves them and passes the merged tokens
+to `render-deck(…, theme:)`; the library does not read them.
 
 Bound parameters (`bind`, like the title and subtitle of the `essentiel/title`
 slide) are read from the deck's `params`, not from the slide's.
@@ -230,7 +257,7 @@ empty or not: `kicker` (`plain` layout only), `title` and
 `subtitle` for the title slide, `title` and `subtitle` for chapters,
 `kicker` and `title` for content slides, `title` for the table of contents,
 `text` for the end slide. The slide functions
-(`slide`, `title-slide`, `chapter`, `toc`, `end-slide`) take a
+(`slide`, `title-slide`, `chapter`, `toc`, `end-slide`) take the widget `ctx` and a
 `wrap: (name, content, style) => content` for this, like `card`. A pack widget
 that passes `wrap` to `slide()` thus receives the `kicker` and `title` fields; the
 `essentiel/toc` layout filters out `kicker`, which is not one of its parameters.
@@ -330,7 +357,9 @@ from `params.typ` (`#import "/oku-slides/lib.typ": params as p`):
   carries `(kind, id, grow, body)` (`grow`: that of the child's widget); an
   entry of a `free` slot carries `(kind, id, frame, cell, show)`, where
   `show(frame)` renders the child.
-- `ctx`: `id` (the element or slide), `tokens`, `vars`, `style` (the
+- `ctx`: `id` (the element or slide), `tokens`, `component` (the tokens
+  `component.<namespace>` of the widget's pack, empty when it declares none),
+  `vars`, `style` (the
   element's effective typography), `framed` (the element has a frame),
   `load` (host loader, or `none`): `(ctx.load)(asset: …, fit: …, flow: …)`
   for an image (a slide widget too: its decoration; `flow: not ctx.framed`
@@ -430,12 +459,12 @@ with it.
 
 ```sh
 cd examples
-typst compile --root .. demo.typ
+typst compile --root ../.. demo.typ
 typst compile --root ../.. from-json.typ
 ```
 
-`from-json.typ` imports the `base` and `essentiel` packs, whose files import
-`/oku-slides/lib.typ`: its root is `typst/`.
+The examples import the `base` and `essentiel` packs, whose files import
+`/oku-slides/lib.typ`: their root is `typst/`.
 
 The Papier theme fonts (Newsreader, Instrument Sans) must be
 installed or passed with `--font-path`; otherwise Typst falls back to

@@ -33,9 +33,10 @@ use crate::error::{
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
 use crate::namespace::Namespace;
-use crate::pack::{PackPin, ThemeRef};
+use crate::pack::PackPin;
 use crate::pack_kind::PackKind;
 use crate::params::{ParamValue, Params};
+use crate::theme_chain::{ThemePin, check_closure};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
@@ -209,9 +210,15 @@ pub enum Op {
         slide: String,
         notes: String,
     },
-    /// Thème du deck (id et version) ; `null` : le thème par défaut.
+    /// Thème du deck et ses épinglages ; `null` : le thème par défaut, sans épinglage.
+    ///
+    /// `themes` doit être exactement la fermeture des `extends` de `theme` :
+    /// sinon refusée (`ThemeCycle`, `ThemeClosure`). La session matérialise la
+    /// fermeture depuis la bibliothèque.
     SetTheme {
-        theme: Option<ThemeRef>,
+        theme: Option<Namespace>,
+        #[serde(default)]
+        themes: BTreeMap<Namespace, ThemePin>,
     },
     /// Épingle la version `pin` du pack `namespace` de sorte `kind` (ajout ou remplacement).
     ///
@@ -660,8 +667,10 @@ impl Op {
                 s.notes = notes;
                 Ok(())
             }
-            Op::SetTheme { theme } => {
+            Op::SetTheme { theme, themes } => {
+                check_closure(theme.as_ref(), &themes)?;
                 deck.theme = theme;
+                deck.themes = themes;
                 Ok(())
             }
             Op::AddPack { kind, namespace, pin } => packs::add(deck, kind, namespace, pin),

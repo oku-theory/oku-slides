@@ -1,4 +1,4 @@
-use oku_slides_core::ThemeRef;
+use oku_slides_core::ThemePin;
 use serde_json::json;
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -6,8 +6,7 @@ use uuid::Uuid;
 use super::TokenOp;
 use crate::library_kind::LibraryKind;
 use crate::pack::ESSENTIEL_PACK;
-use crate::pack::PackScope;
-use crate::test_support::{adopt_deck_only_theme, fresh_dir, opened_on};
+use crate::test_support::{fresh_dir, ns, opened_on};
 use crate::theme::{PAPIER_THEME, PRO_THEME, ThemeManifest, Themes};
 use crate::{Request, Session, SessionErrorKind};
 
@@ -22,42 +21,68 @@ fn accent(value: &str) -> TokenOp {
 /// Une session sur un dossier de données gardé, son deck sur le thème `id`.
 fn session_with_theme(data: &tempfile::TempDir, id: Uuid) -> Session {
     let mut s = opened_on(data.path());
-    if s.deck().theme.as_ref().map(|r| r.id) != Some(id) {
-        s.set_theme(id).unwrap();
+    if s.deck_theme_pin().map(|r| r.id) != Some(id) {
+        let namespace = Themes::builtins().iter().find(|b| b.manifest.id == id).unwrap().manifest.namespace.clone();
+        s.set_theme(&namespace).unwrap();
     }
     s
 }
 
-/// Ajoute à la bibliothèque de `s` le thème utilisateur « Maison » (jetons de Pro), courant.
-fn add_user_theme(s: &Session, id: Uuid) -> ThemeRef {
+/// L'épinglage du thème du deck.
+fn deck_pin(s: &Session) -> ThemePin {
+    s.deck_theme_pin().cloned().unwrap()
+}
+
+/// Ajoute à la bibliothèque de `s` le thème utilisateur « Maison » (jetons de Pro), courant, sous `maison`.
+fn add_user_theme(s: &Session, id: Uuid) -> ThemePin {
     let pro = Themes::builtins().iter().find(|b| b.manifest.id == PRO_THEME).unwrap();
     let manifest = ThemeManifest {
         id,
         name: "Maison".into(),
+        namespace: ns("maison"),
+        extends: Vec::new(),
         description: String::new(),
         parent: None,
         created: "2026-01-01T00:00:00Z".into(),
-        scope: oku_slides_core::PackScope::Library,
         tokens: pro.manifest.tokens.clone(),
     };
     let files = manifest.to_files().unwrap();
     s.themes.add_version(id, &files).unwrap();
     s.themes.set_current(id, &files.version()).unwrap();
-    ThemeRef { id, version: files.version() }
+    ThemePin { id, version: files.version(), extends: Vec::new() }
 }
 
 #[test]
-fn edit_theme_of_a_builtin_creates_a_copy_adopted_by_the_deck() {
+fn edit_theme_of_a_builtin_creates_a_child_adopted_by_the_deck() {
     let data = fresh_dir("oku-slides-deck-theme-edit-");
     let mut s = session_with_theme(&data, PAPIER_THEME);
     let edited = s.edit_theme(PAPIER_THEME, None, vec![accent("#c0392b")]).unwrap();
     assert_that!(edited.id).is_not_equal_to(PAPIER_THEME);
-    assert_that!(edited.name.as_str()).is_equal_to("Papier (copie)");
+    assert_that!(edited.name.as_str()).is_equal_to("Papier (variante)");
     assert_that!(edited.adopted).is_true();
-    let r = s.deck().theme.clone().unwrap();
-    assert_that!(r).is_equal_to(ThemeRef { id: edited.id, version: edited.version.clone() });
+    let r = deck_pin(&s);
+    let extends = vec![ns("papier")];
+    assert_that!(r).is_equal_to(ThemePin { id: edited.id, version: edited.version.clone(), extends });
+    assert_that!(s.deck().theme.clone()).is_equal_to(Some(edited.namespace.clone()));
+    assert_that!(s.deck().themes.contains_key(&ns("papier"))).is_true();
     let manifest = s.theme_manifest(&r).unwrap();
-    assert_that!(manifest.tokens["color"]["accent"]).is_equal_to(json!("#c0392b"));
+    assert_that!(serde_json::Value::Object(manifest.tokens)).is_equal_to(json!({"color": {"accent": "#c0392b"}}));
+}
+
+#[test]
+fn edit_theme_of_a_builtin_without_change_creates_no_child() {
+    let data = fresh_dir("oku-slides-deck-theme-edit-");
+    let mut s = session_with_theme(&data, PAPIER_THEME);
+    let edited = s.edit_theme(PAPIER_THEME, None, vec![]).unwrap();
+    assert_that!((edited.id, edited.changed)).is_equal_to((PAPIER_THEME, false));
+}
+
+#[test]
+fn edit_theme_of_a_builtin_may_name_a_color_of_the_builtin() {
+    let data = fresh_dir("oku-slides-deck-theme-edit-");
+    let mut s = session_with_theme(&data, PRO_THEME);
+    let edited = s.edit_theme(PRO_THEME, None, vec![accent("brand-ink")]).unwrap();
+    assert_that!(edited.tokens["color"]["accent"].clone()).is_equal_to(json!("brand-ink"));
 }
 
 #[test]
@@ -66,13 +91,14 @@ fn edit_theme_renames_a_user_theme_in_a_new_current_version() {
     let mut s = opened_on(data.path());
     let id = Uuid::new_v4();
     let old = add_user_theme(&s, id);
-    s.set_theme(id).unwrap();
+    s.set_theme(&ns("maison")).unwrap();
     let edited = s.edit_theme(id, Some("Vinci".into()), vec![]).unwrap();
+    assert_that!(edited.namespace.as_str()).is_equal_to("maison");
     assert_that!(edited.id).is_equal_to(id);
     assert_that!(edited.version).is_not_equal_to(old.version.clone());
     assert_that!(edited.name.as_str()).is_equal_to("Vinci");
     assert_that!(s.themes.current(id)).is_equal_to(Some(edited.version.clone()));
-    let manifest = s.theme_manifest(s.deck().theme.as_ref().unwrap()).unwrap();
+    let manifest = s.theme_manifest(&deck_pin(&s)).unwrap();
     assert_that!(manifest.name.as_str()).is_equal_to("Vinci");
     assert_that!(manifest.parent).is_equal_to(Some(old.version));
 }
@@ -144,44 +170,6 @@ fn edit_theme_request_answers_the_edited_theme_and_lists_it() {
 }
 
 #[test]
-fn edit_theme_of_a_deck_only_theme_embeds_a_deck_only_version_and_leaves_the_library_unchanged() {
-    let data = fresh_dir("oku-slides-deck-theme-edit-only-");
-    let mut s = opened_on(data.path());
-    let before = adopt_deck_only_theme(&mut s);
-    let themes = s.themes.themes();
-    let info = s.theme_info(before.id).unwrap();
-    assert_that!((info.version.clone(), info.deck_only)).is_equal_to((before.version.clone(), true));
-    let edited = s.edit_theme(before.id, None, vec![accent("#c0392b")]).unwrap();
-    assert_that!((edited.id, edited.adopted, edited.changed)).is_equal_to((before.id, true, true));
-    assert_that!(s.themes.themes()).is_equal_to(&themes);
-    assert_that!(s.themes.versions(before.id).is_empty()).is_true();
-    let r = s.deck().theme.clone().unwrap();
-    assert_that!(r.version.clone()).is_equal_to(&edited.version);
-    let manifest = s.theme_manifest(&r).unwrap();
-    assert_that!(manifest.scope).is_equal_to(PackScope::Deck);
-    assert_that!(manifest.parent).is_equal_to(Some(before.version.clone()));
-    assert_that!(manifest.tokens["color"]["accent"]).is_equal_to(json!("#c0392b"));
-    s.undo().unwrap();
-    assert_that!(s.deck().theme.clone()).is_equal_to(Some(before));
-}
-
-#[test]
-fn theme_info_of_a_library_theme_is_not_deck_only() {
-    let data = fresh_dir("oku-slides-deck-theme-info-");
-    let s = opened_on(data.path());
-    assert_that!(s.theme_info(crate::PAPIER_THEME).unwrap().deck_only).is_false();
-}
-
-#[test]
-fn theme_tokens_of_a_deck_only_theme_are_those_of_its_deck_version() {
-    let data = fresh_dir("oku-slides-deck-theme-tokens-");
-    let mut s = opened_on(data.path());
-    let r = adopt_deck_only_theme(&mut s);
-    let manifest = s.theme_manifest(&r).unwrap();
-    assert_that!(s.theme_tokens_of(r.id).unwrap()).is_equal_to(manifest.tokens);
-}
-
-#[test]
 fn edit_theme_returns_the_tokens_of_the_saved_version() {
     let data = fresh_dir("oku-slides-deck-theme-edit-tokens-");
     let mut s = session_with_theme(&data, PAPIER_THEME);
@@ -191,13 +179,17 @@ fn edit_theme_returns_the_tokens_of_the_saved_version() {
 }
 
 #[test]
-fn edit_theme_of_a_deck_only_theme_the_deck_no_longer_uses_readopts_its_new_version() {
-    let data = fresh_dir("oku-slides-deck-theme-edit-only-unused-");
-    let mut s = opened_on(data.path());
-    let before = adopt_deck_only_theme(&mut s);
-    s.set_theme(PAPIER_THEME).unwrap();
-    assert_that!(s.theme_info(before.id).unwrap().version).is_equal_to(&before.version);
-    let edited = s.edit_theme(before.id, None, vec![accent("#c0392b")]).unwrap();
-    assert_that!((edited.adopted, edited.changed)).is_equal_to((true, true));
-    assert_that!(s.deck().theme.clone()).is_equal_to(Some(ThemeRef { id: before.id, version: edited.version }));
+fn find_theme_info_resolves_namespace_id_and_name_to_the_same_theme() {
+    let data = fresh_dir("oku-slides-find-theme-info-");
+    let s = opened_on(data.path());
+    let found: Vec<_> =
+        ["pro", &PRO_THEME.to_string(), "PRO"].iter().map(|w| s.find_theme_info(w).unwrap().id).collect();
+    assert_that!(found).is_equal_to(vec![PRO_THEME; 3]);
+}
+
+#[test]
+fn find_theme_info_of_an_unknown_theme_is_refused() {
+    let data = fresh_dir("oku-slides-find-theme-info-unknown-");
+    let s = opened_on(data.path());
+    assert_that!(s.find_theme_info("inconnu").unwrap_err().kind()).is_equal_to(SessionErrorKind::UnknownTheme);
 }

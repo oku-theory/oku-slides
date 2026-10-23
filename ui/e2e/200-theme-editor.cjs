@@ -1,5 +1,7 @@
 // Éditeur de thème (t-554) : onglet « Thème » du mode pack, un jeton changé se voit sur la scène,
-// et ✓ enregistre le brouillon en copie du thème de base, choisie pour le deck.
+// et ✓ enregistre le brouillon en variante du thème de base (elle l'étend), choisie pour le deck ;
+// le panneau montre ce que le thème étend et les surcharges du deck mis de côté ; le Thème d'un pack
+// de widgets montre un aperçu par widget.
 // Contre `oku-slides serve fixtures/roadmap.json` (thème Papier). Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -26,14 +28,14 @@ const RED = /#ff0000/i;
   // pack propre du deck, s'il en a un : Essentiel s'ouvre par la session, après le pack laissé ouvert.
   const api = (req) => post(p, '/api', { tab: 't-1', req });
   let snap = await api({ cmd: 'snapshot' });
-  if (snap.editing?.kind !== 'layouts') {
-    if (snap.editing) {
-      if (snap.dirty) await api({ cmd: 'save_pack', as_new: false });
-      snap = await api({ cmd: 'close_pack' });
-    }
-    assert.equal((await api({ cmd: 'edit_pack', pack: snap.layouts.essentiel.id })).editing?.kind, 'layouts');
-    await p.reload();
+  if (snap.editing) {
+    if (snap.dirty) await api({ cmd: 'save_pack', as_new: false });
+    snap = await api({ cmd: 'close_pack' });
   }
+  // Un jeton posé sur le deck : l'éditeur le met de côté et le liste, sans l'appliquer.
+  await api({ cmd: 'apply', label: 'Jeton', ops: [{ op: 'set_token', path: ['color', 'ink'], value: '#202020' }], merge: null });
+  assert.equal((await api({ cmd: 'edit_pack', pack: snap.layouts.essentiel.id })).editing?.kind, 'layouts');
+  await p.reload();
   const tab = p.getByRole('tab', { name: 'Thème', exact: true });
   await tab.click();
   await p.waitForSelector(`${SURFACE} .a2ui-disclosure`);
@@ -41,6 +43,11 @@ const RED = /#ff0000/i;
   await p.click('.thumb:has(.thumb-name:text-is("title"))');
   await p.waitForSelector('.stage img');
   assert.doesNotMatch(await stageSvg(p), RED);
+
+  // Le thème édité étend Papier ; la surcharge du deck est listée.
+  const panel = p.locator(SURFACE);
+  await untilValue(p, () => panel.locator('[data-component-id="extends"]').innerText().catch(() => ''), (t) => t === 'Étend : Papier', "le panneau n'indique pas que le thème étend Papier");
+  assert.match(await panel.locator('[data-component-id="deck-overrides"]').innerText(), /color\.ink/);
 
   // Le filtre, validé par Entrée, ne garde que les jetons « accent » : color.ink disparaît, color.accent reste.
   const filter = p.locator(SURFACE).getByRole('textbox').first();
@@ -57,14 +64,40 @@ const RED = /#ff0000/i;
 
   // ✓ tout de suite, sans attendre l'enregistrement automatique : il part d'abord, et aucune
   // confirmation « quitter sans enregistrer » ne s'ouvre (l'instantané lu est celui de l'enregistrement).
-  // Le brouillon est enregistré dans la bibliothèque sous « Papier (copie) », thème du deck.
+  // Le brouillon est enregistré dans la bibliothèque sous « Papier (variante) », thème du deck, qui étend Papier.
   await p.getByRole('button', { name: 'Terminer' }).click();
   await p.waitForSelector('#theme-panel', { state: 'detached' });
   const deckTheme = async () => (await activeSnapshot(p)).theme_name;
-  await untilValue(p, deckTheme, (name) => name === 'Papier (copie)', 'le thème du deck n\'est pas « Papier (copie) »');
+  await untilValue(p, deckTheme, (name) => name === 'Papier (variante)', 'le thème du deck n\'est pas « Papier (variante) »');
+  const after = await activeSnapshot(p);
+  assert.deepEqual(after.theme_pins[after.theme].extends, ['papier'], 'la variante n\'étend pas Papier');
   // Hors du mode pack, la scène garde l'accent rouge.
   await untilValue(p, () => stageSvg(p), (svg) => RED.test(svg), "hors du mode pack, la scène perd l'accent rouge");
 
+  // Le thème d'un pack de widgets : une slide d'aperçu par widget, hors de l'onglet seulement le vide.
+  const widgetPacks = await api({ cmd: 'packs', kind: 'widgets' });
+  const base = widgetPacks.find((pack) => pack.namespace === 'base');
+  assert.ok(base, 'le pack de widgets base manque');
+  const widgetPack = await api({ cmd: 'edit_pack', pack: base.id });
+  assert.equal(widgetPack.editing?.kind, 'widgets');
+  const previews = widgetPack.slides.map((slide) => slide.id);
+  assert.ok(previews.length > 0 && previews.every((id) => id.startsWith('widget-')), `aperçus attendus, pas ${previews}`);
+  await p.reload();
+  // Hors de l'onglet « Thème », la scène invite à ouvrir un widget.
+  await p.waitForSelector('.stage-wrap.empty');
+  await p.getByRole('tab', { name: 'Thème', exact: true }).click();
+  await p.waitForSelector('.stage img');
+  // Une slide d'aperçu par widget d'élément : la flèche suivante les parcourt toutes.
+  const next = p.getByRole('button', { name: 'Slide suivante', includeHidden: true });
+  for (let seen = 1; seen < previews.length; seen++) {
+    await next.click();
+    await p.waitForSelector('.stage img');
+  }
+  assert.equal(await next.isDisabled(), true, 'il reste des aperçus après le dernier');
+  assert.equal((await api({ cmd: 'snapshot' })).slides.length, previews.length);
+  await api({ cmd: 'close_pack' });
+  // Le jeton posé sur le deck pour la liste des surcharges est retiré.
+  await api({ cmd: 'apply', label: 'Jeton', ops: [{ op: 'unset_token', path: ['color', 'ink'] }], merge: null });
   assert.deepEqual(errors, []);
   console.log('éditeur de thème ok');
   await b.close();

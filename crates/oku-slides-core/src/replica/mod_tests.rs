@@ -810,14 +810,17 @@ fn merge_of_concurrent_pins_of_one_namespace_keeps_one_whole_pin() {
     assert_that!(merged == Some(pa) || merged == Some(pb)).is_true();
 }
 
-/// t-554 : la référence de thème est un atome, et un `null` posé dans
+/// t-554 : le thème et ses épinglages se relisent, et un `null` posé dans
 /// `tokens` (« vider » une clé) survit à l'écriture et à la relecture.
 #[test]
-fn theme_ref_is_an_atom_and_tokens_keep_null() {
-    use crate::{PackVersion, ThemeRef};
+fn theme_pins_round_trip_and_tokens_keep_null() {
+    use crate::{Namespace, PackVersion, ThemePin};
     let mut d = roadmap();
     let version = PackVersion::from_hex(&"a".repeat(64)).unwrap();
-    d.theme = Some(ThemeRef { id: uuid::Uuid::from_u128(5), version });
+    let (marque, papier) = (Namespace::parse("marque").unwrap(), Namespace::parse("papier").unwrap());
+    let pin = |extends| ThemePin { id: uuid::Uuid::from_u128(5), version: version.clone(), extends };
+    d.theme = Some(marque.clone());
+    d.themes = [(marque, pin(vec![papier.clone()])), (papier, pin(Vec::new()))].into();
     d.tokens = json!({"component": {"header": {"left": null}}});
     let r = DeckReplica::new(&d, registry()).unwrap();
     assert_that!(r.deck().0).is_equal_to(&d);
@@ -826,26 +829,28 @@ fn theme_ref_is_an_atom_and_tokens_keep_null() {
     assert_that!(back.deck().0).is_equal_to(d);
 }
 
-/// Deux pairs changent chacun un champ différent du thème : la fusion garde
-/// une référence entière.
+/// Deux pairs changent chacun un champ différent d'un épinglage de thème : la
+/// fusion garde un épinglage entier.
 #[test]
-fn merge_of_concurrent_themes_keeps_one_whole_theme_ref() {
-    use crate::{PackVersion, ThemeRef};
+fn merge_of_concurrent_theme_pins_keeps_one_whole_pin() {
+    use crate::{Namespace, PackVersion, ThemePin};
     let v = |c: &str| PackVersion::from_hex(&c.repeat(64)).unwrap();
     let (id1, id2) = (uuid::Uuid::from_u128(1), uuid::Uuid::from_u128(2));
+    let ns = Namespace::parse("marque").unwrap();
     let mut base = Deck::empty();
-    base.theme = Some(ThemeRef { id: id1, version: v("a") });
+    base.theme = Some(ns.clone());
+    base.themes = [(ns.clone(), ThemePin { id: id1, version: v("a"), extends: Vec::new() })].into();
     let (mut a, mut b) = peers(&base);
-    let only_version = ThemeRef { id: id1, version: v("b") };
-    let only_id = ThemeRef { id: id2, version: v("a") };
+    let only_version = ThemePin { id: id1, version: v("b"), extends: Vec::new() };
+    let only_id = ThemePin { id: id2, version: v("a"), extends: Vec::new() };
     let mut da = base.clone();
-    da.theme = Some(only_version.clone());
+    da.themes.insert(ns.clone(), only_version.clone());
     a.apply(&da, "A", None).unwrap();
     let mut db = base.clone();
-    db.theme = Some(only_id.clone());
+    db.themes.insert(ns.clone(), only_id.clone());
     b.apply(&db, "B", None).unwrap();
     a.merge(&b).unwrap();
-    let merged = a.deck().0.theme;
+    let merged = a.deck().0.themes.get(&ns).cloned();
     assert_that!(merged == Some(only_version) || merged == Some(only_id)).is_true();
 }
 

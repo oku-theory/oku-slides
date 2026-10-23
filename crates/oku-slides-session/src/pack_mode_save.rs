@@ -23,7 +23,7 @@ use oku_slides_core::{Deck, Moved, Namespace, PackFiles, PackVersion};
 use oku_slides_i18n::Localize;
 
 use crate::deck_closure::{closure_with_files, examples_requires};
-use crate::error::{NotEditingPackSnafu, PackJsonSnafu, PackVersionMissingSnafu, SourcesSnafu};
+use crate::error::{NotEditingPackSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, SourcesSnafu};
 use crate::library_packs::PackLibrary;
 use crate::namespace_slug::{library_namespace, rename_namespace};
 use crate::pack::{PackManifest, PackScope, now_created};
@@ -81,8 +81,9 @@ impl Session {
             None if !scope.is_library() => Namespace::deck(),
             _ => library_namespace(&self.library, &name)?,
         };
-        let (description, examples, requires, profiles) =
-            kept.map(|m| (m.description, m.examples, m.requires, m.profiles)).unwrap_or_default();
+        // Ses jetons de composant suivent la version d'où il part.
+        let (description, examples, requires, profiles, tokens) =
+            kept.map(|m| (m.description, m.examples, m.requires, m.profiles, m.tokens)).unwrap_or_default();
         let mut manifest = PackManifest {
             id,
             name,
@@ -94,6 +95,7 @@ impl Session {
             scope,
             profiles,
             examples,
+            tokens,
         };
         // Ses besoins suivent ce qu'emploient ses exemples (`base/text`…).
         manifest.requires = examples_requires(&manifest.namespace, &manifest);
@@ -142,8 +144,8 @@ impl Session {
         let files = manifest.to_files(kind, widgets).context(PackJsonSnafu { id })?;
         let version = self.adopt_session_version(deck, files, &edit, as_new, AdoptStep::Silent)?;
         // Le brouillon du thème, s'il change le thème du deck, rejoint l'étape du pack.
-        if let Some(theme) = self.save_theme_edit()? {
-            self.stash_adopt_theme(theme)?;
+        if let Some((ns, pin)) = self.save_theme_edit()? {
+            self.stash_adopt_theme(ns, pin)?;
         }
         if as_new {
             // Une copie est un autre pack : son document repart sans historique,
@@ -178,7 +180,7 @@ impl Session {
         as_new: bool,
         step: AdoptStep<'_>,
     ) -> Result<PackVersion> {
-        let manifest = PackManifest::from_files(&files).context(PackJsonSnafu { id: edit.pack })?;
+        let manifest = PackManifest::from_files(&files).context(PackManifestSnafu { id: edit.pack })?;
         let (id, parent) = (manifest.id, manifest.parent.clone());
         // Une version par séance : la première est créée, les suivantes la remplacent.
         let replaced = edit.session_version.as_ref().filter(|_| !as_new);

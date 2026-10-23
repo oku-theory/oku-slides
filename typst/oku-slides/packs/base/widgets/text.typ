@@ -38,7 +38,7 @@
   if ind == none { return body }
   let from = calc.max(0pt, ind.margin + calc.min(0pt, ind.first))
   let hang = -calc.min(0pt, ind.first)
-  let lst = t.component.list
+  let lst = t.list
   let marker = list-marker(t, lst.marker, lst.at("marker-color", default: none))
   set par(hanging-indent: hang) if hang > 0pt
   set par(first-line-indent: (amount: ind.first, all: true)) if ind.first > 0pt

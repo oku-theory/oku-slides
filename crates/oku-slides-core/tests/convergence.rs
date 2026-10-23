@@ -9,7 +9,7 @@ use std::sync::{Arc, OnceLock};
 use oku_slides_chart::{Cell, DataOp, parse_table};
 use oku_slides_core::kinds::base;
 use oku_slides_core::{
-    Deck, DeckReplica, Element, Frame, Moved, Op, PackVersion, ParamType, ParamValue, Params, Slide, Target, ThemeRef,
+    Deck, DeckReplica, Element, Frame, Moved, Op, PackVersion, ParamType, ParamValue, Params, Slide, Target, ThemePin,
     WidgetRegistry, apply_all, apply_all_moving, validate,
 };
 use proptest::prelude::*;
@@ -22,7 +22,7 @@ enum Edit {
     Move(usize, usize),
     Delete(usize),
     Add(usize),
-    Theme(Option<ThemeRef>),
+    Theme(Option<&'static str>),
     Bold(usize),
     /// Déplace un élément d'un slot à deux éléments ([`busy_slot`]) : de `a` vers `b`.
     MoveElement(usize, usize, usize),
@@ -57,10 +57,17 @@ enum Edit {
     Undo,
 }
 
-/// Une référence de thème de test : version `<c>` répété 64 fois.
-fn theme(c: &str) -> ThemeRef {
-    let version = PackVersion::from_hex(&c.repeat(64)).unwrap_or_else(|| panic!("hex invalide : {c}"));
-    ThemeRef { id: uuid::Uuid::from_u128(u128::from(c.as_bytes()[0])), version }
+/// Pose le thème de test `<c>` (ou aucun) : espace de noms `<c>`, version `<c>` répété 64 fois.
+fn set_theme(deck: &mut Deck, c: Option<&str>) {
+    deck.theme = c.and_then(oku_slides_core::Namespace::parse);
+    deck.themes = c
+        .into_iter()
+        .map(|c| {
+            let version = PackVersion::from_hex(&c.repeat(64)).unwrap_or_else(|| panic!("hex invalide : {c}"));
+            let ns = oku_slides_core::Namespace::parse(c).unwrap_or_else(|| panic!("espace de noms invalide : {c}"));
+            (ns, ThemePin { id: uuid::Uuid::from_u128(u128::from(c.as_bytes()[0])), version, extends: Vec::new() })
+        })
+        .collect();
 }
 
 fn edit() -> impl Strategy<Value = Edit> {
@@ -70,7 +77,7 @@ fn edit() -> impl Strategy<Value = Edit> {
         (any::<usize>(), any::<usize>()).prop_map(|(a, b)| Edit::Move(a, b)),
         any::<usize>().prop_map(Edit::Delete),
         any::<usize>().prop_map(Edit::Add),
-        prop::option::of(prop_oneof![Just(theme("a")), Just(theme("b"))]).prop_map(Edit::Theme),
+        prop::option::of(prop_oneof![Just("a"), Just("b")]).prop_map(Edit::Theme),
         any::<usize>().prop_map(Edit::Bold),
         (any::<usize>(), any::<usize>(), any::<usize>()).prop_map(|(i, a, b)| Edit::MoveElement(i, a, b)),
         (any::<usize>(), any::<usize>()).prop_map(|(i, a)| Edit::RemoveElement(i, a)),
@@ -420,7 +427,7 @@ fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) -> Applied {
         Edit::Delete(i) => {
             deck.slides.remove(i % len);
         }
-        Edit::Theme(t) => deck.theme = t.clone(),
+        Edit::Theme(t) => set_theme(deck, *t),
         Edit::Bold(i) => return Applied { moves: Vec::new(), bold: toggle_bold(&mut deck.slides[i % len].params) },
         Edit::MoveElement(i, a, b) => {
             if let Some(list) = busy_slot(deck, *i) {

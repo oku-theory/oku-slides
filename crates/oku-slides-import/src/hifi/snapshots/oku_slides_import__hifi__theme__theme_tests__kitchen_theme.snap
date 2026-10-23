@@ -42,18 +42,20 @@ expression: fixture_tokens(fixture)
     "subtitle": 48.0,
     "body": 56.0
   },
+  "list": {
+    "marker": "•",
+    "marker-color": null
+  },
   "component": {
-    "list": {
-      "marker": "•",
-      "marker-color": null
-    },
-    "table": {
-      "header-bg": "accent",
-      "header-color": "bg",
-      "header-weight": "strong",
-      "body-bg": "#cfd5ea",
-      "stripe-bg": "#e9ebf5",
-      "size": 32.0
+    "base": {
+      "table": {
+        "header-bg": "accent",
+        "header-color": "bg",
+        "header-weight": "strong",
+        "body-bg": "#cfd5ea",
+        "stripe-bg": "#e9ebf5",
+        "size": 32.0
+      }
     }
   },
   "weight": {

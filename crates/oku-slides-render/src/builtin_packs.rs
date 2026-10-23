@@ -5,6 +5,7 @@
 //! la session en fait des packs intégrés de la bibliothèque.
 
 use oku_slides_core::{Namespace, PackFiles, PackKind, PackManifest, WidgetFile, kinds};
+use serde_json::{Map, Value};
 
 use crate::error::{BuiltinPackSnafu, RegistryError};
 use crate::{PackSet, PackWidgets};
@@ -94,13 +95,26 @@ impl BuiltinPack {
             .ok_or_else(|| BuiltinPackSnafu { file: self.path(self.kind().manifest_file()) }.build().into())
     }
 
+    /// Le manifeste du pack, lu dans ses fichiers embarqués.
+    fn read_manifest(self, files: &PackFiles) -> Result<PackManifest, RegistryError> {
+        PackManifest::from_files(files).map_err(|_| self.broken_manifest())
+    }
+
+    /// Erreur d'un manifeste embarqué illisible.
+    fn broken_manifest(self) -> RegistryError {
+        BuiltinPackSnafu { file: self.path(self.kind().manifest_file()) }.build().into()
+    }
+
     /// Le pack prêt à rendre : id = empreinte de sa version, espace de noms du manifeste.
     pub fn widgets(self) -> Result<PackWidgets, RegistryError> {
         let files = self.files()?;
-        let manifest = PackManifest::from_files(&files).map_err(|_| {
-            RegistryError::from(BuiltinPackSnafu { file: self.path(self.kind().manifest_file()) }.build())
-        })?;
+        let manifest = self.read_manifest(&files)?;
         PackWidgets::new(files.version().hex(), manifest.namespace, self.kind(), files.widgets().clone())
+    }
+
+    /// Les défauts des jetons de composant du pack, relatifs à `component.<namespace>`.
+    pub fn component_defaults(self) -> Result<Map<String, Value>, RegistryError> {
+        self.read_manifest(&self.files()?)?.component_defaults().map_err(|_| self.broken_manifest())
     }
 
     /// Les versions livrées (lignes non vides de `versions.txt`).
@@ -112,6 +126,16 @@ impl BuiltinPack {
 /// Les deux packs intégrés, `base` et `essentiel`, prêts à rendre.
 pub fn builtin_pack_set() -> Result<PackSet, RegistryError> {
     PackSet::new(BuiltinPack::ALL.into_iter().map(BuiltinPack::widgets).collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Les défauts de composant d'un pack (relatifs à `component.<namespace>`), avec son espace de noms.
+type NamespaceDefaults = (Namespace, Map<String, Value>);
+
+/// Les défauts de composant de chaque pack intégré, par espace de noms.
+///
+/// La première couche de `/theme.json` (`tokens::theme_layer`), dans l'ordre de [`BuiltinPack::ALL`].
+pub fn builtin_component_defaults() -> Result<Vec<NamespaceDefaults>, RegistryError> {
+    BuiltinPack::ALL.into_iter().map(|p| Ok((p.namespace(), p.component_defaults()?))).collect()
 }
 
 /// Vrai pour une version livrée d'un pack intégré : le repli ne l'écarte jamais.

@@ -108,7 +108,7 @@ enum Shown {
 #[derive(Debug, Clone)]
 struct ThemePicker {
     cards: Vec<oku_slides_session::ThemeCard>,
-    active: uuid::Uuid,
+    active: oku_slides_core::Namespace,
 }
 
 #[derive(Debug, Default)]

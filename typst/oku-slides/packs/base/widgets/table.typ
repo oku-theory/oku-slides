@@ -43,7 +43,7 @@
     and source.all(r => type(r) == array) and source.first().len() > 0
     and source.first().len() <= _table-max-columns)
   if not ok { return placeholder(t, "table", height: if ctx.framed { 100% } else { 6em }) }
-  let k = t.component.table
+  let k = ctx.component.table
   let n = source.first().len()
   let rows = source.map(r => r.slice(0, calc.min(n, r.len())) + (none,) * calc.max(0, n - r.len()))
   let head-row = _flag(d, "header-row", true)

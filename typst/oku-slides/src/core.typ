@@ -190,7 +190,7 @@
 }
 
 #let default-header(ctx) = {
-  let comp = ctx.tokens.component.header
+  let comp = ctx.tokens.header
   if ctx.params.logo != none {
     let f = template-fields(ctx)
     grid(columns: (1fr, auto), align: (start + horizon, end + horizon),
@@ -198,7 +198,7 @@
   } else { _slots(ctx, comp) }
 }
 
-#let default-footer(ctx) = _slots(ctx, ctx.tokens.component.footer)
+#let default-footer(ctx) = _slots(ctx, ctx.tokens.footer)
 
 // Premier plan de chaque slide à chrome : en-tête et pied positionnés par jetons.
 #let chrome = context {
@@ -213,7 +213,7 @@
   let zone(kind, fn-default, dy, anchor) = {
     let spec = p.at(kind)
     if spec == none { return }
-    let comp = t.component.at(kind)
+    let comp = t.at(kind)
     let body = if type(spec) == function { spec(ctx) } else { fn-default(ctx) }
     let rule = if comp.at("rule", default: false) {
       line(length: 100%, stroke: stroke-of(t, "hairline") + color-of(t, comp.rule-color))

@@ -101,9 +101,8 @@ fn messages_write_shortcuts_in_the_platform_notation() {
 }
 
 fn set_theme(ws: &Mutex<Workspace>, tab: &str, theme: &str) {
-    let req = serde_json::from_value(
-        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref(theme)}]}),
-    );
+    let req =
+        serde_json::from_value(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": theme}]}));
     let (out, _) = Workspace::with_session(ws, tab, |s| s.handle(req.unwrap()).map(|_| ()));
     out.unwrap().unwrap();
 }

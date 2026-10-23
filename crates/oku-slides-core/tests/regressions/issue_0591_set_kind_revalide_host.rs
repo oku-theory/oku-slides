@@ -18,7 +18,7 @@ fn registry() -> WidgetRegistry {
 }
 
 fn deck(params: Value) -> Deck {
-    let deck = json!({ "version": 8, "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
+    let deck = json!({ "version": 9, "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "b", "kind": "t/boite", "params": params },
         { "id": "c", "kind": "t/cadre", "params": { "data": { "columns": 2, "rows": 2 } } },
         { "id": "t", "kind": "base/text", "params": {} }

@@ -79,6 +79,7 @@ pub(crate) fn manifest(
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        tokens: Vec::new(),
     }
 }
 
@@ -156,7 +157,8 @@ pub(crate) fn pin_atelier(s: &mut Session) {
 /// Une bibliothèque des packs sous `data` : `widgets/` et `layouts/`, comme celle de l'app.
 pub(crate) fn pack_library(data: &std::path::Path) -> crate::PackLibrary {
     let storage = crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    crate::PackLibrary::new(Some(data.join("widgets")), Some(data.join("layouts")), storage)
+    let themes = crate::ThemeLibrary::new(Some(data.join("themes")), storage.clone());
+    crate::PackLibrary::new(Some(data.join("widgets")), Some(data.join("layouts")), themes, storage)
 }
 
 /// Une bibliothèque sur un dossier neuf, gardé tant qu'elle vit.
@@ -177,7 +179,9 @@ impl std::ops::Deref for TestLibrary {
 pub(crate) fn library_with(packs: &[(&str, &[&str])]) -> TestLibrary {
     let dir = fresh_dir("oku-slides-library-with-");
     let storage = crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
-    let library = crate::PackLibrary::new(Some(dir.path().join("widgets")), Some(dir.path().join("layouts")), storage);
+    let themes = crate::ThemeLibrary::new(Some(dir.path().join("themes")), storage.clone());
+    let library =
+        crate::PackLibrary::new(Some(dir.path().join("widgets")), Some(dir.path().join("layouts")), themes, storage);
     for (namespace, requires) in packs {
         add_version(&library, &manifest_ns(uuid::Uuid::new_v4(), namespace, requires), &[]);
     }
@@ -319,42 +323,96 @@ pub(crate) fn library_files(data: &std::path::Path) -> Vec<LibraryFile> {
     files_under(&data.join("widgets"))
 }
 
-/// Les fichiers de la bibliothèque de thèmes sous `data` (`themes/`), avec leurs octets, triés.
-pub(crate) fn theme_library_files(data: &std::path::Path) -> Vec<LibraryFile> {
-    files_under(&data.join("themes"))
+/// Le nom court (`papier`, `pro`, `neutre`) d'un thème intégré, depuis son espace de noms.
+pub(crate) fn theme_name(ns: &oku_slides_core::Namespace) -> Option<&'static str> {
+    use crate::theme::{NEUTRE_NAMESPACE, PAPIER_NAMESPACE, PRO_NAMESPACE};
+    [PAPIER_NAMESPACE, PRO_NAMESPACE, NEUTRE_NAMESPACE].into_iter().find(|n| *n == ns.as_str())
 }
 
-/// Le deck de `s` passe à un thème du deck seul (jetons de Pro, nouvel id), embarqué ; sa référence.
-pub(crate) fn adopt_deck_only_theme(s: &mut Session) -> oku_slides_core::ThemeRef {
+/// `deck` épingle le thème intégré `name` (un espace de noms) dans sa version livrée, sans parent.
+pub(crate) fn pin_builtin_theme(deck: &mut oku_slides_core::Deck, name: &str) {
     use crate::library_kind::LibraryKind;
-    let pro = crate::theme::Themes::builtins().iter().find(|b| b.manifest.id == crate::PRO_THEME);
-    let pro = pro.unwrap_or_else(|| panic!("thème Pro absent"));
+    let builtin = crate::theme::Themes::builtins().iter().find(|b| b.manifest.namespace.as_str() == name);
+    let builtin = builtin.unwrap_or_else(|| panic!("thème intégré inconnu : {name}"));
+    let pin =
+        oku_slides_core::ThemePin { id: builtin.manifest.id, version: builtin.version.clone(), extends: Vec::new() };
+    deck.theme = Some(ns(name));
+    deck.themes = std::collections::BTreeMap::from([(ns(name), pin)]);
+}
+
+/// L'op qui passe le deck au thème `name` (un espace de noms), sa fermeture prise dans la bibliothèque.
+pub(crate) fn set_theme_op(name: &str) -> oku_slides_core::Op {
+    oku_slides_core::Op::SetTheme { theme: Some(ns(name)), themes: Default::default() }
+}
+
+impl crate::ThemeLibrary {
+    /// Une bibliothèque de thèmes sans dossier : les seuls intégrés.
+    pub(crate) fn builtin_only() -> Self {
+        Self::new(None, crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}")))
+    }
+}
+
+/// Ajoute à `themes` une version du thème `id` sous `namespace`, qui étend `extends`, rendue courante ; sa version.
+pub(crate) fn add_user_theme(
+    themes: &crate::ThemeLibrary,
+    id: uuid::Uuid,
+    namespace: &str,
+    extends: &[&str],
+    tokens: serde_json::Map<String, serde_json::Value>,
+    parent: Option<&oku_slides_core::PackVersion>,
+) -> oku_slides_core::PackVersion {
     let manifest = crate::ThemeManifest {
-        id: uuid::Uuid::new_v4(),
-        name: "Importé".into(),
-        scope: oku_slides_core::PackScope::Deck,
-        ..pro.manifest.clone()
+        id,
+        name: namespace.to_owned(),
+        namespace: ns(namespace),
+        extends: extends.iter().map(|e| ns(e)).collect(),
+        description: String::new(),
+        parent: parent.cloned(),
+        // Plus récente à chaque version : la courante par défaut reste la dernière ajoutée.
+        created: format!("2026-10-{:02}T10:00:00Z", 1 + themes.versions(id).len()),
+        tokens,
     };
     let files = manifest.to_files().unwrap_or_else(|e| panic!("theme.json : {e}"));
-    let r = oku_slides_core::ThemeRef { id: manifest.id, version: files.version() };
-    s.doc.sources.add_theme(files);
-    let op = oku_slides_core::Op::SetTheme { theme: Some(r.clone()) };
-    s.apply("Thème importé", vec![op], None).unwrap_or_else(|e| panic!("thème du deck seul : {}", e.one_line()));
-    r
+    themes.add_version(id, &files).unwrap_or_else(|e| panic!("thème {namespace} : {}", e.one_line()));
+    themes.set_current(id, &files.version()).unwrap_or_else(|e| panic!("thème {namespace} : {}", e.one_line()));
+    files.version()
 }
 
-/// La référence de la version intégrée du thème nommé `name` (sans casse).
-pub(crate) fn theme_ref(name: &str) -> Option<oku_slides_core::ThemeRef> {
-    use crate::library_kind::LibraryKind;
-    crate::theme::Themes::builtins()
-        .iter()
-        .find(|b| b.manifest.name.eq_ignore_ascii_case(name))
-        .map(|b| oku_slides_core::ThemeRef { id: b.manifest.id, version: b.version.clone() })
+/// Une bibliothèque de thèmes sur un dossier neuf, avec un thème par `(espace de noms, extends)`, dans l'ordre.
+pub(crate) fn library_with_themes(themes: &[(&str, &[&str])]) -> (crate::ThemeLibrary, tempfile::TempDir) {
+    let dir = fresh_dir("oku-slides-themes-with-");
+    let storage = crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let library = crate::ThemeLibrary::new(Some(dir.path().to_owned()), storage);
+    for (namespace, extends) in themes {
+        add_user_theme(&library, uuid::Uuid::new_v4(), namespace, extends, Default::default(), None);
+    }
+    (library, dir)
 }
 
-/// Le nom court (`papier`, `pro`) du thème intégré de même id que `r`.
-pub(crate) fn theme_name(r: &oku_slides_core::ThemeRef) -> Option<&'static str> {
-    [(crate::PAPIER_THEME, "papier"), (crate::PRO_THEME, "pro")].into_iter().find(|(id, _)| *id == r.id).map(|(_, n)| n)
+/// Une bibliothèque de thèmes avec le seul thème `namespace`, qui étend `extends`.
+pub(crate) fn library_with_child(namespace: &str, extends: &[&str]) -> (crate::ThemeLibrary, tempfile::TempDir) {
+    library_with_themes(&[(namespace, extends)])
+}
+
+/// Écrit sous le dossier de thèmes `themes` une version au `theme.json` brut `json`, sous son id.
+pub(crate) fn write_raw_theme(themes: &std::path::Path, json: &str) {
+    let files = oku_slides_core::PackFiles::theme_from_bytes(json.as_bytes()).unwrap_or_else(|| panic!("pas un objet"));
+    let id = files.manifest()["id"].as_str().unwrap_or_else(|| panic!("sans id")).to_owned();
+    let folder = themes.join(id).join("versions").join(files.version().hex());
+    std::fs::create_dir_all(&folder).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(folder.join("theme.json"), json).unwrap_or_else(|e| panic!("{e}"));
+}
+
+/// Un `theme.json` d'avant les espaces de noms, que le manifeste actuel ne lit plus.
+pub(crate) const OLD_THEME_JSON: &str =
+    r#"{"id":"0b0b0b0b-0000-4000-8000-000000000001","name":"Old","created":"2026-10-01T00:00:00Z","tokens":{}}"#;
+
+/// Une bibliothèque de thèmes dont le dossier tient une version au `theme.json` brut `json`, sous son id.
+pub(crate) fn library_with_raw_theme(json: &str) -> (crate::ThemeLibrary, tempfile::TempDir) {
+    let dir = fresh_dir("oku-slides-themes-raw-");
+    write_raw_theme(dir.path(), json);
+    let storage = crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    (crate::ThemeLibrary::new(Some(dir.path().to_owned()), storage), dir)
 }
 
 /// Les réglages d'un espace de travail de test : données et decks sous `data`, interface en français.

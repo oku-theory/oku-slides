@@ -8,6 +8,7 @@ use base64::Engine as _;
 use common::*;
 use oku_slides_core::Namespace;
 use oku_slides_session::import::ImportTarget;
+use oku_slides_session::{NEUTRE_NAMESPACE, PAPIER_NAMESPACE};
 use rust_mcp_sdk::McpClient;
 use rust_mcp_sdk::schema::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
@@ -148,19 +149,18 @@ async fn import_diff_of_a_slide_whose_neighbour_moved_counts_no_try() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn import_report_after_a_theme_edit_draws_a_global_try_not_slide_tries() {
+async fn import_report_after_a_deck_tokens_edit_draws_a_global_try_not_slide_tries() {
     let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let first = json_of(&call(&c, "import_report", json!({})).await);
     assert_that!(first["global_tries_left"].as_u64()).is_equal_to(Some(3));
-    // Une retouche du thème généré, comme celle de l'interface : toutes les pages bougent.
+    // Une retouche des jetons du deck (l'import les écrit sur `neutre`) : toutes les pages bougent.
     let session = h.session.clone();
     tokio::task::spawn_blocking(move || {
         let mut s = session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let id = s.deck().theme.as_ref().map(|t| t.id).unwrap_or_else(|| panic!("thème du deck"));
         let path = vec!["page".to_owned(), "margin-top".to_owned()];
-        let op = oku_slides_session::TokenOp::SetToken { path, value: json!(30) };
-        s.edit_theme(id, None, vec![op]).unwrap_or_else(|e| panic!("edit_theme : {e}"));
+        let op = oku_slides_core::Op::SetToken { path, value: json!(30) };
+        s.apply("Marge", vec![op], None).unwrap_or_else(|e| panic!("apply : {e}"));
     })
     .await
     .unwrap_or_else(|e| panic!("{e}"));
@@ -203,66 +203,34 @@ async fn import_report_retrofit_gives_the_widget_requests_and_import_diff_is_ref
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_theme_of_the_hifi_theme_asks_no_confirmation() {
+async fn theme_tokens_reads_neutre_and_the_deck_tokens_the_import_wrote() {
     let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let theme = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().theme.clone();
-    let theme = theme.unwrap_or_else(|| panic!("thème du deck"));
-    let mut rx = h.hub.subscribe();
-    let args = json!({ "theme": theme.id, "name": "Alto retouché" });
-    // Une confirmation demandée laisserait l'appel en attente : la borne le dirait.
-    let r = tokio::time::timeout(std::time::Duration::from_secs(60), call(&c, "edit_theme", args))
-        .await
-        .unwrap_or_else(|_| panic!("edit_theme attend une réponse de l'utilisateur"));
-    assert_that!(r.is_error).is_not_equal_to(Some(true));
-    assert_that!(json_of(&r)["adopted"]).is_equal_to(json!(true));
-    let mut surfaces = Vec::new();
-    while let Ok(event) = rx.try_recv() {
-        if let oku_slides_mcp::McpEvent::Surface { surface } = event {
-            surfaces.push(surface.id);
-        }
-    }
-    assert_that!(surfaces).is_empty();
+    let deck_tokens = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().tokens.clone();
+    let read = json_of(&call(&c, "theme_tokens", json!({ "theme": NEUTRE_NAMESPACE })).await);
+    assert_that!(read["namespace"].clone()).is_equal_to(json!(NEUTRE_NAMESPACE));
+    assert_that!(read["extends"].clone()).is_equal_to(json!([]));
+    assert_that!(read["tokens"].clone()).is_equal_to(json!({}));
+    assert_that!(read["deck_tokens"].clone()).is_equal_to(deck_tokens);
+    assert_that!(read["deck_tokens"].as_object().is_some_and(|t| !t.is_empty())).is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn theme_tokens_reads_the_hifi_theme_and_edit_theme_returns_its_new_tokens() {
-    let h = start_imported(ALTO, hifi(), |_| {}).await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let (theme, tokens) = {
-        let s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let theme = s.deck().theme.clone().unwrap_or_else(|| panic!("thème du deck"));
-        let tokens = s.theme_tokens_of(theme.id).unwrap_or_else(|e| panic!("jetons : {e}"));
-        (theme, tokens)
-    };
-    let read = json_of(&call(&c, "theme_tokens", json!({ "theme": theme.id })).await);
-    assert_that!(read["tokens"]).is_equal_to(Value::Object(tokens));
-    assert_that!(read["deck_only"]).is_equal_to(json!(true));
-    assert_that!(read["version"]).is_equal_to(json!(theme.version));
-    let op = json!({ "op": "set_token", "path": ["page", "margin-top"], "value": 30 });
-    let edited = json_of(&call(&c, "edit_theme", json!({ "theme": theme.id, "ops": [op] })).await);
-    assert_that!(edited["tokens"]["page"]["margin-top"]).is_equal_to(json!(30));
-    let again = json_of(&call(&c, "theme_tokens", json!({ "theme": theme.id })).await);
-    assert_that!(again["tokens"]).is_equal_to(edited["tokens"].clone());
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn deck_outline_lists_the_hifi_theme_as_deck_only_and_set_theme_takes_it_back() {
+async fn deck_outline_lists_neutre_as_a_builtin_and_set_theme_takes_it_back_by_namespace() {
     let h = start_imported(ALTO, hifi(), |_| {}).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let theme = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().theme.clone();
-    let theme = theme.unwrap_or_else(|| panic!("thème du deck"));
-    let papier = json!({ "op": "set_theme", "theme": null });
+    assert_that!(theme.as_ref().map(Namespace::as_str)).is_equal_to(Some(NEUTRE_NAMESPACE));
+    let papier = json!({ "op": "set_theme", "theme": PAPIER_NAMESPACE });
     assert_that!(call(&c, "apply", json!({ "ops": [papier] })).await.is_error).is_not_equal_to(Some(true));
     let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    let listed = outline["themes"].as_array().unwrap().iter().find(|t| t["id"] == json!(theme.id)).cloned();
-    let listed = listed.unwrap_or_else(|| panic!("thème de l'import absent de la liste"));
-    assert_that!((listed["version"].clone(), listed["deck_only"].clone()))
-        .is_equal_to((json!(theme.version), json!(true)));
-    let back = json!({ "op": "set_theme", "theme": { "id": listed["id"], "version": listed["version"] } });
+    let listed = outline["themes"].as_array().unwrap().iter().find(|t| t["namespace"] == NEUTRE_NAMESPACE).cloned();
+    let listed = listed.unwrap_or_else(|| panic!("neutre absent de la liste"));
+    assert_that!(listed["builtin"].clone()).is_equal_to(json!(true));
+    let back = json!({ "op": "set_theme", "theme": listed["namespace"] });
     assert_that!(call(&c, "apply", json!({ "ops": [back] })).await.is_error).is_not_equal_to(Some(true));
     let now = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).deck().theme.clone();
-    assert_that!(now).is_equal_to(Some(theme));
+    assert_that!(now).is_equal_to(theme);
 }
 
 #[tokio::test(flavor = "multi_thread")]

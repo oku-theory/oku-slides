@@ -12,10 +12,11 @@ use crate::PackLibrary;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::test_support::{add_version, files_of, fresh_dir, manifest_ns};
 
-/// Une bibliothèque des packs : les widgets sous `dir`, les layouts sous `dir/../<nom>-layouts`.
+/// Une bibliothèque des packs : les widgets sous `dir`, les layouts et les thèmes à côté (`<nom>-layouts`, `<nom>-themes`).
 fn library(dir: &Path) -> PackLibrary {
-    let layouts = dir.with_file_name(format!("{}-layouts", dir.file_name().unwrap().to_string_lossy()));
-    PackLibrary::new(Some(dir.to_owned()), Some(layouts), Storage::local().unwrap())
+    let beside = |kind: &str| dir.with_file_name(format!("{}-{kind}", dir.file_name().unwrap().to_string_lossy()));
+    let themes = crate::ThemeLibrary::new(Some(beside("themes")), Storage::local().unwrap());
+    PackLibrary::new(Some(dir.to_owned()), Some(beside("layouts")), themes, Storage::local().unwrap())
 }
 
 #[test]
@@ -154,4 +155,48 @@ fn library_receive_version_of_a_builtin_under_another_namespace_is_refused() {
     let err = lib.receive_version(next.id, &files_of(&next)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceChanged);
     assert_that!(dir.path().join(BASE_PACK.to_string()).exists()).is_false();
+}
+
+#[rstest]
+#[case::pack_over_builtin_theme("papier")]
+#[case::pack_over_user_theme("marque")]
+fn pack_with_a_theme_namespace_is_refused(#[case] taken: &str) {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    crate::test_support::add_user_theme(lib.themes(), Uuid::new_v4(), "marque", &[], Default::default(), None);
+    let m = manifest_ns(Uuid::new_v4(), taken, &[]);
+    let err = lib.add_version(m.id, &files_of(&m)).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceTaken);
+    assert_that!(dir.path().join(m.id.to_string()).exists()).is_false();
+}
+
+#[test]
+fn library_namespace_skips_theme_namespaces() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let slug = crate::namespace_slug::library_namespace(&lib, "Papier").unwrap();
+    assert_that!(slug.as_str()).is_equal_to("papier-2");
+}
+
+#[rstest]
+#[case::free("marque", true)]
+#[case::builtin_theme("pro", false)]
+#[case::builtin_pack("base", false)]
+#[case::user_pack("acme", false)]
+#[case::reserved("deck", false)]
+fn check_theme_accepts_only_a_free_namespace(#[case] namespace: &str, #[case] accepted: bool) {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    add_version(&lib, &manifest_ns(Uuid::new_v4(), "acme", &[]), &[]);
+    let checked = lib.check_theme(Uuid::new_v4(), &crate::test_support::ns(namespace));
+    assert_that!(checked.is_ok()).is_equal_to(accepted);
+}
+
+#[test]
+fn check_theme_accepts_a_new_version_of_the_same_theme() {
+    let dir = fresh_dir("oku-slides-library-");
+    let lib = library(dir.path());
+    let id = Uuid::new_v4();
+    crate::test_support::add_user_theme(lib.themes(), id, "marque", &[], Default::default(), None);
+    assert_that!(lib.check_theme(id, &crate::test_support::ns("marque")).is_ok()).is_true();
 }

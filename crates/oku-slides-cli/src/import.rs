@@ -79,7 +79,7 @@ pub(crate) struct ImportArgs {
     ///
     /// Vide : `essentiel`.
     pub(crate) packs: Vec<String>,
-    /// Le thème cible : id ou nom.
+    /// Le thème cible : espace de noms, id ou nom.
     pub(crate) theme: Option<String>,
     /// Le `.oku-slides.pdf` à écrire.
     pub(crate) output: PathBuf,

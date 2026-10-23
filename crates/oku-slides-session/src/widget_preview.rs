@@ -126,7 +126,7 @@ impl PreviewSlot {
         shown: &WidgetFile,
         pack: Option<&PackWidgets>,
         deck: &Deck,
-        tokens: Option<&Map<String, Value>>,
+        layer: &Map<String, Value>,
         assets: &Assets,
     ) -> Result<Vec<u8>, RenderError> {
         let bare = without_elements(deck);
@@ -148,7 +148,7 @@ impl PreviewSlot {
         {
             return Ok(png.clone());
         }
-        let png = render_themed(&mut self.slot, &bare, tokens, assets)?.png(0, CROP_PIXEL_PER_PT)?;
+        let png = render_themed(&mut self.slot, &bare, layer, assets)?.png(0, CROP_PIXEL_PER_PT)?;
         self.bare = Some((key, png.clone()));
         Ok(png)
     }
@@ -368,7 +368,7 @@ impl Session {
         format: PreviewFormat,
     ) -> Result<WidgetPreview> {
         let fonts = self.doc.sources.fonts.len();
-        let tokens = self.theme_tokens(deck);
+        let layer = self.theme_layer(deck)?;
         let kept = match self.widget_preview.take().filter(|p| p.fonts == fonts) {
             Some(p) => p,
             None => {
@@ -382,7 +382,7 @@ impl Session {
         // Posé avant chaque rendu : après une relance, le rejeu a pu l'écarter.
         let attempt = (|| -> std::result::Result<WidgetPreview, RenderError> {
             preview.slot.set_widgets(set, registry.clone())?;
-            let compiled = render_themed(&mut preview.slot, deck, tokens.as_ref(), assets)?;
+            let compiled = render_themed(&mut preview.slot, deck, &layer, assets)?;
             let diagnostics = compiled.warnings.iter().map(WidgetDiagnostic::of).collect();
             // Seul un widget d'élément a une boîte : celle de l'élément d'aperçu.
             let cell = compiled.layout().boxes.iter().find(|b| b.id == PREVIEW_ELEMENT).map(|b| PreviewBox {
@@ -408,7 +408,7 @@ impl Session {
                 // La boîte est toute la grille : recadrée sur ce que l'élément dessine.
                 // Au mieux : un échec ici garde l'aperçu déjà rendu, sur la cellule.
                 let with = || compiled.png(0, CROP_PIXEL_PER_PT);
-                let bare = || preview.bare_png(name, pack, deck, tokens.as_ref(), assets);
+                let bare = || preview.bare_png(name, pack, deck, &layer, assets);
                 out.bbox = Some(crop_box(cell, with, bare));
             }
             Ok(out)

@@ -29,8 +29,8 @@ use oku_slides_core::{
 
 use crate::agent::clip;
 use crate::error::{
-    NotEditingPackSnafu, PackJsonSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu, UnknownWidgetSnafu,
-    WidgetInvalidSnafu,
+    NotEditingPackSnafu, PackManifestSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu,
+    UnknownWidgetSnafu, WidgetInvalidSnafu,
 };
 use crate::pack::PackManifest;
 use crate::widget_params::{checked_value, same_as};
@@ -66,7 +66,7 @@ impl Session {
     /// Les valeurs d'exemple de `name` dans le pack `pack` (voir `widget_target`) ; aucune s'il n'en a pas.
     pub(crate) fn example_values(&self, pack: Option<&Namespace>, name: &WidgetFile) -> Result<Map<String, Value>> {
         let t = self.widget_target(pack)?;
-        let manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         Ok(manifest.examples.get(name).cloned().unwrap_or_default())
     }
 
@@ -165,7 +165,7 @@ impl Session {
         ensure!(!file.is_common(), UnknownWidgetSnafu { name: file.as_str() });
         let t: WidgetTarget = self.widget_target(None)?;
         ensure!(t.files.widget(&file).is_some(), UnknownWidgetSnafu { name: file.as_str() });
-        let mut manifest = PackManifest::from_files(&t.files).context(PackJsonSnafu { id: t.id })?;
+        let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         let mut values = manifest.examples.remove(&file).unwrap_or_default();
         change(&mut values)?;
         if !values.is_empty() {

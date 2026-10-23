@@ -413,3 +413,37 @@ fn pack_use_mine_pins_the_library_version() {
     assert_that!(pinned_version(&s, id)).is_equal_to(Some(v0.version()));
     assert_that!(s.library.current(id)).is_equal_to(Some(v0.version()));
 }
+
+/// Un thème de la bibliothèque d'avant les espaces de noms est écarté, et dit une fois par processus.
+#[test]
+fn notice_skipped_themes_counts_the_unreadable_library_themes_once() {
+    let data = fresh_dir("oku-slides-themes-skipped-");
+    crate::test_support::write_raw_theme(&data.path().join("themes"), crate::test_support::OLD_THEME_JSON);
+    let mut s = session_on(data.path());
+    let expected = s.localizer.tr_with("notice-themes-skipped", &[("count", 1.into())]);
+    assert_that!(s.doc.notice.clone()).is_equal_to(Some(expected.clone()));
+    s.doc.notice = None;
+    s.notice_skipped_themes();
+    assert_that!(s.doc.notice.clone()).is_none();
+    let de = Localizer::new(Some("de")).tr_with("notice-themes-skipped", &[("count", 1.into())]);
+    assert_that!(de)
+        .is_not_equal_to(Localizer::new(Some("en")).tr_with("notice-themes-skipped", &[("count", 1.into())]));
+}
+
+/// L'avis des thèmes écartés suit le document qui remplace le deck vierge (reprise d'un onglet) ; vu, il ne revient pas.
+#[test]
+fn notice_skipped_themes_follows_the_document_loaded_over_the_blank_deck_once() {
+    let data = fresh_dir("oku-slides-themes-skipped-load-");
+    crate::test_support::write_raw_theme(&data.path().join("themes"), crate::test_support::OLD_THEME_JSON);
+    let mut s = session_on(data.path());
+    let expected = s.localizer.tr_with("notice-themes-skipped", &[("count", 1.into())]);
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/roadmap.json");
+    s.open(&fixture).unwrap();
+    assert_that!(s.doc.notice.clone()).is_equal_to(Some(expected));
+    // Vu par l'interface : le snapshot le vide ; un autre document ne le reprend pas.
+    s.handle(Request::Snapshot).unwrap();
+    s.open(&fixture).unwrap();
+    assert_that!(s.doc.notice.clone()).is_none();
+    let other = session_on(data.path());
+    assert_that!(other.doc.notice.clone()).is_none();
+}

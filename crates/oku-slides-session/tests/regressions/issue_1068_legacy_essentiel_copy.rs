@@ -29,6 +29,7 @@ fn legacy_files() -> PackFiles {
         scope: PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        tokens: Vec::new(),
     };
     m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
@@ -46,7 +47,7 @@ fn store_legacy_copy(data: &Path) {
 
 fn library(data: &Path) -> PackLibrary {
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    PackLibrary::new(Some(data.join("widgets")), Some(data.join("layouts")), storage)
+    PackLibrary::new(Some(data.join("widgets")), Some(data.join("layouts")), crate::common::no_user_themes(), storage)
 }
 
 #[test]

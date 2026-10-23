@@ -348,7 +348,7 @@ export function pickSlide(slides: { id: string }[], current: string | null, reme
   return slides[0]?.id ?? null;
 }
 
-type LookSource = Pick<Snapshot, "theme" | "appearance" | "editing" | "undo_label" | "redo_label">;
+type LookSource = Pick<Snapshot, "theme_pins" | "appearance" | "editing" | "undo_label" | "redo_label">;
 
 /**
  * Style du deck vu par les aperçus de widgets : un changement le relance.
@@ -360,7 +360,7 @@ type LookSource = Pick<Snapshot, "theme" | "appearance" | "editing" | "undo_labe
  */
 export function previewLook(snap: LookSource): string {
   return JSON.stringify([
-    snap.theme?.version ?? null,
+    snap.theme_pins,
     snap.appearance.slide,
     snap.editing?.theme ?? null,
     snap.undo_label,

@@ -2,7 +2,7 @@
 //!
 //! Le cœur place un élément libre relativement à la zone de corps, connue
 //! seulement au rendu (marqueur `<oku-slides-zone>`). Le projecteur l'approche
-//! par les jetons `page`, `space` et `component.title` du thème cible
+//! par les jetons `page`, `space` et `component.essentiel.title` du thème cible
 //! ([`PageTokens`]). La géométrie de la grille est celle de `grid-frame`
 //! (`typst/oku-slides/src/zone.typ`) et de `ui/src/grid.ts` ; [`snap`] porte
 //! `snapRect`. Les items d'une slide entrent dans la zone ensemble ([`Fit`]) :
@@ -13,25 +13,91 @@
 
 use std::sync::LazyLock;
 
-use oku_slides_core::{Cell, Frame, Grid, TokenValue};
+use oku_slides_core::tokens::{merge, theme_layer};
+use oku_slides_core::{Cell, Frame, Grid, Namespace, PackFiles, PackKind, PackManifest, TokenValue};
 use serde_json::{Map, Value};
 
 use super::cluster::bounds;
 use super::measure::TextTokens;
+use crate::error::{ImportError, structure};
 use crate::source;
 
-/// Les jetons par défaut du rendu, source unique des valeurs de repli.
-static DEFAULTS: LazyLock<Map<String, Value>> = LazyLock::new(|| {
-    match serde_json::from_str(include_str!("../../../../typst/oku-slides/src/default-tokens.json")) {
-        Ok(Value::Object(map)) => map,
-        // Un fichier livré illisible : les tests de ce module le voient (`default_tokens_parse`).
-        _ => Map::new(),
+/// Les manifestes des packs intégrés `base` (widgets) puis `essentiel` (layouts), source de leurs jetons de composant.
+const BUILTIN_MANIFESTS: [(PackKind, &str); 2] = [
+    (PackKind::Widgets, include_str!("../../../../typst/oku-slides/packs/base/widgets.json")),
+    (PackKind::Layouts, include_str!("../../../../typst/oku-slides/packs/essentiel/layouts.json")),
+];
+
+/// Les défauts de composant d'un pack, avec son espace de noms.
+pub(crate) type PackDefaults = (Namespace, Map<String, Value>);
+
+/// Un jeton par défaut livré (`default-tokens.json` ou un manifeste intégré) est illisible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DefaultsFault;
+
+/// Les défauts de composant des packs intégrés, par espace de noms (tests) ; erreur si un manifeste livré est illisible.
+///
+/// L'import ne dépend pas du rendu : il lit lui-même les manifestes que le rendu embarque.
+#[cfg(test)]
+pub(crate) fn builtin_component_defaults() -> Result<Vec<PackDefaults>, DefaultsFault> {
+    parse_component_defaults(BUILTIN_MANIFESTS)
+}
+
+/// Les défauts de composant des manifestes `manifests`, par espace de noms.
+fn parse_component_defaults(
+    manifests: impl IntoIterator<Item = (PackKind, &'static str)>,
+) -> Result<Vec<PackDefaults>, DefaultsFault> {
+    manifests
+        .into_iter()
+        .map(|(kind, json)| {
+            let files = PackFiles::from_bytes(kind, json.as_bytes(), []).ok_or(DefaultsFault)?;
+            let manifest = PackManifest::from_files(&files).map_err(|_| DefaultsFault)?;
+            Ok((manifest.namespace.clone(), manifest.component_defaults().map_err(|_| DefaultsFault)?))
+        })
+        .collect()
+}
+
+/// Les jetons de `default-tokens.json`, sans les jetons de composant des packs.
+#[cfg(test)]
+pub(crate) fn render_defaults() -> Result<Map<String, Value>, DefaultsFault> {
+    parse_render_defaults(include_str!("../../../../typst/oku-slides/src/default-tokens.json"))
+}
+
+/// Les jetons du JSON `json`, un objet.
+fn parse_render_defaults(json: &str) -> Result<Map<String, Value>, DefaultsFault> {
+    match serde_json::from_str(json) {
+        Ok(Value::Object(map)) => Ok(map),
+        _ => Err(DefaultsFault),
     }
+}
+
+/// Les jetons effectifs sans thème : les défauts du rendu `tokens`, puis les jetons de composant de `manifests`.
+fn parse_defaults(
+    tokens: &str,
+    manifests: impl IntoIterator<Item = (PackKind, &'static str)>,
+) -> Result<Map<String, Value>, DefaultsFault> {
+    let mut defaults = parse_render_defaults(tokens)?;
+    let packs = parse_component_defaults(manifests)?;
+    merge(&mut defaults, &theme_layer(packs.iter().map(|(ns, d)| (ns, d.clone())), []));
+    Ok(defaults)
+}
+
+/// Les défauts livrés, lus une fois.
+static DEFAULTS: LazyLock<Result<Map<String, Value>, DefaultsFault>> = LazyLock::new(|| {
+    parse_defaults(include_str!("../../../../typst/oku-slides/src/default-tokens.json"), BUILTIN_MANIFESTS)
 });
 
-/// Les jetons par défaut du rendu (`default-tokens.json`).
+/// Vérifie que les défauts livrés se lisent : le retrofit échoue ici plutôt que de mesurer avec des zéros.
+pub(crate) fn check_defaults() -> Result<(), ImportError> {
+    DEFAULTS.as_ref().map(|_| ()).map_err(|_| structure("built-in token defaults"))
+}
+
+/// Les jetons par défaut du rendu : `default-tokens.json` et les défauts de composant des packs intégrés.
+///
+/// Vide si la lecture a échoué : [`check_defaults`], appelée par le retrofit avant toute mesure, l'aura refusé.
 pub(crate) fn defaults() -> &'static Map<String, Value> {
-    &DEFAULTS
+    static EMPTY: LazyLock<Map<String, Value>> = LazyLock::new(Map::new);
+    DEFAULTS.as_ref().unwrap_or(&EMPTY)
 }
 
 /// Plus petit côté d'un cadre projeté, en pt : le cœur refuse un cadre vide.
@@ -110,14 +176,18 @@ impl PageTokens {
     /// valeur de [`PageTokens::default`].
     ///
     /// `title_band` approche la ligne de titre d'une slide de contenu : une
-    /// ligne de `component.title.size` (une hauteur d'em, un peu plus que la
+    /// ligne de `component.essentiel.title.size` (une hauteur d'em, un peu plus que la
     /// ligne réelle de Typst, pour ne pas déborder), le filet
-    /// `component.title.rule` s'il existe (sa hauteur et l'espace `sm` qui le
-    /// sépare du titre), puis la gouttière `component.title.gap`. Le surtitre
+    /// `component.essentiel.title.rule` s'il existe (sa hauteur et l'espace `sm` qui le
+    /// sépare du titre), puis la gouttière `component.essentiel.title.gap`. Le surtitre
     /// n'est pas compté : le retrofit n'en émet pas.
     pub fn from_tokens(tokens: &Map<String, Value>) -> Self {
         let get = |path: &[&str]| number_or_default(tokens, path);
-        let title = tokens.get("component").and_then(|c| c.get("title")).and_then(Value::as_object);
+        let title = tokens
+            .get("component")
+            .and_then(|c| c.get("essentiel"))
+            .and_then(|e| e.get("title"))
+            .and_then(Value::as_object);
         let field = |name: &str| title.and_then(|t| t.get(name));
         let size = token(tokens, "size", field("size")).unwrap_or_else(|| get(&["size", "title"]));
         let gap = get(&["space", "lg"]);

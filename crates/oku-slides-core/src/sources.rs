@@ -1,4 +1,4 @@
-//! Le zip des sources (format `oku-slides-sources`, version 12) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 13) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine, les polices, les
 //! versions de packs de widgets (`widgets/<hex>/widgets.json`,
 //! `widgets/<hex>/widgets/<nom>.typ`) et de layouts (`layouts/<hex>/layouts.json`,
@@ -14,7 +14,7 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 11) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 12) n'est plus lu.
 //!
 //! Le bundle porte le registre des widgets, que son replica utilise à
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
@@ -45,7 +45,7 @@ mod zip_io;
 use themes::theme_issues;
 
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
-pub const SOURCES_VERSION: u32 = 12;
+pub const SOURCES_VERSION: u32 = 13;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

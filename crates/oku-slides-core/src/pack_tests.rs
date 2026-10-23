@@ -204,20 +204,11 @@ fn pack_files_matches_only_their_own_version() {
     assert_that!(pack.version().verifies(&pack)).is_true();
 }
 
-#[test]
-fn theme_ref_serializes_as_id_and_version() {
-    let version = PackVersion::from_hex(&"b".repeat(64)).unwrap();
-    let r = ThemeRef { id: Uuid::from_u128(3), version: version.clone() };
-    let json = serde_json::to_value(&r).unwrap();
-    assert_that!(json).is_equal_to(json!({ "id": Uuid::from_u128(3).to_string(), "version": version.as_str() }));
-    assert_that!(serde_json::from_value::<ThemeRef>(json).unwrap()).is_equal_to(r);
-}
-
 /// Une version de thème : un `PackFiles` sans widget, au manifeste `theme.json`.
 #[test]
 fn theme_version_is_the_version_of_its_json_without_widgets() {
     let json = br#"{"id":"2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31","name":"Papier","tokens":{}}"#;
-    let files = PackFiles::from_bytes(PackKind::Widgets, json, []).unwrap();
+    let files = PackFiles::theme_from_bytes(json).unwrap();
     assert_that!(files.widgets().is_empty()).is_true();
     assert_that!(files.version()).is_equal_to(
         PackFiles::new(PackKind::Widgets, object(serde_json::from_slice(json).unwrap()), BTreeMap::new()).version(),
@@ -300,6 +291,7 @@ fn manifest(name: &str) -> PackManifest {
         scope: PackScope::Library,
         profiles: Vec::new(),
         examples: BTreeMap::new(),
+        tokens: Vec::new(),
     }
 }
 
@@ -383,10 +375,11 @@ fn theme_manifest_round_trips_through_pack_files_without_widgets() {
     let m = ThemeManifest {
         id: Uuid::new_v4(),
         name: "Importé".into(),
+        namespace: Namespace::parse("importe").unwrap_or_else(|| panic!("espace de noms")),
+        extends: vec![Namespace::parse("papier").unwrap_or_else(|| panic!("espace de noms"))],
         description: String::new(),
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
-        scope: PackScope::Library,
         tokens: object(json!({ "color": { "accent": "#2f5fb3" } })),
     };
     let files = m.to_files().unwrap();
@@ -513,23 +506,134 @@ fn pack_manifest_of_a_deck_writes_its_scope_and_round_trips() {
     );
 }
 
-#[rstest]
-#[case(PackScope::Library, None)]
-#[case(PackScope::Deck, Some("deck"))]
-fn theme_manifest_writes_its_scope_only_for_a_deck(#[case] scope: PackScope, #[case] written: Option<&str>) {
+/// Un thème sans `extends` ne l'écrit pas ; `scope` n'existe plus.
+#[test]
+fn theme_manifest_without_extends_omits_it_and_has_no_scope() {
     let m = ThemeManifest {
         id: Uuid::new_v4(),
-        name: "Importé".into(),
+        name: "T".into(),
+        namespace: Namespace::parse("t").unwrap_or_else(|| panic!("espace de noms")),
+        extends: Vec::new(),
         description: String::new(),
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
-        scope,
-        tokens: object(json!({ "color": { "accent": "#2f5fb3" } })),
+        tokens: Map::new(),
     };
     let files = m.to_files().unwrap();
-    assert_that!(files.manifest().get("scope").and_then(Value::as_str)).is_equal_to(written);
-    assert_that!(ThemeManifest::from_files(&files).unwrap().scope).is_equal_to(scope);
-    assert_that!(files.scope().unwrap()).is_equal_to(scope);
+    assert_that!((files.manifest().get("extends"), files.manifest().get("scope"))).is_equal_to((None, None));
+}
+
+#[test]
+fn theme_manifest_without_namespace_is_refused() {
+    let json = json!({"id": Uuid::nil(), "name": "T", "created": "2026-10-22T00:00:00Z", "tokens": {}});
+    assert_that!(serde_json::from_value::<ThemeManifest>(json)).is_err();
+}
+
+#[test]
+fn pack_manifest_without_tokens_keeps_its_version() {
+    // Un manifeste sans `tokens` s'écrit comme avant : même empreinte.
+    let mut written = manifest_map();
+    written.extend(object(json!({"description": "", "parent": null})));
+    let files = PackFiles::new(PackKind::Widgets, written, files(&[("kpi", "w")]));
+    let again = PackManifest::from_files(&files).unwrap().to_files(files.kind(), files.widgets().clone()).unwrap();
+    assert_that!(again.version()).is_equal_to(files.version());
+}
+
+/// Un manifeste dont `tokens` porte `entries`.
+fn manifest_with_tokens(entries: Value) -> PackManifest {
+    let mut m = manifest_map();
+    m.insert("tokens".into(), entries);
+    PackManifest::from_files(&PackFiles::new(PackKind::Widgets, m, BTreeMap::new())).unwrap()
+}
+
+#[test]
+fn component_defaults_nest_paths_and_skip_optional() {
+    let m = manifest_with_tokens(json!([
+        {"path": ["card", "bg"], "default": "bg", "control": "color"},
+        {"path": ["chapter", "number-color"], "control": "color", "optional": true},
+    ]));
+    assert_that!(Value::Object(m.component_defaults().unwrap())).is_equal_to(json!({"card": {"bg": "bg"}}));
+}
+
+#[test]
+fn component_defaults_keep_a_literal_null_and_merge_siblings() {
+    let m = manifest_with_tokens(json!([
+        {"path": ["title", "rule"], "default": null, "control": "rule", "nullable": true},
+        {"path": ["title", "size"], "default": 40, "control": "pt", "min": 8, "max": 200},
+    ]));
+    assert_that!(Value::Object(m.component_defaults().unwrap()))
+        .is_equal_to(json!({"title": {"rule": null, "size": 40}}));
+}
+
+#[test]
+fn pack_manifest_with_tokens_round_trips_its_version() {
+    let m =
+        manifest_with_tokens(json!([{"path": ["card", "pad"], "default": 24, "control": "pt", "min": 0, "max": 200}]));
+    let files = m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap();
+    let again = PackManifest::from_files(&files).unwrap().to_files(PackKind::Widgets, BTreeMap::new()).unwrap();
+    assert_that!(again.version()).is_equal_to(files.version());
+}
+
+/// Une entrée `tokens` refusée fait échouer la lecture du manifeste, avec son erreur d'entrée.
+#[rstest]
+#[case::empty_path(json!([{"path": [], "default": 1, "control": "bool"}]), crate::TokenEntryErrorKind::EmptyPath)]
+#[case::missing_default(json!([{"path": ["card", "bg"], "control": "color"}]), crate::TokenEntryErrorKind::MissingDefault)]
+#[case::prefix(
+    json!([{"path": ["card", "bg"], "default": "bg", "control": "color"}, {"path": ["card"], "default": {}, "control": "text"}]),
+    crate::TokenEntryErrorKind::PathConflict
+)]
+#[case::duplicate(
+    json!([{"path": ["card", "bg"], "default": "bg", "control": "color"}, {"path": ["card", "bg"], "default": "ink", "control": "color"}]),
+    crate::TokenEntryErrorKind::PathConflict
+)]
+fn pack_manifest_with_an_invalid_token_entry_is_refused(
+    #[case] entries: Value,
+    #[case] kind: crate::TokenEntryErrorKind,
+) {
+    let mut m = manifest_map();
+    m.insert("tokens".into(), entries);
+    let err = PackManifest::from_files(&PackFiles::new(PackKind::Widgets, m, BTreeMap::new())).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::PackManifestErrorKind::TokenEntry);
+    assert_that!(err.token_entry().map(|e| e.kind())).is_equal_to(Some(kind));
+}
+
+#[test]
+fn pack_manifest_with_sibling_token_paths_reads() {
+    let m = manifest_with_tokens(json!([
+        {"path": ["card", "bg"], "default": "bg", "control": "color"},
+        {"path": ["card", "bg-dark"], "default": "ink", "control": "color"},
+    ]));
+    assert_that!(m.tokens.len()).is_equal_to(2);
+}
+
+#[test]
+fn component_defaults_of_an_unchecked_bad_entry_is_an_error() {
+    let mut m = manifest_with_tokens(json!([]));
+    m.tokens.push(serde_json::from_value(json!({"path": [], "default": 1, "control": "bool"})).unwrap());
+    assert_that!(m.component_defaults().map_err(|e| e.kind())).is_err_containing(crate::TokenEntryErrorKind::EmptyPath);
+}
+
+#[test]
+fn theme_files_hash_like_a_bare_theme_json() {
+    let json = br#"{"id":"2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31","name":"T","namespace":"t","created":"2026-10-22T00:00:00Z","tokens":{}}"#;
+    let files = PackFiles::theme_from_bytes(json).unwrap();
+    assert_that!(PackFiles::verified_theme(files.version().hex(), json)).is_some();
+}
+
+#[test]
+fn theme_files_of_a_manifest_equal_those_read_from_its_bytes() {
+    let json = br#"{"id":"2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31","name":"T","namespace":"t","tokens":{}}"#;
+    let manifest = object(serde_json::from_slice(json).unwrap());
+    assert_that!(Some(PackFiles::theme(manifest))).is_equal_to(PackFiles::theme_from_bytes(json));
+}
+
+#[rstest]
+#[case::other_hex(&"e".repeat(64), br#"{"name":"T"}"#.as_slice())]
+#[case::not_hex("abc", br#"{"name":"T"}"#.as_slice())]
+#[case::not_an_object("", b"[1]".as_slice())]
+fn verified_theme_of_untrustworthy_input_is_none(#[case] hex: &str, #[case] json: &[u8]) {
+    let hex = if hex.is_empty() { "a".repeat(64) } else { hex.to_owned() };
+    assert_that!(PackFiles::verified_theme(&hex, json)).is_none();
 }
 
 #[test]

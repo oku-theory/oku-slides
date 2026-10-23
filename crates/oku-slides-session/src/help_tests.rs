@@ -3,8 +3,6 @@ use std::sync::{Arc, Mutex};
 use serde_json::json;
 use speculoos::prelude::*;
 
-use oku_slides_core::Op;
-
 use super::*;
 use crate::agent::TabSession;
 use crate::lib_tests_support::{data_dir, session_in};
@@ -63,9 +61,7 @@ fn open_help_shows_a_read_only_deck_without_file() {
 fn help_handle_apply_is_refused_as_read_only() {
     let (_data, mut s) = help_session("en");
     let deck = s.deck().clone();
-    let apply = req(
-        json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": crate::test_support::theme_ref("pro")}]}),
-    );
+    let apply = req(json!({"cmd": "apply", "label": "Thème", "ops": [{"op": "set_theme", "theme": "pro"}]}));
     let err = s.handle(apply).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
     assert_that!(s.deck()).is_equal_to(&deck);
@@ -91,7 +87,7 @@ fn help_handle_ui_moves_the_current_slide() {
 fn help_agent_apply_and_new_deck_are_refused_as_read_only() {
     let (_data, s) = help_session("fr");
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(s)));
-    let op = Op::SetTheme { theme: crate::test_support::theme_ref("pro") };
+    let op = crate::test_support::set_theme_op("pro");
     let err = tab.with(|s| s.apply("Agent", vec![op], None)).unwrap().unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
     let err = tab.with(Session::new_deck).unwrap().unwrap_err();
@@ -269,7 +265,7 @@ fn open_help_with_an_unknown_theme_keeps_the_help_theme() {
 #[test]
 fn open_help_embeds_its_theme_version_without_issue() {
     let (_data, s) = help_session("fr");
-    let theme = s.deck().theme.clone().unwrap();
+    let theme = s.deck_theme_pin().cloned().unwrap();
     assert_that!(theme.id).is_equal_to(crate::DEFAULT_THEME);
     assert_that!(s.sources_for_tests().themes.contains_key(&theme.version)).is_true();
     let zip = s.sources_for_tests().to_zip().unwrap();

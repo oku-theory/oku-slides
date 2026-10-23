@@ -12,32 +12,32 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 
 ## Modules
 
-- `model.rs`: `Deck` (slides, generic elements `{id, kind, params}`, theme `ThemeRef`, `vars`,
-  `widgets` and `layouts`: a `PackPin` per `Namespace`, unique across both), `Style`, JSON schema via `schemars`. `params.rs`: `Params`,
-  `ParamValue`, `ListItem`. `shape_path.rs`: `ShapePath`, the `path` host param of `shape`.
+- `model.rs`: `Deck` (slides, generic elements `{id, kind, params}`, `theme` (a `Namespace`) and `themes` (its `extends`
+  closure: a `ThemePin` per namespace), `vars`, `widgets` and `layouts`: a `PackPin` per `Namespace`, unique across both),
+  `Style`, JSON schema via `schemars`. `params.rs`: `Params`, `ParamValue`, `ListItem`. `shape_path.rs`: `ShapePath`.
 - `namespace.rs`: `Namespace` (`deck` reserved), `qualify` / `split_kind` (every kind is `ns/name`). `kinds.rs`: `kinds::base`,
   `kinds::essentiel`, `is_builtin_kind`. `pack_kind.rs`: `PackKind` (`widgets`: elements, `layouts`: slides).
 - `widget.rs`: `WidgetRegistry`, `WidgetSchema` and its param types, declared in Typst; ops and `validate` ask it. Probe
   `{"packs": [{namespace, kind, widgets}]}`; a widget whose category is not its pack kind's is refused.
-- `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`); `check.rs` types inserted subtrees;
-  `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs`
-  (`ListPath`: `param` or `param/item/column`, an item's nested list, one level); `grid.rs`
-  (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)` params, `set_data`);
-  `moving.rs` (`move_element`, `apply_all_moving`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`: no removal while used).
-- `replica/`: `DeckReplica`, the deck in a `LoroDoc`: merge, history, undo; see
-  [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
+- `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`; `set_theme` checks `check_closure`); `check.rs` types inserted subtrees;
+  `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs` (`ListPath`: `param` or
+  `param/item/column`, one level); `grid.rs` (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)`,
+  `set_data`); `moving.rs` (`move_element`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`).
+- `replica/`: `DeckReplica`, the deck in a `LoroDoc` (merge, history, undo): [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
 - `pack.rs`: content-addressed `PackVersion` (sha-256 of `layouts\0` for a layout pack, the canonical manifest and widget files),
-  `PackPin` (id, version, `requires`), `PackFiles` (with its `PackKind`), `WidgetFile`, `PackManifest` (`examples`, `profiles`:
-  `LayoutProfile` in `layout_profile.rs`); a theme version (`ThemeManifest`, `ThemeRef`) is a widgets-kind `PackFiles` without widgets, manifest `theme.json`.
-  `PackScope` (`library`, default, unwritten; `deck`: an import's, never in the library; `PackFiles::scope`).
-- `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot,
-  assets, fonts, `<kind>/<hex>/{<kind>.json, <kind>/<name>.typ}` per `PackKind` (`sources_packs.rs`),
-  `themes/<hex>/theme.json` (`sources_themes.rs`), all add-only, verified on read (a forged
-  version is reported once, as is a namespace pinned under both kinds) and unioned on merge; reads bounded by `SourceLimits`.
-- `tokens.rs`: a theme's effective tokens and `merge`. `validate.rs`: deck consistency against the registry, as `Issue`s; `canonical.rs`: `canonicalize`
-  (sorted keys, empty slots dropped, duplicate ids repaired).
-- `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors. `error/` (Snafu, Fluent): `OpError`,
-  `ReplicaError`, `SourcesError`…; `reason.rs`: refusal reasons.
+  `PackPin` (id, version, `requires`), `PackFiles` (with its `PackKind`), `WidgetFile`, `PackManifest` (`examples`, read in
+  `pack_examples.rs`; `tokens`: `ComponentToken`s checked on read; `profiles`: `LayoutProfile`). A theme version
+  (`ThemeManifest`: `namespace`, ordered `extends`) is a prefix-free `PackFiles` without widgets, manifest `theme.json`
+  (`PackFiles::theme`, `verified_theme`). `PackScope`, packs only (`library` default, unwritten; `deck`: an import's).
+- `theme_chain.rs`: `ThemePin`, `linearize` (post-order, each theme once, the deck's last), `check_closure`.
+  `token_spec.rs`: `Control` (an editor control), `ComponentToken` (a pack manifest `tokens` entry).
+- `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot, assets, fonts,
+  `<kind>/<hex>/{<kind>.json, <kind>/<name>.typ}` per `PackKind` (`sources_packs.rs`), `themes/<hex>/theme.json`
+  (`sources_themes.rs`, pins checked against manifests and closure), all add-only, verified on read (a forged version is
+  reported once, as is a namespace pinned under both kinds) and unioned on merge; reads bounded by `SourceLimits`.
+- `tokens.rs`: `merge`, effective tokens, `theme_layer` (pack component defaults, then the chain). `validate.rs`: `Issue`s;
+  `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors. `error/` (Snafu,
+  Fluent): `OpError`, `ReplicaError`, `SourcesError`…; `reason.rs`: refusal reasons.
 
 ## Extension points
 

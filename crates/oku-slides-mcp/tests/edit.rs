@@ -4,6 +4,7 @@ use common::*;
 use oku_slides_core::kinds;
 use oku_slides_mcp::McpEvent;
 use oku_slides_session::pack::ESSENTIEL_PACK;
+use oku_slides_session::{LibraryKind, Themes};
 use rust_mcp_sdk::McpClient;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -180,10 +181,11 @@ async fn in_pack_mode_outline_reports_the_edited_theme() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
     let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    let papier = theme_ref("papier").unwrap();
+    let papier = Themes::builtins().iter().find(|b| b.manifest.name == "Papier").unwrap().clone();
     assert_that!(outline["mode"].as_str()).is_equal_to(Some("pack"));
     assert_that!(outline["edited_theme"]).is_equal_to(json!({
-        "id": papier.id, "version": papier.version, "name": "Papier", "dirty": false,
+        "id": papier.manifest.id, "version": papier.version, "name": "Papier",
+        "child": true, "extends": ["Papier"], "dirty": false,
     }));
 }
 

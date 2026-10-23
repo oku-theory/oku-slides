@@ -14,7 +14,12 @@ use crate::common::{data_dir, session_in};
 /// La valeur `param` de l'exemple du layout `layout` d'Essentiel, dans sa version courante.
 fn current_example(data: &Path, layout: &str, param: &str) -> Option<Value> {
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
-    let library = PackLibrary::new(Some(data.join("widgets")), Some(data.join("layouts")), storage);
+    let library = PackLibrary::new(
+        Some(data.join("widgets")),
+        Some(data.join("layouts")),
+        crate::common::no_user_themes(),
+        storage,
+    );
     let manifest = library.current_version(ESSENTIEL_PACK)?.manifest;
     let name = WidgetFile::parse(layout)?;
     manifest.examples.get(&name)?.get(param).cloned()

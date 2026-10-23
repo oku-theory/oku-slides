@@ -74,7 +74,21 @@ const TRIALS_SHOWN: usize = 10;
 /// Longueur d'une valeur d'essai citée au contexte.
 const TRIAL_CHARS: usize = 80;
 
+/// « (extends A, B) » après le nom d'un thème qui en étend d'autres ; rien sinon.
+fn extends_note(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        names => format!(" (extends {})", names.join(", ")),
+    }
+}
+
 impl Session {
+    /// Le nom du thème `ns` que `deck` épingle ; son espace de noms s'il ne se lit pas.
+    fn pinned_theme_name(&self, deck: &oku_slides_core::Deck, ns: &Namespace) -> String {
+        let manifest = deck.themes.get(ns).and_then(|pin| self.theme_manifest(pin));
+        manifest.map_or_else(|| ns.as_str().to_owned(), |m| m.name)
+    }
+
     /// Ouvre le groupe d'annulation du tour `turn` de l'agent (son numéro dans le fil).
     ///
     /// La séance de widgets du mode deck finit ici et à la fin du tour : une
@@ -122,11 +136,19 @@ impl Session {
         // En mode pack, le deck de travail n'a pas de thème : le brouillon
         // part du thème édité, que l'agent change par `set_theme`.
         let theme = match &self.mode {
-            Mode::Pack { theme, .. } => format!("theme (draft): {}", theme.name),
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => format!(
-                "theme: {}",
-                deck.theme.as_ref().and_then(|r| self.theme_manifest(r)).map_or_else(|| "none".to_owned(), |m| m.name)
-            ),
+            Mode::Pack { theme, .. } => {
+                format!("theme (draft): {}{}", theme.name, extends_note(&self.draft_extends_names(theme)))
+            }
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => {
+                let manifest = deck.theme.as_ref().and_then(|ns| self.theme_manifest(deck.themes.get(ns)?));
+                match manifest {
+                    Some(m) => {
+                        let names: Vec<String> = m.extends.iter().map(|ns| self.pinned_theme_name(deck, ns)).collect();
+                        format!("theme: {}{}", m.name, extends_note(&names))
+                    }
+                    None => "theme: none".to_owned(),
+                }
+            }
         };
         // La langue affichée par l'interface ; sans elle (ou inconnue), celle de la session.
         let locale = ui.locale.as_deref().and_then(oku_slides_i18n::shipped).unwrap_or(self.localizer.locale());

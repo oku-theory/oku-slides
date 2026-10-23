@@ -14,13 +14,31 @@
 // (`oku-slides-render/src/world.rs`). Groupes : color, font, script-style, size, weight,
 // leading, space, page, radius, stroke, chart (palette des séries), app
 // (interface : none = dérivé du fond et de l'encre ; rayons en px, élévations),
-// component (jetons de composants, qui référencent les jetons par nom).
+// header, footer, list, kicker (cadre et textes partagés, qui référencent les
+// jetons par nom). Les jetons d'un composant de pack vivent dans le manifeste
+// du pack, sous component.<espace de noms> (voir `pack-tokens`).
 // En-têtes et pieds : gabarits avec {champs} (title, subtitle, author, date,
 // organization, chapter, chapter-number, chapter-label, n, total, page-label,
 // et toute variable du deck) ; les segments séparés par " · " dont un champ
 // est vide disparaissent. Filet du titre : none ou (width, height, color).
 // Disposition de la page de titre : "plain" (tout sur le fond) ou "band".
 #let default-tokens = json("default-tokens.json")
+
+// Jetons de composant d'un pack, depuis les entrées `tokens` de son manifeste
+// (`widgets.json` ou `layouts.json`) : `(component: ((namespace): défauts))`.
+// Une entrée facultative sans défaut est omise.
+#let pack-tokens(namespace, manifest) = {
+  let put(d, path, v) = {
+    let (key, ..rest) = path
+    if rest.len() == 0 { d.insert(key, v) } else { d.insert(key, put(d.at(key, default: (:)), rest, v)) }
+    d
+  }
+  let defaults = (:)
+  for entry in manifest.at("tokens", default: ()) {
+    if "default" in entry { defaults = put(defaults, entry.path, entry.default) }
+  }
+  (component: ((namespace): defaults))
+}
 
 #let default-params = (
   title: none,

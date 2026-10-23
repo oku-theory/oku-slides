@@ -467,11 +467,11 @@ describe("amorce des listes (defaults)", () => {
 describe("previewLook", () => {
   type Source = Parameters<typeof previewLook>[0];
   const draft = (dirty: boolean, version = "v1", revision = "r1") => ({
-    theme: { base: { id: "t", version }, name: "Papier", builtin: true, dirty, revision },
+    theme: { base: { id: "t", version }, name: "Papier", child: true, extends: [], dirty, revision },
   }) as Source["editing"];
   // Mode modèles : le deck de travail n'a pas de thème, le brouillon en tient lieu.
   const snap = (over: Partial<Source> = {}): Source => ({
-    theme: null,
+    theme_pins: {},
     appearance: { slide: { accent: "#123456" } } as Source["appearance"],
     editing: draft(false),
     undo_label: null,

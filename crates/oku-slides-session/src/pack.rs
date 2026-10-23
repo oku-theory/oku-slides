@@ -4,11 +4,13 @@
 //! est défini dans le cœur, qui le partage avec l'import ; il est ré-exporté ici.
 
 use serde::Serialize;
+use snafu::ResultExt;
 use uuid::Uuid;
 
 use oku_slides_core::{Namespace, PackFiles, PackKind, PackVersion};
 pub use oku_slides_core::{PackManifest, PackScope, now_created};
 
+use crate::error::PackManifestSnafu;
 use crate::library_kind::VersionManifest;
 
 /// L'id du pack de widgets intégré `base`.
@@ -17,8 +19,11 @@ pub const BASE_PACK: Uuid = Uuid::from_u128(0x3b1f6c2e_5a4d_4e8b_9c71_0d2e4f6a8b
 pub const ESSENTIEL_PACK: Uuid = Uuid::from_u128(0xd5eb8a57_07b4_47f7_a818_dde5347160cf);
 
 impl VersionManifest for PackManifest {
-    fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
-        Self::from_files(files)
+    fn from_files(files: &PackFiles) -> crate::Result<Self> {
+        let read = Self::from_files(files);
+        // L'id se lit à part : un manifeste refusé a peut-être un id lisible.
+        let id = || files.manifest().get("id").and_then(|v| v.as_str()).and_then(|s| Uuid::parse_str(s).ok());
+        Ok(read.context(PackManifestSnafu { id: id().unwrap_or_default() })?)
     }
 
     fn id(&self) -> Uuid {

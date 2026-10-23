@@ -3,17 +3,18 @@
 //! rendu quand le pack a des widgets valides : le code d'un pack reçu y est
 //! isolé et borné (délai, mémoire : spec t-327).
 
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Result, eyre};
 
 use oku_slides_core::{Deck, SourceBundle};
+use oku_slides_i18n::Localize;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::Platform;
 use oku_slides_render::{Compiled, Diagnostic, Fonts, Layout, RenderError, Renderer};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot};
 use oku_slides_session::ProbedWidgets;
-use oku_slides_session::{ThemeLibrary, theme_tokens};
+use oku_slides_session::{ThemeLibrary, sources_theme_layer};
 
-/// Jetons d'un thème, par groupe.
+/// Calque de thème, par groupe.
 type Tokens = serde_json::Map<String, serde_json::Value>;
 
 /// Un rendu, fait en mémoire ou par le processus de rendu.
@@ -63,38 +64,34 @@ impl Rendered {
     }
 }
 
-/// Rend `deck` avec `widgets`, ceux du pack embarqué dans `bundle` (voir [`ProbedWidgets::probe`]).
+/// Rend le deck de `bundle` avec `widgets`, ceux de son pack embarqué (voir [`ProbedWidgets::probe`]).
 ///
 /// Un deck sans pack se rend avec le registre du noyau, comme l'ensemble vide de la session
 /// (`adopt_default_packs` rend la branche locale inatteignable pour un deck ouvert par
-/// `sources_with_packs`).
-///
-/// `deck` est la vue de `bundle`, thème éventuellement changé (sa version
-/// embarquée dans `bundle`). Un pack à widgets valides passe par le processus
-/// de rendu ; sinon, le rendu se fait en mémoire avec la base. Le thème se
-/// rend dans sa version embarquée, sinon le thème par défaut.
+/// `sources_with_packs`). Le thème se rend par son calque, composé des versions
+/// embarquées (voir [`sources_theme_layer`]).
 pub(crate) fn render(
     platform: &Platform,
     l: &Localizer,
     fonts: Fonts,
     widgets: &ProbedWidgets,
     bundle: &SourceBundle,
-    deck: &Deck,
 ) -> Result<Rendered> {
-    let tokens = theme_tokens(&ThemeLibrary::user(platform), &bundle.themes, deck);
+    let deck = bundle.deck();
+    let layer = sources_theme_layer(&ThemeLibrary::user(platform), bundle).map_err(|e| eyre!(e.localize(l)))?;
     if !widgets.has_packs() {
-        return local(l, fonts, bundle, deck, tokens);
+        return local(l, fonts, bundle, deck, layer);
     }
     let mut slot = widgets.slot(&fonts, l)?;
-    slot.set_theme(tokens.as_ref())?;
+    slot.set_theme(Some(&layer))?;
     let compiled = slot.render(deck, &bundle.assets)?;
     Ok(Rendered::Remote { compiled, _slot: slot })
 }
 
-/// Rendu en mémoire, avec les widgets de base et les jetons de thème `tokens`.
-fn local(l: &Localizer, fonts: Fonts, bundle: &SourceBundle, deck: &Deck, tokens: Option<Tokens>) -> Result<Rendered> {
+/// Rendu en mémoire, avec les widgets de base et le calque de thème `layer`.
+fn local(l: &Localizer, fonts: Fonts, bundle: &SourceBundle, deck: &Deck, layer: Tokens) -> Result<Rendered> {
     let mut renderer = Renderer::new(fonts)?;
     renderer.set_language(l)?;
-    renderer.set_theme(tokens)?;
+    renderer.set_theme(Some(layer))?;
     Ok(Rendered::Local(renderer.render(deck, &bundle.assets)?))
 }
