@@ -51,34 +51,15 @@ ui-pack-deck-only = Saved in this presentation only
 ui-toolbar-open = Open
 ui-menu = Menu
 ui-toolbar-add-label = Add to the slide
+ui-toolbar-packs = Deck packs
+ui-toolbar-packs-update = Deck packs — updates available
 ui-toolbar-thumbs-show = Show thumbnails
 ui-toolbar-thumbs-hide = Hide thumbnails
-ui-add-kind = { $kind ->
-    [card] Card
-    [shape] Shape
-    [chart] Chart
-    [table] Table
-   *[text] Text
-}
-ui-add-kind-description = { $kind ->
-    [card] A title and a short text in a box
-    [shape] A coloured shape
-    [chart] A chart drawn from a data table
-    [table] A table of data
-   *[text] A paragraph of text
-}
 ui-toolbar-remove-slide = Delete the slide
 ui-toolbar-remove-hint = Slide { $n } · undo with ⌘Z
 
 ## Undo labels
 
-ui-undo-add = { $kind ->
-    [card] Add a card
-    [shape] Add a shape
-    [chart] Add a chart
-    [table] Add a table
-   *[text] Add a text
-}
 ui-undo-add-widget = Add “{ $name }”
 ui-undo-new-slide = New slide: { $name }
 ui-undo-move-slide = Move the slide
@@ -94,12 +75,6 @@ ui-undo-resize = Resize
 ui-undo-edit-slide = Edit slide
 ui-undo-rename-pack = Rename the pack
 ui-undo-rename-deck = Rename the presentation
-
-## New elements
-
-ui-new-text = New text
-ui-new-card-title = Card title
-ui-new-card-detail = Detail
 
 ## Slide pile
 

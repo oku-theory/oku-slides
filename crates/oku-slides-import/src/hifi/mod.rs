@@ -51,6 +51,7 @@ use self::table::{TableLook, first_table};
 use self::theme::{masterless_tokens, theme_colors, theme_master, theme_tokens};
 use self::typst::GenCtx;
 use crate::coverage::coverage;
+use crate::error::ImportError;
 use crate::fonts::{FontCatalog, resolve, sought};
 use crate::plan::ImportPlan;
 use crate::report::{ImportReport, Loss, LossKind, Mode, SlideReport};
@@ -85,9 +86,12 @@ pub struct HifiTarget<'a> {
 /// pack générés pour lui.
 ///
 /// La couverture (`report.coverage`) est mesurée sur le deck que donnent les
-/// ops appliquées à un deck vide avec le registre déclaré ; `None` seulement
-/// si le cœur refusait le plan (un bogue).
-pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
+/// ops appliquées à un deck vide avec le registre déclaré ; toujours présente.
+///
+/// Refuse (`GeneratedRegistry`) si les schémas déclarés ne tiennent pas dans
+/// le registre cible : le plan serait mesuré sur un autre registre que le sien.
+/// Refuse (`PlanRefused`) si le cœur refuse le plan, valide par construction (un bogue).
+pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> Result<ImportPlan, ImportError> {
     let page = Page::new(deck.size);
     let master = theme_master(deck);
     let theme_fonts = master.and_then(|m| deck.themes.get(m.theme)).map(|t| &t.fonts);
@@ -104,10 +108,7 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         lang: lang.as_deref(),
     };
     let pack = generate_pack(deck, &base, target.limits);
-    let registry = generated_registry(target.registry, &pack).unwrap_or_else(|e| {
-        debug_assert!(false, "schémas déclarés refusés, un bogue du générateur : {e:?}");
-        target.registry.clone()
-    });
+    let registry = generated_registry(target.registry, &pack).map_err(crate::error::generated_registry)?;
     let effects = effect_items(&deck.warnings);
     let table = first_table(deck).map(|t| TableLook::of(t, &colors, &page));
     let cx = SlideCx {
@@ -152,11 +153,7 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
 
     let tokens = master.map_or_else(|| masterless_tokens(&fonts), |m| theme_tokens(deck, m, &fonts, &page));
     let manifest = pack_manifest(&pack, target.pack_id, &target.name, &target.created, &examples);
-    let pack_files = manifest.to_files(PackKind::Layouts, pack.files.clone());
-    let Ok(pack_files) = pack_files else {
-        debug_assert!(false, "un manifeste se sérialise toujours");
-        return plan;
-    };
+    let pack_files = manifest.to_files(PackKind::Layouts, pack.files.clone()).map_err(crate::error::generated_pack)?;
     // `base` d'abord : le pack généré le requiert, et les éléments sont des widgets de `base` ;
     // `essentiel` ensuite, pour les slides de repli `essentiel/blank`.
     plan.ops.push(Op::AddPack {
@@ -203,16 +200,12 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> ImportPlan {
         })
         .collect();
     let mut scratch = Deck::empty();
-    plan.report.coverage = match apply_all(&mut scratch, measured, &registry) {
-        Ok(()) => Some(coverage(deck, &scratch, &registry, &origins, None, &|_| false)),
-        Err(e) => {
-            debug_assert!(false, "le cœur refuse le plan, valide par construction : {e:?}");
-            None
-        }
-    };
+    // Valide par construction : un refus du cœur est un bogue, rendu en erreur d'import.
+    apply_all(&mut scratch, measured, &registry).map_err(crate::error::plan_refused)?;
+    plan.report.coverage = Some(coverage(deck, &scratch, &registry, &origins, None, &|_| false));
     plan.origins = origins;
     plan.groups = groups::repeated(deck);
-    plan
+    Ok(plan)
 }
 
 /// La page source de `deck` sur la page Oku (pt page) : le rendu Oku d'une

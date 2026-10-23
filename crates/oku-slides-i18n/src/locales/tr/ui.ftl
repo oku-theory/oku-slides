@@ -51,34 +51,15 @@ ui-pack-deck-only = Yalnızca bu sunuya kaydedilir
 ui-toolbar-open = Aç
 ui-menu = Menü
 ui-toolbar-add-label = Slayta ekle
+ui-toolbar-packs = Sununun paketleri
+ui-toolbar-packs-update = Sununun paketleri — güncellemeler var
 ui-toolbar-thumbs-show = Küçük resimleri göster
 ui-toolbar-thumbs-hide = Küçük resimleri gizle
-ui-add-kind = { $kind ->
-    [card] Kart
-    [shape] Şekil
-    [chart] Grafik
-    [table] Tablo
-   *[text] Metin
-}
-ui-add-kind-description = { $kind ->
-    [card] Çerçeve içinde bir başlık ve kısa bir metin
-    [shape] Renkli bir şekil
-    [chart] Bir veri tablosundan çizilen grafik
-    [table] Bir veri tablosu
-   *[text] Bir metin paragrafı
-}
 ui-toolbar-remove-slide = Slaytı sil
 ui-toolbar-remove-hint = Slayt { $n } · ⌘Z ile geri alın
 
 ## Geri alma etiketleri
 
-ui-undo-add = { $kind ->
-    [card] Kart ekle
-    [shape] Şekil ekle
-    [chart] Grafik ekle
-    [table] Tablo ekle
-   *[text] Metin ekle
-}
 ui-undo-add-widget = “{ $name }” ekle
 ui-undo-new-slide = Yeni slayt: { $name }
 ui-undo-move-slide = Slaytı taşı
@@ -94,12 +75,6 @@ ui-undo-resize = Yeniden boyutlandır
 ui-undo-edit-slide = Slaytı düzenle
 ui-undo-rename-pack = Paketi yeniden adlandır
 ui-undo-rename-deck = Sunuyu yeniden adlandır
-
-## Yeni öğeler
-
-ui-new-text = Yeni metin
-ui-new-card-title = Kart başlığı
-ui-new-card-detail = Ayrıntı
 
 ## Slayt yığını
 

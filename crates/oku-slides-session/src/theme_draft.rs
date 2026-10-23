@@ -1,16 +1,19 @@
 //! Le brouillon du thème du mode pack : sa fermeture, son calque, son enregistrement.
 //!
-//! Le brouillon se rend sur la chaîne linéarisée des parents de sa base, ou
-//! de la base elle-même pour un enfant d'un intégré ([`ThemeEdit::child`]) :
-//! la base et ses parents se lisent dans les versions embarquées (deck mis de
-//! côté, puis deck de travail), sinon dans la bibliothèque.
+//! Le brouillon se rend sur la chaîne linéarisée de ses parents
+//! ([`ThemeEdit::extends`]) : sous son espace de noms pour un thème de
+//! l'utilisateur (une boucle qui y revient est refusée), sous une racine
+//! synthétique pour un enfant d'un intégré ([`ThemeEdit::child`]), qui n'en
+//! a pas encore. La base et les parents se lisent dans les versions
+//! embarquées (deck mis de côté, puis deck de travail), sinon dans la
+//! bibliothèque.
 //!
 //! À l'enregistrement du pack, un brouillon qui diffère de son point de
 //! départ (jetons ou nom) devient une version courante de la bibliothèque :
 //! d'un enfant de l'intégré édité (nouvel id, espace de noms tiré de son nom,
-//! `extends: [<intégré>]`, les seuls jetons édités, nommé « (variante) » si
-//! le nom n'a pas changé), ou du même thème de l'utilisateur (même espace de
-//! noms, mêmes parents). Sinon, une base autre que le thème du deck est
+//! les seuls jetons édités, nommé « (variante) » si le nom n'a pas changé),
+//! ou du même thème de l'utilisateur (même espace de noms) ; l'un et l'autre
+//! étendent la liste du brouillon. Sinon, une base autre que le thème du deck est
 //! adoptée telle quelle. Le deck mis de côté embarque la fermeture du thème
 //! retenu, ses parents pris aux mêmes sources, et y passe, dans l'étape
 //! d'annulation du pack.
@@ -21,14 +24,17 @@ use uuid::Uuid;
 
 use oku_slides_core::{Namespace, PackFiles, SourceBundle, ThemePin};
 
-use crate::deck_theme::{manifest_of, pin_closure};
+use crate::deck_theme::pin_closure;
 use crate::error::{NotEditingPackSnafu, SourcesSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu};
 use crate::namespace_slug::library_namespace;
 use crate::pack::now_created;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::theme::ThemeManifest;
-use crate::theme_closure::{Closure, chain_tokens, closure_with, embedded_or_library, pin_of};
-use crate::theme_edit::ThemeEdit;
+use crate::theme_closure::{
+    Closure, chain_tokens, closure_of_parents, closure_with, embedded_or_library, parents_order, pin_of,
+    tokens_in_order,
+};
+use crate::theme_edit::{ThemeEdit, ThemeParentView};
 use crate::{Mode, Result, Session};
 
 impl Session {
@@ -51,39 +57,40 @@ impl Session {
         })
     }
 
-    /// La fermeture de la base de `edit`, et son espace de noms.
-    fn draft_closure(&self, edit: &ThemeEdit) -> Result<(Namespace, Closure)> {
+    /// Les jetons de chaque thème sous le brouillon `edit`, dans l'ordre de la chaîne.
+    ///
+    /// Un thème de l'utilisateur : la chaîne linéarisée de sa base, ses
+    /// parents remplacés par ceux du brouillon, sans elle ; une boucle qui
+    /// revient à son espace de noms est `ThemeCycle`. Un enfant : la chaîne de
+    /// ses seuls parents ([`closure_of_parents`]). Une liste vide n'en donne aucune.
+    pub(crate) fn draft_chain(&self, edit: &ThemeEdit) -> Result<Vec<Map<String, Value>>> {
+        if edit.child() {
+            let sources = self.draft_sources();
+            let closure = closure_of_parents(&edit.extends, |n| embedded_or_library(&self.themes, &sources, n))?;
+            return tokens_in_order(&closure, &parents_order(&edit.extends, &closure.0)?);
+        }
         let base = &edit.base;
         let missing = || ThemeVersionMissingSnafu { id: base.id, version: base.version.clone() };
         let files = self.theme_files(base).context(missing())?;
-        let ns = manifest_of(base, &files)?.namespace;
-        let closure = self.closure_from(&ns, (base.clone(), files))?;
-        Ok((ns, closure))
+        let root = ThemePin { extends: edit.extends.clone(), ..base.clone() };
+        let closure = self.closure_from(&edit.namespace, (root, files))?;
+        chain_tokens(&closure, &edit.namespace, false)
     }
 
-    /// Les jetons de chaque thème sous le brouillon `edit`, dans l'ordre de la chaîne.
-    ///
-    /// La chaîne linéarisée de sa base sans elle (ses parents), ou avec elle pour un enfant.
-    pub(crate) fn draft_chain(&self, edit: &ThemeEdit) -> Result<Vec<Map<String, Value>>> {
-        let (ns, closure) = self.draft_closure(edit)?;
-        chain_tokens(&closure, &ns, edit.child())
-    }
-
-    /// Les noms des thèmes qu'étendra le brouillon `edit` enregistré : l'intégré
-    /// pour un enfant, sinon les parents de sa base.
-    pub(crate) fn draft_extends_names(&self, edit: &ThemeEdit) -> Vec<String> {
-        let Some(base) = self.theme_version(&edit.base) else { return Vec::new() };
-        let parents = if edit.child() { vec![base.namespace] } else { base.extends };
+    /// Les thèmes qu'étend le brouillon `edit`, nommés : un parent introuvable
+    /// prend son espace de noms pour nom.
+    pub(crate) fn draft_parents(&self, edit: &ThemeEdit) -> Vec<ThemeParentView> {
         let sources = self.draft_sources();
-        parents
+        edit.extends
             .iter()
             .map(|ns| {
                 let found = embedded_or_library(&self.themes, &sources, ns)
                     .and_then(|(_, files)| ThemeManifest::from_files(&files).ok());
-                found.map(|m| m.name).unwrap_or_else(|| {
+                let name = found.map(|m| m.name).unwrap_or_else(|| {
                     tracing::warn!(theme = %ns, "parent du thème introuvable : son espace de noms en tient lieu");
                     ns.as_str().to_owned()
-                })
+                });
+                ThemeParentView { namespace: ns.to_string(), name }
             })
             .collect()
     }
@@ -97,7 +104,7 @@ impl Session {
         tokens: Map<String, Value>,
     ) -> Result<Option<ThemeManifest>> {
         let origin = if edit.child() { Map::new() } else { base.tokens.clone() };
-        if tokens == origin && edit.name == base.name {
+        if tokens == origin && edit.name == base.name && edit.extends == edit.starting_extends(&base) {
             return Ok(None);
         }
         let manifest = match edit.child() {
@@ -107,7 +114,7 @@ impl Session {
                     false => edit.name.clone(),
                 };
                 let namespace = library_namespace(&self.library, &name)?;
-                let (id, extends) = (Uuid::new_v4(), vec![base.namespace]);
+                let (id, extends) = (Uuid::new_v4(), edit.extends.clone());
                 let created = now_created();
                 ThemeManifest {
                     id,
@@ -123,6 +130,7 @@ impl Session {
             false => ThemeManifest {
                 id: edit.base.id,
                 name: edit.name.clone(),
+                extends: edit.extends.clone(),
                 parent: Some(edit.base.version.clone()),
                 created: now_created(),
                 tokens,
@@ -166,15 +174,16 @@ impl Session {
         };
         let files =
             self.theme_files(&pin).context(ThemeVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
-        let name = ThemeManifest::from_files(&files).context(ThemeJsonSnafu { id: pin.id })?.name;
+        let manifest = ThemeManifest::from_files(&files).context(ThemeJsonSnafu { id: pin.id })?;
         if let Mode::Pack { theme, switches, .. } = &mut self.mode {
-            let saved = ThemeEdit::of(pin.clone(), name);
+            let saved = ThemeEdit::starting(pin.clone(), &manifest);
             // L'historique du deck de travail reste : les changements de base
-            // qui menaient à l'ancienne base mènent à la version enregistrée.
+            // qui menaient à l'ancienne base mènent à la version enregistrée,
+            // chacun avec ses parents.
             for s in switches.iter_mut() {
                 for edit in [&mut s.from, &mut s.to] {
                     if edit.base == theme.base {
-                        *edit = saved.clone();
+                        *edit = ThemeEdit { extends: std::mem::take(&mut edit.extends), ..saved.clone() };
                     }
                 }
             }

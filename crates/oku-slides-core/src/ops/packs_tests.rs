@@ -220,3 +220,31 @@ fn pack_kind_conflict_message_is_localized_in_french() {
     let fr = err.op_error().localize(&Localizer::new(Some("fr")));
     assert_that!(fr).is_not_equal_to(err.op_error().localize(oku_slides_i18n::english()));
 }
+
+/// `base`, `acme` utilisé par un élément, `dep` requis par `acme`, `solo` inutilisé.
+fn deck_for_refusals() -> Deck {
+    let mut deck = Deck::empty();
+    deck.widgets.insert(kinds::base::namespace(), pin(&[]));
+    deck.widgets.insert(ns("dep"), pin(&[]));
+    deck.widgets.insert(ns("acme"), pin(&["dep"]));
+    deck.widgets.insert(ns("solo"), pin(&[]));
+    deck.slides.push(slide_with(BLANK, vec![Element::new("e1", "acme/card")]));
+    deck
+}
+
+#[rstest]
+#[case::base("base", OpErrorKind::BaseRequired)]
+#[case::in_use("acme", OpErrorKind::PackInUse)]
+#[case::required("dep", OpErrorKind::PackRequired)]
+#[case::unknown("ghost", OpErrorKind::UnknownNamespace)]
+fn remove_pack_refusal_names_the_reason(#[case] pack: &str, #[case] expected: OpErrorKind) {
+    let deck = deck_for_refusals();
+    let err = remove_pack_refusal(&deck, PackKind::Widgets, &ns(pack)).expect("refus attendu");
+    assert_that!(err.kind()).is_equal_to(expected);
+}
+
+#[test]
+fn remove_pack_refusal_unused_pack_is_none() {
+    let deck = deck_for_refusals();
+    assert_that!(remove_pack_refusal(&deck, PackKind::Widgets, &ns("solo"))).is_none();
+}

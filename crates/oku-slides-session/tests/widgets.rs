@@ -1,4 +1,4 @@
-//! Widgets dans une session : liste du snapshot (`pack_widgets`, `add_widgets`) et réglages de l'hôte en mode pack.
+//! Widgets dans une session : liste du snapshot (`pack_widgets`, `add_packs`) et réglages de l'hôte en mode pack.
 
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
 mod common;
@@ -20,6 +20,13 @@ fn non_base(list: &serde_json::Value) -> serde_json::Value {
         oku_slides_core::kinds::is_builtin_kind(name)
     };
     json!(list.as_array().into_iter().flatten().filter(|v| !of_base(v)).cloned().collect::<Vec<_>>())
+}
+
+/// Les widgets de la grille d'ajout (`add_packs`) hors des packs intégrés, à plat.
+fn added(snapshot: &serde_json::Value) -> serde_json::Value {
+    let packs = snapshot["add_packs"].as_array().into_iter().flatten();
+    let user = packs.filter(|p| !matches!(p["namespace"].as_str(), Some("base" | "essentiel")));
+    json!(user.flat_map(|p| p["widgets"].as_array().cloned().unwrap_or_default()).collect::<Vec<_>>())
 }
 
 /// Le snapshot nomme les widgets du pack du deck, sans `_commun`.
@@ -68,31 +75,30 @@ const COVER_SLIDE: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
 
 /// La barre d'ajout propose les widgets d'élément du pack, avec leur label.
 #[test]
-fn snapshot_add_widgets_lists_the_pack_element_widgets_with_their_label() {
+fn snapshot_add_packs_lists_the_pack_element_widgets_with_their_label() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_LABELLED}))).unwrap();
-    assert_that!(non_base(&snapshot_json(&mut s)["add_widgets"]))
-        .is_equal_to(json!([{"name": "deck/kpi", "label": "KPI", "description": null}]));
+    assert_that!(added(&snapshot_json(&mut s)))
+        .is_equal_to(json!([{"name": "deck/kpi", "label": "KPI", "description": null, "seed": {"params": {}}}]));
 }
 
 /// La barre d'ajout porte la description d'un widget du pack, pour le filtre.
 #[test]
-fn snapshot_add_widgets_carries_the_widget_description() {
+fn snapshot_add_packs_carries_the_widget_description() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_DESCRIBED}))).unwrap();
-    assert_that!(non_base(&snapshot_json(&mut s)["add_widgets"])[0]["description"])
-        .is_equal_to(json!("Une valeur en grand"));
+    assert_that!(added(&snapshot_json(&mut s))[0]["description"]).is_equal_to(json!("Une valeur en grand"));
 }
 
 /// Un fichier au label mal typé est écarté seul : les autres widgets du pack restent proposés.
 #[test]
-fn snapshot_add_widgets_keeps_the_pack_when_one_file_has_a_non_text_label() {
+fn snapshot_add_packs_keeps_the_pack_when_one_file_has_a_non_text_label() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_DESCRIBED}))).unwrap();
     let change = s.set_widget(None, "casse", NON_TEXT_LABEL.into()).unwrap_or_else(|e| panic!("{}", e.one_line()));
     let set_aside = change.status.schema.is_none()
         && change.status.diagnostics.iter().any(|d| d.message.contains("le label doit être un texte"));
-    let added = non_base(&snapshot_json(&mut s)["add_widgets"]);
+    let added = added(&snapshot_json(&mut s));
     let names: Vec<serde_json::Value> = added.as_array().into_iter().flatten().map(|w| w["name"].clone()).collect();
     assert_that!((change.saved, set_aside, names)).is_equal_to((true, true, vec![json!("deck/kpi")]));
 }
@@ -104,18 +110,18 @@ const NON_TEXT_LABEL: &str = r#"#import "/oku-slides/lib.typ": widget, field, pa
 
 /// Un widget de slide du pack ne s'ajoute pas à une slide : absent de la liste.
 #[test]
-fn snapshot_add_widgets_leaves_out_slide_widgets() {
+fn snapshot_add_packs_leaves_out_slide_widgets() {
     let mut s = session();
     s.handle(req(json!({"cmd": "set_widget", "name": "cover", "source": COVER_SLIDE}))).unwrap();
-    assert_that!(non_base(&snapshot_json(&mut s)["add_widgets"])).is_equal_to(json!([]));
+    assert_that!(added(&snapshot_json(&mut s))).is_equal_to(json!([]));
 }
 
 /// Un widget du pack qui ne compile pas n'est pas au registre : absent de la liste.
 #[test]
-fn snapshot_add_widgets_leaves_out_broken_widgets() {
+fn snapshot_add_packs_leaves_out_broken_widgets() {
     let mut s = session();
     let _ = s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": "#let widget = ("})));
-    assert_that!(non_base(&snapshot_json(&mut s)["add_widgets"])).is_equal_to(json!([]));
+    assert_that!(added(&snapshot_json(&mut s))).is_equal_to(json!([]));
 }
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p

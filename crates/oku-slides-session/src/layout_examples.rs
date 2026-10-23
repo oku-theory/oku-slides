@@ -161,7 +161,7 @@ impl Session {
         manifest.created = now_created();
         let files = manifest.to_files(t.kind, t.files.widgets().clone()).context(PackJsonSnafu { id: t.id })?;
         let mut deck = next.clone();
-        realign_layouts(&mut deck, &manifest, &files);
+        realign_layouts(&mut deck, &manifest, &files, &self.localizer);
         // Rendu avant l'écriture : un échec ne laisse ni version ni étape.
         self.render_deck(&deck)?;
         self.adopt_session_version(deck, files, &edit, false, AdoptStep::Op(label, merge, moves))?;

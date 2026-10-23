@@ -226,3 +226,51 @@ fn preview_with_an_emptied_field_shows_it_empty() {
     let view = p.view.unwrap();
     assert_that!(view["slide"]["params"]["elements"][0]["params"]["value"]).is_equal_to(json!(""));
 }
+
+/// Le style de départ de `widget`, écrit dans le manifeste du pack en cours.
+fn seed_style(s: &mut Session, widget: &str) {
+    let t = s.widget_target(None).unwrap();
+    let mut manifest = PackManifest::from_files(&t.files).unwrap();
+    let style = oku_slides_core::Style { fill: Some("surface".into()), ..Default::default() };
+    manifest.styles.insert(parse_name(widget).unwrap(), style);
+    s.commit_manifest(&t, manifest, t.files.widgets().clone()).unwrap();
+}
+
+/// Le style de départ de `widget` dans le manifeste du pack en cours.
+fn stored_style(s: &Session, widget: &str) -> Option<oku_slides_core::Style> {
+    let t = s.widget_target(None).unwrap();
+    PackManifest::from_files(&t.files).unwrap().styles.get(&parse_name(widget).unwrap()).cloned()
+}
+
+#[test]
+fn rename_widget_carries_its_style() {
+    let (_d, mut s) = editing();
+    seed_style(&mut s, "kpi");
+    s.rename_widget(None, "kpi", "chiffre").unwrap();
+    assert_that!(stored_style(&s, "kpi")).is_none();
+    assert_that!(stored_style(&s, "chiffre").and_then(|st| st.fill)).is_equal_to(Some("surface".to_owned()));
+}
+
+#[test]
+fn remove_widget_drops_its_style() {
+    let (_d, mut s) = editing();
+    seed_style(&mut s, "kpi");
+    s.remove_widget(None, "kpi").unwrap();
+    assert_that!(stored_style(&s, "kpi")).is_none();
+}
+
+#[test]
+fn set_widget_with_empty_source_drops_its_style() {
+    let (_d, mut s) = editing();
+    seed_style(&mut s, "kpi");
+    s.set_widget(None, "kpi", String::new()).unwrap();
+    assert_that!(stored_style(&s, "kpi")).is_none();
+}
+
+#[test]
+fn save_pack_keeps_the_style() {
+    let (_d, mut s) = editing();
+    seed_style(&mut s, "kpi");
+    s.save_pack(false).unwrap();
+    assert_that!(stored_style(&s, "kpi").and_then(|st| st.fill)).is_equal_to(Some("surface".to_owned()));
+}

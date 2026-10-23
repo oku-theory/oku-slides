@@ -96,6 +96,10 @@ pub enum AgentCommand {
     Picker {
         tab: String,
     },
+    /// L'interface ouvre le panneau des packs du deck : la surface va à cet onglet.
+    ShowPacks {
+        tab: String,
+    },
     /// L'interface demande si l'agent est utilisable (évènement `availability` à cet onglet).
     Availability {
         tab: String,
@@ -131,6 +135,7 @@ impl AgentCommand {
             | Self::Follow { tab }
             | Self::SetDraft { tab, .. }
             | Self::Picker { tab }
+            | Self::ShowPacks { tab }
             | Self::Availability { tab }
             | Self::SelectAgent { tab, .. }
             | Self::DownloadModel { tab }
@@ -265,6 +270,22 @@ impl Stack {
                     tracing::info!(tab, error = %snafu::Report::from_error(&e), "action de surface refusée");
                     e.localize(&self.platform.live_localizer.current())
                 });
+            }
+            // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : le panneau va au hub de l'onglet.
+            AgentCommand::ShowPacks { tab } => {
+                let Some(t) = self.open(&tab) else { return Ok(()) };
+                return match t.hub.show_packs() {
+                    Ok(true) => Ok(()),
+                    // Le bouton n'existe qu'en mode deck : un changement de mode l'a devancé.
+                    Ok(false) => {
+                        tracing::debug!(tab, "panneau des packs hors du mode deck : ignoré");
+                        Ok(())
+                    }
+                    Err(e) => {
+                        tracing::info!(tab, error = %snafu::Report::from_error(&e), "panneau des packs impossible");
+                        Err(e.localize(&self.platform.live_localizer.current()))
+                    }
+                };
             }
             // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : un onglet rouvert retrouve ses fils.
             // L'état de l'agent d'abord, puis le fil de `scope` (montré par le gardien, après sa relecture).

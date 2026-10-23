@@ -51,34 +51,15 @@ ui-pack-deck-only = Salvo apenas nesta apresentação
 ui-toolbar-open = Abrir
 ui-menu = Menu
 ui-toolbar-add-label = Adicionar ao slide
+ui-toolbar-packs = Pacotes da apresentação
+ui-toolbar-packs-update = Pacotes da apresentação — atualizações disponíveis
 ui-toolbar-thumbs-show = Mostrar miniaturas
 ui-toolbar-thumbs-hide = Ocultar miniaturas
-ui-add-kind = { $kind ->
-    [card] Cartão
-    [shape] Forma
-    [chart] Gráfico
-    [table] Tabela
-   *[text] Texto
-}
-ui-add-kind-description = { $kind ->
-    [card] Um título e um texto curto em um quadro
-    [shape] Uma forma colorida
-    [chart] Um gráfico feito a partir de uma tabela de dados
-    [table] Uma tabela de dados
-   *[text] Um parágrafo de texto
-}
 ui-toolbar-remove-slide = Excluir o slide
 ui-toolbar-remove-hint = Slide { $n } · desfaça com ⌘Z
 
 ## Rótulos de desfazer
 
-ui-undo-add = { $kind ->
-    [card] Adicionar um cartão
-    [shape] Adicionar uma forma
-    [chart] Adicionar um gráfico
-    [table] Adicionar uma tabela
-   *[text] Adicionar um texto
-}
 ui-undo-add-widget = Adicionar “{ $name }”
 ui-undo-new-slide = Novo slide: { $name }
 ui-undo-move-slide = Mover o slide
@@ -94,12 +75,6 @@ ui-undo-resize = Redimensionar
 ui-undo-edit-slide = Editar o slide
 ui-undo-rename-pack = Renomear o pacote
 ui-undo-rename-deck = Renomear a apresentação
-
-## Novos elementos
-
-ui-new-text = Novo texto
-ui-new-card-title = Título do cartão
-ui-new-card-detail = Detalhe
 
 ## Pilha de slides
 

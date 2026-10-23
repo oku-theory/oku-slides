@@ -48,7 +48,7 @@ pub use list::{
 };
 pub use list_path::ListPath;
 pub use moving::Moved;
-pub use packs::pack_users;
+pub use packs::{pack_users, remove_pack_refusal};
 pub use value::{GRID_TRACKS, param_value};
 
 /// Une slide, ou un élément d'une slide. JSON : `{"slide": "s1"}` ou

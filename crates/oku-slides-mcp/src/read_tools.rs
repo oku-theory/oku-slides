@@ -56,6 +56,7 @@ impl Tools {
                     "edited_theme": snap.editing.as_ref().map(|e| json!({
                         "id": e.theme.base.id,
                         "version": e.theme.base.version,
+                        "namespace": e.theme.namespace,
                         "name": e.theme.name,
                         "child": e.theme.child,
                         "extends": e.theme.extends,

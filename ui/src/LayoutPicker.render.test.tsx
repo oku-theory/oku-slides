@@ -3,8 +3,8 @@
 import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import { resetMessages } from "./test/messages";
-import type { LayoutView, LayoutsView, Slide } from "./api";
-import { ESSENTIEL } from "./builtinKinds";
+import type { Slide } from "./api";
+import type { LayoutView, LayoutsView } from "./packTypes";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -72,7 +72,7 @@ test("LayoutPicker lists each layout pack with its layouts", async () => {
   const { host, cards } = await mount(() =>
     Promise.resolve({
       packs: [
-        { namespace: "essentiel", name: "Essentiel", layouts: [layout(ESSENTIEL.title, "Couverture"), layout(ESSENTIEL.content, "Contenu")] },
+        { namespace: "essentiel", name: "Essentiel", layouts: [layout("essentiel/title", "Couverture"), layout("essentiel/content", "Contenu")] },
         { namespace: "acme", name: "Acme", layouts: [layout("acme/kpi", "Indicateurs")] },
       ],
     }),
@@ -83,9 +83,9 @@ test("LayoutPicker lists each layout pack with its layouts", async () => {
 });
 
 test("LayoutPicker picking a card returns its layout", async () => {
-  const { picked, card } = await mount(() => Promise.resolve(oneLayout(ESSENTIEL.end, "Fin")));
+  const { picked, card } = await mount(() => Promise.resolve(oneLayout("essentiel/end", "Fin")));
   await click(card("Fin"));
-  expect(picked).toEqual([ESSENTIEL.end]);
+  expect(picked).toEqual(["essentiel/end"]);
 });
 
 test("LayoutPicker shows the host refusal", async () => {
@@ -95,7 +95,7 @@ test("LayoutPicker shows the host refusal", async () => {
 });
 
 test("LayoutPicker close button closes", async () => {
-  const { host, closed } = await mount(() => Promise.resolve(oneLayout(ESSENTIEL.end, "Fin")));
+  const { host, closed } = await mount(() => Promise.resolve(oneLayout("essentiel/end", "Fin")));
   await click(host.querySelector<HTMLButtonElement>('button[aria-label="Fermer"]')!);
   expect(closed()).toBe(1);
 });
@@ -104,7 +104,7 @@ test("LayoutPicker arrow keys move the focus between cards across packs", async 
   const { cards } = await mount(() =>
     Promise.resolve({
       packs: [
-        { namespace: "essentiel", name: "Essentiel", layouts: [layout(ESSENTIEL.title, "Couverture")] },
+        { namespace: "essentiel", name: "Essentiel", layouts: [layout("essentiel/title", "Couverture")] },
         { namespace: "acme", name: "Acme", layouts: [layout("acme/kpi", "Indicateurs")] },
       ],
     }),

@@ -33,7 +33,7 @@ use crate::theme_edit::ThemeEdit;
 use crate::views::{PackMode, UiState};
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
 
-pub(crate) const VERSION: u32 = 2;
+pub(crate) const VERSION: u32 = 3;
 pub(crate) const DECK_DIR: &str = "deck";
 pub(crate) const PACK_DIR: &str = "pack";
 /// Taille maximale d'un JSON relu par [`Resume::read_json`] : au-delà, illisible.
@@ -708,6 +708,11 @@ impl Session {
                 switches: Vec::new(),
             };
             self.embed_theme_base();
+            // La bibliothèque a pu changer depuis : une liste refusée fait échouer
+            // la reprise (mise de côté), jamais réparée en silence.
+            if let Mode::Pack { theme, .. } = &self.mode {
+                self.check_theme_extends(theme, &theme.extends).context(SessionSnafu)?;
+            }
             self.sync_widgets().context(SessionSnafu)?;
             self.rerender().context(SessionSnafu)?;
         }

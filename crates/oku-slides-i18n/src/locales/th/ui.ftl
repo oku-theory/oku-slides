@@ -48,34 +48,15 @@ ui-pack-deck-only = บันทึกไว้ในงานนำเสนอ
 ui-toolbar-open = เปิด
 ui-menu = เมนู
 ui-toolbar-add-label = เพิ่มลงในสไลด์
+ui-toolbar-packs = แพ็กของงานนำเสนอ
+ui-toolbar-packs-update = แพ็กของงานนำเสนอ — มีการอัปเดต
 ui-toolbar-thumbs-show = แสดงภาพย่อ
 ui-toolbar-thumbs-hide = ซ่อนภาพย่อ
-ui-add-kind = { $kind ->
-    [card] การ์ด
-    [shape] รูปร่าง
-    [chart] แผนภูมิ
-    [table] ตาราง
-   *[text] ข้อความ
-}
-ui-add-kind-description = { $kind ->
-    [card] หัวเรื่องและข้อความสั้นในกรอบ
-    [shape] รูปทรงที่มีสี
-    [chart] แผนภูมิจากตารางข้อมูล
-    [table] ตารางข้อมูล
-   *[text] ย่อหน้าข้อความ
-}
 ui-toolbar-remove-slide = ลบสไลด์
 ui-toolbar-remove-hint = สไลด์ { $n } · เลิกทำด้วย ⌘Z
 
 ## ป้ายกำกับการเลิกทำ
 
-ui-undo-add = { $kind ->
-    [card] เพิ่มการ์ด
-    [shape] เพิ่มรูปร่าง
-    [chart] เพิ่มแผนภูมิ
-    [table] เพิ่มตาราง
-   *[text] เพิ่มข้อความ
-}
 ui-undo-add-widget = เพิ่ม “{ $name }”
 ui-undo-new-slide = สไลด์ใหม่: { $name }
 ui-undo-move-slide = ย้ายสไลด์
@@ -91,12 +72,6 @@ ui-undo-resize = ปรับขนาด
 ui-undo-edit-slide = แก้ไขสไลด์
 ui-undo-rename-pack = เปลี่ยนชื่อชุด
 ui-undo-rename-deck = เปลี่ยนชื่องานนำเสนอ
-
-## องค์ประกอบใหม่
-
-ui-new-text = ข้อความใหม่
-ui-new-card-title = ชื่อการ์ด
-ui-new-card-detail = รายละเอียด
 
 ## รายการสไลด์
 

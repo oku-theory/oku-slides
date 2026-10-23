@@ -40,6 +40,17 @@ pub(crate) fn opened_on(data: &std::path::Path) -> Session {
     s
 }
 
+/// Une session isolée dans la langue `locale`, ouverte sur `fixtures/roadmap.json`, comme [`session`].
+pub(crate) fn session_in_locale(locale: &str) -> Session {
+    let data = fresh_dir("oku-slides-session-test-support-");
+    let mut settings = settings_on(data.path());
+    settings.i18n.locale = Some(locale.into());
+    let mut s = session_with(settings);
+    let fixture = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"));
+    s.open(&fixture).unwrap_or_else(|e| panic!("ouverture du fixture impossible : {}", e.one_line()));
+    s
+}
+
 /// La version intégrée du pack `id` (cherchée par id, jamais par rang).
 pub(crate) fn builtin(id: uuid::Uuid) -> &'static crate::library_kind::StoredVersion<crate::pack::PackManifest> {
     builtin_versions().iter().find(|b| b.manifest.id == id).unwrap_or_else(|| panic!("pack intégré inconnu : {id}"))
@@ -79,6 +90,7 @@ pub(crate) fn manifest(
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        styles: Default::default(),
         tokens: Vec::new(),
     }
 }
@@ -190,7 +202,8 @@ pub(crate) fn library_with(packs: &[(&str, &[&str])]) -> TestLibrary {
 
 /// L'épinglage de la version courante du pack `namespace` de `library`.
 pub(crate) fn current_pin(library: &crate::PackLibrary, namespace: &str) -> oku_slides_core::PackPin {
-    crate::deck_closure::current_pin(library, &ns(namespace)).unwrap_or_else(|e| panic!("{}", e.one_line()))
+    crate::deck_closure::current_pin(library, oku_slides_core::PackKind::Widgets, &ns(namespace))
+        .unwrap_or_else(|e| panic!("{}", e.one_line()))
 }
 
 /// L'op qui épingle la version courante du pack de widgets `namespace` de `library`.

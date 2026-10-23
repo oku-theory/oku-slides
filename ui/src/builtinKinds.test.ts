@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import registry from "../../fixtures/widgets/builtin-registry.json";
-import { BASE, BASE_NAMESPACE, ESSENTIEL, ESSENTIEL_NAMESPACE, baseName } from "./builtinKinds";
+import { BASE, BASE_NAMESPACE, baseName } from "./builtinKinds";
 
 describe("baseName", () => {
   test("d'un kind de base rend son nom", () => expect(baseName("base/card")).toBe("card"));
@@ -16,12 +16,4 @@ const frozen = (namespace: string) =>
 
 test("BASE a les widgets du pack base du registre figé", () => {
   expect(frozen(BASE_NAMESPACE)).toEqual(Object.values(BASE).sort());
-});
-
-test("ESSENTIEL kinds are qualified by essentiel", () => {
-  expect(Object.values(ESSENTIEL).every((k) => k.startsWith(`${ESSENTIEL_NAMESPACE}/`))).toBe(true);
-});
-
-test("ESSENTIEL a les layouts du pack essentiel du registre figé", () => {
-  expect(frozen(ESSENTIEL_NAMESPACE)).toEqual(Object.values(ESSENTIEL).sort());
 });

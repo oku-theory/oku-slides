@@ -1,11 +1,11 @@
 //! Outils de surface : `ask_*` attend l'utilisateur, `show_*` rend la main tout de suite.
 
 use oku_slides_core::Paragraph;
-use oku_slides_session::HOST_THEME_PICKER;
 use oku_slides_session::agent::{
     AgentScope, Anchor, AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, check_len,
     check_options, forms, render,
 };
+use oku_slides_session::{HOST_PACKS, HOST_THEME_PICKER};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -15,8 +15,8 @@ use snafu::{IntoError, ResultExt};
 use crate::McpEvent;
 use crate::hub::{Answer, Freeze};
 use crate::tool_error::{
-    AnchorScopeSnafu, HubSnafu, NoTurnSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu, TaskSnafu,
-    ThemesDeckModeSnafu, ToolError, TurnOverSnafu, UnexpectedActionSnafu,
+    AnchorScopeSnafu, HubSnafu, NoTurnSnafu, PacksDeckModeSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu,
+    TaskSnafu, ThemesDeckModeSnafu, ToolError, TurnOverSnafu, UnexpectedActionSnafu,
 };
 use crate::tools::Tools;
 
@@ -233,6 +233,24 @@ impl Tools {
                 self.json_result(&json!({ "shown": HOST_THEME_PICKER }))
             } else {
                 self.fail_with(ThemesDeckModeSnafu.build())
+            }
+        })
+    }
+
+    /// Le panneau des packs du deck, ouvert hors tour comme le sélecteur de thème.
+    ///
+    /// Il lit la bibliothèque sous le verrou de session : hors du fil async.
+    pub(crate) async fn show_packs(&self) -> CallToolResult {
+        let hub = self.hub.clone();
+        let shown = tokio::task::spawn_blocking(move || hub.show_packs())
+            .await
+            .context(TaskSnafu)
+            .and_then(|r| r.map_err(Box::new).context(HubSnafu));
+        self.reply(shown, |shown| {
+            if shown {
+                self.json_result(&json!({ "shown": HOST_PACKS }))
+            } else {
+                self.fail_with(PacksDeckModeSnafu.build())
             }
         })
     }

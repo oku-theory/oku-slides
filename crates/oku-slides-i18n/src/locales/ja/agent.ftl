@@ -100,6 +100,7 @@ agent-error-locale = 不明な言語コードです。同梱の言語コード�
 agent-error-empty-interface = 変更する内容がありません。scheme、locale、grid、guides のいずれかを指定してください。
 agent-error-not-shown = このタブはウィンドウに表示中のタブではありません。ユーザーが表示してからもう一度依頼してください。
 agent-error-themes-deck-mode = テーマ選択はスライドの編集中にのみ開きます。
+agent-error-packs-deck-mode = プレゼンテーションのパックパネルはスライドの編集中にのみ開きます。
 agent-error-rewrite-text = 言い換えがテキストなしで返されました。
 agent-error-paragraphs = 言い換えの段落が無効です。
 agent-error-draft-too-long = 下書きが長すぎます。

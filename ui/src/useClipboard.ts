@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Element, Op, Paragraph, SlideView, Snapshot, TabApi } from "./api";
-import { baseName } from "./builtinKinds";
+import type { AddWidget } from "./packTypes";
+import { BASE } from "./builtinKinds";
 import { copyAfterRefusedMove, findElement, literalToParagraphs, moveOps, pasteOps } from "./deck";
 import { t } from "./i18n";
-import type { AddName } from "./slideTools";
 import { canAdd } from "./slideTools";
 import type { FieldKey } from "./stageFields";
 import { primaryFieldOf } from "./stageFields";
@@ -56,7 +56,7 @@ interface ClipboardEventsContext extends Omit<Clipboard, "cutMark"> {
   dialogOpen: boolean;
   widgetActive: boolean;
   apply: (label: string, ops: Op[]) => Promise<boolean>;
-  addElement: (name: AddName, text?: Paragraph[], label?: string) => void;
+  addElement: (widget: AddWidget, override?: { text: Paragraph[]; label: string }) => void;
   setSelected: (id: string | null) => void;
 }
 
@@ -91,8 +91,8 @@ export function useClipboardEvents({
       if (clip.current && text === clip.current.text) {
         e.preventDefault();
         const { element, cut: from } = clip.current;
-        // Un texte de base suit la règle du texte natif ; tout autre élément, celle d'un widget.
-        if (!canAdd(view.slide.kind, baseName(element.kind) === "text" ? "text" : "widget")) return;
+        // Le slot libre de la slide (canAdd le demande) doit accepter le kind de l'élément copié.
+        if (!canAdd(view.slide.kind, element.kind, snap?.free_slots ?? {})) return;
         const here = view;
         const copyHere = () => {
           const { id, ops } = pasteOps(here, element);
@@ -113,11 +113,14 @@ export function useClipboardEvents({
             await copyAfterRefusedMove(snapRef.current?.slides ?? [], from.slide, element.id, (s) => api.slide(s))
           ) copyHere();
         });
-      } else if (text.trim() && canAdd(view.slide.kind, "text")) {
-        // Du texte venu d'ailleurs devient un élément texte ; son markdown reste littéral.
+      } else if (text.trim()) {
+        // Du texte venu d'ailleurs devient un texte de base, parti de son départ dans la grille ;
+        // son markdown reste littéral. Sans texte de base dans la grille, rien n'est collé.
+        const widget = textWidget(snap);
+        if (!widget || !canAdd(view.slide.kind, BASE.text, snap?.free_slots ?? {})) return;
         e.preventDefault();
         dropCut();
-        addElement("text", literalToParagraphs(text), t("ui-undo-paste"));
+        addElement(widget, { text: literalToParagraphs(text), label: t("ui-undo-paste") });
       }
     };
     window.addEventListener("copy", copy);
@@ -129,4 +132,9 @@ export function useClipboardEvents({
       window.removeEventListener("paste", paste);
     };
   });
+}
+
+/** Le texte de base de la grille d'ajout, ou `undefined` s'il n'y est pas. */
+function textWidget(snap: Snapshot | null): AddWidget | undefined {
+  return snap?.add_packs.flatMap((p) => p.widgets).find((w) => w.name === BASE.text);
 }

@@ -208,7 +208,7 @@ impl ProbedWidgets {
                 usable.push(builtin?);
                 continue;
             }
-            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.kind(), files.widgets().clone());
+            let pack = PackWidgets::from_files(ns.clone(), files);
             let trusted = pack.as_ref().is_ok_and(is_trusted_pack);
             let probed = pack.and_then(|pack| {
                 probe_rounds(|| worker.probe_pack(&pack), |p| p.unprobed.len(), || start.elapsed() >= total)

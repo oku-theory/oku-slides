@@ -283,6 +283,17 @@ Two packs are built in, and the app embeds and renders them like any pack:
   `essentiel/end` and `essentiel/blank`. Its manifest also gives each layout's
   starting values (`examples`) and the import presets (`profiles`).
 
+A manifest may also carry a `styles` key: a map from a widget file name to the
+style the app gives that widget when the add grid inserts it (for example
+`"styles": {"shape": {"fill": "surface", "radius": "md"}}` in `base`). An
+entry with a malformed style or an invalid widget name is ignored.
+
+In `examples`, a text of the form `ftl:session-example-<key>` is a localization
+marker. Only the built-in packs (`base`, `essentiel`) use it: the app replaces it
+with the text of that key in the user's language. In any other pack the text
+stays as written, marker included, and a copy of a built-in pack has its
+markers resolved to plain text.
+
 Their files import `/oku-slides/lib.typ`, so they compile only under the
 app's virtual root: the folder that contains `oku-slides/` (`--root`
 pointing at `typst/`).

@@ -70,7 +70,8 @@ fn editing_continues_on_the_saved_child_as_a_user_theme() {
     s.save_pack(false).unwrap();
     let view = s.snapshot().editing.unwrap().theme;
     assert_that!((view.child, view.dirty)).is_equal_to((false, false));
-    assert_that!(view.extends).is_equal_to(vec!["Papier".to_owned()]);
+    let names: Vec<String> = view.extends.into_iter().map(|p| p.name).collect();
+    assert_that!(names).is_equal_to(vec!["Papier".to_owned()]);
 }
 
 #[test]
@@ -119,7 +120,8 @@ fn draft_extends_of_a_builtin_names_the_builtin() {
     let mut s = session();
     pack_session_with_theme(&mut s, "pro");
     let view = s.snapshot().editing.unwrap().theme;
-    assert_that!((view.child, view.extends)).is_equal_to((true, vec!["Pro".to_owned()]));
+    let names: Vec<String> = view.extends.into_iter().map(|p| p.name).collect();
+    assert_that!((view.child, names)).is_equal_to((true, vec!["Pro".to_owned()]));
 }
 
 #[test]

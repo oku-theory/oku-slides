@@ -490,3 +490,66 @@ pub fn theme_name(ns: &oku_slides_core::Namespace) -> Option<&'static str> {
     use oku_slides_session::{PAPIER_NAMESPACE, PRO_NAMESPACE};
     [PAPIER_NAMESPACE, PRO_NAMESPACE].into_iter().find(|n| ns.as_str() == *n)
 }
+
+/// [`start`], la bibliothèque tenant d'abord un pack de widgets vide sous `namespace`, qui requiert `base`.
+pub async fn start_with_library_widget_pack(namespace: &'static str) -> Harness {
+    let (platform, session, data) = tokio::task::spawn_blocking(move || {
+        use oku_slides_core::{Namespace, PackKind, PackScope};
+        let (platform, data) = platform_with(|_| {});
+        let ns = |s: &str| Namespace::parse(s).unwrap_or_else(|| panic!("espace de noms invalide : {s}"));
+        let manifest = oku_slides_session::PackManifest {
+            id: uuid::Uuid::from_u128(0xac3e_0000_0000_4000_8000_0000_0000_0001),
+            name: namespace.to_owned(),
+            namespace: ns(namespace),
+            requires: vec![ns("base")],
+            description: String::new(),
+            parent: None,
+            created: "2026-10-01T10:00:00Z".into(),
+            scope: PackScope::Library,
+            profiles: Vec::new(),
+            examples: BTreeMap::new(),
+            styles: BTreeMap::new(),
+            tokens: Vec::new(),
+        };
+        let files = manifest.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("manifeste : {e}"));
+        oku_slides_session::PackLibrary::user(&platform)
+            .add_version(manifest.id, &files)
+            .unwrap_or_else(|e| panic!("pack de la bibliothèque : {e}"));
+        let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session de test : {e}"));
+        session.open(&fixture_path()).unwrap_or_else(|e| panic!("ouverture de la fixture : {e}"));
+        (platform, session, data)
+    })
+    .await
+    .unwrap_or_else(|e| panic!("tâche bloquante de préparation : {e}"));
+    let session = Arc::new(Mutex::new(session));
+    start_with((platform, data), session.clone(), session).await
+}
+
+/// La dernière surface d'id `id` déjà reçue sur `rx` ; le canal est vidé.
+pub fn last_surface(
+    rx: &mut tokio::sync::broadcast::Receiver<McpEvent>,
+    id: &str,
+) -> oku_slides_session::agent::Surface {
+    let mut last = None;
+    while let Ok(event) = rx.try_recv() {
+        if let McpEvent::Surface { surface } = event
+            && surface.id == id
+        {
+            last = Some(surface);
+        }
+    }
+    last.unwrap_or_else(|| panic!("aucune surface {id} reçue"))
+}
+
+/// Les ids des composants d'une surface, dans l'ordre de ses messages.
+pub fn component_ids(surface: &oku_slides_session::agent::Surface) -> Vec<String> {
+    surface
+        .messages
+        .iter()
+        .filter_map(|m| match &m.body {
+            oku_slides_a2ui::ServerBody::UpdateComponents(u) => Some(u.components.iter().map(|c| c.id.clone())),
+            _ => None,
+        })
+        .flatten()
+        .collect()
+}

@@ -143,7 +143,7 @@
            "bold": true
           },
           {
-           "t": ": one button opens the add grid (text, card, shape, chart, table and pack widgets), filtered by name, label or description; undo, redo."
+           "t": ": one button opens the add grid, with one section per pack of the deck (text, card, shape, chart and table from the base pack, then each widget pack), filtered by name, label or description; undo, redo."
           }
          ],
          "list": "bullet"
@@ -258,7 +258,86 @@
            "bold": true
           },
           {
-            "t": ": Papier, Pro, Neutre or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. In pack mode, the Theme tab sets its tokens one by one; the editor shows what the theme extends and what the deck overrides, with a section per widget pack. “Done” saves it: editing Papier, Pro or Neutre creates a variant that extends it. A widget pack’s Theme tab shows preview slides."
+            "t": ": Papier, Pro, Neutre or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. In pack mode, the Theme tab sets its tokens one by one; the editor shows what the theme extends and what the deck overrides, with a section per widget pack. “Done” saves it: editing Papier, Pro or Neutre creates a variant that extends it. A widget pack’s Theme tab shows preview slides. The extends list can be reordered, and parents can be added or removed there."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-packs",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Getting around",
+    "title": "Deck packs",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-packs",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Packs button",
+           "bold": true
+          },
+          {
+           "t": ": the toolbar button opens the deck’s packs, listed by kind (layouts, widgets, theme). It shows a mark when one of your versions differs from the deck’s."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Versions",
+           "bold": true
+          },
+          {
+           "t": ": if the deck uses an older, newer or parallel version of a pack, “Use my version” switches the deck to yours and “Make theirs my version” keeps the deck’s as yours. Both can be undone."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Add and remove",
+           "bold": true
+          },
+          {
+           "t": ": “Add from the library” pins a pack in the deck; “Remove” unpins it, unless a slide or another pack still needs it. The base pack always stays."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Add grid",
+           "bold": true
+          },
+          {
+           "t": ": it starts from the widgets of each pack, with their starting content. A layout with free slots accepts only the kinds it allows."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Theme",
+           "bold": true
+          },
+          {
+           "t": ": the deck’s theme is picked here too, with its extends list: parents apply first, later ones win, and you can add, remove or reorder them."
           }
          ],
          "list": "bullet"

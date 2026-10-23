@@ -1,3 +1,4 @@
+use rstest::rstest;
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
@@ -64,4 +65,33 @@ fn theme_layer_skips_a_pack_without_component_defaults() {
     let components = [(ns("base"), Map::new())];
     let layer = theme_layer(components.iter().map(|(n, m)| (n, m.clone())), std::iter::empty());
     assert_that!(Value::Object(layer)).is_equal_to(json!({}));
+}
+
+/// `merge(a, b)` : `b` posé par-dessus `a`.
+fn merged(a: &Value, b: &Value) -> Value {
+    let mut base = map(a.clone());
+    merge(&mut base, &map(b.clone()));
+    Value::Object(base)
+}
+
+/// Des chemins disjoints se fusionnent dans les deux ordres ; sur un chemin commun
+/// ou un préfixe, l'ordre compte : le dernier posé l'emporte.
+#[rstest]
+#[case::disjoint(json!({"a": {"x": 1}}), json!({"b": {"y": 2}}), Some(json!({"a": {"x": 1}, "b": {"y": 2}})))]
+#[case::sibling_keys(json!({"a": {"x": 1}}), json!({"a": {"y": 2}}), Some(json!({"a": {"x": 1, "y": 2}})))]
+#[case::shared_path(json!({"a": 1}), json!({"a": 2}), None)]
+#[case::prefix_overlap(json!({"a": 1}), json!({"a": {"b": 2}}), None)]
+fn merge_two_peers_is_commutative(#[case] left: Value, #[case] right: Value, #[case] commutes_to: Option<Value>) {
+    let (lr, rl) = (merged(&left, &right), merged(&right, &left));
+    match commutes_to {
+        Some(expected) => {
+            assert_that!(&lr).is_equal_to(&expected);
+            assert_that!(&rl).is_equal_to(&expected);
+        }
+        None => {
+            // Ordre documenté : la couche posée en dernier gagne.
+            assert_that!(&lr).is_equal_to(&right);
+            assert_that!(&rl).is_equal_to(&left);
+        }
+    }
 }

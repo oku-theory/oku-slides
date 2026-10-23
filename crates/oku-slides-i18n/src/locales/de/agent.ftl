@@ -106,6 +106,7 @@ agent-error-locale = Unbekannter Sprachcode. Gib den Code einer mitgelieferten S
 agent-error-empty-interface = Nichts zu ändern: Gib scheme, locale, grid oder guides an.
 agent-error-not-shown = Dieser Tab ist nicht der in seinem Fenster angezeigte: Frag erneut, sobald der Nutzer ihn anzeigt.
 agent-error-themes-deck-mode = Die Themenauswahl öffnet sich nur beim Bearbeiten der Folien.
+agent-error-packs-deck-mode = Der Bereich der Präsentationspakete öffnet sich nur beim Bearbeiten der Folien.
 agent-error-rewrite-text = Die Umformulierung kam ohne Text zurück.
 agent-error-paragraphs = Die Absätze der Umformulierung sind ungültig.
 agent-error-draft-too-long = Der Entwurf ist zu lang.

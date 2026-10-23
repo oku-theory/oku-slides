@@ -26,9 +26,21 @@ const themes = [
 ];
 
 /** Un instantané en mode pack, le thème `name` en brouillon. */
-const snapEditingTheme = (name: string, o: { dirty?: boolean; base?: string } = {}): Snapshot =>
+const snapEditingTheme = (name: string, o: { dirty?: boolean; base?: string; namespace?: string } = {}): Snapshot =>
   ({
-    editing: { pack: "p", base: "b", theme: { base: { id: o.base ?? PAPIER_ID, version: "v1" }, name, child: true, extends: [], dirty: o.dirty ?? false, revision: "r1" } },
+    editing: {
+      pack: "p",
+      base: "b",
+      theme: {
+        base: { id: o.base ?? PAPIER_ID, version: "v1" },
+        namespace: o.namespace ?? "papier",
+        name,
+        child: true,
+        extends: [],
+        dirty: o.dirty ?? false,
+        revision: "r1",
+      },
+    },
     themes, history: null, undo_label: null, redo_label: null, slides: [],
   }) as unknown as Snapshot;
 
@@ -38,7 +50,7 @@ function fakeApi() {
   const calls: unknown[][] = [];
   stub(fake, "hostTheme", async () => ({ id: HOST_THEME, place: "thread", live: true, turn: null, messages: [] }) as unknown as Surface);
   stub(fake, "renameEditedTheme", async (name: string) => (calls.push(["rename", name]), snapEditingTheme(name)));
-  stub(fake, "setEditedTheme", async (id: string) => (calls.push(["set", id]), snapEditingTheme("Pro", { base: id })));
+  stub(fake, "setEditedTheme", async (id: string) => (calls.push(["set", id]), snapEditingTheme("Pro", { base: id, namespace: "pro" })));
   return { api: fake as TabApi, calls };
 }
 
@@ -137,10 +149,10 @@ describe("ThemePanel", () => {
     expect(dirty.host.querySelector('.unsaved-dot[aria-label="Unsaved theme changes"]')).not.toBeNull();
   });
 
-  test("base absente de la bibliothèque : option désactivée et choisie, sous le nom du brouillon", async () => {
-    const { host } = await mount(snapEditingTheme("Maison", { base: OTHER_ID }));
+  test("ThemePanel with a base absent from the library uses its namespace as menu value", async () => {
+    const { host } = await mount(snapEditingTheme("Maison", { base: OTHER_ID, namespace: "maison" }));
     const select = byLabel<HTMLSelectElement>(host, "Theme");
-    expect(select.value).toBe(OTHER_ID);
+    expect(select.value).toBe("maison");
     expect(select.options[0]!.textContent).toBe("Maison");
     expect(select.options[0]!.disabled).toBe(true);
   });

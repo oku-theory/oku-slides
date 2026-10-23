@@ -4,13 +4,15 @@
 //! None`). Éditer un thème de l'utilisateur part de ses propres jetons ;
 //! éditer un thème intégré part d'un brouillon vide, celui d'un enfant
 //! (`ThemeEdit::child`) qui l'étendra. Le deck de travail se rend sur le
-//! calque des parents de sa base, ou de l'intégré lui-même pour un enfant
-//! (`theme_draft`), sous le brouillon qu'il porte dans ses jetons. Chaque
+//! calque des thèmes qu'étend le brouillon (`ThemeEdit::extends`, au départ
+//! les parents de sa base, ou l'intégré lui-même pour un enfant ;
+//! `theme_draft`), sous le brouillon qu'il porte dans ses jetons. Chaque
 //! réglage est un `SetToken` / `UnsetToken`, vérifié par le schéma composé du
 //! deck de travail (`theme_schema`, `theme_composed`) ; choisir un autre thème
 //! remplace les jetons en une étape annulable (`SetTokens`), et la base suit
-//! l'annulation (`ThemeSwitch`). Renommer le thème est un simple changement
-//! d'état, sans étape.
+//! l'annulation (`ThemeSwitch`). Changer la liste `extends` est aussi une
+//! étape sous un rang (`theme_extends`). Renommer le thème est un simple
+//! changement d'état, sans étape.
 //!
 //! L'enregistrement (`theme_draft`) fait d'un brouillon qui diffère de son
 //! point de départ une nouvelle version d'un thème de l'utilisateur, ou un
@@ -36,18 +38,38 @@ use crate::theme_schema::{
 use crate::views::EditingView;
 use crate::{Mode, Result, Session};
 
-/// Le thème édité en mode pack : sa version de base et son nom.
+/// Le thème édité en mode pack : sa version de base, son nom et ses parents.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThemeEdit {
     /// La version de base du brouillon : id, version et parents.
     pub base: ThemePin,
+    /// L'espace de noms de la base, lu à la création de l'édition.
+    pub namespace: Namespace,
+    /// Le nom que prendra le thème enregistré.
     pub name: String,
+    /// Les thèmes qu'étend le brouillon, dans l'ordre (le dernier l'emporte).
+    pub extends: Vec<Namespace>,
 }
 
 impl ThemeEdit {
-    /// L'édition de la version `base`, nommée `name`.
-    pub(crate) fn of(base: ThemePin, name: String) -> Self {
-        Self { base, name }
+    /// L'édition de la version `base` d'espace de noms `namespace`, nommée `name`, étendant `extends`.
+    pub(crate) fn of(base: ThemePin, namespace: Namespace, name: String, extends: Vec<Namespace>) -> Self {
+        Self { base, namespace, name, extends }
+    }
+
+    /// L'édition de la version `base`, de manifeste `manifest`, partant de ses parents de départ.
+    pub(crate) fn starting(base: ThemePin, manifest: &ThemeManifest) -> Self {
+        let mut edit = Self::of(base, manifest.namespace.clone(), manifest.name.clone(), Vec::new());
+        edit.extends = edit.starting_extends(manifest);
+        edit
+    }
+
+    /// Les parents de départ : l'intégré lui-même pour un enfant, sinon ceux de la base `base`.
+    pub(crate) fn starting_extends(&self, base: &ThemeManifest) -> Vec<Namespace> {
+        match self.child() {
+            true => vec![self.namespace.clone()],
+            false => base.extends.clone(),
+        }
     }
 
     /// La base est intégrée : le brouillon part vide et s'enregistre en un enfant qui l'étend.
@@ -63,12 +85,15 @@ impl ThemeEdit {
 pub struct ThemeEditView {
     /// La version de base du brouillon : id, version et parents.
     pub base: ThemePin,
+    /// L'espace de noms de la base.
+    pub namespace: String,
+    /// Le nom que prendra le thème enregistré.
     pub name: String,
     /// La base est intégrée : l'enregistrer en crée un enfant qui l'étend.
     pub child: bool,
-    /// Les noms des thèmes qu'étend le thème enregistré, dans l'ordre (lecture seule).
-    pub extends: Vec<String>,
-    /// Le brouillon diffère de son point de départ (jetons ou nom).
+    /// Les thèmes qu'étend le brouillon, dans l'ordre.
+    pub extends: Vec<ThemeParentView>,
+    /// Le brouillon diffère de son point de départ (jetons, nom ou parents).
     pub dirty: bool,
     /// Empreinte des jetons du brouillon : change avec eux, quelle que soit
     /// la voie (réglage, annulation, reprise). Les aperçus des widgets s'y
@@ -76,7 +101,16 @@ pub struct ThemeEditView {
     pub revision: String,
 }
 
-/// Un changement de base (`set_edited_theme`), sous son rang : l'annuler ou
+/// Un thème qu'étend le brouillon, vu par l'interface.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ThemeParentView {
+    /// Son espace de noms.
+    pub namespace: String,
+    /// Son nom ; son espace de noms s'il est introuvable.
+    pub name: String,
+}
+
+/// Un changement de base (`set_edited_theme`) ou de parents, sous son rang : l'annuler ou
 /// le rétablir ramène la base qui va avec.
 #[derive(Debug, Clone)]
 pub(crate) struct ThemeSwitch {
@@ -99,12 +133,12 @@ pub(crate) struct ThemeSwitch {
 pub(crate) const DRAFT_SWITCH_VAR: &str = "oku-slides-theme-switch";
 
 /// Le rang du changement de base que porte `deck` (0 : aucun).
-fn switch_rank(deck: &Deck) -> u64 {
+pub(crate) fn switch_rank(deck: &Deck) -> u64 {
     deck.vars.get(DRAFT_SWITCH_VAR).and_then(Value::as_u64).unwrap_or(0)
 }
 
 /// Un rang neuf : au-delà de celui de `deck` et de ceux de `switches`.
-fn next_switch_rank(deck: &Deck, switches: &[ThemeSwitch]) -> u64 {
+pub(crate) fn next_switch_rank(deck: &Deck, switches: &[ThemeSwitch]) -> u64 {
     switches.iter().map(|s| s.rank).fold(switch_rank(deck), u64::max) + 1
 }
 
@@ -203,7 +237,7 @@ impl Session {
         let manifest = self
             .theme_version(&base)
             .context(ThemeVersionMissingSnafu { id: base.id, version: base.version.clone() })?;
-        let edit = ThemeEdit::of(base, manifest.name);
+        let edit = ThemeEdit::starting(base, &manifest);
         let tokens = if edit.child() { Map::new() } else { manifest.tokens };
         Ok((edit, tokens))
     }
@@ -215,10 +249,12 @@ impl Session {
         format!("{:016x}", hasher.finish())
     }
 
-    /// Le brouillon diffère-t-il de son point de départ (jetons ou nom) ?
+    /// Le brouillon diffère-t-il de son point de départ (jetons, nom ou parents) ?
     fn theme_dirty(&self, edit: &ThemeEdit) -> bool {
         let Some(base) = self.base_manifest() else { return true };
-        base.name != edit.name || self.base_tokens() != self.edited_tokens()
+        base.name != edit.name
+            || edit.extends != edit.starting_extends(&base)
+            || self.base_tokens() != self.edited_tokens()
     }
 
     /// Le mode pack pour le snapshot : le pack et le brouillon du thème.
@@ -226,9 +262,10 @@ impl Session {
         let Mode::Pack { edit, theme, .. } = &self.mode else { return None };
         let view = ThemeEditView {
             base: theme.base.clone(),
+            namespace: theme.namespace.to_string(),
             name: theme.name.clone(),
             child: theme.child(),
-            extends: self.draft_extends_names(theme),
+            extends: self.draft_parents(theme),
             dirty: self.theme_dirty(theme),
             revision: self.draft_revision(),
         };
@@ -249,7 +286,7 @@ impl Session {
         let rank = next_switch_rank(self.doc.sources.deck(), switches);
         let (base, manifest) = self.library_theme(ns)?;
         let label = self.localizer.tr_with("session-undo-edited-theme", &[("name", manifest.name.as_str().into())]);
-        let to = ThemeEdit::of(base, manifest.name);
+        let to = ThemeEdit::starting(base, &manifest);
         let tokens = if to.child() { Map::new() } else { manifest.tokens };
         // La base change avant `apply`, qui écrit l'état de reprise : il la
         // garde avec les jetons. Un échec la remet.
@@ -270,7 +307,7 @@ impl Session {
     }
 
     /// Le thème édité devient `edit` (en mode pack).
-    fn set_theme_edit(&mut self, edit: ThemeEdit) {
+    pub(crate) fn set_theme_edit(&mut self, edit: ThemeEdit) {
         if let Mode::Pack { theme, .. } = &mut self.mode {
             *theme = edit;
         }
@@ -401,4 +438,12 @@ impl Session {
 
 #[cfg(test)]
 #[path = "theme_edit_tests.rs"]
-mod theme_edit_tests;
+pub(crate) mod theme_edit_tests;
+
+#[cfg(test)]
+#[path = "theme_edit_save_tests.rs"]
+mod theme_edit_save_tests;
+
+#[cfg(test)]
+#[path = "theme_edit_switch_tests.rs"]
+mod theme_edit_switch_tests;

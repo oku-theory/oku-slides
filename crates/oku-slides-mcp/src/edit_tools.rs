@@ -3,16 +3,16 @@
 use oku_slides_chart::SeriesType;
 use std::collections::BTreeMap;
 
-use oku_slides_core::{Namespace, Op, PackPin};
+use oku_slides_core::{Namespace, Op, PackKind, PackPin};
 use oku_slides_session::Request;
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use snafu::ResultExt;
+use snafu::{IntoError, ResultExt};
 
 use crate::McpEvent;
-use crate::tool_error::{NoPackSnafu, PackIdSnafu, ToolError};
+use crate::tool_error::{NoPackSnafu, PackChangeSnafu, PackIdSnafu, ToolError};
 use crate::tools::Tools;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -60,6 +60,22 @@ pub(crate) struct EditPackArgs {
     /// propre, sinon son pack de widgets propre, sinon un pack non intégré, sinon Essentiel).
     #[serde(default)]
     pub pack: Option<String>,
+}
+
+/// `add_pack` et `remove_pack` : le pack visé.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct PackRefArgs {
+    /// `widgets` (éléments) ou `layouts` (slides).
+    pub kind: PackKind,
+    /// Espace de noms du pack (voir `packs` et `deck_outline`).
+    pub namespace: Namespace,
+}
+
+/// `set_theme_extends` : les parents du thème édité.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct ThemeExtendsArgs {
+    /// Espaces de noms des thèmes de la bibliothèque, dans l'ordre (les derniers l'emportent).
+    pub extends: Vec<Namespace>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -138,6 +154,56 @@ impl Tools {
             Ok(pack) => self.change(Request::EditPack { pack }).await,
             Err(e) => self.fail_with(e),
         }
+    }
+
+    /// Ajoute au deck la version courante d'un pack de la bibliothèque (mode deck).
+    pub(crate) async fn add_pack(&self, args: Value) -> CallToolResult {
+        let PackRefArgs { kind, namespace } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        self.change_packs(move |s| s.add_library_pack(kind, &namespace)).await
+    }
+
+    /// Retire un pack du deck (mode deck) ; un refus dit pourquoi.
+    pub(crate) async fn remove_pack(&self, args: Value) -> CallToolResult {
+        let PackRefArgs { kind, namespace } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        self.change_packs(move |s| s.remove_deck_pack(kind, &namespace)).await
+    }
+
+    /// Un changement des packs du deck ; `Changed` et élagage s'il aboutit.
+    ///
+    /// Un refus du cœur se dit par l'op refusée elle-même (`PackChange`), sans le rang de la transaction.
+    async fn change_packs(
+        &self,
+        f: impl FnOnce(&mut oku_slides_session::Session) -> oku_slides_session::Result<()> + Send + 'static,
+    ) -> CallToolResult {
+        let session = self.session.clone();
+        let done = match tokio::task::spawn_blocking(move || session.with(f).and_then(|r| r)).await {
+            Ok(done) => done.map_err(|e| PackChangeSnafu.into_error(e)),
+            Err(e) => Err(crate::tool_error::TaskSnafu.into_error(e)),
+        };
+        let ok = done.is_ok();
+        let result = self.reply(done, |()| {
+            self.hub.emit(McpEvent::Changed);
+            self.json_result(&json!({ "ok": true }))
+        });
+        if ok {
+            self.prune_surfaces().await;
+        }
+        result
+    }
+
+    /// Les parents du thème édité (mode pack), en une étape d'annulation.
+    pub(crate) async fn set_theme_extends(&self, args: Value) -> CallToolResult {
+        let ThemeExtendsArgs { extends } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        self.change(Request::SetEditedThemeExtends { extends }).await
     }
 
     pub(crate) async fn close_pack(&self) -> CallToolResult {

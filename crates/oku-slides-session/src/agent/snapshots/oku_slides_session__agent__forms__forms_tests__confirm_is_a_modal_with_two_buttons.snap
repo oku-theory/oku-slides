@@ -12,7 +12,7 @@ expression: s
       "version": "v0.9",
       "createSurface": {
         "surfaceId": "ask-3",
-        "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        "catalogId": "urn:oku-slides:a2ui:catalog:v4"
       }
     },
     {

@@ -106,6 +106,7 @@ agent-error-locale = Código de idioma desconhecido. Informe o código de um idi
 agent-error-empty-interface = Nada para mudar: informe scheme, locale, grid ou guides.
 agent-error-not-shown = Esta aba não é a exibida na janela: peça de novo quando o usuário exibi-la.
 agent-error-themes-deck-mode = O seletor de temas só abre durante a edição dos diapositivos.
+agent-error-packs-deck-mode = O painel de pacotes da apresentação só abre durante a edição dos diapositivos.
 agent-error-rewrite-text = A reformulação voltou sem texto.
 agent-error-paragraphs = Os parágrafos da reformulação são inválidos.
 agent-error-draft-too-long = O rascunho é longo demais.

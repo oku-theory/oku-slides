@@ -48,34 +48,15 @@ ui-pack-deck-only = Chỉ được lưu trong bài trình bày này
 ui-toolbar-open = Mở
 ui-menu = Menu
 ui-toolbar-add-label = Thêm vào trang chiếu
+ui-toolbar-packs = Gói của bản trình bày
+ui-toolbar-packs-update = Gói của bản trình bày — có bản cập nhật
 ui-toolbar-thumbs-show = Hiện hình thu nhỏ
 ui-toolbar-thumbs-hide = Ẩn hình thu nhỏ
-ui-add-kind = { $kind ->
-    [card] Thẻ
-    [shape] Hình
-    [chart] Biểu đồ
-    [table] Bảng
-   *[text] Văn bản
-}
-ui-add-kind-description = { $kind ->
-    [card] Tiêu đề và đoạn văn ngắn trong khung
-    [shape] Một hình có màu
-    [chart] Biểu đồ vẽ từ bảng dữ liệu
-    [table] Một bảng dữ liệu
-   *[text] Một đoạn văn bản
-}
 ui-toolbar-remove-slide = Xóa trang chiếu
 ui-toolbar-remove-hint = Trang chiếu { $n } · hoàn tác bằng ⌘Z
 
 ## Nhãn hoàn tác
 
-ui-undo-add = { $kind ->
-    [card] Thêm thẻ
-    [shape] Thêm hình
-    [chart] Thêm biểu đồ
-    [table] Thêm một bảng
-   *[text] Thêm văn bản
-}
 ui-undo-add-widget = Thêm “{ $name }”
 ui-undo-new-slide = Trang chiếu mới: { $name }
 ui-undo-move-slide = Di chuyển trang chiếu
@@ -91,12 +72,6 @@ ui-undo-resize = Đổi kích thước
 ui-undo-edit-slide = Sửa trang chiếu
 ui-undo-rename-pack = Đổi tên gói
 ui-undo-rename-deck = Đổi tên bản trình bày
-
-## Phần tử mới
-
-ui-new-text = Văn bản mới
-ui-new-card-title = Tiêu đề thẻ
-ui-new-card-detail = Chi tiết
 
 ## Danh sách trang chiếu
 

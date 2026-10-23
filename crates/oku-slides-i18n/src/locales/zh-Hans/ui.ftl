@@ -51,34 +51,15 @@ ui-pack-deck-only = 仅保存在此演示文稿中
 ui-toolbar-open = 打开
 ui-menu = 菜单
 ui-toolbar-add-label = 添加到幻灯片
+ui-toolbar-packs = 演示文稿的包
+ui-toolbar-packs-update = 演示文稿的包（有可用更新）
 ui-toolbar-thumbs-show = 显示缩略图
 ui-toolbar-thumbs-hide = 隐藏缩略图
-ui-add-kind = { $kind ->
-    [card] 卡片
-    [shape] 形状
-    [chart] 图表
-    [table] 表格
-   *[text] 文本
-}
-ui-add-kind-description = { $kind ->
-    [card] 边框中的标题和简短文本
-    [shape] 彩色形状
-    [chart] 由数据表绘制的图表
-    [table] 数据表
-   *[text] 一段文本
-}
 ui-toolbar-remove-slide = 删除幻灯片
 ui-toolbar-remove-hint = 幻灯片 { $n } · 按 ⌘Z 撤销
 
 ## 撤销标签
 
-ui-undo-add = { $kind ->
-    [card] 添加卡片
-    [shape] 添加形状
-    [chart] 添加图表
-    [table] 添加表格
-   *[text] 添加文本
-}
 ui-undo-add-widget = 添加“{ $name }”
 ui-undo-new-slide = 新幻灯片：{ $name }
 ui-undo-move-slide = 移动幻灯片
@@ -94,12 +75,6 @@ ui-undo-resize = 调整大小
 ui-undo-edit-slide = 编辑幻灯片
 ui-undo-rename-pack = 重命名包
 ui-undo-rename-deck = 重命名演示文稿
-
-## 新元素
-
-ui-new-text = 新文本
-ui-new-card-title = 卡片标题
-ui-new-card-detail = 详细信息
 
 ## 幻灯片列表
 

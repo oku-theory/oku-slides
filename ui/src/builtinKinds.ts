@@ -1,5 +1,5 @@
-// Kinds des packs intégrés `base` (widgets) et `essentiel` (layouts) ; mêmes valeurs que
-// `oku_slides_core::kinds::base` et `oku_slides_core::kinds::essentiel`.
+// Kinds du pack intégré `base` (widgets) et espace de noms d'`essentiel` (layouts) ; mêmes valeurs
+// que `oku_slides_core::kinds::base` et `oku_slides_core::kinds::essentiel`.
 
 /** L'espace de noms du pack `base`. */
 export const BASE_NAMESPACE = "base";
@@ -27,13 +27,3 @@ export function baseName(kind: string): BaseName | null {
 
 /** L'espace de noms du pack de layouts `essentiel`. */
 export const ESSENTIEL_NAMESPACE = "essentiel";
-
-/** Les layouts du pack `essentiel`, par nom. */
-export const ESSENTIEL = {
-  title: "essentiel/title",
-  toc: "essentiel/toc",
-  chapter: "essentiel/chapter",
-  content: "essentiel/content",
-  end: "essentiel/end",
-  blank: "essentiel/blank",
-} as const;

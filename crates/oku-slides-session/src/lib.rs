@@ -22,7 +22,7 @@ use snafu::{OptionExt, ResultExt};
 
 use oku_slides_chart::ChartLabels;
 use oku_slides_core::{
-    Category, Deck, DeckParams, Element, Namespace, PackPin, Paragraph, ParamValue, Slide, SourceBundle, SourceLimits,
+    Deck, DeckParams, Element, Namespace, PackPin, Paragraph, ParamValue, Slide, SourceBundle, SourceLimits,
     WidgetRegistry, kinds, qualify,
 };
 pub use oku_slides_i18n::{Localize, Localizer};
@@ -33,6 +33,7 @@ pub use oku_slides_render::Fonts;
 use oku_slides_render::{PackSet, RenderError, RenderErrorKind};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 
+mod add_grid;
 pub mod agent;
 mod appearance;
 mod charts;
@@ -42,10 +43,13 @@ mod deck_closure;
 mod deck_fallback;
 mod deck_file;
 mod deck_pack;
+mod deck_packs;
+mod deck_packs_panel;
 mod deck_theme;
 mod deck_theme_edit;
 mod deck_widgets;
 mod error;
+mod example_text;
 mod fields;
 mod files;
 mod help;
@@ -69,7 +73,7 @@ mod pack_mode;
 mod pack_mode_preview;
 mod pack_mode_previews;
 mod pack_mode_save;
-mod pack_notice;
+mod pack_receive;
 mod pack_scratch;
 mod panel;
 mod param_fields;
@@ -91,6 +95,7 @@ mod theme_composed;
 mod theme_controls;
 mod theme_draft;
 mod theme_edit;
+mod theme_extends;
 mod theme_panel;
 mod theme_picker;
 pub mod theme_schema;
@@ -104,9 +109,12 @@ mod widgets_deck;
 mod widgets_edit;
 mod workspace;
 
+pub use add_grid::{AddPackView, AddWidget, ElementSeed};
 pub use appearance::{Appearance, appearance};
 pub use data_edit::{DataEdit, TableFlag};
 pub use deck_pack::{adopt_default_packs, check_pack_id};
+pub use deck_packs::DeckPacksView;
+pub use deck_packs_panel::{HOST_PACKS, PacksEvent, deck_packs_panel, packs_event};
 pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};
 use error::{NoSlideSnafu, NotRenderedSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
@@ -129,12 +137,13 @@ pub use theme::{
     DEFAULT_THEME, NEUTRE_NAMESPACE, NEUTRE_THEME, PAPIER_NAMESPACE, PAPIER_THEME, PRO_NAMESPACE, PRO_THEME, ThemeInfo,
     ThemeLibrary, ThemeManifest, Themes,
 };
-pub use theme_edit::{ThemeEdit, ThemeEditView};
-pub use theme_panel::{TokenAction, TokenState};
+pub use theme_edit::{ThemeEdit, ThemeEditView, ThemeParentView};
+pub use theme_extends::ExtendsEdit;
+pub use theme_panel::{THEME_EXTENDS_EVENT, TokenAction, TokenState};
 pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme, theme_picker};
 pub use views::{
-    AddWidget, EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection,
-    SlideSummary, SlideView, Snapshot, TabInfo, Target, UiState,
+    EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection, SlideSummary,
+    SlideView, Snapshot, TabInfo, Target, UiState,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
@@ -246,6 +255,8 @@ pub struct Session {
     /// Rendu des aperçus de layouts, séparé du deck, et leur cache par pack de layouts.
     pack_renderer: Option<RenderSlot>,
     pack_cache: pack_mode_previews::PreviewCache,
+    /// Départs des widgets de la grille d'ajout, par version de pack et langue ; vidé avec `pack_cache`.
+    seed_cache: add_grid::SeedCache,
     /// Rendu des variantes proposées par l'agent, séparé du deck.
     variant_renderer: Option<RenderSlot>,
     /// Rendu du deck, ouvert au premier rendu (voir `render_fonts`).
@@ -276,12 +287,12 @@ pub struct Session {
     turn_steps: agent::turn_undo::TurnSteps,
     /// Conversations de l'agent, une par portée (`agent::conversation`).
     conversations: agent::conversation::Conversations,
-    /// Bandeau d'un pack du deck ouvert (autre version que la courante).
-    pack_notice: Option<pack_notice::PackNotice>,
+    /// Épinglages (packs et thème) plus anciens que la bibliothèque (`deck_packs`), recalculés quand ils changent.
+    pack_updates: u32,
+    /// Les épinglages pour lesquels `pack_updates` a été calculé (`deck_packs::PinsKey`).
+    pack_updates_pins: Option<deck_packs::PinsKey>,
     /// L'avis des thèmes écartés posé sur le deck vierge, tant qu'un autre document peut le remplacer avant qu'il soit vu.
     themes_notice: Option<String>,
-    /// Bandeaux fermés : ils ne reviennent plus dans cette session.
-    pack_notices_closed: HashSet<PackPin>,
     /// Bornes des fichiers de widgets (`[render]`).
     widget_limits: widgets_edit::WidgetLimits,
     /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
@@ -409,6 +420,7 @@ impl Session {
             appearance: Appearance::default(),
             pack_renderer: None,
             pack_cache: Default::default(),
+            seed_cache: Default::default(),
             variant_renderer: None,
             app_fonts,
             compiled: None,
@@ -419,9 +431,9 @@ impl Session {
             agent_notes: Vec::new(),
             turn_steps: Default::default(),
             conversations: Default::default(),
-            pack_notice: None,
+            pack_updates: 0,
+            pack_updates_pins: None,
             themes_notice: None,
-            pack_notices_closed: HashSet::new(),
             widget_limits: widgets_edit::WidgetLimits::of(&settings.render),
             widget_edit: false,
             widget_session: None,
@@ -432,6 +444,8 @@ impl Session {
             failpoints: Default::default(),
         };
         s.notice_skipped_themes();
+        // Le décompte part des épinglages du deck neuf (`refresh_pack_updates_if_pins_changed` les compare ensuite).
+        s.refresh_pack_updates();
         // Les packs par défaut de l'utilisateur (`base`, `essentiel` modifiés) se sondent ici.
         s.sync_widgets()?;
         Ok(s)
@@ -499,17 +513,6 @@ impl Session {
                 .collect(),
             Mode::History { .. } => Vec::new(),
         }
-    }
-
-    /// Les widgets des packs que le registre tient pour des éléments : un
-    /// widget cassé ou de slide ne s'ajoute pas à une slide.
-    fn add_widgets(&self) -> Vec<AddWidget<'_>> {
-        self.pack_widget_names()
-            .into_iter()
-            .filter_map(|name| self.registry.get(&name))
-            .filter(|w| w.category == Category::Element)
-            .map(|w| AddWidget { name: &w.name, label: w.label.as_deref(), description: w.description.as_deref() })
-            .collect()
     }
 
     fn editing(&self) -> Option<&PackMode> {
@@ -597,6 +600,8 @@ impl Session {
         let themes = self.themes.clone();
         self.library = PackLibrary::new(Some(widgets.into()), Some(layouts.into()), themes, self.storage.clone());
         self.pack_cache.clear();
+        self.seed_cache.clear();
+        self.refresh_pack_updates();
     }
 
     /// Dossier où s'enregistre de lui-même un deck qui n'a pas de fichier.
@@ -695,9 +700,10 @@ impl Session {
             layouts: &self.user_deck().layouts,
             editing: self.editing_view(),
             deck_pack: self.deck_pack_is_deck_only(),
-            pack_notice: self.pack_notice_surface(),
+            pack_updates: self.pack_updates(),
             pack_widgets: self.pack_widget_names(),
-            add_widgets: self.add_widgets(),
+            add_packs: self.add_packs(),
+            free_slots: self.free_slots(),
             widget_trials: self.examples_revision(),
             ui: &self.ui,
             history: match &self.mode {

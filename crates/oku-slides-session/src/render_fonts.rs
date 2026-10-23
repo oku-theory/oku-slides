@@ -81,6 +81,7 @@ impl Session {
         self.pack_renderer = None;
         self.variant_renderer = None;
         self.pack_cache.clear();
+        self.seed_cache.clear();
         self.svg_cache.clear();
     }
 }

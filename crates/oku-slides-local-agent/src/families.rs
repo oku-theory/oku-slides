@@ -55,9 +55,8 @@ impl Family {
 pub(crate) fn families_of(tool: &str) -> &'static [Family] {
     use Family::{AskReport, Configure, Edit, Files, Packs, Present, Troubleshoot};
     match tool {
-        "apply" | "slide" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants" | "show_themes" => {
-            &[Edit]
-        }
+        "apply" | "slide" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants" | "show_themes"
+        | "show_packs" | "add_pack" | "remove_pack" => &[Edit],
         "focus" => &[Edit, Present],
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],
@@ -66,7 +65,7 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         "layouts" => &[Edit, Packs],
         "packs" | "edit_pack" | "save_pack" | "close_pack" | "delete_pack" | "edit_theme" | "theme_tokens"
         | "widget_source" | "widget_sources" | "set_widget" | "remove_widget" | "set_widget_trial"
-        | "preview_widget" => &[Packs],
+        | "preview_widget" | "set_theme_extends" => &[Packs],
         "settings" => &[Configure, Troubleshoot],
         "set_setting" | "set_interface" => &[Configure],
         "import_report" | "import_diff" | "diagnose" => &[Troubleshoot],

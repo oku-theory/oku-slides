@@ -253,8 +253,8 @@ fn delete_surface_names_the_surface() {
 }
 
 #[test]
-fn catalog_id_v3_is_the_current_urn() {
-    assert_that!(CATALOG_ID).is_equal_to("urn:oku-slides:a2ui:catalog:v3");
+fn catalog_id_v4_is_the_current_urn() {
+    assert_that!(CATALOG_ID).is_equal_to("urn:oku-slides:a2ui:catalog:v4");
 }
 
 #[test]
@@ -638,6 +638,19 @@ fn icon_button_serializes_its_icon() {
     let c = Component::button("close", "Fermer", false, Action::named("dismiss")).icon(ButtonIcon::Close);
     let json = serde_json::to_value(&c).unwrap();
     assert_that!(json["icon"].clone()).is_equal_to(json!("close"));
+}
+
+#[test]
+fn button_icon_up_serializes_lowercase() {
+    let c = Component::button("up", "Monter", false, Action::named("extends")).icon(ButtonIcon::Up);
+    let json = serde_json::to_value(&c).unwrap();
+    assert_that!(json["icon"].clone()).is_equal_to(json!("up"));
+}
+
+#[test]
+fn button_icon_down_and_remove_read_back_lowercase() {
+    let icons: Vec<ButtonIcon> = serde_json::from_value(json!(["down", "remove"])).unwrap();
+    assert_that!(icons).is_equal_to(vec![ButtonIcon::Down, ButtonIcon::Remove]);
 }
 
 #[test]

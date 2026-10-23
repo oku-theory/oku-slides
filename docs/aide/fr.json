@@ -143,7 +143,7 @@
            "bold": true
           },
           {
-           "t": " : un bouton ouvre la grille d'ajout (texte, carte, forme, graphique, tableau et widgets du pack), filtrable par nom, libellé ou description ; annuler, rétablir."
+           "t": " : un bouton ouvre la grille d'ajout, avec une section par pack du deck (texte, carte, forme, graphique et tableau du pack de base, puis chaque pack de widgets), filtrable par nom, libellé ou description ; annuler, rétablir."
           }
          ],
          "list": "bullet"
@@ -258,7 +258,86 @@
            "bold": true
           },
           {
-            "t": " : Papier, Pro, Neutre ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. En mode pack, l'onglet Thème règle ses jetons un par un ; l'éditeur montre ce que le thème étend et ce que le deck surcharge, avec une section par pack de widgets. « Terminer » l'enregistre : modifier Papier, Pro ou Neutre crée une variante qui l'étend. L'onglet Thème d'un pack de widgets montre des slides d'aperçu."
+            "t": " : Papier, Pro, Neutre ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. En mode pack, l'onglet Thème règle ses jetons un par un ; l'éditeur montre ce que le thème étend et ce que le deck surcharge, avec une section par pack de widgets. « Terminer » l'enregistre : modifier Papier, Pro ou Neutre crée une variante qui l'étend. L'onglet Thème d'un pack de widgets montre des slides d'aperçu. La liste extends se réordonne, et on y ajoute ou retire des parents."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-packs",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "Les packs du deck",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-packs",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Bouton Packs",
+           "bold": true
+          },
+          {
+           "t": " : le bouton de la barre ouvre les packs du deck, classés par type (layouts, widgets, thème). Une marque apparaît quand l'une de vos versions diffère de celle du deck."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Versions",
+           "bold": true
+          },
+          {
+           "t": " : si le deck utilise une version plus ancienne, plus récente ou parallèle d'un pack, « Utiliser ma version » aligne le deck sur la vôtre et « Faire de la sienne ma version » garde celle du deck pour vous. Les deux s'annulent."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Ajouter, retirer",
+           "bold": true
+          },
+          {
+           "t": " : « Ajouter depuis la bibliothèque » épingle un pack dans le deck ; « Retirer » le désépingle, sauf si une slide ou un autre pack en a besoin. Le pack de base reste toujours."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Grille d'ajout",
+           "bold": true
+          },
+          {
+           "t": " : elle part des widgets de chaque pack, avec leur contenu de départ. Un layout à emplacements libres n'accepte que les types qu'il prévoit."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Thème",
+           "bold": true
+          },
+          {
+           "t": " : le thème du deck se choisit aussi ici, avec sa liste extends : les parents s'appliquent d'abord, les suivants l'emportent ; on peut en ajouter, retirer ou réordonner."
           }
          ],
          "list": "bullet"

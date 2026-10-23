@@ -46,6 +46,12 @@ pub enum SessionErrorKind {
     PackVersionMissing,
     /// Pack du deck seul, que la bibliothèque n'enregistre pas.
     DeckOnly,
+    /// Pack dont la version du deck ne peut devenir ma version courante.
+    PackNotMakeCurrent,
+    /// Le deck épingle déjà ma version courante du pack.
+    PackAlreadyCurrent,
+    /// Le thème du deck n'est pas plus ancien que ma version courante.
+    ThemeNotOutdated,
     /// Espace de noms déjà pris par un autre pack de la bibliothèque.
     NamespaceTaken,
     /// Espace de noms `deck`, réservé au pack propre d'un deck.
@@ -112,6 +118,10 @@ pub enum SessionErrorKind {
     ThemeVersionMissing,
     /// Des thèmes s'étendent en boucle.
     ThemeCycle,
+    /// Un thème figure deux fois parmi ceux qu'étend le brouillon.
+    ThemeExtendsDuplicate,
+    /// Un parent du brouillon ne peut aller plus loin dans ce sens.
+    ThemeExtendsMove,
     /// Les thèmes épinglés ne sont pas exactement le thème et ses parents.
     ThemeClosure,
     /// Valeur de jeton de design refusée par le schéma.
@@ -189,6 +199,13 @@ pub(crate) enum SessionInner {
     PackIdMismatch { id: uuid::Uuid, found: uuid::Uuid, backtrace: Backtrace },
     #[snafu(display("{id} belongs to its deck only and never enters the library"))]
     DeckOnly { id: uuid::Uuid, backtrace: Backtrace },
+    /// Pack intégré, du deck seul, ou version absente de la bibliothèque.
+    #[snafu(display("the deck's version of pack {pack} cannot become the current one"))]
+    PackNotMakeCurrent { pack: String, backtrace: Backtrace },
+    #[snafu(display("the deck already uses the current version of pack {pack}"))]
+    PackAlreadyCurrent { pack: String, backtrace: Backtrace },
+    #[snafu(display("theme {theme} is not older than the current version"))]
+    ThemeNotOutdated { theme: String, backtrace: Backtrace },
     #[snafu(display("namespace {namespace} already belongs to pack {owner}"))]
     NamespaceTaken { namespace: String, owner: String, backtrace: Backtrace },
     #[snafu(display("namespace {namespace} is reserved to a deck's own pack"))]
@@ -257,6 +274,10 @@ pub(crate) enum SessionInner {
     UnknownTheme { theme: String, backtrace: Backtrace },
     #[snafu(display("themes extend each other in a loop: {chain}"))]
     ThemeCycle { chain: String, backtrace: Backtrace },
+    #[snafu(display("theme {theme} is already among the extended themes"))]
+    ThemeExtendsDuplicate { theme: String, backtrace: Backtrace },
+    #[snafu(display("theme {theme} cannot move further that way"))]
+    ThemeExtendsMove { theme: String, backtrace: Backtrace },
     #[snafu(display("the pinned themes are not exactly the theme and its parents ({namespace})"))]
     ThemeClosure { namespace: String, backtrace: Backtrace },
     #[snafu(display("shipped widgets do not compile: {names}"))]
@@ -332,6 +353,9 @@ impl SessionError {
             UnknownPack { .. } => SessionErrorKind::UnknownPack,
             PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
             DeckOnly { .. } => SessionErrorKind::DeckOnly,
+            PackNotMakeCurrent { .. } => SessionErrorKind::PackNotMakeCurrent,
+            PackAlreadyCurrent { .. } => SessionErrorKind::PackAlreadyCurrent,
+            ThemeNotOutdated { .. } => SessionErrorKind::ThemeNotOutdated,
             NamespaceTaken { .. } => SessionErrorKind::NamespaceTaken,
             NamespaceReserved { .. } => SessionErrorKind::NamespaceReserved,
             NamespaceChanged { .. } => SessionErrorKind::NamespaceChanged,
@@ -364,6 +388,8 @@ impl SessionError {
             TurnNotOnTop { .. } => SessionErrorKind::TurnNotOnTop,
             UnknownTheme { .. } => SessionErrorKind::UnknownTheme,
             ThemeCycle { .. } => SessionErrorKind::ThemeCycle,
+            ThemeExtendsDuplicate { .. } => SessionErrorKind::ThemeExtendsDuplicate,
+            ThemeExtendsMove { .. } => SessionErrorKind::ThemeExtendsMove,
             ThemeClosure { .. } => SessionErrorKind::ThemeClosure,
             ThemeVersionMissing { .. } => SessionErrorKind::ThemeVersionMissing,
             InvalidTokenValue { .. } => SessionErrorKind::InvalidTokenValue,
@@ -501,6 +527,15 @@ impl Localize for SessionError {
                 &[("id", id.to_string().into()), ("found", found.to_string().into())],
             ),
             DeckOnly { id, .. } => l.tr_with("session-deck-only", &[("id", id.to_string().into())]),
+            PackNotMakeCurrent { pack, .. } => {
+                l.tr_with("session-pack-not-make-current", &[("pack", pack.as_str().into())])
+            }
+            PackAlreadyCurrent { pack, .. } => {
+                l.tr_with("session-pack-already-current", &[("pack", pack.as_str().into())])
+            }
+            ThemeNotOutdated { theme, .. } => {
+                l.tr_with("session-theme-not-outdated", &[("theme", theme.as_str().into())])
+            }
             NamespaceReserved { namespace, .. } => {
                 l.tr_with("session-namespace-reserved", &[("namespace", namespace.as_str().into())])
             }
@@ -557,6 +592,12 @@ impl Localize for SessionError {
             TurnNotOnTop { .. } => l.tr("session-turn-not-on-top"),
             UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", theme.as_str().into())]),
             ThemeCycle { chain, .. } => l.tr_with("session-theme-cycle", &[("chain", chain.as_str().into())]),
+            ThemeExtendsDuplicate { theme, .. } => {
+                l.tr_with("session-theme-extends-duplicate", &[("theme", theme.as_str().into())])
+            }
+            ThemeExtendsMove { theme, .. } => {
+                l.tr_with("session-theme-extends-move", &[("theme", theme.as_str().into())])
+            }
             ThemeClosure { namespace, .. } => {
                 l.tr_with("session-theme-closure", &[("namespace", namespace.as_str().into())])
             }

@@ -33,6 +33,7 @@ impl Session {
             self.realign_pack()?;
             self.sync_widgets()?;
             self.follow_widget_rename(before);
+            self.refresh_pack_updates_if_pins_changed();
             self.rerender()?;
         }
         Ok(())

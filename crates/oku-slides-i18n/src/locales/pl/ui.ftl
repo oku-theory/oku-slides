@@ -57,34 +57,15 @@ ui-pack-deck-only = Zapisywany tylko w tej prezentacji
 ui-toolbar-open = Otwórz
 ui-menu = Menu
 ui-toolbar-add-label = Dodaj do slajdu
+ui-toolbar-packs = Pakiety prezentacji
+ui-toolbar-packs-update = Pakiety prezentacji — dostępne aktualizacje
 ui-toolbar-thumbs-show = Pokaż miniatury
 ui-toolbar-thumbs-hide = Ukryj miniatury
-ui-add-kind = { $kind ->
-    [card] Karta
-    [shape] Kształt
-    [chart] Wykres
-    [table] Tabela
-   *[text] Tekst
-}
-ui-add-kind-description = { $kind ->
-    [card] Tytuł i krótki tekst w ramce
-    [shape] Kolorowy kształt
-    [chart] Wykres z tabeli danych
-    [table] Tabela danych
-   *[text] Akapit tekstu
-}
 ui-toolbar-remove-slide = Usuń slajd
 ui-toolbar-remove-hint = Slajd { $n } · cofnij za pomocą ⌘Z
 
 ## Etykiety cofania
 
-ui-undo-add = { $kind ->
-    [card] Dodaj kartę
-    [shape] Dodaj kształt
-    [chart] Dodaj wykres
-    [table] Dodaj tabelę
-   *[text] Dodaj tekst
-}
 ui-undo-add-widget = Dodaj „{ $name }”
 ui-undo-new-slide = Nowy slajd: { $name }
 ui-undo-move-slide = Przenieś slajd
@@ -100,12 +81,6 @@ ui-undo-resize = Zmień rozmiar
 ui-undo-edit-slide = Edytuj slajd
 ui-undo-rename-pack = Zmień nazwę pakietu
 ui-undo-rename-deck = Zmień nazwę prezentacji
-
-## Nowe elementy
-
-ui-new-text = Nowy tekst
-ui-new-card-title = Tytuł karty
-ui-new-card-detail = Szczegóły
 
 ## Stos slajdów
 

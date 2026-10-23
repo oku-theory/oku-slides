@@ -9,7 +9,7 @@ export const PICKER: Surface = {
   live: true,
   question: false,
   messages: [
-    { version: "v0.9", createSurface: { surfaceId: "agent-picker", catalogId: "urn:oku-slides:a2ui:catalog:v3" } },
+    { version: "v0.9", createSurface: { surfaceId: "agent-picker", catalogId: "urn:oku-slides:a2ui:catalog:v4" } },
     {
       version: "v0.9",
       updateComponents: {

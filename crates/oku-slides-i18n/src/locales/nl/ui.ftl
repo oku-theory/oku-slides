@@ -51,34 +51,15 @@ ui-pack-deck-only = Alleen in deze presentatie opgeslagen
 ui-toolbar-open = Openen
 ui-menu = Menu
 ui-toolbar-add-label = Toevoegen aan de dia
+ui-toolbar-packs = Pakketten van de presentatie
+ui-toolbar-packs-update = Pakketten van de presentatie — updates beschikbaar
 ui-toolbar-thumbs-show = Miniaturen tonen
 ui-toolbar-thumbs-hide = Miniaturen verbergen
-ui-add-kind = { $kind ->
-    [card] Kaart
-    [shape] Vorm
-    [chart] Grafiek
-    [table] Tabel
-   *[text] Tekst
-}
-ui-add-kind-description = { $kind ->
-    [card] Een titel en een korte tekst in een kader
-    [shape] Een gekleurde vorm
-    [chart] Een grafiek uit een gegevenstabel
-    [table] Een gegevenstabel
-   *[text] Een alinea tekst
-}
 ui-toolbar-remove-slide = Dia verwijderen
 ui-toolbar-remove-hint = Dia { $n } · ongedaan maken met ⌘Z
 
 ## Labels voor ongedaan maken
 
-ui-undo-add = { $kind ->
-    [card] Kaart toevoegen
-    [shape] Vorm toevoegen
-    [chart] Grafiek toevoegen
-    [table] Een tabel toevoegen
-   *[text] Tekst toevoegen
-}
 ui-undo-add-widget = “{ $name }” toevoegen
 ui-undo-new-slide = Nieuwe dia: { $name }
 ui-undo-move-slide = Dia verplaatsen
@@ -94,12 +75,6 @@ ui-undo-resize = Formaat wijzigen
 ui-undo-edit-slide = Dia bewerken
 ui-undo-rename-pack = Pakket hernoemen
 ui-undo-rename-deck = Presentatie hernoemen
-
-## Nieuwe elementen
-
-ui-new-text = Nieuwe tekst
-ui-new-card-title = Kaarttitel
-ui-new-card-detail = Detail
 
 ## Diastapel
 

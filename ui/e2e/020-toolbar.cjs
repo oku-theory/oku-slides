@@ -3,6 +3,7 @@
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { activeSnapshot } = require('./lib/http.cjs');
 const { until, stable } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const state = (p) => p.evaluate(() => ({
@@ -26,16 +27,24 @@ const state = (p) => p.evaluate(() => ({
   await p.getByRole('button', { name: 'Ajouter sur la slide' }).click();
   const picker = p.getByRole('dialog', { name: 'Ajouter sur la slide' });
   await picker.waitFor();
+  // La section « Base » : les sept widgets du pack de base, dans l'ordre du registre lu une fois dans la session.
+  const BASE = ['Texte', 'Carte', 'Image', 'Forme', 'Graphique', 'Tableau', 'Pile'];
+  const registry = (await activeSnapshot(p)).add_packs.find((pack) => pack.namespace === 'base');
+  assert.ok(registry, 'add_packs sans le pack base');
+  const order = registry.widgets.map((w) => w.label);
+  assert.deepEqual([...order].sort(), [...BASE].sort(), `widgets de base inattendus : ${order}`);
   const options = picker.getByRole('option');
-  assert.deepEqual(await options.locator('.card-name').allTextContents(), ['Texte', 'Carte', 'Forme', 'Graphique', 'Tableau']);
-  await picker.getByRole('combobox').fill('tiré');
+  const base = picker.getByRole('group', { name: 'Base', exact: true });
+  assert.deepEqual(await base.getByRole('option').locator('.card-name').allTextContents(), order);
+  await picker.getByRole('combobox').fill('tiré tableau');
   await until(p, async () => (await options.count()) === 1, 'le filtre sur la description ne garde pas le seul graphique');
   assert.equal(await options.locator('.card-name').textContent(), 'Graphique');
   await p.waitForSelector('.widget-picker[data-armed]');
   await p.keyboard.press('Enter');
   await picker.waitFor({ state: 'detached' });
-  await until(p, async () => (await state(p)).undo === 'Annuler : Ajouter un graphique', 'le graphique n\'est pas ajouté (libellé d\'annulation)');
-  assert.equal((await state(p)).undo, 'Annuler : Ajouter un graphique');
+  const added = 'Annuler : Ajouter « Graphique »';
+  await until(p, async () => (await state(p)).undo === added, 'le graphique n\'est pas ajouté (libellé d\'annulation)');
+  assert.equal((await state(p)).undo, added);
   // Suppression au coin de la miniature, puis annulation.
   const before = (await state(p)).slides;
   await p.locator('.thumb-slot').nth(3).getByRole('button', { name: 'Supprimer la slide' }).click();

@@ -51,34 +51,15 @@ ui-pack-deck-only = 僅儲存在此簡報中
 ui-toolbar-open = 開啟
 ui-menu = 選單
 ui-toolbar-add-label = 新增至投影片
+ui-toolbar-packs = 簡報的套件
+ui-toolbar-packs-update = 簡報的套件（有可用的更新）
 ui-toolbar-thumbs-show = 顯示縮圖
 ui-toolbar-thumbs-hide = 隱藏縮圖
-ui-add-kind = { $kind ->
-    [card] 卡片
-    [shape] 形狀
-    [chart] 圖表
-    [table] 表格
-   *[text] 文字
-}
-ui-add-kind-description = { $kind ->
-    [card] 框內的標題與簡短文字
-    [shape] 彩色圖形
-    [chart] 由資料表繪製的圖表
-    [table] 資料表
-   *[text] 一段文字
-}
 ui-toolbar-remove-slide = 刪除投影片
 ui-toolbar-remove-hint = 投影片 { $n } · 按 ⌘Z 還原
 
 ## 還原標籤
 
-ui-undo-add = { $kind ->
-    [card] 新增卡片
-    [shape] 新增形狀
-    [chart] 新增圖表
-    [table] 新增表格
-   *[text] 新增文字
-}
 ui-undo-add-widget = 新增「{ $name }」
 ui-undo-new-slide = 新投影片：{ $name }
 ui-undo-move-slide = 移動投影片
@@ -94,12 +75,6 @@ ui-undo-resize = 調整大小
 ui-undo-edit-slide = 編輯投影片
 ui-undo-rename-pack = 重新命名套件
 ui-undo-rename-deck = 重新命名簡報
-
-## 新元素
-
-ui-new-text = 新文字
-ui-new-card-title = 卡片標題
-ui-new-card-detail = 詳細資訊
 
 ## 投影片列表
 

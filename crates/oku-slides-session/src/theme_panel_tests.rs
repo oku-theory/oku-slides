@@ -8,6 +8,7 @@ use super::{TokenAction, TokenState, token_state};
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::test_support::{add_user_theme, builtin, fresh_dir, ns, opened_on, session};
 use crate::theme::{PAPIER_THEME, PRO_THEME};
+use crate::theme_extends::theme_extends_tests::pack_mode_on_user_theme_extending;
 use crate::theme_schema::schema;
 use crate::{Request, Session, SessionErrorKind};
 
@@ -347,11 +348,51 @@ fn host_theme_labels_builtin_pack_tokens_through_fluent() {
     assert_that!(surface_json(&s, "component.base.card.bg").contains(&label)).is_true();
 }
 
+/// Les composants de la surface `host-theme`, par identifiant.
+fn components(s: &Session) -> std::collections::BTreeMap<String, Value> {
+    let surface = serde_json::to_value(s.host_theme("").unwrap().unwrap()).unwrap();
+    let messages = surface["messages"].as_array().unwrap().clone();
+    let list = messages.iter().find_map(|m| m["updateComponents"]["components"].as_array().cloned()).unwrap();
+    list.into_iter().map(|c| (c["id"].as_str().unwrap().to_owned(), c)).collect()
+}
+
 #[test]
-fn host_theme_shows_the_extends_row_of_a_child_draft() {
+fn host_theme_shows_one_named_row_per_parent_of_a_child_draft() {
     let s = pack_session(PAPIER_THEME);
-    let text = s.localizer.tr_with("theme-extends", &[("names", "Papier".into())]);
-    assert_that!(surface_json(&s, "").contains(&text)).is_true();
+    let c = components(&s);
+    assert_that!(c["extends:papier:name"]["text"].clone()).is_equal_to(json!("Papier"));
+    assert_that!(c["extends-title"]["text"].clone()).is_equal_to(json!(s.localizer.tr("theme-extends-title")));
+}
+
+#[test]
+fn host_theme_first_parent_has_no_up_button() {
+    let s = pack_mode_on_user_theme_extending(&["papier", "pro"]);
+    let c = components(&s);
+    let shown = |id: &str| c.contains_key(id);
+    let buttons = [
+        shown("extends:papier:up"),
+        shown("extends:papier:down"),
+        shown("extends:papier:remove"),
+        shown("extends:pro:up"),
+        shown("extends:pro:down"),
+        shown("extends:pro:remove"),
+    ];
+    assert_that!(buttons).is_equal_to([false, true, true, true, false, true]);
+    let down = &c["extends:papier:down"];
+    assert_that!((down["icon"].clone(), down["action"]["event"]["context"].clone()))
+        .is_equal_to((json!("down"), json!({"edit": "down", "theme": "papier"})));
+}
+
+#[test]
+fn host_theme_add_select_excludes_listed_and_own() {
+    let s = pack_mode_on_user_theme_extending(&["papier"]);
+    let c = components(&s);
+    let add = &c["extends-add"];
+    let options: Vec<String> =
+        add["options"].as_array().unwrap().iter().map(|o| o["id"].as_str().unwrap().to_owned()).collect();
+    assert_that!(options).is_equal_to(vec!["pro".to_owned(), "neutre".to_owned()]);
+    assert_that!(add["action"]["event"]["context"].clone())
+        .is_equal_to(json!({"edit": "add", "theme": {"path": "/extends_add"}}));
 }
 
 #[test]

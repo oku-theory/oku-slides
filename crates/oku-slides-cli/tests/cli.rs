@@ -681,6 +681,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        styles: Default::default(),
         tokens: Vec::new(),
     };
     let widgets = widgets

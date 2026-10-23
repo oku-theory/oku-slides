@@ -191,12 +191,18 @@ fn help_direct_edit_pack_is_refused_as_read_only() {
 }
 
 #[test]
-fn help_handle_undo_redo_and_pack_make_current_are_refused_as_read_only() {
+fn help_handle_undo_and_redo_are_refused_as_read_only() {
     let (_data, mut s) = help_session("en");
-    for cmd in ["undo", "redo", "pack_make_current"] {
+    for cmd in ["undo", "redo"] {
         let err = s.handle(req(json!({ "cmd": cmd }))).unwrap_err();
         assert_that!(err.kind()).named(cmd).is_equal_to(SessionErrorKind::ReadOnly);
     }
+}
+
+#[test]
+fn help_deck_packs_is_refused_as_read_only() {
+    let (_data, s) = help_session("en");
+    assert_that!(s.deck_packs().map_err(|e| e.kind()).err()).is_equal_to(Some(SessionErrorKind::ReadOnly));
 }
 
 /// Le pack par défaut modifié par l'utilisateur ne change pas l'aide : elle

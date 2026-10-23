@@ -59,6 +59,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: BTreeMap::new(),
+        styles: BTreeMap::new(),
         tokens: Vec::new(),
     };
     let files = manifest

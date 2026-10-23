@@ -24,11 +24,12 @@ use oku_slides_i18n::Localize;
 
 use crate::deck_closure::{closure_with_files, examples_requires};
 use crate::error::{NotEditingPackSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, SourcesSnafu};
+use crate::example_text::localized_examples;
 use crate::library_packs::PackLibrary;
 use crate::namespace_slug::{library_namespace, rename_namespace};
 use crate::pack::{PackManifest, PackScope, now_created};
 use crate::pack_library::{restore_session_version, write_session_version};
-use crate::pack_mode::{pin_all, pinned};
+use crate::pack_mode::{embed_packs, pin_deck, pinned};
 use crate::{Mode, PackMode, Result, Session};
 
 /// Préfixe de la clé d'étape d'annulation des enregistrements du pack.
@@ -81,9 +82,16 @@ impl Session {
             None if !scope.is_library() => Namespace::deck(),
             _ => library_namespace(&self.library, &name)?,
         };
+        let source = kept.as_ref().map(|m| m.id);
         // Ses jetons de composant suivent la version d'où il part.
-        let (description, examples, requires, profiles, tokens) =
-            kept.map(|m| (m.description, m.examples, m.requires, m.profiles, m.tokens)).unwrap_or_default();
+        let (description, mut examples, styles, requires, profiles, tokens) =
+            kept.map(|m| (m.description, m.examples, m.styles, m.requires, m.profiles, m.tokens)).unwrap_or_default();
+        // La copie d'un pack intégré ne l'est plus : ses textes d'exemple s'écrivent en clair, dans la langue courante.
+        if let Some(source) = source.filter(|_| fresh) {
+            for values in examples.values_mut() {
+                *values = localized_examples(source, values, &self.localizer);
+            }
+        }
         let mut manifest = PackManifest {
             id,
             name,
@@ -95,6 +103,7 @@ impl Session {
             scope,
             profiles,
             examples,
+            styles,
             tokens,
         };
         // Ses besoins suivent ce qu'emploient ses exemples (`base/text`…).
@@ -153,6 +162,8 @@ impl Session {
             self.doc.sources.clear_undo();
         }
         self.doc.dirty = false;
+        // La bibliothèque a une nouvelle version courante, le deck mis de côté l'épingle.
+        self.refresh_pack_updates();
         // La version est adoptée : un rendu raté ne l'annule pas, son avis le dit.
         match self.rerender() {
             Err(e) if e.render_error().is_some() => {
@@ -184,7 +195,7 @@ impl Session {
         let (id, parent) = (manifest.id, manifest.parent.clone());
         // Une version par séance : la première est créée, les suivantes la remplacent.
         let replaced = edit.session_version.as_ref().filter(|_| !as_new);
-        let version = write_session_version(&self.library, id, replaced, &files)?;
+        let version = files.version();
         let deck_only = !manifest.scope.is_library();
         let merge = adopt_merge_key(id, parent.as_ref());
         // Le document du pack passe à la nouvelle version : une étape pour
@@ -196,7 +207,24 @@ impl Session {
         deck.layouts.retain(|_, p| p.id != edit.pack);
         let mut packs = closure_with_files(&self.library, &deck, edited.clone(), &self.doc.sources.packs)?;
         self.add_host_packs(&deck, &mut packs, files.kind())?;
-        pin_all(&mut deck, &mut self.doc.sources, packs)?;
+        // Le deck mis de côté embarque la version (et ses besoins) et l'épingle.
+        let mut held = self.doc.sources.packs.clone();
+        held.extend(packs.iter().map(|(_, pin, f)| (pin.version.clone(), f.clone())));
+        let stashed = match &self.mode {
+            Mode::Pack { stash, .. } => {
+                let user = stash.sources.deck().clone();
+                let packs = closure_with_files(&self.library, &user, edited, &held)?;
+                Some((user, packs))
+            }
+            _ => None,
+        };
+        // Les deux épinglages se font sur des copies d'abord : un refus
+        // (`NamespaceTaken`) n'écrit rien dans la bibliothèque (t-1093).
+        pin_deck(&mut deck, &packs)?;
+        let stashed =
+            stashed.map(|(mut user, packs)| pin_deck(&mut user, &packs).map(|()| (user, packs))).transpose()?;
+        write_session_version(&self.library, id, replaced, &files)?;
+        embed_packs(&mut self.doc.sources, packs);
         match step {
             AdoptStep::Session(label) => self.doc.sources.apply(deck, label, Some(&merge)),
             AdoptStep::Op(label, key, moves) => self.doc.sources.apply_moving(deck, label, key, moves),
@@ -204,12 +232,8 @@ impl Session {
         }
         .context(SourcesSnafu)?;
         let label = self.localizer.tr_with("pack-adopt-label", &[("name", manifest.name.as_str().into())]);
-        let held = self.doc.sources.packs.clone();
-        if let Mode::Pack { stash, edit, .. } = &mut self.mode {
-            // Le deck mis de côté embarque la version (et ses besoins) et l'épingle, en une étape d'annulation.
-            let mut user = stash.sources.deck().clone();
-            let packs = closure_with_files(&self.library, &user, edited, &held)?;
-            pin_all(&mut user, &mut stash.sources, packs)?;
+        if let (Mode::Pack { stash, edit, .. }, Some((user, packs))) = (&mut self.mode, stashed) {
+            embed_packs(&mut stash.sources, packs);
             let steps = stash.sources.undo_steps();
             stash.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
             stash.dirty = true;

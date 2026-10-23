@@ -67,6 +67,6 @@ describe("messages de l'interface", () => {
     expect(t("ui-caption-pack", { kind: "layouts", count: 1, status: "saved" })).toBe("1 layout · saved");
     expect(t("ui-caption-pack", { kind: "widgets", count: 3, status: "saved" })).toBe("3 widgets · saved");
     expect(t("ui-seconds", { value: 1.5 })).toBe("1.5 s");
-    expect(t("ui-undo-add", { kind: "card" })).toBe("Add a card");
+    expect(t("ui-undo-add-widget", { name: "Chart" })).toBe("Add “Chart”");
   });
 });

@@ -77,6 +77,10 @@ All three share a trunk: `id` (UUID), `namespace`, content-addressed versions (s
   its layouts with fit hints, that the retrofit import scores across every target layout pack; a
   pack's kind fixes its widgets' category, a file of the other category is dropped at the probe;
   `deck-layouts` is reserved for the deck's own layout pack, as `deck` is for its widget pack.)
+  (Revised by the lot 5 plan: a widget pack manifest may declare `styles`, the starting element
+  style of a widget added from the add grid; in a built-in pack's `examples`, a string
+  `ftl:session-example-…` is a Fluent key the session translates, so built-in examples follow the
+  UI language.)
 
 ### Built-in packs
 
@@ -193,20 +197,30 @@ removed: there is no base registry any more.
   agent's deck-only child pack stays a deck-only widget pack inheriting its parent's namespace.
 - **Agent (MCP)**: the widget and layout catalogue is grouped by pack with qualified kinds; new
   tools `add_pack` / `remove_pack` map to the ops; the widget-writing tools target a layout or
-  widget pack namespace; the receipt (`receipt.rs`) and prompts use qualified names.
+  widget pack namespace; the receipt (`receipt.rs`) and prompts use qualified names. (Lot 5 also
+  adds `show_packs`, which opens the "Deck packs" panel, and `set_theme_extends`, which edits the
+  edited theme's parents in pack mode; `deck_outline.edited_theme` names its base's namespace.)
 - **Pack mode** (lot 3 plan): templates mode becomes pack mode; a layout pack's working deck has
   one slide per layout whose params are saved as that layout's example; requests, MCP tools and
   UI move from "templates" to "pack(s)" (`edit_pack`, `save_pack`, `close_pack`, `delete_pack`,
   `packs`, `layouts`).
 - **UI**:
   - `ADD_KINDS` and the hard-coded `newElement.ts` cases go: the add grid lists the widgets of
-    every embedded widget pack, grouped by pack, seeded from `examples` or schema defaults;
-  - adding a slide lists layouts instead of templates;
+    every embedded widget pack, grouped by pack, seeded from `examples` or schema defaults
+    (lot 5: each add widget of the snapshot carries its seed, examples localized for built-in
+    packs plus the manifest `styles`; a slide accepts elements when its layout has a free slot, and
+    that slot's `accepts`, if any, lists the kinds it takes);
+  - adding a slide lists layouts instead of templates (done in lot 3);
   - the pack banner (A2UI surface) becomes a "Deck packs" panel with three sections (Layouts,
     Widgets, Theme): version, add from the library, remove (refusals give their reason),
-    new-version notice;
+    new-version notice (lot 5: a host A2UI surface `host-packs` in the dock, opened from a toolbar
+    button or by the agent; one core check gives removal refusals, shown in place of the button;
+    every pack shows its relation to the library, a toolbar dot marks a deck older than the
+    library, and the banner is deleted);
   - `TargetPanel.tsx` and `chartDeck.ts` pick panels by the host type of a param, not by kind;
-  - the theme editor shows `extends` and the deck overrides;
+  - the theme editor shows `extends` and the deck overrides (lot 5: the draft's `extends` list is
+    edited there, adding, removing and reordering parents in one undo step each, with
+    `ThemeCycle` refused);
   - (lot 4) in pack mode, a widget pack's Theme tab shows read-only preview slides, one
     `essentiel/content` slide per widget.
 - **CLI**: `render`, `check`, `import` read and write the new format; `--pack` flags take a
@@ -265,7 +279,11 @@ One spec, five plans, each merged green on its own. Revised 2026-10-18 with the 
    deviations: slide functions moved into the packs, global `header`/`footer`/`list`/`kicker`,
    typed manifest `tokens`, `deck.themes` pins, theme layer composed in Rust, built-in `neutre`,
    child copies, widget-pack previews, deck 9, replica 7, sources 13).
-5. UI: the "Deck packs" panel, add grid and slide add from packs, theme editor.
+5. UI: the "Deck packs" panel, add grid and slide add from packs, theme editor (see
+   `docs/superpowers/plans/2026-10-23-packs-lot5-ui.md`, deviations: host surface `host-packs`
+   shown by the hub, banner deleted, one core removal check, seeds in the snapshot and localized
+   built-in examples, manifest `styles`, free slots instead of kind constants, editable `extends`
+   on the draft, four MCP tools, resume state 3, A2UI catalog v4).
 
 Plans 2 and 3 depend on 1; 4 on 1; 5 on all. Each lot updates every hard-coded kind in the UI
 and the agent that it changes, so the app works after every lot.

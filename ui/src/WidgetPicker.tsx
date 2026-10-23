@@ -1,26 +1,28 @@
-// Grille d'ajout : les éléments natifs et les widgets du pack, filtrés par nom ou description.
+// Grille d'ajout : les widgets d'élément de chaque pack épinglé, une section par pack, filtrés par
+// nom ou description.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { WidgetPreview } from "./api";
 import { t } from "./i18n";
-import { gridStep, rowLength, type GridKey } from "./gridNav";
+import { gridStep, rowLength, sectionSlots, type GridKey } from "./gridNav";
 import { Icon } from "./icons";
 import { useModalFrame } from "./modalFrame";
-import { filterChoices, type WidgetChoice } from "./widgetChoices";
+import { filterChoices, type WidgetChoice, type WidgetSection } from "./widgetChoices";
 import { croppedSvg } from "./widgetPreview";
 
 interface Props {
-  choices: WidgetChoice[];
-  /** Faux : la carte se voit grisée (le texte sur une slide vide). */
+  /** Les sections de la grille, une par pack de widgets. */
+  sections: WidgetSection[];
+  /** Faux : la carte se voit grisée (le slot libre de la slide ne l'accepte pas). */
   canPick: (c: WidgetChoice) => boolean;
   /**
    * Change avec le thème : les aperçus sont rechargés. Chaque ouverture les recharge aussi ; un
    * widget réécrit pendant l'ouverture garde son ancien aperçu (t-962).
    */
   themeKey: string;
-  /** Aperçu d'un widget du pack, rendu seul. */
-  preview: (name: string) => Promise<WidgetPreview>;
+  /** Aperçu d'un widget, rendu seul : son fichier `name` dans le pack épinglé `pack` (requête `preview_widget`). */
+  preview: (name: string, pack?: string) => Promise<WidgetPreview>;
   onPick: (c: WidgetChoice) => void;
   onClose: () => void;
 }
@@ -31,14 +33,20 @@ interface Props {
  * Depuis le filtre, les flèches parcourent les cartes ajoutables (← → au bord du texte seulement,
  * pour ne pas voler le curseur), Entrée ajoute celle au focus ; Échap ferme.
  */
-export default function WidgetPicker({ choices, canPick, themeKey, preview, onPick, onClose }: Props) {
+export default function WidgetPicker({ sections, canPick, themeKey, preview, onPick, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const grid = useRef<HTMLDivElement>(null);
   const { onClickCapture, armed } = useModalFrame(ref, { onEscape: onClose });
   const [query, setQuery] = useState("");
+  const choices = useMemo(() => sections.flatMap((s) => s.choices), [sections]);
   const urls = usePreviewUrls(choices, themeKey, preview);
-  const shown = useMemo(() => filterChoices(choices, query), [choices, query]);
+  // Chaque section garde ses cartes filtrées ; une section vidée par le filtre disparaît.
+  const shownSections = useMemo(
+    () => sections.map((s) => ({ ...s, choices: filterChoices(s.choices, query) })).filter((s) => s.choices.length > 0),
+    [sections, query],
+  );
+  const shown = useMemo(() => shownSections.flatMap((s) => s.choices), [shownSections]);
   // La carte au focus, par clé : `null` vaut la première ajoutable. Une clé disparue ou devenue
   // refusée (liste changée pendant l'ouverture) retombe sur elle aussi ; sans carte ajoutable,
   // aucune n'a le focus (`at` vaut -1).
@@ -56,14 +64,24 @@ export default function WidgetPicker({ choices, canPick, themeKey, preview, onPi
   // La carte au focus reste visible dans la grille (sans animation si l'utilisateur la refuse).
   useEffect(() => {
     const smooth = !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    grid.current?.children[at]?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "nearest" });
+    cardsOf(grid.current)[at]?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "nearest" });
   }, [at, focused?.key]);
 
-  /** Passe à la carte ajoutable voisine dans le sens `key` ; ↑ ↓ lisent les colonnes à l'écran. */
+  /**
+   * Passe à la carte ajoutable voisine dans le sens `key`. ↑ ↓ lisent les colonnes à l'écran :
+   * chaque section commence une rangée, sa dernière rangée finit par des trous.
+   */
   const move = (key: GridKey) => {
-    const columns = key === "up" || key === "down" ? rowLength(cardTops(grid.current)) : 1;
-    const next = gridStep(at, key, columns, shown.length, (i) => canPick(shown[i]));
-    if (next !== at) setFocusKey(shown[next].key);
+    const vertical = key === "up" || key === "down";
+    const columns = vertical ? Math.max(1, ...shownSections.map((_, i) => rowLength(cardTops(grid.current, i)))) : 1;
+    const slots = sectionSlots(shownSections.map((s) => s.choices.length), columns);
+    const from = slots.indexOf(at);
+    const next = gridStep(from, key, columns, slots.length, (j) => {
+      const i = slots[j];
+      return i !== null && canPick(shown[i]);
+    });
+    const i = next >= 0 ? slots[next] : null;
+    if (next !== from && i !== null) setFocusKey(shown[i].key);
   };
 
   /** Le pointeur a vraiment bougé sur la carte `c` : elle prend le focus. */
@@ -133,27 +151,41 @@ export default function WidgetPicker({ choices, canPick, themeKey, preview, onPi
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
-        <div className="widget-picker-grid" ref={grid} id="widget-picker-list" role="listbox" aria-label={t("ui-widget-picker-list")}>
-          {shown.map((c, i) => (
-            <button
-              key={c.key}
-              id={optionId(i)}
-              role="option"
-              aria-selected={i === at}
-              className={`widget-choice${i === at ? " focused" : ""}`}
-              disabled={!canPick(c)}
-              tabIndex={-1}
-              onMouseDown={keepFilterFocus}
-              onMouseMove={(e) => hover(c, e)}
-              onClick={() => pick(c)}
-            >
-              <span className="widget-choice-face">
-                {"native" in c.pick ? Icon[c.pick.native] : urls.has(c.name) ? <img src={urls.get(c.name)} alt="" draggable={false} /> : Icon.widget}
-              </span>
-              <span className="card-name">{c.label}</span>
-              <span className="caption">{c.description}</span>
-            </button>
-          ))}
+        <div className="widget-picker-list" ref={grid} id="widget-picker-list" role="listbox" aria-label={t("ui-widget-picker-list")}>
+          {shownSections.map((section) => {
+            const first = shown.indexOf(section.choices[0]);
+            const heading = `widget-picker-pack-${section.namespace}`;
+            return (
+              <section key={section.namespace} className="widget-picker-pack" role="group" aria-labelledby={heading}>
+                <h3 id={heading}>{section.name}</h3>
+                <div className="widget-picker-grid">
+                  {section.choices.map((c, k) => {
+                    const i = first + k;
+                    return (
+                      <button
+                        key={c.key}
+                        id={optionId(i)}
+                        role="option"
+                        aria-selected={i === at}
+                        className={`widget-choice${i === at ? " focused" : ""}`}
+                        disabled={!canPick(c)}
+                        tabIndex={-1}
+                        onMouseDown={keepFilterFocus}
+                        onMouseMove={(e) => hover(c, e)}
+                        onClick={() => pick(c)}
+                      >
+                        <span className="widget-choice-face">
+                          {urls.has(c.name) ? <img src={urls.get(c.name)} alt="" draggable={false} /> : Icon.widget}
+                        </span>
+                        <span className="card-name">{c.label}</span>
+                        <span className="caption">{c.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </div>
         {/* Hors de la liste (qui n'a que des options) : annoncé quand le filtre ne garde rien. */}
         <p className="caption widget-picker-empty" role="status">
@@ -169,9 +201,15 @@ function keepFilterFocus(e: MouseEvent) {
   e.preventDefault();
 }
 
-/** Hauteur de chaque carte de `list` dans la mise en page, dans l'ordre. */
-function cardTops(list: HTMLElement | null): number[] {
-  return list ? [...list.children].map((el) => (el instanceof HTMLElement ? el.offsetTop : 0)) : [];
+/** Les cartes de la liste, toutes sections confondues, dans l'ordre. */
+function cardsOf(list: HTMLElement | null): HTMLElement[] {
+  return list ? [...list.querySelectorAll<HTMLElement>('[role="option"]')] : [];
+}
+
+/** Hauteur de chaque carte de la section `section` dans la mise en page, dans l'ordre. */
+function cardTops(list: HTMLElement | null, section: number): number[] {
+  const grid = list?.querySelectorAll(".widget-picker-grid")[section];
+  return grid ? [...grid.children].map((el) => (el instanceof HTMLElement ? el.offsetTop : 0)) : [];
 }
 
 /** Identifiant de la carte `i`, que le filtre désigne à un lecteur d'écran. */
@@ -180,17 +218,21 @@ function optionId(i: number): string {
 }
 
 /**
- * Adresses des aperçus SVG des widgets du pack, par nom, chargées une à une.
+ * Adresses des aperçus SVG des widgets de la grille, par nom, chargées une à une.
  *
  * L'aperçu est la slide d'essai entière : il est recadré sur ce que dessine le widget (`bbox`),
  * qui remplit alors sa vignette.
  *
- * Un aperçu raté (widget cassé, rendu refusé) laisse l'icône générique.
+ * Un aperçu raté (widget cassé, rendu refusé) ou un kind non qualifié laisse l'icône générique.
  */
-function usePreviewUrls(choices: WidgetChoice[], themeKey: string, preview: (name: string) => Promise<WidgetPreview>): Map<string, string> {
+function usePreviewUrls(
+  choices: WidgetChoice[],
+  themeKey: string,
+  preview: (name: string, pack?: string) => Promise<WidgetPreview>,
+): Map<string, string> {
   // Une Map, pas un objet : un widget nommé `constructor` ne lit pas une propriété héritée.
   const [urls, setUrls] = useState<Map<string, string>>(() => new Map());
-  const names = choices.flatMap((c) => ("widget" in c.pick ? [c.name] : [])).join("\n");
+  const names = choices.map((c) => c.name).join("\n");
 
   useEffect(() => {
     let alive = true;
@@ -198,7 +240,11 @@ function usePreviewUrls(choices: WidgetChoice[], themeKey: string, preview: (nam
     setUrls(new Map());
     (async () => {
       for (const name of names ? names.split("\n") : []) {
-        const svg = await preview(name).then((p) => (p.svg ? croppedSvg(p.svg, p.bbox ?? null) : null), () => null);
+        // La session nomme un widget par son fichier dans son pack : `base/card` → `card` de `base`.
+        const slash = name.indexOf("/");
+        if (slash <= 0) continue;
+        const asked = preview(name.slice(slash + 1), name.slice(0, slash));
+        const svg = await asked.then((p) => (p.svg ? croppedSvg(p.svg, p.bbox ?? null) : null), () => null);
         if (!alive) return;
         if (!svg) continue;
         const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));

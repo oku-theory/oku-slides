@@ -74,7 +74,7 @@ impl Session {
             let layouts = match cached {
                 Some(p) => p.views.clone(),
                 None => {
-                    let deck = styled_like(style, layout_slides(&manifest, &files));
+                    let deck = styled_like(style, layout_slides(&manifest, &files, &self.localizer));
                     let views = self.with_fallback(|_| Ok(vec![deck.clone()]), |s| s.render_previews(&deck))?;
                     self.pack_cache.0.retain(|p| p.version != pin.version);
                     self.pack_cache.0.push(Previews { version: pin.version, deck, views: views.clone() });

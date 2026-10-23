@@ -184,9 +184,103 @@ async fn in_pack_mode_outline_reports_the_edited_theme() {
     let papier = Themes::builtins().iter().find(|b| b.manifest.name == "Papier").unwrap().clone();
     assert_that!(outline["mode"].as_str()).is_equal_to(Some("pack"));
     assert_that!(outline["edited_theme"]).is_equal_to(json!({
-        "id": papier.manifest.id, "version": papier.version, "name": "Papier",
-        "child": true, "extends": ["Papier"], "dirty": false,
+        "id": papier.manifest.id, "version": papier.version, "namespace": "papier", "name": "Papier",
+        "child": true, "extends": [{ "namespace": "papier", "name": "Papier" }], "dirty": false,
     }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn deck_outline_edited_theme_has_namespace() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
+    call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": theme_ref("pro") }] })).await;
+    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
+    assert_that!(outline["edited_theme"]["namespace"].as_str()).is_equal_to(Some("pro"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_theme_extends_in_pack_mode_sets_the_parents() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
+    let r = call(&c, "set_theme_extends", json!({ "extends": ["pro"] })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
+    assert_that!(outline["edited_theme"]["extends"].clone())
+        .is_equal_to(json!([{ "namespace": "pro", "name": "Pro" }]));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_theme_extends_outside_pack_mode_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "set_theme_extends", json!({ "extends": ["pro"] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("session-not-editing-pack"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remove_pack_in_use_returns_the_localized_reason() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "remove_pack", json!({ "kind": "widgets", "namespace": "base" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let refusal = oku_slides_core::remove_pack_refusal(
+        h.session.lock().unwrap().deck(),
+        oku_slides_core::PackKind::Widgets,
+        &oku_slides_core::kinds::base::namespace(),
+    )
+    .unwrap();
+    use oku_slides_i18n::Localize;
+    assert_that!(text_of(&r)).is_equal_to(refusal.localize(&h.localizer));
+    h.live.set(std::sync::Arc::new(oku_slides_i18n::Localizer::new(Some("en"))));
+    let english = call(&c, "remove_pack", json!({ "kind": "widgets", "namespace": "base" })).await;
+    assert_that!(text_of(&english)).is_not_equal_to(text_of(&r));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remove_pack_of_an_unused_pack_unpins_it() {
+    let h = start_with_library_widget_pack("acme").await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let added = call(&c, "add_pack", json!({ "kind": "widgets", "namespace": "acme" })).await;
+    assert_that!(added.is_error).is_not_equal_to(Some(true));
+    let acme = || h.session.lock().unwrap().deck().widgets.keys().any(|ns| ns.as_str() == "acme");
+    assert_that!(acme()).is_true();
+    let removed = call(&c, "remove_pack", json!({ "kind": "widgets", "namespace": "acme" })).await;
+    assert_that!(removed.is_error).is_not_equal_to(Some(true));
+    assert_that!(acme()).is_false();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn add_pack_emits_changed() {
+    let h = start_with_library_widget_pack("acme").await;
+    let mut rx = h.hub.subscribe();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "add_pack", json!({ "kind": "widgets", "namespace": "acme" })).await;
+    assert_that!(matches!(wait_event(&mut rx, Some).await, McpEvent::Changed)).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_tool_shows_the_panel() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "show_packs", json!({})).await;
+    assert_that!(json_of(&r)).is_equal_to(json!({ "shown": oku_slides_session::HOST_PACKS }));
+    assert_that!(open_ids(&h)).contains(oku_slides_session::HOST_PACKS.to_owned());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_tool_in_pack_mode_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
+    let r = call(&c, "show_packs", json!({})).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-packs-deck-mode"));
+    h.live.set(std::sync::Arc::new(oku_slides_i18n::Localizer::new(Some("en"))));
+    let english = call(&c, "show_packs", json!({})).await;
+    assert_that!(text_of(&english)).is_not_equal_to(text_of(&r));
 }
 
 #[tokio::test(flavor = "multi_thread")]

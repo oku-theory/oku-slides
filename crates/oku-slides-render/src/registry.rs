@@ -13,7 +13,7 @@ use typst::introspection::Introspector;
 use typst::utils::PicoStr;
 use typst_layout::PagedDocument;
 
-use oku_slides_core::{Namespace, PackKind, WidgetFile, WidgetRegistry};
+use oku_slides_core::{Namespace, PackFiles, PackKind, WidgetFile, WidgetRegistry};
 
 use crate::builtin_packs::{BuiltinPack, builtin_pack_set};
 use crate::error::{
@@ -41,6 +41,10 @@ pub struct PackWidgets {
 
 impl PackWidgets {
     /// `id` : voir [`is_pack_id`] ; il devient un chemin. `kind` fixe le dossier des fichiers.
+    ///
+    /// Pour les essais et les tests : l'id est celui de l'appelant, donc un pack
+    /// ainsi construit n'est jamais de confiance. Seul [`Self::from_files`] donne
+    /// un id lié au contenu, celui qu'[`is_trusted_pack`](crate::is_trusted_pack) compare.
     pub fn new(
         id: impl Into<String>,
         namespace: Namespace,
@@ -52,6 +56,14 @@ impl PackWidgets {
             return Err(BadPackIdSnafu { id }.build().into());
         }
         Ok(Self { id, namespace, kind, files })
+    }
+
+    /// Le pack de `files` sous `namespace`, d'id l'empreinte de sa version.
+    ///
+    /// L'id se déduit du contenu et ne se choisit pas : c'est la construction
+    /// des packs dont la confiance compte (voir `is_trusted_pack`).
+    pub fn from_files(namespace: Namespace, files: &PackFiles) -> Result<Self, RegistryError> {
+        Self::new(files.version().hex(), namespace, files.kind(), files.widgets().clone())
     }
 
     /// L'identifiant du pack, servi comme dossier sous `/packs/`.

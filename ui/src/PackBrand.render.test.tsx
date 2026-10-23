@@ -2,7 +2,7 @@
 
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import "./test/dom";
-import type { PackKind } from "./api";
+import type { PackKind } from "./packTypes";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");

@@ -194,9 +194,20 @@ impl PackLibrary {
     ///
     /// Un espace de noms intégré désigne toujours le pack intégré, jamais une copie de l'utilisateur.
     pub fn by_namespace(&self, ns: &Namespace) -> Option<StoredVersion<PackManifest>> {
-        PackKind::ALL.into_iter().find_map(|kind| {
-            self.entries(kind).into_iter().find(|s| s.manifest.namespace == *ns && may_own(s.manifest.id, ns))
-        })
+        PackKind::ALL.into_iter().find_map(|kind| self.owned_current(kind, ns))
+    }
+
+    /// La version courante du pack de sorte `kind` qui porte l'espace de noms `ns` (R15).
+    ///
+    /// Un espace de noms intégré n'appartient qu'à son pack intégré : une
+    /// copie de l'utilisateur qui le porte n'est jamais un résultat.
+    pub fn owned_current(&self, kind: PackKind, ns: &Namespace) -> Option<StoredVersion<PackManifest>> {
+        self.entries(kind).into_iter().find(|s| Self::owns(s, ns))
+    }
+
+    /// Vrai si la version `s` est celle du pack qui porte `ns` : son espace de noms, sans le prendre à un intégré.
+    pub(crate) fn owns(s: &StoredVersion<PackManifest>, ns: &Namespace) -> bool {
+        s.manifest.namespace == *ns && may_own(s.manifest.id, ns)
     }
 
     /// Tous les espaces de noms pris dans la bibliothèque, toutes sortes confondues, thèmes compris.

@@ -18,15 +18,15 @@ function typesOf(components: unknown[], data: unknown = {}) {
   return Object.fromEntries((components as { id: string }[]).map((c) => [c.id, model?.componentsModel.get(c.id)?.type]));
 }
 
-const V3 = [
+const V4 = [
   "Column", "Row", "Card", "Text", "TextField", "RichTextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select",
   "ListTable", "SlideThumb", "ThemeChoice", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown", "Notice",
   "ChartData", "TableData",
 ];
 
-describe("catalogue v3", () => {
+describe("catalogue v4", () => {
   test("déclare chacun des composants du catalogue Rust", () => {
-    expect([...catalog.components.keys()].sort()).toEqual([...V3].sort());
+    expect([...catalog.components.keys()].sort()).toEqual([...V4].sort());
   });
 
   test("les surfaces produites par la session Rust sont acceptées", () => {
@@ -94,8 +94,21 @@ describe("catalogue v3", () => {
     ).toEqual({ root: "Column", p: "Prompt", t: "Timeline", r: "Receipt", d: "Disclosure", b: "Badge", m: "Markdown" });
   });
 
+  test("une surface v4 avec un bouton à pictogramme « remove » est acceptée", () => {
+    expect(CATALOG_ID).toBe("urn:oku-slides:a2ui:catalog:v4");
+    expect(
+      typesOf([
+        { id: "root", component: "Row", children: ["up", "down", "rm"] },
+        { id: "up", component: "Button", label: "Monter", icon: "up", action: { event: { name: "extends" } } },
+        { id: "down", component: "Button", label: "Descendre", icon: "down", action: { event: { name: "extends" } } },
+        { id: "rm", component: "Button", label: "Retirer", icon: "remove", action: { event: { name: "extends" } } },
+      ]),
+    ).toEqual({ root: "Row", up: "Button", down: "Button", rm: "Button" });
+  });
+
   const action = { event: { name: "x" } };
   test.each([
+    ["un bouton à pictogramme inconnu", { component: "Button", label: "x", icon: "spin", action }, /Button/],
     ["un reçu avec une couleur qui n'est pas en hexadécimal", { component: "Receipt", title: "x", facts: [], swatch: "red" }, /Receipt/],
     ["un badge d'une teinte inconnue", { component: "Badge", text: "x", tone: "loud" }, /Badge/],
     ["une carte d'une teinte inconnue", { component: "Card", child: "x", tone: "loud" }, /Card/],

@@ -13,7 +13,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-1",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -103,7 +103,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-2",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -188,7 +188,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "perm-3",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -292,7 +292,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-4",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -482,7 +482,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-5",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -705,7 +705,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-6",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -797,7 +797,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "turn-3",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -898,7 +898,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-7",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -954,7 +954,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-8",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -1045,7 +1045,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "report-8",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -1130,7 +1130,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "render-9",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -1200,7 +1200,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-widget",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -1439,7 +1439,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-theme-picker",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -1532,56 +1532,364 @@
     ]
   },
   {
-    "id": "host-pack-notice",
-    "place": "banner",
+    "id": "host-packs",
+    "place": "thread",
     "live": true,
     "question": false,
     "messages": [
       {
         "version": "v0.9",
         "createSurface": {
-          "surfaceId": "host-pack-notice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "surfaceId": "host-packs",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
         "version": "v0.9",
         "updateComponents": {
-          "surfaceId": "host-pack-notice",
+          "surfaceId": "host-packs",
           "components": [
             {
               "id": "root",
-              "component": "Notice",
-              "text": "Ce deck utilise une version plus récente de « Charte ».",
+              "component": "Column",
               "children": [
-                "pack-use-mine",
-                "pack-make-current"
-              ],
-              "close": {
-                "event": {
-                  "name": "pack_notice_close"
-                }
-              },
-              "close_label": "Fermer"
+                "title",
+                "layouts",
+                "widgets",
+                "theme",
+                "close"
+              ]
             },
             {
-              "id": "pack-use-mine",
+              "id": "title",
+              "component": "Text",
+              "text": "Packs du deck",
+              "variant": "h4"
+            },
+            {
+              "id": "layouts-title",
+              "component": "Text",
+              "text": "Layouts",
+              "variant": "body"
+            },
+            {
+              "id": "layouts/essentiel/name",
+              "component": "Text",
+              "text": "Essentiel",
+              "variant": "body"
+            },
+            {
+              "id": "layouts/essentiel/version",
+              "component": "Badge",
+              "text": "0000000"
+            },
+            {
+              "id": "layouts/essentiel/head",
+              "component": "Row",
+              "children": [
+                "layouts/essentiel/name",
+                "layouts/essentiel/version"
+              ]
+            },
+            {
+              "id": "layouts/essentiel/ns",
+              "component": "Text",
+              "text": "essentiel",
+              "variant": "caption"
+            },
+            {
+              "id": "layouts/essentiel/refusal",
+              "component": "Text",
+              "text": "Le pack essentiel est encore utilisé par 8 éléments.",
+              "variant": "caption"
+            },
+            {
+              "id": "layouts/essentiel/body",
+              "component": "Column",
+              "children": [
+                "layouts/essentiel/head",
+                "layouts/essentiel/ns",
+                "layouts/essentiel/refusal"
+              ]
+            },
+            {
+              "id": "layouts/essentiel",
+              "component": "Card",
+              "child": "layouts/essentiel/body"
+            },
+            {
+              "id": "layouts",
+              "component": "Column",
+              "children": [
+                "layouts-title",
+                "layouts/essentiel"
+              ]
+            },
+            {
+              "id": "widgets-title",
+              "component": "Text",
+              "text": "Widgets",
+              "variant": "body"
+            },
+            {
+              "id": "widgets/base/name",
+              "component": "Text",
+              "text": "Base",
+              "variant": "body"
+            },
+            {
+              "id": "widgets/base/version",
+              "component": "Badge",
+              "text": "1111111"
+            },
+            {
+              "id": "widgets/base/head",
+              "component": "Row",
+              "children": [
+                "widgets/base/name",
+                "widgets/base/version"
+              ]
+            },
+            {
+              "id": "widgets/base/ns",
+              "component": "Text",
+              "text": "base",
+              "variant": "caption"
+            },
+            {
+              "id": "widgets/base/refusal",
+              "component": "Text",
+              "text": "Chaque deck garde le pack de widgets de base.",
+              "variant": "caption"
+            },
+            {
+              "id": "widgets/base/body",
+              "component": "Column",
+              "children": [
+                "widgets/base/head",
+                "widgets/base/ns",
+                "widgets/base/refusal"
+              ]
+            },
+            {
+              "id": "widgets/base",
+              "component": "Card",
+              "child": "widgets/base/body"
+            },
+            {
+              "id": "widgets/acme/name",
+              "component": "Text",
+              "text": "Acme",
+              "variant": "body"
+            },
+            {
+              "id": "widgets/acme/version",
+              "component": "Badge",
+              "text": "fffffff"
+            },
+            {
+              "id": "widgets/acme/head",
+              "component": "Row",
+              "children": [
+                "widgets/acme/name",
+                "widgets/acme/version"
+              ]
+            },
+            {
+              "id": "widgets/acme/ns",
+              "component": "Text",
+              "text": "acme",
+              "variant": "caption"
+            },
+            {
+              "id": "widgets/acme/relation",
+              "component": "Text",
+              "text": "Ce deck utilise une version plus récente que la vôtre.",
+              "variant": "note"
+            },
+            {
+              "id": "widgets/acme/use-mine",
               "component": "Button",
-              "label": "Passer à ma version",
+              "label": "Utiliser ma version",
               "primary": true,
               "action": {
                 "event": {
-                  "name": "pack_use_mine"
+                  "name": "use_mine",
+                  "context": {
+                    "kind": "widgets",
+                    "namespace": "acme"
+                  }
                 }
               }
             },
             {
-              "id": "pack-make-current",
+              "id": "widgets/acme/make-current",
               "component": "Button",
-              "label": "Faire de la sienne ma version courante",
+              "label": "Faire de la sienne ma version",
               "action": {
                 "event": {
-                  "name": "pack_make_current"
+                  "name": "make_current",
+                  "context": {
+                    "kind": "widgets",
+                    "namespace": "acme"
+                  }
+                }
+              }
+            },
+            {
+              "id": "widgets/acme/remove",
+              "component": "Button",
+              "label": "Retirer",
+              "danger": true,
+              "action": {
+                "event": {
+                  "name": "remove_pack",
+                  "context": {
+                    "kind": "widgets",
+                    "namespace": "acme"
+                  }
+                }
+              }
+            },
+            {
+              "id": "widgets/acme/actions",
+              "component": "Row",
+              "children": [
+                "widgets/acme/use-mine",
+                "widgets/acme/make-current",
+                "widgets/acme/remove"
+              ]
+            },
+            {
+              "id": "widgets/acme/body",
+              "component": "Column",
+              "children": [
+                "widgets/acme/head",
+                "widgets/acme/ns",
+                "widgets/acme/relation",
+                "widgets/acme/actions"
+              ]
+            },
+            {
+              "id": "widgets/acme",
+              "component": "Card",
+              "child": "widgets/acme/body"
+            },
+            {
+              "id": "widgets-add",
+              "component": "Select",
+              "label": "Ajouter depuis la bibliothèque",
+              "value": {
+                "path": "/add/widgets"
+              },
+              "options": [
+                {
+                  "id": "hifi",
+                  "label": "Hi-fi"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "add_pack",
+                  "context": {
+                    "kind": "widgets",
+                    "namespace": {
+                      "path": "/add/widgets"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "widgets",
+              "component": "Column",
+              "children": [
+                "widgets-title",
+                "widgets/base",
+                "widgets/acme",
+                "widgets-add"
+              ]
+            },
+            {
+              "id": "theme-title",
+              "component": "Text",
+              "text": "Thème",
+              "variant": "body"
+            },
+            {
+              "id": "theme-name",
+              "component": "Text",
+              "text": "Papier",
+              "variant": "body"
+            },
+            {
+              "id": "theme-overrides",
+              "component": "Text",
+              "text": "0 surcharge du deck",
+              "variant": "caption"
+            },
+            {
+              "id": "theme-pick",
+              "component": "Select",
+              "label": "Thème du deck",
+              "value": {
+                "path": "/theme"
+              },
+              "options": [
+                {
+                  "id": "papier",
+                  "label": "Papier"
+                },
+                {
+                  "id": "pro",
+                  "label": "Pro"
+                },
+                {
+                  "id": "neutre",
+                  "label": "Neutre"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "theme",
+                  "context": {
+                    "theme": {
+                      "path": "/theme"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "theme-update",
+              "component": "Button",
+              "label": "Utiliser ma version",
+              "primary": true,
+              "action": {
+                "event": {
+                  "name": "theme_update"
+                }
+              }
+            },
+            {
+              "id": "theme",
+              "component": "Column",
+              "children": [
+                "theme-title",
+                "theme-name",
+                "theme-overrides",
+                "theme-pick",
+                "theme-update"
+              ]
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "icon": "close",
+              "action": {
+                "event": {
+                  "name": "dismiss"
                 }
               }
             }
@@ -1591,8 +1899,10 @@
       {
         "version": "v0.9",
         "updateDataModel": {
-          "surfaceId": "host-pack-notice",
-          "value": {}
+          "surfaceId": "host-packs",
+          "value": {
+            "theme": "papier"
+          }
         }
       }
     ]
@@ -1607,7 +1917,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-data",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {
@@ -1698,7 +2008,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-data",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
         }
       },
       {

@@ -46,6 +46,15 @@ fn families_of_a_pack_tool_is_packs(#[case] tool: &str) {
     assert_that!(families_of(tool)).is_equal_to(&[Family::Packs][..]);
 }
 
+#[rstest]
+#[case("show_packs", &[Family::Edit][..])]
+#[case("add_pack", &[Family::Edit][..])]
+#[case("remove_pack", &[Family::Edit][..])]
+#[case("set_theme_extends", &[Family::Packs][..])]
+fn families_of_the_deck_pack_tools_follow_their_neighbours(#[case] tool: &str, #[case] expected: &[Family]) {
+    assert_that!(families_of(tool)).is_equal_to(expected);
+}
+
 /// Les layouts donnent les kinds de slide : utiles pour éditer comme pour l'atelier.
 #[test]
 fn families_of_layouts_is_edit_and_packs() {

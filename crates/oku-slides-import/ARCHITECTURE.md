@@ -8,7 +8,7 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 - `read_pptx(bytes, &ReadLimits) -> Result<SourceDeck, ImportError>`.
 - `retrofit::project(&SourceDeck, &RetrofitTarget) -> Result<…>` : content on the `profiles` of the chosen layout
   packs (in order; none: `NoProfiles`) and the tokens of a theme, after the session pins `base` and `essentiel`; kinds from `kinds`.
-- `hifi::project(&SourceDeck, &HifiTarget) -> ImportPlan` : on the pinned theme (`HifiTarget.theme`, Neutre) with generated tokens and a deck-only layout pack
+- `hifi::project(&SourceDeck, &HifiTarget) -> Result<ImportPlan, …>` : on the pinned theme (`HifiTarget.theme`, Neutre) with generated tokens and a deck-only layout pack
   `deck-layouts`; ops: `AddPack` `base`, `essentiel` (fallback `essentiel/blank`), `SetTheme` (the session fills the
   closure), `SetTokens` (the generated tokens), `AddPack` `deck-layouts`; `sought_fonts`, `source_rect`.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report, `origins` (item → element); in hi-fi the

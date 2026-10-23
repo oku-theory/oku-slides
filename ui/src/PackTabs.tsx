@@ -3,7 +3,7 @@
  * « Thème », puis un par widget ouvert.
  */
 import { useRef, type KeyboardEvent } from "react";
-import type { PackKind } from "./api";
+import type { PackKind } from "./packTypes";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { THEME_TAB, type ActiveTab, type OpenWidget } from "./widgetTabs";

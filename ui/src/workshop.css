@@ -126,10 +126,6 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
   grid-template-rows: 104px auto minmax(0, 1fr) 104px;
   grid-template-areas: "pile label notes" "pile subtabs notes" "pile sheet notes" "pile tools device";
 }
-.table:has(> .pack-notice):has(> .pack-tabs) {
-  grid-template-rows: 104px auto auto minmax(0, 1fr) 104px;
-  grid-template-areas: "pile label notes" "pile notice notes" "pile subtabs notes" "pile sheet notes" "pile tools device";
-}
 .pack-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
 /* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
 .stage-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }

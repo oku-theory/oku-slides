@@ -24,7 +24,7 @@ enum After {
     Keep,
     Close,
     Freeze,
-    /// La surface reste, avec cet état (sélecteur de thème refait).
+    /// La surface reste, avec cet état (sélecteur de thème ou panneau des packs refait).
     Replace(Shown),
 }
 
@@ -56,6 +56,9 @@ impl SurfaceHub {
             (Shown::Themes(picker), name) if name == oku_slides_session::THEME_EVENT => {
                 self.apply_theme(picker, &action.context).map(|p| After::Replace(Shown::Themes(p)))
             }
+            (Shown::Packs(_), name) if name != "dismiss" => {
+                self.apply_packs(&action.context, name).map(|p| After::Replace(Shown::Packs(p)))
+            }
             (_, "dismiss") => Ok(After::Close),
             (Shown::Params(spec), "param") => {
                 self.apply_param(&action.surface, spec, &action.context).map(|()| After::Keep)
@@ -72,6 +75,9 @@ impl SurfaceHub {
             }
             Ok(After::Replace(next)) => {
                 self.state().shows.insert(action.surface, next);
+                // Le deck a changé : l'autre boîte du hub (thème, packs) se relit ; celle-ci, déjà
+                // refaite, est égale à elle-même et ne part pas une seconde fois.
+                self.prune();
                 Ok(())
             }
             Ok(After::Freeze) => {
@@ -138,13 +144,14 @@ impl SurfaceHub {
         Ok(())
     }
 
-    /// Rafraîchit le sélecteur de thème et ferme les surfaces orphelines.
+    /// Rafraîchit les boîtes du hub (thème, packs) et ferme les surfaces orphelines.
     ///
-    /// Prend la session si le sélecteur de thème est ouvert ou si un réglage vivant
+    /// Prend la session si l'un des deux est ouvert ou si un réglage vivant
     /// (`Params`, `Variants`) existe ; sinon n'y touche pas. Verrouille la session : à lancer
     /// hors du runtime asynchrone (appelée après chaque requête qui change le deck).
     pub fn prune(&self) {
         self.refresh_themes();
+        self.refresh_packs();
         if !self.state().shows.values().any(|s| matches!(s, Shown::Params(_) | Shown::Variants(_))) {
             return;
         }
@@ -158,7 +165,7 @@ impl SurfaceHub {
                     let slide = match shown {
                         Shown::Params(p) => &p.slide,
                         Shown::Variants(v) => &v.slide,
-                        Shown::Static { .. } | Shown::Themes(_) => return false,
+                        Shown::Static { .. } | Shown::Themes(_) | Shown::Packs(_) => return false,
                     };
                     deck.slide(slide).is_none()
                 })

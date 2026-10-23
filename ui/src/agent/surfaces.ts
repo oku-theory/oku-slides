@@ -39,8 +39,12 @@ export const byPlace = (list: Surface[], place: Place) => list.filter((s) => s.p
 export const isQuestion = (s: Surface) => s.question;
 /** Le sélecteur de thème de l'hôte : une boîte demandée, annoncée, jamais repliée. */
 export const HOST_THEME_PICKER = "host-theme-picker";
+/** Le panneau des packs du deck, ouvert par le bouton de la barre d'outils ou l'agent. */
+export const HOST_PACKS = "host-packs";
+/** Une boîte de l'hôte demandée par l'utilisateur (thèmes, packs) : annoncée, jamais repliée. */
+export const isRequestedBox = (s: Surface) => s.id === HOST_THEME_PICKER || s.id === HOST_PACKS;
 /** Une surface de réglages de l'hôte (`host-widget`, `host-data`, `host-theme`) : reconstruite à chaque relecture. */
-export const isHostSettings = (s: Surface) => s.id.startsWith("host-") && s.id !== HOST_THEME_PICKER;
+export const isHostSettings = (s: Surface) => s.id.startsWith("host-") && !isRequestedBox(s);
 /** Le reçu d'un tour (outil `report`, ou reçu de repli) : identifiant `report-N` du hub. */
 export const isReceipt = (s: Surface) => s.id.startsWith("report-");
 
@@ -96,13 +100,8 @@ export function routeSurfaces(list: Surface[], shown: { slide: string; has: (a: 
     modal: byPlace(list, "modal")[0],
     dock,
     turns,
-    // Fiches hors de la scène, surfaces figées du fil sans tour, et bandeaux (réservés à l'hôte) :
-    // aucune n'est jamais invisible.
-    loose: [
-      ...sheets.filter((s) => s !== stage),
-      ...thread.filter((s) => !s.live && s.turn === undefined),
-      ...byPlace(list, "banner"),
-    ],
+    // Fiches hors de la scène et surfaces figées du fil sans tour : aucune n'est jamais invisible.
+    loose: [...sheets.filter((s) => s !== stage), ...thread.filter((s) => !s.live && s.turn === undefined)],
   };
 }
 

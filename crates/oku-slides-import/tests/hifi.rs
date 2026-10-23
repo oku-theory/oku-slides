@@ -43,7 +43,7 @@ fn plan(fixture: &str) -> ImportPlan {
         created: "2026-10-11T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
     };
-    hifi::project(&source(fixture), &target)
+    hifi::project(&source(fixture), &target).unwrap_or_else(|e| panic!("projection : {e}"))
 }
 
 /// Le registre du deck importé : les packs intégrés et les schémas déclarés du pack.

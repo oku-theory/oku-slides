@@ -14,20 +14,23 @@ export const stroke = (children: ReactNode) => (
 export const Icon = {
   undo: stroke(<><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></>),
   redo: stroke(<><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></>),
-  // Ce qu'on ajoute à la slide, dans l'ordre d'ADD_NAMES.
-  text: stroke(<><path d="M5 6V5h14v1" /><path d="M12 5v14" /><path d="M9 19h6" /></>),
-  card: stroke(<><rect x="3.5" y="5" width="17" height="14" rx="2.5" /><path d="M7 10h10M7 14h6" /></>),
-  shape: stroke(<><circle cx="9" cy="9" r="5" /><path d="M14 11h6v9h-9v-5" /></>),
+  // Graphique et tableau : les deux vues d'un tableau de données (bouton « Afficher en »).
   chart: stroke(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>),
   table: stroke(<><rect x="4" y="5" width="16" height="14" rx="1" /><path d="M4 10h16M4 14.5h16M10 5v14" /></>),
-  // Puis le menu des widgets du pack : trois tuiles et une pièce posée de biais.
+  // La grille d'ajout : trois tuiles et une pièce posée de biais.
   widget: stroke(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 3.5l3.5 3.5-3.5 3.5-3.5-3.5z" /></>),
+  // Les packs du deck : une boîte, son couvercle et son ruban.
+  packs: stroke(<><path d="M4 8l8-4 8 4v8l-8 4-8-4z" /><path d="M4 8l8 4 8-4" /><path d="M12 12v8" /></>),
   // Actions.
   add: stroke(<path d="M12 5v14M5 12h14" />),
   // Titre d'une section repliable : pointe à droite, tourné vers le bas une fois ouvert.
   chevron: stroke(<path d="M9 6l6 6-6 6" />),
   check: stroke(<path d="M5 12.5l4.5 4.5L19 7.5" />),
   close: stroke(<path d="M6 6l12 12M18 6L6 18" />),
+  // Monter, descendre, retirer une entrée d'une liste ordonnée (parents d'un thème).
+  up: stroke(<><path d="M12 19V5" /><path d="M6 11l6-6 6 6" /></>),
+  down: stroke(<><path d="M12 5v14" /><path d="M6 13l6 6 6-6" /></>),
+  remove: stroke(<path d="M5 12h14" />),
   trash: stroke(<><path d="M4.5 7h15" /><path d="M9.5 7V4.5h5V7" /><path d="M6.5 7l1 12.5h9l1-12.5" /></>),
   send: stroke(<><path d="M4 12l16-8-6 16-2.5-6.5z" /><path d="M11.5 13.5L20 4" /></>),
   keyboard: stroke(<><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M7 10h.01M10.5 10h.01M14 10h.01M17 10h.01M8 14h8" /></>),

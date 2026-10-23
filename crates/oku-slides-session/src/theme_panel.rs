@@ -7,8 +7,10 @@
 //! espaces de noms), puis les variantes d'interface. Un jeton d'un pack
 //! intégré se nomme par Fluent (`theme-token-component-<ns>-…`), celui d'un
 //! autre pack par le `label` de son entrée, sinon par son chemin pointé. En
-//! tête, en lecture seule : les thèmes qu'étendra le thème enregistré
-//! (`theme-extends`) et les surcharges du deck mis de côté
+//! tête : les thèmes qu'étend le brouillon, une ligne chacun avec ses
+//! boutons monter, descendre et retirer, puis la liste des thèmes à ajouter
+//! (évènement [`THEME_EXTENDS_EVENT`] : `{edit, theme}`, un `ExtendsEdit`) ;
+//! en lecture seule, les surcharges du deck mis de côté
 //! (`theme-deck-overrides`), qui ne s'y appliquent pas.
 //!
 //! Chaque action est l'évènement `token` : `{token, action, value?, name?}`,
@@ -21,7 +23,7 @@
 //! `token: ["color"]` et le nom saisi sous `name`, à ajouter au chemin. Le
 //! champ de filtre envoie l'évènement `filter {filter}`.
 
-use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic, TextVariant, Tone};
+use oku_slides_a2ui::{Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
 use oku_slides_core::Op;
 use oku_slides_i18n::Localizer;
 use serde::{Deserialize, Serialize};
@@ -33,6 +35,7 @@ use crate::agent::forms::{FieldEvent, Place, field_components, lit, surface};
 use crate::error::{InvalidTokenValueSnafu, NotEditingPackSnafu};
 use crate::theme_composed::is_builtin_namespace;
 use crate::theme_controls::{Shown, token_fields, token_value};
+use crate::theme_edit::ThemeParentView;
 use crate::theme_schema::{Section, TokenSpec, default_tokens, lookup, merge, spec, token_paths};
 use crate::{Mode, Result, Session};
 
@@ -41,6 +44,16 @@ pub(crate) const HOST_THEME: &str = "host-theme";
 
 /// Évènement des actions sur un jeton.
 const TOKEN_EVENT: &str = "token";
+
+/// Évènement des changements de la liste `extends` du brouillon : `{edit, theme}`.
+pub const THEME_EXTENDS_EVENT: &str = "extends";
+
+/// Les boutons d'une ligne de parent : changement envoyé, clé Fluent, pictogramme.
+const EXTENDS_BUTTONS: [(&str, &str, ButtonIcon); 3] = [
+    ("up", "theme-extends-up", ButtonIcon::Up),
+    ("down", "theme-extends-down", ButtonIcon::Down),
+    ("remove", "theme-extends-remove", ButtonIcon::Remove),
+];
 
 /// Sections globales d'avant les packs, dans l'ordre, et leur nom (clés Fluent `theme-section-*`).
 const SECTIONS_BEFORE: [(Section, &str); 8] = [
@@ -97,7 +110,7 @@ pub(crate) fn token_state(path: &[String], draft: &Map<String, Value>, base: &Ma
 /// `theme-token-<chemin à tirets>` pour une entrée globale ou d'un pack
 /// intégré ; le `label` de l'entrée d'un autre pack, sinon son chemin pointé
 /// dans le pack ; le nom d'une couleur libre.
-fn token_label(schema: &[TokenSpec], path: &[String], l: &Localizer) -> String {
+pub(crate) fn token_label(schema: &[TokenSpec], path: &[String], l: &Localizer) -> String {
     match schema.iter().find(|s| s.path == path) {
         Some(TokenSpec { section: Section::Pack(ns), label, .. }) if !is_builtin_namespace(ns) => {
             label.clone().unwrap_or_else(|| path.get(2..).unwrap_or_default().join("."))
@@ -182,6 +195,50 @@ impl Builder {
         let refs: Vec<&str> = children.iter().map(String::as_str).collect();
         self.components.push(Component::row(&id, &refs));
         id
+    }
+
+    /// Les thèmes qu'étend le brouillon, `parents`, puis la liste `choices` des
+    /// thèmes à ajouter (absente si vide) ; renvoie l'id de la colonne.
+    fn extends(&mut self, parents: &[ThemeParentView], choices: Vec<ChoiceOption>, l: &Localizer) -> String {
+        self.components.push(Component::text("extends-title", l.tr("theme-extends-title"), Some(TextVariant::Body)));
+        let mut ids = vec!["extends-title".to_owned()];
+        for (i, parent) in parents.iter().enumerate() {
+            let id = format!("extends:{}", parent.namespace);
+            let name = format!("{id}:name");
+            self.components.push(Component::text(&name, parent.name.clone(), None));
+            let mut children = vec![name];
+            let shown = [i > 0, i + 1 < parents.len(), true];
+            for ((edit, label, icon), shown) in EXTENDS_BUTTONS.into_iter().zip(shown) {
+                if !shown {
+                    continue;
+                }
+                let button = format!("{id}:{edit}");
+                let context = [("edit", lit(json!(edit))), ("theme", lit(json!(parent.namespace)))];
+                let action = Action::event(THEME_EXTENDS_EVENT, context);
+                self.components.push(Component::button(&button, l.tr(label), false, action).icon(icon));
+                children.push(button);
+            }
+            let refs: Vec<&str> = children.iter().map(String::as_str).collect();
+            self.components.push(Component::row(&id, &refs));
+            ids.push(id);
+        }
+        if !choices.is_empty() {
+            let context = [("edit", lit(json!("add"))), ("theme", Dynamic::path("/extends_add"))];
+            self.components.push(Component::new(
+                "extends-add",
+                ComponentKind::Select {
+                    label: Dynamic::Literal(l.tr("theme-extends-add")),
+                    value: Dynamic::path("/extends_add"),
+                    options: choices,
+                    action: Some(Action::event(THEME_EXTENDS_EVENT, context)),
+                },
+            ));
+            self.data.insert("extends_add".into(), json!(""));
+            ids.push("extends-add".to_owned());
+        }
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        self.components.push(Component::column("extends", &refs));
+        "extends".to_owned()
     }
 
     /// La ligne « nouvelle couleur » : nom, couleur, bouton d'ajout.
@@ -273,16 +330,18 @@ impl Session {
         rows
     }
 
-    /// Les lignes en lecture seule d'en tête : parents, surcharges du deck mis de côté.
+    /// L'en-tête : parents du brouillon, puis surcharges du deck mis de côté (lecture seule).
     fn theme_header(&self, b: &mut Builder, schema: &[TokenSpec], body: &mut Vec<String>) {
         let Mode::Pack { theme, .. } = &self.mode else { return };
         let l = &self.localizer;
-        let names = self.draft_extends_names(theme);
-        if !names.is_empty() {
-            let text = l.tr_with("theme-extends", &[("names", names.join(", ").into())]);
-            b.components.push(Component::text("extends", text, Some(TextVariant::Caption)));
-            body.push("extends".to_owned());
-        }
+        // À ajouter : les thèmes de la bibliothèque hors de la liste, sauf le sien (un enfant n'en a pas).
+        let choices = self
+            .theme_list
+            .iter()
+            .filter(|t| !theme.extends.contains(&t.namespace) && (theme.child() || t.namespace != theme.namespace))
+            .map(|t| ChoiceOption { id: t.namespace.to_string(), label: t.name.clone(), hint: None })
+            .collect();
+        body.push(b.extends(&self.draft_parents(theme), choices, l));
         let overrides = self.user_deck().tokens.as_object().map(|t| token_paths(schema, t)).unwrap_or_default();
         if !overrides.is_empty() {
             let text = l.tr_with("theme-deck-overrides", &[("paths", overrides.join(", ").into())]);

@@ -93,6 +93,8 @@ impl Session {
         if report.changes > 0 || !on_save {
             self.set_notice(merge_notice(&self.localizer, file, &report));
         }
+        // Les épinglages ont pu changer (packs, thème) : la pastille du panneau des packs suit.
+        self.refresh_pack_updates();
         // La fusion peut apporter un autre pack de modèles : ses widgets
         // servent aussi aux polices refaites ci-dessous.
         self.sync_widgets()?;

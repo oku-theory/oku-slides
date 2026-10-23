@@ -32,6 +32,7 @@ use crate::error::{
     NotEditingPackSnafu, PackManifestSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu,
     UnknownWidgetSnafu, WidgetInvalidSnafu,
 };
+use crate::example_text::localized_examples;
 use crate::pack::PackManifest;
 use crate::widget_params::{checked_value, same_as};
 use crate::widget_preview::preview_params;
@@ -64,10 +65,13 @@ impl Session {
     }
 
     /// Les valeurs d'exemple de `name` dans le pack `pack` (voir `widget_target`) ; aucune s'il n'en a pas.
+    ///
+    /// Celles d'un pack intégré sont traduites (`localized_examples`).
     pub(crate) fn example_values(&self, pack: Option<&Namespace>, name: &WidgetFile) -> Result<Map<String, Value>> {
         let t = self.widget_target(pack)?;
         let manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
-        Ok(manifest.examples.get(name).cloned().unwrap_or_default())
+        let values = manifest.examples.get(name).map(|v| localized_examples(manifest.id, v, &self.localizer));
+        Ok(values.unwrap_or_default())
     }
 
     /// Règle des valeurs d'exemple de `widget`, tout ou rien.

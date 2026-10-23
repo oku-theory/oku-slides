@@ -27,8 +27,20 @@ fn builtin_versions_have_the_constant_ids() {
     let created: Vec<(Uuid, &str)> =
         builtin_versions().iter().map(|b| (b.manifest.id, b.manifest.created.as_str())).collect();
     assert_that!(created)
-        .is_equal_to(vec![(BASE_PACK, "2026-10-18T00:00:00Z"), (ESSENTIEL_PACK, "2026-10-19T00:00:00Z")]);
-    assert_that!(builtin_versions().iter().all(|b| b.manifest.parent.is_none())).is_true();
+        .is_equal_to(vec![(BASE_PACK, "2026-10-23T00:00:00Z"), (ESSENTIEL_PACK, "2026-10-23T00:00:00Z")]);
+}
+
+#[test]
+fn builtin_versions_have_the_previous_shipped_version_as_parent() {
+    // L'avant-dernière ligne de `versions.txt` : la version livrée juste avant la courante.
+    let previous = |p: oku_slides_render::BuiltinPack| {
+        let shipped: Vec<&str> = p.shipped_versions().collect();
+        shipped.len().checked_sub(2).map(|i| shipped[i].to_owned())
+    };
+    let parents: Vec<Option<String>> =
+        builtin_versions().iter().map(|b| b.manifest.parent.as_ref().map(|v| v.hex().to_owned())).collect();
+    let shipped: Vec<Option<String>> = oku_slides_render::BuiltinPack::ALL.into_iter().map(previous).collect();
+    assert_that!(parents).is_equal_to(shipped);
 }
 
 #[rstest::rstest]

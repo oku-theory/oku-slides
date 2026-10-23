@@ -137,7 +137,8 @@ impl Session {
         // part du thème édité, que l'agent change par `set_theme`.
         let theme = match &self.mode {
             Mode::Pack { theme, .. } => {
-                format!("theme (draft): {}{}", theme.name, extends_note(&self.draft_extends_names(theme)))
+                let names: Vec<String> = self.draft_parents(theme).into_iter().map(|p| p.name).collect();
+                format!("theme (draft): {}{}", theme.name, extends_note(&names))
             }
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } => {
                 let manifest = deck.theme.as_ref().and_then(|ns| self.theme_manifest(deck.themes.get(ns)?));

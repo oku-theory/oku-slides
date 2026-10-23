@@ -2,7 +2,8 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { PackKind, Snapshot, TabApi } from "./api";
+import type { Snapshot, TabApi } from "./api";
+import type { PackKind } from "./packTypes";
 
 const { act, createElement, Fragment, StrictMode, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");

@@ -1,5 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
-import type { PackInfo, PackPin, Snapshot } from "./api";
+import type { Snapshot } from "./api";
+import type { PackInfo, PackPin } from "./packTypes";
 import { setMessages } from "./i18n";
 import { deckPinsKey, firstPackId, packOptionLabel, pinsKey, splitKind, widgetToOpen } from "./packOps";
 import { resetMessages } from "./test/messages";

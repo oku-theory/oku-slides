@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Element, FieldView, Paragraph, SlideView } from "./api";
-import { BASE, ESSENTIEL } from "./builtinKinds";
+import { BASE } from "./builtinKinds";
 import {
   copyAfterRefusedMove,
   fieldChanged,
@@ -98,7 +98,7 @@ describe("textToParagraphs", () => {
 test("instantiate renouvelle les identifiants de la slide et des éléments, dans tous leurs slots", () => {
   const template = {
     id: "t",
-    kind: ESSENTIEL.content,
+    kind: "essentiel/content",
     params: { elements: [{ id: "a", kind: "base/stack", params: { children: [{ id: "b", kind: "base/text" }] } }] },
   };
   const copy = instantiate(template);
@@ -110,7 +110,7 @@ test("instantiate renouvelle les identifiants de la slide et des éléments, dan
 });
 
 test("instantiate gives fresh slide and element ids", () => {
-  const layout = { id: "layout-content", kind: ESSENTIEL.content, params: { blocks: [{ id: "b", kind: BASE.text }] } };
+  const layout = { id: "layout-content", kind: "essentiel/content", params: { blocks: [{ id: "b", kind: BASE.text }] } };
   const s = instantiate(layout);
   expect([s.id === "layout-content", slot(s, "blocks")[0].id === "b"]).toEqual([false, false]);
 });
@@ -118,7 +118,7 @@ test("instantiate gives fresh slide and element ids", () => {
 /** Une slide 1000 × 600 pt, grille 4 × 3 sans gouttière : des cases de 250 × 200. */
 function view(params: Record<string, unknown>, targets: SlideView["targets"] = []): SlideView {
   return {
-    slide: { id: "s", kind: ESSENTIEL.content, params },
+    slide: { id: "s", kind: "essentiel/content", params },
     page: 1,
     hash: "",
     width: 1920,
@@ -505,7 +505,7 @@ describe("previewLook", () => {
 
 describe("copyAfterRefusedMove", () => {
   const slides = [{ id: "t" }, { id: "s" }];
-  const fetched = (blocks: Element[]) => async (id: string) => ({ ...view({ blocks }), slide: { id, kind: ESSENTIEL.content, params: { blocks } } }) as SlideView;
+  const fetched = (blocks: Element[]) => async (id: string) => ({ ...view({ blocks }), slide: { id, kind: "essentiel/content", params: { blocks } } }) as SlideView;
 
   test("copyAfterRefusedMove copies when the source slide is gone", async () => {
     const never = async (): Promise<SlideView> => {

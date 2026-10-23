@@ -51,34 +51,15 @@ ui-pack-deck-only = Guardado solo en esta presentación
 ui-toolbar-open = Abrir
 ui-menu = Menú
 ui-toolbar-add-label = Añadir a la diapositiva
+ui-toolbar-packs = Paquetes de la presentación
+ui-toolbar-packs-update = Paquetes de la presentación — actualizaciones disponibles
 ui-toolbar-thumbs-show = Mostrar miniaturas
 ui-toolbar-thumbs-hide = Ocultar miniaturas
-ui-add-kind = { $kind ->
-    [card] Tarjeta
-    [shape] Forma
-    [chart] Gráfico
-    [table] Tabla
-   *[text] Texto
-}
-ui-add-kind-description = { $kind ->
-    [card] Un título y un texto breve en un recuadro
-    [shape] Una forma de color
-    [chart] Un gráfico a partir de una tabla de datos
-    [table] Una tabla de datos
-   *[text] Un párrafo de texto
-}
 ui-toolbar-remove-slide = Eliminar la diapositiva
 ui-toolbar-remove-hint = Diapositiva { $n } · deshaz con ⌘Z
 
 ## Etiquetas de deshacer
 
-ui-undo-add = { $kind ->
-    [card] Añadir una tarjeta
-    [shape] Añadir una forma
-    [chart] Añadir un gráfico
-    [table] Añadir una tabla
-   *[text] Añadir un texto
-}
 ui-undo-add-widget = Añadir «{ $name }»
 ui-undo-new-slide = Nueva diapositiva: { $name }
 ui-undo-move-slide = Mover la diapositiva
@@ -94,12 +75,6 @@ ui-undo-resize = Redimensionar
 ui-undo-edit-slide = Editar la diapositiva
 ui-undo-rename-pack = Cambiar el nombre del paquete
 ui-undo-rename-deck = Cambiar el nombre de la presentación
-
-## Elementos nuevos
-
-ui-new-text = Texto nuevo
-ui-new-card-title = Título de la tarjeta
-ui-new-card-detail = Detalle
 
 ## Pila de diapositivas
 

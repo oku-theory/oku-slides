@@ -291,6 +291,7 @@ fn manifest(name: &str) -> PackManifest {
         scope: PackScope::Library,
         profiles: Vec::new(),
         examples: BTreeMap::new(),
+        styles: BTreeMap::new(),
         tokens: Vec::new(),
     }
 }
@@ -654,4 +655,32 @@ fn pack_manifest_reads_namespace_and_requires() {
         "created": "2026-10-18T00:00:00Z"});
     let m: PackManifest = serde_json::from_value(json).unwrap();
     assert_that!((m.namespace.as_str().to_owned(), m.requires.len())).is_equal_to(("acme".to_owned(), 1));
+}
+
+/// Sans `styles`, la clé n'est pas écrite : les versions existantes gardent leur empreinte.
+#[test]
+fn pack_manifest_without_styles_writes_no_styles_key_and_keeps_its_version() {
+    let files = manifest("Mien").to_files(PackKind::Widgets, BTreeMap::new()).unwrap();
+    assert_that!(files.manifest().contains_key("styles")).is_false();
+    let reread = PackFiles::new(PackKind::Widgets, files.manifest().clone(), BTreeMap::new());
+    assert_that!(reread.version()).is_equal_to(files.version());
+}
+
+#[test]
+fn pack_manifest_styles_round_trip_through_pack_files() {
+    let mut m = manifest("Mien");
+    m.styles.insert(wf("shape"), Style { fill: Some("surface".into()), ..Style::default() });
+    let files = m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap();
+    assert_that!(PackManifest::from_files(&files).unwrap()).is_equal_to(&m);
+    assert_that!(files.manifest()["styles"]["shape"]["fill"].as_str()).is_equal_to(Some("surface"));
+}
+
+/// Une entrée de `styles` illisible est écartée ; les autres restent.
+#[test]
+fn pack_manifest_styles_bad_entry_is_dropped_others_kept() {
+    let mut json = serde_json::to_value(manifest("Mien")).unwrap();
+    json["styles"] = json!({ "shape": { "fill": "surface", "radius": "md" }, "bad": 42, "Mauvais Nom": {} });
+    let files = PackFiles::new(PackKind::Widgets, object(json), BTreeMap::new());
+    let m = PackManifest::from_files(&files).unwrap();
+    assert_that!(m.styles.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![wf("shape")]);
 }

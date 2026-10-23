@@ -47,7 +47,7 @@ use oku_slides_render::PackWidgets;
 use crate::error::{NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackVersionMissingSnafu, RegistrySnafu};
 use crate::pack::PackManifest;
 use crate::pack_mode_save::adopt_merge_key;
-use crate::pack_notice::is_deck_only;
+use crate::pack_receive::is_deck_only;
 use crate::widgets_edit::WidgetTarget;
 use crate::{Result, Session};
 
@@ -169,6 +169,7 @@ impl Session {
             scope: PackScope::Deck,
             profiles: Vec::new(),
             examples: Default::default(),
+            styles: Default::default(),
             tokens: Vec::new(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
@@ -245,8 +246,8 @@ impl Session {
         if manifest.scope.is_library() {
             self.write_deck_widgets(t.id, &manifest.name, replaced, &files);
         }
-        // Après l'écriture : la bibliothèque connaît la version, courante (pas de bandeau).
-        self.pack_notice = self.pack_notice_for_deck();
+        // Après l'écriture : la bibliothèque connaît la version, courante.
+        self.refresh_pack_updates();
         Ok(WidgetSession { id: t.id, parent, version })
     }
 

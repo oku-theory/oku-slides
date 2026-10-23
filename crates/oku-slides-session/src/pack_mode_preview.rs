@@ -9,11 +9,12 @@
 //! de widget les réaligne (`realign_widget_previews`).
 
 use oku_slides_core::{Deck, Element, Op, PackFiles, PackKind, ParamValue, Slide, WidgetFile, kinds, qualify};
+use oku_slides_i18n::Localizer;
 use snafu::ensure;
 
 use crate::error::PackModePreviewSnafu;
 use crate::pack::PackManifest;
-use crate::pack_mode::example_params;
+use crate::pack_mode::manifest_example_params;
 use crate::{Mode, Result, Session};
 
 /// Préfixe des ids des slides d'aperçu.
@@ -27,11 +28,11 @@ pub(crate) fn preview_slide_id(name: &WidgetFile) -> String {
     format!("{PREVIEW_PREFIX}{}", name.as_str())
 }
 
-/// La slide d'aperçu du widget `name` du pack `manifest`.
-fn preview_slide(manifest: &PackManifest, name: &WidgetFile) -> Slide {
+/// La slide d'aperçu du widget `name` du pack `manifest`, son exemple dans la langue de `l`.
+fn preview_slide(manifest: &PackManifest, name: &WidgetFile, l: &Localizer) -> Slide {
     let id = preview_slide_id(name);
     let mut element = Element::new(format!("{id}-block"), &qualify(&manifest.namespace, name.as_str()));
-    element.params = example_params(&element.kind, manifest.examples.get(name));
+    element.params = manifest_example_params(manifest, name, &element.kind, l);
     let mut slide = Slide::new(id, kinds::essentiel::CONTENT);
     slide.params.set(BLOCKS, ParamValue::Slot(vec![element]));
     slide
@@ -40,11 +41,11 @@ fn preview_slide(manifest: &PackManifest, name: &WidgetFile) -> Slide {
 /// Les slides d'aperçu d'un pack de widgets : une par widget de `files`, version du pack `manifest`.
 ///
 /// Aucune pour un pack de layouts.
-pub(crate) fn preview_slides(manifest: &PackManifest, files: &PackFiles) -> Vec<Slide> {
+pub(crate) fn preview_slides(manifest: &PackManifest, files: &PackFiles, l: &Localizer) -> Vec<Slide> {
     if files.kind() != PackKind::Widgets {
         return Vec::new();
     }
-    files.widgets().keys().filter(|n| !n.is_common()).map(|n| preview_slide(manifest, n)).collect()
+    files.widgets().keys().filter(|n| !n.is_common()).map(|n| preview_slide(manifest, n, l)).collect()
 }
 
 /// Le deck de travail suit les widgets de `files`, version du pack `manifest`.
@@ -53,7 +54,7 @@ pub(crate) fn preview_slides(manifest: &PackManifest, files: &PackFiles) -> Vec<
 /// sa valeur d'exemple ; les autres restent telles quelles (une valeur
 /// d'exemple réglée ne les change pas). Elles suivent l'ordre des fichiers,
 /// après les autres slides. Rien pour un pack de layouts.
-pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, files: &PackFiles) {
+pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, files: &PackFiles, l: &Localizer) {
     if files.kind() != PackKind::Widgets {
         return;
     }
@@ -64,7 +65,7 @@ pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, 
         let id = preview_slide_id(name);
         let slide = match kept.iter().position(|s| s.id == id) {
             Some(i) => kept.swap_remove(i),
-            None => preview_slide(manifest, name),
+            None => preview_slide(manifest, name, l),
         };
         deck.slides.push(slide);
     }

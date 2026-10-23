@@ -264,15 +264,15 @@ fn two_writes_in_one_agent_turn_keep_only_the_last_version() {
 }
 
 #[test]
-fn set_widget_in_deck_mode_shows_no_pack_notice() {
+fn set_widget_in_deck_mode_counts_no_pack_update() {
     let data = fresh_dir("oku-slides-widgets-deck-");
     let mut s = opened_on(data.path());
     s.set_widget(Some(&ess()), "quote", QUOTE.into()).unwrap();
     let r = pin(&s, "base").unwrap();
     assert_that!(library_of(&s).current(r.id)).is_equal_to(Some(r.version.clone()));
-    assert_that!(s.snapshot().pack_notice).is_none();
+    assert_that!(s.snapshot().pack_updates).is_equal_to(0);
     s.set_widget(Some(&ess()), "quote", QUOTE_V2.into()).unwrap();
-    assert_that!(s.snapshot().pack_notice).is_none();
+    assert_that!(s.snapshot().pack_updates).is_equal_to(0);
 }
 
 /// `Save` de l'interface (sans `overwrite`), dans `path`.
@@ -403,7 +403,7 @@ fn set_widget_on_a_deck_only_pack_embeds_its_versions_and_leaves_the_library_unc
     assert_that!(manifest.scope).is_equal_to(PackScope::Deck);
     assert_that!(manifest.parent).is_equal_to(Some(before.version.clone()));
     assert_that!(s.doc.notice).is_none();
-    assert_that!(s.pack_notice_for_deck()).is_none();
+    assert_that!(s.pack_updates()).is_equal_to(0);
     s.undo().unwrap();
     assert_that!(pin(&s, "deck")).is_equal_to(Some(before));
 }

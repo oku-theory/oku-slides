@@ -16,7 +16,7 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
   field), `ItemBox` (`list-item`), `ZoneBox`/`GridBox` (free zone, grid), `TextStyle` (measured).
   `field()` emits a box per field, even empty; `fields-stack` sticks an empty field's marker to
   the next item, taking no room (`FieldBox.empty`, `side`).
-- `PackWidgets`: namespace, `PackKind`, `<dir>/<name>.typ` files (`widgets` or `layouts`,
+- `PackWidgets` (`from_files`: id = version hash, the only trusted build): namespace, `PackKind`, `<dir>/<name>.typ` files (`widgets` or `layouts`,
   `_commun` shared) under `/packs/<id>/` and a generated `/packs/<id>/<dir>.typ` naming them
   `ns/name`; `PackSet`: packs by namespace, unique namespaces and ids (`DuplicatePack`).
   `probe_file` (`widget_probe.rs`): one file alone, by kind, gives a `FileProbe` (schema or

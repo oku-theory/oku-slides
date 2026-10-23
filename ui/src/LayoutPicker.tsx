@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { errorText, type LayoutPackView, type LayoutView, type TabApi } from "./api";
+import { errorText, type TabApi } from "./api";
+import { type LayoutPackView, type LayoutView } from "./packTypes";
 import { t } from "./i18n";
 import { useModalFrame } from "./modalFrame";
 

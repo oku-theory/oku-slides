@@ -26,6 +26,7 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackPin {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        styles: Default::default(),
         tokens: Vec::new(),
     };
     let widgets = widgets

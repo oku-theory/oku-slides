@@ -106,6 +106,7 @@ agent-error-locale = Código de idioma desconocido. Indica el código de un idio
 agent-error-empty-interface = Nada que cambiar: indica scheme, locale, grid o guides.
 agent-error-not-shown = Esta pestaña no es la que se muestra en su ventana: vuelve a pedirlo cuando el usuario la muestre.
 agent-error-themes-deck-mode = El selector de temas solo se abre al editar las diapositivas.
+agent-error-packs-deck-mode = El panel de paquetes de la presentación solo se abre al editar las diapositivas.
 agent-error-rewrite-text = La reformulación volvió sin texto.
 agent-error-paragraphs = Los párrafos de la reformulación no son válidos.
 agent-error-draft-too-long = El borrador es demasiado largo.

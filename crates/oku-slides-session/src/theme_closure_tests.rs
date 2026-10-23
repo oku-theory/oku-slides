@@ -77,3 +77,27 @@ fn theme_chain_errors_are_localized(#[case] themes: &[(&str, &[&str])], #[case] 
     let shown = Localizer::new(Some("fr")).tr_with(key, &[("chain", "a → b → a".into()), ("namespace", "pro".into())]);
     assert_that!(fr).is_equal_to(shown);
 }
+
+#[test]
+fn closure_of_parents_of_a_diamond_orders_like_a_root_extending_them() {
+    let (library, _dir) = library_with_themes(&[("b", &["papier"]), ("c", &["papier"])]);
+    let parents = [ns("b"), ns("c")];
+    let (pins, _) = closure_of_parents(&parents, |n| library_theme(&library, n)).unwrap();
+    let order = parents_order(&parents, &pins).unwrap();
+    assert_that!(order.iter().map(Namespace::as_str).collect::<Vec<_>>()).is_equal_to(vec!["papier", "b", "c"]);
+    assert_that!(pins.contains_key(&Namespace::deck())).is_false();
+}
+
+#[test]
+fn closure_of_parents_with_a_cycle_is_refused() {
+    let (library, _dir) = library_with_themes(&TWO);
+    let err = closure_of_parents(&[ns("a")], |n| library_theme(&library, n)).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::ThemeCycle);
+}
+
+#[test]
+fn closure_of_parents_of_no_parent_is_empty() {
+    let (library, _dir) = library_with_themes(&[]);
+    let closure = closure_of_parents(&[], |n| library_theme(&library, n)).unwrap();
+    assert_that!(parents_order(&[], &closure.0).unwrap()).is_empty();
+}

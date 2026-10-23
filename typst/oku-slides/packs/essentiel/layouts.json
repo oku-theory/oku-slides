@@ -6,8 +6,8 @@
     "base"
   ],
   "description": "Les mises en page de base : couverture, sommaire, chapitre, contenu, fin, slide vide.",
-  "parent": null,
-  "created": "2026-10-19T00:00:00Z",
+  "parent": "sha256:00d133ed09af3261623f147d5aa3a3fc867b19121fbf09eb2009880616163fda",
+  "created": "2026-10-23T00:00:00Z",
   "profiles": [
     {
       "id": "texte",
@@ -178,12 +178,12 @@
   ],
   "examples": {
     "chapter": {
-      "title": "Nouvelle partie",
-      "subtitle": "En une phrase"
+      "title": "ftl:session-example-essentiel-chapter-title",
+      "subtitle": "ftl:session-example-essentiel-chapter-subtitle"
     },
     "content": {
-      "title": "Titre de la slide",
-      "kicker": "Surtitre",
+      "title": "ftl:session-example-essentiel-content-title",
+      "kicker": "ftl:session-example-essentiel-content-kicker",
       "blocks": [
         {
           "id": "b",
@@ -194,7 +194,7 @@
                 "list": "bullet",
                 "runs": [
                   {
-                    "t": "Premier point"
+                    "t": "ftl:session-example-essentiel-content-blocks-1"
                   }
                 ]
               },
@@ -202,7 +202,7 @@
                 "list": "bullet",
                 "runs": [
                   {
-                    "t": "Deuxième point"
+                    "t": "ftl:session-example-essentiel-content-blocks-2"
                   }
                 ]
               },
@@ -210,7 +210,7 @@
                 "list": "bullet",
                 "runs": [
                   {
-                    "t": "Troisième point"
+                    "t": "ftl:session-example-essentiel-content-blocks-3"
                   }
                 ]
               }
@@ -220,7 +220,7 @@
       ]
     },
     "end": {
-      "text": "Merci"
+      "text": "ftl:session-example-essentiel-end-text"
     }
   }
 }

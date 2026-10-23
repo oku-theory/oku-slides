@@ -172,9 +172,14 @@ const noTurnSince = async (p, from, ms) => {
   assert.ok(packBefore, 'le deck importé épingle son pack de layouts');
   // Le panneau du thème d'un atelier liste les surcharges du deck, que l'import a générées.
   const deckOverrides = async (pack) => {
+    // Le pack se referme même si la lecture échoue : l'onglet ne reste pas en mode pack (t-1108).
     await api(p, hifi, { cmd: 'edit_pack', pack });
-    const text = JSON.stringify(await api(p, hifi, { cmd: 'host_theme', filter: '' }));
-    await api(p, hifi, { cmd: 'close_pack' });
+    let text;
+    try {
+      text = JSON.stringify(await api(p, hifi, { cmd: 'host_theme', filter: '' }));
+    } finally {
+      await api(p, hifi, { cmd: 'close_pack' });
+    }
     return /Surcharges du deck[^"]*/.exec(text)?.[0] ?? '';
   };
   const overridesAtImport = await deckOverrides(packBefore.id);

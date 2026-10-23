@@ -222,6 +222,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* Sous la feuille : ajouter à la slide, puis annuler / rétablir, dans une seule barre. */
 .tools-tray { grid-area: tools; justify-self: center; align-self: center; position: relative; z-index: 2; gap: 2px; padding: 0 var(--space-1); }
 .tools-tray .token.ghost { width: 36px; height: 36px; }
+/* Bouton des packs du deck : une pastille quand un épinglage est plus ancien que ma version. */
+.tools-tray .packs-button { position: relative; }
+.tools-tray .packs-button.has-update::after {
+  content: ""; position: absolute; top: 7px; inset-inline-end: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+}
 /* Fenêtre étroite : des jetons plus petits, pour que la barre tienne sous la slide. */
 @media (max-width: 1199px) { .tools-tray .token.ghost { width: 32px; height: 32px; } }
 /* Enfoncé : le code est affiché, même survolé (la règle de survol de .ghost vient plus tard, dans glass.css). */
@@ -553,7 +558,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .stepper-value { text-align: center; font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .linkish { align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer; font-size: 12px; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; opacity: 0.75; }
 .linkish:hover { opacity: 1; }
-/* Grille d'ajout : le filtre dans l'en-tête ; une carte montre l'aperçu du widget, ou l'icône d'un élément natif. */
+/* Grille d'ajout : le filtre dans l'en-tête ; une section par pack, chaque carte montre l'aperçu du widget. */
 /* Ancrée en haut : filtrer change sa hauteur sans la faire sauter. */
 .widget-picker { width: min(980px, calc(100vw - 80px)); max-height: 84vh; align-self: start; margin-top: 8vh; }
 .widget-picker-filter {
@@ -561,11 +566,13 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   background: var(--paper-000); color: var(--ink); font: inherit;
 }
 .widget-picker-filter:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
-/* Les cartes, en colonnes souples : la grille prend la hauteur qui reste et défile au-delà. */
-.widget-picker-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px 18px;
-  flex: 1; min-height: 0; max-height: 560px; overflow-y: auto; padding: 12px 12px 16px; align-content: start;
+/* Les sections prennent la hauteur qui reste et défilent au-delà ; leurs cartes, en colonnes souples. */
+.widget-picker-list {
+  flex: 1; min-height: 0; max-height: 560px; overflow-y: auto; padding: 12px 12px 16px;
+  display: flex; flex-direction: column; gap: var(--space-6);
 }
+.widget-picker-pack h3 { margin: 0 0 12px; font: 600 13px/18px var(--sans); color: var(--ink-muted); }
+.widget-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px 18px; align-content: start; }
 .widget-choice {
   display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0;
   background: none; border: 0; text-align: start; cursor: pointer; color: var(--ink);
@@ -870,20 +877,14 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .table.agent-detached > .notes, .table.agent-detached .col-divider[data-side="notes"] { display: none; }
 /* À la place du fil : « Rattacher », en haut de la colonne étroite, centré sur la rangée du titre (104px). */
 .table > .agent-reattach { grid-area: notes; justify-self: center; align-self: start; margin-top: calc((104px - var(--space-6)) / 2); padding: 0; width: var(--space-6); height: var(--space-6); }
-/* ---- Bandeau du pack : une rangée de plus entre le titre et la feuille, sur la largeur de la feuille ---- */
-.table:has(> .pack-notice) {
-  grid-template-rows: 104px auto minmax(0, 1fr) 104px;
-  grid-template-areas: "pile label notes" "pile notice notes" "pile sheet notes" "pile tools device";
-}
-/* Un bandeau posé (pas un objet qui se soulève) : le texte, les boutons, la croix. Bandeau du pack
-   (composant A2UI `Notice`) et bandeau de mise à jour. */
+/* ---- Bandeaux ---- */
+/* Un bandeau posé (pas un objet qui se soulève) : le texte, les boutons, la croix. Composant A2UI
+   `Notice` et bandeau de mise à jour. */
 .notice-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4);
   padding: 6px 6px 6px 18px; background: var(--paper-200); color: var(--ink); border-radius: var(--radius-md);
   box-shadow: var(--edge-light), var(--shadow-object); transition: var(--theme-fade);
 }
-/* La rangée du bandeau du pack, entre le titre et la feuille. */
-.pack-notice { grid-area: notice; position: relative; z-index: 2; margin: 0 var(--space-6) var(--space-2); }
 /* Le texte prend la place libre et passe à la ligne ; trop étroit, les actions passent dessous. */
 .notice-bar-text { flex: 1 1 260px; min-width: 0; font-size: 13px; line-height: 18px; }
 .notice-bar-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }

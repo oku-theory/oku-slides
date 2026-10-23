@@ -3,6 +3,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { openAtelier } = require('./lib/atelier.cjs');
+const { untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab:not([hidden])';
 
@@ -17,6 +18,10 @@ const boxes = (p) => p.evaluate((sel) => {
     overflow: tab.scrollWidth - tab.clientWidth,
   };
 }, TAB);
+
+/** Boîte du séparateur, relue tant qu'elle est nulle : il se remonte quand la disposition change (t-1108). */
+const dividerBox = (p) =>
+  untilValue(p, () => p.locator(`${TAB} .code-divider`).boundingBox(), (box) => box !== null, 'séparateur du code sans boîte');
 
 /** Réponse de l'hôte à la sauvegarde de l'état d'interface dont la largeur du code vérifie `ok` :
  *  la sauvegarde part après le rendu et peut tarder sur une machine chargée (t-668). */
@@ -60,7 +65,7 @@ const saved = (p, ok) =>
 
   // Glisser le séparateur de 60 px vers la gauche élargit le code d'autant (les réglages gardent leurs 240 px).
   const before = r.code.width;
-  const d = await p.locator(`${TAB} .code-divider`).boundingBox();
+  const d = await dividerBox(p);
   await p.mouse.move(d.x + d.width / 2, d.y + d.height / 2);
   await p.mouse.down();
   await p.mouse.move(d.x + d.width / 2 - 60, d.y + d.height / 2, { steps: 6 });
@@ -80,7 +85,7 @@ const saved = (p, ok) =>
 
   // Fenêtre étroite, code tiré au plus large : les réglages gardent leurs 240 px (SIDE_MIN), rien ne déborde.
   await p.setViewportSize({ width: 1100, height: 900 });
-  const n = await p.locator(`${TAB} .code-divider`).boundingBox();
+  const n = await dividerBox(p);
   await p.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
   await p.mouse.down();
   await p.mouse.move(0, n.y + n.height / 2, { steps: 6 });

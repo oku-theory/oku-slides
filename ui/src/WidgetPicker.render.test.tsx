@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import { resetMessages } from "./test/messages";
 import type { WidgetPreview } from "./api";
+import type { AddPackView, AddWidget } from "./packTypes";
 import type { WidgetChoice } from "./widgetChoices";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
@@ -12,33 +13,35 @@ const { createRoot } = await import("react-dom/client");
 const WidgetPicker = (await import("./WidgetPicker")).default;
 const { ARMING_MS } = await import("./modalFrame");
 const { setMessages } = await import("./i18n");
-const { widgetChoices } = await import("./widgetChoices");
+const { widgetSections } = await import("./widgetChoices");
 
 afterAll(resetMessages);
 setMessages("fr", [
   [
-    "ui-add-kind = { $kind ->",
-    "    [card] Carte",
-    "    [shape] Forme",
-    "    [chart] Graphique",
-    "    [table] Tableau",
-    "   *[text] Texte",
-    "}",
-    "ui-add-kind-description = { $kind ->",
-    "    [card] Un titre et un court texte dans un cadre",
-    "    [shape] Une forme colorée",
-    "    [chart] Un graphique tiré d'un tableau",
-    "    [table] Un tableau de données",
-    "   *[text] Un paragraphe de texte",
-    "}",
     "ui-widget-picker-empty = Aucun widget pour « { $query } ».",
     "ui-picker-close = Fermer",
   ].join("\n") + "\n",
 ]);
 
-const PACK = [
-  { name: "acme/kpi", label: "Indicateur", description: "Une valeur en grand" },
-  { name: "acme/frise", label: "Frise", description: "Des étapes datées" },
+/** Un widget de la grille, parti de valeurs vides. */
+const widget = (name: string, label: string, description: string | null = null): AddWidget => ({ name, label, description, seed: { params: {} } });
+
+/** Un pack de la grille : `kinds` sont des widgets ou des kinds (libellé = kind). */
+const pack = (namespace: string, name: string, kinds: (string | AddWidget)[]): AddPackView => ({
+  namespace,
+  name,
+  widgets: kinds.map((k) => (typeof k === "string" ? widget(k, k) : k)),
+});
+
+const PACKS = [
+  pack("base", "Base", [
+    widget("base/text", "Texte", "Un paragraphe de texte"),
+    widget("base/card", "Carte", "Un titre et un court texte dans un cadre"),
+    widget("base/shape", "Forme", "Une forme colorée"),
+    widget("base/chart", "Graphique", "Un graphique tiré d'un tableau"),
+    widget("base/table", "Tableau", "Un tableau de données"),
+  ]),
+  pack("acme", "Acme", [widget("acme/kpi", "Indicateur", "Une valeur en grand"), widget("acme/frise", "Frise", "Des étapes datées")]),
 ];
 
 type Root = ReturnType<typeof createRoot>;
@@ -60,12 +63,12 @@ afterEach(async () => {
 interface Options {
   preview?: (name: string) => Promise<WidgetPreview>;
   canPick?: (c: WidgetChoice) => boolean;
-  pack?: typeof PACK;
+  packs?: AddPackView[];
 }
 
 const SVG = { svg: "<svg/>", diagnostics: [] } as unknown as WidgetPreview;
 
-async function mount({ preview = async () => SVG, canPick = () => true, pack = PACK }: Options = {}) {
+async function mount({ preview = async () => SVG, canPick = () => true, packs = PACKS }: Options = {}) {
   const picked: string[] = [];
   const asked: string[] = [];
   let closed = 0;
@@ -73,20 +76,20 @@ async function mount({ preview = async () => SVG, canPick = () => true, pack = P
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const render = (list: typeof PACK, pickable = canPick) =>
+  const render = (list: AddPackView[], pickable = canPick) =>
     act(async () =>
       root.render(
         createElement(WidgetPicker, {
-          choices: widgetChoices(list),
+          sections: widgetSections(list),
           canPick: pickable,
           themeKey: "t",
-          preview: (name: string) => (asked.push(name), preview(name)),
+          preview: (name: string, pack?: string) => (asked.push(`${pack}:${name}`), preview(name)),
           onPick: (c: WidgetChoice) => void picked.push(c.key),
           onClose: () => void closed++,
         }),
       ),
     );
-  await render(pack);
+  await render(packs);
   await act(async () => new Promise((r) => setTimeout(r, 0)));
   const names = () => [...host.querySelectorAll('[role="option"] .card-name')].map((n) => n.textContent);
   const filter = () => host.querySelector<HTMLInputElement>('input[type="search"]')!;
@@ -114,9 +117,20 @@ async function key(el: HTMLElement, k: string) {
   });
 }
 
-test("WidgetPicker opened shows the native kinds then the pack widgets", async () => {
+test("WidgetPicker opened shows each pack's widgets, in pack order", async () => {
   const { names } = await mount();
   expect(names()).toEqual(["Texte", "Carte", "Forme", "Graphique", "Tableau", "Indicateur", "Frise"]);
+});
+
+test("WidgetPicker with two packs shows two pack headings", async () => {
+  const { host } = await mount({ packs: [pack("base", "Base", ["base/text", "base/card"]), pack("acme", "Acme", ["acme/badge"])] });
+  expect([...host.querySelectorAll("section h3")].map((h) => h.textContent)).toEqual(["Base", "Acme"]);
+});
+
+test("WidgetPicker filtered to one pack hides the other pack's heading", async () => {
+  const { filter, host } = await mount();
+  await type(filter(), "etapes");
+  expect([...host.querySelectorAll("section h3")].map((h) => h.textContent)).toEqual(["Acme"]);
 });
 
 test("WidgetPicker opened focuses the filter field", async () => {
@@ -141,7 +155,7 @@ test("WidgetPicker Enter after the guard picks the focused filtered card", async
   await type(filter(), "valeur");
   await arm();
   await key(filter(), "Enter");
-  expect(picked).toEqual(["widget:acme/kpi"]);
+  expect(picked).toEqual(["acme/kpi"]);
 });
 
 test("WidgetPicker Enter during the guard picks nothing", async () => {
@@ -162,14 +176,19 @@ test("WidgetPicker card refused by canPick is disabled", async () => {
   expect(host.querySelector<HTMLButtonElement>('[role="option"]')!.disabled).toBe(true);
 });
 
-test("WidgetPicker pack widget shows its rendered preview in an img", async () => {
+test("WidgetPicker every widget shows its rendered preview in an img", async () => {
   const { host } = await mount();
-  expect(host.querySelectorAll('[role="option"] img')).toHaveLength(2);
+  expect(host.querySelectorAll('[role="option"] img')).toHaveLength(7);
 });
 
-test("WidgetPicker previews are asked for each pack widget, in order", async () => {
+test("WidgetPicker previews are asked for each widget, in order", async () => {
   const { asked } = await mount();
-  expect(asked).toEqual(["acme/kpi", "acme/frise"]);
+  expect(asked).toEqual(["base:text", "base:card", "base:shape", "base:chart", "base:table", "acme:kpi", "acme:frise"]);
+});
+
+test("WidgetPicker asks the base card preview by its file name within the base pack", async () => {
+  const { asked } = await mount({ packs: [pack("base", "Base", ["base/card"])] });
+  expect(asked).toEqual(["base:card"]);
 });
 
 test("WidgetPicker pack widget preview is cropped to what the widget draws", async () => {
@@ -177,7 +196,7 @@ test("WidgetPicker pack widget preview is cropped to what the widget draws", asy
   const spy = spyOn(URL, "createObjectURL").mockImplementation((b) => (made.push(b as Blob), `blob:${made.length}`));
   try {
     await mount({
-      pack: [PACK[0]],
+      packs: [pack("acme", "Acme", [PACKS[1].widgets[0]])],
       preview: async (): Promise<WidgetPreview> => ({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960pt" height="540pt"></svg>',
         bbox: { x: 40, y: 60, w: 400, h: 120 },
@@ -193,14 +212,14 @@ test("WidgetPicker pack widget preview is cropped to what the widget draws", asy
 });
 
 test("WidgetPicker pack widget whose preview fails keeps the generic icon, the others load", async () => {
-  const { host } = await mount({ preview: async (name) => (name === "acme/kpi" ? Promise.reject(new Error("rendu")) : SVG) });
+  const { host } = await mount({ preview: async (name) => (name === "kpi" ? Promise.reject(new Error("rendu")) : SVG) });
   const faces = [...host.querySelectorAll('[role="option"] .widget-choice-face')].slice(5);
   expect(faces.map((f) => (f.querySelector("img") ? "img" : "icon"))).toEqual(["icon", "img"]);
 });
 
 test("WidgetPicker pack widget named like an Object property without preview keeps the icon", async () => {
   const { host } = await mount({
-    pack: [{ name: "constructor", label: null, description: null }],
+    packs: [pack("x", "X", ["constructor"])],
     preview: () => Promise.reject(new Error("rendu")),
   });
   expect(host.querySelectorAll('[role="option"] img')).toHaveLength(0);
@@ -251,14 +270,14 @@ test("WidgetPicker focus moved then filtered resets to the first match even if s
 test("WidgetPicker focused card kept when the same choices come again", async () => {
   const { filter, selected, rerender } = await mount();
   for (let i = 0; i < 6; i++) await key(filter(), "ArrowRight");
-  await rerender([...PACK]);
+  await rerender(PACKS.map((p) => ({ ...p, widgets: [...p.widgets] })));
   expect(selected()).toBe("Frise");
 });
 
 test("WidgetPicker focused card that becomes refused falls back to the first pickable card", async () => {
   const { filter, selected, rerender } = await mount();
   for (let i = 0; i < 2; i++) await key(filter(), "ArrowRight");
-  await rerender(PACK, (c) => c.key !== "base/shape");
+  await rerender(PACKS, (c) => c.key !== "base/shape");
   expect(selected()).toBe("Texte");
 });
 
@@ -303,12 +322,28 @@ test("WidgetPicker arrow up moves the focus one row above", async () => {
   expect(selected()).toBe("Carte");
 });
 
-test("WidgetPicker arrow down onto a refused card goes on down, or stays", async () => {
+test("WidgetPicker arrow down onto a refused card goes on down into the next pack's column", async () => {
   const { filter, host, selected } = await mount({ canPick: (c) => c.key !== "base/table" });
   rows(host, 3);
   await key(filter(), "ArrowRight");
   await key(filter(), "ArrowDown");
+  expect(selected()).toBe("Frise");
+});
+
+test("WidgetPicker arrow down with only refused cards below stays", async () => {
+  const { filter, host, selected } = await mount({ canPick: (c) => c.key !== "base/table" && c.key !== "acme/frise" });
+  rows(host, 3);
+  await key(filter(), "ArrowRight");
+  await key(filter(), "ArrowDown");
   expect(selected()).toBe("Carte");
+});
+
+test("WidgetPicker arrow down from a short last row lands in the next pack's first row", async () => {
+  const { filter, host, selected } = await mount();
+  rows(host, 3);
+  for (let i = 0; i < 3; i++) await key(filter(), "ArrowRight");
+  await key(filter(), "ArrowDown");
+  expect(selected()).toBe("Indicateur");
 });
 
 test("WidgetPicker arrow down from the filter is taken from the text field", async () => {
@@ -370,7 +405,7 @@ test("WidgetPicker empty filter result is announced outside the list", async () 
 test("WidgetPicker focused card removed while open falls back to the first card", async () => {
   const { filter, selected, rerender } = await mount();
   for (let i = 0; i < 6; i++) await key(filter(), "ArrowRight");
-  await rerender([]);
+  await rerender([PACKS[0]]);
   expect(selected()).toBe("Texte");
 });
 

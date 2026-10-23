@@ -1,42 +1,46 @@
 import { describe, expect, test } from "bun:test";
-import { filterChoices, widgetChoices, type WidgetChoice } from "./widgetChoices";
+import type { AddPackView, AddWidget } from "./packTypes";
+import { filterChoices, widgetSections, type WidgetChoice } from "./widgetChoices";
 
-const kpi = { name: "acme/kpi", label: "KPI", description: "Une valeur en grand" };
+const widget = (name: string, label = name, description: string | null = null): AddWidget => ({ name, label, description, seed: { params: {} } });
+const pack = (namespace: string, name: string, widgets: AddWidget[]): AddPackView => ({ namespace, name, widgets });
 
-describe("widgetChoices", () => {
-  test("widgetChoices without pack widgets lists the native kinds in card order", () => {
-    expect(widgetChoices([]).map((c) => c.key)).toEqual(["base/text", "base/card", "base/shape", "base/chart", "base/table"]);
+describe("widgetSections", () => {
+  test("widgetSections with two packs keeps pack and widget order", () => {
+    const sections = widgetSections([
+      pack("base", "Base", [widget("base/text"), widget("base/card")]),
+      pack("acme", "Acme", [widget("acme/kpi")]),
+    ]);
+    expect(sections.map((s) => [s.name, s.choices.map((c) => c.key)])).toEqual([
+      ["Base", ["base/text", "base/card"]],
+      ["Acme", ["acme/kpi"]],
+    ]);
   });
 
-  test("widgetChoices with pack widgets puts them after the native kinds", () => {
-    expect(widgetChoices([kpi]).map((c) => c.key)).toEqual(["base/text", "base/card", "base/shape", "base/chart", "base/table", "widget:acme/kpi"]);
+  test("widgetSections carries the widget, its seed included", () => {
+    const kpi = widget("acme/kpi", "KPI", "Une valeur en grand");
+    expect(widgetSections([pack("acme", "Acme", [kpi])])[0].choices[0]).toEqual({
+      key: "acme/kpi",
+      name: "acme/kpi",
+      label: "KPI",
+      description: "Une valeur en grand",
+      widget: kpi,
+    });
   });
 
-  test("widgetChoices with the base card widget keeps the native card only", () => {
-    const cards = widgetChoices([{ name: "base/card", label: "Carte", description: null }]).filter((c) => c.name.endsWith("card"));
-    expect(cards.map((c) => c.pick)).toEqual([{ native: "card" }]);
-  });
-
-  test("le filtre « base » ne retient aucune carte native", () => {
-    expect(filterChoices(widgetChoices([]), "base")).toEqual([]);
-  });
-
-  test("widgetChoices for a pack widget without label shows its name", () => {
-    expect(widgetChoices([{ name: "deck/frise", label: null, description: null }]).find((c) => c.key === "widget:deck/frise")?.label).toBe("deck/frise");
-  });
-
-  test("widgetChoices for a pack widget without description does not match the word null", () => {
-    expect(filterChoices(widgetChoices([{ name: "frise", label: null, description: null }]), "null")).toEqual([]);
+  test("widgetSections for a widget without description does not match the word null", () => {
+    const choices = widgetSections([pack("acme", "Acme", [widget("frise")])]).flatMap((s) => s.choices);
+    expect(filterChoices(choices, "null")).toEqual([]);
   });
 });
 
 /** Un choix de test : `label` et `description` lisibles, sans Fluent. */
 const choice = (name: string, label: string, description: string): WidgetChoice => ({
-  key: `widget:${name}`,
+  key: name,
   name,
   label,
   description,
-  pick: { widget: { name, label, description } },
+  widget: widget(name, label, description),
 });
 
 const list = [choice("kpi", "Indicateur", "Une valeur en grand"), choice("frise", "Frise", "Des étapes datées")];

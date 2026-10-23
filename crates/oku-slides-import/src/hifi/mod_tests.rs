@@ -80,7 +80,7 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
         created: "2026-10-11T08:00:00Z".into(),
         limits: PackLimits::default(),
     };
-    let plan = project(deck, &target);
+    let plan = project(deck, &target).unwrap();
     let registry = registry_with_deck_layouts(&plan.schemas);
     let mut d = Deck::empty();
     apply_all(&mut d, crate::test_support::with_theme_closure(plan.ops.clone()), &registry).unwrap();

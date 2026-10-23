@@ -57,34 +57,15 @@ ui-pack-deck-only = Сохраняется только в этой презен
 ui-toolbar-open = Открыть
 ui-menu = Меню
 ui-toolbar-add-label = Добавить на слайд
+ui-toolbar-packs = Пакеты презентации
+ui-toolbar-packs-update = Пакеты презентации — доступны обновления
 ui-toolbar-thumbs-show = Показать миниатюры
 ui-toolbar-thumbs-hide = Скрыть миниатюры
-ui-add-kind = { $kind ->
-    [card] Карточка
-    [shape] Фигура
-    [chart] Диаграмма
-    [table] Таблица
-   *[text] Текст
-}
-ui-add-kind-description = { $kind ->
-    [card] Заголовок и короткий текст в рамке
-    [shape] Цветная фигура
-    [chart] Диаграмма по таблице данных
-    [table] Таблица данных
-   *[text] Абзац текста
-}
 ui-toolbar-remove-slide = Удалить слайд
 ui-toolbar-remove-hint = Слайд { $n } · отменить: ⌘Z
 
 ## Подписи отмены
 
-ui-undo-add = { $kind ->
-    [card] Добавить карточку
-    [shape] Добавить фигуру
-    [chart] Добавить диаграмму
-    [table] Добавить таблицу
-   *[text] Добавить текст
-}
 ui-undo-add-widget = Добавить «{ $name }»
 ui-undo-new-slide = Новый слайд: { $name }
 ui-undo-move-slide = Переместить слайд
@@ -100,12 +81,6 @@ ui-undo-resize = Изменить размер
 ui-undo-edit-slide = Изменить слайд
 ui-undo-rename-pack = Переименовать набор
 ui-undo-rename-deck = Переименовать презентацию
-
-## Новые элементы
-
-ui-new-text = Новый текст
-ui-new-card-title = Заголовок карточки
-ui-new-card-detail = Подробности
 
 ## Стопка слайдов
 

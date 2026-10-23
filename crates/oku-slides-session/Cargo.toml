@@ -38,6 +38,7 @@ oku-slides-pdf.workspace = true
 speculoos.workspace = true
 insta.workspace = true
 tempfile.workspace = true
+tokio.workspace = true
 loro.workspace = true
 rstest.workspace = true
 zip.workspace = true

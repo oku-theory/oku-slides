@@ -90,14 +90,18 @@ pub struct Snapshot<'a> {
     ///
     /// L'atelier l'édite depuis sa version embarquée ; ses versions restent dans le deck.
     pub deck_pack: bool,
-    /// Bandeau du pack, en surface A2UI : le deck embarque une autre version que ma version courante.
-    pub pack_notice: Option<crate::agent::Surface>,
+    /// Épinglages (packs et thème) plus anciens que ma version courante : la pastille du bouton des packs.
+    pub pack_updates: u32,
     /// Widgets des packs en cours, qualifiés (`<namespace>/<nom>`, sans `_commun`), sans sonde.
     ///
     /// Ceux du pack édité en mode pack, sinon ceux de chaque pack épinglé.
     pub pack_widgets: Vec<String>,
-    /// Widgets d'élément du pack au registre : ceux de la barre d'ajout.
-    pub add_widgets: Vec<AddWidget<'a>>,
+    /// La grille d'ajout : les widgets d'élément de chaque pack de widgets épinglé, avec leur départ.
+    pub add_packs: Vec<crate::AddPackView>,
+    /// Le premier slot libre de chaque layout épinglé et les widgets qu'il accepte (`None` : tous).
+    ///
+    /// Un layout sans slot libre est absent : ses slides n'acceptent pas d'élément ajouté.
+    pub free_slots: BTreeMap<String, Option<Vec<String>>>,
     /// Révision des valeurs d'exemple des widgets (`widget_examples.rs`) : un changement relance les aperçus.
     pub widget_trials: u64,
     /// Slide courante et grille, gardées pour la reprise.
@@ -108,15 +112,6 @@ pub struct Snapshot<'a> {
     pub read_only: bool,
     /// Paramètres d'hôte des widgets d'élément du deck, par kind et type d'hôte.
     pub host_params: BTreeMap<String, BTreeMap<oku_slides_core::HostType, String>>,
-}
-
-/// Un widget de pack à ajouter : nom (`kind`), label et description.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub struct AddWidget<'a> {
-    pub name: &'a str,
-    pub label: Option<&'a str>,
-    /// Ce que montre le widget, en une phrase.
-    pub description: Option<&'a str>,
 }
 
 /// La version que montre l'historique, et ce qui a changé depuis.

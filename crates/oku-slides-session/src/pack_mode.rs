@@ -27,12 +27,14 @@ use oku_slides_core::{
     Deck, Namespace, Op, PackFiles, PackKind, PackPin, PackVersion, ParamValue, Params, Slide, SourceBundle,
     WidgetFile, kinds, qualify,
 };
+use oku_slides_i18n::Localizer;
 
 use crate::deck_closure::{Pinned, closure_with_files, combined_pins};
 use crate::deck_pack::builtin_pin;
 use crate::error::{
     InHistorySnafu, NamespaceTakenSnafu, PackModeSlidesSnafu, PackVersionMissingSnafu, ReadOnlySnafu, SourcesSnafu,
 };
+use crate::example_text::localized_examples;
 use crate::library_packs::PackLibrary;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
 use crate::pack_library::restore_session_version;
@@ -60,10 +62,16 @@ pub(crate) fn example_params(kind: &str, example: Option<&Map<String, Value>>) -
     Params(params.collect())
 }
 
-/// La slide de `name`, layout ou widget du pack `manifest`, à sa valeur d'exemple.
-pub(crate) fn example_slide(manifest: &PackManifest, name: &WidgetFile) -> Slide {
+/// Les paramètres de la valeur d'exemple de `name` dans `manifest`, traduite s'il est intégré.
+pub(crate) fn manifest_example_params(manifest: &PackManifest, name: &WidgetFile, kind: &str, l: &Localizer) -> Params {
+    let example = manifest.examples.get(name).map(|v| localized_examples(manifest.id, v, l));
+    example_params(kind, example.as_ref())
+}
+
+/// La slide de `name`, layout ou widget du pack `manifest`, à sa valeur d'exemple dans la langue de `l`.
+pub(crate) fn example_slide(manifest: &PackManifest, name: &WidgetFile, l: &Localizer) -> Slide {
     let mut slide = Slide::new(layout_slide_id(name), &qualify(&manifest.namespace, name.as_str()));
-    slide.params = example_params(&slide.kind, manifest.examples.get(name));
+    slide.params = manifest_example_params(manifest, name, &slide.kind, l);
     slide
 }
 
@@ -74,16 +82,16 @@ fn layout_names(files: &PackFiles) -> impl Iterator<Item = &WidgetFile> {
 }
 
 /// Les slides d'un pack de layouts : une par layout de `files`, à sa valeur d'exemple.
-pub(crate) fn layout_slides(manifest: &PackManifest, files: &PackFiles) -> Vec<Slide> {
-    layout_names(files).map(|name| example_slide(manifest, name)).collect()
+pub(crate) fn layout_slides(manifest: &PackManifest, files: &PackFiles, l: &Localizer) -> Vec<Slide> {
+    layout_names(files).map(|name| example_slide(manifest, name, l)).collect()
 }
 
 /// Le deck de travail suit les layouts de `files`, version du pack `manifest`.
 ///
 /// La slide d'un layout supprimé part ; celle d'un nouveau s'ajoute à la
 /// fin ; chacune prend la valeur d'exemple de son layout dans `manifest`,
-/// dont elle n'est que l'aperçu. Rien pour un pack de widgets.
-pub(crate) fn realign_layouts(deck: &mut Deck, manifest: &PackManifest, files: &PackFiles) {
+/// dont elle n'est que l'aperçu, traduite dans la langue de `l`. Rien pour un pack de widgets.
+pub(crate) fn realign_layouts(deck: &mut Deck, manifest: &PackManifest, files: &PackFiles, l: &Localizer) {
     if files.kind() != PackKind::Layouts {
         return;
     }
@@ -91,8 +99,8 @@ pub(crate) fn realign_layouts(deck: &mut Deck, manifest: &PackManifest, files: &
     deck.slides.retain(|s| ids.iter().any(|(id, _)| *id == s.id));
     for (id, name) in ids {
         match deck.slides.iter_mut().find(|s| s.id == id) {
-            Some(slide) => slide.params = example_params(&slide.kind, manifest.examples.get(name)),
-            None => deck.slides.push(example_slide(manifest, name)),
+            Some(slide) => slide.params = manifest_example_params(manifest, name, &slide.kind, l),
+            None => deck.slides.push(example_slide(manifest, name, l)),
         }
     }
     // Un exemple garde `""` (texte vidé) : la slide, elle, a la forme du replica (vide = absent).
@@ -125,7 +133,16 @@ pub(crate) fn pinned(manifest: &PackManifest, version: PackVersion, files: PackF
 ///
 /// Un espace de noms déjà épinglé sous l'autre sorte est refusé (`NamespaceTaken`), rien n'est épinglé.
 pub(crate) fn pin_all(deck: &mut Deck, sources: &mut SourceBundle, packs: Vec<Pinned>) -> Result<()> {
-    for (ns, _, files) in &packs {
+    pin_deck(deck, &packs)?;
+    embed_packs(sources, packs);
+    Ok(())
+}
+
+/// Épingle `packs` dans `deck`, chacun dans la carte de sa sorte, sans rien embarquer.
+///
+/// Un espace de noms déjà épinglé sous l'autre sorte est refusé (`NamespaceTaken`), rien n'est épinglé.
+pub(crate) fn pin_deck(deck: &mut Deck, packs: &[Pinned]) -> Result<()> {
+    for (ns, _, files) in packs {
         let other = match files.kind() {
             PackKind::Widgets => PackKind::Layouts,
             PackKind::Layouts => PackKind::Widgets,
@@ -135,10 +152,16 @@ pub(crate) fn pin_all(deck: &mut Deck, sources: &mut SourceBundle, packs: Vec<Pi
         }
     }
     for (ns, pin, files) in packs {
-        deck.pins_mut(files.kind()).insert(ns, pin);
-        sources.add_pack(files);
+        deck.pins_mut(files.kind()).insert(ns.clone(), pin.clone());
     }
     Ok(())
+}
+
+/// Embarque les fichiers de `packs` dans `sources` (en ajout seul).
+pub(crate) fn embed_packs(sources: &mut SourceBundle, packs: Vec<Pinned>) {
+    for (_, _, files) in packs {
+        sources.add_pack(files);
+    }
 }
 
 /// Une op qui change les slides du deck : refusée en mode pack.
@@ -165,8 +188,8 @@ impl Session {
         let stored = self.pack_base(id)?;
         let deck_only = !stored.manifest.scope.is_library();
         let version = stored.version.clone();
-        let mut slides = layout_slides(&stored.manifest, &stored.files);
-        slides.extend(preview_slides(&stored.manifest, &stored.files));
+        let mut slides = layout_slides(&stored.manifest, &stored.files, &self.localizer);
+        slides.extend(preview_slides(&stored.manifest, &stored.files, &self.localizer));
         // Le brouillon du thème : gardé d'un pack à l'autre, sinon le thème du deck.
         let (theme, tokens) = match &self.mode {
             Mode::Pack { theme, .. } => (theme.clone(), self.edited_tokens()),

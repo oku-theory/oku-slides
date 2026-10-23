@@ -26,7 +26,7 @@
 - Import a2ui.css after styles.css and before glass.css so the glass theme can override cards. (plan:2026-10-03-agent-a2ui)
 - Keep one MessageProcessor per A2UI surface and feed it new messages instead of rebuilding it. (t-221)
 - Choose an element's own panel from snapshot.host_params, never its kind; edit chart or table data only via the dock's host-data surface, sending DataEdit, no patch. (plan:2026-10-18-packs-lot2-base, t-1119)
-- Take base and essentiel slide kinds in UI code only from ui/src/builtinKinds.ts; never write their qualified names as literals. (plan:2026-10-19-packs-lot3-essentiel)
+- Take base and essentiel kinds in UI code only from ui/src/builtinKinds.ts, never as literals; build the add grid from Snapshot.add_packs and accepted kinds from free_slots. (plan:2026-10-19-packs-lot3-essentiel, plan:2026-10-23-packs-lot5-ui)
 - Build buttons, icon toggles, selects and labelled fields with ui/src/primitives.tsx, shared with the A2UI catalog; no hand-written .btn or select.select. (t-982)
 
 ## Pitfalls

@@ -43,7 +43,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Map source colors to target theme tokens or drop them; the retrofit never emits raw hex colors or token overrides; the hi-fi import writes its generated tokens into deck.tokens on the Neutre theme. (spec:2026-10-09-import-pptx-design, plan:2026-10-22-packs-lot4-themes)
 - Fit an overflowing flow by the grid, else a smaller theme size, else report Overflow, never splitting; the import_retrofit render test checks retrofit/measure. (t-816)
-- Fail only on unreadable package, non-presentation, protection, no master or limit; report every other loss. (spec:2026-10-09-import-pptx-design)
+- Fail only on unreadable package, non-presentation, protection, no master, limit or a hi-fi plan the core refuses (a bug); report every other loss. (spec:2026-10-09-import-pptx-design, t-1117)
 - Do not flat re-export retrofit or hifi from the import lib.rs. (plan:2026-10-10-import-pptx-lot2)
 - Read a profile's fit from its declared hints and its slot from the layout schema, never from names. (plan:2026-10-10-import-pptx-lot2, plan:2026-10-19-packs-lot3-essentiel)
 - Break profile score ties by target pack order, then manifest order, so the choice stays deterministic. (plan:2026-10-10-import-pptx-lot2, plan:2026-10-19-packs-lot3-essentiel)

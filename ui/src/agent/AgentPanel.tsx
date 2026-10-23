@@ -24,6 +24,7 @@ import type { Slot } from "./slot";
 import { agentBusy, sendThenPrompt, suggestedPrompt, surfacesReducer, type Routed } from "./surfaces";
 import { useAgentScope, type AgentScopeState } from "./useAgentScope";
 import { useFollowScope } from "./useFollowScope";
+import { useRelocalizedPacks } from "./useRelocalizedPacks";
 import { answerTarget, quickTarget, useQuickKeys, type QuickTarget } from "./useQuickKeys";
 
 // Surfaces de l'agent : chargées avec @a2ui, à la première question.
@@ -153,6 +154,8 @@ export function AgentPanel(props: AgentPanelProps) {
   // sans vue ne rappelle jamais le fil.
   const driven = useAgentScope(agent, props.scope.kind === "drive" ? props.scope.view : null, onSurfaceEvent);
   const followed = useFollowScope(agent);
+  // Le panneau des packs montré suit la langue de l'interface.
+  useRelocalizedPacks(surfaces, () => agent.showPacks(), say);
   const agentScopeState: AgentScopeState = props.scope.kind === "follow" ? followed : driven;
   const latest = useRef<Latest | null>(null);
   latest.current = { props, scopeState: agentScopeState, onMcpFollow: props.scope.kind === "follow" ? followed.onMcp : NOOP };

@@ -51,34 +51,15 @@ ui-pack-deck-only = このプレゼンテーションにのみ保存されます
 ui-toolbar-open = 開く
 ui-menu = メニュー
 ui-toolbar-add-label = スライドに追加
+ui-toolbar-packs = プレゼンテーションのパック
+ui-toolbar-packs-update = プレゼンテーションのパック（更新があります）
 ui-toolbar-thumbs-show = サムネイルを表示
 ui-toolbar-thumbs-hide = サムネイルを隠す
-ui-add-kind = { $kind ->
-    [card] カード
-    [shape] 図形
-    [chart] グラフ
-    [table] 表
-   *[text] テキスト
-}
-ui-add-kind-description = { $kind ->
-    [card] 枠内のタイトルと短いテキスト
-    [shape] 色付きの図形
-    [chart] データ表から描くグラフ
-    [table] データの表
-   *[text] テキストの段落
-}
 ui-toolbar-remove-slide = スライドを削除
 ui-toolbar-remove-hint = スライド { $n } · ⌘Z で取り消し
 
 ## 取り消しラベル
 
-ui-undo-add = { $kind ->
-    [card] カードを追加
-    [shape] 図形を追加
-    [chart] グラフを追加
-    [table] 表を追加
-   *[text] テキストを追加
-}
 ui-undo-add-widget = 「{ $name }」を追加
 ui-undo-new-slide = 新規スライド：{ $name }
 ui-undo-move-slide = スライドを移動
@@ -94,12 +75,6 @@ ui-undo-resize = サイズ変更
 ui-undo-edit-slide = スライドを編集
 ui-undo-rename-pack = パック名を変更
 ui-undo-rename-deck = プレゼンテーション名を変更
-
-## 新しい要素
-
-ui-new-text = 新しいテキスト
-ui-new-card-title = カードのタイトル
-ui-new-card-detail = 詳細
 
 ## スライド一覧
 

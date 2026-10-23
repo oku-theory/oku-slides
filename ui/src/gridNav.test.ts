@@ -1,7 +1,7 @@
 // Déplacement dans la grille d'ajout, sans DOM.
 
 import { describe, expect, test } from "bun:test";
-import { gridStep, rowLength } from "./gridNav";
+import { gridStep, rowLength, sectionSlots } from "./gridNav";
 
 /** 10 cartes en 4 colonnes, toutes ajoutables sauf celles de `refused`. */
 const step = (at: number, key: Parameters<typeof gridStep>[1], refused: number[] = []) =>
@@ -80,5 +80,15 @@ describe("rowLength", () => {
 
   test("rowLength without cards is one", () => {
     expect(rowLength([])).toBe(1);
+  });
+});
+
+describe("sectionSlots", () => {
+  test("sectionSlots pads each section to full rows", () => {
+    expect(sectionSlots([5, 2], 3)).toEqual([0, 1, 2, 3, 4, null, 5, 6, null]);
+  });
+
+  test("sectionSlots skips an empty section", () => {
+    expect(sectionSlots([0, 2], 3)).toEqual([0, 1, null]);
   });
 });

@@ -51,5 +51,5 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Emit widget_touched only in pack mode. (plan:2026-10-03-widgets-agent-a2ui, t-1065)
 - Return invalid render or report input to the agent as a readable tool-result error, and display nothing. (spec:2026-10-03-agent-a2ui-design)
 - Change the interface language through set_interface, never set_setting, so every window follows at once. (t-988)
-- Open the theme picker for the agent only through show_themes and SurfaceHub::show_themes, outside any turn, refusing an unknown slide; ThemeChoice stays host-only in render. (t-1089)
+- Open the theme picker and packs panel only through show_themes/show_packs and their SurfaceHub methods, outside any turn, show_themes refusing an unknown slide; ThemeChoice stays host-only in render. (t-1089, t-1114)
 - Do not expose rename_widget over MCP; the agent writes a new widget and then removes the old one. (spec:2026-10-02-creation-widgets-design)

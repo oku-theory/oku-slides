@@ -37,6 +37,7 @@ fn mixed_pack(data: &Path) -> PackPin {
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        styles: Default::default(),
         tokens: Vec::new(),
     };
     let name = |n: &str| WidgetFile::parse(n).unwrap_or_else(|| panic!("nom invalide : {n}"));

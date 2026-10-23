@@ -1,6 +1,7 @@
 // L'ajout d'une slide d'après un layout choisi dans le sélecteur.
 
-import type { LayoutView, Op, Snapshot } from "./api";
+import type { Op, Snapshot } from "./api";
+import type { LayoutView } from "./packTypes";
 import { instantiate } from "./deck";
 import { t } from "./i18n";
 

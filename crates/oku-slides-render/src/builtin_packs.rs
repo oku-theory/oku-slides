@@ -109,7 +109,7 @@ impl BuiltinPack {
     pub fn widgets(self) -> Result<PackWidgets, RegistryError> {
         let files = self.files()?;
         let manifest = self.read_manifest(&files)?;
-        PackWidgets::new(files.version().hex(), manifest.namespace, self.kind(), files.widgets().clone())
+        PackWidgets::from_files(manifest.namespace, &files)
     }
 
     /// Les défauts des jetons de composant du pack, relatifs à `component.<namespace>`.
@@ -140,8 +140,10 @@ pub fn builtin_component_defaults() -> Result<Vec<NamespaceDefaults>, RegistryEr
 
 /// Vrai pour une version livrée d'un pack intégré : le repli ne l'écarte jamais.
 ///
-/// L'id d'un pack rendu est l'empreinte de sa version : un pack intégré
-/// modifié, ou un autre pack qui prendrait cet id, n'est pas de confiance.
+/// L'id d'un pack rendu est l'empreinte de sa version, que seule
+/// [`PackWidgets::from_files`] déduit du contenu : un pack intégré modifié, ou
+/// un autre pack qui prendrait cet id, n'est pas de confiance. La comparaison
+/// reste celle de l'id, bon marché.
 pub fn is_trusted_pack(p: &PackWidgets) -> bool {
     BuiltinPack::ALL.into_iter().any(|b| b.namespace() == *p.namespace() && b.shipped_versions().any(|v| v == p.id()))
 }

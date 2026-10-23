@@ -106,6 +106,7 @@ agent-error-locale = अज्ञात भाषा कोड। उपलब�
 agent-error-empty-interface = बदलने को कुछ नहीं: scheme, locale, grid या guides दें।
 agent-error-not-shown = यह टैब अपनी विंडो में दिखाया गया टैब नहीं है: उपयोगकर्ता के इसे दिखाने पर फिर से कहें।
 agent-error-themes-deck-mode = थीम चयनकर्ता केवल स्लाइड संपादित करते समय खुलता है।
+agent-error-packs-deck-mode = प्रस्तुति के पैक का पैनल केवल स्लाइड संपादित करते समय खुलता है।
 agent-error-rewrite-text = पुनर्लेखन बिना पाठ के लौटा।
 agent-error-paragraphs = पुनर्लेखन के अनुच्छेद अमान्य हैं।
 agent-error-draft-too-long = ड्राफ़्ट बहुत लंबा है।

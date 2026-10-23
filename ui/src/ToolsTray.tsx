@@ -1,12 +1,13 @@
-// La barre d'outils sous la feuille. On y ouvre la grille d'ajout, montre ou cache les miniatures,
-// ouvre le menu, annule et rétablit ; sur un sous-onglet widget, elle porte ses propres outils.
+// La barre d'outils sous la feuille. On y ouvre la grille d'ajout et le panneau des packs du deck,
+// montre ou cache les miniatures, ouvre le menu, annule et rétablit ; sur un sous-onglet widget,
+// elle porte ses propres outils.
 
 import type { ReactNode } from "react";
 import type { SlideView, Snapshot, TabApi } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { IconToggle } from "./primitives";
-import { canAdd } from "./slideTools";
+import { acceptsElements } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
 import type { PackWidgetEditor } from "./usePackWidgetEditor";
 import { activeWidget } from "./widgetTabs";
@@ -32,6 +33,8 @@ interface Props {
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
   /** Ouvre la grille d'ajout. */
   onAdd: () => void;
+  /** Ouvre le panneau des packs du deck (surface `host-packs` de l'agent). */
+  onPacks: () => void;
   /** La bande des miniatures sous la scène (montrée, et sa bascule) ; `null` : pas de bande (mode pack). */
   thumbs: { open: boolean; onToggle: () => void } | null;
 }
@@ -47,6 +50,7 @@ export function ToolsTray({
   mainMenu,
   run,
   onAdd,
+  onPacks,
   thumbs,
 }: Props) {
   const undoLabel = snap.undo_label
@@ -55,23 +59,39 @@ export function ToolsTray({
   const redoLabel = snap.redo_label
     ? t("ui-toolbar-redo-label", { label: snap.redo_label })
     : t("ui-toolbar-redo");
+  // Le bouton des packs : en mode deck seulement, ni dans l'aide ni dans l'historique. Une pastille
+  // dit qu'un épinglage est plus ancien que ma version courante.
+  const packsShown = !snap.editing && !snap.read_only && !snap.history;
+  const packsUpdate = snap.pack_updates > 0;
+  // Avec une mise à jour, le nom accessible et l'infobulle la disent aussi (une seule phrase Fluent).
+  const packsLabel = t(packsUpdate ? "ui-toolbar-packs-update" : "ui-toolbar-packs");
   // Ce qu'on ajoute à la slide, le menu de ce qui sert rarement, puis
   // annuler / rétablir : posés sous la feuille.
   return (
     <div className="object theme-card tools-tray">
-      {/* Un seul bouton d'ajout : il ouvre la grille des éléments natifs et des widgets du pack.
-          Actif dès qu'une carte autre que le texte s'ajoute (« widget » : toute sorte non textuelle). */}
+      {/* Un seul bouton d'ajout : il ouvre la grille des widgets des packs. Actif dès que la slide
+          a un slot libre ; chaque carte dit ensuite si ce slot l'accepte. */}
       <button
         className="token ghost add-button"
         aria-label={t("ui-toolbar-add-label")}
         title={t("ui-toolbar-add-label")}
         aria-haspopup="dialog"
         hidden={widgetActive}
-        disabled={!canAdd(view?.slide.kind, "widget")}
+        disabled={!acceptsElements(view?.slide.kind, snap.free_slots)}
         onClick={onAdd}
       >
         {Icon.widget}
       </button>
+      {packsShown && (
+        <button
+          className={`token ghost packs-button${packsUpdate ? " has-update" : ""}`}
+          aria-label={packsLabel}
+          title={packsLabel}
+          onClick={onPacks}
+        >
+          {Icon.packs}
+        </button>
+      )}
       <span className="tools-sep" aria-hidden hidden={widgetActive} />
       {widgetActive ? (
         <>

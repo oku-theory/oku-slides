@@ -31,11 +31,12 @@ fn builtin_namespaces_are_base_and_essentiel_only() {
 /// Le pack de widgets `frise` des tests : un jeton `dot.bg`, sans widgets.
 const FRISE: uuid::Uuid = uuid::Uuid::from_u128(0xf415e000_0000_4000_8000_000000000001);
 
-/// Le deck de `s` épingle `frise`, qui déclare le jeton de composant `dot.bg` (« Point »).
+/// Le deck de `s` épingle `frise`, qui déclare les jetons de composant `dot.bg` (« Point ») et `dot.fg` (sans libellé).
 fn pin_frise(s: &mut crate::Session) {
     let mut m = manifest_ns(FRISE, "frise", &["base"]);
     let entry = json!({"path": ["dot", "bg"], "default": "bg", "control": "color", "label": "Point"});
-    m.tokens = vec![serde_json::from_value(entry).unwrap()];
+    let bare = json!({"path": ["dot", "fg"], "default": "ink", "control": "color"});
+    m.tokens = vec![serde_json::from_value(entry).unwrap(), serde_json::from_value(bare).unwrap()];
     let pin = add_version(&s.library, &m, &[]);
     s.apply("Frise", vec![add_pack(&m, &pin)], None).unwrap();
 }
@@ -97,4 +98,16 @@ fn without_unpinned_components_keeps_pinned_packs_and_global_tokens() {
     let kept = without_unpinned_components(tokens.as_object().unwrap(), &pinned);
     assert_that!(Value::Object(kept))
         .is_equal_to(json!({"color": {"accent": "#fff"}, "component": {"base": {"card": {}}}}));
+}
+
+/// t-1106 : le jeton d'un pack non intégré se nomme par son `label`, sinon par son chemin dans le pack.
+#[rstest::rstest]
+#[case::label("bg", "Point")]
+#[case::path("fg", "dot.fg")]
+fn token_label_pack_not_builtin_falls_back_to_label_then_path(#[case] leaf: &str, #[case] expected: &str) {
+    let (_d, s) = session_with_frise_and_theme("marque", json!({}));
+    let schema = s.token_schema(s.deck());
+    let path: Vec<String> = ["component", "frise", "dot", leaf].map(str::to_owned).to_vec();
+    let label = crate::theme_panel::token_label(&schema, &path, &oku_slides_i18n::Localizer::new(Some("fr")));
+    assert_that!(label).is_equal_to(expected.to_owned());
 }

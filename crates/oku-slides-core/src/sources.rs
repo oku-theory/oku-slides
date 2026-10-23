@@ -168,7 +168,11 @@ impl SourceBundle {
                     Some(files) if files.kind() != kind => issues.push(Issue::pack_kind_mismatch(ns)),
                     Some(files) => match PackManifest::from_files(files) {
                         Ok(m) if m.id == pin.id && m.namespace == *ns && m.requires == pin.requires => {}
-                        _ => issues.push(Issue::pack_pin_mismatch(ns)),
+                        Err(e) => match e.token_entry() {
+                            Some(entry) => issues.push(Issue::pack_tokens_invalid(ns, &entry.to_string())),
+                            None => issues.push(Issue::pack_pin_mismatch(ns)),
+                        },
+                        Ok(_) => issues.push(Issue::pack_pin_mismatch(ns)),
                     },
                 }
                 for required in pin.requires.iter().filter(|r| !self.deck.widgets.contains_key(*r)) {

@@ -11,6 +11,7 @@ use uuid::Uuid;
 use oku_slides_core::{Namespace, Op, PackKind};
 
 use crate::error::{BuiltinPackSnafu, EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
+use crate::theme_extends::ExtendsEdit;
 use crate::views::UiState;
 use crate::{Mode, PackLibrary, PreviewFormat, Result, Session};
 
@@ -154,6 +155,17 @@ pub enum Request {
     RenameEditedTheme {
         name: String,
     },
+    /// Mode pack : le brouillon du thème étend `extends`, dans cet ordre (une étape annulable).
+    SetEditedThemeExtends {
+        extends: Vec<Namespace>,
+    },
+    /// Mode pack : change la liste `extends` du brouillon par un delta (une étape annulable).
+    ///
+    /// À plat : `{cmd: "edit_theme_extends", edit: "add", theme: "<espace de noms>"}`.
+    EditThemeExtends {
+        #[serde(flatten)]
+        edit: ExtendsEdit,
+    },
     /// Mode deck : nouvelle version du thème `id` (ops de jetons, nom), que
     /// le deck adopte s'il l'utilise. Répond `EditedTheme`.
     EditTheme {
@@ -202,12 +214,6 @@ pub enum Request {
     SaveCopy {
         path: PathBuf,
     },
-    /// Bandeau du pack : le deck passe à ma version courante (annulable).
-    PackUseMine,
-    /// Bandeau du pack : sa version devient ma version courante.
-    PackMakeCurrent,
-    /// Ferme le bandeau du pack pour la session.
-    PackNoticeClose,
     /// Statut des fichiers de widgets du pack en cours (tableau de `WidgetStatus`).
     ///
     /// `pack` : en mode deck, l'espace de noms du pack épinglé ; absent, le pack `deck`.
@@ -273,6 +279,7 @@ impl Request {
     ///
     /// `Save` aussi : un fichier changé sur disque est d'abord fusionné.
     /// L'historique (sauf la liste des versions) : le deck montré change.
+    /// `SavePack` aussi : la bibliothèque change, le panneau des packs se relit (`prune`).
     /// Exhaustif à dessein : une requête ajoutée doit dire si elle change le deck.
     pub fn changes_deck(&self) -> bool {
         match self {
@@ -288,13 +295,15 @@ impl Request {
             | Self::EditPack { .. }
             | Self::ClosePack
             | Self::SetEditedTheme { .. }
+            | Self::SetEditedThemeExtends { .. }
+            | Self::EditThemeExtends { .. }
+            | Self::SavePack { .. }
             | Self::Merge { .. }
             | Self::HistoryOpen
             | Self::HistorySeek { .. }
             | Self::HistoryRestore
             | Self::HistoryClose
             | Self::Move { .. }
-            | Self::PackUseMine
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
@@ -313,14 +322,11 @@ impl Request {
             | Self::DataPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
-            | Self::SavePack { .. }
             | Self::RenameEditedTheme { .. }
             | Self::DeletePack { .. }
             | Self::SaveCopy { .. }
             | Self::Ui { .. }
             | Self::HistoryVersions
-            | Self::PackMakeCurrent
-            | Self::PackNoticeClose
             | Self::WidgetStatus { .. }
             | Self::WidgetSource { .. }
             | Self::PreviewWidget { .. } => false,
@@ -348,9 +354,10 @@ impl Request {
                 | Self::SavePack { .. }
                 | Self::ClosePack
                 | Self::SetEditedTheme { .. }
+                | Self::SetEditedThemeExtends { .. }
+                | Self::EditThemeExtends { .. }
                 | Self::RenameEditedTheme { .. }
                 | Self::DeletePack { .. }
-                | Self::PackUseMine
                 | Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
@@ -399,8 +406,6 @@ impl Session {
                     | Request::Merge { .. }
                     | Request::Move { .. }
                     | Request::SaveCopy { .. }
-                    | Request::PackUseMine
-                    | Request::PackMakeCurrent
             )
         {
             return EditingPackSnafu.fail()?;
@@ -408,8 +413,8 @@ impl Session {
         if matches!(self.mode, Mode::History { .. }) && req.edits() {
             return InHistorySnafu.fail()?;
         }
-        // L'aide ne change ni le deck ni la bibliothèque : ni historique, ni pack courant.
-        if self.help().is_some() && (req.edits() || matches!(req, Request::HistoryOpen | Request::PackMakeCurrent)) {
+        // L'aide ne change pas le deck et n'ouvre pas d'historique.
+        if self.help().is_some() && (req.edits() || matches!(req, Request::HistoryOpen)) {
             return ReadOnlySnafu.fail()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
@@ -425,6 +430,8 @@ impl Session {
                     | Request::Apply { .. }
                     | Request::SetTheme { .. }
                     | Request::SetEditedTheme { .. }
+                    | Request::SetEditedThemeExtends { .. }
+                    | Request::EditThemeExtends { .. }
                     | Request::HostToken { .. }
                     | Request::DataEdit { .. }
             ),
@@ -435,8 +442,6 @@ impl Session {
                     | Request::HistoryOpen
                     | Request::HistorySeek { .. }
                     | Request::HistoryClose
-                    | Request::PackMakeCurrent
-                    | Request::PackNoticeClose
                     | Request::RenameEditedTheme { .. }
             ),
         );
@@ -488,6 +493,8 @@ impl Session {
                 let kind = self.library.kind_of(pack);
                 self.library.delete(pack)?;
                 self.pack_cache.clear();
+                self.seed_cache.clear();
+                self.refresh_pack_updates();
                 return json(&self.library.packs(kind));
             }
             Request::Save { path, overwrite } => {
@@ -527,15 +534,14 @@ impl Session {
                 self.set_edited_theme(&ns.context(crate::error::UnknownThemeSnafu { theme: id.to_string() })?)?
             }
             Request::RenameEditedTheme { name } => self.rename_edited_theme(name)?,
+            Request::SetEditedThemeExtends { extends } => self.set_edited_theme_extends(extends)?,
+            Request::EditThemeExtends { edit } => self.edit_theme_extends(edit)?,
             Request::Ui { ui, order } => self.keep_ui(ui, order),
             Request::HistoryOpen => self.history_open()?,
             Request::HistorySeek { index } => self.history_seek(index)?,
             Request::HistoryRestore => self.history_restore()?,
             Request::HistoryClose => self.history_close()?,
             Request::HistoryVersions => return json(self.history_versions()?),
-            Request::PackUseMine => self.pack_use_mine()?,
-            Request::PackMakeCurrent => self.pack_make_current()?,
-            Request::PackNoticeClose => self.pack_notice_close(),
         }
         if changes {
             self.persist(documents);

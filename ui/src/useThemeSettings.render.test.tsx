@@ -1,6 +1,6 @@
 // Jetons du thème édité : surface relue sur ses clés, actions routées en host_token.
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Snapshot, Surface, TabApi } from "./api";
@@ -18,7 +18,7 @@ const snapshot = (o: Snap = {}): Snapshot =>
   ({
     editing: o.editing === false ? null : {
       pack: "p", base: "b",
-      theme: { base: { id: PAPIER, version: "v1" }, name: o.name ?? "Papier", child: true, extends: [], dirty: o.dirty ?? false, revision: "r1" },
+      theme: { base: { id: PAPIER, version: "v1" }, name: o.name ?? "Papier", namespace: "papier", child: true, extends: [], dirty: o.dirty ?? false, revision: "r1" },
     },
     history: o.history ? {} : null, undo_label: o.undo ?? null, redo_label: null, slides: [],
   }) as unknown as Snapshot;
@@ -198,5 +198,46 @@ describe("useThemeSettings", () => {
     expect(m.out.h!.onAction(surface(), action("token", { token: ["a"], action: "set" }))).toBe(true);
     expect(await m.out.h!.outcome.current).toBe(false);
     expect(m.out.runs).toBe(0);
+  });
+
+  test("useThemeSettings extends add event sends the edit", async () => {
+    const { fake, asked } = counted();
+    const sent: unknown[] = [];
+    stub(fake, "editThemeExtends", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    const m = await mountTheme(fake, { snap: snapshot(), filter: "" });
+    m.out.h!.onAction(m.out.h!.surface!, action("extends", { edit: "add", theme: "nuit" }));
+    expect(await m.out.h!.outcome.current).toBe(true);
+    await wait(10);
+    expect(sent).toEqual([["add", "nuit"]]);
+    expect(asked).toHaveLength(2);
+  });
+
+  test("useThemeSettings extends event with a bad edit sends nothing", async () => {
+    const { fake } = counted();
+    const sent: unknown[] = [];
+    stub(fake, "editThemeExtends", async (...a: unknown[]) => (sent.push(a), snapshot()));
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const m = await mountTheme(fake, { snap: snapshot(), filter: "" });
+      m.out.h!.onAction(m.out.h!.surface!, action("extends", { edit: "drop", theme: "nuit" }));
+      m.out.h!.onAction(m.out.h!.surface!, action("extends", { edit: "up", theme: "" }));
+      m.out.h!.onAction(m.out.h!.surface!, action("extends", { edit: "down" }));
+      await wait(10);
+      expect([sent, m.out.runs, logged.mock.calls.length]).toEqual([[], 0, 3]);
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
+  test("useThemeSettings extends edit refused rereads the surface", async () => {
+    const { fake, asked } = counted();
+    stub(fake, "editThemeExtends", async () => {
+      throw new Error("cycle");
+    });
+    const m = await mountTheme(fake, { snap: snapshot(), filter: "" });
+    m.out.h!.onAction(m.out.h!.surface!, action("extends", { edit: "remove", theme: "papier" }));
+    expect(await m.out.h!.outcome.current).toBe(false);
+    await wait(10);
+    expect([m.out.toasts, asked.length]).toEqual([["Error: cycle"], 2]);
   });
 });

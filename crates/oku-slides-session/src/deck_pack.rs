@@ -78,7 +78,7 @@ pub(crate) fn builtin_version(id: Uuid) -> Option<&'static PackVersion> {
 }
 
 /// L'id de bibliothèque d'un pack intégré.
-fn builtin_id(pack: BuiltinPack) -> Uuid {
+pub(crate) fn builtin_id(pack: BuiltinPack) -> Uuid {
     match pack {
         BuiltinPack::Base => BASE_PACK,
         BuiltinPack::Essentiel => ESSENTIEL_PACK,

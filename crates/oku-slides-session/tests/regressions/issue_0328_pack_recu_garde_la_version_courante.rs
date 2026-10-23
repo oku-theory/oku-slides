@@ -37,6 +37,7 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        styles: Default::default(),
         tokens: Vec::new(),
     };
     m.to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))

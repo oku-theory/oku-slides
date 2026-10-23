@@ -106,6 +106,7 @@ agent-error-locale = Onbekende taalcode. Geef de code van een meegeleverde taal 
 agent-error-empty-interface = Niets te wijzigen: geef scheme, locale, grid of guides.
 agent-error-not-shown = Dit tabblad is niet het getoonde in zijn venster: vraag het opnieuw zodra de gebruiker het toont.
 agent-error-themes-deck-mode = De themakiezer opent alleen tijdens het bewerken van de dia's.
+agent-error-packs-deck-mode = Het paneel met pakketten van de presentatie opent alleen tijdens het bewerken van de dia's.
 agent-error-rewrite-text = De herformulering kwam terug zonder tekst.
 agent-error-paragraphs = De alinea's van de herformulering zijn ongeldig.
 agent-error-draft-too-long = Het concept is te lang.

@@ -14,7 +14,7 @@ use crate::error::{DeckOnlySnafu, PackManifestSnafu, PackVersionMissingSnafu, Un
 use crate::library_kind::StoredVersion;
 use crate::library_packs::PackLibrary;
 use crate::pack::PackManifest;
-use crate::pack_notice::is_deck_only;
+use crate::pack_receive::is_deck_only;
 use crate::{Result, Session};
 
 impl Session {

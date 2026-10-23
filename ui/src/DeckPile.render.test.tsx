@@ -2,8 +2,8 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { PackKind, Snapshot } from "./api";
-import { ESSENTIEL } from "./builtinKinds";
+import type { Snapshot } from "./api";
+import type { PackKind } from "./packTypes";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -30,8 +30,8 @@ const deckSnapshot = (): Snapshot =>
   ({
     editing: null, history: null, read_only: false,
     slides: [
-      { id: "s1", kind: ESSENTIEL.title, title: "Bonjour", hash: "a" },
-      { id: "s2", kind: ESSENTIEL.content, title: null, hash: "b" },
+      { id: "s1", kind: "essentiel/title", title: "Bonjour", hash: "a" },
+      { id: "s2", kind: "essentiel/content", title: null, hash: "b" },
     ],
   }) as unknown as Snapshot;
 
@@ -42,8 +42,8 @@ const snapshotInPackMode = (kind: PackKind): Snapshot =>
     history: null, read_only: false,
     slides: kind === "layouts"
       ? [
-          { id: "layout-blank", kind: ESSENTIEL.blank, title: null, hash: "a" },
-          { id: "layout-title", kind: ESSENTIEL.title, title: "Titre", hash: "b" },
+          { id: "layout-blank", kind: "essentiel/blank", title: null, hash: "a" },
+          { id: "layout-title", kind: "essentiel/title", title: "Titre", hash: "b" },
         ]
       : [],
   }) as unknown as Snapshot;

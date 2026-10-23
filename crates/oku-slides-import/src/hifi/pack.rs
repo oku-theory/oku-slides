@@ -248,6 +248,7 @@ pub(crate) fn pack_manifest(
         profiles: Vec::new(),
         tokens: Vec::new(),
         examples: values,
+        styles: BTreeMap::new(),
     }
 }
 

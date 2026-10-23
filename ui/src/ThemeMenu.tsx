@@ -1,7 +1,7 @@
 // Sélecteur d'un thème de la bibliothèque, par espace de noms. Il montre aussi le thème épinglé
 // qui n'en fait plus partie (reçu dans le fichier d'un autre, ou base d'un brouillon).
 
-import type { ThemeInfo } from "./api";
+import type { ThemeInfo } from "./packTypes";
 import { t } from "./i18n";
 import { Field } from "./primitives";
 

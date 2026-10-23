@@ -51,34 +51,15 @@ ui-pack-deck-only = শুধু এই উপস্থাপনায় সং
 ui-toolbar-open = খুলুন
 ui-menu = মেনু
 ui-toolbar-add-label = স্লাইডে যোগ করুন
+ui-toolbar-packs = উপস্থাপনার প্যাক
+ui-toolbar-packs-update = উপস্থাপনার প্যাক — আপডেট উপলব্ধ
 ui-toolbar-thumbs-show = থাম্বনেইল দেখান
 ui-toolbar-thumbs-hide = থাম্বনেইল লুকান
-ui-add-kind = { $kind ->
-    [card] কার্ড
-    [shape] আকৃতি
-    [chart] চার্ট
-    [table] টেবিল
-   *[text] টেক্সট
-}
-ui-add-kind-description = { $kind ->
-    [card] একটি ফ্রেমে শিরোনাম ও ছোট পাঠ্য
-    [shape] একটি রঙিন আকৃতি
-    [chart] ডেটা সারণি থেকে আঁকা চার্ট
-    [table] ডেটার একটি সারণি
-   *[text] একটি পাঠ্য অনুচ্ছেদ
-}
 ui-toolbar-remove-slide = স্লাইড মুছুন
 ui-toolbar-remove-hint = স্লাইড { $n } · ⌘Z দিয়ে পূর্বাবস্থায় ফেরান
 
 ## পূর্বাবস্থার লেবেল
 
-ui-undo-add = { $kind ->
-    [card] কার্ড যোগ করুন
-    [shape] আকৃতি যোগ করুন
-    [chart] চার্ট যোগ করুন
-    [table] টেবিল যোগ করুন
-   *[text] টেক্সট যোগ করুন
-}
 ui-undo-add-widget = “{ $name }” যোগ করুন
 ui-undo-new-slide = নতুন স্লাইড: { $name }
 ui-undo-move-slide = স্লাইড সরান
@@ -94,12 +75,6 @@ ui-undo-resize = আকার বদলান
 ui-undo-edit-slide = স্লাইড সম্পাদনা করুন
 ui-undo-rename-pack = প্যাকের নাম বদলান
 ui-undo-rename-deck = প্রেজেন্টেশনের নাম বদলান
-
-## নতুন উপাদান
-
-ui-new-text = নতুন টেক্সট
-ui-new-card-title = কার্ডের শিরোনাম
-ui-new-card-detail = বিস্তারিত
 
 ## স্লাইডের তালিকা
 

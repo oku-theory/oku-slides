@@ -91,6 +91,8 @@ pub enum Answer {
 enum Shown {
     /// Sélecteur de thème de l'hôte : ses cartes rendues et l'actif montré.
     Themes(ThemePicker),
+    /// Panneau des packs du deck : la dernière surface montrée.
+    Packs(PacksShown),
     Params(ShowParams),
     Variants(ShowVariants),
     /// Figée (question répondue, composition `render`) : seules ses suites (`suggest`) partent
@@ -109,6 +111,13 @@ enum Shown {
 struct ThemePicker {
     cards: Vec<oku_slides_session::ThemeCard>,
     active: oku_slides_core::Namespace,
+}
+
+/// Le panneau des packs montré : `prune` ne le renvoie que s'il change.
+#[derive(Debug, Clone)]
+struct PacksShown {
+    /// La dernière surface envoyée.
+    last: Surface,
 }
 
 #[derive(Debug, Default)]
@@ -317,6 +326,8 @@ mod asks;
 use asks::PendingAsk;
 
 mod themes;
+
+mod packs;
 
 mod error;
 pub use error::{HubError, HubErrorKind};

@@ -29,6 +29,7 @@ fn legacy_files() -> PackFiles {
         scope: PackScope::Library,
         profiles: Vec::new(),
         examples: Default::default(),
+        styles: Default::default(),
         tokens: Vec::new(),
     };
     m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
@@ -97,5 +98,6 @@ fn issue_1068_legacy_copy_gets_no_new_version() {
     let mut m = PackManifest::from_files(&legacy_files()).unwrap_or_else(|e| panic!("{e}"));
     m.description = "Changée".into();
     let files = m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
-    assert_that!(library(&data).add_version(LEGACY_ID, &files)).is_err();
+    let added = library(&data).add_version(LEGACY_ID, &files).map_err(|e| e.kind());
+    assert_that!(added).is_equal_to(Err(oku_slides_session::SessionErrorKind::NamespaceTaken));
 }

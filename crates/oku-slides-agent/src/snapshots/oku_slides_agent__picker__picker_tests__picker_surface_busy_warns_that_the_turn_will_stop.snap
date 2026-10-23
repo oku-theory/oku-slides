@@ -12,7 +12,7 @@ expression: "picker_surface(&presets(), \"claude\", true, false, &Localizer::new
       "version": "v0.9",
       "createSurface": {
         "surfaceId": "agent-picker",
-        "catalogId": "urn:oku-slides:a2ui:catalog:v3"
+        "catalogId": "urn:oku-slides:a2ui:catalog:v4"
       }
     },
     {

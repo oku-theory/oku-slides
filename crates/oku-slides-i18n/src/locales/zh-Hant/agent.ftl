@@ -100,6 +100,7 @@ agent-error-locale = 未知的語言代碼。請提供內建語言代碼或 syst
 agent-error-empty-interface = 沒有要變更的內容：請提供 scheme、locale、grid 或 guides。
 agent-error-not-shown = 此分頁不是其視窗中顯示的分頁：請在使用者顯示它後再請求。
 agent-error-themes-deck-mode = 主題選擇器只在編輯投影片時開啟。
+agent-error-packs-deck-mode = 簡報的套件面板只在編輯投影片時開啟。
 agent-error-rewrite-text = 改寫傳回時沒有文字。
 agent-error-paragraphs = 改寫的段落無效。
 agent-error-draft-too-long = 草稿太長。

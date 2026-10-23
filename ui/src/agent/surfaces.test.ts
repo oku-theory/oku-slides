@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { byPlace, isHostSettings, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
+import { HOST_PACKS, byPlace, isHostSettings, isRequestedBox, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
 import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
@@ -73,10 +73,6 @@ describe("surfaces de l'agent", () => {
 
   test("routeStaged sans fiche posée : toutes les fiches vont au fil", () => {
     expect(routeStaged([sheet("s-a", "s1", "e1")], null).loose.map((x) => x.id)).toEqual(["s-a"]);
-  });
-
-  test("routeSurfaces with a banner surface puts it in loose", () => {
-    expect(routeSurfaces([s("b", "banner")], shown).loose.map((x) => x.id)).toEqual(["b"]);
   });
 
   test("routeSurfaces : une fiche dont l'élément est à l'écran va sur la scène", () => {
@@ -198,4 +194,15 @@ test("isHostSettings ne compte pas le sélecteur de thème", () => {
 
 test("isHostSettings compte les réglages de l'hôte", () => {
   expect(isHostSettings(real("host-widget"))).toBe(true);
+});
+
+/** Le panneau des packs : la fixture n'en a pas, ses messages ne comptent pas ici. */
+const packsPanel = () => ({ ...real("host-widget"), id: HOST_PACKS });
+
+test("isHostSettings with the packs panel gives false", () => {
+  expect(isHostSettings(packsPanel())).toBe(false);
+});
+
+test("isRequestedBox with the packs panel or the theme picker gives true", () => {
+  expect([packsPanel(), ...["host-theme-picker", "host-widget", "ask-1"].map(real)].map(isRequestedBox)).toEqual([true, true, false, false]);
 });

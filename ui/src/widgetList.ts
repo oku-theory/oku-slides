@@ -1,5 +1,6 @@
 /** Liste des fichiers de widgets : ordre, libellés, états, squelettes. */
-import type { PackKind, WidgetDiagnostic, WidgetStatus } from "./api";
+import type { WidgetDiagnostic, WidgetStatus } from "./api";
+import type { PackKind } from "./packTypes";
 import { t } from "./i18n";
 
 /** Le fichier de code partagé du pack. */

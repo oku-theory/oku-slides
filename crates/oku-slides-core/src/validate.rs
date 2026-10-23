@@ -56,6 +56,12 @@ impl Issue {
         Self { slide: None, element: None, message: Message::new("issue-pack-pin-mismatch").arg("pack", ns.as_str()) }
     }
 
+    /// Une entrée `tokens` du manifeste embarqué d'un pack est refusée ; `reason` dit laquelle.
+    pub fn pack_tokens_invalid(ns: &Namespace, reason: &str) -> Self {
+        let message = Message::new("issue-pack-tokens-invalid").arg("pack", ns.as_str()).arg("reason", reason);
+        Self { slide: None, element: None, message }
+    }
+
     /// Les fichiers embarqués d'un épinglage sont d'une autre sorte que sa carte.
     pub fn pack_kind_mismatch(ns: &Namespace) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-pack-kind-mismatch").arg("pack", ns.as_str()) }

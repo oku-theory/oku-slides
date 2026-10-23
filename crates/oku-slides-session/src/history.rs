@@ -251,6 +251,7 @@ impl Session {
         stash.dirty = true;
         // La version restaurée peut avoir un autre ensemble de modèles : `back_to_deck` le suit.
         self.back_to_deck(stash)?;
+        self.refresh_pack_updates_if_pins_changed();
         self.rerender()
     }
 

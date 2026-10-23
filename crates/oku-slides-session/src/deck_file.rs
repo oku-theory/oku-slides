@@ -105,8 +105,8 @@ impl Session {
         }
         self.ui.slide = None;
         self.ui = std::mem::take(&mut self.ui).sanitized(false);
-        self.pack_notice = None;
         self.theme_list = self.themes.themes();
+        self.refresh_pack_updates();
         self.rerender()
     }
 
@@ -117,9 +117,9 @@ impl Session {
         let notice = opened.notice(&self.localizer);
         // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
         self.load(opened.sources, pdf.then(|| path.to_owned()))?;
-        // Les versions reçues entrent en silence ; une autre version que la courante : le bandeau.
+        // Les versions reçues entrent en silence ; leur relation à ma version se lit dans le panneau des packs.
         self.receive_packs();
-        self.pack_notice = self.pack_notice_for_deck();
+        self.refresh_pack_updates();
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
         // Après l'avis d'un pack cassé, s'il y en a un.
         if let Some(notice) = notice {

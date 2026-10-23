@@ -11,6 +11,7 @@
 - Declare zone sizing and typography in the widget schema (grow, typography); never test a kind name in the core library. (plan:2026-10-18-packs-lot2-base)
 - Append the new base version to packs/base/versions.txt whenever a file of packs/base changes; never remove a line, so decks embedding an older base stay trusted. (plan:2026-10-18-packs-lot2-base)
 - Append the new essentiel version to packs/essentiel/versions.txt whenever a file of packs/essentiel changes. (plan:2026-10-19-packs-lot3-essentiel)
+- Write every non-empty example text of packs/base and packs/essentiel as an ftl:session-example- marker with its key in all 20 locales; the session translates only those, only for built-in ids. (plan:2026-10-23-packs-lot5-ui, t-1111)
 - Keep the core library free of widgets: slide layouts live in packs/essentiel, element widgets in packs/base. (plan:2026-10-19-packs-lot3-essentiel)
 
 ## Pitfalls

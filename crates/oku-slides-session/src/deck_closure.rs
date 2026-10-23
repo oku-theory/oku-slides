@@ -21,9 +21,11 @@ use crate::Result;
 use crate::error::{PackVersionMissingSnafu, RequiresCycleSnafu, UnknownNamespaceSnafu};
 use crate::library_packs::PackLibrary;
 
-/// L'épinglage de la version courante du pack de widgets de la bibliothèque qui porte `ns`.
-pub(crate) fn current_pin(library: &PackLibrary, ns: &Namespace) -> Result<PackPin> {
-    let found = library.entries(PackKind::Widgets).into_iter().find(|s| s.manifest.namespace == *ns);
+/// L'épinglage de la version courante du pack de sorte `kind` de la bibliothèque qui porte `ns`.
+///
+/// Un espace de noms intégré désigne son pack intégré, jamais une copie de l'utilisateur (R15).
+pub(crate) fn current_pin(library: &PackLibrary, kind: PackKind, ns: &Namespace) -> Result<PackPin> {
+    let found = library.owned_current(kind, ns);
     let stored = found.context(UnknownNamespaceSnafu { namespace: ns.as_str() })?;
     Ok(PackPin { id: stored.manifest.id, version: stored.version, requires: stored.manifest.requires })
 }
@@ -79,7 +81,7 @@ impl Closure<'_> {
             if self.present.contains(ns) {
                 continue;
             }
-            let pin = current_pin(self.library, ns)?;
+            let pin = current_pin(self.library, PackKind::Widgets, ns)?;
             self.path.push(ns.clone());
             self.require(&pin.requires)?;
             self.path.pop();

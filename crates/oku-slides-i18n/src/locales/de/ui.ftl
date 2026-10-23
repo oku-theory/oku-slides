@@ -51,34 +51,15 @@ ui-pack-deck-only = Nur in dieser Präsentation gespeichert
 ui-toolbar-open = Öffnen
 ui-menu = Menü
 ui-toolbar-add-label = Zur Folie hinzufügen
+ui-toolbar-packs = Pakete der Präsentation
+ui-toolbar-packs-update = Pakete der Präsentation — Aktualisierungen verfügbar
 ui-toolbar-thumbs-show = Miniaturen anzeigen
 ui-toolbar-thumbs-hide = Miniaturen ausblenden
-ui-add-kind = { $kind ->
-    [card] Karte
-    [shape] Form
-    [chart] Diagramm
-    [table] Tabelle
-   *[text] Text
-}
-ui-add-kind-description = { $kind ->
-    [card] Ein Titel und ein kurzer Text in einem Rahmen
-    [shape] Eine farbige Form
-    [chart] Ein Diagramm aus einer Datentabelle
-    [table] Eine Datentabelle
-   *[text] Ein Textabsatz
-}
 ui-toolbar-remove-slide = Folie löschen
 ui-toolbar-remove-hint = Folie { $n } · rückgängig mit ⌘Z
 
 ## Rückgängig-Beschriftungen
 
-ui-undo-add = { $kind ->
-    [card] Karte hinzufügen
-    [shape] Form hinzufügen
-    [chart] Diagramm hinzufügen
-    [table] Eine Tabelle hinzufügen
-   *[text] Text hinzufügen
-}
 ui-undo-add-widget = „{ $name }“ hinzufügen
 ui-undo-new-slide = Neue Folie: { $name }
 ui-undo-move-slide = Folie verschieben
@@ -94,12 +75,6 @@ ui-undo-resize = Größe ändern
 ui-undo-edit-slide = Folie bearbeiten
 ui-undo-rename-pack = Paket umbenennen
 ui-undo-rename-deck = Präsentation umbenennen
-
-## Neue Elemente
-
-ui-new-text = Neuer Text
-ui-new-card-title = Kartentitel
-ui-new-card-detail = Detail
 
 ## Folienstapel
 

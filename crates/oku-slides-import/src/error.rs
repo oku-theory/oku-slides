@@ -2,6 +2,7 @@
 
 use std::string::FromUtf8Error;
 
+use oku_slides_core::{TransactionError, WidgetError};
 use oku_slides_i18n::{Localize, Localizer};
 use snafu::{Backtrace, IntoError, Snafu};
 
@@ -25,6 +26,12 @@ pub enum ImportErrorKind {
     TooLarge,
     /// Les packs de layouts cibles d'un retrofit ne proposent aucun profil.
     NoProfiles,
+    /// Les schémas du pack généré ne tiennent pas dans le registre cible.
+    GeneratedRegistry,
+    /// Le manifeste du pack généré ne s'écrit pas.
+    GeneratedPack,
+    /// Le cœur refuse le plan généré, valide par construction (un bogue).
+    PlanRefused,
 }
 
 impl ImportError {
@@ -38,6 +45,9 @@ impl ImportError {
             Inner::Protected { .. } => ImportErrorKind::Protected,
             Inner::TooLarge { .. } | Inner::OutputTooLarge { .. } => ImportErrorKind::TooLarge,
             Inner::NoProfiles { .. } => ImportErrorKind::NoProfiles,
+            Inner::GeneratedRegistry { .. } => ImportErrorKind::GeneratedRegistry,
+            Inner::GeneratedPack { .. } => ImportErrorKind::GeneratedPack,
+            Inner::PlanRefused { .. } => ImportErrorKind::PlanRefused,
         }
     }
 }
@@ -50,6 +60,9 @@ pub(crate) fn message_id(kind: ImportErrorKind) -> &'static str {
         ImportErrorKind::Protected => "import-protected",
         ImportErrorKind::TooLarge => "import-too-large",
         ImportErrorKind::NoProfiles => "import-no-profiles",
+        ImportErrorKind::GeneratedRegistry => "import-generated-registry",
+        ImportErrorKind::GeneratedPack => "import-generated-pack",
+        ImportErrorKind::PlanRefused => "import-plan-refused",
     }
 }
 
@@ -87,6 +100,12 @@ enum Inner {
     OutputTooLarge { max: u64, backtrace: Backtrace },
     #[snafu(display("the target layout packs declare no profile"))]
     NoProfiles { backtrace: Backtrace },
+    #[snafu(display("the generated layouts do not fit the target registry"))]
+    GeneratedRegistry { source: WidgetError, backtrace: Backtrace },
+    #[snafu(display("the generated layout pack manifest cannot be written"))]
+    GeneratedPack { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("the core refuses the generated import plan"))]
+    PlanRefused { source: TransactionError, backtrace: Backtrace },
 }
 
 // Constructeurs plutôt que `.context()` : `clip` n'est appelé que sur le chemin d'erreur, et
@@ -125,6 +144,18 @@ pub(crate) fn output_too_large(max: u64) -> ImportError {
 
 pub(crate) fn no_profiles() -> ImportError {
     ImportError(Box::new(NoProfilesSnafu.build()))
+}
+
+pub(crate) fn generated_registry(source: WidgetError) -> ImportError {
+    ImportError(Box::new(GeneratedRegistrySnafu.into_error(source)))
+}
+
+pub(crate) fn generated_pack(source: serde_json::Error) -> ImportError {
+    ImportError(Box::new(GeneratedPackSnafu.into_error(source)))
+}
+
+pub(crate) fn plan_refused(source: TransactionError) -> ImportError {
+    ImportError(Box::new(PlanRefusedSnafu.into_error(source)))
 }
 
 pub(crate) fn not_a_presentation(content_type: &str) -> ImportError {

@@ -51,34 +51,15 @@ ui-pack-deck-only = Enregistré dans cette présentation seulement
 ui-toolbar-open = Ouvrir
 ui-menu = Menu
 ui-toolbar-add-label = Ajouter sur la slide
+ui-toolbar-packs = Packs du deck
+ui-toolbar-packs-update = Packs du deck — mises à jour disponibles
 ui-toolbar-thumbs-show = Afficher les miniatures
 ui-toolbar-thumbs-hide = Masquer les miniatures
-ui-add-kind = { $kind ->
-    [card] Carte
-    [shape] Forme
-    [chart] Graphique
-    [table] Tableau
-   *[text] Texte
-}
-ui-add-kind-description = { $kind ->
-    [card] Un titre et un court texte dans un cadre
-    [shape] Une forme colorée
-    [chart] Un graphique tiré d'un tableau de données
-    [table] Un tableau de données
-   *[text] Un paragraphe de texte
-}
 ui-toolbar-remove-slide = Supprimer la slide
 ui-toolbar-remove-hint = Slide { $n } · annulable avec ⌘Z
 
 ## Undo labels
 
-ui-undo-add = { $kind ->
-    [card] Ajouter une carte
-    [shape] Ajouter une forme
-    [chart] Ajouter un graphique
-    [table] Ajouter un tableau
-   *[text] Ajouter un texte
-}
 ui-undo-add-widget = Ajouter « { $name } »
 ui-undo-new-slide = Nouvelle slide : { $name }
 ui-undo-move-slide = Déplacer la slide
@@ -94,12 +75,6 @@ ui-undo-resize = Redimensionner
 ui-undo-edit-slide = Modifier la slide
 ui-undo-rename-pack = Renommer le pack
 ui-undo-rename-deck = Renommer la présentation
-
-## New elements
-
-ui-new-text = Nouveau texte
-ui-new-card-title = Titre de la carte
-ui-new-card-detail = Détail
 
 ## Slide pile
 

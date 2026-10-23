@@ -505,3 +505,21 @@ fn preview_widget_of_an_element_in_a_copied_widget_pack_has_a_box_and_fields() {
     assert_that!(preview.view.and_then(|v| v["fields"].as_array().map(Vec::len)).unwrap_or_default())
         .is_greater_than(0);
 }
+
+#[test]
+fn preview_widget_of_a_pinned_builtin_pack_by_namespace_and_file_renders() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    let base = crate::test_support::ns("base");
+    let preview = s.preview_widget(Some(&base), "card", &Map::new(), PreviewFormat::Svg).unwrap();
+    assert_that!(preview.svg.unwrap_or_default().as_str()).starts_with("<svg");
+}
+
+#[test]
+fn preview_widget_with_a_qualified_kind_as_name_is_refused() {
+    let data = fresh_dir("oku-slides-preview-");
+    let mut s = opened_on(data.path());
+    let base = crate::test_support::ns("base");
+    let err = s.preview_widget(Some(&base), "base/card", &Map::new(), PreviewFormat::Svg).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::InvalidWidget);
+}

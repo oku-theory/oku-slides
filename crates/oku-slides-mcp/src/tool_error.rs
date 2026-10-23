@@ -70,6 +70,11 @@ pub(crate) enum ToolError {
     NotShown { backtrace: Backtrace },
     #[snafu(display("the theme picker opens in deck mode only"))]
     ThemesDeckMode { backtrace: Backtrace },
+    #[snafu(display("the deck packs panel opens in deck mode only"))]
+    PacksDeckMode { backtrace: Backtrace },
+    /// Refus d'un pack ajouté ou retiré : l'op refusée se dit elle-même, sans son rang.
+    #[snafu(display("the session refused the pack change"))]
+    PackChange { source: SessionError, backtrace: Backtrace },
     /// Mis en boîte : `HubError` grossirait toutes les réponses d'erreur des outils.
     #[snafu(display("the surface hub refused the call"))]
     Hub { source: Box<crate::HubError>, backtrace: Backtrace },
@@ -111,6 +116,11 @@ impl Localize for ToolError {
             EmptyInterface { .. } => l.tr("agent-error-empty-interface"),
             NotShown { .. } => l.tr("agent-error-not-shown"),
             ThemesDeckMode { .. } => l.tr("agent-error-themes-deck-mode"),
+            PacksDeckMode { .. } => l.tr("agent-error-packs-deck-mode"),
+            PackChange { source, .. } => match source.transaction() {
+                Some(refused) => refused.op_error().localize(l),
+                None => say_session(source, l),
+            },
             Hub { source, .. } => source.localize(l),
             Response { .. } => l.tr("session-response"),
         }

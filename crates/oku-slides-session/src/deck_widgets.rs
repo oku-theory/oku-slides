@@ -144,7 +144,7 @@ impl Session {
                 usable.push(builtin.context(RegistrySnafu)?);
                 continue;
             }
-            let pack = PackWidgets::new(pin.version.hex(), ns.clone(), files.kind(), files.widgets().clone());
+            let pack = PackWidgets::from_files(ns.clone(), files);
             let trusted = pack.as_ref().is_ok_and(is_trusted_pack);
             let probe = match pack.and_then(|pack| self.worker.probe_pack(&pack)) {
                 Ok(probe) => probe,
@@ -269,6 +269,7 @@ impl Session {
             self.pack_renderer = None;
             self.variant_renderer = None;
             self.pack_cache.clear();
+            self.seed_cache.clear();
             self.svg_cache.clear();
         }
         Ok(DeckWidgets {
@@ -356,6 +357,8 @@ impl Session {
             self.set_notice(notice);
         }
         self.doc.dirty = true;
+        // Des épinglages changés (`AddPack`, `RemovePack`, `SetTheme`) : la pastille des packs se recalcule.
+        self.refresh_pack_updates_if_pins_changed();
         self.persist(true);
         Ok(())
     }

@@ -36,7 +36,7 @@ fn plan(bytes: &[u8], limits: &ReadLimits) -> ImportPlan {
         created: "2026-10-14T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
     };
-    hifi::project(&source, &target)
+    hifi::project(&source, &target).unwrap_or_else(|e| panic!("projection : {e}"))
 }
 
 #[test]

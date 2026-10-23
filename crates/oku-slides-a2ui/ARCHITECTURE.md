@@ -1,7 +1,7 @@
 # oku-slides-a2ui
 
 The A2UI v0.9 protocol messages the session sends to the UI, and the catalog
-`urn:oku-slides:a2ui:catalog:v3` (`CATALOG_ID`). The crate only describes data: no state, no
+`urn:oku-slides:a2ui:catalog:v4` (`CATALOG_ID`). The crate only describes data: no state, no
 rendering, no disk access.
 
 ## Key types
@@ -34,5 +34,5 @@ the two sides diverge.
 
 ## Users
 
-`oku-slides-session` (forms, turns, receipts, `render`, the pack banner) and `oku-slides-mcp`
+`oku-slides-session` (forms, turns, receipts, `render`, host panels) and `oku-slides-mcp`
 (validation of agent surfaces).

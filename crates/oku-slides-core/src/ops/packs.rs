@@ -32,16 +32,29 @@ pub(super) fn add(deck: &mut Deck, kind: PackKind, ns: Namespace, pin: PackPin) 
     Ok(())
 }
 
-/// Retire le pack `ns` de sorte `kind` ; refuse `base`, un pack requis par un autre ou utilisé.
-pub(super) fn remove(deck: &mut Deck, kind: PackKind, ns: &Namespace) -> Result<(), OpError> {
-    ensure!(!(kind == PackKind::Widgets && ns.as_str() == kinds::base::NAMESPACE), BaseRequiredSnafu);
-    ensure!(deck.pins(kind).contains_key(ns), UnknownNamespaceSnafu { namespace: ns.to_string() });
+/// Pourquoi le pack `ns` ne peut pas quitter le deck ; `None` s'il le peut.
+///
+/// Ordre des contrôles : `base`, espace inconnu, pack requis, pack utilisé.
+pub fn remove_pack_refusal(deck: &Deck, kind: PackKind, ns: &Namespace) -> Option<OpError> {
+    if kind == PackKind::Widgets && ns.as_str() == kinds::base::NAMESPACE {
+        return Some(BaseRequiredSnafu.build().into());
+    }
+    if !deck.pins(kind).contains_key(ns) {
+        return Some(UnknownNamespaceSnafu { namespace: ns.to_string() }.build().into());
+    }
     let mut all = deck.widgets.iter().chain(&deck.layouts);
     if let Some((by, _)) = all.find(|(owner, p)| *owner != ns && p.requires.contains(ns)) {
-        return Err(PackRequiredSnafu { namespace: ns.to_string(), by: by.to_string() }.build().into());
+        return Some(PackRequiredSnafu { namespace: ns.to_string(), by: by.to_string() }.build().into());
     }
     let users = pack_users(deck, ns.as_str());
-    ensure!(users.is_empty(), PackInUseSnafu { namespace: ns.to_string(), users });
+    (!users.is_empty()).then(|| PackInUseSnafu { namespace: ns.to_string(), users }.build().into())
+}
+
+/// Retire le pack `ns` de sorte `kind` ; refuse `base`, un pack requis par un autre ou utilisé.
+pub(super) fn remove(deck: &mut Deck, kind: PackKind, ns: &Namespace) -> Result<(), OpError> {
+    if let Some(refusal) = remove_pack_refusal(deck, kind, ns) {
+        return Err(refusal);
+    }
     deck.pins_mut(kind).remove(ns);
     Ok(())
 }

@@ -6,12 +6,14 @@
 //! la bibliothèque ([`theme_closure`]) ; après une fusion qui la casse (deux
 //! `set_theme` concurrents), elle la refait à partir des versions embarquées
 //! ([`repaired_closure`]). Un thème introuvable est `UnknownTheme`, une
-//! boucle `ThemeCycle`.
+//! boucle `ThemeCycle`. Le brouillon d'un enfant, sans espace de noms, se
+//! rend sur la fermeture de ses seuls parents ([`closure_of_parents`]).
 
 use std::collections::BTreeMap;
 
 use serde_json::{Map, Value};
 use snafu::OptionExt;
+use uuid::Uuid;
 
 use oku_slides_core::{Namespace, PackFiles, PackVersion, SourceBundle, ThemeManifest, ThemePin, linearize};
 
@@ -34,7 +36,7 @@ pub(crate) fn theme_closure(themes: &ThemeLibrary, ns: &Namespace) -> Result<Clo
 }
 
 /// La version courante du thème `ns` de `themes`, épinglée, et ses fichiers.
-fn library_theme(themes: &ThemeLibrary, ns: &Namespace) -> Option<(ThemePin, PackFiles)> {
+pub(crate) fn library_theme(themes: &ThemeLibrary, ns: &Namespace) -> Option<(ThemePin, PackFiles)> {
     themes.by_namespace(ns).map(|s| (pin_of(&s.manifest, s.version), s.files))
 }
 
@@ -44,11 +46,48 @@ fn library_theme(themes: &ThemeLibrary, ns: &Namespace) -> Option<(ThemePin, Pac
 /// bouclent sont `ThemeCycle`. Chaque thème n'est cherché qu'une fois.
 pub(crate) fn closure_with(
     ns: &Namespace,
+    find: impl FnMut(&Namespace) -> Option<(ThemePin, PackFiles)>,
+) -> Result<Closure> {
+    let closure = gathered(vec![ns.clone()], find)?;
+    linearize(ns, &closure.0).map_err(theme_chain_error)?;
+    Ok(closure)
+}
+
+/// La fermeture des thèmes `parents`, sous une racine synthétique qu'aucun thème ne tient.
+///
+/// Celle du brouillon d'un enfant, qui n'a pas encore d'espace de noms : la
+/// racine `deck` (réservée) étend `parents` le temps de linéariser
+/// ([`parents_order`]), avec la même détection des boucles et le même ordre
+/// que [`closure_with`]. Elle n'est pas dans la fermeture rendue.
+pub(crate) fn closure_of_parents(
+    parents: &[Namespace],
+    find: impl FnMut(&Namespace) -> Option<(ThemePin, PackFiles)>,
+) -> Result<Closure> {
+    let closure = gathered(parents.iter().rev().cloned().collect(), find)?;
+    parents_order(parents, &closure.0)?;
+    Ok(closure)
+}
+
+/// L'ordre linéarisé sous `parents` : celui d'une racine synthétique `deck` qui les étend, sans elle.
+pub(crate) fn parents_order(parents: &[Namespace], pins: &BTreeMap<Namespace, ThemePin>) -> Result<Vec<Namespace>> {
+    let Some(first) = parents.first() else { return Ok(Vec::new()) };
+    // La racine ne se lit jamais : seuls ses `extends` comptent pour linéariser.
+    let version = pins.get(first).context(UnknownThemeSnafu { theme: first.as_str() })?.version.clone();
+    let root = Namespace::deck();
+    let mut rooted = pins.clone();
+    rooted.insert(root.clone(), ThemePin { id: Uuid::nil(), version, extends: parents.to_vec() });
+    let mut order = linearize(&root, &rooted).map_err(theme_chain_error)?;
+    order.retain(|n| *n != root);
+    Ok(order)
+}
+
+/// Les thèmes de `todo`, trouvés par `find`, et tous ceux qu'ils étendent ; chacun cherché une fois.
+fn gathered(
+    mut todo: Vec<Namespace>,
     mut find: impl FnMut(&Namespace) -> Option<(ThemePin, PackFiles)>,
 ) -> Result<Closure> {
     let mut pins = BTreeMap::new();
     let mut files = Vec::new();
-    let mut todo = vec![ns.clone()];
     while let Some(next) = todo.pop() {
         if pins.contains_key(&next) {
             continue;
@@ -58,7 +97,6 @@ pub(crate) fn closure_with(
         pins.insert(next, pin);
         files.push(f);
     }
-    linearize(ns, &pins).map_err(theme_chain_error)?;
     Ok((pins, files))
 }
 
@@ -66,13 +104,18 @@ pub(crate) fn closure_with(
 ///
 /// `with_root` : `ns` compris, en dernier ; sinon ses seuls parents.
 pub(crate) fn chain_tokens(closure: &Closure, ns: &Namespace, with_root: bool) -> Result<Vec<Map<String, Value>>> {
-    let (pins, files) = closure;
-    let mut order = linearize(ns, pins).map_err(theme_chain_error)?;
+    let mut order = linearize(ns, &closure.0).map_err(theme_chain_error)?;
     if !with_root {
         order.retain(|n| n != ns);
     }
+    tokens_in_order(closure, &order)
+}
+
+/// Les jetons des thèmes `order` de la fermeture `closure`, dans cet ordre.
+pub(crate) fn tokens_in_order(closure: &Closure, order: &[Namespace]) -> Result<Vec<Map<String, Value>>> {
+    let (pins, files) = closure;
     let mut chain = Vec::new();
-    for n in &order {
+    for n in order {
         let pin = pins.get(n).context(UnknownThemeSnafu { theme: n.as_str() })?;
         let f = files
             .iter()

@@ -43,6 +43,7 @@ fn library_pack(library: &PackLibrary, namespace: &str, source: &str) -> Op {
         scope: PackScope::Library,
         profiles: Vec::new(),
         examples: BTreeMap::new(),
+        styles: BTreeMap::new(),
         tokens: Vec::new(),
     };
     let note = WidgetFile::parse("note").unwrap_or_else(|| panic!("nom"));

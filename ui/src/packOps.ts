@@ -1,6 +1,7 @@
 // Lectures des packs épinglés par le deck : widgets et layouts.
 
-import type { PackInfo, PackPin, Snapshot } from "./api";
+import type { Snapshot } from "./api";
+import type { PackInfo, PackPin } from "./packTypes";
 import { BASE_NAMESPACE, ESSENTIEL_NAMESPACE } from "./builtinKinds";
 import { t } from "./i18n";
 

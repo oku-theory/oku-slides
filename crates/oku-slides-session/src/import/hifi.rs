@@ -87,7 +87,8 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
         created: now_created(),
         limits: pack_limits(&platform.settings.render),
     };
-    let mut plan = hifi::project(&input.source, &target).check_budget(&input.limits).context(PresentationSnafu)?;
+    let mut plan =
+        hifi::project(&input.source, &target).and_then(|p| p.check_budget(&input.limits)).context(PresentationSnafu)?;
     // Sans pack, le projecteur n'a pu sérialiser son manifeste : un bogue, dit pour lui.
     let pack = plan.take_pack().context(PackMissingSnafu)?;
 

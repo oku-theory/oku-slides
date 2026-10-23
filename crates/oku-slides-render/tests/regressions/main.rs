@@ -15,3 +15,4 @@ mod issue_0609_tableau_haut_partage_la_hauteur;
 mod issue_0645_tableau_occupe_toute_la_largeur;
 mod issue_0841_encre_carte_mise_en_avant;
 mod issue_1036_image_box_follows_its_row;
+mod issue_1057_trust_follows_content;

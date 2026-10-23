@@ -1,12 +1,13 @@
-// Les gestes d'un onglet sur ses slides. On y applique des ops, ajoute un élément ou un widget,
+// Les gestes d'un onglet sur ses slides. On y applique des ops, ajoute un widget de la grille,
 // déplace, supprime et montre une slide.
 
 import { useCallback } from "react";
-import type { AddWidget, Element, Op, Paragraph, SlideView, Snapshot, TabApi } from "./api";
+import type { Element, Op, Paragraph, SlideView, Snapshot, TabApi } from "./api";
+import type { AddWidget } from "./packTypes";
 import { neighbourSlide, newElementOps, newId } from "./deck";
 import { t } from "./i18n";
-import { newElement, newPackWidget } from "./newElement";
-import type { AddName } from "./slideTools";
+import { BASE } from "./builtinKinds";
+import { newElement } from "./newElement";
 import { canRemoveSlide } from "./slideTools";
 import type { FieldKey } from "./stageFields";
 import type { PackWidgetEditor } from "./usePackWidgetEditor";
@@ -43,16 +44,15 @@ export function useSlideOps({
     [run, dropCut],
   );
 
-  /** Ajoute un texte, une carte, une forme ou un graphique ; sur une grille, accroché aux nœuds. */
-  const addElement = (name: AddName, text?: Paragraph[], label?: string) => {
-    const element = newElement(name, newId(name[0]));
-    if (name === "text" && text) element.params = { ...element.params, body: text };
-    place(element, label ?? t("ui-undo-add", { kind: name }), name === "text" && !text);
-  };
-
-  /** Ajoute un widget du pack, avec les défauts de ses paramètres. */
-  const addPackWidget = (w: AddWidget) => {
-    place(newPackWidget(w.name, newId("w")), t("ui-undo-add-widget", { name: w.label ?? w.name }), false);
+  /**
+   * Ajoute un widget de la grille, parti de son départ ; sur une grille, accroché aux nœuds.
+   * `override` (collage) : le texte remplace le `body` du départ, sous son propre libellé. Un
+   * texte de base ajouté sans lui s'ouvre en édition.
+   */
+  const addElement = (widget: AddWidget, override?: { text: Paragraph[]; label: string }) => {
+    const element = newElement(widget.name, newId(idPrefix(widget.name)), widget.seed);
+    if (override) element.params = { ...element.params, body: override.text };
+    place(element, override?.label ?? t("ui-undo-add-widget", { name: widget.label }), widget.name === BASE.text && !override);
   };
 
   /** Pose `element` sur la slide affichée, puis le sélectionne (et l'édite si `edit`). */
@@ -93,5 +93,10 @@ export function useSlideOps({
     if (widgetActive) widgets.activate(null);
   };
 
-  return { apply, addElement, addPackWidget, moveSlide, removeSlide, goToSlide };
+  return { apply, addElement, moveSlide, removeSlide, goToSlide };
+}
+
+/** Préfixe des ids d'un élément neuf : la première lettre du nom du widget (`acme/kpi` → `k`). */
+function idPrefix(kind: string): string {
+  return kind.slice(kind.indexOf("/") + 1).charAt(0) || "e";
 }

@@ -1,41 +1,35 @@
-// Ce que propose la grille d'ajout : les éléments natifs, puis les widgets d'élément du pack.
+// Ce que propose la grille d'ajout : les widgets d'élément de chaque pack épinglé, par section.
 
-import type { AddWidget } from "./api";
-import { BASE } from "./builtinKinds";
-import { t } from "./i18n";
-import { ADD_NAMES, type AddName, packOnlyWidgets } from "./slideTools";
+import type { AddPackView, AddWidget } from "./packTypes";
 
 /** Une carte de la grille d'ajout. */
 export interface WidgetChoice {
-  /** Clé stable : le kind `base/<nom>` d'une carte native, ou `widget:<kind>`. */
+  /** Clé stable : le kind du widget. */
   key: string;
-  /** Nom technique, cherché par le filtre. */
+  /** Nom technique (le kind), cherché par le filtre. */
   name: string;
   /** Nom montré sur la carte. */
   label: string;
   /** Ce que montre l'élément, en une phrase ; vide si le widget n'en dit rien. */
   description: string;
-  /** Ce qu'ajoute la carte : un élément natif ou un widget du pack. */
-  pick: { native: AddName } | { widget: AddWidget };
+  /** Le widget ajouté, avec son départ. */
+  widget: AddWidget;
 }
 
-/** Les cartes de la grille : les cartes natives, puis les widgets du pack hors de `base`. */
-export function widgetChoices(pack: AddWidget[]): WidgetChoice[] {
-  const natives = ADD_NAMES.map((name) => ({
-    key: BASE[name],
-    name,
-    label: t("ui-add-kind", { kind: name }),
-    description: t("ui-add-kind-description", { kind: name }),
-    pick: { native: name },
+/** Une section de la grille : un pack de widgets et ses cartes. */
+export interface WidgetSection {
+  namespace: string;
+  name: string;
+  choices: WidgetChoice[];
+}
+
+/** Les sections de la grille, une par pack, dans l'ordre des packs et de leurs widgets. */
+export function widgetSections(packs: AddPackView[]): WidgetSection[] {
+  return packs.map((p) => ({
+    namespace: p.namespace,
+    name: p.name,
+    choices: p.widgets.map((w) => ({ key: w.name, name: w.name, label: w.label, description: w.description ?? "", widget: w })),
   }));
-  const widgets = packOnlyWidgets(pack).map((w) => ({
-    key: `widget:${w.name}`,
-    name: w.name,
-    label: w.label ?? w.name,
-    description: w.description ?? "",
-    pick: { widget: w },
-  }));
-  return [...natives, ...widgets];
 }
 
 /** Minuscules sans accents : « Étapes » et « etapes » se valent. */

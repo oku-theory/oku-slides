@@ -27,7 +27,7 @@ import { ThemeChoice } from "./ThemeChoice";
 import { ChartData, TableData } from "./dataComponents";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
-export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v3";
+export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v4";
 
 const ColumnApi = { name: "Column", schema: z.object({ children: CommonSchemas.ChildList }).strict() };
 const CardApi = { name: "Card", schema: z.object({ child: CommonSchemas.ComponentId, tone: ToneSchema.optional() }).strict() };
@@ -78,7 +78,7 @@ const ButtonApi = {
       label: CommonSchemas.DynamicString,
       primary: z.boolean().optional(),
       danger: z.boolean().optional(),
-      icon: z.enum(["close"]).optional(),
+      icon: z.enum(["close", "up", "down", "remove"]).optional(),
       action: CommonSchemas.Action,
     })
     .strict(),

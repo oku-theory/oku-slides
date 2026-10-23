@@ -63,34 +63,15 @@ ui-pack-deck-only = محفوظة في هذا العرض التقديمي فقط
 ui-toolbar-open = فتح
 ui-menu = القائمة
 ui-toolbar-add-label = إضافة إلى الشريحة
+ui-toolbar-packs = حزم العرض التقديمي
+ui-toolbar-packs-update = حزم العرض التقديمي — تتوفر تحديثات
 ui-toolbar-thumbs-show = إظهار المصغرات
 ui-toolbar-thumbs-hide = إخفاء المصغرات
-ui-add-kind = { $kind ->
-    [card] بطاقة
-    [shape] شكل
-    [chart] مخطط
-    [table] جدول
-   *[text] نص
-}
-ui-add-kind-description = { $kind ->
-    [card] عنوان ونص قصير داخل إطار
-    [shape] شكل ملوّن
-    [chart] مخطط مرسوم من جدول بيانات
-    [table] جدول بيانات
-   *[text] فقرة نصية
-}
 ui-toolbar-remove-slide = حذف الشريحة
 ui-toolbar-remove-hint = الشريحة { $n } · تراجع باستخدام ⌘Z
 
 ## تسميات التراجع
 
-ui-undo-add = { $kind ->
-    [card] إضافة بطاقة
-    [shape] إضافة شكل
-    [chart] إضافة مخطط
-    [table] إضافة جدول
-   *[text] إضافة نص
-}
 ui-undo-add-widget = إضافة «{ $name }»
 ui-undo-new-slide = شريحة جديدة: { $name }
 ui-undo-move-slide = نقل الشريحة
@@ -106,12 +87,6 @@ ui-undo-resize = تغيير الحجم
 ui-undo-edit-slide = تعديل الشريحة
 ui-undo-rename-pack = إعادة تسمية الحزمة
 ui-undo-rename-deck = إعادة تسمية العرض التقديمي
-
-## العناصر الجديدة
-
-ui-new-text = نص جديد
-ui-new-card-title = عنوان البطاقة
-ui-new-card-detail = تفاصيل
 
 ## كومة الشرائح
 

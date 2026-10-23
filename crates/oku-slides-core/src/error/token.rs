@@ -96,3 +96,14 @@ impl PackManifestError {
         }
     }
 }
+
+impl Localize for PackManifestError {
+    fn localize(&self, l: &Localizer) -> String {
+        match &*self.0 {
+            PackManifestInner::ManifestJson { source, .. } => {
+                l.tr_with("pack-manifest-json", &[("reason", source.to_string().into())])
+            }
+            PackManifestInner::ManifestTokens { source, .. } => source.localize(l),
+        }
+    }
+}

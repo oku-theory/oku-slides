@@ -1,6 +1,5 @@
 import { StagePreviewContext, createStagePreviewStore } from "./a2ui/stagePreview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import PackNotice from "./PackNotice";
 import type { ImportTarget, InterfaceChange, SlideView, Snapshot } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { widgetToOpen } from "./packOps";
@@ -197,7 +196,7 @@ export default function App({
   }, [fetchId, currentHash]);
 
   const { clip, cutMark, setCutMark, dropCut } = useClipboard(snap, view);
-  const { apply, addElement, addPackWidget, moveSlide, removeSlide, goToSlide } = useSlideOps({
+  const { apply, addElement, moveSlide, removeSlide, goToSlide } = useSlideOps({
     api, snap, view, current, run, dropCut, setCurrent, setSelected, setEditing, editWhenShown,
     showSlide, widgetActive, widgets,
   });
@@ -209,8 +208,7 @@ export default function App({
   /** Ajoute la carte choisie dans la grille d'ajout, qui se ferme. */
   const addChoice = (c: WidgetChoice) => {
     setAdding(false);
-    if ("native" in c.pick) addElement(c.pick.native);
-    else addPackWidget(c.pick.widget);
+    addElement(c.widget);
   };
   const addSlide = () => setPicking(true);
   useClipboardEvents({
@@ -237,7 +235,7 @@ export default function App({
   });
 
   const { insertLayout } = useLayoutInsert({ snap, current, apply, setCurrent, setSelected, setPicking });
-  const { packWidgets, addChoices } = usePackWidgets(snap);
+  const { packWidgets, addSections } = usePackWidgets(snap);
   const { editPack, finishPack } = usePackMode({
     api, snap, snapRef, run, autosave, widgets, setCurrent, setSelected,
   });
@@ -345,9 +343,6 @@ export default function App({
       ) : snap.read_only ? (
         <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} search={api.search} onClose={onClose} />
       ) : (<>
-      {snap.pack_notice && (
-        <PackNotice surface={snap.pack_notice} onCommand={(cmd) => run(api.packNotice(cmd))} onError={(m) => say(m, true)} />
-      )}
       {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition d'un pack. */}
       <header className={`label${snap.editing ? " editing-pack" : ""}`}>
         {snap.editing && <PackBrand name={snap.editing.name} kind={snap.editing.kind} deckOnly={snap.editing.deck_only} />}
@@ -372,6 +367,7 @@ export default function App({
         api={api} snap={snap} view={view} widgetActive={widgetActive} widgets={widgets}
         keptUi={keptUi} mainMenu={mainMenu}
         run={run} onAdd={() => setAdding(true)}
+        onPacks={() => void agent.showPacks().catch((e) => say(errorText(e), true))}
         thumbs={!packColumn && thumbsSection ? { open: thumbsOpen, onToggle: toggleThumbs } : null}
       />
 
@@ -518,8 +514,8 @@ export default function App({
 
       {adding && (
         <WidgetPicker
-          choices={addChoices}
-          canPick={(c) => canAdd(view?.slide.kind, "native" in c.pick ? c.pick.native : "widget")}
+          sections={addSections}
+          canPick={(c) => canAdd(view?.slide.kind, c.key, snap.free_slots)}
           themeKey={deckLook}
           preview={api.previewWidget}
           onPick={addChoice}

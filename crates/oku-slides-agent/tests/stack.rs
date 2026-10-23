@@ -808,3 +808,20 @@ async fn prompt_containing_theme_in_a_sentence_goes_to_the_agent() {
     wait_turn_done(&rx, "t-1", 1).await;
     assert_that!(common::logged(&log, "session/prompt")).has_length(1);
 }
+
+#[test]
+fn show_packs_command_deserializes_with_its_tab() {
+    assert_that!(cmd(json!({ "cmd": "show_packs", "tab": "t" })).tab().to_owned()).is_equal_to("t".to_owned());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_relays_the_packs_panel_to_its_tab() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_packs", "tab": "t-1" }))))
+        .unwrap_or_else(|e| panic!("show_packs : {e}"));
+    let (_, ev) = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "host-packs"
+    })
+    .await;
+    assert_that!(ev["tab"].clone()).is_equal_to(json!("t-1"));
+}

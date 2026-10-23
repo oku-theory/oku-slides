@@ -43,6 +43,7 @@ use crate::error::{
     TokenEntryError, WidgetFileError, WidgetFileSnafu,
 };
 use crate::layout_profile::LayoutProfile;
+use crate::model::Style;
 use crate::namespace::Namespace;
 use crate::pack_kind::PackKind;
 use crate::token_spec::{ComponentToken, check_entries};
@@ -397,6 +398,13 @@ pub struct PackManifest {
         skip_serializing_if = "BTreeMap::is_empty"
     )]
     pub examples: BTreeMap<WidgetFile, Map<String, Value>>,
+    /// Style de départ des widgets ajoutés depuis la grille, par widget.
+    #[serde(
+        default,
+        deserialize_with = "crate::pack_examples::lenient_styles",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
+    pub styles: BTreeMap<WidgetFile, Style>,
     /// Jetons de composant du pack, sous `component.<namespace>` ; vide, la clé
     /// n'est pas écrite (les versions sans jetons gardent leur empreinte).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

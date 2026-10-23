@@ -292,6 +292,7 @@ impl Session {
         let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         if removing {
             manifest.examples.remove(&name);
+            manifest.styles.remove(&name);
         }
         let (after, saved) = match self.commit_manifest(&t, manifest, widgets.clone()) {
             Ok((after, render)) => (with_render(after, render, &name), true),
@@ -359,6 +360,7 @@ impl Session {
         widgets.remove(&name);
         let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         manifest.examples.remove(&name);
+        manifest.styles.remove(&name);
         let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &name))?;
         if let Some(scratch) = self.scratch_mut() {
             scratch.removed(&name);
@@ -387,6 +389,10 @@ impl Session {
         // L'exemple suit le widget.
         if let Some(examples) = manifest.examples.remove(&from).filter(|e| !e.is_empty()) {
             manifest.examples.insert(to.clone(), examples);
+        }
+        // Le style de départ aussi.
+        if let Some(style) = manifest.styles.remove(&from) {
+            manifest.styles.insert(to.clone(), style);
         }
         let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &to))?;
         if let Some(scratch) = self.scratch_mut() {
@@ -438,7 +444,7 @@ impl Session {
         let example = |e: &WidgetFile| -> Option<Slide> {
             let id = layout_slide_id(e);
             let live = working.iter().find(|s| pack_mode && s.id == id).cloned();
-            live.or_else(|| manifest.examples.contains_key(e).then(|| example_slide(&manifest, e)))
+            live.or_else(|| manifest.examples.contains_key(e).then(|| example_slide(&manifest, e, &self.localizer)))
         };
         let examples: BTreeSet<&WidgetFile> = manifest.examples.keys().chain(t.files.widgets().keys()).collect();
         let mut users: Vec<String> = examples
@@ -500,8 +506,8 @@ impl Session {
                 // Un layout écrit ajoute sa slide au deck de travail, un layout supprimé retire la sienne ;
                 // les slides d'aperçu d'un pack de widgets suivent ses widgets.
                 let mut deck = self.doc.sources.deck().clone();
-                realign_layouts(&mut deck, &manifest, &files);
-                realign_widget_previews(&mut deck, &manifest, &files);
+                realign_layouts(&mut deck, &manifest, &files, &self.localizer);
+                realign_widget_previews(&mut deck, &manifest, &files, &self.localizer);
                 self.adopt_session_version(deck, files, &edit, false, AdoptStep::Session(&label))?;
                 match self.rerender() {
                     Ok(()) => Ok(Vec::new()),

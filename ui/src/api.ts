@@ -7,7 +7,7 @@ import type { DataOp } from "./chart/chartTypes";
 import type { DataEdit } from "./chart/dataEdit";
 import type { Cell, ZoneView } from "./grid";
 import { locale } from "./i18n";
-import type { PackNoticeCommand } from "./packNoticeCommand";
+import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin } from "./packTypes";
 import type { PresentMode } from "./present";
 import type { View } from "./table/ShowAsButton";
 import { host } from "./hostCall";
@@ -43,14 +43,6 @@ export interface Appearance {
   font_body: string[];
   /** Palette des graphiques du thème (jetons chart.palette), en hex. */
   chart_palette: string[];
-}
-
-/** Un widget de pack qu'on ajoute à une slide : son nom (`kind`) et son label. */
-export interface AddWidget {
-  name: string;
-  label: string | null;
-  /** Ce que montre le widget, en une phrase ; cherché par le filtre de la grille d'ajout. */
-  description: string | null;
 }
 
 /** Type d'hôte d'un paramètre de widget : le panneau ou l'éditeur qui le lit. */
@@ -95,12 +87,17 @@ export interface Snapshot {
   editing: PackMode | null;
   /** Le pack du deck n'appartient qu'à lui (import) : jamais dans la bibliothèque. */
   deck_pack: boolean;
-  /** Bandeau du pack, en surface A2UI : le deck embarque une autre version que ma version courante. */
-  pack_notice: Surface | null;
+  /** Épinglages (packs et thème) plus anciens que ma version courante : la pastille du bouton des packs. */
+  pack_updates: number;
   /** Widgets des packs en cours, qualifiés `<namespace>/<nom>` (sans `_commun`), sans sonde. */
   pack_widgets: string[];
-  /** Widgets d'élément du pack au registre : ceux de la barre d'ajout. */
-  add_widgets: AddWidget[];
+  /** La grille d'ajout : les widgets d'élément de chaque pack de widgets épinglé, avec leur départ. */
+  add_packs: AddPackView[];
+  /**
+   * Le premier slot libre de chaque layout épinglé et les widgets qu'il accepte (`null` : tous).
+   * Un layout sans slot libre est absent : ses slides n'acceptent pas d'élément ajouté.
+   */
+  free_slots: Record<string, string[] | null>;
   /** Révision des valeurs d'exemple des widgets : change quand une valeur est modifiée (tirée de la version du pack édité). */
   widget_trials: number;
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
@@ -178,116 +175,6 @@ export interface UiOrder {
 
 /** Section repliable : slides hors mode pack, layouts et widgets en mode pack. */
 export type PileSectionName = "slides" | "layouts" | "widgets";
-
-/** Sorte d'un pack : widgets d'éléments ou layouts de slide. */
-export type PackKind = "widgets" | "layouts";
-
-/** Un pack épinglé par le deck : id, version embarquée et espaces de noms requis. */
-export interface PackPin {
-  id: string;
-  version: string;
-  requires?: string[];
-}
-
-/** Un thème épinglé par le deck : id, version embarquée et espaces de noms des parents. */
-export interface ThemePin {
-  id: string;
-  version: string;
-  extends?: string[];
-}
-
-/** Un thème de la bibliothèque dans sa version courante. */
-export interface ThemeInfo {
-  id: string;
-  version: string;
-  name: string;
-  /** Son espace de noms, unique dans la bibliothèque : le deck l'épingle sous ce nom. */
-  namespace: string;
-  /** Les thèmes qu'il étend, dans l'ordre (les suivants l'emportent). */
-  extends: string[];
-  builtin: boolean;
-  /** Le thème d'un deck neuf. */
-  default: boolean;
-}
-
-/** Le pack édité en mode pack, et le brouillon du thème. */
-export interface PackMode {
-  /** Id du pack édité. */
-  pack: string;
-  name: string;
-  kind: PackKind;
-  /** Pack intégré : l'enregistrer crée ma version sous son id. */
-  builtin: boolean;
-  /** Version dont viennent widgets et description. */
-  base: string;
-  /** Parente des versions de la session. */
-  parent: string | null;
-  /** Version de cette session d'édition, une fois enregistrée. */
-  session_version: string | null;
-  /** Pack du deck seul (celui d'un import) : ses enregistrements restent dans le deck, jamais dans la bibliothèque. */
-  deck_only: boolean;
-  /** Le thème édité en brouillon : les jetons du deck de travail. */
-  theme: ThemeEditView;
-}
-
-export interface ThemeEditView {
-  /** Version de base du brouillon. */
-  base: ThemePin;
-  name: string;
-  /** La base est intégrée : l'enregistrer en crée un enfant qui l'étend. */
-  child: boolean;
-  /** Noms des thèmes qu'étend le thème enregistré, dans l'ordre (lecture seule). */
-  extends: string[];
-  /** Le brouillon diffère de sa base (jetons ou nom). */
-  dirty: boolean;
-  /** Empreinte des jetons du brouillon : change avec eux. */
-  revision: string;
-}
-
-/** Un pack de la bibliothèque dans sa version courante. */
-export interface PackInfo {
-  kind: PackKind;
-  id: string;
-  version: string;
-  name: string;
-  /** Espace de noms de ses widgets : leur `kind` est `<namespace>/<nom>`. */
-  namespace: string;
-  /** Espaces de noms des packs dont il a besoin. */
-  requires: string[];
-  description: string;
-  builtin: boolean;
-  /** Un pack qu'épingle un deck neuf (`base`, `essentiel`). */
-  default: boolean;
-  /** Cette version est arrivée avec un deck reçu, l'utilisateur ne l'a pas créée. */
-  received: boolean;
-  /** Le nombre de ses fichiers de widgets, `_commun` excepté. */
-  widgets: number;
-  /** Le nombre de ses profils d'import (pack de layouts). */
-  profiles: number;
-}
-
-/** Un layout avec son aperçu (SVG) dans le thème du deck. */
-export interface LayoutView {
-  /** Son kind qualifié (`essentiel/content`). */
-  kind: string;
-  /** Son nom dans la langue de l'utilisateur. */
-  label: string;
-  /** Sa slide de départ, à sa valeur d'exemple. */
-  slide: Slide;
-  svg: string;
-}
-
-/** Les layouts d'un pack de layouts épinglé, avec leurs aperçus. */
-export interface LayoutPackView {
-  namespace: string;
-  name: string;
-  layouts: LayoutView[];
-}
-
-/** Les layouts de chaque pack de layouts épinglé, dans l'ordre des espaces de noms. */
-export interface LayoutsView {
-  packs: LayoutPackView[];
-}
 
 /** Un message de Typst (ou du contrôle) sur un fichier de widget ; ligne et colonne à partir de 1. */
 export interface WidgetDiagnostic {
@@ -585,6 +472,9 @@ export type ListOp =
   | { op: "move"; item: string; to: number }
   | { op: "set_field"; item: string; field: string; value: unknown };
 
+/** Changement de la liste `extends` du brouillon : ajouter, retirer, monter ou descendre un thème. */
+export type ExtendsEdit = "add" | "remove" | "up" | "down";
+
 /** Action d'une ligne de la surface des jetons : poser, revenir à la base, retirer du thème, vider. */
 export type TokenAction = "set" | "reset" | "remove" | "clear";
 
@@ -605,11 +495,10 @@ type Request =
   | { cmd: "save_pack"; as_new: boolean }
   | { cmd: "close_pack" }
   | { cmd: "delete_pack"; pack: string }
-  | { cmd: "pack_use_mine" }
   | { cmd: "set_edited_theme"; id: string }
   | { cmd: "rename_edited_theme"; name: string }
-  | { cmd: "pack_make_current" }
-  | { cmd: "pack_notice_close" }
+  | { cmd: "set_edited_theme_extends"; extends: string[] }
+  | { cmd: "edit_theme_extends"; edit: ExtendsEdit; theme: string }
   | { cmd: "host_settings"; widget: string | null }
   | { cmd: "data_panel"; slide: string; element: string }
   | { cmd: "data_edit"; slide: string; element: string; edit: DataEdit }
@@ -677,8 +566,8 @@ export type AgentEvent =
 /** La portée d'une conversation : les slides, l'atelier d'un pack, ou un de ses widgets. */
 export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } | { kind: "widget"; pack: string; name: string };
 
-/** Où s'affiche une surface : fiche, fil, tiroir, fenêtre ou bandeau (hôte seul). */
-export type Place = "sheet" | "thread" | "drawer" | "modal" | "banner";
+/** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
+export type Place = "sheet" | "thread" | "drawer" | "modal";
 
 /**
  * Où l'agent pose une fiche (session, `agent::Anchor`) : l'élément `owner` de la slide, ou son
@@ -738,6 +627,7 @@ type AgentCommand =
   | { cmd: "follow"; tab: string }
   | { cmd: "set_draft"; tab: string; text: string | null; origin: string }
   | { cmd: "picker"; tab: string }
+  | { cmd: "show_packs"; tab: string }
   | { cmd: "availability"; tab: string }
   | { cmd: "select_agent"; tab: string; id: string }
   | { cmd: "download_model"; tab: string }
@@ -766,6 +656,8 @@ export function agentApi(tab: string) {
     setDraft: (text: string | null, origin: string) => agentCall({ cmd: "set_draft", tab, text, origin }),
     /** Demande le panneau des agents (évènement `picker` pour cet onglet). */
     picker: () => agentCall({ cmd: "picker", tab }),
+    /** Ouvre le panneau des packs du deck (surface `host-packs` du hub de l'onglet). */
+    showPacks: () => agentCall({ cmd: "show_packs", tab }),
     /** Demande si l'agent est utilisable (évènement `availability` pour cet onglet). */
     availability: () => agentCall({ cmd: "availability", tab }),
     /** Choisit l'agent de l'app ; l'hôte réémet le panneau. */
@@ -831,13 +723,13 @@ export function tabApi(tab: string) {
     setEditedTheme: (id: string) => call<Snapshot>({ cmd: "set_edited_theme", id }),
     /** Mode pack : renomme le thème édité (annulable). */
     renameEditedTheme: (name: string) => call<Snapshot>({ cmd: "rename_edited_theme", name }),
+    /** Mode pack : change la liste `extends` du brouillon par un delta appliqué par la session (annulable). */
+    editThemeExtends: (edit: ExtendsEdit, theme: string) => call<Snapshot>({ cmd: "edit_theme_extends", edit, theme }),
     /** Surface A2UI des jetons du thème édité, filtrée ; `null` hors mode pack. */
     hostTheme: (filter: string) => call<Surface | null>({ cmd: "host_theme", filter }),
     /** Change le jeton `path` du thème édité (mode pack, annulable). */
     hostToken: (path: string[], action: TokenAction, value?: unknown) =>
       call<Snapshot>({ cmd: "host_token", path, action, ...(value === undefined ? {} : { value }) }),
-    /** Bandeau du pack : passer à ma version (annulable), faire de la sienne ma version courante, ou fermer. */
-    packNotice: (cmd: PackNoticeCommand) => call<Snapshot>({ cmd }),
     ui: (ui: UiState, order?: UiOrder) => call<Snapshot>({ cmd: "ui", ...ui, order }),
     /** Ouvre l'historique (lecture seule) sur la version la plus récente. */
     historyOpen: () => call<Snapshot>({ cmd: "history_open" }),

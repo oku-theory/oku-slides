@@ -1,28 +1,21 @@
 // Règles des outils de slide de la barre d'outils : ajout d'éléments, suppression.
 
-import type { AddWidget } from "./api";
-import { type BaseName, ESSENTIEL, baseName } from "./builtinKinds";
+/** Les slots libres des layouts épinglés (`Snapshot.free_slots`) : kinds acceptés, `null` pour tous. */
+export type FreeSlots = Record<string, string[] | null>;
 
-/** Widgets de `base` de la grille d'ajout, par nom, dans l'ordre des cartes. */
-export const ADD_NAMES = ["text", "card", "shape", "chart", "table"] as const satisfies readonly BaseName[];
-/** Le nom d'une carte native de la grille d'ajout. */
-export type AddName = (typeof ADD_NAMES)[number];
-
-/** Widgets du pack de la grille d'ajout : sans aucun widget de `base` (cartes natives). */
-export function packOnlyWidgets(list: AddWidget[]): AddWidget[] {
-  return list.filter((w) => baseName(w.name) === null);
+/** La slide de kind `slideKind` a un slot libre : on peut y ajouter un élément. */
+export function acceptsElements(slideKind: string | undefined, freeSlots: FreeSlots): boolean {
+  return slideKind !== undefined && Object.hasOwn(freeSlots, slideKind);
 }
 
-/**
- * Un élément s'ajoute (ou se colle) sur le layout de contenu d'`essentiel` ; sur le vide, tout
- * sauf le texte. `name` : la carte native, ou `widget` pour tout autre élément. Règle du lot 2 sur
- * les constantes ; les slots du schéma la remplaceront (t-1008).
- */
-export function canAdd(slideKind: string | undefined, name: AddName | "widget"): boolean {
-  return slideKind === ESSENTIEL.content || (slideKind === ESSENTIEL.blank && name !== "text");
+/** Un élément de kind `kind` s'ajoute (ou se colle) dans le premier slot libre de la slide. */
+export function canAdd(slideKind: string | undefined, kind: string, freeSlots: FreeSlots): boolean {
+  if (slideKind === undefined || !acceptsElements(slideKind, freeSlots)) return false;
+  const accepts = freeSlots[slideKind];
+  return accepts === null || accepts.includes(kind);
 }
 
-/** Un deck (ou un jeu de modèles) garde toujours au moins une slide. */
+/** Un deck (ou un pack de layouts) garde toujours au moins une slide. */
 export function canRemoveSlide(count: number): boolean {
   return count >= 2;
 }

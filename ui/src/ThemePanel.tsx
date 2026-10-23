@@ -49,7 +49,7 @@ export default function ThemePanel({ api, snap, run, say }: Props) {
       {theme && (
         <div className="theme-panel-head">
           <ThemeMenu
-            theme={snap.themes.find((th) => th.id === theme.base.id)?.namespace ?? theme.base.id}
+            theme={theme.namespace}
             themeName={theme.name}
             themes={snap.themes}
             label={t("ui-theme-picker")}

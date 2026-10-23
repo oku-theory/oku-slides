@@ -1,12 +1,12 @@
 // Jetons du thème édité (onglet « Thème » du mode pack) : la surface
 // `host-theme` construite par la session, filtrée. Chaque ligne envoie
-// l'évènement `token` ; le champ de filtre, `filter`. Même contrat que
-// `useHostSettings` : un changement refusé relit la surface, le champ reprend
-// la valeur de la session.
+// l'évènement `token` ; les parents du brouillon, `extends` ; le champ de
+// filtre, `filter`. Même contrat que `useHostSettings` : un changement refusé
+// relit la surface, le champ reprend la valeur de la session.
 
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { Snapshot, Surface, TabApi, TokenAction } from "./api";
+import type { ExtendsEdit, Snapshot, Surface, TabApi, TokenAction } from "./api";
 import { fromA2ui } from "./agent/quick";
 import { HOST_THEME, type HostSettings } from "./useHostSettings";
 
@@ -69,20 +69,38 @@ export function useThemeSettings(
       if (typeof context.filter === "string") onFilter(context.filter);
       return true;
     }
+    /** Envoie un changement : refusé (dit en toast par `run`), la surface est relue et reconstruite ; accepté, relue (gardée si son contenu n'a pas changé). */
+    const send = (p: Promise<Snapshot>) => {
+      outcome.current = run(p).then((done) => {
+        if (!done) setSync((n) => n + 1);
+        else setEdits((n) => n + 1);
+        return !!done;
+      });
+    };
+    if (name === "extends") {
+      // Un parent ajouté, retiré, monté ou descendu : la session applique le delta à sa liste.
+      const { edit, theme } = context;
+      if (!isExtendsEdit(edit) || typeof theme !== "string" || theme === "") {
+        console.error("host-theme : évènement extends malformé", { edit, theme });
+        return true;
+      }
+      send(api.editThemeExtends(edit, theme));
+      return true;
+    }
     // Le chemin du jeton : `token` (une clé `path` serait prise par @a2ui pour une liaison de données).
     const path = context.token;
     if (name !== "token" || !Array.isArray(path) || typeof context.action !== "string") return true;
     // « Ajouter la couleur » : le nom saisi prolonge le chemin ; un tableau envoie son changement.
     const full = typeof context.name === "string" ? [...(path as string[]), context.name] : (path as string[]);
-    const value = context.change ?? context.value;
-    outcome.current = run(api.hostToken(full, context.action as TokenAction, value)).then((done) => {
-      // Refusé (dit en toast par `run`) : la surface est relue et reconstruite. Accepté : relue
-      // (gardée si son contenu n'a pas changé).
-      if (!done) setSync((n) => n + 1);
-      else setEdits((n) => n + 1);
-      return !!done;
-    });
+    send(api.hostToken(full, context.action as TokenAction, context.change ?? context.value));
     return true;
   };
   return { surface: shown?.surface ?? null, onAction, outcome };
+}
+
+const EXTENDS_EDITS: readonly ExtendsEdit[] = ["add", "remove", "up", "down"];
+
+/** `v` est un changement de la liste des parents connu de la session. */
+function isExtendsEdit(v: unknown): v is ExtendsEdit {
+  return EXTENDS_EDITS.some((e) => e === v);
 }

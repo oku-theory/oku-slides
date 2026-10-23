@@ -6,7 +6,7 @@ import { QuickHintsContext } from "../a2ui/quickHints";
 import { Toggle } from "../a2ui/Toggle";
 import type { Surface } from "../api";
 import { t } from "../i18n";
-import { HOST_THEME_PICKER, isHostSettings, isQuestion } from "./surfaces";
+import { isHostSettings, isQuestion, isRequestedBox } from "./surfaces";
 
 /**
  * Les surfaces vivantes ; rien de visible (0 px) sans elles, mais la région annoncée reste
@@ -37,8 +37,8 @@ export function AgentDock({
       aria-relevant="additions"
     >
       {surfaces.map((s) => {
-        // Le sélecteur de thème, demandé par l'utilisateur, reste ouvert à côté d'une question.
-        const settings = question !== null && !isQuestion(s) && s.id !== HOST_THEME_PICKER;
+        // Le sélecteur de thème et le panneau des packs, demandés par l'utilisateur, restent ouverts à côté d'une question.
+        const settings = question !== null && !isQuestion(s) && !isRequestedBox(s);
         const folded = settings && !open;
         return (
           // Les réglages de l'hôte, toujours là et reconstruits à chaque relecture, ne sont pas

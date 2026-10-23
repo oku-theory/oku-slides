@@ -4,8 +4,6 @@ use speculoos::prelude::*;
 
 use serde_json::{Value, json};
 
-use crate::pack_notice::pack_notice_banner;
-
 use super::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, FormExtras, ParamField, PermissionChoice, PermissionKind,
     Place, ShowParams, ShowVariants, Surface, Variant, choice, confirm, params, params_with, permission, rewrite,
@@ -552,7 +550,7 @@ fn every_form() -> Vec<super::Surface> {
             &crate::test_support::ns("papier"),
             &l,
         ),
-        pack_notice_banner("Ce deck utilise une version plus récente de « Charte ».".into(), true, &l),
+        crate::deck_packs_panel(&packs_view(), &l),
         super::data_surface(
             "host-data",
             "Graphique".into(),
@@ -570,6 +568,29 @@ fn every_form() -> Vec<super::Surface> {
             ),
         ),
     ]
+}
+
+/// La vue du panneau des packs de `fixtures/roadmap.json`, aux versions figées : chaque
+/// composant y paraît (refus, relation et ses boutons, ajout, mise à jour du thème).
+fn packs_view() -> crate::DeckPacksView {
+    let mut view = crate::test_support::session().deck_packs().unwrap();
+    for (i, pack) in view.layouts.iter_mut().chain(view.widgets.iter_mut()).enumerate() {
+        pack.version = format!("{i:x}").repeat(64);
+    }
+    view.widgets.push(crate::deck_packs::PinnedPackView {
+        kind: oku_slides_core::PackKind::Widgets,
+        namespace: crate::test_support::ns("acme"),
+        name: "Acme".into(),
+        version: "f".repeat(64),
+        relation: Some(crate::Relation::Descendant),
+        builtin: false,
+        deck_only: false,
+        library_has_pinned: true,
+        remove_refusal: None,
+    });
+    view.addable.insert(oku_slides_core::PackKind::Widgets, vec![(crate::test_support::ns("hifi"), "Hi-fi".into())]);
+    view.theme.outdated = true;
+    view
 }
 
 /// Contrat avec l'interface : `ui/src/a2ui/fixtures/agent-surfaces.json`, que

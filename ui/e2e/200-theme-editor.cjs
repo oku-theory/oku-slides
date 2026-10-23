@@ -1,6 +1,7 @@
 // Éditeur de thème (t-554) : onglet « Thème » du mode pack, un jeton changé se voit sur la scène,
 // et ✓ enregistre le brouillon en variante du thème de base (elle l'étend), choisie pour le deck ;
-// le panneau montre ce que le thème étend et les surcharges du deck mis de côté ; le Thème d'un pack
+// le panneau montre ce que le thème étend et les surcharges du deck mis de côté, ses parents s'ajoutent,
+// se déplacent et se retirent (⌘Z compris) ; le Thème d'un pack
 // de widgets montre un aperçu par widget.
 // Contre `oku-slides serve fixtures/roadmap.json` (thème Papier). Lancer : just e2e.
 const { chromium } = require('playwright');
@@ -46,8 +47,37 @@ const RED = /#ff0000/i;
 
   // Le thème édité étend Papier ; la surcharge du deck est listée.
   const panel = p.locator(SURFACE);
-  await untilValue(p, () => panel.locator('[data-component-id="extends"]').innerText().catch(() => ''), (t) => t === 'Étend : Papier', "le panneau n'indique pas que le thème étend Papier");
+  await untilValue(p, () => panel.locator('[data-component-id="extends"] [data-component-id$=":name"]').first().innerText().catch(() => ''), (t) => t === 'Papier', "le panneau n'indique pas que le thème étend Papier");
   assert.match(await panel.locator('[data-component-id="deck-overrides"]').innerText(), /color\.ink/);
+
+  // Les parents du brouillon (t-1116) : Pro ajouté, monté, retiré, rendu par ⌘Z, puis retiré pour de bon.
+  // Chaque ligne a ses boutons libellés en français ; le thème édité n'est pas proposé à l'ajout.
+  const parents = () => api({ cmd: 'snapshot' }).then((s) => s.editing.theme.extends.map((t) => t.name));
+  const parentRow = (ns) => panel.locator(`[data-component-id="extends:${ns}"]`);
+  const button = (ns, name) => parentRow(ns).getByRole('button', { name, exact: true });
+  const addParent = panel.locator('[data-component-id="extends-add"] select');
+  const editedName = (await api({ cmd: 'snapshot' })).editing.theme.name;
+  assert.equal(await panel.getByText('Ajouter un thème à étendre', { exact: true }).count(), 1, 'menu « Ajouter un thème à étendre » absent');
+  const offered = await addParent.locator('option').allTextContents();
+  assert.ok(offered.includes('Pro'), `Pro n'est pas proposé : ${offered}`);
+  assert.ok(!offered.includes(editedName), `le thème édité « ${editedName} » est proposé : ${offered}`);
+  await addParent.selectOption({ label: 'Pro' });
+  await untilValue(p, parents, (l) => JSON.stringify(l) === '["Papier","Pro"]', 'Pro ne devient pas un parent');
+  await button('pro', 'Monter').waitFor();
+  assert.equal(await button('pro', 'Retirer').count(), 1);
+  assert.equal(await button('papier', 'Descendre').count(), 1);
+  assert.equal(await button('papier', 'Retirer').count(), 1);
+  await button('pro', 'Monter').click();
+  await untilValue(p, parents, (l) => JSON.stringify(l) === '["Pro","Papier"]', 'Pro ne monte pas');
+  await button('pro', 'Retirer').click();
+  await untilValue(p, parents, (l) => JSON.stringify(l) === '["Papier"]', "Pro n'est pas retiré");
+  await parentRow('pro').waitFor({ state: 'detached' });
+  await p.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+  await p.keyboard.press('Control+z');
+  await untilValue(p, parents, (l) => JSON.stringify(l) === '["Pro","Papier"]', '⌘Z ne rend pas Pro');
+  await button('pro', 'Retirer').click();
+  await untilValue(p, parents, (l) => JSON.stringify(l) === '["Papier"]', "Pro n'est pas retiré une seconde fois");
+  await parentRow('pro').waitFor({ state: 'detached' });
 
   // Le filtre, validé par Entrée, ne garde que les jetons « accent » : color.ink disparaît, color.accent reste.
   const filter = p.locator(SURFACE).getByRole('textbox').first();

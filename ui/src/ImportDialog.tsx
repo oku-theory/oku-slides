@@ -2,7 +2,8 @@
 // (retrofit, avec ses packs de layouts et son thème), et peaufinage par l'agent une fois l'onglet prêt.
 
 import { useEffect, useRef, useState } from "react";
-import { errorText, type ImportTarget, type PackInfo, type TabApi, type ThemeInfo } from "./api";
+import { errorText, type ImportTarget, type TabApi } from "./api";
+import { type PackInfo, type ThemeInfo } from "./packTypes";
 import { ESSENTIEL_NAMESPACE } from "./builtinKinds";
 import { t } from "./i18n";
 import { fileName } from "./importFile";

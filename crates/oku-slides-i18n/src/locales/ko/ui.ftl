@@ -48,34 +48,15 @@ ui-pack-deck-only = 이 프레젠테이션에만 저장됨
 ui-toolbar-open = 열기
 ui-menu = 메뉴
 ui-toolbar-add-label = 슬라이드에 추가
+ui-toolbar-packs = 프레젠테이션 팩
+ui-toolbar-packs-update = 프레젠테이션 팩 (업데이트 있음)
 ui-toolbar-thumbs-show = 미리보기 표시
 ui-toolbar-thumbs-hide = 미리보기 숨기기
-ui-add-kind = { $kind ->
-    [card] 카드
-    [shape] 도형
-    [chart] 차트
-    [table] 표
-   *[text] 텍스트
-}
-ui-add-kind-description = { $kind ->
-    [card] 테두리 안의 제목과 짧은 텍스트
-    [shape] 색이 있는 도형
-    [chart] 데이터 표로 그린 차트
-    [table] 데이터 표
-   *[text] 텍스트 단락
-}
 ui-toolbar-remove-slide = 슬라이드 삭제
 ui-toolbar-remove-hint = 슬라이드 { $n } · ⌘Z로 실행 취소
 
 ## 실행 취소 레이블
 
-ui-undo-add = { $kind ->
-    [card] 카드 추가
-    [shape] 도형 추가
-    [chart] 차트 추가
-    [table] 표 추가
-   *[text] 텍스트 추가
-}
 ui-undo-add-widget = ‘{ $name }’ 추가
 ui-undo-new-slide = 새 슬라이드: { $name }
 ui-undo-move-slide = 슬라이드 이동
@@ -91,12 +72,6 @@ ui-undo-resize = 크기 조정
 ui-undo-edit-slide = 슬라이드 편집
 ui-undo-rename-pack = 팩 이름 바꾸기
 ui-undo-rename-deck = 프레젠테이션 이름 바꾸기
-
-## 새 요소
-
-ui-new-text = 새 텍스트
-ui-new-card-title = 카드 제목
-ui-new-card-detail = 세부 정보
 
 ## 슬라이드 목록
 

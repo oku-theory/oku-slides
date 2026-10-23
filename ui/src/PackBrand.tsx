@@ -1,5 +1,5 @@
 /** Marque du mode pack : le nom et la sorte du pack édité, et la note d'un pack du deck seul (celui d'un import). */
-import type { PackKind } from "./api";
+import type { PackKind } from "./packTypes";
 import { t } from "./i18n";
 
 /** Ce que la marque du mode pack doit dire du pack édité. */

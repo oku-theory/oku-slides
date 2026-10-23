@@ -6,6 +6,7 @@ use std::sync::{Mutex, PoisonError};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
+use crate::model::Style;
 use crate::pack::WidgetFile;
 
 /// Les valeurs d'exemple d'un widget dans `widgets.json`, telles qu'écrites.
@@ -58,6 +59,35 @@ where
                 }
             };
             (!values.is_empty()).then_some((widget, values))
+        })
+        .collect())
+}
+
+/// Lit `styles` comme [`lenient_examples`] lit `examples` : une entrée mal
+/// formée (nom invalide, style illisible) est écartée avec un diagnostic, les
+/// autres restent. Un style vide n'est pas gardé.
+pub(crate) fn lenient_styles<'de, D>(de: D) -> std::result::Result<BTreeMap<WidgetFile, Style>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let Value::Object(stored) = Value::deserialize(de)? else {
+        diagnose("", "`styles` n'est pas un objet, ignoré");
+        return Ok(BTreeMap::new());
+    };
+    Ok(stored
+        .into_iter()
+        .filter_map(|(name, v)| {
+            let Some(widget) = WidgetFile::parse(&name) else {
+                diagnose(&name, "style d'un nom de widget invalide, ignoré");
+                return None;
+            };
+            match serde_json::from_value::<Style>(v) {
+                Ok(style) => (style != Style::default()).then_some((widget, style)),
+                Err(e) => {
+                    diagnose(&name, &format!("style mal formé, ignoré : {e}"));
+                    None
+                }
+            }
         })
         .collect())
 }

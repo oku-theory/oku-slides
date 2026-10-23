@@ -28,6 +28,15 @@ pub(crate) fn kind_name(kind: &str, label: Option<&str>, l: &Localizer) -> Strin
     }
 }
 
+/// La description montrée du widget `kind` : celle de son schéma, sinon celle traduite d'un widget
+/// d'un pack intégré (`session-widget-description-<clé>`, voir [`kind_key`]), sinon aucune.
+pub(crate) fn kind_description(kind: &str, description: Option<&str>, l: &Localizer) -> Option<String> {
+    match description {
+        Some(description) => Some(description.to_owned()),
+        None => kind_key(kind).and_then(|k| l.try_tr(&format!("session-widget-description-{k}"))),
+    }
+}
+
 /// Le champ d'un paramètre réglable ; sa valeur est celle de l'aperçu.
 ///
 /// Un `rich` montré est une liste de paragraphes : `params_with` en fait le markdown.

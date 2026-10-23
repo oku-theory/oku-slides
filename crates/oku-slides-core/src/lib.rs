@@ -66,7 +66,7 @@ pub use namespace::{Namespace, qualify, split_kind};
 pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListPath, ListSpec, Moved, NESTED_ITEMS_MAX, Op, PLAIN_MAX,
     RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, default_items, ops_schema,
-    pack_users, param_value, text_fits,
+    pack_users, param_value, remove_pack_refusal, text_fits,
 };
 pub use pack::{
     COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, WidgetFile,

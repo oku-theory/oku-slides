@@ -11,13 +11,15 @@
 //! étape annulable ; la bibliothèque, elle, garde la version (comme tout
 //! enregistrement de thème). L'agent s'en sert : l'écran reste sur les slides.
 
+use std::collections::BTreeMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{DECK_VERSION, Deck, Namespace, Op, PackVersion};
+use oku_slides_core::{DECK_VERSION, Deck, Namespace, Op, PackFiles, PackVersion, ThemePin};
 
 use crate::deck_theme::{LayerReading, pack_defaults};
 use crate::error::{EditingPackSnafu, OpSnafu, ThemeJsonSnafu, UnknownThemeSnafu};
@@ -25,7 +27,7 @@ use crate::library_lookup::find_theme;
 use crate::namespace_slug::library_namespace;
 use crate::pack::now_created;
 use crate::theme::{ThemeInfo, ThemeLibrary, ThemeManifest};
-use crate::theme_closure::{chain_tokens, theme_closure};
+use crate::theme_closure::{Closure, chain_tokens, closure_with, embedded_or_library, library_theme, pin_of};
 use crate::theme_schema::{default_tokens, merge};
 use crate::{Mode, Result, Session};
 
@@ -109,9 +111,14 @@ impl Session {
 
     /// Les jetons sous l'édition du thème `ns` : défauts, défauts de composant
     /// des packs du deck, puis la chaîne de ses parents (la sienne pour un
-    /// intégré, dont l'édition fait un enfant), dans la bibliothèque.
+    /// intégré, dont l'édition fait un enfant).
+    ///
+    /// `ns` est pris dans sa version courante (celle d'où part l'édition) ;
+    /// chaque parent dans la version que le deck épingle et embarque, sinon
+    /// dans la bibliothèque (t-1106) : un parent que seul le deck a se lit.
     fn edit_lower(&self, ns: &Namespace, child: bool) -> Result<Map<String, Value>> {
-        let closure = theme_closure(&self.themes, ns)?;
+        let root = library_theme(&self.themes, ns).context(UnknownThemeSnafu { theme: ns.as_str() })?;
+        let closure = self.deck_closure(ns, root)?;
         let chain = chain_tokens(&closure, ns, child)?;
         let packs = |v: &PackVersion| self.pack_version_files(v);
         let defaults = pack_defaults(&packs, self.user_deck(), LayerReading::Lenient)?;
@@ -119,6 +126,16 @@ impl Session {
         let mut lower = default_tokens().clone();
         merge(&mut lower, &layer);
         Ok(lower)
+    }
+
+    /// La fermeture du thème `ns` de version `root` : ses parents dans les
+    /// versions que le deck embarque, sinon dans la bibliothèque (t-1106).
+    fn deck_closure(&self, ns: &Namespace, root: (ThemePin, PackFiles)) -> Result<Closure> {
+        let sources = [self.user_blobs()];
+        closure_with(ns, |n| match n == ns {
+            true => Some(root.clone()),
+            false => embedded_or_library(&self.themes, &sources, n),
+        })
     }
 
     /// Édite le thème `id` : ops de jetons et nom.
@@ -172,21 +189,23 @@ impl Session {
         let files = manifest.to_files().context(ThemeJsonSnafu { id: new_id })?;
         let version = files.version();
         let adopted = self.deck_theme_pin().is_some_and(|t| t.id == id);
+        // Ses parents doivent se trouver avant toute écriture.
+        let (pins, _) = self.deck_closure(&manifest.namespace, (pin_of(&manifest, version.clone()), files.clone()))?;
         self.themes.add_version(new_id, &files)?;
         self.themes.set_current(new_id, &version)?;
         self.theme_list = self.themes.themes();
         if adopted {
-            self.adopt_edited_theme(&manifest.namespace)?;
+            self.adopt_edited_theme(&manifest.namespace, pins)?;
         }
         let ThemeManifest { name, namespace, tokens, .. } = manifest;
         Ok(EditedTheme { id: new_id, namespace, version, name, changed: true, adopted, tokens })
     }
 
-    /// Le deck passe au thème édité `ns` (sa version courante et sa fermeture), en une étape annulable.
-    fn adopt_edited_theme(&mut self, ns: &Namespace) -> Result<()> {
-        // `apply` embarque la fermeture, prise dans la bibliothèque.
+    /// Le deck passe au thème édité `ns` et à sa fermeture `themes`, en une étape annulable.
+    fn adopt_edited_theme(&mut self, ns: &Namespace, themes: BTreeMap<Namespace, ThemePin>) -> Result<()> {
+        // `apply` embarque les versions qui manquent au deck, prises dans la bibliothèque.
         let label = self.localizer.tr("session-undo-theme");
-        self.apply(&label, vec![Op::SetTheme { theme: Some(ns.clone()), themes: Default::default() }], None)
+        self.apply(&label, vec![Op::SetTheme { theme: Some(ns.clone()), themes }], None)
     }
 }
 

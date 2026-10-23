@@ -8,7 +8,8 @@
  * renommage redirigée vers le nouveau nom.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { errorText, type PackKind, type TabApi, type WidgetStatus } from "./api";
+import { errorText, type TabApi, type WidgetStatus } from "./api";
+import { type PackKind } from "./packTypes";
 import { PREVIEW_DELAY_MS, debounced } from "./debounce";
 import { t } from "./i18n";
 import type { Rewrite } from "./TypstEditor";

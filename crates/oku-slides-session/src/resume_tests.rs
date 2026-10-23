@@ -275,8 +275,8 @@ fn read_state_oversized_returns_access_error_too_large() {
 fn read_state_future_version_with_other_shape_returns_version_error() {
     let r = resume();
     std::fs::create_dir_all(&r.dir).unwrap();
-    std::fs::write(r.dir.join("state.json"), br#"{"version":3,"mode":{"nouveau":1}}"#).unwrap();
-    assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version: 3, .. }))).is_true();
+    std::fs::write(r.dir.join("state.json"), br#"{"version":4,"mode":{"nouveau":1}}"#).unwrap();
+    assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version: 4, .. }))).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -294,9 +294,12 @@ fn write_snapshot_font_changed_under_same_name_reads_new_bytes() {
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
+/// t-1109 : le parent du dossier de reprise est un dossier neuf du test, jamais `$TMPDIR`
+/// (un `x` laissé là par un autre outil faisait échouer le test).
 #[test]
 fn write_snapshot_unsafe_names_writes_nothing_outside_dir() {
-    let r = resume();
+    let parent = crate::test_support::fresh_dir("oku-slides-resume-parent-");
+    let r = Resume::new(Storage::local().unwrap(), parent.path().join("resume"));
     let mut doc = document();
     doc.sources.assets.insert("sha256:../x".into(), b"evil".to_vec());
     doc.sources.fonts.insert("../evil.ttf".into(), b"evil".to_vec());
@@ -304,15 +307,14 @@ fn write_snapshot_unsafe_names_writes_nothing_outside_dir() {
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     assert_that!(r.dir.join(DECK_DIR).join("assets").join("x").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("x").exists()).is_false();
-    assert_that!(r.dir.parent().unwrap().join("x").exists()).is_false();
+    assert_that!(parent.path().join("x").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("fonts").join("evil.ttf").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("evil.ttf").exists()).is_false();
-    assert_that!(r.dir.parent().unwrap().join("evil.ttf").exists()).is_false();
+    assert_that!(parent.path().join("evil.ttf").exists()).is_false();
     let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
     assert_that!(back.sources.assets.contains_key("sha256:../x")).is_false();
     assert_that!(back.sources.fonts.contains_key("evil.ttf")).is_false();
     assert_that!(back.sources.fonts.contains_key(".hidden.ttf")).is_false();
-    std::fs::remove_dir_all(&r.dir).ok();
 }
 
 #[test]
@@ -630,5 +632,63 @@ fn resume_of_a_version_8_tab_with_unsaved_work_is_set_aside_as_outdated() {
     let mut back = crate::test_support::session_on(data.path());
     assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Outdated);
     assert_that!(back.deck().theme.as_ref().map(|t| t.as_str())).is_equal_to(Some(crate::PAPIER_NAMESPACE));
+    assert_that!(dir.exists()).is_false();
+}
+
+/// Réécrit le `state.json` de reprise de `dir` par `edit`.
+fn edit_state(dir: &std::path::Path, edit: impl FnOnce(&mut serde_json::Value)) {
+    let path = dir.join("state.json");
+    let mut state: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    edit(&mut state);
+    std::fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
+}
+
+/// Une session reprise dans `dir`, passée en mode pack, dont le brouillon étend aussi Pro.
+fn pack_mode_with_extends_edit(data: &std::path::Path, dir: &std::path::Path) {
+    let mut s = crate::test_support::session_on(data);
+    assert_that!(s.resume(dir.to_path_buf())).is_true();
+    s.handle(crate::Request::EditPack { pack: crate::ESSENTIEL_PACK }).unwrap();
+    let edit = crate::ExtendsEdit::Add { theme: crate::test_support::ns("pro") };
+    s.handle(crate::Request::EditThemeExtends { edit }).unwrap();
+    s.flush_resume();
+}
+
+#[test]
+fn resume_pack_mode_keeps_edited_extends() {
+    let data = crate::test_support::fresh_dir("oku-slides-resume-extends-");
+    let dir = data.path().join("tab");
+    pack_mode_with_extends_edit(data.path(), &dir);
+    let mut back = crate::test_support::session_on(data.path());
+    assert_that!(back.resume(dir.clone())).is_true();
+    let parents: Vec<String> = back.editing_view().unwrap().theme.extends.into_iter().map(|p| p.namespace).collect();
+    assert_that!(parents).is_equal_to(vec!["papier".to_owned(), "pro".to_owned()]);
+}
+
+/// Une liste `extends` que la bibliothèque ne permet plus : la reprise est mise de côté, jamais réparée.
+#[test]
+fn resume_pack_mode_with_unknown_parent_is_set_aside() {
+    let data = crate::test_support::fresh_dir("oku-slides-resume-extends-");
+    let dir = data.path().join("tab");
+    pack_mode_with_extends_edit(data.path(), &dir);
+    edit_state(&dir, |state| state["theme_edit"]["extends"] = serde_json::json!(["ailleurs"]));
+    let mut back = crate::test_support::session_on(data.path());
+    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Unreadable);
+    assert_that!(back.editing_view()).is_none();
+    assert_that!(dir.exists()).is_false();
+}
+
+/// Un état de la version 2 avec du travail non enregistré : mis de côté, signalé (`notice-tab-set-aside`).
+#[test]
+fn resume_version_2_state_is_set_aside() {
+    let data = crate::test_support::fresh_dir("oku-slides-resume-v2-");
+    let dir = data.path().join("tab");
+    let mut s = crate::test_support::session_on(data.path());
+    assert_that!(s.resume(dir.clone())).is_true();
+    s.apply("Thème", vec![crate::test_support::set_theme_op("pro")], None).unwrap();
+    s.flush_resume();
+    drop(s);
+    edit_state(&dir, |state| state["version"] = serde_json::json!(2));
+    let mut back = crate::test_support::session_on(data.path());
+    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Outdated);
     assert_that!(dir.exists()).is_false();
 }
