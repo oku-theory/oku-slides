@@ -43,7 +43,6 @@ export const Icon = {
   addRow: stroke(<><rect x="4" y="4" width="16" height="10" rx="1.5" /><path d="M4 9h16" /><path d="M12 16.5v4M10 18.5h4" /></>),
   addColumn: stroke(<><rect x="4" y="4" width="10" height="16" rx="1.5" /><path d="M9 4v16" /><path d="M16.5 12h4M18.5 10v4" /></>),
   /** Barre latérale : replier / rouvrir la pile des miniatures. */
-  sidebar: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15" /></>),
   /** Panneau du bas : montrer / masquer les paramètres sous la slide. */
   panelBottom: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 14.5h17" /></>),
   stack: stroke(<><rect x="5.5" y="12" width="5" height="8" rx="0.5" /><rect x="5.5" y="6" width="5" height="6" rx="0.5" /><rect x="13.5" y="14" width="5" height="6" rx="0.5" /><rect x="13.5" y="4" width="5" height="10" rx="0.5" /></>),

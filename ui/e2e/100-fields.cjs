@@ -79,7 +79,7 @@ const editorLines = (p) => p.evaluate(() => {
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
-  const p = await b.newPage({ viewport: { width: 2600, height: 1500 } });
+  const p = await b.newPage({ viewport: { width: 2600, height: 1700 } });
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
@@ -87,16 +87,16 @@ const editorLines = (p) => p.evaluate(() => {
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
   await p.waitForSelector('.stage img');
-  // Les paramètres sous la slide prennent de la hauteur : la scène serait limitée par la
-  // hauteur, jamais à l'échelle 1. Masqués le temps du test (choix gardé dans l'espace de
-  // travail : réaffichés à la fin pour les scripts suivants).
+  // Les paramètres et la bande des miniatures sous la slide prennent de la hauteur : la scène
+  // serait limitée par la hauteur, jamais à l'échelle 1. Fenêtre haute, et paramètres masqués le
+  // temps du test (choix gardé dans l'espace de travail : réaffichés à la fin pour les scripts suivants).
   const params = (name) => p.getByRole('button', { name, exact: true });
   await params('Masquer les paramètres').click();
   await params('Afficher les paramètres').waitFor();
   // Échelle 1 : la slide (1920×1080 pt) affichée à 1 px par pt. La scène suit la largeur
   // de la fenêtre moins les colonnes voisines : on corrige la fenêtre de l'écart mesuré.
   const stageWidth = () => p.evaluate(() => document.querySelector('.stage').getBoundingClientRect().width);
-  await p.setViewportSize({ width: 2600 + 1920 - (await stageWidth()), height: 1500 });
+  await p.setViewportSize({ width: 2600 + 1920 - (await stageWidth()), height: 1700 });
   await p
     .waitForFunction(() => Math.abs(document.querySelector('.stage').getBoundingClientRect().width - 1920) < 0.5)
     .catch(async () => {

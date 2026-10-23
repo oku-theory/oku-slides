@@ -42,12 +42,12 @@
         {
          "runs": [
           {
-           "t": "À gauche : les miniatures des slides. Un clic en montre une ; on la glisse pour la déplacer ; + en ajoute une depuis un layout."
+           "t": "Sous la slide : les miniatures, en bande qu'on replie. Un clic en montre une ; on la glisse pour la déplacer ; + en ajoute une depuis un layout."
           }
          ]
         }
        ],
-       "kicker": "Gauche"
+       "kicker": "Dessous"
       }
      },
      {

@@ -1,4 +1,4 @@
-// Rendu de la colonne de gauche (miniatures, et widgets en mode pack) dans un DOM happy-dom.
+// Rendu de la colonne de gauche du mode pack (miniatures et widgets) dans un DOM happy-dom.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -18,7 +18,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount(withWidgets = true, withSlides = true) {
+async function mount(withSlides = true) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -30,7 +30,7 @@ async function mount(withWidgets = true, withSlides = true) {
       open,
       onToggle: () => setOpen((o) => !o),
       slides: withSlides ? createElement("nav", { id: "slides" }) : null,
-      widgets: withWidgets ? createElement("section", { id: "widgets" }) : undefined,
+      widgets: createElement("section", { id: "widgets" }),
     });
   };
   await act(async () => root.render(createElement(Probe)));
@@ -59,22 +59,7 @@ describe("PileColumn", () => {
   });
 
   test("PileColumn of a widget pack shows the widgets without a thumbnail section", async () => {
-    const host = await mount(true, false);
+    const host = await mount(false);
     expect([host.querySelector(".pile-thumbs"), !!host.querySelector(".pile-column > #widgets")]).toEqual([null, true]);
-  });
-
-  test("PileColumn sans widgets replier vers la gauche cache les miniatures et marque la colonne", async () => {
-    const host = await mount(false);
-    await act(async () => host.querySelector<HTMLButtonElement>(".pile-fold")?.click());
-    expect(host.querySelector("#slides")).toBeNull();
-    expect(host.querySelector(".pile-column")?.getAttribute("data-folded")).toBe("true");
-  });
-
-  test("PileColumn sans widgets le bouton de repli dit son état", async () => {
-    const host = await mount(false);
-    const fold = host.querySelector<HTMLButtonElement>(".pile-fold");
-    expect(fold?.getAttribute("aria-expanded")).toBe("true");
-    await act(async () => fold?.click());
-    expect(fold?.getAttribute("aria-expanded")).toBe("false");
   });
 });

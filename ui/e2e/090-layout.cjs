@@ -1,16 +1,16 @@
-// Trois colonnes : pile, feuille, fil de l'agent avec la dictée ; aucune ne chevauche sa voisine,
-// et le fil (surfaces a2ui) occupe une large part de la table.
+// Deux colonnes : la feuille (les miniatures en bande dessous) et le fil de l'agent avec la dictée ;
+// aucune ne chevauche sa voisine, et le fil (surfaces a2ui) occupe une large part de la table.
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun e2e/090-layout.cjs, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');
 const { until, stable } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const COLUMNS = ['.pile', '.stage', '.notes', '.device'];
+const COLUMNS = ['.slide-strip', '.stage', '.notes', '.device'];
 const hostNotes = async (p) => (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).ui.notes; // null : largeur par défaut
 const columns = (p) => p.evaluate(() => {
   const box = (s) => document.querySelector(s).getBoundingClientRect();
-  return { pile: box('.pile').right, stage: box('.stage'), notes: box('.notes').left, notesWidth: box('.notes').width, device: box('.device').left };
+  return { left: box('.table').left, strip: box('.slide-strip'), stage: box('.stage'), notes: box('.notes').left, notesWidth: box('.notes').width, device: box('.device').left };
 });
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -26,11 +26,14 @@ const columns = (p) => p.evaluate(() => {
     // fil de l'agent est chargé (specs 060 à 080) : `stable` seul la mesurerait encore à l'ancienne taille.
     await until(p, async () => {
       const c = await columns(p);
-      return c.stage.left >= c.pile && c.stage.right <= c.notes;
+      return c.stage.left >= c.left && c.stage.right <= c.notes;
     }, `${width} px : la feuille ne suit pas la fenêtre`);
     await stable(p, COLUMNS);
     const c = await columns(p);
-    assert.ok(c.stage.left >= c.pile, `${width} px : la feuille chevauche la pile (${c.stage.left} < ${c.pile})`);
+    assert.ok(c.stage.left >= c.left, `${width} px : la feuille déborde à gauche (${c.stage.left} < ${c.left})`);
+    // La bande des miniatures sous la slide, dans la feuille.
+    assert.ok(c.strip.top >= c.stage.bottom, `${width} px : la bande des miniatures chevauche la slide (${c.strip.top} < ${c.stage.bottom})`);
+    assert.ok(c.strip.right <= c.notes, `${width} px : la bande des miniatures chevauche le fil (${c.strip.right} > ${c.notes})`);
     assert.ok(c.stage.right <= c.notes, `${width} px : la feuille chevauche le fil (${c.stage.right} > ${c.notes})`);
     assert.ok(c.notesWidth >= Math.min(420, width * 0.4) - 1, `${width} px : fil trop étroit (${c.notesWidth})`);
     assert.ok(c.stage.right <= c.device, `${width} px : la feuille chevauche la dictée (${c.stage.right} > ${c.device})`);
@@ -59,12 +62,11 @@ const columns = (p) => p.evaluate(() => {
     assert.ok(Math.abs(label.center - label.stage) <= 2, `${width} px : titre décentré (${label.center} ≠ ${label.stage})`);
     assert.equal(label.shadow, 'none');
     assert.equal(label.bg, 'rgba(0, 0, 0, 0)');
-    // La pile et le fil montent jusqu'en haut de la table (t-810) ; le menu est dans la barre d'outils.
+    // Le fil monte jusqu'en haut de la table (t-810) ; le menu est dans la barre d'outils.
     const top = await p.evaluate(() => {
       const box = (s) => document.querySelector(s).getBoundingClientRect();
-      return { table: box('.table').top, pile: box('.pile-column').top, notes: box('.notes').top, menu: !!document.querySelector('.tools-tray > .action-menu') };
+      return { table: box('.table').top, notes: box('.notes').top, menu: !!document.querySelector('.tools-tray > .action-menu') };
     });
-    assert.ok(Math.abs(top.pile - top.table) <= 1, `${width} px : la pile ne monte pas en haut (${top.pile} ≠ ${top.table})`);
     assert.ok(Math.abs(top.notes - top.table) <= 1, `${width} px : le fil ne monte pas en haut (${top.notes} ≠ ${top.table})`);
     assert.ok(top.menu, `${width} px : le menu n'est pas dans la barre d'outils`);
   }
@@ -74,9 +76,10 @@ const columns = (p) => p.evaluate(() => {
   await stable(p, COLUMNS);
   const notesWidth = () => p.evaluate(() => document.querySelector('.notes').getBoundingClientRect().width);
   const before = await notesWidth();
-  // Une bande de prise de 8 px, rien de plus (sans hériter des règles des colonnes).
-  const widths = await p.evaluate(() => [...document.querySelectorAll('.col-divider')].map((d) => d.getBoundingClientRect().width));
-  assert.deepEqual(widths, [8, 8]);
+  // Une bande de prise de 8 px, rien de plus (sans hériter des règles des colonnes) ; sans colonne
+  // de gauche hors mode pack, seul le séparateur du fil se montre.
+  const widths = await p.evaluate(() => [...document.querySelectorAll('.col-divider')].filter((d) => d.getClientRects().length > 0).map((d) => d.getBoundingClientRect().width));
+  assert.deepEqual(widths, [8]);
   const handle = await p.locator('.col-divider[data-side="notes"]').boundingBox();
   const x = handle.x + handle.width / 2;
   const y = handle.y + handle.height / 2;

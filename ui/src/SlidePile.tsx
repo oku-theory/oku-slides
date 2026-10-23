@@ -1,5 +1,6 @@
-// Pile des miniatures, à gauche de la table. On y choisit une slide, et on
-// la réordonne en la faisant glisser, et on la supprime depuis son coin.
+// Pile des miniatures : en colonne (mode pack), ou en bande sous la scène. On y
+// choisit une slide, on la réordonne en la faisant glisser, et on la supprime
+// depuis son coin.
 //
 // Le glisser est fait à la main (événements de pointeur) plutôt qu'avec le
 // glisser-déposer HTML5 : dans l'app Tauri, la webview réserve ce dernier au
@@ -8,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SlideSummary } from "./api";
 import { t } from "./i18n";
+import { dropSlot, type PileAxis } from "./pileSlot";
 import { Button } from "./primitives";
 
 interface Props {
@@ -32,6 +34,8 @@ interface Props {
   canRemove: boolean;
   /** Absent : pas de bouton de suppression (lecture seule). */
   onRemove?: (id: string) => void;
+  /** Colonne (`y`, défaut) ou bande horizontale (`x`) : le sens du glisser et du défilement. */
+  axis?: PileAxis;
 }
 
 const MARK_TITLE = { removed: "ui-history-removed-since", changed: "ui-history-changed-since" } as const;
@@ -39,13 +43,17 @@ const MARK_TITLE = { removed: "ui-history-removed-since", changed: "ui-history-c
 interface Drag {
   id: string;
   pointer: number;
+  /** Position du pointeur à l'appui, puis maintenant. */
+  startX: number;
   startY: number;
+  x: number;
   y: number;
-  /** Décalage du pointeur dans la miniature, pour que le fantôme reste sous le doigt. */
+  /** Décalage du pointeur dans l'image de la miniature, pour que le fantôme reste sous le doigt. */
   grabX: number;
   grabY: number;
   /** Position et largeur de l'image de la miniature soulevée. */
   left: number;
+  top: number;
   width: number;
   moved: boolean;
   slot: number;
@@ -62,21 +70,21 @@ const RemoveIcon = (
 const THRESHOLD = 5;
 
 export default function SlidePile({
-  slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove,
+  slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove, axis = "y",
 }: Props) {
   const nav = useRef<HTMLElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
   dragRef.current = drag;
 
-  /** Place d'insertion sous le pointeur : avant la miniature dont on survole la moitié haute. */
-  const slotAt = (clientY: number) => {
-    const thumbs = [...(nav.current?.querySelectorAll<HTMLElement>(".thumb") ?? [])];
-    for (let i = 0; i < thumbs.length; i++) {
-      const r = thumbs[i].getBoundingClientRect();
-      if (clientY < r.top + r.height / 2) return i;
-    }
-    return thumbs.length;
+  /** Coordonnée du pointeur le long de la pile. */
+  const along = (d: { x: number; y: number }) => (axis === "x" ? d.x : d.y);
+
+  /** Place d'insertion sous le pointeur, le long de la pile. */
+  const slotAt = (d: { x: number; y: number }) => {
+    const el = nav.current;
+    const thumbs = [...(el?.querySelectorAll<HTMLElement>(".thumb") ?? [])].map((b) => b.getBoundingClientRect());
+    return dropSlot(thumbs, along(d), axis, !!el && getComputedStyle(el).direction === "rtl");
   };
 
   // Défilement automatique près des bords pendant un glisser.
@@ -88,11 +96,14 @@ export default function SlidePile({
       const el = nav.current;
       if (d && el) {
         const r = el.getBoundingClientRect();
+        const [start, end] = axis === "x" ? [r.left, r.right] : [r.top, r.bottom];
+        const at = along(d);
         const edge = 60;
-        const speed = d.y < r.top + edge ? -(r.top + edge - d.y) / 4 : d.y > r.bottom - edge ? (d.y - (r.bottom - edge)) / 4 : 0;
+        const speed = at < start + edge ? -(start + edge - at) / 4 : at > end - edge ? (at - (end - edge)) / 4 : 0;
         if (speed) {
-          el.scrollTop += speed;
-          setDrag((x) => (x ? { ...x, slot: slotAt(x.y) } : x));
+          if (axis === "x") el.scrollLeft += speed;
+          else el.scrollTop += speed;
+          setDrag((x) => (x ? { ...x, slot: slotAt(x) } : x));
         }
       }
       raf = requestAnimationFrame(tick);
@@ -105,16 +116,18 @@ export default function SlidePile({
     if (e.button !== 0) return;
     // Capture dès l'appui : le glisser continue même si le pointeur sort de la miniature.
     e.currentTarget.setPointerCapture(e.pointerId);
-    const r = e.currentTarget.getBoundingClientRect();
-    const img = e.currentTarget.querySelector(".thumb-img")?.getBoundingClientRect() ?? r;
+    const img = e.currentTarget.querySelector(".thumb-img")?.getBoundingClientRect() ?? e.currentTarget.getBoundingClientRect();
     setDrag({
       id,
       pointer: e.pointerId,
+      startX: e.clientX,
       startY: e.clientY,
+      x: e.clientX,
       y: e.clientY,
-      grabX: e.clientX - r.left,
+      grabX: e.clientX - img.left,
       grabY: e.clientY - img.top,
       left: img.left,
+      top: img.top,
       width: img.width,
       moved: false,
       slot: -1,
@@ -124,8 +137,9 @@ export default function SlidePile({
   const move = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = dragRef.current;
     if (!d || d.pointer !== e.pointerId || !onMove) return;
-    const moved = d.moved || Math.abs(e.clientY - d.startY) > THRESHOLD;
-    setDrag({ ...d, y: e.clientY, moved, slot: moved ? slotAt(e.clientY) : -1 });
+    const now = { x: e.clientX, y: e.clientY };
+    const moved = d.moved || Math.abs(along(now) - along({ x: d.startX, y: d.startY })) > THRESHOLD;
+    setDrag({ ...d, ...now, moved, slot: moved ? slotAt(now) : -1 });
   };
 
   const up = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -143,14 +157,14 @@ export default function SlidePile({
 
   // La miniature de la slide courante reste visible : la pile défile jusqu'à elle (clavier, chevrons, agent).
   useEffect(() => {
-    nav.current?.querySelector<HTMLElement>('.thumb[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+    nav.current?.querySelector<HTMLElement>('.thumb[aria-current="true"]')?.scrollIntoView(axis === "x" ? { block: "nearest", inline: "nearest" } : { block: "nearest" });
   }, [current]);
 
-  const dragged = drag?.moved ?slides.find((s) => s.id === drag.id) : undefined;
+  const dragged = drag?.moved ? slides.find((s) => s.id === drag.id) : undefined;
   const ghostUrl = dragged ? svg(dragged.id, dragged.hash) : null;
 
   return (
-    <nav className={`pile${drag?.moved ? " dragging" : ""}`} aria-label={label} ref={nav}>
+    <nav className={`pile${axis === "x" ? " horizontal" : ""}${drag?.moved ? " dragging" : ""}`} aria-label={label} ref={nav}>
       {slides.map((s, i) => {
         const url = svg(s.id, s.hash);
         const name = names?.[s.id];
@@ -199,9 +213,13 @@ export default function SlidePile({
       {drag?.moved && drag.slot === slides.length && <span className="drop-line end" aria-hidden />}
       {onAdd && <Button raised className="add-slide" onClick={onAdd}>{addLabel}</Button>}
 
-      {/* La miniature suit le pointeur, soulevée de la pile. */}
+      {/* La miniature suit le pointeur le long de la pile, soulevée. */}
       {drag?.moved && (
-        <div className="thumb-ghost" aria-hidden style={{ top: drag.y - drag.grabY, left: drag.left, width: drag.width }}>
+        <div
+          className="thumb-ghost"
+          aria-hidden
+          style={axis === "x" ? { top: drag.top, left: drag.x - drag.grabX, width: drag.width } : { top: drag.y - drag.grabY, left: drag.left, width: drag.width }}
+        >
           {ghostUrl ? <img src={ghostUrl} alt="" draggable={false} /> : <span />}
         </div>
       )}

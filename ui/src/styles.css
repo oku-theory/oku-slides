@@ -153,6 +153,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 
 .table { position: relative; }
+/* Hors mode pack, pas de colonne de gauche (les miniatures sont sous la scène) : la feuille prend sa
+   place ; `!important` passe devant la largeur choisie au séparateur (posée en ligne). */
+.table:not(:has(> .pile-column)) { --pile-w: 0px !important; }
+.table:not(:has(> .pile-column)) .col-divider[data-side="pile"] { display: none; }
 
 /* Objets posés sur la table : ils se soulèvent au survol. */
 .object {

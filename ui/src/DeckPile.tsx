@@ -5,6 +5,7 @@
  */
 import type { PileSectionName, SlideSummary, Snapshot } from "./api";
 import { pileMarks } from "./history";
+import type { PileAxis } from "./pileSlot";
 import { t } from "./i18n";
 import { splitKind } from "./packOps";
 import SlidePile from "./SlidePile";
@@ -26,6 +27,8 @@ interface Props {
   onAdd: () => void;
   /** Supprime une slide. */
   onRemove: (id: string) => void;
+  /** Colonne du mode pack (`y`) ou bande sous la scène (`x`). */
+  axis: PileAxis;
 }
 
 /** Section repliable des miniatures : slides, layouts d'un pack de layouts, aucune pour un pack de widgets. */
@@ -39,7 +42,7 @@ function layoutNames(slides: SlideSummary[]): Record<string, string> {
   return Object.fromEntries(slides.map((s) => [s.id, splitKind(s.kind)?.name ?? s.id]));
 }
 
-export default function DeckPile({ snap, current, svg, onSelect, onMove, onAdd, onRemove }: Props) {
+export default function DeckPile({ snap, current, svg, onSelect, onMove, onAdd, onRemove, axis }: Props) {
   // Historique ou aide : la pile se lit, elle ne se modifie pas ; le mode pack ne change pas les slides.
   const fixed = !!snap.history || snap.read_only || !!snap.editing;
   return (
@@ -57,6 +60,7 @@ export default function DeckPile({ snap, current, svg, onSelect, onMove, onAdd, 
       removeLabel={t("ui-toolbar-remove-slide")}
       canRemove={canRemoveSlide(snap.slides.length)}
       onRemove={fixed ? undefined : onRemove}
+      axis={axis}
     />
   );
 }

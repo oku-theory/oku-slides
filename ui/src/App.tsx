@@ -52,6 +52,7 @@ import Presenter from "./Presenter";
 import type { PresentMode } from "./present";
 import PileWidgets from "./PileWidgets";
 import PileColumn from "./PileColumn";
+import PileSection from "./PileSection";
 import SlideNav from "./SlideNav";
 import TitleField from "./TitleField";
 import { AppMenu } from "./AppMenu";
@@ -318,6 +319,13 @@ export default function App({
   // Section des miniatures (repliée à part en mode pack) ; aucune pour un pack de widgets.
   const thumbsSection = pileSection(snap);
   const thumbsOpen = thumbsSection === null || !keptUi.folded.includes(thumbsSection);
+  const thumbsTitle = t(thumbsSection === "layouts" ? "ui-pile-layouts" : "ui-pile-slides");
+  const toggleThumbs = () => thumbsSection && keptUi.setFolded(thumbsSection, thumbsOpen);
+  const deckPile = (axis: "x" | "y") => (
+    <DeckPile snap={snap} current={current} svg={svgs.svg} onSelect={goToSlide} onMove={moveSlide} onAdd={addSlide} onRemove={removeSlide} axis={axis} />
+  );
+  // Colonne de gauche en mode pack seulement (layouts et widgets) ; ailleurs, les miniatures en bande sous la scène.
+  const packColumn = !!snap.editing && !history;
   // Un pack de widgets n'a de slides (aperçus en lecture seule) que sur l'onglet « Thème » : ailleurs la scène vide invite à ouvrir un widget.
   const widgetPack = snap.editing?.kind === "widgets";
   const layoutPackStage = snap.editing?.kind === "layouts" && !themeActive;
@@ -375,16 +383,14 @@ export default function App({
       )}
       </>)}
 
-      {/* Pile de slides (repliable), à gauche ; en mode pack, sections Layouts (pack de layouts) et Widgets. */}
-      <PileColumn
-        title={t(thumbsSection === "layouts" ? "ui-pile-layouts" : "ui-pile-slides")}
-        open={thumbsOpen}
-        onToggle={() => thumbsSection && keptUi.setFolded(thumbsSection, thumbsOpen)}
-        slides={thumbsSection && (
-          <DeckPile snap={snap} current={current} svg={svgs.svg} onSelect={goToSlide} onMove={moveSlide} onAdd={addSlide} onRemove={removeSlide} />
-        )}
-        widgets={
-          snap.editing && !history ? (
+      {/* En mode pack, à gauche : sections Layouts (pack de layouts) et Widgets. */}
+      {packColumn && (
+        <PileColumn
+          title={thumbsTitle}
+          open={thumbsOpen}
+          onToggle={toggleThumbs}
+          slides={thumbsSection && deckPile("y")}
+          widgets={
             <PileWidgets
               files={widgets.files}
               open={!keptUi.folded.includes("widgets")}
@@ -393,9 +399,9 @@ export default function App({
               onOpen={widgets.open}
               onRemoved={widgets.removed}
             />
-          ) : undefined
-        }
-      />
+          }
+        />
+      )}
 
       {/* La feuille, posée au centre. */}
       <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
@@ -438,6 +444,12 @@ export default function App({
         )}
         {!readOnly && (!widgetPack || themeActive) && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
         </div>
+        {/* Hors mode pack, les miniatures en bande sous la scène, repliable (gardé par l'hôte). */}
+        {!packColumn && thumbsSection && (
+          <PileSection className="slide-strip" title={thumbsTitle} open={thumbsOpen} onToggle={toggleThumbs}>
+            {deckPile("x")}
+          </PileSection>
+        )}
         {/* Paramètres de la cible (ou panneau du graphique sélectionné), sous la slide (pas au dock de
             l'agent) : en mode pack, l'exemple du layout de la slide ; sur l'onglet « Thème », les jetons à droite. */}
         {!themeActive && (

@@ -101,3 +101,39 @@ describe("pile des miniatures : défilement", () => {
     }
   });
 });
+
+describe("pile des miniatures : bande horizontale", () => {
+  const strip = (current = "a") =>
+    createElement(SlidePile, {
+      slides: [slide("a"), slide("b")], current, svg: () => "x.svg", label: "Slides", addLabel: "+",
+      removeLabel: "Supprimer", canRemove: true, onSelect: () => {}, axis: "x",
+    } as never);
+
+  async function mountStrip() {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted = { root, host };
+    await act(async () => root.render(strip()));
+    return { host, root };
+  }
+
+  test("SlidePile axis x marks the pile horizontal", async () => {
+    const { host } = await mountStrip();
+    expect(host.querySelector("nav.pile")?.classList.contains("horizontal")).toBe(true);
+  });
+
+  test("SlidePile axis x scrolls the current thumb into view along the strip", async () => {
+    const scrolled: unknown[] = [];
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = (options?: unknown) => void scrolled.push(options);
+    try {
+      const { root } = await mountStrip();
+      scrolled.length = 0;
+      await act(async () => root.render(strip("b")));
+      expect(scrolled).toEqual([{ block: "nearest", inline: "nearest" }]);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+});

@@ -56,7 +56,7 @@ async function renderPile(snap: Snapshot) {
   const noop = () => {};
   await act(async () =>
     root.render(
-      createElement(DeckPile, { snap, current: snap.slides[0]?.id ?? null, svg: () => null, onSelect: noop, onMove: noop, onAdd: noop, onRemove: noop }),
+      createElement(DeckPile, { snap, current: snap.slides[0]?.id ?? null, svg: () => null, onSelect: noop, onMove: noop, onAdd: noop, onRemove: noop, axis: "x" }),
     ),
   );
   return host;

@@ -43,10 +43,15 @@ const ruleOf = (sheet: string, selector: string) => {
 // L'alignement des pastilles sur plusieurs lignes (RTL compris) et la pastille « ↓ Tour en cours »
 // se vérifient sur la mise en page, dans e2e/060-agent.cjs (`assertPills`).
 
-test("la pile des slides repliée vers la gauche ne garde qu'un rail", () => {
-  const rule = ruleOf(APP, '.table:has(> .pile-column[data-folded="true"])');
-  expect(rule).toMatch(/--pile-w:\s*var\(--pile-rail-w\)\s*!important/);
-  expect(APP).toMatch(/--pile-rail-w:\s*56px/);
+test("sans colonne de gauche, la feuille reprend sa largeur", () => {
+  expect(ruleOf(APP, ".table:not(:has(> .pile-column))")).toMatch(/--pile-w:\s*0px\s*!important/);
+});
+
+test("la bande des miniatures défile à l'horizontale sous la scène", () => {
+  const rule = ruleOf(APP, ".slide-strip .pile");
+  expect(rule).toMatch(/flex-direction:\s*row/);
+  expect(rule).toMatch(/overflow-x:\s*auto/);
+  expect(ruleOf(APP, ".slide-strip")).toMatch(/flex:\s*none/);
 });
 
 test("la carte de la cible se pose sous la scène, défilant seule", () => {

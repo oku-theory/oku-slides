@@ -80,20 +80,9 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .widget-tab-diagnostics:empty { display: none; }
 .widget-tab-diagnostics .error { color: var(--danger); }
 
-/* Mode pack : deux sections repliables. Layouts prend la place et défile seule ;
+/* Mode pack, à gauche : deux sections repliables. Layouts prend la place et défile seule ;
    Widgets reste ancrée en bas, et défile à son tour si sa liste est longue. */
 .pile-column { grid-area: pile; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-top: var(--space-4); }
-/* Pile des slides repliée vers la gauche : un rail avec son seul bouton, la feuille reprend la place ;
-   `!important` passe devant la largeur choisie au séparateur (posée en ligne), gardée pour la réouverture. */
-.table { --pile-rail-w: 56px; }
-.table:has(> .pile-column[data-folded="true"]) { --pile-w: var(--pile-rail-w) !important; }
-.table:has(> .pile-column[data-folded="true"]) .col-divider[data-side="pile"] { display: none; }
-.pile-rail > .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); }
-.pile-fold { flex: none; align-self: flex-end; width: 32px; height: 32px; margin-inline-end: 22px; }
-.pile-rail[data-folded="true"] > .pile-fold { align-self: center; margin-inline-end: 0; }
-/* La barre latérale côté départ (RTL compris). */
-.pile-fold svg { width: 18px; height: 18px; }
-[dir="rtl"] .pile-fold svg { transform: scaleX(-1); }
 .pile-section { display: flex; flex-direction: column; min-height: 0; }
 .pile-section-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 28px 0 var(--space-6); }
 .pile-section-head h3 { margin: 0; min-width: 0; font: 500 13px/20px var(--sans); }
@@ -151,6 +140,19 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
    slide, celle-ci change de taille et se décale, t-647). Carte masquée depuis la barre : pas de bande.
    Sa hauteur se règle au séparateur (`BandDivider`), qui occupe la marge au-dessus de la carte. */
 .stage-panel { flex-direction: column; }
+/* Hors mode pack, sous la scène : la bande des miniatures (repliable), défilant à l'horizontale, à la
+   hauteur de ses miniatures ; repliée, il ne reste que son titre. */
+.slide-strip { flex: none; margin: var(--space-2) var(--space-4) 0; }
+.slide-strip > .pile-section-head { padding: 0; }
+.slide-strip .pile {
+  --thumb-w: 128px; flex-direction: row; align-items: flex-start; gap: var(--space-4);
+  overflow-x: auto; overflow-y: hidden; padding: var(--space-2) var(--space-1) var(--space-3);
+}
+.slide-strip .thumb-slot { flex: none; }
+.slide-strip .add-slide { flex: none; width: auto; height: calc(var(--thumb-w) * 9 / 16); margin-inline-start: 0; padding-inline: var(--space-4); white-space: nowrap; }
+/* Le trait de dépôt se dresse entre deux miniatures. */
+.pile.horizontal .drop-line { inset-inline: -11px auto; top: 0; width: 4px; height: calc(var(--thumb-w) * 9 / 16); }
+.pile.horizontal .drop-line.end { position: relative; inset-inline: auto; display: block; margin-block: 0; margin-inline: -9px; }
 .settings-band { flex: none; height: var(--band-h, clamp(120px, 28vh, 280px)); min-height: 0; display: flex; flex-direction: column; }
 .settings-band > .host-settings, .settings-band > .chart-panel {
   flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 0 auto;
