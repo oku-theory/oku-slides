@@ -34,6 +34,12 @@ fn defaults_stt_apple_finish_timeout_is_five_seconds() {
 }
 
 #[test]
+fn defaults_stt_api_timeout_is_thirty_seconds() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.stt.api_timeout_secs).is_equal_to(30.0);
+}
+
+#[test]
 fn defaults_embedded_file_gives_documented_values() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.history.limit).is_equal_to(500);

@@ -226,7 +226,7 @@ fn u32_at(bytes: &[u8], at: usize) -> Option<u32> {
 }
 
 /// Décode un WAV PCM 16 bits (mono ou stéréo) : débit et échantillons mono.
-fn parse_wav(bytes: &[u8]) -> Result<(u32, Vec<f32>), SttError> {
+pub(crate) fn parse_wav(bytes: &[u8]) -> Result<(u32, Vec<f32>), SttError> {
     ensure!(
         bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WAVE",
         WavSnafu { reason: "not a WAV file" }

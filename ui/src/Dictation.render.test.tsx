@@ -20,7 +20,7 @@ const { PICKER } = await import("./a2ui/fixtures/agentPicker");
 function fakeStt(heard = "bonjour", change: Partial<SttStatus> = {}) {
   let current: SttStatus = {
     state: "idle",
-    config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1 },
+    config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
     models: [{ id: "turbo", label: "Large v3 Turbo (rapide)", size: 1, installed: true, available: true }],
     download: null,
     level: 0,
@@ -285,7 +285,7 @@ describe("modèle Apple", () => {
   test("Dictation Apple without the chosen language is disabled and says why", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "turbo", language: "xx", auto_stop: false, silence: 2, version: 1 },
+      config: { model: "turbo", language: "xx", auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
       models: [apple(false), { id: "turbo", label: "Large v3 Turbo (rapide)", size: 1, installed: true, available: true }],
     });
     const { host } = await mount();
@@ -298,7 +298,7 @@ describe("modèle Apple", () => {
     setMessages("fr", ["ui-dictation-language-auto-resolved = Automatique ({ $language })"]);
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1 },
+      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
       models: [apple(true)],
       detected: "fr",
     });
@@ -310,7 +310,7 @@ describe("modèle Apple", () => {
   test("Dictation Apple language to download shows no size", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1 },
+      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
       models: [{ ...apple(true), installed: false }],
     });
     const { host } = await mount();
@@ -320,7 +320,7 @@ describe("modèle Apple", () => {
   test("Dictation Apple to download offers the language, not a size", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1 },
+      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
       models: [{ ...apple(true), installed: false }],
     });
     const { host } = await mount();
@@ -333,7 +333,7 @@ describe("modèle Apple", () => {
   test("Dictation Apple chosen but unavailable offers no download and says why", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: "xx", auto_stop: false, silence: 2, version: 1 },
+      config: { model: "apple", language: "xx", auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
       models: [apple(false)],
     });
     const { host } = await mount();
@@ -346,7 +346,7 @@ describe("modèle Apple", () => {
   test("Dictation Apple caption is only its note, without the label detail", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1 },
+      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
       models: [apple(true)],
     });
     const { host } = await mount();
@@ -435,5 +435,55 @@ describe("agent dans les réglages", () => {
     await openSettings(host);
     expect(host.querySelector(".dictation-settings")).not.toBeNull();
     expect(host.querySelector(".dictation-agents, .agent-picker")).toBeNull();
+  });
+});
+
+const apiModel = (installed: boolean) => ({ id: "api" as const, label: "API (gpt-4o-transcribe)", size: 0, installed, available: true });
+const apiConfig = { model: "api" as const, language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } };
+
+const field = (host: HTMLElement, label: string) =>
+  [...host.querySelectorAll<HTMLLabelElement>(".dictation-settings label")].find((l) => l.textContent?.startsWith(label))?.querySelector("input") as HTMLInputElement | undefined;
+
+describe("modèle API", () => {
+  test("Dictation API chosen shows the three fields with the config values", async () => {
+    engine.restore();
+    engine = fakeStt("bonjour", { config: apiConfig, models: [apiModel(true)] });
+    const { host } = await mount();
+    await openSettings(host);
+    expect(["ui-dictation-api-url", "ui-dictation-api-model", "ui-dictation-api-key-env"].map((k) => field(host, k)?.value)).toEqual([
+      "https://api.openai.com/v1",
+      "gpt-4o-transcribe",
+      "OPENAI_API_KEY",
+    ]);
+  });
+
+  test("Dictation API model changed then blurred configures with the other fields unchanged", async () => {
+    engine.restore();
+    engine = fakeStt("bonjour", { config: apiConfig, models: [apiModel(true)] });
+    const configure = spyOn(stt, "configure").mockImplementation(() => stt.status());
+    const { host } = await mount();
+    await openSettings(host);
+    const input = field(host, "ui-dictation-api-model")!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, "whisper-1");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    const sent = configure.mock.calls[0]?.[0];
+    configure.mockRestore();
+    expect(sent?.api).toEqual({ url: "https://api.openai.com/v1", model: "whisper-1", key_env: "OPENAI_API_KEY" });
+  });
+
+  test("Dictation API without key says so in the badge and offers no download", async () => {
+    engine.restore();
+    engine = fakeStt("bonjour", { config: apiConfig, models: [apiModel(false)] });
+    const { host } = await mount();
+    await openSettings(host);
+    const badge = host.querySelector(".model .badge")?.textContent;
+    const buttons = [...host.querySelectorAll(".btn")].map((b) => b.textContent);
+    expect([badge, buttons]).toEqual(["ui-dictation-api-key-missing", []]);
   });
 });

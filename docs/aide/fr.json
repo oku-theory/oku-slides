@@ -376,6 +376,18 @@
         {
          "runs": [
           {
+           "t": "Par une API",
+           "bold": true
+          },
+          {
+           "t": " : choisissez API dans les réglages de la dictée ; chaque phrase part vers un service compatible OpenAI, la clé étant lue dans une variable d'environnement. Une app ouverte depuis le Finder ne voit pas les variables du shell : définissez la clé avec `launchctl setenv OPENAI_API_KEY …` ou lancez l'app depuis un terminal."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
            "t": "Phrase par phrase",
            "bold": true
           },

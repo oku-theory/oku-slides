@@ -151,6 +151,8 @@ countdown_after_secs = 0.3
 apple = true
 # Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
 apple_finish_timeout_secs = 5.0
+# Attente maximale d'une réponse de l'API de dictée (s).
+api_timeout_secs = 30.0
 # Micro simulé : rejoue ce fichier WAV au lieu du micro (tests, démos).
 # fake_mic = "voix.wav"
 

@@ -1,10 +1,11 @@
-//! Dictée d'Oku Slides : micro → détection de la voix → moteur local → texte.
+//! Dictée d'Oku Slides : micro → détection de la voix → moteur → texte.
 //!
-//! Deux moteurs, tous deux sur la machine :
+//! Trois moteurs, dont deux sur la machine :
 //! - Apple (macOS 26+) : `SpeechAnalyzer` transcrit en continu, au fil de
 //!   l'audio, par un pont Swift (`apple.rs`).
 //! - Whisper (Turbo, Large, Base) : CTranslate2 (celui de faster-whisper),
 //!   via ct2rs ; c'est le moteur ailleurs, ou sur demande.
+//! - API compatible OpenAI (`api.rs`) : phrase par phrase, sans aperçu.
 //!
 //! La voix est détectée trame par trame (earshot) : l'écoute s'arrête seule
 //! après un silence. Avec Whisper, chaque phrase terminée est transcrite une
@@ -17,6 +18,7 @@
 //! Un appui sur le micro suffit : si le modèle manque, il est téléchargé,
 //! puis l'écoute commence toute seule.
 
+mod api;
 #[cfg(target_os = "macos")]
 mod apple;
 mod audio;
@@ -25,6 +27,7 @@ mod dictation_whisper;
 mod error;
 mod locale;
 mod models;
+mod phrase_engine;
 mod results;
 mod stream;
 #[cfg(test)]
@@ -40,16 +43,18 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+pub use api::ApiConfig;
 pub use audio::{SAMPLE_RATE, resample};
 use dictation_stream::{Held, cancel_held};
-use dictation_whisper::Job;
-use error::LocaleUnsupportedSnafu;
+use dictation_whisper::{EngineKey, Job, engine_key};
+use error::{LocaleUnsupportedSnafu, NotDownloadableSnafu};
 pub use error::{SttError, SttErrorKind};
 pub use models::{Model, download};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::{ModelsSettings, SttSettings};
 use oku_slides_platform::storage::Storage;
+use phrase_engine::PhraseEngine;
 use stream::{Availability, Stream, StreamEngine};
 use vad::Segmenter;
 pub use whisper::{Transcriber, Transcript};
@@ -79,11 +84,20 @@ pub struct Config {
     pub silence: f32,
     /// Version des réglages : 0 avant le moteur d'Apple (bascule unique).
     pub version: u32,
+    /// Réglages de l'API de transcription (modèle `Api`).
+    pub api: ApiConfig,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { model: Model::Turbo, language: None, auto_stop: true, silence: 1.5, version: 0 }
+        Self {
+            model: Model::Turbo,
+            language: None,
+            auto_stop: true,
+            silence: 1.5,
+            version: 0,
+            api: ApiConfig::default(),
+        }
     }
 }
 
@@ -168,8 +182,8 @@ pub enum SttRequest {
 
 /// Où part l'audio d'une dictée.
 enum Sink {
-    /// Whisper : phrases closes et aperçus, en jobs.
-    Whisper { jobs: mpsc::Sender<Job>, busy: Arc<AtomicBool> },
+    /// Moteur phrase par phrase (Whisper, API) : phrases closes et aperçus, en jobs.
+    Whisper { jobs: mpsc::Sender<Job>, busy: Arc<AtomicBool>, previews: bool },
     /// Moteur en continu : tout l'audio, au fil de l'eau ; confié à `held` à l'arrêt.
     Stream { stream: Box<dyn Stream>, held: Held },
 }
@@ -192,7 +206,7 @@ struct Inner {
     /// Vocabulaire de la dictée en cours.
     vocabulary: Vec<String>,
     start_after_download: bool,
-    engine: Option<(Model, Arc<Transcriber>)>,
+    engine: Option<(EngineKey, Arc<dyn PhraseEngine>)>,
     /// Modèles présents sur le disque (dans l'ordre de `Model::ALL`) : lus au
     /// démarrage et après un téléchargement, pas à chaque sondage.
     installed: [bool; Model::ALL.len()],
@@ -352,9 +366,12 @@ impl Stt {
     fn model_info(&self, model: Model, installed: bool, g: &Inner) -> ModelInfo {
         let (installed, available) = match model {
             Model::Apple => (matches!(g.apple, Some((_, Availability::Ready))), g.apple.is_some()),
+            // « Installée » : la clé est là ; elle n'est jamais rendue.
+            Model::Api => (g.config.api.key().is_ok(), true),
             _ => (installed, true),
         };
-        ModelInfo { id: model, label: model.label(&self.localizer), size: model.size(), installed, available }
+        let label = model.label(&self.localizer, &g.config.api);
+        ModelInfo { id: model, label, size: model.size(), installed, available }
     }
 
     /// L'état partagé, même si un fil a paniqué en le tenant : l'interface
@@ -413,8 +430,8 @@ impl Stt {
             if g.state != State::Idle {
                 return;
             }
-            if g.engine.as_ref().is_some_and(|(m, _)| *m != config.model) {
-                g.engine = None; // libère la mémoire de l'ancien modèle
+            if g.engine.as_ref().is_some_and(|(k, _)| *k != engine_key(&config)) {
+                g.engine = None; // libère la mémoire de l'ancien modèle, ou l'ancienne API
             }
             let saved = serde_json::to_vec_pretty(&config).map_err(|e| e.to_string()).and_then(|json| {
                 self.storage.write(&config_path(&self.dir), json).map_err(|e| oku_slides_platform::errors::one_line(&e))
@@ -430,20 +447,27 @@ impl Stt {
 
     /// Démarre la dictée (téléchargement du modèle d'abord s'il manque).
     pub fn start(&self, vocabulary: Vec<String>) {
-        let (model, apple) = {
+        let (model, apple, api) = {
             let mut g = self.state();
             if g.state != State::Idle {
                 return;
             }
             g.error = None;
             g.vocabulary = vocabulary;
-            (g.config.model, g.apple.clone())
+            (g.config.model, g.apple.clone(), g.config.api.clone())
         };
         if model == Model::Apple {
             match apple {
                 Some((_, Availability::Ready)) => self.begin_recording(),
                 Some(_) => self.download(Model::Apple, true),
                 None => self.report(LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into()),
+            }
+            return;
+        }
+        if model == Model::Api {
+            match api.key() {
+                Ok(_) => self.begin_recording(),
+                Err(e) => self.report(e),
             }
             return;
         }
@@ -457,6 +481,10 @@ impl Stt {
     pub fn download(&self, model: Model, then_start: bool) {
         if model == Model::Apple {
             self.download_language(then_start);
+            return;
+        }
+        if model == Model::Api {
+            self.report(NotDownloadableSnafu.build().into());
             return;
         }
         {
@@ -549,7 +577,7 @@ impl Stt {
                 let worker = self.clone();
                 let worker_busy = busy.clone();
                 std::thread::spawn(move || worker.transcribe_loop(session, rx, worker_busy));
-                Sink::Whisper { jobs, busy }
+                Sink::Whisper { jobs, busy, previews: model.previews() }
             }
         };
         let listener = self.clone();
@@ -606,9 +634,9 @@ impl Stt {
                 return;
             }
 
-            // Aperçu de la phrase en cours (Whisper), quand le fil de transcription est libre.
+            // Aperçu de la phrase en cours (Whisper local), quand le fil de transcription est libre.
             let current = seg.current();
-            if let Sink::Whisper { jobs, busy } = &sink
+            if let Sink::Whisper { jobs, busy, previews: true } = &sink
                 && let Some(p) = current
                 && !busy.load(Ordering::Relaxed)
                 && p.end.saturating_sub(previewed.max(p.start)) as f32 >= s.preview_step_secs * SAMPLE_RATE as f32

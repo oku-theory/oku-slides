@@ -4,6 +4,7 @@ import { stt } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { Button, Field, Select } from "./primitives";
+import { DictationApiFields } from "./DictationApiFields";
 import { AgentPicker } from "./agent/AgentPicker";
 import type { DictationMode } from "./agent/keys";
 import { dictationShortcut, shortcutAction, typingShortcut } from "./agent/keys";
@@ -286,9 +287,11 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
       [model?.label.split(" (")[0], language].filter(Boolean).join(" · "),
       status.config.auto_stop ? t("ui-dictation-auto-stop", { duration: secs(status.config.silence) }) : "",
     ].filter(Boolean).join("\n");
-    const toDownload = model && model.available && !model.installed;
+    // L'API ne se télécharge pas : sans clé, on dit laquelle manque.
+    const toDownload = model && model.id !== "api" && model.available && !model.installed;
     const unavailable = model && !model.available;
-    body = (agentBusy || toDownload || unavailable) && (
+    const keyMissing = model?.id === "api" && !model.installed;
+    body = (agentBusy || toDownload || unavailable || keyMissing) && (
       <div className="dictation-body">
         {agentBusy && (
           // L'état en clair, le raccourci pour l'arrêter en dessous, en petit.
@@ -300,6 +303,11 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
         {toDownload && (
           <div className="dictation-line">
             <span className="caption">{t(model.size > 0 ? "ui-dictation-to-download" : "ui-dictation-to-download-language", { size: mo(model.size) })}</span>
+          </div>
+        )}
+        {keyMissing && (
+          <div className="dictation-line">
+            <span className="caption">{t("ui-dictation-api-key-missing", { var: status.config.api.key_env })}</span>
           </div>
         )}
         {unavailable && (
@@ -376,12 +384,17 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
                   <span className="model-name">{name}</span>
                   <span className="caption">{modelNote(m.id)}{m.size > 0 && ` · ${detail?.replace(/^[^,]*, /, "") ?? ""}`}</span>
                   <span className={`badge${m.available && m.installed ? " ok" : ""}`}>
-                    {t(!m.available ? "ui-dictation-model-unavailable" : m.installed ? "ui-dictation-installed" : "ui-dictation-not-installed")}
+                    {m.id === "api" && m.available
+                      ? m.installed ? t("ui-dictation-api-ready") : t("ui-dictation-api-key-missing", { var: status.config.api.key_env })
+                      : t(!m.available ? "ui-dictation-model-unavailable" : m.installed ? "ui-dictation-installed" : "ui-dictation-not-installed")}
                   </span>
                 </label>
               );
             })}
           </div>
+          {status.config.model === "api" && (
+            <DictationApiFields api={status.config.api} onChange={(api) => configure({ api })} />
+          )}
           <Field variant="row" label={t("ui-dictation-language")}>
             <Select
               value={status.config.language ?? ""}
@@ -404,7 +417,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
             />
           </div>
           <p className="caption">{t("ui-dictation-phrases-note")}</p>
-          {model && model.available && !model.installed && (
+          {model && model.id !== "api" && model.available && !model.installed && (
             <Button onClick={() => send(stt.download(model.id))}>{model.size === 0 ? t("ui-dictation-download-language") : t("ui-dictation-download-now", { size: mo(model.size) })}</Button>
           )}
           {/* L'agent de l'app, sous les réglages de la dictée (la surface porte son titre). */}
@@ -436,6 +449,8 @@ function modelNote(id: string): string | undefined {
       return t("ui-dictation-note-large");
     case "base":
       return t("ui-dictation-note-base");
+    case "api":
+      return t("ui-dictation-note-api");
     default:
       return undefined;
   }

@@ -189,3 +189,32 @@ pub(crate) fn wait_until(stt: &Stt, what: &str, done: impl Fn(&Status) -> bool) 
         std::thread::sleep(Duration::from_millis(20));
     }
 }
+
+/// Requête reçue par la fausse API : en-tête Authorization et corps.
+pub(crate) struct ApiCall {
+    pub authorization: String,
+    pub body: Vec<u8>,
+}
+
+/// Une fausse API : répond `status` et `body` à chaque requête ; rend son URL racine.
+pub(crate) fn fake_api(status: u16, body: &'static str) -> (String, mpsc::Receiver<ApiCall>) {
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("fausse API : {e}"));
+    let addr = server.server_addr().to_ip().unwrap_or_else(|| panic!("fausse API : adresse non IP"));
+    let url = format!("http://{addr}/v1");
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        for mut request in server.incoming_requests() {
+            let authorization = request
+                .headers()
+                .iter()
+                .find(|h| h.field.equiv("Authorization"))
+                .map(|h| h.value.as_str().to_owned())
+                .unwrap_or_default();
+            let mut bytes = Vec::new();
+            std::io::Read::read_to_end(request.as_reader(), &mut bytes).ok();
+            tx.send(ApiCall { authorization, body: bytes }).ok();
+            request.respond(tiny_http::Response::from_string(body).with_status_code(status)).ok();
+        }
+    });
+    (url, rx)
+}

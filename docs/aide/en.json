@@ -376,6 +376,18 @@
         {
          "runs": [
           {
+           "t": "Through an API",
+           "bold": true
+          },
+          {
+           "t": ": pick API in the dictation settings; each sentence goes to an OpenAI-compatible service, with the key read from an environment variable. An app opened from the Finder does not see shell variables: set the key with `launchctl setenv OPENAI_API_KEY …` or start the app from a terminal."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
            "t": "Sentence by sentence",
            "bold": true
           },

@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // La langue d'Apple s'installe d'elle-même, dans `transcribe_samples`.
     if model != Model::Apple && !model.is_installed(storage, &dir) {
-        eprintln!("↓ {} …", model.label(&platform.localizer));
+        eprintln!("↓ {} …", model.label(&platform.localizer, &oku_slides_stt::ApiConfig::default()));
         let mut last = 0;
         oku_slides_stt::download(model, &dir, &settings.models, storage, |got, total| {
             let pct = got * 100 / total.max(1);

@@ -1,3 +1,4 @@
+use rstest::rstest;
 use speculoos::prelude::*;
 
 use oku_slides_platform::config::Settings;
@@ -80,4 +81,27 @@ fn localize_each_kind_speaks_to_the_user() {
 #[test]
 fn display_stays_english_for_logs() {
     assert_that!(failed_download().to_string()).is_equal_to("model download failed".to_owned());
+}
+
+#[test]
+fn api_key_missing_kind_is_model() {
+    let e: SttError = ApiKeyMissingSnafu { var: "OPENAI_API_KEY" }.build().into();
+    assert_that!(e.kind()).is_equal_to(SttErrorKind::Model);
+}
+
+#[rstest]
+#[case("en", "OPENAI_API_KEY")]
+#[case("fr", "OPENAI_API_KEY")]
+fn api_key_missing_localized_names_the_variable(#[case] locale: &str, #[case] var: &str) {
+    let l = Localizer::new(Some(locale));
+    let e: SttError = ApiKeyMissingSnafu { var }.build().into();
+    assert_that!(e.localize(&l)).contains(var);
+}
+
+#[test]
+fn api_status_localized_in_french_shows_the_status() {
+    let e: SttError = ApiStatusSnafu { status: 401u16 }.build().into();
+    let text = e.localize(&Localizer::new(Some("fr")));
+    assert_that!(text).contains("401");
+    assert_that!(text).is_not_equal_to(e.localize(&Localizer::new(Some("en"))));
 }

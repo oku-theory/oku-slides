@@ -376,8 +376,15 @@ export interface SlotRef {
 
 // --- Dictée ---------------------------------------------------------------
 
-export type SttModel = "apple" | "turbo" | "large" | "base";
+export type SttModel = "apple" | "turbo" | "large" | "base" | "api";
 export type SttState = "idle" | "downloading" | "recording" | "transcribing";
+
+/** Service de dictée compatible OpenAI ; la clé n'est jamais ici, seulement le nom de sa variable. */
+export interface SttApiConfig {
+  url: string;
+  model: string;
+  key_env: string;
+}
 
 export interface SttConfig {
   model: SttModel;
@@ -387,6 +394,7 @@ export interface SttConfig {
   silence: number;
   /** Version des réglages (tenue par l'hôte). */
   version: number;
+  api: SttApiConfig;
 }
 
 export interface SttStatus {

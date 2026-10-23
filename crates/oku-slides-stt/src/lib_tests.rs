@@ -51,7 +51,7 @@ fn stt_default_config_is_turbo_auto_language_auto_stop_and_persists() {
     assert_that!(s.config.model).is_equal_to(Model::Turbo);
     assert_that!(s.config.language).is_none();
     assert_that!(s.config.auto_stop).is_true();
-    assert_that!(s.models).has_length(3);
+    assert_that!(s.models).has_length(4);
     stt.configure(Config {
         model: Model::Large,
         language: Some("fr".into()),
@@ -212,4 +212,85 @@ fn start_apple_with_unknown_language_reports_error() {
     stt.start(Vec::new());
     assert_that!(stt.status().error.as_deref())
         .is_equal_to(Some("Le moteur d'Apple ne prend pas en charge cette langue (xx)"));
+}
+
+fn api_config(url: &str, key_env: &str) -> Config {
+    Config {
+        model: Model::Api,
+        api: ApiConfig { url: url.into(), model: "whisper-1".into(), key_env: key_env.into() },
+        ..Config::default()
+    }
+}
+
+#[test]
+fn status_api_without_key_is_listed_not_installed() {
+    let dir = fresh_dir("oku-slides-stt-");
+    let stt = Stt::new(&platform(dir.path()));
+    stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
+    let api = stt.status().models.into_iter().find(|m| m.id == Model::Api).unwrap();
+    assert_that!(api.installed).is_false();
+}
+
+#[test]
+fn start_api_without_key_reports_error_and_stays_idle() {
+    let dir = fresh_dir("oku-slides-stt-");
+    let stt = Stt::new(&platform(dir.path()));
+    stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
+    stt.start(Vec::new());
+    let s = stt.status();
+    assert_that!(s.state).is_equal_to(State::Idle);
+    assert_that!(s.error.unwrap()).contains("OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a");
+}
+
+#[test]
+fn transcribe_loop_api_commits_the_api_text() {
+    let dir = fresh_dir("oku-slides-stt-");
+    let stt = Stt::new(&platform(dir.path()));
+    let (url, _calls) = crate::test_support::fake_api(200, r#"{"text":"Bonjour."}"#);
+    stt.configure(api_config(&url, "HOME"));
+    let session = {
+        let mut g = stt.state();
+        g.phrases.push(None);
+        g.state = State::Transcribing;
+        g.session
+    };
+    let (jobs, rx) = mpsc::channel();
+    jobs.send(Job::Final { index: 0, audio: vec![0.0; 1600] }).unwrap();
+    jobs.send(Job::Done).unwrap();
+    stt.transcribe_loop(session, rx, Arc::new(AtomicBool::new(false)));
+    assert_that!(stt.status().text).is_equal_to(Some("Bonjour.".to_owned()));
+}
+
+#[test]
+fn api_model_sends_no_previews() {
+    assert_that!(Model::Api.previews()).is_false();
+}
+
+#[test]
+fn config_without_api_section_loads_default_api() {
+    let c: Config = serde_json::from_str(r#"{"model":"turbo"}"#).unwrap();
+    assert_that!(c.api).is_equal_to(ApiConfig::default());
+}
+
+#[test]
+fn engine_api_with_negative_timeout_returns_model_error() {
+    let dir = fresh_dir("oku-slides-stt-");
+    let mut settings = oku_slides_platform::config::Settings::defaults().unwrap();
+    settings.paths.models = Some(dir.path().to_path_buf());
+    settings.stt.apple = false;
+    settings.stt.api_timeout_secs = -1.0;
+    let stt = Stt::new(&Platform::with_settings(settings).unwrap());
+    stt.configure(api_config("http://127.0.0.1:9/v1", "HOME"));
+    assert_that!(stt.engine().map(|_| ()).unwrap_err().kind()).is_equal_to(SttErrorKind::Model);
+}
+
+#[test]
+fn engine_api_url_change_returns_a_new_engine() {
+    let dir = fresh_dir("oku-slides-stt-");
+    let stt = Stt::new(&platform(dir.path()));
+    stt.configure(api_config("http://127.0.0.1:9/a", "HOME"));
+    let first = stt.engine().unwrap();
+    assert_that!(Arc::ptr_eq(&first, &stt.engine().unwrap())).is_true();
+    stt.configure(api_config("http://127.0.0.1:9/b", "HOME"));
+    assert_that!(Arc::ptr_eq(&first, &stt.engine().unwrap())).is_false();
 }

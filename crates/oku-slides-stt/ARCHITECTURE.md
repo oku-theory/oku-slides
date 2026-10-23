@@ -13,6 +13,9 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
 - **Whisper** (Turbo, Large, Base): CTranslate2 (`whisper.rs`), models
   downloaded from Hugging Face by `oku_slides_platform::models` (`models.rs` lists the files),
   sentence by sentence (`dictation_whisper.rs`).
+- **API** (`Model::Api`): an OpenAI-compatible transcription API (`api.rs`), phrase by
+  phrase like Whisper but without preview; the key is read from the environment
+  variable named in `ApiConfig`, never stored.
 
 ## Flow
 
@@ -20,9 +23,13 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
 automatic stop) -> `Sink`: Whisper jobs, or the `Stream` of a continuous engine
 whose events `dictation_stream.rs` applies (`results.rs`).
 
+In automatic-language mode the API engine sends no language hint: its answer
+carries no language, so `detected` stays empty.
+
 ## Extension points
 
 - `stream::StreamEngine`: plug in another continuous engine.
+- `phrase_engine::PhraseEngine`: plug in another phrase-by-phrase engine (Whisper, API).
 
 ## Dependencies
 

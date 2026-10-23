@@ -325,6 +325,8 @@ pub struct SttSettings {
     pub apple: bool,
     /// Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
     pub apple_finish_timeout_secs: f32,
+    /// Attente maximale d'une réponse de l'API de dictée (s).
+    pub api_timeout_secs: f32,
     pub vad: VadSettings,
 }
 

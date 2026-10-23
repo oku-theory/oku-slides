@@ -6200,6 +6200,7 @@ dependencies = [
  "ndarray",
  "oku-slides-i18n",
  "oku-slides-platform",
+ "rstest",
  "serde",
  "serde_json",
  "snafu",
@@ -6210,6 +6211,7 @@ dependencies = [
  "tiny_http",
  "tokenizers",
  "tracing",
+ "ureq",
 ]
 
 [[package]]

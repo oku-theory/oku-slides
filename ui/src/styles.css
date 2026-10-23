@@ -920,3 +920,4 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .thumb-mark { position: absolute; top: 6px; inset-inline-end: 6px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--paper-200); }
 .thumb-mark.removed { background: var(--danger); }
 .thumb-mark.changed { background: var(--accent-fill); }
+.dictation-settings .settings-row input:not([type]) { flex: 1; min-width: 0; max-width: 60%; }

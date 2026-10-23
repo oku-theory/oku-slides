@@ -93,6 +93,14 @@ pub(crate) enum SttInner {
     FinishTimeout { backtrace: Backtrace },
     #[snafu(display("this model is installed by the system"))]
     NotDownloadable { backtrace: Backtrace },
+    #[snafu(display("dictation API key missing: environment variable {var} is not set"))]
+    ApiKeyMissing { var: String, backtrace: Backtrace },
+    #[snafu(display("dictation API unreachable"))]
+    ApiHttp { source: Box<ureq::Error>, backtrace: Backtrace },
+    #[snafu(display("dictation API answered HTTP {status}"))]
+    ApiStatus { status: u16, backtrace: Backtrace },
+    #[snafu(display("unreadable dictation API answer"))]
+    ApiResponse { source: serde_json::Error, backtrace: Backtrace },
 }
 
 impl SttError {
@@ -113,13 +121,17 @@ impl SttError {
             | ZeroSetting { .. }
             | MelFilters { .. }
             | LocaleUnsupported { .. }
-            | NotDownloadable { .. } => SttErrorKind::Model,
+            | NotDownloadable { .. }
+            | ApiKeyMissing { .. } => SttErrorKind::Model,
             Transcribe { .. }
             | Features { .. }
             | NoLanguage { .. }
             | NotContiguous { .. }
             | Analyzer { .. }
-            | FinishTimeout { .. } => SttErrorKind::Transcription,
+            | FinishTimeout { .. }
+            | ApiHttp { .. }
+            | ApiStatus { .. }
+            | ApiResponse { .. } => SttErrorKind::Transcription,
             Cancelled { .. } => SttErrorKind::Cancelled,
             Download { ref source, .. } if source.kind() == DownloadErrorKind::Cancelled => SttErrorKind::Cancelled,
             Download { .. } | AssetInstall { .. } => SttErrorKind::Download,
@@ -151,7 +163,11 @@ impl Localize for SttError {
             | NoLanguage { .. }
             | NotContiguous { .. }
             | Analyzer { .. }
-            | FinishTimeout { .. } => l.tr("stt-transcription"),
+            | FinishTimeout { .. }
+            | ApiResponse { .. } => l.tr("stt-transcription"),
+            ApiKeyMissing { var, .. } => l.tr_with("stt-api-key-missing", &[("var", var.as_str().into())]),
+            ApiHttp { .. } => l.tr("stt-api-unreachable"),
+            ApiStatus { status, .. } => l.tr_with("stt-api-status", &[("status", (*status).into())]),
             Download { source, .. } => match source.kind() {
                 DownloadErrorKind::Cancelled => l.tr("stt-cancelled"),
                 DownloadErrorKind::Incomplete { got, expected } => {

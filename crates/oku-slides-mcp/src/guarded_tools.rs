@@ -52,7 +52,7 @@ pub(crate) struct EditThemeArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetSettingArgs {
-    /// `dictation.model` (apple|turbo|large|base), `dictation.language` (code ou null), `dictation.auto_stop`, `dictation.silence`, `history.limit`, `stt.vad.<clé>`.
+    /// `dictation.model` (apple|turbo|large|base|api ; `dictation.api.*` reste réservé à l'utilisateur, non modifiable par l'agent), `dictation.language` (code ou null), `dictation.auto_stop`, `dictation.silence`, `history.limit`, `stt.vad.<clé>`.
     pub key: String,
     pub value: Value,
 }

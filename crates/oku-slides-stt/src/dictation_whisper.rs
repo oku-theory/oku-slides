@@ -1,16 +1,20 @@
-//! Dictée par Whisper : phrases closes en qualité finale, aperçu de la phrase en cours.
+//! Dictée phrase par phrase (Whisper, API) : phrases closes en qualité finale,
+//! aperçu de la phrase en cours (Whisper seulement).
 //!
 //! `listen_loop` (lib.rs) envoie des [`Job`] ; ce fil les transcrit dans l'ordre,
 //! les phrases closes avant l'aperçu.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError, mpsc};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use oku_slides_i18n::Localize;
 
+use crate::api::{ApiConfig, ApiTranscriber};
+use crate::error::ZeroSettingSnafu;
+use crate::phrase_engine::PhraseEngine;
 use crate::vad::{Phrase, Segmenter};
-use crate::{State, Stt, SttError, Transcriber, context_of, keep};
+use crate::{Config, Model, State, Stt, SttError, Transcriber, context_of, keep};
 
 /// Travail pour le fil de transcription.
 pub(crate) enum Job {
@@ -22,29 +26,55 @@ pub(crate) enum Job {
     Done,
 }
 
+/// Ce qui identifie un moteur chargé : un modèle local, ou une API et ses réglages.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum EngineKey {
+    /// Modèle Whisper sur le disque.
+    Local(Model),
+    /// API de transcription, avec ses réglages.
+    Api(ApiConfig),
+}
+
+/// Le moteur que demandent ces réglages.
+pub(crate) fn engine_key(config: &Config) -> EngineKey {
+    match config.model {
+        Model::Api => EngineKey::Api(config.api.clone()),
+        model => EngineKey::Local(model),
+    }
+}
+
 impl Stt {
-    /// Modèle chargé une fois (et gardé tant qu'on ne change pas de modèle).
-    pub(crate) fn engine(&self) -> Result<Arc<Transcriber>, SttError> {
-        let model = {
+    /// Moteur chargé une fois (et gardé tant qu'on ne change ni de modèle ni d'API).
+    pub(crate) fn engine(&self) -> Result<Arc<dyn PhraseEngine>, SttError> {
+        let key = {
             let g = self.state();
-            if let Some((m, e)) = &g.engine
-                && *m == g.config.model
+            let key = engine_key(&g.config);
+            if let Some((k, e)) = &g.engine
+                && *k == key
             {
                 return Ok(e.clone());
             }
-            g.config.model
+            key
         };
         static LOADING: Mutex<()> = Mutex::new(());
         let _loading = LOADING.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some((m, e)) = &self.state().engine
-            && *m == model
+        if let Some((k, e)) = &self.state().engine
+            && *k == key
         {
             return Ok(e.clone());
         }
         let started = Instant::now();
-        let engine = Arc::new(Transcriber::load(&model.path(&self.dir), &self.storage)?);
-        tracing::debug!(?model, ms = started.elapsed().as_millis(), "modèle de dictée chargé");
-        self.state().engine = Some((model, engine.clone()));
+        let engine: Arc<dyn PhraseEngine> = match &key {
+            EngineKey::Api(config) => {
+                // Négatif, NaN ou démesuré : erreur de réglage, pas de panique.
+                let timeout = Duration::try_from_secs_f32(self.settings.api_timeout_secs)
+                    .map_err(|_| SttError::from(ZeroSettingSnafu { field: "stt.api_timeout_secs" }.build()))?;
+                Arc::new(ApiTranscriber::new(config.clone(), timeout)?)
+            }
+            EngineKey::Local(model) => Arc::new(Transcriber::load(&model.path(&self.dir), &self.storage)?),
+        };
+        tracing::debug!(?key, ms = started.elapsed().as_millis(), "moteur de dictée chargé");
+        self.state().engine = Some((key, engine.clone()));
         Ok(engine)
     }
 
