@@ -51,6 +51,8 @@ ui-pack-deck-only = Alleen in deze presentatie opgeslagen
 ui-toolbar-open = Openen
 ui-menu = Menu
 ui-toolbar-add-label = Toevoegen aan de dia
+ui-toolbar-thumbs-show = Miniaturen tonen
+ui-toolbar-thumbs-hide = Miniaturen verbergen
 ui-add-kind = { $kind ->
     [card] Kaart
     [shape] Vorm
@@ -103,7 +105,7 @@ ui-new-card-detail = Detail
 
 ui-pile-slides = Dia's
 ui-pile-layouts = Lay-outs
-ui-pile-add-slide = + Nieuwe dia
+ui-pile-add-slide = Nieuwe dia
 ui-pile-drag-hint = Sleep om te verplaatsen · ⌥↑ ⌥↓
 ui-slide-alt = Dia { $n }
 

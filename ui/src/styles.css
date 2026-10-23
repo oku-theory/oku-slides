@@ -245,7 +245,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .thumb:hover .thumb-img { box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
 .thumb[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
-.add-slide { margin-inline-start: 26px; width: var(--thumb-w); height: 48px; justify-content: center; color: var(--accent); font-weight: 600; }
+/* Jeton rond (`.object.token`), à l'accent. */
+.add-slide { margin-inline-start: 26px; color: var(--accent); }
 
 /* ---- La feuille ---- */
 /* Une rangée : la scène (et le sous-onglet widget à côté) ; dessous, le tiroir des variantes quand il est

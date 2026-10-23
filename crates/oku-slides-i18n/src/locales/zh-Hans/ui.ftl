@@ -51,6 +51,8 @@ ui-pack-deck-only = 仅保存在此演示文稿中
 ui-toolbar-open = 打开
 ui-menu = 菜单
 ui-toolbar-add-label = 添加到幻灯片
+ui-toolbar-thumbs-show = 显示缩略图
+ui-toolbar-thumbs-hide = 隐藏缩略图
 ui-add-kind = { $kind ->
     [card] 卡片
     [shape] 形状
@@ -103,7 +105,7 @@ ui-new-card-detail = 详细信息
 
 ui-pile-slides = 幻灯片
 ui-pile-layouts = 版式
-ui-pile-add-slide = + 新幻灯片
+ui-pile-add-slide = 新幻灯片
 ui-pile-drag-hint = 拖动以移动 · ⌥↑ ⌥↓
 ui-slide-alt = 幻灯片 { $n }
 

@@ -51,6 +51,8 @@ ui-pack-deck-only = 僅儲存在此簡報中
 ui-toolbar-open = 開啟
 ui-menu = 選單
 ui-toolbar-add-label = 新增至投影片
+ui-toolbar-thumbs-show = 顯示縮圖
+ui-toolbar-thumbs-hide = 隱藏縮圖
 ui-add-kind = { $kind ->
     [card] 卡片
     [shape] 形狀
@@ -103,7 +105,7 @@ ui-new-card-detail = 詳細資訊
 
 ui-pile-slides = 投影片
 ui-pile-layouts = 版面配置
-ui-pile-add-slide = + 新投影片
+ui-pile-add-slide = 新投影片
 ui-pile-drag-hint = 拖曳以移動 · ⌥↑ ⌥↓
 ui-slide-alt = 投影片 { $n }
 

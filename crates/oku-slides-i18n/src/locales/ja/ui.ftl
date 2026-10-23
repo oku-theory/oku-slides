@@ -51,6 +51,8 @@ ui-pack-deck-only = このプレゼンテーションにのみ保存されます
 ui-toolbar-open = 開く
 ui-menu = メニュー
 ui-toolbar-add-label = スライドに追加
+ui-toolbar-thumbs-show = サムネイルを表示
+ui-toolbar-thumbs-hide = サムネイルを隠す
 ui-add-kind = { $kind ->
     [card] カード
     [shape] 図形
@@ -103,7 +105,7 @@ ui-new-card-detail = 詳細
 
 ui-pile-slides = スライド
 ui-pile-layouts = レイアウト
-ui-pile-add-slide = + 新規スライド
+ui-pile-add-slide = 新規スライド
 ui-pile-drag-hint = ドラッグで移動 · ⌥↑ ⌥↓
 ui-slide-alt = スライド { $n }
 

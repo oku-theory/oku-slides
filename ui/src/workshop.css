@@ -133,17 +133,19 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .pack-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
 /* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
 .stage-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }
-/* La scène prend la place ; dessous, hors mode pack, la bande des miniatures (repliable) : défilant
-   à l'horizontale, à la hauteur de ses miniatures ; repliée, il ne reste que son titre. */
+/* La scène prend la place ; dessous, hors mode pack, la bande des miniatures : défilant à
+   l'horizontale, à la hauteur de ses miniatures ; cachée (barre d'outils), elle n'occupe rien.
+   La bande rogne ce qui dépasse de sa boîte de contenu : sa marge intérieure loge l'anneau, l'ombre
+   soulevée et le soulèvement de la miniature courante. */
 .stage-panel { flex-direction: column; }
-.slide-strip { flex: none; margin: var(--space-2) var(--space-4) 0; }
-.slide-strip > .pile-section-head { padding: 0; }
+.slide-strip { flex: none; margin: 0 var(--space-4); }
 .slide-strip .pile {
   --thumb-w: 128px; flex-direction: row; align-items: flex-start; gap: var(--space-4);
-  overflow-x: auto; overflow-y: hidden; padding: var(--space-2) var(--space-1) var(--space-3);
+  overflow-x: auto; overflow-y: hidden; padding: var(--space-4) var(--space-2);
 }
 .slide-strip .thumb-slot { flex: none; }
-.slide-strip .add-slide { flex: none; width: auto; height: calc(var(--thumb-w) * 9 / 16); margin-inline-start: 0; padding-inline: var(--space-4); white-space: nowrap; }
+/* Le jeton d'ajout, centré sur la hauteur des miniatures. */
+.slide-strip .add-slide { align-self: center; margin-inline-start: 0; }
 /* Le trait de dépôt se dresse entre deux miniatures. */
 .pile.horizontal .drop-line { inset-inline: -11px auto; top: 0; width: 4px; height: calc(var(--thumb-w) * 9 / 16); }
 .pile.horizontal .drop-line.end { position: relative; inset-inline: auto; display: block; margin-block: 0; margin-inline: -9px; }

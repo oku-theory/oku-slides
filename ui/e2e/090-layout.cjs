@@ -102,6 +102,17 @@ const columns = (p) => p.evaluate(() => {
   await until(p, async () => (await hostNotes(p)) === null, 'largeur par défaut jamais gardée par l\'hôte (double-clic)');
   await stable(p, COLUMNS);
   assert.ok(Math.abs((await notesWidth()) - before) <= 1, `double-clic : fil pas revenu à ${before} (${await notesWidth()})`);
+  // La bande des miniatures se cache depuis la barre d'outils : plus de bande, la slide garde ou gagne
+  // de la place (fenêtre basse : la hauteur la borne) ; réaffichée pour les scripts suivants.
+  await p.setViewportSize({ width: 1440, height: 760 });
+  await stable(p, COLUMNS);
+  const stageHeight = () => p.evaluate(() => document.querySelector('.stage').getBoundingClientRect().height);
+  const shown = await stageHeight();
+  await p.getByRole('button', { name: 'Masquer les miniatures', exact: true }).click();
+  await p.waitForSelector('.slide-strip', { state: 'detached' });
+  await until(p, async () => (await stageHeight()) > shown, `la slide ne gagne pas la place de la bande (${shown})`);
+  await p.getByRole('button', { name: 'Afficher les miniatures', exact: true }).click();
+  await p.waitForSelector('.slide-strip .thumb');
   assert.deepEqual(errors, []);
   console.log('colonnes ok');
   await b.close();

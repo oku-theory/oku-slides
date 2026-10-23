@@ -10,7 +10,8 @@ import { useEffect, useRef, useState } from "react";
 import type { SlideSummary } from "./api";
 import { t } from "./i18n";
 import { dropSlot, type PileAxis } from "./pileSlot";
-import { Button } from "./primitives";
+import { Icon } from "./icons";
+import { IconButton } from "./primitives";
 
 interface Props {
   slides: SlideSummary[];
@@ -211,7 +212,8 @@ export default function SlidePile({
         );
       })}
       {drag?.moved && drag.slot === slides.length && <span className="drop-line end" aria-hidden />}
-      {onAdd && <Button raised className="add-slide" onClick={onAdd}>{addLabel}</Button>}
+      {/* Un jeton rond, pictogramme seul : le libellé est son nom et son infobulle. */}
+      {onAdd && <IconButton className="object token add-slide" label={addLabel} icon={Icon.add} onClick={onAdd} />}
 
       {/* La miniature suit le pointeur le long de la pile, soulevée. */}
       {drag?.moved && (

@@ -1,7 +1,7 @@
 // Les feuilles de style de l'app : plus de post-it, une seule définition de la carte.
 
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const own = (f: string) => readFileSync(join(import.meta.dir, f), "utf8");
@@ -52,6 +52,35 @@ test("la bande des miniatures défile à l'horizontale sous la scène", () => {
   expect(rule).toMatch(/flex-direction:\s*row/);
   expect(rule).toMatch(/overflow-x:\s*auto/);
   expect(ruleOf(APP, ".slide-strip")).toMatch(/flex:\s*none/);
+});
+
+test("le bouton d'ajout se centre verticalement sur les miniatures de la bande", () => {
+  expect(ruleOf(APP, ".slide-strip .add-slide")).toMatch(/align-self:\s*center/);
+});
+
+test("la bande des miniatures laisse la place à l'anneau, à l'ombre et au soulèvement de la courante", () => {
+  // Défilant à l'horizontale, la bande rogne ce qui dépasse de sa boîte de contenu : la marge
+  // intérieure doit loger l'ombre soulevée (et l'anneau de 3 px) en haut comme en bas.
+  const rule = ruleOf(APP, ".slide-strip .pile") ?? "";
+  expect(rule).toMatch(/padding:\s*var\(--space-4\)\s+var\(--space-2\)\s*;/);
+});
+
+/** Les variables posées dans le code (`style={{ "--x": … }}`, `setProperty("--x", …)`). */
+function setInCode(dir = import.meta.dir): Set<string> {
+  const out = new Set<string>();
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, e.name);
+    if (e.isDirectory()) setInCode(path).forEach((v) => out.add(v));
+    else if (/\.tsx?$/.test(e.name)) for (const m of readFileSync(path, "utf8").matchAll(/["'](--[\w-]+)["']/g)) out.add(m[1]);
+  }
+  return out;
+}
+
+test("chaque var() sans repli lit une variable définie (une seule inconnue annule toute la déclaration)", () => {
+  const declared = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
+  setInCode().forEach((v) => declared.add(v));
+  const unknown = [...new Set([...css.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)].map((m) => m[1]))].filter((v) => !declared.has(v));
+  expect(unknown).toEqual([]);
 });
 
 

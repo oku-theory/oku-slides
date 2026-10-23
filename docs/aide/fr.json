@@ -42,7 +42,7 @@
         {
          "runs": [
           {
-           "t": "Sous la slide : les miniatures, en bande qu'on replie. Un clic en montre une ; on la glisse pour la déplacer ; + en ajoute une depuis un layout."
+           "t": "Sous la slide : les miniatures, en bande qu'un bouton de la barre d'outils cache ou montre. Un clic en montre une ; on la glisse pour la déplacer ; + en ajoute une depuis un layout."
           }
          ]
         }

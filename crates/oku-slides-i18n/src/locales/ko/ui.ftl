@@ -48,6 +48,8 @@ ui-pack-deck-only = 이 프레젠테이션에만 저장됨
 ui-toolbar-open = 열기
 ui-menu = 메뉴
 ui-toolbar-add-label = 슬라이드에 추가
+ui-toolbar-thumbs-show = 미리보기 표시
+ui-toolbar-thumbs-hide = 미리보기 숨기기
 ui-add-kind = { $kind ->
     [card] 카드
     [shape] 도형
@@ -100,7 +102,7 @@ ui-new-card-detail = 세부 정보
 
 ui-pile-slides = 슬라이드
 ui-pile-layouts = 레이아웃
-ui-pile-add-slide = + 새 슬라이드
+ui-pile-add-slide = 새 슬라이드
 ui-pile-drag-hint = 드래그하여 이동 · ⌥↑ ⌥↓
 ui-slide-alt = 슬라이드 { $n }
 

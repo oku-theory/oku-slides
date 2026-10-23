@@ -57,6 +57,8 @@ ui-pack-deck-only = Зберігається лише в цій презента
 ui-toolbar-open = Відкрити
 ui-menu = Меню
 ui-toolbar-add-label = Додати на слайд
+ui-toolbar-thumbs-show = Показати мініатюри
+ui-toolbar-thumbs-hide = Сховати мініатюри
 ui-add-kind = { $kind ->
     [card] Картка
     [shape] Фігура
@@ -109,7 +111,7 @@ ui-new-card-detail = Подробиці
 
 ui-pile-slides = Слайди
 ui-pile-layouts = Макети
-ui-pile-add-slide = + Новий слайд
+ui-pile-add-slide = Новий слайд
 ui-pile-drag-hint = Перетягніть, щоб перемістити · ⌥↑ ⌥↓
 ui-slide-alt = Слайд { $n }
 

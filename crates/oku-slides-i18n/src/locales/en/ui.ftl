@@ -51,6 +51,8 @@ ui-pack-deck-only = Saved in this presentation only
 ui-toolbar-open = Open
 ui-menu = Menu
 ui-toolbar-add-label = Add to the slide
+ui-toolbar-thumbs-show = Show thumbnails
+ui-toolbar-thumbs-hide = Hide thumbnails
 ui-add-kind = { $kind ->
     [card] Card
     [shape] Shape
@@ -103,7 +105,7 @@ ui-new-card-detail = Detail
 
 ui-pile-slides = Slides
 ui-pile-layouts = Layouts
-ui-pile-add-slide = + New slide
+ui-pile-add-slide = New slide
 ui-pile-drag-hint = Drag to move · ⌥↑ ⌥↓
 ui-slide-alt = Slide { $n }
 

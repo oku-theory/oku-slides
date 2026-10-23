@@ -48,6 +48,8 @@ ui-pack-deck-only = บันทึกไว้ในงานนำเสนอ
 ui-toolbar-open = เปิด
 ui-menu = เมนู
 ui-toolbar-add-label = เพิ่มลงในสไลด์
+ui-toolbar-thumbs-show = แสดงภาพย่อ
+ui-toolbar-thumbs-hide = ซ่อนภาพย่อ
 ui-add-kind = { $kind ->
     [card] การ์ด
     [shape] รูปร่าง
@@ -100,7 +102,7 @@ ui-new-card-detail = รายละเอียด
 
 ui-pile-slides = สไลด์
 ui-pile-layouts = เลย์เอาต์
-ui-pile-add-slide = + สไลด์ใหม่
+ui-pile-add-slide = สไลด์ใหม่
 ui-pile-drag-hint = ลากเพื่อย้าย · ⌥↑ ⌥↓
 ui-slide-alt = สไลด์ { $n }
 

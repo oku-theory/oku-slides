@@ -51,6 +51,8 @@ ui-pack-deck-only = केवल इसी प्रस्तुति में
 ui-toolbar-open = खोलें
 ui-menu = मेनू
 ui-toolbar-add-label = स्लाइड में जोड़ें
+ui-toolbar-thumbs-show = थंबनेल दिखाएँ
+ui-toolbar-thumbs-hide = थंबनेल छिपाएँ
 ui-add-kind = { $kind ->
     [card] कार्ड
     [shape] आकृति
@@ -103,7 +105,7 @@ ui-new-card-detail = विवरण
 
 ui-pile-slides = स्लाइड
 ui-pile-layouts = लेआउट
-ui-pile-add-slide = + नई स्लाइड
+ui-pile-add-slide = नई स्लाइड
 ui-pile-drag-hint = खिसकाने के लिए खींचें · ⌥↑ ⌥↓
 ui-slide-alt = स्लाइड { $n }
 

@@ -8,6 +8,7 @@ import type { SlideSummary } from "./api";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: SlidePile } = await import("./SlidePile");
+const { expectIconOnly } = await import("./test/iconOnly");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -35,7 +36,7 @@ async function mount({ canRemove = true, readOnly = false } = {}) {
         current: "a",
         svg: () => null,
         label: "Slides",
-        addLabel: "+",
+        addLabel: "Nouvelle slide",
         removeLabel: "Supprimer la slide",
         canRemove,
         onSelect: (id: string) => selected.push(id),
@@ -66,6 +67,16 @@ describe("pile des miniatures", () => {
   test("SlidePile dernière slide : suppression impossible", async () => {
     const { removes } = await mount({ canRemove: false });
     expect(removes().every((b) => b.disabled)).toBe(true);
+  });
+
+  test("SlidePile add button shows an icon only, named by its label", async () => {
+    const { host } = await mount();
+    expectIconOnly(host.querySelector(".add-slide"), "Nouvelle slide");
+  });
+
+  test("SlidePile add button is a round raised token", async () => {
+    const { host } = await mount();
+    expect(host.querySelector(".add-slide")?.classList.contains("token")).toBe(true);
   });
 
   test("SlidePile lecture seule (historique) : ni suppression, ni ajout", async () => {

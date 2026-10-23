@@ -1,10 +1,11 @@
-// La barre d'outils sous la feuille. On y ouvre la grille d'ajout,
+// La barre d'outils sous la feuille. On y ouvre la grille d'ajout, montre ou cache les miniatures,
 // ouvre le menu, annule et rétablit ; sur un sous-onglet widget, elle porte ses propres outils.
 
 import type { ReactNode } from "react";
 import type { SlideView, Snapshot, TabApi } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
+import { IconToggle } from "./primitives";
 import { canAdd } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
 import type { PackWidgetEditor } from "./usePackWidgetEditor";
@@ -31,6 +32,8 @@ interface Props {
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
   /** Ouvre la grille d'ajout. */
   onAdd: () => void;
+  /** La bande des miniatures sous la scène (montrée, et sa bascule) ; `null` : pas de bande (mode pack). */
+  thumbs: { open: boolean; onToggle: () => void } | null;
 }
 
 /** Les outils posés sous la feuille. */
@@ -44,6 +47,7 @@ export function ToolsTray({
   mainMenu,
   run,
   onAdd,
+  thumbs,
 }: Props) {
   const undoLabel = snap.undo_label
     ? t("ui-toolbar-undo-label", { label: snap.undo_label })
@@ -83,6 +87,16 @@ export function ToolsTray({
         </>
       ) : (
         <>
+          {/* La bande des miniatures sous la slide : montrée ou cachée (gardé par l'hôte) ; cachée, elle rend toute sa place. */}
+          {thumbs && (
+            <IconToggle
+              className="token ghost thumbs-toggle"
+              pressed={thumbs.open}
+              label={t(thumbs.open ? "ui-toolbar-thumbs-hide" : "ui-toolbar-thumbs-show")}
+              onToggle={thumbs.onToggle}
+              icon={Icon.strip}
+            />
+          )}
           {mainMenu}
           <span className="tools-sep" aria-hidden />
           <button

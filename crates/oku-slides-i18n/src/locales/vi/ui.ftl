@@ -48,6 +48,8 @@ ui-pack-deck-only = Chỉ được lưu trong bài trình bày này
 ui-toolbar-open = Mở
 ui-menu = Menu
 ui-toolbar-add-label = Thêm vào trang chiếu
+ui-toolbar-thumbs-show = Hiện hình thu nhỏ
+ui-toolbar-thumbs-hide = Ẩn hình thu nhỏ
 ui-add-kind = { $kind ->
     [card] Thẻ
     [shape] Hình
@@ -100,7 +102,7 @@ ui-new-card-detail = Chi tiết
 
 ui-pile-slides = Trang chiếu
 ui-pile-layouts = Bố cục
-ui-pile-add-slide = + Trang chiếu mới
+ui-pile-add-slide = Trang chiếu mới
 ui-pile-drag-hint = Kéo để di chuyển · ⌥↑ ⌥↓
 ui-slide-alt = Trang chiếu { $n }
 

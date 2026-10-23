@@ -62,7 +62,9 @@ async function renderPile(snap: Snapshot) {
   return host;
 }
 
-const buttons = (host: HTMLElement, name: RegExp) => [...host.querySelectorAll("button")].filter((b) => name.test(b.textContent ?? b.getAttribute("aria-label") ?? ""));
+/** Boutons nommés `name`, par leur texte ou, pictogramme seul, par leur `aria-label`. */
+const buttons = (host: HTMLElement, name: RegExp) =>
+  [...host.querySelectorAll("button")].filter((b) => name.test(b.textContent ?? "") || name.test(b.getAttribute("aria-label") ?? ""));
 
 describe("DeckPile", () => {
   test("pack mode hides the add-slide button", async () => {

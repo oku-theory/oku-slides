@@ -42,7 +42,7 @@
         {
          "runs": [
           {
-           "t": "Under the slide: the thumbnails, in a strip you can fold. Click one to show it, drag it to move it, + adds one from a layout."
+           "t": "Under the slide: the thumbnails, in a strip a toolbar button hides or shows. Click one to show it, drag it to move it, + adds one from a layout."
           }
          ]
         }

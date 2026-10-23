@@ -57,6 +57,8 @@ ui-pack-deck-only = Zapisywany tylko w tej prezentacji
 ui-toolbar-open = Otwórz
 ui-menu = Menu
 ui-toolbar-add-label = Dodaj do slajdu
+ui-toolbar-thumbs-show = Pokaż miniatury
+ui-toolbar-thumbs-hide = Ukryj miniatury
 ui-add-kind = { $kind ->
     [card] Karta
     [shape] Kształt
@@ -109,7 +111,7 @@ ui-new-card-detail = Szczegóły
 
 ui-pile-slides = Slajdy
 ui-pile-layouts = Układy
-ui-pile-add-slide = + Nowy slajd
+ui-pile-add-slide = Nowy slajd
 ui-pile-drag-hint = Przeciągnij, aby przenieść · ⌥↑ ⌥↓
 ui-slide-alt = Slajd { $n }
 

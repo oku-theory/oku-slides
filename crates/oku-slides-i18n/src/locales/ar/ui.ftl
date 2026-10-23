@@ -63,6 +63,8 @@ ui-pack-deck-only = محفوظة في هذا العرض التقديمي فقط
 ui-toolbar-open = فتح
 ui-menu = القائمة
 ui-toolbar-add-label = إضافة إلى الشريحة
+ui-toolbar-thumbs-show = إظهار المصغرات
+ui-toolbar-thumbs-hide = إخفاء المصغرات
 ui-add-kind = { $kind ->
     [card] بطاقة
     [shape] شكل
@@ -115,7 +117,7 @@ ui-new-card-detail = تفاصيل
 
 ui-pile-slides = الشرائح
 ui-pile-layouts = التخطيطات
-ui-pile-add-slide = + شريحة جديدة
+ui-pile-add-slide = شريحة جديدة
 ui-pile-drag-hint = اسحب للنقل · ⌥↑ ⌥↓
 ui-slide-alt = الشريحة { $n }
 

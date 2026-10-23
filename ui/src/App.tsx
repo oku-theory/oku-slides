@@ -51,7 +51,6 @@ import Presenter from "./Presenter";
 import type { PresentMode } from "./present";
 import PileWidgets from "./PileWidgets";
 import PileColumn from "./PileColumn";
-import PileSection from "./PileSection";
 import SlideNav from "./SlideNav";
 import TitleField from "./TitleField";
 import { AppMenu } from "./AppMenu";
@@ -373,6 +372,7 @@ export default function App({
         api={api} snap={snap} view={view} widgetActive={widgetActive} widgets={widgets}
         keptUi={keptUi} mainMenu={mainMenu}
         run={run} onAdd={() => setAdding(true)}
+        thumbs={!packColumn && thumbsSection ? { open: thumbsOpen, onToggle: toggleThumbs } : null}
       />
 
       {/* En haut à droite, en mode pack : terminer. */}
@@ -444,12 +444,9 @@ export default function App({
         )}
         {!readOnly && (!widgetPack || themeActive) && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
         </div>
-        {/* Hors mode pack, les miniatures en bande sous la scène, repliable (gardé par l'hôte). */}
-        {!packColumn && thumbsSection && (
-          <PileSection className="slide-strip" title={thumbsTitle} open={thumbsOpen} onToggle={toggleThumbs}>
-            {deckPile("x")}
-          </PileSection>
-        )}
+        {/* Hors mode pack, les miniatures en bande sous la scène ; cachées depuis la barre d'outils, elles rendent
+            toute leur place à la slide. L'aide et l'historique, sans barre d'outils, les montrent toujours. */}
+        {!packColumn && thumbsSection && (thumbsOpen || readOnly) && <div className="slide-strip">{deckPile("x")}</div>}
         </div>
         {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={keptUi.code} codeWidth={keptUi.codeWidth} onCodeWidth={keptUi.setCodeWidth}
           run={run} palette={snap.appearance.chart_palette}

@@ -51,6 +51,8 @@ ui-pack-deck-only = Yalnızca bu sunuya kaydedilir
 ui-toolbar-open = Aç
 ui-menu = Menü
 ui-toolbar-add-label = Slayta ekle
+ui-toolbar-thumbs-show = Küçük resimleri göster
+ui-toolbar-thumbs-hide = Küçük resimleri gizle
 ui-add-kind = { $kind ->
     [card] Kart
     [shape] Şekil
@@ -103,7 +105,7 @@ ui-new-card-detail = Ayrıntı
 
 ui-pile-slides = Slaytlar
 ui-pile-layouts = Düzenler
-ui-pile-add-slide = + Yeni slayt
+ui-pile-add-slide = Yeni slayt
 ui-pile-drag-hint = Taşımak için sürükleyin · ⌥↑ ⌥↓
 ui-slide-alt = Slayt { $n }
 

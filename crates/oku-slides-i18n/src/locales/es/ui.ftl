@@ -51,6 +51,8 @@ ui-pack-deck-only = Guardado solo en esta presentación
 ui-toolbar-open = Abrir
 ui-menu = Menú
 ui-toolbar-add-label = Añadir a la diapositiva
+ui-toolbar-thumbs-show = Mostrar miniaturas
+ui-toolbar-thumbs-hide = Ocultar miniaturas
 ui-add-kind = { $kind ->
     [card] Tarjeta
     [shape] Forma
@@ -103,7 +105,7 @@ ui-new-card-detail = Detalle
 
 ui-pile-slides = Diapositivas
 ui-pile-layouts = Diseños
-ui-pile-add-slide = + Nueva diapositiva
+ui-pile-add-slide = Nueva diapositiva
 ui-pile-drag-hint = Arrastra para mover · ⌥↑ ⌥↓
 ui-slide-alt = Diapositiva { $n }
 

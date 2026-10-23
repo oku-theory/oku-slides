@@ -51,6 +51,8 @@ ui-pack-deck-only = Nur in dieser Präsentation gespeichert
 ui-toolbar-open = Öffnen
 ui-menu = Menü
 ui-toolbar-add-label = Zur Folie hinzufügen
+ui-toolbar-thumbs-show = Miniaturen anzeigen
+ui-toolbar-thumbs-hide = Miniaturen ausblenden
 ui-add-kind = { $kind ->
     [card] Karte
     [shape] Form
@@ -103,7 +105,7 @@ ui-new-card-detail = Detail
 
 ui-pile-slides = Folien
 ui-pile-layouts = Layouts
-ui-pile-add-slide = + Neue Folie
+ui-pile-add-slide = Neue Folie
 ui-pile-drag-hint = Zum Verschieben ziehen · ⌥↑ ⌥↓
 ui-slide-alt = Folie { $n }
 

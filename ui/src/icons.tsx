@@ -37,6 +37,8 @@ export const Icon = {
   // Slide précédente, suivante (aide en lecture seule).
   previous: stroke(<path d="M14.5 6l-6 6 6 6" />),
   next: stroke(<path d="M9.5 6l6 6-6 6" />),
+  /** La bande des miniatures sous la slide. */
+  strip: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 14.5h17" /></>),
   detach: stroke(<><path d="M14 4h6v6" /><path d="M20 4l-8 8" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>),
   attach: stroke(<><path d="M10 20H4v-6" /><path d="M4 20l8-8" /><path d="M6 10V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-5" /></>),
   newChat: stroke(<><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5z" /><path d="M12.5 9.5v6M9.5 12.5h6" /></>),
