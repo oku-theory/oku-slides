@@ -62,7 +62,20 @@ test("la bande des miniatures laisse la place à l'anneau, à l'ombre et au soul
   // Défilant à l'horizontale, la bande rogne ce qui dépasse de sa boîte de contenu : la marge
   // intérieure doit loger l'ombre soulevée (et l'anneau de 3 px) en haut comme en bas.
   const rule = ruleOf(APP, ".slide-strip .pile") ?? "";
-  expect(rule).toMatch(/padding:\s*var\(--space-4\)\s+var\(--space-2\)\s*;/);
+  expect(rule).toMatch(/padding:\s*var\(--space-4\)\s+var\(--space-4\)\s+var\(--space-6\)\s*;/);
+});
+
+test("les miniatures de la bande portent une ombre basse, contenue par sa marge (pas de bord net)", () => {
+  // À l'élévation des slides (2.4), l'ombre soulevée descend de ~77 px : la bande la couperait net.
+  expect(ruleOf(APP, ".slide-strip")).toMatch(/--elev-sheet:\s*1\s*;/);
+  // Déclarées aussi sur la bande : sinon elles gardent l'élévation calculée à la racine.
+  const shadows = ruleOf(APP, ":root, .slide-strip") ?? "";
+  expect(shadows).toMatch(/--shadow-sheet-small:/);
+  expect(shadows).toMatch(/--shadow-sheet-lifted:/);
+});
+
+test("la bande des miniatures laisse de l'air sous la slide", () => {
+  expect(ruleOf(APP, ".slide-strip")).toMatch(/margin:\s*var\(--space-4\)\s+var\(--space-4\)\s+0\s*;/);
 });
 
 /** Les variables posées dans le code (`style={{ "--x": … }}`, `setProperty("--x", …)`). */

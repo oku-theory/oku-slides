@@ -53,10 +53,6 @@
     0 calc(4px * var(--elev-sheet)) calc(8px * var(--elev-sheet)) var(--shade),
     0 calc(12px * var(--elev-sheet)) calc(24px * var(--elev-sheet)) var(--shade-strong),
     0 calc(28px * var(--elev-sheet)) calc(56px * var(--elev-sheet)) var(--shade);
-  --shadow-sheet-small: 0 calc(1px * var(--elev-sheet)) calc(2px * var(--elev-sheet)) var(--shade),
-    0 calc(4px * var(--elev-sheet)) calc(10px * var(--elev-sheet)) var(--shade-strong);
-  --shadow-sheet-lifted: 0 calc(2px * var(--elev-sheet)) calc(4px * var(--elev-sheet)) var(--shade),
-    0 calc(10px * var(--elev-sheet)) calc(22px * var(--elev-sheet)) var(--shade-strong);
   --shadow-object: 0 calc(1px * var(--elev)) calc(1px * var(--elev)) var(--shade),
     0 calc(6px * var(--elev)) calc(10px * var(--elev)) calc(-2px * var(--elev)) var(--shade-strong),
     0 calc(14px * var(--elev)) calc(28px * var(--elev)) calc(-6px * var(--elev)) var(--shade);
@@ -77,6 +73,15 @@
     border-color 250ms ease-out, border-radius 250ms ease-out;
   color-scheme: var(--app-scheme, light);
   background: var(--paper-000);
+}
+
+/* Ombres des miniatures : déclarées aussi sur la bande des miniatures, qui baisse l'élévation
+   (`--elev-sheet`) ; une variable se calcule là où elle est déclarée, pas là où on la lit. */
+:root, .slide-strip {
+  --shadow-sheet-small: 0 calc(1px * var(--elev-sheet)) calc(2px * var(--elev-sheet)) var(--shade),
+    0 calc(4px * var(--elev-sheet)) calc(10px * var(--elev-sheet)) var(--shade-strong);
+  --shadow-sheet-lifted: 0 calc(2px * var(--elev-sheet)) calc(4px * var(--elev-sheet)) var(--shade),
+    0 calc(10px * var(--elev-sheet)) calc(22px * var(--elev-sheet)) var(--shade-strong);
 }
 
 /* Schéma imposé sans palette du thème pour lui : l'interface se dérive des
