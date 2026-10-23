@@ -84,7 +84,7 @@ fn deck_packs_panel_current_pack_has_no_version_buttons() {
 fn deck_packs_panel_newer_deck_pack_offers_both_version_buttons() {
     let (_me, _them, s, _theirs, _mine) = opened_on_newer();
     let view = s.deck_packs().unwrap();
-    let pack = view.widgets.iter().find(|p| p.relation.is_some()).unwrap();
+    let pack = view.widgets.iter().find(|p| p.drift.is_some()).unwrap();
     let surface = deck_packs_panel(&view, &Localizer::new(Some("fr")));
     let prefix = format!("widgets/{}", pack.namespace);
     let event = |id: &str| component(&surface, &format!("{prefix}/{id}"))["action"]["event"]["name"].clone();
@@ -133,7 +133,7 @@ fn deck_packs_panel_ids_stay_unique_for_namespaces_like_fixed_ids() {
         namespace: ns(namespace),
         name: namespace.to_owned(),
         version: "0123456789abcdef".to_owned(),
-        relation: Some(crate::pack::Relation::Descendant),
+        drift: Some(super::Drift::Newer),
         builtin: false,
         deck_only: false,
         library_has_pinned: true,

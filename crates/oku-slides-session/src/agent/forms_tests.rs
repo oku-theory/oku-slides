@@ -582,7 +582,7 @@ fn packs_view() -> crate::DeckPacksView {
         namespace: crate::test_support::ns("acme"),
         name: "Acme".into(),
         version: "f".repeat(64),
-        relation: Some(crate::Relation::Descendant),
+        drift: Some(crate::Drift::Newer),
         builtin: false,
         deck_only: false,
         library_has_pinned: true,

@@ -15,8 +15,7 @@ use serde_json::{Map, Value, json};
 
 use crate::agent::Surface;
 use crate::agent::forms::{Place, lit, surface};
-use crate::deck_packs::{DeckPacksView, PinnedPackView, ThemeSectionView};
-use crate::pack::Relation;
+use crate::deck_packs::{DeckPacksView, Drift, PinnedPackView, ThemeSectionView};
 use crate::theme_picker::picked_theme;
 use crate::{Result, Session};
 
@@ -105,17 +104,17 @@ impl Builder {
         let ns = self.push(Component::text(sub("ns"), p.namespace.to_string(), Some(TextVariant::Caption)));
         let mut body = vec![head, ns];
         // Un pack du deck seul n'a pas de relation (`pin_relation`) : ni ligne, ni boutons de version.
-        let relation = p.relation;
-        if let Some(r) = relation {
+        let drift = p.drift;
+        if let Some(r) = drift {
             let key = match r {
-                Relation::Ancestor => "packs-relation-older",
-                Relation::Descendant => "packs-relation-newer",
-                Relation::Same | Relation::Sibling => "packs-relation-parallel",
+                Drift::Older => "packs-relation-older",
+                Drift::Newer => "packs-relation-newer",
+                Drift::Parallel => "packs-relation-parallel",
             };
             body.push(self.push(Component::text(sub("relation"), l.tr(key), Some(TextVariant::Note))));
         }
         let mut actions = Vec::new();
-        if relation.is_some() {
+        if drift.is_some() {
             let action = pack_action("use_mine", p);
             actions.push(self.push(Component::button(sub("use-mine"), l.tr("packs-use-mine"), true, action)));
             if p.library_has_pinned && !p.builtin {

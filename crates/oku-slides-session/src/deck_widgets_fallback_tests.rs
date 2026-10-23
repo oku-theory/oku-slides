@@ -56,14 +56,52 @@ fn a_single_looping_user_pack_beside_the_builtins_is_disabled_and_base_kept() {
     assert_that!(s.registry.get(kinds::base::TEXT).is_some()).is_true();
 }
 
+/// t-1053 : un `base` modifié n'est jamais accusé ni écarté (Essentiel et tous les éléments le
+/// suivraient) : l'échec borné est celui du deck, l'op est refusée et rien n'est écarté.
 #[test]
-fn an_edited_base_that_loops_is_not_trusted_and_is_disabled() {
+fn an_edited_base_that_loops_is_never_disabled_and_the_render_error_surfaces() {
     let data = data_dir();
     let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
     // Une version modifiée de `base` (même id, un widget qui boucle) épinglée sous `base`.
     let edited = edited_base_pack(&s, LOOP_ON_RENDER);
-    s.apply("Pack", vec![pin_pack(&edited), add_base_loop()], None).unwrap();
-    assert_that!(s.widgets_disabled.contains_key(&kinds::base::namespace())).is_true();
+    s.apply("Pack", vec![pin_pack(&edited)], None).unwrap();
+    let err = s.apply("Boucle", vec![add_base_loop()], None).unwrap_err();
+    let kind = err.render_error().map(oku_slides_render::RenderError::kind);
+    assert_that!(kind).is_equal_to(Some(oku_slides_render::RenderErrorKind::Timeout));
+    assert_that!(s.widgets_disabled.contains_key(&kinds::base::namespace())).is_false();
+    assert_that!(s.deck().slide("s-constat").is_some_and(|sl| sl.locate("l").is_some())).is_false();
+}
+
+/// Un widget `boucle` qui se rend sans rien faire : un `base` modifié sans faute.
+const CALM_LOOP_FILE: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
+#let widget = widget("boucle", params: (body: p.plain()), (args, ctx) => [])
+"#;
+
+/// La dichotomie garde un `base` modifié dans le rendu témoin : s'il boucle, personne n'est accusé.
+#[test]
+fn an_edited_base_that_loops_beside_a_user_pack_disables_neither() {
+    let data = data_dir();
+    let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
+    let edited = edited_base_pack(&s, LOOP_ON_RENDER);
+    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
+    s.apply("Packs", vec![pin_pack(&edited), pin_pack(&quote)], None).unwrap();
+    let err = s.apply("Boucle", vec![add_base_loop()], None).unwrap_err();
+    let kind = err.render_error().map(oku_slides_render::RenderError::kind);
+    assert_that!((kind, s.widgets_disabled.is_empty()))
+        .is_equal_to((Some(oku_slides_render::RenderErrorKind::Timeout), true));
+}
+
+/// À côté d'un `base` modifié, un pack de l'utilisateur qui boucle est trouvé et écarté seul.
+#[test]
+fn a_looping_user_pack_beside_an_edited_base_is_disabled_and_base_kept() {
+    let data = data_dir();
+    let mut s = session_with_timeout(&data.0, LOOP_TIMEOUT_MS);
+    let edited = edited_base_pack(&s, CALM_LOOP_FILE);
+    let looping = user_pack(&s, "Boucle", &[("boucle", LOOP_ON_RENDER)]);
+    s.apply("Base", vec![pin_pack(&edited)], None).unwrap();
+    s.apply("Pack", vec![pin_pack(&looping), add_loop(&looping)], None).unwrap();
+    let disabled: Vec<String> = s.widgets_disabled.keys().map(ToString::to_string).collect();
+    assert_that!(disabled).is_equal_to(vec![namespace_of_pack(&looping)]);
 }
 
 #[test]

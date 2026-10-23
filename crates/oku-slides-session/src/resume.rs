@@ -50,6 +50,8 @@ pub(crate) enum ResumeError {
     Version { version: u32, backtrace: Backtrace },
     #[snafu(display("cannot restore the session"))]
     Session { source: SessionError, backtrace: Backtrace },
+    #[snafu(display("theme draft namespace {namespace} does not match a readable base"))]
+    ThemeBase { namespace: String, backtrace: Backtrace },
     #[snafu(display("unreadable replica {}", path.display()))]
     Replica {
         path: PathBuf,
@@ -67,7 +69,7 @@ impl ResumeError {
         match self {
             Self::Version { version, .. } => *version < VERSION,
             Self::Replica { source, .. } => source.kind() == ReplicaErrorKind::UnsupportedVersion,
-            Self::Access { .. } | Self::Json { .. } | Self::Session { .. } => false,
+            Self::Access { .. } | Self::Json { .. } | Self::Session { .. } | Self::ThemeBase { .. } => false,
         }
     }
 }
@@ -708,9 +710,15 @@ impl Session {
                 switches: Vec::new(),
             };
             self.embed_theme_base();
-            // La bibliothèque a pu changer depuis : une liste refusée fait échouer
-            // la reprise (mise de côté), jamais réparée en silence.
+            // La bibliothèque a pu changer depuis : une liste refusée, ou un espace
+            // de noms qui n'est pas celui de la base, fait échouer la reprise (mise
+            // de côté), jamais réparée en silence.
             if let Mode::Pack { theme, .. } = &self.mode {
+                let base = self.base_manifest().map(|m| m.namespace);
+                ensure!(
+                    base.as_ref() == Some(&theme.namespace),
+                    ThemeBaseSnafu { namespace: theme.namespace.as_str() }
+                );
                 self.check_theme_extends(theme, &theme.extends).context(SessionSnafu)?;
             }
             self.sync_widgets().context(SessionSnafu)?;

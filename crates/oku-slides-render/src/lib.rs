@@ -19,7 +19,8 @@
 //!   Typst (packs assemblés) ou fichier par fichier ([`probe_file`], [`assemble`]) ;
 //!   [`base_probe`] (`base` seul), [`builtin_registry`] (`base` et `essentiel`).
 //! - Les packs intégrés ([`BuiltinPack`] : `base`, widgets ; `essentiel`, layouts) et leurs
-//!   versions livrées, de confiance ([`is_trusted_pack`]).
+//!   versions livrées, de confiance ([`is_trusted_pack`]) ; ceux qu'un échec borné n'accuse
+//!   jamais ([`is_never_blamed`]).
 
 mod builtin_packs;
 mod charts;
@@ -47,7 +48,7 @@ use typst_layout::PagedDocument;
 
 use oku_slides_core::{Deck, WidgetRegistry};
 
-pub use builtin_packs::{BuiltinPack, builtin_component_defaults, builtin_pack_set, is_trusted_pack};
+pub use builtin_packs::{BuiltinPack, builtin_component_defaults, builtin_pack_set, is_never_blamed, is_trusted_pack};
 pub use diagnostic::{Diagnostic, Severity, SourceAt};
 use error::{BaseRegistrySnafu, CompileSnafu, ImageSnafu, NoPageSnafu, PdfSnafu};
 pub use error::{RegistryError, RegistryErrorKind, RenderError, RenderErrorKind};

@@ -20,9 +20,14 @@ afterEach(async () => {
 
 const surface = (id: string) => ({ id, place: "thread", live: true, question: false, messages: [] }) as Surface;
 
-async function mount(surfaces: Surface[], showPacks: () => Promise<void>, say: (m: string, error?: boolean) => void = () => {}) {
+async function mount(
+  surfaces: Surface[],
+  showPacks: () => Promise<void>,
+  say: (m: string, error?: boolean) => void = () => {},
+  enabled = true,
+) {
   function Probe() {
-    useRelocalizedPacks(surfaces, showPacks, say);
+    useRelocalizedPacks(surfaces, showPacks, say, enabled);
     return null;
   }
   const host = document.body.appendChild(document.createElement("div"));
@@ -63,4 +68,12 @@ test("useRelocalizedPacks with a refused request toasts the host's error text", 
   applyMessages({ locale: "de", resources: [], chosen: "de" });
   await new Promise((r) => setTimeout(r, 0));
   expect(said).toEqual(["pas d'outils"]);
+});
+
+// Agent détaché : la fenêtre principale garde un panneau monté sans fil ; seule celle de l'agent redemande.
+test("useRelocalizedPacks disabled sends nothing on a locale change", async () => {
+  let asked = 0;
+  await mount([surface(HOST_PACKS)], async () => void asked++, () => {}, false);
+  applyMessages({ locale: "de", resources: [], chosen: "de" });
+  expect(asked).toBe(0);
 });

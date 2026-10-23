@@ -226,3 +226,15 @@ fn builtin_component_defaults_lists_base_then_essentiel() {
         builtin_component_defaults().unwrap().into_iter().map(|(ns, _)| ns.as_str().to_owned()).collect();
     assert_that!(names).is_equal_to(vec!["base".to_owned(), "essentiel".to_owned()]);
 }
+
+/// t-1053 : tout pack d'espace de noms `base`, même modifié, est exempt d'accusation ; aucun autre.
+#[rstest]
+#[case::shipped_base(BuiltinPack::Base.widgets().unwrap(), true)]
+#[case::edited_base(PackWidgets::new("modifie", kinds::base::namespace(), PackKind::Widgets, Default::default()).unwrap(), true)]
+#[case::layouts_named_base(PackWidgets::new("modifie", kinds::base::namespace(), PackKind::Layouts, Default::default()).unwrap(), false)]
+#[case::shipped_essentiel(BuiltinPack::Essentiel.widgets().unwrap(), true)]
+#[case::edited_essentiel(PackWidgets::new("modifie", ns("essentiel"), PackKind::Layouts, Default::default()).unwrap(), false)]
+#[case::user_pack(PackWidgets::new("autre", ns("autre"), PackKind::Widgets, Default::default()).unwrap(), false)]
+fn is_never_blamed_covers_trusted_packs_and_any_base(#[case] pack: PackWidgets, #[case] expected: bool) {
+    assert_that!(is_never_blamed(&pack)).is_equal_to(expected);
+}

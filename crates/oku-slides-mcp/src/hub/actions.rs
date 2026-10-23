@@ -20,9 +20,15 @@ pub struct SurfaceAction {
 }
 
 /// Ce qu'il advient d'une surface persistante après une action.
+///
+/// `changed` : l'action a changé le deck, les boîtes du hub (thème, packs) se relisent.
 enum After {
-    Keep,
-    Close,
+    Keep {
+        changed: bool,
+    },
+    Close {
+        changed: bool,
+    },
     Freeze,
     /// La surface reste, avec cet état (sélecteur de thème ou panneau des packs refait).
     Replace(Shown),
@@ -59,18 +65,23 @@ impl SurfaceHub {
             (Shown::Packs(_), name) if name != "dismiss" => {
                 self.apply_packs(&action.context, name).map(|p| After::Replace(Shown::Packs(p)))
             }
-            (_, "dismiss") => Ok(After::Close),
             (Shown::Params(spec), "param") => {
-                self.apply_param(&action.surface, spec, &action.context).map(|()| After::Keep)
+                self.apply_param(&action.surface, spec, &action.context).map(|()| After::Keep { changed: true })
             }
-            (Shown::Variants(spec), "variant") => self.apply_variant(spec, &action.context).map(|()| After::Close),
-            (Shown::Static { expired: false, .. }, "suggest") => Ok(After::Keep),
+            (Shown::Variants(spec), "variant") => {
+                self.apply_variant(spec, &action.context).map(|()| After::Close { changed: true })
+            }
+            (_, "dismiss") => Ok(After::Close { changed: false }),
+            (Shown::Static { expired: false, .. }, "suggest") => Ok(After::Keep { changed: false }),
             (Shown::Static { expired: true, .. }, "suggest") => ExpiredSnafu.fail(),
             (_, other) => UnexpectedActionSnafu { action: other }.fail(),
         };
         match result {
-            Ok(After::Keep) => {
+            Ok(After::Keep { changed }) => {
                 self.state().shows.insert(action.surface, shown);
+                if changed {
+                    self.prune();
+                }
                 Ok(())
             }
             Ok(After::Replace(next)) => {
@@ -84,8 +95,11 @@ impl SurfaceHub {
                 self.freeze(&action.surface);
                 Ok(())
             }
-            Ok(After::Close) => {
+            Ok(After::Close { changed }) => {
                 self.emit(McpEvent::CloseSurface { id: action.surface });
+                if changed {
+                    self.prune();
+                }
                 Ok(())
             }
             Err(e) => {

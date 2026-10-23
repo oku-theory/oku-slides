@@ -154,8 +154,8 @@ export function AgentPanel(props: AgentPanelProps) {
   // sans vue ne rappelle jamais le fil.
   const driven = useAgentScope(agent, props.scope.kind === "drive" ? props.scope.view : null, onSurfaceEvent);
   const followed = useFollowScope(agent);
-  // Le panneau des packs montré suit la langue de l'interface.
-  useRelocalizedPacks(surfaces, () => agent.showPacks(), say);
+  // Le panneau des packs montré suit la langue de l'interface ; un seul panneau le redemande.
+  useRelocalizedPacks(surfaces, () => agent.showPacks(), say, props.thread);
   const agentScopeState: AgentScopeState = props.scope.kind === "follow" ? followed : driven;
   const latest = useRef<Latest | null>(null);
   latest.current = { props, scopeState: agentScopeState, onMcpFollow: props.scope.kind === "follow" ? followed.onMcp : NOOP };

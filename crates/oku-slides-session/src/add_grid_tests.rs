@@ -141,3 +141,22 @@ fn saving_essentiel_keeps_markers_of_untouched_examples() {
     let m = PackManifest::from_files(s.doc.sources.packs.get(&saved).unwrap()).unwrap();
     assert_that!(serde_json::to_string(&m.examples).unwrap()).contains("ftl:session-example-essentiel-end-text");
 }
+
+/// Le cache des départs n'accumule pas les versions : une autre version épinglée change le jeu de
+/// packs, qui vide le cache (`install_widgets`).
+#[test]
+fn seed_cache_holds_one_entry_per_pinned_pack_across_versions() {
+    let mut s = session();
+    let (id, file) = (Uuid::new_v4(), oku_slides_core::WidgetFile::parse("badge").unwrap());
+    for label in ["Un", "Deux"] {
+        let mut m = manifest_ns(id, "acme", &["base"]);
+        m.examples.insert(file.clone(), json!({ "label": label }).as_object().cloned().unwrap());
+        let pin = add_version(&s.library, &m, &[("badge", BADGE)]);
+        s.apply("Pack", vec![add_pack(&m, &pin)], None).unwrap_or_else(|e| panic!("pack : {}", e.one_line()));
+        assert_that!(seed_of(&s, "acme/badge").map(|seed| seed.params["label"].clone()))
+            .is_equal_to(Some(json!(label)));
+    }
+    let cached = s.seed_cache.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len();
+    // `base` et `acme`, une langue.
+    assert_that!(cached).is_equal_to(2);
+}

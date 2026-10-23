@@ -28,6 +28,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Answer ask or permission requests on a closed tab with Cancelled; the SurfaceHub closes when the tab entry drops. (t-249)
 - On resync emit the full open surface list, and have the UI replace its surfaces rather than merge them. (t-182)
 - Make the set_setting tool refuse agent settings. (t-786)
+- Call prune after every surface action that changes the deck, so the theme picker and packs panel re-read it. (t-1133)
 - Refuse save with a path to a file that is already open in another tab. (t-255)
 - Push every resync and follow to all views of a tab, not only to the view that asked. (t-670)
 - Emit page events (Present, OpenHistory, Interface) only after ensure_shown, and open history through the tab so its pending edit and save go first. (t-988, t-991, t-992)

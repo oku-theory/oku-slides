@@ -217,6 +217,7 @@ pub enum Request {
     /// Statut des fichiers de widgets du pack en cours (tableau de `WidgetStatus`).
     ///
     /// `pack` : en mode deck, l'espace de noms du pack épinglé ; absent, le pack `deck`.
+    /// En mode pack, ignoré : c'est toujours le pack édité.
     WidgetStatus {
         #[serde(default)]
         pack: Option<Namespace>,

@@ -114,7 +114,7 @@ fn retrofit_deck_on_an_older_target_version_is_an_older_pin_in_the_packs_panel()
     lib.add_version(ESSENTIEL_PACK, &next).unwrap();
     lib.set_current(ESSENTIEL_PACK, &next.version()).unwrap();
     let view = s.deck_packs().unwrap();
-    let older = view.layouts.iter().find(|p| p.relation == Some(crate::Relation::Ancestor));
+    let older = view.layouts.iter().find(|p| p.drift == Some(crate::Drift::Older));
     let found = older.map(|p| (p.namespace.clone(), p.version.clone()));
     assert_that!(found).is_equal_to(Some((essentiel(), target.version.hex().to_owned())));
 }

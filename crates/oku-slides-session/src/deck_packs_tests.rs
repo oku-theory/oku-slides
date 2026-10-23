@@ -9,14 +9,15 @@ use uuid::Uuid;
 use oku_slides_i18n::{Localize, Localizer};
 
 use crate::agent::Surface;
+use crate::deck_packs::Drift;
 use crate::deck_packs_panel::deck_packs_panel;
 use crate::lib_tests_support::session_with_fixture;
-use crate::pack::{PackManifest, Relation};
+use crate::pack::PackManifest;
 use crate::test_support::{
     add_user_theme, add_version, adopt_deck_only_pack, fresh_dir, manifest, manifest_ns, namespace_of, ns, opened_on,
     session, session_on,
 };
-use crate::{BASE_PACK, Request, Session, SessionErrorKind};
+use crate::{Request, Session, SessionErrorKind};
 
 /// Les fichiers d'une version du pack de widgets `id`, sans widgets.
 pub(crate) fn files(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) -> PackFiles {
@@ -74,12 +75,12 @@ pub(crate) fn opened_on_newer() -> (tempfile::TempDir, tempfile::TempDir, Sessio
 }
 
 /// Ma version courante v1, le fichier en v0 (plus ancien) : la session ouverte, sa version et la mienne.
-fn opened_older_than_library() -> (tempfile::TempDir, tempfile::TempDir, Session, PackFiles, PackFiles) {
+pub(crate) fn opened_older_than_library() -> (tempfile::TempDir, tempfile::TempDir, Session, PackFiles, PackFiles) {
     opened_with(1, 0)
 }
 
 /// L'espace de noms du pack `files`.
-fn namespace_of_pack(files: &PackFiles) -> Namespace {
+pub(crate) fn namespace_of_pack(files: &PackFiles) -> Namespace {
     PackManifest::from_files(files).unwrap().namespace
 }
 
@@ -299,19 +300,19 @@ fn deck_packs_deck_only_pack_has_no_relation() {
     adopt_deck_only_pack(&mut s);
     let view = s.deck_packs().unwrap();
     let own = view.widgets.iter().find(|p| p.deck_only).unwrap();
-    assert_that!(own.relation).is_none();
+    assert_that!(own.drift).is_none();
 }
 
 /// v0 ← v1 ; v0 ← v2. `mine` : ma version courante ; `theirs` : celle du fichier.
 #[rstest]
-#[case::newer(0, 1, Some(Relation::Descendant))]
-#[case::older(1, 0, Some(Relation::Ancestor))]
-#[case::parallel(1, 2, Some(Relation::Sibling))]
+#[case::newer(0, 1, Some(Drift::Newer))]
+#[case::older(1, 0, Some(Drift::Older))]
+#[case::parallel(1, 2, Some(Drift::Parallel))]
 #[case::same(1, 1, None)]
 fn deck_packs_relation_compares_the_pin_with_my_current_version(
     #[case] mine: usize,
     #[case] theirs: usize,
-    #[case] expected: Option<Relation>,
+    #[case] expected: Option<Drift>,
 ) {
     let (me, them) = (fresh_dir("oku-slides-packs-me-"), fresh_dir("oku-slides-packs-them-"));
     let id = Uuid::new_v4();
@@ -326,7 +327,7 @@ fn deck_packs_relation_compares_the_pin_with_my_current_version(
     s.open(&received_file(them.path(), &v[theirs])).unwrap();
     let view = s.deck_packs().unwrap();
     let pack = view.widgets.iter().find(|p| p.namespace == namespace_of(id)).unwrap();
-    assert_that!(pack.relation).is_equal_to(expected);
+    assert_that!(pack.drift).is_equal_to(expected);
     assert_that!(s.library.current(id)).is_equal_to(Some(v[mine].version()));
 }
 
@@ -414,27 +415,6 @@ fn pack_updates_make_current_of_the_older_pin_clears_it() {
 fn pack_updates_snapshot_reads_the_count() {
     let (_a, _b, s, _theirs, _mine) = opened_older_than_library();
     assert_that!(s.snapshot().pack_updates).is_equal_to(1);
-}
-
-/// La version de `base` livrée avant la courante de `s` : la parente de celle-ci.
-///
-/// L'app n'en garde que l'empreinte (`versions.txt`), pas les fichiers.
-fn previous_builtin_base(s: &Session) -> PackVersion {
-    let current = s.library.current(BASE_PACK).unwrap();
-    let shipped = crate::builtin_versions().iter().find(|b| b.manifest.id == BASE_PACK && b.version == current);
-    shipped.and_then(|b| b.manifest.parent.clone()).unwrap()
-}
-
-/// Un deck d'avant la version livrée de `base` : il épingle la précédente (embarquée dans son fichier).
-#[test]
-fn pack_updates_old_builtin_base_is_one() {
-    let mut s = session();
-    let mut deck = s.deck().clone();
-    let old = previous_builtin_base(&s);
-    deck.widgets.get_mut(&ns("base")).unwrap().version = old;
-    s.doc.sources.apply_silent(deck).unwrap();
-    s.refresh_pack_updates();
-    assert_that!(s.pack_updates()).is_equal_to(1);
 }
 
 /// Une session dont le deck épingle la version v0 du thème `marque`, la bibliothèque passée à v1.

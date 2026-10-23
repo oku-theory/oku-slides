@@ -464,7 +464,7 @@ pub struct ImportReport {
     pub slides: Vec<SlideReport>,
     /// Avertissements du lecteur.
     pub warnings: Vec<Warning>,
-    /// Couverture du contenu ; `None` tant qu'elle n'est pas mesurée, ou si le cœur a refusé un plan de retrofit (bug).
+    /// Couverture du contenu ; `None` tant qu’elle n’est pas mesurée.
     pub coverage: Option<Coverage>,
     /// Polices : une décision par famille source (hi-fi ; vide et non écrit en retrofit).
     #[serde(skip_serializing_if = "Vec::is_empty")]

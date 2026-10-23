@@ -545,7 +545,7 @@ fn undo_of_add_pack_restores_previous_widgets() {
 }
 
 /// Les fichiers du pack rangé sous `fixtures/<rel>`.
-fn fixture_pack(rel: &str) -> oku_slides_core::PackFiles {
+pub(crate) fn fixture_pack(rel: &str) -> oku_slides_core::PackFiles {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(rel);
     let storage = crate::Storage::local().unwrap();
     crate::read_pack_dir(&storage, &dir, 1 << 20).unwrap().unwrap()

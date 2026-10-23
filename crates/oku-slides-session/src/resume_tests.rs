@@ -677,6 +677,18 @@ fn resume_pack_mode_with_unknown_parent_is_set_aside() {
     assert_that!(dir.exists()).is_false();
 }
 
+/// Un brouillon de thème dont l'espace de noms n'est pas celui de sa base : mis de côté, jamais cru.
+#[test]
+fn resume_pack_mode_with_a_theme_namespace_unlike_its_base_is_set_aside() {
+    let data = crate::test_support::fresh_dir("oku-slides-resume-theme-ns-");
+    let dir = data.path().join("tab");
+    pack_mode_with_extends_edit(data.path(), &dir);
+    edit_state(&dir, |state| state["theme_edit"]["namespace"] = serde_json::json!("ailleurs"));
+    let mut back = crate::test_support::session_on(data.path());
+    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Unreadable);
+    assert_that!(back.editing_view()).is_none();
+}
+
 /// Un état de la version 2 avec du travail non enregistré : mis de côté, signalé (`notice-tab-set-aside`).
 #[test]
 fn resume_version_2_state_is_set_aside() {

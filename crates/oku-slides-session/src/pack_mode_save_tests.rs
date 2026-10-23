@@ -297,3 +297,19 @@ fn set_example_values_after_emptying_keeps_the_new_text() {
     s.set_example_values("content", serde_json::Map::from_iter([("title".into(), json!("Retour"))])).unwrap();
     assert_that!(layout_example(&s, "content").get("title")).is_equal_to(Some(&json!("Retour")));
 }
+
+/// t-1135 : la copie épinglée au deck mis de côté est une étape annulable, nommée d'après la copie.
+#[test]
+fn save_pack_as_new_pins_the_copy_in_one_undoable_step() {
+    let mut s = session();
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    s.apply("Nom", vec![rename_title("Ma charte")], None).unwrap();
+    let saved = s.save_pack(true).unwrap();
+    let copy = saved_manifest(&s, &saved).namespace;
+    s.close_pack().unwrap();
+    let label = s.sources_for_tests().replica().undo_label();
+    let expected = s.localizer.tr_with("pack-adopt-label", &[("name", "Ma charte".into())]);
+    assert_that!((s.deck().layouts.contains_key(&copy), label)).is_equal_to((true, Some(expected)));
+    s.undo().unwrap();
+    assert_that!(s.deck().layouts.contains_key(&copy)).is_false();
+}

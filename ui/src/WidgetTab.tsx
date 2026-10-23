@@ -122,7 +122,8 @@ export default function WidgetTab({
     };
   }, [api, revision, active]);
 
-  // Aperçu : actif seulement, après la source puis chaque écriture enregistrée.
+  // Aperçu : actif seulement, après la source puis chaque écriture enregistrée. Sans pack, comme
+  // les statuts et les sources : l'onglet n'existe qu'en mode pack, où l'hôte prend le pack édité.
   const written = files.writes.get(name) ?? 0;
   const ready = source !== null;
   useEffect(() => {

@@ -7,7 +7,7 @@ use oku_slides_a2ui::{ComponentKind, Dynamic, ServerBody};
 use oku_slides_mcp::HubErrorKind;
 use oku_slides_session::agent::Surface;
 use oku_slides_session::pack::ESSENTIEL_PACK;
-use oku_slides_session::{HOST_PACKS, HOST_THEME_PICKER, PRO_NAMESPACE};
+use oku_slides_session::{HOST_PACKS, HOST_THEME_PICKER, PAPIER_NAMESPACE, PRO_NAMESPACE};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -182,4 +182,41 @@ async fn picking_a_theme_in_the_packs_panel_refreshes_the_picker() {
         .unwrap_or_else(|e| panic!("choix du thème : {e}"));
     let picker = last_surface(&mut rx, HOST_THEME_PICKER);
     assert_that!(active_cards(&picker)).is_equal_to(vec!["Pro".to_owned()]);
+}
+
+/// L'identifiant d'une surface que l'agent vient de montrer par `tool`.
+async fn shown_by(h: &common::Harness, tool: &str, args: serde_json::Value) -> String {
+    let c =
+        common::client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client : {e}"));
+    let r = common::call(&c, tool, args).await;
+    common::json_of(&r)["shown"].as_str().unwrap_or_else(|| panic!("{tool} sans surface")).to_owned()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn picking_a_variant_refreshes_the_packs_panel() {
+    let h = start().await;
+    show(&h);
+    let variant = |label: &str, theme: &str| json!({ "label": label, "ops": [{ "op": "set_theme", "theme": theme }] });
+    let variants = [variant("Pro", PRO_NAMESPACE), variant("Papier", PAPIER_NAMESPACE)];
+    let id = shown_by(&h, "show_variants", json!({ "slide": "s-libre", "variants": variants })).await;
+    let mut rx = h.hub.subscribe();
+    tokio::task::block_in_place(|| h.hub.act(action(&id, "variant", json!({ "index": 0 }))))
+        .unwrap_or_else(|e| panic!("variante : {e}"));
+    let panel = last_surface(&mut rx, HOST_PACKS);
+    assert_that!(text_of_component(&panel, "theme-name")).is_equal_to(Some("Pro".to_owned()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn changing_a_param_refreshes_the_packs_panel() {
+    let h = start().await;
+    show(&h);
+    let field = json!({ "label": "Thème", "kind": "select", "value": "papier",
+        "op_template": { "op": "set_theme", "theme": "$value" },
+        "options": [{ "id": "papier", "label": "Papier" }, { "id": PRO_NAMESPACE, "label": "Pro" }] });
+    let id = shown_by(&h, "show_params", json!({ "title": "Apparence", "slide": "s-libre", "fields": [field] })).await;
+    let mut rx = h.hub.subscribe();
+    tokio::task::block_in_place(|| h.hub.act(action(&id, "param", json!({ "field": 0, "value": PRO_NAMESPACE }))))
+        .unwrap_or_else(|e| panic!("réglage : {e}"));
+    let panel = last_surface(&mut rx, HOST_PACKS);
+    assert_that!(text_of_component(&panel, "theme-name")).is_equal_to(Some("Pro".to_owned()));
 }

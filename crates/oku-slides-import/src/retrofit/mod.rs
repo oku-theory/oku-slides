@@ -90,13 +90,15 @@ fn request(requests: &mut Vec<WidgetRequest>, item: &Item, fallback: &str, slide
 ///
 /// La couverture (`report.coverage`) est mesurée sur le deck que donnent les
 /// ops appliquées à un deck vide sans thème ni pack embarqué : le thème ne
-/// change pas le contenu, et le registre de la cible suffit à appliquer.
-/// `None` seulement si le cœur refusait le plan.
+/// change pas le contenu, et le registre de la cible suffit à appliquer ;
+/// toujours présente.
 ///
 /// # Errors
 ///
 /// [`ImportErrorKind::NoProfiles`](crate::ImportErrorKind::NoProfiles) si
-/// les packs cibles ne proposent aucun profil.
+/// les packs cibles ne proposent aucun profil ;
+/// [`ImportErrorKind::PlanRefused`](crate::ImportErrorKind::PlanRefused) si
+/// le cœur refuse le plan, valide par construction (un bogue).
 pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> Result<ImportPlan, ImportError> {
     zone::check_defaults()?;
     if target.profiles.is_empty() {
@@ -150,13 +152,8 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> Result<ImportP
         plan.report.slides.push(p.report);
     }
     let mut scratch = Deck::empty();
-    plan.report.coverage = match apply_all(&mut scratch, plan.ops.clone(), target.registry) {
-        Ok(()) => Some(coverage(deck, &scratch, target.registry, &origins, deck_slide, &|i| decor.skips(i))),
-        Err(e) => {
-            debug_assert!(false, "le cœur refuse le plan, valide par construction : {e:?}");
-            None
-        }
-    };
+    apply_all(&mut scratch, plan.ops.clone(), target.registry).map_err(crate::error::plan_refused)?;
+    plan.report.coverage = Some(coverage(deck, &scratch, target.registry, &origins, deck_slide, &|i| decor.skips(i)));
     plan.origins = origins;
     Ok(plan)
 }

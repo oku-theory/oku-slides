@@ -125,6 +125,31 @@ fn mark_faulty_marks_an_untrusted_pack_but_never_a_trusted_one() {
     assert_that!((w.is_faulty(&base), w.is_faulty(&other))).is_equal_to((false, true));
 }
 
+/// Un `base` modifié (une autre version, hors `versions.txt`) dont un widget boucle au chargement.
+fn looping_edited_base() -> PackWidgets {
+    let base = BuiltinPack::Base.widgets().unwrap();
+    PackWidgets::new("modifie", base.namespace().clone(), PackKind::Widgets, files(&[("boucle", LOOP_ON_IMPORT)]))
+        .unwrap()
+}
+
+/// t-1053 : seul dans l'emplacement, un `base` modifié n'est jamais accusé.
+#[test]
+fn a_bounded_failure_with_an_edited_base_alone_marks_nothing_faulty() {
+    let w = worker(300);
+    let edited = looping_edited_base();
+    let mut s = slot(&w);
+    let err = s.set_widgets(&PackSet::new(vec![edited.clone()]).unwrap(), empty()).unwrap_err();
+    assert_that!((err.kind(), w.is_faulty(&edited))).is_equal_to((RenderErrorKind::Timeout, false));
+}
+
+#[test]
+fn mark_faulty_never_marks_an_edited_base() {
+    let w = worker(300);
+    let edited = looping_edited_base();
+    w.mark_faulty(&edited);
+    assert_that!(w.is_faulty(&edited)).is_false();
+}
+
 #[test]
 fn render_with_looping_widget_times_out_then_is_disabled_without_retry() {
     let w = worker(300);

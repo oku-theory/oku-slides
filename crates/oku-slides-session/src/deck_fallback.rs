@@ -1,16 +1,19 @@
 //! Repli par pack : un pack qui fait échouer un rendu est écarté seul.
 //!
-//! Les packs de confiance (versions livrées de `base`, `is_trusted_pack`) ne
-//! sont jamais accusés ni écartés : un échec qu'eux seuls portent est celui
-//! du deck, et l'erreur remonte.
+//! Les packs jamais accusés (`is_never_blamed` : versions livrées des packs
+//! intégrés, et tout pack d'espace de noms `base`, même modifié, t-1053) ne
+//! sont jamais écartés pour un échec borné : un échec qu'eux seuls portent est
+//! celui du deck, et l'erreur remonte. Un `base` modifié (ou un pack reçu qui se
+//! nomme `base`) qui boucle laisse donc le deck sans rendu tant que l'élément
+//! reste : chaque op qui le rend est refusée, choix assumé (t-1053).
 //!
 //! Un échec borné (délai, mémoire, arrêt du processus de rendu), celui du
 //! deck ou d'un autre emplacement (aperçus, variantes, polices), accuse un
-//! pack quand l'emplacement ne porte que lui, et pas un pack de confiance :
+//! pack quand l'emplacement ne porte que lui, et pas un pack jamais accusé :
 //! le processus de rendu le marque fautif. Sinon il n'en accuse aucun (le
 //! contenu `base` du deck peut suffire à l'échec) ; la session cherche le
 //! coupable par dichotomie (`isolate_faulty`) parmi les autres packs, sur le
-//! deck qui a échoué : il est rendu avec les packs de confiance et une
+//! deck qui a échoué : il est rendu avec les packs jamais accusés et une
 //! moitié des autres, puis avec la moitié en cause, jusqu'à un pack seul,
 //! que son échec fait marquer par la session (`mark_faulty`) ; au plus
 //! ⌈log2 N⌉ + 1 rendus. Le pack fautif et ceux qui le requièrent sont alors
@@ -18,7 +21,7 @@
 //! un avis les nomme. Les éléments de leurs widgets se rendent comme un
 //! widget inconnu.
 //!
-//! Avant la dichotomie, un rendu témoin avec les seuls packs de confiance :
+//! Avant la dichotomie, un rendu témoin avec les seuls packs jamais accusés :
 //! s'il échoue aussi, l'échec est propre au deck et aucun pack n'est accusé.
 //! Un échec que la dichotomie n'attribue à aucun pack (il ne se reproduit
 //! pas) n'écarte rien non plus : l'erreur d'origine remonte.
@@ -26,7 +29,7 @@
 use snafu::{OptionExt, ResultExt};
 
 use oku_slides_core::{Deck, Namespace};
-use oku_slides_render::{PackSet, PackWidgets, RenderError, is_trusted_pack};
+use oku_slides_render::{PackSet, PackWidgets, RenderError, is_never_blamed};
 use oku_slides_render_worker::RemoteCompiled;
 
 use crate::deck_theme::render_themed;
@@ -60,24 +63,24 @@ impl Session {
     }
 
     /// Repli : si `e` est un échec borné, le pack fautif (cherché par
-    /// dichotomie sur `deck` parmi ceux qui ne sont pas de confiance) et ceux
+    /// dichotomie sur `deck` parmi ceux qui peuvent être accusés) et ceux
     /// qui le requièrent sont écartés (rendu du deck, session, sources), et un
-    /// avis les nomme. Vrai si un pack a été écarté ; jamais un pack de confiance.
+    /// avis les nomme. Vrai si un pack a été écarté ; jamais un pack jamais accusé.
     ///
     /// Tout emplacement y passe : deck, aperçus de layouts, variantes, polices.
     pub(crate) fn disable_faulty(&mut self, e: &RenderError, deck: &Deck) -> Result<bool> {
-        let (trusted, others): (Vec<_>, Vec<_>) = self.packs.packs().iter().cloned().partition(is_trusted_pack);
+        let (exempt, others): (Vec<_>, Vec<_>) = self.packs.packs().iter().cloned().partition(is_never_blamed);
         if !e.kind().is_bounded() || others.is_empty() {
-            // Sans autre pack que ceux de confiance, l'échec est celui du deck.
+            // Sans autre pack que ceux jamais accusés, l'échec est celui du deck.
             return Ok(false);
         }
         if !self.has_faulty_pack() {
-            // Rendu témoin avec les seuls packs de confiance : un échec propre au deck n'accuse aucun pack.
-            if self.fails_with(&trusted, &[], deck)? {
-                tracing::warn!("le deck échoue avec les seuls packs de confiance : aucun pack accusé");
+            // Rendu témoin avec les seuls packs jamais accusés : un échec propre au deck n'accuse aucun pack.
+            if self.fails_with(&exempt, &[], deck)? {
+                tracing::warn!("le deck échoue avec les seuls packs jamais accusés : aucun pack accusé");
                 return Ok(false);
             }
-            self.isolate_faulty(&trusted, others, deck)?;
+            self.isolate_faulty(&exempt, others, deck)?;
         }
         if !self.has_faulty_pack() {
             return Ok(false);
@@ -96,22 +99,22 @@ impl Session {
 
     /// Cherche par dichotomie, parmi `candidates`, le pack qui fait échouer le rendu de `deck`.
     ///
-    /// Chaque essai rend `deck` dans un emplacement neuf avec les packs de
-    /// confiance `trusted` et une partie des candidats ; l'échec borné d'un
+    /// Chaque essai rend `deck` dans un emplacement neuf avec les packs
+    /// jamais accusés `exempt` et une partie des candidats ; l'échec borné d'un
     /// candidat seul le fait marquer fautif (même s'il n'y en avait qu'un).
     /// Au plus ⌈log2 N⌉ + 1 rendus.
-    fn isolate_faulty(&mut self, trusted: &[PackWidgets], mut candidates: Vec<PackWidgets>, deck: &Deck) -> Result<()> {
+    fn isolate_faulty(&mut self, exempt: &[PackWidgets], mut candidates: Vec<PackWidgets>, deck: &Deck) -> Result<()> {
         while candidates.len() > 1 {
             let rest = candidates.split_off(candidates.len() / 2);
-            if !self.fails_with(trusted, &candidates, deck)? {
+            if !self.fails_with(exempt, &candidates, deck)? {
                 candidates = rest;
             }
         }
         if let [single] = candidates.as_slice()
             && !self.worker.is_faulty(single)
-            && self.fails_with(trusted, &candidates, deck)?
+            && self.fails_with(exempt, &candidates, deck)?
         {
-            // L'emplacement portait les packs de confiance : il n'a accusé personne.
+            // L'emplacement portait les packs jamais accusés : il n'a accusé personne.
             self.worker.mark_faulty(single);
         }
         let names: Vec<&str> = candidates.iter().map(|p| p.namespace().as_str()).collect();
@@ -119,15 +122,15 @@ impl Session {
         Ok(())
     }
 
-    /// `deck` rendu avec les seuls packs `trusted` et `candidates` échoue-t-il d'un échec borné ?
+    /// `deck` rendu avec les seuls packs `exempt` et `candidates` échoue-t-il d'un échec borné ?
     ///
     /// Un emplacement neuf, jeté ensuite.
-    fn fails_with(&mut self, trusted: &[PackWidgets], candidates: &[PackWidgets], deck: &Deck) -> Result<bool> {
+    fn fails_with(&mut self, exempt: &[PackWidgets], candidates: &[PackWidgets], deck: &Deck) -> Result<bool> {
         #[cfg(test)]
         if candidates.is_empty() && std::mem::take(&mut self.failpoints.control_render) {
             return Ok(true);
         }
-        let packs: Vec<PackWidgets> = trusted.iter().chain(candidates).cloned().collect();
+        let packs: Vec<PackWidgets> = exempt.iter().chain(candidates).cloned().collect();
         let set = PackSet::new(packs).context(RegistrySnafu)?;
         // Le `base` intégré courant seul : registre intégré, sans sonde.
         let registry = self.registry_for(&set)?;

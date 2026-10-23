@@ -24,8 +24,8 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
   kind dropped). `Registries` memoizes by fingerprint and `probe_key` (empty set: empty
   registry); `base_probe` (`base`), `builtin_registry` (`base` + `essentiel`) are memoized.
 - `builtin_packs.rs`: `BuiltinPack` (`Base`, `Essentiel`) embeds `typst/oku-slides/packs/*`;
-  `is_trusted_pack`: a built-in namespace and a shipped version (`versions.txt`);
-  `builtin_component_defaults`: each manifest's token defaults (`component_defaults`).
+  `is_trusted_pack`: built-in namespace, shipped version (`versions.txt`); `is_never_blamed`: trusted
+  or any `base`; `builtin_component_defaults`: each manifest's token defaults.
 - Bounded errors (`error.rs`): `RenderErrorKind` has `Timeout`, `OutOfMemory`, `WorkerLost`,
   `Frame`, `Stale`, `PackDisabled`, `Protocol`; `is_bounded` (not `Frame`, `Stale`, `Protocol`): the session disables the pack.
 - `wire` (`wire.rs`): `WireError`, serializable `RenderError`/`RegistryError` (no backtrace) for

@@ -426,7 +426,7 @@ impl Session {
 
 #[cfg(test)]
 #[path = "deck_widgets_tests.rs"]
-mod deck_widgets_tests;
+pub(crate) mod deck_widgets_tests;
 
 #[cfg(test)]
 #[path = "deck_widgets_fallback_tests.rs"]

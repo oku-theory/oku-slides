@@ -46,7 +46,7 @@ use oku_slides_core::WidgetRegistry;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::config::RenderSettings;
-use oku_slides_render::{FileProbeCache, Fonts, PackWidgets, RenderError, is_trusted_pack};
+use oku_slides_render::{FileProbeCache, Fonts, PackWidgets, RenderError, is_never_blamed};
 use sha2::{Digest, Sha256};
 
 use crate::link::{Link, SlotState, fingerprint_hex};
@@ -135,24 +135,25 @@ pub(crate) fn expect_ok(link: &mut Link, req: &Request, payload: &[u8]) -> Resul
     }
 }
 
-/// Marque fautif l'unique pack de l'emplacement si `e` est un échec borné et qu'il n'est pas de confiance.
+/// Marque fautif l'unique pack de l'emplacement si `e` est un échec borné et qu'il peut être accusé.
 ///
 /// L'échec ne dit pas lequel de plusieurs packs en est la cause, ni s'il vient
-/// du contenu `base` ou `essentiel` du deck : avec plus d'un pack, ou avec une
-/// version livrée d'un pack intégré (`is_trusted_pack`), aucun n'est accusé. La session tranche par
-/// son rendu témoin et sa dichotomie (`RenderWorker::mark_faulty`).
+/// du contenu `base` ou `essentiel` du deck : avec plus d'un pack, ou avec un pack
+/// jamais accusé (`is_never_blamed` : version livrée d'un pack intégré, ou tout `base`),
+/// aucun n'est accusé. La session tranche par son rendu témoin et sa dichotomie
+/// (`RenderWorker::mark_faulty`).
 pub(crate) fn blame(link: &mut Link, packs: &[WirePack], e: &RenderError) {
     if let [pack] = packs
         && e.kind().is_bounded()
-        && !is_trusted_wire(pack)
+        && !is_never_blamed_wire(pack)
     {
         link.faulty_packs.insert(fingerprint_hex(pack));
     }
 }
 
-/// Le pack envoyé est-il une version livrée d'un pack intégré ? Illisible, il ne l'est pas.
-fn is_trusted_wire(p: &WirePack) -> bool {
-    pack_of(p.clone()).is_ok_and(|pack| is_trusted_pack(&pack))
+/// Le pack envoyé est-il exempt d'accusation (`is_never_blamed`) ? Illisible, il ne l'est pas.
+fn is_never_blamed_wire(p: &WirePack) -> bool {
+    pack_of(p.clone()).is_ok_and(|pack| is_never_blamed(&pack))
 }
 
 /// Le premier pack fautif d'un emplacement, s'il y en a un.
@@ -264,12 +265,12 @@ impl RenderWorker {
         self.link().faulty_packs.contains(&hex::encode(pack.fingerprint()))
     }
 
-    /// Marque `pack` fautif, sauf version livrée d'un pack intégré : il n'est plus exécuté ici.
+    /// Marque `pack` fautif, sauf pack jamais accusé (`is_never_blamed`) : il n'est plus exécuté ici.
     ///
-    /// Pour la session, quand son essai d'un pack seul à côté des packs de
-    /// confiance échoue : l'emplacement, qui en porte un, n'a accusé personne.
+    /// Pour la session, quand son essai d'un pack seul à côté des packs
+    /// jamais accusés échoue : l'emplacement, qui en porte un, n'a accusé personne.
     pub fn mark_faulty(&self, pack: &PackWidgets) {
-        if !is_trusted_pack(pack) {
+        if !is_never_blamed(pack) {
             self.link().faulty_packs.insert(hex::encode(pack.fingerprint()));
         }
     }

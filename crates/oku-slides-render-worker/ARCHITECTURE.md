@@ -6,7 +6,7 @@ too much memory is killed without taking the app down.
 ## Key types
 
 - `RenderWorker` (`client.rs`): the shared link; `is_faulty`, `mark_faulty`, `slot`. `blame`: a failure (timeout,
-  memory, crash) marks a slot's lone pack, unless trusted; a slot holding a shipped built-in blames nobody.
+  memory, crash) marks a slot's lone pack unless `is_never_blamed`; a shipped built-in there blames nobody.
 - `probe_pack` (`pack_probe.rs`): per-file probe (kind's directory) assembled beside built-in `base`
   (empty probe for `base`), no blame (a timeout is a diagnostic), keyed by `probe_key`, budget per call.
 - `RenderSlot` (`slot.rs`): a slot (`set_widgets`, `set_language`, `render`); its `Drop`

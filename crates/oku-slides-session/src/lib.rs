@@ -113,7 +113,7 @@ pub use add_grid::{AddPackView, AddWidget, ElementSeed};
 pub use appearance::{Appearance, appearance};
 pub use data_edit::{DataEdit, TableFlag};
 pub use deck_pack::{adopt_default_packs, check_pack_id};
-pub use deck_packs::DeckPacksView;
+pub use deck_packs::{DeckPacksView, Drift};
 pub use deck_packs_panel::{HOST_PACKS, PacksEvent, deck_packs_panel, packs_event};
 pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};

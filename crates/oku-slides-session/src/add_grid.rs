@@ -63,6 +63,9 @@ struct PackSeeds {
 }
 
 /// Les départs déjà calculés, par version de pack et langue : un snapshot ne relit pas leur manifeste.
+///
+/// Borné par les packs épinglés : tout changement du jeu de packs (une autre version comprise) le
+/// vide (`install_widgets`), et une entrée sert une fois par snapshot (le clone est la sortie).
 #[derive(Debug, Default)]
 pub(crate) struct SeedCache(Mutex<HashMap<(PackVersion, String), PackSeeds>>);
 

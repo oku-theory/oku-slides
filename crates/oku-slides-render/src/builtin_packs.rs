@@ -148,6 +148,18 @@ pub fn is_trusted_pack(p: &PackWidgets) -> bool {
     BuiltinPack::ALL.into_iter().any(|b| b.namespace() == *p.namespace() && b.shipped_versions().any(|v| v == p.id()))
 }
 
+/// Vrai pour un pack qu'un échec borné n'accuse jamais : de confiance, ou de widgets sous `base`.
+///
+/// Ce n'est pas la confiance (`is_trusted_pack`) : un `base` modifié reste sondé et
+/// écarté si un widget ne compile pas. Mais tout deck l'épingle et Essentiel le
+/// requiert : l'écarter pour un délai rendrait chaque élément inconnu, et l'échec
+/// peut venir du contenu du deck seul. Il reste donc dans le rendu témoin (t-1053).
+/// Un fichier reçu peut nommer `base` n'importe quel pack de widgets : s'il boucle,
+/// le deck ne se rend plus tant que l'élément reste, choix assumé.
+pub fn is_never_blamed(p: &PackWidgets) -> bool {
+    is_trusted_pack(p) || (p.kind() == PackKind::Widgets && *p.namespace() == BuiltinPack::Base.namespace())
+}
+
 #[cfg(test)]
 #[path = "builtin_packs_tests.rs"]
 mod builtin_packs_tests;

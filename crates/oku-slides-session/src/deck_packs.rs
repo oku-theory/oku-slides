@@ -40,6 +40,29 @@ pub struct DeckPacksView {
     pub theme: ThemeSectionView,
 }
 
+/// Une version épinglée par rapport à ma version courante, quand ce n'est pas elle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Drift {
+    /// Plus ancienne : ma version courante en descend.
+    Older,
+    /// Plus récente : elle descend de ma version courante.
+    Newer,
+    /// Parallèle : aucune ne descend de l'autre.
+    Parallel,
+}
+
+impl Drift {
+    /// L'écart que dit `relation` ; `None` pour la même version.
+    fn of(relation: Relation) -> Option<Self> {
+        match relation {
+            Relation::Same => None,
+            Relation::Ancestor => Some(Self::Older),
+            Relation::Descendant => Some(Self::Newer),
+            Relation::Sibling => Some(Self::Parallel),
+        }
+    }
+}
+
 /// Un pack épinglé : identité, relation à la bibliothèque, refus de retrait.
 #[derive(Debug)]
 pub struct PinnedPackView {
@@ -52,7 +75,7 @@ pub struct PinnedPackView {
     /// La version épinglée, en hexadécimal.
     pub version: String,
     /// La version du deck par rapport à ma version courante ; `None` si c'est elle ou sans bibliothèque.
-    pub relation: Option<Relation>,
+    pub drift: Option<Drift>,
     /// Un pack intégré à l'app.
     pub builtin: bool,
     /// Un pack du deck seul, que la bibliothèque n'a jamais.
@@ -171,7 +194,7 @@ impl Session {
     pub fn update_deck_theme(&mut self) -> Result<()> {
         self.ensure_deck_mode()?;
         let ns = self.active_theme()?;
-        let outdated = self.deck().theme.is_some() && self.theme_relation() == Some(Relation::Ancestor);
+        let outdated = self.deck().theme.is_some() && self.theme_relation() == Some(Drift::Older);
         ensure!(outdated, ThemeNotOutdatedSnafu { theme: ns.as_str() });
         let name = self.themes.by_namespace(&ns).map_or_else(|| ns.to_string(), |s| s.manifest.name);
         let label = self.localizer.tr_with("packs-undo-theme-update", &[("name", name.as_str().into())]);
@@ -185,11 +208,11 @@ impl Session {
 
     /// Recalcule le nombre d'épinglages en retard.
     ///
-    /// Seule la relation `Ancestor` compte (le deck est plus ancien) : une
+    /// Seul l'écart `Older` compte (le deck est plus ancien) : une
     /// version plus récente ou parallèle se lit dans le panneau, sans pastille.
     pub(crate) fn refresh_pack_updates(&mut self) {
         self.pack_updates_pins = Some(self.pins_key());
-        let older = |r: Option<Relation>| r == Some(Relation::Ancestor);
+        let older = |r: Option<Drift>| r == Some(Drift::Older);
         let packs = self.user_deck().all_pins().filter(|(_, _, pin)| older(self.pin_relation(pin))).count();
         let count = packs + usize::from(older(self.theme_relation()));
         // Saturé : plus de 2³² épinglages n'existe pas, la pastille reste allumée.
@@ -217,19 +240,19 @@ impl Session {
     /// La version épinglée `pin` par rapport à ma version courante de ce pack.
     ///
     /// `None` quand c'est elle, pour un pack du deck seul ou inconnu de la bibliothèque.
-    fn pin_relation(&self, pin: &PackPin) -> Option<Relation> {
+    fn pin_relation(&self, pin: &PackPin) -> Option<Drift> {
         if self.embeds_deck_only(pin) {
             return None;
         }
         let current = self.library.current(pin.id)?;
-        Some(self.library.relation(pin.id, &pin.version, &current)).filter(|r| *r != Relation::Same)
+        Drift::of(self.library.relation(pin.id, &pin.version, &current))
     }
 
     /// La version du thème du deck par rapport à ma version courante de ce thème (voir [`Self::pin_relation`]).
-    fn theme_relation(&self) -> Option<Relation> {
+    fn theme_relation(&self) -> Option<Drift> {
         let pin = self.deck_theme_pin()?;
         let current = self.themes.current(pin.id)?;
-        Some(self.themes.relation(pin.id, &pin.version, &current)).filter(|r| *r != Relation::Same)
+        Drift::of(self.themes.relation(pin.id, &pin.version, &current))
     }
 
     /// Vrai si la version épinglée `pin` est embarquée en version du deck seul.
@@ -263,7 +286,7 @@ impl Session {
             namespace: ns.clone(),
             name: self.pack_name(ns, pin),
             version: pin.version.hex().to_owned(),
-            relation: self.pin_relation(pin),
+            drift: self.pin_relation(pin),
             builtin: PackLibrary::is_builtin(pin.id),
             deck_only,
             library_has_pinned: !deck_only && self.library.version(pin.id, &pin.version).is_some(),
@@ -304,7 +327,7 @@ impl Session {
             extends,
             overrides,
             choices: self.theme_list.iter().map(|t| (t.namespace.clone(), t.name.clone())).collect(),
-            outdated: self.theme_relation() == Some(Relation::Ancestor),
+            outdated: self.theme_relation() == Some(Drift::Older),
         })
     }
 }
@@ -323,3 +346,7 @@ fn other(kind: PackKind) -> PackKind {
 #[cfg(test)]
 #[path = "deck_packs_tests.rs"]
 pub(crate) mod deck_packs_tests;
+
+#[cfg(test)]
+#[path = "deck_packs_updates_tests.rs"]
+mod deck_packs_updates_tests;
