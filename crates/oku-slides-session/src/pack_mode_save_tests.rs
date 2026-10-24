@@ -2,6 +2,7 @@ use oku_slides_core::{Op, PackScope, WidgetFile, kinds};
 use serde_json::json;
 use speculoos::prelude::*;
 
+use crate::library::draft_lock;
 use crate::pack::{ESSENTIEL_PACK, PackManifest};
 use crate::test_support::{
     adopt_deck_only_pack, builtin, edit_of, fresh_dir, library_files, library_of, opened_on, pin, rename_title,
@@ -312,4 +313,22 @@ fn save_pack_as_new_pins_the_copy_in_one_undoable_step() {
     assert_that!((s.deck().layouts.contains_key(&copy), label)).is_equal_to((true, Some(expected)));
     s.undo().unwrap();
     assert_that!(s.deck().layouts.contains_key(&copy)).is_false();
+}
+
+/// Un autre deck a adopté la version de la séance : l'enregistrement suivant ouvre sa fille.
+#[test]
+fn save_pack_after_the_session_version_was_adopted_opens_a_child() {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = session_on(data.path());
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    s.apply("Nom", vec![rename_title("Un")], None).unwrap();
+    s.save_pack(false).unwrap();
+    let first = library_of(&s).current_version(ESSENTIEL_PACK).unwrap();
+    library_of(&s).adopt(&draft_lock(), ESSENTIEL_PACK, &first.files).unwrap();
+    s.apply("Nom", vec![rename_title("Deux")], None).unwrap();
+    s.save_pack(false).unwrap();
+    let second = library_of(&s).current_version(ESSENTIEL_PACK).unwrap();
+    assert_that!(library_of(&s).version(ESSENTIEL_PACK, &first.version).is_some()).is_true();
+    assert_that!(second.manifest.parent.clone()).is_equal_to(Some(first.version.clone()));
+    assert_that!(edit_of(&s).session_version).is_equal_to(Some(second.version));
 }

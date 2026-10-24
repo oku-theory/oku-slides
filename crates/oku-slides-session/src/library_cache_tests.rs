@@ -117,7 +117,7 @@ fn index_after_writes_matches_a_fresh_instance() {
     let next = manifest(x, "X2", None, "2026-10-02T10:00:00Z")
         .to_files(oku_slides_core::PackKind::Widgets, Default::default())
         .unwrap();
-    lib.replace_version(x, &x1.version, &next).unwrap();
+    replace(&lib, x, &x1.version, &next).unwrap();
     add_version(&lib, &manifest(y, "Y", None, "2026-10-01T10:00:00Z"), &[]);
     lib.delete(y).unwrap();
     let mine = add_version(&lib, &manifest(BASE_PACK, "Mien", Some(&builtin), "2026-10-03T10:00:00Z"), &[]);
@@ -146,4 +146,15 @@ fn index_after_a_refused_deck_only_version_keeps_the_pack_unchanged() {
     assert_that!(listed).is_equal_to(vec![a.version.clone()]);
     assert_that!(lib.current(id)).is_equal_to(Some(a.version));
     assert_that!(lib.version(id, &files.version())).is_none();
+}
+
+/// Remplace la version `old` de `id` par `files`, comme l'enregistrement d'un brouillon.
+fn replace(
+    lib: &crate::PackLibrary,
+    id: uuid::Uuid,
+    old: &oku_slides_core::PackVersion,
+    files: &oku_slides_core::PackFiles,
+) -> crate::Result<oku_slides_core::PackVersion> {
+    let lock = crate::library::draft_lock();
+    lib.save_draft(&lock, id, &crate::library::DraftWrite::Replace(old.clone()), files)
 }

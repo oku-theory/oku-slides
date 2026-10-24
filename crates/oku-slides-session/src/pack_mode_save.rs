@@ -4,7 +4,7 @@
 //! d'édition : le premier enregistrement crée une version (`parent` = la
 //! courante au début de la session), la rend courante, l'embarque dans le
 //! deck mis de côté, qui l'épingle sous son espace de noms (une seule étape
-//! d'annulation) ; les suivants la remplacent (`Library::replace_version`,
+//! d'annulation) ; les suivants la remplacent (`Library::save_draft` ; une version adoptée par un deck n'est pas remplacée, la suivante est sa fille ;
 //! même parente, l'intermédiaire quitte la bibliothèque et les sources des
 //! deux documents si l'enregistrement a rejoint son étape d'annulation ;
 //! sinon il y reste, annuler y revenant), jusqu'à la sortie du mode pack.
@@ -25,10 +25,11 @@ use oku_slides_i18n::Localize;
 use crate::deck_closure::{closure_with_files, examples_requires};
 use crate::error::{NotEditingPackSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, SourcesSnafu};
 use crate::example_text::localized_examples;
+use crate::library::{DraftWrite, draft_lock};
 use crate::library_packs::PackLibrary;
 use crate::namespace_slug::{library_namespace, rename_namespace};
 use crate::pack::{PackManifest, PackScope, now_created};
-use crate::pack_library::{restore_session_version, write_session_version};
+use crate::pack_library::{rebased, restore_session_version, write_session_version};
 use crate::pack_mode::{embed_packs, pin_deck, pinned};
 use crate::{Mode, PackMode, Result, Session};
 
@@ -186,15 +187,22 @@ impl Session {
     pub(crate) fn adopt_session_version(
         &mut self,
         mut deck: Deck,
-        files: PackFiles,
+        mut files: PackFiles,
         edit: &PackMode,
         as_new: bool,
         step: AdoptStep<'_>,
     ) -> Result<PackVersion> {
+        // Décider puis écrire sous le verrou des brouillons : une adoption ne s'y glisse pas.
+        let lock = draft_lock();
+        let session = edit.session_version.as_ref().filter(|_| !as_new);
+        let write = self.library.draft_write(&lock, edit.pack, session);
+        // Le brouillon de la séance est figé (un deck l'a adopté) : la version suivante est sa fille.
+        if let DraftWrite::Child(frozen) = &write {
+            files = rebased(edit.pack, &files, frozen)?;
+        }
         let manifest = PackManifest::from_files(&files).context(PackManifestSnafu { id: edit.pack })?;
         let (id, parent) = (manifest.id, manifest.parent.clone());
-        // Une version par séance : la première est créée, les suivantes la remplacent.
-        let replaced = edit.session_version.as_ref().filter(|_| !as_new);
+        let replaced = write.replaced();
         let version = files.version();
         let deck_only = !manifest.scope.is_library();
         let merge = adopt_merge_key(id, parent.as_ref());
@@ -223,7 +231,8 @@ impl Session {
         pin_deck(&mut deck, &packs)?;
         let stashed =
             stashed.map(|(mut user, packs)| pin_deck(&mut user, &packs).map(|()| (user, packs))).transpose()?;
-        write_session_version(&self.library, id, replaced, &files)?;
+        write_session_version(&self.library, &lock, id, &write, &files)?;
+        drop(lock);
         embed_packs(&mut self.doc.sources, packs);
         match step {
             AdoptStep::Session(label) => self.doc.sources.apply(deck, label, Some(&merge)),

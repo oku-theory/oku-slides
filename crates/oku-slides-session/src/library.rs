@@ -269,24 +269,30 @@ impl<K: LibraryKind> Library<K> {
         if !files.matches(&expected) {
             return Err(format!("content does not match {expected}"));
         }
-        let received = self.is_marked_received(folder);
+        let received = self.is_marked(folder, RECEIVED_FILE);
         StoredVersion::read(files).map(|s| StoredVersion { received, ..s })
     }
 
-    /// Le dossier de version `folder` porte-t-il la marque d'une version reçue ?
-    fn is_marked_received(&self, folder: &Path) -> bool {
-        let path = folder.join(RECEIVED_FILE);
-        self.storage
-            .len(&path)
+    /// Le dossier de version `folder` porte-t-il la marque `mark` (`received`, `adopted`) ?
+    ///
+    /// Lecture indulgente : une marque illisible compte pour absente.
+    fn is_marked(&self, folder: &Path, mark: &str) -> bool {
+        let path = folder.join(mark);
+        self.marker(&path)
             .inspect_err(
-                |e| tracing::warn!(path = %path.display(), error = %one_line(e), "marque de réception illisible"),
+                |e| tracing::warn!(path = %path.display(), error = %one_line(e), "marque de version illisible"),
             )
-            .is_ok_and(|len| len.is_some())
+            .unwrap_or(false)
+    }
+
+    /// Le fichier de marque `path` existe-t-il ? Une erreur de lecture est rendue telle quelle.
+    pub(crate) fn marker(&self, path: &Path) -> std::result::Result<bool, oku_slides_platform::storage::StorageError> {
+        self.storage.len(path).map(|len| len.is_some())
     }
 
     /// La version `v` de `id` est-elle arrivée avec un deck reçu ?
     pub fn is_received(&self, id: Uuid, v: &PackVersion) -> bool {
-        self.pack_dir(id).is_some_and(|d| self.is_marked_received(&d.join(VERSIONS_DIR).join(v.hex())))
+        self.pack_dir(id).is_some_and(|d| self.is_marked(&d.join(VERSIONS_DIR).join(v.hex()), RECEIVED_FILE))
     }
 
     /// Les versions de `id`, chargées : l'intégrée d'abord, puis celles de l'utilisateur.
@@ -471,17 +477,18 @@ impl<K: LibraryKind> Library<K> {
     ///
     /// Précondition : `old` est l'enregistrement précédent de la même session
     /// d'édition des modèles, qui n'a ainsi qu'une version. `old` quitte la
-    /// bibliothèque, sauf s'il est intégré ou la parente de `files` (la
+    /// bibliothèque, sauf s'il est figé ou la parente de `files` (la
     /// chaîne des versions reste entière). Un échec de cette suppression est
     /// journalisé : la nouvelle version est déjà enregistrée et courante.
-    pub fn replace_version(&self, id: Uuid, old: &PackVersion, files: &PackFiles) -> Result<PackVersion> {
+    fn replace_version(&self, id: Uuid, old: &PackVersion, files: &PackFiles) -> Result<PackVersion> {
         let version = files.version();
         self.add_version(id, files)?;
         self.set_current(id, &version)?;
-        let builtin = Self::builtin(id).is_some_and(|b| b.version == *old);
+        // Jamais une version figée (intégrée, reçue, adoptée) : même appelée à tort, elle reste.
+        let frozen = self.is_frozen(id, old);
         // Validé par `add_version` : le `widgets.json` se lit.
         let parent = K::Manifest::from_files(files).ok().and_then(|m| m.parent().cloned());
-        if *old != version && !builtin && parent.as_ref() != Some(old) {
+        if *old != version && !frozen && parent.as_ref() != Some(old) {
             let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?.join(VERSIONS_DIR).join(old.hex());
             let mut index = self.fresh();
             match self.storage.delete_dir(&dir) {
@@ -540,6 +547,12 @@ impl<K: LibraryKind> Library<K> {
     pub(crate) fn knows(&self, id: Uuid) -> bool {
         let mut index = self.fresh();
         !self.entry(&mut index, id).versions.is_empty()
+    }
+
+    /// L'index de l'entrée `id` liste-t-il la version `v` ? Sans rien charger.
+    pub(crate) fn lists(&self, id: Uuid, v: &PackVersion) -> bool {
+        let mut index = self.fresh();
+        self.entry(&mut index, id).versions.iter().any(|s| s.version == *v)
     }
 
     /// L'id de l'entrée dont la version courante porte l'espace de noms `ns` (voir [`may_own`]).
@@ -625,6 +638,10 @@ impl<K: LibraryKind> Library<K> {
         Ok(())
     }
 }
+
+#[path = "library_draft.rs"]
+mod draft;
+pub(crate) use draft::{DraftLock, DraftWrite, draft_lock};
 
 #[cfg(test)]
 #[path = "library_tests.rs"]

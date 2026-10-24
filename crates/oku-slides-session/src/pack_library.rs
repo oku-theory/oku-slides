@@ -10,7 +10,8 @@ use uuid::Uuid;
 
 use oku_slides_core::{PackFiles, PackVersion};
 
-use crate::error::{DeckOnlySnafu, PackManifestSnafu, PackVersionMissingSnafu, UnknownPackSnafu};
+use crate::error::{DeckOnlySnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, UnknownPackSnafu};
+use crate::library::{DraftLock, DraftWrite};
 use crate::library_kind::StoredVersion;
 use crate::library_packs::PackLibrary;
 use crate::pack::PackManifest;
@@ -45,28 +46,27 @@ impl Session {
     }
 }
 
-/// Écrit `files`, version de séance du pack `id`, dans la bibliothèque ; rend sa version.
+/// Écrit la version de séance `files` du pack `id` comme `write` ; rend sa version.
 ///
-/// Créée et rendue courante la première fois, elle remplace ensuite
-/// `replaced`. Un pack du deck seul n'y écrit rien.
+/// `write` vient de [`PackLibrary::draft_write`] sous `lock`. Un pack du deck seul n'y écrit rien.
 pub(crate) fn write_session_version(
     library: &PackLibrary,
+    lock: &DraftLock,
     id: Uuid,
-    replaced: Option<&PackVersion>,
+    write: &DraftWrite,
     files: &PackFiles,
 ) -> Result<PackVersion> {
-    let version = files.version();
     if is_deck_only(files) {
-        return Ok(version);
+        return Ok(files.version());
     }
-    match replaced {
-        Some(old) => library.replace_version(id, old, files),
-        None => {
-            library.add_version(id, files)?;
-            library.set_current(id, &version)?;
-            Ok(version)
-        }
-    }
+    library.save_draft(lock, id, write, files)
+}
+
+/// `files` du pack `id`, refaits avec `parent` pour parente : la fille d'un brouillon figé.
+pub(crate) fn rebased(id: Uuid, files: &PackFiles, parent: &PackVersion) -> Result<PackFiles> {
+    let mut manifest = PackManifest::from_files(files).context(PackManifestSnafu { id })?;
+    manifest.parent = Some(parent.clone());
+    Ok(manifest.to_files(files.kind(), files.widgets().clone()).context(PackJsonSnafu { id })?)
 }
 
 /// Remet `files`, une version de séance qu'annuler peut ramener, dans la bibliothèque.

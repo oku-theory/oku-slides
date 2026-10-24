@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use super::*;
 use crate::PackLibrary;
+use crate::library::{DraftWrite, draft_lock};
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, Relation};
 use crate::test_support::{add_version, fresh_dir, manifest, manifest_ns};
 
@@ -146,7 +147,7 @@ fn set_current_makes_a_version_current_even_over_a_builtin() {
 
 /// Une session d'édition des modèles n'a qu'une version : chaque enregistrement remplace la précédente.
 #[test]
-fn replace_version_keeps_the_parent_removes_the_old_one_and_updates_current() {
+fn save_draft_replace_keeps_the_parent_removes_the_old_one_and_updates_current() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
     let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
@@ -155,7 +156,8 @@ fn replace_version_keeps_the_parent_removes_the_old_one_and_updates_current() {
     let next = manifest(BASE_PACK, "Deux", Some(&builtin), "2026-10-02T10:05:00Z")
         .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
         .unwrap();
-    let replaced = lib.replace_version(BASE_PACK, &first.version, &next).unwrap();
+    let replaced =
+        lib.save_draft(&draft_lock(), BASE_PACK, &DraftWrite::Replace(first.version.clone()), &next).unwrap();
     assert_that!(replaced).is_equal_to(next.version());
     assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(next.version()));
     assert_that!(lib.version(BASE_PACK, &first.version)).is_none();
@@ -166,14 +168,14 @@ fn replace_version_keeps_the_parent_removes_the_old_one_and_updates_current() {
 }
 
 #[test]
-fn replace_version_never_deletes_the_builtin_version() {
+fn save_draft_replace_never_deletes_the_builtin_version() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
     let builtin = crate::test_support::builtin(BASE_PACK).version.clone();
     let next = manifest(BASE_PACK, "Mien", Some(&builtin), "2026-10-02T10:00:00Z")
         .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
         .unwrap();
-    lib.replace_version(BASE_PACK, &builtin, &next).unwrap();
+    lib.save_draft(&draft_lock(), BASE_PACK, &DraftWrite::Replace(builtin.clone()), &next).unwrap();
     assert_that!(lib.version(BASE_PACK, &builtin).is_some()).is_true();
     assert_that!(lib.current(BASE_PACK)).is_equal_to(Some(next.version()));
 }
@@ -322,7 +324,7 @@ fn replace_version_keeps_old_when_it_is_the_parent_of_the_new_one() {
     let next = manifest(id, "Deux", Some(&first.version), "2026-10-01T10:05:00Z")
         .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
         .unwrap();
-    lib.replace_version(id, &first.version, &next).unwrap();
+    replace(&lib, id, &first.version, &next).unwrap();
     assert_that!(lib.current(id)).is_equal_to(Some(next.version()));
     assert_that!(lib.version(id, &first.version).is_some()).is_true();
     assert_that!(lib.relation(id, &first.version, &next.version())).is_equal_to(Relation::Ancestor);
@@ -343,7 +345,7 @@ fn replace_version_whose_old_folder_cannot_be_deleted_still_succeeds() {
     let next = manifest(id, "Deux", None, "2026-10-01T10:05:00Z")
         .to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new())
         .unwrap();
-    let replaced = lib.replace_version(id, &first.version, &next);
+    let replaced = replace(&lib, id, &first.version, &next);
     std::fs::set_permissions(&old, std::fs::Permissions::from_mode(0o755)).unwrap();
     assert_that!(replaced.unwrap()).is_equal_to(next.version());
     assert_that!(lib.current(id)).is_equal_to(Some(next.version()));
@@ -470,4 +472,15 @@ fn packs_ignore_a_non_canonical_uuid_folder() {
     std::fs::rename(dir.path().join(id.to_string()), &upper).unwrap();
     assert_that!(library(dir.path()).packs(PackKind::Widgets).iter().any(|p| p.id == id)).is_false();
     assert_that!(first_legacy_sighting(&upper)).is_false();
+}
+
+/// Remplace la version `old` de `id` par `files`, comme l'enregistrement d'un brouillon.
+fn replace(
+    lib: &crate::PackLibrary,
+    id: uuid::Uuid,
+    old: &oku_slides_core::PackVersion,
+    files: &oku_slides_core::PackFiles,
+) -> crate::Result<oku_slides_core::PackVersion> {
+    let lock = crate::library::draft_lock();
+    lib.save_draft(&lock, id, &crate::library::DraftWrite::Replace(old.clone()), files)
 }

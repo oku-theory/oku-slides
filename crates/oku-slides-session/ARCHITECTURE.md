@@ -15,7 +15,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
   resolve in-process (`deck_widgets.rs`, `probed_widgets`: `builtin_registry` for exactly both), no packs `WidgetRegistry::default()`.
   `deck_fallback.rs` never disables a shipped built-in; `deck_closure.rs` (`requires`, dependents, `examples_requires`); `deck_pack.rs`,
   `deck_theme.rs` embed defaults; `library_packs.rs` (`PackLibrary`: a `Library<K>` per kind of `library_kind.rs`, a `ThemeLibrary`
-  clone; namespace unique across packs and themes, `deck`/`deck-layouts` reserved, built-ins never owned by a user copy (`owned_current`); `namespace_slug.rs`, `library.rs`, `library_index.rs`).
+  clone; namespace unique across packs and themes, `deck`/`deck-layouts` reserved, built-ins never owned by a user copy (`owned_current`); `namespace_slug.rs`, `library.rs` (`library_draft.rs`: drafts replaced in place until a deck adopts them, `adopted`), `library_index.rs`; `deck_adopt.rs` freezes a deck's pins).
 - Themes (`theme.rs`: Papier, Pro, Neutre; namespace, `extends`; unreadable user ones `skipped`, `notice-themes-skipped`): a deck pins its theme's
   closure (`theme_closure.rs`); `deck_theme.rs` renders with `theme_layer` (pack defaults, then the linearized chain), repairs a merge-broken closure.
   Editing: `theme_edit.rs` + `theme_draft.rs` (draft over its own `extends` list, a child of a built-in under a synthetic root), `theme_extends.rs` (list edits, one undo step each), `deck_theme_edit.rs`, `theme_schema.rs` + `theme_composed.rs` (plus packs' tokens), `theme_panel.rs` + `theme_controls.rs`, `theme_picker.rs`, `appearance.rs`.

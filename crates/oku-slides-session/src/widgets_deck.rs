@@ -13,12 +13,14 @@
 //! Séance : la première modification crée une version du pack cible
 //! (`parent` = la version embarquée), l'ajoute à la bibliothèque, la rend
 //! courante et l'épingle (`AddPack`, qui l'embarque) ; les
-//! suivantes la remplacent (`Library::replace_version`, nouvel
-//! `AddPack`), en une seule étape d'annulation (clé
+//! suivantes la remplacent (nouvel `AddPack`), en une seule étape d'annulation (clé
 //! `pack-adopt:<id>:<parent>`). La version remplacée quitte les sources
 //! du deck et la bibliothèque seulement si l'écriture a rejoint son étape
 //! (`undo_steps` inchangé) ; sinon annuler y revient, elle reste. Annuler
-//! rend la version d'avant ; la bibliothèque garde la version créée. La
+//! rend la version d'avant ; la bibliothèque garde la version créée. Les
+//! écritures passent par `draft_write` et `save_draft` sous le verrou des
+//! brouillons : un brouillon figé entre-temps (un autre deck l'a adopté)
+//! reçoit une fille. Le brouillon de la séance n'est adopté qu'à sa fin. La
 //! séance finit à la première opération qui n'est pas une modification de
 //! widget, et aux bornes d'un tour de l'agent. Un enregistrement la garde
 //! (l'interface enregistre après chaque écriture), sauf s'il fusionne un
@@ -45,6 +47,7 @@ use oku_slides_core::{
 use oku_slides_render::PackWidgets;
 
 use crate::error::{NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackVersionMissingSnafu, RegistrySnafu};
+use crate::library::{DraftWrite, draft_lock};
 use crate::pack::PackManifest;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_receive::is_deck_only;
@@ -79,8 +82,17 @@ pub(crate) struct WidgetSession {
 
 impl Session {
     /// Termine la séance de widgets du mode deck, s'il y en a une.
+    ///
+    /// La version de la séance cesse d'être un brouillon : le deck l'adopte.
     pub(crate) fn end_widget_session(&mut self) {
-        self.widget_session = None;
+        if self.widget_session.take().is_some() {
+            self.adopt_pins();
+        }
+    }
+
+    /// La version épinglée `pin` est-elle le brouillon de la séance de widgets en cours ?
+    pub(crate) fn is_widget_draft(&self, pin: &PackPin) -> bool {
+        self.widget_session.as_ref().is_some_and(|s| s.id == pin.id && s.version == pin.version)
     }
 
     /// Le pack du deck de l'utilisateur et sa sorte, épinglé sous `ns`, s'il y en a un.
@@ -192,6 +204,8 @@ impl Session {
         match committed {
             Ok(next) => {
                 self.widget_session = Some(next);
+                // Après la séance posée : son brouillon n'est pas adopté.
+                self.refresh_pack_updates();
                 Ok(())
             }
             Err(e) => {
@@ -213,7 +227,17 @@ impl Session {
     ) -> Result<WidgetSession> {
         // Un pack que la séance crée (pas encore embarqué) n'a pas de parente.
         let created = !self.doc.sources.packs.contains_key(&t.version);
-        let parent = session.map_or_else(|| (!created).then(|| t.version.clone()), |s| s.parent.clone());
+        // Le brouillon de la séance, figé depuis (un autre deck l'a adopté) : la version suivante est sa fille.
+        let frozen = session.filter(|s| {
+            let lock = draft_lock();
+            matches!(self.library.draft_write(&lock, t.id, Some(&s.version)), DraftWrite::Child(_))
+        });
+        let session = session.filter(|_| frozen.is_none());
+        let parent = match (session, frozen) {
+            (_, Some(f)) => Some(f.version.clone()),
+            (Some(s), None) => s.parent.clone(),
+            (None, None) => (!created).then(|| t.version.clone()),
+        };
         manifest.parent.clone_from(&parent);
         let files = manifest.to_files(t.kind, widgets).context(PackJsonSnafu { id: t.id })?;
         let version = files.version();
@@ -246,8 +270,6 @@ impl Session {
         if manifest.scope.is_library() {
             self.write_deck_widgets(t.id, &manifest.name, replaced, &files);
         }
-        // Après l'écriture : la bibliothèque connaît la version, courante.
-        self.refresh_pack_updates();
         Ok(WidgetSession { id: t.id, parent, version })
     }
 
@@ -255,10 +277,15 @@ impl Session {
     ///
     /// Un échec pose l'avis « non enregistrée ».
     fn write_deck_widgets(&mut self, id: Uuid, name: &str, replaced: Option<&WidgetSession>, files: &PackFiles) {
-        let written = match replaced {
-            Some(s) => self.library.replace_version(id, &s.version, files).map(|_| ()),
-            None => self.library.add_version(id, files).and_then(|_| self.library.set_current(id, &files.version())),
+        // Décider puis écrire sous le verrou ; relâché avant que le deck compare ses épinglages.
+        let lock = draft_lock();
+        let write = match replaced.map(|s| self.library.draft_write(&lock, id, Some(&s.version))) {
+            Some(replace @ DraftWrite::Replace(_)) => replace,
+            // Figé entre-temps : la version du deck s'ajoute en sœur, deck et bibliothèque gardent la même version.
+            _ => DraftWrite::New,
         };
+        let written = self.library.save_draft(&lock, id, &write, files).map(|_| ());
+        drop(lock);
         if let Err(e) = written {
             tracing::error!(error = %e.one_line(), "version de widgets non écrite dans la bibliothèque");
             let notice = self.localizer.tr_with("session-widgets-not-saved", &[("pack", name.into())]);

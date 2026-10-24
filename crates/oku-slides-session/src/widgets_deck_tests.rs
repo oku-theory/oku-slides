@@ -3,8 +3,11 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use crate::SessionErrorKind;
+use crate::library::draft_lock;
 use crate::pack::{PackManifest, PackScope};
-use crate::test_support::{adopt_deck_only_pack, fresh_dir, library_of, ns, opened_on, pin, touch_elsewhere};
+use crate::test_support::{
+    adopt_deck_only_pack, fresh_dir, library_of, ns, opened_on, pin, rename_title, touch_elsewhere,
+};
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("quote", params: (body: p.rich(), source: p.plain()),
@@ -474,4 +477,46 @@ fn deck_widget_write_of_a_slide_widget_into_a_widget_pack_is_refused() {
     assert_that!(fault)
         .is_equal_to(Some(oku_slides_core::WidgetErrorKind::BadSchema(oku_slides_core::SchemaFault::PackCategory)));
     assert_that!(pin(&s, "base")).is_equal_to(before);
+}
+
+#[test]
+fn two_widget_writes_in_one_session_keep_one_version_that_stays_a_draft() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    let id = pin(&s, "base").unwrap().id;
+    s.set_widget(Some(&ess()), "quote", QUOTE.into()).unwrap();
+    let first = pin(&s, "base").unwrap().version;
+    let count = library_of(&s).versions(id).len();
+    s.set_widget(Some(&ess()), "quote", QUOTE_V2.into()).unwrap();
+    let second = pin(&s, "base").unwrap().version;
+    assert_that!(library_of(&s).versions(id).len()).is_equal_to(count);
+    assert_that!(library_of(&s).version(id, &first).is_none()).is_true();
+    assert_that!(library_of(&s).is_frozen(id, &second)).is_false();
+}
+
+#[test]
+fn ending_the_widget_session_freezes_the_version_the_deck_pins() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    s.set_widget(Some(&ess()), "quote", QUOTE.into()).unwrap();
+    let pinned = pin(&s, "base").unwrap();
+    assert_that!(library_of(&s).is_frozen(pinned.id, &pinned.version)).is_false();
+    s.apply("Nom", vec![rename_title("Un")], None).unwrap();
+    assert_that!(library_of(&s).is_frozen(pinned.id, &pinned.version)).is_true();
+}
+
+#[test]
+fn a_version_adopted_by_another_deck_mid_session_gets_a_child_not_a_replacement() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    s.set_widget(Some(&ess()), "quote", QUOTE.into()).unwrap();
+    let first = pin(&s, "base").unwrap();
+    let files = library_of(&s).version(first.id, &first.version).unwrap();
+    library_of(&s).adopt(&draft_lock(), first.id, &files).unwrap();
+    s.set_widget(Some(&ess()), "quote", QUOTE_V2.into()).unwrap();
+    let second = pin(&s, "base").unwrap();
+    assert_that!(library_of(&s).version(first.id, &first.version).is_some()).is_true();
+    let written = library_of(&s).version(second.id, &second.version).unwrap();
+    assert_that!(PackManifest::from_files(&written).unwrap().parent).is_equal_to(Some(first.version.clone()));
+    assert_that!(library_of(&s).current(second.id)).is_equal_to(Some(second.version));
 }

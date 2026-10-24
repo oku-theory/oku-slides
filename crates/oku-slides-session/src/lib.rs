@@ -39,6 +39,7 @@ mod appearance;
 mod charts;
 mod data_edit;
 mod data_panel;
+mod deck_adopt;
 mod deck_closure;
 mod deck_fallback;
 mod deck_file;

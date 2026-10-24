@@ -17,7 +17,7 @@ use oku_slides_platform::storage::Storage;
 
 use crate::Result;
 use crate::error::{NamespaceReservedSnafu, NamespaceTakenSnafu, PackKindChangedSnafu};
-use crate::library::{Library, builtin_owner, may_own};
+use crate::library::{DraftLock, DraftWrite, Library, builtin_owner, may_own};
 use crate::library_kind::{Layouts, StoredVersion, Widgets};
 use crate::pack::{PackInfo, PackManifest, Relation};
 use crate::theme::ThemeLibrary;
@@ -169,10 +169,37 @@ impl PackLibrary {
         by_kind!(self, self.kind_of(id), l => l.set_current(id, v))
     }
 
-    /// Remplace la version `old` par `files`, rendue courante (voir [`Library::replace_version`]).
-    pub fn replace_version(&self, id: Uuid, old: &PackVersion, files: &PackFiles) -> Result<PackVersion> {
+    /// Comment enregistrer le brouillon `draft` du pack `id` (voir [`Library::draft_write`]).
+    pub(crate) fn draft_write(&self, lock: &DraftLock, id: Uuid, draft: Option<&PackVersion>) -> DraftWrite {
+        by_kind!(self, self.kind_of(id), l => l.draft_write(lock, id, draft))
+    }
+
+    /// Écrit le brouillon `files`, dans la sorte de ses fichiers (voir [`Library::save_draft`]).
+    pub(crate) fn save_draft(
+        &self,
+        lock: &DraftLock,
+        id: Uuid,
+        write: &DraftWrite,
+        files: &PackFiles,
+    ) -> Result<PackVersion> {
         self.check_kinds(id, files)?;
-        by_kind!(self, files.kind(), l => l.replace_version(id, old, files))
+        by_kind!(self, files.kind(), l => l.save_draft(lock, id, write, files))
+    }
+
+    /// La version `v` du pack `id` est-elle figée (voir [`Library::is_frozen`]) ?
+    pub(crate) fn is_frozen(&self, id: Uuid, v: &PackVersion) -> bool {
+        by_kind!(self, self.kind_of(id), l => l.is_frozen(id, v))
+    }
+
+    /// L'index liste-t-il la version `v` du pack `id` ? Sans rien charger.
+    pub(crate) fn lists(&self, id: Uuid, v: &PackVersion) -> bool {
+        by_kind!(self, self.kind_of(id), l => l.lists(id, v))
+    }
+
+    /// Fige la version `files` du pack `id` (voir [`Library::adopt`]).
+    pub(crate) fn adopt(&self, lock: &DraftLock, id: Uuid, files: &PackFiles) -> Result<()> {
+        self.check_kinds(id, files)?;
+        by_kind!(self, files.kind(), l => l.adopt(lock, id, files))
     }
 
     /// `a` par rapport à `b` dans le pack `id`, par la chaîne des `parent`.

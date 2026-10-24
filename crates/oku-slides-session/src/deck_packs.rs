@@ -211,6 +211,8 @@ impl Session {
     /// Seul l'écart `Older` compte (le deck est plus ancien) : une
     /// version plus récente ou parallèle se lit dans le panneau, sans pastille.
     pub(crate) fn refresh_pack_updates(&mut self) {
+        // Les épinglages ont changé : le deck adopte ce qu'il épingle avant qu'on le compare.
+        self.adopt_pins();
         self.pack_updates_pins = Some(self.pins_key());
         let older = |r: Option<Drift>| r == Some(Drift::Older);
         let packs = self.user_deck().all_pins().filter(|(_, _, pin)| older(self.pin_relation(pin))).count();

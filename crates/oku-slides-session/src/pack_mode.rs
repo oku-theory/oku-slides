@@ -347,6 +347,8 @@ impl Session {
         match std::mem::replace(&mut self.mode, Mode::Deck) {
             Mode::Pack { stash, .. } => {
                 self.doc = *stash;
+                // Le deck retrouvé épingle la version de la séance : elle est figée.
+                self.adopt_pins();
                 self.sync_widgets()?;
             }
             Mode::Deck => {}
