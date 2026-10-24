@@ -12,6 +12,7 @@ import { mergedNotice, openGuarded } from "./merge";
 import { cycle, nth } from "./tabs";
 import { useImportJob } from "./useImportJob";
 import { useImportPick } from "./useImportPick";
+import type { Clip } from "./useClipboard";
 import { useTabShortcuts } from "./useTabShortcuts";
 import { ERROR_MS } from "./useToast";
 import { useTransient } from "./useTransient";
@@ -38,6 +39,8 @@ export default function Workspace() {
   // dont l'avis dit le résultat (un seul avis par fenêtre).
   const update = useUpdate(tauriUpdates, setError);
   const appUpdates = useMemo(() => (tauriUpdates ? { check: update.check, requested: update.requested } : undefined), [update.check, update.requested]);
+  // L'élément copié : à la fenêtre, pas à l'`App` remontée à chaque onglet, pour se coller dans un autre.
+  const clip = useRef<Clip | null>(null);
   // Composant démonté (StrictMode, ou fenêtre fermée) : on ignore les réponses tardives.
   const alive = useRef(true);
   useEffect(() => {
@@ -291,6 +294,7 @@ export default function Workspace() {
         <App
           key={win.active}
           tab={win.active}
+          clip={clip}
           agentDetached={view.agent_detached}
           nonce={nonce}
           notice={mergeNotice}

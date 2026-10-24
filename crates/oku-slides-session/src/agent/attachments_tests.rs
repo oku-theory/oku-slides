@@ -1,5 +1,3 @@
-use std::io::Cursor;
-
 use oku_slides_core::Op;
 use oku_slides_i18n::{Localize, Localizer};
 use rstest::rstest;
@@ -7,19 +5,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use crate::SessionErrorKind;
-use crate::test_support::session;
-
-/// Un PNG valide de `w` × `h` pixels gris, de contenu propre à `seed`.
-pub(crate) fn png(w: u32, h: u32, seed: u8) -> Vec<u8> {
-    let mut out = Cursor::new(Vec::new());
-    let mut e = png::Encoder::new(&mut out, w, h);
-    e.set_color(png::ColorType::Grayscale);
-    let mut writer = e.write_header().unwrap();
-    let pixels: Vec<u8> = (0..w * h).map(|i| (i as u8).wrapping_add(seed)).collect();
-    writer.write_image_data(&pixels).unwrap();
-    drop(writer);
-    out.into_inner()
-}
+use crate::test_support::{png, session};
 
 #[test]
 fn paste_image_png_returns_its_asset_id_type_and_size() {

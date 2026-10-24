@@ -36,6 +36,7 @@ use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 mod add_grid;
 pub mod agent;
 mod appearance;
+mod carried_assets;
 mod charts;
 mod data_edit;
 mod data_panel;
@@ -278,6 +279,8 @@ pub struct Session {
     ui_order: Option<request::UiOrder>,
     /// Images collées dans le brouillon de l'agent de cet onglet (`[paste]`).
     attachments: agent::attachments::Attachments,
+    /// Assets apportés par le dernier élément collé depuis un autre onglet (`carried_assets`).
+    carried: carried_assets::CarriedAssets,
     /// Reprise activée (app de bureau) : l'état est écrit après chaque
     /// commande, par un fil dédié (`resume_writer`).
     resume: Option<resume_writer::Writer>,
@@ -431,6 +434,7 @@ impl Session {
             ui: UiState::default(),
             ui_order: None,
             attachments: agent::attachments::Attachments::new(settings.paste.clone()),
+            carried: carried_assets::CarriedAssets::new(),
             resume: None,
             agent_notes: Vec::new(),
             turn_steps: Default::default(),

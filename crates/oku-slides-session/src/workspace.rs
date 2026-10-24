@@ -158,6 +158,10 @@ impl Workspace {
         if let WorkspaceRequest::SameDeck { path } = &req {
             return Self::same_deck(ws, path);
         }
+        // Prend deux sessions l'une après l'autre : jamais sous le verrou (voir `workspace_carry.rs`).
+        if let WorkspaceRequest::CarryAssets { from, to, element } = &req {
+            return Self::carry_assets(ws, from, to, element);
+        }
         let waking = Self::lock(ws).to_wake(&req);
         Self::wake(ws, &waking);
         let pending = {
@@ -269,6 +273,9 @@ mod slot;
 
 #[path = "workspace_same_deck.rs"]
 mod same_deck;
+
+#[path = "workspace_carry.rs"]
+mod carry;
 
 #[path = "workspace_scheme.rs"]
 mod scheme;

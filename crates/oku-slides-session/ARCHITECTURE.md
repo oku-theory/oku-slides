@@ -21,7 +21,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
   Editing: `theme_edit.rs` + `theme_draft.rs` (draft over its own `extends` list, a child of a built-in under a synthetic root), `theme_extends.rs` (list edits, one undo step each), `deck_theme_edit.rs`, `theme_schema.rs` + `theme_composed.rs` (plus packs' tokens), `theme_panel.rs` + `theme_controls.rs`, `theme_picker.rs`, `appearance.rs`.
 - Workshop: `widgets_edit.rs`, `widget_preview.rs` (working deck's packs), `widget_examples.rs` (built-ins' `ftl:` markers: `example_text.rs`), `widget_params.rs`, `param_fields.rs`
   (Fluent names of built-in kinds), `items.rs`, `widgets_deck.rs` (`deck`/`deck-layouts` by category); `panel.rs`; `data_panel.rs` + `data_edit.rs` (the `host-data` surface of a selected chart or table and its edits, one undo step each).
-- Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`; add grid (`add_grid.rs`: `add_packs` with seeds, `free_slots`).
+- Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`; add grid (`add_grid.rs`: `add_packs` with seeds, `free_slots`); `carried_assets.rs`: an element's assets pasted from another tab, kept until an op cites them or the next carry.
 - Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts unrendered, its worker at the first render.
 - `import/`: PowerPoint import, CLI and app (one history step; a retrofit pins `base` and its layout packs, scored by their
   profiles; hi-fi makes a deck-only `deck-layouts` and pins Neutre, its tokens in `deck.tokens`), `render`, `note_overflows`, `reference`, `state` (`ImportState`, tab memory),
@@ -35,7 +35,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
 ## Workspace
 
 `Workspace` (`workspace.rs`), `WorkspaceRequest` / `WorkspaceView` (`workspace_request.rs`): windows `w-<n>`, tabs `t-<n>` (`_ids`),
-detached agent. `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds a tab's session (`Tab`); other `workspace_*.rs`: `session`
+detached agent, `carry` (`CarryAssets`: reads a ready source tab without rendering it, then the target, outside the lock). `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds a tab's session (`Tab`); other `workspace_*.rs`: `session`
 (locking path, `relock`), `locale`, `scheme`, tabs (`Opening`; `ImportTab` builds an imported tab, outcome `Tune` names it for the agent), windows, layout
 (`Layout`, `Rect`), resume, same deck, agent, help, `import_pick` (a `.pptx` given to `open_files` becomes the focused window's
 `WorkspaceView.import_pick`, its import dialog, not a tab, until `ImportPicked`). Lock order: `Mutex<Workspace>`, then a tab's `Arc<Mutex<Slot>>`,

@@ -303,6 +303,7 @@ impl Workspace {
             | WorkspaceRequest::Scheme
             | WorkspaceRequest::SetScheme { .. }
             | WorkspaceRequest::SameDeck { .. }
+            | WorkspaceRequest::CarryAssets { .. }
             | WorkspaceRequest::NewTab { .. }
             | WorkspaceRequest::OpenTab { .. }
             | WorkspaceRequest::ImportTab { .. }

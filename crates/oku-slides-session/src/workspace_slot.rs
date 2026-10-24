@@ -82,6 +82,14 @@ impl Slot {
         matches!(self, Self::Dormant(_))
     }
 
+    /// La session si elle est prête, sans la relire ni la rendre ; `None` : endormie ou fermée.
+    pub(super) fn ready_session(&self) -> Option<&Session> {
+        match self {
+            Self::Ready(session) => Some(session),
+            Self::Dormant(_) | Self::Closed(_) => None,
+        }
+    }
+
     /// Infos à jour d'une session relue ; `None` : endormie ou fermée.
     pub(super) fn info(&self) -> Option<TabInfo> {
         match self {

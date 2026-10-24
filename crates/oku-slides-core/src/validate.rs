@@ -6,8 +6,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use oku_slides_i18n::{Localize, Localizer, Message};
 
-use crate::locate::MAX_SLOT_DEPTH;
-use crate::model::{Deck, DeckParams, Grid, Paragraph};
+use crate::locate::{MAX_SLOT_DEPTH, Walk};
+use crate::model::{Deck, DeckParams, Element, Grid, Paragraph};
 use crate::namespace::Namespace;
 use crate::ops::ListSpec;
 use crate::pack::PackVersion;
@@ -141,12 +141,25 @@ pub fn asset_refs(deck: &Deck, registry: &WidgetRegistry) -> BTreeSet<String> {
             out.extend(param_assets(schema, &s.params).into_iter().map(str::to_owned));
         }
         for l in s.walk() {
-            if let Some(schema) = registry.get(&l.element.kind) {
-                out.extend(param_assets(schema, &l.element.params).into_iter().map(str::to_owned));
-            }
+            out.extend(own_assets(l.element, registry));
         }
     }
     out
+}
+
+/// Les assets que cite un élément : les siens et ceux de ses descendants.
+pub fn element_asset_refs(element: &Element, registry: &WidgetRegistry) -> BTreeSet<String> {
+    let mut out: BTreeSet<String> = own_assets(element, registry).collect();
+    for l in Walk::over(&element.params, Some(&element.id)) {
+        out.extend(own_assets(l.element, registry));
+    }
+    out
+}
+
+/// Les assets des paramètres de `element` seul, selon le schéma de son kind.
+fn own_assets(element: &Element, registry: &WidgetRegistry) -> impl Iterator<Item = String> {
+    let schema = registry.get(&element.kind);
+    schema.into_iter().flat_map(|schema| param_assets(schema, &element.params)).map(str::to_owned)
 }
 
 /// Vérifie le deck contre `registry`. `assets` : identifiants disponibles,

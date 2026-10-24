@@ -1,6 +1,6 @@
 // L'espace de travail de l'hôte : fenêtres, onglets, import d'un .pptx, glisser d'un onglet.
 
-import type { Messages, SchemeSetting } from "./api";
+import type { Element, Messages, SchemeSetting } from "./api";
 import { host } from "./hostCall";
 
 /** Un onglet, tel que la barre le montre. */
@@ -60,6 +60,7 @@ type WorkspaceRequest =
   | ({ cmd: "import_tab"; window: string; path: string; tune?: boolean } & ImportTarget)
   | { cmd: "open_help"; window: string }
   | { cmd: "same_deck"; path: string }
+  | { cmd: "carry_assets"; from: string; to: string; element: Element }
   | { cmd: "activate"; tab: string }
   | { cmd: "close"; tab: string; discard: boolean }
   | { cmd: "reorder"; tab: string; index: number }
@@ -91,6 +92,9 @@ export const workspace = {
   openHelp: (window: string) => ws<WorkspaceView>({ cmd: "open_help", window }),
   /** L'onglet qui tient déjà le deck de `path` sous un autre fichier. Ne change rien. */
   sameDeck: (path: string) => ws<{ tab: string | null; title: string | null }>({ cmd: "same_deck", path }),
+  /** Avant un collage venu de `from` : copie ses assets vers `to`. */
+  carryAssets: (from: string, to: string, element: Element) =>
+    ws<{ carried: number }>({ cmd: "carry_assets", from, to, element }),
   activate: (tab: string) => ws<WorkspaceView>({ cmd: "activate", tab }),
   /** `discard` : l'utilisateur a choisi de perdre le travail non enregistré. */
   close: (tab: string, discard = false) => ws<WorkspaceView>({ cmd: "close", tab, discard }),

@@ -20,6 +20,13 @@ fn classify_same_deck_returns_its_own_reply() {
 }
 
 #[test]
+fn classify_carry_assets_returns_its_own_reply() {
+    let element = serde_json::json!({"id": "e", "kind": "base/image", "params": {"asset": "sha256:ab"}});
+    let carry = req(serde_json::json!({"cmd": "carry_assets", "from": "t-1", "to": "t-2", "element": element}));
+    assert_that!((classify(&carry), broadcast(&carry))).is_equal_to(((false, false), None));
+}
+
+#[test]
 fn classify_structural_requests_resync_without_forcing_focus() {
     for v in [
         serde_json::json!({"cmd": "new_tab", "window": "w-1"}),

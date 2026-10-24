@@ -71,6 +71,19 @@ pub enum WorkspaceRequest {
         /// Le fichier (normalisé à la réception).
         path: PathBuf,
     },
+    /// Apporte à `to` les assets d'un élément copié dans `from`.
+    ///
+    /// Avant le collage. `to` les garde en mémoire à la place des précédents, et ne
+    /// les range dans son bundle que si le collage les cite : `{ "carried": n }` ;
+    /// ne change pas la vue.
+    CarryAssets {
+        /// Onglet où l'élément a été copié.
+        from: String,
+        /// Onglet où il est collé.
+        to: String,
+        /// L'élément copié, tel que le presse-papiers le garde.
+        element: Box<oku_slides_core::Element>,
+    },
     /// L'onglet devient actif dans sa fenêtre.
     Activate {
         /// Identifiant de l'onglet.

@@ -2,7 +2,7 @@
 //!
 //! Une image est validée au collage (type réel, octets, pixels de l'en-tête), rangée sous
 //! son identifiant d'asset `sha256:…`, et n'entre dans le deck que quand une op la cite
-//! (`Session::embed_op_assets`).
+//! (`Session::embed_op_assets`, qui reçoit aussi les assets d'un collage entre onglets).
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -135,23 +135,34 @@ impl Session {
 
     /// Ajoute au bundle les images collées que `next` cite et que le deck ne citait pas.
     ///
-    /// Un autre asset nouvellement cité, absent du bundle, est refusé ; un asset déjà
+    /// Les assets apportés par un élément collé depuis un autre onglet (`carried_assets`)
+    /// entrent de même. Un autre asset nouvellement cité, absent du bundle, est refusé ; un asset déjà
     /// manquant avant l'op (deck importé) reste au `validate` de le signaler.
     pub(crate) fn embed_op_assets(&mut self, next: &Deck, registry: &WidgetRegistry) -> Result<()> {
         let before = oku_slides_core::asset_refs(self.doc.sources.deck(), registry);
-        let mut found = Vec::new();
+        let (mut pasted, mut carried) = (Vec::new(), Vec::new());
         for id in oku_slides_core::asset_refs(next, registry) {
             if before.contains(&id) || self.doc.sources.assets.contains_key(&id) {
                 continue;
             }
-            match self.attachments.get(&id) {
-                Some((_, bytes)) => found.push(bytes),
-                None => return UnknownAssetSnafu { asset: id }.fail()?,
+            if let Some((_, bytes)) = self.attachments.get(&id) {
+                pasted.push(bytes);
+            } else if self.carried.contains_key(&id) {
+                carried.push(id);
+            } else {
+                return UnknownAssetSnafu { asset: id }.fail()?;
             }
         }
         // Tout est vérifié avant d'ajouter : un refus n'ajoute rien.
-        for bytes in found {
+        for bytes in pasted {
             self.doc.sources.add_asset(bytes.to_vec());
+        }
+        // Un asset apporté passe dans le bundle sans copie : il n'est plus gardé à part.
+        // `remove` le trouve toujours : `contains_key` vient de le voir, sous le même `&mut self`.
+        for id in carried {
+            if let Some(bytes) = self.carried.remove(&id) {
+                self.doc.sources.add_asset(bytes);
+            }
         }
         Ok(())
     }

@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 use super::*;
+use crate::model::Element;
 use crate::test_registry::registry;
 
 fn deck(slides: Value) -> Deck {
@@ -479,6 +480,46 @@ fn asset_refs_lists_the_assets_of_a_list_column() {
     );
     let refs = asset_refs(&d, &crate::test_registry::with_list());
     assert_that!(refs).is_equal_to(BTreeSet::from(["sha256:ab".to_owned(), "sha256:cd".to_owned()]));
+}
+
+#[test]
+fn element_asset_refs_of_a_container_lists_the_assets_of_its_children() {
+    let e: Element = serde_json::from_value(json!({
+        "id": "b", "kind": crate::test_registry::FRAME_BOX_KIND, "params": { "children": [
+            { "id": "i", "kind": "base/image", "params": { "asset": "sha256:ab" } },
+            { "id": "j", "kind": "base/image", "params": { "asset": "sha256:cd" } }
+        ] }
+    }))
+    .unwrap();
+    let refs = element_asset_refs(&e, &registry());
+    assert_that!(refs).is_equal_to(BTreeSet::from(["sha256:ab".to_owned(), "sha256:cd".to_owned()]));
+}
+
+#[test]
+fn element_asset_refs_of_a_container_lists_the_assets_of_its_grandchildren() {
+    let e: Element = serde_json::from_value(json!({
+        "id": "b", "kind": crate::test_registry::FRAME_BOX_KIND, "params": { "children": [
+            { "id": "c", "kind": crate::test_registry::FRAME_BOX_KIND, "params": { "children": [
+                { "id": "i", "kind": "base/image", "params": { "asset": "sha256:ef" } }
+            ] } }
+        ] }
+    }))
+    .unwrap();
+    assert_that!(element_asset_refs(&e, &registry())).is_equal_to(BTreeSet::from(["sha256:ef".to_owned()]));
+}
+
+#[test]
+fn element_asset_refs_of_an_image_lists_its_asset() {
+    let e: Element =
+        serde_json::from_value(json!({ "id": "i", "kind": "base/image", "params": { "asset": "sha256:ab" } })).unwrap();
+    assert_that!(element_asset_refs(&e, &registry())).is_equal_to(BTreeSet::from(["sha256:ab".to_owned()]));
+}
+
+#[test]
+fn element_asset_refs_of_an_unknown_kind_is_empty() {
+    let e: Element =
+        serde_json::from_value(json!({ "id": "i", "kind": "ailleurs/x", "params": { "asset": "sha256:ab" } })).unwrap();
+    assert_that!(element_asset_refs(&e, &registry())).is_equal_to(BTreeSet::new());
 }
 
 /// Un item de liste dont la colonne `note` porte un seul run.

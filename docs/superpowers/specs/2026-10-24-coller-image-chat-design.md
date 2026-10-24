@@ -31,7 +31,7 @@ places it.
 - **Unknown asset ids are refused:** an asset id that the new deck cites, the old one did
   not, and neither the bundle nor the tab's attachments hold fails with `UnknownAsset`.
   The user reads `session-asset-unknown`, which names no certain cause (an image copied
-  from another tab, a variant card citing a lost pasted image); the agent reads
+  from a tab closed since, a variant card citing a lost pasted image); the agent reads
   `agent-error-asset-unknown` in its tool reply (t-1171). Decks that already lack an
   asset (`roadmap.json` cites `sha256:0000`) still open and edit; `validate` keeps
   reporting them.
@@ -104,6 +104,17 @@ Pasted bytes are validated at paste time (magic bytes, header dimensions, caps),
 only by Typst in the bounded render worker and shown as slide SVGs. The only direct
 display is the thumbnail in the pasting window, built from the user's own local file. No
 route serves attachment or asset bytes.
+
+## Pasting an element from another tab (t-1178)
+
+The copied element belongs to the window (`Workspace.tsx`), with its tab of origin. Pasted in
+another tab, `CarryAssets {from, to, element}` first reads the bytes of the assets the element
+cites in `from`'s bundle (only if `from` is ready: never woken or rendered for this), releases it,
+then keeps them in `to`'s memory (`carried_assets.rs`, keyed by `asset_id(bytes)`, replaced on
+each carry); `embed_op_assets` moves them into the bundle only when the paste cites them. A
+closed, unknown or dormant `from` carries nothing: the paste is refused as an unknown asset. A
+cut becomes a copy in another tab (no `move_element` across tabs). Copying between windows is not
+covered: each window keeps its own copied element.
 
 ## Known limits
 

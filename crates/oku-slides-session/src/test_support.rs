@@ -653,3 +653,15 @@ pub(crate) fn host_slide(s: &mut Session, slide: serde_json::Value) {
     s.doc.sources.apply_silent(deck).unwrap_or_else(|e| panic!("slide hôte : {e}"));
     s.rerender().unwrap_or_else(|e| panic!("rendu : {}", e.one_line()));
 }
+
+/// Un PNG valide de `w` × `h` pixels gris, de contenu propre à `seed`.
+pub(crate) fn png(w: u32, h: u32, seed: u8) -> Vec<u8> {
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut e = png::Encoder::new(&mut out, w, h);
+    e.set_color(png::ColorType::Grayscale);
+    let mut writer = e.write_header().unwrap_or_else(|e| panic!("png : {e}"));
+    let pixels: Vec<u8> = (0..w * h).map(|i| (i as u8).wrapping_add(seed)).collect();
+    writer.write_image_data(&pixels).unwrap_or_else(|e| panic!("png : {e}"));
+    drop(writer);
+    out.into_inner()
+}

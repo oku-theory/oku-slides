@@ -38,3 +38,4 @@ mod issue_1099_parent_seul_embarque;
 mod issue_1106_deck_theme_edit_uses_embedded_closure;
 mod issue_1111_layout_examples_follow_ui_language;
 mod issue_1112_pack_updates_inside_runtime;
+mod issue_1178_coller_image_autre_onglet;

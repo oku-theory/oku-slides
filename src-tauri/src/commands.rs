@@ -41,14 +41,15 @@ pub async fn blocking<T: Send + 'static>(
 /// mise à jour ici ne compile plus.
 fn classify(req: &WorkspaceRequest) -> (bool, bool) {
     match req {
-        // `SameDeck` ne change rien : sa réponse est rendue telle quelle ;
+        // `SameDeck` et `CarryAssets` ne changent pas la vue : leur réponse est rendue telle quelle ;
         // `SetLocale` et `SetScheme` ne touchent qu'aux réglages, pas aux onglets.
         WorkspaceRequest::View
         | WorkspaceRequest::Messages
         | WorkspaceRequest::SetLocale { .. }
         | WorkspaceRequest::Scheme
         | WorkspaceRequest::SetScheme { .. }
-        | WorkspaceRequest::SameDeck { .. } => (false, false),
+        | WorkspaceRequest::SameDeck { .. }
+        | WorkspaceRequest::CarryAssets { .. } => (false, false),
         WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }
         | WorkspaceRequest::Close { .. }
@@ -81,6 +82,7 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::Messages
         | WorkspaceRequest::Scheme
         | WorkspaceRequest::SameDeck { .. }
+        | WorkspaceRequest::CarryAssets { .. }
         | WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }
         | WorkspaceRequest::Close { .. }

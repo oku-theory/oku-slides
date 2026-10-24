@@ -5,7 +5,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Require render to be a strict tree (unique ids, no sharing, cycles or orphans, depth 6, 40 components max); reject agent texts with bidirectional control or invisible characters. (spec:2026-10-03-agent-a2ui-design)
-- Lock the workspace before a session, never the reverse, only try_lock a session under it, and never read files, render or build a session under it. (ADR-0001, spec:2026-09-26-onglets-fenetres-design)
+- Lock the workspace before a session, never the reverse, only try_lock a session under it, never hold two sessions (CarryAssets takes one, then the other), and never read files, render or build a session under it. (ADR-0001, spec:2026-09-26-onglets-fenetres-design, t-1178)
 - Never reuse tab or window ids, accept only valid unique t-N and w-N ids from workspace.json, which only the Workspace writes; a session writes only its tab folder. (ADR-0001, spec:2026-09-26-onglets-fenetres-design)
 - Reread dormant tabs before a destructive decision such as close; if unreadable, take the cautious path. (ADR-0001, spec:2026-09-26-onglets-fenetres-design)
 - Render the new deck before committing it to the replica so a failed render leaves no trace in Loro history. (spec:2026-09-27-sources-loro-design)
