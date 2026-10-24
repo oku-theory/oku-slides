@@ -512,4 +512,4 @@ session-paste-unsupported = Chỉ có thể dán ảnh PNG, JPEG, GIF và WebP.
 session-paste-too-large = Ảnh này quá nặng để dán.
 session-paste-too-many-pixels = Ảnh này có quá nhiều điểm ảnh để dán.
 session-paste-unreadable = Không đọc được ảnh này.
-session-asset-unknown = Hình ảnh này không có trong bản trình bày cũng như trong các hình ảnh đã dán: hãy dùng mã định danh của một hình ảnh đã dán.
+session-asset-unknown = Hình ảnh này không có trong bản trình bày này; có thể nó đến từ một bản trình bày khác.

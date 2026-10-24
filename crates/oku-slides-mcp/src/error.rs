@@ -22,15 +22,14 @@ impl Localize for McpError {
     }
 }
 
-/// L'erreur de la session dite à l'agent ou à l'interface, dans la langue de l'utilisateur.
+/// L'erreur de la session dite à l'utilisateur, dans sa langue : cartes du hub, et repli de l'agent.
 ///
 /// Un fichier illisible ou impossible à écrire est dit sans son chemin : aucune erreur envoyée
-/// ne contient de chemin absolu. L'erreur complète reste dans les journaux de l'appelant.
+/// ne contient de chemin absolu. L'erreur complète reste dans les journaux de l'appelant. Ce qui
+/// ne s'adresse qu'à l'agent va dans `say_to_agent` (`tool_error`).
 pub(crate) fn say_session(e: &oku_slides_session::SessionError, l: &Localizer) -> String {
     match e.kind() {
         oku_slides_session::SessionErrorKind::File => l.tr("agent-error-file"),
-        // L'agent a donné un id qu'aucun pack ne porte : `packs` les liste.
-        oku_slides_session::SessionErrorKind::UnknownPack => l.tr("agent-error-pack-id"),
         _ => e.localize(l),
     }
 }

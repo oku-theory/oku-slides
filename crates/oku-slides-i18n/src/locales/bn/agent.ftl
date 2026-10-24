@@ -89,6 +89,7 @@ agent-error-no-variant = এই রূপটি আর নেই।
 agent-error-arguments = টুলের আর্গুমেন্টগুলো অবৈধ ({ $detail }): এর স্কিমা অনুযায়ী সেগুলো যাচাই করুন।
 agent-error-unknown-tool = অজানা টুল: { $name }।
 agent-error-pack-id = এটি কোনো প্যাকের id নয়: প্যাক ও তাদের id-এর তালিকা পেতে packs ডাকুন।
+agent-error-asset-unknown = এই ছবিটি উপস্থাপনায় নেই, আবার পেস্ট করা ছবিগুলোর মধ্যেও নেই: পেস্ট করা কোনো ছবির আইডি ব্যবহার করুন।
 agent-error-denied = ব্যবহারকারী প্রত্যাখ্যান করেছেন।
 agent-error-no-turn = কোনো পালা চলছে না: { $tool } শুধু একটি পালার সময় দেখানো হয়।
 agent-error-turn-over = এই কলের পালা শেষ হয়ে গেছে: কিছুই দেখানো হয়নি।

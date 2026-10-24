@@ -97,6 +97,7 @@ agent-error-no-variant = لم يعد هذا البديل موجودًا.
 agent-error-arguments = وسائط الأداة غير صالحة ({ $detail }): تحقّق منها وفق مخططها.
 agent-error-unknown-tool = أداة غير معروفة: { $name }.
 agent-error-pack-id = هذا ليس معرّف حزمة: استدعِ packs لعرض الحزم ومعرّفاتها.
+agent-error-asset-unknown = هذه الصورة ليست في العرض التقديمي ولا ضمن الصور الملصقة: استخدم معرّف صورة ملصقة.
 agent-error-denied = رفض المستخدم.
 agent-error-no-turn = لا يوجد دور جارٍ: لا يُعرض { $tool } إلا أثناء دور.
 agent-error-turn-over = انتهى دور هذا الاستدعاء: لم يُعرض شيء.

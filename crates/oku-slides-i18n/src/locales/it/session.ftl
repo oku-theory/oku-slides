@@ -515,4 +515,4 @@ session-paste-unsupported = Si possono incollare solo immagini PNG, JPEG, GIF e 
 session-paste-too-large = Questa immagine è troppo pesante per essere incollata.
 session-paste-too-many-pixels = Questa immagine ha troppi pixel per essere incollata.
 session-paste-unreadable = Non è stato possibile leggere questa immagine.
-session-asset-unknown = Questa immagine non è né nella presentazione né tra le immagini incollate: usa l'identificatore di un'immagine incollata.
+session-asset-unknown = Questa immagine non è in questa presentazione; forse proviene da un'altra.

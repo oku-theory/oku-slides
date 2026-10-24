@@ -83,6 +83,7 @@ agent-error-no-variant = 이 변형은 더 이상 없습니다.
 agent-error-arguments = 도구의 인수가 올바르지 않습니다({ $detail }). 스키마에 맞는지 확인하세요.
 agent-error-unknown-tool = 알 수 없는 도구: { $name }.
 agent-error-pack-id = 팩의 id가 아닙니다. packs를 호출해 팩과 그 id 목록을 확인하세요.
+agent-error-asset-unknown = 이 이미지는 프레젠테이션에도 붙여넣은 이미지에도 없습니다. 붙여넣은 이미지의 ID를 사용하세요.
 agent-error-denied = 사용자가 거절했습니다.
 agent-error-no-turn = 진행 중인 턴이 없습니다. { $tool }은(는) 턴 중에만 표시됩니다.
 agent-error-turn-over = 이 호출의 턴이 끝났습니다. 아무것도 표시되지 않았습니다.

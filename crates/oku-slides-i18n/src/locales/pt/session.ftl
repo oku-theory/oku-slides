@@ -515,4 +515,4 @@ session-paste-unsupported = Só é possível colar imagens PNG, JPEG, GIF e WebP
 session-paste-too-large = Esta imagem é pesada demais para ser colada.
 session-paste-too-many-pixels = Esta imagem tem pixels demais para ser colada.
 session-paste-unreadable = Não foi possível ler esta imagem.
-session-asset-unknown = Esta imagem não está na apresentação nem entre as imagens coladas: use o identificador de uma imagem colada.
+session-asset-unknown = Esta imagem não está nesta apresentação; talvez venha de outra.

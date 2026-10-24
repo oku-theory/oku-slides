@@ -83,6 +83,7 @@ agent-error-no-variant = Bu varyant artık yok.
 agent-error-arguments = Aracın argümanları geçersiz ({ $detail }): şemasına göre kontrol edin.
 agent-error-unknown-tool = Bilinmeyen araç: { $name }.
 agent-error-pack-id = Bu bir paketin kimliği değil: paketleri ve kimliklerini listelemek için packs aracını çağırın.
+agent-error-asset-unknown = Bu görsel ne sunumda ne de yapıştırılan görseller arasında: yapıştırılmış bir görselin kimliğini kullanın.
 agent-error-denied = Kullanıcı reddetti.
 agent-error-no-turn = Devam eden bir tur yok: { $tool } yalnızca bir tur sırasında gösterilir.
 agent-error-turn-over = Bu çağrının turu bitti: hiçbir şey gösterilmedi.

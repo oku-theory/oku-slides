@@ -17,7 +17,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
   tuning; `ReferenceJob` in a blocking task).
-- `tool_error` : `ToolError`; `Tools::fail_with` logs it whole and tells the agent a localized
+- `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized
   message in the current interface language (`LiveLocalizer`, also read by the hub at each
   text). `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.
 - `settings` : `SettingsPort` (implemented by the host), `Applied`, the agent's key whitelist.

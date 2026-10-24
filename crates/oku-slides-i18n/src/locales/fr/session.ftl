@@ -515,4 +515,4 @@ session-paste-unsupported = Seules les images PNG, JPEG, GIF et WebP se collent.
 session-paste-too-large = Cette image est trop lourde pour être collée.
 session-paste-too-many-pixels = Cette image a trop de pixels pour être collée.
 session-paste-unreadable = Cette image est illisible.
-session-asset-unknown = Cette image n'est ni dans le deck ni parmi les images collées : donnez l'identifiant d'une image collée.
+session-asset-unknown = Cette image n'est pas dans ce deck ; elle vient peut-être d'un autre deck.

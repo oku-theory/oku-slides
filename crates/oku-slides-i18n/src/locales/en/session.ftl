@@ -515,4 +515,4 @@ session-paste-unsupported = Only PNG, JPEG, GIF and WebP images can be pasted.
 session-paste-too-large = This image is too heavy to paste.
 session-paste-too-many-pixels = This image has too many pixels to paste.
 session-paste-unreadable = This image could not be read.
-session-asset-unknown = This image is neither in the deck nor among the pasted images: use the id of a pasted image.
+session-asset-unknown = This image is not in this deck; it may come from another deck.

@@ -512,4 +512,4 @@ session-paste-unsupported = PNG, JPEG, GIF, WebP 이미지만 붙여넣을 수 �
 session-paste-too-large = 이 이미지는 너무 커서 붙여넣을 수 없습니다.
 session-paste-too-many-pixels = 이 이미지는 픽셀 수가 너무 많아 붙여넣을 수 없습니다.
 session-paste-unreadable = 이 이미지를 읽을 수 없습니다.
-session-asset-unknown = 이 이미지는 프레젠테이션에도 붙여넣은 이미지에도 없습니다. 붙여넣은 이미지의 ID를 사용하세요.
+session-asset-unknown = 이 이미지는 이 프레젠테이션에 없습니다. 다른 프레젠테이션에서 온 것일 수 있습니다.

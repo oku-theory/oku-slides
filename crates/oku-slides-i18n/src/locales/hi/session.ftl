@@ -515,4 +515,4 @@ session-paste-unsupported = केवल PNG, JPEG, GIF और WebP चित्
 session-paste-too-large = यह चित्र चिपकाने के लिए बहुत भारी है।
 session-paste-too-many-pixels = इस चित्र में चिपकाने के लिए बहुत अधिक पिक्सेल हैं।
 session-paste-unreadable = यह चित्र पढ़ा नहीं जा सका।
-session-asset-unknown = यह छवि न तो प्रस्तुति में है और न ही चिपकाई गई छवियों में: चिपकाई गई किसी छवि की आईडी का उपयोग करें।
+session-asset-unknown = यह छवि इस प्रस्तुति में नहीं है; शायद यह किसी दूसरी प्रस्तुति से आई है।

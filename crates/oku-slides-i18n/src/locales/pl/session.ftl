@@ -517,4 +517,4 @@ session-paste-unsupported = Można wklejać tylko obrazy PNG, JPEG, GIF i WebP.
 session-paste-too-large = Ten obraz jest zbyt duży, aby go wkleić.
 session-paste-too-many-pixels = Ten obraz ma zbyt wiele pikseli, aby go wkleić.
 session-paste-unreadable = Nie udało się odczytać tego obrazu.
-session-asset-unknown = Tego obrazu nie ma ani w prezentacji, ani wśród wklejonych obrazów: użyj identyfikatora wklejonego obrazu.
+session-asset-unknown = Tego obrazu nie ma w tej prezentacji; może pochodzi z innej.

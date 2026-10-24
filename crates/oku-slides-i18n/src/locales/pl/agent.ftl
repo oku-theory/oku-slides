@@ -93,6 +93,7 @@ agent-error-no-variant = Ten wariant już nie istnieje.
 agent-error-arguments = Argumenty narzędzia są nieprawidłowe ({ $detail }): sprawdź je według jego schematu.
 agent-error-unknown-tool = Nieznane narzędzie: { $name }.
 agent-error-pack-id = To nie jest id pakietu: wywołaj packs, aby wypisać pakiety i ich id.
+agent-error-asset-unknown = Tego obrazu nie ma ani w prezentacji, ani wśród wklejonych obrazów: użyj identyfikatora wklejonego obrazu.
 agent-error-denied = Użytkownik odmówił.
 agent-error-no-turn = Żadna tura nie trwa: { $tool } jest wyświetlany tylko podczas tury.
 agent-error-turn-over = Tura tego wywołania dobiegła końca: nic nie zostało wyświetlone.

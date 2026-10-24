@@ -515,4 +515,4 @@ session-paste-unsupported = Solo se pueden pegar imágenes PNG, JPEG, GIF y WebP
 session-paste-too-large = Esta imagen pesa demasiado para pegarla.
 session-paste-too-many-pixels = Esta imagen tiene demasiados píxeles para pegarla.
 session-paste-unreadable = No se pudo leer esta imagen.
-session-asset-unknown = Esta imagen no está ni en la presentación ni entre las imágenes pegadas: usa el identificador de una imagen pegada.
+session-asset-unknown = Esta imagen no está en esta presentación; puede que venga de otra.

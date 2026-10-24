@@ -3,11 +3,12 @@
 //! Toutes les réponses d'erreur des outils passent par [`Tools::fail_with`] : l'erreur complète
 //! (cause, chemins, message de l'hôte) va au journal, l'agent reçoit le texte Fluent, qui ne
 //! reprend que des arguments sûrs (nom d'outil, clé de réglage, nom d'action, reproche de serde
-//! aux arguments de l'agent). Une erreur de la session est dite par [`say_session`] : un fichier
-//! illisible ou impossible à écrire, sans son chemin.
+//! aux arguments de l'agent). Une erreur de la session est dite par [`say_to_agent`] : un fichier
+//! illisible ou impossible à écrire, sans son chemin ; un asset ou un pack inconnu, avec le renvoi
+//! (images collées, outil `packs`) que l'interface ne montre pas.
 
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_session::SessionError;
+use oku_slides_session::{SessionError, SessionErrorKind};
 use rust_mcp_sdk::schema::CallToolResult;
 use snafu::{Backtrace, Snafu};
 
@@ -91,7 +92,7 @@ impl Localize for ToolError {
             }
             UnknownTool { name, .. } => l.tr_with("agent-error-unknown-tool", &[("name", name.as_str().into())]),
             PackId { .. } => l.tr("agent-error-pack-id"),
-            Session { source, .. } => say_session(source, l),
+            Session { source, .. } => say_to_agent(source, l),
             Task { .. } => l.tr("agent-tool-failed"),
             Denied { .. } => l.tr("agent-error-denied"),
             NoTurn { tool, .. } => l.tr_with("agent-error-no-turn", &[("tool", (*tool).into())]),
@@ -119,11 +120,24 @@ impl Localize for ToolError {
             PacksDeckMode { .. } => l.tr("agent-error-packs-deck-mode"),
             PackChange { source, .. } => match source.transaction() {
                 Some(refused) => refused.op_error().localize(l),
-                None => say_session(source, l),
+                None => say_to_agent(source, l),
             },
             Hub { source, .. } => source.localize(l),
             Response { .. } => l.tr("session-response"),
         }
+    }
+}
+
+/// L'erreur de la session dite à l'agent ; les cartes du hub passent par `say_session` seul.
+///
+/// Un asset inconnu vient de l'agent ou d'un collage entre onglets : la session le dit à
+/// l'utilisateur, l'agent apprend ici à donner l'identifiant d'une image collée (t-1171).
+fn say_to_agent(e: &SessionError, l: &Localizer) -> String {
+    match e.kind() {
+        SessionErrorKind::UnknownAsset => l.tr("agent-error-asset-unknown"),
+        // L'agent a donné un id qu'aucun pack ne porte : `packs` les liste.
+        SessionErrorKind::UnknownPack => l.tr("agent-error-pack-id"),
+        _ => say_session(e, l),
     }
 }
 

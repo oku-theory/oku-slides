@@ -512,4 +512,4 @@ session-paste-unsupported = 只能貼上 PNG、JPEG、GIF 和 WebP 圖片。
 session-paste-too-large = 這張圖片太大，無法貼上。
 session-paste-too-many-pixels = 這張圖片的像素太多，無法貼上。
 session-paste-unreadable = 無法讀取這張圖片。
-session-asset-unknown = 此圖片既不在簡報中，也不在已貼上的圖片中：請使用已貼上圖片的 ID。
+session-asset-unknown = 此圖片不在這份簡報中，可能來自另一份簡報。

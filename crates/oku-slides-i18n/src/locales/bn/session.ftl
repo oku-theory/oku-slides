@@ -512,4 +512,4 @@ session-paste-unsupported = শুধু PNG, JPEG, GIF ও WebP ছবি প�
 session-paste-too-large = পেস্ট করার জন্য এই ছবিটি অনেক বড়।
 session-paste-too-many-pixels = পেস্ট করার জন্য এই ছবিতে পিক্সেল অনেক বেশি।
 session-paste-unreadable = এই ছবিটি পড়া যায়নি।
-session-asset-unknown = এই ছবিটি উপস্থাপনায় নেই, আবার পেস্ট করা ছবিগুলোর মধ্যেও নেই: পেস্ট করা কোনো ছবির আইডি ব্যবহার করুন।
+session-asset-unknown = এই ছবিটি এই উপস্থাপনায় নেই; হয়তো এটি অন্য একটি উপস্থাপনা থেকে এসেছে।

@@ -89,6 +89,7 @@ agent-error-no-variant = यह वैरिएंट अब मौजूद न
 agent-error-arguments = टूल के आर्ग्युमेंट अमान्य हैं ({ $detail }): उन्हें उसके स्कीमा से जाँचें।
 agent-error-unknown-tool = अज्ञात टूल: { $name }।
 agent-error-pack-id = यह किसी पैक की id नहीं है: पैक और उनकी id की सूची के लिए packs बुलाएं।
+agent-error-asset-unknown = यह छवि न तो प्रस्तुति में है और न ही चिपकाई गई छवियों में: चिपकाई गई किसी छवि की आईडी का उपयोग करें।
 agent-error-denied = उपयोगकर्ता ने मना कर दिया।
 agent-error-no-turn = कोई टर्न चालू नहीं है: { $tool } केवल टर्न के दौरान दिखाया जाता है।
 agent-error-turn-over = इस कॉल का टर्न समाप्त हो चुका है: कुछ नहीं दिखाया गया।

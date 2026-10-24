@@ -512,4 +512,4 @@ session-paste-unsupported = 貼り付けられる画像は PNG、JPEG、GIF、We
 session-paste-too-large = この画像は大きすぎて貼り付けられません。
 session-paste-too-many-pixels = この画像はピクセル数が多すぎて貼り付けられません。
 session-paste-unreadable = この画像を読み取れませんでした。
-session-asset-unknown = この画像はプレゼンテーションにも貼り付けた画像にもありません。貼り付けた画像の ID を指定してください。
+session-asset-unknown = この画像はこのプレゼンテーションにありません。別のプレゼンテーションのものかもしれません。

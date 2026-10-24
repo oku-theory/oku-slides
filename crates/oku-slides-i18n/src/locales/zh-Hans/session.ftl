@@ -512,4 +512,4 @@ session-paste-unsupported = 只能粘贴 PNG、JPEG、GIF 和 WebP 图片。
 session-paste-too-large = 这张图片太大，无法粘贴。
 session-paste-too-many-pixels = 这张图片的像素太多，无法粘贴。
 session-paste-unreadable = 无法读取这张图片。
-session-asset-unknown = 该图片既不在演示文稿中，也不在已粘贴的图片中：请使用已粘贴图片的 ID。
+session-asset-unknown = 该图片不在此演示文稿中，可能来自另一个演示文稿。

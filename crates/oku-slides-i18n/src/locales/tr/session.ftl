@@ -515,4 +515,4 @@ session-paste-unsupported = Yalnızca PNG, JPEG, GIF ve WebP görselleri yapış
 session-paste-too-large = Bu görsel yapıştırılamayacak kadar büyük.
 session-paste-too-many-pixels = Bu görselde yapıştırılamayacak kadar çok piksel var.
 session-paste-unreadable = Bu görsel okunamadı.
-session-asset-unknown = Bu görsel ne sunumda ne de yapıştırılan görseller arasında: yapıştırılmış bir görselin kimliğini kullanın.
+session-asset-unknown = Bu görsel bu sunumda yok; başka bir sunumdan gelmiş olabilir.

@@ -512,4 +512,4 @@ session-paste-unsupported = วางได้เฉพาะรูปภาพ 
 session-paste-too-large = รูปภาพนี้มีขนาดใหญ่เกินกว่าจะวางได้
 session-paste-too-many-pixels = รูปภาพนี้มีพิกเซลมากเกินกว่าจะวางได้
 session-paste-unreadable = ไม่สามารถอ่านรูปภาพนี้ได้
-session-asset-unknown = รูปภาพนี้ไม่ได้อยู่ในงานนำเสนอและไม่อยู่ในรูปภาพที่วางไว้: ใช้รหัสของรูปภาพที่วางไว้
+session-asset-unknown = รูปภาพนี้ไม่ได้อยู่ในงานนำเสนอนี้ อาจมาจากงานนำเสนออื่น

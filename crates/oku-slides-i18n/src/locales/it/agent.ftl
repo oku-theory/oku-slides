@@ -89,6 +89,7 @@ agent-error-no-variant = Questa variante non esiste più.
 agent-error-arguments = Gli argomenti dello strumento non sono validi ({ $detail }): controllali in base al suo schema.
 agent-error-unknown-tool = Strumento sconosciuto: { $name }.
 agent-error-pack-id = Questo non è l'id di un pacchetto: chiama packs per elencare i pacchetti e i loro id.
+agent-error-asset-unknown = Questa immagine non è né nella presentazione né tra le immagini incollate: usa l'identificatore di un'immagine incollata.
 agent-error-denied = L'utente ha rifiutato.
 agent-error-no-turn = Nessun turno in corso: { $tool } viene mostrato solo durante un turno.
 agent-error-turn-over = Il turno di questa chiamata è terminato: non è stato mostrato nulla.

@@ -89,6 +89,7 @@ agent-error-no-variant = Diese Variante gibt es nicht mehr.
 agent-error-arguments = Die Argumente des Werkzeugs sind ungültig ({ $detail }): Prüfe sie anhand seines Schemas.
 agent-error-unknown-tool = Unbekanntes Werkzeug: { $name }.
 agent-error-pack-id = Das ist nicht die ID eines Pakets: Rufe packs auf, um die Pakete und ihre IDs aufzulisten.
+agent-error-asset-unknown = Dieses Bild ist weder in der Präsentation noch unter den eingefügten Bildern: Verwende die Kennung eines eingefügten Bildes.
 agent-error-denied = Der Benutzer hat abgelehnt.
 agent-error-no-turn = Kein Durchgang läuft: { $tool } wird nur während eines Durchgangs angezeigt.
 agent-error-turn-over = Der Durchgang dieses Aufrufs ist vorbei: Es wurde nichts angezeigt.

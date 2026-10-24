@@ -515,4 +515,4 @@ session-paste-unsupported = Alleen PNG-, JPEG-, GIF- en WebP-afbeeldingen kunnen
 session-paste-too-large = Deze afbeelding is te zwaar om te plakken.
 session-paste-too-many-pixels = Deze afbeelding heeft te veel pixels om te plakken.
 session-paste-unreadable = Deze afbeelding kon niet worden gelezen.
-session-asset-unknown = Deze afbeelding zit niet in de presentatie en staat ook niet bij de geplakte afbeeldingen: gebruik de id van een geplakte afbeelding.
+session-asset-unknown = Deze afbeelding zit niet in deze presentatie; misschien komt ze uit een andere.

@@ -89,6 +89,7 @@ agent-error-no-variant = Cette variante n'existe plus.
 agent-error-arguments = Les arguments de l'outil sont invalides ({ $detail }) : vérifiez-les d'après son schéma.
 agent-error-unknown-tool = Outil inconnu : { $name }.
 agent-error-pack-id = Ce n'est pas l'id d'un pack : appelez packs pour lister les packs et leurs ids.
+agent-error-asset-unknown = Cette image n'est ni dans le deck ni parmi les images collées : donnez l'identifiant d'une image collée.
 agent-error-denied = L'utilisateur a refusé.
 agent-error-no-turn = Aucun tour en cours : { $tool } ne s'affiche que pendant un tour.
 agent-error-turn-over = Le tour de cet appel est terminé : rien n'a été affiché.

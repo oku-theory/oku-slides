@@ -1,6 +1,7 @@
 use std::io::Cursor;
 
 use oku_slides_core::Op;
+use oku_slides_i18n::{Localize, Localizer};
 use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -136,6 +137,9 @@ fn apply_citing_an_unknown_asset_is_refused() {
     let before: Vec<String> = s.doc.sources.assets.keys().cloned().collect();
     let e = s.apply("image", vec![set_image("sha256:1234")], None).unwrap_err();
     assert_that!(e.kind()).is_equal_to(SessionErrorKind::UnknownAsset);
+    // L'interface montre ce texte ; l'agent a le sien (`agent-error-asset-unknown`, t-1171).
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.localize(&fr)).is_equal_to(fr.tr("session-asset-unknown"));
     let after: Vec<String> = s.doc.sources.assets.keys().cloned().collect();
     assert_that!(after).is_equal_to(before);
 }

@@ -515,4 +515,4 @@ session-paste-unsupported = Nur Bilder im Format PNG, JPEG, GIF und WebP können
 session-paste-too-large = Dieses Bild ist zum Einfügen zu groß.
 session-paste-too-many-pixels = Dieses Bild hat zu viele Pixel zum Einfügen.
 session-paste-unreadable = Dieses Bild konnte nicht gelesen werden.
-session-asset-unknown = Dieses Bild ist weder in der Präsentation noch unter den eingefügten Bildern: Verwende die Kennung eines eingefügten Bildes.
+session-asset-unknown = Dieses Bild ist nicht in dieser Präsentation; vielleicht stammt es aus einer anderen.

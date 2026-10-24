@@ -83,6 +83,7 @@ agent-error-no-variant = 此变体已不存在。
 agent-error-arguments = 工具的参数无效（{ $detail }）：请按照其架构检查。
 agent-error-unknown-tool = 未知工具：{ $name }。
 agent-error-pack-id = 这不是包的 id：请调用 packs 列出包及其 id。
+agent-error-asset-unknown = 该图片既不在演示文稿中，也不在已粘贴的图片中：请使用已粘贴图片的 ID。
 agent-error-denied = 用户已拒绝。
 agent-error-no-turn = 没有正在进行的轮次：{ $tool } 只在轮次中显示。
 agent-error-turn-over = 此调用所在的轮次已结束：未显示任何内容。

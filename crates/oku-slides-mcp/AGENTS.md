@@ -45,6 +45,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Bound the MCP tool server with the existing [serve] header_timeout_ms and max_connections, never a new config key. (plan:2026-10-09-petits-tickets-t678)
 - Translate hub and MCP errors in Rust via Fluent; the UI only displays the text it receives. (plan:2026-10-09-tickets-debloques-t598, t-463)
+- Word a session error for the agent in say_to_agent (tool replies), never in the session; hub cards keep say_session. (t-1171)
 - Stay on rust-mcp-sdk 1.x until agents embed MCP 2026-07-28 clients; the 2.0 server speaks only that version. (plan:2026-09-26-agent-vocal)
 - Prefix dictation settings keys with dictation. so they are not confused with the stt section of config.toml. (plan:2026-09-26-agent-vocal)
 - Confirm non-undoable MCP tools through SurfaceHub::confirm before executing; add no host-side permission trait. (spec:2026-09-26-agent-vocal-design)

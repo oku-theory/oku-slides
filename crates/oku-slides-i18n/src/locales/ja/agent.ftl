@@ -83,6 +83,7 @@ agent-error-no-variant = このバリエーションはもう存在しません�
 agent-error-arguments = ツールの引数が無効です（{ $detail }）。スキーマに沿って確認してください。
 agent-error-unknown-tool = 不明なツール：{ $name }。
 agent-error-pack-id = これはパックの id ではありません。packs を呼び出して、パックとその id を一覧してください。
+agent-error-asset-unknown = この画像はプレゼンテーションにも貼り付けた画像にもありません。貼り付けた画像の ID を指定してください。
 agent-error-denied = ユーザーが拒否しました。
 agent-error-no-turn = 進行中のターンがありません。{ $tool } はターン中にのみ表示されます。
 agent-error-turn-over = この呼び出しのターンは終了しました。何も表示されていません。

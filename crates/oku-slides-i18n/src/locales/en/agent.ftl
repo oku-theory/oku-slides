@@ -90,6 +90,7 @@ agent-error-no-variant = This variant no longer exists.
 agent-error-arguments = The tool's arguments are invalid ({ $detail }): check them against its schema.
 agent-error-unknown-tool = Unknown tool: { $name }.
 agent-error-pack-id = This is not the id of a pack: call packs to list the packs and their ids.
+agent-error-asset-unknown = This image is neither in the deck nor among the pasted images: use the id of a pasted image.
 agent-error-denied = The user declined.
 agent-error-no-turn = No turn in progress: { $tool } is only shown during a turn.
 agent-error-turn-over = The turn of this call is over: nothing was shown.

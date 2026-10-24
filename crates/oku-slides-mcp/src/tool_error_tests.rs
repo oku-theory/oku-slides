@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 
 use super::{TaskSnafu, ToolError};
 
-/// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`).
+/// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`, `say_to_agent`).
 const KEYS: &[&str] = &[
     "agent-error-arguments",
     "agent-error-unknown-tool",
@@ -15,6 +15,7 @@ const KEYS: &[&str] = &[
     "agent-error-path-relative",
     "agent-error-path-parent",
     "agent-error-file",
+    "agent-error-asset-unknown",
     "agent-error-setting-locked",
     "agent-error-setting",
     "agent-error-rewrite-text",

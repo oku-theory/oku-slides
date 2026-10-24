@@ -29,9 +29,12 @@ places it.
   otherwise its `image/*` files become attachments.
 - **Text required:** a prompt needs text; images alone do not send.
 - **Unknown asset ids are refused:** an asset id that the new deck cites, the old one did
-  not, and neither the bundle nor the tab's attachments hold fails with
-  `session-asset-unknown`. Decks that already lack an asset (`roadmap.json` cites
-  `sha256:0000`) still open and edit; `validate` keeps reporting them.
+  not, and neither the bundle nor the tab's attachments hold fails with `UnknownAsset`.
+  The user reads `session-asset-unknown`, which names no certain cause (an image copied
+  from another tab, a variant card citing a lost pasted image); the agent reads
+  `agent-error-asset-unknown` in its tool reply (t-1171). Decks that already lack an
+  asset (`roadmap.json` cites `sha256:0000`) still open and edit; `validate` keeps
+  reporting them.
 - **No bytes in the thread:** the user bubble shows one chip per image (type and size),
   never a thumbnail; the saved thread stays within `THREAD_BYTES`.
 
@@ -72,7 +75,7 @@ places it.
 - **`Session::apply`:** a new step `embed_op_assets(&ops)` after `embed_op_themes`. For
   each value of a `ParamType::Asset` parameter set by an op (`add_element`, `set_param`,
   `set_kind` params; the type read from the widget registry): in the bundle, nothing; in
-  the attachments, `add_asset(bytes)`; in neither, `asset-unknown`. The asset enters
+  the attachments, `add_asset(bytes)`; in neither, `UnknownAsset`. The asset enters
   before rendering and stays even if rendering fails or the turn is undone (like embedded
   packs and imported assets), so redo always finds its bytes.
 - **Thread bubble:** `ComponentKind::Prompt { text, images: Vec<PromptImage> }` (mime,
@@ -109,7 +112,7 @@ route serves attachment or asset bytes.
 - An image between `prompt_image_mib` and `max_image_mib` can be placed but is not
   shown to the agent; the "Pasted images" block says so.
 - Pasted images do not survive an app restart, like the draft; an agent citing an id
-  from before a restart gets `session-asset-unknown`.
+  from before a restart gets `agent-error-asset-unknown`.
 - Out of scope: drag and drop, an "attach file" button (both would reuse `paste_image`
   and `embed_op_assets`).
 

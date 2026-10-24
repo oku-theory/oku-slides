@@ -515,4 +515,4 @@ session-paste-unsupported = يمكن لصق صور PNG وJPEG وGIF وWebP فق�
 session-paste-too-large = هذه الصورة أثقل من أن تُلصق.
 session-paste-too-many-pixels = عدد وحدات البكسل في هذه الصورة أكبر من أن يُلصق.
 session-paste-unreadable = تعذّرت قراءة هذه الصورة.
-session-asset-unknown = هذه الصورة ليست في العرض التقديمي ولا ضمن الصور الملصقة: استخدم معرّف صورة ملصقة.
+session-asset-unknown = هذه الصورة ليست في هذا العرض التقديمي؛ ربما تأتي من عرض تقديمي آخر.
