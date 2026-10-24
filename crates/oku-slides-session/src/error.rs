@@ -82,6 +82,10 @@ pub enum SessionErrorKind {
     HostKey,
     /// La réponse n'a pas pu être écrite en JSON.
     Response,
+    /// Une image collée refusée ([`SessionError::paste_reason_key`] dit pourquoi).
+    Paste,
+    /// Une op cite un asset ni dans le deck ni parmi les images collées.
+    UnknownAsset,
     /// Arguments d'une surface de l'agent invalides.
     AgentForm,
     /// Adresse de l'agent : ni la slide ni un de ses éléments.
@@ -242,6 +246,10 @@ pub(crate) enum SessionInner {
     Response { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid surface: {reason}"))]
     AgentForm { reason: crate::agent::AgentFormReason, backtrace: Backtrace },
+    #[snafu(display("an op cites asset {asset} that is neither in the deck nor pasted"))]
+    UnknownAsset { asset: String, backtrace: Backtrace },
+    #[snafu(display("pasted image refused: {reason:?}"))]
+    Paste { reason: crate::agent::PasteReason, backtrace: Backtrace },
     #[snafu(display("{owner} is neither slide {slide} nor one of its elements"))]
     UnknownOwner { slide: String, owner: String, backtrace: Backtrace },
     #[snafu(display("{owner} has no text field {field}"))]
@@ -372,6 +380,8 @@ impl SessionError {
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
+            Paste { .. } => SessionErrorKind::Paste,
+            UnknownAsset { .. } => SessionErrorKind::UnknownAsset,
             UnknownOwner { .. } => SessionErrorKind::UnknownOwner,
             UnknownField { .. } => SessionErrorKind::UnknownField,
             FieldNeeded { .. } => SessionErrorKind::FieldNeeded,
@@ -423,6 +433,14 @@ impl SessionError {
     pub fn transaction(&self) -> Option<&oku_slides_core::TransactionError> {
         match &*self.0 {
             SessionInner::Op { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+
+    /// La clé Fluent d'un collage refusé, pour une erreur [`SessionErrorKind::Paste`].
+    pub fn paste_reason_key(&self) -> Option<&'static str> {
+        match &*self.0 {
+            SessionInner::Paste { reason, .. } => Some(reason.key()),
             _ => None,
         }
     }
@@ -569,6 +587,8 @@ impl Localize for SessionError {
             ThemeChoiceAlone { .. } => l.tr("session-theme-choice-alone"),
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),
+            Paste { reason, .. } => l.tr(reason.key()),
+            UnknownAsset { .. } => l.tr("session-asset-unknown"),
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.localize(l).into())]),
             UnknownOwner { slide, owner, .. } => l.tr_with(
                 "session-unknown-owner",

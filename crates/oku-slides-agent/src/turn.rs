@@ -30,8 +30,8 @@ pub(crate) struct Pending {
 /// Renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
 ///
 /// Le prompt : les consignes (premier tour de la session), celles de l'import (tour de
-/// fine-tuning), le contexte, puis le texte de la consigne, toujours en dernier.
-/// `prompting` est appelé juste avant l'envoi de `session/prompt`.
+/// fine-tuning), le contexte, les images collées, puis le texte de la consigne, toujours en dernier.
+/// `see_images` : l'agent reçoit des blocs image. `prompting` est appelé juste avant l'envoi de `session/prompt`.
 #[expect(
     clippy::too_many_arguments,
     reason = "les paramètres viennent de la connexion ACP ; les regrouper ajouterait un type sans autre usage"
@@ -44,28 +44,37 @@ pub(crate) async fn run(
     session: SessionId,
     instruction: Instruction,
     first: bool,
+    see_images: bool,
     prompting: impl FnOnce(),
 ) -> agent_client_protocol::Result<Pending> {
-    let Instruction { scope, text, ui, tune } = instruction;
+    let Instruction { scope, text, ui, tune, images } = instruction;
     let scope = &scope;
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
     let blocking = tokio::task::spawn_blocking(move || {
         tab.with(|s| {
             s.begin_turn(turn, &text_for_begin);
-            s.agent_context(&ui)
+            let pasted: Vec<_> = images
+                .into_iter()
+                .map(|r| {
+                    let bytes = s.pasted_image(&r.id).map(|(_, b)| b);
+                    (r, bytes)
+                })
+                .collect();
+            (s.agent_context(&ui), pasted)
         })
     })
     .await;
-    let context = match blocking {
-        Ok(Ok(context)) => context,
+    // Sans session, le tour n'a ni contexte ni images : il n'y a rien où les lire.
+    let (context, pasted) = match blocking {
+        Ok(Ok(x)) => x,
         Ok(Err(e)) => {
             tracing::warn!(error = %e.one_line(), "contexte de l'agent : session de l'onglet introuvable, contexte vide");
-            String::new()
+            (String::new(), Vec::new())
         }
         Err(e) => {
             tracing::warn!(error = %e, "contexte de l'agent : tâche bloquante perdue, contexte vide");
-            String::new()
+            (String::new(), Vec::new())
         }
     };
     ctx.emit(AgentEvent::Status { state: AgentState::Working, scope: Some(scope.clone()) });
@@ -78,6 +87,7 @@ pub(crate) async fn run(
         blocks.push(ContentBlock::Text(TextContent::new(IMPORT)));
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
+    blocks.extend(crate::prompt_images::image_blocks(&pasted, see_images, ctx.prompt_limits));
     blocks.push(ContentBlock::Text(TextContent::new(text)));
     prompting();
     let request = cx.send_request(PromptRequest::new(session.clone(), blocks)).block_task();

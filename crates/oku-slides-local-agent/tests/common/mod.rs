@@ -115,6 +115,7 @@ pub async fn start(script: Value) -> Harness {
         link.clone(),
         platform.live_localizer.clone(),
         keeper.clone(),
+        platform.settings.paste.prompt_limits(),
     );
     let events = tokio::sync::Mutex::new(agent.subscribe());
     // `Storage` possède un runtime : sa dernière copie ne doit pas être lâchée dans le test (contexte async).

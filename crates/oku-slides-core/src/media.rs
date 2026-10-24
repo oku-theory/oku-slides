@@ -1,9 +1,11 @@
 //! Type réel d'un média, lu dans ses premiers octets et jamais déduit de son extension.
+//!
+//! L'import d'un `.pptx` et le collage d'une image dans le brouillon de l'agent s'en servent.
 
 /// Type d'un contenu non reconnu : les projecteurs le signalent comme image non prise en charge.
-pub(crate) const OCTET_STREAM: &str = "application/octet-stream";
+pub const OCTET_STREAM: &str = "application/octet-stream";
 /// Type d'un SVG, reconnu à sa racine `<svg` (préfixée ou non) après un prologue XML facultatif.
-pub(crate) const SVG: &str = "image/svg+xml";
+pub const SVG: &str = "image/svg+xml";
 
 /// Signatures : décalage, octets attendus, type.
 const MAGIC: [(usize, &[u8], &str); 13] = [
@@ -23,7 +25,7 @@ const MAGIC: [(usize, &[u8], &str); 13] = [
 ];
 
 /// Type MIME de `bytes` d'après leur contenu ; seule source du type d'un asset importé.
-pub(crate) fn sniff(bytes: &[u8]) -> &'static str {
+pub fn sniff(bytes: &[u8]) -> &'static str {
     let at = |off: usize, sig: &[u8]| bytes.get(off..off + sig.len()) == Some(sig);
     let found = MAGIC.iter().find(|(off, sig, mime)| {
         at(*off, sig)
@@ -44,7 +46,7 @@ pub(crate) fn sniff(bytes: &[u8]) -> &'static str {
 ///
 /// Lues sans rien décoder ni allouer, pour refuser une image géante avant que le rendu ne la
 /// décompresse ; `None` si l'en-tête est tronqué ou incohérent, ou si `mime` n'est pas l'un d'eux.
-pub(crate) fn dimensions(bytes: &[u8], mime: &str) -> Option<(u32, u32)> {
+pub fn dimensions(bytes: &[u8], mime: &str) -> Option<(u32, u32)> {
     let le16 = |at: usize| bytes.get(at..at + 2).map(|b| u32::from(u16::from_le_bytes([b[0], b[1]])));
     let le24 = |at: usize| bytes.get(at..at + 3).map(|b| u32::from_le_bytes([b[0], b[1], b[2], 0]));
     let be32 = |at: usize| bytes.get(at..at + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]));

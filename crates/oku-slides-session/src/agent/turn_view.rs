@@ -2,7 +2,7 @@
 //! cours et issue. Constructeurs purs ; le réducteur des tours
 //! (`oku-slides-agent::turns`) tient l'état et émet par le hub.
 
-use oku_slides_a2ui::{Component, ComponentKind, Dynamic, ServerMessage, TextVariant, TimelineStep};
+use oku_slides_a2ui::{Component, ComponentKind, Dynamic, PromptImage, ServerMessage, TextVariant, TimelineStep};
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
 
@@ -39,6 +39,8 @@ pub struct TurnView {
     pub notes: u32,
     /// Texte de l'agent depuis la dernière étape (affiché en note pendant le tour).
     pub narration: String,
+    /// Les images collées avec la consigne.
+    pub images: Vec<PromptImage>,
     /// Où en est le tour.
     pub state: TurnState,
 }
@@ -129,7 +131,10 @@ pub fn turn_surface(v: &TurnView, l: &Localizer) -> Surface {
         ),
     ];
     if prompt {
-        let bubble = Component::new("prompt", ComponentKind::Prompt { text: Dynamic::Literal(v.prompt.clone()) });
+        let bubble = Component::new(
+            "prompt",
+            ComponentKind::Prompt { text: Dynamic::Literal(v.prompt.clone()), images: v.images.clone() },
+        );
         components.insert(1, bubble);
     }
     let mut s = surface(&id, Place::Thread, None, components, turn_data(v, l));

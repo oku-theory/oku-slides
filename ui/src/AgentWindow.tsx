@@ -12,6 +12,7 @@ import { useSlideThumbs } from "./useSlideThumbs";
 import { useToast } from "./useToast";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
+import { usePastedImages } from "./agent/usePastedImages";
 import { AgentPanel, IDLE_AGENT, type AgentApi, type AgentHandle, type ScopeSource } from "./agent/AgentPanel";
 import { draftActions } from "./agent/draftActions";
 import { subscribeHost } from "./agent/events";
@@ -152,6 +153,7 @@ export function AgentWindowFor({
   const { say, node: toastNode } = useToast();
 
   const draft = useDraft(host.agent.setDraft);
+  const pasted = usePastedImages(draft.state.images, host.agent.pasteImage, (m) => say(m, true));
   // Le panneau des agents, dans le menu des réglages de la dictée.
   const agentPicker = useAgentPicker(host.agent, (m) => say(m, true));
   const insertOrKeep = async (text: string) => {
@@ -163,7 +165,7 @@ export function AgentWindowFor({
     draft,
     editing: context?.editing ?? false,
     insert: insertOrKeep,
-    prompt: (text) => handle.current?.prompt(text) ?? Promise.resolve(false),
+    prompt: (text, images) => handle.current?.prompt(text, images) ?? Promise.resolve(false),
   });
   // La dernière frappe est chez l'hôte avant que la fenêtre se ferme.
   const flush = draft.flush;
@@ -282,7 +284,11 @@ export function AgentWindowFor({
         ready={status.ready}
         shortcuts={false}
         onChange={draft.change}
-        onSend={(text) => void actions.sendDraft(text)}
+        images={draft.state.images}
+        thumbs={pasted.thumbs}
+        onPasteImages={pasted.onPaste}
+        onRemoveImage={(id) => void host.agent.removeImage(id).catch((e) => say(String(e), true))}
+        onSend={(text, images) => void actions.sendDraft(text, images)}
         onDiscard={draft.close}
       />
       {dictation(actions.onDictated)}

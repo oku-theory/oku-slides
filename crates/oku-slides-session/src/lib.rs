@@ -275,6 +275,8 @@ pub struct Session {
     ui: UiState,
     /// Ordre de la dernière sauvegarde de `ui` reçue avec un ordre (pas gardé pour la reprise).
     ui_order: Option<request::UiOrder>,
+    /// Images collées dans le brouillon de l'agent de cet onglet (`[paste]`).
+    attachments: agent::attachments::Attachments,
     /// Reprise activée (app de bureau) : l'état est écrit après chaque
     /// commande, par un fil dédié (`resume_writer`).
     resume: Option<resume_writer::Writer>,
@@ -427,6 +429,7 @@ impl Session {
             svg_cache: HashMap::new(),
             ui: UiState::default(),
             ui_order: None,
+            attachments: agent::attachments::Attachments::new(settings.paste.clone()),
             resume: None,
             agent_notes: Vec::new(),
             turn_steps: Default::default(),

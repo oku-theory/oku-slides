@@ -2,7 +2,7 @@
 //! registre des widgets : chaque slide et chaque élément est contrôlé contre
 //! le schéma de son `kind`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use oku_slides_i18n::{Localize, Localizer, Message};
 
@@ -102,6 +102,51 @@ impl Issue {
         let message = Message::new("issue-theme-version-missing").arg("version", version.as_str());
         Self { slide: None, element: None, message }
     }
+}
+
+/// Les valeurs des paramètres `asset` de `params` selon `schema`, listes comprises.
+fn param_assets<'p>(schema: &WidgetSchema, params: &'p Params) -> Vec<&'p str> {
+    let mut out = Vec::new();
+    for p in &schema.params {
+        match &p.ty {
+            ParamType::Asset => out.extend(params.text(&p.name)),
+            ParamType::List { item, .. } => {
+                for it in params.list(&p.name).unwrap_or_default() {
+                    for c in item {
+                        match &c.ty {
+                            ParamType::Asset => out.extend(it.values.text(&c.name)),
+                            // Liste imbriquée : ses colonnes `asset`, item par item.
+                            ParamType::List { item: sub, .. } => {
+                                for nested in it.values.list(&c.name).unwrap_or_default() {
+                                    let assets = sub.iter().filter(|s| s.ty == ParamType::Asset);
+                                    out.extend(assets.filter_map(|s| nested.values.text(&s.name)));
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Les assets que cite le deck : paramètres `asset` de ses slides et éléments.
+pub fn asset_refs(deck: &Deck, registry: &WidgetRegistry) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for s in &deck.slides {
+        if let Some(schema) = registry.get(&s.kind) {
+            out.extend(param_assets(schema, &s.params).into_iter().map(str::to_owned));
+        }
+        for l in s.walk() {
+            if let Some(schema) = registry.get(&l.element.kind) {
+                out.extend(param_assets(schema, &l.element.params).into_iter().map(str::to_owned));
+            }
+        }
+    }
+    out
 }
 
 /// Vérifie le deck contre `registry`. `assets` : identifiants disponibles,
@@ -272,31 +317,8 @@ impl<'a> Validator<'a> {
     /// Les assets des paramètres `asset` sont dans les sources.
     fn assets(&mut self, at: Place<'_>, schema: Option<&WidgetSchema>, params: &Params) {
         let (Some(schema), Some(assets)) = (schema, self.assets) else { return };
-        let missing = |p: &Params, name: &str| p.text(name).filter(|a| !assets.contains(*a)).map(str::to_owned);
-        let mut absent = Vec::new();
-        for p in &schema.params {
-            match &p.ty {
-                ParamType::Asset => absent.extend(missing(params, &p.name)),
-                ParamType::List { item, .. } => {
-                    for it in params.list(&p.name).unwrap_or_default() {
-                        for c in item {
-                            match &c.ty {
-                                ParamType::Asset => absent.extend(missing(&it.values, &c.name)),
-                                // Liste imbriquée : ses colonnes `asset`, item par item.
-                                ParamType::List { item: sub, .. } => {
-                                    for nested in it.values.list(&c.name).unwrap_or_default() {
-                                        let assets = sub.iter().filter(|s| s.ty == ParamType::Asset);
-                                        absent.extend(assets.filter_map(|s| missing(&nested.values, &s.name)));
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        let absent: Vec<String> =
+            param_assets(schema, params).into_iter().filter(|a| !assets.contains(*a)).map(str::to_owned).collect();
         for asset in absent {
             self.push(at, Message::new("issue-missing-asset").arg("asset", asset));
         }

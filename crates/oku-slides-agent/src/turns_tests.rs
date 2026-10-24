@@ -16,7 +16,7 @@ fn user(turn: u32) -> AgentEvent {
 }
 
 fn user_in(turn: u32, scope: AgentScope) -> AgentEvent {
-    AgentEvent::UserText { turn, scope, text: "Change le fond".into() }
+    AgentEvent::UserText { turn, scope, text: "Change le fond".into(), images: Vec::new() }
 }
 
 fn atelier() -> AgentScope {
@@ -636,7 +636,11 @@ fn turns_conversation_forgets_only_its_scope() {
 #[test]
 fn apply_draft_event_emits_nothing() {
     let mut turns = Turns::default();
-    let out = turns.apply(&AgentEvent::Draft { text: Some("x".into()), origin: None }, Instant::now(), &fr());
+    let out = turns.apply(
+        &AgentEvent::Draft { text: Some("x".into()), origin: None, images: Vec::new() },
+        Instant::now(),
+        &fr(),
+    );
     assert_that!(out).is_empty();
 }
 

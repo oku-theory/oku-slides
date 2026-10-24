@@ -55,6 +55,8 @@ pub(crate) struct SessionCaps {
     pub load: bool,
     /// `session/resume` (sans rejeu).
     pub resume: bool,
+    /// `ContentBlock::Image` dans un prompt.
+    pub image: bool,
 }
 
 /// Empreinte d'un lancement d'agent : ses arguments ne sont jamais écrits en clair.
@@ -498,10 +500,11 @@ async fn handshake(cx: &ConnectionTo<Agent>) -> agent_client_protocol::Result<Op
     let init =
         cx.send_request(InitializeRequest::new(ProtocolVersion::V1).client_capabilities(caps)).block_task().await?;
     let caps = &init.agent_capabilities;
-    Ok(caps
-        .mcp_capabilities
-        .http
-        .then(|| SessionCaps { load: caps.load_session, resume: caps.session_capabilities.resume.is_some() }))
+    Ok(caps.mcp_capabilities.http.then(|| SessionCaps {
+        load: caps.load_session,
+        resume: caps.session_capabilities.resume.is_some(),
+        image: caps.prompt_capabilities.image,
+    }))
 }
 
 /// La réponse de l'utilisateur, demandée dans les surfaces de l'onglet.

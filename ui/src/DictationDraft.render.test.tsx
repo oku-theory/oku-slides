@@ -29,9 +29,20 @@ afterEach(async () => {
 
 async function mount(
   text: string | null,
-  { busy = false, typing = 0, notice = null as string | null, ready = true, shortcuts = false } = {},
+  {
+    busy = false,
+    typing = 0,
+    notice = null as string | null,
+    ready = true,
+    shortcuts = false,
+    images = [] as { id: string; mime: string; width: number; height: number }[],
+    thumbs = new Map<string, string>(),
+  } = {},
 ) {
   const sent: string[] = [];
+  const sentImages: string[][] = [];
+  const pastes: File[][] = [];
+  const removed: string[] = [];
   const changes: string[] = [];
   let discarded = 0;
   const host = document.createElement("div");
@@ -49,7 +60,11 @@ async function mount(
         ready,
         shortcuts,
         onChange: (v: string) => changes.push(v),
-        onSend: (v: string) => sent.push(v),
+        images,
+        thumbs,
+        onPasteImages: (f: File[]) => pastes.push(f),
+        onRemoveImage: (id: string) => removed.push(id),
+        onSend: (v: string, ids: string[]) => (sent.push(v), sentImages.push(ids)),
         onDiscard: () => discarded++,
       }),
     );
@@ -57,7 +72,7 @@ async function mount(
   const area = () => host.querySelector("textarea") as HTMLTextAreaElement;
   const note = () => host.querySelector(".draft-note") as HTMLElement;
   const send = () => host.querySelector(".draft-send") as HTMLButtonElement;
-  return { host, area, note, send, sent, changes, discarded: () => discarded };
+  return { host, area, note, send, sent, sentImages, pastes, removed, changes, discarded: () => discarded };
 }
 
 const key = (el: Element, init: KeyboardEventInit) =>
@@ -269,5 +284,49 @@ describe("brouillon de dictée", () => {
     await act(async () => area().blur());
     expect(discarded()).toBe(0);
     expect(note().textContent).toBe("plus court");
+  });
+
+  const png = () => new File([new Uint8Array([137, 80])], "x.png", { type: "image/png" });
+  const paste = (text: string) => {
+    const e = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(e, "clipboardData", { value: { getData: () => text, files: [png()] } });
+    return e;
+  };
+  const one = [{ id: "sha256:aa", mime: "image/png", width: 4, height: 3 }];
+
+  test("coller une image appelle onPasteImages, sans coller de texte", async () => {
+    const m = await mount("Pose-la");
+    const e = paste("");
+    await act(async () => m.note().dispatchEvent(e));
+    expect([m.pastes.length, e.defaultPrevented]).toEqual([1, true]);
+  });
+
+  test("coller du texte ne joint aucune image", async () => {
+    const m = await mount("Pose-la");
+    await act(async () => m.note().dispatchEvent(paste("du texte")));
+    expect(m.pastes.length).toBe(0);
+  });
+
+  test("une puce par image, son bouton la retire", async () => {
+    const m = await mount("Pose-la", { images: one });
+    expect(m.host.querySelector(".draft-image")?.textContent).toContain("PNG 4×3");
+    await act(async () => (m.host.querySelector(".draft-image button") as HTMLButtonElement).click());
+    expect(m.removed).toEqual(["sha256:aa"]);
+  });
+
+  test("la miniature locale s'affiche quand la vue a l'image", async () => {
+    const m = await mount("x", { images: one, thumbs: new Map([["sha256:aa", "blob:t"]]) });
+    expect(m.host.querySelector(".draft-image img")?.getAttribute("src")).toBe("blob:t");
+  });
+
+  test("envoyer passe le texte et les ids des images", async () => {
+    const m = await mount("Pose-la", { images: one });
+    await act(async () => m.send().click());
+    expect([m.sent, m.sentImages]).toEqual([["Pose-la"], [["sha256:aa"]]]);
+  });
+
+  test("des images sans texte : l'envoi attend le texte, et le dit", async () => {
+    const m = await mount("", { images: one });
+    expect([m.send().disabled, m.send().title]).toEqual([true, "Dites ce qu'il faut en faire"]);
   });
 });

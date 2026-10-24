@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { CommonSchemas, type ComponentContext } from "@a2ui/web_core/v0_9";
 import { Markdown as MarkdownView } from "../agent/Markdown";
+import { imageLabel } from "../agent/pastedImages";
 import { t } from "../i18n";
 import { useRememberedOpen } from "./openMemory";
 import { Hex, ToneSchema, toneClass } from "./schemas";
@@ -29,7 +30,11 @@ const Step = z.object({
   calls: z.array(Call).optional(),
 }).strict();
 
-const PromptApi = { name: "Prompt", schema: z.object({ text: CommonSchemas.DynamicString }).strict() };
+const PromptImage = z.object({ mime: z.string(), width: z.number().int(), height: z.number().int() }).strict();
+const PromptApi = {
+  name: "Prompt",
+  schema: z.object({ text: CommonSchemas.DynamicString, images: z.array(PromptImage).optional() }).strict(),
+};
 const TimelineApi = {
   name: "Timeline",
   schema: z.object({
@@ -118,9 +123,20 @@ function StepRow({ step, context, part }: { step: z.infer<typeof Step>; context:
   );
 }
 
-/** La consigne de l'utilisateur. */
+/** La consigne de l'utilisateur, et une puce par image collée. */
 export const Prompt = createComponentImplementation(PromptApi, ({ props }) => (
-  <p className="a2ui-prompt">{props.text}</p>
+  <div className="a2ui-prompt-turn">
+    <p className="a2ui-prompt">{props.text}</p>
+    {props.images && props.images.length > 0 && (
+      <ul className="a2ui-prompt-images" aria-label={t("ui-draft-images")}>
+        {props.images.map((i, n) => (
+          <li key={n} className="a2ui-prompt-image">
+            {imageLabel(i.mime, i.width, i.height)}
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
 ));
 
 /** La progression d'un tour ; repliée, une ligne qui se déplie au clic. */

@@ -223,8 +223,12 @@ pub enum ComponentKind {
     },
     /// Un texte et ses changements, mot à mot.
     DiffText { segments: Vec<DiffSegment> },
-    /// La consigne de l'utilisateur (hôte seul).
-    Prompt { text: Dynamic<String> },
+    /// La consigne de l'utilisateur et ses images collées (hôte seul).
+    Prompt {
+        text: Dynamic<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        images: Vec<PromptImage>,
+    },
     /// La progression d'un tour ; repliée en une ligne `summary` (hôte seul).
     Timeline { steps: Dynamic<Vec<TimelineStep>>, collapsed: Dynamic<bool>, summary: Dynamic<String> },
     /// La conclusion d'un tour : titre, 1 à 4 faits, slide (montrée en miniature) et couleur facultatives.
@@ -311,6 +315,18 @@ pub enum StepStatus {
     Completed,
     /// Échouée : reste visible dans une étape d'outils groupés.
     Failed,
+}
+
+/// Une image collée avec la consigne, montrée en puce : son type et sa taille, jamais ses octets.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PromptImage {
+    /// Son type réel (`image/png`…).
+    pub mime: String,
+    /// Sa largeur en pixels.
+    pub width: u32,
+    /// Sa hauteur en pixels.
+    pub height: u32,
 }
 
 /// Une étape de la timeline : outils groupés, note de l'agent ou entrée du plan.

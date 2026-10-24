@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+use oku_slides_core::media::{SVG, dimensions, sniff};
 use roxmltree::Document;
 
 use crate::ImportErrorKind;
@@ -11,7 +12,6 @@ use crate::collect::{Sink, clip, clip_to};
 use crate::error::ImportError;
 use crate::pptx::cascade::TextEnv;
 use crate::pptx::color::ColorCtx;
-use crate::pptx::media::{SVG, dimensions, sniff};
 use crate::pptx::package::{Package, Rels};
 use crate::pptx::placeholder::{Inherited, PhInheritance, PhKey};
 use crate::pptx::svg::sanitize;

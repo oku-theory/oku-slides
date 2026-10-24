@@ -26,6 +26,7 @@ import { useKeptUi } from "./useKeptUi";
 import { changeLocale, t } from "./i18n";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
+import { usePastedImages } from "./agent/usePastedImages";
 import { useDictation } from "./useDictation";
 import { Icon } from "./icons";
 import { canAdd } from "./slideTools";
@@ -291,6 +292,7 @@ export default function App({
 
   // --- Dictée : où va le texte ----------------------------------------------
   const dictation = useDictation({ snap, editing, prompt: promptAgent, setDraft: agent.setDraft });
+  const pasted = usePastedImages(dictation.draft.state.images, agent.pasteImage, (m) => say(m, true));
 
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
   useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, widgetActive, deckLook });
@@ -479,7 +481,11 @@ export default function App({
           ready={agentStatus.ready}
           shortcuts={deckMode}
           onChange={dictation.draft.change}
-          onSend={(text) => void dictation.actions.sendDraft(text)}
+          images={dictation.draft.state.images}
+          thumbs={pasted.thumbs}
+          onPasteImages={pasted.onPaste}
+          onRemoveImage={(id) => void agent.removeImage(id).catch((e) => say(errorText(e), true))}
+          onSend={(text, images) => void dictation.actions.sendDraft(text, images)}
           onDiscard={dictation.draft.close}
         />}
       </aside>

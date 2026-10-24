@@ -24,6 +24,7 @@ pub use data::SeriesSwatch;
 
 pub use message::{
     Action, ButtonIcon, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, CreateSurface, DeleteSurface,
-    DiffKind, DiffSegment, Dynamic, Event, ListColumn, ServerBody, ServerMessage, SlideRef, StepStatus, SubColumn,
-    SubList, SubListFault, TextVariant, TimelineStep, Tone, ToolCallDetail, UpdateComponents, UpdateDataModel, Version,
+    DiffKind, DiffSegment, Dynamic, Event, ListColumn, PromptImage, ServerBody, ServerMessage, SlideRef, StepStatus,
+    SubColumn, SubList, SubListFault, TextVariant, TimelineStep, Tone, ToolCallDetail, UpdateComponents,
+    UpdateDataModel, Version,
 };

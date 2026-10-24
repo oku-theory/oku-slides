@@ -436,7 +436,7 @@ fn without_action_on_button_and_field_drops_or_strips() {
 
 #[test]
 fn agent_allowed_for_host_only_components_is_false() {
-    let p = Component::new("p", ComponentKind::Prompt { text: Dynamic::Literal("x".into()) });
+    let p = Component::new("p", ComponentKind::Prompt { text: Dynamic::Literal("x".into()), images: Vec::new() });
     let t = Component::new(
         "t",
         ComponentKind::Timeline {
@@ -676,4 +676,16 @@ fn icon_button_with_unknown_icon_is_refused() {
 fn plain_button_omits_icon() {
     let json = serde_json::to_value(Component::button("ok", "OK", true, Action::named("x"))).unwrap();
     assert_that!(json.get("icon")).is_none();
+}
+
+#[test]
+fn prompt_without_images_serializes_no_images_field() {
+    let p = Component::new("p", ComponentKind::Prompt { text: Dynamic::Literal("x".into()), images: Vec::new() });
+    assert_that!(serde_json::to_value(&p).unwrap().get("images").is_none()).is_true();
+}
+
+#[test]
+fn prompt_image_with_an_unknown_field_is_refused() {
+    let v = json!({ "id": "p", "component": "Prompt", "text": "x", "images": [{ "mime": "image/png", "width": 1, "height": 1, "data": "…" }] });
+    assert_that!(serde_json::from_value::<Component>(v)).is_err();
 }

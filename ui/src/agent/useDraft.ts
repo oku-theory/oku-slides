@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { REAL_TIMERS, debounced, type Timers } from "../debounce";
+import type { PastedImage } from "../api";
 import { appendDraft } from "../draft";
 import { randomId } from "../randomId";
 
@@ -14,12 +15,14 @@ export interface DraftState {
   text: string | null;
   dictations: number;
   typing: number;
+  /** Images collées, tenues par l'hôte. */
+  images: PastedImage[];
 }
 
 export interface Draft {
   state: DraftState;
   /** Brouillon reçu de l'hôte ; l'écho d'un envoi de cette vue est ignoré. */
-  onHost: (e: { text: string | null; origin: string | null }) => void;
+  onHost: (e: { text: string | null; origin: string | null; images: PastedImage[] }) => void;
   /** Texte dicté ajouté (envoyé tout de suite). */
   append: (text: string) => void;
   /** Ouvre le brouillon pour écrire (⌘K ; envoyé tout de suite). */
@@ -32,7 +35,9 @@ export interface Draft {
   flush: () => Promise<void>;
 }
 
-const EMPTY: DraftState = { text: null, dictations: 0, typing: 0 };
+const EMPTY: DraftState = { text: null, dictations: 0, typing: 0, images: [] };
+
+const sameImages = (a: PastedImage[], b: PastedImage[]) => a.length === b.length && a.every((x, i) => x.id === b[i]?.id);
 
 export function useDraft(setDraft: (text: string | null, origin: string) => Promise<void>, timers: Timers = REAL_TIMERS): Draft {
   const [state, setState] = useState<DraftState>(EMPTY);
@@ -91,7 +96,9 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     [typing, send],
   );
   const onHost = useCallback(
-    (e: { text: string | null; origin: string | null }) => {
+    (e: { text: string | null; origin: string | null; images: PastedImage[] }) => {
+      // Les images viennent de l'hôte seul : chaque évènement, écho compris, les donne.
+      if (!sameImages(current.current.images, e.images)) write({ ...current.current, images: e.images });
       const own = e.origin?.startsWith(`${view}:`) ? Number(e.origin.slice(view.length + 1)) : null;
       if (own !== null) {
         settled.current = Math.max(settled.current, own);
@@ -135,7 +142,7 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     [write, typing],
   );
   const close = useCallback(() => {
-    write({ ...current.current, text: null });
+    write({ ...current.current, text: null, images: [] });
     now(null);
   }, [write, now]);
   const flush = useCallback(() => {

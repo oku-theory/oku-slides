@@ -543,3 +543,14 @@ fn local_agent_fake_engine_loads_from_toml() {
     assert_that!(settings.local_agent.engine).is_equal_to(LocalEngine::Fake);
     assert_that!(settings.local_agent.fake_script).is_equal_to(Some(PathBuf::from("s.json")));
 }
+
+#[test]
+fn defaults_paste_is_ten_mib_eight_images_five_mib_shown() {
+    let s = Settings::defaults().unwrap();
+    assert_that!((s.paste.max_image_bytes(), s.paste.max_draft_images)).is_equal_to((10 << 20, 8));
+    assert_that!(s.paste.prompt_limits()).is_equal_to(PromptImageLimits {
+        max_bytes: 5 << 20,
+        max_side: 8000,
+        total_bytes: 20 << 20,
+    });
+}

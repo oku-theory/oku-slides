@@ -71,7 +71,7 @@ export function useAgentWiring({
     [packMode, inHistory, pack, widgets.activeName],
   );
   const agentHandle = useRef<AgentHandle>(null);
-  const promptAgent = (text: string) => agentHandle.current?.prompt(text) ?? Promise.resolve(false);
+  const promptAgent = (text: string, images: string[]) => agentHandle.current?.prompt(text, images) ?? Promise.resolve(false);
   const cancelAgent = () => agentHandle.current?.cancel();
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => agentHandle.current?.onSurfaceAction(s, a);
   // Un focus de l'agent pendant l'édition d'un texte attend la fin de l'édition.

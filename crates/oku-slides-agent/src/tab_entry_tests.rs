@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use oku_slides_mcp::{McpEvent, Tools};
+use oku_slides_platform::config::PromptImageLimits;
 use oku_slides_session::agent::{AgentScope, AgentUi, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use serde::ser::{Error as _, Serialize, Serializer};
@@ -53,6 +54,7 @@ fn prompt() -> Command {
         text: "perdue".into(),
         ui: AgentUi::default(),
         tune: false,
+        images: Vec::new(),
     })
 }
 
@@ -100,7 +102,14 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     });
     let keeper = Keeper::spawn(tab.clone(), hub.clone());
     let localizer = platform.live_localizer.clone();
-    let agent = Agent { session: tab, hub: hub.clone(), link, localizer: localizer.clone(), keeper: keeper.clone() };
+    let agent = Agent {
+        session: tab,
+        hub: hub.clone(),
+        link,
+        localizer: localizer.clone(),
+        keeper: keeper.clone(),
+        prompt_limits: PromptImageLimits { max_bytes: 0, max_side: 0, total_bytes: 0 },
+    };
     let (out, mut sent) = mpsc::unbounded_channel();
     // Le relais reste ouvert : un tour ouvert par la consigne se verrait sur le hub.
     let relay = Relay {

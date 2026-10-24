@@ -6,8 +6,9 @@ use std::time::Instant;
 
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{McpEvent, SurfaceHub, ToolServer, Tools};
+use oku_slides_platform::config::PromptImageLimits;
 use oku_slides_session::Platform;
-use oku_slides_session::agent::{AgentScope, TabSession};
+use oku_slides_session::agent::{AgentScope, AttachmentRef, TabSession};
 use serde::Serialize;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
@@ -41,6 +42,15 @@ pub(crate) fn emit(out: &mpsc::UnboundedSender<Out>, channel: &'static str, tab:
     }
 }
 
+/// Le brouillon d'un onglet : son texte (`None` : fermé) et ses images collées.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Draft {
+    /// Le texte écrit ; `None` : brouillon fermé.
+    pub text: Option<String>,
+    /// Les images collées, dans l'ordre du collage.
+    pub images: Vec<AttachmentRef>,
+}
+
 /// Ce que la pile utilise d'un onglet, sans garder la table verrouillée.
 #[derive(Debug, Clone)]
 pub(crate) struct TabLink {
@@ -52,7 +62,13 @@ pub(crate) struct TabLink {
     cmds: mpsc::UnboundedSender<Command>,
     status: Arc<Mutex<(AgentState, Option<AgentScope>)>>,
     /// Le brouillon de l'onglet, tenu pour toutes ses vues.
-    draft: Arc<Mutex<Option<String>>>,
+    draft: Arc<Mutex<Draft>>,
+    /// La session de l'onglet : magasin des images collées.
+    pub session: TabSession,
+    /// Sérialise les collages : le plafond du brouillon et la liste à garder du magasin se lisent et s'écrivent d'un bloc.
+    ///
+    /// Ordre des verrous : celui-ci, puis la session (`TabSession::with`), puis le brouillon ; rien d'autre ne le prend.
+    pub paste: Arc<Mutex<()>>,
 }
 
 impl TabLink {
@@ -60,13 +76,41 @@ impl TabLink {
         let _ = self.cmds.send(cmd);
     }
 
-    /// Garde le brouillon et le diffuse à toutes les vues de l'onglet.
+    /// Garde le texte du brouillon et le diffuse ; le fermer (`None`) en retire les images.
     ///
-    /// Diffusé sous le même verrou : l'ordre des diffusions est celui des écritures.
+    /// Diffusé à toutes les vues de l'onglet, sous le même verrou : l'ordre des diffusions est celui des écritures.
     pub fn set_draft(&self, out: &mpsc::UnboundedSender<Out>, text: Option<String>, origin: Option<String>) {
         let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
-        draft.clone_from(&text);
-        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin });
+        if text.is_none() {
+            draft.images.clear();
+        }
+        draft.text.clone_from(&text);
+        let images = draft.images.clone();
+        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin, images });
+    }
+
+    /// Ajoute une image au brouillon (une fois), en l'ouvrant vide s'il était fermé.
+    pub fn add_image(&self, out: &mpsc::UnboundedSender<Out>, image: AttachmentRef) {
+        let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
+        if !draft.images.iter().any(|i| i.id == image.id) {
+            draft.images.push(image);
+        }
+        let text = Some(draft.text.take().unwrap_or_default());
+        draft.text.clone_from(&text);
+        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin: None, images: draft.images.clone() });
+    }
+
+    /// Retire l'image `id` du brouillon.
+    pub fn remove_image(&self, out: &mpsc::UnboundedSender<Out>, id: &str) {
+        let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
+        draft.images.retain(|i| i.id != id);
+        let event = AgentEvent::Draft { text: draft.text.clone(), origin: None, images: draft.images.clone() };
+        emit(out, "agent", &self.tab, &event);
+    }
+
+    /// Les images du brouillon.
+    pub fn draft_images(&self) -> Vec<AttachmentRef> {
+        self.draft.lock().unwrap_or_else(PoisonError::into_inner).images.clone()
     }
 
     /// Envoie l'état de l'agent et le brouillon ; les surfaces des tours sont rejouées par le hub.
@@ -75,7 +119,8 @@ impl TabLink {
         emit(out, "agent", &self.tab, &AgentEvent::Status { state, scope });
         // Sous le verrou, comme `set_draft` : jamais un brouillon périmé diffusé après un plus récent.
         let draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
-        emit(out, "agent", &self.tab, &AgentEvent::Draft { text: draft.clone(), origin: None });
+        let event = AgentEvent::Draft { text: draft.text.clone(), origin: None, images: draft.images.clone() };
+        emit(out, "agent", &self.tab, &event);
     }
 }
 
@@ -111,12 +156,14 @@ impl TabEntry {
             Keeper::spawn(session.clone(), hub.clone())
         };
         rt.spawn(relay_mcp(tab.clone(), mcp, Arc::downgrade(&hub), keeper.clone(), out.clone(), closed.clone()));
+        let tab_session = session.clone();
         let agent = Agent {
             session,
             hub: hub.clone(),
             link,
             localizer: platform.live_localizer.clone(),
             keeper: keeper.clone(),
+            prompt_limits: platform.settings.paste.prompt_limits(),
         };
         let relay = Relay {
             tab: tab.clone(),
@@ -129,8 +176,11 @@ impl TabEntry {
             closed,
         };
         rt.spawn(agent.run(tools, cancel.clone(), rx, relay));
-        let draft = Arc::new(Mutex::new(None));
-        Self { link: TabLink { tab, hub, keeper, cmds, status, draft }, cancel }
+        let draft = Arc::new(Mutex::new(Draft::default()));
+        Self {
+            link: TabLink { tab, hub, keeper, cmds, status, draft, session: tab_session, paste: Arc::default() },
+            cancel,
+        }
     }
 }
 
@@ -257,6 +307,8 @@ struct Agent {
     link: Link,
     localizer: oku_slides_i18n::LiveLocalizer,
     keeper: Keeper,
+    /// Bornes des images envoyées en bloc image à l'agent.
+    prompt_limits: PromptImageLimits,
 }
 
 impl Agent {
@@ -277,9 +329,14 @@ impl Agent {
                 self.keeper.restored().await;
                 // Chaque consigne reçoit l'erreur dans le fil, dans la langue du moment ; le reste est sans objet.
                 while let Some(cmd) = next(&cancel, &mut rx).await {
-                    if let Command::Prompt(Instruction { scope, text, .. }) = cmd {
+                    if let Command::Prompt(Instruction { scope, text, images, .. }) = cmd {
                         let n = self.hub.begin_turn(scope.clone());
-                        relay.emit(&AgentEvent::UserText { turn: n, scope, text });
+                        relay.emit(&AgentEvent::UserText {
+                            turn: n,
+                            scope,
+                            text,
+                            images: images.iter().map(AttachmentRef::shown).collect(),
+                        });
                         let message = e.localize(&self.localizer.current());
                         relay.emit(&AgentEvent::Error { turn: n, message });
                     }
@@ -292,7 +349,15 @@ impl Agent {
             return;
         }
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
-        let agent = AgentHandle::spawn(self.session, self.hub, access, self.link, self.localizer, self.keeper);
+        let agent = AgentHandle::spawn(
+            self.session,
+            self.hub,
+            access,
+            self.link,
+            self.localizer,
+            self.keeper,
+            self.prompt_limits,
+        );
         // Abonné avant la première commande : aucun évènement de l'agent n'est perdu.
         tokio::spawn(relay.run(agent.subscribe()));
         while let Some(cmd) = next(&cancel, &mut rx).await {

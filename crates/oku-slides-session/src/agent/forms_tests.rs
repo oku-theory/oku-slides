@@ -382,6 +382,7 @@ fn every_form() -> Vec<super::Surface> {
         tools: 6,
         notes: 1,
         narration: String::new(),
+        images: Vec::new(),
         state: crate::agent::turn_view::TurnState::Done { secs: 38 },
     };
     // Une question du fil en attente (vivante, au dock) et une question répondue (figée, dans son tour).

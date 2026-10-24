@@ -7,7 +7,7 @@ function deps(over: Partial<Parameters<typeof draftActions>[0]> = {}) {
     draft: { append: (t: string) => void log.push(`append:${t}`), close: () => void log.push("close") },
     editing: false,
     insert: (t: string) => (log.push(`insert:${t}`), true),
-    prompt: async (t: string) => (log.push(`prompt:${t}`), true),
+    prompt: async (t: string, images: string[]) => (log.push(["prompt", t, ...images].join(":")), true),
   };
   return { log, actions: draftActions({ ...base, ...over }) };
 }
@@ -26,13 +26,13 @@ test("draftActions dictée hors édition : au brouillon", () => {
 
 test("draftActions envoyer : ferme le brouillon une fois la consigne partie", async () => {
   const { log, actions } = deps();
-  await actions.sendDraft("fais ceci");
+  await actions.sendDraft("fais ceci", []);
   expect(log).toEqual(["prompt:fais ceci", "close"]);
 });
 
 test("draftActions envoyer en échec : le brouillon reste", async () => {
   const { log, actions } = deps({ prompt: async () => false });
-  await actions.sendDraft("fais ceci");
+  await actions.sendDraft("fais ceci", []);
   expect(log).toEqual([]);
 });
 
@@ -41,4 +41,10 @@ test("draftActions dictée au curseur refusée : le texte revient au brouillon",
   actions.onDictated("mot", "auto");
   await new Promise((r) => setTimeout(r));
   expect(log).toEqual(["append:mot"]);
+});
+
+test("draftActions envoyer passe les images à la consigne", async () => {
+  const { log, actions } = deps();
+  await actions.sendDraft("fais ceci", ["sha256:aa"]);
+  expect(log).toEqual(["prompt:fais ceci:sha256:aa", "close"]);
 });

@@ -3,7 +3,7 @@
 //!
 //! - [`Deck`] et son schéma JSON : slides et éléments génériques
 //!   (`{id, kind, params}`, [`Params`]), opérations ([`Op`],
-//!   [`apply_all`]), validation ([`validate`]).
+//!   [`apply_all`]), validation ([`validate`], assets cités : [`asset_refs`]).
 //! - [`DeckReplica`] : le deck dans un document Loro (CRDT), réconcilié par
 //!   diff depuis un `Deck` et relu ; annuler et rétablir passent par son
 //!   `UndoManager` ; [`ReplicaError`] pour ses échecs ; [`ReplicaLimits`] à l'ouverture d'un
@@ -24,6 +24,7 @@
 //! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu (hôtes : [`WidgetRegistry::host_params`] ; hauteur d'un bloc : [`Grow`]).
 //! - [`PackKind`] : la sorte d'un pack (`widgets` d'éléments, `layouts` de slides) ; [`LayoutProfile`] : préréglage d'un layout pour l'import.
 //! - [`kinds`] : les kinds des packs intégrés `base` et `essentiel`, seul endroit où ils s'écrivent.
+//! - [`media`] : type réel d'un média ([`media::sniff`]) et dimensions d'un raster lues dans son en-tête.
 //! - [`tokens`] : jetons effectifs d'un thème ([`tokens::effective_tokens`], fusion [`tokens::merge`], couche de thème [`tokens::theme_layer`]).
 
 mod canonical;
@@ -33,6 +34,7 @@ mod fields;
 pub mod kinds;
 mod layout_profile;
 pub mod locate;
+pub mod media;
 pub mod model;
 mod namespace;
 pub mod ops;
@@ -82,5 +84,5 @@ pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePat
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use theme_chain::{ThemeChainError, ThemePin, check_closure, linearize};
 pub use token_spec::{ComponentToken, Control, check_entries};
-pub use validate::{Issue, validate};
+pub use validate::{Issue, asset_refs, validate};
 pub use widget::{Category, Grow, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema, is_text};

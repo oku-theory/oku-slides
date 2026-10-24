@@ -3,7 +3,10 @@
 // Il se lit sur une carte ; un clic l'ouvre en édition.
 // Ouvert au clavier (⌘K), il s'ouvre en édition pour écrire sans dicter.
 
+import { clipboardImages, imageLabel } from "./agent/pastedImages";
 import { isShortcut } from "./agent/shortcut";
+import type { PastedImage } from "./api";
+import { IconButton } from "./primitives";
 import { useEffect, useRef, useState } from "react";
 import { t } from "./i18n";
 import { Icon } from "./icons";
@@ -17,6 +20,10 @@ export function DictationDraft({
   notice = null,
   ready,
   shortcuts,
+  images,
+  thumbs,
+  onPasteImages,
+  onRemoveImage,
   onChange,
   onSend,
   onDiscard,
@@ -36,7 +43,13 @@ export function DictationDraft({
   /** Mode deck de l'onglet principal : seul cas où l'hôte traite un mot-raccourci sans agent ni tour. */
   shortcuts: boolean;
   onChange: (text: string) => void;
-  onSend: (text: string) => void;
+  /** Les images collées du brouillon, tenues par l'hôte. */
+  images: PastedImage[];
+  /** Miniatures des images collées dans cette vue. */
+  thumbs: ReadonlyMap<string, string>;
+  onPasteImages: (files: File[]) => void;
+  onRemoveImage: (id: string) => void;
+  onSend: (text: string, images: string[]) => void;
   onDiscard: () => void;
 }) {
   const area = useRef<HTMLTextAreaElement>(null);
@@ -72,12 +85,18 @@ export function DictationDraft({
   // Ailleurs il irait à l'agent : mêmes garde-fous que tout texte.
   const canSend = said !== "" && ((shortcuts && isShortcut(said)) || (!busy && !notice && ready));
   const send = () => {
-    if (canSend) onSend(said);
+    if (canSend) onSend(said, images.map((i) => i.id));
   };
   return (
     <section
       className="draft card prompt"
       aria-label={t("ui-draft")}
+      onPaste={(e) => {
+        const files = clipboardImages(e.clipboardData);
+        if (files.length === 0) return;
+        e.preventDefault();
+        onPasteImages(files);
+      }}
       onKeyDown={(e) => {
         if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
         // ⌘⇧↩ ne présente pas le deck depuis le brouillon : seul ⌘↩ y fait quelque chose.
@@ -118,9 +137,20 @@ export function DictationDraft({
         </div>
       )}
       {notice && <p className="caption draft-notice" role="status">{notice}</p>}
+      {images.length > 0 && (
+        <ul className="draft-images" aria-label={t("ui-draft-images")}>
+          {images.map((i) => (
+            <li key={i.id} className="draft-image">
+              {thumbs.get(i.id) && <img src={thumbs.get(i.id)} alt="" draggable={false} />}
+              <span>{imageLabel(i.mime, i.width, i.height)}</span>
+              <IconButton className="token ghost" label={t("ui-draft-remove-image")} icon={Icon.close} onClick={() => onRemoveImage(i.id)} />
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="draft-actions">
         <button type="button" className="token ghost draft-discard" aria-label={t("ui-draft-discard")} title={t("ui-draft-discard")} onClick={onDiscard}>{Icon.trash}</button>
-        <button type="button" className="object token primary draft-send" disabled={!canSend} aria-label={t("ui-draft-send")} title={t("ui-draft-send-title")} onClick={send}>
+        <button type="button" className="object token primary draft-send" disabled={!canSend} aria-label={t("ui-draft-send")} title={said === "" && images.length > 0 ? t("ui-draft-send-needs-text") : t("ui-draft-send-title")} onClick={send}>
           {Icon.send}
         </button>
       </div>

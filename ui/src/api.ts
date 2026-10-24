@@ -567,9 +567,17 @@ export type AgentState = "idle" | "starting" | "working";
  */
 export type AgentEvent =
   | { kind: "status"; state: AgentState; scope?: AgentScope }
-  | { kind: "draft"; text: string | null; origin: string | null }
+  | { kind: "draft"; text: string | null; origin: string | null; images: PastedImage[] }
   | { kind: "picker"; surface: Surface }
   | { kind: "availability"; unusable: string | null };
+
+/** Une image collée dans le brouillon, tenue par l'hôte (`AttachmentRef`). */
+export interface PastedImage {
+  id: string;
+  mime: string;
+  width: number;
+  height: number;
+}
 
 /** La portée d'une conversation : les slides, l'atelier d'un pack, ou un de ses widgets. */
 export type AgentScope = { kind: "slides" } | { kind: "atelier"; pack: string } | { kind: "widget"; pack: string; name: string };
@@ -627,13 +635,15 @@ export interface InterfaceChange {
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =
-  | { cmd: "prompt"; tab: string; scope: AgentScope; text: string; ui: AgentUiSent; answer: string | null }
+  | { cmd: "prompt"; tab: string; scope: AgentScope; text: string; ui: AgentUiSent; answer: string | null; images: string[] }
   | { cmd: "cancel"; tab: string }
   | { cmd: "new_conversation"; tab: string; scope: AgentScope }
   | { cmd: "surface_action"; tab: string; surface: string; name: string; context: Record<string, unknown> }
   | { cmd: "resync"; tab: string; scope: AgentScope }
   | { cmd: "follow"; tab: string }
   | { cmd: "set_draft"; tab: string; text: string | null; origin: string }
+  | { cmd: "paste_image"; tab: string; data: string }
+  | { cmd: "remove_image"; tab: string; id: string }
   | { cmd: "picker"; tab: string }
   | { cmd: "show_packs"; tab: string }
   | { cmd: "availability"; tab: string }
@@ -650,8 +660,12 @@ export function agentApi(tab: string) {
      * `answer` : la question à laquelle la consigne répond (`answerTarget`) ; sans elle,
      * ou si elle n'attend plus, une consigne ordinaire.
      */
-    prompt: (scope: AgentScope, text: string, ui: AgentUi, answer: string | null) =>
-      agentCall({ cmd: "prompt", tab, scope, text, ui: { ...ui, locale: locale() }, answer }),
+    prompt: (scope: AgentScope, text: string, ui: AgentUi, answer: string | null, images: string[] = []) =>
+      agentCall({ cmd: "prompt", tab, scope, text, ui: { ...ui, locale: locale() }, answer, images }),
+    /** Une image collée (octets en base64), ajoutée au brouillon par l'hôte. */
+    pasteImage: (data: string) => agentCall({ cmd: "paste_image", tab, data }),
+    /** Retire l'image `id` du brouillon. */
+    removeImage: (id: string) => agentCall({ cmd: "remove_image", tab, id }),
     cancel: () => agentCall({ cmd: "cancel", tab }),
     newConversation: (scope: AgentScope) => agentCall({ cmd: "new_conversation", tab, scope }),
     surfaceAction: (surface: string, name: string, context: Record<string, unknown>) =>

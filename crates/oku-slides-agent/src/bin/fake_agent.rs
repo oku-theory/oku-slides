@@ -40,9 +40,9 @@ use std::time::Duration;
 use agent_client_protocol::schema::v1::{
     AgentCapabilities, CancelNotification, ContentBlock, ContentChunk, InitializeRequest, InitializeResponse,
     LoadSessionRequest, LoadSessionResponse, McpCapabilities, McpServer, NewSessionRequest, NewSessionResponse, Plan,
-    PlanEntry, PlanEntryPriority, PlanEntryStatus, PromptRequest, PromptResponse, ResumeSessionRequest,
-    ResumeSessionResponse, SessionCapabilities, SessionId, SessionNotification, SessionResumeCapabilities,
-    SessionUpdate, StopReason, TextContent, ToolCall, ToolCallStatus,
+    PlanEntry, PlanEntryPriority, PlanEntryStatus, PromptCapabilities, PromptRequest, PromptResponse,
+    ResumeSessionRequest, ResumeSessionResponse, SessionCapabilities, SessionId, SessionNotification,
+    SessionResumeCapabilities, SessionUpdate, StopReason, TextContent, ToolCall, ToolCallStatus,
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo, Stdio};
 use async_trait::async_trait;
@@ -68,6 +68,9 @@ struct Script {
     /// remplace `turns` pour elle si présent.
     #[serde(default)]
     sessions: HashMap<String, Vec<Turn>>,
+    /// Annonce `promptCapabilities.image` (blocs image dans un prompt).
+    #[serde(default)]
+    prompt_image: bool,
     /// Ne jamais répondre à `initialize` : un démarrage qui ne finit pas.
     #[serde(default)]
     hang_initialize: bool,
@@ -350,6 +353,7 @@ async fn main() -> agent_client_protocol::Result<()> {
             turns: vec![Turn::default()],
             crash_on_session: None,
             sessions: HashMap::new(),
+            prompt_image: false,
             hang_initialize: false,
             init_delay_ms: None,
             load_session: false,
@@ -396,6 +400,7 @@ async fn main() -> agent_client_protocol::Result<()> {
                         AgentCapabilities::new()
                             .mcp_capabilities(McpCapabilities::new().http(s1.script.http))
                             .load_session(s1.script.load_session)
+                            .prompt_capabilities(PromptCapabilities::new().image(s1.script.prompt_image))
                             .session_capabilities(sessions),
                     ),
                 )

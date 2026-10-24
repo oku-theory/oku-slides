@@ -1,7 +1,7 @@
 //! Ce que l'agent fait, pour le fil de l'interface.
 
 use agent_client_protocol::schema::v1::{ContentBlock, SessionUpdate, ToolCallContent};
-use oku_slides_session::agent::{AgentScope, DETAIL_CHARS, Surface, clip};
+use oku_slides_session::agent::{AgentScope, AttachmentRef, DETAIL_CHARS, PromptImage, Surface, clip};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -41,6 +41,9 @@ pub enum AgentEvent {
         /// La portée du tour.
         scope: AgentScope,
         text: String,
+        /// Les images collées avec la consigne.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        images: Vec<PromptImage>,
     },
     /// Un morceau de la réponse de l'agent.
     Chunk {
@@ -95,6 +98,8 @@ pub enum AgentEvent {
         text: Option<String>,
         /// La vue qui l'a écrit ; absente quand l'hôte le rejoue. Une vue ignore ses propres échos.
         origin: Option<String>,
+        /// Les images collées du brouillon ; l'hôte en est seul juge, chaque vue les reprend.
+        images: Vec<AttachmentRef>,
     },
     /// Le panneau de l'agent, pour les vues de l'onglet qui l'ont demandé.
     Picker {

@@ -2,8 +2,10 @@
 //! surfaces (formes, variantes), contexte et la session d'un onglet
 //! (`Sessions`, `TabSession`). Les outils MCP (`oku-slides-mcp`) et le
 //! client ACP (`oku-slides-agent`) passent par ici.
+//! Images collées : `attachments` (`AttachmentRef`).
 
 mod address;
+pub mod attachments;
 pub mod bounds;
 pub mod context;
 pub mod conversation;
@@ -19,6 +21,7 @@ pub(crate) mod turn_undo;
 pub mod turn_view;
 pub mod variants;
 
+pub use attachments::{AttachmentRef, PasteReason};
 pub use bounds::{DETAIL_CHARS, LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_options, clip};
 pub use context::AgentUi;
 pub use conversation::{SavedConversation, ScopeMove};
@@ -26,7 +29,7 @@ pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
     ShowParams, ShowVariants, Surface, Variant,
 };
-pub use oku_slides_a2ui::{ServerMessage, StepStatus, TimelineStep, ToolCallDetail};
+pub use oku_slides_a2ui::{PromptImage, ServerMessage, StepStatus, TimelineStep, ToolCallDetail};
 pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;

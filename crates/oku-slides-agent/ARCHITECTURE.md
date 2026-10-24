@@ -16,19 +16,19 @@ with the UI context; agent updates become A2UI turn surfaces.
   `local_panel`, `start_download` (picker and availability re-emitted at each percent and the end).
 - `model_download` : `ModelDownload`, the cancellable local model download thread; `failure_text`.
 - `tab_entry` : one tab; starts its tools then its agent on the runtime, queues commands until
-  then, and holds the draft (`TabLink`). Closing it closes its `SurfaceHub`.
+  then, and holds the draft (`TabLink`: text and pasted images, `session`). Closing it closes its `SurfaceHub`.
 - `tab_agent` : `AgentHandle`, the per-tab actor (ACP session, `ToolsAccess`); `reopen` resumes.
+- `paste` : `paste_image` (base64, `[paste] max_draft_images`, `Session::paste_image`), the draft's images, `resolve_images` (ids of a prompt).
 - `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission
-  requests routed by launch epoch and `SessionId`; `Link::switch` changes agent; `failure` is the
-  last launch failure of this epoch (`Unusable`, never `NotFound`), cleared by a success or a
-  switch, stale after `FAILURE_TTL` (30 s); `agent_fingerprint` identifies the agent command.
+  requests routed by launch epoch and `SessionId`; `Link::switch` changes agent; `failure`: last
+  launch failure of this epoch (`Unusable`), cleared by success or switch, stale after 30 s.
 - `keeper` : `Keeper`, the per-tab queue that alone reads and writes conversations (`Keep`).
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`).
 - `turns` : `Turns`, reducer from events to A2UI turn surfaces (`TurnOut`), emitted by the hub.
-- `turn`, `permission` (ACP option to `PermissionChoice`), `config` (`Launch`, `READY_WITHIN`,
-  `Launch::for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`
-  adds variables, tests only), `settings_port` (`AppSettings`), `picker` (`picker_surface`; its
-  `LocalPanel`: reason and Download, progress and Cancel, or the failure).
+- `turn` (`prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
+  `[paste] prompt_*` limits), `permission` (ACP option to `PermissionChoice`), `config` (`Launch`,
+  `READY_WITHIN`, `for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`:
+  tests only), `settings_port` (`AppSettings`), `picker` (`picker_surface`, `LocalPanel`).
 - `instructions` : `instructions/*.md` (English): agent, widgets on a first turn; import on `Tune`.
 - `error` (`AgentError`, `Unusable`), `command_error` (`CommandError`): localized.
   `bin/fake_agent`: scripted ACP agent (`--script`, `--log`), tests only.

@@ -35,6 +35,7 @@ pub struct Settings {
     pub sources: SourcesSettings,
     pub render: RenderSettings,
     pub import: ImportSettings,
+    pub paste: PasteSettings,
     pub serve: ServeSettings,
     pub i18n: I18nSettings,
     pub appearance: AppearanceSettings,
@@ -209,6 +210,58 @@ impl SourcesSettings {
     /// [`Self::max_sources_mib`] en octets.
     pub fn max_sources_bytes(&self) -> usize {
         self.max_sources_mib.saturating_mul(1024 * 1024)
+    }
+}
+
+/// Bornes des images collées dans le brouillon de l'agent (`[paste]`).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[non_exhaustive]
+pub struct PasteSettings {
+    /// Taille maximale d'une image (Mio).
+    pub max_image_mib: usize,
+    /// Pixels au plus d'une image, lus dans son en-tête.
+    pub max_image_pixels: u64,
+    /// Images au plus dans un brouillon.
+    pub max_draft_images: usize,
+    /// Taille cumulée des images gardées par onglet (Mio).
+    pub max_kept_mib: usize,
+    /// Plus grande image envoyée à l'agent en bloc image (Mio).
+    pub prompt_image_mib: usize,
+    /// Plus grand côté (pixels) d'une image envoyée à l'agent en bloc image.
+    pub prompt_image_max_side: u32,
+    /// Taille encodée cumulée des images d'une même consigne envoyées à l'agent (Mio).
+    pub prompt_total_mib: usize,
+}
+
+/// Les bornes des blocs image envoyés à l'agent avec une consigne.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PromptImageLimits {
+    /// Taille encodée (base64) maximale d'une image, en octets.
+    pub max_bytes: usize,
+    /// Plus grand côté d'une image, en pixels.
+    pub max_side: u32,
+    /// Taille encodée cumulée des images d'une consigne, en octets.
+    pub total_bytes: usize,
+}
+
+impl PasteSettings {
+    /// [`Self::max_image_mib`] en octets.
+    pub fn max_image_bytes(&self) -> usize {
+        self.max_image_mib.saturating_mul(1024 * 1024)
+    }
+
+    /// [`Self::max_kept_mib`] en octets.
+    pub fn max_kept_bytes(&self) -> usize {
+        self.max_kept_mib.saturating_mul(1024 * 1024)
+    }
+
+    /// Les bornes des images montrées à l'agent, en octets et en pixels.
+    pub fn prompt_limits(&self) -> PromptImageLimits {
+        PromptImageLimits {
+            max_bytes: self.prompt_image_mib.saturating_mul(1024 * 1024),
+            max_side: self.prompt_image_max_side,
+            total_bytes: self.prompt_total_mib.saturating_mul(1024 * 1024),
+        }
     }
 }
 

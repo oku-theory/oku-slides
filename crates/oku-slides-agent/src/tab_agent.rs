@@ -12,7 +12,8 @@ use agent_client_protocol::schema::v1::{
 };
 use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::SurfaceHub;
-use oku_slides_session::agent::{AgentScope, AgentUi, TabSession};
+use oku_slides_platform::config::PromptImageLimits;
+use oku_slides_session::agent::{AgentScope, AgentUi, AttachmentRef, TabSession};
 use tokio::sync::{broadcast, mpsc};
 
 use crate::error::{AgentError, RequestSnafu, StoppedSnafu};
@@ -42,6 +43,8 @@ pub(crate) struct Instruction {
     pub ui: AgentUi,
     /// Tour de fine-tuning d'un import : les consignes d'import partent, cachées, avant le contexte.
     pub tune: bool,
+    /// Les images collées envoyées avec la consigne.
+    pub images: Vec<AttachmentRef>,
 }
 
 /// Où joindre le serveur d'outils MCP de l'onglet.
@@ -67,6 +70,8 @@ pub(crate) struct Ctx {
     pub localizer: LiveLocalizer,
     pub events: broadcast::Sender<AgentEvent>,
     pub keeper: Keeper,
+    /// Bornes des images envoyées en blocs image (`[paste] prompt_*`).
+    pub prompt_limits: PromptImageLimits,
 }
 
 impl Ctx {
@@ -96,6 +101,10 @@ impl AgentHandle {
     /// l'agent partagé (`link`) est lancé au premier prompt. Ses conversations
     /// passent par `keeper`. Lâcher tous les clones arrête l'acteur (tour en
     /// cours annulé, routes de ses sessions oubliées).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "chaque paramètre est une dépendance distincte de l'acteur ; les regrouper ajouterait un type sans autre usage"
+    )]
     pub fn spawn(
         tab: TabSession,
         hub: Arc<SurfaceHub>,
@@ -103,10 +112,11 @@ impl AgentHandle {
         link: Link,
         localizer: LiveLocalizer,
         keeper: Keeper,
+        prompt_limits: PromptImageLimits,
     ) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         let (events, _) = broadcast::channel(256);
-        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper };
+        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, prompt_limits };
         tokio::spawn(TabAgent { ctx, tools, link, live: HashSet::new() }.run(rx));
         Self { tx, events }
     }
@@ -118,7 +128,7 @@ impl AgentHandle {
 
     /// Une consigne pour la conversation de `scope`.
     pub fn prompt_in(&self, scope: AgentScope, text: String, ui: AgentUi) {
-        self.instruct(Instruction { scope, text, ui, tune: false });
+        self.instruct(Instruction { scope, text, ui, tune: false, images: Vec::new() });
     }
 
     /// Une consigne, ordinaire ou de fine-tuning.
@@ -207,7 +217,12 @@ impl TabAgent {
         let scope = instruction.scope.clone();
         // Le tour existe avant toute étape qui peut échouer (connexion, session) : son erreur s'y affiche.
         let n = self.ctx.hub.begin_turn(scope.clone());
-        self.ctx.emit(AgentEvent::UserText { turn: n, scope: scope.clone(), text: instruction.text.clone() });
+        self.ctx.emit(AgentEvent::UserText {
+            turn: n,
+            scope: scope.clone(),
+            text: instruction.text.clone(),
+            images: instruction.images.iter().map(AttachmentRef::shown).collect(),
+        });
         let known = self.ctx.keeper.lookup(scope.clone()).await;
         let current = self.link.current_generation();
         let alive = known.as_ref().zip(current).is_some_and(|((id, _), g)| self.live.contains(&(g, id.clone())));
@@ -248,7 +263,9 @@ impl TabAgent {
             }
         };
         let prompting = || self.link.prompting(live.generation, &id);
-        match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, prompting).await {
+        match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, live.caps.image, prompting)
+            .await
+        {
             Ok(pending) => {
                 for scope in pending.new_conversations {
                     self.new_conversation(scope).await;

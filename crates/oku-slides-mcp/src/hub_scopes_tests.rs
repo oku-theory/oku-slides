@@ -40,6 +40,7 @@ fn turn(n: u32) -> Surface {
         tools: 0,
         notes: 0,
         narration: String::new(),
+        images: Vec::new(),
         state: TurnState::Done { secs: 1 },
     };
     turn_surface(&view, &fr())

@@ -11,7 +11,6 @@ pub(crate) mod fonts;
 pub(crate) mod frame;
 pub(crate) mod geometry;
 pub(crate) mod master;
-pub(crate) mod media;
 pub(crate) mod package;
 pub(crate) mod placeholder;
 pub(crate) mod shapes;

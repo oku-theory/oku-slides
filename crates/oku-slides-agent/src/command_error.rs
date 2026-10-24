@@ -24,6 +24,19 @@ pub(crate) enum CommandInner {
     UnknownAgent { id: String, backtrace: Backtrace },
     #[snafu(display("agent choice is set by OKU_SLIDES_AGENT__SELECTED"))]
     AgentLocked { backtrace: Backtrace },
+    #[snafu(display("draft already holds {max} images"))]
+    TooManyImages { max: usize, backtrace: Backtrace },
+    #[snafu(display("pasted image data is not base64"))]
+    ImageNotBase64 { source: base64::DecodeError, backtrace: Backtrace },
+    #[snafu(display("pasted image {id} is no longer kept"))]
+    ImageGone { id: String, backtrace: Backtrace },
+    /// Cause boxée : comme `AgentNotSaved`.
+    #[snafu(display("pasted image refused by the session"))]
+    PasteRefused {
+        #[snafu(source(from(oku_slides_session::SessionError, Box::new)))]
+        source: Box<oku_slides_session::SessionError>,
+        backtrace: Backtrace,
+    },
     /// Cause boxée : l'erreur d'écriture (chemin, cause) grossirait toute `CommandError`.
     #[snafu(display("agent choice could not be saved"))]
     AgentNotSaved {
@@ -42,6 +55,10 @@ impl Localize for CommandError {
             CommandInner::UnknownAgent { .. } => l.tr("agent-error-unknown-agent"),
             CommandInner::AgentLocked { .. } => l.tr("agent-error-agent-locked"),
             CommandInner::AgentNotSaved { .. } => l.tr("agent-error-agent-not-saved"),
+            CommandInner::TooManyImages { .. } => l.tr("agent-error-too-many-images"),
+            CommandInner::ImageNotBase64 { .. } => l.tr("agent-error-image-not-base64"),
+            CommandInner::ImageGone { .. } => l.tr("agent-error-image-gone"),
+            CommandInner::PasteRefused { source, .. } => source.localize(l),
         }
     }
 }

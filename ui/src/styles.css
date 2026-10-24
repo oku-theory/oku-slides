@@ -732,6 +732,10 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 }
 .draft-actions .token { width: 36px; height: 36px; }
 .draft-actions .token.ghost:hover:not(:disabled) { background: color-mix(in oklab, var(--paper-200) 88%, var(--ink)); }
+.draft-images { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+.draft-image { display: flex; align-items: center; gap: 6px; padding: 2px 2px 2px 6px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--paper-200) 90%, var(--ink)); font: 500 12px/18px var(--sans); }
+.draft-image img { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; }
+.draft-image .token { width: 24px; height: 24px; }
 /* Couleur d'accent du brouillon (⌘⇧D), sauf pendant l'écoute (`.live` garde son rouge). */
 .device.dictation.draft .mic:not(.live) { background: var(--accent-fill); color: var(--on-accent); }
 /* Arrêter l'agent : plus discret que le micro, un anneau qui tourne dit qu'il travaille. */

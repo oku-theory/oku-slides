@@ -51,6 +51,7 @@ fn main() -> color_eyre::Result<()> {
             text: prompt,
             ui: AgentUi::default(),
             answer: None,
+            images: Vec::new(),
         })
         .map_err(|e| color_eyre::eyre::eyre!(e))?;
 

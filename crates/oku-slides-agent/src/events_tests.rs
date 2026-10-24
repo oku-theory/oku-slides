@@ -97,8 +97,13 @@ fn from_update_plan_gives_items() {
 
 #[test]
 fn user_text_serializes_its_turn() {
-    let json =
-        serde_json::to_value(AgentEvent::UserText { turn: 3, scope: AgentScope::Slides, text: "x".into() }).unwrap();
+    let json = serde_json::to_value(AgentEvent::UserText {
+        turn: 3,
+        scope: AgentScope::Slides,
+        text: "x".into(),
+        images: Vec::new(),
+    })
+    .unwrap();
     assert_that!(json)
         .is_equal_to(serde_json::json!({ "kind": "user_text", "turn": 3, "scope": { "kind": "slides" }, "text": "x" }));
 }

@@ -21,6 +21,7 @@ fn view(state: TurnState) -> TurnView {
         tools: 6,
         notes: 1,
         narration: "Je vérifie le rendu".into(),
+        images: Vec::new(),
         state,
     }
 }
@@ -275,4 +276,13 @@ fn turn_patches_plan_update_writes_only_the_two_entries() {
     let data = json!({"steps": [{"label": "Lire", "status": "completed"}, {"label": "Peindre", "status": "in_progress"}, {"label": "apply", "calls": calls}]});
     assert_that!(paths(&super::turn_patches(3, &sent, &data)))
         .is_equal_to(vec![json!("/steps/0/status"), json!("/steps/1/status")]);
+}
+
+#[test]
+fn turn_surface_prompt_bubble_carries_the_pasted_images() {
+    let image = oku_slides_a2ui::PromptImage { mime: "image/png".into(), width: 4, height: 3 };
+    let v = TurnView { images: vec![image.clone()], ..view(TurnState::Running) };
+    let s = turn_surface(&v, &Localizer::new(Some("en")));
+    let json = serde_json::to_string(&s).unwrap();
+    assert_that!(json.as_str()).contains("\"images\":[{\"mime\":\"image/png\",\"width\":4,\"height\":3}]");
 }

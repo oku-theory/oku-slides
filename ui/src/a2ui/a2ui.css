@@ -17,6 +17,8 @@
   background: var(--paper-200); box-shadow: inset 0 0 0 1px var(--a2ui-border), var(--shadow-rest); font: 400 14px/20px var(--sans);
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
+.a2ui-prompt-images { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+.a2ui-prompt-image { font: 500 12px/18px var(--sans); padding: 0 8px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--paper-200) 90%, var(--ink)); }
 .a2ui-title { font: 600 14px/20px var(--sans); }
 .a2ui-hint, .a2ui-note { font: 400 12px/16px var(--sans); color: var(--ink-muted); }
 .a2ui-note { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

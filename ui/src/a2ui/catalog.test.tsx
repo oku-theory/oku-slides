@@ -94,6 +94,10 @@ describe("catalogue v4", () => {
     ).toEqual({ root: "Column", p: "Prompt", t: "Timeline", r: "Receipt", d: "Disclosure", b: "Badge", m: "Markdown" });
   });
 
+  test("une consigne avec ses images collées est acceptée", () => {
+    expect(typesOf([{ id: "root", component: "Prompt", text: "x", images: [{ mime: "image/png", width: 4, height: 3 }] }])).toEqual({ root: "Prompt" });
+  });
+
   test("une surface v4 avec un bouton à pictogramme « remove » est acceptée", () => {
     expect(CATALOG_ID).toBe("urn:oku-slides:a2ui:catalog:v4");
     expect(
@@ -125,6 +129,7 @@ describe("catalogue v4", () => {
     ["une miniature sans SVG", { component: "SlideThumb", label: "l", action }, /SlideThumb/],
     ["une propriété hors du catalogue", { component: "Text", text: "a", colour: "red" }, /Text/],
     ["un compteur sans valeur", { component: "Stepper", label: "n" }, /Stepper/],
+    ["une image de consigne avec ses octets", { component: "Prompt", text: "x", images: [{ mime: "image/png", width: 1, height: 1, data: "x" }] }, /Prompt/],
   ])("refuse %s", (_, component, error) => {
     expect(() => typesOf([{ id: "root", ...component }])).toThrow(error);
   });

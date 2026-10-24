@@ -15,7 +15,7 @@ export interface DictationDeps {
   /** Le champ en édition sur la scène : la dictée va au curseur. */
   editing: FieldKey | null;
   /** Une consigne pour l'agent ; vrai si elle est partie. */
-  prompt: (text: string) => Promise<boolean>;
+  prompt: (text: string, images: string[]) => Promise<boolean>;
   /** Écrit un brouillon dans l'hôte (`agent.setDraft`). */
   setDraft: (text: string | null, origin: string) => Promise<void>;
 }

@@ -52,7 +52,7 @@ describe("useDraft", () => {
   test("useDraft append ajoute le texte et compte la dictée", async () => {
     const m = await mount();
     await act(async () => m.draft().append("bonjour"));
-    expect(m.draft().state).toEqual({ text: "bonjour", dictations: 1, typing: 0 });
+    expect(m.draft().state).toEqual({ text: "bonjour", dictations: 1, typing: 0, images: [] });
   });
 
   test("useDraft type ouvre un brouillon vide et l'envoie tout de suite", async () => {
@@ -87,13 +87,13 @@ describe("useDraft", () => {
 
   test("useDraft brouillon de l'hôte venu d'une autre vue remplace le texte", async () => {
     const m = await mount();
-    await act(async () => m.draft().onHost({ text: "de l'autre vue", origin: "ailleurs" }));
+    await act(async () => m.draft().onHost({ text: "de l'autre vue", origin: "ailleurs", images: [] }));
     expect(m.draft().state.text).toBe("de l'autre vue");
   });
 
   test("useDraft brouillon rejoué par l'hôte (sans origine) remplace le texte", async () => {
     const m = await mount();
-    await act(async () => m.draft().onHost({ text: "rejoué", origin: null }));
+    await act(async () => m.draft().onHost({ text: "rejoué", origin: null, images: [] }));
     expect(m.draft().state.text).toBe("rejoué");
   });
 
@@ -102,14 +102,14 @@ describe("useDraft", () => {
     await act(async () => m.draft().append("a"));
     await act(async () => m.draft().close());
     const own = m.origins[0]!;
-    await act(async () => m.draft().onHost({ text: "a", origin: own }));
+    await act(async () => m.draft().onHost({ text: "a", origin: own, images: [] }));
     expect(m.draft().state.text).toBeNull();
   });
 
   test("useDraft brouillon de l'hôte pendant une frappe en attente est ignoré", async () => {
     const m = await mount();
     await act(async () => m.draft().change("ici"));
-    await act(async () => m.draft().onHost({ text: "ailleurs", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "ailleurs", origin: "autre", images: [] }));
     expect(m.draft().state.text).toBe("ici");
   });
 
@@ -118,8 +118,8 @@ describe("useDraft", () => {
     await act(async () => m.draft().change("ici"));
     await act(async () => m.timers.run());
     const own = m.origins[0]!;
-    await act(async () => m.draft().onHost({ text: "ici", origin: own }));
-    await act(async () => m.draft().onHost({ text: "ailleurs", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "ici", origin: own, images: [] }));
+    await act(async () => m.draft().onHost({ text: "ailleurs", origin: "autre", images: [] }));
     expect(m.draft().state.text).toBe("ailleurs");
   });
 
@@ -127,7 +127,7 @@ describe("useDraft", () => {
     const m = await mount();
     await act(async () => m.draft().change("ici"));
     await act(async () => m.timers.run());
-    await act(async () => m.draft().onHost({ text: "ailleurs", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "ailleurs", origin: "autre", images: [] }));
     expect(m.draft().state.text).toBe("ici");
   });
 
@@ -153,7 +153,7 @@ describe("useDraft", () => {
   test("useDraft brouillon d'ailleurs reçu avant l'écho de cette vue est ignoré", async () => {
     const m = await mount();
     await act(async () => m.draft().append("mien"));
-    await act(async () => m.draft().onHost({ text: "plus ancien", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "plus ancien", origin: "autre", images: [] }));
     expect(m.draft().state.text).toBe("mien");
   });
 
@@ -161,31 +161,31 @@ describe("useDraft", () => {
     const m = await mount();
     await act(async () => m.draft().append("mien"));
     const own = m.origins[0]!;
-    await act(async () => m.draft().onHost({ text: "mien", origin: own }));
-    await act(async () => m.draft().onHost({ text: "plus récent", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "mien", origin: own, images: [] }));
+    await act(async () => m.draft().onHost({ text: "plus récent", origin: "autre", images: [] }));
     expect(m.draft().state.text).toBe("plus récent");
   });
 
   test("useDraft un envoi en échec ne bloque pas les brouillons suivants", async () => {
     const failing = await mount({ fail: true });
     await act(async () => failing.draft().append("refusé"));
-    await act(async () => failing.draft().onHost({ text: "d'ailleurs", origin: "autre" }));
+    await act(async () => failing.draft().onHost({ text: "d'ailleurs", origin: "autre", images: [] }));
     expect(failing.draft().state.text).toBe("d'ailleurs");
   });
 
   test("useDraft écho perdu puis rejeu de l'hôte : le texte de cette vue est renvoyé", async () => {
     const m = await mount();
     await act(async () => m.draft().append("mien"));
-    await act(async () => m.draft().onHost({ text: "ancien", origin: null }));
+    await act(async () => m.draft().onHost({ text: "ancien", origin: null, images: [] }));
     expect(m.sent).toEqual(["mien", "mien"]);
   });
 
   test("useDraft écho perdu puis rejeu : le brouillon suivant d'ailleurs est appliqué", async () => {
     const m = await mount();
     await act(async () => m.draft().append("mien"));
-    await act(async () => m.draft().onHost({ text: "ancien", origin: null }));
-    await act(async () => m.draft().onHost({ text: "mien", origin: m.origins.at(-1)! }));
-    await act(async () => m.draft().onHost({ text: "plus récent", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "ancien", origin: null, images: [] }));
+    await act(async () => m.draft().onHost({ text: "mien", origin: m.origins.at(-1)!, images: [] }));
+    await act(async () => m.draft().onHost({ text: "plus récent", origin: "autre", images: [] }));
     expect(m.draft().state.text).toBe("plus récent");
   });
 
@@ -214,10 +214,10 @@ describe("useDraft", () => {
   test("useDraft écho en retard après un rejeu : ce qui vient d'ailleurs attend l'écho du renvoi", async () => {
     const m = await mount();
     await act(async () => m.draft().append("mien"));
-    await act(async () => m.draft().onHost({ text: "ancien", origin: null }));
+    await act(async () => m.draft().onHost({ text: "ancien", origin: null, images: [] }));
     // L'écho du premier envoi n'était qu'en retard : celui du renvoi manque encore.
-    await act(async () => m.draft().onHost({ text: "mien", origin: m.origins[0]! }));
-    await act(async () => m.draft().onHost({ text: "plus ancien", origin: "autre" }));
+    await act(async () => m.draft().onHost({ text: "mien", origin: m.origins[0]!, images: [] }));
+    await act(async () => m.draft().onHost({ text: "plus ancien", origin: "autre", images: [] }));
     expect(m.draft().state.text).toBe("mien");
   });
 
@@ -225,7 +225,7 @@ describe("useDraft", () => {
     const m = await mount({ fail: true });
     await act(async () => m.draft().type());
     m.refusing.on = false;
-    await act(async () => m.draft().onHost({ text: null, origin: null }));
+    await act(async () => m.draft().onHost({ text: null, origin: null, images: [] }));
     expect(m.draft().state.text).toBe("");
   });
 
@@ -233,7 +233,7 @@ describe("useDraft", () => {
     const m = await mount({ fail: true });
     await act(async () => m.draft().append("dicté tôt"));
     m.refusing.on = false;
-    await act(async () => m.draft().onHost({ text: null, origin: null }));
+    await act(async () => m.draft().onHost({ text: null, origin: null, images: [] }));
     expect(m.sent).toEqual(["dicté tôt"]);
   });
 
@@ -241,8 +241,25 @@ describe("useDraft", () => {
     const m = await mount({ fail: true });
     await act(async () => m.draft().append("refusé"));
     m.refusing.on = false;
-    await act(async () => m.draft().onHost({ text: "d'ailleurs", origin: "autre" }));
-    await act(async () => m.draft().onHost({ text: "rejoué", origin: null }));
+    await act(async () => m.draft().onHost({ text: "d'ailleurs", origin: "autre", images: [] }));
+    await act(async () => m.draft().onHost({ text: "rejoué", origin: null, images: [] }));
     expect(m.draft().state.text).toBe("rejoué");
+  });
+
+  const image = { id: "sha256:aa", mime: "image/png", width: 1, height: 1 };
+
+  test("useDraft reprend les images de l'hôte, même dans l'écho d'un envoi de la vue", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("x"));
+    await act(async () => m.draft().onHost({ text: "x", origin: m.origins[0]!, images: [image] }));
+    expect(m.draft().state.images).toEqual([image]);
+  });
+
+  test("useDraft close vide aussi les images", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("x"));
+    await act(async () => m.draft().onHost({ text: "x", origin: null, images: [image] }));
+    await act(async () => m.draft().close());
+    expect(m.draft().state.images).toEqual([]);
   });
 });

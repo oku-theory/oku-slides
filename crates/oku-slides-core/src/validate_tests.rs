@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -461,6 +461,24 @@ fn validate_list_asset_column_missing_from_sources_reports_it() {
     let issues = validate_element(element, Some(&present));
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-missing-asset"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-missing-asset", "asset", "sha256:cd"));
+}
+
+#[test]
+fn asset_refs_lists_the_asset_of_an_image_element() {
+    let d = content("blocks", json!([{ "id": "i", "kind": "base/image", "params": { "asset": "sha256:ab" } }]));
+    assert_that!(asset_refs(&d, &registry())).is_equal_to(BTreeSet::from(["sha256:ab".to_owned()]));
+}
+
+#[test]
+fn asset_refs_lists_the_assets_of_a_list_column() {
+    let d = content(
+        "blocks",
+        json!([{ "id": "f", "kind": "test-el/bornes", "params": { "images": [
+            { "id": "a", "img": "sha256:ab" }, { "id": "b", "img": "sha256:cd" }
+        ] } }]),
+    );
+    let refs = asset_refs(&d, &crate::test_registry::with_list());
+    assert_that!(refs).is_equal_to(BTreeSet::from(["sha256:ab".to_owned(), "sha256:cd".to_owned()]));
 }
 
 /// Un item de liste dont la colonne `note` porte un seul run.

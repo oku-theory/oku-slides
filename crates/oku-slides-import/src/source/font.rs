@@ -83,7 +83,7 @@ pub(crate) fn is_drawable(mime: &str) -> bool {
 /// Contenu d'un asset (image) ; la clé de la table est son `asset_id`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Asset {
-    /// Type réel, lu dans les premiers octets (`pptx::media::sniff`) ; un SVG est déjà assaini.
+    /// Type réel, lu dans les premiers octets (`oku_slides_core::media::sniff`) ; un SVG est déjà assaini.
     pub mime: String,
     /// Octets.
     #[serde(rename = "len", serialize_with = "len_of")]

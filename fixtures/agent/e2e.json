@@ -1,6 +1,16 @@
 {
   "http": true,
+  "prompt_image": true,
   "by_prompt": {
+    "pose l'image collée": {
+      "mcp": [
+        { "tool": "apply", "args": { "label": "Image collée", "ops": [
+          { "op": "set_param", "target": { "slide": "s-libre", "element": "e-image" }, "param": "asset",
+            "value": "sha256:c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77" }
+        ] } }
+      ],
+      "chunks": ["Image posée."]
+    },
     "ouvre l'atelier": { "mcp": [{ "tool": "edit_pack", "args": {} }], "chunks": ["Atelier ouvert."] },
     "portée slides": { "chunks": ["Réponse des slides."] },
     "propose les thèmes": {

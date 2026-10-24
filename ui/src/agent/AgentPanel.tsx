@@ -10,7 +10,7 @@ import { isShortcut } from "./shortcut";
 import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { AgentUi, InterfaceChange, McpEvent, Surface } from "../api";
+import type { AgentUi, InterfaceChange, McpEvent, PastedImage, Surface } from "../api";
 import type { PresentMode } from "../present";
 import { agentApi } from "../api";
 import { SlideThumbsContext, type SlideThumbs } from "../a2ui/slideThumbs";
@@ -61,7 +61,7 @@ export interface AgentHandle {
    * Une consigne, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit
    * les touches. Vrai si elle est partie (un refus ou un échec est signalé).
    */
-  prompt: (text: string) => Promise<boolean>;
+  prompt: (text: string, images: string[]) => Promise<boolean>;
   /** Une action d'une surface (réglages de l'hôte d'abord, sinon l'agent). */
   onSurfaceAction: (s: Surface, a: A2uiClientAction) => void;
   /** Arrête le tour en cours. */
@@ -95,7 +95,7 @@ export interface AgentPanelProps {
   shortcuts: boolean;
   keyPlaces?: QuickTarget["kind"][];
   /** Un brouillon reçu de l'hôte. */
-  onDraft?: (e: { text: string | null; origin: string | null }) => void;
+  onDraft?: (e: { text: string | null; origin: string | null; images: PastedImage[] }) => void;
   /** Le panneau des agents reçu de l'hôte (menu des réglages de la dictée, `useAgentPicker`). */
   onPicker?: (surface: Surface) => void;
   /** La disponibilité de l'agent reçue de l'hôte (`useAgentAvailability`) ; `null` : utilisable. */
@@ -189,7 +189,7 @@ export function AgentPanel(props: AgentPanelProps) {
         },
         onAgent: (e) => {
           latest.current!.scopeState.onAgentEvent(e);
-          if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin });
+          if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin, images: e.images });
           if (e.kind === "picker") latest.current!.props.onPicker?.(e.surface);
           if (e.kind === "availability") latest.current!.props.onAvailability?.(e.unusable);
         },
@@ -224,14 +224,14 @@ export function AgentPanel(props: AgentPanelProps) {
   /** Un tour en cours qui n'attend pas l'utilisateur (aucune question ne reçoit la consigne) : ⌘⇧D et Échap l'arrêtent. */
   const busy = agentBusy(agentState, answerTarget(keysTarget));
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit les touches. */
-  const promptAgent = (text: string, answer = answerTarget(keysTarget)): Promise<boolean> => {
+  const promptAgent = (text: string, answer = answerTarget(keysTarget), images: string[] = []): Promise<boolean> => {
     // Pendant un tour ailleurs, seule une réponse à une question part ; un mot-raccourci
     // n'ouvre jamais de tour en mode deck (l'hôte l'ouvre seul) : il part alors toujours.
     if (elsewhereNotice && answer === null && !(props.shortcuts && isShortcut(text))) {
       say(elsewhereNotice, true);
       return Promise.resolve(false);
     }
-    return agent.prompt(scope, text, props.ui, answer).then(
+    return agent.prompt(scope, text, props.ui, answer, images).then(
       () => true,
       (err) => {
         say(String(err), true);
@@ -250,7 +250,7 @@ export function AgentPanel(props: AgentPanelProps) {
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
   };
   useQuickKeys(keyed, sendAction);
-  useImperativeHandle(props.handle, () => ({ prompt: (text) => promptAgent(text), onSurfaceAction, cancel }));
+  useImperativeHandle(props.handle, () => ({ prompt: (text, images) => promptAgent(text, answerTarget(keysTarget), images), onSurfaceAction, cancel }));
 
   // `App` ne se re-rend que si l'une de ces valeurs change.
   const sheetOwner = sheet?.anchor?.owner ?? null;

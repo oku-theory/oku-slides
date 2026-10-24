@@ -327,6 +327,8 @@ impl Session {
         // Mode pack : une op sur la slide d'un layout s'écrit dans son exemple (`layout_examples`).
         let pack_ops = matches!(self.mode, crate::Mode::Pack { .. }).then(|| ops.clone());
         let moves = oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
+        // Une image collée que le deck cite désormais entre dans les sources (en ajout seul).
+        self.embed_op_assets(&next, &registry)?;
         if let Some(pack_ops) = pack_ops
             && self.commit_layout_examples(&next, &pack_ops, label, merge, &moves)?
         {

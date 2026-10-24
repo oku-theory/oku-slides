@@ -1,7 +1,12 @@
 // Rendu et comportement des composants du catalogue v3, dans un DOM happy-dom.
 
-import { describe, expect, spyOn, test } from "bun:test";
+import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import "../test/dom";
+import { readFileSync } from "node:fs";
+import { applyMessages } from "../i18n";
+import { resetMessages } from "../test/messages";
+
+afterAll(resetMessages);
 
 // react-dom cherche le DOM à son chargement, et Bun n'évalue pas les imports
 // statiques dans l'ordre écrit : React et la surface se chargent donc après
@@ -336,6 +341,14 @@ describe("composants du fil (v3)", () => {
   test("Prompt rend la consigne dans une bulle", async () => {
     const { host } = await mount({ component: "Prompt", text: "Change le fond" });
     expect(host.querySelector(".a2ui-prompt")?.textContent).toBe("Change le fond");
+  });
+
+  test("Prompt montre une puce par image collée", async () => {
+    // Le libellé vient de `ui-pasted-image` : les messages restent chargés jusqu'au `afterAll(resetMessages)` du fichier.
+    const ftl = readFileSync(`${import.meta.dir}/../../../crates/oku-slides-i18n/src/locales/en/ui.ftl`, "utf8");
+    applyMessages({ locale: "en", resources: [ftl], chosen: null });
+    const { host } = await mount({ component: "Prompt", text: "Pose-la", images: [{ mime: "image/png", width: 4, height: 3 }] });
+    expect([...host.querySelectorAll(".a2ui-prompt-image")].map((e) => e.textContent)).toEqual(["PNG 4×3"]);
   });
 
   test("Timeline repliée ne montre que son résumé jusqu'au clic", async () => {

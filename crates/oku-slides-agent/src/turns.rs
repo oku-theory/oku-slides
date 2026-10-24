@@ -19,7 +19,8 @@ use oku_slides_session::agent::turn_view::{
     TurnState, TurnView, first_line, turn_data, turn_id, turn_patches, turn_surface,
 };
 use oku_slides_session::agent::{
-    AgentScope, LABEL_MAX, NOTE_CHARS, ServerMessage, StepStatus, Surface, TimelineStep, ToolCallDetail, WHY_MAX, clip,
+    AgentScope, LABEL_MAX, NOTE_CHARS, PromptImage, ServerMessage, StepStatus, Surface, TimelineStep, ToolCallDetail,
+    WHY_MAX, clip,
 };
 use serde_json::Value;
 
@@ -322,11 +323,28 @@ impl Turn {
     }
 }
 
+/// La vue d'un tour qui s'ouvre : sa consigne et ses images, rien d'autre encore.
+fn opening(n: u32, prompt: &str, images: &[PromptImage]) -> TurnView {
+    TurnView {
+        n,
+        prompt: prompt.to_owned(),
+        plan: Vec::new(),
+        steps: Vec::new(),
+        tools: 0,
+        notes: 0,
+        narration: String::new(),
+        images: images.to_vec(),
+        state: TurnState::Running,
+    }
+}
+
 impl Turns {
     /// Applique `e` ; rend ce que le relais doit émettre.
     pub fn apply(&mut self, e: &AgentEvent, now: Instant, l: &Localizer) -> Vec<TurnOut> {
         let n = match e {
-            AgentEvent::UserText { turn, scope, text } => return self.open(*turn, scope.clone(), text, now, l),
+            AgentEvent::UserText { turn, scope, text, images } => {
+                return self.open(opening(*turn, text, images), scope.clone(), now, l);
+            }
             // Le hub a déjà été vidé par l'acteur (`clear_thread`, synchrone) : on oublie les tours de la portée.
             AgentEvent::Conversation { scope } => {
                 self.turns.retain(|t| t.scope != *scope);
@@ -351,7 +369,7 @@ impl Turns {
         // L'ouverture de ce tour s'est perdue (relais en retard) : il s'ouvre ici, sans consigne.
         let mut out = if n > self.last {
             let scope = self.turns.back().map_or(AgentScope::Slides, |t| t.scope.clone());
-            self.open(n, scope, "", now, l)
+            self.open(opening(n, "", &[]), scope, now, l)
         } else {
             Vec::new()
         };
@@ -428,7 +446,8 @@ impl Turns {
         out
     }
 
-    fn open(&mut self, n: u32, scope: AgentScope, prompt: &str, now: Instant, l: &Localizer) -> Vec<TurnOut> {
+    fn open(&mut self, view: TurnView, scope: AgentScope, now: Instant, l: &Localizer) -> Vec<TurnOut> {
+        let n = view.n;
         let mut out = Vec::new();
         self.last = self.last.max(n);
         // Un tour précédent resté ouvert (fin perdue) est clos comme interrompu.
@@ -441,16 +460,6 @@ impl Turns {
             out.extend(prev.patch(l));
             out.push(TurnOut::Ended { turn: k, narration: String::new() });
         }
-        let view = TurnView {
-            n,
-            prompt: prompt.to_owned(),
-            plan: Vec::new(),
-            steps: Vec::new(),
-            tools: 0,
-            notes: 0,
-            narration: String::new(),
-            state: TurnState::Running,
-        };
         let sent = turn_data(&view, l);
         out.push(TurnOut::Show(turn_surface(&view, l)));
         self.turns.push_back(Turn {

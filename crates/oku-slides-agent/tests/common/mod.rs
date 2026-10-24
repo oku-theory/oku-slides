@@ -13,7 +13,7 @@ use oku_slides_platform::config::{AgentPreset, Builtin};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
 use oku_slides_session::agent::{AgentScope, Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
-use serde_json::Value;
+use serde_json::{Value, json};
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
@@ -143,8 +143,15 @@ async fn start_tabs_ready_within(
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
         let keeper = Keeper::spawn(tab.clone(), hub.clone());
         keeper.restored().await;
-        let agent =
-            AgentHandle::spawn(tab, hub.clone(), access, link.clone(), platform.live_localizer.clone(), keeper.clone());
+        let agent = AgentHandle::spawn(
+            tab,
+            hub.clone(),
+            access,
+            link.clone(),
+            platform.live_localizer.clone(),
+            keeper.clone(),
+            platform.settings.paste.prompt_limits(),
+        );
         let events = tokio::sync::Mutex::new(agent.subscribe());
         started.push(Tab { name: (*name).to_owned(), agent, hub, session, server, keeper, events });
     }
@@ -236,6 +243,7 @@ pub fn frozen_turn(n: u32) -> Surface {
         tools: 0,
         notes: 0,
         narration: String::new(),
+        images: Vec::new(),
         state: TurnState::Done { secs: 1 },
     };
     turn_surface(&view, &oku_slides_i18n::Localizer::new(Some("fr")))
@@ -650,4 +658,53 @@ pub fn theme_ref(name: &str) -> Option<oku_slides_core::Namespace> {
 pub fn theme_name(ns: &oku_slides_core::Namespace) -> Option<&'static str> {
     use oku_slides_session::{PAPIER_NAMESPACE, PRO_NAMESPACE};
     [PAPIER_NAMESPACE, PRO_NAMESPACE].into_iter().find(|n| ns.as_str() == *n)
+}
+
+pub fn is(
+    ch: &'static str,
+    kind: &'static str,
+    tab: &'static str,
+) -> impl Fn(&(&'static str, serde_json::Value)) -> bool {
+    move |(c, v)| *c == ch && v["event"]["kind"] == kind && v["tab"] == tab
+}
+
+/// Le premier relais vérifiant `pred` après `from` : sa position et sa valeur.
+pub async fn next(
+    rx: &Relayed,
+    from: usize,
+    pred: impl Fn(&(&'static str, serde_json::Value)) -> bool,
+) -> (usize, serde_json::Value) {
+    let (i, (_, v)) = wait_n_after(rx, from, 1, pred).await.remove(0);
+    (i, v)
+}
+
+/// Un `resync` de `tab` dans `scope` (ou les slides) : rend la position juste après sa liste.
+///
+/// La relecture des fils au démarrage de l'onglet envoie aussi une liste, sans `viewing` avant :
+/// on attend donc la portée annoncée, puis la liste qui la suit.
+pub async fn shown(stack: &TestStack, rx: &Relayed, tab: &'static str, scope: Option<serde_json::Value>) -> usize {
+    let from = relayed_len(rx);
+    let mut req = json!({ "cmd": "resync", "tab": tab });
+    if let Some(s) = scope {
+        req["scope"] = s;
+    }
+    stack.handle(cmd(req)).unwrap_or_else(|e| panic!("resync : {e}"));
+    let (viewing, _) = next(rx, from, is("mcp", "viewing", tab)).await;
+    let (list, _) = next(rx, viewing, is("mcp", "surfaces", tab)).await;
+    list + 1
+}
+
+/// Écrit le brouillon de `tab` depuis la vue `v-1`, et rend la position juste après son écho.
+pub async fn drafted(stack: &TestStack, rx: &Relayed, tab: &'static str, text: Option<&str>, from: usize) -> usize {
+    let req = json!({ "cmd": "set_draft", "tab": tab, "text": text, "origin": "v-1" });
+    stack.handle(cmd(req)).unwrap_or_else(|e| panic!("set_draft : {e}"));
+    let (echo, _) = next(rx, from, move |(c, v)| {
+        *c == "agent"
+            && v["event"]["kind"] == "draft"
+            && v["tab"] == tab
+            && v["event"]["origin"] == "v-1"
+            && v["event"]["text"] == json!(text)
+    })
+    .await;
+    echo + 1
 }

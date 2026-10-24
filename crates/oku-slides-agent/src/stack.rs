@@ -33,6 +33,8 @@ pub const MAX_ORIGIN_BYTES: usize = 64;
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum AgentCommand {
+    /// Une consigne ; avec des images collées (`images`), elle n'est jamais prise pour une réponse
+    /// à une question ni pour un mot de raccourci.
     Prompt {
         tab: String,
         /// La conversation visée ; absente : celle des slides.
@@ -45,6 +47,9 @@ pub enum AgentCommand {
         /// (`quickTarget`). Absente, ou question qui n'attend plus : une consigne ordinaire.
         #[serde(default)]
         answer: Option<String>,
+        /// Les images collées envoyées avec la consigne (ids `sha256:…` du brouillon).
+        #[serde(default)]
+        images: Vec<String>,
     },
     /// Fine-tune l'onglet importé : un tour dans la conversation des slides, démarrant l'agent.
     ///
@@ -92,6 +97,18 @@ pub enum AgentCommand {
         /// La vue qui l'écrit, rendue avec l'écho.
         origin: Option<String>,
     },
+    /// Une image collée (`data` : ses octets en base64), ajoutée au brouillon de l'onglet.
+    ///
+    /// Refusée sans agent démarré, au-delà de `[paste] max_draft_images`, ou par la session.
+    PasteImage {
+        tab: String,
+        data: String,
+    },
+    /// Retire l'image `id` du brouillon.
+    RemoveImage {
+        tab: String,
+        id: String,
+    },
     /// L'interface ouvre le panneau des agents : la surface est émise à cet onglet.
     Picker {
         tab: String,
@@ -134,6 +151,8 @@ impl AgentCommand {
             | Self::Resync { tab, .. }
             | Self::Follow { tab }
             | Self::SetDraft { tab, .. }
+            | Self::PasteImage { tab, .. }
+            | Self::RemoveImage { tab, .. }
             | Self::Picker { tab }
             | Self::ShowPacks { tab }
             | Self::Availability { tab }
@@ -219,18 +238,19 @@ impl Stack {
             return Ok(());
         }
         match cmd {
-            AgentCommand::Prompt { tab, scope, text, ui, answer } => {
+            AgentCommand::Prompt { tab, scope, text, ui, answer, images } => {
                 // Fermé entre-temps : ignorée, comme ci-dessus.
                 let Some(t) = self.open(&tab) else { return Ok(()) };
                 // Réponse à la question désignée, jamais à une autre. Si elle n'attend plus (répondue
                 // ou annulée entre-temps), la consigne n'est pas perdue : elle part comme toute
                 // consigne (nouveau tour ; pendant un tour, elle l'interrompt puis le remplace).
-                if answer.is_some_and(|id| t.hub.answer(&id, &text)) {
+                if images.is_empty() && answer.is_some_and(|id| t.hub.answer(&id, &text)) {
                     return Ok(());
                 }
                 // Raccourci « thème » : le sélecteur de l'hôte, sans tour ni agent ; un tour en cours
                 // continue. Hors du mode deck, ou s'il échoue (journalisé), la consigne part à l'agent.
-                if matches_shortcut(&text, THEME_SHORTCUT, &self.platform.live_localizer.current()) {
+                if images.is_empty() && matches_shortcut(&text, THEME_SHORTCUT, &self.platform.live_localizer.current())
+                {
                     match t.hub.show_themes(ui.slide.clone()) {
                         Ok(true) => return Ok(()),
                         Ok(false) => {}
@@ -239,13 +259,24 @@ impl Stack {
                         }
                     }
                 }
-                t.send(Command::Prompt(Instruction { scope, text, ui, tune: false }));
+                let images = crate::paste::resolve_images(&t, &images, self.platform.settings.paste.max_draft_images)
+                    .map_err(|e| {
+                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "consigne refusée");
+                    e.localize(&self.platform.live_localizer.current())
+                })?;
+                t.send(Command::Prompt(Instruction { scope, text, ui, tune: false, images }));
             }
             AgentCommand::Tune { tab } => {
                 let Some(t) = self.open(&tab) else { return Ok(()) };
                 let text = self.platform.live_localizer.current().tr(TUNE_PROMPT);
                 let ui = AgentUi::default();
-                t.send(Command::Prompt(Instruction { scope: AgentScope::Slides, text, ui, tune: true }));
+                t.send(Command::Prompt(Instruction {
+                    scope: AgentScope::Slides,
+                    text,
+                    ui,
+                    tune: true,
+                    images: Vec::new(),
+                }));
             }
             AgentCommand::Cancel { tab } => {
                 if let Some(t) = self.tab(&tab) {
@@ -329,6 +360,25 @@ impl Stack {
                     }
                 }
             }
+            AgentCommand::PasteImage { tab, data } => {
+                let l = self.platform.live_localizer.current();
+                let Some(t) = self.tab(&tab) else {
+                    return Err(CommandError::from(NoAgentSnafu.build()).localize(&l));
+                };
+                return crate::paste::paste_image(&t, &self.out_tx, &self.platform.settings.paste, &data).map_err(
+                    |e| {
+                        tracing::info!(tab, error = %snafu::Report::from_error(&e), "image collée refusée");
+                        e.localize(&l)
+                    },
+                );
+            }
+            AgentCommand::RemoveImage { tab, id } => match self.tab(&tab) {
+                Some(t) => t.remove_image(&self.out_tx, &id),
+                None => {
+                    let e = CommandError::from(NoAgentSnafu.build());
+                    return Err(e.localize(&self.platform.live_localizer.current()));
+                }
+            },
             AgentCommand::Picker { tab } => self.emit_picker(&tab),
             AgentCommand::Availability { tab } => {
                 emit(&self.out_tx, "agent", &tab, &AgentEvent::Availability { unusable: self.availability() });
@@ -446,7 +496,7 @@ impl Stack {
     /// Repos, aucun brouillon, les slides, aucune surface.
     fn replay_closed(&self, tab: &str) {
         emit(&self.out_tx, "agent", tab, &AgentEvent::idle());
-        emit(&self.out_tx, "agent", tab, &AgentEvent::Draft { text: None, origin: None });
+        emit(&self.out_tx, "agent", tab, &AgentEvent::Draft { text: None, origin: None, images: Vec::new() });
         emit(&self.out_tx, "mcp", tab, &McpEvent::Viewing { scope: AgentScope::Slides });
         emit(&self.out_tx, "mcp", tab, &McpEvent::Surfaces { list: Vec::new() });
     }

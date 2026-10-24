@@ -103,6 +103,24 @@ max_input_mib = 256
 # continue sans écart visuel et le rapport dit pourquoi, sans repli sur office2pdf.
 witness = "office2pdf"
 
+[paste]
+# Images collées dans le brouillon de l'agent : PNG, JPEG, GIF ou WebP.
+# Taille maximale d'une image (Mio).
+max_image_mib = 10
+# Pixels au plus d'une image, lus dans son en-tête avant tout décodage (64 Mpx, comme l'import).
+max_image_pixels = 67108864
+# Images au plus dans un brouillon.
+max_draft_images = 8
+# Taille cumulée des images gardées par onglet (Mio) ; au-delà, les plus anciennes hors du
+# brouillon sont oubliées. Une image posée dans le deck n'en dépend plus.
+max_kept_mib = 100
+# Plus grande image montrée à l'agent (Mio) ; au-delà, il n'en reçoit que l'identifiant.
+prompt_image_mib = 5
+# Plus grand côté (pixels) d'une image montrée à l'agent ; au-delà, il n'en reçoit que l'identifiant.
+prompt_image_max_side = 8000
+# Taille encodée cumulée des images montrées à l'agent pour une consigne (Mio) ; au-delà, listées seulement.
+prompt_total_mib = 20
+
 [serve]
 # Serveur de développement (`oku-slides serve`), sans authentification.
 # Il ne répond qu'aux requêtes dont l'en-tête Host nomme la boucle locale

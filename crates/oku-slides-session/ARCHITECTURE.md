@@ -30,7 +30,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
   groups (`begin_turn`; `turn_undo` names the turn atop the deck undo stack for its receipt), A2UI
   surfaces (`forms`, `turn_view`, `receipt`, `render`, `surface_ops`), `address`, `variants`,
   `context`, `scope` + `conversation` (per-scope threads; `ScopeMove` on widget rename, replayed by
-  `undo.rs`), `reason` (`AgentFormReason`).
+  `undo.rs`), `reason` (`AgentFormReason`); `attachments` (pasted images: in-memory per tab, `[paste]` bounds, `AttachmentRef`).
 
 ## Workspace
 
