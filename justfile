@@ -281,10 +281,14 @@ coverage:
 
 # Dépendances : licences, avis de sécurité, sources. `bun audit` lit ui/bun.lock seul ;
 # une exception npm motivée s'y ajoute en `--ignore <GHSA>`, commentée ici.
+# - GHSA-mrhx-c7xc-m3w5 (zod < 4.6.6, mémoire épuisée sur un grand tableau invalide) : corrigé
+#   seulement en zod 4, que @a2ui (zod ^3.25.76, ses CommonSchemas dans nos schémas) refuse ;
+#   zod n'y valide que des surfaces de l'agent relayées par notre hôte local, et le risque se
+#   borne à l'onglet de l'UI. À retirer avec le passage à zod 4 (t-1179).
 audit:
     cargo deny check
     cargo audit
-    cd ui && bun audit
+    cd ui && bun audit --ignore GHSA-mrhx-c7xc-m3w5
 
 # Relance une commande à chaque modification : just watch test
 watch cmd="test":
