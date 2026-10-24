@@ -1,4 +1,5 @@
-// Le menu principal d'un onglet : présenter, ouvrir et l'aide. Le reste se demande à l'agent (t-988).
+// Le menu principal d'un onglet : présenter, ouvrir, les mises à jour et l'aide.
+// Le reste se demande à l'agent (t-988).
 
 import type { MenuEntry } from "./ActionMenu";
 import { ActionMenu } from "./ActionMenu";
@@ -15,17 +16,22 @@ interface Props {
   open: () => void;
   /** Ouvre l'aide. */
   onHelp: () => void;
+  /** Cherche une mise à jour ; absent hors de l'app (pas d'hôte). */
+  onCheckUpdates?: () => void;
 }
 
-/** Le menu principal : ce qu'un geste fait plus vite que la voix, et l'aide. */
-export function AppMenu({ packMode, present, open, onHelp }: Props) {
-  const help: MenuEntry = { label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp };
+/** Le menu principal : gestes plus rapides que la voix, mises à jour et aide. */
+export function AppMenu({ packMode, present, open, onHelp, onCheckUpdates }: Props) {
+  const app: MenuEntry[] = [
+    ...(onCheckUpdates ? [{ label: t("ui-update-check"), onSelect: onCheckUpdates }] : []),
+    { label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
+  ];
   const menuEntries: MenuEntry[] = packMode
-    ? [help]
+    ? app
     : [
         { label: t("ui-present-screen"), shortcut: "⌘↩", onSelect: () => present("screen") },
         { label: t("ui-toolbar-open"), shortcut: "⌘O", onSelect: open },
-        help,
+        ...app,
       ];
   return <ActionMenu label={t("ui-menu")} entries={menuEntries} triggerClass="token ghost" />;
 }

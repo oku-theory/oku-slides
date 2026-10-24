@@ -113,7 +113,7 @@ export default function App({
     setCurrent(id);
   };
   const { say, node: toastNode } = useToast();
-  useUpdateCheck(updates, say);
+  const checkUpdates = useUpdateCheck(updates, say);
   const svgs = useSvgCache(api);
   // Miniatures des reçus de l'agent : même cache que la pile, empreintes actuelles du deck.
   const slideThumbs = useThumbsOver(svgs, snap?.slides);
@@ -301,7 +301,7 @@ export default function App({
 
   const cur = snap.slides.find((s) => s.id === current);
   const mainMenu = (
-    <AppMenu packMode={!!snap.editing} present={present} open={open} onHelp={onHelp} />
+    <AppMenu packMode={!!snap.editing} present={present} open={open} onHelp={onHelp} onCheckUpdates={checkUpdates} />
   );
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).

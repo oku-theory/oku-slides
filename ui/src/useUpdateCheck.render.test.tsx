@@ -20,6 +20,8 @@ afterEach(async () => {
 const said: Array<[string, boolean]> = [];
 const say = (text: string, error = false) => void said.push([text, error]);
 
+let run: (() => void) | undefined;
+
 async function mount(check: () => Promise<UpdateStatus | null>, requested = 0) {
   said.length = 0;
   const host = document.createElement("div");
@@ -27,7 +29,7 @@ async function mount(check: () => Promise<UpdateStatus | null>, requested = 0) {
   const root = createRoot(host);
   mounted = { root, host };
   function Probe({ n }: { n: number }) {
-    useUpdateCheck({ check, requested: n }, say);
+    run = useUpdateCheck({ check, requested: n }, say);
     return null;
   }
   await act(async () => root.render(createElement(Probe, { n: requested })));
@@ -57,5 +59,25 @@ describe("useUpdateCheck", () => {
   test("useUpdateCheck mount does not check", async () => {
     await mount(async () => ({ offer: null, installing: false }), 3);
     expect(said).toEqual([]);
+  });
+
+  test("useUpdateCheck returned check from the main menu says up to date", async () => {
+    await mount(async () => ({ offer: null, installing: false }));
+    await act(async () => run?.());
+    expect(said).toEqual([["ui-update-up-to-date", false]]);
+  });
+
+  test("useUpdateCheck without host returns no check", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted = { root, host };
+    let got: (() => void) | undefined = () => {};
+    function Bare() {
+      got = useUpdateCheck(undefined, say);
+      return null;
+    }
+    await act(async () => root.render(createElement(Bare)));
+    expect(got).toBeUndefined();
   });
 });

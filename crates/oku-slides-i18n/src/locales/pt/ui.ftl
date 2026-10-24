@@ -377,5 +377,6 @@ ui-update-later = Mais tarde
 ui-update-installing = Baixando a atualização… { $percent }%
 ui-update-downloading = Baixando a atualização…
 ui-update-up-to-date = O Oku Slides está atualizado.
+ui-update-check = Verificar atualizações…
 
 ui-shortcut-theme = tema, temas, theme, themes
