@@ -23,6 +23,7 @@ fn hub() -> Arc<SurfaceHub> {
     SurfaceHub::new(
         TabSession::new("t-1", Arc::new(NoSession)),
         LiveLocalizer::new(Arc::new(Localizer::new(Some("fr")))),
+        Arc::new(crate::NoVoice),
     )
 }
 

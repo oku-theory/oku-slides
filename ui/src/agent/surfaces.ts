@@ -41,8 +41,10 @@ export const isQuestion = (s: Surface) => s.question;
 export const HOST_THEME_PICKER = "host-theme-picker";
 /** Le panneau des packs du deck, ouvert par le bouton de la barre d'outils ou l'agent. */
 export const HOST_PACKS = "host-packs";
-/** Une boîte de l'hôte demandée par l'utilisateur (thèmes, packs) : annoncée, jamais repliée. */
-export const isRequestedBox = (s: Surface) => s.id === HOST_THEME_PICKER || s.id === HOST_PACKS;
+/** La boîte des réglages de la dictée et de l'agent. Ouverte par le ⚙ ou l'agent. */
+export const HOST_VOICE = "host-voice";
+/** Une boîte de l'hôte demandée (thèmes, packs, réglages) : annoncée, jamais repliée. */
+export const isRequestedBox = (s: Surface) => s.id === HOST_THEME_PICKER || s.id === HOST_PACKS || s.id === HOST_VOICE;
 /** Une surface de réglages de l'hôte (`host-widget`, `host-data`, `host-theme`) : reconstruite à chaque relecture. */
 export const isHostSettings = (s: Surface) => s.id.startsWith("host-") && !isRequestedBox(s);
 /** Le reçu d'un tour (outil `report`, ou reçu de repli) : identifiant `report-N` du hub. */

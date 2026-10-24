@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Surface, SttConfig, SttModel, SttStatus } from "./api";
+import type { SttStatus } from "./api";
 import { stt } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { Button, Field, Select } from "./primitives";
-import { DictationApiFields } from "./DictationApiFields";
-import { AgentPicker } from "./agent/AgentPicker";
+import { IconButton } from "./primitives";
+import { useVoiceSeq } from "./voiceSeq";
 import type { DictationMode } from "./agent/keys";
 import { dictationShortcut, shortcutAction, typingShortcut } from "./agent/keys";
 import type { LinkShortcut } from "./agent/link";
-
-const SILENCES = [1, 1.5, 2, 3, 5];
 
 const secs = (s: number) => t("ui-seconds", { value: s });
 
@@ -74,30 +71,25 @@ interface Props {
    * le dernier vu agit une fois ; celui présent au montage n'agit pas.
    */
   remote?: { seq: number; key: LinkShortcut };
-  /** Le panneau des agents reçu de l'hôte (`useAgentPicker`), en bas des réglages ; `null` : pas encore reçu. */
-  agentPicker: Surface | null;
-  /** Les réglages s'ouvrent : l'hôte renvoie le panneau des agents à jour. */
-  onAgentPickerOpen: () => void;
-  /** Un agent choisi ; les réglages restent ouverts. */
-  onAgentSelect: (id: string) => void;
-  /** Télécharger le modèle de l'agent local (bouton du panneau des agents). */
-  onAgentDownload: () => void;
-  /** Arrêter le téléchargement du modèle de l'agent local. */
-  onAgentCancelDownload: () => void;
+  /** Ouvre la boîte des réglages ; absent, pas de ⚙ (vue en lecture seule). */
+  onSettings?: () => void;
 }
 
-/** L'appareil de dictée : micro, clavier, niveau, texte provisoire, réglages du modèle et de l'agent. */
-export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote, agentPicker, onAgentPickerOpen, onAgentSelect, onAgentDownload, onAgentCancelDownload }: Props) {
+/**
+ * L'appareil de dictée : micro, clavier, niveau et texte provisoire.
+ *
+ * Ses réglages sont la boîte de l'hôte (⚙).
+ */
+export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote, onSettings }: Props) {
   const [status, setStatus] = useState<SttStatus | null>(null);
-  const [settings, setSettings] = useState(false);
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
   const lastSeq = useRef<number | null>(null);
   const lastError = useRef<string | null>(null);
   const [mode, setMode] = useState<DictationMode>("auto");
   // Lu par `receive` (stable) : la dictée qui se termine garde le mode de son début.
   const modeRef = useRef<DictationMode>("auto");
-  const handlers = useRef({ onText, onError, onAgentCancel, onType });
-  handlers.current = { onText, onError, onAgentCancel, onType };
+  const handlers = useRef({ onText, onError, onAgentCancel, onType, onSettings });
+  handlers.current = { onText, onError, onAgentCancel, onType, onSettings };
 
   const receive = useCallback((s: SttStatus) => {
     setStatus(s);
@@ -112,14 +104,31 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     if (s.state === "recording") setLevels((l) => [...l.slice(1), s.level]);
   }, []);
 
+  // Les réponses du statut arrivent dans le désordre : une réponse plus ancienne que la dernière
+  // appliquée est ignorée. Pas « seule la dernière demandée » : un sondage de 90 ms plus rapide
+  // que les réponses n'en appliquerait jamais aucune.
+  const asked = useRef(0);
+  const applied = useRef(0);
   const send = useCallback(
-    (p: Promise<SttStatus>) => p.then(receive).catch((e) => handlers.current.onError(String(e instanceof Error ? e.message : e))),
+    (p: Promise<SttStatus>) => {
+      const n = ++asked.current;
+      return p
+        .then((s) => {
+          if (n <= applied.current) return;
+          applied.current = n;
+          receive(s);
+        })
+        .catch((e) => handlers.current.onError(String(e instanceof Error ? e.message : e)));
+    },
     [receive],
   );
 
+  // Au montage, puis quand la dictée ou l'agent ont changé : l'état du micro se relit.
+  // Sans effet de bord : relancé par StrictMode, il relit deux fois, sans plus.
+  const settingsSeq = useVoiceSeq();
   useEffect(() => {
     send(stt.status());
-  }, [send]);
+  }, [settingsSeq, send]);
 
   // Sondage tant que quelque chose se passe (téléchargement, écoute, transcription).
   const busy = status && status.state !== "idle";
@@ -133,15 +142,10 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     if (status?.state === "idle") setLevels((l) => l.map(() => 0));
   }, [status?.state]);
 
-  const configure = (change: Partial<SttConfig>) => {
-    if (status) send(stt.configure({ ...status.config, ...change }));
-  };
-
   const toggle = useCallback(
     (next: DictationMode) => {
       if (!status) return;
       if (status.state === "idle") {
-        setSettings(false);
         setMode(next);
         modeRef.current = next;
         send(stt.start(vocabulary));
@@ -351,107 +355,17 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
       {state === "recording" || state === "downloading" ? (
         <button className="token ghost dictation-cancel" aria-label={t("ui-dictation-cancel")} title={t("ui-dictation-cancel")} onMouseDown={(e) => e.preventDefault()} onClick={() => send(stt.cancel())}>{Icon.close}</button>
       ) : (
-        <button
-          className="token ghost"
-          aria-label={t("ui-dictation-settings")}
-          aria-expanded={settings}
-          disabled={state !== "idle"}
-          onClick={() => {
-            if (!settings) onAgentPickerOpen();
-            setSettings(!settings);
-          }}
-        >
-          {GearIcon}
-        </button>
-      )}
-
-      {settings && state === "idle" && (
-        <div className="dictation-settings object" role="dialog" aria-label={t("ui-dictation-settings")}>
-          <div className="settings-title">{t("ui-dictation-model-title")}</div>
-          <p className="caption">{t(status.models.some((m) => m.id === "apple") ? "ui-dictation-model-intro-apple" : "ui-dictation-model-intro")}</p>
-          <div className="model-list" role="radiogroup">
-            {status.models.map((m) => {
-              const [name, detail] = m.label.replace(")", "").split(" (");
-              return (
-                <label key={m.id} className={`model${m.id === status.config.model ? " chosen" : ""}`}>
-                  <input
-                    type="radio"
-                    name="stt-model"
-                    checked={m.id === status.config.model}
-                    disabled={!m.available}
-                    onChange={() => configure({ model: m.id as SttModel })}
-                  />
-                  <span className="model-name">{name}</span>
-                  <span className="caption">{modelNote(m.id)}{m.size > 0 && ` · ${detail?.replace(/^[^,]*, /, "") ?? ""}`}</span>
-                  <span className={`badge${m.available && m.installed ? " ok" : ""}`}>
-                    {m.id === "api" && m.available
-                      ? m.installed ? t("ui-dictation-api-ready") : t("ui-dictation-api-key-missing", { var: status.config.api.key_env })
-                      : t(!m.available ? "ui-dictation-model-unavailable" : m.installed ? "ui-dictation-installed" : "ui-dictation-not-installed")}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-          {status.config.model === "api" && (
-            <DictationApiFields api={status.config.api} onChange={(api) => configure({ api })} />
-          )}
-          <Field variant="row" label={t("ui-dictation-language")}>
-            <Select
-              value={status.config.language ?? ""}
-              onChange={(v) => configure({ language: v || null })}
-              options={langs.map(([code, name]) => ({ value: code ?? "", label: name }))}
-            />
-          </Field>
-          <div className="settings-row">
-            <label className="check">
-              <input type="checkbox" checked={status.config.auto_stop} onChange={(e) => configure({ auto_stop: e.target.checked })} />
-              <span className="caption">{t("ui-dictation-auto-stop-label")}</span>
-            </label>
-            <Select
-              aria-label={t("ui-dictation-silence")}
-              disabled={!status.config.auto_stop}
-              value={String(status.config.silence)}
-              onChange={(v) => configure({ silence: Number(v) })}
-              options={(SILENCES.includes(status.config.silence) ? SILENCES : [...SILENCES, status.config.silence].sort((a, b) => a - b))
-                .map((v) => ({ value: String(v), label: secs(v) }))}
-            />
-          </div>
-          <p className="caption">{t("ui-dictation-phrases-note")}</p>
-          {model && model.id !== "api" && model.available && !model.installed && (
-            <Button onClick={() => send(stt.download(model.id))}>{model.size === 0 ? t("ui-dictation-download-language") : t("ui-dictation-download-now", { size: mo(model.size) })}</Button>
-          )}
-          {/* L'agent de l'app, sous les réglages de la dictée (la surface porte son titre). */}
-          {agentPicker && (
-            <div className="dictation-agents">
-              <AgentPicker
-                surface={agentPicker}
-                onSelect={onAgentSelect}
-                onDownload={onAgentDownload}
-                onCancelDownload={onAgentCancelDownload}
-                onError={onError}
-              />
-            </div>
-          )}
-        </div>
+        onSettings && (
+          <IconButton
+            className="token ghost"
+            label={t("ui-dictation-settings")}
+            icon={GearIcon}
+            disabled={state !== "idle"}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => handlers.current.onSettings?.()}
+          />
+        )
       )}
     </div>
   );
-}
-
-/** Note d'un modèle de dictée ; aucune pour un modèle inconnu. */
-function modelNote(id: string): string | undefined {
-  switch (id) {
-    case "apple":
-      return t("ui-dictation-note-apple");
-    case "turbo":
-      return t("ui-dictation-note-turbo");
-    case "large":
-      return t("ui-dictation-note-large");
-    case "base":
-      return t("ui-dictation-note-base");
-    case "api":
-      return t("ui-dictation-note-api");
-    default:
-      return undefined;
-  }
 }

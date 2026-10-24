@@ -13,10 +13,9 @@ use oku_slides_session::Settings;
 use sha2::{Digest, Sha256};
 use speculoos::prelude::*;
 
-use oku_slides_i18n::Localizer;
 use rstest::rstest;
 
-use super::{DownloadState, ModelDownload, failure_text, percent};
+use super::{DownloadState, ModelDownload, percent};
 
 /// Un faux dépôt : `/repo/resolve/rev/<nom>` rend le corps de `<nom>` après `delay`.
 fn hub(files: HashMap<&'static str, &'static [u8]>, delay: Duration) -> String {
@@ -188,24 +187,4 @@ fn on_change_called_at_least_at_the_end() {
 #[case::empty_total(0, 0, 0)]
 fn percent_is_bounded(#[case] received: u64, #[case] total: u64, #[case] expected: u8) {
     assert_that!(percent(received, total)).is_equal_to(expected);
-}
-
-#[rstest]
-#[case::network(DownloadErrorKind::Network, "agent-model-download-failed")]
-#[case::write(DownloadErrorKind::Write, "agent-model-download-failed")]
-#[case::integrity(DownloadErrorKind::Integrity, "agent-model-download-integrity")]
-#[case::cancelled(DownloadErrorKind::Cancelled, "agent-model-download-cancelled")]
-fn failure_text_uses_its_key(#[case] kind: DownloadErrorKind, #[case] key: &str) {
-    let fr = Localizer::new(Some("fr"));
-    assert_that!(failure_text(kind, &fr)).is_equal_to(fr.tr(key));
-}
-
-#[test]
-fn failure_text_incomplete_names_both_sizes_in_french() {
-    let fr = Localizer::new(Some("fr"));
-    let text = failure_text(DownloadErrorKind::Incomplete { got: 3, expected: 7 }, &fr);
-    assert_that!(text.as_str()).is_equal_to(
-        fr.tr_with("agent-model-download-incomplete", &[("got", 3u64.into()), ("expected", 7u64.into())]).as_str(),
-    );
-    assert_that!(text.as_str()).contains("octets");
 }

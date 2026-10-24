@@ -11,6 +11,7 @@ stt-cancelled = أُلغي التنزيل
 stt-speech-denied = اسمح بالتعرف على الكلام في إعدادات النظام › الخصوصية والأمان
 stt-locale-unsupported = محرك Apple لا يدعم هذه اللغة ({ $language })
 stt-api-key-missing = عيّن متغير البيئة { $var } لاستخدام واجهة برمجة الإملاء
+stt-api-config = إعدادات واجهة برمجة الإملاء غير صالحة: صحّحها في مربع الإعدادات.
 stt-api-unreachable = تعذّر الوصول إلى واجهة برمجة الإملاء
 stt-api-status = رفضت واجهة برمجة الإملاء الطلب (HTTP { $status })
 

@@ -11,6 +11,7 @@ stt-cancelled = Download cancelado
 stt-speech-denied = Permita o reconhecimento de fala em Ajustes do Sistema › Privacidade e segurança
 stt-locale-unsupported = O motor da Apple não suporta este idioma ({ $language })
 stt-api-key-missing = Defina a variável de ambiente { $var } para usar a API de ditado
+stt-api-config = As configurações da API de ditado são inválidas: corrija-as na caixa de configurações.
 stt-api-unreachable = Não foi possível acessar a API de ditado
 stt-api-status = A API de ditado recusou a solicitação (HTTP { $status })
 

@@ -6,6 +6,7 @@
 //! - [`SurfaceHub`] : surfaces ouvertes, réponses attendues, évènements
 //!   vers l'interface ([`McpEvent`]).
 //! - [`SettingsPort`] : réglages lus et écrits, fournis par l'hôte.
+//! - [`VoicePort`] : la dictée et l'agent de l'app, pour la boîte des réglages.
 //!
 //! Dépend de `oku-slides-session` ; utilisé par `oku-slides-agent`.
 
@@ -23,6 +24,8 @@ mod settings;
 mod surface_tools;
 mod tool_error;
 mod tools;
+mod voice;
+mod voice_tools;
 mod widget_tools;
 
 pub use app_tools::{InterfaceChange, PresentMode, SchemeChoice};
@@ -33,3 +36,6 @@ pub use hub::{
 pub use server::ToolServer;
 pub use settings::{Applied, SettingsPort};
 pub use tools::{Tools, tool_names};
+#[cfg(any(test, feature = "test-support"))]
+pub use voice::NoVoice;
+pub use voice::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};

@@ -64,10 +64,19 @@ fn write_agent_root_key_is_refused_and_config_untouched() {
 }
 
 #[test]
-fn write_dictation_key_without_dictation_is_an_error() {
+fn write_dictation_key_is_refused() {
     let (p, _dir) = platform();
     let port = Arc::new(AppSettings::new(&p, None));
-    assert_that!(port.write("dictation.model", &json!("base"))).is_err();
+    assert_that!(port.write("dictation.model", &json!("base")))
+        .is_equal_to(Err("dictation is set through set_dictation".to_owned()));
+}
+
+#[test]
+fn write_dictation_key_writes_nothing() {
+    let (p, _dir) = platform();
+    let port = Arc::new(AppSettings::new(&p, None));
+    let _ = port.write("dictation.model", &json!("base"));
+    assert_that!(p.settings.config_file().exists()).is_false();
 }
 
 #[test]

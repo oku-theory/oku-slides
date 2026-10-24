@@ -2,7 +2,6 @@
 //! gardé) sur la connexion ACP partagée, et le relais des évènements vers
 //! l'interface, enveloppés `{tab, event}`.
 
-use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -20,7 +19,9 @@ use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
 use crate::shortcut::{THEME_SHORTCUT, matches_shortcut};
 use crate::tab_agent::{Command, Instruction};
-use crate::tab_entry::{Out, TabEntry, TabLink, emit};
+use crate::tab_entry::{Out, TabEntry, TabLink, TabPorts, emit};
+use crate::table::Table;
+use crate::voice_port::AppVoice;
 use crate::{AgentEvent, Link};
 
 /// Taille maximale d'un brouillon, en octets UTF-8.
@@ -109,32 +110,16 @@ pub enum AgentCommand {
         tab: String,
         id: String,
     },
-    /// L'interface ouvre le panneau des agents : la surface est émise à cet onglet.
-    Picker {
-        tab: String,
-    },
     /// L'interface ouvre le panneau des packs du deck : la surface va à cet onglet.
     ShowPacks {
         tab: String,
     },
+    /// L'interface ouvre la boîte des réglages de la dictée et de l'agent.
+    ShowSettings {
+        tab: String,
+    },
     /// L'interface demande si l'agent est utilisable (évènement `availability` à cet onglet).
     Availability {
-        tab: String,
-    },
-    /// Choisit l'agent de l'app (bascule immédiate), puis réémet le panneau à cet onglet.
-    SelectAgent {
-        tab: String,
-        /// L'agent choisi, clé de `[agent.presets]`.
-        id: String,
-    },
-    /// Télécharge le modèle de l'agent local choisi, puis réémet le panneau à cet onglet.
-    ///
-    /// Le panneau et la disponibilité sont réémis à chaque pourcent et à la fin.
-    DownloadModel {
-        tab: String,
-    },
-    /// Arrête le téléchargement du modèle en cours, puis réémet le panneau à cet onglet.
-    CancelDownload {
         tab: String,
     },
 }
@@ -153,12 +138,9 @@ impl AgentCommand {
             | Self::SetDraft { tab, .. }
             | Self::PasteImage { tab, .. }
             | Self::RemoveImage { tab, .. }
-            | Self::Picker { tab }
             | Self::ShowPacks { tab }
-            | Self::Availability { tab }
-            | Self::SelectAgent { tab, .. }
-            | Self::DownloadModel { tab }
-            | Self::CancelDownload { tab } => tab,
+            | Self::ShowSettings { tab }
+            | Self::Availability { tab } => tab,
         }
     }
 }
@@ -168,25 +150,6 @@ const TUNE_PROMPT: &str = "agent-tune-prompt";
 
 /// Attente de l'arrêt de l'agent ACP à la fin de l'app (`Stack::shutdown`).
 const SHUTDOWN_WITHIN: Duration = Duration::from_secs(2);
-
-/// Les onglets démarrés et fermés, sous un seul verrou : un onglet ne
-/// démarre jamais après sa fermeture, même si les deux se croisent.
-#[derive(Debug, Default)]
-struct Table {
-    tabs: HashMap<String, TabEntry>,
-    /// Onglets fermés : leurs identifiants ne reviennent jamais, une
-    /// commande tardive pour l'un d'eux est ignorée (sinon elle relancerait
-    /// un agent que plus rien n'arrêterait).
-    closed: HashSet<String>,
-    /// Fin de l'app (`Stack::shutdown`) : plus aucun onglet ne démarre.
-    shut: bool,
-}
-
-impl Table {
-    fn refuses(&self, tab: &str) -> bool {
-        self.shut || self.closed.contains(tab)
-    }
-}
 
 /// Les agents des onglets d'un hôte, sur un seul agent ACP ; chaque onglet
 /// démarre à sa première commande et s'arrête à sa fermeture (ou avec la pile).
@@ -200,29 +163,37 @@ pub struct Stack {
     platform: Platform,
     settings: Arc<AppSettings>,
     rt: Handle,
-    table: Mutex<Table>,
+    table: Arc<Mutex<Table>>,
     out_tx: mpsc::UnboundedSender<Out>,
     out_rx: Mutex<Option<mpsc::UnboundedReceiver<Out>>>,
     /// L'agent choisi : celui du prochain lancement, sa disponibilité, le panneau.
     choice: Arc<AgentChoice>,
+    /// La dictée et l'agent de l'app : la boîte des réglages de chaque onglet.
+    voice: Arc<AppVoice>,
 }
 
 impl Stack {
     /// Rien ne démarre ici : les outils et le gardien d'un onglet démarrent
     /// à sa première commande, `resync` compris ; l'agent ACP au premier
-    /// prompt ; tout dans `rt`. `stt` : la dictée de l'hôte, pour `set_setting`.
+    /// prompt ; tout dans `rt`. `stt` : la dictée de l'hôte, pour la boîte des réglages
+    /// et l'outil `settings`. Seules la veille de la dictée et le suivi de la boîte partent ici.
     pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
         let a = platform.settings.agent.active();
         let link = Link::new(AgentChoice::launch_of(a, platform));
         let (out_tx, out_rx) = mpsc::unbounded_channel();
+        let choice = Arc::new(AgentChoice::new(platform, link.clone()));
+        let voice = AppVoice::new(stt.clone(), choice.clone(), rt.clone());
+        let table = Arc::new(Mutex::new(Table::default()));
+        crate::voice_refresh::spawn(&rt, Arc::downgrade(&voice), Arc::downgrade(&table), out_tx.clone());
         Self {
-            choice: Arc::new(AgentChoice::new(platform, link.clone())),
+            choice,
+            voice,
             link,
             sessions,
             platform: platform.clone(),
             settings: Arc::new(AppSettings::new(platform, stt)),
             rt,
-            table: Mutex::new(Table::default()),
+            table,
             out_tx,
             out_rx: Mutex::new(Some(out_rx)),
         }
@@ -230,8 +201,8 @@ impl Stack {
 
     /// Traite une commande de l'interface ; l'erreur est lue par l'interface.
     ///
-    /// Peut bloquer (`select_agent` écrit `config.toml`, le panneau lit l'état du modèle) : à
-    /// appeler hors des fils du runtime ; un raccourci « thème » rend jusqu'à 12 miniatures, 4 s au plus.
+    /// Peut bloquer (un clic dans la boîte des réglages peut écrire `config.toml`, la boîte lit
+    /// l'état du modèle) : à appeler hors des fils du runtime ; un raccourci « thème » rend jusqu'à 12 miniatures, 4 s au plus.
     pub fn handle(&self, cmd: AgentCommand) -> Result<(), String> {
         if self.is_closed(cmd.tab()) {
             tracing::debug!(tab = cmd.tab(), "commande pour un onglet fermé : ignorée");
@@ -360,6 +331,11 @@ impl Stack {
                     }
                 }
             }
+            // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : la boîte va au hub de l'onglet.
+            AgentCommand::ShowSettings { tab } => {
+                let Some(t) = self.open(&tab) else { return Ok(()) };
+                t.hub.show_settings();
+            }
             AgentCommand::PasteImage { tab, data } => {
                 let l = self.platform.live_localizer.current();
                 let Some(t) = self.tab(&tab) else {
@@ -379,33 +355,8 @@ impl Stack {
                     return Err(e.localize(&self.platform.live_localizer.current()));
                 }
             },
-            AgentCommand::Picker { tab } => self.emit_picker(&tab),
             AgentCommand::Availability { tab } => {
                 emit(&self.out_tx, "agent", &tab, &AgentEvent::Availability { unusable: self.availability() });
-            }
-            AgentCommand::SelectAgent { tab, id } => {
-                if let Err(e) = self.choice.select(&id) {
-                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "choix d'agent refusé");
-                    return Err(e.localize(&self.platform.live_localizer.current()));
-                }
-                self.emit_picker(&tab);
-            }
-            AgentCommand::DownloadModel { tab } => {
-                let (out, to) = (self.out_tx.clone(), tab.clone());
-                // Réémis depuis le fil du téléchargement, sans savoir si un tour est ouvert :
-                // `busy` faux ; la mise en garde revient à la prochaine demande `picker`.
-                let started = self.choice.start_download(move |c| {
-                    emit(&out, "agent", &to, &AgentEvent::Picker { surface: c.picker(false) });
-                    emit(&out, "agent", &to, &AgentEvent::Availability { unusable: c.availability() });
-                });
-                if !started {
-                    tracing::debug!(tab, "téléchargement du modèle non lancé : déjà en cours ou rien à télécharger");
-                }
-                self.emit_picker(&tab);
-            }
-            AgentCommand::CancelDownload { tab } => {
-                self.choice.cancel_download();
-                self.emit_picker(&tab);
             }
         }
         Ok(())
@@ -450,6 +401,7 @@ impl Stack {
     /// L'onglet est fermé : son agent s'arrête (tour annulé, questions
     /// relâchées), ses outils aussi.
     pub fn tab_closed(&self, tab: &str) {
+        self.voice.tab_closed(tab);
         let gone = {
             let mut table = self.table();
             table.closed.insert(tab.to_owned());
@@ -463,6 +415,8 @@ impl Stack {
     /// écrites, puis l'agent ACP est tué (chacun attendu au plus 2 s) ; toute
     /// commande ensuite est ignorée.
     pub async fn shutdown(&self) {
+        // Plus aucun changement d'agent : un choix en attente tombe.
+        self.voice.shutdown();
         // Le `.part` du modèle (2,5 Go) ne doit pas grossir après la fin de l'app.
         self.choice.cancel_download();
         let gone = {
@@ -482,13 +436,6 @@ impl Stack {
             tracing::warn!("conversations de l'agent pas toutes écrites à temps");
         }
         self.link.shutdown(SHUTDOWN_WITHIN).await;
-    }
-
-    /// Émet le panneau des agents aux vues de `tab` ; un tour ouvert dans un onglet l'annonce.
-    fn emit_picker(&self, tab: &str) {
-        let busy = self.table().tabs.values().any(|e| e.link.hub.turn().is_some());
-        let surface = self.choice.picker(busy);
-        emit(&self.out_tx, "agent", tab, &AgentEvent::Picker { surface });
     }
 
     /// Ce que voit une vue d'un onglet sans agent démarré.
@@ -540,14 +487,8 @@ impl Stack {
             return Some(e.link.clone());
         }
         let session = TabSession::new(tab, self.sessions.clone());
-        let entry = TabEntry::start(
-            session,
-            &self.platform,
-            self.settings.clone(),
-            self.link.clone(),
-            &self.rt,
-            self.out_tx.clone(),
-        );
+        let ports = TabPorts { settings: self.settings.clone(), voice: self.voice.clone() };
+        let entry = TabEntry::start(session, &self.platform, ports, self.link.clone(), &self.rt, self.out_tx.clone());
         let link = entry.link.clone();
         table.tabs.insert(tab.to_owned(), entry);
         Some(link)

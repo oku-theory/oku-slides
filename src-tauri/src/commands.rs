@@ -186,8 +186,8 @@ pub async fn quit(app: AppHandle) {
 
 /// Dictée, hors du fil principal : les requêtes au moteur d'Apple bloquent.
 ///
-/// `Configure` (langue d'Apple) et `Start` (ouverture du flux) interrogent
-/// Speech, jusqu'à 5 s ; téléchargement, micro et Whisper ont leurs fils.
+/// `Start` (ouverture du flux) interroge Speech, jusqu'à 5 s ; téléchargement,
+/// micro et Whisper ont leurs fils.
 #[tauri::command]
 pub async fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Result<Status, String> {
     let engine = Stt::clone(&engine);

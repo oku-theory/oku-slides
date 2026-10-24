@@ -16,15 +16,15 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `save_pack`, `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
-  tuning; `ReferenceJob` in a blocking task).
-- `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized
-  message in the current interface language (`LiveLocalizer`, also read by the hub at each
-  text). `error` : `McpError`, `say_session`. `paths` : validation of agent-given paths.
-- `settings` : `SettingsPort` (implemented by the host), `Applied`, the agent's key whitelist.
+  tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument).
+- `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized message in
+  the current interface language (`LiveLocalizer`, also read by the hub). `error` : `McpError`, `say_session`; `paths` (agent-given paths).
+- Ports: `settings` (`SettingsPort` in `Tools`, `Applied`, whitelist without `dictation.*`); `voice` (`VoicePort`: view, check, apply, in the hub, which builds the box).
 - `hub` : `SurfaceHub`, open surfaces and events to the UI (`McpEvent`); `emit` alone changes
   the open list; `resync` resends it whole. `hub/asks` (questions, confirmations, permissions),
   `hub/actions` (`SurfaceAction`, `act`, `prune`); the hub builds two boxes itself: `hub/themes`
-  (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`.
+  (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`;
+  `hub/settings` a third box (`show_settings`, one send path, refreshed by the stack, never by `prune`).
 - `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`),
   freezing answered questions, eviction past `KEPT_TURNS` per scope.
 - `hub_scopes` : turns filed by scope, only the viewed thread sent; the agent's tab keeper persists it.
@@ -38,7 +38,7 @@ because the agent does not know turn numbers; ACP events carry theirs (`oku-slid
 
 ## Extension points
 
-- New settings host: implement `SettingsPort`.
+- New settings host: implement `SettingsPort` and `VoicePort`.
 - New tool: an entry in `tools::list` (`tool_names`), an arm in `Tools::call`, a family in the
   local agent's `families_of`; its errors are `ToolError` variants with a Fluent key.
 

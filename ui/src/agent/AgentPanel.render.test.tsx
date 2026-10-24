@@ -14,7 +14,6 @@ const { AgentPanel, IDLE_AGENT } = await import("./AgentPanel");
 const { createSlot, SlotView } = await import("./slot");
 const { routeSurfaces } = await import("./surfaces");
 const { ARMING_MS } = await import("../modalFrame");
-const { PICKER } = await import("../a2ui/fixtures/agentPicker");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -62,6 +61,7 @@ async function mount({
   keyPlaces,
   hostSurfaces,
 }: { promptFails?: boolean; scope?: ScopeSource; keyPlaces?: QuickTarget["kind"][]; hostSurfaces?: Surface[] } = {}) {
+  let voices = 0;
   const renders = { app: 0, stage: 0, pile: 0 };
   let handlers: HostHandlers | null = null;
   const subscribe = (_tab: string, h: HostHandlers) => {
@@ -74,9 +74,6 @@ async function mount({
   const follows: number[] = [];
   const actions: string[] = [];
   const drafts: { text: string | null; origin: string | null }[] = [];
-  const pickers: number[] = [];
-  const selected: string[] = [];
-  const pickerSurfaces: Surface[] = [];
   const agent = {
     prompt: async (s: AgentScope, text: string) => {
       prompts.push(text);
@@ -89,10 +86,7 @@ async function mount({
     resync: async (s: AgentScope) => void resyncs.push(s),
     follow: async () => void follows.push(1),
     setDraft: async () => {},
-    picker: async () => void pickers.push(1),
-    selectAgent: async (id: string) => void selected.push(id),
-    downloadModel: async () => {},
-    cancelDownload: async () => {},
+    showSettings: async () => {},
   };
   const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot() };
   const handle = createRef<import("./AgentPanel").AgentHandle>();
@@ -129,7 +123,7 @@ async function mount({
         route,
         ui: UI,
         onDraft: (e: { text: string | null; origin: string | null }) => void drafts.push(e),
-        onPicker: (surface: Surface) => void pickerSurfaces.push(surface),
+        onVoice: () => void voices++,
         keysOff: false,
         thread: true,
         thumbs: { cached: () => null, svg: () => null, current: () => undefined },
@@ -163,7 +157,7 @@ async function mount({
   const until = async (cond: () => boolean) => {
     for (let i = 0; i < 50 && !cond(); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   };
-  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptScopes, resyncs, follows, actions, pickers, selected, pickerSurfaces };
+  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptScopes, resyncs, follows, actions, voices: () => voices };
 }
 
 const sheet = surface("q-1", "Choisir", { place: "sheet", live: true, question: true, anchor: { slide: "s1", owner: "e1" } });
@@ -312,44 +306,43 @@ test("AgentPanel un brouillon reçu de l'hôte est transmis", async () => {
   expect(m.drafts).toEqual([{ text: "x", origin: "v-2" }]);
 });
 
-/** Le panneau des agents ne vit plus dans le fil : il passe par `onPicker` (menu des réglages de la dictée). */
-test("AgentPanel picker event calls onPicker with the surface", async () => {
+test("AgentPanel voice event calls onVoice", async () => {
   const m = await mount();
-  await act(async () => m.handlers().onAgent({ kind: "picker", surface: PICKER }));
-  expect(m.pickerSurfaces).toEqual([PICKER]);
+  await act(async () => m.handlers().onAgent({ kind: "voice" }));
+  expect(m.voices()).toBe(1);
 });
 
-test("AgentPanel thread has no agents button nor picker sheet", async () => {
+// Une reconnexion a pu manquer des évènements : la dictée relit son état.
+test("AgentPanel reconnect calls onVoice", async () => {
   const m = await mount();
-  await act(async () => m.handlers().onAgent({ kind: "picker", surface: PICKER }));
-  await act(async () => new Promise((r) => setTimeout(r, 0)));
-  expect(m.host.querySelector(".agent-picker-toggle, .agent-picker")).toBeNull();
-  expect(m.pickers).toEqual([]);
+  await act(async () => m.handlers().onReady?.());
+  expect(m.voices()).toBe(1);
 });
 
 /** Une touche frappée depuis `target` (elle remonte jusqu'à la fenêtre). */
 const keyFrom = async (target: Element, key: string, code: string) =>
   act(async () => void target.dispatchEvent(new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true })));
 
-test("AgentPanel digit key inside the agents picker sends no answer to the sheet question", async () => {
+test("AgentPanel quick digit inside the voice box answers no question", async () => {
   const m = await mount();
   await m.mcp({ kind: "surface", surface: sheet });
   await m.until(() => (m.host.querySelector(".stage-probe")?.textContent ?? "").includes("Choisir"));
   await act(async () => new Promise((r) => setTimeout(r, ARMING_MS + 20)));
-  // Le panneau des agents, posé hors du fil (menu des réglages de la dictée).
-  const picker = document.createElement("div");
-  picker.className = "agent-picker";
+  // Une puce de la boîte des réglages, focalisée au clavier.
+  const box = document.createElement("div");
+  box.setAttribute("data-surface-id", "host-voice");
   const chip = document.createElement("button");
-  picker.append(chip);
-  document.body.append(picker);
+  chip.className = "chip";
+  box.append(chip);
+  document.body.append(box);
   try {
     await keyFrom(chip, "1", "Digit1");
     expect(m.actions).toEqual([]);
-    // Témoin : la même touche hors du panneau répond bien à la question.
+    // Témoin : la même touche hors de la boîte répond bien à la question.
     await keyFrom(document.body, "1", "Digit1");
     expect(m.actions).toHaveLength(1);
   } finally {
-    picker.remove();
+    box.remove();
   }
 });
 

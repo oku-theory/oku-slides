@@ -6214,6 +6214,7 @@ dependencies = [
  "tokenizers",
  "tracing",
  "ureq",
+ "url",
 ]
 
 [[package]]

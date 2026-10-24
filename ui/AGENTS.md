@@ -28,6 +28,7 @@
 - Choose an element's own panel from snapshot.host_params, never its kind; edit chart or table data only via the dock's host-data surface, sending DataEdit, no patch. (plan:2026-10-18-packs-lot2-base, t-1119)
 - Take base and essentiel kinds in UI code only from ui/src/builtinKinds.ts, never as literals; build the add grid from Snapshot.add_packs and accepted kinds from free_slots. (plan:2026-10-19-packs-lot3-essentiel, plan:2026-10-23-packs-lot5-ui)
 - Build buttons, icon toggles, selects and labelled fields with ui/src/primitives.tsx, shared with the A2UI catalog; no hand-written .btn or select.select. (t-982)
+- Open dictation and agent settings only via agent.showSettings; the UI draws no settings form. (t-1144)
 
 ## Pitfalls
 
@@ -36,8 +37,7 @@
 - Send Content-Type application/json with every POST to oku-slides serve; its anti-CSRF guard rejects others. (plan:2026-09-26-agent-vocal)
 - Do not capture Escape in Dictation for the agent; App decides via escapeAction, deselecting before cancelling a turn. (plan:2026-09-26-agent-vocal)
 - Prune widget sub-tabs only against statuses of the current revision, never stale or other-pack statuses. (plan:2026-10-03-widgets-onglets)
-- Call EditorView.requestMeasure when a hidden CodeMirror sub-tab becomes active again. (plan:2026-10-03-widgets-onglets)
-- Set the cursor colour explicitly in every CodeMirror editor; the default black cursor is invisible on dark themes. (t-460)
+- In CodeMirror, call EditorView.requestMeasure when a hidden sub-tab shows again, and set the cursor colour explicitly (black is invisible on dark themes). (plan:2026-10-03-widgets-onglets, t-460)
 - Do not rely on tsc -b to typecheck test files; ui/tsconfig.json excludes them and bun test only strips types, so they are never typechecked. (plan:2026-10-08-widget-tableau)
 - Never free an A2UI surface in an effect cleanup; it cannot know whether the next message list extends the old one. (plan:2026-10-03-agent-a2ui, t-291)
 - Implement drags with pointer events and draggable={false} images; the Tauri webview reserves HTML5 drag-and-drop for file drops. (t-819)

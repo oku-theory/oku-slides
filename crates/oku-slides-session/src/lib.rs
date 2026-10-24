@@ -103,6 +103,10 @@ mod theme_picker;
 pub mod theme_schema;
 mod undo;
 mod views;
+#[cfg(any(test, feature = "test-support"))]
+pub mod voice_fixture;
+mod voice_panel;
+mod voice_view;
 mod widget_examples;
 mod widget_params;
 mod widget_preview;
@@ -146,6 +150,11 @@ pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, 
 pub use views::{
     EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection, SlideSummary,
     SlideView, Snapshot, TabInfo, Target, UiState,
+};
+pub use voice_panel::{HOST_VOICE, VoicePanel, gigabytes_text, model_label, seconds_text, size_text};
+pub use voice_view::{
+    AgentPresetView, AgentsView, ApiView, DICTATION_LANGUAGES, DictationLanguage, DictationPatch, DictationView,
+    DownloadView, LocalFailure, LocalModelView, ModelKind, ModelView, VoiceEvent, VoiceView, voice_event,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};

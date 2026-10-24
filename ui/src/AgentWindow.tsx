@@ -3,7 +3,7 @@
 // le canal `agent-link` ; tout le reste (fil, brouillon, portée) passe par l'hôte.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { agentApi, inTauri, isMac, listenTauri, tabApi, workspace, type AgentUi, type Snapshot, type TabApi, type WorkspaceView } from "./api";
+import { agentApi, errorText, inTauri, isMac, listenTauri, tabApi, workspace, type AgentUi, type Snapshot, type TabApi, type WorkspaceView } from "./api";
 import { newest } from "./latest";
 import { t } from "./i18n";
 import { debounced } from "./debounce";
@@ -20,10 +20,10 @@ import { insertWithAck, linkTransport, onlyFor, type LinkContext, type LinkShort
 import { createSlot } from "./agent/slot";
 import { routeStaged } from "./agent/surfaces";
 import { agentTarget } from "./agent/target";
-import { useAgentPicker } from "./agent/useAgentPicker";
 import { useDraft } from "./agent/useDraft";
 import { AttachButton } from "./agent/AttachButton";
 import { useAppearance } from "./useAppearance";
+import { bumpVoiceSeq } from "./voiceSeq";
 import type { DictationMode } from "./agent/keys";
 import type { QuickTarget } from "./agent/useQuickKeys";
 
@@ -154,8 +154,6 @@ export function AgentWindowFor({
 
   const draft = useDraft(host.agent.setDraft);
   const pasted = usePastedImages(draft.state.images, host.agent.pasteImage, (m) => say(m, true));
-  // Le panneau des agents, dans le menu des réglages de la dictée.
-  const agentPicker = useAgentPicker(host.agent, (m) => say(m, true));
   const insertOrKeep = async (text: string) => {
     const ok = await insertWithAck(transport, tab, text);
     if (!ok) say(t("ui-agent-kept-in-draft"), true);
@@ -212,8 +210,9 @@ export function AgentWindowFor({
   const staged = context?.staged ?? null;
   const route = useCallback((list: Parameters<typeof routeStaged>[0]) => routeStaged(list, staged), [staged]);
 
-  // `picker` faux : pas d'AgentPanel (lecture seule), le panneau des agents n'arriverait jamais.
-  const dictation = (onText: (text: string, mode: DictationMode) => void, picker = true) => (
+  // `settings` faux : la fenêtre en lecture seule n'a pas d'`AgentPanel` ; l'état de son micro ne
+  // se relit que pendant une dictée, et elle n'a pas de ⚙ (pas de dock où poser la boîte).
+  const dictation = (onText: (text: string, mode: DictationMode) => void, settings = true) => (
     <Dictation
       destination={t(context?.editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft")}
       vocabulary={vocabulary}
@@ -223,11 +222,7 @@ export function AgentWindowFor({
       onAgentCancel={() => handle.current?.cancel()}
       onType={draft.type}
       remote={remote}
-      agentPicker={picker ? agentPicker.surface : null}
-      onAgentPickerOpen={picker ? agentPicker.open : NOOP}
-      onAgentSelect={agentPicker.select}
-      onAgentDownload={agentPicker.download}
-      onAgentCancelDownload={agentPicker.cancelDownload}
+      onSettings={settings ? () => void host.agent.showSettings().catch((e) => say(errorText(e), true)) : undefined}
     />
   );
 
@@ -270,7 +265,7 @@ export function AgentWindowFor({
         onInterface={NOOP}
         onOpenHistory={NOOP}
         onDraft={draft.onHost}
-        onPicker={agentPicker.onPicker}
+        onVoice={bumpVoiceSeq}
         say={say}
         subscribe={host.subscribe}
         onAttach={attach}

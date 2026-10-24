@@ -17,8 +17,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
-use crate::tab_agent::{Command, Instruction};
+use crate::tab_agent::{ActorParts, Command, Instruction};
 use crate::turns::{TurnOut, Turns};
+use crate::voice_port::AppVoice;
 use crate::{AgentEvent, AgentHandle, AgentState, Link, ToolsAccess};
 
 /// Un évènement relayé : canal (`"mcp"`, `"agent"`) et JSON enveloppé.
@@ -124,6 +125,15 @@ impl TabLink {
     }
 }
 
+/// Ce que la pile partage avec chaque onglet : réglages, dictée et choix de l'agent.
+#[derive(Debug, Clone)]
+pub(crate) struct TabPorts {
+    /// Les réglages lus et écrits par l'outil `set_setting`.
+    pub settings: Arc<AppSettings>,
+    /// La dictée et l'agent de l'app : la boîte des réglages et ses gardes.
+    pub voice: Arc<AppVoice>,
+}
+
 /// Un onglet démarré ; le lâcher arrête son agent et ses outils.
 #[derive(Debug)]
 pub(crate) struct TabEntry {
@@ -137,14 +147,14 @@ impl TabEntry {
     pub fn start(
         session: TabSession,
         platform: &Platform,
-        settings: Arc<AppSettings>,
+        ports: TabPorts,
         link: Link,
         rt: &Handle,
         out: mpsc::UnboundedSender<Out>,
     ) -> Self {
         let tab = session.tab().to_owned();
-        let hub = SurfaceHub::new(session.clone(), platform.live_localizer.clone());
-        let tools = Tools::new(session.clone(), hub.clone(), settings, platform);
+        let hub = SurfaceHub::new(session.clone(), platform.live_localizer.clone(), ports.voice.clone());
+        let tools = Tools::new(session.clone(), hub.clone(), ports.settings, platform);
         let cancel = CancellationToken::new();
         let (cmds, rx) = mpsc::unbounded_channel();
         let status = Arc::new(Mutex::new((AgentState::Idle, None)));
@@ -163,6 +173,7 @@ impl TabEntry {
             link,
             localizer: platform.live_localizer.clone(),
             keeper: keeper.clone(),
+            voice: ports.voice,
             prompt_limits: platform.settings.paste.prompt_limits(),
         };
         let relay = Relay {
@@ -307,6 +318,8 @@ struct Agent {
     link: Link,
     localizer: oku_slides_i18n::LiveLocalizer,
     keeper: Keeper,
+    /// Compte les requêtes de l'onglet pour la boîte des réglages.
+    voice: Arc<AppVoice>,
     /// Bornes des images envoyées en bloc image à l'agent.
     prompt_limits: PromptImageLimits,
 }
@@ -349,15 +362,16 @@ impl Agent {
             return;
         }
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
-        let agent = AgentHandle::spawn(
-            self.session,
-            self.hub,
-            access,
-            self.link,
-            self.localizer,
-            self.keeper,
-            self.prompt_limits,
-        );
+        let parts = ActorParts {
+            tab: self.session,
+            hub: self.hub,
+            tools: access,
+            link: self.link,
+            localizer: self.localizer,
+            keeper: self.keeper,
+            prompt_limits: self.prompt_limits,
+        };
+        let agent = AgentHandle::spawn_counted(parts, self.voice);
         // Abonné avant la première commande : aucun évènement de l'agent n'est perdu.
         tokio::spawn(relay.run(agent.subscribe()));
         while let Some(cmd) = next(&cancel, &mut rx).await {

@@ -79,6 +79,11 @@ pub(crate) enum ToolError {
     /// Mis en boîte : `HubError` grossirait toutes les réponses d'erreur des outils.
     #[snafu(display("the surface hub refused the call"))]
     Hub { source: Box<crate::HubError>, backtrace: Backtrace },
+    #[snafu(display("nothing to change in the dictation"))]
+    EmptyDictationChange { backtrace: Backtrace },
+    /// Mis en boîte : un refus du port de la dictée ou de l'agent, dit par sa propre sorte.
+    #[snafu(display("the voice port refused the call"))]
+    Voice { source: Box<crate::VoiceError>, backtrace: Backtrace },
     #[snafu(display("response not serializable"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
 }
@@ -123,6 +128,8 @@ impl Localize for ToolError {
                 None => say_to_agent(source, l),
             },
             Hub { source, .. } => source.localize(l),
+            EmptyDictationChange { .. } => l.tr("agent-error-empty-dictation"),
+            Voice { source, .. } => source.localize(l),
             Response { .. } => l.tr("session-response"),
         }
     }

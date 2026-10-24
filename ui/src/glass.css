@@ -76,8 +76,8 @@
   backdrop-filter: blur(28px) saturate(190%);
   box-shadow: var(--glass-rim), var(--shadow-floating);
 }
-/* Le menu principal et celui de la dictée sont opaques : leurs libellés restent lisibles sur la slide qu'ils couvrent. */
-.action-menu-list, .action-menu-list:hover, .dictation-settings, .dictation-settings:hover {
+/* Le menu principal est opaque : ses libellés restent lisibles sur la slide qu'il couvre. */
+.action-menu-list, .action-menu-list:hover {
   background: var(--paper-200); -webkit-backdrop-filter: none; backdrop-filter: none;
   box-shadow: var(--glass-rim), var(--shadow-floating);
 }
@@ -87,7 +87,7 @@
 .agent-veil, .import-veil, .picker-scrim { -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); }
 
 /* Champs et listes dans le verre : creusés plutôt que pleins. */
-.select, .dictation-settings .btn {
+.select {
   background-color: color-mix(in oklab, var(--ink) 7%, transparent);
   box-shadow: inset 0 1px 2px color-mix(in oklab, var(--ink) 10%, transparent);
 }
@@ -106,7 +106,7 @@
 
 /* ---- Lentille : le fond se déforme aux bords (moteurs qui le rendent, voir lens.ts) ---- */
 /* Les boutons principaux sont pleins : pas de lentille. Le micro (`.mic`, sans `.object`) n'est pas visé. */
-:root[data-lens] :is(.object, .history-bar, .editor-hint, .tabbar, .a2ui-card, .card.prompt, .a2ui-prompt):not(.primary, .action-menu-list, .dictation-settings) {
+:root[data-lens] :is(.object, .history-bar, .editor-hint, .tabbar, .a2ui-card, .card.prompt, .a2ui-prompt):not(.primary, .action-menu-list) {
   -webkit-backdrop-filter: var(--glass-lens);
   backdrop-filter: var(--glass-lens);
 }

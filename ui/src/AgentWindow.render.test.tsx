@@ -43,10 +43,7 @@ function fakeHost(snapshot: Snapshot = SNAP) {
       cancel: async () => {},
       newConversation: async () => {},
       surfaceAction: async () => {},
-      picker: async () => void calls.push("picker"),
-      selectAgent: async () => {},
-      downloadModel: async () => {},
-      cancelDownload: async () => {},
+      showSettings: async () => void calls.push("showSettings"),
     },
     api: { snapshot: async () => snapshot, svg: async () => "<svg/>" },
     subscribe: (_tab: string, h: HostHandlers) => ((handlers = h), () => {}),
@@ -159,32 +156,35 @@ describe("AgentWindow", () => {
         stop_in: null, text: null, seq: 0, seconds: 0, error: null,
       } as SttStatus),
     );
-  /** Ouvre les réglages de la dictée, une fois la fenêtre prête et l'état de la dictée reçu. */
-  const openSettings = async (m: Awaited<ReturnType<typeof mountWindow>>) => {
+  /** Le ⚙ de la dictée, une fois la fenêtre prête et l'état de la dictée reçu ; `null` s'il manque. */
+  const gearOf = async (m: Awaited<ReturnType<typeof mountWindow>>) => {
     await m.ready();
     await act(async () => new Promise((r) => setTimeout(r, 0)));
-    const gear = m.el.querySelector('[aria-label="ui-dictation-settings"]') as HTMLButtonElement;
-    await act(async () => gear.click());
+    return m.el.querySelector('[aria-label="ui-dictation-settings"]') as HTMLButtonElement | null;
+  };
+  /** Clique le ⚙ de la dictée, qui doit exister. */
+  const openSettings = async (m: Awaited<ReturnType<typeof mountWindow>>) => {
+    const gear = await gearOf(m);
+    expect(gear).not.toBeNull();
+    await act(async () => gear!.click());
   };
 
-  test("AgentWindow ouvrir les réglages de la dictée demande le panneau des agents", async () => {
+  test("AgentWindow gear asks the host for the settings box", async () => {
     const spy = idleStt();
     try {
       const m = await mountWindow();
       await openSettings(m);
-      expect(m.calls.filter((c) => c === "picker")).toHaveLength(1);
+      expect(m.calls.filter((c) => c === "showSettings")).toHaveLength(1);
     } finally {
       spy.mockRestore();
     }
   });
 
-  test("AgentWindow onglet en lecture seule : les réglages ne demandent pas le panneau des agents", async () => {
+  test("AgentWindow read-only tab shows no gear", async () => {
     const spy = idleStt();
     try {
       const m = await mountWindow(READ_ONLY);
-      await openSettings(m);
-      expect(m.el.querySelector(".dictation-settings")).not.toBeNull();
-      expect(m.calls).not.toContain("picker");
+      expect(await gearOf(m)).toBeNull();
     } finally {
       spy.mockRestore();
     }

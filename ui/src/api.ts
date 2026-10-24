@@ -420,21 +420,17 @@ export interface SttStatus {
 
 type SttRequest =
   | { cmd: "status" }
-  | ({ cmd: "configure" } & SttConfig)
   | { cmd: "start"; vocabulary: string[] }
   | { cmd: "stop" }
-  | { cmd: "cancel" }
-  | { cmd: "download"; model: SttModel };
+  | { cmd: "cancel" };
 
 const sttCall = (req: SttRequest) => host<SttStatus>("stt", { req }, "/api/stt", req);
 
 export const stt = {
   status: () => sttCall({ cmd: "status" }),
-  configure: (config: SttConfig) => sttCall({ cmd: "configure", ...config }),
   start: (vocabulary: string[]) => sttCall({ cmd: "start", vocabulary }),
   stop: () => sttCall({ cmd: "stop" }),
   cancel: () => sttCall({ cmd: "cancel" }),
-  download: (model: SttModel) => sttCall({ cmd: "download", model }),
 };
 
 /** Style d'un élément (`Style` du cœur) : propriétés posées par `set_style`, remplacées par `replace_style`. */
@@ -562,13 +558,13 @@ export type AgentUiSent = AgentUi & { locale: string };
 export type AgentState = "idle" | "starting" | "working";
 
 /**
- * Évènements du canal `agent` : état de l'agent, brouillon de l'onglet, panneau des agents et
- * disponibilité de l'agent (le fil passe par les surfaces).
+ * Évènements du canal `agent` : état de l'agent, brouillon de l'onglet, changement de la dictée
+ * ou de l'agent (`voice`) et disponibilité de l'agent (le fil passe par les surfaces).
  */
 export type AgentEvent =
   | { kind: "status"; state: AgentState; scope?: AgentScope }
   | { kind: "draft"; text: string | null; origin: string | null; images: PastedImage[] }
-  | { kind: "picker"; surface: Surface }
+  | { kind: "voice" }
   | { kind: "availability"; unusable: string | null };
 
 /** Une image collée dans le brouillon, tenue par l'hôte (`AttachmentRef`). */
@@ -644,12 +640,9 @@ type AgentCommand =
   | { cmd: "set_draft"; tab: string; text: string | null; origin: string }
   | { cmd: "paste_image"; tab: string; data: string }
   | { cmd: "remove_image"; tab: string; id: string }
-  | { cmd: "picker"; tab: string }
   | { cmd: "show_packs"; tab: string }
-  | { cmd: "availability"; tab: string }
-  | { cmd: "select_agent"; tab: string; id: string }
-  | { cmd: "download_model"; tab: string }
-  | { cmd: "cancel_download"; tab: string };
+  | { cmd: "show_settings"; tab: string }
+  | { cmd: "availability"; tab: string };
 
 const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agent", req);
 
@@ -676,18 +669,12 @@ export function agentApi(tab: string) {
     follow: () => agentCall({ cmd: "follow", tab }),
     /** Le brouillon de l'onglet, tenu par l'hôte ; `null` : fermé. `origin` : la vue qui l'écrit. */
     setDraft: (text: string | null, origin: string) => agentCall({ cmd: "set_draft", tab, text, origin }),
-    /** Demande le panneau des agents (évènement `picker` pour cet onglet). */
-    picker: () => agentCall({ cmd: "picker", tab }),
     /** Ouvre le panneau des packs du deck (surface `host-packs` du hub de l'onglet). */
     showPacks: () => agentCall({ cmd: "show_packs", tab }),
     /** Demande si l'agent est utilisable (évènement `availability` pour cet onglet). */
     availability: () => agentCall({ cmd: "availability", tab }),
-    /** Choisit l'agent de l'app ; l'hôte réémet le panneau. */
-    selectAgent: (id: string) => agentCall({ cmd: "select_agent", tab, id }),
-    /** Télécharge le modèle de l'agent local ; l'hôte réémet le panneau à chaque pourcent. */
-    downloadModel: () => agentCall({ cmd: "download_model", tab }),
-    /** Arrête le téléchargement du modèle ; l'hôte réémet le panneau. */
-    cancelDownload: () => agentCall({ cmd: "cancel_download", tab }),
+    /** Ouvre la boîte des réglages de la dictée et de l'agent. */
+    showSettings: () => agentCall({ cmd: "show_settings", tab }),
   };
 }
 

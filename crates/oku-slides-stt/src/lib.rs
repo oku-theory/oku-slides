@@ -19,6 +19,7 @@
 //! puis l'écoute commence toute seule.
 
 mod api;
+mod api_check;
 #[cfg(target_os = "macos")]
 mod apple;
 mod audio;
@@ -35,6 +36,7 @@ mod test_support;
 mod vad;
 mod whisper;
 
+use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -44,10 +46,11 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 pub use api::ApiConfig;
+pub use api_check::{is_loopback, normalized_url, url_host, valid_api_model, valid_key_env};
 pub use audio::{SAMPLE_RATE, resample};
 use dictation_stream::{Held, cancel_held};
 use dictation_whisper::{EngineKey, Job, engine_key};
-use error::{LocaleUnsupportedSnafu, NotDownloadableSnafu};
+use error::{ApiKeyMissingSnafu, LocaleUnsupportedSnafu, NotDownloadableSnafu};
 pub use error::{SttError, SttErrorKind};
 pub use models::{Model, download};
 use oku_slides_i18n::{Localize, Localizer};
@@ -68,6 +71,9 @@ pub enum State {
     Recording,
     Transcribing,
 }
+
+/// Durées de silence acceptées pour l'arrêt seul (s).
+pub const SILENCE_RANGE: RangeInclusive<f32> = 0.5..=10.0;
 
 /// Version des réglages de la dictée : 1 depuis le moteur d'Apple.
 const CONFIG_VERSION: u32 = 1;
@@ -163,11 +169,12 @@ pub struct Status {
 }
 
 /// Requêtes de l'interface (même forme pour Tauri et HTTP).
+///
+/// Les réglages et les téléchargements passent par la boîte des réglages de l'hôte, pas par ici.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum SttRequest {
     Status,
-    Configure(Config),
     /// Démarre la dictée ; `vocabulary` aide la reconnaissance (titres du deck, noms propres).
     Start {
         #[serde(default)]
@@ -175,9 +182,6 @@ pub enum SttRequest {
     },
     Stop,
     Cancel,
-    Download {
-        model: Model,
-    },
 }
 
 /// Où part l'audio d'une dictée.
@@ -367,7 +371,7 @@ impl Stt {
         let (installed, available) = match model {
             Model::Apple => (matches!(g.apple, Some((_, Availability::Ready))), g.apple.is_some()),
             // « Installée » : la clé est là ; elle n'est jamais rendue.
-            Model::Api => (g.config.api.key().is_ok(), true),
+            Model::Api => (g.config.api.key_present(), true),
             _ => (installed, true),
         };
         let label = model.label(&self.localizer, &g.config.api);
@@ -388,11 +392,9 @@ impl Stt {
     pub fn handle(&self, req: SttRequest) -> Status {
         match req {
             SttRequest::Status => {}
-            SttRequest::Configure(config) => self.configure(config),
             SttRequest::Start { vocabulary } => self.start(vocabulary),
             SttRequest::Stop => self.stop(),
             SttRequest::Cancel => self.cancel(),
-            SttRequest::Download { model } => self.download(model, false),
         }
         self.status()
     }
@@ -422,13 +424,15 @@ impl Stt {
         }
     }
 
-    pub fn configure(&self, mut config: Config) {
-        config.silence = config.silence.clamp(0.5, 10.0);
+    /// Applique et enregistre les réglages ; faux si la dictée est occupée.
+    #[must_use = "faux : la dictée était occupée, rien n'a changé"]
+    pub fn configure(&self, mut config: Config) -> bool {
+        config.silence = config.silence.clamp(*SILENCE_RANGE.start(), *SILENCE_RANGE.end());
         config.version = CONFIG_VERSION;
         {
             let mut g = self.state();
             if g.state != State::Idle {
-                return;
+                return false;
             }
             if g.engine.as_ref().is_some_and(|(k, _)| *k != engine_key(&config)) {
                 g.engine = None; // libère la mémoire de l'ancien modèle, ou l'ancienne API
@@ -443,6 +447,7 @@ impl Stt {
             g.config = config;
         }
         self.refresh_apple();
+        true
     }
 
     /// Démarre la dictée (téléchargement du modèle d'abord s'il manque).
@@ -459,38 +464,44 @@ impl Stt {
         if model == Model::Apple {
             match apple {
                 Some((_, Availability::Ready)) => self.begin_recording(),
-                Some(_) => self.download(Model::Apple, true),
+                Some(_) => {
+                    // Rien à dire de plus : l'échec est déjà signalé dans l'état.
+                    let _started = self.download(Model::Apple, true);
+                }
                 None => self.report(LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into()),
             }
             return;
         }
         if model == Model::Api {
-            match api.key() {
-                Ok(_) => self.begin_recording(),
-                Err(e) => self.report(e),
+            if api.key_present() {
+                self.begin_recording();
+            } else {
+                self.report(ApiKeyMissingSnafu { var: api.key_env }.build().into());
             }
             return;
         }
         if model.is_installed(&self.storage, &self.dir) {
             self.begin_recording();
         } else {
-            self.download(model, true);
+            // Rien à dire de plus : l'échec est déjà signalé dans l'état.
+            let _started = self.download(model, true);
         }
     }
 
-    pub fn download(&self, model: Model, then_start: bool) {
+    /// Lance le téléchargement d'un modèle ; faux si rien n'a démarré.
+    #[must_use = "faux : rien n'a démarré (occupée, déjà installé, API)"]
+    pub fn download(&self, model: Model, then_start: bool) -> bool {
         if model == Model::Apple {
-            self.download_language(then_start);
-            return;
+            return self.download_language(then_start);
         }
         if model == Model::Api {
             self.report(NotDownloadableSnafu.build().into());
-            return;
+            return false;
         }
         {
             let mut g = self.state();
             if g.state != State::Idle || model.is_installed(&self.storage, &self.dir) {
-                return;
+                return false;
             }
             g.state = State::Downloading;
             g.download = Some(Download { model, received: 0, total: model.size() });
@@ -512,6 +523,7 @@ impl Stt {
                 me.begin_recording();
             }
         });
+        true
     }
 
     /// Fin d'un téléchargement : état, message, et reprise de la dictée demandée.

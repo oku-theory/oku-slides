@@ -11,6 +11,7 @@ stt-cancelled = Download abgebrochen
 stt-speech-denied = Erlaube die Spracherkennung in den Systemeinstellungen › Datenschutz & Sicherheit
 stt-locale-unsupported = Die Apple-Engine unterstützt diese Sprache nicht ({ $language })
 stt-api-key-missing = Setze die Umgebungsvariable { $var }, um die Diktier-API zu nutzen
+stt-api-config = Die Einstellungen der Diktier-API sind ungültig: Korrigieren Sie sie im Einstellungsfeld.
 stt-api-unreachable = Die Diktier-API ist nicht erreichbar
 stt-api-status = Die Diktier-API hat die Anfrage abgelehnt (HTTP { $status })
 

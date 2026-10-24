@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
+use oku_slides_session::agent::bounds::clip;
 use oku_slides_session::{Request, Session, TokenOp, deck_path};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
@@ -52,7 +53,7 @@ pub(crate) struct EditThemeArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetSettingArgs {
-    /// `dictation.model` (apple|turbo|large|base|api ; `dictation.api.*` reste réservé à l'utilisateur, non modifiable par l'agent), `dictation.language` (code ou null), `dictation.auto_stop`, `dictation.silence`, `history.limit`, `stt.vad.<clé>`.
+    /// `history.limit`, `stt.vad.<clé>`.
     pub key: String,
     pub value: Value,
 }
@@ -82,7 +83,7 @@ impl Tools {
     }
 
     /// L'utilisateur a refusé.
-    fn denied(&self) -> CallToolResult {
+    pub(crate) fn denied(&self) -> CallToolResult {
         self.fail_with(DeniedSnafu.build())
     }
 
@@ -320,7 +321,7 @@ impl Tools {
             Err(r) => return r,
         };
         if !writable(&key) {
-            return self.fail_with(SettingLockedSnafu { key }.build());
+            return self.fail_with(SettingLockedSnafu { key: clip(&key, 64) }.build());
         }
         let old = self.settings_read().await.get(&key).cloned().unwrap_or(Value::Null);
         let message = self.localizer.current().tr_with(

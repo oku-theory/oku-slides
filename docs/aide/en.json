@@ -380,7 +380,19 @@
            "bold": true
           },
           {
-           "t": ": pick API in the dictation settings; each sentence goes to an OpenAI-compatible service, with the key read from an environment variable. An app opened from the Finder does not see shell variables: set the key with `launchctl setenv OPENAI_API_KEY …` or start the app from a terminal."
+           "t": ": pick API in the dictation settings; each sentence goes to an OpenAI-compatible service, with the key read from an environment variable. Only you set the API address (https, or http for this computer) and the key variable (a name like OPENAI_API_KEY), in the settings box. An app opened from the Finder does not see shell variables: set the key with `launchctl setenv OPENAI_API_KEY …` or start the app from a terminal."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "The settings box",
+           "bold": true
+          },
+          {
+           "t": ": the ⚙ of the dictation bar opens the dictation and agent settings in the agent area. They stay open until you close them and follow every change. The agent can open and change them when you ask; switching to the API, a download and an agent switch ask you first, and an agent switch waits until no reply runs."
           }
          ],
          "list": "bullet"

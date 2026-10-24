@@ -11,6 +11,7 @@ stt-cancelled = Đã hủy tải xuống
 stt-speech-denied = Cho phép nhận dạng giọng nói trong Cài đặt Hệ thống › Quyền riêng tư & Bảo mật
 stt-locale-unsupported = Công cụ của Apple không hỗ trợ ngôn ngữ này ({ $language })
 stt-api-key-missing = Đặt biến môi trường { $var } để dùng API đọc chính tả
+stt-api-config = Cài đặt API đọc chính tả không hợp lệ: hãy sửa trong hộp cài đặt.
 stt-api-unreachable = Không thể kết nối tới API đọc chính tả
 stt-api-status = API đọc chính tả đã từ chối yêu cầu (HTTP { $status })
 

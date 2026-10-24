@@ -60,6 +60,8 @@ e2e port="4872": install
     if curl -s -o /dev/null "http://127.0.0.1:$port/"; then echo "e2e : port $port déjà pris" >&2; exit 2; fi
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/oku-slides-e2e.XXXXXX")"
     export OKU_SLIDES_PATHS__DATA="$tmp/data" OKU_SLIDES_PATHS__DECKS="$tmp/decks"
+    # La clé factice de la dictée par API (210-settings-box) : la spec vérifie qu'elle ne sort jamais.
+    export OKU_E2E_DICTATION_KEY=oku-e2e-secret-1144
     mkdir -p "$tmp/data"
     # Le journal du faux agent (`--log`) : les specs y lisent le résultat des appels MCP (220-import).
     log="$tmp/fake-agent.log"

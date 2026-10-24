@@ -34,6 +34,22 @@ impl Model {
     /// Tous les modèles, dans l'ordre affiché.
     pub const ALL: [Model; 5] = [Model::Apple, Model::Turbo, Model::Large, Model::Base, Model::Api];
 
+    /// Identifiant du modèle, le même que son nom serde.
+    pub fn id(self) -> &'static str {
+        match self {
+            Model::Apple => "apple",
+            Model::Turbo => "turbo",
+            Model::Large => "large",
+            Model::Base => "base",
+            Model::Api => "api",
+        }
+    }
+
+    /// Le modèle d'identifiant `id` ; `None` s'il est inconnu.
+    pub fn from_id(id: &str) -> Option<Model> {
+        Model::ALL.into_iter().find(|m| m.id() == id)
+    }
+
     /// Dépôt Hugging Face du modèle.
     pub fn repo(self) -> &'static str {
         match self {
@@ -118,3 +134,7 @@ pub fn download(
     models::download(&model.files(), &dest, model.size(), settings, storage, progress).context(DownloadSnafu)?;
     Ok(dest)
 }
+
+#[cfg(test)]
+#[path = "models_tests.rs"]
+mod models_tests;

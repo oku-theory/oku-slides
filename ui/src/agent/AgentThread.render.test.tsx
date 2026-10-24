@@ -441,11 +441,6 @@ describe("fil de l'agent par tours", () => {
     expectIconOnly(host.querySelector(".agent-detach"));
   });
 
-  test("AgentThread has no agents button: the picker lives in the dictation settings", async () => {
-    const { host } = await mount([realSurface("turn-3")], "idle", { onDetach: () => {} });
-    expect(host.querySelector(".agent-picker-toggle, .agent-picker")).toBeNull();
-  });
-
   test("fil vide sans onDetach ni onAttach : aucun en-tête de plus", async () => {
     const { host } = await mount([]);
     expect(host.querySelector(".agent-thread-head")).toBeNull();

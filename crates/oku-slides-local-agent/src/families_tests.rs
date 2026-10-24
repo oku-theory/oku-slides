@@ -66,3 +66,15 @@ fn families_no_mcp_tool_name_contains_template() {
     let named: Vec<String> = oku_slides_mcp::tool_names().into_iter().filter(|t| t.contains("template")).collect();
     assert_that!(named).is_empty();
 }
+
+#[rstest]
+#[case("show_dictation")]
+#[case("set_dictation")]
+#[case("download_dictation_model")]
+#[case("cancel_dictation_download")]
+#[case("select_agent")]
+#[case("download_agent_model")]
+#[case("cancel_agent_model_download")]
+fn families_of_a_dictation_or_agent_tool_is_configure(#[case] tool: &str) {
+    assert_that!(families_of(tool)).is_equal_to(&[Family::Configure][..]);
+}

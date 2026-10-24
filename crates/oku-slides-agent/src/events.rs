@@ -1,7 +1,7 @@
 //! Ce que l'agent fait, pour le fil de l'interface.
 
 use agent_client_protocol::schema::v1::{ContentBlock, SessionUpdate, ToolCallContent};
-use oku_slides_session::agent::{AgentScope, AttachmentRef, DETAIL_CHARS, PromptImage, Surface, clip};
+use oku_slides_session::agent::{AgentScope, AttachmentRef, DETAIL_CHARS, PromptImage, clip};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -101,14 +101,12 @@ pub enum AgentEvent {
         /// Les images collées du brouillon ; l'hôte en est seul juge, chaque vue les reprend.
         images: Vec<AttachmentRef>,
     },
-    /// Le panneau de l'agent, pour les vues de l'onglet qui l'ont demandé.
-    Picker {
-        surface: Surface,
-    },
     /// L'agent choisi est-il utilisable ? `unusable` : pourquoi non, localisé.
     Availability {
         unusable: Option<String>,
     },
+    /// La dictée a changé (réglages, modèles, état) : l'interface relit son état.
+    Voice,
 }
 
 impl AgentEvent {

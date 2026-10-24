@@ -1,14 +1,13 @@
 //! Téléchargement du modèle de l'agent local, sur un fil à part, annulable.
 //!
-//! Le panneau lit l'état ([`ModelDownload::state`]) ; le fil le met à jour et prévient à
-//! chaque pourcent puis à la fin, pour que la pile réémette le panneau et la disponibilité.
-//! Ces réémissions ne vont qu'à l'onglet qui a lancé le téléchargement (le lot 5 le change).
+//! La boîte des réglages lit l'état ([`ModelDownload::state`]) ; le fil le met à jour et
+//! prévient à chaque pourcent puis à la fin : la révision de la boîte avance, et chaque onglet
+//! qui la montre la reçoit à jour, disponibilité comprise (`voice_refresh`).
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use oku_slides_i18n::Localizer;
 use oku_slides_platform::config::ModelsSettings;
 use oku_slides_platform::models::{self, DownloadErrorKind, PinnedFile};
 use oku_slides_platform::storage::Storage;
@@ -97,18 +96,6 @@ impl ModelDownload {
 
     fn lock(&self) -> MutexGuard<'_, DownloadState> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-}
-
-/// Le texte montré pour un téléchargement échoué de nature `kind`.
-pub(crate) fn failure_text(kind: DownloadErrorKind, l: &Localizer) -> String {
-    match kind {
-        DownloadErrorKind::Network | DownloadErrorKind::Write => l.tr("agent-model-download-failed"),
-        DownloadErrorKind::Integrity => l.tr("agent-model-download-integrity"),
-        DownloadErrorKind::Incomplete { got, expected } => {
-            l.tr_with("agent-model-download-incomplete", &[("got", got.into()), ("expected", expected.into())])
-        }
-        DownloadErrorKind::Cancelled => l.tr("agent-model-download-cancelled"),
     }
 }
 

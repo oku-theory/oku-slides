@@ -569,6 +569,9 @@ fn every_form() -> Vec<super::Surface> {
             ),
         ),
     ]
+    .into_iter()
+    .chain(crate::voice_panel::voice_panel_tests::covering_views().iter().map(|v| crate::VoicePanel::build(v, &l).surface()))
+    .collect()
 }
 
 /// La vue du panneau des packs de `fixtures/roadmap.json`, aux versions figées : chaque

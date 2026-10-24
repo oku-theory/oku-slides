@@ -112,6 +112,7 @@ ndarray = "0.16"
 earshot = "1.2"
 cpal = "0.18"
 ureq = "3"
+url = "2.5.8"
 # Pont Swift du moteur de dictée d'Apple (build.rs de oku-slides-stt).
 swift-rs = "1.0.8"
 # Agent local de repli (moteur Gguf, Apple silicon) : llama.cpp avec Metal. Audit du lot 3

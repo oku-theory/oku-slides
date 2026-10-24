@@ -5,15 +5,20 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use oku_slides_mcp::{Applied, McpEvent, SettingsPort, SurfaceHub, ToolServer, Tools};
-use oku_slides_session::agent::{Sessions, TabSession};
+use oku_slides_mcp::{
+    Applied, Checked, McpEvent, Origin, SettingsPort, SurfaceAction, SurfaceHub, ToolServer, Tools, VoiceApplied,
+    VoiceError, VoiceErrorKind, VoicePort,
+};
+use oku_slides_session::agent::{Sessions, Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
+use oku_slides_session::{VoiceEvent, VoiceView};
 use rust_mcp_sdk::mcp_client::{ClientHandler, ClientRuntime, client_runtime};
 use rust_mcp_sdk::schema::{
     CallToolRequestParams, CallToolResult, ClientCapabilities, Implementation, InitializeRequestParams, ProtocolVersion,
 };
 use rust_mcp_sdk::{McpClient, RequestOptions, StreamableTransportOptions};
 use serde_json::{Map, Value, json};
+use speculoos::prelude::*;
 use tokio_util::sync::CancellationToken;
 
 /// Un dossier neuf, supprimé au `drop`.
@@ -58,13 +63,58 @@ impl SettingsPort for MemorySettings {
     }
     fn write(&self, key: &str, value: &Value) -> Result<Applied, String> {
         self.values.lock().map_err(|e| e.to_string())?.insert(key.to_owned(), value.clone());
-        Ok(if key.starts_with("dictation.") { Applied::Now } else { Applied::NextLaunch })
+        Ok(Applied::NextLaunch)
+    }
+}
+
+/// Verrouille un mutex de test, même empoisonné.
+pub fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Port de dictée de test : note chaque demande ; `refuse` et `checked` règlent ses réponses.
+#[derive(Debug, Default)]
+pub struct FakeVoice {
+    pub applied: Mutex<Vec<(VoiceEvent, Origin)>>,
+    pub refuse: Mutex<Option<VoiceErrorKind>>,
+    pub checked: Mutex<Checked>,
+    pub answer: Mutex<Option<VoiceApplied>>,
+    pub view: Mutex<VoiceView>,
+}
+
+impl FakeVoice {
+    /// Un port de test sur la vue de référence de la session.
+    pub fn new() -> Self {
+        Self { view: Mutex::new(oku_slides_session::voice_fixture::voice_view_fixture()), ..Self::default() }
+    }
+}
+
+impl VoicePort for FakeVoice {
+    fn view(&self) -> VoiceView {
+        lock(&self.view).clone()
+    }
+
+    fn check(&self, _: &VoiceEvent, _: &Origin) -> Result<Checked, VoiceError> {
+        match *lock(&self.refuse) {
+            Some(kind) => Err(VoiceError::new(kind)),
+            None => Ok(lock(&self.checked).clone()),
+        }
+    }
+
+    fn apply(&self, event: VoiceEvent, origin: Origin) -> Result<VoiceApplied, VoiceError> {
+        if let Some(kind) = *lock(&self.refuse) {
+            return Err(VoiceError::new(kind));
+        }
+        lock(&self.applied).push((event, origin));
+        Ok(lock(&self.answer).unwrap_or(VoiceApplied::Now))
     }
 }
 
 pub struct Harness {
     pub server: ToolServer,
     pub hub: Arc<SurfaceHub>,
+    /// Le port de la dictée et de l'agent que voit le hub.
+    pub voice: Arc<FakeVoice>,
     /// La session, pour les assertions des tests (accès direct, hors `TabSession`).
     pub session: Arc<Mutex<Session>>,
     /// Le même onglet, tel que le voient les outils et le hub.
@@ -116,12 +166,13 @@ async fn start_with(
     let localizer = platform.localizer.clone();
     let tab = TabSession::new("t-1", sessions);
     let live = platform.live_localizer.clone();
-    let hub = SurfaceHub::new(tab.clone(), live.clone());
+    let voice = Arc::new(FakeVoice::new());
+    let hub = SurfaceHub::new(tab.clone(), live.clone(), voice.clone());
     let settings = Arc::new(MemorySettings::default());
     let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), &platform);
     let cancel = CancellationToken::new();
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur de test : {e}"));
-    Harness { server, hub, session, tab, settings, cancel, localizer, live, data }
+    Harness { server, hub, voice, session, tab, settings, cancel, localizer, live, data }
 }
 
 pub async fn start() -> Harness {
@@ -454,6 +505,93 @@ pub async fn next_surface(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -
         _ => None,
     })
     .await
+}
+
+/// Un client MCP connecté au serveur de `h`.
+pub async fn server(h: &Harness) -> Arc<ClientRuntime> {
+    client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"))
+}
+
+/// Un appel qui ne doit ouvrir aucune fenêtre : échoue au lieu d'attendre.
+pub async fn call_within(c: &Arc<ClientRuntime>, tool: &str, args: Value) -> CallToolResult {
+    tokio::time::timeout(EVENT_WAIT, call(c, tool, args))
+        .await
+        .unwrap_or_else(|_| panic!("{tool} attend une réponse : une confirmation a été ouverte"))
+}
+
+/// Le schéma d'entrée de l'outil `name`, tel que la liste des outils le montre.
+pub async fn tool_schema(c: &Arc<ClientRuntime>, name: &str) -> Value {
+    let tools = c.request_tool_list(None).await.unwrap_or_else(|e| panic!("liste des outils : {e}")).tools;
+    let tool = tools.into_iter().find(|t| t.name == name).unwrap_or_else(|| panic!("outil {name} absent"));
+    serde_json::to_value(tool.input_schema).unwrap_or_else(|e| panic!("schéma de {name} : {e}"))
+}
+
+/// La description de l'outil `name`, telle que la liste des outils la montre.
+pub async fn tool_description(c: &Arc<ClientRuntime>, name: &str) -> String {
+    let tools = c.request_tool_list(None).await.unwrap_or_else(|e| panic!("liste des outils : {e}")).tools;
+    let tool = tools.into_iter().find(|t| t.name == name).unwrap_or_else(|| panic!("outil {name} absent"));
+    tool.description.unwrap_or_default()
+}
+
+/// Le texte d'une confirmation et son drapeau `danger` (`forms::confirm`).
+pub fn confirmation_of(surface: &Surface) -> (String, bool) {
+    let json = serde_json::to_value(surface).unwrap_or_else(|e| panic!("surface : {e}"));
+    let components = json["messages"]
+        .as_array()
+        .and_then(|m| m.iter().find_map(|m| m["updateComponents"]["components"].as_array().cloned()))
+        .unwrap_or_default();
+    let find = |id: &str| components.iter().find(|c| c["id"] == id).cloned().unwrap_or_default();
+    let text = find("message")["text"].as_str().unwrap_or_default().to_owned();
+    (text, find("yes")["danger"] == Value::Bool(true))
+}
+
+/// Répond à la confirmation `surface` : oui ou non.
+pub fn answer(h: &Harness, surface: &str, confirmed: bool) {
+    let mut context = Map::new();
+    context.insert("confirmed".into(), Value::Bool(confirmed));
+    h.hub
+        .act(SurfaceAction { surface: surface.into(), name: "confirm".into(), context })
+        .unwrap_or_else(|e| panic!("réponse à la surface : {e}"));
+}
+
+/// Appelle `tool`, vérifie que sa confirmation s'ouvre en fenêtre, y répond ; rend le résultat.
+pub async fn guarded(h: &Harness, tool: &'static str, args: Value, confirmed: bool) -> CallToolResult {
+    let mut rx = h.hub.subscribe();
+    let c = server(h).await;
+    let pending = tokio::spawn(async move { call(&c, tool, args).await });
+    let surface = next_surface(&mut rx).await;
+    let json = serde_json::to_value(&surface).unwrap_or_else(|e| panic!("sérialisation de la surface : {e}"));
+    speculoos::assert_that!(json["place"].as_str()).is_equal_to(Some("modal"));
+    answer(h, &surface.id, confirmed);
+    pending.await.unwrap_or_else(|e| panic!("tâche de l'outil : {e}"))
+}
+
+/// Comme [`guarded`], et rend le texte de la confirmation et son drapeau `danger`.
+pub async fn guarded_message(
+    h: &Harness,
+    tool: &'static str,
+    args: Value,
+    confirmed: bool,
+) -> (String, bool, CallToolResult) {
+    guarded_message_after(h, tool, args, confirmed, || ()).await
+}
+
+/// Comme [`guarded_message`], et lance `while_open` une fois la fenêtre ouverte, avant la réponse.
+pub async fn guarded_message_after(
+    h: &Harness,
+    tool: &'static str,
+    args: Value,
+    confirmed: bool,
+    while_open: impl FnOnce(),
+) -> (String, bool, CallToolResult) {
+    let mut rx = h.hub.subscribe();
+    let c = server(h).await;
+    let pending = tokio::spawn(async move { call(&c, tool, args).await });
+    let surface = next_surface(&mut rx).await;
+    let (text, danger) = confirmation_of(&surface);
+    while_open();
+    answer(h, &surface.id, confirmed);
+    (text, danger, pending.await.unwrap_or_else(|e| panic!("tâche de l'outil : {e}")))
 }
 
 /// Une action de l'utilisateur sur une surface.

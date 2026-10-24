@@ -5,7 +5,9 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Check a prompt for an answer first, then for a shortcut word, before any agent launch; a shortcut never interrupts a turn. (spec:2026-10-19-raccourci-theme-design, t-1071)
-- Refuse agent and agent.* keys in agent settings writes; only the user chooses the agent. (spec:2026-10-10-agent-panneau-configuration-design)
+- Refuse agent and agent.* keys in settings writes; an agent's agent switch goes through VoicePort, applied when no prompt runs. (spec:2026-10-23-reglages-dictee-a2ui-design, t-786)
+- Hold a PromptGuard from AppVoice while a tab prompts the ACP agent, across a queued prompt. (spec:2026-10-23-reglages-dictee-a2ui-design)
+- Switch the agent only under the AppVoice lock after re-checking; then persist the active agent, never the requested one. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Never quote user data in localized agent command errors; keep the details in Display for logs. (plan:2026-10-10-agent-panneau-configuration)
 - Route a resumed session only after its load reply; ignore its replay updates until its first prompt. (spec:2026-10-08-sessions-par-perspective-design)
 - Never advertise fs or terminal capabilities to the ACP agent; it acts only through MCP tools. (spec:2026-09-26-agent-vocal-design)
@@ -14,7 +16,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Open the turn as soon as the prompt arrives, before any step that can fail, so errors show in it. (plan:2026-10-03-agent-a2ui)
 - Route all conversation writes through the per-tab keeper queue; the actor only holds live ACP state. (spec:2026-10-08-sessions-par-perspective-design)
 - When the agent process dies mid-turn, show a localized error and still close the turn undo group. (spec:2026-09-26-agent-vocal-design)
-- Do not switch agents if writing agent.selected to config.toml fails; shown and saved choice must match. (spec:2026-10-10-agent-panneau-configuration-design)
+- On a user choice, do not switch agents if writing agent.selected to config.toml fails; shown and saved choice must match. (spec:2026-10-10-agent-panneau-configuration-design, spec:2026-10-23-reglages-dictee-a2ui-design)
 - Reuse an agent connection only if it is open and belongs to the current launch epoch. (spec:2026-10-10-agent-panneau-configuration-design)
 - Persist only a sha256 fingerprint of the agent command and args, never the command in clear. (spec:2026-10-08-sessions-par-perspective-design)
 - Ignore late agent commands for a closed tab; tab ids are never reused. (spec:2026-09-27-agent-onglets-design)

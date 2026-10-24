@@ -11,6 +11,7 @@ stt-cancelled = Загрузка отменена
 stt-speech-denied = Разрешите распознавание речи в Системных настройках › Конфиденциальность и безопасность
 stt-locale-unsupported = Движок Apple не поддерживает этот язык ({ $language })
 stt-api-key-missing = Задайте переменную окружения { $var }, чтобы использовать API диктовки
+stt-api-config = Настройки API диктовки недействительны: исправьте их в окне настроек.
 stt-api-unreachable = API диктовки недоступен
 stt-api-status = API диктовки отклонил запрос (HTTP { $status })
 

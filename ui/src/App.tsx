@@ -2,6 +2,7 @@ import { StagePreviewContext, createStagePreviewStore } from "./a2ui/stagePrevie
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ImportTarget, InterfaceChange, SlideView, Snapshot } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
+import { bumpVoiceSeq } from "./voiceSeq";
 import { widgetToOpen } from "./packOps";
 import { appearanceLook } from "./appearance";
 import { useAppearance } from "./useAppearance";
@@ -234,10 +235,10 @@ export default function App({
   const dataSurfaces = useMemo(() => (data.surface ? [data.surface] : []), [data.surface]);
 
   const {
-    agent, agentSlots, agentStatus, setAgentStatus, agentPicker, agentAvailability, route,
+    agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
     agentUiNow, scopeSource, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
   } = useAgentWiring({
-    tab, snap, view, current, selected, editing, editField, widgets, importJob, say, showSlide,
+    tab, snap, view, current, selected, editing, editField, widgets, importJob, showSlide,
     setSelected,
   });
 
@@ -475,7 +476,7 @@ export default function App({
           onPresent={present} onInterface={onInterface} onOpenHistory={() => void openHistory()}
           onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
           onDraft={dictation.draft.onHost}
-          onPicker={agentPicker.onPicker} onAvailability={agentAvailability.onAvailability}
+          onVoice={bumpVoiceSeq} onAvailability={agentAvailability.onAvailability}
           undoTurn={snap.undo_turn} onUndoTurn={(turn) => void run(api.undoTurn(turn))}
         />
         {!snap.read_only && !agentDetached && <DictationDraft
@@ -513,11 +514,7 @@ export default function App({
         agentBusy={agentStatus.busy}
         onAgentCancel={cancelAgent}
         onType={dictation.draft.type}
-        agentPicker={agentPicker.surface}
-        onAgentPickerOpen={agentPicker.open}
-        onAgentSelect={agentPicker.select}
-        onAgentDownload={agentPicker.download}
-        onAgentCancelDownload={agentPicker.cancelDownload}
+        onSettings={() => void agent.showSettings().catch((e) => say(errorText(e), true))}
       />}
 
       {picking && (

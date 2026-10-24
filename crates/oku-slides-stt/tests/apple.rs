@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::Settings;
-use oku_slides_stt::{Config, Model, Stt, SttRequest};
+use oku_slides_stt::{Config, Model, Stt};
 use speculoos::prelude::*;
 
 mod common;
@@ -22,11 +22,8 @@ fn apple_transcribes_french_fixture_quickly() {
     settings.paths.models = Some(dir.join("models"));
     settings.i18n.locale = Some("fr".into());
     let stt = Stt::new(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}")));
-    stt.handle(SttRequest::Configure(Config {
-        model: Model::Apple,
-        language: Some("fr".into()),
-        ..stt.status().config
-    }));
+    // Dictée au repos : le réglage s'applique, son résultat est sans objet ici.
+    let _applied = stt.configure(Config { model: Model::Apple, language: Some("fr".into()), ..stt.status().config });
     let apple = stt.status().models.into_iter().find(|m| m.id == Model::Apple);
     assert_that!(apple.map(|m| m.installed)).is_equal_to(Some(true));
     let mut reader = hound::WavReader::open(FIXTURE).unwrap_or_else(|e| panic!("fixture : {e}"));

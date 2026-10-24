@@ -286,9 +286,9 @@ use goes through a permission request you answer. Its instructions are in Englis
 deck languages are passed in its context, and it answers in yours.
 
 - **Everything undoes**: one agent turn is a single ⌘Z entry.
-- **What cannot be undone** (saving, opening, deleting a pack, changing a
-  setting) waits for your confirmation, like the permissions the agent requests: a
-  click, never Enter, and never “always allow” by default.
+- **What cannot be undone** (saving, opening, deleting a pack, changing an app setting
+  other than the plain dictation ones) waits for your confirmation, like the permissions the
+  agent requests: a click, never Enter, and never “always allow” by default.
 - **Decisions**: the agent asks its questions in a card under the element (choices,
   rewordings: `1`–`4`, Enter, `E` to edit, Esc), proposes variants rendered in a
   drawer under the sheet, and live settings in a sticky note. A question can be
@@ -298,10 +298,13 @@ deck languages are passed in its context, and it answers in yours.
 - **Detached window**: ⧉ at the top of the thread (or Window ▸ Agent in a Separate Window, on macOS) opens
   the agent in its own window, for a second screen. It follows the active tab of the
   front window.
-- **Choosing the agent**: the settings menu of the dictation bar lists, at its bottom, the agents of the
-  configuration (`[agent.presets]`); picking one saves it and switches at once (a turn in
-  progress stops). Add an agent in `config.toml`; `OKU_SLIDES_AGENT__SELECTED` imposes the
-  choice. The agent itself cannot change it.
+- **Dictation and agent settings**: the ⚙ of the dictation bar opens a box in the agent area,
+  live until closed (model, language, auto stop, silence, API, and the agent from the
+  configuration's `[agent.presets]`). The agent opens it on request and changes plain
+  dictation settings at once; it asks before switching to the API, downloading a model or
+  switching agent (a switch waits until no reply runs). The API address (https, or http for
+  this computer) and the key variable (a name like `OPENAI_API_KEY`) stay yours, set in the
+  box. Add an agent in `config.toml`; `OKU_SLIDES_AGENT__SELECTED` imposes the choice.
 
 | Setting | Default |
 | --- | --- |

@@ -95,6 +95,8 @@ pub(crate) enum SttInner {
     NotDownloadable { backtrace: Backtrace },
     #[snafu(display("dictation API key missing: environment variable {var} is not set"))]
     ApiKeyMissing { var: String, backtrace: Backtrace },
+    #[snafu(display("invalid dictation API settings"))]
+    ApiConfig { backtrace: Backtrace },
     #[snafu(display("dictation API unreachable"))]
     ApiHttp { source: Box<ureq::Error>, backtrace: Backtrace },
     #[snafu(display("dictation API answered HTTP {status}"))]
@@ -122,7 +124,8 @@ impl SttError {
             | MelFilters { .. }
             | LocaleUnsupported { .. }
             | NotDownloadable { .. }
-            | ApiKeyMissing { .. } => SttErrorKind::Model,
+            | ApiKeyMissing { .. }
+            | ApiConfig { .. } => SttErrorKind::Model,
             Transcribe { .. }
             | Features { .. }
             | NoLanguage { .. }
@@ -166,6 +169,7 @@ impl Localize for SttError {
             | FinishTimeout { .. }
             | ApiResponse { .. } => l.tr("stt-transcription"),
             ApiKeyMissing { var, .. } => l.tr_with("stt-api-key-missing", &[("var", var.as_str().into())]),
+            ApiConfig { .. } => l.tr("stt-api-config"),
             ApiHttp { .. } => l.tr("stt-api-unreachable"),
             ApiStatus { status, .. } => l.tr_with("stt-api-status", &[("status", (*status).into())]),
             Download { source, .. } => match source.kind() {

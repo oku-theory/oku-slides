@@ -80,11 +80,10 @@ impl Localize for Unusable {
             Self::Spawn { command } => l.tr_with("agent-spawn-failed", &[("command", command.as_str().into())]),
             Self::NoHttp => l.tr("agent-no-http"),
             Self::NoProgram => l.tr("agent-local-no-program"),
-            Self::LocalNeedsDownload { size } => {
-                #[expect(clippy::cast_precision_loss, reason = "taille affichée à 0,1 Go près")]
-                let gigabytes = (*size as f64 / 1e9 * 10.0).round() / 10.0;
-                l.tr_with("agent-local-needs-download", &[("gigabytes", gigabytes.into())])
-            }
+            Self::LocalNeedsDownload { size } => l.tr_with(
+                "agent-local-needs-download",
+                &[("gigabytes", oku_slides_session::gigabytes_text(*size, l).into())],
+            ),
             Self::LocalIntelMac => l.tr("agent-local-intel-mac"),
             Self::LocalUnsupportedOs => l.tr("agent-local-unsupported-os"),
         }

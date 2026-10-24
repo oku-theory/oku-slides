@@ -32,6 +32,10 @@ oku-slides-import.workspace = true
 oku-slides-reference.workspace = true
 fontdb.workspace = true
 
+[features]
+# Expose `voice_fixture` to other crates' tests.
+test-support = []
+
 [dev-dependencies]
 oku-slides-core = { workspace = true, features = ["test-support"] }
 oku-slides-pdf.workspace = true

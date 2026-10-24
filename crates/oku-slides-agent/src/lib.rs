@@ -8,11 +8,12 @@
 //! - [`Keeper`] : le gardien d'un onglet, seul passage vers ses conversations gardées.
 //! - [`AgentEvent`] : ce que l'interface affiche dans le fil.
 //! - [`Stack`] : un agent par onglet (outils MCP, fil gardé) pour l'hôte ;
-//!   évènements relayés en enveloppes `{tab, event}`, et le panneau des agents
-//!   (`choice`, `picker`).
+//!   évènements relayés en enveloppes `{tab, event}`, le choix de l'agent (`choice`) et la
+//!   boîte des réglages de la dictée et de l'agent (`voice_port`).
 //!
 //! L'agent n'a ni fichiers ni terminal : il n'agit que par les outils.
 
+mod agent_switch;
 mod choice;
 mod command_error;
 mod config;
@@ -24,15 +25,18 @@ mod link;
 mod model_download;
 mod paste;
 mod permission;
-mod picker;
 mod prompt_images;
 mod settings_port;
 mod shortcut;
 mod stack;
+mod stt_watch;
 mod tab_agent;
 mod tab_entry;
+mod table;
 mod turn;
 mod turns;
+mod voice_port;
+mod voice_refresh;
 
 pub use command_error::CommandError;
 pub use config::{Launch, READY_WITHIN};

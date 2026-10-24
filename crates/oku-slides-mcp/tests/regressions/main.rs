@@ -10,4 +10,6 @@ mod issue_0637_tool_server_limits;
 mod issue_0696_bearer_token_hash;
 mod issue_0768_apply_states_rich_shape;
 mod issue_0793_live_language;
+mod issue_1144_agent_api_target;
+mod issue_1144_set_setting_dictation;
 mod issue_1171_asset_unknown_agent;

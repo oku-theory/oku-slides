@@ -8,6 +8,7 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_session::SessionError;
 use snafu::{Backtrace, Snafu};
 
+use crate::VoiceError;
 use crate::error::say_session;
 
 /// Une action de surface refusée.
@@ -31,6 +32,8 @@ pub enum HubErrorKind {
     NoVariant,
     /// La session a refusé l'action (valeur refusée, slide disparue, onglet fermé).
     Session,
+    /// La dictée ou l'agent a refusé le changement demandé dans la boîte des réglages.
+    Voice,
 }
 
 #[derive(Debug, Snafu)]
@@ -50,6 +53,13 @@ pub(super) enum HubInner {
     NoVariant { index: usize, backtrace: Backtrace },
     #[snafu(display("the session refused the action"))]
     Session { source: SessionError, backtrace: Backtrace },
+    /// Cause boxée : la garder entière grossirait toute `HubError`.
+    #[snafu(display("the settings change was refused"))]
+    Voice {
+        #[snafu(source(from(VoiceError, Box::new)))]
+        source: Box<VoiceError>,
+        backtrace: Backtrace,
+    },
 }
 
 impl HubError {
@@ -67,6 +77,7 @@ impl HubError {
             HubInner::NoField { .. } => HubErrorKind::NoField,
             HubInner::NoVariant { .. } => HubErrorKind::NoVariant,
             HubInner::Session { .. } => HubErrorKind::Session,
+            HubInner::Voice { .. } => HubErrorKind::Voice,
         }
     }
 }
@@ -83,6 +94,7 @@ impl Localize for HubError {
             HubInner::NoField { .. } => l.tr("agent-error-no-field"),
             HubInner::NoVariant { .. } => l.tr("agent-error-no-variant"),
             HubInner::Session { source, .. } => say_session(source, l),
+            HubInner::Voice { source, .. } => source.localize(l),
         }
     }
 }

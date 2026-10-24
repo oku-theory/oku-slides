@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { HOST_PACKS, byPlace, isHostSettings, isRequestedBox, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
+import { HOST_PACKS, HOST_VOICE, byPlace, isHostSettings, isRequestedBox, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
 import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
@@ -205,4 +205,15 @@ test("isHostSettings with the packs panel gives false", () => {
 
 test("isRequestedBox with the packs panel or the theme picker gives true", () => {
   expect([packsPanel(), ...["host-theme-picker", "host-widget", "ask-1"].map(real)].map(isRequestedBox)).toEqual([true, true, false, false]);
+});
+
+/** La boîte des réglages de la dictée et de l'agent. */
+const voiceBox = () => ({ ...real("host-widget"), id: HOST_VOICE });
+
+test("isRequestedBox with the voice box is true", () => {
+  expect(isRequestedBox(voiceBox())).toBe(true);
+});
+
+test("isHostSettings with the voice box is false", () => {
+  expect(isHostSettings(voiceBox())).toBe(false);
 });

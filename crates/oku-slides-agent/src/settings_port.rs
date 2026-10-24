@@ -1,5 +1,5 @@
-//! Les réglages de l'app pour l'agent : la dictée tout de suite, le reste
-//! dans `config.toml` (au prochain lancement), sauf les réglages de l'agent,
+//! Les réglages de l'app pour l'agent : lus (dictée comprise), écrits dans `config.toml`
+//! (au prochain lancement), sauf la dictée (`VoicePort`) et les réglages de l'agent,
 //! réservés à l'utilisateur.
 
 use std::collections::BTreeMap;
@@ -73,13 +73,9 @@ impl SettingsPort for AppSettings {
         if key == "agent" || key.starts_with("agent.") {
             return Err("agent settings are reserved to the user".to_owned());
         }
-        if let Some(field) = key.strip_prefix("dictation.") {
-            let stt = self.stt.as_ref().ok_or_else(|| "dictation unavailable".to_owned())?;
-            let mut config = serde_json::to_value(stt.handle(SttRequest::Status).config).map_err(|e| e.to_string())?;
-            config[field] = value.clone();
-            let config = serde_json::from_value(config).map_err(|e| format!("invalid {key}: {e}"))?;
-            stt.handle(SttRequest::Configure(config));
-            return Ok(Applied::Now);
+        // La dictée a un seul auteur de réglages : `AppVoice`, par `VoicePort`.
+        if key.starts_with("dictation.") {
+            return Err("dictation is set through set_dictation".to_owned());
         }
         write_value(&self.storage, &self.config_file, key, value).map_err(|e| e.to_string())?;
         Ok(Applied::NextLaunch)

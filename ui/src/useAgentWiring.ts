@@ -12,7 +12,6 @@ import { routeSurfaces } from "./agent/surfaces";
 import { agentUi } from "./agent/ui";
 import { useAgentAvailability } from "./agent/useAgentAvailability";
 import { useAgentFocus } from "./agent/useAgentFocus";
-import { useAgentPicker } from "./agent/useAgentPicker";
 import { useMainLink } from "./agent/useMainLink";
 import type { ImportJob } from "./useImportJob";
 import { anchorBox } from "./stageFields";
@@ -31,14 +30,13 @@ interface AgentWiringContext {
   editField: ReturnType<typeof useFieldEditing>["editField"];
   widgets: PackWidgetEditor;
   importJob: ImportJob | null;
-  say: (text: string, error?: boolean) => void;
   showSlide: (id: string) => void;
   setSelected: (id: string | null) => void;
 }
 
 /** L'état de l'agent pour cet onglet, et la poignée vers son panneau. */
 export function useAgentWiring({
-  tab, snap, view, current, selected, editing, editField, widgets, importJob, say, showSlide,
+  tab, snap, view, current, selected, editing, editField, widgets, importJob, showSlide,
   setSelected,
 }: AgentWiringContext) {
   // --- Agent ------------------------------------------------------------------
@@ -47,8 +45,6 @@ export function useAgentWiring({
   const [agent] = useState(() => agentApi(tab));
   const [agentSlots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot() }));
   const [agentStatus, setAgentStatus] = useState(IDLE_AGENT);
-  // Le panneau des agents, dans le menu des réglages de la dictée.
-  const agentPicker = useAgentPicker(agent, (m) => say(m, true));
   const agentAvailability = useAgentAvailability(agent, importJob !== null);
   // Les fiches ancrées se posent sous leur élément, sur la slide affichée.
   const shown = useMemo(
@@ -77,7 +73,7 @@ export function useAgentWiring({
   // Un focus de l'agent pendant l'édition d'un texte attend la fin de l'édition.
   const onAgentFocus = useAgentFocus({ slides: snap?.slides, view, current, editing, show: showSlide, select: setSelected });
   return {
-    agent, agentSlots, agentStatus, setAgentStatus, agentPicker, agentAvailability, route,
+    agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
     agentUiNow, scopeSource, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
   };
 }

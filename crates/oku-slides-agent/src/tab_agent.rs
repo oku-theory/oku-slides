@@ -16,9 +16,11 @@ use oku_slides_platform::config::PromptImageLimits;
 use oku_slides_session::agent::{AgentScope, AgentUi, AttachmentRef, TabSession};
 use tokio::sync::{broadcast, mpsc};
 
+use crate::agent_switch::PromptGuard;
 use crate::error::{AgentError, RequestSnafu, StoppedSnafu};
 use crate::keeper::{Keep, Keeper};
 use crate::link::{Link, Live, Route};
+use crate::voice_port::AppVoice;
 use crate::{AgentEvent, AgentState};
 
 /// Attente de la fin de la connexion après l'échec d'une requête : la
@@ -70,7 +72,27 @@ pub(crate) struct Ctx {
     pub localizer: LiveLocalizer,
     pub events: broadcast::Sender<AgentEvent>,
     pub keeper: Keeper,
+    /// Compte les requêtes en cours pour la boîte des réglages ; `None` hors de la pile.
+    pub voice: Option<Arc<AppVoice>>,
     /// Bornes des images envoyées en blocs image (`[paste] prompt_*`).
+    pub prompt_limits: PromptImageLimits,
+}
+
+/// De quoi démarrer l'acteur d'un onglet.
+pub(crate) struct ActorParts {
+    /// L'onglet.
+    pub tab: TabSession,
+    /// Ses surfaces.
+    pub hub: Arc<SurfaceHub>,
+    /// Où joindre ses outils MCP.
+    pub tools: ToolsAccess,
+    /// La connexion ACP partagée.
+    pub link: Link,
+    /// La langue courante de l'interface.
+    pub localizer: LiveLocalizer,
+    /// Le gardien de ses conversations.
+    pub keeper: Keeper,
+    /// Bornes des images envoyées en blocs image.
     pub prompt_limits: PromptImageLimits,
 }
 
@@ -114,9 +136,19 @@ impl AgentHandle {
         keeper: Keeper,
         prompt_limits: PromptImageLimits,
     ) -> Self {
+        Self::start(ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits }, None)
+    }
+
+    /// Comme [`AgentHandle::spawn`] ; chaque requête à l'agent tient une garde de `voice`.
+    pub(crate) fn spawn_counted(parts: ActorParts, voice: Arc<AppVoice>) -> Self {
+        Self::start(parts, Some(voice))
+    }
+
+    fn start(parts: ActorParts, voice: Option<Arc<AppVoice>>) -> Self {
+        let ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits } = parts;
         let (tx, rx) = mpsc::unbounded_channel();
         let (events, _) = broadcast::channel(256);
-        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, prompt_limits };
+        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, voice, prompt_limits };
         tokio::spawn(TabAgent { ctx, tools, link, live: HashSet::new() }.run(rx));
         Self { tx, events }
     }
@@ -179,6 +211,8 @@ impl TabAgent {
         // Les fils relus sont au hub avant le premier tour (numéros de tour après les leurs).
         self.ctx.keeper.restored().await;
         let mut next = None;
+        // La garde d'une requête suivie d'une consigne en file : gardée jusqu'à la fin de celle-ci.
+        let mut busy: Option<PromptGuard> = None;
         loop {
             let cmd = match next.take() {
                 Some(c) => c,
@@ -190,7 +224,15 @@ impl TabAgent {
             match cmd {
                 Command::Cancel => self.ctx.hub.cancel_asks(),
                 Command::NewConversation { scope } => self.new_conversation(scope).await,
-                Command::Prompt(instruction) => next = self.prompt(&mut rx, instruction).await,
+                Command::Prompt(instruction) => {
+                    // Une requête ACP tourne : un changement d'agent attend. Gardé pour une consigne en file.
+                    let guard =
+                        busy.take().or_else(|| self.ctx.voice.as_ref().map(|v| v.prompt_started(self.ctx.tab.tab())));
+                    next = self.prompt(&mut rx, instruction).await;
+                    if matches!(next, Some(Command::Prompt(_))) {
+                        busy = guard;
+                    }
+                }
             }
         }
         // `AgentHandle` lâché : un tour en cours a déjà reçu `session/cancel` (voir `turn`).

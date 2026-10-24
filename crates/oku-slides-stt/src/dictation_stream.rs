@@ -87,17 +87,17 @@ impl Stt {
     }
 
     /// Télécharge la langue du moteur d'Apple (par le système), puis reprend la dictée.
-    pub(crate) fn download_language(&self, then_start: bool) {
+    pub(crate) fn download_language(&self, then_start: bool) -> bool {
         let tag = {
             let mut g = self.state();
             let Some((tag, _)) = g.apple.clone() else {
                 drop(g);
                 // Aucune langue connue du moteur : rien à télécharger, on le dit.
                 self.report(LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
-                return;
+                return false;
             };
             if g.state != State::Idle {
-                return;
+                return false;
             }
             g.state = State::Downloading;
             g.download = Some(Download { model: Model::Apple, received: 0, total: 0 });
@@ -113,6 +113,7 @@ impl Stt {
                 me.begin_recording();
             }
         });
+        true
     }
 
     /// Attend l'installation d'une langue ; la progression va dans l'état.

@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-use crate::error::{ApiHttpSnafu, ApiKeyMissingSnafu, ApiResponseSnafu, ApiStatusSnafu};
+use crate::api_check::{is_loopback, normalized_url, valid_api_model, valid_key_env};
+use crate::error::{ApiConfigSnafu, ApiHttpSnafu, ApiKeyMissingSnafu, ApiResponseSnafu, ApiStatusSnafu};
 use crate::phrase_engine::PhraseEngine;
 use crate::{SAMPLE_RATE, SttError, Transcript};
 
@@ -40,6 +41,14 @@ impl ApiConfig {
             Ok(key) if !key.trim().is_empty() => Ok(key.trim().to_owned()),
             _ => Err(ApiKeyMissingSnafu { var: self.key_env.clone() }.build().into()),
         }
+    }
+
+    /// La variable de la clé est posée et contient autre chose que des blancs ASCII.
+    ///
+    /// La clé n'est jamais copiée : seuls ses octets sont parcourus en place. Une valeur faite
+    /// uniquement de blancs non ASCII compte comme présente ; [`ApiConfig::key`] la refuse à l'usage.
+    pub(crate) fn key_present(&self) -> bool {
+        std::env::var_os(&self.key_env).is_some_and(|v| v.as_encoded_bytes().iter().any(|b| !b.is_ascii_whitespace()))
     }
 }
 
@@ -96,6 +105,8 @@ struct ApiReply {
 /// Un client de l'API de transcription, prêt à servir (clé déjà lue).
 pub(crate) struct ApiTranscriber {
     config: ApiConfig,
+    /// Adresse racine normalisée, la seule appelée.
+    root: String,
     key: String,
     agent: ureq::Agent,
 }
@@ -108,16 +119,24 @@ impl fmt::Debug for ApiTranscriber {
 }
 
 impl ApiTranscriber {
-    /// Lit la clé et prépare l'agent HTTP (proxy de l'environnement, délai global).
+    /// Refuse des réglages invalides, lit la clé et prépare l'agent HTTP.
+    ///
+    /// Sans redirection ; sans proxy vers cette machine, sinon celui de l'environnement.
     pub(crate) fn new(config: ApiConfig, timeout: Duration) -> Result<Self, SttError> {
+        let root = match normalized_url(&config.url) {
+            Some(root) if valid_key_env(&config.key_env) && valid_api_model(&config.model) => root,
+            _ => return Err(ApiConfigSnafu.build().into()),
+        };
         let key = config.key()?;
+        let proxy = if is_loopback(&root) { None } else { ureq::Proxy::try_from_env() };
         let agent = ureq::Agent::config_builder()
-            .proxy(ureq::Proxy::try_from_env())
+            .proxy(proxy)
+            .max_redirects(0)
             .timeout_global(Some(timeout))
             .http_status_as_error(false)
             .build()
             .into();
-        Ok(Self { config, key, agent })
+        Ok(Self { config, root, key, agent })
     }
 }
 
@@ -137,7 +156,7 @@ impl PhraseEngine for ApiTranscriber {
             fields.push(("prompt", context));
         }
         let (content_type, body) = multipart(&fields, &wav(audio));
-        let url = format!("{}/audio/transcriptions", self.config.url.trim_end_matches('/'));
+        let url = format!("{}/audio/transcriptions", self.root);
         let mut response = self
             .agent
             .post(&url)

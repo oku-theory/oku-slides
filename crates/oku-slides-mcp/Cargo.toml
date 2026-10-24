@@ -30,7 +30,12 @@ hex.workspace = true
 sha2.workspace = true
 uuid.workspace = true
 
+[features]
+# Expose `NoVoice` to other crates' tests; never used by production code.
+test-support = []
+
 [dev-dependencies]
+oku-slides-session = { workspace = true, features = ["test-support"] }
 speculoos.workspace = true
 rstest.workspace = true
 tokio = { workspace = true, features = ["io-util"] }

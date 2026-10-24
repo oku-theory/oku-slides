@@ -23,7 +23,11 @@ fn fr() -> Localizer {
 }
 
 fn hub() -> Arc<SurfaceHub> {
-    SurfaceHub::new(TabSession::new("t-1", Arc::new(NoSession)), LiveLocalizer::new(Arc::new(fr())))
+    SurfaceHub::new(
+        TabSession::new("t-1", Arc::new(NoSession)),
+        LiveLocalizer::new(Arc::new(fr())),
+        Arc::new(crate::NoVoice),
+    )
 }
 
 fn atelier() -> AgentScope {

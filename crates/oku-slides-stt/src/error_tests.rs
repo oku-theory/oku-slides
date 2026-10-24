@@ -105,3 +105,12 @@ fn api_status_localized_in_french_shows_the_status() {
     assert_that!(text).contains("401");
     assert_that!(text).is_not_equal_to(e.localize(&Localizer::new(Some("en"))));
 }
+
+#[test]
+fn api_config_kind_is_model_and_french_text_is_the_literal() {
+    let e: SttError = ApiConfigSnafu.build().into();
+    assert_that!(e.kind()).is_equal_to(SttErrorKind::Model);
+    assert_that!(fr(&e)).is_equal_to(
+        "Les réglages de l'API de dictée sont invalides : corrigez-les dans la boîte des réglages.".to_owned(),
+    );
+}

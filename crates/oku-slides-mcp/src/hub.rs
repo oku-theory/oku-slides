@@ -25,6 +25,8 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use tokio::sync::broadcast;
 
+use crate::VoicePort;
+
 /// Évènements vers l'interface (Tauri `emit`, SSE).
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -93,6 +95,8 @@ enum Shown {
     Themes(ThemePicker),
     /// Panneau des packs du deck : la dernière surface montrée.
     Packs(PacksShown),
+    /// Boîte des réglages de la dictée et de l'agent : le dernier panneau envoyé.
+    Settings(SettingsShown),
     Params(ShowParams),
     Variants(ShowVariants),
     /// Figée (question répondue, composition `render`) : seules ses suites (`suggest`) partent
@@ -118,6 +122,13 @@ struct ThemePicker {
 struct PacksShown {
     /// La dernière surface envoyée.
     last: Surface,
+}
+
+/// La boîte des réglages montrée : un rafraîchissement ne part que si elle change.
+#[derive(Debug, Clone)]
+struct SettingsShown {
+    /// Le dernier panneau envoyé.
+    last: oku_slides_session::VoicePanel,
 }
 
 #[derive(Debug, Default)]
@@ -152,19 +163,27 @@ pub struct SurfaceHub {
     pub(crate) session: TabSession,
     /// Langue courante de l'interface, relue à chaque texte.
     pub(crate) localizer: LiveLocalizer,
+    /// La dictée et l'agent de l'app : la boîte des réglages.
+    voice: Arc<dyn VoicePort>,
     events: broadcast::Sender<McpEvent>,
     state: Mutex<HubState>,
 }
 
 impl SurfaceHub {
-    pub fn new(session: TabSession, localizer: LiveLocalizer) -> Arc<Self> {
+    /// Le hub de l'onglet de `session` ; `voice` fournit la boîte des réglages.
+    pub fn new(session: TabSession, localizer: LiveLocalizer, voice: Arc<dyn VoicePort>) -> Arc<Self> {
         let (events, _) = broadcast::channel(64);
-        Arc::new(Self { session, localizer, events, state: Mutex::new(HubState::default()) })
+        Arc::new(Self { session, localizer, voice, events, state: Mutex::new(HubState::default()) })
     }
 
     /// Identifiant de l'onglet dont ce hub sert les surfaces.
     pub fn tab(&self) -> &str {
         self.session.tab()
+    }
+
+    /// Le port de la dictée et de l'agent de l'app, pour les outils.
+    pub(crate) fn voice(&self) -> &Arc<dyn VoicePort> {
+        &self.voice
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<McpEvent> {
@@ -328,6 +347,8 @@ use asks::PendingAsk;
 mod themes;
 
 mod packs;
+
+mod settings;
 
 mod error;
 pub use error::{HubError, HubErrorKind};

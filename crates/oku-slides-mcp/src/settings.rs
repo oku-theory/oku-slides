@@ -9,12 +9,12 @@ use serde_json::Value;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Applied {
-    Now,
+    /// Au prochain lancement de l'app.
     NextLaunch,
 }
 
-/// Implémenter ce trait pour donner à l'agent les réglages de l'app : la
-/// dictée (effet immédiat) et `config.toml` (au prochain lancement).
+/// Implémenter ce trait pour donner à l'agent les réglages de l'app : `config.toml`
+/// (au prochain lancement). La dictée et l'agent de l'app passent par `VoicePort`.
 pub trait SettingsPort: Send + Sync + std::fmt::Debug {
     /// Valeurs par clé pointée (`dictation.model`, `history.limit`…).
     fn read(&self) -> BTreeMap<String, Value>;
@@ -23,8 +23,7 @@ pub trait SettingsPort: Send + Sync + std::fmt::Debug {
 }
 
 /// Clés que l'agent peut écrire, hors `stt.vad.*`.
-const WRITABLE: &[&str] =
-    &["dictation.model", "dictation.language", "dictation.auto_stop", "dictation.silence", "history.limit"];
+const WRITABLE: &[&str] = &["history.limit"];
 /// Clés de `[stt.vad]`.
 const VAD: &[&str] =
     &["threshold", "onset_frames", "pause", "min_phrase", "long_pause", "pre_roll", "post_roll", "max_phrase"];

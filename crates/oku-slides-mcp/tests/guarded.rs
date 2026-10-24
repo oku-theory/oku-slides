@@ -1,34 +1,9 @@
 mod common;
 
 use common::*;
-use oku_slides_mcp::{SettingsPort, SurfaceAction};
-use serde_json::{Map, Value, json};
+use oku_slides_mcp::SettingsPort;
+use serde_json::{Value, json};
 use speculoos::prelude::*;
-
-fn answer(h: &Harness, surface: &str, confirmed: bool) {
-    let mut context = Map::new();
-    context.insert("confirmed".into(), Value::Bool(confirmed));
-    h.hub
-        .act(SurfaceAction { surface: surface.into(), name: "confirm".into(), context })
-        .unwrap_or_else(|e| panic!("réponse à la surface : {e}"));
-}
-
-async fn guarded(
-    h: &Harness,
-    tool: &'static str,
-    args: Value,
-    confirmed: bool,
-) -> rust_mcp_sdk::schema::CallToolResult {
-    let mut rx = h.hub.subscribe();
-    let c =
-        client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
-    let pending = tokio::spawn(async move { call(&c, tool, args).await });
-    let surface = next_surface(&mut rx).await;
-    let json = serde_json::to_value(&surface).unwrap_or_else(|e| panic!("sérialisation de la surface : {e}"));
-    assert_that!(json["place"].as_str()).is_equal_to(Some("modal"));
-    answer(h, &surface.id, confirmed);
-    pending.await.unwrap_or_else(|e| panic!("tâche de l'outil : {e}"))
-}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn save_denied_writes_nothing() {
@@ -128,9 +103,9 @@ async fn set_setting_outside_whitelist_is_refused_without_asking() {
 #[tokio::test(flavor = "multi_thread")]
 async fn set_setting_confirmed_writes_through_port() {
     let h = start().await;
-    let r = guarded(&h, "set_setting", json!({ "key": "dictation.language", "value": "fr" }), true).await;
-    assert_that!(json_of(&r)).is_equal_to(json!({ "applied": "now" }));
-    assert_that!(h.settings.read().get("dictation.language").cloned()).is_equal_to(Some(json!("fr")));
+    let r = guarded(&h, "set_setting", json!({ "key": "history.limit", "value": 42 }), true).await;
+    assert_that!(json_of(&r)).is_equal_to(json!({ "applied": "next_launch" }));
+    assert_that!(h.settings.read().get("history.limit").cloned()).is_equal_to(Some(json!(42)));
 }
 
 /// La confirmation de `delete_pack`, sérialisée ; l'utilisateur refuse.

@@ -2,11 +2,11 @@
 
 import "./test/dom";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import type { Surface, SttState, SttStatus } from "./api";
+import type { SttState, SttStatus } from "./api";
 import { stt } from "./api";
 import type { DictationMode } from "./agent/keys";
 import type { LinkShortcut } from "./agent/link";
-import { setMessages } from "./i18n";
+import { t } from "./i18n";
 import { resetMessages } from "./test/messages";
 
 // Voir a2ui/catalog.render.test.tsx : React se charge après le DOM.
@@ -14,7 +14,7 @@ const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: Dictation } = await import("./Dictation");
 const { expectIconOnly } = await import("./test/iconOnly");
-const { PICKER } = await import("./a2ui/fixtures/agentPicker");
+const { bumpVoiceSeq } = await import("./voiceSeq");
 
 /** Un faux moteur : `start` écoute, `stop` rend `heard` (seq + 1), `cancel` revient au repos. */
 function fakeStt(heard = "bonjour", change: Partial<SttStatus> = {}) {
@@ -41,13 +41,32 @@ function fakeStt(heard = "bonjour", change: Partial<SttStatus> = {}) {
   };
   const calls: string[] = [];
   const starts: string[][] = [];
+  // Une réponse retenue : le prochain `stt.status()` attend que le test la rende.
+  let held: Promise<SttStatus> | null = null;
+  const statusSpy = spyOn(stt, "status").mockImplementation(() => {
+    const p = held ?? Promise.resolve(current);
+    held = null;
+    return p;
+  });
   const spies = [
-    spyOn(stt, "status").mockImplementation(() => Promise.resolve(current)),
+    statusSpy,
     spyOn(stt, "start").mockImplementation((vocabulary: string[]) => (calls.push("start"), starts.push(vocabulary), set("recording"))),
     spyOn(stt, "stop").mockImplementation(() => (calls.push("stop"), set("idle", { seq: current.seq + 1, text: heard }))),
     spyOn(stt, "cancel").mockImplementation(() => (calls.push("cancel"), set("idle"))),
   ];
-  return { calls, starts, restore: () => spies.forEach((s) => s.mockRestore()) };
+  return {
+    calls,
+    starts,
+    statusCalls: () => statusSpy.mock.calls.length,
+    current: (): SttStatus => current,
+    /** Retient la réponse du prochain `stt.status()` ; `resolve` la rend, fusionnée sur l'état courant. */
+    defer(): { resolve(s: Partial<SttStatus>): void } {
+      let resolve: (s: SttStatus) => void = () => {};
+      held = new Promise((r) => (resolve = r));
+      return { resolve: (change) => resolve({ ...current, ...change }) };
+    },
+    restore: () => spies.forEach((s) => s.mockRestore()),
+  };
 }
 
 // Remise à zéro même si une assertion échoue en cours de test.
@@ -74,17 +93,16 @@ const settle = () => act(async () => new Promise((r) => setTimeout(r, 0)));
 
 type Remote = { seq: number; key: LinkShortcut };
 
-async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remote) {
+async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remote, opts: { onSettings?: boolean } = {}) {
   const texts: [string, DictationMode][] = [];
   let cancels = 0;
   let typed = 0;
-  let pickerOpens = 0;
-  const selected: string[] = [];
-  let picker: Surface | null = null;
+  let settings = 0;
   const host = document.createElement("div");
   document.body.append(host);
   let root = createRoot(host);
   mounted = { root, host, restore: engine.restore };
+  const onSettings = (opts.onSettings ?? true) ? () => void settings++ : undefined;
   const render = (busy: boolean, shortcut?: Remote) =>
     root.render(
       createElement(Dictation, {
@@ -96,11 +114,7 @@ async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remo
         onAgentCancel: () => cancels++,
         onType: () => typed++,
         remote: shortcut,
-        agentPicker: picker,
-        onAgentPickerOpen: () => void pickerOpens++,
-        onAgentSelect: (id: string) => void selected.push(id),
-        onAgentDownload: () => {},
-        onAgentCancelDownload: () => {},
+        onSettings,
       }),
     );
   await act(async () => render(agentBusy, remote));
@@ -110,16 +124,7 @@ async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remo
     texts,
     cancels: () => cancels,
     typed: () => typed,
-    pickerOpens: () => pickerOpens,
-    selected,
-    /** Le panneau des agents reçu de l'hôte (ou retiré), rendu à nouveau. */
-    showPicker: async (surface: Surface | null) => {
-      picker = surface;
-      await act(async () => render(agentBusy, remote));
-      await settle();
-      // La surface est chargée à la demande (lazy) : laisser Suspense la résoudre.
-      for (let i = 0; i < 50 && surface && !host.querySelector(".agent-picker .chip"); i++) await settle();
-    },
+    settingsClicks: () => settings,
     rerender: async (busy: boolean) => {
       await act(async () => render(busy, remote));
       await settle();
@@ -274,39 +279,9 @@ describe("vocabulaire", () => {
   });
 });
 
-async function openSettings(host: HTMLElement) {
-  await act(async () => (host.querySelector('[aria-label="ui-dictation-settings"]') as HTMLButtonElement).click());
-  await settle();
-}
-
 const apple = (available: boolean) => ({ id: "apple" as const, label: "Apple (système)", size: 0, installed: available, available });
 
 describe("modèle Apple", () => {
-  test("Dictation Apple without the chosen language is disabled and says why", async () => {
-    engine.restore();
-    engine = fakeStt("bonjour", {
-      config: { model: "turbo", language: "xx", auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
-      models: [apple(false), { id: "turbo", label: "Large v3 Turbo (rapide)", size: 1, installed: true, available: true }],
-    });
-    const { host } = await mount();
-    await openSettings(host);
-    const radio = host.querySelector('input[name="stt-model"]') as HTMLInputElement;
-    expect([radio.disabled, host.querySelector(".model .badge")?.textContent]).toEqual([true, "ui-dictation-model-unavailable"]);
-  });
-
-  test("Dictation Apple auto language shows the resolved language", async () => {
-    setMessages("fr", ["ui-dictation-language-auto-resolved = Automatique ({ $language })"]);
-    engine.restore();
-    engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
-      models: [apple(true)],
-      detected: "fr",
-    });
-    const { host } = await mount();
-    await openSettings(host);
-    expect(host.querySelector("select option")?.textContent).toBe("Automatique (Français)");
-  });
-
   test("Dictation Apple language to download shows no size", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
@@ -317,41 +292,14 @@ describe("modèle Apple", () => {
     expect(host.querySelector(".dictation-line .caption")?.textContent).toBe("ui-dictation-to-download-language");
   });
 
-  test("Dictation Apple to download offers the language, not a size", async () => {
-    engine.restore();
-    engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
-      models: [{ ...apple(true), installed: false }],
-    });
-    const { host } = await mount();
-    await openSettings(host);
-    const buttons = [...host.querySelectorAll(".btn")].map((b) => b.textContent);
-    expect(buttons).toContain("ui-dictation-download-language");
-    expect(buttons).not.toContain("ui-dictation-download-now");
-  });
-
-  test("Dictation Apple chosen but unavailable offers no download and says why", async () => {
+  test("Dictation Apple chosen but unavailable says why", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
       config: { model: "apple", language: "xx", auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
       models: [apple(false)],
     });
     const { host } = await mount();
-    const caption = host.querySelector(".dictation-line .caption")?.textContent;
-    await openSettings(host);
-    const buttons = [...host.querySelectorAll(".btn")].map((b) => b.textContent);
-    expect([caption, buttons]).toEqual(["ui-dictation-model-unavailable", []]);
-  });
-
-  test("Dictation Apple caption is only its note, without the label detail", async () => {
-    engine.restore();
-    engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } },
-      models: [apple(true)],
-    });
-    const { host } = await mount();
-    await openSettings(host);
-    expect(host.querySelector(".model .caption")?.textContent).toBe("ui-dictation-note-apple");
+    expect(host.querySelector(".dictation-line .caption")?.textContent).toBe("ui-dictation-model-unavailable");
   });
 });
 
@@ -393,97 +341,65 @@ describe("raccourci relayé", () => {
   });
 });
 
-const agentChip = (host: HTMLElement, label: string) =>
-  [...host.querySelectorAll<HTMLButtonElement>(".dictation-settings .agent-picker .chip")].find((b) => b.textContent?.trim() === label);
-
-describe("agent dans les réglages", () => {
-  test("Dictation opening the settings asks for the agents picker", async () => {
-    const { host, pickerOpens } = await mount();
-    await openSettings(host);
-    expect(pickerOpens()).toBe(1);
-  });
-
-  test("Dictation closing the settings does not ask for the picker again", async () => {
-    const { host, pickerOpens } = await mount();
-    await openSettings(host);
-    await openSettings(host);
-    expect(pickerOpens()).toBe(1);
-  });
-
-  test("Dictation settings show the agents section at the bottom, with every agent", async () => {
-    const { host, showPicker } = await mount();
-    await openSettings(host);
-    await showPicker(PICKER);
-    const panel = host.querySelector(".dictation-settings")!;
-    expect(panel.lastElementChild?.classList.contains("dictation-agents")).toBe(true);
-    expect(agentChip(host, "Claude")).toBeDefined();
-    expect(agentChip(host, "Gemini")).toBeDefined();
-  });
-
-  test("Dictation choosing an agent calls onAgentSelect and keeps the settings open", async () => {
-    const { host, showPicker, selected } = await mount();
-    await openSettings(host);
-    await showPicker(PICKER);
-    await act(async () => agentChip(host, "Claude")!.click());
-    await settle();
-    expect(selected).toEqual(["claude"]);
-    expect(host.querySelector(".dictation-settings")).not.toBeNull();
-  });
-
-  test("Dictation without a picker surface shows no agents section", async () => {
-    const { host } = await mount();
-    await openSettings(host);
-    expect(host.querySelector(".dictation-settings")).not.toBeNull();
-    expect(host.querySelector(".dictation-agents, .agent-picker")).toBeNull();
-  });
-});
-
 const apiModel = (installed: boolean) => ({ id: "api" as const, label: "API (gpt-4o-transcribe)", size: 0, installed, available: true });
 const apiConfig = { model: "api" as const, language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY" } };
 
-const field = (host: HTMLElement, label: string) =>
-  [...host.querySelectorAll<HTMLLabelElement>(".dictation-settings label")].find((l) => l.textContent?.startsWith(label))?.querySelector("input") as HTMLInputElement | undefined;
-
 describe("modèle API", () => {
-  test("Dictation API chosen shows the three fields with the config values", async () => {
-    engine.restore();
-    engine = fakeStt("bonjour", { config: apiConfig, models: [apiModel(true)] });
-    const { host } = await mount();
-    await openSettings(host);
-    expect(["ui-dictation-api-url", "ui-dictation-api-model", "ui-dictation-api-key-env"].map((k) => field(host, k)?.value)).toEqual([
-      "https://api.openai.com/v1",
-      "gpt-4o-transcribe",
-      "OPENAI_API_KEY",
-    ]);
-  });
-
-  test("Dictation API model changed then blurred configures with the other fields unchanged", async () => {
-    engine.restore();
-    engine = fakeStt("bonjour", { config: apiConfig, models: [apiModel(true)] });
-    const configure = spyOn(stt, "configure").mockImplementation(() => stt.status());
-    const { host } = await mount();
-    await openSettings(host);
-    const input = field(host, "ui-dictation-api-model")!;
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-      setter.call(input, "whisper-1");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await act(async () => {
-      input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    });
-    const sent = configure.mock.calls[0]?.[0];
-    configure.mockRestore();
-    expect(sent?.api).toEqual({ url: "https://api.openai.com/v1", model: "whisper-1", key_env: "OPENAI_API_KEY" });
-  });
-
-  test("Dictation API without key says so in the badge and offers no download", async () => {
+  test("Dictation API without key says so in the idle caption", async () => {
     engine.restore();
     engine = fakeStt("bonjour", { config: apiConfig, models: [apiModel(false)] });
     const { host } = await mount();
-    await openSettings(host);
-    const badge = host.querySelector(".model .badge")?.textContent;
-    const buttons = [...host.querySelectorAll(".btn")].map((b) => b.textContent);
-    expect([badge, buttons]).toEqual(["ui-dictation-api-key-missing", []]);
+    expect(host.querySelector(".dictation-line .caption")?.textContent).toBe("ui-dictation-api-key-missing");
+  });
+});
+
+const gear = (host: HTMLElement) => host.querySelector(`[aria-label="${t("ui-dictation-settings")}"]`) as HTMLButtonElement | null;
+const cancel = (host: HTMLElement) => host.querySelector(`[aria-label="${t("ui-dictation-cancel")}"]`);
+
+describe("réglages de l'hôte", () => {
+  test("Dictation gear click asks the host for the settings box", async () => {
+    const m = await mount(false, [], undefined, { onSettings: true });
+    await act(async () => gear(m.host)!.click());
+    expect(m.settingsClicks()).toBe(1);
+  });
+
+  test("Dictation without onSettings shows no gear", async () => {
+    const m = await mount(false, [], undefined, { onSettings: false });
+    expect(gear(m.host)).toBeNull();
+  });
+
+  test("Dictation while recording shows cancel instead of gear", async () => {
+    const m = await mount();
+    await act(async () => (m.host.querySelector(`[aria-label="${t("ui-dictation-start")}"]`) as HTMLButtonElement).click());
+    await settle();
+    expect([gear(m.host) === null, cancel(m.host) !== null]).toEqual([true, true]);
+  });
+
+  test("Dictation refetches its status on a voice change", async () => {
+    await mount();
+    const before = engine.statusCalls();
+    await act(async () => bumpVoiceSeq());
+    await settle();
+    expect(engine.statusCalls()).toBe(before + 1);
+  });
+
+  test("Dictation keeps its status without a voice change", async () => {
+    const m = await mount();
+    const before = engine.statusCalls();
+    await m.rerender(false);
+    await settle();
+    expect(engine.statusCalls()).toBe(before);
+  });
+
+  test("Dictation late older reply does not overwrite a newer one", async () => {
+    const m = await mount();
+    const first = engine.defer();
+    await act(async () => bumpVoiceSeq());
+    const second = engine.defer();
+    await act(async () => bumpVoiceSeq());
+    second.resolve({ config: { ...engine.current().config, language: "fr" } });
+    first.resolve({ config: { ...engine.current().config, language: "en" } });
+    await settle();
+    expect(m.host.querySelector(".mic")?.getAttribute("title") ?? "").toContain("Français");
   });
 });

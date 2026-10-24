@@ -7,14 +7,17 @@ use oku_slides_session::agent::{AgentScope, AgentUi, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use serde::ser::{Error as _, Serialize, Serializer};
 use speculoos::prelude::*;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::{Agent, Relay, emit, next};
+use crate::choice::AgentChoice;
 use crate::keeper::Keeper;
 use crate::settings_port::AppSettings;
 use crate::tab_agent::{Command, Instruction};
 use crate::turns::Turns;
+use crate::voice_port::AppVoice;
 use crate::{AgentState, Launch, Link};
 
 /// Un évènement qui ne se sérialise jamais.
@@ -88,9 +91,6 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     .await
     .unwrap();
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(session)));
-    let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone());
-    let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(AppSettings::new(&platform, None)), &platform);
-    let mut mcp = hub.subscribe();
     // Un agent lancé laisserait cette trace : la consigne lui serait parvenue.
     let launched = dir.path().join("launched");
     let link = Link::new(Launch {
@@ -100,6 +100,10 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         fallback_cwd: dir.path().to_owned(),
         ready_within: Duration::from_secs(5),
     });
+    let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
+    let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice.clone());
+    let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(AppSettings::new(&platform, None)), &platform);
+    let mut mcp = hub.subscribe();
     let keeper = Keeper::spawn(tab.clone(), hub.clone());
     let localizer = platform.live_localizer.clone();
     let agent = Agent {
@@ -108,6 +112,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         link,
         localizer: localizer.clone(),
         keeper: keeper.clone(),
+        voice,
         prompt_limits: PromptImageLimits { max_bytes: 0, max_side: 0, total_bytes: 0 },
     };
     let (out, mut sent) = mpsc::unbounded_channel();

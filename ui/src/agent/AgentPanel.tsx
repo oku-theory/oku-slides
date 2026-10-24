@@ -21,10 +21,10 @@ import { fromA2ui } from "./quick";
 import { withRewriteParagraphs } from "./rewrite";
 import type { ScopeView } from "./scope";
 import type { Slot } from "./slot";
-import { agentBusy, sendThenPrompt, suggestedPrompt, surfacesReducer, type Routed } from "./surfaces";
+import { HOST_PACKS, HOST_VOICE, agentBusy, sendThenPrompt, suggestedPrompt, surfacesReducer, type Routed } from "./surfaces";
 import { useAgentScope, type AgentScopeState } from "./useAgentScope";
 import { useFollowScope } from "./useFollowScope";
-import { useRelocalizedPacks } from "./useRelocalizedPacks";
+import { useRelocalizedBoxes } from "./useRelocalizedBoxes";
 import { answerTarget, quickTarget, useQuickKeys, type QuickTarget } from "./useQuickKeys";
 
 // Surfaces de l'agent : chargées avec @a2ui, à la première question.
@@ -96,8 +96,11 @@ export interface AgentPanelProps {
   keyPlaces?: QuickTarget["kind"][];
   /** Un brouillon reçu de l'hôte. */
   onDraft?: (e: { text: string | null; origin: string | null; images: PastedImage[] }) => void;
-  /** Le panneau des agents reçu de l'hôte (menu des réglages de la dictée, `useAgentPicker`). */
-  onPicker?: (surface: Surface) => void;
+  /**
+   * La dictée ou l'agent ont changé (évènement `voice`), ou l'abonnement s'est rouvert (des
+   * évènements ont pu manquer) : la dictée relit son état.
+   */
+  onVoice?: () => void;
   /** La disponibilité de l'agent reçue de l'hôte (`useAgentAvailability`) ; `null` : utilisable. */
   onAvailability?: (unusable: string | null) => void;
   /** Touches rapides coupées : édition d'un texte, pointage, widget actif. */
@@ -154,8 +157,16 @@ export function AgentPanel(props: AgentPanelProps) {
   // sans vue ne rappelle jamais le fil.
   const driven = useAgentScope(agent, props.scope.kind === "drive" ? props.scope.view : null, onSurfaceEvent);
   const followed = useFollowScope(agent);
-  // Le panneau des packs montré suit la langue de l'interface ; un seul panneau le redemande.
-  useRelocalizedPacks(surfaces, () => agent.showPacks(), say, props.thread);
+  // Les boîtes de l'hôte montrées suivent la langue de l'interface ; un seul panneau les redemande.
+  const reshow = useMemo(
+    () =>
+      new Map<string, () => Promise<void>>([
+        [HOST_PACKS, () => agent.showPacks()],
+        [HOST_VOICE, () => agent.showSettings()],
+      ]),
+    [agent],
+  );
+  useRelocalizedBoxes(surfaces, reshow, say, props.thread);
   const agentScopeState: AgentScopeState = props.scope.kind === "follow" ? followed : driven;
   const latest = useRef<Latest | null>(null);
   latest.current = { props, scopeState: agentScopeState, onMcpFollow: props.scope.kind === "follow" ? followed.onMcp : NOOP };
@@ -190,16 +201,17 @@ export function AgentPanel(props: AgentPanelProps) {
         onAgent: (e) => {
           latest.current!.scopeState.onAgentEvent(e);
           if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin, images: e.images });
-          if (e.kind === "picker") latest.current!.props.onPicker?.(e.surface);
+          if (e.kind === "voice") latest.current!.props.onVoice?.();
           if (e.kind === "availability") latest.current!.props.onAvailability?.(e.unusable);
         },
         onError: (m) => console.warn(m),
         // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
-        // (les évènements manqués pendant la coupure sont perdus). Sans outils
+        // et la dictée relit son état (les évènements manqués pendant la coupure sont perdus). Sans outils
         // (pile absente), `resync` échoue : il n'y a alors pas de surface.
         onReady: () => {
           latest.current!.scopeState.onReady();
           latest.current!.props.onChanged();
+          latest.current!.props.onVoice?.();
         },
       }),
     // S'abonner une fois par onglet : les rappels sont lus dans `latest`, `onReady` et `onAgentEvent` sont stables.

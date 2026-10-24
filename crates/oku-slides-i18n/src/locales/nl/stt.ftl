@@ -11,6 +11,7 @@ stt-cancelled = Download geannuleerd
 stt-speech-denied = Sta spraakherkenning toe in Systeeminstellingen › Privacy en beveiliging
 stt-locale-unsupported = De engine van Apple ondersteunt deze taal niet ({ $language })
 stt-api-key-missing = Stel de omgevingsvariabele { $var } in om de dicteer-API te gebruiken
+stt-api-config = De instellingen van de dicteer-API zijn ongeldig: corrigeer ze in het instellingenvenster.
 stt-api-unreachable = De dicteer-API is niet bereikbaar
 stt-api-status = De dicteer-API heeft het verzoek geweigerd (HTTP { $status })
 

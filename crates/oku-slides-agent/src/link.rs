@@ -173,6 +173,12 @@ impl Link {
         self.inner.launch.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
+    /// L'époque du lancement : elle avance à chaque [`Link::switch`].
+    #[cfg(test)]
+    pub(crate) fn launch_epoch(&self) -> u64 {
+        self.launch_now().1
+    }
+
     /// Change d'agent : le prochain [`Link::connect`] lance `launch`.
     ///
     /// La connexion vivante est arrêtée tout de suite (ses tours échouent comme pour tout arrêt) ;

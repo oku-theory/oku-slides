@@ -44,7 +44,7 @@ impl Family {
             Family::Present => "start, steer or stop a presentation",
             Family::Files => "open, create, save, copy, move, merge a deck or browse its history",
             Family::Packs => "edit packs of widgets and slide layouts, and themes",
-            Family::Configure => "change app settings: language, dictation, interface",
+            Family::Configure => "change app settings: language, dictation, the app agent, interface",
             Family::Troubleshoot => "diagnose an error, a failed render or import, or why something fails",
             Family::AskReport => "ask the user a question or report back",
         }
@@ -67,7 +67,15 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         | "widget_source" | "widget_sources" | "set_widget" | "remove_widget" | "set_widget_trial"
         | "preview_widget" | "set_theme_extends" => &[Packs],
         "settings" => &[Configure, Troubleshoot],
-        "set_setting" | "set_interface" => &[Configure],
+        "set_setting"
+        | "set_interface"
+        | "show_dictation"
+        | "set_dictation"
+        | "download_dictation_model"
+        | "cancel_dictation_download"
+        | "select_agent"
+        | "download_agent_model"
+        | "cancel_agent_model_download" => &[Configure],
         "import_report" | "import_diff" | "diagnose" => &[Troubleshoot],
         "ask_choice" | "ask_confirm" | "ask_rewrite" | "report" | "render" => &[AskReport],
         _ => &[],

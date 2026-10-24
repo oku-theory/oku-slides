@@ -52,7 +52,8 @@ fn stt_default_config_is_turbo_auto_language_auto_stop_and_persists() {
     assert_that!(s.config.language).is_none();
     assert_that!(s.config.auto_stop).is_true();
     assert_that!(s.models).has_length(4);
-    stt.configure(Config {
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(Config {
         model: Model::Large,
         language: Some("fr".into()),
         auto_stop: false,
@@ -62,18 +63,6 @@ fn stt_default_config_is_turbo_auto_language_auto_stop_and_persists() {
     let back = Stt::new(&platform(dir.path())).status().config;
     assert_that!(back.model).is_equal_to(Model::Large);
     assert_that!(back.auto_stop).is_false();
-}
-
-#[test]
-fn stt_request_partial_configure_fills_defaults() {
-    let r: SttRequest = serde_json::from_str(r#"{"cmd":"configure","model":"base","language":null}"#).unwrap();
-    match r {
-        SttRequest::Configure(c) => {
-            assert_that!(c.model).is_equal_to(Model::Base);
-            assert_that!(c.auto_stop).is_true();
-        }
-        _ => panic!(),
-    }
 }
 
 #[test]
@@ -192,7 +181,8 @@ fn status_without_stream_engine_omits_apple() {
 fn configure_unknown_language_makes_apple_unavailable() {
     let dir = fresh_dir("apple-xx");
     let stt = apple_stt(dir.path(), Availability::Ready);
-    stt.configure(Config { language: Some("xx".into()), ..stt.status().config });
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(Config { language: Some("xx".into()), ..stt.status().config });
     assert_that!(stt.status().models[0].available).is_false();
 }
 
@@ -200,7 +190,8 @@ fn configure_unknown_language_makes_apple_unavailable() {
 fn configure_always_writes_current_version() {
     let dir = fresh_dir("apple-version");
     let stt = apple_stt(dir.path(), Availability::Ready);
-    stt.configure(Config { version: 0, ..stt.status().config });
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(Config { version: 0, ..stt.status().config });
     assert_that!(stt.status().config.version).is_equal_to(CONFIG_VERSION);
 }
 
@@ -208,7 +199,8 @@ fn configure_always_writes_current_version() {
 fn start_apple_with_unknown_language_reports_error() {
     let dir = fresh_dir("apple-start-xx");
     let stt = apple_stt(dir.path(), Availability::Ready);
-    stt.configure(Config { language: Some("xx".into()), ..stt.status().config });
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(Config { language: Some("xx".into()), ..stt.status().config });
     stt.start(Vec::new());
     assert_that!(stt.status().error.as_deref())
         .is_equal_to(Some("Le moteur d'Apple ne prend pas en charge cette langue (xx)"));
@@ -226,7 +218,8 @@ fn api_config(url: &str, key_env: &str) -> Config {
 fn status_api_without_key_is_listed_not_installed() {
     let dir = fresh_dir("oku-slides-stt-");
     let stt = Stt::new(&platform(dir.path()));
-    stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
     let api = stt.status().models.into_iter().find(|m| m.id == Model::Api).unwrap();
     assert_that!(api.installed).is_false();
 }
@@ -235,7 +228,8 @@ fn status_api_without_key_is_listed_not_installed() {
 fn start_api_without_key_reports_error_and_stays_idle() {
     let dir = fresh_dir("oku-slides-stt-");
     let stt = Stt::new(&platform(dir.path()));
-    stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
     stt.start(Vec::new());
     let s = stt.status();
     assert_that!(s.state).is_equal_to(State::Idle);
@@ -247,7 +241,8 @@ fn transcribe_loop_api_commits_the_api_text() {
     let dir = fresh_dir("oku-slides-stt-");
     let stt = Stt::new(&platform(dir.path()));
     let (url, _calls) = crate::test_support::fake_api(200, r#"{"text":"Bonjour."}"#);
-    stt.configure(api_config(&url, "HOME"));
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(api_config(&url, "HOME"));
     let session = {
         let mut g = stt.state();
         g.phrases.push(None);
@@ -280,7 +275,8 @@ fn engine_api_with_negative_timeout_returns_model_error() {
     settings.stt.apple = false;
     settings.stt.api_timeout_secs = -1.0;
     let stt = Stt::new(&Platform::with_settings(settings).unwrap());
-    stt.configure(api_config("http://127.0.0.1:9/v1", "HOME"));
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", "HOME"));
     assert_that!(stt.engine().map(|_| ()).unwrap_err().kind()).is_equal_to(SttErrorKind::Model);
 }
 
@@ -288,9 +284,48 @@ fn engine_api_with_negative_timeout_returns_model_error() {
 fn engine_api_url_change_returns_a_new_engine() {
     let dir = fresh_dir("oku-slides-stt-");
     let stt = Stt::new(&platform(dir.path()));
-    stt.configure(api_config("http://127.0.0.1:9/a", "HOME"));
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(api_config("http://127.0.0.1:9/a", "HOME"));
     let first = stt.engine().unwrap();
     assert_that!(Arc::ptr_eq(&first, &stt.engine().unwrap())).is_true();
-    stt.configure(api_config("http://127.0.0.1:9/b", "HOME"));
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(api_config("http://127.0.0.1:9/b", "HOME"));
     assert_that!(Arc::ptr_eq(&first, &stt.engine().unwrap())).is_false();
+}
+
+#[test]
+fn configure_while_idle_returns_true() {
+    let dir = fresh_dir("configure-idle");
+    let stt = Stt::new(&platform(dir.path()));
+    assert_that!(stt.configure(Config { auto_stop: false, ..stt.status().config })).is_true();
+}
+
+#[test]
+fn download_of_an_installed_model_returns_false() {
+    let dir = fresh_dir("download-installed");
+    let installed = Model::Base.path(dir.path());
+    std::fs::create_dir_all(&installed).unwrap();
+    std::fs::write(installed.join(oku_slides_platform::models::COMPLETE), b"").unwrap();
+    let stt = Stt::new(&platform(dir.path()));
+    assert_that!(stt.download(Model::Base, false)).is_false();
+}
+
+#[test]
+fn download_of_the_api_model_returns_false() {
+    let dir = fresh_dir("download-api");
+    let stt = Stt::new(&platform(dir.path()));
+    assert_that!(stt.download(Model::Api, false)).is_false();
+}
+
+#[test]
+fn api_model_installed_follows_the_key_variable() {
+    let dir = fresh_dir("api-installed");
+    let stt = Stt::new(&platform(dir.path()));
+    let installed = |key_env: &str| {
+        // Dictée au repos : le résultat de `configure` est sans objet ici.
+        let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", key_env));
+        stt.status().models.into_iter().find(|m| m.id == Model::Api).map(|m| m.installed)
+    };
+    assert_that!(installed("HOME")).is_equal_to(Some(true));
+    assert_that!(installed("OKU_T1146_UNSET_7F3A")).is_equal_to(Some(false));
 }

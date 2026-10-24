@@ -165,10 +165,8 @@ fn start_without_model_downloads_it_then_starts_listening() {
     let wav = dir.join("voix.wav");
     storage.write(&wav, wav_bytes()).unwrap();
     let stt = Stt::new(&platform(&dir, &hub(200, 0, b"pas un modele"), Some(wav)));
-    stt.handle(SttRequest::Configure(oku_slides_stt::Config {
-        model: Model::Base,
-        ..oku_slides_stt::Config::default()
-    }));
+    // Dictée au repos : le réglage s'applique, son résultat est sans objet ici.
+    let _applied = stt.configure(oku_slides_stt::Config { model: Model::Base, ..oku_slides_stt::Config::default() });
     let status = stt.handle(SttRequest::Start { vocabulary: Vec::new() });
     assert_that!(status.state).is_equal_to(State::Downloading);
     // Téléchargé, puis l'écoute démarre ; le modèle factice ne se charge pas.

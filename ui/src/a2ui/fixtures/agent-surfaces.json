@@ -2077,5 +2077,1314 @@
         }
       }
     ]
+  },
+  {
+    "id": "host-voice",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-voice",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-voice",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "d-title",
+                "d-intro",
+                "d-models",
+                "d-unavailable",
+                "d-api-url",
+                "d-api-model",
+                "d-api-key-env",
+                "d-api-note",
+                "d-language",
+                "d-silence",
+                "d-note",
+                "d-progress",
+                "d-cancel",
+                "a-title",
+                "a-agents",
+                "a-progress",
+                "a-pending",
+                "a-busy",
+                "close"
+              ]
+            },
+            {
+              "id": "d-title",
+              "component": "Text",
+              "text": "Modèle de reconnaissance",
+              "variant": "h4"
+            },
+            {
+              "id": "d-intro",
+              "component": "Text",
+              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-models",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "turbo",
+                  "label": "Large v3 Turbo",
+                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
+                },
+                {
+                  "id": "large",
+                  "label": "Large v3",
+                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                },
+                {
+                  "id": "api",
+                  "label": "API (gpt-4o-transcribe)",
+                  "hint": "Service distant, compatible OpenAI · Clé trouvée"
+                }
+              ],
+              "value": {
+                "path": "/model"
+              },
+              "action": {
+                "event": {
+                  "name": "model",
+                  "context": {
+                    "id": {
+                      "path": "/model"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-unavailable",
+              "component": "Text",
+              "text": "Indisponible pour cette langue : Base",
+              "variant": "caption"
+            },
+            {
+              "id": "d-api-url",
+              "component": "TextField",
+              "label": "Adresse de l'API",
+              "value": {
+                "path": "/api/url"
+              },
+              "action": {
+                "event": {
+                  "name": "api",
+                  "context": {
+                    "field": "url",
+                    "value": {
+                      "path": "/api/url"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-api-model",
+              "component": "TextField",
+              "label": "Modèle",
+              "value": {
+                "path": "/api/model"
+              },
+              "action": {
+                "event": {
+                  "name": "api",
+                  "context": {
+                    "field": "model",
+                    "value": {
+                      "path": "/api/model"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-api-key-env",
+              "component": "TextField",
+              "label": "Variable de la clé",
+              "value": {
+                "path": "/api/key_env"
+              },
+              "action": {
+                "event": {
+                  "name": "api",
+                  "context": {
+                    "field": "key_env",
+                    "value": {
+                      "path": "/api/key_env"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-api-note",
+              "component": "Text",
+              "text": "Chaque phrase est envoyée à ce service. La clé est lue dans la variable d'environnement au démarrage de la dictée ; une app ouverte depuis le Finder ne voit pas les variables du shell (utilisez launchctl setenv).",
+              "variant": "caption"
+            },
+            {
+              "id": "d-language",
+              "component": "Select",
+              "label": "Langue parlée",
+              "value": {
+                "path": "/language"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Détection automatique"
+                },
+                {
+                  "id": "fr",
+                  "label": "Français"
+                },
+                {
+                  "id": "en",
+                  "label": "English"
+                },
+                {
+                  "id": "de",
+                  "label": "Deutsch"
+                },
+                {
+                  "id": "es",
+                  "label": "Español"
+                },
+                {
+                  "id": "it",
+                  "label": "Italiano"
+                },
+                {
+                  "id": "pt",
+                  "label": "Português"
+                },
+                {
+                  "id": "nl",
+                  "label": "Nederlands"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "language",
+                  "context": {
+                    "code": {
+                      "path": "/language"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-silence",
+              "component": "Select",
+              "label": "Arrêter seul après un silence de",
+              "value": {
+                "path": "/silence"
+              },
+              "options": [
+                {
+                  "id": "off",
+                  "label": "Jamais"
+                },
+                {
+                  "id": "1",
+                  "label": "1 s"
+                },
+                {
+                  "id": "1.5",
+                  "label": "1,5 s"
+                },
+                {
+                  "id": "2",
+                  "label": "2 s"
+                },
+                {
+                  "id": "3",
+                  "label": "3 s"
+                },
+                {
+                  "id": "5",
+                  "label": "5 s"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "silence",
+                  "context": {
+                    "value": {
+                      "path": "/silence"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-note",
+              "component": "Text",
+              "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/dictation"
+              }
+            },
+            {
+              "id": "d-cancel",
+              "component": "Button",
+              "label": "Annuler",
+              "action": {
+                "event": {
+                  "name": "cancel_download"
+                }
+              }
+            },
+            {
+              "id": "a-title",
+              "component": "Text",
+              "text": "Agent",
+              "variant": "h4"
+            },
+            {
+              "id": "a-agents",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "faux",
+                  "label": "Faux",
+                  "hint": "fake --script s"
+                },
+                {
+                  "id": "local",
+                  "label": "Local"
+                }
+              ],
+              "value": {
+                "path": "/choice"
+              },
+              "action": {
+                "event": {
+                  "name": "select",
+                  "context": {
+                    "id": {
+                      "path": "/choice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "a-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/agent"
+              }
+            },
+            {
+              "id": "a-pending",
+              "component": "Text",
+              "text": {
+                "path": "/notice/pending"
+              }
+            },
+            {
+              "id": "a-busy",
+              "component": "Text",
+              "text": {
+                "path": "/notice/busy"
+              }
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "icon": "close",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-voice",
+          "value": {
+            "choice": "faux",
+            "progress": {
+              "dictation": "Téléchargement de Large v3 · 25 %",
+              "agent": ""
+            },
+            "notice": {
+              "busy": "",
+              "pending": ""
+            },
+            "model": "api",
+            "language": "",
+            "silence": "1.5",
+            "api": {
+              "url": "https://api.openai.com/v1",
+              "model": "gpt-4o-transcribe",
+              "key_env": "OPENAI_API_KEY"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "host-voice",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-voice",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-voice",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "d-title",
+                "d-intro",
+                "d-models",
+                "d-unavailable",
+                "d-language",
+                "d-silence",
+                "d-note",
+                "d-progress",
+                "d-download",
+                "a-title",
+                "a-agents",
+                "a-progress",
+                "a-pending",
+                "a-busy",
+                "close"
+              ]
+            },
+            {
+              "id": "d-title",
+              "component": "Text",
+              "text": "Modèle de reconnaissance",
+              "variant": "h4"
+            },
+            {
+              "id": "d-intro",
+              "component": "Text",
+              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-models",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "turbo",
+                  "label": "Large v3 Turbo",
+                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
+                },
+                {
+                  "id": "large",
+                  "label": "Large v3",
+                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                },
+                {
+                  "id": "api",
+                  "label": "API (gpt-4o-transcribe)",
+                  "hint": "Service distant, compatible OpenAI · OPENAI_API_KEY n'est pas définie"
+                }
+              ],
+              "value": {
+                "path": "/model"
+              },
+              "action": {
+                "event": {
+                  "name": "model",
+                  "context": {
+                    "id": {
+                      "path": "/model"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-unavailable",
+              "component": "Text",
+              "text": "Indisponible pour cette langue : Base",
+              "variant": "caption"
+            },
+            {
+              "id": "d-language",
+              "component": "Select",
+              "label": "Langue parlée",
+              "value": {
+                "path": "/language"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Détection automatique"
+                },
+                {
+                  "id": "fr",
+                  "label": "Français"
+                },
+                {
+                  "id": "en",
+                  "label": "English"
+                },
+                {
+                  "id": "de",
+                  "label": "Deutsch"
+                },
+                {
+                  "id": "es",
+                  "label": "Español"
+                },
+                {
+                  "id": "it",
+                  "label": "Italiano"
+                },
+                {
+                  "id": "pt",
+                  "label": "Português"
+                },
+                {
+                  "id": "nl",
+                  "label": "Nederlands"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "language",
+                  "context": {
+                    "code": {
+                      "path": "/language"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-silence",
+              "component": "Select",
+              "label": "Arrêter seul après un silence de",
+              "value": {
+                "path": "/silence"
+              },
+              "options": [
+                {
+                  "id": "off",
+                  "label": "Jamais"
+                },
+                {
+                  "id": "1",
+                  "label": "1 s"
+                },
+                {
+                  "id": "1.5",
+                  "label": "1,5 s"
+                },
+                {
+                  "id": "2",
+                  "label": "2 s"
+                },
+                {
+                  "id": "2.5",
+                  "label": "2,5 s"
+                },
+                {
+                  "id": "3",
+                  "label": "3 s"
+                },
+                {
+                  "id": "5",
+                  "label": "5 s"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "silence",
+                  "context": {
+                    "value": {
+                      "path": "/silence"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-note",
+              "component": "Text",
+              "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/dictation"
+              }
+            },
+            {
+              "id": "d-download",
+              "component": "Button",
+              "label": "Télécharger maintenant (3,1 Go)",
+              "action": {
+                "event": {
+                  "name": "download",
+                  "context": {
+                    "model": "large"
+                  }
+                }
+              }
+            },
+            {
+              "id": "a-title",
+              "component": "Text",
+              "text": "Agent",
+              "variant": "h4"
+            },
+            {
+              "id": "a-agents",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "faux",
+                  "label": "Faux",
+                  "hint": "fake --script s"
+                },
+                {
+                  "id": "local",
+                  "label": "Local"
+                }
+              ],
+              "value": {
+                "path": "/choice"
+              },
+              "action": {
+                "event": {
+                  "name": "select",
+                  "context": {
+                    "id": {
+                      "path": "/choice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "a-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/agent"
+              }
+            },
+            {
+              "id": "a-pending",
+              "component": "Text",
+              "text": {
+                "path": "/notice/pending"
+              }
+            },
+            {
+              "id": "a-busy",
+              "component": "Text",
+              "text": {
+                "path": "/notice/busy"
+              }
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "icon": "close",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-voice",
+          "value": {
+            "choice": "faux",
+            "progress": {
+              "dictation": "",
+              "agent": ""
+            },
+            "notice": {
+              "busy": "",
+              "pending": ""
+            },
+            "model": "large",
+            "language": "",
+            "silence": "off",
+            "api": {
+              "url": "https://api.openai.com/v1",
+              "model": "gpt-4o-transcribe",
+              "key_env": "OPENAI_API_KEY"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "host-voice",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-voice",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-voice",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "d-title",
+                "d-intro",
+                "d-models",
+                "d-unavailable",
+                "d-language",
+                "d-silence",
+                "d-note",
+                "d-progress",
+                "a-title",
+                "a-agents",
+                "a-local-reason",
+                "a-error",
+                "a-download",
+                "a-progress",
+                "a-pending",
+                "a-busy",
+                "a-locked",
+                "close"
+              ]
+            },
+            {
+              "id": "d-title",
+              "component": "Text",
+              "text": "Modèle de reconnaissance",
+              "variant": "h4"
+            },
+            {
+              "id": "d-intro",
+              "component": "Text",
+              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-models",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "turbo",
+                  "label": "Large v3 Turbo",
+                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
+                },
+                {
+                  "id": "large",
+                  "label": "Large v3",
+                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                },
+                {
+                  "id": "api",
+                  "label": "API (gpt-4o-transcribe)",
+                  "hint": "Service distant, compatible OpenAI · OPENAI_API_KEY n'est pas définie"
+                }
+              ],
+              "value": {
+                "path": "/model"
+              },
+              "action": {
+                "event": {
+                  "name": "model",
+                  "context": {
+                    "id": {
+                      "path": "/model"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-unavailable",
+              "component": "Text",
+              "text": "Indisponible pour cette langue : Base",
+              "variant": "caption"
+            },
+            {
+              "id": "d-language",
+              "component": "Select",
+              "label": "Langue parlée",
+              "value": {
+                "path": "/language"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Détection automatique"
+                },
+                {
+                  "id": "fr",
+                  "label": "Français"
+                },
+                {
+                  "id": "en",
+                  "label": "English"
+                },
+                {
+                  "id": "de",
+                  "label": "Deutsch"
+                },
+                {
+                  "id": "es",
+                  "label": "Español"
+                },
+                {
+                  "id": "it",
+                  "label": "Italiano"
+                },
+                {
+                  "id": "pt",
+                  "label": "Português"
+                },
+                {
+                  "id": "nl",
+                  "label": "Nederlands"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "language",
+                  "context": {
+                    "code": {
+                      "path": "/language"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-silence",
+              "component": "Select",
+              "label": "Arrêter seul après un silence de",
+              "value": {
+                "path": "/silence"
+              },
+              "options": [
+                {
+                  "id": "off",
+                  "label": "Jamais"
+                },
+                {
+                  "id": "1",
+                  "label": "1 s"
+                },
+                {
+                  "id": "1.5",
+                  "label": "1,5 s"
+                },
+                {
+                  "id": "2",
+                  "label": "2 s"
+                },
+                {
+                  "id": "3",
+                  "label": "3 s"
+                },
+                {
+                  "id": "5",
+                  "label": "5 s"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "silence",
+                  "context": {
+                    "value": {
+                      "path": "/silence"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-note",
+              "component": "Text",
+              "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/dictation"
+              }
+            },
+            {
+              "id": "a-title",
+              "component": "Text",
+              "text": "Agent",
+              "variant": "h4"
+            },
+            {
+              "id": "a-agents",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "faux",
+                  "label": "Faux",
+                  "hint": "fake --script s"
+                },
+                {
+                  "id": "local",
+                  "label": "Local"
+                }
+              ],
+              "value": {
+                "path": "/choice"
+              }
+            },
+            {
+              "id": "a-local-reason",
+              "component": "Text",
+              "text": "L'agent local a d'abord besoin de télécharger son modèle (2,5 Go).",
+              "variant": "caption"
+            },
+            {
+              "id": "a-error",
+              "component": "Text",
+              "text": "Le modèle téléchargé était endommagé et a été supprimé.",
+              "variant": "caption"
+            },
+            {
+              "id": "a-download",
+              "component": "Button",
+              "label": "Télécharger le modèle",
+              "action": {
+                "event": {
+                  "name": "download_agent_model"
+                }
+              }
+            },
+            {
+              "id": "a-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/agent"
+              }
+            },
+            {
+              "id": "a-pending",
+              "component": "Text",
+              "text": {
+                "path": "/notice/pending"
+              }
+            },
+            {
+              "id": "a-busy",
+              "component": "Text",
+              "text": {
+                "path": "/notice/busy"
+              }
+            },
+            {
+              "id": "a-locked",
+              "component": "Text",
+              "text": "Choix imposé par l'environnement (OKU_SLIDES_AGENT__SELECTED).",
+              "variant": "caption"
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "icon": "close",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-voice",
+          "value": {
+            "choice": "faux",
+            "progress": {
+              "dictation": "",
+              "agent": ""
+            },
+            "notice": {
+              "busy": "Changer d'agent interrompra le tour en cours.",
+              "pending": "Passage à Local dès qu'aucune réponse ne tourne."
+            },
+            "model": "turbo",
+            "language": "",
+            "silence": "1.5",
+            "api": {
+              "url": "https://api.openai.com/v1",
+              "model": "gpt-4o-transcribe",
+              "key_env": "OPENAI_API_KEY"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "host-voice",
+    "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-voice",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-voice",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "d-title",
+                "d-intro",
+                "d-models",
+                "d-unavailable",
+                "d-language",
+                "d-silence",
+                "d-note",
+                "d-progress",
+                "a-title",
+                "a-agents",
+                "a-progress",
+                "a-cancel",
+                "a-pending",
+                "a-busy",
+                "close"
+              ]
+            },
+            {
+              "id": "d-title",
+              "component": "Text",
+              "text": "Modèle de reconnaissance",
+              "variant": "h4"
+            },
+            {
+              "id": "d-intro",
+              "component": "Text",
+              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-models",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "turbo",
+                  "label": "Large v3 Turbo",
+                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
+                },
+                {
+                  "id": "large",
+                  "label": "Large v3",
+                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                },
+                {
+                  "id": "api",
+                  "label": "API (gpt-4o-transcribe)",
+                  "hint": "Service distant, compatible OpenAI · OPENAI_API_KEY n'est pas définie"
+                }
+              ],
+              "value": {
+                "path": "/model"
+              },
+              "action": {
+                "event": {
+                  "name": "model",
+                  "context": {
+                    "id": {
+                      "path": "/model"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-unavailable",
+              "component": "Text",
+              "text": "Indisponible pour cette langue : Base",
+              "variant": "caption"
+            },
+            {
+              "id": "d-language",
+              "component": "Select",
+              "label": "Langue parlée",
+              "value": {
+                "path": "/language"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Détection automatique"
+                },
+                {
+                  "id": "fr",
+                  "label": "Français"
+                },
+                {
+                  "id": "en",
+                  "label": "English"
+                },
+                {
+                  "id": "de",
+                  "label": "Deutsch"
+                },
+                {
+                  "id": "es",
+                  "label": "Español"
+                },
+                {
+                  "id": "it",
+                  "label": "Italiano"
+                },
+                {
+                  "id": "pt",
+                  "label": "Português"
+                },
+                {
+                  "id": "nl",
+                  "label": "Nederlands"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "language",
+                  "context": {
+                    "code": {
+                      "path": "/language"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-silence",
+              "component": "Select",
+              "label": "Arrêter seul après un silence de",
+              "value": {
+                "path": "/silence"
+              },
+              "options": [
+                {
+                  "id": "off",
+                  "label": "Jamais"
+                },
+                {
+                  "id": "1",
+                  "label": "1 s"
+                },
+                {
+                  "id": "1.5",
+                  "label": "1,5 s"
+                },
+                {
+                  "id": "2",
+                  "label": "2 s"
+                },
+                {
+                  "id": "3",
+                  "label": "3 s"
+                },
+                {
+                  "id": "5",
+                  "label": "5 s"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "silence",
+                  "context": {
+                    "value": {
+                      "path": "/silence"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-note",
+              "component": "Text",
+              "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
+              "variant": "caption"
+            },
+            {
+              "id": "d-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/dictation"
+              }
+            },
+            {
+              "id": "a-title",
+              "component": "Text",
+              "text": "Agent",
+              "variant": "h4"
+            },
+            {
+              "id": "a-agents",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "faux",
+                  "label": "Faux",
+                  "hint": "fake --script s"
+                },
+                {
+                  "id": "local",
+                  "label": "Local"
+                }
+              ],
+              "value": {
+                "path": "/choice"
+              },
+              "action": {
+                "event": {
+                  "name": "select",
+                  "context": {
+                    "id": {
+                      "path": "/choice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "a-progress",
+              "component": "Text",
+              "text": {
+                "path": "/progress/agent"
+              }
+            },
+            {
+              "id": "a-cancel",
+              "component": "Button",
+              "label": "Annuler",
+              "action": {
+                "event": {
+                  "name": "cancel_agent_model_download"
+                }
+              }
+            },
+            {
+              "id": "a-pending",
+              "component": "Text",
+              "text": {
+                "path": "/notice/pending"
+              }
+            },
+            {
+              "id": "a-busy",
+              "component": "Text",
+              "text": {
+                "path": "/notice/busy"
+              }
+            },
+            {
+              "id": "close",
+              "component": "Button",
+              "label": "Fermer",
+              "icon": "close",
+              "action": {
+                "event": {
+                  "name": "dismiss"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-voice",
+          "value": {
+            "choice": "faux",
+            "progress": {
+              "dictation": "",
+              "agent": "Téléchargement du modèle… 40 %"
+            },
+            "notice": {
+              "busy": "",
+              "pending": ""
+            },
+            "model": "turbo",
+            "language": "",
+            "silence": "1.5",
+            "api": {
+              "url": "https://api.openai.com/v1",
+              "model": "gpt-4o-transcribe",
+              "key_env": "OPENAI_API_KEY"
+            }
+          }
+        }
+      }
+    ]
   }
 ]

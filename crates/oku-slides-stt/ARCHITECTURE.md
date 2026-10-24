@@ -15,7 +15,10 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
   sentence by sentence (`dictation_whisper.rs`).
 - **API** (`Model::Api`): an OpenAI-compatible transcription API (`api.rs`), phrase by
   phrase like Whisper but without preview; the key is read from the environment
-  variable named in `ApiConfig`, never stored.
+  variable named in `ApiConfig`, never stored or copied (`key_present` only tests it).
+  `api_check.rs` holds the settings rules (`normalized_url`, `is_loopback`, `valid_key_env`,
+  `valid_api_model`); the client refuses invalid settings, follows no redirect and skips
+  the proxy for loopback. `Model::id`/`from_id` give the stable model names.
 
 ## Flow
 

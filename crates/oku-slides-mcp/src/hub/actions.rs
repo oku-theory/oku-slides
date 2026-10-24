@@ -1,5 +1,6 @@
 //! Actions des surfaces persistantes (réglages, variantes, suites) et élagage.
 
+use oku_slides_session::HOST_VOICE;
 use oku_slides_session::agent::{ShowParams, ShowVariants, forms};
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -50,6 +51,10 @@ impl SurfaceHub {
             };
             let _ = ask.tx.send(answer);
             return Ok(());
+        }
+        // La boîte des réglages reste montrée pendant le clic : un rafraîchissement n'est jamais perdu.
+        if action.surface == HOST_VOICE && action.name != "dismiss" {
+            return self.apply_settings(&action.context, &action.name);
         }
         let Some(shown) = self.state().shows.remove(&action.surface) else {
             return Err(HubError::unknown_surface(action.surface));
@@ -179,7 +184,9 @@ impl SurfaceHub {
                     let slide = match shown {
                         Shown::Params(p) => &p.slide,
                         Shown::Variants(v) => &v.slide,
-                        Shown::Static { .. } | Shown::Themes(_) | Shown::Packs(_) => return false,
+                        Shown::Static { .. } | Shown::Themes(_) | Shown::Packs(_) | Shown::Settings(_) => {
+                            return false;
+                        }
                     };
                     deck.slide(slide).is_none()
                 })

@@ -11,6 +11,7 @@ stt-cancelled = Téléchargement annulé
 stt-speech-denied = Autorisez la reconnaissance vocale dans Réglages Système › Confidentialité et sécurité
 stt-locale-unsupported = Le moteur d'Apple ne prend pas en charge cette langue ({ $language })
 stt-api-key-missing = Définissez la variable d'environnement { $var } pour utiliser l'API de dictée
+stt-api-config = Les réglages de l'API de dictée sont invalides : corrigez-les dans la boîte des réglages.
 stt-api-unreachable = L'API de dictée est injoignable
 stt-api-status = L'API de dictée a refusé la requête (HTTP { $status })
 

@@ -101,7 +101,7 @@ pub async fn start(script: Value) -> Harness {
     let (session, platform) = session(dir.path().to_owned()).await;
     let session = Arc::new(Mutex::new(session));
     let tab_session = TabSession::new("t-1", session.clone());
-    let hub = SurfaceHub::new(tab_session.clone(), platform.live_localizer.clone());
+    let hub = SurfaceHub::new(tab_session.clone(), platform.live_localizer.clone(), Arc::new(oku_slides_mcp::NoVoice));
     let tools = Tools::new(tab_session.clone(), hub.clone(), Arc::new(NoSettings), &platform);
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur MCP : {e}"));
     let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };

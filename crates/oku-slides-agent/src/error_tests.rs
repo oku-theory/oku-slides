@@ -82,5 +82,5 @@ fn unusable_from_unavailable_keeps_the_state(#[case] u: Unavailable, #[case] exp
 #[test]
 fn unusable_needs_download_interpolates_gigabytes_in_french() {
     let text = Unusable::LocalNeedsDownload { size: 2_497_281_120 }.localize(&Localizer::new(Some("fr")));
-    assert_that!(text).contains("2.5 Go");
+    assert_that!(text).contains("2,5 Go");
 }

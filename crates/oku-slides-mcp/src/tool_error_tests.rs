@@ -2,7 +2,7 @@ use oku_slides_i18n::{Localize, Localizer, available, english};
 use snafu::IntoError;
 use speculoos::prelude::*;
 
-use super::{TaskSnafu, ToolError};
+use super::{EmptyDictationChangeSnafu, TaskSnafu, ToolError, VoiceSnafu};
 
 /// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`, `say_to_agent`).
 const KEYS: &[&str] = &[
@@ -33,6 +33,13 @@ const KEYS: &[&str] = &[
     "agent-error-locale",
     "agent-error-empty-interface",
     "agent-error-not-shown",
+    "agent-error-empty-dictation",
+    "agent-confirm-dictation-api",
+    "agent-confirm-dictation-download",
+    "agent-confirm-dictation-language",
+    "agent-confirm-agent",
+    "agent-confirm-agent-builtin",
+    "agent-confirm-agent-model",
 ];
 
 #[test]
@@ -67,4 +74,14 @@ fn argument_detail_drops_the_position() {
     let Err(e) = serde_json::from_str::<super::super::tools::SlideId>("{}") else { panic!("accepté sans id") };
     assert_that!(e.to_string()).contains("line");
     assert_that!(super::argument_detail(&e)).is_equal_to("missing field `id`".to_owned());
+}
+
+#[rstest::rstest]
+#[case::empty(EmptyDictationChangeSnafu.build(), "Rien à changer : donnez au moins un réglage de la dictée.")]
+#[case::voice(
+    VoiceSnafu.into_error(Box::new(crate::VoiceError::new(crate::VoiceErrorKind::NothingToCancel))),
+    "Aucun téléchargement n'est en cours"
+)]
+fn a_voice_tool_error_is_said_in_french(#[case] e: ToolError, #[case] said: &str) {
+    assert_that!(e.localize(&Localizer::new(Some("fr")))).is_equal_to(said.to_owned());
 }

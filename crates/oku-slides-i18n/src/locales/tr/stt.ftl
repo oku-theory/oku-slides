@@ -11,6 +11,7 @@ stt-cancelled = İndirme iptal edildi
 stt-speech-denied = Sistem Ayarları › Gizlilik ve Güvenlik bölümünde konuşma tanımaya izin verin
 stt-locale-unsupported = Apple'ın motoru bu dili desteklemiyor ({ $language })
 stt-api-key-missing = Dikte API'sini kullanmak için { $var } ortam değişkenini ayarlayın
+stt-api-config = Dikte API'si ayarları geçersiz: bunları ayarlar kutusunda düzeltin.
 stt-api-unreachable = Dikte API'sine ulaşılamıyor
 stt-api-status = Dikte API'si isteği reddetti (HTTP { $status })
 

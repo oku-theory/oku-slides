@@ -30,6 +30,18 @@ fn key_unset_variable_returns_api_key_missing() {
     assert_that!(config.key().unwrap_err().kind()).is_equal_to(SttErrorKind::Model);
 }
 
+#[test]
+fn key_present_unset_variable_is_absent() {
+    let config = ApiConfig { key_env: "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a".into(), ..ApiConfig::default() };
+    assert_that!(config.key_present()).is_false();
+}
+
+#[test]
+fn key_present_set_variable_is_present() {
+    let config = ApiConfig { key_env: "HOME".into(), ..ApiConfig::default() };
+    assert_that!(config.key_present()).is_true();
+}
+
 fn transcriber(url: String) -> ApiTranscriber {
     let config = ApiConfig { url, model: "whisper-1".into(), key_env: "HOME".into() };
     ApiTranscriber::new(config, Duration::from_secs(5)).unwrap()
@@ -83,4 +95,44 @@ fn transcribe_closed_port_returns_localized_transcription_error() {
     let en = e.localize(&Localizer::new(Some("en")));
     let fr = e.localize(&Localizer::new(Some("fr")));
     assert_that!(fr).is_not_equal_to(en);
+}
+
+fn refused(config: ApiConfig) {
+    let e = ApiTranscriber::new(config, Duration::from_secs(5)).unwrap_err();
+    assert_that!(e.kind()).is_equal_to(SttErrorKind::Model);
+    assert_that!(e.localize(&Localizer::new(Some("fr")))).is_equal_to(
+        "Les réglages de l'API de dictée sont invalides : corrigez-les dans la boîte des réglages.".to_owned(),
+    );
+}
+
+#[test]
+fn api_transcriber_invalid_stored_url_is_refused() {
+    refused(ApiConfig { url: "http://192.168.1.5/v1".into(), model: "whisper-1".into(), key_env: "HOME".into() });
+}
+
+#[test]
+fn api_transcriber_invalid_key_env_is_refused() {
+    refused(ApiConfig { url: "http://127.0.0.1:9/v1".into(), model: "whisper-1".into(), key_env: "sk-x".into() });
+}
+
+#[test]
+fn api_transcriber_redirect_is_not_followed() {
+    let second = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("seconde API : {e}"));
+    let second_addr = second.server_addr().to_ip().unwrap_or_else(|| panic!("seconde API : adresse non IP"));
+    let hit = std::thread::spawn(move || second.recv_timeout(Duration::from_millis(500)));
+    let first = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("première API : {e}"));
+    let url =
+        format!("http://{}/v1", first.server_addr().to_ip().unwrap_or_else(|| panic!("première API : adresse non IP")));
+    std::thread::spawn(move || {
+        for request in first.incoming_requests() {
+            let location = tiny_http::Header::from_bytes("Location", format!("http://{second_addr}/x"))
+                .unwrap_or_else(|()| panic!("en-tête Location"));
+            request.respond(tiny_http::Response::empty(307).with_header(location)).ok();
+        }
+    });
+    let e = transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap_err();
+    assert_that!(e.kind()).is_equal_to(SttErrorKind::Transcription);
+    assert_that!(e.localize(&Localizer::new(Some("fr")))).contains("307");
+    let reached = hit.join().unwrap().unwrap_or_else(|e| panic!("seconde API : {e}"));
+    assert_that!(reached.is_none()).is_true();
 }

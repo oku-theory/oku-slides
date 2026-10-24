@@ -142,8 +142,10 @@ fn apple_transcribe_samples_timeout_cancels_the_stream() {
 fn apple_download_with_unknown_language_reports_error() {
     let dir = fresh_dir("stream-download-xx");
     let (stt, _) = stt_with(dir.path(), ScriptedEngine::new(Availability::Ready, &[]), |_| {});
-    stt.configure(crate::Config { language: Some("xx".into()), ..stt.status().config });
-    let status = stt.handle(SttRequest::Download { model: crate::Model::Apple });
+    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    let _applied = stt.configure(crate::Config { language: Some("xx".into()), ..stt.status().config });
+    let _started = stt.download(crate::Model::Apple, false);
+    let status = stt.status();
     assert_that!((status.state, status.error.as_deref()))
         .is_equal_to((State::Idle, Some("Le moteur d'Apple ne prend pas en charge cette langue (xx)")));
 }
@@ -154,10 +156,39 @@ fn apple_download_cancel_stops_despite_steady_progress() {
     let mut engine = ScriptedEngine::new(Availability::Missing, &[]);
     engine.install_progress_forever = true;
     let (stt, _) = stt_with(dir.path(), engine, |_| {});
-    stt.handle(SttRequest::Download { model: crate::Model::Apple });
+    let _started = stt.download(crate::Model::Apple, false);
     wait_until(&stt, "progression reçue", |s| s.download.as_ref().is_some_and(|d| d.received == 1));
     stt.handle(SttRequest::Cancel);
     let idle = wait_until(&stt, "téléchargement annulé", |s| s.state == State::Idle);
     assert_that!((idle.download.is_none(), idle.error.is_none(), idle.models[0].installed))
         .is_equal_to((true, true, false));
+}
+
+/// Une dictée en cours d'enregistrement.
+fn recording_stt(prefix: &str) -> (Stt, tempfile::TempDir) {
+    let dir = fresh_dir(prefix);
+    let (stt, _) = stt_with(dir.path(), ScriptedEngine::new(Availability::Ready, &[]), |_| {});
+    stt.handle(SttRequest::Start { vocabulary: Vec::new() });
+    wait_until(&stt, "enregistrement", |s| s.state == State::Recording);
+    (stt, dir)
+}
+
+#[test]
+fn configure_while_recording_returns_false() {
+    let (stt, _dir) = recording_stt("configure-recording");
+    assert_that!(stt.configure(crate::Config { auto_stop: false, ..stt.status().config })).is_false();
+}
+
+#[test]
+fn configure_while_recording_keeps_the_config() {
+    let (stt, _dir) = recording_stt("configure-recording-keeps");
+    let before = stt.status().config;
+    let _applied = stt.configure(crate::Config { silence: 7.0, ..before.clone() });
+    assert_that!(stt.status().config).is_equal_to(before);
+}
+
+#[test]
+fn download_while_recording_returns_false() {
+    let (stt, _dir) = recording_stt("download-recording");
+    assert_that!(stt.download(crate::Model::Turbo, false)).is_false();
 }

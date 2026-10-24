@@ -3,9 +3,9 @@ mod common;
 use std::sync::Arc;
 
 use common::{
-    TestStack, cmd, drafted, frozen_turn, is, is_tool_surface, next, relayed_len, sessions_in, shown, stack_locked,
-    stack_resumed, stack_resumed_from, stack_with_sink, stack_with_sink_and_log, stack_with_two_agents, wait_for,
-    wait_n_after, wait_surfaces, wait_turn_done,
+    Relayed, TestStack, cmd, drafted, frozen_turn, is, is_tool_surface, logged, next, relayed_len, sessions_in, shown,
+    stack_locked, stack_resumed, stack_resumed_from, stack_with_sink, stack_with_sink_and_log, stack_with_two_agents,
+    wait_for, wait_n_after, wait_surfaces, wait_turn_done,
 };
 use oku_slides_agent::AgentCommand;
 use oku_slides_session::agent::AgentScope;
@@ -13,9 +13,16 @@ use oku_slides_session::pack::BASE_PACK;
 use serde_json::json;
 use speculoos::prelude::*;
 
-/// `select_agent` écrit `config.toml` (bloquant) : hors des fils du runtime, comme dans les hôtes.
+/// Ouvre la boîte des réglages de `tab`, puis y clique l'agent `id` (écrit `config.toml` : hors des fils du runtime).
 fn select(stack: &TestStack, tab: &str, id: &str) -> Result<(), String> {
-    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "select_agent", "tab": tab, "id": id }))))
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": tab }))))?;
+    click_agent(stack, tab, id)
+}
+
+/// Le dernier choix d'agent montré par la boîte de `tab`, après les `from` premiers relais.
+async fn shown_choice_after(rx: &Relayed, tab: &str, from: usize) -> Option<String> {
+    let got = wait_n_after(rx, from, 1, |(ch, v)| *ch == "mcp" && v["tab"] == tab && choice_of(v).is_some()).await;
+    got.last().and_then(|(_, (_, v))| choice_of(v))
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -513,16 +520,6 @@ async fn draft_of_one_tab_is_not_replayed_for_another() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn picker_lists_the_agents_with_the_active_one_chosen() {
-    let (stack, rx, _, _) = stack_with_two_agents(json!({ "turns": [] }), json!({ "turns": [] }), &["t-1"]).await;
-    stack.handle(cmd(json!({ "cmd": "picker", "tab": "t-1" }))).unwrap();
-    let ev = wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "picker").await;
-    let text = ev.1["event"]["surface"].to_string();
-    assert_that!(text.contains("\"Faux\"") && text.contains("\"Bis\"") && text.contains("\"choice\":\"faux\""))
-        .is_true();
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn select_agent_saves_the_choice_and_the_next_prompt_reaches_it() {
     let (stack, rx, log, data) = stack_with_two_agents(
         json!({ "turns": [{ "chunks": ["un"] }] }),
@@ -533,8 +530,7 @@ async fn select_agent_saves_the_choice_and_the_next_prompt_reaches_it() {
     select(&stack, "t-1", "bis").unwrap();
     let toml = std::fs::read_to_string(data.join("config.toml")).unwrap();
     assert_that!(toml.contains("selected = \"bis\"")).is_true();
-    let ev = wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "picker").await;
-    assert_that!(ev.1["event"]["surface"].to_string().contains("\"choice\":\"bis\"")).is_true();
+    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["tab"] == "t-1" && choice_of(v).as_deref() == Some("bis")).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "salut" }))).unwrap();
     wait_turn_done(&rx, "t-1", 1).await;
     assert_that!(sessions_in(&data.join("log-bis.jsonl"), "session/prompt").len()).is_equal_to(1);
@@ -548,10 +544,12 @@ async fn select_agent_during_a_turn_stops_it_with_agent_stopped() {
     let (stack, rx, _, _) = stack_with_two_agents(ask, json!({ "turns": [] }), &["t-1"]).await;
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "?" }))).unwrap();
     wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
-    stack.handle(cmd(json!({ "cmd": "picker", "tab": "t-1" }))).unwrap();
-    let busy = wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "picker").await;
-    assert_that!(busy.1["event"]["surface"].to_string().contains("interrompra")).is_true();
-    select(&stack, "t-1", "bis").unwrap();
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": "t-1" })))).unwrap();
+    wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["tab"] == "t-1" && choice_of(v).is_some() && v.to_string().contains("interrompra")
+    })
+    .await;
+    click_agent(&stack, "t-1", "bis").unwrap();
     // Le tour échoue : sa surface (canal `mcp`) le dit dans `outcome`.
     wait_for(&rx, |(ch, v)| {
         *ch == "mcp" && v["tab"] == "t-1" && v["event"].to_string().contains("L'agent s'est arrêté")
@@ -568,10 +566,10 @@ async fn select_agent_unknown_or_locked_or_unsaved_is_refused_and_nothing_switch
     std::fs::create_dir_all(data.join("config.toml")).unwrap();
     let unsaved = select(&stack, "t-1", "bis");
     assert_that!(unsaved).is_err_containing("Le choix de l'agent n'a pas pu être enregistré.".to_owned());
-    // Rien n'a basculé : le panneau montre toujours `faux`.
-    stack.handle(cmd(json!({ "cmd": "picker", "tab": "t-1" }))).unwrap();
-    let ev = wait_for(&rx, |(ch, v)| *ch == "agent" && v["event"]["kind"] == "picker").await;
-    assert_that!(ev.1["event"]["surface"].to_string().contains("\"choice\":\"faux\"")).is_true();
+    // Rien n'a basculé : la boîte, rouverte, montre toujours `faux`.
+    let from = relayed_len(&rx);
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": "t-1" })))).unwrap();
+    assert_that!(shown_choice_after(&rx, "t-1", from).await).is_equal_to(Some("faux".to_owned()));
     let (locked, _) = stack_locked(json!({ "turns": [] }), json!({ "turns": [] })).await;
     assert_that!(select(&locked, "t-1", "bis"))
         .is_err_containing("Le choix de l'agent est imposé par l'environnement.".to_owned());
@@ -782,4 +780,113 @@ async fn show_packs_relays_the_packs_panel_to_its_tab() {
     })
     .await;
     assert_that!(ev["tab"].clone()).is_equal_to(json!("t-1"));
+}
+
+#[test]
+fn show_settings_command_deserializes_with_its_tab() {
+    assert_that!(cmd(json!({ "cmd": "show_settings", "tab": "t" })).tab().to_owned()).is_equal_to("t".to_owned());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_relays_the_box_to_its_tab() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": "t-1" })))).unwrap();
+    let (_, ev) = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "host-voice"
+    })
+    .await;
+    assert_that!(ev["tab"].clone()).is_equal_to(json!("t-1"));
+}
+
+/// Le choix d'agent d'une boîte relayée, entière ou en données seules.
+fn choice_of(v: &serde_json::Value) -> Option<String> {
+    let messages = v["event"]["surface"]["messages"].as_array().or_else(|| v["event"]["messages"].as_array())?;
+    messages.iter().find_map(|m| m["updateDataModel"]["value"]["choice"].as_str().map(str::to_owned))
+}
+
+/// Le clic sur la pastille `id` dans la boîte de `tab` (écrit `config.toml` : hors des fils du runtime).
+fn click_agent(stack: &TestStack, tab: &str, id: &str) -> Result<(), String> {
+    let click = json!({ "cmd": "surface_action", "tab": tab, "surface": "host-voice", "name": "select", "context": { "id": id } });
+    tokio::task::block_in_place(|| stack.handle(cmd(click)))
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_click_in_one_tab_refreshes_the_box_of_the_other() {
+    let (stack, rx, _, _) =
+        stack_with_two_agents(json!({ "turns": [] }), json!({ "turns": [] }), &["t-1", "t-2"]).await;
+    for tab in ["t-1", "t-2"] {
+        tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": tab })))).unwrap();
+    }
+    click_agent(&stack, "t-1", "bis").unwrap();
+    // t-2 ne voit ce choix que par la révision : le clic n'a refait que la boîte de t-1.
+    wait_for(&rx, |(ch, v)| *ch == "mcp" && v["tab"] == "t-2" && choice_of(v).as_deref() == Some("bis")).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_turn_in_one_tab_shows_busy_in_the_box_of_the_other() {
+    let ask = json!({ "turns": [{ "mcp": [{ "tool": "ask_choice", "args": { "question": "?", "options": [{ "id": "a", "label": "A" }, { "id": "b", "label": "B" }] } }] }] });
+    let (stack, rx, _, _) = stack_with_two_agents(ask, json!({ "turns": [] }), &["t-1", "t-2"]).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": "t-2" })))).unwrap();
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "?" }))).unwrap();
+    wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["tab"] == "t-2" && v.to_string().contains("Changer d'agent interrompra le tour en cours.")
+    })
+    .await;
+}
+
+/// Sonde `ready` toutes les 20 ms, 10 s au plus.
+async fn wait_until(ready: impl Fn() -> bool) {
+    for _ in 0..500 {
+        if ready() {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    panic!("condition non atteinte en 10 s");
+}
+
+/// Un tour où l'agent demande `bis`, puis pose une question qui le garde ouvert.
+fn switching_script() -> serde_json::Value {
+    json!({ "turns": [{ "mcp": [
+        { "tool": "select_agent", "args": { "id": "bis" } },
+        { "tool": "ask_choice", "args": { "question": "?", "options": [{ "id": "a", "label": "A" }, { "id": "b", "label": "B" }] } }
+    ] }, { "chunks": ["deux"] }] })
+}
+
+/// Confirme la fenêtre de l'onglet `tab`.
+async fn confirm_modal(stack: &TestStack, rx: &Relayed, tab: &str) {
+    let (_, modal) =
+        wait_for(rx, |(ch, v)| *ch == "mcp" && v["tab"] == tab && v["event"]["surface"]["place"] == "modal").await;
+    let id = modal["event"]["surface"]["id"].as_str().unwrap_or_else(|| panic!("fenêtre sans id")).to_owned();
+    let yes = json!({ "cmd": "surface_action", "tab": tab, "surface": id, "name": "confirm", "context": { "confirmed": true } });
+    tokio::task::block_in_place(|| stack.handle(cmd(yes))).unwrap_or_else(|e| panic!("confirmation : {e}"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_switch_asked_during_a_turn_answers_when_idle() {
+    let (stack, rx, log, _) = stack_with_two_agents(switching_script(), json!({ "turns": [] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "passe à bis" }))).unwrap();
+    confirm_modal(&stack, &rx, "t-1").await;
+    wait_until(|| {
+        logged(&log, "mcp/result")
+            .iter()
+            .any(|c| c["tool"] == "select_agent" && c["out"].to_string().contains("when_idle"))
+    })
+    .await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_switch_waits_across_a_queued_prompt_then_reaches_bis() {
+    let (stack, rx, log, data) =
+        stack_with_two_agents(switching_script(), json!({ "turns": [{ "chunks": ["bis"] }] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "passe à bis" }))).unwrap();
+    confirm_modal(&stack, &rx, "t-1").await;
+    wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "ask-")).await;
+    // Une consigne en file pendant la question : elle part au même agent, le changement attend.
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "encore" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 2).await;
+    assert_that!(sessions_in(&log, "session/prompt")).has_length(2);
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "et maintenant" }))).unwrap();
+    wait_turn_done(&rx, "t-1", 3).await;
+    assert_that!(sessions_in(&data.join("log-bis.jsonl"), "session/prompt")).has_length(1);
 }

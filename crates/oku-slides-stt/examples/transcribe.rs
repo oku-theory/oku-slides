@@ -50,13 +50,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stt = Stt::new(&platform);
     // Les réglages de l'app sont remis en place à la fin.
     let before = stt.status().config;
-    stt.configure(oku_slides_stt::Config { model, language, ..before.clone() });
+    // Dictée au repos dans cet exemple : le résultat de `configure` est sans objet.
+    let _applied = stt.configure(oku_slides_stt::Config { model, language, ..before.clone() });
     let t = Instant::now();
     let load = stt.transcribe_samples(&[]).map(|_| t.elapsed().as_secs_f32());
     let t = Instant::now();
     let result = stt.transcribe_samples(&audio);
     let took = t.elapsed().as_secs_f32();
-    stt.configure(before);
+    // Idem : rien d'autre ne dicte pendant l'exemple.
+    let _restored = stt.configure(before);
     let (text, phrases) = result?;
     let secs = audio.len() as f32 / 16000.0;
     let spoken: f32 = phrases.iter().map(|(a, b, _)| b - a).sum();

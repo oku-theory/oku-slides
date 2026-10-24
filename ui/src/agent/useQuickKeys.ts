@@ -9,7 +9,7 @@ import type { Surface } from "../api";
 import type { QuickAction } from "./quick";
 import { quickAction, quickKey } from "./quick";
 import type { Routed } from "./surfaces";
-import { HOST_THEME_PICKER, isQuestion } from "./surfaces";
+import { HOST_THEME_PICKER, HOST_VOICE, isQuestion } from "./surfaces";
 import { ARMING_MS } from "../modalFrame";
 
 /** La surface qui reçoit les touches, et sa sorte (`dock` : une question du fil ou le sélecteur de thème de l'hôte). */
@@ -53,7 +53,8 @@ const inDock = (el: EventTarget | null) => el instanceof Element && !!el.closest
  * Les touches rapides de `target` (voir `quickTarget`) : 1–4, Entrée, E, Échap. `null` : aucune
  * (touches coupées pendant l'édition d'un texte, le pointage ou un widget actif ; l'app ne montre
  * alors aucun rappel des touches).
- * Ignorées dans un champ ou dans le panneau des agents (réglages de la dictée), avec un modificateur, en répétition, ou si l'évènement
+ * Ignorées dans un champ ou dans la boîte des réglages (focus clavier ; un clic de souris ne la
+ * focalise pas dans le WebView), avec un modificateur, en répétition, ou si l'évènement
  * est déjà traité (Échap d'une dictée). Entrée sur un bouton reste son clic. Une
  * question du dock prend 1–4 ; Échap seulement avec le focus dans le dock. Une fenêtre
  * n'accepte qu'Échap : confirmer une action non annulable ou une permission demande un
@@ -67,8 +68,8 @@ export function useQuickKeys(target: QuickTarget | null, onAction: (s: Surface, 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Le panneau des agents garde ses touches : rien ne va à la question ouverte.
-      if (e.target instanceof Element && e.target.closest(".agent-picker")) return;
+      // La boîte des réglages garde ses touches (focus clavier) : rien ne va à la question ouverte.
+      if (e.target instanceof Element && e.target.closest(`[data-surface-id="${HOST_VOICE}"]`)) return;
       const { target: t, onAction: send } = state.current;
       if (!t || e.defaultPrevented || editable(e.target)) return;
       const key = quickKey(e);
