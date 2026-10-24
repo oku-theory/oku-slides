@@ -1,4 +1,4 @@
-// Le presse-papiers d'une fenêtre : copier, couper et coller l'élément sélectionné, et la coupe marquée.
+// Le presse-papiers d'un onglet : copier, couper et coller l'élément sélectionné (partagé par les fenêtres), et la coupe marquée.
 
 import { useCallback, useEffect, useState } from "react";
 import { errorText, workspace, type Element, type Op, type Paragraph, type SlideView, type Snapshot, type TabApi } from "./api";
@@ -13,7 +13,7 @@ import { primaryFieldOf } from "./stageFields";
 /** L'élément copié, son texte au presse-papiers, son onglet, et sa slide s'il est coupé. */
 export type Clip = { element: Element; text: string; tab: string; cut?: { slide: string } };
 
-/** Le presse-papiers de la fenêtre : il survit au changement d'onglet. */
+/** L'élément copié, partagé par les fenêtres (`useSharedClip`) : il survit au changement d'onglet. */
 export type ClipRef = { current: Clip | null };
 
 /** Coller dans `tab` déplace l'élément s'il y a été coupé ; ailleurs, c'est une copie. */
@@ -41,17 +41,18 @@ export interface Clipboard {
 }
 
 /**
- * L'élément copié (tenu par la fenêtre) et la coupe marquée de l'onglet.
+ * L'élément copié (partagé par les fenêtres) et la coupe marquée de l'onglet.
  *
- * La coupe tombe quand son élément disparaît, ou quand l'onglet est quitté.
+ * La coupe tombe quand son élément disparaît, quand l'onglet est quitté, ou quand une
+ * copie arrive d'une autre fenêtre (`gen` croît alors).
  */
-export function useClipboard(clip: ClipRef, snap: Snapshot | null, view: SlideView | null): Clipboard {
+export function useClipboard(clip: ClipRef, gen: number, snap: Snapshot | null, view: SlideView | null): Clipboard {
   // Presse-papiers : ⌘C, ⌘X et ⌘V passent par les événements du navigateur.
   // L'élément copié reste ici ; le presse-papiers du système reçoit son texte,
   // qui dit au collage si l'élément est toujours la dernière chose copiée.
   // Couper, comme dans un tableur, ne retire rien : l'élément est marqué, et
   // le collage le déplace (`move_element`), ids et éditions des pairs gardés.
-  // Le presse-papiers appartient à la fenêtre ; la coupe, à l'onglet : la quitter en fait une copie,
+  // L'élément copié est partagé par les fenêtres ; la coupe, à l'onglet : le quitter en fait une copie,
   // sans quoi un retour dans l'onglet déplacerait l'élément sans coupe marquée. Au montage aucune
   // coupe n'est à cet onglet : le démontage du StrictMode ne retire rien qui compte.
   useEffect(() => () => {
@@ -63,6 +64,12 @@ export function useClipboard(clip: ClipRef, snap: Snapshot | null, view: SlideVi
     if (clip.current) clip.current.cut = undefined;
     setCutMark(null);
   }, [clip]);
+  // Copié dans une autre fenêtre (`gen`) : l'élément est remplacé, la coupe marquée tombe. Seulement
+  // si l'élément n'a plus de coupe : une coupe faite ici depuis, avant ce rendu, reste. Au montage,
+  // la marque est déjà nulle.
+  useEffect(() => {
+    if (!clip.current?.cut) setCutMark(null);
+  }, [clip, gen]);
   // L'élément coupé (ou sa slide) a disparu : plus rien à déplacer.
   useEffect(() => {
     if (!cutMark) return;
@@ -88,12 +95,14 @@ interface ClipboardEventsContext extends Omit<Clipboard, "cutMark"> {
   addElement: (widget: AddWidget, override?: { text: Paragraph[]; label: string }) => void;
   setSelected: (id: string | null) => void;
   say: (text: string, error?: boolean) => void;
+  /** Envoie l'élément copié aux autres fenêtres. */
+  share: (clip: Clip) => void;
 }
 
 /** ⌘C, ⌘X et ⌘V, écoutés sur la fenêtre et réabonnés à chaque rendu. */
 export function useClipboardEvents({
   tab, api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, apply, addElement,
-  setSelected, say, clip, setCutMark, dropCut,
+  setSelected, say, share, clip, setCutMark, dropCut,
 }: ClipboardEventsContext) {
   useEffect(() => {
     const skip = (e: ClipboardEvent) =>
@@ -107,6 +116,7 @@ export function useClipboardEvents({
       e.preventDefault();
       e.clipboardData?.setData("text/plain", text);
       clip.current = { element, text, tab };
+      share(clip.current);
       setCutMark(null);
       return true;
     };

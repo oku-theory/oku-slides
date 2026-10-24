@@ -49,7 +49,9 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::Scheme
         | WorkspaceRequest::SetScheme { .. }
         | WorkspaceRequest::SameDeck { .. }
-        | WorkspaceRequest::CarryAssets { .. } => (false, false),
+        | WorkspaceRequest::CarryAssets { .. }
+        | WorkspaceRequest::Clip
+        | WorkspaceRequest::SetClip { .. } => (false, false),
         WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }
         | WorkspaceRequest::Close { .. }
@@ -78,11 +80,14 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
     match req {
         WorkspaceRequest::SetScheme { .. } => Some("scheme"),
         WorkspaceRequest::SetLocale { .. } => Some("messages"),
+        // L'élément copié vaut pour toutes les fenêtres : celle qui l'envoie ignore son écho.
+        WorkspaceRequest::SetClip { .. } => Some("clip"),
         WorkspaceRequest::View
         | WorkspaceRequest::Messages
         | WorkspaceRequest::Scheme
         | WorkspaceRequest::SameDeck { .. }
         | WorkspaceRequest::CarryAssets { .. }
+        | WorkspaceRequest::Clip
         | WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }
         | WorkspaceRequest::Close { .. }

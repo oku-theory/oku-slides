@@ -14,7 +14,7 @@ import { host } from "./hostCall";
 
 export { errorText, inTauri, isMac, listenTauri } from "./hostCall";
 export { tabDrag, workspace } from "./workspaceApi";
-export type { ImportPick, ImportTarget, TabAt, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
+export type { ClipReply, ImportPick, ImportTarget, SharedClip, TabAt, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
 export { pickOpenPath, pickSavePath } from "./filePick";
 export { subscribeUpdates, tauriUpdates } from "./updateApi";
 export type { InstallMode, UpdateApi, UpdateEvents, UpdateOffer, UpdateProgress, UpdateStatus } from "./updateApi";

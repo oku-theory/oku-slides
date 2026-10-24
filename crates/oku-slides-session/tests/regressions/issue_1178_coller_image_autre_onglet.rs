@@ -2,55 +2,15 @@
 //! (`UnknownAsset`) : ses octets restaient dans le bundle de A. `CarryAssets` les
 //! apporte à B, qui ne les range dans son bundle que quand le collage les cite.
 
-use std::io::Cursor;
 use std::sync::Mutex;
 
 use oku_slides_core::{Element, Op};
-use oku_slides_session::{
-    Fonts, Platform, Session, SessionErrorKind, Settings, Workspace, WorkspaceOutcome, WorkspaceRequest,
-};
+use oku_slides_session::{SessionErrorKind, Workspace, WorkspaceRequest};
 use serde_json::json;
 use speculoos::prelude::*;
 
-use crate::common::{Data, data_dir, fixture_path};
-
-fn workspace(data: &Data) -> Mutex<Workspace> {
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages par défaut invalides : {e}"));
-    settings.paths.data = Some(data.to_path_buf());
-    settings.paths.decks = Some(data.join("decks"));
-    settings.i18n.locale = Some("fr".into());
-    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
-    let ws = Workspace::resume(Fonts::default(), &platform, data.join("resume"))
-        .unwrap_or_else(|e| panic!("reprise impossible : {}", e.one_line()));
-    Mutex::new(ws)
-}
-
-fn send(ws: &Mutex<Workspace>, v: serde_json::Value) -> serde_json::Value {
-    let req: WorkspaceRequest = serde_json::from_value(v).unwrap_or_else(|e| panic!("requête invalide : {e}"));
-    match Workspace::apply(ws, req).unwrap_or_else(|e| panic!("requête refusée : {}", e.one_line())) {
-        WorkspaceOutcome::Applied(json) => serde_json::from_str(&json).unwrap_or_else(|e| panic!("réponse : {e}")),
-        other => panic!("réponse inattendue : {other:?}"),
-    }
-}
-
-fn on<R>(ws: &Mutex<Workspace>, tab: &str, f: impl FnOnce(&mut Session) -> R) -> R {
-    Workspace::with_session(ws, tab, f).0.unwrap_or_else(|e| panic!("onglet {tab} : {}", e.one_line()))
-}
-
-/// Un PNG gris de 4 × 4 pixels.
-fn png() -> Vec<u8> {
-    let mut out = Cursor::new(Vec::new());
-    let mut e = png::Encoder::new(&mut out, 4, 4);
-    e.set_color(png::ColorType::Grayscale);
-    let mut writer = e.write_header().unwrap_or_else(|e| panic!("png : {e}"));
-    writer.write_image_data(&[7; 16]).unwrap_or_else(|e| panic!("png : {e}"));
-    drop(writer);
-    out.into_inner()
-}
-
-fn op(v: serde_json::Value) -> Op {
-    serde_json::from_value(v).unwrap_or_else(|e| panic!("op invalide : {e}"))
-}
+use crate::common::{data_dir, fixture_path};
+use crate::workspace_support::{on, op, png, send, workspace};
 
 /// Deux onglets sur roadmap.json ; dans le premier, `e-image` cite une image du bundle.
 /// Les onglets et l'image copiée.

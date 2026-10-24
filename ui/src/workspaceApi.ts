@@ -49,6 +49,24 @@ export interface WorkspaceView {
  */
 export type ImportTarget = { mode: "retrofit"; layouts: string[]; theme: string | null } | { mode: "hifi" };
 
+/** L'élément copié que l'hôte garde pour toutes les fenêtres, et la fenêtre qui l'a envoyé. */
+export interface SharedClip {
+  /** Onglet où il a été copié. */
+  tab: string;
+  /** Son texte au presse-papiers : encore là, c'est la dernière copie. */
+  text: string;
+  /** L'élément tel que la vue de sa slide le donnait. */
+  element: Element;
+  /** Label de la fenêtre qui l'a envoyé : elle ignore l'écho de sa diffusion. */
+  origin: string;
+}
+
+/** Le dernier élément copié et son numéro, qui croît à chaque copie (0 sans copie). */
+export interface ClipReply {
+  clip: SharedClip | null;
+  seq: number;
+}
+
 type WorkspaceRequest =
   | { cmd: "view" }
   | { cmd: "messages" }
@@ -61,6 +79,8 @@ type WorkspaceRequest =
   | { cmd: "open_help"; window: string }
   | { cmd: "same_deck"; path: string }
   | { cmd: "carry_assets"; from: string; to: string; element: Element }
+  | { cmd: "clip" }
+  | { cmd: "set_clip"; clip: SharedClip }
   | { cmd: "activate"; tab: string }
   | { cmd: "close"; tab: string; discard: boolean }
   | { cmd: "reorder"; tab: string; index: number }
@@ -95,6 +115,10 @@ export const workspace = {
   /** Avant un collage venu de `from` : copie ses assets vers `to`. */
   carryAssets: (from: string, to: string, element: Element) =>
     ws<{ carried: number }>({ cmd: "carry_assets", from, to, element }),
+  /** Le dernier élément copié, dans n'importe quelle fenêtre. */
+  clip: () => ws<ClipReply>({ cmd: "clip" }),
+  /** Retient l'élément copié pour toutes les fenêtres (diffusé : `clip`). */
+  setClip: (clip: SharedClip) => ws<ClipReply>({ cmd: "set_clip", clip }),
   activate: (tab: string) => ws<WorkspaceView>({ cmd: "activate", tab }),
   /** `discard` : l'utilisateur a choisi de perdre le travail non enregistré. */
   close: (tab: string, discard = false) => ws<WorkspaceView>({ cmd: "close", tab, discard }),

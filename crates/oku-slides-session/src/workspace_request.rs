@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::ImportPick;
+use super::{Clip, ImportPick};
 use crate::views::TabInfo;
 
 /// Une requête de la barre d'onglets ou de l'hôte.
@@ -83,6 +83,13 @@ pub enum WorkspaceRequest {
         to: String,
         /// L'élément copié, tel que le presse-papiers le garde.
         element: Box<oku_slides_core::Element>,
+    },
+    /// Le dernier élément copié et son numéro : `{ "clip": … | null, "seq": n }`.
+    Clip,
+    /// Retient l'élément copié pour toutes les fenêtres ; répond comme `Clip`.
+    SetClip {
+        /// L'élément, son onglet, son texte et la fenêtre qui l'envoie.
+        clip: Box<Clip>,
     },
     /// L'onglet devient actif dans sa fenêtre.
     Activate {

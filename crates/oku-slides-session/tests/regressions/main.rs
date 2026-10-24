@@ -5,6 +5,8 @@
 mod common;
 #[path = "../common/hifi_import.rs"]
 mod hifi_import;
+#[path = "../common/workspace_support.rs"]
+mod workspace_support;
 
 mod issue_0195_options_aux_identifiants_en_double;
 mod issue_0224_agent_edits_resume;
@@ -39,3 +41,4 @@ mod issue_1106_deck_theme_edit_uses_embedded_closure;
 mod issue_1111_layout_examples_follow_ui_language;
 mod issue_1112_pack_updates_inside_runtime;
 mod issue_1178_coller_image_autre_onglet;
+mod issue_1182_copier_coller_entre_fenetres;

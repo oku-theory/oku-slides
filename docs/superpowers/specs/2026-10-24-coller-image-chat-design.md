@@ -105,18 +105,38 @@ only by Typst in the bounded render worker and shown as slide SVGs. The only dir
 display is the thumbnail in the pasting window, built from the user's own local file. No
 route serves attachment or asset bytes.
 
-## Pasting an element from another tab (t-1178)
+## Pasting an element from another tab or window (t-1178, t-1182)
 
-The copied element belongs to the window (`Workspace.tsx`), with its tab of origin. Pasted in
-another tab, `CarryAssets {from, to, element}` first reads the bytes of the assets the element
-cites in `from`'s bundle (only if `from` is ready: never woken or rendered for this), releases it,
-then keeps them in `to`'s memory (`carried_assets.rs`, keyed by `asset_id(bytes)`, replaced on
-each carry); `embed_op_assets` moves them into the bundle only when the paste cites them. A
-closed, unknown or dormant `from` carries nothing: the paste is refused as an unknown asset. A
-cut becomes a copy in another tab (no `move_element` across tabs). Copying between windows is not
-covered: each window keeps its own copied element.
+The copied element is shared by every window (`Workspace.tsx`, `useSharedClip.ts`), with its tab
+of origin (t-1182). The host keeps the last one, never saved: `SetClip {tab, text, element,
+origin}` on copy stores it under a growing number (`seq`) and is broadcast as the `clip` event;
+`Clip` returns it, with its number, to a window as it opens. A window listens first and reads
+next, and counts only a copy numbered above the last one it saw (`clipSync`): events and replies
+may arrive out of order, and the host broadcasts a copy's echo before replying to it. A copy from
+another window replaces the window's element and drops its cut mark; the echo of its own copy, or
+the reply, puts its latest local copy back over an older one from elsewhere, as a plain copy.
+
+Pasted in another tab, `CarryAssets {from, to, element}` first reads the bytes of the assets the
+element cites in `from`'s bundle (only if `from` is ready: never woken or rendered for this),
+releases it, then keeps them in `to`'s memory (`carried_assets.rs`, keyed by `asset_id(bytes)`,
+replaced on each carry); `embed_op_assets` moves them into the bundle only when the paste cites
+them. A closed, unknown or dormant `from` carries nothing: the paste is refused as an unknown
+asset. The copy lives until the next one, so this refusal follows a copy whose tab was closed.
+
+A cut stays with its tab: pasted in another tab or window it is a copy (no `move_element` across
+tabs), and the source tab keeps its cut mark, so a later paste there still moves the element.
+
+Rejected: putting the element in the system clipboard under our own MIME type. It would need no
+host state, but WKWebView keeps custom types only under conditions and Chromium e2e specs could
+not prove it on the four platforms.
 
 ## Known limits
+
+- The copied element lives until the next copy: once its tab is closed (or dormant after a
+  resume, which also forgets the copy), pasting an image from it is refused as an unknown asset.
+- The `clip` event goes to every webview, the agent window included, which ignores it; its
+  payload is typed, not checked with zod; `SetClip` has no size cap beyond `serve`'s body cap.
+  Every window is the same local app, so none of these crosses a trust boundary.
 
 - An asset placed then undone stays in the sources zip, unreferenced. No garbage
   collection: knowing that no history branch references it is not cheap with Loro.
@@ -144,3 +164,10 @@ covered: each window keeps its own copied element.
   fixture's id is its fixed `sha256`, so the scripted turn's `mcp` step calls `apply`
   with `add_element base/image` on that id; the spec checks the element appears on the
   slide.
+- **t-1178 / t-1182**: Rust `carried_assets_tests.rs` (spoofed id, atomic refusal, consumed
+  bytes), regressions `issue_1178_coller_image_autre_onglet.rs` (closed, dormant, unknown
+  tabs) and `issue_1182_copier_coller_entre_fenetres.rs` (numbered clip, never saved, paste
+  in a second window); `src-tauri` `classify`/`broadcast`; UI `useClipboard` (cut left behind,
+  cut mark dropped by a remote copy), `useSharedClip` (`clipSync` ordering, echo); e2e
+  `270-coller-image-onglet.cjs` and `280-coller-autre-fenetre.cjs` (two pages on `serve`; the
+  Tauri `clip` event itself is not covered by e2e).

@@ -304,6 +304,8 @@ impl Workspace {
             | WorkspaceRequest::SetScheme { .. }
             | WorkspaceRequest::SameDeck { .. }
             | WorkspaceRequest::CarryAssets { .. }
+            | WorkspaceRequest::Clip
+            | WorkspaceRequest::SetClip { .. }
             | WorkspaceRequest::NewTab { .. }
             | WorkspaceRequest::OpenTab { .. }
             | WorkspaceRequest::ImportTab { .. }

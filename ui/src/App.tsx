@@ -57,7 +57,7 @@ import { AppMenu } from "./AppMenu";
 import { applyInterface } from "./interfaceChange";
 import { useAgentLink, useAgentWiring } from "./useAgentWiring";
 import { useAppKeys } from "./useAppKeys";
-import { type ClipRef, useClipboard, useClipboardEvents } from "./useClipboard";
+import { type Clip, type ClipRef, useClipboard, useClipboardEvents } from "./useClipboard";
 import { useSlideOps } from "./useSlideOps";
 import { useLayoutInsert } from "./useLayoutInsert";
 import { usePackMode } from "./usePackMode";
@@ -69,12 +69,16 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
-  tab, clip: windowClip, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
+  tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
   onHelp, updates, onClose, onChange,
 }: {
   tab: string;
-  /** L'élément copié dans la fenêtre, quel que soit son onglet : il se colle dans un autre. */
+  /** L'élément copié, ici ou dans une autre fenêtre : il se colle dans un autre onglet. */
   clip: ClipRef;
+  /** Croît à chaque copie venue d'une autre fenêtre. */
+  clipGen: number;
+  /** Envoie l'élément copié ici aux autres fenêtres. */
+  onCopy: (clip: Clip) => void;
   /** L'agent est dans sa propre fenêtre : ni colonne, ni fil, ni brouillon ici. */
   agentDetached?: boolean;
   /** Change à chaque vue diffusée : le snapshot est relu (un avis a pu arriver). */
@@ -198,7 +202,7 @@ export default function App({
     api.slide(fetchId).then(setView).catch((e) => say(String(e), true));
   }, [fetchId, currentHash]);
 
-  const { clip, cutMark, setCutMark, dropCut } = useClipboard(windowClip, snap, view);
+  const { clip, cutMark, setCutMark, dropCut } = useClipboard(windowClip, clipGen, snap, view);
   const { apply, addElement, moveSlide, removeSlide, goToSlide } = useSlideOps({
     api, snap, view, current, run, dropCut, setCurrent, setSelected, setEditing, editWhenShown,
     showSlide, widgetActive, widgets,
@@ -216,7 +220,7 @@ export default function App({
   const addSlide = () => setPicking(true);
   useClipboardEvents({
     tab, api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, apply, addElement,
-    setSelected, say, clip, setCutMark, dropCut,
+    setSelected, say, share: onCopy, clip, setCutMark, dropCut,
   });
 
   const { open, autosave, saveCopy } = useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick });

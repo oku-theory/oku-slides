@@ -54,6 +54,10 @@ pub struct Workspace {
     import_pick: Option<ImportPick>,
     /// Numéro du dernier choix d'import : jamais réutilisé, même une fois le choix oublié.
     last_pick: u64,
+    /// Le dernier élément copié, dans n'importe quelle fenêtre ; jamais enregistré.
+    clip: Option<Clip>,
+    /// Numéro de `clip` : croît à chaque copie (0 sans copie).
+    clip_seq: u64,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -88,6 +92,8 @@ impl Workspace {
             chosen_scheme: platform.settings.appearance.scheme.as_deref().and_then(scheme::known),
             import_pick: None,
             last_pick: 0,
+            clip: None,
+            clip_seq: 0,
         }
     }
 
@@ -174,6 +180,11 @@ impl Workspace {
                     return w.messages_json().map(WorkspaceOutcome::Applied);
                 }
                 WorkspaceRequest::Scheme => return w.scheme_json().map(WorkspaceOutcome::Applied),
+                WorkspaceRequest::Clip => return w.clip_json().map(WorkspaceOutcome::Applied),
+                WorkspaceRequest::SetClip { clip } => {
+                    w.set_clip(*clip);
+                    return w.clip_json().map(WorkspaceOutcome::Applied);
+                }
                 WorkspaceRequest::SetScheme { scheme } => {
                     w.set_scheme(scheme.as_deref());
                     return w.scheme_json().map(WorkspaceOutcome::Applied);
@@ -277,6 +288,9 @@ mod same_deck;
 #[path = "workspace_carry.rs"]
 mod carry;
 
+#[path = "workspace_clip.rs"]
+mod clip;
+
 #[path = "workspace_scheme.rs"]
 mod scheme;
 
@@ -310,6 +324,7 @@ mod locale;
 #[path = "workspace_session.rs"]
 mod session;
 
+pub use clip::Clip;
 pub use ids::is_window_label;
 pub use import_pick::ImportPick;
 pub use layout::Rect;

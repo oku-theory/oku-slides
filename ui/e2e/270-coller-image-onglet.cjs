@@ -5,28 +5,9 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post, activeTab } = require('./lib/http.cjs');
 const { until } = require('./lib/until.cjs');
+const { clipboard, show } = require('./lib/clipboard.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const ID = 'sha256:c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77';
-
-/** Montre la slide `id` de l'onglet actif (sa miniature), image chargée. */
-const show = async (p, tab, id) => {
-  const n = (await post(p, '/api', { tab, req: { cmd: 'snapshot' } })).slides.findIndex((s) => s.id === id) + 1;
-  assert.ok(n > 0, `slide ${id} absente de ${tab}`);
-  await p.click(`.thumb >> nth=${n - 1}`);
-  await p.waitForFunction((n) => {
-    const img = document.querySelector('.stage img');
-    return img?.alt.replace(/[⁨⁩]/g, '') === `Slide ${n}` && img.complete && img.naturalWidth > 0;
-  }, n);
-};
-
-/** Envoie `kind` (copy ou paste) à la page, avec `text` au presse-papiers ; le texte qu'il y laisse. */
-const clipboard = (p, kind, text = '') =>
-  p.evaluate(([kind, text]) => {
-    const dt = new DataTransfer();
-    if (text) dt.setData('text/plain', text);
-    document.body.dispatchEvent(new ClipboardEvent(kind, { clipboardData: dt, bubbles: true, cancelable: true }));
-    return dt.getData('text/plain');
-  }, [kind, text]);
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });

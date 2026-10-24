@@ -69,6 +69,30 @@ fn broadcast_set_scheme_reaches_every_window() {
 }
 
 #[test]
+fn broadcast_set_clip_reaches_every_window_as_clip() {
+    let clip =
+        serde_json::json!({"tab": "t-1", "text": "Un", "element": {"id": "e", "kind": "base/text"}, "origin": "w-1"});
+    assert_that!(broadcast(&req(serde_json::json!({"cmd": "set_clip", "clip": clip})))).is_equal_to(Some("clip"));
+}
+
+#[test]
+fn classify_clip_returns_its_own_reply() {
+    assert_that!(classify(&req(serde_json::json!({"cmd": "clip"})))).is_equal_to((false, false));
+}
+
+#[test]
+fn broadcast_clip_read_stays_with_its_window() {
+    assert_that!(broadcast(&req(serde_json::json!({"cmd": "clip"})))).is_none();
+}
+
+#[test]
+fn classify_set_clip_returns_its_own_reply() {
+    let clip =
+        serde_json::json!({"tab": "t-1", "text": "Un", "element": {"id": "e", "kind": "base/text"}, "origin": "w-1"});
+    assert_that!(classify(&req(serde_json::json!({"cmd": "set_clip", "clip": clip})))).is_equal_to((false, false));
+}
+
+#[test]
 fn broadcast_set_locale_reaches_every_window_as_messages() {
     assert_that!(broadcast(&req(serde_json::json!({"cmd": "set_locale", "locale": "de"}))))
         .is_equal_to(Some("messages"));
@@ -80,6 +104,7 @@ fn broadcast_only_requests_that_leave_windows_unsynced() {
     for json in [
         serde_json::json!({"cmd": "set_locale", "locale": "de"}),
         serde_json::json!({"cmd": "set_scheme", "scheme": "dark"}),
+        serde_json::json!({"cmd": "set_clip", "clip": {"tab": "t-1", "text": "Un", "element": {"id": "e", "kind": "base/text"}, "origin": "w-1"}}),
     ] {
         let r = req(json);
         assert_that!(classify(&r).0).is_false();

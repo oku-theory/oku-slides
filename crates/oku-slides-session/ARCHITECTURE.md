@@ -35,7 +35,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
 ## Workspace
 
 `Workspace` (`workspace.rs`), `WorkspaceRequest` / `WorkspaceView` (`workspace_request.rs`): windows `w-<n>`, tabs `t-<n>` (`_ids`),
-detached agent, `carry` (`CarryAssets`: reads a ready source tab without rendering it, then the target, outside the lock). `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds a tab's session (`Tab`); other `workspace_*.rs`: `session`
+detached agent, `carry` (`CarryAssets`: reads a ready source tab without rendering it, then the target, outside the lock), `clip` (the copied element for every window: `SetClip`, `Clip`, never saved). `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds a tab's session (`Tab`); other `workspace_*.rs`: `session`
 (locking path, `relock`), `locale`, `scheme`, tabs (`Opening`; `ImportTab` builds an imported tab, outcome `Tune` names it for the agent), windows, layout
 (`Layout`, `Rect`), resume, same deck, agent, help, `import_pick` (a `.pptx` given to `open_files` becomes the focused window's
 `WorkspaceView.import_pick`, its import dialog, not a tab, until `ImportPicked`). Lock order: `Mutex<Workspace>`, then a tab's `Arc<Mutex<Slot>>`,
