@@ -43,10 +43,12 @@ the app, Apple Developer ID signing (t-968).
   uploads its signed bundle and adds its key to `latest.json`: `darwin-aarch64` and
   `darwin-x86_64` (`.app.tar.gz`), `linux-x86_64` (AppImage), `windows-x86_64` (NSIS `setup.exe`).
 - The `publish` job gates `latest.json`: every built platform must be there with a URL and a
-  signature, or the run fails. A release with fewer than four platforms is published without
-  `--latest`, so installed apps keep seeing a complete one. A later `aucune` run that adds the
-  missing platforms merges into the same `latest.json` and publishes it as latest (checked in
-  Task 5 of the plan).
+  signature, or the run fails. The repository has immutable releases on, so a published release
+  takes no more assets: a release with fewer than four platforms stays a draft (with a warning),
+  and installed apps keep seeing the previous complete one. A later `aucune` run that adds the
+  missing platforms merges into the same draft's `latest.json` and, at four, publishes it as
+  latest (checked in Task 5 of the plan). `aucune` fails early when that version is already
+  published; v3.0.1, published partial before this rule, stays macOS Apple Silicon only.
 - `releases/latest/` only resolves to a published release marked latest.
 
 Known limits:
@@ -141,7 +143,8 @@ host only:
 - UI: `useUpdate` (single subscription, StrictMode, unmount, re-reads, reply order, Later,
   installing, progress, install and release-page failures, menu request), `useUpdateCheck`,
   `UpdateBar` (both modes, every button, progress and indeterminate).
-- Manual, after merge: a partial release then an `aucune` completion (gate and merge), then a real
+- Manual, after merge: a partial release left as a draft then an `aucune` completion (gate, merge
+  and publication), then a real
   update on macOS (from `/Applications` and from the `.dmg`), Windows and a Linux AppImage and
   `.deb`: the app relaunches with its tabs, single-instance on.
 

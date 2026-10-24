@@ -1,9 +1,11 @@
 # Releases de l'app de bureau (Windows, macOS, Linux), lancées à la main depuis l'onglet Actions.
 # Le job version monte la version (patch, minor ou major) et pousse ce commit sur main ; chaque
 # plateforme cochée construit ensuite ses paquets depuis ce commit (`cargo tauri build`) et les
-# dépose dans une même release brouillon `v<version>`, publiée une fois ces plateformes construites.
-# `aucune` garde la version courante et construit depuis main : de quoi compléter une release
-# (une plateforme en échec, corrigée depuis) sans monter la version.
+# dépose dans une même release brouillon `v<version>`, publiée une fois les quatre plateformes
+# présentes. Les releases du dépôt sont immuables : une release publiée ne reçoit plus aucun paquet,
+# d'où le brouillon tant qu'il en manque. `aucune` garde la version courante et construit depuis
+# main : de quoi compléter ce brouillon (plateformes non cochées, ou en échec et corrigées depuis)
+# sans monter la version.
 # La release porte aussi les paquets de mise à jour signés et `latest.json`, lu par les apps
 # installées une fois la release publiée comme « latest ». Les secrets de signature vivent dans
 # l'environnement `release` ; `just build` en local ne produit aucun paquet de mise à jour et
@@ -87,9 +89,18 @@ jobs:
         id: bump
         env:
           BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "$BUMP" = aucune ]; then
             version=$(jq -r .version src-tauri/tauri.conf.json)
+            # Release immuable une fois publiée : les builds échoueraient tous à l'envoi.
+            # Seule l'absence de release laisse passer : toute autre erreur de gh arrête le run.
+            if draft=$(gh release view "v$version" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>err); then
+              [ "$draft" = true ] || { echo "::error::v$version est déjà publiée, donc immuable : montez la version"; exit 1; }
+            elif ! grep -qx "release not found" err; then
+              echo "::error::v$version non vérifiée : $(cat err)"
+              exit 1
+            fi
           else
             version=$(.github/scripts/bump-version.sh "$BUMP")
             git config user.name "github-actions[bot]"
@@ -225,16 +236,16 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-  # Les plateformes choisies ont déposé leurs paquets : le brouillon est publié, ce qui crée le tag
-  # `v<version>` sur le commit de la version. Un build en échec saute ce job (needs) et laisse le
-  # brouillon tel quel.
+  # Les plateformes choisies ont déposé leurs paquets : à quatre sur quatre, le brouillon est publié
+  # comme « latest », ce qui crée le tag `v<version>` sur le commit de la version. Un build en échec
+  # saute ce job (needs) et laisse le brouillon tel quel.
   publish:
     name: Publication
     needs: [version, build]
     runs-on: ubuntu-24.04
     steps:
-      # Chaque plateforme construite doit figurer, signée, dans `latest.json` ; une release
-      # partielle n'est pas « latest » (les autres plateformes n'y trouveraient rien).
+      # Chaque plateforme construite doit figurer, signée, dans `latest.json`. Une release partielle
+      # reste un brouillon : publiée, elle serait immuable et ne pourrait plus être complétée.
       - name: latest.json vérifié
         id: gate
         env:
@@ -246,14 +257,18 @@ jobs:
           jq -e --argjson want "$WANT" '
             . as $r | all($want[]; . as $k | $r.platforms[$k] | (.url // "") != "" and (.signature // "") != "")
           ' latest.json > /dev/null || { echo "::error::latest.json incomplet"; jq . latest.json; exit 1; }
-          n=$(jq '[.platforms | keys[] | select(IN("darwin-aarch64","darwin-x86_64","linux-x86_64","windows-x86_64"))] | length' latest.json)
-          if [ "$n" -eq 4 ]; then echo "latest=true" >> "$GITHUB_OUTPUT"; else
-            echo "::warning::$n plateformes sur 4 : release publiée sans --latest"; echo "latest=false" >> "$GITHUB_OUTPUT"; fi
+          # Les quatre plateformes, celles des runs précédents comprises, chacune avec URL et signature.
+          n=$(jq '[.platforms | to_entries[]
+                   | select(.key | IN("darwin-aarch64","darwin-x86_64","linux-x86_64","windows-x86_64"))
+                   | select((.value.url // "") != "" and (.value.signature // "") != "")] | length' latest.json)
+          if [ "$n" -eq 4 ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::$n plateformes sur 4 : $TAG reste un brouillon, à compléter par une release « aucune »"
+            echo "complete=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Brouillon publié
+        if: steps.gate.outputs.complete == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: v${{ needs.version.outputs.version }}
           SHA: ${{ needs.version.outputs.sha }}
-          LATEST: ${{ steps.gate.outputs.latest }}
-        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest="$LATEST" --target "$SHA"
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest --target "$SHA"

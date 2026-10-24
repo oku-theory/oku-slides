@@ -1147,7 +1147,7 @@ git commit -F "$SCRATCH/msg"   # feat(app) : mises à jour depuis les releases G
 
 **Interfaces:**
 - Consumes: the `release` environment and its secrets (Task 0); `plugins.updater` (Task 2).
-- Produces: a published release whose `latest.json` has `darwin-aarch64`, `darwin-x86_64`, `linux-x86_64`, `windows-x86_64`, each with `url` and `signature`; a partial release is published without `--latest`.
+- Produces: a published release whose `latest.json` has `darwin-aarch64`, `darwin-x86_64`, `linux-x86_64`, `windows-x86_64`, each with `url` and `signature`; a partial release stays a draft (releases are immutable once published).
 
 - [ ] **Step 1: Pin every action to a commit SHA**
 
@@ -1197,8 +1197,8 @@ Check the input names against the pinned `action.yml`:
 - [ ] **Step 4: Publish gate** — the `publish` job, before `gh release edit`:
 
 ```yaml
-      # Chaque plateforme construite doit figurer, signée, dans `latest.json` ; une release
-      # partielle n'est pas « latest » (les autres plateformes n'y trouveraient rien).
+      # Chaque plateforme construite doit figurer, signée, dans `latest.json`. Une release partielle
+      # reste un brouillon : publiée, elle serait immuable et ne pourrait plus être complétée.
       - name: latest.json vérifié
         id: gate
         env:
@@ -1210,14 +1210,20 @@ Check the input names against the pinned `action.yml`:
           jq -e --argjson want "$WANT" '
             . as $r | all($want[]; . as $k | $r.platforms[$k] | (.url // "") != "" and (.signature // "") != "")
           ' latest.json > /dev/null || { echo "::error::latest.json incomplet"; jq . latest.json; exit 1; }
-          n=$(jq '[.platforms | keys[] | select(IN("darwin-aarch64","darwin-x86_64","linux-x86_64","windows-x86_64"))] | length' latest.json)
-          if [ "$n" -eq 4 ]; then echo "latest=true" >> "$GITHUB_OUTPUT"; else
-            echo "::warning::$n plateformes sur 4 : release publiée sans --latest"; echo "latest=false" >> "$GITHUB_OUTPUT"; fi
+          # Les quatre plateformes, celles des runs précédents comprises, chacune avec URL et signature.
+          n=$(jq '[.platforms | to_entries[]
+                   | select(.key | IN("darwin-aarch64","darwin-x86_64","linux-x86_64","windows-x86_64"))
+                   | select((.value.url // "") != "" and (.value.signature // "") != "")] | length' latest.json)
+          if [ "$n" -eq 4 ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::$n plateformes sur 4 : $TAG reste un brouillon, à compléter par une release « aucune »"
+            echo "complete=false" >> "$GITHUB_OUTPUT"; fi
 ```
 
-and the publish command becomes
-`gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest="$LATEST" --target "$SHA"`
-with `LATEST: ${{ steps.gate.outputs.latest }}` in its `env`.
+and the publish step gets `if: steps.gate.outputs.complete == 'true'` and becomes
+`gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest --target "$SHA"`.
+The `aucune` branch of the version job fails early when `v<version>` is already published
+(`gh release view … --json isDraft`): its builds could not upload to an immutable release. Only
+"release not found" lets it through; any other gh error stops the run.
 
 - [ ] **Step 5: Header comment** — add to the workflow's header: the release also carries signed
   updater bundles and `latest.json` (read by installed apps once published as latest); the
@@ -2092,11 +2098,14 @@ git commit -F "$SCRATCH/msg"   # feat(ui) : bandeau de mise à jour et « Recher
 - [ ] **Step 1:** `just ci` on the branch, green; `just e2e 4999` still passes (no update control
   outside Tauri). `just build` still works without any signing key in the env.
 - [ ] **Step 2 (user, after merge and Task 0):** Release, bump `patch`, **only macOS (Apple
-  Silicon)** ticked. Expected: the gate warns "1 plateformes sur 4" and publishes without
-  `--latest`; `latest.json` has `darwin-aarch64` with a signature.
+  Silicon)** ticked. Expected: the gate warns "1 plateformes sur 4" and leaves the release a
+  draft; the draft's `latest.json` has `darwin-aarch64` with a signature.
 - [ ] **Step 3 (user):** Release again, bump `aucune`, the three other platforms ticked. Expected:
-  `latest.json` on the same release now has four keys (tauri-action merged, nothing lost), and the
+  `latest.json` on the same draft now has four keys (tauri-action merged, nothing lost), and the
   gate publishes it as latest. This is the spec's `aucune` merge check.
+  First run (2026-10-24, v3.0.1) published the partial release, which the repository's immutable
+  releases froze: step 3 failed with "Cannot upload assets to an immutable release". The gate now
+  keeps a partial release a draft and `aucune` refuses a published version; rerun on v3.0.2 (t-1145).
 - [ ] **Step 4 (user):** install that version on each platform, then Release a `patch` with every
   platform. In the installed app:
   - macOS arm64 (from `/Applications`): the bar appears at launch; "Install and Restart"
