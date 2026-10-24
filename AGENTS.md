@@ -33,8 +33,8 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
   previous run's tabs and fails e2e specs falsely. `just e2e` handles this itself.
 - In a worktree, the launch.json preview serves the main checkout's `ui/dist`, and the first
   `just test` or nextest builds cold (own build dir, over 10 min): run it in the background.
-- UI tests: only `*.render.test.tsx` (happy-dom) run in a second Bun process; every other
-  `*.test.ts(x)` runs in the first. e2e specs are `ui/e2e/NNN-name.cjs`, run in number
+- UI tests: only `*.render.test.tsx` (happy-dom) run in a second Bun process; every other `*.test.ts(x)`
+  runs in the first, with no DOM (importing `@a2ui/react` needs one). e2e specs are `ui/e2e/NNN-name.cjs`, run in number
   order against one shared server (later specs rely on earlier ones); helpers go in `e2e/lib/`.
   They read French labels (system locale, not forced); `E2E_AGENT_LOG` = the fake agent's log.
 - `.cargo/config.toml` `MACOSX_DEPLOYMENT_TARGET` must equal `bundle.macOS.minimumSystemVersion`

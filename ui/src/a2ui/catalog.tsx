@@ -11,7 +11,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
-import { Catalog, CommonSchemas } from "@a2ui/web_core/v0_9";
+import { Catalog, CommonSchemas, type ComponentContext } from "@a2ui/web_core/v0_9";
 import type { Paragraph } from "../api";
 import { t } from "../i18n";
 import { Icon } from "../icons";
@@ -200,22 +200,46 @@ const DiffTextApi = {
 type ChildRef = string | { id: string; basePath: string };
 
 /**
+ * L'id de composant du `i`-ième enfant, lu dans la `ChildList` brute du modèle :
+ * depuis @a2ui 0.13, `props.children` ne porte que des jetons de nœud opaques.
+ * Une liste fixe s'aligne indice pour indice ; un gabarit a un seul `componentId`.
+ */
+function childComponentId(context: ComponentContext, i: number): string {
+  const raw: unknown = context.componentModel.properties.children;
+  const id = Array.isArray(raw)
+    ? raw[i]
+    : typeof raw === "object" && raw !== null && "componentId" in raw
+      ? raw.componentId
+      : undefined;
+  // Le schéma ChildList a validé cette forme : un écart est un bogue, pas une donnée.
+  if (typeof id !== "string") throw new Error(`ChildList inattendue pour ${context.componentModel.id}`);
+  return id;
+}
+
+/**
  * Les enfants d'une colonne ou d'une rangée, chacun dans son emplacement.
  * L'emplacement porte l'id du composant (`data-component-id`) : une prise
  * stable pour les tests de bout en bout (une ligne de jeton : `color.accent:row`).
  */
-function children(refs: unknown, buildChild: (id: string, basePath?: string) => ReactNode, slot?: string) {
+function children(
+  refs: unknown,
+  buildChild: (id: string, basePath?: string) => ReactNode,
+  context: ComponentContext,
+  slot?: string,
+) {
   if (!Array.isArray(refs)) return null;
-  return (refs as ChildRef[]).map((ref) =>
+  return (refs as ChildRef[]).map((ref, i) =>
     typeof ref === "string"
-      ? <div key={ref} className={slot} data-component-id={ref}>{buildChild(ref)}</div>
-      : <div key={`${ref.id}-${ref.basePath}`} className={slot} data-component-id={ref.id}>{buildChild(ref.id, ref.basePath)}</div>,
+      ? <div key={ref} className={slot} data-component-id={childComponentId(context, i)}>{buildChild(ref)}</div>
+      : <div key={`${ref.id}-${ref.basePath}`} className={slot} data-component-id={childComponentId(context, i)}>
+          {buildChild(ref.id, ref.basePath)}
+        </div>,
   );
 }
 
 /** Enfants empilés. */
-const Column = createComponentImplementation(ColumnApi, ({ props, buildChild }) => (
-  <div className="a2ui-column">{children(props.children, buildChild, "a2ui-slot")}</div>
+const Column = createComponentImplementation(ColumnApi, ({ props, buildChild, context }) => (
+  <div className="a2ui-column">{children(props.children, buildChild, context, "a2ui-slot")}</div>
 ));
 
 /** Une carte autour d'un seul enfant. */
@@ -290,8 +314,8 @@ const Stepper = createComponentImplementation(StepperApi, ({ props }) => {
 });
 
 /** Enfants côte à côte. */
-const Row = createComponentImplementation(RowApi, ({ props, buildChild }) => (
-  <div className="a2ui-row">{children(props.children, buildChild)}</div>
+const Row = createComponentImplementation(RowApi, ({ props, buildChild, context }) => (
+  <div className="a2ui-row">{children(props.children, buildChild, context)}</div>
 ));
 
 /** Une valeur qui part à l'agent au plus une fois (pas de renvoi de la valeur déjà envoyée). */
@@ -546,10 +570,10 @@ const DiffText = createComponentImplementation(DiffTextApi, ({ props }) => (
 ));
 
 /** Un bandeau annoncé : le texte, les boutons enfants, puis la croix qui le ferme. */
-const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild }) => (
+const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild, context }) => (
   <div className="notice-bar" role="status">
     <span className="notice-bar-text">{props.text}</span>
-    <div className="notice-bar-actions">{children(props.children, buildChild)}</div>
+    <div className="notice-bar-actions">{children(props.children, buildChild, context)}</div>
     <IconButton
       label={props.close_label}
       icon={Icon.close}
@@ -560,7 +584,7 @@ const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild }) 
 ));
 
 /** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
-export const catalog = new Catalog(CATALOG_ID, [
+export const catalog = new Catalog(CATALOG_ID, "0.9", [
   Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, ListTableField, SlideThumb, ThemeChoice, DiffText,
   Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice, ChartData, TableData,
 ]);

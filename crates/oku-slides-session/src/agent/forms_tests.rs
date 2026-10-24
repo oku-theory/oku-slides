@@ -595,7 +595,7 @@ fn packs_view() -> crate::DeckPacksView {
 }
 
 /// Contrat avec l'interface : `ui/src/a2ui/fixtures/agent-surfaces.json`, que
-/// `catalog.test.tsx` fait valider par le catalogue TypeScript.
+/// `catalog.schemas.render.test.tsx` fait valider par le catalogue TypeScript.
 /// `OKU_UPDATE_FIXTURES=1` le réécrit.
 #[test]
 fn every_form_matches_the_ui_fixture() {

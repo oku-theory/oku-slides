@@ -335,6 +335,21 @@ describe("rendu du catalogue v3", () => {
     const row = host.querySelector('[data-component-id="color.accent:row"]');
     expect(row?.querySelector('[data-component-id="color.accent"]')?.textContent).toBe("Accent");
   });
+
+  test("a2ui.css : chaque règle d'emplacement trouve la racine du composant, sous son hôte", async () => {
+    // Sans commentaires, chaque sélecteur (même sur plusieurs lignes) suit un `}` ou le début du fichier.
+    const css = readFileSync(`${import.meta.dir}/a2ui.css`, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const selectors = [...css.matchAll(/(?:^|\})([^{}]*\[data-component-id\][^{}]*)\{/g)].map((m) => m[1].trim());
+    expect(selectors).toHaveLength(3);
+    const action = { event: { name: "x" } };
+    const { host } = await mountAll([
+      { id: "root", component: "Column", children: ["themes", "up"] },
+      { id: "themes", component: "Row", children: ["papier"] },
+      { id: "papier", component: "ThemeChoice", svg: "<svg/>", name: "Papier", slide: "s-1", swatches: [], active: false, action },
+      { id: "up", component: "Button", label: "Monter", icon: "up", action },
+    ]);
+    expect(selectors.filter((s) => host.querySelector(s) === null)).toEqual([]);
+  });
 });
 
 describe("composants du fil (v3)", () => {

@@ -1,8 +1,15 @@
+// Schémas du catalogue face aux surfaces de l'hôte. Dans la passe de rendu : depuis
+// 0.13, @a2ui/react étend HTMLElement à son chargement, il lui faut donc le DOM de test.
+
 import { describe, expect, test } from "bun:test";
+import "../test/dom";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import { CATALOG_ID, CheckedSlider, catalog, sixDigits } from "./catalog";
-import { buildSurface } from "./SurfaceView";
 import agentSurfaces from "./fixtures/agent-surfaces.json";
+
+// Bun n'évalue pas les imports statiques dans l'ordre écrit : le catalogue se charge
+// après `../test/dom`, par des imports dynamiques.
+const { CATALOG_ID, CheckedSlider, catalog, sixDigits } = await import("./catalog");
+const { buildSurface } = await import("./SurfaceView");
 
 const surface = (components: unknown[], data: unknown = {}) => [
   { version: "v0.9", createSurface: { surfaceId: "s", catalogId: CATALOG_ID } },
