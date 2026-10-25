@@ -5,6 +5,14 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.1] - 2026-10-25
+
+### Fixed
+
+- *(ci)* pass secrets to the update mirror called by Release (t-1209)
+- *(ci)* refresh Cargo.lock in release-prepare.sh (t-1209)
+- *(stt)* trust the system certificate store for outgoing TLS (t-1211)
+
 ## [5.1.0] - 2026-10-25
 
 ### Added
