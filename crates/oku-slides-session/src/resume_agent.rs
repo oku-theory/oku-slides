@@ -12,7 +12,9 @@ use crate::resume_writer::AgentWrite;
 pub(crate) const AGENT_DIR: &str = "agent";
 /// Fichier de la conversation de l'onglet.
 const CONVERSATION_FILE: &str = "conversation.json";
-/// Version du fichier de la conversation ; la 1, une par portée, n'est plus relue.
+/// Version of the conversation file.
+///
+/// Version 1, one per scope, is no longer read back.
 const CONVERSATION_VERSION: u32 = 2;
 
 #[derive(Serialize)]

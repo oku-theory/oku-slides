@@ -24,12 +24,11 @@ impl SurfaceHub {
         if !matches!(self.state().shows.get(HOST_VOICE), Some(Shown::Settings(_))) {
             return Err(HubError::unknown_surface(HOST_VOICE.to_owned()));
         }
-        let result = match voice_event(name, context) {
-            Some(event) => self.voice.apply(event, Origin::User).map(|_| ()).map_err(|e| VoiceSnafu.into_error(e)),
-            None => {
-                tracing::warn!(action = name, "action de la boîte des réglages mal formée");
-                Err(IncompleteSnafu { key: name }.build())
-            }
+        let result = if let Some(event) = voice_event(name, context) {
+            self.voice.apply(event, Origin::User).map(|_| ()).map_err(|e| VoiceSnafu.into_error(e))
+        } else {
+            tracing::warn!(action = name, "action de la boîte des réglages mal formée");
+            Err(IncompleteSnafu { key: name }.build())
         };
         let panel = VoicePanel::build(&self.voice.view(), &self.localizer.current());
         self.send_settings(&panel, result.is_err());

@@ -17,7 +17,7 @@ fn registry() -> WidgetRegistry {
     WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("sonde : {e}"))
 }
 
-fn deck(params: Value) -> Deck {
+fn deck(params: &Value) -> Deck {
     let deck = json!({ "version": 9, "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "b", "kind": "t/boite", "params": params },
         { "id": "c", "kind": "t/cadre", "params": { "data": { "columns": 2, "rows": 2 } } },
@@ -33,7 +33,7 @@ fn set_kind(element: &str) -> Op {
 
 #[test]
 fn set_kind_to_table_with_string_data_is_refused_and_deck_unchanged() {
-    let mut deck = deck(json!({ "data": "texte" }));
+    let mut deck = deck(&json!({ "data": "texte" }));
     let before = deck.clone();
     let Err(e) = apply_all(&mut deck, vec![set_kind("b")], &registry()) else { panic!("l'op devait être refusée") };
     assert_that!(e.op_error().kind()).is_equal_to(OpErrorKind::ParamType);
@@ -42,14 +42,14 @@ fn set_kind_to_table_with_string_data_is_refused_and_deck_unchanged() {
 
 #[test]
 fn set_kind_to_table_without_data_still_succeeds() {
-    let mut deck = deck(json!({}));
+    let mut deck = deck(&json!({}));
     let result = apply_all(&mut deck, vec![set_kind("t")], &registry());
     assert_that!(result.is_ok()).is_true();
 }
 
 #[test]
 fn set_kind_to_table_with_grid_object_data_is_refused_as_invalid_table_and_deck_unchanged() {
-    let mut deck = deck(json!({}));
+    let mut deck = deck(&json!({}));
     let before = deck.clone();
     let Err(e) = set_kind("c").apply(&mut deck, &registry()) else { panic!("l'op devait être refusée") };
     assert_that!(e.kind()).is_equal_to(OpErrorKind::InvalidTable);

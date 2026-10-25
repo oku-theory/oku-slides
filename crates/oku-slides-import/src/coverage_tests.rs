@@ -7,6 +7,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::retrofit::decor::Decor;
+use crate::source::{Borders, Crop};
 use crate::source::{
     Caps, Cell, Chart, ChartKind, Grouping, Opaque, OpaqueReason, Picture, Role, SLIDE_NUMBER, Series, Size,
     SourceSlide, Table, TableFlags,
@@ -68,7 +69,7 @@ fn cell(t: &str, covered: bool) -> Cell {
     Cell {
         text: text_box(vec![para(vec![run(t)])]),
         fill: Fill::None,
-        borders: Default::default(),
+        borders: Borders::default(),
         row_span: 1,
         col_span: if t == "Titre" { 2 } else { 1 },
         covered,
@@ -221,7 +222,7 @@ fn coverage_counts_images_and_fallbacks_by_asset() {
     let pic = item(
         "p",
         (0.0, 0.0, 10.0, 10.0),
-        ItemKind::Picture(Picture { asset: "sha256:a".into(), crop: Default::default() }),
+        ItemKind::Picture(Picture { asset: "sha256:a".into(), crop: Crop::default() }),
     );
     let math = item(
         "m",

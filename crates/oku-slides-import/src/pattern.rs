@@ -19,6 +19,7 @@
 use std::collections::BTreeMap;
 
 use crate::source::{Frame, Item, ItemKind};
+use oku_slides_core::num::byte;
 
 /// Pas de la grille de disposition : chaque bord est arrondi au quart.
 const STEPS: f64 = 4.0;
@@ -87,8 +88,8 @@ fn step(v: f64, lo: f64, len: f64) -> u8 {
     if len <= f64::EPSILON {
         return 0;
     }
-    // Borné à [0, STEPS] : la conversion ne déborde pas.
-    ((v - lo) / len * STEPS).round().clamp(0.0, STEPS) as u8
+    // Clamped to [0, STEPS], below 255: the conversion does not saturate.
+    byte(((v - lo) / len * STEPS).clamp(0.0, STEPS))
 }
 
 /// La signature de `items` : `<sorte>×<nombre>` triés par sorte, puis `|`,

@@ -15,8 +15,13 @@ use crate::error::{
     AudioFileSnafu, MicrophoneConfigSnafu, MicrophonePlaySnafu, MicrophoneStreamSnafu, MicrophoneTimeoutSnafu,
     NoMicrophoneSnafu, SttError, UnsupportedFormatSnafu, WavSnafu,
 };
+use crate::num::{count_f32, count_f64, narrow_f32, trunc_usize};
 
+/// Rate of the audio given to the engines: mono, 16 kHz.
 pub const SAMPLE_RATE: u32 = 16_000;
+
+/// [`SAMPLE_RATE`] as `f32`, exact; a test checks they are equal.
+pub(crate) const SAMPLE_RATE_F32: f32 = 16_000.0;
 
 /// Échantillons enregistrés : mono, au débit de l'appareil.
 #[derive(Debug, Default)]
@@ -50,23 +55,24 @@ impl Recorder {
         let captured = Arc::new(Mutex::new(Captured::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let (ready_tx, ready_rx) = mpsc::channel::<Result<(), SttError>>();
-        let (cap, stp) = (captured.clone(), stop.clone());
+        let (shared, halt) = (captured.clone(), stop.clone());
         let thread = std::thread::spawn(move || {
             if let Some(wav) = fake_mic {
                 match read_wav(&storage, &wav) {
                     Ok((rate, samples)) => {
                         ready_tx.send(Ok(())).ok();
-                        lock(&cap).rate = rate;
-                        let chunk = (rate / 50) as usize;
+                        lock(&shared).rate = rate;
+                        // 20 ms per packet; at least one sample, since `chunks(0)` would panic.
+                        let chunk = ((rate / 50) as usize).max(1);
                         for part in samples.chunks(chunk) {
-                            if stp.load(Ordering::Relaxed) {
+                            if halt.load(Ordering::Relaxed) {
                                 return;
                             }
-                            push_samples(&cap, &mut part.iter().copied());
+                            push_samples(&shared, &mut part.iter().copied());
                             std::thread::sleep(Duration::from_millis(20));
                         }
-                        while !stp.load(Ordering::Relaxed) {
-                            push_samples(&cap, &mut std::iter::repeat_n(0.0, chunk));
+                        while !halt.load(Ordering::Relaxed) {
+                            push_samples(&shared, &mut std::iter::repeat_n(0.0, chunk));
                             std::thread::sleep(Duration::from_millis(20));
                         }
                     }
@@ -76,7 +82,7 @@ impl Recorder {
                 }
                 return;
             }
-            let stream = match open_stream(cap) {
+            let stream = match open_stream(shared) {
                 Ok(s) => s,
                 Err(e) => {
                     ready_tx.send(Err(e)).ok();
@@ -88,7 +94,7 @@ impl Recorder {
                 return;
             }
             ready_tx.send(Ok(())).ok();
-            while !stp.load(Ordering::Relaxed) {
+            while !halt.load(Ordering::Relaxed) {
                 std::thread::sleep(Duration::from_millis(20));
             }
             drop(stream);
@@ -136,21 +142,21 @@ pub struct Resampler {
 
 impl Resampler {
     pub fn new(from: u32) -> Self {
-        Self { ratio: from.max(1) as f64 / SAMPLE_RATE as f64, pos: 0.0, buf: Vec::new() }
+        Self { ratio: f64::from(from.max(1)) / f64::from(SAMPLE_RATE), pos: 0.0, buf: Vec::new() }
     }
 
     pub fn push(&mut self, input: &[f32], out: &mut Vec<f32>) {
         self.buf.extend_from_slice(input);
-        while self.pos + 1.0 < self.buf.len() as f64 {
-            let j = self.pos as usize;
-            let frac = (self.pos - j as f64) as f32;
+        while self.pos + 1.0 < count_f64(self.buf.len()) {
+            let j = trunc_usize(self.pos);
+            let frac = narrow_f32(self.pos - count_f64(j));
             let (a, b) = (self.buf[j], self.buf[j + 1]);
             out.push(a + (b - a) * frac);
             self.pos += self.ratio;
         }
-        let consumed = (self.pos as usize).min(self.buf.len());
+        let consumed = trunc_usize(self.pos).min(self.buf.len());
         self.buf.drain(..consumed);
-        self.pos -= consumed as f64;
+        self.pos -= count_f64(consumed);
     }
 }
 
@@ -165,39 +171,40 @@ fn open_stream(captured: Arc<Mutex<Captured>>) -> Result<cpal::Stream, SttError>
     let push = move |mono: &mut dyn Iterator<Item = f32>| push_samples(&captured, mono);
     let err = |e| tracing::warn!(error = %e, "flux du micro");
     let stream_config: cpal::StreamConfig = config.into();
-    let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => device.build_input_stream(
-            stream_config,
-            move |data: &[f32], _: &_| push(&mut data.chunks(channels).map(|f| f.iter().sum::<f32>() / f.len() as f32)),
-            err,
-            None,
-        ),
-        cpal::SampleFormat::I16 => device.build_input_stream(
-            stream_config,
-            move |data: &[i16], _: &_| {
-                push(
-                    &mut data
-                        .chunks(channels)
-                        .map(|f| f.iter().map(|&s| s as f32 / 32768.0).sum::<f32>() / f.len() as f32),
-                )
-            },
-            err,
-            None,
-        ),
-        cpal::SampleFormat::U16 => device.build_input_stream(
-            stream_config,
-            move |data: &[u16], _: &_| {
-                push(
-                    &mut data
-                        .chunks(channels)
-                        .map(|f| f.iter().map(|&s| (s as f32 - 32768.0) / 32768.0).sum::<f32>() / f.len() as f32),
-                )
-            },
-            err,
-            None,
-        ),
-        other => return UnsupportedFormatSnafu { format: format!("{other:?}") }.fail()?,
-    };
+    let stream =
+        match config.sample_format() {
+            cpal::SampleFormat::F32 => device.build_input_stream(
+                stream_config,
+                move |data: &[f32], _: &_| {
+                    push(&mut data.chunks(channels).map(|f| f.iter().sum::<f32>() / count_f32(f.len())));
+                },
+                err,
+                None,
+            ),
+            cpal::SampleFormat::I16 => device.build_input_stream(
+                stream_config,
+                move |data: &[i16], _: &_| {
+                    push(
+                        &mut data
+                            .chunks(channels)
+                            .map(|f| f.iter().map(|&s| f32::from(s) / 32768.0).sum::<f32>() / count_f32(f.len())),
+                    );
+                },
+                err,
+                None,
+            ),
+            cpal::SampleFormat::U16 => device.build_input_stream(
+                stream_config,
+                move |data: &[u16], _: &_| {
+                    push(&mut data.chunks(channels).map(|f| {
+                        f.iter().map(|&s| (f32::from(s) - 32768.0) / 32768.0).sum::<f32>() / count_f32(f.len())
+                    }));
+                },
+                err,
+                None,
+            ),
+            other => return UnsupportedFormatSnafu { format: format!("{other:?}") }.fail()?,
+        };
     Ok(stream.context(MicrophoneStreamSnafu)?)
 }
 
@@ -208,7 +215,7 @@ fn push_samples(captured: &Arc<Mutex<Captured>>, mono: &mut dyn Iterator<Item = 
         c.samples.extend(mono);
         let chunk = &c.samples[start..];
         if !chunk.is_empty() {
-            let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+            let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / count_f32(chunk.len())).sqrt();
             c.level = (rms * 4.0).min(1.0);
         }
     }
@@ -244,8 +251,8 @@ pub(crate) fn parse_wav(bytes: &[u8]) -> Result<(u32, Vec<f32>), SttError> {
         } else if id == b"data" {
             ensure!(bits == 16, WavSnafu { reason: "16-bit PCM expected" });
             let samples: Vec<f32> =
-                body.as_chunks::<2>().0.iter().map(|&b| i16::from_le_bytes(b) as f32 / 32768.0).collect();
-            let mono = samples.chunks(channels).map(|f| f.iter().sum::<f32>() / f.len() as f32).collect();
+                body.as_chunks::<2>().0.iter().map(|&b| f32::from(i16::from_le_bytes(b)) / 32768.0).collect();
+            let mono = samples.chunks(channels).map(|f| f.iter().sum::<f32>() / count_f32(f.len())).collect();
             return Ok((rate, mono));
         }
         i = i.saturating_add(8).saturating_add(len).saturating_add(len & 1);
@@ -254,17 +261,18 @@ pub(crate) fn parse_wav(bytes: &[u8]) -> Result<(u32, Vec<f32>), SttError> {
 }
 
 /// Rééchantillonnage linéaire (suffisant pour la parole).
+#[must_use]
 pub fn resample(input: &[f32], from: u32, to: u32) -> Vec<f32> {
     if from == to || from == 0 || input.is_empty() {
         return input.to_vec();
     }
-    let ratio = from as f64 / to as f64;
-    let n = (input.len() as f64 / ratio) as usize;
+    let ratio = f64::from(from) / f64::from(to);
+    let n = trunc_usize(count_f64(input.len()) / ratio);
     (0..n)
         .map(|i| {
-            let pos = i as f64 * ratio;
-            let j = pos as usize;
-            let frac = (pos - j as f64) as f32;
+            let pos = count_f64(i) * ratio;
+            let j = trunc_usize(pos);
+            let frac = narrow_f32(pos - count_f64(j));
             let a = input[j];
             let b = *input.get(j + 1).unwrap_or(&a);
             a + (b - a) * frac

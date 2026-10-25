@@ -1,6 +1,6 @@
 //! Rend un fichier d'options ECharts en SVG : `cargo run --example preview -- options.json 640 400`
 
-use oku_slides_chart::*;
+use oku_slides_chart::{ChartRenderer, ChartsRsRenderer, Result, Size, parse_option};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);

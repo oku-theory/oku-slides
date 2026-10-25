@@ -15,11 +15,24 @@ pub enum TurnState {
     /// L'agent travaille.
     Running,
     /// Fini normalement (`end_turn`), en `secs` secondes.
-    Done { secs: u64 },
+    Done {
+        /// Turn duration, in seconds.
+        secs: u64,
+    },
     /// Fin autre que `end_turn` (`cancelled`, `max_tokens`, `interrupted`…).
-    Stopped { stop: String, secs: u64 },
+    Stopped {
+        /// Stop reason given by the ACP agent, as is.
+        stop: String,
+        /// Turn duration, in seconds.
+        secs: u64,
+    },
     /// Erreur (démarrage, connexion, agent arrêté) : `message` est déjà traduit.
-    Failed { message: String, secs: u64 },
+    Failed {
+        /// Error message in the user's language.
+        message: String,
+        /// Turn duration until the error, in seconds.
+        secs: u64,
+    },
 }
 
 /// Ce que la surface d'un tour montre.
@@ -46,6 +59,7 @@ pub struct TurnView {
 }
 
 /// Identifiant de la surface du tour `n`.
+#[must_use]
 pub fn turn_id(n: u32) -> String {
     format!("turn-{n}")
 }
@@ -54,6 +68,7 @@ pub fn turn_id(n: u32) -> String {
 ///
 /// Les caractères invisibles sont ôtés avant de chercher la ligne : une ligne faite
 /// seulement de ces caractères compte comme vide.
+#[must_use]
 pub fn first_line(text: &str, max: usize) -> String {
     let line = text.lines().map(|l| clip(l, usize::MAX)).find(|l| !l.trim().is_empty()).unwrap_or_default();
     clip(line.trim(), max)
@@ -149,6 +164,7 @@ pub fn turn_surface(v: &TurnView, l: &Localizer) -> Surface {
 /// `/steps/4/calls/2/status` quand un appel finit. Un objet qui perd une clé, une liste qui
 /// raccourcit ou se décale, un changement de type s'écrivent entiers. Aucune suppression
 /// n'est écrite sous la racine : l'interface (`liftPatch`) n'en relève pas.
+#[must_use]
 pub fn turn_patches(n: u32, sent: &Value, data: &Value) -> Vec<ServerMessage> {
     let id = turn_id(n);
     // Une racine qui n'est pas un objet, ou qui perd une clé, se réécrit entière (pas de chemin vide).

@@ -30,6 +30,7 @@ impl std::fmt::Debug for AppSettings {
 
 impl AppSettings {
     /// `stt` : la dictée de l'hôte (absente dans les tests).
+    #[must_use]
     pub fn new(platform: &Platform, stt: Option<Stt>) -> Self {
         Self {
             settings: platform.settings.clone(),

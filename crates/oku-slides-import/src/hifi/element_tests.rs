@@ -171,7 +171,7 @@ fn pen(mut style: Value) -> Value {
     style
 }
 
-fn image(id: &str, frame: Value) -> Value {
+fn image(id: &str, frame: &Value) -> Value {
     json!({ "id": id, "kind": base::IMAGE, "frame": frame, "params": { "asset": "sha256:aa", "fit": "stretch" } })
 }
 
@@ -212,7 +212,7 @@ fn image(id: &str, frame: Value) -> Value {
 )]
 #[case::flipped_line_with_open_head(
     with_frame(shape(preset("line", &[]), Fill::None, Some(arrowed(Some(ArrowKind::Open), None))), |f| {
-        (f.h, f.flip_h) = (0.0, true)
+        (f.h, f.flip_h) = (0.0, true);
     }),
     json!([
         { "id": "s1-1", "kind": base::SHAPE, "frame": { "x": 20.0, "y": 40.0, "w": 200.0, "h": 1.0 },
@@ -275,26 +275,26 @@ fn image(id: &str, frame: Value) -> Value {
 #[case::picture_fill(
     shape(preset("ellipse", &[]), Fill::Picture { asset: "sha256:aa".into() }, Some(stroke(Dash::Solid))),
     json!([
-        image("s1-1", frame()),
+        image("s1-1", &frame()),
         { "id": "s1-2", "kind": base::SHAPE, "frame": frame(), "style": pen(json!({})), "params": { "shape": "ellipse" } },
     ]),
     vec![LossKind::ShapeStyle(ShapeEffect::Picture)],
 )]
 #[case::shape_without_paint(shape(preset("rect", &[]), Fill::None, None), json!([]), vec![])]
-#[case::picture(picture(Crop::default()), json!([image("s1-1", frame())]), vec![])]
+#[case::picture(picture(Crop::default()), json!([image("s1-1", &frame())]), vec![])]
 #[case::cropped_picture(
     picture(Crop { l: 0.1, ..Crop::default() }),
-    json!([image("s1-1", frame())]),
+    json!([image("s1-1", &frame())]),
     vec![LossKind::Transform],
 )]
 #[case::imperceptible_crop(
     picture(Crop { l: 0.00001, t: 0.00001, r: 0.0009, b: 0.0 }),
-    json!([image("s1-1", frame())]),
+    json!([image("s1-1", &frame())]),
     vec![],
 )]
 #[case::crop_at_tolerance(
     picture(Crop { b: 0.001, ..Crop::default() }),
-    json!([image("s1-1", frame())]),
+    json!([image("s1-1", &frame())]),
     vec![LossKind::Transform],
 )]
 #[case::unsupported_picture(
@@ -306,11 +306,11 @@ fn image(id: &str, frame: Value) -> Value {
     group(),
     json!([
         { "id": "s1-1", "kind": base::SHAPE, "frame": frame(), "style": { "fill": "accent" }, "params": { "shape": "rect" } },
-        image("s1-2", json!({ "x": 400.0, "y": 200.0, "w": 200.0, "h": 100.0 })),
+        image("s1-2", &json!({ "x": 400.0, "y": 200.0, "w": 200.0, "h": 100.0 })),
     ]),
     vec![],
 )]
-#[case::opaque_with_fallback(opaque(Some("sha256:aa")), json!([image("s1-1", frame())]), vec![])]
+#[case::opaque_with_fallback(opaque(Some("sha256:aa")), json!([image("s1-1", &frame())]), vec![])]
 #[case::opaque_without_fallback(opaque(None), json!([]), vec![LossKind::Opaque(OpaqueReason::Ole)])]
 #[case::rotated(
     with_frame(shape(preset("rect", &[]), solid("accent1"), None), |f| f.rot = 30.0),
@@ -320,12 +320,12 @@ fn image(id: &str, frame: Value) -> Value {
 )]
 #[case::flipped_picture(
     with_frame(picture(Crop::default()), |f| f.flip_v = true),
-    json!([image("s1-1", frame())]),
+    json!([image("s1-1", &frame())]),
     vec![LossKind::Transform],
 )]
 #[case::flipped_picture_fill(
     with_frame(shape(preset("rect", &[]), Fill::Picture { asset: "sha256:aa".into() }, None), |f| f.flip_h = true),
-    json!([image("s1-1", frame())]),
+    json!([image("s1-1", &frame())]),
     vec![LossKind::Transform],
 )]
 #[case::chart_without_data(

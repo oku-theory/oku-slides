@@ -32,8 +32,11 @@ pub use oku_slides_core::token_spec::Control;
 /// Entrée du schéma : un chemin de jeton, son contrôle et sa section.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TokenSpec {
+    /// Path of the token, segment by segment (`["color", "accent"]`).
     pub path: Vec<String>,
+    /// Section of the editor that shows this token.
     pub section: Section,
+    /// Editing control of the token and its constraints.
     #[serde(flatten)]
     pub control: Control,
     /// `null` (« vider ») est permis.
@@ -53,16 +56,25 @@ pub struct TokenSpec {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Section {
+    /// Slide colors: `color.*`.
     Colors,
+    /// Fonts and text sizes: `font.*`, `size.*`.
     Typography,
+    /// Spacing: `space.*`.
     Spacing,
+    /// Radii and strokes: `radius.*`, `stroke.*`.
     Shapes,
+    /// Page margins and positions: `page.*`.
     Page,
+    /// Chart palette: `chart.palette`.
     Charts,
     /// Familles globales d'habillage : `header`, `footer`, `list`, `kicker`.
     Frame,
+    /// Interface colors in the light scheme: `app.*`.
     AppLight,
+    /// Interface colors in the dark scheme: `app-dark.*`.
     AppDark,
+    /// Style of scripts, sans-serif or serif: `script-style.*`.
     Scripts,
     /// Les jetons de composant du pack de cet espace de noms.
     #[serde(skip)]
@@ -111,6 +123,7 @@ static DEFAULT_TOKENS: LazyLock<Map<String, Value>> = LazyLock::new(|| {
 });
 
 /// Les jetons par défaut, sous tout thème : la couche du bas.
+#[must_use]
 pub fn default_tokens() -> &'static Map<String, Value> {
     &DEFAULT_TOKENS
 }
@@ -119,6 +132,7 @@ pub fn default_tokens() -> &'static Map<String, Value> {
 pub use oku_slides_core::tokens::merge;
 
 /// Les entrées globales du schéma, dans l'ordre du fichier.
+#[must_use]
 pub fn schema() -> &'static [TokenSpec] {
     &SCHEMA
 }
@@ -130,6 +144,7 @@ pub type PackTokens = (Namespace, String, Vec<ComponentToken>);
 ///
 /// L'entrée `path` d'un pack devient `component.<espace de noms>.<path>`,
 /// dans la section [`Section::Pack`] ; le nom du pack ne sert qu'à l'affichage.
+#[must_use]
 pub fn composed(packs: &[PackTokens]) -> Vec<TokenSpec> {
     let mut out = schema().to_vec();
     for (ns, _, tokens) in packs {
@@ -153,6 +168,7 @@ fn is_color_name(name: &str) -> bool {
 }
 
 /// L'entrée d'un chemin dans `schema` ; `color.<nom libre>` a l'entrée générique (chemin `color.*`).
+#[must_use]
 pub fn spec<'a>(schema: &'a [TokenSpec], path: &[String]) -> Option<&'a TokenSpec> {
     schema.iter().find(|s| s.path == path).or_else(|| match path {
         [group, name] if group == "color" && is_color_name(name) => Some(&*FREE_COLOR),
@@ -172,8 +188,15 @@ fn refers_to<'a>(control: &'a Control, path: &[String]) -> Option<&'a str> {
     }
 }
 
-/// Vérifie qu'une valeur convient au jeton `path` du schéma `schema` dans les
-/// jetons `tokens` (le brouillon fusionné où elle vivra) : contrôle, bornes, références.
+/// Checks that a value suits token `path` of schema `schema` within tokens `tokens`.
+///
+/// `tokens` is the merged draft the value will live in. Checks the control,
+/// the bounds and the references.
+///
+/// # Errors
+///
+/// Fails (`InvalidTokenValue`) if the value does not suit the token's control, bounds or
+/// references.
 pub fn validate(schema: &[TokenSpec], path: &[String], value: &Value, tokens: &Map<String, Value>) -> Result<()> {
     check(schema, path, value, tokens)
         .map_err(|reason| InvalidTokenValueSnafu { path: path.join("."), reason }.build().into())
@@ -192,7 +215,7 @@ fn check(schema: &[TokenSpec], path: &[String], value: &Value, tokens: &Map<Stri
     match &spec.control {
         Control::Color => check_color(value, tokens)?,
         Control::Pt { min, max, refs } | Control::Em { min, max, refs } => {
-            check_number(value, *min, *max, refs.as_deref(), tokens)?
+            check_number(value, *min, *max, refs.as_deref(), tokens)?;
         }
         Control::Number { min, max, .. } => check_number(value, *min, *max, None, tokens)?,
         Control::Weight => check_weight(value, refers_to(&spec.control, path), tokens)?,
@@ -227,9 +250,10 @@ fn check(schema: &[TokenSpec], path: &[String], value: &Value, tokens: &Map<Stri
 
 /// `name` est une clé de la catégorie `group` des jetons.
 fn reference(tokens: &Map<String, Value>, group: &str, name: &str) -> Check {
-    match tokens.get(group).and_then(Value::as_object).is_some_and(|m| m.contains_key(name)) {
-        true => Ok(()),
-        false => Err("unknown-reference"),
+    if tokens.get(group).and_then(Value::as_object).is_some_and(|m| m.contains_key(name)) {
+        Ok(())
+    } else {
+        Err("unknown-reference")
     }
 }
 
@@ -241,12 +265,11 @@ fn check_color(value: &Value, tokens: &Map<String, Value>) -> Check {
 }
 
 fn check_number(value: &Value, min: f64, max: f64, refs: Option<&str>, tokens: &Map<String, Value>) -> Check {
-    match (value, refs) {
-        (Value::String(name), Some(group)) => reference(tokens, group, name),
-        _ => {
-            let n = value.as_f64().ok_or("wrong-type")?;
-            (min..=max).contains(&n).then_some(()).ok_or("out-of-range")
-        }
+    if let (Value::String(name), Some(group)) = (value, refs) {
+        reference(tokens, group, name)
+    } else {
+        let n = value.as_f64().ok_or("wrong-type")?;
+        (min..=max).contains(&n).then_some(()).ok_or("out-of-range")
     }
 }
 
@@ -303,6 +326,7 @@ fn mentions(control: &Control, value: &Value, name: &str) -> bool {
 
 /// Les jetons de `tokens` (chemins pointés, triés) qui renvoient à `path`
 /// (`color.x`, `size.x`…) : même nom, et un contrôle qui renvoie à cette catégorie.
+#[must_use]
 pub fn users(schema: &[TokenSpec], path: &[String], tokens: &Map<String, Value>) -> Vec<String> {
     let [group, name] = path else { return Vec::new() };
     let mut found = Vec::new();
@@ -337,6 +361,7 @@ fn walk(
 
 /// Les chemins pointés des jetons de `tokens`, dans l'ordre : une valeur du
 /// schéma (un filet de titre) en est un ; une feuille hors du schéma aussi.
+#[must_use]
 pub fn token_paths(schema: &[TokenSpec], tokens: &Map<String, Value>) -> Vec<String> {
     fn visit(schema: &[TokenSpec], tokens: &Map<String, Value>, prefix: &mut Vec<String>, out: &mut Vec<String>) {
         for (k, v) in tokens {
@@ -353,10 +378,15 @@ pub fn token_paths(schema: &[TokenSpec], tokens: &Map<String, Value>) -> Vec<Str
     out
 }
 
-/// Vérifie les valeurs d'un arbre de jetons `tokens` du schéma `schema` dans `effective` (où
-/// elles vivront). `strict` : chaque feuille, un chemin inconnu refusé (un
-/// brouillon de thème) ; sinon, seules les couleurs et palettes (surcharges
-/// d'un deck, t-194).
+/// Checks the values of a token tree `tokens` of schema `schema` within `effective`.
+///
+/// `effective` is where they will live. `strict`: every leaf, an unknown path
+/// rejected (a theme draft); otherwise, only colors and palettes (a deck's
+/// overrides, t-194).
+///
+/// # Errors
+///
+/// Fails (`InvalidTokenValue`) on the first rejected value or, in strict mode, an unknown path.
 pub fn validate_tree(
     schema: &[TokenSpec],
     tokens: &Map<String, Value>,
@@ -374,12 +404,11 @@ pub fn validate_tree(
             prefix.push(k.clone());
             match (spec(schema, prefix), v) {
                 (Some(s), _) if strict || matches!(s.control, Control::Color | Control::Palette) => {
-                    validate(schema, prefix, v, effective)?
+                    validate(schema, prefix, v, effective)?;
                 }
-                (Some(_), _) => {}
                 (None, Value::Object(m)) => visit(schema, m, prefix, effective, strict)?,
                 (None, _) if strict => validate(schema, prefix, v, effective)?,
-                (None, _) => {}
+                _ => {}
             }
             prefix.pop();
         }
@@ -388,7 +417,11 @@ pub fn validate_tree(
     visit(schema, tokens, &mut Vec::new(), effective, strict)
 }
 
-/// Refuse le retrait de `path` si d'autres jetons y renvoient (ils sont nommés).
+/// Rejects removing `path` if other tokens refer to it (they are named).
+///
+/// # Errors
+///
+/// Fails (`TokenInUse`) if other tokens refer to `path`.
 pub fn ensure_unused(schema: &[TokenSpec], path: &[String], tokens: &Map<String, Value>) -> Result<()> {
     let users = users(schema, path, tokens);
     if users.is_empty() {

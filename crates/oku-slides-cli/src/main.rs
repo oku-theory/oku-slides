@@ -323,6 +323,122 @@ fn main() -> Result<()> {
     }
 }
 
+/// `check`: validates the JSON deck `deck` against the widgets of its packs.
+fn check(platform: &Platform, out: &mut Out<'_>, app_fonts: &Fonts, limits: SourceLimits, deck: &Path) -> Result<()> {
+    let (storage, l) = (&platform.storage, out.localizer());
+    let base = registry(app_fonts)?;
+    let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
+    let deck = read_deck(storage, l, deck)?;
+    let library = PackLibrary::user(platform);
+    // A missing pack does not stop the check: it is reported and its widgets are unknown.
+    let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck).unwrap_or_else(|e| {
+        tracing::warn!("{e}");
+        BTreeMap::new()
+    });
+    let (bundle, widgets) =
+        sources_with_packs(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
+    let deck = bundle.deck();
+    if report_issues(l, deck, &widgets.registry, &BTreeMap::new()) {
+        out.line("cli-deck-valid", &[("slides", deck.slides.len().into())])?;
+    }
+    Ok(())
+}
+
+/// `render`: writes one SVG page per slide of `input` into `dir`.
+///
+/// The theme `theme` applies when given.
+fn render(
+    platform: &Platform,
+    out: &mut Out<'_>,
+    app_fonts: &Fonts,
+    limits: SourceLimits,
+    (input, dir): (&Path, &Path),
+    theme: Option<&str>,
+) -> Result<()> {
+    let (storage, l) = (&platform.storage, out.localizer());
+    let (mut bundle, widgets) = load_bundle(platform, l, input, limits, &registry(app_fonts)?)?;
+    let themes = ThemeLibrary::user(platform);
+    adopt_theme(&themes, &mut bundle, l)?;
+    if let Some(wanted) = theme {
+        use_theme(&themes, &mut bundle, wanted, l)?;
+    }
+    let t = Instant::now();
+    let fonts = app_fonts.with(bundle.fonts.values().cloned());
+    let doc = pack_render::render(platform, l, fonts, &widgets, &bundle)?;
+    let compile = t.elapsed();
+    for w in doc.warnings() {
+        tracing::warn!("{}", w.localize(l));
+    }
+    let t = Instant::now();
+    for i in 0..doc.page_count() {
+        storage.write(&dir.join(format!("page-{:02}.svg", i + 1)), doc.svg(i)?)?;
+    }
+    let svg = t.elapsed();
+    storage.write(&dir.join("layout.json"), serde_json::to_string_pretty(doc.layout())?)?;
+    out.line(
+        "cli-rendered",
+        &[
+            ("pages", doc.page_count().into()),
+            ("out", dir.display().to_string().into()),
+            ("compile", ms(compile).into()),
+            ("svg", ms(svg).into()),
+        ],
+    )?;
+    Ok(())
+}
+
+/// Extracts the contents of `bundle` into `dir` (`open --out`).
+///
+/// The deck, assets, fonts and packs are written there.
+fn extract_bundle(storage: &Storage, out: &mut Out<'_>, bundle: &SourceBundle, dir: &Path) -> Result<()> {
+    let deck = bundle.deck();
+    storage.write(&dir.join("deck.json"), deck.to_json()?)?;
+    for (id, bytes) in &bundle.assets {
+        storage.write(&dir.join("assets").join(id.trim_start_matches("sha256:")), bytes.as_slice())?;
+    }
+    for (name, bytes) in &bundle.fonts {
+        storage.write(&dir.join("fonts").join(name), bytes.as_slice())?;
+    }
+    // Each version goes in the folder of its kind: `widgets/<hex>/` or `layouts/<hex>/`.
+    for (version, files) in &bundle.packs {
+        let kind = files.kind();
+        let at = dir.join(kind.files_dir()).join(version.hex());
+        storage.write(&at.join(kind.manifest_file()), files.pack_json()?)?;
+        for (name, source) in files.widgets() {
+            storage.write(&at.join(kind.files_dir()).join(name.file_name()), source.as_bytes())?;
+        }
+    }
+    out.line("cli-extracted", &[("dir", dir.display().to_string().into())])?;
+    Ok(())
+}
+
+/// `bench`: times `iterations` renders of the JSON deck `deck`.
+///
+/// The theme is the one the library resolves.
+fn bench_cmd(
+    platform: &Platform,
+    out: &mut Out<'_>,
+    app_fonts: Fonts,
+    limits: SourceLimits,
+    deck: &Path,
+    iterations: usize,
+) -> Result<()> {
+    let (storage, l) = (&platform.storage, out.localizer());
+    let base = registry(&app_fonts)?;
+    let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
+    let deck = read_deck(storage, l, deck)?;
+    let library = PackLibrary::user(platform);
+    let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck)?;
+    // A JSON deck embeds nothing: its theme is resolved by the library, or a Pro deck would be timed as Papier.
+    let (mut bundle, _) =
+        sources_with_packs(platform, &library, &base, deck.clone(), packs).map_err(|e| eyre!(e.localize(l)))?;
+    let themes = ThemeLibrary::user(platform);
+    adopt_theme(&themes, &mut bundle, l)?;
+    let layer = sources_theme_layer(&themes, &bundle).map_err(|e| eyre!(e.localize(l)))?;
+    bench::bench(out, deck, layer, app_fonts, iterations, limits)?;
+    Ok(())
+}
+
 fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
     let (storage, l) = (&platform.storage, out.localizer());
     let fonts = match cli.fonts.as_ref().or(platform.settings.paths.fonts.as_ref()) {
@@ -339,52 +455,9 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
     };
 
     match cli.cmd {
-        Cmd::Check { deck } => {
-            let base = registry(&app_fonts)?;
-            let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
-            let deck = read_deck(storage, l, &deck)?;
-            let library = PackLibrary::user(platform);
-            // Un pack introuvable n'arrête pas la vérification : signalé, ses widgets sont inconnus.
-            let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck).unwrap_or_else(|e| {
-                tracing::warn!("{e}");
-                BTreeMap::new()
-            });
-            let (bundle, widgets) =
-                sources_with_packs(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
-            let deck = bundle.deck();
-            if report_issues(l, deck, &widgets.registry, &BTreeMap::new()) {
-                out.line("cli-deck-valid", &[("slides", deck.slides.len().into())])?;
-            }
-        }
+        Cmd::Check { deck } => check(platform, out, &app_fonts, limits, &deck)?,
         Cmd::Render { input, out: dir, theme } => {
-            let (mut bundle, widgets) = load_bundle(platform, l, &input, limits, &registry(&app_fonts)?)?;
-            let themes = ThemeLibrary::user(platform);
-            adopt_theme(&themes, &mut bundle, l)?;
-            if let Some(wanted) = theme {
-                use_theme(&themes, &mut bundle, &wanted, l)?;
-            }
-            let t = Instant::now();
-            let fonts = app_fonts.with(bundle.fonts.values().cloned());
-            let doc = pack_render::render(platform, l, fonts, &widgets, &bundle)?;
-            let compile = t.elapsed();
-            for w in doc.warnings() {
-                tracing::warn!("{}", w.localize(l));
-            }
-            let t = Instant::now();
-            for i in 0..doc.page_count() {
-                storage.write(&dir.join(format!("page-{:02}.svg", i + 1)), doc.svg(i)?)?;
-            }
-            let svg = t.elapsed();
-            storage.write(&dir.join("layout.json"), serde_json::to_string_pretty(doc.layout())?)?;
-            out.line(
-                "cli-rendered",
-                &[
-                    ("pages", doc.page_count().into()),
-                    ("out", dir.display().to_string().into()),
-                    ("compile", ms(compile).into()),
-                    ("svg", ms(svg).into()),
-                ],
-            )?;
+            render(platform, out, &app_fonts, limits, (&input, &dir), theme.as_deref())?;
         }
         Cmd::Save { deck, output, assets, embed_fonts, theme } => {
             let base = registry(&app_fonts)?;
@@ -433,23 +506,7 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 ],
             )?;
             if let Some(dir) = extract {
-                storage.write(&dir.join("deck.json"), deck.to_json()?)?;
-                for (id, bytes) in &bundle.assets {
-                    storage.write(&dir.join("assets").join(id.trim_start_matches("sha256:")), bytes.as_slice())?;
-                }
-                for (name, bytes) in &bundle.fonts {
-                    storage.write(&dir.join("fonts").join(name), bytes.as_slice())?;
-                }
-                // Chaque version dans le dossier de sa sorte : `widgets/<hex>/` ou `layouts/<hex>/`.
-                for (version, files) in &bundle.packs {
-                    let kind = files.kind();
-                    let at = dir.join(kind.files_dir()).join(version.hex());
-                    storage.write(&at.join(kind.manifest_file()), files.pack_json()?)?;
-                    for (name, source) in files.widgets() {
-                        storage.write(&at.join(kind.files_dir()).join(name.file_name()), source.as_bytes())?;
-                    }
-                }
-                out.line("cli-extracted", &[("dir", dir.display().to_string().into())])?;
+                extract_bundle(storage, out, &bundle, &dir)?;
             }
         }
         Cmd::Strip { input, output } => {
@@ -468,24 +525,11 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 system_fonts: !no_system_fonts,
                 reference,
             };
-            import::import(platform, out, &app_fonts, args)?;
+            import::import(platform, out, &app_fonts, &args)?;
         }
-        Cmd::Bench { deck, iterations } => {
-            let base = registry(&app_fonts)?;
-            let deck_dir = deck.parent().map(Path::to_path_buf).unwrap_or_default();
-            let deck = read_deck(storage, l, &deck)?;
-            let library = PackLibrary::user(platform);
-            let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck)?;
-            // Un deck JSON n'embarque rien : son thème se résout par la bibliothèque, sinon un deck Pro serait mesuré en Papier.
-            let (mut bundle, _) =
-                sources_with_packs(platform, &library, &base, deck.clone(), packs).map_err(|e| eyre!(e.localize(l)))?;
-            let themes = ThemeLibrary::user(platform);
-            adopt_theme(&themes, &mut bundle, l)?;
-            let layer = sources_theme_layer(&themes, &bundle).map_err(|e| eyre!(e.localize(l)))?;
-            bench::bench(out, deck, layer, app_fonts, iterations, limits)?
-        }
+        Cmd::Bench { deck, iterations } => bench_cmd(platform, out, app_fonts, limits, &deck, iterations)?,
         Cmd::Schema => out.data(&serde_json::to_string_pretty(&oku_slides_core::ops_schema()?)?)?,
-        Cmd::Serve { input, port, ui } => serve::serve(out, input, port, &ui, app_fonts, platform)?,
+        Cmd::Serve { input, port, ui } => serve::serve(out, input.as_deref(), port, &ui, app_fonts, platform)?,
     }
     Ok(())
 }

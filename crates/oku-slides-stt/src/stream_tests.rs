@@ -12,10 +12,11 @@ fn from_raw_partial_keeps_text() {
 #[test]
 fn from_raw_final_carries_times() {
     let event = Event::from_raw(raw::FINAL, "Bonjour.".into(), 1.5, 2.5);
-    assert_that!(
-        matches!(event, Event::Final { text, start, end } if text == "Bonjour." && start == 1.5 && end == 2.5)
-    )
-    .is_true();
+    let parts = match event {
+        Event::Final { text, start, end } => Some((text, start, end)),
+        _ => None,
+    };
+    assert_that!(parts).is_equal_to(Some(("Bonjour.".to_owned(), 1.5, 2.5)));
 }
 
 #[test]

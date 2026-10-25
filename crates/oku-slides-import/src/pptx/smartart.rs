@@ -152,7 +152,9 @@ fn layout_of(pts: &[Point<'_, '_>], lo: Option<&str>, cx: &PartCtx<'_>, id: &str
     (layout.or_else(|| from_doc("loTypeId")), category.or_else(|| from_doc("loCatId")))
 }
 
-/// Le modèle du SmartArt `id` lu dans la part de données `dm` ; `lo` : sa part de disposition.
+/// The model of SmartArt `id`, read from the data part `dm`.
+///
+/// `lo` is its layout part.
 fn model(root: Node<'_, '_>, dm: &str, lo: Option<&str>, cx: &PartCtx<'_>, id: &str) -> Option<SmartArt> {
     let rels = linked_rels(cx, dm, id)?;
     let sub = cx.sub(rels, id.to_owned());

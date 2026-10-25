@@ -7,6 +7,7 @@ use serde_json::{Map, Value};
 /// Couleur : hex (`#rgb`, `#rrggbb`, `#rrggbbaa`), ou nom d'une couleur du
 /// thème (références suivies, huit au plus : une boucle ne donne rien). Une
 /// chaîne en `#` qui n'est pas un hex valide ne donne rien (t-194).
+#[must_use]
 pub fn resolve_color(colors: &Map<String, Value>, v: &Value) -> Option<String> {
     let mut v = v.as_str()?;
     for _ in 0..8 {

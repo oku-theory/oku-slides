@@ -629,7 +629,7 @@ fn close_last_tab_of_last_window_leaves_no_window() {
 fn finish_after_settle_refuses_and_trashes_the_built_tab() {
     let data = Data::new();
     let dir = data.0.join("resume");
-    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir.clone()).unwrap());
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), &dir).unwrap());
     let pending = Workspace::lock(&ws).pending(Some("w-1".into()), Opening::Blank, None);
     let session = pending.build().unwrap();
     let built = dir.join(TABS_DIR).join(&pending.id);
@@ -648,7 +648,7 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
     let data = Data::new();
     let dir = data.0.join("resume");
     let file = saved_pdf(&data, "gardé");
-    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir.clone()).unwrap());
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), &dir).unwrap());
     let leftover = dir.join(TABS_DIR).join("t-2");
     std::fs::create_dir_all(&leftover).unwrap();
     std::fs::write(leftover.join("state.json"), "pas du json").unwrap();
@@ -664,7 +664,7 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
     assert_that!(names.iter().any(|n| n.starts_with("t-2.failed-"))).is_true();
     // Le reste mis de côté, la reprise écrit l'onglet : il survit au relancement.
     drop(ws);
-    let again = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir).unwrap());
+    let again = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), &dir).unwrap());
     let w = &view(&again).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
     assert_that!(w.tabs[0].info.path).is_equal_to(Some(file));
@@ -871,11 +871,11 @@ fn a_new_tab_launches_its_render_worker_at_its_first_request() {
 fn with_session_wakes_a_dormant_resumed_tab() {
     let data = Data::new();
     let dir = data.0.join("resume");
-    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir.clone()).unwrap());
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), &dir).unwrap());
     Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
     Workspace::settle(&ws);
     drop(ws);
-    let again = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), dir).unwrap());
+    let again = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), &dir).unwrap());
     let slot = Workspace::lock(&again).session("t-1").unwrap();
     assert_that!(matches!(*relock(&slot), Slot::Dormant(_))).is_true();
     let (theme, _) =

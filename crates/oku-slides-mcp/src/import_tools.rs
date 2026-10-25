@@ -26,11 +26,11 @@ use crate::tools::{Tools, png};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ImportDiffArgs {
-    /// Identifiant de la slide (voir `import_report`).
+    /// Identifier of the slide (see `import_report`).
     pub slide: String,
-    /// Une région.
+    /// A region of the slide.
     ///
-    /// L'id d'item source d'une région de la slide (voir `import_diff`) ; sans elle, la slide entière.
+    /// The source item id of a region of the slide (see `import_diff`); without it, the whole slide.
     #[serde(default)]
     pub region: Option<String>,
 }
@@ -39,14 +39,16 @@ impl Tools {
     /// Fait le rendu de référence manquant, hors du verrou de la session.
     #[tracing::instrument(skip_all)]
     async fn ensure_reference(&self) -> Result<(), ToolError> {
-        let Some(job) = self.with_session(|s| s.import_reference_job()).await? else { return Ok(()) };
+        let Some(job) = self.with_session(oku_slides_session::Session::import_reference_job).await? else {
+            return Ok(());
+        };
         let platform = self.platform.clone();
         tokio::task::spawn_blocking(move || job.run(&platform)).await.context(TaskSnafu)
     }
 
     pub(crate) async fn import_report(&self) -> CallToolResult {
         if let Err(e) = self.ensure_reference().await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         let l = self.localizer.current();
         let report = self.with_session(move |s| s.import_report(&l)).await;
@@ -59,16 +61,16 @@ impl Tools {
             Err(r) => return r,
         };
         if let Err(e) = self.ensure_reference().await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         let diff = self.with_session(move |s| s.import_diff(&slide, region.as_deref())).await;
         let ImportDiff { reference, oku, json } = match diff {
             Ok(d) => d,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let text = match serde_json::to_string(&json).context(ResponseSnafu) {
             Ok(t) => t,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let mut result = png(&reference);
         result.content.extend(png(&oku).content);

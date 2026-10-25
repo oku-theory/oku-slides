@@ -1,4 +1,5 @@
-//! La session ACP de l'onglet : reprise d'une session connue, nouvelle conversation, gardien.
+//! The tab's ACP session: resuming a known session, new conversation, keeper.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

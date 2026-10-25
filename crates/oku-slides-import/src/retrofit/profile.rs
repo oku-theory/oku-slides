@@ -262,6 +262,7 @@ fn want(shape: &Shape) -> Want {
 }
 
 /// Score de base d'un agencement de contenu pour `want` (table de [`score`]).
+#[expect(clippy::match_same_arms, reason = "score table, one line per pair: pattern order decides there")]
 fn base(want: Want, layout: Arrangement) -> i32 {
     use Arrangement as L;
     match (want, layout) {
@@ -322,9 +323,9 @@ pub(crate) fn score(shape: &Shape, profile: &Profile<'_>) -> i32 {
         SlideRole::Toc | SlideRole::End => return 0,
     };
     let titled = if profile.has_title == shape.title { 0 } else { -15 };
-    let gap = profile.blocks.abs_diff(shape.content.len()).min(9);
-    // Borné à 9 : la conversion ne déborde pas.
-    base(want, layout) + titled - gap as i32
+    // Capped at 9; a gap outside i32 exceeds 9 anyway.
+    let gap = i32::try_from(profile.blocks.abs_diff(shape.content.len())).map_or(9, |g| g.min(9));
+    base(want, layout) + titled - gap
 }
 
 /// Le profil le mieux noté pour `shape` ; à égalité, le premier dans l'ordre

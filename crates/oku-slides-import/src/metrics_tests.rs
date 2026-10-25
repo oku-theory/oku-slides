@@ -2,6 +2,7 @@ use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::source::Grouping;
 use crate::source::{Chart, ChartKind, ItemKind, SmartArt, SourceSlide};
 use crate::test_support::{item, source_slide, text_item};
 
@@ -242,7 +243,7 @@ fn smartart_and_chart() -> SourceSlide {
     let kind = ItemKind::Group { items: vec![child], smartart: Some(Box::new(model)) };
     let chart = Chart {
         kind: ChartKind::Column,
-        grouping: Default::default(),
+        grouping: Grouping::default(),
         title: None,
         categories: vec![],
         series: vec![],

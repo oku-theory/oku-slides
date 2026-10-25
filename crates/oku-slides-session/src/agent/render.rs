@@ -15,12 +15,13 @@ use super::forms::{Place, Surface, surface};
 use crate::Result;
 use crate::error::AgentFormSnafu;
 
-/// `render` : une carte composée par l'agent, figée dans son tour.
+/// `render`: a card composed by the agent, frozen in its turn.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Render {
-    /// Components of the Oku Slides A2UI catalog v3 (A2UI v0.9 shape: {id, component, …}); one has id "root".
-    /// Values are literal: no {path} bindings.
+    /// Components of the Oku Slides A2UI catalog v3; one has id "root".
+    ///
+    /// A2UI v0.9 shape: {id, component, …}. Values are literal: no {path} bindings.
     pub components: Vec<serde_json::Value>,
 }
 /// Composants au plus dans un appel `render`.
@@ -215,7 +216,12 @@ fn check_tree(components: &[Component]) -> Result<()> {
     Ok(())
 }
 
-/// La surface d'une composition libre, ou pourquoi elle est refusée.
+/// The surface of a free composition, or why it is rejected.
+///
+/// # Errors
+///
+/// Fails (`AgentForm`) if the composition exceeds the bounds (count, bytes) or is not a valid strict
+/// tree.
 pub fn render(id: &str, spec: &Render) -> Result<Surface> {
     // Le nombre d'abord : on ne sérialise pas une liste démesurée pour la mesurer.
     ensure!(

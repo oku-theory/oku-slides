@@ -13,22 +13,80 @@ use crate::{RegistryError, RenderError};
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "error", rename_all = "kebab-case")]
 pub enum WireError {
-    Compile { diagnostics: Vec<Diagnostic> },
-    Pdf { diagnostics: Vec<Diagnostic> },
-    NoPage { index: usize },
-    Image { message: String },
-    Timeout { ms: u64 },
-    OutOfMemory { mib: u64 },
-    WorkerLost { message: String },
-    Frame { message: String },
+    /// Typst compilation failed.
+    Compile {
+        /// Diagnostics of the compilation.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// PDF export rejected.
+    Pdf {
+        /// Diagnostics of the export.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// Requested page missing from the document.
+    NoPage {
+        /// Requested index, starting at 0.
+        index: usize,
+    },
+    /// Image rejected or not encoded.
+    Image {
+        /// Message from the encoder or from the scale check.
+        message: String,
+    },
+    /// Render interrupted by the watchdog, out of time.
+    Timeout {
+        /// Budget exceeded, in milliseconds.
+        ms: u64,
+    },
+    /// Render interrupted by the watchdog, out of memory.
+    OutOfMemory {
+        /// Ceiling exceeded, in MiB.
+        mib: u64,
+    },
+    /// Render process lost during a request.
+    WorkerLost {
+        /// What is known about its loss.
+        message: String,
+    },
+    /// Pipe frame unreadable or too large.
+    Frame {
+        /// Why the frame was rejected.
+        message: String,
+    },
+    /// Request superseded by a newer one, abandoned.
     Stale,
-    PackDisabled { pack: String },
-    Setup { message: String },
-    RegistryBadPackId { id: String },
-    RegistryDuplicatePack { pack: String },
-    RegistryCompile { diagnostics: Vec<Diagnostic> },
+    /// Pack disabled after repeated failures.
+    PackDisabled {
+        /// Id of the disabled pack.
+        pack: String,
+    },
+    /// Any other error, reduced to its first line.
+    Setup {
+        /// First line of the original message.
+        message: String,
+    },
+    /// Invalid pack identifier for the registry.
+    RegistryBadPackId {
+        /// Rejected identifier.
+        id: String,
+    },
+    /// Two packs of the registry have the same identifier.
+    RegistryDuplicatePack {
+        /// Duplicate identifier.
+        pack: String,
+    },
+    /// Registry probe failed to compile.
+    RegistryCompile {
+        /// Diagnostics of the probe.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// Probe compiled without emitting a registry.
     RegistryMissing,
-    RegistrySchema { message: String },
+    /// Registry emitted but unreadable.
+    RegistrySchema {
+        /// Error reading the registry.
+        message: String,
+    },
 }
 
 impl WireError {
@@ -68,9 +126,12 @@ impl WireError {
     }
 
     /// L'erreur de rendu reconstruite de l'autre côté du tube.
+    #[must_use]
     pub fn into_render(self) -> RenderError {
         match self {
-            Self::Compile { diagnostics } => CompileSnafu { diagnostics }.build().into(),
+            Self::Compile { diagnostics } | Self::RegistryCompile { diagnostics } => {
+                CompileSnafu { diagnostics }.build().into()
+            }
             Self::Pdf { diagnostics } => PdfSnafu { diagnostics }.build().into(),
             Self::NoPage { index } => NoPageSnafu { index }.build().into(),
             Self::Image { message } => ImageSnafu { message }.build().into(),
@@ -87,7 +148,6 @@ impl WireError {
             Self::RegistryDuplicatePack { pack } => {
                 RemoteSnafu { message: format!("two packs share {pack}") }.build().into()
             }
-            Self::RegistryCompile { diagnostics } => CompileSnafu { diagnostics }.build().into(),
             Self::RegistryMissing => {
                 RemoteSnafu { message: "the widget probe emitted no registry".to_owned() }.build().into()
             }
@@ -95,6 +155,7 @@ impl WireError {
     }
 
     /// L'erreur de registre reconstruite de l'autre côté du tube.
+    #[must_use]
     pub fn into_registry(self) -> RegistryError {
         match self {
             Self::RegistryBadPackId { id } => BadPackIdSnafu { id }.build().into(),

@@ -13,6 +13,9 @@
 - Never make oku-slides-core depend on oku-slides-import; among workspace crates import may depend only on core, chart and i18n. (plan:2026-10-09-import-pptx-lot1, plan:2026-10-10-import-pptx-lot2)
 - Never write a deck-only pack (PackScope::Deck) to the library; its new versions stay deck-only; themes have no scope. (t-692, t-1098)
 - Add or remove a Rust advisory exception in deny.toml and .cargo/audit.toml together, with its reason in deny.toml. (t-890, t-897)
+- Fix clippy pedantic lints instead of lifting them per crate or workspace; expect one at the site with a reason. (t-1186)
+- Keep unsafe_code at deny, not forbid: FFI modules lift it with #[expect(unsafe_code, reason)]. (t-1186)
+- Route lossy numeric casts through oku_slides_core::num; crates below core keep a local num.rs with the same names. (t-1186)
 
 ## Pitfalls
 
@@ -22,6 +25,7 @@
 ## Testing
 
 - Make probe budget tests deterministic: use probe_budget_ms = 0 and assert behaviour, never measured elapsed time. (t-571, t-576)
+- Start an integration test crate that panics in helpers with #![expect(clippy::panic, reason)]; allow-panic-in-tests skips them. (t-1186)
 - Under heavy machine load, re-run timed-out render-worker, local-agent or CLI import tests with nextest --retries 2 before blaming a change. (t-1154)
 
 ## Settled decisions

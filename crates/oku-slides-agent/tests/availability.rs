@@ -1,5 +1,6 @@
 //! L'agent est-il utilisable ? Programme introuvable, lancement raté, puis réussi (t-901).
 #![cfg(unix)]
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

@@ -76,8 +76,8 @@ fn percent_decode(s: &str) -> String {
     while i < b.len() {
         let hex = |c: u8| char::from(c).to_digit(16);
         match (b[i], b.get(i + 1).copied().and_then(hex), b.get(i + 2).copied().and_then(hex)) {
-            (b'%', Some(h), Some(l)) => {
-                out.push(u8::try_from(h * 16 + l).unwrap_or(b'?'));
+            (b'%', Some(high), Some(low)) => {
+                out.push(u8::try_from(high * 16 + low).unwrap_or(b'?'));
                 i += 3;
             }
             (c, _, _) => {

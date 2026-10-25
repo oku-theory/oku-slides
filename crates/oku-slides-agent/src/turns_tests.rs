@@ -428,7 +428,7 @@ fn turns_eviction_removes_exactly_the_oldest() {
     let mut t = Turns::default();
     let now = Instant::now();
     let mut evicted = Vec::new();
-    for n in 1..=(KEPT_TURNS as u32 + 2) {
+    for n in 1..=(u32::try_from(KEPT_TURNS).unwrap() + 2) {
         for o in t.apply(&user(n), now, &fr()) {
             if let TurnOut::Evict(k) = o {
                 evicted.push(k);
@@ -594,7 +594,7 @@ fn turns_kept_turns_cap_counts_all_turns() {
     t.apply(&user(1), now, &fr());
     t.apply(&AgentEvent::TurnEnded { turn: 1, stop: "end_turn".into() }, now, &fr());
     let mut evicted = Vec::new();
-    for n in 2..=(KEPT_TURNS as u32 + 1) {
+    for n in 2..=(u32::try_from(KEPT_TURNS).unwrap() + 1) {
         for out in t.apply(&user(n), now, &fr()) {
             if let TurnOut::Evict(k) = out {
                 evicted.push(k);

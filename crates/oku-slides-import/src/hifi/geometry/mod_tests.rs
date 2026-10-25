@@ -18,8 +18,10 @@ fn vertices(commands: &[PathCommand]) -> Vec<(f64, f64)> {
     commands
         .iter()
         .filter_map(|c| match *c {
-            PathCommand::Move(x, y) | PathCommand::Line(x, y) | PathCommand::Quad(_, _, x, y) => Some((x, y)),
-            PathCommand::Cubic(_, _, _, _, x, y) => Some((x, y)),
+            PathCommand::Move(x, y)
+            | PathCommand::Line(x, y)
+            | PathCommand::Quad(_, _, x, y)
+            | PathCommand::Cubic(_, _, _, _, x, y) => Some((x, y)),
             PathCommand::Close => None,
         })
         .map(|(x, y)| ((x * 1e6).round() / 1e6, (y * 1e6).round() / 1e6))

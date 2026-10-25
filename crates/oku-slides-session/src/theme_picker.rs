@@ -136,14 +136,22 @@ impl Session {
         matches!(self.mode, Mode::Deck)
     }
 
-    /// Le thème avec lequel le deck se rend.
+    /// The theme the deck renders with.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the deck has no theme and Papier, the default theme, is missing from the built-ins.
     pub fn active_theme(&self) -> Result<Namespace> {
         self.deck_theme().cloned().map_or_else(default_namespace, Ok)
     }
 
-    /// Les cartes du sélecteur sur `slide` ; `None` hors du mode deck.
+    /// The picker cards on `slide`; `None` outside deck mode.
     ///
-    /// `slide` absente ou inconnue : la première. Rend dans le worker, verrou de session tenu.
+    /// `slide` absent or unknown: the first one. Renders in the worker, with the session lock held.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the active theme or the card renders fail.
     pub fn theme_choices(&mut self, slide: Option<&str>) -> Result<Option<ThemeChoices>> {
         self.theme_choices_within(slide, Bounds::DEFAULT)
     }
@@ -177,9 +185,13 @@ impl Session {
         Ok(Some(ThemeChoices { cards, active }))
     }
 
-    /// Applique le thème choisi au deck et le note pour l'agent.
+    /// Applies the chosen theme to the deck and notes it for the agent.
     ///
-    /// Refusé hors du mode deck ou pour un thème inconnu ; une étape d'annulation.
+    /// Rejected outside deck mode or for an unknown theme; one undo step.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode, for an unknown theme (`UnknownTheme`), or if the transaction is rejected.
     pub fn pick_theme(&mut self, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
         let name = self.themes.by_namespace(ns).map(|s| s.manifest.name);

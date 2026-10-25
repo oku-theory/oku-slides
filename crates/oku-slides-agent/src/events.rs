@@ -5,104 +5,135 @@ use oku_slides_session::agent::{AttachmentRef, DETAIL_CHARS, PromptImage, clip};
 use serde::Serialize;
 use serde_json::Value;
 
+/// The state of a tab's agent, shown by the thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentState {
+    /// Idle: no turn is running.
     Idle,
+    /// Starting: the ACP handshake is not finished.
     Starting,
+    /// A turn is running.
     Working,
 }
 
+/// One step of the plan the agent announces.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PlanItem {
+    /// Text of the step, as the agent writes it.
     pub content: String,
     /// `pending`, `in_progress`, `completed`.
     pub status: String,
 }
 
-/// Un évènement du fil (JSON `{"kind": …}`).
+/// An event of the thread (JSON `{"kind": …}`).
 ///
-/// Tout ce qui arrive pendant un tour porte le numéro de ce tour (`turn`, donné par
-/// `SurfaceHub::begin_turn`) : le réducteur des tours range chaque évènement dans le sien,
-/// même si l'ouverture du tour (`UserText`) s'est perdue (relais en retard).
+/// Everything that happens during a turn carries that turn's number (`turn`, given by
+/// `SurfaceHub::begin_turn`): the turn reducer files each event in its own turn, even if
+/// the turn's opening (`UserText`) was lost (late relay).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentEvent {
-    /// L'état de l'agent.
+    /// The agent's state.
     Status {
+        /// Where the agent stands.
         state: AgentState,
     },
-    /// La consigne dite, qui ouvre le tour `turn`.
+    /// The spoken instruction, which opens turn `turn`.
     UserText {
+        /// Number of the opened turn.
         turn: u32,
+        /// The instruction, as spoken or typed.
         text: String,
-        /// Les images collées avec la consigne.
+        /// The images pasted with the instruction.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         images: Vec<PromptImage>,
     },
-    /// Un morceau de la réponse de l'agent.
+    /// A chunk of the agent's answer.
     Chunk {
+        /// Number of the turn.
         turn: u32,
+        /// The received text, to append to the previous one.
         text: String,
     },
+    /// The agent calls a tool.
     ToolCall {
+        /// Number of the turn.
         turn: u32,
+        /// ACP id of the call, which later updates refer to.
         id: String,
+        /// Title of the call, as the agent gives it.
         title: String,
+        /// ACP status of the call (`pending`, `in_progress`, `completed`, `failed`).
         status: String,
-        /// Arguments en JSON indenté, bornés ([`DETAIL_CHARS`]).
+        /// Arguments as indented JSON, bounded ([`DETAIL_CHARS`]).
         #[serde(skip_serializing_if = "Option::is_none")]
         input: Option<String>,
-        /// Résultat en texte, borné.
+        /// Result as text, bounded.
         #[serde(skip_serializing_if = "Option::is_none")]
         output: Option<String>,
     },
+    /// An update to a tool call already shown.
     ToolUpdate {
+        /// Number of the turn.
         turn: u32,
+        /// ACP id of the updated call.
         id: String,
+        /// New title; absent means unchanged.
         title: Option<String>,
+        /// New status; absent means unchanged.
         status: Option<String>,
-        /// Nouveaux arguments, comme ceux de `ToolCall`.
+        /// New arguments, like those of `ToolCall`.
         #[serde(skip_serializing_if = "Option::is_none")]
         input: Option<String>,
-        /// Nouveau résultat, comme celui de `ToolCall`.
+        /// New result, like that of `ToolCall`.
         #[serde(skip_serializing_if = "Option::is_none")]
         output: Option<String>,
     },
+    /// The agent's plan, replaced as a whole on each update.
     Plan {
+        /// Number of the turn.
         turn: u32,
+        /// The plan's steps, in order.
         entries: Vec<PlanItem>,
     },
-    /// Fin du tour : `end_turn`, `cancelled`, `max_tokens`…
+    /// End of the turn: `end_turn`, `cancelled`, `max_tokens`…
     TurnEnded {
+        /// Number of the ended turn.
         turn: u32,
+        /// ACP stop reason.
         stop: String,
     },
-    /// Message dans la langue de l'utilisateur.
+    /// Message in the user's language.
     Error {
+        /// Number of the failed turn.
         turn: u32,
+        /// The localized message.
         message: String,
     },
-    /// Nouvelle conversation : le fil de l'onglet repart de zéro.
+    /// New conversation: the tab's thread starts over.
     Conversation,
-    /// Le brouillon de l'onglet (`None` : fermé), tel que l'hôte le tient pour toutes ses vues.
+    /// The tab's draft (`None`: closed), as the host holds it for all its views.
     Draft {
+        /// The draft's text; `None` when it is closed.
         text: Option<String>,
-        /// La vue qui l'a écrit ; absente quand l'hôte le rejoue. Une vue ignore ses propres échos.
+        /// The view that wrote it; absent when the host replays it. A view ignores its own echoes.
         origin: Option<String>,
-        /// Les images collées du brouillon ; l'hôte en est seul juge, chaque vue les reprend.
+        /// The draft's pasted images; the host alone decides, every view takes them up.
         images: Vec<AttachmentRef>,
     },
-    /// L'agent choisi est-il utilisable ? `unusable` : pourquoi non, localisé.
+    /// Is the chosen agent usable? `unusable`: why not, localized.
     Availability {
+        /// Why the agent is unusable, localized; `None` when it is usable.
         unusable: Option<String>,
     },
-    /// La dictée a changé (réglages, modèles, état) : l'interface relit son état.
+    /// Dictation changed (settings, models, state): the interface reads its state again.
     Voice,
 }
 
 impl AgentEvent {
-    /// L'agent au repos.
+    /// The agent at rest.
+    #[must_use]
     pub fn idle() -> Self {
         Self::Status { state: AgentState::Idle }
     }

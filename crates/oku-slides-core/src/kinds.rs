@@ -27,6 +27,7 @@ pub mod base {
     pub const ALL: [&str; 7] = [TEXT, CARD, IMAGE, SHAPE, CHART, TABLE, STACK];
 
     /// L'espace de noms `base`.
+    #[must_use]
     pub fn namespace() -> Namespace {
         Namespace::builtin(NAMESPACE)
     }
@@ -54,12 +55,14 @@ pub mod essentiel {
     pub const ALL: [&str; 6] = [TITLE, TOC, CHAPTER, CONTENT, END, BLANK];
 
     /// L'espace de noms `essentiel`.
+    #[must_use]
     pub fn namespace() -> Namespace {
         Namespace::builtin(NAMESPACE)
     }
 }
 
 /// Vrai pour un kind livré par un pack intégré (`base` ou `essentiel`).
+#[must_use]
 pub fn is_builtin_kind(kind: &str) -> bool {
     base::ALL.contains(&kind) || essentiel::ALL.contains(&kind)
 }

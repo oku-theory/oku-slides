@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 
 use crate::report::LossKind;
 use crate::source::{self, ChartKind, Grouping};
+use oku_slides_core::num::count_f64;
 
 /// Groupe d'empilement des séries empilées.
 const STACK: &str = "total";
@@ -46,7 +47,7 @@ fn scatter_grid(c: &source::Chart) -> Vec<Vec<Value>> {
     let parsed: Option<Vec<f64>> =
         cats.iter().map(|s| s.trim().parse::<f64>().ok().filter(|x| x.is_finite())).collect();
     let shared: Vec<Option<f64>> =
-        parsed.unwrap_or_else(|| (1..=cats.len()).map(|i| i as f64).collect()).into_iter().map(Some).collect();
+        parsed.unwrap_or_else(|| (1..=cats.len()).map(count_f64).collect()).into_iter().map(Some).collect();
     let xs: Vec<&[Option<f64>]> = c.series.iter().map(|s| s.x.as_deref().unwrap_or(&shared)).collect();
     let rows = xs.iter().map(|x| x.len()).max().unwrap_or(0).max(cats.len());
     let header = c.series.iter().flat_map(|s| [Value::from("X"), Value::from(s.name.as_str())]).collect();

@@ -41,7 +41,7 @@ impl Drop for Stale {
 fn workdir_with_stale_dirs_from_a_recycled_pid_is_empty() {
     let _stale = Stale::plant("regression");
     let dir = workdir("regression");
-    let entries = std::fs::read_dir(&*dir).map(Iterator::count).unwrap_or(0);
+    let entries = std::fs::read_dir(&*dir).map_or(0, Iterator::count);
     asserting("le dossier de travail d'un test est neuf").that(&entries).is_equal_to(0);
 }
 

@@ -50,7 +50,7 @@ impl Geometry {
 /// `v` pt en pixels entiers, à `ppp` pixels par pt.
 pub(crate) fn px(v: f64, ppp: f64) -> u32 {
     // Borné à zéro, puis arrondi : un cadre fini et borné de la page tient dans `u32`.
-    (v * ppp).round().max(0.0) as u32
+    oku_slides_core::num::round_u32((v * ppp).max(0.0))
 }
 
 /// La vue de `r` que lit [`oku_slides_import::metrics::score`].
@@ -70,7 +70,7 @@ pub(crate) fn crop_box([left, top, right, bottom]: [f64; 4], margin: u32, width:
     }
     let m = f64::from(margin);
     // Arrondi puis borné à la page : la valeur tient dans `u32`.
-    let at = |v: f64, max: u32| v.round().clamp(0.0, f64::from(max)) as u32;
+    let at = |v: f64, max: u32| oku_slides_core::num::round_u32(v.clamp(0.0, f64::from(max)));
     let (x0, y0) = (at(left - m, width - 1), at(top - m, height - 1));
     let (x1, y1) = (at(right + m, width).max(x0 + 1), at(bottom + m, height).max(y0 + 1));
     Some([x0, y0, x1 - x0, y1 - y0])

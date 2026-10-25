@@ -19,9 +19,9 @@ fn eot(font: &[u8], flags: u32) -> Vec<u8> {
     v[12..16].copy_from_slice(&flags.to_le_bytes());
     v[34..36].copy_from_slice(&0x504Cu16.to_le_bytes());
     if flags & XOR != 0 {
-        v.extend(font.iter().map(|b| b ^ 0x50))
+        v.extend(font.iter().map(|b| b ^ 0x50));
     } else {
-        v.extend_from_slice(font)
+        v.extend_from_slice(font);
     }
     v
 }

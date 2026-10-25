@@ -19,6 +19,7 @@ pub struct ListPath<'a> {
 
 impl<'a> ListPath<'a> {
     /// Lit `param` ou `param/item/colonne` ; `None` pour toute autre forme (segment vide compris).
+    #[must_use]
     pub fn parse(path: &'a str) -> Option<Self> {
         let parts: Vec<&'a str> = path.split('/').collect();
         if parts.iter().any(|p| p.is_empty()) {
@@ -33,6 +34,7 @@ impl<'a> ListPath<'a> {
 
     /// Le schéma de la liste parmi les paramètres `params` d'un widget : le paramètre, ou
     /// la colonne `list` de ses items ; `None` si elle n'est pas déclarée en liste.
+    #[must_use]
     pub fn schema<'s>(&self, params: &'s [ParamSchema]) -> Option<&'s ParamSchema> {
         let p = params.iter().find(|p| p.name == self.param)?;
         let ParamType::List { item, .. } = &p.ty else { return None };
@@ -44,6 +46,7 @@ impl<'a> ListPath<'a> {
 
     /// Les items de la liste dans `params` ; une liste absente est vide. `None` si l'item
     /// qui porte la liste imbriquée n'existe pas.
+    #[must_use]
     pub fn items<'p>(&self, params: &'p Params) -> Option<&'p [ListItem]> {
         let top = params.list(self.param).unwrap_or_default();
         match self.nested {
@@ -52,11 +55,17 @@ impl<'a> ListPath<'a> {
         }
     }
 
-    /// Applique `change` à la liste du chemin ; `top` est la liste du paramètre, de schéma
-    /// `spec`. En cas d'erreur, `top` est intact. Une liste imbriquée vidée est retirée de
-    /// son item (absente = vide).
+    /// Applies `change` to the list at the path.
     ///
-    /// Les items imbriqués de toute la liste restent sous [`NESTED_ITEMS_MAX`](super::list::NESTED_ITEMS_MAX).
+    /// `top` is the parameter's list, of schema `spec`. On error, `top` is intact.
+    /// A nested list left empty is removed from its item (absent = empty).
+    ///
+    /// The nested items of the whole list stay under [`NESTED_ITEMS_MAX`](super::list::NESTED_ITEMS_MAX).
+    ///
+    /// # Errors
+    ///
+    /// Item of the path not found, column that is not a list, or
+    /// change refused by [`ListOp::apply`], nested bounds included.
     pub fn apply(&self, top: &mut Vec<ListItem>, spec: &ListSpec<'_>, change: ListOp) -> Result<(), OpError> {
         let Some((item, column)) = self.nested else {
             // Un item inséré amorce ses listes imbriquées : le total se contrôle sur une copie.

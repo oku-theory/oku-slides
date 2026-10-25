@@ -155,7 +155,7 @@ fn deck_with(colors: &[(&str, f64)]) -> SourceDeck {
         .enumerate()
         .map(|(k, (c, area))| {
             let shape = SourceShape {
-                geom: Geometry::Preset { name: "rect".into(), adj: Default::default() },
+                geom: Geometry::Preset { name: "rect".into(), adj: std::collections::BTreeMap::default() },
                 fill: Fill::Solid { color: Styled::explicit(hex(c)) },
                 stroke: None,
                 text: None,

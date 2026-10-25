@@ -17,6 +17,9 @@
 //! les références de remplissage de thème (`fillRef`) des styles thématiques
 //! deviennent des pleins de l'accent, qui ne dépendent pas du thème.
 
+// `write!` into a `String` never fails: its result is ignored.
+use std::fmt::Write as _;
+
 /// Famille d'un style intégré.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Family {
@@ -151,7 +154,10 @@ const NO_LINE: &str = "<a:ln><a:noFill/></a:ln>";
 
 /// Les bords `sides` (`left`, `insideH`…) d'une partie.
 fn borders(sides: &[(&str, &str)]) -> String {
-    let inner: String = sides.iter().map(|(side, line)| format!("<a:{side}>{line}</a:{side}>")).collect();
+    let inner = sides.iter().fold(String::new(), |mut inner, (side, line)| {
+        let _ = write!(inner, "<a:{side}>{line}</a:{side}>");
+        inner
+    });
     format!("<a:tcBdr>{inner}</a:tcBdr>")
 }
 
@@ -212,6 +218,7 @@ fn bold_col(name: &str) -> String {
 
 /// Les parties de la famille `family` sur la couleur `a` (un accent, sinon la
 /// couleur de base de la famille) et, pour le foncé 2, l'en-tête `head`.
+#[expect(clippy::too_many_lines, reason = "lookup table of the built-in style families, one arm per family")]
 fn parts(family: Family, a: &str, head: &str) -> Parts {
     let (lt1, dk1) = (clr("lt1", None), clr("dk1", None));
     let c = clr(a, None);
@@ -344,7 +351,7 @@ fn parts(family: Family, a: &str, head: &str) -> Parts {
         },
         Dark1 => {
             // Sans accent, le noir s'éclaircit (`tint`) ; un accent s'assombrit (`shade`).
-            let tone = |v| if a == "dk1" { clr(a, Some(("tint", 100000 - v))) } else { clr(a, Some(("shade", v))) };
+            let tone = |v| if a == "dk1" { clr(a, Some(("tint", 100_000 - v))) } else { clr(a, Some(("shade", v))) };
             let edge = |side| borders(&[(side, &ln(25400, &lt1))]);
             Parts {
                 whole: part("wholeTbl", &text(false, Some(&lt1)), &grid(NO_LINE), &solid(&tone(20000))),

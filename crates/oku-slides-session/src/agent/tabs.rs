@@ -11,8 +11,13 @@ use crate::Session;
 /// session d'un onglet (l'espace de travail de l'hôte, ou une session seule
 /// dans les tests).
 pub trait Sessions: Send + Sync + std::fmt::Debug {
-    /// Appelle `f` sur la session de `tab` ; bloquant. Onglet inconnu :
-    /// erreur, `f` n'est pas appelée.
+    /// Calls `f` on the session of `tab`; blocking.
+    ///
+    /// Unknown tab: an error, and `f` is not called.
+    ///
+    /// # Errors
+    ///
+    /// Fails if tab `tab` is unknown to the host.
     fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> crate::Result<()>;
 
     /// Vrai si `path` est déjà ouvert dans un autre onglet que `tab`.
@@ -31,11 +36,17 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
         true
     }
 
-    /// Ouvre `path` dans un nouvel onglet à côté de `tab` (déjà ouvert : son
-    /// onglet devient actif) et rend l'onglet du fichier ; bloquant.
-    /// L'onglet `tab` et son document restent tels quels.
+    /// Opens `path` in a new tab next to `tab`, returning that tab; blocking.
     ///
-    /// Par défaut `SingleDocument` : un hôte à un seul document n'a pas d'autre onglet.
+    /// If the file is already open, its tab becomes active. Tab `tab` and its document stay as they
+    /// are.
+    ///
+    /// Defaults to `SingleDocument`: a single-document host has no other tab.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the host has only one document (`SingleDocument`, the default) or if the tab does not
+    /// open.
     fn open_tab(&self, _tab: &str, _path: &Path) -> crate::Result<String> {
         Err(crate::error::SingleDocumentSnafu.build().into())
     }
@@ -63,27 +74,37 @@ impl TabSession {
     }
 
     /// Identifiant de l'onglet.
+    #[must_use]
     pub fn tab(&self) -> &str {
         &self.tab
     }
 
     /// Vrai si `path` est déjà ouvert dans un autre onglet ; bloquant (verrou).
+    #[must_use]
     pub fn open_elsewhere(&self, path: &Path) -> bool {
         self.sessions.open_elsewhere(&self.tab, path)
     }
 
     /// L'onglet est-il affiché (voir [`Sessions::shown`]) ? Bloquant (verrou).
+    #[must_use]
     pub fn shown(&self) -> bool {
         self.sessions.shown(&self.tab)
     }
 
-    /// Ouvre `path` à côté de cet onglet (voir [`Sessions::open_tab`]) ; bloquant.
+    /// Opens `path` next to this tab (see [`Sessions::open_tab`]); blocking.
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Sessions::open_tab`]: single-document host, or a tab or file that does not open.
     pub fn open_tab(&self, path: &Path) -> crate::Result<String> {
         self.sessions.open_tab(&self.tab, path)
     }
 
-    /// `f` sur la session de l'onglet ; bloquant (verrou) : hors du fil
-    /// async.
+    /// Runs `f` on the tab's session; blocking (lock), so off the async thread.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the tab is unknown to the host, or if the host did not call `f`.
     pub fn with<R>(&self, f: impl FnOnce(&mut Session) -> R) -> crate::Result<R> {
         let mut f = Some(f);
         let mut out = None;

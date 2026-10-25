@@ -62,11 +62,16 @@ pub struct ImportDiff {
 }
 
 impl Session {
-    /// Compare la slide `slide`, ou sa région `region` (un item source), à sa référence.
+    /// Compares slide `slide`, or its region `region` (a source item), to its reference.
     ///
-    /// La référence doit être faite ([`Self::import_reference_job`]) ; refusé
-    /// hors hi-fi, pour une slide ou une région inconnue, et pour une slide qui
-    /// n'a plus d'essai (zoom compris).
+    /// The reference must be made ([`Self::import_reference_job`]); rejected
+    /// outside hi-fi, for an unknown slide or region, and for a slide that no
+    /// longer has an attempt (zoom included).
+    ///
+    /// # Errors
+    ///
+    /// Fails without an import (`NoImport`), outside hi-fi (`HifiOnly`), without a reference
+    /// (`ReferencePending`, `NoReference`), for an unknown slide or region, or without an attempt.
     pub fn import_diff(&mut self, slide: &str, region: Option<&str>) -> Result<ImportDiff> {
         let state = self.tuned_import()?;
         if state.mode() != ImportMode::Hifi {

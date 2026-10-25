@@ -36,6 +36,7 @@ pub enum ImportErrorKind {
 
 impl ImportError {
     /// Nature de l'erreur, pour choisir le message affiché.
+    #[must_use]
     pub fn kind(&self) -> ImportErrorKind {
         match *self.0 {
             Inner::Zip { .. } | Inner::Io { .. } | Inner::Utf8 { .. } | Inner::Xml { .. } | Inner::Structure { .. } => {

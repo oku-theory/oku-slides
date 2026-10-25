@@ -1,3 +1,5 @@
+//! The apply tool over MCP: deck ops, turn group, errors, schema.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use common::*;
@@ -222,6 +224,7 @@ async fn set_theme_extends_outside_pack_mode_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn remove_pack_in_use_returns_the_localized_reason() {
+    use oku_slides_i18n::Localize;
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "remove_pack", json!({ "kind": "widgets", "namespace": "base" })).await;
@@ -232,7 +235,6 @@ async fn remove_pack_in_use_returns_the_localized_reason() {
         &oku_slides_core::kinds::base::namespace(),
     )
     .unwrap();
-    use oku_slides_i18n::Localize;
     assert_that!(text_of(&r)).is_equal_to(refusal.localize(&h.localizer));
     h.live.set(std::sync::Arc::new(oku_slides_i18n::Localizer::new(Some("en"))));
     let english = call(&c, "remove_pack", json!({ "kind": "widgets", "namespace": "base" })).await;

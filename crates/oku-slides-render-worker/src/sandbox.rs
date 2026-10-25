@@ -67,7 +67,7 @@ mod macos {
 
     use oku_slides_platform::storage::canonical;
 
-    use super::*;
+    use super::{Command, Path, RenderError, Sandbox};
 
     /// Pose le profil puis exécute le travailleur, sous le même PID.
     pub(crate) const SANDBOX_EXEC: &str = "/usr/bin/sandbox-exec";

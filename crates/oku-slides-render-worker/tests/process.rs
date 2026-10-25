@@ -1,4 +1,5 @@
 //! Le travailleur dans un vrai sous-processus : bornes et relance.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

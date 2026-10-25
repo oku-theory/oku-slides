@@ -93,14 +93,22 @@ pub(crate) enum BulletKind {
     AutoNum { scheme: String, start: u32 },
 }
 
-/// Propriétés de puce partielles ; chacune s'hérite séparément.
+/// Partial bullet properties; each one is inherited separately.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct BulletProps {
     pub kind: Option<BulletKind>,
-    /// `Some(None)` : la puce suit la couleur du texte (`buClrTx`).
+    /// `Some(None)`: the bullet follows the text's color (`buClrTx`).
+    #[expect(
+        clippy::option_option,
+        reason = "three OOXML inheritance states: absent (inherited), follows the text's own (buClrTx), value"
+    )]
     pub color: Option<Option<ColorSpec>>,
     pub size_pct: Option<f64>,
-    /// `Some(None)` : la puce suit la police du texte (`buFontTx`).
+    /// `Some(None)`: the bullet follows the text's font (`buFontTx`).
+    #[expect(
+        clippy::option_option,
+        reason = "three OOXML inheritance states: absent (inherited), follows the text's own (buFontTx), value"
+    )]
     pub font: Option<Option<String>>,
 }
 
@@ -377,7 +385,7 @@ pub(crate) fn parse_txbody(tx: Node<'_, '_>, link: &mut dyn FnMut(&str) -> Optio
     }
     RawText {
         body: child(tx, "bodyPr").map(parse_body_pr).unwrap_or_default(),
-        lst: child(tx, "lstStyle").map(parse_lst_style).unwrap_or_else(empty_levels),
+        lst: child(tx, "lstStyle").map_or_else(empty_levels, parse_lst_style),
         paragraphs,
     }
 }

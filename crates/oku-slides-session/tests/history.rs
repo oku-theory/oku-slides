@@ -1,4 +1,5 @@
 //! Mode historique : lire, parcourir et restaurer une version du deck.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

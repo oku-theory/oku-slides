@@ -1,6 +1,7 @@
 //! Un snapshot vient d'un fichier : jamais fiable. `from_snapshot` doit
 //! refuser proprement le tronqué, l'aléatoire, le trop gros et le document
 //! Loro d'un autre projet — jamais paniquer.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -23,6 +24,7 @@ fn from_snapshot_truncated_returns_corrupted() {
 }
 
 #[test]
+#[expect(clippy::cast_possible_truncation, reason = "low byte of a multiplicative hash: intended truncation")]
 fn from_snapshot_random_bytes_returns_corrupted() {
     let bytes: Vec<u8> = (0..4096u32).map(|i| (i.wrapping_mul(2_654_435_761) >> 13) as u8).collect();
     let err = DeckReplica::from_snapshot(&bytes, 1 << 20, common::shared()).unwrap_err();
@@ -90,7 +92,8 @@ fn from_snapshot_with_malformed_container_state_replays_the_operations() {
         match read {
             Ok(Ok(read)) => assert_that!(read).is_equal_to(&expected),
             Ok(Err(e)) => panic!("état forgé lu : {e}"),
-            Err(_) => panic!("from_snapshot a paniqué"),
+            // `from_snapshot` panicked: the original panic fails the test.
+            Err(payload) => std::panic::resume_unwind(payload),
         }
     }
 }

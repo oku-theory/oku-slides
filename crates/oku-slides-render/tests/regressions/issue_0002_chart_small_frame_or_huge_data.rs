@@ -10,7 +10,7 @@ use oku_slides_core::kinds::{base, essentiel};
 use serde_json::json;
 use speculoos::prelude::*;
 
-fn deck_with(frame: serde_json::Value, rows: usize) -> Deck {
+fn deck_with(frame: &serde_json::Value, rows: usize) -> Deck {
     let mut source = vec![json!(["Mois", "Ventes"])];
     source.extend((0..rows).map(|i| json!([format!("m{i}"), i])));
     serde_json::from_value(json!({ "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [{
@@ -28,14 +28,14 @@ fn compiles(deck: &Deck) -> bool {
 #[test]
 fn chart_in_tiny_frames_renders_without_panic() {
     for (w, h) in [(300.0, 40.0), (100.0, 60.0), (10.0, 10.0), (1e30, 1e30)] {
-        let deck = deck_with(json!({ "x": 0, "y": 0, "w": w, "h": h }), 3);
+        let deck = deck_with(&json!({ "x": 0, "y": 0, "w": w, "h": h }), 3);
         asserting(&format!("cadre {w}×{h}")).that(&compiles(&deck)).is_true();
     }
 }
 
 #[test]
 fn chart_with_huge_dataset_falls_back_instead_of_rendering() {
-    let deck = deck_with(json!({ "x": 0, "y": 0, "w": 800, "h": 450 }), 200_000);
+    let deck = deck_with(&json!({ "x": 0, "y": 0, "w": 800, "h": 450 }), 200_000);
     let mut r = crate::common::renderer();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let page = r.compile().unwrap().svg(0).unwrap();

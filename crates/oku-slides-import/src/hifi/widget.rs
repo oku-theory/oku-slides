@@ -182,7 +182,8 @@ fn placeholder_params(layout: &Layout) -> Vec<PlaceholderParam> {
         .iter()
         .filter_map(|ph| {
             let (base, _) = param_base(ph.role)?;
-            let param = (1..)
+            // Among `used.len() + 1` names, at least one is free.
+            let param = (1..=used.len() + 1)
                 .map(|n| if n == 1 { base.to_owned() } else { format!("{base}-{n}") })
                 .find(|p| !used.contains(p))
                 .unwrap_or_default();

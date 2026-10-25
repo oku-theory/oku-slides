@@ -57,7 +57,7 @@ fn is_hex64(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// Version d'un pack : `sha256:<hex>` de son contenu canonique.
+/// Version of a pack: `sha256:<hex>` of its canonical content.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(try_from = "String", into = "String")]
 #[schemars(with = "String")]
@@ -65,6 +65,7 @@ pub struct PackVersion(String);
 
 impl PackVersion {
     /// La version de `files`.
+    #[must_use]
     pub fn of(files: &PackFiles) -> Self {
         Self(format!("{PREFIX}{}", hex::encode(Sha256::digest(files.canonical()))))
     }
@@ -75,21 +76,25 @@ impl PackVersion {
     }
 
     /// Depuis l'empreinte seule (nom de dossier `packs/<hex>`).
+    #[must_use]
     pub fn from_hex(hex: &str) -> Option<Self> {
         is_hex64(hex).then(|| Self(format!("{PREFIX}{hex}")))
     }
 
     /// L'empreinte sans préfixe : nom de dossier, id du pack dans Typst.
+    #[must_use]
     pub fn hex(&self) -> &str {
         self.0.strip_prefix(PREFIX).unwrap_or(&self.0)
     }
 
     /// La forme écrite, `sha256:<hex>`.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Vrai si `files` a bien cette version (vérification d'intégrité).
+    #[must_use]
     pub fn verifies(&self, files: &PackFiles) -> bool {
         Self::of(files) == *self
     }
@@ -121,9 +126,9 @@ pub const COMMON_WIDGET_FILE: &str = "_commun";
 /// Longueur maximale d'un nom de fichier de widget.
 const MAX_WIDGET_NAME: usize = 64;
 
-/// Nom d'un fichier de widget : `[a-z][a-z0-9-]*`, ou `_commun`.
+/// Name of a widget file: `[a-z][a-z0-9-]*`, or `_commun`.
 ///
-/// C'est le nom du widget qu'il déclare ; `_commun` n'est pas un widget.
+/// It is the name of the widget it declares; `_commun` is not a widget.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(try_from = "String", into = "String")]
 #[schemars(with = "String")]
@@ -131,6 +136,7 @@ pub struct WidgetFile(String);
 
 impl WidgetFile {
     /// Lit un nom ; `None` hors de `[a-z][a-z0-9-]*` et de `_commun`.
+    #[must_use]
     pub fn parse(s: &str) -> Option<Self> {
         let mut bytes = s.bytes();
         let plain = s.len() <= MAX_WIDGET_NAME
@@ -140,20 +146,25 @@ impl WidgetFile {
     }
 
     /// Le fichier partagé `_commun`.
+    #[must_use]
     pub fn common() -> Self {
         Self(COMMON_WIDGET_FILE.to_owned())
     }
 
     /// Vrai pour `_commun`, qui n'est pas un widget.
+    #[must_use]
     pub fn is_common(&self) -> bool {
         self.0 == COMMON_WIDGET_FILE
     }
 
+    /// The file name, without the `.typ` suffix.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Nom sur disque et dans le zip : `<nom>.typ`.
+    #[must_use]
     pub fn file_name(&self) -> String {
         format!("{}.typ", self.0)
     }
@@ -184,18 +195,18 @@ impl fmt::Display for WidgetFile {
     }
 }
 
-/// Un pack épinglé par un deck (widgets ou layouts) : id, version embarquée, besoins.
+/// A pack pinned by a deck (widgets or layouts): id, embedded version, requirements.
 ///
-/// `requires` recopie celui du manifeste de la version : le cœur refuse ainsi
-/// un retrait sans lire les fichiers ; les sources vérifient la copie.
+/// `requires` copies the one in the version's manifest: the core thus refuses
+/// a removal without reading the files; the sources check the copy.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct PackPin {
-    /// Id du pack (UUID v4), stable d'une version à l'autre.
+    /// Id of the pack (UUID v4), stable from one version to the next.
     #[schemars(with = "String")]
     pub id: Uuid,
-    /// Version embarquée par les sources du deck.
+    /// Version embedded in the deck's sources.
     pub version: PackVersion,
-    /// Espaces de noms dont ce pack a besoin, épinglés aussi par le deck.
+    /// Namespaces this pack requires, also pinned by the deck.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<Namespace>,
 }
@@ -209,10 +220,10 @@ pub struct PackFiles {
 }
 
 impl PackFiles {
-    /// Les fichiers lus sous l'empreinte annoncée `hex`, si leur contenu la donne.
+    /// The files read under the announced digest `hex`, if their content yields it.
     ///
-    /// `None` si `hex` n'est pas une empreinte, si les octets ne se lisent pas
-    /// (voir [`Self::from_bytes`]) ou si le contenu a une autre version.
+    /// `None` if `hex` is not a digest, if the bytes do not read
+    /// (see [`Self::from_bytes`]) or if the content has another version.
     pub fn verified<'a>(
         kind: PackKind,
         hex: &str,
@@ -224,6 +235,7 @@ impl PackFiles {
     }
 
     /// Les fichiers d'un pack de sorte `kind` ; un fichier vide vaut absent.
+    #[must_use]
     pub fn new(kind: PackKind, manifest: Map<String, Value>, mut widgets: BTreeMap<WidgetFile, String>) -> Self {
         widgets.retain(|_, source| !source.is_empty());
         Self { kind, manifest, widgets }
@@ -249,42 +261,52 @@ impl PackFiles {
         Some(Self::new(kind, manifest, widgets))
     }
 
-    /// Les fichiers d'une version de thème : son seul `theme.json`.
+    /// The files of a theme version: its single `theme.json`.
     ///
-    /// Sans préfixe canonique : la version d'un thème ne dépend que de son `theme.json`.
+    /// No canonical prefix: the version of a theme depends only on its `theme.json`.
+    #[must_use]
     pub fn theme(manifest: Map<String, Value>) -> Self {
         Self::new(PackKind::Widgets, manifest, BTreeMap::new())
     }
 
     /// Une version de thème depuis les octets de son `theme.json` ; `None` s'il n'est pas un objet JSON.
+    #[must_use]
     pub fn theme_from_bytes(json: &[u8]) -> Option<Self> {
         Self::from_bytes(PackKind::Widgets, json, [])
     }
 
     /// La version de thème lue sous l'empreinte annoncée `hex`, si son contenu la donne.
+    #[must_use]
     pub fn verified_theme(hex: &str, json: &[u8]) -> Option<Self> {
         Self::verified(PackKind::Widgets, hex, json, []).map(|(_, files)| files)
     }
 
     /// La sorte du pack : elle fixe son manifeste, son dossier et sa version.
+    #[must_use]
     pub fn kind(&self) -> PackKind {
         self.kind
     }
 
     /// Le manifeste, tel que reçu.
+    #[must_use]
     pub fn manifest(&self) -> &Map<String, Value> {
         &self.manifest
     }
 
-    /// La portée de cette version, lue de la seule clé `scope` du manifeste.
+    /// The scope of this version, read from the manifest's `scope` key alone.
     ///
-    /// Le reste (exemples, préréglages) n'est pas lu : un instantané la demande à
-    /// chaque fois. Absente, la bibliothèque ; une valeur inconnue est une erreur.
+    /// The rest (examples, presets) is not read: a snapshot asks for it
+    /// every time. Absent, the library; an unknown value is an error.
+    ///
+    /// # Errors
+    ///
+    /// `scope` key with an unknown value.
     pub fn scope(&self) -> serde_json::Result<PackScope> {
         self.manifest.get("scope").map_or(Ok(PackScope::Library), PackScope::deserialize)
     }
 
     /// Les fichiers de widgets, par nom (`_commun` compris).
+    #[must_use]
     pub fn widgets(&self) -> &BTreeMap<WidgetFile, String> {
         &self.widgets
     }
@@ -295,24 +317,31 @@ impl PackFiles {
     }
 
     /// La version de ces fichiers.
+    #[must_use]
     pub fn version(&self) -> PackVersion {
         PackVersion::of(self)
     }
 
     /// Vrai si ces fichiers ont la version `claimed`.
+    #[must_use]
     pub fn matches(&self, claimed: &PackVersion) -> bool {
         claimed.verifies(self)
     }
 
-    /// Le manifeste de la sorte à écrire : indenté, clés dans l'ordre reçu.
+    /// The manifest of the kind to write: indented, keys in the order received.
+    ///
+    /// # Errors
+    ///
+    /// `serde_json` failure, impossible in practice for a JSON object.
     pub fn pack_json(&self) -> serde_json::Result<Vec<u8>> {
         serde_json::to_vec_pretty(&self.manifest)
     }
 
-    /// Contenu canonique : préfixe de sorte, manifeste canonique, `0`, puis nom, `0`, source, `0` par fichier.
+    /// Canonical content: kind prefix, canonical manifest, `0`, then name, `0`, source, `0` per file.
     ///
-    /// Seul un pack de layouts a un préfixe (`layouts`, `0`) : un pack de
-    /// widgets, et donc `base`, garde la version d'avant les sortes.
+    /// Only a layout pack has a prefix (`layouts`, `0`): a widget
+    /// pack, and so `base`, keeps the version it had before kinds.
+    #[must_use]
     pub fn canonical(&self) -> Vec<u8> {
         let mut out = match self.kind {
             PackKind::Widgets => Vec::new(),
@@ -357,6 +386,7 @@ pub enum PackScope {
 
 impl PackScope {
     /// Vrai pour la portée par défaut, celle de la bibliothèque (non écrite).
+    #[must_use]
     pub fn is_library(&self) -> bool {
         matches!(self, Self::Library)
     }
@@ -365,13 +395,16 @@ impl PackScope {
 /// Le manifeste d'un pack (`widgets.json` ou `layouts.json`) dans une version.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PackManifest {
+    /// Stable id of the pack, shared by all its versions.
     pub id: Uuid,
+    /// Name of the pack, shown in the library.
     pub name: String,
     /// Espace de noms des widgets du pack : leur `kind` est `<namespace>/<nom>`.
     pub namespace: Namespace,
     /// Espaces de noms des packs de widgets dont ce pack a besoin.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<Namespace>,
+    /// What the pack offers, in one sentence; empty if absent.
     #[serde(default)]
     pub description: String,
     /// Version dont celle-ci est issue ; `None` pour une première version.
@@ -385,13 +418,13 @@ pub struct PackManifest {
     /// Préréglages d'un layout que l'import retrofit sait choisir (pack de layouts seulement).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub profiles: Vec<LayoutProfile>,
-    /// Valeurs d'exemple de chaque widget : celles de son aperçu et de ses réglages.
+    /// Example values of each widget: those of its preview and its settings.
     ///
-    /// Les valeurs ont la forme de celles de l'aperçu (texte riche : tableau de
-    /// paragraphes) ; une valeur égale à la valeur neutre n'est pas gardée. Un
-    /// widget sans valeurs n'a pas d'entrée ; vide, la clé n'est pas écrite (les
-    /// versions sans valeurs gardent leur empreinte). Lu aussi dans sa forme
-    /// d'avant t-541 (voir `pack_examples::lenient_examples`).
+    /// The values have the shape of the preview's (rich text: array of
+    /// paragraphs); a value equal to the neutral value is not kept. A
+    /// widget without values has no entry; empty, the key is not written (the
+    /// versions without values keep their digest). Also read in its form
+    /// from before t-541 (see `pack_examples::lenient_examples`).
     #[serde(
         default,
         deserialize_with = "crate::pack_examples::lenient_examples",
@@ -412,9 +445,13 @@ pub struct PackManifest {
 }
 
 impl PackManifest {
-    /// Lit le manifeste de `files` et vérifie ses entrées `tokens` ([`check_entries`]).
+    /// Reads the manifest of `files` and checks its `tokens` entries ([`check_entries`]).
     ///
-    /// Une entrée refusée fait échouer la lecture ([`PackManifestError::token_entry`]).
+    /// A refused entry fails the read ([`PackManifestError::token_entry`]).
+    ///
+    /// # Errors
+    ///
+    /// Manifest that does not have the shape of a `PackManifest`, or refused `tokens` entry.
     pub fn from_files(files: &PackFiles) -> Result<Self, PackManifestError> {
         let manifest: Self =
             serde_json::from_value(Value::Object(files.manifest().clone())).context(ManifestJsonSnafu)?;
@@ -422,11 +459,15 @@ impl PackManifest {
         Ok(manifest)
     }
 
-    /// Les défauts des jetons de composant, imbriqués par chemin.
+    /// The defaults of the component tokens, nested by path.
     ///
-    /// C'est la couche `component.<namespace>` du pack, avant tout thème. Une
-    /// entrée `optional` sans défaut n'y figure pas ; des entrées refusées par
-    /// [`check_entries`] rendent l'erreur.
+    /// This is the pack's `component.<namespace>` layer, before any theme. An
+    /// `optional` entry without a default is absent from it; entries refused by
+    /// [`check_entries`] return the error.
+    ///
+    /// # Errors
+    ///
+    /// `tokens` entry refused by [`check_entries`].
     pub fn component_defaults(&self) -> Result<Map<String, Value>, TokenEntryError> {
         check_entries(&self.tokens)?;
         let mut out = Map::new();
@@ -440,7 +481,11 @@ impl PackManifest {
         Ok(out)
     }
 
-    /// Les fichiers de cette version, de sorte `kind`, avec ses fichiers de widgets.
+    /// The files of this version, of kind `kind`, with its widget files.
+    ///
+    /// # Errors
+    ///
+    /// The manifest does not serialize into a JSON object.
     pub fn to_files(&self, kind: PackKind, widgets: BTreeMap<WidgetFile, String>) -> serde_json::Result<PackFiles> {
         match serde_json::to_value(self)? {
             Value::Object(manifest) => Ok(PackFiles::new(kind, manifest, widgets)),
@@ -452,13 +497,16 @@ impl PackManifest {
 /// `theme.json` : un thème dans une version.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThemeManifest {
+    /// Stable id of the theme, shared by all its versions.
     pub id: Uuid,
+    /// Name of the theme, shown in the library.
     pub name: String,
     /// Espace de noms du thème, unique parmi les trois sortes de la bibliothèque.
     pub namespace: Namespace,
     /// Thèmes parents, dans l'ordre : les suivants l'emportent ; vide, la clé n'est pas écrite.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extends: Vec<Namespace>,
+    /// What the theme offers, in one sentence; empty if absent.
     #[serde(default)]
     pub description: String,
     /// Version dont celle-ci est issue ; `None` pour une première version.
@@ -471,12 +519,20 @@ pub struct ThemeManifest {
 }
 
 impl ThemeManifest {
-    /// Lit le `theme.json` de `files`.
+    /// Reads the `theme.json` of `files`.
+    ///
+    /// # Errors
+    ///
+    /// Manifest that does not have the shape of a `ThemeManifest`.
     pub fn from_files(files: &PackFiles) -> serde_json::Result<Self> {
         serde_json::from_value(Value::Object(files.manifest().clone()))
     }
 
-    /// Les fichiers de cette version : le seul `theme.json` ([`PackFiles::theme`]).
+    /// The files of this version: the single `theme.json` ([`PackFiles::theme`]).
+    ///
+    /// # Errors
+    ///
+    /// The manifest does not serialize into a JSON object.
     pub fn to_files(&self) -> serde_json::Result<PackFiles> {
         match serde_json::to_value(self)? {
             Value::Object(manifest) => Ok(PackFiles::theme(manifest)),
@@ -486,6 +542,7 @@ impl ThemeManifest {
 }
 
 /// Maintenant, au format de `created`.
+#[must_use]
 pub fn now_created() -> String {
     OffsetDateTime::now_utc()
         .format(format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z"))

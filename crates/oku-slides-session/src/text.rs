@@ -10,6 +10,7 @@ use crate::inline::runs_to_markdown;
 
 /// Texte éditable en markdown : un paragraphe par ligne, `- ` pour une puce,
 /// `1. ` pour une liste numérotée, le reste en markdown inline (`inline.rs`).
+#[must_use]
 pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
     let mut out = String::new();
     let mut n = 0;
@@ -48,6 +49,7 @@ fn escape_list_marker(line: &str) -> String {
 }
 
 /// Remplace `{{nom}}` par la variable du deck (affichage dans l'interface).
+#[must_use]
 pub fn interp(s: &str, vars: &BTreeMap<String, Value>) -> String {
     let mut out = String::with_capacity(s.len());
     let mut rest = s;

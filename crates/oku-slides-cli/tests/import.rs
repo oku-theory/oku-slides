@@ -1,10 +1,13 @@
-//! `oku-slides import`, lancée pour de vrai : une présentation PowerPoint en
-//! `.oku-slides.pdf` rouvrable. Chaque test a son dossier de données
-//! (OKU_SLIDES_PATHS__DATA, par `oku_slides`) ; aucun ne lance LibreOffice.
+//! `oku-slides import`, run for real: a PowerPoint deck into a reopenable `.oku-slides.pdf`.
+//!
+//! Each test has its own data directory (`OKU_SLIDES_PATHS__DATA`, through
+//! `oku_slides`); none launches LibreOffice.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
 use std::collections::HashSet;
+use std::fmt::Write as _;
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -112,9 +115,13 @@ fn import_retrofit_of_a_text_too_long_for_its_place_reports_an_overflow() {
     let input = pptx(&dir, "minimal");
     let slide =
         std::fs::read_to_string(fixtures().join("minimal/ppt/slides/slide3.xml")).unwrap_or_else(|e| panic!("{e}"));
-    let paragraphs: String = (0..80)
-        .map(|i| format!(r#"<a:p><a:r><a:rPr lang="fr-FR"/><a:t>Ligne {i} d'un texte trop long</a:t></a:r></a:p>"#))
-        .collect();
+    let paragraphs = (0..80).fold(String::new(), |mut paragraphs, i| {
+        let _ = write!(
+            paragraphs,
+            r#"<a:p><a:r><a:rPr lang="fr-FR"/><a:t>Ligne {i} d'un texte trop long</a:t></a:r></a:p>"#
+        );
+        paragraphs
+    });
     let long =
         slide.replace(r#"<a:p><a:r><a:rPr lang="fr-FR"/><a:t>Texte sans couleur</a:t></a:r></a:p>"#, &paragraphs);
     assert_that!(long.len()).is_greater_than(slide.len());
@@ -454,13 +461,13 @@ fn import_help_is_in_the_configured_language() {
 /// `minimal` dont la slide 1 porte `boxes` zones d'un même texte répété, zippé dans `dir` ; son chemin.
 fn minimal_inflating(dir: &Path, boxes: u32) -> PathBuf {
     let text = "Oku ".repeat(2_000);
-    let shapes: String = (100..100 + boxes)
-        .map(|id| {
-            format!(
-                r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="Texte {id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="1270000"/></a:xfrm><a:prstGeom prst="rect"/></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>{text}</a:t></a:r></a:p></p:txBody></p:sp>"#
-            )
-        })
-        .collect();
+    let shapes = (100..100 + boxes).fold(String::new(), |mut shapes, id| {
+        let _ = write!(
+            shapes,
+            r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="Texte {id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="1270000"/></a:xfrm><a:prstGeom prst="rect"/></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>{text}</a:t></a:r></a:p></p:txBody></p:sp>"#
+        );
+        shapes
+    });
     let slide = std::fs::read_to_string(fixtures().join("minimal/ppt/slides/slide1.xml"))
         .unwrap_or_else(|e| panic!("{e}"))
         .replace("</p:spTree>", &format!("{shapes}</p:spTree>"));

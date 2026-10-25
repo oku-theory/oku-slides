@@ -23,7 +23,7 @@ fn rounded(cmds: &[PathCommand]) -> Vec<(i64, i64)> {
     cmds.iter()
         .filter_map(|c| match *c {
             PathCommand::Move(x, y) | PathCommand::Line(x, y) => {
-                Some(((x * 10.0).round() as i64, (y * 10.0).round() as i64))
+                Some((oku_slides_core::num::round_i64(x * 10.0), oku_slides_core::num::round_i64(y * 10.0)))
             }
             _ => None,
         })

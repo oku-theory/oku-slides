@@ -191,13 +191,7 @@ pub async fn start_with_settings(tweak: impl FnOnce(&mut Settings) + Send + 'sta
 /// Un fichier `<name>.pptx` est copié tel quel ; un dossier `<name>` est zippé.
 pub fn pptx(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
     use std::io::Write;
-    let fixtures = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import"));
-    let file = fixtures.join(format!("{name}.pptx"));
-    if file.is_file() {
-        let path = dir.join(format!("{name}.pptx"));
-        std::fs::copy(&file, &path).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
-        return path;
-    }
+    /// The files under `dir`, at any depth, without `.DS_Store`.
     fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
             let p = e.unwrap_or_else(|e| panic!("{e}")).path();
@@ -206,6 +200,13 @@ pub fn pptx(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
             }
             if p.is_dir() { files(&p, out) } else { out.push(p) }
         }
+    }
+    let fixtures = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import"));
+    let file = fixtures.join(format!("{name}.pptx"));
+    if file.is_file() {
+        let path = dir.join(format!("{name}.pptx"));
+        std::fs::copy(&file, &path).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        return path;
     }
     let root = fixtures.join(name);
     let mut paths = Vec::new();
@@ -595,7 +596,7 @@ pub async fn guarded_message_after(
 }
 
 /// Une action de l'utilisateur sur une surface.
-pub fn action(surface: &str, name: &str, context: Value) -> oku_slides_mcp::SurfaceAction {
+pub fn action(surface: &str, name: &str, context: &Value) -> oku_slides_mcp::SurfaceAction {
     oku_slides_mcp::SurfaceAction {
         surface: surface.into(),
         name: name.into(),

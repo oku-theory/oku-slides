@@ -13,11 +13,15 @@ use crate::error::SourcesSnafu;
 use crate::{Result, Session};
 
 impl Session {
-    /// Charge l'import `imported` du `.pptx` nommé `name` : un deck sans fichier, à enregistrer.
+    /// Loads import `imported` of the `.pptx` named `name` as an unsaved deck.
     ///
-    /// Le deck garde l'étape d'historique de l'import (l'annuler le vide) ;
-    /// sans titre, il prend `name`. Ses widgets sont sondés de nouveau par le
-    /// processus de rendu de la session, qui le rend.
+    /// The deck keeps the import's history step (undoing it empties the deck);
+    /// without a title, it takes `name`. Its widgets are probed again by the
+    /// session's render process, which renders it.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the title cannot be written to the sources, or if the deck does not load or render.
     pub fn load_import(&mut self, imported: Imported, name: &str) -> Result<()> {
         let Imported { mut sources, mut state, .. } = imported;
         if sources.deck().params.title.is_none() && !name.trim().is_empty() {

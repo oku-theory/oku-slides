@@ -6,6 +6,7 @@
 //! Un nom que rien ne définit, ou un guide illisible, vaut 0.
 
 use std::collections::BTreeMap;
+use std::ops::RangeInclusive;
 
 use roxmltree::Node;
 
@@ -93,9 +94,15 @@ fn value(n: Node<'_, '_>, a: &str, env: &Env<'_>) -> Option<f64> {
     attr_str(n, a).map(|v| env.get(&Operand::parse(v.trim())).unwrap_or(0.0))
 }
 
-/// Valeur ramenée à la boîte `size`, bornée à `[lo, MAX_PATH_SPAN]` (toujours finie).
+/// Range of a path value scaled to its box: `lo` to [`MAX_PATH_SPAN`].
+fn span(lo: f64) -> RangeInclusive<f64> {
+    lo..=MAX_PATH_SPAN
+}
+
+/// Value scaled to the box `size`, clamped to [`span`]`(lo)` (always finite).
 fn normalized(v: Option<f64>, size: f64, lo: f64) -> f64 {
-    (v.unwrap_or(0.0) / size).clamp(lo, MAX_PATH_SPAN)
+    let bounds = span(lo);
+    (v.unwrap_or(0.0) / size).clamp(*bounds.start(), *bounds.end())
 }
 
 /// Boîte `(w, h)` d'un `path` : `w`/`h` sont des entiers EMU, une boîte de moins d'une unité
@@ -105,13 +112,15 @@ fn box_of(p: Node<'_, '_>) -> (f64, f64) {
     (side("w"), side("h"))
 }
 
-/// Vrai si [`normalized`] ramène une coordonnée ou un rayon du `path` `p` (guides évalués) dans sa borne.
+/// True if a coordinate or radius of the `path` `p` falls outside its [`span`].
+///
+/// Guides are evaluated before the comparison.
 pub(crate) fn path_clamped(p: Node<'_, '_>) -> bool {
     let (w, h) = box_of(p);
     let cust = p.parent_element().and_then(|l| l.parent_element()).filter(|c| c.tag_name().name() == "custGeom");
     let env = cust.map_or_else(|| Env::new(w, h), guides);
     let off = |n: Node<'_, '_>, a: &str, size: f64, lo: f64| {
-        value(n, a, &env).is_some_and(|v| v / size != normalized(Some(v), size, lo))
+        value(n, a, &env).is_some_and(|v| !span(lo).contains(&(v / size)))
     };
     p.descendants().filter(Node::is_element).any(|n| match n.tag_name().name() {
         "pt" => off(n, "x", w, -MAX_PATH_SPAN) || off(n, "y", h, -MAX_PATH_SPAN),
@@ -120,6 +129,7 @@ pub(crate) fn path_clamped(p: Node<'_, '_>) -> bool {
     })
 }
 
+#[expect(clippy::many_single_char_names, reason = "coordinates x, y and size w, h of OOXML paths")]
 fn path(p: Node<'_, '_>, budget: usize, env: &Env<'_>) -> Vec<PathCmd> {
     let (w, h) = box_of(p);
     let at = |n: Node<'_, '_>, a: &str| value(n, a, env);

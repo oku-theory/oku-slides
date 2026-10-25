@@ -47,14 +47,22 @@ use crate::{Result, Session};
 const AGENT_PIXEL_PER_PT: f32 = 0.5;
 
 impl Session {
-    /// Image PNG de la slide `id`, pour que l'agent voie le rendu.
+    /// PNG image of slide `id`, so that the agent sees the rendering.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`NoSlide`) for an unknown slide, or if rendering the page fails.
     pub fn png(&mut self, id: &str) -> Result<Vec<u8>> {
         let page = self.page_of(id).context(NoSlideSnafu { id })?;
         self.with_compiled(|c| c.png(page - 1, AGENT_PIXEL_PER_PT))
     }
 }
 
-/// Refuse un nombre d'entrées hors de `min..=max` (`AgentForm`).
+/// Rejects a number of entries outside `min..=max` (`AgentForm`).
+///
+/// # Errors
+///
+/// Fails (`AgentForm`, `Count`) if `len` falls outside `min..=max`.
 pub fn check_len(what: &str, len: usize, (min, max): (usize, usize)) -> Result<()> {
     snafu::ensure!(
         (min..=max).contains(&len),

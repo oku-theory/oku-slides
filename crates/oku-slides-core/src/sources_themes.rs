@@ -46,14 +46,11 @@ pub(super) fn verify_themes(
     let mut themes = BTreeMap::new();
     let mut discarded = Vec::new();
     for (version, json) in raw {
-        match PackFiles::verified_theme(version.hex(), &json) {
-            Some(files) => {
-                themes.insert(version, files);
-            }
-            None => {
-                tracing::warn!(%version, "version de thème altérée écartée");
-                discarded.push(version);
-            }
+        if let Some(files) = PackFiles::verified_theme(version.hex(), &json) {
+            themes.insert(version, files);
+        } else {
+            tracing::warn!(%version, "version de thème altérée écartée");
+            discarded.push(version);
         }
     }
     (themes, discarded)

@@ -9,7 +9,9 @@ use crate::widget_probe::PROBE_PACK;
 /// Gravité d'un message de Typst.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Severity {
+    /// Error: the compilation fails.
     Error,
+    /// Warning: the document is rendered anyway.
     Warning,
 }
 
@@ -18,6 +20,7 @@ pub enum Severity {
 pub struct SourceAt {
     /// Chemin dans le monde Typst, sans `/` initial (`packs/<id>/widgets/kpi.typ`).
     pub path: String,
+    /// Line, starting at 1.
     pub line: usize,
     /// Colonne en caractères.
     pub column: usize,
@@ -26,11 +29,13 @@ pub struct SourceAt {
 /// Un message de Typst.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Diagnostic {
+    /// Error or warning.
     pub severity: Severity,
     /// Fichier et ligne (`oku-slides/src/data.typ:12`), s'ils sont connus.
     pub place: Option<String>,
     /// Le message de Typst, tel quel (en anglais).
     pub message: String,
+    /// Typst hints for fixing it, verbatim (in English).
     pub hints: Vec<String>,
     /// Fichier, ligne et colonne, s'ils sont connus.
     #[serde(default)]
@@ -62,13 +67,13 @@ impl Localize for Diagnostic {
 
 impl Diagnostic {
     /// Le fichier de widget d'un pack où se trouve le message, s'il y en a un.
+    #[must_use]
     pub fn widget_file(&self) -> Option<WidgetFile> {
-        let path = match &self.at {
-            Some(at) => at.path.as_str(),
-            None => {
-                let place = self.place.as_deref()?;
-                place.split_once(':').map_or(place, |(path, _)| path)
-            }
+        let path = if let Some(at) = &self.at {
+            at.path.as_str()
+        } else {
+            let place = self.place.as_deref()?;
+            place.split_once(':').map_or(place, |(path, _)| path)
         };
         let rest = path.trim_start_matches('/').strip_prefix("packs/")?;
         let (_, rest) = rest.split_once('/')?;

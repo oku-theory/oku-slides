@@ -48,7 +48,10 @@ pub enum RenderLaunch {
     /// Sur un fil du processus : aucune borne appliquée (tests, outils).
     InProcess,
     /// Dans un sous-processus `program --render-worker`, borné par `[render]`.
-    Process { program: PathBuf },
+    Process {
+        /// App binary relaunched as a render worker.
+        program: PathBuf,
+    },
 }
 
 /// Variable posée par l'hôte dans l'environnement de son processus de rendu.
@@ -77,12 +80,15 @@ pub(crate) fn render_launch_for(program: PathBuf, in_worker: bool) -> RenderLaun
 /// langue. Se crée une fois au démarrage ; se clone sans rien recréer.
 #[derive(Debug, Clone)]
 pub struct Platform {
+    /// Settings read at startup, shared without copying.
     pub settings: Arc<Settings>,
+    /// File access, the only path to the disk.
     pub storage: Storage,
     /// Langue du lancement : textes de session, journaux, rendu.
     pub localizer: Arc<Localizer>,
     /// Langue courante de l'interface, changée à chaud : textes de l'agent et de ses outils.
     pub live_localizer: LiveLocalizer,
+    /// Where Typst rendering runs: on a thread or in a bounded subprocess.
     pub render_launch: RenderLaunch,
     /// Ce binaire, relancé pour l'agent local ; `None` hors de l'app (tests).
     pub program: Option<PathBuf>,
@@ -91,19 +97,41 @@ pub struct Platform {
 /// Démarrage impossible : réglages ou fichiers.
 #[derive(Debug, Snafu)]
 pub enum PlatformError {
+    /// Unreadable settings: invalid `config.toml` or environment.
     #[snafu(display("settings could not be loaded"))]
-    Settings { source: ConfigError, backtrace: Backtrace },
+    Settings {
+        /// Error reading the settings.
+        source: ConfigError,
+        /// Call stack when the error was created.
+        backtrace: Backtrace,
+    },
+    /// The local storage (OpenDAL) did not start.
     #[snafu(display("storage could not start"))]
-    Storage { source: StorageError, backtrace: Backtrace },
+    Storage {
+        /// Storage startup error.
+        source: StorageError,
+        /// Call stack when the error was created.
+        backtrace: Backtrace,
+    },
+    /// The path of this binary is unreadable.
     #[snafu(display("the executable path could not be read"))]
-    CurrentExe { source: std::io::Error, backtrace: Backtrace },
+    CurrentExe {
+        /// System error from `current_exe`.
+        source: std::io::Error,
+        /// Call stack when the error was created.
+        backtrace: Backtrace,
+    },
 }
 
 impl Platform {
-    /// Réglages (défauts, `config.toml`, environnement), fichiers locaux et
-    /// langue des réglages (sinon celle du système). À appeler après
-    /// [`telemetry::init`]. Le rendu se lance en sous-processus de ce
-    /// binaire, sauf dans un processus de rendu (voir [`RENDER_WORKER_ENV`]).
+    /// Settings (defaults, `config.toml`, environment), local files and
+    /// the settings' language (otherwise the system one). To call after
+    /// [`telemetry::init`]. Rendering runs in a subprocess of this
+    /// binary, except inside a render process (see [`RENDER_WORKER_ENV`]).
+    ///
+    /// # Errors
+    ///
+    /// If the binary path is unreadable, the settings invalid or the storage unavailable.
     pub fn load() -> Result<Self, PlatformError> {
         let program = std::env::current_exe().context(CurrentExeSnafu)?;
         let in_worker = std::env::var_os(RENDER_WORKER_ENV).is_some();
@@ -112,7 +140,11 @@ impl Platform {
             .with_render_launch(render_launch_for(program, in_worker)))
     }
 
-    /// La plateforme de ces réglages (tests, outils).
+    /// The platform for these settings (tests, tools).
+    ///
+    /// # Errors
+    ///
+    /// If the local storage does not start.
     pub fn with_settings(settings: Settings) -> Result<Self, PlatformError> {
         let localizer = Arc::new(Localizer::new(settings.i18n.locale.as_deref()));
         Ok(Self {
@@ -126,12 +158,14 @@ impl Platform {
     }
 
     /// Cette plateforme, dont l'agent local se lance avec `program` (tests).
+    #[must_use]
     pub fn with_program(mut self, program: PathBuf) -> Self {
         self.program = Some(program);
         self
     }
 
     /// Cette plateforme, avec le rendu lancé par `launch`.
+    #[must_use]
     pub fn with_render_launch(mut self, launch: RenderLaunch) -> Self {
         self.render_launch = launch;
         self

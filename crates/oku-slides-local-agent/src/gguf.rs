@@ -30,7 +30,9 @@ use crate::engine::{CancelledSnafu, Completion, Engine, EngineError, FailedSnafu
 use crate::error::{LocalAgentError, ModelSnafu};
 
 /// Jetons envoyés au modèle par appel à `decode` pendant la lecture du prompt.
-const PREFILL_CHUNK: usize = 512;
+const PREFILL_BATCH: u32 = 512;
+/// [`PREFILL_BATCH`] as an index (u32 always fits in usize here, 64-bit target).
+const PREFILL_CHUNK: usize = PREFILL_BATCH as usize;
 
 /// Graine fixe de l'échantillonneur : un même prompt donne la même réponse.
 const SEED: u32 = 1_022;
@@ -148,7 +150,7 @@ fn worker(
         }
     };
     let params =
-        LlamaContextParams::default().with_n_ctx(NonZeroU32::new(settings.context)).with_n_batch(PREFILL_CHUNK as u32);
+        LlamaContextParams::default().with_n_ctx(NonZeroU32::new(settings.context)).with_n_batch(PREFILL_BATCH);
     let mut ctx = match model.new_context(&backend, params) {
         Ok(ctx) => ctx,
         Err(e) => {

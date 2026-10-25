@@ -1,6 +1,7 @@
 use speculoos::prelude::*;
 
 use super::*;
+use crate::source::Crop;
 use crate::source::Picture;
 use crate::test_support::{item, source_deck, source_slide, text_item, with_role};
 
@@ -13,7 +14,7 @@ fn logo(slide: u32) -> Item {
     let mut i = item(
         &format!("s{slide}/logo"),
         (824.0, 484.0, 72.0, 32.0),
-        ItemKind::Picture(Picture { asset: "sha256:logo".into(), crop: Default::default() }),
+        ItemKind::Picture(Picture { asset: "sha256:logo".into(), crop: Crop::default() }),
     );
     i.name = "Amundi".into();
     i
@@ -87,7 +88,7 @@ fn in_band_and_backdrop_follow_the_page() {
         "p",
         (0.0, 108.0, 960.0, 432.0),
         ItemKind::Shape(Box::new(crate::source::Shape {
-            geom: crate::source::Geometry::Preset { name: "rect".into(), adj: Default::default() },
+            geom: crate::source::Geometry::Preset { name: "rect".into(), adj: std::collections::BTreeMap::default() },
             fill: crate::source::Fill::None,
             stroke: None,
             text: None,

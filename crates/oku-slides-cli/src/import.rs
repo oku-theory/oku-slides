@@ -92,18 +92,18 @@ pub(crate) struct ImportArgs {
 }
 
 /// Importe `args.input` et écrit le deck obtenu dans `args.output`.
-pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: ImportArgs) -> Result<()> {
+pub(crate) fn import(platform: &Platform, out: &mut Out<'_>, fonts: &Fonts, args: &ImportArgs) -> Result<()> {
     let l = out.localizer();
     // Les arguments d'abord : une erreur de forme ne lit pas la présentation.
     // Le pack cible peut être un dossier, ici seulement : l'app ne prend que la bibliothèque.
     let request = ImportRequest {
         pptx: args.input.clone(),
-        target: target(platform, l, &args)?,
+        target: target(platform, l, args)?,
         system_fonts: args.system_fonts,
         packs: PackLookup::LibraryOrDir,
     };
     let imported = session_import::import(platform, fonts, &request).map_err(|e| eyre!(e.localize(l)))?;
-    finish(platform, out, &args, imported)
+    finish(platform, out, args, imported)
 }
 
 /// Le témoin de `--reference` ; sans l'option ou `auto`, celui de `[import] witness` (t-905).

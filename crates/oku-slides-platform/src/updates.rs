@@ -51,6 +51,7 @@ pub struct Host<'a> {
 
 impl InstallMode {
     /// Le mode d'après l'hôte : paquet du système, image disque, quarantaine, version de développement ou échec passé.
+    #[must_use]
     pub fn detect(host: &Host<'_>) -> Self {
         let exe = host.exe.to_string_lossy();
         let unwritable = match host.os {
@@ -120,6 +121,7 @@ pub struct Progress {
 
 impl Progress {
     /// Rien de reçu.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -148,6 +150,7 @@ impl Progress {
 }
 
 /// Le paquet vient bien d'une release d'Oku Slides, en HTTPS, sans remonter de dossier.
+#[must_use]
 pub fn trusted_download(url: &str) -> bool {
     url.strip_prefix(DOWNLOAD_PREFIX).is_some_and(|rest| !rest.split('/').any(|part| part == ".."))
 }
@@ -170,6 +173,7 @@ pub enum UpdateStage {
 
 impl UpdateStage {
     /// Clé Fluent du message de cette étape.
+    #[must_use]
     pub fn key(self) -> &'static str {
         match self {
             Self::Check => "update-error-check",

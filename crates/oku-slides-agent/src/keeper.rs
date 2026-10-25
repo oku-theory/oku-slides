@@ -7,13 +7,16 @@
 use std::sync::Arc;
 
 use oku_slides_mcp::SurfaceHub;
+use oku_slides_session::Session;
 use oku_slides_session::agent::TabSession;
 use tokio::sync::{mpsc, oneshot, watch};
 
 /// Un ordre au gardien.
 #[derive(Debug)]
 pub enum Keep {
-    /// Fin du tour `n` : écrire le fil de l'onglet, s'il contient encore ce tour.
+    /// End of turn `n`: write the tab's thread.
+    ///
+    /// The thread is written only if it still contains that turn.
     Thread(u32),
     /// La session ACP ouverte pour le tour `turn` et l'empreinte de son agent.
     Session {
@@ -24,7 +27,9 @@ pub enum Keep {
         /// L'empreinte de l'agent.
         agent: String,
     },
-    /// Nouvelle conversation : oubliée, son fil effacé du hub ; rend l'id de session oublié.
+    /// New conversation: forget the current one and clear its thread from the hub.
+    ///
+    /// Replies with the forgotten session id.
     Forget(oneshot::Sender<Option<String>>),
     /// La session connue et l'empreinte de son agent, dans l'ordre de la file.
     Lookup(oneshot::Sender<Option<(String, Option<String>)>>),
@@ -95,7 +100,9 @@ impl Keeper {
         rx.await.ok().flatten()
     }
 
-    /// Oublie la conversation et efface son fil du hub ; rend l'id de session oublié.
+    /// Forgets the conversation and clears its thread from the hub.
+    ///
+    /// Returns the forgotten session id.
     pub async fn forget(&self) -> Option<String> {
         let (tx, rx) = oneshot::channel();
         self.send(Keep::Forget(tx));
@@ -125,13 +132,14 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, k: Keep) {
     let written = match k {
         // Tour effacé entre-temps (nouvelle conversation) : rien à écrire.
         Keep::Thread(turn) if !hub.in_thread(turn) => Ok(()),
-        Keep::Thread(_) => match hub.thread_snapshot() {
-            Some(thread) => tab.with(|s| s.keep_thread(thread)),
-            None => {
+        Keep::Thread(_) => {
+            if let Some(thread) = hub.thread_snapshot() {
+                tab.with(|s| s.keep_thread(thread))
+            } else {
                 tracing::warn!("fil trop lourd pour le budget : enregistrement sauté");
                 Ok(())
             }
-        },
+        }
         Keep::Session { turn, id, agent } => {
             if hub.in_thread(turn) {
                 tab.with(|s| s.keep_agent_session(id, agent))
@@ -142,7 +150,7 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, k: Keep) {
             }
         }
         Keep::Forget(reply) => {
-            let gone = tab.with(|s| s.forget_conversation());
+            let gone = tab.with(Session::forget_conversation);
             // Dans l'ordre de la file : une fin de tour arrivée après l'oubli ne trouve plus son tour.
             hub.clear_thread();
             if reply.send(gone.as_ref().ok().cloned().flatten()).is_err() {

@@ -46,6 +46,7 @@ pub(crate) fn engine_key(config: &Config) -> EngineKey {
 impl Stt {
     /// Moteur chargé une fois (et gardé tant qu'on ne change ni de modèle ni d'API).
     pub(crate) fn engine(&self) -> Result<Arc<dyn PhraseEngine>, SttError> {
+        static LOADING: Mutex<()> = Mutex::new(());
         let key = {
             let g = self.state();
             let key = engine_key(&g.config);
@@ -56,7 +57,6 @@ impl Stt {
             }
             key
         };
-        static LOADING: Mutex<()> = Mutex::new(());
         let _loading = LOADING.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some((k, e)) = &self.state().engine
             && *k == key
@@ -92,7 +92,7 @@ impl Stt {
     }
 
     /// Transcription : phrases closes en qualité finale, aperçu de la phrase en cours.
-    pub(crate) fn transcribe_loop(&self, session: u64, rx: mpsc::Receiver<Job>, busy: Arc<AtomicBool>) {
+    pub(crate) fn transcribe_loop(&self, session: u64, rx: &mpsc::Receiver<Job>, busy: &Arc<AtomicBool>) {
         // Chargement du modèle pendant qu'on commence à parler.
         let engine = match self.engine() {
             Ok(e) => e,
@@ -147,7 +147,7 @@ impl Stt {
                         Ok(t) => {
                             // La première phrase fixe la langue pour la suite.
                             if g.detected.is_none() && g.config.language.is_none() {
-                                g.detected = t.language.clone();
+                                g.detected.clone_from(&t.language);
                             }
                             g.phrases[index] = Some(keep(&t));
                             g.partial.clear();

@@ -74,11 +74,16 @@ impl Session {
         Ok(values.unwrap_or_default())
     }
 
-    /// Règle des valeurs d'exemple de `widget`, tout ou rien.
+    /// Sets example values of `widget`, all or nothing.
     ///
-    /// `null` ou la valeur neutre effacent une valeur ; un texte vidé ou une liste vidée
-    /// (`[]`) restent vides, voir `emptied` ; les valeurs gardées que le schéma n'admet
-    /// plus sont retirées. Rend les valeurs du widget après l'écriture.
+    /// `null` or the neutral value clears a value; an emptied text or an emptied list
+    /// (`[]`) stays empty, see `emptied`; kept values the schema no longer accepts
+    /// are removed. Returns the widget's values after the write.
+    ///
+    /// # Errors
+    ///
+    /// Fails for an invalid name, outside pack mode (`NotEditingPack`), for `_commun` or a widget
+    /// that is unknown or invalid, or a rejected value.
     pub fn set_example_values(&mut self, widget: &str, values: Map<String, Value>) -> Result<Map<String, Value>> {
         let file = parse_name(widget)?;
         ensure!(self.in_pack_mode(), NotEditingPackSnafu);
@@ -106,11 +111,18 @@ impl Session {
         })
     }
 
-    /// Change la liste `param` des valeurs d'exemple de `widget` ; sans valeur gardée,
-    /// ou gardée mais que le schéma ne lit plus (colonne renommée, `max` abaissé), la
-    /// liste part des items par défaut du schéma — ce que montrent l'aperçu et le
-    /// tableau ; une valeur gardée qui n'est pas une liste est refusée. Vidée, la liste
-    /// reste `[]`. Rend les valeurs du widget après l'écriture.
+    /// Changes the list `param` of the example values of `widget`.
+    ///
+    /// Without a kept value, or with one the schema no longer reads (renamed
+    /// column, lowered `max`), the list starts from the schema's default items —
+    /// what the preview and the table show; a kept value that is not a list is
+    /// rejected. When emptied, the list stays `[]`. Returns the widget's values
+    /// after the write.
+    ///
+    /// # Errors
+    ///
+    /// Fails for an invalid name, outside pack mode, for an unknown or invalid widget, or a parameter
+    /// that is undeclared or not a list.
     pub fn edit_example_list(&mut self, widget: &str, param: &str, change: ListOp) -> Result<Map<String, Value>> {
         let file = parse_name(widget)?;
         ensure!(self.in_pack_mode(), NotEditingPackSnafu);
@@ -143,7 +155,11 @@ impl Session {
         })
     }
 
-    /// Écriture de l'agent (outil `set_widget_trial`) : les valeurs du widget, écrites et persistées.
+    /// Agent write (tool `set_widget_trial`): the widget's values, written and persisted.
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Self::set_example_values`].
     pub fn set_example_values_by_agent(
         &mut self,
         widget: &str,

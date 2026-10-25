@@ -1,4 +1,5 @@
 //! Sélecteur de thème de l'hôte : montré, choisi, rafraîchi par `prune`.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -37,12 +38,12 @@ fn active_names(s: &Surface) -> Vec<String> {
 }
 
 fn show(h: &common::Harness) -> bool {
-    tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre".into())))
+    tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre")))
         .unwrap_or_else(|e| panic!("sélecteur de thème : {e}"))
 }
 
 fn pick(h: &common::Harness, theme: &str) -> Result<(), oku_slides_mcp::HubError> {
-    tokio::task::block_in_place(|| h.hub.act(action(HOST_THEME_PICKER, "theme", json!({ "theme": theme }))))
+    tokio::task::block_in_place(|| h.hub.act(action(HOST_THEME_PICKER, "theme", &json!({ "theme": theme }))))
 }
 
 fn open(h: &common::Harness) -> bool {
@@ -78,7 +79,7 @@ async fn show_themes_twice_replaces_the_picker_without_closing_it() {
 async fn show_themes_outside_deck_mode_shows_nothing() {
     let h = start().await;
     tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap()
+        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap();
     });
     assert_that!((show(&h), open(&h))).is_equal_to((false, false));
 }
@@ -153,7 +154,7 @@ async fn dismiss_closes_the_picker() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     show(&h);
-    h.hub.act(action(HOST_THEME_PICKER, "dismiss", json!({}))).unwrap();
+    h.hub.act(action(HOST_THEME_PICKER, "dismiss", &json!({}))).unwrap();
     wait_event(&mut rx, |e| matches!(e, McpEvent::CloseSurface { id } if id == HOST_THEME_PICKER).then_some(())).await;
     assert_that!(open(&h)).is_false();
 }
@@ -175,7 +176,7 @@ async fn prune_in_pack_mode_closes_the_picker() {
     let h = start().await;
     show(&h);
     tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap()
+        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap();
     });
     tokio::task::block_in_place(|| h.hub.prune());
     assert_that!(open(&h)).is_false();
@@ -185,7 +186,7 @@ async fn prune_in_pack_mode_closes_the_picker() {
 async fn prune_after_dismiss_does_not_reopen_the_picker() {
     let h = start().await;
     show(&h);
-    h.hub.act(action(HOST_THEME_PICKER, "dismiss", json!({}))).unwrap();
+    h.hub.act(action(HOST_THEME_PICKER, "dismiss", &json!({}))).unwrap();
     tokio::task::block_in_place(|| h.session.lock().unwrap().set_theme(&pro_namespace()).unwrap());
     tokio::task::block_in_place(|| h.hub.prune());
     assert_that!(open(&h)).is_false();
@@ -213,7 +214,7 @@ async fn prune_after_the_shown_slide_is_removed_closes_the_picker() {
             .lock()
             .unwrap()
             .apply("retrait", vec![oku_slides_core::Op::RemoveSlide { slide: "s-libre".into() }], None)
-            .unwrap()
+            .unwrap();
     });
     tokio::task::block_in_place(|| h.hub.prune());
     assert_that!(open(&h)).is_false();
@@ -289,7 +290,7 @@ async fn show_themes_tool_pick_is_noted_for_the_agent() {
     let h = start().await;
     shown(&h, json!({})).await;
     pick(&h, PRO_NAMESPACE).unwrap();
-    let ctx = h.session.lock().unwrap().agent_context(&Default::default());
+    let ctx = h.session.lock().unwrap().agent_context(&oku_slides_session::agent::AgentUi::default());
     assert_that!(ctx).contains("theme picked: \"Pro\"");
 }
 
@@ -297,7 +298,7 @@ async fn show_themes_tool_pick_is_noted_for_the_agent() {
 async fn show_themes_tool_outside_deck_mode_says_so_in_french() {
     let h = start().await;
     tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap()
+        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap();
     });
     let r = call_show_themes(&h, json!({})).await;
     let said = (r.is_error, common::text_of(&r), open(&h));

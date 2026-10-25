@@ -1,4 +1,5 @@
 //! Les tableaux dans le deck : ajout, remplacement, options, données, validation.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -22,7 +23,7 @@ fn element(v: Value) -> Element {
     serde_json::from_value(v).unwrap_or_else(|e| panic!("{e}"))
 }
 
-fn table(id: &str, data: Value) -> Element {
+fn table(id: &str, data: &Value) -> Element {
     element(json!({ "id": id, "kind": "base/table", "params": { "data": data } }))
 }
 
@@ -68,13 +69,13 @@ fn kind_of(r: Result<(), OpError>) -> OpErrorKind {
 
 #[test]
 fn add_element_valid_table_stores_its_data() {
-    let deck = deck_with(table("t1", data()));
+    let deck = deck_with(table("t1", &data()));
     assert_that!(stored(&deck)["dataset"]["source"][1][0]).is_equal_to(json!("FR"));
 }
 
 #[test]
 fn add_element_ragged_table_is_invalid_table() {
-    assert_that!(kind_of(add(&mut empty_deck(), table("t1", ragged())))).is_equal_to(OpErrorKind::InvalidTable);
+    assert_that!(kind_of(add(&mut empty_deck(), table("t1", &ragged())))).is_equal_to(OpErrorKind::InvalidTable);
 }
 
 #[test]
@@ -86,7 +87,7 @@ fn add_element_ragged_table_inside_a_stack_is_invalid_table() {
 
 #[test]
 fn add_element_empty_table_localizes_subject_and_reason_in_french() {
-    let err = add(&mut empty_deck(), table("t1", json!({ "dataset": { "source": [] } }))).unwrap_err();
+    let err = add(&mut empty_deck(), table("t1", &json!({ "dataset": { "source": [] } }))).unwrap_err();
     let fr = err.localize(&Localizer::new(Some("fr")));
     assert_that!(fr).starts_with("Tableau t1");
     assert_that!(fr).contains("au moins une ligne");
@@ -95,7 +96,7 @@ fn add_element_empty_table_localizes_subject_and_reason_in_french() {
 #[test]
 fn replace_element_chart_by_table_keeps_the_id() {
     let mut deck = deck_with(chart("t1"));
-    apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: table("t1", data()) }).unwrap();
+    apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: table("t1", &data()) }).unwrap();
     let e = deck.slides[0].locate("t1").unwrap_or_else(|| panic!("t1 absent")).element;
     assert_that!(e.kind.as_str()).is_equal_to(base::TABLE);
 }
@@ -104,28 +105,28 @@ fn replace_element_chart_by_table_keeps_the_id() {
 fn replace_element_by_ragged_table_is_invalid_table_and_deck_unchanged() {
     let mut deck = deck_with(chart("t1"));
     let before = deck.clone();
-    let r = apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: table("t1", ragged()) });
+    let r = apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: table("t1", &ragged()) });
     assert_that!(kind_of(r)).is_equal_to(OpErrorKind::InvalidTable);
     assert_that!(deck).is_equal_to(before);
 }
 
 #[test]
 fn set_param_ragged_object_is_invalid_table() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let r = apply(&mut deck, Op::SetParam { target: t1(), param: "data".into(), value: ragged() });
     assert_that!(kind_of(r)).is_equal_to(OpErrorKind::InvalidTable);
 }
 
 #[test]
 fn set_param_string_is_param_type() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let r = apply(&mut deck, Op::SetParam { target: t1(), param: "data".into(), value: json!("texte") });
     assert_that!(kind_of(r)).is_equal_to(OpErrorKind::ParamType);
 }
 
 #[test]
 fn set_data_on_a_table_edits_its_cell() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let change = DataOp::SetCell { row: 1, col: 1, value: Cell::Number(42.0) };
     apply(&mut deck, Op::SetData { target: t1(), param: "data".into(), change }).unwrap();
     assert_that!(stored(&deck)["dataset"]["source"][1][1]).is_equal_to(json!(42.0));
@@ -133,7 +134,7 @@ fn set_data_on_a_table_edits_its_cell() {
 
 #[test]
 fn set_data_on_a_table_beyond_limits_is_invalid_table_and_deck_unchanged() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let before = deck.clone();
     let change = DataOp::Replace { source: vec![vec![Cell::Null; 21]] };
     let r = apply(&mut deck, Op::SetData { target: t1(), param: "data".into(), change });
@@ -143,7 +144,7 @@ fn set_data_on_a_table_beyond_limits_is_invalid_table_and_deck_unchanged() {
 
 #[test]
 fn set_table_option_striped_true_stores_it() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let patch = json!({ "striped": true });
     apply(&mut deck, Op::SetTableOption { target: t1(), param: "data".into(), patch }).unwrap();
     assert_that!(stored(&deck)["striped"]).is_equal_to(json!(true));
@@ -151,7 +152,7 @@ fn set_table_option_striped_true_stores_it() {
 
 #[test]
 fn set_table_option_touching_dataset_is_invalid_table_and_deck_unchanged() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let before = deck.clone();
     let patch = json!({ "dataset": null });
     let r = apply(&mut deck, Op::SetTableOption { target: t1(), param: "data".into(), patch });
@@ -168,14 +169,14 @@ fn set_table_option_on_a_chart_is_param_type() {
 
 #[test]
 fn set_chart_option_on_a_table_is_param_type() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let r = apply(&mut deck, Op::SetChartOption { target: t1(), param: "data".into(), patch: json!({}) });
     assert_that!(kind_of(r)).is_equal_to(OpErrorKind::ParamType);
 }
 
 #[test]
 fn validate_deck_with_valid_table_reports_nothing() {
-    assert_that!(validate(&deck_with(table("t1", data())), &registry(), None)).is_empty();
+    assert_that!(validate(&deck_with(table("t1", &data())), &registry(), None)).is_empty();
 }
 
 #[test]
@@ -217,7 +218,7 @@ fn assert_aligned(v: &Value, rows: usize, cols: usize) {
 
 #[test]
 fn add_element_table_without_ids_stores_aligned_ids_and_columns() {
-    let deck = deck_with(table("t1", data()));
+    let deck = deck_with(table("t1", &data()));
     let v = stored(&deck);
     assert_aligned(&v, 2, 2);
     assert_that!(v["dataset"]["source"]).is_equal_to(json!([["Pays", "Ventes"], ["FR", 10.0]]));
@@ -225,7 +226,7 @@ fn add_element_table_without_ids_stores_aligned_ids_and_columns() {
 
 #[test]
 fn replace_element_chart_without_ids_stores_ids() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     apply(&mut deck, Op::ReplaceElement { slide: "s".into(), element: chart("t1") }).unwrap_or_else(|e| panic!("{e}"));
     let e = deck.slides[0].locate("t1").unwrap_or_else(|| panic!("absent")).element;
     let v = e.params.value("option").unwrap_or_else(|| panic!("option absente")).clone();
@@ -234,7 +235,7 @@ fn replace_element_chart_without_ids_stores_ids() {
 
 #[test]
 fn set_param_table_without_ids_stores_ids() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let value = json!({ "dataset": { "source": [["A", "B", "C"], [1, 2, 3], [4, 5, 6]] } });
     apply(&mut deck, Op::SetParam { target: t1(), param: "data".into(), value }).unwrap_or_else(|e| panic!("{e}"));
     assert_aligned(&stored(&deck), 3, 3);
@@ -254,7 +255,7 @@ fn add_slide_with_table_without_ids_stores_ids() {
 
 #[test]
 fn apply_all_keeps_existing_ids() {
-    let mut deck = deck_with(table("t1", data()));
+    let mut deck = deck_with(table("t1", &data()));
     let before = stored(&deck);
     let change = DataOp::SetCell { row: 1, col: 1, value: Cell::Number(7.0) };
     apply(&mut deck, Op::SetData { target: t1(), param: "data".into(), change }).unwrap_or_else(|e| panic!("{e}"));
@@ -267,7 +268,7 @@ fn apply_all_keeps_existing_ids() {
 }
 
 /// Un deck dont l'élément `t1` porte `params` tels quels, sans passer par les ops.
-fn forged_deck(kind: &str, params: Value) -> Deck {
+fn forged_deck(kind: &str, params: &Value) -> Deck {
     let deck = json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "t1", "kind": kind, "params": params }] } }] });
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"))
@@ -290,7 +291,7 @@ fn add_element_table_inside_a_stack_stores_aligned_ids_and_columns() {
 
 #[test]
 fn set_kind_table_keeping_a_value_without_ids_normalizes_it() {
-    let mut deck = forged_deck(base::TABLE, json!({ "data": data() }));
+    let mut deck = forged_deck(base::TABLE, &json!({ "data": data() }));
     assert_that!(forged_stored(&deck, "data")["dataset"]["ids"].is_null()).is_true();
     apply(&mut deck, Op::SetKind { target: t1(), kind: base::TABLE.into() }).unwrap_or_else(|e| panic!("{e}"));
     assert_aligned(&forged_stored(&deck, "data"), 2, 2);
@@ -300,7 +301,7 @@ fn set_kind_table_keeping_a_value_without_ids_normalizes_it() {
 fn set_chart_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
     let option = json!({ "dataset": { "source": [["M", "V"], ["a", 1]] }, "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }] });
-    let mut deck = forged_deck(base::CHART, json!({ "option": option }));
+    let mut deck = forged_deck(base::CHART, &json!({ "option": option }));
     assert_that!(forged_stored(&deck, "option")["dataset"]["ids"].is_null()).is_true();
     let patch = json!({ "title": { "text": "T" } });
     apply(&mut deck, Op::SetChartOption { target: t1(), param: "option".into(), patch })
@@ -310,7 +311,7 @@ fn set_chart_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
 
 #[test]
 fn set_table_option_on_a_stored_value_without_ids_leaves_aligned_ids() {
-    let mut deck = forged_deck(base::TABLE, json!({ "data": data() }));
+    let mut deck = forged_deck(base::TABLE, &json!({ "data": data() }));
     assert_that!(forged_stored(&deck, "data")["dataset"]["ids"].is_null()).is_true();
     let patch = json!({ "striped": true });
     apply(&mut deck, Op::SetTableOption { target: t1(), param: "data".into(), patch })

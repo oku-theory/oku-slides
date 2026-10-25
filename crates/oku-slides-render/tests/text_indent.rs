@@ -1,5 +1,6 @@
 //! Retraits d'un texte (`style.indent`, t-863) : marge gauche des
 //! paragraphes et décalage de leur première ligne, puce suspendue.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -13,7 +14,7 @@ use speculoos::prelude::*;
 
 /// Une slide d'un texte rouge de 40 pt dans un cadre de 800 × 400 pt, au style
 /// `style` augmenté, de paragraphes `body` ; puce du thème `•` en vert.
-fn compile(style: Value, body: Value) -> Compiled {
+fn compile(style: Value, body: &Value) -> Compiled {
     let mut style = style;
     if let Some(s) = style.as_object_mut() {
         s.insert("size".into(), json!(40));
@@ -73,6 +74,11 @@ fn leftmost(c: &Compiled, pred: fn([u8; 4]) -> bool, band: (usize, usize)) -> us
 /// [`leftmost`] à partir de l'abscisse `x0` (pt, depuis la gauche du cadre).
 fn leftmost_from(c: &Compiled, pred: fn([u8; 4]) -> bool, x0: usize, (y0, y1): (usize, usize)) -> usize {
     let b = c.layout().boxes.iter().find(|b| b.id == "t").unwrap_or_else(|| panic!("pas de boîte t")).clone();
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "pixel coordinates are positive and bounded by the page; no fallible conversion from f64 to usize"
+    )]
     let (left, top) = (b.x.round() as usize, b.y.round() as usize);
     let (px, width) = pixels(c);
     (x0..800)
@@ -87,7 +93,7 @@ const SECOND: (usize, usize) = (52, 96);
 
 #[test]
 fn text_indent_hangs_the_bullet_and_starts_the_item_text_at_the_margin() {
-    let c = compile(json!({ "indent": [60, -60] }), bullet());
+    let c = compile(json!({ "indent": [60, -60] }), &bullet());
     assert_that!(leftmost(&c, is_green, FIRST)).is_less_than(15);
     let text = leftmost(&c, is_red, FIRST);
     asserting(&format!("texte à {text}")).that(&(60..66).contains(&text)).is_true();
@@ -95,13 +101,13 @@ fn text_indent_hangs_the_bullet_and_starts_the_item_text_at_the_margin() {
 
 #[test]
 fn text_indent_moves_the_item_text_with_the_margin() {
-    let at = |margin: i32| leftmost(&compile(json!({ "indent": [margin, -margin] }), bullet()), is_red, FIRST);
+    let at = |margin: i32| leftmost(&compile(json!({ "indent": [margin, -margin] }), &bullet()), is_red, FIRST);
     assert_that!(at(90) - at(60)).is_equal_to(30);
 }
 
 #[test]
 fn text_indent_hangs_the_wrapped_lines_of_a_paragraph() {
-    let c = compile(json!({ "indent": [60, -60] }), long());
+    let c = compile(json!({ "indent": [60, -60] }), &long());
     assert_that!(leftmost(&c, is_red, FIRST)).is_less_than(6);
     let second = leftmost(&c, is_red, SECOND);
     asserting(&format!("2e ligne à {second}")).that(&(60..66).contains(&second)).is_true();
@@ -109,7 +115,7 @@ fn text_indent_hangs_the_wrapped_lines_of_a_paragraph() {
 
 #[test]
 fn text_indent_with_a_positive_offset_indents_the_first_line_only() {
-    let c = compile(json!({ "indent": [0, 40] }), long());
+    let c = compile(json!({ "indent": [0, 40] }), &long());
     let first = leftmost(&c, is_red, FIRST);
     asserting(&format!("1re ligne à {first}")).that(&(40..46).contains(&first)).is_true();
     assert_that!(leftmost(&c, is_red, SECOND)).is_less_than(6);
@@ -117,7 +123,7 @@ fn text_indent_with_a_positive_offset_indents_the_first_line_only() {
 
 #[test]
 fn text_indent_hangs_the_number_of_an_enum_item() {
-    let c = compile(json!({ "indent": [60, -60] }), json!([{ "runs": [{ "t": "Un" }], "list": "number" }]));
+    let c = compile(json!({ "indent": [60, -60] }), &json!([{ "runs": [{ "t": "Un" }], "list": "number" }]));
     // « 1. » au bord, puis le texte à la marge.
     assert_that!(leftmost(&c, is_red, FIRST)).is_less_than(6);
     let text = leftmost_from(&c, is_red, 40, FIRST);
@@ -126,6 +132,6 @@ fn text_indent_hangs_the_number_of_an_enum_item() {
 
 #[test]
 fn text_indent_out_of_its_domain_is_ignored() {
-    let plain = pixels(&compile(json!({}), bullet()));
-    assert_that!(pixels(&compile(json!({ "indent": [-5, 0] }), bullet()))).is_equal_to(plain);
+    let plain = pixels(&compile(json!({}), &bullet()));
+    assert_that!(pixels(&compile(json!({ "indent": [-5, 0] }), &bullet()))).is_equal_to(plain);
 }

@@ -55,7 +55,8 @@ fn session_with_library() -> (Session, tempfile::TempDir) {
 fn add_theme(s: &mut Session, namespace: &str, tokens: Value) -> Namespace {
     let pro = crate::theme::Themes::builtins().iter().find(|b| b.manifest.id == PRO_THEME).unwrap();
     let mut all = pro.manifest.tokens.clone();
-    oku_slides_core::tokens::merge(&mut all, tokens.as_object().unwrap());
+    let tokens: serde_json::Map<String, Value> = serde_json::from_value(tokens).unwrap();
+    oku_slides_core::tokens::merge(&mut all, &tokens);
     crate::test_support::add_user_theme(&s.themes, Uuid::new_v4(), namespace, &[], all, None);
     s.theme_list = s.themes.themes();
     ns(namespace)
@@ -293,7 +294,7 @@ fn pick_theme_notes_the_quoted_name_for_the_agent() {
     let mut s = session();
     s.pick_theme(&ns(PRO_NAMESPACE)).unwrap();
     let note = "theme picked: \"Pro\" (pro)";
-    assert_that!(s.agent_context(&Default::default()).contains(note)).is_true();
+    assert_that!(s.agent_context(&crate::agent::context::AgentUi::default()).contains(note)).is_true();
 }
 
 #[test]

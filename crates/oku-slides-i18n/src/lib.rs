@@ -106,12 +106,14 @@ impl std::fmt::Debug for Localizer {
 /// Implémentez ce trait pour une erreur ou un rapport montré à
 /// l'utilisateur ; `Display` reste l'anglais des journaux.
 pub trait Localize {
+    /// Renders the text in the language of `l`, with its fallbacks.
     fn localize(&self, l: &Localizer) -> String;
 }
 
 static ENGLISH: LazyLock<Localizer> = LazyLock::new(|| Localizer::build(REFERENCE, None));
 
 /// L'anglais de référence.
+#[must_use]
 pub fn english() -> &'static Localizer {
     &ENGLISH
 }
@@ -119,6 +121,7 @@ pub fn english() -> &'static Localizer {
 impl Localizer {
     /// La langue demandée (réglages) si elle est livrée, sinon celle du
     /// système, sinon l'anglais. `fr-CA` donne `fr`.
+    #[must_use]
     pub fn new(requested: Option<&str>) -> Self {
         match resolve(requested) {
             locale if locale != REFERENCE => Self::build(locale, Some(Box::new(Self::build(REFERENCE, None)))),
@@ -201,11 +204,13 @@ impl Localizer {
 
 /// La langue livrée qui correspond à `tag` (`fr-FR` → `fr`, `zh-TW` → `zh-Hant`).
 /// Les langues livrées (`en`, `fr`…), la référence d'abord.
+#[must_use]
 pub fn available() -> Vec<&'static str> {
     LOCALES.iter().map(|(l, _)| *l).collect()
 }
 
 /// Nom anglais de la langue livrée `locale` (`fr` → `French`) ; `None` si elle ne l'est pas.
+#[must_use]
 pub fn english_name(locale: &str) -> Option<&'static str> {
     ENGLISH_NAMES.iter().find(|(l, _)| *l == locale).map(|(_, n)| *n)
 }
@@ -219,6 +224,7 @@ pub fn resolve(requested: Option<&str>) -> &'static str {
 }
 
 /// La langue livrée pour `tag` (`fr-CA` → `fr`) ; `None` si elle ne l'est pas.
+#[must_use]
 pub fn shipped(tag: &str) -> Option<&'static str> {
     let wanted = candidate(tag);
     LOCALES.iter().map(|(l, _)| *l).find(|l| *l == wanted)

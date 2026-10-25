@@ -34,7 +34,7 @@
 use std::collections::HashMap;
 use std::io::Write as _;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
@@ -56,6 +56,7 @@ use serde_json::Value;
 use tokio::sync::Notify;
 
 #[derive(Debug, Deserialize)]
+#[expect(clippy::struct_excessive_bools, reason = "independent flags of the JSON scenario, read as they are")]
 struct Script {
     #[serde(default = "yes")]
     http: bool,
@@ -101,6 +102,29 @@ struct Script {
     /// Rejeu envoyé après la réponse à `session/load`, au bout de ce délai (millisecondes).
     #[serde(default)]
     late_replay_ms: Option<u64>,
+}
+
+impl Script {
+    /// The scenario when `--script` is unreadable: an empty turn, HTTP MCP announced.
+    fn fallback() -> Self {
+        Script {
+            http: true,
+            turns: vec![Turn::default()],
+            crash_on_session: None,
+            sessions: HashMap::new(),
+            prompt_image: false,
+            hang_initialize: false,
+            init_delay_ms: None,
+            load_session: false,
+            resume: false,
+            unknown_sessions: false,
+            replay: Vec::new(),
+            by_prompt: HashMap::new(),
+            new_session_delay_ms: 0,
+            load_delay_ms: 0,
+            late_replay_ms: None,
+        }
+    }
 }
 
 fn yes() -> bool {
@@ -177,22 +201,136 @@ struct State {
 }
 
 impl State {
-    fn log(&self, method: &str, params: Value) {
-        if let Some(file) = &self.log
-            && let Ok(mut f) = file.lock()
-        {
+    /// The initial state, read from the command line.
+    ///
+    /// The scenario from `--script` (otherwise [`Script::fallback`]) and the log from `--log`.
+    fn from_args() -> Self {
+        let args: Vec<String> = std::env::args().collect();
+        let flag = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned();
+        let script: Script = flag("--script")
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_else(Script::fallback);
+        let log = flag("--log")
+            .and_then(|p| std::fs::OpenOptions::new().create(true).append(true).open(p).ok())
+            .map(Mutex::new);
+        Self {
+            script,
+            log,
+            sessions: AtomicUsize::new(0),
+            mcp: Mutex::new(HashMap::new()),
+            turns: Mutex::new(HashMap::new()),
+            wait_cancel: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Records the `method` reopening of `session`, which keeps its MCP server.
+    ///
+    /// `method` is `session/load` or `session/resume`, with request `value`. False if the
+    /// scenario refuses unknown sessions.
+    fn reopen(&self, method: &str, value: &Value, session: &SessionId, mcp: &[McpServer]) -> bool {
+        self.log(method, value);
+        if self.script.unknown_sessions {
+            return false;
+        }
+        self.remember_mcp(&session.0, mcp);
+        true
+    }
+
+    /// Replays the scenario's `replay` texts into `session`, as `agent_message_chunk`.
+    fn replay(&self, cx: &ConnectionTo<Client>, session: &SessionId) -> agent_client_protocol::Result<()> {
+        for text in &self.script.replay {
+            cx.send_notification(chunk(session, text.clone()))?;
+        }
+        Ok(())
+    }
+
+    /// Answers `initialize`: the scenario's capabilities, after its optional delay.
+    async fn initialize(&self, req: InitializeRequest) -> InitializeResponse {
+        self.log("initialize", &serde_json::to_value(&req).unwrap_or_default());
+        self.log("pid", &serde_json::json!(std::process::id()));
+        if self.script.hang_initialize {
+            std::future::pending::<()>().await;
+        }
+        if let Some(ms) = self.script.init_delay_ms {
+            tokio::time::sleep(Duration::from_millis(ms)).await;
+        }
+        let sessions = if self.script.resume {
+            SessionCapabilities::new().resume(SessionResumeCapabilities::new())
+        } else {
+            SessionCapabilities::new()
+        };
+        InitializeResponse::new(req.protocol_version).agent_capabilities(
+            AgentCapabilities::new()
+                .mcp_capabilities(McpCapabilities::new().http(self.script.http))
+                .load_session(self.script.load_session)
+                .prompt_capabilities(PromptCapabilities::new().image(self.script.prompt_image))
+                .session_capabilities(sessions),
+        )
+    }
+
+    /// Answers `session/new`: a numbered `sess-<n>` session, which keeps its MCP server.
+    async fn new_session(&self, req: &NewSessionRequest) -> NewSessionResponse {
+        self.log("session/new", &serde_json::to_value(req).unwrap_or_default());
+        if self.script.new_session_delay_ms > 0 {
+            tokio::time::sleep(Duration::from_millis(self.script.new_session_delay_ms)).await;
+        }
+        let n = self.sessions.fetch_add(1, Ordering::Relaxed) + 1;
+        let id = format!("sess-{n}");
+        self.remember_mcp(&id, &req.mcp_servers);
+        NewSessionResponse::new(id)
+    }
+
+    /// The turn that prompt `req` plays.
+    ///
+    /// Picked by its text (`by_prompt`), otherwise by its rank in the session. Exits the
+    /// process if the scenario crashes this session.
+    fn pick_turn(&self, req: &PromptRequest) -> Turn {
+        let session_key = req.session_id.0.to_string();
+        let said = req.prompt.iter().rev().find_map(|b| match b {
+            ContentBlock::Text(t) => Some(t.text.as_str()),
+            _ => None,
+        });
+        let by_prompt = said.and_then(|t| self.script.by_prompt.get(t)).cloned();
+        // A turn picked by its text stays out of the other turns' numbering.
+        let index_in_session = {
+            let mut turns = self.turns.lock().unwrap_or_else(PoisonError::into_inner);
+            let count = turns.entry(session_key.clone()).or_insert(0);
+            let i = *count;
+            if by_prompt.is_none() {
+                *count += 1;
+            }
+            i
+        };
+        let rank = State::session_index(&session_key);
+        if index_in_session == 0 && self.script.crash_on_session == Some(rank) {
+            std::process::exit(3);
+        }
+        let turns_script = self.script.sessions.get(&rank.to_string()).unwrap_or(&self.script.turns);
+        match by_prompt {
+            Some(t) => t,
+            None => match turns_script.len() {
+                0 => Turn::default(),
+                n => turns_script[index_in_session % n].clone(),
+            },
+        }
+    }
+
+    fn log(&self, method: &str, params: &Value) {
+        if let Some(file) = &self.log {
+            let mut f = file.lock().unwrap_or_else(PoisonError::into_inner);
             let _ = writeln!(f, "{}", serde_json::json!({ "method": method, "params": params }));
         }
     }
 
     /// Le résultat d'un appel d'outil MCP du script (`mcp/result`).
     fn log_result(&self, session: &str, step: &McpStep, out: &str) {
-        self.log("mcp/result", serde_json::json!({ "session": session, "tool": step.tool, "out": out }));
+        self.log("mcp/result", &serde_json::json!({ "session": session, "tool": step.tool, "out": out }));
     }
 
     /// Notify de la session, créée au besoin.
     fn notify_for(&self, session: &str) -> Arc<Notify> {
-        let Ok(mut map) = self.wait_cancel.lock() else { return Arc::new(Notify::new()) };
+        let mut map = self.wait_cancel.lock().unwrap_or_else(PoisonError::into_inner);
         map.entry(session.to_owned()).or_insert_with(|| Arc::new(Notify::new())).clone()
     }
 
@@ -206,7 +344,7 @@ impl State {
             _ => None,
         });
         if let Some(http) = http {
-            self.mcp.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(session.to_owned(), http);
+            self.mcp.lock().unwrap_or_else(PoisonError::into_inner).insert(session.to_owned(), http);
         }
     }
 
@@ -308,7 +446,7 @@ async fn play(
         tokio::time::sleep(Duration::from_millis(turn.delay_ms)).await;
     }
     let session_key = session.0.to_string();
-    let mcp = state.mcp.lock().ok().and_then(|m| m.get(&session_key).cloned());
+    let mcp = state.mcp.lock().unwrap_or_else(PoisonError::into_inner).get(&session_key).cloned();
     // En séquence, chaque résultat est journalisé avant l'appel suivant : un appel qui attend
     // l'utilisateur (une question) ne retient pas le résultat des précédents.
     if turn.parallel {
@@ -343,38 +481,7 @@ async fn play(
 
 #[tokio::main]
 async fn main() -> agent_client_protocol::Result<()> {
-    let args: Vec<String> = std::env::args().collect();
-    let flag = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned();
-    let script: Script = flag("--script")
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or(Script {
-            http: true,
-            turns: vec![Turn::default()],
-            crash_on_session: None,
-            sessions: HashMap::new(),
-            prompt_image: false,
-            hang_initialize: false,
-            init_delay_ms: None,
-            load_session: false,
-            resume: false,
-            unknown_sessions: false,
-            replay: Vec::new(),
-            by_prompt: HashMap::new(),
-            new_session_delay_ms: 0,
-            load_delay_ms: 0,
-            late_replay_ms: None,
-        });
-    let log =
-        flag("--log").and_then(|p| std::fs::OpenOptions::new().create(true).append(true).open(p).ok()).map(Mutex::new);
-    let state = Arc::new(State {
-        script,
-        log,
-        sessions: AtomicUsize::new(0),
-        mcp: Mutex::new(HashMap::new()),
-        turns: Mutex::new(HashMap::new()),
-        wait_cancel: Mutex::new(HashMap::new()),
-    });
+    let state = Arc::new(State::from_args());
     let (s1, s2, s3, s4) = (state.clone(), state.clone(), state.clone(), state.clone());
     let (s5, s6) = (state.clone(), state.clone());
     Agent
@@ -382,76 +489,20 @@ async fn main() -> agent_client_protocol::Result<()> {
         .name("oku-slides-fake-agent")
         .on_receive_request(
             async move |req: InitializeRequest, responder, _cx: ConnectionTo<Client>| {
-                s1.log("initialize", serde_json::to_value(&req).unwrap_or_default());
-                s1.log("pid", serde_json::json!(std::process::id()));
-                if s1.script.hang_initialize {
-                    std::future::pending::<()>().await;
-                }
-                if let Some(ms) = s1.script.init_delay_ms {
-                    tokio::time::sleep(Duration::from_millis(ms)).await;
-                }
-                let sessions = if s1.script.resume {
-                    SessionCapabilities::new().resume(SessionResumeCapabilities::new())
-                } else {
-                    SessionCapabilities::new()
-                };
-                responder.respond(
-                    InitializeResponse::new(req.protocol_version).agent_capabilities(
-                        AgentCapabilities::new()
-                            .mcp_capabilities(McpCapabilities::new().http(s1.script.http))
-                            .load_session(s1.script.load_session)
-                            .prompt_capabilities(PromptCapabilities::new().image(s1.script.prompt_image))
-                            .session_capabilities(sessions),
-                    ),
-                )
+                responder.respond(s1.initialize(req).await)
             },
             agent_client_protocol::on_receive_request!(),
         )
         .on_receive_request(
             async move |req: NewSessionRequest, responder, _cx: ConnectionTo<Client>| {
-                s2.log("session/new", serde_json::to_value(&req).unwrap_or_default());
-                if s2.script.new_session_delay_ms > 0 {
-                    tokio::time::sleep(Duration::from_millis(s2.script.new_session_delay_ms)).await;
-                }
-                let n = s2.sessions.fetch_add(1, Ordering::Relaxed) + 1;
-                let id = format!("sess-{n}");
-                s2.remember_mcp(&id, &req.mcp_servers);
-                responder.respond(NewSessionResponse::new(id))
+                responder.respond(s2.new_session(&req).await)
             },
             agent_client_protocol::on_receive_request!(),
         )
         .on_receive_request(
             async move |req: PromptRequest, responder, cx: ConnectionTo<Client>| {
-                s3.log("session/prompt", serde_json::to_value(&req).unwrap_or_default());
-                let session_key = req.session_id.0.to_string();
-                let said = req.prompt.iter().rev().find_map(|b| match b {
-                    ContentBlock::Text(t) => Some(t.text.as_str()),
-                    _ => None,
-                });
-                let by_prompt = said.and_then(|t| s3.script.by_prompt.get(t)).cloned();
-                // Un tour choisi par son texte reste hors de la numérotation des autres.
-                let index_in_session = if let Ok(mut turns) = s3.turns.lock() {
-                    let count = turns.entry(session_key.clone()).or_insert(0);
-                    let i = *count;
-                    if by_prompt.is_none() {
-                        *count += 1;
-                    }
-                    i
-                } else {
-                    0
-                };
-                let rank = State::session_index(&session_key);
-                if index_in_session == 0 && s3.script.crash_on_session == Some(rank) {
-                    std::process::exit(3);
-                }
-                let turns_script = s3.script.sessions.get(&rank.to_string()).unwrap_or(&s3.script.turns);
-                let turn = match by_prompt {
-                    Some(t) => t,
-                    None => match turns_script.len() {
-                        0 => Turn::default(),
-                        n => turns_script[index_in_session % n].clone(),
-                    },
-                };
+                s3.log("session/prompt", &serde_json::to_value(&req).unwrap_or_default());
+                let turn = s3.pick_turn(&req);
                 if let Some(message) = &turn.error {
                     return responder.respond_with_internal_error(message);
                 }
@@ -474,18 +525,15 @@ async fn main() -> agent_client_protocol::Result<()> {
         )
         .on_receive_request(
             async move |req: LoadSessionRequest, responder, cx: ConnectionTo<Client>| {
-                s5.log("session/load", serde_json::to_value(&req).unwrap_or_default());
-                if s5.script.unknown_sessions {
+                let value = serde_json::to_value(&req).unwrap_or_default();
+                if !s5.reopen("session/load", &value, &req.session_id, &req.mcp_servers) {
                     return responder.respond_with_internal_error("unknown session");
                 }
-                s5.remember_mcp(&req.session_id.0, &req.mcp_servers);
                 if s5.script.load_delay_ms > 0 {
                     tokio::time::sleep(Duration::from_millis(s5.script.load_delay_ms)).await;
                 }
                 let Some(late) = s5.script.late_replay_ms else {
-                    for text in &s5.script.replay {
-                        cx.send_notification(chunk(&req.session_id, text.clone()))?;
-                    }
+                    s5.replay(&cx, &req.session_id)?;
                     return responder.respond(LoadSessionResponse::new());
                 };
                 responder.respond(LoadSessionResponse::new())?;
@@ -494,10 +542,7 @@ async fn main() -> agent_client_protocol::Result<()> {
                     let cx = cx.clone();
                     async move {
                         tokio::time::sleep(Duration::from_millis(late)).await;
-                        for text in &state.script.replay {
-                            cx.send_notification(chunk(&session, text.clone()))?;
-                        }
-                        Ok(())
+                        state.replay(&cx, &session)
                     }
                 })
             },
@@ -505,18 +550,17 @@ async fn main() -> agent_client_protocol::Result<()> {
         )
         .on_receive_request(
             async move |req: ResumeSessionRequest, responder, _cx: ConnectionTo<Client>| {
-                s6.log("session/resume", serde_json::to_value(&req).unwrap_or_default());
-                if s6.script.unknown_sessions {
+                let value = serde_json::to_value(&req).unwrap_or_default();
+                if !s6.reopen("session/resume", &value, &req.session_id, &req.mcp_servers) {
                     return responder.respond_with_internal_error("unknown session");
                 }
-                s6.remember_mcp(&req.session_id.0, &req.mcp_servers);
                 responder.respond(ResumeSessionResponse::new())
             },
             agent_client_protocol::on_receive_request!(),
         )
         .on_receive_notification(
             async move |n: CancelNotification, _cx: ConnectionTo<Client>| {
-                s4.log("session/cancel", serde_json::to_value(&n).unwrap_or_default());
+                s4.log("session/cancel", &serde_json::to_value(&n).unwrap_or_default());
                 s4.notify_for(n.session_id.0.as_ref()).notify_one();
                 Ok(())
             },

@@ -171,7 +171,7 @@ pub(crate) fn units<'a>(items: &[&'a Item], cell: impl Fn(&Frame) -> Cell) -> Ve
                 (0..items.len()).filter(|t| owner[*t] == Some(k) && !is_text(items[*t])).map(|t| items[t]).collect();
             out.push(Unit::Card { shape: item, texts, inner });
         } else if owner[k].is_some() {
-            continue;
+            // Inside a card: placed with it.
         } else if let Some(run) = runs.iter().find(|r| r.iter().min() == Some(&k)) {
             out.push(match run.as_slice() {
                 [single] => Unit::Item(items[*single]),

@@ -49,7 +49,7 @@ impl std::fmt::Debug for AppState {
 
 impl AppState {
     /// Une erreur dans la langue de l'utilisateur ; journalisée en anglais.
-    pub fn refuse(&self, e: SessionError) -> String {
+    pub fn refuse(&self, e: &SessionError) -> String {
         tracing::warn!(error = %e.one_line(), "requête refusée");
         e.localize(&self.localizer)
     }

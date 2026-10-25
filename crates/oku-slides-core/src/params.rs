@@ -15,7 +15,9 @@ use crate::model::{Element, Paragraph};
 /// valeurs par colonne.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ListItem {
+    /// Stable id of the item, unique in the list and without `/`.
     pub id: String,
+    /// Values by column name; an absent column is empty.
     #[serde(flatten)]
     pub values: Params,
 }
@@ -95,10 +97,14 @@ pub(crate) fn is_paragraphs(a: &[Value]) -> bool {
 pub struct Params(pub BTreeMap<String, ParamValue>);
 
 impl Params {
+    /// The value of the parameter `name`, if it is set.
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&ParamValue> {
         self.0.get(name)
     }
 
+    /// Is no parameter set?
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -108,11 +114,13 @@ impl Params {
         self.0.insert(name.into(), value)
     }
 
+    /// Removes the parameter `name`; returns its former value.
     pub fn remove(&mut self, name: &str) -> Option<ParamValue> {
         self.0.remove(name)
     }
 
     /// Texte simple.
+    #[must_use]
     pub fn text(&self, name: &str) -> Option<&str> {
         match self.get(name)? {
             ParamValue::Text(s) => Some(s),
@@ -121,6 +129,7 @@ impl Params {
     }
 
     /// Paragraphes ; un slot vide se lit comme un texte vide.
+    #[must_use]
     pub fn rich(&self, name: &str) -> Option<&[Paragraph]> {
         match self.get(name)? {
             ParamValue::Rich(p) => Some(p),
@@ -130,6 +139,7 @@ impl Params {
     }
 
     /// Éléments d'un slot ; un texte riche vide se lit comme un slot vide.
+    #[must_use]
     pub fn slot(&self, name: &str) -> Option<&[Element]> {
         match self.get(name)? {
             ParamValue::Slot(s) => Some(s),
@@ -154,6 +164,7 @@ impl Params {
     }
 
     /// Items d'une liste ; un texte riche ou un slot vide se lit comme une liste vide.
+    #[must_use]
     pub fn list(&self, name: &str) -> Option<&[ListItem]> {
         match self.get(name)? {
             ParamValue::List(l) => Some(l),
@@ -171,6 +182,8 @@ impl Params {
         })
     }
 
+    /// Raw JSON value of the parameter `name` (grid, host, unknown type).
+    #[must_use]
     pub fn value(&self, name: &str) -> Option<&Value> {
         match self.get(name)? {
             ParamValue::Value(v) => Some(v),
@@ -186,6 +199,7 @@ impl Params {
         })
     }
 
+    /// All slots, with their name, mutable.
     pub fn slots_mut(&mut self) -> impl Iterator<Item = (&str, &mut Vec<Element>)> {
         self.0.iter_mut().filter_map(|(k, v)| match v {
             ParamValue::Slot(s) => Some((k.as_str(), s)),
@@ -201,17 +215,21 @@ impl Params {
         })
     }
 
+    /// All parameters, by ascending name.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &ParamValue)> {
         self.0.iter().map(|(k, v)| (k.as_str(), v))
     }
 
+    /// All parameters, by ascending name, mutable.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&str, &mut ParamValue)> {
         self.0.iter_mut().map(|(k, v)| (k.as_str(), v))
     }
 }
 
-/// Schéma JSON : un objet à valeurs libres. La forme de chaque valeur dépend
-/// du widget ; le registre la contrôle (voir [`validate`](crate::validate)).
+/// JSON schema: an object with free values.
+///
+/// The shape of each value depends on the widget; the registry checks it (see
+/// [`validate`](crate::validate)).
 impl schemars::JsonSchema for Params {
     fn schema_name() -> std::borrow::Cow<'static, str> {
         "Params".into()

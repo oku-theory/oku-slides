@@ -107,7 +107,7 @@ fn steps(runs: &[Run]) -> Vec<Step> {
         if let Some(depth) = stack.iter().position(|&m| barrier(r) || !m.of(r)) {
             step.close = stack.drain(depth..).rev().collect();
         }
-        step.kept = stack.clone();
+        step.kept.clone_from(&stack);
         if !barrier(r) {
             // La plus longue à l'extérieur : elle reste ouverte le plus longtemps.
             let span = |m: Mark| spans[i][m as usize];
@@ -203,7 +203,7 @@ struct Edge {
     after: Stack,
 }
 
-fn edge(stack: Stack, next: Option<Format>) -> Edge {
+fn edge(stack: Stack, next: Option<Format<'_>>) -> Edge {
     let Some(marks) = next.filter(|f| !f.barrier()).map(|f| f.marks) else {
         return Edge { close: stack.open, kept: 0, open: 0, after: Stack::default() };
     };
@@ -227,7 +227,7 @@ fn edge(stack: Stack, next: Option<Format>) -> Edge {
 }
 
 /// Classe vue contre un délimiteur ; crochets, `==` et `{n}` des barrières sont de la ponctuation.
-fn side(c: Option<(char, Format)>) -> Class {
+fn side(c: Option<(char, Format<'_>)>) -> Class {
     match c {
         Some((_, f)) if f.barrier() => Class::Punct,
         c => class(c.map(|(c, _)| c)),
@@ -237,7 +237,7 @@ fn side(c: Option<(char, Format)>) -> Class {
 /// Runs dont les bords se lisent comme écrits : seuls des espaces et de la
 /// ponctuation y perdent leur mise en forme, jamais du texte.
 fn normalize(runs: &[Run]) -> Vec<Run> {
-    let mut chars: Vec<(char, Format)> = runs
+    let mut chars: Vec<(char, Format<'_>)> = runs
         .iter()
         .flat_map(|r| {
             let f = Format::of(r);
@@ -247,7 +247,7 @@ fn normalize(runs: &[Run]) -> Vec<Run> {
     unhighlight_edge_spaces(&mut chars);
     fix_emphasis_edges(&mut chars);
     let mut out: Vec<Run> = Vec::new();
-    let mut last: Option<Format> = None;
+    let mut last: Option<Format<'_>> = None;
     for (c, f) in chars {
         match out.last_mut() {
             Some(r) if last == Some(f) => r.t.push(c),
@@ -267,7 +267,7 @@ fn normalize(runs: &[Run]) -> Vec<Run> {
 }
 
 /// Fin du run qui commence en `start`.
-fn run_end(chars: &[(char, Format)], start: usize) -> usize {
+fn run_end(chars: &[(char, Format<'_>)], start: usize) -> usize {
     let mut end = start;
     while chars.get(end + 1).is_some_and(|&(_, f)| Some(f) == chars.get(start).map(|&(_, f)| f)) {
         end += 1;
@@ -276,7 +276,7 @@ fn run_end(chars: &[(char, Format)], start: usize) -> usize {
 }
 
 /// Pastille hors lien : pas d'espace contre `==` (voir markdownHighlight.ts).
-fn unhighlight_edge_spaces(chars: &mut [(char, Format)]) {
+fn unhighlight_edge_spaces(chars: &mut [(char, Format<'_>)]) {
     let mut start = 0;
     while start < chars.len() {
         let end = run_end(chars, start);
@@ -302,19 +302,19 @@ fn unhighlight_edge_spaces(chars: &mut [(char, Format)]) {
 /// Un correctif en `q` ne change aucun bord avant `q` : la pile d'un bord ne
 /// dépend que des runs déjà lus (`edge`). Chaque correctif retire une emphase
 /// à un caractère, et les correctifs avancent : le tout reste linéaire.
-fn fix_emphasis_edges(chars: &mut [(char, Format)]) {
+fn fix_emphasis_edges(chars: &mut [(char, Format<'_>)]) {
     // Bords sans correctif, avec la pile d'avant chacun.
     let mut clean: Vec<(usize, Stack)> = Vec::new();
     let (mut p, mut stack) = (0usize, Stack::default());
     loop {
         let (prev, next) = (p.checked_sub(1).map(|i| chars[i]), chars.get(p).copied());
-        let e = edge(stack, next.map(|(_, f)| f));
-        let (a, b) = (side(prev), side(next));
-        // Fermetures et ouvertures sont des `*` : une seule suite entre `a` et `b`,
-        // qui doit pouvoir fermer (côté `a`) et ouvrir (côté `b`).
-        let fix = if e.close != 0 && (a == Class::Space || (a == Class::Punct && b == Class::Alnum)) {
+        let this_edge = edge(stack, next.map(|(_, f)| f));
+        let (left, right) = (side(prev), side(next));
+        // Closers and openers are `*`: a single run between `left` and `right`,
+        // which must be able to close (on the `left` side) and open (on the `right` side).
+        let fix = if this_edge.close != 0 && (left == Class::Space || (left == Class::Punct && right == Class::Alnum)) {
             p.checked_sub(1)
-        } else if e.open != 0 && (b == Class::Space || (b == Class::Punct && a == Class::Alnum)) {
+        } else if this_edge.open != 0 && (right == Class::Space || (right == Class::Punct && left == Class::Alnum)) {
             Some(p)
         } else {
             None
@@ -324,11 +324,11 @@ fn fix_emphasis_edges(chars: &mut [(char, Format)]) {
                 return;
             }
             clean.push((p, stack));
-            stack = e.after;
+            stack = this_edge.after;
             p = run_end(chars, p);
             continue;
         };
-        chars[q].1 = Format::emphasis(e.kept);
+        chars[q].1 = Format::emphasis(this_edge.kept);
         while clean.last().is_some_and(|&(x, _)| x >= q) {
             clean.pop();
         }

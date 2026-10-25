@@ -92,7 +92,8 @@ fn legend_entries(base: &ChartBase) -> Vec<(String, String)> {
         .enumerate()
         .filter(|(_, s)| !s.name.is_empty())
         .map(|(i, s)| {
-            let c = colors.get(s.index.unwrap_or(i) % colors.len().max(1)).map(|c| c.hex()).unwrap_or_default();
+            let c =
+                colors.get(s.index.unwrap_or(i) % colors.len().max(1)).map(charts_rs::Color::hex).unwrap_or_default();
             (s.name.clone(), c)
         })
         .collect()
@@ -122,7 +123,7 @@ fn legend(
             HAlign::Center => left + ((width - row_width) / 2.0).max(0.0),
             HAlign::Right => left + (width - row_width).max(0.0),
         };
-        let cy = top + r as f32 * line + line / 2.0;
+        let cy = top + count(r) * line + line / 2.0;
         for i in range.clone() {
             let (name, color) = &entries[i];
             let stroke = size * MARKER_STROKE;
@@ -144,7 +145,7 @@ fn legend(
             x += widths[i] + size * ENTRY_GAP;
         }
     }
-    rows.len() as f32 * line
+    count(rows.len()) * line
 }
 
 /// Entrées réparties en lignes de `width` au plus : (indices, largeur).
@@ -164,11 +165,16 @@ fn rows(widths: &[f32], gap: f32, width: f32) -> Vec<(std::ops::Range<usize>, f3
     rows
 }
 
+/// A count (legend lines, characters) as `f32`, for geometry.
+#[expect(clippy::cast_precision_loss, reason = "counts far below 2^24, exact in f32")]
+fn count(n: usize) -> f32 {
+    n as f32
+}
+
 /// Largeur d'un texte ; sans police enregistrée, une estimation.
 fn text_width(family: &str, size: f32, text: &str) -> f32 {
     measure_text_width_family(family, size, text)
-        .map(|b| b.width())
-        .unwrap_or_else(|_| text.chars().count() as f32 * size * 0.55)
+        .map_or_else(|_| count(text.chars().count()) * size * 0.55, |b| b.width())
 }
 
 /// Le texte, coupé avec « … » s'il dépasse `width`.

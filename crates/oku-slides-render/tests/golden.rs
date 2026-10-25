@@ -1,5 +1,6 @@
 //! Rendu figé : les pages des decks de référence restent identiques au
 //! pixel près pendant le passage aux widgets Typst (t-270).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -37,7 +38,7 @@ fn render_reference_decks_keeps_every_page_pixel_identical() {
     let mut lines = Vec::new();
     for (name, path) in REFERENCES {
         let deck = deck(path);
-        r.set_theme(common::theme_tokens(reference_theme(name, &deck))).unwrap();
+        r.set_theme(Some(common::theme_tokens(reference_theme(name, &deck)))).unwrap();
         let compiled = r.render(&deck, &BTreeMap::new()).unwrap();
         for page in 0..compiled.page_count() {
             let png = compiled.png(page, 0.5).unwrap();
@@ -57,7 +58,7 @@ fn dump_reference_pages() {
     let mut r = common::renderer();
     for (name, path) in REFERENCES {
         let deck = deck(path);
-        r.set_theme(common::theme_tokens(reference_theme(name, &deck))).unwrap();
+        r.set_theme(Some(common::theme_tokens(reference_theme(name, &deck)))).unwrap();
         let compiled = r.render(&deck, &BTreeMap::new()).unwrap();
         for page in 0..compiled.page_count() {
             std::fs::write(format!("{dir}/{name}-p{}.png", page + 1), compiled.png(page, 0.5).unwrap()).unwrap();
@@ -71,7 +72,7 @@ fn reference_boxes() -> Vec<String> {
     let mut lines = Vec::new();
     for (name, path) in REFERENCES {
         let deck = deck(path);
-        r.set_theme(common::theme_tokens(reference_theme(name, &deck))).unwrap_or_else(|e| panic!("{e}"));
+        r.set_theme(Some(common::theme_tokens(reference_theme(name, &deck)))).unwrap_or_else(|e| panic!("{e}"));
         let compiled = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
         for page in 1..=compiled.page_count() {
             for b in compiled.layout().boxes_on(page) {

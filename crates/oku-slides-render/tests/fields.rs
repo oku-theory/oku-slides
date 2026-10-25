@@ -1,4 +1,5 @@
 //! Champs émis par le rendu : champs vides compris, sans changer la mise en page.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -17,10 +18,10 @@ fn roadmap_json() -> serde_json::Value {
     serde_json::from_str(&json).unwrap_or_else(|e| panic!("{path} invalide : {e}"))
 }
 
-fn render(deck: serde_json::Value) -> Vec<FieldBox> {
+fn render(deck: &serde_json::Value) -> Vec<FieldBox> {
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
     let mut r = common::renderer();
-    r.set_theme(common::theme_tokens(common::theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(common::theme_tokens(common::theme_name(deck.theme.as_ref())))).unwrap_or_else(|e| panic!("{e}"));
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}")).layout().fields.clone()
 }
 
@@ -45,7 +46,7 @@ fn field<'a>(fields: &'a [FieldBox], owner: &str, name: &str) -> &'a FieldBox {
 
 #[test]
 fn card_without_kicker_emits_an_empty_kicker_before_its_title() {
-    let fields = render(with_element("s-priorites", "c1", |p| {
+    let fields = render(&with_element("s-priorites", "c1", |p| {
         p.as_object_mut().unwrap().remove("kicker");
     }));
     let kicker = field(&fields, "c1", "kicker");
@@ -61,7 +62,7 @@ fn card_without_kicker_emits_an_empty_kicker_before_its_title() {
 fn card_with_only_a_body_emits_kicker_and_title_on_one_anchor_before_it() {
     // Contrat de l'interface : deux marqueurs vides consécutifs partagent l'ancre
     // (même y, `before`) ; c'est elle qui les empile, dans l'ordre de Tab.
-    let fields = render(with_element("s-priorites", "c1", |p| {
+    let fields = render(&with_element("s-priorites", "c1", |p| {
         let o = p.as_object_mut().unwrap();
         o.remove("kicker");
         o.remove("title");
@@ -82,7 +83,7 @@ fn card_with_only_a_body_emits_kicker_and_title_on_one_anchor_before_it() {
 
 #[test]
 fn card_filled_fields_are_not_empty() {
-    let fields = render(roadmap_json());
+    let fields = render(&roadmap_json());
     for name in ["kicker", "title", "body"] {
         let f = field(&fields, "c1", name);
         asserting(name).that(&f.empty).is_false();
@@ -92,7 +93,7 @@ fn card_filled_fields_are_not_empty() {
 
 #[test]
 fn card_with_empty_body_marks_its_measured_body_empty() {
-    let fields = render(with_element("s-priorites", "c1", |p| {
+    let fields = render(&with_element("s-priorites", "c1", |p| {
         p["body"] = json!([]);
     }));
     let body = field(&fields, "c1", "body");
@@ -102,7 +103,7 @@ fn card_with_empty_body_marks_its_measured_body_empty() {
 
 #[test]
 fn text_element_with_empty_body_marks_its_body_empty() {
-    let fields = render(with_element("s-constat", "b-points", |p| {
+    let fields = render(&with_element("s-constat", "b-points", |p| {
         p["body"] = json!([]);
     }));
     assert_that!(field(&fields, "b-points", "body").empty).is_true();
@@ -162,7 +163,7 @@ fn has_field(fields: &[FieldBox], owner: &str, name: &str) -> bool {
 
 #[test]
 fn card_with_blank_kicker_emits_an_empty_kicker_before_its_title() {
-    let fields = render(with_element("s-priorites", "c1", |p| {
+    let fields = render(&with_element("s-priorites", "c1", |p| {
         p["kicker"] = json!("");
     }));
     let kicker = field(&fields, "c1", "kicker");
@@ -172,7 +173,7 @@ fn card_with_blank_kicker_emits_an_empty_kicker_before_its_title() {
 
 #[test]
 fn content_slide_without_kicker_emits_an_empty_kicker() {
-    let fields = render(with_slide("s-constat", |p| {
+    let fields = render(&with_slide("s-constat", |p| {
         p.as_object_mut().unwrap().remove("kicker");
     }));
     let kicker = field(&fields, "s-constat", "kicker");
@@ -182,7 +183,7 @@ fn content_slide_without_kicker_emits_an_empty_kicker() {
 
 #[test]
 fn content_slide_without_title_emits_empty_kicker_and_title_above_the_body() {
-    let fields = render(with_slide("s-constat", |p| {
+    let fields = render(&with_slide("s-constat", |p| {
         let o = p.as_object_mut().unwrap();
         o.remove("kicker");
         o.remove("title");
@@ -196,7 +197,7 @@ fn content_slide_without_title_emits_empty_kicker_and_title_above_the_body() {
 
 #[test]
 fn chapter_without_subtitle_emits_an_empty_subtitle_after_the_title() {
-    let fields = render(roadmap_json()); // s-ch2 n'a pas de sous-titre
+    let fields = render(&roadmap_json()); // s-ch2 n'a pas de sous-titre
     let sub = field(&fields, "s-ch2", "subtitle");
     let title = field(&fields, "s-ch2", "title");
     assert_that!(sub.empty).is_true();
@@ -207,7 +208,7 @@ fn chapter_without_subtitle_emits_an_empty_subtitle_after_the_title() {
 
 #[test]
 fn chapter_with_blank_title_marks_its_rendered_title_empty() {
-    let fields = render(with_slide("s-ch2", |p| {
+    let fields = render(&with_slide("s-ch2", |p| {
         p["title"] = json!("");
     }));
     let title = field(&fields, "s-ch2", "title");
@@ -218,7 +219,7 @@ fn chapter_with_blank_title_marks_its_rendered_title_empty() {
 #[test]
 fn title_slide_emits_kicker_title_and_subtitle() {
     // Thème papier : couverture en mise en page `plain`, surtitre affiché.
-    let fields = render(roadmap_json());
+    let fields = render(&roadmap_json());
     for name in ["kicker", "title", "subtitle"] {
         asserting(name).that(&has_field(&fields, "s-title", name)).is_true();
     }
@@ -228,7 +229,7 @@ fn title_slide_emits_kicker_title_and_subtitle() {
 fn title_slide_without_subtitle_emits_an_empty_subtitle() {
     let mut deck = roadmap_json();
     deck["params"].as_object_mut().unwrap().remove("subtitle");
-    let fields = render(deck);
+    let fields = render(&deck);
     assert_that!(field(&fields, "s-title", "subtitle").empty).is_true();
 }
 
@@ -237,7 +238,7 @@ fn title_slide_in_band_layout_emits_title_and_subtitle_without_kicker() {
     let mut deck = roadmap_json();
     deck["theme"] = json!("pro");
     deck["themes"] = json!(common::theme_pins("pro"));
-    let fields = render(deck);
+    let fields = render(&deck);
     assert_that!(has_field(&fields, "s-title", "title")).is_true();
     assert_that!(has_field(&fields, "s-title", "subtitle")).is_true();
     assert_that!(has_field(&fields, "s-title", "kicker")).is_false();
@@ -245,7 +246,7 @@ fn title_slide_in_band_layout_emits_title_and_subtitle_without_kicker() {
 
 #[test]
 fn end_slide_with_empty_text_marks_it_empty() {
-    let fields = render(with_slide("s-fin", |p| {
+    let fields = render(&with_slide("s-fin", |p| {
         p["text"] = json!("");
     }));
     assert_that!(field(&fields, "s-fin", "text").empty).is_true();
@@ -253,7 +254,7 @@ fn end_slide_with_empty_text_marks_it_empty() {
 
 #[test]
 fn toc_emits_its_title_field_only() {
-    let fields = render(roadmap_json());
+    let fields = render(&roadmap_json());
     let names: Vec<&str> = fields.iter().filter(|f| f.owner == "s-toc").map(|f| f.field.as_str()).collect();
     // Pas de paramètre `kicker` pour le sommaire : pas de champ.
     assert_that!(names).is_equal_to(vec!["title"]);
@@ -265,7 +266,7 @@ fn content_slide_without_kicker_in_arabic_aligns_the_empty_kicker_like_its_title
         p.as_object_mut().unwrap().remove("kicker");
     });
     deck["params"]["lang"] = json!("ar");
-    let fields = render(deck);
+    let fields = render(&deck);
     let align = |name| field(&fields, "s-constat", name).style.as_ref().and_then(|s| s.align.clone());
     assert_that!(align("kicker")).is_equal_to(Some("right".to_owned()));
     assert_that!(align("title")).is_equal_to(Some("right".to_owned()));
@@ -279,7 +280,7 @@ fn content_slide_without_title_in_arabic_aligns_empty_fields_right() {
         o.remove("title");
     });
     deck["params"]["lang"] = json!("ar");
-    let fields = render(deck);
+    let fields = render(&deck);
     let body = field(&fields, "b-points", "body");
     for name in ["kicker", "title"] {
         let f = field(&fields, "s-constat", name);

@@ -53,12 +53,18 @@ pub(crate) fn help_deck_with(locale: &str, keys: fn(&str) -> Cow<'_, str>) -> Re
 }
 
 impl Session {
-    /// Montre l'aide dans la langue `locale` (sinon en anglais), en lecture
-    /// seule, au thème `theme` (id du thème du deck d'où on l'ouvre ; inconnu
-    /// ou absent : le thème par défaut).
+    /// Shows the help in language `locale` (or else English), read-only, with theme `theme`.
     ///
-    /// Pour une session neuve (onglet d'aide, reprise) : le deck ouvert est
-    /// remplacé sans question.
+    /// `theme` is the theme id of the deck it is opened from; unknown or
+    /// absent: the default theme.
+    ///
+    /// For a new session (help tab, resume): the open deck is replaced
+    /// without asking.
+    ///
+    /// # Errors
+    ///
+    /// Fails in pack mode (`EditingPack`), if the built-in registry or the help deck cannot be built,
+    /// or if its rendering fails.
     pub fn open_help(&mut self, locale: &str, theme: Option<Uuid>) -> Result<()> {
         // Le deck mis de côté par l'édition d'un pack serait perdu.
         ensure!(!matches!(self.mode, Mode::Pack { .. }), EditingPackSnafu);
@@ -83,11 +89,17 @@ impl Session {
         Ok(())
     }
 
-    /// L'aide prend le thème `id` (celui du deck d'où on la rouvre), dans sa
-    /// version courante, embarquée.
+    /// The help takes theme `id`, embedded at its current version.
     ///
-    /// Ni annulable ni à enregistrer : l'aide reste en lecture seule. Hors de
-    /// l'aide, ou thème inconnu de la bibliothèque : refusé.
+    /// `id` is the theme of the deck the help is reopened from.
+    ///
+    /// Neither undoable nor to be saved: the help stays read-only. Outside the
+    /// help, or for a theme unknown to the library: rejected.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside the help (`NotHelp`), for an unknown theme (`UnknownTheme`), if its closure cannot
+    /// be read or if rendering fails.
     pub fn set_help_theme(&mut self, id: Uuid) -> Result<()> {
         ensure!(self.help().is_some(), NotHelpSnafu);
         let current = self.themes.current_version(id).context(UnknownThemeSnafu { theme: id.to_string() })?;

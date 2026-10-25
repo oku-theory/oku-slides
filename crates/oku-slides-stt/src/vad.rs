@@ -9,6 +9,7 @@ use earshot::Detector;
 use oku_slides_platform::config::VadSettings;
 
 use crate::SAMPLE_RATE;
+use crate::num::{self, seconds};
 
 /// Trame d'earshot : 256 échantillons (16 ms).
 pub const FRAME: usize = 256;
@@ -22,7 +23,7 @@ pub struct Phrase {
 
 impl Phrase {
     pub fn seconds(&self) -> f32 {
-        (self.end - self.start) as f32 / SAMPLE_RATE as f32
+        seconds(self.end - self.start)
     }
 }
 
@@ -75,10 +76,6 @@ impl Segmenter {
         }
     }
 
-    fn secs(&self, s: f32) -> usize {
-        (s * SAMPLE_RATE as f32) as usize
-    }
-
     /// Fin de l'audio reçu (position dans la session).
     fn end(&self) -> usize {
         self.base + self.audio.len()
@@ -88,7 +85,7 @@ impl Segmenter {
     /// sans phrase, avant l'amorce d'une prochaine. Par paquets d'une seconde
     /// au moins, pour ne pas décaler le tampon à chaque morceau.
     fn forget(&mut self) {
-        let margin = self.config.onset_frames * FRAME + self.secs(self.config.pre_roll);
+        let margin = self.config.onset_frames * FRAME + num::samples(self.config.pre_roll);
         let keep_from = self.open.unwrap_or(self.scanned.saturating_sub(margin));
         let drop = keep_from.saturating_sub(self.base);
         if drop >= SAMPLE_RATE as usize {
@@ -114,8 +111,8 @@ impl Segmenter {
                 self.voiced_run += 1;
                 self.last_voice = self.scanned;
                 if self.open.is_none() && self.voiced_run >= self.config.onset_frames {
-                    let begin =
-                        (at + FRAME).saturating_sub(self.config.onset_frames * FRAME + self.secs(self.config.pre_roll));
+                    let begin = (at + FRAME)
+                        .saturating_sub(self.config.onset_frames * FRAME + num::samples(self.config.pre_roll));
                     self.open = Some(begin);
                     self.heard = true;
                 }
@@ -124,15 +121,15 @@ impl Segmenter {
             }
             if let Some(start) = self.open {
                 let quiet = self.scanned - self.last_voice;
-                let long_enough = self.last_voice.saturating_sub(start) >= self.secs(self.config.min_phrase);
+                let long_enough = self.last_voice.saturating_sub(start) >= num::samples(self.config.min_phrase);
                 // Une phrase courte (« Ask not… ») attend la suite : Whisper
                 // transcrit mieux une phrase entière.
-                let paused = quiet >= self.secs(self.config.pause)
-                    && (long_enough || quiet >= self.secs(self.config.long_pause));
-                let too_long = self.scanned - start >= self.secs(self.config.max_phrase);
+                let paused = quiet >= num::samples(self.config.pause)
+                    && (long_enough || quiet >= num::samples(self.config.long_pause));
+                let too_long = self.scanned - start >= num::samples(self.config.max_phrase);
                 if paused || too_long {
                     let end = if paused {
-                        (self.last_voice + self.secs(self.config.post_roll)).min(self.scanned)
+                        (self.last_voice + num::samples(self.config.post_roll)).min(self.scanned)
                     } else {
                         self.scanned
                     };
@@ -153,13 +150,13 @@ impl Segmenter {
     /// Clôt la phrase en cours (fin de l'écoute).
     pub fn close(&mut self) -> Option<Phrase> {
         let start = self.open.take()?;
-        let end = (self.last_voice + self.secs(self.config.post_roll)).min(self.end()).max(start);
+        let end = (self.last_voice + num::samples(self.config.post_roll)).min(self.end()).max(start);
         Some(Phrase { start, end })
     }
 
     /// Silence depuis la dernière parole (s) ; depuis le début si rien entendu.
     pub fn silence(&self) -> f32 {
-        (self.scanned - self.last_voice) as f32 / SAMPLE_RATE as f32
+        seconds(self.scanned - self.last_voice)
     }
 
     /// Audio d'une phrase (vide pour ce qui a déjà été oublié).

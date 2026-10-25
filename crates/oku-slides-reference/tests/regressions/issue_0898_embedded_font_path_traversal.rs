@@ -116,7 +116,11 @@ fn convert_bytes_without_guard_writes_at_the_typeface_path() {
     let target = dir.path().canonicalize().unwrap().join("evil");
     let pptx = pptx_with_font(&typeface_towards(&target, false), &format!("ppt/media/{GUID}.fntdata"), None);
 
-    let _ = office2pdf::convert_bytes(&pptx, office2pdf::config::Format::Pptx, &Default::default());
+    let _ = office2pdf::convert_bytes(
+        &pptx,
+        office2pdf::config::Format::Pptx,
+        &office2pdf::config::ConvertOptions::default(),
+    );
 
     assert_that!(written(dir.path())).contains(std::ffi::OsString::from("evil-regular.ttf"));
 }

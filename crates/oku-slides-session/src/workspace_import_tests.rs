@@ -4,22 +4,22 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::import::ImportMode;
+use crate::import::{ImportMode, ImportState};
 use crate::test_support::{apply_ws, fresh_dir, pptx_fixture, workspace_on, workspace_platform};
 use crate::{Localize, Localizer, Request, SessionErrorKind};
 use oku_slides_render_worker::ReferenceWitness;
 
 fn import_tab(ws: &Mutex<Workspace>, path: &Path, target: serde_json::Value, tune: bool) -> Result<WorkspaceOutcome> {
     let mut req = json!({ "cmd": "import_tab", "window": "w-1", "path": path, "tune": tune });
-    if let (Some(req), Some(target)) = (req.as_object_mut(), target.as_object()) {
-        req.extend(target.clone());
+    if let (Some(req), serde_json::Value::Object(target)) = (req.as_object_mut(), target) {
+        req.extend(target);
     }
     apply_ws(ws, req)
 }
 
 /// Le mode de l'import tenu par l'onglet `tab`, s'il en tient un.
 fn import_mode(ws: &Mutex<Workspace>, tab: &str) -> Option<ImportMode> {
-    Workspace::with_session(ws, tab, |s| s.import_state().map(|st| st.mode())).0.unwrap()
+    Workspace::with_session(ws, tab, |s| s.import_state().map(ImportState::mode)).0.unwrap()
 }
 
 #[test]
@@ -120,12 +120,12 @@ fn import_tab_resumed_after_relaunch_keeps_its_deck_but_not_its_import_state() {
     let data = fresh_dir("oku-slides-workspace-import-resume-");
     let dir = data.path().join("resume");
     let platform = workspace_platform(data.path());
-    let ws = Mutex::new(Workspace::resume(Fonts::default(), &platform, dir.clone()).unwrap());
+    let ws = Mutex::new(Workspace::resume(Fonts::default(), &platform, &dir).unwrap());
     let pptx = pptx_fixture(data.path(), "minimal");
     import_tab(&ws, &pptx, json!({ "mode": "hifi" }), false).unwrap();
     Workspace::settle(&ws);
     drop(ws);
-    let again = Mutex::new(Workspace::resume(Fonts::default(), &platform, dir).unwrap());
+    let again = Mutex::new(Workspace::resume(Fonts::default(), &platform, &dir).unwrap());
     let slides = Workspace::with_session(&again, "t-2", |s| s.deck().slides.len()).0.unwrap();
     assert_that!(slides).is_equal_to(3);
     assert_that!(import_mode(&again, "t-2")).is_none();
@@ -146,8 +146,8 @@ fn witness_of(
 ) -> (Option<ReferenceWitness>, Option<Result<String, oku_slides_import::report::ReferenceCause>>) {
     Workspace::with_session(ws, tab, |s| {
         let st = s.import_state();
-        let job = st.and_then(|st| st.reference_job()).map(|j| j.witness);
-        (job, st.and_then(|st| st.reference_status()).map(|r| r.map(str::to_owned)))
+        let job = st.and_then(ImportState::reference_job).map(|j| j.witness);
+        (job, st.and_then(ImportState::reference_status).map(|r| r.map(str::to_owned)))
     })
     .0
     .unwrap()

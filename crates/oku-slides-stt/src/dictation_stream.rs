@@ -32,7 +32,7 @@ impl Stt {
     ///
     /// Une dictée abandonnée ou trop lente annule le flux confié ; il n'est
     /// lâché tel quel qu'après `Done`, `Failed` ou la fermeture du pont.
-    pub(crate) fn stream_loop(&self, session: u64, events: mpsc::Receiver<Event>, held: Held) {
+    pub(crate) fn stream_loop(&self, session: u64, events: &mpsc::Receiver<Event>, held: &Held) {
         let tick = Duration::from_millis(self.settings.tick_ms);
         let timeout = Duration::from_secs_f32(self.settings.apple_finish_timeout_secs);
         let mut finishing: Option<Instant> = None;
@@ -41,7 +41,7 @@ impl Stt {
             let mut g = self.state();
             if g.session != session {
                 drop(g);
-                cancel_held(&held); // dictée abandonnée
+                cancel_held(held); // dictée abandonnée
                 return;
             }
             match event {
@@ -72,7 +72,7 @@ impl Stt {
                     g.error = Some(e.localize(&self.localizer));
                     g.complete(); // le texte déjà définitif est gardé
                     drop(g);
-                    cancel_held(&held);
+                    cancel_held(held);
                     return;
                 }
             }
@@ -93,7 +93,7 @@ impl Stt {
             let Some((tag, _)) = g.apple.clone() else {
                 drop(g);
                 // Aucune langue connue du moteur : rien à télécharger, on le dit.
-                self.report(LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
+                self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
                 return false;
             };
             if g.state != State::Idle {

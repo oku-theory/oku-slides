@@ -44,12 +44,16 @@ pub(crate) fn pin_closure(sources: &mut SourceBundle, deck: &mut Deck, ns: Names
     deck.themes = pins;
 }
 
-/// Un deck sans thème épingle la fermeture de Papier, dans sa version courante.
+/// A deck without a theme pins the closure of Papier, at its current version.
 ///
-/// Elle est embarquée dans `sources`, sans étape d'annulation. Un deck qui a
-/// déjà un thème le garde ; une version épinglée qui manque aux sources mais
-/// que la bibliothèque a (même empreinte, même contenu) est embarquée. La
-/// session et la CLI passent par ici.
+/// It is embedded in `sources`, with no undo step. A deck that already has a
+/// theme keeps it; a pinned version missing from the sources but present in
+/// the library (same hash, same content) is embedded. The session and the CLI
+/// go through here.
+///
+/// # Errors
+///
+/// Fails if the closure of Papier cannot be read from the library, or if the core rejects its pin.
 pub fn adopt_default_theme(themes: &ThemeLibrary, sources: &mut SourceBundle) -> Result<()> {
     if sources.deck().theme.is_some() {
         let missing: Vec<ThemePin> =
@@ -69,29 +73,30 @@ pub fn adopt_default_theme(themes: &ThemeLibrary, sources: &mut SourceBundle) ->
     Ok(())
 }
 
-/// Répare des épinglages qui ne sont plus exactement la fermeture du thème du deck.
+/// Repairs pins that are no longer exactly the closure of the deck's theme.
 ///
-/// Après une fusion de deux `set_theme` concurrents, le deck garde un thème
-/// mais l'union des épinglages (`issue-theme-closure`). La fermeture de son
-/// thème est refaite depuis les versions embarquées, sinon la bibliothèque, et
-/// posée par une op `SetTheme` vérifiée par le cœur, sans étape d'annulation.
-/// Vrai si le deck a changé. Une fermeture impossible à refaire (thème
-/// introuvable, boucle) remonte en erreur : le deck reste tel quel.
+/// After merging two concurrent `set_theme`, the deck keeps one theme but the
+/// union of the pins (`issue-theme-closure`). The closure of its theme is
+/// rebuilt from the embedded versions, or else the library, and set by a
+/// `SetTheme` op checked by the core, with no undo step. True if the deck
+/// changed. A closure that cannot be rebuilt (theme not found, cycle) is
+/// returned as an error: the deck stays as it is.
+///
+/// # Errors
+///
+/// Fails if the closure cannot be rebuilt (theme not found, cycle) or if the core rejects the `SetTheme` op.
 pub fn repair_theme_closure(themes: &ThemeLibrary, sources: &mut SourceBundle) -> Result<bool> {
     let deck = sources.deck();
     if check_closure(deck.theme.as_ref(), &deck.themes).is_ok() {
         return Ok(false);
     }
-    let (theme, closure) = match deck.theme.clone() {
-        Some(ns) => {
-            let closure = repaired_closure(themes, sources, &ns)?;
-            (ns, closure)
-        }
-        None => {
-            let ns = default_namespace()?;
-            let closure = theme_closure(themes, &ns)?;
-            (ns, closure)
-        }
+    let (theme, closure) = if let Some(ns) = deck.theme.clone() {
+        let closure = repaired_closure(themes, sources, &ns)?;
+        (ns, closure)
+    } else {
+        let ns = default_namespace()?;
+        let closure = theme_closure(themes, &ns)?;
+        (ns, closure)
     };
     let (pins, files) = closure;
     for f in files {
@@ -277,7 +282,13 @@ pub(crate) fn compose_layer<'a>(
     Ok(theme_layer(defaults.iter().map(|(ns, d)| (ns, d.clone())), chain.iter()))
 }
 
-/// Le calque de thème du deck de `sources` (voir [`Session::theme_layer`]), pour la CLI et l'import.
+/// The deck's theme layer in `sources`, for the CLI and import.
+///
+/// See [`Session::theme_layer`].
+///
+/// # Errors
+///
+/// Fails if the deck's theme or its chain does not resolve.
 pub fn sources_theme_layer(themes: &ThemeLibrary, sources: &SourceBundle) -> Result<Map<String, Value>> {
     compose_layer(themes, |v| sources.packs.get(v), |v| sources.themes.get(v), sources.deck(), LayerReading::Lenient)
 }
@@ -312,7 +323,7 @@ impl Session {
             Some(r) => r,
             None => self.variant_renderer.insert(new_renderer(
                 &self.worker,
-                self.render_fonts.clone(),
+                &self.render_fonts,
                 &self.localizer,
                 set,
                 &self.registry,
@@ -332,9 +343,14 @@ impl Session {
         deck.themes.get(deck.theme.as_ref()?)
     }
 
-    /// Le deck prend le thème `ns` et sa fermeture, dans leur version courante, embarquées ; annulable.
+    /// The deck takes theme `ns` and its closure, embedded at their current version; undoable.
     ///
-    /// En mode pack, le brouillon du thème part de `ns` (`set_edited_theme`).
+    /// In pack mode, the theme draft starts from `ns` (`set_edited_theme`).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if theme `ns` is unknown or if the transaction is
+    /// rejected; in pack mode, like `set_edited_theme`.
     pub fn set_theme(&mut self, ns: &Namespace) -> Result<()> {
         if matches!(self.mode, Mode::Pack { .. }) {
             return self.set_edited_theme(ns);
@@ -376,14 +392,18 @@ impl Session {
         }
     }
 
-    /// Le calque de thème avec lequel se rend `deck`.
+    /// The theme layer `deck` renders with.
     ///
-    /// Les défauts de composant de ses packs, puis sa chaîne de thèmes
-    /// linéarisée, lue dans les versions embarquées (document montré, puis
-    /// deck mis de côté). En mode pack, un deck sans thème (le deck de
-    /// travail, ses aperçus) se rend sur la chaîne sous le brouillon
-    /// (`Session::draft_chain`) : celle des parents de sa base, ou de
-    /// l'intégré qu'étendra un enfant ; le brouillon est dans ses jetons.
+    /// The component defaults of its packs, then its linearized theme chain,
+    /// read from the embedded versions (shown document, then the deck set
+    /// aside). In pack mode, a deck without a theme (the working deck, its
+    /// previews) renders on the chain under the draft (`Session::draft_chain`):
+    /// that of its base's parents, or of the built-in a child will extend; the
+    /// draft is in its tokens.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the theme chain of the deck or of the draft, or the packs' defaults, cannot be read.
     pub fn theme_layer(&self, deck: &Deck) -> Result<Map<String, Value>> {
         let stash = self.stash_sources();
         let packs = |v: &PackVersion| self.doc.sources.packs.get(v).or_else(|| stash?.packs.get(v));

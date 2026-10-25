@@ -1,4 +1,5 @@
 //! Images collées dans le brouillon : dépôt, retrait, refus.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -126,7 +127,11 @@ async fn paste_image_concurrently_never_passes_the_draft_limit() {
                     s.spawn(move || stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": data }))))
                 })
                 .collect();
-            threads.into_iter().map(|t| t.join()).filter(|r| r.as_ref().is_ok_and(Result::is_ok)).count()
+            threads
+                .into_iter()
+                .map(std::thread::ScopedJoinHandle::join)
+                .filter(|r| r.as_ref().is_ok_and(Result::is_ok))
+                .count()
         })
     });
     let (_, last) = next(&rx, from, |(c, v)| {
@@ -213,4 +218,48 @@ async fn prompt_with_more_images_than_the_draft_allows_is_refused() {
     // Le plafond est contrôlé avant la recherche : son message diffère de celui d'une image oubliée.
     assert_that!(many).is_err();
     assert_that!(many.unwrap_err()).is_not_equal_to(unknown.unwrap_err());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_theme_with_an_image_goes_to_the_agent() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{}] }), &["t-1"]).await;
+    let id = pasted(&stack, &rx, "t-1", 80).await;
+    let prompt = json!({ "cmd": "prompt", "tab": "t-1", "text": "thème", "images": [id] });
+    tokio::task::block_in_place(|| stack.handle(cmd(prompt))).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    let prompts = logged(&log, "session/prompt");
+    assert_that!((prompts.len(), prompts[0].to_string().contains(id.as_str()))).is_equal_to((1, true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_answering_a_waiting_question_with_an_image_goes_to_the_agent() {
+    let ask = json!({ "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [
+        { "id": "a", "label": "A" }, { "id": "b", "label": "B" } ] } });
+    let script = json!({ "turns": [{ "mcp": [ask] }, { "chunks": ["ok"] }] });
+    let (stack, rx, log) = stack_with_sink_and_log(script, &["t-1"]).await;
+    let image = pasted(&stack, &rx, "t-1", 81).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "demande-moi" }))).unwrap();
+    let asked = common::wait_for(&rx, |(_, v)| common::is_tool_surface(v, "t-1", "ask-")).await;
+    let id = asked.1["event"]["surface"]["id"].clone();
+    let answer = json!({ "cmd": "prompt", "tab": "t-1", "text": "la deuxième", "answer": id, "images": [image] });
+    stack.handle(cmd(answer)).unwrap();
+    wait_turn_done(&rx, "t-1", 2).await;
+    let prompts = logged(&log, "session/prompt");
+    let outs: Vec<String> = logged(&log, "mcp/result").iter().map(|r| r["out"].to_string()).collect();
+    assert_that!((
+        prompts.len(),
+        prompts[1].to_string().contains("la deuxième"),
+        outs.iter().any(|o| o.contains("la deuxième"))
+    ))
+    .is_equal_to((2, true, false));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remove_image_on_a_tab_without_agent_is_refused_as_no_agent() {
+    let (stack, _rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let removed = stack.handle(cmd(json!({ "cmd": "remove_image", "tab": "t-1", "id": "sha256:00" })));
+    let pasted = stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(82) })));
+    // Both refusals come from `NoAgent`: the same localized message.
+    assert_that!(removed).is_err();
+    assert_that!(removed.unwrap_err()).is_equal_to(pasted.unwrap_err());
 }

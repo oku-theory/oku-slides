@@ -216,12 +216,11 @@ fn buttons(s: &super::Surface) -> Vec<Btn> {
         .expect("updateComponents")
         .clone();
     let by_id = |id: &str| components.iter().find(|c| c["id"] == id).cloned();
-    let row: Vec<serde_json::Value> = components
-        .iter()
-        .find(|c| c["id"] == "buttons")
-        .and_then(|r| r["children"].as_array())
-        .map(|ids| ids.iter().filter_map(|id| id.as_str().and_then(by_id)).collect())
-        .unwrap_or_else(|| components.iter().filter(|c| c["component"] == "Button").cloned().collect());
+    let row: Vec<serde_json::Value> =
+        components.iter().find(|c| c["id"] == "buttons").and_then(|r| r["children"].as_array()).map_or_else(
+            || components.iter().filter(|c| c["component"] == "Button").cloned().collect(),
+            |ids| ids.iter().filter_map(|id| id.as_str().and_then(by_id)).collect(),
+        );
     row.iter()
         .map(|c| Btn {
             label: c["label"].as_str().unwrap_or_default().to_owned(),
@@ -321,6 +320,7 @@ fn calm_confirm_has_no_danger_button() {
 }
 
 /// Une surface de chaque forme, telle que l'interface la reçoit.
+#[expect(clippy::too_many_lines, reason = "fixture table: one literal surface per form")]
 fn every_form() -> Vec<super::Surface> {
     let l = fr();
     let anchor = Some(Anchor { slide: "s-4".into(), owner: "e-2".into(), field: None });
@@ -615,7 +615,7 @@ fn every_form_matches_the_ui_fixture() {
 #[test]
 fn set_value_updates_the_data_model_sent_on_resync() {
     let mut s = every_form().into_iter().find(|s| s.id == "show-5").unwrap();
-    s.set_value("f2", json!("#1f4e79"));
+    s.set_value("f2", &json!("#1f4e79"));
     let json = serde_json::to_value(&s).unwrap();
     let model = json["messages"].as_array().unwrap().iter().find_map(|m| m.get("updateDataModel")).unwrap();
     assert_that!(model["value"]["f2"].clone()).is_equal_to(json!("#1f4e79"));

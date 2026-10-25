@@ -16,49 +16,54 @@ use crate::namespace::{Namespace, qualify};
 use crate::ops::{DefaultFault, default_fault};
 use crate::pack_kind::PackKind;
 
-/// Ce qu'un widget rend : une slide entière, ou un élément de slide.
+/// What a widget renders: a whole slide, or a slide element.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Category {
+    /// A whole slide, placed in the deck.
     Slide,
+    /// An element, placed in a slot.
     Element,
 }
 
-/// Placement des éléments d'un slot.
+/// Placement of the elements of a slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SlotMode {
-    /// Agencés par le widget (pile, colonnes, grille).
+    /// Laid out by the widget (stack, columns, grid).
     Flow,
-    /// Placés sur leur cadre ou leur cellule de grille.
+    /// Placed on their frame or their grid cell.
     Free,
 }
 
-/// Types de paramètres fournis et validés par l'hôte Rust.
+/// Parameter types supplied and validated by the Rust host.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HostType {
+    /// Chart: options and dataset (`dataset`).
     Chart,
+    /// Table: display options and dataset.
     Table,
-    /// Chemin d'une forme ([`ShapePath`](crate::ShapePath)).
+    /// Path of a shape ([`ShapePath`](crate::ShapePath)).
     Path,
 }
 
-/// Comment un bloc du flux d'une slide prend la hauteur (attribut `grow` du schéma).
+/// How a flow block of a slide takes its height (schema attribute `grow`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(from = "GrowRepr", into = "GrowRepr")]
 pub enum Grow {
-    /// Sa hauteur propre (`false`).
+    /// Its own height (`false`).
     #[default]
     Fixed,
-    /// Une part de la hauteur qui reste (`true`).
+    /// A share of the remaining height (`true`).
     Fill,
-    /// Sa hauteur si elle tient dans une part, sinon une part (`"fit"`).
+    /// Its own height if it fits in a share, otherwise a share (`"fit"`).
     Fit,
 }
 
 impl Grow {
     /// Vrai pour la valeur par défaut, `false`.
+    #[must_use]
     pub fn is_fixed(&self) -> bool {
         *self == Grow::Fixed
     }
@@ -100,6 +105,7 @@ impl From<Grow> for GrowRepr {
 
 impl ParamType {
     /// L'hôte qui fournit ce paramètre, s'il en a un.
+    #[must_use]
     pub fn host(&self) -> Option<HostType> {
         match self {
             ParamType::Host { host } => Some(*host),
@@ -108,44 +114,60 @@ impl ParamType {
     }
 }
 
-/// Type d'un paramètre de widget.
+/// Type of a widget parameter.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ParamType {
-    /// Texte sur une ligne, sans mise en forme.
+    /// Single-line text, without formatting.
     Plain,
-    /// Paragraphes à runs.
+    /// Paragraphs of runs.
     Rich,
+    /// Boolean.
     Flag,
+    /// Number, bounded by `min` and `max` when given.
     Number {
+        /// Smallest allowed value; absent: no bound.
         #[serde(default)]
         min: Option<f64>,
+        /// Largest allowed value; absent: no bound.
         #[serde(default)]
         max: Option<f64>,
     },
+    /// One value among `values`.
     Choice {
+        /// Allowed values, in display order.
         values: Vec<String>,
     },
-    /// Identifiant d'asset `sha256:…`.
+    /// Asset identifier `sha256:…`.
     Asset,
+    /// List of child elements, placed according to `mode`.
     Slot {
+        /// Placement of the elements: laid out or free.
         mode: SlotMode,
-        /// Widgets d'élément admis ; `None` : tous.
+        /// Accepted element widgets; `None`: all of them.
         #[serde(default)]
         accepts: Option<Vec<String>>,
     },
+    /// Layout grid ([`Grid`](crate::Grid)).
     Grid,
+    /// Value supplied and validated by the Rust host.
     Host {
+        /// Host that supplies the value.
         host: HostType,
     },
-    /// Liste d'items aux colonnes typées (`item`), saisie en tableau ;
-    /// items adressés par leur `id`.
+    /// List of items with typed columns (`item`), edited as a table.
+    ///
+    /// Items are addressed by their `id`.
     List {
+        /// Columns of an item, in display order.
         item: Vec<ParamSchema>,
+        /// Name of an item, for the add buttons.
         #[serde(default, rename = "item-label")]
         item_label: Option<String>,
+        /// Minimum number of items.
         #[serde(default)]
         min: usize,
+        /// Maximum number of items, capped at [`LIST_ITEMS_MAX`](crate::LIST_ITEMS_MAX).
         #[serde(default)]
         max: Option<usize>,
     },
@@ -155,6 +177,7 @@ pub enum ParamType {
 pub(crate) const RESERVED_COLUMNS: [&str; 2] = ["id", "kind"];
 
 /// Un paramètre ou une colonne de texte (`plain` ou `rich`) ?
+#[must_use]
 pub fn is_text(ty: &ParamType) -> bool {
     matches!(ty, ParamType::Plain | ParamType::Rich)
 }
@@ -173,47 +196,57 @@ pub(crate) fn is_column_type(ty: &ParamType) -> bool {
     )
 }
 
-/// Un paramètre déclaré par un widget.
+/// A parameter declared by a widget.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParamSchema {
+    /// Name of the parameter, without `/`, unique in the widget.
     pub name: String,
+    /// Label shown in the editor; absent: the name.
     #[serde(default)]
     pub label: Option<String>,
+    /// Type of the parameter and its constraints.
     #[serde(flatten)]
     pub ty: ParamType,
+    /// Default value, as written in the Typst schema.
     #[serde(default)]
     pub default: Option<Value>,
-    /// Clé de `deck.params` où la valeur est lue et écrite.
+    /// Key of `deck.params` where the value is read and written.
     #[serde(default)]
     pub bind: Option<String>,
 }
 
-/// Un widget : son nom, son label, sa description, sa catégorie et ses paramètres déclarés.
+/// A widget: its name, label, description, category and declared parameters.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WidgetSchema {
+    /// Qualified name of the widget (`acme/card`).
     pub name: String,
+    /// Label shown in the editor; absent: the name.
     #[serde(default)]
     pub label: Option<String>,
-    /// Ce que montre le widget, en une phrase ; la grille d'ajout la filtre.
+    /// What the widget shows, in one sentence; the add grid filters on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Slide or element; equal to the kind of its pack.
     pub category: Category,
-    /// Hauteur d'un bloc du flux : la sienne, une part, ou la sienne si elle tient.
+    /// Height of a flow block: its own, a share, or its own if it fits.
     #[serde(default, skip_serializing_if = "Grow::is_fixed")]
     pub grow: Grow,
-    /// Le style de l'élément met en forme son texte ; sa boîte en mesure la typographie.
+    /// The element's style formats its text; its box measures the typography.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub typography: bool,
+    /// Declared parameters, in schema order.
     pub params: Vec<ParamSchema>,
 }
 
 impl WidgetSchema {
     /// Le premier paramètre fourni par l'hôte `host`, s'il est déclaré.
+    #[must_use]
     pub fn host_param(&self, host: HostType) -> Option<&ParamSchema> {
         self.params.iter().find(|p| p.ty.host() == Some(host))
     }
 
     /// Le paramètre `name`, s'il est déclaré.
+    #[must_use]
     pub fn param(&self, name: &str) -> Option<&ParamSchema> {
         self.params.iter().find(|p| p.name == name)
     }
@@ -242,17 +275,22 @@ struct Probe {
 }
 
 impl WidgetRegistry {
-    /// Lit la sonde `{"packs": [{namespace, kind, widgets}]}` émise par Typst.
+    /// Reads the probe `{"packs": [{namespace, kind, widgets}]}` emitted by Typst.
     ///
-    /// Un widget de pack est rangé sous son nom qualifié (`acme/card`), qui
-    /// devient aussi son `name`. Sa catégorie doit être celle de la sorte du pack.
+    /// A pack widget is stored under its qualified name (`acme/card`), which
+    /// also becomes its `name`. Its category must be that of the pack's kind.
+    ///
+    /// # Errors
+    ///
+    /// Unreadable probe, invalid widget schema, category that is not the
+    /// pack's, or slot that accepts an unknown element widget.
     pub fn from_probe(probe: Value) -> Result<Self, WidgetError> {
         let probe: Probe = serde_json::from_value(probe).context(UnreadableSnafu)?;
         let mut widgets = BTreeMap::new();
         for pack in probe.packs {
             for (name, mut w) in collect(pack.widgets)? {
                 let qualified = qualify(&pack.namespace, &name);
-                w.name = qualified.clone();
+                w.name.clone_from(&qualified);
                 if w.category != pack.kind.category() {
                     return Err(fault(&w, SchemaFault::PackCategory));
                 }
@@ -265,6 +303,7 @@ impl WidgetRegistry {
     }
 
     /// Pour chaque widget d'élément à paramètre d'hôte : hôte → premier paramètre de cet hôte.
+    #[must_use]
     pub fn host_params(&self) -> BTreeMap<String, BTreeMap<HostType, String>> {
         let mut out = BTreeMap::new();
         for (kind, w) in self.widgets.iter().filter(|(_, w)| w.category == Category::Element) {
@@ -282,18 +321,25 @@ impl WidgetRegistry {
         out
     }
 
+    /// The widget with qualified name `name`, if it is declared.
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&WidgetSchema> {
         self.widgets.get(name)
     }
 
+    /// The widgets, by ascending qualified name.
     pub fn iter(&self) -> impl Iterator<Item = &WidgetSchema> {
         self.widgets.values()
     }
 
+    /// Number of declared widgets.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.widgets.len()
     }
 
+    /// Are no widgets declared?
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.widgets.is_empty()
     }

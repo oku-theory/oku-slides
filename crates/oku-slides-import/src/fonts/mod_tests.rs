@@ -231,7 +231,9 @@ fn resolve_restricted_system_face_is_skipped_and_reported() {
 fn resolve_light_and_regular_faces_keeps_the_closest_to_400() {
     let plan = resolve(&[used("Inter")], &[], &{
         let mut c = FontCatalog::new();
-        INTER.iter().for_each(|d| _ = c.add(FontOrigin::System, d.to_vec()));
+        for d in &INTER {
+            _ = c.add(FontOrigin::System, d.to_vec());
+        }
         c
     });
     assert_that!(plan.files.get("inter-regular.ttf").map(Vec::as_slice)).is_equal_to(Some(INTER[1]));

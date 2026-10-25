@@ -1,3 +1,5 @@
+//! Guarded open and save tools: user confirmation, refusal and forbidden paths.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use common::*;
@@ -40,7 +42,12 @@ async fn open_with_parent_component_is_refused_without_asking() {
 
 /// Le fichier de la session de test (celui de la fixture).
 fn own_path(h: &Harness) -> Option<std::path::PathBuf> {
-    h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).snapshot().path.map(|p| p.to_path_buf())
+    h.session
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .snapshot()
+        .path
+        .map(std::path::Path::to_path_buf)
 }
 
 /// t-242 : le fichier s'ouvre dans un autre onglet ; celui de l'agent garde son deck.

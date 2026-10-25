@@ -1,5 +1,6 @@
 //! Chaque appel d'outil reste dans le tour pendant lequel il est arrivé (t-449) :
 //! un appel tardif d'un tour clos n'atterrit jamais dans le tour suivant.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

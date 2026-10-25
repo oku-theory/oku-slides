@@ -44,6 +44,7 @@ pub(crate) fn adopt_merge_key(id: Uuid, parent: Option<&PackVersion>) -> String 
 }
 
 /// L'étape d'annulation du deck de travail qui adopte une version de la séance.
+#[derive(Clone, Copy)]
 pub(crate) enum AdoptStep<'a> {
     /// Aucune : un enregistrement.
     Silent,
@@ -112,19 +113,23 @@ impl Session {
         Ok(manifest)
     }
 
-    /// Enregistre le pack édité dans la version de cette session d'édition.
+    /// Saves the edited pack into the version of this editing session.
     ///
-    /// Créée au premier enregistrement, remplacée ensuite, elle devient
-    /// courante ; le deck mis de côté l'embarque et y passe. Les exemples d'un
-    /// pack de layouts sont ceux de la dernière version (chaque op les écrit
-    /// déjà, `layout_examples`). `as_new` : une
-    /// copie (nouvel id, sans parente), sur laquelle la session continue,
-    /// sans historique d'annulation (un annuler ne ramène pas à l'original).
-    /// Le brouillon du thème est enregistré aussi (`save_theme_edit`) ; le
-    /// deck mis de côté passe à son thème dans l'étape du pack.
-    /// Un rendu raté ensuite n'est pas une erreur : la version reste, un avis
-    /// donne la cause (choix « diagnostics + succès », comme `set_widget`).
-    /// Rend la version enregistrée.
+    /// Created on the first save and replaced afterwards, it becomes current;
+    /// the deck set aside embeds it and moves to it. The examples of a layout
+    /// pack are those of the latest version (each op already writes them,
+    /// `layout_examples`). `as_new`: a copy (new id, no parent), on which the
+    /// session continues, without undo history (an undo does not bring back
+    /// the original). The theme draft is saved too (`save_theme_edit`); the
+    /// deck set aside moves to its theme in the pack's step.
+    /// A render that fails afterwards is not an error: the version stays, a
+    /// notice gives the cause ("diagnostics + success" choice, like
+    /// `set_widget`). Returns the saved version.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside pack mode (`NotEditingPack`), or if the library rejects or does not write the
+    /// version or the theme draft.
     pub fn save_pack(&mut self, as_new: bool) -> Result<PackVersion> {
         let Mode::Pack { edit, .. } = &self.mode else {
             return NotEditingPackSnafu.fail()?;

@@ -27,57 +27,76 @@ use tokio::sync::broadcast;
 
 use crate::VoicePort;
 
-/// Évènements vers l'interface (Tauri `emit`, SSE).
+/// Events sent to the interface (Tauri `emit`, SSE).
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum McpEvent {
-    /// Le deck ou la session a changé : relire l'instantané.
+    /// The deck or the session changed: read the snapshot again.
     Changed,
+    /// A surface opens, or replaces the one with the same id.
     Surface {
+        /// The surface to show.
         surface: Surface,
     },
+    /// A surface closes: the interface removes it.
     CloseSurface {
+        /// Id of the closed surface.
         id: String,
     },
-    /// Montrer une slide (et un élément).
+    /// Show a slide (and an element).
     Focus {
+        /// Id of the slide to show.
         slide: String,
+        /// Id of the element to select, if any.
         element: Option<String>,
     },
-    /// Toutes les surfaces ouvertes, dans l'ordre d'ouverture : l'interface
-    /// remplace sa liste (après un retard, une reconnexion, un abonnement).
-    /// `emit` remplit `list` lui-même : la liste envoyée est toujours celle du hub.
+    /// Every open surface, in opening order.
+    ///
+    /// The interface replaces its list (after a lag, a reconnection, a subscription).
+    /// `emit` fills `list` itself: the list sent is always the hub's.
     Surfaces {
+        /// The open surfaces, in opening order.
         list: Vec<Surface>,
     },
-    /// Messages qui prolongent une surface ouverte (progression d'un tour).
+    /// Messages that extend an open surface (progress of a turn).
     SurfacePatch {
+        /// Id of the extended surface.
         id: String,
+        /// A2UI messages to apply, in order.
         messages: Vec<oku_slides_a2ui::ServerMessage>,
     },
-    /// Fichier de widget écrit ou supprimé par l'agent (mode pack) : l'éditeur le suit.
+    /// Widget file written or deleted by the agent (pack mode): the editor follows it.
     WidgetTouched {
+        /// Name of the touched widget file.
         name: String,
+        /// True if the file was deleted, false if it was written.
         removed: bool,
     },
-    /// Lancer la présentation dans l'onglet.
+    /// Start the presentation in the tab.
     Present {
-        /// Écran ou fenêtre.
+        /// Screen or window.
         mode: crate::PresentMode,
     },
-    /// Ouvrir l'historique comme sa propre commande : saisie validée, enregistrement parti d'abord.
+    /// Open the history as its own command would: input committed, save sent first.
     OpenHistory,
-    /// Changer l'interface (schéma, langue, grille, repères) comme ses propres commandes.
+    /// Change the interface (scheme, language, grid, guides) as its own commands would.
     Interface {
-        /// Les changements demandés ; absent : inchangé.
+        /// The requested changes; absent means unchanged.
         change: crate::InterfaceChange,
     },
 }
 
-/// Réponse de l'utilisateur à une surface `ask_*`.
+/// The user's answer to an `ask_*` surface.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Answer {
-    Action { name: String, context: Map<String, Value> },
+    /// The user chose one of the surface's actions.
+    Action {
+        /// Name of the chosen action.
+        name: String,
+        /// Form values at the time of the choice.
+        context: Map<String, Value>,
+    },
+    /// Surface abandoned: Escape, new turn, tab or conversation closed, or its turn already over.
     Cancelled,
 }
 
@@ -140,7 +159,9 @@ struct HubState {
     turn: Option<u32>,
     /// Le dernier numéro de tour donné.
     turns: u32,
-    /// Tours du fil de l'onglet (ouverts, ni évincés ni effacés) : seules leurs surfaces sont montrées.
+    /// Turns of the tab's thread (open, neither evicted nor cleared).
+    ///
+    /// Only their surfaces are shown.
     live_turns: BTreeSet<u32>,
     /// Tours qui ont leur reçu (`show_report`) : pas de reçu de repli pour eux.
     reported: HashSet<u32>,
@@ -175,6 +196,7 @@ impl SurfaceHub {
         &self.voice
     }
 
+    /// One more subscriber to the events sent to the interface.
     pub fn subscribe(&self) -> broadcast::Receiver<McpEvent> {
         self.events.subscribe()
     }
@@ -213,9 +235,10 @@ impl SurfaceHub {
                 true
             }
             McpEvent::SurfacePatch { id, messages } => {
-                match state.open.iter_mut().find(|s| &s.id == id) {
-                    Some(open) => open.apply_patch(messages),
-                    None => tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée"),
+                if let Some(open) = state.open.iter_mut().find(|s| &s.id == id) {
+                    open.apply_patch(messages);
+                } else {
+                    tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée");
                 }
                 true
             }

@@ -30,14 +30,8 @@ fn solid(c: Color) -> Fill {
     Fill::Solid { color: c }
 }
 
-fn white_rule() -> Option<Stroke> {
-    Some(Stroke {
-        width: 1.0,
-        color: Styled::explicit(Rgba::new(255, 255, 255)),
-        dash: Dash::Solid,
-        head: None,
-        tail: None,
-    })
+fn white_rule() -> Stroke {
+    Stroke { width: 1.0, color: Styled::explicit(Rgba::new(255, 255, 255)), dash: Dash::Solid, head: None, tail: None }
 }
 
 /// Le tableau de LibreOffice : en-tête accent1 en texte clair, lignes en
@@ -46,11 +40,11 @@ fn libreoffice_like(widths: [f64; 2]) -> Table {
     let (ink, light) = (scheme("dk1", 0), scheme("lt1", 0));
     let row = |a: &str, b: &str, tint: u8| {
         vec![
-            cell(a, 16.0, &ink, solid(scheme("accent1", tint)), white_rule()),
-            cell(b, 16.0, &ink, solid(scheme("accent1", tint)), white_rule()),
+            cell(a, 16.0, &ink, solid(scheme("accent1", tint)), Some(white_rule())),
+            cell(b, 16.0, &ink, solid(scheme("accent1", tint)), Some(white_rule())),
         ]
     };
-    let mut header = vec![cell("Titre", 16.0, &light, solid(scheme("accent1", 0)), white_rule())];
+    let mut header = vec![cell("Titre", 16.0, &light, solid(scheme("accent1", 0)), Some(white_rule()))];
     header.push(Cell { covered: true, ..cell("", 16.0, &light, solid(scheme("accent1", 0)), None) });
     header[0].text.paragraphs[0].runs[0].style.bold = true;
     Table {
@@ -108,7 +102,7 @@ fn table_look_of_a_cell_fill_or_a_side_border_is_irregular() {
     t.rows[2][1].fill = solid(scheme("accent2", 0));
     assert_that!(look(&t).irregular).is_true();
     let mut t = libreoffice_like([100.0, 100.0]);
-    t.rows[1][0].borders.l = white_rule();
+    t.rows[1][0].borders.l = Some(white_rule());
     assert_that!(look(&t).irregular).is_true();
 }
 
@@ -216,7 +210,7 @@ fn table_look_never_writes_null_for_a_non_nullable_token() {
 fn headless() -> Table {
     let ink = scheme("dk1", 0);
     let row = |a: &str| {
-        let c = || cell(a, 16.0, &ink, solid(scheme("accent1", 102)), white_rule());
+        let c = || cell(a, 16.0, &ink, solid(scheme("accent1", 102)), Some(white_rule()));
         vec![c(), c()]
     };
     Table {

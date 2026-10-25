@@ -1,13 +1,14 @@
 use speculoos::prelude::*;
 
 use super::*;
+use crate::source::Crop;
 use crate::source::Picture;
 use crate::test_support::{item, text_item};
 
 #[test]
 fn aspects_read_the_frames_of_pictures_inside_groups() {
     let pic = |id: &str, asset: &str, w: f64, h: f64| {
-        item(id, (0.0, 0.0, w, h), ItemKind::Picture(Picture { asset: asset.to_owned(), crop: Default::default() }))
+        item(id, (0.0, 0.0, w, h), ItemKind::Picture(Picture { asset: asset.to_owned(), crop: Crop::default() }))
     };
     let group = item(
         "g",

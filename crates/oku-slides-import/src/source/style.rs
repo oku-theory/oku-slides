@@ -17,11 +17,13 @@ pub struct Rgba {
 
 impl Rgba {
     /// Couleur opaque.
+    #[must_use]
     pub const fn new(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b, a: 255 }
     }
 
     /// `#rrggbb`, ou `#rrggbbaa` si elle n'est pas opaque.
+    #[must_use]
     pub fn to_hex(&self) -> String {
         if self.a == 255 {
             format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
@@ -77,11 +79,13 @@ pub enum Origin {
 
 impl Origin {
     /// Emplacement de thème écrit sous son propre nom, sans modificateur.
+    #[must_use]
     pub fn scheme(slot: &str) -> Self {
         Origin::Scheme { name: slot.to_owned(), slot: slot.to_owned(), mods: Vec::new() }
     }
 
     /// Emplacement du thème (après `clrMap`), si la valeur en vient.
+    #[must_use]
     pub fn slot(&self) -> Option<&str> {
         match self {
             Origin::Scheme { slot, .. } => Some(slot),
@@ -160,6 +164,7 @@ pub enum Fill {
 
 impl Fill {
     /// Vrai si rien n'est peint.
+    #[must_use]
     pub fn is_none(&self) -> bool {
         matches!(self, Fill::None)
     }

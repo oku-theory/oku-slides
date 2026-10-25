@@ -1,4 +1,5 @@
 //! Tests de non-régression : un fichier par bogue corrigé, numéroté par tâche.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 /// Un dossier de test neuf, supprimé à la fin du test.
 ///

@@ -595,7 +595,7 @@ fn pack_manifest_with_an_invalid_token_entry_is_refused(
     m.insert("tokens".into(), entries);
     let err = PackManifest::from_files(&PackFiles::new(PackKind::Widgets, m, BTreeMap::new())).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::PackManifestErrorKind::TokenEntry);
-    assert_that!(err.token_entry().map(|e| e.kind())).is_equal_to(Some(kind));
+    assert_that!(err.token_entry().map(crate::TokenEntryError::kind)).is_equal_to(Some(kind));
 }
 
 #[test]

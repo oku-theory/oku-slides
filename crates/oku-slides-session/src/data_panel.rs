@@ -6,9 +6,9 @@ use oku_slides_a2ui::{Action, ComponentKind, Dynamic, SeriesSwatch};
 use oku_slides_core::HostType;
 use serde_json::Value;
 
+use crate::Session;
 use crate::agent::Surface;
 use crate::agent::forms::data_surface;
-use crate::{Result, Session};
 
 /// Surface des données de l'élément sélectionné.
 pub(crate) const HOST_DATA: &str = "host-data";
@@ -30,16 +30,16 @@ pub(crate) struct DataTarget {
 impl Session {
     /// Surface `host-data` de `element` ; `None` hors d'un deck modifiable, pour un élément
     /// absent ou sans graphique ni tableau.
-    pub(crate) fn data_panel(&self, slide: &str, element: &str) -> Result<Option<Surface>> {
+    pub(crate) fn data_panel(&self, slide: &str, element: &str) -> Option<Surface> {
         if self.ensure_editable().is_err() {
-            return Ok(None);
+            return None;
         }
-        let Some(target) = self.data_target(slide, element) else { return Ok(None) };
+        let target = self.data_target(slide, element)?;
         let (title, data) = match target.host {
             HostType::Table => ("session-data-table", table_data(&target.value)),
             _ => ("session-data-chart", chart_data(&target.value, &self.appearance.chart_palette)),
         };
-        Ok(Some(data_surface(HOST_DATA, self.localizer.tr(title), data)))
+        Some(data_surface(HOST_DATA, self.localizer.tr(title), data))
     }
 
     /// Le paramètre graphique (sinon tableau) de `element` sur `slide`, s'il en a un.

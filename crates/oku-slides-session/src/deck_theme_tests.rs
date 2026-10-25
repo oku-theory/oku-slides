@@ -223,7 +223,7 @@ fn repair_theme_closure_drops_an_extra_pin_and_keeps_a_valid_closure() {
 fn repair_theme_closure_takes_a_missing_parent_from_the_embedded_versions() {
     let data = fresh_dir("oku-slides-deck-theme-repair-");
     let mut s = crate::test_support::opened_on(data.path());
-    add_user_theme(&s.themes, Uuid::new_v4(), "marque", &["pro"], Default::default(), None);
+    add_user_theme(&s.themes, Uuid::new_v4(), "marque", &["pro"], Map::default(), None);
     s.set_theme(&ns("marque")).unwrap();
     let pro = s.deck().themes[&ns(PRO_NAMESPACE)].clone();
     let mut deck = s.deck().clone();

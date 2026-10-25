@@ -46,6 +46,7 @@ use serde::{Serialize, Serializer};
 
 use crate::oklab::{Oklab, delta_e, oklab};
 use crate::source::{Item, ItemKind, Rgba, SourceSlide};
+use oku_slides_core::num::{count_f64, trunc_usize};
 
 mod witness;
 
@@ -130,6 +131,7 @@ pub struct SlideScore {
 
 impl SlideScore {
     /// Le score de sa pire région non suspecte ; `None` sans elle.
+    #[must_use]
     pub fn worst(&self) -> Option<f64> {
         self.regions.first().filter(|r| r.suspect.is_none()).map(|r| r.score)
     }
@@ -146,24 +148,22 @@ fn reported<S: Serializer>(regions: &[RegionScore], s: S) -> Result<S::Ok, S::Er
 /// dernière région est au-dessus). Chaque région porte la limite de `witness`
 /// sur son item ; les enfants d'un SmartArt dessiné héritent de la sienne.
 /// Sans témoin (`None`), aucune n'est suspecte.
+#[must_use]
 pub fn regions(slide: &SourceSlide, scale: f64, witness: Option<Witness>) -> Vec<Region> {
     fn walk(items: &[Item], scale: f64, witness: Option<Witness>, in_smartart: bool, out: &mut Vec<Region>) {
         for item in items {
-            match &item.kind {
-                ItemKind::Group { items, smartart } => {
-                    walk(items, scale, witness, in_smartart || smartart.is_some(), out);
-                }
-                _ => {
-                    let f = item.frame;
-                    out.push(Region {
-                        item: item.id.clone(),
-                        x: f.x * scale,
-                        y: f.y * scale,
-                        w: f.w * scale,
-                        h: f.h * scale,
-                        suspect: witness.and_then(|w| witness_limit(item, in_smartart, w)),
-                    });
-                }
+            if let ItemKind::Group { items, smartart } = &item.kind {
+                walk(items, scale, witness, in_smartart || smartart.is_some(), out);
+            } else {
+                let f = item.frame;
+                out.push(Region {
+                    item: item.id.clone(),
+                    x: f.x * scale,
+                    y: f.y * scale,
+                    w: f.w * scale,
+                    h: f.h * scale,
+                    suspect: witness.and_then(|w| witness_limit(item, in_smartart, w)),
+                });
             }
         }
     }
@@ -176,6 +176,7 @@ pub fn regions(slide: &SourceSlide, scale: f64, witness: Option<Witness>) -> Vec
 ///
 /// `None` si les images n'ont pas la même taille, sont vides ou que leurs
 /// octets ne la font pas.
+#[must_use]
 pub fn score(reference: Image<'_>, oku: Image<'_>, regions: &[Region]) -> Option<SlideScore> {
     let (w, h) = (reference.width as usize, reference.height as usize);
     let valid = |i: Image<'_>| i.rgba.len() == w * h * 4;
@@ -184,7 +185,7 @@ pub fn score(reference: Image<'_>, oku: Image<'_>, regions: &[Region]) -> Option
         return None;
     }
     let pair = Pair { a: blurred(reference), b: blurred(oku), w, h };
-    let mean = (0..w * h).map(|i| delta_e(pair.a[i], pair.b[i])).sum::<f64>() / (w * h) as f64;
+    let mean = (0..w * h).map(|i| delta_e(pair.a[i], pair.b[i])).sum::<f64>() / count_f64(w * h);
     let regions = &regions[regions.len().saturating_sub(MAX_REGIONS)..];
     let mut scored: Vec<RegionScore> = ownership(regions, w, h)
         .iter()
@@ -226,7 +227,7 @@ fn ownership(regions: &[Region], w: usize, h: usize) -> Vec<Vec<usize>> {
 ///
 /// Un cadre de taille négative ou non finie est vide (`x1 = x0` ou `y1 = y0`).
 fn bounds(r: &Region, w: usize, h: usize) -> (usize, usize, usize, usize) {
-    let clamp = |v: f64, max: usize| (v.max(0.0) as usize).min(max);
+    let clamp = |v: f64, max: usize| trunc_usize(v.max(0.0)).min(max);
     let (x0, y0) = (clamp(r.x.floor(), w), clamp(r.y.floor(), h));
     let (x1, y1) = (clamp((r.x + r.w).ceil(), w), clamp((r.y + r.h).ceil(), h));
     (x0, y0, x1.max(x0), y1.max(y0))
@@ -243,9 +244,7 @@ struct Pair {
 impl Pair {
     /// L'écart au pixel `p` de la référence, le rendu Oku décalé de `dx, dy` (bords prolongés).
     fn at(&self, p: usize, dx: i64, dy: i64) -> f64 {
-        let (x, y) = ((p % self.w) as i64, (p / self.w) as i64);
-        let sx = (x + dx).clamp(0, self.w as i64 - 1) as usize;
-        let sy = (y + dy).clamp(0, self.h as i64 - 1) as usize;
+        let (sx, sy) = (shifted(p % self.w, dx, self.w), shifted(p / self.w, dy, self.h));
         delta_e(self.a[p], self.b[sy * self.w + sx])
     }
 
@@ -287,11 +286,22 @@ impl Pair {
         // Une tuile au bord de la région, presque vide, ne décide pas seule ;
         // une région plus étroite qu'une tuile garde son écart moyen.
         let full = |n: usize| n * 4 >= TILE * TILE;
-        let mean = || pixels.iter().map(|&p| self.at(p, dx, dy)).sum::<f64>() / pixels.len() as f64;
-        let peak =
-            tiles.iter().filter(|(_, n)| full(*n)).map(|(s, n)| s / *n as f64).reduce(f64::max).unwrap_or_else(mean);
+        let mean = || pixels.iter().map(|&p| self.at(p, dx, dy)).sum::<f64>() / count_f64(pixels.len());
+        let peak = tiles
+            .iter()
+            .filter(|(_, n)| full(*n))
+            .map(|(s, n)| s / count_f64(*n))
+            .reduce(f64::max)
+            .unwrap_or_else(mean);
         Some((peak, [dx, dy]))
     }
+}
+
+/// Coordinate `v` shifted by `d`, clamped to `[0, len - 1]` (extended edges).
+fn shifted(v: usize, d: i64, len: usize) -> usize {
+    // A step beyond usize saturates: the result is clamped anyway.
+    let step = usize::try_from(d.unsigned_abs()).unwrap_or(usize::MAX);
+    if d < 0 { v.saturating_sub(step) } else { v.saturating_add(step).min(len - 1) }
 }
 
 /// L'image en OKLab, adoucie par un flou gaussien séparable de [`BLUR_SIGMA`].
@@ -318,8 +328,11 @@ fn blurred(image: Image<'_>) -> Vec<Oklab> {
 
 /// Noyau gaussien normalisé de rayon `⌈3σ⌉`.
 fn gaussian(sigma: f64) -> Vec<f64> {
-    let radius = (3.0 * sigma).ceil() as i64;
-    let k: Vec<f64> = (-radius..=radius).map(|i| (-((i * i) as f64) / (2.0 * sigma * sigma)).exp()).collect();
+    // The integers from -radius to radius, as floats (exact at this size).
+    let radius = (3.0 * sigma).ceil();
+    let k: Vec<f64> = std::iter::successors(Some(-radius), |&i| (i < radius).then_some(i + 1.0))
+        .map(|i| (-(i * i) / (2.0 * sigma * sigma)).exp())
+        .collect();
     let total: f64 = k.iter().sum();
     k.into_iter().map(|v| v / total).collect()
 }
@@ -327,18 +340,15 @@ fn gaussian(sigma: f64) -> Vec<f64> {
 /// Convolution de `src` par `kernel`, en ligne (`horizontal`) ou en colonne ;
 /// les bords sont prolongés.
 fn convolve(src: &[[f64; 3]], w: usize, h: usize, kernel: &[f64], horizontal: bool) -> Vec<[f64; 3]> {
-    let radius = (kernel.len() / 2) as i64;
+    let radius = kernel.len() / 2;
     let mut out = vec![[0.0; 3]; src.len()];
     for y in 0..h {
         for x in 0..w {
             let mut acc = [0.0; 3];
             for (k, weight) in kernel.iter().enumerate() {
-                let d = k as i64 - radius;
-                let (sx, sy) = if horizontal {
-                    ((x as i64 + d).clamp(0, w as i64 - 1) as usize, y)
-                } else {
-                    (x, (y as i64 + d).clamp(0, h as i64 - 1) as usize)
-                };
+                // `v + k - radius`, clamped to `[0, len - 1]` (extended edges).
+                let edge = |v: usize, len: usize| (v + k).saturating_sub(radius).min(len - 1);
+                let (sx, sy) = if horizontal { (edge(x, w), y) } else { (x, edge(y, h)) };
                 let p = src[sy * w + sx];
                 for c in 0..3 {
                     acc[c] += weight * p[c];

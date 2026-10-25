@@ -67,11 +67,11 @@ pub(crate) fn fingerprint_hex(pack: &WirePack) -> String {
 /// Un tube rompu ou une trame tronquée : le travailleur est mort en écrivant
 /// (`WorkerLost`). Une trame trop grande ou un en-tête non JSON : `Frame` ;
 /// le SVG d'une page au-delà de sa borne le dit (`page_too_large`).
-fn frame_failure(e: FrameError, req: &Request) -> RenderError {
+fn frame_failure(e: &FrameError, req: &Request) -> RenderError {
     match e {
         FrameError::Io { .. } | FrameError::Truncated { .. } => RenderError::worker_lost(e.to_string()),
         FrameError::TooLarge { payload: true, max, .. } if matches!(req, Request::Svg { .. }) => {
-            RenderError::page_too_large(u64::try_from(max / (1024 * 1024)).unwrap_or(u64::MAX))
+            RenderError::page_too_large(u64::try_from(*max / (1024 * 1024)).unwrap_or(u64::MAX))
         }
         FrameError::TooLarge { .. } | FrameError::Json { .. } => RenderError::frame(e.to_string()),
     }
@@ -315,8 +315,9 @@ impl Link {
         self.unsandboxed
     }
 
-    /// Vrai pour les faux travailleurs des tests seulement.
+    /// True only for the fake workers of the tests.
     #[cfg(not(test))]
+    #[expect(clippy::unused_self, reason = "same signature as the test version, which reads the field")]
     fn unsandboxed(&self) -> bool {
         false
     }
@@ -427,7 +428,7 @@ impl Link {
                         serde_json::from_slice(&frame.header).map_err(|e| RenderError::frame(e.to_string()))?;
                     return Ok((resp, frame.payload));
                 }
-                Ok(Err(e)) => return Err(frame_failure(e, req)),
+                Ok(Err(e)) => return Err(frame_failure(&e, req)),
                 Err(RecvTimeoutError::Disconnected) => {
                     let status = conn.child.as_mut().and_then(exit_status);
                     let message = status.map_or_else(|| "pipe closed".to_owned(), |s| s.to_string());

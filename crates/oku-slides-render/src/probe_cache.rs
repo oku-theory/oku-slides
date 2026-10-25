@@ -48,6 +48,8 @@ impl FileProbeCache {
         self.by_name.values().map(VecDeque::len).sum()
     }
 
+    /// True if no probe is kept.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

@@ -70,6 +70,7 @@ fn factor(s: ArrowSize) -> f64 {
 }
 
 /// La pointe `arrow` en `at`, tournée vers `dir`.
+#[expect(clippy::many_single_char_names, reason = "frame u, v and coordinates x, y of a geometric formula")]
 fn shape(arrow: Arrow, at: (f64, f64), dir: (f64, f64), width: f64) -> Head {
     let (len, half) = (factor(arrow.length) * width, factor(arrow.width) * width / 2.0);
     // Repère de la pointe : `u` le long du trait (vers l'extérieur), `v` en travers.

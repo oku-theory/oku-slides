@@ -147,7 +147,7 @@ fn import_report_leaves_a_stale_slide_out_of_the_means_and_worse() {
     change(&mut s, &slide);
     report(&mut s, &witness);
     change(&mut s, &slide);
-    let stale = report(&mut s, &witness);
+    let outdated = report(&mut s, &witness);
     // Les autres slides n'ont pas changé : leur note est leur première ; la moyenne de départ
     // est celle des mêmes slides.
     let state = s.import.as_ref().unwrap();
@@ -158,10 +158,11 @@ fn import_report_leaves_a_stale_slide_out_of_the_means_and_worse() {
         .filter(|r| r.slide != slide)
         .filter_map(|r| r.score.as_ref().map(|s| s.score))
         .collect();
-    let expected = (others.iter().sum::<f64>() / others.len() as f64 * 100.0).round() / 100.0;
-    assert_that!(stale["mean"].as_f64()).is_equal_to(Some(expected));
-    assert_that!(stale["mean_before"].as_f64()).is_equal_to(Some(expected));
-    assert_that!(stale["worse"].as_array().unwrap().iter().any(|w| w == slide.as_str())).is_false();
+    let expected =
+        (others.iter().sum::<f64>() / f64::from(u32::try_from(others.len()).unwrap()) * 100.0).round() / 100.0;
+    assert_that!(outdated["mean"].as_f64()).is_equal_to(Some(expected));
+    assert_that!(outdated["mean_before"].as_f64()).is_equal_to(Some(expected));
+    assert_that!(outdated["worse"].as_array().unwrap().iter().any(|w| w == slide.as_str())).is_false();
 }
 
 #[test]

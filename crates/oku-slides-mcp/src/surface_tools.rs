@@ -20,9 +20,12 @@ use crate::tool_error::{
 };
 use crate::tools::Tools;
 
-/// `show_themes` : la slide que chaque thème montre.
+/// `show_themes`: the slide that each theme shows.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ShowThemesArgs {
+    /// Id of the slide to render in each theme; absent: the first one.
+    ///
+    /// An unknown slide is refused.
     #[serde(default)]
     pub slide: Option<String>,
 }
@@ -31,7 +34,7 @@ impl Tools {
     /// Refus d'un `report` ou d'un `render` arrivé hors tour, ou dont le tour s'est clos avant
     /// l'affichage.
     fn no_turn(&self, tool: &'static str) -> CallToolResult {
-        self.fail_with(NoTurnSnafu { tool }.build())
+        self.fail_with(&NoTurnSnafu { tool }.build())
     }
 
     /// Résultat commun : réponse dictée, abandon, ou `f` pour l'action attendue.
@@ -62,15 +65,15 @@ impl Tools {
             Err(r) => return r,
         };
         if let Err(e) = check_len("options", spec.options.len(), forms::CHOICES) {
-            return self.fail_with(SessionSnafu.into_error(e));
+            return self.fail_with(&SessionSnafu.into_error(e));
         }
         if let Err(e) = check_options("options", &spec.options) {
-            return self.fail_with(SessionSnafu.into_error(e));
+            return self.fail_with(&SessionSnafu.into_error(e));
         }
         if let Some(anchor) = &spec.anchor
             && let Err(e) = self.check_anchor(anchor).await
         {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         let id = self.hub.next_id("ask");
         let surface = forms::choice(&id, &spec, &self.localizer.current());
@@ -121,25 +124,25 @@ impl Tools {
         };
         let surface = match built {
             Ok(s) => s,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let (kept, text, paragraphs) = match self.hub.ask(surface).await {
             Answer::Action { name, context } if name == "rewrite" => {
                 let kept = context.get("kept").cloned().unwrap_or(Value::Null);
                 let Some(text) = context.get("text").and_then(Value::as_str) else {
-                    return self.fail_with(RewriteTextSnafu.build());
+                    return self.fail_with(&RewriteTextSnafu.build());
                 };
                 let paragraphs = match context.get("paragraphs") {
                     Some(v) => match serde_json::from_value::<Vec<Paragraph>>(v.clone()).context(ParagraphsSnafu) {
                         Ok(p) => Some(p),
-                        Err(e) => return self.fail_with(e),
+                        Err(e) => return self.fail_with(&e),
                     },
                     None => None,
                 };
                 (kept, text.to_owned(), paragraphs)
             }
             other => {
-                return self.answered(other, |n, _| self.fail_with(UnexpectedActionSnafu { action: n }.build()));
+                return self.answered(other, |n, _| self.fail_with(&UnexpectedActionSnafu { action: n }.build()));
             }
         };
         if kept != json!("original") {
@@ -152,7 +155,7 @@ impl Tools {
                 })
                 .await;
             if let Err(e) = done {
-                return self.fail_with(e);
+                return self.fail_with(&e);
             }
             self.hub.emit(McpEvent::Changed);
         }
@@ -173,7 +176,7 @@ impl Tools {
             if self.hub.show_params(turn, surface, spec) {
                 self.json_result(&json!({ "shown": id }))
             } else {
-                self.fail_with(TurnOverSnafu.build())
+                self.fail_with(&TurnOverSnafu.build())
             }
         })
     }
@@ -208,10 +211,10 @@ impl Tools {
         if let Some(id) = spec.slide.clone()
             && let Err(e) = self.with_session(move |s| s.check_slide(&id)).await
         {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         let hub = self.hub.clone();
-        let shown = tokio::task::spawn_blocking(move || hub.show_themes(spec.slide))
+        let shown = tokio::task::spawn_blocking(move || hub.show_themes(spec.slide.as_deref()))
             .await
             .context(TaskSnafu)
             .and_then(|r| r.map_err(Box::new).context(HubSnafu));
@@ -219,7 +222,7 @@ impl Tools {
             if shown {
                 self.json_result(&json!({ "shown": HOST_THEME_PICKER }))
             } else {
-                self.fail_with(ThemesDeckModeSnafu.build())
+                self.fail_with(&ThemesDeckModeSnafu.build())
             }
         })
     }
@@ -237,7 +240,7 @@ impl Tools {
             if shown {
                 self.json_result(&json!({ "shown": HOST_PACKS }))
             } else {
-                self.fail_with(PacksDeckModeSnafu.build())
+                self.fail_with(&PacksDeckModeSnafu.build())
             }
         })
     }
@@ -262,7 +265,7 @@ impl Tools {
         })
     }
 
-    pub(crate) async fn render(&self, turn: Option<u32>, args: Value) -> CallToolResult {
+    pub(crate) fn render(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let spec: Render = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,

@@ -3,6 +3,7 @@
 //! (`src/hifi/typst/snapshots`) : lus ici comme des fichiers, sans dépendre
 //! de la crate d'import. Ses images passent par `ctx.load`, que le rendu
 //! donne aussi aux widgets de slide.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::collections::BTreeMap;
 use std::fs;

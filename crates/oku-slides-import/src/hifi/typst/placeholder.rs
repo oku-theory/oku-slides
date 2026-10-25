@@ -9,6 +9,9 @@
 //! surchargent. Les niveaux de liste au-delà du premier ne se distinguent
 //! pas : un paragraphe du cœur n'a pas de niveau.
 
+// `write!` into a `String` never fails: its result is ignored.
+use std::fmt::Write as _;
+
 use super::text::{DEFAULT_SIZE, LineBox, align, anchor, inset, spacing, weight_arg};
 use super::{Decor, Gen, GenCtx, Typst, pt, string};
 use crate::hifi::page::{PAGE_H, PAGE_W};
@@ -22,7 +25,7 @@ const NUMBER_GAP: &str = "0.5em";
 /// Le fond `fill` (de l'objet source `id`) sur toute la page Oku, en mode
 /// code ; rien sans remplissage.
 pub(crate) fn background(id: &str, fill: &Fill, ctx: &GenCtx<'_>) -> Decor {
-    let mut g = Gen { w: Typst::new(), ctx: *ctx, assets: Default::default(), losses: Vec::new() };
+    let mut g = Gen { w: Typst::new(), ctx: *ctx, assets: std::collections::BTreeSet::default(), losses: Vec::new() };
     let paint = g.fill(id, fill, PAGE_W, PAGE_H);
     if paint != "none" {
         let (w, h) = (pt(PAGE_W), pt(PAGE_H));
@@ -34,7 +37,7 @@ pub(crate) fn background(id: &str, fill: &Fill, ctx: &GenCtx<'_>) -> Decor {
 /// Le placeholder `ph`, champ du paramètre `param` (`args`, `ctx`, `t`,
 /// `champ`, `color-of` et `font-of` en portée), en mode code.
 pub(crate) fn placeholder(ph: &Placeholder, param: &str, ctx: &GenCtx<'_>) -> String {
-    let mut g = Gen { w: Typst::new(), ctx: *ctx, assets: Default::default(), losses: Vec::new() };
+    let mut g = Gen { w: Typst::new(), ctx: *ctx, assets: std::collections::BTreeSet::default(), losses: Vec::new() };
     let page = ctx.page;
     let f = page.frame(&ph.frame);
     g.w.open("{");
@@ -64,13 +67,13 @@ impl Gen<'_> {
         let mut text =
             format!("font: {}, size: {}, fill: {}", self.font(&r.font.value), pt(size), self.color(&r.color));
         if let Some(w) = weight_arg(r) {
-            text.push_str(&format!(", weight: {w}"));
+            let _ = write!(text, ", weight: {w}");
         }
         if r.italic {
             text.push_str(", style: \"italic\"");
         }
         if r.char_spacing != 0.0 {
-            text.push_str(&format!(", tracking: {}", pt(page.len(r.char_spacing))));
+            let _ = write!(text, ", tracking: {}", pt(page.len(r.char_spacing)));
         }
         // Les bords de ligne font le pas de ligne PowerPoint, sans `leading`
         // (voir `text.rs`) ; entre deux paragraphes, les espaces avant et après.
@@ -101,9 +104,9 @@ impl Gen<'_> {
                 string(char)
             );
             if indent < 0.0 {
-                list.push_str(&format!(", body-indent: 0pt, marker: box(width: {}, {mark})", pt(-indent)));
+                let _ = write!(list, ", body-indent: 0pt, marker: box(width: {}, {mark})", pt(-indent));
             } else {
-                list.push_str(&format!(", body-indent: {MARKER_GAP}, marker: {mark}"));
+                let _ = write!(list, ", body-indent: {MARKER_GAP}, marker: {mark}");
             }
         }
         self.w.line(&format!("set list({list})"));

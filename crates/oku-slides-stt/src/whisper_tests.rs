@@ -87,7 +87,7 @@ fn mel_empty_audio_returns_no_chunk() {
 
 #[test]
 fn mel_splits_audio_into_fixed_size_chunks() {
-    let audio: Vec<f32> = (0..600).map(|i| (i as f32 / 5.0).sin()).collect();
+    let audio: Vec<f32> = (0..600u16).map(|i| (f32::from(i) / 5.0).sin()).collect();
     let (features, chunks) = small().mel(&audio).unwrap();
     // 600 échantillons en tranches de 256 : 3 tranches de 8 bandes × 16 trames.
     assert_that!(chunks).is_equal_to(3);

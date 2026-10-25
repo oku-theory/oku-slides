@@ -1,4 +1,5 @@
 //! Tests de régression de l'import (un fichier par bug).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 #[path = "../common/mod.rs"]
 mod common;

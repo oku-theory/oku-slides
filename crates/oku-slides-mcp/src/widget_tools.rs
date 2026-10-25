@@ -20,50 +20,53 @@ use crate::tools::{Tools, png, text};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PackArgs {
-    /// Espace de noms du pack épinglé par le deck ; absent : le pack `deck`.
+    /// Namespace of a pack pinned by the deck; absent: the `deck` pack.
     #[serde(default)]
     pub pack: Option<Namespace>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct WidgetName {
-    /// Espace de noms du pack épinglé par le deck ; absent : le pack `deck`.
+    /// Namespace of a pack pinned by the deck; absent: the `deck` pack.
     #[serde(default)]
     pub pack: Option<Namespace>,
-    /// Nom du fichier : `[a-z][a-z0-9-]*` (le nom du widget), ou `_commun` pour le code partagé.
+    /// File name: `[a-z][a-z0-9-]*` (the widget's name), or `_commun` for shared code.
     pub name: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetWidgetArgs {
-    /// Espace de noms du pack épinglé par le deck ; absent : le pack `deck`, créé à la première écriture.
+    /// Namespace of a pack pinned by the deck.
+    ///
+    /// Absent: the `deck` pack, created on the first write.
     #[serde(default)]
     pub pack: Option<Namespace>,
-    /// Nom du fichier : `[a-z][a-z0-9-]*` (le nom du widget), ou `_commun`.
+    /// File name: `[a-z][a-z0-9-]*` (the widget's name), or `_commun`.
     pub name: String,
-    /// Source Typst complète du fichier ; vide : le fichier est supprimé.
+    /// Complete Typst source of the file; empty: the file is deleted.
     pub source: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PreviewWidgetArgs {
-    /// Espace de noms du pack épinglé par le deck ; absent : le pack `deck`.
+    /// Namespace of a pack pinned by the deck; absent: the `deck` pack.
     #[serde(default)]
     pub pack: Option<Namespace>,
-    /// Nom du widget à montrer.
+    /// Name of the widget to show.
     pub name: String,
-    /// Valeurs de paramètres ; les autres prennent leur défaut ou un exemple.
+    /// Parameter values; the others take their default or an example.
     #[serde(default)]
     pub params: Map<String, Value>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetWidgetTrialArgs {
-    /// Nom du widget.
+    /// Name of the widget.
     pub name: String,
-    /// Valeurs d'exemple par paramètre ; `null` efface une valeur (retour à
-    /// celle de l'aperçu) ; un texte vide ou `[]` (texte riche ou liste) la
-    /// gardent vide.
+    /// Example values by parameter.
+    ///
+    /// `null` clears a value, back to the preview's; an empty text or `[]`
+    /// (rich text or list) keeps it empty.
     pub values: Map<String, Value>,
 }
 
@@ -104,7 +107,7 @@ impl Tools {
         };
         let (change, pack_mode) = match done {
             Ok(d) => d,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         // Le texte de l'utilisateur est mis en file avant que l'instantané soit relu.
         if pack_mode && change.saved {
@@ -136,7 +139,7 @@ impl Tools {
                 }
                 text(json)
             }
-            Err(e) => self.fail_with(e),
+            Err(e) => self.fail_with(&e),
         }
     }
 
@@ -164,11 +167,11 @@ impl Tools {
             self.with_session(move |s| s.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Png)).await;
         let preview = match preview {
             Ok(p) => p,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let diagnostics = match serde_json::to_string(&preview.diagnostics).context(ResponseSnafu) {
             Ok(json) => json,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let Some(bytes) = &preview.png else { return text(diagnostics) };
         let mut result = png(bytes);

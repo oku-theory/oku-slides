@@ -5,6 +5,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::fonts::SUBSTITUTES;
+use crate::source::Grouping;
 use crate::source::{Chart, ChartKind, Fill, Geometry, Shape, Styled};
 use crate::test_support::{bullet, item, para, run, run_with, text_box};
 
@@ -13,7 +14,7 @@ const UNSAVED: Autofit = Autofit::Shrink { font_scale: 1.0, line_reduction: 0.0 
 
 /// Une boîte de texte aux paragraphes `paragraphs`, ajustée `autofit`, ancrée `anchor`.
 fn boxed(autofit: Autofit, anchor: Anchor, paragraphs: Vec<Paragraph>) -> TextBox {
-    TextBox { autofit, anchor, ..text_box(paragraphs) }
+    TextBox { anchor, autofit, ..text_box(paragraphs) }
 }
 
 /// Une boîte d'un paragraphe d'un run de 18 pt, ajustée `autofit`, ancrée en haut.
@@ -29,7 +30,7 @@ fn shape_with(text: TextBox) -> ItemKind {
 
 fn chart() -> ItemKind {
     let kind = ChartKind::Column;
-    ItemKind::Chart(Chart { kind, grouping: Default::default(), title: None, categories: vec![], series: vec![] })
+    ItemKind::Chart(Chart { kind, grouping: Grouping::default(), title: None, categories: vec![], series: vec![] })
 }
 
 fn tracked(spacing: f64) -> TextBox {

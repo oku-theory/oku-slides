@@ -28,12 +28,15 @@ const DECIMALS: usize = 6;
 /// Une commande d'un chemin, coordonnées relatives au cadre.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PathCommand {
+    /// Lifts the pen and goes to point `(x, y)`: start of a subpath.
     Move(f64, f64),
+    /// Straight segment to point `(x, y)`.
     Line(f64, f64),
     /// Points de contrôle puis point d'arrivée.
     Cubic(f64, f64, f64, f64, f64, f64),
     /// Point de contrôle puis point d'arrivée.
     Quad(f64, f64, f64, f64),
+    /// Closes the subpath with a segment back to its starting point.
     Close,
 }
 
@@ -51,8 +54,8 @@ impl PathCommand {
     fn numbers(self) -> Vec<f64> {
         match self {
             PathCommand::Move(x, y) | PathCommand::Line(x, y) => vec![x, y],
-            PathCommand::Cubic(a, b, c, d, e, f) => vec![a, b, c, d, e, f],
-            PathCommand::Quad(a, b, c, d) => vec![a, b, c, d],
+            PathCommand::Cubic(x1, y1, x2, y2, x, y) => vec![x1, y1, x2, y2, x, y],
+            PathCommand::Quad(x1, y1, x, y) => vec![x1, y1, x, y],
             PathCommand::Close => Vec::new(),
         }
     }
@@ -62,8 +65,8 @@ impl PathCommand {
         Some(match (letter, n) {
             ("M", [x, y]) => PathCommand::Move(*x, *y),
             ("L", [x, y]) => PathCommand::Line(*x, *y),
-            ("C", [a, b, c, d, e, f]) => PathCommand::Cubic(*a, *b, *c, *d, *e, *f),
-            ("Q", [a, b, c, d]) => PathCommand::Quad(*a, *b, *c, *d),
+            ("C", [x1, y1, x2, y2, x, y]) => PathCommand::Cubic(*x1, *y1, *x2, *y2, *x, *y),
+            ("Q", [x1, y1, x, y]) => PathCommand::Quad(*x1, *y1, *x, *y),
             ("Z", []) => PathCommand::Close,
             _ => return None,
         })
@@ -74,6 +77,9 @@ impl PathCommand {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ShapePath {
+    /// Commands of the path, in SVG `d` attribute format.
+    ///
+    /// The commands are `M`, `L`, `C`, `Q` and `Z`.
     pub d: String,
 }
 
@@ -81,6 +87,7 @@ impl ShapePath {
     /// Le chemin de `commands`, nombres arrondis à six décimales ; `None`
     /// si le résultat serait refusé (vide, sans `M` en tête, coordonnée non
     /// finie ou trop grande, trop long).
+    #[must_use]
     pub fn from_commands(commands: &[PathCommand]) -> Option<Self> {
         let mut d = String::new();
         for c in commands {
@@ -98,6 +105,7 @@ impl ShapePath {
     }
 
     /// Les commandes de `d`, ou `None` s'il est vide ou mal formé.
+    #[must_use]
     pub fn commands(&self) -> Option<Vec<PathCommand>> {
         if self.d.len() > SHAPE_PATH_MAX {
             return None;

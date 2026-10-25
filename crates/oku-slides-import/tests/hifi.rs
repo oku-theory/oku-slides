@@ -4,6 +4,7 @@
 //! deck vide (registre : les packs intégrés plus les schémas déclarés),
 //! épingle `base`, `essentiel` et le pack de layouts `deck-layouts` qu'il
 //! porte, et le deck obtenu ne lève aucune `Issue`.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -79,7 +80,8 @@ fn hifi_applies_without_issue_and_covers_everything(
     assert_that!((pack.kind(), pack.widgets().len() - 1)).is_equal_to((PackKind::Layouts, plan.schemas.len()));
     let c = plan.report.coverage.clone().unwrap_or_else(|| panic!("couverture mesurée"));
     assert_that!(c.missing).is_empty();
-    assert_that!([c.runs, c.images, c.tables, c.charts].iter().all(|r| r.is_complete())).is_true();
+    assert_that!([c.runs, c.images, c.tables, c.charts].iter().all(oku_slides_import::report::Ratio::is_complete))
+        .is_true();
 }
 
 #[test]

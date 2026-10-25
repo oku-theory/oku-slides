@@ -17,8 +17,11 @@ use crate::widget::{Category, ParamType, SlotMode, WidgetRegistry, WidgetSchema}
 /// Un problème du deck : où, et quoi.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Issue {
+    /// Slide concerned; `None` for the whole deck.
     pub slide: Option<String>,
+    /// Element concerned in the slide; `None` for the slide itself.
     pub element: Option<String>,
+    /// Localizable description of the problem.
     pub message: Message,
 }
 
@@ -41,38 +44,45 @@ impl std::fmt::Display for Issue {
 
 impl Issue {
     /// Une version de pack écartée : son contenu ne donne pas son empreinte.
+    #[must_use]
     pub fn pack_version_mismatch(hex: &str) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-pack-version-mismatch").arg("version", hex) }
     }
 
     /// La version de pack du deck manque dans ses sources.
+    #[must_use]
     pub fn pack_version_missing(version: &PackVersion) -> Self {
         let message = Message::new("issue-pack-version-missing").arg("version", version.as_str());
         Self { slide: None, element: None, message }
     }
 
     /// Le manifeste embarqué d'un pack ne correspond pas à son épinglage dans le deck.
+    #[must_use]
     pub fn pack_pin_mismatch(ns: &Namespace) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-pack-pin-mismatch").arg("pack", ns.as_str()) }
     }
 
     /// Une entrée `tokens` du manifeste embarqué d'un pack est refusée ; `reason` dit laquelle.
+    #[must_use]
     pub fn pack_tokens_invalid(ns: &Namespace, reason: &str) -> Self {
         let message = Message::new("issue-pack-tokens-invalid").arg("pack", ns.as_str()).arg("reason", reason);
         Self { slide: None, element: None, message }
     }
 
     /// Les fichiers embarqués d'un épinglage sont d'une autre sorte que sa carte.
+    #[must_use]
     pub fn pack_kind_mismatch(ns: &Namespace) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-pack-kind-mismatch").arg("pack", ns.as_str()) }
     }
 
     /// Un espace de noms épinglé à la fois comme pack de widgets et de layouts.
+    #[must_use]
     pub fn pack_kind_conflict(ns: &Namespace) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-pack-kind-conflict").arg("pack", ns.as_str()) }
     }
 
     /// Un pack du deck a besoin d'un espace de noms que le deck n'épingle pas.
+    #[must_use]
     pub fn pack_requirement_missing(ns: &Namespace, required: &Namespace) -> Self {
         let message =
             Message::new("issue-pack-requirement-missing").arg("pack", ns.as_str()).arg("required", required.as_str());
@@ -80,11 +90,13 @@ impl Issue {
     }
 
     /// Une version de thème écartée : son contenu ne donne pas son empreinte.
+    #[must_use]
     pub fn theme_version_mismatch(hex: &str) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-theme-version-mismatch").arg("version", hex) }
     }
 
     /// Le `theme.json` embarqué d'un thème ne correspond pas à son épinglage dans le deck.
+    #[must_use]
     pub fn theme_pin_mismatch(ns: &Namespace) -> Self {
         let message = Message::new("issue-theme-pin-mismatch").arg("namespace", ns.as_str());
         Self { slide: None, element: None, message }
@@ -93,11 +105,13 @@ impl Issue {
     /// Les thèmes épinglés ne sont pas exactement la fermeture du thème du deck.
     ///
     /// `ns` : le thème manquant ou de trop, ou le thème du deck pour un cycle.
+    #[must_use]
     pub fn theme_closure(ns: &Namespace) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-theme-closure").arg("namespace", ns.as_str()) }
     }
 
     /// La version d'un thème épinglé par le deck manque dans ses sources.
+    #[must_use]
     pub fn theme_version_missing(version: &PackVersion) -> Self {
         let message = Message::new("issue-theme-version-missing").arg("version", version.as_str());
         Self { slide: None, element: None, message }
@@ -148,6 +162,7 @@ pub fn asset_refs(deck: &Deck, registry: &WidgetRegistry) -> BTreeSet<String> {
 }
 
 /// Les assets que cite un élément : les siens et ceux de ses descendants.
+#[must_use]
 pub fn element_asset_refs(element: &Element, registry: &WidgetRegistry) -> BTreeSet<String> {
     let mut out: BTreeSet<String> = own_assets(element, registry).collect();
     for l in Walk::over(&element.params, Some(&element.id)) {
@@ -164,6 +179,11 @@ fn own_assets(element: &Element, registry: &WidgetRegistry) -> impl Iterator<Ite
 
 /// Vérifie le deck contre `registry`. `assets` : identifiants disponibles,
 /// si on veut les contrôler.
+#[must_use]
+#[expect(
+    clippy::implicit_hasher,
+    reason = "generic over the hasher, the usual call `validate(.., None)` would no longer infer"
+)]
 pub fn validate(deck: &Deck, registry: &WidgetRegistry, assets: Option<&HashSet<String>>) -> Vec<Issue> {
     let mut v = Validator { deck, registry, assets, out: Vec::new(), binds_checked: HashSet::new() };
     let mut slide_ids = HashSet::new();
@@ -388,10 +408,12 @@ pub(crate) fn fits(ty: &ParamType, value: &ParamValue) -> Fit {
         (ParamType::Choice { values }, ParamValue::Text(s)) => {
             return if values.iter().any(|v| v == s) { Fit::Ok } else { Fit::OutOfChoice };
         }
-        (ParamType::Plain | ParamType::Asset, ParamValue::Text(_)) => true,
-        (ParamType::Rich, ParamValue::Rich(_)) | (ParamType::Slot { .. }, ParamValue::Slot(_)) => true,
-        (ParamType::Rich, ParamValue::Slot(s)) => s.is_empty(),
-        (ParamType::Slot { .. }, ParamValue::Rich(p)) => p.is_empty(),
+        (ParamType::Plain | ParamType::Asset, ParamValue::Text(_))
+        | (ParamType::Rich, ParamValue::Rich(_))
+        | (ParamType::Slot { .. }, ParamValue::Slot(_)) => true,
+        // An empty list reads back without its shape: empty, it suits the neighbouring types.
+        (ParamType::Rich | ParamType::List { .. }, ParamValue::Slot(s)) => s.is_empty(),
+        (ParamType::Slot { .. } | ParamType::List { .. }, ParamValue::Rich(p)) => p.is_empty(),
         (ParamType::Flag, ParamValue::Value(v)) => v.is_boolean(),
         (ParamType::Number { min, max }, ParamValue::Value(v)) => {
             v.as_f64().is_some_and(|n| !min.is_some_and(|m| n < m) && !max.is_some_and(|m| n > m))
@@ -401,8 +423,6 @@ pub(crate) fn fits(ty: &ParamType, value: &ParamValue) -> Fit {
                 .iter()
                 .all(|(k, v)| item.iter().find(|c| c.name == k).is_some_and(|c| matches!(fits(&c.ty, v), Fit::Ok)))
         }),
-        (ParamType::List { .. }, ParamValue::Rich(p)) => p.is_empty(),
-        (ParamType::List { .. }, ParamValue::Slot(s)) => s.is_empty(),
         (ParamType::Grid, ParamValue::Value(v)) => v.is_object() && serde_json::from_value::<Grid>(v.clone()).is_ok(),
         (ParamType::Host { host }, ParamValue::Value(v)) => crate::ops::host_option(*host, "", v).is_ok(),
         _ => false,

@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use rstest::rstest;
 use speculoos::prelude::*;
 
@@ -103,7 +105,7 @@ fn sanitize_hostile_attribute_is_dropped_alone(#[case] text: String, #[case] exp
 #[case::use_of_use(svg(r##"<defs><rect id="a"/><g id="b"><use href="#a"/></g></defs><use href="#b"/>"##).into_bytes())]
 #[case::use_of_itself(svg(r##"<g id="a"><use xlink:href="#a"/></g>"##).into_bytes())]
 #[case::fan_out(svg(&format!(
-    r##"<defs><g id="a">{}</g></defs>{}"##,
+    r#"<defs><g id="a">{}</g></defs>{}"#,
     "<rect/>".repeat(1_000),
     r##"<use href="#a"/>"##.repeat(11)
 )).into_bytes())]
@@ -124,7 +126,10 @@ fn sanitize_hostile_attribute_is_dropped_alone(#[case] text: String, #[case] exp
 )]
 #[case::too_many_entities(format!(
     r#"<!DOCTYPE svg [{}]><svg xmlns="http://www.w3.org/2000/svg"/>"#,
-    (0..65).map(|i| format!(r#"<!ENTITY e{i} "x">"#)).collect::<String>()
+    (0..65).fold(String::new(), |mut out, i| {
+        let _ = write!(out, r#"<!ENTITY e{i} "x">"#);
+        out
+    })
 ).into_bytes())]
 #[case::linear_expansion_over_the_output(format!(
     r#"<!DOCTYPE svg [<!ENTITY a "{}">]><svg xmlns="http://www.w3.org/2000/svg"><text>{}</text></svg>"#,
@@ -144,11 +149,8 @@ fn sanitize_unsafe_or_unreadable_svg_is_rejected_as_unreadable(#[case] text: Vec
 
 #[test]
 fn sanitize_use_within_the_node_limit_is_kept() {
-    let text = svg(&format!(
-        r##"<defs><g id="a">{}</g></defs>{}"##,
-        "<rect/>".repeat(1_000),
-        r##"<use href="#a"/>"##.repeat(9)
-    ));
+    let text =
+        svg(&format!(r#"<defs><g id="a">{}</g></defs>{}"#, "<rect/>".repeat(1_000), r##"<use href="#a"/>"##.repeat(9)));
     assert_that!(clean(&text).altered).is_false();
 }
 
@@ -242,7 +244,7 @@ fn sanitize_illustrator_literal_entities_are_expanded_and_kept() {
 <svg xmlns="&ns_svg;"><rect style="&st0;" width="1"/></svg>"#;
     let c = clean(text);
     assert_that!(c.altered).is_false();
-    assert_that!(out(&c)).is_equal_to(svg_root(r##"<rect style="fill:#ff0000;" width="1"/>"##));
+    assert_that!(out(&c)).is_equal_to(svg_root(r#"<rect style="fill:#ff0000;" width="1"/>"#));
 }
 
 /// Sortie attendue d'un `<svg>` sans attribut autour de `body`.

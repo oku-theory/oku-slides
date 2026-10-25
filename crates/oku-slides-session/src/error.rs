@@ -26,9 +26,11 @@ pub enum SessionErrorKind {
     InvalidDocument,
     /// Une opération de la transaction a été refusée.
     Op,
+    /// Rendering missing or impossible: Typst failure, widgets unavailable, broken trusted pack.
     Render,
     /// Aucun fichier : il faut choisir où enregistrer.
     NoPath,
+    /// No slide has the requested id.
     NoSlide,
     /// L'élément n'est pas un graphique (ou n'existe pas).
     NoChart,
@@ -333,8 +335,23 @@ pub(crate) enum SessionInner {
 }
 
 impl SessionError {
+    /// The error's category, which the interface and the tests tell apart.
+    #[must_use]
     pub fn kind(&self) -> SessionErrorKind {
-        use SessionInner::*;
+        use SessionInner::{
+            AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, EditingPack, FieldNeeded, HelpDeck, HistoryNotOpen,
+            HostKey, Import, InHistory, InvalidTokenValue, InvalidWidgetName, MergeUnrelated, NamespaceChanged,
+            NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack,
+            NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
+            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent, PackPinMismatch,
+            PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response,
+            SingleDocument, Sources, TargetExists, ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
+            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse,
+            TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken,
+            Tune, TurnNotOnTop, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetTooLarge, Write,
+        };
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
             NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
@@ -348,7 +365,8 @@ impl SessionError {
             | PackPinMismatch { .. }
             | ThemeJson { .. }
             | ThemeIdMismatch { .. }
-            | Version { .. } => SessionErrorKind::InvalidDocument,
+            | Version { .. }
+            | HelpDeck { .. } => SessionErrorKind::InvalidDocument,
             Op { .. } => SessionErrorKind::Op,
             Render { .. } | NotRendered { .. } | Registry { .. } | TrustedPackBroken { .. } => SessionErrorKind::Render,
             NoPath { .. } => SessionErrorKind::NoPath,
@@ -404,7 +422,6 @@ impl SessionError {
             ThemeVersionMissing { .. } => SessionErrorKind::ThemeVersionMissing,
             InvalidTokenValue { .. } => SessionErrorKind::InvalidTokenValue,
             TokenInUse { .. } => SessionErrorKind::TokenInUse,
-            HelpDeck { .. } => SessionErrorKind::InvalidDocument,
             InvalidWidgetName { .. }
             | WidgetTooLarge { .. }
             | WidgetHasNul { .. }
@@ -422,6 +439,7 @@ impl SessionError {
     }
 
     /// La nature du refus d'un outil d'ajustement de l'import, pour une erreur [`SessionErrorKind::ImportTune`].
+    #[must_use]
     pub fn tune_kind(&self) -> Option<crate::import::TuneErrorKind> {
         match &*self.0 {
             SessionInner::Tune { source, .. } => Some(source.kind()),
@@ -430,6 +448,7 @@ impl SessionError {
     }
 
     /// L'erreur de transaction, si une opération a été refusée.
+    #[must_use]
     pub fn transaction(&self) -> Option<&oku_slides_core::TransactionError> {
         match &*self.0 {
             SessionInner::Op { source, .. } => Some(source),
@@ -438,6 +457,7 @@ impl SessionError {
     }
 
     /// La clé Fluent d'un collage refusé, pour une erreur [`SessionErrorKind::Paste`].
+    #[must_use]
     pub fn paste_reason_key(&self) -> Option<&'static str> {
         match &*self.0 {
             SessionInner::Paste { reason, .. } => Some(reason.key()),
@@ -446,6 +466,7 @@ impl SessionError {
     }
 
     /// Pourquoi une surface de l'agent est refusée, pour une erreur [`SessionErrorKind::AgentForm`].
+    #[must_use]
     pub fn agent_form_reason(&self) -> Option<&crate::agent::AgentFormReason> {
         match &*self.0 {
             SessionInner::AgentForm { reason, .. } => Some(reason),
@@ -472,6 +493,7 @@ impl SessionError {
     }
 
     /// L'erreur et ses causes, sur une ligne.
+    #[must_use]
     pub fn one_line(&self) -> String {
         oku_slides_platform::errors::one_line(self)
     }
@@ -488,6 +510,7 @@ pub(crate) fn merge_error(source: oku_slides_core::SourcesError) -> SessionError
     }
 }
 
+/// Result of session operations, with [`SessionError`] as the default error.
 pub type Result<T, E = SessionError> = std::result::Result<T, E>;
 
 /// Le refus d'une chaîne de thèmes, comme le cœur le dit pour l'op `set_theme`.
@@ -511,8 +534,22 @@ pub(crate) fn theme_chain_error(e: oku_slides_core::ThemeChainError) -> SessionE
 impl Localize for SessionError {
     /// Le message, ou celui de l'erreur d'en dessous quand elle dit quelque
     /// chose à l'utilisateur (opération refusée, rendu, PDF).
+    #[expect(clippy::too_many_lines, reason = "lookup table: one Fluent key per variant")]
     fn localize(&self, l: &Localizer) -> String {
-        use SessionInner::*;
+        use SessionInner::{
+            AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, EditingPack, FieldNeeded, HelpDeck, HistoryNotOpen,
+            HostKey, Import, InHistory, InvalidTokenValue, InvalidWidgetName, MergeUnrelated, NamespaceChanged,
+            NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack,
+            NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
+            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent, PackPinMismatch,
+            PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response,
+            SingleDocument, Sources, TargetExists, ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
+            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse,
+            TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken,
+            Tune, TurnNotOnTop, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetTooLarge, Write,
+        };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
             Read { path, .. } => l.tr_with("session-read", &path_arg(path)),

@@ -89,7 +89,7 @@ fn alpha_modifier_sets_opacity() {
 fn color_modifiers_match_powerpoint(#[case] inner: &str, #[case] expected: &str) {
     let got = color(inner).unwrap().value;
     let want = u32::from_str_radix(&expected[1..], 16).unwrap();
-    let (r, g, b) = ((want >> 16) as u8, (want >> 8) as u8, want as u8);
+    let [_, r, g, b] = want.to_be_bytes();
     let off = |a: u8, b: u8| (i16::from(a) - i16::from(b)).abs();
     assert!(
         off(got.r, r) <= 1 && off(got.g, g) <= 1 && off(got.b, b) <= 1,

@@ -132,7 +132,7 @@ pub fn add_user_theme(data: &std::path::Path, namespace: &str, extends: &[&str],
         description: String::new(),
         parent: None,
         created: "2026-10-22T10:00:00Z".to_owned(),
-        tokens: tokens.as_object().cloned().unwrap_or_default(),
+        tokens: serde_json::from_value(tokens).unwrap_or_default(),
     };
     let files = manifest.to_files().unwrap_or_else(|e| panic!("theme.json : {e}"));
     themes.add_version(manifest.id, &files).unwrap_or_else(|e| panic!("thème : {}", e.one_line()));

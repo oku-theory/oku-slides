@@ -79,13 +79,17 @@ impl VersionManifest for ThemeManifest {
 /// Résumé d'un thème dans une version, pour les listes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ThemeInfo {
+    /// Stable id of the theme, shared by all its versions.
     pub id: Uuid,
+    /// Hash of this version.
     pub version: PackVersion,
+    /// Displayed name of the theme.
     pub name: String,
     /// Son espace de noms, unique dans la bibliothèque : le deck l'épingle sous ce nom.
     pub namespace: Namespace,
     /// Les thèmes qu'il étend, dans l'ordre (les suivants l'emportent).
     pub extends: Vec<Namespace>,
+    /// Theme shipped with the app, never replaced.
     pub builtin: bool,
     /// Le thème d'un deck neuf.
     pub default: bool,
@@ -144,6 +148,7 @@ pub type ThemeLibrary = Library<Themes>;
 
 impl Library<Themes> {
     /// Les thèmes de l'utilisateur (`paths.themes` des réglages), et les intégrés.
+    #[must_use]
     pub fn user(platform: &oku_slides_platform::Platform) -> Self {
         Self::new(Some(platform.settings.paths.themes()), platform.storage.clone())
     }
@@ -157,6 +162,7 @@ impl ThemeLibrary {
     }
 
     /// La version courante du thème qui porte l'espace de noms `ns`.
+    #[must_use]
     pub fn by_namespace(&self, ns: &Namespace) -> Option<StoredVersion<ThemeManifest>> {
         self.entries().into_iter().find(|s| s.manifest.namespace == *ns)
     }

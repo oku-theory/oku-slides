@@ -120,11 +120,13 @@ impl ImportState {
     }
 
     /// Le mode de l'import.
+    #[must_use]
     pub fn mode(&self) -> ImportMode {
         self.mode
     }
 
     /// Le rapport, avec les scores courants.
+    #[must_use]
     pub fn report(&self) -> &ImportReport {
         &self.plan.report
     }
@@ -140,26 +142,31 @@ impl ImportState {
     }
 
     /// Les demandes de widget du plan.
+    #[must_use]
     pub fn widget_requests(&self) -> &[WidgetRequest] {
         &self.plan.widget_requests
     }
 
     /// Hi-fi : les groupes source répétés, candidats à un widget d'élément.
+    #[must_use]
     pub fn groups(&self) -> &[GroupCandidate] {
         &self.plan.groups
     }
 
     /// Hi-fi : ce que l'agent corrige pour l'item source `item`, s'il est projeté.
+    #[must_use]
     pub fn target(&self, item: &str) -> Option<&ItemTarget> {
         self.plan.targets.get(item)
     }
 
     /// Le seuil du score de la pire région (`[import] score_threshold`).
+    #[must_use]
     pub fn threshold(&self) -> f64 {
         self.threshold
     }
 
     /// Les bornes de l'ajustement par l'agent (`[import] tune_iterations`, `tune_stall`, `tune_global`).
+    #[must_use]
     pub fn limits(&self) -> TuneLimits {
         self.tuner.limits()
     }
@@ -167,21 +174,25 @@ impl ImportState {
     /// Les polices du rendu Oku, aussi données au témoin.
     ///
     /// Celles de l'app et celles du deck.
+    #[must_use]
     pub fn fonts(&self) -> &Fonts {
         &self.fonts
     }
 
     /// La source lue de la présentation.
+    #[must_use]
     pub fn source(&self) -> &SourceDeck {
         &self.source
     }
 
     /// Les essais d'ajustement de `slide`, si un outil l'a notée.
+    #[must_use]
     pub fn tuning(&self, slide: &str) -> Option<&Tuning> {
         self.tuner.tuning(slide)
     }
 
     /// Les essais d'ajustement de toutes les slides et le budget global.
+    #[must_use]
     pub fn tuner(&self) -> &Tuner {
         &self.tuner
     }
@@ -190,6 +201,7 @@ impl ImportState {
     ///
     /// Chaque cadre est en pt de la page Oku ; vide pour une slide inconnue.
     /// Les suspectes sont celles du témoin qui a rendu la référence, sinon du témoin choisi.
+    #[must_use]
     pub fn regions(&self, slide: &str) -> Vec<SlideRegion> {
         let Some(src) = self.source_slide(slide) else { return Vec::new() };
         let rect = hifi::source_rect(&self.source);
@@ -208,8 +220,9 @@ impl ImportState {
     /// Pixels par pt du rendu Oku d'une page.
     ///
     /// La page source y fait [`REFERENCE_WIDTH`](super::REFERENCE_WIDTH) pixels.
+    #[must_use]
     pub fn pixel_per_pt(&self) -> f32 {
-        Geometry::of(&self.source).ppp as f32
+        oku_slides_core::num::narrow_f32(Geometry::of(&self.source).ppp)
     }
 
     /// Choisit le témoin `witness` ; `None` : pas de référence.
@@ -226,7 +239,7 @@ impl ImportState {
             Some(ImportWitness::Soffice) => match soffice(platform) {
                 Ok(Some(found)) => self.set_witness(Some(found)),
                 Ok(None) => {
-                    self.witness_missing("[import] witness = soffice : aucun programme de [import] soffice".to_owned())
+                    self.witness_missing("[import] witness = soffice : aucun programme de [import] soffice".to_owned());
                 }
                 // Un script, sur macOS : le bac à sable du rendu ne lance que le binaire (t-912).
                 Err(e) => self.witness_refused(e.to_string()),
@@ -277,6 +290,7 @@ impl ImportState {
     /// `None` sans témoin choisi. Tant que la référence manque, chaque appel
     /// rend un travail sur la même place : le premier qui tourne rend, les
     /// autres attendent son résultat.
+    #[must_use]
     pub fn reference_job(&self) -> Option<ReferenceJob> {
         if self.reference.get().is_some() {
             return None;

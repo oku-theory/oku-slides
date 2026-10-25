@@ -18,8 +18,8 @@ fn chain_doc(n: usize) -> (LoroDoc, LoroTree) {
     (doc, tree)
 }
 
-fn refused<T>(r: Result<T, ReplicaInner>, what: &str) -> bool {
-    matches!(r, Err(ReplicaInner::MalformedDeckTree { what: w, .. }) if w == what)
+fn refused<T>(r: &Result<T, ReplicaInner>, what: &str) -> bool {
+    matches!(r, Err(ReplicaInner::MalformedDeckTree { what: w, .. }) if *w == what)
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn check_entry_at_the_depth_bound_is_accepted() {
 #[test]
 fn check_entry_one_level_past_the_bound_is_refused() {
     let (doc, tree) = chain_doc(MAX_TREE_DEPTH + 1);
-    assert_that!(refused(check_entry(&doc, Some(&tree)), TOO_DEEP)).is_true();
+    assert_that!(refused(&check_entry(&doc, Some(&tree)), TOO_DEEP)).is_true();
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn check_entry_counts_nodes_deleted_by_loro() {
     tree.delete(tree.roots()[0]).unwrap_or_else(|e| panic!("{e}"));
     doc.commit();
     // Sous la racine des supprimés, la chaîne garde MAX + 1 niveaux.
-    assert_that!(refused(check_entry(&doc, Some(&tree)), TOO_DEEP)).is_true();
+    assert_that!(refused(&check_entry(&doc, Some(&tree)), TOO_DEEP)).is_true();
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn check_entry_branch_past_the_bound_is_refused_whatever_the_visit_order() {
     assert_that!(check_entry(&doc, Some(&tree))).is_ok();
     tree.create(TreeParentId::Node(a)).unwrap_or_else(|e| panic!("{e}"));
     doc.commit();
-    assert_that!(refused(check_entry(&doc, Some(&tree)), TOO_DEEP)).is_true();
+    assert_that!(refused(&check_entry(&doc, Some(&tree)), TOO_DEEP)).is_true();
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn check_entry_with_a_second_tree_is_refused() {
     let (doc, tree) = chain_doc(1);
     doc.get_tree("autre").create(TreeParentId::Root).unwrap_or_else(|e| panic!("{e}"));
     doc.commit();
-    assert_that!(refused(check_entry(&doc, Some(&tree)), FOREIGN_TREE)).is_true();
+    assert_that!(refused(&check_entry(&doc, Some(&tree)), FOREIGN_TREE)).is_true();
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn check_entry_without_a_deck_tree_refuses_any_tree() {
     let doc = LoroDoc::new();
     doc.get_tree("autre").create(TreeParentId::Root).unwrap_or_else(|e| panic!("{e}"));
     doc.commit();
-    assert_that!(refused(check_entry(&doc, None), FOREIGN_TREE)).is_true();
+    assert_that!(refused(&check_entry(&doc, None), FOREIGN_TREE)).is_true();
 }
 
 #[test]

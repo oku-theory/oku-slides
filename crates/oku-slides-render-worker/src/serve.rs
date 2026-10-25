@@ -80,7 +80,11 @@ struct Worker {
     work: Option<PathBuf>,
 }
 
-/// Sert les requêtes de `input` jusqu'à sa fin.
+/// Serves the requests of `input` until it ends.
+///
+/// # Errors
+///
+/// Fails if a frame of `input` is unreadable or if `output` rejects a reply.
 pub fn serve(input: impl Read, output: impl Write, max_frame: usize) -> Result<(), ServeError> {
     serve_watched(input, output, max_frame, &Busy::default(), None)
 }
@@ -113,8 +117,9 @@ fn error_reply(error: WireError) -> Reply {
     (Response::Error { error }, Vec::new())
 }
 
-fn ok() -> Result<Reply, WireError> {
-    Ok((Response::Ok, Vec::new()))
+/// The `Ok` reply, without payload.
+fn ok_reply() -> Reply {
+    (Response::Ok, Vec::new())
 }
 
 fn setup(message: String) -> WireError {
@@ -147,17 +152,17 @@ impl Worker {
             Request::SetLanguage { locale } => self.set_language(&locale),
             Request::PutFont { id } => {
                 self.fonts.insert(id, payload);
-                ok()
+                Ok(ok_reply())
             }
             Request::DropFonts { ids } => {
                 for id in ids {
                     self.fonts.remove(&id);
                 }
-                ok()
+                Ok(ok_reply())
             }
             Request::PutAsset { id } => {
                 self.assets.insert(id, payload);
-                ok()
+                Ok(ok_reply())
             }
             Request::ProbeFile { kind, name, source, common } => {
                 self.probe_file(kind, &name, &source, common.as_deref())
@@ -166,7 +171,7 @@ impl Worker {
             Request::CloseSlot { slot } => {
                 self.slots.remove(&slot);
                 self.evict_assets();
-                ok()
+                Ok(ok_reply())
             }
             Request::SetWidgets { slot, packs } => self.set_widgets(slot, packs),
             Request::SetTheme { slot, tokens } => self.set_theme(slot, tokens),
@@ -184,7 +189,7 @@ impl Worker {
                         s.generations.remove(&g);
                     }
                 }
-                ok()
+                Ok(ok_reply())
             }
             Request::Reference { witness, fonts, slides } => {
                 let reply = self.reference(&witness, &fonts, slides, &payload);
@@ -194,7 +199,7 @@ impl Worker {
             Request::ReferencePng { reference, page, width } => self.reference_png(reference, page, width),
             Request::ReleaseReference { reference } => {
                 self.references.remove(&reference);
-                ok()
+                Ok(ok_reply())
             }
         };
         result.unwrap_or_else(error_reply)
@@ -303,7 +308,7 @@ impl Worker {
             slot.renderer.set_language(&localizer).map_err(|e| render_error(&e))?;
         }
         self.localizer = Some(localizer);
-        ok()
+        Ok(ok_reply())
     }
 
     fn open_slot(&mut self, slot: SlotId, fonts: &[String]) -> Result<Reply, WireError> {
@@ -312,7 +317,7 @@ impl Worker {
             renderer.set_language(l).map_err(|e| render_error(&e))?;
         }
         self.slots.insert(slot, Slot { renderer, generations: BTreeMap::new(), last_assets: Vec::new() });
-        ok()
+        Ok(ok_reply())
     }
 
     fn set_widgets(&mut self, slot: SlotId, packs: Vec<WirePack>) -> Result<Reply, WireError> {
@@ -321,13 +326,13 @@ impl Worker {
         let registry = self.registries().get(&set).map_err(|e| WireError::from_registry(&e))?;
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
         s.renderer.set_widgets(&set, registry).map_err(|e| render_error(&e))?;
-        ok()
+        Ok(ok_reply())
     }
 
     fn set_theme(&mut self, slot: SlotId, tokens: Option<Map<String, Value>>) -> Result<Reply, WireError> {
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
         s.renderer.set_theme(tokens).map_err(|e| render_error(&e))?;
-        ok()
+        Ok(ok_reply())
     }
 
     fn render(&mut self, slot: SlotId, deck: &oku_slides_core::Deck, assets: Vec<String>) -> Result<Reply, WireError> {
@@ -388,7 +393,7 @@ pub(crate) struct WorkerArgs {
 /// `--max-frame-bytes <n>`, `--timeout-ms <n>`, `--memory-bytes <n>` et
 /// `--work-dir <path>` sont facultatifs : sans eux, taille par défaut et pas de borne.
 pub(crate) fn worker_args(args: &[OsString]) -> Option<WorkerArgs> {
-    if args.first().map(|a| a == "--render-worker") != Some(true) {
+    if args.first().is_none_or(|a| a != "--render-worker") {
         return None;
     }
     let value = |name: &str| -> Option<u64> {

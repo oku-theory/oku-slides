@@ -27,6 +27,7 @@ pub fn merge(base: &mut Map<String, Value>, over: &Map<String, Value>) {
 }
 
 /// Les jetons effectifs : `defaults`, puis `theme` fusionné par-dessus.
+#[must_use]
 pub fn effective_tokens(defaults: &Map<String, Value>, theme: &Map<String, Value>) -> Map<String, Value> {
     let mut tokens = defaults.clone();
     merge(&mut tokens, theme);

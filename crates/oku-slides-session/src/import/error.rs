@@ -98,8 +98,13 @@ pub(crate) enum ImportInner {
 
 impl ImportError {
     /// Nature de l'erreur, pour choisir quoi en dire.
+    #[must_use]
     pub fn kind(&self) -> ImportErrorKind {
-        use ImportInner::*;
+        use ImportInner::{
+            BadPack, BadPackFiles, BadTheme, Library, NotLayoutPack, Op, PackDir, PackMissing, PackTooLarge,
+            Presentation, ProbeFailed, ProbeLimit, ProbeMismatch, Read, ReadThread, ReaderPanic, Registry, Sources,
+            Threshold, TooLarge, UnknownPack, UnknownTheme,
+        };
         match *self.0 {
             Read { .. } | ReadThread { .. } | PackDir { .. } => ImportErrorKind::File,
             TooLarge { .. } | PackTooLarge { .. } => ImportErrorKind::TooLarge,
@@ -119,6 +124,7 @@ impl ImportError {
     }
 
     /// L'erreur et ses causes, sur une ligne.
+    #[must_use]
     pub fn one_line(&self) -> String {
         oku_slides_platform::errors::one_line(self)
     }
@@ -137,7 +143,11 @@ pub(crate) type Result<T, E = ImportError> = std::result::Result<T, E>;
 impl Localize for ImportError {
     /// Le message, ou celui de l'erreur d'en dessous s'il parle à l'utilisateur.
     fn localize(&self, l: &Localizer) -> String {
-        use ImportInner::*;
+        use ImportInner::{
+            BadPack, BadPackFiles, BadTheme, Library, NotLayoutPack, Op, PackDir, PackMissing, PackTooLarge,
+            Presentation, ProbeFailed, ProbeLimit, ProbeMismatch, Read, ReadThread, ReaderPanic, Registry, Sources,
+            Threshold, TooLarge, UnknownPack, UnknownTheme,
+        };
         match &*self.0 {
             Read { path, .. } | ReadThread { path, .. } | PackDir { path, .. } => {
                 l.tr_with("session-read", &[("path", path.display().to_string().into())])

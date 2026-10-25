@@ -81,6 +81,7 @@ pub(crate) enum PackManifestInner {
 
 impl PackManifestError {
     /// Ce qui empêche la lecture.
+    #[must_use]
     pub fn kind(&self) -> PackManifestErrorKind {
         match *self.0 {
             PackManifestInner::ManifestJson { .. } => PackManifestErrorKind::Json,
@@ -89,6 +90,7 @@ impl PackManifestError {
     }
 
     /// L'entrée `tokens` refusée, si c'est elle qui empêche la lecture.
+    #[must_use]
     pub fn token_entry(&self) -> Option<&TokenEntryError> {
         match &*self.0 {
             PackManifestInner::ManifestTokens { source, .. } => Some(source),

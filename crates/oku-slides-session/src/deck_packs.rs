@@ -104,7 +104,11 @@ pub struct ThemeSectionView {
 }
 
 impl Session {
-    /// La vue du panneau des packs ; refusée hors du mode deck.
+    /// The view of the packs panel; rejected outside deck mode.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode (help, pack, history).
     pub fn deck_packs(&self) -> Result<DeckPacksView> {
         self.ensure_deck_mode()?;
         let deck = self.deck();
@@ -120,11 +124,16 @@ impl Session {
         })
     }
 
-    /// Ajoute au deck la version courante d'un pack de la bibliothèque.
+    /// Adds the current version of a library pack to the deck.
     ///
-    /// Ses besoins absents entrent dans la même étape (`Session::apply`).
-    /// Refusé pour un espace de noms déjà épinglé (sous l'autre sorte, par le
-    /// cœur), ou que la bibliothèque ne donne pas à un pack de cette sorte.
+    /// Its missing requirements join the same step (`Session::apply`).
+    /// Rejected for a namespace already pinned (under the other kind, by the
+    /// core), or that the library does not give to a pack of this kind.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode, for a namespace already taken (`NamespaceTaken`) or unknown to the
+    /// library, or if the transaction is rejected.
     pub fn add_library_pack(&mut self, kind: PackKind, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
         let deck = self.deck();
@@ -144,9 +153,13 @@ impl Session {
         self.apply(&label, vec![Op::AddPack { kind, namespace: ns.clone(), pin }], None)
     }
 
-    /// Retire un pack du deck, en une étape d'annulation.
+    /// Removes a pack from the deck, in one undo step.
     ///
-    /// Le cœur refuse ce que `remove_pack_refusal` refuse : rien ne change alors.
+    /// The core rejects what `remove_pack_refusal` rejects: nothing changes then.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode, or if the core rejects the removal.
     pub fn remove_deck_pack(&mut self, kind: PackKind, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
         let name = self.deck().pins(kind).get(ns).map_or_else(|| ns.to_string(), |pin| self.pack_name(ns, pin));
@@ -154,10 +167,15 @@ impl Session {
         self.apply(&label, vec![Op::RemovePack { kind, namespace: ns.clone() }], None)
     }
 
-    /// Le deck passe à ma version courante d'un pack.
+    /// The deck moves to the user's current version of a pack.
     ///
-    /// Une étape d'annulation. Refusé pour un pack que le deck n'épingle pas,
-    /// du deck seul, ou déjà dans ma version courante (`PackAlreadyCurrent`).
+    /// One undo step. Rejected for a pack the deck does not pin, a deck-only
+    /// pack, or one already at the user's current version (`PackAlreadyCurrent`).
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode, for an unpinned pack (`NotPinned`), a deck-only one (`DeckOnly`), an
+    /// unknown one (`UnknownPack`) or one already current (`PackAlreadyCurrent`).
     pub fn pack_use_mine(&mut self, kind: PackKind, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
         let pin = self.deck().pins(kind).get(ns).cloned().context(NotPinnedSnafu { namespace: ns.as_str() })?;
@@ -169,10 +187,15 @@ impl Session {
         self.apply(&label, vec![Op::AddPack { kind, namespace: ns.clone(), pin }], None)
     }
 
-    /// La version du deck devient ma version courante ; le deck ne change pas.
+    /// The deck's version becomes the user's current version; the deck does not change.
     ///
-    /// La version vient de l'épinglage du deck seul. Refusé (`PackNotMakeCurrent`)
-    /// pour un pack intégré, du deck seul, ou dont la bibliothèque n'a pas la version.
+    /// The version comes from the deck's pin alone. Rejected (`PackNotMakeCurrent`)
+    /// for a built-in pack, a deck-only pack, or one whose version the library lacks.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode, for an unpinned pack (`NotPinned`), a rejected one
+    /// (`PackNotMakeCurrent`), or if the library does not write the current version.
     pub fn pack_make_current(&mut self, kind: PackKind, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
         let pin = self.deck().pins(kind).get(ns).cloned().context(NotPinnedSnafu { namespace: ns.as_str() })?;
@@ -187,10 +210,15 @@ impl Session {
         Ok(())
     }
 
-    /// Le deck passe à ma version courante de son thème.
+    /// The deck moves to the user's current version of its theme.
     ///
-    /// Une étape d'annulation. Refusé (`ThemeNotOutdated`) si la version
-    /// épinglée n'est pas plus ancienne que la courante, ou sans thème épinglé.
+    /// One undo step. Rejected (`ThemeNotOutdated`) if the pinned version is
+    /// not older than the current one, or without a pinned theme.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode, without a readable active theme, if the theme is not outdated
+    /// (`ThemeNotOutdated`), or if the transaction is rejected.
     pub fn update_deck_theme(&mut self) -> Result<()> {
         self.ensure_deck_mode()?;
         let ns = self.active_theme()?;

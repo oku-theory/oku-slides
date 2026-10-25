@@ -28,7 +28,6 @@ fn issue_0465_blank_fact_does_not_count_against_the_bound() {
         .filter_map(|m| m["updateComponents"]["components"].as_array())
         .flatten()
         .find(|c| c["component"] == "Receipt")
-        .map(|c| c["facts"].clone())
-        .unwrap_or(Value::Null);
+        .map_or(Value::Null, |c| c["facts"].clone());
     assert_that!(facts).is_equal_to(json!(["a", "b", "c", "d"]));
 }

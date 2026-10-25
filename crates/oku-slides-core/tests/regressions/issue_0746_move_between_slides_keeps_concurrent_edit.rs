@@ -107,8 +107,8 @@ fn move_element_with_a_repeated_id_keeps_the_concurrent_bold() {
     let mut moved = deck.clone();
     let mv = op(json!({ "op": "move_element", "slide": "s-constat", "element": "dup",
         "to": { "owner": { "slide": "s-neuve" }, "param": "blocks" } }));
-    let moves = apply_all_moving(&mut moved, vec![mv], &common::registry()).unwrap_or_else(|e| panic!("{e:?}"));
-    a.apply_moving(&moved, "A", None, &moves).unwrap_or_else(|e| panic!("apply : {e}"));
+    let transfers = apply_all_moving(&mut moved, vec![mv], &common::registry()).unwrap_or_else(|e| panic!("{e:?}"));
+    a.apply_moving(&moved, "A", None, &transfers).unwrap_or_else(|e| panic!("apply : {e}"));
 
     // B : met en gras le `dup` de `s-constat`.
     let Some(original) = found(&deck, "s-constat", "dup").pop() else { panic!("dup absent") };

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -132,7 +132,8 @@ fn builtin_pack_embeds_every_file_of_its_directory(#[case] pack: BuiltinPack, #[
     let dir = format!("{}/../../typst/oku-slides/packs/{dir}", env!("CARGO_MANIFEST_DIR"));
     let on_disk: BTreeSet<String> =
         std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
-    let embedded: BTreeSet<String> = pack.files().unwrap().widgets().keys().map(|n| n.file_name()).collect();
+    let embedded: BTreeSet<String> =
+        pack.files().unwrap().widgets().keys().map(oku_slides_core::WidgetFile::file_name).collect();
     assert_that!(embedded).is_equal_to(on_disk);
 }
 
@@ -230,11 +231,20 @@ fn builtin_component_defaults_lists_base_then_essentiel() {
 /// t-1053 : tout pack d'espace de noms `base`, même modifié, est exempt d'accusation ; aucun autre.
 #[rstest]
 #[case::shipped_base(BuiltinPack::Base.widgets().unwrap(), true)]
-#[case::edited_base(PackWidgets::new("modifie", kinds::base::namespace(), PackKind::Widgets, Default::default()).unwrap(), true)]
-#[case::layouts_named_base(PackWidgets::new("modifie", kinds::base::namespace(), PackKind::Layouts, Default::default()).unwrap(), false)]
+#[case::edited_base(
+    PackWidgets::new("modifie", kinds::base::namespace(), PackKind::Widgets, BTreeMap::default()).unwrap(),
+    true
+)]
+#[case::layouts_named_base(
+    PackWidgets::new("modifie", kinds::base::namespace(), PackKind::Layouts, BTreeMap::default()).unwrap(),
+    false
+)]
 #[case::shipped_essentiel(BuiltinPack::Essentiel.widgets().unwrap(), true)]
-#[case::edited_essentiel(PackWidgets::new("modifie", ns("essentiel"), PackKind::Layouts, Default::default()).unwrap(), false)]
-#[case::user_pack(PackWidgets::new("autre", ns("autre"), PackKind::Widgets, Default::default()).unwrap(), false)]
+#[case::edited_essentiel(
+    PackWidgets::new("modifie", ns("essentiel"), PackKind::Layouts, BTreeMap::default()).unwrap(),
+    false
+)]
+#[case::user_pack(PackWidgets::new("autre", ns("autre"), PackKind::Widgets, BTreeMap::default()).unwrap(), false)]
 fn is_never_blamed_covers_trusted_packs_and_any_base(#[case] pack: PackWidgets, #[case] expected: bool) {
     assert_that!(is_never_blamed(&pack)).is_equal_to(expected);
 }

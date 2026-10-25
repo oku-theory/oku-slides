@@ -1,3 +1,5 @@
+//! The tab agent stack: interface commands, event relay, closing.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use std::sync::Arc;
@@ -263,7 +265,9 @@ async fn shutdown_kills_the_agent_and_later_commands_start_nothing() {
     assert_that!(common::logged(&log, "initialize")).has_length(1);
 }
 
-/// Une pile reprise dont `t-1` a gardé le tour 3 dans son fil et la session `sess-42`.
+/// A resumed stack whose tab `t-1` kept turn 3 and session `sess-42`.
+///
+/// Turn 3 is kept in the tab's thread.
 async fn restarted() -> (TestStack, common::Relayed, std::path::PathBuf) {
     let script = json!({ "resume": true, "turns": [{ "chunks": ["ok"] }] });
     let (stack, rx, log, _resume) = stack_resumed(script, |s, agent| {
@@ -697,6 +701,25 @@ async fn show_packs_relays_the_packs_panel_to_its_tab() {
     })
     .await;
     assert_that!(ev["tab"].clone()).is_equal_to(json!("t-1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_outside_deck_mode_shows_nothing() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    stack.on_session("t-1", |s| s.edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap());
+    let shown = tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_packs", "tab": "t-1" }))));
+    // Witness: the tab's commands run in order, a packs panel would be relayed before the settings box.
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": "t-1" })))).unwrap();
+    wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "host-voice"
+    })
+    .await;
+    let packs =
+        rx.lock().unwrap_or_else(|e| panic!("relais : {e}")).iter().any(|(ch, v)| {
+            *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "host-packs"
+        });
+    assert_that!(shown).is_ok();
+    assert_that!(packs).is_false();
 }
 
 #[test]

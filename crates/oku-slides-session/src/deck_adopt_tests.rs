@@ -60,7 +60,7 @@ fn adopt_pins_setting_a_user_theme_freezes_its_version() {
     let data = fresh_dir("oku-slides-adopt-");
     let mut s = session_on(data.path());
     let id = Uuid::new_v4();
-    let version = add_user_theme(&s.themes, id, "marque", &[], Default::default(), None);
+    let version = add_user_theme(&s.themes, id, "marque", &[], serde_json::Map::default(), None);
     s.theme_list = s.themes.themes();
     s.set_theme(&ns("marque")).unwrap();
     assert_that!(s.themes.is_frozen(id, &version)).is_true();

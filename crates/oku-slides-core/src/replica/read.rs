@@ -49,7 +49,7 @@ pub(super) fn loro_to_json_at(v: &LoroValue, depth: u32) -> Value {
         LoroValue::List(l) => Value::Array(l.iter().map(|v| loro_to_json_at(v, depth + 1)).collect()),
         LoroValue::Map(m) => {
             let mut out: Map<String, Value> =
-                m.iter().map(|(k, v)| (k.to_string(), loro_to_json_at(v, depth + 1))).collect();
+                m.iter().map(|(k, v)| (k.clone(), loro_to_json_at(v, depth + 1))).collect();
             // Clés triées, comme la forme canonique (`canonical::numbers`).
             out.sort_keys();
             Value::Object(out)
@@ -269,7 +269,7 @@ impl Reader {
                     v => v,
                 },
                 // Conteneur d'un type inattendu : ignoré.
-                _ => continue,
+                ValueOrContainer::Container(_) => continue,
             };
             out.insert(key, value);
         }
@@ -355,12 +355,11 @@ fn issue(slide: Option<String>, element: Option<String>, message: Message) -> Is
 
 fn read_slide(s: Value, issues: &mut Vec<Issue>) -> Option<Slide> {
     let id = s.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
-    match serde_json::from_value::<Slide>(s) {
-        Ok(slide) => Some(slide),
-        Err(_) => {
-            issues.push(issue(Some(id), None, Message::new("issue-unreadable-slide")));
-            None
-        }
+    if let Ok(slide) = serde_json::from_value::<Slide>(s) {
+        Some(slide)
+    } else {
+        issues.push(issue(Some(id), None, Message::new("issue-unreadable-slide")));
+        None
     }
 }
 

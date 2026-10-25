@@ -323,7 +323,7 @@ fn ids(v: &Value) -> Vec<String> {
 }
 
 fn insert(id: &str) -> ListOp {
-    ListOp::Insert { index: None, id: id.into(), values: Default::default() }
+    ListOp::Insert { index: None, id: id.into(), values: Map::default() }
 }
 
 #[test]
@@ -349,7 +349,7 @@ fn widget_settings_list_field_without_max_reports_the_core_limit() {
     let (_d, mut s) = pack_with_list();
     s.set_widget(None, "frise", crate::test_support::FRISE_TEST.replace(" max: 8,", "")).unwrap();
     let f = &settings(&s, "frise").spec.fields[0];
-    assert_that!(f.max).is_equal_to(Some(oku_slides_core::LIST_ITEMS_MAX as f64));
+    assert_that!(f.max).is_equal_to(Some(oku_slides_core::num::count_f64(oku_slides_core::LIST_ITEMS_MAX)));
 }
 
 #[test]

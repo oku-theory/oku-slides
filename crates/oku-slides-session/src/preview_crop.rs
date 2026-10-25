@@ -45,40 +45,40 @@ impl Pixels {
 /// `None` si rien ne change (widget vide) ou si un PNG est illisible ou
 /// d'une autre taille que l'autre : l'appelant garde `within`.
 pub(crate) fn drawn_box(with: &[u8], bare: &[u8], within: PreviewBox, pixel_per_pt: f32) -> Option<PreviewBox> {
-    let (a, b) = (Pixels::decode(with)?, Pixels::decode(bare)?);
-    if (a.width, a.height, a.channels) != (b.width, b.height, b.channels) {
+    let (drawn, blank) = (Pixels::decode(with)?, Pixels::decode(bare)?);
+    if (drawn.width, drawn.height, drawn.channels) != (blank.width, blank.height, blank.channels) {
         return None;
     }
     let scale = f64::from(pixel_per_pt);
     // Bornes en pixels, rognées à l'image : le début arrondi en dessous, la
     // fin au-dessus (un dernier pixel couvert en partie compte).
     let px = |pt: f64, max: usize, round: fn(f64) -> f64| -> usize {
-        let v = round(pt * scale).clamp(0.0, max as f64);
+        let v = round(pt * scale).clamp(0.0, oku_slides_core::num::count_f64(max));
         // `v` est entier, positif et au plus `max` : la conversion est exacte.
-        v as usize
+        oku_slides_core::num::trunc_usize(v)
     };
-    let x0 = px(within.x, a.width, f64::floor);
-    let x1 = px(within.x + within.w, a.width, f64::ceil).max(x0);
-    let y0 = px(within.y, a.height, f64::floor);
-    let y1 = px(within.y + within.h, a.height, f64::ceil).max(y0);
+    let x0 = px(within.x, drawn.width, f64::floor);
+    let x1 = px(within.x + within.w, drawn.width, f64::ceil).max(x0);
+    let y0 = px(within.y, drawn.height, f64::floor);
+    let y1 = px(within.y + within.h, drawn.height, f64::ceil).max(y0);
     // Égalité exacte des octets : les deux PNG viennent du même rendu, à
     // l'élément près ; aucun pixel changé donne `None` (l'appelant garde `within`).
     let mut found: Option<(usize, usize, usize, usize)> = None;
     for y in y0..y1 {
         for x in x0..x1 {
-            if a.at(x, y) != b.at(x, y) {
+            if drawn.at(x, y) != blank.at(x, y) {
                 found = Some(match found {
                     None => (x, y, x, y),
-                    Some((l, t, r, bo)) => (l.min(x), t.min(y), r.max(x), bo.max(y)),
+                    Some((x_min, y_min, x_max, y_max)) => (x_min.min(x), y_min.min(y), x_max.max(x), y_max.max(y)),
                 });
             }
         }
     }
-    let (l, t, r, bo) = found?;
+    let (x_min, y_min, x_max, y_max) = found?;
     // Un pixel couvre `1 / scale` pt : la boîte va jusqu'au bord du dernier.
-    let pt = |p: usize| p as f64 / scale;
-    let (left, top) = (pt(l).max(within.x), pt(t).max(within.y));
-    let (right, bottom) = (pt(r + 1).min(within.x + within.w), pt(bo + 1).min(within.y + within.h));
+    let pt = |p: usize| oku_slides_core::num::count_f64(p) / scale;
+    let (left, top) = (pt(x_min).max(within.x), pt(y_min).max(within.y));
+    let (right, bottom) = (pt(x_max + 1).min(within.x + within.w), pt(y_max + 1).min(within.y + within.h));
     Some(PreviewBox { x: left, y: top, w: right - left, h: bottom - top })
 }
 

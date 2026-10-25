@@ -21,7 +21,7 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 
 ## Layers
 
-- `source/` depends on nothing (`lang`: scripts); `error`, `limits`, `collect`, `oklab`, `formula` are neutral.
+- `source/` depends on nothing (`lang`: scripts); `error`, `limits`, `collect`, `oklab`, `formula` are neutral; casts go through `oku_slides_core::num`.
 - `pptx/` is the only reader: `package` (bounded zip), `xml` (bounded nodes), `context`, `master`,
   `slide`, `placeholder`, `cascade` (the single text-style resolution), `bounds` (schema ranges,
   clamp warnings), `shapes`, `frame`, `table` (+ built-in `table_styles`), `chart`, `smartart` (model

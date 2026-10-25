@@ -42,14 +42,17 @@ use crate::{Mode, Result, Session};
 /// Bornes des fichiers de widgets (`[render]`).
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct WidgetLimits {
-    max_bytes: usize,
-    max_kib: usize,
-    max_files: usize,
+    /// Maximum size of a file, in bytes.
+    bytes: usize,
+    /// The same, in KiB, for the message.
+    kib: usize,
+    /// Maximum number of files per version.
+    files: usize,
 }
 
 impl WidgetLimits {
     pub(crate) fn of(r: &RenderSettings) -> Self {
-        Self { max_bytes: r.max_widget_bytes(), max_kib: r.max_widget_kib, max_files: r.max_widgets }
+        Self { bytes: r.max_widget_bytes(), kib: r.max_widget_kib, files: r.max_widgets }
     }
 }
 
@@ -60,6 +63,7 @@ pub struct WidgetDiagnostic {
     pub file: Option<WidgetFile>,
     /// Ligne et colonne, à partir de 1, si elles sont connues.
     pub line: Option<usize>,
+    /// Column, from 1, if known.
     pub column: Option<usize>,
     /// Une erreur (sinon un avertissement).
     pub error: bool,
@@ -88,14 +92,17 @@ impl WidgetDiagnostic {
 /// Un fichier du pack et son statut.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct WidgetStatus {
+    /// The pack's file: a widget, or `_commun`.
     pub name: WidgetFile,
     /// Le schéma du widget, s'il est valide ; `None` pour `_commun`.
     pub schema: Option<WidgetSchema>,
+    /// Typst or check messages; an error makes the file invalid.
     pub diagnostics: Vec<WidgetDiagnostic>,
 }
 
 impl WidgetStatus {
     /// Valide : aucune erreur.
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         !self.diagnostics.iter().any(|d| d.error)
     }
@@ -104,6 +111,7 @@ impl WidgetStatus {
 /// Ce que rend une écriture : le fichier, et les widgets qu'elle a cassés.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct WidgetChange {
+    /// The status of the written file.
     pub status: WidgetStatus,
     /// Widgets valides avant, cassés après (un `_commun` modifié).
     pub broken: Vec<WidgetStatus>,
@@ -118,7 +126,7 @@ type Committed = (Vec<WidgetStatus>, Vec<WidgetDiagnostic>);
 
 /// Diagnostics d'un rendu en échec ; sans diagnostic Typst, l'erreur elle-même.
 fn render_diagnostics(e: &crate::SessionError) -> Vec<WidgetDiagnostic> {
-    let diagnostics = e.render_error().map(|re| re.diagnostics()).unwrap_or_default();
+    let diagnostics = e.render_error().map(oku_slides_render::RenderError::diagnostics).unwrap_or_default();
     if diagnostics.is_empty() {
         let message = e.one_line();
         return vec![WidgetDiagnostic { file: None, line: None, column: None, error: true, message }];
@@ -227,7 +235,11 @@ impl Session {
         Ok(probe.files.iter().map(|(name, p)| status_of(ns, name, p, &probe.registry)).collect())
     }
 
-    /// Statut des fichiers du pack en cours (voir `pack` à [`Self::set_widget`]), `_commun` en tête.
+    /// Status of the current pack's files (see `pack` at [`Self::set_widget`]), `_commun` first.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the targeted pack cannot be found (see `widget_target`).
     pub fn widget_status(&self, pack: Option<&Namespace>) -> Result<Vec<WidgetStatus>> {
         let t = self.widget_target(pack)?;
         self.statuses((t.kind, &t.namespace), &t.version, t.files.widgets())
@@ -241,22 +253,31 @@ impl Session {
         Ok(statuses.into_iter().find(|s| &s.name == name).filter(WidgetStatus::is_valid).and_then(|s| s.schema))
     }
 
-    /// Source du fichier `name` du pack en cours (voir `pack` à [`Self::set_widget`]).
+    /// Source of file `name` of the current pack (see `pack` at [`Self::set_widget`]).
+    ///
+    /// # Errors
+    ///
+    /// Fails for an invalid name, a pack not found or an unknown file (`UnknownWidget`).
     pub fn widget_source(&self, pack: Option<&Namespace>, name: &str) -> Result<String> {
         let name = parse_name(name)?;
         let t = self.widget_target(pack)?;
         Ok(t.files.widget(&name).context(UnknownWidgetSnafu { name: name.as_str() })?.to_owned())
     }
 
-    /// Crée ou remplace le fichier `name` ; une source vide le supprime.
+    /// Creates or replaces file `name`; an empty source deletes it.
     ///
-    /// Le pack : en mode pack, le pack édité ; en mode deck, celui que le
-    /// deck épingle sous `pack` (d'une autre sorte que la catégorie du widget
-    /// écrit : refusé), sinon son pack propre de cette catégorie (`deck` ou
-    /// `deck-layouts`), créé du deck seul à la première écriture. Rend son statut et celui des widgets que
-    /// l'écriture a cassés. Un rendu du deck en échec ne change rien en mode
-    /// deck, et laisse la version écrite en mode pack : ses diagnostics
-    /// sont dans le statut.
+    /// The pack: in pack mode, the edited pack; in deck mode, the one the deck
+    /// pins under `pack` (rejected if of another kind than the written
+    /// widget's category), or else its own pack of that category (`deck` or
+    /// `deck-layouts`), created deck-only on the first write. Returns its status
+    /// and that of the widgets the write broke. A failed deck render changes
+    /// nothing in deck mode, and leaves the written version in pack mode: its
+    /// diagnostics are in the status.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, for an invalid name, a pack of another kind, or if the
+    /// write or the render in deck mode fails.
     pub fn set_widget(&mut self, pack: Option<&Namespace>, name: &str, source: String) -> Result<WidgetChange> {
         self.ensure_editable()?;
         let name = parse_name(name)?;
@@ -279,12 +300,12 @@ impl Session {
             widgets.remove(&name);
         } else {
             let limits = self.widget_limits;
-            ensure!(source.len() <= limits.max_bytes, WidgetTooLargeSnafu { name: name.as_str(), max: limits.max_kib });
+            ensure!(source.len() <= limits.bytes, WidgetTooLargeSnafu { name: name.as_str(), max: limits.kib });
             // L'octet `0` sépare les fichiers du contenu canonique d'une version.
             ensure!(!source.contains('\0'), WidgetHasNulSnafu { name: name.as_str() });
             ensure!(
-                widgets.contains_key(&name) || widgets.len() < limits.max_files,
-                TooManyWidgetsSnafu { max: limits.max_files }
+                widgets.contains_key(&name) || widgets.len() < limits.files,
+                TooManyWidgetsSnafu { max: limits.files }
             );
             widgets.insert(name.clone(), source);
         }
@@ -322,7 +343,11 @@ impl Session {
         Ok(change)
     }
 
-    /// Écriture de l'agent (outil `set_widget`) : écrite, persistée, marquée.
+    /// Agent write (tool `set_widget`): written, persisted, marked.
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Self::set_widget`].
     pub fn set_widget_by_agent(
         &mut self,
         pack: Option<&Namespace>,
@@ -349,8 +374,14 @@ impl Session {
         }
     }
 
-    /// Supprime le fichier `name` du pack `pack` (voir [`Self::set_widget`]) ;
-    /// refusé si un exemple du pack ou le deck l'utilise.
+    /// Deletes file `name` of pack `pack` (see [`Self::set_widget`]).
+    ///
+    /// Rejected if an example of the pack or the deck uses it.
+    ///
+    /// # Errors
+    ///
+    /// Fails for an invalid name, a pack not found, a file unknown or still in use, or a failed
+    /// write.
     pub fn remove_widget(&mut self, pack: Option<&Namespace>, name: &str) -> Result<Vec<WidgetStatus>> {
         let name = parse_name(name)?;
         let t = self.widget_target(pack)?;
@@ -368,9 +399,13 @@ impl Session {
         Ok(statuses)
     }
 
-    /// Renomme `from` en `to` dans la version éditée ; le nom déclaré suit.
+    /// Renames `from` to `to` in the edited version; the declared name follows.
     ///
-    /// Refusé pour `_commun`, vers un nom pris, ou si un exemple du pack ou le deck utilise `from`.
+    /// Rejected for `_commun`, to a taken name, or if an example of the pack or the deck uses `from`.
+    ///
+    /// # Errors
+    ///
+    /// Fails for `_commun`, an invalid or taken name, an unknown or used file, or a failed write.
     pub fn rename_widget(&mut self, pack: Option<&Namespace>, from: &str, to: &str) -> Result<Vec<WidgetStatus>> {
         let (from, to) = (parse_name(from)?, parse_name(to)?);
         ensure!(!from.is_common(), InvalidWidgetNameSnafu { name: from.as_str() });
@@ -405,7 +440,7 @@ impl Session {
     /// layout est son exemple en cours. Celui de `name` ne compte pas : il part avec lui.
     fn ensure_unused(&self, t: &WidgetTarget, name: &WidgetFile) -> Result<()> {
         let kind = qualify(&t.namespace, name.as_str());
-        let uses = |s: &Slide| s.kind == kind || s.walk().any(|l| l.element.kind == kind);
+        let shows_kind = |s: &Slide| s.kind == kind || s.walk().any(|l| l.element.kind == kind);
         let manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         let working = &self.doc.sources.deck().slides;
         let pack_mode = self.in_pack_mode();
@@ -418,12 +453,12 @@ impl Session {
         let examples: BTreeSet<&WidgetFile> = manifest.examples.keys().chain(t.files.widgets().keys()).collect();
         let mut users: Vec<String> = examples
             .into_iter()
-            .filter(|e| *e != name && !e.is_common() && example(e).is_some_and(|s| uses(&s)))
+            .filter(|e| *e != name && !e.is_common() && example(e).is_some_and(|s| shows_kind(&s)))
             .map(|e| e.as_str().to_owned())
             .collect();
         // Mode deck : les slides du deck, par leur id.
         if !pack_mode {
-            users.extend(working.iter().filter(|s| uses(s)).map(|s| s.id.clone()));
+            users.extend(working.iter().filter(|s| shows_kind(s)).map(|s| s.id.clone()));
         }
         ensure!(users.is_empty(), WidgetInUseSnafu { name: kind, uses: users });
         Ok(())
@@ -469,7 +504,7 @@ impl Session {
         match &self.mode {
             Mode::Pack { edit, .. } => {
                 let edit = edit.clone();
-                manifest.parent = edit.parent.clone();
+                manifest.parent.clone_from(&edit.parent);
                 let label = self.localizer.tr_with("widgets-edit-label", &[("name", manifest.name.as_str().into())]);
                 let files = manifest.to_files(t.kind, widgets).context(PackJsonSnafu { id: t.id })?;
                 // Un layout écrit ajoute sa slide au deck de travail, un layout supprimé retire la sienne ;

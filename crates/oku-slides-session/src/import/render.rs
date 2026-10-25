@@ -20,15 +20,21 @@ pub struct RenderedDeck {
 
 impl RenderedDeck {
     /// Le rendu : pages, mise en page, PNG et PDF.
+    #[must_use]
     pub fn compiled(&self) -> &RemoteCompiled {
         &self.compiled
     }
 }
 
-/// Rend le deck de `sources` avec `widgets` et les polices `fonts`.
+/// Renders the deck of `sources` with `widgets` and fonts `fonts`.
 ///
-/// Il se rend avec son calque de thème ([`sources_theme_layer`]) : défauts de
-/// ses packs, puis sa chaîne de thèmes embarquée, sinon le thème par défaut.
+/// It renders with its theme layer ([`sources_theme_layer`]): its packs'
+/// defaults, then its embedded theme chain, or else the default theme.
+///
+/// # Errors
+///
+/// Fails if the theme layer cannot be composed, or if the render slot or the rendering fails
+/// (`Render`).
 pub fn render(
     platform: &Platform,
     fonts: &Fonts,

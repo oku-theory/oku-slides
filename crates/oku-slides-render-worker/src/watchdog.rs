@@ -147,7 +147,10 @@ struct Parent {
 }
 
 impl Parent {
-    fn current(_sys: &mut System) -> Self {
+    fn current(
+        #[cfg_attr(unix, expect(unused_variables, reason = "only the non-unix fallback reads the processes"))]
+        sys: &mut System,
+    ) -> Self {
         #[cfg(unix)]
         {
             Self { pid: std::os::unix::process::parent_id() }
@@ -155,19 +158,23 @@ impl Parent {
         #[cfg(not(unix))]
         {
             let me = sysinfo::Pid::from_u32(std::process::id());
-            _sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[me]), true);
-            Self { pid: _sys.process(me).and_then(sysinfo::Process::parent).map(sysinfo::Pid::as_u32) }
+            sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[me]), true);
+            Self { pid: sys.process(me).and_then(sysinfo::Process::parent).map(sysinfo::Pid::as_u32) }
         }
     }
 
-    fn gone(&self, _sys: &mut System) -> bool {
+    fn gone(
+        &self,
+        #[cfg_attr(unix, expect(unused_variables, reason = "only the non-unix fallback reads the processes"))]
+        sys: &mut System,
+    ) -> bool {
         #[cfg(unix)]
         {
             parent_changed(self.pid, std::os::unix::process::parent_id())
         }
         #[cfg(not(unix))]
         {
-            self.pid.is_some_and(|pid| memory_bytes(_sys, pid).is_none())
+            self.pid.is_some_and(|pid| memory_bytes(sys, pid).is_none())
         }
     }
 }

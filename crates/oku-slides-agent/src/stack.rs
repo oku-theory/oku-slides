@@ -8,7 +8,7 @@ use std::time::Duration;
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
 use oku_slides_session::Platform;
-use oku_slides_session::agent::{AgentUi, Sessions, TabSession};
+use oku_slides_session::agent::{AgentUi, AttachmentRef, Sessions, TabSession};
 use oku_slides_stt::Stt;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
@@ -29,94 +29,122 @@ pub const MAX_DRAFT_BYTES: usize = 256 * 1024;
 /// Taille maximale de l'origine d'un brouillon (identifiant de vue), en octets.
 pub const MAX_ORIGIN_BYTES: usize = 64;
 
-/// Commande de l'interface vers l'agent d'un onglet (JSON `{"cmd": …, "tab": …}`),
-/// la même pour Tauri et HTTP.
+/// A command from the interface to a tab's agent.
+///
+/// JSON `{"cmd": …, "tab": …}`, the same for Tauri and HTTP.
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum AgentCommand {
-    /// Une consigne ; avec des images collées (`images`), elle n'est jamais prise pour une réponse
-    /// à une question ni pour un mot de raccourci.
+    /// An instruction for the tab's agent.
+    ///
+    /// With pasted images (`images`), it is never taken for an answer to a question nor for a
+    /// shortcut word.
     Prompt {
+        /// The target tab.
         tab: String,
+        /// The instruction, as spoken or typed.
         text: String,
+        /// What the interface shows with the instruction: slide, selected element and field.
         #[serde(default)]
         ui: AgentUi,
-        /// La question à laquelle cette consigne répond : celle qui reçoit les touches 1–4
-        /// (`quickTarget`). Absente, ou question qui n'attend plus : une consigne ordinaire.
+        /// The question this instruction answers: the one receiving keys 1–4
+        /// (`quickTarget`). Absent, or a question no longer waiting: an ordinary instruction.
         #[serde(default)]
         answer: Option<String>,
-        /// Les images collées envoyées avec la consigne (ids `sha256:…` du brouillon).
+        /// The pasted images sent with the instruction (draft ids `sha256:…`).
         #[serde(default)]
         images: Vec<String>,
     },
-    /// Fine-tune l'onglet importé : un tour dans la conversation de l'onglet, démarrant l'agent.
+    /// Fine-tunes the imported tab: a turn in the tab's conversation, starting the agent.
     ///
-    /// Le fil montre le texte localisé `agent-tune-prompt`, dans la langue courante de
-    /// l'interface ; ce texte est aussi le dernier bloc du prompt, après les consignes d'import
-    /// cachées. Réservé à l'hôte ([`Stack::tune`], quand l'import demande le fine-tuning :
-    /// `WorkspaceOutcome::Tune`) : jamais lu du canal de l'interface.
+    /// The thread shows the localized text `agent-tune-prompt`, in the interface's current
+    /// language; this text is also the last block of the prompt, after the hidden import
+    /// instructions. Reserved to the host ([`Stack::tune`], when the import asks for
+    /// fine-tuning: `WorkspaceOutcome::Tune`): never read from the interface channel.
     #[serde(skip_deserializing)]
     Tune {
+        /// The imported tab.
         tab: String,
     },
+    /// Interrupts the tab's running turn.
     Cancel {
+        /// The target tab.
         tab: String,
     },
+    /// Starts a new conversation in the tab: the thread starts over.
     NewConversation {
+        /// The target tab.
         tab: String,
     },
+    /// The user acts on a surface (button, choice, form).
     SurfaceAction {
+        /// The tab showing the surface.
         tab: String,
+        /// Id of the surface.
         surface: String,
+        /// Name of the action.
         name: String,
+        /// Form values at the time of the action.
         #[serde(default)]
         context: serde_json::Map<String, serde_json::Value>,
     },
-    /// L'interface (ré)abonnée demande le fil gardé de l'onglet et ses surfaces ouvertes.
+    /// The (re)subscribed interface asks for the tab's kept thread and its open surfaces.
     Resync {
+        /// The target tab.
         tab: String,
     },
-    /// Une autre vue de l'onglet (fenêtre de l'agent) s'abonne.
+    /// Another view of the tab (the agent window) subscribes.
     ///
-    /// Rejoue l'état, le brouillon, puis le fil de l'onglet ; ne démarre jamais l'onglet.
+    /// Replays the state, the draft, then the tab's thread; never starts the tab.
     Follow {
+        /// The followed tab.
         tab: String,
     },
-    /// Le brouillon de l'onglet ; `None` : fermé. Refusé si l'onglet n'a pas d'agent démarré.
+    /// The tab's draft; `None`: closed. Refused if the tab has no started agent.
     SetDraft {
+        /// The target tab.
         tab: String,
+        /// The draft's text; `None` closes it.
         text: Option<String>,
-        /// La vue qui l'écrit, rendue avec l'écho.
+        /// The view writing it, returned with the echo.
         origin: Option<String>,
     },
-    /// Une image collée (`data` : ses octets en base64), ajoutée au brouillon de l'onglet.
+    /// A pasted image (`data`: its bytes in base64), added to the tab's draft.
     ///
-    /// Refusée sans agent démarré, au-delà de `[paste] max_draft_images`, ou par la session.
+    /// Refused without a started agent, beyond `[paste] max_draft_images`, or by the session.
     PasteImage {
+        /// The target tab.
         tab: String,
+        /// The image bytes, in base64.
         data: String,
     },
-    /// Retire l'image `id` du brouillon.
+    /// Removes image `id` from the draft.
     RemoveImage {
+        /// The target tab.
         tab: String,
+        /// Id of the image to remove.
         id: String,
     },
-    /// L'interface ouvre le panneau des packs du deck : la surface va à cet onglet.
+    /// The interface opens the deck's packs panel: the surface goes to this tab.
     ShowPacks {
+        /// The target tab.
         tab: String,
     },
-    /// L'interface ouvre la boîte des réglages de la dictée et de l'agent.
+    /// The interface opens the dictation and agent settings box.
     ShowSettings {
+        /// The target tab.
         tab: String,
     },
-    /// L'interface demande si l'agent est utilisable (évènement `availability` à cet onglet).
+    /// The interface asks whether the agent is usable (`availability` event to this tab).
     Availability {
+        /// The target tab.
         tab: String,
     },
 }
 
 impl AgentCommand {
-    /// L'onglet visé.
+    /// The target tab.
+    #[must_use]
     pub fn tab(&self) -> &str {
         match self {
             Self::Prompt { tab, .. }
@@ -190,10 +218,16 @@ impl Stack {
         }
     }
 
-    /// Traite une commande de l'interface ; l'erreur est lue par l'interface.
+    /// Handles an interface command; the interface reads the error.
     ///
-    /// Peut bloquer (un clic dans la boîte des réglages peut écrire `config.toml`, la boîte lit
-    /// l'état du modèle) : à appeler hors des fils du runtime ; un raccourci « thème » rend jusqu'à 12 miniatures, 4 s au plus.
+    /// May block (a click in the settings box may write `config.toml`, the box reads the
+    /// model's state): call it off the runtime threads; a "theme" shortcut renders up to 12
+    /// thumbnails, 4 s at most.
+    ///
+    /// # Errors
+    ///
+    /// Returns the localized message when the command is refused: rejected instruction, draft or
+    /// pasted image, refused surface action, no started agent, or packs panel failure.
     pub fn handle(&self, cmd: AgentCommand) -> Result<(), String> {
         if self.is_closed(cmd.tab()) {
             tracing::debug!(tab = cmd.tab(), "commande pour un onglet fermé : ignorée");
@@ -201,32 +235,9 @@ impl Stack {
         }
         match cmd {
             AgentCommand::Prompt { tab, text, ui, answer, images } => {
-                // Fermé entre-temps : ignorée, comme ci-dessus.
-                let Some(t) = self.open(&tab) else { return Ok(()) };
-                // Réponse à la question désignée, jamais à une autre. Si elle n'attend plus (répondue
-                // ou annulée entre-temps), la consigne n'est pas perdue : elle part comme toute
-                // consigne (nouveau tour ; pendant un tour, elle l'interrompt puis le remplace).
-                if images.is_empty() && answer.is_some_and(|id| t.hub.answer(&id, &text)) {
-                    return Ok(());
+                if let Some((t, images)) = self.route_prompt(&tab, answer, &text, ui.slide.as_deref(), &images)? {
+                    t.send(Command::Prompt(Instruction { text, ui, tune: false, images }));
                 }
-                // Raccourci « thème » : le sélecteur de l'hôte, sans tour ni agent ; un tour en cours
-                // continue. Hors du mode deck, ou s'il échoue (journalisé), la consigne part à l'agent.
-                if images.is_empty() && matches_shortcut(&text, THEME_SHORTCUT, &self.platform.live_localizer.current())
-                {
-                    match t.hub.show_themes(ui.slide.clone()) {
-                        Ok(true) => return Ok(()),
-                        Ok(false) => {}
-                        Err(e) => {
-                            tracing::warn!(tab, error = %snafu::Report::from_error(&e), "sélecteur de thème impossible");
-                        }
-                    }
-                }
-                let images = crate::paste::resolve_images(&t, &images, self.platform.settings.paste.max_draft_images)
-                    .map_err(|e| {
-                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "consigne refusée");
-                    e.localize(&self.platform.live_localizer.current())
-                })?;
-                t.send(Command::Prompt(Instruction { text, ui, tune: false, images }));
             }
             AgentCommand::Tune { tab } => {
                 let Some(t) = self.open(&tab) else { return Ok(()) };
@@ -258,64 +269,27 @@ impl Stack {
                     e.localize(&self.platform.live_localizer.current())
                 });
             }
-            // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : le panneau va au hub de l'onglet.
-            AgentCommand::ShowPacks { tab } => {
-                let Some(t) = self.open(&tab) else { return Ok(()) };
-                return match t.hub.show_packs() {
-                    Ok(true) => Ok(()),
-                    // Le bouton n'existe qu'en mode deck : un changement de mode l'a devancé.
-                    Ok(false) => {
-                        tracing::debug!(tab, "panneau des packs hors du mode deck : ignoré");
-                        Ok(())
-                    }
-                    Err(e) => {
-                        tracing::info!(tab, error = %snafu::Report::from_error(&e), "panneau des packs impossible");
-                        Err(e.localize(&self.platform.live_localizer.current()))
-                    }
-                };
-            }
-            // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : un onglet rouvert retrouve son fil.
-            // L'état de l'agent d'abord, puis le fil (montré par le gardien, après sa relecture).
-            AgentCommand::Resync { tab } => match self.open(&tab) {
-                Some(t) => {
+            AgentCommand::ShowPacks { tab } => return self.show_packs(&tab),
+            // Starts the tab (tools, keeper; not the ACP agent): a reopened tab gets its thread back.
+            // The agent's state first, then the thread (shown by the keeper, after its replay).
+            AgentCommand::Resync { tab } => {
+                if let Some(t) = self.open(&tab) {
                     t.replay(&self.out_tx);
                     t.keeper.send(Keep::Show);
-                }
-                // Fermé entre-temps : rien à montrer.
-                None => self.replay_closed(&tab),
-            },
-            AgentCommand::Follow { tab } => match self.tab(&tab) {
-                Some(t) => {
-                    t.replay(&self.out_tx);
-                    t.keeper.send(Keep::Show);
-                }
-                None => self.replay_closed(&tab),
-            },
-            AgentCommand::SetDraft { tab, text, origin } => {
-                let checked = match (text.as_ref().map(String::len), origin.as_ref().map(String::len)) {
-                    (Some(bytes), _) if bytes > MAX_DRAFT_BYTES => {
-                        Err(DraftTooLongSnafu { bytes, max: MAX_DRAFT_BYTES }.build())
-                    }
-                    (_, Some(bytes)) if bytes > MAX_ORIGIN_BYTES => {
-                        Err(OriginTooLongSnafu { bytes, max: MAX_ORIGIN_BYTES }.build())
-                    }
-                    _ => Ok(()),
-                };
-                if let Err(inner) = checked {
-                    let e = CommandError::from(inner);
-                    tracing::info!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
-                    return Err(e.localize(&self.platform.live_localizer.current()));
-                }
-                match self.tab(&tab) {
-                    Some(t) => t.set_draft(&self.out_tx, text, origin),
-                    // Refusé, pas ignoré : la vue qui écrit attend un écho ou une erreur (tâche 6).
-                    None => {
-                        let e = CommandError::from(NoAgentSnafu.build());
-                        tracing::debug!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
-                        return Err(e.localize(&self.platform.live_localizer.current()));
-                    }
+                } else {
+                    // Closed in the meantime: nothing to show.
+                    self.replay_closed(&tab);
                 }
             }
+            AgentCommand::Follow { tab } => {
+                if let Some(t) = self.tab(&tab) {
+                    t.replay(&self.out_tx);
+                    t.keeper.send(Keep::Show);
+                } else {
+                    self.replay_closed(&tab);
+                }
+            }
+            AgentCommand::SetDraft { tab, text, origin } => return self.set_draft(&tab, text, origin),
             // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : la boîte va au hub de l'onglet.
             AgentCommand::ShowSettings { tab } => {
                 let Some(t) = self.open(&tab) else { return Ok(()) };
@@ -333,18 +307,103 @@ impl Stack {
                     },
                 );
             }
-            AgentCommand::RemoveImage { tab, id } => match self.tab(&tab) {
-                Some(t) => t.remove_image(&self.out_tx, &id),
-                None => {
+            AgentCommand::RemoveImage { tab, id } => {
+                if let Some(t) = self.tab(&tab) {
+                    t.remove_image(&self.out_tx, &id);
+                } else {
                     let e = CommandError::from(NoAgentSnafu.build());
                     return Err(e.localize(&self.platform.live_localizer.current()));
                 }
-            },
+            }
             AgentCommand::Availability { tab } => {
                 emit(&self.out_tx, "agent", &tab, &AgentEvent::Availability { unusable: self.availability() });
             }
         }
         Ok(())
+    }
+
+    /// Routes an instruction: answer, theme shortcut, or the agent with its images.
+    ///
+    /// Returns the tab and resolved images of an instruction that goes to the agent; `None` when
+    /// nothing goes to the agent: tab closed, question answered or theme picker shown.
+    fn route_prompt(
+        &self,
+        tab: &str,
+        answer: Option<String>,
+        text: &str,
+        slide: Option<&str>,
+        images: &[String],
+    ) -> Result<Option<(TabLink, Vec<AttachmentRef>)>, String> {
+        // Closed in the meantime: ignored, as in `handle`.
+        let Some(t) = self.open(tab) else { return Ok(None) };
+        // An answer to the designated question, never to another one. If it no longer waits
+        // (answered or cancelled in the meantime), the instruction is not lost: it goes like any
+        // instruction (a new turn; during a turn, it interrupts then replaces it).
+        if images.is_empty() && answer.is_some_and(|id| t.hub.answer(&id, text)) {
+            return Ok(None);
+        }
+        // "Theme" shortcut: the host's picker, with no turn nor agent; a running turn goes on.
+        // Outside deck mode, or if it fails (logged), the instruction goes to the agent.
+        if images.is_empty() && matches_shortcut(text, THEME_SHORTCUT, &self.platform.live_localizer.current()) {
+            match t.hub.show_themes(slide) {
+                Ok(true) => return Ok(None),
+                Ok(false) => {}
+                Err(e) => {
+                    tracing::warn!(tab, error = %snafu::Report::from_error(&e), "sélecteur de thème impossible");
+                }
+            }
+        }
+        let images =
+            crate::paste::resolve_images(&t, images, self.platform.settings.paste.max_draft_images).map_err(|e| {
+                tracing::info!(tab, error = %snafu::Report::from_error(&e), "consigne refusée");
+                e.localize(&self.platform.live_localizer.current())
+            })?;
+        Ok(Some((t, images)))
+    }
+
+    /// Sets the tab's draft after checking its sizes; the error is localized.
+    fn set_draft(&self, tab: &str, text: Option<String>, origin: Option<String>) -> Result<(), String> {
+        let checked = match (text.as_ref().map(String::len), origin.as_ref().map(String::len)) {
+            (Some(bytes), _) if bytes > MAX_DRAFT_BYTES => {
+                Err(DraftTooLongSnafu { bytes, max: MAX_DRAFT_BYTES }.build())
+            }
+            (_, Some(bytes)) if bytes > MAX_ORIGIN_BYTES => {
+                Err(OriginTooLongSnafu { bytes, max: MAX_ORIGIN_BYTES }.build())
+            }
+            _ => Ok(()),
+        };
+        if let Err(inner) = checked {
+            let e = CommandError::from(inner);
+            tracing::info!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
+            return Err(e.localize(&self.platform.live_localizer.current()));
+        }
+        // Refused, not ignored: the writing view waits for an echo or an error (t-654).
+        let Some(t) = self.tab(tab) else {
+            let e = CommandError::from(NoAgentSnafu.build());
+            tracing::debug!(tab, error = %snafu::Report::from_error(&e), "brouillon refusé");
+            return Err(e.localize(&self.platform.live_localizer.current()));
+        };
+        t.set_draft(&self.out_tx, text, origin);
+        Ok(())
+    }
+
+    /// Shows the deck's packs panel in the tab; the error is localized.
+    ///
+    /// Starts the tab (tools, keeper; not the ACP agent): the panel goes to the tab's hub.
+    fn show_packs(&self, tab: &str) -> Result<(), String> {
+        let Some(t) = self.open(tab) else { return Ok(()) };
+        match t.hub.show_packs() {
+            Ok(true) => Ok(()),
+            // The button exists only in deck mode: a mode change got ahead of it.
+            Ok(false) => {
+                tracing::debug!(tab, "panneau des packs hors du mode deck : ignoré");
+                Ok(())
+            }
+            Err(e) => {
+                tracing::info!(tab, error = %snafu::Report::from_error(&e), "panneau des packs impossible");
+                Err(e.localize(&self.platform.live_localizer.current()))
+            }
+        }
     }
 
     /// Lance le tour de fine-tuning de l'onglet importé `tab` (voir [`AgentCommand::Tune`]).

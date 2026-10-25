@@ -1,9 +1,9 @@
 //! Réglages de l'hôte en mode pack : le widget du sous-onglet actif, adressé
 //! par clé (`host_settings`). L'interface les rend sous l'aperçu du widget.
 
+use crate::Session;
 use crate::agent::forms::{FormExtras, params_with};
 use crate::agent::{ShowParams, Surface};
-use crate::{Result, Session};
 
 /// Surface des réglages du widget du sous-onglet actif.
 pub(crate) const HOST_WIDGET: &str = "host-widget";
@@ -34,11 +34,11 @@ impl Session {
     /// Réglages de l'hôte : ceux du widget `widget` en mode pack ; `None` sans lui ou ailleurs.
     ///
     /// Un sous-onglet périmé (widget supprimé, renommé) n'a pas de réglages.
-    pub(crate) fn host_settings(&self, widget: Option<&str>) -> Result<Option<Surface>> {
+    pub(crate) fn host_settings(&self, widget: Option<&str>) -> Option<Surface> {
         if !self.in_pack_mode() {
-            return Ok(None);
+            return None;
         }
-        let Some(p) = widget.and_then(|w| self.widget_settings(w).ok().flatten()) else { return Ok(None) };
-        Ok(Some(params_with(HOST_WIDGET, &p.spec, &p.extras(), &self.slide_palette(), &self.localizer)))
+        let p = widget.and_then(|w| self.widget_settings(w).ok().flatten())?;
+        Some(params_with(HOST_WIDGET, &p.spec, &p.extras(), &self.slide_palette(), &self.localizer))
     }
 }

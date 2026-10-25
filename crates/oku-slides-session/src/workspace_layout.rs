@@ -25,6 +25,7 @@ pub struct Rect {
 
 impl Rect {
     /// Le point est dedans (bords gauche et haut compris).
+    #[must_use]
     pub fn contains(&self, x: f64, y: f64) -> bool {
         x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
     }
@@ -87,7 +88,7 @@ impl Workspace {
     pub(super) fn touch(&mut self, label: &str) {
         self.recent.retain(|l| l != label);
         self.recent.push(label.to_owned());
-        self.layout.focused = label.to_owned();
+        label.clone_into(&mut self.layout.focused);
     }
 
     pub(super) fn forget_window(&mut self, label: &str) {
@@ -128,7 +129,7 @@ impl Workspace {
 
     pub(super) fn activate(&mut self, tab: &str) -> Result<()> {
         let w = self.window_of(tab)?;
-        self.layout.windows[w].active = tab.to_owned();
+        tab.clone_into(&mut self.layout.windows[w].active);
         let label = self.layout.windows[w].label.clone();
         self.touch(&label);
         Ok(())
@@ -186,7 +187,7 @@ impl Workspace {
         let win = &mut self.layout.windows[d];
         let at = index.unwrap_or(win.tabs.len()).min(win.tabs.len());
         win.tabs.insert(at, tab.to_owned());
-        win.active = tab.to_owned();
+        tab.clone_into(&mut win.active);
         self.touch(&dest);
         Ok(())
     }

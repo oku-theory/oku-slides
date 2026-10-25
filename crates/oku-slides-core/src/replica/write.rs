@@ -170,12 +170,12 @@ impl Writer<'_> {
                 Kind::Prose => sync_text(&text_at(map, &key)?, "")?,
                 Kind::Rich => super::rich::sync(&rich_at(map, &key)?, &Value::Array(Vec::new()))?,
                 // Plus de slides voulues : toutes sont marquées.
-                Kind::Slides => self.sync_deck(&deck_tree_at(map)?, Vec::new(), self.moves)?,
+                Kind::Slides => self.sync_deck(&deck_tree_at(map)?, &[], self.moves)?,
                 // Jamais rendus par `Ctx::kind` : un slot, une liste ou un hôte n'existe que dans les paramètres.
                 Kind::Slot | Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
                 // Carte toujours présente : vidée, jamais retirée.
                 Kind::Nested(child) if ctx.maps().contains(&key.as_str()) => {
-                    self.sync_map(&map_at(map, &key)?, &Map::new(), child)?
+                    self.sync_map(&map_at(map, &key)?, &Map::new(), child)?;
                 }
                 Kind::Atom | Kind::Nested(_) => map.delete(&key).context(LoroSnafu)?,
             }
@@ -185,7 +185,7 @@ impl Writer<'_> {
                 Kind::Nested(Ctx::Params) if owner => {}
                 Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
                 Kind::Rich => super::rich::sync(&rich_at(map, key)?, value)?,
-                Kind::Slides => self.sync_deck(&deck_tree_at(map)?, std::mem::take(&mut wanted), self.moves)?,
+                Kind::Slides => self.sync_deck(&deck_tree_at(map)?, &std::mem::take(&mut wanted), self.moves)?,
                 // Jamais rendus par `Ctx::kind` : un slot, une liste ou un hôte n'existe que dans les paramètres.
                 Kind::Slot | Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
                 Kind::Atom => set_value(map, key, json_to_loro(value))?,
@@ -256,14 +256,14 @@ impl Writer<'_> {
                 // restée sous ce nom est retirée.
                 Kind::Slot => {
                     if map.get(key).is_some() {
-                        map.delete(key).context(LoroSnafu)?
+                        map.delete(key).context(LoroSnafu)?;
                     }
                 }
                 // Jamais rendu par `param_kind` ni `column_kind` : les slides seules.
                 Kind::Slides => return SlidesInParamsSnafu.fail(),
                 Kind::List => {
                     let columns = columns(fields, key);
-                    self.sync_list(&items_at(map, key)?, elements(value), &|m, o| self.sync_item(m, o, columns))?
+                    self.sync_list(&items_at(map, key)?, elements(value), &|m, o| self.sync_item(m, o, columns))?;
                 }
                 Kind::Host => match value {
                     Value::Object(o) => self.sync_host(&map_at(map, key)?, o)?,
@@ -356,20 +356,16 @@ impl Writer<'_> {
         let mut pos: HashMap<(String, usize), usize> = keys.iter().cloned().enumerate().map(|(i, k)| (k, i)).collect();
         for (target, key) in wanted_keys.iter().enumerate() {
             if keys.get(target) != Some(key) {
-                match pos.get(key).copied() {
-                    // Les positions avant `target` sont déjà en place : `from > target`.
-                    Some(from) => {
-                        (self.split)();
-                        list.mov(from, target).context(LoroSnafu)?;
-                        let moved = keys.remove(from);
-                        keys.insert(target, moved);
-                        reindex(&keys, &mut pos, target, from + 1);
-                    }
-                    None => {
-                        insert(target, &key.0)?;
-                        keys.insert(target, key.clone());
-                        reindex(&keys, &mut pos, target, keys.len());
-                    }
+                if let Some(from) = pos.get(key).copied() {
+                    (self.split)();
+                    list.mov(from, target).context(LoroSnafu)?;
+                    let moved = keys.remove(from);
+                    keys.insert(target, moved);
+                    reindex(&keys, &mut pos, target, from + 1);
+                } else {
+                    insert(target, &key.0)?;
+                    keys.insert(target, key.clone());
+                    reindex(&keys, &mut pos, target, keys.len());
                 }
             }
             visit(target)?;

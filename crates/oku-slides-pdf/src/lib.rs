@@ -39,8 +39,11 @@ use oku_slides_i18n::{Localize, Localizer};
 use sha2::{Digest, Sha256};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
+/// Key in the `/PieceInfo` dictionary under which Oku Slides stores its blob.
 pub const PIECE_KEY: &[u8] = b"OkuSlides";
+/// Value of `/Format` that identifies an Oku Slides sources blob.
 pub const FORMAT: &str = "oku-slides-sources";
+/// Envelope version written and the only one read; an older one is ignored.
 pub const VERSION: i64 = 2;
 
 /// Un PDF illisible, ou des sources Oku Slides abîmées.
@@ -62,6 +65,7 @@ pub enum PdfErrorKind {
 }
 
 impl PdfError {
+    /// Kind of error, to choose what to tell the user.
     pub fn kind(&self) -> PdfErrorKind {
         match self.0 {
             PdfInner::Parse { .. } | PdfInner::Structure { .. } => PdfErrorKind::Unreadable,
@@ -102,6 +106,7 @@ enum PdfInner {
 pub struct Sources {
     /// Contenu du zip des sources.
     pub zip: Vec<u8>,
+    /// Envelope version read from `/Version`, always [`VERSION`] here.
     pub version: i64,
     /// Date `/LastModified` du blob (format PDF `D:…`).
     pub last_modified: Option<String>,
@@ -111,6 +116,7 @@ pub struct Sources {
 
 impl Sources {
     /// Vrai si le document a été modifié après l'écriture du blob par Oku Slides.
+    #[must_use]
     pub fn modified_elsewhere(&self) -> bool {
         match (&self.last_modified, &self.document_modified) {
             (Some(a), Some(b)) => a != b,
@@ -144,7 +150,12 @@ fn catalog_id(doc: &Document) -> Result<lopdf::ObjectId, PdfError> {
     Ok(doc.trailer.get(b"Root").and_then(Object::as_reference).context(StructureSnafu { what: "no catalog" })?)
 }
 
-/// Ajoute (ou remplace) le blob des sources dans le PDF et renvoie le PDF modifié.
+/// Adds (or replaces) the sources blob in the PDF and returns the modified PDF.
+///
+/// # Errors
+///
+/// Fails if the PDF cannot be read, has no valid catalog, or if the
+/// modified PDF cannot be written.
 pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
     let mut doc = Document::load_mem(pdf).context(ParseSnafu)?;
     let now = pdf_date();
@@ -174,13 +185,12 @@ pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
     catalog.set("PieceInfo", Object::Dictionary(piece_info));
 
     // La même date dans /ModDate : une divergence signalera une modification externe.
-    let info_id = match doc.trailer.get(b"Info").and_then(Object::as_reference) {
-        Ok(id) => id,
-        Err(_) => {
-            let id = doc.add_object(Dictionary::new());
-            doc.trailer.set("Info", Object::Reference(id));
-            id
-        }
+    let info_id = if let Ok(id) = doc.trailer.get(b"Info").and_then(Object::as_reference) {
+        id
+    } else {
+        let id = doc.add_object(Dictionary::new());
+        doc.trailer.set("Info", Object::Reference(id));
+        id
     };
     if let Ok(info) = doc.get_object_mut(info_id).and_then(Object::as_dict_mut) {
         info.set("ModDate", text(&now));
@@ -194,8 +204,14 @@ pub fn embed_sources(pdf: &[u8], zip: &[u8]) -> Result<Vec<u8>, PdfError> {
     Ok(out)
 }
 
-/// Lit le blob des sources. `Ok(None)` : ce PDF n'a pas été créé par Oku Slides,
-/// ou ses sources sont d'un format plus ancien, qui ne se lit plus.
+/// Reads the sources blob. `Ok(None)`: this PDF was not created by Oku Slides,
+/// or its sources use an older format that can no longer be read.
+///
+/// # Errors
+///
+/// Fails if the PDF cannot be read, if the blob structure is invalid, if
+/// its version is newer than [`VERSION`] or if its digest no longer
+/// matches the zip.
 pub fn extract_sources(pdf: &[u8]) -> Result<Option<Sources>, PdfError> {
     let doc = Document::load_mem(pdf).context(ParseSnafu)?;
     let root = catalog_id(&doc)?;
@@ -248,7 +264,12 @@ pub fn extract_sources(pdf: &[u8]) -> Result<Option<Sources>, PdfError> {
     Ok(Some(Sources { zip, version, last_modified, document_modified }))
 }
 
-/// Copie du PDF sans le blob des sources (export « sans sources »).
+/// Copy of the PDF without the sources blob ("without sources" export).
+///
+/// # Errors
+///
+/// Fails if the PDF cannot be read, has no catalog, or if the copy
+/// cannot be written.
 pub fn strip_sources(pdf: &[u8]) -> Result<Vec<u8>, PdfError> {
     let mut doc = Document::load_mem(pdf).context(ParseSnafu)?;
     let root = catalog_id(&doc)?;

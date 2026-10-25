@@ -19,7 +19,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   `kinds::essentiel`, `is_builtin_kind`. `pack_kind.rs`: `PackKind` (`widgets`: elements, `layouts`: slides).
 - `widget.rs`: `WidgetRegistry`, `WidgetSchema` and its param types, declared in Typst; ops and `validate` ask it. Probe
   `{"packs": [{namespace, kind, widgets}]}`; a widget whose category is not its pack kind's is refused.
-- `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`; `set_theme` checks `check_closure`); `check.rs` types inserted subtrees;
+- `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`; `set_theme` checks `check_closure`); `edit.rs` applies the multi-step variants (checks, then the write); `check.rs` types subtrees;
   `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs` (`ListPath`: `param` or
   `param/item/column`, one level); `grid.rs` (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)`,
   `set_data`); `moving.rs` (`move_element`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`).
@@ -36,13 +36,13 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   (`sources_themes.rs`, pins checked against manifests and closure), all add-only, verified on read (a forged version is
   reported once, as is a namespace pinned under both kinds) and unioned on merge; reads bounded by `SourceLimits`.
 - `tokens.rs`: `merge`, effective tokens, `theme_layer` (pack component defaults, then the chain). `validate.rs`: `Issue`s, cited assets (`asset_refs`, `element_asset_refs`);
-  `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors. `media.rs`: `sniff`,
-  `dimensions`. `error/` (Snafu, Fluent): `OpError`, `ReplicaError`, `SourcesError`…; `reason.rs`: refusal reasons.
+  `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors. `media.rs`: `sniff`, `dimensions`.
+  `num.rs`: named float/int casts (import, session). `error/` (Snafu, Fluent): `OpError`, `ReplicaError`…; `reason.rs`: refusal reasons.
 
 ## Extension points
 
 - A model field: `model.rs`, classified in `replica/schema.rs`, covered by the replica read tests.
-- An operation: an `Op` variant (`ops/mod.rs`) + `ops_schema`, applied to `Deck`, never the replica.
+- An operation: an `Op` variant (`ops/mod.rs`) + `ops_schema`, plus its function in `ops/edit.rs` if not trivial; applied to `Deck`, never the replica.
 - A host type: `HostType` + `ParamType::host` + `ops/host.rs`.
 
 ## Dependencies

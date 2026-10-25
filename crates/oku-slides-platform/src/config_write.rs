@@ -1,5 +1,7 @@
-//! Écriture d'une clé dans `config.toml` : commentaires, ordre et autres
-//! clés restent tels quels (toml_edit). L'effet vient au prochain lancement.
+//! Writes a key into `config.toml`, keeping the rest as is.
+//!
+//! Comments, order and other keys stay as they are (`toml_edit`). The change
+//! takes effect on next launch.
 
 use std::path::{Path, PathBuf};
 
@@ -25,9 +27,17 @@ enum ConfigWriteInner {
     Write { path: PathBuf, source: StorageError, backtrace: Backtrace },
 }
 
-/// Écrit `json` à la clé pointée `key` (`history.limit`, `stt.vad.pause`) ;
-/// `null` retire la clé.
-#[allow(clippy::result_large_err)]
+/// Writes `json` at the dotted key `key` (`history.limit`, `stt.vad.pause`);
+/// `null` removes the key.
+///
+/// # Errors
+///
+/// If the file is unreadable or not TOML, if `key` ends with a dot or goes through a value
+/// that is not a table, or if the write fails.
+#[expect(
+    clippy::result_large_err,
+    reason = "the error carries the `TomlError` inline; a settings write is rare, off the hot path"
+)]
 pub fn write_value(storage: &Storage, path: &Path, key: &str, json: &Value) -> Result<(), ConfigWriteError> {
     let text = match storage.read(path) {
         Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),

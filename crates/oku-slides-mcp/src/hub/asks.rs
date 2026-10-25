@@ -112,6 +112,7 @@ impl SurfaceHub {
         answer
     }
 
+    /// True if an `ask_*` question still waits for the user's answer.
     pub fn has_pending_ask(&self) -> bool {
         !self.state().asks.is_empty()
     }

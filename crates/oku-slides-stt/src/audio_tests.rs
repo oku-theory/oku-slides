@@ -9,7 +9,7 @@ pub(crate) fn wav(rate: u32, channels: u16, samples: &[i16]) -> Vec<u8> {
         samples.iter().flat_map(|s| std::iter::repeat_n(s.to_le_bytes(), channels.into())).flatten().collect();
     let mut out = Vec::new();
     out.extend_from_slice(b"RIFF");
-    out.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
+    out.extend_from_slice(&(36 + u32::try_from(data.len()).unwrap()).to_le_bytes());
     out.extend_from_slice(b"WAVEfmt ");
     out.extend_from_slice(&16u32.to_le_bytes());
     out.extend_from_slice(&1u16.to_le_bytes());
@@ -19,7 +19,7 @@ pub(crate) fn wav(rate: u32, channels: u16, samples: &[i16]) -> Vec<u8> {
     out.extend_from_slice(&(channels * 2).to_le_bytes());
     out.extend_from_slice(&16u16.to_le_bytes());
     out.extend_from_slice(b"data");
-    out.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    out.extend_from_slice(&u32::try_from(data.len()).unwrap().to_le_bytes());
     out.extend_from_slice(&data);
     out
 }
@@ -73,4 +73,9 @@ fn recorder_fake_mic_missing_file_returns_audio_file_error() {
     let storage = Storage::local().unwrap();
     let err = Recorder::start(Some(std::path::Path::new("/nonexistent/voix.wav")), &storage).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::AudioFile);
+}
+
+#[test]
+fn sample_rate_f32_equals_sample_rate() {
+    assert_that!(f64::from(SAMPLE_RATE_F32)).is_equal_to(f64::from(SAMPLE_RATE));
 }

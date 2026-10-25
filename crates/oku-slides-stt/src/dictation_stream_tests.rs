@@ -112,7 +112,7 @@ fn apple_nothing_heard_auto_stop_finishes_the_stream() {
 fn apple_transcribe_samples_returns_timed_finals() {
     let dir = fresh_dir("stream-samples");
     let (stt, _) = stt_with(dir.path(), ScriptedEngine::new(Availability::Ready, &["Un.", "Deux."]), |_| {});
-    let (text, phrases) = stt.transcribe_samples(&[0.0; 16_000]).unwrap();
+    let (text, phrases) = stt.transcribe_samples(&vec![0.0; 16_000]).unwrap();
     assert_that!(text).is_equal_to("Un. Deux.".to_owned());
     assert_that!(phrases[1].clone()).is_equal_to((1.0, 2.0, "Deux.".to_owned()));
 }
@@ -124,7 +124,7 @@ fn apple_transcribe_samples_installs_language_after_an_earlier_cancel() {
     engine.install_delay = std::time::Duration::from_millis(200);
     let (stt, _) = stt_with(dir.path(), engine, |_| {});
     stt.handle(SttRequest::Cancel);
-    let (text, _) = stt.transcribe_samples(&[0.0; 16_000]).unwrap();
+    let (text, _) = stt.transcribe_samples(&vec![0.0; 16_000]).unwrap();
     assert_that!(text).is_equal_to("Un.".to_owned());
 }
 
@@ -134,7 +134,7 @@ fn apple_transcribe_samples_timeout_cancels_the_stream() {
     let mut engine = ScriptedEngine::new(Availability::Ready, &["Un."]);
     engine.hang = true;
     let (stt, engine) = stt_with(dir.path(), engine, |s| s.apple_finish_timeout_secs = 0.2);
-    let result = stt.transcribe_samples(&[0.0; 16_000]);
+    let result = stt.transcribe_samples(&vec![0.0; 16_000]);
     assert_that!((result.is_err(), engine.cancelled.load(Ordering::Relaxed))).is_equal_to((true, true));
 }
 

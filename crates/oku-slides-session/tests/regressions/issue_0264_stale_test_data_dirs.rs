@@ -43,7 +43,7 @@ impl Drop for Stale {
 fn data_dir_with_stale_dirs_from_a_recycled_pid_is_empty() {
     let _stale = Stale::plant();
     let data = data_dir();
-    let entries = std::fs::read_dir(&*data).map(Iterator::count).unwrap_or(0);
+    let entries = std::fs::read_dir(&*data).map_or(0, Iterator::count);
     asserting("le dossier de données d'un test est neuf").that(&entries).is_equal_to(0);
     asserting("et il existe déjà : créé, pas seulement nommé").that(&data.is_dir()).is_true();
 }

@@ -21,40 +21,43 @@ use crate::tools::{Tools, text};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SaveArgs {
-    /// Chemin absolu du `.oku-slides.pdf` ; absent : le fichier actuel.
+    /// Absolute path of the `.oku-slides.pdf`; absent: the current file.
     #[serde(default)]
     pub path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct OpenArgs {
-    /// Chemin absolu d'un `.oku-slides.pdf`.
+    /// Absolute path of a `.oku-slides.pdf`.
     pub path: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SavePackArgs {
-    /// Enregistrer comme nouveau pack (une copie, nouvel id).
+    /// Save as a new pack (a copy, with a new id).
     #[serde(default)]
     pub as_new: bool,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct EditThemeArgs {
-    /// Espace de noms du thème (voir `deck_outline`), édité dans sa version courante ; son id ou son nom sont aussi compris.
+    /// Namespace of the theme (see `deck_outline`), edited in its current version.
+    ///
+    /// Its id or its name are understood too.
     pub theme: String,
-    /// Nouveau nom ; absent : le nom actuel (« (variante) » pour un thème intégré).
+    /// New name; absent: the current name, marked as a variant for a built-in theme.
     #[serde(default)]
     pub name: Option<String>,
-    /// Ops de jetons, appliquées dans l'ordre.
+    /// Token ops, applied in order.
     #[serde(default)]
     pub ops: Vec<TokenOp>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetSettingArgs {
-    /// `history.limit`, `stt.vad.<clé>`.
+    /// Setting key, for example `history.limit` or `stt.vad.<key>`.
     pub key: String,
+    /// New value of the setting.
     pub value: Value,
 }
 
@@ -84,7 +87,7 @@ impl Tools {
 
     /// L'utilisateur a refusé.
     pub(crate) fn denied(&self) -> CallToolResult {
-        self.fail_with(DeniedSnafu.build())
+        self.fail_with(&DeniedSnafu.build())
     }
 
     /// `snapshot().dirty`, lu hors du fil async (le verrou de la session est
@@ -124,9 +127,9 @@ impl Tools {
     /// un onglet). Le même chemin sert à la vérification, au message et à l'écriture.
     #[expect(clippy::result_large_err, reason = "le `CallToolResult` d'erreur part directement en réponse à l'agent")]
     async fn written(&self, raw: &str) -> Result<PathBuf, CallToolResult> {
-        let path = deck_path(&checked(raw).map_err(|e| self.fail_with(e))?);
+        let path = deck_path(&checked(raw).map_err(|e| self.fail_with(&e))?);
         if self.open_elsewhere(&path).await {
-            return Err(self.fail_with(OpenElsewhereSnafu.build()));
+            return Err(self.fail_with(&OpenElsewhereSnafu.build()));
         }
         Ok(path)
     }
@@ -143,7 +146,7 @@ impl Tools {
             s.ensure_free(&checked)
         })
         .await
-        .map_err(|e| self.fail_with(e))?;
+        .map_err(|e| self.fail_with(&e))?;
         Ok(path)
     }
 
@@ -163,7 +166,7 @@ impl Tools {
             Some(p) => p.display().to_string(),
             None => match self.current_path().await {
                 Some(p) => p.display().to_string(),
-                None => return self.fail_with(NoFileSnafu.build()),
+                None => return self.fail_with(&NoFileSnafu.build()),
             },
         };
         let exists = match &path {
@@ -184,7 +187,7 @@ impl Tools {
         };
         let path = match checked(&path) {
             Ok(p) => p,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-open", &[("path", path.display().to_string().into())]);
@@ -238,11 +241,11 @@ impl Tools {
         };
         let path = match checked(&path) {
             Ok(p) => p,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         // Hors du mode deck, refusé sans rien demander.
         if let Err(e) = self.with_session(|s| s.ensure_deck_mode()).await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         let message =
             self.localizer.current().tr_with("agent-confirm-merge", &[("path", path.display().to_string().into())]);
@@ -275,7 +278,7 @@ impl Tools {
     pub(crate) async fn delete_pack(&self, args: Value) -> CallToolResult {
         let pack = match self.parse::<crate::edit_tools::PackIdArgs>(args).map(|a| a.id()) {
             Ok(Ok(pack)) => pack,
-            Ok(Err(e)) => return self.fail_with(e),
+            Ok(Err(e)) => return self.fail_with(&e),
             Err(r) => return r,
         };
         // Le nom du pack dans sa version courante ; inconnu : son id.
@@ -301,7 +304,7 @@ impl Tools {
         // Un thème inconnu est refusé sans rien demander.
         let info = match self.with_session(move |s| s.find_theme_info(&theme)).await {
             Ok(i) => i,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
         let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
@@ -321,7 +324,7 @@ impl Tools {
             Err(r) => return r,
         };
         if !writable(&key) {
-            return self.fail_with(SettingLockedSnafu { key: clip(&key, 64) }.build());
+            return self.fail_with(&SettingLockedSnafu { key: clip(&key, 64) }.build());
         }
         let old = self.settings_read().await.get(&key).cloned().unwrap_or(Value::Null);
         let message = self.localizer.current().tr_with(

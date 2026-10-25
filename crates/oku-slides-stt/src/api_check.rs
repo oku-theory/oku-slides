@@ -13,6 +13,7 @@ const MAX_LABEL: usize = 63;
 const LOOPBACK: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
 
 /// La forme normalisée d'une adresse d'API acceptable ; `None` si elle est refusée.
+#[must_use]
 pub fn normalized_url(url: &str) -> Option<String> {
     let plain =
         !url.is_empty() && url.bytes().all(|b| b.is_ascii_graphic()) && url.contains("://") && !url.contains('\\');
@@ -47,11 +48,13 @@ pub fn url_host(url: &str) -> Option<String> {
 }
 
 /// L'adresse valide vise cette machine (pas de proxy pour elle).
+#[must_use]
 pub fn is_loopback(url: &str) -> bool {
     url_host(url).is_some_and(|h| LOOPBACK.contains(&h.as_str()))
 }
 
 /// Le nom est celui d'une variable d'environnement : majuscules, chiffres et `_`.
+#[must_use]
 pub fn valid_key_env(name: &str) -> bool {
     let mut bytes = name.bytes();
     let Some(first) = bytes.next() else { return false };
@@ -61,6 +64,7 @@ pub fn valid_key_env(name: &str) -> bool {
 }
 
 /// Le nom est celui d'un modèle d'API : lettres, chiffres et `._:/-`.
+#[must_use]
 pub fn valid_api_model(name: &str) -> bool {
     (1..=128).contains(&name.len())
         && name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b':' | b'/' | b'-'))

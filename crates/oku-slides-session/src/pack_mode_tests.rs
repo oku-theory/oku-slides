@@ -337,7 +337,7 @@ fn pin_all_namespace_pinned_under_the_other_kind_is_refused_and_pins_nothing() {
     let mut s = session();
     let mut deck = s.deck().clone();
     let files = crate::test_support::manifest_ns(uuid::Uuid::new_v4(), "base", &[])
-        .to_files(oku_slides_core::PackKind::Layouts, Default::default())
+        .to_files(oku_slides_core::PackKind::Layouts, std::collections::BTreeMap::default())
         .unwrap();
     let pin = oku_slides_core::PackPin { id: uuid::Uuid::new_v4(), version: files.version(), requires: Vec::new() };
     let before = deck.clone();

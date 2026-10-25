@@ -15,16 +15,16 @@ impl Surface {
     /// le message est ajouté tel quel.
     pub fn apply_patch(&mut self, messages: &[ServerMessage]) {
         for m in messages {
-            let ServerBody::UpdateDataModel(patch) = &m.body else {
+            let ServerBody::UpdateDataModel(update) = &m.body else {
                 self.messages.push(m.clone());
                 continue;
             };
-            match patch.path.as_deref() {
+            match update.path.as_deref() {
                 None => {
                     // Les écritures par chemin antérieures sont remplacées par la nouvelle racine.
                     self.messages.retain(|x| !matches!(&x.body, ServerBody::UpdateDataModel(u) if u.path.is_some()));
                     match self.root_model() {
-                        Some(root) => root.value.clone_from(&patch.value),
+                        Some(root) => root.value.clone_from(&update.value),
                         None => self.messages.push(m.clone()),
                     }
                 }
@@ -32,7 +32,7 @@ impl Surface {
                     // Un chemin qui n'y mène pas est caduc : rejoué après la racine, il
                     // écraserait un état plus récent (resynchronisation).
                     Some(value) => {
-                        if !write_pointer(value, path, patch.value.as_ref()) {
+                        if !write_pointer(value, path, update.value.as_ref()) {
                             tracing::debug!(path, "écriture sans destination dans le modèle : ignorée");
                         }
                     }
@@ -43,6 +43,7 @@ impl Surface {
     }
 
     /// La surface envoie-t-elle une action (bouton, champ) ?
+    #[must_use]
     pub fn has_actions(&self) -> bool {
         self.messages.iter().any(|m| match &m.body {
             ServerBody::UpdateComponents(u) => u.components.iter().any(|c| !c.kind.actions().is_empty()),
@@ -52,6 +53,7 @@ impl Surface {
 
     /// La même surface, en lecture seule : champs sans action, boutons retirés (et retirés
     /// de leurs parents ; un parent à enfant unique dont l'enfant disparaît disparaît aussi).
+    #[must_use]
     pub fn without_actions(&self) -> Surface {
         let mut s = self.clone();
         for m in &mut s.messages {
@@ -112,8 +114,8 @@ impl Surface {
 /// de l'interface : un index de liste égal à sa longueur ajoute. Rend `false` si le chemin
 /// ne mène pas à un objet ou une liste existants (rien n'est écrit).
 fn write_pointer(root: &mut Value, pointer: &str, value: Option<&Value>) -> bool {
-    let Some((parent, last)) = pointer.rsplit_once('/') else { return false };
-    let key = last.replace("~1", "/").replace("~0", "~");
+    let Some((parent, leaf)) = pointer.rsplit_once('/') else { return false };
+    let key = leaf.replace("~1", "/").replace("~0", "~");
     let Some(target) = (if parent.is_empty() { Some(root) } else { root.pointer_mut(parent) }) else {
         return false;
     };
@@ -124,9 +126,9 @@ fn write_pointer(root: &mut Value, pointer: &str, value: Option<&Value>) -> bool
         (Value::Object(map), None) => {
             map.remove(&key);
         }
-        (Value::Array(list), Some(v)) => match key.parse::<usize>() {
-            Ok(i) if i == list.len() => list.push(v.clone()),
-            Ok(i) => match list.get_mut(i) {
+        (Value::Array(items), Some(v)) => match key.parse::<usize>() {
+            Ok(i) if i == items.len() => items.push(v.clone()),
+            Ok(i) => match items.get_mut(i) {
                 Some(slot) => *slot = v.clone(),
                 None => return false,
             },

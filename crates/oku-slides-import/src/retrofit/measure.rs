@@ -31,6 +31,7 @@ use oku_slides_core::{Element, Paragraph, ParamValue, Run, TokenValue};
 use serde_json::{Map, Value};
 
 use super::zone::{number_or_default, token_or_default};
+use oku_slides_core::num::{count_f64, trunc_usize};
 
 /// Hauteur d'une ligne de texte, en em : la hauteur de capitale.
 pub(crate) const CAP: f64 = 0.72;
@@ -97,6 +98,7 @@ pub struct TextTokens {
 impl TextTokens {
     /// Les jetons de texte des jetons effectifs `tokens` d'un thème ; un jeton
     /// absent prend la valeur de `default-tokens.json`.
+    #[must_use]
     pub fn from_tokens(tokens: &Map<String, Value>) -> Self {
         let num = |path: &[&str]| number_or_default(tokens, path);
         let tok = |family: &str, path: &[&str]| token_or_default(tokens, family, path);
@@ -142,7 +144,7 @@ impl TextTokens {
 pub(crate) fn lines(text: &str, width: f64, size: f64) -> usize {
     let per_line = (width / (size * GLYPH)).floor().max(1.0);
     // Borné par la longueur du texte (bornée par le cœur) : la conversion ne déborde pas.
-    let per_line = per_line.min(usize::MAX as f64) as usize;
+    let per_line = trunc_usize(per_line);
     let mut count = 0;
     for hard in text.split('\n') {
         let mut used = 0usize;
@@ -173,8 +175,13 @@ pub(crate) fn lines(text: &str, width: f64, size: f64) -> usize {
 /// Hauteur de `n` lignes en `size` pt, d'interligne `leading` em.
 fn block(n: usize, size: f64, leading: f64) -> f64 {
     // Borné par la longueur du texte : la conversion reste exacte.
-    let n = n as f64;
+    let n = count_f64(n);
     n * CAP * size + (n - 1.0).max(0.0) * leading * size
+}
+
+/// Height of a plain text (card title or kicker) at `size` pt.
+fn plain(text: &str, width: f64, size: f64, leading: f64) -> f64 {
+    block(lines(text, width.max(1.0), size), size, leading)
 }
 
 /// Ce qui guide une estimation : jetons et proportions des images de la slide.
@@ -205,16 +212,11 @@ impl Measure<'_> {
                 total += if was_list && list { t.list_spacing } else { t.paragraph };
             }
             // Borné par la longueur du texte : la conversion reste exacte.
-            let n = lines(&text, width.max(1.0), size) as f64;
+            let n = count_f64(lines(&text, width.max(1.0), size));
             total += n * CAP * size + (n - 1.0) * t.leading * base;
             previous = Some(list);
         }
         total
-    }
-
-    /// Hauteur d'un texte plain (titre ou surtitre de carte) en `size` pt.
-    fn plain(&self, text: &str, width: f64, size: f64, leading: f64) -> f64 {
-        block(lines(text, width.max(1.0), size), size, leading)
     }
 
     /// Hauteur de l'élément `e` dans `width` pt, une place de `room` pt au plus
@@ -235,7 +237,7 @@ impl Measure<'_> {
             base::TABLE => {
                 let rows = e.params.value("data").and_then(|d| d.pointer("/dataset/source")).and_then(Value::as_array);
                 // Au plus 100 lignes (`MAX_TABLE_ROWS`) : la conversion est exacte.
-                let rows = rows.map_or(1, Vec::len) as f64;
+                let rows = count_f64(rows.map_or(1, Vec::len));
                 rows * (CAP * t.table + 2.0 * t.table_padding)
             }
             base::CHART if !framed => (width * CHART_ASPECT).min(room),
@@ -254,16 +256,16 @@ impl Measure<'_> {
         let inner = width - 2.0 * c.padding_x;
         let mut parts = Vec::new();
         if let Some(k) = e.params.text("kicker").filter(|k| !k.trim().is_empty()) {
-            parts.push(self.plain(k, inner, t.kicker, t.leading));
+            parts.push(plain(k, inner, t.kicker, t.leading));
         }
         if let Some(title) = e.params.text("title").filter(|k| !k.trim().is_empty()) {
-            parts.push(self.plain(title, inner, c.title, t.leading));
+            parts.push(plain(title, inner, c.title, t.leading));
         }
         if let Some(body) = e.params.rich("body").filter(|b| !b.is_empty()) {
             parts.push(self.paragraphs(body, inner, t.body));
         }
         // Au plus trois parts : la conversion est exacte.
-        let gaps = parts.len().saturating_sub(1) as f64 * c.gap;
+        let gaps = count_f64(parts.len().saturating_sub(1)) * c.gap;
         2.0 * c.padding_y + parts.iter().sum::<f64>() + gaps
     }
 
@@ -284,12 +286,12 @@ impl Measure<'_> {
             1
         };
         // `n` est au plus le nombre d'enfants ou un compte du cœur : la conversion est exacte.
-        let cw = (width - (n as f64 - 1.0) * gap) / n as f64;
+        let cw = (width - (count_f64(n) - 1.0) * gap) / count_f64(n);
         let rows: Vec<f64> = children
             .chunks(n.max(1))
             .map(|row| row.iter().map(|c| self.element(c, cw, room, false)).fold(0.0, f64::max))
             .collect();
-        rows.iter().sum::<f64>() + (rows.len() as f64 - 1.0) * gap
+        rows.iter().sum::<f64>() + (count_f64(rows.len()) - 1.0) * gap
     }
 
     /// Hauteur que demandent les blocs `blocks` d'une slide en mise en page
@@ -299,7 +301,7 @@ impl Measure<'_> {
         let t = self.tokens;
         let across = |n: usize, list: &[Element]| {
             // Au plus le nombre de blocs : la conversion est exacte.
-            let cw = (width - (n as f64 - 1.0) * t.columns_gap) / n as f64;
+            let cw = (width - (count_f64(n) - 1.0) * t.columns_gap) / count_f64(n);
             list.chunks(n.max(1))
                 .map(|row| row.iter().map(|b| self.element(b, cw, height, false)).fold(0.0, f64::max))
                 .sum::<f64>()
@@ -308,7 +310,7 @@ impl Measure<'_> {
             "columns" => across(blocks.len().max(1), blocks),
             "split" => across(2, blocks),
             _ => {
-                let gaps = blocks.len().saturating_sub(1) as f64 * t.paragraph;
+                let gaps = count_f64(blocks.len().saturating_sub(1)) * t.paragraph;
                 let need: f64 = blocks
                     .iter()
                     .map(|b| match b.kind.as_str() {

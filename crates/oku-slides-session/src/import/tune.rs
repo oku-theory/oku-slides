@@ -64,6 +64,7 @@ pub struct TuneLimits {
 
 impl TuneLimits {
     /// Les bornes des réglages `settings`.
+    #[must_use]
     pub fn of(settings: &ImportSettings) -> Self {
         Self {
             tries: settings.tune_iterations.get(),
@@ -159,6 +160,7 @@ pub struct Tuning {
 
 impl Tuning {
     /// Vrai si le dernier raster noté n'est plus celui de l'import.
+    #[must_use]
     pub fn changed(&self) -> bool {
         matches!((self.imported, self.seen), (Some(imported), Some(seen)) if seen.raster != imported)
     }
@@ -179,21 +181,25 @@ pub struct Tuner {
 
 impl Tuner {
     /// Aucun essai fait, aux bornes `limits`.
+    #[must_use]
     pub fn new(limits: TuneLimits) -> Self {
         Self { limits, slides: BTreeMap::new(), global_used: 0, paid: BTreeSet::new() }
     }
 
     /// Les bornes de l'ajustement.
+    #[must_use]
     pub fn limits(&self) -> TuneLimits {
         self.limits
     }
 
     /// Les essais de la slide `slide`, si elle a été notée.
+    #[must_use]
     pub fn tuning(&self, slide: &str) -> Option<&Tuning> {
         self.slides.get(slide)
     }
 
     /// Les essais globaux qui restent.
+    #[must_use]
     pub fn global_tries_left(&self) -> u32 {
         self.limits.global.saturating_sub(self.global_used)
     }
@@ -201,6 +207,7 @@ impl Tuner {
     /// Ce que coûterait une note de `slide`, dans l'état `state`, qui voit `now`.
     ///
     /// [`Charge::Global`] seulement si le modèle de la slide n'a pas changé depuis sa note précédente.
+    #[must_use]
     pub fn charge(&self, slide: &str, now: Seen, state: SlideState) -> Charge {
         let tuning = self.slides.get(slide);
         let Some(seen) = tuning.and_then(|t| t.seen) else { return Charge::Baseline };
@@ -278,6 +285,7 @@ impl Tuner {
     }
 
     /// Vrai si l'excès de `score` dépasse le meilleur que `slide` a atteint.
+    #[must_use]
     pub fn worse(&self, slide: &str, score: &SlideScore, threshold: f64) -> bool {
         let best = self.slides.get(slide).and_then(|t| t.best);
         matches!((best, excess(score, threshold)), (Some(best), Some(e)) if e > best)
@@ -286,7 +294,7 @@ impl Tuner {
     /// La moyenne des premières notes de `slides`, au centième ; `None` sans aucune note.
     pub fn mean_before<'a>(&self, slides: impl IntoIterator<Item = &'a str>) -> Option<f64> {
         let firsts: Vec<f64> = slides.into_iter().filter_map(|s| self.slides.get(s)?.first).collect();
-        (!firsts.is_empty()).then(|| round(firsts.iter().sum::<f64>() / firsts.len() as f64))
+        (!firsts.is_empty()).then(|| round(firsts.iter().sum::<f64>() / oku_slides_core::num::count_f64(firsts.len())))
     }
 }
 
@@ -335,6 +343,7 @@ impl SlideState {
     }
 
     /// Les essais qui restent dans cet état : seule une slide `pending` en a.
+    #[must_use]
     pub fn tries_left(self, tuning: Option<&Tuning>, limits: TuneLimits) -> u32 {
         match self {
             Self::Pending => limits.tries.saturating_sub(tuning.map_or(0, |t| t.tries)),
@@ -343,6 +352,7 @@ impl SlideState {
     }
 
     /// Le nom de l'état, tel que l'écrit le JSON des outils.
+    #[must_use]
     pub fn name(self) -> &'static str {
         match self {
             Self::Pending => "pending",

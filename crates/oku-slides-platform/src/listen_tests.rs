@@ -153,7 +153,9 @@ async fn shutdown_drops_a_response_that_never_ends_once_the_grace_is_over() {
     let since = Instant::now();
     let read = read_until_closed(&mut stuck, GRACE + Duration::from_secs(2)).await;
     assert_that!(read).named("fermée sans réponse").is_equal_to(Some(String::new()));
-    assert_that!(since.elapsed() >= GRACE - Duration::from_millis(50)).named("pas avant la grâce").is_true();
+    assert_that!(since.elapsed() >= GRACE.checked_sub(Duration::from_millis(50)).unwrap())
+        .named("pas avant la grâce")
+        .is_true();
     let abandoned = tokio::time::timeout(Duration::from_secs(1), served).await.ok().and_then(Result::ok);
     assert_that!(abandoned).named("arrêt, connexion abandonnée").is_equal_to(Some(true));
 }

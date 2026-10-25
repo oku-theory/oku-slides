@@ -16,6 +16,9 @@
 //! porte la sienne (`lang`, `region`), un paragraphe d'un autre sens que la
 //! langue du deck le sien (`dir`).
 
+// `write!` into a `String` never fails: its result is ignored.
+use std::fmt::Write as _;
+
 use super::{FontName, Gen, Placement, Typst, lang_args, pt, string};
 use crate::fonts::LineMetrics;
 use crate::hifi::page::Page;
@@ -112,9 +115,9 @@ impl Gen<'_> {
         let line = LineBox::new(page, size_pt, s.line_spacing, fit.line_reduction, metrics);
         let mut par = format!("justify: {}, leading: 0pt", s.align == Align::Justify);
         if indent < 0.0 {
-            par.push_str(&format!(", hanging-indent: {}", pt(-indent)));
+            let _ = write!(par, ", hanging-indent: {}", pt(-indent));
         } else if indent > 0.0 {
-            par.push_str(&format!(", first-line-indent: (amount: {}, all: true)", pt(indent)));
+            let _ = write!(par, ", first-line-indent: (amount: {}, all: true)", pt(indent));
         }
         // Un paragraphe d'un autre sens que la langue du deck le dit.
         let dir = match (s.rtl, self.ctx.deck_rtl()) {
@@ -172,23 +175,23 @@ impl Gen<'_> {
         let mut size = s.size * fit.font_scale;
         let mut args = format!("font: {}", self.run_font(s));
         if let Some(tag) = s.lang.as_deref().and_then(lang_tag).filter(|t| Some(t.as_str()) != self.ctx.lang) {
-            args.push_str(&format!(", {}", lang_args(&tag)));
+            let _ = write!(args, ", {}", lang_args(&tag));
         }
         if s.baseline != 0 {
             let shift = -f64::from(s.baseline) / 100.0 * size;
             size *= SCRIPT_SIZE;
-            args.push_str(&format!(", baseline: {}", pt(self.ctx.page.len(shift))));
+            let _ = write!(args, ", baseline: {}", pt(self.ctx.page.len(shift)));
         }
         args = format!("{args}, size: {}", pt(self.ctx.page.len(size)));
         if let Some(w) = weight_arg(s) {
-            args.push_str(&format!(", weight: {w}"));
+            let _ = write!(args, ", weight: {w}");
         }
         if s.italic {
             args.push_str(", style: \"italic\"");
         }
-        args.push_str(&format!(", fill: {}", self.color(&s.color)));
+        let _ = write!(args, ", fill: {}", self.color(&s.color));
         if s.char_spacing != 0.0 {
-            args.push_str(&format!(", tracking: {}", pt(self.ctx.page.len(s.char_spacing))));
+            let _ = write!(args, ", tracking: {}", pt(self.ctx.page.len(s.char_spacing)));
         }
         let body = if s.caps == Caps::All { format!("upper({})", string(&r.text)) } else { string(&r.text) };
         let mut out = format!("text({args}, {body})");
@@ -398,9 +401,6 @@ fn alpha(n: u32) -> String {
 
 /// Chiffres romains (1..3999) ; au-delà ou 0, chiffres arabes.
 fn roman(n: u32) -> String {
-    if n == 0 || n > 3999 {
-        return n.to_string();
-    }
     const DIGITS: [(u32, &str); 13] = [
         (1000, "M"),
         (900, "CM"),
@@ -416,6 +416,9 @@ fn roman(n: u32) -> String {
         (4, "IV"),
         (1, "I"),
     ];
+    if n == 0 || n > 3999 {
+        return n.to_string();
+    }
     let mut n = n;
     let mut out = String::new();
     for (v, s) in DIGITS {

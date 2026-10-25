@@ -9,11 +9,15 @@
 
 use crate::error::Result;
 use crate::labels::ChartLabels;
-use crate::model::*;
-use crate::option::*;
+use crate::model::{ChartKind, normalize};
+use crate::option::{Axis, AxisType, Cell, ChartOption, ColumnRef, Dataset, Encode, Series, SeriesType};
 
-/// Déplace les données en ligne dans `dataset`. Sans effet si les options
-/// utilisent déjà `dataset`. Les en-têtes manquants viennent de `labels`.
+/// Moves inline data into `dataset`. No effect if the options
+/// already use `dataset`. Missing headers come from `labels`.
+///
+/// # Errors
+///
+/// Fails if the options are inconsistent (see [`crate::normalize`]).
 pub fn canonicalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartOption> {
     let model = normalize(option, labels)?;
     let inline = option.series.iter().any(|s| s.data.is_some());
@@ -139,28 +143,28 @@ pub fn sync_series_with_columns(option: &mut ChartOption) {
     }
 }
 
-/// Une série neuve sur le modèle de sa voisine `template`.
+/// A new series modelled on its neighbour `template`.
 ///
-/// Elle garde le type et l'allure (`stack`, `smooth`, `area_style`, `radius`,
-/// `rose_type`) ; pas l'identité (`name`, `encode`, `data`), ni `label`, ni
-/// `item_style` : sa couleur vient de la palette.
+/// It keeps the type and the look (`stack`, `smooth`, `area_style`, `radius`,
+/// `rose_type`); not the identity (`name`, `encode`, `data`), nor `label`, nor
+/// `item_style`: its color comes from the palette.
 pub(crate) fn fresh_series(template: &Series) -> Series {
     Series { name: None, encode: None, data: None, label: None, item_style: None, ..template.clone() }
 }
 
-/// Avant le retrait de la colonne `at` : retire la série qui la lit.
+/// Before column `at` is removed: removes the series that reads it.
 ///
-/// Sans effet sur la colonne des catégories (`at == 0`) ou hors forme canonique.
+/// No effect on the category column (`at == 0`) or outside canonical form.
 pub(crate) fn remove_column_series(option: &mut ChartOption, at: usize) {
     if at >= 1 && at <= option.series.len() && option.series.len() > 1 && is_canonical_cartesian(option) {
         option.series.remove(at - 1);
     }
 }
 
-/// Avant l'insertion d'une colonne en `at` : insère sa série, du type de sa voisine.
+/// Before a column is inserted at `at`: inserts its series, typed like its neighbour.
 ///
-/// La voisine est la série d'avant, sinon celle d'après. Sans effet sur la
-/// colonne des catégories (`at == 0`) ou hors forme canonique.
+/// The neighbour is the series before, otherwise the one after. No effect on the
+/// category column (`at == 0`) or outside canonical form.
 pub(crate) fn insert_column_series(option: &mut ChartOption, at: usize) {
     if at == 0 || at > option.series.len() + 1 || !is_canonical_cartesian(option) {
         return;

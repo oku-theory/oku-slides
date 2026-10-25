@@ -39,6 +39,7 @@ impl BuiltinPack {
     pub const ALL: [BuiltinPack; 2] = [BuiltinPack::Base, BuiltinPack::Essentiel];
 
     /// L'espace de noms du pack.
+    #[must_use]
     pub fn namespace(self) -> Namespace {
         match self {
             BuiltinPack::Base => kinds::base::namespace(),
@@ -47,6 +48,7 @@ impl BuiltinPack {
     }
 
     /// La sorte du pack : widgets pour `base`, layouts pour `essentiel`.
+    #[must_use]
     pub fn kind(self) -> PackKind {
         match self {
             BuiltinPack::Base => PackKind::Widgets,
@@ -83,7 +85,11 @@ impl BuiltinPack {
         format!("{}/{file}", self.namespace())
     }
 
-    /// Le pack en fichiers de bibliothèque, lus tels qu'embarqués.
+    /// The pack as library files, read as embedded.
+    ///
+    /// # Errors
+    ///
+    /// Fails if an embedded file is misnamed or if the manifest is missing (damaged binary).
     pub fn files(self) -> Result<PackFiles, RegistryError> {
         let widgets = self
             .sources()
@@ -105,14 +111,24 @@ impl BuiltinPack {
         BuiltinPackSnafu { file: self.path(self.kind().manifest_file()) }.build().into()
     }
 
-    /// Le pack prêt à rendre : id = empreinte de sa version, espace de noms du manifeste.
+    /// The pack ready to render.
+    ///
+    /// Its id is the digest of its version; its namespace comes from the manifest.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the embedded files or manifest are unreadable.
     pub fn widgets(self) -> Result<PackWidgets, RegistryError> {
         let files = self.files()?;
         let manifest = self.read_manifest(&files)?;
         PackWidgets::from_files(manifest.namespace, &files)
     }
 
-    /// Les défauts des jetons de composant du pack, relatifs à `component.<namespace>`.
+    /// The pack's component token defaults, relative to `component.<namespace>`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the embedded manifest or its component defaults are unreadable.
     pub fn component_defaults(self) -> Result<Map<String, Value>, RegistryError> {
         self.read_manifest(&self.files()?)?.component_defaults().map_err(|_| self.broken_manifest())
     }
@@ -123,7 +139,11 @@ impl BuiltinPack {
     }
 }
 
-/// Les deux packs intégrés, `base` et `essentiel`, prêts à rendre.
+/// The two built-in packs, `base` and `essentiel`, ready to render.
+///
+/// # Errors
+///
+/// Fails if a built-in pack is unreadable or if their namespaces overlap.
 pub fn builtin_pack_set() -> Result<PackSet, RegistryError> {
     PackSet::new(BuiltinPack::ALL.into_iter().map(BuiltinPack::widgets).collect::<Result<Vec<_>, _>>()?)
 }
@@ -131,9 +151,13 @@ pub fn builtin_pack_set() -> Result<PackSet, RegistryError> {
 /// Les défauts de composant d'un pack (relatifs à `component.<namespace>`), avec son espace de noms.
 type NamespaceDefaults = (Namespace, Map<String, Value>);
 
-/// Les défauts de composant de chaque pack intégré, par espace de noms.
+/// The component defaults of each built-in pack, by namespace.
 ///
-/// La première couche de `/theme.json` (`tokens::theme_layer`), dans l'ordre de [`BuiltinPack::ALL`].
+/// The first layer of `/theme.json` (`tokens::theme_layer`), in the order of [`BuiltinPack::ALL`].
+///
+/// # Errors
+///
+/// Fails if the manifest of a built-in pack is unreadable.
 pub fn builtin_component_defaults() -> Result<Vec<NamespaceDefaults>, RegistryError> {
     BuiltinPack::ALL.into_iter().map(|p| Ok((p.namespace(), p.component_defaults()?))).collect()
 }
@@ -144,6 +168,7 @@ pub fn builtin_component_defaults() -> Result<Vec<NamespaceDefaults>, RegistryEr
 /// [`PackWidgets::from_files`] déduit du contenu : un pack intégré modifié, ou
 /// un autre pack qui prendrait cet id, n'est pas de confiance. La comparaison
 /// reste celle de l'id, bon marché.
+#[must_use]
 pub fn is_trusted_pack(p: &PackWidgets) -> bool {
     BuiltinPack::ALL.into_iter().any(|b| b.namespace() == *p.namespace() && b.shipped_versions().any(|v| v == p.id()))
 }
@@ -156,6 +181,7 @@ pub fn is_trusted_pack(p: &PackWidgets) -> bool {
 /// peut venir du contenu du deck seul. Il reste donc dans le rendu témoin (t-1053).
 /// Un fichier reçu peut nommer `base` n'importe quel pack de widgets : s'il boucle,
 /// le deck ne se rend plus tant que l'élément reste, choix assumé.
+#[must_use]
 pub fn is_never_blamed(p: &PackWidgets) -> bool {
     is_trusted_pack(p) || (p.kind() == PackKind::Widgets && *p.namespace() == BuiltinPack::Base.namespace())
 }

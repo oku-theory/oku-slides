@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use speculoos::prelude::*;
 
 use super::*;
@@ -147,7 +149,10 @@ fn multi_level_categories_warn_that_outer_levels_are_dropped() {
 /// Un cache numérique `numLit` des valeurs `v`, de format `code` s'il y en a un.
 fn num_lit(code: Option<&str>, v: &[&str]) -> String {
     let format = code.map(|c| format!("<c:formatCode>{c}</c:formatCode>")).unwrap_or_default();
-    let pts: String = v.iter().enumerate().map(|(i, v)| format!(r#"<c:pt idx="{i}"><c:v>{v}</c:v></c:pt>"#)).collect();
+    let pts = v.iter().enumerate().fold(String::new(), |mut pts, (i, v)| {
+        let _ = write!(pts, r#"<c:pt idx="{i}"><c:v>{v}</c:v></c:pt>"#);
+        pts
+    });
     format!(r#"<c:numLit>{format}<c:ptCount val="{}"/>{pts}</c:numLit>"#, v.len())
 }
 

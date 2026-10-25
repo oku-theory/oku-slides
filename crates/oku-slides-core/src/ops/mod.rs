@@ -7,6 +7,7 @@
 //! ([`param_value`]), slot qui accepte l'élément.
 
 mod check;
+mod edit;
 mod grid;
 mod host;
 mod list;
@@ -26,20 +27,23 @@ use snafu::{IntoError, OptionExt, ResultExt};
 use oku_slides_chart::DataOp;
 
 use crate::error::{
-    DuplicateIdSnafu, ElementNotFoundSnafu, IndexOutOfRangeSnafu, InvalidValueSnafu, OpError, ParamTypeSnafu,
-    ParseValueSnafu, Shape, SlideNotFoundSnafu, TransactionError, TransactionSnafu, UnknownParamSnafu,
-    UnknownWidgetSnafu, ValueReason, WrongCategorySnafu,
+    DuplicateIdSnafu, ElementNotFoundSnafu, InvalidValueSnafu, OpError, ParseValueSnafu, SlideNotFoundSnafu,
+    TransactionError, TransactionSnafu, UnknownParamSnafu, UnknownWidgetSnafu, ValueReason, WrongCategorySnafu,
 };
 use crate::locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
-use crate::model::{Cell, Deck, DeckParams, Element, Frame, Slide, Style};
+use crate::model::{Cell, Deck, Element, Frame, Slide, Style};
 use crate::namespace::Namespace;
 use crate::pack::PackPin;
 use crate::pack_kind::PackKind;
-use crate::params::{ParamValue, Params};
+use crate::params::Params;
 use crate::theme_chain::{ThemePin, check_closure};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
+use edit::{
+    add_element, add_slide, move_slide, replace_element, set_cell, set_deck_param, set_frame, set_kind, set_param,
+    set_tokens, unset_token,
+};
 pub(crate) use host::{host_option, normalize_hosts};
 pub(crate) use list::{DefaultFault, default_fault};
 pub use list::{
@@ -51,209 +55,289 @@ pub use moving::Moved;
 pub use packs::{pack_users, remove_pack_refusal};
 pub use value::{GRID_TRACKS, param_value};
 
-/// Une slide, ou un élément d'une slide. JSON : `{"slide": "s1"}` ou
-/// `{"slide": "s1", "element": "e1"}`.
+/// A slide, or an element of a slide.
+///
+/// JSON: `{"slide": "s1"}` or `{"slide": "s1", "element": "e1"}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Target {
+    /// Id of the target slide, or of the slide that contains the element.
     pub slide: String,
+    /// Id of the element, at any slot depth; absent: the slide itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub element: Option<String>,
 }
 
-/// Un slot : le paramètre `param` (de type `slot`) de la slide ou de
-/// l'élément `owner`.
+/// A slot: the `slot` parameter `param` of the slide or element `owner`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SlotRef {
+    /// Slide or element that declares the slot.
     pub owner: Target,
+    /// Name of the parameter of type `slot`.
     pub param: String,
 }
 
-/// Une opération sur le deck.
+/// An operation on the deck.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Op {
-    /// Paramètre d'une slide ou d'un élément, contrôlé par le schéma de son
-    /// widget ; `null` (ou un texte vide) le retire. Un paramètre lié
-    /// (`bind`) écrit dans les paramètres du deck. Les éléments d'un slot
-    /// passent par `add_element`.
+    /// Sets a parameter of a slide or element, checked by its widget's schema.
+    ///
+    /// `null` (or an empty text) removes it. A bound parameter (`bind`) writes
+    /// into the deck parameters. The elements of a slot go through `add_element`.
     SetParam {
+        /// Slide or element whose parameter changes.
         target: Target,
+        /// Name of the parameter, declared by the widget's schema.
         param: String,
+        /// New value, of the parameter's type; `null` removes it.
         value: Value,
     },
-    /// Paramètre du deck (`title`, `author`, `numbering`…) ; `null` le retire.
+    /// Sets a deck parameter (`title`, `author`, `numbering`…); `null` removes it.
     SetDeckParam {
+        /// Name of the deck parameter.
         key: String,
+        /// New value; `null` removes it.
         value: Value,
     },
-    /// Change le widget d'une slide ou d'un élément (même catégorie) ; les
-    /// paramètres sont gardés tels quels.
+    /// Changes the widget of a slide or element, within the same category.
+    ///
+    /// The parameters are kept as they are.
     SetKind {
+        /// Slide or element whose widget changes.
         target: Target,
+        /// New widget, qualified by its pack, of the same category.
         kind: String,
     },
-    /// Fusionne des propriétés de style (les champs absents ne changent pas).
+    /// Merges style properties; absent fields do not change.
     SetStyle {
+        /// Slide that contains the element.
         slide: String,
+        /// Element whose style is merged.
         element: String,
+        /// Properties to merge; absent ones stay unchanged.
         style: Style,
     },
-    /// Remplace tout le style d'un élément.
+    /// Replaces the whole style of an element.
     ReplaceStyle {
+        /// Slide that contains the element.
         slide: String,
+        /// Element whose style is replaced.
         element: String,
+        /// New complete style.
         style: Style,
     },
-    /// Déplace ou redimensionne ; `null` rend l'élément au layout.
+    /// Moves or resizes an element; `null` hands it back to the layout.
     SetFrame {
+        /// Slide that contains the element.
         slide: String,
+        /// Element to move or resize.
         element: String,
+        /// Frame of positive width and height; `null` hands the element back to the layout.
         frame: Option<Frame>,
     },
-    /// Accroche un élément d'un slot libre à la grille ; `null` le décroche.
-    /// Refusé dans un slot `flow` : y retirer l'élément, puis l'ajouter à un slot libre.
+    /// Attaches an element of a free slot to the grid; `null` detaches it.
+    ///
+    /// Refused in a `flow` slot: remove the element from it, then add it to a free slot.
     SetCell {
+        /// Slide that contains the element.
         slide: String,
+        /// Element to attach to the grid.
         element: String,
+        /// Cell in the slide's grid; `null` detaches the element.
         cell: Option<Cell>,
     },
-    /// Change la grille d'une slide et recadre les éléments de ses slots libres.
+    /// Changes the grid of a slide and reframes the elements of its free slots.
     SetGrid {
+        /// Slide whose grid changes.
         slide: String,
-        /// Colonnes, de 1 à 24 ; absent : inchangé.
+        /// Columns, from 1 to 24; absent: unchanged.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         columns: Option<u32>,
-        /// Lignes, de 1 à 24 ; absent : inchangé.
+        /// Rows, from 1 to 24; absent: unchanged.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         rows: Option<u32>,
     },
-    /// Remplace un élément entier (même `id`).
+    /// Replaces a whole element, with the same `id`.
     ReplaceElement {
+        /// Slide that contains the element.
         slide: String,
+        /// Complete element that replaces the one with the same `id`.
         element: Element,
     },
-    /// Modifie les options d'un graphique (paramètre `param`, de type
-    /// `host(chart)`) : JSON Merge Patch (RFC 7396) sur tout sauf `dataset`
-    /// (`null` retire un champ, un tableau remplace le tableau entier).
+    /// Changes the options of a chart (`param`, of type `host(chart)`).
+    ///
+    /// JSON Merge Patch (RFC 7396) on everything but `dataset`: `null` removes a
+    /// field, an array replaces the whole array.
     SetChartOption {
+        /// Slide or element that holds the chart.
         target: Target,
+        /// Parameter of type `host(chart)`.
         param: String,
+        /// JSON Merge Patch of the options, without `dataset`.
         patch: Value,
     },
-    /// Modifie les options d'affichage d'un tableau (paramètre `host(table)`).
+    /// Changes the display options of a table (`host(table)` parameter).
     ///
-    /// JSON Merge Patch sur `header-row`, `header-column`, `striped`, `align` ; jamais `dataset`.
+    /// JSON Merge Patch on `header-row`, `header-column`, `striped`, `align`; never `dataset`.
     SetTableOption {
+        /// Slide or element that holds the table.
         target: Target,
+        /// Parameter of type `host(table)`.
         param: String,
+        /// JSON Merge Patch of the display options, without `dataset`.
         patch: Value,
     },
-    /// Modifie les données d'un graphique ou d'un tableau.
+    /// Changes the data of a chart or table.
     ///
-    /// `dataset.source`, ligne 0 = noms de colonnes ; `param` est de type `host`.
+    /// `dataset.source`, row 0 = column names; `param` is of type `host`.
     SetData {
+        /// Slide or element that holds the chart or table.
         target: Target,
+        /// Parameter of type `host`.
         param: String,
+        /// Change to the data (rows, columns, cells).
         change: DataOp,
     },
-    /// Modifie une liste (`list`) : items adressés par leur id. `param` : le
-    /// paramètre, ou `param/item/colonne` pour la liste imbriquée d'un item.
-    /// Remplacer toute la liste : `set_param`.
+    /// Changes a `list` parameter, with items addressed by their id.
+    ///
+    /// `param`: the parameter, or `param/item/column` for the nested list of an
+    /// item. To replace the whole list, use `set_param`.
     EditList {
+        /// Slide or element that holds the list.
         target: Target,
+        /// `list` parameter, or `param/item/column` for a nested list.
         param: String,
+        /// Change to the items, addressed by their id.
         change: ListOp,
     },
-    /// Ajoute un élément dans un slot d'une slide ou d'un élément.
+    /// Adds an element to a slot of a slide or element.
     AddElement {
+        /// Slot that receives the element.
         slot: SlotRef,
-        /// Position ; absent = à la fin.
+        /// Position in the slot; absent = at the end.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
-        /// Amorce les listes absentes avec le défaut du schéma : objet nouveau,
-        /// pas un collage ni un déplacement.
+        /// Seeds absent lists with the schema's default.
+        ///
+        /// For a new object, not a paste or a move.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         defaults: bool,
+        /// Element to add, with ids free in the slide.
         element: Element,
     },
+    /// Removes an element and all its children, at any slot depth.
     RemoveElement {
+        /// Slide that contains the element.
         slide: String,
+        /// Element to remove, with its children.
         element: String,
     },
-    /// Déplace un élément, avec ses enfants, vers un slot d'une slide ou d'un élément.
-    /// Même slide admise. Entrer dans un slot `flow` retire `frame` et `cell`.
+    /// Moves an element, with its children, to a slot of a slide or element.
+    ///
+    /// The same slide is allowed. Entering a `flow` slot removes `frame` and `cell`.
     MoveElement {
+        /// Slide that contains the element.
         slide: String,
+        /// Element to move.
         element: String,
+        /// Target slot, in the same slide or another one.
         to: SlotRef,
-        /// Position dans le slot cible ; absent = à la fin.
+        /// Position in the target slot; absent = at the end.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
     },
+    /// Adds a slide, with the elements of its slots.
     AddSlide {
+        /// Position in the deck; absent = at the end.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
-        /// Amorce les listes absentes avec le défaut du schéma : objet nouveau,
-        /// pas un collage ni un déplacement.
+        /// Seeds absent lists with the schema's default.
+        ///
+        /// For a new object, not a paste or a move.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         defaults: bool,
+        /// Slide to add, with a free id.
         slide: Slide,
     },
+    /// Removes a slide and all its elements.
     RemoveSlide {
+        /// Slide to remove.
         slide: String,
     },
+    /// Moves a slide to another position in the deck.
     MoveSlide {
+        /// Slide to move.
         slide: String,
+        /// Final position, within the deck's bounds.
         index: usize,
     },
+    /// Replaces the speaker notes of a slide.
     SetNotes {
+        /// Slide whose notes are replaced.
         slide: String,
+        /// Speaker notes, which replace the previous ones; empty: no notes.
         notes: String,
     },
-    /// Thème du deck et ses épinglages ; `null` : le thème par défaut, sans épinglage.
+    /// Theme of the deck and its pins; `null`: the default theme, with no pins.
     ///
-    /// `themes` doit être exactement la fermeture des `extends` de `theme` :
-    /// sinon refusée (`ThemeCycle`, `ThemeClosure`). La session matérialise la
-    /// fermeture depuis la bibliothèque.
+    /// `themes` must be exactly the closure of the `extends` of `theme`:
+    /// otherwise refused (`ThemeCycle`, `ThemeClosure`). The session materializes the
+    /// closure from the library.
     SetTheme {
+        /// Theme of the deck; `null`: the default theme.
         theme: Option<Namespace>,
+        /// Pins of the closure of the `extends` of `theme`.
         #[serde(default)]
         themes: BTreeMap<Namespace, ThemePin>,
     },
-    /// Épingle la version `pin` du pack `namespace` de sorte `kind` (ajout ou remplacement).
+    /// Pins version `pin` of pack `namespace` of kind `kind` (added or replaced).
     ///
-    /// Chaque espace de noms de `pin.requires` doit déjà être épinglé parmi les
-    /// packs de widgets : la session ajoute les besoins d'abord, dans la même
-    /// transaction. Un espace de noms épinglé sous l'autre sorte est refusé.
+    /// Every namespace in `pin.requires` must already be pinned among the
+    /// widget packs: the session adds the requirements first, in the same
+    /// transaction. A namespace pinned under the other kind is refused.
     AddPack {
+        /// Kind of the pack: widgets or layouts.
         kind: PackKind,
+        /// Namespace of the pack in the deck.
         namespace: Namespace,
+        /// Pinned version, with its requirements.
         pin: PackPin,
     },
-    /// Retire le pack `namespace` de sorte `kind`, s'il n'est ni requis ni utilisé ;
-    /// le pack de widgets `base` ne se retire jamais.
+    /// Removes pack `namespace` of kind `kind`, if neither required nor used.
+    ///
+    /// The `base` widget pack is never removed.
     RemovePack {
+        /// Kind of the pack: widgets or layouts.
         kind: PackKind,
+        /// Namespace of the pack to remove.
         namespace: Namespace,
     },
-    /// Jeton de design au chemin donné (`["color", "accent"]`). `null` est
-    /// posé tel quel : il « vide » une clé qui l'accepte.
+    /// Sets the design token at the given path (`["color", "accent"]`).
+    ///
+    /// `null` is set as is: it "empties" a key that accepts it.
     SetToken {
+        /// Path of the token, not empty.
         path: Vec<String>,
+        /// Value set as is, `null` included.
         value: Value,
     },
-    /// Retire le jeton au chemin donné (retour à la couche inférieure) ; un
-    /// objet devenu vide est retiré aussi.
+    /// Removes the token at the given path, falling back to the layer below.
+    ///
+    /// An object left empty is removed too.
     UnsetToken {
+        /// Path of the token to remove, not empty.
         path: Vec<String>,
     },
-    /// Remplace tous les jetons du deck : un objet, ou `null` (aucun).
+    /// Replaces all the deck's tokens: an object, or `null` (none).
     SetTokens {
+        /// Object of the deck's tokens, or `null`.
         tokens: Value,
     },
-    /// Variable du deck ; `null` la retire.
+    /// Sets a deck variable; `null` removes it.
     SetVar {
+        /// Name of the variable.
         key: String,
+        /// New value; `null` removes it.
         value: Value,
     },
 }
@@ -494,37 +578,19 @@ fn typed<T: DeserializeOwned>(field: &str, v: Value) -> Result<T, OpError> {
 // ---- Application ----------------------------------------------------------------
 
 impl Op {
-    /// Applique l'op au deck, contrôlée par `registry`. En cas d'erreur, le
-    /// deck est intact.
+    /// Applies the op to the deck, checked against `registry`. On error, the
+    /// deck is intact.
+    ///
+    /// # Errors
+    ///
+    /// Missing target, unknown widget or parameter, mistyped value, slot that
+    /// refuses the element, id taken, position out of bounds or slot depth
+    /// exceeded.
     pub fn apply(self, deck: &mut Deck, registry: &WidgetRegistry) -> Result<(), OpError> {
         match self {
             Op::SetParam { target, param, value } => set_param(deck, registry, &target, &param, value),
-            Op::SetDeckParam { key, value } => {
-                if DeckParams::is_field(&key) {
-                    let text = opt_string(&key, value)?;
-                    deck.params.set_field(&key, text);
-                } else {
-                    set_or_remove_map(&mut deck.params.extra, &key, value);
-                }
-                Ok(())
-            }
-            Op::SetKind { target, kind } => {
-                let (_, _, category) = target_ref(deck, &target)?;
-                widget_of(registry, &kind, category)?;
-                if let Some(id) = &target.element {
-                    check_containing_accepts(registry, slide_ref(deck, &target.slide)?, id, &kind)?;
-                }
-                let subject = target.element.as_deref().unwrap_or(&target.slide);
-                let mut normalized = target_ref(deck, &target)?.1.clone();
-                host::check_host_params(registry, &kind, &mut normalized, subject)?;
-                let (k, params) = target_mut(deck, &target)?;
-                *params = normalized;
-                if *k != kind {
-                    list::seed_lists(registry, &kind, params)?;
-                    *k = kind;
-                }
-                Ok(())
-            }
+            Op::SetDeckParam { key, value } => set_deck_param(deck, &key, value),
+            Op::SetKind { target, kind } => set_kind(deck, registry, &target, kind),
             Op::SetChartOption { target, param, patch } => {
                 let subject = target.element.as_deref().unwrap_or(&target.slide);
                 let (kind, params) = target_mut(deck, &target)?;
@@ -557,58 +623,12 @@ impl Op {
                 *e.style = style;
                 Ok(())
             }
-            Op::SetFrame { slide, element, frame } => {
-                if let Some(f) = frame
-                    && !(f.w > 0.0 && f.h > 0.0)
-                {
-                    return Err(InvalidValueSnafu { field: "frame", reason: ValueReason::EmptyFrame }.build().into());
-                }
-                let s = slide_mut(deck, &slide)?;
-                let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                e.frame = frame;
-                Ok(())
-            }
-            Op::SetCell { slide, element, cell } => {
-                if let Some(c) = cell {
-                    let s = slide_ref(deck, &slide)?;
-                    let l = located(s, &element)?;
-                    // Un slot `flow` suit le layout : la grille ne place que les éléments libres.
-                    if containing_slot(registry, s, &l).is_some_and(|(mode, _)| mode == SlotMode::Flow) {
-                        return Err(InvalidValueSnafu { field: "cell", reason: ValueReason::BlocksOffGrid }
-                            .build()
-                            .into());
-                    }
-                    if !c.fits(&s.resolved_grid(registry)) {
-                        return Err(InvalidValueSnafu { field: "cell", reason: ValueReason::OutsideGrid }
-                            .build()
-                            .into());
-                    }
-                }
-                let s = slide_mut(deck, &slide)?;
-                let e = element_mut(s, &element).ok_or_else(|| not_found(&slide, &element))?;
-                e.cell = cell;
-                Ok(())
-            }
+            Op::SetFrame { slide, element, frame } => set_frame(deck, &slide, &element, frame),
+            Op::SetCell { slide, element, cell } => set_cell(deck, registry, &slide, &element, cell),
             Op::SetGrid { slide, columns, rows } => grid::set_grid(deck, registry, &slide, columns, rows),
-            Op::ReplaceElement { slide, mut element } => {
-                host::check_hosts(registry, &mut element)?;
-                {
-                    let s = slide_ref(deck, &slide)?;
-                    let previous = located(s, &element.id)?;
-                    check_depth(previous.depth, &element)?;
-                    check_containing_accepts(registry, s, &element.id, &element.kind)?;
-                    check_params(registry, &element.kind, Category::Element, &element.params)?;
-                    // Les enfants d'un élément remplacé ne doivent pas entrer en collision.
-                    let replaced: HashSet<&str> = subtree_ids(previous.element).collect();
-                    check_ids(s.element_ids().filter(|id| !replaced.contains(id)).collect(), &element)?;
-                }
-                let s = slide_mut(deck, &slide)?;
-                let e = element_mut(s, &element.id).ok_or_else(|| not_found(&slide, &element.id))?;
-                *e = element;
-                Ok(())
-            }
+            Op::ReplaceElement { slide, element } => replace_element(deck, registry, &slide, element),
             Op::AddElement { slot, index, defaults, element } => {
-                add_element(deck, registry, slot, index, defaults, element)
+                add_element(deck, registry, &slot, index, defaults, element)
             }
             Op::RemoveElement { slide, element } => {
                 let s = slide_mut(deck, &slide)?;
@@ -616,35 +636,9 @@ impl Op {
                 removed.map(drop).ok_or_else(|| not_found(&slide, &element))
             }
             Op::MoveElement { slide, element, to, index } => {
-                moving::move_element(deck, registry, slide, element, to, index)
+                moving::move_element(deck, registry, &slide, &element, &to, index)
             }
-            Op::AddSlide { index, defaults, mut slide } => {
-                if deck.slide(&slide.id).is_some() {
-                    return Err(DuplicateIdSnafu { id: slide.id }.build().into());
-                }
-                host::check_host_params(registry, &slide.kind, &mut slide.params, &slide.id)?;
-                let mut taken = HashSet::new();
-                for (_, list) in slide.params.slots_mut() {
-                    for e in list {
-                        check_depth(0, e)?;
-                        host::check_hosts(registry, e)?;
-                        if let Some(dup) = subtree_ids(e).find(|id| !taken.insert(*id)) {
-                            return Err(DuplicateIdSnafu { id: dup }.build().into());
-                        }
-                    }
-                }
-                check_params(registry, &slide.kind, Category::Slide, &slide.params)?;
-                if defaults {
-                    list::seed_lists(registry, &slide.kind, &mut slide.params)?;
-                    list::seed_slots(registry, &mut slide.params)?;
-                }
-                let at = index.unwrap_or(deck.slides.len());
-                if at > deck.slides.len() {
-                    return Err(IndexOutOfRangeSnafu { index: at, len: deck.slides.len() }.build().into());
-                }
-                deck.slides.insert(at, slide);
-                Ok(())
-            }
+            Op::AddSlide { index, defaults, slide } => add_slide(deck, registry, index, defaults, slide),
             Op::RemoveSlide { slide } => {
                 let Some(i) = deck.slide_index(&slide) else {
                     return Err(SlideNotFoundSnafu { slide }.build().into());
@@ -652,16 +646,7 @@ impl Op {
                 deck.slides.remove(i);
                 Ok(())
             }
-            Op::MoveSlide { slide, index } => {
-                let len = deck.slides.len();
-                let i = deck.slide_index(&slide).context(SlideNotFoundSnafu { slide: &slide })?;
-                if index >= len {
-                    return Err(IndexOutOfRangeSnafu { index, len }.build().into());
-                }
-                let s = deck.slides.remove(i);
-                deck.slides.insert(index, s);
-                Ok(())
-            }
+            Op::MoveSlide { slide, index } => move_slide(deck, &slide, index),
             Op::SetNotes { slide, notes } => {
                 let s = slide_mut(deck, &slide)?;
                 s.notes = notes;
@@ -680,21 +665,8 @@ impl Op {
                 set_path(&mut deck.tokens, &path, value);
                 Ok(())
             }
-            Op::UnsetToken { path } => {
-                token_path(&path)?;
-                remove_path(&mut deck.tokens, &path);
-                if deck.tokens.as_object().is_some_and(Map::is_empty) {
-                    deck.tokens = Value::Null;
-                }
-                Ok(())
-            }
-            Op::SetTokens { tokens } => {
-                if !(tokens.is_object() || tokens.is_null()) {
-                    return Err(InvalidValueSnafu { field: "tokens", reason: ValueReason::NotTokens }.build().into());
-                }
-                deck.tokens = tokens;
-                Ok(())
-            }
+            Op::UnsetToken { path } => unset_token(deck, &path),
+            Op::SetTokens { tokens } => set_tokens(deck, tokens),
             Op::SetVar { key, value } => {
                 set_or_remove_map(&mut deck.vars, &key, value);
                 Ok(())
@@ -703,132 +675,25 @@ impl Op {
     }
 }
 
-/// `set_param` : paramètre déclaré, valeur convertie par [`param_value`],
-/// lien vers le deck, grille refusée sur une slide à slot `flow` rempli.
-fn set_param(
-    deck: &mut Deck,
-    registry: &WidgetRegistry,
-    target: &Target,
-    param: &str,
-    value: Value,
-) -> Result<(), OpError> {
-    let (kind, params, _) = target_ref(deck, target)?;
-    let schema = widget(registry, kind)?;
-    let p = declared(schema, param)?;
-    let converted = param_value(&p.ty, param, value)?;
-    if p.ty == ParamType::Grid
-        && converted.is_some()
-        && target.element.is_none()
-        && has_filled_flow_slot(schema, params)
-    {
-        return Err(InvalidValueSnafu { field: param, reason: ValueReason::BlocksOffGrid }.build().into());
-    }
-    if let Some(key) = &p.bind {
-        let text = match converted {
-            None => None,
-            Some(ParamValue::Text(s)) => Some(s),
-            Some(_) => return Err(ParamTypeSnafu { param, expected: Shape::Text.or_null() }.build().into()),
-        };
-        deck.params.set_field(key, text);
-        return Ok(());
-    }
-    let (_, params) = target_mut(deck, target)?;
-    match converted {
-        Some(v) => params.set(param, v),
-        None => params.remove(param),
-    };
-    Ok(())
-}
-
-/// `add_element` : slot déclaré qui accepte l'élément, élément connu et
-/// cohérent, identifiants libres, profondeur bornée.
-fn add_element(
-    deck: &mut Deck,
-    registry: &WidgetRegistry,
-    slot: SlotRef,
-    index: Option<usize>,
-    defaults: bool,
-    mut element: Element,
-) -> Result<(), OpError> {
-    let (at, _) = check_add(registry, slide_ref(deck, &slot.owner.slide)?, &slot, index, &mut element)?;
-    if defaults {
-        list::seed_element(registry, &mut element)?;
-    }
-    insert_at(slide_mut(deck, &slot.owner.slide)?, &slot, at, element)
-}
-
-/// Contrôles d'`add_element` dans la slide `s` : rend la position et le mode du slot.
+/// Applies a sequence of ops atomically: on error, the deck
+/// has not changed. The resulting deck is in canonical form
+/// ([`canonicalize`](crate::canonicalize)): the one the replica reads back.
 ///
-/// Slot déclaré qui accepte l'élément, élément connu et cohérent (hôtes
-/// normalisés), identifiants libres dans `s`, profondeur bornée, position
-/// dans les bornes du slot.
-fn check_add(
-    registry: &WidgetRegistry,
-    s: &Slide,
-    slot: &SlotRef,
-    index: Option<usize>,
-    element: &mut Element,
-) -> Result<(usize, SlotMode), OpError> {
-    let SlotRef { owner, param } = slot;
-    // Profondeur du propriétaire en slots sous la slide (0 : la slide).
-    let (kind, params, owner_slots) = match &owner.element {
-        None => (s.kind.as_str(), &s.params, 0),
-        Some(id) => {
-            let l = located(s, id)?;
-            (l.element.kind.as_str(), &l.element.params, l.depth + 1)
-        }
-    };
-    let p = declared(widget(registry, kind)?, param)?;
-    let ParamType::Slot { accepts, mode } = &p.ty else {
-        return Err(ParamTypeSnafu { param, expected: Shape::SetParamOnly.required() }.build().into());
-    };
-    // Une valeur qui n'est pas une liste d'éléments serait écrasée par `slot_mut`.
-    let len = match (params.get(param), params.slot(param)) {
-        (None, _) => 0,
-        (Some(_), Some(list)) => list.len(),
-        (Some(_), None) => {
-            return Err(ParamTypeSnafu { param, expected: Shape::Elements.required() }.build().into());
-        }
-    };
-    check_accepts(accepts.as_deref(), param, &element.kind)?;
-    widget_of(registry, &element.kind, Category::Element)?;
-    host::check_hosts(registry, element)?;
-    check_ids(s.element_ids().collect(), element)?;
-    check_depth(owner_slots, element)?;
-    check_params(registry, &element.kind, Category::Element, &element.params)?;
-    let at = index.unwrap_or(len);
-    if at > len {
-        return Err(IndexOutOfRangeSnafu { index: at, len }.build().into());
-    }
-    Ok((at, *mode))
-}
-
-/// Insère `element` en `at` du slot `slot` de la slide `s` (contrôlé par [`check_add`]).
-fn insert_at(s: &mut Slide, slot: &SlotRef, at: usize, element: Element) -> Result<(), OpError> {
-    let SlotRef { owner, param } = slot;
-    let params = match &owner.element {
-        None => &mut s.params,
-        Some(id) => &mut element_mut(s, id).ok_or_else(|| not_found(&owner.slide, id))?.params,
-    };
-    let list = params.slot_mut(param).context(InvalidValueSnafu { field: param, reason: ValueReason::NotASlot })?;
-    if at > list.len() {
-        return Err(IndexOutOfRangeSnafu { index: at, len: list.len() }.build().into());
-    }
-    list.insert(at, element);
-    Ok(())
-}
-
-/// Applique une suite d'ops de façon atomique : en cas d'erreur, le deck
-/// n'a pas changé. Le deck obtenu est sous forme canonique
-/// ([`canonicalize`](crate::canonicalize)) : celle que relit le replica.
+/// # Errors
+///
+/// The first refused op (see [`Op::apply`]), with its rank in the sequence.
 pub fn apply_all(deck: &mut Deck, ops: Vec<Op>, registry: &WidgetRegistry) -> Result<(), TransactionError> {
     apply_all_moving(deck, ops, registry).map(drop)
 }
 
-/// Comme `apply_all`, et rend les déplacements entre slides de la transaction.
+/// Like `apply_all`, and returns the cross-slide moves of the transaction.
 ///
-/// Un même élément déplacé plusieurs fois donne une entrée, de sa première
-/// slide à la dernière (voir [`Moved`]).
+/// An element moved several times gives one entry, from its first
+/// slide to the last (see [`Moved`]).
+///
+/// # Errors
+///
+/// The first refused op (see [`Op::apply`]), with its rank in the sequence.
 pub fn apply_all_moving(
     deck: &mut Deck,
     ops: Vec<Op>,
@@ -846,7 +711,11 @@ pub fn apply_all_moving(
     Ok(moves)
 }
 
-/// Schéma JSON d'une liste d'ops, pour la sortie structurée des LLM.
+/// JSON schema of a list of ops, for structured LLM output.
+///
+/// # Errors
+///
+/// The generated schema does not convert into a JSON value.
 pub fn ops_schema() -> serde_json::Result<Value> {
     serde_json::to_value(schemars::schema_for!(Vec<Op>))
 }

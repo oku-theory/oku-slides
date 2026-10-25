@@ -76,6 +76,7 @@ impl ImportState {
     }
 
     /// L'état de `slide` dans la file, d'après sa note et ses essais.
+    #[must_use]
     pub fn slide_state(&self, slide: &str) -> SlideState {
         let score = self.plan.report.slides.iter().find(|r| r.slide == slide).and_then(|r| r.score.as_ref());
         SlideState::of(score, self.tuner.tuning(slide), self.threshold, self.tuner.limits())
@@ -132,7 +133,7 @@ impl ImportState {
     ///
     /// Le premier échec arrête tout, rien n'est gardé.
     fn score_all(&mut self, compiled: &RemoteCompiled) -> Result<(), Failure> {
-        let ppp = Geometry::of(&self.source).ppp as f32;
+        let ppp = oku_slides_core::num::narrow_f32(Geometry::of(&self.source).ppp);
         let mut scores = Vec::with_capacity(self.plan.report.slides.len());
         for slide in &self.plan.report.slides {
             let failed = |what: &str| (ReferenceCause::Failed, format!("slide {} : {what}", slide.source));
@@ -163,11 +164,11 @@ impl ImportState {
         let failed = |what: &str| (ReferenceCause::Failed, format!("slide {slide} : {what}"));
         let page = self.reference_page(slide).ok_or_else(|| failed("page du témoin absente"))?;
         let refr = Raster::from_png(page).map_err(|e| (ReferenceCause::Failed, format!("page du témoin : {e}")))?;
-        let g = Geometry::of(&self.source);
-        let (x, y) = (px(g.rect.x, g.ppp), px(g.rect.y, g.ppp));
+        let geo = Geometry::of(&self.source);
+        let (x, y) = (px(geo.rect.x, geo.ppp), px(geo.rect.y, geo.ppp));
         // Rognées à leur taille commune : un arrondi d'un pixel ne prive pas la slide de son score.
-        let w = g.width.min(refr.width()).min(oku.width().saturating_sub(x));
-        let h = px(g.rect.h, g.ppp).min(refr.height()).min(oku.height().saturating_sub(y));
+        let w = geo.width.min(refr.width()).min(oku.width().saturating_sub(x));
+        let h = px(geo.rect.h, geo.ppp).min(refr.height()).min(oku.height().saturating_sub(y));
         Ok((refr.crop(0, 0, w, h), oku.crop(x, y, w, h)))
     }
 

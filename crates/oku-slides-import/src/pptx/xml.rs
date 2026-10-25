@@ -36,8 +36,8 @@ pub(crate) fn shape(text: &str) -> XmlShape {
     let mut attributes = 0usize;
     let skip_to = |from: usize, end: &[u8]| -> usize {
         b.get(from..)
-            .and_then(|rest| rest.windows(end.len()).position(|w| w == end))
-            .map_or(b.len(), |p| from + p + end.len())
+            .and_then(|rest| rest.windows(end.len()).position(|window| window == end))
+            .map_or(b.len(), |pos| from + pos + end.len())
     };
     while i < b.len() {
         if b[i] != b'<' {
@@ -60,8 +60,8 @@ pub(crate) fn shape(text: &str) -> XmlShape {
             let (mut j, mut quote, mut equals) = (i + 1, None::<u8>, 0usize);
             while j < b.len() {
                 match (quote, b[j]) {
-                    (None, q @ (b'"' | b'\'')) => quote = Some(q),
-                    (Some(q), c) if c == q => quote = None,
+                    (None, open @ (b'"' | b'\'')) => quote = Some(open),
+                    (Some(open), byte) if byte == open => quote = None,
                     (None, b'>') => break,
                     (None, b'=') => equals += 1,
                     _ => {}

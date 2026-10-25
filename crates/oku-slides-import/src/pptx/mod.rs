@@ -135,14 +135,14 @@ type Layouts = Vec<(String, usize, LayoutInfo)>; // (part, index dans les master
 
 /// Masters utilisables, leurs layouts lus, et pour chaque layout cité (lu ou non) l'index du
 /// premier master utilisable qui le cite.
-struct Masters {
+struct MasterSet {
     masters: Vec<MasterInfo>,
     layouts: Layouts,
     owner: BTreeMap<String, usize>,
 }
 
 /// Masters utilisables et leurs layouts.
-fn masters(shared: &Shared<'_>, parts: &[String], themes: &[Rc<ThemeData<'_>>]) -> Result<Masters, ImportError> {
+fn masters(shared: &Shared<'_>, parts: &[String], themes: &[Rc<ThemeData<'_>>]) -> Result<MasterSet, ImportError> {
     let mut masters = Vec::new();
     let mut layouts: Layouts = Vec::new();
     let mut owner = BTreeMap::new();
@@ -172,7 +172,7 @@ fn masters(shared: &Shared<'_>, parts: &[String], themes: &[Rc<ThemeData<'_>>]) 
     if masters.is_empty() {
         return Err(structure("no usable slide master"));
     }
-    Ok(Masters { masters, layouts, owner })
+    Ok(MasterSet { masters, layouts, owner })
 }
 
 /// Slides lisibles, dans l'ordre de la présentation.
@@ -182,7 +182,7 @@ fn masters(shared: &Shared<'_>, parts: &[String], themes: &[Rc<ThemeData<'_>>]) 
 fn slides(
     shared: &Shared<'_>,
     parts: &[String],
-    m: &Masters,
+    m: &MasterSet,
     themes: &[Rc<ThemeData<'_>>],
 ) -> Result<Vec<SourceSlide>, ImportError> {
     let by_part: BTreeMap<&str, usize> = m.layouts.iter().enumerate().map(|(k, (p, _, _))| (p.as_str(), k)).collect();
@@ -192,16 +192,11 @@ fn slides(
         let lp = soft(shared.pkg.rels(sp), &shared.sink, sp)?
             .and_then(|r| r.by_type("/slideLayout").first().map(|(_, t)| (*t).to_owned()));
         let entry = lp.as_deref().and_then(|p| by_part.get(p)).and_then(|k| m.layouts.get(*k));
-        let (layout, mi) = match entry {
-            Some((_, mi, l)) => (Some(l), *mi),
-            None => {
-                shared.sink.borrow_mut().warn(
-                    Some(n),
-                    None,
-                    WarningKind::UnreadablePart(clip(&format!("{sp}: layout"))),
-                );
-                (None, lp.as_deref().and_then(|p| m.owner.get(p)).copied().unwrap_or(0))
-            }
+        let (layout, mi) = if let Some((_, mi, l)) = entry {
+            (Some(l), *mi)
+        } else {
+            shared.sink.borrow_mut().warn(Some(n), None, WarningKind::UnreadablePart(clip(&format!("{sp}: layout"))));
+            (None, lp.as_deref().and_then(|p| m.owner.get(p)).copied().unwrap_or(0))
         };
         let master = m.masters.get(mi);
         let (Some(master), Some(theme)) = (master, master.and_then(|m| themes.get(m.master.theme))) else {
@@ -215,10 +210,12 @@ fn slides(
     Ok(out)
 }
 
-/// Lit un `.pptx` et rend sa représentation intermédiaire.
+/// Reads a `.pptx` and returns its intermediate representation.
 ///
-/// Échoue seulement si le paquet est illisible, n'est pas une présentation,
-/// est protégé, n'a aucun master utilisable, ou dépasse `limits`.
+/// # Errors
+///
+/// Fails only if the package is unreadable, is not a presentation, is
+/// protected, has no usable master, or exceeds `limits`.
 pub fn read_pptx(bytes: &[u8], limits: &ReadLimits) -> Result<SourceDeck, ImportError> {
     let pkg = Package::open(bytes, limits)?;
     let nodes = limits.max_xml_nodes;
@@ -257,7 +254,7 @@ pub fn read_pptx(bytes: &[u8], limits: &ReadLimits) -> Result<SourceDeck, Import
         return Err(too_large("slides"));
     }
     let slides = slides(&shared, &slide_parts, &read_masters, &themes)?;
-    let Masters { masters, layouts, .. } = read_masters;
+    let MasterSet { masters, layouts, .. } = read_masters;
 
     let themes_out = themes.iter().map(|t| t.theme.clone()).collect();
     let masters_out: Vec<_> = masters.into_iter().map(|m| m.master).collect();

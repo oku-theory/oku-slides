@@ -51,7 +51,7 @@ fn deck_pack_version(
             None
         }
     };
-    beside_deck(storage, deck_dir.join(kind.files_dir()), max_bytes, pin)
+    beside_deck(storage, &deck_dir.join(kind.files_dir()), max_bytes, pin)
         .and_then(|files| of_pack(files, "deck"))
         .or_else(|| library.version(pin.id, &pin.version).and_then(|files| of_pack(files, "library")))
 }
@@ -60,7 +60,7 @@ fn deck_pack_version(
 ///
 /// Intacte : son contenu donne bien son empreinte ; illisible ou trop grosse, elle est ignorée
 /// (journalisé).
-fn beside_deck(storage: &Storage, kind_dir: std::path::PathBuf, max_bytes: usize, pin: &PackPin) -> Option<PackFiles> {
+fn beside_deck(storage: &Storage, kind_dir: &std::path::Path, max_bytes: usize, pin: &PackPin) -> Option<PackFiles> {
     let dir = kind_dir.join(pin.version.hex());
     let files = match read_pack_dir(storage, &dir, max_bytes) {
         Ok(files) => files?,

@@ -106,20 +106,17 @@ impl Ctx {
     /// Catégorie d'un champ fixe. `Ctx::Params` ne passe pas par ici : voir
     /// [`param_kind`].
     pub(super) fn kind(self, key: &str) -> Kind {
-        use Ctx::*;
+        use Ctx::{Deck, DeckParams, Element, Opaque, PackPins, Params, Slide, Vars};
         match (self, key) {
-            // L'espace de noms du thème du deck : un atome.
-            (Deck, "theme") => Kind::Atom,
+            // Atoms: the namespace of the deck's theme, each pin,
+            // each variable, the id and the widget of a slide or an element.
+            (Deck, "theme") | (PackPins | Vars, _) | (Slide | Element, "id" | "kind") => Kind::Atom,
             (Deck, "widgets" | "layouts" | "themes") => Kind::Nested(PackPins),
-            (PackPins, _) => Kind::Atom,
             (Deck, SLIDES) => Kind::Slides,
             (Deck, "params") => Kind::Nested(DeckParams),
             (Deck, "vars") => Kind::Nested(Vars),
-            (Vars, _) => Kind::Atom,
-            (DeckParams, "title" | "subtitle" | "author" | "date" | "organization") => Kind::Prose,
-            (Slide, "notes") => Kind::Prose,
+            (DeckParams, "title" | "subtitle" | "author" | "date" | "organization") | (Slide, "notes") => Kind::Prose,
             (Slide | Element, "params") => Kind::Nested(Params),
-            (Slide | Element, "id" | "kind") => Kind::Atom,
             _ => Kind::Nested(Opaque),
         }
     }
@@ -190,11 +187,10 @@ fn shape_kind(value: &Value) -> Kind {
 /// La valeur tient-elle dans la catégorie `kind` sans rien perdre ?
 fn fits(kind: Kind, value: &Value) -> bool {
     match (kind, value) {
-        (Kind::Prose, Value::String(_)) | (Kind::Atom, _) => true,
+        (Kind::Prose, Value::String(_)) | (Kind::Atom, _) | (Kind::Host, Value::Object(_)) => true,
         (Kind::Rich, Value::Array(a)) => is_paragraphs(a),
         (Kind::Slot, Value::Array(a)) => a.is_empty() || is_elements(a),
         (Kind::List, Value::Array(a)) => a.is_empty() || is_items(a),
-        (Kind::Host, Value::Object(_)) => true,
         _ => false,
     }
 }

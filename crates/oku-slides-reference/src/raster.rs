@@ -29,21 +29,25 @@ impl Raster {
     }
 
     /// Largeur, en pixels.
+    #[must_use]
     pub fn width(&self) -> u32 {
         self.width
     }
 
     /// Hauteur, en pixels.
+    #[must_use]
     pub fn height(&self) -> u32 {
         self.height
     }
 
     /// Les octets RGBA.
+    #[must_use]
     pub fn rgba(&self) -> &[u8] {
         &self.rgba
     }
 
     /// Le rectangle `x, y, width, height` de l'image, borné à l'image.
+    #[must_use]
     pub fn crop(&self, x: u32, y: u32, width: u32, height: u32) -> Self {
         let (x, y) = (x.min(self.width), y.min(self.height));
         let (width, height) = (width.min(self.width - x), height.min(self.height - y));
@@ -56,11 +60,15 @@ impl Raster {
         Self { width, height, rgba }
     }
 
-    /// L'image agrandie `factor` fois, chaque pixel répété en carré (plus proche voisin).
+    /// The image enlarged `factor` times, each pixel repeated as a square (nearest neighbor).
     ///
-    /// Les pixels restent ceux de l'image : deux images agrandies ainsi se comparent comme
-    /// avant. Un facteur nul, ou un côté qui dépasserait [`MAX_RASTER_SIDE`], est une erreur `Size` ;
-    /// une image vide reste vide, à ses côtés agrandis.
+    /// The pixels stay those of the image: two images enlarged this way compare as
+    /// before. A zero factor, or a side that would exceed [`MAX_RASTER_SIDE`], is a `Size` error;
+    /// an empty image stays empty, with its sides enlarged.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Size`) if `factor` is zero or if an enlarged side exceeds [`MAX_RASTER_SIDE`].
     pub fn scaled(&self, factor: u32) -> Result<Self, ReferenceError> {
         let (width, height) = (self.width.saturating_mul(factor), self.height.saturating_mul(factor));
         ensure!(factor > 0, SizeSnafu { width, height });
@@ -80,8 +88,14 @@ impl Raster {
         Ok(Self { width, height, rgba })
     }
 
-    /// Lit un PNG (RGB ou RGBA 8 bits, couleurs indexées ou gris développés),
-    /// d'au plus [`MAX_RASTER_SIDE`] pixels de côté.
+    /// Reads a PNG of at most [`MAX_RASTER_SIDE`] pixels per side.
+    ///
+    /// Accepts 8-bit RGB or RGBA; indexed or gray colors are expanded.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Png`) if the PNG is unreadable, of an unexpected color type or truncated,
+    /// and (`Size`) if a side is zero or exceeds [`MAX_RASTER_SIDE`].
     pub fn from_png(bytes: &[u8]) -> Result<Self, ReferenceError> {
         let png_err = |e: png::DecodingError| ReferenceError::from(PngSnafu { message: e.to_string() }.build());
         let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
@@ -104,7 +118,12 @@ impl Raster {
         Ok(Self { width, height, rgba })
     }
 
-    /// L'image en PNG RGBA 8 bits.
+    /// The image as an 8-bit RGBA PNG.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Png`) if the encoder rejects the image, for example a byte count
+    /// inconsistent with its sides.
     pub fn to_png(&self) -> Result<Vec<u8>, ReferenceError> {
         let png_err = |e: png::EncodingError| ReferenceError::from(PngSnafu { message: e.to_string() }.build());
         let mut out = Vec::new();

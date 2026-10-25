@@ -76,12 +76,16 @@ pub(super) fn many_layouts(n: usize) -> SourceDeck {
 
 /// Un décor de `n` filets.
 fn rules(owner: &str, n: usize) -> Vec<crate::source::Item> {
-    let geom = || Geometry::Preset { name: "rect".into(), adj: Default::default() };
+    let geom = || Geometry::Preset { name: "rect".into(), adj: std::collections::BTreeMap::default() };
     let fill = Fill::Solid { color: Styled::scheme(office_theme().colors["accent1"], "accent1") };
     (0..n)
         .map(|i| {
             let shape = Shape { geom: geom(), fill: fill.clone(), stroke: None, text: None, connection: None };
-            item(&format!("{owner}/{i}"), (0.0, i as f64, 960.0, 1.0), ItemKind::Shape(Box::new(shape)))
+            item(
+                &format!("{owner}/{i}"),
+                (0.0, oku_slides_core::num::count_f64(i), 960.0, 1.0),
+                ItemKind::Shape(Box::new(shape)),
+            )
         })
         .collect()
 }
@@ -125,7 +129,7 @@ fn synthetic_full() -> SourceDeck {
     deck.assets.insert("sha256:aa".into(), Asset { mime: "image/png".into(), bytes: Vec::new() });
     let accent = Fill::Solid { color: Styled::scheme(office_theme().colors["accent1"], "accent1") };
     let shape = |id: &str, frame, name: &str| {
-        let geom = Geometry::Preset { name: name.into(), adj: Default::default() };
+        let geom = Geometry::Preset { name: name.into(), adj: std::collections::BTreeMap::default() };
         let stroke = Some(Stroke {
             width: 1.0,
             color: Styled::scheme(office_theme().colors["accent2"], "accent2"),

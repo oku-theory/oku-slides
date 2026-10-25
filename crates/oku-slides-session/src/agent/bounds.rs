@@ -36,6 +36,7 @@ fn is_hidden_control(c: char) -> bool {
 ///
 /// La coupure compte le « … » final. Pour un texte montré tel quel, sans être refusé
 /// (détail d'un outil, texte entier d'une note).
+#[must_use]
 pub fn clip(text: &str, max: usize) -> String {
     if max == 0 {
         return String::new();
@@ -49,7 +50,12 @@ pub fn clip(text: &str, max: usize) -> String {
     out
 }
 
-/// Refuse un texte de l'agent trop long (`max` caractères) ou contenant un contrôle invisible.
+/// Rejects agent text that is too long (`max` characters) or holds an invisible control.
+///
+/// # Errors
+///
+/// Fails (`AgentForm`) if `text` exceeds `max` characters or contains an invisible or
+/// bidirectional control.
 pub fn check_text(what: &str, text: &str, max: usize) -> Result<()> {
     let n = text.chars().count();
     ensure!(n <= max, AgentFormSnafu { reason: AgentFormReason::TooLong { at: what.to_owned(), count: n, max } });
@@ -60,8 +66,13 @@ pub fn check_text(what: &str, text: &str, max: usize) -> Result<()> {
     Ok(())
 }
 
-/// Refuse des options aux identifiants en double (la valeur choisie doit en désigner une seule, sans
-/// dédoublonnage silencieux), ou dont l'identifiant, le libellé ou l'indice dépasse les bornes.
+/// Rejects options with duplicate ids, or an id, label or index out of bounds.
+///
+/// The chosen value must designate exactly one option, with no silent deduplication.
+///
+/// # Errors
+///
+/// Fails (`AgentForm`) on a duplicate id, or an id, label or index out of bounds.
 pub fn check_options(what: &str, options: &[ChoiceOption]) -> Result<()> {
     let mut seen = std::collections::HashSet::with_capacity(options.len());
     for (i, option) in options.iter().enumerate() {
@@ -80,8 +91,13 @@ pub fn check_options(what: &str, options: &[ChoiceOption]) -> Result<()> {
     Ok(())
 }
 
-/// Refuse une couleur qui n'est pas `#rgb`, `#rgba`, `#rrggbb` ou `#rrggbbaa` (la valeur
-/// citée dans le refus est coupée à [`LABEL_MAX`] caractères).
+/// Rejects a color that is not `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`.
+///
+/// The value quoted in the rejection is cut to [`LABEL_MAX`] characters.
+///
+/// # Errors
+///
+/// Fails (`AgentForm`, `NotHexColor`) if `color` is not an accepted hexadecimal color.
 pub fn check_hex(what: &str, color: &str) -> Result<()> {
     let hex = color.strip_prefix('#').unwrap_or_default();
     ensure!(

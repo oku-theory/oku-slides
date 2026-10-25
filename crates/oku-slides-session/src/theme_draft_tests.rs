@@ -13,7 +13,7 @@ fn p(path: &[&str]) -> Vec<String> {
 }
 
 fn object(v: Value) -> Map<String, Value> {
-    v.as_object().cloned().unwrap_or_default()
+    serde_json::from_value(v).unwrap_or_default()
 }
 
 /// Une session en mode pack dont le brouillon part du thème `namespace` (pris pour le deck d'abord).

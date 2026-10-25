@@ -1,4 +1,5 @@
 //! Widget `table` : rendu Typst natif, mise à l'échelle, garde des données, jetons.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -14,7 +15,7 @@ use speculoos::prelude::*;
 /// Hauteur de page, en pt : `page.height` de `default-tokens.json`.
 const PAGE_H: f64 = 1080.0;
 
-fn deck_of(slides: Value, tokens: Option<Value>) -> Deck {
+fn deck_of(slides: &Value, tokens: Option<Value>) -> Deck {
     let mut d = json!({ "slides": slides });
     if let Some(t) = tokens {
         d["tokens"] = t;
@@ -23,7 +24,7 @@ fn deck_of(slides: Value, tokens: Option<Value>) -> Deck {
 }
 
 /// Une slide de contenu dont l'unique bloc est le tableau `t1`.
-fn in_flow(data: Value) -> Value {
+fn in_flow(data: &Value) -> Value {
     json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
         "blocks": [{ "id": "t1", "kind": base::TABLE, "params": { "data": data } }] } }])
 }
@@ -37,7 +38,7 @@ fn rows(n: usize) -> Value {
 /// La slide de `in_flow`, avec un tableau sans `data`.
 fn placeholder() -> Deck {
     deck_of(
-        json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
+        &json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
         "blocks": [{ "id": "t1", "kind": base::TABLE }] } }]),
         None,
     )
@@ -66,8 +67,8 @@ fn hash(d: &Deck) -> u64 {
     h.finish()
 }
 
-fn flow_hash(data: Value) -> u64 {
-    hash(&deck_of(in_flow(data), None))
+fn flow_hash(data: &Value) -> u64 {
+    hash(&deck_of(&in_flow(data), None))
 }
 
 /// Slide vide : un tableau au cadre 300×120 en (10, 10), puis un rectangle
@@ -81,7 +82,7 @@ fn covered(table: Option<Value>) -> Deck {
     elements
         .push(json!({ "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
         "frame": { "x": 6, "y": 6, "w": 308, "h": 128 } }));
-    deck_of(json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
+    deck_of(&json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
 }
 
 #[test]
@@ -118,7 +119,7 @@ fn table_with_a_long_cjk_cell_draws_nothing_outside_its_frame() {
 
 #[test]
 fn tall_table_in_flow_keeps_its_box_on_the_page() {
-    let c = compile(&deck_of(in_flow(rows(60)), None));
+    let c = compile(&deck_of(&in_flow(&rows(60)), None));
     let b = c.layout().boxes.iter().find(|b| b.id == "t1").cloned().unwrap_or_else(|| panic!("boîte t1 absente"));
     assert_that!(c.page_count()).is_equal_to(1);
     assert_that!(b.y + b.h).is_less_than_or_equal_to(PAGE_H);
@@ -134,7 +135,7 @@ fn covered_in_stack(table: Option<Value>) -> Deck {
         { "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
             "frame": { "x": 6, "y": 6, "w": 308, "h": 128 } },
     ]);
-    deck_of(json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
+    deck_of(&json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
 }
 
 #[test]
@@ -145,8 +146,8 @@ fn tall_table_in_flow_draws_nothing_below_the_height_left_to_it() {
 #[test]
 fn table_in_flow_grows_with_its_rows() {
     let height = |n| {
-        let c = compile(&deck_of(in_flow(rows(n)), None));
-        c.layout().boxes.iter().find(|b| b.id == "t1").map(|b| b.h).unwrap_or_else(|| panic!("boîte t1 absente"))
+        let c = compile(&deck_of(&in_flow(&rows(n)), None));
+        c.layout().boxes.iter().find(|b| b.id == "t1").map_or_else(|| panic!("boîte t1 absente"), |b| b.h)
     };
     assert_that!(height(6)).is_greater_than(height(2));
 }
@@ -154,7 +155,7 @@ fn table_in_flow_grows_with_its_rows() {
 #[test]
 fn table_without_data_differs_from_an_unknown_element() {
     let unknown = deck_of(
-        json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
+        &json!([{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T",
         "blocks": [{ "id": "t1", "kind": "inconnu" }] } }]),
         None,
     );
@@ -168,13 +169,13 @@ fn malformed_table_data_renders_the_placeholder() {
         json!({ "dataset": "x" }),
         json!({ "dataset": { "source": [["A"]] }, "header-row": "oui" }),
     ] {
-        assert_that!(flow_hash(bad)).is_equal_to(hash(&placeholder()));
+        assert_that!(flow_hash(&bad)).is_equal_to(hash(&placeholder()));
     }
 }
 
 #[test]
 fn oversized_table_data_renders_the_placeholder() {
-    assert_that!(flow_hash(rows(200))).is_equal_to(hash(&placeholder()));
+    assert_that!(flow_hash(&rows(200))).is_equal_to(hash(&placeholder()));
 }
 
 /// Un widget de pack à paramètre `host("table")` : un bloc haut d'un pt par ligne reçue (10 pt sans données).
@@ -189,7 +190,7 @@ fn table_of_a_pack_widget_is_sanitized_before_typst() {
     let pack = common::pack("grid", &[("grid", GRID)]);
     let layout = common::render_with_packs(
         &[pack],
-        json!([{ "id": "g", "kind": "test/grid", "params": { "data": rows(500) } }]),
+        &json!([{ "id": "g", "kind": "test/grid", "params": { "data": rows(500) } }]),
     );
     // Comme pour `base/table` : au-delà de 100 lignes, les données sont retirées avant Typst.
     assert_that!(common::box_of(&layout, "g").h).is_less_than(20.0);
@@ -198,53 +199,53 @@ fn table_of_a_pack_widget_is_sanitized_before_typst() {
 #[test]
 fn markup_in_cells_stays_literal() {
     let data = json!({ "dataset": { "source": [["#panic(\"x\")", "$x$"], ["*b* @ref <l>", "] \\"]] } });
-    assert_that!(compile(&deck_of(in_flow(data), None)).page_count()).is_equal_to(1);
+    assert_that!(compile(&deck_of(&in_flow(&data), None)).page_count()).is_equal_to(1);
 }
 
 #[test]
 fn header_column_changes_the_page() {
-    assert_that!(flow_hash(with(rows(3), "header-column", json!(true)))).is_not_equal_to(flow_hash(rows(3)));
+    assert_that!(flow_hash(&with(rows(3), "header-column", json!(true)))).is_not_equal_to(flow_hash(&rows(3)));
 }
 
 #[test]
 fn header_row_off_changes_the_page() {
-    assert_that!(flow_hash(with(rows(3), "header-row", json!(false)))).is_not_equal_to(flow_hash(rows(3)));
+    assert_that!(flow_hash(&with(rows(3), "header-row", json!(false)))).is_not_equal_to(flow_hash(&rows(3)));
 }
 
 #[test]
 fn striped_changes_the_page() {
-    assert_that!(flow_hash(with(rows(4), "striped", json!(true)))).is_not_equal_to(flow_hash(rows(4)));
+    assert_that!(flow_hash(&with(rows(4), "striped", json!(true)))).is_not_equal_to(flow_hash(&rows(4)));
 }
 
 #[test]
 fn auto_alignment_of_a_number_column_equals_end() {
-    assert_that!(flow_hash(with(rows(3), "align", json!(["auto", "end"])))).is_equal_to(flow_hash(rows(3)));
+    assert_that!(flow_hash(&with(rows(3), "align", json!(["auto", "end"])))).is_equal_to(flow_hash(&rows(3)));
 }
 
 #[test]
 fn start_alignment_of_a_number_column_changes_the_page() {
-    assert_that!(flow_hash(with(rows(3), "align", json!(["auto", "start"])))).is_not_equal_to(flow_hash(rows(3)));
+    assert_that!(flow_hash(&with(rows(3), "align", json!(["auto", "start"])))).is_not_equal_to(flow_hash(&rows(3)));
 }
 
 #[test]
 fn header_tokens_change_the_page() {
     let themed =
-        deck_of(in_flow(rows(2)), Some(json!({ "component": { "base": { "table": { "header-bg": "#ff0000" } } } })));
-    assert_that!(hash(&themed)).is_not_equal_to(flow_hash(rows(2)));
+        deck_of(&in_flow(&rows(2)), Some(json!({ "component": { "base": { "table": { "header-bg": "#ff0000" } } } })));
+    assert_that!(hash(&themed)).is_not_equal_to(flow_hash(&rows(2)));
 }
 
 #[test]
 fn zero_padding_single_empty_cell_compiles() {
     let tokens = json!({ "component": { "base": { "table": { "padding-x": 0, "padding-y": 0 } } } });
-    let d = deck_of(in_flow(json!({ "dataset": { "source": [[null]] } })), Some(tokens));
+    let d = deck_of(&in_flow(&json!({ "dataset": { "source": [[null]] } })), Some(tokens));
     assert_that!(compile(&d).page_count()).is_equal_to(1);
     assert_that!(hash(&d)).is_not_equal_to(hash(&placeholder()));
 }
 
 /// Empreinte d'un tableau à une colonne `cell` (alignée à la fin), dans un deck de langue `lang`.
-fn lang_hash(lang: Option<&str>, cell: Value) -> u64 {
+fn lang_hash(lang: Option<&str>, cell: &Value) -> u64 {
     let data = json!({ "dataset": { "source": [["Montant"], [cell]] }, "align": ["end"] });
-    let mut d = json!({ "slides": in_flow(data) });
+    let mut d = json!({ "slides": in_flow(&data) });
     if let Some(l) = lang {
         d["params"] = json!({ "lang": l });
     }
@@ -258,7 +259,7 @@ fn number_cells_follow_the_deck_language() {
         ("fr", 1234.5, "1234,5"),
         ("en", 12345.5, "12,345.5"),
         ("de-CH", 12345.5, "12.345,5"),
-        ("ru", 100000.0, "100\u{00A0}000"),
+        ("ru", 100_000.0, "100\u{00A0}000"),
         // Le signe de Typst (« − ») reste le sien.
         ("fr", -12345.5, "\u{2212}12\u{202F}345,5"),
         ("en", -0.25, "\u{2212}0.25"),
@@ -267,19 +268,19 @@ fn number_cells_follow_the_deck_language() {
     ];
     for (lang, n, written) in cases {
         asserting(&format!("{lang} {n}"))
-            .that(&lang_hash(Some(lang), json!(n)))
-            .is_equal_to(lang_hash(Some(lang), json!(written)));
+            .that(&lang_hash(Some(lang), &json!(n)))
+            .is_equal_to(lang_hash(Some(lang), &json!(written)));
     }
 }
 
 #[test]
 fn number_cells_without_deck_language_stay_plain() {
-    assert_that!(lang_hash(None, json!(12345.5))).is_equal_to(lang_hash(None, json!("12345.5")));
+    assert_that!(lang_hash(None, &json!(12345.5))).is_equal_to(lang_hash(None, &json!("12345.5")));
 }
 
 #[test]
 fn number_cells_in_french_differ_from_plain() {
-    assert_that!(lang_hash(Some("fr"), json!(12345.5))).is_not_equal_to(lang_hash(Some("fr"), json!("12345.5")));
+    assert_that!(lang_hash(Some("fr"), &json!(12345.5))).is_not_equal_to(lang_hash(Some("fr"), &json!("12345.5")));
 }
 
 /// Pixels RGBA de la page 1, à 1 px par pt.
@@ -302,7 +303,7 @@ fn right_edge(w: f64) -> Deck {
         { "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
             "frame": { "x": 0, "y": 0, "w": 300, "h": 140 } },
     ]);
-    deck_of(json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
+    deck_of(&json!([{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }]), None)
 }
 
 #[test]
@@ -319,14 +320,14 @@ fn empty_text_column_beside_numbers_compiles() {
     // Une colonne vide a quand même une largeur naturelle (marges + 0,1 pt) :
     // l'excédent lui revient sans division par zéro.
     let data = json!({ "header-row": false, "dataset": { "source": [[null, 1], [null, 2]] } });
-    assert_that!(compile(&deck_of(in_flow(data), None)).page_count()).is_equal_to(1);
+    assert_that!(compile(&deck_of(&in_flow(&data), None)).page_count()).is_equal_to(1);
 }
 
 #[test]
 fn body_bg_token_changes_the_page_and_null_does_not() {
     let painted =
-        deck_of(in_flow(rows(2)), Some(json!({ "component": { "base": { "table": { "body-bg": "#00ff00" } } } })));
-    assert_that!(hash(&painted)).is_not_equal_to(flow_hash(rows(2)));
-    let bare = deck_of(in_flow(rows(2)), Some(json!({ "component": { "base": { "table": { "body-bg": null } } } })));
-    assert_that!(hash(&bare)).is_equal_to(flow_hash(rows(2)));
+        deck_of(&in_flow(&rows(2)), Some(json!({ "component": { "base": { "table": { "body-bg": "#00ff00" } } } })));
+    assert_that!(hash(&painted)).is_not_equal_to(flow_hash(&rows(2)));
+    let bare = deck_of(&in_flow(&rows(2)), Some(json!({ "component": { "base": { "table": { "body-bg": null } } } })));
+    assert_that!(hash(&bare)).is_equal_to(flow_hash(&rows(2)));
 }

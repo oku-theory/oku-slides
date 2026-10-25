@@ -101,12 +101,12 @@ fn framed_meta(id: &str, w: u32) -> Vec<(&str, LoroValue)> {
     meta
 }
 
-fn blocks_slot() -> Option<&'static [(&'static str, &'static str)]> {
-    Some(&[("", "blocks")])
+fn blocks_slot() -> &'static [(&'static str, &'static str)] {
+    &[("", "blocks")]
 }
 
-fn elements_slot() -> Option<&'static [(&'static str, &'static str)]> {
-    Some(&[("", "elements")])
+fn elements_slot() -> &'static [(&'static str, &'static str)] {
+    &[("", "elements")]
 }
 
 fn no_duplicate_id(deck: &Deck) {
@@ -117,8 +117,8 @@ fn no_duplicate_id(deck: &Deck) {
 #[test]
 fn read_exact_copies_in_one_slot_keep_one() {
     let r = new(&roadmap());
-    forge(&r, "s-constat", None, &text_meta("x"), blocks_slot());
-    forge(&r, "s-constat", None, &text_meta("x"), blocks_slot());
+    forge(&r, "s-constat", None, &text_meta("x"), Some(blocks_slot()));
+    forge(&r, "s-constat", None, &text_meta("x"), Some(blocks_slot()));
     let (read, issues) = reread(&r);
     assert_that!(ids_in(&read, "s-constat", None, "blocks")).is_equal_to(vec!["b-points".to_owned(), "x".into()]);
     assert_that!(issues).is_empty();
@@ -128,8 +128,8 @@ fn read_exact_copies_in_one_slot_keep_one() {
 #[test]
 fn read_copies_in_two_slots_rename_the_second() {
     let r = new(&roadmap());
-    forge(&r, "s-constat", None, &text_meta("x"), blocks_slot());
-    forge(&r, "s-constat", None, &framed_meta("x", 10), elements_slot());
+    forge(&r, "s-constat", None, &text_meta("x"), Some(blocks_slot()));
+    forge(&r, "s-constat", None, &framed_meta("x", 10), Some(elements_slot()));
     let (read, issues) = reread(&r);
     assert_that!(ids_in(&read, "s-constat", None, "blocks")).is_equal_to(vec!["b-points".to_owned(), "x".into()]);
     assert_that!(ids_in(&read, "s-constat", None, "elements")).is_equal_to(vec!["x-2".to_owned()]);
@@ -140,8 +140,8 @@ fn read_copies_in_two_slots_rename_the_second() {
 #[test]
 fn read_diverged_copies_rename_the_later_occurrence() {
     let r = new(&roadmap());
-    forge(&r, "s-constat", None, &text_meta("x"), blocks_slot());
-    forge(&r, "s-constat", None, &framed_meta("x", 77), blocks_slot());
+    forge(&r, "s-constat", None, &text_meta("x"), Some(blocks_slot()));
+    forge(&r, "s-constat", None, &framed_meta("x", 77), Some(blocks_slot()));
     let (read, issues) = reread(&r);
     assert_that!(ids_in(&read, "s-constat", None, "blocks")).is_equal_to(vec![
         "b-points".to_owned(),

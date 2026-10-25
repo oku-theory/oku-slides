@@ -22,29 +22,30 @@ pub const MAX_TABLE_COLUMNS: usize = 20;
 /// Caractères au plus dans une cellule de texte.
 pub const MAX_TABLE_CELL_CHARS: usize = 1000;
 
-/// Options d'un tableau : ses données et leur affichage.
+/// Options of a table: its data and their display.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct TableOption {
-    /// Données ; ligne 0 = noms de colonnes.
+    /// Data; row 0 holds the column names.
     pub dataset: Dataset,
-    /// Ligne 0 affichée en en-tête.
+    /// Row 0 shown as a header.
     #[serde(default = "default_true")]
     pub header_row: bool,
-    /// Colonne 0 affichée en en-tête (libellés des lignes).
+    /// Column 0 shown as a header (row labels).
     #[serde(default)]
     pub header_column: bool,
-    /// Une ligne de données sur deux sur fond.
+    /// Every other data row on a background.
     #[serde(default)]
     pub striped: bool,
-    /// Alignement de chaque colonne ; une colonne sans entrée vaut `auto`.
+    /// Alignment of each column; a column without an entry is `auto`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub align: Vec<ColumnAlign>,
-    /// Options du graphique d'origine, sans `dataset`, gardées pour le restaurer.
+    /// Options of the original chart, without `dataset`, kept to restore it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chart: Option<Value>,
-    /// Identifiants des colonnes du graphique d'origine (`dataset.columns`) : la série i
-    /// y lit la colonne i + 1. Identifiants distincts. Vide sans `chart`.
+    /// Column identifiers of the original chart (`dataset.columns`).
+    ///
+    /// Series i reads column i + 1 there. Identifiers are distinct; empty without `chart`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chart_columns: Vec<String>,
 }
@@ -53,21 +54,26 @@ fn default_true() -> bool {
     true
 }
 
-/// Alignement d'une colonne de tableau.
+/// Alignment of a table column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ColumnAlign {
-    /// À la fin pour une colonne de nombres, au début sinon.
+    /// At the end for a column of numbers, at the start otherwise.
     Auto,
-    /// Au début de la ligne (à gauche en français).
+    /// At the start of the line (left in a left-to-right script).
     Start,
-    /// Centré.
+    /// Centered.
     Center,
-    /// À la fin de la ligne (à droite en français).
+    /// At the end of the line (right in a left-to-right script).
     End,
 }
 
-/// Lit et valide les options d'un tableau.
+/// Reads and validates a table's options.
+///
+/// # Errors
+///
+/// Fails if the JSON leaves a table's schema, or if the table is empty,
+/// ragged, too large or carries invalid identifiers.
 pub fn parse_table(v: &Value) -> Result<TableOption> {
     let mut option = TableOption::deserialize(v).context(InvalidOptionSnafu)?;
     tidy(&mut option);
@@ -143,7 +149,11 @@ fn check_growth(option: &TableOption, change: &DataOp) -> Result<()> {
     Ok(())
 }
 
-/// `set_data` sur un tableau : applique `change`, recale `align`, valide.
+/// `set_data` on a table: applies `change`, realigns `align`, validates.
+///
+/// # Errors
+///
+/// Fails if the operation is impossible or would exceed the table limits.
 pub fn table_data(option: &TableOption, change: &DataOp) -> Result<TableOption> {
     check_growth(option, change)?;
     let mut next = option.clone();
@@ -160,7 +170,11 @@ pub fn table_data(option: &TableOption, change: &DataOp) -> Result<TableOption> 
     Ok(next)
 }
 
-/// Merge patch (RFC 7396) sur les options hors `dataset` ; rend le patch inverse.
+/// Merge patch (RFC 7396) on the options outside `dataset`; returns the inverse patch.
+///
+/// # Errors
+///
+/// Fails if the patch touches `dataset`, is not an object or makes the table invalid.
 pub fn patch_table(option: &TableOption, patch: &Value) -> Result<(TableOption, Value)> {
     let (mut next, inverse) = merge_patch(option, patch)?;
     tidy(&mut next);

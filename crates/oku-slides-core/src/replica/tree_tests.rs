@@ -49,7 +49,7 @@ pub(super) fn text(id: &str, t: &str) -> Value {
 }
 
 /// Ajoute `element` au slot `param` de `owner` (`None` : la slide `s-constat`).
-pub(super) fn add(owner: Option<&str>, param: &str, index: Option<usize>, element: Value) -> Op {
+pub(super) fn add(owner: Option<&str>, param: &str, index: Option<usize>, element: &Value) -> Op {
     let owner = match owner {
         Some(e) => json!({ "slide": "s-constat", "element": e }),
         None => json!({ "slide": "s-constat" }),
@@ -65,12 +65,12 @@ pub(super) fn remove(id: &str) -> Op {
 pub(super) fn two_slots() -> Deck {
     let mut n = text("n", "Note libre");
     n["frame"] = json!({ "x": 100, "y": 100, "w": 400, "h": 200 });
-    with_ops(&roadmap(), vec![add(None, "elements", None, n)])
+    with_ops(&roadmap(), vec![add(None, "elements", None, &n)])
 }
 
 /// `roadmap` et un `stack` `pile` dans `blocks` de `s-constat`.
 pub(super) fn with_pile() -> Deck {
-    with_ops(&roadmap(), vec![add(None, "blocks", None, json!({ "id": "pile", "kind": "base/stack" }))])
+    with_ops(&roadmap(), vec![add(None, "blocks", None, &json!({ "id": "pile", "kind": "base/stack" }))])
 }
 
 pub(super) fn new(deck: &Deck) -> DeckReplica {
@@ -355,8 +355,8 @@ fn round_trip_nested_children_is_identical() {
     let deck = with_ops(
         &with_pile(),
         vec![
-            add(Some("pile"), "children", None, text("k1", "Un")),
-            add(Some("pile"), "children", None, text("k2", "Deux")),
+            add(Some("pile"), "children", None, &text("k1", "Un")),
+            add(Some("pile"), "children", None, &text("k2", "Deux")),
         ],
     );
     let (read, issues) = reread(&new(&deck));
@@ -381,8 +381,10 @@ fn apply_move_across_slots_keeps_the_tree_node() {
         panic!("b-points absent")
     };
     moved.frame = Some(crate::Frame { x: 0.0, y: 0.0, w: 400.0, h: 200.0 });
-    let target =
-        with_ops(&deck, vec![remove("b-points"), add(None, "elements", None, ok(serde_json::to_value(moved)))]);
+    let target = with_ops(
+        &deck,
+        vec![remove("b-points"), add(None, "elements", None, ok(serde_json::to_value(moved).as_ref()))],
+    );
     apply(&mut r, &target);
     let (tree, after) = node_of(&r.doc, "s-constat", "b-points");
     assert_that!(after).is_equal_to(before);
@@ -398,8 +400,10 @@ fn apply_move_into_a_child_slot_keeps_the_tree_node() {
     let Some(moved) = deck.slide("s-constat").and_then(|s| s.locate("b-points")).map(|l| l.element.clone()) else {
         panic!("b-points absent")
     };
-    let target =
-        with_ops(&deck, vec![remove("b-points"), add(Some("pile"), "children", None, ok(serde_json::to_value(moved)))]);
+    let target = with_ops(
+        &deck,
+        vec![remove("b-points"), add(Some("pile"), "children", None, ok(serde_json::to_value(moved).as_ref()))],
+    );
     apply(&mut r, &target);
     let (tree, after) = node_of(&r.doc, "s-constat", "b-points");
     let (_, pile) = node_of(&r.doc, "s-constat", "pile");
@@ -547,7 +551,8 @@ fn reapply_after_a_move_across_slots_writes_nothing() {
         panic!("n absent")
     };
     let moved = Element { frame: None, ..moved };
-    let target = with_ops(&deck, vec![remove("n"), add(None, "blocks", Some(0), ok(serde_json::to_value(moved)))]);
+    let target =
+        with_ops(&deck, vec![remove("n"), add(None, "blocks", Some(0), ok(serde_json::to_value(moved).as_ref()))]);
     apply(&mut r, &target);
     assert_that!(ids_in(&r.deck().0, "s-constat", None, "blocks")).is_equal_to(vec!["n".to_owned(), "b-points".into()]);
     assert_that!(ids_in(&r.deck().0, "s-constat", None, "elements")).is_empty();
@@ -568,8 +573,8 @@ fn reapply_after_concurrent_inserts_in_two_slots_writes_nothing() {
     ok(b.doc.set_peer_id(2));
     let mut free = text("na", "Libre A");
     free["frame"] = json!({ "x": 0, "y": 0, "w": 100, "h": 100 });
-    apply(&mut a, &with_ops(&deck, vec![add(None, "elements", Some(0), free)]));
-    apply(&mut b, &with_ops(&deck, vec![add(None, "blocks", None, text("nb", "Flux B"))]));
+    apply(&mut a, &with_ops(&deck, vec![add(None, "elements", Some(0), &free)]));
+    apply(&mut b, &with_ops(&deck, vec![add(None, "blocks", None, &text("nb", "Flux B"))]));
     exchange(&mut a, &mut b);
     // Les deux slots entrelacent leurs nœuds dans l'ordre brut des enfants.
     for r in [&a, &b] {
@@ -625,8 +630,8 @@ fn removing_an_owner_removes_its_subtree() {
     let deck = with_ops(
         &with_pile(),
         vec![
-            add(Some("pile"), "children", None, text("k1", "Un")),
-            add(Some("pile"), "children", None, text("k2", "Deux")),
+            add(Some("pile"), "children", None, &text("k1", "Un")),
+            add(Some("pile"), "children", None, &text("k2", "Deux")),
         ],
     );
     let mut r = new(&deck);
@@ -640,10 +645,10 @@ fn removing_an_owner_removes_its_subtree() {
 
 #[test]
 fn removing_an_owner_while_moving_its_child_out_keeps_the_child() {
-    let deck = with_ops(&with_pile(), vec![add(Some("pile"), "children", None, text("k", "Gardé"))]);
+    let deck = with_ops(&with_pile(), vec![add(Some("pile"), "children", None, &text("k", "Gardé"))]);
     let mut r = new(&deck);
     let (_, k) = node_of(&r.doc, "s-constat", "k");
-    let target = with_ops(&deck, vec![remove("k"), remove("pile"), add(None, "blocks", None, text("k", "Gardé"))]);
+    let target = with_ops(&deck, vec![remove("k"), remove("pile"), add(None, "blocks", None, &text("k", "Gardé"))]);
     apply(&mut r, &target);
     assert_that!(ids_in(&r.deck().0, "s-constat", None, "blocks")).is_equal_to(vec!["b-points".to_owned(), "k".into()]);
     assert_that!(node_of(&r.doc, "s-constat", "k").1).is_equal_to(k);
@@ -808,7 +813,7 @@ fn concurrent_crossed_nesting_moves_converge_without_cycle() {
     let pile = |id: &str| json!({ "id": id, "kind": "base/stack" });
     let deck = with_ops(
         &roadmap(),
-        vec![add(None, "blocks", None, pile("pile-a")), add(None, "blocks", None, pile("pile-b"))],
+        vec![add(None, "blocks", None, &pile("pile-a")), add(None, "blocks", None, &pile("pile-b"))],
     );
     assert_that!(ids_in(&deck, "s-constat", None, "blocks")).is_equal_to(vec![
         "b-points".to_owned(),
@@ -824,7 +829,7 @@ fn concurrent_crossed_nesting_moves_converge_without_cycle() {
         let Some(moved) = deck.slide("s-constat").and_then(|s| s.locate(id)).map(|l| l.element.clone()) else {
             panic!("{id} absent")
         };
-        with_ops(&deck, vec![remove(id), add(Some(owner), "children", None, ok(serde_json::to_value(moved)))])
+        with_ops(&deck, vec![remove(id), add(Some(owner), "children", None, ok(serde_json::to_value(moved).as_ref()))])
     };
     apply(&mut a, &nest("pile-b", "pile-a"));
     apply(&mut b, &nest("pile-a", "pile-b"));

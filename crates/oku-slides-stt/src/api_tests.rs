@@ -9,7 +9,7 @@ use crate::test_support::fake_api;
 
 #[test]
 fn wav_one_second_parses_back_at_16k_mono() {
-    let (rate, samples) = crate::audio::parse_wav(&wav(&vec![0.25; 16_000])).unwrap();
+    let (rate, samples) = crate::audio::parse_wav(&wav(&vec![0.25; 16_000]).unwrap()).unwrap();
     assert_that!(rate).is_equal_to(SAMPLE_RATE);
     assert_that!(samples).has_length(16_000);
 }

@@ -17,8 +17,8 @@ fn with_pile_and_children() -> Deck {
     with_ops(
         &with_pile(),
         vec![
-            add(Some("pile"), "children", None, text("k1", "Un")),
-            add(Some("pile"), "children", None, text("k2", "Deux")),
+            add(Some("pile"), "children", None, &text("k1", "Un")),
+            add(Some("pile"), "children", None, &text("k2", "Deux")),
         ],
     )
 }
@@ -178,7 +178,7 @@ fn undo_of_a_removal_after_the_id_was_readded_reads_unique_ids() {
     let removed = without(&deck, "b-points");
     apply(&mut a, &removed);
     exchange(&mut a, &mut b);
-    apply(&mut b, &with_ops(&removed, vec![add(None, "blocks", None, text("b-points", "neuf"))]));
+    apply(&mut b, &with_ops(&removed, vec![add(None, "blocks", None, &text("b-points", "neuf"))]));
     exchange(&mut a, &mut b);
     assert_that!(ok(a.undo())).is_true();
     exchange(&mut a, &mut b);
@@ -211,7 +211,7 @@ fn undo_of_an_owner_removal_brings_back_a_child_moved_in_by_the_peer() {
     let (mut a, mut b) = fixed_peers(&deck, 1, 2);
     apply(&mut a, &without(&deck, "pile"));
     let points = element(&deck, "b-points");
-    apply(&mut b, &with_ops(&deck, vec![remove("b-points"), add(Some("pile"), "children", None, points)]));
+    apply(&mut b, &with_ops(&deck, vec![remove("b-points"), add(Some("pile"), "children", None, &points)]));
     exchange(&mut a, &mut b);
     for r in [&a, &b] {
         let (read, issues) = r.deck();
@@ -240,12 +240,12 @@ fn undo_of_an_owner_removal_brings_back_a_child_moved_in_by_the_peer() {
 fn undo_of_an_add_marks_the_node_and_hides_a_child_moved_in_by_the_peer() {
     let deck = roadmap();
     let (mut a, mut b) = fixed_peers(&deck, 1, 2);
-    let added = with_ops(&deck, vec![add(None, "blocks", None, json!({ "id": "pile", "kind": "base/stack" }))]);
+    let added = with_ops(&deck, vec![add(None, "blocks", None, &json!({ "id": "pile", "kind": "base/stack" }))]);
     apply(&mut a, &added);
     exchange(&mut a, &mut b);
     let (_, pile) = node_of(&a.doc, "s-constat", "pile");
     let points = element(&deck, "b-points");
-    apply(&mut b, &with_ops(&added, vec![remove("b-points"), add(Some("pile"), "children", None, points)]));
+    apply(&mut b, &with_ops(&added, vec![remove("b-points"), add(Some("pile"), "children", None, &points)]));
     exchange(&mut a, &mut b);
     assert_that!(ok(a.undo())).is_true();
     exchange(&mut a, &mut b);
@@ -270,13 +270,13 @@ fn undo_of_an_add_marks_the_node_and_hides_a_child_moved_in_by_the_peer() {
 fn undo_of_a_move_after_the_peer_undid_the_add_leaves_no_empty_node() {
     let deck = roadmap();
     let (mut a, mut b) = fixed_peers(&deck, 1, 2);
-    let added = with_ops(&deck, vec![add(None, "blocks", Some(0), text("e", "Éphémère"))]);
+    let added = with_ops(&deck, vec![add(None, "blocks", Some(0), &text("e", "Éphémère"))]);
     apply(&mut b, &added);
     exchange(&mut a, &mut b);
     let (_, node) = node_of(&a.doc, "s-constat", "e");
     let mut e = element(&added, "e");
     e["frame"] = json!({ "x": 0, "y": 0, "w": 400, "h": 200 });
-    apply(&mut a, &with_ops(&added, vec![remove("e"), add(None, "elements", None, e)]));
+    apply(&mut a, &with_ops(&added, vec![remove("e"), add(None, "elements", None, &e)]));
     assert_that!(ok(b.undo())).is_true();
     exchange(&mut a, &mut b);
     assert_that!(ok(a.undo())).is_true();
@@ -308,7 +308,7 @@ fn undo_of_a_paste_marks_every_pasted_node_and_redo_restores_the_same_nodes() {
     let deck = roadmap();
     let mut r = new(&deck);
     let ids: Vec<String> = (0..5).map(|i| format!("p{i}")).collect();
-    let pasted = with_ops(&deck, ids.iter().map(|id| add(None, "blocks", None, text(id, "Collé"))).collect());
+    let pasted = with_ops(&deck, ids.iter().map(|id| add(None, "blocks", None, &text(id, "Collé"))).collect());
     apply(&mut r, &pasted);
     let before: Vec<TreeID> = ids.iter().map(|id| node_of(&r.doc, "s-constat", id).1).collect();
     assert_that!(ok(r.undo())).is_true();
@@ -328,7 +328,7 @@ fn undo_of_a_paste_marks_every_pasted_node_and_redo_restores_the_same_nodes() {
 fn apply_silent_adds_one_change_and_apply_a_bounded_number() {
     let deck = roadmap();
     let three = |prefix: &str| {
-        with_ops(&deck, (0..3).map(|i| add(None, "blocks", None, text(&format!("{prefix}{i}"), "x"))).collect())
+        with_ops(&deck, (0..3).map(|i| add(None, "blocks", None, &text(&format!("{prefix}{i}"), "x"))).collect())
     };
     let mut r = new(&deck);
     let before = r.len_changes();
@@ -352,7 +352,7 @@ fn apply_with_nested_creations_adds_a_bounded_number_of_changes() {
         "params": { "children": [text(&format!("q{i}a"), "a"), text(&format!("q{i}b"), "b")] } })
     };
     let before = r.len_changes();
-    apply(&mut r, &with_ops(&deck, (0..20).map(|i| add(None, "blocks", None, nested(i))).collect()));
+    apply(&mut r, &with_ops(&deck, (0..20).map(|i| add(None, "blocks", None, &nested(i))).collect()));
     // Partie qui précède, commit de naissance, commit final.
     assert_that!(r.len_changes() - before).is_less_than_or_equal_to(3);
 }
@@ -371,7 +371,7 @@ fn concurrent_slot_entries_on_a_forged_node_are_both_kept() {
         apply(&mut a, &repaired);
         let (seen, _) = b.deck();
         let x = element(&seen, "x");
-        apply(&mut b, &with_ops(&seen, vec![remove("x"), add(Some("pile"), "children", None, x)]));
+        apply(&mut b, &with_ops(&seen, vec![remove("x"), add(Some("pile"), "children", None, &x)]));
         exchange(&mut a, &mut b);
         for r in [&a, &b] {
             let (read, issues) = r.deck();
@@ -467,7 +467,7 @@ fn merge_of_a_peer_with_a_non_mergeable_slot_is_refused_and_keeps_self() {
 
 /// `pile` et, dans `children`, le seul texte `k1`.
 fn with_single_child() -> Deck {
-    with_ops(&with_pile(), vec![add(Some("pile"), "children", None, text("k1", "Un"))])
+    with_ops(&with_pile(), vec![add(Some("pile"), "children", None, &text("k1", "Un"))])
 }
 
 /// Le dernier déplacement de chaque nœud racine ou enfant de `r`, par nœud.
@@ -482,7 +482,7 @@ fn pasting_before_an_existing_element_does_not_move_it() {
     let base = with_single_child();
     let mut r = new(&base);
     let before = last_moves(&r);
-    apply(&mut r, &with_ops(&base, vec![add(Some("pile"), "children", Some(0), text("k0", "Zéro"))]));
+    apply(&mut r, &with_ops(&base, vec![add(Some("pile"), "children", Some(0), &text("k0", "Zéro"))]));
     let after = last_moves(&r);
     for (n, mv) in &before {
         assert_that!(after.iter().find(|(m, _)| m == n).map(|(_, v)| *v))
@@ -520,8 +520,8 @@ fn a_peer_move_survives_a_paste_before_the_moved_element() {
     let (mut a, mut b) = fixed_peers(&base, 1, 2);
     let mut k1 = element(&base, "k1");
     k1["frame"] = json!({ "x": 0, "y": 0, "w": 400, "h": 200 });
-    apply(&mut b, &with_ops(&base, vec![remove("k1"), add(None, "elements", None, k1)]));
-    apply(&mut a, &with_ops(&base, vec![add(Some("pile"), "children", Some(0), text("k0", "Zéro"))]));
+    apply(&mut b, &with_ops(&base, vec![remove("k1"), add(None, "elements", None, &k1)]));
+    apply(&mut a, &with_ops(&base, vec![add(Some("pile"), "children", Some(0), &text("k0", "Zéro"))]));
     exchange(&mut a, &mut b);
     for r in [&a, &b] {
         assert_that!(ids_in(&r.deck().0, "s-constat", None, "elements")).contains("k1".to_owned());
@@ -564,7 +564,7 @@ fn measure_paste_cost_flat_and_nested() {
                     text(&format!("q{i}"), "Collé")
                 }
             };
-            let pasted = with_ops(&deck, (0..n).map(|i| add(None, "blocks", None, element(i))).collect());
+            let pasted = with_ops(&deck, (0..n).map(|i| add(None, "blocks", None, &element(i))).collect());
             let (mut before, mut after) = ((Vec::new(), Vec::new()), (Vec::new(), Vec::new()));
             let mut items = (0, 0);
             for _ in 0..5 {
@@ -619,7 +619,7 @@ fn mark_of_a_removal_carries_its_unix_time() {
 fn undo_of_an_add_restores_a_birth_mark_dated_at_creation() {
     let deck = roadmap();
     let mut r = new(&deck);
-    apply(&mut r, &with_ops(&deck, vec![add(None, "blocks", None, text("n1", "Neuf"))]));
+    apply(&mut r, &with_ops(&deck, vec![add(None, "blocks", None, &text("n1", "Neuf"))]));
     let (tree, n) = node_of(&r.doc, "s-constat", "n1");
     assert_that!(ok(r.undo())).is_true();
     let now = time::OffsetDateTime::now_utc().unix_timestamp();

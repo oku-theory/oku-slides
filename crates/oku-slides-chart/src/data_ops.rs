@@ -25,38 +25,58 @@ const MAX_ID_CHARS: usize = 64;
 /// Caractères hexadécimaux d'un identifiant tiré.
 const NEW_ID_CHARS: usize = 8;
 
+/// Change to `dataset.source`; row 0 holds the column names.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DataOp {
+    /// Replaces a cell; on row 0, renames the column.
     SetCell {
+        /// Row, headers included (0 = column names).
         row: usize,
+        /// Column, from 0.
         col: usize,
+        /// New value.
         value: Cell,
     },
+    /// Inserts a data row; never at row 0.
     InsertRow {
+        /// Position of the new row, from 1.
         at: usize,
+        /// Cells of the row, padded or truncated to the table width.
         cells: Vec<Cell>,
-        /// Identifiant de la ligne. Ne pas fournir : le cœur en tire un.
+        /// Identifier of the row.
+        ///
+        /// Do not supply it: the core draws one.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
     },
+    /// Deletes a data row; never row 0.
     RemoveRow {
+        /// Deleted row, from 1.
         at: usize,
     },
+    /// Inserts a column; in a chart, a value column brings its series.
     InsertColumn {
+        /// Position of the new column, from 0.
         at: usize,
+        /// Cells of the column, name first; missing ones stay empty.
         cells: Vec<Cell>,
-        /// Identifiant de la colonne. Ne pas fournir : le cœur en tire un.
+        /// Identifier of the column.
+        ///
+        /// Do not supply it: the core draws one.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
     },
+    /// Deletes a column; in a chart, it takes its series with it.
     RemoveColumn {
+        /// Deleted column, from 0.
         at: usize,
     },
-    /// Remplace tout le tableau (collage depuis un tableur, réinitialisation).
+    /// Replaces the whole table (paste from a spreadsheet, reset).
     ///
-    /// Les identifiants sont gardés par position ; l'excédent en reçoit de neufs.
+    /// Identifiers are kept by position; the surplus gets new ones.
     Replace {
+        /// New 2D table, column names in row 0.
         source: Vec<Vec<Cell>>,
     },
 }
@@ -103,9 +123,9 @@ fn fit(list: &mut Vec<String>, len: usize) {
         .collect();
 }
 
-/// Aligne `ids` sur les lignes et `columns` sur la ligne 0.
+/// Aligns `ids` with the rows and `columns` with row 0.
 ///
-/// Garde les identifiants valides et uniques, tire les autres. Idempotente ; ne panique pas, quelle que soit l'incohérence de départ.
+/// Keeps valid, unique identifiers and draws the others. Idempotent; never panics, however inconsistent the input.
 pub fn ensure_ids(d: &mut Dataset) {
     fit(&mut d.ids, d.source.len());
     fit(&mut d.columns, d.source.first().map_or(0, Vec::len));
@@ -117,9 +137,9 @@ pub(crate) fn all_unique(list: &[String]) -> bool {
     list.iter().all(|id| seen.insert(id.as_str()))
 }
 
-/// Refuse des identifiants mal alignés, mal formés ou répétés.
+/// Rejects identifiers that are misaligned, malformed or repeated.
 ///
-/// Des listes vides sont admises : le cœur les remplira.
+/// Empty lists are accepted: the core will fill them.
 pub(crate) fn validate_ids(d: &Dataset) -> Result<()> {
     let width = d.source.first().map_or(0, Vec::len);
     let aligned =
@@ -147,9 +167,16 @@ fn insert_id(list: &[String], id: Option<&str>) -> Result<String> {
 }
 
 impl DataOp {
-    /// Applique l'opération, identifiants de lignes et de colonnes compris.
+    /// Applies the operation, row and column identifiers included.
     ///
-    /// Commence par [`ensure_ids`] : les accès à `ids` et `columns` sont donc dans les bornes.
+    /// Starts with [`ensure_ids`]: accesses to `ids` and `columns` are therefore in bounds.
+    ///
+    /// # Errors
+    ///
+    /// Fails if an index is outside the table, if the op inserts or deletes row 0,
+    /// or if a supplied identifier is invalid or already taken. Also fails for
+    /// a column inserted taller than the table, removing the only
+    /// remaining column and a `Replace` whose `source` is empty.
     pub fn apply(&self, dataset: &mut Dataset) -> Result<()> {
         ensure_ids(dataset);
         let Dataset { source: src, ids, columns } = dataset;
@@ -225,7 +252,12 @@ impl DataOp {
     }
 }
 
-/// `set_data` sur un graphique : applique `change`, recale les séries, normalise.
+/// `set_data` on a chart: applies `change`, realigns the series, normalizes.
+///
+/// # Errors
+///
+/// Fails if the chart has no `dataset`, if the operation is impossible
+/// or if the resulting chart is inconsistent.
 pub fn chart_data(option: &ChartOption, change: &DataOp) -> Result<ChartOption> {
     let mut next = option.clone();
     let dataset = next.dataset.as_mut().ok_or_else(|| err(Message::new("chart-data-no-dataset")))?;

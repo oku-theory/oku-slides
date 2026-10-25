@@ -136,7 +136,7 @@ impl Session {
         let registry = self.registry_for(&set)?;
         let layer = self.theme_layer(deck)?;
         let names: Vec<&Namespace> = set.packs().iter().map(PackWidgets::namespace).collect();
-        let slot = new_renderer(&self.worker, self.render_fonts.clone(), &self.localizer, &set, &registry);
+        let slot = new_renderer(&self.worker, &self.render_fonts, &self.localizer, &set, &registry);
         let rendered = slot.and_then(|mut slot| {
             render_themed(&mut slot, deck, &layer, &self.doc.sources.assets).context(RenderSnafu)?;
             Ok(())

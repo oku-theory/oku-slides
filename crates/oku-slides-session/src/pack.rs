@@ -56,14 +56,19 @@ impl VersionManifest for PackManifest {
 pub struct PackInfo {
     /// Sa sorte : widgets d'éléments ou layouts de slide.
     pub kind: PackKind,
+    /// Stable id of the pack, shared by all its versions.
     pub id: Uuid,
+    /// Hash of this version.
     pub version: PackVersion,
+    /// Displayed name of the pack.
     pub name: String,
     /// Espace de noms de ses widgets : leur `kind` est `<namespace>/<nom>`.
     pub namespace: Namespace,
     /// Espaces de noms des packs dont il a besoin.
     pub requires: Vec<Namespace>,
+    /// Free description of the pack, as its manifest gives it.
     pub description: String,
+    /// Pack shipped with the app, never replaced.
     pub builtin: bool,
     /// Un pack qu'épingle un deck neuf : [`BASE_PACK`] ou [`ESSENTIEL_PACK`].
     pub default: bool,
@@ -77,6 +82,7 @@ pub struct PackInfo {
 
 impl PackInfo {
     /// Résumé de la version `files` du pack `manifest`, pour les listes.
+    #[must_use]
     pub fn of(files: &PackFiles, manifest: &PackManifest, builtin: bool, received: bool) -> Self {
         Self {
             kind: files.kind(),
@@ -98,6 +104,7 @@ impl PackInfo {
 /// Une version par rapport à une autre, par la chaîne des `parent`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
+    /// The same version.
     Same,
     /// Plus ancienne : l'autre en descend.
     Ancestor,

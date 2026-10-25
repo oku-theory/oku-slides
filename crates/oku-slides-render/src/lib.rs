@@ -66,17 +66,22 @@ use world::OkuSlidesWorld;
 /// Boîte réelle d'un élément, en pt, mesurée par Typst.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ElementBox {
+    /// Id of the element in the deck.
     pub id: String,
-    /// Page, à partir de 1.
+    /// Page, starting at 1.
     pub page: usize,
+    /// Left edge, from the left edge of the page.
     pub x: f64,
+    /// Top edge, from the top of the page.
     pub y: f64,
+    /// Rendered width.
     pub w: f64,
+    /// Rendered height.
     pub h: f64,
     /// Largeur disponible (la boîte peut s'étendre jusque-là en tapant).
     #[serde(default)]
     pub aw: Option<f64>,
-    /// Début de la zone disponible (le texte peut y être centré ou à droite).
+    /// Start of the available area (the text may be centered or right-aligned in it).
     #[serde(default)]
     pub ax: Option<f64>,
     /// Typographie effective : l'éditeur de l'app la reprend telle quelle.
@@ -91,15 +96,23 @@ pub struct FieldBox {
     pub owner: String,
     /// Nom du paramètre.
     pub field: String,
+    /// Page, starting at 1.
     pub page: usize,
+    /// Left edge, from the left edge of the page.
     pub x: f64,
+    /// Top edge, from the top of the page.
     pub y: f64,
+    /// Rendered width.
     pub w: f64,
+    /// Rendered height.
     pub h: f64,
+    /// Start of the available area (the text may be centered or right-aligned in it).
     #[serde(default)]
     pub ax: Option<f64>,
+    /// Available width (the field may grow up to it while typing).
     #[serde(default)]
     pub aw: Option<f64>,
+    /// Effective typography, reused by the in-place editor.
     #[serde(default)]
     pub style: Option<TextStyle>,
     /// Champ sans texte : placeholder à dessiner par l'interface.
@@ -119,10 +132,15 @@ pub struct ItemBox {
     pub list: String,
     /// Id de l'item.
     pub item: String,
+    /// Page, starting at 1.
     pub page: usize,
+    /// Left edge, from the left edge of the page.
     pub x: f64,
+    /// Top edge, from the top of the page.
     pub y: f64,
+    /// Rendered width.
     pub w: f64,
+    /// Rendered height.
     pub h: f64,
 }
 
@@ -139,11 +157,17 @@ pub enum FieldSide {
 /// Zone des éléments libres d'une page (pt), et sa grille éventuelle.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ZoneBox {
+    /// Page, starting at 1.
     pub page: usize,
+    /// Left edge, from the left edge of the page.
     pub x: f64,
+    /// Top edge, from the top of the page.
     pub y: f64,
+    /// Width of the area.
     pub w: f64,
+    /// Height of the area.
     pub h: f64,
+    /// Placement grid, if the layout declares one.
     #[serde(default)]
     pub grid: Option<GridBox>,
 }
@@ -151,27 +175,37 @@ pub struct ZoneBox {
 /// Grille résolue : colonnes, lignes et gouttière en pt.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GridBox {
+    /// Number of columns.
     pub columns: u32,
+    /// Number of rows.
     pub rows: u32,
+    /// Gutter between cells, in pt.
     pub gap: f64,
 }
 
 /// Typographie mesurée par Typst (tailles en pt).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TextStyle {
+    /// Font size.
     pub size: f64,
+    /// Typst line spacing (`par.leading`), the space between two lines.
     pub leading: f64,
+    /// Tracking (letter spacing).
     #[serde(default)]
     pub tracking: f64,
+    /// Font families, in order of preference.
     #[serde(default)]
     pub font: Vec<String>,
     /// 400, 700… ou un nom (« bold »).
     #[serde(default)]
     pub weight: serde_json::Value,
+    /// Text color, as Typst writes it.
     #[serde(default)]
     pub fill: Option<String>,
+    /// Horizontal alignment ("left", "center"…).
     #[serde(default)]
     pub align: Option<String>,
+    /// Forced case ("upper", "lower"), if the style imposes one.
     #[serde(default)]
     pub case: Option<String>,
     /// Fond de la page sous le texte.
@@ -182,7 +216,9 @@ pub struct TextStyle {
 /// Correspondance slide → page.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SlidePage {
+    /// Id of the slide.
     pub slide: String,
+    /// Page of the slide, starting at 1.
     pub page: usize,
 }
 
@@ -203,12 +239,20 @@ impl std::fmt::Debug for Renderer {
 }
 
 impl Renderer {
-    /// Un rendu sans pack : aucun widget, chaque slide rend le cadre « slide inconnue ».
+    /// A renderer without packs: no widget, each slide renders the "unknown slide" frame.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the Typst world cannot be built (unreadable embedded library).
     pub fn new(fonts: Fonts) -> Result<Self, RenderError> {
         Ok(Self { world: OkuSlidesWorld::new(fonts)?, registry: registry::empty_registry() })
     }
 
-    /// Un rendu aux packs intégrés : `base` (widgets) et `essentiel` (layouts).
+    /// A renderer with the built-in packs: `base` (widgets) and `essentiel` (layouts).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the built-in pack registry cannot be probed or if the world cannot be built.
     pub fn with_builtins(fonts: Fonts) -> Result<Self, RenderError> {
         let registry = registry::builtin_registry(&fonts).map_err(Box::new).context(BaseRegistrySnafu)?;
         let set = builtin_pack_set().map_err(Box::new).context(BaseRegistrySnafu)?;
@@ -217,8 +261,12 @@ impl Renderer {
         Ok(r)
     }
 
-    /// Widgets rendus : ceux de chaque pack de `set`, sous leur nom qualifié. `registry` est le registre de cet ensemble ([`Registries::get`]) ;
-    /// il dit aussi quels éléments portent un graphique, redessinés ici.
+    /// Rendered widgets: those of each pack of `set`, under their qualified name. `registry` is this set's registry ([`Registries::get`]);
+    /// it also tells which elements carry a chart, redrawn here.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a pack path is invalid or if a chart cannot be redrawn.
     pub fn set_widgets(&mut self, set: &PackSet, registry: Arc<WidgetRegistry>) -> Result<(), RenderError> {
         self.world.set_packs(set, &registry)?;
         self.registry = registry;
@@ -230,24 +278,35 @@ impl Renderer {
         &self.registry
     }
 
-    /// Remplace le deck et les assets à rendre.
+    /// Replaces the deck and assets to render.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the deck cannot be serialized or if one of its charts cannot be drawn.
     pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
         self.world.set_deck(deck, assets, &self.registry)
     }
 
-    /// Jetons du thème des rendus suivants (`None` : jetons par défaut). Ils
-    /// remplacent `deck.theme`, que le rendu ne lit plus ; les graphiques du
-    /// deck courant sont redessinés.
+    /// Theme tokens for the next renders (`None`: default tokens). They
+    /// replace `deck.theme`, which the renderer no longer reads; the charts of the
+    /// current deck are redrawn.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a chart of the current deck cannot be redrawn.
     pub fn set_theme(&mut self, tokens: Option<serde_json::Map<String, Json>>) -> Result<(), RenderError> {
         self.world.set_theme(tokens, &self.registry)
     }
 
-    /// Rend `deck`. Les graphiques sont dessinés avant Typst, avec la palette,
-    /// la police, les tailles de texte et de boîte de la compilation
-    /// précédente : si les jetons compilés en donnent d'autres (thème changé,
-    /// jetons surchargés) ou si la boîte d'un graphique a une autre taille
-    /// (graphique dans le flux ou sur une cellule), ils sont redessinés et le
-    /// deck recompilé une fois.
+    /// Renders `deck`. Charts are drawn before Typst, with the palette,
+    /// font, text and box sizes of the previous compilation: if the
+    /// compiled tokens give different ones (theme changed, tokens overridden)
+    /// or if a chart's box has another size (chart in the flow or on a
+    /// cell), they are redrawn and the deck recompiled once.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the deck cannot be prepared or if Typst returns compilation errors.
     pub fn render(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<Compiled, RenderError> {
         self.set_deck(deck, assets)?;
         let compiled = self.compile()?;
@@ -264,6 +323,11 @@ impl Renderer {
         self.world.chart_palette()
     }
 
+    /// Compiles the current deck as is, without redrawing the charts.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the Typst diagnostics if the compilation returns errors.
     pub fn compile(&self) -> Result<Compiled, RenderError> {
         let result = typst::compile::<PagedDocument>(&self.world);
         let warnings = result.warnings.iter().map(|d| self.world.diagnostic(d)).collect();
@@ -277,9 +341,14 @@ impl Renderer {
         }
     }
 
-    /// Langue des cadres de repli (image absente, graphique non dessiné) et
-    /// des libellés par défaut des graphiques ; les graphiques du deck
-    /// courant sont redessinés.
+    /// Language of the fallback frames and of the default chart labels.
+    ///
+    /// Fallback frames stand for a missing image or an undrawn chart; the charts of
+    /// the current deck are redrawn.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a chart of the current deck cannot be redrawn.
     pub fn set_language(&mut self, l: &oku_slides_i18n::Localizer) -> Result<(), RenderError> {
         self.world.set_language(l, &self.registry)
     }
@@ -308,11 +377,13 @@ pub struct Layout {
 
 impl Layout {
     /// Page (à partir de 1) d'une slide.
+    #[must_use]
     pub fn page_of(&self, slide: &str) -> Option<usize> {
         self.slides.iter().find(|p| p.slide == slide).map(|p| p.page)
     }
 
     /// Boîtes des éléments d'une page.
+    #[must_use]
     pub fn boxes_on(&self, page: usize) -> &[ElementBox] {
         let start = self.boxes.partition_point(|b| b.page < page);
         let end = self.boxes.partition_point(|b| b.page <= page);
@@ -320,11 +391,13 @@ impl Layout {
     }
 
     /// Zone des éléments libres d'une page.
+    #[must_use]
     pub fn zone_on(&self, page: usize) -> Option<&ZoneBox> {
         self.zones.iter().find(|z| z.page == page)
     }
 
     /// Champs éditables d'une page.
+    #[must_use]
     pub fn fields_on(&self, page: usize) -> &[FieldBox] {
         let start = self.fields.partition_point(|f| f.page < page);
         let end = self.fields.partition_point(|f| f.page <= page);
@@ -332,6 +405,7 @@ impl Layout {
     }
 
     /// Boîtes des items de liste d'une page.
+    #[must_use]
     pub fn items_on(&self, page: usize) -> &[ItemBox] {
         let start = self.items.partition_point(|i| i.page < page);
         let end = self.items.partition_point(|i| i.page <= page);
@@ -344,12 +418,13 @@ fn parsed<T: serde::de::DeserializeOwned>(values: Vec<Json>) -> Vec<T> {
     values.into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect()
 }
 
-/// Un document compilé.
 /// Échelle admise pour une image : au-delà, l'image serait démesurée.
 const PNG_SCALE: std::ops::RangeInclusive<f32> = 0.1..=10.0;
 
+/// A compiled document, from which SVG, PNG, PDF and [`Layout`] are drawn.
 pub struct Compiled {
     doc: PagedDocument,
+    /// Warnings from the Typst compilation.
     pub warnings: Vec<Diagnostic>,
     /// Lu dans le document une fois, au premier besoin.
     layout: OnceCell<Layout>,
@@ -365,17 +440,26 @@ impl std::fmt::Debug for Compiled {
 }
 
 impl Compiled {
+    /// Number of pages of the document.
     pub fn page_count(&self) -> usize {
         self.doc.pages().len()
     }
 
-    /// SVG d'une page (à partir de 0).
+    /// SVG of a page (0-based).
+    ///
+    /// # Errors
+    ///
+    /// Fails if page `index` does not exist.
     pub fn svg(&self, index: usize) -> Result<String, RenderError> {
         let page = self.doc.pages().get(index).context(NoPageSnafu { index })?;
         Ok(typst_svg::svg(page, &typst_svg::SvgOptions::default()))
     }
 
-    /// PNG de la page `index` (0 = première), à `pixel_per_pt` pixels par point.
+    /// PNG of page `index` (0 = first), at `pixel_per_pt` pixels per point.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the scale is outside the allowed range, if the page does not exist or if PNG encoding fails.
     pub fn png(&self, index: usize, pixel_per_pt: f32) -> Result<Vec<u8>, RenderError> {
         if !pixel_per_pt.is_finite() || !PNG_SCALE.contains(&pixel_per_pt) {
             return Err(ImageSnafu { message: format!("pixel_per_pt out of range: {pixel_per_pt}") }.build().into());
@@ -393,6 +477,11 @@ impl Compiled {
         self.doc.pages().get(index).map(typst::utils::hash128)
     }
 
+    /// PDF of the whole document.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the `typst_pdf` diagnostics if the export is rejected.
     pub fn pdf(&self) -> Result<Vec<u8>, RenderError> {
         let options = typst_pdf::PdfOptions::default();
         typst_pdf::pdf(&self.doc, &options).map_err(|errs| {

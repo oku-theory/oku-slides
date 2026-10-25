@@ -18,7 +18,11 @@ pub enum Applied {
 pub trait SettingsPort: Send + Sync + std::fmt::Debug {
     /// Valeurs par clé pointée (`dictation.model`, `history.limit`…).
     fn read(&self) -> BTreeMap<String, Value>;
-    /// Écrit une clé déjà autorisée ([`writable`]) ; l'erreur est lue par l'agent.
+    /// Writes an already allowed key ([`writable`]); the agent reads the error.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the value is refused or if `config.toml` cannot be written; the text is for the agent.
     fn write(&self, key: &str, value: &Value) -> Result<Applied, String>;
 }
 

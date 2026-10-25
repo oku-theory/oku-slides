@@ -9,7 +9,7 @@ use crate::config::{LocalEngine, Settings};
 use crate::models::PinnedFile;
 use crate::storage::Storage;
 
-/// Le modèle Qwen3 4B Instruct 2507 (Q4_K_M), épinglé à une révision auditée.
+/// The Qwen3 4B Instruct 2507 model (`Q4_K_M`), pinned to an audited revision.
 pub const AGENT_MODEL: PinnedFile = PinnedFile {
     repo: "unsloth/Qwen3-4B-Instruct-2507-GGUF",
     revision: "a06e946bb6b655725eafa393f4a9745d460374c9",
@@ -24,6 +24,7 @@ pub const AGENT_MODEL_SIZE: u64 = 2_497_281_120;
 pub const AGENT_MODEL_FILES: [PinnedFile; 1] = [AGENT_MODEL];
 
 /// Dossier du modèle de l'agent : `<modèles>/agent`.
+#[must_use]
 pub fn agent_model_dir(settings: &Settings) -> PathBuf {
     settings.paths.models().join("agent")
 }
@@ -41,6 +42,7 @@ pub enum Target {
 
 impl Target {
     /// La machine de ce binaire.
+    #[must_use]
     pub fn current() -> Self {
         if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
             Self::AppleSilicon
@@ -79,7 +81,11 @@ pub enum Unavailable {
     },
 }
 
-/// Le moteur pour ce réglage, cette machine et l'état du modèle.
+/// The engine for this setting, this machine and the model's state.
+///
+/// # Errors
+///
+/// On an Intel Mac or outside macOS, or if the model is not downloaded yet.
 pub fn resolve(
     engine: LocalEngine,
     target: Target,
@@ -99,7 +105,11 @@ pub fn resolve(
     }
 }
 
-/// Le moteur de l'agent local d'après les réglages et le modèle sur disque.
+/// The local agent's engine, from the settings and the model on disk.
+///
+/// # Errors
+///
+/// Like [`resolve`]: unsupported machine or missing model.
 pub fn local_engine(settings: &Settings, storage: &Storage) -> Result<ReadyEngine, Unavailable> {
     let dir = agent_model_dir(settings);
     let installed = crate::models::is_complete(storage, &dir);

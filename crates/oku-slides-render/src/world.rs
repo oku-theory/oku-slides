@@ -2,6 +2,7 @@
 //! embarquée, deck, assets) et un jeu de polices fixe, sans polices système.
 
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::Write as _;
 
 use typst::diag::{FileError, FileResult, SourceDiagnostic};
 use typst::foundations::{Bytes, Datetime, Duration};
@@ -74,12 +75,13 @@ fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item 
     available.push(')');
     let missing = typst_string(&labels.missing_image);
     let chart_failed = typst_string(&labels.chart_failed);
-    // L'identifiant d'un pack est contrôlé (`PackWidgets::new`) : il peut
-    // entrer dans un chemin.
+    // A pack's identifier is checked (`PackWidgets::new`): it can
+    // go into a path.
+    // Writing to a `String` never fails: the `fmt::Result` is ignored.
     let mut pack_import = String::new();
     let mut registries = Vec::new();
     for (i, p) in packs.packs().iter().enumerate() {
-        pack_import.push_str(&format!("#import \"{}\": registry as pack-registry-{i}\n", p.path()));
+        let _ = writeln!(pack_import, "#import \"{}\": registry as pack-registry-{i}", p.path());
         registries.push(format!("pack-registry-{i}"));
     }
     // Sans pack, un registre vide : chaque slide rend le cadre « slide inconnue ».

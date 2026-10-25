@@ -46,6 +46,7 @@ pub struct Soffice {
 
 impl Soffice {
     /// Le témoin `program`, chaque rendu borné par `timeout` (version comprise).
+    #[must_use]
     pub fn new(storage: Storage, program: PathBuf, timeout: Duration) -> Self {
         Self { storage, program, timeout, version: OnceLock::new() }
     }
@@ -54,8 +55,7 @@ impl Soffice {
     fn run(&self, args: &[OsString], deadline: Instant) -> Result<Finished, ReferenceError> {
         process::run(&self.program, args, deadline).map_err(|e| match e {
             RunError::Timeout => TimeoutSnafu { ms: millis(self.timeout) }.build().into(),
-            RunError::Spawn(e) => render_err(format!("{} : {e}", self.program.display())),
-            RunError::Wait(e) => render_err(format!("{} : {e}", self.program.display())),
+            RunError::Spawn(e) | RunError::Wait(e) => render_err(format!("{} : {e}", self.program.display())),
         })
     }
 
@@ -117,12 +117,17 @@ impl ReferenceRenderer for Soffice {
     }
 }
 
-/// Le premier programme de `candidates` qui existe, en chemin réel.
+/// The first program of `candidates` that exists, as a real path.
 ///
-/// Un chemin est pris tel quel, un nom seul est cherché dans `path` (la variable `PATH`).
+/// A path is taken as is; a bare name is searched in `path` (the `PATH` variable).
 ///
-/// Sur macOS, un script (`#!`, le `soffice` de Homebrew) est refusé en le nommant : le
-/// bac à sable du processus de rendu n'exécute que le binaire de LibreOffice (t-912).
+/// On macOS, a script (`#!`, Homebrew's `soffice`) is rejected with an error naming it:
+/// the render process sandbox only runs the LibreOffice binary (t-912).
+///
+/// # Errors
+///
+/// Fails if the real path of the program found cannot be resolved or, on macOS,
+/// if it is unreadable or is a script.
 pub fn find_soffice(
     storage: &Storage,
     candidates: &[PathBuf],

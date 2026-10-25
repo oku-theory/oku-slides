@@ -1,15 +1,21 @@
+//! Integration tests for the sources blob: embedding, reading, stripping and versions.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 use lopdf::{Document, Object, dictionary};
 use speculoos::prelude::*;
 
 fn minimal_pdf() -> Vec<u8> {
     let mut doc = Document::with_version("1.7");
-    let pages_id = doc.new_object_id();
-    let page_id = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages_id, "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()] });
+    let tree_id = doc.new_object_id();
+    let page_id = doc.add_object(dictionary! {
+        "Type" => "Page",
+        "Parent" => tree_id,
+        "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()]
+    });
     doc.objects.insert(
-        pages_id,
+        tree_id,
         Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page_id.into()], "Count" => 1 }),
     );
-    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => tree_id });
     doc.trailer.set("Root", catalog);
     let mut out = Vec::new();
     doc.save_to(&mut out).unwrap_or_else(|e| panic!("PDF minimal impossible à écrire : {e}"));

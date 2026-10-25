@@ -8,11 +8,13 @@ use crate::params::Params;
 /// Un élément et sa place.
 #[derive(Debug, Clone, Copy)]
 pub struct Located<'a> {
+    /// The element found.
     pub element: &'a Element,
     /// Élément qui porte le slot, ou `None` pour un slot de la slide.
     pub owner: Option<&'a str>,
     /// Nom du slot.
     pub slot: &'a str,
+    /// Position of the element in its slot.
     pub index: usize,
     /// 0 pour un enfant direct d'un slot de la slide.
     pub depth: usize,
@@ -23,6 +25,7 @@ pub const MAX_SLOT_DEPTH: usize = 16;
 
 /// Profondeur des descendants d'un élément : 0 s'il n'a pas d'enfant.
 /// Itérative : un deck non fiable ne peut pas épuiser la pile.
+#[must_use]
 pub fn slot_depth(e: &Element) -> usize {
     let mut max = 0;
     let mut stack = vec![(e, 0usize)];
@@ -37,6 +40,7 @@ pub fn slot_depth(e: &Element) -> usize {
 
 impl Located<'_> {
     /// Placé librement : avec un cadre ou une cellule.
+    #[must_use]
     pub fn is_free(&self) -> bool {
         self.element.frame.is_some() || self.element.cell.is_some()
     }
@@ -53,6 +57,7 @@ pub struct Walk<'a> {
 
 impl<'a> Walk<'a> {
     /// Parcourt les slots de `params`, portés par `owner`.
+    #[must_use]
     pub fn over(params: &'a Params, owner: Option<&'a str>) -> Self {
         let mut stack: Vec<_> = params.slots().map(|(name, list)| (owner, name, 0, list.iter().enumerate())).collect();
         stack.reverse();
@@ -84,14 +89,19 @@ impl<'a> Iterator for Walk<'a> {
 }
 
 impl Slide {
+    /// All elements of the slide, parents before children, slots by name.
+    #[must_use]
     pub fn walk(&self) -> Walk<'_> {
         Walk::over(&self.params, None)
     }
 
+    /// The element `id` and its place, at any slot depth.
+    #[must_use]
     pub fn locate(&self, id: &str) -> Option<Located<'_>> {
         self.walk().find(|l| l.element.id == id)
     }
 
+    /// The ids of all elements, in [`Slide::walk`] order.
     pub fn element_ids(&self) -> impl Iterator<Item = &str> {
         self.walk().map(|l| l.element.id.as_str())
     }

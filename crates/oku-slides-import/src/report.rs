@@ -21,6 +21,7 @@ use serde_json::Value;
 use crate::fonts::FontChoice;
 use crate::metrics::SlideScore;
 use crate::source::{OpaqueReason, Warning, WarningKind};
+use oku_slides_core::num::count_f64;
 
 /// Mode d'import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -198,11 +199,13 @@ pub struct Loss {
 
 impl Loss {
     /// Perte sur l'item `item`.
+    #[must_use]
     pub fn on(item: &str, kind: LossKind) -> Self {
         Self { item: Some(item.to_owned()), kind }
     }
 
     /// Perte sur la slide entière.
+    #[must_use]
     pub fn slide(kind: LossKind) -> Self {
         Self { item: None, kind }
     }
@@ -401,6 +404,7 @@ pub struct Ratio {
 
 impl Ratio {
     /// Vrai si tout est retrouvé (vrai aussi quand rien n'est attendu).
+    #[must_use]
     pub fn is_complete(&self) -> bool {
         self.found >= self.total
     }
@@ -476,11 +480,13 @@ pub struct ImportReport {
 
 impl ImportReport {
     /// Rapport vide du mode `mode`.
+    #[must_use]
     pub fn new(mode: Mode) -> Self {
         Self { mode, slides: Vec::new(), warnings: Vec::new(), coverage: None, fonts: Vec::new(), reference: None }
     }
 
     /// Nombre total de pertes.
+    #[must_use]
     pub fn loss_count(&self) -> usize {
         self.slides.iter().map(|s| s.losses.len()).sum()
     }
@@ -492,9 +498,10 @@ impl ImportReport {
     }
 
     /// L'écart visuel moyen des slides qui en ont un.
+    #[must_use]
     pub fn mean_score(&self) -> Option<f64> {
         let scores: Vec<f64> = self.slides.iter().filter_map(|s| s.score.as_ref().map(|sc| sc.score)).collect();
-        (!scores.is_empty()).then(|| (scores.iter().sum::<f64>() / scores.len() as f64 * 100.0).round() / 100.0)
+        (!scores.is_empty()).then(|| (scores.iter().sum::<f64>() / count_f64(scores.len()) * 100.0).round() / 100.0)
     }
 
     /// La forme écrite.

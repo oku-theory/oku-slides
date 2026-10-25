@@ -5,22 +5,59 @@ use speculoos::prelude::*;
 use super::*;
 
 fn ctx(v: Value) -> Map<String, Value> {
-    v.as_object().cloned().unwrap_or_default()
-}
-
-fn patch(p: DictationPatch) -> Option<VoiceEvent> {
-    Some(VoiceEvent::Dictation(p))
+    match v {
+        Value::Object(map) => map,
+        _ => Map::new(),
+    }
 }
 
 #[rstest]
-#[case("model", json!({"id": "large"}), patch(DictationPatch { model: Some("large".into()), ..Default::default() }))]
-#[case("language", json!({"code": ""}), patch(DictationPatch { language: Some(DictationLanguage::Auto), ..Default::default() }))]
-#[case("language", json!({"code": "fr"}), patch(DictationPatch { language: Some(DictationLanguage::Code("fr".into())), ..Default::default() }))]
-#[case("silence", json!({"value": "off"}), patch(DictationPatch { auto_stop: Some(false), ..Default::default() }))]
-#[case("silence", json!({"value": "3"}), patch(DictationPatch { auto_stop: Some(true), silence: Some(3.0), ..Default::default() }))]
-#[case("api", json!({"field": "url", "value": "http://localhost:8000/v1"}), patch(DictationPatch { api_url: Some("http://localhost:8000/v1".into()), ..Default::default() }))]
-#[case("api", json!({"field": "model", "value": "whisper-1"}), patch(DictationPatch { api_model: Some("whisper-1".into()), ..Default::default() }))]
-#[case("api", json!({"field": "key_env", "value": "GROQ_API_KEY"}), patch(DictationPatch { api_key_env: Some("GROQ_API_KEY".into()), ..Default::default() }))]
+#[case(
+    "model",
+    json!({"id": "large"}),
+    Some(VoiceEvent::Dictation(DictationPatch { model: Some("large".into()), ..Default::default() }))
+)]
+#[case(
+    "language",
+    json!({"code": ""}),
+    Some(VoiceEvent::Dictation(DictationPatch { language: Some(DictationLanguage::Auto), ..Default::default() }))
+)]
+#[case(
+    "language",
+    json!({"code": "fr"}),
+    Some(VoiceEvent::Dictation(DictationPatch {
+        language: Some(DictationLanguage::Code("fr".into())),
+        ..Default::default()
+    }))
+)]
+#[case(
+    "silence",
+    json!({"value": "off"}),
+    Some(VoiceEvent::Dictation(DictationPatch { auto_stop: Some(false), ..Default::default() }))
+)]
+#[case(
+    "silence",
+    json!({"value": "3"}),
+    Some(VoiceEvent::Dictation(DictationPatch { auto_stop: Some(true), silence: Some(3.0), ..Default::default() }))
+)]
+#[case(
+    "api",
+    json!({"field": "url", "value": "http://localhost:8000/v1"}),
+    Some(VoiceEvent::Dictation(DictationPatch {
+        api_url: Some("http://localhost:8000/v1".into()),
+        ..Default::default()
+    }))
+)]
+#[case(
+    "api",
+    json!({"field": "model", "value": "whisper-1"}),
+    Some(VoiceEvent::Dictation(DictationPatch { api_model: Some("whisper-1".into()), ..Default::default() }))
+)]
+#[case(
+    "api",
+    json!({"field": "key_env", "value": "GROQ_API_KEY"}),
+    Some(VoiceEvent::Dictation(DictationPatch { api_key_env: Some("GROQ_API_KEY".into()), ..Default::default() }))
+)]
 #[case("download", json!({"model": "base"}), Some(VoiceEvent::DownloadDictation { model: "base".into() }))]
 #[case("cancel_download", json!({}), Some(VoiceEvent::CancelDictationDownload))]
 #[case("select", json!({"id": "bis"}), Some(VoiceEvent::SelectAgent { id: "bis".into() }))]

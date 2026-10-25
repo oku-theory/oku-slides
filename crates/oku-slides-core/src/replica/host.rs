@@ -82,6 +82,7 @@ fn shape(ds: &Map<String, Value>) -> Option<Shape<'_>> {
 /// [`MAX_ROWS`], et [`MAX_CELLS`] cellules en tout ; au moins une (l'en-tête).
 /// Un `dataset` plus long se relit tronqué : un producteur (l'import) le
 /// borne à l'émission.
+#[must_use]
 pub fn row_budget(columns: usize) -> usize {
     (MAX_CELLS / columns.max(1)).clamp(1, MAX_ROWS)
 }
@@ -116,7 +117,7 @@ impl Writer<'_> {
                     if key == DATASET
                         && let Some(s) = shape(o) =>
                 {
-                    self.sync_dataset(&dataset_at(map)?, &s)?
+                    self.sync_dataset(&dataset_at(map)?, &s)?;
                 }
                 Value::Object(o) => self.sync_map(&map_at(map, key)?, o, Ctx::Opaque)?,
                 v => set_value(map, key, json_to_loro(v))?,
@@ -195,8 +196,9 @@ pub(super) fn repair(ids: Vec<Option<String>>, prefix: char) -> Vec<String> {
         .map(|(i, id)| {
             id.unwrap_or_else(|| {
                 let base = format!("{prefix}{i}");
+                // Among `taken.len() + 1` distinct suffixes, at least one is free.
                 let fresh = std::iter::once(base.clone())
-                    .chain((1..).map(|n| format!("{base}-{n}")))
+                    .chain((1..=taken.len() + 1).map(|n| format!("{base}-{n}")))
                     .find(|c| !taken.contains(c))
                     .unwrap_or(base);
                 taken.insert(fresh.clone());

@@ -26,6 +26,7 @@ pub struct StorageError(Box<StorageInner>);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum StorageErrorKind {
+    /// File or folder missing.
     NotFound,
     /// Chemin qui ne peut pas désigner un fichier (non UTF-8…).
     InvalidPath,
@@ -33,6 +34,7 @@ pub enum StorageErrorKind {
     TooLarge,
     /// Écriture ou lecture refusée par le système (droits, bac à sable).
     PermissionDenied,
+    /// Any other cause: storage startup, streaming write, system error.
     Other,
 }
 
@@ -55,6 +57,8 @@ enum StorageInner {
 }
 
 impl StorageError {
+    /// Kind of the error, to react without reading the message.
+    #[must_use]
     pub fn kind(&self) -> StorageErrorKind {
         match &*self.0 {
             StorageInner::Access { source, .. } if source.kind() == ErrorKind::NotFound => StorageErrorKind::NotFound,
@@ -86,18 +90,23 @@ fn normalize(path: &Path) -> PathBuf {
     out
 }
 
-/// Chemin absolu, `.` et `..` résolus, sans toucher au disque.
+/// Absolute path, `.` and `..` resolved, without touching the disk.
 ///
-/// Les liens ne sont pas suivis : deux chemins vers un même fichier par un
-/// lien restent différents.
+/// Links are not followed: two paths to the same file through a
+/// link stay different.
+#[must_use]
 pub fn resolve(path: &Path) -> PathBuf {
     normalize(&std::path::absolute(path).unwrap_or_else(|_| path.to_owned()))
 }
 
-/// Le chemin réel de `path` : absolu, liens suivis (`realpath`).
+/// The real path of `path`: absolute, links followed (`realpath`).
 ///
-/// OpenDAL ne suit pas les liens ; le bac à sable du rendu compare des
-/// chemins réels (t-912). Le disque n'est que lu.
+/// OpenDAL does not follow links; the render sandbox compares
+/// real paths (t-912). The disk is only read.
+///
+/// # Errors
+///
+/// If `path` does not exist or one of its folders is unreadable.
 pub fn canonical(path: &Path) -> Result<PathBuf, StorageError> {
     Ok(std::fs::canonicalize(path).context(CanonicalSnafu { path })?)
 }
@@ -107,11 +116,11 @@ const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "ttc", "otc"];
 /// Début d'un pointeur Git LFS : la police n'a jamais été récupérée.
 const LFS_POINTER: &[u8] = b"version https://git-lfs.github.com/spec/v1";
 
-/// Les fichiers locaux, par OpenDAL. Se clone sans rien recréer.
+/// Local files, through OpenDAL. Clones without recreating anything.
 ///
-/// Un opérateur par racine de chemin (`/` sous Unix, `C:\` ou `\\serveur\partage\`
-/// sous Windows), créé à la première utilisation ; les clés OpenDAL sont
-/// les composants du chemin sous cette racine, séparés par `/`.
+/// One operator per path root (`/` on Unix, `C:\` or `\\server\share\`
+/// on Windows), created on first use; OpenDAL keys are
+/// the path components under that root, separated by `/`.
 #[derive(Clone)]
 pub struct Storage {
     roots: Arc<Mutex<HashMap<PathBuf, blocking::Operator>>>,
@@ -150,7 +159,11 @@ impl std::fmt::Debug for Storage {
 }
 
 impl Storage {
-    /// Le système de fichiers local.
+    /// The local file system.
+    ///
+    /// # Errors
+    ///
+    /// If the operators' Tokio runtime does not start.
     pub fn local() -> Result<Self, StorageError> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
@@ -185,16 +198,25 @@ impl Storage {
         Ok((op, key))
     }
 
+    /// Reads the whole file into memory.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the file missing or unreadable.
     pub fn read(&self, path: &Path) -> Result<Vec<u8>, StorageError> {
         let (op, key) = self.at(path)?;
         let buffer = op.read(&key).context(AccessSnafu { action: "read", path })?;
         Ok(buffer.to_vec())
     }
 
-    /// Lit le fichier s'il ne dépasse pas `max` octets ; au-delà, [`StorageErrorKind::TooLarge`].
+    /// Reads the file if it is at most `max` bytes; beyond that, [`StorageErrorKind::TooLarge`].
     ///
-    /// Jamais plus de `max` octets en mémoire : seule la taille vue au départ
-    /// est lue, même si le fichier grossit entre-temps.
+    /// Never more than `max` bytes in memory: only the size seen at the start
+    /// is read, even if the file grows meanwhile.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable, the file missing, unreadable or larger than `max`.
     pub fn read_limited(&self, path: &Path, max: u64) -> Result<Vec<u8>, StorageError> {
         let (op, key) = self.at(path)?;
         let len = op.stat(&key).context(AccessSnafu { action: "read", path })?.content_length();
@@ -204,7 +226,11 @@ impl Storage {
         Ok(buffer.to_vec())
     }
 
-    /// Les `n` premiers octets du fichier, moins s'il est plus court.
+    /// The first `n` bytes of the file, fewer if it is shorter.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the file missing or unreadable.
     pub fn read_head(&self, path: &Path, n: u64) -> Result<Vec<u8>, StorageError> {
         let (op, key) = self.at(path)?;
         let len = op.stat(&key).context(AccessSnafu { action: "read", path })?.content_length().min(n);
@@ -216,18 +242,27 @@ impl Storage {
         Ok(buffer.to_vec())
     }
 
-    /// Écrit le fichier (et crée ses dossiers).
+    /// Writes the file (and creates its folders).
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the write refused.
     pub fn write(&self, path: &Path, bytes: impl Into<Vec<u8>>) -> Result<(), StorageError> {
         let (op, key) = self.at(path)?;
         op.write(&key, bytes.into()).context(AccessSnafu { action: "write", path })?;
         Ok(())
     }
 
-    /// Écrit dans un fichier temporaire à côté, puis renomme : un lecteur ne
-    /// voit jamais de fichier à moitié écrit.
+    /// Writes to a temporary file next to it, then renames.
     ///
-    /// Le nom temporaire est propre à chaque écriture : deux écritures
-    /// simultanées du même fichier ne se marchent pas dessus.
+    /// A reader never sees a half-written file.
+    ///
+    /// The temporary name is unique to each write: two simultaneous
+    /// writes of the same file do not step on each other.
+    ///
+    /// # Errors
+    ///
+    /// If writing the temporary file or the rename fails.
     pub fn write_atomic(&self, path: &Path, bytes: impl Into<Vec<u8>>) -> Result<(), StorageError> {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -237,6 +272,12 @@ impl Storage {
         self.rename(&tmp, path)
     }
 
+    /// Renames a file, without changing volume.
+    ///
+    /// # Errors
+    ///
+    /// If a path is unusable, if both are on different volumes
+    /// or if the rename fails.
     pub fn rename(&self, from: &Path, to: &Path) -> Result<(), StorageError> {
         let (op, from_key) = self.at(from)?;
         let (to_op, to_key) = self.at(to)?;
@@ -245,30 +286,49 @@ impl Storage {
         Ok(op.rename(&from_key, &to_key).context(AccessSnafu { action: "rename", path: from })?)
     }
 
-    /// Supprime un fichier ; un fichier absent n'est pas une erreur.
+    /// Deletes a file; a missing file is not an error.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the deletion refused.
     pub fn delete(&self, path: &Path) -> Result<(), StorageError> {
         let (op, key) = self.at(path)?;
         Ok(op.delete(&key).context(AccessSnafu { action: "delete", path })?)
     }
 
-    /// Supprime un dossier et tout son contenu ; un dossier absent n'est pas une erreur.
+    /// Deletes a folder and all its contents; a missing folder is not an error.
     ///
-    /// Les liens symboliques ne sont jamais suivis : un lien (à la place du
-    /// dossier ou dedans) est retiré, sa cible reste. OpenDAL retire le `/`
-    /// final et `remove_dir_all` de la bibliothèque standard ne traverse pas
-    /// les liens ; les tests (`storage_tests`, régression t-163) le gardent.
+    /// Symbolic links are never followed: a link (in place of the
+    /// folder or inside it) is removed, its target stays. OpenDAL strips the trailing
+    /// `/` and the standard library's `remove_dir_all` does not go through
+    /// links; the tests (`storage_tests`, regression t-163) guard it.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the deletion refused.
     pub fn delete_dir(&self, dir: &Path) -> Result<(), StorageError> {
         let (op, key) = self.dir_at(dir)?;
         let opts = opendal::options::DeleteOptions { recursive: true, ..Default::default() };
         Ok(op.delete_options(&key, opts).context(AccessSnafu { action: "delete", path: dir })?)
     }
 
+    /// True if a file or a folder exists at `path`.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or unreadable.
     pub fn exists(&self, path: &Path) -> Result<bool, StorageError> {
         let (op, key) = self.at(path)?;
         Ok(op.exists(&key).context(AccessSnafu { action: "stat", path })?)
     }
 
-    /// Vrai si `path` est un fichier ; faux s'il est absent ou est un dossier.
+    /// True if `path` is a file.
+    ///
+    /// False if it is missing or is a folder.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or unreadable.
     pub fn is_file(&self, path: &Path) -> Result<bool, StorageError> {
         let (op, key) = self.at(path)?;
         match op.stat(&key) {
@@ -278,7 +338,11 @@ impl Storage {
         }
     }
 
-    /// Taille du fichier, s'il existe.
+    /// Size of the file, if it exists.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or unreadable.
     pub fn len(&self, path: &Path) -> Result<Option<u64>, StorageError> {
         let (op, key) = self.at(path)?;
         match op.stat(&key) {
@@ -288,12 +352,21 @@ impl Storage {
         }
     }
 
+    /// Creates the folder and its parents; an existing folder is not an error.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the creation refused.
     pub fn create_dir_all(&self, dir: &Path) -> Result<(), StorageError> {
         let (op, key) = self.dir_at(dir)?;
         Ok(op.create_dir(&key).context(AccessSnafu { action: "create", path: dir })?)
     }
 
-    /// Fichiers d'un dossier (sans les sous-dossiers) ; un dossier absent est vide.
+    /// Files of a folder (without subfolders); a missing folder is empty.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the folder unreadable.
     pub fn list_files(&self, dir: &Path) -> Result<Vec<PathBuf>, StorageError> {
         let (op, key) = self.dir_at(dir)?;
         let entries = match op.list(&key) {
@@ -308,7 +381,11 @@ impl Storage {
             .collect())
     }
 
-    /// Sous-dossiers d'un dossier ; un dossier absent est vide.
+    /// Subfolders of a folder; a missing folder is empty.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or the folder unreadable.
     pub fn list_dirs(&self, dir: &Path) -> Result<Vec<PathBuf>, StorageError> {
         let (op, key) = self.dir_at(dir)?;
         let entries = match op.list(&key) {
@@ -324,10 +401,14 @@ impl Storage {
             .collect())
     }
 
-    /// Fichiers de police d'un dossier (TTF, OTF, TTC, OTC), par nom de fichier.
+    /// Font files of a folder (TTF, OTF, TTC, OTC), by file name.
     ///
-    /// Un pointeur Git LFS (police jamais récupérée) est écarté et signalé
-    /// par une erreur au journal, avec le remède.
+    /// A Git LFS pointer (a font never fetched) is skipped and reported
+    /// by an error in the log, with the remedy.
+    ///
+    /// # Errors
+    ///
+    /// If the folder or a font is unreadable.
     pub fn read_fonts(&self, dir: &Path) -> Result<BTreeMap<String, Vec<u8>>, StorageError> {
         let mut fonts = BTreeMap::new();
         for path in self.list_files(dir)? {
@@ -350,7 +431,11 @@ impl Storage {
         Ok(fonts)
     }
 
-    /// Écriture en flux (gros fichiers) ; [`StreamWriter::close`] la termine.
+    /// Streaming write (large files); [`StreamWriter::close`] finishes it.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or opening for writing is refused.
     pub fn writer(&self, path: &Path) -> Result<StreamWriter, StorageError> {
         let (op, key) = self.at(path)?;
         let writer = op.writer(&key).context(AccessSnafu { action: "write", path })?;
@@ -372,11 +457,20 @@ impl std::fmt::Debug for StreamWriter {
 }
 
 impl StreamWriter {
+    /// Appends `bytes` to the file.
+    ///
+    /// # Errors
+    ///
+    /// If the write fails.
     pub fn write_all(&mut self, bytes: &[u8]) -> Result<(), StorageError> {
         Ok(self.inner.write_all(bytes).context(StreamSnafu { path: &self.path })?)
     }
 
-    /// Termine l'écriture : le fichier est complet sur le disque.
+    /// Finishes the write: the file is complete on disk.
+    ///
+    /// # Errors
+    ///
+    /// If finishing the write fails: the file may stay incomplete.
     pub fn close(mut self) -> Result<(), StorageError> {
         Ok(self.inner.close().context(StreamSnafu { path: &self.path })?)
     }

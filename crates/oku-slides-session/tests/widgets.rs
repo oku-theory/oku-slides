@@ -1,4 +1,5 @@
 //! Widgets dans une session : liste du snapshot (`pack_widgets`, `add_packs`) et réglages de l'hôte en mode pack.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
 mod common;

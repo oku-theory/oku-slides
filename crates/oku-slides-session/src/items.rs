@@ -10,44 +10,53 @@ use serde::Serialize;
 
 use crate::fields::OwnerKind;
 
-/// Un item sur la page et sa liste.
+/// An item on the page, and its list.
 #[derive(Debug, Serialize)]
 pub struct ItemView<'a> {
-    /// Id de la slide ou de l'élément qui porte la liste.
+    /// Id of the slide or element that holds the list.
     pub owner: &'a str,
+    /// Slide or element: says what `owner` refers to.
     pub owner_kind: OwnerKind,
-    /// Chemin de la liste : le paramètre `list`, ou `liste/id/colonne` pour une liste imbriquée.
+    /// Path of the list: the `list` parameter, or `list/id/column` for the nested list of an item.
     pub list: &'a str,
-    /// Id de l'item.
+    /// Id of the item.
     pub item: &'a str,
-    /// Rang de l'item dans sa liste.
+    /// Rank of the item in its list, from 0.
     pub index: usize,
-    /// Nombre d'items de la liste.
+    /// Number of items in the list.
     pub len: usize,
+    /// Minimum items: the schema's `min`, below which removal stops.
     pub min: usize,
-    /// Items au plus : le `max` du schéma, sinon la borne du cœur (`LIST_ITEMS_MAX`).
+    /// Maximum items: the schema's `max`, otherwise the core's bound (`LIST_ITEMS_MAX`).
     pub max: usize,
-    /// Nom d'un item, au singulier (« étape »).
+    /// Name of one item, in the singular ("step").
     pub item_label: Option<&'a str>,
+    /// Left edge of the rendered item, in pt from the page's left edge.
     pub x: f64,
+    /// Top edge of the rendered item, in pt from the top of the page.
     pub y: f64,
+    /// Width of the rendered item, in pt.
     pub w: f64,
+    /// Height of the rendered item, in pt.
     pub h: f64,
 }
 
-/// Une liste de la page, même vide.
+/// A list on the page, even an empty one.
 #[derive(Debug, Serialize)]
 pub struct ListView<'a> {
+    /// Id of the slide or element that holds the list.
     pub owner: &'a str,
+    /// Slide or element: says what `owner` refers to.
     pub owner_kind: OwnerKind,
-    /// Chemin de la liste : le paramètre `list`, ou `liste/id/colonne` pour la liste
-    /// imbriquée d'un item.
+    /// Path of the list: the `list` parameter, or `list/id/column` for the nested list of an item.
     pub list: Cow<'a, str>,
-    /// Nombre d'items (0 si la liste est absente).
+    /// Number of items (0 if the list is absent).
     pub len: usize,
+    /// Minimum items: the schema's `min`, below which removal stops.
     pub min: usize,
-    /// Items au plus : le `max` du schéma, sinon la borne du cœur (`LIST_ITEMS_MAX`).
+    /// Maximum items: the schema's `max`, otherwise the core's bound (`LIST_ITEMS_MAX`).
     pub max: usize,
+    /// Name of one item, in the singular ("step").
     pub item_label: Option<&'a str>,
 }
 

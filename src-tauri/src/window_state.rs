@@ -67,7 +67,7 @@ pub fn save(app: &AppHandle) {
     match app.save_window_state(StateFlags::all()) {
         Ok(()) => {}
         Err(e) if is_window_gone(&e) => {
-            tracing::debug!(error = %e, "état des fenêtres : une fenêtre fermée ignorée")
+            tracing::debug!(error = %e, "état des fenêtres : une fenêtre fermée ignorée");
         }
         Err(e) => tracing::warn!(error = %e, "état de la fenêtre non enregistré"),
     }

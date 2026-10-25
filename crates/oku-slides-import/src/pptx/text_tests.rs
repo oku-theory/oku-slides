@@ -30,7 +30,7 @@ fn txbody_splits_paragraphs_runs_and_levels() {
 
 #[test]
 fn line_break_becomes_a_newline_run() {
-    let t = body(r#"<a:bodyPr/><a:p><a:r><a:t>a</a:t></a:r><a:br/><a:r><a:t>b</a:t></a:r></a:p>"#);
+    let t = body(r"<a:bodyPr/><a:p><a:r><a:t>a</a:t></a:r><a:br/><a:r><a:t>b</a:t></a:r></a:p>");
     assert_that!(t.paragraphs[0].runs.iter().map(|r| r.text.as_str()).collect::<Vec<_>>())
         .is_equal_to(vec!["a", "\n", "b"]);
 }
@@ -165,7 +165,7 @@ fn body_pr_bounds_column_counts() {
 
 #[test]
 fn norm_autofit_without_scale_is_a_neutral_shrink() {
-    assert_that!(body(r#"<a:bodyPr><a:normAutofit/></a:bodyPr><a:p/>"#).body.autofit)
+    assert_that!(body(r"<a:bodyPr><a:normAutofit/></a:bodyPr><a:p/>").body.autofit)
         .is_equal_to(Some(Autofit::Shrink { font_scale: 1.0, line_reduction: 0.0 }));
 }
 

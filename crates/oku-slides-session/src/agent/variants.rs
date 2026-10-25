@@ -95,15 +95,14 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
         check_options(&format!("fields[{i}].options"), &field.options)?;
     }
     if matches!(field.kind, FieldKind::Slider | FieldKind::Stepper) {
-        let finite = [field.min, field.max].into_iter().flatten().all(|v| v.is_finite());
+        let finite = [field.min, field.max].into_iter().flatten().all(f64::is_finite);
         ensure!(finite, AgentFormSnafu { reason: AgentFormReason::NotFinite { at: format!("fields[{i}]") } });
-        // Un `Stepper` sans borne la laisse simplement non contrainte (`None`
-        // reste `None` côté composant) : on ne compare que les deux bornes
-        // présentes. Un `Slider`, lui, retombe sur `forms::SLIDER_DEFAULT_*`
-        // quand une borne manque (`forms::params`) : on compare donc les
-        // mêmes valeurs effectives, sinon une seule borne fournie (ex.
-        // `min: Some(150.0), max: None`) passerait la validation puis
-        // produirait quand même une plage inversée à l'affichage.
+        // A `Stepper` without a bound passes `None` to the component, which falls
+        // back on 1 and 24 (`ui/src/a2ui/catalog.tsx`): only the two bounds present
+        // are compared here. A `Slider`, however, falls back on `forms::SLIDER_DEFAULT_*`
+        // when a bound is missing (`forms::params`): so the same effective values are
+        // compared, otherwise a single bound (e.g. `min: Some(150.0), max: None`)
+        // would pass validation and still produce an inverted range on display.
         let bounds = match field.kind {
             FieldKind::Slider => {
                 Some((field.min.unwrap_or(forms::SLIDER_DEFAULT_MIN), field.max.unwrap_or(forms::SLIDER_DEFAULT_MAX)))
@@ -121,13 +120,23 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
 }
 
 impl Session {
-    /// L'op d'un champ pour `value`.
+    /// The op of a field for `value`.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`AgentForm`) if template `op_template` filled with `value` is not a valid op.
     pub fn param_op(&self, field: &ParamField, value: &Value) -> Result<Op> {
         parse_op(&field.op_template, value).map_err(|e| malformed("op_template".into(), &e))
     }
 
-    /// Surface `show_params`. Chaque gabarit est rempli avec sa valeur
-    /// actuelle et essayé sur un clone du deck.
+    /// `show_params` surface.
+    ///
+    /// Each template is filled with its current value and tried on a clone of the deck.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the number of fields is out of bounds, if the slide is unknown, or if a template is
+    /// malformed or rejected on the deck clone.
     pub fn params_surface(&self, id: &str, spec: &ShowParams) -> Result<Surface> {
         check_len("fields", spec.fields.len(), forms::FIELDS)?;
         self.deck().slide(&spec.slide).context(NoSlideSnafu { id: &spec.slide })?;
@@ -145,11 +154,15 @@ impl Session {
         Ok(forms::params(id, spec, &palette, &self.localizer))
     }
 
-    /// Surface `show_variants` : chaque variante appliquée à un clone, rendue,
-    /// puis jetée. Une variante invalide fait échouer tout l'appel.
+    /// `show_variants` surface: each variant applied to a clone, rendered, then dropped.
     ///
-    /// Un pack qui fait échouer un rendu (délai, mémoire, arrêt) : repli sur
-    /// la base, avec son avis, et variantes refaites une fois.
+    /// An invalid variant fails the whole call. A pack that makes a render fail (timeout, memory,
+    /// abort): fallback to the base, with its notice, and the variants redone once.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the number of variants is out of bounds, if the slide is unknown, or if a variant is
+    /// invalid or does not render.
     pub fn variants_surface(&mut self, id: &str, spec: &ShowVariants) -> Result<Surface> {
         check_len("variants", spec.variants.len(), forms::VARIANTS)?;
         self.deck().slide(&spec.slide).context(NoSlideSnafu { id: &spec.slide })?;

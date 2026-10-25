@@ -1,5 +1,6 @@
 //! Tests de non-régression : un fichier par bogue corrigé.
 //! Numérotation locale (`issue_NNNN`), en l'absence d'identifiant de tâche.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 #[path = "../common/mod.rs"]
 mod common;

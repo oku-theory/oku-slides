@@ -27,7 +27,7 @@ fn with_ops(deck: &Deck, ops: Vec<Op>) -> Deck {
     d
 }
 
-fn edit(change: Value) -> Op {
+fn edit(change: &Value) -> Op {
     op(json!({ "op": "edit_list", "target": { "slide": "s-constat", "element": "f" },
         "param": "etapes", "change": change }))
 }
@@ -50,11 +50,11 @@ fn deck_with_list(ids: &[&str]) -> Deck {
         .collect();
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
         "element": { "id": "f", "kind": "test-el/liste" } }));
-    with_ops(&roadmap(), vec![add, set_list(Value::Array(items))])
+    with_ops(&roadmap(), vec![add, set_list(&Value::Array(items))])
 }
 
 /// `set_param` de la liste `etapes` de `f` entière.
-fn set_list(value: Value) -> Op {
+fn set_list(value: &Value) -> Op {
     op(json!({ "op": "set_param", "target": { "slide": "s-constat", "element": "f" },
         "param": "etapes", "value": value }))
 }
@@ -106,7 +106,7 @@ fn items_list(r: &DeckReplica) -> LoroMovableList {
 fn reconcile_list_reads_back_items_and_text_columns() {
     let read = round_trip(&deck_with_list(&["d0", "i-1"]));
     let f = element(&read, "f");
-    assert_that!(f.params.list("etapes").map(|l| l.len())).is_equal_to(Some(2));
+    assert_that!(f.params.list("etapes").map(<[_]>::len)).is_equal_to(Some(2));
     let items = f.params.list("etapes").unwrap();
     assert_that!(items[0].id.as_str()).is_equal_to("d0");
     assert_that!(items[0].values.text("date")).is_equal_to(Some("2019"));
@@ -131,10 +131,12 @@ fn apply_list_edits_then_deck_equals_the_canonical_view() {
     let edited = with_ops(
         &deck,
         vec![
-            edit(json!({ "op": "insert", "index": 0, "id": "i-2", "values": { "date": "2030", "fait": true } })),
-            edit(json!({ "op": "set_field", "item": "d0", "field": "note", "value": [{ "runs": [{ "t": "Revu" }] }] })),
-            edit(json!({ "op": "set_field", "item": "d0", "field": "fait", "value": null })),
-            edit(json!({ "op": "move", "item": "i-1", "to": 0 })),
+            edit(&json!({ "op": "insert", "index": 0, "id": "i-2", "values": { "date": "2030", "fait": true } })),
+            edit(
+                &json!({ "op": "set_field", "item": "d0", "field": "note", "value": [{ "runs": [{ "t": "Revu" }] }] }),
+            ),
+            edit(&json!({ "op": "set_field", "item": "d0", "field": "fait", "value": null })),
+            edit(&json!({ "op": "move", "item": "i-1", "to": 0 })),
         ],
     );
     r.apply(&edited, "Éditer", None).unwrap();
@@ -172,7 +174,7 @@ fn reconcile_absent_declared_list_creates_its_empty_container() {
 fn reconcile_emptied_list_reads_back_absent() {
     let deck = deck_with_list(&["d0", "i-1"]);
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
-    let emptied = with_ops(&deck, vec![set_list(Value::Null)]);
+    let emptied = with_ops(&deck, vec![set_list(&Value::Null)]);
     r.apply(&emptied, "Vider", None).unwrap();
     let (read, issues) = r.deck();
     assert_that!(issues).is_empty();
@@ -185,9 +187,9 @@ fn reconcile_emptied_list_reads_back_absent() {
 #[test]
 fn undo_list_insert_move_remove_each_restores_the_previous_list() {
     let d0 = deck_with_list(&["d0", "i-1"]);
-    let d1 = with_ops(&d0, vec![edit(json!({ "op": "insert", "id": "i-2", "values": { "date": "2031" } }))]);
-    let d2 = with_ops(&d1, vec![edit(json!({ "op": "move", "item": "i-2", "to": 0 }))]);
-    let d3 = with_ops(&d2, vec![edit(json!({ "op": "remove", "item": "d0" }))]);
+    let d1 = with_ops(&d0, vec![edit(&json!({ "op": "insert", "id": "i-2", "values": { "date": "2031" } }))]);
+    let d2 = with_ops(&d1, vec![edit(&json!({ "op": "move", "item": "i-2", "to": 0 }))]);
+    let d3 = with_ops(&d2, vec![edit(&json!({ "op": "remove", "item": "d0" }))]);
     let mut r = DeckReplica::new(&d0, registry()).unwrap();
     for (d, label) in [(&d1, "Ajouter"), (&d2, "Déplacer"), (&d3, "Retirer")] {
         r.apply(d, label, None).unwrap();
@@ -214,8 +216,8 @@ fn concurrent_first_inserts_into_an_absent_list_keep_both() {
     let snap = DeckReplica::new(&deck, registry()).unwrap().snapshot().unwrap();
     let open = || DeckReplica::from_snapshot(&snap, 1 << 20, registry()).unwrap().0;
     let (mut a, mut b) = (open(), open());
-    a.apply(&with_ops(&deck, vec![edit(json!({ "op": "insert", "id": "i-a" }))]), "A", None).unwrap();
-    b.apply(&with_ops(&deck, vec![edit(json!({ "op": "insert", "id": "i-b" }))]), "B", None).unwrap();
+    a.apply(&with_ops(&deck, vec![edit(&json!({ "op": "insert", "id": "i-a" }))]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![edit(&json!({ "op": "insert", "id": "i-b" }))]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let mut merged = ids(&a.deck().0);
     merged.sort();
@@ -251,8 +253,10 @@ fn apply_reorder_of_items_marks_intermediate_commits_as_parts() {
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let before = messages(&r).len();
     let moves = [("d", 0), ("c", 1), ("b", 2)];
-    let reversed =
-        with_ops(&deck, moves.iter().map(|(item, to)| edit(json!({ "op": "move", "item": item, "to": to }))).collect());
+    let reversed = with_ops(
+        &deck,
+        moves.iter().map(|(item, to)| edit(&json!({ "op": "move", "item": item, "to": to }))).collect(),
+    );
     assert_that!(ids(&reversed)).is_equal_to(vec!["d".to_owned(), "c".into(), "b".into(), "a".into()]);
     r.apply(&reversed, "Inverser", None).unwrap();
     let got = messages(&r).split_off(before);
@@ -276,7 +280,7 @@ fn deck_with_plan() -> Deck {
     with_ops(&roadmap(), vec![add, set])
 }
 
-fn edit_tasks(step: &str, change: Value) -> Op {
+fn edit_tasks(step: &str, change: &Value) -> Op {
     op(json!({ "op": "edit_list", "target": { "slide": "s-constat", "element": "p" },
         "param": format!("etapes/{step}/taches"), "change": change }))
 }
@@ -298,26 +302,26 @@ fn round_trip_nested_list_is_identical() {
 #[test]
 fn nested_list_is_a_movable_list_in_its_item_map() {
     let r = DeckReplica::new(&deck_with_plan(), registry()).unwrap();
-    let (tree, n) = tree::node_of(&r.doc, "s-constat", "p");
-    let p = tree.get_meta(n).unwrap();
-    let steps = as_list(as_map(as_map(p.get("params")).get("etapes")).get(schema::LIST));
-    let a = as_map(steps.get(0));
-    let tasks = as_list(as_map(a.get("taches")).get(schema::LIST));
+    let (tree, node) = tree::node_of(&r.doc, "s-constat", "p");
+    let meta = tree.get_meta(node).unwrap();
+    let steps = as_list(as_map(as_map(meta.get("params")).get("etapes")).get(schema::LIST));
+    let step_a = as_map(steps.get(0));
+    let tasks = as_list(as_map(step_a.get("taches")).get(schema::LIST));
     assert_that!(tasks.len()).is_equal_to(2);
     // Étape `b` sans tâche : la liste imbriquée est créée d'avance, vide (parade t-188).
-    let b = as_map(steps.get(1));
-    assert_that!(as_list(as_map(b.get("taches")).get(schema::LIST)).len()).is_equal_to(0);
+    let step_b = as_map(steps.get(1));
+    assert_that!(as_list(as_map(step_b.get("taches")).get(schema::LIST)).len()).is_equal_to(0);
 }
 
 #[test]
 fn undo_nested_insert_move_remove_and_set_field_each_restores_the_previous_deck() {
     let d0 = deck_with_plan();
-    let d1 = with_ops(&d0, vec![edit_tasks("a", json!({ "op": "insert", "id": "n", "values": { "texte": "neuf" } }))]);
-    let d2 = with_ops(&d1, vec![edit_tasks("a", json!({ "op": "move", "item": "n", "to": 0 }))]);
-    let d3 = with_ops(&d2, vec![edit_tasks("a", json!({ "op": "remove", "item": "t1" }))]);
+    let d1 = with_ops(&d0, vec![edit_tasks("a", &json!({ "op": "insert", "id": "n", "values": { "texte": "neuf" } }))]);
+    let d2 = with_ops(&d1, vec![edit_tasks("a", &json!({ "op": "move", "item": "n", "to": 0 }))]);
+    let d3 = with_ops(&d2, vec![edit_tasks("a", &json!({ "op": "remove", "item": "t1" }))]);
     let d4 = with_ops(
         &d3,
-        vec![edit_tasks("a", json!({ "op": "set_field", "item": "t2", "field": "texte", "value": "DEUX" }))],
+        vec![edit_tasks("a", &json!({ "op": "set_field", "item": "t2", "field": "texte", "value": "DEUX" }))],
     );
     let mut r = DeckReplica::new(&d0, registry()).unwrap();
     for (d, label) in [(&d1, "Ajouter"), (&d2, "Déplacer"), (&d3, "Retirer"), (&d4, "Écrire")] {
@@ -338,8 +342,8 @@ fn concurrent_inserts_into_the_same_nested_list_keep_both() {
     let snap = DeckReplica::new(&deck, registry()).unwrap().snapshot().unwrap();
     let open = || DeckReplica::from_snapshot(&snap, 1 << 20, registry()).unwrap().0;
     let (mut a, mut b) = (open(), open());
-    a.apply(&with_ops(&deck, vec![edit_tasks("b", json!({ "op": "insert", "id": "x" }))]), "A", None).unwrap();
-    b.apply(&with_ops(&deck, vec![edit_tasks("b", json!({ "op": "insert", "id": "y" }))]), "B", None).unwrap();
+    a.apply(&with_ops(&deck, vec![edit_tasks("b", &json!({ "op": "insert", "id": "x" }))]), "A", None).unwrap();
+    b.apply(&with_ops(&deck, vec![edit_tasks("b", &json!({ "op": "insert", "id": "y" }))]), "B", None).unwrap();
     a.merge(&b).unwrap();
     let mut merged = task_ids(&a.deck().0, "b");
     merged.sort();
@@ -393,7 +397,7 @@ fn concurrent_nested_insert_and_outer_change_converge(#[case] outer: Value) {
     let snap = DeckReplica::new(&deck, registry()).unwrap().snapshot().unwrap();
     let open = || DeckReplica::from_snapshot(&snap, 1 << 20, registry()).unwrap().0;
     let (mut a, mut b) = (open(), open());
-    a.apply(&with_ops(&deck, vec![edit_tasks("a", json!({ "op": "insert", "id": "n" }))]), "A", None).unwrap();
+    a.apply(&with_ops(&deck, vec![edit_tasks("a", &json!({ "op": "insert", "id": "n" }))]), "A", None).unwrap();
     let outer = op(json!({ "op": "edit_list", "target": { "slide": "s-constat", "element": "p" }, "param": "etapes",
         "change": outer }));
     b.apply(&with_ops(&deck, vec![outer]), "B", None).unwrap();

@@ -1,4 +1,5 @@
 //! L'hôte lance l'agent local, qui modifie le deck par MCP et finit par un reçu.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

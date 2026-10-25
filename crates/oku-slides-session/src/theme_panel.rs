@@ -158,7 +158,7 @@ struct Builder {
 
 impl Builder {
     /// Ajoute les composants d'une ligne ; renvoie l'id de la ligne.
-    fn row(&mut self, row: &Row, palette: &[String], tokens: &Map<String, Value>, l: &Localizer) -> String {
+    fn row(&mut self, row: &Row<'_>, palette: &[String], tokens: &Map<String, Value>, l: &Localizer) -> String {
         let key = row.key();
         let mut children = Vec::new();
         let shown = Shown { key: &key, path: &row.path, spec: row.spec, label: &row.label, value: row.value.as_ref() };
@@ -316,7 +316,7 @@ impl Session {
                 path,
             }
         };
-        let mut rows: Vec<Row> = schema.iter().map(|s| row(s.path.clone(), s)).collect();
+        let mut rows: Vec<Row<'_>> = schema.iter().map(|s| row(s.path.clone(), s)).collect();
         // Les couleurs libres du brouillon et celles qu'il hérite des thèmes dessous.
         let mut effective = lower.clone();
         merge(&mut effective, &draft);
@@ -365,7 +365,7 @@ impl Session {
         let lower = self.draft_lower()?;
         let mut tokens = lower.clone();
         merge(&mut tokens, &self.edited_tokens());
-        let rows: Vec<Row> = self.theme_rows(&schema, &lower).into_iter().filter(|r| r.matches(&filter)).collect();
+        let rows: Vec<Row<'_>> = self.theme_rows(&schema, &lower).into_iter().filter(|r| r.matches(&filter)).collect();
         let mut b = Builder::default();
         let mut body = vec!["title".to_owned()];
         b.components.push(Component::text("title", theme.name.clone(), Some(TextVariant::H4)));

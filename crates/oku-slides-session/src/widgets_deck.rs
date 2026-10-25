@@ -180,8 +180,8 @@ impl Session {
             created: now_created(),
             scope: PackScope::Deck,
             profiles: Vec::new(),
-            examples: Default::default(),
-            styles: Default::default(),
+            examples: BTreeMap::default(),
+            styles: BTreeMap::default(),
             tokens: Vec::new(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;

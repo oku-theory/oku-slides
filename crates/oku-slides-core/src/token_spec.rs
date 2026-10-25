@@ -75,8 +75,14 @@ pub enum Control {
 /// Plus grand entier qu'un `f64` représente exactement (2^53).
 const EXACT_INTEGER_MAX: f64 = 9_007_199_254_740_992.0;
 
-/// Écrit une borne entière sans partie décimale : `0`, pas `0.0`. Un manifeste
-/// relu puis réécrit garde ainsi son contenu canonique, donc sa version.
+/// Writes an integer bound without a fractional part: `0`, not `0.0`. A manifest
+/// read back then rewritten thus keeps its canonical content, hence its version.
+#[expect(clippy::trivially_copy_pass_by_ref, reason = "signature required by serde's serialize_with")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "exact integer of at most 2^53 in absolute value, checked just before; \
+              there is no fallible f64 to i64 conversion"
+)]
 fn number<S: Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
     if v.fract() == 0.0 && v.abs() <= EXACT_INTEGER_MAX {
         // Exact : un entier d'au plus 2^53 en valeur absolue tient dans un i64.
@@ -86,11 +92,11 @@ fn number<S: Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
     }
 }
 
-/// Un jeton de composant déclaré par un manifeste de pack.
+/// A component token declared by a pack manifest.
 ///
-/// `path` est relatif à `component.<namespace>`. `default` est requis sauf si
-/// `optional` ; un `null` écrit est une valeur (`Some(Value::Null)`), pas une
-/// absence. `label` nomme le jeton dans l'éditeur pour un pack non intégré.
+/// `path` is relative to `component.<namespace>`. `default` is required unless
+/// `optional`; a written `null` is a value (`Some(Value::Null)`), not an
+/// absence. `label` names the token in the editor for a non-built-in pack.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComponentToken {
     /// Chemin du jeton sous `component.<namespace>` (`["card", "bg"]`).
@@ -113,7 +119,11 @@ pub struct ComponentToken {
 }
 
 impl ComponentToken {
-    /// Vérifie l'entrée : un chemin non vide, et un défaut sauf si `optional`.
+    /// Checks the entry: a non-empty path, and a default unless `optional`.
+    ///
+    /// # Errors
+    ///
+    /// `EmptyPath` for an empty path, `MissingDefault` with neither default nor `optional`.
     pub fn check(&self) -> Result<(), TokenEntryError> {
         if self.path.is_empty() {
             return Err(EmptyPathSnafu.build().into());
@@ -125,9 +135,14 @@ impl ComponentToken {
     }
 }
 
-/// Vérifie les entrées `tokens` d'un manifeste : chacune ([`ComponentToken::check`]),
-/// puis aucun chemin qui en prolonge un autre ou lui est égal (leurs défauts ne
-/// s'imbriqueraient pas).
+/// Checks the `tokens` entries of a manifest.
+///
+/// Each entry passes [`ComponentToken::check`], then no path may extend or
+/// equal another one (their defaults would not nest).
+///
+/// # Errors
+///
+/// The first refused entry, or `PathConflict` for two nested paths.
 pub fn check_entries(tokens: &[ComponentToken]) -> Result<(), TokenEntryError> {
     tokens.iter().try_for_each(ComponentToken::check)?;
     let mut paths: Vec<&[String]> = tokens.iter().map(|t| t.path.as_slice()).collect();
@@ -147,6 +162,7 @@ fn present<'de, D: Deserializer<'de>>(de: D) -> Result<Option<Value>, D::Error> 
     Value::deserialize(de).map(Some)
 }
 
+#[expect(clippy::trivially_copy_pass_by_ref, reason = "signature required by serde's skip_serializing_if")]
 fn is_false(b: &bool) -> bool {
     !*b
 }

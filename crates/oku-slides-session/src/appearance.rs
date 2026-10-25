@@ -23,8 +23,9 @@ pub struct Appearance {
     pub variants: BTreeMap<String, BTreeMap<String, String>>,
     /// Formes de l'interface : `radius-sm`, `radius-md`, `radius-lg` (px), `elevation`.
     pub metrics: BTreeMap<String, f64>,
-    /// Familles de police : titres et texte courant.
+    /// Font families for headings, in order of preference.
     pub font_display: Vec<String>,
+    /// Font families for body text, in order of preference.
     pub font_body: Vec<String>,
     /// Palette des graphiques du thème (jetons `chart.palette`), en hex :
     /// l'interface la propose pour colorer une série.

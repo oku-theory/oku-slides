@@ -32,14 +32,14 @@ fn resample_48k_to_16k_keeps_duration_and_level() {
 
 #[test]
 fn resampler_chunked_input_matches_whole_resample() {
-    let input: Vec<f32> = (0..48_000).map(|i| (i as f32 / 100.0).sin()).collect();
+    let input: Vec<f32> = (0..48_000u16).map(|i| (f32::from(i) / 100.0).sin()).collect();
     let mut r = audio::Resampler::new(48_000);
     let mut out = Vec::new();
     for chunk in input.chunks(997) {
         r.push(chunk, &mut out);
     }
     let whole = resample(&input, 48_000, SAMPLE_RATE);
-    assert_that!((out.len() as i64 - whole.len() as i64).abs()).is_less_than_or_equal_to(1);
+    assert_that!(out.len().abs_diff(whole.len())).is_less_than_or_equal_to(1);
     assert_that!(out.iter().zip(&whole).all(|(a, b)| (a - b).abs() < 1e-4)).is_true();
 }
 
@@ -252,7 +252,7 @@ fn transcribe_loop_api_commits_the_api_text() {
     let (jobs, rx) = mpsc::channel();
     jobs.send(Job::Final { index: 0, audio: vec![0.0; 1600] }).unwrap();
     jobs.send(Job::Done).unwrap();
-    stt.transcribe_loop(session, rx, Arc::new(AtomicBool::new(false)));
+    stt.transcribe_loop(session, &rx, &Arc::new(AtomicBool::new(false)));
     assert_that!(stt.status().text).is_equal_to(Some("Bonjour.".to_owned()));
 }
 

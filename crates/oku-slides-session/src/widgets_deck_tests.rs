@@ -358,10 +358,10 @@ fn undo_and_redo_of_a_widget_session_in_deck_mode_follow_the_registry() {
     assert_that!(s.registry.get("base/kpi")).is_some();
     s.undo().unwrap();
     assert_that!(s.registry.get("base/kpi")).is_none();
-    assert_that!(std::ptr::eq(s.doc.sources.registry(), &*s.registry)).is_true();
+    assert_that!(std::ptr::eq(s.doc.sources.registry(), &raw const *s.registry)).is_true();
     s.redo().unwrap();
     assert_that!(s.registry.get("base/kpi")).is_some();
-    assert_that!(std::ptr::eq(s.doc.sources.registry(), &*s.registry)).is_true();
+    assert_that!(std::ptr::eq(s.doc.sources.registry(), &raw const *s.registry)).is_true();
 }
 
 #[test]

@@ -73,8 +73,8 @@ fn leaf_paths(v: &Value) -> Vec<Vec<String>> {
 }
 
 /// La raison du refus, lue à la fin du message (`…: <raison>`).
-fn reason(path: &[&str], value: Value, tokens: &Map<String, Value>) -> String {
-    let err = validate(full(), &p(path), &value, tokens).unwrap_err();
+fn reason(path: &[&str], value: &Value, tokens: &Map<String, Value>) -> String {
+    let err = validate(full(), &p(path), value, tokens).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InvalidTokenValue);
     let line = err.one_line();
     assert_that!(line.as_str()).starts_with(format!("invalid value for {}: ", path.join(".")));
@@ -278,7 +278,7 @@ fn validate_checks_control(#[case] path: &[&str], #[case] value: Value, #[case] 
 #[case(&["chart", "palette"], json!([]), "bad-palette")]
 #[case(&["component", "essentiel", "title", "rule"], json!({"width": -1, "height": 5, "color": "accent"}), "bad-rule")]
 fn validate_names_the_reason(#[case] path: &[&str], #[case] value: Value, #[case] expected: &str) {
-    assert_that!(reason(path, value, &defaults_map()).as_str()).is_equal_to(expected);
+    assert_that!(reason(path, &value, &defaults_map()).as_str()).is_equal_to(expected);
 }
 
 #[test]
@@ -287,15 +287,15 @@ fn validate_refuses_color_reference_loops() {
     // ink-muted → ink, puis ink → ink-muted : boucle.
     let mut looped = tokens.clone();
     looped["color"]["ink-muted"] = json!("ink");
-    assert_that!(reason(&["color", "ink"], json!("ink-muted"), &looped).as_str()).is_equal_to("reference-loop");
-    assert_that!(reason(&["color", "ink"], json!("ink"), &tokens).as_str()).is_equal_to("reference-loop");
+    assert_that!(reason(&["color", "ink"], &json!("ink-muted"), &looped).as_str()).is_equal_to("reference-loop");
+    assert_that!(reason(&["color", "ink"], &json!("ink"), &tokens).as_str()).is_equal_to("reference-loop");
 }
 
 #[test]
 fn validate_refuses_size_reference_loops() {
     let mut tokens = defaults_map();
     tokens["size"]["title"] = json!("body");
-    assert_that!(reason(&["size", "body"], json!("title"), &tokens).as_str()).is_equal_to("reference-loop");
+    assert_that!(reason(&["size", "body"], &json!("title"), &tokens).as_str()).is_equal_to("reference-loop");
 }
 
 #[test]

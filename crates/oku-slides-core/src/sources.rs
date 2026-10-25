@@ -44,7 +44,9 @@ mod zip_io;
 
 use themes::theme_issues;
 
+/// Value of the `format` field in a source zip's manifest.
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
+/// Version of the source format; follows each change of `REPLICA_FORMAT`.
 pub const SOURCES_VERSION: u32 = 13;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
@@ -61,12 +63,14 @@ pub struct SourceLimits {
 
 impl SourceLimits {
     /// Les limites d'ouverture du replica.
+    #[must_use]
     pub fn replica(&self) -> ReplicaLimits {
         ReplicaLimits { max_bytes: self.replica_bytes, compact_after_secs: self.compact_after_secs }
     }
 }
 
 /// Identifiant d'un asset : `sha256:<hex>` de son contenu.
+#[must_use]
 pub fn asset_id(bytes: &[u8]) -> String {
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
@@ -103,16 +107,20 @@ impl PartialEq for SourceBundle {
 }
 
 impl SourceBundle {
-    /// Un bundle neuf : nouveau replica (nouveau `deck_uid`), sans asset, police, pack ni thème.
-    /// Le deck est d'abord mis sous forme canonique (ce qui répare les ids en
-    /// double : une copie exacte est écartée), puis ses paramètres d'hôte sont
-    /// normalisés comme par les ops (identifiants des lignes et des colonnes
-    /// posés : un deck JSON fusionne aussi cellule par cellule), puis il est
-    /// remis sous forme canonique. Le dédoublonnage doit précéder la
-    /// normalisation, qui poserait des ids aléatoires différents sur chaque
-    /// copie, et la relecture n'y verrait plus une copie exacte. Un deck dont un élément
-    /// dépasse [`MAX_SLOT_DEPTH`] est refusé : la relecture du replica
-    /// l'arrêterait à cette borne, et la vue en différerait.
+    /// A new bundle: new replica (new `deck_uid`), with no asset, font, pack or theme.
+    /// The deck is first put in canonical form (which repairs duplicate
+    /// ids: an exact copy is dropped), then its host parameters are
+    /// normalized as by the ops (row and column ids
+    /// set: a JSON deck also merges cell by cell), then it is
+    /// put back in canonical form. Deduplication must precede
+    /// normalization, which would set different random ids on each
+    /// copy, and the read-back would no longer see an exact copy there. A deck where an element
+    /// exceeds [`MAX_SLOT_DEPTH`] is refused: reading the replica back
+    /// would stop it at that bound, and the view would differ.
+    ///
+    /// # Errors
+    ///
+    /// Element beyond [`MAX_SLOT_DEPTH`], or replica that refuses the deck.
     pub fn new(mut deck: Deck, registry: Arc<WidgetRegistry>) -> Result<Self, SourcesError> {
         let too_deep = deck.slides.iter().flat_map(|s| s.walk()).any(|l| l.depth >= MAX_SLOT_DEPTH);
         ensure!(!too_deep, TooDeepSnafu { max: MAX_SLOT_DEPTH });
@@ -128,6 +136,7 @@ impl SourceBundle {
     /// avec la première lecture qu'il a rendue (faite sous garde : elle n'est
     /// pas refaite ici). Renvoie aussi ce que cette lecture n'a pas pu lire,
     /// et les versions de pack et de thème du deck si elles manquent.
+    #[must_use]
     pub fn from_replica(
         replica: DeckReplica,
         (deck, mut issues): DeckRead,
@@ -194,15 +203,20 @@ impl SourceBundle {
         add_versioned(&mut self.themes, files)
     }
 
+    /// The deck, canonical view equal to the replica's read-back.
+    #[must_use]
     pub fn deck(&self) -> &Deck {
         &self.deck
     }
 
+    /// The Loro replica, source of truth of the deck.
+    #[must_use]
     pub fn replica(&self) -> &DeckReplica {
         &self.replica
     }
 
     /// Le registre des widgets du replica.
+    #[must_use]
     pub fn registry(&self) -> &WidgetRegistry {
         self.replica.registry()
     }
@@ -217,15 +231,24 @@ impl SourceBundle {
         self.replica.set_author(name);
     }
 
-    /// Remplace le deck par `deck` (canonique : voir l'invariant du module),
-    /// en une étape d'annulation `label`. Avec `merge`, l'application rejoint
-    /// l'étape du sommet de même clé (voir `DeckReplica::apply`).
+    /// Replaces the deck with `deck`, in one undo step `label`.
+    ///
+    /// `deck` is canonical (see the module invariant). With `merge`, the application joins
+    /// the top step with the same key (see `DeckReplica::apply`).
+    ///
+    /// # Errors
+    ///
+    /// Those of [`DeckReplica::apply`], or author registration refused.
     pub fn apply(&mut self, deck: Deck, label: &str, merge: Option<&str>) -> Result<(), SourcesError> {
         self.apply_moving(deck, label, merge, &[])
     }
 
-    /// Comme `apply`, en gardant le nœud des éléments de `moves` (voir
+    /// Like `apply`, keeping the node of the elements in `moves` (see
     /// [`DeckReplica::apply_moving`]).
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::apply`].
     pub fn apply_moving(
         &mut self,
         deck: Deck,
@@ -245,7 +268,11 @@ impl SourceBundle {
         Ok(())
     }
 
-    /// Remplace le deck par `deck` (canonique), sans étape d'annulation.
+    /// Replaces the deck with `deck` (canonical), without an undo step.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`DeckReplica::apply_silent`].
     pub fn apply_silent(&mut self, deck: Deck) -> Result<(), SourcesError> {
         // Même non-atomicité que `apply`.
         self.replica.apply_silent(&deck).context(ReplicaSnafu)?;
@@ -274,6 +301,7 @@ impl SourceBundle {
     }
 
     /// Étapes d'annulation empilées (voir [`DeckReplica::undo_steps`]).
+    #[must_use]
     pub fn undo_steps(&self) -> u64 {
         self.replica.undo_steps()
     }
@@ -283,7 +311,11 @@ impl SourceBundle {
         self.replica.clear_undo();
     }
 
-    /// Défait la dernière étape ; `false` s'il n'y en avait pas.
+    /// Undoes the last step; `false` if there was none.
+    ///
+    /// # Errors
+    ///
+    /// Loro refuses to apply the undo.
     pub fn undo(&mut self) -> Result<bool, SourcesError> {
         let done = self.replica.undo().context(ReplicaSnafu)?;
         if done {
@@ -292,7 +324,11 @@ impl SourceBundle {
         Ok(done)
     }
 
-    /// Rétablit la dernière étape défaite ; `false` s'il n'y en avait pas.
+    /// Redoes the last undone step; `false` if there was none.
+    ///
+    /// # Errors
+    ///
+    /// Loro refuses to apply the redo.
     pub fn redo(&mut self) -> Result<bool, SourcesError> {
         let done = self.replica.redo().context(ReplicaSnafu)?;
         if done {
@@ -313,20 +349,27 @@ impl SourceBundle {
     }
 
     /// Les versions du deck, lisibles sur une copie.
+    #[must_use]
     pub fn history(&self) -> HistoryPreview {
         self.replica.history()
     }
 
-    /// Ramène le deck à la version `index` de `preview` (bornée à la
-    /// dernière), par un nouveau commit annulable `label` : le deck devient
-    /// exactement `preview.deck_at(index)`, données d'hôte normalisées. Un
-    /// historique vide ne change rien.
+    /// Brings the deck back to version `index` of `preview`, in a new commit.
     ///
-    /// Comme à l'ouverture ou à la fusion, une version lue en partie est
-    /// restaurée telle qu'elle a été lue (celle que l'aperçu a montrée) ; ce
-    /// qui n'a pas pu être lu est rendu. En cas d'échec, le replica et la vue
-    /// sont intacts, sans rien en attente ([`DeckReplica::restore`]). Les
-    /// problèmes rendus comprennent ceux que signale `validate`.
+    /// The version is clamped to the last one, and the commit is the undoable
+    /// step `label`: the deck becomes
+    /// exactly `preview.deck_at(index)`, host data normalized. An
+    /// empty history changes nothing.
+    ///
+    /// As on opening or merging, a partly read version is
+    /// restored as it was read (the one the preview showed); what
+    /// could not be read is returned. On failure, the replica and the view
+    /// are intact, with nothing pending ([`DeckReplica::restore`]). The
+    /// returned problems include those `validate` reports.
+    ///
+    /// # Errors
+    ///
+    /// Version unreadable in the preview, or that the replica refuses to write.
     pub fn restore(&mut self, preview: &HistoryPreview, index: usize, label: &str) -> Result<Vec<Issue>, SourcesError> {
         if preview.is_empty() {
             return Ok(Vec::new());
@@ -342,9 +385,14 @@ impl SourceBundle {
         Ok(self.with_validation(issues))
     }
 
-    /// Fusionne `other` : son historique, puis ses assets, polices, packs et
-    /// thèmes (à nom égal, on garde les nôtres). La vue est relue ; ses parties illisibles sont
-    /// rendues, suivies de ce que signale `validate` (registre du bundle).
+    /// Merges `other`: its history, then its assets, fonts, packs and themes.
+    ///
+    /// On equal names, ours are kept. The view is read back; its unreadable parts are
+    /// returned, followed by what `validate` reports (the bundle's registry).
+    ///
+    /// # Errors
+    ///
+    /// Those of [`DeckReplica::merge`]: unrelated deck, or malformed changes.
     pub fn merge(&mut self, other: SourceBundle) -> Result<(crate::MergeReport, Vec<Issue>), SourcesError> {
         let report = self.replica.merge(&other.replica).context(ReplicaSnafu)?;
         for (id, bytes) in other.assets {
@@ -391,15 +439,25 @@ impl SourceBundle {
         id
     }
 
+    /// The source zip: replica, assets, fonts, packs and themes.
+    ///
+    /// # Errors
+    ///
+    /// Tree too deep to be reopened, or zip write refused.
     pub fn to_zip(&self) -> Result<Vec<u8>, SourcesError> {
         Ok(self.write_zip()?)
     }
 
-    /// Relit un zip de sources. Les octets viennent d'un fichier : non fiables ;
-    /// `deck.loro` n'est lu que s'il tient dans `limits.replica_bytes`, et le
-    /// tout décompressé dans `limits.total_bytes`. Renvoie aussi ce que la
-    /// relecture du replica n'a pas pu lire, et les versions de packs et de
-    /// thèmes écartées (contenu qui ne donne pas son empreinte) ou manquantes.
+    /// Reads a source zip back. The bytes come from a file: untrusted;
+    /// `deck.loro` is read only if it fits in `limits.replica_bytes`, and the
+    /// whole uncompressed in `limits.total_bytes`. Also returns what the
+    /// replica read-back could not read, and the pack and
+    /// theme versions dropped (content that does not yield its digest) or missing.
+    ///
+    /// # Errors
+    ///
+    /// Unreadable zip or of another version, `deck.loro` missing, entry too
+    /// large, invalid name, or replica refused.
     pub fn from_zip(
         bytes: &[u8],
         limits: SourceLimits,

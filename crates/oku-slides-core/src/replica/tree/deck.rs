@@ -480,9 +480,9 @@ impl Writer<'_> {
     /// Temps 2 : les slides à la racine, puis, slide par slide, ses champs et
     /// ses éléments. Temps 3 : marque des différés. Le commit de l'appelant
     /// clôt l'étape.
-    pub(in crate::replica) fn sync_deck(&self, tree: &LoroTree, wanted: Vec<WantedSlide<'_>>, moves: &[Moved]) -> Res {
+    pub(in crate::replica) fn sync_deck(&self, tree: &LoroTree, wanted: &[WantedSlide<'_>], moves: &[Moved]) -> Res {
         let live = live_slides(tree);
-        let mut pairing = pair(&live, &wanted, moves);
+        let mut pairing = pair(&live, wanted, moves);
         let paired: HashSet<TreeID> = pairing.elements.iter().flatten().flatten().copied().collect();
         let kept: HashSet<TreeID> = pairing.slides.iter().flatten().copied().collect();
 
@@ -500,7 +500,7 @@ impl Writer<'_> {
         }
 
         // Naissance : tous les nœuds manquants, en un seul commit (t-776).
-        let born = self.create_missing(tree, &wanted, &mut pairing)?;
+        let born = self.create_missing(tree, wanted, &mut pairing)?;
         let created: HashSet<TreeID> = born.iter().filter(|(_, s)| s.is_none()).map(|(n, _)| *n).collect();
         let fresh: HashSet<TreeID> = born.iter().map(|(n, _)| *n).collect();
 

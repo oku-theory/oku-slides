@@ -1,32 +1,33 @@
-//! Cœur d'Oku Slides : modèle du deck, opérations, replica Loro,
-//! validation et zip des sources. Aucune dépendance à Typst ni à Tauri.
+//! Oku Slides core: deck model, ops, Loro replica,
+//! validation and source zip. No dependency on Typst or Tauri.
 //!
-//! - [`Deck`] et son schéma JSON : slides et éléments génériques
-//!   (`{id, kind, params}`, [`Params`]), opérations ([`Op`],
-//!   [`apply_all`]), validation ([`validate`], assets cités : [`asset_refs`],
+//! - [`Deck`] and its JSON schema: slides and generic elements
+//!   (`{id, kind, params}`, [`Params`]), ops ([`Op`],
+//!   [`apply_all`]), validation ([`validate`], cited assets: [`asset_refs`],
 //!   [`element_asset_refs`]).
-//! - [`DeckReplica`] : le deck dans un document Loro (CRDT), réconcilié par
-//!   diff depuis un `Deck` et relu ; annuler et rétablir passent par son
-//!   `UndoManager` ; [`ReplicaError`] pour ses échecs ; [`ReplicaLimits`] à l'ouverture d'un
-//!   fichier (taille, compaction des nœuds morts) ; [`DeckReplica::merge`]
-//!   fusionne l'historique d'un autre replica et rend un [`MergeReport`] ;
-//!   [`DeckReplica::history`] rend un [`HistoryPreview`] (ses [`Version`]s, la
-//!   lecture d'une version) et [`DeckReplica::restore`] y ramène le deck
-//!   (réconciliation avec la version relue, en un commit) ;
-//!   [`slide_changes`] compare une version au deck courant, en [`SlideChanges`].
-//! - [`SourceBundle`] : zip des sources (deck, assets) ; sa vue du deck est
-//!   la relecture du replica, sous forme canonique ([`canonicalize`]) ;
-//!   [`SourceBundle::merge`] y ajoute l'union des assets et des polices.
-//! - [`PackPin`], [`PackVersion`], [`PackFiles`], [`WidgetFile`] : pack de widgets épinglé par un deck sous un [`Namespace`], version adressée par contenu, fichiers de widgets ; [`ThemePin`] : thème épinglé par un deck, versionné de même, sa chaîne d'`extends` dans [`theme_chain`].
-//! - [`token_spec`] : jetons de composant déclarés par les packs ([`ComponentToken`]) et contrôle d'éditeur ([`Control`]).
-//! - [`Slide::text_fields`] : les champs texte d'une slide dans l'ordre de
-//!   lecture ([`TextField`], [`FieldOwner`]), ordre de Tab de l'éditeur.
-//! - [`is_hex_color`] : forme hexadécimale des couleurs des jetons.
-//! - [`WidgetRegistry`] : schéma des widgets déclarés en Typst, lu depuis la sonde du rendu (hôtes : [`WidgetRegistry::host_params`] ; hauteur d'un bloc : [`Grow`]).
-//! - [`PackKind`] : la sorte d'un pack (`widgets` d'éléments, `layouts` de slides) ; [`LayoutProfile`] : préréglage d'un layout pour l'import.
-//! - [`kinds`] : les kinds des packs intégrés `base` et `essentiel`, seul endroit où ils s'écrivent.
-//! - [`media`] : type réel d'un média ([`media::sniff`]) et dimensions d'un raster lues dans son en-tête.
-//! - [`tokens`] : jetons effectifs d'un thème ([`tokens::effective_tokens`], fusion [`tokens::merge`], couche de thème [`tokens::theme_layer`]).
+//! - [`DeckReplica`]: the deck in a Loro document (CRDT), reconciled by
+//!   diff from a `Deck` and read back; undo and redo go through its
+//!   `UndoManager`; [`ReplicaError`] for its failures; [`ReplicaLimits`] when opening a
+//!   file (size, compaction of dead nodes); [`DeckReplica::merge`]
+//!   merges the history of another replica and returns a [`MergeReport`];
+//!   [`DeckReplica::history`] returns a [`HistoryPreview`] (its [`Version`]s, the
+//!   reading of a version) and [`DeckReplica::restore`] brings the deck back to one
+//!   (reconciliation with the version read back, in one commit);
+//!   [`slide_changes`] compares a version with the current deck, as [`SlideChanges`].
+//! - [`SourceBundle`]: zip of the sources (deck, assets); its view of the deck is
+//!   the replica read back, in canonical form ([`canonicalize`]);
+//!   [`SourceBundle::merge`] adds the union of the assets and fonts to it.
+//! - [`PackPin`], [`PackVersion`], [`PackFiles`], [`WidgetFile`]: widget pack pinned by a deck under a [`Namespace`], content-addressed version, widget files; [`ThemePin`]: theme pinned by a deck, versioned the same way, its `extends` chain in [`theme_chain`].
+//! - [`token_spec`]: component tokens declared by packs ([`ComponentToken`]) and editor control ([`Control`]).
+//! - [`Slide::text_fields`]: the text fields of a slide in reading
+//!   order ([`TextField`], [`FieldOwner`]), the editor's Tab order.
+//! - [`is_hex_color`]: hexadecimal form of token colors.
+//! - [`WidgetRegistry`]: schema of the widgets declared in Typst, read from the render probe (hosts: [`WidgetRegistry::host_params`]; block height: [`Grow`]).
+//! - [`PackKind`]: the kind of a pack (element `widgets`, slide `layouts`); [`LayoutProfile`]: preset of a layout for import.
+//! - [`kinds`]: the kinds of the built-in `base` and `essentiel` packs, the only place they are written.
+//! - [`media`]: actual type of a media file ([`media::sniff`]) and raster dimensions read from its header.
+//! - [`num`]: bounded, named conversions between floats and integers ([`num::round_u32`]…).
+//! - [`tokens`]: effective tokens of a theme ([`tokens::effective_tokens`], merge [`tokens::merge`], theme layer [`tokens::theme_layer`]).
 
 mod canonical;
 mod color;
@@ -38,6 +39,7 @@ pub mod locate;
 pub mod media;
 pub mod model;
 mod namespace;
+pub mod num;
 pub mod ops;
 pub mod pack;
 mod pack_examples;

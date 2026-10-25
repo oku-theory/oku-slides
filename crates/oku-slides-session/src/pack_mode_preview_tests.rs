@@ -47,7 +47,7 @@ fn preview_slide_is_a_content_slide_holding_one_block_of_its_widget() {
 #[test]
 fn widget_pack_working_deck_renders_its_preview_slides() {
     let s = editing_base();
-    assert_that!(s.compiled.as_ref().map(|c| c.page_count())).is_equal_to(Some(7));
+    assert_that!(s.compiled.as_ref().map(oku_slides_render_worker::RemoteCompiled::page_count)).is_equal_to(Some(7));
 }
 
 #[test]

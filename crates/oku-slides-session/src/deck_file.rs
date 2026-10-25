@@ -38,10 +38,16 @@ pub(crate) fn free_path(dir: &Path, stem: &str, taken: impl Fn(&Path) -> bool) -
     if !taken(&first) {
         return first;
     }
-    (2..).map(|n| dir.join(format!("{stem} {n}{EXTENSION}"))).find(|p| !taken(p)).unwrap_or(first)
+    (2..u64::MAX).map(|n| dir.join(format!("{stem} {n}{EXTENSION}"))).find(|p| !taken(p)).unwrap_or(first)
 }
 
 impl Session {
+    /// Replaces the document with a blank deck, marked as such.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if the blank deck's sources cannot be created, or if its
+    /// rendering fails.
     pub fn new_deck(&mut self) -> Result<()> {
         let sources = SourceBundle::new(blank_deck(&self.localizer), self.registry.clone()).context(SourcesSnafu)?;
         self.load(sources, None)?;
@@ -50,7 +56,12 @@ impl Session {
         Ok(())
     }
 
-    /// Charge un document (déjà lu) dans la session.
+    /// Loads an (already read) document into the session.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable (history, help), or if the document does not load or
+    /// render.
     pub fn load(&mut self, sources: SourceBundle, path: Option<PathBuf>) -> Result<()> {
         self.ensure_editable()?;
         self.load_document(Document::new(sources, path, &self.doc_defaults))
@@ -96,7 +107,7 @@ impl Session {
         // un document refusé plus haut laisse l'onglet et son import tels quels.
         self.import = None;
         // Un autre replica : ses rangs d'étapes ne sont plus ceux des tours notés.
-        self.turn_steps = Default::default();
+        self.turn_steps = crate::agent::turn_undo::TurnSteps::default();
         if let Some(fonts) = fonts {
             self.install_fonts(fonts);
         }
@@ -110,7 +121,12 @@ impl Session {
         self.rerender()
     }
 
-    /// Ouvre un `.oku-slides.pdf` (ou un deck JSON, pour le développement).
+    /// Opens a `.oku-slides.pdf` (or a JSON deck, for development).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the file cannot be read or is not a recognized document, or if it does not load (see
+    /// [`Self::load`]).
     pub fn open(&mut self, path: &Path) -> Result<()> {
         let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
         let (pdf, modified_elsewhere) = (opened.pdf, opened.modified_elsewhere);

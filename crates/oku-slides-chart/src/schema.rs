@@ -6,12 +6,20 @@ use serde_json::Value;
 use crate::data_ops::DataOp;
 use crate::option::ChartOption;
 
-/// Schéma des options complètes (création d'un graphique).
+/// Schema of the full options (creating a chart).
+///
+/// # Errors
+///
+/// Fails if the schema does not serialize to JSON.
 pub fn option_schema() -> serde_json::Result<Value> {
     serde_json::to_value(schema_for!(ChartOption))
 }
 
-/// Schéma d'une opération sur les données (édition dictée d'une valeur).
+/// Schema of a data operation (dictated editing of a value).
+///
+/// # Errors
+///
+/// Fails if the schema does not serialize to JSON.
 pub fn data_op_schema() -> serde_json::Result<Value> {
     serde_json::to_value(schema_for!(DataOp))
 }

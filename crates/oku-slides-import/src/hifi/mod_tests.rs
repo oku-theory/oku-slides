@@ -22,7 +22,7 @@ use crate::test_support::{
 fn deck(slides: Vec<SourceSlide>) -> SourceDeck {
     let level = LevelStyle { para: para(Vec::new()).style, run: run_style() };
     let bandeau = Shape {
-        geom: Geometry::Preset { name: "rect".into(), adj: Default::default() },
+        geom: Geometry::Preset { name: "rect".into(), adj: std::collections::BTreeMap::default() },
         fill: Fill::Solid { color: Styled::scheme(office_theme().colors["accent1"], "accent1") },
         stroke: None,
         text: None,

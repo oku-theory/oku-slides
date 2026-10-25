@@ -65,7 +65,7 @@ pub const TEXT_KIND: &str = base::TEXT;
 /// Un rendu aux packs intégrés : `base` et `essentiel`, sur la couche de leurs seuls défauts.
 pub fn renderer() -> Renderer {
     let mut r = Renderer::with_builtins(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
-    r.set_theme(theme_tokens(None)).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(theme_tokens(None))).unwrap_or_else(|e| panic!("{e}"));
     r
 }
 
@@ -77,12 +77,12 @@ pub fn renderer_with(set: &PackSet) -> Renderer {
     let registry = Arc::new(load_registry(&Fonts::default(), &set).unwrap_or_else(|e| panic!("{e}")));
     let mut r = Renderer::new(Fonts::default()).unwrap_or_else(|e| panic!("{e}"));
     r.set_widgets(&set, registry).unwrap_or_else(|e| panic!("{e}"));
-    r.set_theme(theme_tokens(None)).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(theme_tokens(None))).unwrap_or_else(|e| panic!("{e}"));
     r
 }
 
 /// Rend un deck d'une slide `essentiel/content` dont les blocs sont `blocks`, avec les packs intégrés et `packs`.
-pub fn compile_with_packs(packs: &[PackWidgets], blocks: serde_json::Value) -> Compiled {
+pub fn compile_with_packs(packs: &[PackWidgets], blocks: &serde_json::Value) -> Compiled {
     let mut r = renderer_with(&PackSet::new(packs.to_vec()).unwrap_or_else(|e| panic!("{e}")));
     let deck = json!({
         "version": DECK_VERSION, "params": { "title": "T" },
@@ -93,22 +93,22 @@ pub fn compile_with_packs(packs: &[PackWidgets], blocks: serde_json::Value) -> C
 }
 
 /// Comme [`compile_with_packs`], pour la seule mise en page.
-pub fn render_with_packs(packs: &[PackWidgets], blocks: serde_json::Value) -> Layout {
+pub fn render_with_packs(packs: &[PackWidgets], blocks: &serde_json::Value) -> Layout {
     compile_with_packs(packs, blocks).layout().clone()
 }
 
 /// Rend un deck d'une slide `content` dont les blocs sont `blocks`, avec les widgets de `pack`.
-pub fn compile_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Compiled {
+pub fn compile_with_pack(pack: &PackWidgets, blocks: &serde_json::Value) -> Compiled {
     compile_with_packs(std::slice::from_ref(pack), blocks)
 }
 
 /// Comme [`compile_with_pack`], pour la seule mise en page.
-pub fn render_with_pack(pack: &PackWidgets, blocks: serde_json::Value) -> Layout {
+pub fn render_with_pack(pack: &PackWidgets, blocks: &serde_json::Value) -> Layout {
     render_with_packs(std::slice::from_ref(pack), blocks)
 }
 
 /// Un deck d'une slide `essentiel/blank` dont le slot `elements` tient le seul `element`.
-pub fn blank_with_element(element: serde_json::Value) -> Deck {
+pub fn blank_with_element(element: &serde_json::Value) -> Deck {
     let deck = json!({
         "version": DECK_VERSION,
         "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [element] } }]
@@ -146,10 +146,10 @@ pub fn own_theme_tokens(name: &str) -> Map<String, Value> {
 
 /// La couche `/theme.json` du rendu : les défauts de composant des packs intégrés,
 /// puis les jetons du thème `name` ; sans thème, les seuls défauts des packs.
-pub fn theme_tokens(name: Option<&str>) -> Option<Map<String, Value>> {
+pub fn theme_tokens(name: Option<&str>) -> Map<String, Value> {
     let packs = builtin_component_defaults().unwrap_or_else(|e| panic!("{e}"));
     let own = name.map(own_theme_tokens);
-    Some(theme_layer(packs.iter().map(|(ns, d)| (ns, d.clone())), own.as_ref()))
+    theme_layer(packs.iter().map(|(ns, d)| (ns, d.clone())), own.as_ref())
 }
 
 /// La version d'un thème intégré : son `theme.json`, sans widget.

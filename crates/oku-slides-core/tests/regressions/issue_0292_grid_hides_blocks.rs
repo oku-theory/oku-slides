@@ -56,7 +56,8 @@ fn set_param_grid_after_blocks_moved_to_elements_is_accepted() {
     ops.push(grid(json!({ "columns": 2, "rows": 2 })));
     for (i, b) in blocks.into_iter().enumerate() {
         let mut e = b;
-        e.cell = Some(Cell { col: (i % 2) as u32, row: (i / 2) as u32, cols: 1, rows: 1 });
+        let i = u32::try_from(i).unwrap_or_else(|e| panic!("index de bloc : {e}"));
+        e.cell = Some(Cell { col: i % 2, row: i / 2, cols: 1, rows: 1 });
         let slot = SlotRef { owner: priorites(), param: "elements".into() };
         ops.push(Op::AddElement { slot, index: None, defaults: false, element: e });
     }

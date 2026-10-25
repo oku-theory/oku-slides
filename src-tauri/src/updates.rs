@@ -136,8 +136,8 @@ async fn check(app: &AppHandle) -> Result<UpdateStatus, UpdateError> {
     let Some(updates) = app.try_state::<Updates>() else {
         return Err(RefusedSnafu { why: "not ready" }.build().into());
     };
-    let updater = app.updater().context(CheckSnafu)?;
-    let found = tokio::time::timeout(CHECK_TIMEOUT, updater.check())
+    let checker = app.updater().context(CheckSnafu)?;
+    let found = tokio::time::timeout(CHECK_TIMEOUT, checker.check())
         .await
         .map_err(|_| UpdateError::from(CheckTimeoutSnafu.build()))?
         .context(CheckSnafu)?;
@@ -197,7 +197,7 @@ pub fn spawn_checks(app: &AppHandle, settings: &UpdateSettings) {
         while !closing(&app) {
             match check(&app).await {
                 Ok(UpdateStatus { offer: Some(offer), .. }) => {
-                    tracing::info!(version = %offer.version, "mise à jour disponible")
+                    tracing::info!(version = %offer.version, "mise à jour disponible");
                 }
                 Ok(_) => tracing::debug!("aucune mise à jour"),
                 Err(e) => tracing::warn!(error = %one_line(&e), "recherche de mise à jour"),
@@ -290,7 +290,7 @@ async fn install(app: &AppHandle) -> Result<(), UpdateError> {
     match done {
         Ok(Ok(())) => tracing::info!("mise à jour installée : redémarrage"),
         Ok(Err(e)) => {
-            tracing::error!(error = %e, "installation de la mise à jour : redémarrage sur la version actuelle")
+            tracing::error!(error = %e, "installation de la mise à jour : redémarrage sur la version actuelle");
         }
         // `settle` a paniqué : rien n'a été installé ; `RunEvent::Exit` rappelle `Workspace::settle`.
         Err(e) => tracing::error!(error = %e, "enregistrement avant mise à jour"),

@@ -12,6 +12,7 @@
 
 use crate::report::LossKind;
 use crate::source::{Frame, Size};
+use oku_slides_core::num::round_u32;
 
 /// Largeur de la page Oku, en pt.
 pub(crate) const PAGE_W: f64 = 1920.0;
@@ -43,8 +44,8 @@ impl Page {
     /// La transposition de la page source `size`. Une taille non finie ou
     /// nulle (le lecteur la borne à `[1, 10⁶]`) vaut la page Oku.
     pub(crate) fn new(size: Size) -> Self {
-        let side = |v: f64, page: f64| if v.is_finite() && v > 0.0 { v } else { page };
-        let (w, h) = (side(size.w, PAGE_W), side(size.h, PAGE_H));
+        let or_page = |v: f64, page: f64| if v.is_finite() && v > 0.0 { v } else { page };
+        let (w, h) = (or_page(size.w, PAGE_W), or_page(size.h, PAGE_H));
         let scale = (PAGE_W / w).min(PAGE_H / h);
         Self { source: Size { w, h }, scale, dx: (PAGE_W - w * scale) / 2.0, dy: (PAGE_H - h * scale) / 2.0 }
     }
@@ -83,9 +84,11 @@ impl Page {
     }
 }
 
-/// Une taille de page en pt entiers (`as` sature ; le lecteur la borne à `[1, 10⁶]`).
+/// A page size in whole pt, saturated.
+///
+/// The reader already clamps it to `[1, 10⁶]`.
 fn pt_u32(v: f64) -> u32 {
-    v.round() as u32
+    round_u32(v)
 }
 
 #[cfg(test)]

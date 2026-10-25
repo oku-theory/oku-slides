@@ -30,6 +30,7 @@ use crate::model::Deck;
 /// Une version : l'état juste après une édition (son dernier commit).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Version {
+    /// Name recorded by the author of the edit; `None` if they gave none.
     pub author: Option<String>,
     /// Secondes Unix (horloge de la machine de l'auteur : affichée, jamais triée).
     pub timestamp: i64,
@@ -52,7 +53,7 @@ pub struct HistoryPreview {
 
 impl std::fmt::Debug for HistoryPreview {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HistoryPreview").field("versions", &self.versions.len()).finish()
+        f.debug_struct("HistoryPreview").field("versions", &self.versions.len()).finish_non_exhaustive()
     }
 }
 
@@ -125,14 +126,20 @@ pub(super) fn build(doc: &LoroDoc) -> HistoryPreview {
 }
 
 impl HistoryPreview {
+    /// The versions, from oldest to newest.
+    #[must_use]
     pub fn versions(&self) -> &[Version] {
         &self.versions
     }
 
+    /// Number of versions.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.versions.len()
     }
 
+    /// Are there no versions (deck without history)?
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.versions.is_empty()
     }
@@ -149,11 +156,15 @@ impl HistoryPreview {
         self.cuts.get(index.min(self.cuts.len().saturating_sub(1)))
     }
 
-    /// Le deck juste après la version `index` (bornée à la dernière).
+    /// The deck just after version `index` (clamped to the last one).
     ///
-    /// La version est rejouée dans un document neuf à partir de ses
-    /// opérations (`updates_till`), contrôlée comme à l'ouverture, lue puis
-    /// libérée : jamais de `checkout` (t-809). Une panique empoisonne la copie.
+    /// The version is replayed into a fresh document from its
+    /// operations (`updates_till`), checked as on opening, read and then
+    /// released: never a `checkout` (t-809). A panic poisons the copy.
+    ///
+    /// # Errors
+    ///
+    /// Copy already poisoned, or unreadable or malformed version (`Corrupted`).
     pub fn deck_at(&self, index: usize) -> Result<DeckRead, ReplicaError> {
         let (Some(doc), Some(cut)) = (self.doc.as_ref(), self.cut(index)) else {
             return Ok((Deck::empty(), Vec::new()));
@@ -170,21 +181,19 @@ impl HistoryPreview {
             check_trees(&version)?;
             read_deck(&version)
         }));
-        match read {
-            Ok(read) => {
-                // Une version acceptée, ou refusée avant d'être lue, se libère sans récursion.
-                drop(ManuallyDrop::into_inner(version));
-                Ok(read?)
-            }
-            Err(_) => {
-                self.poisoned.set(true);
-                Err(ImportPanickedSnafu.build().into())
-            }
+        if let Ok(read) = read {
+            // A version accepted, or refused before being read, is released without recursion.
+            drop(ManuallyDrop::into_inner(version));
+            Ok(read?)
+        } else {
+            self.poisoned.set(true);
+            Err(ImportPanickedSnafu.build().into())
         }
     }
 }
 
 /// Les slides de `version` comparées à celles de `current`, par `id`.
+#[must_use]
 pub fn slide_changes(version: &Deck, current: &Deck) -> SlideChanges {
     let now: BTreeMap<&str, _> = current.slides.iter().map(|s| (s.id.as_str(), s)).collect();
     let then: BTreeMap<&str, _> = version.slides.iter().map(|s| (s.id.as_str(), s)).collect();

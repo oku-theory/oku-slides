@@ -4,6 +4,7 @@
 //! écrites pour la reprise. Un crash après un tour de l'agent perdait le
 //! travail qu'il venait de faire.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -46,7 +47,7 @@ fn platform(data: &Path) -> Platform {
 
 fn resumed(data: &Data) -> Mutex<Workspace> {
     Mutex::new(
-        Workspace::resume(Fonts::default(), &platform(&data.0), data.resume())
+        Workspace::resume(Fonts::default(), &platform(&data.0), &data.resume())
             .unwrap_or_else(|e| panic!("reprise impossible : {}", e.one_line())),
     )
 }
@@ -61,12 +62,12 @@ fn agent_apply_outside_handle_is_written_for_resume() {
     let (applied, _) = Workspace::with_session(&ws, &tab_id, |s: &mut Session| {
         s.apply(
             "Thème",
-            vec![oku_slides_core::Op::SetTheme { theme: Some(crate::common::ns("pro")), themes: Default::default() }],
+            vec![oku_slides_core::Op::SetTheme { theme: Some(crate::common::ns("pro")), themes: BTreeMap::default() }],
             None,
         )
     });
     let applied = applied.unwrap_or_else(|e| panic!("onglet inconnu : {}", e.one_line()));
-    assert_that!(applied.map(|_| ())).is_ok();
+    assert_that!(applied).is_ok();
 
     Workspace::settle(&ws);
     drop(ws);
@@ -111,12 +112,12 @@ fn agent_new_deck_outside_handle_is_written_for_resume() {
     let (applied, _) = Workspace::with_session(&ws, &tab_id, |s: &mut Session| {
         s.apply(
             "Thème",
-            vec![oku_slides_core::Op::SetTheme { theme: Some(crate::common::ns("pro")), themes: Default::default() }],
+            vec![oku_slides_core::Op::SetTheme { theme: Some(crate::common::ns("pro")), themes: BTreeMap::default() }],
             None,
         )
     });
     let applied = applied.unwrap_or_else(|e| panic!("onglet inconnu : {}", e.one_line()));
-    assert_that!(applied.map(|_| ())).is_ok();
+    assert_that!(applied).is_ok();
     let (blank, _) = Workspace::with_session(&ws, &tab_id, |s: &mut Session| s.new_deck());
     let blank = blank.unwrap_or_else(|e| panic!("onglet inconnu : {}", e.one_line()));
     assert_that!(blank.map_err(|e| e.one_line())).is_ok();

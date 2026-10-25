@@ -269,7 +269,7 @@ fn chart_element_of_every_kind_is_accepted_by_add_slide(
 fn chart_beyond_the_replica_row_budget_is_cut_with_a_loss(#[case] kind: ChartKind, #[case] columns: usize) {
     // Le plus que lit le lecteur : une ligne de plus que le budget, en-tête compris.
     let points = 10_000;
-    let values: Vec<f64> = (0..points).map(|i| i as f64).collect();
+    let values: Vec<f64> = (0..points).map(f64::from).collect();
     let mut c = source_chart(kind, Grouping::Standard);
     c.categories = Vec::new();
     c.series = vec![series("Ventes", &values)];

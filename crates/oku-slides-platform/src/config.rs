@@ -26,24 +26,41 @@ pub struct ConfigError {
     backtrace: Backtrace,
 }
 
+/// All the app settings, one section per table of `config.toml`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct Settings {
+    /// Data, model, pack and deck folders.
     pub paths: PathSettings,
+    /// Depth of the undo history.
     pub history: HistorySettings,
+    /// State restored on relaunch.
     pub resume: ResumeSettings,
+    /// Loro sources embedded in the decks.
     pub sources: SourcesSettings,
+    /// Typst rendering and widget pack limits.
     pub render: RenderSettings,
+    /// Import of PPTX presentations.
     pub import: ImportSettings,
+    /// Pasting images and files into the deck.
     pub paste: PasteSettings,
+    /// `oku-slides serve` development server.
     pub serve: ServeSettings,
+    /// Language of the messages.
     pub i18n: I18nSettings,
+    /// Light or dark scheme of the UI.
     pub appearance: AppearanceSettings,
+    /// Dictation pacing and thresholds.
     pub stt: SttSettings,
+    /// Model downloads.
     pub models: ModelsSettings,
+    /// Offered ACP agents and the active agent.
     pub agent: AgentSettings,
+    /// Local fallback agent, without network.
     pub local_agent: LocalAgentSettings,
+    /// App update checks.
     pub updates: UpdateSettings,
+    /// Author recorded in the deck history.
     #[serde(default)]
     pub author: AuthorSettings,
 }
@@ -60,11 +77,13 @@ pub struct UpdateSettings {
 
 impl UpdateSettings {
     /// Délai entre deux recherches automatiques.
+    #[must_use]
     pub fn interval(&self) -> std::time::Duration {
         std::time::Duration::from_secs(self.check_interval_hours.get().saturating_mul(3600))
     }
 
     /// Recherche automatique permise : réglage actif, et jamais en développement.
+    #[must_use]
     pub fn auto_check(&self, debug_build: bool) -> bool {
         self.check_automatically && !debug_build
     }
@@ -75,12 +94,15 @@ impl UpdateSettings {
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[non_exhaustive]
 pub struct PathSettings {
+    /// App data folder; absent: the system one.
     pub data: Option<PathBuf>,
+    /// Downloaded models (dictation, local agent).
     pub models: Option<PathBuf>,
     /// Packs de widgets de l'utilisateur (la bibliothèque).
     pub widgets: Option<PathBuf>,
     /// Packs de layouts de l'utilisateur (la bibliothèque).
     pub layouts: Option<PathBuf>,
+    /// The user's theme packs (the library).
     pub themes: Option<PathBuf>,
     /// Polices supplémentaires (TTF/OTF).
     pub fonts: Option<PathBuf>,
@@ -88,6 +110,7 @@ pub struct PathSettings {
     pub decks: Option<PathBuf>,
 }
 
+/// Undo history of the decks.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct HistorySettings {
@@ -110,14 +133,16 @@ const SECS_PER_DAY: i64 = 86_400;
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct SourcesSettings {
-    /// Taille maximale d'un historique lu dans un PDF ou dans la reprise (Mio).
+    /// Maximum size of a read history, in MiB.
     ///
-    /// Borne aussi, approximativement, les ops produites par un import.
+    /// It applies to a history read from a PDF or from the resume state.
+    ///
+    /// Also roughly bounds the ops produced by an import.
     pub max_replica_mib: usize,
-    /// Taille décompressée maximale du zip des sources lu dans un PDF (Mio).
+    /// Maximum decompressed size of the sources zip read from a PDF (MiB).
     ///
-    /// Historique, assets et polices compris ; borne aussi, approximativement, la
-    /// sortie d'un import (estimation précoce, pas une garantie de réouverture).
+    /// History, assets and fonts included; also roughly bounds the
+    /// output of an import (an early estimate, not a guarantee of reopening).
     pub max_sources_mib: usize,
     /// Délai de compaction des nœuds supprimés (jours) ; 0 : jamais.
     pub compact_after_days: u32,
@@ -145,10 +170,10 @@ pub struct RenderSettings {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct ImportSettings {
-    /// Hi-fi : écart (ΔE OKLab ×100) d'une région qui fait signaler sa slide.
+    /// Hi-fi: difference (OKLab ΔE ×100) of a region that gets its slide flagged.
     ///
-    /// Comparé à la pire région non suspecte de chaque slide, contre le rendu
-    /// de référence ; fini et positif (la CLI refuse un autre).
+    /// Compared with the worst non-suspect region of each slide, against the reference
+    /// render; finite and positive (the CLI rejects anything else).
     pub score_threshold: f64,
     /// Durée maximale d'une tranche du rendu de référence (ms), dans son processus de rendu.
     pub reference_timeout_ms: u64,
@@ -157,25 +182,25 @@ pub struct ImportSettings {
     pub soffice: Vec<PathBuf>,
     /// Délai de LibreOffice pour une tranche (ms) ; passé lui, il est tué.
     pub soffice_timeout_ms: u64,
-    /// Essais par slide de l'ajustement par l'agent.
+    /// Attempts per slide of the agent's adjustment.
     ///
-    /// Un essai : une note d'une slide dont le raster a changé.
+    /// One attempt: a score of a slide whose raster changed.
     pub tune_iterations: std::num::NonZeroU32,
-    /// Essais de suite sans gain avant d'arrêter une slide de l'ajustement.
+    /// Consecutive attempts without gain before a slide leaves the adjustment.
     ///
-    /// Le gain se mesure sur l'excès total.
+    /// The gain is measured on the total excess.
     pub tune_stall: std::num::NonZeroU32,
-    /// Essais du deck entier (thème, pack) de l'ajustement par l'agent.
+    /// Attempts on the whole deck (theme, pack) of the agent's adjustment.
     ///
-    /// Un par état du deck noté.
+    /// One per scored deck state.
     pub tune_global: std::num::NonZeroU32,
-    /// Taille maximale d'un `.pptx` importé (Mio).
+    /// Maximum size of an imported `.pptx` (MiB).
     ///
-    /// Vérifiée avant toute lecture : un fichier plus gros n'entre jamais en mémoire.
+    /// Checked before any read: a larger file never enters memory.
     pub max_input_mib: std::num::NonZeroU64,
-    /// Témoin de la référence d'un import hi-fi dans l'app (t-905).
+    /// Witness for the reference of a hi-fi import in the app (t-905).
     ///
-    /// Aussi celui de `oku-slides import` sans `--reference`.
+    /// Also the one for `oku-slides import` without `--reference`.
     pub witness: ImportWitness,
 }
 
@@ -191,6 +216,7 @@ pub enum ImportWitness {
 
 impl ImportSettings {
     /// [`Self::max_input_mib`] en octets.
+    #[must_use]
     pub fn max_input_bytes(&self) -> u64 {
         self.max_input_mib.get().saturating_mul(1024 * 1024)
     }
@@ -198,16 +224,19 @@ impl ImportSettings {
 
 impl SourcesSettings {
     /// [`Self::compact_after_days`] en secondes.
+    #[must_use]
     pub fn compact_after_secs(&self) -> i64 {
         i64::from(self.compact_after_days).saturating_mul(SECS_PER_DAY)
     }
 
     /// [`Self::max_replica_mib`] en octets.
+    #[must_use]
     pub fn max_replica_bytes(&self) -> usize {
         self.max_replica_mib.saturating_mul(1024 * 1024)
     }
 
     /// [`Self::max_sources_mib`] en octets.
+    #[must_use]
     pub fn max_sources_bytes(&self) -> usize {
         self.max_sources_mib.saturating_mul(1024 * 1024)
     }
@@ -246,16 +275,19 @@ pub struct PromptImageLimits {
 
 impl PasteSettings {
     /// [`Self::max_image_mib`] en octets.
+    #[must_use]
     pub fn max_image_bytes(&self) -> usize {
         self.max_image_mib.saturating_mul(1024 * 1024)
     }
 
     /// [`Self::max_kept_mib`] en octets.
+    #[must_use]
     pub fn max_kept_bytes(&self) -> usize {
         self.max_kept_mib.saturating_mul(1024 * 1024)
     }
 
     /// Les bornes des images montrées à l'agent, en octets et en pixels.
+    #[must_use]
     pub fn prompt_limits(&self) -> PromptImageLimits {
         PromptImageLimits {
             max_bytes: self.prompt_image_mib.saturating_mul(1024 * 1024),
@@ -267,26 +299,31 @@ impl PasteSettings {
 
 impl RenderSettings {
     /// [`Self::timeout_ms`] en [`std::time::Duration`].
+    #[must_use]
     pub fn timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.timeout_ms)
     }
 
     /// [`Self::probe_budget_ms`] en [`std::time::Duration`].
+    #[must_use]
     pub fn probe_budget(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.probe_budget_ms)
     }
 
     /// [`Self::memory_mib`] en octets.
+    #[must_use]
     pub fn memory_bytes(&self) -> u64 {
         self.memory_mib.saturating_mul(1024 * 1024)
     }
 
     /// [`Self::max_frame_mib`] en octets, saturé à `usize::MAX` (cibles 32 bits).
+    #[must_use]
     pub fn max_frame_bytes(&self) -> usize {
         usize::try_from(self.max_frame_mib).unwrap_or(usize::MAX).saturating_mul(1024 * 1024)
     }
 
     /// [`Self::max_widget_kib`] en octets.
+    #[must_use]
     pub fn max_widget_bytes(&self) -> usize {
         self.max_widget_kib.saturating_mul(1024)
     }
@@ -296,12 +333,14 @@ impl RenderSettings {
 #[derive(Debug, Clone, PartialEq, Deserialize, Default)]
 #[non_exhaustive]
 pub struct AuthorSettings {
+    /// Recorded name; absent or blank: the system user.
     #[serde(default)]
     pub name: Option<String>,
 }
 
 impl AuthorSettings {
     /// Le nom réglé, sinon l'utilisateur du système ; blanc = aucun.
+    #[must_use]
     pub fn resolved(&self) -> Option<String> {
         let blank = |s: &String| s.trim().is_empty();
         self.name
@@ -313,10 +352,13 @@ impl AuthorSettings {
     }
 }
 
+/// `oku-slides serve` development server, without authentication.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct ServeSettings {
+    /// Listen address; outside loopback, the whole network is served.
     pub host: String,
+    /// Listen port.
     pub port: u16,
     /// Délai pour recevoir les en-têtes d'une requête (ms) ; au-delà, la
     /// connexion est fermée. Zéro est refusé au chargement (aucune requête
@@ -329,11 +371,13 @@ pub struct ServeSettings {
 
 impl ServeSettings {
     /// [`Self::header_timeout_ms`] en [`std::time::Duration`].
+    #[must_use]
     pub fn header_timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.header_timeout_ms.get())
     }
 }
 
+/// Language of the app messages.
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[non_exhaustive]
 pub struct I18nSettings {
@@ -367,10 +411,15 @@ pub struct ModelsSettings {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct SttSettings {
+    /// Pace of the listening loop (ms).
     pub tick_ms: u64,
+    /// Without any speech for this long (s), listening stops.
     pub nothing_heard_secs: f32,
+    /// New preview when the sentence has grown by at least this much (s).
     pub preview_step_secs: f32,
+    /// Shorter than this (s), a "sentence" is ignored noise.
     pub min_phrase_secs: f32,
+    /// Silence (s) after which the stop countdown is shown.
     pub countdown_after_secs: f32,
     /// Rejoue ce fichier WAV au lieu du micro.
     pub fake_mic: Option<PathBuf>,
@@ -380,6 +429,7 @@ pub struct SttSettings {
     pub apple_finish_timeout_secs: f32,
     /// Attente maximale d'une réponse de l'API de dictée (s).
     pub api_timeout_secs: f32,
+    /// Splitting of the voice into sentences.
     pub vad: VadSettings,
 }
 
@@ -397,8 +447,9 @@ pub struct VadSettings {
     pub min_phrase: f32,
     /// sauf après une pause plus longue que celle-ci (s).
     pub long_pause: f32,
-    /// Audio gardé avant le début et après la fin de la parole (s).
+    /// Audio kept before speech starts (s).
     pub pre_roll: f32,
+    /// Audio kept after speech ends (s).
     pub post_roll: f32,
     /// Longueur maximale d'une phrase (s).
     pub max_phrase: f32,
@@ -487,7 +538,13 @@ impl AgentPreset {
 }
 
 impl AgentSettings {
-    /// L'agent actif. `selected` est vérifié au chargement : l'absence est un invariant violé.
+    /// The active agent. `selected` is checked on load: its absence is a broken invariant.
+    ///
+    /// # Panics
+    ///
+    /// If `selected` names no agent of `presets`, which loading already rejects.
+    #[must_use]
+    #[expect(clippy::panic, reason = "invariant checked on load; an absence is a bug, not an error to report")]
     pub fn active(&self) -> &AgentPreset {
         self.presets.get(&self.selected).unwrap_or_else(|| panic!("agent.selected = {:?} non vérifié", self.selected))
     }
@@ -512,7 +569,11 @@ impl AgentSettings {
 }
 
 impl Settings {
-    /// Réglages de l'app : défauts, `config.toml` du dossier de données, environnement.
+    /// App settings: defaults, the data folder's `config.toml`, environment.
+    ///
+    /// # Errors
+    ///
+    /// If `config.toml` or an environment variable is invalid, or if the agents are badly declared.
     pub fn load() -> Result<Self, ConfigError> {
         let env = Self::environment();
         let data = std::env::var_os("OKU_SLIDES_PATHS__DATA").map_or_else(default_data_dir, PathBuf::from);
@@ -527,16 +588,25 @@ impl Settings {
     }
 
     /// `config.toml` du dossier de données (facultatif, écrit par `set_setting`).
+    #[must_use]
     pub fn config_file(&self) -> PathBuf {
         self.paths.data().join("config.toml")
     }
 
-    /// Les seuls défauts embarqués (tests, outils).
+    /// The embedded defaults alone (tests, tools).
+    ///
+    /// # Errors
+    ///
+    /// If the embedded defaults cannot be read, which would be a bug.
     pub fn defaults() -> Result<Self, ConfigError> {
         Self::from_sources(None, Self::environment().source(Some(HashMap::new())))
     }
 
-    /// Défauts, puis `file` s'il existe, puis `env`.
+    /// Defaults, then `file` if it exists, then `env`.
+    ///
+    /// # Errors
+    ///
+    /// If `file` or `env` is invalid, or if the agents are badly declared.
     pub fn from_sources(file: Option<&Path>, env: config::Environment) -> Result<Self, ConfigError> {
         let mut builder =
             config::Config::builder().add_source(config::File::from_str(DEFAULTS, config::FileFormat::Toml));
@@ -558,26 +628,31 @@ impl PathSettings {
 
     /// Modèles de dictée : un modèle n'est téléchargé qu'une fois pour l'app
     /// et le serveur de développement.
+    #[must_use]
     pub fn models(&self) -> PathBuf {
         self.models.clone().unwrap_or_else(|| self.data().join("models"))
     }
 
     /// Packs de widgets de l'utilisateur.
+    #[must_use]
     pub fn widgets(&self) -> PathBuf {
         self.widgets.clone().unwrap_or_else(|| self.data().join("widgets"))
     }
 
     /// Packs de layouts de l'utilisateur.
+    #[must_use]
     pub fn layouts(&self) -> PathBuf {
         self.layouts.clone().unwrap_or_else(|| self.data().join("layouts"))
     }
 
     /// Thèmes de l'utilisateur.
+    #[must_use]
     pub fn themes(&self) -> PathBuf {
         self.themes.clone().unwrap_or_else(|| self.data().join("themes"))
     }
 
     /// Decks enregistrés d'eux-mêmes : `Documents/Oku Slides` par défaut.
+    #[must_use]
     pub fn decks(&self) -> PathBuf {
         self.decks.clone().unwrap_or_else(|| home_dir().join("Documents").join("Oku Slides"))
     }
@@ -594,9 +669,9 @@ fn default_data_dir() -> PathBuf {
     let base = if cfg!(target_os = "macos") {
         home.join("Library/Application Support")
     } else if cfg!(windows) {
-        std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| home.join("AppData/Roaming"))
+        std::env::var_os("APPDATA").map_or_else(|| home.join("AppData/Roaming"), PathBuf::from)
     } else {
-        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".local/share"))
+        std::env::var_os("XDG_DATA_HOME").map_or_else(|| home.join(".local/share"), PathBuf::from)
     };
     base.join(APP_ID)
 }

@@ -62,6 +62,7 @@ pub(crate) struct DeckWidgets {
 /// Pannes simulées par les tests, chacune consommée par le premier passage.
 #[cfg(test)]
 #[derive(Debug, Default)]
+#[expect(clippy::struct_excessive_bools, reason = "one simulated failure per flag, independent of the others")]
 pub(crate) struct Failpoints {
     /// `SourceBundle::apply` échoue dans `Session::apply`, après le rendu.
     pub(crate) sources_apply: bool,
@@ -281,16 +282,22 @@ impl Session {
         })
     }
 
-    /// Applique une transaction : rendue d'abord, validée ensuite. L'historique
-    /// du replica est définitif ; un rendu raté n'y laisse aucune trace.
-    /// Les graphiques ajoutés sont d'abord mis sous forme canonique (données
-    /// dans `dataset`, en-têtes traduits).
+    /// Applies a transaction: rendered first, validated next.
     ///
-    /// Chaque `AddPack` est précédé des besoins que le deck n'épingle pas
-    /// (`closure_ops`), et chaque version épinglée est embarquée d'abord. Une
-    /// transaction qui change les packs épinglés se valide avec leurs widgets,
-    /// résolus avant ses ops : elle peut ajouter un de leurs widgets. En cas
-    /// d'échec, le registre d'avant revient.
+    /// The replica history is final; a failed render leaves no trace there.
+    /// Added charts are first put in canonical form (data in `dataset`,
+    /// translated headers).
+    ///
+    /// Each `AddPack` is preceded by the requirements the deck does not pin
+    /// (`closure_ops`), and each pinned version is embedded first. A
+    /// transaction that changes the pinned packs is validated with their
+    /// widgets, resolved before its ops: it may add one of their widgets. On
+    /// failure, the previous registry comes back.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if an op is rejected (pack mode, core validation), if a
+    /// pack cannot be embedded, or if rendering fails: nothing changes then.
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         // En mode pack, choisir un thème fait partir le brouillon de ce thème.
         if let Some(ns) = self.drafted_theme_choice(&ops) {

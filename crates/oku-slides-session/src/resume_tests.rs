@@ -447,7 +447,7 @@ fn widget_files_of(packs: &std::path::Path, hex: &str) -> Vec<String> {
     std::fs::read_dir(packs)
         .unwrap()
         .filter_map(|e| e.ok()?.file_name().into_string().ok())
-        .filter(|n| n.starts_with(&prefix) && n.ends_with(".typ"))
+        .filter(|n| n.starts_with(&prefix) && std::path::Path::new(n).extension().is_some_and(|e| e == "typ"))
         .collect()
 }
 
@@ -631,7 +631,8 @@ fn resume_of_a_version_8_tab_with_unsaved_work_is_set_aside_as_outdated() {
     std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
     let mut back = crate::test_support::session_on(data.path());
     assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Outdated);
-    assert_that!(back.deck().theme.as_ref().map(|t| t.as_str())).is_equal_to(Some(crate::PAPIER_NAMESPACE));
+    assert_that!(back.deck().theme.as_ref().map(oku_slides_core::Namespace::as_str))
+        .is_equal_to(Some(crate::PAPIER_NAMESPACE));
     assert_that!(dir.exists()).is_false();
 }
 

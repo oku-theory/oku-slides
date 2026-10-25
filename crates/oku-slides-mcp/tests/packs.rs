@@ -1,4 +1,5 @@
 //! Panneau des packs du deck : montré par le hub, ses actions, rafraîchi par `prune`.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -42,7 +43,7 @@ async fn packs_add_event_pins_and_the_last_panel_lists_it() {
     show(&h);
     let _ = next_surface(&mut rx).await;
     tokio::task::block_in_place(|| {
-        h.hub.act(action(HOST_PACKS, "add_pack", json!({ "kind": "widgets", "namespace": "acme" })))
+        h.hub.act(action(HOST_PACKS, "add_pack", &json!({ "kind": "widgets", "namespace": "acme" })))
     })
     .unwrap_or_else(|e| panic!("ajout : {e}"));
     let last = last_surface(&mut rx, HOST_PACKS);
@@ -53,7 +54,7 @@ async fn packs_add_event_pins_and_the_last_panel_lists_it() {
 async fn packs_malformed_context_is_incomplete() {
     let h = start().await;
     show(&h);
-    let r = tokio::task::block_in_place(|| h.hub.act(action(HOST_PACKS, "add_pack", json!({ "kind": "themes" }))));
+    let r = tokio::task::block_in_place(|| h.hub.act(action(HOST_PACKS, "add_pack", &json!({ "kind": "themes" }))));
     assert_that!(r.map_err(|e| e.kind())).is_equal_to(Err(HubErrorKind::Incomplete));
 }
 
@@ -61,7 +62,7 @@ async fn packs_malformed_context_is_incomplete() {
 async fn packs_malformed_context_keeps_the_panel() {
     let h = start().await;
     show(&h);
-    let _ = tokio::task::block_in_place(|| h.hub.act(action(HOST_PACKS, "add_pack", json!({ "kind": "themes" }))));
+    let _ = tokio::task::block_in_place(|| h.hub.act(action(HOST_PACKS, "add_pack", &json!({ "kind": "themes" }))));
     assert_that!(open(&h)).is_true();
 }
 
@@ -70,7 +71,7 @@ async fn packs_refused_removal_is_a_session_error() {
     let h = start().await;
     show(&h);
     let r = tokio::task::block_in_place(|| {
-        h.hub.act(action(HOST_PACKS, "remove_pack", json!({ "kind": "widgets", "namespace": "base" })))
+        h.hub.act(action(HOST_PACKS, "remove_pack", &json!({ "kind": "widgets", "namespace": "base" })))
     });
     assert_that!(r.map_err(|e| e.kind())).is_equal_to(Err(HubErrorKind::Session));
 }
@@ -79,7 +80,7 @@ async fn packs_refused_removal_is_a_session_error() {
 async fn packs_dismiss_closes_the_panel() {
     let h = start().await;
     show(&h);
-    h.hub.act(action(HOST_PACKS, "dismiss", json!({}))).unwrap_or_else(|e| panic!("fermeture : {e}"));
+    h.hub.act(action(HOST_PACKS, "dismiss", &json!({}))).unwrap_or_else(|e| panic!("fermeture : {e}"));
     assert_that!(open(&h)).is_false();
 }
 
@@ -157,7 +158,7 @@ fn active_cards(s: &Surface) -> Vec<String> {
 
 /// Le sélecteur de thème et le panneau des packs, montrés ensemble.
 fn show_both(h: &common::Harness) {
-    let picker = tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre".into())))
+    let picker = tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre")))
         .unwrap_or_else(|e| panic!("sélecteur de thème : {e}"));
     assert_that!((picker, show(h))).is_equal_to((true, true));
 }
@@ -167,7 +168,7 @@ async fn picking_a_theme_in_the_picker_refreshes_the_packs_panel() {
     let h = start().await;
     show_both(&h);
     let mut rx = h.hub.subscribe();
-    tokio::task::block_in_place(|| h.hub.act(action(HOST_THEME_PICKER, "theme", json!({ "theme": PRO_NAMESPACE }))))
+    tokio::task::block_in_place(|| h.hub.act(action(HOST_THEME_PICKER, "theme", &json!({ "theme": PRO_NAMESPACE }))))
         .unwrap_or_else(|e| panic!("choix du thème : {e}"));
     let panel = last_surface(&mut rx, HOST_PACKS);
     assert_that!(text_of_component(&panel, "theme-name")).is_equal_to(Some("Pro".to_owned()));
@@ -178,7 +179,7 @@ async fn picking_a_theme_in_the_packs_panel_refreshes_the_picker() {
     let h = start().await;
     show_both(&h);
     let mut rx = h.hub.subscribe();
-    tokio::task::block_in_place(|| h.hub.act(action(HOST_PACKS, "theme", json!({ "theme": PRO_NAMESPACE }))))
+    tokio::task::block_in_place(|| h.hub.act(action(HOST_PACKS, "theme", &json!({ "theme": PRO_NAMESPACE }))))
         .unwrap_or_else(|e| panic!("choix du thème : {e}"));
     let picker = last_surface(&mut rx, HOST_THEME_PICKER);
     assert_that!(active_cards(&picker)).is_equal_to(vec!["Pro".to_owned()]);
@@ -200,7 +201,7 @@ async fn picking_a_variant_refreshes_the_packs_panel() {
     let variants = [variant("Pro", PRO_NAMESPACE), variant("Papier", PAPIER_NAMESPACE)];
     let id = shown_by(&h, "show_variants", json!({ "slide": "s-libre", "variants": variants })).await;
     let mut rx = h.hub.subscribe();
-    tokio::task::block_in_place(|| h.hub.act(action(&id, "variant", json!({ "index": 0 }))))
+    tokio::task::block_in_place(|| h.hub.act(action(&id, "variant", &json!({ "index": 0 }))))
         .unwrap_or_else(|e| panic!("variante : {e}"));
     let panel = last_surface(&mut rx, HOST_PACKS);
     assert_that!(text_of_component(&panel, "theme-name")).is_equal_to(Some("Pro".to_owned()));
@@ -215,7 +216,7 @@ async fn changing_a_param_refreshes_the_packs_panel() {
         "options": [{ "id": "papier", "label": "Papier" }, { "id": PRO_NAMESPACE, "label": "Pro" }] });
     let id = shown_by(&h, "show_params", json!({ "title": "Apparence", "slide": "s-libre", "fields": [field] })).await;
     let mut rx = h.hub.subscribe();
-    tokio::task::block_in_place(|| h.hub.act(action(&id, "param", json!({ "field": 0, "value": PRO_NAMESPACE }))))
+    tokio::task::block_in_place(|| h.hub.act(action(&id, "param", &json!({ "field": 0, "value": PRO_NAMESPACE }))))
         .unwrap_or_else(|e| panic!("réglage : {e}"));
     let panel = last_surface(&mut rx, HOST_PACKS);
     assert_that!(text_of_component(&panel, "theme-name")).is_equal_to(Some("Pro".to_owned()));

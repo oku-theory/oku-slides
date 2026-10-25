@@ -17,6 +17,7 @@ use crate::{Mode, Result, Session};
 /// Issue d'un enregistrement.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Saved {
+    /// The file had not changed (or `overwrite`): written as is.
     Written,
     /// Le fichier avait changé (même deck) : fusionné, puis écrit.
     Merged(MergeReport),
@@ -49,12 +50,16 @@ pub(crate) fn merge_notice(l: &Localizer, file: &str, report: &MergeReport) -> S
 }
 
 impl Session {
-    /// Fusionne le `.oku-slides.pdf` `path` (une autre copie du même deck)
-    /// dans le deck ouvert.
+    /// Merges `path`, another `.oku-slides.pdf` copy of this deck, into the open deck.
     ///
-    /// La fusion ne s'annule pas (les modifications importées sont celles
-    /// d'autres pairs) ; le document devient modifié et l'avis de fusion part
-    /// avec le prochain snapshot. Refusée pendant l'édition d'un pack.
+    /// The merge cannot be undone (the imported changes are those of other
+    /// peers); the document becomes modified and the merge notice goes out
+    /// with the next snapshot. Rejected while a pack is being edited.
+    ///
+    /// # Errors
+    ///
+    /// Fails when read-only or in pack mode, if the file cannot be read, is not an Oku Slides
+    /// document (`NotOkuSlides`) or does not merge.
     pub fn merge_file(&mut self, path: &Path) -> Result<MergeReport> {
         self.ensure_not_help()?;
         ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
@@ -136,9 +141,15 @@ impl Session {
         }
     }
 
-    /// Enregistre, sans écraser un fichier changé sur disque : même deck,
-    /// fusion puis écriture ; autre deck (ou plus un document Oku Slides),
-    /// rien n'est écrit et le prochain snapshot le signale — sauf `overwrite`.
+    /// Saves without overwriting a file changed on disk.
+    ///
+    /// Same deck: merge then write; another deck (or no longer an Oku Slides
+    /// document): nothing is written and the next snapshot reports it — unless `overwrite`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if no path is available, or if the merge or the
+    /// write fails.
     pub fn save_checked(&mut self, path: Option<&Path>, overwrite: bool) -> Result<Saved> {
         // L'historique montre une version passée : elle ne s'écrit jamais.
         self.ensure_editable()?;
@@ -161,8 +172,14 @@ impl Session {
         }
     }
 
-    /// Refuse un `path` où un fichier existe déjà, celui du deck compris ; ne pas pouvoir le
-    /// savoir refuse aussi. Ni déplacer ni copier pour l'agent ne remplacent un fichier.
+    /// Rejects a `path` where a file already exists, the deck's own included.
+    ///
+    /// Not being able to tell also rejects. Neither moving nor copying for the
+    /// agent replaces a file.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a file exists at `path` (`TargetExists`) or if that cannot be determined (`Read`).
     pub fn ensure_free(&self, path: &Path) -> Result<()> {
         let path = deck_path(path);
         let taken = self.storage.exists(&path).context(ReadSnafu { path: &path })?;
@@ -170,9 +187,16 @@ impl Session {
         Ok(())
     }
 
-    /// Déplace le fichier du document vers `path`, libre (voir [`Session::ensure_free`]),
-    /// puis supprime l'ancien fichier. Vérifié ici, sous le verrou de la session, au moment
-    /// d'écrire : un fichier apparu pendant la confirmation n'est pas remplacé.
+    /// Moves the document's file to a free `path`, then deletes the old one.
+    ///
+    /// See [`Session::ensure_free`].
+    ///
+    /// Checked here, under the session lock, at write time: a file that appeared
+    /// during the confirmation is not replaced.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if `path` is taken, or if the write fails.
     pub fn move_to(&mut self, path: &Path) -> Result<()> {
         self.ensure_editable()?;
         self.ensure_free(path)?;
@@ -191,24 +215,35 @@ impl Session {
         Ok(())
     }
 
-    /// [`Session::save_copy`] à un `path` libre (voir [`Session::ensure_free`]), vérifié au
-    /// moment d'écrire.
+    /// [`Session::save_copy`] to a free `path` (see [`Session::ensure_free`]), checked at write time.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if `path` is taken, or if the write fails.
     pub fn save_copy_new(&mut self, path: &Path) -> Result<()> {
         self.ensure_editable()?;
         self.ensure_free(path)?;
         self.save_copy(path)
     }
 
-    /// Écrit une copie à `path` ; le document garde son fichier et ses
-    /// modifications à enregistrer. Un fichier existant est remplacé (le dialogue du système
-    /// l'a fait confirmer).
+    /// Writes a copy to `path`; the document keeps its file and its unsaved changes.
+    ///
+    /// An existing file is replaced (the system dialog had it confirmed).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, or if the path or the write fails.
     pub fn save_copy(&mut self, path: &Path) -> Result<()> {
         self.ensure_editable()?;
         let path = self.save_path(Some(path))?;
         self.write_file(&path).map(|_| ())
     }
 
-    /// Enregistre sans vérifier le disque (CLI, choix « Écraser »).
+    /// Saves without checking the disk (CLI, "Overwrite" choice).
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Self::save_checked`]: session not editable, failed path or write.
     pub fn save(&mut self, path: Option<&Path>) -> Result<()> {
         self.save_checked(path, true).map(|_| ())
     }
@@ -231,6 +266,7 @@ impl Session {
 }
 
 /// `path` avec l'extension `.oku-slides.pdf` : celui qu'un enregistrement écrit vraiment.
+#[must_use]
 pub fn deck_path(path: &Path) -> PathBuf {
     let mut path = path.to_owned();
     let name = file_name(&path);

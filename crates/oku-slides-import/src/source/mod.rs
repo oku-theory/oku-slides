@@ -69,6 +69,7 @@ pub struct Frame {
 
 impl Frame {
     /// Boîte sans rotation ni miroir.
+    #[must_use]
     pub const fn new(x: f64, y: f64, w: f64, h: f64) -> Self {
         Self { x, y, w, h, rot: 0.0, flip_h: false, flip_v: false }
     }
@@ -136,6 +137,7 @@ pub struct ThemeFonts {
 
 impl ThemeFonts {
     /// Les familles latines des titres et du corps, sans les autres écritures.
+    #[must_use]
     pub fn latin(major: &str, minor: &str) -> Self {
         Self { major: major.to_owned(), minor: minor.to_owned(), ..Self::default() }
     }
@@ -231,6 +233,7 @@ pub enum LayoutKind {
 
 impl LayoutKind {
     /// Le type de nom OOXML `name`.
+    #[must_use]
     pub fn from_ooxml(name: &str) -> Self {
         match name {
             "title" => Self::Title,
@@ -245,6 +248,7 @@ impl LayoutKind {
     }
 
     /// Son nom OOXML.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::Title => "title",
@@ -395,6 +399,7 @@ pub struct Item {
 
 impl Item {
     /// Le texte de l'item : celui d'une boîte de texte ou d'une forme.
+    #[must_use]
     pub fn text(&self) -> Option<&TextBox> {
         match &self.kind {
             ItemKind::Text(tb) => Some(tb),
@@ -404,6 +409,7 @@ impl Item {
     }
 
     /// L'item porte-t-il un texte non vide (autre que des espaces) ?
+    #[must_use]
     pub fn has_text(&self) -> bool {
         self.text().is_some_and(|tb| tb.paragraphs.iter().flat_map(|p| &p.runs).any(|r| !r.text.trim().is_empty()))
     }

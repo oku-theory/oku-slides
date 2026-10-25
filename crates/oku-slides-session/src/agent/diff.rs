@@ -4,6 +4,7 @@ use oku_slides_a2ui::{DiffKind, DiffSegment};
 use similar::{ChangeTag, TextDiff};
 
 /// Segments gardés, retirés, ajoutés ; deux voisins de même nature sont fusionnés.
+#[must_use]
 pub fn diff_words(old: &str, new: &str) -> Vec<DiffSegment> {
     let mut out: Vec<DiffSegment> = Vec::new();
     for change in TextDiff::from_words(old, new).iter_all_changes() {

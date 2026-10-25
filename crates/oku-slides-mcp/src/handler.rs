@@ -80,7 +80,7 @@ impl Tools {
             "show_themes" => self.show_themes(args).await,
             "show_packs" => self.show_packs().await,
             "report" => self.report(turn, args).await,
-            "render" => self.render(turn, args).await,
+            "render" => self.render(turn, args),
             "save" => self.save(args).await,
             "open" => self.open(args).await,
             "new" => self.new_deck().await,
@@ -101,7 +101,7 @@ impl Tools {
             "present" => self.present(args).await,
             "set_interface" => self.set_interface(args).await,
             "save_copy" => self.save_copy(args).await,
-            _ => self.fail_with(UnknownToolSnafu { name }.build()),
+            _ => self.fail_with(&UnknownToolSnafu { name }.build()),
         }
     }
 }

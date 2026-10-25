@@ -96,7 +96,7 @@ impl std::fmt::Debug for DeckReplica {
         f.debug_struct("DeckReplica")
             .field("deck_uid", &self.deck_uid())
             .field("changes", &self.doc.len_changes())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -187,7 +187,12 @@ fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
 }
 
 impl DeckReplica {
-    /// Nouveau replica, avec un nouveau `deck_uid`.
+    /// New replica, with a new `deck_uid`.
+    ///
+    /// # Errors
+    ///
+    /// Deck of a version other than [`DECK_VERSION`], slots too deep or
+    /// Loro write refused.
     pub fn new(deck: &Deck, registry: Arc<WidgetRegistry>) -> Result<Self, ReplicaError> {
         Ok(Self::create(deck, registry)?)
     }
@@ -207,15 +212,20 @@ impl DeckReplica {
         Ok(Self { doc, undo, registry, author: None })
     }
 
-    /// Relit un snapshot, puis compacte ses nœuds morts (t-770).
+    /// Reads a snapshot back, then compacts its dead nodes (t-770).
     ///
-    /// Les octets viennent d'un fichier : non fiables. Un `usize` vaut une
-    /// limite d'octets sans compaction.
-    /// Renvoie aussi la première lecture complète du deck (celle de
-    /// [`Self::deck`]), faite sous garde : Loro ne décode l'état d'un conteneur
-    /// qu'au premier accès, et panique (`unwrap`) sur un état malformé.
-    /// Un deck d'une autre version que [`DECK_VERSION`] est refusé. L'état du
-    /// snapshot n'est jamais lu : ses opérations sont rejouées (t-809).
+    /// The bytes come from a file: untrusted. A `usize` stands for a
+    /// byte limit without compaction.
+    /// Also returns the first complete read of the deck (that of
+    /// [`Self::deck`]), done under a guard: Loro only decodes a container's state
+    /// on first access, and panics (`unwrap`) on a malformed state.
+    /// A deck of a version other than [`DECK_VERSION`] is refused. The state of the
+    /// snapshot is never read: its operations are replayed (t-809).
+    ///
+    /// # Errors
+    ///
+    /// Snapshot too large (`TooLarge`), unreadable or malformed (`Corrupted`), or
+    /// of another version (`UnsupportedVersion`).
     pub fn from_snapshot(
         bytes: &[u8],
         limits: impl Into<ReplicaLimits>,
@@ -257,16 +267,22 @@ impl DeckReplica {
         self.registry = registry;
     }
 
+    /// The widget registry that guides writing.
+    #[must_use]
     pub fn registry(&self) -> &WidgetRegistry {
         &self.registry
     }
 
-    /// Le snapshot à enregistrer ; `TooDeep` si sa réouverture serait refusée.
+    /// The snapshot to save; `TooDeep` if reopening it would be refused.
     ///
-    /// Des retraits suivis de déplacements vers le bas empilent des nœuds
-    /// cachés au-delà de la profondeur relue : l'enregistrement est refusé
-    /// plutôt que d'écrire un fichier qui ne se rouvrirait pas (t-866).
-    /// Défaire le dernier déplacement suffit à enregistrer de nouveau.
+    /// Removals followed by downward moves stack hidden nodes
+    /// beyond the depth read back: saving is refused
+    /// rather than writing a file that would not reopen (t-866).
+    /// Undoing the last move is enough to save again.
+    ///
+    /// # Errors
+    ///
+    /// Tree too deep to be reopened (`TooDeep`), or Loro export refused.
     pub fn snapshot(&self) -> Result<Vec<u8>, ReplicaError> {
         if let Some(tree) = tree::deck_tree_of(&self.doc) {
             entry::check_depth(&tree)?;
@@ -274,15 +290,18 @@ impl DeckReplica {
         Ok(self.doc.export(ExportMode::Snapshot).context(ExportSnafu)?)
     }
 
+    /// Id of the deck, shared by all its copies; empty if missing.
+    #[must_use]
     pub fn deck_uid(&self) -> String {
         uid_of(&self.doc)
     }
 
-    /// Le deck relu depuis le replica, et ce qui n'a pas pu être lu.
+    /// The deck read back from the replica, and what could not be read.
     ///
-    /// Tout replica ouvert ou fusionné a été relu et accepté, et toute
-    /// écriture refuse un deck d'une autre version : la version se lit donc
-    /// toujours. Sinon, le deck rendu est vide et la version signalée.
+    /// Every replica opened or merged has been read back and accepted, and every
+    /// write refuses a deck of another version: so the version always
+    /// reads. Otherwise, the returned deck is empty and the version reported.
+    #[must_use]
     pub fn deck(&self) -> DeckRead {
         read_deck(&self.doc).unwrap_or_else(|_| {
             let issue = crate::Issue {
@@ -295,6 +314,7 @@ impl DeckReplica {
     }
 
     /// Identifiant de ce pair (session d'édition).
+    #[must_use]
     pub fn peer_id(&self) -> u64 {
         self.doc.peer_id()
     }
@@ -305,11 +325,13 @@ impl DeckReplica {
     }
 
     /// Nom inscrit pour `peer` dans `peers`, s'il y en a un.
+    #[must_use]
     pub fn author_of(&self, peer: u64) -> Option<String> {
         authors::author_of(&self.doc, peer)
     }
 
     /// Nombre de *changes* Loro (tests, mesures).
+    #[must_use]
     pub fn len_changes(&self) -> usize {
         self.doc.len_changes()
     }
@@ -322,26 +344,34 @@ impl DeckReplica {
         }
     }
 
-    /// Amène le replica à l'état de `deck`, en une étape d'annulation `label`.
-    /// Dans un groupe, le libellé du groupe l'emporte.
+    /// Brings the replica to the state of `deck`, in one undo step `label`.
+    /// Within a group, the group's label wins.
     ///
-    /// Avec `merge`, l'application rejoint l'étape du sommet si elle porte la
-    /// même clé (une séance de frappe = un ⌘Z) et garde le libellé de sa
-    /// première application ; sans clé, ou avec une autre, c'est une nouvelle
-    /// étape. Un groupe ouvert l'emporte sur la clé (voir `undo.rs`).
+    /// With `merge`, the application joins the top step if it carries the
+    /// same key (one typing session = one ⌘Z) and keeps the label of its
+    /// first application; without a key, or with another one, it is a new
+    /// step. An open group wins over the key (see `undo.rs`).
     ///
-    /// Non atomique : si la réconciliation échoue en cours de route, les
-    /// changements déjà faits restent dans le doc ; ceux qui ne sont pas encore
-    /// committés rejoignent le prochain commit, et son étape.
+    /// Not atomic: if reconciliation fails midway, the
+    /// changes already made stay in the doc; those not yet
+    /// committed join the next commit, and its step.
+    ///
+    /// # Errors
+    ///
+    /// Deck of another version, slots too deep or Loro write refused.
     pub fn apply(&mut self, deck: &Deck, label: &str, merge: Option<&str>) -> Result<(), ReplicaError> {
         self.apply_moving(deck, label, merge, &[])
     }
 
-    /// Comme `apply`, en gardant le nœud des éléments de `moves` (ADR-0006).
+    /// Like `apply`, keeping the node of the elements in `moves` (ADR-0006).
     ///
-    /// Chaque entrée annonce un élément passé d'une slide à l'autre (op
-    /// `move_element`) : il est apparié à son nœud même si son id figure dans
-    /// d'autres slides. Une entrée qui ne se résout pas est ignorée.
+    /// Each entry announces an element moved from one slide to another (op
+    /// `move_element`): it is matched to its node even if its id appears in
+    /// other slides. An entry that does not resolve is ignored.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::apply`].
     pub fn apply_moving(
         &mut self,
         deck: &Deck,
@@ -370,7 +400,11 @@ impl DeckReplica {
         Ok(())
     }
 
-    /// Amène le replica à l'état de `deck`, sans étape d'annulation.
+    /// Brings the replica to the state of `deck`, without an undo step.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::apply`].
     pub fn apply_silent(&mut self, deck: &Deck) -> Result<(), ReplicaError> {
         let doc = &self.doc;
         let commit = || {
@@ -395,9 +429,8 @@ impl DeckReplica {
         let json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
         // `Deck` sérialise toujours en objet ; un autre cas serait un bogue de
         // `Serialize`, jamais un deck vide à réconcilier en silence.
-        let obj = match json {
-            serde_json::Value::Object(o) => o,
-            _ => return NotADeckSnafu { what: "deck did not serialize to a JSON object" }.fail(),
+        let serde_json::Value::Object(obj) = json else {
+            return NotADeckSnafu { what: "deck did not serialize to a JSON object" }.fail();
         };
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         write::Writer { registry, split, born, mark_key: schema::mark_key(doc.peer_id()), moves, now }.sync_map(
@@ -418,57 +451,75 @@ impl DeckReplica {
         self.undo.end_group();
     }
 
+    /// Is a group of applications open?
+    #[must_use]
     pub fn in_group(&self) -> bool {
         self.undo.in_group()
     }
 
-    /// Étapes d'annulation empilées depuis la création, jamais décrémenté.
+    /// Undo steps stacked since creation, never decremented.
     ///
-    /// Une application qui ne l'augmente pas a rejoint l'étape du sommet
-    /// (même clé de fusion, ou groupe déjà ouvert).
+    /// An application that does not increase it joined the top step
+    /// (same merge key, or group already open).
+    #[must_use]
     pub fn undo_steps(&self) -> u64 {
         self.undo.steps()
     }
 
-    /// Oublie toutes les étapes d'annulation et de rétablissement.
+    /// Forgets all undo and redo steps.
     ///
-    /// Un groupe ouvert le reste : la prochaine application y ouvre son étape.
+    /// An open group stays open: the next application opens its step in it.
     pub fn clear_undo(&mut self) {
         self.undo.clear();
     }
 
-    /// Défait la dernière étape locale ; `false` s'il n'y en avait pas.
-    /// Ferme d'abord le groupe ouvert.
+    /// Undoes the last local step; `false` if there was none.
+    /// Closes the open group first.
+    ///
+    /// # Errors
+    ///
+    /// Loro refuses to apply the undo.
     pub fn undo(&mut self) -> Result<bool, ReplicaError> {
         Ok(self.undo.undo().context(LoroSnafu)?)
     }
 
-    /// Rétablit la dernière étape locale défaite ; `false` s'il n'y en avait pas.
-    /// Ferme d'abord le groupe ouvert.
+    /// Redoes the last undone local step; `false` if there was none.
+    /// Closes the open group first.
+    ///
+    /// # Errors
+    ///
+    /// Loro refuses to apply the redo.
     pub fn redo(&mut self) -> Result<bool, ReplicaError> {
         Ok(self.undo.redo().context(LoroSnafu)?)
     }
 
+    /// Is there a local step left to undo?
+    #[must_use]
     pub fn can_undo(&self) -> bool {
         self.undo.can_undo()
     }
 
+    /// Is there an undone step left to redo?
+    #[must_use]
     pub fn can_redo(&self) -> bool {
         self.undo.can_redo()
     }
 
     /// Libellé de la prochaine étape défaite par [`Self::undo`], s'il y en a une.
+    #[must_use]
     pub fn undo_label(&self) -> Option<String> {
         self.undo.top_undo()
     }
 
     /// Rang de l'étape que défera [`Self::undo`] : celui que [`Self::undo_steps`] valait juste
     /// après sa création. Le même après annuler puis rétablir ; `None` si rien n'est annulable.
+    #[must_use]
     pub fn undo_step(&self) -> Option<u64> {
         self.undo.top_undo_id()
     }
 
     /// Libellé de la prochaine étape rétablie par [`Self::redo`], s'il y en a une.
+    #[must_use]
     pub fn redo_label(&self) -> Option<String> {
         self.undo.top_redo()
     }
@@ -480,30 +531,37 @@ impl DeckReplica {
     }
 
     /// Nombre d'ops de l'historique (tests, mesures).
+    #[must_use]
     pub fn len_ops(&self) -> usize {
         self.doc.len_ops()
     }
 
     /// Les versions du deck, lisibles sur une copie.
+    #[must_use]
     pub fn history(&self) -> HistoryPreview {
         history::build(&self.doc)
     }
 
-    /// Amène le replica à `deck` (une version relue par
-    /// [`HistoryPreview::deck_at`]) en une étape annulable `label`, par le
-    /// même chemin que toute édition : inscription de l'auteur, puis
-    /// [`Self::apply`]. Les noms d'auteurs plus récents restent : seule la
-    /// racine `deck` est écrite.
+    /// Brings the replica to `deck`, a version read back, in one undoable step `label`.
     ///
-    /// Pas de `revert_to` : sur une `LoroMovableList` de conteneurs (items de
-    /// liste), il perd des items ou échoue (`ContainerDeleted`) dès qu'un
-    /// déplacement suit la version visée.
+    /// `deck` comes from [`HistoryPreview::deck_at`]. It takes the
+    /// same path as any edit: author registration, then
+    /// [`Self::apply`]. More recent author names stay: only the
+    /// `deck` root is written.
     ///
-    /// Tout ou rien, contrairement à `apply` : Loro n'a pas d'annulation d'un
-    /// commit, et une réconciliation qui échoue en route laisserait des
-    /// changements dans le doc. Elle est donc d'abord essayée sous garde sur
-    /// une copie ; `self` n'est écrit qu'ensuite, par la même réconciliation,
-    /// déterministe.
+    /// No `revert_to`: on a `LoroMovableList` of containers (list
+    /// items), it loses items or fails (`ContainerDeleted`) as soon as a
+    /// move follows the target version.
+    ///
+    /// All or nothing, unlike `apply`: Loro cannot undo a
+    /// commit, and a reconciliation failing midway would leave
+    /// changes in the doc. So it is first tried under a guard on
+    /// a copy; `self` is written only afterwards, by the same deterministic
+    /// reconciliation.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::apply`]; a Loro panic on the copy gives `Corrupted`.
     pub fn restore(&mut self, deck: &Deck, label: &str) -> Result<(), ReplicaError> {
         let trial = self.doc.fork();
         configure(&trial);
@@ -514,11 +572,16 @@ impl DeckReplica {
         self.apply(deck, label, None)
     }
 
-    /// Fusionne `other` dans `self` : seuls les changements que `self` n'a pas
-    /// encore sont importés. Refuse deux replicas sans `deck_uid` commun.
-    /// L'import et la relecture complète sont d'abord essayés sous garde sur
-    /// une copie : une panique de Loro donne `Corrupted` et laisse `self` intact.
-    /// Le rapport dit combien de modifications ont été importées et par qui.
+    /// Merges `other` into `self`: only the changes `self` does not have
+    /// yet are imported. Refuses two replicas without a common `deck_uid`.
+    /// The import and the complete read-back are first tried under a guard on
+    /// a copy: a Loro panic gives `Corrupted` and leaves `self` intact.
+    /// The report says how many changes were imported and by whom.
+    ///
+    /// # Errors
+    ///
+    /// Different `deck_uid`s (`Unrelated`), or unreadable or malformed changes
+    /// from `other` (`Corrupted`).
     pub fn merge(&mut self, other: &DeckReplica) -> Result<MergeReport, ReplicaError> {
         Ok(self.merge_inner(other)?)
     }

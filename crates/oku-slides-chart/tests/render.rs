@@ -1,3 +1,7 @@
+//! End-to-end SVG rendering of charts.
+//!
+//! v1 types, theme, header and localized numbers.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 use oku_slides_chart::*;
 use oku_slides_i18n::Localize;
 use serde_json::json;
@@ -5,8 +9,8 @@ use speculoos::prelude::*;
 
 const SIZE: Size = Size { width: 640.0, height: 400.0 };
 
-fn render(v: serde_json::Value) -> String {
-    let option = parse_option(&v).unwrap_or_else(|e| panic!("{e}\n{v}"));
+fn render(v: &serde_json::Value) -> String {
+    let option = parse_option(v).unwrap_or_else(|e| panic!("{e}\n{v}"));
     ChartsRsRenderer::default().render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"))
 }
 
@@ -64,7 +68,7 @@ fn render_each_v1_type_produces_svg() {
     // Cargo fournit CARGO_TARGET_TMPDIR à la compilation des tests d'intégration : env! est voulu.
     let out_dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("oku-slides-chart-svg");
     for (name, option) in cases {
-        let svg = render(option);
+        let svg = render(&option);
         asserting(&format!("{name} : pas un SVG")).that(&svg.as_str()).starts_with("<svg");
         asserting(&format!("{name} : taille non appliquée")).that(&svg.as_str()).contains("width=\"640\"");
         std::fs::create_dir_all(&out_dir).unwrap();
@@ -74,7 +78,7 @@ fn render_each_v1_type_produces_svg() {
 
 #[test]
 fn render_title_and_labels_emits_text_not_paths() {
-    let svg = render(json!({
+    let svg = render(&json!({
         "title": { "text": "Chiffre d'affaires" },
         "xAxis": { "data": ["Janvier", "Février"] },
         "series": [{ "type": "bar", "name": "CA", "data": [1, 2] }]
@@ -145,14 +149,14 @@ fn render_stacked_bars_share_one_column_per_category() {
             "series": [{ "type": "bar", "stack": stack }, { "type": "bar", "stack": stack }]
         })
     };
-    let side_by_side = bar_columns(&render(chart(None)));
-    let stacked = bar_columns(&render(chart(Some("total"))));
+    let side_by_side = bar_columns(&render(&chart(None)));
+    let stacked = bar_columns(&render(&chart(Some("total"))));
     assert_that!((side_by_side.len(), stacked.len())).is_equal_to((6, 3));
 }
 
 #[test]
 fn render_waterfall_draws_one_bar_per_step_without_legend() {
-    let svg = render(json!({
+    let svg = render(&json!({
         "dataset": { "source": [
             ["Poste", "Montant", "Total"],
             ["Début", 100, false], ["Ventes", 30, false], ["Coûts", -20, false], ["Fin", null, true]
@@ -163,7 +167,7 @@ fn render_waterfall_draws_one_bar_per_step_without_legend() {
     assert_that!(svg.contains("Montant")).is_false();
 }
 
-/// Le SVG contient la couleur, en hexadécimal ou en rgb().
+/// The SVG contains the color, in hex or as `rgb()`.
 fn has_color(svg: &str, hex: &str) -> bool {
     let h = hex.trim_start_matches('#');
     let byte = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).unwrap_or(0);
@@ -333,15 +337,15 @@ fn render_text_categories_that_look_like_numbers_stay_as_typed() {
     assert_that!(svg.as_str()).contains("12\u{202F}345");
 }
 
-fn render_fr(option: serde_json::Value) -> String {
-    let option = parse_option(&option).unwrap_or_else(|e| panic!("{e}"));
+fn render_fr(option: &serde_json::Value) -> String {
+    let option = parse_option(option).unwrap_or_else(|e| panic!("{e}"));
     let renderer = ChartsRsRenderer { numbers: NumberFormat::for_lang(Some("fr")), ..ChartsRsRenderer::default() };
     renderer.render(&option, SIZE).unwrap_or_else(|e| panic!("rendu impossible : {e}"))
 }
 
 #[test]
 fn render_pie_labels_localize_their_value() {
-    let svg = render_fr(json!({
+    let svg = render_fr(&json!({
         "dataset": { "source": [["Nom", "Ventes"], ["A", 12345.5], ["B", 20000]] },
         "series": [{ "type": "pie", "label": { "show": true } }]
     }));
@@ -352,7 +356,7 @@ fn render_pie_labels_localize_their_value() {
 
 #[test]
 fn render_negative_value_labels_use_the_minus_sign() {
-    let svg = render_fr(json!({
+    let svg = render_fr(&json!({
         "dataset": { "source": [["Mois", "Ventes"], ["Jan", -12345.5], ["Fév", 3]] },
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar", "label": { "show": true } }]
@@ -362,9 +366,9 @@ fn render_negative_value_labels_use_the_minus_sign() {
 
 #[test]
 fn render_values_equal_to_a_row_id_are_still_localized() {
-    let svg = render_fr(json!({
+    let svg = render_fr(&json!({
         "dataset": {
-            "source": [["Mois", "Ventes"], ["Jan", 12345678]],
+            "source": [["Mois", "Ventes"], ["Jan", 12_345_678]],
             "ids": ["00000000", "12345678"],
             "columns": ["87654321", "11223344"]
         },

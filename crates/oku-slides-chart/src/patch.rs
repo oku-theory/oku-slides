@@ -15,7 +15,12 @@ use crate::labels::ChartLabels;
 use crate::model::normalize;
 use crate::option::ChartOption;
 
-/// Applique `patch` et renvoie les nouvelles options et le patch inverse.
+/// Applies `patch` and returns the new options and the inverse patch.
+///
+/// # Errors
+///
+/// Fails if the patch touches `dataset`, is not an object, adds inline data
+/// next to a `dataset` or makes the options invalid or inconsistent.
 pub fn apply_option_patch(option: &ChartOption, patch: &Value) -> Result<(ChartOption, Value)> {
     let (next, inverse): (ChartOption, Value) = merge_patch(option, patch)?;
     // Avec un `dataset`, les données en ligne le contrediraient : la grille
@@ -40,6 +45,7 @@ pub(crate) fn merge_patch<T: Serialize + DeserializeOwned>(option: &T, patch: &V
 }
 
 /// Patch qui ramène `patch(before)` à `before`.
+#[must_use]
 pub fn reverse_merge_patch(before: &Value, patch: &Value) -> Value {
     let (Value::Object(p), Value::Object(b)) = (patch, before) else {
         return before.clone();

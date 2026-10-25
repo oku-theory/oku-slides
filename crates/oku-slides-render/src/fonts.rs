@@ -31,6 +31,7 @@ impl Fonts {
     }
 
     /// Ce jeu, plus d'autres fichiers de police (celles d'un deck).
+    #[must_use]
     pub fn with(&self, data: impl IntoIterator<Item = Vec<u8>>) -> Self {
         let added: Vec<Bytes> = data.into_iter().map(Bytes::new).collect();
         let fonts = self.0.fonts.iter().cloned().chain(parse(&added)).collect();

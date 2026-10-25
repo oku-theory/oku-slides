@@ -37,6 +37,7 @@ pub struct Cell {
 
 /// Options de mise en forme du tableau (`tblPr`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[expect(clippy::struct_excessive_bools, reason = "the six independent boolean attributes of `tblPr`, as is")]
 pub struct TableFlags {
     /// Première ligne mise en valeur (en-tête).
     pub first_row: bool,

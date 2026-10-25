@@ -1,6 +1,7 @@
 //! Les outils de l'ajustement d'un import : `import_report` et `import_diff`,
 //! sur un onglet importé d'alto en hi-fi, de `fixtures/import/minimal` en retrofit (le témoin
 //! office2pdf rend pour de vrai).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -183,7 +184,9 @@ async fn import_diff_of_a_region_crops_it_at_twice_the_size() {
     let item = whole["regions"][0]["item"].as_str().unwrap_or_default().to_owned();
     let zoom = call(&c, "import_diff", json!({ "slide": PENDING, "region": item })).await;
     let json = diff_json(&zoom);
-    let crop: Vec<u32> = (0..4).map(|i| json["crop"][i].as_u64().unwrap_or_default() as u32).collect();
+    let crop: Vec<u32> = (0..4)
+        .map(|i| u32::try_from(json["crop"][i].as_u64().unwrap_or_default()).unwrap_or_else(|e| panic!("{e}")))
+        .collect();
     assert_that!(png_size(&zoom, 0)).is_equal_to((crop[2] * 2, crop[3] * 2));
     assert_that!(png_size(&zoom, 1)).is_equal_to((crop[2] * 2, crop[3] * 2));
     assert_that!(json["region"]["item"].as_str()).is_equal_to(Some(item.as_str()));
@@ -248,6 +251,7 @@ async fn theme_tokens_of_an_unknown_theme_says_so_in_the_user_language() {
 
 /// Les fichiers de la bibliothèque de packs (les deux sortes) sous `data`, avec leurs octets, triés.
 fn library_files(data: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+    use oku_slides_session::{Layouts, LibraryKind, Widgets};
     fn walk(dir: &std::path::Path, out: &mut Vec<(std::path::PathBuf, Vec<u8>)>) {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
         for e in entries {
@@ -261,7 +265,6 @@ fn library_files(data: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
         }
     }
     let mut out = Vec::new();
-    use oku_slides_session::{Layouts, LibraryKind, Widgets};
     for dir in [Widgets::DIR, Layouts::DIR] {
         walk(&data.join(dir), &mut out);
     }
@@ -295,7 +298,7 @@ async fn edit_pack_of_the_hifi_pack_edits_it_in_the_deck_and_never_writes_the_li
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     let edit = {
         let s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        s.snapshot().editing.map(|e| e.mode.clone()).unwrap_or_else(|| panic!("mode pack attendu"))
+        s.snapshot().editing.map_or_else(|| panic!("mode pack attendu"), |e| e.mode.clone())
     };
     assert_that!((edit.pack, edit.deck_only)).is_equal_to((pack.id, true));
     assert_that!(edit.session_version.is_some()).is_true();

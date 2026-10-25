@@ -13,8 +13,9 @@ fn example(s: &Session, name: &str, param: &str) -> Option<Value> {
 
 /// L'op du panneau ou de la scène qui règle `param` de la slide `slide` à `value`.
 fn set_param(slide: &str, param: &str, value: Value) -> Op {
-    serde_json::from_value(json!({ "op": "set_param", "target": { "slide": slide }, "param": param, "value": value }))
-        .unwrap()
+    let mut op = json!({ "op": "set_param", "target": { "slide": slide }, "param": param });
+    op["value"] = value;
+    serde_json::from_value(op).unwrap()
 }
 
 /// Vide le titre de la slide du layout `content` par une op (la scène, la carte de la slide).
@@ -141,9 +142,9 @@ const LIST_LAYOUT: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
 
 /// L'op qui change la liste `items` de la slide du layout `liste`.
 fn edit_items(change: Value) -> Op {
-    serde_json::from_value(json!({ "op": "edit_list", "target": { "slide": "layout-liste" }, "param": "items",
-        "change": change }))
-    .unwrap()
+    let mut op = json!({ "op": "edit_list", "target": { "slide": "layout-liste" }, "param": "items" });
+    op["change"] = change;
+    serde_json::from_value(op).unwrap()
 }
 
 #[test]

@@ -11,6 +11,7 @@
 //! (un script qui copie un PDF blanc), refusé sur macOS (t-912), dont les régions
 //! suspectes sont celles des limites de LibreOffice ailleurs (t-905). Sans
 //! `--reference`, le témoin est celui de `[import] witness`.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

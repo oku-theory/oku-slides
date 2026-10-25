@@ -30,6 +30,7 @@ pub(crate) fn linear(c: u8) -> f64 {
 }
 
 /// `c` en OKLab (opacité ignorée).
+#[expect(clippy::many_single_char_names, reason = "r, g, b, l, m, s notation of the published OKLab conversion")]
 pub(crate) fn oklab(c: Rgba) -> Oklab {
     let (r, g, b) = (linear(c.r), linear(c.g), linear(c.b));
     let l = (0.412_221_470_8 * r + 0.536_332_536_3 * g + 0.051_445_992_9 * b).cbrt();

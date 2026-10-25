@@ -86,14 +86,11 @@ pub(super) fn verify_packs(
         let files = pack_json
             .and_then(|p| PackFiles::from_bytes(kind, &p, widgets.iter().map(|(n, b)| (n.clone(), b.as_slice()))))
             .filter(|f| f.matches(&version));
-        match files {
-            Some(files) => {
-                packs.insert(version, files);
-            }
-            None => {
-                tracing::warn!(%version, "version de pack altérée écartée");
-                discarded.push(version);
-            }
+        if let Some(files) = files {
+            packs.insert(version, files);
+        } else {
+            tracing::warn!(%version, "version de pack altérée écartée");
+            discarded.push(version);
         }
     }
     (packs, discarded)

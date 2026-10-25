@@ -374,21 +374,21 @@ fn field_names(view: &serde_json::Value) -> Vec<String> {
 #[test]
 fn preview_of_an_element_widget_gives_its_fields_inside_the_box() {
     let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.set_widget(None, "panneau", PANEL.into()).unwrap();
-    let preview = s.preview_widget(None, "panneau", &Map::new(), PreviewFormat::Svg).unwrap();
+    let mut session = opened_on(data.path());
+    session.set_widget(None, "panneau", PANEL.into()).unwrap();
+    let preview = session.preview_widget(None, "panneau", &Map::new(), PreviewFormat::Svg).unwrap();
     let bbox = preview.bbox.unwrap();
     let view = preview.view.unwrap();
     assert_that!(field_names(&view)).is_equal_to(vec!["title".to_owned(), "body".to_owned()]);
     assert_that!(view["width"]).is_equal_to(json!(1920.0));
-    for f in view["fields"].as_array().unwrap() {
-        let (x, y) = (f["x"].as_f64().unwrap(), f["y"].as_f64().unwrap());
-        let (w, h) = (f["w"].as_f64().unwrap(), f["h"].as_f64().unwrap());
+    for entry in view["fields"].as_array().unwrap() {
+        let (x, y) = (entry["x"].as_f64().unwrap(), entry["y"].as_f64().unwrap());
+        let (w, h) = (entry["w"].as_f64().unwrap(), entry["h"].as_f64().unwrap());
         assert_that!(x).is_greater_than_or_equal_to(bbox.x - 1.0);
         assert_that!(y).is_greater_than_or_equal_to(bbox.y - 1.0);
         assert_that!(x + w).is_less_than_or_equal_to(bbox.x + bbox.w + 1.0);
         assert_that!(y + h).is_less_than_or_equal_to(bbox.y + bbox.h + 1.0);
-        assert_that!(f["bound"]).is_equal_to(json!(false));
+        assert_that!(entry["bound"]).is_equal_to(json!(false));
     }
 }
 

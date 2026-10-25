@@ -379,27 +379,27 @@ impl Turns {
                     t.in_tools = false;
                 }
             }
-            AgentEvent::ToolCall { id, title, status: s, input, output, .. } => {
-                let f = CallFields { title: Some(title), input: input.as_deref(), output: output.as_deref() };
+            AgentEvent::ToolCall { id, title, status: given, input, output, .. } => {
+                let fields = CallFields { title: Some(title), input: input.as_deref(), output: output.as_deref() };
                 // Un même appel annoncé deux fois : traité comme une mise à jour.
                 if t.tools.contains_key(id) {
-                    if let Some(step) = t.update_call(id, Some(status(s)), f) {
+                    if let Some(step) = t.update_call(id, Some(status(given)), fields) {
                         t.settle_step(step);
                     }
                 } else {
-                    t.add_call(id, status(s), f);
+                    t.add_call(id, status(given), fields);
                 }
             }
-            AgentEvent::ToolUpdate { id, title, status: s, input, output, .. } => {
-                let f = CallFields { title: title.as_deref(), input: input.as_deref(), output: output.as_deref() };
-                let Some(step) = t.update_call(id, s.as_deref().map(status), f) else { return out };
+            AgentEvent::ToolUpdate { id, title, status: given, input, output, .. } => {
+                let fields = CallFields { title: title.as_deref(), input: input.as_deref(), output: output.as_deref() };
+                let Some(step) = t.update_call(id, given.as_deref().map(status), fields) else { return out };
                 t.settle_step(step);
             }
             AgentEvent::Plan { entries, .. } => {
                 t.view.plan = entries
                     .iter()
                     .take(STEPS_MAX)
-                    .map(|p| TimelineStep::new(first_line(&p.content, NOTE_CHARS), status(&p.status)))
+                    .map(|entry| TimelineStep::new(first_line(&entry.content, NOTE_CHARS), status(&entry.status)))
                     .collect();
             }
             AgentEvent::TurnEnded { stop, .. } => {

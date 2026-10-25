@@ -116,7 +116,7 @@ impl Rng {
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        ((z ^ (z >> 31)) % n as u64) as usize
+        usize::try_from((z ^ (z >> 31)) % n as u64).unwrap()
     }
 }
 
@@ -164,14 +164,14 @@ fn corpus() -> Vec<Vec<Run>> {
     let mut rng = Rng(180);
     (0..1000)
         .map(|_| {
-            (0..1 + rng.below(6))
+            (0..=rng.below(6))
                 .map(|_| {
-                    let t: String = (0..1 + rng.below(6)).map(|_| ALPHABET[rng.below(ALPHABET.len())]).collect();
+                    let t: String = (0..=rng.below(6)).map(|_| ALPHABET[rng.below(ALPHABET.len())]).collect();
                     Run {
                         bold: rng.below(3) == 0,
                         italic: rng.below(3) == 0,
                         link: (rng.below(5) == 0).then(|| ["https://a.b/x", "https://a.b/y"][rng.below(2)].to_owned()),
-                        highlight: (rng.below(4) == 0).then(|| 1 + rng.below(3) as u8),
+                        highlight: (rng.below(4) == 0).then(|| 1 + u8::try_from(rng.below(3)).unwrap()),
                         ..Run::plain(t)
                     }
                 })

@@ -25,46 +25,47 @@ const HISTORY_OPEN_WAIT: std::time::Duration = std::time::Duration::from_secs(5)
 /// Pas de la relecture de la session pendant cette attente.
 const HISTORY_OPEN_POLL: std::time::Duration = std::time::Duration::from_millis(50);
 
-/// Où se montre la présentation (contrat de `McpEvent::Present`, repris par `ui/src/api.ts`).
+/// Where the presentation shows (contract of `McpEvent::Present`, mirrored in `ui/src/api.ts`).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PresentMode {
-    /// Tout l'écran.
+    /// The whole screen.
     #[default]
     Screen,
-    /// Toute la fenêtre.
+    /// The whole window.
     Window,
 }
 
-/// Schéma de couleurs de l'interface (contrat de `McpEvent::Interface`) : les schémas que
-/// l'espace de travail sait imposer (`light`, `dark`), plus `system` (aucun choix).
+/// Color scheme of the interface (contract of `McpEvent::Interface`).
+///
+/// The schemes the workspace can force (`light`, `dark`), plus `system` (no choice).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SchemeChoice {
-    /// Clair.
+    /// Light.
     Light,
-    /// Sombre.
+    /// Dark.
     Dark,
-    /// Celui du système.
+    /// The system's scheme.
     System,
 }
 
-/// Ce que l'agent change dans l'interface ; absent : inchangé.
+/// What the agent changes in the interface; absent: unchanged.
 ///
-/// Contrat de `McpEvent::Interface`, repris par `ui/src/api.ts` : un champ absent part en `null`.
+/// Contract of `McpEvent::Interface`, mirrored in `ui/src/api.ts`: an absent field goes out as `null`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InterfaceChange {
-    /// Schéma de couleurs.
+    /// Color scheme.
     #[serde(default)]
     pub scheme: Option<SchemeChoice>,
-    /// Langue : un code livré (`en`, `fr`…) ou `system`.
+    /// Language: a shipped code (`en`, `fr`…) or `system`.
     #[serde(default)]
     pub locale: Option<String>,
-    /// Grille de la slide montrée.
+    /// Grid of the shown slide.
     #[serde(default)]
     pub grid: Option<bool>,
-    /// Repères des champs vides.
+    /// Guides of the empty fields.
     #[serde(default)]
     pub guides: Option<bool>,
 }
@@ -76,36 +77,36 @@ impl InterfaceChange {
     }
 }
 
-/// Arguments de `present`.
+/// Arguments of `present`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PresentArgs {
-    /// `screen` (défaut) ou `window`.
+    /// `screen` (default) or `window`.
     #[serde(default)]
     pub mode: PresentMode,
 }
 
-/// Ce que fait l'outil `history`.
+/// What the `history` tool does.
 #[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum HistoryAction {
-    /// Ouvre l'historique dans l'onglet (sur la dernière version).
+    /// Opens the history in the tab, on the latest version.
     Open,
-    /// Les versions, de la plus ancienne à la plus récente ; historique ouvert.
+    /// Lists the versions, oldest to newest, with the history open.
     List,
-    /// Montre la version `index`.
+    /// Shows the version `index`.
     Seek,
-    /// Ramène le deck à la version montrée, et ferme l'historique.
+    /// Brings the deck back to the shown version, and closes the history.
     Restore,
-    /// Ferme l'historique, deck inchangé.
+    /// Closes the history, deck unchanged.
     Close,
 }
 
-/// Arguments de `history`.
+/// Arguments of `history`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct HistoryArgs {
-    /// Ce que fait l'outil.
+    /// What the tool does.
     pub action: HistoryAction,
-    /// Pour `seek` : rang de la version (0 : la plus ancienne).
+    /// For `seek`: rank of the version (0: the oldest).
     #[serde(default)]
     pub index: Option<usize>,
 }
@@ -133,7 +134,7 @@ impl Tools {
             }
             HistoryAction::Seek => match index.context(HistoryIndexSnafu) {
                 Ok(index) => Request::HistorySeek { index },
-                Err(e) => return self.fail_with(e),
+                Err(e) => return self.fail_with(&e),
             },
             HistoryAction::Restore => Request::HistoryRestore,
             HistoryAction::Close => Request::HistoryClose,
@@ -156,10 +157,10 @@ impl Tools {
     /// Refusé là où l'historique ne s'ouvre pas ; pas ouvert à temps : dit à l'agent.
     async fn history_open(&self) -> CallToolResult {
         if let Err(e) = self.ensure_shown().await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         if let Err(e) = self.with_session(|s| s.ensure_deck_mode()).await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         self.hub.emit(McpEvent::OpenHistory);
         let deadline = tokio::time::Instant::now() + HISTORY_OPEN_WAIT;
@@ -167,8 +168,8 @@ impl Tools {
             match self.with_session(|s| Ok(s.snapshot().history.is_some())).await {
                 Ok(true) => return self.reply(self.with_session(|s| s.handle(Request::HistoryVersions)).await, text),
                 Ok(false) if tokio::time::Instant::now() < deadline => tokio::time::sleep(HISTORY_OPEN_POLL).await,
-                Ok(false) => return self.fail_with(HistoryNotOpenedSnafu.build()),
-                Err(e) => return self.fail_with(e),
+                Ok(false) => return self.fail_with(&HistoryNotOpenedSnafu.build()),
+                Err(e) => return self.fail_with(&e),
             }
         }
     }
@@ -180,7 +181,7 @@ impl Tools {
             Err(r) => return r,
         };
         if let Err(e) = self.ensure_shown().await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         let can = self
             .with_session(|s| {
@@ -193,8 +194,8 @@ impl Tools {
                 self.hub.emit(McpEvent::Present { mode });
                 self.json_result(&json!({ "ok": true }))
             }
-            Ok(false) => self.fail_with(NothingToPresentSnafu.build()),
-            Err(e) => self.fail_with(e),
+            Ok(false) => self.fail_with(&NothingToPresentSnafu.build()),
+            Err(e) => self.fail_with(&e),
         }
     }
 
@@ -205,18 +206,18 @@ impl Tools {
             Err(r) => return r,
         };
         if change.is_empty() {
-            return self.fail_with(EmptyInterfaceSnafu.build());
+            return self.fail_with(&EmptyInterfaceSnafu.build());
         }
         // L'interface ne reçoit qu'un code livré : `FR-ca` part en `fr`.
         if let Some(locale) = change.locale.as_deref() {
             change.locale = match oku_slides_i18n::shipped(locale) {
                 _ if locale.eq_ignore_ascii_case("system") => Some("system".to_owned()),
                 Some(code) => Some(code.to_owned()),
-                None => return self.fail_with(UnknownLocaleSnafu.build()),
+                None => return self.fail_with(&UnknownLocaleSnafu.build()),
             };
         }
         if let Err(e) = self.ensure_shown().await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         self.hub.emit(McpEvent::Interface { change });
         self.json_result(&json!({ "ok": true }))

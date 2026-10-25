@@ -4,8 +4,8 @@ use speculoos::prelude::*;
 use super::*;
 
 fn frame(page: &Page, (x, y, w, h): (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
-    let f = page.frame(&Frame::new(x, y, w, h));
-    (f.x, f.y, f.w, f.h)
+    let placed = page.frame(&Frame::new(x, y, w, h));
+    (placed.x, placed.y, placed.w, placed.h)
 }
 
 #[test]

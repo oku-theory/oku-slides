@@ -25,10 +25,15 @@ pub struct OpError(Box<OpInner>);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum OpErrorKind {
+    /// No slide with this id.
     SlideNotFound,
+    /// No element with this id in the slide.
     ElementNotFound,
+    /// Slide or element id already taken.
     DuplicateId,
+    /// Position outside the bounds of the target list.
     IndexOutOfRange,
+    /// Value of the right JSON shape but refused (see [`ValueReason`]).
     InvalidValue,
     /// Options ou données de graphique refusées par `oku-slides-chart`.
     InvalidChart,
@@ -73,15 +78,27 @@ pub enum OpErrorKind {
 #[non_exhaustive]
 pub enum ListBound {
     /// La liste a déjà `max` items.
-    Full { max: usize },
+    Full {
+        /// Maximum number of items in the list.
+        max: usize,
+    },
     /// La liste doit garder au moins `min` items.
-    Minimum { min: usize },
+    Minimum {
+        /// Minimum number of items in the list.
+        min: usize,
+    },
     /// Une cellule de la colonne `column` dépasse sa longueur permise.
-    CellTooLong { column: String },
+    CellTooLong {
+        /// Name of the column that is too long.
+        column: String,
+    },
     /// Un id d'item dépasse [`ITEM_ID_MAX`](crate::ITEM_ID_MAX) caractères.
     IdTooLong,
     /// Plus de `max` items d'un coup (liste entière, sous-arbre inséré).
-    TooManyItems { max: usize },
+    TooManyItems {
+        /// Maximum number of items allowed at once.
+        max: usize,
+    },
 }
 
 #[derive(Debug, Snafu)]
@@ -168,6 +185,8 @@ fn bound_reason(bound: &ListBound) -> String {
 }
 
 impl OpError {
+    /// Kind of the error, to handle it without reading the message.
+    #[must_use]
     pub fn kind(&self) -> OpErrorKind {
         match *self.0 {
             OpInner::SlideNotFound { .. } => OpErrorKind::SlideNotFound,
@@ -198,6 +217,7 @@ impl OpError {
 
     /// Ce que l'erreur désigne (slide, élément, identifiant, champ, widget
     /// ou paramètre), s'il y en a un.
+    #[must_use]
     pub fn subject(&self) -> Option<&str> {
         match &*self.0 {
             OpInner::SlideNotFound { slide, .. } => Some(slide),
@@ -225,6 +245,7 @@ impl OpError {
     }
 
     /// Pourquoi la valeur est refusée, pour une erreur [`OpErrorKind::InvalidValue`].
+    #[must_use]
     pub fn value_reason(&self) -> Option<ValueReason> {
         match &*self.0 {
             OpInner::InvalidValue { reason, .. } => Some(*reason),
@@ -242,6 +263,7 @@ impl OpError {
     }
 
     /// La borne de liste refusée, pour une erreur [`OpErrorKind::ListBound`].
+    #[must_use]
     pub fn list_bound(&self) -> Option<&ListBound> {
         match &*self.0 {
             OpInner::ListBound { bound, .. } => Some(bound),
@@ -260,11 +282,13 @@ pub struct TransactionError {
 
 impl TransactionError {
     /// Position de l'op refusée dans la transaction.
+    #[must_use]
     pub fn index(&self) -> usize {
         self.index
     }
 
     /// Pourquoi elle a été refusée.
+    #[must_use]
     pub fn op_error(&self) -> &OpError {
         &self.source
     }
@@ -328,6 +352,7 @@ pub(crate) enum SourcesInner {
 }
 
 impl SourcesError {
+    /// Kind of the error, to handle it without reading the message.
     pub fn kind(&self) -> SourcesErrorKind {
         match self.0 {
             SourcesInner::Zip { .. } | SourcesInner::Io { .. } | SourcesInner::Json { .. } => {
@@ -392,7 +417,17 @@ impl Localize for OpError {
             OpErrorKind::ElementNotFound => "op-element-not-found",
             OpErrorKind::DuplicateId => "op-duplicate-id",
             OpErrorKind::IndexOutOfRange => "op-index-out-of-range",
-            OpErrorKind::InvalidValue => "op-invalid-value",
+            // The other variants are handled above: they carry their arguments.
+            OpErrorKind::InvalidValue
+            | OpErrorKind::ParamType
+            | OpErrorKind::ListBound
+            | OpErrorKind::UnknownNamespace
+            | OpErrorKind::PackRequired
+            | OpErrorKind::PackInUse
+            | OpErrorKind::PackRequirementMissing
+            | OpErrorKind::PackKindConflict
+            | OpErrorKind::ThemeCycle
+            | OpErrorKind::ThemeClosure => "op-invalid-value",
             OpErrorKind::InvalidChart => "op-invalid-chart",
             OpErrorKind::InvalidTable => "op-invalid-table",
             OpErrorKind::UnknownWidget => "op-unknown-widget",
@@ -402,16 +437,6 @@ impl Localize for OpError {
             OpErrorKind::SlotRejects => "op-slot-rejects",
             OpErrorKind::WrongCategory => "op-wrong-category",
             OpErrorKind::BaseRequired => "op-base-required",
-            // Traités plus haut : ces erreurs portent leurs arguments.
-            OpErrorKind::ParamType
-            | OpErrorKind::ListBound
-            | OpErrorKind::UnknownNamespace
-            | OpErrorKind::PackRequired
-            | OpErrorKind::PackInUse
-            | OpErrorKind::PackRequirementMissing
-            | OpErrorKind::PackKindConflict
-            | OpErrorKind::ThemeCycle
-            | OpErrorKind::ThemeClosure => "op-invalid-value",
         };
         l.tr_with(id, &[("subject", self.subject().unwrap_or_default().into())])
     }
@@ -458,15 +483,14 @@ impl Localize for SourcesError {
             return source.localize(l);
         }
         l.tr(match self.kind() {
-            SourcesErrorKind::Unreadable => "sources-unreadable",
+            // `Replica` is handled above: the replica error localizes itself.
+            SourcesErrorKind::Unreadable | SourcesErrorKind::Replica(_) => "sources-unreadable",
             SourcesErrorKind::NotSources => "sources-not-sources",
             SourcesErrorKind::UnsupportedVersion => "sources-unsupported-version",
             SourcesErrorKind::BadName => "sources-bad-name",
             SourcesErrorKind::MissingDeck => "sources-missing-deck",
             SourcesErrorKind::TooLarge => "sources-too-large",
             SourcesErrorKind::TooDeep => "sources-too-deep",
-            // Traité plus haut : l'erreur de replica se localise elle-même.
-            SourcesErrorKind::Replica(_) => "sources-unreadable",
         })
     }
 }
@@ -533,6 +557,7 @@ pub(crate) enum ReplicaInner {
 }
 
 impl ReplicaError {
+    /// Kind of the error, to handle it without reading the message.
     pub fn kind(&self) -> ReplicaErrorKind {
         match self.0 {
             ReplicaInner::Import { .. }
@@ -578,10 +603,15 @@ pub struct WidgetError(WidgetInner);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SchemaFault {
+    /// A widget or parameter without a name.
     EmptyName,
+    /// Two widgets with the same name in a pack.
     DuplicateWidget,
+    /// Two parameters with the same name in a widget.
     DuplicateParam,
+    /// A `choice` parameter without values.
     EmptyChoice,
+    /// The default of a `choice` is not among its values.
     DefaultNotInChoice,
     /// La valeur par défaut d'un paramètre ne correspond pas à son type
     /// (ou, pour un nombre, sort de `min`/`max`).
@@ -667,7 +697,9 @@ impl SchemaFault {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum WidgetErrorKind {
+    /// The probe does not have the expected JSON shape.
     Unreadable,
+    /// A widget is declared incorrectly, for the given reason.
     BadSchema(SchemaFault),
 }
 
@@ -684,15 +716,18 @@ impl WidgetError {
     /// Construit une [`WidgetError::kind`] `Unreadable` à partir d'une défaillance
     /// JSON survenue hors du cœur (p. ex. la sonde de rendu ne peut pas
     /// convertir la valeur Typst en JSON).
+    #[must_use]
     pub fn unreadable(source: serde_json::Error) -> Self {
         UnreadableSnafu.into_error(source).into()
     }
 
     /// Le widget `widget` mal déclaré pour `fault`, constaté hors du registre.
+    #[must_use]
     pub fn bad_schema(widget: &str, fault: SchemaFault) -> Self {
         BadSchemaSnafu { widget, fault }.build().into()
     }
 
+    /// Kind of the error, to handle it without reading the message.
     pub fn kind(&self) -> WidgetErrorKind {
         match &self.0 {
             WidgetInner::Unreadable { .. } => WidgetErrorKind::Unreadable,

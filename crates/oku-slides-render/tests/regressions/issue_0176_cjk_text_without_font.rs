@@ -34,7 +34,7 @@ fn pdf(theme: Option<&str>, lang: &str, text: &str) -> Vec<u8> {
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut r = Renderer::with_builtins(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
-    r.set_theme(theme_tokens(theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(theme_tokens(theme_name(deck.theme.as_ref())))).unwrap_or_else(|e| panic!("{e}"));
     r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     r.compile().and_then(|d| d.pdf()).unwrap_or_else(|e| panic!("{e}"))
 }
@@ -106,7 +106,7 @@ fn pdf_title_body(theme: Option<&str>, lang: &str, title: &str, body: &str) -> V
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut r = Renderer::with_builtins(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
-    r.set_theme(theme_tokens(theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(theme_tokens(theme_name(deck.theme.as_ref())))).unwrap_or_else(|e| panic!("{e}"));
     r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     r.compile().and_then(|d| d.pdf()).unwrap_or_else(|e| panic!("{e}"))
 }
@@ -144,7 +144,7 @@ fn unknown_script_style_fails_to_compile() {
     }))
     .unwrap_or_else(|e| panic!("{e}"));
     let mut r = Renderer::with_builtins(app_fonts()).unwrap_or_else(|e| panic!("{e}"));
-    r.set_theme(theme_tokens(theme_name(deck.theme.as_ref()))).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(theme_tokens(theme_name(deck.theme.as_ref())))).unwrap_or_else(|e| panic!("{e}"));
     r.set_deck(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     let err = r.compile().err().map(|e| e.to_string()).unwrap_or_default();
     assert_that!(err).contains("script-style");

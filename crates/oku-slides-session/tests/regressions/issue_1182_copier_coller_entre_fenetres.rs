@@ -20,7 +20,7 @@ fn two_windows(ws: &Mutex<Workspace>) -> (String, String, Element) {
     let a = a.unwrap_or_else(|| panic!("aucun onglet"));
     let view = send(ws, json!({ "cmd": "new_window" }));
     let b = view["windows"].as_array().and_then(|w| w.iter().find(|w| w["label"] != "w-1"));
-    let b = b.and_then(|w| w["active"].as_str()).map(str::to_owned).unwrap_or_else(|| panic!("pas de w-2"));
+    let b = b.and_then(|w| w["active"].as_str()).map_or_else(|| panic!("pas de w-2"), str::to_owned);
     for tab in [&a, &b] {
         on(ws, tab, |s| s.open(&fixture_path())).unwrap_or_else(|e| panic!("ouverture : {}", e.one_line()));
     }
@@ -33,7 +33,7 @@ fn two_windows(ws: &Mutex<Workspace>) -> (String, String, Element) {
         s.apply("image", vec![set], None).unwrap_or_else(|e| panic!("apply : {}", e.one_line()));
         let slide = s.deck().slides.iter().find(|x| x.id == "s-libre").cloned();
         let slide = slide.unwrap_or_else(|| panic!("s-libre absente"));
-        slide.locate("e-image").map(|l| l.element.clone()).unwrap_or_else(|| panic!("e-image absente"))
+        slide.locate("e-image").map_or_else(|| panic!("e-image absente"), |l| l.element.clone())
     });
     (a, b, element)
 }

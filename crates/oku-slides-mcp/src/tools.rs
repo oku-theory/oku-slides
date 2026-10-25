@@ -45,6 +45,7 @@ impl std::fmt::Debug for Tools {
 }
 
 impl Tools {
+    /// The tools of `session`'s tab, with settings and limits taken from `platform`.
     pub fn new(
         session: TabSession,
         hub: Arc<SurfaceHub>,
@@ -80,14 +81,14 @@ impl Tools {
     /// Arguments d'un outil, ou la réponse d'erreur à renvoyer.
     #[expect(clippy::result_large_err, reason = "le `CallToolResult` d'erreur part directement en réponse à l'agent")]
     pub(crate) fn parse<T: DeserializeOwned>(&self, args: Value) -> Result<T, CallToolResult> {
-        serde_json::from_value(args).context(ArgumentsSnafu).map_err(|e| self.fail_with(e))
+        serde_json::from_value(args).context(ArgumentsSnafu).map_err(|e| self.fail_with(&e))
     }
 
     /// Le résultat JSON d'une valeur, ou l'erreur de réponse.
     pub(crate) fn json_result(&self, v: &impl Serialize) -> CallToolResult {
         match serde_json::to_string(v).context(ResponseSnafu) {
             Ok(s) => text(s),
-            Err(e) => self.fail_with(e),
+            Err(e) => self.fail_with(&e),
         }
     }
 
@@ -99,7 +100,7 @@ impl Tools {
     ) -> CallToolResult {
         match result {
             Ok(v) => ok(v),
-            Err(e) => self.fail_with(e),
+            Err(e) => self.fail_with(&e),
         }
     }
 
@@ -129,7 +130,7 @@ pub(crate) struct NoArgs {}
 
 #[derive(Debug, Clone, serde::Deserialize, JsonSchema)]
 pub(crate) struct SlideId {
-    /// Identifiant de la slide (voir `deck_outline`).
+    /// Identifier of the slide (see `deck_outline`).
     pub id: String,
 }
 
@@ -152,11 +153,7 @@ pub(crate) fn png(bytes: &[u8]) -> CallToolResult {
 /// Déplace les `$defs` de la racine sous la première propriété et réécrit
 /// les `$ref` (`#/$defs/X` → `#/properties/<p>/$defs/X`).
 pub(crate) fn nest_schema(mut schema: Value) -> Value {
-    let Some(defs) = schema.as_object_mut().and_then(|o| o.remove("$defs")) else { return schema };
-    let Some(first) = schema.get("properties").and_then(Value::as_object).and_then(|p| p.keys().next().cloned()) else {
-        return schema;
-    };
-    let prefix = format!("#/properties/{first}/$defs/");
+    /// Rewrites every `$ref` to `#/$defs/` under `prefix`, at any depth.
     fn rewrite(v: &mut Value, prefix: &str) {
         match v {
             Value::Object(map) => {
@@ -174,6 +171,11 @@ pub(crate) fn nest_schema(mut schema: Value) -> Value {
             _ => {}
         }
     }
+    let Some(defs) = schema.as_object_mut().and_then(|o| o.remove("$defs")) else { return schema };
+    let Some(first) = schema.get("properties").and_then(Value::as_object).and_then(|p| p.keys().next().cloned()) else {
+        return schema;
+    };
+    let prefix = format!("#/properties/{first}/$defs/");
     let mut defs = defs;
     rewrite(&mut defs, &prefix);
     rewrite(&mut schema, &prefix);
@@ -240,6 +242,7 @@ fn quoted(kinds: &[&str]) -> String {
 }
 
 /// Noms de tous les outils MCP, dans l'ordre de la liste.
+#[must_use]
 pub fn tool_names() -> Vec<String> {
     list().into_iter().map(|t| t.name).collect()
 }

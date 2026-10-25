@@ -42,7 +42,7 @@ impl Fake {
 }
 
 impl WitnessRenderer for Fake {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "témoin"
     }
 
@@ -57,7 +57,7 @@ impl WitnessRenderer for Fake {
             return Err(fail());
         }
         let count = span_len(span) - self.missing;
-        let height = (f64::from(width) * self.ratio).round() as u32;
+        let height = oku_slides_core::num::round_u32(f64::from(width) * self.ratio);
         let pages = (0..count).map(|_| white_png(width, height)).collect();
         Ok(WitnessPages { witness: "témoin 1.0".to_owned(), count, pages })
     }

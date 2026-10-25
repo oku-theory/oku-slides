@@ -1,4 +1,5 @@
 //! Reprise de l'espace de travail : fenêtres, onglets, et chaque session.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -48,7 +49,7 @@ fn platform(data: &Path) -> Platform {
 
 /// L'espace de travail qui reprend l'état laissé dans `data`.
 fn resumed(data: &Data) -> Mutex<Workspace> {
-    let ws = Workspace::resume(Fonts::default(), &platform(&data.0), data.resume())
+    let ws = Workspace::resume(Fonts::default(), &platform(&data.0), &data.resume())
         .unwrap_or_else(|e| panic!("reprise impossible : {}", e.one_line()));
     Mutex::new(ws)
 }
@@ -88,14 +89,16 @@ fn fixture() -> PathBuf {
 
 fn names(dir: &Path) -> Vec<String> {
     let mut names: Vec<String> = std::fs::read_dir(dir)
-        .map(|entries| entries.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect())
+        .map(|entries| {
+            entries.filter_map(std::result::Result::ok).map(|e| e.file_name().to_string_lossy().into_owned()).collect()
+        })
         .unwrap_or_default();
     names.sort();
     names
 }
 
-fn write_layout(data: &Data, layout: serde_json::Value) {
-    let bytes = serde_json::to_vec(&layout).unwrap_or_else(|e| panic!("layout : {e}"));
+fn write_layout(data: &Data, layout: &serde_json::Value) {
+    let bytes = serde_json::to_vec(layout).unwrap_or_else(|e| panic!("layout : {e}"));
     std::fs::write(data.resume().join("workspace.json"), bytes).unwrap_or_else(|e| panic!("workspace.json : {e}"));
 }
 
@@ -227,7 +230,7 @@ fn resume_without_saved_info_reads_the_tab_at_launch() {
     let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap();
     let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     layout["info"].as_object_mut().unwrap().remove("t-2");
-    write_layout(&data, layout);
+    write_layout(&data, &layout);
     std::fs::write(data.resume().join("tabs/t-2/state.json"), br#"{"version":99}"#).unwrap();
     let ids: Vec<String> = view(&resumed(&data)).windows[0].tabs.iter().map(|t| t.id.clone()).collect();
     assert_that!(ids).is_equal_to(vec!["t-1".to_owned(), "t-3".to_owned()]);
@@ -295,7 +298,7 @@ fn resume_with_tampered_ids_ignores_them_and_touches_nothing_outside() {
     std::fs::write(victim.join("state.json"), br#"{"version":1,"mode":"deck"}"#).unwrap();
     write_layout(
         &data,
-        json!({"version": 2, "next_tab": 2, "next_window": 2, "focused": "w-1",
+        &json!({"version": 2, "next_tab": 2, "next_window": 2, "focused": "w-1",
                "windows": [{"label": "w-1", "tabs": ["t-1", "../../victime", "t-1"], "active": "t-1"},
                            {"label": "../x", "tabs": ["t-1"], "active": "t-1"}]}),
     );
@@ -318,7 +321,7 @@ fn resume_with_tampered_kept_ids_touches_nothing_outside() {
     std::fs::write(victim.join("state.json"), br#"{"version":1,"mode":"deck"}"#).unwrap();
     write_layout(
         &data,
-        json!({"version": 2, "next_tab": 2, "next_window": 2, "focused": "w-1",
+        &json!({"version": 2, "next_tab": 2, "next_window": 2, "focused": "w-1",
                "windows": [{"label": "w-1", "tabs": ["t-1"], "active": "t-1"}],
                "kept": ["../../victime", "t-1", "t-1"]}),
     );
@@ -338,7 +341,7 @@ fn resume_with_low_counters_never_reuses_an_id() {
     drop(a);
     write_layout(
         &data,
-        json!({"version": 2, "next_tab": 1, "next_window": 1, "focused": "w-1",
+        &json!({"version": 2, "next_tab": 1, "next_window": 1, "focused": "w-1",
                "windows": [{"label": "w-1", "tabs": ["t-1", "t-2"], "active": "t-1"}]}),
     );
     let ws = resumed(&data);
@@ -356,7 +359,7 @@ fn resume_with_huge_counters_resets_them() {
     drop(resumed(&data));
     write_layout(
         &data,
-        json!({"version": 2, "next_tab": 18446744073709551615u64, "next_window": 18446744073709551615u64,
+        &json!({"version": 2, "next_tab": u64::MAX, "next_window": u64::MAX,
                "focused": "w-1", "windows": [{"label": "w-1", "tabs": ["t-1"], "active": "t-1"}]}),
     );
     let ws = resumed(&data);
@@ -393,7 +396,7 @@ fn resume_with_rejected_window_keeps_the_folders_of_its_tabs() {
     drop(a);
     write_layout(
         &data,
-        json!({"version": 2, "next_tab": 3, "next_window": 3, "focused": "w-1",
+        &json!({"version": 2, "next_tab": 3, "next_window": 3, "focused": "w-1",
                "windows": [{"label": "w-1", "tabs": ["t-1"], "active": "t-1"},
                            {"label": "w-1", "tabs": ["t-2"], "active": "t-2"}]}),
     );
@@ -513,7 +516,7 @@ fn close_of_a_dormant_tab_with_stale_clean_info_is_refused() {
     let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
     let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
     layout["info"]["t-2"]["dirty"] = json!(false);
-    write_layout(&data, layout);
+    write_layout(&data, &layout);
     let b = resumed(&data);
     let req: WorkspaceRequest = serde_json::from_value(json!({"cmd": "close", "tab": "t-2"}))
         .unwrap_or_else(|e| panic!("requête invalide : {e}"));
@@ -533,7 +536,7 @@ fn resume_with_one_malformed_tab_info_reads_that_tab_and_keeps_the_rest() {
     let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
     let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
     layout["info"]["t-2"] = json!({"title": 42});
-    write_layout(&data, layout);
+    write_layout(&data, &layout);
     let v = view(&resumed(&data));
     assert_that!(v.windows[0].tabs).has_length(2);
     let aside: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
@@ -553,7 +556,7 @@ fn resume_of_a_layout_without_info_restores_every_tab() {
     let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
     let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
     layout.as_object_mut().unwrap_or_else(|| panic!("objet attendu")).remove("info");
-    write_layout(&data, layout);
+    write_layout(&data, &layout);
     let v = view(&resumed(&data));
     let titles: Vec<&str> = v.windows[0].tabs.iter().map(|t| t.info.title.as_str()).collect();
     assert_that!(titles.contains(&"bilan")).is_true();
@@ -601,7 +604,7 @@ fn resume_with_info_that_is_not_an_object_reads_the_tabs() {
     let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
     let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
     layout["info"] = json!([1, 2]);
-    write_layout(&data, layout);
+    write_layout(&data, &layout);
     assert_that!(view(&resumed(&data)).windows[0].tabs).has_length(2);
     let aside: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
     assert_that!(aside).is_empty();
@@ -652,7 +655,7 @@ fn resume_prunes_with_the_configured_count_and_spares_this_launch() {
     settings.resume.keep_failed = 0;
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("{e}"));
     std::fs::write(data.resume().join("workspace.json"), b"pas du json").unwrap_or_else(|e| panic!("{e}"));
-    drop(Workspace::resume(Fonts::default(), &platform, data.resume()).unwrap_or_else(|e| panic!("{}", e.one_line())));
+    drop(Workspace::resume(Fonts::default(), &platform, &data.resume()).unwrap_or_else(|e| panic!("{}", e.one_line())));
     let root: Vec<String> = names(&data.0).into_iter().filter(|n| n.starts_with("resume.failed-")).collect();
     assert_that!(root).has_length(1);
     assert_that!(root.iter().any(|n| n == "resume.failed-10" || n == "resume.failed-20")).is_false();
@@ -858,7 +861,7 @@ fn resume_with_tab_info_without_deck_uid_reads_it_as_none() {
     let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
     let info = layout["info"][&id].as_object_mut().unwrap_or_else(|| panic!("infos de {id} absentes"));
     assert_that!(info.remove("deck_uid").is_some()).is_true();
-    write_layout(&data, layout);
+    write_layout(&data, &layout);
     let v = view(&resumed(&data));
     let t = v.windows[0].tabs.iter().find(|t| t.id == id).unwrap_or_else(|| panic!("onglet {id} absent"));
     assert_that!(t.info.deck_uid).is_none();

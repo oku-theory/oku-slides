@@ -167,7 +167,7 @@ impl SourceBundle {
             let data = read_entry(f, size, usize::MAX, &mut budget, limits.total_bytes)?;
             match name.as_str() {
                 "manifest.json" => {
-                    manifest = Some(serde_json::from_slice(&data).context(JsonSnafu { file: "manifest.json" })?)
+                    manifest = Some(serde_json::from_slice(&data).context(JsonSnafu { file: "manifest.json" })?);
                 }
                 n if n.starts_with("assets/") => {
                     let hex = asset_name(&n["assets/".len()..])?;

@@ -19,7 +19,7 @@ pub struct NoSettings;
 
 impl SettingsPort for NoSettings {
     fn read(&self) -> std::collections::BTreeMap<String, Value> {
-        Default::default()
+        std::collections::BTreeMap::default()
     }
     fn write(&self, _: &str, _: &Value) -> Result<Applied, String> {
         Err("read-only".into())

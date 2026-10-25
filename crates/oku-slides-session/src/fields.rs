@@ -14,7 +14,9 @@ use crate::text::paragraphs_to_text;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OwnerKind {
+    /// A parameter of the slide itself.
     Slide,
+    /// A parameter of an element placed on the slide.
     Element,
 }
 
@@ -22,7 +24,9 @@ pub enum OwnerKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FieldKind {
+    /// One line of plain text, without formatting.
     Plain,
+    /// Editing markdown, one paragraph per line.
     Rich,
 }
 
@@ -31,6 +35,7 @@ pub enum FieldKind {
 pub struct FieldView<'a> {
     /// Id de la slide ou de l'élément qui porte le champ.
     pub owner: &'a str,
+    /// Slide or element: says what `owner` refers to.
     pub owner_kind: OwnerKind,
     /// Widget de l'objet (`kind`).
     pub widget: &'a str,
@@ -44,6 +49,7 @@ pub struct FieldView<'a> {
     pub item: Option<&'a str>,
     /// Paramètre, ou colonne de la liste pour un item.
     pub column: &'a str,
+    /// Plain text or markdown: picks the in-place editor.
     pub kind: FieldKind,
     /// Libellé du paramètre dans le schéma du widget.
     pub label: Option<&'a str>,
@@ -55,12 +61,17 @@ pub struct FieldView<'a> {
     pub bound: bool,
     /// Champ vide sans place au rendu : dessiné avant ou après son ancre.
     pub side: Option<FieldSide>,
+    /// Left edge of the rendered text, in pt from the page's left edge.
     pub x: f64,
+    /// Top edge of the rendered text, in pt from the top of the page.
     pub y: f64,
+    /// Width of the rendered text, in pt.
     pub w: f64,
+    /// Height of the rendered text, in pt.
     pub h: f64,
     /// Zone disponible pour le texte : début et largeur (contient la boîte).
     pub ax: f64,
+    /// Width of the available area, in pt (at least `w`).
     pub aw: f64,
     /// Typographie du rendu, pour un éditeur calé sur le texte.
     pub style: Option<&'a TextStyle>,

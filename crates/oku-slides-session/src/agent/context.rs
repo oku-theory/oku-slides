@@ -21,12 +21,16 @@ const LABEL_CHARS: usize = 40;
 /// Ce que l'interface montre au moment de la consigne.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct AgentUi {
+    /// Id of the displayed slide.
     #[serde(default)]
     pub slide: Option<String>,
+    /// Id of the selected element on this slide.
     #[serde(default)]
     pub element: Option<String>,
+    /// Name of the selected field, as given by [`crate::FieldView`].
     #[serde(default)]
     pub field: Option<String>,
+    /// The selected field is being edited in place.
     #[serde(default)]
     pub editing: bool,
     /// Sous-onglet de widget actif (mode pack).

@@ -2,6 +2,8 @@
 //! éléments d'une slide peuvent-ils passer d'une `LoroMovableList` par slot à
 //! un `LoroTree` par slide ? Ces tests fixent le comportement observé de la
 //! bibliothèque, pas celui du produit. Voir l'ADR-0005.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
+#![expect(clippy::many_single_char_names, reason = "probe: peers, trees and nodes named as in the described scenario")]
 
 use std::time::Instant;
 
@@ -269,8 +271,9 @@ fn p4_fractional_index_is_enabled_by_default() {
     assert_that!(doc.get_tree(TREE).is_fractional_index_enabled()).is_true();
 }
 
-/// Point 4b : Deux insertions concurrentes au même index : même fractionnaire
-/// (jitter 0), départagées par TreeID ; l'ordre converge et `children` le rend.
+/// Point 4b: two concurrent insertions at the same index.
+///
+/// They get the same fractional index (jitter 0), tie-broken by `TreeID`; the order converges and `children` returns it.
 #[test]
 fn p4_concurrent_inserts_at_same_index_converge() {
     let a = peer(1);
@@ -353,11 +356,12 @@ fn p5_undo_redo_move_across_parents() {
     assert_that!(kids(&t, p2)[0]).is_equal_to(x);
 }
 
-/// Point 5b : Défaire une suppression ne ranime PAS le nœud : x reste supprimé, et
-/// un nœud NEUF (autre TreeID) est créé à sa place, avec une copie de sa méta
-/// (texte compris, dans un nouveau `LoroText`) et de son sous-arbre, lui aussi
-/// recréé. Chaque rétablir/défaire recrée encore un nœud. Même mécanisme que
-/// les listes (t-652).
+/// Point 5b: undoing a deletion does NOT revive the node.
+///
+/// x stays deleted, and a NEW node (another `TreeID`) is created in its place, with a copy of its meta
+/// (text included, in a new `LoroText`) and of its subtree, also
+/// recreated. Each redo/undo recreates a node again. Same mechanism as
+/// lists (t-652).
 #[test]
 fn p5_undo_delete_recreates_a_new_node_with_copied_meta() {
     let a = peer(1);
@@ -399,10 +403,11 @@ fn p5_undo_delete_recreates_a_new_node_with_copied_meta() {
     assert_that!(again).is_not_equal_to(x);
 }
 
-/// Point 5c : Le `mov` concurrent de B (pair 2) est reçu AVANT l'annulation : il passe
-/// après la suppression dans l'ordre, donc x est vivant (sous p2). L'annulation
-/// ne recrée rien mais REMET x sous p1 (sa place d'avant la suppression) : le
-/// déplacement de B est défait. Un seul nœud, même TreeID.
+/// Point 5c: B's concurrent `mov` (peer 2) arrives BEFORE the undo.
+///
+/// It comes after the deletion in the order, so x is alive (under p2). The undo
+/// recreates nothing but PUTS x BACK under p1 (its place before the deletion): B's
+/// move is undone. A single node, same `TreeID`.
 #[test]
 fn p5_undo_delete_after_receiving_concurrent_move_moves_x_back() {
     let a = peer(1);
@@ -574,16 +579,16 @@ fn p6_control_movable_list_reproduces_t263() {
     let (mut lost, mut panicked) = (0, 0);
     for wanted in swaps() {
         let a = peer(1);
-        let list = a.get_movable_list("slides");
+        let slides = a.get_movable_list("slides");
         for k in 0..wanted.len() {
-            let m = list.insert_container(k, LoroMap::new()).unwrap();
+            let m = slides.insert_container(k, LoroMap::new()).unwrap();
             m.insert("id", format!("s{k}")).unwrap();
         }
         a.commit();
         let initial = a.get_deep_value();
         let mut m = undo_manager(&a);
         for (from, to) in reorder_moves(&wanted) {
-            list.mov(from, to).unwrap();
+            slides.mov(from, to).unwrap();
         }
         a.commit();
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -664,8 +669,10 @@ fn p7_undo_move_keeps_concurrent_remote_meta_edit() {
     assert_that!(meta_text(&t.get_meta(x).unwrap()).to_string()).is_equal_to("hello!".to_owned());
 }
 
-/// Point 8 : Snapshot : TreeID, ordre, fractionnaires (des vivants), méta et nœuds
-/// supprimés préservés ; le fractionnaire reste actif sur le doc relu.
+/// Point 8: a snapshot read back keeps the tree.
+///
+/// `TreeID`, order, fractional indexes (of live nodes), meta and deleted nodes are
+/// preserved; the fractional index stays active on the reloaded doc.
 #[test]
 fn p8_snapshot_round_trip_preserves_tree() {
     let a = peer(1);

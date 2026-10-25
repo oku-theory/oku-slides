@@ -13,7 +13,7 @@ use snafu::ResultExt;
 use crate::error::{InvalidOptionSnafu, Result};
 use crate::labels::ChartLabels;
 use crate::model::{ChartKind, normalize};
-use crate::option::{Cell, ChartOption, Dataset, SeriesType, parse_number};
+use crate::option::{Cell, ChartOption, Dataset, SeriesType, format_number, parse_number};
 
 /// Tableau neutre : libellés des lignes et colonnes de valeurs.
 struct Table {
@@ -22,7 +22,12 @@ struct Table {
     columns: Vec<(String, Vec<Option<f64>>)>,
 }
 
-/// `option` redessiné en `kind`, sous forme canonique ; titre et légende gardés.
+/// `option` redrawn as `kind`, in canonical form; title and legend kept.
+///
+/// # Errors
+///
+/// Fails if the data of `option` cannot be read or if the converted
+/// chart is inconsistent.
 pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> Result<ChartOption> {
     let table = table(option, labels)?;
     let series_count = table.columns.len().max(1);
@@ -56,9 +61,9 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
     Ok(out)
 }
 
-/// `source` avec les identifiants d'avant, là où sa taille n'a pas changé.
+/// `source` with the previous identifiers, where its size has not changed.
 ///
-/// Les `ids` sont gardés à nombre de lignes égal, les `columns` à largeur égale.
+/// The `ids` are kept for an equal row count, the `columns` for an equal width.
 fn kept_ids(before: Option<&Dataset>, source: Vec<Vec<Cell>>) -> Dataset {
     let width = |s: &[Vec<Cell>]| s.first().map_or(0, Vec::len);
     let Some(before) = before else { return Dataset { source, ..Dataset::default() } };
@@ -98,11 +103,15 @@ fn table(option: &ChartOption, labels: &ChartLabels) -> Result<Table> {
                 .series
                 .into_iter()
                 .map(|s| {
+                    #[expect(
+                        clippy::float_cmp,
+                        reason = "exact equality intended: each abscissa comes from the same points"
+                    )]
                     let values = xs.iter().map(|x| s.points.iter().find(|(px, _)| px == x).map(|(_, y)| *y)).collect();
                     (s.name, values)
                 })
                 .collect();
-            Table { label: labels.category().to_owned(), rows: xs.iter().map(|x| number(*x)).collect(), columns }
+            Table { label: labels.category().to_owned(), rows: xs.iter().map(|x| format_number(*x)).collect(), columns }
         }
     })
 }
@@ -138,10 +147,17 @@ fn waterfall_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
         .collect()
 }
 
+/// A row number as a float, exact up to 2^53 (named after `oku_slides_core::num`).
+#[expect(clippy::cast_precision_loss, reason = "a row number stays far below 2^53")]
+fn count_f64(n: usize) -> f64 {
+    n as f64
+}
+
 /// Une paire de colonnes (x, y) par série ; une valeur absente n'est pas un point.
 fn scatter_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
     let parsed: Option<Vec<f64>> = table.rows.iter().map(|r| parse_number(r)).collect();
-    let xs = parsed.unwrap_or_else(|| (1..=table.rows.len()).map(|i| i as f64).collect());
+    // Without readable abscissas, rows are numbered from 1.
+    let xs = parsed.unwrap_or_else(|| (1..=table.rows.len()).map(count_f64).collect());
     let header = table.columns.iter().flat_map(|(name, _)| [Cell::Text(labels.x_of(name)), Cell::Text(name.clone())]);
     let rows = xs.iter().enumerate().map(|(i, x)| {
         table
@@ -158,11 +174,6 @@ fn scatter_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
 
 fn cell(v: Option<f64>) -> Cell {
     v.map_or(Cell::Null, Cell::Number)
-}
-
-/// `3.0` → `3`, `2.5` → `2.5`.
-fn number(x: f64) -> String {
-    if x.fract() == 0.0 && x.abs() < 1e15 { format!("{}", x as i64) } else { x.to_string() }
 }
 
 #[cfg(test)]

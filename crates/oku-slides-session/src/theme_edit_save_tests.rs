@@ -46,7 +46,7 @@ fn saving_edited_builtin_copy_is_current_and_listed() {
 fn saving_renamed_builtin_keeps_the_given_name() {
     let mut s = session_with_theme(PAPIER_THEME);
     s.edit_pack(ESSENTIEL_PACK).unwrap();
-    s.rename_edited_theme("Papier rouge".into()).unwrap();
+    s.rename_edited_theme("Papier rouge").unwrap();
     s.save_pack(false).unwrap();
     let r = user_pin(&s);
     assert_that!(r.id).is_not_equal_to(PAPIER_THEME);

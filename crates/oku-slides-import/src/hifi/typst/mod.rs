@@ -26,6 +26,9 @@
 //! un littéral de chaîne échappé ([`string`]) : il ne peut pas injecter de
 //! Typst.
 
+// `write!` into a `String` never fails: its result is ignored.
+use std::fmt::Write as _;
+
 mod placeholder;
 mod shape;
 mod text;
@@ -111,7 +114,9 @@ pub(crate) fn string(s: &str) -> String {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
-            c if c.is_control() => out.push_str(&format!("\\u{{{:x}}}", u32::from(c))),
+            c if c.is_control() => {
+                let _ = write!(out, "\\u{{{:x}}}", u32::from(c));
+            }
             c => out.push(c),
         }
     }
@@ -292,12 +297,13 @@ impl Placement {
     /// haut, droite, bas, fractions) de sa géométrie : la part suit les
     /// miroirs et tourne avec la forme autour du centre de la boîte, mais le
     /// texte n'est pas mis en miroir (un miroir vertical le retourne).
+    #[expect(clippy::many_single_char_names, reason = "sides l, t, r, b and size w, h of a geometric formula")]
     fn text(page: &Page, f: &Frame, [l, t, r, b]: [f64; 4]) -> Self {
         let (l, r) = if f.flip_h { (1.0 - r, 1.0 - l) } else { (l, r) };
         let (t, b) = if f.flip_v { (1.0 - b, 1.0 - t) } else { (t, b) };
         let (w, h) = ((r - l) * f.w, (b - t) * f.h);
         // Centre de la part, relatif au centre de la boîte, tourné avec elle (sens horaire, y vers le bas).
-        let (dx, dy) = (((l + r) / 2.0 - 0.5) * f.w, ((t + b) / 2.0 - 0.5) * f.h);
+        let (dx, dy) = ((f64::midpoint(l, r) - 0.5) * f.w, (f64::midpoint(t, b) - 0.5) * f.h);
         let (sin, cos) = f.rot.to_radians().sin_cos();
         let (cx, cy) = (f.x + f.w / 2.0 + dx * cos - dy * sin, f.y + f.h / 2.0 + dx * sin + dy * cos);
         let sub = Frame::new(cx - w / 2.0, cy - h / 2.0, w, h);

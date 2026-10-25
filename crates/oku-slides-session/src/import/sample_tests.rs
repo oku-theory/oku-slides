@@ -25,7 +25,7 @@ fn shape(fill: Fill) -> Item {
         head: None,
         tail: None,
     };
-    let geom = Geometry::Preset { name: "roundRect".into(), adj: Default::default() };
+    let geom = Geometry::Preset { name: "roundRect".into(), adj: std::collections::BTreeMap::default() };
     let kind = ItemKind::Shape(Box::new(Shape { geom, fill, stroke: Some(stroke), text: None, connection: None }));
     item("s3/4", Frame::new(12.25, 40.0, 200.04, 80.0), kind)
 }

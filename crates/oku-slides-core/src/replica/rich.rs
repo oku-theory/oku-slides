@@ -86,16 +86,16 @@ pub(super) fn sync(text: &LoroText, value: &Value) -> Result<(), ReplicaInner> {
     sync_text(text, &target)?;
     let have = current(text);
     for key in RUN_MARKS.iter().chain(PARA_MARKS) {
-        let w: Vec<_> = want.iter().map(|a| a.get(*key)).collect();
-        let h: Vec<_> = have.iter().map(|a| a.get(*key)).collect();
+        let wanted: Vec<_> = want.iter().map(|a| a.get(*key)).collect();
+        let held: Vec<_> = have.iter().map(|a| a.get(*key)).collect();
         let mut i = 0;
-        while i < w.len() {
+        while i < wanted.len() {
             let mut j = i + 1;
-            while j < w.len() && w[j] == w[i] {
+            while j < wanted.len() && wanted[j] == wanted[i] {
                 j += 1;
             }
-            if (i..j).any(|k| h.get(k).copied().flatten() != w[k]) {
-                match w[i] {
+            if (i..j).any(|k| held.get(k).copied().flatten() != wanted[k]) {
+                match wanted[i] {
                     Some(v) => text.mark(i..j, key, v.clone()).context(LoroSnafu)?,
                     None => text.unmark(i..j, key).context(LoroSnafu)?,
                 }

@@ -14,8 +14,11 @@ use super::{Answer, McpEvent, Shown, SurfaceHub};
 /// Action d'une surface, telle que l'interface l'envoie à l'hôte.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SurfaceAction {
+    /// Id of the surface the action comes from.
     pub surface: String,
+    /// Name of the action (`dismiss`: the surface is abandoned).
     pub name: String,
+    /// The surface's form values at the time of the action.
     #[serde(default)]
     pub context: Map<String, Value>,
 }
@@ -36,11 +39,18 @@ enum After {
 }
 
 impl SurfaceHub {
-    /// Une action de l'interface : réponse à une question, ou changement
-    /// d'une surface persistante (appliqué ici, noté pour l'agent).
+    /// Applies an interface action.
     ///
-    /// L'erreur se dit dans la langue de l'utilisateur ([`Localize`](oku_slides_i18n::Localize)) ;
-    /// son `Display` (anglais, avec l'identifiant de la surface) est pour les journaux.
+    /// That is an answer to a question, or a change to a persistent surface
+    /// (applied here, noted for the agent).
+    ///
+    /// The error is told in the user's language ([`Localize`](oku_slides_i18n::Localize));
+    /// its `Display` (English, with the surface id) is for the logs.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the surface is unknown or expired, if the action or its target does not exist,
+    /// or if the session or dictation refuses the change.
     pub fn act(&self, action: SurfaceAction) -> Result<(), HubError> {
         let ask = self.state().take_ask_id(&action.surface);
         if let Some(ask) = ask {
@@ -140,7 +150,7 @@ impl SurfaceHub {
             .context(SessionSnafu)?;
         // L'interface a déjà la valeur ; la copie du hub la garde pour une resynchronisation.
         if let Some(open) = self.state().open.iter_mut().find(|s| s.id == id) {
-            open.set_value(&forms::param_key(i), value);
+            open.set_value(&forms::param_key(i), &value);
         }
         self.emit(McpEvent::Changed);
         Ok(())

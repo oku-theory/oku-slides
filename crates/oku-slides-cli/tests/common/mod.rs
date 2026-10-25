@@ -4,6 +4,7 @@
     reason = "cli.rs et regressions/ n'utilisent pas les mêmes aides ; `expect` échouerait dans l'un des deux"
 )]
 
+use std::fmt::Write as _;
 use std::io::{Cursor, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
@@ -64,7 +65,10 @@ pub fn describe(what: &str, out: &Output) -> String {
 /// Les comptes rendus de `context` (commandes précédentes) puis celui de `what`, formatés
 /// seulement quand un test échoue.
 fn report(what: &str, out: &Output, context: &[(&str, &Output)]) -> String {
-    let before: String = context.iter().map(|(name, o)| format!("{}\n\n", describe(name, o))).collect();
+    let before = context.iter().fold(String::new(), |mut before, (name, o)| {
+        let _ = write!(before, "{}\n\n", describe(name, o));
+        before
+    });
     format!("{before}{}", describe(what, out))
 }
 
@@ -95,8 +99,7 @@ impl Drop for Server {
 pub fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .and_then(|l| l.local_addr())
-        .map(|a| a.port())
-        .unwrap_or_else(|e| panic!("port libre : {e}"))
+        .map_or_else(|e| panic!("port libre : {e}"), |a| a.port())
 }
 
 /// Une requête du client JSON de l'interface (`Host` local, `Content-Type: application/json`,
@@ -128,7 +131,10 @@ pub fn exchange(
             Err(e) => panic!("serveur injoignable : {e}"),
         }
     };
-    let headers: String = headers.iter().map(|(k, v)| format!("{k}: {v}\r\n")).collect();
+    let headers = headers.iter().fold(String::new(), |mut lines, (k, v)| {
+        let _ = write!(lines, "{k}: {v}\r\n");
+        lines
+    });
     write!(
         stream,
         "{method} {path} HTTP/1.1\r\n{headers}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
@@ -217,5 +223,7 @@ pub fn deck_json(widgets: serde_json::Value, slides: serde_json::Value) -> serde
     if let Some(map) = widgets.as_object_mut() {
         map.insert("base".to_owned(), serde_json::json!(base));
     }
-    serde_json::json!({ "version": 9, "widgets": widgets, "layouts": { "essentiel": essentiel }, "slides": slides })
+    let mut deck = serde_json::json!({ "version": 9, "widgets": widgets, "layouts": { "essentiel": essentiel } });
+    deck["slides"] = slides;
+    deck
 }

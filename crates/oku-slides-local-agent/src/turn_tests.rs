@@ -141,7 +141,7 @@ impl Engine for Recorder {
     }
 }
 
-fn engine_with_log(script: Value, log: Option<PathBuf>) -> Recorder {
+fn engine_with_log(script: &Value, log: Option<PathBuf>) -> Recorder {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("script.json");
     std::fs::write(&path, script.to_string()).unwrap();
@@ -149,7 +149,7 @@ fn engine_with_log(script: Value, log: Option<PathBuf>) -> Recorder {
     Recorder { inner, seen: Mutex::new(vec![]), _dir: dir }
 }
 
-fn engine(script: Value) -> Recorder {
+fn engine(script: &Value) -> Recorder {
     engine_with_log(script, None)
 }
 
@@ -159,7 +159,7 @@ fn prompt(request: &str) -> Prompt {
 
 #[tokio::test]
 async fn run_turn_routes_calls_and_ends_on_report() {
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[
         {"call":"apply","args":{"ops":[]}},
         {"call":"report","args":{"title":"Titre en rouge","facts":["f"]}}]}]}));
     let tools = FakeTools::default();
@@ -174,7 +174,7 @@ async fn run_turn_act_exposes_only_routed_families() {
     let dir = tempfile::tempdir().unwrap();
     let log = dir.path().join("engine.log");
     let engine = engine_with_log(
-        json!({"turns":[{"route":"edit","replies":[{"call":"report","args":{"title":"ok","facts":["f"]}}]}]}),
+        &json!({"turns":[{"route":"edit","replies":[{"call":"report","args":{"title":"ok","facts":["f"]}}]}]}),
         Some(log.clone()),
     );
     run_turn(&engine, &FakeTools::default(), &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
@@ -186,7 +186,7 @@ async fn run_turn_act_exposes_only_routed_families() {
 
 #[tokio::test]
 async fn run_turn_unknown_tool_is_repaired_once() {
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[
         {"call":"nope","args":{}},
         {"call":"report","args":{"title":"ok","facts":["f"]}}]}]}));
     let end = run_turn(&engine, &FakeTools::default(), &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
@@ -199,7 +199,7 @@ async fn run_turn_unknown_tool_is_repaired_once() {
 
 #[tokio::test]
 async fn run_turn_two_invalid_calls_fail_with_report() {
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[
         {"call":"nope","args":{}},
         {"call":"nope","args":{}}]}]}));
     let tools = FakeTools::default();
@@ -214,7 +214,7 @@ async fn run_turn_two_invalid_calls_fail_with_report() {
 
 #[tokio::test]
 async fn run_turn_failed_tool_call_is_repaired_like_an_unknown_tool() {
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[
         {"call":"apply","args":{}},
         {"call":"apply","args":{}}]}]}));
     let tools = FakeTools::failing("apply");
@@ -225,7 +225,7 @@ async fn run_turn_failed_tool_call_is_repaired_like_an_unknown_tool() {
 #[tokio::test]
 async fn run_turn_stops_after_max_calls() {
     let replies: Vec<Value> = (0..9).map(|_| json!({"call":"apply","args":{}})).collect();
-    let engine = engine(json!({"turns":[{"route":"edit","replies":replies}]}));
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":replies}]}));
     let tools = FakeTools::default();
     let end = run_turn(&engine, &tools, &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
     assert_that!(end).is_equal_to(TurnEnd::Failed(FailKind::ToolLimit));
@@ -234,7 +234,7 @@ async fn run_turn_stops_after_max_calls() {
 
 #[tokio::test]
 async fn run_turn_empty_route_fails_after_retry() {
-    let engine = engine(json!({"turns":[{"route":"nothing"},{"route":"nothing"}]}));
+    let engine = engine(&json!({"turns":[{"route":"nothing"},{"route":"nothing"}]}));
     let tools = FakeTools::default();
     let end = run_turn(&engine, &tools, &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
     assert_that!(end).is_equal_to(TurnEnd::Failed(FailKind::NoRoute));
@@ -243,7 +243,7 @@ async fn run_turn_empty_route_fails_after_retry() {
 
 #[tokio::test]
 async fn run_turn_cancel_ends_without_report() {
-    let engine = engine(json!({"turns":[{"route":"edit","hang":true}]}));
+    let engine = engine(&json!({"turns":[{"route":"edit","hang":true}]}));
     let tools = FakeTools::default();
     let cancel = CancellationToken::new();
     let later = cancel.clone();
@@ -258,7 +258,7 @@ async fn run_turn_cancel_ends_without_report() {
 
 #[tokio::test]
 async fn run_turn_cancel_during_failing_call_is_cancelled() {
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[
         {"call":"apply","args":{}},
         {"call":"apply","args":{}}]}]}));
     let cancel = CancellationToken::new();
@@ -271,7 +271,7 @@ async fn run_turn_cancel_during_failing_call_is_cancelled() {
 #[tokio::test]
 async fn run_turn_route_sees_summaries_then_request() {
     let engine =
-        engine(json!({"turns":[{"route":"edit","replies":[{"call":"report","args":{"title":"ok","facts":["f"]}}]}]}));
+        engine(&json!({"turns":[{"route":"edit","replies":[{"call":"report","args":{"title":"ok","facts":["f"]}}]}]}));
     let summaries = vec!["avant → fait".to_owned()];
     run_turn(&engine, &FakeTools::default(), &NoUpdates, &prompt("x"), &summaries, &CancellationToken::new()).await;
     let route = engine.seen.lock().unwrap()[0].clone();
@@ -282,7 +282,7 @@ async fn run_turn_route_sees_summaries_then_request() {
 #[tokio::test]
 async fn run_turn_tools_list_failure_fails_with_engine() {
     let tools = FakeTools { list_fails: true, ..FakeTools::default() };
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[]}]}));
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[]}]}));
     let end = run_turn(&engine, &tools, &NoUpdates, &prompt("fr"), &[], &CancellationToken::new()).await;
     assert_that!(end).is_equal_to(TurnEnd::Failed(FailKind::Engine));
 }
@@ -290,7 +290,7 @@ async fn run_turn_tools_list_failure_fails_with_engine() {
 #[tokio::test]
 async fn run_turn_transport_error_fails_with_engine_not_repair() {
     let tools = FakeTools { transport_on: Some("apply".into()), ..FakeTools::default() };
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[{"call":"apply","args":{}}]}]}));
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[{"call":"apply","args":{}}]}]}));
     let end = run_turn(&engine, &tools, &NoUpdates, &prompt("fr"), &[], &CancellationToken::new()).await;
     assert_that!(end).is_equal_to(TurnEnd::Failed(FailKind::Engine));
 }
@@ -303,7 +303,7 @@ async fn run_turn_success_between_failures_resets_repairs() {
         {"call": "apply"}, {"call": "save"}, {"call": "apply"},
         {"call": "report", "args": {"title": "ok", "facts": ["f"]}}
     ]);
-    let engine = engine(json!({"turns":[{"route":"edit, files","replies":replies}]}));
+    let engine = engine(&json!({"turns":[{"route":"edit, files","replies":replies}]}));
     let end = run_turn(&engine, &tools, &NoUpdates, &prompt("fr"), &[], &CancellationToken::new()).await;
     assert_that!(end).is_equal_to(TurnEnd::Reported);
 }
@@ -312,7 +312,7 @@ async fn run_turn_success_between_failures_resets_repairs() {
 async fn run_turn_text_reply_becomes_a_note() {
     let updates = RecordingUpdates::default();
     let replies = json!([{"text": "Je regarde."}, {"call": "report", "args": {"title": "ok", "facts": ["f"]}}]);
-    let engine = engine(json!({"turns":[{"route":"edit","replies":replies}]}));
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":replies}]}));
     run_turn(&engine, &FakeTools::default(), &updates, &prompt("fr"), &[], &CancellationToken::new()).await;
     assert_that!(updates.notes()).is_equal_to(vec!["Je regarde.".to_owned()]);
 }
@@ -350,7 +350,7 @@ async fn run_turn_invalid_reply_is_repaired_once() {
 
 #[tokio::test]
 async fn run_turn_call_is_replayed_before_its_result() {
-    let engine = engine(json!({"turns":[{"route":"edit","replies":[
+    let engine = engine(&json!({"turns":[{"route":"edit","replies":[
         {"call":"apply","args":{"a":1}},
         {"call":"report","args":{"title":"ok","facts":["f"]}}]}]}));
     run_turn(&engine, &FakeTools::default(), &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;

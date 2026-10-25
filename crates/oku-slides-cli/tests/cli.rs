@@ -1,5 +1,8 @@
-//! La CLI `oku-slides`, lancée pour de vrai : chaque test a son propre dossier
-//! de données (OKU_SLIDES_PATHS__DATA) et choisit sa langue (OKU_SLIDES_I18N__LOCALE).
+//! The `oku-slides` CLI, run for real.
+//!
+//! Each test has its own data directory (`OKU_SLIDES_PATHS__DATA`) and picks its
+//! locale (`OKU_SLIDES_I18N__LOCALE`).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -680,8 +683,8 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         created: "2026-10-01T00:00:00Z".to_owned(),
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
-        examples: Default::default(),
-        styles: Default::default(),
+        examples: std::collections::BTreeMap::default(),
+        styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
     };
     let widgets = widgets

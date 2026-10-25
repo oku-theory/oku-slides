@@ -1,30 +1,37 @@
-//! Surfaces A2UI d'Oku Slides : les messages v0.9 que la session envoie à l'interface.
+//! Oku Slides A2UI surfaces: the v0.9 messages the session sends to the UI.
 //!
-//! - [`ServerMessage`] : `createSurface`, `updateComponents`,
-//!   `updateDataModel`, `deleteSurface`, au format v0.9.
-//! - [`Component`] / [`ComponentKind`] : le catalogue [`CATALOG_ID`] (Column,
-//!   Row, Card, Text, TextField, RichTextField, Stepper, Button, ChoiceChips,
-//!   Slider, ColorField, Select, ListTable, SlideThumb, ThemeChoice, DiffText, Prompt,
-//!   Timeline, Receipt, Disclosure, Badge, Markdown, Notice, ChartData, TableData), à plat, relié par
-//!   identifiants.
-//! - [`SeriesSwatch`] : une série colorable d'un `ChartData`.
-//! - [`TimelineStep`] / [`ToolCallDetail`] : les étapes d'un tour et le détail de leurs appels d'outils.
-//! - [`Dynamic`] : une valeur littérale ou un chemin (JSON Pointer) dans le
-//!   modèle de données de la surface.
-//! - [`Action`] : l'évènement qu'un composant envoie ; l'interface le traite.
+//! - [`ServerMessage`]: `createSurface`, `updateComponents`,
+//!   `updateDataModel`, `deleteSurface`, in v0.9 format.
+//! - [`Component`] / [`ComponentKind`]: the [`CATALOG_ID`] catalog (Column,
+//!   Row, Card, Text, `TextField`, `RichTextField`, Stepper, Button, `ChoiceChips`,
+//!   Slider, `ColorField`, Select, `ListTable`, `SlideThumb`, `ThemeChoice`, `DiffText`, Prompt,
+//!   Timeline, Receipt, Disclosure, Badge, Markdown, Notice, `ChartData`, `TableData`), flat, linked by
+//!   identifiers.
+//! - [`SeriesSwatch`]: a colorable series of a `ChartData`.
+//! - [`TimelineStep`] / [`ToolCallDetail`]: the steps of a turn and the detail of their tool calls.
+//! - [`Dynamic`]: a literal value or a path (JSON Pointer) into the
+//!   surface's data model.
+//! - [`Action`]: the event a component sends; the UI handles it.
 //!
-//! Ce crate ne fait que produire : l'interface (`@a2ui/web_core`) valide les
-//! messages contre le catalogue, décrit en zod dans `ui/src/a2ui`.
-//! Spécification : <https://a2ui.org/specification/v0.9-a2ui/>.
+//! This crate only produces: the UI (`@a2ui/web_core`) validates the
+//! messages against the catalog, described in zod in `ui/src/a2ui`.
+//! Specification: <https://a2ui.org/specification/v0.9-a2ui/>.
 
+mod action;
+mod component;
 mod data;
+mod list;
 mod message;
+mod props;
 
+pub use action::{Action, Dynamic, Event};
+pub use component::{Component, ComponentKind};
 pub use data::SeriesSwatch;
-
+pub use list::{ColumnKind, ListColumn, SubColumn, SubList, SubListFault};
 pub use message::{
-    Action, ButtonIcon, CATALOG_ID, ChoiceOption, ColumnKind, Component, ComponentKind, CreateSurface, DeleteSurface,
-    DiffKind, DiffSegment, Dynamic, Event, ListColumn, PromptImage, ServerBody, ServerMessage, SlideRef, StepStatus,
-    SubColumn, SubList, SubListFault, TextVariant, TimelineStep, Tone, ToolCallDetail, UpdateComponents,
-    UpdateDataModel, Version,
+    CATALOG_ID, CreateSurface, DeleteSurface, ServerBody, ServerMessage, UpdateComponents, UpdateDataModel, Version,
+};
+pub use props::{
+    ButtonIcon, ChoiceOption, DiffKind, DiffSegment, PromptImage, SlideRef, StepStatus, TextVariant, TimelineStep,
+    Tone, ToolCallDetail,
 };

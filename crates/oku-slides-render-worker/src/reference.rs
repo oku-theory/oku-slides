@@ -34,6 +34,7 @@ pub enum ReferenceWitness {
 
 impl ReferenceWitness {
     /// Le nom du témoin, tant que sa version n'est pas connue.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Office2Pdf => WITNESS,
@@ -63,9 +64,13 @@ impl std::fmt::Debug for RemoteReference {
 }
 
 impl RenderWorker {
-    /// Le rendu de référence de `pptx` par `witness`, avec `fonts` en priorité.
+    /// The reference render of `pptx` by `witness`, with `fonts` taking priority.
     ///
-    /// `slides` : la tranche à rendre (numéros source, masquées comprises), ou toutes.
+    /// `slides`: the range to render (source numbers, hidden slides included), or all of them.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the witness fails, if a font is rejected, or if the worker does not start, dies or exceeds its bounds.
     pub fn reference(
         &self,
         witness: &ReferenceWitness,
@@ -91,18 +96,25 @@ impl RenderWorker {
 
 impl RemoteReference {
     /// Nom et version du témoin (`office2pdf 0.8.1`, `LibreOffice 26.8.1.1`).
+    #[must_use]
     pub fn witness(&self) -> &str {
         &self.witness
     }
 
     /// Nombre de pages.
+    #[must_use]
     pub fn page_count(&self) -> usize {
         self.pages
     }
 
-    /// PNG de la page `index` (0 = première), à `width` pixels de large.
+    /// PNG of page `index` (0 = first), `width` pixels wide.
     ///
-    /// Une référence d'un travailleur précédent répond `Stale` sans appel.
+    /// A reference from a previous worker answers `Stale` without a call.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Stale`) if the reference comes from a previous worker, if the page
+    /// does not exist or cannot be rasterized, or if the worker does not start, dies or exceeds its bounds.
     pub fn png(&self, index: usize, width: u32) -> Result<Vec<u8>, RenderError> {
         let mut link = self.worker.link();
         if link.restarts != self.epoch {

@@ -13,6 +13,9 @@
 //! fait refuser le SVG, et la somme des nœuds de leurs cibles est bornée par la limite de nœuds,
 //! si bien que le rendu ne déplie jamais plus qu'un document de taille admise (bombe de `use`).
 
+// `write!` into a `String` never fails: its result is ignored.
+use std::fmt::Write as _;
+
 use std::collections::HashMap;
 
 use roxmltree::{Attribute, Document, Node};
@@ -335,7 +338,7 @@ impl Writer {
         self.out.push('<');
         self.out.push_str(name);
         if root {
-            self.out.push_str(&format!(r#" xmlns="{SVG_NS}" xmlns:xlink="{XLINK_NS}""#));
+            let _ = write!(self.out, r#" xmlns="{SVG_NS}" xmlns:xlink="{XLINK_NS}""#);
         }
         for a in n.attributes() {
             match attr_verdict(&a) {

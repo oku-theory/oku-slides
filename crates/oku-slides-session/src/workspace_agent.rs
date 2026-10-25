@@ -14,12 +14,17 @@ use crate::error::{Result, UnknownTabSnafu};
 use super::{Opening, Workspace};
 
 impl Workspace {
-    /// Ouvre `path` dans un nouvel onglet de la fenêtre de `tab` ; déjà
-    /// ouvert, son onglet devient actif. Rend l'onglet du fichier.
+    /// Opens `path` in a new tab of `tab`'s window and returns the file's tab.
     ///
-    /// Jamais d'onglet remplacé, même vierge : l'agent de `tab` y converse.
-    /// Comme `apply` sur `OpenTab` : l'onglet se construit hors du verrou ;
-    /// après [`Workspace::settle`], refusé comme un onglet fermé.
+    /// If already open, its tab becomes active. Never replaces a tab, even a
+    /// blank one: the agent of `tab` converses there. Like `apply` on
+    /// `OpenTab`: the tab is built outside the lock; after
+    /// [`Workspace::settle`], rejected like a closed tab.
+    ///
+    /// # Errors
+    ///
+    /// Fails after `settle` or for an unknown tab (`UnknownTab`), or if the file's session cannot be
+    /// built.
     pub fn open_beside(ws: &Mutex<Self>, tab: &str, path: &Path) -> Result<String> {
         let pending = {
             let mut w = Self::lock(ws);

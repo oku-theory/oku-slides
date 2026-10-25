@@ -13,6 +13,7 @@ use crate::collect::clip_to;
 use crate::pptx::units::pct;
 use crate::pptx::xml::{attr_i64, attr_str, elements};
 use crate::source::{Color, ColorMod, Origin, Rgba, Styled};
+use oku_slides_core::num::byte;
 
 /// Modificateurs gardés par couleur.
 pub(crate) const MAX_COLOR_MODS: usize = 16;
@@ -174,9 +175,10 @@ pub(crate) fn parse_color(container: Node<'_, '_>, ctx: &ColorCtx) -> Option<Col
     color_spec_in(container)?.resolve(ctx)
 }
 
-fn hex(s: &str) -> Option<Rgba> {
-    let v = u32::from_str_radix(s.get(..6)?, 16).ok()?;
-    Some(Rgba::new((v >> 16) as u8, (v >> 8) as u8, v as u8))
+fn hex(digits: &str) -> Option<Rgba> {
+    let rgb = u32::from_str_radix(digits.get(..6)?, 16).ok()?;
+    let [_, r, g, b] = rgb.to_be_bytes();
+    Some(Rgba::new(r, g, b))
 }
 
 fn sys_default(name: &str) -> Rgba {
@@ -210,13 +212,14 @@ fn srgb_to_lin(c: u8) -> f64 {
 fn lin_to_srgb(c: f64) -> u8 {
     let c = c.clamp(0.0, 1.0);
     let s = if c <= 0.003_130_8 { c * 12.92 } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 };
-    (s * 255.0).round() as u8
+    byte(s * 255.0)
 }
 
+#[expect(clippy::many_single_char_names, reason = "r, g, b, h, s, l notation of the RGB to HSL formulas")]
 fn to_hsl(c: Rgba) -> (f64, f64, f64) {
     let (r, g, b) = (f64::from(c.r) / 255.0, f64::from(c.g) / 255.0, f64::from(c.b) / 255.0);
     let (max, min) = (r.max(g).max(b), r.min(g).min(b));
-    let l = (max + min) / 2.0;
+    let l = f64::midpoint(max, min);
     let d = max - min;
     if d.abs() < f64::EPSILON {
         return (0.0, 0.0, l);
@@ -245,23 +248,25 @@ fn hue(p: f64, q: f64, t: f64) -> f64 {
     }
 }
 
+#[expect(clippy::many_single_char_names, reason = "h, s, l, p, q notation of the HSL to RGB formulas")]
 fn from_hsl(h: f64, s: f64, l: f64, a: u8) -> Rgba {
-    let byte = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let channel = |v: f64| byte(v.clamp(0.0, 1.0) * 255.0);
     let l = l.clamp(0.0, 1.0);
     if s <= 0.0 {
-        let v = byte(l);
+        let v = channel(l);
         return Rgba { r: v, g: v, b: v, a };
     }
     let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
     let p = 2.0 * l - q;
-    Rgba { r: byte(hue(p, q, h + 1.0 / 3.0)), g: byte(hue(p, q, h)), b: byte(hue(p, q, h - 1.0 / 3.0)), a }
+    Rgba { r: channel(hue(p, q, h + 1.0 / 3.0)), g: channel(hue(p, q, h)), b: channel(hue(p, q, h - 1.0 / 3.0)), a }
 }
 
 /// Applique les modificateurs dans l'ordre.
+#[expect(clippy::many_single_char_names, reason = "h, s, l and c, v notation of the HSL color formulas")]
 fn apply(mut c: Rgba, mods: &[ColorMod]) -> Rgba {
     for m in mods {
         c = match *m {
-            ColorMod::Alpha(v) => Rgba { a: (v.clamp(0.0, 1.0) * 255.0).round() as u8, ..c },
+            ColorMod::Alpha(v) => Rgba { a: byte(v.clamp(0.0, 1.0) * 255.0), ..c },
             ColorMod::LumMod(v) => {
                 let (h, s, l) = to_hsl(c);
                 from_hsl(h, s, l * v, c.a)

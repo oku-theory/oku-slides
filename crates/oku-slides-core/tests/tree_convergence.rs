@@ -1,5 +1,6 @@
 //! Convergence des déplacements dans l'arbre du deck : dans une slide (t-694),
 //! d'une slide à l'autre et face aux retraits annulés (t-746, t-747).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -54,8 +55,8 @@ fn remove(id: &str) -> Op {
 }
 
 /// `deck` et un `stack` d'id `id` à la fin de `blocks` de `s-constat`.
-fn with_pile(deck: Deck, id: &str) -> Deck {
-    with_ops(&deck, vec![add(None, "blocks", &Element::new(id, base::STACK))])
+fn with_pile(deck: &Deck, id: &str) -> Deck {
+    with_ops(deck, vec![add(None, "blocks", &Element::new(id, base::STACK))])
 }
 
 /// Les occurrences de `id` dans `s-constat`, à toutes les profondeurs.
@@ -129,7 +130,7 @@ fn place<'a>(deck: &'a Deck, id: &str) -> (Option<&'a str>, &'a str) {
 
 #[test]
 fn concurrent_move_into_a_child_slot_and_edit_converge() {
-    let deck = with_pile(roadmap(), "pile");
+    let deck = with_pile(&roadmap(), "pile");
     let (mut a, mut b) = peers(&deck);
     ok(a.apply(&with_ops(&deck, nest(&deck, "b-points", "pile")), "A", None));
     let mut bold = deck.clone();
@@ -144,7 +145,7 @@ fn concurrent_move_into_a_child_slot_and_edit_converge() {
 
 #[test]
 fn concurrent_moves_of_one_element_to_two_places_agree() {
-    let deck = with_pile(roadmap(), "pile");
+    let deck = with_pile(&roadmap(), "pile");
     let (mut a, mut b) = peers(&deck);
     let framed = Element { frame: Some(Frame { x: 0.0, y: 0.0, w: 400.0, h: 200.0 }), ..bare(&deck, "b-points") };
     ok(a.apply(&with_ops(&deck, vec![remove("b-points"), add(None, "elements", &framed)]), "A", None));
@@ -160,7 +161,7 @@ fn concurrent_nest_and_reorder_keep_the_element_in_a_declared_slot() {
     let x: Element = ok(serde_json::from_value(
         json!({ "id": "x", "kind": "base/text", "params": { "body": [{ "runs": [{ "t": "Texte x" }] }] } }),
     ));
-    let deck = with_ops(&with_pile(roadmap(), "pile"), vec![add(None, "blocks", &x)]);
+    let deck = with_ops(&with_pile(&roadmap(), "pile"), vec![add(None, "blocks", &x)]);
     let blocks = |d: &Deck| -> Vec<String> {
         d.slide("s-constat")
             .and_then(|s| s.params.slot("blocks"))
@@ -187,7 +188,7 @@ fn concurrent_nest_and_reorder_keep_the_element_in_a_declared_slot() {
 /// du retrait le rend (sonde du deck en arbre, point 3).
 #[test]
 fn move_under_a_concurrently_removed_owner_is_hidden_until_undo() {
-    let deck = with_pile(roadmap(), "pile");
+    let deck = with_pile(&roadmap(), "pile");
     let (mut a, mut b) = peers(&deck);
     ok(a.apply(&with_ops(&deck, vec![remove("pile")]), "A", None));
     ok(b.apply(&with_ops(&deck, nest(&deck, "b-points", "pile")), "B", None));
@@ -271,7 +272,7 @@ fn slot_ids(deck: &Deck, slide: &str, slot: &str) -> Vec<String> {
 
 #[test]
 fn concurrent_move_between_slides_and_nest_agree() {
-    let deck = with_pile(roadmap(), "pile");
+    let deck = with_pile(&roadmap(), "pile");
     let (mut a, mut b) = peers(&deck);
     apply_ops(&mut a, &deck, to_slide(&deck, "b-points", "s-priorites", "blocks", Some(0)), "A");
     ok(b.apply(&with_ops(&deck, nest(&deck, "b-points", "pile")), "B", None));
@@ -460,7 +461,7 @@ fn move_then_removal_of_the_source_slide_drops_a_removed_child() {
             json!({ "id": id, "kind": "base/text", "params": { "body": [{ "runs": [{ "t": id }] }] } }),
         ))
     };
-    let deck = with_pile(roadmap(), "pile");
+    let deck = with_pile(&roadmap(), "pile");
     let deck =
         with_ops(&deck, vec![add(Some("pile"), "children", &child("k1")), add(Some("pile"), "children", &child("k2"))]);
     let (mut a, mut b) = peers(&deck);

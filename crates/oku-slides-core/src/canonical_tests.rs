@@ -11,6 +11,9 @@ use crate::model::*;
 use crate::params::{ListItem, ParamValue, Params};
 use crate::{DeckReplica, SourceBundle};
 
+/// `u64::MAX` rounded to the nearest float: 2^64, exact in `f64`.
+const U64_MAX_AS_F64: f64 = 18_446_744_073_709_551_616.0;
+
 fn run(t: &str) -> Run {
     Run::plain(t)
 }
@@ -27,10 +30,10 @@ fn deck_with(elements: Vec<Element>) -> Deck {
         theme: None,
         themes: BTreeMap::new(),
         params: DeckParams::default(),
-        vars: Default::default(),
+        vars: BTreeMap::default(),
         tokens: Value::Null,
-        widgets: Default::default(),
-        layouts: Default::default(),
+        widgets: BTreeMap::default(),
+        layouts: BTreeMap::default(),
         slides: vec![slide],
     }
 }
@@ -123,7 +126,7 @@ fn canonicalize_chart_option_numbers_beyond_i64_become_float() {
     .unwrap();
     let d = canonical(deck_with(vec![chart]));
     let option = blocks(&d)[0].params.value("option").cloned();
-    assert_that!(option).is_equal_to(Some(json!({ "series": [], "n": u64::MAX as f64 })));
+    assert_that!(option).is_equal_to(Some(json!({ "series": [], "n": U64_MAX_AS_F64 })));
 }
 
 #[test]
@@ -143,7 +146,7 @@ fn canonicalize_integer_beyond_i64_becomes_float() {
     d.params.extra.insert("x".into(), json!({ "n": u64::MAX }));
     d.tokens = json!({ "n": u64::MAX });
     let d = canonical(d);
-    let big = json!(u64::MAX as f64);
+    let big = json!(U64_MAX_AS_F64);
     assert_that!(d.vars["n"]).is_equal_to(&big);
     assert_that!(d.vars["l"]).is_equal_to(json!([1, big]));
     assert_that!(d.params.extra["x"]).is_equal_to(json!({ "n": big }));
@@ -165,7 +168,7 @@ fn canonicalize_slot_children_are_canonicalized() {
     let d = canonical(deck_with(vec![group]));
     let children = blocks(&d)[0].params.slot("children").unwrap_or_default();
     let body = children[0].params.rich("body").unwrap_or_default();
-    assert_that!(body[0].runs.to_vec()).is_equal_to(vec![run("ab")]);
+    assert_that!(body[0].runs.clone()).is_equal_to(vec![run("ab")]);
 }
 
 #[test]
@@ -187,7 +190,7 @@ fn canonicalize_list_item_values_are_canonicalized() {
     let item = &d.slides[0].params.list("l").unwrap_or_default()[0];
     assert_that!(item.values.text("date")).is_equal_to(Some("2019"));
     assert_that!(item.values.get("vide")).is_none();
-    assert_that!(item.values.rich("texte").unwrap_or_default()[0].runs.to_vec()).is_equal_to(vec![run("ab")]);
+    assert_that!(item.values.rich("texte").unwrap_or_default()[0].runs.clone()).is_equal_to(vec![run("ab")]);
 }
 
 /// Cas de l'UI : une ligne vide de l'éditeur donne `[{t:""}]`.

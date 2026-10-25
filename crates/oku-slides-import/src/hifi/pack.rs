@@ -141,15 +141,15 @@ pub(crate) fn generate_pack(deck: &SourceDeck, ctx: &GenCtx<'_>, limits: PackLim
 /// employés, à égalité les premiers de la source ; puis les autres
 /// utilisés, dans l'ordre de la source.
 fn kept_layouts(deck: &SourceDeck, room: usize) -> (BTreeSet<&str>, Vec<String>) {
-    let mut uses: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
     for l in deck.slides.iter().filter_map(|s| s.layout.as_deref()) {
-        *uses.entry(l).or_default() += 1;
+        *counts.entry(l).or_default() += 1;
     }
     let mut used: Vec<(usize, usize, &str)> = deck
         .layouts
         .iter()
         .enumerate()
-        .filter_map(|(i, l)| uses.get(l.id.as_str()).map(|&n| (i, n, l.id.as_str())))
+        .filter_map(|(i, l)| counts.get(l.id.as_str()).map(|&n| (i, n, l.id.as_str())))
         .collect();
     used.sort_by_key(|&(i, n, _)| (std::cmp::Reverse(n), i));
     let kept: BTreeSet<&str> = used.iter().take(room).map(|&(_, _, id)| id).collect();

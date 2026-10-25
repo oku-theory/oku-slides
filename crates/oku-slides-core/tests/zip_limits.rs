@@ -1,6 +1,7 @@
 //! Un zip de sources vient d'un fichier : jamais fiable. Ni la taille
 //! annoncée d'une entrée ni un contenu qui se décompresse en masse ne doivent
 //! faire allouer sans borne.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

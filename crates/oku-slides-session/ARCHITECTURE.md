@@ -22,7 +22,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
 - Workshop: `widgets_edit.rs`, `widget_preview.rs` (working deck's packs), `widget_examples.rs` (built-ins' `ftl:` markers: `example_text.rs`), `widget_params.rs`, `param_fields.rs`
   (Fluent names of built-in kinds), `items.rs`, `widgets_deck.rs` (`deck`/`deck-layouts` by category); `panel.rs`; `data_panel.rs` + `data_edit.rs` (the `host-data` surface of a selected chart or table and its edits, one undo step each).
 - Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`; add grid (`add_grid.rs`: `add_packs` with seeds, `free_slots`); `carried_assets.rs`: an element's assets pasted from another tab, kept until an op cites them or the next carry. App-wide box `host-voice`: `voice_view.rs` (text-free `VoiceView`, `voice_event`), `voice_panel.rs` (`VoicePanel`, data-only refresh), `voice_fixture.rs` (`test-support`).
-- Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts unrendered, its worker at the first render.
+- Rendering: one `RenderWorker` per `Session`, one `RenderSlot` per render; a tab session starts unrendered, its worker at the first render; float/int casts go through `oku_slides_core::num`.
 - `import/`: PowerPoint import, CLI and app (one history step; a retrofit pins `base` and its layout packs, scored by their
   profiles; hi-fi makes a deck-only `deck-layouts` and pins Neutre, its tokens in `deck.tokens`), `render`, `note_overflows`, `reference`, `state` (`ImportState`, tab memory),
   `score`, `geometry`, tuning (`queue`, `sample`, `diff`, `tune`). Also for the CLI: `library_lookup`, `probed_widgets`.

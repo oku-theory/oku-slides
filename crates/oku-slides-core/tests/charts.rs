@@ -1,4 +1,5 @@
 //! Les graphiques dans le deck : ajout, options, données.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -18,7 +19,7 @@ fn g() -> Target {
     Target { slide: "s".into(), element: Some("g".into()) }
 }
 
-fn chart(id: &str, option: Value) -> Element {
+fn chart(id: &str, option: &Value) -> Element {
     serde_json::from_value(json!({ "id": id, "kind": "base/chart", "params": { "option": option } }))
         .unwrap_or_else(|e| panic!("{e}"))
 }
@@ -35,7 +36,7 @@ fn deck_with_chart() -> Deck {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }, { "type": "line" }]
     });
-    apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: chart("g", option) })
+    apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: chart("g", &option) })
         .unwrap_or_else(|e| panic!("{e}"));
     deck
 }
@@ -152,7 +153,7 @@ fn chart_ops_on_a_non_chart_param_return_param_type() {
 #[test]
 fn add_element_with_inconsistent_chart_is_refused() {
     let mut deck = deck_with_chart();
-    let bad = chart("x", json!({ "series": [] }));
+    let bad = chart("x", &json!({ "series": [] }));
     let err =
         apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: bad }).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidChart);
@@ -163,7 +164,7 @@ fn add_element_with_inconsistent_chart_is_refused() {
 fn add_element_with_inconsistent_nested_chart_is_refused() {
     let mut deck = deck_with_chart();
     let mut stack = Element::new("p", base::STACK);
-    stack.params.set("children", ParamValue::Slot(vec![chart("x", json!({ "series": [] }))]));
+    stack.params.set("children", ParamValue::Slot(vec![chart("x", &json!({ "series": [] }))]));
     let err =
         apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: stack }).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidChart);
@@ -198,7 +199,7 @@ fn set_data_cell_that_adds_a_column_aligns_the_series() {
 #[test]
 fn set_data_on_inline_chart_without_dataset_is_invalid_value() {
     let mut deck = Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#).unwrap();
-    let inline = chart("g", json!({ "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }] }));
+    let inline = chart("g", &json!({ "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }] }));
     apply(&mut deck, Op::AddElement { slot: blocks(), index: None, defaults: false, element: inline }).unwrap();
     let err = apply(&mut deck, data(DataOp::RemoveRow { at: 1 })).unwrap_err();
     assert_that!(err.kind()).is_equal_to(OpErrorKind::InvalidValue);

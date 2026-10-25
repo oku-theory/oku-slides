@@ -6,6 +6,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::ImportErrorKind;
+use crate::source::Crop;
 use crate::source::{Asset, Picture, Size, SourceSlide, Warning, WarningKind};
 use crate::test_support::{
     PAPIER, applied, colors, essentiel_profiles, item, layout, para, registry, run, run_with, source_slide, text_box,
@@ -55,7 +56,7 @@ fn frieze(id: &str, (x, y): (f64, f64), w: f64) -> Item {
 #[test]
 fn project_names_slides_by_number_and_keeps_only_referenced_assets() {
     let pic =
-        item("p", (66.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
+        item("p", (66.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Crop::default() }));
     let source = deck(vec![source_slide(1, Some("l2"), vec![pic]), source_slide(4, Some("l2"), Vec::new())]);
     let plan = plan_of(&source, &essentiel_profiles());
     let ids: Vec<&str> = plan.report.slides.iter().map(|s| s.slide.as_str()).collect();
@@ -104,7 +105,7 @@ fn project_is_deterministic() {
 #[test]
 fn project_measures_the_coverage_of_its_own_deck() {
     let pic =
-        item("p", (500.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
+        item("p", (500.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Crop::default() }));
     let body = text_item("b", (66.0, 143.0, 300.0, 200.0), "Corps");
     let source = deck(vec![source_slide(1, Some("l2"), vec![body, pic])]);
     let c = plan_of(&source, &essentiel_profiles()).report.coverage.unwrap();

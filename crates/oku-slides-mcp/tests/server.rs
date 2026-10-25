@@ -1,3 +1,7 @@
+//! Real MCP server on 127.0.0.1.
+//!
+//! Required token, tool listing and read tools.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use common::*;
@@ -129,4 +133,50 @@ async fn settings_returns_port_values() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let v = json_of(&call(&c, "settings", serde_json::json!({})).await);
     assert_that!(v["dictation.model"].as_str()).is_equal_to(Some("turbo"));
+}
+
+/// Every `description` in `v`, with the JSON path that leads to it.
+fn schema_descriptions(v: &serde_json::Value, path: &str, out: &mut Vec<(String, String)>) {
+    match v {
+        serde_json::Value::Object(map) => {
+            if let Some(d) = map.get("description").and_then(serde_json::Value::as_str) {
+                out.push((path.to_owned(), d.to_owned()));
+            }
+            for (k, x) in map {
+                schema_descriptions(x, &format!("{path}/{k}"), out);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for (i, x) in items.iter().enumerate() {
+                schema_descriptions(x, &format!("{path}/{i}"), out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Accented letters that betray French text left in a schema description.
+const FRENCH_LETTERS: &[char] =
+    &['é', 'è', 'ê', 'à', 'â', 'ç', 'ù', 'û', 'ô', 'î', 'œ', 'É', 'È', 'Ê', 'À', 'Â', 'Ç', 'Ù', 'Û', 'Ô', 'Î', 'Œ'];
+
+/// Every input schema description is plain English: no rustdoc link, no French.
+///
+/// The descriptions come from doc comments and go to the LLM as is.
+#[tokio::test(flavor = "multi_thread")]
+async fn tools_list_input_schema_descriptions_are_plain_english() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let tools = c.request_tool_list(None).await.unwrap().tools;
+    let mut all = Vec::new();
+    for tool in tools {
+        let schema = serde_json::to_value(&tool.input_schema).unwrap();
+        schema_descriptions(&schema, &tool.name, &mut all);
+    }
+    assert_that!(all.len()).is_greater_than(0);
+    let bad: Vec<String> = all
+        .into_iter()
+        .filter(|(_, d)| d.contains("](") || d.contains("[`") || d.contains(FRENCH_LETTERS))
+        .map(|(p, d)| format!("{p}: {d}"))
+        .collect();
+    assert_that!(bad).is_empty();
 }

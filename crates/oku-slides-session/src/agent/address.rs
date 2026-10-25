@@ -32,30 +32,45 @@ impl Session {
         Ok(found)
     }
 
-    /// Refuse une slide que le deck actif n'a pas.
+    /// Rejects a slide the active deck does not have.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`NoSlide`) if the active deck has no slide `id`.
     pub fn check_slide(&self, id: &str) -> Result<()> {
         self.deck().slide(id).context(NoSlideSnafu { id })?;
         Ok(())
     }
 
-    /// Refuse une ancre hors du deck actif : slide inconnue, objet qui n'est ni la slide ni un
-    /// de ses éléments, champ que l'objet ne déclare pas ; une slide se vise par un de ses champs.
+    /// Rejects an anchor outside the active deck.
+    ///
+    /// That is an unknown slide, an object that is neither the slide nor one of its elements, or a
+    /// field the object does not declare; a slide is targeted through one of its fields.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the slide is unknown (`NoSlide`), if the anchor targets the slide without a field
+    /// (`FieldNeeded`), an object outside the slide (`UnknownOwner`) or an undeclared field.
     pub fn check_anchor(&self, anchor: &Anchor) -> Result<()> {
-        match &anchor.field {
-            Some(field) => self.resolve_field(&anchor.slide, &anchor.owner, Some(field)).map(drop),
-            None => {
-                let sl = self.deck().slide(&anchor.slide).context(NoSlideSnafu { id: &anchor.slide })?;
-                snafu::ensure!(anchor.owner != sl.id, FieldNeededSnafu { owner: &anchor.owner });
-                snafu::ensure!(
-                    sl.locate(&anchor.owner).is_some(),
-                    UnknownOwnerSnafu { slide: &anchor.slide, owner: &anchor.owner }
-                );
-                Ok(())
-            }
+        if let Some(field) = &anchor.field {
+            self.resolve_field(&anchor.slide, &anchor.owner, Some(field)).map(drop)
+        } else {
+            let sl = self.deck().slide(&anchor.slide).context(NoSlideSnafu { id: &anchor.slide })?;
+            snafu::ensure!(anchor.owner != sl.id, FieldNeededSnafu { owner: &anchor.owner });
+            snafu::ensure!(
+                sl.locate(&anchor.owner).is_some(),
+                UnknownOwnerSnafu { slide: &anchor.slide, owner: &anchor.owner }
+            );
+            Ok(())
         }
     }
 
-    /// Surface `ask_rewrite` : vérifie les propositions et l'adresse, lit le texte actuel.
+    /// `ask_rewrite` surface: checks the proposals and the address, reads the current text.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`AgentForm`) if the number of proposals is out of bounds, or if the field address does not
+    /// resolve.
     pub fn rewrite_surface(&self, id: &str, spec: &AskRewrite) -> Result<Surface> {
         check_len("proposals", spec.proposals.len(), forms::PROPOSALS)?;
         let tf = self.resolve_field(&spec.slide, &spec.owner, spec.field.as_deref())?;
@@ -63,12 +78,17 @@ impl Session {
         Ok(forms::rewrite(id, spec, &original, &self.localizer))
     }
 
-    /// Ops qui remplacent le texte du champ visé : `text` pour un champ `plain`, `paragraphs`
-    /// pour un champ `rich`.
+    /// Ops that replace the targeted field's text.
     ///
-    /// Un champ `rich` est du markdown lu par l'interface (`textToParagraphs`, `ui/src/deck.ts`) ;
-    /// `paragraphs` en porte le résultat, absent seulement en cas d'erreur. L'adresse est résolue
-    /// de nouveau : le deck a pu changer depuis la question.
+    /// `text` for a `plain` field, `paragraphs` for a `rich` field. A `rich` field is markdown read
+    /// by the interface (`textToParagraphs`, `ui/src/deck.ts`); `paragraphs` carries the result, and
+    /// is missing only on error. The address is resolved again: the deck may have changed since the
+    /// question.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the address no longer resolves, if `paragraphs` is missing for a `rich` field
+    /// (`AgentForm`), or if it does not serialize.
     pub fn rewrite_ops(&self, spec: &AskRewrite, text: &str, paragraphs: Option<Vec<Paragraph>>) -> Result<Vec<Op>> {
         let tf = self.resolve_field(&spec.slide, &spec.owner, spec.field.as_deref())?;
         let element = match tf.owner {

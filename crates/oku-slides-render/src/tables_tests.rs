@@ -12,7 +12,7 @@ fn registry() -> WidgetRegistry {
         .unwrap_or_else(|e| panic!("{e}"))
 }
 
-fn deck(data: Json) -> Json {
+fn deck(data: &Json) -> Json {
     json!({ "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": [
         { "id": "t1", "kind": base::TABLE, "params": { "data": data } } ] } }] })
 }
@@ -23,14 +23,14 @@ fn data_of(d: &Json) -> &Json {
 
 #[test]
 fn sanitize_valid_table_writes_its_canonical_form() {
-    let mut d = deck(json!({ "dataset": { "source": [["A"], [1]] } }));
+    let mut d = deck(&json!({ "dataset": { "source": [["A"], [1]] } }));
     sanitize(&mut d, &registry());
     assert_that!(data_of(&d)["header-row"]).is_equal_to(json!(true));
 }
 
 #[test]
 fn sanitize_malformed_table_clears_its_data() {
-    let mut d = deck(json!({ "dataset": { "source": [5] } }));
+    let mut d = deck(&json!({ "dataset": { "source": [5] } }));
     sanitize(&mut d, &registry());
     assert_that!(data_of(&d)).is_equal_to(&Json::Null);
 }
@@ -38,7 +38,7 @@ fn sanitize_malformed_table_clears_its_data() {
 #[test]
 fn sanitize_oversized_table_clears_its_data() {
     let rows: Vec<Json> = (0..101).map(|i| json!([i])).collect();
-    let mut d = deck(json!({ "dataset": { "source": rows } }));
+    let mut d = deck(&json!({ "dataset": { "source": rows } }));
     sanitize(&mut d, &registry());
     assert_that!(data_of(&d)).is_equal_to(&Json::Null);
 }

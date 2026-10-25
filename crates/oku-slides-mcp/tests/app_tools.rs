@@ -1,5 +1,6 @@
 //! Outils de l'app hors du deck : fichier (déplacer, copier, fusionner), historique, présentation,
 //! interface. Ce que le menu principal faisait, l'agent le fait (t-988).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -167,7 +168,9 @@ async fn move_onto_a_file_created_during_the_confirmation_is_refused() {
     let pending = tokio::spawn(async move { call(&c, "move", args).await });
     let surface = next_surface(&mut rx).await;
     other_file(dir.path());
-    h.hub.act(action(&surface.id, "confirm", json!({ "confirmed": true }))).unwrap_or_else(|e| panic!("réponse : {e}"));
+    h.hub
+        .act(action(&surface.id, "confirm", &json!({ "confirmed": true })))
+        .unwrap_or_else(|e| panic!("réponse : {e}"));
     let r = pending.await.unwrap_or_else(|e| panic!("tâche : {e}"));
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("session-target-exists"));
     assert_that!(bytes(&target)).is_equal_to(b"autre".to_vec());

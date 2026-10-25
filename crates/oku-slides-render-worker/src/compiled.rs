@@ -31,6 +31,7 @@ impl Drop for Release {
 
 /// Une génération rendue par le travailleur ; les pages s'exportent à la demande.
 pub struct RemoteCompiled {
+    /// Warnings from the Typst compilation of this generation.
     pub warnings: Vec<Diagnostic>,
     /// Un échec borné y accuse le pack ; `false` pour un emplacement d'essai.
     accuse: bool,
@@ -78,31 +79,52 @@ impl RemoteCompiled {
         Ok(Self { warnings, accuse, worker, slot, generation, epoch, hashes, layout, _release: Some(release) })
     }
 
+    /// Number of pages of the rendered document.
+    #[must_use]
     pub fn page_count(&self) -> usize {
         self.hashes.len()
     }
 
     /// Empreinte d'une page : sert de clé de cache pour son SVG.
+    #[must_use]
     pub fn page_hash(&self, index: usize) -> Option<u128> {
         self.hashes.get(index).copied()
     }
 
     /// Pages, boîtes, zones et jetons du document.
+    #[must_use]
     pub fn layout(&self) -> &Layout {
         &self.layout
     }
 
-    /// SVG d'une page (à partir de 0).
+    /// SVG of a page (0-based).
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Stale`) if the generation comes from a previous worker, if the export
+    /// fails, or if the worker does not start, dies or exceeds its bounds.
+    /// An SVG that is not UTF-8 is a `Frame` error.
     pub fn svg(&self, index: usize) -> Result<String, RenderError> {
         let bytes = self.bytes(&Request::Svg { slot: self.slot, generation: self.generation, page: index })?;
         String::from_utf8(bytes).map_err(|e| RenderError::frame(e.to_string()))
     }
 
-    /// PNG de la page `index` (0 = première), à `pixel_per_pt` pixels par point.
+    /// PNG of page `index` (0 = first), at `pixel_per_pt` pixels per point.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Stale`) if the generation comes from a previous worker, if the export
+    /// fails, or if the worker does not start, dies or exceeds its bounds.
     pub fn png(&self, index: usize, pixel_per_pt: f32) -> Result<Vec<u8>, RenderError> {
         self.bytes(&Request::Png { slot: self.slot, generation: self.generation, page: index, pixel_per_pt })
     }
 
+    /// PDF of the whole document.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Stale`) if the generation comes from a previous worker, if the export
+    /// fails, or if the worker does not start, dies or exceeds its bounds.
     pub fn pdf(&self) -> Result<Vec<u8>, RenderError> {
         self.bytes(&Request::Pdf { slot: self.slot, generation: self.generation })
     }

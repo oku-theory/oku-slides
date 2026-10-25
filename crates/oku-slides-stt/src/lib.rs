@@ -1,22 +1,22 @@
-//! Dictée d'Oku Slides : micro → détection de la voix → moteur → texte.
+//! Oku Slides dictation: microphone → voice detection → engine → text.
 //!
-//! Trois moteurs, dont deux sur la machine :
-//! - Apple (macOS 26+) : `SpeechAnalyzer` transcrit en continu, au fil de
-//!   l'audio, par un pont Swift (`apple.rs`).
-//! - Whisper (Turbo, Large, Base) : CTranslate2 (celui de faster-whisper),
-//!   via ct2rs ; c'est le moteur ailleurs, ou sur demande.
-//! - API compatible OpenAI (`api.rs`) : phrase par phrase, sans aperçu.
+//! Three engines, two of them on the machine:
+//! - Apple (macOS 26+): SpeechAnalyzer transcribes continuously, as the
+//!   audio comes in, through a Swift bridge (`apple.rs`).
+//! - Whisper (Turbo, Large, Base): CTranslate2 (the one in faster-whisper),
+//!   via ct2rs; it is the engine elsewhere, or on request.
+//! - OpenAI-compatible API (`api.rs`): sentence by sentence, without preview.
 //!
-//! La voix est détectée trame par trame (earshot) : l'écoute s'arrête seule
-//! après un silence. Avec Whisper, chaque phrase terminée est transcrite une
-//! fois, en qualité finale, dès qu'on marque une pause ; l'aperçu ne
-//! retranscrit que la phrase en cours. À l'arrêt, il ne reste donc que la
-//! dernière phrase à traiter.
+//! Voice is detected frame by frame (earshot): listening stops by itself
+//! after a silence. With Whisper, each finished sentence is transcribed once,
+//! at final quality, as soon as the speaker pauses; the preview only
+//! retranscribes the current sentence. On stop, only the last sentence
+//! is therefore left to process.
 //!
-//! Le moteur est interrogé par sondage (`status`), ce qui sert à la fois l'app
-//! Tauri et le serveur de développement : pas d'événements à propager.
-//! Un appui sur le micro suffit : si le modèle manque, il est téléchargé,
-//! puis l'écoute commence toute seule.
+//! The engine is polled (`status`), which serves both the Tauri app
+//! and the development server: no events to propagate.
+//! One press on the microphone is enough: if the model is missing, it is downloaded,
+//! then listening starts by itself.
 
 mod api;
 mod api_check;
@@ -28,6 +28,7 @@ mod dictation_whisper;
 mod error;
 mod locale;
 mod models;
+mod num;
 mod phrase_engine;
 mod results;
 mod stream;
@@ -47,12 +48,14 @@ use serde::{Deserialize, Serialize};
 
 pub use api::ApiConfig;
 pub use api_check::{is_loopback, normalized_url, url_host, valid_api_model, valid_key_env};
+use audio::SAMPLE_RATE_F32;
 pub use audio::{SAMPLE_RATE, resample};
 use dictation_stream::{Held, cancel_held};
 use dictation_whisper::{EngineKey, Job, engine_key};
 use error::{ApiKeyMissingSnafu, LocaleUnsupportedSnafu, NotDownloadableSnafu};
 pub use error::{SttError, SttErrorKind};
 pub use models::{Model, download};
+use num::{count_f32, seconds};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::{ModelsSettings, SttSettings};
@@ -62,13 +65,18 @@ use stream::{Availability, Stream, StreamEngine};
 use vad::Segmenter;
 pub use whisper::{Transcriber, Transcript};
 
+/// Where dictation stands, for the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
+    /// Idle: ready to listen.
     #[default]
     Idle,
+    /// Downloading the model, before listening.
     Downloading,
+    /// Listening to the microphone.
     Recording,
+    /// Listening stopped: the last sentence is being transcribed.
     Transcribing,
 }
 
@@ -78,9 +86,11 @@ pub const SILENCE_RANGE: RangeInclusive<f32> = 0.5..=10.0;
 /// Version des réglages de la dictée : 1 depuis le moteur d'Apple.
 const CONFIG_VERSION: u32 = 1;
 
+/// Dictation settings, saved in `config.json` in the models folder.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
+    /// Chosen engine: Apple, a Whisper model or the API.
     pub model: Model,
     /// Code de langue (`fr`, `en`…) ou `None` pour la détection automatique.
     pub language: Option<String>,
@@ -124,29 +134,42 @@ fn migrate(mut config: Config, apple: bool, language: bool) -> Config {
     config
 }
 
+/// A dictation engine as the UI offers it.
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelInfo {
+    /// Engine described.
     pub id: Model,
+    /// Display name, in the UI language.
     pub label: String,
+    /// Bytes to download (0 for Apple and the API).
     pub size: u64,
+    /// Ready to serve: files on disk, language installed or key present.
     pub installed: bool,
     /// Faux : le modèle ne gère pas la langue choisie.
     pub available: bool,
 }
 
+/// A model download in progress.
 #[derive(Debug, Clone, Serialize)]
 pub struct Download {
+    /// Model being downloaded.
     pub model: Model,
+    /// Bytes already received.
     pub received: u64,
+    /// Total bytes expected.
     pub total: u64,
 }
 
 /// Ce que l'interface affiche.
 #[derive(Debug, Clone, Serialize)]
 pub struct Status {
+    /// Where dictation stands.
     pub state: State,
+    /// Settings in effect.
     pub config: Config,
+    /// Engines offered on this machine.
     pub models: Vec<ModelInfo>,
+    /// Download in progress, if any.
     pub download: Option<Download>,
     /// Niveau du micro, 0..1.
     pub level: f32,
@@ -162,9 +185,11 @@ pub struct Status {
     pub stop_in: Option<f32>,
     /// Dernière transcription terminée, et son numéro (change à chaque nouvelle).
     pub text: Option<String>,
+    /// Number of [`Self::text`], incremented at each finished dictation.
     pub seq: u64,
     /// Secondes écoutées.
     pub seconds: f32,
+    /// Last error, already translated into the UI language.
     pub error: Option<String>,
 }
 
@@ -174,13 +199,17 @@ pub struct Status {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum SttRequest {
+    /// Returns the state, without changing anything.
     Status,
     /// Démarre la dictée ; `vocabulary` aide la reconnaissance (titres du deck, noms propres).
     Start {
+        /// Terms to recognize, from most to least useful.
         #[serde(default)]
         vocabulary: Vec<String>,
     },
+    /// Stops listening; the last sentence is transcribed.
     Stop,
+    /// Abandons the dictation or the download, without text.
     Cancel,
 }
 
@@ -252,6 +281,7 @@ impl Inner {
     }
 }
 
+/// Dictation: shared state, engines and settings. Clones without recreating anything.
 #[derive(Clone)]
 pub struct Stt {
     inner: Arc<Mutex<Inner>>,
@@ -283,6 +313,7 @@ impl std::fmt::Debug for Stt {
 impl Stt {
     /// La dictée de la plateforme : dossier des modèles et rythmes de
     /// l'écoute (réglages), fichiers, langue des messages.
+    #[must_use]
     pub fn new(platform: &Platform) -> Self {
         Self::with_engine(platform, stream::engine(&platform.settings.stt), sys_locale::get_locale())
     }
@@ -302,7 +333,12 @@ impl Stt {
         // Bascule unique vers Apple : seulement s'il connaît la langue retenue.
         let resolved = apple_supported
             .then(|| {
-                resolve_apple(&*streaming, config.language.as_deref(), platform.localizer.locale(), &system_locale)
+                resolve_apple(
+                    &*streaming,
+                    config.language.as_deref(),
+                    platform.localizer.locale(),
+                    system_locale.as_deref(),
+                )
             })
             .flatten();
         let config = migrate(config, apple_supported, resolved.is_some());
@@ -348,7 +384,8 @@ impl Stt {
             return;
         }
         let chosen = self.state().config.language.clone();
-        let resolved = resolve_apple(&*self.streaming, chosen.as_deref(), self.localizer.locale(), &self.system_locale);
+        let resolved =
+            resolve_apple(&*self.streaming, chosen.as_deref(), self.localizer.locale(), self.system_locale.as_deref());
         let mut g = self.state();
         if g.config.model == Model::Apple {
             g.detected = resolved.as_ref().map(|(tag, _)| locale::language(tag));
@@ -362,8 +399,8 @@ impl Stt {
     }
 
     /// Signale une erreur à l'interface (et au journal).
-    fn report(&self, e: SttError) {
-        tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "dictée");
+    fn report(&self, e: &SttError) {
+        tracing::warn!(error = %oku_slides_platform::errors::one_line(e), "dictée");
         self.state().error = Some(e.localize(&self.localizer));
     }
 
@@ -384,11 +421,14 @@ impl Stt {
         self.inner.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Folder of the dictation models and their settings.
+    #[must_use]
     pub fn models_dir(&self) -> &Path {
         &self.dir
     }
 
-    /// Traite une requête et renvoie l'état.
+    /// Handles a request and returns the state.
+    #[expect(clippy::must_use_candidate, reason = "acts on the dictation; the returned state may be ignored")]
     pub fn handle(&self, req: SttRequest) -> Status {
         match req {
             SttRequest::Status => {}
@@ -399,6 +439,8 @@ impl Stt {
         self.status()
     }
 
+    /// The state to display: engines, sentences, microphone level, error.
+    #[must_use]
     pub fn status(&self) -> Status {
         let g = self.state();
         Status {
@@ -419,7 +461,7 @@ impl Stt {
             stop_in: g.stop_in,
             text: g.text.clone(),
             seq: g.seq,
-            seconds: g.started.map(|t| t.elapsed().as_secs_f32()).unwrap_or(0.0),
+            seconds: g.started.map_or(0.0, |t| t.elapsed().as_secs_f32()),
             error: g.error.clone(),
         }
     }
@@ -468,7 +510,7 @@ impl Stt {
                     // Rien à dire de plus : l'échec est déjà signalé dans l'état.
                     let _started = self.download(Model::Apple, true);
                 }
-                None => self.report(LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into()),
+                None => self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into()),
             }
             return;
         }
@@ -476,7 +518,7 @@ impl Stt {
             if api.key_present() {
                 self.begin_recording();
             } else {
-                self.report(ApiKeyMissingSnafu { var: api.key_env }.build().into());
+                self.report(&ApiKeyMissingSnafu { var: api.key_env }.build().into());
             }
             return;
         }
@@ -495,7 +537,7 @@ impl Stt {
             return self.download_language(then_start);
         }
         if model == Model::Api {
-            self.report(NotDownloadableSnafu.build().into());
+            self.report(&NotDownloadableSnafu.build().into());
             return false;
         }
         {
@@ -574,13 +616,13 @@ impl Stt {
                 let (stream, events) = self.streaming.open(&tag, &vocabulary);
                 let held = Held::default();
                 let (worker, worker_held) = (self.clone(), held.clone());
-                std::thread::spawn(move || worker.stream_loop(session, events, worker_held));
+                std::thread::spawn(move || worker.stream_loop(session, &events, &worker_held));
                 Sink::Stream { stream, held }
             }
             (Model::Apple, None) => {
                 // `start` l'empêche ; par prudence, pas d'écoute sans langue.
                 self.state().reset();
-                self.report(LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
+                self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
                 return;
             }
             _ => {
@@ -588,7 +630,7 @@ impl Stt {
                 let busy = Arc::new(AtomicBool::new(false));
                 let worker = self.clone();
                 let worker_busy = busy.clone();
-                std::thread::spawn(move || worker.transcribe_loop(session, rx, worker_busy));
+                std::thread::spawn(move || worker.transcribe_loop(session, &rx, &worker_busy));
                 Sink::Whisper { jobs, busy, previews: model.previews() }
             }
         };
@@ -651,7 +693,7 @@ impl Stt {
             if let Sink::Whisper { jobs, busy, previews: true } = &sink
                 && let Some(p) = current
                 && !busy.load(Ordering::Relaxed)
-                && p.end.saturating_sub(previewed.max(p.start)) as f32 >= s.preview_step_secs * SAMPLE_RATE as f32
+                && count_f32(p.end.saturating_sub(previewed.max(p.start))) >= s.preview_step_secs * SAMPLE_RATE_F32
             {
                 previewed = p.end;
                 busy.store(true, Ordering::Relaxed);
@@ -717,6 +759,7 @@ impl Stt {
         }
     }
 
+    /// Abandons the current dictation, without text, and cancels a download.
     pub fn cancel(&self) {
         self.cancel_download.store(true, Ordering::Relaxed);
         let mut g = self.state();
@@ -726,9 +769,15 @@ impl Stt {
         g.start_after_download = false;
     }
 
-    /// Transcrit un audio complet (mono 16 kHz) comme une dictée : découpage
-    /// par la détection de voix, phrase par phrase, avec le contexte.
-    /// Renvoie le texte et les phrases (début, fin en secondes, texte).
+    /// Transcribes a complete audio (mono 16 kHz) like a dictation.
+    ///
+    /// The audio is split by voice detection, sentence by sentence, with the
+    /// context. Returns the text and the sentences (start, end in seconds, text).
+    ///
+    /// # Errors
+    ///
+    /// If the engine does not load (missing model, misconfigured API) or a sentence
+    /// fails; with Apple, if the language is missing or the engine does not finish in time.
     pub fn transcribe_samples(&self, audio: &[f32]) -> Result<(String, Vec<TimedPhrase>), SttError> {
         let model = self.state().config.model;
         if model == Model::Apple {
@@ -746,11 +795,10 @@ impl Stt {
             let context = context_of(&vocabulary, &join(texts.iter()));
             let t = engine.transcribe(slice, language.as_deref(), Some(&context), false)?;
             if language.is_none() {
-                language = t.language.clone();
+                language.clone_from(&t.language);
             }
             let text = keep(&t);
-            let sr = SAMPLE_RATE as f32;
-            phrases.push((phrase.start as f32 / sr, phrase.end as f32 / sr, text.clone()));
+            phrases.push((seconds(phrase.start), seconds(phrase.end), text.clone()));
             texts.push(text);
         }
         Ok((join(texts.iter()), phrases))
@@ -762,9 +810,9 @@ fn resolve_apple(
     streaming: &dyn StreamEngine,
     chosen: Option<&str>,
     ui: &str,
-    system: &Option<String>,
+    system: Option<&str>,
 ) -> Option<(String, Availability)> {
-    locale::resolve(chosen, ui, system.as_deref(), |tag| streaming.availability(tag))
+    locale::resolve(chosen, ui, system, |tag| streaming.availability(tag))
 }
 
 /// Phrase transcrite : début et fin (s), texte.

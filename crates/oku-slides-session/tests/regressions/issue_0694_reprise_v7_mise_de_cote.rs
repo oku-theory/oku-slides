@@ -36,7 +36,7 @@ fn resume_of_a_v7_replica_moves_the_folder_aside() {
 
     let moved: Vec<_> = std::fs::read_dir(&*data)
         .unwrap_or_else(|e| panic!("lecture du dossier de données : {e}"))
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .map(|e| e.path())
         .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("resume.failed-")))
         .collect();

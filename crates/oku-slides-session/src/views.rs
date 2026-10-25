@@ -21,6 +21,7 @@ pub struct PageHash(pub Option<u128>);
 
 impl PageHash {
     /// L'empreinte écrite en 32 chiffres hexadécimaux ; vide si la page manque.
+    #[must_use]
     pub fn hex(self) -> String {
         self.0.map(|h| format!("{h:032x}")).unwrap_or_default()
     }
@@ -32,8 +33,10 @@ impl Serialize for PageHash {
     }
 }
 
+/// A slide in the deck list: what it takes to draw its thumbnail.
 #[derive(Debug, Serialize)]
 pub struct SlideSummary<'a> {
+    /// Id of the slide.
     pub id: &'a str,
     /// Widget de la slide (`essentiel/title`, `essentiel/content`…).
     pub kind: &'a str,
@@ -42,13 +45,19 @@ pub struct SlideSummary<'a> {
     pub title: Option<String>,
     /// Page dans le document, à partir de 1.
     pub page: usize,
+    /// Hash of its page, cache key of the thumbnail.
     pub hash: PageHash,
 }
 
+/// The state of the open deck sent to the interface after each request.
 #[derive(Debug, Serialize)]
+#[expect(clippy::struct_excessive_bools, reason = "independent flags of the JSON format the interface reads (api.ts)")]
 pub struct Snapshot<'a> {
+    /// File of the deck; absent until it is saved.
     pub path: Option<&'a Path>,
+    /// Displayed name of the deck (tab, window title).
     pub name: String,
+    /// Unsaved changes.
     pub dirty: bool,
     /// Thème du deck : son espace de noms.
     pub theme: Option<&'a oku_slides_core::Namespace>,
@@ -58,15 +67,21 @@ pub struct Snapshot<'a> {
     pub theme_name: Option<String>,
     /// Thèmes de la bibliothèque dans leur version courante : intégrés, puis ceux de l'utilisateur.
     pub themes: &'a [crate::ThemeInfo],
+    /// Title of the deck, with variables replaced.
     pub title: Option<String>,
     /// Titre tel que saisi (avec ses {{variables}}), pour l'éditer.
     pub title_source: Option<&'a str>,
     /// Langue du deck (`params.lang`) : les grilles écrivent les nombres comme les slides.
     pub lang: Option<&'a str>,
+    /// The deck's slides, in order.
     pub slides: Vec<SlideSummary<'a>>,
+    /// A step can be undone.
     pub can_undo: bool,
+    /// Label of the next step to undo, if there is one.
     pub undo_label: Option<String>,
+    /// An undone step can be redone.
     pub can_redo: bool,
+    /// Label of the next step to redo, if there is one.
     pub redo_label: Option<String>,
     /// Le tour de l'agent dont l'étape est au sommet de la pile d'annulation : son reçu propose de l'annuler.
     pub undo_turn: Option<u32>,
@@ -121,6 +136,7 @@ pub struct HistoryView<'a> {
     pub index: usize,
     /// Nombre de versions (la liste complète : `history_versions`).
     pub count: usize,
+    /// The shown version: author, date and label of the edit.
     pub version: &'a Version,
     /// Slides de cette version comparées au deck courant.
     pub changes: &'a SlideChanges,
@@ -134,6 +150,7 @@ pub struct HistoryView<'a> {
 /// `code_height`, retirés par t-526 ; `case`, retiré par t-541) sont ignorés à la lecture.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
+    /// Id of the current slide; none if the deck is empty.
     #[serde(default)]
     pub slide: Option<String>,
     /// Grille de la slide toujours visible.
@@ -216,6 +233,7 @@ impl UiState {
     /// L'état admis : sections repliées sans doublon ; sous-onglets vidés hors
     /// du mode pack, sinon noms valides, sans doublon, au plus
     /// `MAX_WIDGET_TABS`, actif parmi eux.
+    #[must_use]
     pub fn sanitized(mut self, pack_mode: bool) -> Self {
         let mut folded = std::collections::BTreeSet::new();
         self.folded.retain(|s| folded.insert(*s));
@@ -297,8 +315,10 @@ pub struct PackMode {
 /// Le mode pack vu par l'interface : le pack édité et le brouillon du thème.
 #[derive(Debug, Serialize)]
 pub struct EditingView<'a> {
+    /// The edited pack, its fields flattened into the view.
     #[serde(flatten)]
     pub mode: &'a PackMode,
+    /// The draft of the theme edited alongside the pack.
     pub theme: crate::ThemeEditView,
 }
 
@@ -344,14 +364,19 @@ pub struct LayoutsView {
 /// Boîte d'un élément du deck, sélectionnable.
 #[derive(Debug, Serialize)]
 pub struct Target<'a> {
+    /// Id of the element.
     pub id: &'a str,
     /// Widget de l'élément : `text`, `card`, `image`…
     pub kind: &'a str,
     /// Placé librement (déplaçable, redimensionnable).
     pub free: bool,
+    /// Left edge of the box, in page pt.
     pub x: f64,
+    /// Top edge of the box, in page pt.
     pub y: f64,
+    /// Width of the box, in pt.
     pub w: f64,
+    /// Height of the box, in pt.
     pub h: f64,
 }
 
@@ -367,13 +392,20 @@ pub(crate) const SLIDE_WIDTH: f64 = 1920.0;
 /// Hauteur d'une slide, en pt.
 pub(crate) const SLIDE_HEIGHT: f64 = 1080.0;
 
+/// The current slide for the stage: content, rendered page and handles.
 #[derive(Debug, Serialize)]
 pub struct SlideView<'a> {
+    /// The slide, as in the deck.
     pub slide: &'a Slide,
+    /// Its page in the document, from 1.
     pub page: usize,
+    /// Hash of its page, cache key of its SVG.
     pub hash: PageHash,
+    /// Width of the frame, in pt (1920).
     pub width: f64,
+    /// Height of the frame, in pt (1080).
     pub height: f64,
+    /// Boxes of the selectable elements.
     pub targets: Vec<Target<'a>>,
     /// Champs éditables, dans l'ordre de Tab.
     pub fields: Vec<FieldView<'a>>,

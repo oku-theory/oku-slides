@@ -1,4 +1,5 @@
 //! Tableaux dans une session : conversion depuis et vers un graphique, édition, annulation.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
 mod common;

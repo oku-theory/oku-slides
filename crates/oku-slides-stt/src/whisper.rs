@@ -21,10 +21,12 @@ use crate::error::{
     FeaturesSnafu, MelFiltersSnafu, MissingModelFileSnafu, ModelFileSnafu, ModelLoadSnafu, ModelSettingsSnafu,
     NoLanguageSnafu, NotContiguousSnafu, SttError, TranscribeSnafu, ZeroSettingSnafu, boxed,
 };
+use crate::num::{count_f32, count_f64, narrow_f32, trunc_usize};
 
 /// Résultat d'une transcription.
 #[derive(Debug, Clone, Default)]
 pub struct Transcript {
+    /// Transcribed text, as returned by the model.
     pub text: String,
     /// Langue utilisée (`fr`, `en`…), détectée si elle n'était pas imposée.
     pub language: Option<String>,
@@ -32,13 +34,14 @@ pub struct Transcript {
     pub no_speech: f32,
 }
 
+/// A Whisper model loaded in memory, ready to transcribe.
 pub struct Transcriber {
     whisper: sys::Whisper,
     tokenizer: hf::Tokenizer,
     pre: Preprocessor,
 }
 
-/// Réglages du spectrogramme (preprocessor_config.json).
+/// Spectrogram settings (`preprocessor_config.json`).
 #[derive(Debug)]
 struct Preprocessor {
     feature_size: usize,
@@ -60,10 +63,14 @@ impl std::fmt::Debug for Transcriber {
 }
 
 impl Transcriber {
-    /// `dir` : dossier d'un modèle CTranslate2. Ses fichiers sont lus par
-    /// `storage` et donnés à CTranslate2 en mémoire, un par un (chacun est
-    /// libéré dès qu'il est copié). Les poids sont quantifiés en int8 au
-    /// chargement (rapide sur processeur, peu de mémoire).
+    /// `dir`: folder of a CTranslate2 model. Its files are read by
+    /// `storage` and given to CTranslate2 in memory, one by one (each is
+    /// freed as soon as it is copied). The weights are quantized to int8 on
+    /// load (fast on CPU, little memory).
+    ///
+    /// # Errors
+    ///
+    /// If a model file is missing or unreadable, or if CTranslate2 refuses to load it.
     pub fn load(dir: &Path, storage: &Storage) -> Result<Self, SttError> {
         let files = read_model(storage, dir)?;
         let file = |name: &'static str| {
@@ -95,8 +102,13 @@ impl Transcriber {
         Ok(Self { whisper, tokenizer, pre })
     }
 
-    /// Transcrit un audio mono 16 kHz.
-    /// `quick` : décodage glouton (aperçu) ; sinon recherche en faisceau (texte final).
+    /// Transcribes a mono 16 kHz audio.
+    /// `quick`: greedy decoding (preview); otherwise beam search (final text).
+    ///
+    /// # Errors
+    ///
+    /// If the spectrogram cannot be computed, if the language is not detected or if
+    /// decoding fails.
     pub fn transcribe(
         &self,
         audio: &[f32],
@@ -111,18 +123,17 @@ impl Transcriber {
         let shape = features.shape().to_vec();
         // `mel` rend un tableau en disposition standard : il est contigu.
         let data = features.as_slice_mut().context(NotContiguousSnafu)?;
-        let view = sys::StorageView::new(&shape, data, Default::default())
+        let view = sys::StorageView::new(&shape, data, sys::Device::default())
             .map_err(boxed)
             .context(TranscribeSnafu { step: "features" })?;
 
-        let lang = match language {
-            Some(l) => l.to_owned(),
-            None => {
-                let detected =
-                    self.whisper.detect_language(&view).map_err(boxed).context(TranscribeSnafu { step: "language" })?;
-                let best = detected.into_iter().next().and_then(|v| v.into_iter().next()).context(NoLanguageSnafu)?;
-                language_code(&best.language).to_owned()
-            }
+        let lang = if let Some(l) = language {
+            l.to_owned()
+        } else {
+            let detected =
+                self.whisper.detect_language(&view).map_err(boxed).context(TranscribeSnafu { step: "language" })?;
+            let best = detected.into_iter().next().and_then(|v| v.into_iter().next()).context(NoLanguageSnafu)?;
+            language_code(&best.language).to_owned()
         };
 
         let context = match context.map(str::trim).filter(|c| !c.is_empty()) {
@@ -149,7 +160,7 @@ impl Transcriber {
 
     fn run(
         &self,
-        view: &sys::StorageView,
+        view: &sys::StorageView<'_>,
         prompt: &[String],
         chunks: usize,
         options: &sys::WhisperOptions,
@@ -178,7 +189,8 @@ pub(crate) fn read_model(storage: &Storage, dir: &Path) -> Result<Vec<(String, V
     let mut out = Vec::new();
     for path in storage.list_files(dir).context(ModelFileSnafu { path: dir })? {
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
-        if name.starts_with('.') || name.ends_with(".part") {
+        let partial = Path::new(name).extension().is_some_and(|e| e == "part");
+        if name.starts_with('.') || partial {
             continue;
         }
         let bytes = storage.read(&path).context(ModelFileSnafu { path: &path })?;
@@ -218,7 +230,7 @@ impl Preprocessor {
                 let (r, c) = (rows.len(), rows.first().map_or(0, Vec::len));
                 Array2::from_shape_vec((r, c), rows.into_iter().flatten().collect()).context(MelFiltersSnafu)?
             }
-            None => mel(raw.sampling_rate as f64, raw.n_fft, raw.feature_size, None, None, false, true),
+            None => mel(count_f64(raw.sampling_rate), raw.n_fft, raw.feature_size, None, None, false, true),
         };
         Ok(Self {
             feature_size: raw.feature_size,
@@ -240,7 +252,7 @@ impl Preprocessor {
             // Au plus `nb_max_frames` trames, même si les réglages en promettent plus.
             for (i, frame) in chunk.chunks(self.hop_length).take(self.nb_max_frames).enumerate() {
                 if let Some(fft) = stft.add(frame) {
-                    let mel = norm_mel(&log_mel_spectrogram(&fft, &self.mel_filters)).mapv(|v| v as f32);
+                    let mel = norm_mel(&log_mel_spectrogram(&fft, &self.mel_filters)).mapv(narrow_f32);
                     m.slice_mut(s![.., i]).assign(&mel.slice(s![.., 0]));
                 }
             }
@@ -250,7 +262,7 @@ impl Preprocessor {
         if n == 0 {
             return Ok((Array3::zeros((0, 0, 0)), 0));
         }
-        let views: Vec<_> = chunks.iter().map(|a| a.view()).collect();
+        let views: Vec<_> = chunks.iter().map(ndarray::ArrayBase::view).collect();
         let stacked = stack(Axis(0), &views).context(FeaturesSnafu { step: "mel" })?;
         Ok((stacked.as_standard_layout().into_owned(), n))
     }
@@ -282,8 +294,8 @@ fn build_prompt(context: Option<Vec<String>>, lang: &str) -> Vec<String> {
 /// Options de décodage. Au plus ~12 jetons par seconde de parole : une boucle
 /// d'hallucination (« dududu… ») ne peut pas s'emballer.
 fn decoding_options(prompt_len: usize, samples: usize, sampling_rate: usize, quick: bool) -> sys::WhisperOptions {
-    let seconds = samples as f32 / sampling_rate.max(1) as f32;
-    let budget = (16.0 + 12.0 * seconds) as usize;
+    let seconds = count_f32(samples) / count_f32(sampling_rate.max(1));
+    let budget = trunc_usize(f64::from(16.0 + 12.0 * seconds));
     sys::WhisperOptions {
         beam_size: if quick { 1 } else { 5 },
         return_no_speech_prob: true,
@@ -327,12 +339,12 @@ pub(crate) fn repetitive(text: &str) -> bool {
     }
     let grams: std::collections::HashSet<&[char]> = chars.windows(4).collect();
     let total = chars.len() - 3;
-    total as f32 / grams.len() as f32 > 2.4
+    count_f32(total) / count_f32(grams.len()) > 2.4
 }
 
 /// Fils de calcul : les cœurs disponibles, jusqu'à 8.
 pub(crate) fn threads() -> usize {
-    std::thread::available_parallelism().map_or(4, |n| n.get()).min(8)
+    std::thread::available_parallelism().map_or(4, std::num::NonZero::get).min(8)
 }
 
 #[cfg(test)]

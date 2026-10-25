@@ -157,7 +157,7 @@ impl Session {
         if manifest.examples == examples_before {
             return Ok(false);
         }
-        manifest.parent = edit.parent.clone();
+        manifest.parent.clone_from(&edit.parent);
         manifest.created = now_created();
         let files = manifest.to_files(t.kind, t.files.widgets().clone()).context(PackJsonSnafu { id: t.id })?;
         let mut deck = next.clone();

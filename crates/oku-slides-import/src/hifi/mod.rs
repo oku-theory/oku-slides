@@ -82,15 +82,18 @@ pub struct HifiTarget<'a> {
     pub limits: PackLimits,
 }
 
-/// Le plan qui construit le deck Oku fidèle de `deck`, sur un thème et un
-/// pack générés pour lui.
+/// The plan that builds the faithful Oku deck of `deck`.
 ///
-/// La couverture (`report.coverage`) est mesurée sur le deck que donnent les
-/// ops appliquées à un deck vide avec le registre déclaré ; toujours présente.
+/// It targets a generated theme and pack.
 ///
-/// Refuse (`GeneratedRegistry`) si les schémas déclarés ne tiennent pas dans
-/// le registre cible : le plan serait mesuré sur un autre registre que le sien.
-/// Refuse (`PlanRefused`) si le cœur refuse le plan, valide par construction (un bogue).
+/// Coverage (`report.coverage`) is measured on the deck obtained by applying
+/// the ops to an empty deck with the declared registry; it is always present.
+///
+/// # Errors
+///
+/// Refuses (`GeneratedRegistry`) if the declared schemas do not fit in the
+/// target registry: the plan would be measured on a registry other than its own.
+/// Refuses (`PlanRefused`) if the core refuses the plan, valid by construction (a bug).
 pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> Result<ImportPlan, ImportError> {
     let page = Page::new(deck.size);
     let master = theme_master(deck);
@@ -119,8 +122,8 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> Result<ImportPlan,
     };
 
     let mut report = ImportReport::new(Mode::Hifi);
-    report.warnings = deck.warnings.clone();
-    report.fonts = fonts.choices.clone();
+    report.warnings.clone_from(&deck.warnings);
+    report.fonts.clone_from(&fonts.choices);
     let mut plan = ImportPlan::new(report);
     let mut origins = BTreeMap::new();
     let mut assets = pack.assets.clone();
@@ -154,29 +157,8 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> Result<ImportPlan,
     let tokens = master.map_or_else(|| masterless_tokens(&fonts), |m| theme_tokens(deck, m, &fonts, &page));
     let manifest = pack_manifest(&pack, target.pack_id, &target.name, &target.created, &examples);
     let pack_files = manifest.to_files(PackKind::Layouts, pack.files.clone()).map_err(crate::error::generated_pack)?;
-    // `base` d'abord : le pack généré le requiert, et les éléments sont des widgets de `base` ;
-    // `essentiel` ensuite, pour les slides de repli `essentiel/blank`.
-    plan.ops.push(Op::AddPack {
-        kind: PackKind::Widgets,
-        namespace: kinds::base::namespace(),
-        pin: target.base.clone(),
-    });
-    plan.ops.push(Op::AddPack {
-        kind: PackKind::Layouts,
-        namespace: kinds::essentiel::namespace(),
-        pin: target.essentiel.clone(),
-    });
-    // La fermeture des thèmes (`themes`) est celle de la session, qui lit les manifestes.
-    plan.ops.push(Op::SetTheme { theme: Some(target.theme.clone()), themes: BTreeMap::new() });
-    plan.ops.push(Op::SetTokens { tokens: Value::Object(tokens) });
-    plan.ops.push(Op::AddPack {
-        kind: PackKind::Layouts,
-        namespace: Namespace::deck_layouts(),
-        pin: PackPin { id: target.pack_id, version: pack_files.version(), requires: manifest.requires.clone() },
-    });
-    if let Some(lang) = &lang {
-        plan.ops.push(Op::SetDeckParam { key: "lang".to_owned(), value: Value::String(lang.clone()) });
-    }
+    let deck_pack = PackPin { id: target.pack_id, version: pack_files.version(), requires: manifest.requires.clone() };
+    plan.ops.extend(head_ops(target, deck_pack, Value::Object(tokens), lang.as_deref()));
     for slide in slides {
         let notes = (!slide.notes.is_empty()).then(|| (slide.id.clone(), slide.notes.clone()));
         plan.ops.push(Op::AddSlide { index: None, defaults: false, slide: Slide { notes: String::new(), ..slide } });
@@ -208,8 +190,34 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> Result<ImportPlan,
     Ok(plan)
 }
 
+/// The plan's leading ops, before the slides' ones.
+///
+/// Packs `base` and `essentiel`, theme, generated `tokens`, the deck pack
+/// `deck_pack`, then the language if there is one.
+fn head_ops(target: &HifiTarget<'_>, deck_pack: PackPin, tokens: Value, lang: Option<&str>) -> Vec<Op> {
+    // `base` first: the generated pack requires it, and the elements are `base` widgets;
+    // `essentiel` next, for the `essentiel/blank` fallback slides.
+    let mut ops = vec![
+        Op::AddPack { kind: PackKind::Widgets, namespace: kinds::base::namespace(), pin: target.base.clone() },
+        Op::AddPack {
+            kind: PackKind::Layouts,
+            namespace: kinds::essentiel::namespace(),
+            pin: target.essentiel.clone(),
+        },
+        // The theme closure (`themes`) is the session's, which reads the manifests.
+        Op::SetTheme { theme: Some(target.theme.clone()), themes: BTreeMap::new() },
+        Op::SetTokens { tokens },
+        Op::AddPack { kind: PackKind::Layouts, namespace: Namespace::deck_layouts(), pin: deck_pack },
+    ];
+    if let Some(lang) = lang {
+        ops.push(Op::SetDeckParam { key: "lang".to_owned(), value: Value::String(lang.to_owned()) });
+    }
+    ops
+}
+
 /// La page source de `deck` sur la page Oku (pt page) : le rendu Oku d'une
 /// slide, rogné à ce cadre, se compare au rendu de référence de la source.
+#[must_use]
 pub fn source_rect(deck: &SourceDeck) -> oku_slides_core::Frame {
     Page::new(deck.size).source_rect()
 }
@@ -217,6 +225,7 @@ pub fn source_rect(deck: &SourceDeck) -> oku_slides_core::Frame {
 /// Les familles que [`project`] cherche au catalogue des polices pour
 /// `deck` (voir [`sought`]) : l'appelant n'y ajoute que celles du système
 /// qui en sont.
+#[must_use]
 pub fn sought_fonts(deck: &SourceDeck) -> BTreeSet<String> {
     sought(&deck.fonts, &theme_families(deck))
 }

@@ -66,7 +66,9 @@ pub enum PreviewFormat {
 /// L'aperçu d'un widget : son image, ou les diagnostics qui l'en empêchent.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct WidgetPreview {
+    /// SVG image for the interface; `None` without a render or in PNG.
     pub svg: Option<String>,
+    /// PNG bytes for the agent, never serialized to the interface.
     #[serde(skip)]
     pub png: Option<Vec<u8>>,
     /// Boîte du dessin de l'élément sur la slide, en pt.
@@ -83,15 +85,20 @@ pub struct WidgetPreview {
     /// (widget de slide), l'image couvre toute la slide. `None` pour
     /// l'aperçu PNG de l'agent et sans rendu.
     pub view: Option<Value>,
+    /// Typst or check messages on the widget; an error prevents the image.
     pub diagnostics: Vec<WidgetDiagnostic>,
 }
 
 /// Boîte d'un élément sur la slide d'aperçu, en pt.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct PreviewBox {
+    /// Left edge, in pt from the left edge of the slide.
     pub x: f64,
+    /// Top edge, in pt from the top of the slide.
     pub y: f64,
+    /// Width of the drawing, in pt.
     pub w: f64,
+    /// Height of the drawing, in pt.
     pub h: f64,
 }
 
@@ -135,9 +142,11 @@ impl PreviewSlot {
             p.files().iter().filter(|(n, _)| *n != shown).for_each(|f| f.hash(&mut h));
             h.finish()
         });
-        let unversioned = Deck { widgets: Default::default(), ..bare.clone() };
+        let unversioned = Deck { widgets: BTreeMap::default(), ..bare.clone() };
         let mut h = DefaultHasher::new();
-        assets.keys().for_each(|k| k.hash(&mut h));
+        for k in assets.keys() {
+            k.hash(&mut h);
+        }
         let key = BareKey {
             pack: pack_key,
             assets: h.finish(),
@@ -274,14 +283,19 @@ fn no_schema(name: &WidgetFile) -> WidgetPreview {
 }
 
 impl Session {
-    /// Aperçu du widget `name` seul, sur une slide temporaire au style du deck.
+    /// Preview of widget `name` alone, on a temporary slide in the deck's style.
     ///
-    /// `name` est un fichier du pack `pack` (voir `widget_target` : sans espace
-    /// de noms, le pack édité, ou en mode deck le pack `deck`).
+    /// `name` is a file of pack `pack` (see `widget_target`: without a
+    /// namespace, the edited pack, or in deck mode the `deck` pack).
     ///
-    /// Aux valeurs d'exemple du widget, puis à `params`.
-    /// Un fichier cassé rend ses diagnostics ; un rendu raté (Typst, délai,
-    /// mémoire) aussi, sans écarter le pack.
+    /// At the widget's example values, then at `params`.
+    /// A broken file returns its diagnostics; so does a failed render (Typst,
+    /// timeout, memory), without dropping the pack.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the targeted pack cannot be found, if `name` is invalid or unknown, or if the deck's
+    /// theme cannot be composed.
     pub fn preview_widget(
         &mut self,
         pack: Option<&Namespace>,
@@ -307,7 +321,7 @@ impl Session {
         let pack = probe.pack.as_ref();
         let set = self.preview_set(&t.namespace, pack)?;
         let registry = self.registry_for(&set)?;
-        self.render_preview(&name, (pack, &set), registry, &deck, format)
+        self.render_preview(&name, (pack, &set), &registry, &deck, format)
     }
 
     /// Les packs de l'aperçu : ceux du deck ouvert, `pack` (le pack montré, sous `ns`) à la place du sien.
@@ -363,19 +377,18 @@ impl Session {
         &mut self,
         name: &WidgetFile,
         (pack, set): (Option<&PackWidgets>, &PackSet),
-        registry: Arc<WidgetRegistry>,
+        registry: &Arc<WidgetRegistry>,
         deck: &Deck,
         format: PreviewFormat,
     ) -> Result<WidgetPreview> {
         let fonts = self.doc.sources.fonts.len();
         let layer = self.theme_layer(deck)?;
-        let kept = match self.widget_preview.take().filter(|p| p.fonts == fonts) {
-            Some(p) => p,
-            None => {
-                let none = crate::deck_pack::empty_registry();
-                let slot = self.worker.trial_slot(&self.render_fonts, &self.localizer, none).context(RenderSnafu)?;
-                PreviewSlot { slot, fonts, bare: None }
-            }
+        let kept = if let Some(p) = self.widget_preview.take().filter(|p| p.fonts == fonts) {
+            p
+        } else {
+            let none = crate::deck_pack::empty_registry();
+            let slot = self.worker.trial_slot(&self.render_fonts, &self.localizer, none).context(RenderSnafu)?;
+            PreviewSlot { slot, fonts, bare: None }
         };
         let preview = self.widget_preview.insert(kept);
         let assets = user_assets(&self.mode, &self.doc);
@@ -395,7 +408,7 @@ impl Session {
                 PreviewFormat::Svg => {
                     let hash = compiled.page_hash(0);
                     let kind = pack.map_or_else(|| name.as_str().to_owned(), |p| qualify(p.namespace(), name.as_str()));
-                    let view = preview_view(deck, &registry, compiled.layout(), hash, &kind)?;
+                    let view = preview_view(deck, registry, compiled.layout(), hash, &kind)?;
                     WidgetPreview { svg: Some(compiled.svg(0)?), view, diagnostics, ..Default::default() }
                 }
                 // L'agent voit la slide entière : pas de recadrage.

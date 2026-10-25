@@ -113,6 +113,7 @@ pub enum ImportTarget {
 
 impl ImportTarget {
     /// Le mode de cette cible.
+    #[must_use]
     pub fn mode(&self) -> ImportMode {
         match self {
             Self::Retrofit { .. } => ImportMode::Retrofit,
@@ -172,14 +173,19 @@ struct Prepared {
     plan: CheckedPlan,
 }
 
-/// Importe `request` : lu, projeté, sondé et appliqué en une étape d'historique.
+/// Imports `request`: read, projected, probed and applied in one history step.
 ///
-/// En hi-fi, le témoin de `request` est choisi (LibreOffice cherché aussitôt), pas encore lancé.
+/// In hi-fi, the witness of `request` is chosen (LibreOffice looked up right away), not yet started.
 ///
-/// `fonts` : les polices de l'app, celles du rendu (le catalogue du hi-fi en
-/// part ; l'état y ajoute celles du deck). En hi-fi, `[import] score_threshold`
-/// est vérifié avant toute lecture. Rien n'est écrit. Le libellé de l'étape
-/// est dans la langue courante de l'interface.
+/// `fonts`: the app's fonts, those of the rendering (the hi-fi catalog
+/// starts from them; the state adds the deck's). In hi-fi, `[import]
+/// score_threshold` is checked before any read. Nothing is written. The step
+/// label is in the interface's current language.
+///
+/// # Errors
+///
+/// Fails on an invalid threshold (`Threshold`), a `.pptx` too large or unreadable, a registry that
+/// cannot be built, or a rejected projection, probe or application.
 pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Result<Imported> {
     let threshold = platform.settings.import.score_threshold;
     if matches!(request.target, ImportTarget::Hifi { .. }) {

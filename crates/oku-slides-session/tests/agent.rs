@@ -1,3 +1,7 @@
+//! Agent forms and receipts: PNG previews, tool receipts, proposed rewrites.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
+use std::collections::BTreeMap;
+
 use oku_slides_core::{Op, Paragraph, Run, Target};
 use oku_slides_i18n::{Localize, Localizer, english};
 use oku_slides_session::SessionErrorKind;
@@ -810,13 +814,13 @@ fn turn_groups_every_apply_into_one_undo() {
     s.begin_turn(1, "titre plus percutant");
     s.apply(
         "a",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() }],
         None,
     )
     .unwrap();
     s.apply(
         "b",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("papier")), themes: Default::default() }],
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("papier")), themes: BTreeMap::default() }],
         None,
     )
     .unwrap();
@@ -833,7 +837,7 @@ fn end_turn_after_edit_pack_closes_stashed_group_too() {
     s.begin_turn(1, "modèles");
     s.apply(
         "a",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() }],
         None,
     )
     .unwrap();
@@ -842,7 +846,7 @@ fn end_turn_after_edit_pack_closes_stashed_group_too() {
     s.close_pack().unwrap();
     s.apply(
         "Seul",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("papier")), themes: Default::default() }],
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("papier")), themes: BTreeMap::default() }],
         None,
     )
     .unwrap();

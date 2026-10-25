@@ -11,7 +11,12 @@ use crate::model::normalize;
 use crate::option::{Cell, ChartOption, Dataset, Series};
 use crate::table::{TableOption, validate_table};
 
-/// Le tableau des données d'un graphique, lignes courtes complétées.
+/// The data table of a chart, short rows padded.
+///
+/// # Errors
+///
+/// Fails if the chart has no `dataset` or if its data exceed the
+/// limits of a table.
 pub fn chart_to_table(chart: &ChartOption) -> Result<TableOption> {
     let dataset =
         chart.dataset.as_ref().ok_or_else(|| DataOpSnafu { reason: Message::new("chart-data-no-dataset") }.build())?;
@@ -46,7 +51,11 @@ pub fn chart_to_table(chart: &ChartOption) -> Result<TableOption> {
     Ok(table)
 }
 
-/// Le graphique d'un tableau : celui d'origine s'il convient encore, sinon des barres.
+/// The chart of a table: the original one if it still fits, otherwise bars.
+///
+/// # Errors
+///
+/// Fails if the table does not give a consistent bar chart.
 pub fn table_to_chart(table: &TableOption, labels: &ChartLabels) -> Result<ChartOption> {
     restored_chart(table, labels).map_or_else(|| bar_chart(table, labels), Ok)
 }
@@ -64,12 +73,12 @@ fn restored_chart(table: &TableOption, labels: &ChartLabels) -> Option<ChartOpti
     Some(chart)
 }
 
-/// Les séries gardées remises en face de leur colonne, par identifiant.
+/// The kept series put back in front of their column, by identifier.
 ///
-/// La série gardée i lisait `saved[i + 1]` ; une colonne sans série gardée en
-/// reçoit une neuve sur le modèle de sa voisine ([`fresh_series`]). `None` (ordre par position) hors
-/// barres et lignes canoniques, ou si les identifiants manquent ou ne
-/// correspondent pas aux séries gardées.
+/// Kept series i read `saved[i + 1]`; a column without a kept series
+/// gets a new one modelled on its neighbour ([`fresh_series`]). `None` (order by position) outside
+/// canonical bars and lines, or if the identifiers are missing or do not
+/// match the kept series.
 fn series_by_column(chart: &ChartOption, saved: &[String], current: &[String]) -> Option<Vec<Series>> {
     let aligned = saved.len() == chart.series.len() + 1 && current.len() > 1;
     if !aligned || !is_canonical_cartesian(chart) {

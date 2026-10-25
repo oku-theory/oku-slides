@@ -1,3 +1,5 @@
+//! A2UI surfaces over MCP: blocking questions, answers, cancellation and the turns thread.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use common::*;
@@ -49,7 +51,7 @@ async fn ask_choice_blocks_until_user_chooses_while_session_stays_free() {
     // Pendant l'attente, l'interface peut toujours utiliser la session.
     assert_that!(h.session.try_lock().is_ok()).is_true();
     assert_that!(pending.is_finished()).is_false();
-    h.hub.act(action(&surface.id, "choose", json!({ "choice": "b" }))).unwrap();
+    h.hub.act(action(&surface.id, "choose", &json!({ "choice": "b" }))).unwrap();
     let r = pending.await.unwrap();
     assert_that!(json_of(&r)).is_equal_to(json!({ "choice": "b" }));
 }
@@ -66,7 +68,7 @@ async fn ask_choice_dismissed_returns_cancelled_and_freezes_the_question() {
     });
     let surface = next_surface(&mut rx).await;
     let surface_id = surface.id.clone();
-    h.hub.act(action(&surface.id, "dismiss", json!({}))).unwrap();
+    h.hub.act(action(&surface.id, "dismiss", &json!({}))).unwrap();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "cancelled": true }));
     let frozen = wait_event(&mut rx, |e| match e {
         McpEvent::Surface { surface } if surface.id == surface_id && !surface.live => Some(surface),
@@ -136,7 +138,7 @@ async fn ask_rewrite_applies_chosen_proposal() {
     let surface = next_surface(&mut rx).await;
     let paragraphs = json!([{ "runs": [{ "t": "Second" }] }]);
     h.hub
-        .act(action(&surface.id, "rewrite", json!({ "kept": 1, "text": "Second", "paragraphs": paragraphs })))
+        .act(action(&surface.id, "rewrite", &json!({ "kept": 1, "text": "Second", "paragraphs": paragraphs })))
         .unwrap();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "kept": 1, "text": "Second" }));
     let s = h.session.lock().unwrap();
@@ -158,7 +160,7 @@ async fn ask_rewrite_paragraphs_answer_carries_a_bold_run() {
     let surface = next_surface(&mut rx).await;
     let paragraphs = json!([{ "runs": [{ "t": "Gras", "bold": true }, { "t": " fin" }] }]);
     h.hub
-        .act(action(&surface.id, "rewrite", json!({ "kept": 1, "text": "**Gras** fin", "paragraphs": paragraphs })))
+        .act(action(&surface.id, "rewrite", &json!({ "kept": 1, "text": "**Gras** fin", "paragraphs": paragraphs })))
         .unwrap();
     pending.await.unwrap();
     let s = h.session.lock().unwrap();
@@ -179,7 +181,7 @@ async fn ask_rewrite_without_paragraphs_for_an_element_fails() {
         async move { call(&c, "ask_rewrite", args).await }
     });
     let surface = next_surface(&mut rx).await;
-    h.hub.act(action(&surface.id, "rewrite", json!({ "kept": 1, "text": "Second" }))).unwrap();
+    h.hub.act(action(&surface.id, "rewrite", &json!({ "kept": 1, "text": "Second" }))).unwrap();
     let r = pending.await.unwrap();
     assert_that!(r.is_error).is_equal_to(Some(true));
 }
@@ -195,7 +197,7 @@ async fn ask_rewrite_with_invalid_paragraphs_fails_in_the_user_language() {
         async move { call(&c, "ask_rewrite", args).await }
     });
     let surface = next_surface(&mut rx).await;
-    h.hub.act(action(&surface.id, "rewrite", json!({ "kept": 1, "text": "Second", "paragraphs": 3 }))).unwrap();
+    h.hub.act(action(&surface.id, "rewrite", &json!({ "kept": 1, "text": "Second", "paragraphs": 3 }))).unwrap();
     let r = pending.await.unwrap();
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to("Les paragraphes de la reformulation sont invalides.".to_owned());
@@ -216,7 +218,7 @@ async fn ask_rewrite_of_a_slide_field_applies_the_kept_text() {
     let anchor = serde_json::to_value(&surface.anchor).unwrap();
     assert_that!(anchor).is_equal_to(json!({ "slide": "s-constat", "owner": "s-constat", "field": "title" }));
     let paragraphs = json!([{ "runs": [{ "t": "Deux" }] }]);
-    h.hub.act(action(&surface.id, "rewrite", json!({ "kept": 1, "text": "Deux", "paragraphs": paragraphs }))).unwrap();
+    h.hub.act(action(&surface.id, "rewrite", &json!({ "kept": 1, "text": "Deux", "paragraphs": paragraphs }))).unwrap();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "kept": 1, "text": "Deux" }));
     let s = h.session.lock().unwrap();
     assert_that!(s.deck().slide("s-constat").unwrap().params.text("title")).is_equal_to(Some("Deux"));
@@ -292,7 +294,7 @@ async fn ask_choice_anchored_on_an_element_field_goes_to_a_sheet() {
     assert_that!(surface.place).is_equal_to(forms::Place::Sheet);
     assert_that!(serde_json::to_value(&surface.anchor).unwrap())
         .is_equal_to(json!({ "slide": "s-priorites", "owner": "c1", "field": "title" }));
-    h.hub.act(action(&surface.id, "choose", json!({ "choice": "a" }))).unwrap();
+    h.hub.act(action(&surface.id, "choose", &json!({ "choice": "a" }))).unwrap();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "choice": "a" }));
 }
 
@@ -307,10 +309,10 @@ async fn show_variants_returns_at_once_and_pick_applies_with_own_undo_and_note()
     let id = json_of(&r)["shown"].as_str().unwrap().to_owned();
     let surface = next_surface(&mut rx).await;
     assert_that!(surface.id.as_str()).is_equal_to(id.as_str());
-    h.hub.act(action(&id, "variant", json!({ "index": 1 }))).unwrap();
+    h.hub.act(action(&id, "variant", &json!({ "index": 1 }))).unwrap();
     let mut s = h.session.lock().unwrap();
     assert_that!(s.snapshot().undo_label).is_equal_to(Some("Variante : Deux".to_owned()));
-    let ctx = s.agent_context(&Default::default());
+    let ctx = s.agent_context(&oku_slides_session::agent::AgentUi::default());
     assert_that!(ctx.contains("variant picked: \"Deux\" (s-libre)")).is_true();
 }
 
@@ -325,7 +327,7 @@ async fn show_params_change_applies_template_op() {
     ] });
     let id = json_of(&call(&c, "show_params", args).await)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
-    h.hub.act(action(&id, "param", json!({ "field": 0, "value": "pro" }))).unwrap();
+    h.hub.act(action(&id, "param", &json!({ "field": 0, "value": "pro" }))).unwrap();
     assert_that!(h.session.lock().unwrap().deck().vars.get("theme").cloned()).is_equal_to(Some(json!("pro")));
 }
 
@@ -343,13 +345,13 @@ async fn act_keeps_surface_on_apply_error_so_it_can_still_be_dismissed() {
     // `apply`, qui élague) : choisir une variante doit maintenant échouer à l'application.
     let remove = serde_json::from_value(json!({ "op": "remove_slide", "slide": "s-libre" })).unwrap();
     tokio::task::block_in_place(|| h.session.lock().unwrap().apply("Retrait", vec![remove], None).unwrap());
-    let refused = h.hub.act(action(&id, "variant", json!({ "index": 0 }))).unwrap_err();
+    let refused = h.hub.act(action(&id, "variant", &json!({ "index": 0 }))).unwrap_err();
     assert_that!(refused.kind()).is_equal_to(HubErrorKind::Session);
     // L'erreur de la session, dite en français.
     assert_that!(refused.localize(&h.localizer))
         .is_equal_to("Opération 0 refusée : Slide introuvable : s-libre".to_owned());
     // La surface n'est pas perdue : elle peut encore être fermée.
-    assert_that!(h.hub.act(action(&id, "dismiss", json!({})))).is_ok();
+    assert_that!(h.hub.act(action(&id, "dismiss", &json!({})))).is_ok();
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -382,7 +384,7 @@ async fn ask_rewrite_answer_without_text_fails() {
         async move { call(&c, "ask_rewrite", args).await }
     });
     let surface = next_surface(&mut rx).await;
-    h.hub.act(action(&surface.id, "rewrite", json!({ "kept": 1 }))).unwrap();
+    h.hub.act(action(&surface.id, "rewrite", &json!({ "kept": 1 }))).unwrap();
     let r = pending.await.unwrap();
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to("La reformulation est revenue sans texte.".to_owned());
@@ -402,7 +404,7 @@ async fn prune_closes_params_of_removed_slide() {
     h.hub.prune();
     let closed = wait_event(&mut rx, closed_id).await;
     assert_that!(closed).is_equal_to(id);
-    let refused = h.hub.act(action(&closed, "dismiss", json!({}))).unwrap_err();
+    let refused = h.hub.act(action(&closed, "dismiss", &json!({}))).unwrap_err();
     assert_that!(refused.kind()).is_equal_to(HubErrorKind::UnknownSurface);
     assert_that!(refused.localize(&h.localizer)).is_equal_to("Cette carte n'est plus ouverte.".to_owned());
     assert_that!(refused.localize(english())).is_equal_to("This card is no longer open.".to_owned());
@@ -419,7 +421,7 @@ async fn act_refuses_an_unexpected_or_incomplete_action_in_the_user_language() {
     let variants = json_of(&r)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
     let params = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
-    let refused = |id: &str, name: &str, context: Value| h.hub.act(action(id, name, context)).unwrap_err();
+    let refused = |id: &str, name: &str, context: Value| h.hub.act(action(id, name, &context)).unwrap_err();
 
     let unexpected = refused(&variants, "param", json!({ "field": 0 }));
     assert_that!(unexpected.kind()).is_equal_to(HubErrorKind::UnexpectedAction);
@@ -455,7 +457,7 @@ async fn surfaces_follow_open_and_close_in_order() {
     let asked = next_surface(&mut rx).await.id;
     assert_that!(open_ids(&h)).is_equal_to(vec![shown.clone(), asked.clone()]);
 
-    h.hub.act(action(&asked, "choose", json!({ "choice": "a" }))).unwrap();
+    h.hub.act(action(&asked, "choose", &json!({ "choice": "a" }))).unwrap();
     pending.await.unwrap();
     assert_that!(open_ids(&h)).is_equal_to(vec![shown]);
 
@@ -494,7 +496,7 @@ async fn resync_emits_the_whole_list() {
     h.hub.resync();
     let list = wait_event(&mut rx, surfaces_list).await;
     assert_that!(list).is_equal_to(vec![asked.clone()]);
-    h.hub.act(action(&asked.id, "dismiss", json!({}))).unwrap();
+    h.hub.act(action(&asked.id, "dismiss", &json!({}))).unwrap();
     pending.await.unwrap();
 }
 
@@ -534,7 +536,7 @@ async fn answered_ask_leaves_the_list_at_once() {
     let mut asking = Box::pin(asking);
     assert_that!(futures_poll_once(asking.as_mut()).await).is_false();
     next_surface(&mut rx).await;
-    h.hub.act(action(&id, "choose", json!({ "choice": "a" }))).unwrap();
+    h.hub.act(action(&id, "choose", &json!({ "choice": "a" }))).unwrap();
     assert_that!(open_ids(&h)).is_empty();
 }
 
@@ -555,7 +557,7 @@ async fn param_change_is_kept_for_resync() {
     ] });
     let id = json_of(&call(&c, "show_params", args).await)["shown"].as_str().unwrap().to_owned();
     next_surface(&mut rx).await;
-    h.hub.act(action(&id, "param", json!({ "field": 0, "value": "pro" }))).unwrap();
+    h.hub.act(action(&id, "param", &json!({ "field": 0, "value": "pro" }))).unwrap();
     let json = serde_json::to_value(h.hub.surfaces()).unwrap();
     let model = json[0]["messages"].as_array().unwrap().iter().find_map(|m| m.get("updateDataModel")).unwrap().clone();
     assert_that!(model["value"]["f0"].clone()).is_equal_to(json!("pro"));
@@ -710,7 +712,7 @@ async fn hub_answered_thread_question_is_frozen_with_the_chosen_label() {
         async move { hub.ask_then(turn, surface, freeze).await }
     });
     next_surface(&mut rx).await;
-    h.hub.act(action("ask-1", "choose", json!({ "choice": "b" }))).unwrap();
+    h.hub.act(action("ask-1", "choose", &json!({ "choice": "b" }))).unwrap();
     asking.await.unwrap();
     let open = h.hub.surfaces();
     assert_that!(open).has_length(1);
@@ -805,7 +807,7 @@ async fn hub_dismissed_params_are_frozen_not_closed() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     h.hub.begin_turn();
     let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
-    h.hub.act(action(&id, "dismiss", json!({}))).unwrap();
+    h.hub.act(action(&id, "dismiss", &json!({}))).unwrap();
     let open = h.hub.surfaces();
     assert_that!(open).has_length(1);
     assert_that!(open[0].live).is_false();
@@ -828,7 +830,7 @@ async fn hub_dismissed_params_lose_their_actions() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     h.hub.begin_turn();
     let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
-    h.hub.act(action(&id, "dismiss", json!({}))).unwrap();
+    h.hub.act(action(&id, "dismiss", &json!({}))).unwrap();
     assert_that!(serde_json::to_string(&h.hub.surfaces()).unwrap()).does_not_contain("\"action\"");
 }
 
@@ -852,7 +854,7 @@ async fn hub_answered_question_keeps_its_place_in_the_list() {
     });
     next_surface(&mut rx).await;
     h.hub.show_static(n, forms::frozen_choice("after", "Q", Some("A"), &h.localizer));
-    h.hub.act(action("ask-1", "choose", json!({ "choice": "a" }))).unwrap();
+    h.hub.act(action("ask-1", "choose", &json!({ "choice": "a" }))).unwrap();
     asking.await.unwrap();
     assert_that!(open_ids(&h)).is_equal_to(vec!["ask-1".to_owned(), "after".to_owned()]);
 }
@@ -914,11 +916,11 @@ async fn hub_parallel_ask_choices_are_all_live_and_answered_independently() {
         h.hub.surfaces().into_iter().filter(|s| s.live).map(|s| (s.id, s.question)).collect();
     assert_that!(live).is_equal_to(vec![(first_id.clone(), true), (second_id.clone(), true)]);
     // La seconde répondue d'abord : la première attend toujours.
-    h.hub.act(action(&second_id, "choose", json!({ "choice": "a" }))).unwrap();
+    h.hub.act(action(&second_id, "choose", &json!({ "choice": "a" }))).unwrap();
     assert_that!(json_of(&second.await.unwrap())).is_equal_to(json!({ "choice": "a" }));
     assert_that!(first.is_finished()).is_false();
     assert_that!(h.hub.has_pending_ask()).is_true();
-    h.hub.act(action(&first_id, "choose", json!({ "choice": "b" }))).unwrap();
+    h.hub.act(action(&first_id, "choose", &json!({ "choice": "b" }))).unwrap();
     assert_that!(json_of(&first.await.unwrap())).is_equal_to(json!({ "choice": "b" }));
     assert_that!(h.hub.surfaces().iter().any(|s| s.live)).is_false();
 }
@@ -933,5 +935,5 @@ async fn hub_close_turn_closes_live_params_of_that_turn() {
     // Évincé, le tour emporte ses réglages encore vivants : fermés (pas figés), et leurs actions refusées.
     h.hub.close_turn(n);
     assert_that!(open_ids(&h)).is_empty();
-    assert_that!(h.hub.act(action(&id, "dismiss", json!({})))).is_err();
+    assert_that!(h.hub.act(action(&id, "dismiss", &json!({})))).is_err();
 }

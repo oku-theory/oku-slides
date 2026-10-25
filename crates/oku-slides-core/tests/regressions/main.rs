@@ -3,6 +3,7 @@
 //!
 //! `issue_0164` (taille de l'enum `ElementBody`) a disparu avec l'enum : les
 //! éléments v2 sont génériques (`{id, kind, params}`).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 #[path = "../common/mod.rs"]
 mod common;

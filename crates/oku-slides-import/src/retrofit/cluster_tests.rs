@@ -23,7 +23,8 @@ fn filled(id: &str, frame: (f64, f64, f64, f64)) -> Item {
 
 /// Une cellule par tranche de 100 pt en largeur et en hauteur.
 fn cell(f: &Frame) -> Cell {
-    let at = |v: f64| (v / 100.0).floor().max(0.0) as u32;
+    // Truncated toward zero: a positive value's band, 0 for a negative one (saturation).
+    let at = |v: f64| oku_slides_core::num::trunc_u32(v / 100.0);
     let (col, row) = (at(f.x), at(f.y));
     Cell { col, row, cols: at(f.x + f.w - 0.01) - col + 1, rows: at(f.y + f.h - 0.01) - row + 1 }
 }

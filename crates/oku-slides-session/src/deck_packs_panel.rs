@@ -29,15 +29,38 @@ const SHORT_VERSION: usize = 7;
 #[derive(Debug, Clone, PartialEq)]
 pub enum PacksEvent {
     /// Ajouter la version courante d'un pack de la bibliothèque.
-    AddPack { kind: PackKind, namespace: Namespace },
+    AddPack {
+        /// Kind of pack: elements or layouts.
+        kind: PackKind,
+        /// Namespace of the pack in the library.
+        namespace: Namespace,
+    },
     /// Retirer un pack du deck.
-    RemovePack { kind: PackKind, namespace: Namespace },
+    RemovePack {
+        /// Kind of pack: elements or layouts.
+        kind: PackKind,
+        /// Namespace of the pack the deck pins.
+        namespace: Namespace,
+    },
     /// Passer le deck à ma version.
-    UseMine { kind: PackKind, namespace: Namespace },
+    UseMine {
+        /// Kind of pack: elements or layouts.
+        kind: PackKind,
+        /// Namespace of the pack the deck pins.
+        namespace: Namespace,
+    },
     /// Faire de la version du deck ma version courante.
-    MakeCurrent { kind: PackKind, namespace: Namespace },
+    MakeCurrent {
+        /// Kind of pack: elements or layouts.
+        kind: PackKind,
+        /// Namespace of the pack the deck pins.
+        namespace: Namespace,
+    },
     /// Choisir le thème du deck.
-    Theme { theme: Namespace },
+    Theme {
+        /// Namespace of the chosen theme.
+        theme: Namespace,
+    },
     /// Passer le deck à ma version de son thème.
     ThemeUpdate,
 }
@@ -53,6 +76,7 @@ fn kind_of(name: &str) -> Option<PackKind> {
 }
 
 /// L'action du panneau que décrivent un évènement et son contexte ; `None` si mal formée.
+#[must_use]
 pub fn packs_event(name: &str, context: &Map<String, Value>) -> Option<PacksEvent> {
     let pack = || -> Option<(PackKind, Namespace)> {
         let kind = context.get("kind").and_then(Value::as_str).and_then(kind_of)?;
@@ -226,7 +250,11 @@ pub fn deck_packs_panel(view: &DeckPacksView, l: &Localizer) -> Surface {
 }
 
 impl Session {
-    /// Applique une action du panneau.
+    /// Applies an action of the panel.
+    ///
+    /// # Errors
+    ///
+    /// Fails like the applied action (add, remove, version, theme): see each one.
     pub fn packs_action(&mut self, event: PacksEvent) -> Result<()> {
         match event {
             PacksEvent::AddPack { kind, namespace } => self.add_library_pack(kind, &namespace),

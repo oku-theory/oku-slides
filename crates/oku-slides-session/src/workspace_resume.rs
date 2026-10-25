@@ -57,25 +57,29 @@ impl SavedLayout {
 }
 
 impl Workspace {
-    /// Reprend l'espace de travail laissé dans `dir` (`<data>/resume`).
+    /// Resumes the workspace left in `dir` (`<data>/resume`).
     ///
-    /// Ses fenêtres, ses onglets et leurs sessions reviennent ; ensuite tout
-    /// est écrit à chaque changement. `workspace.json` illisible : tout le
-    /// dossier est mis de côté, jamais écrasé. Un onglet illisible est mis de
-    /// côté seul et retiré ; les autres restent.
-    pub fn resume(fonts: Fonts, platform: &Platform, dir: PathBuf) -> Result<Self> {
-        let mut ws = Self::empty(fonts, platform, Some(dir.clone()));
+    /// Its windows, tabs and their sessions come back; afterwards everything
+    /// is written on each change. Unreadable `workspace.json`: the whole
+    /// folder is set aside, never overwritten. An unreadable tab is set aside
+    /// alone and removed; the others stay.
+    ///
+    /// # Errors
+    ///
+    /// Fails if, with no window resumed, the blank replacement tab cannot be built.
+    pub fn resume(fonts: Fonts, platform: &Platform, dir: &Path) -> Result<Self> {
+        let mut ws = Self::empty(fonts, platform, Some(dir.to_path_buf()));
         // Avant toute relecture : ce que ce lancement met de côté reste
         // intact jusqu'au suivant, quels que soient le réglage et l'horloge.
-        ws.prune_failed(&dir);
-        let cited = match ws.restore(&dir) {
+        ws.prune_failed(dir);
+        let cited = match ws.restore(dir) {
             Ok(cited) => cited,
             Err(e) => {
                 tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise de l'espace de travail impossible");
                 ws.tabs.clear();
                 ws.layout = Layout::new();
                 ws.recent.clear();
-                match Resume::new(platform.storage.clone(), dir.clone()).quarantine() {
+                match Resume::new(platform.storage.clone(), dir.to_path_buf()).quarantine() {
                     Ok(moved) => tracing::warn!(path = %moved.display(), "reprise en échec mise de côté"),
                     Err(e) => {
                         tracing::warn!(

@@ -222,7 +222,7 @@ fn parse_sp(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx, connector: bool) ->
     let geom = own_geom
         .clone()
         .or_else(|| inh.geom.clone())
-        .unwrap_or(Geometry::Preset { name: "rect".into(), adj: Default::default() });
+        .unwrap_or(Geometry::Preset { name: "rect".into(), adj: std::collections::BTreeMap::default() });
     let raw = if connector { None } else { child(n, "txBody").map(|tx| parse_txbody(tx, &mut |r| cx.link(r))) };
     let tb = raw.as_ref().map(|raw| {
         let chain = inh.chain();
@@ -277,24 +277,24 @@ fn crop_pair(a: f64, b: f64) -> (f64, f64) {
 fn parse_pic(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<ParsedItem> {
     let Head { id, name, alt, ph, inh, sp_pr: _, frame } = head(n, cx, g)?;
     let blip_fill = child(n, "blipFill");
-    let blip = blip_fill.and_then(|b| child(b, "blip"));
-    let asset = blip.and_then(|b| blip_asset(b, cx));
-    let nv_pr = nv(n).and_then(|v| child(v, "nvPr"));
-    let media = nv_pr.is_some_and(|p| {
-        ["videoFile", "audioFile", "quickTimeFile"].iter().any(|m| child(p, m).is_some())
-            || descendant(p, "media").is_some()
+    let blip = blip_fill.and_then(|fill| child(fill, "blip"));
+    let asset = blip.and_then(|blip| blip_asset(blip, cx));
+    let nv_pr = nv(n).and_then(|nv| child(nv, "nvPr"));
+    let media = nv_pr.is_some_and(|pr| {
+        ["videoFile", "audioFile", "quickTimeFile"].iter().any(|tag| child(pr, tag).is_some())
+            || descendant(pr, "media").is_some()
     });
     let kind = if media {
         opaque(OpaqueReason::Media, asset)
     } else {
-        let crop = blip_fill.and_then(|b| child(b, "srcRect")).map_or_else(Crop::default, |r| {
-            let side = |a: &str| attr_i64(r, a).map_or(0.0, pct);
-            let ((l, rr), (t, b)) = (crop_pair(side("l"), side("r")), crop_pair(side("t"), side("b")));
-            Crop { l, t, r: rr, b }
+        let crop = blip_fill.and_then(|fill| child(fill, "srcRect")).map_or_else(Crop::default, |rect| {
+            let side = |name: &str| attr_i64(rect, name).map_or(0.0, pct);
+            let ((left, right), (top, bottom)) = (crop_pair(side("l"), side("r")), crop_pair(side("t"), side("b")));
+            Crop { l: left, t: top, r: right, b: bottom }
         });
         let Some(asset) = asset else {
             // Image seulement liée (`r:link`) : hors du fichier, donc perdue, mais signalée.
-            let link = blip.filter(|b| attr_r(*b, "embed").is_none()).and_then(|b| attr_r(b, "link"));
+            let link = blip.filter(|blip| attr_r(*blip, "embed").is_none()).and_then(|blip| attr_r(blip, "link"));
             if let Some(rid) = link {
                 let target = cx.external_target(rid).unwrap_or_else(|| clip(rid));
                 cx.warn(Some(&id), WarningKind::ExternalImage(target));
@@ -311,22 +311,22 @@ fn parse_pic(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<ParsedIt
         line: LineSpec::default(),
         geom: None,
     });
-    let item = Item { id, name, alt, frame, z: 0, role: ph.map(|k| k.role()), placeholder: inh.link, kind };
+    let item = Item { id, name, alt, frame, z: 0, role: ph.map(|key| key.role()), placeholder: inh.link, kind };
     Some(ParsedItem { item, ph: decl })
 }
 
-fn too_deep(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<ParsedItem> {
+fn too_deep(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> ParsedItem {
     let (id, name, alt) = identity(n, cx).unwrap_or_else(|| (cx.item_id("x"), String::new(), None));
     cx.warn(Some(&id), WarningKind::NestingTooDeep(id.clone()));
     let frame =
         child(n, "grpSpPr").and_then(|p| child(p, "xfrm")).map_or(Frame::new(0.0, 0.0, 0.0, 0.0), |x| g.frame(x));
     let kind = opaque(OpaqueReason::Unknown("nesting".into()), None);
-    Some(ParsedItem { item: Item { id, name, alt, frame, z: 0, role: None, placeholder: None, kind }, ph: None })
+    ParsedItem { item: Item { id, name, alt, frame, z: 0, role: None, placeholder: None, kind }, ph: None }
 }
 
 fn parse_group(n: Node<'_, '_>, cx: &PartCtx<'_>, g: &GroupCtx) -> Option<ParsedItem> {
     if g.depth >= MAX_NESTING {
-        return too_deep(n, cx, g);
+        return Some(too_deep(n, cx, g));
     }
     let (id, name, alt) = identity(n, cx)?;
     let gp = child(n, "grpSpPr");

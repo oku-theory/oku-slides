@@ -2,9 +2,10 @@ use speculoos::prelude::*;
 
 use super::*;
 
-fn hex(s: &str) -> Rgba {
-    let v = u32::from_str_radix(s.trim_start_matches('#'), 16).unwrap();
-    Rgba::new((v >> 16) as u8, (v >> 8) as u8, v as u8)
+fn hex(text: &str) -> Rgba {
+    let rgb = u32::from_str_radix(text.trim_start_matches('#'), 16).unwrap();
+    let [_, r, g, b] = rgb.to_be_bytes();
+    Rgba::new(r, g, b)
 }
 
 fn close(x: Oklab, l: f64, a: f64, b: f64) -> bool {

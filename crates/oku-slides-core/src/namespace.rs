@@ -20,7 +20,7 @@ const DECK: &str = "deck";
 /// L'espace de noms réservé au pack de layouts propre d'un deck.
 const DECK_LAYOUTS: &str = "deck-layouts";
 
-/// Espace de noms d'un pack : `[a-z][a-z0-9-]*`, éventuellement `éditeur.nom`.
+/// Namespace of a pack: `[a-z][a-z0-9-]*`, optionally `publisher.name`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(try_from = "String", into = "String")]
 #[schemars(with = "String")]
@@ -46,11 +46,13 @@ impl Namespace {
     }
 
     /// L'espace de noms `deck`, celui du pack propre d'un deck.
+    #[must_use]
     pub fn deck() -> Self {
         Self(DECK.to_owned())
     }
 
     /// L'espace de noms `deck-layouts`, celui du pack de layouts propre d'un deck.
+    #[must_use]
     pub fn deck_layouts() -> Self {
         Self(DECK_LAYOUTS.to_owned())
     }
@@ -61,16 +63,19 @@ impl Namespace {
     }
 
     /// Vrai pour l'espace de noms réservé `deck`.
+    #[must_use]
     pub fn is_deck(&self) -> bool {
         self.0 == DECK
     }
 
     /// Vrai pour l'espace de noms réservé `deck-layouts`.
+    #[must_use]
     pub fn is_deck_layouts(&self) -> bool {
         self.0 == DECK_LAYOUTS
     }
 
     /// L'espace de noms sous forme de texte.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -97,11 +102,13 @@ impl fmt::Display for Namespace {
 }
 
 /// Le nom qualifié d'un widget de pack : `<namespace>/<nom>`.
+#[must_use]
 pub fn qualify(ns: &Namespace, name: &str) -> String {
     format!("{ns}/{name}")
 }
 
 /// Espace de noms et nom d'un `kind` qualifié ; `None` pour un widget du noyau.
+#[must_use]
 pub fn split_kind(kind: &str) -> Option<(&str, &str)> {
     let (ns, name) = kind.split_once('/')?;
     (Namespace::parse(ns).is_some() && !name.is_empty() && !name.contains('/')).then_some((ns, name))

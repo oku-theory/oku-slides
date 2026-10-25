@@ -15,7 +15,7 @@ use snafu::ResultExt;
 use crate::error::{RenderSnafu, Result};
 use crate::header::{Header, append};
 use crate::labels::ChartLabels;
-use crate::model::*;
+use crate::model::{CartesianMark, CartesianSeries, ChartKind, ChartModel, Pie, RadarModel, Waterfall, normalize};
 use crate::numbers::{NumberFormat, numeric_texts};
 use crate::option::ChartOption;
 use crate::theme::{ChartTheme, color, transparent};
@@ -23,18 +23,26 @@ use crate::theme::{ChartTheme, color, transparent};
 /// Taille du cadre du graphique, en points (1 pt Typst = 1 unité SVG).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Size {
+    /// Width, in points.
     pub width: f32,
+    /// Height, in points.
     pub height: f32,
 }
 
+/// Chart rendering engine, swappable behind the same [`ChartModel`].
 pub trait ChartRenderer: Send + Sync {
-    /// Rend les options en SVG autonome, aux dimensions demandées.
+    /// Renders the options as standalone SVG, at the requested size.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the options are inconsistent or if the engine cannot draw them.
     fn render(&self, option: &ChartOption, size: Size) -> Result<String>;
 }
 
 /// Moteur v1 : charts-rs, Rust pur.
 #[derive(Debug, Clone, Default)]
 pub struct ChartsRsRenderer {
+    /// Fonts, colors and sizes of the render.
     pub theme: ChartTheme,
     /// Noms des séries qui n'en ont pas.
     pub labels: ChartLabels,
@@ -45,11 +53,17 @@ pub struct ChartsRsRenderer {
 }
 
 impl ChartsRsRenderer {
+    /// Engine with the given theme, English labels and English number format.
+    #[must_use]
     pub fn new(theme: ChartTheme) -> Self {
         Self { theme, labels: ChartLabels::default(), numbers: NumberFormat::default() }
     }
 
-    /// Rend un modèle ; tout texte du SVG qui n'est qu'un nombre suit [`Self::numbers`].
+    /// Renders a model; any SVG text that is only a number follows [`Self::numbers`].
+    ///
+    /// # Errors
+    ///
+    /// Fails if charts-rs cannot draw the model.
     pub fn render_model(&self, model: &ChartModel, size: Size) -> Result<String> {
         self.draw(model, size, &HashSet::new())
     }
@@ -94,32 +108,13 @@ impl ChartsRsRenderer {
                 let header = self.header(&mut chart.base, model);
                 (chart.svg(), header)
             }
-            ChartKind::Pie(p) => {
-                // Une série charts-rs par part (≠ ECharts : une série, n parts).
-                let series =
-                    p.slices.iter().map(|(name, v)| Series::new(name.clone(), vec![v.unwrap_or(0.0) as f32])).collect();
-                let mut chart = PieChart::new_with_theme(series, "light");
-                let mut axes = std::mem::take(&mut chart.y_axis_configs);
-                self.frame(&mut chart.base, &mut axes, model, size);
-                chart.y_axis_configs = axes;
-                // Défauts charts-rs : rose + trou de 40. Défauts ECharts : ni l'un ni l'autre.
-                let reference = f64::from(size.width.min(size.height)) / 2.0;
-                chart.rose_type = Some(p.rose);
-                chart.inner_radius = p.inner.as_ref().and_then(|l| l.resolve(reference)).unwrap_or(0.0) as f32;
-                chart.radius = p.outer.as_ref().and_then(|l| l.resolve(reference)).unwrap_or(reference * 0.75) as f32;
-                chart.border_radius = Some(0.0);
-                if !p.label {
-                    chart.series_label_formatter = " ".into();
-                }
-                let header = self.header(&mut chart.base, model);
-                (chart.svg(), header)
-            }
+            ChartKind::Pie(p) => self.pie(p, model, size),
             ChartKind::Scatter(s) => {
                 let series = s
                     .series
                     .iter()
                     .map(|ss| {
-                        let flat = ss.points.iter().flat_map(|(x, y)| [*x as f32, *y as f32]).collect();
+                        let flat = ss.points.iter().flat_map(|(x, y)| [engine_f32(*x), engine_f32(*y)]).collect();
                         Series::new(ss.name.clone(), flat)
                     })
                     .collect();
@@ -130,40 +125,65 @@ impl ChartsRsRenderer {
                 set_bounds(&mut axes, s.y_min, s.y_max);
                 chart.y_axis_configs = axes;
                 self.axis_style(&mut chart.x_axis_config);
-                chart.x_axis_config.axis_min = s.x_min.map(|v| v as f32);
-                chart.x_axis_config.axis_max = s.x_max.map(|v| v as f32);
+                chart.x_axis_config.axis_min = s.x_min.map(engine_f32);
+                chart.x_axis_config.axis_max = s.x_max.map(engine_f32);
                 let header = self.header(&mut chart.base, model);
                 (chart.svg(), header)
             }
-            ChartKind::Radar(r) => {
-                let series = r
-                    .series
-                    .iter()
-                    .map(|rs| {
-                        let values = rs.values.iter().map(|v| v.map(|x| x as f32)).collect();
-                        Series::new_nullable(rs.name.clone(), values)
-                    })
-                    .collect();
-                let indicators = r
-                    .indicators
-                    .iter()
-                    .map(|(name, max)| RadarIndicator { name: name.clone(), max: *max as f32 })
-                    .collect();
-                let mut chart = RadarChart::new_with_theme(series, indicators, "light");
-                let mut axes = std::mem::take(&mut chart.y_axis_configs);
-                self.frame(&mut chart.base, &mut axes, model, size);
-                chart.y_axis_configs = axes;
-                chart.series_fill = r.area;
-                let header = self.header(&mut chart.base, model);
-                (chart.svg(), header)
-            }
+            ChartKind::Radar(r) => self.radar(r, model, size),
             ChartKind::Waterfall(w) => return self.waterfall(w, model, size, keep),
         };
         Ok(append(self.numbers.localize_svg(&svg.context(RenderSnafu)?, keep), &header))
     }
 
-    /// Cascade : le WaterfallChart de charts-rs. Son axe n'est réglable que
-    /// par `from_json` ; hausse, baisse et total prennent la palette.
+    /// Pie: renders the raw charts-rs SVG and the header to add to it.
+    fn pie(&self, p: &Pie, model: &ChartModel, size: Size) -> (charts_rs::Result<String>, String) {
+        // One charts-rs series per slice (≠ ECharts: one series, n slices).
+        let series =
+            p.slices.iter().map(|(name, v)| Series::new(name.clone(), vec![engine_f32(v.unwrap_or(0.0))])).collect();
+        let mut chart = PieChart::new_with_theme(series, "light");
+        let mut axes = std::mem::take(&mut chart.y_axis_configs);
+        self.frame(&mut chart.base, &mut axes, model, size);
+        chart.y_axis_configs = axes;
+        // charts-rs defaults: rose + a hole of 40. ECharts defaults: neither.
+        let reference = f64::from(size.width.min(size.height)) / 2.0;
+        chart.rose_type = Some(p.rose);
+        chart.inner_radius = engine_f32(p.inner.as_ref().and_then(|l| l.resolve(reference)).unwrap_or(0.0));
+        chart.radius = engine_f32(p.outer.as_ref().and_then(|l| l.resolve(reference)).unwrap_or(reference * 0.75));
+        chart.border_radius = Some(0.0);
+        if !p.label {
+            chart.series_label_formatter = " ".into();
+        }
+        let header = self.header(&mut chart.base, model);
+        (chart.svg(), header)
+    }
+
+    /// Radar: renders the raw charts-rs SVG and the header to add to it.
+    fn radar(&self, r: &RadarModel, model: &ChartModel, size: Size) -> (charts_rs::Result<String>, String) {
+        let series = r
+            .series
+            .iter()
+            .map(|rs| {
+                let values = rs.values.iter().map(|v| v.map(engine_f32)).collect();
+                Series::new_nullable(rs.name.clone(), values)
+            })
+            .collect();
+        let indicators = r
+            .indicators
+            .iter()
+            .map(|(name, max)| RadarIndicator { name: name.clone(), max: engine_f32(*max) })
+            .collect();
+        let mut chart = RadarChart::new_with_theme(series, indicators, "light");
+        let mut axes = std::mem::take(&mut chart.y_axis_configs);
+        self.frame(&mut chart.base, &mut axes, model, size);
+        chart.y_axis_configs = axes;
+        chart.series_fill = r.area;
+        let header = self.header(&mut chart.base, model);
+        (chart.svg(), header)
+    }
+
+    /// Waterfall: the charts-rs `WaterfallChart`. Its axis can only be set
+    /// through `from_json`; rise, fall and total take the palette.
     fn waterfall(&self, w: &Waterfall, model: &ChartModel, size: Size, keep: &HashSet<String>) -> Result<String> {
         let t = &self.theme;
         let mut axis = json!({
@@ -186,10 +206,10 @@ impl ChartsRsRenderer {
             .map(|(step, total)| match total {
                 // Valeur 0 : charts-rs calcule la somme courante.
                 true => WaterfallData { value: 0.0, is_total: true },
-                false => WaterfallData { value: step.unwrap_or(0.0) as f32, is_total: false },
+                false => WaterfallData { value: engine_f32(step.unwrap_or(0.0)), is_total: false },
             })
             .collect();
-        chart.x_axis_data = w.categories.clone();
+        chart.x_axis_data.clone_from(&w.categories);
         self.frame(&mut chart.base, &mut [], model, size);
         chart.label_show = w.label;
         let palette = |i: usize| self.palette(model).get(i).map(|c| color(c));
@@ -240,9 +260,9 @@ impl ChartsRsRenderer {
         let t = &self.theme;
         base.width = size.width;
         base.height = size.height;
-        base.font_family = t.font_family.clone();
+        base.font_family.clone_from(&t.font_family);
         base.is_light = true;
-        base.background_color = t.background.as_deref().map(color).unwrap_or_else(transparent);
+        base.background_color = t.background.as_deref().map_or_else(transparent, color);
 
         // Hauteur que charts-rs réserve à l'axe X : son défaut (30) vaut pour
         // un texte de 12 ; elle suit la taille du thème avec la même marge.
@@ -277,7 +297,7 @@ impl ChartRenderer for ChartsRsRenderer {
 }
 
 fn cartesian_series(s: &CartesianSeries) -> Series {
-    let mut out = Series::new_nullable(s.name.clone(), s.values.iter().map(|v| v.map(|x| x as f32)).collect());
+    let mut out = Series::new_nullable(s.name.clone(), s.values.iter().map(|v| v.map(engine_f32)).collect());
     out.label_show = s.label;
     out.stack.clone_from(&s.stack);
     if s.mark == CartesianMark::Line {
@@ -286,15 +306,28 @@ fn cartesian_series(s: &CartesianSeries) -> Series {
     out
 }
 
+/// Value passed to charts-rs, which draws in `f32`.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "charts-rs only takes f32: rounding is intended, an out-of-range value becomes infinite"
+)]
+fn engine_f32(x: f64) -> f32 {
+    x as f32
+}
+
 fn set_bounds(axes: &mut [YAxisConfig], min: Option<f64>, max: Option<f64>) {
     if let Some(a) = axes.first_mut() {
-        a.axis_min = min.map(|v| v as f32);
-        a.axis_max = max.map(|v| v as f32);
+        a.axis_min = min.map(engine_f32);
+        a.axis_max = max.map(engine_f32);
     }
 }
 
-/// Enregistre des polices (TTF/OTF) auprès de charts-rs. À appeler au
-/// démarrage avec les mêmes fichiers que ceux chargés par le World Typst.
+/// Registers fonts (TTF/OTF) with charts-rs. To call at
+/// startup with the same files as those loaded by the Typst World.
+///
+/// # Errors
+///
+/// Fails if charts-rs rejects one of the fonts.
 pub fn register_fonts(fonts: &[&[u8]]) -> Result<()> {
     Ok(charts_rs::add_fonts(fonts).context(RenderSnafu)?)
 }

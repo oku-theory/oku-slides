@@ -21,33 +21,33 @@ use crate::error::{AgentFormSnafu, NoSlideSnafu};
 use crate::views::PageHash;
 use crate::{Result, Session};
 
-/// `report` : la conclusion d'un tour.
+/// `report`: the conclusion of a turn.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct Report {
-    /// Une ligne : ce qui a changé (« Slide 4 : fond bleu nuit »).
+    /// One line: what changed ("Slide 4: midnight blue background").
     pub title: String,
-    /// 1 à 4 faits courts.
+    /// 1 to 4 short facts.
     pub facts: Vec<String>,
-    /// Slide concernée : sa miniature est montrée.
+    /// Slide concerned: its thumbnail is shown.
     #[serde(default)]
     pub slide: Option<String>,
-    /// Couleur à montrer (#rrggbb), si pertinent.
+    /// Color to show (#rrggbb), if relevant.
     #[serde(default)]
     pub swatch: Option<String>,
-    /// L'explication, en Markdown ; repliée.
+    /// The explanation, in Markdown; collapsed.
     #[serde(default)]
     pub why: Option<String>,
-    /// 0 à 4 suites ; un clic envoie leur consigne.
+    /// 0 to 4 next steps; a click sends their prompt.
     #[serde(default)]
     pub actions: Vec<NextStep>,
 }
 
-/// Une suite proposée sous le reçu : un bouton, et la consigne qu'il envoie.
+/// A next step offered under the receipt: a button, and the prompt it sends.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct NextStep {
-    /// Libellé du bouton, 2 à 5 mots, dans la langue de l'utilisateur.
+    /// Button label, 2 to 5 words, in the user's language.
     pub label: String,
-    /// Consigne envoyée au clic ; le libellé si absente.
+    /// Prompt sent on click; the label if absent.
     #[serde(default)]
     pub prompt: Option<String>,
 }
@@ -110,7 +110,7 @@ fn sentence_end(text: &str) -> usize {
     for (i, b) in bytes.iter().enumerate() {
         match b {
             b'\n' => return i,
-            b'.' | b'!' | b'?' if bytes.get(i + 1).is_none_or(|n| n.is_ascii_whitespace()) => return i + 1,
+            b'.' | b'!' | b'?' if bytes.get(i + 1).is_none_or(u8::is_ascii_whitespace) => return i + 1,
             _ => {}
         }
     }
@@ -141,7 +141,12 @@ pub fn fallback(id: &str, narration: &str, l: &Localizer) -> Option<Surface> {
 }
 
 impl Session {
-    /// Surface `report` : bornes vérifiées, faits blancs écartés, slide désignée par l'empreinte de sa page.
+    /// `report` surface: bounds checked, blank facts dropped, slide named by its page hash.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`AgentForm`) on an empty title, facts all blank or out of bounds, or text rejected by
+    /// the bounds.
     pub fn report_surface(&mut self, id: &str, spec: &Report) -> Result<ReceiptSurfaces> {
         ensure!(
             !spec.title.trim().is_empty(),
@@ -195,7 +200,9 @@ impl Session {
 /// Le reçu, et sa version sans actions (`None` s'il n'en a pas) : celle qui reste une fois le tour passé.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReceiptSurfaces {
+    /// The full receipt, with its actions (undo, next steps).
     pub surface: Surface,
+    /// The same receipt without actions, shown once the turn is over.
     pub plain: Option<Surface>,
 }
 

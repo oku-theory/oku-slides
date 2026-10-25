@@ -1,4 +1,5 @@
 //! Lecture de bout en bout de la fixture `minimal`, et ses dégradations.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

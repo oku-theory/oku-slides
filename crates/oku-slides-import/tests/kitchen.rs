@@ -1,4 +1,5 @@
 //! Toutes les sortes d'items, et le même deck réécrit par LibreOffice.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

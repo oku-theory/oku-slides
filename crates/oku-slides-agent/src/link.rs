@@ -60,6 +60,7 @@ pub(crate) struct SessionCaps {
 }
 
 /// Empreinte d'un lancement d'agent : ses arguments ne sont jamais écrits en clair.
+#[must_use]
 pub fn agent_fingerprint(command: &str, args: &[String]) -> String {
     let mut h = Sha256::new();
     h.update(command.as_bytes());
@@ -149,6 +150,7 @@ impl Drop for Inner {
 
 impl Link {
     /// Rien n'est lancé avant le premier [`Link::connect`].
+    #[must_use]
     pub fn new(launch: Launch) -> Self {
         Self {
             inner: Arc::new(Inner {
@@ -163,6 +165,7 @@ impl Link {
     }
 
     /// L'empreinte de l'agent lancé : une session ne se reprend qu'avec le même.
+    #[must_use]
     pub fn agent_id(&self) -> String {
         let (launch, _) = self.launch_now();
         agent_fingerprint(&launch.command, &launch.args)
@@ -362,6 +365,35 @@ impl Link {
     }
 }
 
+/// Files a notification in the open turn of its session.
+///
+/// `n` comes from connection `generation`. The agent sends a turn's updates before
+/// returning its response, on the same connection; outside a turn, or replayed after
+/// `session/load`, it is ignored.
+fn on_notification(routes: &Routes, generation: u64, n: SessionNotification) {
+    tracing::trace!(?n, "acp");
+    let route = routes
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(&(generation, n.session_id.clone()))
+        .map(|r| (r.events.clone(), r.hub.clone(), r.replaying.load(Ordering::Acquire)));
+    match route {
+        Some((_, _, true)) if is_replay(&n.update) => {
+            tracing::debug!(session = ?n.session_id, "rejeu après session/load : ignoré");
+        }
+        Some((events, hub, _)) => {
+            if let Some(turn) = hub.turn() {
+                if let Some(event) = from_update(turn, n.update) {
+                    let _ = events.send(event);
+                }
+            } else {
+                tracing::debug!(session = ?n.session_id, "mise à jour hors tour : ignorée");
+            }
+        }
+        None => tracing::debug!(session = ?n.session_id, "notification d'une session inconnue"),
+    }
+}
+
 /// Ce que la tâche de la connexion garde.
 struct Serving {
     routes: Routes,
@@ -389,28 +421,7 @@ impl Serving {
                 {
                     let routes = routes.clone();
                     async move |n: SessionNotification, _cx: ConnectionTo<Agent>| {
-                        tracing::trace!(?n, "acp");
-                        let route = routes
-                            .lock()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .get(&(generation, n.session_id.clone()))
-                            .map(|r| (r.events.clone(), r.hub.clone(), r.replaying.load(Ordering::Acquire)));
-                        match route {
-                            Some((_, _, true)) if is_replay(&n.update) => {
-                                tracing::debug!(session = ?n.session_id, "rejeu après session/load : ignoré");
-                            }
-                            // Rangée dans le tour ouvert : l'agent envoie les mises à jour d'un tour
-                            // avant d'en rendre la réponse, sur la même connexion. Hors tour : ignorée.
-                            Some((events, hub, _)) => match hub.turn() {
-                                Some(turn) => {
-                                    if let Some(event) = from_update(turn, n.update) {
-                                        let _ = events.send(event);
-                                    }
-                                }
-                                None => tracing::debug!(session = ?n.session_id, "mise à jour hors tour : ignorée"),
-                            },
-                            None => tracing::debug!(session = ?n.session_id, "notification d'une session inconnue"),
-                        }
+                        on_notification(&routes, generation, n);
                         Ok(())
                     }
                 },
@@ -427,12 +438,11 @@ impl Serving {
                             .map(|r| r.hub.clone());
                         // Attendre l'utilisateur hors de la boucle de réception.
                         cx.spawn(async move {
-                            let outcome = match hub {
-                                Some(hub) => permission(&hub, &req).await,
-                                None => {
-                                    tracing::debug!(session = ?req.session_id, "permission d'une session inconnue");
-                                    RequestPermissionOutcome::Cancelled
-                                }
+                            let outcome = if let Some(hub) = hub {
+                                permission(&hub, &req).await
+                            } else {
+                                tracing::debug!(session = ?req.session_id, "permission d'une session inconnue");
+                                RequestPermissionOutcome::Cancelled
                             };
                             responder.respond(RequestPermissionResponse::new(outcome))
                         })

@@ -31,8 +31,8 @@ fn manifest(id: Uuid, namespace: &str) -> PackManifest {
         created: "2026-10-01T00:00:00Z".into(),
         scope: PackScope::Library,
         profiles: Vec::new(),
-        examples: Default::default(),
-        styles: Default::default(),
+        examples: BTreeMap::default(),
+        styles: BTreeMap::default(),
         tokens: Vec::new(),
     }
 }

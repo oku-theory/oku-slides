@@ -144,6 +144,7 @@ impl LineMetrics {
 
 impl FontPlan {
     /// Famille employée pour la famille source `family` (casse ignorée).
+    #[must_use]
     pub fn used(&self, family: &str) -> Option<&str> {
         let key = key(family);
         self.choices.iter().find(|c| self::key(&c.family) == key).and_then(|c| c.used.as_deref())
@@ -212,6 +213,7 @@ pub struct FontCatalog {
 
 impl FontCatalog {
     /// Catalogue vide.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -233,6 +235,7 @@ impl FontCatalog {
     }
 
     /// Vrai si une face de la famille `family` (casse ignorée) est disponible.
+    #[must_use]
     pub fn contains(&self, family: &str) -> bool {
         let key = key(family);
         self.faces.iter().any(|f| f.info.aliases.contains(&key))
@@ -246,11 +249,11 @@ impl FontCatalog {
         let named = || self.faces.iter().filter(move |f| f.info.aliases.contains(key));
         let app: Vec<Pick<'_>> = named().filter(|f| f.origin == FontOrigin::App).map(Pick::from).collect();
         if !app.is_empty() {
-            return (Some((FontOrigin::App, best(app))), false);
+            return (Some((FontOrigin::App, best(&app))), false);
         }
         let (blocked, system): (Vec<_>, Vec<_>) = named().partition(|f| face::restricted(f.info.fs_type));
-        let found =
-            (!system.is_empty()).then(|| (FontOrigin::System, best(system.into_iter().map(Pick::from).collect())));
+        let found = (!system.is_empty())
+            .then(|| (FontOrigin::System, best(&system.into_iter().map(Pick::from).collect::<Vec<_>>())));
         (found, !blocked.is_empty())
     }
 }
@@ -274,7 +277,7 @@ impl<'a> From<&'a CatalogFace> for Pick<'a> {
 }
 
 /// Une face par style, la plus proche de 400 (normal) ou 700 (gras), dans l'ordre des styles.
-fn best(candidates: Vec<Pick<'_>>) -> Vec<Pick<'_>> {
+fn best<'a>(candidates: &[Pick<'a>]) -> Vec<Pick<'a>> {
     [FaceStyle::Regular, FaceStyle::Bold, FaceStyle::Italic, FaceStyle::BoldItalic]
         .into_iter()
         .filter_map(|style| {
@@ -290,6 +293,7 @@ fn key(family: &str) -> String {
 }
 
 /// Le substitut de `family` (casse ignorée), s'il en a un.
+#[must_use]
 pub fn substitute(family: &str) -> Option<&'static str> {
     let key = key(family);
     SUBSTITUTES.iter().find(|(source, _)| *source == key).map(|(_, by)| *by)
@@ -299,6 +303,7 @@ pub fn substitute(family: &str) -> Option<&'static str> {
 /// `wanted` : chacune et son substitut, en minuscules. L'appelant n'ajoute
 /// au catalogue que les polices du système de ces familles : elles sont
 /// nombreuses, leurs octets ne se lisent qu'au besoin.
+#[must_use]
 pub fn sought(fonts: &[SourceFont], wanted: &[&str]) -> BTreeSet<String> {
     let families = fonts.iter().map(|f| f.family.as_str()).chain(wanted.iter().copied());
     families.flat_map(|f| [Some(key(f)), substitute(f).map(key)]).flatten().filter(|k| !k.is_empty()).collect()
@@ -310,6 +315,7 @@ pub fn sought(fonts: &[SourceFont], wanted: &[&str]) -> BTreeSet<String> {
 ///
 /// Les fichiers embarqués sont bornés : [`MAX_EMBEDDED_FILE`] chacun,
 /// [`MAX_EMBEDDED_TOTAL`] en tout, dans l'ordre des familles.
+#[must_use]
 pub fn resolve(fonts: &[SourceFont], wanted: &[&str], catalog: &FontCatalog) -> FontPlan {
     resolve_within(fonts, wanted, catalog, Caps { file: MAX_EMBEDDED_FILE, total: MAX_EMBEDDED_TOTAL })
 }

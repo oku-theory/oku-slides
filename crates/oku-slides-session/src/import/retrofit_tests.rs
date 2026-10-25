@@ -31,7 +31,7 @@ fn deck_tokens_of_an_unreadable_embedded_theme_is_refused() {
 #[test]
 fn deck_tokens_of_a_theme_missing_from_the_sources_is_refused() {
     let absent = PackVersion::from_hex(&"2".repeat(64)).unwrap();
-    let bundle = bundle_pinning(PackFiles::theme(Default::default()), Some(absent));
+    let bundle = bundle_pinning(PackFiles::theme(serde_json::Map::default()), Some(absent));
     let err = deck_tokens(&crate::ThemeLibrary::builtin_only(), &bundle).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::BadTheme);
 }

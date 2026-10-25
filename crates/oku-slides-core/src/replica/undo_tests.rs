@@ -446,7 +446,7 @@ fn text(id: &str, t: &str) -> serde_json::Value {
 }
 
 /// Ajoute `element` au slot `param` de `owner` (`None` : la slide `s-constat`).
-fn add(owner: Option<&str>, param: &str, element: serde_json::Value) -> crate::Op {
+fn add(owner: Option<&str>, param: &str, element: &serde_json::Value) -> crate::Op {
     let owner = match owner {
         Some(e) => serde_json::json!({ "slide": "s-constat", "element": e }),
         None => serde_json::json!({ "slide": "s-constat" }),
@@ -462,7 +462,7 @@ fn remove(id: &str) -> crate::Op {
 fn two_slots() -> Deck {
     let mut n = text("n", "Note libre");
     n["frame"] = serde_json::json!({ "x": 100, "y": 100, "w": 400, "h": 200 });
-    with_ops(&roadmap(), vec![add(None, "elements", n)])
+    with_ops(&roadmap(), vec![add(None, "elements", &n)])
 }
 
 /// `roadmap` et, dans `blocks` de `s-constat`, une `pile` à deux enfants
@@ -475,9 +475,9 @@ fn with_pile() -> Deck {
     with_ops(
         &roadmap(),
         vec![
-            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "base/stack" })),
-            add(Some("pile"), "children", text("k1", "Un")),
-            add(Some("pile"), "children", rich),
+            add(None, "blocks", &serde_json::json!({ "id": "pile", "kind": "base/stack" })),
+            add(Some("pile"), "children", &text("k1", "Un")),
+            add(Some("pile"), "children", &rich),
         ],
     )
 }
@@ -492,7 +492,7 @@ fn element(deck: &Deck, id: &str) -> serde_json::Value {
 fn points_to_elements(deck: &Deck) -> Deck {
     let mut moved = element(deck, "b-points");
     moved["frame"] = serde_json::json!({ "x": 0, "y": 0, "w": 400, "h": 200 });
-    with_ops(deck, vec![remove("b-points"), add(None, "elements", moved)])
+    with_ops(deck, vec![remove("b-points"), add(None, "elements", &moved)])
 }
 
 #[test]
@@ -541,7 +541,7 @@ fn undo_redo_of_a_move_across_slots_restores_exactly() {
 fn undo_redo_of_a_move_into_a_child_slot_restores_exactly() {
     let before = with_pile();
     let moved = element(&before, "b-points");
-    let after = with_ops(&before, vec![remove("b-points"), add(Some("pile"), "children", moved)]);
+    let after = with_ops(&before, vec![remove("b-points"), add(Some("pile"), "children", &moved)]);
     assert_undo_redo_exact(&before, &after);
 }
 
@@ -618,7 +618,7 @@ fn undo_a_stale_move_after_the_peer_moved_it_again_converges() {
     ok(b.merge(&a));
     assert_that!(b.deck().0).is_equal_to(&moved);
     let points = element(&moved, "b-points");
-    let nested = with_ops(&moved, vec![remove("b-points"), add(Some("pile"), "children", points)]);
+    let nested = with_ops(&moved, vec![remove("b-points"), add(Some("pile"), "children", &points)]);
     ok(b.apply(&nested, "B", None));
     ok(a.merge(&b));
     assert_that!(ok(a.undo())).is_true();
@@ -672,7 +672,7 @@ fn add_to(
     owner: Option<&str>,
     param: &str,
     index: Option<usize>,
-    element: serde_json::Value,
+    element: &serde_json::Value,
 ) -> crate::Op {
     let owner = match owner {
         Some(e) => serde_json::json!({ "slide": slide, "element": e }),
@@ -685,7 +685,7 @@ fn add_to(
 /// `deck` où `b-points` passe de `s-constat` en tête de `blocks` de `s-priorites`.
 fn points_to_priorities(deck: &Deck) -> Deck {
     let points = element(deck, "b-points");
-    with_ops(deck, vec![remove("b-points"), add_to("s-priorites", None, "blocks", Some(0), points)])
+    with_ops(deck, vec![remove("b-points"), add_to("s-priorites", None, "blocks", Some(0), &points)])
 }
 
 #[test]
@@ -716,9 +716,9 @@ fn undo_redo_of_a_slide_removal_an_element_move_and_a_reorder_in_one_apply_resto
 /// `pile` (enfants `k1`, `k2`) ajoutée à `blocks` de `s-constat`.
 fn pile_with_children() -> Vec<crate::Op> {
     vec![
-        add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "base/stack" })),
-        add(Some("pile"), "children", text("k1", "Un")),
-        add(Some("pile"), "children", text("k2", "Deux")),
+        add(None, "blocks", &serde_json::json!({ "id": "pile", "kind": "base/stack" })),
+        add(Some("pile"), "children", &text("k1", "Un")),
+        add(Some("pile"), "children", &text("k2", "Deux")),
     ]
 }
 
@@ -738,8 +738,8 @@ fn undo_redo_of_adding_a_slide_with_elements_restores_exactly() {
     let after = with_ops(
         &after,
         vec![
-            add_to("s-neuve", None, "blocks", None, text("n1", "Un")),
-            add_to("s-neuve", None, "blocks", None, serde_json::json!({ "id": "n2", "kind": "base/stack" })),
+            add_to("s-neuve", None, "blocks", None, &text("n1", "Un")),
+            add_to("s-neuve", None, "blocks", None, &serde_json::json!({ "id": "n2", "kind": "base/stack" })),
         ],
     );
     assert_deck_undo_redo_exact(&before, &after, false);
@@ -754,9 +754,9 @@ fn undo_redo_of_moving_an_element_into_a_new_owner_restores_exactly() {
     let after = with_ops(
         &before,
         vec![
-            add(None, "blocks", serde_json::json!({ "id": "pile", "kind": "base/stack" })),
+            add(None, "blocks", &serde_json::json!({ "id": "pile", "kind": "base/stack" })),
             remove("b-points"),
-            add(Some("pile"), "children", points),
+            add(Some("pile"), "children", &points),
         ],
     );
     assert_deck_undo_redo_exact(&before, &after, false);

@@ -36,8 +36,11 @@ pub enum Place {
 /// Une surface prête à afficher : ses messages A2UI et sa place.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Surface {
+    /// A2UI id of the surface, unique within the session.
     pub id: String,
+    /// Where the interface displays it.
     pub place: Place,
+    /// Element to anchor a card under; without it, no anchor.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor: Option<Anchor>,
     /// Le tour qui l'a créée (surfaces du fil) ; le hub la remplit.
@@ -48,6 +51,7 @@ pub struct Surface {
     /// Une question (`ask_*`, confirmation, permission) : elle attend la réponse de
     /// l'utilisateur. Sa version figée (question répondue) n'en est plus une.
     pub question: bool,
+    /// A2UI messages that build the surface, in sending order.
     pub messages: Vec<ServerMessage>,
 }
 
@@ -56,7 +60,7 @@ impl Surface {
     ///
     /// Sert à garder la copie de l'hôte à jour quand l'interface a déjà
     /// changé la sienne (un réglage de surface), pour une resynchronisation.
-    pub fn set_value(&mut self, key: &str, value: Value) {
+    pub fn set_value(&mut self, key: &str, value: &Value) {
         for m in &mut self.messages {
             if let ServerBody::UpdateDataModel(u) = &mut m.body
                 && u.path.is_none()
@@ -68,30 +72,33 @@ impl Surface {
     }
 }
 
-/// Le champ ou l'élément sous lequel afficher une fiche.
+/// The field or element under which to show a card.
 ///
-/// Vient de l'agent : la session le résout contre le deck actif (`Session::check_anchor`) avant
-/// toute surface.
+/// It comes from the agent: the session resolves it against the active deck
+/// (`Session::check_anchor`) before any surface.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Anchor {
+    /// Id of the slide that holds the targeted object.
     pub slide: String,
-    /// L'objet visé : un élément de cette slide (son id), ou la slide elle-même (son id) pour
-    /// un de ses champs.
+    /// The targeted object: an element of this slide (its id), or the slide itself.
+    ///
+    /// Give the slide's own id for one of its fields.
     pub owner: String,
-    /// Un paramètre texte de `owner` (voir `widgets`), par son nom ; requis quand `owner` est la
-    /// slide. Sans lui : l'élément entier.
+    /// A text parameter of `owner` (see `widgets`), by its name.
+    ///
+    /// Required when `owner` is the slide. Without it: the whole element.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
 }
 
-/// `ask_choice` : une question et ses options ; l'outil renvoie l'option choisie.
+/// `ask_choice`: a question and its options; the tool returns the chosen option.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct AskChoice {
-    /// La question, courte, dans la langue de l'utilisateur.
+    /// The question, short, in the user's language.
     pub question: String,
-    /// 2 à 6 options.
+    /// 2 to 6 options.
     pub options: Vec<ChoiceOption>,
-    /// Élément concerné : la question s'affiche dessous ; sinon dans le fil.
+    /// Element concerned: the question shows under it; otherwise in the thread.
     #[serde(default)]
     pub anchor: Option<Anchor>,
 }
@@ -113,103 +120,130 @@ pub fn frozen_choice(id: &str, question: &str, answer: Option<&str>, l: &Localiz
     s
 }
 
-/// `ask_confirm` : oui ou non.
+/// `ask_confirm`: yes or no.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct AskConfirm {
+    /// The question asked, in the user's language.
     pub message: String,
-    /// Action destructive : le bouton le dit.
+    /// Destructive action: the button says so.
     #[serde(default)]
     pub danger: bool,
 }
 
-/// `ask_rewrite` : 2 ou 3 reformulations d'un texte ; celle retenue est appliquée.
+/// `ask_rewrite`: 2 or 3 rewrites of a text; the one picked is applied.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct AskRewrite {
+    /// Id of the slide that holds the text.
     pub slide: String,
-    /// L'objet qui porte le texte : un élément de cette slide (son id), ou la slide elle-même
-    /// (son id) pour un de ses champs.
+    /// The object that holds the text: an element of this slide (its id), or the slide itself.
+    ///
+    /// Give the slide's own id for one of its fields.
     pub owner: String,
-    /// Le paramètre texte de `owner` à reformuler (voir `widgets`) ; requis quand `owner` est la
-    /// slide. Sans lui : le premier paramètre `rich` de l'élément.
+    /// The text parameter of `owner` to rewrite (see `widgets`).
+    ///
+    /// Required when `owner` is the slide. Without it: the element's first `rich` parameter.
     #[serde(default)]
     pub field: Option<String>,
-    /// 2 ou 3 propositions ; une ligne par paragraphe, `- ` pour une puce.
+    /// 2 or 3 proposals; one line per paragraph, `- ` for a bullet.
     pub proposals: Vec<String>,
 }
 
-/// Nature d'un champ de `show_params`.
+/// Kind of a `show_params` field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FieldKind {
+    /// Integer set with buttons, between rounded `min` and `max` (1 and 24 by default).
     Stepper,
+    /// Number set with a slider between `min` and `max`, in steps of `step`.
     Slider,
+    /// Hexadecimal color, with the theme palette as shortcuts.
     Color,
+    /// One value among `options`.
     Select,
+    /// Plain text, without formatting.
     Text,
-    /// Texte riche : paragraphes, montrés en markdown d'édition.
+    /// Rich text: paragraphs, shown as editing markdown.
     Rich,
-    /// Liste d'items, saisie en tableau : `value` = items. Réglages de l'hôte
-    /// seulement (absent du schéma des outils, refusé par `show_params`).
+    /// List of items, edited as a table: `value` = items.
+    ///
+    /// Host settings only: absent from the tools' schema, refused by `show_params`.
     #[schemars(skip)]
     List,
 }
 
-/// Un champ de `show_params` et l'op qu'il applique.
+/// A `show_params` field and the op it applies.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct ParamField {
+    /// Field label, in the user's language.
     pub label: String,
+    /// Kind of field, which sets its control.
     pub kind: FieldKind,
-    /// Valeur actuelle.
+    /// Current value.
     pub value: Value,
-    /// Une op du deck où la chaîne `"$value"` sera remplacée par la valeur choisie.
+    /// A deck op where the string `"$value"` is replaced by the chosen value.
     pub op_template: Value,
+    /// Lower bound of a `stepper` or a `slider`.
+    ///
+    /// When absent, it is 1 for a `stepper` and 0 for a `slider`.
     #[serde(default)]
     pub min: Option<f64>,
+    /// Upper bound of a `stepper` or a `slider`.
+    ///
+    /// When absent, it is 24 for a `stepper` and 100 for a `slider`.
     #[serde(default)]
     pub max: Option<f64>,
+    /// Step of a `slider`; ignored elsewhere.
     #[serde(default)]
     pub step: Option<f64>,
-    /// Options d'un champ `select`.
+    /// Options of a `select` field.
     #[serde(default)]
     pub options: Vec<ChoiceOption>,
-    /// Colonnes d'un champ `list` (réglages de l'hôte).
+    /// Columns of a `list` field (host settings).
     #[serde(default)]
     #[schemars(skip)]
     pub columns: Vec<ListColumn>,
-    /// Nom d'un item d'un champ `list` (« étape ») ; sans lui, « élément ».
+    /// Name of one item of a `list` field ("step"); without it, the generic name.
     #[serde(default)]
     #[schemars(skip)]
     pub item_label: Option<String>,
 }
 
-/// `show_params` : une surface de réglages qui s'appliquent tout de suite.
+/// `show_params`: a surface of settings that apply at once.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct ShowParams {
+    /// Surface title, in the user's language.
     pub title: String,
-    /// Slide réglée : la surface disparaît si elle est supprimée.
+    /// Slide being set: the surface goes away if the slide is deleted.
     pub slide: String,
-    /// 1 à 8 champs.
+    /// 1 to 8 fields.
     pub fields: Vec<ParamField>,
 }
 
-/// Une variante : un libellé et les ops qui la produisent.
+/// A variant: a label and the ops that produce it.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct Variant {
+    /// Short label of the variant, in the user's language.
     pub label: String,
+    /// Deck ops applied to the slide to produce the variant.
     pub ops: Vec<Op>,
 }
 
-/// `show_variants` : 2 à 4 variantes d'une slide, rendues ; la choisie est appliquée.
+/// `show_variants`: 2 to 4 rendered variants of a slide; the chosen one is applied.
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 pub struct ShowVariants {
+    /// Id of the slide the variants derive from.
     pub slide: String,
+    /// 2 to 4 variants of this slide.
     pub variants: Vec<Variant>,
 }
 
-/// Bornes du nombre d'options, de propositions, de variantes et de champs.
+/// Bounds `(min, max)` on the number of `ask_choice` options.
 pub const CHOICES: (usize, usize) = (2, 6);
+/// Bounds `(min, max)` on the number of `ask_rewrite` proposals.
 pub const PROPOSALS: (usize, usize) = (2, 3);
+/// Bounds `(min, max)` on the number of `show_variants` variants.
 pub const VARIANTS: (usize, usize) = (2, 4);
+/// Bounds `(min, max)` on the number of `show_params` fields.
 pub const FIELDS: (usize, usize) = (1, 8);
 /// Plafond du nombre d'options d'un champ `select` (large : une liste vide reste permise).
 pub const SELECT_OPTIONS_MAX: usize = 100;
@@ -416,6 +450,7 @@ pub(crate) fn rewrite(id: &str, spec: &AskRewrite, original: &str, l: &Localizer
 }
 
 /// Clé du champ `i` d'une surface `show_params` dans son modèle de données.
+#[must_use]
 pub fn param_key(i: usize) -> String {
     format!("f{i}")
 }
@@ -484,10 +519,10 @@ pub(crate) struct FieldEvent<'a> {
 
 impl FieldEvent<'_> {
     /// L'action qui envoie le chemin `path` du modèle sous `entry`.
-    fn action(&self, entry: &'static str, path: &str) -> Option<Action> {
+    fn action(&self, entry: &'static str, path: &str) -> Action {
         let mut context = self.context.clone();
         context.push((entry, Dynamic::path(path)));
-        Some(Action::event(self.name, context))
+        Action::event(self.name, context)
     }
 }
 
@@ -502,14 +537,14 @@ pub(crate) fn field_components(
     let mut data = serde_json::Map::new();
     let path = format!("/{key}");
     let mut markdown: Option<String> = None;
-    let action = event.action("value", &path);
+    let action = Some(event.action("value", &path));
     let label = Dynamic::Literal(f.label.clone());
     let kind = match f.kind {
         FieldKind::Stepper => ComponentKind::Stepper {
             label,
             value: Dynamic::path(&path),
-            min: f.min.map(|v| v.round() as i64),
-            max: f.max.map(|v| v.round() as i64),
+            min: f.min.map(oku_slides_core::num::round_i64),
+            max: f.max.map(oku_slides_core::num::round_i64),
             action,
         },
         FieldKind::Slider => ComponentKind::Slider {
@@ -537,7 +572,7 @@ pub(crate) fn field_components(
                 value: Dynamic::path(&path),
                 source: Dynamic::path(&source),
                 palette: palette.to_vec(),
-                action: event.action("value", &source),
+                action: Some(event.action("value", &source)),
             }
         }
         FieldKind::List => {
@@ -550,11 +585,11 @@ pub(crate) fn field_components(
                 change: Dynamic::path(&change),
                 markdown: Dynamic::path(format!("{path}-markdown")),
                 columns: f.columns.clone(),
-                min: f.min.map_or(0, |m| m.max(0.0) as u32),
-                max: f.max.map(|m| m.max(0.0) as u32),
+                min: f.min.map_or(0, |m| oku_slides_core::num::trunc_u32(m.max(0.0))),
+                max: f.max.map(|m| oku_slides_core::num::trunc_u32(m.max(0.0))),
                 item_label: f.item_label.clone(),
                 palette: palette.to_vec(),
-                action: event.action("change", &change),
+                action: Some(event.action("change", &change)),
             }
         }
     };

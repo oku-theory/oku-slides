@@ -16,6 +16,7 @@ pub(super) fn is_tab_id(id: &str) -> bool {
 /// Un label de fenêtre de l'espace de travail : `w-<n>`.
 ///
 /// Accepté par Tauri et par la capacité `w-*`.
+#[must_use]
 pub fn is_window_label(label: &str) -> bool {
     numbered(label, "w-")
 }

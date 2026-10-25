@@ -107,7 +107,7 @@ fn set_theme_in_pack_mode_chooses_the_edited_theme() {
 fn rename_edited_theme_with_blank_name_keeps_the_base_name() {
     let mut s = session_with_theme(PAPIER_THEME);
     s.edit_pack(ESSENTIEL_PACK).unwrap();
-    s.rename_edited_theme("   ".into()).unwrap();
+    s.rename_edited_theme("   ").unwrap();
     assert_that!(theme_edit(&s).name.as_str()).is_equal_to("Papier");
 }
 
@@ -130,7 +130,7 @@ fn switching_packs_in_pack_mode_keeps_the_theme_draft() {
     let mut s = session_with_theme(PAPIER_THEME);
     s.edit_pack(ESSENTIEL_PACK).unwrap();
     set_accent(&mut s, "#ff0000");
-    s.rename_edited_theme("Rouge".into()).unwrap();
+    s.rename_edited_theme("Rouge").unwrap();
     s.edit_pack(crate::BASE_PACK).unwrap();
     assert_that!(s.deck().tokens.pointer("/color/accent")).is_equal_to(Some(&json!("#ff0000")));
     assert_that!(theme_edit(&s).name.as_str()).is_equal_to("Rouge");
@@ -148,7 +148,7 @@ fn set_edited_theme_embeds_the_base_version_in_the_working_sources() {
 #[test]
 fn entering_pack_mode_without_deck_theme_reads_the_default_base_from_the_sources() {
     let mut s = session();
-    s.apply("x", vec![Op::SetTheme { theme: None, themes: Default::default() }], None).unwrap();
+    s.apply("x", vec![Op::SetTheme { theme: None, themes: std::collections::BTreeMap::default() }], None).unwrap();
     s.edit_pack(ESSENTIEL_PACK).unwrap();
     let base = theme_edit(&s).base;
     // Embarquée par le deck de travail, ou déjà par le deck mis de côté : en mémoire.

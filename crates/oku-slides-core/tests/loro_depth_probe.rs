@@ -14,6 +14,7 @@
 //!
 //! Les tests sans `#[ignore]` vérifient ces faits sur une pile réduite ; les
 //! chaînes sont construites sur une grande pile (leur export récurse).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::process::Command;
 

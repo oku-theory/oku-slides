@@ -8,13 +8,13 @@ use super::*;
 use crate::model::Element;
 use crate::test_registry::registry;
 
-fn deck(slides: Value) -> Deck {
+fn deck(slides: &Value) -> Deck {
     serde_json::from_value(json!({ "version": 9, "slides": slides })).unwrap()
 }
 
 /// Une slide `content` dont le slot `slot` porte `elements`.
-fn content(slot: &str, elements: Value) -> Deck {
-    deck(json!([{ "id": "s", "kind": "essentiel/content", "params": { slot: elements } }]))
+fn content(slot: &str, elements: &Value) -> Deck {
+    deck(&json!([{ "id": "s", "kind": "essentiel/content", "params": { slot: elements } }]))
 }
 
 fn run(d: &Deck) -> Vec<Issue> {
@@ -66,7 +66,7 @@ fn validate_reference_decks_have_no_issue() {
 
 #[test]
 fn validate_empty_and_duplicate_slide_ids_are_reported() {
-    let d = deck(json!([{ "id": "", "kind": "essentiel/title" }, { "id": "", "kind": "essentiel/title" }]));
+    let d = deck(&json!([{ "id": "", "kind": "essentiel/title" }, { "id": "", "kind": "essentiel/title" }]));
     assert_that!(ids(&run(&d))).is_equal_to(vec![
         "issue-empty-slide-id",
         "issue-empty-slide-id",
@@ -76,7 +76,7 @@ fn validate_empty_and_duplicate_slide_ids_are_reported() {
 
 #[test]
 fn validate_unknown_slide_widget_is_reported_and_its_params_are_not_checked() {
-    let d = deck(json!([{ "id": "s", "kind": "nope", "params": { "x": 1 } }]));
+    let d = deck(&json!([{ "id": "s", "kind": "nope", "params": { "x": 1 } }]));
     let issues = run(&d);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-unknown-widget"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-unknown-widget", "kind", "nope"));
@@ -86,7 +86,7 @@ fn validate_unknown_slide_widget_is_reported_and_its_params_are_not_checked() {
 fn validate_unknown_element_widget_is_reported_and_its_slots_are_walked() {
     let d = content(
         "blocks",
-        json!([{ "id": "u", "kind": "nope", "params": { "x": 1, "children": [{ "id": "", "kind": "base/text" }] } }]),
+        &json!([{ "id": "u", "kind": "nope", "params": { "x": 1, "children": [{ "id": "", "kind": "base/text" }] } }]),
     );
     let issues = run(&d);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-unknown-widget", "issue-empty-element-id"]);
@@ -97,13 +97,13 @@ fn validate_unknown_element_widget_is_reported_and_its_slots_are_walked() {
 #[case::element_widget_as_slide(json!([{ "id": "s", "kind": "base/text" }]))]
 #[case::slide_widget_as_element(json!([{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [{ "id": "e", "kind": "essentiel/toc" }] } }]))]
 fn validate_widget_of_another_category_is_reported(#[case] slides: Value) {
-    let issues = run(&deck(slides));
+    let issues = run(&deck(&slides));
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-wrong-category"]);
 }
 
 #[test]
 fn validate_unknown_param_is_reported_with_its_name() {
-    let d = content("blocks", json!([{ "id": "e", "kind": "base/text", "params": { "colour": "red" } }]));
+    let d = content("blocks", &json!([{ "id": "e", "kind": "base/text", "params": { "colour": "red" } }]));
     let issues = run(&d);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-unknown-param"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-unknown-param", "param", "colour"));
@@ -128,7 +128,7 @@ fn validate_param_of_the_wrong_shape_is_reported(#[case] element: Value) {
     let mut element = element;
     element["id"] = json!("e");
     let slot = if element.get("frame").is_some() { "elements" } else { "blocks" };
-    let issues = run(&content(slot, json!([element])));
+    let issues = run(&content(slot, &json!([element])));
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
 }
 
@@ -136,7 +136,7 @@ fn validate_param_of_the_wrong_shape_is_reported(#[case] element: Value) {
 #[case::grid_given_a_number(json!(3))]
 #[case::grid_unreadable(json!({ "columns": "x" }))]
 fn validate_grid_param_of_the_wrong_shape_is_reported(#[case] grid: Value) {
-    let d = deck(json!([{ "id": "s", "kind": "essentiel/blank", "params": { "grid": grid } }]));
+    let d = deck(&json!([{ "id": "s", "kind": "essentiel/blank", "params": { "grid": grid } }]));
     let issues = run(&d);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-param-type", "param", "grid"));
@@ -152,18 +152,18 @@ fn validate_grid_param_of_the_wrong_shape_is_reported(#[case] grid: Value) {
 fn validate_param_of_the_right_shape_is_accepted(#[case] element: Value) {
     let mut element = element;
     element["id"] = json!("e");
-    assert_that!(run(&content("blocks", json!([element])))).is_empty();
+    assert_that!(run(&content("blocks", &json!([element])))).is_empty();
 }
 
 #[test]
 fn validate_empty_array_for_a_slot_is_accepted() {
-    let d = deck(json!([{ "id": "s", "kind": "essentiel/blank", "params": { "elements": [] } }]));
+    let d = deck(&json!([{ "id": "s", "kind": "essentiel/blank", "params": { "elements": [] } }]));
     assert_that!(run(&d)).is_empty();
 }
 
 #[test]
 fn validate_choice_out_of_its_values_is_reported() {
-    let d = content("blocks", json!([{ "id": "e", "kind": "base/shape", "params": { "shape": "star" } }]));
+    let d = content("blocks", &json!([{ "id": "e", "kind": "base/shape", "params": { "shape": "star" } }]));
     let issues = run(&d);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-choice-out-of-range"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-choice-out-of-range", "param", "shape"));
@@ -171,7 +171,7 @@ fn validate_choice_out_of_its_values_is_reported() {
 
 #[test]
 fn validate_number_above_max_is_reported() {
-    let d = content("blocks", json!([{ "id": "e", "kind": "t/meter", "params": { "level": 11 } }]));
+    let d = content("blocks", &json!([{ "id": "e", "kind": "t/meter", "params": { "level": 11 } }]));
     assert_that!(ids(&validate(&d, &custom_registry(), None))).is_equal_to(vec!["issue-param-type"]);
 }
 
@@ -179,7 +179,7 @@ fn validate_number_above_max_is_reported() {
 fn validate_child_rejected_by_its_slot_is_reported() {
     let d = content(
         "blocks",
-        json!([{ "id": "g", "kind": "t/gallery", "params": { "items": [
+        &json!([{ "id": "g", "kind": "t/gallery", "params": { "items": [
             { "id": "i", "kind": "base/image", "params": { "asset": "sha256:00" } },
             { "id": "t", "kind": "base/text" }
         ] } }]),
@@ -194,7 +194,7 @@ fn validate_child_rejected_by_its_slot_is_reported() {
 fn validate_empty_and_duplicate_element_ids_are_reported() {
     let d = content(
         "blocks",
-        json!([
+        &json!([
             { "id": "", "kind": "base/text" },
             { "id": "a", "kind": "base/text" },
             { "id": "st", "kind": "base/stack", "params": { "layout": "rows", "children": [{ "id": "a", "kind": "base/text" }] } }
@@ -207,7 +207,7 @@ fn validate_empty_and_duplicate_element_ids_are_reported() {
 fn validate_free_slot_child_without_frame_or_cell_is_reported() {
     let d = content(
         "elements",
-        json!([
+        &json!([
             { "id": "a", "kind": "base/text" },
             { "id": "c", "kind": "test/frame-box", "cell": { "col": 0, "row": 0 }, "params": { "children": [{ "id": "b", "kind": "base/text" }] } }
         ]),
@@ -222,14 +222,14 @@ fn validate_free_slot_child_without_frame_or_cell_is_reported() {
 #[case::frame(json!({ "id": "e", "kind": "base/text", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 } }))]
 #[case::cell(json!({ "id": "e", "kind": "base/text", "cell": { "col": 0, "row": 0 } }))]
 fn validate_flow_slot_child_with_frame_or_cell_is_reported(#[case] element: Value) {
-    let issues = run(&content("blocks", json!([element])));
+    let issues = run(&content("blocks", &json!([element])));
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-placed-in-flow"]);
 }
 
 #[test]
 fn validate_zero_size_frame_is_reported() {
     let d =
-        content("elements", json!([{ "id": "e", "kind": "base/text", "frame": { "x": 0, "y": 0, "w": 0, "h": 5 } }]));
+        content("elements", &json!([{ "id": "e", "kind": "base/text", "frame": { "x": 0, "y": 0, "w": 0, "h": 5 } }]));
     assert_that!(ids(&run(&d))).is_equal_to(vec!["issue-empty-frame"]);
 }
 
@@ -244,7 +244,7 @@ fn validate_style_out_of_its_domain_is_reported_with_its_reason(
     #[case] field: &str,
     #[case] reason: &str,
 ) {
-    let d = content("blocks", json!([{ "id": "e", "kind": "base/text", "style": style }]));
+    let d = content("blocks", &json!([{ "id": "e", "kind": "base/text", "style": style }]));
     let issues = run(&d);
     let expected = Message::new("issue-invalid-style").arg("field", field).arg("reason", reason);
     assert_that!(issues.iter().map(|i| i.message.clone()).collect::<Vec<_>>()).is_equal_to(vec![expected]);
@@ -263,7 +263,7 @@ fn validate_invalid_style_reason_is_localized(#[case] reason: &str, #[case] expe
 
 #[test]
 fn validate_cell_outside_the_slide_grid_is_reported() {
-    let d = deck(json!([{ "id": "s", "kind": "essentiel/blank", "params": {
+    let d = deck(&json!([{ "id": "s", "kind": "essentiel/blank", "params": {
         "grid": { "columns": 2, "rows": 2 },
         "elements": [
             { "id": "in", "kind": "base/text", "cell": { "col": 1, "row": 1 } },
@@ -277,7 +277,7 @@ fn validate_cell_outside_the_slide_grid_is_reported() {
 
 #[test]
 fn validate_cell_outside_the_default_grid_is_reported() {
-    let d = content("elements", json!([{ "id": "e", "kind": "base/text", "cell": { "col": 12, "row": 0 } }]));
+    let d = content("elements", &json!([{ "id": "e", "kind": "base/text", "cell": { "col": 12, "row": 0 } }]));
     assert_that!(ids(&run(&d))).is_equal_to(vec!["issue-cell-outside-grid"]);
 }
 
@@ -285,16 +285,19 @@ fn validate_cell_outside_the_default_grid_is_reported() {
 fn validate_cell_inside_a_frame_box_is_not_checked_against_the_slide_grid() {
     let d = content(
         "elements",
-        json!([{ "id": "c", "kind": "test/frame-box", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 }, "params": { "children": [
-            { "id": "e", "kind": "base/text", "cell": { "col": 40, "row": 0 } }
-        ] } }]),
+        &json!([{
+            "id": "c", "kind": "test/frame-box", "frame": { "x": 0, "y": 0, "w": 10, "h": 10 },
+            "params": { "children": [
+                { "id": "e", "kind": "base/text", "cell": { "col": 40, "row": 0 } }
+            ] }
+        }]),
     );
     assert_that!(run(&d)).is_empty();
 }
 
 #[test]
 fn validate_missing_asset_is_reported_only_when_assets_are_given() {
-    let d = content("blocks", json!([{ "id": "i", "kind": "base/image", "params": { "asset": "sha256:ab" } }]));
+    let d = content("blocks", &json!([{ "id": "i", "kind": "base/image", "params": { "asset": "sha256:ab" } }]));
     assert_that!(run(&d)).is_empty();
     let issues = validate(&d, &registry(), Some(&HashSet::new()));
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-missing-asset"]);
@@ -307,7 +310,7 @@ fn validate_missing_asset_is_reported_only_when_assets_are_given() {
 #[case::javascript(json!({ "t": "a", "link": "javascript:alert(1)" }), "issue-unsupported-link")]
 #[case::highlight_zero(json!({ "t": "a", "highlight": 0 }), "issue-highlight-zero")]
 fn validate_rich_text_problems_are_reported(#[case] run_: Value, #[case] id: &str) {
-    let d = content("blocks", json!([{ "id": "c", "kind": "base/card", "params": { "body": [{ "runs": [run_] }] } }]));
+    let d = content("blocks", &json!([{ "id": "c", "kind": "base/card", "params": { "body": [{ "runs": [run_] }] } }]));
     assert_that!(ids(&run(&d))).is_equal_to(vec![id]);
 }
 
@@ -316,13 +319,13 @@ fn validate_safe_links_are_accepted() {
     let body = json!([{ "runs": [
         { "t": "a", "link": "https://oku.test" }, { "t": "b", "link": "HTTP://x" }, { "t": "c", "link": "mailto:a@b.c" }
     ] }]);
-    assert_that!(run(&content("blocks", json!([{ "id": "t", "kind": "base/text", "params": { "body": body } }]))))
+    assert_that!(run(&content("blocks", &json!([{ "id": "t", "kind": "base/text", "params": { "body": body } }]))))
         .is_empty();
 }
 
 #[test]
 fn validate_unknown_bind_is_reported_once_per_widget() {
-    let d = deck(json!([{ "id": "a", "kind": "t/cover" }, { "id": "b", "kind": "t/cover" }]));
+    let d = deck(&json!([{ "id": "a", "kind": "t/cover" }, { "id": "b", "kind": "t/cover" }]));
     let issues = validate(&d, &custom_registry(), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-unknown-bind"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-unknown-bind", "param", "brand"));
@@ -330,7 +333,7 @@ fn validate_unknown_bind_is_reported_once_per_widget() {
 
 #[test]
 fn validate_bind_to_a_deck_extra_is_accepted() {
-    let mut d = deck(json!([{ "id": "a", "kind": "t/cover" }]));
+    let mut d = deck(&json!([{ "id": "a", "kind": "t/cover" }]));
     d.params.extra.insert("nope".into(), json!("Marque"));
     assert_that!(validate(&d, &custom_registry(), None)).is_empty();
 }
@@ -342,7 +345,7 @@ fn frame_chain(n: usize) -> Deck {
     for i in (0..n - 1).rev() {
         e = json!({ "id": format!("c{i}"), "kind": "test/frame-box", "frame": frame, "params": { "children": [e] } });
     }
-    content("elements", json!([e]))
+    content("elements", &json!([e]))
 }
 
 /// Même borne que les ops : `frame_chain(MAX_SLOT_DEPTH)` s'y construit,
@@ -361,18 +364,18 @@ fn validate_element_nested_one_level_past_the_bound_is_reported() {
 
 #[test]
 fn validate_issue_display_names_slide_and_element() {
-    let d = content("blocks", json!([{ "id": "", "kind": "base/text" }]));
+    let d = content("blocks", &json!([{ "id": "", "kind": "base/text" }]));
     assert_that!(run(&d)[0].to_string()).is_equal_to("[s/] empty identifier".to_owned());
 }
 
-fn validate_element(element: Value, assets: Option<&HashSet<String>>) -> Vec<Issue> {
-    validate(&content("blocks", json!([element])), &crate::test_registry::with_list(), assets)
+fn validate_element(element: &Value, assets: Option<&HashSet<String>>) -> Vec<Issue> {
+    validate(&content("blocks", &json!([element])), &crate::test_registry::with_list(), assets)
 }
 
 #[test]
 fn validate_well_formed_list_has_no_issue() {
     let issues = validate_element(
-        json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [
+        &json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [
             { "id": "a", "date": "2019", "fait": true }, { "id": "b", "texte": "x" }
         ] } }),
         None,
@@ -383,7 +386,7 @@ fn validate_well_formed_list_has_no_issue() {
 #[test]
 fn validate_list_with_duplicate_item_ids_reports_it() {
     let issues = validate_element(
-        json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "a" }, { "id": "a" }] } }),
+        &json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "a" }, { "id": "a" }] } }),
         None,
     );
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-duplicate-item-id"]);
@@ -394,18 +397,18 @@ fn validate_list_with_duplicate_item_ids_reports_it() {
 #[test]
 fn validate_list_with_empty_item_id_reports_it() {
     let issues =
-        validate_element(json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "" }] } }), None);
+        validate_element(&json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "" }] } }), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-empty-item-id"]);
 }
 
 #[test]
 fn validate_list_above_max_reports_bounds() {
     let three = json!([{ "id": "a" }, { "id": "b" }, { "id": "c" }]);
-    let issues = validate_element(json!({ "id": "f", "kind": "test-el/bornes", "params": { "bornee": three } }), None);
+    let issues = validate_element(&json!({ "id": "f", "kind": "test-el/bornes", "params": { "bornee": three } }), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-list-bounds"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-list-bounds", "param", "bornee"));
     let two = json!([{ "id": "a" }, { "id": "b" }]);
-    assert_that!(validate_element(json!({ "id": "f", "kind": "test-el/bornes", "params": { "bornee": two } }), None))
+    assert_that!(validate_element(&json!({ "id": "f", "kind": "test-el/bornes", "params": { "bornee": two } }), None))
         .is_empty();
 }
 
@@ -414,21 +417,21 @@ fn validate_list_above_max_reports_bounds() {
 #[case::over_default_cap(crate::LIST_ITEMS_MAX + 1, &["issue-list-bounds"])]
 fn validate_list_without_schema_max_applies_default_cap(#[case] count: usize, #[case] expected: &[&str]) {
     let items: Vec<Value> = (0..count).map(|i| json!({ "id": format!("i{i}") })).collect();
-    let issues = validate_element(json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": items } }), None);
+    let issues = validate_element(&json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": items } }), None);
     assert_that!(ids(&issues)).is_equal_to(expected.to_vec());
 }
 
 #[test]
 fn validate_absent_or_empty_list_below_min_is_accepted() {
-    assert_that!(validate_element(json!({ "id": "f", "kind": "test-el/bornes" }), None)).is_empty();
-    assert_that!(validate_element(json!({ "id": "f", "kind": "test-el/bornes", "params": { "bornee": [] } }), None))
+    assert_that!(validate_element(&json!({ "id": "f", "kind": "test-el/bornes" }), None)).is_empty();
+    assert_that!(validate_element(&json!({ "id": "f", "kind": "test-el/bornes", "params": { "bornee": [] } }), None))
         .is_empty();
 }
 
 #[test]
 fn validate_list_column_of_wrong_type_reports_param_type() {
     let issues = validate_element(
-        json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "a", "date": 3 }] } }),
+        &json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "a", "date": 3 }] } }),
         None,
     );
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
@@ -438,7 +441,7 @@ fn validate_list_column_of_wrong_type_reports_param_type() {
 #[test]
 fn validate_list_column_unknown_reports_param_type() {
     let issues = validate_element(
-        json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "a", "inconnue": "x" }] } }),
+        &json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [{ "id": "a", "inconnue": "x" }] } }),
         None,
     );
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
@@ -446,7 +449,7 @@ fn validate_list_column_unknown_reports_param_type() {
 
 #[test]
 fn validate_list_shaped_value_on_a_plain_param_reports_param_type() {
-    let d = content("blocks", json!([{ "id": "c", "kind": "base/card", "params": { "title": [{ "id": "a" }] } }]));
+    let d = content("blocks", &json!([{ "id": "c", "kind": "base/card", "params": { "title": [{ "id": "a" }] } }]));
     let issues = validate(&d, &crate::test_registry::with_list(), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-param-type", "param", "title"));
@@ -457,16 +460,16 @@ fn validate_list_asset_column_missing_from_sources_reports_it() {
     let element = json!({ "id": "f", "kind": "test-el/bornes", "params": { "images": [
         { "id": "a", "img": "sha256:ab" }, { "id": "b", "img": "sha256:cd" }
     ] } });
-    assert_that!(validate_element(element.clone(), None)).is_empty();
+    assert_that!(validate_element(&element, None)).is_empty();
     let present = HashSet::from(["sha256:ab".to_owned()]);
-    let issues = validate_element(element, Some(&present));
+    let issues = validate_element(&element, Some(&present));
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-missing-asset"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-missing-asset", "asset", "sha256:cd"));
 }
 
 #[test]
 fn asset_refs_lists_the_asset_of_an_image_element() {
-    let d = content("blocks", json!([{ "id": "i", "kind": "base/image", "params": { "asset": "sha256:ab" } }]));
+    let d = content("blocks", &json!([{ "id": "i", "kind": "base/image", "params": { "asset": "sha256:ab" } }]));
     assert_that!(asset_refs(&d, &registry())).is_equal_to(BTreeSet::from(["sha256:ab".to_owned()]));
 }
 
@@ -474,7 +477,7 @@ fn asset_refs_lists_the_asset_of_an_image_element() {
 fn asset_refs_lists_the_assets_of_a_list_column() {
     let d = content(
         "blocks",
-        json!([{ "id": "f", "kind": "test-el/bornes", "params": { "images": [
+        &json!([{ "id": "f", "kind": "test-el/bornes", "params": { "images": [
             { "id": "a", "img": "sha256:ab" }, { "id": "b", "img": "sha256:cd" }
         ] } }]),
     );
@@ -523,7 +526,7 @@ fn element_asset_refs_of_an_unknown_kind_is_empty() {
 }
 
 /// Un item de liste dont la colonne `note` porte un seul run.
-fn noted(id: &str, run_: Value) -> Value {
+fn noted(id: &str, run_: &Value) -> Value {
     json!({ "id": id, "note": [{ "runs": [run_] }] })
 }
 
@@ -536,9 +539,9 @@ fn noted(id: &str, run_: Value) -> Value {
 #[case::uppercase("JAVASCRIPT:alert(1)")]
 fn validate_list_cell_with_unsafe_link_is_reported_on_the_element(#[case] link: &str) {
     let element = json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [
-        noted("a", json!({ "t": "x", "link": link }))
+        noted("a", &json!({ "t": "x", "link": link }))
     ] } });
-    let issues = validate_element(element, None);
+    let issues = validate_element(&element, None);
     assert_that!(issues.len()).is_equal_to(1);
     assert_that!(issues[0].message).is_equal_to(message("issue-unsupported-link", "link", link));
     assert_that!(issues[0].slide.as_deref()).is_equal_to(Some("s"));
@@ -548,18 +551,18 @@ fn validate_list_cell_with_unsafe_link_is_reported_on_the_element(#[case] link: 
 #[test]
 fn validate_list_cell_with_safe_links_has_no_issue() {
     let element = json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [
-        noted("a", json!({ "t": "x", "link": "https://oku.test" })),
-        noted("b", json!({ "t": "y", "link": "MAILTO:a@b.c" }))
+        noted("a", &json!({ "t": "x", "link": "https://oku.test" })),
+        noted("b", &json!({ "t": "y", "link": "MAILTO:a@b.c" }))
     ] } });
-    assert_that!(validate_element(element, None)).is_empty();
+    assert_that!(validate_element(&element, None)).is_empty();
 }
 
 #[test]
 fn validate_list_cell_with_highlight_zero_is_reported_on_the_element() {
     let element = json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [
-        noted("a", json!({ "t": "x", "highlight": 0 }))
+        noted("a", &json!({ "t": "x", "highlight": 0 }))
     ] } });
-    let issues = validate_element(element, None);
+    let issues = validate_element(&element, None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-highlight-zero"]);
     assert_that!(issues[0].element.as_deref()).is_equal_to(Some("f"));
 }
@@ -567,25 +570,25 @@ fn validate_list_cell_with_highlight_zero_is_reported_on_the_element() {
 #[test]
 fn validate_list_cell_with_valid_highlight_has_no_issue() {
     let element = json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [
-        noted("a", json!({ "t": "x", "highlight": 1 }))
+        noted("a", &json!({ "t": "x", "highlight": 1 }))
     ] } });
-    assert_that!(validate_element(element, None)).is_empty();
+    assert_that!(validate_element(&element, None)).is_empty();
 }
 
 #[test]
 fn validate_list_walks_every_item() {
     let element = json!({ "id": "f", "kind": "test-el/liste", "params": { "etapes": [
-        noted("a", json!({ "t": "ok", "link": "https://oku.test" })),
-        noted("b", json!({ "t": "x", "link": "javascript:b" }))
+        noted("a", &json!({ "t": "ok", "link": "https://oku.test" })),
+        noted("b", &json!({ "t": "x", "link": "javascript:b" }))
     ] } });
-    let issues = validate_element(element, None);
+    let issues = validate_element(&element, None);
     assert_that!(issues.len()).is_equal_to(1);
     assert_that!(issues[0].message).is_equal_to(message("issue-unsupported-link", "link", "javascript:b"));
 }
 
 #[test]
 fn validate_list_on_a_slide_reports_unsafe_links_of_both_rich_columns_on_the_slide() {
-    let d = deck(json!([{ "id": "s", "kind": "test/chrono", "params": { "etapes": [
+    let d = deck(&json!([{ "id": "s", "kind": "test/chrono", "params": { "etapes": [
         { "id": "a", "note": [{ "runs": [{ "t": "x", "link": "javascript:n" }] }],
           "suite": [{ "runs": [{ "t": "y", "link": "data:s" }] }] }
     ] } }]));
@@ -603,25 +606,25 @@ fn validate_list_on_a_slide_reports_unsafe_links_of_both_rich_columns_on_the_sli
 #[case::paragraph_without_runs(json!({ "etapes": [{ "id": "a", "note": [{ "runs": [] }] }] }))]
 fn validate_list_without_rich_content_has_no_issue(#[case] params: Value) {
     let element = json!({ "id": "f", "kind": "test-el/liste", "params": params });
-    assert_that!(validate_element(element, None)).is_empty();
+    assert_that!(validate_element(&element, None)).is_empty();
 }
 
 // Listes imbriquées (t-495), widget `plan` : étapes à tâches.
 
-fn plan(steps: Value) -> Value {
+fn plan(steps: &Value) -> Value {
     json!({ "id": "p", "kind": "test-el/plan", "params": { "etapes": steps } })
 }
 
 #[test]
 fn validate_well_formed_nested_list_has_no_issue() {
     let steps = json!([{ "id": "a", "taches": [{ "id": "t1", "texte": "x", "fait": true }] }, { "id": "b" }]);
-    assert_that!(ids(&validate_element(plan(steps), None))).is_empty();
+    assert_that!(ids(&validate_element(&plan(&steps), None))).is_empty();
 }
 
 #[test]
 fn validate_nested_list_with_duplicate_ids_reports_it_with_its_path() {
     let steps = json!([{ "id": "a", "taches": [{ "id": "t" }, { "id": "t" }] }]);
-    let issues = validate_element(plan(steps), None);
+    let issues = validate_element(&plan(&steps), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-duplicate-item-id"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-duplicate-item-id", "param", "etapes/a/taches"));
 }
@@ -629,27 +632,27 @@ fn validate_nested_list_with_duplicate_ids_reports_it_with_its_path() {
 #[test]
 fn validate_nested_lists_of_two_items_may_share_ids() {
     let steps = json!([{ "id": "a", "taches": [{ "id": "d0" }] }, { "id": "b", "taches": [{ "id": "d0" }] }]);
-    assert_that!(ids(&validate_element(plan(steps), None))).is_empty();
+    assert_that!(ids(&validate_element(&plan(&steps), None))).is_empty();
 }
 
 #[test]
 fn validate_nested_list_above_its_max_reports_bounds() {
     let tasks: Vec<Value> = (0..4).map(|i| json!({ "id": format!("t{i}") })).collect();
-    let issues = validate_element(plan(json!([{ "id": "a", "taches": tasks }])), None);
+    let issues = validate_element(&plan(&json!([{ "id": "a", "taches": tasks }])), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-list-bounds"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-list-bounds", "param", "etapes/a/taches"));
 }
 
 #[test]
 fn validate_nested_cell_of_wrong_type_reports_param_type() {
-    let issues = validate_element(plan(json!([{ "id": "a", "taches": [{ "id": "t", "fait": "oui" }] }])), None);
+    let issues = validate_element(&plan(&json!([{ "id": "a", "taches": [{ "id": "t", "fait": "oui" }] }])), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-param-type"]);
 }
 
 #[test]
 fn validate_nested_rich_cell_with_an_unsafe_link_reports_it() {
-    let task = noted("t", json!({ "t": "a", "link": "javascript:n" }));
-    let issues = validate_element(plan(json!([{ "id": "a", "taches": [task] }])), None);
+    let task = noted("t", &json!({ "t": "a", "link": "javascript:n" }));
+    let issues = validate_element(&plan(&json!([{ "id": "a", "taches": [task] }])), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-unsupported-link"]);
 }
 
@@ -657,17 +660,17 @@ fn validate_nested_rich_cell_with_an_unsafe_link_reports_it() {
 #[case::top(json!([{ "id": "a/b" }]), "etapes")]
 #[case::nested(json!([{ "id": "a", "taches": [{ "id": "x/y" }] }]), "etapes/a/taches")]
 fn validate_item_id_with_a_slash_reports_invalid_item_id(#[case] steps: Value, #[case] path: &str) {
-    let issues = validate_element(plan(steps), None);
+    let issues = validate_element(&plan(&steps), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-invalid-item-id"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-invalid-item-id", "param", path));
 }
 
 #[test]
 fn validate_nested_items_beyond_the_total_cap_report_bounds_on_the_list() {
-    let steps: Vec<Value> = (0..crate::NESTED_ITEMS_MAX / 3 + 1)
+    let steps: Vec<Value> = (0..=(crate::NESTED_ITEMS_MAX / 3))
         .map(|i| json!({ "id": format!("e{i}"), "taches": [{ "id": "a" }, { "id": "b" }, { "id": "c" }] }))
         .collect();
-    let issues = validate_element(plan(Value::Array(steps)), None);
+    let issues = validate_element(&plan(&Value::Array(steps)), None);
     assert_that!(ids(&issues)).is_equal_to(vec!["issue-list-bounds"]);
     assert_that!(issues[0].message).is_equal_to(message("issue-list-bounds", "param", "etapes"));
 }

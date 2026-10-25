@@ -48,7 +48,7 @@ use super::content::{ContentCx, effect_losses, is_thin, plain_of};
 use super::decor::{Decor, in_band, is_backdrop};
 use super::heading::{Headings, headings};
 use super::measure::{Measure, TextTokens, resize, title_band};
-use super::place::{Arrange, arrange, aspects, collect_assets, track};
+use super::place::{Arrange, Built, arrange, aspects, collect_assets, track};
 use super::profile::{ContentKind, Profile, Shape, choose, content_items, shape, slide_params};
 use super::text::note;
 use super::zone::{Fit, PageTokens, Zone, body_zone, grid_gap, snap, to_zone};
@@ -238,6 +238,105 @@ impl<'t> Room<'t> {
     }
 }
 
+/// The losses of the whole slide `src`.
+///
+/// Omitted decor, hidden slide, items beyond [`MAX_SLIDE_ITEMS`] (`dropped`),
+/// and ignored title effects.
+fn slide_losses(src: &SourceSlide, dropped: usize, heads: &Headings<'_>, cx: &SlideCx<'_>) -> Vec<Loss> {
+    let mut losses: Vec<Loss> = cx.decor.losses(src.number).to_vec();
+    if src.hidden {
+        losses.push(Loss::slide(LossKind::HiddenSlide));
+    }
+    if dropped > 0 {
+        losses.push(Loss::slide(LossKind::ItemsDropped { dropped: u32::try_from(dropped).unwrap_or(u32::MAX) }));
+    }
+    for item in [heads.kicker, heads.title, heads.subtitle].into_iter().flatten() {
+        effect_losses(item, cx.effects, &mut losses);
+    }
+    losses
+}
+
+/// The slide as a grid, without its arrangement.
+///
+/// It already carries the profile's parameters.
+fn grid_slide(mut slide: Slide) -> Slide {
+    slide.params.remove("layout");
+    slide
+}
+
+/// Fits a flow taller than its area (t-816).
+///
+/// It switches to a grid if that fits (and the schema has a free slot,
+/// `has_grid`), else takes a smaller theme size, else overflows: the last
+/// boolean says so, for the report.
+fn fit_flow<'a>(
+    slide: Slide,
+    mut built: Built<'a>,
+    a: &Arrange<'_, '_, 'a>,
+    page: &PageTokens,
+    has_grid: bool,
+) -> (Slide, Built<'a>, Placement, bool) {
+    let room = Room::of(page, &slide);
+    if room.need(&a.measure, &built.elements) <= room.height {
+        return (slide, built, Placement::Flow, false);
+    }
+    let grid = has_grid.then(|| grid_slide(slide.clone())).map(|s| {
+        let b = arrange(Placement::Grid, &s, a);
+        (s, b)
+    });
+    if let Some((s, b)) = grid.filter(|(_, b)| b.fits && !b.elements.is_empty()) {
+        return (s, b, Placement::Grid, false);
+    }
+    let size = room.smaller(&a.measure, &built.elements);
+    if let Some(size) = size {
+        resize(&mut built.elements, size);
+    }
+    (slide, built, Placement::Flow, size.is_none())
+}
+
+/// The cover role of the slide with shape `shape`: `(first_cover, as_title)`.
+///
+/// The first cover (`deck_titled` false) fills the deck; it stays a cover if
+/// its other contents are texts (they go to the notes); an image, a table or a
+/// chart needs a profile that holds them. Later covers become chapters.
+fn cover_role(shape: &mut Shape, heads: &Headings<'_>, deck_titled: bool) -> (bool, bool) {
+    let cover = is_cover(shape, heads);
+    let first_cover = cover && !deck_titled;
+    let as_title = first_cover
+        && shape.content.iter().all(|k| matches!(k, ContentKind::Text | ContentKind::Card | ContentKind::Shape));
+    if as_title {
+        shape.layout_kind = Some(LayoutKind::Title);
+    } else if cover && !first_cover {
+        shape.layout_kind = Some(LayoutKind::SectionHeader);
+    }
+    (first_cover, as_title)
+}
+
+/// Places `elements` in the `target` slot of `slide`.
+///
+/// Without a slot, every item of the `found` units is lost (`NoSlot`).
+fn fill_slot(
+    slide: &mut Slide,
+    target: Option<&str>,
+    elements: Vec<Element>,
+    found: &[Unit<'_>],
+    losses: &mut Vec<Loss>,
+) {
+    if elements.is_empty() {
+        return;
+    }
+    match target {
+        Some(name) => {
+            slide.params.set(name, ParamValue::Slot(elements));
+        }
+        None => {
+            for item in found.iter().flat_map(Unit::items) {
+                note(losses, Loss::on(&item.id, LossKind::NoSlot));
+            }
+        }
+    }
+}
+
 /// La slide Oku de `src`, et ce qu'en dit le rapport.
 ///
 /// `deck_titled` dit si une couverture a déjà rempli les paramètres du deck ;
@@ -261,33 +360,13 @@ pub(crate) fn project_slide<'a>(
         .collect();
     let mut found = units(&content, |f| reference.cell(f));
     let mut shape = shape(src, cx.layouts, &heads, &found);
-    let cover = is_cover(&shape, &heads);
-    let first_cover = cover && !*deck_titled;
-    // La couverture du deck reste une couverture si ses autres contenus sont
-    // des textes (ils iront dans les notes) ; une image, un tableau ou un
-    // graphique demandent un profil qui les tienne.
-    let as_title = first_cover
-        && shape.content.iter().all(|k| matches!(k, ContentKind::Text | ContentKind::Card | ContentKind::Shape));
-    if as_title {
-        shape.layout_kind = Some(LayoutKind::Title);
-    } else if cover && !first_cover {
-        shape.layout_kind = Some(LayoutKind::SectionHeader);
-    }
+    let (first_cover, as_title) = cover_role(&mut shape, &heads, *deck_titled);
     let profile = if as_title { choose(&shape, profiles).cloned() } else { pick(&shape, profiles) }?;
     let kind = profile.kind();
     let hints = &profile.source.1;
     let schema = cx.registry.get(&kind);
     let id = format!("s{}", src.number);
-    let mut losses: Vec<Loss> = cx.decor.losses(src.number).to_vec();
-    if src.hidden {
-        losses.push(Loss::slide(LossKind::HiddenSlide));
-    }
-    if dropped > 0 {
-        losses.push(Loss::slide(LossKind::ItemsDropped { dropped: u32::try_from(dropped).unwrap_or(u32::MAX) }));
-    }
-    for item in [heads.kicker, heads.title, heads.subtitle].into_iter().flatten() {
-        effect_losses(item, cx.effects, &mut losses);
-    }
+    let mut losses = slide_losses(src, dropped, &heads, cx);
     let mut slide = Slide::new(id.clone(), &kind);
     slide.params = slide_params(hints);
     let titles = place_titles(&heads, first_cover, schema, &mut slide, &mut losses);
@@ -307,24 +386,13 @@ pub(crate) fn project_slide<'a>(
     let (flow_slot, free_slot) = (slot(schema, SlotMode::Flow), slot(schema, SlotMode::Free));
     let flowable = !matches!(profile.arrangement, Arrangement::Free | Arrangement::Grid)
         && (found.len() <= 1 || shape.columns >= 2);
-    let mut placement = match (flow_slot, free_slot) {
-        (Some(_), None) => Placement::Flow,
-        (Some(_), Some(_)) if flowable => Placement::Flow,
-        (_, Some(_)) => Placement::Grid,
-        (None, None) => Placement::Flow,
-    };
+    let mut placement =
+        if free_slot.is_some() && !(flowable && flow_slot.is_some()) { Placement::Grid } else { Placement::Flow };
     let stack = shape.columns >= 2 && shape.row.len() < found.len();
-    // La slide porte déjà les paramètres du profil : en grille, son agencement tombe.
-    let grid_slide = |mut s: Slide| {
-        s.params.remove("layout");
-        s
-    };
-    if placement == Placement::Flow {
-        if stack {
-            slide.params.set("layout", ParamValue::Text("default".to_owned()));
-        }
-    } else {
+    if placement != Placement::Flow {
         slide = grid_slide(slide);
+    } else if stack {
+        slide.params.set("layout", ParamValue::Text("default".to_owned()));
     }
     let target_of = |p: Placement| match p {
         Placement::Flow => flow_slot,
@@ -350,23 +418,10 @@ pub(crate) fn project_slide<'a>(
         && let Some(name) = target_of(placement)
         && !built.elements.is_empty()
     {
-        // t-816 : un flux plus haut que sa zone passe en grille si elle tient,
-        // sinon prend une taille plus petite du thème, sinon déborde, dit au rapport.
-        let room = Room::of(cx.page, &slide);
-        if room.need(&a.measure, &built.elements) > room.height {
-            let grid = free_slot.map(|_| grid_slide(slide.clone())).map(|s| {
-                let b = arrange(Placement::Grid, &s, &a);
-                (s, b)
-            });
-            match grid.filter(|(_, b)| b.fits && !b.elements.is_empty()) {
-                Some((s, b)) => {
-                    (slide, built, placement) = (s, b, Placement::Grid);
-                }
-                None => match room.smaller(&a.measure, &built.elements) {
-                    Some(size) => resize(&mut built.elements, size),
-                    None => note(&mut losses, Loss::slide(LossKind::Overflow { element: format!("{id}/{name}") })),
-                },
-            }
+        let overflow;
+        (slide, built, placement, overflow) = fit_flow(slide, built, &a, cx.page, free_slot.is_some());
+        if overflow {
+            note(&mut losses, Loss::slide(LossKind::Overflow { element: format!("{id}/{name}") }));
         }
     }
     for l in built.losses {
@@ -376,17 +431,7 @@ pub(crate) fn project_slide<'a>(
     let elements = built.elements;
     let mut assets = BTreeSet::new();
     collect_assets(&elements, &mut assets);
-    match target_of(placement) {
-        Some(name) if !elements.is_empty() => {
-            slide.params.set(name, ParamValue::Slot(elements));
-        }
-        None if !elements.is_empty() => {
-            for item in found.iter().flat_map(Unit::items) {
-                note(&mut losses, Loss::on(&item.id, LossKind::NoSlot));
-            }
-        }
-        _ => {}
-    }
+    fill_slot(&mut slide, target_of(placement), elements, &found, &mut losses);
     ops.push(Op::AddSlide { index: None, defaults: false, slide });
     if !src.notes.trim().is_empty() {
         moved.push(src.notes.clone());

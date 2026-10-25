@@ -1,5 +1,6 @@
 //! Erreurs des outils : dites à l'agent dans la langue de l'utilisateur (`fr` ici), sans
 //! chemin absolu ni chaîne d'erreur complète (t-403).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

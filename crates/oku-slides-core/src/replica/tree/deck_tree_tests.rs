@@ -14,7 +14,7 @@ use crate::error::ReplicaErrorKind;
 use crate::{Deck, MAX_SLOT_DEPTH, Moved, Op, Slide, apply_all_moving};
 
 /// Ajoute `element` en `index` du slot `param` de `owner` (`None` : la slide) de `slide`.
-fn add_to(slide: &str, owner: Option<&str>, param: &str, index: Option<usize>, element: Value) -> Op {
+fn add_to(slide: &str, owner: Option<&str>, param: &str, index: Option<usize>, element: &Value) -> Op {
     let owner = match owner {
         Some(e) => json!({ "slide": slide, "element": e }),
         None => json!({ "slide": slide }),
@@ -35,7 +35,7 @@ fn element_of(deck: &Deck, slide: &str, id: &str) -> Value {
 /// `deck` où l'élément `id` passe de `from` en tête de `blocks` de `to`.
 fn moved_to(deck: &Deck, id: &str, from: &str, to: &str) -> Deck {
     let e = element_of(deck, from, id);
-    with_ops(deck, vec![remove_from(from, id), add_to(to, None, "blocks", Some(0), e)])
+    with_ops(deck, vec![remove_from(from, id), add_to(to, None, "blocks", Some(0), &e)])
 }
 
 fn slide_list(deck: &Deck) -> Vec<String> {
@@ -95,7 +95,7 @@ fn slides_are_root_nodes_of_the_deck_tree() {
 
 #[test]
 fn nested_slot_keys_are_tree_ids() {
-    let deck = with_ops(&with_pile(), vec![add(Some("pile"), "children", None, text("k", "K"))]);
+    let deck = with_ops(&with_pile(), vec![add(Some("pile"), "children", None, &text("k", "K"))]);
     let r = new(&deck);
     let (tree, k) = node_of(&r.doc, "s-constat", "k");
     let (_, pile) = node_of(&r.doc, "s-constat", "pile");
@@ -222,10 +222,7 @@ fn same_element_id_in_two_slides_keeps_each_node() {
     let read = r.deck().0;
     let body = |slide: &str| {
         first_text(
-            read.slide(slide)
-                .and_then(|s| s.locate("t"))
-                .map(|l| l.element)
-                .unwrap_or_else(|| panic!("t absent de {slide}")),
+            read.slide(slide).and_then(|s| s.locate("t")).map_or_else(|| panic!("t absent de {slide}"), |l| l.element),
         )
     };
     assert_that!(body("a")).is_equal_to("Dans a".to_owned());
@@ -241,15 +238,15 @@ fn element_ids_repeated_across_slides_are_not_paired_between_slides() {
     let deck = with_ops(
         &deck,
         vec![
-            add_to("a", None, "blocks", None, text("body", "A")),
-            add_to("b", None, "blocks", None, text("body", "B")),
+            add_to("a", None, "blocks", None, &text("body", "A")),
+            add_to("b", None, "blocks", None, &text("body", "B")),
         ],
     );
     let mut r = new(&deck);
     let (tree, old) = node_of(&r.doc, "a", "body");
     let (_, kept) = node_of(&r.doc, "b", "body");
     let target =
-        with_ops(&deck, vec![remove_from("a", "body"), add_to("c", None, "blocks", None, text("body", "Neuf"))]);
+        with_ops(&deck, vec![remove_from("a", "body"), add_to("c", None, "blocks", None, &text("body", "Neuf"))]);
     apply(&mut r, &target);
     let (_, fresh) = node_of(&r.doc, "c", "body");
     assert_that!(fresh).is_not_equal_to(old);
@@ -268,7 +265,7 @@ fn element_moved_with_another_kind_is_not_paired_between_slides() {
     let (tree, old) = node_of(&r.doc, "a", "x");
     let target = with_ops(
         &deck,
-        vec![remove_from("a", "x"), add_to("b", None, "blocks", None, json!({ "id": "x", "kind": "base/stack" }))],
+        vec![remove_from("a", "x"), add_to("b", None, "blocks", None, &json!({ "id": "x", "kind": "base/stack" }))],
     );
     apply(&mut r, &target);
     assert_that!(node_of(&r.doc, "b", "x").1).is_not_equal_to(old);
@@ -345,7 +342,7 @@ fn stale_move_hint_is_ignored() {
         &deck,
         vec![
             remove_from("a", "title"),
-            add_to("d", None, "blocks", None, json!({ "id": "title", "kind": "base/stack" })),
+            add_to("d", None, "blocks", None, &json!({ "id": "title", "kind": "base/stack" })),
         ],
     );
     let hint = [Moved { element: "title".into(), from: "a".into(), to: "d".into() }];
@@ -366,7 +363,7 @@ fn element_of_a_removed_slide_is_created_anew_elsewhere() {
     let (tree, old) = node_of(&r.doc, "s-constat", "b-points");
     let points = element_of(&deck, "s-constat", "b-points");
     let target =
-        with_ops(&without_slide(&deck, "s-constat"), vec![add_to("s-priorites", None, "blocks", Some(0), points)]);
+        with_ops(&without_slide(&deck, "s-constat"), vec![add_to("s-priorites", None, "blocks", Some(0), &points)]);
     apply(&mut r, &target);
     assert_that!(node_of(&r.doc, "s-priorites", "b-points").1).is_not_equal_to(old);
     assert_that!(tree.parent(old)).is_equal_to(Some(TreeParentId::Node(constat)));
@@ -380,8 +377,8 @@ fn moved_owner_keeps_its_children_nodes() {
     let deck = with_ops(
         &with_pile(),
         vec![
-            add(Some("pile"), "children", None, text("k1", "Un")),
-            add(Some("pile"), "children", None, text("k2", "Deux")),
+            add(Some("pile"), "children", None, &text("k1", "Un")),
+            add(Some("pile"), "children", None, &text("k2", "Deux")),
         ],
     );
     let mut r = new(&deck);
@@ -597,8 +594,8 @@ fn pair_has_one_entry_per_wanted_slide() {
     let target = with_ops(
         &target,
         vec![
-            add_to("s-a", None, "blocks", None, text("na", "A")),
-            add_to("s-b", None, "blocks", None, text("nb", "B")),
+            add_to("s-a", None, "blocks", None, &text("na", "A")),
+            add_to("s-b", None, "blocks", None, &text("nb", "B")),
         ],
     );
     let json = ok(serde_json::to_value(&target));
@@ -626,13 +623,13 @@ fn concurrent_crossed_nesting_across_slides_converges_without_cycle() {
     let deck = with_ops(
         &roadmap(),
         vec![
-            add_to("s-constat", None, "blocks", None, pile("pile-a")),
-            add_to("s-priorites", None, "blocks", None, pile("pile-b")),
+            add_to("s-constat", None, "blocks", None, &pile("pile-a")),
+            add_to("s-priorites", None, "blocks", None, &pile("pile-b")),
         ],
     );
     let nest = |id: &str, from: &str, owner: &str, to: &str| {
         let e = element_of(&deck, from, id);
-        with_ops(&deck, vec![remove_from(from, id), add_to(to, Some(owner), "children", None, e)])
+        with_ops(&deck, vec![remove_from(from, id), add_to(to, Some(owner), "children", None, &e)])
     };
     let a_nests = nest("pile-b", "s-priorites", "pile-a", "s-constat");
     let b_nests = nest("pile-a", "s-constat", "pile-b", "s-priorites");
@@ -661,8 +658,8 @@ fn concurrent_crossed_move_element_nesting_converges_without_cycle() {
     let deck = with_ops(
         &roadmap(),
         vec![
-            add_to("s-constat", None, "blocks", None, pile("pile-a")),
-            add_to("s-priorites", None, "blocks", None, pile("pile-b")),
+            add_to("s-constat", None, "blocks", None, &pile("pile-a")),
+            add_to("s-priorites", None, "blocks", None, &pile("pile-b")),
         ],
     );
     let nest = |id: &str, from: &str, owner: &str, to: &str| {
@@ -735,7 +732,7 @@ fn live_elements_cost_stays_linear() {
     let mut r = new(&full);
     assert_linear_cost(&mut r, "2 000 éléments vivants");
     let nodes = deck_tree(&r).nodes().len();
-    let added = with_ops(&full, vec![add_to("s", None, "blocks", Some(0), text("neuf", "N"))]);
+    let added = with_ops(&full, vec![add_to("s", None, "blocks", Some(0), &text("neuf", "N"))]);
     reset_visited();
     apply(&mut r, &added);
     assert_that!(visited()).is_less_than_or_equal_to(4 * nodes);

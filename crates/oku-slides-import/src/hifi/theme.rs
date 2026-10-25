@@ -31,6 +31,7 @@ use super::table::{TableLook, first_table};
 use crate::fonts::FontPlan;
 use crate::retrofit::color::contrast;
 use crate::source::{Bullet, Master, Placeholder, Rgba, Role, Script, SourceDeck, ThemeFonts};
+use oku_slides_core::num::byte;
 use serde_json::{Map, Value, json};
 
 /// Part de l'encre dans le filet (`rule`) : le « Arrière-plan 1, plus sombre
@@ -168,8 +169,7 @@ fn color_tokens(colors: &ThemeColors) -> Map<String, Value> {
 fn mix(a: Rgba, b: Rgba, t: f64) -> Rgba {
     let channel = |x: u8, y: u8| {
         let v = f64::from(x) + (f64::from(y) - f64::from(x)) * t;
-        // `as` sature : le mélange reste dans 0..=255.
-        v.round() as u8
+        byte(v)
     };
     Rgba::new(channel(a.r, b.r), channel(a.g, b.g), channel(a.b, b.b))
 }

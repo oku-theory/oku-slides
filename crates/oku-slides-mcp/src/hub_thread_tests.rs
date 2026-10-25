@@ -85,8 +85,8 @@ fn last_surfaces(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> Vec<Str
     found.unwrap_or_else(|| panic!("liste attendue"))
 }
 
-fn saved(thread: Vec<Surface>) -> Option<SavedConversation> {
-    Some(SavedConversation { agent: None, session: None, thread })
+fn saved(thread: Vec<Surface>) -> SavedConversation {
+    SavedConversation { agent: None, session: None, thread }
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn restore_shows_saved_thread_frozen_without_actions() {
     with_action.live = true;
     with_action.question = true;
     with_action.messages = question("report-3", 3).messages;
-    hub.restore(saved(vec![turn(3), with_action]));
+    hub.restore(Some(saved(vec![turn(3), with_action])));
     let kept = hub.visible_surfaces();
     assert_that!(ids(&kept)).is_equal_to(vec!["turn-3".to_owned(), "report-3".to_owned()]);
     assert_that!(kept.iter().any(|s| s.live || s.question || s.has_actions())).is_false();
@@ -114,7 +114,7 @@ fn restore_shows_saved_thread_frozen_without_actions() {
 #[test]
 fn restore_numbers_new_turns_after_the_saved_ones() {
     let hub = hub();
-    hub.restore(saved(vec![turn(7), answered("report-12", 7)]));
+    hub.restore(Some(saved(vec![turn(7), answered("report-12", 7)])));
     assert_that!(hub.begin_turn()).is_equal_to(8);
     assert_that!(hub.next_id("report")).is_equal_to("report-13".to_owned());
 }
@@ -130,11 +130,11 @@ fn restore_without_a_conversation_changes_nothing() {
 #[test]
 fn restore_keeps_only_the_last_kept_turns() {
     let hub = hub();
-    let count = u32::try_from(KEPT_TURNS).unwrap_or(u32::MAX) + 3;
-    hub.restore(saved((1..=count).map(turn).collect()));
+    let count = u32::try_from(KEPT_TURNS).unwrap() + 3;
+    hub.restore(Some(saved((1..=count).map(turn).collect())));
     let turns: Vec<u32> = hub.visible_surfaces().iter().filter_map(|s| s.turn).collect();
     assert_that!(turns).has_length(KEPT_TURNS);
-    assert_that!(turns.first().copied()).is_equal_to(Some(count + 1 - u32::try_from(KEPT_TURNS).unwrap_or(0)));
+    assert_that!(turns.first().copied()).is_equal_to(Some(count + 1 - u32::try_from(KEPT_TURNS).unwrap()));
     assert_that!(turns.last().copied()).is_equal_to(Some(count));
 }
 
@@ -142,7 +142,7 @@ fn restore_keeps_only_the_last_kept_turns() {
 fn restore_skips_a_turn_already_open() {
     let hub = hub();
     let open = hub.begin_turn();
-    hub.restore(saved(vec![turn(open), turn(9)]));
+    hub.restore(Some(saved(vec![turn(open), turn(9)])));
     assert_that!(ids(&hub.surfaces())).is_equal_to(vec!["turn-9".to_owned()]);
 }
 
@@ -151,7 +151,7 @@ fn restore_drops_surfaces_outside_the_thread_place() {
     let hub = hub();
     let mut dock = turn(4);
     dock.place = oku_slides_session::agent::Place::Drawer;
-    hub.restore(saved(vec![dock, turn(5)]));
+    hub.restore(Some(saved(vec![dock, turn(5)])));
     assert_that!(ids(&hub.surfaces())).is_equal_to(vec!["turn-5".to_owned()]);
 }
 
@@ -162,7 +162,7 @@ fn restore_cleans_what_it_reads() {
     huge.turn = Some(u32::MAX);
     let mut no_turn = turn(5);
     no_turn.turn = None;
-    hub.restore(saved(vec![huge, no_turn, turn(6)]));
+    hub.restore(Some(saved(vec![huge, no_turn, turn(6)])));
     assert_that!(ids(&hub.visible_surfaces())).is_equal_to(vec!["turn-6".to_owned()]);
 }
 
@@ -258,7 +258,7 @@ fn thread_snapshot_of_an_empty_thread_is_empty() {
 fn big_turn(hub: &SurfaceHub, kib: usize) -> u32 {
     let n = hub.begin_turn();
     let mut big = turn(n);
-    big.set_value("narration", serde_json::Value::String("x".repeat(kib * 1024)));
+    big.set_value("narration", &serde_json::Value::String("x".repeat(kib * 1024)));
     hub.emit(McpEvent::Surface { surface: big });
     hub.end_turn(n, "");
     n

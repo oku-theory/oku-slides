@@ -21,7 +21,7 @@ fn editing() -> (tempfile::TempDir, Session) {
 }
 
 fn values(v: Value) -> Map<String, Value> {
-    v.as_object().cloned().unwrap()
+    serde_json::from_value(v).unwrap()
 }
 
 /// Les valeurs enregistrées dans le manifeste du pack en cours.

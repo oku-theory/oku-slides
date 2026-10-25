@@ -123,6 +123,10 @@ pub enum Caps {
 
 /// Style résolu d'un run.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent flags of an OOXML style, read and serialized one by one"
+)]
 pub struct RunStyle {
     /// Famille (128 caractères au plus) et provenance (`major`/`minor` pour le thème).
     pub font: Styled<String>,
@@ -177,6 +181,7 @@ pub struct RunStyle {
 
 impl RunStyle {
     /// La famille du run pour l'écriture `script` : `ea` ou `cs` si donnée, sinon la latine.
+    #[must_use]
     pub fn family(&self, script: Script) -> &str {
         let other = match script {
             Script::Latin => None,
@@ -188,6 +193,7 @@ impl RunStyle {
 
     /// Gras (`b`) ou graisse d'au moins 600 (demi-gras) : le gras d'un projecteur sans graisse
     /// numérique.
+    #[must_use]
     pub fn strong(&self) -> bool {
         self.bold || self.weight >= 600
     }

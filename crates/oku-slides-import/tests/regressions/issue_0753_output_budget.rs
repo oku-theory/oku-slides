@@ -1,5 +1,7 @@
 //! Régression (t-753) : seule l'entrée était bornée ; un petit zip pouvait gonfler en un gros deck Oku.
 
+use std::fmt::Write as _;
+
 use oku_slides_core::Namespace;
 use oku_slides_import::fonts::FontCatalog;
 use oku_slides_import::{HifiTarget, ImportErrorKind, ImportPlan, PackLimits, ReadLimits, hifi, read_pptx};
@@ -11,13 +13,13 @@ use crate::common;
 /// Un `.pptx` minimal dont la slide 1 porte 40 zones d'un même texte répété, très compressible.
 fn inflating_pptx() -> Vec<u8> {
     let text = "Oku ".repeat(2_000);
-    let shapes: String = (100..140)
-        .map(|id| {
-            format!(
-                r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="Texte {id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="1270000"/></a:xfrm><a:prstGeom prst="rect"/></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>{text}</a:t></a:r></a:p></p:txBody></p:sp>"#
-            )
-        })
-        .collect();
+    let shapes = (100..140).fold(String::new(), |mut shapes, id| {
+        let _ = write!(
+            shapes,
+            r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="Texte {id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="1270000"/></a:xfrm><a:prstGeom prst="rect"/></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>{text}</a:t></a:r></a:p></p:txBody></p:sp>"#
+        );
+        shapes
+    });
     common::minimal_slide1(&shapes, "")
 }
 

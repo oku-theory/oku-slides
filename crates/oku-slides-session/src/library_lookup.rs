@@ -28,15 +28,20 @@ pub(crate) fn as_u64(n: usize) -> u64 {
     u64::try_from(n).unwrap_or(u64::MAX)
 }
 
-/// Les fichiers du pack rangé dans `dir`, `max_bytes` octets au plus.
+/// The files of the pack stored in `dir`, at most `max_bytes` bytes.
 ///
-/// Soit `widgets.json` et `widgets/<nom>.typ`, soit `layouts.json` et `layouts/<nom>.typ`.
+/// Either `widgets.json` and `widgets/<name>.typ`, or `layouts.json` and `layouts/<name>.typ`.
 ///
-/// C'est la disposition d'une version de pack ; `Ok(None)` sans l'un ni l'autre manifeste.
-/// Un fichier qu'on ne lit pas, un dossier qu'on ne liste pas : `File` ;
-/// au-delà de `max_bytes` : `TooLarge`, avant de lire le fichier de trop ;
-/// un manifeste qui n'est pas un objet ou un widget qui n'est pas du texte :
+/// This is the layout of a pack version; `Ok(None)` without either manifest.
+/// A file that cannot be read, a folder that cannot be listed: `File`;
+/// beyond `max_bytes`: `TooLarge`, before reading the file too many;
+/// a manifest that is not an object or a widget that is not text:
 /// `BadPack`.
+///
+/// # Errors
+///
+/// Fails (`File`) on an unreadable file or folder, (`TooLarge`) beyond `max_bytes`, (`BadPack`)
+/// on a malformed manifest or widget.
 pub fn read_pack_dir(storage: &Storage, dir: &Path, max_bytes: usize) -> Result<Option<PackFiles>> {
     let mut found = None;
     for kind in PackKind::ALL {
@@ -75,13 +80,17 @@ pub fn read_pack_dir(storage: &Storage, dir: &Path, max_bytes: usize) -> Result<
     Ok(Some(files))
 }
 
-/// Le pack de la bibliothèque désigné par `wanted` : un id, un nom, sinon un espace de noms.
+/// The library pack named by `wanted`: an id, a name, or else a namespace.
 ///
-/// Un id donne la version courante ; un nom est celui d'un pack intégré ou de
-/// la bibliothèque, sans casse ; un espace de noms, celui du pack qui le porte.
-/// Une copie de l'utilisateur sous un espace de noms intégré ne répond qu'à son id.
-/// Jamais un dossier : c'est la cible de l'app.
-/// Introuvable : `UnknownPack`.
+/// An id gives the current version; a name is that of a built-in or library
+/// pack, case-insensitive; a namespace, that of the pack that holds it.
+/// A user copy under a built-in namespace answers only to its id.
+/// Never a folder: that is the app's target.
+/// Not found: `UnknownPack`.
+///
+/// # Errors
+///
+/// Fails (`UnknownPack`) if no pack matches `wanted`.
 pub fn library_pack(library: &PackLibrary, wanted: &str) -> Result<PackFiles> {
     let unknown = || UnknownPackSnafu { pack: wanted };
     let id = match uuid::Uuid::parse_str(wanted) {
@@ -98,12 +107,17 @@ pub fn library_pack(library: &PackLibrary, wanted: &str) -> Result<PackFiles> {
     Ok(library.current_version(id).context(unknown())?.files)
 }
 
-/// Le pack désigné par `wanted` pour la CLI.
+/// The pack named by `wanted` for the CLI.
 ///
-/// Un id, un dossier de pack, sinon un nom.
+/// An id, a pack folder, or else a name.
 ///
-/// Comme [`library_pack`], plus un dossier qui a un `widgets.json` ou un `layouts.json`, lu par
-/// [`read_pack_dir`] en `max_bytes` octets au plus.
+/// Like [`library_pack`], plus a folder that has a `widgets.json` or a `layouts.json`, read by
+/// [`read_pack_dir`] in at most `max_bytes` bytes.
+///
+/// # Errors
+///
+/// Fails if folder `wanted` cannot be read (see [`read_pack_dir`]), or if no pack matches
+/// (`UnknownPack`).
 pub fn resolve_pack(storage: &Storage, library: &PackLibrary, wanted: &str, max_bytes: usize) -> Result<PackFiles> {
     if uuid::Uuid::parse_str(wanted).is_err()
         && let Some(files) = read_pack_dir(storage, Path::new(wanted), max_bytes)?
@@ -125,11 +139,15 @@ pub(crate) fn find_theme(themes: &ThemeLibrary, wanted: &str) -> Option<Namespac
         .or_else(|| themes.themes().into_iter().find(|t| t.name.eq_ignore_ascii_case(wanted)).map(|t| t.namespace))
 }
 
-/// Embarque dans `bundle` la fermeture du thème désigné par `wanted`, versions courantes.
+/// Embeds in `bundle` the closure of the theme named by `wanted`, at current versions.
 ///
-/// `wanted` est son id, son espace de noms, sinon son nom (voir [`find_theme`]) ;
-/// rend son espace de noms et les épinglages de sa fermeture. Inconnu :
-/// `UnknownTheme` ; un parent introuvable ou une boucle : `Library`.
+/// `wanted` is its id, its namespace, or else its name (see [`find_theme`]);
+/// returns its namespace and the pins of its closure. Unknown:
+/// `UnknownTheme`; a parent not found or a cycle: `Library`.
+///
+/// # Errors
+///
+/// Fails (`UnknownTheme`) for an unknown theme, (`Library`) for a parent not found or a cycle.
 pub fn embed_theme(
     themes: &ThemeLibrary,
     wanted: &str,

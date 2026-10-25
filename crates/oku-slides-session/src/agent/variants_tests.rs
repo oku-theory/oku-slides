@@ -49,7 +49,8 @@ fn variant_decks_with_a_pinless_set_theme_pin_its_closure() {
     let spec =
         super::super::forms::ShowVariants { slide, variants: vec![variant("Pro", "pro"), variant("Neutre", "neutre")] };
     let decks = s.variant_decks(&spec).unwrap();
-    let pinned: Vec<Vec<&str>> = decks.iter().map(|d| d.themes.keys().map(|n| n.as_str()).collect()).collect();
+    let pinned: Vec<Vec<&str>> =
+        decks.iter().map(|d| d.themes.keys().map(oku_slides_core::Namespace::as_str).collect()).collect();
     assert_that!(pinned).is_equal_to(vec![vec!["pro"], vec!["neutre"]]);
     assert_that!(decks[0].themes[&crate::test_support::ns("pro")].id).is_equal_to(crate::PRO_THEME);
 }

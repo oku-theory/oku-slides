@@ -14,35 +14,62 @@ use crate::error::{HostKeySnafu, NoChartSnafu, NoTableSnafu};
 use crate::request::View;
 use crate::{Result, Session};
 
-/// Une modification de la surface `host-data`, nommée par `edit`.
+/// An edit from the `host-data` surface, named by `edit`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "edit", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DataEdit {
-    /// Change les données (cellule, ligne, colonne).
-    Cells { change: DataOp },
-    /// Change le type du graphique ; ses données sont converties.
-    Kind { kind: SeriesType },
-    /// Empile toutes les séries, ou les désempile.
-    Stack { stacked: bool },
-    /// Colore la série `index`, ou la rend à la palette (`null`).
-    Color { index: usize, color: Option<String> },
-    /// Allume ou éteint une option d'affichage d'un tableau.
-    Flag { flag: TableFlag, on: bool },
-    /// Aligne la colonne `column` d'un tableau.
-    Align { column: usize, align: ColumnAlign },
-    /// Montre les mêmes données en graphique ou en tableau.
-    ShowAs { view: View },
+    /// Changes the data (cell, row, column).
+    Cells {
+        /// The operation on the dataset, applied as is.
+        change: DataOp,
+    },
+    /// Changes the chart type; its data is converted.
+    Kind {
+        /// New series type of the chart.
+        kind: SeriesType,
+    },
+    /// Stacks all the series, or unstacks them.
+    Stack {
+        /// `true` to stack the series.
+        stacked: bool,
+    },
+    /// Colors the series `index`, or hands it back to the palette (`null`).
+    Color {
+        /// Index of the series, from 0.
+        index: usize,
+        /// Hexadecimal color, or `null` for the palette color.
+        color: Option<String>,
+    },
+    /// Turns a display option of a table on or off.
+    Flag {
+        /// The targeted display option.
+        flag: TableFlag,
+        /// `true` to turn it on.
+        on: bool,
+    },
+    /// Aligns the column `column` of a table.
+    Align {
+        /// Index of the column, from 0.
+        column: usize,
+        /// Text alignment of the column.
+        align: ColumnAlign,
+    },
+    /// Shows the same data as a chart or as a table.
+    ShowAs {
+        /// Wanted view: chart or table.
+        view: View,
+    },
 }
 
-/// Option d'affichage d'un tableau, nommée comme dans ses options.
+/// Display option of a table, named as in its options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum TableFlag {
-    /// Ligne 0 en en-tête.
+    /// Row 0 as a header.
     HeaderRow,
-    /// Colonne 0 en en-tête.
+    /// Column 0 as a header.
     HeaderColumn,
-    /// Une ligne sur deux sur fond.
+    /// Every other row on a background.
     Striped,
 }
 

@@ -256,6 +256,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
     }
 
     /// Une forme, puis son texte sur le même cadre.
+    #[expect(clippy::many_single_char_names, reason = "sides l, t, r, b of the text part, in OOXML preset notation")]
     fn shape(&mut self, item: &Item, s: &Shape, frame: Frame) {
         let f = &item.frame;
         let mut paint = Paint { fill: self.fill(item, &s.fill), pen: self.pen(item, s.stroke.as_ref()) };
@@ -279,13 +280,14 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
             }
             Geometry::Preset { name, .. } if name == "ellipse" => self.native(frame, "ellipse", None, &paint),
             Geometry::Preset { name, .. } if name == "line" => self.line(item, frame, paint.pen.clone()),
-            _ => match &geometry {
-                Some(o) => self.outline(item, frame, o, &paint),
-                None => {
+            _ => {
+                if let Some(o) = &geometry {
+                    self.outline(item, frame, o, &paint);
+                } else {
                     self.lose(item, LossKind::ShapeStyle(ShapeEffect::Geometry));
                     self.native(frame, "rect", None, &paint);
                 }
-            },
+            }
         }
         if let (Some(stroke), Some(pen)) = (&s.stroke, &paint.pen) {
             let stroked = match &s.geom {
@@ -502,7 +504,7 @@ fn fraction(v: f64, side: f64) -> f64 {
 /// milieu de son cadre).
 fn widen(frame: Frame, cmds: Vec<PathCommand>) -> (Frame, Vec<PathCommand>) {
     let (w, h) = (frame.w.max(MIN_SIDE), frame.h.max(MIN_SIDE));
-    if w == frame.w && h == frame.h {
+    if frame.w >= MIN_SIDE && frame.h >= MIN_SIDE {
         return (frame, cmds);
     }
     let (px, py) = ((w - frame.w) / 2.0, (h - frame.h) / 2.0);

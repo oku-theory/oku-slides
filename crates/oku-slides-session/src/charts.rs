@@ -71,9 +71,15 @@ fn canonicalize_tree(e: &mut Element, labels: &ChartLabels, registry: &WidgetReg
 }
 
 impl Session {
-    /// Redessine le graphique `element` en `kind` : ses données sont
-    /// converties (en-têtes dans la langue de l'utilisateur), l'élément
-    /// remplacé en une transaction.
+    /// Redraws chart `element` as `kind`.
+    ///
+    /// Its data is converted (headers in the user's language) and the element replaced in one
+    /// transaction.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the slide (`NoSlide`) or the chart (`NoChart`) cannot be found, if its data does not
+    /// convert, or if the transaction is rejected.
     pub fn set_chart_kind(
         &mut self,
         label: &str,

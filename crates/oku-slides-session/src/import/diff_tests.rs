@@ -145,14 +145,14 @@ fn import_diff_of_a_region_crops_both_pages_around_it_at_twice_the_size() {
     let whole = s.import_diff(&slide, None).unwrap();
     let item = whole.json["regions"][0]["item"].as_str().unwrap().to_owned();
     let zoom = s.import_diff(&slide, Some(&item)).unwrap();
-    let [_, _, w, h] = [0, 1, 2, 3].map(|i| zoom.json["crop"][i].as_u64().unwrap() as u32);
+    let [_, _, w, h] = [0, 1, 2, 3].map(|i| u32::try_from(zoom.json["crop"][i].as_u64().unwrap()).unwrap());
     for png in [&zoom.reference, &zoom.oku] {
         let r = Raster::from_png(png).unwrap();
         assert_that!((r.width(), r.height())).is_equal_to((w * ZOOM, h * ZOOM));
     }
     let frame = &zoom.json["region"]["frame"];
     // Le cadre (pt, à 0,5 px par pt) plus la marge de chaque côté, borné à la page.
-    let expected_w = ((frame["w"].as_f64().unwrap() * 0.5).round() as u32 + 2 * MARGIN).min(960);
+    let expected_w = (oku_slides_core::num::round_u32(frame["w"].as_f64().unwrap() * 0.5) + 2 * MARGIN).min(960);
     assert_that!(w).is_less_than_or_equal_to(expected_w);
     assert_that!(zoom.json["region"]["item"].as_str()).is_equal_to(Some(item.as_str()));
     // Le zoom ne compte pas d'essai.

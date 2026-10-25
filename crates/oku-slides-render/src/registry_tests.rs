@@ -31,7 +31,8 @@ fn probe_json_conversion_failure_returns_schema_unreadable() {
     let source = serde_json::from_str::<i32>("nope").unwrap_err();
     let err = probe_json(Some(Err(source))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RegistryErrorKind::Schema);
-    assert_that!(err.widget_error().map(|e| e.kind())).is_equal_to(Some(WidgetErrorKind::Unreadable));
+    assert_that!(err.widget_error().map(oku_slides_core::WidgetError::kind))
+        .is_equal_to(Some(WidgetErrorKind::Unreadable));
 }
 
 #[test]

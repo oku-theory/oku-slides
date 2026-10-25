@@ -1,4 +1,5 @@
 //! Tests de non-régression : un fichier par bogue corrigé (`issue_<tâche>`).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 #[path = "../common/mod.rs"]
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]

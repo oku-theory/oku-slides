@@ -30,7 +30,7 @@ fn add_version_of_another_kind_than_earlier_versions_is_refused() {
     let lib = pack_library(dir.path());
     let m = manifest_ns(Uuid::new_v4(), "acme", &[]);
     add_version_of(&lib, PackKind::Widgets, &m, &[]);
-    let files = m.to_files(PackKind::Layouts, Default::default()).unwrap();
+    let files = m.to_files(PackKind::Layouts, std::collections::BTreeMap::default()).unwrap();
     let err = lib.add_version(m.id, &files).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::PackKindChanged);
 }
@@ -41,7 +41,9 @@ fn pack_kind_changed_message_is_localized_in_french() {
     let lib = pack_library(dir.path());
     let m = manifest_ns(Uuid::new_v4(), "acme", &[]);
     add_version_of(&lib, PackKind::Layouts, &m, &[]);
-    let err = lib.add_version(m.id, &m.to_files(PackKind::Widgets, Default::default()).unwrap()).unwrap_err();
+    let err = lib
+        .add_version(m.id, &m.to_files(PackKind::Widgets, std::collections::BTreeMap::default()).unwrap())
+        .unwrap_err();
     let fr = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("fr")));
     assert_that!(fr).is_not_equal_to(oku_slides_i18n::Localize::localize(&err, oku_slides_i18n::english()));
 }

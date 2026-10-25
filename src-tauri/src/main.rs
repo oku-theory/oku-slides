@@ -61,11 +61,25 @@ fn app_fonts(storage: &Storage, dirs: &[PathBuf]) -> Fonts {
             .flat_map(|dir| {
                 storage.read_fonts(dir).unwrap_or_else(|e| {
                     tracing::warn!(dir = %dir.display(), error = %oku_slides_platform::errors::one_line(&e), "polices");
-                    Default::default()
+                    std::collections::BTreeMap::default()
                 })
             })
             .map(|(_, bytes)| bytes),
     )
+}
+
+/// The font directories, in search order.
+///
+/// The `fonts/` resource, `paths.fonts` from the settings, then in development
+/// the repository's fonts.
+fn font_dirs(app: &tauri::AppHandle, platform: &Platform) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Ok(res) = app.path().resource_dir() {
+        dirs.push(res.join("fonts"));
+    }
+    dirs.extend(platform.settings.paths.fonts.clone());
+    dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/fonts")));
+    dirs
 }
 
 /// Fichiers reçus en arguments : relatifs au dossier de lancement, et des fichiers.
@@ -79,6 +93,80 @@ fn launch_files(args: impl Iterator<Item = PathBuf>, cwd: &Path) -> Vec<PathBuf>
 /// faut que `$XDG_RUNTIME_DIR/bus`, l'adresse par défaut de libdbus, existe.
 fn session_bus(address: Option<&std::ffi::OsStr>, runtime_dir: Option<&std::ffi::OsStr>) -> bool {
     address.is_some_and(|a| !a.is_empty()) || runtime_dir.is_some_and(|d| Path::new(d).join("bus").exists())
+}
+
+/// Handles a second instance launched with `argv` from `cwd`.
+///
+/// Its files open here; without files, the active window comes back to the
+/// front.
+fn second_instance(app: &tauri::AppHandle, argv: Vec<String>, cwd: &str) {
+    let files = launch_files(argv.into_iter().skip(1).map(PathBuf::from), Path::new(cwd));
+    // Always first: a second instance forwards its arguments to this
+    // one, then exits before opening anything.
+    if !files.is_empty() {
+        if let Some(files) = app.state::<Pending>().receive(files) {
+            commands::open_files(app, files);
+        }
+        return;
+    }
+    // Relaunched without files: the active window comes back to the front.
+    let Some(state) = app.try_state::<AppState>() else {
+        tracing::debug!("seconde instance sans fichier : état pas encore prêt");
+        return;
+    };
+    let Some(focused) = state.try_workspace().map(|ws| ws.focused().to_owned()) else {
+        tracing::debug!("seconde instance sans fichier : espace de travail occupé");
+        return;
+    };
+    let Some(w) = app.get_webview_window(&focused) else {
+        tracing::debug!(label = focused, "seconde instance sans fichier : fenêtre introuvable");
+        return;
+    };
+    if let Err(e) = w.unminimize().and_then(|()| w.set_focus()) {
+        tracing::warn!(label = focused, error = %e, "fenêtre non mise au premier plan");
+    }
+}
+
+/// Native window events: state saved, focus tracked, closing decided by the host.
+fn window_event(window: &tauri::Window, event: &WindowEvent) {
+    match event {
+        // Size and position are saved once the gesture ends, not only on close.
+        WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
+            if let Some(saver) = window.app_handle().try_state::<window_state::Saver>() {
+                saver.changed();
+            }
+        }
+        WindowEvent::Focused(true) => commands::focused(window.app_handle(), window.label()),
+        // Never a native close: the host (last window) or the page decides.
+        WindowEvent::CloseRequested { api, .. } => {
+            api.prevent_close();
+            commands::close_requested(window.app_handle(), window.label());
+        }
+        _ => {}
+    }
+}
+
+/// Clicks on the app menu.
+///
+/// Agent window, update check, "Quit".
+fn menu_event(app: &tauri::AppHandle, event: &tauri::menu::MenuEvent) {
+    if event.id() == menu::AGENT_ID {
+        agent_window::toggle(app);
+    }
+    if event.id() == menu::CHECK_UPDATES_ID {
+        let focused = app.try_state::<AppState>().and_then(|s| s.try_workspace().map(|ws| ws.focused().to_owned()));
+        if let Some(label) = focused {
+            if let Err(e) = app.emit_to(label.as_str(), "update-check-requested", ()) {
+                tracing::warn!(error = %e, "recherche de mise à jour non transmise");
+            }
+        } else {
+            tracing::debug!("recherche de mise à jour : espace de travail occupé, clic ignoré");
+        }
+    }
+    if event.id() == menu::QUIT_ID {
+        let app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || state::shutdown(&app));
+    }
 }
 
 fn main() -> color_eyre::Result<()> {
@@ -101,33 +189,7 @@ fn main() -> color_eyre::Result<()> {
             std::env::var_os("XDG_RUNTIME_DIR").as_deref(),
         );
     let builder = if single_instance_available {
-        builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            let files = launch_files(argv.into_iter().skip(1).map(PathBuf::from), Path::new(&cwd));
-            // Toujours en premier : une seconde instance transmet ses
-            // arguments à celle-ci, puis s'arrête avant d'avoir rien ouvert.
-            if !files.is_empty() {
-                if let Some(files) = app.state::<Pending>().receive(files) {
-                    commands::open_files(app, files);
-                }
-                return;
-            }
-            // Relancée sans fichier : la fenêtre active revient au premier plan.
-            let Some(state) = app.try_state::<AppState>() else {
-                tracing::debug!("seconde instance sans fichier : état pas encore prêt");
-                return;
-            };
-            let Some(focused) = state.try_workspace().map(|ws| ws.focused().to_owned()) else {
-                tracing::debug!("seconde instance sans fichier : espace de travail occupé");
-                return;
-            };
-            let Some(w) = app.get_webview_window(&focused) else {
-                tracing::debug!(label = focused, "seconde instance sans fichier : fenêtre introuvable");
-                return;
-            };
-            if let Err(e) = w.unminimize().and_then(|()| w.set_focus()) {
-                tracing::warn!(label = focused, error = %e, "fenêtre non mise au premier plan");
-            }
-        }))
+        builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| second_instance(app, argv, &cwd)))
     } else {
         tracing::warn!("pas de bus D-Bus détecté : instance unique désactivée");
         builder
@@ -137,21 +199,7 @@ fn main() -> color_eyre::Result<()> {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .on_window_event(|window, event| match event {
-            // Taille et position gardées une fois le geste fini, pas seulement à la fermeture.
-            WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
-                if let Some(saver) = window.app_handle().try_state::<window_state::Saver>() {
-                    saver.changed();
-                }
-            }
-            WindowEvent::Focused(true) => commands::focused(window.app_handle(), window.label()),
-            // Jamais de fermeture native : l'hôte (dernière fenêtre) ou la page décide.
-            WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                commands::close_requested(window.app_handle(), window.label());
-            }
-            _ => {}
-        });
+        .on_window_event(window_event);
     #[cfg(target_os = "macos")]
     let builder = {
         let localizer = platform.localizer.clone();
@@ -159,15 +207,8 @@ fn main() -> color_eyre::Result<()> {
     };
     let app = builder
         .setup(move |app| {
-            let mut dirs = Vec::new();
-            if let Ok(res) = app.path().resource_dir() {
-                dirs.push(res.join("fonts"));
-            }
-            dirs.extend(platform.settings.paths.fonts.clone());
-            // En développement, les polices du dépôt.
-            dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/fonts")));
-            let fonts = app_fonts(&platform.storage, &dirs);
-            let workspace = Workspace::resume(fonts, &platform, platform.settings.paths.data().join("resume"))?;
+            let fonts = app_fonts(&platform.storage, &font_dirs(app.handle(), &platform));
+            let workspace = Workspace::resume(fonts, &platform, &platform.settings.paths.data().join("resume"))?;
             let workspace = Arc::new(Mutex::new(workspace));
             let stt = Stt::new(&platform);
             // Les outils et l'agent vivent dans le runtime tokio de Tauri.
@@ -195,27 +236,7 @@ fn main() -> color_eyre::Result<()> {
             updates::spawn_checks(app.handle(), &platform.settings.updates);
             // « Quitter » (menu macOS) : jamais le `terminate:` natif, pour
             // toujours passer par `state::shutdown` (voir `menu.rs`).
-            app.on_menu_event(|app, event| {
-                if event.id() == menu::AGENT_ID {
-                    agent_window::toggle(app);
-                }
-                if event.id() == menu::CHECK_UPDATES_ID {
-                    let focused =
-                        app.try_state::<AppState>().and_then(|s| s.try_workspace().map(|ws| ws.focused().to_owned()));
-                    match focused {
-                        Some(label) => {
-                            if let Err(e) = app.emit_to(label.as_str(), "update-check-requested", ()) {
-                                tracing::warn!(error = %e, "recherche de mise à jour non transmise");
-                            }
-                        }
-                        None => tracing::debug!("recherche de mise à jour : espace de travail occupé, clic ignoré"),
-                    }
-                }
-                if event.id() == menu::QUIT_ID {
-                    let app = app.clone();
-                    tauri::async_runtime::spawn_blocking(move || state::shutdown(&app));
-                }
-            });
+            app.on_menu_event(|app, event| menu_event(app, &event));
             // Avant la boucle d'événements : aucune commande concurrente encore,
             // direct sur ce fil (ailleurs, toujours hors du fil principal).
             let view = windows::sync(app.handle(), None, true);

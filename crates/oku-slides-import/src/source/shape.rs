@@ -11,16 +11,57 @@ use super::text::TextBox;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "cmd")]
 pub enum PathCmd {
-    /// Déplacement sans tracé.
-    MoveTo { x: f64, y: f64 },
-    /// Segment.
-    LineTo { x: f64, y: f64 },
-    /// Courbe de Bézier cubique.
-    CubicTo { x1: f64, y1: f64, x2: f64, y2: f64, x: f64, y: f64 },
-    /// Courbe de Bézier quadratique.
-    QuadTo { x1: f64, y1: f64, x: f64, y: f64 },
-    /// Arc OOXML : rayons (fraction de la boîte), départ et balayage en degrés.
-    ArcTo { wr: f64, hr: f64, start: f64, swing: f64 },
+    /// Move without drawing.
+    MoveTo {
+        /// X of the new current point.
+        x: f64,
+        /// Y of the new current point.
+        y: f64,
+    },
+    /// Line segment.
+    LineTo {
+        /// X of the end point.
+        x: f64,
+        /// Y of the end point.
+        y: f64,
+    },
+    /// Cubic Bézier curve.
+    CubicTo {
+        /// X of the first control point.
+        x1: f64,
+        /// Y of the first control point.
+        y1: f64,
+        /// X of the second control point.
+        x2: f64,
+        /// Y of the second control point.
+        y2: f64,
+        /// X of the end point.
+        x: f64,
+        /// Y of the end point.
+        y: f64,
+    },
+    /// Quadratic Bézier curve.
+    QuadTo {
+        /// X of the control point.
+        x1: f64,
+        /// Y of the control point.
+        y1: f64,
+        /// X of the end point.
+        x: f64,
+        /// Y of the end point.
+        y: f64,
+    },
+    /// OOXML arc: radii (box fraction), start and sweep in degrees.
+    ArcTo {
+        /// Horizontal radius, as a fraction of the box width.
+        wr: f64,
+        /// Vertical radius, as a fraction of the box height.
+        hr: f64,
+        /// Start angle, in degrees.
+        start: f64,
+        /// Sweep, in degrees (positive: clockwise).
+        swing: f64,
+    },
     /// Fermeture du sous-tracé.
     Close,
 }

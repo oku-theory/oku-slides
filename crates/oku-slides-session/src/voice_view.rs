@@ -196,11 +196,13 @@ pub struct DictationPatch {
 
 impl DictationPatch {
     /// Aucun réglage n'est demandé.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         *self == Self::default()
     }
 
     /// Le changement touche l'adresse ou la variable : ce qui décide où part le secret.
+    #[must_use]
     pub fn touches_api_target(&self) -> bool {
         self.api_url.is_some() || self.api_key_env.is_some()
     }
@@ -230,6 +232,7 @@ pub enum VoiceEvent {
 }
 
 /// L'évènement d'une action de la boîte et de son contexte ; `None` si mal formé.
+#[must_use]
 pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEvent> {
     let text = |key: &str| context.get(key).and_then(Value::as_str).map(str::to_owned);
     let patch = |p: DictationPatch| Some(VoiceEvent::Dictation(p));

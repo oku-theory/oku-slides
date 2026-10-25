@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use speculoos::prelude::*;
 
 use super::*;
@@ -47,13 +49,19 @@ fn shape_counts_attributes_of_the_most_crowded_element_not_quoted_equals() {
 
 #[test]
 fn parse_at_the_attribute_limit_is_accepted() {
-    let attrs: String = (0..MAX_XML_ATTRIBUTES).map(|i| format!(" a{i}=''")).collect();
+    let attrs = (0..MAX_XML_ATTRIBUTES).fold(String::new(), |mut attrs, i| {
+        let _ = write!(attrs, " a{i}=''");
+        attrs
+    });
     assert_that!(parse(&format!("<r{attrs}/>"), "p.xml", 10).is_ok()).is_true();
 }
 
 #[test]
 fn parse_over_the_attribute_limit_is_refused_before_roxmltree() {
-    let attrs: String = (0..=MAX_XML_ATTRIBUTES).map(|i| format!(" a{i}=''")).collect();
+    let attrs = (0..=MAX_XML_ATTRIBUTES).fold(String::new(), |mut attrs, i| {
+        let _ = write!(attrs, " a{i}=''");
+        attrs
+    });
     assert_that!(parse(&format!("<r{attrs}/>"), "p.xml", 10).map(|_| ()).map_err(|e| e.kind()).err())
         .is_equal_to(Some(ImportErrorKind::Unreadable));
 }

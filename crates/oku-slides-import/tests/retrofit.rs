@@ -3,6 +3,7 @@
 //! choisis (`essentiel`, et des packs de test) et les thèmes intégrés (Papier,
 //! Pro). Le plan s'applique en une transaction et le deck obtenu ne lève
 //! aucune `Issue`.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -145,7 +146,8 @@ fn retrofit_applies_without_issue_and_covers_everything(
     assert_that!(plan.report.slides.len()).is_equal_to(deck.slides.len());
     let c = plan.report.coverage.unwrap_or_else(|| panic!("couverture mesurée"));
     assert_that!(c.missing).is_empty();
-    assert_that!([c.runs, c.images, c.tables, c.charts].iter().all(|r| r.is_complete())).is_true();
+    assert_that!([c.runs, c.images, c.tables, c.charts].iter().all(oku_slides_import::report::Ratio::is_complete))
+        .is_true();
 }
 
 #[test]
@@ -280,16 +282,16 @@ fn retrofit_alto_cover_stays_a_cover_and_keeps_its_extra_texts_in_notes() {
 /// flux ne tient pas même en petit : le débordement est dit au rapport.
 #[test]
 fn retrofit_known_overflowing_flows_are_reduced_or_placed_on_the_grid() {
-    let small = |e: &Element| -> bool {
-        let mut runs = Vec::new();
-        fn walk<'e>(e: &'e Element, out: &mut Vec<&'e oku_slides_core::Run>) {
-            out.extend(e.params.rich("body").unwrap_or_default().iter().flat_map(|p| &p.runs));
-            for (_, c) in e.params.slots() {
-                for child in c {
-                    walk(child, out);
-                }
+    fn walk<'e>(e: &'e Element, out: &mut Vec<&'e oku_slides_core::Run>) {
+        out.extend(e.params.rich("body").unwrap_or_default().iter().flat_map(|p| &p.runs));
+        for (_, c) in e.params.slots() {
+            for child in c {
+                walk(child, out);
             }
         }
+    }
+    let small = |e: &Element| -> bool {
+        let mut runs = Vec::new();
         walk(e, &mut runs);
         !runs.is_empty() && runs.iter().all(|r| r.size.is_some())
     };

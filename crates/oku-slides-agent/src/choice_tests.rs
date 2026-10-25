@@ -40,13 +40,13 @@ fn fr() -> Localizer {
 }
 
 /// Ce que dit `availability` d'un modèle absent sur cette machine.
-fn expected_without_model() -> Option<Unusable> {
+fn expected_without_model() -> Unusable {
     match Target::current() {
         Target::AppleSilicon => {
-            Some(Unavailable::NeedsDownload { size: oku_slides_platform::local_agent::AGENT_MODEL_SIZE }.into())
+            Unavailable::NeedsDownload { size: oku_slides_platform::local_agent::AGENT_MODEL_SIZE }.into()
         }
-        Target::IntelMac => Some(Unusable::LocalIntelMac),
-        Target::Other => Some(Unusable::LocalUnsupportedOs),
+        Target::IntelMac => Unusable::LocalIntelMac,
+        Target::Other => Unusable::LocalUnsupportedOs,
     }
 }
 
@@ -54,7 +54,7 @@ fn expected_without_model() -> Option<Unusable> {
 fn availability_local_without_model_needs_download() {
     let dir = tempfile::tempdir().unwrap();
     let platform = platform(dir.path(), Some(PathBuf::from("/app")));
-    let expected = expected_without_model().map(|u| u.localize(&fr()));
+    let expected = Some(expected_without_model().localize(&fr()));
     assert_that!(choice(&platform).availability()).is_equal_to(expected);
 }
 
@@ -67,7 +67,7 @@ fn availability_local_with_complete_marker_is_ready() {
     std::fs::write(models.join(oku_slides_platform::models::COMPLETE), b"").unwrap();
     let expected = match Target::current() {
         Target::AppleSilicon => None,
-        _ => expected_without_model().map(|u| u.localize(&fr())),
+        _ => Some(expected_without_model().localize(&fr())),
     };
     assert_that!(choice(&platform).availability()).is_equal_to(expected);
 }
@@ -85,7 +85,7 @@ fn availability_after_successful_download_forgets_a_stale_link_failure() {
     let stale = Some(Unusable::NoHttp.localize(&fr()));
     let expected = match Target::current() {
         Target::AppleSilicon => None,
-        _ => expected_without_model().map(|u| u.localize(&fr())),
+        _ => Some(expected_without_model().localize(&fr())),
     };
     if Target::current() == Target::AppleSilicon {
         assert_that!(choice.availability()).is_equal_to(stale);

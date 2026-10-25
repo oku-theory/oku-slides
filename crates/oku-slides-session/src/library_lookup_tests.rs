@@ -51,7 +51,7 @@ fn read_pack_dir_reads_the_manifest_and_the_widget_files() {
     write_pack_dir(tmp.path());
     let (storage, _) = library(tmp.path());
     let files = read_pack_dir(&storage, tmp.path(), MAX).unwrap().unwrap();
-    let names: Vec<String> = files.widgets().keys().map(|w| w.file_name()).collect();
+    let names: Vec<String> = files.widgets().keys().map(oku_slides_core::WidgetFile::file_name).collect();
     assert_that!((pack_id(&files), files.kind(), names)).is_equal_to((
         ESSENTIEL_PACK,
         oku_slides_core::PackKind::Layouts,
@@ -71,7 +71,7 @@ fn read_pack_dir_beyond_its_budget_is_too_large() {
     let tmp = tempfile::tempdir().unwrap();
     write_pack_dir(tmp.path());
     let (storage, _) = library(tmp.path());
-    let size = std::fs::metadata(tmp.path().join("layouts.json")).unwrap().len() as usize;
+    let size = usize::try_from(std::fs::metadata(tmp.path().join("layouts.json")).unwrap().len()).unwrap();
     // Le layouts.json tient, le layout (10 octets) non.
     let err = read_pack_dir(&storage, tmp.path(), size + 5).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::TooLarge);
@@ -204,11 +204,19 @@ fn library_pack_by_namespace_gives_the_current_version_of_its_owner() {
 fn embed_theme_by_namespace_embeds_its_closure() {
     let tmp = tempfile::tempdir().unwrap();
     let themes = ThemeLibrary::new(Some(tmp.path().join("themes")), Storage::local().unwrap());
-    crate::test_support::add_user_theme(&themes, uuid::Uuid::new_v4(), "marque", &["pro"], Default::default(), None);
+    crate::test_support::add_user_theme(
+        &themes,
+        uuid::Uuid::new_v4(),
+        "marque",
+        &["pro"],
+        serde_json::Map::default(),
+        None,
+    );
     let mut bundle = empty_bundle();
     let (ns, pins) = embed_theme(&themes, "marque", &mut bundle).unwrap();
     assert_that!(ns.as_str()).is_equal_to("marque");
-    assert_that!(pins.keys().map(|n| n.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["marque", "pro"]);
+    assert_that!(pins.keys().map(oku_slides_core::Namespace::as_str).collect::<Vec<_>>())
+        .is_equal_to(vec!["marque", "pro"]);
     assert_that!(pins.values().all(|p| bundle.themes.contains_key(&p.version))).is_true();
 }
 
@@ -216,7 +224,14 @@ fn embed_theme_by_namespace_embeds_its_closure() {
 fn embed_theme_of_a_child_with_a_missing_parent_is_a_library_error() {
     let tmp = tempfile::tempdir().unwrap();
     let themes = ThemeLibrary::new(Some(tmp.path().join("themes")), Storage::local().unwrap());
-    crate::test_support::add_user_theme(&themes, uuid::Uuid::new_v4(), "marque", &["absent"], Default::default(), None);
+    crate::test_support::add_user_theme(
+        &themes,
+        uuid::Uuid::new_v4(),
+        "marque",
+        &["absent"],
+        serde_json::Map::default(),
+        None,
+    );
     let err = embed_theme(&themes, "marque", &mut empty_bundle()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::Library);
 }

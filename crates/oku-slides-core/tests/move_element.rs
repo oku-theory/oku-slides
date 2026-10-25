@@ -1,4 +1,5 @@
 //! L'op `move_element` : un élément change de slot, de slide ou de place (t-777).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -36,7 +37,7 @@ fn mv(slide: &str, element: &str, to: &str, owner: Option<&str>, param: &str, in
         "to": { "owner": owner, "param": param }, "index": index }))
 }
 
-fn add_to(slide: &str, param: &str, element: Value) -> Op {
+fn add_to(slide: &str, param: &str, element: &Value) -> Op {
     op(json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": param }, "element": element }))
 }
 
@@ -49,7 +50,7 @@ fn with_ops(deck: &Deck, ops: Vec<Op>) -> Deck {
 /// La fixture, avec une pile `pile` (enfants `k1`, `k2`) à la fin de `blocks` de `s-constat`.
 fn with_pile() -> Deck {
     let pile = json!({ "id": "pile", "kind": "base/stack", "params": { "children": [text("k1"), text("k2")] } });
-    with_ops(&fixture(), vec![add_to("s-constat", "blocks", pile)])
+    with_ops(&fixture(), vec![add_to("s-constat", "blocks", &pile)])
 }
 
 /// Les ids du slot `param` de la slide `slide`.
@@ -131,7 +132,7 @@ fn move_element_into_its_own_subtree_is_refused() {
 
 #[test]
 fn move_element_onto_a_taken_id_is_refused() {
-    let deck = with_ops(&fixture(), vec![add_to("s-constat", "blocks", text("c1"))]);
+    let deck = with_ops(&fixture(), vec![add_to("s-constat", "blocks", &text("c1"))]);
     let kind = refused(&deck, vec![mv("s-priorites", "c1", "s-constat", None, "blocks", None)], &registry());
     assert_that!(kind).is_equal_to(OpErrorKind::DuplicateId);
 }

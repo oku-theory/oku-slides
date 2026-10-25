@@ -86,7 +86,7 @@ fn edited(deck: &Deck, rng: &mut Lcg, round: usize) -> Deck {
             items.swap(k, j);
         }
     }
-    for _ in 0..1 + rng.below(2) {
+    for _ in 0..=rng.below(2) {
         let spots = movable(slide);
         let (from, i) = spots[rng.below(spots.len())];
         let e = slot(slide, from).remove(i);

@@ -18,9 +18,13 @@ fn view_in_deck_mode(s: &mut Session) -> oku_slides_session::Result<Option<DeckP
 }
 
 impl SurfaceHub {
-    /// Montre le panneau des packs du deck, seul ; `false` hors du mode deck.
+    /// Shows the deck's packs panel, alone; `false` outside deck mode.
     ///
-    /// Lit la bibliothèque sous le verrou de session : hors des fils du runtime.
+    /// Reads the library under the session lock: call it off the runtime threads.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session refuses: tab closed or packs library unreadable.
     pub fn show_packs(&self) -> Result<bool, HubError> {
         let view = self.session.with(view_in_deck_mode).and_then(|r| r).context(SessionSnafu)?;
         let Some(view) = view else { return Ok(false) };

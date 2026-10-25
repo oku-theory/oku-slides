@@ -161,7 +161,8 @@ fn hifi_imports_pin_neutre_with_deck_tokens() {
     let data = fresh_dir("oku-slides-import-hifi-neutre-");
     let imported = import_minimal(data.path(), crate::test_support::hifi()).unwrap();
     let deck = imported.sources.deck();
-    assert_that!(deck.theme.as_ref().map(|t| t.as_str())).is_equal_to(Some(crate::NEUTRE_NAMESPACE));
+    assert_that!(deck.theme.as_ref().map(oku_slides_core::Namespace::as_str))
+        .is_equal_to(Some(crate::NEUTRE_NAMESPACE));
     let pin = &deck.themes[&ns(crate::NEUTRE_NAMESPACE)];
     assert_that!((deck.themes.len(), pin.id)).is_equal_to((1, crate::NEUTRE_THEME));
     assert_that!(imported.sources.themes.contains_key(&pin.version)).is_true();

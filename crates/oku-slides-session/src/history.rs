@@ -187,8 +187,13 @@ impl Session {
         self.ensure_not_help()
     }
 
-    /// Le deck est-il en mode deck, le seul où ouvrir l'historique, déplacer, copier ou
-    /// fusionner ? Sinon, pourquoi (aide, pack, historique).
+    /// Is the session in deck mode? If not, why (help, pack, history).
+    ///
+    /// Deck mode is the only one to open history, move, copy or merge.
+    ///
+    /// # Errors
+    ///
+    /// Fails when read-only (`ReadOnly`), in pack mode (`EditingPack`) or in history (`InHistory`).
     pub fn ensure_deck_mode(&self) -> Result<()> {
         self.ensure_not_help()?;
         match self.mode {
@@ -199,7 +204,11 @@ impl Session {
         }
     }
 
-    /// Ouvre l'historique sur la dernière version ; le deck est mis de côté.
+    /// Opens history on the latest version; the deck is set aside.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode, or if the latest version cannot be read or rendered.
     pub fn history_open(&mut self) -> Result<()> {
         self.ensure_deck_mode()?;
         let preview = self.doc.sources.history();
@@ -213,7 +222,12 @@ impl Session {
         Ok(())
     }
 
-    /// Montre la version `index` (bornée à la dernière).
+    /// Shows version `index` (capped at the latest).
+    ///
+    /// # Errors
+    ///
+    /// Fails if history is not open (`HistoryNotOpen`), or if the targeted version cannot be read or
+    /// rendered.
     pub fn history_seek(&mut self, index: usize) -> Result<()> {
         let (stash, mut history) = self.take_history()?;
         let index = index.min(history.preview.len().saturating_sub(1));
@@ -230,8 +244,12 @@ impl Session {
         Ok(())
     }
 
-    /// Ramène le deck à la version montrée, par un nouveau commit annulable,
-    /// et ferme l'historique.
+    /// Restores the shown version with a new undoable commit, and closes history.
+    ///
+    /// # Errors
+    ///
+    /// Fails if history is not open, if the restore is rejected (history stays open), or if
+    /// rendering fails.
     pub fn history_restore(&mut self) -> Result<()> {
         let (mut stash, history) = self.take_history()?;
         let label = self.restore_label(history.version.timestamp);
@@ -255,14 +273,22 @@ impl Session {
         self.rerender()
     }
 
-    /// Ferme l'historique : le deck revient tel qu'il était.
+    /// Closes history: the deck comes back as it was.
+    ///
+    /// # Errors
+    ///
+    /// Fails if history is not open, or if the recovered deck does not render.
     pub fn history_close(&mut self) -> Result<()> {
         let (stash, _) = self.take_history()?;
         self.back_to_deck(stash)?;
         self.rerender()
     }
 
-    /// Les versions du deck, dans l'ordre.
+    /// The deck's versions, in order.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`HistoryNotOpen`) if history is not open.
     pub fn history_versions(&self) -> Result<&[Version]> {
         match &self.mode {
             Mode::History { history, .. } => Ok(history.preview.versions()),

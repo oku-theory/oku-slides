@@ -8,7 +8,9 @@ use oku_slides_session::agent::{KEPT_TURNS, Place, SavedConversation, Surface};
 
 use super::{HubState, McpEvent, SurfaceHub};
 
-/// Octets au plus du fil de l'onglet enregistré (sous la limite de lecture de 1 Mio).
+/// Maximum bytes of the saved tab thread.
+///
+/// It stays below the 1 MiB read limit.
 pub const THREAD_BYTES: usize = 768 * 1024;
 /// Plus grand numéro de tour ou d'identifiant accepté à la relecture.
 const MAX_RESTORED: u64 = 1_000_000;
@@ -18,8 +20,8 @@ fn id_number(id: &str) -> Option<u64> {
     id.rsplit_once('-').and_then(|(_, n)| n.parse().ok())
 }
 
-/// Une surface relue, prête à remettre : du fil, numérotée, figée, sans actions.
-fn cleaned(s: Surface) -> Option<Surface> {
+/// A reread surface, ready to restore: from the thread, numbered, frozen, without actions.
+fn cleaned(s: &Surface) -> Option<Surface> {
     let ok = s.place == Place::Thread
         && s.turn.is_some_and(|t| u64::from(t) <= MAX_RESTORED)
         && id_number(&s.id).is_some_and(|n| n <= MAX_RESTORED);
@@ -58,7 +60,8 @@ impl SurfaceHub {
         {
             let mut state = self.state();
             let mut seen: HashSet<String> = state.open.iter().map(|s| s.id.clone()).collect();
-            let mut thread: Vec<Surface> = saved.into_iter().flat_map(|c| c.thread).filter_map(cleaned).collect();
+            let mut thread: Vec<Surface> =
+                saved.into_iter().flat_map(|c| c.thread).filter_map(|s| cleaned(&s)).collect();
             let turns: BTreeSet<u32> = thread.iter().filter_map(|s| s.turn).collect();
             let first = turns.iter().rev().nth(KEPT_TURNS - 1).copied().unwrap_or(0);
             thread.retain(|s| s.turn.is_some_and(|t| t >= first));
@@ -80,9 +83,10 @@ impl SurfaceHub {
         self.emit(McpEvent::Surfaces { list: Vec::new() });
     }
 
-    /// Le fil de l'onglet à enregistrer : derniers tours clos, figés, sans actions, dans le budget.
+    /// The tab's thread to save, within the budget.
     ///
-    /// `None` si rien ne tient dans le budget : l'historique enregistré reste tel quel.
+    /// It holds the last closed turns, frozen, without actions. `None` if nothing
+    /// fits in the budget: the saved history stays as it is.
     pub fn thread_snapshot(&self) -> Option<Vec<Surface>> {
         let state = self.state();
         let ours = |s: &&Surface| {

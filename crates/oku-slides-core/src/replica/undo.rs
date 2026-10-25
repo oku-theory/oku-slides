@@ -50,7 +50,10 @@ pub(super) struct Undo {
     manager: UndoManager,
     /// Items empilés par des commits locaux, pas encore rangés dans une étape.
     pushed: Arc<AtomicUsize>,
+    /// Steps to undo, the most recent on top.
+    #[expect(clippy::struct_field_names, reason = "`undo` and `redo` stacks: the domain names, like the methods")]
     undo: Vec<Step>,
+    /// Undone steps, to redo.
     redo: Vec<Step>,
     /// Libellé du groupe ouvert, et si l'étape du sommet lui appartient déjà.
     group: Option<(String, bool)>,

@@ -37,6 +37,7 @@ pub struct Limits {
 
 impl Limits {
     /// Bornes réglées ; le plafond est ramené à ce qu'un sémaphore accepte.
+    #[must_use]
     pub fn new(header_timeout: Duration, max_connections: usize) -> Self {
         Self { header_timeout, max_connections: max_connections.min(Semaphore::MAX_PERMITS) }
     }

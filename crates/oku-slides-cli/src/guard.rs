@@ -147,9 +147,8 @@ pub(crate) fn check(
             let location = if rest.is_empty() { format!("/{path}") } else { format!("/{path}?{rest}") };
             Ok(Access::Exchange { set_cookie: token.set_cookie(), location })
         }
-        Some(_) => Err(Refusal::Token),
         None if token.presented(headers) => Ok(Access::Granted),
-        None => Err(Refusal::Token),
+        Some(_) | None => Err(Refusal::Token),
     }
 }
 

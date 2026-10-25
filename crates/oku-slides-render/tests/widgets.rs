@@ -1,3 +1,5 @@
+//! Pack widgets: probed registry, emitted fields, qualified rendering and block growth.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -275,7 +277,7 @@ fn compile_content_slide_emits_kicker_and_title_fields() {
 }
 
 /// Deck d'une slide libre avec un seul élément `kind`, sur un cadre.
-fn one_element_deck(kind: &str, params: serde_json::Value) -> Deck {
+fn one_element_deck(kind: &str, params: &serde_json::Value) -> Deck {
     let json = serde_json::json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": {
         "elements": [{ "id": "e", "kind": kind, "frame": { "x": 40, "y": 40, "w": 600, "h": 300 }, "params": params }]
     } }] });
@@ -288,7 +290,7 @@ fn compile_pack_widget_renders_in_the_deck() {
     assert_that!(r.registry().get("citations/quote")).is_some();
     let deck = one_element_deck(
         "citations/quote",
-        serde_json::json!({ "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "Héraclite" }),
+        &serde_json::json!({ "body": [{ "runs": [{ "t": "Tout coule." }] }], "source": "Héraclite" }),
     );
     let compiled = r.render(&deck, &BTreeMap::new()).unwrap();
     let layout = compiled.layout();
@@ -310,8 +312,8 @@ fn compile_pack_card_renders_under_its_qualified_kind_beside_the_base_card() {
     let registry = r.registry().clone();
     assert_that!(registry.get("rouge/card").and_then(|w| w.param("icon"))).is_some();
     assert_that!(registry.get(base::CARD).map(|w| w.param("icon").is_none())).is_equal_to(Some(true));
-    let plain = r.render(&one_element_deck(base::CARD, params.clone()), &BTreeMap::new()).unwrap();
-    let red = r.render(&one_element_deck("rouge/card", params), &BTreeMap::new()).unwrap();
+    let plain = r.render(&one_element_deck(base::CARD, &params), &BTreeMap::new()).unwrap();
+    let red = r.render(&one_element_deck("rouge/card", &params), &BTreeMap::new()).unwrap();
 
     // Le crate `png` n'est pas une dépendance du workspace : le fond rouge se
     // lit dans le SVG, et le PNG diffère de celui de la carte de `base`.
@@ -327,14 +329,14 @@ fn compile_pack_card_renders_under_its_qualified_kind_beside_the_base_card() {
 #[test]
 fn compile_unknown_element_kind_draws_the_unknown_box() {
     let mut r = common::renderer();
-    let compiled = r.render(&one_element_deck("nope", serde_json::json!({})), &BTreeMap::new()).unwrap();
+    let compiled = r.render(&one_element_deck("nope", &serde_json::json!({})), &BTreeMap::new()).unwrap();
     assert_that!(compiled.page_count()).is_equal_to(1);
     assert_that!(compiled.layout().boxes.iter().any(|b| b.id == "e")).is_true();
 }
 
 #[test]
 fn set_widgets_back_to_the_builtins_drops_the_pack_widgets() {
-    let deck = one_element_deck("rouge/card", serde_json::json!({ "title": "Rouge" }));
+    let deck = one_element_deck("rouge/card", &serde_json::json!({ "title": "Rouge" }));
     let mut r = common::renderer_with(&one_pack("rouge", &[("card", RED_CARD)]));
     assert_that!(r.render(&deck, &BTreeMap::new()).unwrap().svg(0).unwrap().to_lowercase()).contains("#ff0000");
     r.set_widgets(&builtin_pack_set().unwrap(), builtin_registry(&Fonts::default()).unwrap()).unwrap();
@@ -353,7 +355,7 @@ fn compile_unknown_slide_kind_renders_a_page_marked_with_the_slide() {
 }
 
 /// Élément `kind` sur un cadre, avec des paramètres donnés tels quels.
-fn framed(id: &str, kind: &str, params: serde_json::Value) -> serde_json::Value {
+fn framed(id: &str, kind: &str, params: &serde_json::Value) -> serde_json::Value {
     serde_json::json!({ "id": id, "kind": kind, "frame": { "x": 40, "y": 40, "w": 400, "h": 200 }, "params": params })
 }
 
@@ -363,15 +365,23 @@ fn compile_deck_with_wrong_typed_params_renders_every_page() {
     // chaque valeur qui n'a pas le type déclaré retombe sur le défaut.
     let json = serde_json::json!({ "version": DECK_VERSION, "slides": [
         { "id": "s-blank", "kind": essentiel::BLANK, "params": { "grid": "x", "elements": [
-            framed("card", base::CARD, serde_json::json!({ "title": 3, "kicker": ["a"], "body": "texte", "highlight": "oui" })),
-            framed("stack", base::STACK, serde_json::json!({ "count": "trois", "layout": 7, "gap": "énorme", "children": "x" })),
-            framed("image", base::IMAGE, serde_json::json!({ "asset": 42, "fit": "blob" })),
-            framed("shape", base::SHAPE, serde_json::json!({ "shape": false })),
-            framed("text", base::TEXT, serde_json::json!({ "body": [{ "x": 1 }] })),
-            framed("text2", base::TEXT, serde_json::json!({ "body": { "runs": [] } })),
-            framed("text3", base::TEXT, serde_json::json!({ "body": [{ "runs": "a" }] })),
-            framed("text4", base::TEXT, serde_json::json!({ "body": [{ "runs": [1] }] })),
-            framed("chart", base::CHART, serde_json::json!({ "option": "x" })),
+            framed(
+                "card",
+                base::CARD,
+                &serde_json::json!({ "title": 3, "kicker": ["a"], "body": "texte", "highlight": "oui" })
+            ),
+            framed(
+                "stack",
+                base::STACK,
+                &serde_json::json!({ "count": "trois", "layout": 7, "gap": "énorme", "children": "x" })
+            ),
+            framed("image", base::IMAGE, &serde_json::json!({ "asset": 42, "fit": "blob" })),
+            framed("shape", base::SHAPE, &serde_json::json!({ "shape": false })),
+            framed("text", base::TEXT, &serde_json::json!({ "body": [{ "x": 1 }] })),
+            framed("text2", base::TEXT, &serde_json::json!({ "body": { "runs": [] } })),
+            framed("text3", base::TEXT, &serde_json::json!({ "body": [{ "runs": "a" }] })),
+            framed("text4", base::TEXT, &serde_json::json!({ "body": [{ "runs": [1] }] })),
+            framed("chart", base::CHART, &serde_json::json!({ "option": "x" })),
         ] } },
         { "id": "s-content", "kind": essentiel::CONTENT,
           "params": { "layout": 5, "title": ["t"], "kicker": { "a": 1 }, "grid": [1], "blocks": "x", "elements": 3 } },
@@ -450,14 +460,14 @@ fn bottom_gap(layout: &Layout, id: &str) -> f64 {
 #[test]
 fn widget_declaring_grow_fill_takes_the_remaining_height() {
     let pack = common::pack("tall", &[("tall", TALL)]);
-    let layout = common::render_with_packs(&[pack], json!([text_block("t"), {"id": "g", "kind": "test/tall"}]));
+    let layout = common::render_with_packs(&[pack], &json!([text_block("t"), {"id": "g", "kind": "test/tall"}]));
     assert_that!(bottom_gap(&layout, "g")).is_less_than(1.0);
 }
 
 #[test]
 fn widget_without_grow_keeps_its_natural_height() {
     let pack = common::pack("flat", &[("flat", FLAT)]);
-    let layout = common::render_with_packs(&[pack], json!([text_block("t"), {"id": "g", "kind": "test/flat"}]));
+    let layout = common::render_with_packs(&[pack], &json!([text_block("t"), {"id": "g", "kind": "test/flat"}]));
     let g = common::box_of(&layout, "g");
     assert_that!(((g.h - 40.0).abs() < 1.0, bottom_gap(&layout, "g") > 50.0)).is_equal_to((true, true));
 }
@@ -467,7 +477,7 @@ fn widget_without_grow_keeps_its_natural_height() {
 fn widget_declaring_grow_fit_that_fits_keeps_its_height() {
     let pack = common::pack("fit", &[("fit", FIT)]);
     let blocks = json!([text_block("t"), {"id": "f", "kind": "test/fit", "params": {"n": 40}}, text_block("u")]);
-    let layout = common::render_with_packs(&[pack], blocks);
+    let layout = common::render_with_packs(&[pack], &blocks);
     let (f, u) = (common::box_of(&layout, "f"), common::box_of(&layout, "u"));
     assert_that!(((f.h - 40.0).abs() < 1.0, u.y - (f.y + f.h) < 30.0, bottom_gap(&layout, "u") > 50.0))
         .is_equal_to((true, true, true));
@@ -478,7 +488,7 @@ fn widget_declaring_grow_fit_that_fits_keeps_its_height() {
 fn widget_declaring_grow_fit_too_tall_takes_a_share() {
     let pack = common::pack("fit", &[("fit", FIT)]);
     let blocks = json!([text_block("t"), {"id": "f", "kind": "test/fit", "params": {"n": 2000}}, text_block("u")]);
-    let layout = common::render_with_packs(&[pack], blocks);
+    let layout = common::render_with_packs(&[pack], &blocks);
     let f = common::box_of(&layout, "f");
     assert_that!((f.h < 1000.0, bottom_gap(&layout, "u") > -0.5)).is_equal_to((true, true));
 }
@@ -490,7 +500,7 @@ fn element_box_reports_the_style_size_only_with_typography(#[case] kind: &str, #
     // Un seul pack : deux packs du même espace de noms seraient refusés (`DuplicatePack`).
     let packs = [common::pack("label", &[("label", LABEL), ("plainlabel", LABEL_PLAIN)])];
     let blocks = json!([{"id": "l", "kind": kind, "style": {"size": "title"}, "params": {"x": "Libellé"}}]);
-    let layout = common::render_with_packs(&packs, blocks);
+    let layout = common::render_with_packs(&packs, &blocks);
     let size = common::box_of(&layout, "l").style.as_ref().map_or(0.0, |s| s.size);
     let title = common::token_size("title");
     assert_that!((size - title).abs() < 0.5).is_equal_to(styled);
@@ -515,7 +525,7 @@ const WIDE_SVG: &[u8] =
 #[test]
 fn framed_image_is_stretched_over_its_whole_frame() {
     let deck = common::blank_with_element(
-        json!({"id": "i", "kind": base::IMAGE, "frame": {"x": 100, "y": 100, "w": 300, "h": 120},
+        &json!({"id": "i", "kind": base::IMAGE, "frame": {"x": 100, "y": 100, "w": 300, "h": 120},
         "params": {"asset": "sha256:abcd", "fit": "stretch"}}),
     );
     let assets = BTreeMap::from([("sha256:abcd".to_owned(), WIDE_SVG.to_vec())]);
@@ -528,6 +538,11 @@ fn framed_image_is_stretched_over_its_whole_frame() {
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let info = reader.next_frame(&mut buf).unwrap();
     let channels = info.line_size / info.width as usize;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "pixel coordinates are positive and bounded by the page; no fallible conversion from f64 to usize"
+    )]
     let at = (i.y + i.h - 5.0) as usize * info.line_size + (i.x + i.w / 2.0) as usize * channels;
     assert_that!(buf[at] < 40).is_true();
 }

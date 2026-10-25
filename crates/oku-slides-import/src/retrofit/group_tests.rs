@@ -52,7 +52,11 @@ fn steps() -> Vec<Item> {
             text: Some(tb),
             connection: None,
         };
-        item(&format!("g/{i}"), (i as f64 * 300.0, 0.0, 250.0, 100.0), ItemKind::Shape(Box::new(s)))
+        item(
+            &format!("g/{i}"),
+            (oku_slides_core::num::count_f64(i) * 300.0, 0.0, 250.0, 100.0),
+            ItemKind::Shape(Box::new(s)),
+        )
     };
     let nested = item("g/sub", (900.0, 0.0, 250.0, 100.0), ItemKind::Group { items: vec![step(3)], smartart: None });
     vec![step(1), bare("g/arrow", "rightArrow", (260.0, 40.0, 30.0, 20.0)), step(2), nested]

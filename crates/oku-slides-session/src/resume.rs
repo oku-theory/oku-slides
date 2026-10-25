@@ -163,22 +163,21 @@ impl DocSnapshot {
         cache: &mut Vec<Arc<Blobs>>,
     ) -> Result<Self, ReplicaError> {
         let replica = doc.sources.replica().snapshot()?;
-        let blobs = match cache.iter().find(|b| b.matches(sources)) {
-            Some(b) => Arc::clone(b),
-            None => {
-                let b = Arc::new(Blobs {
-                    assets: sources.assets.clone(),
-                    fonts: sources.fonts.clone(),
-                    packs: sources.packs.clone(),
-                    themes: sources.themes.clone(),
-                });
-                // Deck et pack édité : deux documents au plus.
-                if cache.len() >= 2 {
-                    cache.remove(0);
-                }
-                cache.push(Arc::clone(&b));
-                b
+        let blobs = if let Some(b) = cache.iter().find(|b| b.matches(sources)) {
+            Arc::clone(b)
+        } else {
+            let b = Arc::new(Blobs {
+                assets: sources.assets.clone(),
+                fonts: sources.fonts.clone(),
+                packs: sources.packs.clone(),
+                themes: sources.themes.clone(),
+            });
+            // Deck and edited pack: two documents at most.
+            if cache.len() >= 2 {
+                cache.remove(0);
             }
+            cache.push(Arc::clone(&b));
+            b
         };
         Ok(Self {
             replica,
@@ -410,7 +409,7 @@ impl Resume {
     pub(crate) fn quarantine(&self) -> Result<PathBuf> {
         let secs =
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
-        let name = self.dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "resume".into());
+        let name = self.dir.file_name().map_or_else(|| "resume".into(), |n| n.to_string_lossy().into_owned());
         let mut to = self.dir.with_file_name(format!("{name}.failed-{secs}"));
         let mut n = 1u32;
         while self.storage.exists(&to).context(AccessSnafu { path: &self.dir })? {
@@ -529,22 +528,20 @@ impl Resume {
             let verified = PackKind::ALL
                 .into_iter()
                 .find_map(|kind| PackFiles::verified(kind, hex, bytes, widgets.iter().map(|(n, b)| (n.clone(), *b))));
-            match verified {
-                Some((version, files)) => {
-                    packs.insert(version, files);
-                }
-                None => tracing::warn!(version = hex, "pack de reprise altéré ignoré"),
+            if let Some((version, files)) = verified {
+                packs.insert(version, files);
+            } else {
+                tracing::warn!(version = hex, "pack de reprise altéré ignoré");
             }
         }
         let mut themes = BTreeMap::new();
         for (name, bytes) in self.read_files(&dir.join("themes"))? {
             let Some(hex) = name.strip_suffix(".json") else { continue };
             // Vérifié par son empreinte : un thème altéré est ignoré.
-            match PackFiles::verified_theme(hex, &bytes) {
-                Some(files) => {
-                    themes.insert(files.version(), files);
-                }
-                None => tracing::warn!(version = hex, "thème de reprise altéré ignoré"),
+            if let Some(files) = PackFiles::verified_theme(hex, &bytes) {
+                themes.insert(files.version(), files);
+            } else {
+                tracing::warn!(version = hex, "thème de reprise altéré ignoré");
             }
         }
         let (sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs, themes);

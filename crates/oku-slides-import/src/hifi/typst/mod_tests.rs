@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -8,6 +7,7 @@ use super::*;
 use crate::fonts::{FontPlan, resolve};
 use crate::hifi::theme::{theme_colors, theme_master};
 use crate::report::ShapeEffect;
+use crate::source::TableFlags;
 use crate::source::{
     Arrow, ArrowKind, ArrowSize, Dash, Fill, Geometry, GradientStop, Opaque, PathCmd, Picture, Rgba, Shape, SourceDeck,
     Stroke, Styled, SubPath, TextBox,
@@ -295,7 +295,7 @@ fn decor_draws_an_opaque_fallback_and_loses_the_rest() {
         ItemKind::Table(crate::source::Table {
             col_widths: Vec::new(),
             row_heights: Vec::new(),
-            flags: Default::default(),
+            flags: TableFlags::default(),
             rows: Vec::new(),
         }),
     );

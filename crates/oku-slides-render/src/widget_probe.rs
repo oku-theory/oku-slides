@@ -51,6 +51,7 @@ impl FileProbe {
     }
 
     /// Vrai si aucune erreur ne l'écarte.
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         !self.diagnostics.iter().any(|d| d.severity == Severity::Error)
     }
@@ -62,6 +63,7 @@ impl FileProbe {
 /// pas être écrit en toutes lettres, et toute modification de `_commun`
 /// force la re-sonde de chaque widget. La sorte fixe le chemin du fichier,
 /// que ses diagnostics nomment.
+#[must_use]
 pub fn probe_key(kind: PackKind, name: &WidgetFile, source: &str, common: Option<&str>) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(kind.files_dir().as_bytes());
@@ -153,15 +155,12 @@ fn file_diagnostic(world: &OkuSlidesWorld, d: &SourceDiagnostic, kind: PackKind,
     }
     let dir = format!("packs/{PROBE_PACK}/{}/", kind.files_dir());
     let in_pack = |at: &SourceAt| at.path.starts_with(&dir);
-    match d.trace.iter().find_map(|t| world.source_at(t.span).filter(in_pack)) {
-        Some(at) => {
-            out.place = Some(format!("{}:{}", at.path, at.line));
-            out.at = Some(at);
-        }
-        None => {
-            let hints = std::mem::take(&mut out.hints);
-            out = Diagnostic { severity: out.severity, hints, ..Diagnostic::widget_error(name, out.message) };
-        }
+    if let Some(at) = d.trace.iter().find_map(|t| world.source_at(t.span).filter(in_pack)) {
+        out.place = Some(format!("{}:{}", at.path, at.line));
+        out.at = Some(at);
+    } else {
+        let hints = std::mem::take(&mut out.hints);
+        out = Diagnostic { severity: out.severity, hints, ..Diagnostic::widget_error(name, out.message) };
     }
     out
 }
@@ -180,10 +179,15 @@ fn misnamed(kind: PackKind, name: &WidgetFile, source: &str, declared: &str) -> 
     d
 }
 
-/// Le registre des packs déjà sondés (`fixed` : sonde brute) et des widgets
-/// valides de `files`, rangés sous l'espace de noms `namespace`, de sorte `kind`.
-/// Un widget que le registre refuse y devient écarté, avec un diagnostic, et
-/// l'assemblage reprend sans lui.
+/// Registry of the probed packs plus the valid widgets of `files`.
+///
+/// `fixed` is the raw probe of the packs already probed; the widgets of `files`
+/// go under namespace `namespace`, with kind `kind`. A widget the registry
+/// rejects is set aside, with a diagnostic, and assembly resumes without it.
+///
+/// # Errors
+///
+/// Fails like [`assemble_set`].
 pub fn assemble(
     fixed: &Json,
     namespace: &Namespace,
@@ -196,15 +200,22 @@ pub fn assemble(
 /// Les fichiers sondés d'un pack, sous son espace de noms et sa sorte.
 pub type ProbedPack<'a> = (&'a Namespace, PackKind, &'a mut BTreeMap<WidgetFile, FileProbe>);
 
-/// Le registre des packs de `fixed` et des widgets valides de chaque pack de
-/// `packs`, sous son espace de noms. Un widget que le registre refuse devient
-/// écarté, avec un diagnostic, et l'assemblage reprend sans lui. Un nom nu dans
-/// l'erreur (schéma) désigne le premier pack qui a ce fichier valide ; un nom
-/// qualifié (slot, catégorie contraire à la sorte), le fichier de son pack.
+/// Registry of `fixed`'s packs plus the valid widgets of each pack in `packs`.
 ///
-/// Les packs déjà sondés (`packs` de la sonde `fixed`, comme `base` dans
-/// [`crate::base_probe`]) entrent tels quels au registre : leurs widgets ne
-/// sont jamais écartés ici.
+/// Each pack's widgets go under its namespace. A widget the registry rejects
+/// is set aside, with a diagnostic, and assembly resumes without it. A bare
+/// name in the error (schema) designates the first pack whose file of that
+/// name is valid; a qualified name (slot, category contrary to the kind), the
+/// file of its pack.
+///
+/// The packs already probed (`packs` of the `fixed` probe, like `base` in
+/// [`crate::base_probe`]) enter the registry as is: their widgets are never
+/// set aside here.
+///
+/// # Errors
+///
+/// Fails if `fixed` has no `packs` list, or if a registry error designates
+/// no widget to set aside.
 pub fn assemble_set(fixed: &Json, packs: &mut [ProbedPack<'_>]) -> Result<WidgetRegistry, RegistryError> {
     let fixed: Vec<Json> = fixed
         .get("packs")

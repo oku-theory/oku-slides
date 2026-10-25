@@ -59,6 +59,7 @@ impl PackLibrary {
     /// `widgets` et `layouts` : les dossiers de chaque sorte, créés à la première écriture.
     ///
     /// `themes` : la bibliothèque des thèmes de la même session (un clone partage son index).
+    #[must_use]
     pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, themes: ThemeLibrary, storage: Storage) -> Self {
         Self { widgets: Library::new(widgets, storage.clone()), layouts: Library::new(layouts, storage), themes }
     }
@@ -66,27 +67,32 @@ impl PackLibrary {
     /// Les packs de l'utilisateur (`paths.widgets` et `paths.layouts` des réglages), et les intégrés.
     ///
     /// Ses thèmes sont ceux de l'utilisateur ([`ThemeLibrary::user`]).
+    #[must_use]
     pub fn user(platform: &oku_slides_platform::Platform) -> Self {
         Self::with_themes(platform, ThemeLibrary::user(platform))
     }
 
     /// Comme [`Self::user`], avec la bibliothèque des thèmes `themes` (celle de la session).
+    #[must_use]
     pub fn with_themes(platform: &oku_slides_platform::Platform, themes: ThemeLibrary) -> Self {
         let paths = &platform.settings.paths;
         Self::new(Some(paths.widgets()), Some(paths.layouts()), themes, platform.storage.clone())
     }
 
     /// La bibliothèque des thèmes que celle-ci consulte.
+    #[must_use]
     pub fn themes(&self) -> &ThemeLibrary {
         &self.themes
     }
 
     /// Un pack intégré à l'app, de l'une ou l'autre sorte ?
+    #[must_use]
     pub fn is_builtin(id: Uuid) -> bool {
         Library::<Widgets>::is_builtin(id) || Library::<Layouts>::is_builtin(id)
     }
 
     /// La sorte du pack `id` : celle qui le connaît ; inconnu, les widgets.
+    #[must_use]
     pub fn kind_of(&self, id: Uuid) -> PackKind {
         if Library::<Layouts>::is_builtin(id) || (!Library::<Widgets>::is_builtin(id) && self.layouts.knows(id)) {
             PackKind::Layouts
@@ -96,26 +102,31 @@ impl PackLibrary {
     }
 
     /// Les versions de `id`, chargées : l'intégrée d'abord, puis celles de l'utilisateur.
+    #[must_use]
     pub fn versions(&self, id: Uuid) -> Vec<StoredVersion<PackManifest>> {
         by_kind!(self, self.kind_of(id), l => l.versions(id))
     }
 
     /// Les fichiers de la version `v` du pack `id`.
+    #[must_use]
     pub fn version(&self, id: Uuid, v: &PackVersion) -> Option<PackFiles> {
         by_kind!(self, self.kind_of(id), l => l.version(id, v))
     }
 
     /// La version courante du pack `id` ; `None` pour un pack inconnu.
+    #[must_use]
     pub fn current(&self, id: Uuid) -> Option<PackVersion> {
         by_kind!(self, self.kind_of(id), l => l.current(id))
     }
 
     /// La version courante du pack `id`, lue (voir [`Library::current_version`]).
+    #[must_use]
     pub fn current_version(&self, id: Uuid) -> Option<StoredVersion<PackManifest>> {
         by_kind!(self, self.kind_of(id), l => l.current_version(id))
     }
 
     /// La version `v` de `id` est-elle arrivée avec un deck reçu ?
+    #[must_use]
     pub fn is_received(&self, id: Uuid, v: &PackVersion) -> bool {
         by_kind!(self, self.kind_of(id), l => l.is_received(id, v))
     }
@@ -136,11 +147,16 @@ impl PackLibrary {
         Ok(())
     }
 
-    /// Vérifie que le thème `id` peut prendre l'espace de noms `ns` dans la bibliothèque.
+    /// Checks that theme `id` can take namespace `ns` in the library.
     ///
-    /// Ni `deck` ni `deck-layouts` (`NamespaceReserved`), ni celui d'un pack
-    /// (intégré compris) ou d'un autre thème (`NamespaceTaken`). Le thème qui
-    /// le porte déjà le garde : une nouvelle version passe.
+    /// Neither `deck` nor `deck-layouts` (`NamespaceReserved`), nor that of a pack
+    /// (built-in included) or of another theme (`NamespaceTaken`). The theme that
+    /// already holds it keeps it: a new version passes.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `ns` is reserved (`NamespaceReserved`) or held by a pack or another theme
+    /// (`NamespaceTaken`).
     pub fn check_theme(&self, id: Uuid, ns: &Namespace) -> Result<()> {
         ensure!(!ns.is_deck() && !ns.is_deck_layouts(), NamespaceReservedSnafu { namespace: ns.as_str() });
         let pack = builtin_owner(ns)
@@ -152,19 +168,33 @@ impl PackLibrary {
         Ok(())
     }
 
-    /// Ajoute une version, dans la sorte de ses fichiers (voir [`Library::add_version`]).
+    /// Adds a version, under the kind of its files (see [`Library::add_version`]).
+    ///
+    /// # Errors
+    ///
+    /// Fails if `id` is already a pack of another kind (`PackKindChanged`), if the namespace is taken
+    /// elsewhere, or like [`Library::add_version`].
     pub fn add_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
         self.check_kinds(id, files)?;
         by_kind!(self, files.kind(), l => l.add_version(id, files))
     }
 
-    /// Ajoute une version arrivée avec un deck (voir [`Library::receive_version`]).
+    /// Adds a version that arrived with a deck (see [`Library::receive_version`]).
+    ///
+    /// # Errors
+    ///
+    /// Fails if `id` is already a pack of another kind (`PackKindChanged`), if the namespace is taken
+    /// elsewhere, or like [`Library::receive_version`].
     pub fn receive_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
         self.check_kinds(id, files)?;
         by_kind!(self, files.kind(), l => l.receive_version(id, files))
     }
 
-    /// Rend la version `v` courante pour le pack `id`.
+    /// Makes version `v` current for pack `id`.
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Library::set_current`]: unknown pack or version, failed write.
     pub fn set_current(&self, id: Uuid, v: &PackVersion) -> Result<()> {
         by_kind!(self, self.kind_of(id), l => l.set_current(id, v))
     }
@@ -203,16 +233,22 @@ impl PackLibrary {
     }
 
     /// `a` par rapport à `b` dans le pack `id`, par la chaîne des `parent`.
+    #[must_use]
     pub fn relation(&self, id: Uuid, a: &PackVersion, b: &PackVersion) -> Relation {
         by_kind!(self, self.kind_of(id), l => l.relation(id, a, b))
     }
 
-    /// Supprime le pack `id` de l'utilisateur (voir [`Library::delete`]).
+    /// Deletes the user's pack `id` (see [`Library::delete`]).
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Library::delete`]: missing folder or failed deletion.
     pub fn delete(&self, id: Uuid) -> Result<()> {
         by_kind!(self, self.kind_of(id), l => l.delete(id))
     }
 
     /// Les packs de la sorte `kind` dans leur version courante : intégrés d'abord, puis ceux de l'utilisateur, par nom.
+    #[must_use]
     pub fn entries(&self, kind: PackKind) -> Vec<StoredVersion<PackManifest>> {
         by_kind!(self, kind, l => l.entries())
     }
@@ -220,6 +256,7 @@ impl PackLibrary {
     /// La version courante du pack qui porte l'espace de noms `ns`, de l'une ou l'autre sorte.
     ///
     /// Un espace de noms intégré désigne toujours le pack intégré, jamais une copie de l'utilisateur.
+    #[must_use]
     pub fn by_namespace(&self, ns: &Namespace) -> Option<StoredVersion<PackManifest>> {
         PackKind::ALL.into_iter().find_map(|kind| self.owned_current(kind, ns))
     }
@@ -228,6 +265,7 @@ impl PackLibrary {
     ///
     /// Un espace de noms intégré n'appartient qu'à son pack intégré : une
     /// copie de l'utilisateur qui le porte n'est jamais un résultat.
+    #[must_use]
     pub fn owned_current(&self, kind: PackKind, ns: &Namespace) -> Option<StoredVersion<PackManifest>> {
         self.entries(kind).into_iter().find(|s| Self::owns(s, ns))
     }
@@ -250,6 +288,7 @@ impl PackLibrary {
     }
 
     /// Les packs de la sorte `kind` dans leur version courante, résumés pour les listes.
+    #[must_use]
     pub fn packs(&self, kind: PackKind) -> Vec<PackInfo> {
         self.entries(kind)
             .into_iter()

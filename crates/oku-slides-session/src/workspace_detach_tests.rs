@@ -39,11 +39,11 @@ fn attach_agent_clears_the_view_flag() {
 fn detached_agent_is_restored_by_resume() {
     let data = fresh_dir("oku-slides-workspace-detach-");
     let dir = data.path().join("resume");
-    let ws = resumed_on(data.path(), dir.clone());
+    let ws = resumed_on(data.path(), &dir);
     apply(&ws, json!({"cmd": "detach_agent"}));
     Workspace::settle(&ws);
     drop(ws);
-    let again = resumed_on(data.path(), dir);
+    let again = resumed_on(data.path(), &dir);
     assert_that!(Workspace::lock(&again).agent_detached()).is_true();
 }
 

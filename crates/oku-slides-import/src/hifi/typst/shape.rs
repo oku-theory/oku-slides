@@ -53,18 +53,16 @@ impl Gen<'_> {
                 let diagonal = [PathCommand::Move(fx, fy), PathCommand::Line(1.0 - fx, 1.0 - fy)];
                 self.arrows(&at, &diagonal, s.stroke.as_ref());
             }
-            geom => match outline(geom, f.w, f.h) {
-                Some(o) => {
+            geom => {
+                if let Some(o) = outline(geom, f.w, f.h) {
                     self.curves(at, &o, &fill, &stroke);
                     self.arrows(at, &o.stroked, s.stroke.as_ref());
-                }
-                // Preset inconnu (fichier altéré) : son cadre, plutôt que rien, et la perte.
-                None => {
+                } else {
                     self.losses.push(Loss::on(id, LossKind::ShapeStyle(ShapeEffect::Geometry)));
                     let body = format!("rect(width: {w}, height: {h}, fill: {fill}, stroke: {stroke}),");
                     at.emit(&mut self.w, |t| t.line(&body));
                 }
-            },
+            }
         }
     }
 
@@ -166,22 +164,22 @@ pub(crate) fn round_rect_radius(adj: &BTreeMap<String, f64>, w: f64, h: f64) -> 
 }
 
 /// Un `curve` des commandes `cmds` (fractions du cadre) étirées à `w` × `h` pt.
-fn curve(t: &mut Typst, cmds: &[PathCommand], w: f64, h: f64, fill: &str, stroke: &str) {
-    let p = |x: f64, y: f64| format!("({}, {})", pt(x * w), pt(y * h));
-    t.open(&format!("curve(fill: {fill}, stroke: {stroke},"));
-    for c in cmds {
-        let line = match *c {
-            PathCommand::Move(x, y) => format!("curve.move({}),", p(x, y)),
-            PathCommand::Line(x, y) => format!("curve.line({}),", p(x, y)),
+fn curve(out: &mut Typst, cmds: &[PathCommand], w: f64, h: f64, fill: &str, stroke: &str) {
+    let point = |x: f64, y: f64| format!("({}, {})", pt(x * w), pt(y * h));
+    out.open(&format!("curve(fill: {fill}, stroke: {stroke},"));
+    for cmd in cmds {
+        let line = match *cmd {
+            PathCommand::Move(x, y) => format!("curve.move({}),", point(x, y)),
+            PathCommand::Line(x, y) => format!("curve.line({}),", point(x, y)),
             PathCommand::Cubic(x1, y1, x2, y2, x, y) => {
-                format!("curve.cubic({}, {}, {}),", p(x1, y1), p(x2, y2), p(x, y))
+                format!("curve.cubic({}, {}, {}),", point(x1, y1), point(x2, y2), point(x, y))
             }
-            PathCommand::Quad(x1, y1, x, y) => format!("curve.quad({}, {}),", p(x1, y1), p(x, y)),
+            PathCommand::Quad(x1, y1, x, y) => format!("curve.quad({}, {}),", point(x1, y1), point(x, y)),
             PathCommand::Close => "curve.close(mode: \"straight\"),".to_owned(),
         };
-        t.line(&line);
+        out.line(&line);
     }
-    t.close("),");
+    out.close("),");
 }
 
 /// Zone de texte de la forme `s` dans un cadre de `w` × `h` pt page

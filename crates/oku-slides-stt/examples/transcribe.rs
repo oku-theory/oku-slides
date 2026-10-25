@@ -43,8 +43,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         hound::SampleFormat::Float => reader.samples::<f32>().collect::<Result<_, _>>()?,
     };
-    let ch = spec.channels as usize;
-    let mono: Vec<f32> = samples.chunks(ch).map(|f| f.iter().sum::<f32>() / ch as f32).collect();
+    let ch = usize::from(spec.channels);
+    let mono: Vec<f32> = samples.chunks(ch).map(|f| f.iter().sum::<f32>() / f32::from(spec.channels)).collect();
     let audio = resample(&mono, spec.sample_rate, oku_slides_stt::SAMPLE_RATE);
 
     let stt = Stt::new(&platform);
@@ -60,13 +60,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Idem : rien d'autre ne dicte pendant l'exemple.
     let _restored = stt.configure(before);
     let (text, phrases) = result?;
-    let secs = audio.len() as f32 / 16000.0;
+    let secs = f64::from(u32::try_from(audio.len())?) / f64::from(oku_slides_stt::SAMPLE_RATE);
     let spoken: f32 = phrases.iter().map(|(a, b, _)| b - a).sum();
     eprintln!(
         "chargement {:.2} s · {secs:.1} s d'audio dont {spoken:.1} s de parole ({} phrases) · transcrit en {took:.2} s ({:.1}× temps réel)",
         load.unwrap_or(0.0),
         phrases.len(),
-        secs / took.max(0.001),
+        secs / f64::from(took.max(0.001)),
     );
     for (a, b, t) in &phrases {
         eprintln!("  [{a:5.1} → {b:5.1}] {t}");

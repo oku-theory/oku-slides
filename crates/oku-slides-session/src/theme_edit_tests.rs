@@ -195,7 +195,7 @@ fn theme_edit_view_reports_dirty_after_a_token_edit_or_a_rename() {
     assert_that!(s.snapshot().editing.unwrap().theme.dirty).is_true();
     s.undo().unwrap();
     assert_that!(s.snapshot().editing.unwrap().theme.dirty).is_false();
-    s.rename_edited_theme("Autre".into()).unwrap();
+    s.rename_edited_theme("Autre").unwrap();
     let view = s.snapshot().editing.unwrap().theme;
     assert_that!((view.dirty, view.name.as_str())).is_equal_to((true, "Autre"));
 }

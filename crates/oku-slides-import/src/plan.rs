@@ -128,17 +128,20 @@ impl ImportPlan {
         v
     }
 
-    /// Vérifie que la sortie tient dans les budgets d'import de `limits`.
+    /// Checks that the output fits within the import budgets of `limits`.
     ///
-    /// Borne précoce et approximative de ce que l'import produira, pas une garantie que
-    /// le deck se rouvrira : assets (uniques par contenu), polices embarquées, ops
-    /// sérialisées en JSON, thème et pack générés (`widgets.json` et widgets) tiennent dans
-    /// [`ReadLimits::max_output_bytes`] ; les ops seules, qui finissent dans l'historique
-    /// Loro, tiennent aussi dans [`ReadLimits::max_replica_bytes`].
+    /// An early, approximate bound on what the import will produce, not a guarantee that
+    /// the deck will reopen: assets (unique by content), embedded fonts, ops serialized
+    /// as JSON, and the generated theme and pack (`widgets.json` and widgets) fit within
+    /// [`ReadLimits::max_output_bytes`]; the ops alone, which end up in the Loro
+    /// history, also fit within [`ReadLimits::max_replica_bytes`].
     ///
-    /// Les projecteurs sont infaillibles : l'appelant vérifie le plan qu'ils rendent,
-    /// avant de l'appliquer, et n'applique ou n'écrit que le [`CheckedPlan`] rendu. Un
-    /// dépassement est fatal, de nature `TooLarge`.
+    /// Projectors are infallible: the caller checks the plan they return before
+    /// applying it, and only applies or writes the returned [`CheckedPlan`].
+    ///
+    /// # Errors
+    ///
+    /// Exceeding any of the budgets is fatal, of kind `TooLarge`.
     pub fn check_budget(self, limits: &ReadLimits) -> Result<CheckedPlan, ImportError> {
         self.fits(limits)?;
         Ok(CheckedPlan(self))

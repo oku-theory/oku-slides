@@ -71,6 +71,7 @@ static BUILTIN_PACKS: LazyLock<Vec<StoredVersion<PackManifest>>> =
     LazyLock::new(|| Widgets::builtins().iter().chain(Layouts::builtins()).cloned().collect());
 
 /// Versions des packs intégrés, dans l'ordre : `base` (widgets), puis `essentiel` (layouts).
+#[must_use]
 pub fn builtin_versions() -> &'static [StoredVersion<PackManifest>] {
     &BUILTIN_PACKS
 }
@@ -162,11 +163,13 @@ pub struct Library<K: LibraryKind> {
 
 impl<K: LibraryKind> Library<K> {
     /// `dir` : `<data>/<K::DIR>`, créé à la première écriture.
+    #[must_use]
     pub fn new(dir: Option<PathBuf>, storage: Storage) -> Self {
         Self { dir, storage, index: Arc::default(), kind: PhantomData }
     }
 
     /// Une entrée intégrée à l'app ?
+    #[must_use]
     pub fn is_builtin(id: Uuid) -> bool {
         Self::builtin(id).is_some()
     }
@@ -291,11 +294,13 @@ impl<K: LibraryKind> Library<K> {
     }
 
     /// La version `v` de `id` est-elle arrivée avec un deck reçu ?
+    #[must_use]
     pub fn is_received(&self, id: Uuid, v: &PackVersion) -> bool {
         self.pack_dir(id).is_some_and(|d| self.is_marked(&d.join(VERSIONS_DIR).join(v.hex()), RECEIVED_FILE))
     }
 
     /// Les versions de `id`, chargées : l'intégrée d'abord, puis celles de l'utilisateur.
+    #[must_use]
     pub fn versions(&self, id: Uuid) -> Vec<StoredVersion<K::Manifest>> {
         let listed: Vec<PackVersion> = {
             let mut index = self.fresh();
@@ -325,6 +330,7 @@ impl<K: LibraryKind> Library<K> {
     }
 
     /// Les fichiers de la version `v` du pack `id`.
+    #[must_use]
     pub fn version(&self, id: Uuid, v: &PackVersion) -> Option<PackFiles> {
         let known = {
             let mut index = self.fresh();
@@ -334,6 +340,7 @@ impl<K: LibraryKind> Library<K> {
     }
 
     /// La version courante du pack `id` ; `None` pour un pack inconnu.
+    #[must_use]
     pub fn current(&self, id: Uuid) -> Option<PackVersion> {
         let mut index = self.fresh();
         choose(self.entry(&mut index, id), Self::builtin(id).map(|b| &b.version), id)
@@ -341,6 +348,7 @@ impl<K: LibraryKind> Library<K> {
 
     /// La version courante, lue. `current` absent : l'intégrée, sinon la plus
     /// récente ; `current` vers une version absente : la plus récente.
+    #[must_use]
     pub fn current_version(&self, id: Uuid) -> Option<StoredVersion<K::Manifest>> {
         // Chaque échec de chargement retire une version de l'index : la boucle finit.
         loop {
@@ -379,22 +387,32 @@ impl<K: LibraryKind> Library<K> {
         }
     }
 
-    /// Ajoute une version sans toucher la version courante ; vrai si elle
-    /// était nouvelle. Un pack inconnu est créé, cette version courante.
+    /// Adds a version without touching the current version; true if it was new.
     ///
-    /// Les fichiers sont validés d'abord : un manifeste illisible, d'un
-    /// autre pack, d'une version du deck seul (`DeckOnly`), sous l'espace de
-    /// noms réservé `deck` ou `deck-layouts` (`NamespaceReserved`), sous celui d'un autre pack
-    /// (`NamespaceTaken`) ou sous un autre que celui des versions connues du
-    /// pack (`NamespaceChanged`) est refusé, rien n'est écrit.
+    /// An unknown pack is created, with this version as current.
+    ///
+    /// The files are validated first: a manifest that is unreadable, from
+    /// another pack, of a deck-only version (`DeckOnly`), under the reserved
+    /// namespace `deck` or `deck-layouts` (`NamespaceReserved`), under another
+    /// pack's (`NamespaceTaken`) or under one other than that of the pack's
+    /// known versions (`NamespaceChanged`) is rejected, and nothing is written.
+    ///
+    /// # Errors
+    ///
+    /// Fails without a library folder (`NoLibraryDir`), for rejected files (manifest,
+    /// `DeckOnly`, `NamespaceReserved`, `NamespaceTaken`, `NamespaceChanged`) or a failed write.
     pub fn add_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
         self.add(id, files, Origin::Local)
     }
 
-    /// Comme [`Self::add_version`], pour une version arrivée avec un deck.
+    /// Like [`Self::add_version`], for a version that arrived with a deck.
     ///
-    /// Nouvelle, elle est marquée reçue (fichier `received`, écrit d'abord). Une version du deck
-    /// seul est refusée de même, avant toute marque.
+    /// When new, it is marked received (file `received`, written first). A deck-only
+    /// version is rejected the same way, before any mark.
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Self::add_version`], or if the `received` mark cannot be written.
     pub fn receive_version(&self, id: Uuid, files: &PackFiles) -> Result<bool> {
         self.add(id, files, Origin::Received)
     }
@@ -459,10 +477,15 @@ impl<K: LibraryKind> Library<K> {
         written.map(|()| true)
     }
 
-    /// Rend la version `v` courante pour l'entrée `id`.
+    /// Makes version `v` current for entry `id`.
     ///
-    /// Elle s'écrit dans `<data>/<K::DIR>/<id>/current` : `widgets/`, `layouts/`
-    /// ou `themes/` selon la sorte.
+    /// It is written to `<data>/<K::DIR>/<id>/current`: `widgets/`, `layouts/`
+    /// or `themes/` depending on the kind.
+    ///
+    /// # Errors
+    ///
+    /// Fails for an unknown entry (`UnknownPack`), a missing version (`PackVersionMissing`) or a
+    /// failed write of `current`.
     pub fn set_current(&self, id: Uuid, v: &PackVersion) -> Result<()> {
         let mut index = self.fresh();
         let versions = &self.entry(&mut index, id).versions;
@@ -519,6 +542,7 @@ impl<K: LibraryKind> Library<K> {
     }
 
     /// `a` par rapport à `b` dans le pack `id`, par la chaîne des `parent`.
+    #[must_use]
     pub fn relation(&self, id: Uuid, a: &PackVersion, b: &PackVersion) -> Relation {
         if a == b {
             return Relation::Same;
@@ -565,6 +589,7 @@ impl<K: LibraryKind> Library<K> {
 
     /// Toutes les entrées dans leur version courante : intégrées d'abord, puis
     /// celles de l'utilisateur, par nom.
+    #[must_use]
     pub fn entries(&self) -> Vec<StoredVersion<K::Manifest>> {
         self.scan().0
     }
@@ -572,6 +597,7 @@ impl<K: LibraryKind> Library<K> {
     /// Les entrées de l'utilisateur sans version lisible, écartées de [`Self::entries`].
     ///
     /// Par exemple un thème d'avant les espaces de noms, que le manifeste actuel ne lit plus.
+    #[must_use]
     pub fn skipped(&self) -> usize {
         self.scan().1
     }
@@ -607,9 +633,14 @@ impl<K: LibraryKind> Library<K> {
                 let parsed = Uuid::parse_str(name).ok();
                 let id = parsed.filter(|id| id.to_string() == name);
                 if id.is_none() && first_legacy_sighting(f) {
-                    match parsed {
-                        Some(id) => tracing::warn!(dir = %f.display(), canonical = %id, "dossier au nom d'UUID non canonique ignoré"),
-                        None => tracing::info!(dir = %f.display(), "ancien format de pack ignoré"),
+                    if let Some(id) = parsed {
+                        tracing::warn!(
+                            dir = %f.display(),
+                            canonical = %id,
+                            "dossier au nom d'UUID non canonique ignoré"
+                        );
+                    } else {
+                        tracing::info!(dir = %f.display(), "ancien format de pack ignoré");
                     }
                 }
                 id
@@ -617,11 +648,15 @@ impl<K: LibraryKind> Library<K> {
             .collect()
     }
 
-    /// Supprime le pack `id` de l'utilisateur, toutes versions comprises.
+    /// Deletes the user's pack `id`, all versions included.
     ///
-    /// Sous l'id d'un pack intégré : retour à la version intégrée (les
-    /// versions de l'utilisateur et son `current` disparaissent ; l'intégrée,
-    /// en lecture seule, reste et redevient courante).
+    /// Under the id of a built-in pack: back to the built-in version (the
+    /// user's versions and their `current` go away; the built-in one,
+    /// read-only, stays and becomes current again).
+    ///
+    /// # Errors
+    ///
+    /// Fails without a library folder (`NoLibraryDir`) or if the deletion fails (`Write`).
     pub fn delete(&self, id: Uuid) -> Result<()> {
         let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
         let mut index = self.fresh();

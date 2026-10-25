@@ -30,7 +30,7 @@ fn linearize_closure_gives_post_order_each_once(
 ) {
     let map = pins(entries);
     assert_that!(linearize(&ns(theme), &map).map(|c| c.iter().map(|n| n.as_str().to_owned()).collect::<Vec<_>>()))
-        .is_ok_containing(want.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        .is_ok_containing(want.iter().map(std::string::ToString::to_string).collect::<Vec<_>>());
 }
 
 #[test]

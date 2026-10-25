@@ -1,5 +1,7 @@
-//! L'agent d'un onglet : une tâche tokio qui reçoit ses commandes, ouvre ou
-//! reprend la session ACP de l'onglet sur la connexion partagée et joue ses tours.
+//! A tab's agent: a tokio task that receives its commands.
+//!
+//! It opens or resumes the tab's ACP session on the shared connection and plays
+//! its turns.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -13,6 +15,7 @@ use agent_client_protocol::schema::v1::{
 use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::SurfaceHub;
 use oku_slides_platform::config::PromptImageLimits;
+use oku_slides_session::Session;
 use oku_slides_session::agent::{AgentUi, AttachmentRef, TabSession};
 use tokio::sync::{broadcast, mpsc};
 
@@ -48,11 +51,12 @@ pub(crate) struct Instruction {
     pub images: Vec<AttachmentRef>,
 }
 
-/// Où joindre le serveur d'outils MCP de l'onglet.
+/// Where to reach the tab's MCP tool server.
 #[derive(Clone)]
 pub struct ToolsAccess {
+    /// URL of the tab's MCP endpoint.
     pub url: String,
-    /// En-tête `Authorization` des outils ; jamais journalisé.
+    /// `Authorization` header for the tools; never logged.
     pub authorization: String,
 }
 
@@ -103,7 +107,7 @@ impl Ctx {
     /// Ferme le tour d'annulation, quoi qu'il soit arrivé (verrou synchrone : hors thread async).
     pub async fn end_turn(&self) {
         let tab = self.tab.clone();
-        let closed = tokio::task::spawn_blocking(move || tab.with(|s| s.end_turn())).await;
+        let closed = tokio::task::spawn_blocking(move || tab.with(Session::end_turn)).await;
         if let Ok(Err(e)) = closed {
             tracing::warn!(tab = %self.tab.tab(), error = %e.one_line(), "fin de tour : session introuvable");
         }
@@ -118,13 +122,14 @@ pub struct AgentHandle {
 }
 
 impl AgentHandle {
-    /// Démarre l'agent de l'onglet `tab` dans le runtime tokio courant ;
-    /// l'agent partagé (`link`) est lancé au premier prompt. Sa conversation
-    /// passe par `keeper`. Lâcher tous les clones arrête l'acteur (tour en
-    /// cours annulé, routes de ses sessions oubliées).
+    /// Starts the agent of tab `tab` in the current tokio runtime.
+    ///
+    /// The shared agent (`link`) is started on the first prompt. Its conversation
+    /// goes through `keeper`. Dropping every clone stops the actor (current turn
+    /// cancelled, routes of its sessions forgotten).
     #[expect(
         clippy::too_many_arguments,
-        reason = "chaque paramètre est une dépendance distincte de l'acteur ; les regrouper ajouterait un type sans autre usage"
+        reason = "each parameter is a distinct dependency of the actor; grouping them would add a type with no other use"
     )]
     pub fn spawn(
         tab: TabSession,
@@ -175,6 +180,8 @@ impl AgentHandle {
         let _ = self.tx.send(Command::NewConversation);
     }
 
+    /// One more subscriber to the tab's agent events.
+    #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<AgentEvent> {
         self.events.subscribe()
     }
@@ -339,7 +346,7 @@ impl TabAgent {
     async fn open(&mut self, live: &Live, turn: u32) -> agent_client_protocol::Result<SessionId> {
         let (cwd, tools) = self.setup().await;
         let r = live.cx.send_request(NewSessionRequest::new(cwd).mcp_servers(vec![tools])).block_task().await?;
-        self.adopt(live, turn, r.session_id.clone(), false);
+        self.adopt(live, turn, &r.session_id, false);
         Ok(r.session_id)
     }
 
@@ -377,7 +384,7 @@ impl TabAgent {
         match asked {
             Ok(()) => {
                 // Un rejeu tardif (agent non conforme) reste hors du tour jusqu'au premier prompt (t-612).
-                self.adopt(live, turn, id.clone(), !live.caps.resume);
+                self.adopt(live, turn, &id, !live.caps.resume);
                 Ok(Reopened::Resumed(id))
             }
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) || live.closed.is_cancelled() => Err(e),
@@ -388,10 +395,10 @@ impl TabAgent {
         }
     }
 
-    /// La session `id` sert l'onglet dès le tour `turn` : routée, vivante, transmise au gardien.
+    /// Session `id` serves the tab from turn `turn`: routed, live, handed to the keeper.
     ///
-    /// Le gardien ne la garde que si le tour est encore dans le fil (pas de nouvelle conversation entre-temps).
-    fn adopt(&mut self, live: &Live, turn: u32, id: SessionId, replaying: bool) {
+    /// The keeper keeps it only if the turn is still in the thread (no new conversation meanwhile).
+    fn adopt(&mut self, live: &Live, turn: u32, id: &SessionId, replaying: bool) {
         self.link.route(
             live.generation,
             id.clone(),
@@ -414,13 +421,12 @@ impl TabAgent {
         let id = self.ctx.hub.next_id("note");
         let l = self.ctx.localizer.current();
         let text = l.tr("agent-memory-lost");
-        match oku_slides_session::agent::receipt::fallback(&id, &text, &l) {
-            Some(card) => {
-                if !self.ctx.hub.show_static(turn, card) {
-                    tracing::debug!(turn, "carte « mémoire perdue » refusée : tour déjà clos");
-                }
+        if let Some(card) = oku_slides_session::agent::receipt::fallback(&id, &text, &l) {
+            if !self.ctx.hub.show_static(turn, card) {
+                tracing::debug!(turn, "carte « mémoire perdue » refusée : tour déjà clos");
             }
-            None => tracing::debug!("carte « mémoire perdue » vide : non montrée"),
+        } else {
+            tracing::debug!("carte « mémoire perdue » vide : non montrée");
         }
     }
 

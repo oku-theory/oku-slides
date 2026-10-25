@@ -40,13 +40,17 @@ fn same_style(a: &Deck, b: &Deck) -> bool {
 }
 
 impl Session {
-    /// Les layouts de chaque pack de layouts épinglé par le document montré, rendus à son style.
+    /// The layouts of each layout pack the shown document pins, rendered in its style.
     ///
-    /// Dans l'ordre des espaces de noms ; un pack écarté, absent ou illisible
-    /// n'y est pas (journalisé), les autres restent. En cache tant que rien ne change
-    /// (version du pack, thème, jetons, paramètres, variables). Un pack qui
-    /// fait échouer l'aperçu (délai, mémoire, arrêt) : repli, avec son avis,
-    /// et aperçu refait une fois.
+    /// In namespace order; a dropped, missing or unreadable pack is left out
+    /// (logged), the others stay. Cached as long as nothing changes (pack
+    /// version, theme, tokens, parameters, variables). A pack that makes the
+    /// preview fail (timeout, memory, abort): fallback, with its notice, and
+    /// the preview redone once.
+    ///
+    /// # Errors
+    ///
+    /// Fails if rendering the previews still fails after the fallback.
     pub fn layouts_view(&mut self) -> Result<LayoutsView> {
         let pins: Vec<_> = self.doc.sources.deck().layouts.iter().map(|(ns, pin)| (ns.clone(), pin.clone())).collect();
         let versions: Vec<&PackVersion> = pins.iter().map(|(_, pin)| &pin.version).collect();
@@ -71,15 +75,14 @@ impl Session {
             };
             let style = self.style_deck();
             let cached = self.pack_cache.0.iter().find(|p| p.version == pin.version && same_style(&p.deck, style));
-            let layouts = match cached {
-                Some(p) => p.views.clone(),
-                None => {
-                    let deck = styled_like(style, layout_slides(&manifest, &files, &self.localizer));
-                    let views = self.with_fallback(|_| Ok(vec![deck.clone()]), |s| s.render_previews(&deck))?;
-                    self.pack_cache.0.retain(|p| p.version != pin.version);
-                    self.pack_cache.0.push(Previews { version: pin.version, deck, views: views.clone() });
-                    views
-                }
+            let layouts = if let Some(p) = cached {
+                p.views.clone()
+            } else {
+                let deck = styled_like(style, layout_slides(&manifest, &files, &self.localizer));
+                let views = self.with_fallback(|_| Ok(vec![deck.clone()]), |s| s.render_previews(&deck))?;
+                self.pack_cache.0.retain(|p| p.version != pin.version);
+                self.pack_cache.0.push(Previews { version: pin.version, deck, views: views.clone() });
+                views
             };
             // Écarté par le repli de son propre aperçu : laissé de côté aussi.
             if self.widgets_disabled.contains_key(&namespace) {
@@ -99,7 +102,7 @@ impl Session {
             Some(r) => r,
             None => self.pack_renderer.insert(new_renderer(
                 &self.worker,
-                self.render_fonts.clone(),
+                &self.render_fonts,
                 &self.localizer,
                 &set,
                 &self.registry,

@@ -158,7 +158,7 @@ pub(super) fn text_element(
     }
     let indent = indent.filter(|i| *i != [0.0, 0.0]).map(|[margin, first]| {
         let bounded = [margin.clamp(0.0, STYLE_INDENT_MAX), first.clamp(-STYLE_INDENT_MAX, STYLE_INDENT_MAX)];
-        if bounded != [margin, first] {
+        if !(0.0..=STYLE_INDENT_MAX).contains(&margin) || !(-STYLE_INDENT_MAX..=STYLE_INDENT_MAX).contains(&first) {
             note(&mut losses, LossKind::ParagraphStyle);
         }
         bounded
@@ -175,7 +175,7 @@ pub(super) fn text_element(
     // une marge source négative) y est ramenée : le texte se décale, perdu.
     let raw = inset.map(round2);
     let inset = raw.map(|v| v.clamp(0.0, STYLE_INSET_MAX));
-    if inset != raw {
+    if raw.iter().any(|v| !(0.0..=STYLE_INSET_MAX).contains(v)) {
         note(&mut losses, LossKind::ParagraphStyle);
     }
 
@@ -252,7 +252,9 @@ fn rich_paragraphs(tb: &TextBox, base: &Base, ctx: &ElementCtx<'_>, losses: &mut
             if font_name(&r.style.font.value, ctx) != base.font || !scripts_covered(r, base, ctx) {
                 note(losses, LossKind::RunStyle(RunEffect::Font));
             }
-            if tracking(&r.style, page) != base.tracking {
+            #[expect(clippy::float_cmp, reason = "two spacings rounded to the hundredth: exact equality is intended")]
+            let other_tracking = tracking(&r.style, page) != base.tracking;
+            if other_tracking {
                 note(losses, LossKind::RunStyle(RunEffect::Tracking));
             }
             // Un run du cœur ajoute du gras ou de l'italique, il n'en ôte pas.

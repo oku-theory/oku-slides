@@ -11,7 +11,7 @@ use crate::common::{stack_with_sink_and_log, start};
 #[tokio::test(flavor = "multi_thread")]
 async fn harness_removes_its_dir_when_dropped() {
     let h = start(json!({ "turns": [] })).await;
-    let dir = h.log.parent().map(ToOwned::to_owned).unwrap_or_else(|| panic!("journal sans dossier"));
+    let dir = h.log.parent().map_or_else(|| panic!("journal sans dossier"), ToOwned::to_owned);
     asserting("le dossier de test vit autant que la pile").that(&dir.is_dir()).is_true();
     drop(h);
     asserting("puis il est supprimé avec elle").that(&dir.exists()).is_false();
@@ -20,7 +20,7 @@ async fn harness_removes_its_dir_when_dropped() {
 #[tokio::test(flavor = "multi_thread")]
 async fn stack_removes_its_dir_when_dropped() {
     let (stack, _, log) = stack_with_sink_and_log(json!({ "turns": [] }), &["t-1"]).await;
-    let dir = log.parent().map(ToOwned::to_owned).unwrap_or_else(|| panic!("journal sans dossier"));
+    let dir = log.parent().map_or_else(|| panic!("journal sans dossier"), ToOwned::to_owned);
     asserting("le dossier de test vit autant que la pile").that(&dir.is_dir()).is_true();
     drop(stack);
     asserting("puis il est supprimé avec elle").that(&dir.exists()).is_false();

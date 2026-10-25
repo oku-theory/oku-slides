@@ -6,7 +6,7 @@ use crate::SessionErrorKind;
 use crate::test_support::touch_elsewhere;
 
 /// Le texte sans les marques d'isolement bidirectionnel de Fluent.
-fn plain(text: String) -> String {
+fn plain(text: &str) -> String {
     text.replace(['\u{2068}', '\u{2069}'], "")
 }
 
@@ -17,21 +17,21 @@ fn report(changes: usize, authors: &[&str], anonymous: usize) -> MergeReport {
 #[test]
 fn merge_notice_with_authors_names_the_file_count_and_authors() {
     let l = Localizer::new(Some("en"));
-    let text = plain(merge_notice(&l, "julie.oku-slides.pdf", &report(3, &["Julie", "Marc"], 0)));
+    let text = plain(&merge_notice(&l, "julie.oku-slides.pdf", &report(3, &["Julie", "Marc"], 0)));
     assert_that!(text.as_str()).is_equal_to("Merged with julie.oku-slides.pdf — changes imported: 3 (Julie, Marc).");
 }
 
 #[test]
 fn merge_notice_without_authors_uses_the_anonymous_message() {
     let l = Localizer::new(Some("en"));
-    let text = plain(merge_notice(&l, "copie.oku-slides.pdf", &report(2, &[], 2)));
+    let text = plain(&merge_notice(&l, "copie.oku-slides.pdf", &report(2, &[], 2)));
     assert_that!(text.as_str()).is_equal_to("Merged with copie.oku-slides.pdf — changes imported: 2.");
 }
 
 #[test]
 fn merge_notice_in_french_is_translated() {
     let l = Localizer::new(Some("fr"));
-    let text = plain(merge_notice(&l, "julie.oku-slides.pdf", &report(1, &["Julie"], 1)));
+    let text = plain(&merge_notice(&l, "julie.oku-slides.pdf", &report(1, &["Julie"], 1)));
     assert_that!(text.as_str())
         .is_equal_to("Fusionné avec julie.oku-slides.pdf — modifications importées : 1 (Julie).");
 }

@@ -60,6 +60,7 @@ pub struct Checked {
 
 impl Checked {
     /// La demande attend une confirmation de l'utilisateur.
+    #[must_use]
     pub fn needs_confirmation(&self) -> bool {
         self.api.is_some() || self.download.is_some() || self.agent.is_some() || self.agent_model_size.is_some()
     }
@@ -142,6 +143,7 @@ pub struct VoiceError {
 
 impl VoiceError {
     /// Un refus de sorte `kind`.
+    #[must_use]
     pub fn new(kind: VoiceErrorKind) -> Self {
         VoiceSnafu { kind }.build()
     }
@@ -164,9 +166,17 @@ impl Localize for VoiceError {
 pub trait VoicePort: Send + Sync + std::fmt::Debug {
     /// L'état à montrer.
     fn view(&self) -> VoiceView;
-    /// Vérifie une demande sans rien changer ; dit ce qu'il faudrait confirmer.
+    /// Checks a request without changing anything; tells what would need confirming.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the request is refused: key reserved to the user, invalid value, unknown setting.
     fn check(&self, event: &VoiceEvent, origin: &Origin) -> Result<Checked, VoiceError>;
-    /// Applique une demande, vérifiée à nouveau.
+    /// Applies a request, checked again.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the new check refuses the request or if the setting cannot be saved.
     fn apply(&self, event: VoiceEvent, origin: Origin) -> Result<VoiceApplied, VoiceError>;
 }
 

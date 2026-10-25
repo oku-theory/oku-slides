@@ -35,6 +35,7 @@ impl Model {
     pub const ALL: [Model; 5] = [Model::Apple, Model::Turbo, Model::Large, Model::Base, Model::Api];
 
     /// Identifiant du modèle, le même que son nom serde.
+    #[must_use]
     pub fn id(self) -> &'static str {
         match self {
             Model::Apple => "apple",
@@ -46,11 +47,13 @@ impl Model {
     }
 
     /// Le modèle d'identifiant `id` ; `None` s'il est inconnu.
+    #[must_use]
     pub fn from_id(id: &str) -> Option<Model> {
         Model::ALL.into_iter().find(|m| m.id() == id)
     }
 
     /// Dépôt Hugging Face du modèle.
+    #[must_use]
     pub fn repo(self) -> &'static str {
         match self {
             Model::Apple => "apple",
@@ -82,6 +85,7 @@ impl Model {
     }
 
     /// Taille totale attendue (octets), pour la progression.
+    #[must_use]
     pub fn size(self) -> u64 {
         match self {
             Model::Apple | Model::Api => 0,
@@ -109,19 +113,28 @@ impl Model {
     }
 
     /// Dossier du modèle.
+    #[must_use]
     pub fn path(self, dir: &Path) -> PathBuf {
         dir.join(self.repo().replace('/', "--"))
     }
 
     /// Vrai si les fichiers du modèle sont sur le disque (jamais pour Apple ni l'API).
+    #[must_use]
     pub fn is_installed(self, storage: &Storage, dir: &Path) -> bool {
         !matches!(self, Model::Apple | Model::Api) && models::is_complete(storage, &self.path(dir))
     }
 }
 
-/// Télécharge un modèle dans `dir` (chaque fichier en `.part` puis renommé ;
-/// les fichiers déjà là sont gardés, un téléchargement interrompu reprend).
-/// `progress(reçu, total)` est appelé régulièrement ; s'il renvoie `false`, on annule.
+/// Downloads a model into `dir`.
+///
+/// Each file is written as `.part` then renamed; files already there are kept,
+/// and an interrupted download resumes.
+/// `progress(received, total)` is called regularly; if it returns `false`, the download is cancelled.
+///
+/// # Errors
+///
+/// For Apple and the API (nothing to download), on a network or disk failure, a file
+/// with an unexpected fingerprint, or a cancellation by `progress`.
 pub fn download(
     model: Model,
     dir: &Path,

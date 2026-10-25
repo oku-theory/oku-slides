@@ -24,6 +24,7 @@ use serde_json::{Map, Value};
 use crate::oklab::{Oklab, delta_e, linear, oklab};
 use crate::report::LossKind;
 use crate::source::{Color, Fill, Item, ItemKind, Origin, Rgba, SourceDeck};
+use oku_slides_core::num::count_f64;
 
 /// Écart OKLab (×100) au-delà duquel une couleur n'a pas de jeton proche.
 ///
@@ -115,11 +116,13 @@ impl ColorTokens {
     }
 
     /// La couleur du jeton `name`.
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<Rgba> {
         self.colors.get(name).copied()
     }
 
     /// Vrai si le thème a un jeton `name`.
+    #[must_use]
     pub fn contains(&self, name: &str) -> bool {
         self.colors.contains_key(name)
     }
@@ -159,6 +162,7 @@ impl ColorTokens {
     /// par usage décroissant ([`usage`] ; à égalité, par valeur hexadécimale),
     /// prennent dans l'ordre `accent` puis les autres clés `accent-*` du thème
     /// (par nom). Déterministe ; seules des clés existantes sont prises.
+    #[must_use]
     pub fn with_accents(mut self, deck: &SourceDeck) -> Self {
         let mut used: BTreeMap<String, (Rgba, f64)> = BTreeMap::new();
         for slide in &deck.slides {
@@ -203,7 +207,7 @@ fn usage(item: &Item, f: &mut impl FnMut(Rgba, f64)) {
         for r in tb.paragraphs.iter().flat_map(|p| &p.runs) {
             if let Some(c) = explicit(&r.style.color) {
                 // Le nombre de caractères d'un run est borné par `clip` (lot 1) : la conversion est exacte.
-                f(c, r.text.chars().count() as f64 * r.style.size * r.style.size);
+                f(c, count_f64(r.text.chars().count()) * r.style.size * r.style.size);
             }
         }
     }

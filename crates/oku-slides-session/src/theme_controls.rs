@@ -167,7 +167,7 @@ pub(crate) fn token_fields(t: &Shown<'_>, tokens: &Map<String, Value>, l: &Local
 /// Un nombre entier en entier JSON (`30`, pas `30.0`) : les comparaisons
 /// avec la base restent justes.
 fn normalized(n: f64) -> Value {
-    if n.fract() == 0.0 && n.abs() < 1e15 { json!(n as i64) } else { json!(n) }
+    if n.fract() == 0.0 && n.abs() < 1e15 { json!(oku_slides_core::num::round_i64(n)) } else { json!(n) }
 }
 
 /// Un nombre, ou un texte numérique, en nombre ; le reste tel quel.

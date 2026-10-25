@@ -12,7 +12,9 @@ pub const READY_WITHIN: Duration = Duration::from_secs(120);
 /// (voir `ToolsAccess`).
 #[derive(Debug, Clone)]
 pub struct Launch {
+    /// The ACP agent's program, looked up in `PATH` if it is not a path.
     pub command: String,
+    /// Arguments passed to `command`, in order.
     pub args: Vec<String>,
     /// Variables ajoutées à l'environnement de l'agent (tests : moteur factice de l'agent local).
     pub env: Vec<(String, String)>,
@@ -26,6 +28,7 @@ impl Launch {
     /// Le lancement de `preset` ; un agent intégré relance `program` avec son argument.
     ///
     /// `None` : agent intégré et pas de binaire de l'app connu (tests, outils).
+    #[must_use]
     pub fn for_preset(preset: &AgentPreset, program: Option<&Path>, fallback_cwd: PathBuf) -> Option<Self> {
         let (command, args) = match preset.builtin {
             None => (preset.command.clone(), preset.args.clone()),

@@ -46,7 +46,7 @@ fn session_with_frise_and_theme(namespace: &str, tokens: Value) -> (tempfile::Te
     let data = fresh_dir("oku-slides-composed-");
     let mut s = opened_on(data.path());
     pin_frise(&mut s);
-    let tokens = tokens.as_object().cloned().unwrap();
+    let tokens = serde_json::from_value(tokens).unwrap();
     add_user_theme(&s.themes, uuid::Uuid::new_v4(), namespace, &[], tokens, None);
     (data, s)
 }

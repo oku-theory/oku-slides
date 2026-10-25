@@ -44,7 +44,11 @@ impl std::fmt::Debug for ToolServer {
 }
 
 impl ToolServer {
-    /// Démarre le serveur ; il s'arrête quand `cancel` est annulé.
+    /// Starts the server; it stops when `cancel` is cancelled.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the token cannot be drawn at random or if the local port cannot be bound.
     pub async fn start(tools: Tools, cancel: CancellationToken) -> Result<Self, McpError> {
         let mut bytes = [0u8; 32];
         getrandom::fill(&mut bytes).context(TokenSnafu)?;
@@ -57,7 +61,7 @@ impl ToolServer {
             server_details: Arc::new(details()),
             handler: tools.to_mcp_server_handler(),
             ping_interval: Duration::from_secs(12),
-            transport_options: Default::default(),
+            transport_options: Arc::default(),
             enable_json_response: false,
             event_store: None,
             task_store: None,
@@ -77,11 +81,14 @@ impl ToolServer {
         Ok(Self { url: format!("http://{addr}/mcp"), token })
     }
 
+    /// Address of the MCP endpoint, on `127.0.0.1` and the port drawn at startup.
+    #[must_use]
     pub fn url(&self) -> &str {
         &self.url
     }
 
     /// Valeur de l'en-tête `Authorization` ; ne jamais la journaliser.
+    #[must_use]
     pub fn authorization(&self) -> String {
         format!("Bearer {}", self.token)
     }

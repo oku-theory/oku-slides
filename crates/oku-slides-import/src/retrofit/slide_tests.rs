@@ -7,6 +7,7 @@ use speculoos::prelude::*;
 use super::*;
 use crate::report::RunEffect;
 use crate::retrofit::profile::profiles;
+use crate::source::Crop;
 use crate::source::{Asset, Fill, Geometry, ItemKind, Picture, Rgba, Role, Styled};
 use crate::test_support::{
     PAPIER, applied, colors, essentiel_profiles, item, layout, para, registry, run_with, source_deck, source_slide,
@@ -225,7 +226,7 @@ fn project_slide_subtitle_without_a_param_becomes_content() {
 #[test]
 fn project_slide_cover_with_content_avoids_profiles_without_a_slot() {
     let logo =
-        item("p", (400.0, 420.0, 160.0, 90.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
+        item("p", (400.0, 420.0, 160.0, 90.0), ItemKind::Picture(Picture { asset: png(), crop: Crop::default() }));
     let (_, reports, deck) =
         project(&essentiel_profiles(), &[source_slide(1, Some("l1"), vec![title("Rapport"), logo])]);
     let s = &deck.slides[0];
@@ -253,7 +254,7 @@ fn project_slide_collects_the_assets_of_its_images() {
         effects: &effects,
     };
     let pic =
-        item("p", (66.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Default::default() }));
+        item("p", (66.0, 143.0, 300.0, 200.0), ItemKind::Picture(Picture { asset: png(), crop: Crop::default() }));
     let src = source_slide(1, Some("l2"), vec![title("Image"), pic]);
     let p = project_slide(&src, &profiles(&list, &registry), &mut false, &cx).unwrap();
     assert_that!(p.assets.into_iter().collect::<Vec<_>>()).is_equal_to(vec![png()]);

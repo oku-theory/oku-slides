@@ -32,6 +32,7 @@ pub struct AttachmentRef {
 
 impl AttachmentRef {
     /// Ce que la bulle du fil montre de l'image.
+    #[must_use]
     pub fn shown(&self) -> oku_slides_a2ui::PromptImage {
         oku_slides_a2ui::PromptImage { mime: self.mime.clone(), width: self.width, height: self.height }
     }
@@ -53,6 +54,7 @@ pub enum PasteReason {
 
 impl PasteReason {
     /// La clé Fluent du refus.
+    #[must_use]
     pub fn key(self) -> &'static str {
         match self {
             Self::Unsupported => "session-paste-unsupported",
@@ -123,7 +125,11 @@ impl Attachments {
 }
 
 impl Session {
-    /// Valide une image collée et la garde pour l'onglet ; `keep` : les ids du brouillon.
+    /// Validates a pasted image and keeps it for the tab; `keep`: the draft's ids.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Paste`) if the image is rejected: format, size or number of kept images.
     pub fn paste_image(&mut self, bytes: Vec<u8>, keep: &[String]) -> Result<AttachmentRef> {
         self.attachments.add(bytes, keep).map_err(|reason| PasteSnafu { reason }.build().into())
     }

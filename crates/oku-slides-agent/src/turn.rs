@@ -10,10 +10,11 @@ use crate::instructions::{IMPORT, INSTRUCTIONS, WIDGETS};
 use crate::tab_agent::{Command, Ctx, Instruction};
 use crate::{AgentEvent, AgentState};
 
-/// Ce qui est arrivé pendant le tour, à appliquer par l'agent de l'onglet
-/// une fois le tour fini : une nouvelle conversation (une fois, même si une
-/// consigne suit) et/ou la dernière consigne reçue (une `Cancel` après coup
-/// l'annule, mais pas la nouvelle conversation).
+/// What happened during the turn, applied by the tab's agent once it ends.
+///
+/// That is a new conversation (once, even if an instruction follows) and/or the
+/// last instruction received (a later `Cancel` cancels it, but not the new
+/// conversation).
 #[derive(Debug, Default)]
 pub(crate) struct Pending {
     /// La conversation repart de zéro après le tour.

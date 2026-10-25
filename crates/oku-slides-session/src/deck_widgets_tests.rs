@@ -159,7 +159,7 @@ pub(super) fn widgets_have_quote(s: &mut Session, pack: &PackPin) -> bool {
 
 /// Le registre du deck, celui de ses sources et celui du rendu sont le même.
 pub(super) fn assert_registry_agrees(s: &Session) {
-    assert_that!(std::ptr::eq(s.doc.sources.registry(), &*s.registry)).is_true();
+    assert_that!(std::ptr::eq(s.doc.sources.registry(), &raw const *s.registry)).is_true();
     // Un emplacement pas encore ouvert le sera avec les widgets installés.
     assert_that!(s.renderer.as_ref().is_none_or(|r| Arc::ptr_eq(r.registry(), &s.registry))).is_true();
 }

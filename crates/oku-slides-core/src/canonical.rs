@@ -223,11 +223,15 @@ fn params(p: &mut Params) {
             !ps.is_empty()
         }
         ParamValue::Slot(list) => {
-            list.iter_mut().for_each(|e| params(&mut e.params));
+            for e in list.iter_mut() {
+                params(&mut e.params);
+            }
             !list.is_empty()
         }
         ParamValue::List(items) => {
-            items.iter_mut().for_each(|i| params(&mut i.values));
+            for i in items.iter_mut() {
+                params(&mut i.values);
+            }
             !items.is_empty()
         }
         ParamValue::Value(v) => {

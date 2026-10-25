@@ -28,31 +28,42 @@ pub const LIST_ITEMS_MAX: usize = 256;
 /// Items des listes imbriquées de tous les items d'une liste, au plus (t-495).
 pub const NESTED_ITEMS_MAX: usize = 2 * LIST_ITEMS_MAX;
 
-/// Un changement d'une liste ; la liste entière se remplace par `set_param`.
+/// A change to a list; `set_param` replaces the whole list.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ListOp {
-    /// Insère l'item `id` (unique dans la liste, sans `/`) ; `index` absent :
-    /// à la fin ; colonnes absentes de `values` : leur défaut.
+    /// Inserts the item `id`, unique in the list and without `/`.
+    ///
+    /// `index` absent: at the end. Columns absent from `values` take their default.
     Insert {
+        /// Position in the list; absent: at the end.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         index: Option<usize>,
+        /// Id of the new item, unique in the list and without `/`.
         id: String,
+        /// Values by column; an absent column takes its default.
         #[serde(default)]
         values: Map<String, Value>,
     },
+    /// Removes the item `item` from the list.
     Remove {
+        /// Id of the item to remove.
         item: String,
     },
-    /// Déplace l'item à l'index `to` de la liste après déplacement.
+    /// Moves the item to index `to` of the list, counted after the move.
     Move {
+        /// Id of the item to move.
         item: String,
+        /// Final position, counted after the move.
         to: usize,
     },
-    /// Valeur d'une colonne, convertie selon son type ; `null` la retire.
+    /// Sets a column's value, converted to its type; `null` removes it.
     SetField {
+        /// Id of the modified item.
         item: String,
+        /// Name of the column.
         field: String,
+        /// New value, of the column's type; `null` removes it.
         value: Value,
     },
 }
@@ -60,14 +71,19 @@ pub enum ListOp {
 /// Colonnes et bornes d'un paramètre `list`.
 #[derive(Debug, Clone, Copy)]
 pub struct ListSpec<'a> {
+    /// Name of the parameter, cited in errors.
     pub name: &'a str,
+    /// Columns of the items, in schema order.
     pub columns: &'a [ParamSchema],
+    /// Minimum number of items.
     pub min: usize,
+    /// Maximum number of items in the schema; see [`ListSpec::max_items`] for the effective bound.
     pub max: Option<usize>,
 }
 
 impl<'a> ListSpec<'a> {
     /// Le paramètre `name` de type `ty`, s'il est une liste.
+    #[must_use]
     pub fn of(name: &'a str, ty: &'a ParamType) -> Option<Self> {
         match ty {
             ParamType::List { item, min, max, .. } => Some(Self { name, columns: item, min: *min, max: *max }),
@@ -83,11 +99,13 @@ impl<'a> ListSpec<'a> {
     }
 
     /// Items au plus : le `max` du schéma borné à [`LIST_ITEMS_MAX`], sinon [`LIST_ITEMS_MAX`].
+    #[must_use]
     pub fn max_items(&self) -> usize {
         self.max.map_or(LIST_ITEMS_MAX, |m| m.min(LIST_ITEMS_MAX))
     }
 
     /// Items des listes imbriquées de tous les items de `items`.
+    #[must_use]
     pub fn nested_total(&self, items: &[ListItem]) -> usize {
         let nested = || self.columns.iter().filter(|c| matches!(c.ty, ParamType::List { .. }));
         items.iter().map(|it| nested().map(|c| it.values.list(&c.name).map_or(0, <[_]>::len)).sum::<usize>()).sum()
@@ -219,7 +237,7 @@ fn item_values(spec: &ListSpec<'_>, values: &Map<String, Value>, fill: Fill) -> 
             Some(v) if fill == Fill::Default => seed_ids(c, v.clone()),
             Some(v) => v.clone(),
             None if nested && fill == Fill::Replace => Value::Null,
-            None => c.default.clone().map(|d| seed_ids(c, d)).unwrap_or(Value::Null),
+            None => c.default.clone().map_or(Value::Null, |d| seed_ids(c, d)),
         };
         if let Some(v) = spec.cell(c, raw)? {
             out.set(c.name.clone(), v);
@@ -251,7 +269,12 @@ pub(super) fn position(spec: &ListSpec<'_>, items: &[ListItem], id: &str) -> Res
 }
 
 impl ListOp {
-    /// Applique le changement à `items` ; en cas d'erreur, `items` est intact.
+    /// Applies the change to `items`; on error, `items` is intact.
+    ///
+    /// # Errors
+    ///
+    /// Item not found, id taken or invalid, unknown column, mistyped
+    /// value, or list bound crossed.
     pub fn apply(self, items: &mut Vec<ListItem>, spec: &ListSpec<'_>) -> Result<(), OpError> {
         match self {
             ListOp::Insert { index, id, values } => {
@@ -294,7 +317,11 @@ impl ListOp {
     }
 }
 
-/// Items par défaut du schéma, aux ids `d0`, `d1`… (les mêmes que Typst).
+/// Default items of the schema, with ids `d0`, `d1`… (the same as Typst).
+///
+/// # Errors
+///
+/// A schema default that is not a valid list of items for its columns.
 pub fn default_items(p: &ParamSchema) -> Result<Vec<ListItem>, OpError> {
     let Some(spec) = ListSpec::of(&p.name, &p.ty) else { return Ok(Vec::new()) };
     let Some(Value::Array(rows)) = &p.default else { return Ok(Vec::new()) };
@@ -407,9 +434,8 @@ pub(crate) fn list_value(spec: &ListSpec<'_>, value: Value) -> Result<Option<Par
         let Value::Object(mut obj) = row else {
             return Err(ParamTypeSnafu { param: spec.name, expected: Shape::Items.or_null() }.build().into());
         };
-        let id = match obj.remove("id") {
-            Some(Value::String(s)) => s,
-            _ => return Err(InvalidValueSnafu { field: spec.name, reason: ValueReason::MissingItemId }.build().into()),
+        let Some(Value::String(id)) = obj.remove("id") else {
+            return Err(InvalidValueSnafu { field: spec.name, reason: ValueReason::MissingItemId }.build().into());
         };
         check_id(spec, &items, &id)?;
         let values = item_values(spec, &obj, Fill::Replace)?;

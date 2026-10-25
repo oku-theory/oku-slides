@@ -5,10 +5,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 
 use crate::api_check::{is_loopback, normalized_url, valid_api_model, valid_key_env};
-use crate::error::{ApiConfigSnafu, ApiHttpSnafu, ApiKeyMissingSnafu, ApiResponseSnafu, ApiStatusSnafu};
+use crate::error::{ApiConfigSnafu, ApiHttpSnafu, ApiKeyMissingSnafu, ApiResponseSnafu, ApiStatusSnafu, WavSnafu};
 use crate::phrase_engine::PhraseEngine;
 use crate::{SAMPLE_RATE, SttError, Transcript};
 
@@ -52,9 +52,16 @@ impl ApiConfig {
     }
 }
 
-/// Encode des échantillons mono en WAV PCM 16 bits à 16 kHz.
-pub(crate) fn wav(samples: &[f32]) -> Vec<u8> {
-    let len = (samples.len() * 2) as u32;
+/// Encodes mono samples as 16-bit PCM WAV at 16 kHz.
+///
+/// A sentence too long for the header's 32-bit sizes (over 37 h) gives `Wav`.
+pub(crate) fn wav(samples: &[f32]) -> Result<Vec<u8>, SttError> {
+    let len = samples
+        .len()
+        .checked_mul(2)
+        .and_then(|n| u32::try_from(n).ok())
+        .filter(|&n| n <= u32::MAX - 36)
+        .context(WavSnafu { reason: "phrase too long for a WAV header" })?;
     let mut out = Vec::with_capacity(44 + samples.len() * 2);
     out.extend_from_slice(b"RIFF");
     out.extend_from_slice(&(36 + len).to_le_bytes());
@@ -69,16 +76,22 @@ pub(crate) fn wav(samples: &[f32]) -> Vec<u8> {
     out.extend_from_slice(b"data");
     out.extend_from_slice(&len.to_le_bytes());
     for s in samples {
-        out.extend_from_slice(&((s.clamp(-1.0, 1.0) * f32::from(i16::MAX)) as i16).to_le_bytes());
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "a sample clamped to ±1 then multiplied by i16::MAX fits in an i16"
+        )]
+        let sample = (s.clamp(-1.0, 1.0) * f32::from(i16::MAX)) as i16;
+        out.extend_from_slice(&sample.to_le_bytes());
     }
-    out
+    Ok(out)
 }
 
 /// Assemble un corps `multipart/form-data` : champs texte, puis le WAV ; rend type et corps.
 pub(crate) fn multipart(fields: &[(&str, &str)], wav: &[u8]) -> (String, Vec<u8>) {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
-    let boundary = format!("oku-slides-{:016x}{:016x}", nanos as u64, COUNTER.fetch_add(1, Ordering::Relaxed));
+    #[expect(clippy::cast_possible_truncation, reason = "the low 64 bits are enough: only uniqueness matters")]
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos()) as u64;
+    let boundary = format!("oku-slides-{nanos:016x}{:016x}", COUNTER.fetch_add(1, Ordering::Relaxed));
     let mut body = Vec::with_capacity(wav.len() + 512);
     for (name, value) in fields {
         body.extend_from_slice(
@@ -155,7 +168,7 @@ impl PhraseEngine for ApiTranscriber {
         if let Some(context) = context.map(str::trim).filter(|c| !c.is_empty()) {
             fields.push(("prompt", context));
         }
-        let (content_type, body) = multipart(&fields, &wav(audio));
+        let (content_type, body) = multipart(&fields, &wav(audio)?);
         let url = format!("{}/audio/transcriptions", self.root);
         let mut response = self
             .agent

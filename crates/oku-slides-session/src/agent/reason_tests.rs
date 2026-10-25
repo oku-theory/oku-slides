@@ -11,11 +11,11 @@ fn at(path: &str) -> String {
 }
 
 /// Une transaction refusée : la slide `s-x` n'existe pas.
-fn refused() -> Box<oku_slides_core::TransactionError> {
+fn refused() -> oku_slides_core::TransactionError {
     let mut deck: Deck = serde_json::from_value(json!({ "slides": [] })).unwrap();
     let registry = WidgetRegistry::from_probe(json!({ "packs": [] })).unwrap();
     let op = Op::RemoveSlide { slide: "s-x".into() };
-    Box::new(apply_all(&mut deck, vec![op], &registry).unwrap_err())
+    apply_all(&mut deck, vec![op], &registry).unwrap_err()
 }
 
 /// Chaque raison dite en anglais et en français, avec ses arguments.
@@ -78,7 +78,7 @@ fn refused() -> Box<oku_slides_core::TransactionError> {
     "components[0] : forme inattendue (unknown variant `Video`)"
 )]
 #[case::refused(
-    Refused { at: at("variants[1]"), source: refused() },
+    Refused { at: at("variants[1]"), source: Box::new(refused()) },
     "variants[1]: Operation 0 refused: Slide not found: s-x",
     "variants[1] : Opération 0 refusée : Slide introuvable : s-x"
 )]

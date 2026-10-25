@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::Category;
 
-/// La sorte d'un pack de widgets : des éléments, ou des mises en page de slide.
+/// The kind of a widget pack: elements, or slide layouts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum PackKind {
-    /// Un pack d'éléments (`widgets.json`, dossier `widgets/`).
+    /// A pack of elements (`widgets.json`, folder `widgets/`).
     Widgets,
-    /// Un pack de layouts de slide (`layouts.json`, dossier `layouts/`).
+    /// A pack of slide layouts (`layouts.json`, folder `layouts/`).
     Layouts,
 }
 
@@ -20,6 +20,7 @@ impl PackKind {
     pub const ALL: [PackKind; 2] = [PackKind::Widgets, PackKind::Layouts];
 
     /// Le nom du manifeste du pack.
+    #[must_use]
     pub fn manifest_file(self) -> &'static str {
         match self {
             PackKind::Widgets => "widgets.json",
@@ -28,6 +29,7 @@ impl PackKind {
     }
 
     /// Le dossier des fichiers de widgets du pack.
+    #[must_use]
     pub fn files_dir(self) -> &'static str {
         match self {
             PackKind::Widgets => "widgets",
@@ -36,6 +38,7 @@ impl PackKind {
     }
 
     /// La catégorie que les widgets d'un pack de cette sorte doivent déclarer.
+    #[must_use]
     pub fn category(self) -> Category {
         match self {
             PackKind::Widgets => Category::Element,

@@ -21,31 +21,34 @@ use crate::widget::{ParamType, WidgetRegistry};
 /// Version du format de deck.
 pub const DECK_VERSION: u32 = 9;
 
-/// Un deck complet.
+/// A complete deck.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Deck {
+    /// Format version; a readable deck carries the current version.
     #[serde(default = "default_version")]
     pub version: u32,
-    /// Espace de noms du thème du deck, épinglé dans `themes` ; `None` : le thème par défaut.
+    /// Namespace of the deck's theme, pinned in `themes`; absent: the default theme.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<Namespace>,
-    /// Thèmes épinglés, par espace de noms : exactement la fermeture des `extends` de `theme`.
+    /// Pinned themes, by namespace: exactly the closure of the `extends` of `theme`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub themes: BTreeMap<Namespace, ThemePin>,
+    /// Deck parameters: title, author, date and free keys.
     #[serde(default)]
     pub params: DeckParams,
-    /// Variables utilisables dans les textes : `{{client}}`.
+    /// Variables usable in texts: `{{client}}`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub vars: BTreeMap<String, Value>,
-    /// Surcharges de jetons de design (fusion profonde côté Typst).
+    /// Design token overrides, deep-merged on the Typst side.
     #[serde(default, skip_serializing_if = "is_empty_object")]
     pub tokens: Value,
-    /// Packs de widgets du deck, par espace de noms ; fermeture de leurs `requires` comprise.
+    /// Widget packs of the deck, by namespace, including the closure of their `requires`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub widgets: BTreeMap<Namespace, PackPin>,
-    /// Packs de layouts du deck, par espace de noms ; leurs `requires` nomment des packs de widgets.
+    /// Layout packs of the deck, by namespace; their `requires` name widget packs.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub layouts: BTreeMap<Namespace, PackPin>,
+    /// Slides of the deck, in presentation order.
     pub slides: Vec<Slide>,
 }
 
@@ -61,22 +64,28 @@ fn is_empty_object(v: &Value) -> bool {
     }
 }
 
-/// Paramètres du deck, transmis tels quels à `deck.with(..)`.
+/// Deck parameters, passed as is to `deck.with(..)`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct DeckParams {
+    /// Title of the deck.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Subtitle of the deck.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subtitle: Option<String>,
+    /// Author of the deck.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
+    /// Displayed date, as free text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date: Option<String>,
+    /// Organization of the author.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub organization: Option<String>,
+    /// Language of the text, BCP 47 code (`fr`, `en-US`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
-    /// Paramètres supplémentaires (`numbering`, `toc-title`…).
+    /// Additional parameters (`numbering`, `toc-title`…).
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -86,6 +95,7 @@ impl DeckParams {
     const FIELDS: [&'static str; 6] = ["title", "subtitle", "author", "date", "organization", "lang"];
 
     /// `key` est-il un champ nommé (et non une clé de `extra`) ?
+    #[must_use]
     pub fn is_field(key: &str) -> bool {
         Self::FIELDS.contains(&key)
     }
@@ -125,19 +135,24 @@ impl DeckParams {
     }
 }
 
-/// Une slide : un widget de catégorie `slide` et ses paramètres.
+/// A slide: a widget of category `slide` and its parameters.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Slide {
+    /// Stable id of the slide, unique in the deck.
     pub id: String,
-    /// Widget de slide (`title`, `content`…).
+    /// Slide widget, qualified by its pack (`essentiel/title`).
     pub kind: String,
+    /// Widget parameters, element slots included.
     #[serde(default, skip_serializing_if = "Params::is_empty")]
     pub params: Params,
+    /// Speaker notes; empty: no notes.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub notes: String,
 }
 
 impl Slide {
+    /// Slide `id` of widget `kind`, with no parameters or notes.
+    #[must_use]
     pub fn new(id: impl Into<String>, kind: &str) -> Self {
         Self { id: id.into(), kind: kind.to_owned(), params: Params::default(), notes: String::new() }
     }
@@ -153,6 +168,7 @@ impl Slide {
     }
 
     /// Grille d'une slide : paramètre, défaut déclaré par son widget, sinon 12 × 6.
+    #[must_use]
     pub fn resolved_grid(&self, registry: &WidgetRegistry) -> Grid {
         if self.params.value("grid").is_some() {
             return self.grid();
@@ -161,44 +177,57 @@ impl Slide {
     }
 
     /// Défaut du paramètre `grid` déclaré par le widget de la slide, tel qu'écrit.
+    #[must_use]
     pub fn declared_grid(&self, registry: &WidgetRegistry) -> Option<Value> {
         registry
             .get(&self.kind)
             .and_then(|w| w.param("grid"))
             .filter(|p| matches!(p.ty, ParamType::Grid))
             .and_then(|p| p.default.clone())
-            .filter(|v| v.is_object())
+            .filter(serde_json::Value::is_object)
     }
 }
 
-/// Cadre en pt sur la grille 1920 × 1080, relatif à la zone de corps.
+/// Frame in pt on the 1920 × 1080 grid, relative to the body area.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Frame {
+    /// Abscissa of the top-left corner, in pt.
     pub x: f64,
+    /// Ordinate of the top-left corner, in pt.
     pub y: f64,
+    /// Width in pt, positive.
     pub w: f64,
+    /// Height in pt, positive.
     pub h: f64,
 }
 
-/// Grille de mise en page : la zone de corps découpée en colonnes et lignes
-/// égales, séparées par une gouttière.
+/// Layout grid: the body area cut into equal columns and rows.
+///
+/// A gutter separates them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Grid {
+    /// Number of columns, from 1 to 24.
     pub columns: u32,
+    /// Number of rows, from 1 to 24.
     pub rows: u32,
-    /// Gouttière : jeton d'espacement (`"lg"`) ou pt ; défaut `"lg"`.
+    /// Gutter: spacing token (`"lg"`) or pt; default `"lg"`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gap: Option<TokenValue>,
 }
 
-/// Place d'un élément sur la grille : première colonne et première ligne
-/// (à partir de 0), puis nombre de colonnes et de lignes couvertes.
+/// Place of an element on the grid.
+///
+/// First column and first row (from 0), then the number of columns and rows spanned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Cell {
+    /// First column, from 0.
     pub col: u32,
+    /// First row, from 0.
     pub row: u32,
+    /// Columns spanned; default 1.
     #[serde(default = "one")]
     pub cols: u32,
+    /// Rows spanned; default 1.
     #[serde(default = "one")]
     pub rows: u32,
 }
@@ -212,69 +241,85 @@ static DEFAULT_GRID: Grid = Grid { columns: 12, rows: 6, gap: None };
 
 impl Cell {
     /// La cellule tient-elle dans la grille ?
+    #[must_use]
     pub fn fits(&self, grid: &Grid) -> bool {
         self.cols >= 1 && self.rows >= 1 && self.col + self.cols <= grid.columns && self.row + self.rows <= grid.rows
     }
 }
 
-/// Une valeur de jeton : un nom (`"accent"`, `"body"`) ou un nombre (pt).
+/// A token value: a name (`"accent"`, `"body"`) or a number (pt).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum TokenValue {
+    /// Numeric value, in pt.
     Number(f64),
+    /// Name of a theme token.
     Name(String),
 }
 
-/// Style d'un élément. Chaque champ absent hérite du thème.
+/// Style of an element; each absent field inherits from the theme.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Style {
+    /// Text size: size token or pt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<TokenValue>,
-    /// Nom de couleur du thème ou `#rrggbb`.
+    /// Theme color name or `#rrggbb`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// Weight: token (`strong`) or number (100 to 900).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weight: Option<TokenValue>,
-    /// Rôle de police (`display`, `body`, `mono`) ou famille.
+    /// Font role (`display`, `body`, `mono`) or family.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font: Option<String>,
+    /// Italic text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub italic: Option<bool>,
-    /// `left`, `center` ou `right`.
+    /// Horizontal alignment: `left`, `center` or `right`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub align: Option<String>,
+    /// Line spacing: token or pt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub leading: Option<TokenValue>,
+    /// Fill: theme color name or `#rrggbb`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill: Option<String>,
+    /// Stroke color: theme name or `#rrggbb`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke: Option<String>,
+    /// Stroke thickness: token or pt.
     #[serde(default, rename = "stroke-width", skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<TokenValue>,
+    /// Corner radius: token or pt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub radius: Option<TokenValue>,
-    /// Ancrage vertical d'un texte dans son cadre : `top`, `middle` ou
-    /// `bottom` (voir [`STYLE_VALIGNS`]). Sans cadre, sans effet.
+    /// Vertical anchoring of a text in its frame: `top`, `middle` or `bottom`.
+    ///
+    /// Without a frame, no effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valign: Option<String>,
-    /// Marges intérieures d'un texte, en pt : haut, droite, bas, gauche ;
-    /// chacune finie, de 0 à [`STYLE_INSET_MAX`].
+    /// Inner margins of a text, in pt: top, right, bottom, left.
+    ///
+    /// Each is finite, from 0 to 4096.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inset: Option<[f64; 4]>,
-    /// Espacement ajouté entre les lettres d'un texte, en pt (négatif :
-    /// resserré) ; fini, de -[`STYLE_TRACKING_MAX`] à [`STYLE_TRACKING_MAX`].
+    /// Spacing added between the letters of a text, in pt; negative: tighter.
+    ///
+    /// Finite, from -4096 to 4096.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracking: Option<f64>,
-    /// Espace entre deux paragraphes d'un texte (items de liste compris),
-    /// en pt : de la dernière ligne de base de l'un au haut de la première
-    /// ligne du suivant ; fini, de 0 à [`STYLE_SPACING_MAX`]. Sans la clé,
-    /// celui du thème.
+    /// Space between two paragraphs of a text, in pt, list items included.
+    ///
+    /// It runs from the last baseline of one to the top of the first
+    /// line of the next; finite, from 0 to 4096. Without the key,
+    /// the theme's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spacing: Option<f64>,
-    /// Retraits des paragraphes d'un texte, en pt : la marge gauche (de 0 à
-    /// [`STYLE_INDENT_MAX`]), puis le décalage de la première ligne (de
-    /// -[`STYLE_INDENT_MAX`] à [`STYLE_INDENT_MAX`] ; négatif : retrait
-    /// suspendu, où tient la puce d'un item de liste). Sans la clé, ceux du thème.
+    /// Paragraph indents of a text, in pt.
+    ///
+    /// First the left margin (from 0 to
+    /// 4096), then the first-line offset (from -4096 to 4096; negative: hanging
+    /// indent, where the bullet of a list item sits). Without the key, the theme's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub indent: Option<[f64; 2]>,
 }
@@ -328,6 +373,7 @@ impl Style {
     /// `None` si tout est permis. Seuls `valign`, `inset`, `tracking`,
     /// `spacing` et `indent` ont un domaine fermé : les autres champs se résolvent au rendu (jeton ou
     /// repli). Un nombre non fini ne se relirait pas (JSON l'écrit `null`).
+    #[must_use]
     pub fn invalid(&self) -> Option<(&'static str, ValueReason)> {
         if self.valign.as_deref().is_some_and(|v| !STYLE_VALIGNS.contains(&v)) {
             return Some(("style.valign", ValueReason::Valign));
@@ -355,67 +401,87 @@ impl Style {
     }
 }
 
+/// Kind of list of an item paragraph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ListKind {
+    /// Bulleted list.
     Bullet,
+    /// Numbered list.
     Number,
 }
 
-/// Un paragraphe : une suite de runs, éventuellement dans une liste.
+/// A paragraph: a sequence of runs, possibly in a list.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Paragraph {
+    /// Runs of the paragraph, in text order.
     #[serde(default)]
     pub runs: Vec<Run>,
+    /// List the paragraph is an item of; absent: plain paragraph.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub list: Option<ListKind>,
 }
 
 impl Paragraph {
+    /// Paragraph of a single run, with no formatting or list.
+    #[must_use]
     pub fn plain(t: impl Into<String>) -> Self {
         Self { runs: vec![Run::plain(t)], list: None }
     }
 }
 
+/// A run: a text with a single formatting in a paragraph.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Run {
+    /// Text of the run.
     pub t: String,
+    /// Bold text.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub bold: bool,
+    /// Italic text.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub italic: bool,
+    /// Text color: theme name or `#rrggbb`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// Text size: size token or pt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<TokenValue>,
-    /// Cible du lien (`http`, `https` ou `mailto`).
+    /// Link target (`http`, `https` or `mailto`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
-    /// Pastille : numéro (dès 1) de la couleur de fond dans la palette du thème.
+    /// Highlight: number (from 1) of the background color in the theme's palette.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub highlight: Option<u8>,
 }
 
 impl Run {
+    /// Run of text `t`, with no formatting.
+    #[must_use]
     pub fn plain(t: impl Into<String>) -> Self {
         Self { t: t.into(), ..Default::default() }
     }
 }
 
-/// Un élément : un widget de catégorie `element`, placé et stylé.
+/// An element: a widget of category `element`, placed and styled.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Element {
+    /// Stable id of the element, unique in its slide.
     pub id: String,
+    /// Element widget, qualified by its pack (`base/text`).
     pub kind: String,
+    /// Free frame on the slide; absent: placed by the layout.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame: Option<Frame>,
-    /// Accroche à la grille de la slide ; prioritaire sur `frame`.
+    /// Attachment to the slide's grid; takes precedence over `frame`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cell: Option<Cell>,
-    /// En boîte : un élément garde une taille modeste sur la pile, où les
-    /// slots imbriqués se lisent et s'écrivent récursivement.
+    // Boxed: an element keeps a modest size on the stack, where nested
+    // slots are read and written recursively.
+    /// Style of the element; each absent field inherits from the theme.
     #[serde(default, skip_serializing_if = "is_default_style")]
     pub style: Box<Style>,
+    /// Widget parameters, child element slots included.
     #[serde(default, skip_serializing_if = "Params::is_empty")]
     pub params: Params,
 }
@@ -426,6 +492,8 @@ fn is_default_style(s: &Box<Style>) -> bool {
 }
 
 impl Element {
+    /// Element `id` of widget `kind`, with no frame, style or parameters.
+    #[must_use]
     pub fn new(id: impl Into<String>, kind: &str) -> Self {
         Self {
             id: id.into(),
@@ -447,6 +515,7 @@ impl Element {
 
 impl Deck {
     /// Deck vide de la version courante : aucune slide.
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             version: DECK_VERSION,
@@ -462,6 +531,7 @@ impl Deck {
     }
 
     /// Les épinglages du deck de sorte `kind`.
+    #[must_use]
     pub fn pins(&self, kind: PackKind) -> &BTreeMap<Namespace, PackPin> {
         match kind {
             PackKind::Widgets => &self.widgets,
@@ -482,20 +552,29 @@ impl Deck {
         PackKind::ALL.into_iter().flat_map(move |kind| self.pins(kind).iter().map(move |(ns, pin)| (kind, ns, pin)))
     }
 
+    /// The slide `id`, if the deck contains it.
+    #[must_use]
     pub fn slide(&self, id: &str) -> Option<&Slide> {
         self.slides.iter().find(|s| s.id == id)
     }
 
+    /// The slide `id`, mutable.
     pub fn slide_mut(&mut self, id: &str) -> Option<&mut Slide> {
         self.slides.iter_mut().find(|s| s.id == id)
     }
 
+    /// Position of the slide `id` in the deck.
+    #[must_use]
     pub fn slide_index(&self, id: &str) -> Option<usize> {
         self.slides.iter().position(|s| s.id == id)
     }
 
-    /// Lit un deck JSON. Refuse un deck d'une autre version que
-    /// [`DECK_VERSION`] : relu comme un v4, il perdrait des champs en silence.
+    /// Reads a deck from JSON. Refuses a deck of a version other than
+    /// [`DECK_VERSION`]: read as a v4, it would silently lose fields.
+    ///
+    /// # Errors
+    ///
+    /// Invalid JSON, JSON that does not have the shape of a deck, or another version.
     pub fn from_json(s: &str) -> serde_json::Result<Self> {
         let deck: Self = serde_json::from_str(s)?;
         if deck.version != DECK_VERSION {
@@ -507,7 +586,11 @@ impl Deck {
         Ok(deck)
     }
 
-    /// JSON lisible (indenté), tel qu'il est enregistré dans les sources.
+    /// Readable (indented) JSON, as stored in the sources.
+    ///
+    /// # Errors
+    ///
+    /// `serde_json` failure, impossible in practice: all keys are strings.
     pub fn to_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
     }

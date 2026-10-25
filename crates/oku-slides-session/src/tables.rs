@@ -8,9 +8,14 @@ use crate::error::{ChartSnafu, NoChartSnafu, NoSlideSnafu, NoTableSnafu, Respons
 use crate::request::View;
 
 impl Session {
-    /// Montre l'élément `element` en `view`, avec les mêmes données ; une seule étape d'annulation.
+    /// Shows element `element` as `view`, with the same data; a single undo step.
     ///
-    /// Les autres paramètres de l'élément sont abandonnés : seul le jeu de données passe.
+    /// The element's other parameters are dropped: only the dataset carries over.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the slide (`NoSlide`) or the element (`NoChart`, `NoTable`) cannot be found, or if
+    /// the transaction is rejected.
     pub fn show_as(&mut self, label: &str, slide: String, element: &str, view: View) -> Result<()> {
         let not_found = || match view {
             View::Table => NoChartSnafu { id: element }.build(),
@@ -42,7 +47,7 @@ impl Session {
             .and_then(|w| w.host_param(to))
             .map(|p| p.name.clone())
             .ok_or_else(not_found)?;
-        next.kind = target_kind.to_owned();
+        target_kind.clone_into(&mut next.kind);
         next.params = Params::default();
         next.params.set(param, ParamValue::Value(converted));
         self.apply(label, vec![Op::ReplaceElement { slide, element: next }], None)

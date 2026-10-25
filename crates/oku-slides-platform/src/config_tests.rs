@@ -456,7 +456,7 @@ fn from_sources_refuses_zero_serve_limits_naming_the_setting() {
 fn updates_defaults_check_every_six_hours() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.updates.check_automatically).is_true();
-    assert_that!(s.updates.interval()).is_equal_to(std::time::Duration::from_secs(6 * 3600));
+    assert_that!(s.updates.interval()).is_equal_to(std::time::Duration::from_hours(6));
 }
 
 #[test]
@@ -468,7 +468,7 @@ fn updates_env_false_turns_automatic_check_off() {
 #[test]
 fn updates_env_interval_sets_hours() {
     let s = Settings::from_sources(None, env(&[("OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS", "12")])).unwrap();
-    assert_that!(s.updates.interval()).is_equal_to(std::time::Duration::from_secs(12 * 3600));
+    assert_that!(s.updates.interval()).is_equal_to(std::time::Duration::from_hours(12));
 }
 
 #[test]

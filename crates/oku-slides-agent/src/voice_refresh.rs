@@ -16,6 +16,11 @@ use crate::voice_port::AppVoice;
 #[derive(Clone, Default)]
 struct Seen {
     dictation: Option<DictationView>,
+    /// `None`: nothing said yet; `Some(None)`: the agent was said to be usable.
+    #[expect(
+        clippy::option_option,
+        reason = "tells 'nothing said yet' apart from 'said usable' without an extra type"
+    )]
     availability: Option<Option<String>>,
 }
 

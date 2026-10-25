@@ -3,7 +3,7 @@
 //! Un onglet neuf est préparé sous le verrou ([`Pending`]), sa session
 //! construite hors du verrou, puis insérée par [`Workspace::finish`].
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
 use oku_slides_platform::storage::Storage;
@@ -138,14 +138,14 @@ impl Workspace {
 
     /// Ouvre `path` : son onglet s'il existe déjà, sinon un nouvel onglet
     /// (qui remplace l'onglet actif s'il est vierge).
-    pub(super) fn open_tab(&mut self, window: String, path: PathBuf) -> Result<Step> {
+    pub(super) fn open_tab(&mut self, window: String, path: &Path) -> Result<Step> {
         // Fin déjà engagée (`settle`) : refusé, comme si la
         // fenêtre visée n'existait plus (elle est en train de
         // disparaître). Sous ce même verrou : atomique avec `settle`.
         if self.is_closed() {
             return Err(UnknownWindowSnafu { label: window }.build().into());
         }
-        let path = resolve(&path);
+        let path = resolve(path);
         if let Some(id) = self.tab_with_path(&path) {
             self.activate(&id)?;
             self.save_layout();
@@ -163,7 +163,7 @@ impl Workspace {
     pub(super) fn import_tab(
         &mut self,
         window: String,
-        path: PathBuf,
+        path: &Path,
         target: ImportTarget,
         tune: bool,
     ) -> Result<Pending> {
@@ -172,7 +172,7 @@ impl Workspace {
             return Err(UnknownWindowSnafu { label: window }.build().into());
         }
         let active = self.layout.windows[self.window_index(&window)?].active.clone();
-        let opening = Opening::Import(Box::new(ImportOpening { path: resolve(&path), target, tune }));
+        let opening = Opening::Import(Box::new(ImportOpening { path: resolve(path), target, tune }));
         Ok(self.pending(Some(window), opening, Some(active)))
     }
 

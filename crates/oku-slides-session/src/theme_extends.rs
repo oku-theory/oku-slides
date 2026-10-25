@@ -95,9 +95,14 @@ impl Session {
         self.draft_chain(&candidate).map(|_| ())
     }
 
-    /// Le brouillon étend désormais `extends`, dans cet ordre : une étape d'annulation.
+    /// The draft now extends `extends`, in this order: one undo step.
     ///
-    /// Sans effet si la liste ne change pas. Voir le module pour les refus.
+    /// No effect if the list does not change. See the module for rejections.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside pack mode (`NotEditingPack`), if the list is rejected (see the module), or if the
+    /// transaction fails.
     pub fn set_edited_theme_extends(&mut self, extends: Vec<Namespace>) -> Result<()> {
         let Mode::Pack { theme, switches, .. } = &self.mode else {
             return NotEditingPackSnafu.fail()?;
@@ -124,10 +129,15 @@ impl Session {
         Ok(())
     }
 
-    /// Applique `edit` à la liste courante du brouillon, puis la pose (`set_edited_theme_extends`).
+    /// Applies `edit` to the draft's current list, then sets it (`set_edited_theme_extends`).
     ///
-    /// Monter le premier ou descendre le dernier est `ThemeExtendsMove` ;
-    /// retirer ou déplacer un thème absent de la liste, `UnknownTheme`.
+    /// Moving the first up or the last down is `ThemeExtendsMove`;
+    /// removing or moving a theme missing from the list, `UnknownTheme`.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside pack mode, on an impossible move (`ThemeExtendsMove`), a missing theme
+    /// (`UnknownTheme`), or like `set_edited_theme_extends`.
     pub fn edit_theme_extends(&mut self, edit: ExtendsEdit) -> Result<()> {
         let Mode::Pack { theme, .. } = &self.mode else {
             return NotEditingPackSnafu.fail()?;

@@ -68,6 +68,7 @@ impl HubError {
         UnknownSurfaceSnafu { surface: surface.into() }.build().into()
     }
 
+    /// The error's nature, to choose the interface's response.
     pub fn kind(&self) -> HubErrorKind {
         match &self.0 {
             HubInner::UnknownSurface { .. } => HubErrorKind::UnknownSurface,

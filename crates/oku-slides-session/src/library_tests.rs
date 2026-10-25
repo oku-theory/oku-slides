@@ -395,7 +395,7 @@ fn packs_ignore_a_legacy_folder_and_report_it_once() {
 
 /// Une version reçue avec un deck pour `m`.
 fn receive(lib: &PackLibrary, m: &crate::pack::PackManifest) -> oku_slides_core::PackPin {
-    let files = m.to_files(oku_slides_core::PackKind::Widgets, Default::default()).unwrap();
+    let files = m.to_files(oku_slides_core::PackKind::Widgets, std::collections::BTreeMap::default()).unwrap();
     lib.receive_version(m.id, &files).unwrap();
     oku_slides_core::PackPin { id: m.id, version: files.version(), requires: Vec::new() }
 }

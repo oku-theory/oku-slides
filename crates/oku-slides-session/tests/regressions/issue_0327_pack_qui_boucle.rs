@@ -2,6 +2,7 @@
 //!
 //! Binaire sans harnais : lancé avec `--render-worker`, il est le processus
 //! de rendu ; sinon il est le test.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

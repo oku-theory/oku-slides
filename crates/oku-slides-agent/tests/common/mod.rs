@@ -22,7 +22,7 @@ pub struct NoSettings;
 
 impl SettingsPort for NoSettings {
     fn read(&self) -> std::collections::BTreeMap<String, Value> {
-        Default::default()
+        std::collections::BTreeMap::default()
     }
     fn write(&self, _: &str, _: &Value) -> Result<Applied, String> {
         Err("read-only".into())
@@ -590,9 +590,10 @@ pub fn surfaces_of(rx: &Relayed, tab: &str) -> Vec<Value> {
         .collect()
 }
 
-/// Le `nth` évènement `surfaces` relayé pour `tab` (1 = le premier ; sondé toutes les 20 ms, 10 s au plus).
+/// The `nth` `surfaces` event relayed for `tab` (1 = the first).
 ///
-/// Un onglet qui démarre en envoie un en relisant son fil, avant celui de son premier `resync`.
+/// Polled every 20 ms, for 10 s at most. A starting tab sends one while reading
+/// back its thread, before the one of its first `resync`.
 pub async fn wait_surfaces(rx: &Relayed, tab: &str, nth: usize) -> Value {
     for _ in 0..500 {
         if let Some(v) = surfaces_of(rx, tab).into_iter().nth(nth - 1) {

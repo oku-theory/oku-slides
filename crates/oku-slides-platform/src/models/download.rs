@@ -37,6 +37,7 @@ enum DownloadInner {
 
 impl DownloadError {
     /// Ce qui a échoué, pour le message montré à l'utilisateur.
+    #[must_use]
     pub fn kind(&self) -> DownloadErrorKind {
         match &*self.0 {
             DownloadInner::Http { .. } | DownloadInner::HttpRead { .. } | DownloadInner::Stalled { .. } => {
@@ -72,9 +73,11 @@ enum Stop {
     Stalled,
 }
 
-/// Lance la requête `url` sur un fil à part ; ses résultats arrivent par le canal rendu.
+/// Starts the `url` request on a separate thread.
 ///
-/// Une lecture bloquée garde le fil jusqu'à la fin de la connexion ; personne ne l'attend.
+/// Its results arrive on the returned channel.
+///
+/// A blocked read holds the thread until the connection ends; nobody waits for it.
 fn fetch(agent: &ureq::Agent, url: String) -> Receiver<Fetched> {
     let (tx, rx) = sync_channel(4);
     let agent = agent.clone();
@@ -148,12 +151,19 @@ fn backoff(wait: Duration, at: u64, total: u64, progress: &mut impl FnMut(u64, u
     }
 }
 
-/// Télécharge `files` dans `dir` (chacun en `.part`, vérifié puis renommé ; les fichiers déjà
-/// là sont gardés), puis écrit [`COMPLETE`]. Pas de reprise à l'octet : un fichier coupé repart
-/// de zéro (t-1052). L'intégrité n'est vérifiée que pour les fichiers écrits ici ; un fichier
-/// déjà présent est gardé d'après sa seule longueur.
-/// `progress(reçu, total)` est appelé régulièrement, même en attente du dépôt ; s'il renvoie
-/// `false`, on annule. Rien reçu pendant `read_timeout_secs` : échec réseau.
+/// Downloads `files` into `dir`, then writes [`COMPLETE`].
+///
+/// Each file is written as `.part`, checked then renamed; files already there
+/// are kept. No byte-level resume: a cut file restarts
+/// from zero (t-1052). Integrity is only checked for the files written here; a file
+/// already present is kept on its length alone.
+/// `progress(received, total)` is called regularly, even while waiting on the repository; if it returns
+/// `false`, the download is cancelled. Nothing received for `read_timeout_secs`: network failure.
+///
+/// # Errors
+///
+/// On a network or write failure, a truncated file or one with an unexpected fingerprint,
+/// too long a wait on the repository, or a cancellation by `progress`.
 pub fn download(
     files: &[PinnedFile],
     dir: &Path,

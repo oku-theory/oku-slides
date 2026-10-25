@@ -21,6 +21,7 @@ pub const EXTENSION: &str = ".oku-slides.pdf";
 /// Un document lu sur disque.
 #[derive(Debug)]
 pub struct Opened {
+    /// Sources of the document: deck replica, assets, fonts, packs and themes.
     pub sources: SourceBundle,
     /// Ce que la relecture du replica n'a pas pu lire (vide pour un deck
     /// JSON). Seules les parties écartées sont des pertes ([`is_unreadable`]).
@@ -92,10 +93,16 @@ pub(crate) fn log_issues(issues: &[Issue], l: &Localizer, at: IssuesAt) -> usize
     unreadable
 }
 
-/// Lit un `.oku-slides.pdf` (reconnu à son contenu) ou un deck JSON.
-/// `limits` borne les sources lues dans le PDF (réglages `[sources]
-/// max_replica_mib` et `max_sources_mib`) ; `registry` : les widgets avec
-/// lesquels le document s'écrit ensuite (la lecture n'en dépend pas).
+/// Reads a `.oku-slides.pdf` (recognized by its content) or a JSON deck.
+///
+/// `limits` bounds the sources read from the PDF (settings `[sources]
+/// max_replica_mib` and `max_sources_mib`); `registry`: the widgets the
+/// document is written with afterwards (reading does not depend on them).
+///
+/// # Errors
+///
+/// Fails if the file cannot be read (`Read`), if its sources exceed `limits`, or if it is neither an
+/// Oku Slides document nor a valid JSON deck.
 pub fn read_document(
     storage: &Storage,
     path: &Path,
@@ -116,8 +123,13 @@ pub(crate) fn source_limits(settings: &Settings) -> SourceLimits {
     }
 }
 
-/// Le `deck_uid` du document `path` ; `None` pour un deck JSON (sans
-/// fichier Oku Slides, il n'est la copie d'aucun autre).
+/// The `deck_uid` of document `path`; `None` for a JSON deck.
+///
+/// Without an Oku Slides file, a JSON deck is the copy of no other.
+///
+/// # Errors
+///
+/// Fails like [`read_document`]: unreadable, too large or unrecognized file.
 pub fn deck_uid_of(
     storage: &Storage,
     path: &Path,

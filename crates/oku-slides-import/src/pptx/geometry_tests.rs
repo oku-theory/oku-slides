@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use speculoos::prelude::*;
 
 use super::*;
@@ -123,9 +125,11 @@ fn custom_point_with_an_unresolved_name_is_zero(#[case] gd: &str, #[case] x: &st
 
 #[test]
 fn custom_guides_beyond_the_cap_are_not_evaluated() {
-    let gd: String = (0..=MAX_GUIDES).map(|i| format!(r#"<a:gd name="g{i}" fmla="val 100"/>"#)).collect();
-    let path =
-        format!(r#"<a:moveTo><a:pt x="g{}" y="0"/></a:moveTo><a:lnTo><a:pt x="g0" y="0"/></a:lnTo>"#, MAX_GUIDES);
+    let gd = (0..=MAX_GUIDES).fold(String::new(), |mut gd, i| {
+        let _ = write!(gd, r#"<a:gd name="g{i}" fmla="val 100"/>"#);
+        gd
+    });
+    let path = format!(r#"<a:moveTo><a:pt x="g{MAX_GUIDES}" y="0"/></a:moveTo><a:lnTo><a:pt x="g0" y="0"/></a:lnTo>"#);
     let cmds = custom("", &gd, &path);
     assert_that!(cmds).is_equal_to(vec![PathCmd::MoveTo { x: 0.0, y: 0.0 }, PathCmd::LineTo { x: 0.5, y: 0.0 }]);
 }

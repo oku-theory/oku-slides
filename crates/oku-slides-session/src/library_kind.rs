@@ -14,9 +14,15 @@ use crate::pack::PackManifest;
 
 /// Le manifeste d'une version, lu de ses fichiers.
 pub trait VersionManifest: Sized + Clone + std::fmt::Debug + 'static {
-    /// Lit le manifeste de `files` ; illisible, l'erreur de la session (`PackManifest`, `ThemeJson`).
+    /// Reads the manifest of `files`; if unreadable, the session error (`PackManifest`, `ThemeJson`).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the manifest is missing or cannot be read (`PackManifest`, `ThemeJson`).
     fn from_files(files: &PackFiles) -> crate::Result<Self>;
+    /// Stable id of the pack or theme, shared by all its versions.
     fn id(&self) -> Uuid;
+    /// Displayed name of the pack or theme in this version.
     fn name(&self) -> &str;
     /// Version dont celle-ci est issue ; `None` pour une première version.
     fn parent(&self) -> Option<&PackVersion>;
@@ -38,9 +44,11 @@ pub trait VersionManifest: Sized + Clone + std::fmt::Debug + 'static {
 pub trait LibraryKind: std::fmt::Debug + Clone + 'static {
     /// Dossier sous `<data>` et nom du manifeste dans une version.
     const DIR: &'static str;
+    /// Name of the manifest file in a version (`widgets.json`, `theme.json`…).
     const MANIFEST_FILE: &'static str;
     /// La sorte de pack d'une sorte à fichiers de widgets (`widgets/` ou `layouts/<nom>.typ`) ; `None` sans fichiers.
     const PACK_KIND: Option<PackKind>;
+    /// The manifest read from a version of this kind.
     type Manifest: VersionManifest;
     /// Versions intégrées à l'app, dans l'ordre.
     fn builtins() -> &'static [StoredVersion<Self::Manifest>];
@@ -49,8 +57,11 @@ pub trait LibraryKind: std::fmt::Debug + Clone + 'static {
 /// Une version lue et vérifiée : empreinte, fichiers, manifeste lu.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredVersion<M> {
+    /// Hash of the version, recomputed from its bytes on loading.
     pub version: PackVersion,
+    /// Files of the version, manifest included.
     pub files: PackFiles,
+    /// Manifest read from `files`.
     pub manifest: M,
     /// Arrivée avec un deck reçu, sans que l'utilisateur l'ait créée.
     pub received: bool,

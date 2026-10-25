@@ -25,7 +25,7 @@ fn imported_session(data: &std::path::Path) -> crate::Session {
 fn load_import_keeps_the_state_and_an_unsaved_deck_without_file() {
     let data = fresh_dir("oku-slides-import-tab-");
     let s = imported_session(data.path());
-    assert_that!(s.import_state().map(|st| st.mode())).is_equal_to(Some(ImportMode::Hifi));
+    assert_that!(s.import_state().map(super::super::state::ImportState::mode)).is_equal_to(Some(ImportMode::Hifi));
     assert_that!(s.deck().slides.len()).is_equal_to(3);
     let info = s.tab_info();
     assert_that!(info.path).is_none();
@@ -68,7 +68,7 @@ fn opening_another_document_that_fails_keeps_the_import_state() {
     let mut s = imported_session(data.path());
     s.failpoints.install_widgets = true;
     assert_that!(s.new_deck().is_err()).is_true();
-    assert_that!(s.import_state().map(|st| st.mode())).is_equal_to(Some(ImportMode::Hifi));
+    assert_that!(s.import_state().map(super::super::state::ImportState::mode)).is_equal_to(Some(ImportMode::Hifi));
 }
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p

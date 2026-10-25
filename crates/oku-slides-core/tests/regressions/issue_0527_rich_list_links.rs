@@ -7,7 +7,7 @@ use speculoos::prelude::*;
 
 use crate::common;
 
-fn issues_of(run: Value) -> Vec<(Option<String>, Option<String>, String)> {
+fn issues_of(run: &Value) -> Vec<(Option<String>, Option<String>, String)> {
     let deck = json!({ "version": 9, "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "n", "kind": "test-el/liste", "params": { "etapes": [{ "id": "a", "note": [{ "runs": [run] }] }] } }
     ] } }] });
@@ -20,7 +20,7 @@ fn issues_of(run: Value) -> Vec<(Option<String>, Option<String>, String)> {
 
 #[test]
 fn validate_javascript_link_in_a_list_rich_cell_is_reported_on_its_element() {
-    let issues = issues_of(json!({ "t": "x", "link": "javascript:alert(1)" }));
+    let issues = issues_of(&json!({ "t": "x", "link": "javascript:alert(1)" }));
     assert_that!(issues).is_equal_to(vec![(
         Some("s".to_owned()),
         Some("n".to_owned()),
@@ -30,7 +30,7 @@ fn validate_javascript_link_in_a_list_rich_cell_is_reported_on_its_element() {
 
 #[test]
 fn validate_zero_highlight_in_a_list_rich_cell_is_reported_on_its_element() {
-    let issues = issues_of(json!({ "t": "x", "highlight": 0 }));
+    let issues = issues_of(&json!({ "t": "x", "highlight": 0 }));
     assert_that!(issues).is_equal_to(vec![(
         Some("s".to_owned()),
         Some("n".to_owned()),
@@ -40,5 +40,5 @@ fn validate_zero_highlight_in_a_list_rich_cell_is_reported_on_its_element() {
 
 #[test]
 fn validate_https_link_in_a_list_rich_cell_has_no_issue() {
-    assert_that!(issues_of(json!({ "t": "x", "link": "https://oku.test" }))).is_empty();
+    assert_that!(issues_of(&json!({ "t": "x", "link": "https://oku.test" }))).is_empty();
 }

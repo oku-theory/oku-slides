@@ -30,7 +30,9 @@ pub enum SttErrorKind {
     AudioFile,
     /// Modèle absent ou illisible.
     Model,
+    /// The engine could not transcribe the audio (Whisper, API, Apple).
     Transcription,
+    /// Model download impossible (network, disk, integrity).
     Download,
     /// Téléchargement annulé par l'utilisateur.
     Cancelled,
@@ -106,8 +108,16 @@ pub(crate) enum SttInner {
 }
 
 impl SttError {
+    /// Kind of the error, to react without reading the message.
+    #[must_use]
     pub fn kind(&self) -> SttErrorKind {
-        use SttInner::*;
+        use SttInner::{
+            Analyzer, ApiConfig, ApiHttp, ApiKeyMissing, ApiResponse, ApiStatus, AssetInstall, AudioFile, Cancelled,
+            Download, Features, FinishTimeout, LocaleUnsupported, MelFilters, MicrophoneConfig, MicrophonePlay,
+            MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile, ModelLoad, ModelSettings, NoLanguage,
+            NoMicrophone, NotContiguous, NotDownloadable, SpeechDenied, Transcribe, UnsupportedFormat, Wav,
+            ZeroSetting,
+        };
         match *self.0 {
             NoMicrophone { .. }
             | MicrophoneConfig { .. }
@@ -145,7 +155,13 @@ impl SttError {
 
 impl Localize for SttError {
     fn localize(&self, l: &Localizer) -> String {
-        use SttInner::*;
+        use SttInner::{
+            Analyzer, ApiConfig, ApiHttp, ApiKeyMissing, ApiResponse, ApiStatus, AssetInstall, AudioFile, Cancelled,
+            Download, Features, FinishTimeout, LocaleUnsupported, MelFilters, MicrophoneConfig, MicrophonePlay,
+            MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile, ModelLoad, ModelSettings, NoLanguage,
+            NoMicrophone, NotContiguous, NotDownloadable, SpeechDenied, Transcribe, UnsupportedFormat, Wav,
+            ZeroSetting,
+        };
         match &*self.0 {
             NoMicrophone { .. } => l.tr("stt-microphone-missing"),
             MicrophoneConfig { .. } | MicrophoneStream { .. } | MicrophonePlay { .. } => {

@@ -43,14 +43,14 @@ fn data() -> Value {
 }
 
 /// Le deck au tableau `t`, de données `data`.
-fn table_deck(data: Value) -> Deck {
+fn table_deck(data: &Value) -> Deck {
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s" }, "param": "blocks" },
         "element": { "id": "t", "kind": "base/table", "params": { "data": data } } }));
     with_ops(&empty_deck(), vec![add])
 }
 
 /// Un deck au tableau `t` écrit tel quel, sans passer par les ops.
-fn raw_table_deck(data: Value) -> Deck {
+fn raw_table_deck(data: &Value) -> Deck {
     let deck = json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
         { "id": "t", "kind": "base/table", "params": { "data": data } } ] } }] });
     ok(Deck::from_json(&deck.to_string()))
@@ -60,7 +60,7 @@ fn data_op(change: DataOp) -> Op {
     Op::SetData { target: Target { slide: "s".into(), element: Some("t".into()) }, param: "data".into(), change }
 }
 
-fn set_data(deck: &Deck, value: Value) -> Deck {
+fn set_data(deck: &Deck, value: &Value) -> Deck {
     with_ops(
         deck,
         vec![op(
@@ -164,7 +164,7 @@ fn read(r: &DeckReplica) -> (Value, Vec<String>) {
 
 #[test]
 fn host_table_round_trips_through_the_replica() {
-    let deck = table_deck(data());
+    let deck = table_deck(&data());
     let back = round_trip(&deck);
     assert_that!(back).is_equal_to(&deck);
     assert_that!(stored(&back)["dataset"]).is_equal_to(&stored(&deck)["dataset"]);
@@ -194,7 +194,7 @@ fn host_chart_round_trips_through_the_replica() {
 
 #[test]
 fn host_dataset_is_stored_as_columns_and_rows() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     assert_that!(keys(&dataset(&r))).is_equal_to(vec!["columns".to_owned(), "rows".to_owned()]);
     assert_that!(columns(&r)).is_equal_to(vec!["pays".to_owned(), "ventes".to_owned(), "actif".to_owned()]);
     assert_that!(rows(&r).len()).is_equal_to(3);
@@ -209,7 +209,7 @@ fn host_dataset_is_stored_as_columns_and_rows() {
 
 #[test]
 fn set_cell_writes_one_entry_in_the_same_row_container() {
-    let deck = table_deck(data());
+    let deck = table_deck(&data());
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let before = (row(&r, "fr").id(), r.len_ops());
     let edited = with_ops(&deck, vec![data_op(DataOp::SetCell { row: 1, col: 1, value: Cell::Number(7.0) })]);
@@ -221,7 +221,7 @@ fn set_cell_writes_one_entry_in_the_same_row_container() {
 
 #[test]
 fn rewriting_an_unchanged_deck_writes_nothing() {
-    let deck = table_deck(data());
+    let deck = table_deck(&data());
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let before = r.len_ops();
     r.apply(&deck, "Rien", None).unwrap();
@@ -231,12 +231,12 @@ fn rewriting_an_unchanged_deck_writes_nothing() {
 
 #[test]
 fn row_insert_remove_reorder_keep_surviving_row_containers() {
-    let deck = table_deck(data());
+    let deck = table_deck(&data());
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let before = row_containers(&r);
     let next = set_data(
         &deck,
-        json!({ "dataset": {
+        &json!({ "dataset": {
             "source": [["Pays", "Ventes", "Actif"], ["DE", null, false], ["IT", 3, true]],
             "ids": ["h", "de", "it"],
             "columns": ["pays", "ventes", "actif"],
@@ -251,7 +251,7 @@ fn row_insert_remove_reorder_keep_surviving_row_containers() {
     // Réordonner seulement : chaque ligne garde son conteneur.
     let reordered = set_data(
         &next,
-        json!({ "dataset": {
+        &json!({ "dataset": {
             "source": [["Pays", "Ventes", "Actif"], ["IT", 3, true], ["DE", null, false]],
             "ids": ["h", "it", "de"],
             "columns": ["pays", "ventes", "actif"],
@@ -265,12 +265,12 @@ fn row_insert_remove_reorder_keep_surviving_row_containers() {
 
 #[test]
 fn column_insert_remove_reorder_keep_cells_by_column_id() {
-    let deck = table_deck(data());
+    let deck = table_deck(&data());
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let fr_cells = cells(&r, "fr").id();
     let next = set_data(
         &deck,
-        json!({ "dataset": {
+        &json!({ "dataset": {
             "source": [["Actif", "Pays", "Stock"], [true, "FR", 4], [false, "DE", 5]],
             "ids": ["h", "fr", "de"],
             "columns": ["actif", "pays", "stock"],
@@ -296,7 +296,7 @@ fn dataset_of_unexpected_shape_round_trips_unchanged() {
         json!({ "dataset": { "source": [["A"], ["b"]], "ids": ["h", "x y"], "columns": ["a"] } }),
     ];
     for data in cases {
-        let deck = raw_table_deck(data.clone());
+        let deck = raw_table_deck(&data);
         assert_that!(stored(&round_trip(&deck))).is_equal_to(&data);
         let r = DeckReplica::new(&deck, registry()).unwrap();
         // Écrit opaque : pas de colonnes ni de lignes en conteneurs.
@@ -306,7 +306,7 @@ fn dataset_of_unexpected_shape_round_trips_unchanged() {
 
 #[test]
 fn forged_duplicate_row_ids_are_repaired_on_read() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     row(&r, "de").insert("id", "fr").unwrap();
     r.doc.commit();
     let (data, issues) = read(&r);
@@ -317,7 +317,7 @@ fn forged_duplicate_row_ids_are_repaired_on_read() {
 
 #[test]
 fn forged_twin_row_with_same_id_and_cells_is_dropped_on_read() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     let twin = rows(&r).insert_container(2, LoroMap::new()).unwrap();
     twin.insert("id", "fr").unwrap();
     let cells = twin.insert_container(schema::CELLS, LoroMap::new()).unwrap();
@@ -327,12 +327,12 @@ fn forged_twin_row_with_same_id_and_cells_is_dropped_on_read() {
     r.doc.commit();
     let (got, issues) = read(&r);
     assert_that!(issues).is_empty();
-    assert_that!(got).is_equal_to(stored(&table_deck(data())));
+    assert_that!(got).is_equal_to(stored(&table_deck(&data())));
 }
 
 #[test]
 fn forged_many_rows_with_one_id_and_distinct_cells_are_kept_with_repaired_ids() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     let list = rows(&r);
     for i in 0..2_000 {
         let m = list.push_container(LoroMap::new()).unwrap();
@@ -354,17 +354,17 @@ fn forged_many_rows_with_one_id_and_distinct_cells_are_kept_with_repaired_ids() 
 
 #[test]
 fn forged_duplicate_column_id_is_dropped_on_read() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     as_list(dataset(&r).get(schema::COLUMNS)).push("pays").unwrap();
     r.doc.commit();
     let (got, issues) = read(&r);
     assert_that!(issues).is_empty();
-    assert_that!(got).is_equal_to(stored(&table_deck(data())));
+    assert_that!(got).is_equal_to(stored(&table_deck(&data())));
 }
 
 #[test]
 fn forged_cell_container_reads_as_null() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     cells(&r, "fr").insert_container("ventes", LoroMap::new()).unwrap();
     r.doc.commit();
     let (data, issues) = read(&r);
@@ -374,7 +374,7 @@ fn forged_cell_container_reads_as_null() {
 
 #[test]
 fn forged_rows_beyond_cap_are_truncated_and_reported() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     let list = rows(&r);
     for i in list.len()..=host::MAX_ROWS {
         let m = list.push_container(LoroMap::new()).unwrap();
@@ -390,7 +390,7 @@ fn forged_rows_beyond_cap_are_truncated_and_reported() {
 
 #[test]
 fn forged_columns_beyond_cap_are_truncated_and_reported() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     let list = as_list(dataset(&r).get(schema::COLUMNS));
     for j in list.len()..=host::MAX_COLUMNS {
         list.push(format!("c-{j}")).unwrap();
@@ -411,7 +411,7 @@ fn forge_marker(map: &LoroMap, key: &str) {
 
 #[test]
 fn forged_marker_outside_dataset_is_not_read_as_dataset() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     let host = host_map(&r, "t", "data");
     forge_marker(&host, "autre");
     let nested = host.insert_container("chart", LoroMap::new()).unwrap();
@@ -425,7 +425,7 @@ fn forged_marker_outside_dataset_is_not_read_as_dataset() {
 
 #[test]
 fn forged_deeply_nested_composite_cell_reads_as_null() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     let mut deep = LoroValue::from(1);
     for _ in 0..(read::MAX_DEPTH * 4) {
         deep = LoroValue::from(vec![deep]);
@@ -439,7 +439,7 @@ fn forged_deeply_nested_composite_cell_reads_as_null() {
 
 #[test]
 fn forged_unreadable_row_is_set_aside_and_reported() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     rows(&r).push_container(LoroMap::new()).unwrap().insert("id", "x").unwrap();
     r.doc.commit();
     let (data, issues) = read(&r);
@@ -451,7 +451,7 @@ fn forged_unreadable_row_is_set_aside_and_reported() {
 
 #[test]
 fn ragged_merged_rows_read_with_nulls() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     cells(&r, "de").delete("pays").unwrap();
     r.doc.commit();
     let (data, issues) = read(&r);
@@ -476,7 +476,7 @@ fn dataset_beyond_read_caps_is_written_opaque_and_round_trips_unchanged() {
     let rows = host::MAX_ROWS + 1;
     let source: Vec<Value> = (0..rows).map(|i| json!([format!("r{i}")])).collect();
     let ids: Vec<String> = (0..rows).map(|i| format!("r{i}")).collect();
-    let deck = raw_table_deck(json!({ "dataset": { "source": source, "ids": ids, "columns": ["a"] } }));
+    let deck = raw_table_deck(&json!({ "dataset": { "source": source, "ids": ids, "columns": ["a"] } }));
     assert_that!(round_trip(&deck)).is_equal_to(&deck);
     let r = DeckReplica::new(&deck, registry()).unwrap();
     assert_that!(dataset(&r).get(schema::ROWS)).is_none();
@@ -487,7 +487,7 @@ fn dataset_beyond_read_caps_is_written_opaque_and_round_trips_unchanged() {
 
 #[test]
 fn forged_dataset_beyond_cell_budget_is_truncated_and_reported() {
-    let r = DeckReplica::new(&table_deck(data()), registry()).unwrap();
+    let r = DeckReplica::new(&table_deck(&data()), registry()).unwrap();
     let columns = as_list(dataset(&r).get(schema::COLUMNS));
     for j in columns.len()..host::MAX_COLUMNS {
         columns.push(format!("c-{j}")).unwrap();
@@ -514,7 +514,7 @@ fn dataset_beyond_cell_budget_is_written_opaque_and_round_trips_unchanged() {
     let columns: Vec<String> = (0..cols).map(|j| format!("c{j}")).collect();
     let source: Vec<Value> = (0..rows).map(|_| Value::Array(vec![Value::Null; cols])).collect();
     let ids: Vec<String> = (0..rows).map(|i| format!("r{i}")).collect();
-    let deck = raw_table_deck(json!({ "dataset": { "source": source, "ids": ids, "columns": columns } }));
+    let deck = raw_table_deck(&json!({ "dataset": { "source": source, "ids": ids, "columns": columns } }));
     let r = DeckReplica::new(&deck, registry()).unwrap();
     assert_that!(dataset(&r).get(schema::ROWS)).is_none();
     let (back, issues) = r.deck();

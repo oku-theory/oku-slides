@@ -162,18 +162,19 @@ pub struct ProbedWidgets {
 }
 
 impl ProbedWidgets {
-    /// Sonde chaque pack que `deck` épingle (widgets et layouts), pris dans `packs`.
+    /// Probes each pack `deck` pins (widgets and layouts), taken from `packs`.
     ///
-    /// Sans pack, ou sans widgets : la base. Version absente de `packs`,
-    /// épingle incohérente ou pack cassé : journalisés, le pack écarté avec
-    /// ceux qui le requièrent, comme dans l'app ; la première panne garde son
-    /// erreur ([`Self::probe_failed`]). Un assemblage raté n'écarte que les
-    /// packs qui le font échouer ([`assemble_each`]). Le temps de relance est
-    /// commun aux packs.
+    /// Without a pack, or without widgets: the base. A version missing from
+    /// `packs`, an inconsistent pin or a broken pack: logged, and the pack
+    /// dropped along with those that require it, as in the app; the first
+    /// failure keeps its error ([`Self::probe_failed`]). A failed assembly
+    /// drops only the packs that make it fail ([`assemble_each`]). The retry
+    /// delay is shared by the packs.
     ///
     /// # Errors
-    /// Un pack intégré livré (de confiance) n'est jamais écarté : illisible ou
-    /// sonde échouée, son erreur remonte, comme l'assemblage raté d'un ensemble qui en tient un.
+    ///
+    /// A shipped (trusted) built-in pack is never dropped: if unreadable or
+    /// its probe failed, its error is returned, like the failed assembly of a set that holds one.
     pub fn probe(
         platform: &Platform,
         base: &Arc<WidgetRegistry>,
@@ -268,11 +269,16 @@ impl ProbedWidgets {
     }
 
     /// Un pack a-t-il des widgets valides, que seul le processus de rendu exécute ?
+    #[must_use]
     pub fn has_packs(&self) -> bool {
         !self.set.is_empty()
     }
 
-    /// Un emplacement du processus de rendu, avec ces widgets et les polices `fonts`.
+    /// A slot of the render process, with these widgets and fonts `fonts`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the render process gives no slot, or rejects these widgets.
     pub fn slot(&self, fonts: &Fonts, l: &Localizer) -> Result<RenderSlot, RenderError> {
         let mut slot = self.worker.slot(fonts, l, self.registry.clone())?;
         slot.set_widgets(&self.set, self.registry.clone())?;
@@ -285,12 +291,16 @@ fn disable_unless_trusted(trusted: bool, e: RegistryError) -> Result<RegistryErr
     if trusted { Err(e) } else { Ok(e) }
 }
 
-/// Les sources de `deck` avec ses packs `packs`, et ses widgets sondés.
+/// The sources of `deck` with its packs `packs`, and its probed widgets.
 ///
-/// Sans pack épinglé, le deck adopte la version courante de `base` et d'`essentiel`
-/// et leurs besoins, modifiables : ils peuvent avoir des widgets. Les packs
-/// sont sondés avant toute écriture ; les sources sont recréées avec le
-/// registre sondé, pour que le replica et la validation aient leurs widgets.
+/// Without a pinned pack, the deck adopts the current version of `base` and `essentiel`
+/// and their requirements, which can be changed: they may have widgets. The packs
+/// are probed before any write; the sources are recreated with the probed
+/// registry, so that the replica and the validation have their widgets.
+///
+/// # Errors
+///
+/// Fails if the default packs are missing, if a pack cannot be probed, or if the sources cannot be recreated.
 pub fn sources_with_packs(
     platform: &Platform,
     library: &PackLibrary,

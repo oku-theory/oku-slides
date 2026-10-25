@@ -68,6 +68,7 @@ fn inverse(side: f64) -> f64 {
     if side > 0.0 { 1.0 / side } else { 0.0 }
 }
 
+#[expect(clippy::many_single_char_names, reason = "sides l, t, r, b, size w, h and points x, y of OOXML presets")]
 fn preset_outline(p: &'static Preset, adj: &BTreeMap<String, f64>, w: f64, h: f64) -> Option<Outline> {
     let mut env = Env::new(w, h);
     for (name, f) in &p.adjust {
@@ -120,11 +121,11 @@ fn custom_outline(paths: &[SubPath], w: f64, h: f64) -> Outline {
                 PathCmd::MoveTo { x, y } => pen.move_to((x * w, y * h)),
                 PathCmd::LineTo { x, y } => pen.line_to((x * w, y * h)),
                 PathCmd::CubicTo { x1, y1, x2, y2, x, y } => {
-                    pen.cubic_to((x1 * w, y1 * h), (x2 * w, y2 * h), (x * w, y * h))
+                    pen.cubic_to((x1 * w, y1 * h), (x2 * w, y2 * h), (x * w, y * h));
                 }
                 PathCmd::QuadTo { x1, y1, x, y } => pen.quad_to((x1 * w, y1 * h), (x * w, y * h)),
                 PathCmd::ArcTo { wr, hr, start, swing } => {
-                    pen.arc_to(wr * w, hr * h, start.to_radians(), swing.to_radians())
+                    pen.arc_to(wr * w, hr * h, start.to_radians(), swing.to_radians());
                 }
                 PathCmd::Close => pen.close(),
             }
@@ -146,8 +147,8 @@ fn push(outline: &mut Outline, commands: Vec<PathCommand>, fill: bool, stroke: b
 fn numbers(c: PathCommand) -> Vec<f64> {
     match c {
         PathCommand::Move(x, y) | PathCommand::Line(x, y) => vec![x, y],
-        PathCommand::Cubic(a, b, c, d, e, f) => vec![a, b, c, d, e, f],
-        PathCommand::Quad(a, b, c, d) => vec![a, b, c, d],
+        PathCommand::Cubic(x1, y1, x2, y2, x, y) => vec![x1, y1, x2, y2, x, y],
+        PathCommand::Quad(x1, y1, x, y) => vec![x1, y1, x, y],
         PathCommand::Close => Vec::new(),
     }
 }

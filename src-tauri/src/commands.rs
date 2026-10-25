@@ -131,7 +131,7 @@ pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Respon
             // Le deck a changé : les post-its orphelins de l'agent se ferment.
             state.stack.after_change(&tab);
         }
-        Ok(reply.map_err(|e| state.refuse(e)))
+        Ok(reply.map_err(|e| state.refuse(&e)))
     })
     .await?;
     reply.map(Response::new)
@@ -153,7 +153,7 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         let (outcome, closed) = Workspace::closed_by(&state.workspace, |ws| Workspace::apply(ws, req));
         // Onglets fermés (ou vierge remplacé) : leur agent s'arrête.
         state.stop_closed_agents(&closed);
-        let outcome = outcome.map_err(|e| state.refuse(e))?;
+        let outcome = outcome.map_err(|e| state.refuse(&e))?;
         // Un onglet importé à fine-tuner : son tour part dès que l'onglet existe (la vue suit).
         if let Some(tab) = outcome.tune_tab() {
             state.tune(tab);

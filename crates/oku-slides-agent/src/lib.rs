@@ -1,17 +1,18 @@
-//! Agent vocal : Oku Slides lance un agent ACP en sous-processus (stdio),
-//! lui injecte ses outils MCP (HTTP local, jeton) et lui relaie les
-//! consignes dictées avec le contexte de l'interface.
+//! Voice agent: Oku Slides runs an ACP agent as a subprocess (stdio).
 //!
-//! - [`Link`] : la connexion ACP partagée (un sous-processus pour l'app,
-//!   lancé au premier prompt, relancé après un arrêt).
-//! - [`AgentHandle`] : l'agent d'un onglet (une session ACP par onglet, ses tours).
-//! - [`Keeper`] : le gardien d'un onglet, seul passage vers sa conversation gardée.
-//! - [`AgentEvent`] : ce que l'interface affiche dans le fil.
-//! - [`Stack`] : un agent par onglet (outils MCP, fil gardé) pour l'hôte ;
-//!   évènements relayés en enveloppes `{tab, event}`, le choix de l'agent (`choice`) et la
-//!   boîte des réglages de la dictée et de l'agent (`voice_port`).
+//! It injects its MCP tools into the agent (local HTTP, token) and relays the
+//! dictated instructions to it with the interface's context.
 //!
-//! L'agent n'a ni fichiers ni terminal : il n'agit que par les outils.
+//! - [`Link`]: the shared ACP connection (one subprocess for the app,
+//!   started on the first prompt, restarted after it stops).
+//! - [`AgentHandle`]: a tab's agent (one ACP session per tab, its turns).
+//! - [`Keeper`]: a tab's keeper, the only way to its kept conversation.
+//! - [`AgentEvent`]: what the interface shows in the thread.
+//! - [`Stack`]: one agent per tab (MCP tools, kept thread) for the host;
+//!   events relayed in `{tab, event}` envelopes, the agent choice (`choice`) and the
+//!   dictation and agent settings box (`voice_port`).
+//!
+//! The agent has no files and no terminal: it acts only through the tools.
 
 mod agent_switch;
 mod choice;

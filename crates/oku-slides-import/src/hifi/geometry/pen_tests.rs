@@ -6,8 +6,10 @@ use super::*;
 
 fn end(c: &PathCommand) -> (f64, f64) {
     match *c {
-        PathCommand::Move(x, y) | PathCommand::Line(x, y) | PathCommand::Quad(_, _, x, y) => (x, y),
-        PathCommand::Cubic(_, _, _, _, x, y) => (x, y),
+        PathCommand::Move(x, y)
+        | PathCommand::Line(x, y)
+        | PathCommand::Quad(_, _, x, y)
+        | PathCommand::Cubic(_, _, _, _, x, y) => (x, y),
         PathCommand::Close => (f64::NAN, f64::NAN),
     }
 }

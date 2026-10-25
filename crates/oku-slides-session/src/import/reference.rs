@@ -67,9 +67,13 @@ pub trait WitnessRenderer: Send + Sync {
     /// Le témoin dont `metrics` connaît les limites : ses régions suspectes.
     fn limits(&self) -> Witness;
 
-    /// Les pages de la tranche `span` de `pptx`, à `width` pixels de large.
+    /// The pages of span `span` of `pptx`, `width` pixels wide.
     ///
-    /// Les polices `fonts` passent en priorité.
+    /// Fonts `fonts` take priority.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the witness does not run, exceeds its bounds or renders unreadable pages.
     fn render(&self, pptx: &[u8], fonts: &Fonts, span: SlideSpan, width: u32) -> Result<WitnessPages, RenderError>;
 }
 
@@ -214,17 +218,17 @@ impl ReferenceJob {
         let mut name = renderer.name().to_owned();
         let mut pages = BTreeMap::new();
         for span in spans(&numbers, SPAN) {
-            let rendered = renderer
+            let output = renderer
                 .render(&self.bytes, &self.fonts, span, self.width)
                 .map_err(|e| render_failure(&e, "témoin"))?;
             let expected = span_len(span);
-            if rendered.count != expected || rendered.pages.len() != expected {
+            if output.count != expected || output.pages.len() != expected {
                 let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
-                let cause = ReferenceCause::Pages { reference: count(rendered.count), deck: count(expected) };
+                let cause = ReferenceCause::Pages { reference: count(output.count), deck: count(expected) };
                 return Err((cause, format!("slides {}..={}", span.first, span.last)));
             }
-            name = rendered.witness;
-            let mut by_index = rendered.pages;
+            name = output.witness;
+            let mut by_index = output.pages;
             for (slide, number) in self.slides.iter().filter(|(_, n)| (span.first..=span.last).contains(n)) {
                 let at = (number - span.first) as usize;
                 let page = by_index.get_mut(at).ok_or_else(|| (ReferenceCause::Failed, format!("page {at}")))?;
@@ -240,9 +244,10 @@ impl ReferenceJob {
 /// Sa cause localisée dans la langue de `log`, son détail.
 pub(crate) fn log_failure(log: &LiveLocalizer, (cause, detail): &Failure, slide: Option<&str>) {
     let message = cause.localize(&log.current());
-    match slide {
-        Some(slide) => tracing::warn!(error = %detail, slide, "{message}"),
-        None => tracing::warn!(error = %detail, "{message}"),
+    if let Some(slide) = slide {
+        tracing::warn!(error = %detail, slide, "{message}");
+    } else {
+        tracing::warn!(error = %detail, "{message}");
     }
 }
 

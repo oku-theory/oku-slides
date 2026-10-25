@@ -20,7 +20,8 @@ fn resolve_widgets_pin_under_another_namespace_than_its_manifest_is_disabled_alo
     // La même version, aussi épinglée sous un autre espace de noms : même dossier `/packs/<hex>/`.
     pins.insert(ns("autre"), quote.clone());
     let (widgets, notice) = s.resolve_widgets(&pins, &s.doc.sources.packs).unwrap();
-    assert_that!(widgets.disabled.keys().map(|n| n.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["autre"]);
+    assert_that!(widgets.disabled.keys().map(oku_slides_core::Namespace::as_str).collect::<Vec<_>>())
+        .is_equal_to(vec!["autre"]);
     assert_that!(widgets.registry.get(&kind_of(&quote, "quote"))).is_some();
     assert_that!(widgets.registry.get("autre/quote")).is_none();
     let expected = s.packs_disabled_notice(["Citation"].into_iter());

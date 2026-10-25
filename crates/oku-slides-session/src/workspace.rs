@@ -67,9 +67,13 @@ impl std::fmt::Debug for Workspace {
 }
 
 impl Workspace {
-    /// Une fenêtre et un onglet `t-1`, avec `file` ouvert ; rien n'est écrit.
+    /// A window and a tab `t-1`, with `file` open; nothing is written.
     ///
-    /// Sans fichier, l'onglet est vierge (tests, serveur lancé sans fichier).
+    /// Without a file, the tab is blank (tests, server started without a file).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the tab's session cannot be built (unreadable file, rendering).
     pub fn new(fonts: Fonts, platform: &Platform, file: Option<&Path>) -> Result<Self> {
         let mut ws = Self::empty(fonts, platform, None);
         let pending = ws.pending(None, file.map_or(Opening::Blank, |f| Opening::File(resolve(f))), None);
@@ -102,7 +106,11 @@ impl Workspace {
         &self.layout.focused
     }
 
-    /// `label` passe au premier plan ; rien n'est écrit (le prochain changement le fera).
+    /// `label` comes to the front; nothing is written (the next change will).
+    ///
+    /// # Errors
+    ///
+    /// Fails (`UnknownWindow`) if window `label` is unknown.
     pub fn focus(&mut self, label: &str) -> Result<()> {
         self.window_index(label)?;
         self.touch(label);
@@ -150,15 +158,20 @@ impl Workspace {
         (out, before.into_iter().filter(|id| !after.contains(id)).collect())
     }
 
-    /// Traite une requête de structure ; renvoie la vue (ou les messages), en JSON.
+    /// Handles a structure request; returns the view (or the messages), as JSON.
     ///
-    /// Un onglet neuf est construit hors du verrou : numéro réservé, session
-    /// créée et ouverte, puis insérée. Les dossiers des onglets fermés sont
-    /// supprimés après l'écriture de `workspace.json`, hors du verrou aussi.
+    /// A new tab is built outside the lock: number reserved, session created
+    /// and opened, then inserted. The folders of closed tabs are deleted after
+    /// `workspace.json` is written, outside the lock too.
     ///
-    /// `CloseWindow` sur la seule fenêtre restante : refusée atomiquement
-    /// (sous ce même verrou, voir [`Workspace::is_only_window`]) ; deux
-    /// fermetures concurrentes ne peuvent jamais vider l'espace de travail.
+    /// `CloseWindow` on the only remaining window: rejected atomically
+    /// (under this same lock, see [`Workspace::is_only_window`]); two
+    /// concurrent closes can never empty the workspace.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the request is rejected (unknown tab or window, last window), or if a session cannot
+    /// be built.
     pub fn apply(ws: &Mutex<Self>, req: WorkspaceRequest) -> Result<WorkspaceOutcome> {
         // Lit un fichier : jamais sous le verrou (voir `workspace_same_deck.rs`).
         if let WorkspaceRequest::SameDeck { path } = &req {
@@ -190,12 +203,12 @@ impl Workspace {
                     return w.scheme_json().map(WorkspaceOutcome::Applied);
                 }
                 WorkspaceRequest::NewTab { window } => w.new_tab(window)?,
-                WorkspaceRequest::OpenTab { window, path } => match w.open_tab(window, path)? {
+                WorkspaceRequest::OpenTab { window, path } => match w.open_tab(window, &path)? {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
                     Step::Build(pending) => *pending,
                 },
                 WorkspaceRequest::ImportTab { window, path, target, tune } => {
-                    w.import_tab(window, path, target, tune)?
+                    w.import_tab(window, &path, target, tune)?
                 }
                 WorkspaceRequest::OpenHelp { window } => match Self::open_help(ws, w, window)? {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),

@@ -49,12 +49,9 @@ impl Session {
     /// La fermeture du thème `ns`, dont la version `root` (épinglage et
     /// fichiers) est donnée ; ses parents viennent des versions embarquées,
     /// sinon de la bibliothèque.
-    fn closure_from(&self, ns: &Namespace, root: (ThemePin, PackFiles)) -> Result<Closure> {
+    fn closure_from(&self, ns: &Namespace, root: &(ThemePin, PackFiles)) -> Result<Closure> {
         let sources = self.draft_sources();
-        closure_with(ns, |n| match n == ns {
-            true => Some(root.clone()),
-            false => embedded_or_library(&self.themes, &sources, n),
-        })
+        closure_with(ns, |n| if n == ns { Some(root.clone()) } else { embedded_or_library(&self.themes, &sources, n) })
     }
 
     /// Les jetons de chaque thème sous le brouillon `edit`, dans l'ordre de la chaîne.
@@ -73,7 +70,7 @@ impl Session {
         let missing = || ThemeVersionMissingSnafu { id: base.id, version: base.version.clone() };
         let files = self.theme_files(base).context(missing())?;
         let root = ThemePin { extends: edit.extends.clone(), ..base.clone() };
-        let closure = self.closure_from(&edit.namespace, (root, files))?;
+        let closure = self.closure_from(&edit.namespace, &(root, files))?;
         chain_tokens(&closure, &edit.namespace, false)
     }
 
@@ -86,10 +83,13 @@ impl Session {
             .map(|ns| {
                 let found = embedded_or_library(&self.themes, &sources, ns)
                     .and_then(|(_, files)| ThemeManifest::from_files(&files).ok());
-                let name = found.map(|m| m.name).unwrap_or_else(|| {
-                    tracing::warn!(theme = %ns, "parent du thème introuvable : son espace de noms en tient lieu");
-                    ns.as_str().to_owned()
-                });
+                let name = found.map_or_else(
+                    || {
+                        tracing::warn!(theme = %ns, "parent du thème introuvable : son espace de noms en tient lieu");
+                        ns.as_str().to_owned()
+                    },
+                    |m| m.name,
+                );
                 ThemeParentView { namespace: ns.to_string(), name }
             })
             .collect()
@@ -107,27 +107,18 @@ impl Session {
         if tokens == origin && edit.name == base.name && edit.extends == edit.starting_extends(&base) {
             return Ok(None);
         }
-        let manifest = match edit.child() {
-            true => {
-                let name = match edit.name == base.name {
-                    true => self.localizer.tr_with("theme-copy-name", &[("name", base.name.as_str().into())]),
-                    false => edit.name.clone(),
-                };
-                let namespace = library_namespace(&self.library, &name)?;
-                let (id, extends) = (Uuid::new_v4(), edit.extends.clone());
-                let created = now_created();
-                ThemeManifest {
-                    id,
-                    name,
-                    namespace,
-                    extends,
-                    description: base.description,
-                    parent: None,
-                    created,
-                    tokens,
-                }
-            }
-            false => ThemeManifest {
+        let manifest = if edit.child() {
+            let name = if edit.name == base.name {
+                self.localizer.tr_with("theme-copy-name", &[("name", base.name.as_str().into())])
+            } else {
+                edit.name.clone()
+            };
+            let namespace = library_namespace(&self.library, &name)?;
+            let (id, extends) = (Uuid::new_v4(), edit.extends.clone());
+            let created = now_created();
+            ThemeManifest { id, name, namespace, extends, description: base.description, parent: None, created, tokens }
+        } else {
+            ThemeManifest {
                 id: edit.base.id,
                 name: edit.name.clone(),
                 extends: edit.extends.clone(),
@@ -135,7 +126,7 @@ impl Session {
                 created: now_created(),
                 tokens,
                 ..base
-            },
+            }
         };
         self.library.check_theme(manifest.id, &manifest.namespace)?;
         Ok(Some(manifest))
@@ -163,7 +154,7 @@ impl Session {
                 let version = files.version();
                 let pin = pin_of(&manifest, version.clone());
                 // Ses parents doivent se trouver avant toute écriture.
-                self.closure_from(&manifest.namespace, (pin.clone(), files.clone()))?;
+                self.closure_from(&manifest.namespace, &(pin.clone(), files.clone()))?;
                 self.themes.add_version(id, &files)?;
                 self.themes.set_current(id, &version)?;
                 self.theme_list = self.themes.themes();
@@ -198,7 +189,7 @@ impl Session {
     pub(crate) fn stash_adopt_theme(&mut self, ns: Namespace, pin: ThemePin) -> Result<()> {
         let files =
             self.theme_files(&pin).context(ThemeVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
-        let closure = self.closure_from(&ns, (pin, files))?;
+        let closure = self.closure_from(&ns, &(pin, files))?;
         let Mode::Pack { stash, edit, .. } = &mut self.mode else {
             return NotEditingPackSnafu.fail()?;
         };

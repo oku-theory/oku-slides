@@ -10,6 +10,7 @@ use std::sync::{Arc, mpsc};
 use oku_slides_platform::config::SttSettings;
 
 use crate::error::{AnalyzerSnafu, AssetInstallSnafu, LocaleUnsupportedSnafu, SpeechDeniedSnafu, SttError};
+use crate::num::{narrow_f32, trunc_u64};
 
 /// Disponibilité d'une langue pour un moteur en continu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,8 +61,8 @@ impl Event {
     pub(crate) fn from_raw(kind: i32, text: String, a: f64, b: f64) -> Event {
         match kind {
             raw::PARTIAL => Event::Partial(text),
-            raw::FINAL => Event::Final { text, start: a as f32, end: b as f32 },
-            raw::PROGRESS => Event::Progress { received: a.max(0.0) as u64, total: b.max(0.0) as u64 },
+            raw::FINAL => Event::Final { text, start: narrow_f32(a), end: narrow_f32(b) },
+            raw::PROGRESS => Event::Progress { received: trunc_u64(a.max(0.0)), total: trunc_u64(b.max(0.0)) },
             raw::DONE => Event::Done,
             raw::ERROR => Event::Failed(bridge_error(a, text)),
             _ => Event::Failed(AnalyzerSnafu { reason: format!("unknown bridge event {kind}: {text}") }.build().into()),

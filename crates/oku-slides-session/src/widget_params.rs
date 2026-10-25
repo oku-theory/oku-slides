@@ -63,6 +63,7 @@ pub(crate) fn checked_value(p: &ParamSchema, value: Value) -> Result<Option<Valu
 }
 
 /// La valeur d'exemple est-elle celle de l'aperçu ? Les nombres se comparent comme nombres.
+#[expect(clippy::float_cmp, reason = "exact equality intended: two spellings of the same JSON number")]
 pub(crate) fn same_as(neutral: Option<&ParamValue>, v: &Value) -> bool {
     let Some(n) = neutral.and_then(|n| serde_json::to_value(n).ok()) else { return false };
     match (n.as_f64(), v.as_f64()) {

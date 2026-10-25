@@ -31,14 +31,22 @@ use crate::theme_closure::{Closure, chain_tokens, closure_with, embedded_or_libr
 use crate::theme_schema::{default_tokens, merge};
 use crate::{Mode, Result, Session};
 
-/// Une op sur les jetons d'un thème (même forme que l'op du deck).
+/// An op on a theme's tokens, of the same shape as the deck op.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum TokenOp {
-    /// Jeton au chemin donné (`["color", "accent"]`) ; `null` est posé tel quel.
-    SetToken { path: Vec<String>, value: Value },
-    /// Retire le jeton au chemin donné (retour aux valeurs par défaut).
-    UnsetToken { path: Vec<String> },
+    /// Sets the token at the given path (`["color", "accent"]`); `null` is set as is.
+    SetToken {
+        /// Path of the token, segment by segment.
+        path: Vec<String>,
+        /// New JSON value of the token.
+        value: Value,
+    },
+    /// Removes the token at the given path, back to the default values.
+    UnsetToken {
+        /// Path of the token, segment by segment.
+        path: Vec<String>,
+    },
 }
 
 impl From<TokenOp> for Op {
@@ -53,10 +61,13 @@ impl From<TokenOp> for Op {
 /// Le thème après `edit_theme`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct EditedTheme {
+    /// Theme id: that of the edited theme, or that of the created child.
     pub id: Uuid,
     /// Son espace de noms : celui du thème édité, ou celui de son enfant.
     pub namespace: Namespace,
+    /// Hash of the current version after the edit.
     pub version: PackVersion,
+    /// Theme name, possibly renamed or suffixed as a copy.
     pub name: String,
     /// Une version a été enregistrée (sinon, rien ne changeait).
     pub changed: bool,
@@ -71,12 +82,12 @@ pub(crate) fn token_deck(tokens: Value) -> Deck {
     Deck {
         version: DECK_VERSION,
         theme: None,
-        themes: Default::default(),
-        params: Default::default(),
-        vars: Default::default(),
+        themes: BTreeMap::default(),
+        params: oku_slides_core::DeckParams::default(),
+        vars: BTreeMap::default(),
         tokens,
-        widgets: Default::default(),
-        layouts: Default::default(),
+        widgets: BTreeMap::default(),
+        layouts: BTreeMap::default(),
         slides: Vec::new(),
     }
 }
@@ -88,23 +99,35 @@ impl Session {
         Ok((current.version, current.manifest))
     }
 
-    /// Le thème `id` dans la version d'où partirait son édition, relu dans la bibliothèque.
+    /// Theme `id` at the version its edit would start from, reread from the library.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`UnknownTheme`) if the library does not have theme `id`.
     pub fn theme_info(&self, id: Uuid) -> Result<ThemeInfo> {
         let current = self.themes.current_version(id).context(UnknownThemeSnafu { theme: id.to_string() })?;
         Ok(ThemeInfo::of(current))
     }
 
-    /// Le thème désigné par `wanted` (espace de noms, id ou nom, sans casse), dans sa version courante.
+    /// The theme named by `wanted` (namespace, id or name, case-insensitive), at its current version.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`UnknownTheme`) if no theme matches `wanted`.
     pub fn find_theme_info(&self, wanted: &str) -> Result<ThemeInfo> {
         let ns = find_theme(&self.themes, wanted).context(UnknownThemeSnafu { theme: wanted })?;
         let current = self.themes.by_namespace(&ns).context(UnknownThemeSnafu { theme: wanted })?;
         Ok(ThemeInfo::of(current))
     }
 
-    /// Les jetons propres du thème `id`, dans la version d'où partirait son édition.
+    /// The own tokens of theme `id`, at the version its edit would start from.
     ///
-    /// Ceux que changent les ops de [`Self::edit_theme`] ; une clé absente
-    /// vient des valeurs par défaut.
+    /// Those changed by the ops of [`Self::edit_theme`]; a missing key
+    /// comes from the default values.
+    ///
+    /// # Errors
+    ///
+    /// Fails if theme `id` is unknown or if its version cannot be read.
     pub fn theme_tokens_of(&self, id: Uuid) -> Result<Map<String, Value>> {
         Ok(self.theme_base(id)?.1.tokens)
     }
@@ -118,7 +141,7 @@ impl Session {
     /// dans la bibliothèque (t-1106) : un parent que seul le deck a se lit.
     fn edit_lower(&self, ns: &Namespace, child: bool) -> Result<Map<String, Value>> {
         let root = library_theme(&self.themes, ns).context(UnknownThemeSnafu { theme: ns.as_str() })?;
-        let closure = self.deck_closure(ns, root)?;
+        let closure = self.deck_closure(ns, &root)?;
         let chain = chain_tokens(&closure, ns, child)?;
         let packs = |v: &PackVersion| self.pack_version_files(v);
         let defaults = pack_defaults(&packs, self.user_deck(), LayerReading::Lenient)?;
@@ -130,22 +153,24 @@ impl Session {
 
     /// La fermeture du thème `ns` de version `root` : ses parents dans les
     /// versions que le deck embarque, sinon dans la bibliothèque (t-1106).
-    fn deck_closure(&self, ns: &Namespace, root: (ThemePin, PackFiles)) -> Result<Closure> {
+    fn deck_closure(&self, ns: &Namespace, root: &(ThemePin, PackFiles)) -> Result<Closure> {
         let sources = [self.user_blobs()];
-        closure_with(ns, |n| match n == ns {
-            true => Some(root.clone()),
-            false => embedded_or_library(&self.themes, &sources, n),
-        })
+        closure_with(ns, |n| if n == ns { Some(root.clone()) } else { embedded_or_library(&self.themes, &sources, n) })
     }
 
-    /// Édite le thème `id` : ops de jetons et nom.
+    /// Edits theme `id`: token ops and name.
     ///
-    /// Part de sa version courante dans la bibliothèque : de ses jetons pour
-    /// un thème de l'utilisateur, d'aucun pour un intégré (dont l'édition
-    /// enregistre un enfant).
+    /// Starts from its current version in the library: from its tokens for
+    /// a user theme, from none for a built-in one (whose edit saves a
+    /// child).
     ///
-    /// Refusé hors du mode deck. Un nom vide garde le nom actuel. Sans
-    /// changement, rien n'est enregistré.
+    /// Rejected outside deck mode. An empty name keeps the current name.
+    /// Without a change, nothing is saved.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside deck mode (`EditingPack`), for an unknown theme, token ops rejected by the
+    /// schema, or if the library does not write the version.
     pub fn edit_theme(&mut self, id: Uuid, name: Option<String>, ops: Vec<TokenOp>) -> Result<EditedTheme> {
         ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
         let (current, base) = self.theme_base(id)?;
@@ -171,8 +196,8 @@ impl Session {
             None if child => self.localizer.tr_with("theme-copy-name", &[("name", base.name.as_str().into())]),
             None => base.name.clone(),
         };
-        let manifest = match child {
-            true => ThemeManifest {
+        let manifest = if child {
+            ThemeManifest {
                 id: Uuid::new_v4(),
                 namespace: library_namespace(&self.library, &name)?,
                 extends: vec![base.namespace.clone()],
@@ -181,8 +206,9 @@ impl Session {
                 parent: None,
                 created: now_created(),
                 tokens,
-            },
-            false => ThemeManifest { name, parent: Some(current), created: now_created(), tokens, ..base },
+            }
+        } else {
+            ThemeManifest { name, parent: Some(current), created: now_created(), tokens, ..base }
         };
         let new_id = manifest.id;
         self.library.check_theme(new_id, &manifest.namespace)?;
@@ -190,7 +216,7 @@ impl Session {
         let version = files.version();
         let adopted = self.deck_theme_pin().is_some_and(|t| t.id == id);
         // Ses parents doivent se trouver avant toute écriture.
-        let (pins, _) = self.deck_closure(&manifest.namespace, (pin_of(&manifest, version.clone()), files.clone()))?;
+        let (pins, _) = self.deck_closure(&manifest.namespace, &(pin_of(&manifest, version.clone()), files.clone()))?;
         self.themes.add_version(new_id, &files)?;
         self.themes.set_current(new_id, &version)?;
         self.theme_list = self.themes.themes();

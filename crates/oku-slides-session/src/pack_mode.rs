@@ -174,13 +174,18 @@ fn is_structural(op: &Op) -> bool {
 }
 
 impl Session {
-    /// Passe en édition de la version courante du pack `id`.
+    /// Switches to editing the current version of pack `id`.
     ///
-    /// Ses layouts deviennent les slides, à leurs valeurs d'exemple, rendus
-    /// avec ses widgets ; un pack de widgets a ses slides d'aperçu. Le deck de
-    /// travail garde les paramètres et variables du deck ; à la place de son
-    /// thème, il porte le brouillon du thème édité (`theme_edit`, gardé d'un
-    /// pack à l'autre). Il ne porte pas d'assets (un pack n'en enregistre pas).
+    /// Its layouts become the slides, at their example values, rendered with
+    /// its widgets; a widget pack has its preview slides. The working deck
+    /// keeps the deck's parameters and variables; in place of its theme, it
+    /// carries the draft of the edited theme (`theme_edit`, kept from one pack
+    /// to the next). It carries no assets (a pack does not save any).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if pack `id` is unknown or unreadable, or if the working
+    /// deck cannot be built or rendered.
     pub fn edit_pack(&mut self, id: Uuid) -> Result<()> {
         // L'historique ouvert se ferme d'abord ; l'aide ne passe jamais en mode pack.
         self.ensure_editable()?;
@@ -342,7 +347,11 @@ impl Session {
         Ok(())
     }
 
-    /// Quitte le mode pack ; les changements non enregistrés sont perdus.
+    /// Leaves pack mode; unsaved changes are lost.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the widgets of the recovered deck do not resolve, or if its rendering fails.
     pub fn close_pack(&mut self) -> Result<()> {
         match std::mem::replace(&mut self.mode, Mode::Deck) {
             Mode::Pack { stash, .. } => {

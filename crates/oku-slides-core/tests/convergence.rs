@@ -1,4 +1,5 @@
 //! Propriété : des pairs qui éditent en parallèle puis échangent tout convergent.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -143,7 +144,9 @@ fn edit_table(deck: &mut Deck, e: &Edit) {
             let mut source = table.dataset.source;
             for (i, cell) in source.iter_mut().flatten().enumerate() {
                 if (i + seed) % 3 == 0 {
-                    *cell = Cell::Number((seed % 97) as f64);
+                    #[expect(clippy::cast_precision_loss, reason = "seed % 97 < 97: exact in f64")]
+                    let value = (seed % 97) as f64;
+                    *cell = Cell::Number(value);
                 }
             }
             DataOp::Replace { source }
@@ -337,8 +340,7 @@ fn first_content_slot() -> &'static str {
     base()
         .get(CONTENT)
         .and_then(|w| w.params.iter().find(|p| matches!(p.ty, ParamType::Slot { .. })))
-        .map(|p| p.name.as_str())
-        .unwrap_or_else(|| panic!("le layout content ne déclare aucun slot"))
+        .map_or_else(|| panic!("le layout content ne déclare aucun slot"), |p| p.name.as_str())
 }
 
 /// `Edit::MoveToSlide` par l'op `move_element` ; ses déplacements entre
@@ -390,39 +392,39 @@ struct Applied {
     bold: Option<(String, bool)>,
 }
 
-/// Applique `e` à `deck`.
-fn apply(deck: &mut Deck, e: &Edit, peer: usize, n: &mut usize) -> Applied {
+/// Applies `edit` to `deck`; `added` counts the slides added by this peer.
+fn apply(deck: &mut Deck, edit: &Edit, peer: usize, added: &mut usize) -> Applied {
     let len = deck.slides.len();
-    match e {
+    match edit {
         Edit::SetCell(..)
         | Edit::InsertRow(_)
         | Edit::RemoveRow(_)
         | Edit::InsertColumn(_)
         | Edit::RemoveColumn(_)
-        | Edit::Replace(_) => edit_table(deck, e),
+        | Edit::Replace(_) => edit_table(deck, edit),
         Edit::MoveToSlide(a, b, at) => return Applied { moves: move_to_slide(deck, *a, *b, *at), bold: None },
         // L'annulation passe par le réplica (voir `peers_editing_in_parallel_converge`).
         Edit::Undo | Edit::RemoveElementThenUndo(_) | Edit::DeleteThenUndo(_) => {}
         Edit::Add(i) => {
-            *n += 1;
-            let s = Slide::new(format!("p{peer}-{n}"), CONTENT);
-            deck.slides.insert(if len == 0 { 0 } else { i % (len + 1) }, s);
+            *added += 1;
+            let slide = Slide::new(format!("p{peer}-{added}"), CONTENT);
+            deck.slides.insert(if len == 0 { 0 } else { i % (len + 1) }, slide);
         }
         _ if len == 0 => {}
-        Edit::Title(i, s) => {
+        Edit::Title(i, title) => {
             let contents: Vec<usize> = (0..len).filter(|&k| deck.slides[k].kind == CONTENT).collect();
             if let Some(&k) = contents.get(i % contents.len().max(1)) {
                 let params = &mut deck.slides[k].params;
-                match s.trim() {
+                match title.trim() {
                     "" => params.remove("title"),
-                    t => params.set("title", ParamValue::Text(t.to_owned())),
+                    trimmed => params.set("title", ParamValue::Text(trimmed.to_owned())),
                 };
             }
         }
-        Edit::Notes(i, s) => deck.slides[i % len].notes.push_str(s),
+        Edit::Notes(i, notes) => deck.slides[i % len].notes.push_str(notes),
         Edit::Move(a, b) => {
-            let s = deck.slides.remove(a % len);
-            deck.slides.insert(b % len, s);
+            let slide = deck.slides.remove(a % len);
+            deck.slides.insert(b % len, slide);
         }
         Edit::Delete(i) => {
             deck.slides.remove(i % len);
@@ -553,7 +555,9 @@ proptest! {
         let mut x = seed | 1;
         for i in (1..order.len()).rev() {
             x ^= x << 13; x ^= x >> 7; x ^= x << 17;
-            order.swap(i, (x % (i as u64 + 1)) as usize);
+            #[expect(clippy::cast_possible_truncation, reason = "remainder < i + 1, which fits in a usize")]
+            let j = (x % (i as u64 + 1)) as usize;
+            order.swap(i, j);
         }
         for _ in 0..2 {
             for &(a, b) in &order {
@@ -600,7 +604,7 @@ fn op(v: Value) -> Op {
 }
 
 /// Un changement de la liste `etapes` de l'élément `f` de `s-constat`.
-fn list_edit(change: Value) -> Op {
+fn list_edit(change: &Value) -> Op {
     op(json!({ "op": "edit_list", "target": { "slide": "s-constat", "element": "f" },
         "param": "etapes", "change": change }))
 }
@@ -671,8 +675,8 @@ fn concurrent_list_inserts_are_both_kept() {
     let deck = deck_with_list(&["d0"]);
     let merged = exchange(
         &deck,
-        vec![list_edit(json!({ "op": "insert", "id": "i-a", "values": { "date": "2030" } }))],
-        vec![list_edit(json!({ "op": "insert", "id": "i-b", "values": { "date": "2031" } }))],
+        vec![list_edit(&json!({ "op": "insert", "id": "i-a", "values": { "date": "2030" } }))],
+        vec![list_edit(&json!({ "op": "insert", "id": "i-b", "values": { "date": "2031" } }))],
     );
     let got = items(&merged);
     assert_eq!(got.len(), 3, "{got:?}");
@@ -686,8 +690,8 @@ fn concurrent_move_and_set_field_merge() {
     let deck = deck_with_list(&["d0", "i-1", "i-2"]);
     let merged = exchange(
         &deck,
-        vec![list_edit(json!({ "op": "move", "item": "d0", "to": 2 }))],
-        vec![list_edit(json!({ "op": "set_field", "item": "d0", "field": "date", "value": "2018" }))],
+        vec![list_edit(&json!({ "op": "move", "item": "d0", "to": 2 }))],
+        vec![list_edit(&json!({ "op": "set_field", "item": "d0", "field": "date", "value": "2018" }))],
     );
     assert_eq!(items(&merged), vec![item("i-1", "2020"), item("i-2", "2021"), item("d0", "2018")]);
 }
@@ -697,8 +701,8 @@ fn concurrent_typing_in_one_plain_cell_merges() {
     let deck = deck_with_list(&["d0", "i-1"]);
     let merged = exchange(
         &deck,
-        vec![list_edit(json!({ "op": "set_field", "item": "d0", "field": "date", "value": "début 2019" }))],
-        vec![list_edit(json!({ "op": "set_field", "item": "d0", "field": "date", "value": "2019 fin" }))],
+        vec![list_edit(&json!({ "op": "set_field", "item": "d0", "field": "date", "value": "début 2019" }))],
+        vec![list_edit(&json!({ "op": "set_field", "item": "d0", "field": "date", "value": "2019 fin" }))],
     );
     assert_eq!(items(&merged), vec![item("d0", "début 2019 fin"), item("i-1", "2020")]);
 }

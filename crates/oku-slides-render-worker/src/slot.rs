@@ -45,7 +45,13 @@ impl RenderSlot {
         Self { worker, id, registry, chart_palette: Vec::new(), accuse, pack_epoch: 0 }
     }
 
-    /// Widgets rendus : ceux des packs de `set` (aucun, si vide).
+    /// Rendered widgets: those of the packs of `set` (none, if empty).
+    ///
+    /// # Errors
+    ///
+    /// Fails (`pack_disabled`) if a pack of `set` is already at fault, or if
+    /// the worker does not start, dies or exceeds its bounds;
+    /// the pack is then blamed, except for a trial.
     pub fn set_widgets(&mut self, set: &PackSet, registry: Arc<WidgetRegistry>) -> Result<(), RenderError> {
         let mut link = self.worker.link();
         let wire: Vec<_> = set.packs().iter().map(wire).collect();
@@ -69,7 +75,11 @@ impl RenderSlot {
         Ok(())
     }
 
-    /// Jetons du thème des rendus suivants (`None` : jetons par défaut) ; sans effet s'ils sont déjà posés.
+    /// Theme tokens for the next renders (`None`: default tokens); no effect if already set.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the worker does not start, dies or exceeds its bounds, or if it rejects the tokens.
     pub fn set_theme(&mut self, tokens: Option<&Map<String, Value>>) -> Result<(), RenderError> {
         let mut link = self.worker.link();
         if link.state.slots.get(&self.id).is_some_and(|s| s.theme.as_ref() == tokens) {
@@ -94,18 +104,28 @@ impl RenderSlot {
     }
 
     /// Registre des widgets rendus.
+    #[must_use]
     pub fn registry(&self) -> &Arc<WidgetRegistry> {
         &self.registry
     }
 
-    /// Langue des cadres de repli et des libellés des graphiques.
+    /// Language of the fallback frames and of the chart labels.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the worker does not start, dies or exceeds its bounds, or if it rejects the language.
     pub fn set_language(&mut self, l: &Localizer) -> Result<(), RenderError> {
         let mut link = self.worker.link();
         self.worker.prepare(&mut link)?;
         set_locale(&mut link, l)
     }
 
-    /// Rend `deck` sous une nouvelle génération.
+    /// Renders `deck` under a new generation.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`pack_disabled`) if a pack of the slot is at fault, if the
+    /// compilation fails, or if the worker does not start, dies or exceeds its bounds.
     pub fn render(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<RemoteCompiled, RenderError> {
         let mut link = self.worker.link();
         if self.accuse
@@ -152,6 +172,7 @@ impl RenderSlot {
     }
 
     /// Palette des graphiques du dernier rendu (celle du thème du deck).
+    #[must_use]
     pub fn chart_palette(&self) -> &[String] {
         &self.chart_palette
     }

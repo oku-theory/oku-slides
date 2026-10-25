@@ -14,12 +14,20 @@ use crate::{Result, Session};
 type Step = fn(&mut SourceBundle) -> std::result::Result<bool, oku_slides_core::SourcesError>;
 
 impl Session {
-    /// Annule par le replica ; un rendu raté garde l'état et remonte l'erreur.
+    /// Undoes through the replica; a failed render keeps the state and returns the error.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, or if rendering the undone state fails.
     pub fn undo(&mut self) -> Result<()> {
         self.replay(SourceBundle::undo)
     }
 
-    /// Rétablit par le replica ; un rendu raté garde l'état et remonte l'erreur.
+    /// Redoes through the replica; a failed render keeps the state and returns the error.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, or if rendering the redone state fails.
     pub fn redo(&mut self) -> Result<()> {
         self.replay(SourceBundle::redo)
     }

@@ -422,7 +422,7 @@ fn session_with_outdated_theme() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-packs-theme-");
     let mut s = opened_on(data.path());
     let id = Uuid::new_v4();
-    let v0 = add_user_theme(&s.themes, id, "marque", &[], Default::default(), None);
+    let v0 = add_user_theme(&s.themes, id, "marque", &[], serde_json::Map::default(), None);
     s.set_theme(&ns("marque")).unwrap();
     let mut tokens = serde_json::Map::new();
     tokens.insert("color".into(), serde_json::json!({"accent": "#204060"}));

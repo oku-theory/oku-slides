@@ -119,7 +119,7 @@ fn text_box_does_not_bullet_an_empty_paragraph() {
 }
 
 /// Inter (`hhea` 1984 et −494 sur 2048, capitales 1490).
-const INTER: LineMetrics = LineMetrics { cap_height: 0.7275, ascender: 0.96875, descender: 0.2421875 };
+const INTER: LineMetrics = LineMetrics { cap_height: 0.7275, ascender: 0.96875, descender: 0.242_187_5 };
 
 #[test]
 fn line_box_centres_the_font_in_the_line_step() {

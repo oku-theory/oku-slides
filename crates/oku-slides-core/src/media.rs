@@ -25,6 +25,7 @@ const MAGIC: [(usize, &[u8], &str); 13] = [
 ];
 
 /// Type MIME de `bytes` d'après leur contenu ; seule source du type d'un asset importé.
+#[must_use]
 pub fn sniff(bytes: &[u8]) -> &'static str {
     let at = |off: usize, sig: &[u8]| bytes.get(off..off + sig.len()) == Some(sig);
     let found = MAGIC.iter().find(|(off, sig, mime)| {
@@ -46,6 +47,7 @@ pub fn sniff(bytes: &[u8]) -> &'static str {
 ///
 /// Lues sans rien décoder ni allouer, pour refuser une image géante avant que le rendu ne la
 /// décompresse ; `None` si l'en-tête est tronqué ou incohérent, ou si `mime` n'est pas l'un d'eux.
+#[must_use]
 pub fn dimensions(bytes: &[u8], mime: &str) -> Option<(u32, u32)> {
     let le16 = |at: usize| bytes.get(at..at + 2).map(|b| u32::from(u16::from_le_bytes([b[0], b[1]])));
     let le24 = |at: usize| bytes.get(at..at + 3).map(|b| u32::from_le_bytes([b[0], b[1], b[2], 0]));

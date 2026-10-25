@@ -3,6 +3,7 @@
 //! Le noyau ne déclare aucun widget : sans pack, le registre est vide.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::fmt::Write as _;
 use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use serde_json::Value as Json;
@@ -26,6 +27,7 @@ use crate::world::OkuSlidesWorld;
 
 /// Un identifiant de pack utilisable comme nom de dossier et de chemin :
 /// lettres minuscules ASCII, chiffres, `-` et `_`. Jamais `..` ni un chemin.
+#[must_use]
 pub fn is_pack_id(id: &str) -> bool {
     !id.is_empty() && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
@@ -40,11 +42,15 @@ pub struct PackWidgets {
 }
 
 impl PackWidgets {
-    /// `id` : voir [`is_pack_id`] ; il devient un chemin. `kind` fixe le dossier des fichiers.
+    /// `id`: see [`is_pack_id`]; it becomes a path. `kind` sets the folder of the files.
     ///
-    /// Pour les essais et les tests : l'id est celui de l'appelant, donc un pack
-    /// ainsi construit n'est jamais de confiance. Seul [`Self::from_files`] donne
-    /// un id lié au contenu, celui qu'[`is_trusted_pack`](crate::is_trusted_pack) compare.
+    /// For trials and tests: the id is the caller's, so a pack built
+    /// this way is never trusted. Only [`Self::from_files`] gives an id
+    /// bound to the content, the one [`is_trusted_pack`](crate::is_trusted_pack) compares.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`BadPackId`) if `id` is not an allowed pack identifier.
     pub fn new(
         id: impl Into<String>,
         namespace: Namespace,
@@ -58,30 +64,38 @@ impl PackWidgets {
         Ok(Self { id, namespace, kind, files })
     }
 
-    /// Le pack de `files` sous `namespace`, d'id l'empreinte de sa version.
+    /// The pack of `files` under `namespace`, whose id is the digest of its version.
     ///
-    /// L'id se déduit du contenu et ne se choisit pas : c'est la construction
-    /// des packs dont la confiance compte (voir `is_trusted_pack`).
+    /// The id is derived from the content, not chosen: this is how the packs
+    /// whose trust matters are built (see `is_trusted_pack`).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the version digest is not an allowed pack identifier.
     pub fn from_files(namespace: Namespace, files: &PackFiles) -> Result<Self, RegistryError> {
         Self::new(files.version().hex(), namespace, files.kind(), files.widgets().clone())
     }
 
     /// L'identifiant du pack, servi comme dossier sous `/packs/`.
+    #[must_use]
     pub fn id(&self) -> &str {
         &self.id
     }
 
     /// L'espace de noms qui préfixe les widgets du pack.
+    #[must_use]
     pub fn namespace(&self) -> &Namespace {
         &self.namespace
     }
 
     /// La sorte du pack : widgets d'élément ou layouts de slide.
+    #[must_use]
     pub fn kind(&self) -> PackKind {
         self.kind
     }
 
     /// Les fichiers du pack, `_commun` compris.
+    #[must_use]
     pub fn files(&self) -> &BTreeMap<WidgetFile, String> {
         &self.files
     }
@@ -92,6 +106,7 @@ impl PackWidgets {
     }
 
     /// Le même pack, réduit à `_commun` et aux widgets de `keep`.
+    #[must_use]
     pub fn only(&self, keep: &BTreeSet<WidgetFile>) -> Self {
         let files = self
             .files
@@ -103,6 +118,7 @@ impl PackWidgets {
     }
 
     /// Empreinte (identifiant, espace de noms, sorte et fichiers) : clé des caches de registre.
+    #[must_use]
     pub fn fingerprint(&self) -> [u8; 32] {
         let mut h = Sha256::new();
         h.update(self.id.as_bytes());
@@ -123,17 +139,16 @@ impl PackWidgets {
     /// Module d'assemblage : importe chaque widget (pas `_commun`) et forme `registry`,
     /// chaque nom préfixé par l'espace de noms du pack (voir `oku_slides_core::qualify`).
     pub(crate) fn assembly(&self) -> String {
+        // Writing to a `String` never fails: the `fmt::Result` values are ignored.
         let mut out = String::new();
         let mut names = String::new();
         for (i, name) in self.files.keys().filter(|n| !n.is_common()).enumerate() {
-            out.push_str(&format!("#import \"{}/{}\": widget as w{i}\n", self.kind.files_dir(), name.file_name()));
-            names.push_str(&format!("w{i},"));
+            let _ = writeln!(out, "#import \"{}/{}\": widget as w{i}", self.kind.files_dir(), name.file_name());
+            let _ = write!(names, "w{i},");
         }
         // Le préfixe suit `qualify` : `<namespace>/<nom>` ; l'espace de noms est contrôlé.
-        out.push_str(&format!(
-            "#let registry = ({names}).map(w => w + (name: \"{ns}/\" + w.name))\n",
-            ns = self.namespace
-        ));
+        let _ =
+            writeln!(out, "#let registry = ({names}).map(w => w + (name: \"{ns}/\" + w.name))", ns = self.namespace);
         out
     }
 
@@ -159,10 +174,14 @@ impl PackWidgets {
 pub struct PackSet(Vec<PackWidgets>);
 
 impl PackSet {
-    /// L'ensemble de `packs`, trié par espace de noms.
+    /// The set of `packs`, sorted by namespace.
     ///
-    /// Deux packs sous le même espace de noms ou au même identifiant (même
-    /// dossier `/packs/<id>/`) sont refusés (`DuplicatePack`).
+    /// Two packs under the same namespace or with the same identifier (same
+    /// folder `/packs/<id>/`) are rejected (`DuplicatePack`).
+    ///
+    /// # Errors
+    ///
+    /// Fails (`DuplicatePack`) if two packs share a namespace or an identifier.
     pub fn new(mut packs: Vec<PackWidgets>) -> Result<Self, RegistryError> {
         packs.sort_by(|a, b| a.namespace.cmp(&b.namespace));
         let mut ids = BTreeSet::new();
@@ -178,16 +197,19 @@ impl PackSet {
     }
 
     /// Les packs, triés par espace de noms.
+    #[must_use]
     pub fn packs(&self) -> &[PackWidgets] {
         &self.0
     }
 
     /// Vrai sans aucun pack : aucun widget.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Empreinte de l'ensemble : clé du cache des registres assemblés.
+    #[must_use]
     pub fn fingerprint(&self) -> [u8; 32] {
         let mut h = Sha256::new();
         for p in &self.0 {
@@ -205,19 +227,21 @@ impl PackSet {
 /// Source de la sonde : importe le module d'assemblage de chaque pack et émet
 /// leurs schémas, avec l'espace de noms et la sorte de chacun.
 pub(crate) fn probe_source<'a>(packs: impl IntoIterator<Item = &'a PackWidgets>) -> String {
+    // Writing to a `String` never fails: the `fmt::Result` values are ignored.
     let mut s = String::new();
     // Un tableau Typst à un élément s'écrit `(x,)` : chaque entrée finit par une virgule.
     let mut entries = String::new();
     for (i, p) in packs.into_iter().enumerate() {
-        s.push_str(&format!("#import \"{}\": registry as pack{i}\n", p.path()));
+        let _ = writeln!(s, "#import \"{}\": registry as pack{i}", p.path());
         // Le schéma garde le nom nu : `WidgetRegistry::from_probe` le qualifie.
-        entries.push_str(&format!(
+        let _ = write!(
+            entries,
             "(namespace: \"{}\", kind: \"{}\", widgets: pack{i}.map(w => w.schema)),",
             p.namespace,
             p.kind.files_dir()
-        ));
+        );
     }
-    s.push_str(&format!("#metadata((packs: ({entries})))<oku-widgets>\n"));
+    let _ = writeln!(s, "#metadata((packs: ({entries})))<oku-widgets>");
     s
 }
 
@@ -233,7 +257,11 @@ pub(crate) fn compile_probe(world: &OkuSlidesWorld) -> Result<Json, RegistryErro
     probe_json(metadata.map(|v| serde_json::to_value(&v)))
 }
 
-/// Compile la sonde et rend son JSON brut (schémas de chaque pack).
+/// Compiles the probe and returns its raw JSON (schemas of each pack).
+///
+/// # Errors
+///
+/// Fails if the Typst world cannot be prepared, or if the probe does not compile or emits nothing.
 pub fn probe_registry(fonts: &Fonts, packs: &PackSet) -> Result<Json, RegistryError> {
     let mut world = OkuSlidesWorld::new(fonts.clone()).map_err(Box::new).context(SetupSnafu)?;
     for (path, text) in packs.sources() {
@@ -243,12 +271,20 @@ pub fn probe_registry(fonts: &Fonts, packs: &PackSet) -> Result<Json, RegistryEr
     compile_probe(&world)
 }
 
-/// Le registre (widgets qualifiés des packs) décrit par le JSON d'une sonde.
+/// The registry (qualified widgets of the packs) described by a probe's JSON.
+///
+/// # Errors
+///
+/// Fails (`Schema`) if a widget is badly declared in the JSON.
 pub fn registry_from_probe(json: Json) -> Result<WidgetRegistry, RegistryError> {
     Ok(WidgetRegistry::from_probe(json).map_err(Box::new).context(SchemaSnafu)?)
 }
 
-/// Compile la sonde et lit le registre (widgets qualifiés des packs).
+/// Compiles the probe and reads the registry (qualified widgets of the packs).
+///
+/// # Errors
+///
+/// Fails like [`probe_registry`] then [`registry_from_probe`].
 pub fn load_registry(fonts: &Fonts, packs: &PackSet) -> Result<WidgetRegistry, RegistryError> {
     registry_from_probe(probe_registry(fonts, packs)?)
 }
@@ -256,11 +292,15 @@ pub fn load_registry(fonts: &Fonts, packs: &PackSet) -> Result<WidgetRegistry, R
 /// Sonde brute du pack `base` intégré, lue une fois par processus.
 static BASE_PROBE: Mutex<Option<Arc<Json>>> = Mutex::new(None);
 
-/// La sonde brute (JSON) du seul pack `base` intégré, compilée au premier appel.
+/// The raw probe (JSON) of the built-in `base` pack alone, compiled on first call.
 ///
-/// Pour assembler un autre pack à côté de `base` : ses slots peuvent accepter
-/// des kinds `base/*`. Les polices du premier appel servent : les schémas n'en
-/// dépendent pas.
+/// For assembling another pack next to `base`: its slots may accept
+/// `base/*` kinds. The fonts of the first call are used: the schemas do not
+/// depend on them.
+///
+/// # Errors
+///
+/// Fails if the embedded `base` pack is unreadable or if its probe fails.
 pub fn base_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
     let mut probe = BASE_PROBE.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(p) = probe.as_ref() {
@@ -274,11 +314,15 @@ pub fn base_probe(fonts: &Fonts) -> Result<Arc<Json>, RegistryError> {
 /// Registre intégré, lu une fois par processus : les packs `base` et `essentiel`.
 static BUILTIN: Mutex<Option<Arc<WidgetRegistry>>> = Mutex::new(None);
 
-/// Le registre intégré : les widgets de `base` et les layouts d'`essentiel`.
+/// The built-in registry: the widgets of `base` and the layouts of `essentiel`.
 ///
-/// Pour tout ce qui écrit ou valide des slides et des éléments avant que les
-/// packs du deck soient résolus (premier replica, import, aperçus). Comme pour
-/// [`base_probe`], les polices du premier appel servent.
+/// For everything that writes or validates slides and elements before the
+/// deck's packs are resolved (first replica, import, previews). As with
+/// [`base_probe`], the fonts of the first call are used.
+///
+/// # Errors
+///
+/// Fails if a built-in pack is unreadable or if probing their registry fails.
 pub fn builtin_registry(fonts: &Fonts) -> Result<Arc<WidgetRegistry>, RegistryError> {
     let mut builtin = BUILTIN.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(r) = builtin.as_ref() {
@@ -335,6 +379,7 @@ impl std::fmt::Debug for Registries {
 
 impl Registries {
     /// Des caches vides ; `fonts` sert aux sondes.
+    #[must_use]
     pub fn new(fonts: Fonts) -> Self {
         Self {
             fonts,
@@ -346,8 +391,12 @@ impl Registries {
         }
     }
 
-    /// Le registre des widgets qualifiés de `set`. Sans pack : le registre
-    /// vide, le même que celui de [`crate::Renderer::new`].
+    /// The registry of the qualified widgets of `set`. Without packs: the empty
+    /// registry, the same as that of [`crate::Renderer::new`].
+    ///
+    /// # Errors
+    ///
+    /// Fails if a file of a pack cannot be probed or if the assembled registry is invalid.
     pub fn get(&mut self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
         if set.is_empty() {
             return Ok(empty_registry());
@@ -373,22 +422,19 @@ impl Registries {
 
     fn entry(&mut self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
         let key = set.fingerprint();
-        let registry = match self.cache.get(&key) {
-            Some(registry) => {
-                let registry = registry.clone();
-                self.recent.retain(|k| *k != key);
-                registry
-            }
-            None => {
-                let registry = Arc::new(load_registry(&self.fonts, set)?);
-                while self.recent.len() >= MAX_CACHED_PACKS {
-                    if let Some(old) = self.recent.pop_front() {
-                        self.cache.remove(&old);
-                    }
+        let registry = if let Some(registry) = self.cache.get(&key) {
+            let registry = registry.clone();
+            self.recent.retain(|k| *k != key);
+            registry
+        } else {
+            let registry = Arc::new(load_registry(&self.fonts, set)?);
+            while self.recent.len() >= MAX_CACHED_PACKS {
+                if let Some(old) = self.recent.pop_front() {
+                    self.cache.remove(&old);
                 }
-                self.cache.insert(key, registry.clone());
-                registry
             }
+            self.cache.insert(key, registry.clone());
+            registry
         };
         self.recent.push_back(key);
         Ok(registry)

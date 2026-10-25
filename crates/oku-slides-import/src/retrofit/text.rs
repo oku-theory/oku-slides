@@ -92,14 +92,14 @@ fn cut(p: &Paragraph, budget: usize) -> Option<Paragraph> {
         while lo < hi {
             let mid = (lo + hi).div_ceil(2);
             if let Some(last) = out.runs.last_mut() {
-                last.t = run.t[..bounds[mid - 1]].to_owned();
+                run.t[..bounds[mid - 1]].clone_into(&mut last.t);
             }
             if json_len(&out) <= budget { lo = mid } else { hi = mid - 1 }
         }
         if lo == 0 {
             out.runs.pop();
         } else if let Some(last) = out.runs.last_mut() {
-            last.t = run.t[..bounds[lo - 1]].to_owned();
+            run.t[..bounds[lo - 1]].clone_into(&mut last.t);
         }
         break;
     }

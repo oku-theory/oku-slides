@@ -5,6 +5,8 @@
 //! descendants, `@slot` indexé par le `TreeID` du parent). Ces tests fixent le
 //! comportement observé de la bibliothèque, pas celui du produit. Réglages
 //! repris de `loro_tree_probe.rs` (ADR-0005).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
+#![expect(clippy::many_single_char_names, reason = "probe: peers, trees and nodes named as in the described scenario")]
 
 use std::time::Instant;
 
@@ -191,9 +193,9 @@ fn fixture() -> Fixture {
     Fixture { a, t, s1, s2, x, p }
 }
 
-/// Point 1 : A marque x supprimé puis annule ; B, sans rien recevoir, déplace x
-/// vers s2 et édite sa méta. Après échange, dans les deux ordres de pairs :
-/// même TreeID, plus de marque, parent de B, édition de B.
+/// Point 1: A marks x deleted, then undoes. B, without receiving anything, moves x
+/// to s2 and edits its meta. After exchange, in both peer orders:
+/// same `TreeID`, no more mark, B's parent, B's edit.
 #[test]
 fn p1_soft_delete_undone_keeps_concurrent_move_and_edit() {
     for bid in [2u64, 0] {

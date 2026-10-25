@@ -1,7 +1,10 @@
+//! Launching the fake ACP agent: capabilities, refusal, missing command, handshake.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use common::*;
 use oku_slides_agent::{AgentEvent, AgentState};
+use oku_slides_session::agent::AgentUi;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -10,7 +13,7 @@ async fn first_prompt_launches_agent_without_fs_or_terminal() {
     let h = start(json!({ "turns": [{ "chunks": ["bonjour"] }] })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("bonjour".into(), Default::default());
+    t.agent.prompt("bonjour".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::TurnEnded { .. })).await;
     let init = &logged(&h.log, "initialize")[0];
     let caps = &init["clientCapabilities"];
@@ -24,7 +27,7 @@ async fn agent_without_http_mcp_is_refused_with_localized_error() {
     let h = start(json!({ "http": false })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("bonjour".into(), Default::default());
+    t.agent.prompt("bonjour".into(), AgentUi::default());
     let e = until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await;
     let AgentEvent::Error { message, .. } = e else { unreachable!() };
     assert_that!(message.contains("ne sait pas se connecter")).is_true();
@@ -36,7 +39,7 @@ async fn missing_command_reports_not_found_with_command() {
     let h = start_with(json!({}), Some("/chemin/sans/agent")).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("bonjour".into(), Default::default());
+    t.agent.prompt("bonjour".into(), AgentUi::default());
     let AgentEvent::Error { message, .. } = until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await else {
         unreachable!()
     };
@@ -48,7 +51,7 @@ async fn agent_that_never_gets_ready_is_stopped_and_the_next_start_works() {
     let h = start_ready_within(json!({ "hang_initialize": true }), std::time::Duration::from_millis(500)).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("bonjour".into(), Default::default());
+    t.agent.prompt("bonjour".into(), AgentUi::default());
     let message = within(std::time::Duration::from_secs(5), &mut rx, |e| matches!(e, AgentEvent::Error { .. }))
         .await
         .map(|e| match e {
@@ -58,7 +61,7 @@ async fn agent_that_never_gets_ready_is_stopped_and_the_next_start_works() {
     assert_that!(message).is_some().contains("L'agent s'est arrêté");
     std::fs::write(script_path(&h), json!({ "turns": [{ "chunks": ["enfin"] }] }).to_string())
         .unwrap_or_else(|e| panic!("scénario : {e}"));
-    t.agent.prompt("encore".into(), Default::default());
+    t.agent.prompt("encore".into(), AgentUi::default());
     let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { .. })).await;
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 2, text: "enfin".into() });
 }
@@ -68,7 +71,7 @@ async fn missing_command_error_comes_after_the_turn_is_opened() {
     let h = start_with(json!({}), Some("/chemin/sans/agent")).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("bonjour".into(), Default::default());
+    t.agent.prompt("bonjour".into(), AgentUi::default());
     let opened = until(&mut rx, |e| matches!(e, AgentEvent::UserText { .. } | AgentEvent::Error { .. })).await;
     assert_that!(matches!(opened, AgentEvent::UserText { turn: 1, .. })).is_true();
     until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await;
@@ -93,7 +96,7 @@ async fn fake_agent_by_prompt_plays_the_matching_turn() {
     let h =
         start(json!({ "by_prompt": { "bonjour": { "chunks": ["salut"] } }, "turns": [{ "chunks": ["autre"] }] })).await;
     let mut rx = h.tab("t-1").agent.subscribe();
-    h.tab("t-1").agent.prompt("bonjour".into(), Default::default());
+    h.tab("t-1").agent.prompt("bonjour".into(), AgentUi::default());
     let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { .. })).await;
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "salut".into() });
 }
@@ -106,15 +109,15 @@ async fn fake_agent_by_prompt_turn_leaves_the_numbered_turns_in_place() {
     .await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("bonjour".into(), Default::default());
+    t.agent.prompt("bonjour".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::TurnEnded { .. })).await;
-    t.agent.prompt("suite".into(), Default::default());
+    t.agent.prompt("suite".into(), AgentUi::default());
     let chunk = until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text != "salut")).await;
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 2, text: "un".into() });
 }
 
 /// Un second faux agent, à côté du premier : son scénario et son journal.
-fn second_launch(h: &Harness, script: serde_json::Value) -> (oku_slides_agent::Launch, std::path::PathBuf) {
+fn second_launch(h: &Harness, script: &serde_json::Value) -> (oku_slides_agent::Launch, std::path::PathBuf) {
     let (path, log) = (h.log.with_file_name("script-bis.json"), h.log.with_file_name("log-bis.jsonl"));
     std::fs::write(&path, script.to_string()).unwrap_or_else(|e| panic!("scénario bis : {e}"));
     let launch = oku_slides_agent::Launch {
@@ -137,13 +140,13 @@ async fn switch_between_turns_sends_the_next_prompt_to_the_new_agent() {
     let h = start(json!({ "turns": [{ "chunks": ["un"] }, { "chunks": ["deux"] }] })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("premier".into(), Default::default());
+    t.agent.prompt("premier".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::TurnEnded { .. })).await;
     let before = h.link.agent_id();
-    let (launch, log_bis) = second_launch(&h, json!({ "turns": [{ "chunks": ["bis"] }] }));
+    let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
     h.link.switch(launch);
     assert_that!(h.link.agent_id()).is_not_equal_to(before);
-    t.agent.prompt("second".into(), Default::default());
+    t.agent.prompt("second".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text == "bis")).await;
     assert_that!(logged(&log_bis, "session/prompt").len()).is_equal_to(1);
     assert_that!(logged(&h.log, "session/prompt").len()).is_equal_to(1);
@@ -157,12 +160,12 @@ async fn switch_during_a_turn_stops_it_and_the_next_prompt_reaches_the_new_agent
     .await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("premier".into(), Default::default());
+    t.agent.prompt("premier".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::Status { state: AgentState::Working, .. })).await;
-    let (launch, log_bis) = second_launch(&h, json!({ "turns": [{ "chunks": ["bis"] }] }));
+    let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
     h.link.switch(launch);
     until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await;
-    t.agent.prompt("second".into(), Default::default());
+    t.agent.prompt("second".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text == "bis")).await;
     assert_that!(logged(&log_bis, "session/prompt").len()).is_equal_to(1);
 }
@@ -173,7 +176,7 @@ async fn switch_while_launching_relaunches_with_the_new_agent() {
     let h = start(json!({ "init_delay_ms": 1000, "turns": [{ "chunks": ["un"] }] })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("premier".into(), Default::default());
+    t.agent.prompt("premier".into(), AgentUi::default());
     tokio::time::timeout(std::time::Duration::from_secs(10), async {
         while logged(&h.log, "initialize").is_empty() {
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
@@ -181,7 +184,7 @@ async fn switch_while_launching_relaunches_with_the_new_agent() {
     })
     .await
     .unwrap_or_else(|_| panic!("le premier agent n'a pas reçu `initialize`"));
-    let (launch, log_bis) = second_launch(&h, json!({ "turns": [{ "chunks": ["bis"] }] }));
+    let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
     h.link.switch(launch);
     until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text == "bis")).await;
     // Le premier agent avait bien commencé sa poignée de main.
@@ -196,7 +199,7 @@ async fn switch_during_a_hung_handshake_reaches_the_new_agent_without_waiting_fo
     let h = start(json!({ "init_delay_ms": 60000, "turns": [{ "chunks": ["un"] }] })).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("premier".into(), Default::default());
+    t.agent.prompt("premier".into(), AgentUi::default());
     tokio::time::timeout(std::time::Duration::from_secs(10), async {
         while logged(&h.log, "initialize").is_empty() {
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
@@ -204,7 +207,7 @@ async fn switch_during_a_hung_handshake_reaches_the_new_agent_without_waiting_fo
     })
     .await
     .unwrap_or_else(|_| panic!("le premier agent n'a pas reçu `initialize`"));
-    let (launch, log_bis) = second_launch(&h, json!({ "turns": [{ "chunks": ["bis"] }] }));
+    let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
     h.link.switch(launch);
     let chunk = within(
         std::time::Duration::from_secs(5),
@@ -220,12 +223,12 @@ async fn switch_during_a_hung_handshake_reaches_the_new_agent_without_waiting_fo
 #[tokio::test(flavor = "multi_thread")]
 async fn shutdown_after_switch_is_still_final() {
     let h = start(json!({ "turns": [] })).await;
-    let (launch, _) = second_launch(&h, json!({ "turns": [] }));
+    let (launch, _) = second_launch(&h, &json!({ "turns": [] }));
     h.link.switch(launch);
     h.link.shutdown(std::time::Duration::from_secs(2)).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
-    t.agent.prompt("après".into(), Default::default());
+    t.agent.prompt("après".into(), AgentUi::default());
     let message = wait_error(&mut rx).await;
     assert_that!(message).contains("L'agent s'est arrêté");
 }

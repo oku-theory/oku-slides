@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Fonts, colors (`#rrggbb`) and sizes (points) of a chart.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChartTheme {
@@ -11,17 +12,27 @@ pub struct ChartTheme {
     pub font_family: String,
     /// Fond du graphique ; `None` = transparent (le fond de la slide passe).
     pub background: Option<String>,
+    /// Color of titles and value labels.
     pub text: String,
+    /// Secondary color: subtitle and axis ticks.
     pub text_muted: String,
+    /// Color of axis lines.
     pub axis: String,
+    /// Color of grid lines.
     pub grid: String,
     /// Couleurs des séries, dans l'ordre.
     pub palette: Vec<String>,
+    /// Title size.
     pub title_size: f32,
+    /// Subtitle size.
     pub subtitle_size: f32,
+    /// Legend text size; the markers follow.
     pub legend_size: f32,
+    /// Tick size; the X axis height follows.
     pub axis_size: f32,
+    /// Size of the value labels on the series.
     pub label_size: f32,
+    /// Width of lines and of point outlines.
     pub stroke_width: f32,
 }
 
@@ -52,7 +63,7 @@ pub(crate) fn color(hex: &str) -> charts_rs::Color {
     let byte = |i: usize| u8::from_str_radix(h.get(i..i + 2).unwrap_or("00"), 16).unwrap_or(0);
     match h.len() {
         3 => {
-            let d = |i: usize| u8::from_str_radix(&h[i..i + 1], 16).unwrap_or(0) * 17;
+            let d = |i: usize| u8::from_str_radix(&h[i..=i], 16).unwrap_or(0) * 17;
             (d(0), d(1), d(2)).into()
         }
         8 => (byte(0), byte(2), byte(4), byte(6)).into(),

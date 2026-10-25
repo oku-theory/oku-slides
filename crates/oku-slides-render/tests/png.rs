@@ -1,3 +1,7 @@
+//! PNG export of a page.
+//!
+//! Size at the requested scale, scale or page errors.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use oku_slides_core::Deck;
@@ -12,7 +16,7 @@ fn roadmap() -> Deck {
 #[test]
 fn png_first_page_half_scale_is_960_by_540_png() {
     let mut renderer = common::renderer();
-    let compiled = renderer.render(&roadmap(), &Default::default()).unwrap();
+    let compiled = renderer.render(&roadmap(), &std::collections::BTreeMap::default()).unwrap();
     let png = compiled.png(0, 0.5).unwrap();
     assert_that!(png[..8].to_vec()).is_equal_to(b"\x89PNG\r\n\x1a\n".to_vec());
     // IHDR : largeur puis hauteur, big-endian, octets 16..24.
@@ -24,7 +28,7 @@ fn png_first_page_half_scale_is_960_by_540_png() {
 #[test]
 fn png_missing_page_returns_no_page_error() {
     let mut renderer = common::renderer();
-    let compiled = renderer.render(&roadmap(), &Default::default()).unwrap();
+    let compiled = renderer.render(&roadmap(), &std::collections::BTreeMap::default()).unwrap();
     let err = compiled.png(999, 0.5).unwrap_err();
     assert_that!(err.kind()).is_equal_to(oku_slides_render::RenderErrorKind::NoPage);
 }
@@ -32,7 +36,7 @@ fn png_missing_page_returns_no_page_error() {
 #[test]
 fn png_scale_out_of_range_returns_image_error() {
     let mut renderer = common::renderer();
-    let compiled = renderer.render(&roadmap(), &Default::default()).unwrap();
+    let compiled = renderer.render(&roadmap(), &std::collections::BTreeMap::default()).unwrap();
     let err = compiled.png(0, 100.0).unwrap_err();
     assert_that!(err.kind()).is_equal_to(oku_slides_render::RenderErrorKind::Image);
 }

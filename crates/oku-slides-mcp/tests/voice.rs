@@ -1,4 +1,5 @@
 //! La boîte des réglages de la dictée et de l'agent, au niveau du hub.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -14,7 +15,7 @@ use rstest::rstest;
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
-fn ctx(v: Value) -> Map<String, Value> {
+fn ctx(v: &Value) -> Map<String, Value> {
     v.as_object().cloned().unwrap_or_default()
 }
 
@@ -34,7 +35,7 @@ async fn refresh(h: &Harness) {
 
 async fn act(h: &Harness, name: &str, context: Value) -> Result<(), oku_slides_mcp::HubError> {
     let hub = h.hub.clone();
-    let action = SurfaceAction { surface: HOST_VOICE.into(), name: name.into(), context: ctx(context) };
+    let action = SurfaceAction { surface: HOST_VOICE.into(), name: name.into(), context: ctx(&context) };
     blocking(move || hub.act(action)).await
 }
 

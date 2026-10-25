@@ -66,9 +66,9 @@ fn cursor_readable(pos: PhysicalPosition<f64>, linux: bool) -> bool {
 }
 
 /// La barre de titre des fenêtres de l'app : sous macOS, fondue dans la page (barre `.titlebar`).
-pub(crate) fn overlay_title_bar<'a, R: tauri::Runtime, M: tauri::Manager<R>>(
-    builder: WebviewWindowBuilder<'a, R, M>,
-) -> WebviewWindowBuilder<'a, R, M> {
+pub(crate) fn overlay_title_bar<R: tauri::Runtime, M: tauri::Manager<R>>(
+    builder: WebviewWindowBuilder<'_, R, M>,
+) -> WebviewWindowBuilder<'_, R, M> {
     #[cfg(target_os = "macos")]
     let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
     builder

@@ -47,11 +47,11 @@ pub(crate) fn files(entries: &[(&str, &str)]) -> std::collections::BTreeMap<oku_
 
 /// Un deck d'une seule diapositive de titre (`essentiel/title`).
 pub(crate) fn tiny_deck() -> oku_slides_core::Deck {
-    deck_of(serde_json::json!({ "id": "s", "kind": oku_slides_core::kinds::essentiel::TITLE, "params": {} }))
+    deck_of(&serde_json::json!({ "id": "s", "kind": oku_slides_core::kinds::essentiel::TITLE, "params": {} }))
 }
 
 /// Un deck d'une seule diapositive `slide`.
-pub(crate) fn deck_of(slide: serde_json::Value) -> oku_slides_core::Deck {
+pub(crate) fn deck_of(slide: &serde_json::Value) -> oku_slides_core::Deck {
     let json =
         serde_json::json!({ "version": oku_slides_core::DECK_VERSION, "params": { "title": "T" }, "slides": [slide] });
     oku_slides_core::Deck::from_json(&json.to_string()).expect("deck minimal")
@@ -59,7 +59,7 @@ pub(crate) fn deck_of(slide: serde_json::Value) -> oku_slides_core::Deck {
 
 /// Un deck d'une seule diapositive au layout `rendu/boucle` ([`LOOP_ON_RENDER`]), qui boucle au rendu.
 pub(crate) fn looping_deck() -> oku_slides_core::Deck {
-    deck_of(serde_json::json!({ "id": "s", "kind": "rendu/boucle", "params": { "body": "x" } }))
+    deck_of(&serde_json::json!({ "id": "s", "kind": "rendu/boucle", "params": { "body": "x" } }))
 }
 
 /// Le pack de layouts `rendu`, au seul layout `boucle` qui boucle au rendu.

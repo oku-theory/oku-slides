@@ -27,7 +27,7 @@ fn text() -> Value {
     json!({ "id": "x", "kind": base::TEXT, "params": { "body": "Un point à retenir" } })
 }
 
-fn layout(blocks: Value) -> Layout {
+fn layout(blocks: &Value) -> Layout {
     let deck =
         json!({ "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "title": "T", "blocks": blocks } }] });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
@@ -48,7 +48,7 @@ fn body_bottom(l: &Layout) -> f64 {
 
 #[test]
 fn tall_table_leaves_room_for_a_chart_and_a_text_after_it() {
-    let l = layout(json!([table(40), chart(), text()]));
+    let l = layout(&json!([table(40), chart(), text()]));
     let (t, g, x) = (boxed(&l, "t"), boxed(&l, "g"), boxed(&l, "x"));
     let bottom = body_bottom(&l);
     asserting(&format!("texte de {} à {} sous le bas du corps {bottom}", x.y, x.y + x.h))
@@ -59,7 +59,7 @@ fn tall_table_leaves_room_for_a_chart_and_a_text_after_it() {
 
 #[test]
 fn tall_table_leaves_room_for_a_text_after_it() {
-    let l = layout(json!([table(40), text()]));
+    let l = layout(&json!([table(40), text()]));
     let x = boxed(&l, "x");
     let bottom = body_bottom(&l);
     asserting(&format!("texte de {} à {} sous le bas du corps {bottom}", x.y, x.y + x.h))
@@ -70,7 +70,7 @@ fn tall_table_leaves_room_for_a_text_after_it() {
 #[test]
 fn short_table_keeps_its_natural_height_before_a_text() {
     // Un tableau qui tient garde sa hauteur : le texte suit juste dessous.
-    let l = layout(json!([table(2), text()]));
+    let l = layout(&json!([table(2), text()]));
     let (t, x) = (boxed(&l, "t"), boxed(&l, "x"));
     assert_that!(x.y - (t.y + t.h)).is_less_than(50.0);
 }

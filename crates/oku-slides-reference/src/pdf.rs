@@ -26,7 +26,11 @@ impl std::fmt::Debug for ReferencePdf {
 }
 
 impl ReferencePdf {
-    /// Lit `bytes` ; un PDF illisible ou sans page est une erreur.
+    /// Reads `bytes`; an unreadable PDF or one without pages is an error.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`Pdf`) if `bytes` is not a readable PDF or has no page.
     pub fn new(bytes: Vec<u8>) -> Result<Self, ReferenceError> {
         let pdf = Pdf::new(Arc::new(bytes))
             .map_err(|e| ReferenceError::from(PdfSnafu { message: format!("{e:?}") }.build()))?;
@@ -35,20 +39,27 @@ impl ReferencePdf {
     }
 
     /// Nombre de pages.
+    #[must_use]
     pub fn page_count(&self) -> usize {
         self.pdf.pages().len()
     }
 
-    /// La page `index` sur fond blanc, à `width` pixels de large (la hauteur
-    /// suit le ratio de la page, arrondie).
+    /// Page `index` on a white background, `width` pixels wide.
+    ///
+    /// The height follows the page ratio, rounded.
+    ///
+    /// # Errors
+    ///
+    /// Fails if page `index` does not exist (`NoPage`), or if a side of the image
+    /// is zero or exceeds [`MAX_RASTER_SIDE`] (`Size`).
     pub fn raster(&self, index: usize, width: u32) -> Result<Raster, ReferenceError> {
         let page = self.pdf.pages().get(index).ok_or_else(|| NoPageSnafu { index }.build())?;
         let (w, h) = page.render_dimensions();
-        let scale = width as f32 / w;
+        let scale = side_f32(width) / w;
         let height = (h * scale).round();
-        let fits = |side: f32| side.is_finite() && side >= 1.0 && side <= MAX_RASTER_SIDE as f32;
-        ensure!(fits(width as f32) && fits(height), SizeSnafu { width, height: height.max(0.0) as u32 });
-        let height = height as u32;
+        let fits = |side: f32| side.is_finite() && side >= 1.0 && side <= side_f32(MAX_RASTER_SIDE);
+        ensure!(fits(side_f32(width)) && fits(height), SizeSnafu { width, height: pixels(height) });
+        let height = pixels(height);
         let settings = RenderSettings {
             x_scale: scale,
             y_scale: scale,
@@ -60,6 +71,25 @@ impl ReferencePdf {
         // Fond blanc opaque : les composantes prémultipliées sont les composantes droites.
         Raster::new(width, height, pixmap.data_as_u8_slice().to_vec())
     }
+}
+
+/// A side in pixels, as `f32` for the scale computation.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "exact up to 2^24; a larger side exceeds MAX_RASTER_SIDE and is rejected"
+)]
+fn side_f32(px: u32) -> f32 {
+    px as f32
+}
+
+/// A rounded side in pixels; negative or NaN gives 0, too large gives `u32::MAX`.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "intended saturating conversion: called on an already rounded side, then bounded by Size"
+)]
+fn pixels(side: f32) -> u32 {
+    side as u32
 }
 
 #[cfg(test)]

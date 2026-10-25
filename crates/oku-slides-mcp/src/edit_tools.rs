@@ -17,32 +17,36 @@ use crate::tools::Tools;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ApplyArgs {
-    /// Ops du deck, appliquées ensemble (tout ou rien). Voir le schéma de chaque op.
+    /// Deck ops, applied together (all or nothing); see each op's schema.
     pub ops: Vec<Op>,
-    /// Libellé d'annulation hors d'un tour (dans un tour, celui du tour).
+    /// Undo label outside a turn; within a turn, the turn's label is used.
     #[serde(default)]
     pub label: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ShowAsArgs {
+    /// Id of the slide that holds the element.
     pub slide: String,
+    /// Id of the chart or table element.
     pub element: String,
-    /// `table` ou `chart` ; les données sont gardées.
+    /// `table` or `chart`; the data is kept.
     pub view: oku_slides_session::View,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ChartKindArgs {
+    /// Id of the slide that holds the chart.
     pub slide: String,
+    /// Id of the chart element.
     pub element: String,
-    /// Nouveau type ; les données sont converties.
+    /// New series type; the data is converted.
     pub kind: SeriesType,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PackIdArgs {
-    /// Id d'un pack (UUID, voir `packs`).
+    /// Id of a pack (UUID, see `packs`).
     pub pack: String,
 }
 
@@ -56,31 +60,35 @@ impl PackIdArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct EditPackArgs {
-    /// Id d'un pack (UUID, voir `packs`) ; absent : le pack principal du deck (son pack de layouts
-    /// propre, sinon son pack de widgets propre, sinon un pack non intégré, sinon Essentiel).
+    /// Id of a pack (UUID, see `packs`); absent: the deck's main pack.
+    ///
+    /// The main pack is the deck's own layout pack, otherwise its own widget
+    /// pack, otherwise a non-built-in pack, otherwise Essentiel.
     #[serde(default)]
     pub pack: Option<String>,
 }
 
-/// `add_pack` et `remove_pack` : le pack visé.
+/// `add_pack` and `remove_pack`: the targeted pack.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PackRefArgs {
-    /// `widgets` (éléments) ou `layouts` (slides).
+    /// `widgets` (elements) or `layouts` (slides).
     pub kind: PackKind,
-    /// Espace de noms du pack (voir `packs` et `deck_outline`).
+    /// Namespace of the pack (see `packs` and `deck_outline`).
     pub namespace: Namespace,
 }
 
-/// `set_theme_extends` : les parents du thème édité.
+/// `set_theme_extends`: the parents of the edited theme.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ThemeExtendsArgs {
-    /// Espaces de noms des thèmes de la bibliothèque, dans l'ordre (les derniers l'emportent).
+    /// Namespaces of library themes, in order; the later ones win.
     pub extends: Vec<Namespace>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct FocusArgs {
+    /// Id of the slide to show.
     pub slide: String,
+    /// Id of an element of that slide to show; absent: the slide alone.
     #[serde(default)]
     pub element: Option<String>,
 }
@@ -152,7 +160,7 @@ impl Tools {
         };
         match pack {
             Ok(pack) => self.change(Request::EditPack { pack }).await,
-            Err(e) => self.fail_with(e),
+            Err(e) => self.fail_with(&e),
         }
     }
 

@@ -1,4 +1,5 @@
-//! Reçus de fin de tour, outil `report`, `render` et cycle de vie des tours du hub.
+//! End-of-turn receipts, the `report` and `render` tools, and the hub's turn lifecycle.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 
@@ -149,7 +150,7 @@ async fn hub_report_action_of_the_last_turn_keeps_the_receipt() {
     let h = start().await;
     let n = h.hub.begin_turn();
     h.hub.show_report(n, receipt_of(&h, "r-1", &report_spec("Fait", &["Encore"])));
-    h.hub.act(action("r-1", "suggest", json!({ "prompt": "Encore" }))).unwrap();
+    h.hub.act(action("r-1", "suggest", &json!({ "prompt": "Encore" }))).unwrap();
     assert_that!(open_ids(&h)).is_equal_to(vec!["r-1".to_owned()]);
 }
 
@@ -197,7 +198,7 @@ async fn hub_report_actions_expire_when_the_next_turn_begins() {
     let json = serde_json::to_string(&h.hub.surfaces()).unwrap();
     assert_that!(json).does_not_contain("Encore");
     // …et une action envoyée par une interface en retard est refusée, dans la langue de l'utilisateur.
-    let refused = h.hub.act(action("r-1", "suggest", json!({ "prompt": "Encore" }))).unwrap_err();
+    let refused = h.hub.act(action("r-1", "suggest", &json!({ "prompt": "Encore" }))).unwrap_err();
     assert_that!(refused.kind()).is_equal_to(oku_slides_mcp::HubErrorKind::Expired);
     assert_that!(oku_slides_i18n::Localize::localize(&refused, &h.localizer))
         .is_equal_to("Les actions d'un tour passé ont expiré.".to_owned());
@@ -209,9 +210,9 @@ async fn render_tool_actions_expire_when_the_next_turn_begins() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     h.hub.begin_turn();
     let id = json_of(&call(&c, "render", render_args()).await)["shown"].as_str().unwrap().to_owned();
-    assert_that!(h.hub.act(action(&id, "suggest", json!({ "prompt": "Encore" })))).is_ok();
+    assert_that!(h.hub.act(action(&id, "suggest", &json!({ "prompt": "Encore" })))).is_ok();
     h.hub.begin_turn();
-    assert_that!(h.hub.act(action(&id, "suggest", json!({ "prompt": "Encore" })))).is_err();
+    assert_that!(h.hub.act(action(&id, "suggest", &json!({ "prompt": "Encore" })))).is_err();
     // Toujours affichée, sans ses actions :
     assert_that!(open_ids(&h)).contains(id.clone());
     assert_that!(serde_json::to_string(&h.hub.surfaces()).unwrap()).does_not_contain("\"action\"");

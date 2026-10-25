@@ -186,6 +186,7 @@ pub(crate) fn evict_fonts(link: &mut Link) -> Result<(), RenderError> {
 
 impl RenderWorker {
     /// Un travailleur, lancé à la première requête.
+    #[must_use]
     pub fn new(launch: RenderLaunch, settings: RenderSettings) -> Self {
         let shared = Shared {
             max_widgets: settings.max_widgets,
@@ -200,6 +201,7 @@ impl RenderWorker {
     ///
     /// À poser avant la première requête ; `program` est le chemin de
     /// `ReferenceWitness::Soffice` (le binaire réel trouvé par `find_soffice`).
+    #[must_use]
     pub fn with_soffice(self, program: PathBuf) -> Self {
         self.link().soffice = Some(program);
         self
@@ -234,13 +236,12 @@ impl RenderWorker {
                     Deferred::Release { slot, generation, epoch } if epoch == current => {
                         Request::Release { slot, generations: vec![generation] }
                     }
-                    // Une génération d'un travailleur précédent : l'actuel ne la connaît pas.
-                    Deferred::Release { .. } => continue,
-                    Deferred::Close { slot } => Request::CloseSlot { slot },
                     Deferred::ReleaseReference { reference, epoch } if epoch == current => {
                         Request::ReleaseReference { reference }
                     }
-                    Deferred::ReleaseReference { .. } => continue,
+                    // A generation from a previous worker: the current one does not know it.
+                    Deferred::Release { .. } | Deferred::ReleaseReference { .. } => continue,
+                    Deferred::Close { slot } => Request::CloseSlot { slot },
                 };
                 link.call(&req, &[])?;
             }
@@ -256,11 +257,13 @@ impl RenderWorker {
 
     /// Un travailleur a déjà été lancé (la première requête le lance) : pour les tests.
     #[doc(hidden)]
+    #[must_use]
     pub fn is_started(&self) -> bool {
         self.link().started()
     }
 
     /// `pack` a fait échouer le rendu (délai, mémoire, arrêt) : il n'est plus exécuté dans ce travailleur.
+    #[must_use]
     pub fn is_faulty(&self, pack: &PackWidgets) -> bool {
         self.link().faulty_packs.contains(&hex::encode(pack.fingerprint()))
     }
@@ -275,15 +278,23 @@ impl RenderWorker {
         }
     }
 
-    /// Ouvre un emplacement avec ces polices, un registre de départ (`base`, avant `set_widgets`) et la langue `l`.
+    /// Opens a slot with fonts, a starting registry (`base`, before `set_widgets`) and language `l`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the worker does not start, dies or exceeds its bounds, or if it rejects the fonts.
     pub fn slot(&self, fonts: &Fonts, l: &Localizer, base: Arc<WidgetRegistry>) -> Result<RenderSlot, RenderError> {
         self.open_slot(fonts, l, base, true)
     }
 
-    /// Ouvre un emplacement d'essai : aucun échec n'y accuse un pack.
+    /// Opens a trial slot: no failure there blames a pack.
     ///
-    /// Pour l'aperçu d'un widget en cours d'écriture : le pack n'est pas
-    /// écarté, et un pack déjà fautif y est tout de même posé.
+    /// For previewing a widget being written: the pack is not
+    /// set aside, and a pack already at fault is applied anyway.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the worker does not start, dies or exceeds its bounds, or if it rejects the fonts.
     pub fn trial_slot(
         &self,
         fonts: &Fonts,

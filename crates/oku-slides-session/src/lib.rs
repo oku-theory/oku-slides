@@ -231,6 +231,9 @@ pub(crate) enum Mode {
 
 // ---- Session ----------------------------------------------------------------------
 
+/// An open tab: its document, mode, rendering and libraries.
+///
+/// Each tab has its own session, under its own lock (ADR-0001).
 pub struct Session {
     doc: Document,
     mode: Mode,
@@ -313,6 +316,10 @@ pub struct Session {
     /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
     widget_edit: bool,
     /// Séance de modification des widgets en mode deck.
+    #[expect(
+        clippy::struct_field_names,
+        reason = "the widget session (WidgetSession) from the rules vocabulary, not a Session"
+    )]
     widget_session: Option<widgets_deck::WidgetSession>,
     /// Emplacement d'essai de l'aperçu des widgets.
     widget_preview: Option<widget_preview::PreviewSlot>,
@@ -334,12 +341,12 @@ pub struct Session {
 /// rend sans widget, à l'appelant d'y accorder son registre.
 pub(crate) fn new_renderer(
     worker: &RenderWorker,
-    fonts: Fonts,
+    fonts: &Fonts,
     l: &Localizer,
     set: &PackSet,
     registry: &Arc<WidgetRegistry>,
 ) -> Result<RenderSlot> {
-    let mut slot = worker.slot(&fonts, l, deck_pack::empty_registry()).context(RenderSnafu)?;
+    let mut slot = worker.slot(fonts, l, deck_pack::empty_registry()).context(RenderSnafu)?;
     if !set.is_empty() && !set.packs().iter().any(|p| worker.is_faulty(p)) {
         slot.set_widgets(set, registry.clone()).context(RenderSnafu)?;
     }
@@ -386,9 +393,16 @@ impl std::fmt::Debug for Session {
 }
 
 impl Session {
-    /// `app_fonts` : polices livrées avec l'app, toujours disponibles ;
-    /// `platform` : réglages (historique, dossier des modèles), fichiers et
-    /// langue.
+    /// A rendered session on a blank deck.
+    ///
+    /// `app_fonts`: fonts shipped with the app, always available;
+    /// `platform`: settings (history, models folder), files and
+    /// language.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session cannot be built (registry, libraries, blank deck) or if its first
+    /// render fails.
     pub fn new(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
         let mut s = Self::unrendered(app_fonts, platform)?;
         s.rerender()?;
@@ -434,8 +448,8 @@ impl Session {
             render_deck_fonts: 0,
             appearance: Appearance::default(),
             pack_renderer: None,
-            pack_cache: Default::default(),
-            seed_cache: Default::default(),
+            pack_cache: pack_mode_previews::PreviewCache::default(),
+            seed_cache: add_grid::SeedCache::default(),
             variant_renderer: None,
             app_fonts,
             compiled: None,
@@ -446,7 +460,7 @@ impl Session {
             carried: carried_assets::CarriedAssets::new(),
             resume: None,
             agent_notes: Vec::new(),
-            turn_steps: Default::default(),
+            turn_steps: agent::turn_undo::TurnSteps::default(),
             conversation: None,
             pack_updates: 0,
             pack_updates_pins: None,
@@ -458,7 +472,7 @@ impl Session {
             import: None,
             sent_blobs: Vec::new(),
             #[cfg(test)]
-            failpoints: Default::default(),
+            failpoints: deck_widgets::Failpoints::default(),
         };
         s.notice_skipped_themes();
         // Le décompte part des épinglages du deck neuf (`refresh_pack_updates_if_pins_changed` les compare ensuite).
@@ -468,6 +482,7 @@ impl Session {
         Ok(s)
     }
 
+    /// The deck shown: the tab's own, the pack mode's or the history's.
     pub fn deck(&self) -> &Deck {
         self.doc.sources.deck()
     }
@@ -653,6 +668,7 @@ impl Session {
         self.compiled.as_ref()?.layout().page_of(id)
     }
 
+    /// The full state the interface shows, read without touching the disk.
     pub fn snapshot(&self) -> Snapshot<'_> {
         let compiled = self.compiled.as_ref();
         let (deck, doc) = (self.doc.sources.deck(), &self.doc);
@@ -720,7 +736,11 @@ impl Session {
         }
     }
 
-    /// SVG d'une slide, mis en cache par empreinte de page.
+    /// SVG of a slide, cached by page hash.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`NoSlide`) for an unknown slide, or if rendering the page to SVG fails.
     pub fn svg(&mut self, id: &str) -> Result<Arc<str>> {
         let page = self.page_of(id).context(NoSlideSnafu { id })?;
         let hash = |s: &Self| s.compiled.as_ref().and_then(|c| c.page_hash(page - 1)).unwrap_or_default();
@@ -733,7 +753,11 @@ impl Session {
         Ok(svg)
     }
 
-    /// Détail d'une slide : son contenu et ses boîtes sélectionnables.
+    /// Detail of a slide: its content and its selectable boxes.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`NoSlide`) if the slide is unknown to the deck or to its rendered layout.
     pub fn slide(&self, id: &str) -> Result<SlideView<'_>> {
         let no_slide = || -> SessionError { NoSlideSnafu { id }.build().into() };
         let deck = self.doc.sources.deck();

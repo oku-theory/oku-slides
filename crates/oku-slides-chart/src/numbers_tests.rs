@@ -26,7 +26,7 @@ fn format_french_below_ten_thousand_is_not_grouped() {
 #[test]
 fn format_english_groups_with_comma() {
     assert_that!(fmt(Some("en"), 12345.0)).is_equal_to("12,345".to_owned());
-    assert_that!(fmt(Some("en"), 1234567.5)).is_equal_to("1,234,567.5".to_owned());
+    assert_that!(fmt(Some("en"), 1_234_567.5)).is_equal_to("1,234,567.5".to_owned());
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn format_german_uses_comma_decimal_and_dot_groups() {
 #[test]
 fn format_russian_groups_with_no_break_space() {
     assert_that!(fmt(Some("ru"), 12345.5)).is_equal_to(format!("12{NBSP}345,5"));
-    assert_that!(fmt(Some("pl_PL"), 100000.0)).is_equal_to(format!("100{NBSP}000"));
+    assert_that!(fmt(Some("pl_PL"), 100_000.0)).is_equal_to(format!("100{NBSP}000"));
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn numeric_texts_collects_numbers_and_name_value_texts() {
 fn numeric_texts_ignores_row_and_column_ids() {
     let texts = numeric_texts(&option(serde_json::json!({
         "dataset": {
-            "source": [["Mois", "Ventes"], ["Jan", 12345678]],
+            "source": [["Mois", "Ventes"], ["Jan", 12_345_678]],
             "ids": ["00000000", "12345678"],
             "columns": ["87654321", "11223344"]
         },

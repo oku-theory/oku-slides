@@ -1,4 +1,5 @@
 //! L'op `set_grid` et la grille résolue par le registre.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

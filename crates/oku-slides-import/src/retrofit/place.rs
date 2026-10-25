@@ -59,12 +59,11 @@ pub(crate) fn flow_order<'u, 'a>(units: &'u [Unit<'a>], shape: &Shape, stack: bo
             continue;
         }
         if stack && shape.row.contains(&k) {
-            match row_at {
-                Some(at) => blocks[at].push(u),
-                None => {
-                    row_at = Some(blocks.len());
-                    blocks.push(vec![u]);
-                }
+            if let Some(at) = row_at {
+                blocks[at].push(u);
+            } else {
+                row_at = Some(blocks.len());
+                blocks.push(vec![u]);
             }
         } else {
             blocks.push(vec![u]);
@@ -212,7 +211,7 @@ pub(crate) fn arrange<'a>(placement: Placement, slide: &Slide, a: &Arrange<'_, '
     let grid = slide.resolved_grid(a.registry);
     let zone = body_zone(a.page, slide.params.text("title").is_some());
     let gap = grid_gap(&grid, a.page);
-    let fit = Fit::new(a.units.iter().map(|u| u.frame()).collect::<Vec<_>>().iter(), a.scale, &zone);
+    let fit = Fit::new(a.units.iter().map(super::cluster::Unit::frame).collect::<Vec<_>>().iter(), a.scale, &zone);
     let content_cx = ContentCx { track: track(&zone, &grid, gap, fit.scale), ..a.content };
     let blocks: Vec<Vec<&Unit<'a>>> = match placement {
         Placement::Flow => flow_order(a.units, a.shape, a.stack),

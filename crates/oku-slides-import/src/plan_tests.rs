@@ -86,7 +86,7 @@ fn plan_with(part: &str) -> (ImportPlan, u64) {
                 index: None,
                 defaults: false,
                 slide: Slide::new("s1", oku_slides_core::kinds::essentiel::CONTENT),
-            }]
+            }];
         }
         "pack" => plan.pack = Some(files()),
         _ => unreachable!("partie inconnue"),

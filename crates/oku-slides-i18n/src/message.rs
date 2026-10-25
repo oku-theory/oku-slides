@@ -14,14 +14,31 @@ pub struct Message {
 /// Paramètre d'un [`Message`] : texte ou nombre.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Arg {
+    /// Text inserted into the message as is.
     Text(String),
+    /// Number, which Fluent formats and agrees according to the language.
     Number(f64),
 }
 
-macro_rules! number_arg {
-    ($($t:ty),*) => { $( impl From<$t> for Arg { fn from(n: $t) -> Self { Arg::Number(n as f64) } } )* };
+/// Numbers that `f64` represents exactly: lossless conversion.
+macro_rules! number_arg_exact {
+    ($($t:ty),*) => { $( impl From<$t> for Arg { fn from(n: $t) -> Self { Arg::Number(f64::from(n)) } } )* };
 }
-number_arg!(usize, u64, u32, i64, i32, f32, f64);
+number_arg_exact!(u32, i32, f32, f64);
+
+/// 64-bit integers, which have no `From` into `f64`.
+///
+/// Only numbers beyond 2^53 are rounded.
+macro_rules! number_arg_rounded {
+    ($($t:ty),*) => { $( impl From<$t> for Arg {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a displayed count never reaches 2^53, and Fluent only formats f64"
+        )]
+        fn from(n: $t) -> Self { Arg::Number(n as f64) }
+    } )* };
+}
+number_arg_rounded!(usize, u64, i64);
 
 impl From<String> for Arg {
     fn from(s: String) -> Self {
@@ -36,16 +53,21 @@ impl From<&str> for Arg {
 }
 
 impl Message {
+    /// Creates a message without parameters, from its Fluent identifier.
+    #[must_use]
     pub fn new(id: &'static str) -> Self {
         Self { id, args: Vec::new() }
     }
 
     /// Ajoute un paramètre.
+    #[must_use]
     pub fn arg(mut self, name: &'static str, value: impl Into<Arg>) -> Self {
         self.args.push((name, value.into()));
         self
     }
 
+    /// Fluent identifier of the message, useful to test without depending on the text.
+    #[must_use]
     pub fn id(&self) -> &'static str {
         self.id
     }

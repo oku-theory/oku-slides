@@ -314,7 +314,7 @@ async fn handle(State(shared): State<Arc<Shared>>, req: Request) -> Response {
 /// sortie 0).
 pub fn serve(
     out: &mut Out<'_>,
-    input: Option<PathBuf>,
+    input: Option<&Path>,
     port: Option<u16>,
     ui: &Path,
     fonts: Fonts,
@@ -322,7 +322,7 @@ pub fn serve(
 ) -> Result<()> {
     // Le fichier donné s'ouvre dans le premier onglet, `t-1`. L'espace de
     // travail est partagé par le serveur et l'agent (`Sessions`).
-    let workspace = Arc::new(Mutex::new(Workspace::new(fonts, platform, input.as_deref())?));
+    let workspace = Arc::new(Mutex::new(Workspace::new(fonts, platform, input)?));
     let settings = &platform.settings;
     let (host, port) = (settings.serve.host.as_str(), port.unwrap_or(settings.serve.port));
     // Le serveur, les outils MCP et l'agent : un seul runtime tokio.

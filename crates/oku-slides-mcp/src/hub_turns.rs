@@ -21,11 +21,12 @@ enum Admit {
 pub const STATIC_PER_TURN: usize = 8;
 
 impl SurfaceHub {
-    /// Ouvre un tour dans le fil ; ferme les plus anciens tours du fil au-delà de `KEPT_TURNS`.
+    /// Opens a turn in the thread.
     ///
-    /// Une seule éviction fait foi, celle-ci (tours relus compris). Celle du réducteur des
-    /// tours de l'agent (`TurnOut::Evict`) rappelle encore `close_turn` sur un tour déjà
-    /// évincé ici : redondant, mais sans effet (`close_turn` est idempotent).
+    /// It closes the oldest turns of the thread beyond `KEPT_TURNS`. Only this
+    /// eviction counts (read-back turns included). The one of the agent's turn
+    /// reducer (`TurnOut::Evict`) still calls `close_turn` on a turn already
+    /// evicted here: redundant, but harmless (`close_turn` is idempotent).
     pub fn begin_turn(&self) -> u32 {
         let (n, old) = {
             let mut state = self.state();

@@ -21,7 +21,7 @@ fn chart(placement: Value) -> Value {
     c
 }
 
-fn deck(slide: Value) -> Deck {
+fn deck(slide: &Value) -> Deck {
     serde_json::from_value(json!({ "slides": [slide] })).unwrap_or_else(|e| panic!("{e}"))
 }
 
@@ -52,17 +52,19 @@ fn assert_drawn_at_box_size(deck: &Deck) {
 #[test]
 fn chart_on_a_wide_grid_cell_is_drawn_at_the_cell_size() {
     let cell = chart(json!({ "cell": { "col": 0, "row": 4, "cols": 9, "rows": 2 } }));
-    assert_drawn_at_box_size(&deck(json!({ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [cell] } })));
+    assert_drawn_at_box_size(&deck(&json!({ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [cell] } })));
 }
 
 #[test]
 fn chart_in_the_flow_is_drawn_at_its_box_size() {
     let blocks = [json!({ "id": "t", "kind": base::TEXT, "params": { "body": "Un point" } }), chart(json!({}))];
-    assert_drawn_at_box_size(&deck(json!({ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": blocks } })));
+    assert_drawn_at_box_size(&deck(&json!({ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": blocks } })));
 }
 
 #[test]
 fn chart_in_a_frame_is_drawn_at_the_frame_size() {
     let framed = chart(json!({ "frame": { "x": 0, "y": 0, "w": 500, "h": 200 } }));
-    assert_drawn_at_box_size(&deck(json!({ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [framed] } })));
+    assert_drawn_at_box_size(&deck(
+        &json!({ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [framed] } }),
+    ));
 }

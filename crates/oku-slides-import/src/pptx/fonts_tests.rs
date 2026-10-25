@@ -76,7 +76,7 @@ fn deobfuscate_uses_the_reversed_guid_bytes_as_key() {
     let mut data = sfnt();
     assert_that!(deobfuscate(&mut data, GUID_PART)).is_true();
     // octets 0..4 : 00 01 00 00 ⊕ F6 E5 D4 C3 ; octet 16 (= 12) ⊕ F6 (la clé recommence).
-    assert_that!((data[..4].to_vec(), data[16])).is_equal_to((vec![0xF6, 0xE4, 0xD4, 0xC3], 12 ^ 0xF6));
+    assert_that!((data[..4].to_vec(), data[16])).is_equal_to((vec![0xF6, 0xE4, 0xD4, 0xC3], 0x0C ^ 0xF6));
 }
 
 #[test]

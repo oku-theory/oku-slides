@@ -1,3 +1,5 @@
+//! Merging two copies of a deck: `merge_file`, and saving over a changed file.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 use oku_slides_session::{Request, Saved};
 use serde_json::json;
 use speculoos::prelude::*;

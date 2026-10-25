@@ -25,6 +25,7 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
 `listen_loop` (lib.rs): microphone (`audio.rs`) -> 16 kHz -> earshot (`vad.rs`,
 automatic stop) -> `Sink`: Whisper jobs, or the `Stream` of a continuous engine
 whose events `dictation_stream.rs` applies (`results.rs`).
+Lossy numeric casts (sample counts, seconds, positions) live in `num.rs` (named like `oku_slides_core::num`), each with its reason.
 
 In automatic-language mode the API engine sends no language hint: its answer
 carries no language, so `detected` stays empty.

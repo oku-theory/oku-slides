@@ -98,7 +98,9 @@ async fn tool_server_mute_connection_closed_after_header_timeout() {
     let since = Instant::now();
     let read = read_until_closed(&mut mute, Duration::from_secs(5)).await;
     assert_that!(read.is_some_and(|r| !r.contains("HTTP/1.1 2"))).named("fermée sans réponse").is_true();
-    assert_that!(since.elapsed() >= HEADER_TIMEOUT - Duration::from_millis(50)).named("pas avant le délai").is_true();
+    assert_that!(since.elapsed() >= HEADER_TIMEOUT.checked_sub(Duration::from_millis(50)).unwrap())
+        .named("pas avant le délai")
+        .is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -152,8 +154,7 @@ async fn tool_server_open_event_stream_closed_within_grace_after_cancel() {
     let session = head
         .lines()
         .find_map(|l| l.strip_prefix("mcp-session-id:"))
-        .map(str::trim)
-        .unwrap_or_else(|| panic!("pas de session dans {head}"))
+        .map_or_else(|| panic!("pas de session dans {head}"), str::trim)
         .to_owned();
     drop(init);
 

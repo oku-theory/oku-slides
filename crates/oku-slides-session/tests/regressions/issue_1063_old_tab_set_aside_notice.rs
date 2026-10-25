@@ -18,7 +18,7 @@ fn platform(data: &Path) -> Platform {
 }
 
 fn resumed(data: &Path) -> Mutex<Workspace> {
-    let ws = Workspace::resume(Fonts::default(), &platform(data), data.join("resume"))
+    let ws = Workspace::resume(Fonts::default(), &platform(data), &data.join("resume"))
         .unwrap_or_else(|e| panic!("reprise : {}", e.one_line()));
     Mutex::new(ws)
 }

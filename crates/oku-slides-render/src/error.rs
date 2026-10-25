@@ -21,6 +21,7 @@ pub enum RenderErrorKind {
     Compile,
     /// L'export PDF a échoué.
     Pdf,
+    /// The requested page does not exist in the document.
     NoPage,
     /// Le monde Typst n'a pas pu être préparé.
     Setup,
@@ -46,6 +47,7 @@ pub enum RenderErrorKind {
 impl RenderErrorKind {
     /// Un échec du processus de rendu (délai, mémoire, arrêt, pack écarté) :
     /// la session se replie sur les widgets de base.
+    #[must_use]
     pub fn is_bounded(self) -> bool {
         matches!(self, Self::Timeout | Self::OutOfMemory | Self::WorkerLost | Self::PackDisabled)
     }
@@ -89,6 +91,7 @@ pub(crate) enum RenderInner {
 }
 
 impl RenderError {
+    /// Kind of error, to choose the fallback or the message.
     pub fn kind(&self) -> RenderErrorKind {
         match self.0 {
             RenderInner::Compile { .. } => RenderErrorKind::Compile,
@@ -110,11 +113,13 @@ impl RenderError {
     }
 
     /// Le rendu a dépassé son délai.
+    #[must_use]
     pub fn timeout(ms: u64) -> Self {
         TimeoutSnafu { ms }.build().into()
     }
 
     /// Le processus de rendu a dépassé sa mémoire.
+    #[must_use]
     pub fn out_of_memory(mib: u64) -> Self {
         OutOfMemorySnafu { mib }.build().into()
     }
@@ -131,11 +136,13 @@ impl RenderError {
 
     /// Le SVG d'une page dépasse sa borne (`mib` Mio) : trop grande pour
     /// l'aperçu, elle s'exporte encore en PDF ou en PNG.
+    #[must_use]
     pub fn page_too_large(mib: u64) -> Self {
         PageTooLargeSnafu { mib }.build().into()
     }
 
     /// Le rendu demandé a été remplacé.
+    #[must_use]
     pub fn stale() -> Self {
         StaleSnafu.build().into()
     }
@@ -147,6 +154,7 @@ impl RenderError {
 
     /// Le processus de rendu parle le protocole `found` (`None` : il ne le dit
     /// pas), quand l'hôte attend `expected`.
+    #[must_use]
     pub fn protocol(expected: u32, found: Option<u32>) -> Self {
         let found = found.map_or_else(|| "unknown".to_owned(), |v| v.to_string());
         ProtocolSnafu { expected, found }.build().into()
@@ -217,6 +225,7 @@ pub enum RegistryErrorKind {
     Missing,
     /// Un widget est mal déclaré ou remplace mal un widget de base.
     Schema,
+    /// The probe could not start or failed in the render process.
     Setup,
     /// Un pack intégré est illisible (binaire abîmé).
     BuiltinPack,
@@ -246,6 +255,7 @@ pub(crate) enum RegistryInner {
 }
 
 impl RegistryError {
+    /// Kind of error, to choose the fallback or the message.
     pub fn kind(&self) -> RegistryErrorKind {
         match self.0 {
             RegistryInner::BadPackId { .. } => RegistryErrorKind::BadPackId,

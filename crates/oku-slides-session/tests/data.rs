@@ -1,5 +1,6 @@
 //! Données d'un graphique ou d'un tableau au dock : la surface `host-data` (`data_panel`)
 //! et ses modifications (`data_edit`).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
 mod common;
@@ -18,15 +19,18 @@ fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
 fn with_element(s: &mut Session, element: Value) -> String {
     ok(s.new_deck());
     let slide = s.snapshot().slides[1].id.to_string();
-    ok(s.handle(req(json!({ "cmd": "apply", "label": "ajout", "ops": [{
-        "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" }, "element": element }] }))));
+    let mut add = json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" } });
+    add["element"] = element;
+    ok(s.handle(req(json!({ "cmd": "apply", "label": "ajout", "ops": [add] }))));
     slide
 }
 
 fn chart(series: Value) -> Value {
-    json!({ "id": "g", "kind": kinds::base::CHART, "params": { "option": {
+    let mut element = json!({ "id": "g", "kind": kinds::base::CHART, "params": { "option": {
         "dataset": { "source": [["M", "A", "B"], ["x", 1, 2], ["y", 3, 4]] },
-        "xAxis": { "type": "category" }, "series": series } } })
+        "xAxis": { "type": "category" } } } });
+    element["params"]["option"]["series"] = series;
+    element
 }
 
 fn two_bars() -> Value {
@@ -128,7 +132,9 @@ fn data_panel_missing_element_is_null() {
 }
 
 fn edit(s: &mut Session, slide: &str, edit: Value) -> Result<String, oku_slides_session::SessionError> {
-    s.handle(req(json!({ "cmd": "data_edit", "slide": slide, "element": "g", "edit": edit })))
+    let mut request = json!({ "cmd": "data_edit", "slide": slide, "element": "g" });
+    request["edit"] = edit;
+    s.handle(req(request))
 }
 
 /// Le paramètre de données de `g` (`option` d'un graphique, `data` d'un tableau).
@@ -136,7 +142,7 @@ fn param(s: &mut Session, slide: &str, name: &str) -> Value {
     let text = ok(s.handle(req(json!({ "cmd": "slide", "id": slide }))));
     let json: Value = ok(serde_json::from_str(&text));
     let blocks = json["slide"]["params"]["blocks"].as_array().cloned().unwrap_or_default();
-    blocks.into_iter().find(|b| b["id"] == "g").map(|g| g["params"][name].clone()).unwrap_or(Value::Null)
+    blocks.into_iter().find(|b| b["id"] == "g").map_or(Value::Null, |g| g["params"][name].clone())
 }
 
 fn undo_label(s: &mut Session) -> Value {

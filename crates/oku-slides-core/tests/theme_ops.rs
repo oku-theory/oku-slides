@@ -1,4 +1,5 @@
 //! `set_theme` : le thème du deck et la fermeture de ses `extends` (t-1095).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

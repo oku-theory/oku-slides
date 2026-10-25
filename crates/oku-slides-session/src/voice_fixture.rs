@@ -3,6 +3,7 @@
 use crate::voice_view::{AgentPresetView, AgentsView, ApiView, DictationView, ModelKind, ModelView, VoiceView};
 
 /// La vue de référence : Turbo installé, Large à télécharger, Base indisponible, API sans clé.
+#[must_use]
 pub fn voice_view_fixture() -> VoiceView {
     let model =
         |id: &str, kind, size, installed, available| ModelView { id: id.into(), kind, size, installed, available };

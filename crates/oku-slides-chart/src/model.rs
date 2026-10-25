@@ -7,28 +7,44 @@
 use crate::data_ops::validate_ids;
 use crate::error::{ChartError, InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::labels::ChartLabels;
-use crate::option::*;
+use crate::option::{
+    AxisType, Cell, ChartOption, ColumnRef, DataItem, Dataset, HAlign, ItemValue, Length, NamedItem, Radius, RoseType,
+    Series, SeriesType,
+};
 use oku_slides_i18n::Message;
 use snafu::ResultExt;
 
+/// Resolved chart, ready for an engine: data read, ECharts defaults applied.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartModel {
+    /// Title; empty if there is none.
     pub title: String,
+    /// Subtitle; empty if there is none.
     pub subtitle: String,
+    /// Alignment of the title and subtitle (centered by default).
     pub title_align: HAlign,
+    /// Legend shown: as requested, otherwise everywhere except pie and waterfall.
     pub legend_show: bool,
+    /// Alignment of the legend (centered by default).
     pub legend_align: HAlign,
+    /// Shape of the chart and its data.
     pub kind: ChartKind,
     /// Palette des séries ; `None` = celle du thème.
     pub palette: Option<Vec<String>>,
 }
 
+/// Shape of a resolved chart, with its data.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChartKind {
+    /// Bars and lines on a category axis.
     Cartesian(Cartesian),
+    /// Pie, donut or rose.
     Pie(Pie),
+    /// Scatter plot.
     Scatter(Scatter),
+    /// Radar.
     Radar(RadarModel),
+    /// Waterfall.
     Waterfall(Waterfall),
 }
 
@@ -123,15 +139,25 @@ pub struct RadarSeries {
     pub values: Vec<Option<f64>>,
 }
 
-/// Parse et valide des options brutes (JSON produit par le LLM).
+/// Parses and validates raw options (JSON produced by the LLM).
+///
+/// # Errors
+///
+/// Fails if the JSON leaves the v1 subset or if the options are inconsistent.
 pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
     let option: ChartOption = serde_json::from_value(json.clone()).context(InvalidOptionSnafu)?;
     normalize(&option, ChartLabels::english())?;
     Ok(option)
 }
 
-/// Résout les options en modèle. Oku Slidesue si les options sont incohérentes.
-/// `labels` nomme les séries qui n'ont pas de nom.
+/// Resolves the options into a model.
+///
+/// `labels` names the series that have no name.
+///
+/// # Errors
+///
+/// Fails if the options are inconsistent: no series, mixed series
+/// types, column not found, invalid color, invalid `dataset` identifiers…
 pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartModel> {
     let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;
     check_colors(option)?;
@@ -241,21 +267,17 @@ fn is_horizontal(option: &ChartOption) -> bool {
 
 /// Libellé et valeurs de la colonne des catégories : celle de la première
 /// série dans `dataset` (0 par défaut), sinon `data` de l'axe des catégories.
-fn categories(option: &ChartOption, table: Option<&Table>, horizontal: bool) -> Result<(String, Vec<String>)> {
-    match table {
-        Some(t) => {
-            let cat_ref =
-                option.series[0].encode.as_ref().and_then(|e| if horizontal { e.y.as_ref() } else { e.x.as_ref() });
-            let cat_col = t.resolve(cat_ref, 0)?;
-            Ok((t.headers[cat_col].clone(), t.labels(cat_col)))
-        }
-        None => {
-            let cat_axis = if horizontal { option.y_axis.as_ref() } else { option.x_axis.as_ref() };
-            let cats = cat_axis
-                .and_then(|a| a.data.clone())
-                .ok_or_else(|| inconsistent(Message::new("chart-category-data")))?;
-            Ok((String::new(), cats))
-        }
+fn categories(option: &ChartOption, table: Option<&Table<'_>>, horizontal: bool) -> Result<(String, Vec<String>)> {
+    if let Some(t) = table {
+        let cat_ref =
+            option.series[0].encode.as_ref().and_then(|e| if horizontal { e.y.as_ref() } else { e.x.as_ref() });
+        let cat_col = t.resolve(cat_ref, 0)?;
+        Ok((t.headers[cat_col].clone(), t.labels(cat_col)))
+    } else {
+        let cat_axis = if horizontal { option.y_axis.as_ref() } else { option.x_axis.as_ref() };
+        let cats =
+            cat_axis.and_then(|a| a.data.clone()).ok_or_else(|| inconsistent(Message::new("chart-category-data")))?;
+        Ok((String::new(), cats))
     }
 }
 
@@ -264,7 +286,7 @@ fn categories(option: &ChartOption, table: Option<&Table>, horizontal: bool) -> 
 fn series_values(
     s: &Series,
     i: usize,
-    table: Option<&Table>,
+    table: Option<&Table<'_>>,
     horizontal: bool,
     labels: &ChartLabels,
 ) -> Result<(String, Vec<Option<f64>>)> {
@@ -273,9 +295,8 @@ fn series_values(
             let values = data
                 .iter()
                 .map(|d| match d {
-                    DataItem::Value(v) => Ok(Some(*v)),
+                    DataItem::Value(v) | DataItem::Named(NamedItem { value: ItemValue::Number(v), .. }) => Ok(Some(*v)),
                     DataItem::Null => Ok(None),
-                    DataItem::Named(NamedItem { value: ItemValue::Number(v), .. }) => Ok(Some(*v)),
                     _ => Err(inconsistent(Message::new("chart-series-numbers").arg("index", i))),
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -290,7 +311,7 @@ fn series_values(
     }
 }
 
-fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Cartesian> {
+fn cartesian(option: &ChartOption, table: Option<&Table<'_>>, labels: &ChartLabels) -> Result<Cartesian> {
     let horizontal = is_horizontal(option);
     let val_axis = if horizontal { option.x_axis.as_ref() } else { option.y_axis.as_ref() };
     let (category_label, categories) = categories(option, table, horizontal)?;
@@ -333,11 +354,10 @@ fn cartesian(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) 
 /// Cascade : toujours verticale, une seule série lue dans `dataset` ; la
 /// colonne qui suit les valeurs, si elle existe, coche les totaux. Les
 /// valeurs s'affichent sauf `label.show: false`.
-fn waterfall(option: &ChartOption, table: Option<&Table>) -> Result<Waterfall> {
+fn waterfall(option: &ChartOption, table: Option<&Table<'_>>) -> Result<Waterfall> {
     let s = single(option, "cascade")?;
-    let t = match (table, &s.data) {
-        (Some(t), None) => t,
-        _ => return Err(inconsistent(Message::new("chart-waterfall-dataset"))),
+    let (Some(t), None) = (table, &s.data) else {
+        return Err(inconsistent(Message::new("chart-waterfall-dataset")));
     };
     let (category_label, categories) = categories(option, table, false)?;
     let col = t.resolve(s.encode.as_ref().and_then(|e| e.y.as_ref()), 1)?;
@@ -367,7 +387,7 @@ fn single<'a>(option: &'a ChartOption, what: &str) -> Result<&'a Series> {
     }
 }
 
-fn pie(option: &ChartOption, table: Option<&Table>) -> Result<Pie> {
+fn pie(option: &ChartOption, table: Option<&Table<'_>>) -> Result<Pie> {
     let s = single(option, "camembert")?;
     let (name_label, slices, default_name) = match (table, &s.data) {
         (_, Some(data)) => {
@@ -405,7 +425,7 @@ fn pie(option: &ChartOption, table: Option<&Table>) -> Result<Pie> {
     })
 }
 
-fn scatter(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) -> Result<Scatter> {
+fn scatter(option: &ChartOption, table: Option<&Table<'_>>, labels: &ChartLabels) -> Result<Scatter> {
     let mut series = Vec::new();
     for (i, s) in option.series.iter().enumerate() {
         if s.kind != SeriesType::Scatter {
@@ -445,9 +465,9 @@ fn scatter(option: &ChartOption, table: Option<&Table>, labels: &ChartLabels) ->
     })
 }
 
-fn radar(option: &ChartOption, table: Option<&Table>) -> Result<RadarModel> {
+fn radar(option: &ChartOption, table: Option<&Table<'_>>) -> Result<RadarModel> {
     let s = single(option, "radar")?;
-    let declared = option.radar.as_ref().map(|r| r.indicator.as_slice()).unwrap_or(&[]);
+    let declared = option.radar.as_ref().map_or(&[][..], |r| r.indicator.as_slice());
 
     let (indicator_label, names, series) = match (table, &s.data) {
         (_, Some(data)) => {

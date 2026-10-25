@@ -28,8 +28,8 @@ fn legacy_files() -> PackFiles {
         created: "2026-10-01T00:00:00Z".into(),
         scope: PackScope::Library,
         profiles: Vec::new(),
-        examples: Default::default(),
-        styles: Default::default(),
+        examples: BTreeMap::default(),
+        styles: BTreeMap::default(),
         tokens: Vec::new(),
     };
     m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))

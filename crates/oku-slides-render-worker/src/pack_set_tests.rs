@@ -48,7 +48,7 @@ fn deck_with(namespaces: &[&str]) -> oku_slides_core::Deck {
         .iter()
         .map(|n| serde_json::json!({ "id": format!("e-{n}"), "kind": format!("{n}/quote"), "params": { "body": "x" } }))
         .collect();
-    deck_of(serde_json::json!({ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": blocks } }))
+    deck_of(&serde_json::json!({ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": blocks } }))
 }
 
 #[test]

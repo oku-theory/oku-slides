@@ -1,4 +1,5 @@
 //! Les outils des widgets du pack, en mode deck et en mode pack.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

@@ -1,3 +1,5 @@
+//! Fake agent turns: thread, tools, end, errors and fallback receipts.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use common::*;
@@ -164,7 +166,8 @@ async fn crash_mid_turn_reports_stopped_and_closes_group() {
     assert_that!(message.as_str()).is_equal_to("L'agent s'est arrêté.");
     let mut s = t.session.lock().unwrap();
     // Le thème sans épinglages est complété depuis la bibliothèque, par une lecture bloquante.
-    let op = oku_slides_core::Op::SetTheme { theme: theme_ref("papier"), themes: Default::default() };
+    let op =
+        oku_slides_core::Op::SetTheme { theme: theme_ref("papier"), themes: std::collections::BTreeMap::default() };
     tokio::task::block_in_place(|| s.apply("Après", vec![op], None)).unwrap();
     assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Après"));
 }

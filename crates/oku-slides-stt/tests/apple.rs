@@ -1,5 +1,6 @@
 //! Le moteur d'Apple pour de vrai (macOS 26, français installé) : `just test-apple`.
 #![cfg(target_os = "macos")]
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::time::{Duration, Instant};
 

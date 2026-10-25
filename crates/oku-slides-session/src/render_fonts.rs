@@ -39,7 +39,7 @@ impl Session {
     pub(crate) fn open_deck_renderer(&mut self) -> Result<()> {
         if self.renderer.is_none() {
             let set = self.usable_packs()?;
-            let slot = new_renderer(&self.worker, self.render_fonts.clone(), &self.localizer, &set, &self.registry)?;
+            let slot = new_renderer(&self.worker, &self.render_fonts, &self.localizer, &set, &self.registry)?;
             self.renderer = Some(slot);
         }
         Ok(())
@@ -68,7 +68,7 @@ impl Session {
         registry: &Arc<WidgetRegistry>,
     ) -> Result<FontsRenderer> {
         let render_fonts = self.app_fonts.with(fonts.values().cloned());
-        let renderer = new_renderer(&self.worker, render_fonts.clone(), &self.localizer, set, registry)?;
+        let renderer = new_renderer(&self.worker, &render_fonts, &self.localizer, set, registry)?;
         Ok(FontsRenderer { fonts: render_fonts, renderer, deck_fonts: fonts.len() })
     }
 

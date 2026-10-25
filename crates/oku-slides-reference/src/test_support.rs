@@ -4,6 +4,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 /// Un PDF de `pages` pages blanches de `w` × `h` pt.
+#[must_use]
 pub fn blank_pdf(pages: usize, w: u32, h: u32) -> Vec<u8> {
     let mut objects = vec![
         "<< /Type /Catalog /Pages 2 0 R >>".to_owned(),
@@ -28,9 +29,16 @@ pub fn blank_pdf(pages: usize, w: u32, h: u32) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// Écrit dans `dir` un faux `soffice` exécutable dont le corps est `body`
-/// (shell), après la réponse à `--version` (`LibreOffice 99.1.0.1`) ; rend son chemin.
+/// Writes a fake executable `soffice` into `dir` and returns its path.
+///
+/// On `--version` it prints `LibreOffice 99.1.0.1 abcdef` and exits; any other call runs `body` (shell).
+///
+/// # Panics
+///
+/// Panics if the script cannot be written to `dir` or made executable.
 #[cfg(unix)]
+#[must_use]
+#[expect(clippy::panic, reason = "test tool: a fake soffice that cannot be written must stop the test")]
 pub fn fake_soffice(dir: &Path, body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
     let path = dir.join("soffice");
@@ -46,6 +54,7 @@ pub fn fake_soffice(dir: &Path, body: &str) -> PathBuf {
 /// Corps d'un faux `soffice` qui convertit : il copie `pdf` où LibreOffice
 /// écrirait le sien et, avec `log`, y note ses arguments (`args`) et les
 /// polices du profil (`fonts`).
+#[must_use]
 pub fn converting(pdf: &Path, log: Option<&Path>) -> String {
     let notes = log.map_or(String::new(), |log| {
         format!(

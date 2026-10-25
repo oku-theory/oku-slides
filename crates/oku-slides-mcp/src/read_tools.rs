@@ -11,17 +11,17 @@ use snafu::ResultExt;
 use crate::tool_error::{ResponseSnafu, ToolError};
 use crate::tools::{SlideId, Tools, png, text};
 
-/// Le thème lu par `theme_tokens`.
+/// The theme read by `theme_tokens`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ThemeArgs {
-    /// Espace de noms du thème (voir `deck_outline`) ; son id ou son nom sont aussi compris.
+    /// Namespace of the theme (see `deck_outline`); its id or its name are understood too.
     pub theme: String,
 }
 
-/// La sorte des packs lus par `packs`.
+/// The kind of packs read by `packs`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PacksArgs {
-    /// `widgets` (éléments) ou `layouts` (slides) ; absent : les deux, widgets d'abord.
+    /// `widgets` (elements) or `layouts` (slides); absent: both, widgets first.
     #[serde(default)]
     pub kind: Option<PackKind>,
 }
@@ -36,7 +36,7 @@ impl Tools {
                     .slides
                     .iter()
                     .map(|sl| {
-                        let elements = deck.slide(sl.id).map(|sl| sl.element_ids().count()).unwrap_or(0);
+                        let elements = deck.slide(sl.id).map_or(0, |sl| sl.element_ids().count());
                         json!({
                             "id": sl.id,
                             "kind": sl.kind,

@@ -63,7 +63,10 @@ pub(crate) enum TuneInner {
 impl TuneError {
     /// Nature du refus.
     pub fn kind(&self) -> TuneErrorKind {
-        use TuneInner::*;
+        use TuneInner::{
+            Compare, HifiOnly, NoImport, NoReference, ReferencePending, TriesUsed, UnknownRegion, UnknownSlide,
+            Untunable,
+        };
         match self.0 {
             NoImport { .. } => TuneErrorKind::NoImport,
             HifiOnly { .. } => TuneErrorKind::HifiOnly,
@@ -80,7 +83,10 @@ impl TuneError {
 
 impl Localize for TuneError {
     fn localize(&self, l: &Localizer) -> String {
-        use TuneInner::*;
+        use TuneInner::{
+            Compare, HifiOnly, NoImport, NoReference, ReferencePending, TriesUsed, UnknownRegion, UnknownSlide,
+            Untunable,
+        };
         match &self.0 {
             NoImport { .. } => l.tr("session-import-tune-none"),
             HifiOnly { .. } => l.tr("session-import-tune-hifi-only"),

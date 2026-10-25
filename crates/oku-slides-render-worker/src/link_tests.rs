@@ -149,9 +149,9 @@ fn frame_failure_of_dead_worker_is_worker_lost_and_bad_frame_is_frame() {
     use crate::error::{IoSnafu, TooLargeSnafu, TruncatedSnafu};
     let io = Err::<(), _>(std::io::Error::other("rompu")).context(IoSnafu).unwrap_err();
     let pdf = Request::Pdf { slot: 1, generation: 1 };
-    assert_that!(frame_failure(io, &pdf).kind()).is_equal_to(RenderErrorKind::WorkerLost);
-    assert_that!(frame_failure(TruncatedSnafu.build(), &pdf).kind()).is_equal_to(RenderErrorKind::WorkerLost);
-    assert_that!(frame_failure(TooLargeSnafu { len: 2usize, max: 1usize, payload: true }.build(), &pdf).kind())
+    assert_that!(frame_failure(&io, &pdf).kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    assert_that!(frame_failure(&TruncatedSnafu.build(), &pdf).kind()).is_equal_to(RenderErrorKind::WorkerLost);
+    assert_that!(frame_failure(&TooLargeSnafu { len: 2usize, max: 1usize, payload: true }.build(), &pdf).kind())
         .is_equal_to(RenderErrorKind::Frame);
 }
 
@@ -200,11 +200,11 @@ fn svg_payload_over_its_limit_says_the_slide_is_too_large_to_preview() {
     let l = Localizer::new(Some("en"));
     let svg = Request::Svg { slot: 1, generation: 1, page: 0 };
     let too_large = |payload| TooLargeSnafu { len: 300usize << 20, max: 128usize << 20, payload }.build();
-    let e = frame_failure(too_large(true), &svg);
+    let e = frame_failure(&too_large(true), &svg);
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::Frame);
     assert_that!(e.localize(&l)).is_equal_to(l.tr_with("render-page-too-large", &[("mib", 128u64.into())]));
     // Un en-tête trop grand reste un message illisible.
-    assert_that!(frame_failure(too_large(false), &svg).localize(&l)).is_equal_to(l.tr("render-frame"));
+    assert_that!(frame_failure(&too_large(false), &svg).localize(&l)).is_equal_to(l.tr("render-frame"));
 }
 
 #[test]
@@ -271,7 +271,7 @@ fn worker_command_with_sandbox_runs_sandbox_exec_with_the_work_dir() {
     let sandbox = crate::sandbox::Sandbox::new(Path::new("/bin/bash"), None).unwrap();
     let cmd = worker_command(Path::new("/bin/bash"), &settings(30_000), Some(&sandbox));
     assert_that!(cmd.get_program().to_owned()).is_equal_to(std::ffi::OsString::from("/usr/bin/sandbox-exec"));
-    let args: Vec<_> = cmd.get_args().map(|a| a.to_owned()).collect();
+    let args: Vec<_> = cmd.get_args().map(std::borrow::ToOwned::to_owned).collect();
     let i = args.iter().position(|a| a == "--work-dir").unwrap();
     assert_that!(std::path::PathBuf::from(&args[i + 1])).is_equal_to(sandbox.work().to_owned());
 }

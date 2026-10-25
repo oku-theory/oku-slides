@@ -17,7 +17,7 @@ use crate::common::{theme_pins, theme_tokens};
 
 /// Encre de la carte mise en avant du thème Pro, lue dans ses jetons.
 fn ink() -> String {
-    let tokens = theme_tokens(Some("pro")).unwrap_or_else(|| panic!("Pro sans jetons"));
+    let tokens = theme_tokens(Some("pro"));
     let name = tokens["component"]["base"]["card"]["highlight-ink"].as_str().unwrap_or_else(|| panic!("highlight-ink"));
     let hex = tokens["color"][name].as_str().unwrap_or_else(|| panic!("couleur {name}"));
     hex.to_lowercase()
@@ -31,7 +31,7 @@ fn card_svg(highlight: bool) -> String {
         "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [card] } }] });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"));
     let mut r = crate::common::renderer();
-    r.set_theme(theme_tokens(Some("pro"))).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(theme_tokens(Some("pro")))).unwrap_or_else(|e| panic!("{e}"));
     let doc = r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     doc.svg(0).unwrap_or_else(|e| panic!("{e}")).to_lowercase()
 }

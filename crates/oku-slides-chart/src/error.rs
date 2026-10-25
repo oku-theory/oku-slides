@@ -44,6 +44,7 @@ pub(crate) enum ChartInner {
 }
 
 impl ChartError {
+    /// Kind of the error, to handle it without reading the message.
     pub fn kind(&self) -> ChartErrorKind {
         match self.0 {
             ChartInner::InvalidOption { .. } | ChartInner::InvalidPatch { .. } => ChartErrorKind::InvalidOption,
@@ -73,4 +74,5 @@ impl Localize for ChartError {
     }
 }
 
+/// Result of operations on charts and tables.
 pub type Result<T, E = ChartError> = std::result::Result<T, E>;

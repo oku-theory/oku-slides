@@ -1,3 +1,5 @@
+//! Deck ops applied by `apply_all`: elements, slides and tokens.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 #[path = "../common/mod.rs"]
 mod common;
 

@@ -181,7 +181,7 @@ fn own_background(src: &SourceSlide, layout: Option<&Layout>, drawn: bool, cx: &
     if *fill == Fill::None {
         return None;
     }
-    let geom = Geometry::Preset { name: "rect".to_owned(), adj: Default::default() };
+    let geom = Geometry::Preset { name: "rect".to_owned(), adj: std::collections::BTreeMap::default() };
     let shape = Shape { geom, fill: fill.clone(), stroke: None, text: None, connection: None };
     let frame: Frame = cx.elements.base.page.cover();
     Some(Item {

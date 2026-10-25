@@ -1,4 +1,5 @@
 //! Le widget exemple du README de `typst/oku-slides` : il est la fixture, et il se rend.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

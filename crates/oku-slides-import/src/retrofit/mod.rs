@@ -124,7 +124,7 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> Result<ImportP
         effects: &effects,
     };
     let mut report = ImportReport::new(Mode::Retrofit);
-    report.warnings = deck.warnings.clone();
+    report.warnings.clone_from(&deck.warnings);
     let mut plan = ImportPlan::new(report);
     let mut origins = BTreeMap::new();
     // Le cœur ne porte la langue qu'au deck : celle de la plus grande part du texte.

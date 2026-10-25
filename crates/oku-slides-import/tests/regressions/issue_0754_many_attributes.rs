@@ -1,6 +1,8 @@
 //! Régression (t-754) : roxmltree vérifie les attributs en double d'un élément en O(n²) ;
 //! un élément forgé à 50 000 attributs bloquait la lecture plusieurs secondes.
 
+use std::fmt::Write as _;
+
 use oku_slides_import::source::WarningKind;
 use oku_slides_import::{ImportErrorKind, ReadLimits, read_pptx};
 use speculoos::prelude::*;
@@ -9,7 +11,10 @@ use crate::common;
 
 /// Un élément `tag` vide portant `n` attributs distincts.
 fn crowded(tag: &str, n: usize) -> String {
-    let attrs: String = (0..n).map(|i| format!(" a{i}=\"\"")).collect();
+    let attrs = (0..n).fold(String::new(), |mut attrs, i| {
+        let _ = write!(attrs, " a{i}=\"\"");
+        attrs
+    });
     format!("<{tag}{attrs}/>")
 }
 

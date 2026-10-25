@@ -32,5 +32,5 @@ async fn apply_description_rich_example_is_accepted_by_set_param() {
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     let s = h.session.lock().unwrap();
     let located = s.deck().slide("s-libre").unwrap().locate("e-texte").unwrap();
-    assert_that!(located.element.params.rich("body").map(|ps| ps.len())).is_greater_than(Some(0));
+    assert_that!(located.element.params.rich("body").map(<[oku_slides_core::Paragraph]>::len)).is_greater_than(Some(0));
 }

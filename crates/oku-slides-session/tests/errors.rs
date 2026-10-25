@@ -1,5 +1,6 @@
 //! Chaque erreur de la session, provoquée pour de vrai, avec son message
 //! dans la langue de l'utilisateur.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use oku_slides_session::{
     Fonts, Localize, Localizer, Platform, Request, Session, SessionError, SessionErrorKind, Settings,

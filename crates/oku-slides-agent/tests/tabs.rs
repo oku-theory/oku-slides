@@ -1,4 +1,5 @@
 //! Plusieurs onglets sur un seul agent : une session ACP chacun, tours simultanés.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

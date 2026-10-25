@@ -18,13 +18,19 @@ pub enum WorkspaceRequest {
     /// Choisit la langue de l'interface (`None` : celle du système), gardée
     /// dans `config.toml` ; répond comme `Messages`. Les messages du cœur
     /// (erreurs, noms par défaut) suivent au prochain lancement.
-    SetLocale { locale: Option<String> },
+    SetLocale {
+        /// BCP 47 language code (`fr`, `en`…), or `None` for the system's.
+        locale: Option<String>,
+    },
     /// Schéma de l'interface choisi : `{ "scheme": "light" | "dark" | null }`
     /// (`null` : celui du système).
     Scheme,
     /// Choisit le schéma de l'interface (`None` ou inconnu : celui du
     /// système), gardé dans `config.toml` ; répond comme `Scheme`.
-    SetScheme { scheme: Option<String> },
+    SetScheme {
+        /// `light` or `dark`, or `None` for the system's.
+        scheme: Option<String>,
+    },
     /// Un onglet vierge, à la fin de `window`.
     NewTab {
         /// Label de la fenêtre.
@@ -204,6 +210,7 @@ pub enum WorkspaceOutcome {
 
 impl WorkspaceOutcome {
     /// La vue à jour, qu'elle ait changé ou non.
+    #[must_use]
     pub fn into_json(self) -> String {
         match self {
             Self::Applied(json) | Self::LastWindow(json) | Self::Tune { json, .. } => json,
@@ -211,6 +218,7 @@ impl WorkspaceOutcome {
     }
 
     /// L'onglet importé dont l'agent doit faire le fine-tuning, s'il y en a un.
+    #[must_use]
     pub fn tune_tab(&self) -> Option<&str> {
         match self {
             Self::Tune { tab, .. } => Some(tab),
@@ -219,6 +227,7 @@ impl WorkspaceOutcome {
     }
 
     /// La fenêtre visée était la seule de l'espace de travail : rien n'a été fermé.
+    #[must_use]
     pub fn is_last_window(&self) -> bool {
         matches!(self, Self::LastWindow(_))
     }

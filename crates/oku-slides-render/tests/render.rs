@@ -1,3 +1,5 @@
+//! End-to-end rendering: pages, boxes, recompilation, links, charts and themes.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
 use std::collections::BTreeMap;
@@ -76,7 +78,7 @@ fn compile_after_edit_or_theme_change_changes_only_affected_pages() {
     asserting("la slide modifiée doit changer").that(&after.page_hash(3).unwrap()).is_not_equal_to(h4);
     asserting("la couverture ne doit pas changer").that(&after.page_hash(0).unwrap()).is_equal_to(h1);
 
-    r.set_theme(common::theme_tokens(Some("pro"))).unwrap();
+    r.set_theme(Some(common::theme_tokens(Some("pro")))).unwrap();
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     assert_that!(r.compile().unwrap().page_hash(0).unwrap()).is_not_equal_to(h1);
 }
@@ -313,7 +315,7 @@ fn themed_chart_deck(theme: &str) -> Deck {
 #[test]
 fn render_papier_deck_draws_charts_with_the_papier_palette_from_the_first_render() {
     let mut r = common::renderer();
-    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
+    r.set_theme(Some(common::theme_tokens(Some("papier")))).unwrap();
     let doc = r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
     assert_that!(doc.page_count()).is_equal_to(2);
     let papier: Vec<String> =
@@ -324,9 +326,9 @@ fn render_papier_deck_draws_charts_with_the_papier_palette_from_the_first_render
 #[test]
 fn render_theme_change_switches_the_chart_palette() {
     let mut r = common::renderer();
-    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
+    r.set_theme(Some(common::theme_tokens(Some("papier")))).unwrap();
     r.render(&themed_chart_deck("papier"), &BTreeMap::new()).unwrap();
-    r.set_theme(common::theme_tokens(Some("pro"))).unwrap();
+    r.set_theme(Some(common::theme_tokens(Some("pro")))).unwrap();
     r.render(&themed_chart_deck("pro"), &BTreeMap::new()).unwrap();
     assert_that!(r.chart_palette().first().map(String::as_str)).is_equal_to(Some("#0072b0"));
 }
@@ -336,7 +338,7 @@ fn render_deck_tokens_override_the_chart_palette() {
     let mut deck = themed_chart_deck("papier");
     deck.tokens = serde_json::json!({ "chart": { "palette": ["#010203", "accent"] } });
     let mut r = common::renderer();
-    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
+    r.set_theme(Some(common::theme_tokens(Some("papier")))).unwrap();
     r.render(&deck, &BTreeMap::new()).unwrap();
     assert_that!(r.chart_palette().to_vec()).is_equal_to(vec!["#010203".to_owned(), "#3f6b5e".to_owned()]);
 }
@@ -356,20 +358,20 @@ fn render_chart_texts_take_the_body_size_of_the_theme() {
     let mut deck = themed_chart_deck("papier");
     deck.tokens = serde_json::json!({ "size": { "body": 27 } });
     let mut r = common::renderer();
-    r.set_theme(common::theme_tokens(Some("papier"))).unwrap();
+    r.set_theme(Some(common::theme_tokens(Some("papier")))).unwrap();
     let doc = r.render(&deck, &BTreeMap::new()).unwrap();
     let chart = embedded_chart(&doc.svg(1).unwrap());
     assert_that!(chart).contains("font-size=\"27\"");
 }
 
 /// SVG d'une slide nue portant une carte, rendue sur la couche des packs plus `over`.
-fn card_svg_over(over: serde_json::Value) -> String {
+fn card_svg_over(over: &serde_json::Value) -> String {
     let card = serde_json::json!({ "id": "c", "kind": base::CARD, "frame": { "x": 40, "y": 40, "w": 400, "h": 200 },
         "params": { "title": "Carte" } });
     let deck = serde_json::json!({ "version": oku_slides_core::DECK_VERSION,
         "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [card] } }] });
     let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"));
-    let mut layer = common::theme_tokens(None).unwrap_or_else(|| panic!("couche des packs"));
+    let mut layer = common::theme_tokens(None);
     oku_slides_core::tokens::merge(&mut layer, over.as_object().unwrap_or_else(|| panic!("objet")));
     let mut r = common::renderer();
     r.set_theme(Some(layer)).unwrap_or_else(|e| panic!("{e}"));
@@ -381,5 +383,5 @@ fn card_svg_over(over: serde_json::Value) -> String {
 #[case::pack_path(serde_json::json!({ "component": { "base": { "card": { "bg": "#ff0123" } } } }), true)]
 #[case::former_path(serde_json::json!({ "component": { "card": { "bg": "#ff0123" } } }), false)]
 fn render_card_fill_follows_component_base_card_bg_only(#[case] over: serde_json::Value, #[case] filled: bool) {
-    assert_that!(card_svg_over(over).contains("#ff0123")).is_equal_to(filled);
+    assert_that!(card_svg_over(&over).contains("#ff0123")).is_equal_to(filled);
 }

@@ -35,6 +35,7 @@ pub(super) fn add(deck: &mut Deck, kind: PackKind, ns: Namespace, pin: PackPin) 
 /// Pourquoi le pack `ns` ne peut pas quitter le deck ; `None` s'il le peut.
 ///
 /// Ordre des contrôles : `base`, espace inconnu, pack requis, pack utilisé.
+#[must_use]
 pub fn remove_pack_refusal(deck: &Deck, kind: PackKind, ns: &Namespace) -> Option<OpError> {
     if kind == PackKind::Widgets && ns.as_str() == kinds::base::NAMESPACE {
         return Some(BaseRequiredSnafu.build().into());
@@ -60,6 +61,7 @@ pub(super) fn remove(deck: &mut Deck, kind: PackKind, ns: &Namespace) -> Result<
 }
 
 /// Ids des slides et éléments (imbriqués compris) dont le widget est du pack `ns`.
+#[must_use]
 pub fn pack_users(deck: &Deck, ns: &str) -> Vec<String> {
     let of_ns = |kind: &str| split_kind(kind).is_some_and(|(n, _)| n == ns);
     let mut out = Vec::new();

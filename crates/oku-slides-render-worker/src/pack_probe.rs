@@ -69,10 +69,15 @@ pub struct PackProbe {
 }
 
 impl RenderWorker {
-    /// Sonde chaque fichier de `pack`, puis assemble le registre des valides.
+    /// Probes each file of `pack`, then assembles the registry of the valid ones.
     ///
-    /// Seule une base illisible, ou un registre refusé sans widget à
-    /// écarter, est une erreur.
+    /// Only an unreadable base, or a registry rejected with no widget to
+    /// set aside, is an error.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the pack base is unreadable, or if the registry is rejected with no
+    /// widget to set aside.
     pub fn probe_pack(&self, pack: &PackWidgets) -> Result<PackProbe, RegistryError> {
         let (max_widgets, max_bytes) = (self.1.max_widgets, self.1.max_widget_bytes);
         let loaded = |i: usize, source: &str| i < max_widgets && source.len() <= max_bytes;
@@ -118,9 +123,14 @@ impl RenderWorker {
         Ok(PackProbe { files, pack, registry, unprobed })
     }
 
-    /// Le registre des packs de `set`, déjà sondés (les fichiers invalides en
-    /// sont écartés), gardé par empreinte de l'ensemble : deux appels pour le
-    /// même ensemble donnent le même `Arc`.
+    /// The registry of the packs of `set`, already probed, cached by the set's digest.
+    ///
+    /// Invalid files are set aside; two calls for the same set return the same `Arc`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a pack of `set` cannot be probed (see [`Self::probe_pack`]) or if
+    /// the set's registry is rejected.
     pub fn registry_of(&self, set: &PackSet) -> Result<Arc<WidgetRegistry>, RegistryError> {
         self.kept_registry(set.fingerprint(), || {
             // Sondes gardées par `probe_key` : un pack déjà sondé ne recompile rien.
@@ -149,15 +159,14 @@ impl RenderWorker {
             kept.iter().position(|(k, _)| *k == key).and_then(|i| kept.remove(i))
         };
         // Construit hors du verrou : `build` sonde des fichiers et reprend ce verrou.
-        let entry = match found {
-            Some(entry) => entry,
-            None => {
-                let (registry, complete) = build()?;
-                if !complete {
-                    return Ok(Arc::new(registry));
-                }
-                (key, Arc::new(registry))
+        let entry = if let Some(entry) = found {
+            entry
+        } else {
+            let (registry, complete) = build()?;
+            if !complete {
+                return Ok(Arc::new(registry));
             }
+            (key, Arc::new(registry))
         };
         let registry = entry.1.clone();
         let mut kept = self.1.assembled.lock().unwrap_or_else(PoisonError::into_inner);

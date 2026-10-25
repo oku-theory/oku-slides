@@ -1,5 +1,6 @@
 //! La dictée de bout en bout, sans micro ni vrai modèle : un serveur local
 //! sert les fichiers du modèle, un WAV remplace le micro.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -41,7 +42,7 @@ fn platform(dir: &Path, hub_url: &str, fake_mic: Option<PathBuf>) -> Platform {
     // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
     settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
     settings.paths.models = Some(dir.join("models"));
-    settings.models.hub_url = hub_url.to_owned();
+    hub_url.clone_into(&mut settings.models.hub_url);
     settings.models.download_backoff_secs = 0;
     settings.stt.fake_mic = fake_mic;
     settings.i18n.locale = Some("fr".into());
@@ -72,8 +73,9 @@ fn wav_bytes() -> Vec<u8> {
     let mut cursor = std::io::Cursor::new(Vec::new());
     {
         let mut writer = hound::WavWriter::new(&mut cursor, spec).unwrap_or_else(|e| panic!("wav : {e}"));
-        for i in 0..16_000 {
-            let sample = ((i as f32 / 20.0).sin() * 8000.0) as i16;
+        for i in 0..16_000u16 {
+            #[expect(clippy::cast_possible_truncation, reason = "amplitude bounded to ±8000, within i16")]
+            let sample = ((f32::from(i) / 20.0).sin() * 8000.0) as i16;
             writer.write_sample(sample).unwrap_or_else(|e| panic!("wav : {e}"));
         }
         writer.finalize().unwrap_or_else(|e| panic!("wav : {e}"));

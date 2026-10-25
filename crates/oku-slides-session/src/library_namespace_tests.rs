@@ -106,7 +106,7 @@ fn library_add_version_deck_layouts_namespace_is_refused() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
     let m = manifest_ns(Uuid::new_v4(), "deck-layouts", &[]);
-    let files = m.to_files(oku_slides_core::PackKind::Layouts, Default::default()).unwrap();
+    let files = m.to_files(oku_slides_core::PackKind::Layouts, std::collections::BTreeMap::default()).unwrap();
     let err = lib.add_version(m.id, &files).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceReserved);
 }
@@ -163,7 +163,7 @@ fn library_receive_version_of_a_builtin_under_another_namespace_is_refused() {
 fn pack_with_a_theme_namespace_is_refused(#[case] taken: &str) {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    crate::test_support::add_user_theme(lib.themes(), Uuid::new_v4(), "marque", &[], Default::default(), None);
+    crate::test_support::add_user_theme(lib.themes(), Uuid::new_v4(), "marque", &[], serde_json::Map::default(), None);
     let m = manifest_ns(Uuid::new_v4(), taken, &[]);
     let err = lib.add_version(m.id, &files_of(&m)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::NamespaceTaken);
@@ -197,6 +197,6 @@ fn check_theme_accepts_a_new_version_of_the_same_theme() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
     let id = Uuid::new_v4();
-    crate::test_support::add_user_theme(lib.themes(), id, "marque", &[], Default::default(), None);
+    crate::test_support::add_user_theme(lib.themes(), id, "marque", &[], serde_json::Map::default(), None);
     assert_that!(lib.check_theme(id, &crate::test_support::ns("marque")).is_ok()).is_true();
 }

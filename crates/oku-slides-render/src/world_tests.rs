@@ -15,7 +15,7 @@ fn main_source_quotes_labels_instead_of_running_them() {
     let labels = Labels { missing_image: "#panic()".into(), chart_failed: "\") #panic() (\"".into() };
     let source = main_source(true, &PackSet::default(), ["ab12"].into_iter(), &labels);
     assert_that!(source).contains(r##"fallback("#panic()")"##);
-    assert_that!(source).contains(r##"fallback("\") #panic() (\"")"##);
+    assert_that!(source).contains(r#"fallback("\") #panic() (\"")"#);
     assert_that!(source).contains(r#"#let available = ("ab12",)"#);
 }
 

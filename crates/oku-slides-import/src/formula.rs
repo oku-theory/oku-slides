@@ -103,6 +103,7 @@ impl Formula {
     }
 
     /// Valeur de la formule dans `env`.
+    #[expect(clippy::many_single_char_names, reason = "operands x, y, z of OOXML guide formulas")]
     pub(crate) fn eval(&self, env: &Env<'_>) -> Option<f64> {
         let mut v = [0.0; 3];
         for (slot, a) in v.iter_mut().zip(&self.args) {

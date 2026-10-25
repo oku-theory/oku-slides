@@ -46,7 +46,10 @@ impl Default for NumberFormat {
 }
 
 impl NumberFormat {
-    /// Format de la langue `lang` (étiquette BCP 47 : « fr », « de-CH », « pt_BR »).
+    /// Format of the language `lang`, a BCP 47 tag.
+    ///
+    /// For example "fr", "de-CH" or "`pt_BR`".
+    #[must_use]
     pub fn for_lang(lang: Option<&str>) -> Self {
         let subtag = lang.and_then(|l| l.split(['-', '_']).next()).unwrap_or_default().to_ascii_lowercase();
         let (decimal, group) = match subtag.as_str() {
@@ -60,6 +63,7 @@ impl NumberFormat {
     }
 
     /// Un nombre : entier sans décimales, sinon l'écriture la plus courte.
+    #[must_use]
     pub fn format(&self, n: f64) -> String {
         let plain = format_number(n);
         self.localize(&plain).unwrap_or(plain)
@@ -67,6 +71,7 @@ impl NumberFormat {
 
     /// Réécrit un nombre écrit sans langue (`-12345.5`, `22.2k`) ; `None` si
     /// `plain` n'en est pas un.
+    #[must_use]
     pub fn localize(&self, plain: &str) -> Option<String> {
         let (sign, rest) = plain.strip_prefix('-').map_or((None, plain), |r| (Some(MINUS), r));
         let (number, unit) = match rest.strip_suffix(UNITS) {
@@ -101,7 +106,7 @@ impl NumberFormat {
 
     /// Un texte qui est un nombre, ou une étiquette « nom: nombre » dont seule
     /// la valeur est réécrite ; `None` sinon.
-    fn localize_text(&self, text: &str) -> Option<String> {
+    fn localize_text(self, text: &str) -> Option<String> {
         if let Some(local) = self.localize(text) {
             return Some(local);
         }
@@ -114,6 +119,7 @@ impl NumberFormat {
     /// (secteurs) ; le reste est inchangé, comme les textes de `keep` (saisis
     /// en texte : « 75001 » reste tel quel).
     /// Sans langue, seul le signe des négatifs change.
+    #[must_use]
     pub fn localize_svg(&self, svg: &str, keep: &HashSet<String>) -> String {
         let mut out = String::with_capacity(svg.len() + svg.len() / 64);
         let mut rest = svg;

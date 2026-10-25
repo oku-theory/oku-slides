@@ -55,12 +55,11 @@ pub(super) fn guarded<T>(
     doc: LoroDoc,
     f: impl FnOnce(&LoroDoc) -> Result<T, ReplicaInner>,
 ) -> Result<(LoroDoc, T), ReplicaInner> {
-    match catch_unwind(AssertUnwindSafe(|| f(&doc))) {
-        Ok(r) => r.map(|t| (doc, t)),
-        Err(_) => {
-            std::mem::forget(doc);
-            ImportPanickedSnafu.fail()
-        }
+    if let Ok(r) = catch_unwind(AssertUnwindSafe(|| f(&doc))) {
+        r.map(|t| (doc, t))
+    } else {
+        std::mem::forget(doc);
+        ImportPanickedSnafu.fail()
     }
 }
 

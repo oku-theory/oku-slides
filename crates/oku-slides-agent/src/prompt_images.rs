@@ -1,5 +1,6 @@
 //! Les blocs du prompt pour les images collées : leur liste, puis celles que l'agent voit.
 
+use std::fmt::Write as _;
 use std::sync::Arc;
 
 use agent_client_protocol::schema::v1::{ContentBlock, ImageContent, TextContent};
@@ -45,7 +46,7 @@ pub(crate) fn image_blocks(
                 ""
             }
         };
-        list.push_str(&format!("{}. {} {} {}×{}{note}\n", n + 1, r.id, r.mime, r.width, r.height));
+        let _ = writeln!(list, "{}. {} {} {}×{}{note}", n + 1, r.id, r.mime, r.width, r.height);
     }
     let mut blocks = vec![ContentBlock::Text(TextContent::new(list))];
     blocks.extend(shown);

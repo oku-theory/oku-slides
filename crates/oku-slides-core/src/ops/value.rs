@@ -16,13 +16,15 @@ use crate::widget::ParamType;
 /// Pistes d'une grille : 1 à 24 colonnes ou lignes.
 pub const GRID_TRACKS: std::ops::RangeInclusive<u32> = 1..=24;
 
-/// Convertit `value` pour le paramètre `param` de type `ty`. `Ok(None)` :
-/// retirer le paramètre (`null`, texte blanc, texte riche vide).
+/// Converts `value` for the parameter `param` of type `ty`. `Ok(None)`:
+/// remove the parameter (`null`, blank text, empty rich text).
 ///
-/// Une valeur d'une autre forme JSON que celle du type rend `ParamType` ;
-/// une valeur de la bonne forme mais refusée rend `InvalidValue`,
-/// `ChoiceOutOfRange`, `InvalidChart` ou `InvalidTable`. Un slot se remplit par
-/// `add_element`, jamais par une valeur.
+/// # Errors
+///
+/// A value of a JSON shape other than the type's returns `ParamType`;
+/// a value of the right shape but refused returns `InvalidValue`,
+/// `ChoiceOutOfRange`, `InvalidChart` or `InvalidTable`. A slot is filled by
+/// `add_element`, never by a value.
 pub fn param_value(ty: &ParamType, param: &str, value: Value) -> Result<Option<ParamValue>, OpError> {
     let wrong = |expected: ExpectedType| -> OpError { ParamTypeSnafu { param, expected }.build().into() };
     match ty {

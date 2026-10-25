@@ -36,6 +36,7 @@
 use serde::Serialize;
 
 use crate::source::{Anchor, Autofit, Bullet, Item, ItemKind, Paragraph, Spacing, TextBox};
+use oku_slides_core::num::round_i64;
 
 /// Taille d'un run sans taille chez le témoin, plancher du plus grand corps.
 const WITNESS_DEFAULT_SIZE: f64 = 12.0;
@@ -184,7 +185,7 @@ fn max_size(p: &Paragraph) -> f64 {
 
 /// Les runs du paragraphe ont-ils plusieurs corps (au centième de pt) ?
 fn mixed_sizes(p: &Paragraph) -> bool {
-    let key = |size: f64| (size * 100.0).round() as i64;
+    let key = |size: f64| round_i64(size * 100.0);
     p.runs.windows(2).any(|w| key(w[0].style.size) != key(w[1].style.size))
 }
 

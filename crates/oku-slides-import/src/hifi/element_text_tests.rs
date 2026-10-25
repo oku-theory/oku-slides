@@ -355,8 +355,7 @@ fn text_element_omits_empty_paragraphs_and_empty_boxes() {
 
 #[test]
 fn text_element_bounds_the_rich_text_with_a_loss() {
-    let paragraphs: Vec<SourceParagraph> =
-        (0..RICH_PARAGRAPHS_MAX + 1).map(|k| para(vec![run(&k.to_string())])).collect();
+    let paragraphs: Vec<SourceParagraph> = (0..=RICH_PARAGRAPHS_MAX).map(|k| para(vec![run(&k.to_string())])).collect();
     let placed = convert(text_box(paragraphs));
     assert_that!(body(&placed.elements[0])).has_length(RICH_PARAGRAPHS_MAX);
     let kinds: Vec<LossKind> = placed.losses.into_iter().map(|l| l.kind).collect();

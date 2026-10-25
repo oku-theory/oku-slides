@@ -11,11 +11,15 @@ use super::error::{HubError, HubInner, IncompleteSnafu, SessionSnafu};
 use super::{McpEvent, Shown, SurfaceHub, ThemePicker};
 
 impl SurfaceHub {
-    /// Montre le sélecteur de thème sur `slide` ; `false` hors du mode deck.
+    /// Shows the theme picker on `slide`; `false` outside deck mode.
     ///
-    /// Rend les miniatures sous le verrou de session : hors des fils du runtime.
-    pub fn show_themes(&self, slide: Option<String>) -> Result<bool, HubError> {
-        let choices = self.session.with(|s| s.theme_choices(slide.as_deref())).and_then(|r| r).context(SessionSnafu)?;
+    /// Renders the thumbnails under the session lock: call it off the runtime threads.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session refuses: tab closed, unknown slide or thumbnails not rendered.
+    pub fn show_themes(&self, slide: Option<&str>) -> Result<bool, HubError> {
+        let choices = self.session.with(|s| s.theme_choices(slide)).and_then(|r| r).context(SessionSnafu)?;
         let Some(choices) = choices else { return Ok(false) };
         let surface = theme_picker(&choices.cards, &choices.active, &self.localizer.current());
         let picker = ThemePicker { cards: choices.cards, active: choices.active };

@@ -28,14 +28,17 @@ use crate::library_packs::PackLibrary;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
 use crate::{Result, Session};
 
-/// Un deck sans aucun pack épingle `base` et `essentiel`, et leurs besoins.
+/// A deck with no pack at all pins `base` and `essentiel`, and their requirements.
 ///
-/// Un deck qui épingle déjà un pack, de l'une ou l'autre sorte, ne change pas :
-/// ses épinglages ne sont jamais complétés à l'ouverture. Les versions
-/// courantes sont embarquées dans `sources` et épinglées par le deck, sans
-/// étape d'annulation. `base` est demandé lui-même : une version d'`essentiel`
-/// de l'utilisateur peut ne pas le requérir. Seule règle des packs par défaut :
-/// la session et la CLI passent par ici.
+/// A deck that already pins a pack, of either kind, does not change: its pins are never
+/// completed on opening. The current versions are embedded in `sources` and pinned by the deck,
+/// with no undo step. `base` is requested itself: a user's version of `essentiel` may not
+/// require it. Sole rule for default packs: the session and the CLI go through here.
+///
+/// # Errors
+///
+/// Fails (`UnknownPack`) if the library lacks `base` or `essentiel`, or if the core rejects their
+/// pins.
 pub fn adopt_default_packs(library: &PackLibrary, sources: &mut SourceBundle) -> Result<()> {
     if sources.deck().all_pins().next().is_some() {
         return Ok(());
@@ -111,10 +114,15 @@ pub(crate) fn empty_registry() -> Arc<WidgetRegistry> {
     EMPTY.clone()
 }
 
-/// `files` sont-ils bien la version épinglée par `pin` sous `ns` ?
+/// Are `files` really the version pinned by `pin` under `ns`?
 ///
-/// Manifeste lisible, d'id `pin.id`, d'espace de noms `ns` et de besoins
-/// `pin.requires`. Seule règle : la session et la CLI passent par ici.
+/// A readable manifest, with id `pin.id`, namespace `ns` and requirements `pin.requires`. Sole
+/// rule: the session and the CLI go through here.
+///
+/// # Errors
+///
+/// Fails if the manifest is unreadable (`PackManifest`), has another id (`PackIdMismatch`), or
+/// another namespace or other requirements (`PackPinMismatch`).
 pub fn check_pack_id(ns: &Namespace, pin: &PackPin, files: &PackFiles) -> Result<()> {
     let manifest = PackManifest::from_files(files).context(PackManifestSnafu { id: pin.id })?;
     ensure!(manifest.id == pin.id, PackIdMismatchSnafu { id: pin.id, found: manifest.id });

@@ -90,10 +90,10 @@ impl Session {
                     out.insert(ns.clone(), (m.name, m.tokens));
                 }
                 Some(Err(e)) => {
-                    tracing::warn!(pack = %ns, error = %e, "manifeste illisible : pas de jetons de composant")
+                    tracing::warn!(pack = %ns, error = %e, "manifeste illisible : pas de jetons de composant");
                 }
                 None => {
-                    tracing::warn!(pack = %ns, version = %pin.version, "version absente : pas de jetons de composant")
+                    tracing::warn!(pack = %ns, version = %pin.version, "version absente : pas de jetons de composant");
                 }
             }
         }

@@ -5,8 +5,10 @@ use super::*;
 use crate::retrofit::cluster::units;
 use crate::retrofit::heading::headings;
 use oku_slides_core::kinds;
+use oku_slides_core::num::trunc_u32;
 use serde_json::{Value, json};
 
+use crate::source::Crop;
 use crate::source::{Fill, Geometry, Opaque, OpaqueReason, Picture, Rgba, Size, Styled};
 use crate::test_support::{essentiel_profiles, item, layout, registry, source_slide, text_item, with_role};
 
@@ -16,7 +18,7 @@ fn shape_of(slide: &SourceSlide, layouts: &[Layout]) -> Shape {
     let items: Vec<&Item> = slide.items.iter().collect();
     let heads = headings(&items, Size { w: 960.0, h: 540.0 });
     let content = content_items(&items, &heads);
-    let cell = |f: &Frame| oku_slides_core::Cell { col: f.x as u32, row: f.y as u32, cols: 1, rows: 1 };
+    let cell = |f: &Frame| oku_slides_core::Cell { col: trunc_u32(f.x), row: trunc_u32(f.y), cols: 1, rows: 1 };
     shape(slide, layouts, &heads, &units(&content, cell))
 }
 
@@ -147,7 +149,7 @@ fn title(text: &str) -> Item {
 }
 
 fn picture(id: &str, frame: (f64, f64, f64, f64)) -> Item {
-    item(id, frame, ItemKind::Picture(Picture { asset: "sha256:a".into(), crop: Default::default() }))
+    item(id, frame, ItemKind::Picture(Picture { asset: "sha256:a".into(), crop: Crop::default() }))
 }
 
 #[test]
@@ -224,7 +226,7 @@ fn wants(layout_kind: Option<&str>, subtitle: bool, content: usize, columns: usi
 
 fn ground(id: &str, frame: (f64, f64, f64, f64)) -> Item {
     let s = crate::source::Shape {
-        geom: Geometry::Preset { name: "roundRect".into(), adj: Default::default() },
+        geom: Geometry::Preset { name: "roundRect".into(), adj: std::collections::BTreeMap::default() },
         fill: Fill::Solid { color: Styled::explicit(Rgba::new(255, 255, 255)) },
         stroke: None,
         text: None,

@@ -25,7 +25,7 @@ fn layout_picker_end_example_follows_the_ui_language(#[case] locale: &str, #[cas
     let mut s = session_speaking(&data, locale);
     let view = serde_json::to_value(s.layouts_view().unwrap_or_else(|e| panic!("layouts : {}", e.one_line())))
         .unwrap_or_else(|e| panic!("vue : {e}"));
-    let layouts = view["packs"].as_array().into_iter().flatten().flat_map(|p| p["layouts"].as_array()).flatten();
+    let layouts = view["packs"].as_array().into_iter().flatten().filter_map(|p| p["layouts"].as_array()).flatten();
     let end = layouts.into_iter().find(|l| l["kind"] == "essentiel/end").unwrap_or_else(|| panic!("layout de fin"));
     assert_that!(end["slide"]["params"]["text"].as_str()).is_equal_to(Some(expected));
 }

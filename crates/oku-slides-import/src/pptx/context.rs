@@ -91,7 +91,9 @@ impl<'p> PartCtx<'p> {
         }
     }
 
-    /// Contexte d'une part rattachée (dessin de SmartArt) : même deck, slide, couleurs et thème ; ids neufs, sans héritage.
+    /// Context of an attached part (a SmartArt drawing).
+    ///
+    /// Same deck, slide, colors and theme; fresh ids, no inheritance.
     pub(crate) fn sub(&self, rels: Rc<Rels>, owner: String) -> PartCtx<'p> {
         let spec = PartSpec { owner, slide: self.slide, colors: self.colors.clone(), theme: self.theme, inherit: None };
         Self::with_rels(self.shared, rels, spec)

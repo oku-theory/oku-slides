@@ -45,10 +45,14 @@ pub trait ReferenceRenderer: std::fmt::Debug + Send + Sync {
     /// Nom et version du témoin, tel que le rapport l'écrit (`office2pdf 0.8.1`).
     fn witness(&self) -> &str;
 
-    /// Le PDF de `pptx` rendu avec `fonts`, ses slides `slides` ou toutes.
+    /// The PDF of `pptx` rendered with `fonts`, for slides `slides` or all of them.
     ///
-    /// `fonts` : octets de fichiers de police, cédés au témoin (il les garde le
-    /// temps du rendu). Une page par slide de la tranche, dans l'ordre.
+    /// `fonts`: font file bytes, handed to the witness (it keeps them for the
+    /// duration of the render). One page per slide of the range, in order.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the witness is missing, times out, fails or returns an unreadable PDF.
     fn render(
         &self,
         pptx: &[u8],

@@ -21,35 +21,35 @@ use crate::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind
 /// Clés d'arguments qui viseraient l'adresse ou la variable de l'API.
 const API_TARGET_KEYS: [&str; 5] = ["api", "api_url", "url", "api_key_env", "key_env"];
 
-/// Réglages de la dictée à changer ; absent : inchangé.
+/// Dictation settings to change; absent: unchanged.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SetDictationArgs {
-    /// apple | turbo | large | base | api
+    /// Dictation model: apple | turbo | large | base | api.
     pub model: Option<String>,
-    /// Code de langue (fr, en…) ou "auto".
+    /// Language code (fr, en…) or "auto".
     pub language: Option<String>,
-    /// Arrêter l'écoute seule après un silence.
+    /// Stop listening on its own after a silence.
     pub auto_stop: Option<bool>,
-    /// Secondes de silence avant l'arrêt seul, de 0,5 à 10.
+    /// Seconds of silence before the automatic stop, from 0.5 to 10.
     pub silence: Option<f32>,
-    /// Modèle du service de transcription.
+    /// Model of the transcription service.
     pub api_model: Option<String>,
 }
 
-/// Un modèle de dictée.
+/// A dictation model.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ModelArg {
-    /// apple | turbo | large | base
+    /// Dictation model: apple | turbo | large | base.
     pub model: String,
 }
 
-/// Un agent de la configuration.
+/// An agent of the configuration.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentArg {
-    /// Clé de [agent.presets] (outil settings).
+    /// Key of the agent.presets table (see the settings tool).
     pub id: String,
 }
 
@@ -70,7 +70,7 @@ impl Tools {
     pub(crate) async fn set_dictation(&self, args: Value) -> CallToolResult {
         // Avant l'analyse : l'agent apprend que ces réglages sont à l'utilisateur, pas « champ inconnu ».
         if args.as_object().is_some_and(|o| API_TARGET_KEYS.iter().any(|k| o.contains_key(*k))) {
-            return self.fail_with(refusal(VoiceErrorKind::ApiReservedToUser));
+            return self.fail_with(&refusal(VoiceErrorKind::ApiReservedToUser));
         }
         let a: SetDictationArgs = match self.parse(args) {
             Ok(a) => a,
@@ -88,12 +88,12 @@ impl Tools {
             api_key_env: None,
         };
         if patch.is_empty() {
-            return self.fail_with(EmptyDictationChangeSnafu.build());
+            return self.fail_with(&EmptyDictationChangeSnafu.build());
         }
         let event = VoiceEvent::Dictation(patch);
         let checked = match self.voice_check(event.clone()).await {
             Ok(c) => c,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         if checked.unchanged {
             return self.json_result(&json!({ "applied": VoiceApplied::Unchanged }));
@@ -114,8 +114,8 @@ impl Tools {
             // La question a pu durer : ce que l'utilisateur a accepté doit être ce qui sera appliqué.
             match self.voice_check(event.clone()).await {
                 Ok(now) if now.api == checked.api && now.download == checked.download => {}
-                Ok(_) => return self.fail_with(refusal(VoiceErrorKind::Changed)),
-                Err(e) => return self.fail_with(e),
+                Ok(_) => return self.fail_with(&refusal(VoiceErrorKind::Changed)),
+                Err(e) => return self.fail_with(&e),
             }
         }
         let applied = self.voice_apply(event, confirmed).await;
@@ -134,12 +134,12 @@ impl Tools {
         let event = VoiceEvent::DownloadDictation { model: a.model };
         let checked = match self.voice_check(event.clone()).await {
             Ok(c) => c,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let Some((m, api_model)) = &checked.download else {
             // `check` remplit `download` pour tout modèle qu'il accepte de télécharger.
             tracing::error!("modèle de dictée vérifié sans téléchargement");
-            return self.fail_with(refusal(VoiceErrorKind::Installed));
+            return self.fail_with(&refusal(VoiceErrorKind::Installed));
         };
         if !self.hub.confirm(download_question(m, api_model, &self.localizer.current()), false).await {
             return self.denied();
@@ -161,14 +161,14 @@ impl Tools {
         let event = VoiceEvent::SelectAgent { id: a.id };
         let checked = match self.voice_check(event.clone()).await {
             Ok(c) => c,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         if checked.unchanged {
             return self.apply_voice(event, false).await;
         }
         let Some(preset) = &checked.agent else {
             tracing::error!("agent vérifié sans sa fiche");
-            return self.fail_with(refusal(VoiceErrorKind::UnknownAgent));
+            return self.fail_with(&refusal(VoiceErrorKind::UnknownAgent));
         };
         let l = self.localizer.current();
         let name = clip(&preset.name, 80);
@@ -188,11 +188,11 @@ impl Tools {
     pub(crate) async fn download_agent_model(&self) -> CallToolResult {
         let checked = match self.voice_check(VoiceEvent::DownloadAgentModel).await {
             Ok(c) => c,
-            Err(e) => return self.fail_with(e),
+            Err(e) => return self.fail_with(&e),
         };
         let Some(size) = checked.agent_model_size else {
             tracing::error!("modèle de l'agent vérifié sans sa taille");
-            return self.fail_with(refusal(VoiceErrorKind::NothingToDownload));
+            return self.fail_with(&refusal(VoiceErrorKind::NothingToDownload));
         };
         let l = self.localizer.current();
         if !self
@@ -213,7 +213,7 @@ impl Tools {
     /// Vérifie puis applique sans question.
     async fn checked_then_apply(&self, event: VoiceEvent) -> CallToolResult {
         if let Err(e) = self.voice_check(event.clone()).await {
-            return self.fail_with(e);
+            return self.fail_with(&e);
         }
         self.apply_voice(event, false).await
     }

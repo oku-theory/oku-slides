@@ -16,9 +16,10 @@ use tokio::sync::mpsc::{Receiver, Sender, channel};
 /// que par celui des connexions ouvertes par des clients.
 pub const MAX_SSE_CLIENTS: usize = 8;
 
-/// Trames en attente par client : un client qui ne lit plus est oublié une
-/// fois sa file pleine (son EventSource se reconnecte), au lieu de faire
-/// grossir la mémoire sans fin.
+/// Pending frames per client.
+///
+/// A client that stops reading is dropped once its queue is full (its
+/// `EventSource` reconnects) instead of growing memory without bound.
 pub const CHANNEL_CAPACITY: usize = 256;
 
 #[derive(Debug, Default)]
@@ -69,7 +70,7 @@ impl Clients {
     /// Nombre d'abonnés (tests).
     #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
-        self.0.lock().map(|i| i.list.len()).unwrap_or(0)
+        self.0.lock().map_or(0, |i| i.list.len())
     }
 }
 

@@ -1,4 +1,5 @@
 //! Le vrai deck d'exemple (`fixtures/import/alto-wealth.pptx`, généré par PptxGenJS).
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
 

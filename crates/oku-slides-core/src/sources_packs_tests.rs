@@ -142,11 +142,11 @@ fn from_zip_packs_count_in_the_total_limit() {
 #[test]
 fn merge_unions_the_packs_of_both_bundles() {
     let (p, q) = (pack("P", &[]), pack("Q", &[("kpi", "#let registry = ()")]));
-    let mut a = bundle_with(&p);
-    let mut b = SourceBundle::from_zip(&a.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap().0;
-    b.add_pack(q.clone());
-    a.merge(b).unwrap();
-    assert_that!(a.packs.keys().cloned().collect::<Vec<_>>()).is_equal_to({
+    let mut ours = bundle_with(&p);
+    let mut theirs = SourceBundle::from_zip(&ours.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap().0;
+    theirs.add_pack(q.clone());
+    ours.merge(theirs).unwrap();
+    assert_that!(ours.packs.keys().cloned().collect::<Vec<_>>()).is_equal_to({
         let mut v = vec![p.version(), q.version()];
         v.sort();
         v

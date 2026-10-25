@@ -129,9 +129,10 @@ impl Stream for ScriptedStream {
     }
 
     fn finish(&mut self) {
-        for (i, text) in self.finals.iter().enumerate() {
-            let start = i as f32;
+        let mut start = 0.0;
+        for text in &self.finals {
             self.tx.send(Event::Final { text: text.clone(), start, end: start + 1.0 }).ok();
+            start += 1.0;
         }
         if self.hang {
             self.kept.lock().unwrap_or_else(PoisonError::into_inner).push(self.tx.clone());
@@ -155,7 +156,7 @@ pub(crate) fn silent_wav(dir: &Path, secs: f32) -> PathBuf {
         sample_format: hound::SampleFormat::Int,
     };
     let mut writer = hound::WavWriter::create(&path, spec).unwrap_or_else(|e| panic!("wav : {e}"));
-    for _ in 0..(secs * 16_000.0) as usize {
+    for _ in 0..crate::num::samples(secs) {
         writer.write_sample(0i16).unwrap_or_else(|e| panic!("wav : {e}"));
     }
     writer.finalize().unwrap_or_else(|e| panic!("wav : {e}"));

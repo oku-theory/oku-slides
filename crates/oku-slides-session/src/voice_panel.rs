@@ -7,6 +7,7 @@ use oku_slides_a2ui::{
     Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, ServerMessage, TextVariant,
 };
 use oku_slides_chart::NumberFormat;
+use oku_slides_core::num::size_f64;
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
 
@@ -84,16 +85,19 @@ impl VoicePanel {
     }
 
     /// La surface à montrer, dans le fil, vivante.
+    #[must_use]
     pub fn surface(&self) -> Surface {
         surface(HOST_VOICE, Place::Thread, None, self.components.clone(), self.data.clone())
     }
 
     /// Les deux boîtes ont les mêmes composants : seules les données ont pu changer.
+    #[must_use]
     pub fn same_layout(&self, other: &Self) -> bool {
         self.components == other.components
     }
 
     /// Les messages qui remplacent les données de la surface.
+    #[must_use]
     pub fn data_messages(&self) -> Vec<ServerMessage> {
         vec![ServerMessage::set_data_model(HOST_VOICE, self.data.clone())]
     }
@@ -109,8 +113,7 @@ pub fn model_label(model: &ModelView, api_model: &str, l: &Localizer) -> String 
 
 /// Une taille en Mo (entiers) ou en Go (dixièmes), écrite dans la langue.
 pub fn size_text(bytes: u64, l: &Localizer) -> String {
-    #[expect(clippy::cast_precision_loss, reason = "taille affichée, arrondie")]
-    let mb = (bytes as f64 / 1e6).round();
+    let mb = (size_f64(bytes) / 1e6).round();
     let numbers = NumberFormat::for_lang(Some(l.locale()));
     if mb >= 1000.0 {
         l.tr_with("voice-size-gb", &[("value", numbers.format((mb / 100.0).round() / 10.0).into())])
@@ -128,8 +131,7 @@ pub fn seconds_text(seconds: f32, l: &Localizer) -> String {
 
 /// Des gigaoctets au dixième, écrits dans la langue.
 pub fn gigabytes_text(bytes: u64, l: &Localizer) -> String {
-    #[expect(clippy::cast_precision_loss, reason = "taille affichée, arrondie")]
-    let gb = (bytes as f64 / 1e8).round() / 10.0;
+    let gb = (size_f64(bytes) / 1e8).round() / 10.0;
     NumberFormat::for_lang(Some(l.locale())).format(gb)
 }
 
@@ -140,13 +142,12 @@ fn secs_value(v: f32) -> String {
 
 /// Un nombre entier écrit dans la langue.
 fn count_text(n: u64, l: &Localizer) -> String {
-    #[expect(clippy::cast_precision_loss, reason = "nombre affiché, arrondi")]
-    NumberFormat::for_lang(Some(l.locale())).format(n as f64)
+    NumberFormat::for_lang(Some(l.locale())).format(size_f64(n))
 }
 
 /// Un pourcentage entier écrit dans la langue.
 fn percent_text(percent: u64, l: &Localizer) -> String {
-    NumberFormat::for_lang(Some(l.locale())).format(percent.min(100) as f64)
+    NumberFormat::for_lang(Some(l.locale())).format(size_f64(percent.min(100)))
 }
 
 /// L'astuce d'une pastille de modèle : note, taille, état, séparés par ` · `.
@@ -219,47 +220,8 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
         b.text("d-api-note", l.tr("voice-api-note"), TextVariant::Caption);
     }
 
-    let auto = match d.detected.as_deref().and_then(|c| DICTATION_LANGUAGES.iter().find(|(code, _)| *code == c)) {
-        Some((_, name)) if chosen.is_some_and(|m| m.kind == ModelKind::Apple) => {
-            l.tr_with("voice-language-auto-resolved", &[("language", (*name).into())])
-        }
-        _ => l.tr("voice-language-auto"),
-    };
-    let mut languages = vec![ChoiceOption { id: String::new(), label: auto, hint: None }];
-    languages.extend(DICTATION_LANGUAGES.iter().map(|(code, name)| ChoiceOption {
-        id: (*code).to_owned(),
-        label: (*name).to_owned(),
-        hint: None,
-    }));
-    if let Some(code) = d.language.as_deref().filter(|c| !DICTATION_LANGUAGES.iter().any(|(k, _)| k == c)) {
-        languages.push(ChoiceOption { id: code.to_owned(), label: code.to_owned(), hint: None });
-    }
-    let language = ComponentKind::Select {
-        label: Dynamic::Literal(l.tr("voice-language")),
-        value: Dynamic::path("/language"),
-        options: languages,
-        action: Some(Action::event("language", [("code", Dynamic::path("/language"))])),
-    };
-    b.push(Component::new("d-language", language));
-
-    let mut seconds = SILENCES.to_vec();
-    if !seconds.iter().any(|s| secs_value(*s) == secs_value(d.silence)) {
-        seconds.push(d.silence);
-    }
-    seconds.sort_by(f32::total_cmp);
-    let mut silences = vec![ChoiceOption { id: "off".into(), label: l.tr("voice-silence-off"), hint: None }];
-    silences.extend(seconds.into_iter().map(|v| ChoiceOption {
-        id: secs_value(v),
-        label: seconds_text(v, l),
-        hint: None,
-    }));
-    let silence = ComponentKind::Select {
-        label: Dynamic::Literal(l.tr("voice-silence")),
-        value: Dynamic::path("/silence"),
-        options: silences,
-        action: Some(Action::event("silence", [("value", Dynamic::path("/silence"))])),
-    };
-    b.push(Component::new("d-silence", silence));
+    b.push(Component::new("d-language", language_select(d, chosen, l)));
+    b.push(Component::new("d-silence", silence_select(d, l)));
     b.text("d-note", l.tr("voice-phrases-note"), TextVariant::Caption);
 
     b.bound("d-progress", "/progress/dictation");
@@ -288,6 +250,54 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
             let action = Action::event("download", [("model", lit(json!(m.id)))]);
             b.button("d-download", label, action);
         }
+    }
+}
+
+/// The list of dictation languages.
+///
+/// The automatic entry names the language Apple detected.
+fn language_select(d: &DictationView, chosen: Option<&ModelView>, l: &Localizer) -> ComponentKind {
+    let auto = match d.detected.as_deref().and_then(|c| DICTATION_LANGUAGES.iter().find(|(code, _)| *code == c)) {
+        Some((_, name)) if chosen.is_some_and(|m| m.kind == ModelKind::Apple) => {
+            l.tr_with("voice-language-auto-resolved", &[("language", (*name).into())])
+        }
+        _ => l.tr("voice-language-auto"),
+    };
+    let mut languages = vec![ChoiceOption { id: String::new(), label: auto, hint: None }];
+    languages.extend(DICTATION_LANGUAGES.iter().map(|(code, name)| ChoiceOption {
+        id: (*code).to_owned(),
+        label: (*name).to_owned(),
+        hint: None,
+    }));
+    if let Some(code) = d.language.as_deref().filter(|c| !DICTATION_LANGUAGES.iter().any(|(k, _)| k == c)) {
+        languages.push(ChoiceOption { id: code.to_owned(), label: code.to_owned(), hint: None });
+    }
+    ComponentKind::Select {
+        label: Dynamic::Literal(l.tr("voice-language")),
+        value: Dynamic::path("/language"),
+        options: languages,
+        action: Some(Action::event("language", [("code", Dynamic::path("/language"))])),
+    }
+}
+
+/// The list of silence delays, plus the configured one if missing from it.
+fn silence_select(d: &DictationView, l: &Localizer) -> ComponentKind {
+    let mut seconds = SILENCES.to_vec();
+    if !seconds.iter().any(|s| secs_value(*s) == secs_value(d.silence)) {
+        seconds.push(d.silence);
+    }
+    seconds.sort_by(f32::total_cmp);
+    let mut silences = vec![ChoiceOption { id: "off".into(), label: l.tr("voice-silence-off"), hint: None }];
+    silences.extend(seconds.into_iter().map(|v| ChoiceOption {
+        id: secs_value(v),
+        label: seconds_text(v, l),
+        hint: None,
+    }));
+    ComponentKind::Select {
+        label: Dynamic::Literal(l.tr("voice-silence")),
+        value: Dynamic::path("/silence"),
+        options: silences,
+        action: Some(Action::event("silence", [("value", Dynamic::path("/silence"))])),
     }
 }
 

@@ -17,18 +17,18 @@ use uuid::Uuid;
 use crate::namespace::Namespace;
 use crate::pack::PackVersion;
 
-/// Un thème épinglé par un deck : id, version embarquée et parents.
+/// A theme pinned by a deck: id, embedded version and parents.
 ///
-/// `extends` recopie celui du `theme.json` de la version : le cœur vérifie
-/// la fermeture sans lire les fichiers ; les sources vérifient la copie.
+/// `extends` copies the one in the version's `theme.json`: the core checks
+/// the closure without reading the files; the sources check the copy.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct ThemePin {
-    /// Id du thème (UUID), stable d'une version à l'autre.
+    /// Id of the theme (UUID), stable from one version to the next.
     #[schemars(with = "String")]
     pub id: Uuid,
-    /// Version embarquée par les sources du deck.
+    /// Version embedded in the deck's sources.
     pub version: PackVersion,
-    /// Espaces de noms des thèmes parents, dans l'ordre, épinglés aussi par le deck.
+    /// Namespaces of the parent themes, in order, also pinned by the deck.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extends: Vec<Namespace>,
 }
@@ -54,11 +54,15 @@ pub enum ThemeChainError {
     },
 }
 
-/// L'ordre d'application des thèmes de `theme`, lui-même en dernier.
+/// The order in which the themes of `theme` apply, itself last.
 ///
-/// Post-ordre en profondeur sur `extends`, chaque thème une seule fois à sa
-/// première position. Une boucle est [`ThemeChainError::Cycle`] ; un thème
-/// atteint absent de `pins` est [`ThemeChainError::Missing`].
+/// Depth-first post-order over `extends`, each theme once at its
+/// first position. A loop is [`ThemeChainError::Cycle`]; a reached theme
+/// absent from `pins` is [`ThemeChainError::Missing`].
+///
+/// # Errors
+///
+/// `Cycle` if the `extends` loop, `Missing` if a reached theme is not pinned.
 pub fn linearize(theme: &Namespace, pins: &BTreeMap<Namespace, ThemePin>) -> Result<Vec<Namespace>, ThemeChainError> {
     let root = pins.get(theme).ok_or_else(|| ThemeChainError::Missing { namespace: theme.clone() })?;
     let mut out = Vec::new();
@@ -87,12 +91,16 @@ pub fn linearize(theme: &Namespace, pins: &BTreeMap<Namespace, ThemePin>) -> Res
     Ok(out)
 }
 
-/// Vérifie que `pins` est exactement la fermeture de `theme`.
+/// Checks that `pins` is exactly the closure of `theme`.
 ///
-/// `None` (le thème par défaut) demande une carte vide. Sinon la chaîne doit
-/// se linéariser ([`linearize`]) et chaque épinglage y être atteint : un
-/// épinglage de trop est [`ThemeChainError::Extra`]. Les `extends` parcourus
-/// sont ceux des épinglages : la fermeture suit leur copie.
+/// `None` (the default theme) requires an empty map. Otherwise the chain must
+/// linearize ([`linearize`]) and each pin be reached in it: an
+/// extra pin is [`ThemeChainError::Extra`]. The `extends` walked
+/// are those of the pins: the closure follows their copy.
+///
+/// # Errors
+///
+/// Those of [`linearize`], or `Extra` for a pin outside the closure.
 pub fn check_closure(theme: Option<&Namespace>, pins: &BTreeMap<Namespace, ThemePin>) -> Result<(), ThemeChainError> {
     let reached: BTreeSet<Namespace> = match theme {
         Some(theme) => linearize(theme, pins)?.into_iter().collect(),

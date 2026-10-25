@@ -3,6 +3,7 @@
 //! débordement (`Overflow`). La présentation passe par l'import réel
 //! (`oku-slides-import`, dépendance de test) : le projecteur estime la
 //! hauteur du flux sans rendu, ce test la confronte au rendu Typst.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -80,7 +81,7 @@ fn tokens(theme: &str) -> Map<String, Value> {
     let path = root().join("typst/oku-slides/src/default-tokens.json");
     let defaults: Value = serde_json::from_str(&fs::read_to_string(path).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|e| panic!("{e}"));
-    let own = common::theme_tokens(Some(theme)).unwrap_or_else(|| panic!("thème {theme}"));
+    let own = common::theme_tokens(Some(theme));
     effective_tokens(defaults.as_object().unwrap_or_else(|| panic!("jetons par défaut")), &own)
 }
 
@@ -108,7 +109,7 @@ fn import_retrofit_flow_blocks_stay_in_the_body_zone_or_are_reported(
     let assets: BTreeMap<String, Vec<u8>> = plan.assets.iter().map(|(id, a)| (id.clone(), a.bytes.clone())).collect();
     let mut r = Renderer::new(fonts).unwrap_or_else(|e| panic!("{e}"));
     r.set_widgets(&set, registry).unwrap_or_else(|e| panic!("{e}"));
-    r.set_theme(common::theme_tokens(Some(theme))).unwrap_or_else(|e| panic!("{e}"));
+    r.set_theme(Some(common::theme_tokens(Some(theme)))).unwrap_or_else(|e| panic!("{e}"));
     let compiled = r.render(&deck, &assets).unwrap_or_else(|e| panic!("rendu : {e}"));
     let layout = compiled.layout();
     let bottom = page.height - page.margin_bottom + TOLERANCE;

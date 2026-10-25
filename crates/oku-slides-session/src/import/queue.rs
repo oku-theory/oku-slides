@@ -79,12 +79,16 @@ impl Session {
         self.import.as_mut().ok_or_else(|| refused(NoImportSnafu.build()))
     }
 
-    /// Le rendu de référence manquant, à faire hors du verrou de la session.
+    /// The missing reference rendering, to run outside the session lock.
     ///
-    /// L'appelant le lance ([`ReferenceJob::run`]) avant `import_report` ou
-    /// `import_diff` ; le travail remplit l'état de cet import, et lui seul.
-    /// `None` en retrofit, sans témoin, ou s'il est déjà fait ; sans import
-    /// dans l'onglet, le refus `NoImport`.
+    /// The caller runs it ([`ReferenceJob::run`]) before `import_report` or
+    /// `import_diff`; the job fills the state of this import, and only it.
+    /// `None` in retrofit, without a witness, or if already done; without an
+    /// import in the tab, the `NoImport` rejection.
+    ///
+    /// # Errors
+    ///
+    /// Fails (`NoImport`) if the tab has no import.
     pub fn import_reference_job(&mut self) -> Result<Option<ReferenceJob>> {
         let state = self.tuned_import()?;
         Ok(match state.mode() {
@@ -93,13 +97,17 @@ impl Session {
         })
     }
 
-    /// Le rapport de l'import et la file de l'ajustement, en JSON pour l'agent.
+    /// The import report and the tuning queue, as JSON for the agent.
     ///
-    /// Hi-fi : les slides dont la page a changé depuis leur dernière note sont
-    /// notées de nouveau, chacune à ce que coûte sa note ([`super::tune`]),
-    /// contre la référence faite par [`Self::import_reference_job`] ; tant
-    /// qu'elle manque, aucune slide n'a de score. `l` : la langue de l'agent,
-    /// celle d'une référence manquante.
+    /// Hi-fi: slides whose page changed since their last score are scored
+    /// again, each at the cost of its score ([`super::tune`]), against the
+    /// reference made by [`Self::import_reference_job`]; while it is missing,
+    /// no slide has a score. `l`: the agent's language, that of a missing
+    /// reference.
+    ///
+    /// # Errors
+    ///
+    /// Fails without an import (`NoImport`), if the deck does not render, or if a score cannot be computed.
     pub fn import_report(&mut self, l: &Localizer) -> Result<Value> {
         self.tuned_import()?;
         self.ensure_rendered()?;
@@ -274,6 +282,7 @@ fn retrofit_json(state: &ImportState) -> Value {
 /// Le hi-fi.
 ///
 /// Le témoin, le seuil, la file des slides `live` (celles qui ont une page) et les groupes répétés.
+#[expect(clippy::similar_names, reason = "`stale` is the report's term, distinct from `state`")]
 fn hifi_json(state: &ImportState, live: &BTreeSet<&str>, rescored: &Rescored, l: &Localizer) -> Value {
     let report = state.report();
     let (threshold, limits, tuner) = (state.threshold(), state.limits(), state.tuner());
@@ -297,12 +306,12 @@ fn hifi_json(state: &ImportState, live: &BTreeSet<&str>, rescored: &Rescored, l:
             done += 1;
             continue;
         }
-        let worst = score.and_then(oku_slides_import::metrics::SlideScore::worst);
+        let worst_metric = score.and_then(oku_slides_import::metrics::SlideScore::worst);
         let mut entry = json!({
             "slide": slide.slide,
             "source": slide.source,
             "score": score.map(|s| s.score),
-            "worst": worst,
+            "worst": worst_metric,
             "excess": score.and_then(|s| excess(s, threshold)),
             "state": slide_state,
             "tries_left": slide_state.tries_left(tuning, limits),
@@ -310,7 +319,7 @@ fn hifi_json(state: &ImportState, live: &BTreeSet<&str>, rescored: &Rescored, l:
         if let (true, Some(o)) = (stale, entry.as_object_mut()) {
             o.insert("stale".into(), json!(true));
         }
-        queue.push((worst, slide.source, entry));
+        queue.push((worst_metric, slide.source, entry));
     }
     // Les pires d'abord ; une slide sans score après, dans l'ordre source.
     queue.sort_by(|a, b| b.0.unwrap_or(f64::MIN).total_cmp(&a.0.unwrap_or(f64::MIN)).then(a.1.cmp(&b.1)));

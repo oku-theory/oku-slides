@@ -101,11 +101,24 @@ pub(crate) fn approximation(parent: Node<'_, '_>) -> Option<&'static str> {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct LineSpec {
     pub width: Option<f64>,
-    /// `Some(None)` : `noFill`.
+    /// `Some(None)`: `noFill`.
+    #[expect(
+        clippy::option_option,
+        reason = "three OOXML inheritance states: absent (inherited), removed (noFill), value"
+    )]
     pub color: Option<Option<ColorSpec>>,
     pub dash: Option<Dash>,
-    /// Pointes de début et de fin ; `Some(None)` : `type="none"` explicite.
+    /// Start arrowhead; `Some(None)`: an explicit `type="none"`.
+    #[expect(
+        clippy::option_option,
+        reason = "three OOXML inheritance states: absent (inherited), removed (none), value"
+    )]
     pub head: Option<Option<Arrow>>,
+    /// Like `head`, for the end arrowhead.
+    #[expect(
+        clippy::option_option,
+        reason = "three OOXML inheritance states: absent (inherited), removed (none), value"
+    )]
     pub tail: Option<Option<Arrow>>,
 }
 

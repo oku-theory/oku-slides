@@ -110,16 +110,15 @@ pub async fn drop_tab(app: AppHandle, tab: String) -> Result<Response, String> {
         tracing::debug!(tab, at = ?aim.at, rects = ?aim.others, window = ?aim.window, "onglet lâché hors de sa fenêtre");
         let target = aim.window.clone();
         Workspace::apply(&state.workspace, WorkspaceRequest::MoveTab { tab: tab.clone(), window: aim.window, index: None })
-            .map_err(|e| state.refuse(e))?;
+            .map_err(|e| state.refuse(&e))?;
         let view = windows::sync(app, aim.at, true);
         if let (Some(w), Some(at)) = (target, aim.at) {
-            match windows::page_point_in(app, &w, at) {
-                Some((x, y)) => {
-                    if let Err(e) = app.emit_to(w.as_str(), "tab-drop", json!({ "tab": tab, "x": x, "y": y })) {
-                        tracing::warn!(label = %w, error = %e, "place visée non transmise : onglet en fin de barre");
-                    }
+            if let Some((x, y)) = windows::page_point_in(app, &w, at) {
+                if let Err(e) = app.emit_to(w.as_str(), "tab-drop", json!({ "tab": tab, "x": x, "y": y })) {
+                    tracing::warn!(label = %w, error = %e, "place visée non transmise : onglet en fin de barre");
                 }
-                None => tracing::warn!(label = %w, "fenêtre visée sans mesure : onglet en fin de barre"),
+            } else {
+                tracing::warn!(label = %w, "fenêtre visée sans mesure : onglet en fin de barre");
             }
         }
         serde_json::to_string(&view).map_err(|e| e.to_string())

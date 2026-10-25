@@ -88,7 +88,12 @@ pub(crate) enum ToolError {
 
 impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
-        use ToolError::*;
+        use ToolError::{
+            Arguments, Denied, EmptyDictationChange, EmptyInterface, HistoryIndex, HistoryNotOpened, Hub, NoFile,
+            NoPack, NoTurn, NotShown, NothingToPresent, OpenElsewhere, PackChange, PackId, PacksDeckMode, Paragraphs,
+            PathParent, PathRelative, Response, RewriteText, Session, Setting, SettingLocked, Task, ThemesDeckMode,
+            TurnOver, UnexpectedAction, UnknownLocale, UnknownTool, Voice,
+        };
         match self {
             Arguments { source, .. } => {
                 l.tr_with("agent-error-arguments", &[("detail", argument_detail(source).into())])
@@ -160,8 +165,8 @@ fn argument_detail(e: &serde_json::Error) -> String {
 impl Tools {
     /// La réponse d'erreur de `e` : journalisée en entier, dite à l'agent dans la langue de
     /// l'utilisateur.
-    pub(crate) fn fail_with(&self, e: ToolError) -> CallToolResult {
-        tracing::info!(error = %snafu::Report::from_error(&e), "outil de l'agent refusé");
+    pub(crate) fn fail_with(&self, e: &ToolError) -> CallToolResult {
+        tracing::info!(error = %snafu::Report::from_error(e), "outil de l'agent refusé");
         fail(e.localize(&self.localizer.current()))
     }
 }

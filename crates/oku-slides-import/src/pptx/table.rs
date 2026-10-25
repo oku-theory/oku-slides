@@ -14,6 +14,7 @@ use crate::pptx::text::{RunProps, anchor, font_ref, parse_txbody};
 use crate::pptx::units::emu;
 use crate::pptx::xml::{attr_bool, attr_i64, attr_str, attr_u32, child, children, elements, parse};
 use crate::source::{Borders, Cell, Fill, Rgba, Stroke, Styled, Table, TableFlags, TextBox, WarningKind};
+use oku_slides_core::num::byte;
 
 const COLORS: [&str; 5] = ["srgbClr", "schemeClr", "sysClr", "prstClr", "scrgbClr"];
 
@@ -257,11 +258,9 @@ fn over(top: Rgba, bottom: Rgba) -> Rgba {
     let a = ta + ba * (1.0 - ta);
     let mix = |t: u8, b: u8| {
         let v = if a > 0.0 { (f64::from(t) * ta + f64::from(b) * ba * (1.0 - ta)) / a } else { 0.0 };
-        // `as` sature : le mélange reste dans 0..=255.
-        v.round() as u8
+        byte(v)
     };
-    // `as` sature : l'opacité reste dans 0..=255.
-    Rgba { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b), a: (a * 255.0).round() as u8 }
+    Rgba { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b), a: byte(a * 255.0) }
 }
 
 /// La cellule `tc` au style `style`, avec les niveaux de texte et le fond du tableau de `(levels, bg)`.

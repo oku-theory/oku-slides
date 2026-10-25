@@ -89,8 +89,8 @@ pub(crate) fn manifest(
         created: created.into(),
         scope: oku_slides_core::PackScope::Library,
         profiles: Vec::new(),
-        examples: Default::default(),
-        styles: Default::default(),
+        examples: std::collections::BTreeMap::default(),
+        styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
     }
 }
@@ -125,7 +125,7 @@ pub(crate) fn manifest_ns(id: uuid::Uuid, namespace: &str, requires: &[&str]) ->
 /// Les fichiers de `manifest`, pack de widgets sans widgets.
 pub(crate) fn files_of(manifest: &crate::pack::PackManifest) -> oku_slides_core::PackFiles {
     manifest
-        .to_files(oku_slides_core::PackKind::Widgets, Default::default())
+        .to_files(oku_slides_core::PackKind::Widgets, std::collections::BTreeMap::default())
         .unwrap_or_else(|e| panic!("manifeste : {e}"))
 }
 
@@ -355,7 +355,7 @@ pub(crate) fn pin_builtin_theme(deck: &mut oku_slides_core::Deck, name: &str) {
 
 /// L'op qui passe le deck au thème `name` (un espace de noms), sa fermeture prise dans la bibliothèque.
 pub(crate) fn set_theme_op(name: &str) -> oku_slides_core::Op {
-    oku_slides_core::Op::SetTheme { theme: Some(ns(name)), themes: Default::default() }
+    oku_slides_core::Op::SetTheme { theme: Some(ns(name)), themes: std::collections::BTreeMap::default() }
 }
 
 impl crate::ThemeLibrary {
@@ -397,7 +397,7 @@ pub(crate) fn library_with_themes(themes: &[(&str, &[&str])]) -> (crate::ThemeLi
     let storage = crate::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
     let library = crate::ThemeLibrary::new(Some(dir.path().to_owned()), storage);
     for (namespace, extends) in themes {
-        add_user_theme(&library, uuid::Uuid::new_v4(), namespace, extends, Default::default(), None);
+        add_user_theme(&library, uuid::Uuid::new_v4(), namespace, extends, serde_json::Map::default(), None);
     }
     (library, dir)
 }
@@ -445,7 +445,7 @@ pub(crate) fn workspace_on(data: &std::path::Path) -> std::sync::Mutex<crate::Wo
 }
 
 /// L'espace de travail repris de `dir` (neuf s'il n'y a rien), sur `data`.
-pub(crate) fn resumed_on(data: &std::path::Path, dir: std::path::PathBuf) -> std::sync::Mutex<crate::Workspace> {
+pub(crate) fn resumed_on(data: &std::path::Path, dir: &std::path::Path) -> std::sync::Mutex<crate::Workspace> {
     let ws = crate::Workspace::resume(crate::Fonts::default(), &workspace_platform(data), dir);
     std::sync::Mutex::new(ws.unwrap_or_else(|e| panic!("reprise : {e}")))
 }
@@ -463,13 +463,7 @@ pub(crate) fn apply_ws(
 /// Un fichier `<name>.pptx` est copié tel quel ; un dossier `<name>` est zippé.
 pub(crate) fn pptx_fixture(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
     use std::io::Write;
-    let fixtures = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import"));
-    let file = fixtures.join(format!("{name}.pptx"));
-    if file.is_file() {
-        let path = dir.join(format!("{name}.pptx"));
-        std::fs::copy(&file, &path).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
-        return path;
-    }
+    // The files under `dir`, recursively, without `.DS_Store`.
     fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
             let p = e.unwrap_or_else(|e| panic!("{e}")).path();
@@ -478,6 +472,13 @@ pub(crate) fn pptx_fixture(dir: &std::path::Path, name: &str) -> std::path::Path
             }
             if p.is_dir() { files(&p, out) } else { out.push(p) }
         }
+    }
+    let fixtures = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import"));
+    let file = fixtures.join(format!("{name}.pptx"));
+    if file.is_file() {
+        let path = dir.join(format!("{name}.pptx"));
+        std::fs::copy(&file, &path).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        return path;
     }
     let root = fixtures.join(name);
     let mut paths = Vec::new();
@@ -530,7 +531,7 @@ pub(crate) fn witnessed(s: &mut Session, witness: &WhiteWitness) {
 }
 
 impl crate::import::WitnessRenderer for WhiteWitness {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "témoin"
     }
 
@@ -547,7 +548,7 @@ impl crate::import::WitnessRenderer for WhiteWitness {
     ) -> Result<crate::import::WitnessPages, oku_slides_render::RenderError> {
         self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let count = (span.last - span.first + 1) as usize;
-        let height = (f64::from(width) * 9.0 / 16.0).round() as u32;
+        let height = oku_slides_core::num::round_u32(f64::from(width) * 9.0 / 16.0);
         let pages = (0..count).map(|_| white_png(width, height)).collect();
         Ok(crate::import::WitnessPages { witness: "témoin 1.0".to_owned(), count, pages })
     }
@@ -613,7 +614,7 @@ pub(crate) fn rename_title(t: &str) -> oku_slides_core::Op {
 
 /// L'édition en cours (mode pack) de `s`.
 pub(crate) fn edit_of(s: &Session) -> crate::PackMode {
-    s.snapshot().editing.map(|e| e.mode.clone()).unwrap_or_else(|| panic!("mode pack attendu"))
+    s.snapshot().editing.map_or_else(|| panic!("mode pack attendu"), |e| e.mode.clone())
 }
 
 /// Le deck mis de côté par le mode pack de `s`.
@@ -660,7 +661,7 @@ pub(crate) fn png(w: u32, h: u32, seed: u8) -> Vec<u8> {
     let mut e = png::Encoder::new(&mut out, w, h);
     e.set_color(png::ColorType::Grayscale);
     let mut writer = e.write_header().unwrap_or_else(|e| panic!("png : {e}"));
-    let pixels: Vec<u8> = (0..w * h).map(|i| (i as u8).wrapping_add(seed)).collect();
+    let pixels: Vec<u8> = (0..w * h).map(|i| i.to_le_bytes()[0].wrapping_add(seed)).collect();
     writer.write_image_data(&pixels).unwrap_or_else(|e| panic!("png : {e}"));
     drop(writer);
     out.into_inner()

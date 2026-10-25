@@ -76,14 +76,6 @@ impl SeedCache {
     }
 }
 
-/// Le premier slot libre déclaré par un layout : `Some(accepts)`, ou `None` s'il n'en a pas.
-fn first_free_slot(params: &[oku_slides_core::ParamSchema]) -> Option<Option<Vec<String>>> {
-    params.iter().find_map(|p| match &p.ty {
-        ParamType::Slot { mode: SlotMode::Free, accepts } => Some(accepts.clone()),
-        _ => None,
-    })
-}
-
 impl Session {
     /// Les packs de la grille d'ajout, dans l'ordre des épinglages.
     ///
@@ -136,7 +128,13 @@ impl Session {
             .iter()
             .filter(|w| w.category == Category::Slide)
             .filter(|w| split_kind(&w.name).is_some_and(|(ns, _)| layouts.keys().any(|l| l.as_str() == ns)))
-            .filter_map(|w| Some((w.name.clone(), first_free_slot(&w.params)?)))
+            .filter_map(|w| {
+                // The first free slot the layout declares, and what it accepts.
+                w.params.iter().find_map(|p| match &p.ty {
+                    ParamType::Slot { mode: SlotMode::Free, accepts } => Some((w.name.clone(), accepts.clone())),
+                    _ => None,
+                })
+            })
             .collect()
     }
 

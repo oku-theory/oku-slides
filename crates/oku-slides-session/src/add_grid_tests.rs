@@ -20,7 +20,7 @@ fn session_with_widget_pack_example(namespace: &str, widget: &str, example: Valu
     let mut s = session();
     let mut m = manifest_ns(Uuid::new_v4(), namespace, &["base"]);
     let file = oku_slides_core::WidgetFile::parse(widget).unwrap();
-    m.examples.insert(file, example.as_object().cloned().unwrap());
+    m.examples.insert(file, serde_json::from_value(example).unwrap());
     let pin = add_version(&s.library, &m, &[(widget, BADGE)]);
     s.apply("Pack", vec![add_pack(&m, &pin)], None).unwrap_or_else(|e| panic!("pack : {}", e.one_line()));
     s

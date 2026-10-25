@@ -15,66 +15,198 @@ use oku_slides_i18n::{FluentValue, Localize, Localizer};
 #[non_exhaustive]
 pub enum AgentFormReason {
     /// Texte de `count` caractères pour `max` permis.
-    TooLong { at: String, count: usize, max: usize },
+    TooLong {
+        /// Location of the faulty value in the arguments.
+        at: String,
+        /// Number of characters received.
+        count: usize,
+        /// Number of characters allowed.
+        max: usize,
+    },
     /// Contrôle invisible ou bidirectionnel dans un texte.
-    HiddenCharacters { at: String },
+    HiddenCharacters {
+        /// Location of the faulty text in the arguments.
+        at: String,
+    },
     /// `count` entrées hors de `min..=max`.
-    Count { at: String, min: usize, max: usize, count: usize },
+    Count {
+        /// Location of the faulty list in the arguments.
+        at: String,
+        /// Minimum number of entries.
+        min: usize,
+        /// Maximum number of entries.
+        max: usize,
+        /// Number of entries received.
+        count: usize,
+    },
     /// Plus de `max` entrées.
-    TooMany { at: String, max: usize, count: usize },
+    TooMany {
+        /// Location of the faulty list in the arguments.
+        at: String,
+        /// Maximum number of entries.
+        max: usize,
+        /// Number of entries received.
+        count: usize,
+    },
     /// Plus de `max` octets.
-    TooLarge { at: String, max: usize, size: usize },
+    TooLarge {
+        /// Location of the faulty value in the arguments.
+        at: String,
+        /// Maximum size in bytes.
+        max: usize,
+        /// Size received in bytes.
+        size: usize,
+    },
     /// Valeur vide (titre blanc, aucun fait).
-    Empty { at: String },
+    Empty {
+        /// Location of the empty value in the arguments.
+        at: String,
+    },
     /// Valeur absente.
-    Missing { at: String },
+    Missing {
+        /// Location where the value is missing in the arguments.
+        at: String,
+    },
     /// Identifiant donné deux fois.
-    DuplicateId { at: String, id: String },
+    DuplicateId {
+        /// Location of the duplicate in the arguments.
+        at: String,
+        /// Repeated id.
+        id: String,
+    },
     /// Ni `#rgb`, ni `#rgba`, ni `#rrggbb`, ni `#rrggbbaa`.
-    NotHexColor { at: String, value: String },
+    NotHexColor {
+        /// Location of the color in the arguments.
+        at: String,
+        /// Value received instead of a color.
+        value: String,
+    },
     /// Valeur d'un champ riche qui n'est pas une liste de paragraphes.
-    NotParagraphs { at: String },
+    NotParagraphs {
+        /// Location of the value in the arguments.
+        at: String,
+    },
     /// Borne d'un curseur infinie ou NaN.
-    NotFinite { at: String },
+    NotFinite {
+        /// Location of the bound in the arguments.
+        at: String,
+    },
     /// `min` n'est pas inférieur à `max`.
-    BoundsInverted { at: String, min: f64, max: f64 },
+    BoundsInverted {
+        /// Location of the slider in the arguments.
+        at: String,
+        /// Lower bound received.
+        min: f64,
+        /// Upper bound received.
+        max: f64,
+    },
     /// JSON d'une autre forme que celle attendue ; `detail` : le message de serde.
-    Malformed { at: String, detail: String },
+    Malformed {
+        /// Location of the JSON in the arguments.
+        at: String,
+        /// Serde message describing the mismatch.
+        detail: String,
+    },
     /// Opérations refusées par le deck.
-    Refused { at: String, source: Box<TransactionError> },
+    Refused {
+        /// Location of the operations in the arguments.
+        at: String,
+        /// Transaction error returned by the deck.
+        source: Box<TransactionError>,
+    },
     /// Une variante supprime la slide qu'elle devait montrer.
-    SlideRemoved { at: String, slide: String },
+    SlideRemoved {
+        /// Location of the variant in the arguments.
+        at: String,
+        /// Id of the deleted slide.
+        slide: String,
+    },
     /// `name` n'existe pas dans l'outil `tool`.
-    NotAvailable { at: String, name: String, tool: &'static str },
+    NotAvailable {
+        /// Location of the name in the arguments.
+        at: String,
+        /// Requested name, unknown to the tool.
+        name: String,
+        /// MCP tool that does not know it.
+        tool: &'static str,
+    },
     /// Un champ de réglage dans `render` : c'est le rôle de `show_params`.
-    SettingInRender { at: String, name: String },
+    SettingInRender {
+        /// Location of the component in `render`.
+        at: String,
+        /// Name of the settings component.
+        name: String,
+    },
     /// Composant réservé à l'hôte.
-    Reserved { at: String, name: String },
+    Reserved {
+        /// Location of the component in the arguments.
+        at: String,
+        /// Name of the reserved component.
+        name: String,
+    },
     /// Styles `primary` et `danger`, réservés à l'hôte.
-    ReservedStyle { at: String },
+    ReservedStyle {
+        /// Location of the style in the arguments.
+        at: String,
+    },
     /// Liaison `{path}` au lieu d'une valeur littérale.
-    NotLiteral { at: String },
+    NotLiteral {
+        /// Location of the binding in the arguments.
+        at: String,
+    },
     /// Propriété inconnue du composant.
-    UnknownProperty { at: String, name: String },
+    UnknownProperty {
+        /// Location of the property in the arguments.
+        at: String,
+        /// Name of the unknown property.
+        name: String,
+    },
     /// Action ailleurs que sur un bouton, autre que `suggest`, ou dont la consigne n'est pas le libellé.
-    BadAction { at: String },
+    BadAction {
+        /// Location of the action in the arguments.
+        at: String,
+    },
     /// Aucun composant `root`.
     NoRoot,
     /// Arbre plus profond que `max` niveaux (`id` : un composant au niveau `level`).
-    TooDeep { max: usize, level: usize, id: String },
+    TooDeep {
+        /// Maximum depth allowed.
+        max: usize,
+        /// Level reached by component `id`.
+        level: usize,
+        /// Component nested too deep.
+        id: String,
+    },
     /// Composant visité deux fois : partagé ou dans un cycle.
-    SharedComponent { id: String },
+    SharedComponent {
+        /// Component visited twice.
+        id: String,
+    },
     /// Enfant qui ne désigne aucun composant.
-    UnknownChild { id: String },
+    UnknownChild {
+        /// Child id without a component.
+        id: String,
+    },
     /// Composant hors de l'arbre de `root`.
-    Unreachable { id: String },
+    Unreachable {
+        /// Component that `root` does not reach.
+        id: String,
+    },
     /// La session de l'onglet n'a pas été appelée (faute de l'hôte).
-    SessionNotCalled { tab: String },
+    SessionNotCalled {
+        /// Tab whose session is missing.
+        tab: String,
+    },
 }
 
 impl fmt::Display for AgentFormReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use AgentFormReason::*;
+        use AgentFormReason::{
+            BadAction, BoundsInverted, Count, DuplicateId, Empty, HiddenCharacters, Malformed, Missing, NoRoot,
+            NotAvailable, NotFinite, NotHexColor, NotLiteral, NotParagraphs, Refused, Reserved, ReservedStyle,
+            SessionNotCalled, SettingInRender, SharedComponent, SlideRemoved, TooDeep, TooLarge, TooLong, TooMany,
+            UnknownChild, UnknownProperty, Unreachable,
+        };
         match self {
             TooLong { at, count, max } => write!(f, "{at}: {count} characters, at most {max}"),
             HiddenCharacters { at } => {
@@ -118,7 +250,12 @@ impl fmt::Display for AgentFormReason {
 
 impl Localize for AgentFormReason {
     fn localize(&self, l: &Localizer) -> String {
-        use AgentFormReason::*;
+        use AgentFormReason::{
+            BadAction, BoundsInverted, Count, DuplicateId, Empty, HiddenCharacters, Malformed, Missing, NoRoot,
+            NotAvailable, NotFinite, NotHexColor, NotLiteral, NotParagraphs, Refused, Reserved, ReservedStyle,
+            SessionNotCalled, SettingInRender, SharedComponent, SlideRemoved, TooDeep, TooLarge, TooLong, TooMany,
+            UnknownChild, UnknownProperty, Unreachable,
+        };
         let s = |v: &str| FluentValue::from(v.to_owned());
         let n = |v: usize| FluentValue::from(v);
         let (key, args): (&str, Vec<(&str, FluentValue<'_>)>) = match self {

@@ -16,7 +16,7 @@ const PACK_ID: &str = "6a4f1c2e-1d3b-4e5f-8a9b-0c1d2e3f4a5b";
 const LIMITS: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26, compact_after_secs: 0 };
 
 /// Un pack de widgets `p` dont `tokens` porte `tokens` (valide ou non).
-fn pack_with_tokens(tokens: Value) -> PackFiles {
+fn pack_with_tokens(tokens: &Value) -> PackFiles {
     let manifest = json!({ "id": PACK_ID, "name": "P", "namespace": "p", "requires": [],
         "created": "2026-10-19T00:00:00Z", "tokens": tokens });
     PackFiles::new(PackKind::Widgets, manifest.as_object().cloned().unwrap_or_default(), BTreeMap::new())
@@ -34,7 +34,7 @@ fn issue_1104_unreadable_manifest_is_a_json_error_with_a_localized_text() {
 
 #[test]
 fn issue_1104_pinned_pack_with_an_invalid_token_is_reported_as_tokens_invalid() {
-    let files = pack_with_tokens(json!([{ "path": ["a"], "control": "color" }]));
+    let files = pack_with_tokens(&json!([{ "path": ["a"], "control": "color" }]));
     let pin = PackPin {
         id: PACK_ID.parse().unwrap_or_else(|e| panic!("{e}")),
         version: files.version(),

@@ -18,6 +18,7 @@ pub enum Script {
 
 impl Script {
     /// L'écriture du caractère `c`, par plages Unicode.
+    #[must_use]
     pub fn of(c: char) -> Self {
         match u32::from(c) {
             0x1100..=0x11FF
@@ -37,6 +38,7 @@ impl Script {
     }
 
     /// `text` contient-il un caractère de cette écriture ?
+    #[must_use]
     pub fn occurs_in(self, text: &str) -> bool {
         text.chars().any(|c| Self::of(c) == self)
     }
@@ -46,6 +48,7 @@ impl Script {
 /// accepte : langue de 2 ou 3 lettres en minuscules, puis l'écriture (4 lettres,
 /// `Hant`) et la région (2 lettres, `TW`) si elles suivent ; `None` pour une
 /// étiquette inutilisable (`x-none`, vide).
+#[must_use]
 pub fn lang_tag(raw: &str) -> Option<String> {
     let alpha = |p: &str, n: &[usize]| n.contains(&p.len()) && p.chars().all(|c| c.is_ascii_alphabetic());
     let mut parts = raw.trim().split(['-', '_']);
@@ -74,6 +77,7 @@ impl SourceDeck {
     /// La langue du texte des slides ([`lang_tag`]) qui couvre le plus de
     /// caractères, la première rencontrée en cas d'égalité ; `None` sans texte
     /// à la langue lisible.
+    #[must_use]
     pub fn language(&self) -> Option<String> {
         let mut tally: Vec<(String, usize)> = Vec::new();
         for s in &self.slides {

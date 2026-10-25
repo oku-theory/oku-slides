@@ -7,10 +7,18 @@ rendering, no disk access.
 ## Key types
 
 - `ServerMessage` (`message.rs`): `createSurface`, `updateComponents`, `updateDataModel`,
-  `deleteSurface`; serialization follows v0.9, JSON schema via `schemars`.
-- `Component { id, kind }` and `ComponentKind`: the catalog (layout, text, card, buttons, `Receipt`,
-  `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `ThemeChoice`, `Notice`, `ChartData`, `TableData`…); constructors `card`, `column`, `row`,
-  `text`, `button`; button builders `danger`, `icon` (`ButtonIcon`). `Dynamic<T>`: a literal value or a `{path}` binding to the data model.
+  `deleteSurface`, serialized as v0.9; `CATALOG_ID` lives here.
+- `Component { id, kind }` and `ComponentKind` (`component.rs`): the catalog (layout, text, card,
+  buttons, `Receipt`, `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `ThemeChoice`, `Notice`,
+  `ChartData`, `TableData`…); constructors `card`, `column`, `row`, `text`, `button`; button
+  builders `danger`, `icon`.
+- Prop types (`props.rs`): `Tone`, `TextVariant`, `ButtonIcon`, `ChoiceOption` (the only type with
+  a JSON schema, via `schemars`: its docs stay free of rustdoc links), `TimelineStep`,
+  `ToolCallDetail`, `PromptImage`, `DiffSegment`, `SlideRef`.
+- `ListColumn`, `SubList` (`list.rs`): a `ListTable`'s columns and its one-level nested list,
+  checked on read (`SubListFault`).
+- `Dynamic<T>`, `Action`, `Event` (`action.rs`): a literal value or a `{path}` binding to the data
+  model, and the event a component sends.
 - `SlideRef { id, hash }`: a `Receipt`'s slide, named by its page hash, never by its rendering (the
   UI resolves the thumbnail; the "state at receipt or current" choice is described in
   `oku-slides-session`).

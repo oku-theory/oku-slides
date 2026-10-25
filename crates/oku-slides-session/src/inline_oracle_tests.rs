@@ -150,7 +150,7 @@ fn fragmented(rng: &mut Rng, runs: usize) -> Vec<Run> {
     const EDGES: &[char] = &[' ', ' ', '\t', '\u{feff}', '!', '"', '*', '-', '.', 'Ⓐ', 'a', 'é', '1', '😀', '\u{85}'];
     (0..runs)
         .map(|_| {
-            let t: String = (0..1 + rng.below(4))
+            let t: String = (0..=rng.below(4))
                 .map(|_| {
                     if rng.below(2) == 0 { EDGES[rng.below(EDGES.len())] } else { ALPHABET[rng.below(ALPHABET.len())] }
                 })
@@ -159,7 +159,7 @@ fn fragmented(rng: &mut Rng, runs: usize) -> Vec<Run> {
                 bold: rng.below(2) == 0,
                 italic: rng.below(2) == 0,
                 link: (rng.below(8) == 0).then(|| ["https://a.b/x", "https://a.b/y"][rng.below(2)].to_owned()),
-                highlight: (rng.below(6) == 0).then(|| 1 + rng.below(3) as u8),
+                highlight: (rng.below(6) == 0).then(|| 1 + u8::try_from(rng.below(3)).unwrap()),
                 ..Run::plain(t)
             }
         })

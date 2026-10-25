@@ -82,7 +82,12 @@ impl Session {
         self.turn_steps.owner(self.doc.sources.replica().undo_step()?)
     }
 
-    /// Annule le tour `turn` par l'annuler ordinaire, s'il est encore la dernière modification du deck.
+    /// Undoes turn `turn` normally, if it is still the deck's last change.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if the turn is no longer on top of the stack
+    /// (`TurnNotOnTop`), or if the undo fails.
     pub fn undo_agent_turn(&mut self, turn: u32) -> Result<()> {
         self.ensure_editable()?;
         ensure!(self.undo_turn() == Some(turn), TurnNotOnTopSnafu { turn });

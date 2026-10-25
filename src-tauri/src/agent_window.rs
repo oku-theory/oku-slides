@@ -66,12 +66,11 @@ pub fn toggle_step(detached: bool, open: bool) -> Toggle {
 }
 
 fn open(app: &AppHandle) -> tauri::Result<WebviewWindow> {
-    let title = match app.try_state::<AppState>() {
-        Some(state) => state.localizer.tr("window-agent-title"),
-        None => {
-            tracing::debug!("état de l'app absent : fenêtre de l'agent sans titre");
-            String::new()
-        }
+    let title = if let Some(state) = app.try_state::<AppState>() {
+        state.localizer.tr("window-agent-title")
+    } else {
+        tracing::debug!("état de l'app absent : fenêtre de l'agent sans titre");
+        String::new()
     };
     let builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
         .title(title)
@@ -131,7 +130,7 @@ pub fn toggle(app: &AppHandle) {
             };
             if let Err(e) = Workspace::apply(&state.workspace, req) {
                 menu::set_agent_checked(app, detached);
-                return Err(state.refuse(e));
+                return Err(state.refuse(&e));
             }
             windows::sync(app, None, false);
             Ok(())

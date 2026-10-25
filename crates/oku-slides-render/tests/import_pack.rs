@@ -5,6 +5,7 @@
 //! crate d'import. La sonde du rendu (celle que la CLI lance par le
 //! travailleur de rendu) doit lire exactement les schémas déclarés : le
 //! projecteur applique ses ops avec eux, sans rendu.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::collections::BTreeMap;
 use std::fs;

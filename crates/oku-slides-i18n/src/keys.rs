@@ -9,6 +9,7 @@ use std::borrow::Cow;
 const MODIFIERS: [char; 4] = ['⌃', '⌥', '⇧', '⌘'];
 
 /// `text` dans la notation de la plateforme où tourne l'app.
+#[must_use]
 pub fn platform_keys(text: &str) -> Cow<'_, str> {
     if cfg!(target_os = "macos") { Cow::Borrowed(text) } else { pc_keys(text) }
 }
@@ -18,6 +19,7 @@ pub fn platform_keys(text: &str) -> Cow<'_, str> {
 /// Une suite de modificateurs devient leurs noms dans l'ordre d'un PC
 /// (Ctrl, Alt, Shift), reliés par `+` à la touche qui suit, même séparée
 /// par une espace (`⌘ Entrée`) ; seule, elle reste son nom (`⇧`).
+#[must_use]
 pub fn pc_keys(text: &str) -> Cow<'_, str> {
     if !text.contains(MODIFIERS) {
         return Cow::Borrowed(text);

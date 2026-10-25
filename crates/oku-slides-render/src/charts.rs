@@ -64,6 +64,10 @@ pub(crate) struct TextSizes {
 /// Tailles de texte des jetons résolus ; aucune s'il manque `body` ou `lead`.
 pub(crate) fn text_sizes(tokens: &Json) -> Option<TextSizes> {
     let size = |name: &str| {
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "f64 to f32 has no fallible conversion; out of range gives infinity, discarded right after"
+        )]
         let v = tokens.get("size")?.get(name)?.as_f64()? as f32;
         (v.is_finite() && v > 0.0).then_some(v)
     };
@@ -284,9 +288,13 @@ fn frame_size(e: &Map<String, Json>) -> Option<Size> {
     clamped(frame.get("w")?.as_f64()?, frame.get("h")?.as_f64()?)
 }
 
-/// Une taille ramenée dans [MIN_SIDE, MAX_SIDE] ; aucune si un côté n'est pas fini.
+/// A size clamped to [`MIN_SIDE`, `MAX_SIDE`]; none if a side is not finite.
 fn clamped(w: f64, h: f64) -> Option<Size> {
     let side = |v: f64| {
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "f64 to f32 has no fallible conversion; out of range gives infinity, discarded right after"
+        )]
         let v = v as f32;
         v.is_finite().then(|| v.clamp(MIN_SIDE, MAX_SIDE))
     };
@@ -313,8 +321,8 @@ fn chart_param<'r>(registry: &'r WidgetRegistry, kind: &str) -> Option<&'r str> 
 /// slide ou d'un élément qui a un `id` et un `kind`, à toute profondeur de
 /// slot.
 pub(crate) fn for_each_element(deck: &mut Json, f: &mut impl FnMut(&mut Map<String, Json>)) {
-    fn visit(params: Option<&mut Json>, f: &mut impl FnMut(&mut Map<String, Json>)) {
-        let Some(Json::Object(params)) = params else { return };
+    fn visit(params: &mut Json, f: &mut impl FnMut(&mut Map<String, Json>)) {
+        let Json::Object(params) = params else { return };
         for value in params.values_mut() {
             let Json::Array(items) = value else { continue };
             for item in items {
@@ -322,14 +330,16 @@ pub(crate) fn for_each_element(deck: &mut Json, f: &mut impl FnMut(&mut Map<Stri
                 let element = e.get("id").is_some_and(Json::is_string) && e.get("kind").is_some_and(Json::is_string);
                 if element {
                     f(e);
-                    visit(e.get_mut("params"), f);
+                    if let Some(params) = e.get_mut("params") {
+                        visit(params, f);
+                    }
                 }
             }
         }
     }
     let Some(Json::Array(slides)) = deck.get_mut("slides") else { return };
-    for slide in slides {
-        visit(slide.get_mut("params"), f);
+    for params in slides.iter_mut().filter_map(|s| s.get_mut("params")) {
+        visit(params, f);
     }
 }
 

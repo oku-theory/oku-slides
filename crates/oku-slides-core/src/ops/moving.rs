@@ -11,13 +11,17 @@ use crate::error::{OpError, SlideNotFoundSnafu};
 use crate::model::{Deck, Slide};
 use crate::widget::{SlotMode, WidgetRegistry};
 
-use super::{Op, SlotRef, check_add, insert_at, not_found, remove_from};
+use super::edit::{check_add, insert_at};
+use super::{Op, SlotRef, not_found, remove_from};
 
 /// Un élément passé d'une slide à une autre par `move_element`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Moved {
+    /// Id of the moved element.
     pub element: String,
+    /// Slide the element leaves, at the start of the transaction.
     pub from: String,
+    /// Slide it reaches, at the end of the transaction.
     pub to: String,
 }
 
@@ -30,25 +34,25 @@ pub struct Moved {
 pub(super) fn move_element(
     deck: &mut Deck,
     registry: &WidgetRegistry,
-    slide: String,
-    element: String,
-    to: SlotRef,
+    slide: &str,
+    element: &str,
+    to: &SlotRef,
     index: Option<usize>,
 ) -> Result<(), OpError> {
-    let si = slide_index(deck, &slide)?;
+    let si = slide_index(deck, slide)?;
     let ti = if to.owner.slide == slide { None } else { Some(slide_index(deck, &to.owner.slide)?) };
     // `si` et `ti` viennent de `slide_index` : dans les bornes de `deck.slides`.
     let mut source = deck.slides[si].clone();
     let mut target: Option<Slide> = ti.map(|i| deck.slides[i].clone());
-    let removed = source.params.slots_mut().find_map(|(_, list)| remove_from(list, &element));
-    let mut moved = removed.ok_or_else(|| not_found(&slide, &element))?;
+    let removed = source.params.slots_mut().find_map(|(_, list)| remove_from(list, element));
+    let mut moved = removed.ok_or_else(|| not_found(slide, element))?;
     let dest = target.as_mut().unwrap_or(&mut source);
-    let (at, mode) = check_add(registry, dest, &to, index, &mut moved)?;
+    let (at, mode) = check_add(registry, dest, to, index, &mut moved)?;
     if mode == SlotMode::Flow {
         moved.frame = None;
         moved.cell = None;
     }
-    insert_at(dest, &to, at, moved)?;
+    insert_at(dest, to, at, moved)?;
     deck.slides[si] = source;
     if let (Some(i), Some(t)) = (ti, target) {
         deck.slides[i] = t;

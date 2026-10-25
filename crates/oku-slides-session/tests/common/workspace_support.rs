@@ -16,7 +16,7 @@ pub fn workspace(data: &Data) -> Mutex<Workspace> {
     settings.paths.decks = Some(data.join("decks"));
     settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme indisponible : {e}"));
-    let ws = Workspace::resume(Fonts::default(), &platform, data.join("resume"))
+    let ws = Workspace::resume(Fonts::default(), &platform, &data.join("resume"))
         .unwrap_or_else(|e| panic!("reprise impossible : {}", e.one_line()));
     Mutex::new(ws)
 }

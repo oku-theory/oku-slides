@@ -55,8 +55,8 @@ pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) 
             kind: FieldKind::List,
             value: if value.is_array() { value } else { json!([]) },
             op_template: Value::Null,
-            min: Some(*min as f64),
-            max: Some(max.map_or(LIST_ITEMS_MAX, |m| m.min(LIST_ITEMS_MAX)) as f64),
+            min: Some(oku_slides_core::num::count_f64(*min)),
+            max: Some(oku_slides_core::num::count_f64(max.map_or(LIST_ITEMS_MAX, |m| m.min(LIST_ITEMS_MAX)))),
             step: None,
             options: Vec::new(),
             columns: item.iter().filter_map(column).collect(),
@@ -164,7 +164,7 @@ fn slider_step(span: f64) -> f64 {
     }
     let raw = span / 100.0;
     // `raw` ≤ 0.1 : l'échelle est une puissance de dix positive, exacte en flottant.
-    let scale = 10f64.powi(5 - raw.log10().floor() as i32);
+    let scale = 10f64.powi(5 - oku_slides_core::num::floor_i32(raw.log10()));
     if !scale.is_finite() {
         return raw;
     }

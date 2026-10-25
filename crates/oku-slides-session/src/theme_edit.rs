@@ -66,15 +66,13 @@ impl ThemeEdit {
 
     /// Les parents de départ : l'intégré lui-même pour un enfant, sinon ceux de la base `base`.
     pub(crate) fn starting_extends(&self, base: &ThemeManifest) -> Vec<Namespace> {
-        match self.child() {
-            true => vec![self.namespace.clone()],
-            false => base.extends.clone(),
-        }
+        if self.child() { vec![self.namespace.clone()] } else { base.extends.clone() }
     }
 
     /// La base est intégrée : le brouillon part vide et s'enregistre en un enfant qui l'étend.
     ///
     /// Tiré de la base, jamais gardé : un état de reprise ne peut le contredire.
+    #[must_use]
     pub fn child(&self) -> bool {
         ThemeLibrary::is_builtin(self.base.id)
     }
@@ -272,12 +270,17 @@ impl Session {
         Some(EditingView { mode: edit, theme: view })
     }
 
-    /// Le brouillon part du thème `ns`, dans sa version courante de la bibliothèque.
+    /// The draft starts from theme `ns`, at its current version in the library.
     ///
-    /// Ses jetons (aucun pour un intégré, dont le brouillon sera un enfant)
-    /// remplacent ceux du deck de travail en une étape annulable, qui porte
-    /// aussi le rang du changement ([`DRAFT_SWITCH_VAR`]) : un choix qui ne
-    /// change pas les jetons (d'un intégré à l'autre) a la sienne.
+    /// Its tokens (none for a built-in, whose draft will be a child) replace
+    /// those of the working deck in one undoable step, which also carries the
+    /// change's rank ([`DRAFT_SWITCH_VAR`]): a choice that does not change the
+    /// tokens (from one built-in to another) gets its own step.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside pack mode (`NotEditingPack`), for a theme unknown to the library, or if the
+    /// transaction is rejected.
     pub fn set_edited_theme(&mut self, ns: &Namespace) -> Result<()> {
         let Mode::Pack { theme, switches, .. } = &self.mode else {
             return NotEditingPackSnafu.fail()?;
@@ -313,10 +316,14 @@ impl Session {
         }
     }
 
-    /// Renomme le thème édité ; un nom vide reprend celui de sa base.
+    /// Renames the edited theme; an empty name takes back its base's name.
     ///
-    /// Un changement d'état, sans étape d'annulation : le nom n'est pas dans le deck.
-    pub fn rename_edited_theme(&mut self, name: String) -> Result<()> {
+    /// A state change, with no undo step: the name is not in the deck.
+    ///
+    /// # Errors
+    ///
+    /// Fails outside pack mode (`NotEditingPack`).
+    pub fn rename_edited_theme(&mut self, name: &str) -> Result<()> {
         if !matches!(self.mode, Mode::Pack { .. }) {
             return NotEditingPackSnafu.fail()?;
         }
@@ -411,11 +418,11 @@ impl Session {
             }
             match op {
                 Op::SetToken { path, value } if drafting || checked_outside_drafts(schema, path) => {
-                    validate(schema, path, value, &effective(&own.tokens))?
+                    validate(schema, path, value, &effective(&own.tokens))?;
                 }
                 Op::SetTokens { tokens } => {
                     let checked = without_unpinned_components(&tokens_of(tokens), pinned);
-                    validate_tree(schema, &checked, &effective(tokens), drafting)?
+                    validate_tree(schema, &checked, &effective(tokens), drafting)?;
                 }
                 _ => {}
             }

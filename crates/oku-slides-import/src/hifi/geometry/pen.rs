@@ -4,6 +4,7 @@
 use std::f64::consts::{FRAC_PI_2, TAU};
 
 use oku_slides_core::PathCommand;
+use oku_slides_core::num::trunc_u32;
 
 /// Écart sous lequel un balayage est nul ou un tour complet.
 const EPS: f64 = 1e-9;
@@ -104,7 +105,8 @@ impl Pen {
         let step = dt / n;
         let k = 4.0 / 3.0 * (step / 4.0).tan();
         let mut a = t1;
-        for _ in 0..n as u32 {
+        // `n`, already whole (`ceil`), is at most 4 (quarter turns): truncation is exact.
+        for _ in 0..trunc_u32(n) {
             let b = a + step;
             let (pa, da, pb, db) = (point(a), tangent(a), point(b), tangent(b));
             self.cubic_to((pa.0 + k * da.0, pa.1 + k * da.1), (pb.0 - k * db.0, pb.1 - k * db.1), pb);

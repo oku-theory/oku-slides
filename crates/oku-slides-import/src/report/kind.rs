@@ -4,6 +4,7 @@ use super::LossKind;
 
 impl LossKind {
     /// Le nom de la sorte, l'étiquette `type` du JSON (`list_levels`, `overflow`…).
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::ListLevels => "list_levels",

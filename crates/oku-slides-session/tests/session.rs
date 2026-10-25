@@ -1,3 +1,7 @@
+//! End-to-end session: editing, undo, saving, JSON requests, packs and themes.
+#![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
+use std::collections::BTreeMap;
+
 use oku_slides_core::{Deck, Frame, Op, Paragraph};
 use oku_slides_session::{FieldKind, OwnerKind, Request, Session, Settings, paragraphs_to_text};
 use serde_json::json;
@@ -148,7 +152,7 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
 
     s.apply(
         "Thème",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() }],
         None,
     )
     .unwrap();
@@ -173,14 +177,14 @@ fn snapshot_appearance_follows_theme_and_deck_overrides() {
     assert_that!(pro.metrics["elevation"]).is_close_to(1.5, f64::EPSILON);
 
     // `set_theme` à `null` : le thème par défaut, dans sa version courante.
-    s.apply("Thème par défaut", vec![Op::SetTheme { theme: None, themes: Default::default() }], None).unwrap();
+    s.apply("Thème par défaut", vec![Op::SetTheme { theme: None, themes: BTreeMap::default() }], None).unwrap();
     assert_that!(s.snapshot().appearance).is_equal_to(&papier);
 
     // Une surcharge du deck l'emporte sur le thème, pour les slides comme pour l'app.
     s.apply(
         "Accent",
         vec![
-            oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() },
+            oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() },
             Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#123456") },
             Op::SetToken { path: vec!["app".into(), "desk".into()], value: json!("#222222") },
         ],
@@ -208,7 +212,7 @@ fn layouts_view_renders_previews_in_deck_theme() {
 
     s.apply(
         "Thème",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() }],
         None,
     )
     .unwrap();
@@ -440,7 +444,7 @@ fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
     other
         .apply(
             "Thème",
-            vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+            vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() }],
             None,
         )
         .unwrap();
@@ -599,7 +603,7 @@ fn resume_with_unreadable_state_moves_old_data_aside_instead_of_overwriting() {
     // Les anciennes données ne sont pas perdues : déplacées de côté.
     let moved: Vec<_> = std::fs::read_dir(&data)
         .unwrap()
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .map(|e| e.path())
         .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("resume.failed-")))
         .collect();
@@ -720,7 +724,7 @@ fn resume_with_unreadable_deck_starts_blank_and_sets_the_folder_aside() {
     assert_that!(b.tab_info().pristine).is_true();
     let aside = std::fs::read_dir(&data)
         .unwrap()
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.file_name().to_string_lossy().starts_with("resume.failed-"))
         .count();
     assert_that!(aside).is_equal_to(1);
@@ -753,7 +757,7 @@ fn appearance_carries_the_dark_interface_palette_of_papier_and_pro() {
         .is_equal_to(Some("#1f1d1a"));
     s.apply(
         "Thème",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: Default::default() }],
+        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() }],
         None,
     )
     .unwrap();

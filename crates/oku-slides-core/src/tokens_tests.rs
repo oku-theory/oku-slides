@@ -83,15 +83,12 @@ fn merged(a: &Value, b: &Value) -> Value {
 #[case::prefix_overlap(json!({"a": 1}), json!({"a": {"b": 2}}), None)]
 fn merge_two_peers_is_commutative(#[case] left: Value, #[case] right: Value, #[case] commutes_to: Option<Value>) {
     let (lr, rl) = (merged(&left, &right), merged(&right, &left));
-    match commutes_to {
-        Some(expected) => {
-            assert_that!(&lr).is_equal_to(&expected);
-            assert_that!(&rl).is_equal_to(&expected);
-        }
-        None => {
-            // Ordre documenté : la couche posée en dernier gagne.
-            assert_that!(&lr).is_equal_to(&right);
-            assert_that!(&rl).is_equal_to(&left);
-        }
+    if let Some(expected) = commutes_to {
+        assert_that!(&lr).is_equal_to(&expected);
+        assert_that!(&rl).is_equal_to(&expected);
+    } else {
+        // Documented order: the layer set last wins.
+        assert_that!(&lr).is_equal_to(&right);
+        assert_that!(&rl).is_equal_to(&left);
     }
 }
