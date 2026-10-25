@@ -5830,7 +5830,6 @@ dependencies = [
  "color-eyre",
  "hex",
  "insta",
- "oku-slides-a2ui",
  "oku-slides-core",
  "oku-slides-i18n",
  "oku-slides-mcp",
@@ -6158,7 +6157,6 @@ name = "oku-slides-session"
 version = "3.0.2"
 dependencies = [
  "fontdb",
- "hex",
  "insta",
  "loro",
  "oku-slides-a2ui",

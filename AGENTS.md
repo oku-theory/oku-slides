@@ -84,13 +84,13 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 - Run all Typst work (render, registry probe, charts, export) in the bounded render worker, never in-process. (t-327)
 - Keep the editing markdown syntax fixed: bold, italic, links, ==highlight== with optional {n} 0-255, - and 1. lists. (plan:2026-09-27-markdown-lezer)
 - Use move_element, not remove_element plus add_element, to move an element so concurrent edits are kept. (plan:2026-10-10-deck-en-arbre)
+- Bump the app version only through the release-plz PR; it lives only in [workspace.package] of Cargo.toml. (t-1184)
 
 ## Workflow
 
 - Commits: Conventional Commits in English, `type(scope): description (t-N)`; `!` for breaking.
   Every commit cites its Oku task(s). `just hooks` installs the commit-msg check, `just check` runs it.
-- Specs: `docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md`; plans: `docs/superpowers/plans/`.
-- Decisions: `docs/adr/` (see its README).
+- Specs: `docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md`; plans: `docs/superpowers/plans/`; decisions: `docs/adr/`.
 
 ## Harness
 

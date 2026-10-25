@@ -1,0 +1,145 @@
+# App versions with release-plz (t-1184), on every push to main:
+# - release: when [workspace.package]'s version has no tag yet (the release PR was just merged),
+#   tags `v<version>`; when that version has no release yet, starts the Release workflow, which
+#   builds the packages.
+# - release-pr: then opens or updates the "chore(release): v<version>" PR. The next version and
+#   CHANGELOG.md come from git-cliff over every commit since the last tag (release-prepare.sh,
+#   cliff.toml), because release-plz ignores commits that only touch ui/.
+# Required repo setting: Settings > Actions > "Allow GitHub Actions to create and approve pull
+# requests". GITHUB_TOKEN pushes start no workflow: no CI on the release PR and no Release on the
+# tag, hence the explicit `gh workflow run` (workflow_dispatch is the exception).
+name: Release-plz
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Tag
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    # Two merges in quick succession never create the same tag twice.
+    concurrency:
+      group: release-plz-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
+
+      - uses: release-plz/action@b2baf303c463c223526d52a8a91b0777f052cf3f # v0.5.146
+        id: release-plz
+        with:
+          command: release
+          version: 0.4.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Not only when this run created the tag: a failed dispatch is recovered by rerunning the job.
+      # An existing release (draft included) or a Release run in progress means nothing to do.
+      - name: Workflow Release lancé
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(awk '/^\[workspace.package\]/{f=1} f && /^version = /{gsub(/"/,"",$3); print $3; exit}' Cargo.toml)
+          git fetch -q --tags origin
+          git rev-parse -q --verify "refs/tags/v$version" >/dev/null || { echo "v$version sans tag"; exit 0; }
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" --json isDraft >/dev/null 2>err; then
+            echo "release v$version déjà créée"; exit 0
+          elif ! grep -qx "release not found" err; then
+            echo "::error::v$version non vérifiée : $(cat err)"; exit 1
+          fi
+          active=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --limit 20 \
+            --json status --jq '[.[] | select(.status != "completed")] | length')
+          [ "$active" -eq 0 ] || { echo "un run Release est déjà en cours"; exit 0; }
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f version="$version"
+          echo "Release lancé pour v$version"
+
+  release-pr:
+    name: PR de release
+    # After the tag: without it, the merged version would look unreleased and reopen a PR.
+    needs: release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    # PR updates run one after another: interrupted midway, the PR would be left half written.
+    concurrency:
+      group: release-plz-pr
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
+
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2
+        with:
+          tool: git-cliff@2.14.2
+
+      # A run older than main (queued, or a re-run) would reopen an already merged PR.
+      - name: Commit à jour avec main
+        id: fresh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          head=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$head" = "$GITHUB_SHA" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice::$GITHUB_SHA n'est plus la tête de main ($head) : le run suivant prépare la PR"
+            echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Version et changelog (git-cliff)
+        id: prepare
+        if: steps.fresh.outputs.ok == 'true'
+        run: |
+          next=$(.github/scripts/release-prepare.sh)
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "Version suivante : ${next:-aucune}"
+
+      # Nothing to release: a release PR still open is stale (its version is already tagged).
+      - name: PR de release périmée fermée
+        if: steps.fresh.outputs.ok == 'true' && steps.prepare.outputs.next == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for n in $(gh pr list --repo "$GITHUB_REPOSITORY" --label release --state open --json number --jq '.[].number'); do
+            gh pr close "$n" --repo "$GITHUB_REPOSITORY" --delete-branch --comment "Version déjà publiée : PR périmée."
+          done
+
+      - uses: release-plz/action@b2baf303c463c223526d52a8a91b0777f052cf3f # v0.5.146
+        id: release-plz
+        if: steps.fresh.outputs.ok == 'true' && steps.prepare.outputs.next != ''
+        with:
+          command: release-pr
+          version: 0.4.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # release-plz must keep git-cliff's version: a PR at another version would be merged with
+      # nothing to flag it.
+      - name: Version de la PR vérifiée
+        if: steps.fresh.outputs.ok == 'true' && steps.prepare.outputs.next != ''
+        env:
+          NEXT: ${{ steps.prepare.outputs.next }}
+          PR: ${{ steps.release-plz.outputs.pr }}
+        run: |
+          branch=$(jq -r '.head_branch // empty' <<<"$PR")
+          [ -n "$branch" ] || { echo "::error::aucune PR de release pour v$NEXT"; exit 1; }
+          git fetch -q origin "$branch"
+          got=$(git show FETCH_HEAD:Cargo.toml \
+            | awk '/^\[workspace.package\]/{f=1} f && /^version = /{gsub(/"/,"",$3); print $3; exit}')
+          [ "$got" = "$NEXT" ] || { echo "::error::PR $branch à v$got, v$NEXT attendue"; exit 1; }
+          git show FETCH_HEAD:CHANGELOG.md | grep -q "^## \[$NEXT\]" \
+            || { echo "::error::CHANGELOG.md de $branch sans section $NEXT"; exit 1; }
+          echo "PR $(jq -r .html_url <<<"$PR") : v$NEXT"

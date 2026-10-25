@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Oku Slides",
-  "version": "3.0.2",
   "identifier": "me.dartiguenave.oku-slides",
   "build": {
     "frontendDist": "../ui/dist",

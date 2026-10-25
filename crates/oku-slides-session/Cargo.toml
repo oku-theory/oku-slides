@@ -26,7 +26,6 @@ unicode-properties.workspace = true
 schemars.workspace = true
 uuid.workspace = true
 png.workspace = true
-hex.workspace = true
 sha2.workspace = true
 oku-slides-import.workspace = true
 oku-slides-reference.workspace = true

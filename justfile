@@ -409,7 +409,8 @@ lint-fix:
 coverage:
     cargo llvm-cov nextest --workspace --exclude oku-slides-app --summary-only
 
-# Dépendances : licences, avis de sécurité, sources. `bun audit` lit ui/bun.lock seul ;
+# Dépendances : licences, avis de sécurité, sources, dépendances déclarées mais inutilisées
+# (cargo machete ; un faux positif s'ignore dans `[package.metadata.cargo-machete]`). `bun audit` lit ui/bun.lock seul ;
 # une exception npm motivée s'y ajoute en `--ignore <GHSA>`, commentée ici.
 # - GHSA-mrhx-c7xc-m3w5 (zod < 4.6.6, mémoire épuisée sur un grand tableau invalide) : corrigé
 #   seulement en zod 4, que @a2ui (zod ^3.25.76, ses CommonSchemas dans nos schémas) refuse ;
@@ -418,7 +419,22 @@ coverage:
 audit:
     cargo deny check
     cargo audit
+    cargo machete
     cd ui && bun audit --ignore GHSA-mrhx-c7xc-m3w5
+
+# Sécurité du code de l'UI (Semgrep, règles TypeScript, React, XSS) : un constat fait échouer.
+# Les tests, jamais livrés, sont exclus ; un faux positif s'écarte par `// nosemgrep: <règle>`
+# motivé sur la ligne. Semgrep : `pipx install semgrep` (version figée dans audit.yml).
+ui-security:
+    semgrep scan --metrics=off --error --config p/typescript --config p/react --config p/xss \
+      --config p/javascript --exclude '*.test.ts' --exclude '*.test.tsx' \
+      ui/src ui/vite.config.ts ui/index.html
+
+# Métriques du code Rust (rust-code-analysis) : un fichier de plus de 1000 lignes fait échouer,
+# une fonction au-delà du seuil de complexité cognitive de clippy.toml est seulement signalée.
+# Rapport Markdown sur la sortie, métriques JSON dans `out` (un dossier temporaire par défaut).
+metrics out="":
+    @out="{{out}}"; .github/scripts/code-metrics.sh "${out:-$(mktemp -d)}"
 
 # Relance une commande à chaque modification : just watch test
 watch cmd="test":
@@ -429,7 +445,7 @@ ci: check agents-lint-test commit-lint-test test audit
 
 # Installe les outils de développement
 setup: hooks
-    cargo install --locked cargo-nextest cargo-deny cargo-audit cargo-llvm-cov cargo-watch tauri-cli
+    cargo install --locked cargo-nextest cargo-deny cargo-audit cargo-machete rust-code-analysis-cli cargo-llvm-cov cargo-watch tauri-cli
 
 # Outil en ligne de commande : just oku-slides render fixtures/roadmap.json --out out
 oku-slides *args:

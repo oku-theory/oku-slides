@@ -1,11 +1,11 @@
-# Releases de l'app de bureau (Windows, macOS, Linux), lancées à la main depuis l'onglet Actions.
-# Le job version monte la version (patch, minor ou major) et pousse ce commit sur main ; chaque
-# plateforme cochée construit ensuite ses paquets depuis ce commit (`cargo tauri build`) et les
-# dépose dans une même release brouillon `v<version>`, publiée une fois les quatre plateformes
-# présentes. Les releases du dépôt sont immuables : une release publiée ne reçoit plus aucun paquet,
-# d'où le brouillon tant qu'il en manque. `aucune` garde la version courante et construit depuis
-# main : de quoi compléter ce brouillon (plateformes non cochées, ou en échec et corrigées depuis)
-# sans monter la version.
+# Desktop app releases (Windows, macOS, Linux). Started by Release-plz (release-plz.yml) once it
+# tags `v<version>` for a merged release PR, or by hand from the Actions tab. The version is never
+# bumped here: it is the one Release-plz passes, else [workspace.package] on main, and its tag must
+# exist (t-1184). Each selected platform builds its packages from the tagged commit (`cargo tauri
+# build`) and uploads them to one draft release `v<version>`, published once all four platforms
+# are there. Releases in this repo are immutable: a published release takes no more packages,
+# hence the draft while one is missing. Run again by hand, the workflow completes that draft
+# (platforms left out, or failed and fixed since).
 # La release porte aussi les paquets de mise à jour signés et `latest.json`, lu par les apps
 # installées une fois la release publiée comme « latest ». Les secrets de signature vivent dans
 # l'environnement `release` ; `just build` en local ne produit aucun paquet de mise à jour et
@@ -15,11 +15,11 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      bump:
-        description: Partie de la version à monter
-        type: choice
-        options: [patch, minor, major, aucune]
-        default: patch
+      # Passed by Release-plz: main may have moved to a newer version between the tag and this run.
+      version:
+        description: Version à construire (vide = celle de main)
+        type: string
+        default: ""
       macos_arm:
         description: macOS (Apple Silicon)
         type: boolean
@@ -46,20 +46,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Un build en échec se relance avec « Re-run failed jobs » : la version déjà montée est réutilisée.
-  # Relancer tout le workflow la monterait une seconde fois.
+  # A failed build is retried with "Re-run failed jobs" or by running the workflow again: the
+  # version and its tag are read again, nothing is bumped.
   version:
     name: Version
     # ubuntu-22.04 est en dépréciation (fenêtres de brownout jusqu'au retrait, avril 2027) : les
     # jobs sans compilation passent en 24.04. Le build Linux y reste pour sa glibc plus ancienne.
     runs-on: ubuntu-24.04
     outputs:
-      version: ${{ steps.bump.outputs.version }}
-      sha: ${{ steps.bump.outputs.sha }}
+      version: ${{ steps.tag.outputs.version }}
+      sha: ${{ steps.tag.outputs.sha }}
       matrix: ${{ steps.targets.outputs.matrix }}
       updaters: ${{ steps.targets.outputs.updaters }}
     steps:
-      # Avant le bump : sans plateforme cochée, rien n'est poussé.
       - name: Plateformes choisies
         id: targets
         env:
@@ -81,35 +80,35 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "updaters=$(jq -c '[.include[].updater]' <<<"$matrix")" >> "$GITHUB_OUTPUT"
 
+      # With tags: the version is built from its tagged commit, not from main.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Version montée et poussée
-        id: bump
+      - name: Version et commit du tag
+        id: tag
         env:
-          BUMP: ${{ inputs.bump }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
         run: |
-          if [ "$BUMP" = aucune ]; then
-            version=$(jq -r .version src-tauri/tauri.conf.json)
-            # Release immuable une fois publiée : les builds échoueraient tous à l'envoi.
-            # Seule l'absence de release laisse passer : toute autre erreur de gh arrête le run.
-            if draft=$(gh release view "v$version" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>err); then
-              [ "$draft" = true ] || { echo "::error::v$version est déjà publiée, donc immuable : montez la version"; exit 1; }
-            elif ! grep -qx "release not found" err; then
-              echo "::error::v$version non vérifiée : $(cat err)"
-              exit 1
-            fi
-          else
-            version=$(.github/scripts/bump-version.sh "$BUMP")
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -am "chore(release) : v$version"
-            git push origin HEAD:main
+          version=${VERSION:-$(awk '/^\[workspace.package\]/{f=1} f && /^version = /{gsub(/"/,"",$3); print $3; exit}' Cargo.toml)}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version illisible : $version"; exit 1; }
+          # Release-plz creates the tag: without it, the release PR is not merged.
+          sha=$(git rev-parse -q --verify "refs/tags/v$version^{commit}") \
+            || { echo "::error::tag v$version absent : fusionnez la PR de release"; exit 1; }
+          # A published release is immutable: every build would fail on upload.
+          # Only a missing release lets the run through: any other gh error stops it.
+          if draft=$(gh release view "v$version" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>err); then
+            [ "$draft" = true ] || { echo "::error::v$version est déjà publiée, donc immuable"; exit 1; }
+          elif ! grep -qx "release not found" err; then
+            echo "::error::v$version non vérifiée : $(cat err)"
+            exit 1
           fi
+          echo "v$version, commit $sha"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
   build:
     name: ${{ matrix.name }}
@@ -229,7 +228,8 @@ jobs:
           includeUpdaterJson: true
           # Windows : l'installeur NSIS, pas le MSI.
           updaterJsonPreferNsis: true
-          # `__VERSION__` : remplacé par tauri-action par la version de src-tauri/tauri.conf.json.
+          # `__VERSION__`: tauri-action replaces it with [workspace.package]'s version (Cargo.toml),
+          # as tauri.conf.json has none.
           tagName: v__VERSION__
           releaseName: Oku Slides v__VERSION__
           releaseBody: Paquets Windows, macOS et Linux construits par le workflow Release.
@@ -262,7 +262,7 @@ jobs:
                    | select(.key | IN("darwin-aarch64","darwin-x86_64","linux-x86_64","windows-x86_64"))
                    | select((.value.url // "") != "" and (.value.signature // "") != "")] | length' latest.json)
           if [ "$n" -eq 4 ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; else
-            echo "::warning::$n plateformes sur 4 : $TAG reste un brouillon, à compléter par une release « aucune »"
+            echo "::warning::$n plateformes sur 4 : $TAG reste un brouillon, à compléter en relançant Release"
             echo "complete=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Brouillon publié

@@ -1,0 +1,28 @@
+# release-plz (workflow .github/workflows/release-plz.yml, t-1184): opens the release PR, then on
+# merge tags v<version>, which starts the Release workflow. No crate goes to crates.io (git_only:
+# the released version is read from tags). Only oku-slides-app is tracked: the other crates
+# inherit the same [workspace.package] version.
+# release-plz only counts commits that touch a crate, so ui/ commits would be missed. The version
+# and CHANGELOG.md therefore come from git-cliff (cliff.toml, release-prepare.sh), written to the
+# working tree before release-plz runs: hence allow_dirty, and changelog_update off here.
+
+[workspace]
+git_only = true
+release = false
+allow_dirty = true
+changelog_update = false
+dependencies_update = false
+semver_check = false
+git_release_enable = false
+pr_name = "chore(release): v{{ version }}"
+pr_labels = ["release"]
+pr_body = """
+Version and changelog computed by git-cliff over every commit since the last tag \
+(`cliff.toml`); see `CHANGELOG.md`. On merge, the version tag is created and the Release \
+workflow builds the packages for the four platforms.
+"""
+
+[[package]]
+name = "oku-slides-app"
+release = true
+git_tag_name = "v{{ version }}"

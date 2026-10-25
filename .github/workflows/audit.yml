@@ -1,9 +1,12 @@
-# Scan de vulnérabilités des dépendances : `just audit` (cargo deny, cargo audit, bun audit).
-# Chaque jour, car un avis RustSec ou npm tombe sans que le code change ; à chaque push sur main
-# ou PR qui touche les manifestes, les verrous, les exceptions ou ce workflow ; et à la main
-# depuis l'onglet Actions. Un échec planifié est envoyé par mail au dernier auteur du cron.
-# Exceptions motivées : deny.toml et .cargo/audit.toml (tenus alignés) pour Rust, `--ignore`
-# de `bun audit` dans le justfile pour npm.
+# Scheduled scan: dependencies with `just audit` (cargo deny, cargo audit, cargo machete, bun
+# audit), Rust code metrics with `just metrics` (rust-code-analysis), and UI code security with
+# `just ui-security` (Semgrep, blocking) and CodeQL (reported in the Security tab).
+# Runs daily, because a RustSec or npm advisory lands without any code change and a removed `use`
+# leaves an unused dependency without touching a manifest; on every push to main or PR touching
+# the manifests, locks, exceptions, metric inputs or this workflow; and by hand from the Actions
+# tab. A failed scheduled run is emailed to the last author of the cron.
+# Justified exceptions: deny.toml and .cargo/audit.toml (kept aligned) for Rust, `bun audit`
+# `--ignore` flags in the justfile for npm.
 name: Audit
 
 on:
@@ -20,6 +23,8 @@ on:
       - ui/bun.lock
       - ui/package.json
       - justfile
+      - clippy.toml
+      - .github/scripts/code-metrics.sh
       - .github/workflows/audit.yml
   pull_request:
     paths:
@@ -30,6 +35,8 @@ on:
       - ui/bun.lock
       - ui/package.json
       - justfile
+      - clippy.toml
+      - .github/scripts/code-metrics.sh
       - .github/workflows/audit.yml
 
 permissions:
@@ -46,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # Sans LFS : seuls les manifestes et les verrous sont lus, rien n'est compilé.
+      # No LFS: manifests, locks and sources are read, nothing is compiled.
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -57,10 +64,83 @@ jobs:
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: just@1.58.0,cargo-deny@0.20.2,cargo-audit@0.22.2
+          tool: just@1.58.0,cargo-deny@0.20.2,cargo-audit@0.22.2,cargo-machete@0.9.2
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
 
       - run: just audit
+
+  # File size and complexity (just metrics): a separate job, so a security advisory does not hide
+  # its report, nor the other way round.
+  metrics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.58.0,rust-code-analysis-cli@0.0.25
+
+      - run: just metrics metrics >> "$GITHUB_STEP_SUMMARY"
+
+      # Per-file JSON metrics, to follow a drift without rerunning the analysis.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metrics
+          path: metrics
+          retention-days: 30
+
+  # TypeScript security gate for the UI: any Semgrep finding fails the job.
+  ui-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.58.0
+
+      - run: pip install semgrep==1.182.1
+
+      - run: just ui-security
+
+  # Data-flow analysis of the UI (XSS, injection, prototype pollution), alerts in the Security tab.
+  # Not blocking: an alert dismissed there would stay in the SARIF and keep the job red.
+  # Not on PRs: a PR from a fork may not write alerts.
+  codeql:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+          config: |
+            paths: [ui/src, ui/vite.config.ts]
+            paths-ignore: ["**/*.test.ts", "**/*.test.tsx"]
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: ui

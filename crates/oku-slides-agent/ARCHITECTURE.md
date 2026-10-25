@@ -47,4 +47,4 @@ no `fs` or `terminal` capability (only `oku-slides-mcp` tools); one without MCP 
 ## Dependencies
 
 `agent-client-protocol`, `oku-slides-mcp` (tool server, hub), `oku-slides-session` (tab sessions, conversations,
-`KEPT_TURNS`, the box), `oku-slides-a2ui`, `oku-slides-platform` (settings, presets, model download), `oku-slides-stt`, `oku-slides-i18n`.
+`KEPT_TURNS`, the box), `oku-slides-platform` (settings, presets, model download), `oku-slides-stt`, `oku-slides-i18n`.
