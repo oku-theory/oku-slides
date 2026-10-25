@@ -29,6 +29,10 @@ awk -v old="$current" -v new="$next" '
   f && $0 == "version = \"" old "\"" { $0 = "version = \"" new "\""; f = 0 }
   { print }' Cargo.toml >"$tmp" && mv "$tmp" Cargo.toml
 grep -qx "version = \"$next\"" Cargo.toml || { echo "Cargo.toml non mis à jour" >&2; exit 1; }
+# Workspace crates at the new version in Cargo.lock, other pins unchanged: when no crate changed
+# since the tag, release-plz looks the app up there and fails otherwise (v5.1.1, t-1209).
+cargo metadata --format-version 1 >/dev/null
+grep -qx "version = \"$next\"" Cargo.lock || { echo "Cargo.lock non mis à jour" >&2; exit 1; }
 
 if [ -f CHANGELOG.md ]; then
   # `--prepend` would write the section above the header: it goes before the first version.
