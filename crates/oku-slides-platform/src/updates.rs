@@ -15,12 +15,24 @@ use serde::Serialize;
 
 /// Page des releases, ouverte quand l'app ne peut pas s'installer elle-même.
 pub const RELEASES_URL: &str = "https://github.com/oku-theory/oku-slides/releases/latest";
-/// Seul préfixe accepté pour télécharger un paquet (`latest.json` n'est pas signé).
+/// Download prefix of GitHub release assets (`latest.json` is unsigned, bundles are).
 pub const DOWNLOAD_PREFIX: &str = "https://github.com/oku-theory/oku-slides/releases/download/";
+/// Download prefix of the update mirror, read first (ADR-0010, t-1209).
+///
+/// Must match `plugins.updater.endpoints` in `tauri.conf.json` and `MIRROR_URL` in
+/// `.github/workflows/update-mirror.yml`.
+pub const MIRROR_DOWNLOAD_PREFIX: &str = "https://updates.okutheory.com/v";
 /// Taille maximale d'un paquet téléchargé, vérifiée avant la signature.
 pub const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
-/// Durée maximale d'une recherche de version.
-pub const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
+/// Longest a version check may take, across every updater endpoint.
+///
+/// Above two [`CONNECT_TIMEOUT`] plus [`READ_TIMEOUT`], so a hanging mirror still leaves time
+/// for the GitHub endpoint (t-1209).
+pub const CHECK_TIMEOUT: Duration = Duration::from_secs(60);
+/// Longest wait for one updater connection (TCP, proxy tunnel, TLS) before the next endpoint.
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Longest silence on an updater response, check or download, before giving up.
+pub const READ_TIMEOUT: Duration = Duration::from_secs(20);
 /// Fichier (sous le dossier de données) de la dernière version qui n'a pas pu s'installer.
 pub const FAILED_VERSION_FILE: &str = "updates/failed-version";
 
@@ -149,10 +161,32 @@ impl Progress {
     }
 }
 
-/// Le paquet vient bien d'une release d'Oku Slides, en HTTPS, sans remonter de dossier.
+/// The bundle comes from an Oku Slides release or its mirror, over HTTPS, without `..`.
+///
+/// On the mirror, only `v<major.minor.patch>/<one plain file name>` is accepted.
 #[must_use]
 pub fn trusted_download(url: &str) -> bool {
-    url.strip_prefix(DOWNLOAD_PREFIX).is_some_and(|rest| !rest.split('/').any(|part| part == ".."))
+    if let Some(rest) = url.strip_prefix(DOWNLOAD_PREFIX) {
+        return !rest.split('/').any(|part| part == "..");
+    }
+    url.strip_prefix(MIRROR_DOWNLOAD_PREFIX)
+        .and_then(|rest| rest.split_once('/'))
+        .is_some_and(|(version, name)| release_version(version) && mirrored_file_name(name))
+}
+
+/// `major.minor.patch`, each part made of ASCII digits.
+fn release_version(version: &str) -> bool {
+    let mut parts = 0;
+    let digits = version.split('.').all(|part| {
+        parts += 1;
+        !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit())
+    });
+    digits && parts == 3
+}
+
+/// One path segment, with only the characters `update-mirror.yml` allows in a name.
+fn mirrored_file_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains("..") && name.bytes().all(|b| b.is_ascii_alphanumeric() || b"._+-".contains(&b))
 }
 
 /// Étape d'une mise à jour qui a échoué : choisit le message montré.

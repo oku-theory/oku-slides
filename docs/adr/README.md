@@ -11,3 +11,4 @@
 | [0007](0007-compaction-des-noeuds-morts.md) | Compaction of dead nodes in the deck tree | accepted |
 | [0008](0008-import-representation-intermediaire-et-projecteurs.md) | Import through an intermediate representation and projectors | accepted |
 | [0009](0009-import-dans-la-session-packs-du-deck-ajustement-borne.md) | Import pipeline in the session, deck-only packs, bounded agent tuning | accepted |
+| [0010](0010-miroir-des-mises-a-jour.md) | Update mirror on updates.okutheory.com (Scaleway) | accepted |

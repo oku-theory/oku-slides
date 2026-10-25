@@ -86,6 +86,8 @@ host only:
 - `Progress::advance` → report every 1 % (or 1 MiB if the size is unknown), once at the total, and
   `TooLarge` past 512 MiB (checked before the signature, which needs the whole body).
 - `trusted_download(url)`: only `https://github.com/oku-theory/oku-slides/releases/download/…`
+  (and, since t-1209, the mirror `https://updates.okutheory.com/v…`: see
+  `2026-10-25-update-mirror-design.md`)
   (`latest.json` is unsigned; only bundles are).
 - `UpdateStage` (check, download, open, unavailable, refused) → Fluent key. A post-restart failure notice is
   ticket t-985.

@@ -1,0 +1,130 @@
+# Copies a published release's update files to the mirror served at updates.okutheory.com (a
+# Scaleway Object Storage bucket behind Edge Services), for networks whose proxy blocks GitHub's asset host (t-1209, ADR-0010).
+# Called by release.yml once the release is published; run by hand to repair the mirror, since
+# release.yml refuses a version already published. Only the latest release is ever mirrored. Bundles go
+# to `v<version>/`, then `latest.json`, its URLs rewritten to the mirror, is uploaded last.
+name: Update mirror
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to mirror, must be the latest release (empty = the latest)
+        type: string
+        default: ""
+
+jobs:
+  mirror:
+    name: Mirror
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    # Scaleway secrets only, apart from the signing keys of `release`; restricted to main.
+    environment: update-mirror
+    concurrency:
+      group: update-mirror
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Must match plugins.updater.endpoints (tauri.conf.json) and MIRROR_DOWNLOAD_PREFIX
+      # (oku-slides-platform).
+      MIRROR_URL: https://updates.okutheory.com
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      AWS_DEFAULT_REGION: fr-par
+      AWS_ENDPOINT_URL_S3: https://s3.fr-par.scw.cloud
+      # S3-compatible stores reject some default CRC checksum headers of recent AWS CLI versions.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      BUCKET: ${{ secrets.SCW_BUCKET }}
+    steps:
+      - name: Release
+        id: release
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [ -n "$BUCKET" ] && [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] \
+            || { echo "::error::secrets of environment update-mirror missing"; exit 1; }
+          # Only the latest published release: an older one would freeze apps on it (they read the
+          # mirror first), and a draft must never reach them. Also makes queued runs harmless.
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unreadable tag: $tag"; exit 1; }
+          [ -z "$VERSION" ] || [ "v$VERSION" = "$tag" ] \
+            || { echo "::error::v$VERSION is not the latest release ($tag)"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Bundles downloaded
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          mkdir -p dist && cd dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p latest.json
+          jq -e --arg v "${TAG#v}" '.version == $v or .version == ("v" + $v)' latest.json > /dev/null \
+            || { echo "::error::latest.json is not $TAG"; jq . latest.json; exit 1; }
+          prefix="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/"
+          jq -r '[.platforms[].url] | unique[]' latest.json > ../urls
+          [ -s ../urls ] || { echo "::error::latest.json names no bundle"; exit 1; }
+          while read -r url; do
+            name=${url#"$prefix"}
+            # One plain path segment, so the mirror key and URL need no encoding.
+            [[ "$name" != "$url" && "$name" =~ ^[A-Za-z0-9._+-]+$ && "$name" != *..* ]] \
+              || { echo "::error::unexpected bundle URL: $url"; exit 1; }
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "$name"
+            [ -s "$name" ] || { echo "::error::$name not downloaded"; exit 1; }
+            echo "$name" >> ../names
+          done < ../urls
+
+      # Edge Services only serves public objects (the same files are public on GitHub).
+      # Bundles first, latest.json last: a reader never sees a latest.json whose bundles are missing.
+      - name: Bundles uploaded
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        working-directory: dist
+        run: |
+          while read -r name; do
+            aws s3 cp "$name" "s3://$BUCKET/$TAG/$name" --no-progress --acl public-read \
+              --cache-control "public, max-age=31536000, immutable"
+          done < ../names
+
+      - name: latest.json uploaded
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        working-directory: dist
+        run: |
+          prefix="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/"
+          jq --arg from "$prefix" --arg to "$MIRROR_URL/$TAG/" '
+            .platforms |= map_values(.url |= ($to + ltrimstr($from)))
+          ' latest.json > mirror.json
+          jq . mirror.json
+          aws s3 cp mirror.json "s3://$BUCKET/latest.json" --no-progress --acl public-read \
+            --content-type application/json --cache-control "public, max-age=300"
+
+      # Through the public host, as installed apps see it.
+      - name: Mirror verified
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        working-directory: dist
+        run: |
+          # The edge may keep the previous latest.json for its max-age (300 s): wait it out.
+          for attempt in $(seq 1 14); do
+            curl -fsS --max-time 60 --retry 3 --retry-all-errors \
+              "$MIRROR_URL/latest.json?check=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$attempt" -o served.json \
+              && cmp -s <(jq -S . mirror.json) <(jq -S . served.json) && break
+            [ "$attempt" -lt 14 ] || { echo "::error::the mirror serves another latest.json"; cat served.json; exit 1; }
+            sleep 30
+          done
+          while read -r name; do
+            size=$(stat -c %s "$name")
+            headers=$(curl -fsSI --max-time 60 --retry 3 --retry-all-errors "$MIRROR_URL/$TAG/$name") \
+              || { echo "::error::$MIRROR_URL/$TAG/$name unreachable"; exit 1; }
+            # Bundles are not compressed, but a chunked answer would carry no length.
+            length=$(tr -d '\r' <<<"$headers" | awk 'tolower($1) == "content-length:" {print $2}' | tail -1)
+            [ -z "$length" ] || [ "$length" = "$size" ] \
+              || { echo "::error::$name: $length bytes served, $size expected"; exit 1; }
+          done < ../names
+          echo "$TAG mirrored to $MIRROR_URL"

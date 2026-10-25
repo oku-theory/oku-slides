@@ -16,8 +16,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 use oku_slides_platform::config::UpdateSettings;
 use oku_slides_platform::errors::one_line;
 use oku_slides_platform::updates::{
-    Advance, CHECK_TIMEOUT, FAILED_VERSION_FILE, Host, InstallMode, Progress, RELEASES_URL, UpdateOffer, UpdateStage,
-    UpdateStatus, trusted_download,
+    Advance, CHECK_TIMEOUT, CONNECT_TIMEOUT, FAILED_VERSION_FILE, Host, InstallMode, Progress, READ_TIMEOUT,
+    RELEASES_URL, UpdateOffer, UpdateStage, UpdateStatus, trusted_download,
 };
 use oku_slides_session::{Localize, Localizer, Storage};
 use snafu::{Backtrace, ResultExt, Snafu};
@@ -136,7 +136,13 @@ async fn check(app: &AppHandle) -> Result<UpdateStatus, UpdateError> {
     let Some(updates) = app.try_state::<Updates>() else {
         return Err(RefusedSnafu { why: "not ready" }.build().into());
     };
-    let checker = app.updater().context(CheckSnafu)?;
+    // Without these, a mirror that hangs (filtered domain) uses up CHECK_TIMEOUT before GitHub
+    // is tried; the found Update keeps this client setup for its download.
+    let checker = app
+        .updater_builder()
+        .configure_client(|client| client.connect_timeout(CONNECT_TIMEOUT).read_timeout(READ_TIMEOUT))
+        .build()
+        .context(CheckSnafu)?;
     let found = tokio::time::timeout(CHECK_TIMEOUT, checker.check())
         .await
         .map_err(|_| UpdateError::from(CheckTimeoutSnafu.build()))?

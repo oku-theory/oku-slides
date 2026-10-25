@@ -123,6 +123,16 @@ fn progress_announced_total_over_cap_is_too_large() {
 #[case("https://github.com/someone/else/releases/download/v2.2.0/x", false)]
 #[case("https://github.com.evil.test/oku-theory/oku-slides/releases/download/v2.2.0/x", false)]
 #[case("https://github.com/oku-theory/oku-slides/releases/download/../../../x", false)]
+#[case("https://updates.okutheory.com/v2.2.0/Oku.Slides_aarch64.app.tar.gz", true)]
+#[case("http://updates.okutheory.com/v2.2.0/x", false)]
+#[case("https://updates.okutheory.com.evil.test/v2.2.0/x", false)]
+#[case("https://updates.okutheory.com/v2.2.0/../../x", false)]
+#[case("https://updates.okutheory.com/latest.json", false)]
+#[case("https://updates.okutheory.com/vendor/x", false)]
+#[case("https://updates.okutheory.com/v2.2.0x/x", false)]
+#[case("https://updates.okutheory.com/v2.2.0/", false)]
+#[case("https://updates.okutheory.com/v2.2.0/a/b", false)]
+#[case("https://updates.okutheory.com/v2.2/x", false)]
 // L'hôte passe `Url::as_str()`, déjà normalisé (segments `.` résolus par l'analyseur d'URL) :
 // cette ligne ne documente que le comportement sur la chaîne brute.
 #[case("https://github.com/oku-theory/oku-slides/releases/download/%2e%2e/x", true)]
@@ -146,4 +156,16 @@ fn update_stage_key_exists_in_english_and_french(#[case] stage: UpdateStage, #[c
 fn update_stage_localize_speaks_french() {
     let fr = UpdateStage::Check.localize(&Localizer::new(Some("fr")));
     assert_that!(fr).is_not_equal_to(UpdateStage::Check.localize(&Localizer::new(Some("en"))));
+}
+
+#[test]
+fn mirror_prefix_matches_tauri_endpoint_and_workflow() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let conf = std::fs::read_to_string(root.join("src-tauri/tauri.conf.json")).unwrap();
+    let conf: serde_json::Value = serde_json::from_str(&conf).unwrap();
+    let host = MIRROR_DOWNLOAD_PREFIX.strip_suffix("/v").unwrap();
+    let workflow = std::fs::read_to_string(root.join(".github/workflows/update-mirror.yml")).unwrap();
+    assert_that!(conf["plugins"]["updater"]["endpoints"][0].as_str())
+        .is_equal_to(Some(format!("{host}/latest.json").as_str()));
+    assert_that!(workflow.contains(&format!("MIRROR_URL: {host}\n"))).is_true();
 }

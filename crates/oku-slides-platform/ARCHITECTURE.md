@@ -16,7 +16,7 @@ the CLI, the session, the agent and dictation.
   `config` (file `config_agent.rs`): `AgentSettings`, named `AgentPreset`s (a `command` xor a
   `Builtin`), the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
 - `updates`: updater decisions without Tauri: `InstallMode`, `UpdateStatus`, `Progress`
-  (1 % steps, 512 MiB cap), `trusted_download`, `UpdateStage`.
+  (1 % steps, 512 MiB cap), `trusted_download` (GitHub or the mirror), `UpdateStage`.
 - `config_write`: `write_value` sets one `config.toml` key, keeping comments. `program`:
   `find_program`, an external program by path or on `PATH`.
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime

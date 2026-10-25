@@ -6,10 +6,11 @@
 # are there. Releases in this repo are immutable: a published release takes no more packages,
 # hence the draft while one is missing. Run again by hand, the workflow completes that draft
 # (platforms left out, or failed and fixed since).
-# La release porte aussi les paquets de mise à jour signés et `latest.json`, lu par les apps
-# installées une fois la release publiée comme « latest ». Les secrets de signature vivent dans
-# l'environnement `release` ; `just build` en local ne produit aucun paquet de mise à jour et
-# n'a besoin d'aucune clé.
+# The release also carries the signed update bundles and `latest.json`, read by installed apps once
+# the release is published as "latest". The signing secrets live in the `release` environment;
+# a local `just build` produces no update bundle and needs no key.
+# Once published, the `mirror` job copies the update files to updates.okutheory.com, read first by
+# installed apps (update-mirror.yml, ADR-0010).
 name: Release
 
 on:
@@ -239,13 +240,15 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-  # Les plateformes choisies ont déposé leurs paquets : à quatre sur quatre, le brouillon est publié
-  # comme « latest », ce qui crée le tag `v<version>` sur le commit de la version. Un build en échec
-  # saute ce job (needs) et laisse le brouillon tel quel.
+  # The chosen platforms have uploaded their packages: at four out of four, the draft is published
+  # as "latest" on the version's commit. A failed build skips this job (needs) and leaves the draft
+  # as it is. `complete` tells the mirror job whether the release went out.
   publish:
     name: Publication
     needs: [version, build]
     runs-on: ubuntu-24.04
+    outputs:
+      complete: ${{ steps.gate.outputs.complete }}
     steps:
       # Chaque plateforme construite doit figurer, signée, dans `latest.json`. Une release partielle
       # reste un brouillon : publiée, elle serait immuable et ne pourrait plus être complétée.
@@ -275,3 +278,15 @@ jobs:
           TAG: v${{ needs.version.outputs.version }}
           SHA: ${{ needs.version.outputs.sha }}
         run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest --target "$SHA"
+
+  # Copy of the published release on updates.okutheory.com, read first by installed apps (t-1209,
+  # ADR-0010). A failure leaves the previous, consistent mirror: repair it by running Update mirror.
+  mirror:
+    name: Mirror
+    needs: [version, publish]
+    if: needs.publish.outputs.complete == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/update-mirror.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
