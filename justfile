@@ -74,7 +74,7 @@ e2e port="4872": install
     cd ui && E2E_URL="http://127.0.0.1:$port/" E2E_AGENT_LOG="$log" bun run e2e
 
 # Vérifications : format, clippy, types TypeScript, polices en LFS
-check: install fonts-lfs agents-lint
+check: install fonts-lfs agents-lint commit-lint
     cargo fmt --all --check
     cargo clippy --workspace --all-targets -- -D warnings
     cd ui && bun run typecheck
@@ -269,6 +269,134 @@ agents-lint root=".":
     [ "$bad" = 0 ] && echo "✓ harnais AGENTS.md"
     exit "$bad"
 
+# Conventional Commits: one message file (the commit-msg hook calls it). fixups=deny refuses
+# fixup!/squash!/amend! subjects; label prefixes each error line.
+commit-lint-msg file fixups="allow" label="commit":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    f={{quote(file)}}
+    label={{quote(label)}}
+    [ -r "$f" ] || { echo "commit-lint : message introuvable « $f »" >&2; exit 2; }
+    # The hook sees the raw message: drop what git's cleanup drops (scissors section, comment
+    # lines, trailing whitespace and CR, leading blank lines)
+    msg="$(sed -e '/^# -* >8 -*$/,$d' -e '/^#/d' -e 's/[[:space:]]*$//' "$f" | sed '/./,$!d')"
+    header="$(head -n 1 <<< "$msg")"
+    fail() { echo "✗ $label : $1 : $header"; exit 1; }
+    case "$header" in
+      "Merge "*|'Revert "'*) exit 0 ;;
+      "fixup! "*|"squash! "*|"amend! "*)
+        [ {{quote(fixups)}} = allow ] && exit 0
+        fail "commit d'autosquash à fusionner avant l'intégration" ;;
+    esac
+    types="feat fix perf refactor docs test chore ci build style revert"
+    re_space='^[a-z]+(\([^)]*\))?!? :'
+    re_head='^([a-z]+)(\(([^)]*)\))?!?: ([^ ].*)$'
+    re_task=' \(t-[0-9]+(, t-[0-9]+)*\)$'
+    [[ "$header" =~ $re_space ]] && fail "espace avant les deux-points à retirer"
+    [[ "$header" =~ $re_head ]] || fail "en-tête attendu « type(scope): description (t-N) »"
+    type="${BASH_REMATCH[1]}" has_scope="${BASH_REMATCH[2]}" scope="${BASH_REMATCH[3]}" desc="${BASH_REMATCH[4]}"
+    [[ " $types " == *" $type "* ]] || fail "type inconnu « $type » ($types)"
+    re_scope='^[a-z0-9][a-z0-9._/-]*(,[a-z0-9][a-z0-9._/-]*)*$'
+    [ -z "$has_scope" ] || [[ "$scope" =~ $re_scope ]] || fail "portée invalide « $scope »"
+    [[ "$desc" =~ ^\(t- ]] && fail "description vide"
+    [[ "$desc" =~ $re_task ]] || fail "tâche Oku attendue en fin d'en-tête : « (t-N) » ou « (t-N, t-M) »"
+    [ -z "$(sed -n 2p <<< "$msg")" ] || fail "ligne vide attendue entre l'en-tête et le corps"
+    exit 0
+
+# Conventional Commits: every commit of the range, origin/main..HEAD by default (merges aside)
+commit-lint range="":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    range={{quote(range)}}
+    range="${range#range=}"
+    if [ -z "$range" ]; then
+      base=origin/main
+      git rev-parse -q --verify "$base^{commit}" > /dev/null || base=main
+      range="$base..HEAD"
+    fi
+    shas="$(git rev-list --no-merges "$range" 2> /dev/null)" || { echo "commit-lint : plage invalide « $range »" >&2; exit 2; }
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/commit-lint.XXXXXX")"
+    trap 'rm -rf "$tmp"' EXIT
+    bad=0 n=0
+    for sha in $shas; do
+      n=$((n + 1))
+      git log -1 --format=%B "$sha" > "$tmp/msg"
+      just -f {{quote(justfile())}} commit-lint-msg "$tmp/msg" deny "$(git rev-parse --short "$sha")" 2> /dev/null || bad=1
+    done
+    [ "$bad" = 0 ] && echo "✓ commits ($n dans $range)"
+    exit "$bad"
+
+# Tests of commit-lint-msg: one message per case, output compared verbatim
+commit-lint-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/commit-lint-test.XXXXXX")"
+    trap 'rm -rf "$tmp"' EXIT
+    jf={{quote(justfile())}}
+    pass=0 failed=0
+    expect() { # expect <name> <message> <exact expected output, empty when valid> [fixups]
+      local name="$1" msg="$2" want="$3" fixups="${4:-allow}" out code=0
+      printf '%s\n' "$msg" > "$tmp/$name"
+      out="$(just -f "$jf" commit-lint-msg "$tmp/$name" "$fixups" 2> /dev/null)" || code=$?
+      if { [ -z "$want" ] && [ "$code" = 0 ]; } || { [ -n "$want" ] && [ "$code" = 1 ]; } && [ "$out" = "$want" ]; then pass=$((pass + 1))
+      else failed=$((failed + 1)); printf '✗ %s : attendu « %s », obtenu (%s) « %s »\n' "$name" "$want" "$code" "$out"; fi
+    }
+    expect plain "feat: add x (t-1)" ""
+    expect scope "fix(oku-slides-core): keep y (t-12)" ""
+    expect breaking "feat(ui)!: drop z (t-3)" ""
+    expect tasks "chore(deps): bump a (t-1, t-22)" ""
+    expect body $'docs: explain b (t-1)\n\nWhy it matters.' ""
+    expect comments $'# leading comment\ntest: cover c (t-1)\n\n# Please enter the commit message' ""
+    expect scissors $'ci: run d (t-1)\n# ------------------------ >8 ------------------------\nnot checked' ""
+    expect merge "Merge branch 'main' into x" ""
+    expect git-revert 'Revert "feat: add x (t-1)"' ""
+    expect multi-scope "fix(ui,core): keep y (t-1)" ""
+    expect leading-blank $'\n\nfeat: add x (t-1)' ""
+    expect trailing-space "feat: add x (t-1)  " ""
+    expect crlf $'feat: add x (t-1)\r\n\r\nbody\r' ""
+    expect bad-multi-scope "fix(ui,): keep y (t-1)" "✗ commit : portée invalide « ui, » : fix(ui,): keep y (t-1)"
+    expect fixup-allowed "fixup! feat: add x (t-1)" ""
+    expect fixup-denied "fixup! feat: add x (t-1)" "✗ commit : commit d'autosquash à fusionner avant l'intégration : fixup! feat: add x (t-1)" deny
+    expect space "feat(ui) : add x (t-1)" "✗ commit : espace avant les deux-points à retirer : feat(ui) : add x (t-1)"
+    expect no-type "add x (t-1)" "✗ commit : en-tête attendu « type(scope): description (t-N) » : add x (t-1)"
+    expect no-space-after "feat:add x (t-1)" "✗ commit : en-tête attendu « type(scope): description (t-N) » : feat:add x (t-1)"
+    expect upper-type "Feat: add x (t-1)" "✗ commit : en-tête attendu « type(scope): description (t-N) » : Feat: add x (t-1)"
+    expect bad-type "retrofit: add x (t-1)" "✗ commit : type inconnu « retrofit » (feat fix perf refactor docs test chore ci build style revert) : retrofit: add x (t-1)"
+    expect bad-scope "feat(UI): add x (t-1)" "✗ commit : portée invalide « UI » : feat(UI): add x (t-1)"
+    expect empty-scope "feat(): add x (t-1)" "✗ commit : portée invalide «  » : feat(): add x (t-1)"
+    expect no-task "feat: add x" "✗ commit : tâche Oku attendue en fin d'en-tête : « (t-N) » ou « (t-N, t-M) » : feat: add x"
+    expect task-not-last "feat: add x (t-1) now" "✗ commit : tâche Oku attendue en fin d'en-tête : « (t-N) » ou « (t-N, t-M) » : feat: add x (t-1) now"
+    expect task-body $'feat: add x\n\n(t-1)' "✗ commit : tâche Oku attendue en fin d'en-tête : « (t-N) » ou « (t-N, t-M) » : feat: add x"
+    expect empty-desc "feat: (t-1)" "✗ commit : description vide : feat: (t-1)"
+    expect no-blank $'feat: add x (t-1)\nbody' "✗ commit : ligne vide attendue entre l'en-tête et le corps : feat: add x (t-1)"
+    expect empty "" "✗ commit : en-tête attendu « type(scope): description (t-N) » : "
+    echo "commit-lint-test : $pass ok, $failed en échec"
+    [ "$failed" = 0 ]
+
+# Installs the commit-msg hook (commit-lint-msg) in this checkout's hook directories
+hooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # A worktree has its own git dir besides the shared one; the global hook chain reads the former
+    marker='# Conventional Commits (just commit-lint-msg), installed by `just hooks`.'
+    while IFS= read -r d; do
+      if [ -e "$d/hooks/commit-msg" ] && ! grep -qxF "$marker" "$d/hooks/commit-msg"; then
+        echo "✗ $d/hooks/commit-msg : hook existant non installé par just hooks, laissé en place" >&2
+        exit 1
+      fi
+      mkdir -p "$d/hooks"
+      # A branch older than the recipe still commits, with a visible warning
+      printf '%s\n' '#!/bin/sh' "$marker" \
+        'command -v just > /dev/null || { echo "commit-msg : just introuvable, message non vérifié" >&2; exit 0; }' \
+        'jf="$(git rev-parse --show-toplevel)/justfile"' \
+        'just -f "$jf" --summary 2> /dev/null | tr " " "\n" | grep -qx commit-lint-msg \' \
+        '  || { echo "commit-msg : pas de recette commit-lint-msg dans $jf, message non vérifié" >&2; exit 0; }' \
+        'msg="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"' \
+        'exec just -f "$jf" commit-lint-msg "$msg" 2> /dev/null' > "$d/hooks/commit-msg"
+      chmod +x "$d/hooks/commit-msg"
+      echo "✓ $d/hooks/commit-msg"
+    done < <(git rev-parse --path-format=absolute --git-common-dir --git-dir | sort -u)
+
 # Formate le code Rust
 fmt:
     cargo fmt --all
@@ -297,10 +425,10 @@ watch cmd="test":
     cargo watch -s "just {{cmd}}"
 
 # Tout ce que vérifie l'intégration continue, en local
-ci: check agents-lint-test test audit
+ci: check agents-lint-test commit-lint-test test audit
 
 # Installe les outils de développement
-setup:
+setup: hooks
     cargo install --locked cargo-nextest cargo-deny cargo-audit cargo-llvm-cov cargo-watch tauri-cli
 
 # Outil en ligne de commande : just oku-slides render fixtures/roadmap.json --out out

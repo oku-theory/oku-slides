@@ -7,8 +7,8 @@ current) and its `AGENTS.md` (how to work on it) when they exist.
 
 ## Language
 
-All repo documentation is written in **English**: README, AGENTS.md, `ARCHITECTURE.md`, ADRs, specs and plans. Existing French documents
-are translated when they are next edited. Commits, code comments and tool output are still in French. User-facing strings go through
+Repo documentation (README, AGENTS.md, `ARCHITECTURE.md`, ADRs, specs, plans), git commit messages and code comments are written
+in **English**; existing French text is translated when next edited. Tool output is still in French. User-facing strings go through
 Fluent (`oku-slides-i18n`, English is the reference locale).
 
 ## Commands (from repo root)
@@ -87,8 +87,8 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 
 ## Workflow
 
-- Commits: `type(scope) : description (t-N)` — note the space before the colon; `!` for
-  breaking. Every commit cites its Oku task(s).
+- Commits: Conventional Commits in English, `type(scope): description (t-N)`; `!` for breaking.
+  Every commit cites its Oku task(s). `just hooks` installs the commit-msg check, `just check` runs it.
 - Specs: `docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md`; plans: `docs/superpowers/plans/`.
 - Decisions: `docs/adr/` (see its README).
 
