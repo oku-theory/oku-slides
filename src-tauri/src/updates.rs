@@ -17,7 +17,7 @@ use oku_slides_platform::config::UpdateSettings;
 use oku_slides_platform::errors::one_line;
 use oku_slides_platform::updates::{
     Advance, CHECK_TIMEOUT, CONNECT_TIMEOUT, FAILED_VERSION_FILE, Host, InstallMode, Progress, READ_TIMEOUT,
-    RELEASES_URL, UpdateOffer, UpdateStage, UpdateStatus, trusted_download,
+    RELEASES_URL, UpdateOffer, UpdateSource, UpdateStage, UpdateStatus, download_source,
 };
 use oku_slides_session::{Localize, Localizer, Storage};
 use snafu::{Backtrace, ResultExt, Snafu};
@@ -28,9 +28,9 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 use crate::agent_window;
 use crate::state::AppState;
 
-/// Échec d'une mise à jour ; le message dépend de l'étape.
+/// Update failure; the message shown depends on the stage.
 #[derive(Debug, Snafu)]
-pub struct UpdateError(Inner);
+pub struct UpdateError(Box<Inner>);
 
 /// Chaque variante a son [`UpdateStage`] (`stage_of`, exhaustif : une variante
 /// ajoutée ne compile pas sans son message).
@@ -40,8 +40,9 @@ enum Inner {
     Check { source: tauri_plugin_updater::Error, backtrace: Backtrace },
     #[snafu(display("update check timed out"))]
     CheckTimeout { backtrace: Backtrace },
-    #[snafu(display("update download failed"))]
-    Download { source: tauri_plugin_updater::Error, backtrace: Backtrace },
+    /// Names the bundle and its endpoint: a proxy may block one host only (t-1212).
+    #[snafu(display("update download from {url} ({endpoint}) failed"))]
+    Download { url: String, endpoint: UpdateSource, source: tauri_plugin_updater::Error, backtrace: Backtrace },
     #[snafu(display("update download over the size cap"))]
     TooLarge { backtrace: Backtrace },
     #[snafu(display("update download from an untrusted url: {url}"))]
@@ -152,6 +153,13 @@ async fn check(app: &AppHandle) -> Result<UpdateStatus, UpdateError> {
     }
     let offer = match &found {
         Some(update) => {
+            // The bundle URL tells which endpoint answered (t-1212).
+            let url = update.download_url.as_str();
+            if let Some(endpoint) = download_source(url) {
+                tracing::info!(version = %update.version, %url, %endpoint, "update available");
+            } else {
+                tracing::warn!(version = %update.version, %url, "update available from an untrusted url");
+            }
             // Exécutable introuvable : chemin vide, donc ni quarantaine ni image disque supposées.
             let exe = std::env::current_exe().unwrap_or_else(|e| {
                 tracing::warn!(error = %e, "exécutable courant inconnu");
@@ -202,10 +210,9 @@ pub fn spawn_checks(app: &AppHandle, settings: &UpdateSettings) {
     tauri::async_runtime::spawn(async move {
         while !closing(&app) {
             match check(&app).await {
-                Ok(UpdateStatus { offer: Some(offer), .. }) => {
-                    tracing::info!(version = %offer.version, "mise à jour disponible");
-                }
-                Ok(_) => tracing::debug!("aucune mise à jour"),
+                // An offer is logged by `check`, with its url and endpoint.
+                Ok(UpdateStatus { offer: Some(_), .. }) => {}
+                Ok(UpdateStatus { offer: None, .. }) => tracing::debug!("aucune mise à jour"),
                 Err(e) => tracing::warn!(error = %one_line(&e), "recherche de mise à jour"),
             }
             tokio::time::sleep(interval).await;
@@ -258,15 +265,15 @@ async fn install(app: &AppHandle) -> Result<(), UpdateError> {
     let Some((update, offer)) = found.filter(|(_, o)| o.mode == InstallMode::Install) else {
         return Err(UnavailableSnafu.build().into());
     };
-    if !trusted_download(update.download_url.as_str()) {
+    let Some(endpoint) = download_source(update.download_url.as_str()) else {
         return Err(UntrustedSnafu { url: update.download_url.to_string() }.build().into());
-    }
+    };
     // Une autre fenêtre installe déjà : rien à refaire, mais elle le sait (`update-changed`).
     if updates.installing.swap(true, Ordering::SeqCst) {
         return Err(RefusedSnafu { why: "already installing" }.build().into());
     }
     changed(app);
-    let bytes = match download(app, &update).await {
+    let bytes = match download(app, &update, endpoint).await {
         Ok(bytes) => bytes,
         Err(e) => {
             updates.installing.store(false, Ordering::SeqCst);
@@ -305,8 +312,8 @@ async fn install(app: &AppHandle) -> Result<(), UpdateError> {
     Ok(())
 }
 
-/// Télécharge le paquet ; coupe au-delà du plafond (avant la vérification de la signature).
-async fn download(app: &AppHandle, update: &Update) -> Result<Vec<u8>, UpdateError> {
+/// Downloads the bundle; stops past the size cap (before the signature check).
+async fn download(app: &AppHandle, update: &Update, endpoint: UpdateSource) -> Result<Vec<u8>, UpdateError> {
     let too_large = Arc::new(tokio::sync::Notify::new());
     let over = Arc::new(AtomicBool::new(false));
     let mut progress = Progress::new();
@@ -328,8 +335,9 @@ async fn download(app: &AppHandle, update: &Update) -> Result<Vec<u8>, UpdateErr
         },
         || {},
     );
+    let failed = DownloadSnafu { url: update.download_url.as_str(), endpoint };
     tokio::select! {
-        bytes = fetch => bytes.context(DownloadSnafu).map_err(UpdateError::from),
+        bytes = fetch => bytes.context(failed).map_err(UpdateError::from),
         () = too_large.notified() => Err(TooLargeSnafu.build().into()),
     }
 }

@@ -136,8 +136,8 @@ fn progress_announced_total_over_cap_is_too_large() {
 // L'hôte passe `Url::as_str()`, déjà normalisé (segments `.` résolus par l'analyseur d'URL) :
 // cette ligne ne documente que le comportement sur la chaîne brute.
 #[case("https://github.com/oku-theory/oku-slides/releases/download/%2e%2e/x", true)]
-fn trusted_download_accepts_only_our_release_assets(#[case] url: &str, #[case] expected: bool) {
-    assert_that!(trusted_download(url)).is_equal_to(expected);
+fn download_source_accepts_only_our_release_assets(#[case] url: &str, #[case] expected: bool) {
+    assert_that!(download_source(url).is_some()).is_equal_to(expected);
 }
 
 #[rstest]
@@ -168,4 +168,11 @@ fn mirror_prefix_matches_tauri_endpoint_and_workflow() {
     assert_that!(conf["plugins"]["updater"]["endpoints"][0].as_str())
         .is_equal_to(Some(format!("{host}/latest.json").as_str()));
     assert_that!(workflow.contains(&format!("MIRROR_URL: {host}\n"))).is_true();
+}
+
+#[rstest]
+#[case(UpdateSource::Mirror, "mirror")]
+#[case(UpdateSource::GitHub, "github")]
+fn update_source_display_is_its_label(#[case] source: UpdateSource, #[case] label: &str) {
+    assert_that!(source.to_string()).is_equal_to(label.to_owned());
 }

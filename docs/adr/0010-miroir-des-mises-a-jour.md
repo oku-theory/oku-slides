@@ -22,7 +22,7 @@ cannot help, since the proxy judges the host that serves the bytes. GitHub Pages
   rewritten to the mirror, last. Only the latest published release is mirrored. GitHub releases
   stay the source of truth and the signed artifacts are unchanged.
 - **Mirror first, GitHub second.** `plugins.updater.endpoints` lists the mirror, then GitHub;
-  `trusted_download` accepts both download prefixes.
+  `download_source` accepts both download prefixes.
 - **DNS stays at Gandi.** A CNAME record points `updates.okutheory.com` to the Edge Services
   endpoint; the zone (with its ProtonMail records) does not move. Cloudflare R2 was set aside
   because its custom domains need the whole zone on Cloudflare.
@@ -38,6 +38,10 @@ cannot help, since the proxy judges the host that serves the bytes. GitHub Pages
 - A proxy answering 200 with an HTML block page fails the check without falling back to GitHub.
 - A new, uncategorized domain may itself be blocked by corporate filters: reachability is checked
   by hand from such a network, and asking the proxy owner to allow it remains the user's lever.
+- A proxy that filters downloads by file type defeats the mirror as well: one seen on corporate
+  Linux let `latest.json` through but answered 403 to the AppImage on both hosts, and to a
+  `.tar.gz` (t-1212). Nothing on our side was found to get past it; an allowlist entry is the
+  lever. The host logs the bundle URL and endpoint of a failed download.
 - Scaleway becomes a dependency of updates (Edge Services Starter plan, about €1 a month, plus
   storage); GitHub still serves them if the mirror is down. Objects are public-read, as Edge
   Services requires; they are public on GitHub anyway.

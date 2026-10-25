@@ -1,11 +1,12 @@
-//! Mises à jour de l'app : ce qui se décide sans Tauri, testé ici.
+//! App updates: the decisions made without Tauri, tested here.
 //!
-//! Utilisé par l'hôte Tauri seulement ; vit ici pour que `just test` le couvre.
-//! L'hôte (`src-tauri/src/updates.rs`) cherche, télécharge et installe ; ce
-//! module dit s'il peut installer ([`InstallMode`]), ce qu'il montre
-//! ([`UpdateStatus`], [`UpdateProgress`]), quand signaler l'avancée ou couper
-//! ([`Progress`]), d'où il accepte un paquet ([`trusted_download`]) et dans
-//! quels mots dire un échec ([`UpdateStage`]).
+//! Used by the Tauri host only; lives here so that `just test` covers it.
+//! The host (`src-tauri/src/updates.rs`) checks, downloads and installs; this
+//! module says whether it can install ([`InstallMode`]), what it shows
+//! ([`UpdateStatus`], [`UpdateProgress`]), when to report progress or stop
+//! ([`Progress`]), where it accepts a bundle from and which endpoint that is
+//! ([`download_source`], [`UpdateSource`]) and in which words to report a failure
+//! ([`UpdateStage`]).
 
 use std::path::Path;
 use std::time::Duration;
@@ -161,17 +162,47 @@ impl Progress {
     }
 }
 
-/// The bundle comes from an Oku Slides release or its mirror, over HTTPS, without `..`.
+/// Updater endpoint a bundle URL comes from, logged with download failures (t-1212).
 ///
-/// On the mirror, only `v<major.minor.patch>/<one plain file name>` is accepted.
+/// Each endpoint's `latest.json` names only its own bundles, so the URL tells which one answered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpdateSource {
+    /// `updates.okutheory.com`, read first (ADR-0010).
+    Mirror,
+    /// GitHub release assets.
+    GitHub,
+}
+
+impl UpdateSource {
+    /// Lowercase label written in logs.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Mirror => "mirror",
+            Self::GitHub => "github",
+        }
+    }
+}
+
+impl std::fmt::Display for UpdateSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Endpoint of a trusted bundle URL; `None` when the host must refuse it.
+///
+/// Trusted: an Oku Slides release or its mirror, over HTTPS, without `..`. On the mirror,
+/// only `v<major.minor.patch>/<one plain file name>` is accepted.
 #[must_use]
-pub fn trusted_download(url: &str) -> bool {
+pub fn download_source(url: &str) -> Option<UpdateSource> {
     if let Some(rest) = url.strip_prefix(DOWNLOAD_PREFIX) {
-        return !rest.split('/').any(|part| part == "..");
+        return (!rest.split('/').any(|part| part == "..")).then_some(UpdateSource::GitHub);
     }
     url.strip_prefix(MIRROR_DOWNLOAD_PREFIX)
         .and_then(|rest| rest.split_once('/'))
         .is_some_and(|(version, name)| release_version(version) && mirrored_file_name(name))
+        .then_some(UpdateSource::Mirror)
 }
 
 /// `major.minor.patch`, each part made of ASCII digits.
