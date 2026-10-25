@@ -1,6 +1,6 @@
 // La fenêtre de l'agent : le fil, le brouillon et la dictée de l'onglet au premier plan.
 // Ce qui n'existe que dans la fenêtre principale (où écrire, contexte de l'interface) passe par
-// le canal `agent-link` ; tout le reste (fil, brouillon, portée) passe par l'hôte.
+// le canal `agent-link` ; tout le reste (fil, brouillon) passe par l'hôte.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { agentApi, errorText, inTauri, isMac, listenTauri, tabApi, workspace, type AgentUi, type Snapshot, type TabApi, type WorkspaceView } from "./api";
@@ -13,7 +13,7 @@ import { useToast } from "./useToast";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { usePastedImages } from "./agent/usePastedImages";
-import { AgentPanel, IDLE_AGENT, type AgentApi, type AgentHandle, type ScopeSource } from "./agent/AgentPanel";
+import { AgentPanel, IDLE_AGENT, type AgentApi, type AgentHandle, type ThreadMode } from "./agent/AgentPanel";
 import { draftActions } from "./agent/draftActions";
 import { subscribeHost } from "./agent/events";
 import { insertWithAck, linkTransport, onlyFor, type LinkContext, type LinkShortcut, type LinkTransport } from "./agent/link";
@@ -29,7 +29,7 @@ import type { QuickTarget } from "./agent/useQuickKeys";
 
 /** Numéro du prochain raccourci relayé : jamais remis à zéro, même quand l'onglet suivi change. */
 let remoteSeq = 0;
-const FOLLOW: ScopeSource = { kind: "follow" };
+const FOLLOW: ThreadMode = { kind: "follow" };
 const DOCK_ONLY: QuickTarget["kind"][] = ["dock"];
 const NO_UI: AgentUi = { slide: null, element: null, field: null, editing: false, widget: null };
 const NOOP = () => {};
@@ -243,14 +243,12 @@ export function AgentWindowFor({
       <AgentPanel
         tab={tab}
         agent={host.agent}
-        scope={FOLLOW}
+        mode={FOLLOW}
         route={route}
         ui={context?.ui ?? NO_UI}
         keysOff={context?.keysOff ?? false}
         keyPlaces={DOCK_ONLY}
         thread
-        // La fenêtre de l'agent ignore le mode deck : garde-fous normaux.
-        shortcuts={false}
         thumbs={thumbs}
         slots={slots}
         handle={handle}
@@ -275,7 +273,6 @@ export function AgentWindowFor({
         dictations={draft.state.dictations}
         typing={draft.state.typing}
         busy={status.busy}
-        notice={status.notice}
         ready={status.ready}
         shortcuts={false}
         onChange={draft.change}

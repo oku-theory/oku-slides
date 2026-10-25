@@ -1,11 +1,8 @@
 //! Un tour : groupe d'annulation, contexte, `session/prompt`, et ce qui
 //! arrive pendant qu'il tourne (annulation, nouvelle consigne).
 
-use std::collections::BTreeSet;
-
 use agent_client_protocol::schema::v1::{CancelNotification, ContentBlock, PromptRequest, SessionId, TextContent};
 use agent_client_protocol::{Agent, ConnectionTo};
-use oku_slides_session::agent::AgentScope;
 use tokio::sync::mpsc;
 
 use crate::events::as_text;
@@ -14,13 +11,13 @@ use crate::tab_agent::{Command, Ctx, Instruction};
 use crate::{AgentEvent, AgentState};
 
 /// Ce qui est arrivé pendant le tour, à appliquer par l'agent de l'onglet
-/// une fois le tour fini : des nouvelles conversations (une fois par portée,
-/// même si une consigne suit) et/ou la dernière consigne reçue (une `Cancel`
-/// après coup l'annule, mais pas les nouvelles conversations).
+/// une fois le tour fini : une nouvelle conversation (une fois, même si une
+/// consigne suit) et/ou la dernière consigne reçue (une `Cancel` après coup
+/// l'annule, mais pas la nouvelle conversation).
 #[derive(Debug, Default)]
 pub(crate) struct Pending {
-    /// Portées dont la conversation repart de zéro après le tour.
-    pub new_conversations: BTreeSet<AgentScope>,
+    /// La conversation repart de zéro après le tour.
+    pub new_conversation: bool,
     /// La dernière consigne reçue pendant le tour, à jouer ensuite.
     pub prompt: Option<Instruction>,
 }
@@ -47,8 +44,7 @@ pub(crate) async fn run(
     see_images: bool,
     prompting: impl FnOnce(),
 ) -> agent_client_protocol::Result<Pending> {
-    let Instruction { scope, text, ui, tune, images } = instruction;
-    let scope = &scope;
+    let Instruction { text, ui, tune, images } = instruction;
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
     let blocking = tokio::task::spawn_blocking(move || {
@@ -77,7 +73,7 @@ pub(crate) async fn run(
             (String::new(), Vec::new())
         }
     };
-    ctx.emit(AgentEvent::Status { state: AgentState::Working, scope: Some(scope.clone()) });
+    ctx.emit(AgentEvent::Status { state: AgentState::Working });
     let mut blocks = Vec::with_capacity(5);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(INSTRUCTIONS)));
@@ -99,11 +95,9 @@ pub(crate) async fn run(
         tokio::select! {
             r = &mut request => break r,
             cmd = rx.recv(), if open => {
-                // Toute commande pendant un tour l'arrête, une seule fois, sauf une nouvelle
-                // conversation d'une autre portée : le tour n'en dépend pas. Une consigne ou
+                // Toute commande pendant un tour l'arrête, une seule fois. Une consigne ou
                 // une nouvelle conversation est appliquée ensuite.
-                let elsewhere = matches!(&cmd, Some(Command::NewConversation { scope: other }) if other != scope);
-                if !cancel_sent && !elsewhere {
+                if !cancel_sent {
                     ctx.hub.cancel_asks();
                     // Connexion finie : le tour échouera de lui-même.
                     if let Err(e) = cx.send_notification(CancelNotification::new(session.clone())) {
@@ -114,9 +108,7 @@ pub(crate) async fn run(
                 match cmd {
                     None => open = false,
                     Some(Command::Cancel) => pending.prompt = None,
-                    Some(Command::NewConversation { scope }) => {
-                        pending.new_conversations.insert(scope);
-                    }
+                    Some(Command::NewConversation) => pending.new_conversation = true,
                     Some(Command::Prompt(next)) => pending.prompt = Some(next),
                 }
             }

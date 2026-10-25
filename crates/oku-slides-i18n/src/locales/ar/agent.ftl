@@ -107,7 +107,6 @@ agent-error-asset-unknown = هذه الصورة ليست في العرض الت�
 agent-error-denied = رفض المستخدم.
 agent-error-no-turn = لا يوجد دور جارٍ: لا يُعرض { $tool } إلا أثناء دور.
 agent-error-turn-over = انتهى دور هذا الاستدعاء: لم يُعرض شيء.
-agent-error-anchor-scope = لا يمكن ربط سؤال في محادثة عنصر واجهة بشريحة: اطرحه دون ربط.
 agent-error-no-file = ليس للعرض التقديمي ملف بعد: أعطِ مسارًا مطلقًا.
 agent-error-path-relative = يجب أن يكون المسار مطلقًا.
 agent-error-path-parent = يجب ألا يحتوي المسار على «..».

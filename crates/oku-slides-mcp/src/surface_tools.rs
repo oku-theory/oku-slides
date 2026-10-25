@@ -2,8 +2,8 @@
 
 use oku_slides_core::Paragraph;
 use oku_slides_session::agent::{
-    AgentScope, Anchor, AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, check_len,
-    check_options, forms, render,
+    Anchor, AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, check_len, check_options,
+    forms, render,
 };
 use oku_slides_session::{HOST_PACKS, HOST_THEME_PICKER};
 use rust_mcp_sdk::schema::CallToolResult;
@@ -15,8 +15,8 @@ use snafu::{IntoError, ResultExt};
 use crate::McpEvent;
 use crate::hub::{Answer, Freeze};
 use crate::tool_error::{
-    AnchorScopeSnafu, HubSnafu, NoTurnSnafu, PacksDeckModeSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu,
-    TaskSnafu, ThemesDeckModeSnafu, ToolError, TurnOverSnafu, UnexpectedActionSnafu,
+    HubSnafu, NoTurnSnafu, PacksDeckModeSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu, TaskSnafu,
+    ThemesDeckModeSnafu, ToolError, TurnOverSnafu, UnexpectedActionSnafu,
 };
 use crate::tools::Tools;
 
@@ -49,18 +49,8 @@ impl Tools {
         }
     }
 
-    /// Refuse une adresse de l'agent hors de la portée du tour : une conversation de widget ne
-    /// voit pas la scène des slides (elle est cachée sous l'onglet du widget), une fiche y
-    /// resterait invisible. Hors tour, la session seule juge (`Session::check_anchor`).
-    fn check_anchor_scope(&self, turn: Option<u32>) -> Result<(), ToolError> {
-        let scope = turn.and_then(|t| self.hub.turn_scope(t));
-        snafu::ensure!(!matches!(scope, Some(AgentScope::Widget { .. })), AnchorScopeSnafu);
-        Ok(())
-    }
-
-    /// Une ancre de l'agent, résolue contre la portée du tour puis le deck actif.
-    async fn check_anchor(&self, turn: Option<u32>, anchor: &Anchor) -> Result<(), ToolError> {
-        self.check_anchor_scope(turn)?;
+    /// Une ancre de l'agent, résolue contre le deck actif.
+    async fn check_anchor(&self, anchor: &Anchor) -> Result<(), ToolError> {
         let anchor = anchor.clone();
         self.with_session(move |s| s.check_anchor(&anchor)).await
     }
@@ -78,7 +68,7 @@ impl Tools {
             return self.fail_with(SessionSnafu.into_error(e));
         }
         if let Some(anchor) = &spec.anchor
-            && let Err(e) = self.check_anchor(turn, anchor).await
+            && let Err(e) = self.check_anchor(anchor).await
         {
             return self.fail_with(e);
         }
@@ -118,15 +108,12 @@ impl Tools {
         })
     }
 
-    /// `turn` : le tour de l'appel, dont la portée borne l'adresse du texte.
-    pub(crate) async fn ask_rewrite(&self, turn: Option<u32>, args: Value) -> CallToolResult {
+    /// Propose des reformulations d'un texte ; la réponse est appliquée par l'hôte.
+    pub(crate) async fn ask_rewrite(&self, args: Value) -> CallToolResult {
         let spec: AskRewrite = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        if let Err(e) = self.check_anchor_scope(turn) {
-            return self.fail_with(e);
-        }
         let id = self.hub.next_id("ask");
         let built = {
             let spec = spec.clone();

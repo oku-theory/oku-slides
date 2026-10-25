@@ -14,7 +14,6 @@ pub mod forms;
 pub mod reason;
 pub mod receipt;
 pub mod render;
-pub mod scope;
 mod surface_ops;
 mod tabs;
 pub(crate) mod turn_undo;
@@ -24,7 +23,7 @@ pub mod variants;
 pub use attachments::{AttachmentRef, PasteReason};
 pub use bounds::{DETAIL_CHARS, LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_options, clip};
 pub use context::AgentUi;
-pub use conversation::{SavedConversation, ScopeMove};
+pub use conversation::SavedConversation;
 pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
     ShowParams, ShowVariants, Surface, Variant,
@@ -33,7 +32,6 @@ pub use oku_slides_a2ui::{PromptImage, ServerMessage, StepStatus, TimelineStep, 
 pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
-pub use scope::AgentScope;
 pub use tabs::{Sessions, TabSession};
 pub use turn_view::{TurnState, TurnView};
 

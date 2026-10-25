@@ -93,7 +93,6 @@ agent-error-asset-unknown = Hình ảnh này không có trong bản trình bày 
 agent-error-denied = Người dùng đã từ chối.
 agent-error-no-turn = Không có lượt nào đang diễn ra: { $tool } chỉ được hiển thị trong một lượt.
 agent-error-turn-over = Lượt của lệnh gọi này đã kết thúc: không có gì được hiển thị.
-agent-error-anchor-scope = Câu hỏi trong cuộc trò chuyện về tiện ích không thể neo vào trang chiếu: hãy hỏi mà không neo.
 agent-error-no-file = Bản trình bày chưa có tệp: hãy cung cấp đường dẫn tuyệt đối.
 agent-error-path-relative = Đường dẫn phải là đường dẫn tuyệt đối.
 agent-error-path-parent = Đường dẫn không được chứa “..”.

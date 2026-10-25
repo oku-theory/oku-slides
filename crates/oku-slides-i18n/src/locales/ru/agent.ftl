@@ -103,7 +103,6 @@ agent-error-asset-unknown = Этого изображения нет ни в п�
 agent-error-denied = Пользователь отказался.
 agent-error-no-turn = Нет текущего хода: { $tool } показывается только во время хода.
 agent-error-turn-over = Ход этого вызова завершён: ничего не показано.
-agent-error-anchor-scope = Вопрос в беседе о виджете нельзя привязать к слайду: задайте его без привязки.
 agent-error-no-file = У презентации ещё нет файла: укажите абсолютный путь.
 agent-error-path-relative = Путь должен быть абсолютным.
 agent-error-path-parent = Путь не должен содержать «..».

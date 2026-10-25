@@ -4,7 +4,7 @@ use common::*;
 use oku_slides_core::kinds;
 use oku_slides_i18n::{Localize, english};
 use oku_slides_mcp::{HubErrorKind, McpEvent};
-use oku_slides_session::agent::{AgentScope, AskChoice, forms};
+use oku_slides_session::agent::{AskChoice, forms};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
@@ -57,7 +57,7 @@ async fn ask_choice_blocks_until_user_chooses_while_session_stays_free() {
 #[tokio::test(flavor = "multi_thread")]
 async fn ask_choice_dismissed_returns_cancelled_and_freezes_the_question() {
     let h = start().await;
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let pending = tokio::spawn({
@@ -296,25 +296,6 @@ async fn ask_choice_anchored_on_an_element_field_goes_to_a_sheet() {
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "choice": "a" }));
 }
 
-/// t-326 : une conversation de widget ne voit pas la scène des slides : une adresse y est hors
-/// de portée, même valide dans le deck.
-#[tokio::test(flavor = "multi_thread")]
-async fn anchored_questions_of_a_widget_turn_are_out_of_scope() {
-    let h = start().await;
-    h.hub.begin_turn(AgentScope::Widget { pack: uuid::Uuid::from_u128(1), name: "kpi".into() });
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let mut choice = choice_args();
-    choice["anchor"] = json!({ "slide": "s-libre", "owner": "e-texte" });
-    let rewrite = json!({ "slide": "s-libre", "owner": "e-texte", "proposals": ["A", "B"] });
-    let said = "Une question d'une conversation de widget ne s'ancre pas sur une slide : posez-la sans ancre.";
-    for (tool, args) in [("ask_choice", choice), ("ask_rewrite", rewrite)] {
-        let r = call(&c, tool, args).await;
-        assert_that!(r.is_error).named(tool).is_equal_to(Some(true));
-        assert_that!(text_of(&r)).named(tool).is_equal_to(said.to_owned());
-    }
-    assert_that!(h.hub.has_pending_ask()).is_false();
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn show_variants_returns_at_once_and_pick_applies_with_own_undo_and_note() {
     let h = start().await;
@@ -510,7 +491,7 @@ async fn resync_emits_the_whole_list() {
         async move { call(&c, "ask_choice", choice_args()).await }
     });
     let asked = next_surface(&mut rx).await;
-    h.hub.resync(AgentScope::Slides);
+    h.hub.resync();
     let list = wait_event(&mut rx, surfaces_list).await;
     assert_that!(list).is_equal_to(vec![asked.clone()]);
     h.hub.act(action(&asked.id, "dismiss", json!({}))).unwrap();
@@ -631,7 +612,7 @@ async fn prune_without_live_settings_does_not_wait_for_the_session() {
 async fn prune_with_only_static_surfaces_does_not_wait_for_the_session() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let id = json_of(&call(&c, "render", render_args()).await)["shown"].as_str().unwrap().to_owned();
     let (session, hub) = (h.session.clone(), h.hub.clone());
     let done = tokio::task::spawn_blocking(move || {
@@ -713,7 +694,7 @@ fn params_args() -> Value {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_show_static_during_a_turn_carries_it() {
     let h = start().await;
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     h.hub.show_static(n, forms::frozen_choice("x-1", "Q", Some("A"), &h.localizer));
     assert_that!(h.hub.surfaces()[0].turn).is_equal_to(Some(n));
 }
@@ -722,7 +703,7 @@ async fn hub_show_static_during_a_turn_carries_it() {
 async fn hub_answered_thread_question_is_frozen_with_the_chosen_label() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     let asking = tokio::spawn({
         let (hub, turn, surface, freeze) =
             (h.hub.clone(), h.hub.turn(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
@@ -743,7 +724,7 @@ async fn hub_answered_thread_question_is_frozen_with_the_chosen_label() {
 async fn hub_cancelled_thread_question_is_frozen_as_cancelled() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let asking = tokio::spawn({
         let (hub, turn, surface, freeze) =
             (h.hub.clone(), h.hub.turn(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
@@ -760,7 +741,7 @@ async fn hub_cancelled_thread_question_is_frozen_as_cancelled() {
 async fn hub_question_cancelled_after_clear_thread_leaves_no_ghost() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let asking = tokio::spawn({
         let (hub, turn, surface, freeze) =
             (h.hub.clone(), h.hub.turn(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
@@ -768,7 +749,7 @@ async fn hub_question_cancelled_after_clear_thread_leaves_no_ghost() {
     });
     next_surface(&mut rx).await;
     // Nouvelle conversation : `clear_thread` relâche lui-même la question, après avoir effacé les tours.
-    h.hub.clear_thread(&AgentScope::Slides);
+    h.hub.clear_thread();
     asking.await.unwrap();
     assert_that!(h.hub.surfaces()).is_empty();
 }
@@ -777,7 +758,7 @@ async fn hub_question_cancelled_after_clear_thread_leaves_no_ghost() {
 async fn hub_question_cancelled_after_close_leaves_no_ghost() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let asking = tokio::spawn({
         let (hub, turn, surface, freeze) =
             (h.hub.clone(), h.hub.turn(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
@@ -793,7 +774,7 @@ async fn hub_question_cancelled_after_close_leaves_no_ghost() {
 async fn hub_question_of_an_evicted_turn_leaves_no_ghost() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     let asking = tokio::spawn({
         let (hub, turn, surface, freeze) =
             (h.hub.clone(), h.hub.turn(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
@@ -810,7 +791,7 @@ async fn hub_question_of_an_evicted_turn_leaves_no_ghost() {
 async fn hub_new_params_freeze_the_previous_ones() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let first = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
     let second = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
     let open = h.hub.surfaces();
@@ -822,7 +803,7 @@ async fn hub_new_params_freeze_the_previous_ones() {
 async fn hub_dismissed_params_are_frozen_not_closed() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
     h.hub.act(action(&id, "dismiss", json!({}))).unwrap();
     let open = h.hub.surfaces();
@@ -833,7 +814,7 @@ async fn hub_dismissed_params_are_frozen_not_closed() {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_static_surfaces_are_capped_per_turn() {
     let h = start().await;
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     for i in 0..(oku_slides_mcp::STATIC_PER_TURN + 2) {
         h.hub.show_static(n, forms::frozen_choice(&format!("x-{i}"), "Q", Some("A"), &h.localizer));
     }
@@ -845,7 +826,7 @@ async fn hub_static_surfaces_are_capped_per_turn() {
 async fn hub_dismissed_params_lose_their_actions() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
     h.hub.act(action(&id, "dismiss", json!({}))).unwrap();
     assert_that!(serde_json::to_string(&h.hub.surfaces()).unwrap()).does_not_contain("\"action\"");
@@ -863,7 +844,7 @@ async fn hub_show_static_without_an_open_turn_is_refused() {
 async fn hub_answered_question_keeps_its_place_in_the_list() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     let asking = tokio::spawn({
         let (hub, turn, surface, freeze) =
             (h.hub.clone(), h.hub.turn(), thread_choice(&h, "ask-1"), freeze_choice(&h, "ask-1"));
@@ -879,8 +860,8 @@ async fn hub_answered_question_keeps_its_place_in_the_list() {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_surface_of_a_cleared_turn_is_ignored() {
     let h = start().await;
-    let n = h.hub.begin_turn(AgentScope::Slides);
-    h.hub.clear_thread(&AgentScope::Slides);
+    let n = h.hub.begin_turn();
+    h.hub.clear_thread();
     // Le relais, en retard, émet encore la surface du tour effacé.
     let mut late = forms::frozen_choice("turn-late", "Q", Some("A"), &h.localizer);
     late.turn = Some(n);
@@ -891,9 +872,9 @@ async fn hub_surface_of_a_cleared_turn_is_ignored() {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_close_turn_closes_only_that_turn() {
     let h = start().await;
-    let one = h.hub.begin_turn(AgentScope::Slides);
+    let one = h.hub.begin_turn();
     h.hub.show_static(one, forms::frozen_choice("a", "Q", Some("A"), &h.localizer));
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     h.hub.show_static(n, forms::frozen_choice("b", "Q", Some("A"), &h.localizer));
     h.hub.close_turn(one);
     assert_that!(open_ids(&h)).is_equal_to(vec!["b".to_owned()]);
@@ -908,16 +889,16 @@ async fn hub_clear_thread_keeps_surfaces_outside_turns() {
         &h.localizer,
     );
     h.hub.emit(McpEvent::Surface { surface: confirm });
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     h.hub.show_static(n, forms::frozen_choice("a", "Q", Some("A"), &h.localizer));
-    h.hub.clear_thread(&AgentScope::Slides);
+    h.hub.clear_thread();
     assert_that!(open_ids(&h)).is_equal_to(vec!["c".to_owned()]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_parallel_ask_choices_are_all_live_and_answered_independently() {
     let h = start().await;
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let ask = || {
@@ -946,9 +927,9 @@ async fn hub_parallel_ask_choices_are_all_live_and_answered_independently() {
 async fn hub_close_turn_closes_live_params_of_that_turn() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let n = h.hub.begin_turn(AgentScope::Slides);
+    let n = h.hub.begin_turn();
     let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
-    h.hub.begin_turn(AgentScope::Slides);
+    h.hub.begin_turn();
     // Évincé, le tour emporte ses réglages encore vivants : fermés (pas figés), et leurs actions refusées.
     h.hub.close_turn(n);
     assert_that!(open_ids(&h)).is_empty();

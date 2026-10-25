@@ -74,7 +74,7 @@ impl Tools {
             "focus" => self.focus(args),
             "ask_choice" => self.ask_choice(turn, args).await,
             "ask_confirm" => self.ask_confirm(args).await,
-            "ask_rewrite" => self.ask_rewrite(turn, args).await,
+            "ask_rewrite" => self.ask_rewrite(args).await,
             "show_params" => self.show_params(turn, args).await,
             "show_variants" => self.show_variants(args).await,
             "show_themes" => self.show_themes(args).await,

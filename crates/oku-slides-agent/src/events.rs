@@ -1,7 +1,7 @@
 //! Ce que l'agent fait, pour le fil de l'interface.
 
 use agent_client_protocol::schema::v1::{ContentBlock, SessionUpdate, ToolCallContent};
-use oku_slides_session::agent::{AgentScope, AttachmentRef, DETAIL_CHARS, PromptImage, clip};
+use oku_slides_session::agent::{AttachmentRef, DETAIL_CHARS, PromptImage, clip};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -28,18 +28,13 @@ pub struct PlanItem {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentEvent {
-    /// L'état de l'agent, avec la portée qu'il sert quand il travaille.
+    /// L'état de l'agent.
     Status {
         state: AgentState,
-        /// La portée servie ; absente au repos.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        scope: Option<AgentScope>,
     },
-    /// La consigne dite, qui ouvre le tour `turn` de la portée `scope`.
+    /// La consigne dite, qui ouvre le tour `turn`.
     UserText {
         turn: u32,
-        /// La portée du tour.
-        scope: AgentScope,
         text: String,
         /// Les images collées avec la consigne.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -88,11 +83,8 @@ pub enum AgentEvent {
         turn: u32,
         message: String,
     },
-    /// Nouvelle conversation : le fil de la portée repart de zéro.
-    Conversation {
-        /// La portée dont le fil est oublié.
-        scope: AgentScope,
-    },
+    /// Nouvelle conversation : le fil de l'onglet repart de zéro.
+    Conversation,
     /// Le brouillon de l'onglet (`None` : fermé), tel que l'hôte le tient pour toutes ses vues.
     Draft {
         text: Option<String>,
@@ -110,9 +102,9 @@ pub enum AgentEvent {
 }
 
 impl AgentEvent {
-    /// L'agent au repos, sans portée.
+    /// L'agent au repos.
     pub fn idle() -> Self {
-        Self::Status { state: AgentState::Idle, scope: None }
+        Self::Status { state: AgentState::Idle }
     }
 }
 

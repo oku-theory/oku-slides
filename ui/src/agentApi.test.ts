@@ -18,7 +18,7 @@ async function sentPrompt(ui: AgentUi = UI): Promise<{ ui: AgentUiSent }> {
     body = String(init?.body);
     return new Response("{}", { status: 200 });
   }) as unknown as typeof fetch;
-  await agentApi("t-1").prompt("slides", "plus court", ui, null);
+  await agentApi("t-1").prompt("plus court", ui, null);
   return JSON.parse(body);
 }
 

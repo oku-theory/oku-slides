@@ -8,7 +8,7 @@ use std::time::Duration;
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
 use oku_slides_session::Platform;
-use oku_slides_session::agent::{AgentScope, AgentUi, Sessions, TabSession};
+use oku_slides_session::agent::{AgentUi, Sessions, TabSession};
 use oku_slides_stt::Stt;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
@@ -38,9 +38,6 @@ pub enum AgentCommand {
     /// à une question ni pour un mot de raccourci.
     Prompt {
         tab: String,
-        /// La conversation visée ; absente : celle des slides.
-        #[serde(default)]
-        scope: AgentScope,
         text: String,
         #[serde(default)]
         ui: AgentUi,
@@ -52,7 +49,7 @@ pub enum AgentCommand {
         #[serde(default)]
         images: Vec<String>,
     },
-    /// Fine-tune l'onglet importé : un tour dans la conversation des slides, démarrant l'agent.
+    /// Fine-tune l'onglet importé : un tour dans la conversation de l'onglet, démarrant l'agent.
     ///
     /// Le fil montre le texte localisé `agent-tune-prompt`, dans la langue courante de
     /// l'interface ; ce texte est aussi le dernier bloc du prompt, après les consignes d'import
@@ -67,9 +64,6 @@ pub enum AgentCommand {
     },
     NewConversation {
         tab: String,
-        /// La conversation à recommencer ; absente : celle des slides.
-        #[serde(default)]
-        scope: AgentScope,
     },
     SurfaceAction {
         tab: String,
@@ -78,16 +72,13 @@ pub enum AgentCommand {
         #[serde(default)]
         context: serde_json::Map<String, serde_json::Value>,
     },
-    /// L'interface (ré)abonnée demande le fil gardé de `scope` et ses surfaces ouvertes.
+    /// L'interface (ré)abonnée demande le fil gardé de l'onglet et ses surfaces ouvertes.
     Resync {
         tab: String,
-        /// Le fil à montrer ; absent : celui des slides.
-        #[serde(default)]
-        scope: AgentScope,
     },
     /// Une autre vue de l'onglet (fenêtre de l'agent) s'abonne.
     ///
-    /// Rejoue l'état, le brouillon, puis le fil de la portée montrée ; ne démarre jamais l'onglet.
+    /// Rejoue l'état, le brouillon, puis le fil de l'onglet ; ne démarre jamais l'onglet.
     Follow {
         tab: String,
     },
@@ -131,9 +122,9 @@ impl AgentCommand {
             Self::Prompt { tab, .. }
             | Self::Tune { tab, .. }
             | Self::Cancel { tab }
-            | Self::NewConversation { tab, .. }
+            | Self::NewConversation { tab }
             | Self::SurfaceAction { tab, .. }
-            | Self::Resync { tab, .. }
+            | Self::Resync { tab }
             | Self::Follow { tab }
             | Self::SetDraft { tab, .. }
             | Self::PasteImage { tab, .. }
@@ -209,7 +200,7 @@ impl Stack {
             return Ok(());
         }
         match cmd {
-            AgentCommand::Prompt { tab, scope, text, ui, answer, images } => {
+            AgentCommand::Prompt { tab, text, ui, answer, images } => {
                 // Fermé entre-temps : ignorée, comme ci-dessus.
                 let Some(t) = self.open(&tab) else { return Ok(()) };
                 // Réponse à la question désignée, jamais à une autre. Si elle n'attend plus (répondue
@@ -235,19 +226,13 @@ impl Stack {
                     tracing::info!(tab, error = %snafu::Report::from_error(&e), "consigne refusée");
                     e.localize(&self.platform.live_localizer.current())
                 })?;
-                t.send(Command::Prompt(Instruction { scope, text, ui, tune: false, images }));
+                t.send(Command::Prompt(Instruction { text, ui, tune: false, images }));
             }
             AgentCommand::Tune { tab } => {
                 let Some(t) = self.open(&tab) else { return Ok(()) };
                 let text = self.platform.live_localizer.current().tr(TUNE_PROMPT);
                 let ui = AgentUi::default();
-                t.send(Command::Prompt(Instruction {
-                    scope: AgentScope::Slides,
-                    text,
-                    ui,
-                    tune: true,
-                    images: Vec::new(),
-                }));
+                t.send(Command::Prompt(Instruction { text, ui, tune: true, images: Vec::new() }));
             }
             AgentCommand::Cancel { tab } => {
                 if let Some(t) = self.tab(&tab) {
@@ -256,9 +241,9 @@ impl Stack {
                 }
             }
             // Un onglet sans agent n'a aucune surface de tour à fermer : rien à faire pour lui.
-            AgentCommand::NewConversation { tab, scope } => {
+            AgentCommand::NewConversation { tab } => {
                 if let Some(t) = self.tab(&tab) {
-                    t.send(Command::NewConversation { scope });
+                    t.send(Command::NewConversation);
                 }
             }
             AgentCommand::SurfaceAction { tab, surface, name, context } => {
@@ -289,12 +274,12 @@ impl Stack {
                     }
                 };
             }
-            // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : un onglet rouvert retrouve ses fils.
-            // L'état de l'agent d'abord, puis le fil de `scope` (montré par le gardien, après sa relecture).
-            AgentCommand::Resync { tab, scope } => match self.open(&tab) {
+            // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : un onglet rouvert retrouve son fil.
+            // L'état de l'agent d'abord, puis le fil (montré par le gardien, après sa relecture).
+            AgentCommand::Resync { tab } => match self.open(&tab) {
                 Some(t) => {
                     t.replay(&self.out_tx);
-                    t.keeper.send(Keep::Show(scope));
+                    t.keeper.send(Keep::Show);
                 }
                 // Fermé entre-temps : rien à montrer.
                 None => self.replay_closed(&tab),
@@ -302,7 +287,7 @@ impl Stack {
             AgentCommand::Follow { tab } => match self.tab(&tab) {
                 Some(t) => {
                     t.replay(&self.out_tx);
-                    t.keeper.send(Keep::Replay);
+                    t.keeper.send(Keep::Show);
                 }
                 None => self.replay_closed(&tab),
             },
@@ -388,13 +373,10 @@ impl Stack {
     }
 
     /// Le deck de l'onglet a changé depuis l'interface (voir
-    /// `Request::changes_deck`) : fermer les surfaces orphelines, et faire appliquer au
-    /// gardien les renommages de widgets tout de suite (un nouveau widget de l'ancien nom
-    /// a sa propre conversation).
+    /// `Request::changes_deck`) : fermer les surfaces orphelines.
     pub fn after_change(&self, tab: &str) {
         if let Some(t) = self.tab(tab) {
             t.hub.prune();
-            t.keeper.send(Keep::Sync);
         }
     }
 
@@ -440,11 +422,10 @@ impl Stack {
 
     /// Ce que voit une vue d'un onglet sans agent démarré.
     ///
-    /// Repos, aucun brouillon, les slides, aucune surface.
+    /// Repos, aucun brouillon, aucune surface.
     fn replay_closed(&self, tab: &str) {
         emit(&self.out_tx, "agent", tab, &AgentEvent::idle());
         emit(&self.out_tx, "agent", tab, &AgentEvent::Draft { text: None, origin: None, images: Vec::new() });
-        emit(&self.out_tx, "mcp", tab, &McpEvent::Viewing { scope: AgentScope::Slides });
         emit(&self.out_tx, "mcp", tab, &McpEvent::Surfaces { list: Vec::new() });
     }
 

@@ -1,5 +1,5 @@
 //! L'agent d'un onglet : une tâche tokio qui reçoit ses commandes, ouvre ou
-//! reprend une session ACP par portée sur la connexion partagée et joue ses tours.
+//! reprend la session ACP de l'onglet sur la connexion partagée et joue ses tours.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ use agent_client_protocol::schema::v1::{
 use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::SurfaceHub;
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::agent::{AgentScope, AgentUi, AttachmentRef, TabSession};
+use oku_slides_session::agent::{AgentUi, AttachmentRef, TabSession};
 use tokio::sync::{broadcast, mpsc};
 
 use crate::agent_switch::PromptGuard;
@@ -33,13 +33,12 @@ const CLOSE_GRACE: Duration = Duration::from_secs(1);
 pub(crate) enum Command {
     Prompt(Instruction),
     Cancel,
-    NewConversation { scope: AgentScope },
+    NewConversation,
 }
 
-/// Une consigne à jouer en un tour, dans la conversation de `scope`.
+/// Une consigne à jouer en un tour, dans la conversation de l'onglet.
 #[derive(Debug)]
 pub(crate) struct Instruction {
-    pub scope: AgentScope,
     /// Le texte montré dans le fil et envoyé en dernier bloc du prompt.
     pub text: String,
     pub ui: AgentUi,
@@ -120,8 +119,8 @@ pub struct AgentHandle {
 
 impl AgentHandle {
     /// Démarre l'agent de l'onglet `tab` dans le runtime tokio courant ;
-    /// l'agent partagé (`link`) est lancé au premier prompt. Ses conversations
-    /// passent par `keeper`. Lâcher tous les clones arrête l'acteur (tour en
+    /// l'agent partagé (`link`) est lancé au premier prompt. Sa conversation
+    /// passe par `keeper`. Lâcher tous les clones arrête l'acteur (tour en
     /// cours annulé, routes de ses sessions oubliées).
     #[expect(
         clippy::too_many_arguments,
@@ -153,14 +152,9 @@ impl AgentHandle {
         Self { tx, events }
     }
 
-    /// Une consigne pour la conversation des slides.
+    /// Une consigne pour la conversation de l'onglet.
     pub fn prompt(&self, text: String, ui: AgentUi) {
-        self.prompt_in(AgentScope::Slides, text, ui);
-    }
-
-    /// Une consigne pour la conversation de `scope`.
-    pub fn prompt_in(&self, scope: AgentScope, text: String, ui: AgentUi) {
-        self.instruct(Instruction { scope, text, ui, tune: false, images: Vec::new() });
+        self.instruct(Instruction { text, ui, tune: false, images: Vec::new() });
     }
 
     /// Une consigne, ordinaire ou de fine-tuning.
@@ -175,10 +169,10 @@ impl AgentHandle {
         let _ = self.tx.send(Command::Cancel);
     }
 
-    /// Nouvelle conversation dans `scope` : nouvelle session ACP au prochain prompt, fil effacé.
-    pub fn new_conversation(&self, scope: AgentScope) {
+    /// Nouvelle conversation : nouvelle session ACP au prochain prompt, fil effacé.
+    pub fn new_conversation(&self) {
         // Acteur arrêté (onglet fermé) : plus de conversation à recommencer.
-        let _ = self.tx.send(Command::NewConversation { scope });
+        let _ = self.tx.send(Command::NewConversation);
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<AgentEvent> {
@@ -208,7 +202,7 @@ struct TabAgent {
 
 impl TabAgent {
     async fn run(mut self, mut rx: mpsc::UnboundedReceiver<Command>) {
-        // Les fils relus sont au hub avant le premier tour (numéros de tour après les leurs).
+        // Le fil relu est au hub avant le premier tour (numéros de tour après les leurs).
         self.ctx.keeper.restored().await;
         let mut next = None;
         // La garde d'une requête suivie d'une consigne en file : gardée jusqu'à la fin de celle-ci.
@@ -223,7 +217,7 @@ impl TabAgent {
             };
             match cmd {
                 Command::Cancel => self.ctx.hub.cancel_asks(),
-                Command::NewConversation { scope } => self.new_conversation(scope).await,
+                Command::NewConversation => self.new_conversation().await,
                 Command::Prompt(instruction) => {
                     // Une requête ACP tourne : un changement d'agent attend. Gardé pour une consigne en file.
                     let guard =
@@ -242,34 +236,32 @@ impl TabAgent {
         self.ctx.hub.cancel_asks();
     }
 
-    /// Nouvelle conversation dans `scope` : oubliée par le gardien (son fil aussi), sa route aussi.
-    async fn new_conversation(&mut self, scope: AgentScope) {
-        if let Some(id) = self.ctx.keeper.forget(scope.clone()).await {
+    /// Nouvelle conversation : oubliée par le gardien (son fil aussi), sa route aussi.
+    async fn new_conversation(&mut self) {
+        if let Some(id) = self.ctx.keeper.forget().await {
             let gone: Vec<(u64, String)> = self.live.iter().filter(|(_, i)| *i == id).cloned().collect();
             for key in gone {
                 self.live.remove(&key);
                 self.link.forget(key.0, SessionId::new(key.1));
             }
         }
-        self.ctx.emit(AgentEvent::Conversation { scope });
+        self.ctx.emit(AgentEvent::Conversation);
     }
 
-    /// Joue un tour dans `scope` ; rend la consigne arrivée pendant le tour, à jouer ensuite.
+    /// Joue un tour ; rend la consigne arrivée pendant le tour, à jouer ensuite.
     async fn prompt(&mut self, rx: &mut mpsc::UnboundedReceiver<Command>, instruction: Instruction) -> Option<Command> {
-        let scope = instruction.scope.clone();
         // Le tour existe avant toute étape qui peut échouer (connexion, session) : son erreur s'y affiche.
-        let n = self.ctx.hub.begin_turn(scope.clone());
+        let n = self.ctx.hub.begin_turn();
         self.ctx.emit(AgentEvent::UserText {
             turn: n,
-            scope: scope.clone(),
             text: instruction.text.clone(),
             images: instruction.images.iter().map(AttachmentRef::shown).collect(),
         });
-        let known = self.ctx.keeper.lookup(scope.clone()).await;
+        let known = self.ctx.keeper.lookup().await;
         let current = self.link.current_generation();
         let alive = known.as_ref().zip(current).is_some_and(|((id, _), g)| self.live.contains(&(g, id.clone())));
         if !alive {
-            self.ctx.emit(AgentEvent::Status { state: AgentState::Starting, scope: Some(scope.clone()) });
+            self.ctx.emit(AgentEvent::Status { state: AgentState::Starting });
         }
         let live = match self.link.connect().await {
             Ok(live) => live,
@@ -309,8 +301,8 @@ impl TabAgent {
             .await
         {
             Ok(pending) => {
-                for scope in pending.new_conversations {
-                    self.new_conversation(scope).await;
+                if pending.new_conversation {
+                    self.new_conversation().await;
                 }
                 pending.prompt.map(Command::Prompt)
             }
@@ -343,7 +335,7 @@ impl TabAgent {
         (cwd, tools)
     }
 
-    /// Nouvelle session ACP pour la portée du tour `turn`.
+    /// Nouvelle session ACP de l'onglet, ouverte pour le tour `turn`.
     async fn open(&mut self, live: &Live, turn: u32) -> agent_client_protocol::Result<SessionId> {
         let (cwd, tools) = self.setup().await;
         let r = live.cx.send_request(NewSessionRequest::new(cwd).mcp_servers(vec![tools])).block_task().await?;
@@ -396,10 +388,9 @@ impl TabAgent {
         }
     }
 
-    /// La session `id` sert la portée du tour `turn` : routée, vivante, transmise au gardien.
+    /// La session `id` sert l'onglet dès le tour `turn` : routée, vivante, transmise au gardien.
     ///
-    /// Le gardien lit la portée du tour au moment d'écrire : un widget renommé pendant
-    /// l'ouverture de la session la garde.
+    /// Le gardien ne la garde que si le tour est encore dans le fil (pas de nouvelle conversation entre-temps).
     fn adopt(&mut self, live: &Live, turn: u32, id: SessionId, replaying: bool) {
         self.link.route(
             live.generation,

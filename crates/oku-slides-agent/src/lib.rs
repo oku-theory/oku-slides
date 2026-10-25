@@ -4,8 +4,8 @@
 //!
 //! - [`Link`] : la connexion ACP partagée (un sous-processus pour l'app,
 //!   lancé au premier prompt, relancé après un arrêt).
-//! - [`AgentHandle`] : l'agent d'un onglet (une session ACP par portée, ses tours).
-//! - [`Keeper`] : le gardien d'un onglet, seul passage vers ses conversations gardées.
+//! - [`AgentHandle`] : l'agent d'un onglet (une session ACP par onglet, ses tours).
+//! - [`Keeper`] : le gardien d'un onglet, seul passage vers sa conversation gardée.
 //! - [`AgentEvent`] : ce que l'interface affiche dans le fil.
 //! - [`Stack`] : un agent par onglet (outils MCP, fil gardé) pour l'hôte ;
 //!   évènements relayés en enveloppes `{tab, event}`, le choix de l'agent (`choice`) et la

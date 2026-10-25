@@ -93,7 +93,6 @@ agent-error-asset-unknown = 该图片既不在演示文稿中，也不在已粘�
 agent-error-denied = 用户已拒绝。
 agent-error-no-turn = 没有正在进行的轮次：{ $tool } 只在轮次中显示。
 agent-error-turn-over = 此调用所在的轮次已结束：未显示任何内容。
-agent-error-anchor-scope = 小组件对话中的问题不能锚定到幻灯片：请不带锚点提问。
 agent-error-no-file = 演示文稿还没有文件：请提供绝对路径。
 agent-error-path-relative = 路径必须是绝对路径。
 agent-error-path-parent = 路径不能包含“..”。

@@ -99,7 +99,6 @@ agent-error-asset-unknown = Deze afbeelding zit niet in de presentatie en staat 
 agent-error-denied = De gebruiker heeft geweigerd.
 agent-error-no-turn = Geen beurt bezig: { $tool } wordt alleen tijdens een beurt getoond.
 agent-error-turn-over = De beurt van deze aanroep is voorbij: er is niets getoond.
-agent-error-anchor-scope = Een vraag in een widgetgesprek kan niet aan een dia worden verankerd: stel hem zonder anker.
 agent-error-no-file = De presentatie heeft nog geen bestand: geef een absoluut pad op.
 agent-error-path-relative = Het pad moet absoluut zijn.
 agent-error-path-parent = Het pad mag geen “..” bevatten.

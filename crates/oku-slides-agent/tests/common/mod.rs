@@ -11,7 +11,7 @@ use oku_slides_agent::{AgentEvent, AgentHandle, AgentState, Keeper, Launch, Link
 use oku_slides_mcp::{Applied, SettingsPort, SurfaceHub, ToolServer, Tools};
 use oku_slides_platform::config::{AgentPreset, Builtin};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
-use oku_slides_session::agent::{AgentScope, Surface, TabSession};
+use oku_slides_session::agent::{Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use serde_json::{Value, json};
 use tokio::sync::broadcast;
@@ -36,7 +36,7 @@ pub struct Tab {
     pub hub: Arc<SurfaceHub>,
     pub session: Arc<Mutex<Session>>,
     pub server: ToolServer,
-    /// Le gardien de l'onglet : seul passage vers ses conversations.
+    /// Le gardien de l'onglet : seul passage vers sa conversation.
     pub keeper: Keeper,
     /// Abonné dès la création : aucun évènement de l'onglet n'est perdu.
     pub events: tokio::sync::Mutex<broadcast::Receiver<AgentEvent>>,
@@ -249,13 +249,12 @@ pub fn frozen_turn(n: u32) -> Surface {
     turn_surface(&view, &oku_slides_i18n::Localizer::new(Some("fr")))
 }
 
-/// La session de `t-1` connaît déjà `scope` → `session` (relue au lancement, par l'agent `agent`).
-pub async fn seed_session(h: &Harness, scope: AgentScope, session: &str, agent: &str) {
-    h.session("t-1").lock().unwrap_or_else(|e| panic!("session : {e}")).keep_agent_session(
-        scope,
-        session.into(),
-        agent.into(),
-    );
+/// La session de `t-1` connaît déjà `session` (relue au lancement, par l'agent `agent`).
+pub async fn seed_session(h: &Harness, session: &str, agent: &str) {
+    h.session("t-1")
+        .lock()
+        .unwrap_or_else(|e| panic!("session : {e}"))
+        .keep_agent_session(session.into(), agent.into());
     h.tab("t-1").keeper.flush().await;
 }
 
@@ -593,7 +592,7 @@ pub fn surfaces_of(rx: &Relayed, tab: &str) -> Vec<Value> {
 
 /// Le `nth` évènement `surfaces` relayé pour `tab` (1 = le premier ; sondé toutes les 20 ms, 10 s au plus).
 ///
-/// Un onglet qui démarre en envoie un en relisant ses fils, avant celui de son premier `resync`.
+/// Un onglet qui démarre en envoie un en relisant son fil, avant celui de son premier `resync`.
 pub async fn wait_surfaces(rx: &Relayed, tab: &str, nth: usize) -> Value {
     for _ in 0..500 {
         if let Some(v) = surfaces_of(rx, tab).into_iter().nth(nth - 1) {
@@ -678,20 +677,29 @@ pub async fn next(
     (i, v)
 }
 
-/// Un `resync` de `tab` dans `scope` (ou les slides) : rend la position juste après sa liste.
+/// Un `resync` de `tab` : rend la position juste après sa liste.
 ///
-/// La relecture des fils au démarrage de l'onglet envoie aussi une liste, sans `viewing` avant :
-/// on attend donc la portée annoncée, puis la liste qui la suit.
-pub async fn shown(stack: &TestStack, rx: &Relayed, tab: &'static str, scope: Option<serde_json::Value>) -> usize {
-    let from = relayed_len(rx);
-    let mut req = json!({ "cmd": "resync", "tab": tab });
-    if let Some(s) = scope {
-        req["scope"] = s;
+/// Un onglet qui démarre envoie d'abord une liste en relisant son fil, avant celle du `resync` :
+/// sans liste relayée avant, on attend donc la deuxième.
+pub async fn shown(stack: &TestStack, rx: &Relayed, tab: &'static str) -> usize {
+    let before = surfaces_of(rx, tab).len();
+    stack.handle(cmd(json!({ "cmd": "resync", "tab": tab }))).unwrap_or_else(|e| panic!("resync : {e}"));
+    let nth = if before == 0 { 2 } else { before + 1 };
+    for _ in 0..500 {
+        let at = rx
+            .lock()
+            .unwrap_or_else(|e| panic!("relais : {e}"))
+            .iter()
+            .enumerate()
+            .filter(|(_, (ch, v))| *ch == "mcp" && v["tab"] == tab && v["event"]["kind"] == "surfaces")
+            .nth(nth - 1)
+            .map(|(i, _)| i);
+        if let Some(i) = at {
+            return i + 1;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
     }
-    stack.handle(cmd(req)).unwrap_or_else(|e| panic!("resync : {e}"));
-    let (viewing, _) = next(rx, from, is("mcp", "viewing", tab)).await;
-    let (list, _) = next(rx, viewing, is("mcp", "surfaces", tab)).await;
-    list + 1
+    panic!("liste du resync de {tab} non reçue");
 }
 
 /// Écrit le brouillon de `tab` depuis la vue `v-1`, et rend la position juste après son écho.

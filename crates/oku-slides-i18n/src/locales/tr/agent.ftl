@@ -93,7 +93,6 @@ agent-error-asset-unknown = Bu görsel ne sunumda ne de yapıştırılan görsel
 agent-error-denied = Kullanıcı reddetti.
 agent-error-no-turn = Devam eden bir tur yok: { $tool } yalnızca bir tur sırasında gösterilir.
 agent-error-turn-over = Bu çağrının turu bitti: hiçbir şey gösterilmedi.
-agent-error-anchor-scope = Bir widget konuşmasındaki soru bir slayta bağlanamaz: soruyu bağlantısız sorun.
 agent-error-no-file = Sunumun henüz bir dosyası yok: mutlak bir yol verin.
 agent-error-path-relative = Yol mutlak olmalıdır.
 agent-error-path-parent = Yol “..” içermemelidir.

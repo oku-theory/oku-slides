@@ -93,7 +93,6 @@ agent-error-asset-unknown = この画像はプレゼンテーションにも貼�
 agent-error-denied = ユーザーが拒否しました。
 agent-error-no-turn = 進行中のターンがありません。{ $tool } はターン中にのみ表示されます。
 agent-error-turn-over = この呼び出しのターンは終了しました。何も表示されていません。
-agent-error-anchor-scope = ウィジェットの会話での質問はスライドに固定できません。固定せずに質問してください。
 agent-error-no-file = プレゼンテーションにはまだファイルがありません。絶対パスを指定してください。
 agent-error-path-relative = パスは絶対パスである必要があります。
 agent-error-path-parent = パスに「..」を含めることはできません。

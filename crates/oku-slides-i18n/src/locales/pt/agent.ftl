@@ -99,7 +99,6 @@ agent-error-asset-unknown = Esta imagem não está na apresentação nem entre a
 agent-error-denied = O usuário recusou.
 agent-error-no-turn = Nenhum turno em andamento: { $tool } só é mostrado durante um turno.
 agent-error-turn-over = O turno desta chamada terminou: nada foi mostrado.
-agent-error-anchor-scope = Uma pergunta em uma conversa de widget não pode ser ancorada em um slide: faça-a sem âncora.
 agent-error-no-file = A apresentação ainda não tem arquivo: indique um caminho absoluto.
 agent-error-path-relative = O caminho deve ser absoluto.
 agent-error-path-parent = O caminho não deve conter “..”.

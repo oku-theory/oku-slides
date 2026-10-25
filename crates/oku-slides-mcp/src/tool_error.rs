@@ -35,8 +35,6 @@ pub(crate) enum ToolError {
     NoTurn { tool: &'static str, backtrace: Backtrace },
     #[snafu(display("the turn of this call is over: nothing was shown"))]
     TurnOver { backtrace: Backtrace },
-    #[snafu(display("a widget conversation cannot anchor on a slide"))]
-    AnchorScope { backtrace: Backtrace },
     #[snafu(display("file already open in another tab"))]
     OpenElsewhere { backtrace: Backtrace },
     #[snafu(display("no file yet: give an absolute path"))]
@@ -102,7 +100,6 @@ impl Localize for ToolError {
             Denied { .. } => l.tr("agent-error-denied"),
             NoTurn { tool, .. } => l.tr_with("agent-error-no-turn", &[("tool", (*tool).into())]),
             TurnOver { .. } => l.tr("agent-error-turn-over"),
-            AnchorScope { .. } => l.tr("agent-error-anchor-scope"),
             OpenElsewhere { .. } => l.tr("agent-open-elsewhere"),
             NoFile { .. } => l.tr("agent-error-no-file"),
             PathRelative { .. } => l.tr("agent-error-path-relative"),

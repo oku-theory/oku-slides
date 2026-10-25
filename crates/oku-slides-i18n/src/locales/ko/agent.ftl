@@ -93,7 +93,6 @@ agent-error-asset-unknown = 이 이미지는 프레젠테이션에도 붙여넣�
 agent-error-denied = 사용자가 거절했습니다.
 agent-error-no-turn = 진행 중인 턴이 없습니다. { $tool }은(는) 턴 중에만 표시됩니다.
 agent-error-turn-over = 이 호출의 턴이 끝났습니다. 아무것도 표시되지 않았습니다.
-agent-error-anchor-scope = 위젯 대화의 질문은 슬라이드에 고정할 수 없습니다. 고정 없이 질문하세요.
 agent-error-no-file = 프레젠테이션에 아직 파일이 없습니다. 절대 경로를 지정하세요.
 agent-error-path-relative = 경로는 절대 경로여야 합니다.
 agent-error-path-parent = 경로에 “..”가 포함되면 안 됩니다.

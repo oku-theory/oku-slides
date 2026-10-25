@@ -300,8 +300,8 @@ pub struct Session {
     agent_notes: Vec<String>,
     /// Étapes d'annulation du deck prises par les derniers tours de l'agent (`agent::turn_undo`).
     turn_steps: agent::turn_undo::TurnSteps,
-    /// Conversations de l'agent, une par portée (`agent::conversation`).
-    conversations: agent::conversation::Conversations,
+    /// La conversation de l'agent de l'onglet (`agent::conversation`).
+    conversation: Option<agent::SavedConversation>,
     /// Épinglages (packs et thème) plus anciens que la bibliothèque (`deck_packs`), recalculés quand ils changent.
     pack_updates: u32,
     /// Les épinglages pour lesquels `pack_updates` a été calculé (`deck_packs::PinsKey`).
@@ -447,7 +447,7 @@ impl Session {
             resume: None,
             agent_notes: Vec::new(),
             turn_steps: Default::default(),
-            conversations: Default::default(),
+            conversation: None,
             pack_updates: 0,
             pack_updates_pins: None,
             themes_notice: None,
@@ -494,18 +494,6 @@ impl Session {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } => &self.doc.sources,
             Mode::Pack { stash, .. } => &stash.sources,
-        }
-    }
-
-    /// Les fichiers du pack en cours : version éditée, sinon celle du pack `deck` du deck.
-    fn pack_files_in_use(&self) -> Option<&oku_slides_core::PackFiles> {
-        match &self.mode {
-            Mode::Pack { edit, .. } => self.doc.sources.packs.get(&edit.base),
-            Mode::Deck | Mode::Help { .. } => {
-                let pin = self.deck_pins().get(&Namespace::deck())?;
-                self.user_blobs().packs.get(&pin.version)
-            }
-            Mode::History { .. } => None,
         }
     }
 

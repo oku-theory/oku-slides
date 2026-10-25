@@ -93,7 +93,6 @@ agent-error-asset-unknown = รูปภาพนี้ไม่ได้อย�
 agent-error-denied = ผู้ใช้ปฏิเสธ
 agent-error-no-turn = ไม่มีรอบที่กำลังดำเนินอยู่: { $tool } จะแสดงเฉพาะระหว่างรอบเท่านั้น
 agent-error-turn-over = รอบของการเรียกนี้สิ้นสุดแล้ว: ไม่มีสิ่งใดแสดง
-agent-error-anchor-scope = คำถามในการสนทนาเรื่องวิดเจ็ตไม่สามารถยึดกับสไลด์ได้ โปรดถามโดยไม่ยึด
 agent-error-no-file = งานนำเสนอยังไม่มีไฟล์: โปรดระบุพาธแบบสัมบูรณ์
 agent-error-path-relative = พาธต้องเป็นแบบสัมบูรณ์
 agent-error-path-parent = พาธต้องไม่มี “..”

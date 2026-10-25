@@ -19,8 +19,7 @@ use oku_slides_session::agent::turn_view::{
     TurnState, TurnView, first_line, turn_data, turn_id, turn_patches, turn_surface,
 };
 use oku_slides_session::agent::{
-    AgentScope, LABEL_MAX, NOTE_CHARS, PromptImage, ServerMessage, StepStatus, Surface, TimelineStep, ToolCallDetail,
-    WHY_MAX, clip,
+    LABEL_MAX, NOTE_CHARS, PromptImage, ServerMessage, StepStatus, Surface, TimelineStep, ToolCallDetail, WHY_MAX, clip,
 };
 use serde_json::Value;
 
@@ -103,8 +102,6 @@ struct CallFields<'a> {
 #[derive(Debug)]
 struct Turn {
     view: TurnView,
-    /// La portée du tour : l'éviction se compte par portée.
-    scope: AgentScope,
     started: Instant,
     /// Les appels listés ou encore ouverts, par identifiant ; un appel soldé et sorti de la liste est oublié.
     tools: HashMap<String, Tool>,
@@ -342,12 +339,10 @@ impl Turns {
     /// Applique `e` ; rend ce que le relais doit émettre.
     pub fn apply(&mut self, e: &AgentEvent, now: Instant, l: &Localizer) -> Vec<TurnOut> {
         let n = match e {
-            AgentEvent::UserText { turn, scope, text, images } => {
-                return self.open(opening(*turn, text, images), scope.clone(), now, l);
-            }
-            // Le hub a déjà été vidé par l'acteur (`clear_thread`, synchrone) : on oublie les tours de la portée.
-            AgentEvent::Conversation { scope } => {
-                self.turns.retain(|t| t.scope != *scope);
+            AgentEvent::UserText { turn, text, images } => return self.open(opening(*turn, text, images), now, l),
+            // Le hub a déjà été vidé par le gardien (`clear_thread`) : on oublie tous les tours.
+            AgentEvent::Conversation => {
+                self.turns.clear();
                 return Vec::new();
             }
             // Le repos ne porte pas de tour : il clôt le dernier s'il tourne encore (fin perdue).
@@ -367,12 +362,7 @@ impl Turns {
             | AgentEvent::Error { turn, .. } => *turn,
         };
         // L'ouverture de ce tour s'est perdue (relais en retard) : il s'ouvre ici, sans consigne.
-        let mut out = if n > self.last {
-            let scope = self.turns.back().map_or(AgentScope::Slides, |t| t.scope.clone());
-            self.open(opening(n, "", &[]), scope, now, l)
-        } else {
-            Vec::new()
-        };
+        let mut out = if n > self.last { self.open(opening(n, "", &[]), now, l) } else { Vec::new() };
         let Some(t) = self.turns.iter_mut().find(|t| t.view.n == n) else { return out };
         if t.view.state != TurnState::Running {
             return out;
@@ -434,7 +424,7 @@ impl Turns {
             }
             AgentEvent::Status { .. }
             | AgentEvent::UserText { .. }
-            | AgentEvent::Conversation { .. }
+            | AgentEvent::Conversation
             | AgentEvent::Draft { .. }
             | AgentEvent::Availability { .. }
             | AgentEvent::Voice => return out,
@@ -446,7 +436,7 @@ impl Turns {
         out
     }
 
-    fn open(&mut self, view: TurnView, scope: AgentScope, now: Instant, l: &Localizer) -> Vec<TurnOut> {
+    fn open(&mut self, view: TurnView, now: Instant, l: &Localizer) -> Vec<TurnOut> {
         let n = view.n;
         let mut out = Vec::new();
         self.last = self.last.max(n);
@@ -464,7 +454,6 @@ impl Turns {
         out.push(TurnOut::Show(turn_surface(&view, l)));
         self.turns.push_back(Turn {
             view,
-            scope: scope.clone(),
             started: now,
             tools: HashMap::new(),
             tallies: BTreeMap::new(),
@@ -474,10 +463,8 @@ impl Turns {
             last_text: String::new(),
             sent,
         });
-        let same = self.turns.iter().filter(|t| t.scope == scope).count();
-        if same > KEPT_TURNS
-            && let Some(i) = self.turns.iter().position(|t| t.scope == scope)
-            && let Some(old) = self.turns.remove(i)
+        if self.turns.len() > KEPT_TURNS
+            && let Some(old) = self.turns.pop_front()
         {
             out.push(TurnOut::Evict(old.view.n));
         }

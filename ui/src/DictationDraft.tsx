@@ -17,7 +17,6 @@ export function DictationDraft({
   dictations,
   typing,
   busy,
-  notice = null,
   ready,
   shortcuts,
   images,
@@ -36,8 +35,6 @@ export function DictationDraft({
   typing: number;
   /** Un tour de l'agent est en cours : l'envoi attend sa fin. */
   busy: boolean;
-  /** « L'agent répond ailleurs » : l'envoi attend, la note le dit. */
-  notice?: string | null;
   /** Un agent répond : sans lui, rien ne s'envoie (le texte reste au brouillon). */
   ready: boolean;
   /** Mode deck de l'onglet principal : seul cas où l'hôte traite un mot-raccourci sans agent ni tour. */
@@ -83,7 +80,7 @@ export function DictationDraft({
   };
   // Un mot-raccourci (« thème ») part toujours en mode deck : l'hôte l'ouvre sans agent ni tour.
   // Ailleurs il irait à l'agent : mêmes garde-fous que tout texte.
-  const canSend = said !== "" && ((shortcuts && isShortcut(said)) || (!busy && !notice && ready));
+  const canSend = said !== "" && ((shortcuts && isShortcut(said)) || (!busy && ready));
   const send = () => {
     if (canSend) onSend(said, images.map((i) => i.id));
   };
@@ -136,7 +133,6 @@ export function DictationDraft({
           {text}
         </div>
       )}
-      {notice && <p className="caption draft-notice" role="status">{notice}</p>}
       {images.length > 0 && (
         <ul className="draft-images" aria-label={t("ui-draft-images")}>
           {images.map((i) => (

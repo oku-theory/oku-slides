@@ -179,7 +179,7 @@ fn status_of(ns: &Namespace, name: &WidgetFile, probe: &FileProbe, registry: &Wi
 }
 
 /// La source du widget `from` renommé `to` : son nom déclaré suit.
-pub(crate) fn renamed_source(source: &str, from: &str, to: &str) -> String {
+fn renamed_source(source: &str, from: &str, to: &str) -> String {
     source.replacen(&format!("widget(\"{from}\""), &format!("widget(\"{to}\""), 1)
 }
 
@@ -380,8 +380,6 @@ impl Session {
         ensure!(t.files.widget(&to).is_none(), WidgetExistsSnafu { name: to.as_str() });
         self.ensure_unused(&t, &from)?;
         let renamed = renamed_source(source, from.as_str(), to.as_str());
-        // Avant le renommage : un widget de ce nom dans un fichier connu du pack (collision).
-        let to_existed = self.widget_known(t.id, to.as_str());
         let mut widgets = t.files.widgets().clone();
         widgets.remove(&from);
         widgets.insert(to.clone(), renamed);
@@ -398,36 +396,7 @@ impl Session {
         if let Some(scratch) = self.scratch_mut() {
             scratch.renamed(&from, &to);
         }
-        self.conversation_renamed(t.id, from.as_str(), to.as_str(), to_existed);
         Ok(statuses)
-    }
-
-    /// Fichiers connus du pack `pack` : version éditée, pack du deck, version courante.
-    pub(crate) fn pack_files_known(&self, pack: Uuid) -> Vec<PackFiles> {
-        let mut out = self.pack_files_held(pack);
-        out.extend(self.library.current_version(pack).map(|v| v.files));
-        out
-    }
-
-    /// Fichiers du pack `pack` tenus par la session, sans lire la bibliothèque :
-    /// version éditée, pack épinglé par le deck.
-    pub(crate) fn pack_files_held(&self, pack: Uuid) -> Vec<PackFiles> {
-        let mut out = Vec::new();
-        if let Mode::Pack { edit, .. } = &self.mode
-            && edit.pack == pack
-        {
-            out.extend(self.doc.sources.packs.get(&edit.base).cloned());
-        }
-        if let Some((_, _, pin)) = self.user_deck().all_pins().find(|(_, _, pin)| pin.id == pack) {
-            out.extend(self.user_blobs().packs.get(&pin.version).cloned());
-        }
-        out
-    }
-
-    /// Le widget `name` est-il dans un fichier connu du pack `pack` ?
-    pub(crate) fn widget_known(&self, pack: Uuid, name: &str) -> bool {
-        let Ok(file) = parse_name(name) else { return false };
-        self.pack_files_known(pack).iter().any(|f| f.widget(&file).is_some())
     }
 
     /// Refuse si un exemple du pack ou, en mode deck, une slide du deck utilise `name`, sous son nom qualifié.

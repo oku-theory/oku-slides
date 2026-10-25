@@ -7,7 +7,7 @@
 use std::time::{Duration, Instant};
 
 use oku_slides_agent::AgentEvent;
-use oku_slides_session::agent::{AgentScope, AgentUi};
+use oku_slides_session::agent::AgentUi;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -24,7 +24,7 @@ async fn issue_0612_replay_after_the_load_response_stays_out_of_the_turn() {
         "turns": [{ "chunks": ["ok"] }],
     }))
     .await;
-    seed_session(&h, AgentScope::Slides, "sess-42", &h.link.agent_id()).await;
+    seed_session(&h, "sess-42", &h.link.agent_id()).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
     // Le prompt attend la session de l'onglet (`begin_turn`) : la tenir de `session/load`

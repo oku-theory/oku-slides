@@ -39,8 +39,8 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
   They read French labels (system locale, not forced); `E2E_AGENT_LOG` = the fake agent's log.
 - `.cargo/config.toml` `MACOSX_DEPLOYMENT_TARGET` must equal `bundle.macOS.minimumSystemVersion`
   in `src-tauri/tauri.conf.json`, or typst rebuilds on every `just dev` / `just test` switch.
-- Git LFS holds `assets/fonts/*.{ttf,otf}` and `fixtures/import/*.pdf` — commit pointers,
-  never the binaries.
+- Git LFS holds `assets/fonts/*.{ttf,otf}` and `fixtures/import/*.pdf`: commit pointers, never binaries.
+- After merging `main` into a worktree, run `bun install` in `ui/` if its deps changed, or `tsc` fails.
 
 ## Invariants
 

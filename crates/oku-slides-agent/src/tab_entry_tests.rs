@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use oku_slides_mcp::{McpEvent, Tools};
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::agent::{AgentScope, AgentUi, TabSession};
+use oku_slides_session::agent::{AgentUi, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use serde::ser::{Error as _, Serialize, Serializer};
 use speculoos::prelude::*;
@@ -39,26 +39,14 @@ fn emit_skips_an_event_that_does_not_serialize() {
 #[test]
 fn emit_wraps_the_event_with_its_tab() {
     let (tx, mut rx) = mpsc::unbounded_channel();
-    emit(
-        &tx,
-        "agent",
-        "t-1",
-        &crate::AgentEvent::Conversation { scope: oku_slides_session::agent::AgentScope::Slides },
-    );
+    emit(&tx, "agent", "t-1", &crate::AgentEvent::Conversation);
     let (channel, json) = rx.try_recv().unwrap();
     assert_that!(channel).is_equal_to("agent");
-    assert_that!(json.as_str())
-        .is_equal_to(r#"{"tab":"t-1","event":{"kind":"conversation","scope":{"kind":"slides"}}}"#);
+    assert_that!(json.as_str()).is_equal_to(r#"{"tab":"t-1","event":{"kind":"conversation"}}"#);
 }
 
 fn prompt() -> Command {
-    Command::Prompt(Instruction {
-        scope: AgentScope::Slides,
-        text: "perdue".into(),
-        ui: AgentUi::default(),
-        tune: false,
-        images: Vec::new(),
-    })
+    Command::Prompt(Instruction { text: "perdue".into(), ui: AgentUi::default(), tune: false, images: Vec::new() })
 }
 
 /// Onglet fermé, commandes encore en file : `next` rend `None`, jamais la commande (sélection `biased`).
@@ -123,7 +111,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         keeper,
         localizer,
         turns: Turns::default(),
-        status: Arc::new(Mutex::new((AgentState::Idle, None))),
+        status: Arc::new(Mutex::new(AgentState::Idle)),
         out,
         closed: CancellationToken::new(),
     };

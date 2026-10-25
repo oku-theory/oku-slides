@@ -3,7 +3,7 @@
 //! chaque arrêt de l'agent). Décision : la carte seulement quand une reprise a été
 //! tentée et refusée.
 
-use oku_slides_session::agent::{AgentScope, AgentUi};
+use oku_slides_session::agent::AgentUi;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -16,7 +16,7 @@ fn memory_lost() -> String {
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_0611_agent_without_resume_capability_shows_no_card() {
     let h = start(json!({ "turns": [{ "chunks": ["ok"] }] })).await;
-    seed_session(&h, AgentScope::Slides, "sess-42", &h.link.agent_id()).await;
+    seed_session(&h, "sess-42", &h.link.agent_id()).await;
     let t = h.tab("t-1");
     t.agent.prompt("encore".into(), AgentUi::default());
     wait_turn_ended(t).await;
@@ -51,7 +51,7 @@ async fn issue_0611_refused_resume_shows_the_card() {
             s.extend(c.clone());
         }
         let h = start(script).await;
-        seed_session(&h, AgentScope::Slides, "sess-42", &h.link.agent_id()).await;
+        seed_session(&h, "sess-42", &h.link.agent_id()).await;
         let t = h.tab("t-1");
         t.agent.prompt("encore".into(), AgentUi::default());
         wait_turn_ended(t).await;

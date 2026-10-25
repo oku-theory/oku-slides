@@ -20,7 +20,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use oku_slides_i18n::LiveLocalizer;
-use oku_slides_session::agent::{AgentScope, ShowParams, ShowVariants, Surface, TabSession};
+use oku_slides_session::agent::{ShowParams, ShowVariants, Surface, TabSession};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tokio::sync::broadcast;
@@ -71,13 +71,6 @@ pub enum McpEvent {
     Interface {
         /// Les changements demandés ; absent : inchangé.
         change: crate::InterfaceChange,
-    },
-    /// La portée dont le fil est montré.
-    ///
-    /// Une autre vue du même onglet (la fenêtre de l'agent) la suit.
-    Viewing {
-        /// La portée montrée.
-        scope: AgentScope,
     },
 }
 
@@ -147,14 +140,10 @@ struct HubState {
     turn: Option<u32>,
     /// Le dernier numéro de tour donné.
     turns: u32,
-    /// Tours dont les surfaces sont encore dans le fil (ouverts, ni évincés ni effacés).
+    /// Tours du fil de l'onglet (ouverts, ni évincés ni effacés) : seules leurs surfaces sont montrées.
     live_turns: BTreeSet<u32>,
     /// Tours qui ont leur reçu (`show_report`) : pas de reçu de repli pour eux.
     reported: HashSet<u32>,
-    /// Portée de chaque tour encore dans le fil.
-    turn_scopes: HashMap<u32, AgentScope>,
-    /// La portée que l'interface montre : seul son fil lui est envoyé.
-    viewing: AgentScope,
 }
 
 /// Les surfaces de l'agent : ouvertes, attendues, fermées.
@@ -209,20 +198,11 @@ impl SurfaceHub {
                 return;
             }
             McpEvent::Surface { surface } => {
-                let was = state.open.iter().find(|s| s.id == surface.id).map(|s| (s.live, s.turn));
-                let was = was.is_some_and(|(live, turn)| Self::shown(&*state, live, turn));
                 match state.open.iter_mut().find(|s| s.id == surface.id) {
                     Some(open) => *open = surface.clone(),
                     None => state.open.push(surface.clone()),
                 }
-                let now = Self::shown(&*state, surface.live, surface.turn);
-                if was && !now {
-                    // Montrée, maintenant cachée (question d'une autre portée figée) : l'interface la ferme.
-                    event = McpEvent::CloseSurface { id: surface.id.clone() };
-                    true
-                } else {
-                    now
-                }
+                true
             }
             McpEvent::CloseSurface { id } => {
                 state.open.retain(|s| &s.id != id);
@@ -233,25 +213,18 @@ impl SurfaceHub {
                 true
             }
             McpEvent::SurfacePatch { id, messages } => {
-                let seen = state.open.iter_mut().find(|s| &s.id == id).map(|open| {
-                    open.apply_patch(messages);
-                    (open.live, open.turn)
-                });
-                match seen {
-                    Some((live, turn)) => Self::shown(&*state, live, turn),
-                    None => {
-                        tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée");
-                        true
-                    }
+                match state.open.iter_mut().find(|s| &s.id == id) {
+                    Some(open) => open.apply_patch(messages),
+                    None => tracing::debug!(surface = %id, "mise à jour d'une surface fermée : ignorée"),
                 }
+                true
             }
             McpEvent::Changed
             | McpEvent::Focus { .. }
             | McpEvent::Present { .. }
             | McpEvent::OpenHistory
             | McpEvent::Interface { .. }
-            | McpEvent::WidgetTouched { .. }
-            | McpEvent::Viewing { .. } => true,
+            | McpEvent::WidgetTouched { .. } => true,
         };
         if send {
             let _ = self.events.send(event);
@@ -263,19 +236,9 @@ impl SurfaceHub {
         self.state().open.clone()
     }
 
-    /// Montre le fil de `scope`, piloté par le gardien de l'onglet.
-    ///
-    /// Annonce la portée (`McpEvent::Viewing`), puis envoie la liste entière (`McpEvent::Surfaces`).
-    pub fn resync(&self, scope: AgentScope) {
-        let mut state = self.state();
-        state.viewing = scope.clone();
-        self.record_and_send(&mut state, McpEvent::Viewing { scope });
-        self.record_and_send(&mut state, McpEvent::Surfaces { list: Vec::new() });
-    }
-
-    /// La portée dont le fil est montré.
-    pub fn viewing(&self) -> AgentScope {
-        self.state().viewing.clone()
+    /// Renvoie la liste entière des surfaces montrées (`McpEvent::Surfaces`) ; piloté par le gardien.
+    pub fn resync(&self) {
+        self.record_and_send(&mut self.state(), McpEvent::Surfaces { list: Vec::new() });
     }
 
     /// Identifiant de surface neuf : `ask-3`, `show-4`…
@@ -357,9 +320,9 @@ pub use error::{HubError, HubErrorKind};
 mod turns;
 pub use turns::{Freeze, STATIC_PER_TURN};
 
-#[path = "hub_scopes.rs"]
-mod scopes;
-pub use scopes::THREAD_BYTES;
+#[path = "hub_thread.rs"]
+mod thread;
+pub use thread::THREAD_BYTES;
 
 #[cfg(test)]
 #[path = "hub_tests.rs"]

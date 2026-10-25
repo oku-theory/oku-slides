@@ -99,7 +99,6 @@ agent-error-asset-unknown = এই ছবিটি উপস্থাপনা�
 agent-error-denied = ব্যবহারকারী প্রত্যাখ্যান করেছেন।
 agent-error-no-turn = কোনো পালা চলছে না: { $tool } শুধু একটি পালার সময় দেখানো হয়।
 agent-error-turn-over = এই কলের পালা শেষ হয়ে গেছে: কিছুই দেখানো হয়নি।
-agent-error-anchor-scope = উইজেট কথোপকথনের প্রশ্ন কোনো স্লাইডে নোঙর করা যায় না: নোঙর ছাড়াই জিজ্ঞাসা করুন।
 agent-error-no-file = উপস্থাপনার এখনও কোনো ফাইল নেই: একটি সম্পূর্ণ পাথ দিন।
 agent-error-path-relative = পাথটি সম্পূর্ণ (absolute) হতে হবে।
 agent-error-path-parent = পাথে “..” থাকা চলবে না।

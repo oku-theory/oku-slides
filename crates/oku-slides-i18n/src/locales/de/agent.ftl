@@ -99,7 +99,6 @@ agent-error-asset-unknown = Dieses Bild ist weder in der Präsentation noch unte
 agent-error-denied = Der Benutzer hat abgelehnt.
 agent-error-no-turn = Kein Durchgang läuft: { $tool } wird nur während eines Durchgangs angezeigt.
 agent-error-turn-over = Der Durchgang dieses Aufrufs ist vorbei: Es wurde nichts angezeigt.
-agent-error-anchor-scope = Eine Frage in einem Widget-Gespräch kann nicht an einer Folie verankert werden: Stellen Sie sie ohne Anker.
 agent-error-no-file = Die Präsentation hat noch keine Datei: Gib einen absoluten Pfad an.
 agent-error-path-relative = Der Pfad muss absolut sein.
 agent-error-path-parent = Der Pfad darf kein „..“ enthalten.

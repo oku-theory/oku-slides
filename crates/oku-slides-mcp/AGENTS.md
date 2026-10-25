@@ -20,7 +20,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep a frozen question at the same id and position in the open list so thread order survives a resync. (plan:2026-10-03-agent-a2ui)
 - Decide whether to freeze or close a surface inside show_static under its lock, so nothing runs in between. (plan:2026-10-03-agent-a2ui)
 - Never send deleteSurface in a surface_patch; close surfaces with close_surface. (plan:2026-10-03-agent-a2ui)
-- Leave thread persistence to the tab keeper; the hub files turns by scope and sends only the viewed thread. (plan:2026-10-08-sessions-par-perspective)
+- Leave thread persistence to the tab keeper; the hub keeps one thread per tab and sends only shown surfaces. (spec:2026-10-24-onglets-pack-theme-design, t-1154)
 - Never hold the shared Session mutex across an await in MCP tools; lock only for one Session::handle call. (spec:2026-09-26-agent-vocal-design)
 - Reject MCP tool paths that are not absolute, normalized and free of .. segments. (spec:2026-09-26-agent-vocal-design)
 - Do not give ask_* surfaces a timeout; Escape, a new turn or conversation end must return cancelled. (spec:2026-09-26-agent-vocal-design)

@@ -72,7 +72,7 @@ async fn show_settings_puts_the_box_live_outside_any_turn() {
 async fn show_settings_survives_a_new_conversation() {
     let h = start().await;
     show(&h).await;
-    h.hub.clear_thread(&oku_slides_session::agent::AgentScope::Slides);
+    h.hub.clear_thread();
     assert_that!(shown(&h)).is_true();
 }
 

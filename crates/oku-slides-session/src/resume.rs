@@ -25,10 +25,9 @@ use oku_slides_core::{
 };
 use oku_slides_platform::storage::{Storage, StorageError};
 
-use crate::agent::{AgentScope, SavedConversation};
 use crate::files::read_document;
 use crate::pack_scratch::PackScratch;
-use crate::resume_writer::{Job, Writer};
+use crate::resume_writer::{AgentWrite, Job, Writer};
 use crate::theme_edit::ThemeEdit;
 use crate::views::{PackMode, UiState};
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
@@ -627,13 +626,12 @@ impl Session {
                     "reprise en échec non déplacée"
                 ),
             }
-            self.conversations = Default::default();
+            self.conversation = None;
             // Rien n'est écrit à la place, même si `resume` était déjà activée.
             self.resume = None;
             return if outdated { Resumed::Outdated } else { Resumed::Unreadable };
         }
         self.resume = Some(Writer::new(resume));
-        self.prune_conversations();
         self.persist(true);
         self.flush_resume();
         Resumed::Restored
@@ -647,7 +645,7 @@ impl Session {
     /// impossible à déplacer laisse la session sans reprise (`false`).
     #[must_use]
     pub(crate) fn resume_fresh(&mut self, dir: PathBuf) -> bool {
-        self.conversations = Default::default();
+        self.conversation = None;
         self.resume = None;
         let resume = Resume::new(self.storage.clone(), dir);
         match resume.read_state() {
@@ -676,7 +674,7 @@ impl Session {
     }
 
     fn restore(&mut self, resume: &Resume) -> Result<()> {
-        self.conversations.by_scope = resume.read_conversations();
+        self.conversation = resume.read_conversation();
         let Some(state) = resume.read_state()? else { return Ok(()) };
         if let SavedMode::Help(locale) = &state.mode {
             self.open_help(locale, state.help_theme).context(SessionSnafu)?;
@@ -755,11 +753,11 @@ impl Session {
     /// partagées avec l'envoi précédent. Un replica qui ne s'exporte pas est
     /// journalisé, et ce document n'est pas écrit.
     pub(crate) fn persist(&mut self, documents: bool) {
-        self.persist_with(documents, BTreeMap::new());
+        self.persist_with(documents, None);
     }
 
-    /// Comme [`Session::persist`], avec des conversations de l'agent à écrire ou effacer.
-    pub(crate) fn persist_with(&mut self, documents: bool, agent: BTreeMap<AgentScope, Option<SavedConversation>>) {
+    /// Comme [`Session::persist`], avec la conversation de l'agent à écrire ou effacer.
+    pub(crate) fn persist_with(&mut self, documents: bool, agent: Option<AgentWrite>) {
         let Some(writer) = &self.resume else { return };
         // Pendant l'historique, le deck mis de côté est écrit en mode deck (un
         // onglet rouvert n'y revient pas), avec les images et polices prêtées

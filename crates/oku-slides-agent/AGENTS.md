@@ -32,7 +32,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Hold only a weak hub reference in relay tasks, or the hub and the Stack are never dropped. (plan:2026-09-26-agent-vocal)
 - Keep the ACP session known when a request fails on a closed connection; the keeper resumes it later. (plan:2026-10-08-sessions-par-perspective)
-- When the MCP relay lags, resend only visible_surfaces, the thread being viewed. (plan:2026-10-08-sessions-par-perspective)
+- When the MCP relay lags, resend only visible_surfaces. (plan:2026-10-08-sessions-par-perspective)
 - Switch agents inside the shared Link, never replace it; dropping its last clone stops the agent. (spec:2026-10-10-agent-panneau-configuration-design)
 - Keep is_cancelled after ToolServer start and the relay biased selects; only next is test-pinned. (t-815)
 - Do not rely on widget_touched being replayed after relay lag; only Changed and Surfaces are replayed. (plan:2026-10-03-widgets-agent-a2ui)
@@ -49,8 +49,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Show the memory-lost card only when a resume was attempted and refused, not when none was tried. (plan:2026-10-09-tickets-debloques-t598)
 - Show free agent text only as one-line turn narration, never as an answer, except in the fallback receipt. (spec:2026-10-03-agent-a2ui-design)
 - Let users only pick configured agent presets; never add or edit agent commands from the UI. (spec:2026-10-10-agent-panneau-configuration-design)
-- Let the UI compute and send the agent scope; never derive it from the session mode on the host. (spec:2026-10-08-sessions-par-perspective-design)
-- Keep one ACP session and thread per scope (Slides, Workshop, Widget name), restored on reopen. (t-598)
+- Keep one ACP session and thread per tab, restored on reopen. (spec:2026-10-24-onglets-pack-theme-design, t-1154)
 - Write agent instructions in English only; pass the interface language in each turn context. (t-774, t-771)
 - Pick the deck language as declared params.lang, else inferred from slides, else the user's language. (t-780)
 - Hold every import tuning bound in session code that refuses with TuneError; import.md only explains the bounds and never enforces them. (ADR-0009, t-924)

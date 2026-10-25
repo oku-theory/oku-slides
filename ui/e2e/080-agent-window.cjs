@@ -23,7 +23,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
     assert.equal(await main.locator('.agent-thread').count(), 0);
 
     // 2. La fenêtre de l'agent l'a, avec sa dictée ; on part d'une conversation vide.
-    await post(main, '/api/agent', { cmd: 'new_conversation', tab: 't-1', scope: { kind: 'slides' } });
+    await post(main, '/api/agent', { cmd: 'new_conversation', tab: 't-1' });
     const agent = await ctx.newPage();
     agent.on('pageerror', (e) => errors.push(e.message));
     await agent.goto(`${URL}?window=agent`);
@@ -65,7 +65,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
     await main.waitForSelector('.notes .agent-thread');
     assert.deepEqual(errors, []);
   } finally {
-    await post(main, '/api/agent', { cmd: 'new_conversation', tab: 't-1', scope: { kind: 'slides' } }).catch(() => {});
+    await post(main, '/api/agent', { cmd: 'new_conversation', tab: 't-1' }).catch(() => {});
     await post(main, '/api/agent', { cmd: 'set_draft', tab: 't-1', text: null, origin: 'e2e' }).catch(() => {});
     await post(main, '/api/workspace', { cmd: 'attach_agent' }).catch(() => {});
     await b.close();

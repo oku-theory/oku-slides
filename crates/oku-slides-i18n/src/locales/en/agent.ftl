@@ -100,7 +100,6 @@ agent-error-asset-unknown = This image is neither in the deck nor among the past
 agent-error-denied = The user declined.
 agent-error-no-turn = No turn in progress: { $tool } is only shown during a turn.
 agent-error-turn-over = The turn of this call is over: nothing was shown.
-agent-error-anchor-scope = A question in a widget conversation cannot be anchored on a slide: ask it without an anchor.
 agent-error-no-file = The presentation has no file yet: give an absolute path.
 agent-error-path-relative = The path must be absolute.
 agent-error-path-parent = The path must not contain “..”.

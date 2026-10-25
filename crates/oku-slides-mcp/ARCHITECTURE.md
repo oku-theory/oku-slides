@@ -26,8 +26,8 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`;
   `hub/settings` a third box (`show_settings`, one send path, refreshed by the stack, never by `prune`).
 - `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`),
-  freezing answered questions, eviction past `KEPT_TURNS` per scope.
-- `hub_scopes` : turns filed by scope, only the viewed thread sent; the agent's tab keeper persists it.
+  freezing answered questions, eviction past `KEPT_TURNS` in the tab's thread.
+- `hub_thread` : the tab's one thread (`in_thread`), shown surfaces, `restore` and `thread_snapshot`; the agent's tab keeper persists it.
 
 ## Turn of a tool call
 

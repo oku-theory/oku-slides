@@ -1,7 +1,7 @@
 # oku-slides-agent
 
 The voice agent host: one ACP agent subprocess (stdio) shared by the app, one ACP session per
-tab and scope, each with its own MCP tools (local HTTP, bearer token). Instructions are relayed
+tab, each with its own MCP tools (local HTTP, bearer token). Instructions are relayed
 with the UI context; agent updates become A2UI turn surfaces.
 
 ## Modules
@@ -22,7 +22,7 @@ with the UI context; agent updates become A2UI turn surfaces.
 - `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission
   requests routed by launch epoch and `SessionId`; `Link::switch` changes agent; `failure`: last
   launch failure of this epoch (`Unusable`), cleared by success or switch, stale after 30 s.
-- `keeper` : `Keeper`, the per-tab queue that alone reads and writes conversations (`Keep`).
+- `keeper` : `Keeper`, the per-tab queue that alone reads and writes the conversation (`Keep`).
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`).
 - `turns` : `Turns`, reducer from events to A2UI turn surfaces (`TurnOut`), emitted by the hub.
 - `turn` (`prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
@@ -38,7 +38,7 @@ with the UI context; agent updates become A2UI turn surfaces.
 ## Flow
 
 Idle, no agent runs. A tab's first `Prompt` launches the agent (killed if not ready within
-`READY_WITHIN`), then opens or resumes the tab's session for its scope (`AgentScope`). The MCP hub
+`READY_WITHIN`), then opens or resumes the tab's session (one thread per tab). The MCP hub
 numbers turns (`SurfaceHub::begin_turn`); the actor stamps what it emits, and `link` stamps ACP
 updates with the hub's open turn, so the reducer survives `broadcast` lag. A stopped agent fails
 every tab's turn; the next prompt relaunches it. Dropping the last `Link` stops the agent. The agent has

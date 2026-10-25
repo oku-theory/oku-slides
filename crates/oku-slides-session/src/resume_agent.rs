@@ -1,18 +1,19 @@
-//! Les conversations de l'agent dans le dossier de reprise : `agent/<portée>.json`.
-
-use std::collections::BTreeMap;
+//! La conversation de l'agent dans le dossier de reprise : `agent/conversation.json`.
 
 use serde::Serialize;
 use snafu::ResultExt;
 
 use crate::Session;
-use crate::agent::{AgentScope, SavedConversation};
+use crate::agent::SavedConversation;
 use crate::resume::{AccessSnafu, Result, Resume};
+use crate::resume_writer::AgentWrite;
 
-/// Sous-dossier des conversations, dans le dossier de reprise de l'onglet.
+/// Sous-dossier de la conversation, dans le dossier de reprise de l'onglet.
 pub(crate) const AGENT_DIR: &str = "agent";
-/// Version des fichiers `agent/*.json`.
-pub(crate) const CONVERSATION_VERSION: u32 = 1;
+/// Fichier de la conversation de l'onglet.
+const CONVERSATION_FILE: &str = "conversation.json";
+/// Version du fichier de la conversation ; la 1, une par portée, n'est plus relue.
+const CONVERSATION_VERSION: u32 = 2;
 
 #[derive(Serialize)]
 struct ConversationOut<'a> {
@@ -24,49 +25,34 @@ struct ConversationOut<'a> {
 impl Resume {
     pub(crate) fn write_conversation(&self, c: &SavedConversation) -> Result<()> {
         let out = ConversationOut { version: CONVERSATION_VERSION, conversation: c };
-        self.write_json(&format!("{AGENT_DIR}/{}", c.scope.file_name()), &out)
+        self.write_json(&format!("{AGENT_DIR}/{CONVERSATION_FILE}"), &out)
     }
 
-    pub(crate) fn delete_conversation(&self, scope: &AgentScope) -> Result<()> {
-        let path = self.dir.join(AGENT_DIR).join(scope.file_name());
+    pub(crate) fn delete_conversation(&self) -> Result<()> {
+        let path = self.dir.join(AGENT_DIR).join(CONVERSATION_FILE);
         self.storage.delete(&path).context(AccessSnafu { path: &path })
     }
 
-    /// Les conversations relues ; un fichier illisible ou mal nommé est journalisé et sauté.
-    pub(crate) fn read_conversations(&self) -> BTreeMap<AgentScope, SavedConversation> {
-        let dir = self.dir.join(AGENT_DIR);
-        let files = match self.storage.list_files(&dir) {
-            Ok(files) => files,
+    /// La conversation relue ; illisible, journalisée et ignorée.
+    pub(crate) fn read_conversation(&self) -> Option<SavedConversation> {
+        // `read_json` vérifie la version à part ; le champ `version` est ignoré ici.
+        match self.read_json::<SavedConversation>(&format!("{AGENT_DIR}/{CONVERSATION_FILE}"), CONVERSATION_VERSION) {
+            Ok(found) => found,
             Err(e) => {
-                tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "conversations de l'agent illisibles");
-                Vec::new()
-            }
-        };
-        let mut out = BTreeMap::new();
-        for path in files {
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
-            if name.starts_with('.') || !name.ends_with(".json") {
-                continue;
-            }
-            // `read_json` vérifie la version à part ; le champ `version` est ignoré ici.
-            match self.read_json::<SavedConversation>(&format!("{AGENT_DIR}/{name}"), CONVERSATION_VERSION) {
-                Ok(Some(c)) if c.scope.file_name() == name => {
-                    out.insert(c.scope.clone(), c);
-                }
-                Ok(Some(_)) => tracing::warn!(file = name, "conversation sous un autre nom : ignorée"),
-                Ok(None) => tracing::debug!(file = name, "conversation disparue"),
-                Err(e) => {
-                    tracing::warn!(file = name, error = %oku_slides_platform::errors::one_line(&e), "conversation illisible : ignorée")
-                }
+                tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "conversation illisible : ignorée");
+                None
             }
         }
-        out
     }
 }
 
 impl Session {
-    /// Une conversation à écrire (`Some`) ou effacer (`None`), avec l'état courant.
-    pub(crate) fn persist_agent(&mut self, scope: AgentScope, saved: Option<SavedConversation>) {
-        self.persist_with(false, BTreeMap::from([(scope, saved)]));
+    /// La conversation à écrire (`Some`) ou effacer (`None`), avec l'état courant.
+    pub(crate) fn persist_agent(&mut self, saved: Option<SavedConversation>) {
+        let write = match saved {
+            Some(c) => AgentWrite::Write(c),
+            None => AgentWrite::Delete,
+        };
+        self.persist_with(false, Some(write));
     }
 }

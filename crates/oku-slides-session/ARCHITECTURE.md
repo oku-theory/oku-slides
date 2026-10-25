@@ -29,8 +29,8 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
 - `agent/`: what the session offers the agent. `tabs` (`Sessions`, `TabSession`), turns as undo
   groups (`begin_turn`; `turn_undo` names the turn atop the deck undo stack for its receipt), A2UI
   surfaces (`forms`, `turn_view`, `receipt`, `render`, `surface_ops`), `address`, `variants`,
-  `context`, `scope` + `conversation` (per-scope threads; `ScopeMove` on widget rename, replayed by
-  `undo.rs`), `reason` (`AgentFormReason`); `attachments` (pasted images: in-memory per tab, `[paste]` bounds, `AttachmentRef`).
+  `context`, `conversation` (one thread and ACP session per tab, `agent/conversation.json`),
+  `reason` (`AgentFormReason`); `attachments` (pasted images: in-memory per tab, `[paste]` bounds, `AttachmentRef`).
 
 ## Workspace
 
@@ -42,7 +42,7 @@ detached agent, `carry` (`CarryAssets`: reads a ready source tab without renderi
 never the reverse; only `try_lock` a session under it. `apply`, `with_session`, `open_files`, `settle`, `post_notice` take both in sequence, never nested; slow work outside.
 
 `<data>/resume/`: `workspace.json` (layout version 2, counters, `kept`, per-tab `info`) and
-`tabs/t-<n>/{state.json, deck/, pack/, agent/<scope>.json}`, each written by its session only; `deck/` holds `deck.loro`, `document.json`, `assets/`, `fonts/`, `packs/`. Unreadable parts are set
+`tabs/t-<n>/{state.json, deck/, pack/, agent/conversation.json}`, each written by its session only; `deck/` holds `deck.loro`, `document.json`, `assets/`, `fonts/`, `packs/`. Unreadable parts are set
 aside as `*.failed-…` (state version 3; an older unsaved tab: `notice-tab-set-aside`). Tabs restore lazily from `info` (ADR-0001).
 
 ## Dependencies

@@ -103,7 +103,6 @@ agent-error-asset-unknown = Tego obrazu nie ma ani w prezentacji, ani wśród wk
 agent-error-denied = Użytkownik odmówił.
 agent-error-no-turn = Żadna tura nie trwa: { $tool } jest wyświetlany tylko podczas tury.
 agent-error-turn-over = Tura tego wywołania dobiegła końca: nic nie zostało wyświetlone.
-agent-error-anchor-scope = Pytania w rozmowie o widżecie nie można zakotwiczyć na slajdzie: zadaj je bez kotwicy.
 agent-error-no-file = Prezentacja nie ma jeszcze pliku: podaj ścieżkę bezwzględną.
 agent-error-path-relative = Ścieżka musi być bezwzględna.
 agent-error-path-parent = Ścieżka nie może zawierać „..”.

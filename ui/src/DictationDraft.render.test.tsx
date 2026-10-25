@@ -32,7 +32,6 @@ async function mount(
   {
     busy = false,
     typing = 0,
-    notice = null as string | null,
     ready = true,
     shortcuts = false,
     images = [] as { id: string; mime: string; width: number; height: number }[],
@@ -56,7 +55,6 @@ async function mount(
         dictations: 1,
         typing,
         busy,
-        notice,
         ready,
         shortcuts,
         onChange: (v: string) => changes.push(v),
@@ -89,11 +87,6 @@ describe("brouillon de dictée", () => {
     expect(d.send().disabled).toBe(false);
   });
 
-  test("DictationDraft sends the shortcut word with a notice", async () => {
-    const d = await mount("thème", { notice: "L'agent répond dans l'atelier…", shortcuts: true });
-    expect(d.send().disabled).toBe(false);
-  });
-
   test("DictationDraft keeps the shortcut word gated during a turn outside deck mode", async () => {
     const d = await mount("thème", { busy: true, shortcuts: false });
     expect(d.send().disabled).toBe(true);
@@ -109,22 +102,6 @@ describe("brouillon de dictée", () => {
     expect(d.send().disabled).toBe(true);
     key(d.note(), { key: "Enter", metaKey: true });
     expect(d.sent).toEqual([]);
-  });
-
-  test("DictationDraft with a notice disables send", async () => {
-    const { send } = await mount("change le fond", { notice: "L'agent répond dans l'atelier…" });
-    expect(send().disabled).toBe(true);
-  });
-
-  test("DictationDraft with a notice shows it", async () => {
-    const { host } = await mount("change le fond", { notice: "L'agent répond dans l'atelier…" });
-    expect(host.querySelector(".draft-notice[role=status]")?.textContent).toBe("L'agent répond dans l'atelier…");
-  });
-
-  test("DictationDraft with a notice ignores ⌘↩", async () => {
-    const { area, sent } = await mount("change le fond", { notice: "L'agent répond dans l'atelier…", typing: 1 });
-    key(area(), { key: "Enter", metaKey: true });
-    expect(sent).toEqual([]);
   });
 
   test("DictationDraft sans brouillon ne montre rien", async () => {

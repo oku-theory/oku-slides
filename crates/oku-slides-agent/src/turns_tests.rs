@@ -5,22 +5,13 @@ use speculoos::prelude::*;
 
 use super::{KEPT_TURNS, TurnOut, Turns};
 use crate::AgentEvent;
-use oku_slides_session::agent::AgentScope;
 
 fn fr() -> Localizer {
     Localizer::new(Some("fr"))
 }
 
 fn user(turn: u32) -> AgentEvent {
-    user_in(turn, AgentScope::Slides)
-}
-
-fn user_in(turn: u32, scope: AgentScope) -> AgentEvent {
-    AgentEvent::UserText { turn, scope, text: "Change le fond".into(), images: Vec::new() }
-}
-
-fn atelier() -> AgentScope {
-    AgentScope::Atelier { pack: uuid::Uuid::nil() }
+    AgentEvent::UserText { turn, text: "Change le fond".into(), images: Vec::new() }
 }
 
 /// Les données du dernier tour, telles qu'envoyées (le module de test voit les champs privés).
@@ -157,19 +148,9 @@ fn turns_cancelled_turn_says_stopped() {
 }
 
 #[test]
-fn turns_conversation_forgets_every_turn() {
-    let mut t = Turns::default();
-    let now = Instant::now();
-    t.apply(&user(1), now, &fr());
-    let out = t.apply(&AgentEvent::Conversation { scope: AgentScope::Slides }, now, &fr());
-    assert_that!(out).is_empty();
-    assert_that!(t.turns.is_empty()).is_true(); // speculoos n'a pas `is_empty` pour `VecDeque`
-}
-
-#[test]
 fn turns_status_without_a_turn_changes_nothing() {
     let mut t = Turns::default();
-    let out = t.apply(&AgentEvent::Status { state: crate::AgentState::Working, scope: None }, Instant::now(), &fr());
+    let out = t.apply(&AgentEvent::Status { state: crate::AgentState::Working }, Instant::now(), &fr());
     assert_that!(out).is_empty();
 }
 
@@ -555,7 +536,7 @@ fn turns_stale_event_after_a_new_conversation_opens_no_ghost_turn() {
     let mut t = Turns::default();
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
-    t.apply(&AgentEvent::Conversation { scope: AgentScope::Slides }, now, &fr());
+    t.apply(&AgentEvent::Conversation, now, &fr());
     let out = t.apply(&AgentEvent::Chunk { turn: 1, text: "tard".into() }, now, &fr());
     assert_that!(out).is_empty();
     assert_that!(t.turns.is_empty()).is_true();
@@ -607,30 +588,32 @@ fn turns_blank_narration_before_a_tool_adds_no_note() {
 }
 
 #[test]
-fn turns_evict_only_the_oldest_turn_of_the_same_scope() {
+fn turns_kept_turns_cap_counts_all_turns() {
     let mut t = Turns::default();
     let now = Instant::now();
-    t.apply(&user_in(1, atelier()), now, &fr());
+    t.apply(&user(1), now, &fr());
     t.apply(&AgentEvent::TurnEnded { turn: 1, stop: "end_turn".into() }, now, &fr());
     let mut evicted = Vec::new();
-    for n in 2..=(KEPT_TURNS as u32 + 2) {
-        for out in t.apply(&user_in(n, AgentScope::Slides), now, &fr()) {
+    for n in 2..=(KEPT_TURNS as u32 + 1) {
+        for out in t.apply(&user(n), now, &fr()) {
             if let TurnOut::Evict(k) = out {
                 evicted.push(k);
             }
         }
     }
-    assert_that!(evicted).is_equal_to(vec![2]);
+    assert_that!(evicted).is_equal_to(vec![1]);
 }
 
 #[test]
-fn turns_conversation_forgets_only_its_scope() {
+fn turns_conversation_event_clears_every_turn() {
     let mut t = Turns::default();
     let now = Instant::now();
-    t.apply(&user_in(1, atelier()), now, &fr());
-    t.apply(&user_in(2, AgentScope::Slides), now, &fr());
-    t.apply(&AgentEvent::Conversation { scope: AgentScope::Slides }, now, &fr());
-    assert_that!(t.turns.iter().map(|x| x.view.n).collect::<Vec<_>>()).is_equal_to(vec![1]);
+    t.apply(&user(1), now, &fr());
+    t.apply(&AgentEvent::TurnEnded { turn: 1, stop: "end_turn".into() }, now, &fr());
+    t.apply(&user(2), now, &fr());
+    let out = t.apply(&AgentEvent::Conversation, now, &fr());
+    assert_that!(out).is_empty();
+    assert_that!(t.turns.is_empty()).is_true(); // speculoos n'a pas `is_empty` pour `VecDeque`
 }
 
 #[test]

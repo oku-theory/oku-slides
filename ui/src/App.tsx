@@ -236,9 +236,9 @@ export default function App({
 
   const {
     agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
-    agentUiNow, scopeSource, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
+    agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
   } = useAgentWiring({
-    tab, snap, view, current, selected, editing, editField, widgets, importJob, showSlide,
+    tab, snap, view, current, selected, editing, editField, widgets, widgetActive, importJob, showSlide,
     setSelected,
   });
 
@@ -468,8 +468,8 @@ export default function App({
           <HostSettings surface={data.surface} onAction={onSurfaceAction} outcome={data.outcome} onError={(m) => say(m, true)} />
         )}
         <AgentPanel
-          tab={tab} agent={agent} scope={scopeSource} route={route} ui={agentUiNow}
-          keysOff={!!editing || dialogOpen || widgetActive} shortcuts={deckMode} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
+          tab={tab} agent={agent} mode={agentMode} route={route} ui={agentUiNow}
+          keysOff={!!editing || dialogOpen || widgetActive} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
           hostSurfaces={dataSurfaces} onHostAction={(s, a) => host.onAction(s, a) || data.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
@@ -484,7 +484,6 @@ export default function App({
           dictations={dictation.draft.state.dictations}
           typing={dictation.draft.state.typing}
           busy={agentStatus.busy}
-          notice={agentStatus.notice}
           ready={agentStatus.ready}
           shortcuts={deckMode}
           onChange={dictation.draft.change}

@@ -1,5 +1,7 @@
 # Agent sessions per perspective, restored on reopening
 
+> Superseded by docs/superpowers/specs/2026-10-24-onglets-pack-theme-design.md (t-1152): one conversation per tab, no scopes.
+
 Task t-598. Complements `2026-09-27-agent-onglets-design.md` (one ACP session
 and one thread per tab): within a tab, the agent now has **one session
 per perspective** — the slides, a pack's workshop, each widget of a

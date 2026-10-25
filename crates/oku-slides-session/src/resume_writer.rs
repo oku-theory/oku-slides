@@ -12,29 +12,35 @@
 //! Un seul écrivain par dossier : le fil. Le rendre (fin de session, onglet
 //! fermé) écrit d'abord ce qui reste, et plus rien ensuite.
 
-use std::collections::BTreeMap;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 
-use crate::agent::{AgentScope, SavedConversation};
+use crate::agent::SavedConversation;
 use crate::resume::{DocSnapshot, Resume, State};
+
+/// Ce qu'il faut faire de la conversation de l'agent.
+#[derive(Debug, Clone)]
+pub(crate) enum AgentWrite {
+    /// L'écrire.
+    Write(SavedConversation),
+    /// L'effacer.
+    Delete,
+}
 
 /// Ce qu'il faut écrire : des documents (sous-dossier et instantané) et l'état.
 pub(crate) struct Job {
     /// Vide : l'état seul (les documents n'ont pas changé).
     pub docs: Vec<(&'static str, DocSnapshot)>,
     pub state: State,
-    /// Conversations à écrire (`Some`) ou effacer (`None`), par portée.
-    pub agent: BTreeMap<AgentScope, Option<SavedConversation>>,
+    /// La conversation à écrire ou effacer ; `None` : inchangée.
+    pub agent: Option<AgentWrite>,
 }
 
-/// Fusionne deux dépôts : le plus récent l'emporte, sans perdre de conversation.
+/// Fusionne deux dépôts : le plus récent l'emporte, sans perdre la conversation.
 pub(crate) fn merge(prev: Job, next: Job) -> Job {
     // Sans documents, le dépôt garde ceux du précédent, pas encore écrits.
     let docs = if next.docs.is_empty() { prev.docs } else { next.docs };
-    let mut agent = prev.agent;
-    agent.extend(next.agent);
-    Job { docs, state: next.state, agent }
+    Job { docs, state: next.state, agent: next.agent.or(prev.agent) }
 }
 
 /// La case partagée entre la session et son fil.
@@ -166,15 +172,14 @@ fn write(resume: &Resume, job: &Job) {
     if let Err(e) = written {
         tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "état de reprise non enregistré");
     }
-    // Hors de la chaîne ci-dessus : un état non écrit n'empêche pas les conversations.
-    for (scope, saved) in &job.agent {
-        let done = match saved {
-            Some(c) => resume.write_conversation(c),
-            None => resume.delete_conversation(scope),
-        };
-        if let Err(e) = done {
-            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "conversation de l'agent non enregistrée");
-        }
+    // Hors de la chaîne ci-dessus : un état non écrit n'empêche pas la conversation.
+    let done = match &job.agent {
+        Some(AgentWrite::Write(c)) => resume.write_conversation(c),
+        Some(AgentWrite::Delete) => resume.delete_conversation(),
+        None => Ok(()),
+    };
+    if let Err(e) = done {
+        tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "conversation de l'agent non enregistrée");
     }
 }
 

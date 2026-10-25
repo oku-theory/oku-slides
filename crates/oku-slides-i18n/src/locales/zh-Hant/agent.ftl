@@ -93,7 +93,6 @@ agent-error-asset-unknown = 此圖片既不在簡報中，也不在已貼上的�
 agent-error-denied = 使用者已拒絕。
 agent-error-no-turn = 目前沒有進行中的回合：{ $tool } 只會在回合中顯示。
 agent-error-turn-over = 此呼叫所屬的回合已結束：未顯示任何內容。
-agent-error-anchor-scope = 小工具對話中的問題不能錨定到投影片：請不帶錨點提問。
 agent-error-no-file = 簡報還沒有檔案：請提供絕對路徑。
 agent-error-path-relative = 路徑必須是絕對路徑。
 agent-error-path-parent = 路徑不能包含「..」。

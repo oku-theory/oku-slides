@@ -278,7 +278,7 @@ async fn show_themes_tool_renders_the_given_slide() {
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_tool_keeps_the_picker_after_the_turn_closes() {
     let h = start().await;
-    let n = h.hub.begin_turn(oku_slides_session::agent::AgentScope::Slides);
+    let n = h.hub.begin_turn();
     shown(&h, json!({})).await;
     h.hub.close_turn(n);
     assert_that!(open(&h)).is_true();

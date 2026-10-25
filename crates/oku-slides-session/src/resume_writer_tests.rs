@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use crate::agent::{AgentScope, SavedConversation};
+use crate::agent::SavedConversation;
+use crate::resume_writer::AgentWrite;
 
 use oku_slides_core::{Deck, SourceBundle};
 use speculoos::prelude::*;
@@ -48,7 +48,7 @@ fn state(slide: &str) -> State {
 
 fn job(theme: Option<&str>, slide: &str) -> Job {
     let docs = theme.map(|t| vec![(DECK_DIR, DocSnapshot::of(&document(t), &mut Vec::new()).unwrap())]);
-    Job { docs: docs.unwrap_or_default(), state: state(slide), agent: BTreeMap::new() }
+    Job { docs: docs.unwrap_or_default(), state: state(slide), agent: None }
 }
 
 /// Après `flush`, tout ce qui a été envoyé est sur le disque.
@@ -148,37 +148,42 @@ fn read_doc_without_deck_loro_returns_error() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
-fn conv(scope: AgentScope) -> Option<SavedConversation> {
-    Some(SavedConversation { scope, agent: None, session: Some("s".into()), thread: Vec::new() })
+fn conv() -> SavedConversation {
+    SavedConversation { agent: None, session: Some("s".into()), thread: Vec::new() }
+}
+
+fn written(job: Job) -> Option<SavedConversation> {
+    match job.agent {
+        Some(AgentWrite::Write(c)) => Some(c),
+        _ => None,
+    }
 }
 
 #[test]
-fn merge_with_documents_keeps_the_previous_conversations() {
+fn merge_with_documents_keeps_the_previous_conversation() {
     let mut prev = job(None, "s-1");
-    prev.agent.insert(AgentScope::Slides, conv(AgentScope::Slides));
-    let atelier = AgentScope::Atelier { pack: uuid::Uuid::nil() };
-    let mut next = job(Some("pro"), "s-2");
-    next.agent.insert(atelier.clone(), conv(atelier.clone()));
-    let merged = merge(prev, next);
-    assert_that!(merged.agent.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![AgentScope::Slides, atelier]);
+    prev.agent = Some(AgentWrite::Write(conv()));
+    let next = job(Some("pro"), "s-2");
+    assert_that!(written(merge(prev, next))).is_equal_to(Some(conv()));
 }
 
 #[test]
 fn merge_later_delete_wins_over_earlier_write() {
     let mut prev = job(None, "s-1");
-    prev.agent.insert(AgentScope::Slides, conv(AgentScope::Slides));
+    prev.agent = Some(AgentWrite::Write(conv()));
     let mut next = job(None, "s-2");
-    next.agent.insert(AgentScope::Slides, None);
-    assert_that!(merge(prev, next).agent.get(&AgentScope::Slides)).is_equal_to(Some(&None));
+    next.agent = Some(AgentWrite::Delete);
+    assert_that!(matches!(merge(prev, next).agent, Some(AgentWrite::Delete))).is_true();
 }
 
 #[test]
 fn merge_later_write_wins_over_earlier_delete() {
     let mut prev = job(None, "s-1");
-    prev.agent.insert(AgentScope::Slides, None);
+    prev.agent = Some(AgentWrite::Delete);
     let mut next = job(None, "s-2");
-    next.agent.insert(AgentScope::Slides, conv(AgentScope::Slides));
-    assert_that!(merge(prev, next).agent.get(&AgentScope::Slides)).is_equal_to(Some(&conv(AgentScope::Slides)));
+    let later = SavedConversation { session: Some("later".into()), ..conv() };
+    next.agent = Some(AgentWrite::Write(later.clone()));
+    assert_that!(written(merge(prev, next))).is_equal_to(Some(later));
 }
 
 #[test]

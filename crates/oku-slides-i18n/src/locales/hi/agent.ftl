@@ -99,7 +99,6 @@ agent-error-asset-unknown = यह छवि न तो प्रस्तुत
 agent-error-denied = उपयोगकर्ता ने मना कर दिया।
 agent-error-no-turn = कोई टर्न चालू नहीं है: { $tool } केवल टर्न के दौरान दिखाया जाता है।
 agent-error-turn-over = इस कॉल का टर्न समाप्त हो चुका है: कुछ नहीं दिखाया गया।
-agent-error-anchor-scope = विजेट वार्तालाप का प्रश्न किसी स्लाइड से नहीं जोड़ा जा सकता: इसे बिना एंकर के पूछें।
 agent-error-no-file = प्रस्तुति की अभी कोई फ़ाइल नहीं है: पूर्ण पथ दें।
 agent-error-path-relative = पथ पूर्ण होना चाहिए।
 agent-error-path-parent = पथ में “..” नहीं होना चाहिए।

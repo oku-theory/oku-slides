@@ -24,7 +24,7 @@ fn png64(seed: u8) -> String {
 #[tokio::test(flavor = "multi_thread")]
 async fn paste_image_adds_it_to_the_broadcast_draft() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     let from = drafted(&stack, &rx, "t-1", Some("pose-la"), from).await;
     stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(1) }))).unwrap();
     let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
@@ -39,7 +39,7 @@ async fn paste_image_adds_it_to_the_broadcast_draft() {
 #[tokio::test(flavor = "multi_thread")]
 async fn paste_image_on_a_closed_draft_opens_it_empty() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     let from = drafted(&stack, &rx, "t-1", None, from).await;
     stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(2) }))).unwrap();
     let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
@@ -49,7 +49,7 @@ async fn paste_image_on_a_closed_draft_opens_it_empty() {
 #[tokio::test(flavor = "multi_thread")]
 async fn paste_image_twice_lists_it_once() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     let from = drafted(&stack, &rx, "t-1", Some("x"), from).await;
     stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(3) }))).unwrap();
     let (at, _) = next(&rx, from, is("agent", "draft", "t-1")).await;
@@ -61,7 +61,7 @@ async fn paste_image_twice_lists_it_once() {
 #[tokio::test(flavor = "multi_thread")]
 async fn paste_image_past_the_draft_limit_is_refused() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     drafted(&stack, &rx, "t-1", Some("x"), from).await;
     for seed in 0..8 {
         stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(10 + seed) }))).unwrap();
@@ -73,7 +73,7 @@ async fn paste_image_past_the_draft_limit_is_refused() {
 #[tokio::test(flavor = "multi_thread")]
 async fn paste_image_that_is_not_an_image_is_refused() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    shown(&stack, &rx, "t-1", None).await;
+    shown(&stack, &rx, "t-1").await;
     let data = STANDARD.encode(b"bonjour");
     let refused = stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": data })));
     assert_that!(refused).is_err();
@@ -89,7 +89,7 @@ async fn paste_image_on_a_tab_without_agent_is_refused() {
 #[tokio::test(flavor = "multi_thread")]
 async fn remove_image_drops_it_from_the_draft() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     let from = drafted(&stack, &rx, "t-1", Some("x"), from).await;
     stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(5) }))).unwrap();
     let (at, pasted) = next(&rx, from, is("agent", "draft", "t-1")).await;
@@ -102,7 +102,7 @@ async fn remove_image_drops_it_from_the_draft() {
 #[tokio::test(flavor = "multi_thread")]
 async fn set_draft_null_drops_the_images() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     let from = drafted(&stack, &rx, "t-1", Some("x"), from).await;
     stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(6) }))).unwrap();
     let (at, _) = next(&rx, from, is("agent", "draft", "t-1")).await;
@@ -115,7 +115,7 @@ async fn set_draft_null_drops_the_images() {
 #[tokio::test(flavor = "multi_thread")]
 async fn paste_image_concurrently_never_passes_the_draft_limit() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     let from = drafted(&stack, &rx, "t-1", Some("x"), from).await;
     // `std::thread::scope` : un fil par image, `handle` est bloquant.
     let accepted = tokio::task::block_in_place(|| {
@@ -138,7 +138,7 @@ async fn paste_image_concurrently_never_passes_the_draft_limit() {
 
 /// Dépose une image dans le brouillon de `tab` et rend son id.
 async fn pasted(stack: &common::TestStack, rx: &common::Relayed, tab: &'static str, seed: u8) -> String {
-    let from = shown(stack, rx, tab, None).await;
+    let from = shown(stack, rx, tab).await;
     let from = drafted(stack, rx, tab, Some("x"), from).await;
     stack
         .handle(cmd(json!({ "cmd": "paste_image", "tab": tab, "data": png64(seed) })))
@@ -174,7 +174,7 @@ async fn prompt_with_an_image_to_an_agent_without_images_sends_only_its_id() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prompt_with_an_unknown_image_is_refused() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [{}] }), &["t-1"]).await;
-    shown(&stack, &rx, "t-1", None).await;
+    shown(&stack, &rx, "t-1").await;
     let refused = stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "x", "images": ["sha256:00"] })));
     assert_that!(refused).is_err();
 }
@@ -182,7 +182,7 @@ async fn prompt_with_an_unknown_image_is_refused() {
 #[tokio::test(flavor = "multi_thread")]
 async fn paste_image_already_in_a_full_draft_is_a_no_op() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    let from = shown(&stack, &rx, "t-1", None).await;
+    let from = shown(&stack, &rx, "t-1").await;
     drafted(&stack, &rx, "t-1", Some("x"), from).await;
     for seed in 0..8 {
         stack.handle(cmd(json!({ "cmd": "paste_image", "tab": "t-1", "data": png64(50 + seed) }))).unwrap();
