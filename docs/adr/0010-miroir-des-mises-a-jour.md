@@ -49,7 +49,7 @@ cannot help, since the proxy judges the host that serves the bytes. GitHub Pages
 
 ## Setup runbook
 
-1. Scaleway console → Object Storage → create bucket `oku-slides-updates`, region `fr-par`,
+1. Scaleway console → Object Storage → create bucket `oku-updates`, region `fr-par`,
    visibility private (objects are uploaded public-read one by one).
 2. Edge Services → create a pipeline for that bucket (Starter plan). Endpoint → Configure domain:
    `updates.okutheory.com`, with a free Let's Encrypt certificate managed by Scaleway.
@@ -61,7 +61,7 @@ cannot help, since the proxy judges the host that serves the bytes. GitHub Pages
 5. GitHub → Settings → Environments → new environment `update-mirror`, deployment branches:
    "Selected branches" with `main` only (this rule alone keeps other branches from the secrets);
    add required reviewers like `release` if it has them. Secrets: `SCW_ACCESS_KEY`,
-   `SCW_SECRET_KEY`, `SCW_BUCKET` (`oku-slides-updates`).
+   `SCW_SECRET_KEY`, `SCW_BUCKET` (`oku-updates`).
 6. Actions → `Update mirror` → run on `main` with an empty version: mirrors the latest release.
 7. From the corporate network, with its proxy: `curl -sS https://updates.okutheory.com/latest.json`
    and `curl -sSI <one url from it>` (expect 200).
