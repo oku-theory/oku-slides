@@ -135,3 +135,5 @@ voice-error-api-reserved = มีเพียงผู้ใช้ที่ต�
 voice-error-changed = การตั้งค่าเปลี่ยนไปหลังคำถาม: โปรดถามอีกครั้ง
 voice-error-nothing-to-download = ไม่มีอะไรให้ดาวน์โหลดสำหรับเอเจนต์นี้
 agent-tune-prompt = ปรับแต่งงานนำเสนอที่นำเข้าอย่างละเอียด
+agent-settings-unknown-selected = การตั้งค่า agent.selected = { $selected } ไม่ตรงกับเอเจนต์ใดใน [agent.presets] (ที่รู้จัก: { $known })
+agent-settings-preset-launch = เอเจนต์ [agent.presets.{ $id }] ต้องมี command หรือ builtin อย่างใดอย่างหนึ่งเท่านั้น

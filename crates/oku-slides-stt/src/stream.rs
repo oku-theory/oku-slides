@@ -3,13 +3,15 @@
 //! - [`StreamEngine`] : un moteur (Apple sur macOS 26+, voir `apple.rs`).
 //! - [`Stream`] : une dictée ouverte sur ce moteur.
 //! - [`Event`] : ses résultats, traduits du pont par [`Event::from_raw`].
-#![cfg_attr(not(any(test, target_os = "macos")), allow(dead_code, reason = "pont d'Apple : macOS seulement"))]
 
 use std::sync::{Arc, mpsc};
 
 use oku_slides_platform::config::SttSettings;
 
-use crate::error::{AnalyzerSnafu, AssetInstallSnafu, LocaleUnsupportedSnafu, SpeechDeniedSnafu, SttError};
+#[cfg(any(test, target_os = "macos"))]
+use crate::error::{AnalyzerSnafu, AssetInstallSnafu, SpeechDeniedSnafu};
+use crate::error::{LocaleUnsupportedSnafu, SttError};
+#[cfg(any(test, target_os = "macos"))]
 use crate::num::{narrow_f32, trunc_u64};
 
 /// Disponibilité d'une langue pour un moteur en continu.
@@ -19,31 +21,49 @@ pub(crate) enum Availability {
     Unsupported,
     /// Langue connue, à télécharger.
     Missing,
+    /// Language installed (only the Apple engine, or a test fake, has one).
+    #[cfg(any(test, target_os = "macos"))]
     Ready,
+}
+
+impl Availability {
+    /// The language is installed (never off macOS, outside tests).
+    pub(crate) fn is_ready(self) -> bool {
+        match self {
+            #[cfg(any(test, target_os = "macos"))]
+            Availability::Ready => true,
+            Availability::Unsupported | Availability::Missing => false,
+        }
+    }
 }
 
 /// Ce qu'un moteur en continu rend.
 #[derive(Debug)]
 pub(crate) enum Event {
     /// Texte provisoire de ce qui suit le dernier texte définitif.
+    #[cfg(any(test, target_os = "macos"))]
     Partial(String),
     /// Texte définitif, et sa place dans l'audio (s).
+    #[cfg(any(test, target_os = "macos"))]
     Final {
         text: String,
         start: f32,
         end: f32,
     },
     /// Téléchargement d'une langue.
+    #[cfg(any(test, target_os = "macos"))]
     Progress {
         received: u64,
         total: u64,
     },
     /// Plus rien ne viendra.
+    #[cfg(any(test, target_os = "macos"))]
     Done,
     Failed(SttError),
 }
 
 /// Codes du pont Swift (`swift/Sources/OkuSpeech/OkuSpeech.swift`).
+#[cfg(any(test, target_os = "macos"))]
 pub(crate) mod raw {
     pub(crate) const PARTIAL: i32 = 0;
     pub(crate) const FINAL: i32 = 1;
@@ -56,6 +76,7 @@ pub(crate) mod raw {
     pub(crate) const ERR_DENIED: f64 = 4.0;
 }
 
+#[cfg(any(test, target_os = "macos"))]
 impl Event {
     /// Traduit un événement brut du pont (`a`, `b` : temps, compteurs ou code d'erreur).
     pub(crate) fn from_raw(kind: i32, text: String, a: f64, b: f64) -> Event {
@@ -71,6 +92,7 @@ impl Event {
 }
 
 /// Erreur du pont : son code, et son message (une langue pour `ERR_LOCALE`).
+#[cfg(any(test, target_os = "macos"))]
 fn bridge_error(code: f64, message: String) -> SttError {
     if code == raw::ERR_LOCALE {
         LocaleUnsupportedSnafu { locale: message }.build().into()

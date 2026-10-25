@@ -83,6 +83,8 @@ pub(crate) enum SttInner {
     Cancelled { backtrace: Backtrace },
     #[snafu(display("model download failed"))]
     Download { source: DownloadError, backtrace: Backtrace },
+    /// Only the Apple bridge reports it.
+    #[cfg(any(test, target_os = "macos"))]
     #[snafu(display("speech recognition not allowed"))]
     SpeechDenied { backtrace: Backtrace },
     #[snafu(display("language not supported by the system engine: {locale}"))]
@@ -111,12 +113,13 @@ impl SttError {
     /// Kind of the error, to react without reading the message.
     #[must_use]
     pub fn kind(&self) -> SttErrorKind {
+        #[cfg(any(test, target_os = "macos"))]
+        use SttInner::SpeechDenied;
         use SttInner::{
             Analyzer, ApiConfig, ApiHttp, ApiKeyMissing, ApiResponse, ApiStatus, AssetInstall, AudioFile, Cancelled,
             Download, Features, FinishTimeout, LocaleUnsupported, MelFilters, MicrophoneConfig, MicrophonePlay,
             MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile, ModelLoad, ModelSettings, NoLanguage,
-            NoMicrophone, NotContiguous, NotDownloadable, SpeechDenied, Transcribe, UnsupportedFormat, Wav,
-            ZeroSetting,
+            NoMicrophone, NotContiguous, NotDownloadable, Transcribe, UnsupportedFormat, Wav, ZeroSetting,
         };
         match *self.0 {
             NoMicrophone { .. }
@@ -148,6 +151,7 @@ impl SttError {
             Cancelled { .. } => SttErrorKind::Cancelled,
             Download { ref source, .. } if source.kind() == DownloadErrorKind::Cancelled => SttErrorKind::Cancelled,
             Download { .. } | AssetInstall { .. } => SttErrorKind::Download,
+            #[cfg(any(test, target_os = "macos"))]
             SpeechDenied { .. } => SttErrorKind::Permission,
         }
     }
@@ -155,12 +159,13 @@ impl SttError {
 
 impl Localize for SttError {
     fn localize(&self, l: &Localizer) -> String {
+        #[cfg(any(test, target_os = "macos"))]
+        use SttInner::SpeechDenied;
         use SttInner::{
             Analyzer, ApiConfig, ApiHttp, ApiKeyMissing, ApiResponse, ApiStatus, AssetInstall, AudioFile, Cancelled,
             Download, Features, FinishTimeout, LocaleUnsupported, MelFilters, MicrophoneConfig, MicrophonePlay,
             MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile, ModelLoad, ModelSettings, NoLanguage,
-            NoMicrophone, NotContiguous, NotDownloadable, SpeechDenied, Transcribe, UnsupportedFormat, Wav,
-            ZeroSetting,
+            NoMicrophone, NotContiguous, NotDownloadable, Transcribe, UnsupportedFormat, Wav, ZeroSetting,
         };
         match &*self.0 {
             NoMicrophone { .. } => l.tr("stt-microphone-missing"),
@@ -197,6 +202,7 @@ impl Localize for SttError {
             },
             AssetInstall { .. } => l.tr("stt-download"),
             Cancelled { .. } => l.tr("stt-cancelled"),
+            #[cfg(any(test, target_os = "macos"))]
             SpeechDenied { .. } => l.tr("stt-speech-denied"),
             LocaleUnsupported { locale, .. } => {
                 l.tr_with("stt-locale-unsupported", &[("language", locale.as_str().into())])

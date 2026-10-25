@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }：ID“{ $id }”重复
 session-agent-form-not-hex-color = { $at }：“{ $value }”不是十六进制颜色（#rgb、#rgba、#rrggbb 或 #rrggbbaa）
 session-agent-form-not-paragraphs = { $at }：富文本值必须是段落列表
 session-agent-form-not-finite = { $at }：min 和 max 必须是有限数值
+session-agent-form-not-safe-integer = { $at }：min 和 max 必须是 -9007199254740991 到 9007199254740991 之间的整数
 session-agent-form-bounds-inverted = { $at }：min（{ $min }）必须小于 max（{ $max }）
 session-agent-form-malformed = { $at }：格式不符合预期（{ $detail }）
 session-agent-form-refused = { $at }：{ $reason }

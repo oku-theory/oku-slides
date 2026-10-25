@@ -496,10 +496,13 @@ async fn build_stack_with(
         settings.models.download_retries = 0;
         let preset =
             if builtin { AgentPreset::builtin("Faux", Builtin::Local) } else { AgentPreset::new("Faux", active, args) };
-        settings.agent.presets.insert("faux".into(), preset);
-        settings.agent.selected = "faux".into();
+        let agent = &mut settings.agent;
+        agent.insert_preset("faux", preset).unwrap_or_else(|e| panic!("agent faux : {e}"));
+        agent.select("faux").unwrap_or_else(|e| panic!("agent faux : {e}"));
         if let Some(args_bis) = args_bis {
-            settings.agent.presets.insert("bis".into(), AgentPreset::new("Bis", command, args_bis));
+            agent
+                .insert_preset("bis", AgentPreset::new("Bis", command, args_bis))
+                .unwrap_or_else(|e| panic!("agent bis : {e}"));
         }
         settings.agent.locked = locked;
         let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));

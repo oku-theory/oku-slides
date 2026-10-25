@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use rstest::rstest;
@@ -142,20 +142,16 @@ fn app_id_names_oku_slides() {
 #[test]
 fn defaults_agent_presets_are_claude_codex_gemini_local_with_claude_selected() {
     let s = Settings::defaults().unwrap();
-    assert_that!(s.agent.presets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![
-        "claude".to_owned(),
-        "codex".to_owned(),
-        "gemini".to_owned(),
-        "local".to_owned(),
-    ]);
-    assert_that!(s.agent.selected.as_str()).is_equal_to("claude");
+    assert_that!(s.agent.presets().map(|(id, _)| id).collect::<Vec<_>>())
+        .is_equal_to(vec!["claude", "codex", "gemini", "local"]);
+    assert_that!(s.agent.selected()).is_equal_to("claude");
     let claude = s.agent.active();
     assert_that!(claude.command.as_str()).is_equal_to("npx");
     assert_that!(claude.args.clone())
         .is_equal_to(vec!["-y".to_owned(), "@agentclientprotocol/claude-agent-acp@0.81.2".to_owned()]);
-    assert_that!(s.agent.presets["codex"].args.clone())
+    assert_that!(s.agent.preset("codex").unwrap().args.clone())
         .is_equal_to(vec!["-y".to_owned(), "@agentclientprotocol/codex-acp@2.2.2".to_owned()]);
-    assert_that!(s.agent.presets["gemini"].args.clone()).is_equal_to(vec![
+    assert_that!(s.agent.preset("gemini").unwrap().args.clone()).is_equal_to(vec![
         "-y".to_owned(),
         "@google/gemini-cli@0.63.0".to_owned(),
         "--acp".to_owned(),
@@ -173,7 +169,7 @@ fn config_file_preset_is_added_without_dropping_the_defaults() {
     )
     .unwrap();
     let s = Settings::from_sources(Some(&file), Settings::environment().source(Some(HashMap::new()))).unwrap();
-    assert_that!(s.agent.presets.len()).is_equal_to(5);
+    assert_that!(s.agent.presets().count()).is_equal_to(5);
     assert_that!(s.agent.active().command.as_str()).is_equal_to("/bin/faux");
 }
 
@@ -188,6 +184,24 @@ fn unknown_selected_agent_fails_to_load_and_names_the_known_ones() {
 }
 
 #[test]
+fn unknown_selected_agent_load_error_keeps_the_text_of_before_t1202() {
+    let env = Settings::environment()
+        .source(Some(HashMap::from([("OKU_SLIDES_AGENT__SELECTED".to_owned(), "mistral".to_owned())])));
+    let e = Settings::from_sources(None, env).unwrap_err();
+    assert_that!(crate::errors::one_line(&e)).is_equal_to(
+        "invalid settings: agent.selected = \"mistral\" names no [agent.presets] entry (known: claude, codex, gemini, local)"
+            .to_owned(),
+    );
+}
+
+#[test]
+fn preset_without_launch_load_error_keeps_the_text_of_before_t1202() {
+    let e = settings_from_toml("[agent]\nselected = \"x\"\n[agent.presets.x]\nname = \"X\"\n").unwrap_err();
+    assert_that!(crate::errors::one_line(&e))
+        .is_equal_to("invalid settings: [agent.presets.x] needs exactly one of command or builtin".to_owned());
+}
+
+#[test]
 fn env_selected_agent_wins_over_config_file() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("config.toml");
@@ -195,7 +209,7 @@ fn env_selected_agent_wins_over_config_file() {
     let env = Settings::environment()
         .source(Some(HashMap::from([("OKU_SLIDES_AGENT__SELECTED".to_owned(), "codex".to_owned())])));
     let s = Settings::from_sources(Some(&file), env).unwrap();
-    assert_that!(s.agent.selected.as_str()).is_equal_to("codex");
+    assert_that!(s.agent.selected()).is_equal_to("codex");
 }
 
 #[test]
@@ -516,7 +530,7 @@ fn agent_settings_preset_without_exactly_one_launch_is_refused(#[case] body: &st
 #[test]
 fn settings_defaults_have_local_builtin_preset() {
     let settings = settings_from_toml("").unwrap();
-    let local = settings.agent.presets.get("local").unwrap();
+    let local = settings.agent.preset("local").unwrap();
     assert_that!(local.name.as_str()).is_equal_to("Local");
     assert_that!(local.builtin).is_equal_to(Some(Builtin::Local));
     assert_that!(local.command.as_str()).is_empty();
@@ -553,4 +567,27 @@ fn defaults_paste_is_ten_mib_eight_images_five_mib_shown() {
         max_side: 8000,
         total_bytes: 20 << 20,
     });
+}
+
+#[test]
+fn agent_settings_unknown_selected_error_speaks_the_fluent_message_in_french() {
+    use oku_slides_i18n::{Localize, Localizer};
+    let presets = BTreeMap::from([("faux".to_owned(), AgentPreset::new("Faux", "/bin/faux", Vec::new()))]);
+    let err = AgentSettings::new("mistral", presets).unwrap_err();
+    let fr = Localizer::new(Some("fr"));
+    let expected =
+        fr.tr_with("agent-settings-unknown-selected", &[("selected", "mistral".into()), ("known", "faux".into())]);
+    assert_that!(err.localize(&fr)).is_equal_to(expected);
+    assert_that!(err.localize(&fr)).contains("connus");
+}
+
+#[test]
+fn agent_settings_preset_launch_error_speaks_the_fluent_message_in_french() {
+    use oku_slides_i18n::{Localize, Localizer};
+    let mut agent = Settings::defaults().unwrap().agent;
+    let err = agent.insert_preset("x", AgentPreset::new("X", "", Vec::new())).unwrap_err();
+    let fr = Localizer::new(Some("fr"));
+    let expected = fr.tr_with("agent-settings-preset-launch", &[("id", "x".into())]);
+    assert_that!(err.localize(&fr)).is_equal_to(expected);
+    assert_that!(agent.preset("x")).is_none();
 }

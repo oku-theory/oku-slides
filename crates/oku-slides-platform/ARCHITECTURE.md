@@ -12,9 +12,9 @@ the CLI, the session, the agent and dictation.
   `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent.
 - `telemetry`: `init` installs the `tracing` subscriber; call it first. `errors`: `one_line`
   prints an error and its causes on one line.
-- `config`: `Settings` and its sections (`PathSettings`, `RenderSettings`,
-  `ServeSettings`, `SttSettings`, `ModelsSettings`, `LocalAgentSettings`, `AgentSettings` with
-  named `AgentPreset`s (a `command` xor a `Builtin`), `ImportSettings`, …), plus `APP_ID`.
+- `config`: `Settings`, its sections (`PathSettings`, `RenderSettings`, `SttSettings`, …), `APP_ID`.
+  `config` (file `config_agent.rs`): `AgentSettings`, named `AgentPreset`s (a `command` xor a
+  `Builtin`), the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
 - `updates`: updater decisions without Tauri: `InstallMode`, `UpdateStatus`, `Progress`
   (1 % steps, 512 MiB cap), `trusted_download`, `UpdateStage`.
 - `config_write`: `write_value` sets one `config.toml` key, keeping comments. `program`:

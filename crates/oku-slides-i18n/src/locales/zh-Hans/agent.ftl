@@ -135,3 +135,5 @@ voice-error-api-reserved = 只有用户可以设置 API 地址和密钥变量：
 voice-error-changed = 提问之后设置已更改：请重新询问
 voice-error-nothing-to-download = 此智能体没有需要下载的内容
 agent-tune-prompt = 微调导入的演示文稿
+agent-settings-unknown-selected = 设置 agent.selected = { $selected } 未指向 [agent.presets] 中的任何智能体（已知：{ $known }）
+agent-settings-preset-launch = 智能体 [agent.presets.{ $id }] 需要且仅需要 command 或 builtin 之一

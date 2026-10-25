@@ -151,6 +151,19 @@ test("une suite avec un Slider aux bornes inversées est signalée et ne rend au
   expect(host.querySelector('input[type="range"]')).toBeNull();
 });
 
+test("une suite avec un Stepper dont min dépasse le max par défaut est signalée (t-1204)", async () => {
+  const errors: string[] = [];
+  const base = fresh();
+  const { root } = await mountView(base);
+  const tail = {
+    version: "v0.9",
+    updateComponents: { surfaceId: "s", components: [{ id: "g", component: "Stepper", label: "n", value: 4, min: 30 }] },
+  } as unknown as A2uiMessage;
+  await act(async () => root.render(view([...base, tail], errors)));
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain("Stepper g: min must be < max");
+});
+
 /** Une timeline de tour : une étape d'outils dépliable (un appel), comme l'envoie l'hôte. */
 const turn = () => [
   { version: "v0.9", createSurface: { surfaceId: "s", catalogId: CATALOG_ID } },

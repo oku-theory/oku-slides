@@ -91,6 +91,11 @@ pub enum AgentFormReason {
         /// Location of the bound in the arguments.
         at: String,
     },
+    /// Stepper bound outside the integers a JavaScript number holds exactly.
+    NotSafeInteger {
+        /// Location of the stepper in the arguments.
+        at: String,
+    },
     /// `min` n'est pas inférieur à `max`.
     BoundsInverted {
         /// Location of the slider in the arguments.
@@ -203,9 +208,9 @@ impl fmt::Display for AgentFormReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use AgentFormReason::{
             BadAction, BoundsInverted, Count, DuplicateId, Empty, HiddenCharacters, Malformed, Missing, NoRoot,
-            NotAvailable, NotFinite, NotHexColor, NotLiteral, NotParagraphs, Refused, Reserved, ReservedStyle,
-            SessionNotCalled, SettingInRender, SharedComponent, SlideRemoved, TooDeep, TooLarge, TooLong, TooMany,
-            UnknownChild, UnknownProperty, Unreachable,
+            NotAvailable, NotFinite, NotHexColor, NotLiteral, NotParagraphs, NotSafeInteger, Refused, Reserved,
+            ReservedStyle, SessionNotCalled, SettingInRender, SharedComponent, SlideRemoved, TooDeep, TooLarge,
+            TooLong, TooMany, UnknownChild, UnknownProperty, Unreachable,
         };
         match self {
             TooLong { at, count, max } => write!(f, "{at}: {count} characters, at most {max}"),
@@ -221,6 +226,7 @@ impl fmt::Display for AgentFormReason {
             NotHexColor { at, value } => write!(f, "{at}: {value} is not a hex color"),
             NotParagraphs { at } => write!(f, "{at}: a rich value must be a list of paragraphs"),
             NotFinite { at } => write!(f, "{at}: min/max must be finite"),
+            NotSafeInteger { at } => write!(f, "{at}: min/max must be safe integers (at most 2^53 - 1 in magnitude)"),
             BoundsInverted { at, min, max } => write!(f, "{at}: min ({min}) must be < max ({max})"),
             Malformed { at, detail } => write!(f, "{at}: {detail}"),
             Refused { at, source } => write!(f, "{at}: {source}: {}", source.op_error()),
@@ -252,9 +258,9 @@ impl Localize for AgentFormReason {
     fn localize(&self, l: &Localizer) -> String {
         use AgentFormReason::{
             BadAction, BoundsInverted, Count, DuplicateId, Empty, HiddenCharacters, Malformed, Missing, NoRoot,
-            NotAvailable, NotFinite, NotHexColor, NotLiteral, NotParagraphs, Refused, Reserved, ReservedStyle,
-            SessionNotCalled, SettingInRender, SharedComponent, SlideRemoved, TooDeep, TooLarge, TooLong, TooMany,
-            UnknownChild, UnknownProperty, Unreachable,
+            NotAvailable, NotFinite, NotHexColor, NotLiteral, NotParagraphs, NotSafeInteger, Refused, Reserved,
+            ReservedStyle, SessionNotCalled, SettingInRender, SharedComponent, SlideRemoved, TooDeep, TooLarge,
+            TooLong, TooMany, UnknownChild, UnknownProperty, Unreachable,
         };
         let s = |v: &str| FluentValue::from(v.to_owned());
         let n = |v: usize| FluentValue::from(v);
@@ -272,6 +278,7 @@ impl Localize for AgentFormReason {
             NotHexColor { at, value } => ("not-hex-color", vec![("at", s(at)), ("value", s(value))]),
             NotParagraphs { at } => ("not-paragraphs", vec![("at", s(at))]),
             NotFinite { at } => ("not-finite", vec![("at", s(at))]),
+            NotSafeInteger { at } => ("not-safe-integer", vec![("at", s(at))]),
             BoundsInverted { at, min, max } => {
                 ("bounds-inverted", vec![("at", s(at)), ("min", (*min).into()), ("max", (*max).into())])
             }

@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }: идентификатор «{ $id }�
 session-agent-form-not-hex-color = { $at }: «{ $value }» — не шестнадцатеричный цвет (#rgb, #rgba, #rrggbb или #rrggbbaa)
 session-agent-form-not-paragraphs = { $at }: форматированное значение должно быть списком абзацев
 session-agent-form-not-finite = { $at }: min и max должны быть конечными числами
+session-agent-form-not-safe-integer = { $at }: min и max должны быть целыми числами от -9007199254740991 до 9007199254740991
 session-agent-form-bounds-inverted = { $at }: min ({ $min }) должно быть меньше max ({ $max })
 session-agent-form-malformed = { $at }: неожиданная форма ({ $detail })
 session-agent-form-refused = { $at }: { $reason }

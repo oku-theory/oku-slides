@@ -135,3 +135,5 @@ voice-error-api-reserved = API のアドレスとキーの変数はユーザー�
 voice-error-changed = 質問のあとで設定が変わりました。もう一度確認してください
 voice-error-nothing-to-download = このエージェントにダウンロードするものはありません
 agent-tune-prompt = インポートしたプレゼンテーションを微調整する
+agent-settings-unknown-selected = 設定 agent.selected = { $selected } は [agent.presets] のどのエージェントも指していません（既知: { $known }）
+agent-settings-preset-launch = エージェント [agent.presets.{ $id }] には command と builtin のどちらか一方だけが必要です

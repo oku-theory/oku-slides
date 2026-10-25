@@ -141,3 +141,5 @@ voice-error-api-reserved = API पता और कुंजी का वेर
 voice-error-changed = प्रश्न के बाद सेटिंग्स बदल गई हैं: फिर से पूछें
 voice-error-nothing-to-download = इस एजेंट के लिए डाउनलोड करने को कुछ नहीं है
 agent-tune-prompt = आयात की गई प्रस्तुति को बारीकी से सुधारें
+agent-settings-unknown-selected = सेटिंग agent.selected = { $selected } [agent.presets] के किसी एजेंट का नाम नहीं है (ज्ञात: { $known })
+agent-settings-preset-launch = एजेंट [agent.presets.{ $id }] को command या builtin में से ठीक एक चाहिए

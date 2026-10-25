@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_platform::config::{AgentPreset, Builtin};
+use oku_slides_platform::config::{AgentPreset, AgentSettings, Builtin};
 use oku_slides_platform::local_agent::{AGENT_MODEL_SIZE, Target, Unavailable, agent_model_dir};
 use oku_slides_session::{AgentPresetView, LocalModelView, Platform, Settings};
 use speculoos::prelude::*;
@@ -15,7 +15,7 @@ fn platform(data: &std::path::Path, program: Option<PathBuf>) -> Platform {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(data.to_path_buf());
     settings.paths.decks = Some(data.join("decks"));
-    settings.agent.selected = "local".into();
+    settings.agent.select("local").unwrap_or_else(|e| panic!("agent : {e}"));
     settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     match program {
@@ -101,7 +101,7 @@ fn availability_local_fake_engine_is_ready() {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(dir.path().to_path_buf());
     settings.paths.decks = Some(dir.path().join("decks"));
-    settings.agent.selected = "local".into();
+    settings.agent.select("local").unwrap_or_else(|e| panic!("agent : {e}"));
     settings.i18n.locale = Some("fr".into());
     settings.local_agent.engine = oku_slides_platform::config::LocalEngine::Fake;
     let platform = Platform::with_settings(settings).unwrap().with_program(PathBuf::from("/app"));
@@ -122,7 +122,7 @@ fn local_panel_command_preset_is_none_and_start_download_refused() {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(dir.path().to_path_buf());
     settings.paths.decks = Some(dir.path().join("decks"));
-    settings.agent.selected = "claude".into();
+    settings.agent.select("claude").unwrap_or_else(|e| panic!("agent : {e}"));
     settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap();
     let choice = std::sync::Arc::new(choice(&platform));
@@ -146,13 +146,13 @@ fn two_agents(data: &std::path::Path, locked: bool) -> Platform {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(data.to_path_buf());
     settings.paths.decks = Some(data.join("decks"));
-    settings.agent.presets = [
+    let presets = [
         ("faux".to_owned(), AgentPreset::new("Faux", "fake", vec!["--script".into(), "s".into()])),
         ("bis".to_owned(), AgentPreset::new("Bis", "true", vec![])),
     ]
     .into_iter()
     .collect();
-    settings.agent.selected = "faux".into();
+    settings.agent = AgentSettings::new("faux", presets).unwrap_or_else(|e| panic!("agent : {e}"));
     settings.agent.locked = locked;
     settings.i18n.locale = Some("fr".into());
     Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"))
@@ -208,9 +208,8 @@ fn agents_view_builtin_has_no_hint() {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.data = Some(dir.path().to_path_buf());
     settings.paths.decks = Some(dir.path().join("decks"));
-    settings.agent.presets =
-        [("local".to_owned(), AgentPreset::builtin("Local", Builtin::Local))].into_iter().collect();
-    settings.agent.selected = "local".into();
+    let presets = [("local".to_owned(), AgentPreset::builtin("Local", Builtin::Local))].into_iter().collect();
+    settings.agent = AgentSettings::new("local", presets).unwrap_or_else(|e| panic!("agent : {e}"));
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     let view = choice(&platform).agents_view();
     let expected = AgentPresetView { id: "local".into(), name: "Local".into(), hint: None };

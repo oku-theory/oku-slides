@@ -48,7 +48,7 @@ impl AgentChoice {
         Self {
             platform: platform.clone(),
             link,
-            active: Mutex::new(platform.settings.agent.selected.clone()),
+            active: Mutex::new(platform.settings.agent.selected().to_owned()),
             saving: Mutex::new(()),
             download: ModelDownload::default(),
         }
@@ -80,7 +80,7 @@ impl AgentChoice {
     pub(crate) fn availability(&self) -> Option<String> {
         let l = self.platform.live_localizer.current();
         let active = self.active();
-        let Some(preset) = self.platform.settings.agent.presets.get(&active) else {
+        let Some(preset) = self.platform.settings.agent.preset(&active) else {
             // `check` ne laisse choisir qu'un agent de la liste, vérifiée au chargement.
             tracing::error!(active, "agent actif absent des réglages");
             return Some(CommandError::from(UnknownAgentSnafu { id: active }.build()).localize(&l));
@@ -105,7 +105,7 @@ impl AgentChoice {
     ///
     /// Peut bloquer : lit le disque.
     pub(crate) fn local_panel(&self) -> Option<LocalModelView> {
-        let preset = self.platform.settings.agent.presets.get(&self.active())?;
+        let preset = self.platform.settings.agent.preset(&self.active())?;
         preset.builtin.as_ref()?;
         let Err(Unavailable::NeedsDownload { size }) = local_engine(&self.platform.settings, &self.platform.storage)
         else {
@@ -124,7 +124,7 @@ impl AgentChoice {
     pub(crate) fn agents_view(&self) -> AgentsView {
         let agent = &self.platform.settings.agent;
         AgentsView {
-            presets: agent.presets.iter().map(|(id, p)| preset_view(id, p)).collect(),
+            presets: agent.presets().map(|(id, p)| preset_view(id, p)).collect(),
             active: self.active(),
             busy: false,
             locked: agent.locked,
@@ -183,12 +183,12 @@ impl AgentChoice {
         if agent.locked {
             return Err(Refusal::Locked);
         }
-        agent.presets.get(id).ok_or(Refusal::UnknownAgent)
+        agent.preset(id).ok_or(Refusal::UnknownAgent)
     }
 
     /// La vue de l'agent `id` montrée dans une confirmation ; `None` s'il est inconnu.
     pub(crate) fn preset_view(&self, id: &str) -> Option<AgentPresetView> {
-        self.platform.settings.agent.presets.get(id).map(|p| preset_view(id, p))
+        self.platform.settings.agent.preset(id).map(|p| preset_view(id, p))
     }
 
     /// Bascule sur l'agent `id` ; rien si c'est déjà l'actif. Rapide : rien n'est écrit.
@@ -199,7 +199,7 @@ impl AgentChoice {
         if *active == id {
             return;
         }
-        let Some(preset) = self.platform.settings.agent.presets.get(id) else {
+        let Some(preset) = self.platform.settings.agent.preset(id) else {
             tracing::error!(id, "agent absent des réglages : bascule refusée");
             return;
         };

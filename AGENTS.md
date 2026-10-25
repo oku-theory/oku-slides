@@ -61,7 +61,7 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 - Order UI state saves on the host by page and seq; the host ignores a seq not above the last one for that page. (plan:2026-10-09-petits-tickets-t678)
 - Treat imported assets as untrusted bytes wherever they are served or displayed. (plan:2026-10-09-import-pptx-lot1)
 - Markdown round trips must never lose text; formatting may be lost only on spaces and punctuation. (plan:2026-09-27-markdown-lezer)
-- Reject duplicate A2UI option ids rather than deduplicate, and require Slider min below max, in Rust and zod. (plan:2026-10-09-tickets-debloques-t598)
+- Reject duplicate A2UI option ids rather than deduplicate; require Slider and Stepper effective min below max, in Rust and zod. (plan:2026-10-09-tickets-debloques-t598, t-1204)
 - Keep design tokens in JSON as the single source read by Typst and Rust; never duplicate their values. (spec:2026-10-05-themes-packs-editeur-design)
 
 ## Pitfalls

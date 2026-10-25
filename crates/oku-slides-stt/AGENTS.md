@@ -4,6 +4,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
+- Gate Apple-bridge-only code with cfg(any(test, target_os = "macos")); never lift dead_code for other platforms. (t-1205)
 - Keep all unsafe code of the stt crate in apple.rs, with a SAFETY comment on every unsafe block. (spec:2026-10-03-dictee-native-macos-design)
 - In the Swift bridge, call free(ctx) once after the last event; never use try! or force unwraps. (spec:2026-10-03-dictee-native-macos-design)
 - Keep the C ABI and the stream::raw event and error codes identical on the Rust and Swift sides. (plan:2026-10-03-dictee-native-macos)

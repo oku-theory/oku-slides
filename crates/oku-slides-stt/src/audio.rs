@@ -232,7 +232,7 @@ fn u32_at(bytes: &[u8], at: usize) -> Option<u32> {
     Some(u32::from_le_bytes(*bytes.get(at..at + 4)?.first_chunk()?))
 }
 
-/// Décode un WAV PCM 16 bits (mono ou stéréo) : débit et échantillons mono.
+/// Decodes a 16-bit PCM WAV of up to 8 channels: its sample rate and mono samples.
 pub(crate) fn parse_wav(bytes: &[u8]) -> Result<(u32, Vec<f32>), SttError> {
     ensure!(
         bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WAVE",
@@ -250,6 +250,9 @@ pub(crate) fn parse_wav(bytes: &[u8]) -> Result<(u32, Vec<f32>), SttError> {
             bits = u16::from_le_bytes([body[14], body[15]]);
         } else if id == b"data" {
             ensure!(bits == 16, WavSnafu { reason: "16-bit PCM expected" });
+            ensure!(channels <= 8, WavSnafu { reason: "at most 8 channels expected" });
+            // Zero, or no `fmt ` chunk before the data: nothing tells how fast to play it.
+            ensure!(rate > 0, WavSnafu { reason: "zero sample rate" });
             let samples: Vec<f32> =
                 body.as_chunks::<2>().0.iter().map(|&b| f32::from(i16::from_le_bytes(b)) / 32768.0).collect();
             let mono = samples.chunks(channels).map(|f| f.iter().sum::<f32>() / count_f32(f.len())).collect();

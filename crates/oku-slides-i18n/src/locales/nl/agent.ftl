@@ -141,3 +141,5 @@ voice-error-api-reserved = Alleen de gebruiker stelt het API-adres en de sleutel
 voice-error-changed = De instellingen zijn sinds de vraag veranderd: vraag opnieuw
 voice-error-nothing-to-download = Niets te downloaden voor deze agent
 agent-tune-prompt = De geïmporteerde presentatie verfijnen
+agent-settings-unknown-selected = Instelling agent.selected = { $selected } noemt geen agent uit [agent.presets] (bekend: { $known })
+agent-settings-preset-launch = Agent [agent.presets.{ $id }] heeft precies één van command of builtin nodig

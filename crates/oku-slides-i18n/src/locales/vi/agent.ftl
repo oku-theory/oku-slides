@@ -135,3 +135,5 @@ voice-error-api-reserved = Chỉ người dùng đặt địa chỉ API và bi�
 voice-error-changed = Cài đặt đã thay đổi kể từ câu hỏi: hãy hỏi lại
 voice-error-nothing-to-download = Không có gì để tải xuống cho tác nhân này
 agent-tune-prompt = Tinh chỉnh bài trình bày đã nhập
+agent-settings-unknown-selected = Thiết lập agent.selected = { $selected } không chỉ tới tác nhân AI nào trong [agent.presets] (đã biết: { $known })
+agent-settings-preset-launch = Tác nhân AI [agent.presets.{ $id }] cần đúng một trong hai: command hoặc builtin

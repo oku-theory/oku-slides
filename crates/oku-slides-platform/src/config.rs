@@ -6,7 +6,7 @@
 //! `OKU_SLIDES_<SECTION>__<CLÉ>` (double soulignement pour descendre d'un niveau :
 //! `OKU_SLIDES_STT__VAD__PAUSE=0.9`).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -14,6 +14,11 @@ use snafu::{Backtrace, ResultExt, Snafu};
 
 /// Identifiant de l'app : même dossier que `app_data_dir` de Tauri.
 pub const APP_ID: &str = "me.dartiguenave.oku-slides";
+
+#[path = "config_agent.rs"]
+mod agent;
+
+pub use agent::{AgentPreset, AgentSettings, AgentSettingsError, Builtin};
 
 const DEFAULTS: &str = include_str!("config.default.toml");
 
@@ -455,19 +460,6 @@ pub struct VadSettings {
     pub max_phrase: f32,
 }
 
-/// Agents ACP proposés et celui qui est lancé par ⌘⇧D.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[non_exhaustive]
-pub struct AgentSettings {
-    /// L'agent actif : une clé de `presets` (vérifiée au chargement).
-    pub selected: String,
-    /// Les agents proposés, par identifiant (ordre d'affichage : celui des clés).
-    pub presets: BTreeMap<String, AgentPreset>,
-    /// `OKU_SLIDES_AGENT__SELECTED` impose le choix : le panneau ne le change pas.
-    #[serde(skip)]
-    pub locked: bool,
-}
-
 /// Le moteur de l'agent local de repli (`[local_agent] engine`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -498,74 +490,6 @@ pub struct LocalAgentSettings {
     pub fake_script: Option<PathBuf>,
     /// Journal des appels du moteur `fake`.
     pub fake_log: Option<PathBuf>,
-}
-
-/// Un agent fourni par Oku Slides lui-même, sans programme externe.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Builtin {
-    /// L'agent local de repli (`oku-slides-local-agent`), lancé par ce binaire.
-    Local,
-}
-
-/// Un agent proposé : son nom affiché et comment le lancer.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[non_exhaustive]
-pub struct AgentPreset {
-    /// Nom propre affiché tel quel (pas traduit).
-    pub name: String,
-    /// Programme lancé (cherché dans le `PATH`) ; vide pour un agent intégré.
-    #[serde(default)]
-    pub command: String,
-    /// Arguments du programme.
-    #[serde(default)]
-    pub args: Vec<String>,
-    /// Agent intégré : exclusif de `command`.
-    #[serde(default)]
-    pub builtin: Option<Builtin>,
-}
-
-impl AgentPreset {
-    /// Un agent proposé (tests, outils).
-    pub fn new(name: impl Into<String>, command: impl Into<String>, args: Vec<String>) -> Self {
-        Self { name: name.into(), command: command.into(), args, builtin: None }
-    }
-
-    /// Un agent intégré à Oku Slides.
-    pub fn builtin(name: impl Into<String>, builtin: Builtin) -> Self {
-        Self { name: name.into(), command: String::new(), args: Vec::new(), builtin: Some(builtin) }
-    }
-}
-
-impl AgentSettings {
-    /// The active agent. `selected` is checked on load: its absence is a broken invariant.
-    ///
-    /// # Panics
-    ///
-    /// If `selected` names no agent of `presets`, which loading already rejects.
-    #[must_use]
-    #[expect(clippy::panic, reason = "invariant checked on load; an absence is a bug, not an error to report")]
-    pub fn active(&self) -> &AgentPreset {
-        self.presets.get(&self.selected).unwrap_or_else(|| panic!("agent.selected = {:?} non vérifié", self.selected))
-    }
-
-    /// `selected` désigne-t-il un agent de la liste ? Sinon, le message de l'erreur.
-    fn check(&self) -> Result<(), String> {
-        for (id, preset) in &self.presets {
-            if preset.command.is_empty() == preset.builtin.is_none() {
-                return Err(format!("[agent.presets.{id}] needs exactly one of command or builtin"));
-            }
-        }
-        if self.presets.contains_key(&self.selected) {
-            return Ok(());
-        }
-        let known: Vec<&str> = self.presets.keys().map(String::as_str).collect();
-        Err(format!(
-            "agent.selected = {:?} names no [agent.presets] entry (known: {})",
-            self.selected,
-            known.join(", ")
-        ))
-    }
 }
 
 impl Settings {
@@ -613,10 +537,13 @@ impl Settings {
         if let Some(path) = file {
             builder = builder.add_source(config::File::from(path).format(config::FileFormat::Toml).required(false));
         }
-        let settings: Self =
-            builder.add_source(env).build().and_then(config::Config::try_deserialize).context(ConfigSnafu)?;
-        settings.agent.check().map_err(config::ConfigError::Message).context(ConfigSnafu)?;
-        Ok(settings)
+        let config = builder.add_source(env).build().context(ConfigSnafu)?;
+        // `[agent]` is checked here first: inside `try_deserialize`, config-rs would append
+        // " for key `agent`" to the message. A raw shape error is left to `try_deserialize`.
+        if let Ok(raw) = config.get::<agent::RawAgentSettings>("agent") {
+            raw.check().map_err(|e| config::ConfigError::Message(e.to_string())).context(ConfigSnafu)?;
+        }
+        config.try_deserialize().context(ConfigSnafu)
     }
 }
 

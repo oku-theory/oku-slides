@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }: mã “{ $id }” bị trùng
 session-agent-form-not-hex-color = { $at }: “{ $value }” không phải màu hex (#rgb, #rgba, #rrggbb hoặc #rrggbbaa)
 session-agent-form-not-paragraphs = { $at }: giá trị định dạng phải là danh sách đoạn văn
 session-agent-form-not-finite = { $at }: min và max phải là số hữu hạn
+session-agent-form-not-safe-integer = { $at }: min và max phải là số nguyên từ -9007199254740991 đến 9007199254740991
 session-agent-form-bounds-inverted = { $at }: min ({ $min }) phải nhỏ hơn max ({ $max })
 session-agent-form-malformed = { $at }: dạng không mong đợi ({ $detail })
 session-agent-form-refused = { $at }: { $reason }

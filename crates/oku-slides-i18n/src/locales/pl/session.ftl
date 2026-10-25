@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }: identyfikator „{ $id }” się powt
 session-agent-form-not-hex-color = { $at }: „{ $value }” nie jest kolorem szesnastkowym (#rgb, #rgba, #rrggbb lub #rrggbbaa)
 session-agent-form-not-paragraphs = { $at }: wartość sformatowana musi być listą akapitów
 session-agent-form-not-finite = { $at }: min i max muszą być liczbami skończonymi
+session-agent-form-not-safe-integer = { $at }: min i max muszą być liczbami całkowitymi od -9007199254740991 do 9007199254740991
 session-agent-form-bounds-inverted = { $at }: min ({ $min }) musi być mniejsze niż max ({ $max })
 session-agent-form-malformed = { $at }: nieoczekiwana postać ({ $detail })
 session-agent-form-refused = { $at }: { $reason }

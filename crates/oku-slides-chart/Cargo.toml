@@ -19,6 +19,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 speculoos.workspace = true
+rstest.workspace = true
 oku-slides-platform.workspace = true
 
 [lints]

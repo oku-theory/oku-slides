@@ -149,3 +149,5 @@ voice-error-api-reserved = المستخدم وحده يضبط عنوان الو�
 voice-error-changed = تغيّرت الإعدادات منذ السؤال: اسأل مجددًا
 voice-error-nothing-to-download = لا شيء لتنزيله لهذا الوكيل
 agent-tune-prompt = اضبط العرض التقديمي المستورد بدقة
+agent-settings-unknown-selected = الإعداد agent.selected = { $selected } لا يشير إلى أي وكيل في [agent.presets] (المعروفة: { $known })
+agent-settings-preset-launch = يحتاج الوكيل [agent.presets.{ $id }] إلى واحد فقط من command أو builtin

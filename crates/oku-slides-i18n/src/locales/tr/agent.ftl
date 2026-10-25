@@ -135,3 +135,5 @@ voice-error-api-reserved = API adresini ve anahtar değişkenini yalnızca kulla
 voice-error-changed = Ayarlar sorudan bu yana değişti: yeniden sorun
 voice-error-nothing-to-download = Bu ajan için indirilecek bir şey yok
 agent-tune-prompt = İçe aktarılan sunumu ince ayarla
+agent-settings-unknown-selected = agent.selected = { $selected } ayarı [agent.presets] içindeki hiçbir ajanı göstermiyor (bilinenler: { $known })
+agent-settings-preset-launch = [agent.presets.{ $id }] ajanı command veya builtin değerlerinden tam olarak birine ihtiyaç duyar

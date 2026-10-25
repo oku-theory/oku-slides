@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { A2uiSurface } from "@a2ui/react/v0_9";
 import type { A2uiClientAction, A2uiMessage, ComponentApi, SurfaceModel } from "@a2ui/web_core/v0_9";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import { CheckedSlider, catalog } from "./catalog";
+import { CheckedSlider, CheckedStepper, catalog } from "./catalog";
 import { dataUpdate, groupByRoot, isNested, liftGroup } from "./liftPatch";
 import type { OpenMemory } from "./openMemory";
 import { OpenMemoryContext } from "./openMemory";
@@ -21,16 +21,19 @@ export interface Built {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
-/** Le message d'erreur du premier Slider dont les bornes sont inversées ou égales, s'il y en a un. */
-function invalidSlider(messages: A2uiMessage[]): string | null {
+/** Schemas checking the order of a ranged component's effective bounds, by component name. */
+const RANGED = { Slider: CheckedSlider, Stepper: CheckedStepper } as const;
+
+/** The error of the first Slider or Stepper whose effective bounds are inverted or equal, if any. */
+function invalidRange(messages: A2uiMessage[]): string | null {
   for (const m of messages as unknown[]) {
     const components = isRecord(m) && isRecord(m.updateComponents) ? m.updateComponents.components : undefined;
     if (!Array.isArray(components)) continue;
     for (const c of components) {
-      if (!isRecord(c) || c.component !== "Slider") continue;
-      const { id: _id, component: _component, ...props } = c;
-      const r = CheckedSlider.safeParse(props);
-      if (!r.success) return `Slider ${String(c.id)}: ${r.error.issues.map((i) => i.message).join(", ")}`;
+      if (!isRecord(c) || (c.component !== "Slider" && c.component !== "Stepper")) continue;
+      const { id: _id, component, ...props } = c;
+      const r = RANGED[component].safeParse(props);
+      if (!r.success) return `${component} ${String(c.id)}: ${r.error.issues.map((i) => i.message).join(", ")}`;
     }
   }
   return null;
@@ -43,7 +46,7 @@ export function buildSurface(
   onAction: (action: A2uiClientAction) => void,
 ): Built {
   if (messages.length === 0) return { processor: null, surface: null, error: null };
-  const invalid = invalidSlider(messages);
+  const invalid = invalidRange(messages);
   if (invalid) return { processor: null, surface: null, error: invalid };
   const processor = new MessageProcessor([catalog], onAction);
   const get = () => (processor.model.surfacesMap.get(surfaceId) as SurfaceModel<never> | undefined) ?? null;
@@ -105,7 +108,7 @@ export function SurfaceView({
     if (current && current.surfaceId === surfaceId && prolongs(current.done, messages)) {
       const tail = messages.slice(current.done.length);
       try {
-        const invalid = invalidSlider(tail);
+        const invalid = invalidRange(tail);
         if (invalid) throw new Error(invalid);
         // Groupe par groupe : les écritures imbriquées consécutives d'une clé racine se relèvent
         // ensemble (une seule copie de `/steps`) d'après le modèle laissé par le groupe précédent ;

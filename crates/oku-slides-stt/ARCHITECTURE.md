@@ -9,7 +9,9 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
   through a static Swift bridge (`swift/`, `build.rs`, `apple.rs`).
   Language resolved by `locale.rs`, installed by the system.
   Building on macOS needs Xcode with the macOS 26 SDK or later; the app
-  runs from macOS 12 (Whisper only before macOS 26).
+  runs from macOS 12 (Whisper only before macOS 26). Off macOS, `#[cfg]` leaves out
+  what only the bridge produces (`stream::raw`, the result events, `Availability::Ready`,
+  `SpeechDenied`).
 - **Whisper** (Turbo, Large, Base): CTranslate2 (`whisper.rs`), models
   downloaded from Hugging Face by `oku_slides_platform::models` (`models.rs` lists the files),
   sentence by sentence (`dictation_whisper.rs`).

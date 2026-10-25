@@ -141,3 +141,5 @@ voice-error-api-reserved = Só o usuário define o endereço e a variável da ch
 voice-error-changed = As configurações mudaram desde a pergunta: pergunte de novo
 voice-error-nothing-to-download = Nada a baixar para este agente
 agent-tune-prompt = Afinar a apresentação importada
+agent-settings-unknown-selected = A configuração agent.selected = { $selected } não indica nenhum agente de [agent.presets] (conhecidos: { $known })
+agent-settings-preset-launch = O agente [agent.presets.{ $id }] precisa de exatamente um entre command e builtin

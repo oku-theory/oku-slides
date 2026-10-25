@@ -94,6 +94,41 @@ fn params_with_a_rich_field_sends_its_source_paragraphs() {
     assert_that!(serde_json::to_string(&s.messages).unwrap().as_str()).contains("\"path\":\"/f0-source\"");
 }
 
+fn stepper_spec(bounds: &Value) -> ShowParams {
+    let mut field = json!({ "label": "Colonnes", "kind": "stepper", "value": 4, "op_template": null });
+    field.as_object_mut().unwrap().extend(bounds.as_object().unwrap().clone());
+    serde_json::from_value(json!({ "title": "T", "slide": "", "fields": [field] })).unwrap()
+}
+
+/// The `Stepper` component `params` sends, as JSON.
+fn sent_stepper(bounds: &Value) -> Value {
+    let s = params("show-1", &stepper_spec(bounds), &[], &fr());
+    let messages = serde_json::to_value(&s.messages).unwrap();
+    let components = messages.as_array().unwrap().iter().filter_map(|m| m["updateComponents"]["components"].as_array());
+    components.flatten().find(|c| c["component"] == "Stepper").unwrap().clone()
+}
+
+#[rstest::rstest]
+#[case::no_bound(json!({}), 1, 24)]
+#[case::min_only(json!({ "min": 2.6 }), 3, 24)]
+#[case::max_only(json!({ "max": 6 }), 1, 6)]
+fn params_stepper_sends_explicit_rounded_bounds(#[case] bounds: Value, #[case] min: i64, #[case] max: i64) {
+    let c = sent_stepper(&bounds);
+    assert_that!((c["min"].as_i64(), c["max"].as_i64())).is_equal_to((Some(min), Some(max)));
+}
+
+#[test]
+fn stepper_defaults_equal_those_of_the_ui_catalog() {
+    let catalog = include_str!("../../../../ui/src/a2ui/catalog.tsx");
+    let expected = [
+        format!("export const STEPPER_DEFAULT_MIN = {};", super::STEPPER_DEFAULT_MIN),
+        format!("export const STEPPER_DEFAULT_MAX = {};", super::STEPPER_DEFAULT_MAX),
+    ];
+    for line in expected {
+        assert_that!(catalog).contains(line.as_str());
+    }
+}
+
 fn host_spec() -> ShowParams {
     serde_json::from_value(json!({ "title": "T", "slide": "", "fields": [
         { "label": "Titre", "kind": "text", "value": "x", "op_template": null }

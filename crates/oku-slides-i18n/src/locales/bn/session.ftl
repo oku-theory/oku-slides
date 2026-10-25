@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }: আইডি “{ $id }” দুব�
 session-agent-form-not-hex-color = { $at }: “{ $value }” কোনো হেক্স রং নয় (#rgb, #rgba, #rrggbb বা #rrggbbaa)
 session-agent-form-not-paragraphs = { $at }: ফরম্যাট করা মান অনুচ্ছেদের তালিকা হতে হবে
 session-agent-form-not-finite = { $at }: min ও max সসীম সংখ্যা হতে হবে
+session-agent-form-not-safe-integer = { $at }: min ও max -9007199254740991 থেকে 9007199254740991-এর মধ্যে পূর্ণসংখ্যা হতে হবে
 session-agent-form-bounds-inverted = { $at }: min ({ $min }) অবশ্যই max ({ $max })-এর চেয়ে ছোট হতে হবে
 session-agent-form-malformed = { $at }: অপ্রত্যাশিত গঠন ({ $detail })
 session-agent-form-refused = { $at }: { $reason }

@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }: ตัวระบุ “{ $id }” �
 session-agent-form-not-hex-color = { $at }: “{ $value }” ไม่ใช่สีฐานสิบหก (#rgb, #rgba, #rrggbb หรือ #rrggbbaa)
 session-agent-form-not-paragraphs = { $at }: ค่าแบบจัดรูปแบบต้องเป็นรายการย่อหน้า
 session-agent-form-not-finite = { $at }: min และ max ต้องเป็นจำนวนจำกัด
+session-agent-form-not-safe-integer = { $at }: min และ max ต้องเป็นจำนวนเต็มระหว่าง -9007199254740991 ถึง 9007199254740991
 session-agent-form-bounds-inverted = { $at }: min ({ $min }) ต้องน้อยกว่า max ({ $max })
 session-agent-form-malformed = { $at }: รูปแบบไม่ตรงที่คาดไว้ ({ $detail })
 session-agent-form-refused = { $at }: { $reason }

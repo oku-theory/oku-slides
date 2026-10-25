@@ -30,6 +30,7 @@ mod locale;
 mod models;
 mod num;
 mod phrase_engine;
+#[cfg(any(test, target_os = "macos"))]
 mod results;
 mod stream;
 #[cfg(test)]
@@ -406,7 +407,7 @@ impl Stt {
 
     fn model_info(&self, model: Model, installed: bool, g: &Inner) -> ModelInfo {
         let (installed, available) = match model {
-            Model::Apple => (matches!(g.apple, Some((_, Availability::Ready))), g.apple.is_some()),
+            Model::Apple => (g.apple.as_ref().is_some_and(|(_, a)| a.is_ready()), g.apple.is_some()),
             // « Installée » : la clé est là ; elle n'est jamais rendue.
             Model::Api => (g.config.api.key_present(), true),
             _ => (installed, true),
@@ -505,7 +506,7 @@ impl Stt {
         };
         if model == Model::Apple {
             match apple {
-                Some((_, Availability::Ready)) => self.begin_recording(),
+                Some((_, a)) if a.is_ready() => self.begin_recording(),
                 Some(_) => {
                     // Rien à dire de plus : l'échec est déjà signalé dans l'état.
                     let _started = self.download(Model::Apple, true);

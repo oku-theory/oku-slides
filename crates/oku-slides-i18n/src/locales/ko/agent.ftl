@@ -135,3 +135,5 @@ voice-error-api-reserved = API 주소와 키 변수는 사용자만 설정합니
 voice-error-changed = 질문 이후 설정이 바뀌었습니다. 다시 물어보세요
 voice-error-nothing-to-download = 이 에이전트에는 다운로드할 것이 없습니다
 agent-tune-prompt = 가져온 프레젠테이션 미세 조정
+agent-settings-unknown-selected = 설정 agent.selected = { $selected }은(는) [agent.presets]의 어떤 에이전트도 가리키지 않습니다(알려진 항목: { $known })
+agent-settings-preset-launch = 에이전트 [agent.presets.{ $id }]에는 command와 builtin 중 정확히 하나가 필요합니다

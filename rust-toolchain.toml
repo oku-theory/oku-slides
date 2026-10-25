@@ -1,0 +1,8 @@
+# Same toolchain as CI (dtolnay/rust-toolchain pins in .github/workflows): pedantic clippy runs
+# with -D warnings, so a newer local clippy would break `just check` (t-1201). llvm-tools: swift-rs
+# needs llvm-objcopy to export the Swift bridge's @_cdecl symbols on Xcode 27; rust-src serves
+# rust-analyzer.
+[toolchain]
+channel = "1.98.1"
+components = ["clippy", "rustfmt", "llvm-tools", "rust-src"]
+profile = "minimal"

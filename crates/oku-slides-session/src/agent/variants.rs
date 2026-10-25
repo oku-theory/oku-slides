@@ -97,24 +97,23 @@ fn check_field(i: usize, field: &ParamField) -> Result<()> {
     if matches!(field.kind, FieldKind::Slider | FieldKind::Stepper) {
         let finite = [field.min, field.max].into_iter().flatten().all(f64::is_finite);
         ensure!(finite, AgentFormSnafu { reason: AgentFormReason::NotFinite { at: format!("fields[{i}]") } });
-        // A `Stepper` without a bound passes `None` to the component, which falls
-        // back on 1 and 24 (`ui/src/a2ui/catalog.tsx`): only the two bounds present
-        // are compared here. A `Slider`, however, falls back on `forms::SLIDER_DEFAULT_*`
-        // when a bound is missing (`forms::params`): so the same effective values are
-        // compared, otherwise a single bound (e.g. `min: Some(150.0), max: None`)
-        // would pass validation and still produce an inverted range on display.
-        let bounds = match field.kind {
-            FieldKind::Slider => {
-                Some((field.min.unwrap_or(forms::SLIDER_DEFAULT_MIN), field.max.unwrap_or(forms::SLIDER_DEFAULT_MAX)))
-            }
-            _ => field.min.zip(field.max),
+        // Both kinds compare exactly the bounds `forms::field_components` sends, defaults applied,
+        // so that a single bound (e.g. `min: 30` with no `max`) cannot pass validation and still
+        // show an inverted range. A `Slider` sends `f64` bounds; a `Stepper` sends rounded `i64`
+        // bounds (`forms::stepper_bounds`), which must also stay exact once parsed by JavaScript.
+        let (min, max) = if field.kind == FieldKind::Slider {
+            (field.min.unwrap_or(forms::SLIDER_DEFAULT_MIN), field.max.unwrap_or(forms::SLIDER_DEFAULT_MAX))
+        } else {
+            let (min, max) = forms::stepper_bounds(field);
+            let safe = [min, max].iter().all(|b| b.unsigned_abs() <= forms::JS_MAX_SAFE_INTEGER);
+            ensure!(safe, AgentFormSnafu { reason: AgentFormReason::NotSafeInteger { at: format!("fields[{i}]") } });
+            // Safe integers convert to `f64` exactly: comparing them is comparing the `i64` sent.
+            (oku_slides_core::num::int_f64(min), oku_slides_core::num::int_f64(max))
         };
-        if let Some((min, max)) = bounds {
-            ensure!(
-                min < max,
-                AgentFormSnafu { reason: AgentFormReason::BoundsInverted { at: format!("fields[{i}]"), min, max } }
-            );
-        }
+        ensure!(
+            min < max,
+            AgentFormSnafu { reason: AgentFormReason::BoundsInverted { at: format!("fields[{i}]"), min, max } }
+        );
     }
     Ok(())
 }

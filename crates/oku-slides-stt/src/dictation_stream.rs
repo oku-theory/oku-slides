@@ -14,7 +14,9 @@ use oku_slides_i18n::Localize;
 
 use crate::error::{AnalyzerSnafu, AssetInstallSnafu, CancelledSnafu, FinishTimeoutSnafu, LocaleUnsupportedSnafu};
 use crate::stream::{Availability, Event, Stream};
-use crate::{Download, Inner, Model, SAMPLE_RATE, State, Stt, SttError, TimedPhrase, clean, join, results};
+use crate::{Download, Inner, Model, SAMPLE_RATE, State, Stt, SttError, TimedPhrase, join};
+#[cfg(any(test, target_os = "macos"))]
+use crate::{clean, results};
 
 /// Flux confié par `listen_loop` après `finish`, gardé jusqu'à sa fin.
 pub(crate) type Held = Arc<Mutex<Option<Box<dyn Stream>>>>;
@@ -45,6 +47,7 @@ impl Stt {
                 return;
             }
             match event {
+                #[cfg(any(test, target_os = "macos"))]
                 Ok(Event::Done) => {
                     g.complete();
                     return;
@@ -53,6 +56,7 @@ impl Stt {
                     self.fail(&mut g, &e);
                     return;
                 }
+                #[cfg(any(test, target_os = "macos"))]
                 Ok(event) => {
                     let Inner { phrases, partial, .. } = &mut *g;
                     results::apply(phrases, partial, &event);
@@ -123,12 +127,17 @@ impl Stt {
         let events = self.streaming.install(tag);
         loop {
             match events.recv_timeout(Duration::from_millis(self.settings.tick_ms)) {
+                #[cfg(any(test, target_os = "macos"))]
                 Ok(Event::Progress { received, total }) => {
                     self.state().download = Some(Download { model: Model::Apple, received, total });
                 }
+                #[cfg(any(test, target_os = "macos"))]
                 Ok(Event::Done) => return Ok(()),
                 Ok(Event::Failed(e)) => return Err(e),
-                Ok(_) | Err(RecvTimeoutError::Timeout) => {}
+                // Only an open dictation sends texts.
+                #[cfg(any(test, target_os = "macos"))]
+                Ok(_) => {}
+                Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => return AssetInstallSnafu { reason: "bridge closed" }.fail()?,
             }
             if self.cancel_download.load(Ordering::Relaxed) {
@@ -160,17 +169,28 @@ impl Stt {
         }
         stream.finish();
         let timeout = Duration::from_secs_f32(self.settings.apple_finish_timeout_secs);
+        #[cfg_attr(
+            not(any(test, target_os = "macos")),
+            expect(unused_mut, reason = "only the Apple engine sends final texts")
+        )]
         let mut phrases: Vec<TimedPhrase> = Vec::new();
+        #[cfg_attr(
+            not(any(test, target_os = "macos")),
+            expect(clippy::never_loop, reason = "without the Apple engine, the only event is a failure")
+        )]
         let ended: Result<(), SttError> = loop {
             match events.recv_timeout(timeout) {
+                #[cfg(any(test, target_os = "macos"))]
                 Ok(Event::Final { text, start, end }) => {
                     let text = clean(&text);
                     if !text.is_empty() {
                         phrases.push((start, end, text));
                     }
                 }
+                #[cfg(any(test, target_os = "macos"))]
                 Ok(Event::Done) => break Ok(()),
                 Ok(Event::Failed(e)) => break Err(e),
+                #[cfg(any(test, target_os = "macos"))]
                 Ok(_) => {}
                 Err(RecvTimeoutError::Timeout) => break Err(FinishTimeoutSnafu.build().into()),
                 Err(RecvTimeoutError::Disconnected) => {

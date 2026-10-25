@@ -19,7 +19,7 @@
 
 ## Pitfalls
 
-- Keep agent.selected among agent.presets when tests edit settings by hand, or active() panics. (plan:2026-10-10-agent-panneau-configuration)
+- Bump rust-toolchain.toml with every CI dtolnay/rust-toolchain pin (tag and SHA forms), fixing new lints in that commit. (t-1201)
 - Do not add create_dir_all or exists checks around storage; write_atomic, list_files and delete handle absence. (plan:2026-10-08-sessions-par-perspective)
 
 ## Testing

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use oku_slides_mcp::{Origin, VoiceApplied, VoiceErrorKind, VoicePort};
-use oku_slides_platform::config::AgentPreset;
+use oku_slides_platform::config::{AgentPreset, AgentSettings};
 use oku_slides_session::{DictationLanguage, DictationPatch, VoiceEvent};
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -46,9 +46,8 @@ pub(crate) fn build(with_stt: bool, tweak: impl FnOnce(&mut oku_slides_session::
     let mut settings = oku_slides_session::Settings::defaults().unwrap();
     settings.paths.data = Some(data.clone());
     settings.paths.decks = Some(data.join("decks"));
-    settings.agent.presets =
-        [("faux".to_owned(), preset("Faux")), ("bis".to_owned(), preset("Bis"))].into_iter().collect();
-    settings.agent.selected = "faux".into();
+    let presets = [("faux".to_owned(), preset("Faux")), ("bis".to_owned(), preset("Bis"))].into_iter().collect();
+    settings.agent = AgentSettings::new("faux", presets).unwrap();
     settings.i18n.locale = Some("fr".into());
     settings.stt.apple = false;
     tweak(&mut settings);

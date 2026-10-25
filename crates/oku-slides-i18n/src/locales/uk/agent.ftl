@@ -145,3 +145,5 @@ voice-error-api-reserved = Адресу API та змінну ключа зад�
 voice-error-changed = Налаштування змінилися після запитання: запитайте знову
 voice-error-nothing-to-download = Для цього агента нічого завантажувати
 agent-tune-prompt = Доопрацювати імпортовану презентацію
+agent-settings-unknown-selected = Параметр agent.selected = { $selected } не вказує на жодного агента з [agent.presets] (відомі: { $known })
+agent-settings-preset-launch = Агентові [agent.presets.{ $id }] потрібен рівно один із параметрів command або builtin

@@ -5890,6 +5890,7 @@ dependencies = [
  "json-patch",
  "oku-slides-i18n",
  "oku-slides-platform",
+ "rstest",
  "schemars 1.2.2",
  "serde",
  "serde_json",

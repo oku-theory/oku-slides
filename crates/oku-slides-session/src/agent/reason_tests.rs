@@ -67,6 +67,11 @@ fn refused() -> oku_slides_core::TransactionError {
     "fields[1]: min and max must be finite numbers",
     "fields[1] : min et max doivent être des nombres finis"
 )]
+#[case::not_safe_integer(
+    NotSafeInteger { at: at("fields[1]") },
+    "fields[1]: min and max must be whole numbers from -9007199254740991 to 9007199254740991",
+    "fields[1] : min et max doivent être des nombres entiers entre -9007199254740991 et 9007199254740991"
+)]
 #[case::bounds_inverted(
     BoundsInverted { at: at("fields[1]"), min: 10.0, max: 2.5 },
     "fields[1]: min (10) must be less than max (2.5)",

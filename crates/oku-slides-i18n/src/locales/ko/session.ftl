@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }: ID “{ $id }”이(가) 중복됩니
 session-agent-form-not-hex-color = { $at }: “{ $value }”은(는) 16진수 색상이 아닙니다(#rgb, #rgba, #rrggbb 또는 #rrggbbaa)
 session-agent-form-not-paragraphs = { $at }: 서식 있는 값은 단락 목록이어야 합니다
 session-agent-form-not-finite = { $at }: min과 max는 유한한 수여야 합니다
+session-agent-form-not-safe-integer = { $at }: min과 max는 -9007199254740991에서 9007199254740991 사이의 정수여야 합니다
 session-agent-form-bounds-inverted = { $at }: min({ $min })은 max({ $max })보다 작아야 합니다
 session-agent-form-malformed = { $at }: 예상하지 못한 형식입니다({ $detail })
 session-agent-form-refused = { $at }: { $reason }

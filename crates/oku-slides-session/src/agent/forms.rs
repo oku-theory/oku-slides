@@ -249,10 +249,29 @@ pub const FIELDS: (usize, usize) = (1, 8);
 pub const SELECT_OPTIONS_MAX: usize = 100;
 /// Bornes du nombre d'opérations d'une variante (contre un lot démesuré venant de l'agent).
 pub const OPS: (usize, usize) = (1, 50);
-/// Bornes par défaut d'un `Slider` sans `min`/`max`. Partagées avec
-/// `variants::check_field`, pour valider les mêmes valeurs que celles rendues.
+/// Lower bound of a `Slider` without `min`, passed to the component by `field_components`.
+///
+/// Shared with `variants::check_field`, which validates the same bounds as those rendered.
 pub(crate) const SLIDER_DEFAULT_MIN: f64 = 0.0;
+/// Upper bound of a `Slider` without `max`; see `SLIDER_DEFAULT_MIN`.
 pub(crate) const SLIDER_DEFAULT_MAX: f64 = 100.0;
+/// Lower bound of a `Stepper` without `min`, passed to the component by `field_components`.
+///
+/// Equal to `STEPPER_DEFAULT_MIN` in `ui/src/a2ui/catalog.tsx`, the UI's own fallback.
+pub(crate) const STEPPER_DEFAULT_MIN: f64 = 1.0;
+/// Upper bound of a `Stepper` without `max`; see `STEPPER_DEFAULT_MIN`.
+pub(crate) const STEPPER_DEFAULT_MAX: f64 = 24.0;
+/// Largest integer a JavaScript number holds exactly (`Number.MAX_SAFE_INTEGER`).
+pub(crate) const JS_MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
+
+/// Integer bounds a `Stepper` field sends, defaults applied for a missing one.
+///
+/// Single source for `field_components` (what is rendered) and `variants::check_field` (what is
+/// validated). Out-of-range values saturate to `i64` bounds; validation refuses them.
+pub(crate) fn stepper_bounds(f: &ParamField) -> (i64, i64) {
+    let round = oku_slides_core::num::round_i64;
+    (round(f.min.unwrap_or(STEPPER_DEFAULT_MIN)), round(f.max.unwrap_or(STEPPER_DEFAULT_MAX)))
+}
 
 /// Surface : création, composants, modèle de données.
 pub(crate) fn surface(
@@ -540,13 +559,10 @@ pub(crate) fn field_components(
     let action = Some(event.action("value", &path));
     let label = Dynamic::Literal(f.label.clone());
     let kind = match f.kind {
-        FieldKind::Stepper => ComponentKind::Stepper {
-            label,
-            value: Dynamic::path(&path),
-            min: f.min.map(oku_slides_core::num::round_i64),
-            max: f.max.map(oku_slides_core::num::round_i64),
-            action,
-        },
+        FieldKind::Stepper => {
+            let (min, max) = stepper_bounds(f);
+            ComponentKind::Stepper { label, value: Dynamic::path(&path), min: Some(min), max: Some(max), action }
+        }
         FieldKind::Slider => ComponentKind::Slider {
             label,
             value: Dynamic::path(&path),

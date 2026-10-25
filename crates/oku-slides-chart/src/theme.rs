@@ -56,14 +56,18 @@ impl Default for ChartTheme {
     }
 }
 
-/// Convertit `#rgb`, `#rrggbb` ou `#rrggbbaa` (charts-rs ignore l'alpha des
-/// chaînes hexadécimales, d'où ce parseur).
+/// Converts `#rgb`, `#rrggbb` or `#rrggbbaa` (charts-rs ignores the alpha of hex strings).
+///
+/// Never panics. Digits are read byte by byte and only `0-9a-fA-F` counts, so a sign, a
+/// non-ASCII byte or any other character makes its component read as 0. A fully invalid color
+/// is therefore opaque black, except at 8 bytes, where the alpha reads 0 too (transparent).
 pub(crate) fn color(hex: &str) -> charts_rs::Color {
-    let h = hex.trim().trim_start_matches('#');
-    let byte = |i: usize| u8::from_str_radix(h.get(i..i + 2).unwrap_or("00"), 16).unwrap_or(0);
+    let h = hex.trim().trim_start_matches('#').as_bytes();
+    let nibble = |i: usize| h.get(i).copied().and_then(hex_digit);
+    let byte = |i: usize| nibble(i).zip(nibble(i + 1)).map_or(0, |(hi, lo)| hi * 16 + lo);
     match h.len() {
         3 => {
-            let d = |i: usize| u8::from_str_radix(&h[i..=i], 16).unwrap_or(0) * 17;
+            let d = |i: usize| nibble(i).map_or(0, |n| n * 17);
             (d(0), d(1), d(2)).into()
         }
         8 => (byte(0), byte(2), byte(4), byte(6)).into(),
@@ -71,6 +75,20 @@ pub(crate) fn color(hex: &str) -> charts_rs::Color {
     }
 }
 
+/// Value of one ASCII hex digit, `None` for any other byte.
+fn hex_digit(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
 pub(crate) fn transparent() -> charts_rs::Color {
     (255, 255, 255, 0).into()
 }
+
+#[cfg(test)]
+#[path = "theme_tests.rs"]
+mod theme_tests;

@@ -54,6 +54,28 @@ fn parse_wav_without_data_chunk_returns_audio_file_error() {
 }
 
 #[test]
+fn parse_wav_data_before_fmt_returns_audio_file_error() {
+    let bytes = wav(8000, 1, &[0, 1]);
+    let (header, rest) = bytes.split_at(12);
+    let (fmt, data) = rest.split_at(24);
+    let reordered = [header, data, fmt].concat();
+    assert_that!(parse_wav(&reordered).map(|_| ()).unwrap_err().kind()).is_equal_to(SttErrorKind::AudioFile);
+}
+
+#[rstest::rstest]
+#[case::eight_channels(8, true)]
+#[case::nine_channels(9, false)]
+fn parse_wav_channel_count_is_capped_at_8(#[case] channels: u16, #[case] ok: bool) {
+    assert_that!(parse_wav(&wav(8000, channels, &[0, 1])).is_ok()).is_equal_to(ok);
+}
+
+#[test]
+fn parse_wav_zero_rate_returns_audio_file_error() {
+    let bytes = wav(0, 1, &[0, 1]);
+    assert_that!(parse_wav(&bytes).map(|_| ()).unwrap_err().kind()).is_equal_to(SttErrorKind::AudioFile);
+}
+
+#[test]
 fn recorder_fake_mic_replays_the_file_then_silence() {
     let dir = crate::test_support::fresh_dir("oku-slides-fake-mic-");
     let storage = Storage::local().unwrap();

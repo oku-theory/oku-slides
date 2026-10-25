@@ -41,7 +41,8 @@ pub(crate) fn trunc_usize(x: f64) -> usize {
     x as usize
 }
 
-/// Like [`trunc_usize`], as `u64`.
+/// Like [`trunc_usize`], as `u64`; only the Apple bridge counts in `u64`.
+#[cfg(any(test, target_os = "macos"))]
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,

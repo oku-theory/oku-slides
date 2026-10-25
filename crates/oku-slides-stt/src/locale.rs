@@ -16,9 +16,9 @@ pub(crate) fn resolve(
         Some(language) => vec![language],
         None => [Some(ui), system].into_iter().flatten().collect(),
     };
-    candidates.into_iter().find_map(|tag| match availability(tag) {
-        Availability::Unsupported => None,
-        found => Some((tag.to_owned(), found)),
+    candidates.into_iter().find_map(|tag| {
+        let found = availability(tag);
+        (found != Availability::Unsupported).then(|| (tag.to_owned(), found))
     })
 }
 

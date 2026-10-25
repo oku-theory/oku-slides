@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }：ID「{ $id }」が重複していま
 session-agent-form-not-hex-color = { $at }：「{ $value }」は 16 進カラーではありません（#rgb、#rgba、#rrggbb、#rrggbbaa）
 session-agent-form-not-paragraphs = { $at }：書式付きの値は段落のリストでなければなりません
 session-agent-form-not-finite = { $at }：min と max は有限の数でなければなりません
+session-agent-form-not-safe-integer = { $at }：min と max は -9007199254740991 から 9007199254740991 までの整数でなければなりません
 session-agent-form-bounds-inverted = { $at }：min（{ $min }）は max（{ $max }）より小さくなければなりません
 session-agent-form-malformed = { $at }：想定外の形式です（{ $detail }）
 session-agent-form-refused = { $at }：{ $reason }

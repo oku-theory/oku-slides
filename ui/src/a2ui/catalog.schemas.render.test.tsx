@@ -8,7 +8,8 @@ import agentSurfaces from "./fixtures/agent-surfaces.json";
 
 // Bun n'évalue pas les imports statiques dans l'ordre écrit : le catalogue se charge
 // après `../test/dom`, par des imports dynamiques.
-const { CATALOG_ID, CheckedSlider, catalog, sixDigits } = await import("./catalog");
+const { CATALOG_ID, CheckedSlider, CheckedStepper, STEPPER_DEFAULT_MAX, STEPPER_DEFAULT_MIN, catalog, sixDigits } =
+  await import("./catalog");
 const { buildSurface } = await import("./SurfaceView");
 
 const surface = (components: unknown[], data: unknown = {}) => [
@@ -191,6 +192,32 @@ describe("validation des entrées de l'agent (t-195)", () => {
       );
     expect(build(0, 10).error).toBeNull();
     expect(build(10, 2).error).toContain("min must be < max");
+  });
+
+  const stepper = (bounds: { min?: number; max?: number }) => ({ label: "n", value: 4, ...bounds });
+  test.each([
+    [{}, true],
+    [{ min: STEPPER_DEFAULT_MAX - 4 }, true],
+    [{ min: 30, max: 40 }, true],
+    [{ min: STEPPER_DEFAULT_MAX + 6 }, false],
+    [{ min: STEPPER_DEFAULT_MAX }, false],
+    [{ max: STEPPER_DEFAULT_MIN - 1 }, false],
+    [{ min: 5, max: 5 }, false],
+    [{ min: 1, max: 2 ** 53 }, false],
+    [{ min: 1e19, max: 2e19 }, false],
+  ])("Stepper %j : bornes effectives valides = %p, une borne absente prenant sa valeur par défaut (t-1204)", (bounds, ok) => {
+    expect(CheckedStepper.safeParse(stepper(bounds)).success).toBe(ok);
+  });
+
+  test("buildSurface refuse une surface dont un Stepper a une plage effective inversée (t-1204)", () => {
+    const build = (bounds: { min?: number; max?: number }) =>
+      buildSurface(
+        surface([{ id: "root", component: "Stepper", label: "n", value: 4, ...bounds }]) as Parameters<typeof buildSurface>[0],
+        "s",
+        () => {},
+      );
+    expect(build({ min: 2 }).error).toBeNull();
+    expect(build({ min: 30 }).error).toContain("min must be < max");
   });
 
   test("ChoiceChips et Select refusent des options aux identifiants en double", () => {

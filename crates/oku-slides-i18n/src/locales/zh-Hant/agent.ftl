@@ -135,3 +135,5 @@ voice-error-api-reserved = 只有使用者可以設定 API 位址和金鑰變數
 voice-error-changed = 提問之後設定已變更：請重新詢問
 voice-error-nothing-to-download = 此代理沒有需要下載的內容
 agent-tune-prompt = 微調匯入的簡報
+agent-settings-unknown-selected = 設定 agent.selected = { $selected } 未指向 [agent.presets] 中的任何 AI 代理（已知：{ $known }）
+agent-settings-preset-launch = AI 代理 [agent.presets.{ $id }] 需要且僅需要 command 或 builtin 其中之一

@@ -81,6 +81,7 @@ session-agent-form-duplicate-id = { $at }: “{ $id }” kimliği yineleniyor
 session-agent-form-not-hex-color = { $at }: “{ $value }” onaltılık bir renk değil (#rgb, #rgba, #rrggbb veya #rrggbbaa)
 session-agent-form-not-paragraphs = { $at }: biçimli bir değer paragraflardan oluşan bir liste olmalı
 session-agent-form-not-finite = { $at }: min ve max sonlu sayılar olmalı
+session-agent-form-not-safe-integer = { $at }: min ve max -9007199254740991 ile 9007199254740991 arasında tam sayılar olmalı
 session-agent-form-bounds-inverted = { $at }: min ({ $min }) max değerinden ({ $max }) küçük olmalı
 session-agent-form-malformed = { $at }: beklenmeyen biçim ({ $detail })
 session-agent-form-refused = { $at }: { $reason }

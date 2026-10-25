@@ -59,12 +59,30 @@ const StepperApi = {
     .object({
       label: CommonSchemas.DynamicString,
       value: CommonSchemas.DynamicNumber,
-      min: z.number().int().optional(),
-      max: z.number().int().optional(),
+      // `.safe()`: zod 3 `.int()` alone accepts 1e19; the host refuses the same range (t-1204).
+      min: z.number().int().safe().optional(),
+      max: z.number().int().safe().optional(),
       action: CommonSchemas.Action.optional(),
     })
     .strict(),
 };
+/**
+ * Lower bound of a Stepper without `min`.
+ *
+ * Equal to `forms::STEPPER_DEFAULT_MIN` in Rust, which a parity test checks.
+ */
+export const STEPPER_DEFAULT_MIN = 1;
+/** Upper bound of a Stepper without `max`; see `STEPPER_DEFAULT_MIN`. */
+export const STEPPER_DEFAULT_MAX = 24;
+/**
+ * The Stepper schema plus the order of its effective bounds.
+ *
+ * A missing bound takes its default; `buildSurface` checks it like `CheckedSlider`.
+ */
+export const CheckedStepper = StepperApi.schema.refine(
+  (s) => (s.min ?? STEPPER_DEFAULT_MIN) < (s.max ?? STEPPER_DEFAULT_MAX),
+  { message: "min must be < max", path: ["min"] },
+);
 const Option = z.object({ id: z.string(), label: z.string(), hint: z.string().optional() }).strict();
 /** Des options aux identifiants uniques : une valeur choisie doit en désigner une seule. */
 const Options = z.array(Option).refine((os) => new Set(os.map((o) => o.id)).size === os.length, {
@@ -298,7 +316,7 @@ const RichText = createComponentImplementation(RichTextFieldApi, ({ props }) => 
 
 /** Petit compteur − valeur + ; l'action part à chaque pas. */
 const Stepper = createComponentImplementation(StepperApi, ({ props }) => {
-  const { label, value, min = 1, max = 24 } = props;
+  const { label, value, min = STEPPER_DEFAULT_MIN, max = STEPPER_DEFAULT_MAX } = props;
   const step = (next: number) => {
     props.setValue(next);
     props.action?.();
