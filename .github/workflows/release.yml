@@ -288,5 +288,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/update-mirror.yml
+    # Without it the called job sees empty update-mirror environment secrets (v5.1.0 run). The repo
+    # has no repository-level secrets, so nothing else is passed; signing keys stay in `release`.
+    secrets: inherit
     with:
       version: ${{ needs.version.outputs.version }}
