@@ -383,7 +383,12 @@ export type SttState = "idle" | "downloading" | "recording" | "transcribing";
 export interface SttApiConfig {
   url: string;
   model: string;
+  /** Empty: no Bearer, the secret goes in a header. */
   key_env: string;
+  /** Query parameters, such as `api-version` for Azure OpenAI. */
+  query: { name: string; value: string }[];
+  /** Custom headers; an `env` value names a variable, never its value. */
+  headers: { name: string; value: { literal: string } | { env: string } }[];
 }
 
 export interface SttConfig {
@@ -399,6 +404,8 @@ export interface SttConfig {
 
 export interface SttStatus {
   state: SttState;
+  /** First API variable not set, by name only. */
+  api_missing: string | null;
   config: SttConfig;
   /** `available` faux : le modèle ne gère pas la langue choisie. */
   models: { id: SttModel; label: string; size: number; installed: boolean; available: boolean }[];

@@ -14,6 +14,7 @@ stt-api-key-missing = Đặt biến môi trường { $var } để dùng API đ�
 stt-api-config = Cài đặt API đọc chính tả không hợp lệ: hãy sửa trong hộp cài đặt.
 stt-api-unreachable = Không thể kết nối tới API đọc chính tả
 stt-api-status = API đọc chính tả đã từ chối yêu cầu (HTTP { $status })
+stt-api-status-detail = API đọc chính tả đã từ chối yêu cầu (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (đa ngôn ngữ, 818 MB)
 stt-model-large = Large v3 (đa ngôn ngữ, 3.1 GB)

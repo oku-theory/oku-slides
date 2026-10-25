@@ -14,6 +14,7 @@ stt-api-key-missing = Set the environment variable { $var } to use the dictation
 stt-api-config = The dictation API settings are invalid: correct them in the settings box.
 stt-api-unreachable = The dictation API cannot be reached
 stt-api-status = The dictation API refused the request (HTTP { $status })
+stt-api-status-detail = The dictation API refused the request (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (multilingual, 818 MB)
 stt-model-large = Large v3 (multilingual, 3.1 GB)

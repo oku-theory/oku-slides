@@ -2107,7 +2107,10 @@
                 "d-api-url",
                 "d-api-model",
                 "d-api-key-env",
+                "d-api-query",
+                "d-api-headers",
                 "d-api-note",
+                "d-api-azure-note",
                 "d-language",
                 "d-silence",
                 "d-note",
@@ -2231,9 +2234,53 @@
               }
             },
             {
+              "id": "d-api-query",
+              "component": "TextField",
+              "label": "Paramètres de requête",
+              "value": {
+                "path": "/api/query"
+              },
+              "action": {
+                "event": {
+                  "name": "api",
+                  "context": {
+                    "field": "query",
+                    "value": {
+                      "path": "/api/query"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "d-api-headers",
+              "component": "TextField",
+              "label": "En-têtes supplémentaires",
+              "value": {
+                "path": "/api/headers"
+              },
+              "action": {
+                "event": {
+                  "name": "api",
+                  "context": {
+                    "field": "headers",
+                    "value": {
+                      "path": "/api/headers"
+                    }
+                  }
+                }
+              }
+            },
+            {
               "id": "d-api-note",
               "component": "Text",
               "text": "Chaque phrase est envoyée à ce service. La clé est lue dans la variable d'environnement au démarrage de la dictée ; une app ouverte depuis le Finder ne voit pas les variables du shell (utilisez launchctl setenv).",
+              "variant": "caption"
+            },
+            {
+              "id": "d-api-azure-note",
+              "component": "Text",
+              "text": "Azure OpenAI : laissez la variable de la clé vide, mettez api-version=… en paramètre et api-key: $AZURE_OPENAI_API_KEY en en-tête. $NAME lit une variable.",
               "variant": "caption"
             },
             {
@@ -2444,7 +2491,9 @@
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
-              "key_env": "OPENAI_API_KEY"
+              "key_env": "OPENAI_API_KEY",
+              "query": "",
+              "headers": ""
             }
           }
         }
@@ -2757,7 +2806,9 @@
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
-              "key_env": "OPENAI_API_KEY"
+              "key_env": "OPENAI_API_KEY",
+              "query": "",
+              "headers": ""
             }
           }
         }
@@ -3074,7 +3125,9 @@
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
-              "key_env": "OPENAI_API_KEY"
+              "key_env": "OPENAI_API_KEY",
+              "query": "",
+              "headers": ""
             }
           }
         }
@@ -3380,7 +3433,9 @@
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
-              "key_env": "OPENAI_API_KEY"
+              "key_env": "OPENAI_API_KEY",
+              "query": "",
+              "headers": ""
             }
           }
         }

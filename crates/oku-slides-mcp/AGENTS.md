@@ -4,7 +4,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
-- Limit agent set_setting to its whitelist of keys; never let it reach the paths section. (spec:2026-09-26-agent-vocal-design)
+- Limit agent set_setting to its whitelist; refuse agent set_dictation on API address, variables, query or headers. (spec:2026-09-26-agent-vocal-design, t-1144, t-1213)
 - Never let agent open replace a tab, and refuse agent save to a file open in another tab. (spec:2026-09-27-agent-onglets-design)
 - Keep Connection: close on the MCP 401 response so unauthenticated clients never hold a connection slot. (plan:2026-10-09-petits-tickets-t678)
 - Route every MCP tool error through Tools::fail_with; never return hardcoded English text. (plan:2026-10-09-tickets-debloques-t598)

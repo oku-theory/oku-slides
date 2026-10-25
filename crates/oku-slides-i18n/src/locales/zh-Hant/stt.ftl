@@ -14,6 +14,7 @@ stt-api-key-missing = 設定環境變數 { $var } 以使用聽寫 API
 stt-api-config = 聽寫 API 的設定無效：請在設定框中更正。
 stt-api-unreachable = 無法連線聽寫 API
 stt-api-status = 聽寫 API 拒絕了請求（HTTP { $status }）
+stt-api-status-detail = 聽寫 API 拒絕了請求（HTTP { $status }）：{ $detail }
 
 stt-model-turbo = Large v3 Turbo（多語言，818 MB）
 stt-model-large = Large v3（多語言，3.1 GB）

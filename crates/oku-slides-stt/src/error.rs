@@ -104,7 +104,7 @@ pub(crate) enum SttInner {
     #[snafu(display("dictation API unreachable"))]
     ApiHttp { source: Box<ureq::Error>, backtrace: Backtrace },
     #[snafu(display("dictation API answered HTTP {status}"))]
-    ApiStatus { status: u16, backtrace: Backtrace },
+    ApiStatus { status: u16, detail: Option<String>, backtrace: Backtrace },
     #[snafu(display("unreadable dictation API answer"))]
     ApiResponse { source: serde_json::Error, backtrace: Backtrace },
 }
@@ -192,7 +192,10 @@ impl Localize for SttError {
             ApiKeyMissing { var, .. } => l.tr_with("stt-api-key-missing", &[("var", var.as_str().into())]),
             ApiConfig { .. } => l.tr("stt-api-config"),
             ApiHttp { .. } => l.tr("stt-api-unreachable"),
-            ApiStatus { status, .. } => l.tr_with("stt-api-status", &[("status", (*status).into())]),
+            ApiStatus { status, detail: None, .. } => l.tr_with("stt-api-status", &[("status", (*status).into())]),
+            ApiStatus { status, detail: Some(detail), .. } => {
+                l.tr_with("stt-api-status-detail", &[("status", (*status).into()), ("detail", detail.as_str().into())])
+            }
             Download { source, .. } => match source.kind() {
                 DownloadErrorKind::Cancelled => l.tr("stt-cancelled"),
                 DownloadErrorKind::Incomplete { got, expected } => {

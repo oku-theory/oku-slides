@@ -14,6 +14,7 @@ stt-api-key-missing = 받아쓰기 API를 사용하려면 환경 변수 { $var }
 stt-api-config = 받아쓰기 API 설정이 올바르지 않습니다. 설정 상자에서 수정하세요.
 stt-api-unreachable = 받아쓰기 API에 연결할 수 없습니다
 stt-api-status = 받아쓰기 API가 요청을 거부했습니다 (HTTP { $status })
+stt-api-status-detail = 받아쓰기 API가 요청을 거부했습니다 (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (다국어, 818 MB)
 stt-model-large = Large v3 (다국어, 3.1 GB)

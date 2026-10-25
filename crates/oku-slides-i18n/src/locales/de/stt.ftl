@@ -14,6 +14,7 @@ stt-api-key-missing = Setze die Umgebungsvariable { $var }, um die Diktier-API z
 stt-api-config = Die Einstellungen der Diktier-API sind ungültig: Korrigieren Sie sie im Einstellungsfeld.
 stt-api-unreachable = Die Diktier-API ist nicht erreichbar
 stt-api-status = Die Diktier-API hat die Anfrage abgelehnt (HTTP { $status })
+stt-api-status-detail = Die Diktier-API hat die Anfrage abgelehnt (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (mehrsprachig, 818 MB)
 stt-model-large = Large v3 (mehrsprachig, 3,1 GB)

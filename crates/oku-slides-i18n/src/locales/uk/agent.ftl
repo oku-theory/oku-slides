@@ -141,7 +141,9 @@ voice-error-bad-language = Невідома мова диктування
 voice-error-bad-url = Адреса API має починатися з https:// (http:// лише для цього комп’ютера), без імені користувача, параметрів і спеціальних символів
 voice-error-bad-key-env = Змінна ключа має бути назвою на зразок OPENAI_API_KEY: великі літери, цифри та _
 voice-error-bad-api-model = Назва моделі API може містити лише літери, цифри та . _ : / -
-voice-error-api-reserved = Адресу API та змінну ключа задає лише користувач: відкрийте вікно через show_dictation і попросіть його
+voice-error-bad-api-query = Параметри записуються як назва=значення&назва=значення, видимими символами ASCII без % і #, щонайбільше 8
+voice-error-bad-api-headers = Заголовки записуються як Назва: значення; Назва: $VARIABLE, щонайбільше 8. Потрібна змінна ключа або заголовок $VARIABLE; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, повтори та Authorization із заданою змінною ключа відхиляються
+voice-error-api-reserved = Адресу API, змінну ключа, параметри запиту та заголовки задає лише користувач: відкрийте вікно через show_dictation і попросіть його
 voice-error-changed = Налаштування змінилися після запитання: запитайте знову
 voice-error-nothing-to-download = Для цього агента нічого завантажувати
 agent-tune-prompt = Доопрацювати імпортовану презентацію

@@ -14,6 +14,7 @@ stt-api-key-missing = Ustaw zmienną środowiskową { $var }, aby używać API d
 stt-api-config = Ustawienia API dyktowania są nieprawidłowe: popraw je w oknie ustawień.
 stt-api-unreachable = API dyktowania jest nieosiągalne
 stt-api-status = API dyktowania odrzuciło żądanie (HTTP { $status })
+stt-api-status-detail = API dyktowania odrzuciło żądanie (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (wielojęzyczny, 818 MB)
 stt-model-large = Large v3 (wielojęzyczny, 3,1 GB)

@@ -18,8 +18,8 @@ use oku_slides_session::{
     ModelKind, ModelView, VoiceEvent, VoiceView,
 };
 use oku_slides_stt::{
-    Config, Model, ModelInfo, SILENCE_RANGE, State, Status, Stt, normalized_url, url_host, valid_api_model,
-    valid_key_env,
+    Config, Model, ModelInfo, SILENCE_RANGE, State, Status, Stt, format_api_headers, format_api_query, normalized_url,
+    parse_api_headers, parse_api_query, url_host, valid_api_access, valid_api_headers, valid_api_model, valid_key_env,
 };
 use tokio::runtime::Handle;
 use tokio::sync::watch;
@@ -82,7 +82,10 @@ fn dictation_view(s: &Status) -> DictationView {
             url: config.api.url.clone(),
             model: config.api.model.clone(),
             key_env: config.api.key_env.clone(),
+            query: format_api_query(&config.api.query),
+            headers: format_api_headers(&config.api.headers),
             key_found,
+            missing: s.api_missing.clone(),
         },
         download: s.download.as_ref().map(|d| DownloadView {
             model: d.model.id().into(),
@@ -135,10 +138,21 @@ fn check_patch(status: &Status, patch: &DictationPatch, origin: &Origin) -> Resu
         new.api.url = normalized_url(url).ok_or_else(|| refused(VoiceErrorKind::BadUrl))?;
     }
     if let Some(key_env) = &patch.api_key_env {
-        if !valid_key_env(key_env) {
+        // Empty: no Bearer, the secret goes in a header (t-1213).
+        if !key_env.is_empty() && !valid_key_env(key_env) {
             return Err(refused(VoiceErrorKind::BadKeyEnv));
         }
         new.api.key_env.clone_from(key_env);
+    }
+    if let Some(query) = &patch.api_query {
+        new.api.query = parse_api_query(query).ok_or_else(|| refused(VoiceErrorKind::BadApiQuery))?;
+    }
+    if let Some(headers) = &patch.api_headers {
+        // Rules across fields (a secret named, Authorization without a key variable) wait for
+        // use: the box saves one field at a time, and any order must reach a valid whole.
+        new.api.headers = parse_api_headers(headers)
+            .filter(|h| valid_api_headers(h))
+            .ok_or_else(|| refused(VoiceErrorKind::BadApiHeaders))?;
     }
     if let Some(model) = &patch.api_model {
         if !valid_api_model(model) {
@@ -150,11 +164,12 @@ fn check_patch(status: &Status, patch: &DictationPatch, origin: &Origin) -> Resu
     // L'agent fait passer la dictée par l'API : l'adresse et la variable de l'utilisateur, revérifiées.
     if agent && new.model == Model::Api && old.model != Model::Api {
         let url = normalized_url(&old.api.url).ok_or_else(|| refused(VoiceErrorKind::BadUrl))?;
-        if !valid_key_env(&old.api.key_env) {
-            return Err(refused(VoiceErrorKind::BadKeyEnv));
+        if !valid_api_access(&old.api) {
+            return Err(refused(VoiceErrorKind::BadApiHeaders));
         }
         let host = url_host(&url).ok_or_else(|| refused(VoiceErrorKind::BadUrl))?;
-        checked.api = Some(ApiTarget { host, url, key_env: old.api.key_env.clone(), model: new.api.model.clone() });
+        let variables = old.api.variables().into_iter().map(str::to_owned).collect();
+        checked.api = Some(ApiTarget { host, url, variables, model: new.api.model.clone() });
     }
     if new.model != Model::Api
         && new.model != old.model

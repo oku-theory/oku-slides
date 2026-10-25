@@ -14,6 +14,7 @@ stt-api-key-missing = Stel de omgevingsvariabele { $var } in om de dicteer-API t
 stt-api-config = De instellingen van de dicteer-API zijn ongeldig: corrigeer ze in het instellingenvenster.
 stt-api-unreachable = De dicteer-API is niet bereikbaar
 stt-api-status = De dicteer-API heeft het verzoek geweigerd (HTTP { $status })
+stt-api-status-detail = De dicteer-API heeft het verzoek geweigerd (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (meertalig, 818 MB)
 stt-model-large = Large v3 (meertalig, 3,1 GB)

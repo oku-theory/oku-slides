@@ -158,7 +158,10 @@ fn model_hint(m: &ModelView, d: &DictationView, l: &Localizer) -> String {
     }
     match m.kind {
         ModelKind::Api if d.api.key_found => parts.push(l.tr("voice-api-ready")),
-        ModelKind::Api => parts.push(l.tr_with("voice-api-key-missing", &[("var", d.api.key_env.as_str().into())])),
+        ModelKind::Api => {
+            let var = d.api.missing.as_deref().unwrap_or(d.api.key_env.as_str());
+            parts.push(l.tr_with("voice-api-key-missing", &[("var", var.into())]));
+        }
         ModelKind::Local if m.installed => parts.push(l.tr("voice-installed")),
         ModelKind::Local => parts.push(l.tr("voice-not-installed")),
         ModelKind::Apple => {}
@@ -173,7 +176,13 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
     data["model"] = json!(d.model);
     data["language"] = json!(d.language.clone().unwrap_or_default());
     data["silence"] = json!(if d.auto_stop { secs_value(d.silence) } else { "off".to_owned() });
-    data["api"] = json!({ "url": d.api.url, "model": d.api.model, "key_env": d.api.key_env });
+    data["api"] = json!({
+        "url": d.api.url,
+        "model": d.api.model,
+        "key_env": d.api.key_env,
+        "query": d.api.query,
+        "headers": d.api.headers,
+    });
 
     b.text("d-title", l.tr("voice-dictation-title"), TextVariant::H4);
     let intro = if apple { "voice-dictation-intro-apple" } else { "voice-dictation-intro" };
@@ -207,6 +216,8 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
             ("url", "d-api-url", "voice-api-url"),
             ("model", "d-api-model", "voice-api-model"),
             ("key_env", "d-api-key-env", "voice-api-key-env"),
+            ("query", "d-api-query", "voice-api-query"),
+            ("headers", "d-api-headers", "voice-api-headers"),
         ] {
             let path = format!("/api/{field}");
             let action = Action::event("api", [("field", lit(json!(field))), ("value", Dynamic::path(path.as_str()))]);
@@ -218,6 +229,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
             b.push(Component::new(id, kind));
         }
         b.text("d-api-note", l.tr("voice-api-note"), TextVariant::Caption);
+        b.text("d-api-azure-note", l.tr("voice-api-azure-note"), TextVariant::Caption);
     }
 
     b.push(Component::new("d-language", language_select(d, chosen, l)));

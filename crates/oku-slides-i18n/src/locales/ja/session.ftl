@@ -538,6 +538,9 @@ voice-api-url = APIのアドレス
 voice-api-model = モデル
 voice-api-key-env = キーの変数
 voice-api-note = 各文はこのサービスに送信されます。キーは音声入力の開始時に環境変数から読み込まれます。Finderから開いたアプリはシェルの変数を参照できません（launchctl setenv を使用してください）。
+voice-api-query = クエリパラメーター
+voice-api-headers = 追加ヘッダー
+voice-api-azure-note = Azure OpenAI：キー変数は空のままにし、api-version=… をパラメーターに、api-key: $AZURE_OPENAI_API_KEY をヘッダーに設定します。$NAME は変数を読み取ります。
 voice-cancel = キャンセル
 voice-agent-title = エージェント
 voice-agent-busy = エージェントを切り替えると、進行中のターンが中断されます。

@@ -14,3 +14,4 @@ mod issue_0793_live_language;
 mod issue_1144_agent_api_target;
 mod issue_1144_set_setting_dictation;
 mod issue_1171_asset_unknown_agent;
+mod issue_1213_agent_api_headers;

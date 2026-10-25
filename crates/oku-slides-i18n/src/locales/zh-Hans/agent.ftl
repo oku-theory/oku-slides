@@ -131,7 +131,9 @@ voice-error-bad-language = 未知的听写语言
 voice-error-bad-url = API 地址必须以 https:// 开头（http:// 仅限本机），不得包含用户名、参数或特殊字符
 voice-error-bad-key-env = 密钥变量必须是类似 OPENAI_API_KEY 的名称：大写字母、数字和 _
 voice-error-bad-api-model = API 模型名称只能包含字母、数字和 . _ : / -
-voice-error-api-reserved = 只有用户可以设置 API 地址和密钥变量：请用 show_dictation 打开设置框并请用户设置
+voice-error-bad-api-query = 参数写作 name=value&name=value，使用不含 % 和 # 的可见 ASCII 字符，最多8个
+voice-error-bad-api-headers = 请求头写作 Name: value; Name: $VARIABLE，最多8个。需要一个密钥变量或一个 $VARIABLE 请求头；Host, Content-Type, Content-Length, Transfer-Encoding, Connection、重复名称以及已设密钥变量时的 Authorization 会被拒绝
+voice-error-api-reserved = 只有用户可以设置 API 地址、密钥变量、查询参数和请求头：请用 show_dictation 打开设置框并请用户设置
 voice-error-changed = 提问之后设置已更改：请重新询问
 voice-error-nothing-to-download = 此智能体没有需要下载的内容
 agent-tune-prompt = 微调导入的演示文稿

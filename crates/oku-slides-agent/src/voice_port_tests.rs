@@ -87,6 +87,9 @@ fn agent_origin(tab: &str, confirmed: bool) -> Origin {
 #[case(DictationPatch { api_url: Some("http://evil.example/v1".into()), ..Default::default() }, VoiceErrorKind::BadUrl)]
 #[case(DictationPatch { api_key_env: Some("sk-abc-123".into()), ..Default::default() }, VoiceErrorKind::BadKeyEnv)]
 #[case(DictationPatch { api_model: Some("m\r\nx".into()), ..Default::default() }, VoiceErrorKind::BadApiModel)]
+#[case(DictationPatch { api_query: Some("a=b c".into()), ..Default::default() }, VoiceErrorKind::BadApiQuery)]
+#[case(DictationPatch { api_headers: Some("Host: evil.example".into()), ..Default::default() }, VoiceErrorKind::BadApiHeaders)]
+#[case(DictationPatch { api_headers: Some("X-A: $lower".into()), ..Default::default() }, VoiceErrorKind::BadApiHeaders)]
 fn apply_invalid_patch_from_the_user_is_refused(#[case] patch: DictationPatch, #[case] kind: VoiceErrorKind) {
     let t = voice_with_stt();
     assert_that!(t.voice.apply(dictation(patch), Origin::User).map_err(|e| e.kind())).is_err_containing(kind);
@@ -95,6 +98,8 @@ fn apply_invalid_patch_from_the_user_is_refused(#[case] patch: DictationPatch, #
 #[rstest]
 #[case(DictationPatch { api_url: Some("https://api.groq.com/openai/v1".into()), ..Default::default() })]
 #[case(DictationPatch { api_key_env: Some("GROQ_API_KEY".into()), ..Default::default() })]
+#[case(DictationPatch { api_query: Some("a=b".into()), ..Default::default() })]
+#[case(DictationPatch { api_headers: Some("api-key: $GITHUB_TOKEN".into()), ..Default::default() })]
 fn check_api_target_from_the_agent_is_reserved_to_the_user(#[case] patch: DictationPatch) {
     let t = voice_with_stt();
     let r = t.voice.check(&dictation(patch), &agent_origin("t-1", false));
@@ -108,6 +113,59 @@ fn apply_api_target_from_the_agent_is_reserved_to_the_user(#[case] patch: Dictat
     let t = voice_with_stt();
     let r = t.voice.apply(dictation(patch), agent_origin("t-1", true));
     assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::ApiReservedToUser);
+}
+
+#[test]
+fn apply_azure_settings_from_the_user_are_shown_back() {
+    let t = voice_with_stt();
+    let patch = DictationPatch {
+        api_key_env: Some(String::new()),
+        api_query: Some(" api-version=2025-03-01-preview ".into()),
+        api_headers: Some("api-key:$HOME".into()),
+        ..Default::default()
+    };
+    t.voice.apply(dictation(patch), Origin::User).unwrap();
+    let api = t.voice.view().dictation.unwrap().api;
+    assert_that!((api.query.as_str(), api.headers.as_str()))
+        .is_equal_to(("api-version=2025-03-01-preview", "api-key: $HOME"));
+}
+
+#[test]
+fn apply_azure_settings_one_field_at_a_time_in_hint_order_is_accepted() {
+    let t = voice_with_stt();
+    for patch in [
+        DictationPatch { api_key_env: Some(String::new()), ..Default::default() },
+        DictationPatch { api_query: Some("api-version=2025-03-01-preview".into()), ..Default::default() },
+        DictationPatch { api_headers: Some("api-key: $HOME".into()), ..Default::default() },
+    ] {
+        t.voice.apply(dictation(patch), Origin::User).unwrap();
+    }
+    assert_that!(t.voice.view().dictation.unwrap().api.headers).is_equal_to("api-key: $HOME".to_owned());
+}
+
+#[test]
+fn check_switch_to_api_from_the_agent_with_no_variable_is_refused() {
+    let t = voice_with_stt();
+    t.voice
+        .apply(dictation(DictationPatch { api_key_env: Some(String::new()), ..Default::default() }), Origin::User)
+        .unwrap();
+    let r = t.voice.check(
+        &dictation(DictationPatch { model: Some("api".into()), ..Default::default() }),
+        &agent_origin("t-1", false),
+    );
+    assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::BadApiHeaders);
+}
+
+#[test]
+fn view_api_names_the_first_unset_variable() {
+    let t = voice_with_stt();
+    let patch = DictationPatch {
+        api_key_env: Some("HOME".into()),
+        api_headers: Some("api-key: $OKU_T1213_UNSET".into()),
+        ..Default::default()
+    };
+    t.voice.apply(dictation(patch), Origin::User).unwrap();
+    assert_that!(t.voice.view().dictation.unwrap().api.missing).is_equal_to(Some("OKU_T1213_UNSET".to_owned()));
 }
 
 #[test]
@@ -184,7 +242,8 @@ fn check_switch_to_api_from_the_agent_names_the_user_target() {
         )
         .unwrap();
     let target = checked.api.unwrap();
-    assert_that!((target.host.as_str(), target.key_env.as_str())).is_equal_to(("api.openai.com", "OPENAI_API_KEY"));
+    assert_that!((target.host.as_str(), target.variables.as_slice()))
+        .is_equal_to(("api.openai.com", ["OPENAI_API_KEY".to_owned()].as_slice()));
 }
 
 #[test]

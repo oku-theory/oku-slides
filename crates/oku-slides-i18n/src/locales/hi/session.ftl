@@ -541,6 +541,9 @@ voice-api-url = API का पता
 voice-api-model = मॉडल
 voice-api-key-env = कुंजी का वेरिएबल
 voice-api-note = हर वाक्य इस सेवा को भेजा जाता है। डिक्टेशन शुरू होने पर कुंजी एनवायरनमेंट वेरिएबल से पढ़ी जाती है; Finder से खुला ऐप शेल वेरिएबल नहीं देखता (launchctl setenv इस्तेमाल करें)।
+voice-api-query = क्वेरी पैरामीटर
+voice-api-headers = अतिरिक्त हेडर
+voice-api-azure-note = Azure OpenAI: कुंजी वेरिएबल खाली छोड़ें, api-version=… को पैरामीटर और api-key: $AZURE_OPENAI_API_KEY को हेडर के रूप में सेट करें। $NAME एक वेरिएबल पढ़ता है।
 voice-cancel = रद्द करें
 voice-agent-title = एजेंट
 voice-agent-busy = एजेंट बदलने से चल रहा टर्न रुक जाएगा।

@@ -14,6 +14,7 @@ stt-api-key-missing = Задайте переменную окружения { $
 stt-api-config = Настройки API диктовки недействительны: исправьте их в окне настроек.
 stt-api-unreachable = API диктовки недоступен
 stt-api-status = API диктовки отклонил запрос (HTTP { $status })
+stt-api-status-detail = API диктовки отклонил запрос (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (многоязычная, 818 МБ)
 stt-model-large = Large v3 (многоязычная, 3,1 ГБ)

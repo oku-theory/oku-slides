@@ -137,7 +137,9 @@ voice-error-bad-language = অজানা ডিকটেশন ভাষা
 voice-error-bad-url = API ঠিকানা https:// দিয়ে শুরু হতে হবে (http:// শুধু এই কম্পিউটারের জন্য), ব্যবহারকারীর নাম, প্যারামিটার বা বিশেষ অক্ষর ছাড়া
 voice-error-bad-key-env = কী-এর ভেরিয়েবল OPENAI_API_KEY-এর মতো একটি নাম হতে হবে: বড় হাতের অক্ষর, সংখ্যা ও _
 voice-error-bad-api-model = API মডেলের নামে শুধু অক্ষর, সংখ্যা ও . _ : / - চলে
-voice-error-api-reserved = API ঠিকানা ও কী-এর ভেরিয়েবল শুধু ব্যবহারকারী ঠিক করেন: show_dictation দিয়ে বাক্সটি খুলে তাঁকে বলুন
+voice-error-bad-api-query = প্যারামিটার name=value&name=value আকারে, % বা # ছাড়া দৃশ্যমান ASCII-তে, সর্বোচ্চ 8টি লেখা হয়
+voice-error-bad-api-headers = হেডার Name: value; Name: $VARIABLE আকারে, সর্বোচ্চ 8টি লেখা হয়। একটি কী ভেরিয়েবল বা একটি $VARIABLE হেডার দরকার; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, পুনরাবৃত্ত নাম এবং কী ভেরিয়েবলের সঙ্গে Authorization প্রত্যাখ্যাত হয়
+voice-error-api-reserved = API ঠিকানা, কী-এর ভেরিয়েবল, কোয়েরি প্যারামিটার ও হেডার শুধু ব্যবহারকারী ঠিক করেন: show_dictation দিয়ে বাক্সটি খুলে তাঁকে বলুন
 voice-error-changed = প্রশ্নের পর থেকে সেটিংস বদলেছে: আবার জিজ্ঞেস করুন
 voice-error-nothing-to-download = এই এজেন্টের জন্য ডাউনলোড করার কিছু নেই
 agent-tune-prompt = আমদানি করা উপস্থাপনাটি সূক্ষ্মভাবে ঠিক করো

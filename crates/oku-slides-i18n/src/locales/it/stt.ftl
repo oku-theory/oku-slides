@@ -14,6 +14,7 @@ stt-api-key-missing = Imposta la variabile d'ambiente { $var } per usare l'API d
 stt-api-config = Le impostazioni dell'API di dettatura non sono valide: correggile nella finestra delle impostazioni.
 stt-api-unreachable = L'API di dettatura non è raggiungibile
 stt-api-status = L'API di dettatura ha rifiutato la richiesta (HTTP { $status })
+stt-api-status-detail = L'API di dettatura ha rifiutato la richiesta (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (multilingue, 818 MB)
 stt-model-large = Large v3 (multilingue, 3,1 GB)

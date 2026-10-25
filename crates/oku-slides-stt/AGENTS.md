@@ -10,9 +10,10 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep the C ABI and the stream::raw event and error codes identical on the Rust and Swift sides. (plan:2026-10-03-dictee-native-macos)
 - Have Swift callbacks only send on an mpsc channel; only the Rust dictation thread may write Inner. (spec:2026-10-03-dictee-native-macos-design)
 - Migrate old dictation config once at load, in memory only; configure always writes CONFIG_VERSION. (spec:2026-10-03-dictee-native-macos-design)
-- Read the dictation API key only from the environment variable named in ApiConfig; never store, log or send it to the UI. (spec:2026-10-23-dictee-api-design)
+- Read dictation API secrets only from the variables named in ApiConfig; never store, log or send them to the UI. (spec:2026-10-23-dictee-api-design, t-1213)
 - Store, show and call only the normalized_url form of the dictation API address; refuse invalid settings at use. (spec:2026-10-23-reglages-dictee-a2ui-design)
-- Check the API key's presence with key_present; read the key itself only in ApiTranscriber. (spec:2026-10-23-reglages-dictee-a2ui-design)
+- Check API variables with key_present or missing_variable; read their values only in ApiTranscriber. (spec:2026-10-23-reglages-dictee-a2ui-design, t-1213)
+- Show an API error message only for statuses other than 401 and 403, with every secret masked. (spec:2026-10-25-dictee-api-entetes-design)
 
 ## Testing
 

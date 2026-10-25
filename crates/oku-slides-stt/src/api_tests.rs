@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::SttErrorKind;
-use crate::test_support::fake_api;
+use crate::test_support::{ApiCall, fake_api};
 
 #[test]
 fn wav_one_second_parses_back_at_16k_mono() {
@@ -27,7 +27,7 @@ fn multipart_fields_and_file_are_in_the_body() {
 #[test]
 fn key_unset_variable_returns_api_key_missing() {
     let config = ApiConfig { key_env: "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a".into(), ..ApiConfig::default() };
-    assert_that!(config.key().unwrap_err().kind()).is_equal_to(SttErrorKind::Model);
+    assert_that!(ApiConfig::secret(&config.key_env).unwrap_err().kind()).is_equal_to(SttErrorKind::Model);
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn key_present_set_variable_is_present() {
 }
 
 fn transcriber(url: String) -> ApiTranscriber {
-    let config = ApiConfig { url, model: "whisper-1".into(), key_env: "HOME".into() };
+    let config = ApiConfig { url, model: "whisper-1".into(), key_env: "HOME".into(), ..ApiConfig::default() };
     ApiTranscriber::new(config, Duration::from_secs(5)).unwrap()
 }
 
@@ -71,6 +71,104 @@ fn transcribe_sends_bearer_key_model_language_and_prompt() {
     assert_that!(body.as_str()).contains("whisper-1");
     assert_that!(body.as_str()).contains("name=\"language\"\r\n\r\nfr\r\n");
     assert_that!(body.as_str()).contains("name=\"prompt\"\r\n\r\nOku\r\n");
+}
+
+/// Azure-like settings: `api-version` in the query, the secret in `api-key`, no Bearer.
+fn azure_transcriber(url: String) -> ApiTranscriber {
+    let config = ApiConfig {
+        url,
+        model: "whisper-1".into(),
+        key_env: String::new(),
+        query: vec![ApiParam { name: "api-version".into(), value: "2025-03-01-preview".into() }],
+        headers: vec![
+            // PATH: always set and long enough to be masked (HOME is `/root` on some CI).
+            ApiHeader { name: "api-key".into(), value: HeaderValue::Env("PATH".into()) },
+            ApiHeader { name: "X-Tenant".into(), value: HeaderValue::Literal("acme".into()) },
+        ],
+    };
+    ApiTranscriber::new(config, Duration::from_secs(5)).unwrap()
+}
+
+fn header<'a>(call: &'a ApiCall, name: &str) -> Option<&'a str> {
+    call.headers.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, v)| v.as_str())
+}
+
+#[test]
+fn transcribe_query_params_are_encoded_in_the_url() {
+    let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
+    azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
+    let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_that!(call.url).is_equal_to("/v1/audio/transcriptions?api-version=2025-03-01-preview".to_owned());
+}
+
+#[test]
+fn transcribe_variable_header_sends_the_variable_value() {
+    let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
+    azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
+    let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_that!(header(&call, "api-key")).is_equal_to(Some(std::env::var("PATH").unwrap().as_str()));
+}
+
+#[test]
+fn transcribe_literal_header_sends_the_literal() {
+    let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
+    azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
+    let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_that!(header(&call, "X-Tenant")).is_equal_to(Some("acme"));
+}
+
+#[test]
+fn transcribe_empty_key_variable_sends_no_authorization() {
+    let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
+    azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
+    let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_that!(header(&call, "Authorization")).is_none();
+}
+
+#[test]
+fn transcribe_bad_request_shows_the_api_message_without_secrets() {
+    let path = std::env::var("PATH").unwrap();
+    let body: &'static str =
+        Box::leak(format!(r#"{{"error":{{"message":"Missing API version for key {path}"}}}}"#).into_boxed_str());
+    let (url, _calls) = fake_api(400, body);
+    let e = azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap_err();
+    let text = e.localize(&Localizer::new(Some("fr")));
+    assert_that!((text.contains("Missing API version for key ***"), text.contains(path.as_str())))
+        .is_equal_to((true, false));
+}
+
+#[test]
+fn transcribe_forbidden_shows_no_api_message() {
+    let (url, _calls) = fake_api(403, r#"{"error":{"message":"leaked"}}"#);
+    let e = azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap_err();
+    assert_that!(e.localize(&Localizer::new(Some("en")))).does_not_contain("leaked");
+}
+
+#[test]
+fn new_unset_header_variable_returns_api_key_missing() {
+    let config = ApiConfig {
+        key_env: String::new(),
+        headers: vec![ApiHeader { name: "api-key".into(), value: HeaderValue::Env("OKU_T1213_UNSET".into()) }],
+        ..ApiConfig::default()
+    };
+    let e = ApiTranscriber::new(config, Duration::from_secs(5)).unwrap_err();
+    assert_that!(e.localize(&Localizer::new(Some("en")))).contains("OKU_T1213_UNSET");
+}
+
+#[test]
+fn new_reserved_header_is_refused() {
+    let headers = vec![ApiHeader { name: "Host".into(), value: HeaderValue::Literal("evil.example".into()) }];
+    refused(ApiConfig { headers, ..ApiConfig::default() });
+}
+
+#[test]
+fn key_present_unset_header_variable_is_absent() {
+    let config = ApiConfig {
+        key_env: "HOME".into(),
+        headers: vec![ApiHeader { name: "api-key".into(), value: HeaderValue::Env("OKU_T1213_UNSET".into()) }],
+        ..ApiConfig::default()
+    };
+    assert_that!(config.key_present()).is_false();
 }
 
 #[test]
@@ -114,12 +212,22 @@ fn refused(config: ApiConfig) {
 
 #[test]
 fn api_transcriber_invalid_stored_url_is_refused() {
-    refused(ApiConfig { url: "http://192.168.1.5/v1".into(), model: "whisper-1".into(), key_env: "HOME".into() });
+    refused(ApiConfig {
+        url: "http://192.168.1.5/v1".into(),
+        model: "whisper-1".into(),
+        key_env: "HOME".into(),
+        ..ApiConfig::default()
+    });
 }
 
 #[test]
 fn api_transcriber_invalid_key_env_is_refused() {
-    refused(ApiConfig { url: "http://127.0.0.1:9/v1".into(), model: "whisper-1".into(), key_env: "sk-x".into() });
+    refused(ApiConfig {
+        url: "http://127.0.0.1:9/v1".into(),
+        model: "whisper-1".into(),
+        key_env: "sk-x".into(),
+        ..ApiConfig::default()
+    });
 }
 
 #[test]

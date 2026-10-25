@@ -14,6 +14,7 @@ stt-api-key-missing = Dikte API'sini kullanmak için { $var } ortam değişkenin
 stt-api-config = Dikte API'si ayarları geçersiz: bunları ayarlar kutusunda düzeltin.
 stt-api-unreachable = Dikte API'sine ulaşılamıyor
 stt-api-status = Dikte API'si isteği reddetti (HTTP { $status })
+stt-api-status-detail = Dikte API'si isteği reddetti (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (çok dilli, 818 MB)
 stt-model-large = Large v3 (çok dilli, 3,1 GB)

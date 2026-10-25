@@ -37,8 +37,8 @@ pub struct ApiTarget {
     pub host: String,
     /// Adresse normalisée.
     pub url: String,
-    /// Nom de la variable de la clé.
-    pub key_env: String,
+    /// Names of the variables whose secrets are sent: the key's, then the headers'.
+    pub variables: Vec<String>,
     /// Modèle de l'API qui sera utilisé.
     pub model: String,
 }
@@ -93,6 +93,10 @@ pub enum VoiceErrorKind {
     BadKeyEnv,
     /// Modèle d'API refusé.
     BadApiModel,
+    /// API query parameters refused.
+    BadApiQuery,
+    /// API headers refused, or no secret named at all.
+    BadApiHeaders,
     /// Adresse et variable de l'API : réservées à l'utilisateur.
     ApiReservedToUser,
     /// L'état a changé depuis la question : il faudrait confirmer à nouveau.
@@ -123,6 +127,8 @@ impl VoiceErrorKind {
             Self::BadUrl => "voice-error-bad-url",
             Self::BadKeyEnv => "voice-error-bad-key-env",
             Self::BadApiModel => "voice-error-bad-api-model",
+            Self::BadApiQuery => "voice-error-bad-api-query",
+            Self::BadApiHeaders => "voice-error-bad-api-headers",
             Self::ApiReservedToUser => "voice-error-api-reserved",
             Self::Changed => "voice-error-changed",
             Self::NothingToDownload => "voice-error-nothing-to-download",

@@ -14,6 +14,7 @@ stt-api-key-missing = डिक्टेशन API का उपयोग कर
 stt-api-config = डिक्टेशन API की सेटिंग अमान्य हैं: उन्हें सेटिंग बॉक्स में सुधारें।
 stt-api-unreachable = डिक्टेशन API तक पहुँचा नहीं जा सका
 stt-api-status = डिक्टेशन API ने अनुरोध अस्वीकार कर दिया (HTTP { $status })
+stt-api-status-detail = डिक्टेशन API ने अनुरोध अस्वीकार कर दिया (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (बहुभाषी, 818 MB)
 stt-model-large = Large v3 (बहुभाषी, 3.1 GB)

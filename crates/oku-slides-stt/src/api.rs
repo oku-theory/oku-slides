@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
-use crate::api_check::{is_loopback, normalized_url, valid_api_model, valid_key_env};
+use crate::api_check::{is_loopback, normalized_url, valid_api_model};
+use crate::api_extra::{ApiHeader, ApiParam, HeaderValue, api_error_detail, valid_api_access};
 use crate::error::{ApiConfigSnafu, ApiHttpSnafu, ApiKeyMissingSnafu, ApiResponseSnafu, ApiStatusSnafu, WavSnafu};
 use crate::phrase_engine::PhraseEngine;
 use crate::{SAMPLE_RATE, SttError, Transcript};
@@ -20,8 +21,12 @@ pub struct ApiConfig {
     pub url: String,
     /// Modèle de transcription demandé.
     pub model: String,
-    /// Nom de la variable d'environnement qui porte la clé.
+    /// Nom de la variable d'environnement qui porte la clé ; vide : pas d'en-tête Bearer.
     pub key_env: String,
+    /// Query parameters appended to the transcription address, such as `api-version`.
+    pub query: Vec<ApiParam>,
+    /// Headers sent with every request, literal or read from a variable.
+    pub headers: Vec<ApiHeader>,
 }
 
 impl Default for ApiConfig {
@@ -30,25 +35,34 @@ impl Default for ApiConfig {
             url: "https://api.openai.com/v1".into(),
             model: "gpt-4o-transcribe".into(),
             key_env: "OPENAI_API_KEY".into(),
+            query: Vec::new(),
+            headers: Vec::new(),
         }
     }
 }
 
 impl ApiConfig {
-    /// La clé, lue dans sa variable ; absente ou vide : `ApiKeyMissing`.
-    pub(crate) fn key(&self) -> Result<String, SttError> {
-        match std::env::var(&self.key_env) {
-            Ok(key) if !key.trim().is_empty() => Ok(key.trim().to_owned()),
-            _ => Err(ApiKeyMissingSnafu { var: self.key_env.clone() }.build().into()),
+    /// The value of variable `var`; unset or blank gives `ApiKeyMissing`.
+    fn secret(var: &str) -> Result<String, SttError> {
+        match std::env::var(var) {
+            Ok(value) if !value.trim().is_empty() => Ok(value.trim().to_owned()),
+            _ => Err(ApiKeyMissingSnafu { var }.build().into()),
         }
     }
 
-    /// La variable de la clé est posée et contient autre chose que des blancs ASCII.
+    /// The first variable of [`ApiConfig::variables`] unset or blank, never read in full.
     ///
-    /// La clé n'est jamais copiée : seuls ses octets sont parcourus en place. Une valeur faite
-    /// uniquement de blancs non ASCII compte comme présente ; [`ApiConfig::key`] la refuse à l'usage.
+    /// A value made only of non-ASCII blanks counts as set; [`ApiConfig::secret`] refuses it at use.
+    #[must_use]
+    pub fn missing_variable(&self) -> Option<&str> {
+        self.variables().into_iter().find(|var| {
+            !std::env::var_os(var).is_some_and(|v| v.as_encoded_bytes().iter().any(|b| !b.is_ascii_whitespace()))
+        })
+    }
+
+    /// Every variable these settings read is set, without copying any value.
     pub(crate) fn key_present(&self) -> bool {
-        std::env::var_os(&self.key_env).is_some_and(|v| v.as_encoded_bytes().iter().any(|b| !b.is_ascii_whitespace()))
+        !self.variables().is_empty() && self.missing_variable().is_none()
     }
 }
 
@@ -115,33 +129,63 @@ struct ApiReply {
     text: String,
 }
 
-/// Un client de l'API de transcription, prêt à servir (clé déjà lue).
+/// Un client de l'API de transcription, prêt à servir (secrets déjà lus).
 pub(crate) struct ApiTranscriber {
     config: ApiConfig,
-    /// Adresse racine normalisée, la seule appelée.
-    root: String,
-    key: String,
+    /// Normalized transcription address with its query: the only one called.
+    url: String,
+    /// Headers sent, Bearer included; values read from variables are secrets.
+    headers: Vec<(String, String)>,
+    /// Values read from variables, and long literals, masked in API error messages.
+    secrets: Vec<String>,
     agent: ureq::Agent,
 }
 
 impl fmt::Debug for ApiTranscriber {
-    // La clé n'apparaît jamais.
+    // Neither the key nor any header appears.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ApiTranscriber").field("config", &self.config).finish_non_exhaustive()
     }
 }
 
 impl ApiTranscriber {
-    /// Refuses invalid settings, reads the key and prepares the HTTP agent.
+    /// Refuses invalid settings, reads the secrets and prepares the HTTP agent.
     ///
     /// No redirects; no proxy to this machine, the environment's proxy otherwise;
     /// system certificates (t-1211).
     pub(crate) fn new(config: ApiConfig, timeout: Duration) -> Result<Self, SttError> {
         let root = match normalized_url(&config.url) {
-            Some(root) if valid_key_env(&config.key_env) && valid_api_model(&config.model) => root,
+            Some(root) if valid_api_access(&config) && valid_api_model(&config.model) => root,
             _ => return Err(ApiConfigSnafu.build().into()),
         };
-        let key = config.key()?;
+        let mut url = url::Url::parse(&format!("{root}/audio/transcriptions")).ok().context(ApiConfigSnafu)?;
+        if !config.query.is_empty() {
+            url.query_pairs_mut().extend_pairs(config.query.iter().map(|p| (&p.name, &p.value)));
+        }
+        let mut headers = Vec::with_capacity(config.headers.len() + 1);
+        let mut secrets = Vec::new();
+        if !config.key_env.is_empty() {
+            let key = ApiConfig::secret(&config.key_env)?;
+            headers.push(("Authorization".to_owned(), format!("Bearer {key}")));
+            secrets.push(key);
+        }
+        for header in &config.headers {
+            let value = match &header.value {
+                HeaderValue::Literal(value) => {
+                    // A key pasted as a literal is still masked in API messages.
+                    if value.chars().count() >= 8 {
+                        secrets.push(value.clone());
+                    }
+                    value.clone()
+                }
+                HeaderValue::Env(var) => {
+                    let value = ApiConfig::secret(var)?;
+                    secrets.push(value.clone());
+                    value
+                }
+            };
+            headers.push((header.name.clone(), value));
+        }
         let proxy = if is_loopback(&root) { None } else { ureq::Proxy::try_from_env() };
         let agent = ureq::Agent::config_builder()
             .proxy(proxy)
@@ -151,7 +195,7 @@ impl ApiTranscriber {
             .http_status_as_error(false)
             .build()
             .into();
-        Ok(Self { config, root, key, agent })
+        Ok(Self { config, url: url.into(), headers, secrets, agent })
     }
 }
 
@@ -171,21 +215,23 @@ impl PhraseEngine for ApiTranscriber {
             fields.push(("prompt", context));
         }
         let (content_type, body) = multipart(&fields, &wav(audio)?);
-        let url = format!("{}/audio/transcriptions", self.root);
-        let mut response = self
-            .agent
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.key))
-            .header("Content-Type", content_type)
-            .send(&body[..])
-            .map_err(Box::new)
-            .context(ApiHttpSnafu)?;
+        let mut request = self.agent.post(&self.url).header("Content-Type", content_type);
+        for (name, value) in &self.headers {
+            request = request.header(name, value);
+        }
+        let mut response = request.send(&body[..]).map_err(Box::new).context(ApiHttpSnafu)?;
         let status = response.status().as_u16();
         let text = response.body_mut().read_to_string().map_err(Box::new).context(ApiHttpSnafu)?;
         if !(200..300).contains(&status) {
-            // Seul le statut : un corps de 401 peut citer un fragment de la clé.
-            tracing::warn!(status, "API de dictée");
-            return Err(ApiStatusSnafu { status }.build().into());
+            // No message on 401/403: their body may quote a fragment of a secret.
+            let detail = if matches!(status, 401 | 403) {
+                None
+            } else {
+                let secrets: Vec<&str> = self.secrets.iter().map(String::as_str).collect();
+                api_error_detail(&text, &secrets)
+            };
+            tracing::warn!(status, detail = detail.as_deref().unwrap_or_default(), "API de dictée");
+            return Err(ApiStatusSnafu { status, detail }.build().into());
         }
         let reply: ApiReply = serde_json::from_str(&text).context(ApiResponseSnafu)?;
         Ok(Transcript { text: reply.text, language: None, no_speech: 0.0 })

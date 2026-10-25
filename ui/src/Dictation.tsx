@@ -311,7 +311,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
         )}
         {keyMissing && (
           <div className="dictation-line">
-            <span className="caption">{t("ui-dictation-api-key-missing", { var: status.config.api.key_env })}</span>
+            <span className="caption">{t("ui-dictation-api-key-missing", { var: status.api_missing ?? status.config.api.key_env })}</span>
           </div>
         )}
         {unavailable && (

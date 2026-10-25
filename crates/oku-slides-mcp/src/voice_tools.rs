@@ -18,8 +18,9 @@ use crate::tool_error::{EmptyDictationChangeSnafu, TaskSnafu, ToolError, VoiceSn
 use crate::tools::Tools;
 use crate::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};
 
-/// Clés d'arguments qui viseraient l'adresse ou la variable de l'API.
-const API_TARGET_KEYS: [&str; 5] = ["api", "api_url", "url", "api_key_env", "key_env"];
+/// Argument keys that would target the API address, variables, query or headers.
+const API_TARGET_KEYS: [&str; 9] =
+    ["api", "api_url", "url", "api_key_env", "key_env", "api_query", "query", "api_headers", "headers"];
 
 /// Dictation settings to change; absent: unchanged.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -86,6 +87,8 @@ impl Tools {
             api_url: None,
             api_model: a.api_model,
             api_key_env: None,
+            api_query: None,
+            api_headers: None,
         };
         if patch.is_empty() {
             return self.fail_with(&EmptyDictationChangeSnafu.build());
@@ -254,7 +257,7 @@ impl Tools {
     }
 }
 
-/// La question d'un passage à l'API : hôte, adresse, modèle et variable de l'utilisateur.
+/// La question d'un passage à l'API : hôte, adresse, modèle et variables de l'utilisateur.
 fn api_question(t: &ApiTarget, l: &Localizer) -> String {
     l.tr_with(
         "agent-confirm-dictation-api",
@@ -262,7 +265,7 @@ fn api_question(t: &ApiTarget, l: &Localizer) -> String {
             ("host", t.host.as_str().into()),
             ("url", t.url.as_str().into()),
             ("model", t.model.as_str().into()),
-            ("var", t.key_env.as_str().into()),
+            ("var", t.variables.join(", ").into()),
         ],
     )
 }

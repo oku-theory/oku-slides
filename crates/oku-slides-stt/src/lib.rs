@@ -20,6 +20,7 @@
 
 mod api;
 mod api_check;
+mod api_extra;
 #[cfg(target_os = "macos")]
 mod apple;
 mod audio;
@@ -49,11 +50,15 @@ use serde::{Deserialize, Serialize};
 
 pub use api::ApiConfig;
 pub use api_check::{is_loopback, normalized_url, url_host, valid_api_model, valid_key_env};
+pub use api_extra::{
+    ApiHeader, ApiParam, HeaderValue, format_api_headers, format_api_query, parse_api_headers, parse_api_query,
+    valid_api_access, valid_api_headers,
+};
 use audio::SAMPLE_RATE_F32;
 pub use audio::{SAMPLE_RATE, resample};
 use dictation_stream::{Held, cancel_held};
 use dictation_whisper::{EngineKey, Job, engine_key};
-use error::{ApiKeyMissingSnafu, LocaleUnsupportedSnafu, NotDownloadableSnafu};
+use error::{ApiConfigSnafu, ApiKeyMissingSnafu, LocaleUnsupportedSnafu, NotDownloadableSnafu};
 pub use error::{SttError, SttErrorKind};
 pub use models::{Model, download};
 use num::{count_f32, seconds};
@@ -192,6 +197,8 @@ pub struct Status {
     pub seconds: f32,
     /// Last error, already translated into the UI language.
     pub error: Option<String>,
+    /// First API variable not set, by name only; `None` when all are.
+    pub api_missing: Option<String>,
 }
 
 /// Requêtes de l'interface (même forme pour Tauri et HTTP).
@@ -464,6 +471,7 @@ impl Stt {
             seq: g.seq,
             seconds: g.started.map_or(0.0, |t| t.elapsed().as_secs_f32()),
             error: g.error.clone(),
+            api_missing: g.config.api.missing_variable().map(str::to_owned),
         }
     }
 
@@ -516,10 +524,12 @@ impl Stt {
             return;
         }
         if model == Model::Api {
-            if api.key_present() {
-                self.begin_recording();
+            if !valid_api_access(&api) {
+                self.report(&ApiConfigSnafu.build().into());
+            } else if let Some(var) = api.missing_variable() {
+                self.report(&ApiKeyMissingSnafu { var }.build().into());
             } else {
-                self.report(&ApiKeyMissingSnafu { var: api.key_env }.build().into());
+                self.begin_recording();
             }
             return;
         }

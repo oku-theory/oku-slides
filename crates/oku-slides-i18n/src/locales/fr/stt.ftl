@@ -14,6 +14,7 @@ stt-api-key-missing = Définissez la variable d'environnement { $var } pour util
 stt-api-config = Les réglages de l'API de dictée sont invalides : corrigez-les dans la boîte des réglages.
 stt-api-unreachable = L'API de dictée est injoignable
 stt-api-status = L'API de dictée a refusé la requête (HTTP { $status })
+stt-api-status-detail = L'API de dictée a refusé la requête (HTTP { $status }) : { $detail }
 
 stt-model-turbo = Large v3 Turbo (multilingue, 818 Mo)
 stt-model-large = Large v3 (multilingue, 3,1 Go)

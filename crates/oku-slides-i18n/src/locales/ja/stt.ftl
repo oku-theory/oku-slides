@@ -14,6 +14,7 @@ stt-api-key-missing = 音声入力 API を使うには、環境変数 { $var } �
 stt-api-config = 音声入力 API の設定が無効です。設定ボックスで修正してください。
 stt-api-unreachable = 音声入力 API に接続できません
 stt-api-status = 音声入力 API がリクエストを拒否しました (HTTP { $status })
+stt-api-status-detail = 音声入力 API がリクエストを拒否しました (HTTP { $status })：{ $detail }
 
 stt-model-turbo = Large v3 Turbo（多言語、818 MB）
 stt-model-large = Large v3（多言語、3.1 GB）

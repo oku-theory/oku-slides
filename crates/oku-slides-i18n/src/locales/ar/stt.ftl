@@ -14,6 +14,7 @@ stt-api-key-missing = عيّن متغير البيئة { $var } لاستخدام
 stt-api-config = إعدادات واجهة برمجة الإملاء غير صالحة: صحّحها في مربع الإعدادات.
 stt-api-unreachable = تعذّر الوصول إلى واجهة برمجة الإملاء
 stt-api-status = رفضت واجهة برمجة الإملاء الطلب (HTTP { $status })
+stt-api-status-detail = رفضت واجهة برمجة الإملاء الطلب (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (متعدد اللغات، 818 ميغابايت)
 stt-model-large = Large v3 (متعدد اللغات، 3.1 غيغابايت)

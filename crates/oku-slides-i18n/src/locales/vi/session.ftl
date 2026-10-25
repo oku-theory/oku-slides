@@ -538,6 +538,9 @@ voice-api-url = Địa chỉ API
 voice-api-model = Mô hình
 voice-api-key-env = Biến của khóa
 voice-api-note = Mỗi câu được gửi đến dịch vụ này. Khóa được đọc từ biến môi trường khi bắt đầu đọc chính tả; ứng dụng mở từ Finder không thấy biến của shell (hãy dùng launchctl setenv).
+voice-api-query = Tham số truy vấn
+voice-api-headers = Header bổ sung
+voice-api-azure-note = Azure OpenAI: để trống biến khóa, đặt api-version=… làm tham số và api-key: $AZURE_OPENAI_API_KEY làm header. $NAME đọc một biến.
 voice-cancel = Hủy
 voice-agent-title = Tác nhân
 voice-agent-busy = Đổi tác nhân sẽ dừng lượt đang chạy.

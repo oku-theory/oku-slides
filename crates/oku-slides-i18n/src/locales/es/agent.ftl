@@ -137,7 +137,9 @@ voice-error-bad-language = Idioma de dictado desconocido
 voice-error-bad-url = La dirección de la API debe empezar por https:// (http:// solo para este ordenador), sin nombre de usuario, parámetros ni caracteres especiales
 voice-error-bad-key-env = La variable de la clave debe ser un nombre como OPENAI_API_KEY: mayúsculas, cifras y _
 voice-error-bad-api-model = El nombre del modelo de la API solo admite letras, cifras y . _ : / -
-voice-error-api-reserved = Solo el usuario configura la dirección y la variable de la clave de la API: abra el cuadro con show_dictation y pídaselo
+voice-error-bad-api-query = Los parámetros se escriben nombre=valor&nombre=valor, en ASCII visible sin % ni #, 8 como máximo
+voice-error-bad-api-headers = Los encabezados se escriben Nombre: valor; Nombre: $VARIABLE, 8 como máximo. Se necesita una variable de clave o un encabezado $VARIABLE; se rechazan Host, Content-Type, Content-Length, Transfer-Encoding, Connection, los duplicados y Authorization con variable de clave
+voice-error-api-reserved = Solo el usuario configura la dirección, la variable de la clave, los parámetros y los encabezados de la API: abra el cuadro con show_dictation y pídaselo
 voice-error-changed = Los ajustes han cambiado desde la pregunta: vuelva a preguntar
 voice-error-nothing-to-download = No hay nada que descargar para este agente
 agent-tune-prompt = Afinar la presentación importada

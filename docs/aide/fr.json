@@ -380,7 +380,7 @@
            "bold": true
           },
           {
-           "t": " : choisissez API dans les réglages de la dictée ; chaque phrase part vers un service compatible OpenAI, la clé étant lue dans une variable d'environnement. Vous seul réglez l'adresse de l'API (https, ou http pour cet ordinateur) et la variable de la clé (un nom comme OPENAI_API_KEY), dans la boîte des réglages. Une app ouverte depuis le Finder ne voit pas les variables du shell : définissez la clé avec `launchctl setenv OPENAI_API_KEY …` ou lancez l'app depuis un terminal."
+           "t": " : choisissez API dans les réglages de la dictée ; chaque phrase part vers un service compatible OpenAI, la clé étant lue dans une variable d'environnement. Vous seul réglez l'adresse de l'API (https, ou http pour cet ordinateur) et la variable de la clé (un nom comme OPENAI_API_KEY), dans la boîte des réglages. Une app ouverte depuis le Finder ne voit pas les variables du shell : définissez la clé avec `launchctl setenv OPENAI_API_KEY …` ou lancez l'app depuis un terminal. Pour Azure OpenAI ou une passerelle, ajoutez des paramètres de requête (`api-version=…`) et des en-têtes (`api-key: $AZURE_OPENAI_API_KEY` ; `$NOM` lit une variable), et laissez la variable de la clé vide pour n'envoyer aucun Bearer."
           }
          ],
          "list": "bullet"

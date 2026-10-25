@@ -131,7 +131,9 @@ voice-error-bad-language = 알 수 없는 받아쓰기 언어입니다
 voice-error-bad-url = API 주소는 https://로 시작해야 하며(http://는 이 컴퓨터에만), 사용자 이름, 매개변수, 특수 문자는 쓸 수 없습니다
 voice-error-bad-key-env = 키 변수는 OPENAI_API_KEY 같은 이름이어야 합니다: 대문자, 숫자, _
 voice-error-bad-api-model = API 모델 이름에는 문자, 숫자와 . _ : / -만 쓸 수 있습니다
-voice-error-api-reserved = API 주소와 키 변수는 사용자만 설정합니다. show_dictation으로 상자를 열고 사용자에게 요청하세요
+voice-error-bad-api-query = 매개변수는 name=value&name=value 형식으로, % 와 # 없는 보이는 ASCII로, 최대 8개까지 씁니다
+voice-error-bad-api-headers = 헤더는 Name: value; Name: $VARIABLE 형식으로 최대 8개까지 씁니다. 키 변수나 $VARIABLE 헤더가 필요합니다. Host, Content-Type, Content-Length, Transfer-Encoding, Connection, 중복, 키 변수가 있을 때의 Authorization 은 거부됩니다
+voice-error-api-reserved = API 주소, 키 변수, 쿼리 매개변수, 헤더는 사용자만 설정합니다. show_dictation으로 상자를 열고 사용자에게 요청하세요
 voice-error-changed = 질문 이후 설정이 바뀌었습니다. 다시 물어보세요
 voice-error-nothing-to-download = 이 에이전트에는 다운로드할 것이 없습니다
 agent-tune-prompt = 가져온 프레젠테이션 미세 조정

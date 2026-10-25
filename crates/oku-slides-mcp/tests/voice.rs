@@ -242,7 +242,7 @@ fn api_target() -> ApiTarget {
     ApiTarget {
         host: "api.openai.com".into(),
         url: "https://api.openai.com/v1".into(),
-        key_env: "OPENAI_API_KEY".into(),
+        variables: vec!["OPENAI_API_KEY".into()],
         model: "gpt-4o-transcribe".into(),
     }
 }
@@ -379,6 +379,8 @@ async fn set_dictation_unknown_field_is_refused_without_echoing_it() {
 #[rstest]
 #[case("api_url")]
 #[case("key_env")]
+#[case("headers")]
+#[case("query")]
 #[case("\"url\"")]
 #[tokio::test(flavor = "multi_thread")]
 async fn set_dictation_schema_has_no_api_target_field(#[case] key: &str) {

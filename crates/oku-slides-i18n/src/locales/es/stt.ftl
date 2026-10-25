@@ -14,6 +14,7 @@ stt-api-key-missing = Define la variable de entorno { $var } para usar la API de
 stt-api-config = Los ajustes de la API de dictado no son válidos: corríjalos en el cuadro de ajustes.
 stt-api-unreachable = No se puede acceder a la API de dictado
 stt-api-status = La API de dictado rechazó la solicitud (HTTP { $status })
+stt-api-status-detail = La API de dictado rechazó la solicitud (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (multilingüe, 818 MB)
 stt-model-large = Large v3 (multilingüe, 3,1 GB)

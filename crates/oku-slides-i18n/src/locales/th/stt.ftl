@@ -14,6 +14,7 @@ stt-api-key-missing = ตั้งค่าตัวแปรสภาพแว�
 stt-api-config = การตั้งค่า API การพิมพ์ตามคำบอกไม่ถูกต้อง: โปรดแก้ไขในกล่องการตั้งค่า
 stt-api-unreachable = ไม่สามารถเชื่อมต่อ API การพิมพ์ตามคำบอกได้
 stt-api-status = API การพิมพ์ตามคำบอกปฏิเสธคำขอ (HTTP { $status })
+stt-api-status-detail = API การพิมพ์ตามคำบอกปฏิเสธคำขอ (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (หลายภาษา, 818 MB)
 stt-model-large = Large v3 (หลายภาษา, 3.1 GB)

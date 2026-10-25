@@ -14,6 +14,7 @@ stt-api-key-missing = ডিকটেশন API ব্যবহার করত�
 stt-api-config = ডিকটেশন API-এর সেটিংস অবৈধ: সেটিংস বাক্সে সংশোধন করুন।
 stt-api-unreachable = ডিকটেশন API-তে পৌঁছানো যাচ্ছে না
 stt-api-status = ডিকটেশন API অনুরোধ প্রত্যাখ্যান করেছে (HTTP { $status })
+stt-api-status-detail = ডিকটেশন API অনুরোধ প্রত্যাখ্যান করেছে (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (বহুভাষিক, 818 MB)
 stt-model-large = Large v3 (বহুভাষিক, 3.1 GB)

@@ -209,7 +209,7 @@ fn start_apple_with_unknown_language_reports_error() {
 fn api_config(url: &str, key_env: &str) -> Config {
     Config {
         model: Model::Api,
-        api: ApiConfig { url: url.into(), model: "whisper-1".into(), key_env: key_env.into() },
+        api: ApiConfig { url: url.into(), model: "whisper-1".into(), key_env: key_env.into(), ..ApiConfig::default() },
         ..Config::default()
     }
 }
@@ -219,7 +219,7 @@ fn status_api_without_key_is_listed_not_installed() {
     let dir = fresh_dir("oku-slides-stt-");
     let stt = Stt::new(&platform(dir.path()));
     // Dictée au repos : le résultat de `configure` est sans objet ici.
-    let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
+    let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7F3A"));
     let api = stt.status().models.into_iter().find(|m| m.id == Model::Api).unwrap();
     assert_that!(api.installed).is_false();
 }
@@ -229,11 +229,11 @@ fn start_api_without_key_reports_error_and_stays_idle() {
     let dir = fresh_dir("oku-slides-stt-");
     let stt = Stt::new(&platform(dir.path()));
     // Dictée au repos : le résultat de `configure` est sans objet ici.
-    let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a"));
+    let _applied = stt.configure(api_config("http://127.0.0.1:9/v1", "OKU_SLIDES_TEST_NO_SUCH_KEY_7F3A"));
     stt.start(Vec::new());
     let s = stt.status();
     assert_that!(s.state).is_equal_to(State::Idle);
-    assert_that!(s.error.unwrap()).contains("OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a");
+    assert_that!(s.error.unwrap()).contains("OKU_SLIDES_TEST_NO_SUCH_KEY_7F3A");
 }
 
 #[test]

@@ -538,6 +538,9 @@ voice-api-url = API 주소
 voice-api-model = 모델
 voice-api-key-env = 키 변수
 voice-api-note = 각 문장은 이 서비스로 전송됩니다. 키는 받아쓰기를 시작할 때 환경 변수에서 읽습니다. Finder에서 연 앱은 셸 변수를 볼 수 없습니다(launchctl setenv 사용).
+voice-api-query = 쿼리 매개변수
+voice-api-headers = 추가 헤더
+voice-api-azure-note = Azure OpenAI: 키 변수는 비워 두고 api-version=… 을 매개변수로, api-key: $AZURE_OPENAI_API_KEY 를 헤더로 설정하세요. $NAME 은 변수를 읽습니다.
 voice-cancel = 취소
 voice-agent-title = 에이전트
 voice-agent-busy = 에이전트를 바꾸면 진행 중인 턴이 중단됩니다.

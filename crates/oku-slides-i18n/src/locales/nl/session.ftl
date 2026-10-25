@@ -541,6 +541,9 @@ voice-api-url = API-adres
 voice-api-model = Model
 voice-api-key-env = Sleutelvariabele
 voice-api-note = Elke zin wordt naar deze dienst gestuurd. De sleutel wordt gelezen uit de omgevingsvariabele wanneer het dicteren begint; een app die vanuit de Finder is geopend ziet geen shellvariabelen (gebruik launchctl setenv).
+voice-api-query = Queryparameters
+voice-api-headers = Extra headers
+voice-api-azure-note = Azure OpenAI: laat de sleutelvariabele leeg, zet api-version=… als parameter en api-key: $AZURE_OPENAI_API_KEY als header. $NAME leest een variabele.
 voice-cancel = Annuleren
 voice-agent-title = Agent
 voice-agent-busy = Van agent wisselen onderbreekt de lopende beurt.

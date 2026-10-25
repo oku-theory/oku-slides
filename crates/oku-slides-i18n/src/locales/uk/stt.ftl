@@ -14,6 +14,7 @@ stt-api-key-missing = Задайте змінну середовища { $var },
 stt-api-config = Налаштування API диктування недійсні: виправте їх у вікні налаштувань.
 stt-api-unreachable = API диктування недоступний
 stt-api-status = API диктування відхилив запит (HTTP { $status })
+stt-api-status-detail = API диктування відхилив запит (HTTP { $status }): { $detail }
 
 stt-model-turbo = Large v3 Turbo (багатомовна, 818 МБ)
 stt-model-large = Large v3 (багатомовна, 3,1 ГБ)

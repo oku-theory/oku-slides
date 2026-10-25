@@ -100,10 +100,16 @@ fn api_key_missing_localized_names_the_variable(#[case] locale: &str, #[case] va
 
 #[test]
 fn api_status_localized_in_french_shows_the_status() {
-    let e: SttError = ApiStatusSnafu { status: 401u16 }.build().into();
+    let e: SttError = ApiStatusSnafu { status: 401u16, detail: None::<String> }.build().into();
     let text = e.localize(&Localizer::new(Some("fr")));
     assert_that!(text).contains("401");
     assert_that!(text).is_not_equal_to(e.localize(&Localizer::new(Some("en"))));
+}
+
+#[test]
+fn api_status_with_detail_localized_in_french_shows_status_and_detail() {
+    let e: SttError = ApiStatusSnafu { status: 400u16, detail: Some("Missing API version".to_owned()) }.build().into();
+    assert_that!(fr(&e)).is_equal_to("L'API de dictée a refusé la requête (HTTP 400) : Missing API version".to_owned());
 }
 
 #[test]

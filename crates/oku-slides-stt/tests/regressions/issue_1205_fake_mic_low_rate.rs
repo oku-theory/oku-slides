@@ -50,7 +50,12 @@ fn stt(dir: &Path, wav: PathBuf) -> Stt {
     settings.i18n.locale = Some("fr".into());
     let stt = Stt::new(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")));
     // `PATH` is set on every OS: the key counts as present. No request is sent while nothing is said.
-    let api = ApiConfig { url: "http://127.0.0.1:1/v1".into(), model: "whisper-1".into(), key_env: "PATH".into() };
+    let api = ApiConfig {
+        url: "http://127.0.0.1:1/v1".into(),
+        model: "whisper-1".into(),
+        key_env: "PATH".into(),
+        ..ApiConfig::default()
+    };
     let applied = stt.configure(Config { model: Model::Api, auto_stop: false, api, ..Config::default() });
     asserting("the API engine is chosen").that(&applied).is_true();
     stt

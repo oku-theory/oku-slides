@@ -49,10 +49,16 @@ pub struct ApiView {
     pub url: String,
     /// Le modèle demandé au service.
     pub model: String,
-    /// Le nom de la variable d'environnement qui porte la clé.
+    /// Le nom de la variable d'environnement qui porte la clé ; vide : pas de Bearer.
     pub key_env: String,
-    /// La variable est définie ; sa valeur n'est jamais lue ici.
+    /// Query parameters in one line: `a=b&c=d`.
+    pub query: String,
+    /// Custom headers in one line: `Name: value; Name: $VARIABLE` (variable names only).
+    pub headers: String,
+    /// Every variable is set; their values are never read here.
     pub key_found: bool,
+    /// The first variable not set, named in the hint.
+    pub missing: Option<String>,
 }
 
 /// Le téléchargement d'un modèle de dictée en cours.
@@ -192,6 +198,10 @@ pub struct DictationPatch {
     pub api_model: Option<String>,
     /// La variable d'environnement qui porte la clé.
     pub api_key_env: Option<String>,
+    /// Query parameters, in their one-line form.
+    pub api_query: Option<String>,
+    /// Custom headers, in their one-line form.
+    pub api_headers: Option<String>,
 }
 
 impl DictationPatch {
@@ -201,10 +211,10 @@ impl DictationPatch {
         *self == Self::default()
     }
 
-    /// Le changement touche l'adresse ou la variable : ce qui décide où part le secret.
+    /// The change touches the address, a variable or the headers: what decides where secrets go.
     #[must_use]
     pub fn touches_api_target(&self) -> bool {
-        self.api_url.is_some() || self.api_key_env.is_some()
+        self.api_url.is_some() || self.api_key_env.is_some() || self.api_query.is_some() || self.api_headers.is_some()
     }
 }
 
@@ -257,6 +267,8 @@ pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEven
                 "url" => p.api_url = Some(value),
                 "model" => p.api_model = Some(value),
                 "key_env" => p.api_key_env = Some(value),
+                "query" => p.api_query = Some(value),
+                "headers" => p.api_headers = Some(value),
                 _ => return None,
             }
             patch(p)

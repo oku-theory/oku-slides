@@ -191,9 +191,11 @@ pub(crate) fn wait_until(stt: &Stt, what: &str, done: impl Fn(&Status) -> bool) 
     }
 }
 
-/// Requête reçue par la fausse API : en-tête Authorization et corps.
+/// Requête reçue par la fausse API : chemin et query, en-têtes, corps.
 pub(crate) struct ApiCall {
+    pub url: String,
     pub authorization: String,
+    pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
 }
 
@@ -211,9 +213,12 @@ pub(crate) fn fake_api(status: u16, body: &'static str) -> (String, mpsc::Receiv
                 .find(|h| h.field.equiv("Authorization"))
                 .map(|h| h.value.as_str().to_owned())
                 .unwrap_or_default();
+            let headers =
+                request.headers().iter().map(|h| (h.field.to_string(), h.value.as_str().to_owned())).collect();
+            let url = request.url().to_owned();
             let mut bytes = Vec::new();
             std::io::Read::read_to_end(request.as_reader(), &mut bytes).ok();
-            tx.send(ApiCall { authorization, body: bytes }).ok();
+            tx.send(ApiCall { url, authorization, headers, body: bytes }).ok();
             request.respond(tiny_http::Response::from_string(body).with_status_code(status)).ok();
         }
     });
