@@ -1,6 +1,6 @@
 # Scheduled scan: dependencies with `just audit` (cargo deny, cargo audit, cargo machete, bun
 # audit), Rust code metrics with `just metrics` (rust-code-analysis), and UI code security with
-# `just ui-security` (Semgrep, blocking) and CodeQL (reported in the Security tab).
+# `just ui-security` (Semgrep, blocking). CodeQL runs through the repo's default setup.
 # Runs daily, because a RustSec or npm advisory lands without any code change and a removed `use`
 # leaves an unused dependency without touching a manifest; on every push to main or PR touching
 # the manifests, locks, exceptions, metric inputs or this workflow; and by hand from the Actions
@@ -116,31 +116,3 @@ jobs:
       - run: pip install semgrep==1.182.1
 
       - run: just ui-security
-
-  # Data-flow analysis of the UI (XSS, injection, prototype pollution), alerts in the Security tab.
-  # Not blocking: an alert dismissed there would stay in the SARIF and keep the job red.
-  # Not on PRs: a PR from a fork may not write alerts.
-  codeql:
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript
-          build-mode: none
-          queries: security-extended
-          config: |
-            paths: [ui/src, ui/vite.config.ts]
-            paths-ignore: ["**/*.test.ts", "**/*.test.tsx"]
-
-      - uses: github/codeql-action/analyze@v4
-        with:
-          category: ui
