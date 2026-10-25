@@ -9,6 +9,7 @@
 //! - [`find_program`] : un programme externe, par son chemin ou dans `PATH`.
 //! - [`Platform`] : réglages, fichiers et langue, réunis au démarrage.
 //! - [`local_agent`] : l'état du moteur de l'agent local (modèle, machine).
+//! - `http` (feature `download`) : `system_tls`, TLS for outgoing HTTP clients.
 //! - [`models`] : fichiers de modèles épinglés, téléchargés et vérifiés (feature `download`).
 //! - `listen` (feature `listen`) : boucle d'accept bornée des serveurs HTTP
 //!   locaux, `serve_connections` et ses `Limits`.
@@ -19,6 +20,8 @@
 pub mod config;
 pub mod config_write;
 pub mod errors;
+#[cfg(feature = "download")]
+pub mod http;
 #[cfg(feature = "listen")]
 mod listen;
 pub mod local_agent;

@@ -19,8 +19,8 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
   phrase like Whisper but without preview; the key is read from the environment
   variable named in `ApiConfig`, never stored or copied (`key_present` only tests it).
   `api_check.rs` holds the settings rules (`normalized_url`, `is_loopback`, `valid_key_env`,
-  `valid_api_model`); the client refuses invalid settings, follows no redirect and skips
-  the proxy for loopback. `Model::id`/`from_id` give the stable model names.
+  `valid_api_model`); the client refuses invalid settings, follows no redirect, skips
+  the proxy for loopback and trusts the system certificates (`http::system_tls`). `Model::id`/`from_id` give the stable model names.
 
 ## Flow
 

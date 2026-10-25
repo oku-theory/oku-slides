@@ -132,9 +132,10 @@ impl fmt::Debug for ApiTranscriber {
 }
 
 impl ApiTranscriber {
-    /// Refuse des réglages invalides, lit la clé et prépare l'agent HTTP.
+    /// Refuses invalid settings, reads the key and prepares the HTTP agent.
     ///
-    /// Sans redirection ; sans proxy vers cette machine, sinon celui de l'environnement.
+    /// No redirects; no proxy to this machine, the environment's proxy otherwise;
+    /// system certificates (t-1211).
     pub(crate) fn new(config: ApiConfig, timeout: Duration) -> Result<Self, SttError> {
         let root = match normalized_url(&config.url) {
             Some(root) if valid_key_env(&config.key_env) && valid_api_model(&config.model) => root,
@@ -144,6 +145,7 @@ impl ApiTranscriber {
         let proxy = if is_loopback(&root) { None } else { ureq::Proxy::try_from_env() };
         let agent = ureq::Agent::config_builder()
             .proxy(proxy)
+            .tls_config(oku_slides_platform::http::system_tls())
             .max_redirects(0)
             .timeout_global(Some(timeout))
             .http_status_as_error(false)

@@ -48,6 +48,13 @@ fn transcriber(url: String) -> ApiTranscriber {
 }
 
 #[test]
+fn new_remote_api_trusts_the_system_certificate_store() {
+    let t = transcriber("https://transcribe.example.com/v1".into());
+    let roots = t.agent.config().tls_config().root_certs();
+    assert_that!(matches!(roots, ureq::tls::RootCerts::PlatformVerifier)).is_true();
+}
+
+#[test]
 fn transcribe_ok_returns_the_api_text() {
     let (url, _calls) = fake_api(200, r#"{"text":"Bonjour à tous."}"#);
     let t = transcriber(url).transcribe(&[0.0; 1600], Some("fr"), Some("Oku"), false).unwrap();

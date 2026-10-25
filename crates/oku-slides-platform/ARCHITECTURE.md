@@ -24,9 +24,9 @@ the CLI, the session, the agent and dictation.
   async contexts only. `StorageError::kind` gives a `StorageErrorKind`.
 - `models`: `PinnedFile`, `is_complete` and (feature `download`) `download`: hashed `.part`
   files renamed once verified, `.complete` last; waits cancellable, bounded by `read_timeout_secs`; `DownloadError::kind`.
+- `http` (feature `download`): `system_tls`, TLS on the system certificate store, for every ureq agent.
 - `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve`, `local_engine` → `ReadyEngine` or `Unavailable`.
-- `listen` (feature `listen`): `serve_connections` with `Limits` (header timeout,
-  connection cap) and a bounded graceful shutdown, replacing `axum::serve`.
+- `listen` (feature `listen`): `serve_connections`, bounded by `Limits`, replaces `axum::serve`.
 
 ## Startup order
 

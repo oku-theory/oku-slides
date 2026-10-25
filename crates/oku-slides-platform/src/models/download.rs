@@ -151,6 +151,18 @@ fn backoff(wait: Duration, at: u64, total: u64, progress: &mut impl FnMut(u64, u
     }
 }
 
+/// The download agent: environment proxy, system certificates, bounded waits.
+pub(super) fn agent(timeout: Duration) -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .proxy(ureq::Proxy::try_from_env())
+        .tls_config(crate::http::system_tls())
+        // Bounds the request's wait; the body is bounded read by read (`next`).
+        .timeout_connect(Some(timeout))
+        .timeout_recv_response(Some(timeout))
+        .build()
+        .into()
+}
+
 /// Downloads `files` into `dir`, then writes [`COMPLETE`].
 ///
 /// Each file is written as `.part`, checked then renamed; files already there
@@ -173,13 +185,7 @@ pub fn download(
     mut progress: impl FnMut(u64, u64) -> bool,
 ) -> Result<(), DownloadError> {
     let timeout = Duration::from_secs(settings.read_timeout_secs);
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .proxy(ureq::Proxy::try_from_env())
-        // Bornes du fil de la requête ; le corps, lui, est borné lecture par lecture (`next`).
-        .timeout_connect(Some(timeout))
-        .timeout_recv_response(Some(timeout))
-        .build()
-        .into();
+    let agent = agent(timeout);
     let mut done = 0u64;
     for pinned in files {
         let file = pinned.name;

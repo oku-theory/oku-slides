@@ -186,3 +186,10 @@ fn download_cancel_while_waiting_for_headers_is_cancelled_quickly() {
     assert_that!(err.kind()).is_equal_to(DownloadErrorKind::Cancelled);
     assert_that!(started.elapsed()).is_less_than(Duration::from_secs(2));
 }
+
+#[test]
+fn agent_trusts_the_system_certificate_store() {
+    let agent = super::download::agent(Duration::from_secs(5));
+    let roots = agent.config().tls_config().root_certs();
+    assert_that!(matches!(roots, ureq::tls::RootCerts::PlatformVerifier)).is_true();
+}
