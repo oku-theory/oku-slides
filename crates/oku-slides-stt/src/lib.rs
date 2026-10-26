@@ -33,6 +33,7 @@ mod num;
 mod phrase_engine;
 #[cfg(any(test, target_os = "macos"))]
 mod results;
+mod saved_config;
 mod stream;
 #[cfg(test)]
 mod test_support;
@@ -306,10 +307,8 @@ pub struct Stt {
     apple_supported: bool,
     /// Langue du système, lue au démarrage (dernier repli du moteur d'Apple).
     system_locale: Option<String>,
-}
-
-fn config_path(dir: &Path) -> PathBuf {
-    dir.join("config.json")
+    /// False while an unreadable `config.json` could not be kept aside: never overwritten (t-1216).
+    savable: bool,
 }
 
 impl std::fmt::Debug for Stt {
@@ -335,9 +334,7 @@ impl Stt {
         let dir = platform.settings.paths.models();
         let storage = platform.storage.clone();
         let apple_supported = streaming.supported();
-        // Réglages absents ou illisibles : ceux par défaut.
-        let config: Config =
-            storage.read(&config_path(&dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        let saved_config::Loaded { config, savable } = saved_config::load(&storage, &dir);
         // Bascule unique vers Apple : seulement s'il connaît la langue retenue.
         let resolved = apple_supported
             .then(|| {
@@ -381,6 +378,7 @@ impl Stt {
             streaming,
             apple_supported,
             system_locale,
+            savable,
         };
         stt.refresh_apple();
         stt
@@ -488,9 +486,15 @@ impl Stt {
             if g.engine.as_ref().is_some_and(|(k, _)| *k != engine_key(&config)) {
                 g.engine = None; // libère la mémoire de l'ancien modèle, ou l'ancienne API
             }
-            let saved = serde_json::to_vec_pretty(&config).map_err(|e| e.to_string()).and_then(|json| {
-                self.storage.write(&config_path(&self.dir), json).map_err(|e| oku_slides_platform::errors::one_line(&e))
-            });
+            let saved = if self.savable {
+                serde_json::to_vec_pretty(&config).map_err(|e| e.to_string()).and_then(|json| {
+                    self.storage
+                        .write(&saved_config::path(&self.dir), json)
+                        .map_err(|e| oku_slides_platform::errors::one_line(&e))
+                })
+            } else {
+                Err("an unreadable config.json is in the way".to_owned())
+            };
             if let Err(e) = saved {
                 // Les réglages restent en vigueur pour cette session.
                 tracing::warn!(error = %e, "réglages de la dictée non enregistrés");

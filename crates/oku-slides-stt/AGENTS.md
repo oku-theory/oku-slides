@@ -14,6 +14,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Store, show and call only the normalized_url form of the dictation API address; refuse invalid settings at use. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Check API variables with key_present or missing_variable; read their values only in ApiTranscriber. (spec:2026-10-23-reglages-dictee-a2ui-design, t-1213)
 - Show an API error message only for statuses other than 401 and 403, with every secret masked. (spec:2026-10-25-dictee-api-entetes-design)
+- Load config.json only through saved_config::load; keep an unparseable one aside, log no serde message. (t-1216)
 
 ## Testing
 

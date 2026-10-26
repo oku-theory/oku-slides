@@ -386,6 +386,9 @@ agent, and when the agent changes an app setting for you (applied at next launch
 sets one key at a time and keeps your comments. The choices of the dictation box (engine,
 Whisper model, language, auto stop, API address, model, key variable, query parameters and
 headers) are not in `config.toml`: they go to `config.json` in the models folder.
+Edit that file with the app closed: the app reads it at launch and rewrites it whole on
+the next change in the box. A file that does not parse is kept aside as
+`config.json.invalid-<seconds>[-<n>]` (with a warning in the log) and the defaults apply.
 
 ### Environment variables
 

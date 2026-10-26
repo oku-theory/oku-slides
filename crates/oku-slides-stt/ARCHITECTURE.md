@@ -23,6 +23,11 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
   `$VARIABLE`, Azure OpenAI) and the redacted API error message; the client refuses invalid settings, follows no redirect, skips
   the proxy for loopback and trusts the system certificates (`http::system_tls`). `Model::id`/`from_id` give the stable model names.
 
+## Settings
+
+`saved_config.rs` reads `config.json` in the models folder once, at launch; a file that
+does not parse is renamed `config.json.invalid-<secs>[-<n>]`; one it cannot read or rename blocks saving.
+
 ## Flow
 
 `listen_loop` (lib.rs): microphone (`audio.rs`) -> 16 kHz -> earshot (`vad.rs`,
