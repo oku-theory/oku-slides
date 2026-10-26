@@ -5,6 +5,20 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-10-26
+
+### Added
+
+- *(session,mcp,ui)* [**breaking**] library packs open in their own tab beside a preview deck (t-1155, t-1192, t-1193, t-1194, t-1195, t-1196, t-1197)
+
+### Fixed
+
+- *(updater)* log the bundle URL and endpoint of a failed download (t-1212)
+
+### Documentation
+
+- *(readme)* document the config.toml file (t-1215)
+
 ## [5.2.0] - 2026-10-25
 
 ### Added
