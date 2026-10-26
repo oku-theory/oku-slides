@@ -25,6 +25,10 @@ ui-caption-slides = { $count ->
    *[other] 슬라이드 { $count }개
 } · { $status }
 ui-confirm-quit-pack = 수정한 팩을 저장하지 않고 종료할까요?
+ui-confirm-update-opener = “{ $deck }”을(를) 팩 “{ $pack }”의 이 버전으로 업데이트할까요?
+ui-close-writes-pending = 이 탭은 아직 저장 중입니다. 잠시 후 다시 닫아 주세요.
+ui-confirm-close-writes-pending = 이 탭은 아직 저장 중입니다. 그래도 닫고 저장되지 않은 내용을 잃을까요?
+ui-confirm-quit-read-only-pack = { $pack }은(는) 여기서 저장할 수 없습니다. 이 탭을 닫고 변경 사항을 잃을까요? 유지하려면 에이전트에게 새 팩으로 저장해 달라고 요청하세요.
 
 ## 알림
 

@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { listenTauri, type TabAt, type WindowView, type WorkspaceView } from "./api";
+import { listenTauri, type TabAt, tabPath, type WindowView, type WorkspaceView } from "./api";
 import { t } from "./i18n";
 import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, outside, slotAt } from "./tabs";
 
@@ -192,7 +192,7 @@ export default function TabBar(props: Props) {
             tabIndex={tab.id === win.active ? 0 : -1}
             aria-selected={tab.id === win.active}
             className={`tab${tab.id === win.active ? " active" : ""}${drag?.id === tab.id ? " dragging" : ""}${slot === i ? " drop-before" : ""}`}
-            title={tab.path ?? tab.title}
+            title={tabPath(tab) ?? tab.title}
             onPointerDown={(e) => onPointerDown(e, tab.id)}
             onKeyDown={(e) => {
               // Motif WAI-ARIA des onglets : Entrée / Espace activent, les flèches déplacent.

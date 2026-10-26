@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 
 use oku_slides_agent::Stack;
-use oku_slides_session::agent::Sessions;
+use oku_slides_session::agent::{PackGate, PackOpen, Sessions};
 use oku_slides_session::{Localize, Localizer, Session, SessionError, Workspace};
 use tauri::{AppHandle, Manager};
 
@@ -122,6 +122,25 @@ impl Sessions for AppSessions {
     fn open_tab(&self, tab: &str, path: &std::path::Path) -> oku_slides_session::Result<String> {
         let opened = Workspace::open_beside(&self.workspace, tab, path)?;
         crate::windows::sync(&self.app, None, true);
+        Ok(opened)
+    }
+
+    /// Opens a pack for the agent; the windows follow a pack tab, the view a workshop.
+    fn open_pack(
+        &self,
+        tab: &str,
+        pack: uuid::Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(PackGate) -> bool,
+    ) -> oku_slides_session::Result<PackOpen> {
+        let opened = Workspace::open_pack(&self.workspace, tab, pack, widget, gate)?;
+        match &opened {
+            PackOpen::Tab(_) => {
+                crate::windows::sync(&self.app, None, true);
+            }
+            PackOpen::Here => crate::windows::emit_view(&self.app),
+            PackOpen::Refused => {}
+        }
         Ok(opened)
     }
 }

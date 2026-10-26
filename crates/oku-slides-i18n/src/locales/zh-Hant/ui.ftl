@@ -28,6 +28,10 @@ ui-caption-slides = { $count ->
    *[other] { $count }張投影片
 } · { $status }
 ui-confirm-quit-pack = 要結束而不儲存已修改的套件嗎？
+ui-confirm-update-opener = 要將「{ $deck }」更新為套件「{ $pack }」的此版本嗎？
+ui-close-writes-pending = 此分頁仍在儲存：請稍後再次關閉。
+ui-confirm-close-writes-pending = 此分頁仍在儲存。仍要關閉並遺失尚未儲存的內容嗎？
+ui-confirm-quit-read-only-pack = 無法在此儲存 { $pack }。要關閉此分頁並遺失其變更嗎？若要保留，請讓 AI 代理將其另存為新套件。
 
 ## 通知
 

@@ -5,7 +5,8 @@ import App from "./App";
 import TabBar from "./TabBar";
 import UpdateBar from "./UpdateBar";
 import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
-import { mayClose } from "./close";
+import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
+import { runCloseGuard } from "./closeGuards";
 import { t } from "./i18n";
 import { newest } from "./latest";
 import { mergedNotice, openGuarded } from "./merge";
@@ -70,17 +71,20 @@ export default function Workspace() {
     bump();
   }, [reread, bump]);
 
+  /** Applies a workspace request's view; null on failure, the error shown and the view reread. */
   const run = useCallback(
-    async (p: Promise<WorkspaceView>) => {
+    async (p: Promise<WorkspaceView>): Promise<WorkspaceView | null> => {
       try {
         const v = await p;
         if (alive.current) {
           setView(v);
           setError(null);
         }
+        return v;
       } catch (e) {
         if (alive.current) setError(errorText(e));
         refresh();
+        return null;
       }
     },
     [refresh],
@@ -138,27 +142,23 @@ export default function Workspace() {
     return v.windows.find((w) => w.label === label)?.tabs ?? [];
   };
 
-  // Un double clic sur la croix d'un onglet modifié ne pose la question qu'une fois.
-  const closing = useRef(new Set<string>());
+  // Ids whose close runs (tab and window flows alike): a double click on × asks once.
+  const closingRef = useRef(new Set<string>());
+  // First stall time per tab: a second one within 30 s asks to close anyway.
+  const stallsRef = useRef(new Map<string, number>());
 
-  /** Ferme un onglet, enregistré d'abord s'il est modifié ; `false` : pas fermé. */
+  /** The close flows' deps, built from this render's values for window `l`. */
+  const flowDeps = (l: string) =>
+    closeFlowDeps({
+      tabApi, confirm: (m) => window.confirm(m), runGuard: (x) => runCloseGuard(x), closing: closingRef.current,
+      stalls: stallsRef.current, refresh, freshTabs, now: Date.now, ws: workspace, label: l, alive, run, setError,
+    });
+
+  /** Closes a tab through closeTabFlow (guard, save, offer); false: not closed. */
   const closeTab = useCallback(
     async (id: string): Promise<boolean> => {
-      if (closing.current.has(id)) return false;
-      closing.current.add(id);
-      try {
-        const tab = (await freshTabs()).find((x) => x.id === id);
-        if (!tab) return true;
-        const verdict = await mayClose(tab, tabApi(id));
-        if (!verdict) return false;
-        await run(workspace.close(id, false));
-        return true;
-      } catch (e) {
-        if (alive.current) setError(errorText(e));
-        return false;
-      } finally {
-        closing.current.delete(id);
-      }
+      if (label === null) return false;
+      return closeTabFlow(id, flowDeps(label));
     },
     [run, label],
   );
@@ -182,21 +182,11 @@ export default function Workspace() {
       return getCurrentWebviewWindow().listen("close-requested", async () => {
         if (closingWindow.current) return;
         closingWindow.current = true;
-        // L'onglet actif au moment de la demande : à retrouver si l'utilisateur renonce.
-        const activeBefore = winRef.current?.active;
         try {
+          // Quit runs no guard (t-1206).
           if ((viewRef.current?.windows.length ?? 0) <= 1) return void (await invoke("quit"));
-          // Chaque onglet modifié est enregistré ; montré d'abord, s'il faut répondre à un conflit.
-          for (const tab of await freshTabs()) {
-            if (!tab.dirty) continue;
-            await workspace.activate(tab.id);
-            const verdict = await mayClose(tab, tabApi(tab.id));
-            if (!verdict) {
-              if (activeBefore) await workspace.activate(activeBefore);
-              return;
-            }
-          }
-          await workspace.closeWindow(label, []);
+          // The tab active at the request: shown again if the user gives up.
+          await closeWindowFlow(winRef.current?.active ?? null, flowDeps(label));
         } catch (e) {
           if (alive.current) setError(errorText(e));
         } finally {
@@ -310,6 +300,10 @@ export default function Workspace() {
           onHelp={() => run(workspace.openHelp(label))}
           updates={appUpdates}
           onClose={inTauri || win.tabs.length > 1 ? () => void closeTab(win.active) : undefined}
+          onOpenPack={async (pack, widget) => {
+            const v = await run(workspace.openPack(win.active, pack, widget));
+            return v?.windows.find((w) => w.label === label)?.active === win.active;
+          }}
           onChange={inTauri ? undefined : reread}
         />
       </div>

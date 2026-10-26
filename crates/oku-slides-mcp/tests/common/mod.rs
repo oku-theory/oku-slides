@@ -4,12 +4,14 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
+pub mod workspace_harness;
+
 use async_trait::async_trait;
 use oku_slides_mcp::{
     Applied, Checked, McpEvent, Origin, SettingsPort, SurfaceAction, SurfaceHub, ToolServer, Tools, VoiceApplied,
     VoiceError, VoiceErrorKind, VoicePort,
 };
-use oku_slides_session::agent::{Sessions, Surface, TabSession};
+use oku_slides_session::agent::{PackGate, PackOpen, Sessions, Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use oku_slides_session::{VoiceEvent, VoiceView};
 use rust_mcp_sdk::mcp_client::{ClientHandler, ClientRuntime, client_runtime};
@@ -162,9 +164,10 @@ async fn start_with(
     (platform, data): (Platform, tempfile::TempDir),
     sessions: Arc<dyn Sessions>,
     session: Arc<Mutex<Session>>,
+    tab: &str,
 ) -> Harness {
     let localizer = platform.localizer.clone();
-    let tab = TabSession::new("t-1", sessions);
+    let tab = TabSession::new(tab, sessions);
     let live = platform.live_localizer.clone();
     let voice = Arc::new(FakeVoice::new());
     let hub = SurfaceHub::new(tab.clone(), live.clone(), voice.clone());
@@ -183,7 +186,7 @@ pub async fn start() -> Harness {
 pub async fn start_with_settings(tweak: impl FnOnce(&mut Settings) + Send + 'static) -> Harness {
     let (platform, session, data) = prepared_with(tweak).await;
     let session = Arc::new(Mutex::new(session));
-    start_with((platform, data), session.clone(), session).await
+    start_with((platform, data), session.clone(), session, "t-1").await
 }
 
 /// Le `.pptx` de la fixture `fixtures/import/<name>` copié ou zippé dans `dir` ; son chemin.
@@ -252,7 +255,7 @@ pub async fn start_imported(
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante de l'import : {e}"));
     let session = Arc::new(Mutex::new(session));
-    start_with((platform, data), session.clone(), session).await
+    start_with((platform, data), session.clone(), session, "t-1").await
 }
 
 /// Un `Sessions` qui refuse toujours l'onglet : un vrai espace de travail,
@@ -265,6 +268,17 @@ impl Sessions for ClosedTabs {
     fn with(&self, _tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
         self.0.with("onglet-ferme", f)
     }
+
+    /// Onglet toujours fermé : refusé (`UnknownTab`).
+    fn open_pack(
+        &self,
+        _tab: &str,
+        pack: uuid::Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(PackGate) -> bool,
+    ) -> oku_slides_session::Result<PackOpen> {
+        self.0.open_pack("onglet-ferme", pack, widget, gate)
+    }
 }
 
 /// Un `Sessions` à plusieurs onglets : tout fichier est déjà ouvert dans un
@@ -274,6 +288,25 @@ pub struct OtherTabs {
     session: Arc<Mutex<Session>>,
     /// `(onglet, fichier)` de chaque `open_tab`.
     pub opened: Mutex<Vec<(String, std::path::PathBuf)>>,
+    /// `(tab, pack, widget)` of each `open_pack` whose gate allowed a new tab.
+    pub opened_packs: Mutex<Vec<(String, uuid::Uuid, Option<String>)>>,
+    /// Every answer of the gate to `NewTab`, `false` ones included.
+    pub gate_answers: Mutex<Vec<bool>>,
+    /// The next allowed `open_pack` fails after its gate (`UnknownTab`).
+    pub fail_next: std::sync::atomic::AtomicBool,
+    /// The next allowed `open_pack` waits here, after its gate, for a message or a drop.
+    pub hold: Mutex<Option<std::sync::mpsc::Receiver<()>>>,
+    /// A workspace without the tab the pack is opened from: the source of the failure.
+    closed: Mutex<oku_slides_session::Workspace>,
+}
+
+impl OtherTabs {
+    /// Holds the next allowed `open_pack` after its gate; send on, or drop, the sender to release it.
+    pub fn hold_next(&self) -> std::sync::mpsc::Sender<()> {
+        let (release, held) = std::sync::mpsc::channel();
+        *lock(&self.hold) = Some(held);
+        release
+    }
 }
 
 impl Sessions for OtherTabs {
@@ -289,14 +322,54 @@ impl Sessions for OtherTabs {
         self.opened.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((tab.to_owned(), path.to_owned()));
         Ok("t-7".to_owned())
     }
+
+    /// A new pack tab `t-7`, if the gate allows it: the gate, the record, the hold, then the result.
+    fn open_pack(
+        &self,
+        tab: &str,
+        pack: uuid::Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(PackGate) -> bool,
+    ) -> oku_slides_session::Result<PackOpen> {
+        let allowed = gate(PackGate::NewTab);
+        lock(&self.gate_answers).push(allowed);
+        if !allowed {
+            return Ok(PackOpen::Refused);
+        }
+        lock(&self.opened_packs).push((tab.to_owned(), pack, widget.map(str::to_owned)));
+        // Taken out of its mutex: the wait holds no lock.
+        let held = lock(&self.hold).take();
+        if let Some(held) = held {
+            let _ = held.recv_timeout(std::time::Duration::from_secs(10));
+        }
+        if self.fail_next.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            return self.closed.open_pack("onglet-ferme", pack, widget, &mut |_| false);
+        }
+        Ok(PackOpen::Tab("t-7".to_owned()))
+    }
 }
 
 /// Un serveur parmi d'autres onglets (voir [`OtherTabs`]).
 pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
     let (platform, session, data) = prepared().await;
+    let (platform, closed) = tokio::task::spawn_blocking(move || {
+        let closed = oku_slides_session::Workspace::new(Fonts::default(), &platform, None)
+            .unwrap_or_else(|e| panic!("espace de travail de test : {e}"));
+        (platform, closed)
+    })
+    .await
+    .unwrap_or_else(|e| panic!("tâche bloquante de l'espace de travail : {e}"));
     let session = Arc::new(Mutex::new(session));
-    let tabs = Arc::new(OtherTabs { session: session.clone(), opened: Mutex::default() });
-    let h = start_with((platform, data), tabs.clone(), session).await;
+    let tabs = Arc::new(OtherTabs {
+        session: session.clone(),
+        opened: Mutex::default(),
+        opened_packs: Mutex::default(),
+        gate_answers: Mutex::default(),
+        fail_next: std::sync::atomic::AtomicBool::new(false),
+        hold: Mutex::default(),
+        closed: Mutex::new(closed),
+    });
+    let h = start_with((platform, data), tabs.clone(), session, "t-1").await;
     (h, tabs)
 }
 
@@ -315,13 +388,23 @@ impl Sessions for OneFileElsewhere {
     fn open_elsewhere(&self, _tab: &str, path: &std::path::Path) -> bool {
         path == self.open
     }
+
+    fn open_pack(
+        &self,
+        tab: &str,
+        pack: uuid::Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(PackGate) -> bool,
+    ) -> oku_slides_session::Result<PackOpen> {
+        self.session.open_pack(tab, pack, widget, gate)
+    }
 }
 
 /// Un serveur dont seul `open` est ouvert dans un autre onglet (voir [`OneFileElsewhere`]).
 pub async fn start_with_one_file_elsewhere(open: std::path::PathBuf) -> Harness {
     let (platform, session, data) = prepared().await;
     let session = Arc::new(Mutex::new(session));
-    start_with((platform, data), Arc::new(OneFileElsewhere { session: session.clone(), open }), session).await
+    start_with((platform, data), Arc::new(OneFileElsewhere { session: session.clone(), open }), session, "t-1").await
 }
 
 /// Un `Sessions` dont l'onglet est derrière un autre dans sa fenêtre : il n'est pas affiché.
@@ -336,13 +419,23 @@ impl Sessions for HiddenTab {
     fn shown(&self, _tab: &str) -> bool {
         false
     }
+
+    fn open_pack(
+        &self,
+        tab: &str,
+        pack: uuid::Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(PackGate) -> bool,
+    ) -> oku_slides_session::Result<PackOpen> {
+        self.0.open_pack(tab, pack, widget, gate)
+    }
 }
 
 /// Un serveur pour un onglet caché (voir [`HiddenTab`]).
 pub async fn start_hidden() -> Harness {
     let (platform, session, data) = prepared().await;
     let session = Arc::new(Mutex::new(session));
-    start_with((platform, data), Arc::new(HiddenTab(session.clone())), session).await
+    start_with((platform, data), Arc::new(HiddenTab(session.clone())), session, "t-1").await
 }
 
 /// Un `Sessions` qui retient le prochain accès à la session jusqu'à ce que le test le relâche
@@ -401,6 +494,22 @@ impl Sessions for GatedTabs {
         }
         self.session.with(tab, f)
     }
+
+    /// Applies the hold, then opens in the inner session.
+    fn open_pack(
+        &self,
+        tab: &str,
+        pack: uuid::Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(PackGate) -> bool,
+    ) -> oku_slides_session::Result<PackOpen> {
+        let hold = self.hold.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+        if let Some(hold) = hold {
+            let _ = hold.entered.send(());
+            let _ = hold.release.recv();
+        }
+        self.session.open_pack(tab, pack, widget, gate)
+    }
 }
 
 /// Un serveur dont les accès à la session peuvent être retenus (voir [`GatedTabs`]).
@@ -408,7 +517,7 @@ pub async fn start_gated() -> (Harness, Arc<GatedTabs>) {
     let (platform, session, data) = prepared().await;
     let session = Arc::new(Mutex::new(session));
     let tabs = Arc::new(GatedTabs { session: session.clone(), hold: Mutex::default() });
-    let h = start_with((platform, data), tabs.clone(), session).await;
+    let h = start_with((platform, data), tabs.clone(), session, "t-1").await;
     (h, tabs)
 }
 
@@ -424,7 +533,7 @@ pub async fn start_closed() -> Harness {
     .unwrap_or_else(|e| panic!("tâche bloquante de l'espace de travail : {e}"));
     let session = Arc::new(Mutex::new(session));
     let sessions: Arc<dyn Sessions> = Arc::new(ClosedTabs(Mutex::new(workspace)));
-    start_with((platform, data), sessions, session).await
+    start_with((platform, data), sessions, session, "t-1").await
 }
 
 struct Noop;
@@ -661,7 +770,7 @@ pub async fn start_with_library_widget_pack(namespace: &'static str) -> Harness 
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante de préparation : {e}"));
     let session = Arc::new(Mutex::new(session));
-    start_with((platform, data), session.clone(), session).await
+    start_with((platform, data), session.clone(), session, "t-1").await
 }
 
 /// La dernière surface d'id `id` déjà reçue sur `rx` ; le canal est vidé.

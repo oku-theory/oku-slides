@@ -189,7 +189,7 @@ fn resume_shows_saved_tab_titles_without_reading_the_tabs() {
     let v = view(&resumed(&data));
     let t2 = v.windows[0].tabs.iter().find(|t| t.id == "t-2").unwrap_or_else(|| panic!("t-2 absent : {v:?}"));
     assert_that!(t2.info.title.as_str()).is_equal_to("rapport");
-    assert_that!(t2.info.path.as_deref()).is_equal_to(Some(oku_slides_platform::storage::resolve(&file).as_path()));
+    assert_that!(t2.info.document.path()).is_equal_to(Some(oku_slides_platform::storage::resolve(&file).as_path()));
 }
 
 /// t-158 : un onglet inactif revient entier à sa première requête.
@@ -778,7 +778,7 @@ fn tab_info_keeps_deck_uid_across_resume() {
     }
     let ws = resumed(&data);
     let v = view(&ws);
-    let uids: Vec<_> = v.windows[0].tabs.iter().filter_map(|t| t.info.deck_uid.clone()).collect();
+    let uids: Vec<_> = v.windows[0].tabs.iter().filter_map(|t| t.info.document.deck_uid().map(str::to_owned)).collect();
     assert_that!(uids).has_length(1);
 }
 
@@ -860,11 +860,13 @@ fn resume_with_tab_info_without_deck_uid_reads_it_as_none() {
     let bytes = std::fs::read(data.resume().join("workspace.json")).unwrap_or_else(|e| panic!("layout : {e}"));
     let mut layout: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("layout : {e}"));
     let info = layout["info"][&id].as_object_mut().unwrap_or_else(|| panic!("infos de {id} absentes"));
+    // As the previous release wrote it: no `document`, and a deck without identity.
+    assert_that!(info.remove("document").is_some()).is_true();
     assert_that!(info.remove("deck_uid").is_some()).is_true();
     write_layout(&data, &layout);
     let v = view(&resumed(&data));
     let t = v.windows[0].tabs.iter().find(|t| t.id == id).unwrap_or_else(|| panic!("onglet {id} absent"));
-    assert_that!(t.info.deck_uid).is_none();
+    assert_that!(t.info.document.deck_uid()).is_none();
     assert_that!(t.info.title.as_str()).is_equal_to("deck");
 }
 

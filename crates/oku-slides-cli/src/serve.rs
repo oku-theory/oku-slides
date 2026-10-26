@@ -171,6 +171,11 @@ impl Shared {
                             self.stack.tune(&tab);
                             (StatusCode::OK, json)
                         }
+                        // A workshop entered in place: the agent's orphaned notes close, as after a deck request.
+                        Ok(WorkspaceOutcome::DeckChanged { json, tab }) => {
+                            self.stack.after_change(&tab);
+                            (StatusCode::OK, json)
+                        }
                         Ok(WorkspaceOutcome::LastWindow(_)) => last_window(),
                         Err(e) => refused(e),
                     }

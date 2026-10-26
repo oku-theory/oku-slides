@@ -162,6 +162,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         parent: Some(v),
         session_version: None,
         deck_only: false,
+        host: crate::PackHost::Deck,
     };
     let ui = UiState {
         slide: Some("s-1".into()),
@@ -275,8 +276,9 @@ fn read_state_oversized_returns_access_error_too_large() {
 fn read_state_future_version_with_other_shape_returns_version_error() {
     let r = resume();
     std::fs::create_dir_all(&r.dir).unwrap();
-    std::fs::write(r.dir.join("state.json"), br#"{"version":4,"mode":{"nouveau":1}}"#).unwrap();
-    assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version: 4, .. }))).is_true();
+    let future = PACK_TAB_STATE_VERSION + 1;
+    std::fs::write(r.dir.join("state.json"), format!(r#"{{"version":{future},"mode":{{"nouveau":1}}}}"#)).unwrap();
+    assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version, .. }) if version == future)).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -636,14 +638,6 @@ fn resume_of_a_version_8_tab_with_unsaved_work_is_set_aside_as_outdated() {
     assert_that!(dir.exists()).is_false();
 }
 
-/// Réécrit le `state.json` de reprise de `dir` par `edit`.
-fn edit_state(dir: &std::path::Path, edit: impl FnOnce(&mut serde_json::Value)) {
-    let path = dir.join("state.json");
-    let mut state: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    edit(&mut state);
-    std::fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
-}
-
 /// Une session reprise dans `dir`, passée en mode pack, dont le brouillon étend aussi Pro.
 fn pack_mode_with_extends_edit(data: &std::path::Path, dir: &std::path::Path) {
     let mut s = crate::test_support::session_on(data);
@@ -671,7 +665,7 @@ fn resume_pack_mode_with_unknown_parent_is_set_aside() {
     let data = crate::test_support::fresh_dir("oku-slides-resume-extends-");
     let dir = data.path().join("tab");
     pack_mode_with_extends_edit(data.path(), &dir);
-    edit_state(&dir, |state| state["theme_edit"]["extends"] = serde_json::json!(["ailleurs"]));
+    crate::test_support::edit_state(&dir, |state| state["theme_edit"]["extends"] = serde_json::json!(["ailleurs"]));
     let mut back = crate::test_support::session_on(data.path());
     assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Unreadable);
     assert_that!(back.editing_view()).is_none();
@@ -684,7 +678,7 @@ fn resume_pack_mode_with_a_theme_namespace_unlike_its_base_is_set_aside() {
     let data = crate::test_support::fresh_dir("oku-slides-resume-theme-ns-");
     let dir = data.path().join("tab");
     pack_mode_with_extends_edit(data.path(), &dir);
-    edit_state(&dir, |state| state["theme_edit"]["namespace"] = serde_json::json!("ailleurs"));
+    crate::test_support::edit_state(&dir, |state| state["theme_edit"]["namespace"] = serde_json::json!("ailleurs"));
     let mut back = crate::test_support::session_on(data.path());
     assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Unreadable);
     assert_that!(back.editing_view()).is_none();
@@ -700,7 +694,7 @@ fn resume_version_2_state_is_set_aside() {
     s.apply("Thème", vec![crate::test_support::set_theme_op("pro")], None).unwrap();
     s.flush_resume();
     drop(s);
-    edit_state(&dir, |state| state["version"] = serde_json::json!(2));
+    crate::test_support::edit_state(&dir, |state| state["version"] = serde_json::json!(2));
     let mut back = crate::test_support::session_on(data.path());
     assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Outdated);
     assert_that!(dir.exists()).is_false();

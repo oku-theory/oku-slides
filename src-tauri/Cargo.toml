@@ -27,6 +27,7 @@ tauri-plugin-single-instance.workspace = true
 tauri-plugin-updater.workspace = true
 tauri-plugin-opener.workspace = true
 snafu.workspace = true
+uuid.workspace = true
 tokio = { workspace = true, features = ["time", "sync", "macros"] }
 # Seulement pour reconnaître une fenêtre détruite (`window_state::is_window_gone`).
 tauri-runtime.workspace = true

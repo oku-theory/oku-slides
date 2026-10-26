@@ -28,7 +28,7 @@ fn load_import_keeps_the_state_and_an_unsaved_deck_without_file() {
     assert_that!(s.import_state().map(super::super::state::ImportState::mode)).is_equal_to(Some(ImportMode::Hifi));
     assert_that!(s.deck().slides.len()).is_equal_to(3);
     let info = s.tab_info();
-    assert_that!(info.path).is_none();
+    assert_that!(info.document.path()).is_none();
     assert_that!((info.dirty, info.pristine)).is_equal_to((true, false));
     // Le hi-fi ne reprend pas le titre de la présentation : le deck porte le nom du `.pptx`.
     assert_that!(info.title.as_str()).is_equal_to("minimal");

@@ -29,8 +29,6 @@ export interface PackWidgetEditor {
   history: EditorHistory;
   commandsOf(id: number): (c: EditorCommands | null) => void;
   historyOf(id: number): (h: EditorHistory) => void;
-  /** Entre en mode pack par `enter`, puis ouvre `name`. */
-  enterAndOpen(enter: () => Promise<boolean>, name: string): Promise<void>;
   /** Frappes écrites et file vide, puis `close` (✓). */
   finish(close: () => Promise<unknown>): Promise<void>;
 }
@@ -74,8 +72,6 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
    * plus récent peut déjà porter ce que l'interface a sauvé avant la reprise.
    */
   const [hostTabs, setHostTabs] = useState<KeptTabs | null>(() => (pack === null ? null : keptOf(snap!)));
-  /** Ouvert dès l'entrée en mode pack (`enterAndOpen`). */
-  const [pending, setPending] = useState<string | null>(null);
   /** Écrits par l'agent, pas encore dans la liste des fichiers : ouverts quand elle les contient. */
   const [awaiting, setAwaiting] = useState<ReadonlySet<string>>(new Set());
   if (pack !== seenPack) {
@@ -85,12 +81,6 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
     setTabs((s) => ({ ...NO_TABS, next: s.next }));
     setRestoredFor(null);
     setHostTabs(pack === null ? null : keptOf(snap!));
-  } else if (pack === null && pending !== null) {
-    // `enter` a rendu la main sans mode pack : le nom n'attend pas une entrée future.
-    setPending(null);
-  } else if (pack !== null && pending !== null) {
-    setTabs((s) => opened(s, pending));
-    setPending(null);
   } else if (pack !== null && files.statuses && files.statusesFor === revision) {
     const names = new Set(files.statuses.map((s) => s.name));
     const arrived = [...awaiting].filter((n) => names.has(n));
@@ -213,15 +203,6 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
     if (activeRef.current !== null) commands.current.get(activeRef.current)?.redo();
   }, []);
 
-  const enterAndOpen = useCallback(
-    async (enter: () => Promise<boolean>, name: string) => {
-      if (packRef.current === null && !(await enter())) return;
-      if (packRef.current !== null) open(name);
-      // Le mode pack n'est pas encore rendu : ouvert au rendu qui l'apporte.
-      else setPending(name);
-    },
-    [open],
-  );
   const finish = useCallback(
     async (closePack: () => Promise<unknown>) => {
       // Avant de quitter : un changement de pack abandonnerait la file.
@@ -273,7 +254,6 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
     history: shown.id === active ? shown.h : ZERO,
     commandsOf,
     historyOf,
-    enterAndOpen,
     finish,
   };
 }

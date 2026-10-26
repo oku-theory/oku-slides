@@ -29,8 +29,8 @@ fn open_help_adds_an_active_help_tab_beside_the_pristine_one() {
     let v = view(&ws);
     let w = &v.windows[0];
     assert_that!(w.tabs).has_length(2);
-    let help = w.tabs.iter().find(|t| t.info.help.is_some()).unwrap();
-    assert_that!(help.info.help.as_deref()).is_equal_to(Some("fr"));
+    let help = w.tabs.iter().find(|t| t.info.document.help_locale().is_some()).unwrap();
+    assert_that!(help.info.document.help_locale()).is_equal_to(Some("fr"));
     assert_that!(w.active.as_str()).is_equal_to(help.id.as_str());
 }
 
@@ -53,7 +53,7 @@ fn open_help_in_an_unshipped_language_opens_the_english_help() {
     let ws = workspace(data.path(), "de");
     send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
     let v = view(&ws);
-    let help = v.windows[0].tabs.iter().find_map(|t| t.info.help.clone());
+    let help = v.windows[0].tabs.iter().find_map(|t| t.info.document.help_locale().map(str::to_owned));
     assert_that!(help.as_deref()).is_equal_to(Some("en"));
 }
 
@@ -65,7 +65,8 @@ fn open_help_after_a_language_change_opens_the_help_in_the_new_language() {
     send(&ws, json!({"cmd": "set_locale", "locale": "fr"}));
     send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
     let v = view(&ws);
-    let mut helps: Vec<String> = v.windows[0].tabs.iter().filter_map(|t| t.info.help.clone()).collect();
+    let mut helps: Vec<String> =
+        v.windows[0].tabs.iter().filter_map(|t| t.info.document.help_locale().map(str::to_owned)).collect();
     helps.sort();
     assert_that!(helps).is_equal_to(vec!["en".to_owned(), "fr".to_owned()]);
 }
@@ -85,7 +86,7 @@ fn open_help_built_twice_concurrently_keeps_a_single_help_tab() {
     Workspace::finish(&ws, first, a).unwrap();
     Workspace::finish(&ws, second, b).unwrap();
     let v = view(&ws);
-    let helps = v.windows[0].tabs.iter().filter(|t| t.info.help.is_some()).count();
+    let helps = v.windows[0].tabs.iter().filter(|t| t.info.document.help_locale().is_some()).count();
     assert_that!(helps).is_equal_to(1);
 }
 
@@ -108,7 +109,7 @@ fn set_theme(ws: &Mutex<Workspace>, tab: &str, theme: &str) {
 }
 
 fn help_tab(v: &WorkspaceView) -> &crate::TabView {
-    v.windows[0].tabs.iter().find(|t| t.info.help.is_some()).unwrap()
+    v.windows[0].tabs.iter().find(|t| t.info.document.help_locale().is_some()).unwrap()
 }
 
 #[test]
@@ -159,6 +160,7 @@ fn open_help_open_in_another_window_activates_it_and_focuses_that_window() {
     assert_that!(v.focused).is_equal_to(second.clone());
     let w2 = v.windows.iter().find(|w| w.label == second).unwrap();
     assert_that!(w2.active).is_equal_to(help);
-    let helps: usize = v.windows.iter().map(|w| w.tabs.iter().filter(|t| t.info.help.is_some()).count()).sum();
+    let helps: usize =
+        v.windows.iter().map(|w| w.tabs.iter().filter(|t| t.info.document.help_locale().is_some()).count()).sum();
     assert_that!(helps).is_equal_to(1);
 }

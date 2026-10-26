@@ -165,6 +165,10 @@ struct HubState {
     live_turns: BTreeSet<u32>,
     /// Tours qui ont leur reçu (`show_report`) : pas de reçu de repli pour eux.
     reported: HashSet<u32>,
+    /// The one new pack tab a turn may open, once claimed (`reserve_pack_tab`).
+    pack_tab: Option<turns::PackTabClaim>,
+    /// The turn whose `edit_pack` focused another tab (`note_elsewhere`).
+    elsewhere: Option<u32>,
 }
 
 /// Les surfaces de l'agent : ouvertes, attendues, fermées.
@@ -341,6 +345,7 @@ pub use error::{HubError, HubErrorKind};
 
 #[path = "hub_turns.rs"]
 mod turns;
+pub(crate) use turns::Reserve;
 pub use turns::{Freeze, STATIC_PER_TURN};
 
 #[path = "hub_thread.rs"]

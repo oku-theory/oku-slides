@@ -7,12 +7,12 @@
 //! requête : le lancement ne relit aucune session, la barre vient de
 //! `workspace.json`.
 //!
-//! Ordre des verrous : l'espace de travail, puis une session, jamais
-//! l'inverse. Seules [`Workspace::apply`], [`Workspace::request`] (par
-//! [`Workspace::with_session`], que l'agent emprunte aussi),
-//! [`Workspace::open_files`], [`Workspace::settle`] et `post_notice`
-//! combinent les deux, en séquence, jamais imbriqués ; une session neuve se
-//! construit hors du verrou de l'espace de travail.
+//! Lock order: a pack's opening lock, the workspace, then one session, never
+//! the reverse. Only [`Workspace::apply`], [`Workspace::request`] (through
+//! [`Workspace::with_session`], which the agent takes too),
+//! [`Workspace::open_files`], [`Workspace::settle`], `post_notice`,
+//! `open_pack_with` and `pack_opener` take both, in sequence, never nested; a
+//! new session is built outside the workspace lock.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -76,9 +76,9 @@ impl Workspace {
     /// Fails if the tab's session cannot be built (unreadable file, rendering).
     pub fn new(fonts: Fonts, platform: &Platform, file: Option<&Path>) -> Result<Self> {
         let mut ws = Self::empty(fonts, platform, None);
-        let pending = ws.pending(None, file.map_or(Opening::Blank, |f| Opening::File(resolve(f))), None);
+        let pending = ws.pending(None, file.map_or(Opening::Blank, |f| Opening::File(resolve(f))), TabPlace::End);
         let session = pending.build()?;
-        ws.insert_tab(None, pending.id, session, None);
+        ws.insert_tab(None, pending.id, session, &TabPlace::End);
         Ok(ws)
     }
 
@@ -181,6 +181,14 @@ impl Workspace {
         if let WorkspaceRequest::CarryAssets { from, to, element } = &req {
             return Self::carry_assets(ws, from, to, element);
         }
+        // Holds the pack's opening lock, then each lock in sequence (see `workspace_packs.rs`).
+        if let WorkspaceRequest::OpenPack { tab, pack, widget } = &req {
+            return Self::open_pack_ui(ws, tab, *pack, widget.as_deref());
+        }
+        if let WorkspaceRequest::PackOpener { tab } = &req {
+            let offer = Self::pack_opener(ws, tab)?;
+            return Ok(WorkspaceOutcome::Applied(serde_json::to_string(&offer).context(ResponseSnafu)?));
+        }
         let waking = Self::lock(ws).to_wake(&req);
         Self::wake(ws, &waking);
         let pending = {
@@ -214,7 +222,7 @@ impl Workspace {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
                     Step::Build(pending) => *pending,
                 },
-                WorkspaceRequest::NewWindow => w.pending(None, Opening::Blank, None),
+                WorkspaceRequest::NewWindow => w.pending(None, Opening::Blank, TabPlace::End),
                 WorkspaceRequest::CloseWindow { window, discard } => return Self::close_window(w, &window, &discard),
                 WorkspaceRequest::ImportPicked { id } => {
                     w.import_picked(id);
@@ -272,11 +280,10 @@ impl Workspace {
         Ok(serde_json::to_string(&self.view()).context(ResponseSnafu)?)
     }
 
-    /// Vrai si `path` (normalisé comme pour `OpenTab`) est le fichier d'un
-    /// autre onglet que `tab`.
+    /// Whether `path` (normalized as for `OpenTab`) is the file of a tab other than `tab`.
     pub fn open_elsewhere(&self, tab: &str, path: &Path) -> bool {
         let path = resolve(path);
-        self.tabs.iter().any(|(id, t)| id != tab && t.info.path.as_deref() == Some(path.as_path()))
+        self.tabs.iter().any(|(id, t)| id != tab && t.info.document.path() == Some(path.as_path()))
     }
 
     /// `settle` est passée : plus rien ne s'ouvre ni ne change.
@@ -285,7 +292,7 @@ impl Workspace {
     }
 
     fn tab_with_path(&self, path: &Path) -> Option<String> {
-        self.tabs.iter().find(|(_, t)| t.info.path.as_deref() == Some(path)).map(|(id, _)| id.clone())
+        self.tabs.iter().find(|(_, t)| t.info.document.path() == Some(path)).map(|(id, _)| id.clone())
     }
 }
 
@@ -337,6 +344,9 @@ mod locale;
 #[path = "workspace_session.rs"]
 mod session;
 
+#[path = "workspace_packs.rs"]
+mod packs;
+
 pub use clip::Clip;
 pub use ids::is_window_label;
 pub use import_pick::ImportPick;
@@ -344,7 +354,7 @@ pub use layout::Rect;
 pub use request::{TabView, WindowView, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
 use ids::{MAX_NUMBER, is_tab_id, number};
-use layout::{LAYOUT_VERSION, Layout, WindowLayout};
+use layout::{LAYOUT_VERSION, Layout, TabPlace, WindowLayout};
 use session::relock;
 use slot::{Dormant, Slot, Tab};
 use tabs::{Opening, Pending, Step, Trash};

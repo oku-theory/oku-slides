@@ -2,7 +2,7 @@ use oku_slides_i18n::{Localize, Localizer, available, english};
 use snafu::IntoError;
 use speculoos::prelude::*;
 
-use super::{EmptyDictationChangeSnafu, TaskSnafu, ToolError, VoiceSnafu};
+use super::{EmptyDictationChangeSnafu, HubSnafu, TaskSnafu, ToolError, VoiceSnafu};
 
 /// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`, `say_to_agent`).
 const KEYS: &[&str] = &[
@@ -10,6 +10,10 @@ const KEYS: &[&str] = &[
     "agent-error-unknown-tool",
     "agent-error-denied",
     "agent-error-no-turn",
+    "agent-error-pack-tab-no-turn",
+    "agent-error-pack-tab-limit",
+    "agent-error-continue-in-pack-tab",
+    "agent-error-pack-open-in-tab",
     "agent-error-turn-over",
     "agent-error-no-file",
     "agent-error-path-relative",
@@ -84,4 +88,44 @@ fn argument_detail_drops_the_position() {
 )]
 fn a_voice_tool_error_is_said_in_french(#[case] e: ToolError, #[case] said: &str) {
     assert_that!(e.localize(&Localizer::new(Some("fr")))).is_equal_to(said.to_owned());
+}
+
+/// The refusal a deck session gets when another session holds the pack's workshop: `PackOpenInTab`.
+fn refused_by_a_workshop() -> oku_slides_session::SessionError {
+    use oku_slides_core::Namespace;
+    use oku_slides_session::{BASE_PACK, Fonts, Platform, Session, Settings};
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("dossier de test : {e}"));
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
+    settings.paths.data = Some(data.path().to_owned());
+    settings.paths.decks = Some(data.path().join("decks"));
+    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
+    let mut deck = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
+    let mut workshop = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
+    deck.new_deck().unwrap_or_else(|e| panic!("deck : {e}"));
+    workshop.edit_pack(BASE_PACK).unwrap_or_else(|e| panic!("atelier : {e}"));
+    let base = Namespace::parse("base").unwrap_or_else(|| panic!("espace de noms"));
+    let Err(refused) = deck.set_widget(Some(&base), "carte", "#let x = 1".into()) else {
+        panic!("l'écriture d'un pack tenu par un atelier est refusée")
+    };
+    assert_that!(refused.kind()).is_equal_to(oku_slides_session::SessionErrorKind::PackOpenInTab);
+    refused
+}
+
+#[rstest::rstest]
+#[case::en("en")]
+#[case::fr("fr")]
+fn hub_session_error_reaches_the_agent_without_a_title(#[case] locale: &str) {
+    let l = Localizer::new(Some(locale));
+    let refused = refused_by_a_workshop();
+    let with_title = refused.localize(&l);
+    let e: ToolError = HubSnafu.into_error(Box::new(crate::HubError::from_session(refused)));
+    assert_that!(e.localize(&l)).is_equal_to(l.tr("agent-error-pack-open-in-tab"));
+    assert_that!(e.localize(&l)).is_not_equal_to(with_title);
+}
+
+#[test]
+fn hub_error_of_another_family_keeps_its_text() {
+    let l = Localizer::new(Some("fr"));
+    let e: ToolError = HubSnafu.into_error(Box::new(crate::HubError::unknown_surface("ask-1")));
+    assert_that!(e.localize(&l)).is_equal_to(l.tr("agent-error-unknown-surface"));
 }

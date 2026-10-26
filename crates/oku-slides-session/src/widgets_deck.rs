@@ -49,6 +49,7 @@ use oku_slides_render::PackWidgets;
 use crate::error::{NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackVersionMissingSnafu, RegistrySnafu};
 use crate::library::{DraftWrite, draft_lock};
 use crate::pack::PackManifest;
+use crate::pack_lease::pack_leased;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_receive::is_deck_only;
 use crate::widgets_edit::WidgetTarget;
@@ -273,12 +274,21 @@ impl Session {
         Ok(WidgetSession { id: t.id, parent, version })
     }
 
-    /// Écrit `files` dans la bibliothèque, en place de la version `replaced` éventuelle.
+    /// Writes `files` to the library, in place of the version `replaced` if any.
     ///
-    /// Un échec pose l'avis « non enregistrée ».
+    /// A failure sets the "not saved" notice. So does a lease another editor
+    /// took since the early check: the library write is skipped, the deck
+    /// keeps the version and the session its parent.
     fn write_deck_widgets(&mut self, id: Uuid, name: &str, replaced: Option<&WidgetSession>, files: &PackFiles) {
         // Décider puis écrire sous le verrou ; relâché avant que le deck compare ses épinglages.
         let lock = draft_lock();
+        if let Some(tab) = self.library.lease_scope().and_then(|scope| pack_leased(scope, id)) {
+            drop(lock);
+            tracing::warn!(pack = %id, tab = %tab, "version de widgets non écrite : le pack est en cours d'édition");
+            let notice = self.localizer.tr_with("session-widgets-not-saved", &[("pack", name.into())]);
+            self.set_notice(notice);
+            return;
+        }
         let write = match replaced.map(|s| self.library.draft_write(&lock, id, Some(&s.version))) {
             Some(replace @ DraftWrite::Replace(_)) => replace,
             // Figé entre-temps : la version du deck s'ajoute en sœur, deck et bibliothèque gardent la même version.
@@ -297,3 +307,7 @@ impl Session {
 #[cfg(test)]
 #[path = "widgets_deck_tests.rs"]
 mod widgets_deck_tests;
+
+#[cfg(test)]
+#[path = "widgets_deck_lease_tests.rs"]
+mod widgets_deck_lease_tests;

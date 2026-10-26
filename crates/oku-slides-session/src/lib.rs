@@ -1,17 +1,18 @@
-//! Session d'édition et espace de travail : deck, historique, rendu et
-//! fichier de chaque onglet.
+//! Editing session and workspace: the deck, history, rendering and file of
+//! each tab.
 //!
-//! - [`Session`] et [`Request`] : un deck (une session par onglet).
-//! - [`Workspace`], [`WorkspaceRequest`], [`WorkspaceView`], [`TabInfo`] :
-//!   les fenêtres, les onglets, la reprise de l'ensemble.
+//! - [`Session`] and [`Request`]: one deck (one session per tab).
+//! - [`Workspace`], [`WorkspaceRequest`], [`WorkspaceView`], [`TabInfo`],
+//!   [`TabDocument`]: the windows, the tabs and what each edits (a deck, the
+//!   help or a pack, whose [`PackHost`] is a deck's workshop or its own tab),
+//!   and the resume of the whole.
 //!
-//! L'agent atteint la session d'un onglet par [`agent::TabSession`], fournie
-//! par l'hôte via [`agent::Sessions`] (voir [`Workspace::with_session`]).
+//! The agent reaches a tab's session through [`agent::TabSession`], provided by
+//! the host through [`agent::Sessions`] (see [`Workspace::with_session`]).
 //!
-//! L'app Tauri et le serveur de développement exposent la même API. Ordre
-//! des verrous : l'espace de travail puis une session, jamais l'inverse ;
-//! cinq fonctions s'en chargent, en séquence, `Workspace::apply`, `request`,
-//! `open_files`, `settle` et `post_notice`.
+//! The Tauri app and the development server expose the same API. Lock order: a pack's opening lock,
+//! then the workspace, then one session, never the reverse; seven functions take both in sequence:
+//! `Workspace::apply`, `request`, `open_files`, `settle`, `post_notice`, `open_pack_with` and `pack_opener`.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
@@ -44,6 +45,7 @@ mod deck_adopt;
 mod deck_closure;
 mod deck_fallback;
 mod deck_file;
+mod deck_offer;
 mod deck_pack;
 mod deck_packs;
 mod deck_packs_panel;
@@ -70,13 +72,16 @@ mod library_packs;
 mod merge;
 mod namespace_slug;
 pub mod pack;
+mod pack_lease;
 mod pack_library;
 mod pack_mode;
+mod pack_mode_lease;
 mod pack_mode_preview;
 mod pack_mode_previews;
 mod pack_mode_save;
 mod pack_receive;
 mod pack_scratch;
+mod pack_tab;
 mod panel;
 mod param_fields;
 mod preview_crop;
@@ -87,9 +92,12 @@ mod resume;
 mod resume_agent;
 mod resume_writer;
 mod search;
+mod tab_document;
 mod tables;
 #[cfg(test)]
 pub(crate) mod test_support;
+#[cfg(test)]
+pub(crate) mod test_support_packs;
 mod text;
 mod theme;
 mod theme_closure;
@@ -138,6 +146,7 @@ use pack_scratch::PackScratch;
 pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
+pub use tab_document::TabDocument;
 pub use text::{interp, paragraphs_to_text};
 pub use theme::{
     DEFAULT_THEME, NEUTRE_NAMESPACE, NEUTRE_THEME, PAPIER_NAMESPACE, PAPIER_THEME, PRO_NAMESPACE, PRO_THEME, ThemeInfo,
@@ -148,8 +157,8 @@ pub use theme_extends::ExtendsEdit;
 pub use theme_panel::{THEME_EXTENDS_EVENT, TokenAction, TokenState};
 pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme, theme_picker};
 pub use views::{
-    EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection, SlideSummary,
-    SlideView, Snapshot, TabInfo, Target, UiState,
+    EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackHost, PackMode, PageHash, PileSection,
+    SlideSummary, SlideView, Snapshot, TabInfo, Target, UiState,
 };
 pub use voice_panel::{HOST_VOICE, VoicePanel, gigabytes_text, model_label, seconds_text, size_text};
 pub use voice_view::{
@@ -202,28 +211,32 @@ struct DocDefaults {
     author: Option<String>,
 }
 
-/// Ce que la session édite : le deck, ou un pack (mode pack) pendant que
-/// le deck attend de côté ; ou ce qu'elle montre : une version du deck, en
-/// lecture seule, le deck de côté aussi ; ou l'aide, en lecture seule.
+/// What the session edits: the deck, or a pack (pack mode) while the deck
+/// waits aside; or what it shows: a version of the deck, read-only, the deck
+/// aside too; or the help, read-only.
 pub(crate) enum Mode {
     Deck,
-    /// L'aide livrée (`help.rs`), dans cette langue : rien n'attend de côté.
+    /// The shipped help (`help.rs`), in this locale: nothing waits aside.
     Help {
         locale: &'static str,
     },
     Pack {
-        /// Le deck mis de côté, retrouvé tel quel à la fin.
+        /// The deck set aside, found unchanged at the end; a pack tab's preview.
         stash: Box<Document>,
         edit: PackMode,
-        /// Brouillon (essais), remis à zéro à chaque entrée.
+        /// Draft (trials), reset at each entry.
         scratch: PackScratch,
-        /// Le thème édité : ses jetons sont ceux du deck de travail.
+        /// The edited theme: its tokens are those of the working deck.
         theme: ThemeEdit,
-        /// Ses changements de thème de base, suivis à l'annulation.
+        /// Its base theme changes, tracked for undo.
         switches: Vec<theme_edit::ThemeSwitch>,
+        /// The edited library pack's lease; `None`: read-only until taken.
+        lease: Option<pack_lease::PackLease>,
+        /// The pack left the library while dormant: read-only for the session's life.
+        orphaned: bool,
     },
     History {
-        /// Le deck mis de côté ; ses images et polices sont prêtées à l'aperçu.
+        /// The deck set aside; its images and fonts are lent to the preview.
         stash: Box<Document>,
         history: history::HistoryMode,
     },
@@ -547,6 +560,7 @@ impl Session {
     fn unsaved(&self) -> bool {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } => self.doc.dirty,
+            Mode::Pack { edit, .. } if edit.host == PackHost::Tab => self.doc.dirty,
             Mode::Pack { stash, .. } => self.doc.dirty || stash.dirty,
             Mode::History { stash, .. } => stash.dirty,
         }
@@ -563,32 +577,41 @@ impl Session {
             .unwrap_or_else(|| self.localizer.tr("deck-untitled"))
     }
 
-    /// Ce que la barre d'onglets montre de cette session.
+    /// What the tab bar shows of this session.
     ///
-    /// Pendant l'édition d'un pack ou l'historique, le titre et le fichier
-    /// restent ceux du deck mis de côté.
+    /// A pack tab reports its pack's name and a `Pack` document, a help tab a
+    /// `Help` document. Otherwise, while a pack is edited in the deck or history
+    /// is open, the title and the file stay those of the stashed deck.
     pub fn tab_info(&self) -> TabInfo {
+        if let Some(info) = self.pack_tab_info() {
+            return info;
+        }
         let deck = match &self.mode {
             Mode::Deck | Mode::Help { .. } => &self.doc,
             Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash,
         };
+        let document = match self.help() {
+            Some(locale) => TabDocument::Help { locale: locale.to_owned() },
+            None => TabDocument::Deck {
+                path: deck.path.as_deref().map(oku_slides_platform::storage::resolve),
+                deck_uid: Some(deck.sources.replica().deck_uid()),
+            },
+        };
         TabInfo {
             title: self.document_name(deck),
             dirty: self.unsaved(),
-            editing_pack: self.editing().is_some(),
-            path: deck.path.as_deref().map(oku_slides_platform::storage::resolve),
             pristine: matches!(self.mode, Mode::Deck)
                 && deck.blank
                 && deck.path.is_none()
                 && !deck.dirty
                 && !deck.sources.replica().can_undo()
                 && !deck.sources.replica().can_redo(),
-            deck_uid: Some(deck.sources.replica().deck_uid()),
-            help: self.help().map(str::to_owned),
+            editing_pack: self.editing().is_some(),
             theme: {
                 let user = deck.sources.deck();
                 user.theme.as_ref().and_then(|ns| user.themes.get(ns)).map(|pin| pin.id)
             },
+            document,
         }
     }
 
@@ -615,13 +638,13 @@ impl Session {
         }
     }
 
-    /// Dossiers des packs de widgets et de layouts de l'utilisateur (la bibliothèque).
-    pub fn set_pack_dirs(&mut self, widgets: impl Into<PathBuf>, layouts: impl Into<PathBuf>) {
-        let themes = self.themes.clone();
-        self.library = PackLibrary::new(Some(widgets.into()), Some(layouts.into()), themes, self.storage.clone());
-        self.pack_cache.clear();
-        self.seed_cache.clear();
-        self.refresh_pack_updates();
+    /// Sets the user's widget and layout pack folders (the library).
+    ///
+    /// # Errors
+    ///
+    /// `EditingPack` in pack mode, whose lease belongs to the current library.
+    pub fn set_pack_dirs(&mut self, widgets: impl Into<PathBuf>, layouts: impl Into<PathBuf>) -> Result<()> {
+        self.move_pack_dirs(widgets.into(), layouts.into())
     }
 
     /// Dossier où s'enregistre de lui-même un deck qui n'a pas de fichier.

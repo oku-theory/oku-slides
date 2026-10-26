@@ -28,6 +28,10 @@ ui-caption-slides = { $count ->
    *[other] { $count } slides
 } · { $status }
 ui-confirm-quit-pack = Quit without saving the modified pack?
+ui-confirm-update-opener = Update “{ $deck }” to this version of the pack “{ $pack }”?
+ui-close-writes-pending = This tab is still saving: close it again in a moment.
+ui-confirm-close-writes-pending = This tab is still saving. Close it anyway and lose what has not been saved?
+ui-confirm-quit-read-only-pack = { $pack } cannot be saved here. Close this tab and lose its changes? To keep them, ask the agent to save it as a new pack.
 
 ## Toasts
 

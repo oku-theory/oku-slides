@@ -1,9 +1,10 @@
 // Atelier de widget (t-497, t-541) : un champ vidé sur la scène de l'aperçu reste vide dans les
 // réglages du widget, et le reste après rechargement (ses valeurs d'exemple sont dans le pack).
+// In Essentiel's pack tab. Writes: Essentiel (the `fiche` widget and its example values). Leaves: no pack tab.
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { openAtelier } = require('./lib/atelier.cjs');
+const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
 const { untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab:not([hidden])';
@@ -14,13 +15,10 @@ const TAB = '.widget-tab:not([hidden])';
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  // Un test précédent peut avoir laissé l'onglet en mode pack : on y entre s'il le faut.
-  await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
-  const add = p.getByRole('button', { name: 'Nouveau widget' });
-  if (!(await add.isVisible())) {
-    await openAtelier(p);
-  }
-  await add.click();
+  await closePackTabs(p);
+  await p.waitForSelector('.stage img');
+  await openEssentiel(p);
+  await p.getByRole('button', { name: 'Nouveau widget' }).click();
   const name = p.getByRole('textbox', { name: /Nom du widget/ });
   await name.fill('fiche');
   await name.press('Enter');
@@ -57,6 +55,7 @@ const TAB = '.widget-tab:not([hidden])';
   await p.getByRole('tab', { name: 'fiche', selected: true }).waitFor();
   await titleUntil((v) => v === '', 'vide');
 
+  await closePackTabs(p);
   assert.deepEqual(errors, []);
   console.log('valeurs d\'exemple ok');
   await b.close();

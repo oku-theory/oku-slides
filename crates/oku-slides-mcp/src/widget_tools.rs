@@ -15,7 +15,7 @@ use serde_json::{Map, Value};
 use snafu::ResultExt;
 
 use crate::McpEvent;
-use crate::tool_error::ResponseSnafu;
+use crate::tool_error::{ContinueInPackTabSnafu, ResponseSnafu};
 use crate::tools::{Tools, png, text};
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -92,11 +92,22 @@ impl Tools {
         }
     }
 
-    pub(crate) async fn set_widget(&self, args: Value) -> CallToolResult {
+    /// The refusal of a deck-mode widget write in a turn that went on in a pack tab, if it applies.
+    ///
+    /// Once `edit_pack` opened or focused a pack's tab in `turn` (its claim counts as soon as it is
+    /// granted), this tab leaves its widgets alone: the request continues in the pack's tab.
+    fn continues_in_pack_tab(&self, turn: Option<u32>) -> Option<CallToolResult> {
+        turn.filter(|turn| self.hub.writes_elsewhere(*turn)).map(|_| self.fail_with(&ContinueInPackTabSnafu.build()))
+    }
+
+    pub(crate) async fn set_widget(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let SetWidgetArgs { pack, name, source } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
+        if let Some(refused) = self.continues_in_pack_tab(turn) {
+            return refused;
+        }
         let removing = source.is_empty();
         let done = {
             let name = name.clone();
@@ -117,11 +128,14 @@ impl Tools {
         self.json_result(&change)
     }
 
-    pub(crate) async fn remove_widget(&self, args: Value) -> CallToolResult {
+    pub(crate) async fn remove_widget(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let WidgetName { pack, name } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
+        if let Some(refused) = self.continues_in_pack_tab(turn) {
+            return refused;
+        }
         let done = {
             let name = name.clone();
             // Le mode est lu sous le même verrou que la suppression.

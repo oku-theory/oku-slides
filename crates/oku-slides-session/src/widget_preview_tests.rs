@@ -220,12 +220,7 @@ const LOGO: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
 
 /// Un PNG de 2 × 2 pixels rouges.
 fn red_png() -> Vec<u8> {
-    let mut out = Vec::new();
-    let mut encoder = png::Encoder::new(&mut out, 2, 2);
-    encoder.set_color(png::ColorType::Rgb);
-    encoder.set_depth(png::BitDepth::Eight);
-    encoder.write_header().unwrap().write_image_data(&[255, 0, 0].repeat(4)).unwrap();
-    out
+    crate::test_support_packs::png_bytes()
 }
 
 #[test]

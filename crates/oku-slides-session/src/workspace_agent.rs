@@ -1,19 +1,30 @@
-//! L'espace de travail vu par l'agent : la session d'un onglet
-//! ([`Sessions`]) et l'ouverture d'un fichier à côté de lui.
+//! The workspace as the agent sees it: a tab's session ([`Sessions`]),
+//! a file opened beside it, and a pack opened from it.
 
 use std::path::Path;
 use std::sync::Mutex;
 
 use oku_slides_platform::storage::resolve;
 use snafu::OptionExt;
+use uuid::Uuid;
 
 use crate::Session;
-use crate::agent::Sessions;
+use crate::agent::{PackGate, PackOpen, Sessions};
 use crate::error::{Result, UnknownTabSnafu};
 
-use super::{Opening, Workspace};
+use super::{Opening, TabPlace, Workspace};
 
 impl Workspace {
+    /// The window of `tab`, which opens something; refused once closed.
+    ///
+    /// The prelude of `open_beside` and `open_pack_with`, under the workspace lock.
+    pub(super) fn opening_window(&self, tab: &str) -> Result<String> {
+        if self.is_closed() {
+            return Err(UnknownTabSnafu { id: tab }.build().into());
+        }
+        Ok(self.tab_window(tab).context(UnknownTabSnafu { id: tab })?.to_owned())
+    }
+
     /// Opens `path` in a new tab of `tab`'s window and returns the file's tab.
     ///
     /// If already open, its tab becomes active. Never replaces a tab, even a
@@ -28,17 +39,14 @@ impl Workspace {
     pub fn open_beside(ws: &Mutex<Self>, tab: &str, path: &Path) -> Result<String> {
         let pending = {
             let mut w = Self::lock(ws);
-            if w.is_closed() {
-                return Err(UnknownTabSnafu { id: tab }.build().into());
-            }
-            let window = w.tab_window(tab).context(UnknownTabSnafu { id: tab })?.to_owned();
+            let window = w.opening_window(tab)?;
             let path = resolve(path);
             if let Some(id) = w.tab_with_path(&path) {
                 w.activate(&id)?;
                 w.save_layout();
                 return Ok(id);
             }
-            w.pending(Some(window), Opening::File(path), None)
+            w.pending(Some(window), Opening::File(path), TabPlace::End)
         };
         let session = pending.build()?;
         Self::finish(ws, pending, session).map(|(_, id)| id)
@@ -63,5 +71,15 @@ impl Sessions for Mutex<Workspace> {
 
     fn open_tab(&self, tab: &str, path: &Path) -> Result<String> {
         Workspace::open_beside(self, tab, path)
+    }
+
+    fn open_pack(
+        &self,
+        tab: &str,
+        pack: Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(PackGate) -> bool,
+    ) -> Result<PackOpen> {
+        Workspace::open_pack(self, tab, pack, widget, gate)
     }
 }

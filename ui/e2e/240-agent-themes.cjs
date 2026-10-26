@@ -5,15 +5,14 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post, activeSnapshot } = require('./lib/http.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
-const { logOffset, logSince } = require('./lib/agentLog.cjs');
+const { logOffset, logSince, mcpResults } = require('./lib/agentLog.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const LOG = process.env.E2E_AGENT_LOG;
 
 /** Les consignes reçues par le faux agent depuis `from`, en JSON. */
 const prompts = (from) => logSince(LOG, from).filter((m) => m.method === 'session/prompt').map((m) => JSON.stringify(m));
 /** Les résultats MCP (`mcp/result`) de `tool` notés depuis `from`. */
-const results = (tool, from) =>
-  logSince(LOG, from).filter((m) => m.method === 'mcp/result' && m.params.tool === tool).map((m) => m.params.out);
+const results = (tool, from) => mcpResults(LOG, from, tool);
 const themeNs = async (p) => (await activeSnapshot(p)).theme ?? null;
 const picker = (p) => p.locator('.agent-dock [data-surface-id="host-theme-picker"]');
 const cards = (p) => picker(p).locator('.theme-choice');

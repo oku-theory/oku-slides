@@ -34,6 +34,10 @@ ui-caption-slides = { $count ->
    *[other] { $count } слайда
 } · { $status }
 ui-confirm-quit-pack = Вийти, не зберігши змінений набір?
+ui-confirm-update-opener = Оновити «{ $deck }» до цієї версії набору «{ $pack }»?
+ui-close-writes-pending = Ця вкладка ще зберігає: закрийте її знову за мить.
+ui-confirm-close-writes-pending = Ця вкладка ще зберігає. Усе одно закрити її і втратити те, що не збережено?
+ui-confirm-quit-read-only-pack = { $pack } не можна зберегти тут. Закрити цю вкладку і втратити її зміни? Щоб зберегти їх, попросіть агента зберегти його як новий набір.
 
 ## Сповіщення
 

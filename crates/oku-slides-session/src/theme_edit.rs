@@ -255,7 +255,7 @@ impl Session {
             || self.base_tokens() != self.edited_tokens()
     }
 
-    /// Le mode pack pour le snapshot : le pack et le brouillon du thème.
+    /// Pack mode for the snapshot: the pack, the theme draft and the lease flags.
     pub(crate) fn editing_view(&self) -> Option<EditingView<'_>> {
         let Mode::Pack { edit, theme, .. } = &self.mode else { return None };
         let view = ThemeEditView {
@@ -267,7 +267,9 @@ impl Session {
             dirty: self.theme_dirty(theme),
             revision: self.draft_revision(),
         };
-        Some(EditingView { mode: edit, theme: view })
+        let (read_only, leased) = self.edit_flags();
+        let display_name = crate::agent::bounds::label(&edit.name);
+        Some(EditingView { mode: edit, theme: view, read_only, leased, display_name })
     }
 
     /// The draft starts from theme `ns`, at its current version in the library.

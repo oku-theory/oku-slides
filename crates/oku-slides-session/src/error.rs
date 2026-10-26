@@ -14,17 +14,17 @@ use snafu::{Backtrace, IntoError, Snafu};
 #[derive(Debug, Snafu)]
 pub struct SessionError(Box<SessionInner>);
 
-/// Nature d'une [`SessionError`].
+/// The category of a [`SessionError`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SessionErrorKind {
-    /// Fichier illisible ou impossible à écrire.
+    /// A file that cannot be read or written.
     File,
-    /// Ce PDF ne contient pas de sources Oku Slides.
+    /// This PDF holds no Oku Slides sources.
     NotOkuSlides,
-    /// Sources ou deck illisibles.
+    /// Unreadable sources or deck.
     InvalidDocument,
-    /// Une opération de la transaction a été refusée.
+    /// An operation of the transaction was refused.
     Op,
     /// Rendering missing or impossible: Typst failure, widgets unavailable, broken trusted pack.
     Render,
@@ -72,6 +72,16 @@ pub enum SessionErrorKind {
     ImportTune,
     /// Requête impossible pendant l'édition d'un pack.
     EditingPack,
+    /// A request a pack tab refuses: close it to finish, or open from the deck's tab.
+    InPackTab,
+    /// The library pack is being edited in another tab.
+    PackOpenInTab,
+    /// The offered pack version no longer applies to this deck.
+    PackOfferExpired,
+    /// The session given to a new pack tab was not fresh.
+    PackTabNotFresh,
+    /// A library pack written without the lease of its editor.
+    LeaseMissing,
     /// Requête qui demande l'édition d'un pack.
     NotEditingPack,
     /// En mode pack, une op qui ajoute, retire, déplace une slide ou change son widget.
@@ -234,6 +244,16 @@ pub(crate) enum SessionInner {
     Tune { source: crate::import::TuneError, backtrace: Backtrace },
     #[snafu(display("finish editing the pack first"))]
     EditingPack { backtrace: Backtrace },
+    #[snafu(display("this tab edits a pack: close it to finish"))]
+    InPackTab { backtrace: Backtrace },
+    #[snafu(display("pack {pack} is being edited in tab {tab}"))]
+    PackOpenInTab { pack: String, tab: String, backtrace: Backtrace },
+    #[snafu(display("the deck or the offered pack version changed meanwhile"))]
+    PackOfferExpired { backtrace: Backtrace },
+    #[snafu(display("the pack tab could not be prepared"))]
+    PackTabNotFresh { backtrace: Backtrace },
+    #[snafu(display("this pack can only be saved by the tab that edits it"))]
+    LeaseMissing { backtrace: Backtrace },
     #[snafu(display("no pack is being edited"))]
     NotEditingPack { backtrace: Backtrace },
     #[snafu(display("in pack mode, slides cannot be added, removed, moved or change their widget"))]
@@ -337,20 +357,22 @@ pub(crate) enum SessionInner {
 impl SessionError {
     /// The error's category, which the interface and the tests tell apart.
     #[must_use]
+    #[expect(clippy::too_many_lines, reason = "lookup table: one kind per variant")]
     pub fn kind(&self) -> SessionErrorKind {
         use SessionInner::{
             AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, EditingPack, FieldNeeded, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InvalidTokenValue, InvalidWidgetName, MergeUnrelated, NamespaceChanged,
-            NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack,
-            NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
-            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent, PackPinMismatch,
-            PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response,
-            SingleDocument, Sources, TargetExists, ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
-            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse,
-            TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken,
-            Tune, TurnNotOnTop, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
-            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
-            WidgetInvalid, WidgetTooLarge, Write,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated,
+            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable,
+            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
+            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
+            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
+            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
+            ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
+            ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UnknownAsset,
+            UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
+            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
+            Write,
         };
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
@@ -391,6 +413,11 @@ impl SessionError {
             Import { .. } => SessionErrorKind::Import,
             Tune { .. } => SessionErrorKind::ImportTune,
             EditingPack { .. } => SessionErrorKind::EditingPack,
+            InPackTab { .. } => SessionErrorKind::InPackTab,
+            PackOpenInTab { .. } => SessionErrorKind::PackOpenInTab,
+            PackOfferExpired { .. } => SessionErrorKind::PackOfferExpired,
+            PackTabNotFresh { .. } => SessionErrorKind::PackTabNotFresh,
+            LeaseMissing { .. } => SessionErrorKind::LeaseMissing,
             NotEditingPack { .. } => SessionErrorKind::NotEditingPack,
             PackModeSlides { .. } => SessionErrorKind::PackModeSlides,
             PackModePreview { .. } => SessionErrorKind::PackModePreview,
@@ -474,6 +501,15 @@ impl SessionError {
         }
     }
 
+    /// The label of the tab holding the lease, for a `PackOpenInTab` error.
+    #[must_use]
+    pub(crate) fn lease_holder(&self) -> Option<&str> {
+        match &*self.0 {
+            SessionInner::PackOpenInTab { tab, .. } => Some(tab),
+            _ => None,
+        }
+    }
+
     /// L'erreur de rendu d'en dessous, s'il y en a une (sonde des widgets comprise).
     pub(crate) fn render_error(&self) -> Option<&oku_slides_render::RenderError> {
         match &*self.0 {
@@ -538,17 +574,18 @@ impl Localize for SessionError {
     fn localize(&self, l: &Localizer) -> String {
         use SessionInner::{
             AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, EditingPack, FieldNeeded, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InvalidTokenValue, InvalidWidgetName, MergeUnrelated, NamespaceChanged,
-            NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack,
-            NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
-            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent, PackPinMismatch,
-            PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response,
-            SingleDocument, Sources, TargetExists, ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
-            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse,
-            TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken,
-            Tune, TurnNotOnTop, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
-            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
-            WidgetInvalid, WidgetTooLarge, Write,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated,
+            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable,
+            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
+            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
+            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
+            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
+            ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
+            ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UnknownAsset,
+            UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
+            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
+            Write,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -618,6 +655,13 @@ impl Localize for SessionError {
             Import { source, .. } => source.localize(l),
             Tune { source, .. } => source.localize(l),
             EditingPack { .. } => l.tr("session-editing-pack"),
+            InPackTab { .. } => l.tr("session-in-pack-tab"),
+            PackOpenInTab { pack, tab, .. } => {
+                l.tr_with("session-pack-open-in-tab", &[("pack", pack.as_str().into()), ("tab", tab.as_str().into())])
+            }
+            PackOfferExpired { .. } => l.tr("session-pack-offer-expired"),
+            PackTabNotFresh { .. } => l.tr("session-pack-tab-not-fresh"),
+            LeaseMissing { .. } => l.tr("session-lease-missing"),
             NotEditingPack { .. } => l.tr("session-not-editing-pack"),
             PackModeSlides { .. } => l.tr("session-pack-mode-slides"),
             PackModePreview { .. } => l.tr("session-pack-mode-preview"),

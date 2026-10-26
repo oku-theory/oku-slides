@@ -9,11 +9,13 @@ use std::sync::{Mutex, MutexGuard};
 use oku_slides_platform::storage::Storage;
 use snafu::{OptionExt, ResultExt, ensure};
 
-use crate::error::ImportSnafu;
+use crate::error::{ImportSnafu, PackTabNotFreshSnafu};
 use crate::import::{ImportRequest, ImportTarget, PackLookup, import};
+use crate::pack_lease::PackLease;
+use crate::pack_tab::PreviewSeed;
 
 use super::{
-    Fonts, Platform, Result, Session, Slot, TABS_DIR, Tab, UnknownTabSnafu, UnknownWindowSnafu, UnsavedSnafu,
+    Fonts, Platform, Result, Session, Slot, TABS_DIR, Tab, TabPlace, UnknownTabSnafu, UnknownWindowSnafu, UnsavedSnafu,
     Workspace, WorkspaceOutcome, WorkspaceRequest, is_tab_id, relock, resolve, tab_session,
 };
 
@@ -63,6 +65,13 @@ pub(super) enum Opening {
     Help { locale: &'static str, theme: Option<uuid::Uuid> },
     /// Un import (en boîte : la cible est lourde, `Step` reste petit).
     Import(Box<ImportOpening>),
+    /// A pack tab; its seed and lease are passed to [`Pending::build_pack`].
+    Pack {
+        /// The pack the new tab edits.
+        pack: uuid::Uuid,
+        /// A widget whose sub-tab opens.
+        widget: Option<String>,
+    },
 }
 
 /// L'import qu'un onglet à créer montrera.
@@ -80,8 +89,8 @@ pub(super) struct Pending {
     /// Fenêtre d'arrivée ; `None` : une nouvelle fenêtre.
     pub(super) window: Option<String>,
     pub(super) opening: Opening,
-    /// Onglet vierge à fermer une fois le nouveau prêt.
-    pub(super) replace: Option<String>,
+    /// Where the tab goes; a `Replace` tab is closed once the new one is ready.
+    pub(super) place: TabPlace,
     pub(super) fonts: Fonts,
     pub(super) platform: Platform,
     pub(super) dir: Option<PathBuf>,
@@ -119,13 +128,37 @@ impl Pending {
                 let name = i.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
                 session.load_import(imported, &name)?;
             }
+            // Only `build_pack` builds a pack tab: it needs a seed and a lease.
+            Opening::Pack { .. } => return PackTabNotFreshSnafu.fail()?,
         }
+        self.arm_resume(&mut session);
+        Ok(session)
+    }
+
+    /// Builds this pending pack tab from its seed and lease.
+    ///
+    /// # Errors
+    ///
+    /// `PackTabNotFresh` unless the opening is `Opening::Pack`; the `init_pack_tab` errors.
+    ///
+    /// # Blocking
+    ///
+    /// Builds and renders a session.
+    pub(super) fn build_pack(&self, seed: PreviewSeed, lease: PackLease) -> Result<Session> {
+        let Opening::Pack { pack, widget } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
+        let mut session = tab_session(&self.fonts, &self.platform)?;
+        session.init_pack_tab(seed, lease, *pack, widget.as_deref())?;
+        self.arm_resume(&mut session);
+        Ok(session)
+    }
+
+    /// Turns resume on for a session this pending tab built.
+    fn arm_resume(&self, session: &mut Session) {
         if let Some(dir) = &self.dir
             && !session.resume_fresh(dir.join(TABS_DIR).join(&self.id))
         {
             tracing::warn!(tab = %self.id, "reprise de l'onglet inactive");
         }
-        Ok(session)
     }
 }
 
@@ -133,7 +166,7 @@ impl Workspace {
     /// Un onglet vierge à la fin de `window`.
     pub(super) fn new_tab(&mut self, window: String) -> Result<Pending> {
         self.window_index(&window)?;
-        Ok(self.pending(Some(window), Opening::Blank, None))
+        Ok(self.pending(Some(window), Opening::Blank, TabPlace::End))
     }
 
     /// Ouvre `path` : son onglet s'il existe déjà, sinon un nouvel onglet
@@ -152,7 +185,7 @@ impl Workspace {
             return self.view_json().map(Step::Done);
         }
         let active = self.layout.windows[self.window_index(&window)?].active.clone();
-        Ok(Step::Build(Box::new(self.pending(Some(window), Opening::File(path), Some(active)))))
+        Ok(Step::Build(Box::new(self.pending(Some(window), Opening::File(path), TabPlace::Replace(active)))))
     }
 
     /// Importe `path` vers `target` dans un nouvel onglet de `window`.
@@ -173,7 +206,7 @@ impl Workspace {
         }
         let active = self.layout.windows[self.window_index(&window)?].active.clone();
         let opening = Opening::Import(Box::new(ImportOpening { path: resolve(path), target, tune }));
-        Ok(self.pending(Some(window), opening, Some(active)))
+        Ok(self.pending(Some(window), opening, TabPlace::Replace(active)))
     }
 
     /// Ouvre l'aide de `window` : son onglet s'il existe déjà (au thème du
@@ -202,7 +235,7 @@ impl Workspace {
     /// Insère un onglet construit hors du verrou (seconde moitié d'`apply`) ;
     /// rend aussi l'onglet du fichier (le nouveau, ou celui qui l'avait déjà).
     pub(super) fn finish(ws: &Mutex<Self>, pending: Pending, session: Session) -> Result<(WorkspaceOutcome, String)> {
-        let Pending { id, window, opening, replace, .. } = pending;
+        let Pending { id, window, opening, place, .. } = pending;
         let mut w = Self::lock(ws);
         // `settle` passé pendant la construction : refusé comme avant elle ;
         // la session construite pour rien part à la corbeille.
@@ -215,8 +248,9 @@ impl Workspace {
         // Le même fichier a pu être ouvert pendant la construction (Finder et
         // seconde instance, double clic) : le premier onglet reste, seul.
         // De même pour l'aide : deux demandes rapprochées (menu et ⌘?) n'ouvrent qu'un onglet.
+        // A pack has no dedupe here: its opening lock and single lease forbid a second tab.
         let existing = match &opening {
-            Opening::Blank | Opening::Import(_) => None,
+            Opening::Blank | Opening::Import(_) | Opening::Pack { .. } => None,
             Opening::File(path) => w.tab_with_path(path),
             Opening::Help { locale, .. } => w.tab_with_help(locale),
         };
@@ -230,27 +264,13 @@ impl Workspace {
             activated?;
             return json.map(|json| (WorkspaceOutcome::Applied(json), existing));
         }
-        let window = match window {
-            Some(label) if w.window_index(&label).is_ok() => Some(label),
-            // Fenêtre disparue pendant la construction : la fenêtre active.
-            Some(_) => Some(w.layout.focused.clone()).filter(|l| w.window_index(l).is_ok()),
-            None => None,
-        };
-        // Toujours vierge ? L'état réel de la session fait foi. Sans attendre
-        // sous le verrou : une session occupée (un rendu en cours) est en
-        // train d'être modifiée, donc pas vierge ; une session endormie n'a
-        // pas été relue, donc rien ne prouve qu'elle l'est.
-        let replaced = replace.filter(|r| {
-            let pristine = |slot: &Slot| slot.info().is_some_and(|i| i.pristine);
-            w.session(r).is_ok_and(|s| match s.try_lock() {
-                Ok(slot) => pristine(&slot),
-                Err(std::sync::TryLockError::Poisoned(p)) => pristine(&p.into_inner()),
-                Err(std::sync::TryLockError::WouldBlock) => false,
-            })
-        });
-        w.insert_tab(window.as_deref(), id.clone(), session, replaced.as_deref());
+        let (window, place, opener) = w.resolve_place(window, place);
+        w.insert_tab(window.as_deref(), id.clone(), session, &place);
+        if let Some(tab) = w.tabs.get_mut(&id) {
+            tab.opener = opener;
+        }
         let mut gone = Vec::new();
-        if let Some(r) = replaced {
+        if let TabPlace::Replace(r) = place {
             if let Err(e) = w.detach(&r) {
                 tracing::warn!(tab = %r, error = %e.one_line(), "onglet vierge non retiré");
             }
@@ -263,13 +283,58 @@ impl Workspace {
         json.map(|json| (WorkspaceOutcome::Applied(json), id))
     }
 
+    /// Where a built tab lands now: its window, its place and its opener.
+    ///
+    /// A vanished window gives the focused one (no opener); an `After` anchor
+    /// that closed, or moved to another window, gives the end (an opener only
+    /// if it still exists); a `Replace` tab no longer pristine gives the end.
+    fn resolve_place(&self, window: Option<String>, place: TabPlace) -> (Option<String>, TabPlace, Option<String>) {
+        let window = match window {
+            Some(label) if self.window_index(&label).is_ok() => Some(label),
+            // The window vanished while the tab was built: the focused one.
+            Some(_) => {
+                let focused = Some(self.layout.focused.clone()).filter(|l| self.window_index(l).is_ok());
+                return (focused, TabPlace::End, None);
+            }
+            None => None,
+        };
+        let place = match place {
+            TabPlace::After(anchor) => {
+                return match self.tab_window(&anchor) {
+                    Some(at) if window.as_deref() == Some(at) => {
+                        (window, TabPlace::After(anchor.clone()), Some(anchor))
+                    }
+                    Some(_) => (window, TabPlace::End, Some(anchor)),
+                    None => (window, TabPlace::End, None),
+                };
+            }
+            // Still pristine? The session's real state decides, without waiting
+            // under the lock: a busy session (a render running) is being changed,
+            // so not pristine; a dormant session has not been reread, so nothing
+            // proves it is.
+            TabPlace::Replace(r) if self.is_pristine(&r) => TabPlace::Replace(r),
+            TabPlace::Replace(_) | TabPlace::End => TabPlace::End,
+        };
+        (window, place, None)
+    }
+
+    /// Whether tab `r` is pristine now, read without waiting.
+    fn is_pristine(&self, r: &str) -> bool {
+        let pristine = |slot: &Slot| slot.info().is_some_and(|i| i.pristine);
+        self.session(r).is_ok_and(|s| match s.try_lock() {
+            Ok(slot) => pristine(&slot),
+            Err(std::sync::TryLockError::Poisoned(p)) => pristine(&p.into_inner()),
+            Err(std::sync::TryLockError::WouldBlock) => false,
+        })
+    }
+
     /// Réserve un numéro d'onglet et prépare sa construction hors du verrou.
-    pub(super) fn pending(&mut self, window: Option<String>, opening: Opening, replace: Option<String>) -> Pending {
+    pub(super) fn pending(&mut self, window: Option<String>, opening: Opening, place: TabPlace) -> Pending {
         Pending {
             id: self.next_tab_id(),
             window,
             opening,
-            replace,
+            place,
             fonts: self.fonts.clone(),
             platform: self.platform.clone(),
             dir: self.dir.clone(),
@@ -290,7 +355,7 @@ impl Workspace {
             WorkspaceRequest::Activate { tab } => self.activate(&tab)?,
             WorkspaceRequest::Close { tab, discard } => {
                 self.ensure_closable(&tab, discard)?;
-                self.detach(&tab)?;
+                self.detach_to_opener(&tab)?;
                 return Ok(self.tabs.remove(&tab).map(|t| (tab, t)).into_iter().collect());
             }
             WorkspaceRequest::Reorder { tab, index } => self.reorder(&tab, index)?,
@@ -312,6 +377,8 @@ impl Workspace {
             | WorkspaceRequest::OpenHelp { .. }
             | WorkspaceRequest::NewWindow
             | WorkspaceRequest::ImportPicked { .. }
+            | WorkspaceRequest::OpenPack { .. }
+            | WorkspaceRequest::PackOpener { .. }
             // Traitée directement dans `apply` (décision atomique de la
             // dernière fenêtre, sous le même verrou) : jamais atteinte ici.
             | WorkspaceRequest::CloseWindow { .. } => {}

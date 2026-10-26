@@ -32,16 +32,20 @@ use oku_slides_i18n::Localizer;
 use crate::deck_closure::{Pinned, closure_with_files, combined_pins};
 use crate::deck_pack::builtin_pin;
 use crate::error::{
-    InHistorySnafu, NamespaceTakenSnafu, PackModeSlidesSnafu, PackVersionMissingSnafu, ReadOnlySnafu, SourcesSnafu,
+    InHistorySnafu, InPackTabSnafu, NamespaceTakenSnafu, PackModeSlidesSnafu, PackVersionMissingSnafu, ReadOnlySnafu,
+    SourcesSnafu,
 };
 use crate::example_text::localized_examples;
 use crate::library_packs::PackLibrary;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
+use crate::pack_lease::PackLease;
 use crate::pack_library::restore_session_version;
+use crate::pack_mode_lease::Settled;
 use crate::pack_mode_preview::preview_slides;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_scratch::PackScratch;
 use crate::theme_edit::tokens_value;
+use crate::views::PackHost;
 use crate::{Document, Mode, PackMode, Result, Session};
 
 /// L'id de la slide du layout `name` dans le deck de travail.
@@ -174,23 +178,46 @@ fn is_structural(op: &Op) -> bool {
 }
 
 impl Session {
-    /// Switches to editing the current version of pack `id`.
+    /// Switches to editing the current version of pack `id` in this deck's workshop.
     ///
     /// Its layouts become the slides, at their example values, rendered with
     /// its widgets; a widget pack has its preview slides. The working deck
     /// keeps the deck's parameters and variables; in place of its theme, it
     /// carries the draft of the edited theme (`theme_edit`, kept from one pack
-    /// to the next). It carries no assets (a pack does not save any).
+    /// to the next). It carries no assets (a pack does not save any). A
+    /// library pack is leased meanwhile (`pack_lease`).
     ///
     /// # Errors
     ///
-    /// Fails if the session is not editable, if pack `id` is unknown or unreadable, or if the working
-    /// deck cannot be built or rendered.
+    /// Fails if the session is not editable, in a pack tab (`InPackTab`), if
+    /// pack `id` is unknown or unreadable, held by another editor
+    /// (`PackOpenInTab`), or if the working deck cannot be built or rendered.
     pub fn edit_pack(&mut self, id: Uuid) -> Result<()> {
+        self.enter_pack(id, PackHost::Deck, None)
+    }
+
+    /// Enters the workshop of `pack` hosted by `host`, with `lease` if given.
+    ///
+    /// Any error before the final switch leaves the mode, and its lease, unchanged.
+    ///
+    /// # Errors
+    ///
+    /// As `edit_pack` (`UnknownPack`, `DeckOnly`, `Render`…), plus `PackOpenInTab`, `InPackTab` and `LeaseMissing`.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the library and renders the workshop.
+    pub(crate) fn enter_pack(&mut self, pack: Uuid, host: PackHost, lease: Option<PackLease>) -> Result<()> {
         // L'historique ouvert se ferme d'abord ; l'aide ne passe jamais en mode pack.
         self.ensure_editable()?;
+        // A pack tab edits its own pack only: another one opens in its own tab.
+        ensure!(host == PackHost::Tab || !self.is_pack_tab(), InPackTabSnafu);
         // Le pack du deck seul (celui d'un import) part de sa version embarquée.
-        let stored = self.pack_base(id)?;
+        let stored = self.pack_base(pack)?;
+        let settled = self.settle_lease(pack, host, &stored, lease)?;
+        if let (PackHost::Tab, Settled::Hold(lease)) = (host, &settled) {
+            self.freeze_base(lease, &stored.version)?;
+        }
         let deck_only = !stored.manifest.scope.is_library();
         let version = stored.version.clone();
         let mut slides = layout_slides(&stored.manifest, &stored.files, &self.localizer);
@@ -228,23 +255,26 @@ impl Session {
         }
         let working = Document::new(sources, None, &self.doc_defaults);
         let edit = PackMode {
-            pack: id,
+            pack,
             name: stored.manifest.name,
             kind,
-            builtin: PackLibrary::is_builtin(id),
+            builtin: PackLibrary::is_builtin(pack),
             base: version.clone(),
             parent: Some(version),
             session_version: None,
             deck_only,
+            host,
         };
         // Les widgets du pack s'installent avant de changer de document : en
         // cas d'échec, rien ne change.
         self.install_widgets(widgets)?;
         self.mode = match std::mem::replace(&mut self.mode, Mode::Deck) {
             // Déjà en édition : on change de pack, le deck reste de côté.
-            Mode::Pack { stash, .. } => {
+            Mode::Pack { stash, lease, .. } => {
                 self.doc = working;
-                Mode::Pack { stash, edit, scratch: PackScratch::default(), theme, switches: Vec::new() }
+                let lease = settled.into_lease(lease);
+                let (scratch, switches) = (PackScratch::default(), Vec::new());
+                Mode::Pack { stash, edit, scratch, theme, switches, lease, orphaned: false }
             }
             Mode::Deck => Mode::Pack {
                 stash: Box::new(std::mem::replace(&mut self.doc, working)),
@@ -252,6 +282,8 @@ impl Session {
                 scratch: PackScratch::default(),
                 theme,
                 switches: Vec::new(),
+                lease: settled.into_lease(None),
+                orphaned: false,
             },
             // L'aide est en lecture seule (`ensure_editable` refuse avant d'arriver ici).
             help @ Mode::Help { .. } => {
@@ -326,7 +358,7 @@ impl Session {
         // étape ne ramène à un autre pack que celui de l'édition.
         let Some((ns, pin)) = self.edited_pin().map(|(ns, pin)| (ns.clone(), pin.clone())) else { return Ok(()) };
         let held = self.doc.sources.packs.clone();
-        let Mode::Pack { stash, edit, .. } = &mut self.mode else { return Ok(()) };
+        let Mode::Pack { stash, edit, lease, .. } = &mut self.mode else { return Ok(()) };
         if pin.version == edit.base {
             return Ok(());
         }
@@ -334,7 +366,7 @@ impl Session {
             .get(&pin.version)
             .cloned()
             .context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
-        restore_session_version(&self.library, pin.id, &files);
+        restore_session_version(&self.library, pin.id, &files, lease.as_ref());
         edit.base = pin.version.clone();
         edit.session_version = (edit.parent.as_ref() != Some(&pin.version)).then(|| pin.version.clone());
         let label = self.localizer.tr_with("pack-adopt-label", &[("name", edit.name.as_str().into())]);
@@ -347,12 +379,14 @@ impl Session {
         Ok(())
     }
 
-    /// Leaves pack mode; unsaved changes are lost.
+    /// Leaves pack mode; unsaved changes are lost, the pack's lease is freed.
     ///
     /// # Errors
     ///
-    /// Fails if the widgets of the recovered deck do not resolve, or if its rendering fails.
+    /// Fails in a pack tab (`InPackTab`: it closes as a tab), if the widgets of
+    /// the recovered deck do not resolve, or if its rendering fails.
     pub fn close_pack(&mut self) -> Result<()> {
+        ensure!(!self.is_pack_tab(), InPackTabSnafu);
         match std::mem::replace(&mut self.mode, Mode::Deck) {
             Mode::Pack { stash, .. } => {
                 self.doc = *stash;

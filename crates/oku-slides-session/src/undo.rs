@@ -18,7 +18,10 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails if the session is not editable, or if rendering the undone state fails.
+    /// Fails if the session is not editable, if the edited pack's lease is
+    /// held elsewhere (`PackOpenInTab`), the pack is gone (`UnknownPack`) or
+    /// its base missing (`PackVersionMissing`), the library write refused
+    /// (`LeaseMissing`), or if rendering the undone state fails.
     pub fn undo(&mut self) -> Result<()> {
         self.replay(SourceBundle::undo)
     }
@@ -27,12 +30,15 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails if the session is not editable, or if rendering the redone state fails.
+    /// Fails like [`Self::undo`]: not editable, `PackOpenInTab`, `UnknownPack`,
+    /// `LeaseMissing`, `PackVersionMissing`, or a failed render.
     pub fn redo(&mut self) -> Result<()> {
         self.replay(SourceBundle::redo)
     }
 
     fn replay(&mut self, step: Step) -> Result<()> {
+        // A step may bring a session version back into the library: the editor needs its lease.
+        self.ensure_pack_lease()?;
         self.end_widget_session();
         self.ensure_editable()?;
         if step(&mut self.doc.sources).context(SourcesSnafu)? {

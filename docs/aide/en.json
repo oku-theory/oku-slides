@@ -234,7 +234,7 @@
            "bold": true
           },
           {
-            "t": ": ask the agent for the workshop. The pack opens as a deck with one slide per layout; “Done” brings the deck back."
+            "t": ": ask the agent for the workshop. The pack opens as a deck with one slide per layout. A library pack opens in its own tab; closing it (“Done” or the tab’s ×) offers to update the deck if the pack changed, otherwise the update waits in “Deck packs”. While that tab is open, no other tab changes the pack. An imported deck’s own pack opens in the deck’s tab, and “Done” brings the deck back."
           }
          ],
          "list": "bullet"
@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-            "t": ": Papier, Pro, Neutre or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. In pack mode, the Theme tab sets its tokens one by one; the editor shows what the theme extends and what the deck overrides, with a section per widget pack. “Done” saves it: editing Papier, Pro or Neutre creates a variant that extends it. A widget pack’s Theme tab shows preview slides. The extends list can be reordered, and parents can be added or removed there."
+            "t": ": Papier, Pro, Neutre or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. In pack mode, the Theme tab sets its tokens one by one; the editor shows what the theme extends and what the deck overrides, with a section per widget pack. “Done” saves it: editing Papier, Pro or Neutre creates a variant that extends it. In a pack’s own tab, the variant goes to the library and is applied from the theme picker or “Deck packs”: the deck keeps its theme; in an imported deck’s own pack, the deck takes it, as before. A widget pack’s Theme tab shows preview slides. The extends list can be reordered, and parents can be added or removed there."
           }
          ],
          "list": "bullet"

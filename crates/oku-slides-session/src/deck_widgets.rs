@@ -297,8 +297,12 @@ impl Session {
     /// # Errors
     ///
     /// Fails if the session is not editable, if an op is rejected (pack mode, core validation), if a
-    /// pack cannot be embedded, or if rendering fails: nothing changes then.
+    /// pack cannot be embedded, or if rendering fails: nothing changes then. In pack mode, an
+    /// editor without its pack's lease is refused first (`PackOpenInTab`, `UnknownPack`,
+    /// `PackVersionMissing`), and a library write without it too (`LeaseMissing`).
     pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+        // MCP and the agent reach here without `handle`: a read-only editor changes nothing.
+        self.ensure_pack_lease()?;
         // En mode pack, choisir un thème fait partir le brouillon de ce thème.
         if let Some(ns) = self.drafted_theme_choice(&ops) {
             return self.set_edited_theme(&ns?);

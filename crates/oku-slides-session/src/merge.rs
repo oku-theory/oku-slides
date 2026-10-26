@@ -7,7 +7,9 @@ use oku_slides_core::{MergeReport, SourceBundle};
 use oku_slides_i18n::Localizer;
 use snafu::{ResultExt, ensure};
 
-use crate::error::{EditingPackSnafu, NoPathSnafu, NotOkuSlidesSnafu, ReadSnafu, TargetExistsSnafu, merge_error};
+use crate::error::{
+    EditingPackSnafu, InPackTabSnafu, NoPathSnafu, NotOkuSlidesSnafu, ReadSnafu, TargetExistsSnafu, merge_error,
+};
 use oku_slides_platform::storage::StorageErrorKind;
 
 use crate::deck_file::{free_path, safe_stem};
@@ -219,7 +221,8 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails if the session is not editable, if `path` is taken, or if the write fails.
+    /// Fails if the session is not editable, if `path` is taken, in a pack tab (`InPackTab`), or if
+    /// the write fails.
     pub fn save_copy_new(&mut self, path: &Path) -> Result<()> {
         self.ensure_editable()?;
         self.ensure_free(path)?;
@@ -232,8 +235,10 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails if the session is not editable, or if the path or the write fails.
+    /// Fails in a pack tab (`InPackTab`: its preview is never saved), if the
+    /// session is not editable, or if the path or the write fails.
     pub fn save_copy(&mut self, path: &Path) -> Result<()> {
+        ensure!(!self.is_pack_tab(), InPackTabSnafu);
         self.ensure_editable()?;
         let path = self.save_path(Some(path))?;
         self.write_file(&path).map(|_| ())

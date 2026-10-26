@@ -5,7 +5,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Limit agent set_setting to its whitelist; refuse agent set_dictation on API address, variables, query or headers. (spec:2026-09-26-agent-vocal-design, t-1144, t-1213)
-- Never let agent open replace a tab, and refuse agent save to a file open in another tab. (spec:2026-09-27-agent-onglets-design)
+- Never let agent open replace a tab, and refuse any save to a file already open in another tab. (spec:2026-09-27-agent-onglets-design, t-255)
 - Keep Connection: close on the MCP 401 response so unauthenticated clients never hold a connection slot. (plan:2026-10-09-petits-tickets-t678)
 - Route every MCP tool error through Tools::fail_with; never return hardcoded English text. (plan:2026-10-09-tickets-debloques-t598)
 - Pass only safe arguments such as surface id or action name to localized errors; keep full error strings in tracing. (plan:2026-10-09-tickets-debloques-t598)
@@ -14,7 +14,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Log each MCP tool call at debug level with its name and duration only, never its arguments. (spec:2026-09-26-agent-vocal-design, plan:2026-09-26-agent-vocal)
 - Bind the MCP tool server to 127.0.0.1 only. (plan:2026-09-26-agent-vocal)
 - Update the hub list of open surfaces only inside emit, under the state lock, so it never diverges from events. (plan:2026-09-26-agent-vocal)
-- In SurfaceHub, lock the session before state, never the reverse, and never hold state across an await. (plan:2026-09-26-agent-vocal)
+- In SurfaceHub, take the state lock only after the session's or a Sessions call's own locks, never the reverse, and never hold it across an await. (plan:2026-09-26-agent-vocal, plan:2026-10-25-onglets-pack-theme-lot3-pack-tabs)
 - Refuse render and report calls outside their open turn so late calls never show in any turn. (spec:2026-10-03-agent-a2ui-design, plan:2026-10-03-agent-a2ui)
 - Once a new turn begins, swap the previous receipt for its plain version and refuse its actions. (plan:2026-10-03-agent-a2ui)
 - Keep a frozen question at the same id and position in the open list so thread order survives a resync. (plan:2026-10-03-agent-a2ui)
@@ -24,7 +24,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never hold the shared Session mutex across an await in MCP tools; lock only for one Session::handle call. (spec:2026-09-26-agent-vocal-design)
 - Reject MCP tool paths that are not absolute, normalized and free of .. segments. (spec:2026-09-26-agent-vocal-design)
 - Do not give ask_* surfaces a timeout; Escape, a new turn or conversation end must return cancelled. (spec:2026-09-26-agent-vocal-design)
-- Scope SurfaceHub, Tools and ToolServer to one tab; their tools must only see that tab's document. (spec:2026-09-27-agent-onglets-design)
+- Scope SurfaceHub, Tools and ToolServer to one tab; their tools must only see that tab's document, and only edit_pack may open or focus a pack tab, through Sessions::open_pack. (spec:2026-09-27-agent-onglets-design, plan:2026-10-25-onglets-pack-theme-lot3-pack-tabs)
 - Answer ask or permission requests on a closed tab with Cancelled; the SurfaceHub closes when the tab entry drops. (t-249)
 - On resync emit the full open surface list, and have the UI replace its surfaces rather than merge them. (t-182)
 - Make the set_setting tool refuse agent settings. (t-786)
@@ -32,7 +32,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Check every voice tool request through VoicePort before confirming; a refusal opens no dialog. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Rebuild the settings box only from the VoicePort view through its one send path, never from prune. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Call prune after every surface action that changes the deck, so the theme picker and packs panel re-read it. (t-1133)
-- Refuse save with a path to a file that is already open in another tab. (t-255)
+- Let edit_pack open at most one new pack tab per agent turn through SurfaceHub::reserve_pack_tab, and none or no focus change outside a turn; refuse that turn's widget writes in the requesting tab once it opened one; never show the agent another tab's title, hub errors included. (plan:2026-10-25-onglets-pack-theme-lot3-pack-tabs)
 - Push every resync and follow to all views of a tab, not only to the view that asked. (t-670)
 - Emit page events (Present, OpenHistory, Interface) only after ensure_shown, and open history through the tab so its pending edit and save go first. (t-988, t-991, t-992)
 

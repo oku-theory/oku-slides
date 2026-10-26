@@ -666,3 +666,11 @@ pub(crate) fn png(w: u32, h: u32, seed: u8) -> Vec<u8> {
     drop(writer);
     out.into_inner()
 }
+
+/// Rewrites the resume `state.json` of `dir` through `edit`.
+pub(crate) fn edit_state(dir: &std::path::Path, edit: impl FnOnce(&mut serde_json::Value)) {
+    let path = dir.join("state.json");
+    let mut state: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    edit(&mut state);
+    std::fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
+}

@@ -11,22 +11,25 @@ export const AUTOSAVE_DELAY_MS = 1500;
 interface Saveable {
   dirty: boolean;
   path: string | null;
-  /** Pack en cours d'édition : enregistrer crée la version de la session, puis la remplace. */
-  editing: unknown;
+  /**
+   * The pack being edited: saving creates the session's version, then replaces it. `leased`:
+   * the tab may write it (it holds the lease, or needs none).
+   */
+  editing: { leased: boolean } | null;
   /** Historique ouvert : la version montrée n'est qu'un aperçu. */
   history?: unknown;
 }
 
 /**
- * Faut-il enregistrer ? Un deck modifié, avec ou sans fichier (il ira au
- * dossier par défaut) ; un pack modifié, intégré compris : une version
- * par session d'édition, créée au premier enregistrement puis remplacée.
- * `paused` : un enregistrement a été refusé (fichier remplacé). Jamais
- * pendant l'historique (la session le refuserait) : le deck mis de côté
- * s'enregistre à sa fermeture.
+ * Should the tab save now? A modified deck, with or without a file (it goes to the default
+ * folder); a modified pack, built-in included: one version per editing session, created at the
+ * first save then replaced. `paused`: a save was refused (file replaced). Never while history
+ * is open (the session would refuse; the deck set aside saves when it closes), and never for a
+ * pack without its lease (fail closed): such a tab would make its pre-restart work current on
+ * its own once the holder closes.
  */
 export function wantsAutosave(s: Saveable, paused: boolean): boolean {
-  return !paused && s.dirty && !s.history;
+  return !paused && s.dirty && !s.history && (s.editing === null || s.editing.leased === true);
 }
 
 /** Enregistrements différés : `schedule` à chaque modification, `flush` avant de partir. */

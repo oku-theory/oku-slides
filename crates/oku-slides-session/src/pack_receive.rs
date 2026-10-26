@@ -15,17 +15,27 @@ use oku_slides_core::PackFiles;
 use crate::Session;
 use crate::pack::PackManifest;
 
+/// Whether the version `files` belongs to one deck only; `None` for an unreadable scope.
+///
+/// Read silently: the one source of the rule, for callers that log or fail closed.
+pub(crate) fn deck_scope(files: &PackFiles) -> Option<bool> {
+    files.scope().ok().map(|scope| !scope.is_library())
+}
+
 /// Vrai si la version `files` n'appartient qu'à un deck.
 ///
 /// Une portée illisible ne l'est pas : journalisée, le pack est traité comme de la bibliothèque.
 pub(crate) fn is_deck_only(files: &PackFiles) -> bool {
-    match files.scope() {
-        Ok(scope) => !scope.is_library(),
-        Err(e) => {
-            tracing::warn!(error = %e, "portée du pack illisible : traité comme de la bibliothèque");
-            false
-        }
-    }
+    deck_scope(files).unwrap_or_else(|| {
+        tracing::warn!("portée du pack illisible : traité comme de la bibliothèque");
+        false
+    })
+}
+
+/// True when `files` belong to a library pack.
+#[must_use]
+pub(crate) fn is_library_pack(files: &PackFiles) -> bool {
+    !is_deck_only(files)
 }
 
 /// Les thèmes écartés de la bibliothèque ont déjà été signalés dans le processus.

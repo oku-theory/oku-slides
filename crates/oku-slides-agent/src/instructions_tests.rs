@@ -26,7 +26,7 @@ fn instructions_ask_for_report_not_suggest_next() {
 #[case("set_dictation")]
 #[case("select_agent")]
 #[case("download_dictation_model")]
-#[case("edit_pack (the deck's own pack")]
+#[case("edit_pack (a library pack opens in its own tab")]
 #[case("the set_theme op with a namespace")]
 #[case("set_token ops on deck.tokens")]
 #[case("component.base.card")]
@@ -35,6 +35,13 @@ fn instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
     assert_that!(at).is_some();
     let app = at.map_or("", |at| &INSTRUCTIONS[at..]);
     assert_that!(app).contains(listed);
+}
+
+#[test]
+fn instructions_mention_pack_tabs() {
+    assert_that!(INSTRUCTIONS).contains("a library pack opens in its own tab, once per turn");
+    assert_that!(INSTRUCTIONS).contains("a deck-only pack in this tab's workshop, left with close_pack");
+    assert_that!(INSTRUCTIONS).does_not_contain("the deck's own pack when pack is omitted");
 }
 
 #[test]

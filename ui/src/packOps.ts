@@ -2,11 +2,7 @@
 
 import type { Snapshot } from "./api";
 import type { PackInfo, PackPin } from "./packTypes";
-import { BASE_NAMESPACE, ESSENTIEL_NAMESPACE } from "./builtinKinds";
 import { t } from "./i18n";
-
-/** Espaces de noms réservés aux packs du deck seul : ses widgets et ses layouts. */
-const DECK_OWN = ["deck", "deck-layouts"];
 
 /** Clé stable des épingles d'un deck : `espace@version` triés, joints par une virgule. */
 export function pinsKey(pins: Record<string, PackPin>): string {
@@ -25,26 +21,6 @@ export function deckPinsKey(snap: Pick<Snapshot, "widgets" | "layouts"> | null):
 export function packOptionLabel(pack: PackInfo): string {
   if (pack.builtin) return pack.name;
   return pack.received ? t("ui-picker-set-received", { name: pack.name }) : t("ui-picker-set-mine", { name: pack.name });
-}
-
-/**
- * Id du pack édité par défaut (l'atelier du menu) : le pack de layouts propre du deck, sinon son
- * pack de widgets propre, sinon le premier pack non intégré (layouts d'abord), sinon Essentiel,
- * enfin `base`.
- */
-export function firstPackId(snap: Snapshot | null): string | null {
-  const layouts = Object.entries(snap?.layouts ?? {});
-  const widgets = Object.entries(snap?.widgets ?? {});
-  const named = (ns: string) => ([n]: [string, PackPin]) => n === ns;
-  const own = ([ns]: [string, PackPin]) => !DECK_OWN.includes(ns) && ns !== BASE_NAMESPACE && ns !== ESSENTIEL_NAMESPACE;
-  const pin =
-    layouts.find(named("deck-layouts")) ??
-    widgets.find(named("deck")) ??
-    layouts.find(own) ??
-    widgets.find(own) ??
-    layouts.find(named(ESSENTIEL_NAMESPACE)) ??
-    widgets.find(named(BASE_NAMESPACE));
-  return pin?.[1].id ?? null;
 }
 
 /** Longueur maximale d'un espace de noms, en octets (comme le noyau). */

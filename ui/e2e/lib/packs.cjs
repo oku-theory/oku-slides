@@ -5,32 +5,32 @@ const { post } = require('./http.cjs');
 const api = (p, tab, req) => post(p, '/api', { tab, req });
 
 /**
- * Copie le pack intégré `base` sous le nom `name` dans la bibliothèque, puis rend l'onglet `tab`
- * à son deck, sans la copie épinglée. Rend l'id et l'espace de noms du nouveau pack, lus dans la liste des packs de widgets.
+ * Copies the built-in pack `base` under the name `name` into the library, in a pack tab opened from
+ * `tab` then closed; the deck of `tab` does not pin the copy. Returns the new pack's id and
+ * namespace, read in the widget pack list.
  */
 async function createLibraryWidgetPack(p, tab, name) {
   const base = (await api(p, tab, { cmd: 'packs', kind: 'widgets' })).find((pack) => pack.namespace === 'base');
   assert.ok(base, 'la bibliothèque n\'a pas le pack de widgets base');
-  const editing = await api(p, tab, { cmd: 'edit_pack', pack: base.id });
-  assert.equal(editing.editing?.kind, 'widgets', `edit_pack refusé : ${JSON.stringify(editing).slice(0, 300)}`);
+  const view = await post(p, '/api/workspace', { cmd: 'open_pack', tab, pack: base.id, widget: null });
+  const packTab = view.windows?.flatMap((w) => w.tabs).find((t) => t.document.kind === 'pack' && t.document.pack === base.id)?.id;
   try {
-    // Le nom du pack est le titre du deck du pack ; la copie en dérive son espace de noms.
+    assert.ok(packTab, `open_pack refusé : ${JSON.stringify(view).slice(0, 300)}`);
+    const editing = await api(p, packTab, { cmd: 'snapshot' });
+    assert.equal(editing.editing?.kind, 'widgets', `l'onglet de pack n'édite pas base : ${JSON.stringify(editing).slice(0, 300)}`);
+    // The pack's name is its deck's title; the copy derives its namespace from it.
     const ops = [{ op: 'set_deck_param', key: 'title', value: name }];
-    const renamed = await api(p, tab, { cmd: 'apply', label: 'Nom', ops, merge: null });
+    const renamed = await api(p, packTab, { cmd: 'apply', label: 'Nom', ops, merge: null });
     assert.equal(renamed.error, undefined, `renommage refusé : ${renamed.error}`);
-    const saved = await api(p, tab, { cmd: 'save_pack', as_new: true });
+    const saved = await api(p, packTab, { cmd: 'save_pack', as_new: true });
     assert.equal(saved.error, undefined, `save_pack refusé : ${saved.error}`);
   } finally {
-    await api(p, tab, { cmd: 'close_pack' });
+    if (packTab !== undefined) await post(p, '/api/workspace', { cmd: 'close', tab: packTab, discard: true });
   }
   const made = (await api(p, tab, { cmd: 'packs', kind: 'widgets' })).find((pack) => pack.name === name);
   assert.ok(made, `le pack « ${name} » manque à la bibliothèque`);
-  // La copie enregistrée est épinglée par le deck mis de côté : il la lâche, le pack reste à ajouter.
-  if ((await api(p, tab, { cmd: 'snapshot' })).widgets[made.namespace]) {
-    const ops = [{ op: 'remove_pack', kind: 'widgets', namespace: made.namespace }];
-    const removed = await api(p, tab, { cmd: 'apply', label: 'Retrait', ops, merge: null });
-    assert.equal(removed.error, undefined, `retrait de la copie refusé : ${removed.error}`);
-  }
+  // Saved in the pack tab, the copy is not pinned by the deck: the pack is still to add.
+  assert.equal((await api(p, tab, { cmd: 'snapshot' })).widgets[made.namespace], undefined, 'le deck épingle la copie');
   return { id: made.id, namespace: made.namespace };
 }
 

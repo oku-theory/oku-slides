@@ -20,6 +20,7 @@ use crate::error::{NamespaceReservedSnafu, NamespaceTakenSnafu, PackKindChangedS
 use crate::library::{DraftLock, DraftWrite, Library, builtin_owner, may_own};
 use crate::library_kind::{Layouts, StoredVersion, Widgets};
 use crate::pack::{PackInfo, PackManifest, Relation};
+use crate::pack_lease::LeaseScope;
 use crate::theme::ThemeLibrary;
 
 /// Appelle `$body` avec `$l`, la bibliothèque de la sorte `$kind`.
@@ -45,6 +46,8 @@ pub struct PackLibrary {
     layouts: Library<Layouts>,
     /// Les thèmes, pour l'unicité des espaces de noms entre les trois sortes.
     themes: ThemeLibrary,
+    /// The lease key of this library; `None` without both directories.
+    lease_scope: Option<LeaseScope>,
 }
 
 /// L'autre sorte que `kind`.
@@ -61,7 +64,15 @@ impl PackLibrary {
     /// `themes` : la bibliothèque des thèmes de la même session (un clone partage son index).
     #[must_use]
     pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, themes: ThemeLibrary, storage: Storage) -> Self {
-        Self { widgets: Library::new(widgets, storage.clone()), layouts: Library::new(layouts, storage), themes }
+        let (widgets, layouts) = (Library::new(widgets, storage.clone()), Library::new(layouts, storage));
+        let lease_scope = widgets.dir().zip(layouts.dir()).map(|(w, l)| LeaseScope::new(w, l));
+        Self { widgets, layouts, themes, lease_scope }
+    }
+
+    /// This library's lease key; None without both directories.
+    #[must_use]
+    pub(crate) fn lease_scope(&self) -> Option<&LeaseScope> {
+        self.lease_scope.as_ref()
     }
 
     /// Les packs de l'utilisateur (`paths.widgets` et `paths.layouts` des réglages), et les intégrés.

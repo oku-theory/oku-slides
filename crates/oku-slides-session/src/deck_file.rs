@@ -9,10 +9,11 @@ use std::path::{Path, PathBuf};
 
 use oku_slides_core::SourceBundle;
 use oku_slides_render_worker::RemoteCompiled;
-use snafu::ResultExt;
+use snafu::{ResultExt, ensure};
 
 use crate::deck_closure::combined_pins;
-use crate::error::{PdfSnafu, SourcesSnafu, WriteSnafu};
+use crate::deck_widgets::DeckWidgets;
+use crate::error::{InPackTabSnafu, PdfSnafu, SourcesSnafu, WriteSnafu};
 use crate::files::{EXTENSION, read_document};
 use crate::{Document, Result, Session, blank_deck, charts, deck_pack, deck_theme};
 
@@ -46,9 +47,10 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails if the session is not editable, if the blank deck's sources cannot be created, or if its
-    /// rendering fails.
+    /// Fails in a pack tab (`InPackTab`), if the session is not editable, if
+    /// the blank deck's sources cannot be created, or if its rendering fails.
     pub fn new_deck(&mut self) -> Result<()> {
+        ensure!(!self.is_pack_tab(), InPackTabSnafu);
         let sources = SourceBundle::new(blank_deck(&self.localizer), self.registry.clone()).context(SourcesSnafu)?;
         self.load(sources, None)?;
         self.doc.blank = true;
@@ -80,6 +82,29 @@ impl Session {
             tracing::warn!(error = %e.one_line(), "épinglages des thèmes non réparés");
         }
         let (widgets, notice) = self.resolve_widgets(&combined_pins(doc.sources.deck()), &doc.sources.packs)?;
+        self.install_document(doc, widgets, notice)?;
+        self.refresh_pack_updates();
+        self.rerender()
+    }
+
+    /// Installs `doc` with its resolved widgets as the document; adopts nothing.
+    ///
+    /// Its charts are put in canonical form first; `notice` (the widgets'
+    /// one) is set on it. Neither renders nor reads the library.
+    ///
+    /// # Errors
+    ///
+    /// `Sources` when `apply_silent` refuses; the errors `install_widgets` and `fonts_renderer` return.
+    ///
+    /// # Blocking
+    ///
+    /// Installs fonts into the renderer.
+    pub(crate) fn install_document(
+        &mut self,
+        mut doc: Document,
+        widgets: DeckWidgets,
+        notice: Option<String>,
+    ) -> Result<()> {
         doc.sources.set_registry(widgets.registry.clone());
         let mut deck = doc.sources.deck().clone();
         charts::canonicalize_deck(&mut deck, &self.chart_labels, &widgets.registry);
@@ -117,8 +142,7 @@ impl Session {
         self.ui.slide = None;
         self.ui = std::mem::take(&mut self.ui).sanitized(false);
         self.theme_list = self.themes.themes();
-        self.refresh_pack_updates();
-        self.rerender()
+        Ok(())
     }
 
     /// Opens a `.oku-slides.pdf` (or a JSON deck, for development).

@@ -1,9 +1,10 @@
 // Liste au dock d'un widget du pack : le tableau (ajout, retrait) ; l'aperçu revient à l'identique.
 // Le popover d'une cellule riche s'ouvre sous sa cellule, dans le tableau.
+// In Essentiel's pack tab. Writes: Essentiel (the `jalons` widget). Leaves: no pack tab.
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (après 160-widgets.cjs).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { openAtelier } = require('./lib/atelier.cjs');
+const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
 const { post } = require('./lib/http.cjs');
 const { until } = require('./lib/until.cjs');
 const { PREVIEW, widgetPreviewSvg } = require('./lib/widget.cjs');
@@ -16,23 +17,17 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
-  await p.reload();
-  // Le test précédent peut avoir laissé l'onglet en mode pack : on y entre s'il le faut.
-  await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
-  const add = p.getByRole('button', { name: 'Nouveau widget' });
-  if (!(await add.isVisible())) {
-    await openAtelier(p);
-  }
-  await add.click();
+  await closePackTabs(p);
+  await p.waitForSelector('.stage img');
+  const packTab = await openEssentiel(p);
+  await p.getByRole('button', { name: 'Nouveau widget' }).click();
   const name = p.getByRole('textbox', { name: /Nom du widget/ });
   await name.fill('jalons');
   await name.press('Enter');
   await p.waitForSelector(PREVIEW);
   // Le widget d'essai déclare une liste de trois colonnes (dont une riche), trois lignes par défaut.
-  // Un élément dans un pack de widgets (le pack propre du deck, que l'atelier du menu ouvre) ; une
-  // slide dans un pack de layouts (Essentiel, si le deck n'a pas de pack propre).
-  const kind = (await post(p, '/api', { tab: 't-1', req: { cmd: 'snapshot' } })).editing?.kind;
+  // Un élément dans un pack de widgets ; une slide dans un pack de layouts (Essentiel, ouvert ici).
+  const kind = (await post(p, '/api', { tab: packTab, req: { cmd: 'snapshot' } })).editing?.kind;
   const slide = kind === 'layouts';
   const items = 'stack(spacing: 6pt, ..args.etapes.map(e => list-item(ctx, "etapes", e, c => field(c, "texte", e.at("texte", default: "")))))';
   const source = [
@@ -44,7 +39,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
     `  (args, ctx) => ${slide ? `blank-slide(id: ctx.id, ${items})` : items})`,
     '',
   ].join('\n');
-  const set = await post(p, '/api', { tab: 't-1', req: { cmd: 'set_widget', name: 'jalons', source } });
+  const set = await post(p, '/api', { tab: packTab, req: { cmd: 'set_widget', name: 'jalons', source } });
   assert.ok(!set?.error, JSON.stringify(set));
   await p.reload();
   const table = '[data-surface-id="host-widget"]';
@@ -78,6 +73,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await p.locator(`${table} thead th`).first().click(); // un clic ailleurs le ferme
   await pop.waitFor({ state: 'detached' });
 
+  await closePackTabs(p);
   assert.deepEqual(errors, []);
   console.log('lists-dock : ok');
   await b.close();

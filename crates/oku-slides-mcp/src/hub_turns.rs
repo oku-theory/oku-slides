@@ -3,7 +3,31 @@
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
 use oku_slides_session::agent::{KEPT_TURNS, Surface};
 
+use uuid::Uuid;
+
 use super::{HubState, McpEvent, Shown, SurfaceHub};
+
+/// What a pack-tab claim answered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Reserve {
+    /// The claim is held for this turn.
+    Granted,
+    /// The call's turn is not the open one, or the hub closed.
+    NotThisTurn,
+    /// This turn already claimed another pack.
+    Taken,
+}
+
+/// This turn's claim of one new pack tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PackTabClaim {
+    /// The turn that claimed it.
+    pub(super) turn: u32,
+    /// The pack it opens.
+    pub(super) pack: Uuid,
+    /// The claims granted on it and not given back.
+    pub(super) claims: u32,
+}
 
 /// Ce qui remplace une question du fil une fois répondue (ou annulée).
 pub type Freeze = Box<dyn FnOnce(&super::Answer) -> Surface + Send>;
@@ -51,6 +75,80 @@ impl SurfaceHub {
     /// le passe à `show_static`, `show_report`, `ask_then` ou `show_params`.
     pub fn turn(&self) -> Option<u32> {
         self.state().turn
+    }
+
+    /// True while `turn` is the open turn of a live hub.
+    #[must_use]
+    pub(crate) fn turn_is_open(&self, turn: u32) -> bool {
+        Self::admits(&self.state(), turn, Admit::Open)
+    }
+
+    /// Claims this turn's one new pack tab for `pack`.
+    ///
+    /// The decision and the claim are one step under the state lock, so of many concurrent
+    /// claims on distinct packs in one turn exactly one is granted. A claim of a later turn is
+    /// never overwritten; claims on the same pack are counted, so each failed open gives back
+    /// its own.
+    #[must_use]
+    pub(crate) fn reserve_pack_tab(&self, turn: u32, pack: Uuid) -> Reserve {
+        let mut state = self.state();
+        if !Self::admits(&state, turn, Admit::Open) {
+            return Reserve::NotThisTurn;
+        }
+        match &mut state.pack_tab {
+            Some(claim) if claim.turn >= turn => {
+                if claim.turn != turn || claim.pack != pack {
+                    return Reserve::Taken;
+                }
+                match claim.claims.checked_add(1) {
+                    Some(claims) => {
+                        claim.claims = claims;
+                        Reserve::Granted
+                    }
+                    None => Reserve::Taken,
+                }
+            }
+            slot => {
+                *slot = Some(PackTabClaim { turn, pack, claims: 1 });
+                Reserve::Granted
+            }
+        }
+    }
+
+    /// Gives back one claim of `pack` in `turn`, if still held.
+    pub(crate) fn release_pack_tab(&self, turn: u32, pack: Uuid) {
+        let mut state = self.state();
+        let Some(claim) = state.pack_tab.as_mut().filter(|c| c.turn == turn && c.pack == pack) else {
+            return;
+        };
+        match claim.claims.checked_sub(1) {
+            Some(left) if left > 0 => claim.claims = left,
+            Some(_) => state.pack_tab = None,
+            None => {
+                tracing::warn!(turn, %pack, "pack tab claim released more often than granted");
+                state.pack_tab = None;
+            }
+        }
+    }
+
+    /// Records that `turn`'s `edit_pack` focused another tab.
+    ///
+    /// An older turn never replaces a newer one.
+    pub(crate) fn note_elsewhere(&self, turn: u32) {
+        let mut state = self.state();
+        if state.elsewhere.is_none_or(|noted| noted < turn) {
+            state.elsewhere = Some(turn);
+        }
+    }
+
+    /// True while `turn` must leave its own tab's widgets alone.
+    ///
+    /// That is, for the open turn, once it holds a pack tab claim or focused another tab.
+    #[must_use]
+    pub(crate) fn writes_elsewhere(&self, turn: u32) -> bool {
+        let state = self.state();
+        Self::admits(&state, turn, Admit::Open)
+            && (state.pack_tab.is_some_and(|claim| claim.turn == turn) || state.elsewhere == Some(turn))
     }
 
     /// Le tour `turn` peut-il encore recevoir une surface (verrou déjà pris) ?
@@ -266,3 +364,7 @@ impl SurfaceHub {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "hub_turns_tests.rs"]
+mod hub_turns_tests;

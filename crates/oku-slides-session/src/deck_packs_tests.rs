@@ -485,3 +485,22 @@ fn deck_packs_theme_lists_the_library_themes() {
     assert_that!(choices).is_equal_to(vec!["papier", "pro", "neutre"]);
     assert_that!((view.theme.active.as_str(), view.theme.overrides)).is_equal_to(("papier", 0));
 }
+
+#[rstest]
+#[case::make_current(true)]
+#[case::delete(false)]
+fn leased_pack_cannot_be_made_current_or_deleted(#[case] make_current: bool) {
+    let data = fresh_dir("oku-slides-packs-leased-");
+    let (mut s, _deck, acme) = crate::test_support_packs::opener_on(data.path());
+    let mut tab = crate::test_support_packs::pack_tab_from(&mut s, data.path(), acme);
+    tab.apply("x", vec![crate::test_support::rename_title("acme 2")], None).unwrap();
+    let current = tab.save_pack(false).unwrap();
+    let ns = s.deck().widgets.iter().find(|(_, p)| p.id == acme).map(|(ns, _)| ns.clone()).unwrap();
+    let err = if make_current {
+        s.pack_make_current(PackKind::Widgets, &ns).unwrap_err()
+    } else {
+        s.handle(Request::DeletePack { pack: acme }).unwrap_err()
+    };
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::PackOpenInTab);
+    assert_that!(s.library.current(acme)).is_equal_to(Some(current));
+}

@@ -49,6 +49,17 @@ pub(super) struct Layout {
     pub(super) agent_detached: bool,
 }
 
+/// Where a new tab goes in its window.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum TabPlace {
+    /// In place of this pristine tab, else at the end.
+    Replace(String),
+    /// Right after this tab, else at the end.
+    After(String),
+    /// At the end of the window.
+    End,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct WindowLayout {
     pub(super) label: String,
@@ -106,11 +117,11 @@ impl Workspace {
         label
     }
 
-    /// Insère un onglet actif dans une fenêtre.
+    /// Inserts an active tab into a window, at `place`.
     ///
-    /// Dans `window` (à la place de `beside` s'il y est, sinon à la fin),
-    /// ou dans une nouvelle fenêtre si `window` est absente ou inconnue.
-    pub(super) fn insert_tab(&mut self, window: Option<&str>, id: String, session: Session, beside: Option<&str>) {
+    /// In `window` (in place of a `Replace` tab or after an `After` one when it
+    /// is there, else at the end), or in a new window if `window` is absent or unknown.
+    pub(super) fn insert_tab(&mut self, window: Option<&str>, id: String, session: Session, place: &TabPlace) {
         // La fenêtre d'abord : un onglet n'existe jamais sans fenêtre.
         let label = match window.filter(|l| self.window_index(l).is_ok()) {
             Some(label) => label.to_owned(),
@@ -120,7 +131,12 @@ impl Workspace {
         let win = self.layout.windows.iter_mut().find(|w| w.label == label);
         debug_assert!(win.is_some(), "la fenêtre vient d'être trouvée ou créée : elle existe toujours ici");
         if let Some(win) = win {
-            let at = beside.and_then(|b| win.tabs.iter().position(|t| t == b)).unwrap_or(win.tabs.len());
+            let at = match place {
+                TabPlace::Replace(r) => win.tabs.iter().position(|t| t == r),
+                TabPlace::After(a) => win.tabs.iter().position(|t| t == a).map(|i| i + 1),
+                TabPlace::End => None,
+            };
+            let at = at.unwrap_or(win.tabs.len());
             win.tabs.insert(at, id.clone());
             win.active = id;
         }

@@ -55,15 +55,16 @@ impl Workspace {
         Ok(Some((storage, limits, registry)))
     }
 
-    /// L'onglet non vierge qui tient le deck `uid` sous un autre fichier que
-    /// `path`, et son titre ; le plus ancien s'il y en a plusieurs. Un onglet
-    /// en mode pack ne compte pas : il refuserait la fusion.
+    /// The non-pristine tab holding the deck `uid` under a file other than
+    /// `path`, and its title; the oldest if there are several. A tab in pack
+    /// mode does not count (it would refuse the merge), nor does any tab that
+    /// is not a deck.
     fn tab_of_deck(&self, uid: &str, path: &Path) -> Option<(String, String)> {
         self.tabs
             .iter()
             .filter(|(_, t)| {
                 let i = &t.info;
-                !i.pristine && !i.editing_pack && i.path.as_deref() != Some(path) && i.deck_uid.as_deref() == Some(uid)
+                !i.pristine && !i.editing_pack && i.document.path() != Some(path) && i.document.deck_uid() == Some(uid)
             })
             .min_by_key(|(id, _)| number(id))
             .map(|(id, t)| (id.clone(), t.info.title.clone()))
@@ -80,7 +81,7 @@ impl Workspace {
         let target = {
             let w = Self::lock(ws);
             let Some(id) = w.tab_with_path(path) else { return };
-            let uid = w.tabs.get(&id).and_then(|t| t.info.deck_uid.clone());
+            let uid = w.tabs.get(&id).and_then(|t| t.info.document.deck_uid().map(str::to_owned));
             let Some((_, title)) = uid.and_then(|uid| w.tab_of_deck(&uid, path)) else { return };
             let text = w.platform.localizer.tr_with("notice-same-deck-open", &[("title", title.into())]);
             w.session(&id).ok().map(|session| (id, session, text))

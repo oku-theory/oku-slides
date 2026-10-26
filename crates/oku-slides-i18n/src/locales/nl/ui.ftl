@@ -28,6 +28,10 @@ ui-caption-slides = { $count ->
    *[other] { $count } dia's
 } · { $status }
 ui-confirm-quit-pack = Afsluiten zonder het gewijzigde pakket op te slaan?
+ui-confirm-update-opener = “{ $deck }” bijwerken naar deze versie van het pakket “{ $pack }”?
+ui-close-writes-pending = Dit tabblad slaat nog op: sluit het zo meteen opnieuw.
+ui-confirm-close-writes-pending = Dit tabblad slaat nog op. Toch sluiten en verliezen wat niet is opgeslagen?
+ui-confirm-quit-read-only-pack = { $pack } kan hier niet worden opgeslagen. Dit tabblad sluiten en de wijzigingen verliezen? Vraag de agent om het als nieuw pakket op te slaan om ze te bewaren.
 
 ## Meldingen
 

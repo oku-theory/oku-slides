@@ -3,17 +3,59 @@
 import type { Element, Messages, SchemeSetting } from "./api";
 import { host } from "./hostCall";
 
-/** Un onglet, tel que la barre le montre. */
+/** What a tab edits. */
+export type TabDocument =
+  | { kind: "deck"; path: string | null; deck_uid: string | null }
+  | { kind: "help"; locale: string }
+  | { kind: "pack"; pack: string };
+
+/** A tab, as the bar shows it. */
 export interface TabInfo {
   id: string;
   title: string;
   dirty: boolean;
-  /** L'onglet est en mode pack (l'atelier). */
-  editing_pack: boolean;
-  path: string | null;
+  /** A new deck never touched: opening a file replaces it. */
   pristine: boolean;
-  /** Identité du deck : une autre copie du même deck la partage. */
-  deck_uid: string | null;
+  /** The tab edits a pack, in its own tab or a deck's workshop. */
+  editing_pack: boolean;
+  /** Id of the deck's theme, or null. */
+  theme: string | null;
+  /** What the tab edits. */
+  document: TabDocument;
+}
+
+/** A deck tab's file, or null for any other or unknown kind. */
+export function tabPath(tab: TabInfo): string | null {
+  const d = tab.document;
+  switch (d.kind) {
+    case "deck":
+      return d.path;
+    case "help":
+    case "pack":
+      return null;
+    default: {
+      // A kind this build does not know (a newer host): no file.
+      const unknown: never = d;
+      void unknown;
+      return null;
+    }
+  }
+}
+
+/** The deck a closed pack tab may update, and the version. */
+export interface OpenerOffer {
+  /** The opener deck's tab. */
+  tab: string;
+  /** Its title, already a label: never escaped or re-labelled here. */
+  title: string;
+  /** Its deck identity. */
+  deck_uid: string;
+  /** The pack the tab edited. */
+  pack: string;
+  /** That pack's name, already a label. */
+  pack_name: string;
+  /** The version it wrote. */
+  version: string;
 }
 
 /** Une fenêtre : ses onglets et l'onglet actif. */
@@ -89,7 +131,9 @@ type WorkspaceRequest =
   | { cmd: "close_window"; window: string; discard: string[] }
   | { cmd: "detach_agent" }
   | { cmd: "attach_agent" }
-  | { cmd: "import_picked"; id: number };
+  | { cmd: "import_picked"; id: number }
+  | { cmd: "open_pack"; tab: string; pack: string; widget: string | null }
+  | { cmd: "pack_opener"; tab: string };
 
 const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
 
@@ -133,6 +177,10 @@ export const workspace = {
   attachAgent: () => ws<WorkspaceView>({ cmd: "attach_agent" }),
   /** Le dialogue d'import du choix `id` est ouvert : l'hôte l'oublie (un choix plus récent reste). */
   importPicked: (id: number) => ws<WorkspaceView>({ cmd: "import_picked", id }),
+  /** Opens a pack from a tab, beside it or in place. */
+  openPack: (tab: string, pack: string, widget: string | null) => ws<WorkspaceView>({ cmd: "open_pack", tab, pack, widget }),
+  /** The deck a pack tab may update, if any. */
+  packOpener: (tab: string) => ws<OpenerOffer | null>({ cmd: "pack_opener", tab }),
 };
 
 /**

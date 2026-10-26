@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import type { Snapshot } from "./api";
 import type { PackInfo, PackPin } from "./packTypes";
 import { setMessages } from "./i18n";
-import { deckPinsKey, firstPackId, packOptionLabel, pinsKey, splitKind, widgetToOpen } from "./packOps";
+import { deckPinsKey, packOptionLabel, pinsKey, splitKind, widgetToOpen } from "./packOps";
 import { resetMessages } from "./test/messages";
 
 afterAll(resetMessages);
@@ -46,32 +46,6 @@ test("packOptionLabel tells a received pack from mine and leaves a built-in one 
 });
 
 const snapOf = (widgets: Record<string, PackPin>, layouts: Record<string, PackPin> = {}) => ({ widgets, layouts }) as unknown as Snapshot;
-
-const pin = (id: string): PackPin => ({ id, version: "1" });
-
-test("firstPackId prefers the deck's own layout pack", () => {
-  expect(firstPackId(snapOf({ base: pin("b"), deck: pin("d"), acme: pin("a") }, { "deck-layouts": pin("dl"), essentiel: pin("e") }))).toBe("dl");
-});
-
-test("firstPackId takes the deck's own widget pack without its layout pack", () => {
-  expect(firstPackId(snapOf({ base: pin("b"), deck: pin("d"), acme: pin("a") }, { essentiel: pin("e") }))).toBe("d");
-});
-
-test("firstPackId takes the first non-builtin pack, layouts before widgets", () => {
-  expect(firstPackId(snapOf({ base: pin("b"), acme: pin("a") }, { essentiel: pin("e"), maison: pin("m") }))).toBe("m");
-  expect(firstPackId(snapOf({ base: pin("b"), acme: pin("a") }, { essentiel: pin("e") }))).toBe("a");
-});
-
-test("firstPackId falls back to Essentiel", () => {
-  expect(firstPackId(snapOf({ base: pin("b") }, { essentiel: pin("e") }))).toBe("e");
-});
-
-test("firstPackId with base alone returns base", () => expect(firstPackId(snapOf({ base: pin("b") }))).toBe("b"));
-
-test("firstPackId of no pin is null", () => {
-  expect(firstPackId(snapOf({}))).toBeNull();
-  expect(firstPackId(null)).toBeNull();
-});
 
 test.each([
   ["acme/card", { ns: "acme", name: "card" }],

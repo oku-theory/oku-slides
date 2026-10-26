@@ -28,8 +28,16 @@ describe("enregistrement automatique", () => {
   });
 
   test("wantsAutosave pack modifié : oui, intégré compris (une version par session d'édition)", () => {
-    expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: false } }, false)).toBe(true);
-    expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: true } }, false)).toBe(true);
+    expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: false, leased: true } }, false)).toBe(true);
+    expect(wantsAutosave({ dirty: true, path: null, editing: { builtin: true, leased: true } }, false)).toBe(true);
+  });
+
+  test("wantsAutosave is false for a tab without its lease", () => {
+    expect(wantsAutosave({ dirty: true, path: null, read_only: false, editing: { leased: false } }, false)).toBe(false);
+  });
+
+  test("wantsAutosave is true for a tab holding its lease", () => {
+    expect(wantsAutosave({ dirty: true, path: null, read_only: false, editing: { leased: true } }, false)).toBe(true);
   });
 
   test("createAutosave plusieurs changements rapprochés : un seul enregistrement", async () => {

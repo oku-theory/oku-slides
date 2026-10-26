@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::{Clip, ImportPick};
 use crate::views::TabInfo;
@@ -149,6 +150,24 @@ pub enum WorkspaceRequest {
         /// Numéro du choix traité ([`ImportPick::id`]).
         id: u64,
     },
+    /// Opens `pack` from tab `tab`, beside it or in its workshop.
+    OpenPack {
+        /// The requesting tab.
+        tab: String,
+        /// The pack to open.
+        pack: Uuid,
+        /// A widget whose sub-tab opens too.
+        #[serde(default)]
+        widget: Option<String>,
+    },
+    /// The deck that opened pack tab `tab`, if offered an update.
+    ///
+    /// Answers the bare JSON of the offer (its tab, deck title and identity,
+    /// pack, pack name and version), or `null`.
+    PackOpener {
+        /// The pack tab.
+        tab: String,
+    },
 }
 
 /// Un onglet de la vue.
@@ -206,6 +225,13 @@ pub enum WorkspaceOutcome {
         /// L'onglet importé.
         tab: String,
     },
+    /// A tab's deck changed: the host runs its after-change hook.
+    DeckChanged {
+        /// The updated view.
+        json: String,
+        /// The tab whose deck changed.
+        tab: String,
+    },
 }
 
 impl WorkspaceOutcome {
@@ -213,7 +239,9 @@ impl WorkspaceOutcome {
     #[must_use]
     pub fn into_json(self) -> String {
         match self {
-            Self::Applied(json) | Self::LastWindow(json) | Self::Tune { json, .. } => json,
+            Self::Applied(json) | Self::LastWindow(json) | Self::Tune { json, .. } | Self::DeckChanged { json, .. } => {
+                json
+            }
         }
     }
 
@@ -222,7 +250,16 @@ impl WorkspaceOutcome {
     pub fn tune_tab(&self) -> Option<&str> {
         match self {
             Self::Tune { tab, .. } => Some(tab),
-            Self::Applied(_) | Self::LastWindow(_) => None,
+            Self::Applied(_) | Self::LastWindow(_) | Self::DeckChanged { .. } => None,
+        }
+    }
+
+    /// The tab whose deck a request changed, if any.
+    #[must_use]
+    pub fn after_change_tab(&self) -> Option<&str> {
+        match self {
+            Self::DeckChanged { tab, .. } => Some(tab),
+            Self::Applied(_) | Self::LastWindow(_) | Self::Tune { .. } => None,
         }
     }
 
@@ -232,3 +269,7 @@ impl WorkspaceOutcome {
         matches!(self, Self::LastWindow(_))
     }
 }
+
+#[cfg(test)]
+#[path = "workspace_request_tests.rs"]
+mod workspace_request_tests;

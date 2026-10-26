@@ -105,10 +105,16 @@ impl Slot {
         }
     }
 
-    /// Plus rien n'est écrit pour la reprise de l'onglet `id` (il est fermé).
+    /// Nothing more is written for the resume of tab `id`: it is closed for good.
+    ///
+    /// A ready session stops its resume, then goes (its lease with it): a stale
+    /// `with_session` holding this slot then gets `UnknownTab` instead of writing.
     pub(super) fn stop_resume(&mut self, id: &str) {
         match self {
-            Self::Ready(session) => session.stop_resume(),
+            Self::Ready(session) => {
+                session.stop_resume();
+                *self = Self::Closed(id.to_owned());
+            }
             Self::Dormant(_) => *self = Self::Closed(id.to_owned()),
             Self::Closed(_) => {}
         }
@@ -119,15 +125,18 @@ pub(super) struct Tab {
     pub(super) session: Arc<Mutex<Slot>>,
     /// Dernières infos connues : la vue se construit sans verrouiller les sessions.
     pub(super) info: TabInfo,
+    /// The deck tab that opened this pack tab (memory only).
+    pub(super) opener: Option<String>,
 }
 
 impl Tab {
     pub(super) fn new(session: Session) -> Self {
-        Self { info: session.tab_info(), session: Arc::new(Mutex::new(Slot::Ready(Box::new(session)))) }
+        let info = session.tab_info();
+        Self { info, session: Arc::new(Mutex::new(Slot::Ready(Box::new(session)))), opener: None }
     }
 
     /// Un onglet repris qui dort : sa session sera relue à sa première requête.
     pub(super) fn dormant(info: TabInfo, dormant: Dormant) -> Self {
-        Self { info, session: Arc::new(Mutex::new(Slot::Dormant(Box::new(dormant)))) }
+        Self { info, session: Arc::new(Mutex::new(Slot::Dormant(Box::new(dormant)))), opener: None }
     }
 }

@@ -26,17 +26,24 @@ use oku_slides_core::{
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
-use crate::pack_scratch::PackScratch;
 use crate::resume_writer::{AgentWrite, Job, Writer};
 use crate::theme_edit::ThemeEdit;
-use crate::views::{PackMode, UiState};
+use crate::views::{PackHost, PackMode, UiState};
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
 
 pub(crate) const VERSION: u32 = 3;
+/// The state version of a pack tab: the previous release sets it aside, never misreads it.
+pub(crate) const PACK_TAB_STATE_VERSION: u32 = 4;
 pub(crate) const DECK_DIR: &str = "deck";
 pub(crate) const PACK_DIR: &str = "pack";
 /// Taille maximale d'un JSON relu par [`Resume::read_json`] : au-delà, illisible.
 pub(crate) const MAX_JSON_BYTES: u64 = 1024 * 1024;
+
+#[path = "resume_versions.rs"]
+mod versions;
+
+#[path = "resume_pack.rs"]
+mod pack;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -51,6 +58,8 @@ pub(crate) enum ResumeError {
     Session { source: SessionError, backtrace: Backtrace },
     #[snafu(display("theme draft namespace {namespace} does not match a readable base"))]
     ThemeBase { namespace: String, backtrace: Backtrace },
+    #[snafu(display("inconsistent pack tab state: {reason}"))]
+    PackTab { reason: &'static str, backtrace: Backtrace },
     #[snafu(display("unreadable replica {}", path.display()))]
     Replica {
         path: PathBuf,
@@ -68,7 +77,20 @@ impl ResumeError {
         match self {
             Self::Version { version, .. } => *version < VERSION,
             Self::Replica { source, .. } => source.kind() == ReplicaErrorKind::UnsupportedVersion,
-            Self::Access { .. } | Self::Json { .. } | Self::Session { .. } | Self::ThemeBase { .. } => false,
+            Self::Access { .. }
+            | Self::Json { .. }
+            | Self::Session { .. }
+            | Self::ThemeBase { .. }
+            | Self::PackTab { .. } => false,
+        }
+    }
+
+    /// Why a pack tab state was refused, for a `PackTab` error.
+    #[cfg(test)]
+    pub(crate) fn pack_tab_reason(&self) -> Option<&'static str> {
+        match self {
+            Self::PackTab { reason, .. } => Some(reason),
+            _ => None,
         }
     }
 }
@@ -255,25 +277,18 @@ impl Resume {
     ///
     /// Au-delà de [`MAX_JSON_BYTES`], le fichier est illisible, sans être lu.
     pub fn read_json<T: DeserializeOwned>(&self, name: &str, version: u32) -> Result<Option<T>> {
-        let path = self.dir.join(name);
-        if !self.storage.exists(&path).context(AccessSnafu { path: &path })? {
-            return Ok(None);
-        }
-        let bytes = self.storage.read_limited(&path, MAX_JSON_BYTES).context(AccessSnafu { path: &path })?;
-        // La version se lit à part : une version future peut avoir changé de
-        // forme, illisible en `T` alors que sa version l'est bien.
-        let versioned: Versioned = serde_json::from_slice(&bytes).context(JsonSnafu { path: &path })?;
-        ensure!(versioned.version == version, VersionSnafu { version: versioned.version });
-        Ok(Some(serde_json::from_slice(&bytes).context(JsonSnafu { path: &path })?))
+        self.read_json_versions(name, version..=version)
     }
 
     pub fn write_state(&self, state: &State) -> Result<()> {
         self.write_json("state.json", state)
     }
 
-    /// L'état du dernier lancement ; `None` au premier.
+    /// The previous launch's state; `None` at the first one.
+    ///
+    /// Versions 3 (deck, help, workshop) and 4 (pack tab) are read.
     pub fn read_state(&self) -> Result<Option<State>> {
-        self.read_json("state.json", VERSION)
+        self.read_json_versions("state.json", VERSION..=PACK_TAB_STATE_VERSION)
     }
 
     /// Écrit un document : assets et polices d'abord (le deck les cite), puis
@@ -673,10 +688,21 @@ impl Session {
     fn restore(&mut self, resume: &Resume) -> Result<()> {
         self.conversation = resume.read_conversation();
         let Some(state) = resume.read_state()? else { return Ok(()) };
+        // Only a pack tab writes version 4: any other mode there is forged (a workshop would
+        // resume the preview copy as a user deck).
+        let pack_tab = matches!(&state.mode, SavedMode::Pack(edit) if edit.host == PackHost::Tab);
+        ensure!(
+            pack_tab || state.version != PACK_TAB_STATE_VERSION,
+            PackTabSnafu { reason: "version 4 state of a tab that is not a pack tab" }
+        );
         if let SavedMode::Help(locale) = &state.mode {
             self.open_help(locale, state.help_theme).context(SessionSnafu)?;
             self.ui = state.ui.sanitized(false);
             return Ok(());
+        }
+        // A pack tab has no deck of its own: its preview and pack are checked apart.
+        if pack_tab {
+            return pack::restore_pack_tab(self, resume, state);
         }
         let max = self.source_limits.replica();
         let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
@@ -691,35 +717,10 @@ impl Session {
             },
         };
         self.load_document(deck).context(SessionSnafu)?;
-        if let Some((doc, edit)) = pack {
-            let theme = match state.theme_edit {
-                Some(theme) => theme,
-                None => self.initial_theme_edit().context(SessionSnafu)?.0,
-            };
-            let stash = std::mem::replace(&mut self.doc, doc);
-            self.mode = Mode::Pack {
-                stash: Box::new(stash),
-                edit,
-                scratch: PackScratch::default(),
-                theme,
-                switches: Vec::new(),
-            };
-            self.embed_theme_base();
-            // La bibliothèque a pu changer depuis : une liste refusée, ou un espace
-            // de noms qui n'est pas celui de la base, fait échouer la reprise (mise
-            // de côté), jamais réparée en silence.
-            if let Mode::Pack { theme, .. } = &self.mode {
-                let base = self.base_manifest().map(|m| m.namespace);
-                ensure!(
-                    base.as_ref() == Some(&theme.namespace),
-                    ThemeBaseSnafu { namespace: theme.namespace.as_str() }
-                );
-                self.check_theme_extends(theme, &theme.extends).context(SessionSnafu)?;
-            }
-            self.sync_widgets().context(SessionSnafu)?;
-            self.rerender().context(SessionSnafu)?;
+        match pack {
+            Some((doc, edit)) => self.finish_pack_restore(edit, doc, state.theme_edit, state.ui)?,
+            None => self.ui = state.ui.sanitized(false),
         }
-        self.ui = state.ui.sanitized(matches!(self.mode, Mode::Pack { .. }));
         Ok(())
     }
 
@@ -795,7 +796,13 @@ impl Session {
                 }
             }
         }
-        let state = State { version: VERSION, mode, ui: self.ui.clone(), help_theme: None, theme_edit };
+        // A pack tab's preview is never saved to a file: it is never written dirty.
+        let pack_tab = self.is_pack_tab();
+        if pack_tab && let Some((_, preview)) = docs.iter_mut().find(|(sub, _)| *sub == DECK_DIR) {
+            preview.dirty = false;
+        }
+        let version = if pack_tab { PACK_TAB_STATE_VERSION } else { VERSION };
+        let state = State { version, mode, ui: self.ui.clone(), help_theme: None, theme_edit };
         writer.send(Job { docs, state, agent });
     }
 }

@@ -35,6 +35,15 @@ pub(crate) fn combined_pins(deck: &Deck) -> BTreeMap<Namespace, PackPin> {
     deck.all_pins().map(|(_, ns, pin)| (ns.clone(), pin.clone())).collect()
 }
 
+/// Every pack and theme version a deck's pins reach.
+///
+/// The deck pins its whole closure: its pins are every version it needs.
+#[must_use]
+pub(crate) fn pinned_versions(deck: &Deck) -> BTreeSet<PackVersion> {
+    let packs = deck.all_pins().map(|(_, _, pin)| pin.version.clone());
+    packs.chain(deck.themes.values().map(|pin| pin.version.clone())).collect()
+}
+
 /// Les packs de `pins` à écarter avec ceux de `off` : ceux qui requièrent, même de loin,
 /// un pack de `off` ou un pack que le deck n'épingle pas.
 ///

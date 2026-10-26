@@ -13,8 +13,8 @@ import type { View } from "./table/ShowAsButton";
 import { host } from "./hostCall";
 
 export { errorText, inTauri, isMac, listenTauri } from "./hostCall";
-export { tabDrag, workspace } from "./workspaceApi";
-export type { ClipReply, ImportPick, ImportTarget, SharedClip, TabAt, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
+export { tabDrag, tabPath, workspace } from "./workspaceApi";
+export type { ClipReply, ImportPick, ImportTarget, OpenerOffer, SharedClip, TabAt, TabDocument, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
 export { pickOpenPath, pickSavePath } from "./filePick";
 export { subscribeUpdates, tauriUpdates } from "./updateApi";
 export type { InstallMode, UpdateApi, UpdateEvents, UpdateOffer, UpdateProgress, UpdateStatus } from "./updateApi";
@@ -502,10 +502,12 @@ type Request =
   | { cmd: "undo_turn"; turn: number }
   | { cmd: "layouts" }
   | { cmd: "packs"; kind: PackKind }
+  // The UI no longer sends it (packs open in their own tab; e2e specs still do); lot 5 removes it (t-1200).
   | { cmd: "edit_pack"; pack: string }
   | { cmd: "save_pack"; as_new: boolean }
   | { cmd: "close_pack" }
   | { cmd: "delete_pack"; pack: string }
+  | { cmd: "use_pack_version"; pack: string; version: string; deck_uid: string }
   | { cmd: "set_edited_theme"; id: string }
   | { cmd: "rename_edited_theme"; name: string }
   | { cmd: "set_edited_theme_extends"; extends: string[] }
@@ -715,11 +717,16 @@ export function tabApi(tab: string) {
     layouts: () => call<LayoutsView>({ cmd: "layouts" }),
     /** Packs de la bibliothèque de sorte `kind`, dans leur version courante. */
     packs: (kind: PackKind) => call<PackInfo[]>({ cmd: "packs", kind }),
-    /** Passe en édition de la version courante du pack `pack` (id). */
-    editPack: (pack: string) => call<Snapshot>({ cmd: "edit_pack", pack }),
     /** Enregistre le pack édité (une copie : l'agent, outil `save_pack`). */
     savePack: () => call<Snapshot>({ cmd: "save_pack", as_new: false }),
     closePack: () => call<Snapshot>({ cmd: "close_pack" }),
+    /**
+     * Pins an offered pack version if it still holds (sends `use_pack_version`).
+     *
+     * Not named `usePackVersion`: hook lint rules would read a `use…` name as a hook.
+     */
+    takePackVersion: (pack: string, version: string, deckUid: string) =>
+      call<Snapshot>({ cmd: "use_pack_version", pack, version, deck_uid: deckUid }),
     /** Supprime un pack de l'utilisateur, toutes versions ; répond les packs restants de sa sorte. */
     deletePack: (pack: string) => call<PackInfo[]>({ cmd: "delete_pack", pack }),
     /** Fichiers de widgets du pack en cours, `_commun` en tête. */

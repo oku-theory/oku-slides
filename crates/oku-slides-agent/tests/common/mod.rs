@@ -283,8 +283,22 @@ pub fn logged(log: &Path, method: &str) -> Vec<Value> {
 }
 
 /// Les sessions de test : une par onglet.
-#[derive(Debug, Default)]
-pub struct TabSessions(pub Mutex<std::collections::HashMap<String, Session>>);
+///
+/// The second field, a settled workspace, answers a pack open from an unknown tab
+/// (`UnknownTab`): session errors cannot be built outside the session crate.
+#[derive(Debug)]
+pub struct TabSessions(pub Mutex<std::collections::HashMap<String, Session>>, pub Mutex<oku_slides_session::Workspace>);
+
+impl TabSessions {
+    /// No session yet, and a closed workspace on `platform`.
+    fn closed_on(platform: &Platform) -> Self {
+        let workspace = oku_slides_session::Workspace::new(Fonts::default(), platform, None)
+            .unwrap_or_else(|e| panic!("espace de travail de test : {e}"));
+        let workspace = Mutex::new(workspace);
+        oku_slides_session::Workspace::settle(&workspace);
+        Self(Mutex::default(), workspace)
+    }
+}
 
 impl oku_slides_session::agent::Sessions for TabSessions {
     /// Onglet inconnu : `f` n'est pas appelée (`TabSession::with` rend alors une erreur).
@@ -293,6 +307,21 @@ impl oku_slides_session::agent::Sessions for TabSessions {
             f(s);
         }
         Ok(())
+    }
+
+    /// A known tab opens in place; an unknown one is refused by the closed workspace.
+    fn open_pack(
+        &self,
+        tab: &str,
+        pack: uuid::Uuid,
+        widget: Option<&str>,
+        gate: &mut dyn FnMut(oku_slides_session::agent::PackGate) -> bool,
+    ) -> oku_slides_session::Result<oku_slides_session::agent::PackOpen> {
+        if let Some(s) = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_mut(tab) {
+            s.open_pack_here(pack, widget)?;
+            return Ok(oku_slides_session::agent::PackOpen::Here);
+        }
+        oku_slides_session::Workspace::open_pack(&self.1, "onglet-ferme", pack, widget, gate)
     }
 }
 
@@ -513,7 +542,7 @@ async fn build_stack_with(
             session.open(&fixture).unwrap_or_else(|e| panic!("ouverture : {e}"));
             session
         };
-        let sessions = TabSessions::default();
+        let sessions = TabSessions::closed_on(&platform);
         let mut first = Some(first);
         for name in names {
             let session = match first.take_if(|_| name == "t-1") {

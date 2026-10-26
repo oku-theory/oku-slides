@@ -38,7 +38,7 @@ const deckSnapshot = (): Snapshot =>
 /** Un onglet en mode pack sur un pack de `kind` : une slide par layout pour un pack de layouts. */
 const snapshotInPackMode = (kind: PackKind): Snapshot =>
   ({
-    editing: { pack: "e", name: "Essentiel", kind, builtin: true, deck_only: false },
+    editing: { pack: "e", name: "Essentiel", kind, builtin: true, deck_only: false, host: "deck", read_only: false, leased: true, display_name: "Essentiel" },
     history: null, read_only: false,
     slides: kind === "layouts"
       ? [

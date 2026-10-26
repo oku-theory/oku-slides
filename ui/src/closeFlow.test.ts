@@ -1,0 +1,323 @@
+// Closing one tab: guards, stalls, saves, the opener offer, and the deps builder.
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { closeFlowDeps, closeTabFlow } from "./closeFlow";
+import { isolate, setMessages } from "./i18n";
+import { OFFER, T0, deferred, fake, packEditing, snap, tabOf } from "./test/closeFlowFake";
+import { resetMessages } from "./test/messages";
+
+const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
+beforeAll(async () => {
+  setMessages("en", [await ftl("en")]);
+});
+afterAll(resetMessages);
+
+const PENDING = "report This tab is still saving: close it again in a moment.";
+const ASK_STUCK = "confirm This tab is still saving. Close it anyway and lose what has not been saved?";
+const ASK_QUIT = "confirm Quit without saving the modified pack?";
+const ASK_UPDATE = "confirm Update “⁨Roadmap⁩” to this version of the pack “⁨Acme⁩”?";
+const timeout = () => Promise.resolve("timeout" as const);
+
+describe("closeTabFlow, guards", () => {
+  test("runs the guard before freshTabs, mayClose and close", async () => {
+    const f = fake([tabOf("a", true)]);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    const at = (s: string) => f.log.indexOf(s);
+    expect(at("guard a")).toBe(0);
+    expect(at("guard a")).toBeLessThan(at("fresh"));
+    expect(at("fresh")).toBeLessThan(at("snapshot a"));
+    expect(at("save a")).toBeLessThan(at("close a false"));
+  });
+
+  test("runs the guard again right before close", async () => {
+    const f = fake([tabOf("a")]);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "guard a", "fresh", "close a false"]);
+  });
+
+  test("a second close of the same id while one runs returns false and asks nothing", async () => {
+    const f = fake([tabOf("a")]);
+    const hold = deferred<"done">();
+    f.state.guard = (_id, n) => (n === 1 ? hold.promise : Promise.resolve("done"));
+    const first = closeTabFlow("a", f.deps());
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a"]);
+    hold.resolve("done");
+    expect(await first).toBe(true);
+  });
+
+  test("a timed-out guard refuses the close and asks nothing", async () => {
+    const f = fake([tabOf("a", true)]);
+    f.state.guard = timeout;
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a", PENDING]);
+  });
+
+  test("a rejected guard counts like a timeout", async () => {
+    const f = fake([tabOf("a")]);
+    f.state.guard = () => Promise.reject(new Error("garde"));
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a", PENDING]);
+    expect(f.input.stalls.get("a")).toBe(T0);
+  });
+
+  test.each([
+    ["a pack tab", true],
+    ["a deck tab", false],
+  ])("a second timeout within 30 s asks one generic confirm (%s)", async (_name, pack) => {
+    const f = fake([tabOf("a", true, pack)]);
+    f.state.guard = timeout;
+    f.input.stalls.set("a", T0 - 10_000);
+    f.state.answers = [false];
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a", "fresh", ASK_STUCK]);
+  });
+
+  test("yes on a clean tab closes without discard", async () => {
+    const f = fake([tabOf("a")]);
+    f.state.guard = timeout;
+    f.input.stalls.set("a", T0 - 10_000);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", ASK_STUCK, "close a false"]);
+  });
+
+  test("yes on a dirty tab closes with discard", async () => {
+    const f = fake([tabOf("a", true)]);
+    f.state.guard = timeout;
+    f.input.stalls.set("a", T0 - 10_000);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", ASK_STUCK, "close a true"]);
+  });
+
+  test("a second stall on a clean tab whose plain close is refused falls back to discard", async () => {
+    const f = fake([tabOf("a")]);
+    f.state.guard = timeout;
+    f.state.refused.add("a false");
+    f.input.stalls.set("a", T0 - 10_000);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", ASK_STUCK, "close a false", "run error refusé", "close a true"]);
+  });
+
+  test("the tab gone after the second timeout closes nothing", async () => {
+    const f = fake([]);
+    f.state.guard = timeout;
+    f.input.stalls.set("a", T0 - 10_000);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh"]);
+  });
+
+  test("stall entries older than 30 s are pruned", async () => {
+    const f = fake([tabOf("a")]);
+    f.state.guard = timeout;
+    f.input.stalls.set("old", T0 - 31_000);
+    f.input.stalls.set("a", T0 - 31_000);
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a", PENDING]);
+    expect([...f.input.stalls]).toEqual([["a", T0]]);
+  });
+
+  test("a flush at the last guard that dirties the tab runs mayClose once more", async () => {
+    const f = fake([tabOf("a")]);
+    f.state.guard = (_id, n) => {
+      if (n === 2) f.state.tabs = [tabOf("a", true)];
+      return Promise.resolve("done");
+    };
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "guard a", "fresh", "snapshot a", "save a", "guard a", "fresh", "close a false"]);
+  });
+
+  test("a write flushed at the last guard is the version offered", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.guard = (_id, n) => {
+      if (n === 2) f.state.offer = OFFER;
+      return Promise.resolve("done");
+    };
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(0, 5)).toEqual(["guard a", "fresh", "guard a", "fresh", "opener a"]);
+    expect(f.log).toContain("take t-1 p v2 d1");
+  });
+
+  test("a tab list read failure is reported and the tab stays", async () => {
+    const f = fake([tabOf("a")]);
+    f.input.freshTabs = () => Promise.reject(new Error("vue"));
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a", "report vue"]);
+    expect(f.input.closing.size).toBe(0);
+  });
+
+  test("the tab gone after the guard closes nothing", async () => {
+    const f = fake([]);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh"]);
+  });
+});
+
+describe("closeTabFlow, live state", () => {
+  test("a clean deck tab reads no snapshot", async () => {
+    const f = fake([tabOf("a")]);
+    await closeTabFlow("a", f.deps());
+    expect(f.log.filter((l) => l.startsWith("snapshot"))).toEqual([]);
+  });
+
+  test("closeTabFlow clean pack tab skips the snapshot", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "guard a", "fresh", "opener a", "close a false"]);
+  });
+
+  test("a pack tab snapshot rejection tries savePack before offering to discard", async () => {
+    const f = fake([tabOf("a", true, true)]);
+    f.state.snapshot = () => Promise.reject(new Error("rendu"));
+    f.state.savePack = () => Promise.reject(new Error("rendu"));
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "report rendu", "fresh", "savePack a", ASK_QUIT, "close a true"]);
+  });
+
+  test("a pack tab snapshot rejection whose savePack resolves closes with keep", async () => {
+    const f = fake([tabOf("a", true, true)]);
+    f.state.snapshot = () => Promise.reject(new Error("rendu"));
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "report rendu", "fresh", "savePack a", "close a false"]);
+  });
+
+  test("a snapshot rejection of a tab refreshed to a deck stays open", async () => {
+    const f = fake([tabOf("a", true, true)]);
+    f.state.snapshot = () => {
+      f.state.tabs = [tabOf("a", true)];
+      return Promise.reject(new Error("rendu"));
+    };
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "report rendu", "fresh"]);
+  });
+
+  test("a deck tab snapshot rejection reports and stays open", async () => {
+    const f = fake([tabOf("a", true)]);
+    f.state.snapshot = () => Promise.reject(new Error("rendu"));
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "report rendu", "fresh"]);
+  });
+
+  test("the read-only confirm isolates the display name", async () => {
+    const f = fake([tabOf("a", true, true)]);
+    f.state.snapshot = async () => snap({ dirty: true, editing: packEditing({ read_only: true, leased: false, display_name: "Acme" }) });
+    f.state.answers = [false];
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toContain(
+      "confirm ⁨Acme⁩ cannot be saved here. Close this tab and lose its changes? To keep them, ask the agent to save it as a new pack.",
+    );
+  });
+
+  test("a discarded pack tab sends discard and offers nothing", async () => {
+    const f = fake([tabOf("a", true, true)]);
+    f.state.snapshot = async () => snap({ dirty: true, editing: packEditing({ read_only: true, leased: false }) });
+    f.state.offer = OFFER;
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.at(-1)).toBe("close a true");
+    expect(f.log.filter((l) => l.startsWith("opener") || l.startsWith("guard"))).toEqual(["guard a"]);
+  });
+});
+
+describe("closeTabFlow, the opener offer", () => {
+  test("a kept pack tab offers, closes, then updates the opener tab", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = OFFER;
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(4)).toEqual(["opener a", ASK_UPDATE, "close a false", "take t-1 p v2 d1", "refresh"]);
+  });
+
+  test("the offer confirm carries the title and the pack name, each isolated", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = { ...OFFER, title: "Feuille de route", pack_name: "Maison" };
+    await closeTabFlow("a", f.deps());
+    expect(f.log).toContain("confirm Update “⁨Feuille de route⁩” to this version of the pack “⁨Maison⁩”?");
+  });
+
+  test("a declined offer closes without updating", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = OFFER;
+    f.state.answers = [false];
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(4)).toEqual(["opener a", ASK_UPDATE, "close a false"]);
+  });
+
+  test("no opener asks nothing", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.filter((l) => l.startsWith("confirm"))).toEqual([]);
+  });
+
+  test("a packOpener rejection is reported and the tab closes", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = new Error("opener");
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(4)).toEqual(["opener a", "report opener", "close a false"]);
+  });
+
+  test("a refused close updates nothing", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = OFFER;
+    f.state.refused.add("a false");
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log.filter((l) => l.startsWith("take") || l === "refresh")).toEqual([]);
+  });
+
+  test("an update rejection is reported and still refreshes", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = OFFER;
+    f.state.take = () => Promise.reject(new Error("expirée"));
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(-3)).toEqual(["take t-1 p v2 d1", "report expirée", "refresh"]);
+  });
+
+  test("a deck tab never asks packOpener", async () => {
+    const f = fake([tabOf("a", true)]);
+    f.state.offer = OFFER;
+    await closeTabFlow("a", f.deps());
+    expect(f.log.filter((l) => l.startsWith("opener"))).toEqual([]);
+  });
+});
+
+describe("closeFlowDeps", () => {
+  test("closeFlowDeps builds share stalls", () => {
+    const f = fake([]);
+    expect(f.deps().stalls).toBe(f.deps().stalls);
+  });
+
+  test("closeFlowDeps builds share closing", () => {
+    const f = fake([]);
+    expect(f.deps().closing).toBe(f.deps().closing);
+  });
+
+  test("close reports a refused close as false", async () => {
+    const f = fake([tabOf("a")]);
+    f.state.refused.add("a true");
+    expect(await f.deps().close("a", true)).toBe(false);
+    expect(f.log).toEqual(["close a true", "run error refusé"]);
+  });
+
+  test("report ignores errors after unmount", () => {
+    const f = fake([]);
+    const deps = f.deps();
+    f.input.alive.current = false;
+    deps.report(new Error("tard"));
+    expect(f.log).toEqual([]);
+  });
+
+  test("packOpener and activate come from the injected workspace", async () => {
+    const f = fake([]);
+    f.state.offer = OFFER;
+    const deps = f.deps();
+    expect(await deps.packOpener("a")).toEqual(OFFER);
+    await deps.activate("b");
+    expect(f.log).toEqual(["opener a", "activate b"]);
+  });
+
+  test("isolate wraps a value in one FSI and one PDI", () => {
+    expect(isolate("Roadmap")).toBe("⁨Roadmap⁩");
+  });
+
+  test("closeFlowDeps takes the clock from its input", () => {
+    const f = fake([]);
+    f.state.clock = 42;
+    expect(closeFlowDeps(f.input).now()).toBe(42);
+  });
+});

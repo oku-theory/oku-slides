@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use uuid::Uuid;
 
-use super::{Opening, Pending, Workspace};
+use super::{Opening, Pending, TabPlace, Workspace};
 use crate::help::help_locale;
 
 impl Workspace {
@@ -14,21 +14,21 @@ impl Workspace {
         help_locale(oku_slides_i18n::resolve(self.chosen_locale))
     }
 
-    /// L'onglet qui montre déjà l'aide en `locale`.
+    /// The tab that already shows the help in `locale`.
     pub(super) fn tab_with_help(&self, locale: &str) -> Option<String> {
-        self.tabs.iter().find(|(_, t)| t.info.help.as_deref() == Some(locale)).map(|(id, _)| id.clone())
+        self.tabs.iter().find(|(_, t)| t.info.document.help_locale() == Some(locale)).map(|(id, _)| id.clone())
     }
 
-    /// Le thème du deck de l'onglet actif de `window` ; `None` : l'aide elle-même, ou sans thème.
+    /// The theme of the deck in `window`'s active tab; `None`: the help itself, or no theme.
     pub(super) fn help_theme(&self, window: &str) -> Option<Uuid> {
         let active = &self.layout.windows.iter().find(|w| w.label == window)?.active;
         let info = &self.tabs.get(active)?.info;
-        info.help.is_none().then_some(info.theme).flatten()
+        info.document.help_locale().is_none().then_some(info.theme).flatten()
     }
 
     /// Prépare l'onglet d'aide en `locale`, au thème `theme`, à la fin de `window`.
     pub(super) fn help_pending(&mut self, window: String, locale: &'static str, theme: Option<Uuid>) -> Pending {
-        self.pending(Some(window), Opening::Help { locale, theme }, None)
+        self.pending(Some(window), Opening::Help { locale, theme }, TabPlace::End)
     }
 
     /// L'onglet d'aide `tab` prend le thème `theme` ; un échec est journalisé.

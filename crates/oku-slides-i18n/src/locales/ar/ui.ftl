@@ -40,6 +40,10 @@ ui-caption-slides = { $count ->
    *[other] { $count } شريحة
 } · { $status }
 ui-confirm-quit-pack = هل تريد الخروج دون حفظ الحزمة المعدّلة؟
+ui-confirm-update-opener = هل تريد تحديث «{ $deck }» إلى هذا الإصدار من الحزمة «{ $pack }»؟
+ui-close-writes-pending = لا يزال هذا التبويب يحفظ: أغلقه مرة أخرى بعد لحظة.
+ui-confirm-close-writes-pending = لا يزال هذا التبويب يحفظ. هل تريد إغلاقه على أي حال وفقدان ما لم يُحفظ؟
+ui-confirm-quit-read-only-pack = لا يمكن حفظ { $pack } هنا. هل تريد إغلاق هذا التبويب وفقدان تعديلاته؟ للاحتفاظ بها، اطلب من الوكيل حفظها كحزمة جديدة.
 
 ## الإشعارات
 

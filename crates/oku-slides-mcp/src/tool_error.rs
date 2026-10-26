@@ -57,6 +57,12 @@ pub(crate) enum ToolError {
     HistoryNotOpened { backtrace: Backtrace },
     #[snafu(display("the deck pins no pack"))]
     NoPack { backtrace: Backtrace },
+    #[snafu(display("the turn already opened a pack tab"))]
+    PackTabLimit { backtrace: Backtrace },
+    #[snafu(display("a pack tab opens or takes the focus only during a turn"))]
+    PackTabNoTurn { backtrace: Backtrace },
+    #[snafu(display("this turn continues in the pack's own tab"))]
+    ContinueInPackTab { backtrace: Backtrace },
     #[snafu(display("history seek needs an index"))]
     HistoryIndex { backtrace: Backtrace },
     #[snafu(display("nothing to present in this mode"))]
@@ -89,10 +95,11 @@ pub(crate) enum ToolError {
 impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
         use ToolError::{
-            Arguments, Denied, EmptyDictationChange, EmptyInterface, HistoryIndex, HistoryNotOpened, Hub, NoFile,
-            NoPack, NoTurn, NotShown, NothingToPresent, OpenElsewhere, PackChange, PackId, PacksDeckMode, Paragraphs,
-            PathParent, PathRelative, Response, RewriteText, Session, Setting, SettingLocked, Task, ThemesDeckMode,
-            TurnOver, UnexpectedAction, UnknownLocale, UnknownTool, Voice,
+            Arguments, ContinueInPackTab, Denied, EmptyDictationChange, EmptyInterface, HistoryIndex, HistoryNotOpened,
+            Hub, NoFile, NoPack, NoTurn, NotShown, NothingToPresent, OpenElsewhere, PackChange, PackId, PackTabLimit,
+            PackTabNoTurn, PacksDeckMode, Paragraphs, PathParent, PathRelative, Response, RewriteText, Session,
+            Setting, SettingLocked, Task, ThemesDeckMode, TurnOver, UnexpectedAction, UnknownLocale, UnknownTool,
+            Voice,
         };
         match self {
             Arguments { source, .. } => {
@@ -118,6 +125,9 @@ impl Localize for ToolError {
             }
             HistoryNotOpened { .. } => l.tr("agent-error-history-not-opened"),
             NoPack { .. } => l.tr("agent-error-no-pack"),
+            PackTabLimit { .. } => l.tr("agent-error-pack-tab-limit"),
+            PackTabNoTurn { .. } => l.tr("agent-error-pack-tab-no-turn"),
+            ContinueInPackTab { .. } => l.tr("agent-error-continue-in-pack-tab"),
             HistoryIndex { .. } => l.tr("agent-error-history-index"),
             NothingToPresent { .. } => l.tr("agent-error-present"),
             UnknownLocale { .. } => l.tr("agent-error-locale"),
@@ -129,7 +139,12 @@ impl Localize for ToolError {
                 Some(refused) => refused.op_error().localize(l),
                 None => say_to_agent(source, l),
             },
-            Hub { source, .. } => source.localize(l),
+            // The agent reads a pack held by another tab without that tab's title; the hub's other
+            // texts stay as the cards say them.
+            Hub { source, .. } => match source.session() {
+                Some(refused) if refused.kind() == SessionErrorKind::PackOpenInTab => say_to_agent(refused, l),
+                _ => source.localize(l),
+            },
             EmptyDictationChange { .. } => l.tr("agent-error-empty-dictation"),
             Voice { source, .. } => source.localize(l),
             Response { .. } => l.tr("session-response"),
@@ -137,15 +152,17 @@ impl Localize for ToolError {
     }
 }
 
-/// L'erreur de la session dite à l'agent ; les cartes du hub passent par `say_session` seul.
+/// A session error told to the agent; the hub's cards use `say_session` alone.
 ///
-/// Un asset inconnu vient de l'agent ou d'un collage entre onglets : la session le dit à
-/// l'utilisateur, l'agent apprend ici à donner l'identifiant d'une image collée (t-1171).
+/// An unknown asset comes from the agent or from a paste between tabs: the session tells the
+/// user, the agent learns here to give the id of a pasted image (t-1171). A pack edited in another
+/// tab is told without that tab's title: the agent never reads another tab's title.
 fn say_to_agent(e: &SessionError, l: &Localizer) -> String {
     match e.kind() {
         SessionErrorKind::UnknownAsset => l.tr("agent-error-asset-unknown"),
         // L'agent a donné un id qu'aucun pack ne porte : `packs` les liste.
         SessionErrorKind::UnknownPack => l.tr("agent-error-pack-id"),
+        SessionErrorKind::PackOpenInTab => l.tr("agent-error-pack-open-in-tab"),
         _ => say_session(e, l),
     }
 }

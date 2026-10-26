@@ -129,7 +129,9 @@ impl Session {
     /// # Errors
     ///
     /// Fails outside pack mode (`NotEditingPack`), or if the library rejects or does not write the
-    /// version or the theme draft.
+    /// version or the theme draft: while another tab edits the pack (`PackOpenInTab`), once the
+    /// library lost it (`UnknownPack`), without its base (`PackVersionMissing`) or its lease
+    /// (`LeaseMissing`).
     pub fn save_pack(&mut self, as_new: bool) -> Result<PackVersion> {
         let Mode::Pack { edit, .. } = &self.mode else {
             return NotEditingPackSnafu.fail()?;
@@ -181,14 +183,14 @@ impl Session {
         }
     }
 
-    /// `files` devient la version de la séance d'édition `edit`.
+    /// `files` becomes the version of the editing session `edit`.
     ///
-    /// Créée la première fois (ou toujours, pour une copie `as_new`),
-    /// remplacée ensuite, rendue courante dans la bibliothèque (jamais écrite
-    /// pour un pack du deck seul) ; `deck` (le document du pack)
-    /// y passe en une étape `step` (voir `AdoptStep`), et le deck mis de côté
-    /// en une étape d'annulation.
-    /// Sans rendu : l'appelant rend ensuite le document du pack.
+    /// Created the first time (or always, for an `as_new` copy), replaced
+    /// afterwards, made current in the library (never written for a deck-only
+    /// pack); `deck` (the pack's document) moves to it in one `step` (see
+    /// `AdoptStep`), and the deck set aside in one undo step. The editor takes
+    /// its lease first unless `as_new`: a library copy takes its own
+    /// (`copy_lease`). Without rendering: the caller renders the pack's document.
     pub(crate) fn adopt_session_version(
         &mut self,
         mut deck: Deck,
@@ -197,6 +199,9 @@ impl Session {
         as_new: bool,
         step: AdoptStep<'_>,
     ) -> Result<PackVersion> {
+        if !as_new {
+            self.ensure_pack_lease()?;
+        }
         // Décider puis écrire sous le verrou des brouillons : une adoption ne s'y glisse pas.
         let lock = draft_lock();
         let session = edit.session_version.as_ref().filter(|_| !as_new);
@@ -236,7 +241,13 @@ impl Session {
         pin_deck(&mut deck, &packs)?;
         let stashed =
             stashed.map(|(mut user, packs)| pin_deck(&mut user, &packs).map(|()| (user, packs))).transpose()?;
-        write_session_version(&self.library, &lock, id, &write, &files)?;
+        let copy = self.copy_lease(&lock, edit, as_new, &manifest, &files)?;
+        let witness = match &self.mode {
+            _ if as_new => copy.as_ref(),
+            Mode::Pack { lease, .. } => lease.as_ref(),
+            _ => None,
+        };
+        write_session_version(&self.library, &lock, id, &write, &files, witness)?;
         drop(lock);
         embed_packs(&mut self.doc.sources, packs);
         match step {
@@ -246,7 +257,7 @@ impl Session {
         }
         .context(SourcesSnafu)?;
         let label = self.localizer.tr_with("pack-adopt-label", &[("name", manifest.name.as_str().into())]);
-        if let (Mode::Pack { stash, edit, .. }, Some((user, packs))) = (&mut self.mode, stashed) {
+        if let (Mode::Pack { stash, edit, lease, orphaned, .. }, Some((user, packs))) = (&mut self.mode, stashed) {
             embed_packs(&mut stash.sources, packs);
             let steps = stash.sources.undo_steps();
             stash.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
@@ -258,7 +269,8 @@ impl Session {
                     stash.sources.packs.remove(old);
                 } else if let Some(files) = stash.sources.packs.get(old) {
                     // Nouvelle étape : annuler y revient ; la bibliothèque la retrouve.
-                    restore_session_version(&self.library, id, files);
+                    let witness = if as_new { copy.as_ref() } else { lease.as_ref() };
+                    restore_session_version(&self.library, id, files, witness);
                 }
             }
             *edit = PackMode {
@@ -270,7 +282,14 @@ impl Session {
                 parent,
                 session_version: Some(version.clone()),
                 deck_only,
+                host: edit.host,
             };
+            // A copy is another pack: it holds its own lease (none for a deck-only
+            // one), the original's drops here, and a library copy is never orphaned.
+            if as_new {
+                *lease = copy;
+                *orphaned = false;
+            }
         }
         self.sync_widgets()?;
         Ok(version)

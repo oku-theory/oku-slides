@@ -233,7 +233,7 @@ fn edit_builtin_pack_then_save_as_copy_creates_a_new_pack_and_close_restores_dec
     use serde_json::json;
     let dir = data_dir();
     let mut s = session();
-    s.set_pack_dirs(dir.join("widgets"), dir.join("layouts"));
+    s.set_pack_dirs(dir.join("widgets"), dir.join("layouts")).unwrap();
     let before = s.deck().clone();
 
     s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
@@ -492,7 +492,7 @@ fn tab_info_new_session_is_pristine_clean_and_named_like_the_snapshot() {
     assert_that!(info.pristine).is_true();
     assert_that!(info.dirty).is_false();
     assert_that!(info.editing_pack).is_false();
-    assert_that!(info.path).is_none();
+    assert_that!(info.document.path()).is_none();
     assert_that!(info.title).is_equal_to(s.snapshot().name);
 }
 
@@ -528,7 +528,7 @@ fn tab_info_after_opening_a_json_deck_is_not_pristine() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     let info = s.tab_info();
-    assert_that!(info.path).is_none();
+    assert_that!(info.document.path()).is_none();
     assert_that!(info.pristine).is_false();
 }
 
@@ -540,7 +540,7 @@ fn tab_info_after_save_has_file_name_as_title_and_resolved_path() {
     s.handle(req(json!({"cmd": "save", "path": data.join("./x/../essai.oku-slides.pdf")}))).unwrap();
     let info = s.tab_info();
     assert_that!(info.title.as_str()).is_equal_to("essai");
-    assert_that!(info.path).is_equal_to(Some(file));
+    assert_that!(info.document.path()).is_equal_to(Some(file.as_path()));
     assert_that!(info.pristine).is_false();
 }
 
@@ -744,7 +744,8 @@ fn resume_with_the_deck_file_deleted_keeps_the_working_copy() {
     let snap = snapshot_json(&mut b);
     assert_that!(snap["theme"]).is_equal_to(json!("pro"));
     assert_that!(snap["dirty"]).is_equal_to(json!(false));
-    assert_that!(b.tab_info().path).is_equal_to(Some(oku_slides_platform::storage::resolve(&file)));
+    assert_that!(b.tab_info().document.path())
+        .is_equal_to(Some(oku_slides_platform::storage::resolve(&file).as_path()));
 }
 
 #[test]

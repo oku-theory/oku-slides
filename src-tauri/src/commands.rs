@@ -51,7 +51,8 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::SameDeck { .. }
         | WorkspaceRequest::CarryAssets { .. }
         | WorkspaceRequest::Clip
-        | WorkspaceRequest::SetClip { .. } => (false, false),
+        | WorkspaceRequest::SetClip { .. }
+        | WorkspaceRequest::PackOpener { .. } => (false, false),
         WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }
         | WorkspaceRequest::Close { .. }
@@ -64,7 +65,8 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::ImportTab { .. }
         | WorkspaceRequest::OpenHelp { .. }
         | WorkspaceRequest::NewWindow
-        | WorkspaceRequest::MoveTab { .. } => (true, true),
+        | WorkspaceRequest::MoveTab { .. }
+        | WorkspaceRequest::OpenPack { .. } => (true, true),
     }
 }
 
@@ -100,7 +102,9 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::OpenHelp { .. }
         | WorkspaceRequest::NewWindow
         | WorkspaceRequest::MoveTab { .. }
-        | WorkspaceRequest::ImportPicked { .. } => None,
+        | WorkspaceRequest::ImportPicked { .. }
+        | WorkspaceRequest::OpenPack { .. }
+        | WorkspaceRequest::PackOpener { .. } => None,
     }
 }
 
@@ -157,6 +161,10 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         // Un onglet importé à fine-tuner : son tour part dès que l'onglet existe (la vue suit).
         if let Some(tab) = outcome.tune_tab() {
             state.tune(tab);
+        }
+        // A workshop entered in place: the agent's orphaned notes close, as after a deck request.
+        if let Some(tab) = outcome.after_change_tab() {
+            state.stack.after_change(tab);
         }
         if outcome.is_last_window() {
             state::shutdown(app);

@@ -28,6 +28,10 @@ ui-caption-slides = { $count ->
    *[other] { $count } diapositive
 } · { $status }
 ui-confirm-quit-pack = Uscire senza salvare il pacchetto modificato?
+ui-confirm-update-opener = Aggiornare «{ $deck }» a questa versione del pacchetto «{ $pack }»?
+ui-close-writes-pending = Questa scheda sta ancora salvando: chiudila di nuovo tra un momento.
+ui-confirm-close-writes-pending = Questa scheda sta ancora salvando. Chiuderla comunque e perdere ciò che non è stato salvato?
+ui-confirm-quit-read-only-pack = { $pack } non può essere salvato qui. Chiudere questa scheda e perdere le sue modifiche? Per conservarle, chiedi all'agente di salvarlo come nuovo pacchetto.
 
 ## Notifiche
 

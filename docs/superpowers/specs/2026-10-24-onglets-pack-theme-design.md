@@ -56,7 +56,9 @@ pub enum TabDocument {
   the pack name, or the theme name; `dirty` keeps its meaning.
 - `workspace.json` layout version 3, `state.json` version 4. A tab saved in pack mode by
   an older version reopens on its deck (the stash becomes the document); the pack draft
-  is dropped and a Fluent notice says so. No shim.
+  is dropped and a Fluent notice says so. No shim. (Superseded for lot 3: layout version 2
+  and state version 3 stay, only pack-tab states are version 4, and a version-3 workshop
+  reopens in its workshop, see "Lots".)
 
 ## Sessions by document kind
 
@@ -198,7 +200,7 @@ locale.
 - Workspace: `open_pack_twice_focuses_existing_tab`,
   `deck_pack_tab_closes_with_owner_deck`,
   `deck_pack_save_reaches_owner_as_one_undo_step`,
-  `resume_v2_pack_mode_tab_reopens_on_deck`.
+  `resume_v2_pack_mode_tab_reopens_on_deck` (superseded for lot 3, see "Lots").
 - Agent and MCP: `tool_list_filtered_by_document_kind`; one thread per tab restored after
   restart (the `tests/stack.rs` scenarios, without scope).
 - UI: `TabBar` renders `data-kind`; pack item pile; theme tab (`*.render.test.tsx`).
@@ -221,21 +223,71 @@ rule. `2026-10-08-sessions-par-perspective-design.md` is marked superseded. The 
 
 ## Lots
 
-Each lot ships alone with green tests.
+Each lot ships alone with green tests. Re-cut on 2026-10-25 by document kind (the
+first cut's lot 3 could not ship alone: removing the workshop requests broke the UI
+until lot 4, and the theme editor lives on the workshop's working deck), then reduced
+the same day after the lot-3 plan review: deck-only packs move to their own lot.
 
-1. **Library**: `adopted` marker, `save_draft`, `adopt`, wired into today's pack mode.
-2. **Agent**: `AgentScope` removed, one thread per tab (the workshop, still there, shares
-   the deck's thread).
-3. **Session and workspace** (breaking): `TabDocument`, `open_pack`, `open_theme`,
-   `DeckPack`; `Mode::Pack` without stash, `Mode::Theme`; `EditPack` / `ClosePack`
-   removed; resume version 3.
-4. **UI**: borders, item pile, theme tab, entry points; `PackTabs` and its helpers
-   removed; e2e rewritten.
-5. **MCP tools**: filtering by kind, `open_pack` / `open_theme`.
+1. **Library** (merged): `adopted` marker, `draft_write` / `save_draft` under `draft_lock`, `adopt`.
+2. **Agent** (merged): `AgentScope` removed, one thread per tab.
+3. **Library pack tabs**: `TabDocument` (`Deck`, `Help`, `Pack`), formats kept compatible with
+   the previous release (layout entries keep the legacy keys beside `document`, still layout
+   version 2; only a pack tab's state is written as version 4, others stay version 3), so a
+   downgrade sets aside only pack tabs; a library pack opens in its own
+   tab (`OpenPack`), a deck-only pack keeps today's workshop inside its deck tab (opened
+   by the same request); the existing workshop UI runs inside the pack tab, rewired
+   minimally ("Terminer" closes the tab, tab badge). The theme sub-tab stays in the pack
+   tab; saving it there switches no real deck's theme (a deck-only pack's workshop keeps
+   switching its own deck's theme until lot 5).
+4. **Theme tabs**: `TabDocument::Theme`, `Mode::Theme`, specimen slides, theme drafts
+   through `draft_write` / `save_draft`; the theme sub-tab leaves the pack tab.
+5. **Deck-only pack tabs**: `TabDocument::DeckPack` linked to its owner deck, saves
+   forwarded to the owner (acknowledged, ordered, undo included), closed with its deck;
+   the in-deck workshop and `Request::{EditPack, ClosePack}` removed.
+6. **UI**: borders, item pile, preview theme selector, "Ouvrir" in "Packs du deck",
+   app-menu entries; `PackTabs` and its helpers removed; e2e rewritten.
+7. **MCP tools**: filtering by kind, `open_pack` / `open_theme` for a deck's agent.
+
+**Implementation note (lot 3).** `Mode::Pack` gains a host, kept in `PackMode`: `Deck`
+(today's workshop, the stash is the user's deck, `close_pack` brings it back) or `Tab` (a
+pack tab). In a pack tab the deck beside the pack is a **preview deck**: a never-saved
+copy of the deck that opened it — its value, the pack and theme versions its pins reach,
+and its fonts, normalized with the widgets the pack tab resolves from those pins; no assets (the workshop never renders them, an `asset` parameter stays
+absent as this spec already allowed), no file, a new identity — so the preview, the token
+overrides and the theme sub-tab keep the opener's context; lot 6's selector makes the
+preview theme choosable. A preview deck never adopts anything: a pack tab's version is
+frozen only when a real deck adopts it. The preview carries the versions its current pins
+reach, never a widget registry. When a pack tab that wrote a version closes ("Terminer", its
+×, ⌘W or "close others", not a window close or quit), that version is still the library's current
+one and its opener pins an older one, the user is offered to update that deck; once the tab
+has closed, the opener takes exactly that version (one undo step, which adopts it), or
+nothing if it is no longer current or no longer newer; otherwise the update waits in "Packs du deck", whose badge every deck pinning the pack
+recomputes at its next snapshot (a process-wide library write count in its pins key). Save-as-new copies and theme versions are
+not offered in lot 3 (t-1207). While an awake pack tab
+or an in-deck workshop edits a library pack, no other tab writes that pack: deck-mode widget writes,
+"make current", deleting it and entering another workshop of it are refused. Opening a pack tab freezes the
+version it starts from. The update offer names the opener deck, not only its tab. In a pack tab,
+`EditPack` and `ClosePack` are refused (`InPackTab`) and a deck-only pack is never
+opened from it; deck tabs keep `Request::EditPack` as today until lot 5 removes it, the
+UI and the agent sending `OpenPack` instead; `Session::edit_pack` keeps its behavior outside pack tabs (it
+also serves a single-document host, which has no tabs, and resumed version-3 workshops).
+`TabInfo.editing_pack` stays until lot 5. Opening a pack the requesting tab already edits
+opens its widget there; focusing an open pack tab from a deck tab makes that deck its
+opener; closing a pack tab activates its opener (memory only, not after a restart). Two opens of one pack at
+once give one tab. Another deck may still adopt the version a pack tab wrote (its next save
+becomes a child). A lease refused when a tab resumes reopens that tab without a lease rather than setting its work aside; an editor without the lease is read-only until it gets it (retried at each edit; it never autosaves or flushes on its own while it lacks the lease, and closing it dirty while another tab holds the pack offers to quit without saving; once that tab closes, closing saves); then the last writer's version becomes current. A library pack deleted (while its editor was dormant or awake) leaves that tab or workshop read-only for the rest of the session (asking the agent to save it as a new pack keeps its work; a workshop still closes back to its deck); a deck-only workshop is never affected. A tab whose session is stuck mid-save keeps its pack leased until the stuck call returns, even when closed with discard (known limit). Only awake editors hold leases. An
+agent opens at most one new pack tab per turn, and none outside a turn, and that turn writes no widget in its own tab afterwards; a spoken request
+that opens a pack tab stops there, the new tab's agent continuing only on the user's next
+request (lot 7 owns agent-opened tabs, t-1191). The preview is persisted with the tab and
+resumed after a restart, without its opener. `WrongDocument` comes with lot 4. Spec items moved to lot 5: `DeckPack
+{ deck_tab, … }` (identified there by the pack uuid, not the namespace), `ReceiveDeckPack`
+(a session method called by the workspace, merged per editing session), and closing a
+deck flushing its linked tabs.
 
 ## Out of scope
 
 - Splitting `Session` into one type per kind (a possible later refactor).
 - A deck chosen as preview context for a pack (its assets, its theme): the preview theme
-  selector covers the need for now.
+  selector covers the need for now. (Superseded for lot 3: the preview is the opener's copy,
+  without its assets, see "Lots".)
 - Editing a theme on a deck's real slides.

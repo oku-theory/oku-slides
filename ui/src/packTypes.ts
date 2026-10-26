@@ -62,7 +62,10 @@ export interface ThemeInfo {
   default: boolean;
 }
 
-/** Le pack édité en mode pack, et le brouillon du thème. */
+/** Where a pack is edited: its deck's workshop, or its own tab (Rust `PackHost`). */
+export type PackHost = "deck" | "tab";
+
+/** The pack edited in pack mode, and the theme draft. */
 export interface PackMode {
   /** Id du pack édité. */
   pack: string;
@@ -78,6 +81,14 @@ export interface PackMode {
   session_version: string | null;
   /** Pack du deck seul (celui d'un import) : ses enregistrements restent dans le deck, jamais dans la bibliothèque. */
   deck_only: boolean;
+  /** Where this pack is edited: its deck's workshop, or its own tab. */
+  host: PackHost;
+  /** True when this tab cannot save its pack now: held elsewhere, or gone. */
+  read_only: boolean;
+  /** True when this tab may write without first taking the lease (autosave needs it). */
+  leased: boolean;
+  /** The edited pack's name, cleaned for titles and dialogs. */
+  display_name: string;
   /** Le thème édité en brouillon : les jetons du deck de travail. */
   theme: ThemeEditView;
 }

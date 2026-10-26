@@ -63,4 +63,7 @@ const settled = async (p, read, why, timeout = 8000, every = 100) => {
   }
 };
 
-module.exports = { until, stable, untilValue, settled };
+/** A long wait (an import and its first render, an agent turn with the witness): far more than the default 8 s. */
+const SLOW = 180_000;
+
+module.exports = { until, stable, untilValue, settled, SLOW };

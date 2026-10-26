@@ -11,8 +11,8 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
 - `tools` : `Tools`, the tool list (`list`) and input schemas (`nest_schema` adapts JSON Schema
   to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
 - Tool families: `read_tools` (outline, theme_tokens (themes go by namespace), slide, render, `packs`, `layouts`, widgets,
-  settings), `edit_tools` (undoable edits, `edit_pack`, `add_pack`/`remove_pack`, `set_theme_extends`), `widget_tools` (no `pack`: `deck`, so
-  `deck-layouts` is named), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
+  settings), `edit_tools` (undoable edits, `edit_pack`: a pack tab per turn or a deck-only workshop, `add_pack`/`remove_pack`, `set_theme_extends`), `widget_tools` (no `pack`: `deck`, so
+  `deck-layouts` is named; writes refused in a turn that opened a pack tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
   `save_pack`, `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
@@ -25,7 +25,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `hub/actions` (`SurfaceAction`, `act`, `prune`); the hub builds two boxes itself: `hub/themes`
   (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`;
   `hub/settings` a third box (`show_settings`, one send path, refreshed by the stack, never by `prune`).
-- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`),
+- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`, `reserve_pack_tab`: one new pack tab per turn),
   freezing answered questions, eviction past `KEPT_TURNS` in the tab's thread.
 - `hub_thread` : the tab's one thread (`in_thread`), shown surfaces, `restore` and `thread_snapshot`; the agent's tab keeper persists it.
 

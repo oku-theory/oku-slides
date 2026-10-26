@@ -28,6 +28,10 @@ ui-caption-slides = { $count ->
    *[other] { $count } स्लाइड
 } · { $status }
 ui-confirm-quit-pack = बदला गया पैक सहेजे बिना बाहर निकलें?
+ui-confirm-update-opener = “{ $deck }” को पैक “{ $pack }” के इस संस्करण पर अपडेट करें?
+ui-close-writes-pending = यह टैब अभी भी सहेज रहा है: इसे थोड़ी देर में फिर से बंद करें।
+ui-confirm-close-writes-pending = यह टैब अभी भी सहेज रहा है। फिर भी इसे बंद करें और जो सहेजा नहीं गया है उसे खो दें?
+ui-confirm-quit-read-only-pack = { $pack } को यहाँ सहेजा नहीं जा सकता। यह टैब बंद करें और इसके बदलाव खो दें? उन्हें रखने के लिए, एजेंट से इसे नए पैक के रूप में सहेजने को कहें।
 
 ## सूचनाएँ
 

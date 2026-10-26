@@ -33,7 +33,7 @@ fn import_tab_hifi_replaces_the_pristine_tab_with_an_unsaved_imported_deck() {
     let tabs: Vec<&str> = w.tabs.iter().map(|t| t.id.as_str()).collect();
     assert_that!(tabs).is_equal_to(vec!["t-2"]);
     let info = &w.tabs[0].info;
-    assert_that!(info.path).is_none();
+    assert_that!(info.document.path()).is_none();
     assert_that!(info.dirty).is_true();
     // Le hi-fi ne reprend pas le titre de la présentation : le deck porte le nom du `.pptx`.
     assert_that!(info.title.as_str()).is_equal_to("minimal");

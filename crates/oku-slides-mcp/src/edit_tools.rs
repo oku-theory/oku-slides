@@ -2,18 +2,24 @@
 
 use oku_slides_chart::SeriesType;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use oku_slides_core::{Namespace, Op, PackKind, PackPin};
-use oku_slides_session::Request;
+use oku_slides_session::agent::{PackGate, PackOpen};
+use oku_slides_session::{PackHost, Request};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use snafu::{IntoError, ResultExt};
 
-use crate::McpEvent;
-use crate::tool_error::{NoPackSnafu, PackChangeSnafu, PackIdSnafu, ToolError};
+use crate::hub::Reserve;
+use crate::tool_error::{
+    NoPackSnafu, PackChangeSnafu, PackIdSnafu, PackTabLimitSnafu, PackTabNoTurnSnafu, SessionSnafu, TaskSnafu,
+    ToolError,
+};
 use crate::tools::Tools;
+use crate::{McpEvent, SurfaceHub};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ApplyArgs {
@@ -145,23 +151,78 @@ impl Tools {
         self.change(Request::ShowAs { label, slide, element, view }).await
     }
 
-    pub(crate) async fn edit_pack(&self, args: Value) -> CallToolResult {
-        let pack = match self.parse::<EditPackArgs>(args) {
-            Ok(EditPackArgs { pack: Some(pack) }) => PackIdArgs { pack }.id(),
-            // Le pack du deck, choisi comme l'interface (`firstPackId`).
-            Ok(EditPackArgs { pack: None }) => {
-                match self.with_session(|s| Ok(main_pack(s.snapshot().widgets, s.snapshot().layouts))).await {
-                    Ok(Some(pack)) => Ok(pack),
-                    Ok(None) => Err(NoPackSnafu.build()),
-                    Err(e) => Err(e),
-                }
-            }
+    /// Opens a pack for editing: a library pack in its own tab, a deck-only one in this tab's workshop.
+    ///
+    /// `turn` is the turn the call arrived in. The agent's gate lets at most one new pack tab open
+    /// per turn, and no tab open or take the focus outside a turn.
+    pub(crate) async fn edit_pack(&self, turn: Option<u32>, args: Value) -> CallToolResult {
+        let args = match self.parse::<EditPackArgs>(args) {
+            Ok(args) => args,
             Err(r) => return r,
         };
-        match pack {
-            Ok(pack) => self.change(Request::EditPack { pack }).await,
-            Err(e) => self.fail_with(&e),
+        let pack = match args.pack {
+            Some(pack) => PackIdArgs { pack }.id(),
+            None => self.default_pack().await,
+        };
+        let pack = match pack {
+            Ok(pack) => pack,
+            Err(e) => return self.fail_with(&e),
+        };
+        // The gate, its verdict and the hub it asks are built here, in the blocking task: the open
+        // holds the pack's opening lock, so the hub lock it takes is a leaf.
+        let (tab, hub) = (self.session.clone(), Arc::clone(&self.hub));
+        let opened = tokio::task::spawn_blocking(move || {
+            let mut verdict = Verdict::default();
+            let result = tab.open_pack(pack, None, &mut |gate| verdict.ask(&hub, turn, pack, gate));
+            (result, verdict)
+        })
+        .await;
+        let (result, verdict) = match opened {
+            Ok(done) => done,
+            Err(e) => return self.fail_with(&TaskSnafu.into_error(e)),
+        };
+        // `Some(tab)`: the pack opened in that other tab; `None`: here, in this tab.
+        let elsewhere = match result {
+            Ok(PackOpen::Refused) => return self.fail_with(&verdict.refusal()),
+            Ok(PackOpen::Here) => None,
+            Ok(PackOpen::Tab(tab)) => Some(tab),
+            Err(e) => {
+                if let (true, Some(turn)) = (verdict.claimed, turn) {
+                    self.hub.release_pack_tab(turn, pack);
+                }
+                return self.fail_with(&SessionSnafu.into_error(e));
+            }
+        };
+        if let (Some(_), true, Some(turn)) = (&elsewhere, verdict.focused, turn) {
+            self.hub.note_elsewhere(turn);
         }
+        self.hub.emit(McpEvent::Changed);
+        self.prune_surfaces().await;
+        match elsewhere {
+            Some(tab) => {
+                let note =
+                    self.localizer.current().tr_with("agent-pack-opened-in-tab", &[("tab", tab.as_str().into())]);
+                self.json_result(&json!({ "ok": true, "tab": tab, "note": note }))
+            }
+            None => self.json_result(&json!({ "ok": true })),
+        }
+    }
+
+    /// The pack `edit_pack` opens without an argument.
+    ///
+    /// In a pack's own tab, the pack that tab edits; otherwise the deck's main pack. Both are read
+    /// from one snapshot, in one session access.
+    async fn default_pack(&self) -> Result<uuid::Uuid, ToolError> {
+        let found = self
+            .with_session(|s| {
+                let snap = s.snapshot();
+                Ok(match &snap.editing {
+                    Some(editing) if editing.host == PackHost::Tab => Some(editing.pack),
+                    _ => main_pack(snap.widgets, snap.layouts),
+                })
+            })
+            .await?;
+        found.ok_or_else(|| NoPackSnafu.build())
     }
 
     /// Ajoute au deck la version courante d'un pack de la bibliothèque (mode deck).
@@ -229,10 +290,10 @@ impl Tools {
     }
 }
 
-/// Le pack à éditer quand l'agent n'en nomme pas, choisi comme `firstPackId` côté interface.
+/// The pack to edit when the agent names none: the deck's main pack, in the interface's order.
 ///
-/// Le pack de layouts propre du deck, sinon son pack de widgets propre, sinon le premier pack non
-/// intégré (layouts d'abord), sinon Essentiel, enfin `base`.
+/// The deck's own layout pack, else its own widget pack, else the first non-built-in pack (layouts
+/// first), else Essentiel, else `base`.
 pub(crate) fn main_pack(
     widgets: &BTreeMap<Namespace, PackPin>,
     layouts: &BTreeMap<Namespace, PackPin>,
@@ -250,6 +311,74 @@ pub(crate) fn main_pack(
         .or_else(|| layouts.iter().find(named(essentiel::NAMESPACE)))
         .or_else(|| widgets.iter().find(named(base::NAMESPACE)))
         .map(|(_, pin)| pin.id)
+}
+
+/// Why the agent's gate refused a pack open.
+#[derive(Debug, Clone, Copy)]
+enum Refusal {
+    /// No open turn: the call arrived outside one, or its turn is over.
+    NoTurn,
+    /// The turn already claimed another pack tab.
+    Limit,
+}
+
+/// What the agent's gate answered while a pack opened.
+#[derive(Debug, Default)]
+struct Verdict {
+    /// Why the gate refused, if it did.
+    refusal: Option<Refusal>,
+    /// A claim on a new pack tab was granted (and must be given back if the open fails).
+    claimed: bool,
+    /// Taking the focus of another tab was allowed.
+    focused: bool,
+}
+
+impl Verdict {
+    /// The gate: answers `gate` for `pack` in the call's `turn`, and records the answer.
+    ///
+    /// It never blocks; the hub lock it takes is a leaf.
+    fn ask(&mut self, hub: &SurfaceHub, turn: Option<u32>, pack: uuid::Uuid, gate: PackGate) -> bool {
+        let Some(turn) = turn else {
+            self.refusal = Some(Refusal::NoTurn);
+            return false;
+        };
+        match gate {
+            PackGate::Focus => {
+                let open = hub.turn_is_open(turn);
+                self.focused |= open;
+                if !open {
+                    self.refusal = Some(Refusal::NoTurn);
+                }
+                open
+            }
+            PackGate::NewTab => match hub.reserve_pack_tab(turn, pack) {
+                Reserve::Granted => {
+                    self.claimed = true;
+                    true
+                }
+                Reserve::NotThisTurn => {
+                    self.refusal = Some(Refusal::NoTurn);
+                    false
+                }
+                Reserve::Taken => {
+                    self.refusal = Some(Refusal::Limit);
+                    false
+                }
+            },
+        }
+    }
+
+    /// The error that tells the agent why the gate refused.
+    fn refusal(&self) -> ToolError {
+        match self.refusal {
+            Some(Refusal::Limit) => PackTabLimitSnafu.build(),
+            Some(Refusal::NoTurn) => PackTabNoTurnSnafu.build(),
+            None => {
+                tracing::error!("pack open refused without a gate verdict");
+                PackTabNoTurnSnafu.build()
+            }
+        }
+    }
 }
 
 #[cfg(test)]

@@ -5,15 +5,15 @@ use std::path::PathBuf;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{OptionExt, ResultExt};
 use uuid::Uuid;
 
 use oku_slides_core::{Namespace, Op, PackKind};
 
-use crate::error::{BuiltinPackSnafu, EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
+use crate::error::{EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
 use crate::theme_extends::ExtendsEdit;
 use crate::views::UiState;
-use crate::{Mode, PackLibrary, PreviewFormat, Result, Session};
+use crate::{Mode, PreviewFormat, Result, Session};
 
 /// Widget to show data under: chart or table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -38,6 +38,9 @@ pub struct UiOrder {
     /// Grows with each save from this page.
     pub seq: u64,
 }
+
+#[path = "request_class.rs"]
+mod request_class;
 
 /// Une requête de l'interface (même forme pour Tauri et HTTP).
 #[derive(Debug, Deserialize)]
@@ -346,125 +349,15 @@ pub enum Request {
         /// Change to the list: inserting, removing or moving an item.
         change: oku_slides_core::ListOp,
     },
-}
-
-impl Request {
-    /// Vrai si la requête peut changer le deck (slides ajoutées ou retirées).
-    ///
-    /// `Save` aussi : un fichier changé sur disque est d'abord fusionné.
-    /// L'historique (sauf la liste des versions) : le deck montré change.
-    /// `SavePack` aussi : la bibliothèque change, le panneau des packs se relit (`prune`).
-    /// Exhaustif à dessein : une requête ajoutée doit dire si elle change le deck.
-    #[must_use]
-    pub fn changes_deck(&self) -> bool {
-        match self {
-            Self::Save { .. }
-            | Self::Apply { .. }
-            | Self::SetTheme { .. }
-            | Self::EditTheme { .. }
-            | Self::Undo
-            | Self::Redo
-            | Self::UndoTurn { .. }
-            | Self::ChartKind { .. }
-            | Self::ShowAs { .. }
-            | Self::EditPack { .. }
-            | Self::ClosePack
-            | Self::SetEditedTheme { .. }
-            | Self::SetEditedThemeExtends { .. }
-            | Self::EditThemeExtends { .. }
-            | Self::SavePack { .. }
-            | Self::Merge { .. }
-            | Self::HistoryOpen
-            | Self::HistorySeek { .. }
-            | Self::HistoryRestore
-            | Self::HistoryClose
-            | Self::Move { .. }
-            | Self::SetWidget { .. }
-            | Self::RemoveWidget { .. }
-            | Self::RenameWidget { .. }
-            | Self::SetExampleValue { .. }
-            | Self::EditExampleList { .. }
-            | Self::HostToken { .. }
-            | Self::DataEdit { .. } => true,
-            Self::Snapshot
-            | Self::Slide { .. }
-            | Self::Search { .. }
-            | Self::Svg { .. }
-            | Self::Schema
-            | Self::Widgets
-            | Self::HostSettings { .. }
-            | Self::HostTheme { .. }
-            | Self::DataPanel { .. }
-            | Self::Layouts
-            | Self::Packs { .. }
-            | Self::RenameEditedTheme { .. }
-            | Self::DeletePack { .. }
-            | Self::SaveCopy { .. }
-            | Self::Ui { .. }
-            | Self::HistoryVersions
-            | Self::WidgetStatus { .. }
-            | Self::WidgetSource { .. }
-            | Self::PreviewWidget { .. } => false,
-        }
-    }
-
-    /// Requêtes refusées pendant l'historique : elles modifieraient le deck,
-    /// l'enregistreraient, ou passeraient en mode pack.
-    pub(crate) fn edits(&self) -> bool {
-        matches!(
-            self,
-            Self::Apply { .. }
-                | Self::SetTheme { .. }
-                | Self::EditTheme { .. }
-                | Self::Undo
-                | Self::Redo
-                | Self::UndoTurn { .. }
-                | Self::Save { .. }
-                | Self::Merge { .. }
-                | Self::Move { .. }
-                | Self::SaveCopy { .. }
-                | Self::ChartKind { .. }
-                | Self::ShowAs { .. }
-                | Self::EditPack { .. }
-                | Self::SavePack { .. }
-                | Self::ClosePack
-                | Self::SetEditedTheme { .. }
-                | Self::SetEditedThemeExtends { .. }
-                | Self::EditThemeExtends { .. }
-                | Self::RenameEditedTheme { .. }
-                | Self::DeletePack { .. }
-                | Self::SetWidget { .. }
-                | Self::RemoveWidget { .. }
-                | Self::RenameWidget { .. }
-                | Self::HostToken { .. }
-                | Self::DataEdit { .. }
-                | Self::SetExampleValue { .. }
-                | Self::EditExampleList { .. }
-        )
-    }
-
-    /// Vrai si la requête termine la séance des widgets du mode deck.
-    ///
-    /// Toute requête qui change le deck, sauf une modification de widget et
-    /// `Save` : l'enregistrement ne la termine que s'il fusionne un fichier
-    /// changé sur disque (voir `Session::absorb`). L'interface enregistre
-    /// après chaque écriture : sinon chacune ferait une version du pack.
-    pub(crate) fn ends_widget_session(&self) -> bool {
-        self.changes_deck() && !matches!(self, Self::Save { .. }) && !self.is_widget_edit()
-    }
-
-    /// Vrai pour une modification de widget (valeurs d'exemple comprises) : elle ne
-    /// termine pas la séance des widgets.
-    pub(crate) fn is_widget_edit(&self) -> bool {
-        matches!(
-            self,
-            Self::SetWidget { .. }
-                | Self::RemoveWidget { .. }
-                | Self::RenameWidget { .. }
-                | Self::SetExampleValue { .. }
-                | Self::EditExampleList { .. }
-        )
-    }
+    /// Pins `version` of `pack` if it is current and newer than the deck's.
+    UsePackVersion {
+        /// The pack the deck pins.
+        pack: Uuid,
+        /// The version offered when the pack tab closed.
+        version: oku_slides_core::PackVersion,
+        /// The deck the offer named; another deck in this tab refuses.
+        deck_uid: String,
+    },
 }
 
 impl Session {
@@ -498,6 +391,10 @@ impl Session {
         if self.help().is_some() && (req.edits() || matches!(req, Request::HistoryOpen)) {
             return ReadOnlySnafu.fail()?;
         }
+        // An editor without its pack's lease takes it before writing, or is refused.
+        if matches!(self.mode, Mode::Pack { .. }) && req.writes_edited_pack() {
+            self.ensure_pack_lease()?;
+        }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
         // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux
@@ -515,6 +412,7 @@ impl Session {
                     | Request::EditThemeExtends { .. }
                     | Request::HostToken { .. }
                     | Request::DataEdit { .. }
+                    | Request::UsePackVersion { .. }
             ),
             !matches!(
                 req,
@@ -535,6 +433,8 @@ impl Session {
             self.theme_list = self.themes.themes();
         }
         match req {
+            // Another tab may have written the library: the deck's badge recounts, without adopting.
+            Request::Snapshot if matches!(self.mode, Mode::Deck) => self.refresh_pack_updates_if_pins_changed(),
             Request::Snapshot => {}
             Request::Slide { id } => return json(&self.slide(&id)?),
             Request::Search { query } => return json(&self.search(&query)),
@@ -569,15 +469,7 @@ impl Session {
             Request::PreviewWidget { pack, name, params } => {
                 return json(&self.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Svg)?);
             }
-            Request::DeletePack { pack } => {
-                ensure!(!PackLibrary::is_builtin(pack), BuiltinPackSnafu { id: pack.to_string() });
-                let kind = self.library.kind_of(pack);
-                self.library.delete(pack)?;
-                self.pack_cache.clear();
-                self.seed_cache.clear();
-                self.refresh_pack_updates();
-                return json(&self.library.packs(kind));
-            }
+            Request::DeletePack { pack } => return json(&self.delete_pack(pack)?),
             Request::Save { path, overwrite } => {
                 self.save_checked(path.as_deref(), overwrite)?;
             }
@@ -623,6 +515,7 @@ impl Session {
             Request::HistoryRestore => self.history_restore()?,
             Request::HistoryClose => self.history_close()?,
             Request::HistoryVersions => return json(self.history_versions()?),
+            Request::UsePackVersion { pack, version, deck_uid } => self.use_pack_version(pack, &version, &deck_uid)?,
         }
         if changes {
             self.persist(documents);
@@ -652,3 +545,7 @@ impl Session {
         self.ui = ui.sanitized(matches!(self.mode, Mode::Pack { .. }));
     }
 }
+
+#[cfg(test)]
+#[path = "request_tests.rs"]
+mod request_tests;

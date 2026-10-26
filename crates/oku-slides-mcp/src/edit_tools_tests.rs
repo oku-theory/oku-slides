@@ -20,7 +20,7 @@ fn pins(namespaces: &[&str], first: u128) -> BTreeMap<Namespace, PackPin> {
         .collect()
 }
 
-/// Comme `firstPackId` : layouts propres, widgets propres, packs non intégrés (layouts d'abord),
+/// In the interface's order: layouts propres, widgets propres, packs non intégrés (layouts d'abord),
 /// Essentiel, puis `base`. Les ids des widgets partent de 1, ceux des layouts de 11.
 #[rstest]
 #[case::deck_layouts_first(&["base", "deck", "acme"], &["deck-layouts", "essentiel"], Some(11))]

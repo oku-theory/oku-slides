@@ -38,6 +38,16 @@ export function t(id: string, args?: Record<string, FluentVariable>): string {
   return message?.value ? bundle.formatPattern(message.value, args) : id;
 }
 
+/**
+ * Wraps `s` in one FSI and one PDI, for a message whose bundle adds no isolation marks.
+ *
+ * The bundles run with `useIsolating: false`: a call site that shows a label (a deck title,
+ * a pack name) in a native dialog isolates it, so a right-to-left value cannot reorder the text.
+ */
+export function isolate(s: string): string {
+  return "\u2068" + s + "\u2069";
+}
+
 let chosen: string | null = null;
 const listeners = new Set<() => void>();
 

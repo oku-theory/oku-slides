@@ -13,7 +13,7 @@ use oku_slides_core::{Namespace, PackPin};
 
 use super::bounds::clip;
 use crate::widgets_edit::parse_name;
-use crate::{Mode, Session};
+use crate::{Mode, PackHost, Session};
 
 /// Longueur du début de consigne dans le libellé d'annulation.
 const LABEL_CHARS: usize = 40;
@@ -130,7 +130,10 @@ impl Session {
         let mut out = String::from("<oku-slides-context>\n");
         let mode = match &self.mode {
             Mode::Deck | Mode::Help { .. } => "deck".to_owned(),
-            Mode::Pack { edit, .. } => format!("pack(id={})", edit.pack),
+            Mode::Pack { edit, .. } => {
+                let host = if edit.host == PackHost::Tab { "tab" } else { "deck" };
+                format!("pack(id={}, host={host})", edit.pack)
+            }
             Mode::History { history, .. } => {
                 let view = history.view();
                 format!("history(read_only, version={}/{})", view.index + 1, view.count)

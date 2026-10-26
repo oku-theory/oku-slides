@@ -1,17 +1,22 @@
-//! Reprise de l'espace de travail au lancement, et fichiers reçus ensuite.
+//! Resume of the workspace at launch, and of the files received afterwards.
 //!
-//! Relit `workspace.json` et chaque onglet, écarte les orphelins et les
-//! entrées non fiables, puis réécrit l'état à chaque changement.
+//! Rereads `workspace.json` and each tab, drops the orphans and the untrusted
+//! entries, then rewrites the state at each change.
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use oku_slides_platform::storage::resolve;
+use serde_json::{Value, json};
 
 use crate::Localize;
+use crate::agent::bounds::label;
 use crate::error::Result;
+use crate::files::EXTENSION;
+use crate::help::help_locale;
 use crate::resume::{Resume, ResumeError};
+use crate::tab_document::TabDocument;
 use crate::views::TabInfo;
 use crate::{Fonts, Platform};
 
@@ -19,41 +24,125 @@ use serde::{Deserialize, Serialize};
 
 use super::import_pick::is_pptx;
 use super::{
-    Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, Opening, TABS_DIR, Tab, WindowLayout, Workspace, WorkspaceRequest,
-    is_tab_id, is_window_label, number,
+    Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, Opening, TABS_DIR, Tab, TabPlace, WindowLayout, Workspace,
+    WorkspaceRequest, is_tab_id, is_window_label, number,
 };
 
-/// `workspace.json` tel qu'écrit : la structure, et les infos de chaque onglet.
+/// A tab's saved entry: the [`TabInfo`] plus the legacy keys of the previous release.
+///
+/// The previous release reads `path`, `deck_uid` and `help` and ignores `document`, so
+/// it still reads what this one writes (a pack tab looks like a deck tab with no path).
+#[derive(Serialize)]
+struct SavedTabInfo<'a> {
+    #[serde(flatten)]
+    info: &'a TabInfo,
+    /// The deck's file; `None` for any other document.
+    path: Option<&'a Path>,
+    /// The deck's identity; `None` for any other document.
+    deck_uid: Option<&'a str>,
+    /// The help's locale; `None` for any other document.
+    help: Option<&'a str>,
+}
+
+impl<'a> SavedTabInfo<'a> {
+    /// `info` with the legacy keys derived from its document.
+    fn new(info: &'a TabInfo) -> Self {
+        let document = &info.document;
+        Self { info, path: document.path(), deck_uid: document.deck_uid(), help: document.help_locale() }
+    }
+}
+
+/// `workspace.json` as written: the structure, and the info of each tab.
 #[derive(Serialize)]
 struct LayoutFile<'a> {
     #[serde(flatten)]
     layout: &'a Layout,
-    /// La barre du lancement suivant, sans session relue.
-    info: BTreeMap<&'a str, &'a TabInfo>,
+    /// The next launch's bar, with no session reread.
+    info: BTreeMap<&'a str, SavedTabInfo<'a>>,
 }
 
-/// `workspace.json` tel que relu.
+/// `workspace.json` as reread.
 ///
-/// Les infos restent brutes jusqu'à leur onglet : une entrée malformée ne
-/// coûte que la sienne (l'onglet est alors relu au lancement), jamais tout
-/// l'espace de travail.
+/// The info stays raw until its tab: a malformed entry costs only itself (the
+/// tab is then reread at launch), never the whole workspace.
 #[derive(Deserialize)]
 struct SavedLayout {
     #[serde(flatten)]
     layout: Layout,
-    /// Brut jusqu'au bout : même autre chose qu'un objet ne coûte que les infos.
+    /// Raw to the end: even something other than an object costs only the info.
     #[serde(default)]
-    info: serde_json::Value,
+    info: Value,
 }
 
 impl SavedLayout {
-    /// Les infos enregistrées de l'onglet `id`, si elles se lisent.
+    /// The saved info of tab `id`, if it reads.
     fn take_info(&mut self, id: &str) -> Option<TabInfo> {
         let raw = self.info.as_object_mut()?.remove(id)?;
-        serde_json::from_value(raw)
-            .inspect_err(|e| tracing::warn!(tab = id, error = %e, "infos d'onglet illisibles : onglet relu"))
-            .ok()
+        read_info(id, raw)
     }
+}
+
+/// A saved entry as a [`TabInfo`], converted from the legacy keys and validated.
+///
+/// An entry with a `document` ignores the legacy keys; one without builds its
+/// document from them. The file is untrusted: what fails validation is dropped
+/// (a path, an identity) or costs the entry (an unknown help locale).
+fn read_info(id: &str, mut raw: Value) -> Option<TabInfo> {
+    let Some(object) = raw.as_object_mut() else {
+        tracing::warn!(tab = id, "infos d'onglet illisibles : onglet relu");
+        return None;
+    };
+    let (path, deck_uid, help) = (object.remove("path"), object.remove("deck_uid"), object.remove("help"));
+    if !object.contains_key("document") {
+        let document = match help {
+            Some(Value::String(locale)) => json!({"kind": "help", "locale": locale}),
+            None | Some(Value::Null) => json!({
+                "kind": "deck",
+                "path": path.unwrap_or(Value::Null),
+                "deck_uid": deck_uid.unwrap_or(Value::Null),
+            }),
+            Some(_) => {
+                tracing::warn!(tab = id, "infos d'onglet illisibles : onglet relu");
+                return None;
+            }
+        };
+        object.insert("document".to_owned(), document);
+    }
+    let mut info: TabInfo = serde_json::from_value(raw)
+        .inspect_err(|e| tracing::warn!(tab = id, error = %e, "infos d'onglet illisibles : onglet relu"))
+        .ok()?;
+    info.document = match info.document {
+        TabDocument::Help { locale } if help_locale(&locale) != locale => {
+            tracing::warn!(tab = id, locale = %label(&locale), "langue d'aide inconnue : onglet relu");
+            return None;
+        }
+        TabDocument::Deck { path, deck_uid } => TabDocument::Deck {
+            path: path.filter(|p| valid_deck_path(id, p)),
+            deck_uid: deck_uid.filter(|uid| valid_deck_uid(id, uid)),
+        },
+        other => other,
+    };
+    info.title = label(&info.title);
+    Some(info)
+}
+
+/// Whether a saved deck file is a normalized absolute deck path (`read_doc`'s rule); a refusal is logged.
+fn valid_deck_path(id: &str, path: &Path) -> bool {
+    let named = path.file_name().is_some_and(|n| n.to_string_lossy().ends_with(EXTENSION));
+    let valid = path.is_absolute() && named && resolve(path) == path;
+    if !valid {
+        tracing::warn!(tab = id, path = %label(&path.to_string_lossy()), "fichier d'onglet refusé");
+    }
+    valid
+}
+
+/// Whether a saved deck identity is at most 64 characters of `[0-9a-zA-Z-]`; a refusal is logged.
+fn valid_deck_uid(id: &str, uid: &str) -> bool {
+    let valid = uid.len() <= 64 && uid.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+    if !valid {
+        tracing::warn!(tab = id, "identité de deck d'onglet refusée");
+    }
+    valid
 }
 
 impl Workspace {
@@ -96,9 +185,9 @@ impl Workspace {
         let listed = ws.remove_orphans(&cited);
         ws.layout.next_tab = ws.layout.next_tab.max(listed.saturating_add(1)).min(MAX_NUMBER);
         if ws.layout.windows.is_empty() {
-            let pending = ws.pending(None, Opening::Blank, None);
+            let pending = ws.pending(None, Opening::Blank, TabPlace::End);
             let session = pending.build()?;
-            ws.insert_tab(None, pending.id, session, None);
+            ws.insert_tab(None, pending.id, session, &TabPlace::End);
         }
         ws.save_layout();
         Ok(ws)
@@ -329,14 +418,20 @@ impl Workspace {
         }
     }
 
-    /// Écrit `workspace.json`, avec les infos de chaque onglet ; un échec est journalisé.
+    /// Writes `workspace.json`, with each tab's info and its legacy keys; a failure is logged.
     pub(super) fn save_layout(&self) {
         let Some(dir) = &self.dir else { return };
-        let file =
-            LayoutFile { layout: &self.layout, info: self.tabs.iter().map(|(id, t)| (id.as_str(), &t.info)).collect() };
+        let file = LayoutFile {
+            layout: &self.layout,
+            info: self.tabs.iter().map(|(id, t)| (id.as_str(), SavedTabInfo::new(&t.info))).collect(),
+        };
         let resume = Resume::new(self.platform.storage.clone(), dir.clone());
         if let Err(e) = resume.write_json("workspace.json", &file) {
             tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "espace de travail non enregistré");
         }
     }
 }
+
+#[cfg(test)]
+#[path = "workspace_resume_tests.rs"]
+mod workspace_resume_tests;

@@ -28,6 +28,10 @@ ui-caption-slides = { $count ->
    *[other] スライド { $count }枚
 } · { $status }
 ui-confirm-quit-pack = 変更したパックを保存せずに終了しますか？
+ui-confirm-update-opener = 「{ $deck }」をパック「{ $pack }」のこのバージョンに更新しますか？
+ui-close-writes-pending = このタブはまだ保存中です。少ししてからもう一度閉じてください。
+ui-confirm-close-writes-pending = このタブはまだ保存中です。それでも閉じて、保存されていない内容を失いますか？
+ui-confirm-quit-read-only-pack = { $pack } はここでは保存できません。このタブを閉じて変更を失いますか？変更を残すには、エージェントに新しいパックとして保存するよう依頼してください。
 
 ## トースト
 

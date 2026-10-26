@@ -14,6 +14,16 @@ impl Sessions for NoSession {
     fn with(&self, _tab: &str, _f: &mut dyn FnMut(&mut oku_slides_session::Session)) -> oku_slides_session::Result<()> {
         Ok(())
     }
+
+    fn open_pack(
+        &self,
+        _tab: &str,
+        _pack: uuid::Uuid,
+        _widget: Option<&str>,
+        _gate: &mut dyn FnMut(oku_slides_session::agent::PackGate) -> bool,
+    ) -> oku_slides_session::Result<oku_slides_session::agent::PackOpen> {
+        unreachable!("NoSession is never asked to open a pack")
+    }
 }
 
 fn fr() -> Localizer {

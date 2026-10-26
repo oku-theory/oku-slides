@@ -186,3 +186,24 @@ fn declared_language_refuses_what_is_not_a_language_tag() {
         asserting(lang).that(&declared_language(Some(lang))).is_equal_to("invalid".to_owned());
     }
 }
+
+/// The mode line says where the pack is edited, so the agent knows whether its own deck is set aside.
+#[rstest::rstest]
+#[case::deck(crate::PackHost::Deck, "deck")]
+#[case::tab(crate::PackHost::Tab, "tab")]
+fn context_of_a_pack_says_its_host(#[case] host: crate::PackHost, #[case] said: &str) {
+    let data = fresh_dir("oku-slides-context-");
+    let (mut s, pack) = match host {
+        crate::PackHost::Deck => {
+            let mut s = opened_on(data.path());
+            s.edit_pack(crate::BASE_PACK).unwrap();
+            (s, crate::BASE_PACK)
+        }
+        crate::PackHost::Tab => {
+            let (mut opener, _deck, acme) = crate::test_support_packs::opener_on(data.path());
+            (crate::test_support_packs::pack_tab_from(&mut opener, data.path(), acme), acme)
+        }
+    };
+    let context = s.agent_context(&AgentUi::default());
+    assert_that!(context.as_str()).contains(format!("mode: pack(id={pack}, host={said})\n"));
+}

@@ -34,6 +34,7 @@ use crate::error::{
     WidgetTooLargeSnafu,
 };
 use crate::pack::{PackManifest, now_created};
+use crate::pack_lease::refuse_leased;
 use crate::pack_mode::{example_slide, layout_slide_id, realign_layouts};
 use crate::pack_mode_preview::realign_widget_previews;
 use crate::pack_mode_save::AdoptStep;
@@ -277,7 +278,10 @@ impl Session {
     /// # Errors
     ///
     /// Fails if the session is not editable, for an invalid name, a pack of another kind, or if the
-    /// write or the render in deck mode fails.
+    /// write or the render in deck mode fails. A library pack another tab edits is refused
+    /// (`PackOpenInTab`); in pack mode, an editor without its lease too, or whose pack is gone
+    /// (`UnknownPack`), whose base is missing (`PackVersionMissing`) or whose write is refused
+    /// (`LeaseMissing`).
     pub fn set_widget(&mut self, pack: Option<&Namespace>, name: &str, source: String) -> Result<WidgetChange> {
         self.ensure_editable()?;
         let name = parse_name(name)?;
@@ -347,7 +351,8 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails like [`Self::set_widget`].
+    /// Fails like [`Self::set_widget`], `PackOpenInTab`, `UnknownPack`, `LeaseMissing` and
+    /// `PackVersionMissing` included.
     pub fn set_widget_by_agent(
         &mut self,
         pack: Option<&Namespace>,
@@ -381,7 +386,8 @@ impl Session {
     /// # Errors
     ///
     /// Fails for an invalid name, a pack not found, a file unknown or still in use, or a failed
-    /// write.
+    /// write; like [`Self::set_widget`] for a leased pack (`PackOpenInTab`, `UnknownPack`,
+    /// `LeaseMissing`, `PackVersionMissing`).
     pub fn remove_widget(&mut self, pack: Option<&Namespace>, name: &str) -> Result<Vec<WidgetStatus>> {
         let name = parse_name(name)?;
         let t = self.widget_target(pack)?;
@@ -405,7 +411,9 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails for `_commun`, an invalid or taken name, an unknown or used file, or a failed write.
+    /// Fails for `_commun`, an invalid or taken name, an unknown or used file, or a failed write;
+    /// like [`Self::set_widget`] for a leased pack (`PackOpenInTab`, `UnknownPack`, `LeaseMissing`,
+    /// `PackVersionMissing`).
     pub fn rename_widget(&mut self, pack: Option<&Namespace>, from: &str, to: &str) -> Result<Vec<WidgetStatus>> {
         let (from, to) = (parse_name(from)?, parse_name(to)?);
         ensure!(!from.is_common(), InvalidWidgetNameSnafu { name: from.as_str() });
@@ -519,7 +527,10 @@ impl Session {
                     Err(e) => Err(e),
                 }
             }
-            Mode::Deck => self.commit_deck_widgets(t, manifest, widgets).map(|()| Vec::new()),
+            Mode::Deck => {
+                refuse_leased(self.library.lease_scope(), t.id, &t.files, &manifest.name)?;
+                self.commit_deck_widgets(t, manifest, widgets).map(|()| Vec::new())
+            }
             Mode::Help { .. } => ReadOnlySnafu.fail()?,
             Mode::History { .. } => InHistorySnafu.fail()?,
         }

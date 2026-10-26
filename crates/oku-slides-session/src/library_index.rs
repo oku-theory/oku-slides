@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use uuid::Uuid;
 
@@ -18,6 +19,18 @@ use oku_slides_platform::storage::{Storage, StorageErrorKind};
 
 /// Marque de génération, à la racine du dossier de la sorte.
 pub(crate) const GENERATION_FILE: &str = "generation";
+
+/// Library writes in this process; deck badges recompute when it moves.
+static WRITES: AtomicU64 = AtomicU64::new(0);
+
+/// The library writes this process made so far.
+///
+/// The in-process partner of the per-directory generation stamp: every
+/// write counts, whether or not its stamp could be written.
+#[must_use]
+pub(crate) fn library_writes() -> u64 {
+    WRITES.load(Ordering::Relaxed)
+}
 
 /// Ce qu'on sait d'une version sans ses fichiers.
 #[derive(Debug, Clone)]
@@ -92,6 +105,7 @@ impl<M> Index<M> {
 
     /// Change la génération de `dir` après une écriture déjà reportée dans l'index.
     pub(crate) fn bump(&mut self, storage: &Storage, dir: &Path) {
+        WRITES.fetch_add(1, Ordering::Relaxed);
         let token = Uuid::new_v4().to_string().into_bytes();
         let path = dir.join(GENERATION_FILE);
         match storage.write_atomic(&path, token.clone()) {

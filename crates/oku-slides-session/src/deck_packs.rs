@@ -16,16 +16,22 @@ use std::collections::BTreeMap;
 
 use oku_slides_core::{Namespace, Op, OpError, PackKind, PackPin, remove_pack_refusal};
 use snafu::{OptionExt, ResultExt, ensure};
+use uuid::Uuid;
 
+use crate::agent::bounds::label;
 use crate::error::{
-    DeckOnlySnafu, NamespaceTakenSnafu, NotPinnedSnafu, OpSnafu, PackAlreadyCurrentSnafu, PackNotMakeCurrentSnafu,
-    ThemeNotOutdatedSnafu, UnknownNamespaceSnafu, UnknownPackSnafu,
+    BuiltinPackSnafu, DeckOnlySnafu, InPackTabSnafu, NamespaceTakenSnafu, NotPinnedSnafu, OpSnafu,
+    PackAlreadyCurrentSnafu, PackNotMakeCurrentSnafu, PackOpenInTabSnafu, ThemeNotOutdatedSnafu, UnknownNamespaceSnafu,
+    UnknownPackSnafu,
 };
-use crate::pack::{PackManifest, Relation};
+use crate::library::draft_lock;
+use crate::library_index::library_writes;
+use crate::pack::{PackInfo, PackManifest, Relation};
+use crate::pack_lease::pack_leased;
 use crate::pack_receive::is_deck_only;
 use crate::theme::default_namespace;
 use crate::theme_schema::token_paths;
-use crate::{PackLibrary, Result, Session};
+use crate::{Mode, PackLibrary, Result, Session};
 
 /// Les packs du deck et ce qu'on peut en faire, sans texte traduit.
 #[derive(Debug)]
@@ -195,7 +201,8 @@ impl Session {
     /// # Errors
     ///
     /// Fails outside deck mode, for an unpinned pack (`NotPinned`), a rejected one
-    /// (`PackNotMakeCurrent`), or if the library does not write the current version.
+    /// (`PackNotMakeCurrent`), one another tab edits (`PackOpenInTab`), or if the library does
+    /// not write the current version.
     pub fn pack_make_current(&mut self, kind: PackKind, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
         let pin = self.deck().pins(kind).get(ns).cloned().context(NotPinnedSnafu { namespace: ns.as_str() })?;
@@ -203,7 +210,12 @@ impl Session {
             && !self.embeds_deck_only(&pin)
             && self.library.version(pin.id, &pin.version).is_some();
         ensure!(allowed, PackNotMakeCurrentSnafu { pack: ns.as_str() });
-        self.library.set_current(pin.id, &pin.version)?;
+        let name = label(&self.pack_name(ns, &pin));
+        // The lease check and the write under one `DRAFTS` scope: no editor leases it in between.
+        let lock = draft_lock();
+        let written = self.refuse_held(pin.id, &name).and_then(|()| self.library.set_current(pin.id, &pin.version));
+        drop(lock);
+        written?;
         self.pack_cache.clear();
         self.seed_cache.clear();
         self.refresh_pack_updates();
@@ -229,18 +241,62 @@ impl Session {
         self.apply(&label, vec![Op::SetTheme { theme: Some(ns), themes: BTreeMap::new() }], None)
     }
 
+    /// Deletes the user's pack `pack`, every version included; the packs of its kind after.
+    ///
+    /// # Errors
+    ///
+    /// `BuiltinPack` for a built-in, `InPackTab` for the pack this tab edits,
+    /// `PackOpenInTab` while another editor holds it, and the library's delete errors.
+    ///
+    /// # Blocking
+    ///
+    /// Reads and writes the library.
+    pub(crate) fn delete_pack(&mut self, pack: Uuid) -> Result<Vec<PackInfo>> {
+        ensure!(!PackLibrary::is_builtin(pack), BuiltinPackSnafu { id: pack.to_string() });
+        // Leased or not, the edited pack never disappears under its own editor.
+        ensure!(!matches!(&self.mode, Mode::Pack { edit, .. } if edit.pack == pack), InPackTabSnafu);
+        let kind = self.library.kind_of(pack);
+        // The name is read before `DRAFTS`: no version load under it.
+        let name = self.library.current_version(pack).map_or_else(|| pack.to_string(), |s| label(&s.manifest.name));
+        let lock = draft_lock();
+        let deleted = self.refuse_held(pack, &name).and_then(|()| self.library.delete(pack));
+        drop(lock);
+        deleted?;
+        self.pack_cache.clear();
+        self.seed_cache.clear();
+        self.refresh_pack_updates();
+        Ok(self.library.packs(kind))
+    }
+
+    /// Refuses a library write of `pack` while an editor holds its lease (`PackOpenInTab`).
+    ///
+    /// The caller holds `DRAFTS`, so no lease is taken before its write.
+    fn refuse_held(&self, pack: Uuid, name: &str) -> Result<()> {
+        match self.library.lease_scope().and_then(|scope| pack_leased(scope, pack)) {
+            Some(tab) => PackOpenInTabSnafu { pack: name, tab }.fail()?,
+            None => Ok(()),
+        }
+    }
+
     /// Les épinglages plus anciens que la bibliothèque (cache).
     pub(crate) fn pack_updates(&self) -> u32 {
         self.pack_updates
     }
 
-    /// Recalcule le nombre d'épinglages en retard.
+    /// Recounts the pins older than the library.
     ///
-    /// Seul l'écart `Older` compte (le deck est plus ancien) : une
-    /// version plus récente ou parallèle se lit dans le panneau, sans pastille.
+    /// Only the `Older` drift counts (the deck is older): a newer or parallel
+    /// version shows in the panel, without a badge. The deck adopts its pins
+    /// first; the library write count is then read before the library: a
+    /// write landing during the count is seen next time.
     pub(crate) fn refresh_pack_updates(&mut self) {
         // Les épinglages ont changé : le deck adopte ce qu'il épingle avant qu'on le compare.
         self.adopt_pins();
+        self.recount_pack_updates();
+    }
+
+    /// Counts the pins older than the library, keeping the key it was counted for; adopts nothing.
+    fn recount_pack_updates(&mut self) {
         self.pack_updates_pins = Some(self.pins_key());
         let older = |r: Option<Drift>| r == Some(Drift::Older);
         let packs = self.user_deck().all_pins().filter(|(_, _, pin)| older(self.pin_relation(pin))).count();
@@ -249,28 +305,32 @@ impl Session {
         self.pack_updates = u32::try_from(count).unwrap_or(u32::MAX);
     }
 
-    /// Recalcule le nombre d'épinglages en retard si les épinglages ont changé depuis le dernier calcul.
+    /// Recounts the pins older than the library if the pins or the library changed since.
     ///
-    /// Le nombre ne dépend que des épinglages et de la bibliothèque : une
-    /// étape (annuler, rétablir, op, restauration) qui ne change aucun
-    /// épinglage ne relit pas la bibliothèque, dont la lecture est bloquante
-    /// (t-1112 : elle paniquait sur un fil qui fait tourner un runtime Tokio).
+    /// The count depends only on the pins and the library: a step that
+    /// changes neither does not read the library, whose read blocks (t-1112:
+    /// it panicked on a thread running a Tokio runtime; every caller runs on
+    /// blocking code). Changed pins adopt first (`refresh_pack_updates`); a
+    /// library write of this process alone only recounts, without `DRAFTS`.
     pub(crate) fn refresh_pack_updates_if_pins_changed(&mut self) {
-        if self.pack_updates_pins.as_ref() != Some(&self.pins_key()) {
-            self.refresh_pack_updates();
+        let key = self.pins_key();
+        match &self.pack_updates_pins {
+            Some(seen) if *seen == key => {}
+            Some((packs, theme, _)) if *packs == key.0 && *theme == key.1 => self.recount_pack_updates(),
+            _ => self.refresh_pack_updates(),
         }
     }
 
-    /// Les épinglages du deck de l'utilisateur dont dépend `pack_updates` : packs, puis thème.
+    /// The pins of the user's deck `pack_updates` depends on: packs, theme, and the library writes seen.
     fn pins_key(&self) -> PinsKey {
         let packs = self.user_deck().all_pins().map(|(kind, ns, pin)| (kind, ns.clone(), pin.clone())).collect();
-        (packs, self.deck_theme_pin().cloned())
+        (packs, self.deck_theme_pin().cloned(), library_writes())
     }
 
     /// La version épinglée `pin` par rapport à ma version courante de ce pack.
     ///
     /// `None` quand c'est elle, pour un pack du deck seul ou inconnu de la bibliothèque.
-    fn pin_relation(&self, pin: &PackPin) -> Option<Drift> {
+    pub(crate) fn pin_relation(&self, pin: &PackPin) -> Option<Drift> {
         if self.embeds_deck_only(pin) {
             return None;
         }
@@ -362,8 +422,8 @@ impl Session {
     }
 }
 
-/// Les épinglages d'un deck (sorte, espace de noms, épinglage) et celui de son thème.
-pub(crate) type PinsKey = (Vec<(PackKind, Namespace, PackPin)>, Option<oku_slides_core::ThemePin>);
+/// A deck's pins (kind, namespace, pin), its theme's, and the library writes of this process.
+pub(crate) type PinsKey = (Vec<(PackKind, Namespace, PackPin)>, Option<oku_slides_core::ThemePin>, u64);
 
 /// L'autre sorte que `kind`.
 fn other(kind: PackKind) -> PackKind {

@@ -2,7 +2,7 @@
 //! aussitôt, elles ne copient ni le deck ni le rendu.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize, Serializer};
@@ -13,6 +13,7 @@ use oku_slides_render::{ElementBox, ZoneBox};
 use crate::appearance::Appearance;
 use crate::fields::FieldView;
 use crate::items::{ItemView, ListView};
+use crate::tab_document::TabDocument;
 
 /// Empreinte d'une page (clé de cache de son SVG), écrite en hex ; vide si
 /// la page manque.
@@ -256,63 +257,71 @@ impl UiState {
 #[path = "views_tests.rs"]
 mod views_tests;
 
-/// Un onglet vu de sa barre : titre, travail non enregistré, mode.
+/// A tab as its bar shows it: title, unsaved work, what it edits.
 ///
-/// Aussi gardé dans `workspace.json` : la barre se montre au lancement sans
-/// relire les sessions (relu, il n'est pas digne de confiance).
+/// Also kept in `workspace.json`, so the bar shows at launch without reading the
+/// sessions. It is never deserialized from a saved entry directly: `take_info`
+/// converts legacy entries and validates the rest (a saved entry is not trusted).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TabInfo {
-    /// Nom du fichier du deck, sinon son titre.
+    /// The deck's file name, else its title.
     pub title: String,
-    /// Travail non enregistré : le deck, ou le pack en cours d'édition.
+    /// Unsaved work: the deck, or the pack being edited.
     pub dirty: bool,
-    /// L'onglet édite un pack (mode pack).
+    /// A new deck never touched: opening a file replaces it.
+    pub pristine: bool,
+    /// The tab edits a pack, in its own tab or a deck's workshop.
     #[serde(default)]
     pub editing_pack: bool,
-    /// Fichier du deck, absolu et normalisé : un fichier ouvert une fois.
-    pub path: Option<PathBuf>,
-    /// Deck neuf jamais touché : ouvrir un fichier le remplace.
-    pub pristine: bool,
-    /// Identité du deck (son replica) : une autre copie du même deck se
-    /// reconnaît sans réveiller l'onglet. Absente d'un `workspace.json` plus ancien.
-    #[serde(default)]
-    pub deck_uid: Option<String>,
-    /// Langue de l'aide que montre l'onglet ; `None` : un deck.
-    #[serde(default)]
-    pub help: Option<String>,
-    /// Id du thème du deck : l'aide ouverte depuis cet onglet le prend.
+    /// Id of the deck's theme: help opened from this tab takes it.
     #[serde(default)]
     pub theme: Option<uuid::Uuid>,
+    /// What the tab edits; a pack tab's comes from `PackMode.host`.
+    pub document: TabDocument,
 }
 
-/// Édition d'un pack : un pack de layouts y a une slide par layout, à sa valeur d'exemple.
+/// Where a pack is edited: its deck's workshop, or its own tab.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PackHost {
+    /// In the deck tab's workshop; the deck is set aside.
+    #[default]
+    Deck,
+    /// In its own tab, beside a preview deck.
+    Tab,
+}
+
+/// A pack being edited: a layout pack has one slide per layout, at its example value.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackMode {
-    /// Id du pack édité.
+    /// Id of the edited pack.
     pub pack: uuid::Uuid,
-    /// Nom du pack édité, lu dans son manifeste.
+    /// Name of the edited pack, read from its manifest.
     pub name: String,
-    /// Sorte du pack édité : widgets ou layouts.
+    /// Kind of the edited pack: widgets or layouts.
     pub kind: PackKind,
-    /// Pack intégré : l'enregistrer crée la version de l'utilisateur sous son id.
+    /// A built-in pack: saving it creates the user's version under its id.
     pub builtin: bool,
-    /// Version d'où viennent widgets et description : la dernière enregistrée.
+    /// Version the widgets and description come from: the last one saved.
     pub base: PackVersion,
-    /// Parente des versions de la session : la courante à son début.
+    /// Parent of the session's versions: the current one at its start.
     ///
-    /// `None` pour une copie.
+    /// `None` for a copy.
     pub parent: Option<PackVersion>,
-    /// La version de cette session, une fois enregistrée.
+    /// This session's version, once saved.
     ///
-    /// Les enregistrements suivants la remplacent.
+    /// Later saves replace it.
     pub session_version: Option<PackVersion>,
-    /// Pack du deck seul, celui d'un import.
+    /// A deck-only pack, such as an import's.
     ///
-    /// Ses versions restent dans le deck, jamais dans la bibliothèque.
+    /// Its versions stay in the deck, never in the library.
     pub deck_only: bool,
+    /// Where this pack is edited: its deck's workshop, or its own tab.
+    #[serde(default)]
+    pub host: PackHost,
 }
 
-/// Le mode pack vu par l'interface : le pack édité et le brouillon du thème.
+/// Pack mode as the interface sees it: the edited pack and the theme draft.
 #[derive(Debug, Serialize)]
 pub struct EditingView<'a> {
     /// The edited pack, its fields flattened into the view.
@@ -320,6 +329,12 @@ pub struct EditingView<'a> {
     pub mode: &'a PackMode,
     /// The draft of the theme edited alongside the pack.
     pub theme: crate::ThemeEditView,
+    /// True when this tab cannot save its pack now: held elsewhere, or gone.
+    pub read_only: bool,
+    /// True when this tab may write without first taking the lease.
+    pub leased: bool,
+    /// The edited pack's name, cleaned for titles and dialogs.
+    pub display_name: String,
 }
 
 impl std::ops::Deref for EditingView<'_> {

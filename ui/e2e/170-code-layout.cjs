@@ -1,8 +1,9 @@
 // Code d'un widget sous l'aperçu, à droite des réglages, élargi au séparateur, retrouvé après
-// rechargement ; dans une fenêtre étroite, les réglages gardent leur place minimale. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
+// rechargement ; dans une fenêtre étroite, les réglages gardent leur place minimale, dans l'onglet de pack d'Essentiel.
+// Writes: Essentiel (the `cadran` widget). Leaves: no pack tab. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { openAtelier } = require('./lib/atelier.cjs');
+const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
 const { untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab:not([hidden])';
@@ -43,13 +44,10 @@ const saved = (p, ok) =>
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  // Le test précédent peut avoir laissé l'onglet en mode pack : on y entre s'il le faut.
-  await p.waitForSelector('.stage img, .widget-pane', { state: 'attached' });
-  const add = p.getByRole('button', { name: 'Nouveau widget' });
-  if (!(await add.isVisible())) {
-    await openAtelier(p);
-  }
-  await add.click();
+  await closePackTabs(p);
+  await p.waitForSelector('.stage img');
+  await openEssentiel(p);
+  await p.getByRole('button', { name: 'Nouveau widget' }).click();
   const name = p.getByRole('textbox', { name: /Nom du widget/ });
   await name.fill('cadran');
   await name.press('Enter');
@@ -98,6 +96,7 @@ const saved = (p, ok) =>
   await p.locator(`${TAB} .code-divider`).dblclick();
   assert.ok((await reset).ok(), 'proportion par défaut non gardée par l\'hôte');
 
+  await closePackTabs(p);
   assert.deepEqual(errors, []);
   console.log('disposition du code ok');
   await b.close();

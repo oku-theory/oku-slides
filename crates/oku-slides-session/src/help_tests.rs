@@ -54,7 +54,7 @@ fn open_help_shows_a_read_only_deck_without_file() {
     assert_that!(snap.read_only).is_true();
     assert_that!(snap.path).is_none();
     assert_that!(snap.slides.len()).is_greater_than(1);
-    assert_that!(s.tab_info().help).is_equal_to(Some("fr".to_owned()));
+    assert_that!(s.tab_info().document.help_locale()).is_equal_to(Some("fr"));
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn help_tab_resumes_as_help_in_the_same_language() {
     let mut s = session_in(&data.0);
     assert_that!(s.resume(dir)).is_true();
     assert_that!(s.snapshot().read_only).is_true();
-    assert_that!(s.tab_info().help).is_equal_to(Some("en".to_owned()));
+    assert_that!(s.tab_info().document.help_locale()).is_equal_to(Some("en"));
     assert_that!(s.snapshot().ui.slide.as_deref()).is_equal_to(Some("s-sommaire"));
     assert_that!(s.snapshot().theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
 }
@@ -130,7 +130,7 @@ fn help_resume_file_written_before_mode_help_still_loads_and_keeps_its_form() {
     let mut s = session_in(&data.0);
     assert_that!(s.resume(dir.clone())).is_true();
     assert_that!(s.snapshot().read_only).is_true();
-    assert_that!(s.tab_info().help).is_equal_to(Some("fr".to_owned()));
+    assert_that!(s.tab_info().document.help_locale()).is_equal_to(Some("fr"));
     assert_that!(s.snapshot().theme.and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
     s.flush_resume();
     let written: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join("state.json")).unwrap()).unwrap();
@@ -149,7 +149,7 @@ fn open_help_while_editing_pack_is_refused_and_keeps_the_stashed_deck() {
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
     assert_that!(s.snapshot().read_only).is_false();
     assert_that!(s.close_pack()).is_ok();
-    assert_that!(s.tab_info().help).is_none();
+    assert_that!(s.tab_info().document.help_locale()).is_none();
 }
 
 #[test]

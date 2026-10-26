@@ -1,4 +1,6 @@
-//! Bornes des textes et couleurs venus de l'agent, partagées par les tours, `report` et `render`.
+//! Bounds on texts and colors from the agent, shared by turns, `report` and `render`.
+//!
+//! [`label`] serves the whole crate: it cleans deck, manifest and request strings.
 
 use oku_slides_a2ui::ChoiceOption;
 use snafu::ensure;
@@ -48,6 +50,59 @@ pub fn clip(text: &str, max: usize) -> String {
         out.push('…');
     }
     out
+}
+
+/// Invisible or blank-rendering code points that `label` removes besides the hidden controls.
+///
+/// Default-ignorable code points, the joiners U+200C and U+200D that `clip` keeps for
+/// scripts and emoji, and the code points that draw blanks (Braille blank, Hangul fillers).
+fn is_label_invisible(c: char) -> bool {
+    matches!(
+        c,
+        '\u{034F}' | '\u{115F}' | '\u{1160}' | '\u{17B4}'..='\u{17B5}' | '\u{180B}'..='\u{180F}'
+            | '\u{200C}' | '\u{200D}' | '\u{2065}' | '\u{206A}'..='\u{206F}' | '\u{2800}'
+            | '\u{3164}' | '\u{FE00}'..='\u{FE0F}' | '\u{FFA0}' | '\u{FFF9}'..='\u{FFFB}'
+            | '\u{1D159}'..='\u{1D15A}' | '\u{1D173}'..='\u{1D17A}' | '\u{E0100}'..='\u{E01EF}'
+    )
+}
+
+/// Quotation marks: the Unicode `Pi` and `Pf` categories, the ASCII, full-width and CJK quotes, the backtick.
+fn is_quote(c: char) -> bool {
+    matches!(
+        c,
+        '"' | '\'' | '`' | '\u{AB}' | '\u{BB}' | '\u{2018}'..='\u{201F}' | '\u{2039}' | '\u{203A}'
+            | '\u{2E02}'..='\u{2E05}' | '\u{2E09}' | '\u{2E0A}' | '\u{2E0C}' | '\u{2E0D}'
+            | '\u{2E1C}' | '\u{2E1D}' | '\u{2E20}' | '\u{2E21}' | '\u{FF02}' | '\u{FF07}'
+            | '\u{300C}'..='\u{300F}' | '\u{301D}'..='\u{301F}'
+    )
+}
+
+/// Text made safe for a title, a dialog or a log line.
+///
+/// Controls (and U+2028, U+2029) become spaces; hidden controls and invisible or
+/// blank-rendering code points are removed; whitespace runs collapse to one space and the
+/// ends are trimmed; every quotation mark becomes U+02BC, a letter that no locale quotes
+/// with, so a translation cannot be closed early by the text it quotes; the result is cut to
+/// [`LABEL_MAX`] characters ([`clip`]). An empty result is `"…"`.
+#[must_use]
+pub(crate) fn label(text: &str) -> String {
+    let cleaned: String = text
+        .chars()
+        .filter_map(|c| {
+            if c.is_control() || matches!(c, '\u{2028}' | '\u{2029}') {
+                Some(' ')
+            } else if is_hidden_control(c) || is_label_invisible(c) {
+                None
+            } else if is_quote(c) {
+                Some('\u{02BC}')
+            } else {
+                Some(c)
+            }
+        })
+        .collect();
+    let words = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    let clipped = clip(&words, LABEL_MAX);
+    if clipped.is_empty() { "…".to_owned() } else { clipped }
 }
 
 /// Rejects agent text that is too long (`max` characters) or holds an invisible control.

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ImportTarget, InterfaceChange, SlideView, Snapshot } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { bumpVoiceSeq } from "./voiceSeq";
-import { widgetToOpen } from "./packOps";
+import { packGestures, showFinish, widgetGesture } from "./packGestures";
 import { appearanceLook } from "./appearance";
 import { useAppearance } from "./useAppearance";
 import { AttachButton } from "./agent/AttachButton";
@@ -61,7 +61,7 @@ import { useAppKeys } from "./useAppKeys";
 import { type Clip, type ClipRef, useClipboard, useClipboardEvents } from "./useClipboard";
 import { useSlideOps } from "./useSlideOps";
 import { useLayoutInsert } from "./useLayoutInsert";
-import { usePackMode } from "./usePackMode";
+import { useCloseGuard } from "./closeGuards";
 import { usePackWidgets } from "./usePackWidgets";
 import { ToolsTray } from "./ToolsTray";
 
@@ -71,7 +71,7 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
-  onHelp, updates, onClose, onChange,
+  onHelp, updates, onClose, onOpenPack, onChange,
 }: {
   tab: string;
   /** L'élément copié, ici ou dans une autre fenêtre : il se colle dans un autre onglet. */
@@ -100,8 +100,10 @@ export default function App({
   onHelp: () => void;
   /** Recherche de mise à jour de la fenêtre ; absente hors de l'app (pas d'entrée). */
   updates?: AppUpdates;
-  /** Fermer cet onglet (bandeau de l'aide) ; absent : le dernier onglet reste. */
+  /** Closes this tab (help bar, a pack tab's finish button); absent: the last tab stays. */
   onClose?: () => void;
+  /** Opens pack `pack` on widget `widget`; true when this tab is still the active one after. */
+  onOpenPack: (pack: string, widget: string) => Promise<boolean>;
   /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
   onChange?: () => void;
 }) {
@@ -244,9 +246,10 @@ export default function App({
 
   const { insertLayout } = useLayoutInsert({ snap, current, apply, setCurrent, setSelected, setPicking });
   const { packWidgets, addSections } = usePackWidgets(snap);
-  const { editPack, finishPack } = usePackMode({
-    api, snap, snapRef, run, autosave, widgets, setCurrent, setSelected,
+  const { editPack, finishPack } = packGestures({
+    api, snap, snapRef, run, autosave, widgets, setCurrent, setSelected, onOpenPack, onClose, confirm: (m) => window.confirm(m),
   });
+  useCloseGuard(tab, async () => { await widgets.files.settle(); await autosave.flush(); });
 
   // --- Présentation : la slide seule, sur tout l'écran ou toute la fenêtre ----
   const [presenting, setPresenting] = useState<PresentMode | null>(null);
@@ -380,8 +383,8 @@ export default function App({
         thumbs={!packColumn && thumbsSection ? { open: thumbsOpen, onToggle: toggleThumbs } : null}
       />
 
-      {/* En haut à droite, en mode pack : terminer. */}
-      {snap.editing && (
+      {/* Top right, in pack mode: finish (a lone pack tab that cannot close has none). */}
+      {showFinish(snap, onClose !== undefined) && (
         <div className="tray">
           <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={finishPack}>{Icon.check}</button>
         </div>
@@ -432,9 +435,10 @@ export default function App({
             packWidgets={packWidgets}
             hoverPreview={previewStore}
             onOpenWidget={(kind) => {
-              // Le genre est qualifié (`espace/nom`) : l'atelier du pack épinglé sous cet espace, onglet `nom`.
-              const target = widgetToOpen(snap, kind);
-              if (target) void widgets.enterAndOpen(() => editPack(target.pack), target.name);
+              // A qualified kind (`namespace/name`): its sub-tab here, or the pack pinned under that namespace.
+              const gesture = widgetGesture(snap, kind);
+              if (gesture.kind === "local") widgets.open(gesture.name);
+              else if (gesture.kind === "open") void editPack(gesture.pack, gesture.name);
             }}
             onNotice={(m) => say(m, true)}
             dictated={dictation.dictated}

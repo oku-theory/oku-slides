@@ -2,10 +2,11 @@
 // les refus de retrait (base, pack employé), l'ajout d'un pack de widgets de la bibliothèque, qui
 // devient une section de la grille d'ajout et s'annule par ⌘Z, une carte de base ajoutée avec son
 // texte de départ, et le thème choisi dans le panneau, annulé par ⌘Z.
-// Contre `oku-slides serve fixtures/roadmap.json` lancé par `just e2e` (thème Papier, ou sa variante après 200).
+// Contre `oku-slides serve fixtures/roadmap.json` lancé par `just e2e` (thème Papier : 200 ne change plus celui de `t-1`).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');
+const { closePackTabs } = require('./lib/atelier.cjs');
 const { createLibraryWidgetPack, deleteLibraryPack } = require('./lib/packs.cjs');
 const { stageSvg } = require('./lib/stage.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
@@ -58,10 +59,8 @@ async function openGrid(p) {
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
-  await post(p, '/api/workspace', { cmd: 'activate', tab: TAB });
-  // Un spec précédent peut avoir laissé un pack ouvert : le panneau ne vit qu'en mode deck.
-  if ((await snapshot(p)).editing) await api(p, { cmd: 'close_pack' });
-  await p.reload();
+  // Le panneau ne vit qu'en mode deck : aucun onglet de pack laissé par un spec précédent.
+  await closePackTabs(p);
   await p.waitForSelector('.stage img');
 
   // 1. Le bouton de la barre ouvre le panneau au dock : Layouts, Widgets, Thème.
@@ -81,7 +80,8 @@ async function openGrid(p) {
   // 3. Un pack de widgets de la bibliothèque, ajouté depuis le panneau, puis annulé.
   const pack = await createLibraryWidgetPack(p, TAB, 'Acme');
   try {
-    // L'atelier a fermé le panneau (hors du mode deck) : il se rouvre, la bibliothèque relue.
+    // L'onglet de pack ouvert puis fermé par HTTP : la page relit la vue, le panneau se rouvre, la bibliothèque relue.
+    await p.reload();
     await until(p, async () => (await snapshot(p)).editing === null, "l'onglet ne revient pas au deck");
     await packsButton(p).waitFor();
     await openPanel(p);
@@ -123,7 +123,7 @@ async function openGrid(p) {
   await p.keyboard.press('Control+z');
   await until(p, async () => !(await slideJson()).includes('"base/card"'), "⌘Z ne retire pas la carte");
 
-  // 5. Pro choisi dans le panneau change la scène ; ⌘Z rend Papier (sa variante, choisie par 200-theme-editor).
+  // 5. Pro choisi dans le panneau change la scène ; ⌘Z rend Papier, le thème du deck.
   const start = (await snapshot(p)).theme_name;
   assert.match(start ?? '', /^Papier/, `le deck ne part pas de Papier : ${start}`);
   const paper = await untilValue(p, () => stageSvg(p), (svg) => svg !== '', 'scène vide');

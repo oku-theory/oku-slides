@@ -123,3 +123,14 @@ fn examples_requires_table(#[case] previous: &[&str], #[case] kinds: &[&str], #[
         examples_requires(&crate::test_support::ns("acme"), &manifest).iter().map(ToString::to_string).collect();
     assert_that!(got).is_equal_to(expected.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>());
 }
+
+#[test]
+fn pinned_versions_lists_every_pin_and_theme() {
+    let lib = library_with(&[("socle", &[]), ("acme", &["socle"])]);
+    let mut deck = deck_pinning(&lib, &["socle", "acme"]);
+    crate::test_support::pin_builtin_theme(&mut deck, "pro");
+    let mut expected: std::collections::BTreeSet<_> = deck.all_pins().map(|(_, _, p)| p.version.clone()).collect();
+    expected.extend(deck.themes.values().map(|p| p.version.clone()));
+    assert_that!(expected.len()).is_greater_than(2);
+    assert_that!(pinned_versions(&deck)).is_equal_to(expected);
+}

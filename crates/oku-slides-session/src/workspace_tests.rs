@@ -66,7 +66,7 @@ fn new_workspace_with_file_opens_it_in_the_first_tab() {
     let ws = Mutex::new(Workspace::new(Fonts::default(), &workspace_platform(&data.0), Some(&file)).unwrap());
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1"]);
-    assert_that!(w.tabs[0].info.path).is_equal_to(Some(file));
+    assert_that!(w.tabs[0].info.document.path()).is_equal_to(Some(file.as_path()));
     assert_that!(w.tabs[0].info.pristine).is_false();
 }
 
@@ -91,7 +91,7 @@ fn save_without_path_in_a_tab_writes_into_the_decks_dir() {
     Workspace::request(&ws, "t-1", set_theme()).0.unwrap();
     let save: Request = serde_json::from_value(json!({"cmd": "save", "path": null})).unwrap();
     Workspace::request(&ws, "t-1", save).0.unwrap();
-    let path = view(&ws).windows[0].tabs[0].info.path.clone().unwrap();
+    let path = view(&ws).windows[0].tabs[0].info.document.path().unwrap().to_owned();
     assert_that!(path.starts_with(data.0.join("decks"))).is_true();
     assert_that!(path.exists()).is_true();
 }
@@ -107,7 +107,7 @@ fn move_request_moves_the_tab_file() {
     let mv: Request = serde_json::from_value(json!({"cmd": "move", "path": moved})).unwrap();
     Workspace::request(&ws, "t-1", mv).0.unwrap();
     assert_that!(first.exists()).is_false();
-    assert_that!(view(&ws).windows[0].tabs[0].info.path.clone()).is_equal_to(Some(moved));
+    assert_that!(view(&ws).windows[0].tabs[0].info.document.path()).is_equal_to(Some(moved.as_path()));
 }
 
 #[test]
@@ -121,7 +121,7 @@ fn save_copy_request_keeps_the_tab_file() {
     let req: Request = serde_json::from_value(json!({"cmd": "save_copy", "path": copy})).unwrap();
     Workspace::request(&ws, "t-1", req).0.unwrap();
     assert_that!(copy.exists()).is_true();
-    assert_that!(view(&ws).windows[0].tabs[0].info.path.clone()).is_equal_to(Some(file));
+    assert_that!(view(&ws).windows[0].tabs[0].info.document.path()).is_equal_to(Some(file.as_path()));
 }
 
 /// Un verrou empoisonné (panique d'un autre fil) est repris : l'app continue.
@@ -159,7 +159,7 @@ fn open_tab_with_pristine_active_tab_replaces_it_with_a_new_tab() {
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
     assert_that!(w.active.as_str()).is_equal_to("t-2");
-    assert_that!(w.tabs[0].info.path).is_equal_to(Some(file));
+    assert_that!(w.tabs[0].info.document.path()).is_equal_to(Some(file.as_path()));
 }
 
 #[test]
@@ -173,8 +173,8 @@ fn open_tab_with_edited_active_tab_adds_a_tab_holding_the_file() {
     assert_that!(ids(w)).is_equal_to(vec!["t-1", "t-2"]);
     assert_that!(w.active.as_str()).is_equal_to("t-2");
     assert_that!(w.tabs[0].info.dirty).is_true();
-    assert_that!(w.tabs[0].info.path).is_none();
-    assert_that!(w.tabs[1].info.path).is_equal_to(Some(file));
+    assert_that!(w.tabs[0].info.document.path()).is_none();
+    assert_that!(w.tabs[1].info.document.path()).is_equal_to(Some(file.as_path()));
 }
 
 /// La session vierge est occupée (`try_lock` échoue) : elle n'est pas
@@ -190,7 +190,7 @@ fn open_tab_while_the_pristine_tab_is_busy_adds_a_tab() {
     drop(guard);
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-1", "t-2"]);
-    assert_that!(w.tabs[1].info.path).is_equal_to(Some(file));
+    assert_that!(w.tabs[1].info.document.path()).is_equal_to(Some(file.as_path()));
 }
 
 #[test]
@@ -630,7 +630,7 @@ fn finish_after_settle_refuses_and_trashes_the_built_tab() {
     let data = Data::new();
     let dir = data.0.join("resume");
     let ws = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), &dir).unwrap());
-    let pending = Workspace::lock(&ws).pending(Some("w-1".into()), Opening::Blank, None);
+    let pending = Workspace::lock(&ws).pending(Some("w-1".into()), Opening::Blank, TabPlace::End);
     let session = pending.build().unwrap();
     let built = dir.join(TABS_DIR).join(&pending.id);
     assert_that!(built.exists()).is_true();
@@ -655,7 +655,7 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
     apply_ws(&ws, json!({"cmd": "open_tab", "window": "w-1", "path": file})).unwrap();
     let w = &view(&ws).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
-    assert_that!(w.tabs[0].info.path).is_equal_to(Some(file.clone()));
+    assert_that!(w.tabs[0].info.document.path()).is_equal_to(Some(file.as_path()));
     // Le reste n'est ni relu ni écrasé : mis de côté.
     let names: Vec<String> = std::fs::read_dir(dir.join(TABS_DIR))
         .unwrap()
@@ -667,7 +667,7 @@ fn open_tab_over_a_leftover_resume_dir_keeps_the_opened_file() {
     let again = Mutex::new(Workspace::resume(Fonts::default(), &workspace_platform(&data.0), &dir).unwrap());
     let w = &view(&again).windows[0];
     assert_that!(ids(w)).is_equal_to(vec!["t-2"]);
-    assert_that!(w.tabs[0].info.path).is_equal_to(Some(file));
+    assert_that!(w.tabs[0].info.document.path()).is_equal_to(Some(file.as_path()));
 }
 
 #[test]

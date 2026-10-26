@@ -68,6 +68,22 @@ impl HubError {
         UnknownSurfaceSnafu { surface: surface.into() }.build().into()
     }
 
+    /// The session's refusal behind this error, when the session refused the action.
+    #[must_use]
+    pub(crate) fn session(&self) -> Option<&SessionError> {
+        match &self.0 {
+            HubInner::Session { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+
+    /// A session refusal as a hub error, for tests that cannot build a hub action.
+    #[cfg(test)]
+    pub(crate) fn from_session(e: SessionError) -> Self {
+        use snafu::IntoError;
+        SessionSnafu.into_error(e).into()
+    }
+
     /// The error's nature, to choose the interface's response.
     pub fn kind(&self) -> HubErrorKind {
         match &self.0 {

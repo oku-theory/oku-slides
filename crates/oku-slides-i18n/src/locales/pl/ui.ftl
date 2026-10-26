@@ -34,6 +34,10 @@ ui-caption-slides = { $count ->
    *[other] { $count } slajdu
 } · { $status }
 ui-confirm-quit-pack = Zakończyć bez zapisywania zmienionego pakietu?
+ui-confirm-update-opener = Zaktualizować „{ $deck }” do tej wersji pakietu „{ $pack }”?
+ui-close-writes-pending = Ta karta wciąż zapisuje: zamknij ją ponownie za chwilę.
+ui-confirm-close-writes-pending = Ta karta wciąż zapisuje. Zamknąć ją mimo to i utracić to, co nie zostało zapisane?
+ui-confirm-quit-read-only-pack = Nie można tu zapisać { $pack }. Zamknąć tę kartę i utracić jej zmiany? Aby je zachować, poproś agenta o zapisanie go jako nowego pakietu.
 
 ## Powiadomienia
 

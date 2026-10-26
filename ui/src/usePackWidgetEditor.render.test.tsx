@@ -236,33 +236,25 @@ describe("usePackWidgetEditor, reprise", () => {
   });
 });
 
-describe("usePackWidgetEditor, entrée depuis le deck", () => {
-  test("enterAndOpen depuis le deck : le sous-onglet ouvert reste actif après la reprise", async () => {
+describe("usePackWidgetEditor, a pack the host opened", () => {
+  test("entering a pack whose host opened a widget sub-tab shows that sub-tab", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, snapOf({ set: null }));
-    const enter = async () => {
-      m.out.setSnap!(snapOf({ widgets: [] }));
-      return true;
-    };
-    await act(async () => m.out.w!.enterAndOpen(enter, "kpi"));
-    await wait(10);
+    await m.render(snapOf({ widgets: ["kpi"], widget: "kpi" }));
     expect(m.names()).toEqual(["kpi"]);
     expect(m.out.w!.activeName).toBe("kpi");
   });
 
-  test("enterAndOpen sans entrée en mode pack : le nom n'attend pas la prochaine entrée", async () => {
-    const { fake } = memory({ kpi: "k" });
-    const m = await mount(fake, snapOf({ set: null }));
-    // Refus : `enter` rend faux.
-    await act(async () => m.out.w!.enterAndOpen(async () => false, "kpi"));
-    // Rien n'est entré malgré un `enter` vrai (réponse dépassée, par exemple).
-    await act(async () => m.out.w!.enterAndOpen(async () => true, "kpi"));
-    await wait(10);
-    await m.render(snapOf({ widgets: [] }));
-    expect(m.names()).toEqual([]);
-    expect(m.out.w!.activeName).toBeNull();
+  test("settle writes the pending typing of a hidden sub-tab", async () => {
+    const { fake, log } = memory({ kpi: "k", chart: "c" });
+    const m = await mount(fake, snapOf({ widgets: ["kpi", "chart"], widget: "kpi" }));
+    await m.typeIn("kpi", "k2");
+    await act(async () => m.out.w!.activate(m.idOf("chart")));
+    expect(m.out.w!.activeName).toBe("chart");
+    expect(log).toEqual([]);
+    await act(async () => m.out.w!.files.settle());
+    expect(log).toEqual(["set kpi:k2"]);
   });
-
 });
 
 describe("usePackWidgetEditor, fermer, supprimer, renommer", () => {

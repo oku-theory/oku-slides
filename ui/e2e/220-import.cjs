@@ -11,12 +11,10 @@ const { openAtelier } = require('./lib/atelier.cjs');
 const agentLog = require('./lib/agentLog.cjs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
-const { until, untilValue } = require('./lib/until.cjs');
+const { SLOW, until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const LOG = process.env.E2E_AGENT_LOG;
 const ALTO = path.resolve(__dirname, '..', '..', 'fixtures', 'import', 'alto-wealth.pptx');
-/** Import et premier rendu d'alto, puis le tour de l'agent avec le témoin : bien plus que les 8 s par défaut. */
-const SLOW = 180_000;
 
 const api = (p, tab, req) => post(p, '/api', { tab, req });
 
@@ -24,10 +22,7 @@ const logOffset = () => agentLog.logOffset(LOG);
 const logSince = (from) => agentLog.logSince(LOG, from);
 
 /** Les résultats MCP (`mcp/result`) notés pour `tool` depuis `from`, dans l'ordre. */
-const mcpResults = (tool, from) =>
-  logSince(from)
-    .filter((m) => m.method === 'mcp/result' && m.params.tool === tool)
-    .map((m) => m.params.out);
+const mcpResults = (tool, from) => agentLog.mcpResults(LOG, from, tool);
 
 /** Le dernier résultat MCP de `tool` noté depuis `from`, décodé (CallToolResult) ; attend qu'il soit noté. */
 const lastResult = async (p, tool, from) => {
@@ -74,7 +69,7 @@ const savedTab = (p, id) =>
   untilValue(
     p,
     async () => (await post(p, '/api/workspace', { cmd: 'view' })).windows.flatMap((w) => w.tabs).find((t) => t.id === id),
-    (t) => !!t?.path && !t.dirty,
+    (t) => !!t?.document?.path && !t.dirty,
     `onglet ${id} jamais enregistré`,
     SLOW,
   );
@@ -121,7 +116,7 @@ const noTurnSince = async (p, from, ms) => {
   // Le deck importé est neuf : l'enregistrement automatique lui donne un fichier, au nom du .pptx.
   const hifiTab = await savedTab(p, hifi);
   assert.equal(hifiTab.title, 'alto-wealth');
-  assert.match(hifiTab.path, /alto-wealth[^/]*\.oku-slides\.pdf$/);
+  assert.match(hifiTab.document.path, /alto-wealth[^/]*\.oku-slides\.pdf$/);
 
   // Le tour de fine-tuning : la bulle du prompt court, puis le reçu du `report`.
   const turn = p.locator('.agent-turn', { hasText: 'Peaufiner la présentation importée' });
@@ -184,9 +179,11 @@ const noTurnSince = async (p, from, ms) => {
   };
   const overridesAtImport = await deckOverrides(packBefore.id);
   assert.match(overridesAtImport, /Surcharges du deck/, "l'import n'écrit pas de jetons dans deck.tokens");
-  // L'atelier demandé à l'agent (t-988) ouvre le pack de layouts propre du deck.
-  await openAtelier(p, hifi);
+  // L'atelier demandé à l'agent (t-988) ouvre le pack de layouts propre du deck, dans cet onglet (pack du deck seul).
+  assert.equal(await openAtelier(p, hifi), hifi, "l'atelier du pack du deck seul ne s'ouvre pas dans son onglet");
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
+  // A layouts pack: its layouts are its widgets. The first one, by its bare name, as open_pack takes it.
+  const firstLayout = (await api(p, hifi, { cmd: 'snapshot' })).pack_widgets[0].split('/').pop();
   await p.locator('.brand-note', { hasText: 'Enregistré dans cette présentation seulement' }).waitFor();
   assert.match(await p.locator('.label .brand').textContent(), / · pack de layouts$/);
   await p.locator('.doc-name-button').click();
@@ -201,6 +198,20 @@ const noTurnSince = async (p, from, ms) => {
   assert.equal(pinOf(back).id, packBefore.id);
   assert.notEqual(pinOf(back).version, packBefore.version, 'le deck passe à la version enregistrée');
   assert.deepEqual(await library(), packsBefore, 'la bibliothèque ne change pas');
+
+  // Reopened by open_pack on one of its layouts: the workshop enters in this tab on that sub-tab; finishing it
+  // clean leaves the deck's pin unchanged.
+  const tabCount = (await post(p, '/api/workspace', { cmd: 'view' })).windows[0].tabs.length;
+  const reopened = await post(p, '/api/workspace', { cmd: 'open_pack', tab: hifi, pack: packBefore.id, widget: firstLayout });
+  assert.equal(reopened.windows?.[0].active, hifi, `open_pack quitte l'onglet importé : ${JSON.stringify(reopened).slice(0, 300)}`);
+  assert.equal(reopened.windows[0].tabs.length, tabCount, 'open_pack ouvre un onglet');
+  await p.reload();
+  const entered = await api(p, hifi, { cmd: 'snapshot' });
+  assert.equal(entered.editing?.deck_only, true, "l'atelier rouvert n'est pas celui du pack du deck seul");
+  assert.equal(entered.ui.widget, firstLayout, `le sous-onglet ${firstLayout} n'est pas ouvert`);
+  await p.getByRole('button', { name: 'Terminer' }).click();
+  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing === null, "l'atelier rouvert ne se ferme pas");
+  assert.deepEqual(pinOf(await api(p, hifi, { cmd: 'snapshot' })), pinOf(back), "l'atelier rouvert change l'épingle du deck");
 
   // L'agent choisit le thème par l'op set_theme (t-988) : Papier, puis Neutre, sans perdre les jetons du deck.
   assert.equal(back.theme, 'neutre', "l'atelier garde le thème de l'import");
@@ -238,7 +249,7 @@ const noTurnSince = async (p, from, ms) => {
   // Sans peaufinage, aucun tour ne part dans l'onglet (le prompt du peaufinage part dès l'onglet prêt).
   await noTurnSince(p, retrofitLog, 4000);
   const retrofitTab = await savedTab(p, retrofit);
-  assert.notEqual(retrofitTab.path, hifiTab.path, 'chaque import a son propre fichier');
+  assert.notEqual(retrofitTab.document.path, hifiTab.document.path, 'chaque import a son propre fichier');
 
   assert.deepEqual(errors, []);
   await b.close();

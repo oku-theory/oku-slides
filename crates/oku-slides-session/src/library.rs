@@ -168,6 +168,12 @@ impl<K: LibraryKind> Library<K> {
         Self { dir, storage, index: Arc::default(), kind: PhantomData }
     }
 
+    /// This library's directory, if it has one.
+    #[must_use]
+    pub(crate) fn dir(&self) -> Option<&Path> {
+        self.dir.as_deref()
+    }
+
     /// Une entrée intégrée à l'app ?
     #[must_use]
     pub fn is_builtin(id: Uuid) -> bool {

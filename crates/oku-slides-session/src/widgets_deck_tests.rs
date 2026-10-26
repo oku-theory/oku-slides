@@ -334,7 +334,7 @@ fn a_library_write_failure_after_the_render_posts_a_notice_and_keeps_the_deck_ve
     // Bibliothèque en lecture seule : la version ne peut pas y être écrite.
     let templates = data.path().join("lecture-seule");
     std::fs::create_dir(&templates).unwrap();
-    s.set_pack_dirs(&templates, data.path().join("layouts"));
+    s.set_pack_dirs(&templates, data.path().join("layouts")).unwrap();
     std::fs::set_permissions(&templates, std::fs::Permissions::from_mode(0o555)).unwrap();
     let change = s.set_widget(Some(&ess()), "quote", QUOTE.into());
     std::fs::set_permissions(&templates, std::fs::Permissions::from_mode(0o755)).unwrap();
