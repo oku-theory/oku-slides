@@ -407,6 +407,7 @@ the next change in the box. A file that does not parse is kept aside as
 | `OKU_SLIDES_AUTHOR__NAME` | Name recorded in the history of decks you edit |
 | `OKU_SLIDES_UPDATES__CHECK_AUTOMATICALLY` | `false`: no automatic update check, only "Check for Updates…" |
 | `OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS` | hours between automatic checks (default 6) |
+| `OKU_SLIDES_DEBUG_NETWORK` | `1`: `debug` logs of outgoing HTTP calls and TLS (dictation API, downloads, updater) on stderr, release builds included; secret headers and URL paths stay masked. Launch the app from a terminal to see them |
 
 The interface ships in 20 languages (`crates/oku-slides-i18n/src/locales`), English
 being the reference.
